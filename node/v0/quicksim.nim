@@ -1,7 +1,7 @@
 import
   os, strformat, chronicles, json_rpc/[rpcclient, rpcserver], nimcrypto/sysrand,
   eth/common as eth_common, eth/keys, eth/p2p/rlpx_protocols/waku_protocol,
-  ../vendor/nimbus/nimbus/rpc/[hexstrings, rpc_types, waku],
+  ../../vendor/nimbus/nimbus/rpc/[hexstrings, rpc_types, waku],
   options as what # TODO: Huh? Redefinition?
 
 from os import DirSep
