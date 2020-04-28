@@ -1,0 +1,15 @@
+[submodule "vendor/nimbus"]
+	path = vendor/nimbus
+	url = git@github.com:status-im/nimbus.git
+[submodule "vendor/nim-eth"]
+	path = vendor/nim-eth
+	url = git@github.com:status-im/nim-eth.git
+[submodule "vendor/nim-secp256k1"]
+	path = vendor/nim-secp256k1
+	url = git@github.com:status-im/nim-secp256k1.git
+[submodule "vendor/nim-libp2p"]
+	path = vendor/nim-libp2p
+	url = git@github.com:status-im/nim-libp2p.git
+[submodule "vendor/nim-stew"]
+	path = vendor/nim-stew
+	url = git@github.com:status-im/nim-stew.git
