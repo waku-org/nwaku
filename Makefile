@@ -8,3 +8,6 @@ quicksim: node/v0/quicksim.nim
 
 wakunode: node/v0/wakunode.nim
 	nim c --threads:on -o:build/wakunode node/v0/wakunode.nim
+
+wakunode2: node/v2/wakunode.nim
+	nim c --threads:on -o:build/wakunode2 node/v2/wakunode.nim
