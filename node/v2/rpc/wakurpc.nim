@@ -3,11 +3,11 @@ import
   eth/[common, rlp, keys, p2p],
   #DevP2P impl
   #eth/p2p/rlpx_protocols/waku_protocol,
-  waku2_protocol,
+  ../../../protocol/v2/waku_protocol,
   nimcrypto/[sysrand, hmac, sha2, pbkdf2],
-  ../../vendor/nimbus/nimbus/rpc/rpc_types,
-  ../../vendor/nimbus/nimbus/rpc/hexstrings,
-  ../../vendor/nimbus/nimbus/rpc/key_storage
+  ../../../vendor/nimbus/nimbus/rpc/rpc_types,
+  ../../../vendor/nimbus/nimbus/rpc/hexstrings,
+  ../../../vendor/nimbus/nimbus/rpc/key_storage
 
 from stew/byteutils import hexToSeqByte, hexToByteArray
 
@@ -18,6 +18,7 @@ from stew/byteutils import hexToSeqByte, hexToByteArray
 
 # XXX: Wrong, also what is wakuVersionStr?
 # We also have rlpx protocol here waku_protocol
+# XXX: WRong, should not be EthereumNode, should be libp2p node
 proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer) =
 
   # Seems easy enough, lets try to get this first
