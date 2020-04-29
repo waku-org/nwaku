@@ -14,12 +14,12 @@ from stew/byteutils import hexToSeqByte, hexToByteArray
 # Instead of using rlpx waku_protocol here, lets do mock waku2_protocol
 # This should wrap GossipSub, not use EthereumNode here
 
-# Blatant copy of Whisper RPC but for the Waku protocol
-
-# XXX: Wrong, also what is wakuVersionStr?
-# We also have rlpx protocol here waku_protocol
-# XXX: WRong, should not be EthereumNode, should be libp2p node
-proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer) =
+# In Waku0/1 we use node.protocolState(Waku) a lot to get information
+# Also keys to get priate key, etc
+# Where is the equivalent in Waku/2?
+# TODO: Extend to get access to protocol state and keys
+#proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer) =
+proc setupWakuRPC*(rpcsrv: RpcServer) =
 
   # Seems easy enough, lets try to get this first
   rpcsrv.rpc("waku_version") do() -> string:
@@ -31,6 +31,4 @@ proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer) =
   # TODO: Dial/Connect
   # XXX: Though wrong layer for that - wait how does this work in devp2p sim?
   # We connect to nodes there, should be very similar here
-
-    # We can also do this from nim-waku repo
 
