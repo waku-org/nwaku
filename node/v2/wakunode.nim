@@ -37,6 +37,7 @@ type WakuProto = ref object of LPProtocol
 const clientId = "Nimbus waku node"
 
 # TODO: We want this to be on top of GossipSub, how does that work?
+# XXX: waku version not inherited from protocol
 const WakuCodec = "/vac/waku/2.0.0-alpha0"
 
 let globalListeningAddr = parseIpAddress("0.0.0.0")
@@ -105,7 +106,7 @@ proc newWakuProto(switch: Switch): WakuProto =
 
 proc run(config: WakuNodeConf) =
 
-  info "libp2p support NYI"
+  info "libp2p support WIP"
 
   if config.logLevel != LogLevel.NONE:
     setLogLevel(config.logLevel)
@@ -141,13 +142,17 @@ proc run(config: WakuNodeConf) =
     let ta = initTAddress(config.rpcAddress,
                           Port(config.rpcPort + config.portsShift))
     var rpcServer = newRpcHttpServer([ta])
+
+    # Not using keys right now
     let keys = newKeyStorage()
-    # Ok cool no node here
-    # TODO: Fix me with node etc
     #setupWakuRPC(node, keys, rpcServer)
     #setupWakuSimRPC(node, rpcServer)
+    setupWakuRPC(rpcServer)
     rpcServer.start()
 
+    # TODO: Use it to get waku version
+    # Huh not printed
+    info "rpcServer started"
 
   # TODO: Here setup a libp2p node
   # Essentially something like this in nbc/eth2_network:

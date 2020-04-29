@@ -96,7 +96,7 @@ type
 
     rpc* {.
       desc: "Enable Waku RPC server.",
-      defaultValue: false
+      defaultValue: true
       name: "rpc" }: bool
 
     rpcAddress* {.
