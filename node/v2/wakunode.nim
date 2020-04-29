@@ -10,8 +10,10 @@ import
   ../../vendor/nim-libp2p/libp2p/crypto/crypto,
   ../../vendor/nim-libp2p/libp2p/protocols/protocol,
   ../../vendor/nim-libp2p/libp2p/peerinfo,
-  # TODO: RPC folder
-  wakurpc2
+  rpc/wakurpc
+
+  # TODO: Use
+  # protocol/waku_protocol
 
 # TODO: Better aliasing of vendor dirs
 
