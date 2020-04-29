@@ -11,3 +11,6 @@ wakunode: node/v0/wakunode.nim
 
 wakunode2: node/v2/wakunode.nim
 	nim c --threads:on -o:build/wakunode2 node/v2/wakunode.nim
+
+quicksim2: node/v2/quicksim.nim
+	nim c --threads:on -o:build/quicksim2 node/v2/quicksim.nim
