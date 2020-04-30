@@ -16,33 +16,9 @@
       - targets: ['127.0.0.1:8013']
         labels:
           node: '3'
-      - targets: ['127.0.0.1:8014']
-        labels:
-          node: '4'
-      - targets: ['127.0.0.1:8015']
-        labels:
-          node: '5'
-      - targets: ['127.0.0.1:8016']
-        labels:
-          node: '6'
-      - targets: ['127.0.0.1:8017']
-        labels:
-          node: '7'
-      - targets: ['127.0.0.1:8018']
-        labels:
-          node: '8'
-      - targets: ['127.0.0.1:8019']
-        labels:
-          node: '9'
-      - targets: ['127.0.0.1:8020']
-        labels:
-          node: '10'
-      - targets: ['127.0.0.1:8021']
-        labels:
-          node: '11'
       - targets: ['127.0.0.1:8008']
         labels:
-          node: '12'
+          node: '4'
       - targets: ['127.0.0.1:8009']
         labels:
-          node: '13'
+          node: '5'
