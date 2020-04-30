@@ -91,7 +91,7 @@ test: | build deps
 
 # usual cleaning
 clean: | clean-common
-	rm -rf build/{wakunode,quicksim,start_network}
+	rm -rf build/{wakunode,quicksim,start_network,all_tests}
 ifneq ($(USE_LIBBACKTRACE), 0)
 	+ $(MAKE) -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif

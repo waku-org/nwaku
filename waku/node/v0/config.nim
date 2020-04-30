@@ -1,6 +1,5 @@
 import
-  confutils/defs, chronicles, chronos,
-  eth/keys, eth/p2p/rlpx_protocols/waku_protocol
+  confutils/defs, chronicles, chronos, eth/keys
 
 type
   Fleet* =  enum

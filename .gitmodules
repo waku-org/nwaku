@@ -1,8 +1,3 @@
-[submodule "vendor/nimbus"]
-	path = vendor/nimbus
-	url = https://github.com/status-im/nimbus.git
-	ignore = dirty
-	branch = master
 [submodule "vendor/nim-eth"]
 	path = vendor/nim-eth
 	url = https://github.com/status-im/nim-eth.git
