@@ -38,8 +38,7 @@ proc test(name: string, lang = "c") =
 
 ### Tasks
 task test, "Run tests":
-  discard
-#   test "all_tests"
+  test "all_tests"
 
 task wakunode, "Build Waku cli":
   buildBinary "wakunode", "waku/node/v0/", "-d:chronicles_log_level=TRACE"

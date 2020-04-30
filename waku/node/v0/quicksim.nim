@@ -1,7 +1,7 @@
 import
   os, strformat, chronicles, json_rpc/[rpcclient, rpcserver], nimcrypto/sysrand,
   eth/common as eth_common, eth/keys, eth/p2p/rlpx_protocols/waku_protocol,
-  ../../vendor/nimbus/nimbus/rpc/[hexstrings, rpc_types, waku],
+  ./rpc/[hexstrings, rpc_types],
   options as what # TODO: Huh? Redefinition?
 
 from os import DirSep
@@ -33,18 +33,18 @@ let
   symKey = "0x0000000000000000000000000000000000000000000000000000000000000001"
   topics = generateTopics()
   symKeyID = waitFor lightNode.waku_addSymKey(symKey)
-  options = WhisperFilterOptions(symKeyID: some(symKeyID),
+  options = WakuFilterOptions(symKeyID: some(symKeyID),
                                  topics: some(topics))
   filterID = waitFor lightNode.waku_newMessageFilter(options)
 
   symKeyID2 = waitFor lightNode2.waku_addSymKey(symKey)
-  options2 = WhisperFilterOptions(symKeyID: some(symKeyID2),
+  options2 = WakuFilterOptions(symKeyID: some(symKeyID2),
                                   topics: some(topics))
   filterID2 = waitFor lightNode2.waku_newMessageFilter(options2)
 
   symkeyID3 = waitFor trafficNode.waku_addSymKey(symKey)
 
-var message = WhisperPostMessage(symKeyID: some(symkeyID3),
+var message = WakuPostMessage(symKeyID: some(symkeyID3),
                                 ttl: 30,
                                 topic: some(topics[0]),
                                 payload: "0x45879632".HexDataStr,
