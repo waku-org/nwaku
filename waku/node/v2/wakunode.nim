@@ -5,7 +5,7 @@ import
   eth/p2p/[discovery, enode, peer_pool, bootnodes, whispernodes],
   eth/p2p/rlpx_protocols/[whisper_protocol, waku_protocol, waku_bridge],
   # TODO remove me
-  ../../vendor/nimbus/nimbus/rpc/[wakusim, key_storage],
+  ../v0/rpc/[wakusim, key_storage],
   ../../vendor/nim-libp2p/libp2p/standard_setup,
   ../../vendor/nim-libp2p/libp2p/multiaddress,
   ../../vendor/nim-libp2p/libp2p/crypto/crypto,

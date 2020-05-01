@@ -3,7 +3,7 @@ import
   eth/common as eth_common, eth/keys,
   # XXX: Replace me
   eth/p2p/rlpx_protocols/waku_protocol,
-  ../../vendor/nimbus/nimbus/rpc/[hexstrings, rpc_types, waku],
+  ../v0/rpc/[hexstrings, rpc_types, waku],
   rpc/wakurpc,
   options as what # TODO: Huh? Redefinition?
 
