@@ -17,6 +17,10 @@ const
   waitInterval = messageInterval + 150.milliseconds
   conditionTimeoutMs = 3000
 
+proc resetMessageQueues(nodes: varargs[EthereumNode]) =
+  for node in nodes:
+    node.resetMessageQueue()
+
 # check on a condition until true or return a future containing false
 # if timeout expires first
 proc eventually(timeout: int, condition: proc(): bool {.gcsafe.}): Future[bool] =
@@ -28,8 +32,6 @@ proc eventually(timeout: int, condition: proc(): bool {.gcsafe.}): Future[bool] 
     return await f
   return withTimeout(wrappedCondition(), timeout)
 
-# TODO: Just repeat all the test_shh_connect tests here that are applicable or
-# have some commonly shared test code for both protocols.
 suite "Waku connections":
   asyncTest "Waku connections":
     var
@@ -55,6 +57,327 @@ suite "Waku connections":
       p1.isNil
       p2.isNil == false
       p3.isNil == false
+
+  asyncTest "Filters with encryption and signing":
+    var node1 = setupTestNode(Waku)
+    var node2 = setupTestNode(Waku)
+    node2.startListening()
+    waitFor node1.peerPool.connectToNode(newNode(node2.toENode()))
+
+    let encryptKeyPair = KeyPair.random()[]
+    let signKeyPair = KeyPair.random()[]
+    var symKey: SymKey
+    let topic = [byte 0x12, 0, 0, 0]
+    var filters: seq[string] = @[]
+    var payloads = [repeat(byte 1, 10), repeat(byte 2, 10),
+                    repeat(byte 3, 10), repeat(byte 4, 10)]
+    var futures = [newFuture[int](), newFuture[int](),
+                   newFuture[int](), newFuture[int]()]
+
+    proc handler1(msg: ReceivedMessage) =
+      var count {.global.}: int
+      check msg.decoded.payload == payloads[0] or msg.decoded.payload == payloads[1]
+      count += 1
+      if count == 2: futures[0].complete(1)
+    proc handler2(msg: ReceivedMessage) =
+      check msg.decoded.payload == payloads[1]
+      futures[1].complete(1)
+    proc handler3(msg: ReceivedMessage) =
+      var count {.global.}: int
+      check msg.decoded.payload == payloads[2] or msg.decoded.payload == payloads[3]
+      count += 1
+      if count == 2: futures[2].complete(1)
+    proc handler4(msg: ReceivedMessage) =
+      check msg.decoded.payload == payloads[3]
+      futures[3].complete(1)
+
+    # Filters
+    # filter for encrypted asym
+    filters.add(node1.subscribeFilter(initFilter(privateKey = some(encryptKeyPair.seckey),
+                                                topics = @[topic]), handler1))
+    # filter for encrypted asym + signed
+    filters.add(node1.subscribeFilter(initFilter(some(signKeyPair.pubkey),
+                                                privateKey = some(encryptKeyPair.seckey),
+                                                topics = @[topic]), handler2))
+    # filter for encrypted sym
+    filters.add(node1.subscribeFilter(initFilter(symKey = some(symKey),
+                                                topics = @[topic]), handler3))
+    # filter for encrypted sym + signed
+    filters.add(node1.subscribeFilter(initFilter(some(signKeyPair.pubkey),
+                                                symKey = some(symKey),
+                                                topics = @[topic]), handler4))
+    # Messages
+    check:
+      # encrypted asym
+      node2.postMessage(some(encryptKeyPair.pubkey), ttl = safeTTL,
+                        topic = topic, payload = payloads[0]) == true
+      # encrypted asym + signed
+      node2.postMessage(some(encryptKeyPair.pubkey),
+                        src = some(signKeyPair.seckey), ttl = safeTTL,
+                        topic = topic, payload = payloads[1]) == true
+      # encrypted sym
+      node2.postMessage(symKey = some(symKey), ttl = safeTTL, topic = topic,
+                        payload = payloads[2]) == true
+      # encrypted sym + signed
+      node2.postMessage(symKey = some(symKey),
+                        src = some(signKeyPair.seckey),
+                        ttl = safeTTL, topic = topic,
+                        payload = payloads[3]) == true
+
+      node2.protocolState(Waku).queue.items.len == 4
+
+    check:
+      await allFutures(futures).withTimeout(waitInterval)
+      node1.protocolState(Waku).queue.items.len == 4
+
+    for filter in filters:
+      check node1.unsubscribeFilter(filter) == true
+
+  asyncTest "Filters with topics":
+    var node1 = setupTestNode(Waku)
+    var node2 = setupTestNode(Waku)
+    node2.startListening()
+    waitFor node1.peerPool.connectToNode(newNode(node2.toENode()))
+
+    let topic1 = [byte 0x12, 0, 0, 0]
+    let topic2 = [byte 0x34, 0, 0, 0]
+    var payloads = [repeat(byte 0, 10), repeat(byte 1, 10)]
+    var futures = [newFuture[int](), newFuture[int]()]
+    proc handler1(msg: ReceivedMessage) =
+      check msg.decoded.payload == payloads[0]
+      futures[0].complete(1)
+    proc handler2(msg: ReceivedMessage) =
+      check msg.decoded.payload == payloads[1]
+      futures[1].complete(1)
+
+    var filter1 = node1.subscribeFilter(initFilter(topics = @[topic1]), handler1)
+    var filter2 = node1.subscribeFilter(initFilter(topics = @[topic2]), handler2)
+
+    check:
+      node2.postMessage(ttl = safeTTL + 1, topic = topic1,
+                        payload = payloads[0]) == true
+      node2.postMessage(ttl = safeTTL, topic = topic2,
+                        payload = payloads[1]) == true
+      node2.protocolState(Waku).queue.items.len == 2
+
+      await allFutures(futures).withTimeout(waitInterval)
+      node1.protocolState(Waku).queue.items.len == 2
+
+      node1.unsubscribeFilter(filter1) == true
+      node1.unsubscribeFilter(filter2) == true
+
+  asyncTest "Filters with PoW":
+    var node1 = setupTestNode(Waku)
+    var node2 = setupTestNode(Waku)
+    node2.startListening()
+    waitFor node1.peerPool.connectToNode(newNode(node2.toENode()))
+
+    let topic = [byte 0x12, 0, 0, 0]
+    var payload = repeat(byte 0, 10)
+    var futures = [newFuture[int](), newFuture[int]()]
+    proc handler1(msg: ReceivedMessage) =
+      check msg.decoded.payload == payload
+      futures[0].complete(1)
+    proc handler2(msg: ReceivedMessage) =
+      check msg.decoded.payload == payload
+      futures[1].complete(1)
+
+    var filter1 = node1.subscribeFilter(initFilter(topics = @[topic], powReq = 0),
+                                        handler1)
+    var filter2 = node1.subscribeFilter(initFilter(topics = @[topic],
+                                        powReq = 1_000_000), handler2)
+
+    check:
+      node2.postMessage(ttl = safeTTL, topic = topic, payload = payload) == true
+
+      (await futures[0].withTimeout(waitInterval)) == true
+      (await futures[1].withTimeout(waitInterval)) == false
+      node1.protocolState(Waku).queue.items.len == 1
+
+      node1.unsubscribeFilter(filter1) == true
+      node1.unsubscribeFilter(filter2) == true
+
+  asyncTest "Filters with queues":
+    var node1 = setupTestNode(Waku)
+    var node2 = setupTestNode(Waku)
+    node2.startListening()
+    waitFor node1.peerPool.connectToNode(newNode(node2.toENode()))
+
+    let topic = [byte 0, 0, 0, 0]
+    let payload = repeat(byte 0, 10)
+
+    var filter = node1.subscribeFilter(initFilter(topics = @[topic]))
+    for i in countdown(10, 1):
+      check node2.postMessage(ttl = safeTTL, topic = topic,
+                              payload = payload) == true
+
+    await sleepAsync(waitInterval)
+    check:
+      node1.getFilterMessages(filter).len() == 10
+      node1.getFilterMessages(filter).len() == 0
+      node1.unsubscribeFilter(filter) == true
+
+  asyncTest "Local filter notify":
+    var node1 = setupTestNode(Waku)
+    var node2 = setupTestNode(Waku)
+    node2.startListening()
+    waitFor node1.peerPool.connectToNode(newNode(node2.toENode()))
+
+    let topic = [byte 0, 0, 0, 0]
+
+    var filter = node1.subscribeFilter(initFilter(topics = @[topic]))
+    check:
+      node1.postMessage(ttl = safeTTL, topic = topic,
+                        payload = repeat(byte 4, 10)) == true
+      node1.getFilterMessages(filter).len() == 1
+      node1.unsubscribeFilter(filter) == true
+
+  asyncTest "Bloomfilter blocking":
+    var node1 = setupTestNode(Waku)
+    var node2 = setupTestNode(Waku)
+    node2.startListening()
+    waitFor node1.peerPool.connectToNode(newNode(node2.toENode()))
+
+    let sendTopic1 = [byte 0x12, 0, 0, 0]
+    let sendTopic2 = [byte 0x34, 0, 0, 0]
+    let filterTopics = @[[byte 0x34, 0, 0, 0],[byte 0x56, 0, 0, 0]]
+    let payload = repeat(byte 0, 10)
+    var f: Future[int] = newFuture[int]()
+    proc handler(msg: ReceivedMessage) =
+      check msg.decoded.payload == payload
+      f.complete(1)
+    var filter = node1.subscribeFilter(initFilter(topics = filterTopics), handler)
+    await node1.setBloomFilter(node1.filtersToBloom())
+
+    check:
+      node2.postMessage(ttl = safeTTL, topic = sendTopic1,
+                        payload = payload) == true
+      node2.protocolState(Waku).queue.items.len == 1
+
+      (await f.withTimeout(waitInterval)) == false
+      node1.protocolState(Waku).queue.items.len == 0
+
+    resetMessageQueues(node1, node2)
+
+    f = newFuture[int]()
+
+    check:
+      node2.postMessage(ttl = safeTTL, topic = sendTopic2,
+                        payload = payload) == true
+      node2.protocolState(Waku).queue.items.len == 1
+
+      await f.withTimeout(waitInterval)
+      f.read() == 1
+      node1.protocolState(Waku).queue.items.len == 1
+
+      node1.unsubscribeFilter(filter) == true
+
+    await node1.setBloomFilter(fullBloom())
+
+  asyncTest "PoW blocking":
+    var node1 = setupTestNode(Waku)
+    var node2 = setupTestNode(Waku)
+    node2.startListening()
+    waitFor node1.peerPool.connectToNode(newNode(node2.toENode()))
+
+    let topic = [byte 0, 0, 0, 0]
+    let payload = repeat(byte 0, 10)
+
+    await node1.setPowRequirement(1_000_000)
+    check:
+      node2.postMessage(ttl = safeTTL, topic = topic, payload = payload) == true
+      node2.protocolState(Waku).queue.items.len == 1
+    await sleepAsync(waitInterval)
+    check:
+      node1.protocolState(Waku).queue.items.len == 0
+
+    resetMessageQueues(node1, node2)
+
+    await node1.setPowRequirement(0.0)
+    check:
+      node2.postMessage(ttl = safeTTL, topic = topic, payload = payload) == true
+      node2.protocolState(Waku).queue.items.len == 1
+    await sleepAsync(waitInterval)
+    check:
+      node1.protocolState(Waku).queue.items.len == 1
+
+  asyncTest "Queue pruning":
+    var node1 = setupTestNode(Waku)
+    var node2 = setupTestNode(Waku)
+    node2.startListening()
+    waitFor node1.peerPool.connectToNode(newNode(node2.toENode()))
+
+    let topic = [byte 0, 0, 0, 0]
+    let payload = repeat(byte 0, 10)
+    # We need a minimum TTL of 2 as when set to 1 there is a small chance that
+    # it is already expired after messageInterval due to rounding down of float
+    # to uint32 in postMessage()
+    let lowerTTL = 2'u32 # Lower TTL as we need to wait for messages to expire
+    for i in countdown(10, 1):
+      check node2.postMessage(ttl = lowerTTL, topic = topic, payload = payload) == true
+    check node2.protocolState(Waku).queue.items.len == 10
+
+    await sleepAsync(waitInterval)
+    check node1.protocolState(Waku).queue.items.len == 10
+
+    await sleepAsync(milliseconds((lowerTTL+1)*1000))
+    check node1.protocolState(Waku).queue.items.len == 0
+    check node2.protocolState(Waku).queue.items.len == 0
+
+  asyncTest "P2P post":
+    var node1 = setupTestNode(Waku)
+    var node2 = setupTestNode(Waku)
+    node2.startListening()
+    waitFor node1.peerPool.connectToNode(newNode(node2.toENode()))
+
+    let topic = [byte 0, 0, 0, 0]
+    var f: Future[int] = newFuture[int]()
+    proc handler(msg: ReceivedMessage) =
+      check msg.decoded.payload == repeat(byte 4, 10)
+      f.complete(1)
+
+    var filter = node1.subscribeFilter(initFilter(topics = @[topic],
+                                       allowP2P = true), handler)
+    check:
+      node1.setPeerTrusted(toNodeId(node2.keys.pubkey)) == true
+      node2.postMessage(ttl = 10, topic = topic,
+                        payload = repeat(byte 4, 10),
+                        targetPeer = some(toNodeId(node1.keys.pubkey))) == true
+
+      await f.withTimeout(waitInterval)
+      f.read() == 1
+      node1.protocolState(Waku).queue.items.len == 0
+      node2.protocolState(Waku).queue.items.len == 0
+
+      node1.unsubscribeFilter(filter) == true
+
+  asyncTest "Light node posting":
+    var ln = setupTestNode(Waku)
+    await ln.setLightNode(true)
+    var fn = setupTestNode(Waku)
+    fn.startListening()
+    await ln.peerPool.connectToNode(newNode(fn.toENode()))
+
+    let topic = [byte 0, 0, 0, 0]
+
+    check:
+      ln.peerPool.connectedNodes.len() == 1
+      # normal post
+      ln.postMessage(ttl = safeTTL, topic = topic,
+                      payload = repeat(byte 0, 10)) == true
+      ln.protocolState(Waku).queue.items.len == 1
+      # TODO: add test on message relaying
+
+  asyncTest "Connect two light nodes":
+    var ln1 = setupTestNode(Waku)
+    var ln2 = setupTestNode(Waku)
+
+    await ln1.setLightNode(true)
+    await ln2.setLightNode(true)
+
+    ln2.startListening()
+    let peer = await ln1.rlpxConnect(newNode(ln2.toENode()))
+    check peer.isNil == true
 
   asyncTest "Waku set-topic-interest":
     var
@@ -223,20 +546,3 @@ suite "Waku connections":
     await sleepAsync(waitInterval)
     check:
       wakuTopicNode.protocolState(Waku).queue.items.len == 2
-
-  asyncTest "Light node posting":
-    var ln = setupTestNode(Waku)
-    await ln.setLightNode(true)
-    var fn = setupTestNode(Waku)
-    fn.startListening()
-    await ln.peerPool.connectToNode(newNode(fn.toENode()))
-
-    let topic = [byte 0, 0, 0, 0]
-
-    check:
-      ln.peerPool.connectedNodes.len() == 1
-      # normal post
-      ln.postMessage(ttl = safeTTL, topic = topic,
-                      payload = repeat(byte 0, 10)) == true
-      ln.protocolState(Waku).queue.items.len == 1
-      # TODO: add test on message relaying
