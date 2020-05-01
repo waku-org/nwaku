@@ -20,7 +20,20 @@ let node1 = newRpcHttpClient()
 #let node2 = newRpcHttpClient()
 
 # Where do we connect nodes here? Protocol so not RPC based, maybe?
-# Could hack it I suppose
+# Using with static nodes, hardcoded "works":
+# /ip4/127.0.0.1/tcp/55505/ipfs/16Uiu2HAkufRTzUnYCMggjPaAMbC3ss1bkrjewPcjwSeqK9WgUKYu
+
+# static node parsing ignored for now
+#./build/wakunode2 --staticnode:/ip4/hallibaba/foo --ports-shift:1
+
+# node 1:
+#  WRN 2020-05-01 12:20:13+08:00 no handlers for                            tid=24636 protocol=/vac/waku/2.0.0-alpha0 topic=Multistream
+
+
+
+
+# Need to figure out rw stuff as well, perhaps we can start a few nodes and see if we get some pingpong
+# Unclear how to mount waku on top of gossipsub tho
 
 info "Hello there"
 # Hello world
