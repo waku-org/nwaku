@@ -7,6 +7,7 @@ import
   # TODO remove me
   ../../vendor/nimbus/nimbus/rpc/[wakusim, key_storage],
   ../../vendor/nim-libp2p/libp2p/standard_setup,
+  ../../vendor/nim-libp2p/libp2p/multiaddress,
   ../../vendor/nim-libp2p/libp2p/crypto/crypto,
   ../../vendor/nim-libp2p/libp2p/protocols/protocol,
   ../../vendor/nim-libp2p/libp2p/peerinfo,
@@ -48,12 +49,35 @@ proc setBootNodes(nodes: openArray[string]): seq[ENode] =
     # TODO: something more user friendly than an expect
     result.add(ENode.fromString(nodeId).expect("correct node"))
 
-proc connectToNodes(node: EthereumNode, nodes: openArray[string]) =
-  for nodeId in nodes:
-    # TODO: something more user friendly than an assert
-    let whisperENode = ENode.fromString(nodeId).expect("correct node")
+proc initAddress(T: type MultiAddress, str: string): T =
+  let address = MultiAddress.init(str)
+  if IPFS.match(address) and matchPartial(multiaddress.TCP, address):
+    result = address
+  else:
+    raise newException(MultiAddressError,
+                       "Invalid bootstrap node multi-address")
 
-    traceAsyncErrors node.peerPool.connectToNode(newNode(whisperENode))
+proc dialPeer(p: WakuProto, address: string) {.async.} =
+  let multiAddr = MultiAddress.initAddress(address)
+  let parts = address.split("/")
+  let remotePeer = PeerInfo.init(parts[^1], [multiAddr])
+
+  info "Dialing peer", multiAddr
+  p.conn = await p.switch.dial(remotePeer, WakuCodec)
+  # Isn't there just one p instance? Why connected here?
+  p.connected = true
+
+proc connectToNodes(p: WakuProto, nodes: openArray[string]) =
+  info "connectToNodes", nodes
+  # XXX: Hardcoded here
+  let peerInfoStr = "/ip4/127.0.0.1/tcp/55505/ipfs/16Uiu2HAkufRTzUnYCMggjPaAMbC3ss1bkrjewPcjwSeqK9WgUKYu"
+  discard dialPeer(p, peerInfoStr)
+#  for nodeId in nodes:
+#    info "connectToNodes nodeid", nodeId
+#    # TODO: something more user friendly than an assert
+#    let whisperENode = ENode.fromString(nodeId).expect("correct node")
+#
+#    traceAsyncErrors node.peerPool.connectToNode(newNode(whisperENode))
 
 # NOTE: Looks almost identical to beacon_chain/eth2_network.nim
 proc setupNat(conf: WakuNodeConf): tuple[ip: IpAddress,
@@ -180,7 +204,12 @@ proc run(config: WakuNodeConf) =
   let id = peerInfo.peerId.pretty
   info "PeerInfo", id = id, addrs = peerInfo.addrs
   let listenStr = $peerInfo.addrs[0] & "/ipfs/" & id
+  # XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
+
+  # XXX: So doing this _after_ other setup
+  # Optionally direct connect with a set of nodes
+  if config.staticnodes.len > 0: connectToNodes(wakuProto, config.staticnodes)
 
   # Here directchat uses rwLoop for protocol
   # What if we dial here? How dial?
