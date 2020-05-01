@@ -14,3 +14,6 @@ wakunode2: node/v2/wakunode.nim
 
 quicksim2: node/v2/quicksim.nim
 	nim c --threads:on -o:build/quicksim2 node/v2/quicksim.nim
+
+protocol2: protocol/v2/waku_protocol.nim
+	nim c --threads:on -o:build/protocol2 protocol/v2/waku_protocol.nim
