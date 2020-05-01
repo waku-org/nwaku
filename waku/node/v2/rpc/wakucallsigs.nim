@@ -1,7 +1,7 @@
 # NOTE: Taken from v0, only version exists right now
 proc waku_version(): string
 
-proc waku_info(): WhisperInfo
+proc waku_info(): WakuInfo
 proc waku_setMaxMessageSize(size: uint64): bool
 proc waku_setMinPoW(pow: float): bool
 proc waku_markTrustedPeer(enode: string): bool
@@ -20,10 +20,10 @@ proc waku_hasSymKey(id: Identifier): bool
 proc waku_getSymKey(id: Identifier): SymKey
 proc waku_deleteSymKey(id: Identifier): bool
 
-proc waku_newMessageFilter(options: WhisperFilterOptions): Identifier
+proc waku_newMessageFilter(options: WakuFilterOptions): Identifier
 proc waku_deleteMessageFilter(id: Identifier): bool
-proc waku_getFilterMessages(id: Identifier): seq[WhisperFilterMessage]
-proc waku_post(message: WhisperPostMessage): bool
+proc waku_getFilterMessages(id: Identifier): seq[WakuFilterMessage]
+proc waku_post(message: WakuPostMessage): bool
 
 proc wakusim_generateTraffic(amount: int): bool
 proc wakusim_generateRandomTraffic(amount: int): bool

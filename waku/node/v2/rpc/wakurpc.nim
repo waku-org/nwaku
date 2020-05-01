@@ -5,9 +5,7 @@ import
   #eth/p2p/rlpx_protocols/waku_protocol,
   ../../../protocol/v2/waku_protocol,
   nimcrypto/[sysrand, hmac, sha2, pbkdf2],
-  ../../../vendor/nimbus/nimbus/rpc/rpc_types,
-  ../../../vendor/nimbus/nimbus/rpc/hexstrings,
-  ../../../vendor/nimbus/nimbus/rpc/key_storage
+  ../../v0/rpc/[rpc_types, hexstrings, key_storage]
 
 from stew/byteutils import hexToSeqByte, hexToByteArray
 
