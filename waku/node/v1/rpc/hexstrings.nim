@@ -26,7 +26,7 @@
 
 import
   stint, stew/byteutils, eth/[keys, rlp], eth/common/eth_types,
-  eth/p2p/rlpx_protocols/waku_protocol
+  ../../../protocol/v1/waku_protocol
 
 type
   HexDataStr* = distinct string

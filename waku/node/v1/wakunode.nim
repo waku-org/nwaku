@@ -3,7 +3,8 @@ import
   chronicles/topics_registry, # TODO: What? Need this for setLoglevel, weird.
   eth/[keys, p2p, async_utils], eth/common/utils, eth/net/nat,
   eth/p2p/[discovery, enode, peer_pool, bootnodes, whispernodes],
-  eth/p2p/rlpx_protocols/[whisper_protocol, waku_protocol, waku_bridge],
+  eth/p2p/rlpx_protocols/whisper_protocol,
+  ../../protocol/v1/[waku_protocol, waku_bridge],
   ./rpc/[waku, wakusim, key_storage]
 
 const clientId = "Nimbus waku node"

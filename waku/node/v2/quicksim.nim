@@ -2,8 +2,8 @@ import
   os, strformat, chronicles, json_rpc/[rpcclient, rpcserver], nimcrypto/sysrand,
   eth/common as eth_common, eth/keys,
   # XXX: Replace me
-  eth/p2p/rlpx_protocols/waku_protocol,
-  ../v0/rpc/[hexstrings, rpc_types, waku],
+  ../../protocol/v1/waku_protocol,
+  ../v1/rpc/[hexstrings, rpc_types, waku],
   rpc/wakurpc,
   options as what # TODO: Huh? Redefinition?
 
@@ -14,7 +14,7 @@ template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 const sigWakuPath = &"{sourceDir}{DirSep}rpc{DirSep}wakucallsigs.nim"
 createRpcSigs(RpcHttpClient, sigWakuPath)
 
-# More minimal than v0 quicksim, just RPC client for now
+# More minimal than v1 quicksim, just RPC client for now
 
 let node1 = newRpcHttpClient()
 #let node2 = newRpcHttpClient()

@@ -2,10 +2,10 @@ import
   json_rpc/rpcserver, tables, options,
   eth/[common, rlp, keys, p2p],
   #DevP2P impl
-  #eth/p2p/rlpx_protocols/waku_protocol,
+  # ../../../protocol/v1/waku_protocol,
   ../../../protocol/v2/waku_protocol,
   nimcrypto/[sysrand, hmac, sha2, pbkdf2],
-  ../../v0/rpc/[rpc_types, hexstrings, key_storage]
+  ../../v1/rpc/[rpc_types, hexstrings, key_storage]
 
 from stew/byteutils import hexToSeqByte, hexToByteArray
 

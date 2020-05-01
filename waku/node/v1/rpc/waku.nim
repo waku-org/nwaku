@@ -1,8 +1,9 @@
 import
   json_rpc/rpcserver, tables, options, sequtils,
-  eth/[common, rlp, keys, p2p], eth/p2p/rlpx_protocols/waku_protocol,
+  eth/[common, rlp, keys, p2p],
   nimcrypto/[sysrand, hmac, sha2, pbkdf2],
-  rpc_types, hexstrings, key_storage
+  rpc_types, hexstrings, key_storage,
+  ../../../protocol/v1/waku_protocol
 
 from stew/byteutils import hexToSeqByte, hexToByteArray
 
