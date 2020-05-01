@@ -41,11 +41,11 @@ task test, "Run tests":
   test "all_tests"
 
 task wakunode, "Build Waku cli":
-  buildBinary "wakunode", "waku/node/v0/", "-d:chronicles_log_level=TRACE"
+  buildBinary "wakunode", "waku/node/v1/", "-d:chronicles_log_level=TRACE"
 
 task wakusim, "Build Waku simulation tools":
-  buildBinary "quicksim", "waku/node/v0/", "-d:chronicles_log_level=INFO"
-  buildBinary "start_network", "waku/node/v0/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "quicksim", "waku/node/v1/", "-d:chronicles_log_level=INFO"
+  buildBinary "start_network", "waku/node/v1/", "-d:chronicles_log_level=DEBUG"
 
 task protocol2, "Build the experimental Waku protocol":
   buildBinary "waku_protocol", "waku/protocol/v2/", "-d:chronicles_log_level=DEBUG"

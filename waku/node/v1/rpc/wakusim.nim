@@ -1,6 +1,7 @@
 import
   json_rpc/rpcserver, stew/endians2, nimcrypto/sysrand,
-  eth/[p2p, async_utils], eth/p2p/rlpx_protocols/waku_protocol
+  eth/[p2p, async_utils],
+  ../../../protocol/v1/waku_protocol
 
 proc generateTraffic(node: EthereumNode, amount = 100) {.async.} =
   var topicNumber  = 0'u32

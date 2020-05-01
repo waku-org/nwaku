@@ -1,4 +1,4 @@
-# NOTE: Taken from v0, only version exists right now
+# NOTE: Taken from v1, only version exists right now
 proc waku_version(): string
 
 proc waku_info(): WakuInfo
