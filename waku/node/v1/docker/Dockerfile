@@ -9,8 +9,8 @@ RUN apt-get -qq update \
 ARG GIT_REVISION
 
 RUN cd /root \
- && git clone https://github.com/status-im/nimbus.git \
- && cd nimbus \
+ && git clone https://github.com/status-im/nim-waku.git \
+ && cd nim-waku \
  && git reset --hard ${GIT_REVISION} \
  && { make &>/dev/null || true; } \
  && make -j$(nproc) update \
@@ -28,7 +28,7 @@ RUN apt-get -qq update \
  && apt-get -qq clean \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-COPY --from=build /root/nimbus/build/wakunode /usr/bin/wakunode
+COPY --from=build /root/nim-waku/build/wakunode /usr/bin/wakunode
 
 MAINTAINER Kim De Mey <kimdemey@status.im>
 LABEL description="Wakunode: Waku and Whisper client"
