@@ -19,3 +19,7 @@
 *.la
 *.exe
 *.dll
+
+# Ignore simulation generated metrics files
+/metrics/prometheus
+/metrics/waku-sim-all-nodes-grafana-dashboard.json
