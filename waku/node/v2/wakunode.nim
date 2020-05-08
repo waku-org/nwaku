@@ -3,7 +3,6 @@ import
   chronicles/topics_registry, # TODO: What? Need this for setLoglevel, weird.
   eth/[keys, p2p, async_utils], eth/common/utils, eth/net/nat,
   eth/p2p/[discovery, enode, peer_pool, bootnodes, whispernodes],
-  eth/p2p/rlpx_protocols/[whisper_protocol, waku_protocol, waku_bridge],
   # TODO remove me
   ../v1/rpc/[wakusim, key_storage],
   ../../vendor/nim-libp2p/libp2p/standard_setup,
