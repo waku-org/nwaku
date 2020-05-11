@@ -80,6 +80,11 @@ wakusim2: | build deps wakunode2
 protocol2:
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim protocol2 $(NIM_PARAMS) waku.nims
+
+wakutest2:
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim wakutest2 $(NIM_PARAMS) waku.nims
+
 # symlink
 waku.nims:
 	ln -s waku.nimble $@
