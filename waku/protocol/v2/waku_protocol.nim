@@ -41,8 +41,7 @@ method init(w: WakuSub) =
   w.handler = handler
   w.codec = WakuSubCodec
 
-# Never hit, it seems like BUT initPubSub is hit
-method initWakuSub*(w: WakuSub) =
+method initPubSub*(w: WakuSub) =
   echo "initWakuSub"
   w.text = "Foobar"
   w.init()
