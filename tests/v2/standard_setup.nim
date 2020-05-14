@@ -8,8 +8,8 @@ import
   libp2p/transports/[transport, tcptransport],
   libp2p/muxers/[muxer, mplex/mplex, mplex/types],
   libp2p/protocols/[identify, secure/secure],
-  libp2p/protocols/pubsub/[pubsub, gossipsub, floodsub],
-  waku_protocol
+  libp2p/protocols/pubsub/[pubsub, gossipsub, floodsub]
+#  waku_protocol
 
 when libp2p_secure == "noise":
   import libp2p/protocols/secure/noise
@@ -42,8 +42,9 @@ proc newStandardSwitch*(privKey = none(PrivateKey),
                else:
                  # Creating switch from generate node
                  # XXX: Hacky test, hijacking WakuSub here
-                 echo "Using WakuSub here"
-                 PubSub newPubSub(WakuSub, peerInfo, triggerSelf)
+                 #echo "Using WakuSub here"
+                 PubSub newPubSub(FloodSub, peerInfo, triggerSelf)
+                 #PubSub newPubSub(WakuSub, peerInfo, triggerSelf)
 
   result = newSwitch(peerInfo,
                      transports,
