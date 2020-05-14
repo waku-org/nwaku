@@ -29,7 +29,8 @@ proc waitSub(sender, receiver: auto; key: string) {.async, gcsafe.} =
   # turn things deterministic
   # this is for testing purposes only
   var ceil = 15
-  let fsub = cast[FloodSub](sender.pubSub.get())
+  #echo "isa thing", repr(sender.pubSub.get())
+  let fsub = cast[WakuSub](sender.pubSub.get())
   while not fsub.floodsub.hasKey(key) or
         not fsub.floodsub[key].contains(receiver.peerInfo.id):
     await sleepAsync(100.millis)

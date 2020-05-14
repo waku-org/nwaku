@@ -44,8 +44,8 @@ proc newStandardSwitch*(privKey = none(PrivateKey),
                  # XXX: Hacky test, hijacking WakuSub here
                  # XXX: If I use WakuSub here I get a SIGSERV
                  #echo "Using WakuSub here"
-                 PubSub newPubSub(FloodSub, peerInfo, triggerSelf)
-                 #PubSub newPubSub(WakuSub, peerInfo, triggerSelf)
+                 #PubSub newPubSub(FloodSub, peerInfo, triggerSelf)
+                 PubSub newPubSub(WakuSub, peerInfo, triggerSelf)
 
   result = newSwitch(peerInfo,
                      transports,
