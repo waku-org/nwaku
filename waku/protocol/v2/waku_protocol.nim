@@ -34,7 +34,12 @@ method init(w: WakuSub) =
     ##
 
     echo "Incoming WakuSub connection"
+    assert(w of FloodSub)
+    echo "asserted w of floodsub"
+    assert(w of PubSub)
+    echo "asserted w of pubsub"
     # Defer to parent object (I think)
+    # This isn't hit, possibly cause double link here?
     await w.handleConn(conn, proto)
 
   # XXX: Handler hijack FloodSub here?
@@ -44,6 +49,8 @@ method init(w: WakuSub) =
 method initPubSub*(w: WakuSub) =
   echo "initWakuSub"
   w.text = "Foobar"
+  echo "w.text", w.text
+  echo "ok2"
   w.init()
 
 # Here floodsub field is a topic to remote peer map

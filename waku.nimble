@@ -51,10 +51,12 @@ task protocol2, "Build the experimental Waku protocol":
   buildBinary "waku_protocol", "waku/protocol/v2/", "-d:chronicles_log_level=DEBUG"
 
 task wakutest2, "Build Experimental Waku tests":
-  buildBinary "waku_test", "waku/protocol/v2/", "-d:chronicles_log_level=DEBUG"
+  test "v2/test_waku"
+  #buildBinary "waku_test", "waku/protocol/v2/", "-d:chronicles_log_level=DEBUG --lineTrace:on --threads:on"
 
 task wakunode2, "Build Experimental Waku cli":
   buildBinary "wakunode", "waku/node/v2/", "-d:chronicles_log_level=TRACE"
 
 task wakusim2, "Build Experimental Waku simulation tools":
   buildBinary "quicksim", "waku/node/v2/", "-d:chronicles_log_level=INFO"
+
