@@ -15,11 +15,8 @@ import utils,
                connection,
                stream/bufferstream,
                crypto/crypto,
-               #protocols/pubsub/pubsub,
-               protocols/pubsub/floodsub,
-               #protocols/pubsub/rpc/messages,
-               #protocols/pubsub/rpc/message
-       ]
+               protocols/pubsub/floodsub]
+import ../../waku/protocol/v2/waku_protocol
 
 const
   StreamTransportTrackerName = "stream.transport"
@@ -27,6 +24,7 @@ const
 
 # TODO: Start with floodsub here, then move other logic here
 
+# XXX: If I cast to WakuSub here I get a SIGSEGV
 proc waitSub(sender, receiver: auto; key: string) {.async, gcsafe.} =
   # turn things deterministic
   # this is for testing purposes only
@@ -57,6 +55,7 @@ suite "FloodSub":
     proc runTests(): Future[bool] {.async.} =
       var completionFut = newFuture[bool]()
       proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+        echo "Hit handler", topic
         check topic == "foobar"
         completionFut.complete(true)
 
