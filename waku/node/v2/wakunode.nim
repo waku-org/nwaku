@@ -5,21 +5,15 @@ import
   eth/p2p/[discovery, enode, peer_pool, bootnodes, whispernodes],
   # TODO remove me
   ../v1/rpc/[wakusim, key_storage],
-  ../../vendor/nim-libp2p/libp2p/standard_setup,
-  ../../vendor/nim-libp2p/libp2p/multiaddress,
-  ../../vendor/nim-libp2p/libp2p/crypto/crypto,
-  ../../vendor/nim-libp2p/libp2p/protocols/protocol,
-  ../../vendor/nim-libp2p/libp2p/peerinfo,
+  libp2p/standard_setup,
+  libp2p/multiaddress,
+  libp2p/crypto/crypto,
+  libp2p/protocols/protocol,
+  libp2p/peerinfo,
   rpc/wakurpc
 
   # TODO: Use
   # protocol/waku_protocol
-
-# TODO: Better aliasing of vendor dirs
-
-# TODO: Something wrong with module imports, "invalid module name" with this
-#  ../vendor/nim-libp2p/libp2p/[switch, standard_setup, peerinfo, peer, connection,
-#          multiaddress, multicodec, crypto/crypto, protocols/identify, protocols/protocol]
 
 # key and crypto modules different
 type
