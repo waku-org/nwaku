@@ -42,8 +42,7 @@ proc newStandardSwitch*(privKey = none(PrivateKey),
                else:
                  # Creating switch from generate node
                  # XXX: Hacky test, hijacking WakuSub here
-                 # XXX: If I use WakuSub here I get a SIGSERV
-                 #echo "Using WakuSub here"
+                 echo "Using WakuSub here"
                  #PubSub newPubSub(FloodSub, peerInfo, triggerSelf)
                  PubSub newPubSub(WakuSub, peerInfo, triggerSelf)
 
