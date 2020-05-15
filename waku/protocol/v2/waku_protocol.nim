@@ -9,6 +9,7 @@ import chronos, chronicles
 import libp2p/protocols/pubsub/pubsub,
        libp2p/protocols/pubsub/pubsubpeer,
        libp2p/protocols/pubsub/floodsub,
+       libp2p/protocols/pubsub/rpc/[messages, message],
        libp2p/connection
 
 logScope:
@@ -27,6 +28,7 @@ type
     text*: string
 
 method init(w: WakuSub) =
+  debug "init"
   proc handler(conn: Connection, proto: string) {.async.} =
     ## main protocol handler that gets triggered on every
     ## connection for a protocol string
@@ -46,29 +48,38 @@ method init(w: WakuSub) =
   w.handler = handler
   w.codec = WakuSubCodec
 
+#
 method initPubSub*(w: WakuSub) =
-  echo "initWakuSub"
+  debug "initWakuSub"
   w.text = "Foobar"
   echo "w.text", w.text
-  echo "ok2"
+  # XXX
+  procCall FloodSub(w).initPubSub()
   w.init()
 
-# Here floodsub field is a topic to remote peer map
-# We also have a seen message forwarded to peers
+method subscribeTopic*(w: WakuSub,
+                       topic: string,
+                       subscribe: bool,
+                       peerId: string) {.gcsafe.} =
+  debug "subscribeTopic"
+  procCall FloodSub(w).subscribeTopic(topic, subscribe, peerId)
 
-# method subscribeTopic
-# method handleDisconnect
-# method rpcHandler
-# method init
-# method publish
-# method unsubscribe
-# method initPubSub
+method handleDisconnect*(w: WakuSub, peer: PubSubPeer) {.async.} =
+  debug "handleDisconnect NYI"
 
-# To defer to parent object something like:
-# procCall PubSub(f).publish(topic, data)
+method rpcHandler*(w: WakuSub,
+                   peer: PubSubPeer,
+                   rpcMsgs: seq[RPCMsg]) {.async.} =
+  debug "rpcHandler"
+  await procCall FloodSub(w).rpcHandler(peer, rpcMsgs)
 
-# Then we should be able to write tests like floodsub test
+method publish*(w: WakuSub,
+                topic: string,
+                data: seq[byte]) {.async.} =
+  debug "publish"
+  await procCall FloodSub(w).publish(topic, data)
 
-# Can also do in-line here
-
-
+method unsubscribe*(w: WakuSub,
+                    topics: seq[TopicPair]) {.async.} =
+  debug "unsubscribe"
+  await procCall FloodSub(w).unsubscribe(topics)
