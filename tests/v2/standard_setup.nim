@@ -3,7 +3,7 @@ const
   libp2p_secure {.strdefine.} = ""
 
 import
-  options, tables,
+  options, tables, chronicles,
   libp2p/[switch, peer, peerinfo, connection, multiaddress, crypto/crypto],
   libp2p/transports/[transport, tcptransport],
   libp2p/muxers/[muxer, mplex/mplex, mplex/types],
@@ -42,7 +42,7 @@ proc newStandardSwitch*(privKey = none(PrivateKey),
                else:
                  # Creating switch from generate node
                  # XXX: Hacky test, hijacking WakuSub here
-                 echo "Using WakuSub here"
+                 debug "Using WakuSub here"
                  #PubSub newPubSub(FloodSub, peerInfo, triggerSelf)
                  PubSub newPubSub(WakuSub, peerInfo, triggerSelf)
 
