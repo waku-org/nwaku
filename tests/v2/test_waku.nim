@@ -7,8 +7,8 @@
 #  Apache License, version 2.0, (LICENSE-APACHEv2)
 #            MIT license (LICENSE-MIT)
 
-import unittest, sequtils, options, tables, sets
-import chronos
+import unittest, options, tables, sets
+import chronos, chronicles
 import utils,
        libp2p/[errors,
                switch,
@@ -29,7 +29,6 @@ proc waitSub(sender, receiver: auto; key: string) {.async, gcsafe.} =
   # turn things deterministic
   # this is for testing purposes only
   var ceil = 15
-  #echo "isa thing", repr(sender.pubSub.get())
   let fsub = cast[WakuSub](sender.pubSub.get())
   while not fsub.floodsub.hasKey(key) or
         not fsub.floodsub[key].contains(receiver.peerInfo.id):
@@ -56,7 +55,7 @@ suite "FloodSub":
     proc runTests(): Future[bool] {.async.} =
       var completionFut = newFuture[bool]()
       proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-        echo "Hit handler", topic
+        debug "Hit handler", topic
         check topic == "foobar"
         completionFut.complete(true)
 
