@@ -56,8 +56,8 @@ task wakutest2, "Build Experimental Waku tests":
   exec "build/" & name
 
 task wakunode2, "Build Experimental Waku cli":
-  buildBinary "wakunode2", "waku/node/v2/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "wakunode", "waku/node/v2/", "-d:chronicles_log_level=DEBUG"
 
 task wakusim2, "Build Experimental Waku simulation tools":
-  buildBinary "wakunode2", "waku/node/v2/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "start_network2", "waku/node/v2/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "wakunode", "waku/node/v2/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "start_network", "waku/node/v2/", "-d:chronicles_log_level=DEBUG"
