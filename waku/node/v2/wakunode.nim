@@ -5,13 +5,14 @@ import
   eth/p2p/[discovery, enode, peer_pool, bootnodes, whispernodes],
   # TODO remove me
   ../v1/rpc/[wakusim, key_storage],
-  libp2p/standard_setup,
   libp2p/multiaddress,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   libp2p/peerinfo,
   rpc/wakurpc,
-  ../../protocol/v2/waku_protocol
+  ../../protocol/v2/waku_protocol,
+  # TODO: Pull out standard switch from tests
+  ../../tests/v2/standard_setup
 
   # TODO: Use
   # protocol/waku_protocol
@@ -57,6 +58,7 @@ proc dialPeer(p: WakuProto, address: string) {.async.} =
 
   info "Dialing peer", multiAddr
   p.conn = await p.switch.dial(remotePeer, WakuSubCodec)
+  info "Post switch dial"
   # Isn't there just one p instance? Why connected here?
   p.connected = true
 
@@ -188,7 +190,8 @@ proc run(config: WakuNodeConf) =
   # let rpcServer ...
 
   # Is it a "Standard" Switch? Assume it is for now
-  var switch = newStandardSwitch(some keys.seckey, hostAddress, triggerSelf = true, gossip = true)
+  # NOTE: This should be WakuSub here
+  var switch = newStandardSwitch(some keys.seckey, hostAddress, triggerSelf = true, gossip = false)
   let wakuProto = newWakuProto(switch)
   switch.mount(wakuProto)
 
@@ -199,7 +202,9 @@ proc run(config: WakuNodeConf) =
 
   let id = peerInfo.peerId.pretty
   info "PeerInfo", id = id, addrs = peerInfo.addrs
-  let listenStr = $peerInfo.addrs[0] & "/ipfs/" & id
+  # Try p2p instead
+  let listenStr = $peerInfo.addrs[0] & "/p2p/" & id
+  #let listenStr = $peerInfo.addrs[0] & "/ipfs/" & id
   # XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
 

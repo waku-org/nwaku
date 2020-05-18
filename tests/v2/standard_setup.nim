@@ -23,6 +23,7 @@ proc newStandardSwitch*(privKey = none(PrivateKey),
                         address = MultiAddress.init("/ip4/127.0.0.1/tcp/0"),
                         triggerSelf = false,
                         gossip = false): Switch =
+  info "newStandardSwitch"
   proc createMplex(conn: Connection): Muxer =
     result = newMplex(conn)
 
