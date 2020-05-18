@@ -51,7 +51,10 @@ proc initAddress(T: type MultiAddress, str: string): T =
                        "Invalid bootstrap node multi-address")
 
 proc dialPeer(p: WakuProto, address: string) {.async.} =
+  info "dialPeer", address = address
+  # XXX: This turns ipfs into p2p, not quite sure why
   let multiAddr = MultiAddress.initAddress(address)
+  info "multiAddr", ma = multiAddr
   let parts = address.split("/")
   let remotePeer = PeerInfo.init(parts[^1], [multiAddr])
 
@@ -60,10 +63,13 @@ proc dialPeer(p: WakuProto, address: string) {.async.} =
   # Isn't there just one p instance? Why connected here?
   p.connected = true
 
+# TODO: Connect to multiple static nodes
 proc connectToNodes(p: WakuProto, nodes: openArray[string]) =
-  info "connectToNodes", nodes
-  # XXX: Hardcoded here
-  let peerInfoStr = "/ip4/127.0.0.1/tcp/55505/ipfs/16Uiu2HAkufRTzUnYCMggjPaAMbC3ss1bkrjewPcjwSeqK9WgUKYu"
+  let peerInfoStr = nodes[0]
+  info "connectToNodes", node = peerInfoStr
+
+  # XXX: Why is ipfs being replaced by p2p here?
+  # Whats difference here? We don't have Whisper enodes etc
   discard dialPeer(p, peerInfoStr)
 #  for nodeId in nodes:
 #    info "connectToNodes nodeid", nodeId
