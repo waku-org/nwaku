@@ -10,7 +10,8 @@ import
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   libp2p/peerinfo,
-  rpc/wakurpc
+  rpc/wakurpc,
+  ../../protocol/v2/waku_protocol
 
   # TODO: Use
   # protocol/waku_protocol
@@ -29,10 +30,6 @@ type WakuProto = ref object of LPProtocol
   started: bool
 
 const clientId = "Nimbus waku node"
-
-# TODO: We want this to be on top of GossipSub, how does that work?
-# XXX: waku version not inherited from protocol
-const WakuCodec = "/vac/waku/2.0.0-alpha0"
 
 let globalListeningAddr = parseIpAddress("0.0.0.0")
 
@@ -59,7 +56,7 @@ proc dialPeer(p: WakuProto, address: string) {.async.} =
   let remotePeer = PeerInfo.init(parts[^1], [multiAddr])
 
   info "Dialing peer", multiAddr
-  p.conn = await p.switch.dial(remotePeer, WakuCodec)
+  p.conn = await p.switch.dial(remotePeer, WakuSubCodec)
   # Isn't there just one p instance? Why connected here?
   p.connected = true
 
@@ -117,7 +114,7 @@ proc setupNat(conf: WakuNodeConf): tuple[ip: IpAddress,
         (result.tcpPort, result.udpPort) = extPorts.get()
 
 proc newWakuProto(switch: Switch): WakuProto =
-  var wakuproto = WakuProto(switch: switch, codec: WakuCodec)
+  var wakuproto = WakuProto(switch: switch, codec: WakuSubCodec)
 
   proc handle(conn: Connection, proto: string) {.async, gcsafe.} =
     let msg = cast[string](await conn.readLp())
