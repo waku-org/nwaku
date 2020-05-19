@@ -60,5 +60,4 @@ task wakunode2, "Build Experimental Waku cli":
 
 task wakusim2, "Build Experimental Waku simulation tools":
   buildBinary "quicksim", "waku/node/v2/", "-d:chronicles_log_level=DEBUG"
-  # TODO
-  #buildBinary "start_network", "waku/node/v2/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "start_network", "waku/node/v2/", "-d:chronicles_log_level=DEBUG"
