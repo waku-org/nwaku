@@ -21,10 +21,8 @@ proc setupWakuRPC*(rpcsrv: RpcServer) =
 
   # Seems easy enough, lets try to get this first
   rpcsrv.rpc("waku_version") do() -> string:
-     ## Returns string of the current whisper protocol version.
-     # TODO: Should read from waku2_protocol I think
-     #result = wakuVersionStr
-     result = "2.0.0-alpha0x"
+     ## Returns string of the current Waku protocol version.
+     result = WakuSubCodec
 
   # TODO: Dial/Connect
   # XXX: Though wrong layer for that - wait how does this work in devp2p sim?
