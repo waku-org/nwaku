@@ -1,9 +1,13 @@
 import
-  strformat, os, osproc, net, confutils, strformat, chronicles, json, strutils,
+  strformat, os, osproc, net, confutils, strformat, chronicles, json,
   libp2p/multiaddress,
   libp2p/crypto/crypto,
+  libp2p/crypto/secp,
   libp2p/protocols/protocol,
   libp2p/peerinfo
+
+# Fix ambiguous call error
+import strutils except fromHex
 
 type
   NodeInfo* = object
@@ -22,7 +26,11 @@ type
 # Ok cool so it is config.nim parseCmdArg, then use fromHex
 proc initNodeCmd(): NodeInfo =
   let
-    privKey = PrivateKey.random(Secp256k1)
+    key = SkPrivateKey.random()
+    hkey = key.getBytes().toHex()
+    rkey = SkPrivateKey.init(fromHex(hkey))
+    privKey = PrivateKey(scheme: Secp256k1, skkey: rkey)
+    #privKey = PrivateKey.random(Secp256k1)
     keys = KeyPair(seckey: privKey, pubkey: privKey.getKey())
     peerInfo = PeerInfo.init(privKey)
     # XXX
@@ -33,4 +41,3 @@ proc initNodeCmd(): NodeInfo =
 
   result.cmd = "./build/foo"
 
-# TODO: main and toHex fromHex private keys, then in config as nodekey
