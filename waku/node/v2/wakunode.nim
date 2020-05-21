@@ -144,13 +144,10 @@ proc run(config: WakuNodeConf) =
     hostAddress = MultiAddress.init(DefaultAddr)
 
     # Difference between announced and host address relevant for running behind NAT, however doesn't seem like nim-libp2p supports this. GHI?
-    #
-    # TODO: Convert config.nodekey eth.key to libp2p.crypto key. Should work with Secp256k1, just need to ensure representation etc is the same. Using random now for spike.
-    #nodekey = config.nodekey
-    #keys = crypto.KeyPair(nodekey)
-    privKey = PrivateKey.random(Secp256k1)
-    keys = KeyPair(seckey: privKey, pubkey: privKey.getKey())
-    peerInfo = PeerInfo.init(privKey)
+    # NOTE: This is a privatekey
+    nodekey = config.nodekey
+    keys = KeyPair(seckey: nodekey, pubkey: nodekey.getKey())
+    peerInfo = PeerInfo.init(nodekey)
 
   info "Initializing networking (host address and announced same)", address
 
