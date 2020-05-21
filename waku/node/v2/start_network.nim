@@ -12,10 +12,12 @@ import strutils except fromHex
 const
   defaults ="--log-level:DEBUG --log-metrics --metrics-server --rpc"
   wakuNodeBin = "build" / "wakunode"
+  portOffset = 2
 
 type
   NodeInfo* = object
     cmd: string
+    master: bool
     address: string
     shift: int
     label: string
@@ -25,7 +27,7 @@ type
 # TODO: Create Node command, something like this:
 # "build/wakunode --log-level:DEBUG --log-metrics --metrics-server --rpc  --waku-topic-interest:false --nodekey:e685079b7fa34dd35d3ffb2e40ab970360e94aa7dcc1262d36a8e2320a2c08ce --ports-shift:2 --discovery:off "
 # Ok cool so it is config.nim parseCmdArg, then use fromHex
-proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], label: string): NodeInfo =
+proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], master = false, label: string): NodeInfo =
   let
     key = SkPrivateKey.random()
     hkey = key.getBytes().toHex()
@@ -52,13 +54,14 @@ proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], label: string): Nod
       result.cmd &= "--staticnode:" & staticNode & " "
   result.shift = shift
   result.label = label
+  result.master = master
   result.address = listenStr
 
   info "Node command created.", cmd=result.cmd, address = result.address
 
 # TODO: Setup diff topology, star, mesh, etc
-let masterNode = initNodeCmd(0, @[], "master node")
-let otherNode = initNodeCmd(0, @[masterNode.address], "other node")
+let masterNode = initNodeCmd(portOffset, @[], "master node")
+let otherNode = initNodeCmd(portOFfset + 1, @[masterNode.address], "other node")
 
 echo masterNode
 echo "---"
