@@ -59,10 +59,27 @@ proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], master = false, lab
 
   info "Node command created.", cmd=result.cmd, address = result.address
 
-# TODO: Setup diff topology, star, mesh, etc
-let masterNode = initNodeCmd(portOffset, @[], "master node")
-let otherNode = initNodeCmd(portOFfset + 1, @[masterNode.address], "other node")
+proc starNetwork(amount: int): seq[NodeInfo] =
+  let masterNode = initNodeCmd(portOffset, master = true, label = "master node")
+  result.add(masterNode)
+  for i in 1..<amount:
+    result.add(initNodeCmd(portOffset + i, @[masterNode.address], label = "full node"))
 
-echo masterNode
-echo "---"
-echo otherNode
+when isMainModule:
+  # TODO: WakuNetworkConf
+  var nodes: seq[NodeInfo]
+  let amount = 2
+  nodes = starNetwork(amount)
+
+  var commandStr = "multitail -s 2 -M 0 -x \"Waku Simulation\""
+  var count = 0
+  var sleepDuration = 0
+  for node in nodes:
+    #if conf.topology in {Star, DiscoveryBased}:
+    sleepDuration = if node.master: 0
+                    else: 1
+    commandStr &= &" -cT ansi -t 'node #{count} {node.label}' -l 'sleep {sleepDuration}; {node.cmd}; echo [node execution completed]; while true; do sleep 100; done'"
+
+  let errorCode = execCmd(commandStr)
+  if errorCode != 0:
+    error "launch command failed", command=commandStr
