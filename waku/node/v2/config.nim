@@ -1,6 +1,8 @@
 import
   confutils/defs, chronicles, chronos,
-  eth/keys
+  libp2p/crypto/crypto,
+  libp2p/crypto/secp,
+  nimcrypto/utils
 
 type
   Fleet* =  enum
@@ -83,10 +85,13 @@ type
       defaultValue: 0.002
       name: "waku-pow" }: float64
 
+    # NOTE: Signature is different here, we return PrivateKey and not KeyPair
     nodekey* {.
       desc: "P2P node private key as hex.",
-      defaultValue: keys.KeyPair.random().tryGet()
-      name: "nodekey" }: KeyPair
+      # defaultValue: keys.KeyPair.random().tryGet()
+      # Use PrivateKey here instead
+      defaultValue: PrivateKey.random(Secp256k1)
+      name: "nodekey" }: PrivateKey
     # TODO: Add nodekey file option
 
     bootnodeOnly* {.
@@ -133,15 +138,15 @@ type
     # - discv5 + topic register
     # - mailserver functionality
 
-proc parseCmdArg*(T: type KeyPair, p: TaintedString): T =
+# NOTE: Keys are different in nim-libp2p
+proc parseCmdArg*(T: type PrivateKey, p: TaintedString): T =
   try:
-    # TODO: add isValidPrivateKey check from Nimbus?
-    result.seckey = PrivateKey.fromHex(string(p)).tryGet()
-    result.pubkey = result.seckey.toPublicKey()[]
+    let key = SkPrivateKey.init(utils.fromHex(p))
+    result = PrivateKey(scheme: Secp256k1, skkey: key)
   except CatchableError as e:
     raise newException(ConfigurationError, "Invalid private key")
 
-proc completeCmdArg*(T: type KeyPair, val: TaintedString): seq[string] =
+proc completeCmdArg*(T: type PrivateKey, val: TaintedString): seq[string] =
   return @[]
 
 proc parseCmdArg*(T: type IpAddress, p: TaintedString): T =
