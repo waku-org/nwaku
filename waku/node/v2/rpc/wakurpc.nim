@@ -1,8 +1,6 @@
 import
   json_rpc/rpcserver, tables, options,
   eth/[common, rlp, keys, p2p],
-  #DevP2P impl
-  # ../../../protocol/v1/waku_protocol,
   ../../../protocol/v2/waku_protocol,
   nimcrypto/[sysrand, hmac, sha2, pbkdf2],
   ../../v1/rpc/[rpc_types, hexstrings, key_storage],
@@ -25,20 +23,19 @@ proc setupWakuRPC*(wakuProto: WakuProto, rpcsrv: RpcServer) =
      ## Returns string of the current Waku protocol version.
      result = WakuSubCodec
 
-  # XXX Type
   # TODO: Implement symkey etc logic
-  rpcsrv.rpc("waku_post") do(message: string) -> bool:
+  rpcsrv.rpc("waku_publish") do(topic: string, message: string) -> bool:
     let data = cast[seq[byte]](message)
     # Assumes someone subscribing on this topic
     #let wakuSub = wakuProto.switch.pubsub
     let wakuSub = cast[WakuSub](wakuProto.switch.pubSub.get())
     # XXX also future return type
-    discard wakuSub.publish("foobar", data)
+    discard wakuSub.publish(topic, data)
+    return true
+    #if not result:
+    #  raise newException(ValueError, "Message could not be posted")
     return true
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")
 
-  # TODO: Dial/Connect
-  # XXX: Though wrong layer for that - wait how does this work in devp2p sim?
-  # We connect to nodes there, should be very similar here
 
