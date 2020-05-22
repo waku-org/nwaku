@@ -17,7 +17,7 @@ createRpcSigs(RpcHttpClient, sigWakuPath)
 # More minimal than v1 quicksim, just RPC client for now
 
 let node1 = newRpcHttpClient()
-#let node2 = newRpcHttpClient()
+let node2 = newRpcHttpClient()
 
 # Where do we connect nodes here? Protocol so not RPC based, maybe?
 # Using with static nodes, hardcoded "works":
@@ -30,7 +30,10 @@ info "Hello there"
 
 # portsShift=2
 waitFor node1.connect("localhost", Port(8547))
+waitFor node2.connect("localhost", Port(8548))
 
 let version = waitFor node1.wakuVersion()
+
+let res = waitFor node1.wakuPost("hello world")
 
 info "Version is", version
