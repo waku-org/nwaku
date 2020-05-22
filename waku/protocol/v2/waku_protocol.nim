@@ -47,6 +47,14 @@ method initPubSub*(w: WakuSub) =
   procCall FloodSub(w).initPubSub()
   w.init()
 
+method subscribe*(w: WakuSub,
+                  topic: string,
+                  handler: TopicHandler) {.async.} =
+  debug "subscribe", topic=topic
+  # XXX: Pubsub really
+  await procCall FloodSub(w).subscribe(topic, handler)
+
+# Subscribing a peer to a specified topic
 method subscribeTopic*(w: WakuSub,
                        topic: string,
                        subscribe: bool,
