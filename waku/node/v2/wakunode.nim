@@ -12,23 +12,14 @@ import
   rpc/wakurpc,
   ../../protocol/v2/waku_protocol,
   # TODO: Pull out standard switch from tests
-  ../../tests/v2/standard_setup
-
-  # TODO: Use
-  # protocol/waku_protocol
+  ../../tests/v2/standard_setup,
+  waku_types
 
 # key and crypto modules different
 type
   KeyPair* = crypto.KeyPair
   PublicKey* = crypto.PublicKey
   PrivateKey* = crypto.PrivateKey
-
-  # handler defined in parent object
-type WakuProto = ref object of LPProtocol
-  switch: Switch
-  conn: Connection
-  connected: bool
-  started: bool
 
 const clientId = "Nimbus waku node"
 

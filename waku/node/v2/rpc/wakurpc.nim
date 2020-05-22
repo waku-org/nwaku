@@ -5,7 +5,8 @@ import
   # ../../../protocol/v1/waku_protocol,
   ../../../protocol/v2/waku_protocol,
   nimcrypto/[sysrand, hmac, sha2, pbkdf2],
-  ../../v1/rpc/[rpc_types, hexstrings, key_storage]
+  ../../v1/rpc/[rpc_types, hexstrings, key_storage],
+  ../waku_types
 
 from stew/byteutils import hexToSeqByte, hexToByteArray
 
