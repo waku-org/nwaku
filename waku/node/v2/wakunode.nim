@@ -144,26 +144,6 @@ proc run(config: WakuNodeConf) =
 
   peerInfo.addrs.add(Multiaddress.init(DefaultAddr))
 
-  # XXX: It isn't clear that it is a good idea use dial/connect as RPC
-  # But let's try it
-  # More of a hello world thing, we'd want to mount it on to of gossipsub
-  if config.rpc:
-    # What is ta? transport address...right.
-    let ta = initTAddress(config.rpcAddress,
-                          Port(config.rpcPort + config.portsShift))
-    var rpcServer = newRpcHttpServer([ta])
-
-    # Not using keys right now
-    let keys = newKeyStorage()
-    #setupWakuRPC(node, keys, rpcServer)
-    #setupWakuSimRPC(node, rpcServer)
-    setupWakuRPC(rpcServer)
-    rpcServer.start()
-
-    # TODO: Use it to get waku version
-    # Huh not printed
-    info "rpcServer started", ta=ta
-
   # TODO: Here setup a libp2p node
   # Essentially something like this in nbc/eth2_network:
   # proc createEth2Node*(conf: BeaconNodeConf): Future[Eth2Node]
@@ -179,9 +159,22 @@ proc run(config: WakuNodeConf) =
 
   # Is it a "Standard" Switch? Assume it is for now
   # NOTE: This should be WakuSub here
+
+  # XXX: Do we want to use this wakuProto? Or Switch?
+  # We need access to the WakuSub thing
+  # switch.pubsub = wakusub, plus all the peer info etc
+  # And it has wakuProto lets use wakuProto maybe, cause it has switch
   var switch = newStandardSwitch(some keys.seckey, hostAddress, triggerSelf = true, gossip = false)
   let wakuProto = newWakuProto(switch)
   switch.mount(wakuProto)
+
+  if config.rpc:
+    let ta = initTAddress(config.rpcAddress,
+                          Port(config.rpcPort + config.portsShift))
+    var rpcServer = newRpcHttpServer([ta])
+    setupWakuRPC(wakuProto, rpcServer)
+    rpcServer.start()
+    info "rpcServer started", ta=ta
 
   # TODO: Make context async
   #let fut = await switch.start()
