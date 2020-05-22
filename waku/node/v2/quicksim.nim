@@ -14,8 +14,6 @@ template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 const sigWakuPath = &"{sourceDir}{DirSep}rpc{DirSep}wakucallsigs.nim"
 createRpcSigs(RpcHttpClient, sigWakuPath)
 
-# TODO: This should have start_network
-
 # More minimal than v1 quicksim, just RPC client for now
 
 let node1 = newRpcHttpClient()
@@ -29,8 +27,9 @@ let node1 = newRpcHttpClient()
 # Unclear how to mount waku on top of gossipsub tho
 
 info "Hello there"
-# Hello world
-waitFor node1.connect("localhost", Port(8545))
+
+# portsShift=2
+waitFor node1.connect("localhost", Port(8547))
 
 let version = waitFor node1.wakuVersion()
 

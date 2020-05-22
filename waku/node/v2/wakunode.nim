@@ -171,7 +171,7 @@ proc run(config: WakuNodeConf) =
 
     # TODO: Use it to get waku version
     # Huh not printed
-    info "rpcServer started"
+    info "rpcServer started", ta=ta
 
   # TODO: Here setup a libp2p node
   # Essentially something like this in nbc/eth2_network:
