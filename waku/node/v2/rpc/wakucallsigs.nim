@@ -1,5 +1,6 @@
 # NOTE: Taken from v1, only version exists right now
 proc waku_version(): string
+proc waku_publish(message: string): bool
 
 proc waku_info(): WakuInfo
 proc waku_setMaxMessageSize(size: uint64): bool
