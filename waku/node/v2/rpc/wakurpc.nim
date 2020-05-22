@@ -4,7 +4,8 @@ import
   ../../../protocol/v2/waku_protocol,
   nimcrypto/[sysrand, hmac, sha2, pbkdf2],
   ../../v1/rpc/[rpc_types, hexstrings, key_storage],
-  ../waku_types
+  ../waku_types,
+  libp2p/protocols/pubsub/pubsub
 
 from stew/byteutils import hexToSeqByte, hexToByteArray
 
@@ -34,6 +35,16 @@ proc setupWakuRPC*(wakuProto: WakuProto, rpcsrv: RpcServer) =
     return true
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")
+
+  # TODO: Handler / Identifier logic
+  rpcsrv.rpc("waku_subscribe") do(topic: string) -> bool:
+    let wakuSub = cast[WakuSub](wakuProto.switch.pubSub.get())
+
+    # XXX: Hacky in-line handler
+    proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+      info "Hit subscribe handler", topic=topic, data=data
+
+    discard wakuSub.subscribe(topic, handler)
     return true
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")

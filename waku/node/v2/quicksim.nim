@@ -34,7 +34,11 @@ waitFor node2.connect("localhost", Port(8548))
 
 let version = waitFor node1.wakuVersion()
 
-let res = waitFor node1.wakuPost("hello world")
+proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+  debug "Hit handler", topic=topic, data=data
+
+# TODO: Implement handler logic
+let res1 = waitFor node2.wakuSubscribe("foobar")
 let res2 = waitFor node1.wakuPublish("foobar", "hello world")
 
 info "Version is", version
