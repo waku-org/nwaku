@@ -110,7 +110,7 @@ proc newWakuProto(switch: Switch): WakuProto =
   var wakuproto = WakuProto(switch: switch, codec: WakuSubCodec)
 
   proc handle(conn: Connection, proto: string) {.async, gcsafe.} =
-    let msg = cast[string](await conn.readLp())
+    let msg = cast[string](await conn.readLp(1024))
     await conn.writeLp("Hello!")
     await conn.close()
 
