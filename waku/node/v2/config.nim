@@ -91,7 +91,7 @@ type
       # defaultValue: keys.KeyPair.random().tryGet()
       # Use PrivateKey here instead
       defaultValue: PrivateKey.random(Secp256k1)
-      name: "nodekey" }: PrivateKey
+      name: "nodekey" }: CryptoResult[PrivateKey]
     # TODO: Add nodekey file option
 
     bootnodeOnly* {.
@@ -139,14 +139,16 @@ type
     # - mailserver functionality
 
 # NOTE: Keys are different in nim-libp2p
-proc parseCmdArg*(T: type PrivateKey, p: TaintedString): T =
+proc parseCmdArg*(T: type CryptoResult[PrivateKey], p: TaintedString): T =
   try:
     let key = SkPrivateKey.init(utils.fromHex(p))
+    # XXX: Here at the moment
+    # Error: type mismatch: got <SkResult[secp.SkPrivateKey]> but expected 'SkPrivateKey = distinct SkSecretKey'
     result = PrivateKey(scheme: Secp256k1, skkey: key)
   except CatchableError as e:
     raise newException(ConfigurationError, "Invalid private key")
 
-proc completeCmdArg*(T: type PrivateKey, val: TaintedString): seq[string] =
+proc completeCmdArg*(T: type CryptoResult[PrivateKey], val: TaintedString): seq[string] =
   return @[]
 
 proc parseCmdArg*(T: type IpAddress, p: TaintedString): T =
