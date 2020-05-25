@@ -136,7 +136,7 @@ proc run(config: WakuNodeConf) =
 
     # Difference between announced and host address relevant for running behind NAT, however doesn't seem like nim-libp2p supports this. GHI?
     # NOTE: This is a privatekey
-    nodekey = config.nodekey.get()
+    nodekey = config.nodekey
     seckey = nodekey
     pubkey = seckey.getKey.get()
     keys = KeyPair(seckey: seckey, pubkey: pubkey)

@@ -5,7 +5,7 @@ const
   libp2p_pubsub_verify {.booldefine.} = true
 
 import
-  options, tables, chronicles,
+  options, tables, chronicles, chronos,
   libp2p/[switch, peer, peerinfo, connection, multiaddress, crypto/crypto],
   libp2p/transports/[transport, tcptransport],
   libp2p/muxers/[muxer, mplex/mplex, mplex/types],
