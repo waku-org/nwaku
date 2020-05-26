@@ -37,6 +37,12 @@ make wakunode
 ./build/wakunode --log-level:debug --discovery:off --fleet:test --log-metrics
 ```
 
+You can also create a Docker image using:
+```bash
+make docker-image
+docker run --rm -it statusteam/nim-waku:latest --help
+```
+
 ### Waku Protocol Test Suite
 
 ```bash

@@ -10,6 +10,12 @@ SHELL := bash # the shell used internally by Make
 # used inside the included makefiles
 BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 
+# Docker image name
+DOCKER_IMAGE_TAG ?= latest
+DOCKER_IMAGE_NAME ?= statusteam/nim-waku:$(DOCKER_IMAGE_TAG)
+# Necessary to enable Prometheus HTTP endpoint for metrics
+DOCKER_IMAGE_NIM_PARAMS ?= -d:insecure
+
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
@@ -92,6 +98,15 @@ waku.nims:
 # nim-libbacktrace
 libbacktrace:
 	+ $(MAKE) -C vendor/nim-libbacktrace --no-print-directory BUILD_CXX_LIB=0
+
+# build a docker image for the fleet
+docker-image:
+	docker build \
+		--build-arg="NIM_PARAMS=$(DOCKER_IMAGE_NIM_PARAMS)" \
+		--tag $(DOCKER_IMAGE_NAME) .
+
+docker-push:
+	docker push $(DOCKER_IMAGE_NAME)
 
 # builds and runs the test suite
 test: | build deps
