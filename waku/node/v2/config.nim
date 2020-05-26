@@ -88,9 +88,7 @@ type
     # NOTE: Signature is different here, we return PrivateKey and not KeyPair
     nodekey* {.
       desc: "P2P node private key as hex.",
-      # defaultValue: keys.KeyPair.random().tryGet()
-      # Use PrivateKey here instead
-      defaultValue: PrivateKey.random(Secp256k1)
+      defaultValue: PrivateKey.random(Secp256k1).tryGet()
       name: "nodekey" }: PrivateKey
     # TODO: Add nodekey file option
 
@@ -141,7 +139,8 @@ type
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type PrivateKey, p: TaintedString): T =
   try:
-    let key = SkPrivateKey.init(utils.fromHex(p))
+    let key = SkPrivateKey.init(utils.fromHex(p)).tryGet()
+    # XXX: Here at the moment
     result = PrivateKey(scheme: Secp256k1, skkey: key)
   except CatchableError as e:
     raise newException(ConfigurationError, "Invalid private key")

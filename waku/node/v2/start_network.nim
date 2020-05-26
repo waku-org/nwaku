@@ -29,12 +29,13 @@ type
 # Ok cool so it is config.nim parseCmdArg, then use fromHex
 proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], master = false, label: string): NodeInfo =
   let
-    key = SkPrivateKey.random()
+    key = SkPrivateKey.random()[] #assumes ok
     hkey = key.getBytes().toHex()
-    rkey = SkPrivateKey.init(fromHex(hkey))
+    rkey = SkPrivateKey.init(fromHex(hkey))[] #assumes ok
     privKey = PrivateKey(scheme: Secp256k1, skkey: rkey)
     #privKey = PrivateKey.random(Secp256k1)
-    keys = KeyPair(seckey: privKey, pubkey: privKey.getKey())
+    pubkey = privKey.getKey()[] #assumes ok
+    keys = KeyPair(seckey: privKey, pubkey: pubkey)
     peerInfo = PeerInfo.init(privKey)
     # XXX
     DefaultAddr = "/ip4/127.0.0.1/tcp/55505"
