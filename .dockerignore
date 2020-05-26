@@ -1,0 +1,7 @@
+/README.md
+/Dockerfile
+/.*ignore
+/LICENSE*
+/tests
+/metrics
+**/vendor/*
