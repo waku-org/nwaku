@@ -110,7 +110,7 @@ proc newWakuProto(switch: Switch): WakuProto =
   var wakuproto = WakuProto(switch: switch, codec: WakuSubCodec)
 
   proc handle(conn: Connection, proto: string) {.async, gcsafe.} =
-    let msg = cast[string](await conn.readLp())
+    let msg = cast[string](await conn.readLp(1024))
     await conn.writeLp("Hello!")
     await conn.close()
 
@@ -137,7 +137,10 @@ proc run(config: WakuNodeConf) =
     # Difference between announced and host address relevant for running behind NAT, however doesn't seem like nim-libp2p supports this. GHI?
     # NOTE: This is a privatekey
     nodekey = config.nodekey
-    keys = KeyPair(seckey: nodekey, pubkey: nodekey.getKey())
+    seckey = nodekey
+    pubkey = seckey.getKey.get()
+    keys = KeyPair(seckey: seckey, pubkey: pubkey)
+
     peerInfo = PeerInfo.init(nodekey)
 
   info "Initializing networking (host address and announced same)", address

@@ -1,9 +1,11 @@
 # compile time options here
 const
   libp2p_secure {.strdefine.} = ""
+  libp2p_pubsub_sign {.booldefine.} = true
+  libp2p_pubsub_verify {.booldefine.} = true
 
 import
-  options, tables, chronicles,
+  options, tables, chronicles, chronos,
   libp2p/[switch, peer, peerinfo, connection, multiaddress, crypto/crypto],
   libp2p/transports/[transport, tcptransport],
   libp2p/muxers/[muxer, mplex/mplex, mplex/types],
@@ -22,16 +24,19 @@ export
 proc newStandardSwitch*(privKey = none(PrivateKey),
                         address = MultiAddress.init("/ip4/127.0.0.1/tcp/0"),
                         triggerSelf = false,
-                        gossip = false): Switch =
+                        gossip = false,
+                        verifySignature = libp2p_pubsub_verify,
+                        sign = libp2p_pubsub_sign,
+                        transportFlags: set[ServerFlags] = {}): Switch =
   info "newStandardSwitch"
   proc createMplex(conn: Connection): Muxer =
     result = newMplex(conn)
 
   let
-    seckey = privKey.get(otherwise = PrivateKey.random(ECDSA))
+    seckey = privKey.get(otherwise = PrivateKey.random(ECDSA).tryGet())
     peerInfo = PeerInfo.init(seckey, [address])
     mplexProvider = newMuxerProvider(createMplex, MplexCodec)
-    transports = @[Transport(newTransport(TcpTransport))]
+    transports = @[Transport(TcpTransport.init(transportFlags))]
     muxers = {MplexCodec: mplexProvider}.toTable
     identify = newIdentify(peerInfo)
   when libp2p_secure == "noise":
