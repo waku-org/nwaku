@@ -59,7 +59,7 @@ method subscribeTopic*(w: WakuSub,
                        topic: string,
                        subscribe: bool,
                        peerId: string) {.gcsafe.} =
-  debug "subscribeTopic"
+  debug "subscribeTopic", topic=topic, subscribe=subscribe, peerId=peerId
   procCall FloodSub(w).subscribeTopic(topic, subscribe, peerId)
 
 method handleDisconnect*(w: WakuSub, peer: PubSubPeer) {.async.} =
@@ -74,7 +74,7 @@ method rpcHandler*(w: WakuSub,
 method publish*(w: WakuSub,
                 topic: string,
                 data: seq[byte]) {.async.} =
-  debug "publish"
+  debug "publish", topic=topic
   await procCall FloodSub(w).publish(topic, data)
 
 method unsubscribe*(w: WakuSub,

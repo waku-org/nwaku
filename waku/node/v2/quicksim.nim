@@ -39,6 +39,7 @@ proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
 
 # TODO: Implement handler logic
 let res1 = waitFor node2.wakuSubscribe("foobar")
+os.sleep(2000)
 let res2 = waitFor node1.wakuPublish("foobar", "hello world")
-
+os.sleep(2000)
 info "Version is", version
