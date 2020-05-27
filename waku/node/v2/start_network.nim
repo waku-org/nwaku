@@ -21,11 +21,11 @@ type
     shift: int
     label: string
 
-# TODO: Then, setup a star network
+  Topology = enum
+    Star,
+    FullMesh
 
-# TODO: Create Node command, something like this:
-# "build/wakunode --log-level:DEBUG --log-metrics --metrics-server --rpc  --waku-topic-interest:false --nodekey:e685079b7fa34dd35d3ffb2e40ab970360e94aa7dcc1262d36a8e2320a2c08ce --ports-shift:2 --discovery:off "
-# Ok cool so it is config.nim parseCmdArg, then use fromHex
+# NOTE: Don't distinguish between node types here a la full node, light node etc
 proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], master = false, label: string): NodeInfo =
   let
     key = SkPrivateKey.random()[] #assumes ok
@@ -65,11 +65,27 @@ proc starNetwork(amount: int): seq[NodeInfo] =
   for i in 1..<amount:
     result.add(initNodeCmd(portOffset + i, @[masterNode.address], label = "full node"))
 
+proc fullMeshNetwork(amount: int): seq[NodeInfo] =
+  debug "amount", amount
+  for i in 0..<amount:
+    var staticnodes: seq[string]
+    for item in result:
+      staticnodes.add(item.address)
+      result.add(initNodeCmd(portOffset + i, staticnodes, label = "full node"))
+
 when isMainModule:
   # TODO: WakuNetworkConf
   var nodes: seq[NodeInfo]
+  let topology = Star
   let amount = 6
-  nodes = starNetwork(amount)
+
+  # XXX: For some reason Mesh hangs with multitail
+  case topology:
+    of Star:
+      nodes = starNetwork(amount)
+    of FullMesh:
+      nodes = fullMeshNetwork(amount)
+
 
   var commandStr = "multitail -s 2 -M 0 -x \"Waku Simulation\""
   var count = 0
