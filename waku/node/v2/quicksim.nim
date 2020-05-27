@@ -1,8 +1,6 @@
 import
   os, strformat, chronicles, json_rpc/[rpcclient, rpcserver], nimcrypto/sysrand,
   eth/common as eth_common, eth/keys,
-  # XXX: Replace me
-  ../../protocol/v1/waku_protocol,
   ../v1/rpc/[hexstrings, rpc_types],
   options as what # TODO: Huh? Redefinition?
 
@@ -13,17 +11,8 @@ template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 const sigWakuPath = &"{sourceDir}{DirSep}rpc{DirSep}wakucallsigs.nim"
 createRpcSigs(RpcHttpClient, sigWakuPath)
 
-# More minimal than v1 quicksim, just RPC client for now
-
 let node1 = newRpcHttpClient()
 let node2 = newRpcHttpClient()
-
-# Where do we connect nodes here? Protocol so not RPC based, maybe?
-# Using with static nodes, hardcoded "works":
-# /ip4/127.0.0.1/tcp/55505/ipfs/16Uiu2HAkufRTzUnYCMggjPaAMbC3ss1bkrjewPcjwSeqK9WgUKYu
-
-# Need to figure out rw stuff as well, perhaps we can start a few nodes and see if we get some pingpong
-# Unclear how to mount waku on top of gossipsub tho
 
 info "Hello there"
 
