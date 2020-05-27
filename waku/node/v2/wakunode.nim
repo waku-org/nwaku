@@ -1,10 +1,8 @@
 import
   confutils, config, strutils, chronos, json_rpc/rpcserver, metrics,
   chronicles/topics_registry, # TODO: What? Need this for setLoglevel, weird.
-  eth/[keys, p2p, async_utils], eth/net/nat,
-  eth/p2p/[discovery, enode, peer_pool, bootnodes, whispernodes],
-  # TODO remove me
-  ../v1/rpc/[wakusim, key_storage],
+  eth/[keys, p2p], eth/net/nat,
+  eth/p2p/[discovery, enode],
   libp2p/multiaddress,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
@@ -196,7 +194,6 @@ proc run(config: WakuNodeConf) =
   # Optionally direct connect with a set of nodes
   if config.staticnodes.len > 0: connectToNodes(wakuProto, config.staticnodes)
 
-  ### XXX: Fixup
   if config.logMetrics:
     proc logMetrics(udata: pointer) {.closure, gcsafe.} =
       {.gcsafe.}:
@@ -205,6 +202,7 @@ proc run(config: WakuNodeConf) =
           totalMessages = total_messages.value
           # NOTE: Just message volume for now, no valid/invalid envelopes
       info "Node metrics", connectedPeers, totalMessages
+      # FIXME Warning: Use setTimer/clearTimer instead; addTimer is deprecated [Deprecated]
       addTimer(Moment.fromNow(2.seconds), logMetrics)
     addTimer(Moment.fromNow(2.seconds), logMetrics)
 
