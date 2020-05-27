@@ -1,13 +1,9 @@
 import
-  json_rpc/rpcserver, tables, options,
+  json_rpc/rpcserver, options,
   eth/[common, rlp, keys, p2p],
   ../../../protocol/v2/waku_protocol,
-  nimcrypto/[sysrand, hmac, sha2, pbkdf2],
-  ../../v1/rpc/[rpc_types, hexstrings, key_storage],
-  ../waku_types,
-  libp2p/protocols/pubsub/pubsub
-
-from stew/byteutils import hexToSeqByte, hexToByteArray
+  nimcrypto/[sysrand, hmac, sha2],
+  ../waku_types
 
 # Instead of using rlpx waku_protocol here, lets do mock waku2_protocol
 # This should wrap GossipSub, not use EthereumNode here

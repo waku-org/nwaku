@@ -10,7 +10,7 @@ import
   libp2p/transports/[transport, tcptransport],
   libp2p/muxers/[muxer, mplex/mplex, mplex/types],
   libp2p/protocols/[identify, secure/secure],
-  libp2p/protocols/pubsub/[pubsub, gossipsub, floodsub],
+  libp2p/protocols/pubsub/[pubsub, gossipsub],
   ../../waku/protocol/v2/waku_protocol
 
 when libp2p_secure == "noise":

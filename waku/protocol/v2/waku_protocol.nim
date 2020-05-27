@@ -70,9 +70,10 @@ method subscribeTopic*(w: WakuSub,
   debug "subscribeTopic", topic=topic, subscribe=subscribe, peerId=peerId
   procCall FloodSub(w).subscribeTopic(topic, subscribe, peerId)
 
-# TODO: Decrement connected peers here
+# TODO: Fix decrement connected peers here or somewhere else
 method handleDisconnect*(w: WakuSub, peer: PubSubPeer) {.async.} =
   debug "handleDisconnect (NYI)"
+  #connected_peers.dec()
 
 method rpcHandler*(w: WakuSub,
                    peer: PubSubPeer,

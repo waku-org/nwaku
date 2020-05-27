@@ -3,8 +3,7 @@ import
   eth/common as eth_common, eth/keys,
   # XXX: Replace me
   ../../protocol/v1/waku_protocol,
-  ../v1/rpc/[hexstrings, rpc_types, waku],
-  rpc/wakurpc,
+  ../v1/rpc/[hexstrings, rpc_types],
   options as what # TODO: Huh? Redefinition?
 
 from os import DirSep
