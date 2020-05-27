@@ -68,7 +68,7 @@ proc starNetwork(amount: int): seq[NodeInfo] =
 when isMainModule:
   # TODO: WakuNetworkConf
   var nodes: seq[NodeInfo]
-  let amount = 2
+  let amount = 6
   nodes = starNetwork(amount)
 
   var commandStr = "multitail -s 2 -M 0 -x \"Waku Simulation\""
