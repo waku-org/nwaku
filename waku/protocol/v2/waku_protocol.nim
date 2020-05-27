@@ -11,6 +11,11 @@ import libp2p/protocols/pubsub/pubsub,
        libp2p/protocols/pubsub/rpc/[messages],
        libp2p/connection
 
+import metrics
+
+declarePublicGauge connected_peers, "number of peers in the pool" # XXX
+declarePublicGauge total_messages, "number of messages received"
+
 logScope:
     topic = "WakuSub"
 
@@ -33,6 +38,9 @@ method init(w: WakuSub) =
     ##
 
     debug "Incoming WakuSub connection"
+    # XXX: Increment connectedPeers counter, unclear if this is the right place tho
+    # Where is the disconnect event?
+    connected_peers.inc()
     await w.handleConn(conn, proto)
 
   # XXX: Handler hijack FloodSub here?
@@ -62,6 +70,7 @@ method subscribeTopic*(w: WakuSub,
   debug "subscribeTopic", topic=topic, subscribe=subscribe, peerId=peerId
   procCall FloodSub(w).subscribeTopic(topic, subscribe, peerId)
 
+# TODO: Decrement connected peers here
 method handleDisconnect*(w: WakuSub, peer: PubSubPeer) {.async.} =
   debug "handleDisconnect (NYI)"
 
@@ -69,6 +78,9 @@ method rpcHandler*(w: WakuSub,
                    peer: PubSubPeer,
                    rpcMsgs: seq[RPCMsg]) {.async.} =
   debug "rpcHandler"
+
+  # XXX: Right place?
+  total_messages.inc()
   await procCall FloodSub(w).rpcHandler(peer, rpcMsgs)
 
 method publish*(w: WakuSub,
