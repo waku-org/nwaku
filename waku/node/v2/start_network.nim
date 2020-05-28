@@ -41,7 +41,7 @@ proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], master = false, lab
     address = "/ip4/127.0.0.1/tcp/" & $port
     hostAddress = MultiAddress.init(address)
 
-  echo "ADDRESS", address
+  info "Address", address
   # TODO: Need to port shift
   peerInfo.addrs.add(hostAddress)
   let id = peerInfo.id
