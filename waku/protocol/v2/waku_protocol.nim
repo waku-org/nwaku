@@ -7,7 +7,7 @@ import strutils
 import chronos, chronicles
 import libp2p/protocols/pubsub/pubsub,
        libp2p/protocols/pubsub/pubsubpeer,
-       libp2p/protocols/pubsub/floodsub,
+       libp2p/protocols/pubsub/gossipsub,
        libp2p/protocols/pubsub/rpc/[messages],
        libp2p/connection
 
@@ -25,7 +25,7 @@ const WakuSubCodec* = "/wakusub/0.0.1"
 #const wakuVersionStr = "2.0.0-alpha1"
 
 type
-  WakuSub* = ref object of FloodSub
+  WakuSub* = ref object of GossipSub
     # XXX: just playing
     text*: string
 
@@ -43,7 +43,7 @@ method init(w: WakuSub) =
     connected_peers.inc()
     await w.handleConn(conn, proto)
 
-  # XXX: Handler hijack FloodSub here?
+  # XXX: Handler hijack GossipSub here?
   w.handler = handler
   w.codec = WakuSubCodec
 
@@ -52,7 +52,7 @@ method initPubSub*(w: WakuSub) =
   w.text = "Foobar"
   debug "w.text", text = w.text
   # XXX
-  procCall FloodSub(w).initPubSub()
+  procCall GossipSub(w).initPubSub()
   w.init()
 
 method subscribe*(w: WakuSub,
@@ -60,7 +60,7 @@ method subscribe*(w: WakuSub,
                   handler: TopicHandler) {.async.} =
   debug "subscribe", topic=topic
   # XXX: Pubsub really
-  await procCall FloodSub(w).subscribe(topic, handler)
+  await procCall GossipSub(w).subscribe(topic, handler)
 
 # Subscribing a peer to a specified topic
 method subscribeTopic*(w: WakuSub,
@@ -68,7 +68,7 @@ method subscribeTopic*(w: WakuSub,
                        subscribe: bool,
                        peerId: string) {.async, gcsafe.} =
   debug "subscribeTopic", topic=topic, subscribe=subscribe, peerId=peerId
-  await procCall FloodSub(w).subscribeTopic(topic, subscribe, peerId)
+  await procCall GossipSub(w).subscribeTopic(topic, subscribe, peerId)
 
 # TODO: Fix decrement connected peers here or somewhere else
 method handleDisconnect*(w: WakuSub, peer: PubSubPeer) {.async.} =
@@ -82,15 +82,24 @@ method rpcHandler*(w: WakuSub,
 
   # XXX: Right place?
   total_messages.inc()
-  await procCall FloodSub(w).rpcHandler(peer, rpcMsgs)
+  await procCall GossipSub(w).rpcHandler(peer, rpcMsgs)
 
 method publish*(w: WakuSub,
                 topic: string,
                 data: seq[byte]) {.async.} =
   debug "publish", topic=topic
-  await procCall FloodSub(w).publish(topic, data)
+  await procCall GossipSub(w).publish(topic, data)
 
 method unsubscribe*(w: WakuSub,
                     topics: seq[TopicPair]) {.async.} =
   debug "unsubscribe"
-  await procCall FloodSub(w).unsubscribe(topics)
+  await procCall GossipSub(w).unsubscribe(topics)
+
+# GossipSub specific methods
+method start*(w: WakuSub) {.async.} =
+  debug "start"
+  await procCall GossipSub(w).start()
+
+method stop*(w: WakuSub) {.async.} =
+  debug "stop"
+  await procCall GossipSub(w).stop()
