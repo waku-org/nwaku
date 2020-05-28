@@ -19,12 +19,12 @@ type
 
     tcpPort* {.
       desc: "TCP listening port."
-      defaultValue: 30303
+      defaultValue: 60000
       name: "tcp-port" }: uint16
 
     udpPort* {.
       desc: "UDP listening port."
-      defaultValue: 30303
+      defaultValue: 60000
       name: "udp-port" }: uint16
 
     portsShift* {.

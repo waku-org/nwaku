@@ -36,10 +36,13 @@ proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], master = false, lab
     pubkey = privKey.getKey()[] #assumes ok
     keys = KeyPair(seckey: privKey, pubkey: pubkey)
     peerInfo = PeerInfo.init(privKey)
-    # XXX
-    DefaultAddr = "/ip4/127.0.0.1/tcp/55505"
-    hostAddress = MultiAddress.init(DefaultAddr)
+    port = 60000 + shift
+    #DefaultAddr = "/ip4/127.0.0.1/tcp/55505"
+    address = "/ip4/127.0.0.1/tcp/" & $port
+    hostAddress = MultiAddress.init(address)
 
+  echo "ADDRESS", address
+  # TODO: Need to port shift
   peerInfo.addrs.add(hostAddress)
   let id = peerInfo.id
 
@@ -85,15 +88,24 @@ when isMainModule:
     of FullMesh:
       nodes = fullMeshNetwork(amount)
 
+  var staticnodes: seq[string]
+  for i in 0..<amount:
+    # TODO: could also select nodes randomly
+    staticnodes.add(nodes[i].address)
+
+  # TODO: Here we could add a light node, but not clear thats what we want to test?
 
   var commandStr = "multitail -s 2 -M 0 -x \"Waku Simulation\""
   var count = 0
   var sleepDuration = 0
   for node in nodes:
-    #if conf.topology in {Star, DiscoveryBased}:
-    sleepDuration = if node.master: 0
-                    else: 1
+    if topology in {Star}: #DiscoveryBased
+      sleepDuration = if node.master: 0
+                      else: 1
     commandStr &= &" -cT ansi -t 'node #{count} {node.label}' -l 'sleep {sleepDuration}; {node.cmd}; echo [node execution completed]; while true; do sleep 100; done'"
+    if topology == FullMesh:
+      sleepDuration += 1
+      count += 1
 
   let errorCode = execCmd(commandStr)
   if errorCode != 0:
