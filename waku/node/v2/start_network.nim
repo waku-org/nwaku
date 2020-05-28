@@ -71,15 +71,14 @@ proc fullMeshNetwork(amount: int): seq[NodeInfo] =
     var staticnodes: seq[string]
     for item in result:
       staticnodes.add(item.address)
-      result.add(initNodeCmd(portOffset + i, staticnodes, label = "full node"))
+    result.add(initNodeCmd(portOffset + i, staticnodes, label = "full node"))
 
 when isMainModule:
   # TODO: WakuNetworkConf
   var nodes: seq[NodeInfo]
-  let topology = Star
+  let topology = FullMesh
   let amount = 6
 
-  # XXX: For some reason Mesh hangs with multitail
   case topology:
     of Star:
       nodes = starNetwork(amount)
