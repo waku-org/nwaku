@@ -125,13 +125,13 @@ proc run(config: WakuNodeConf) =
   let
     # External TCP and UDP ports
     (ip, tcpPort, udpPort) = setupNat(config)
-    address = Address(ip: ip, tcpPort: tcpPort, udpPort: udpPort)
+    nat_address = Address(ip: ip, tcpPort: tcpPort, udpPort: udpPort)
+    #port = 60000 + tcpPort
+    #DefaultAddr = "/ip4/127.0.0.1/tcp/55505"
+    address = "/ip4/127.0.0.1/tcp/" & $tcpPort
+    hostAddress = MultiAddress.init(address)
 
-    port = tcpPort
-    # Using this for now
-    DefaultAddr = "/ip4/127.0.0.1/tcp/55505"
-    hostAddress = MultiAddress.init(DefaultAddr)
-
+    # XXX: Address and hostAddress usage needs more clarity
     # Difference between announced and host address relevant for running behind NAT, however doesn't seem like nim-libp2p supports this. GHI?
     # NOTE: This is a privatekey
     nodekey = config.nodekey
@@ -141,28 +141,10 @@ proc run(config: WakuNodeConf) =
 
     peerInfo = PeerInfo.init(nodekey)
 
-  info "Initializing networking (host address and announced same)", address
+  #INF 2020-05-28 11:15:50+08:00 Initializing networking (host address and announced same) tid=15555 address=192.168.1.101:30305:30305
+  info "Initializing networking (nat address unused)", nat_address, address
+  peerInfo.addrs.add(Multiaddress.init(address))
 
-  peerInfo.addrs.add(Multiaddress.init(DefaultAddr))
-
-  # TODO: Here setup a libp2p node
-  # Essentially something like this in nbc/eth2_network:
-  # proc createEth2Node*(conf: BeaconNodeConf): Future[Eth2Node]
-  # TODO: Also see beacon_chain/beaconnode, RPC server etc
-  # Also probably start with floodsub for simplicity
-  # Slice it up only minimal parts here
-  # HERE ATM
-  # config.nodekey = KeyPair.random().tryGet()
-  # address = set above; ip, tcp and udp port (incl NAT)
-  # clientId = "Nimbus waku node"
-  #let network = await createLibP2PNode(conf) # doing in-line
-  # let rpcServer ...
-
-  # Is it a "Standard" Switch? Assume it is for now
-  # NOTE: This should be WakuSub here
-
-  # XXX: Do we want to use this wakuProto? Or Switch?
-  # We need access to the WakuSub thing
   # switch.pubsub = wakusub, plus all the peer info etc
   # And it has wakuProto lets use wakuProto maybe, cause it has switch
   var switch = newStandardSwitch(some keys.seckey, hostAddress, triggerSelf = true, gossip = false)
