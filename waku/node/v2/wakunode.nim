@@ -51,20 +51,14 @@ proc dialPeer(p: WakuProto, address: string) {.async.} =
   # Isn't there just one p instance? Why connected here?
   p.connected = true
 
-# TODO: Connect to multiple static nodes
 proc connectToNodes(p: WakuProto, nodes: openArray[string]) =
-  let peerInfoStr = nodes[0]
-  info "connectToNodes", node = peerInfoStr
-
-  # XXX: Why is ipfs being replaced by p2p here?
-  # Whats difference here? We don't have Whisper enodes etc
-  discard dialPeer(p, peerInfoStr)
-#  for nodeId in nodes:
-#    info "connectToNodes nodeid", nodeId
-#    # TODO: something more user friendly than an assert
-#    let whisperENode = ENode.fromString(nodeId).expect("correct node")
-#
-#    traceAsyncErrors node.peerPool.connectToNode(newNode(whisperENode))
+  for nodeId in nodes:
+    info "connectToNodes", node = nodeId
+    # XXX: This seems...brittle
+    discard dialPeer(p, nodeId)
+    # Waku 1
+    #    let whisperENode = ENode.fromString(nodeId).expect("correct node")
+    #    traceAsyncErrors node.peerPool.connectToNode(newNode(whisperENode))
 
 # NOTE: Looks almost identical to beacon_chain/eth2_network.nim
 proc setupNat(conf: WakuNodeConf): tuple[ip: IpAddress,
