@@ -66,9 +66,9 @@ method subscribe*(w: WakuSub,
 method subscribeTopic*(w: WakuSub,
                        topic: string,
                        subscribe: bool,
-                       peerId: string) {.gcsafe.} =
+                       peerId: string) {.async, gcsafe.} =
   debug "subscribeTopic", topic=topic, subscribe=subscribe, peerId=peerId
-  procCall FloodSub(w).subscribeTopic(topic, subscribe, peerId)
+  await procCall FloodSub(w).subscribeTopic(topic, subscribe, peerId)
 
 # TODO: Fix decrement connected peers here or somewhere else
 method handleDisconnect*(w: WakuSub, peer: PubSubPeer) {.async.} =
