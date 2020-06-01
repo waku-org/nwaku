@@ -39,7 +39,7 @@ proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], master = false, lab
     port = 60000 + shift
     #DefaultAddr = "/ip4/127.0.0.1/tcp/55505"
     address = "/ip4/127.0.0.1/tcp/" & $port
-    hostAddress = MultiAddress.init(address)
+    hostAddress = MultiAddress.init(address).tryGet()
 
   info "Address", address
   # TODO: Need to port shift
