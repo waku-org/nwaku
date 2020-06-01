@@ -30,11 +30,11 @@ proc setBootNodes(nodes: openArray[string]): seq[ENode] =
     result.add(ENode.fromString(nodeId).expect("correct node"))
 
 proc initAddress(T: type MultiAddress, str: string): T =
-  let address = MultiAddress.init(str)
+  let address = MultiAddress.init(str).tryGet()
   if IPFS.match(address) and matchPartial(multiaddress.TCP, address):
     result = address
   else:
-    raise newException(MultiAddressError,
+    raise newException(ValueError,
                        "Invalid bootstrap node multi-address")
 
 proc dialPeer(p: WakuProto, address: string) {.async.} =
@@ -123,7 +123,7 @@ proc run(config: WakuNodeConf) =
     #port = 60000 + tcpPort
     #DefaultAddr = "/ip4/127.0.0.1/tcp/55505"
     address = "/ip4/127.0.0.1/tcp/" & $tcpPort
-    hostAddress = MultiAddress.init(address)
+    hostAddress = MultiAddress.init(address).tryGet()
 
     # XXX: Address and hostAddress usage needs more clarity
     # Difference between announced and host address relevant for running behind NAT, however doesn't seem like nim-libp2p supports this. GHI?
@@ -137,7 +137,7 @@ proc run(config: WakuNodeConf) =
 
   #INF 2020-05-28 11:15:50+08:00 Initializing networking (host address and announced same) tid=15555 address=192.168.1.101:30305:30305
   info "Initializing networking (nat address unused)", nat_address, address
-  peerInfo.addrs.add(Multiaddress.init(address))
+  peerInfo.addrs.add(Multiaddress.init(address).tryGet())
 
   # switch.pubsub = wakusub, plus all the peer info etc
   # And it has wakuProto lets use wakuProto maybe, cause it has switch
