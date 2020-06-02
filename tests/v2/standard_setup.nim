@@ -24,7 +24,6 @@ export
 proc newStandardSwitch*(privKey = none(PrivateKey),
                         address = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet(),
                         triggerSelf = false,
-                        gossip = false,
                         verifySignature = libp2p_pubsub_verify,
                         sign = libp2p_pubsub_sign,
                         transportFlags: set[ServerFlags] = {}): Switch =
@@ -43,14 +42,7 @@ proc newStandardSwitch*(privKey = none(PrivateKey),
     let secureManagers = {NoiseCodec: newNoise(seckey).Secure}.toTable
   else:
     let secureManagers = {SecioCodec: newSecio(seckey).Secure}.toTable
-  let pubSub = if gossip:
-                 PubSub newPubSub(GossipSub, peerInfo, triggerSelf)
-               else:
-                 # Creating switch from generate node
-                 # XXX: Hacky test, hijacking WakuSub here
-                 debug "Using WakuSub here"
-                 #PubSub newPubSub(FloodSub, peerInfo, triggerSelf)
-                 PubSub newPubSub(WakuSub, peerInfo, triggerSelf)
+  let pubSub = PubSub newPubSub(WakuSub, peerInfo, triggerSelf)
 
   result = newSwitch(peerInfo,
                      transports,
