@@ -9,7 +9,7 @@ import
 import strutils except fromHex
 
 const
-  defaults ="--log-level:DEBUG --log-metrics --metrics-server --rpc"
+  defaults ="--log-level:TRACE --log-metrics --metrics-server --rpc"
   wakuNodeBin = "build" / "wakunode"
   portOffset = 2
 
