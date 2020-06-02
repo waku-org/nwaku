@@ -1,5 +1,5 @@
 import
-  os, strformat, chronicles, json_rpc/[rpcclient, rpcserver], nimcrypto/sysrand,
+  os, strutils, strformat, chronicles, json_rpc/[rpcclient, rpcserver], nimcrypto/sysrand,
   eth/common as eth_common, eth/keys,
   options
   #options as what # TODO: Huh? Redefinition?
@@ -64,11 +64,14 @@ waitFor nodeb.connect("localhost", Port(8546))
 let version = waitFor nodea.wakuVersion()
 info "Version is", version
 
+# XXX: Unclear if we want nodea to subscribe to own topic or not
 let res1 = waitFor nodea.wakuSubscribe("foobar")
 let res2 = waitFor nodeb.wakuSubscribe("foobar")
 
 os.sleep(2000)
 
+# XXX: Where is hello world tho?
 for i in 0..<topicAmount:
   os.sleep(50)
-  let res3 = waitFor nodea.wakuPublish("foobar", "hello world")
+  var s = "hello " & $2
+  var res3 = waitFor nodea.wakuPublish("foobar", s)
