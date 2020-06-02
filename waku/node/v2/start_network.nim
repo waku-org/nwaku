@@ -94,6 +94,14 @@ when isMainModule:
     staticnodes.add(nodes[i].address)
 
   # TODO: Here we could add a light node, but not clear thats what we want to test?
+  # Lets call them edge nodes
+  # NOTE: Only connecting to one node here
+  var nodesubseta: seq[string]
+  var nodesubsetb: seq[string]
+  nodesubseta.add(staticnodes[0])
+  nodesubsetb.add(staticnodes[amount-1])
+  nodes.add(initNodeCmd(0, nodesubseta, label = "edge node (A)"))
+  nodes.add(initNodeCmd(1, nodesubsetb, label = "edge node (B)"))
 
   var commandStr = "multitail -s 2 -M 0 -x \"Waku Simulation\""
   var count = 0
