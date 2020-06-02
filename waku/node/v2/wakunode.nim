@@ -141,7 +141,7 @@ proc run(config: WakuNodeConf) =
 
   # switch.pubsub = wakusub, plus all the peer info etc
   # And it has wakuProto lets use wakuProto maybe, cause it has switch
-  var switch = newStandardSwitch(some keys.seckey, hostAddress, triggerSelf = true, gossip = false)
+  var switch = newStandardSwitch(some keys.seckey, hostAddress, triggerSelf = true)
   let wakuProto = newWakuProto(switch)
   switch.mount(wakuProto)
 
