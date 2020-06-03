@@ -70,22 +70,36 @@ method subscribe*(w: WakuSub,
   debug "subscribe", topic=topic
   # XXX: Pubsub really
 
+  # XXX: This is what is called, I think
   if w.gossip_enabled:
     await procCall GossipSub(w).subscribe(topic, handler)
   else:
     await procCall FloodSub(w).subscribe(topic, handler)
+
 
 # Subscribing a peer to a specified topic
 method subscribeTopic*(w: WakuSub,
                        topic: string,
                        subscribe: bool,
                        peerId: string) {.async, gcsafe.} =
+  proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+    info "Hit NOOP handler", topic
+
   debug "subscribeTopic", topic=topic, subscribe=subscribe, peerId=peerId
 
   if w.gossip_enabled:
     await procCall GossipSub(w).subscribeTopic(topic, subscribe, peerId)
   else:
     await procCall FloodSub(w).subscribeTopic(topic, subscribe, peerId)
+
+  # XXX: This should distingish light and etc node
+  # NOTE: Relay subscription
+  # TODO: If peer is light node
+  info "about to call subscribe"
+  await w.subscribe(topic, handler)
+
+
+
 
 # TODO: Fix decrement connected peers here or somewhere else
 method handleDisconnect*(w: WakuSub, peer: PubSubPeer) {.async.} =
@@ -104,6 +118,7 @@ method rpcHandler*(w: WakuSub,
     await procCall GossipSub(w).rpcHandler(peer, rpcMsgs)
   else:
     await procCall FloodSub(w).rpcHandler(peer, rpcMsgs)
+  # XXX: here
 
 method publish*(w: WakuSub,
                 topic: string,
