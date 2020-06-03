@@ -68,6 +68,16 @@ info "Version is", version
 let res1 = waitFor nodea.wakuSubscribe("foobar")
 let res2 = waitFor nodeb.wakuSubscribe("foobar")
 
+
+# Node 00 and 05 also subscribe
+# XXX I confirm this works. Now to tweak it!
+let node0 = newRpcHttpClient()
+let node5 = newRpcHttpClient()
+waitFor node0.connect("localhost", Port(8547))
+waitFor node5.connect("localhost", Port(8552))
+let res4 = waitFor node0.wakuSubscribe("foobar")
+let res5 = waitFor node5.wakuSubscribe("foobar")
+
 os.sleep(2000)
 
 # XXX: Where is hello world tho?
