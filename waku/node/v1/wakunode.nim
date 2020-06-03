@@ -62,9 +62,6 @@ proc setupNat(conf: WakuNodeConf): tuple[ip: IpAddress,
         (result.tcpPort, result.udpPort) = extPorts.get()
 
 proc run(config: WakuNodeConf) =
-  if config.logLevel != LogLevel.NONE:
-    setLogLevel(config.logLevel)
-
   let
     (ip, tcpPort, udpPort) = setupNat(config)
     address = Address(ip: ip, tcpPort: tcpPort, udpPort: udpPort)
@@ -150,4 +147,12 @@ proc run(config: WakuNodeConf) =
 
 when isMainModule:
   let conf = WakuNodeConf.load()
-  run(conf)
+
+  if conf.logLevel != LogLevel.NONE:
+    setLogLevel(conf.logLevel)
+
+  case conf.cmd
+  of genNodekey:
+    echo PrivateKey.random().expect("Enough randomness to generate a key")
+  of noCommand:
+    run(conf)
