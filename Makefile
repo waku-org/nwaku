@@ -13,8 +13,9 @@ BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 # Docker image name
 DOCKER_IMAGE_TAG ?= latest
 DOCKER_IMAGE_NAME ?= statusteam/nim-waku:$(DOCKER_IMAGE_TAG)
-# Necessary to enable Prometheus HTTP endpoint for metrics
-DOCKER_IMAGE_NIM_PARAMS ?= -d:insecure
+# -d:insecure - Necessary to enable Prometheus HTTP endpoint for metrics
+# -d:chronicles_colors:none - Necessary to disable colors in logs for Docker
+DOCKER_IMAGE_NIM_PARAMS ?= -d:chronicles_colors:none -d:insecure
 
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
