@@ -1,15 +1,14 @@
 import
-  unittest, strformat, options, stew/byteutils, json_rpc/[rpcserver, rpcclient],
+  unittest, strformat, options, os, stew/byteutils,
+  json_rpc/[rpcserver, rpcclient],
   eth/common as eth_common, eth/[rlp, keys, p2p],
   ../../waku/protocol/v1/waku_protocol,
   ../../waku/node/v1/rpc/[hexstrings, rpc_types, waku, key_storage],
   ./test_helpers
 
-from os import DirSep, ParDir
-
 ## Generate client convenience marshalling wrappers from forward declarations
 ## For testing, ethcallsigs needs to be kept in sync with ../waku/node/v1/rpc/waku
-const sigPath = &"{sourceDir}{DirSep}{ParDir}{DirSep}{ParDir}{DirSep}waku{DirSep}node{DirSep}v1{DirSep}rpc{DirSep}wakucallsigs.nim"
+const sigPath = sourceDir / ParDir / ParDir / "waku" / "node" / "v1" / "rpc" / "wakucallsigs.nim"
 createRpcSigs(RpcSocketClient, sigPath)
 
 proc setupNode(capabilities: varargs[ProtocolInfo, `protocolInfo`]): EthereumNode =
