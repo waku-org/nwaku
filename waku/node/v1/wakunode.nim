@@ -128,18 +128,11 @@ proc run(config: WakuNodeConf) =
     proc logMetrics(udata: pointer) {.closure, gcsafe.} =
       {.gcsafe.}:
         let
-          connectedPeers = connected_peers.value
-          validEnvelopes = waku_protocol.valid_envelopes.value
-          invalidEnvelopes = waku_protocol.dropped_expired_envelopes.value +
-            waku_protocol.dropped_from_future_envelopes.value +
-            waku_protocol.dropped_low_pow_envelopes.value +
-            waku_protocol.dropped_too_large_envelopes.value +
-            waku_protocol.dropped_bloom_filter_mismatch_envelopes.value +
-            waku_protocol.dropped_topic_mismatch_envelopes.value +
-            waku_protocol.dropped_benign_duplicate_envelopes.value +
-            waku_protocol.dropped_duplicate_envelopes.value
+          connectedPeers = connected_peers
+          validEnvelopes = waku_protocol.envelopes_valid
+          droppedEnvelopes = waku_protocol.envelopes_dropped
 
-      info "Node metrics", connectedPeers, validEnvelopes, invalidEnvelopes
+      info "Node metrics", connectedPeers, validEnvelopes, droppedEnvelopes
       addTimer(Moment.fromNow(2.seconds), logMetrics)
     addTimer(Moment.fromNow(2.seconds), logMetrics)
 

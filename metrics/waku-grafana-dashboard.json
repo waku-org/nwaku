@@ -15,28 +15,23 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 8,
+  "id": 2,
   "links": [],
   "panels": [
     {
       "datasource": null,
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 0,
-        "y": 0
-      },
-      "id": 16,
-      "options": {
-        "fieldOptions": {
-          "calcs": [
-            "last"
-          ],
-          "defaults": {
-            "mappings": [],
-            "max": 100,
-            "min": 0,
-            "thresholds": [
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {},
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
               {
                 "color": "green",
                 "value": null
@@ -46,15 +41,30 @@
                 "value": 80
               }
             ]
-          },
-          "override": {},
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 16,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "fields": "",
           "values": false
         },
-        "orientation": "auto",
         "showThresholdLabels": false,
         "showThresholdMarkers": true
       },
-      "pluginVersion": "6.4.5",
+      "pluginVersion": "7.0.3",
       "targets": [
         {
           "expr": "connected_peers{node=\"0\"}",
@@ -76,6 +86,12 @@
         "#d44a3a"
       ],
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "format": "none",
       "gauge": {
         "maxValue": 100,
@@ -107,7 +123,6 @@
       "maxDataPoints": 100,
       "nullPointMode": "connected",
       "nullText": null,
-      "options": {},
       "postfix": "",
       "postfixFontSize": "50%",
       "prefix": "",
@@ -127,10 +142,12 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "",
+      "tableColumn": "envelopes_valid_total{instance=\"127.0.0.1:8010\", job=\"wakusim\", node=\"0\"}",
       "targets": [
         {
-          "expr": "valid_envelopes_total{node=\"0\"}",
+          "expr": "envelopes_valid_total{node=\"0\"}",
+          "interval": "",
+          "legendFormat": "",
           "refId": "A"
         }
       ],
@@ -159,6 +176,12 @@
         "#d44a3a"
       ],
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "format": "none",
       "gauge": {
         "maxValue": 100,
@@ -190,7 +213,6 @@
       "maxDataPoints": 100,
       "nullPointMode": "connected",
       "nullText": null,
-      "options": {},
       "pluginVersion": "6.4.5",
       "postfix": "",
       "postfixFontSize": "50%",
@@ -211,18 +233,19 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "",
+      "tableColumn": "Dropped envelopes",
       "targets": [
         {
-          "expr": "dropped_expired_envelopes_total{node=\"0\"} + dropped_from_future_envelopes_total{node=\"0\"} + dropped_low_pow_envelopes_total{node=\"0\"} + dropped_too_large_envelopes_total{node=\"0\"} + dropped_bloom_filter_mismatch_envelopes_total{node=\"0\"} + dropped_topic_mismatch_envelopes_total{node=\"0\"} +dropped_benign_duplicate_envelopes_total{node=\"0\"} + dropped_duplicate_envelopes_total{node=\"0\"}",
-          "legendFormat": "Invalid envelopes",
+          "expr": "sum(envelopes_dropped_total{node=\"0\"})",
+          "interval": "",
+          "legendFormat": "Dropped envelopes",
           "refId": "A"
         }
       ],
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "Invalid Envelopes #0",
+      "title": "Dropped Envelopes #0",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -236,23 +259,18 @@
     },
     {
       "datasource": null,
-      "gridPos": {
-        "h": 4,
-        "w": 5,
-        "x": 14,
-        "y": 0
-      },
-      "id": 14,
-      "options": {
-        "fieldOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "defaults": {
-            "mappings": [],
-            "max": 200,
-            "min": 0,
-            "thresholds": [
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {},
+          "mappings": [],
+          "max": 200,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
               {
                 "color": "green",
                 "value": null
@@ -261,17 +279,32 @@
                 "color": "red",
                 "value": 200
               }
-            ],
-            "unit": "percent"
+            ]
           },
-          "override": {},
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 14,
+        "y": 0
+      },
+      "id": 14,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
           "values": false
         },
-        "orientation": "auto",
         "showThresholdLabels": false,
         "showThresholdMarkers": true
       },
-      "pluginVersion": "6.4.5",
+      "pluginVersion": "7.0.3",
       "targets": [
         {
           "expr": "rate(process_cpu_seconds_total{node=\"0\"}[5s]) * 100",
@@ -286,23 +319,18 @@
     },
     {
       "datasource": null,
-      "gridPos": {
-        "h": 4,
-        "w": 5,
-        "x": 19,
-        "y": 0
-      },
-      "id": 18,
-      "options": {
-        "fieldOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "defaults": {
-            "mappings": [],
-            "max": 2147483648,
-            "min": 0,
-            "thresholds": [
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {},
+          "mappings": [],
+          "max": 2147483648,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
               {
                 "color": "green",
                 "value": null
@@ -311,17 +339,32 @@
                 "color": "red",
                 "value": 2147483648
               }
-            ],
-            "unit": "bytes"
+            ]
           },
-          "override": {},
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 19,
+        "y": 0
+      },
+      "id": 18,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
           "values": false
         },
-        "orientation": "auto",
         "showThresholdLabels": false,
         "showThresholdMarkers": true
       },
-      "pluginVersion": "6.4.5",
+      "pluginVersion": "7.0.3",
       "targets": [
         {
           "expr": "process_resident_memory_bytes{node=\"0\"}",
@@ -339,6 +382,12 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
@@ -347,6 +396,7 @@
         "x": 0,
         "y": 4
       },
+      "hiddenSeries": false,
       "id": 6,
       "legend": {
         "avg": false,
@@ -374,72 +424,20 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "valid_envelopes_total{node=\"0\"}",
+          "expr": "envelopes_valid_total{node=\"0\"}",
           "hide": false,
           "instant": false,
+          "interval": "",
           "legendFormat": "Valid",
           "refId": "A"
         },
         {
-          "expr": "dropped_benign_duplicate_envelopes_total{node=\"0\"}",
+          "expr": "envelopes_dropped_total{node=\"0\"}",
           "hide": false,
           "instant": false,
-          "legendFormat": "Benign duplicate",
+          "interval": "",
+          "legendFormat": "Dropped {{reason}}",
           "refId": "B"
-        },
-        {
-          "expr": "dropped_duplicate_envelopes_total{node=\"0\"}",
-          "hide": false,
-          "legendFormat": "Duplicate",
-          "refId": "C"
-        },
-        {
-          "expr": "dropped_expired_envelopes_total{node=\"0\"}",
-          "hide": false,
-          "legendFormat": "Expired",
-          "refId": "D"
-        },
-        {
-          "expr": "dropped_from_future_envelopes_total{node=\"0\"}",
-          "hide": false,
-          "legendFormat": "Future timestamped",
-          "refId": "E"
-        },
-        {
-          "expr": "dropped_low_pow_envelopes_total{node=\"0\"}",
-          "hide": false,
-          "legendFormat": "Too low PoW",
-          "refId": "F"
-        },
-        {
-          "expr": "dropped_bloom_filter_mismatch_envelopes_total{node=\"0\"}",
-          "hide": false,
-          "legendFormat": "Bloom filter mismatch",
-          "refId": "G"
-        },
-        {
-          "expr": "dropped_topic_mismatch_envelopes_total{node=\"0\"}",
-          "hide": false,
-          "legendFormat": "Topic mismatch",
-          "refId": "H"
-        },
-        {
-          "expr": "dropped_too_large_envelopes_total{node=\"0\"}",
-          "hide": false,
-          "legendFormat": "Too Large",
-          "refId": "I"
-        },
-        {
-          "expr": "dropped_full_queue_new_envelopes_total{node=\"0\"}",
-          "hide": false,
-          "legendFormat": "Full queue new",
-          "refId": "J"
-        },
-        {
-          "expr": "dropped_full_queue_old_envelopes_total{node=\"0\"}",
-          "hide": false,
-          "legendFormat": "Full queue old",
-          "refId": "K"
         }
       ],
       "thresholds": [],
@@ -489,6 +487,12 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
@@ -497,6 +501,7 @@
         "x": 12,
         "y": 4
       },
+      "hiddenSeries": false,
       "id": 2,
       "legend": {
         "avg": false,
@@ -593,6 +598,12 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
@@ -601,6 +612,7 @@
         "x": 0,
         "y": 13
       },
+      "hiddenSeries": false,
       "id": 8,
       "legend": {
         "avg": false,
@@ -684,6 +696,12 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
@@ -692,6 +710,7 @@
         "x": 12,
         "y": 13
       },
+      "hiddenSeries": false,
       "id": 4,
       "legend": {
         "avg": false,
@@ -781,7 +800,7 @@
     }
   ],
   "refresh": "5s",
-  "schemaVersion": 20,
+  "schemaVersion": 25,
   "style": "dark",
   "tags": [],
   "templating": {
@@ -793,7 +812,6 @@
   },
   "timepicker": {
     "refresh_intervals": [
-      "5s",
       "10s",
       "30s",
       "1m",
@@ -806,7 +824,7 @@
     ]
   },
   "timezone": "",
-  "title": "Waku Node",
+  "title": "Waku Node2",
   "uid": "K7Z6IoBZk",
-  "version": 2
+  "version": 5
 }

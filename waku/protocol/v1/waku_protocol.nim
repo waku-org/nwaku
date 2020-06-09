@@ -48,17 +48,6 @@ export
 logScope:
   topics = "waku"
 
-declarePublicCounter dropped_low_pow_envelopes,
-  "Dropped envelopes because of too low PoW"
-declarePublicCounter dropped_too_large_envelopes,
-  "Dropped envelopes because larger than maximum allowed size"
-declarePublicCounter dropped_bloom_filter_mismatch_envelopes,
-  "Dropped envelopes because not matching with bloom filter"
-declarePublicCounter dropped_topic_mismatch_envelopes,
-  "Dropped envelopes because of not matching topics"
-declarePublicCounter dropped_duplicate_envelopes,
-  "Dropped duplicate envelopes"
-
 const
   defaultQueueCapacity = 2048
   wakuVersion* = 1 ## Waku version.
@@ -191,23 +180,23 @@ proc allowed*(msg: Message, config: WakuConfig): bool =
   # Check max msg size, already happens in RLPx but there is a specific waku
   # max msg size which should always be < RLPx max msg size
   if msg.size > config.maxMsgSize:
-    dropped_too_large_envelopes.inc()
+    envelopes_dropped.inc(labelValues = ["too_large"])
     warn "Message size too large", size = msg.size
     return false
 
   if msg.pow < config.powRequirement:
-    dropped_low_pow_envelopes.inc()
+    envelopes_dropped.inc(labelValues = ["low_pow"])
     warn "Message PoW too low", pow = msg.pow, minPow = config.powRequirement
     return false
 
   if config.topics.isSome():
     if msg.env.topic notin config.topics.get():
-      dropped_topic_mismatch_envelopes.inc()
+      envelopes_dropped.inc(labelValues = ["topic_mismatch"])
       warn "Message topic does not match Waku topic list"
       return false
   else:
     if config.bloom.isSome() and not bloomFilterMatch(config.bloom.get(), msg.bloom):
-      dropped_bloom_filter_mismatch_envelopes.inc()
+      envelopes_dropped.inc(labelValues = ["bloom_filter_mismatch"])
       warn "Message does not match node bloom filter"
       return false
 
@@ -314,7 +303,7 @@ p2pProtocol Waku(version = wakuVersion,
       # this node to a peer and that same message arriving from that peer (after
       # it was received from another peer) here.
       if peer.state.received.containsOrIncl(msg.hash):
-        dropped_duplicate_envelopes.inc()
+        envelopes_dropped.inc(labelValues = ["duplicate"])
         trace "Peer sending duplicate messages", peer, hash = $msg.hash
         # await peer.disconnect(SubprotocolReason)
         continue
