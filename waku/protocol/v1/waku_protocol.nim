@@ -289,6 +289,8 @@ p2pProtocol Waku(version = wakuVersion,
         # await peer.disconnect(SubprotocolReason)
         continue
 
+      peer.state.accounting.received += 1
+
       let msg = initMessage(envelope)
       if not msg.allowed(peer.networkState.config):
         # disconnect from peers sending bad envelopes
