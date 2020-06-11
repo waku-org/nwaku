@@ -102,6 +102,10 @@ type
     rateLimits*: Option[RateLimits]
     topicInterest*: Option[seq[Topic]]
 
+  Accounting* = object
+    sent*: uint
+    received*: uint
+
   KeyKind* = enum
     powRequirementKey,
     bloomFilterKey,
@@ -381,6 +385,7 @@ proc processQueue(peer: Peer) =
     envelopes: seq[Envelope] = @[]
     wakuPeer = peer.state(Waku)
     wakuNet = peer.networkState(Waku)
+    account: Accounting = Accounting(sent: 0, received: 0)
 
   for message in wakuNet.queue.items:
     if wakuPeer.received.contains(message.hash):
@@ -403,6 +408,7 @@ proc processQueue(peer: Peer) =
 
     trace "Adding envelope"
     envelopes.add(message.env)
+    account.received += 1
     wakuPeer.received.incl(message.hash)
 
   if envelopes.len() > 0:
