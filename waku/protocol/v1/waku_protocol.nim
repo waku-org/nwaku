@@ -71,6 +71,10 @@ type
     rateLimits*: Option[RateLimits]
     topics*: Option[seq[Topic]]
 
+  Accounting* = ref object
+    sent*: uint
+    received*: uint
+
   WakuPeer = ref object
     initialized: bool # when successfully completed the handshake
     powRequirement*: float64
@@ -79,6 +83,7 @@ type
     trusted*: bool
     topics*: Option[seq[Topic]]
     received: HashSet[Hash]
+    accounting*: Accounting
 
   P2PRequestHandler* = proc(peer: Peer, envelope: Envelope) {.gcsafe.}
 
@@ -101,10 +106,6 @@ type
     confirmationsEnabled*: Option[bool]
     rateLimits*: Option[RateLimits]
     topicInterest*: Option[seq[Topic]]
-
-  Accounting* = object
-    sent*: uint
-    received*: uint
 
   KeyKind* = enum
     powRequirementKey,
@@ -385,7 +386,6 @@ proc processQueue(peer: Peer) =
     envelopes: seq[Envelope] = @[]
     wakuPeer = peer.state(Waku)
     wakuNet = peer.networkState(Waku)
-    account: Accounting = Accounting(sent: 0, received: 0)
 
   for message in wakuNet.queue.items:
     if wakuPeer.received.contains(message.hash):
@@ -408,7 +408,7 @@ proc processQueue(peer: Peer) =
 
     trace "Adding envelope"
     envelopes.add(message.env)
-    account.received += 1
+    wakuPeer.accounting.sent += 1
     wakuPeer.received.incl(message.hash)
 
   if envelopes.len() > 0:
