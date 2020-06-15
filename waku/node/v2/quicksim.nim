@@ -28,12 +28,24 @@ for i in 0..<amount:
 
 os.sleep(2000)
 
-# TODO: Show plaintext message in log
+# # TODO: Show plaintext message in log
+# for i in 0..<topicAmount:
+#   os.sleep(50)
+#   # TODO: This would then publish on a subtopic here
+#   var s = "hello " & $2
+#   var res3 = waitFor nodes[0].wakuPublish("waku", s)
+
+# Scenario xx3 - same as xx1 but publish from multiple nodes
+# To compare FloodSub and GossipSub factor
 for i in 0..<topicAmount:
   os.sleep(50)
   # TODO: This would then publish on a subtopic here
   var s = "hello " & $2
-  var res3 = waitFor nodes[0].wakuPublish("waku", s)
+  var res3 = waitFor nodes[0].wakuPublish("waku", s & "0")
+  res3 = waitFor nodes[1].wakuPublish("waku", s & "1")
+  res3 = waitFor nodes[2].wakuPublish("waku", s & "2")
+  res3 = waitFor nodes[3].wakuPublish("waku", s & "3")
+  res3 = waitFor nodes[4].wakuPublish("waku", s & "4")
 
 # Scenario xx2 - 14 full nodes, two edge nodes
 # Assume one full topic
