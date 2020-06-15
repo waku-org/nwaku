@@ -80,7 +80,9 @@ when isMainModule:
   # TODO: WakuNetworkConf
   var nodes: seq[NodeInfo]
   let topology = FullMesh
-  let amount = 6
+
+  # Scenario xx2 14
+  let amount = 16
 
   case topology:
     of Star:
@@ -93,15 +95,17 @@ when isMainModule:
     # TODO: could also select nodes randomly
     staticnodes.add(nodes[i].address)
 
-  # TODO: Here we could add a light node, but not clear thats what we want to test?
-  # Lets call them edge nodes
+  # Scenario xx1 - 16 full nodes, one app topic, full mesh, gossip
+
+  # Scenario xx2 - 14 full nodes, two edge nodes, one app topic, full mesh, gossip
   # NOTE: Only connecting to one node here
-  var nodesubseta: seq[string]
-  var nodesubsetb: seq[string]
-  nodesubseta.add(staticnodes[0])
-  nodesubsetb.add(staticnodes[amount-1])
-  nodes.add(initNodeCmd(0, nodesubseta, label = "edge node (A)"))
-  nodes.add(initNodeCmd(1, nodesubsetb, label = "edge node (B)"))
+  #var nodesubseta: seq[string]
+  #var nodesubsetb: seq[string]
+  #nodesubseta.add(staticnodes[0])
+  #nodesubsetb.add(staticnodes[amount-1])
+  ## XXX: Let's turn them into normal nodes
+  #nodes.add(initNodeCmd(0, nodesubseta, label = "edge node (A)"))
+  #nodes.add(initNodeCmd(1, nodesubsetb, label = "edge node (B)"))
 
   var commandStr = "multitail -s 2 -M 0 -x \"Waku Simulation\""
   var count = 0
