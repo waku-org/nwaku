@@ -13,17 +13,27 @@ import
   libp2p/protocols/pubsub/[pubsub, gossipsub],
   ../../waku/protocol/v2/waku_protocol
 
-when libp2p_secure == "noise":
-  import libp2p/protocols/secure/noise
-else:
-  import libp2p/protocols/secure/secio
+import
+  libp2p/protocols/secure/noise,
+  libp2p/protocols/secure/secio
 
 export
   switch, peer, peerinfo, connection, multiaddress, crypto
 
+type
+  SecureProtocol* {.pure.} = enum
+    Noise,
+    Secio
+
 proc newStandardSwitch*(privKey = none(PrivateKey),
                         address = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet(),
                         triggerSelf = false,
+                        secureManagers: openarray[SecureProtocol] = [
+                        # NOTE below relates to Eth2
+                        # TODO investigate why we're getting fewer peers on public testnets with noise
+                          SecureProtocol.Secio,
+                          SecureProtocol.Noise, # array cos order matters
+                        ],
                         verifySignature = libp2p_pubsub_verify,
                         sign = libp2p_pubsub_sign,
                         transportFlags: set[ServerFlags] = {}): Switch =
@@ -38,15 +48,21 @@ proc newStandardSwitch*(privKey = none(PrivateKey),
     transports = @[Transport(TcpTransport.init(transportFlags))]
     muxers = {MplexCodec: mplexProvider}.toTable
     identify = newIdentify(peerInfo)
-  when libp2p_secure == "noise":
-    let secureManagers = {NoiseCodec: newNoise(seckey).Secure}.toTable
-  else:
-    let secureManagers = {SecioCodec: newSecio(seckey).Secure}.toTable
+
+  var
+    secureManagerInstances: seq[Secure]
+  for sec in secureManagers:
+    case sec
+    of SecureProtocol.Noise:
+      secureManagerInstances &= newNoise(seckey).Secure
+    of SecureProtocol.Secio:
+      secureManagerInstances &= newSecio(seckey).Secure
+
   let pubSub = PubSub newPubSub(WakuSub, peerInfo, triggerSelf)
 
   result = newSwitch(peerInfo,
                      transports,
                      identify,
                      muxers,
-                     secureManagers = secureManagers,
+                     secureManagers = secureManagerInstances,
                      pubSub = some(pubSub))
