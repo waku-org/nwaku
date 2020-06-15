@@ -11,10 +11,64 @@ template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 const sigWakuPath = &"{sourceDir}{DirSep}rpc{DirSep}wakucallsigs.nim"
 createRpcSigs(RpcHttpClient, sigWakuPath)
 
-const topicAmount = 100
+const topicAmount = 10 #100
 
 proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
   debug "Hit handler", topic=topic, data=data
+
+# Scenario xx1 - 16 full nodes
+#########################################
+let amount = 16
+var nodes: seq[RPCHttpClient]
+for i in 0..<amount:
+  var node = newRpcHttpClient()
+  nodes.add(node)
+  waitFor nodes[i].connect("localhost", Port(8547+i))
+  var res = waitFor nodes[i].wakuSubscribe("waku")
+
+os.sleep(2000)
+
+# TODO: Show plaintext message in log
+for i in 0..<topicAmount:
+  os.sleep(50)
+  # TODO: This would then publish on a subtopic here
+  var s = "hello " & $2
+  var res3 = waitFor nodes[0].wakuPublish("waku", s)
+
+# Scenario xx2 - 14 full nodes, two edge nodes
+# Assume one full topic
+#########################################
+#let nodea = newRpcHttpClient()
+#let nodeb = newRpcHttpClient()
+#
+#waitFor nodea.connect("localhost", Port(8545))
+#waitFor nodeb.connect("localhost", Port(8546))
+#
+#let version = waitFor nodea.wakuVersion()
+#info "Version is", version
+#
+#let res1 = waitFor nodea.wakuSubscribe("waku")
+#let res2 = waitFor nodeb.wakuSubscribe("waku")
+#
+#let amount = 14
+#var nodes: seq[RPCHttpClient]
+#for i in 0..<amount:
+#  var node = newRpcHttpClient()
+#  nodes.add(node)
+#  waitFor nodes[i].connect("localhost", Port(8547+i))
+#  var res = waitFor nodes[i].wakuSubscribe("waku")
+#
+#os.sleep(2000)
+#
+## TODO: Show plaintext message in log
+#for i in 0..<topicAmount:
+#  os.sleep(50)
+#  # TODO: This would then publish on a subtopic here
+#  var s = "hello " & $2
+#  var res3 = waitFor nodea.wakuPublish("waku", s)
+
+# Misc old scenarios
+#########################################
 
 # All full nodes connected etc
 #
@@ -55,19 +109,6 @@ proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
 #   os.sleep(50)
 #   let res2 = waitFor node1.wakuPublish("foobar", "hello world2")
 
-let nodea = newRpcHttpClient()
-let nodeb = newRpcHttpClient()
-
-waitFor nodea.connect("localhost", Port(8545))
-waitFor nodeb.connect("localhost", Port(8546))
-
-let version = waitFor nodea.wakuVersion()
-info "Version is", version
-
-# XXX: Unclear if we want nodea to subscribe to own topic or not
-let res1 = waitFor nodea.wakuSubscribe("foobar")
-let res2 = waitFor nodeb.wakuSubscribe("foobar")
-
 # Node 00 and 05 also subscribe
 # XXX I confirm this works. As in - with this we have A-B
 #  Now to tweak it!
@@ -77,11 +118,3 @@ let res2 = waitFor nodeb.wakuSubscribe("foobar")
 # waitFor node5.connect("localhost", Port(8552))
 # let res4 = waitFor node0.wakuSubscribe("foobar")
 # let res5 = waitFor node5.wakuSubscribe("foobar")
-
-os.sleep(2000)
-
-# XXX: Where is hello world tho?
-for i in 0..<topicAmount:
-  os.sleep(50)
-  var s = "hello " & $2
-  var res3 = waitFor nodea.wakuPublish("foobar", s)
