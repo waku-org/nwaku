@@ -170,17 +170,24 @@ proc run(config: WakuNodeConf) =
   # Optionally direct connect with a set of nodes
   if config.staticnodes.len > 0: connectToNodes(wakuProto, config.staticnodes)
 
-  if config.logMetrics:
-    proc logMetrics(udata: pointer) {.closure, gcsafe.} =
-      {.gcsafe.}:
-        let
-          connectedPeers = connected_peers.value
-          totalMessages = total_messages.value
-          # NOTE: Just message volume for now, no valid/invalid envelopes
-      info "Node metrics", connectedPeers, totalMessages
-      # FIXME Warning: Use setTimer/clearTimer instead; addTimer is deprecated [Deprecated]
+  when defined(insecure):
+    if config.metricsServer:
+      let
+        address = config.metricsServerAddress
+        port = config.metricsServerPort + config.portsShift
+      info "Starting metrics HTTP server", address, port
+      metrics.startHttpServer($address, Port(port))
+
+    if config.logMetrics:
+      proc logMetrics(udata: pointer) {.closure, gcsafe.} =
+        {.gcsafe.}:
+          let
+            connectedPeers = connected_peers.value
+            totalMessages = total_messages.value
+
+        info "Node metrics", connectedPeers, totalMessages
+        addTimer(Moment.fromNow(2.seconds), logMetrics)
       addTimer(Moment.fromNow(2.seconds), logMetrics)
-    addTimer(Moment.fromNow(2.seconds), logMetrics)
 
   runForever()
 
