@@ -119,15 +119,15 @@ proc run(config: WakuNodeConf) =
   proc logPeerAccounting(udata: pointer) {.closure, gcsafe.} =
     {.gcsafe.}:
       
-      for peer in node.peerPool.peers:
-        let 
-          accounting = peer.state(Waku)
-          sent = accounting.sent
-          received = accounting.sent
-          id = peer.remote.id
+    for peer in node.peerPool.peers:
+      let 
+        accounting = peer.state(Waku)
+        sent = accounting.sent
+        received = accounting.sent
+        id = peer.remote.id
 
-        info "Peer Metrics", id, sent, received
-        peer.state(Waku).accounting = Accounting(sent: 0, received: 0)
+      info "Peer Metrics", id, sent, received
+      peer.state(Waku).accounting = Accounting(sent: 0, received: 0)
 
     addTimer(Moment.fromNow(2.seconds), logPeerAccounting)
   addTimer(Moment.fromNow(2.seconds), logPeerAccounting)
