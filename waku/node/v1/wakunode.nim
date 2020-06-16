@@ -120,9 +120,13 @@ proc run(config: WakuNodeConf) =
     {.gcsafe.}:
       
       for peer in node.peerPool.peers:
-        let accounting = peer.state(Waku)
-        info "Peer Metrics", peer.remote.id, accounting.sent, accounting.received
+        let 
+          accounting = peer.state(Waku)
+          sent = accounting.sent
+          received = accounting.sent
+          id = peer.remote.id
 
+        info "Peer Metrics", id, sent, received
         peer.state(Waku).accounting = Accounting(sent: 0, received: 0)
 
     addTimer(Moment.fromNow(2.seconds), logPeerAccounting)
