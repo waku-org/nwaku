@@ -116,6 +116,18 @@ proc run(config: WakuNodeConf) =
     setupWakuSimRPC(node, rpcServer)
     rpcServer.start()
 
+  proc logPeerAccounting(udata: pointer) {.closure, gcsafe.} =
+    {.gcsafe.}:
+      
+      for peer in node.peerPool.peers:
+        let accounting = peer.state(Waku)
+        info "Peer Metrics", peer.remote.id, accounting.sent, accounting.received
+
+        peer.state(Waku).accounting = Accounting(sent: 0, received: 0)
+
+    addTimer(Moment.fromNow(2.seconds), logPeerAccounting)
+  addTimer(Moment.fromNow(2.seconds), logPeerAccounting)
+
   when defined(insecure):
     if config.metricsServer:
       let
