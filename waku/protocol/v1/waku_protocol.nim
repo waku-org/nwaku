@@ -265,6 +265,7 @@ p2pProtocol Waku(version = wakuVersion,
 
     wakuPeer.received.init()
     wakuPeer.trusted = false
+    wakuPeer.accounting = Accounting(sent: 0, received: 0)
     wakuPeer.initialized = true
 
     # No timer based queue processing for a light node.
