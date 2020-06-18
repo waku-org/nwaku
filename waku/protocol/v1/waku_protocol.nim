@@ -71,6 +71,10 @@ type
     rateLimits*: Option[RateLimits]
     topics*: Option[seq[Topic]]
 
+  Accounting* = ref object
+    sent*: uint
+    received*: uint
+
   WakuPeer = ref object
     initialized: bool # when successfully completed the handshake
     powRequirement*: float64
@@ -79,6 +83,7 @@ type
     trusted*: bool
     topics*: Option[seq[Topic]]
     received: HashSet[Hash]
+    accounting*: Accounting
 
   P2PRequestHandler* = proc(peer: Peer, envelope: Envelope) {.gcsafe.}
 
@@ -260,6 +265,7 @@ p2pProtocol Waku(version = wakuVersion,
 
     wakuPeer.received.init()
     wakuPeer.trusted = false
+    wakuPeer.accounting = Accounting(sent: 0, received: 0)
     wakuPeer.initialized = true
 
     # No timer based queue processing for a light node.
@@ -283,6 +289,8 @@ p2pProtocol Waku(version = wakuVersion,
         # disconnect from peers sending bad envelopes
         # await peer.disconnect(SubprotocolReason)
         continue
+
+      peer.state.accounting.received += 1
 
       let msg = initMessage(envelope)
       if not msg.allowed(peer.networkState.config):
@@ -403,6 +411,7 @@ proc processQueue(peer: Peer) =
 
     trace "Adding envelope"
     envelopes.add(message.env)
+    wakuPeer.accounting.sent += 1
     wakuPeer.received.incl(message.hash)
 
   if envelopes.len() > 0:
