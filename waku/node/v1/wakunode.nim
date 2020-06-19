@@ -123,7 +123,7 @@ proc run(config: WakuNodeConf) =
         let 
           sent = peer.state(Waku).accounting.sent
           received = peer.state(Waku).accounting.received
-          id = peer.remote.id
+          id = peer.network.toEnode
         info "Peer Metrics", id, sent, received
         peer.state(Waku).accounting = Accounting(sent: 0, received: 0)
 
