@@ -76,13 +76,13 @@ proc requestMail*(node: EthereumNode, peerId: NodeId, request: MailRequest,
     return result
 
 proc p2pRequestHandler(peer: Peer, envelope: Envelope) =
+  var symKey: SymKey
   let decoded = decode(envelope.data, symKey = some(symKey))
   if not decoded.isSome():
     # @TODO
     error "not some? lol"
     return
 
-  var symKey: SymKey
   var rlp = rlpFromBytes(decoded.get().payload)
   let request = rlp.read(MailRequest)
 
