@@ -10,7 +10,8 @@
 import
   chronos,
   eth/[p2p, async_utils],
-  ./waku_protocol
+  ./waku_protocol,
+  db_sqlite
 
 const
   requestCompleteTimeout = chronos.seconds(5)
@@ -24,6 +25,9 @@ type
     bloom*: seq[byte] ## Bloom filter to apply on the envelopes
     limit*: uint32 ## Maximum amount of envelopes to return
     cursor*: Cursor ## Optional cursor
+
+  MailServer* = object
+    db*: DbConn
 
 proc requestMail*(node: EthereumNode, peerId: NodeId, request: MailRequest,
     symKey: SymKey, requests = 10): Future[Option[Cursor]] {.async.} =
@@ -75,7 +79,7 @@ proc requestMail*(node: EthereumNode, peerId: NodeId, request: MailRequest,
     error "p2pRequestComplete timeout"
     return result
 
-proc p2pRequestHandler(peer: Peer, envelope: Envelope) =
+proc p2pRequestHandler*(server: MailServer, peer: Peer, envelope: Envelope) = 
   var symKey: SymKey
   let decoded = decode(envelope.data, symKey = some(symKey))
   if not decoded.isSome():
@@ -86,8 +90,10 @@ proc p2pRequestHandler(peer: Peer, envelope: Envelope) =
   var rlp = rlpFromBytes(decoded.get().payload)
   let request = rlp.read(MailRequest)
 
-proc enableMailServer*(node: EthereumNode, customHandler: P2PRequestHandler) =
-  node.protocolState(Waku).p2pRequestHandler = customHandler
-
-proc enableMailServer*(node: EthereumNode) =
-  node.protocolState(Waku).p2pRequestHandler = p2pRequestHandler
+# @TODO: What we will probably need to do here is set the p2prequest handler on the mailserver
+# then if it has a custom use that, otherwise use the default. Not sure yet.
+# proc enableMailServer*(node: EthereumNode, customHandler: P2PRequestHandler) =
+#  node.protocolState(Waku).p2pRequestHandler = customHandler
+#
+# proc enableMailServer*(node: EthereumNode) =
+#   node.protocolState(Waku).p2pRequestHandler = p2pRequestHandler
