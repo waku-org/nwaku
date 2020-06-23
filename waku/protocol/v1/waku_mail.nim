@@ -76,8 +76,11 @@ proc requestMail*(node: EthereumNode, peerId: NodeId, request: MailRequest,
     return result
 
 proc p2pRequestHandler(peer: Peer, envelope: Envelope) =
-  # Mail server p2p request implementation
-  discard
+    let decoded = decode(envelope.data)
+    require decoded.isSome()
+
+    var rlp = rlpFromBytes(decoded.get().payload)
+    let output = rlp.read(MailRequest)
 
 proc enableMailServer*(node: EthereumNode, customHandler: P2PRequestHandler) =
   node.protocolState(Waku).p2pRequestHandler = customHandler
