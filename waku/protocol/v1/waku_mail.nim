@@ -79,7 +79,7 @@ proc p2pRequestHandler(peer: Peer, envelope: Envelope) =
     let decoded = decode(envelope.data)
     require decoded.isSome()
 
-    var rlp = rlpFromBytes(decoded.get().payload)
+    var rlp = rlpFromBytes(decoded.get().payload, dst = some(peer.network.keys.seckey))
     let output = rlp.read(MailRequest)
 
 proc enableMailServer*(node: EthereumNode, customHandler: P2PRequestHandler) =
