@@ -10,7 +10,6 @@
 import
   chronos,
   eth/[p2p, async_utils],
-  eth/db/kvstore_sqlite3,
   ./waku_protocol
 
 const
@@ -77,14 +76,14 @@ proc requestMail*(node: EthereumNode, peerId: NodeId, request: MailRequest,
     return result
 
 proc p2pRequestHandler(peer: Peer, envelope: Envelope) =
-  let decoded = decode(envelope.data)
+  let decoded = decode(envelope.data, symKey = some(symKey))
   if not decoded.isSome():
     # @TODO
     error "not some? lol"
     return
 
   var symKey: SymKey
-  var rlp = rlpFromBytes(decoded.get().payload, symKey = some(symKey))
+  var rlp = rlpFromBytes(decoded.get().payload)
   let request = rlp.read(MailRequest)
 
 proc enableMailServer*(node: EthereumNode, customHandler: P2PRequestHandler) =
