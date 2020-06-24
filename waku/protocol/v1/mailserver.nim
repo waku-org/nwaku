@@ -4,10 +4,10 @@ import
   db_sqlite
 
 type  
-  MailServer* = object
+  MailServer* = ref object
     db*: DbConn
 
-  Cursor = seq[byte]
+  Cursor* = seq[byte]
 
   MailRequest* = object
     lower*: uint32 ## Unix timestamp; oldest requested envelope's creation time
@@ -38,7 +38,7 @@ proc setupDB*(server: MailServer) =
   server.db = db
 
 proc archive*(server: MailServer, message: Message) =
-  var key: Bytes
+  var key: seq[byte]
 
   # In status go we have `B''::bit(512)` where I placed $4, let's see if it works this way though.
   server.db.exec(
