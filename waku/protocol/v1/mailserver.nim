@@ -3,9 +3,11 @@ import
   eth/[p2p, async_utils], eth/p2p/rlpx_protocols/whisper/whisper_types,
   db_sqlite
 
-type 
+type  
   MailServer* = object
     db*: DbConn
+
+  Cursor = seq[byte]
 
   MailRequest* = object
     lower*: uint32 ## Unix timestamp; oldest requested envelope's creation time
