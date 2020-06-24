@@ -67,8 +67,8 @@ proc requestMail*(node: EthereumNode, peerId: NodeId, request: MailRequest,
     return result
 
 proc p2pRequestHandler*(node: EthereumNode, peer: Peer, envelope: Envelope) = 
-  if not node.mailserver.isNil():
-    node.mailserver.p2pRequestHandler(peer, envelope)
+  if not node.protocolState(Waku).mailserver.isNil():
+    node.protocolState(Waku).mailserver.p2pRequestHandler(peer, envelope)
     return
 
   # @TODO, What we want to do here is check if we either have a p2prequesthandler, or a mailserver
