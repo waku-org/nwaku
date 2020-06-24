@@ -1,6 +1,5 @@
 import
-  chronos,
-  eth/[p2p, async_utils], eth/p2p/rlpx_protocols/whisper/whisper_types,
+  eth/[p2p], eth/p2p/rlpx_protocols/whisper/whisper_types,
   db_sqlite
 
 type  
