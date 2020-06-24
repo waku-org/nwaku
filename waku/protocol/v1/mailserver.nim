@@ -1,5 +1,6 @@
 import
-  eth/[p2p], eth/p2p/rlpx_protocols/whisper/whisper_types,
+  eth/[p2p], 
+  eth/p2p/rlpx_protocols/whisper/whisper_types,
   db_sqlite
 
 type  

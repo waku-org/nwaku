@@ -348,8 +348,7 @@ p2pProtocol Waku(version = wakuVersion,
   nextID 126
 
   proc p2pRequest(peer: Peer, envelope: Envelope) =
-    if not peer.networkState.mailserver.isNil():
-      peer.networkState.mailserver.p2pRequestHandler(peer, envelope)
+    peer.networkState.p2pRequestHandler(peer, envelope)
 
   proc p2pMessage(peer: Peer, envelopes: openarray[Envelope]) =
     if peer.state.trusted:

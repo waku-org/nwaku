@@ -16,9 +16,6 @@ import
 const
   requestCompleteTimeout = chronos.seconds(5)
 
-type
-  Cursor = seq[byte]
-
 proc requestMail*(node: EthereumNode, peerId: NodeId, request: MailRequest,
     symKey: SymKey, requests = 10): Future[Option[Cursor]] {.async.} =
   ## Send p2p mail request and check request complete.
@@ -68,6 +65,13 @@ proc requestMail*(node: EthereumNode, peerId: NodeId, request: MailRequest,
   else:
     error "p2pRequestComplete timeout"
     return result
+
+proc p2pRequestHandler*(node: EthereumNode, peer: Peer, envelope: Envelope) = 
+  if not node.mailserver.isNil():
+    node.mailserver.p2pRequestHandler(peer, envelope)
+    return
+
+  # @TODO, What we want to do here is check if we either have a p2prequesthandler, or a mailserver
 
 # @TODO: What we will probably need to do here is set the p2prequest handler on the mailserver
 # then if it has a custom use that, otherwise use the default. Not sure yet.
