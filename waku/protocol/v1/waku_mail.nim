@@ -94,7 +94,7 @@ proc setupDB*(server: MailServer) =
   let db = open("mytest.db", "", "", "")
 
   # @TODO THIS PROBABLY DOES NOT BELONG HERE
-  db.exec(sql"""CREATE TABLE envelopes (id BYTEA NOT NULL UNIQUE, data BYTEA NOT NULL, topic BYTEA NOT NULL, bloom BIT(512) NOT NULL);
+  db.exec(sql"""CREATE TABLE envelopes IF NOT EXISTS (id BYTEA NOT NULL UNIQUE, data BYTEA NOT NULL, topic BYTEA NOT NULL, bloom BIT(512) NOT NULL);
     CREATE INDEX id_bloom_idx ON envelopes (id DESC, bloom);
     CREATE INDEX id_topic_idx ON envelopes (id DESC, topic);""")
 
