@@ -66,11 +66,6 @@ proc requestMail*(node: EthereumNode, peerId: NodeId, request: MailRequest,
     error "p2pRequestComplete timeout"
     return result
 
-proc p2pRequestHandler*(node: EthereumNode, peer: Peer, envelope: Envelope) = 
-  if not node.protocolState(Waku).mailserver.isNil():
-    node.protocolState(Waku).mailserver.p2pRequestHandler(peer, envelope)
-    return
-
   # @TODO, What we want to do here is check if we either have a p2prequesthandler, or a mailserver
 
 # @TODO: What we will probably need to do here is set the p2prequest handler on the mailserver
