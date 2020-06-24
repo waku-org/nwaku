@@ -98,7 +98,16 @@ proc setupDB*(server: MailServer) =
     CREATE INDEX id_bloom_idx ON envelopes (id DESC, bloom);
     CREATE INDEX id_topic_idx ON envelopes (id DESC, topic);""")
 
-proc archive*(server: MailServer, envelope: Envelope) =
+  server.db = db
+
+proc archive*(server: MailServer, message: Message) =
+  var key: Bytes
+
+  # In status go we have `B''::bit(512)` where I placed $4, let's see if it works this way though.
+  server.db.exec(
+    sql"INSERT INTO envelopes (id, data, topic, bloom) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING;",
+    key, message.env, message.env.topic, message.bloom
+  )
   # @TODO
   discard
 

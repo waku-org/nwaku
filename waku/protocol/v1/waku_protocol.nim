@@ -299,6 +299,9 @@ p2pProtocol Waku(version = wakuVersion,
         # await peer.disconnect(SubprotocolReason)
         continue
 
+      if not peer.networkState.mailserver.isNil():
+        peer.networkState.mailserver.archive(msg)
+
       # This peer send this message thus should not receive it again.
       # If this peer has the message in the `received` set already, this means
       # it was either already received here from this peer or send to this peer.
