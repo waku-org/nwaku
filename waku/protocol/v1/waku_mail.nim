@@ -90,10 +90,24 @@ proc p2pRequestHandler*(server: MailServer, peer: Peer, envelope: Envelope) =
   var rlp = rlpFromBytes(decoded.get().payload)
   let request = rlp.read(MailRequest)
 
+proc setupDB*(server: MailServer) =
+  let db = open("mytest.db", "", "", "")
+
+  # @TODO THIS PROBABLY DOES NOT BELONG HERE
+  db.exec(sql"""CREATE TABLE envelopes (id BYTEA NOT NULL UNIQUE, data BYTEA NOT NULL, topic BYTEA NOT NULL, bloom BIT(512) NOT NULL);
+    CREATE INDEX id_bloom_idx ON envelopes (id DESC, bloom);
+    CREATE INDEX id_topic_idx ON envelopes (id DESC, topic);""")
+
+proc archive*(server: MailServer, envelope: Envelope) =
+  # @TODO
+  discard
+
 # @TODO: What we will probably need to do here is set the p2prequest handler on the mailserver
 # then if it has a custom use that, otherwise use the default. Not sure yet.
 # proc enableMailServer*(node: EthereumNode, customHandler: P2PRequestHandler) =
 #  node.protocolState(Waku).p2pRequestHandler = customHandler
-#
-# proc enableMailServer*(node: EthereumNode) =
-#   node.protocolState(Waku).p2pRequestHandler = p2pRequestHandler
+
+proc enableMailServer*(node: EthereumNode) =
+    var mailserver = MailServer()
+    mailserver.setupDB()
+    node.protocolState(Waku).mailserver = mailserver
