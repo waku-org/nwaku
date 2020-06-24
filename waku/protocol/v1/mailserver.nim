@@ -3,8 +3,16 @@ import
   eth/[p2p, async_utils], eth/p2p/rlpx_protocols/whisper/whisper_types,
   db_sqlite
 
-type MailServer* = object
-  db*: DbConn
+type 
+  MailServer* = object
+    db*: DbConn
+
+  MailRequest* = object
+    lower*: uint32 ## Unix timestamp; oldest requested envelope's creation time
+    upper*: uint32 ## Unix timestamp; newest requested envelope's creation time
+    bloom*: seq[byte] ## Bloom filter to apply on the envelopes
+    limit*: uint32 ## Maximum amount of envelopes to return
+    cursor*: Cursor ## Optional cursor
 
 proc p2pRequestHandler*(server: MailServer, peer: Peer, envelope: Envelope) = 
   var symKey: SymKey

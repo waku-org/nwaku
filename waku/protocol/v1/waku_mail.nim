@@ -19,13 +19,6 @@ const
 type
   Cursor = seq[byte]
 
-  MailRequest* = object
-    lower*: uint32 ## Unix timestamp; oldest requested envelope's creation time
-    upper*: uint32 ## Unix timestamp; newest requested envelope's creation time
-    bloom*: seq[byte] ## Bloom filter to apply on the envelopes
-    limit*: uint32 ## Maximum amount of envelopes to return
-    cursor*: Cursor ## Optional cursor
-
 proc requestMail*(node: EthereumNode, peerId: NodeId, request: MailRequest,
     symKey: SymKey, requests = 10): Future[Option[Cursor]] {.async.} =
   ## Send p2p mail request and check request complete.
