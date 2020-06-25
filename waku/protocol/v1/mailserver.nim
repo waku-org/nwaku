@@ -1,7 +1,9 @@
 import
   eth/[p2p], 
   eth/p2p/rlpx_protocols/whisper/whisper_types,
-  db_sqlite
+  db_sqlite,
+  sequtils,
+  stew/byteutils
 
 const
   MAILSERVER_DATABASE: string = "msdb.db"
@@ -19,18 +21,15 @@ type
     limit*: uint32 ## Maximum amount of envelopes to return
     cursor*: Cursor ## Optional cursor
 
-proc getEnvelopes*(server: MailServer, request: MailRequest): seq[Envelope] =
-  let rows = server.query(request)
-  var envelopes: seq[Envelope] = @[]
-
-  for row in rows:
-    continue
-
-  result = envelopes
-
-
 proc query*(server: MailServer, request: MailRequest): seq[Row] =
   discard
+
+proc getEnvelopes*(server: MailServer, request: MailRequest): seq[Envelope] =
+  let rows = server.query(request)
+
+  for row in rows:
+    var rlp = rlpFromBytes(row[0].toBytes())
+    result.add(rlp.read(Envelope))
 
 proc setupDB*(server: MailServer) =
   let db = open(MAILSERVER_DATABASE, "", "", "")
