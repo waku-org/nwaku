@@ -19,6 +19,7 @@ type
     limit*: uint32 ## Maximum amount of envelopes to return
     cursor*: Cursor ## Optional cursor
 
+# @TODO I DON'T LIKE THIS FUNCTION  NAME
 proc p2pRequestHandler*(server: MailServer, peer: Peer, envelope: Envelope) = 
   var symKey: SymKey
   let decoded = decode(envelope.data, symKey = some(symKey))
@@ -29,6 +30,8 @@ proc p2pRequestHandler*(server: MailServer, peer: Peer, envelope: Envelope) =
   var rlp = rlpFromBytes(decoded.get().payload)
   let request = rlp.read(MailRequest)
 
+  let query = request.buildQuery()
+
 proc setupDB*(server: MailServer) =
   let db = open(MAILSERVER_DATABASE, "", "", "")
 
@@ -37,7 +40,13 @@ proc setupDB*(server: MailServer) =
     CREATE INDEX id_bloom_idx ON envelopes (id DESC, bloom);
     CREATE INDEX id_topic_idx ON envelopes (id DESC, topic);""")
 
-  server.db = db
+  server.db = 
+  
+proc prune*(server: MailServer) =
+  discard
+
+proc getEnvelope*(server: MailServer) =
+  discard
 
 proc archive*(server: MailServer, message: Message) =
   var key: seq[byte]
@@ -49,3 +58,6 @@ proc archive*(server: MailServer, message: Message) =
   )
   # @TODO
   discard
+
+proc buildQuery(request: MailRequest): string =
+  result = ""
