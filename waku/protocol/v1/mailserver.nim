@@ -20,6 +20,16 @@ type
     cursor*: Cursor ## Optional cursor
 
 proc getEnvelopes*(server: MailServer, request: MailRequest): seq[Envelope] =
+  let rows = server.query(request)
+  var envelopes: seq[Envelope] = @[]
+
+  for row in rows:
+    continue
+
+  result = envelopes
+
+
+proc query*(server: MailServer, request: MailRequest): seq[Row] =
   discard
 
 proc setupDB*(server: MailServer) =
@@ -47,7 +57,4 @@ proc archive*(server: MailServer, message: Message) =
     key, message.env, message.env.topic, message.bloom
   )
   # @TODO
-  discard
-
-proc query*(server: MailServer, request: MailRequest): seq[Row] =
-  discard
+  return
