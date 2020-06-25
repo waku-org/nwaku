@@ -359,7 +359,7 @@ p2pProtocol Waku(version = wakuVersion,
 
     let envelopes = peer.networkState.mailserver.getEnvelopes(request)
 
-    peer.networkState.sendP2PMessage(peer.remote.id, envelopes)
+    asyncCheck peer.p2pMessage(envelopes)
 
   proc p2pMessage(peer: Peer, envelopes: openarray[Envelope]) =
     if peer.state.trusted:

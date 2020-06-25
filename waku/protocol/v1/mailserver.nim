@@ -34,7 +34,7 @@ proc p2pRequestHandler*(server: MailServer, peer: Peer, envelope: Envelope) =
 
   # peer.networkState.sendP2PMessage
 
-proc getEnvelopes*(server: MailServer, request: MailRequest): openarray[Envelope] =
+proc getEnvelopes*(server: MailServer, request: MailRequest): seq[Envelope] =
   discard
 
 proc setupDB*(server: MailServer) =
