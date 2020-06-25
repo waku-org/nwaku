@@ -3,6 +3,9 @@ import
   eth/p2p/rlpx_protocols/whisper/whisper_types,
   db_sqlite
 
+const
+  MAILSERVER_DATABASE: string = "msdb.db"
+
 type  
   MailServer* = ref object
     db*: DbConn
@@ -20,15 +23,14 @@ proc p2pRequestHandler*(server: MailServer, peer: Peer, envelope: Envelope) =
   var symKey: SymKey
   let decoded = decode(envelope.data, symKey = some(symKey))
   if not decoded.isSome():
-    # @TODO
-    error "not some? lol"
+    error "failed to decode message"
     return
 
   var rlp = rlpFromBytes(decoded.get().payload)
   let request = rlp.read(MailRequest)
 
 proc setupDB*(server: MailServer) =
-  let db = open("mytest.db", "", "", "")
+  let db = open(MAILSERVER_DATABASE, "", "", "")
 
   # @TODO THIS PROBABLY DOES NOT BELONG HERE
   db.exec(sql"""CREATE TABLE envelopes IF NOT EXISTS (id BYTEA NOT NULL UNIQUE, data BYTEA NOT NULL, topic BYTEA NOT NULL, bloom BIT(512) NOT NULL);
