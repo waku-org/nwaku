@@ -19,21 +19,6 @@ type
     limit*: uint32 ## Maximum amount of envelopes to return
     cursor*: Cursor ## Optional cursor
 
-# @TODO I DON'T LIKE THIS FUNCTION  NAME
-proc p2pRequestHandler*(server: MailServer, peer: Peer, envelope: Envelope) = 
-  var symKey: SymKey
-  let decoded = decode(envelope.data, symKey = some(symKey))
-  if not decoded.isSome():
-    error "failed to decode message"
-    return
-
-  var rlp = rlpFromBytes(decoded.get().payload)
-  let request = rlp.read(MailRequest)
-
-  # let envelopes = server.query(request)
-
-  # peer.networkState.sendP2PMessage
-
 proc getEnvelopes*(server: MailServer, request: MailRequest): seq[Envelope] =
   discard
 
