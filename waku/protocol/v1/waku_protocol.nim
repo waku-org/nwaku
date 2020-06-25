@@ -359,6 +359,8 @@ p2pProtocol Waku(version = wakuVersion,
 
     let envelopes = peer.networkState.mailserver.getEnvelopes(request)
 
+    # @TODO BATCH
+
     asyncCheck peer.p2pMessage(envelopes)
 
   proc p2pMessage(peer: Peer, envelopes: openarray[Envelope]) =
