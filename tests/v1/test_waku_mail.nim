@@ -1,7 +1,7 @@
 import
   unittest, chronos, tables, sequtils, times,
   eth/[p2p, async_utils], eth/p2p/peer_pool,
-  ../../waku/protocol/v1/[waku_protocol, waku_mail, mailserver],
+  ../../waku/protocol/v1/[waku_protocol, waku_mail, waku_mail_server],
   ./test_helpers
 
 const
