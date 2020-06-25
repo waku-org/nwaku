@@ -10,7 +10,7 @@
 import
   chronos,
   eth/[p2p, async_utils], eth/p2p/rlpx_protocols/whisper/whisper_types,
-  ./mailserver,
+  ./waku_mail_server,
   db_sqlite, ./waku_protocol
 
 const

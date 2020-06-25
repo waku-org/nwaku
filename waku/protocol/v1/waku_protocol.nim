@@ -40,7 +40,7 @@
 import
   options, tables, times, chronos, chronicles, metrics,
   eth/[keys, async_utils, p2p], eth/p2p/rlpx_protocols/whisper/whisper_types,
-  eth/trie/trie_defs, ./mailserver
+  eth/trie/trie_defs, ./waku_mail_server
 
 export
   whisper_types
