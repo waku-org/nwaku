@@ -102,7 +102,7 @@ procSuite "Waku Mail Client":
       var dummy: Hash
       traceAsyncErrors peer.p2pRequestComplete(dummy, dummy, cursor)
 
-    simpleServer.enableMailServer(customHandler)
+    simpleServer.registerP2PRequestHandler(customHandler)
     check client.setPeerTrusted(simpleServerNode.id)
     var request: MailRequest
     var symKey: SymKey
