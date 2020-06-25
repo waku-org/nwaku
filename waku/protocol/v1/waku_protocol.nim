@@ -345,8 +345,21 @@ p2pProtocol Waku(version = wakuVersion,
   nextID 126
 
   proc p2pRequest(peer: Peer, envelope: Envelope) =
-    if not peer.networkState.mailserver.isNil():
-      peer.networkState.mailserver.p2pRequestHandler(peer, envelope)
+    if peer.networkState.mailserver.isNil():
+      return
+      
+    var symKey: SymKey
+    let decoded = decode(envelope.data, symKey = some(symKey))
+    if not decoded.isSome():
+      error "failed to decode message"
+      return
+
+    var rlp = rlpFromBytes(decoded.get().payload)
+    let request = rlp.read(MailRequest)
+
+    let envelopes = peer.networkState.mailserver.getEnvelopes(request)
+
+    peer.networkState.sendP2PMessage(peer.remote.id, envelopes)
 
   proc p2pMessage(peer: Peer, envelopes: openarray[Envelope]) =
     if peer.state.trusted:

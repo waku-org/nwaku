@@ -34,6 +34,9 @@ proc p2pRequestHandler*(server: MailServer, peer: Peer, envelope: Envelope) =
 
   # peer.networkState.sendP2PMessage
 
+proc getEnvelopes*(server: MailServer, request: MailRequest): openarray[Envelope] =
+  discard
+
 proc setupDB*(server: MailServer) =
   let db = open(MAILSERVER_DATABASE, "", "", "")
 
