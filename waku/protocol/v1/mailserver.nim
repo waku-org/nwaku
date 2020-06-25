@@ -30,7 +30,9 @@ proc p2pRequestHandler*(server: MailServer, peer: Peer, envelope: Envelope) =
   var rlp = rlpFromBytes(decoded.get().payload)
   let request = rlp.read(MailRequest)
 
-  let query = request.buildQuery()
+  # let envelopes = server.query(request)
+
+  # peer.networkState.sendP2PMessage
 
 proc setupDB*(server: MailServer) =
   let db = open(MAILSERVER_DATABASE, "", "", "")
@@ -40,7 +42,7 @@ proc setupDB*(server: MailServer) =
     CREATE INDEX id_bloom_idx ON envelopes (id DESC, bloom);
     CREATE INDEX id_topic_idx ON envelopes (id DESC, topic);""")
 
-  server.db = 
+  server.db = db
   
 proc prune*(server: MailServer) =
   discard
@@ -59,5 +61,5 @@ proc archive*(server: MailServer, message: Message) =
   # @TODO
   discard
 
-proc buildQuery(request: MailRequest): string =
-  result = ""
+proc query*(server: MailServer, request: MailRequest): seq[Row] =
+  discard
