@@ -29,12 +29,15 @@ proc dbkey(timestamp: uint32, topic: Topic, hash: Hash): DBKey =
 proc query(server: MailServer, request: MailRequest): seq[Row] =
   discard
 
+proc toEnvelope(str: string): Envelope =
+  var rlp = rlpFromBytes(str.toBytes())
+  result = rlp.read(Envelope)
+
 proc getEnvelopes*(server: MailServer, request: MailRequest): seq[Envelope] =
   let rows = server.query(request)
 
   for row in rows:
-    var rlp = rlpFromBytes(row[0].toBytes())
-    result.add(rlp.read(Envelope))
+    result.add(row[0].toEnvelope())
 
 proc setupDB*(server: MailServer) =
   let db = open(MAILSERVER_DATABASE, "", "", "")
@@ -55,8 +58,9 @@ proc prune*(server: MailServer, time: uint32) =
     dbkey(0, emptyTopic, emptyHash), dbkey(time, emptyTopic, emptyHash)
   )
 
-proc getEnvelope*(server: MailServer, key: DBKey) =
-  discard
+proc getEnvelope*(server: MailServer, key: DBKey): Envelope =
+  let str = server.db.getValue(sql"SELECT data FROM envelopes WHERE id = $1", key)
+  result = str.toEnvelope()
 
 proc archive*(server: MailServer, message: Message) =
   # In status go we have `B''::bit(512)` where I placed $4, let's see if it works this way though.
@@ -64,4 +68,3 @@ proc archive*(server: MailServer, message: Message) =
     sql"INSERT INTO envelopes (id, data, topic, bloom) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING;",
     dbkey(message.env.expiry - message.env.ttl, message.env.topic, message.hash), message.env, message.env.topic, message.bloom
   )
-
