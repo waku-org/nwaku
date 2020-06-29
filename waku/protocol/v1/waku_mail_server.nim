@@ -3,7 +3,7 @@ import
   eth/p2p/rlpx_protocols/whisper/whisper_types,
   db_sqlite,
   sequtils,
-  stew/byteutils
+  stew/[byteutils, endians2]
 
 const
   MAILSERVER_DATABASE: string = "msdb.db"
@@ -14,6 +14,8 @@ type
 
   Cursor* = seq[byte]
 
+  DBKey* = seq[byte]
+
   MailRequest* = object
     lower*: uint32 ## Unix timestamp; oldest requested envelope's creation time
     upper*: uint32 ## Unix timestamp; newest requested envelope's creation time
@@ -21,7 +23,10 @@ type
     limit*: uint32 ## Maximum amount of envelopes to return
     cursor*: Cursor ## Optional cursor
 
-proc query*(server: MailServer, request: MailRequest): seq[Row] =
+proc dbkey(timestamp: uint32, topic: Topic, hash: Hash): DBKey =
+  result = concat(@(timestamp.toBytesBE()), @topic, @(hash.data))
+
+proc query(server: MailServer, request: MailRequest): seq[Row] =
   discard
 
 proc getEnvelopes*(server: MailServer, request: MailRequest): seq[Envelope] =
@@ -41,19 +46,25 @@ proc setupDB*(server: MailServer) =
 
   server.db = db
   
-proc prune*(server: MailServer) =
-  discard
+proc prune*(server: MailServer, time: uint32) =
+  var emptyTopic: Topic = [byte 0, 0, 0, 0]
+  var emptyHash: Hash
 
-proc getEnvelope*(server: MailServer) =
+  server.db.exec(
+    sql"DELETE FROM envelopes WHERE id BETWEEN $1 AND $2",
+    dbkey(0, emptyTopic, emptyHash), dbkey(time, emptyTopic, emptyHash)
+  )
+
+proc getEnvelope*(server: MailServer, key: DBKey) =
   discard
 
 proc archive*(server: MailServer, message: Message) =
-  var key: seq[byte]
+  # @TODO create key like in status go
 
   # In status go we have `B''::bit(512)` where I placed $4, let's see if it works this way though.
   server.db.exec(
     sql"INSERT INTO envelopes (id, data, topic, bloom) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING;",
-    key, message.env, message.env.topic, message.bloom
+    dbkey(message.env.expiry - message.env.ttl, message.env.topic, message.hash), message.env, message.env.topic, message.bloom
   )
   # @TODO
   return
