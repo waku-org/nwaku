@@ -59,12 +59,9 @@ proc getEnvelope*(server: MailServer, key: DBKey) =
   discard
 
 proc archive*(server: MailServer, message: Message) =
-  # @TODO create key like in status go
-
   # In status go we have `B''::bit(512)` where I placed $4, let's see if it works this way though.
   server.db.exec(
     sql"INSERT INTO envelopes (id, data, topic, bloom) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING;",
     dbkey(message.env.expiry - message.env.ttl, message.env.topic, message.hash), message.env, message.env.topic, message.bloom
   )
-  # @TODO
-  return
+
