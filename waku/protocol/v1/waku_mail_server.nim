@@ -2,7 +2,7 @@ import
   eth/[p2p], 
   eth/p2p/rlpx_protocols/whisper/whisper_types,
   db_sqlite,
-  sequtils,
+  sequtils, strformat,
   stew/[byteutils, endians2]
 
 const
@@ -28,6 +28,10 @@ proc dbkey(timestamp: uint32, topic: Topic, hash: Hash): DBKey =
 
 proc query(server: MailServer, request: MailRequest): seq[Row] =
   discard
+
+func toBitString(bloom: seq[byte]): string =
+  for n in bloom:
+    result &= &"{n:08b}"
 
 proc toEnvelope(str: string): Envelope =
   var rlp = rlpFromBytes(str.toBytes())
@@ -64,7 +68,9 @@ proc getEnvelope*(server: MailServer, key: DBKey): Envelope =
 
 proc archive*(server: MailServer, message: Message) =
   # In status go we have `B''::bit(512)` where I placed $4, let's see if it works this way though.
+  # query = 
+  
   server.db.exec(
-    sql"INSERT INTO envelopes (id, data, topic, bloom) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING;",
-    dbkey(message.env.expiry - message.env.ttl, message.env.topic, message.hash), message.env, message.env.topic, message.bloom
+    SqlQuery("INSERT INTO envelopes (id, data, topic, bloom) VALUES ($1, $2, $3, B'" & toBitString(message.bloom.toSeq()) & "'::bit(512)) ON CONFLICT (id) DO NOTHING;"),
+    dbkey(message.env.expiry - message.env.ttl, message.env.topic, message.hash), message.env, message.env.topic
   )
