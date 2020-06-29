@@ -67,9 +67,6 @@ proc getEnvelope*(server: MailServer, key: DBKey): Envelope =
   result = str.toEnvelope()
 
 proc archive*(server: MailServer, message: Message) =
-  # In status go we have `B''::bit(512)` where I placed $4, let's see if it works this way though.
-  # query = 
-  
   server.db.exec(
     SqlQuery("INSERT INTO envelopes (id, data, topic, bloom) VALUES ($1, $2, $3, B'" & toBitString(message.bloom.toSeq()) & "'::bit(512)) ON CONFLICT (id) DO NOTHING;"),
     dbkey(message.env.expiry - message.env.ttl, message.env.topic, message.hash), message.env, message.env.topic
