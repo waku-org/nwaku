@@ -22,6 +22,7 @@ type
     bloom*: seq[byte] ## Bloom filter to apply on the envelopes
     limit*: uint32 ## Maximum amount of envelopes to return
     cursor*: Cursor ## Optional cursor
+    topis*: seq[Topic]
 
 proc dbkey(timestamp: uint32, topic: Topic, hash: Hash): DBKey =
   result = concat(@(timestamp.toBytesBE()), @topic, @(hash.data))

@@ -360,6 +360,7 @@ p2pProtocol Waku(version = wakuVersion,
     let envelopes = peer.networkState.mailserver.getEnvelopes(request)
 
     # @TODO BATCH
+    # @TODO P2P REQUEST COMPLETED
 
     asyncCheck peer.p2pMessage(envelopes)
 
