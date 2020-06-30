@@ -1,5 +1,6 @@
 import
-  eth/[p2p], 
+  eth/[p2p],
+  eth/rlp,
   eth/p2p/rlpx_protocols/whisper/whisper_types,
   db_sqlite,
   sequtils, strformat, strutils,
@@ -28,13 +29,13 @@ proc setupDB*(server: MailServer) =
   let db = open(MAILSERVER_DATABASE, "", "", "")
 
   # @TODO THIS PROBABLY DOES NOT BELONG HERE
-  db.exec(sql"""CREATE TABLE envelopes IF NOT EXISTS (id BYTEA NOT NULL UNIQUE, data BYTEA NOT NULL, topic BYTEA NOT NULL, bloom BIT(512) NOT NULL);
+  db.exec(sql"""CREATE TABLE IF NOT EXISTS envelopes (id BYTEA PRIMARY KEY, data BYTEA NOT NULL, topic BYTEA NOT NULL, bloom BIT(512) NOT NULL);
     CREATE INDEX id_bloom_idx ON envelopes (id DESC, bloom);
     CREATE INDEX id_topic_idx ON envelopes (id DESC, topic);""")
 
   server.db = db
 
-proc dbkey(timestamp: uint32, topic: Topic, hash: Hash): DBKey =
+proc dbkey*(timestamp: uint32, topic: Topic, hash: Hash): DBKey =
   result = concat(@(timestamp.toBytesBE()), @topic, @(hash.data))
 
 proc implode(topics: seq[Topic]): string =
@@ -48,8 +49,8 @@ proc toBitString(bloom: seq[byte]): string =
     result &= &"{n:08b}"
 
 proc toEnvelope(str: string): Envelope =
-  var rlp = rlpFromBytes(str.toBytes())
-  result = rlp.read(Envelope)
+  var data = rlpFromBytes(str.toBytes())
+  result = data.read(Envelope)
 
 proc findEnvelopes(server: MailServer, request: MailRequest): seq[Row] =
   var emptyTopic: Topic = [byte 0, 0, 0, 0]
@@ -90,11 +91,11 @@ proc prune*(server: MailServer, time: uint32) =
   )
 
 proc getEnvelope*(server: MailServer, key: DBKey): Envelope =
-  let str = server.db.getValue(sql"SELECT data FROM envelopes WHERE id = $1", key)
+  let str = server.db.getValue(sql"SELECT data FROM envelopes WHERE id = ?", key.toSeq)
   result = str.toEnvelope()
 
 proc archive*(server: MailServer, message: Message) =
   server.db.exec(
-    SqlQuery("INSERT INTO envelopes (id, data, topic, bloom) VALUES ($1, $2, $3, B'" & toBitString(message.bloom.toSeq()) & "'::bit(512)) ON CONFLICT (id) DO NOTHING;"),
-    dbkey(message.env.expiry - message.env.ttl, message.env.topic, message.hash), message.env, message.env.topic
+    SqlQuery("INSERT INTO envelopes (id, data, topic, bloom) VALUES (?, ?, ?, ?) ON CONFLICT (id) DO NOTHING;"),
+    dbkey(message.env.expiry - message.env.ttl, message.env.topic, message.hash), string.fromBytes(toSeq(rlp.encode(message.env))), message.env.topic, toBitString(message.bloom.toSeq())
   )
