@@ -24,6 +24,16 @@ type
     cursor*: Cursor ## Optional cursor
     topics*: seq[Topic]
 
+proc setupDB*(server: MailServer) =
+  let db = open(MAILSERVER_DATABASE, "", "", "")
+
+  # @TODO THIS PROBABLY DOES NOT BELONG HERE
+  db.exec(sql"""CREATE TABLE envelopes IF NOT EXISTS (id BYTEA NOT NULL UNIQUE, data BYTEA NOT NULL, topic BYTEA NOT NULL, bloom BIT(512) NOT NULL);
+    CREATE INDEX id_bloom_idx ON envelopes (id DESC, bloom);
+    CREATE INDEX id_topic_idx ON envelopes (id DESC, topic);""")
+
+  server.db = db
+
 proc dbkey(timestamp: uint32, topic: Topic, hash: Hash): DBKey =
   result = concat(@(timestamp.toBytesBE()), @topic, @(hash.data))
 
@@ -33,9 +43,13 @@ proc implode(topics: seq[Topic]): string =
     if i != len(topic) - 1:
       result &= ", "
 
-func toBitString(bloom: seq[byte]): string =
+proc toBitString(bloom: seq[byte]): string =
   for n in bloom:
     result &= &"{n:08b}"
+
+proc toEnvelope(str: string): Envelope =
+  var rlp = rlpFromBytes(str.toBytes())
+  result = rlp.read(Envelope)
 
 proc findEnvelopes(server: MailServer, request: MailRequest): seq[Row] =
   var emptyTopic: Topic = [byte 0, 0, 0, 0]
@@ -60,25 +74,11 @@ proc findEnvelopes(server: MailServer, request: MailRequest): seq[Row] =
 
   result = server.db.getAllRows(SqlQuery(query))
 
-proc toEnvelope(str: string): Envelope =
-  var rlp = rlpFromBytes(str.toBytes())
-  result = rlp.read(Envelope)
-
 proc getEnvelopes*(server: MailServer, request: MailRequest): seq[Envelope] =
   let rows = server.findEnvelopes(request)
 
   for row in rows:
     result.add(row[1].toEnvelope())
-
-proc setupDB*(server: MailServer) =
-  let db = open(MAILSERVER_DATABASE, "", "", "")
-
-  # @TODO THIS PROBABLY DOES NOT BELONG HERE
-  db.exec(sql"""CREATE TABLE envelopes IF NOT EXISTS (id BYTEA NOT NULL UNIQUE, data BYTEA NOT NULL, topic BYTEA NOT NULL, bloom BIT(512) NOT NULL);
-    CREATE INDEX id_bloom_idx ON envelopes (id DESC, bloom);
-    CREATE INDEX id_topic_idx ON envelopes (id DESC, topic);""")
-
-  server.db = db
   
 proc prune*(server: MailServer, time: uint32) =
   var emptyTopic: Topic = [byte 0, 0, 0, 0]
