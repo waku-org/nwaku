@@ -79,8 +79,7 @@ proc p2pRequestHandler(peer: Peer, envelope: Envelope) =
   # Mail server p2p request implementation
   discard
 
-proc enableMailServer*(node: EthereumNode, customHandler: P2PRequestHandler) =
-  node.protocolState(Waku).p2pRequestHandler = customHandler
-
 proc enableMailServer*(node: EthereumNode) =
-  node.protocolState(Waku).p2pRequestHandler = p2pRequestHandler
+  # TODO: This could become part of an init call for an actual `MailServer`
+  # object.
+  node.registerP2PRequestHandler(p2pRequestHandler)

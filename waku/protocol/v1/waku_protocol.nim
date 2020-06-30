@@ -640,6 +640,10 @@ proc configureWaku*(node: EthereumNode, config: WakuConfig) =
   ## of the settings are only communicated at peer handshake.
   node.protocolState(Waku).config = config
 
+proc registerP2PRequestHandler*(node: EthereumNode,
+    customHandler: P2PRequestHandler) =
+  node.protocolState(Waku).p2pRequestHandler = customHandler
+
 proc resetMessageQueue*(node: EthereumNode) =
   ## Full reset of the message queue.
   ##
