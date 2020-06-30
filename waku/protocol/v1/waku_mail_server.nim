@@ -56,7 +56,7 @@ proc findEnvelopes(server: MailServer, request: MailRequest): seq[Row] =
   else:
     query &= " AND bloom & b'" & toBitString(request.bloom.toSeq()) & "'::bit(512) = bloom"
 
-  query &= " ORDER BY id DESC LIMIT " & &"{request.limit}"
+  query &= " ORDER BY id DESC LIMIT " & $request.limit
 
   result = server.db.getAllRows(SqlQuery(query))
 
