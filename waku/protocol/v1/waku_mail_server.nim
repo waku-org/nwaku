@@ -40,7 +40,7 @@ proc dbkey(timestamp: uint32, topic: Topic, hash: Hash): DBKey =
 proc implode(topics: seq[Topic]): string =
   for i, topic in topics:
     result &= string.fromBytes(topic) 
-    if i != len(topic) - 1:
+    if i != len(topics) - 1:
       result &= ", "
 
 proc toBitString(bloom: seq[byte]): string =
