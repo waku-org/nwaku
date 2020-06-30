@@ -2,7 +2,7 @@ import
   eth/[p2p], 
   eth/p2p/rlpx_protocols/whisper/whisper_types,
   db_sqlite,
-  sequtils, strformat,
+  sequtils, strformat, strutils,
   stew/[byteutils, endians2]
 
 const
@@ -22,27 +22,53 @@ type
     bloom*: seq[byte] ## Bloom filter to apply on the envelopes
     limit*: uint32 ## Maximum amount of envelopes to return
     cursor*: Cursor ## Optional cursor
-    topis*: seq[Topic]
+    topics*: seq[Topic]
 
 proc dbkey(timestamp: uint32, topic: Topic, hash: Hash): DBKey =
   result = concat(@(timestamp.toBytesBE()), @topic, @(hash.data))
 
-proc query(server: MailServer, request: MailRequest): seq[Row] =
-  discard
+proc implode(topics: seq[Topic]): string =
+  for i, topic in topics:
+    result &= string.fromBytes(topic) 
+    if i != len(topic) - 1:
+      result &= ", "
 
 func toBitString(bloom: seq[byte]): string =
   for n in bloom:
     result &= &"{n:08b}"
+
+proc findEnvelopes(server: MailServer, request: MailRequest): seq[Row] =
+  var emptyTopic: Topic = [byte 0, 0, 0, 0]
+  var emptyHash: Hash
+
+  var lower = dbkey(request.lower, emptyTopic, emptyHash)
+
+  var query: string = "SELECT id, data from envelopes WHERE id >= " & string.fromBytes(lower.toSeq) & " AND id < " 
+  if len(request.cursor) > 0:
+    query &= string.fromBytes(request.cursor.toSeq)
+  else:
+    var upper = dbkey(request.upper + 1, emptyTopic, emptyHash)
+    query &= string.fromBytes(upper.toSeq)
+
+
+  if len(request.topics) > 0:
+    query &= " AND topic IN (" & implode(request.topics) & ")"
+  else:
+    query &= " AND bloom & b'" & toBitString(request.bloom.toSeq()) & "'::bit(512) = bloom"
+
+  query &= " ORDER BY id DESC LIMIT " & &"{request.limit}"
+
+  result = server.db.getAllRows(SqlQuery(query))
 
 proc toEnvelope(str: string): Envelope =
   var rlp = rlpFromBytes(str.toBytes())
   result = rlp.read(Envelope)
 
 proc getEnvelopes*(server: MailServer, request: MailRequest): seq[Envelope] =
-  let rows = server.query(request)
+  let rows = server.findEnvelopes(request)
 
   for row in rows:
-    result.add(row[0].toEnvelope())
+    result.add(row[1].toEnvelope())
 
 proc setupDB*(server: MailServer) =
   let db = open(MAILSERVER_DATABASE, "", "", "")
