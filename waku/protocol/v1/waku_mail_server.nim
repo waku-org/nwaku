@@ -49,7 +49,7 @@ proc toBitString(bloom: seq[byte]): string =
     result &= &"{n:08b}"
 
 proc toEnvelope(str: string): Envelope =
-  var data = rlpFromBytes(str.toBytes())
+  var data = rlpFromHex(str)
   result = data.read(Envelope)
 
 proc findEnvelopes(server: MailServer, request: MailRequest): seq[Row] =
@@ -91,11 +91,11 @@ proc prune*(server: MailServer, time: uint32) =
   )
 
 proc getEnvelope*(server: MailServer, key: DBKey): Envelope =
-  let str = server.db.getValue(sql"SELECT data FROM envelopes WHERE id = ?", key.toSeq)
+  let str = server.db.getValue(sql"SELECT data FROM envelopes WHERE id = ?", key)
   result = str.toEnvelope()
 
 proc archive*(server: MailServer, message: Message) =
   server.db.exec(
     SqlQuery("INSERT INTO envelopes (id, data, topic, bloom) VALUES (?, ?, ?, ?) ON CONFLICT (id) DO NOTHING;"),
-    dbkey(message.env.expiry - message.env.ttl, message.env.topic, message.hash), string.fromBytes(toSeq(rlp.encode(message.env))), message.env.topic, toBitString(message.bloom.toSeq())
+    dbkey(message.env.expiry - message.env.ttl, message.env.topic, message.hash), toSeq(rlp.encode(message.env)).toHex, message.env.topic, toBitString(message.bloom.toSeq())
   )
