@@ -57,7 +57,7 @@ else
 NIM_PARAMS := $(NIM_PARAMS) -d:release
 endif
 
-deps: | deps-common waku.nims
+deps: | deps-common nat-libs waku.nims
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
 endif
