@@ -363,6 +363,9 @@ p2pProtocol Waku(version = wakuVersion,
     # @TODO P2P REQUEST COMPLETED
 
     asyncCheck peer.p2pMessage(envelopes)
+    
+    # var dummy: Hash # @TODO
+    # asyncCheck peer.p2pRequestComplete(dummy, dummy,)
 
   proc p2pMessage(peer: Peer, envelopes: openarray[Envelope]) =
     if peer.state.trusted:
