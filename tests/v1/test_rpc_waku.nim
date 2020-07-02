@@ -1,5 +1,5 @@
 import
-  unittest, strformat, options, os, stew/byteutils,
+  unittest, options, os, stew/byteutils,
   json_rpc/[rpcserver, rpcclient],
   eth/common as eth_common, eth/[rlp, keys, p2p],
   ../../waku/protocol/v1/waku_protocol,
