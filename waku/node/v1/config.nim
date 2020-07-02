@@ -137,6 +137,11 @@ type
         defaultValue: false
         name: "log-metrics" .}: bool
 
+      logAccounting* {.
+        desc: "Enable peer accounting logging."
+        defaultValue: false
+        name: "log-accounting" .}: bool
+
       # TODO:
       # - discv5 + topic register
       # - mailserver functionality
@@ -146,7 +151,7 @@ type
 proc parseCmdArg*(T: type KeyPair, p: TaintedString): T =
   try:
     let privkey = PrivateKey.fromHex(string(p)).tryGet()
-    result = privkey.toKeyPair.expect("a valid private key after check above")
+    result = privkey.toKeyPair()
   except CatchableError as e:
     raise newException(ConfigurationError, "Invalid private key")
 

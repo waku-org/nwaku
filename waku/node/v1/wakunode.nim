@@ -1,6 +1,6 @@
 import
   confutils, config, strutils, chronos, json_rpc/rpcserver, metrics,
-  chronicles/topics_registry, # TODO: What? Need this for setLoglevel, weird.
+  metrics/chronicles_support,
   eth/[keys, p2p, async_utils], eth/common/utils, eth/net/nat,
   eth/p2p/[discovery, enode, peer_pool, bootnodes, whispernodes],
   eth/p2p/rlpx_protocols/whisper_protocol,
@@ -116,19 +116,20 @@ proc run(config: WakuNodeConf) =
     setupWakuSimRPC(node, rpcServer)
     rpcServer.start()
 
-  proc logPeerAccounting(udata: pointer) {.closure, gcsafe.} =
-    {.gcsafe.}:
-      
-      for peer in node.peerPool.peers:
-        let 
-          sent = peer.state(Waku).accounting.sent
-          received = peer.state(Waku).accounting.received
-          id = peer.network.toEnode
-        info "Peer Metrics", id, sent, received
-        peer.state(Waku).accounting = Accounting(sent: 0, received: 0)
 
-    addTimer(Moment.fromNow(2.seconds), logPeerAccounting)
-  addTimer(Moment.fromNow(2.seconds), logPeerAccounting)
+  if config.logAccounting:
+    proc logPeerAccounting(udata: pointer) {.closure, gcsafe.} =
+      {.gcsafe.}:
+        for peer in node.peerPool.peers:
+          let
+            sent = peer.state(Waku).accounting.sent
+            received = peer.state(Waku).accounting.received
+            id = peer.network.toEnode
+          info "Peer accounting", id, sent, received
+          peer.state(Waku).accounting = Accounting(sent: 0, received: 0)
+
+      discard setTimer(Moment.fromNow(2.seconds), logPeerAccounting)
+    discard setTimer(Moment.fromNow(2.seconds), logPeerAccounting)
 
   when defined(insecure):
     if config.metricsServer:
@@ -147,8 +148,8 @@ proc run(config: WakuNodeConf) =
           droppedEnvelopes = waku_protocol.envelopes_dropped
 
       info "Node metrics", connectedPeers, validEnvelopes, droppedEnvelopes
-      addTimer(Moment.fromNow(2.seconds), logMetrics)
-    addTimer(Moment.fromNow(2.seconds), logMetrics)
+      discard setTimer(Moment.fromNow(2.seconds), logMetrics)
+    discard setTimer(Moment.fromNow(2.seconds), logMetrics)
 
   runForever()
 
