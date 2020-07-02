@@ -137,6 +137,11 @@ type
         defaultValue: false
         name: "log-metrics" .}: bool
 
+      logAccounting* {.
+        desc: "Enable peer accounting logging."
+        defaultValue: false
+        name: "log-accounting" .}: bool
+
       # TODO:
       # - discv5 + topic register
       # - mailserver functionality
