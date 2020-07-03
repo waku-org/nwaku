@@ -7,6 +7,9 @@ msdb.db
 # Nimble packages
 /vendor/.nimble
 
+# Generated Files
+*.generated.nim
+
 # ntags/ctags output
 /tags
 
