@@ -20,10 +20,7 @@ declarePublicGauge total_messages, "number of messages received"
 logScope:
     topic = "WakuSub"
 
-#For spike
-const WakuSubCodec* = "/wakusub/0.0.1"
-
-#const wakuVersionStr = "2.0.0-alpha1"
+const WakuSubCodec* = "/wakusub/2.0.0-alpha1"
 
 type
   WakuSub* = ref object of GossipSub
