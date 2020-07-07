@@ -7,7 +7,7 @@ import
   stew/[byteutils, endians2]
 
 const
-  MAILSERVER_DATABASE: string = "msdb.db"
+  MAILSERVER_DATABASE: string = "/tmp/msdb.db"
 
 type  
   MailServer* = ref object
@@ -40,7 +40,7 @@ proc dbkey*(timestamp: uint32, topic: Topic, hash: Hash): DBKey =
 
 proc implode(topics: seq[Topic]): string =
   for i, topic in topics:
-    result &= string.fromBytes(topic) 
+    result &= dbQuote(topic.toHex)
     if i != len(topics) - 1:
       result &= ", "
 
@@ -58,22 +58,27 @@ proc findEnvelopes(server: MailServer, request: MailRequest): seq[Row] =
 
   var lower = dbkey(request.lower, emptyTopic, emptyHash)
 
-  var query: string = "SELECT id, data from envelopes WHERE id >= " & string.fromBytes(lower.toSeq) & " AND id < " 
-  if len(request.cursor) > 0:
-    query &= string.fromBytes(request.cursor.toSeq)
-  else:
-    var upper = dbkey(request.upper + 1, emptyTopic, emptyHash)
-    query &= string.fromBytes(upper.toSeq)
+  var args = newSeq[string](0)
 
+  var query: string = "SELECT id, data from envelopes WHERE id >= ? AND id < ?"
+  args.add($lower)
+  if len(request.cursor) > 0:
+      args.add($request.cursor)
+  else:
+      args.add($(dbkey(request.upper + 1, emptyTopic, emptyHash)))
 
   if len(request.topics) > 0:
-    query &= " AND topic IN (" & implode(request.topics) & ")"
-  else:
-    query &= " AND bloom & b'" & toBitString(request.bloom.toSeq()) & "'::bit(512) = bloom"
+   query &= " AND topic IN (" & implode(request.topics) & ")"
+  #else:
+  #   query &= " AND bloom & b'" & toBitString(request.bloom.toSeq()) & "'::bit(512) = bloom"
 
-  query &= " ORDER BY id DESC LIMIT " & $request.limit
+  query &= " ORDER BY id DESC LIMIT ?" 
+  args.add($request.limit)
 
-  result = server.db.getAllRows(SqlQuery(query))
+  result = server.db.getAllRows(
+    SqlQuery(query),
+    args
+  )
 
 proc getEnvelopes*(server: MailServer, request: MailRequest): seq[Envelope] =
   let rows = server.findEnvelopes(request)
@@ -97,5 +102,8 @@ proc getEnvelope*(server: MailServer, key: DBKey): Envelope =
 proc archive*(server: MailServer, message: Message) =
   server.db.exec(
     SqlQuery("INSERT INTO envelopes (id, data, topic, bloom) VALUES (?, ?, ?, ?) ON CONFLICT (id) DO NOTHING;"),
-    dbkey(message.env.expiry - message.env.ttl, message.env.topic, message.hash), toSeq(rlp.encode(message.env)).toHex, message.env.topic, toBitString(message.bloom.toSeq())
+    dbkey(message.env.expiry - message.env.ttl, message.env.topic, message.hash),
+    toSeq(rlp.encode(message.env)).toHex, 
+    message.env.topic.toHex, 
+    toBitString(message.bloom.toSeq())
   )
