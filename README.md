@@ -138,3 +138,13 @@ Additionally it makes the following choices:
 - It doesn't send message confirmations
 - It has partial support for accounting:
   - Accounting of total resource usage and total circulated envelopes is done through metrics But no accounting is done for individual peers.
+
+## Waku v2
+
+Waku v2 is under active development but is currently in an early alpha state.
+See `waku/node` and `waku/protocol` directory for more details on the current
+state.
+
+Here's a post outlining the [current plan for Waku
+v2](https://vac.dev/waku-v2-plan), and here's the current roadmap and progress
+https://github.com/vacp2p/research/issues/40
