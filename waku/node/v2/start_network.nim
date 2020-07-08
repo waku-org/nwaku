@@ -1,5 +1,5 @@
 import
-  strformat, os, osproc, net, strformat, chronicles,
+  strformat, os, osproc, net, confutils, strformat, chronicles, json,
   libp2p/multiaddress,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
@@ -11,6 +11,7 @@ import strutils except fromHex
 const
   defaults ="--log-level:TRACE --log-metrics --metrics-server --rpc"
   wakuNodeBin = "build" / "wakunode"
+  metricsDir = "metrics"
   portOffset = 2
 
 type
@@ -76,6 +77,61 @@ proc fullMeshNetwork(amount: int): seq[NodeInfo] =
       staticnodes.add(item.address)
     result.add(initNodeCmd(portOffset + i, staticnodes, label = "full node"))
 
+proc generatePrometheusConfig(nodes: seq[NodeInfo], outputFile: string) =
+  var config = """
+  global:
+    scrape_interval: 1s
+
+  scrape_configs:
+    - job_name: "wakusim"
+      static_configs:"""
+  var count = 0
+  for node in nodes:
+    let port = 8008 + node.shift
+    config &= &"""
+
+      - targets: ['127.0.0.1:{port}']
+        labels:
+          node: '{count}'"""
+    count += 1
+
+  var (path, file) = splitPath(outputFile)
+  createDir(path)
+  writeFile(outputFile, config)
+
+proc proccessGrafanaDashboard(nodes: int, inputFile: string,
+    outputFile: string) =
+  # from https://github.com/status-im/nim-beacon-chain/blob/master/tests/simulation/process_dashboard.nim
+  var
+    inputData = parseFile(inputFile)
+    panels = inputData["panels"].copy()
+    numPanels = len(panels)
+    gridHeight = 0
+    outputData = inputData
+
+  for panel in panels:
+    if panel["gridPos"]["x"].getInt() == 0:
+      gridHeight += panel["gridPos"]["h"].getInt()
+
+  outputData["panels"] = %* []
+  for nodeNum in 0 .. (nodes - 1):
+    var
+      nodePanels = panels.copy()
+      panelIndex = 0
+    for panel in nodePanels.mitems:
+      panel["title"] = %* replace(panel["title"].getStr(), "#0", "#" & $nodeNum)
+      panel["id"] = %* (panelIndex + (nodeNum * numPanels))
+      panel["gridPos"]["y"] = %* (panel["gridPos"]["y"].getInt() + (nodeNum * gridHeight))
+      var targets = panel["targets"]
+      for target in targets.mitems:
+        target["expr"] = %* replace(target["expr"].getStr(), "{node=\"0\"}", "{node=\"" & $nodeNum & "\"}")
+      outputData["panels"].add(panel)
+      panelIndex.inc()
+
+  outputData["uid"] = %* (outputData["uid"].getStr() & "a")
+  outputData["title"] = %* (outputData["title"].getStr() & " (all nodes)")
+  writeFile(outputFile, pretty(outputData))
+
 when isMainModule:
   # TODO: WakuNetworkConf
   var nodes: seq[NodeInfo]
@@ -118,6 +174,12 @@ when isMainModule:
     if topology == FullMesh:
       sleepDuration += 1
       count += 1
+
+  generatePrometheusConfig(nodes, metricsDir / "prometheus" / "prometheus.yml")
+  proccessGrafanaDashboard(nodes.len,
+                            metricsDir / "waku-grafana-dashboard.json",
+                            metricsDir / "waku-sim-all-nodes-grafana-dashboard.json")
+
 
   let errorCode = execCmd(commandStr)
   if errorCode != 0:
