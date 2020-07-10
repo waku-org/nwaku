@@ -93,7 +93,8 @@ type
 
       nodekey* {.
         desc: "P2P node private key as hex.",
-        defaultValue: KeyPair.random().tryGet()
+        # TODO: can the rng be passed in somehow via Load?
+        defaultValue: KeyPair.random(keys.newRng()[])
         name: "nodekey" .}: KeyPair
       # TODO: Add nodekey file option
 
