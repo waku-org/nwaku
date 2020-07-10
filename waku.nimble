@@ -37,8 +37,11 @@ proc test(name: string, lang = "c") =
   exec "build/" & name
 
 ### Tasks
-task test, "Run tests":
+task test, "Run waku v1 tests":
   test "all_tests"
+
+task test2, "Run waku v2 tests":
+  test "all_tests_v2"
 
 task wakunode, "Build Waku cli":
   buildBinary "wakunode", "waku/node/v1/", "-d:chronicles_log_level=TRACE"
