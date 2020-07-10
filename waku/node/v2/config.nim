@@ -88,7 +88,7 @@ type
     # NOTE: Signature is different here, we return PrivateKey and not KeyPair
     nodekey* {.
       desc: "P2P node private key as hex.",
-      defaultValue: PrivateKey.random(Secp256k1).tryGet()
+      defaultValue: PrivateKey.random(Secp256k1, keys.newRng()[]).tryGet()
       name: "nodekey" }: PrivateKey
     # TODO: Add nodekey file option
 

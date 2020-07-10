@@ -10,12 +10,11 @@
 import unittest, options, tables, sets
 import chronos, chronicles
 import utils,
-       libp2p/[errors,
-               switch,
-               connection,
-               stream/bufferstream,
-               crypto/crypto,
-               protocols/pubsub/floodsub]
+       libp2p/errors,
+       libp2p/switch,
+       libp2p/stream/[bufferstream, connection],
+       libp2p/crypto/crypto,
+       libp2p/protocols/pubsub/floodsub
 import ../../waku/protocol/v2/waku_protocol
 
 const
@@ -71,7 +70,8 @@ suite "FloodSub":
       await nodes[1].subscribe("foobar", handler)
       await waitSub(nodes[0], nodes[1], "foobar")
 
-      await nodes[0].publish("foobar", cast[seq[byte]]("Hello!"))
+      # TODO: you might want to check the value here
+      discard await nodes[0].publish("foobar", cast[seq[byte]]("Hello!"))
 
       result = await completionFut.wait(5.seconds)
 
