@@ -51,12 +51,9 @@ method initPubSub*(w: WakuSub) =
   w.text = "Foobar"
   debug "w.text", text = w.text
 
-  
-
   # Using GossipSub
-  w.gossip_enabled = true
-
-  if w.gossip_enabled:
+  let gossipsub = true
+  if gossipsub:
     w.pubsub = GossipSub(w)
   else:
     w.pubsub = FloodSub(w)
