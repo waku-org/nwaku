@@ -26,7 +26,7 @@ type
   WakuSub* = ref object of GossipSub
     # XXX: just playing
     text*: string
-    gossip_enabled*: bool
+    pubsub*: Pubsub
 
 method init(w: WakuSub) =
   debug "init"
@@ -51,13 +51,17 @@ method initPubSub*(w: WakuSub) =
   w.text = "Foobar"
   debug "w.text", text = w.text
 
+  
+
   # Using GossipSub
   w.gossip_enabled = true
 
   if w.gossip_enabled:
-    procCall GossipSub(w).initPubSub()
+    w.pubsub = GossipSub(w)
   else:
-    procCall FloodSub(w).initPubSub()
+    w.pubsub = FloodSub(w)
+    
+  procCall w.pubsub.initPubSub()
 
   w.init()
 
@@ -68,10 +72,7 @@ method subscribe*(w: WakuSub,
   # XXX: Pubsub really
 
   # XXX: This is what is called, I think
-  if w.gossip_enabled:
-    await procCall GossipSub(w).subscribe(topic, handler)
-  else:
-    await procCall FloodSub(w).subscribe(topic, handler)
+  await procCall w.pubsub.subscribe(topic, handler)
 
 
 # Subscribing a peer to a specified topic
@@ -84,10 +85,7 @@ method subscribeTopic*(w: WakuSub,
 
   debug "subscribeTopic", topic=topic, subscribe=subscribe, peerId=peerId
 
-  if w.gossip_enabled:
-    await procCall GossipSub(w).subscribeTopic(topic, subscribe, peerId)
-  else:
-    await procCall FloodSub(w).subscribeTopic(topic, subscribe, peerId)
+  w.pubsub.subscribeTopic(topic, subscribe, peerId)
 
   # XXX: This should distingish light and etc node
   # NOTE: Relay subscription
@@ -111,10 +109,7 @@ method rpcHandler*(w: WakuSub,
   # XXX: Right place?
   total_messages.inc()
 
-  if w.gossip_enabled:
-    await procCall GossipSub(w).rpcHandler(peer, rpcMsgs)
-  else:
-    await procCall FloodSub(w).rpcHandler(peer, rpcMsgs)
+  await procCall w.pubsub.rpcHandler(peer, rpcMsgs)
   # XXX: here
 
 method publish*(w: WakuSub,
@@ -122,30 +117,19 @@ method publish*(w: WakuSub,
                 data: seq[byte]) {.async.} =
   debug "publish", topic=topic
 
-  if w.gossip_enabled:
-    await procCall GossipSub(w).publish(topic, data)
-  else:
-    await procCall FloodSub(w).publish(topic, data)
+  await procCall w.pubsub.publish(topic, data)
 
 method unsubscribe*(w: WakuSub,
                     topics: seq[TopicPair]) {.async.} =
   debug "unsubscribe"
-  if w.gossip_enabled:
-    await procCall GossipSub(w).unsubscribe(topics)
-  else:
-    await procCall FloodSub(w).unsubscribe(topics)
+  await procCall w.pubsub.unsubscribe(topics)
 
 # GossipSub specific methods
 method start*(w: WakuSub) {.async.} =
   debug "start"
-  if w.gossip_enabled:
-    await procCall GossipSub(w).start()
-  else:
-    await procCall FloodSub(w).start()
+  await procCall w.pubsub.start()
 
 method stop*(w: WakuSub) {.async.} =
   debug "stop"
-  if w.gossip_enabled:
-    await procCall GossipSub(w).stop()
-  else:
-    await procCall FloodSub(w).stop()
+
+  await procCall w.pubsub.stop()
