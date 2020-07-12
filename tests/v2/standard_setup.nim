@@ -12,7 +12,7 @@ import
   libp2p/muxers/[muxer, mplex/mplex, mplex/types],
   libp2p/protocols/[identify, secure/secure],
   libp2p/protocols/pubsub/[pubsub, gossipsub],
-  ../../waku/protocol/v2/waku_protocol
+  ../../waku/protocol/v2/waku_protocol2
 
 import
   libp2p/protocols/secure/noise,

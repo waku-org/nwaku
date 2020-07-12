@@ -45,7 +45,7 @@ GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 else # "variables.mk" was included. Business as usual until the end of this file.
 
 # default target, because it's the first one that doesn't start with '.'
-all: | wakunode wakusim wakunode2 wakusim2 protocol2
+all: | wakunode wakusim wakunode2 wakusim2
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
@@ -116,7 +116,7 @@ test: | build deps
 
 # usual cleaning
 clean: | clean-common
-	rm -rf build/{wakunode,quicksim,start_network,all_tests}
+	rm -rf build
 ifneq ($(USE_LIBBACKTRACE), 0)
 	+ $(MAKE) -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif

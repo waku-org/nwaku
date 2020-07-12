@@ -15,7 +15,7 @@ import utils,
        libp2p/stream/[bufferstream, connection],
        libp2p/crypto/crypto,
        libp2p/protocols/pubsub/floodsub
-import ../../waku/protocol/v2/waku_protocol
+import ../../waku/protocol/v2/waku_protocol2
 
 const
   StreamTransportTrackerName = "stream.transport"

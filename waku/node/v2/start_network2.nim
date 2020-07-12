@@ -10,7 +10,7 @@ import strutils except fromHex
 
 const
   defaults ="--log-level:TRACE --log-metrics --metrics-server --rpc"
-  wakuNodeBin = "build" / "wakunode"
+  wakuNodeBin = "build" / "wakunode2"
   metricsDir = "metrics"
   portOffset = 2
 
