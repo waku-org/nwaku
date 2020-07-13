@@ -9,10 +9,12 @@ proc localAddress*(port: int): Address =
   result = Address(udpPort: port, tcpPort: port,
                    ip: parseIpAddress("127.0.0.1"))
 
-proc setupTestNode*(capabilities: varargs[ProtocolInfo, `protocolInfo`]): EthereumNode =
-  let keys1 = KeyPair.random()[]
+proc setupTestNode*(
+    rng: ref BrHmacDrbgContext,
+    capabilities: varargs[ProtocolInfo, `protocolInfo`]): EthereumNode =
+  let keys1 = KeyPair.random(rng[])
   result = newEthereumNode(keys1, localAddress(nextPort), 1, nil,
-                           addAllCapabilities = false)
+                           addAllCapabilities = false, rng = rng)
   nextPort.inc
   for capability in capabilities:
     result.addCapability capability

@@ -10,7 +10,7 @@ import libp2p/protocols/pubsub/pubsub,
        libp2p/protocols/pubsub/floodsub,
        libp2p/protocols/pubsub/gossipsub,
        libp2p/protocols/pubsub/rpc/[messages],
-       libp2p/connection
+       libp2p/stream/connection
 
 import metrics
 
@@ -111,7 +111,7 @@ method rpcHandler*(w: WakuSub,
 
 method publish*(w: WakuSub,
                 topic: string,
-                data: seq[byte]) {.async.} =
+                data: seq[byte]): Future[int] {.async.} =
   debug "publish", topic=topic
 
   await procCall w.pubsub.publish(topic, data)

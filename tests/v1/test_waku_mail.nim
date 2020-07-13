@@ -12,8 +12,9 @@ proc waitForConnected(node: EthereumNode) {.async.} =
     await sleepAsync(chronos.milliseconds(1))
 
 procSuite "Waku Mail Client":
-  var client = setupTestNode(Waku)
-  var simpleServer = setupTestNode(Waku)
+  let rng = newRng()
+  var client = setupTestNode(rng, Waku)
+  var simpleServer = setupTestNode(rng, Waku)
 
   simpleServer.startListening()
   let simpleServerNode = newNode(simpleServer.toENode())
