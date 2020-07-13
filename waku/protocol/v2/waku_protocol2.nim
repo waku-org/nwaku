@@ -87,7 +87,8 @@ method subscribeTopic*(w: WakuSub,
   proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
     info "Hit NOOP handler", topic
     info "Adding to mailserver"
-    w.mailserver.archive(topic, data)
+    # w.mailserver.archive(topic, data)
+    # @TODO FEED OF SOME SORT
 
   debug "subscribeTopic", topic=topic, subscribe=subscribe, peerId=peerId
 

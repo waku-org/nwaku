@@ -1,5 +1,7 @@
 import sequtils, tables
 
+## deprecated
+
 type 
   MailServer* = ref object
     messages = Table[string, seq[seq[byte]]]
