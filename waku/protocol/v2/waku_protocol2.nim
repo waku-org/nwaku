@@ -114,7 +114,7 @@ method publish*(w: WakuSub,
                 data: seq[byte]): Future[int] {.async.} =
   debug "publish", topic=topic
 
-  await procCall w.pubsub.publish(topic, data)
+  return await procCall w.pubsub.publish(topic, data)
 
 method unsubscribe*(w: WakuSub,
                     topics: seq[TopicPair]) {.async.} =
