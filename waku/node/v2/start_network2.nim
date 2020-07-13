@@ -10,7 +10,7 @@ import strutils except fromHex
 
 const
   defaults ="--log-level:TRACE --log-metrics --metrics-server --rpc"
-  wakuNodeBin = "build" / "wakunode"
+  wakuNodeBin = "build" / "wakunode2"
   metricsDir = "metrics"
   portOffset = 2
 
@@ -29,7 +29,8 @@ type
 # NOTE: Don't distinguish between node types here a la full node, light node etc
 proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], master = false, label: string): NodeInfo =
   let
-    key = SkPrivateKey.random()[] #assumes ok
+    rng = crypto.newRng()
+    key = SkPrivateKey.random(rng[])
     hkey = key.getBytes().toHex()
     rkey = SkPrivateKey.init(fromHex(hkey))[] #assumes ok
     privKey = PrivateKey(scheme: Secp256k1, skkey: rkey)

@@ -33,13 +33,14 @@ proc eventually(timeout: Duration, condition: proc(): bool {.gcsafe.}):
     return await f
   return withTimeout(wrappedCondition(), timeout)
 
-suite "Waku connections":
+procSuite "Waku connections":
+  let rng = keys.newRng()
   asyncTest "Waku connections":
     var
-      n1 = setupTestNode(Waku)
-      n2 = setupTestNode(Waku)
-      n3 = setupTestNode(Waku)
-      n4 = setupTestNode(Waku)
+      n1 = setupTestNode(rng, Waku)
+      n2 = setupTestNode(rng, Waku)
+      n3 = setupTestNode(rng, Waku)
+      n4 = setupTestNode(rng, Waku)
 
     var topics: seq[Topic]
     n1.protocolState(Waku).config.topics = some(topics)
@@ -60,13 +61,13 @@ suite "Waku connections":
       p3.isNil == false
 
   asyncTest "Filters with encryption and signing":
-    var node1 = setupTestNode(Waku)
-    var node2 = setupTestNode(Waku)
+    var node1 = setupTestNode(rng, Waku)
+    var node2 = setupTestNode(rng, Waku)
     node2.startListening()
     waitFor node1.peerPool.connectToNode(newNode(node2.toENode()))
 
-    let encryptKeyPair = KeyPair.random()[]
-    let signKeyPair = KeyPair.random()[]
+    let encryptKeyPair = KeyPair.random(rng[])
+    let signKeyPair = KeyPair.random(rng[])
     var symKey: SymKey
     let topic = [byte 0x12, 0, 0, 0]
     var filters: seq[string] = @[]
@@ -135,8 +136,8 @@ suite "Waku connections":
       check node1.unsubscribeFilter(filter) == true
 
   asyncTest "Filters with topics":
-    var node1 = setupTestNode(Waku)
-    var node2 = setupTestNode(Waku)
+    var node1 = setupTestNode(rng, Waku)
+    var node2 = setupTestNode(rng, Waku)
     node2.startListening()
     waitFor node1.peerPool.connectToNode(newNode(node2.toENode()))
 
@@ -168,8 +169,8 @@ suite "Waku connections":
       node1.unsubscribeFilter(filter2) == true
 
   asyncTest "Filters with PoW":
-    var node1 = setupTestNode(Waku)
-    var node2 = setupTestNode(Waku)
+    var node1 = setupTestNode(rng, Waku)
+    var node2 = setupTestNode(rng, Waku)
     node2.startListening()
     waitFor node1.peerPool.connectToNode(newNode(node2.toENode()))
 
@@ -199,8 +200,8 @@ suite "Waku connections":
       node1.unsubscribeFilter(filter2) == true
 
   asyncTest "Filters with queues":
-    var node1 = setupTestNode(Waku)
-    var node2 = setupTestNode(Waku)
+    var node1 = setupTestNode(rng, Waku)
+    var node2 = setupTestNode(rng, Waku)
     node2.startListening()
     waitFor node1.peerPool.connectToNode(newNode(node2.toENode()))
 
@@ -219,8 +220,8 @@ suite "Waku connections":
       node1.unsubscribeFilter(filter) == true
 
   asyncTest "Local filter notify":
-    var node1 = setupTestNode(Waku)
-    var node2 = setupTestNode(Waku)
+    var node1 = setupTestNode(rng, Waku)
+    var node2 = setupTestNode(rng, Waku)
     node2.startListening()
     waitFor node1.peerPool.connectToNode(newNode(node2.toENode()))
 
@@ -234,8 +235,8 @@ suite "Waku connections":
       node1.unsubscribeFilter(filter) == true
 
   asyncTest "Bloomfilter blocking":
-    var node1 = setupTestNode(Waku)
-    var node2 = setupTestNode(Waku)
+    var node1 = setupTestNode(rng, Waku)
+    var node2 = setupTestNode(rng, Waku)
     node2.startListening()
     waitFor node1.peerPool.connectToNode(newNode(node2.toENode()))
 
@@ -277,8 +278,8 @@ suite "Waku connections":
     await node1.setBloomFilter(fullBloom())
 
   asyncTest "PoW blocking":
-    var node1 = setupTestNode(Waku)
-    var node2 = setupTestNode(Waku)
+    var node1 = setupTestNode(rng, Waku)
+    var node2 = setupTestNode(rng, Waku)
     node2.startListening()
     waitFor node1.peerPool.connectToNode(newNode(node2.toENode()))
 
@@ -304,8 +305,8 @@ suite "Waku connections":
       node1.protocolState(Waku).queue.items.len == 1
 
   asyncTest "Queue pruning":
-    var node1 = setupTestNode(Waku)
-    var node2 = setupTestNode(Waku)
+    var node1 = setupTestNode(rng, Waku)
+    var node2 = setupTestNode(rng, Waku)
     node2.startListening()
     waitFor node1.peerPool.connectToNode(newNode(node2.toENode()))
 
@@ -327,8 +328,8 @@ suite "Waku connections":
     check node2.protocolState(Waku).queue.items.len == 0
 
   asyncTest "P2P post":
-    var node1 = setupTestNode(Waku)
-    var node2 = setupTestNode(Waku)
+    var node1 = setupTestNode(rng, Waku)
+    var node2 = setupTestNode(rng, Waku)
     node2.startListening()
     waitFor node1.peerPool.connectToNode(newNode(node2.toENode()))
 
@@ -358,9 +359,9 @@ suite "Waku connections":
       node1.unsubscribeFilter(filter) == true
 
   asyncTest "Light node posting":
-    var ln = setupTestNode(Waku)
+    var ln = setupTestNode(rng, Waku)
     await ln.setLightNode(true)
-    var fn = setupTestNode(Waku)
+    var fn = setupTestNode(rng, Waku)
     fn.startListening()
     await ln.peerPool.connectToNode(newNode(fn.toENode()))
 
@@ -375,8 +376,8 @@ suite "Waku connections":
       # TODO: add test on message relaying
 
   asyncTest "Connect two light nodes":
-    var ln1 = setupTestNode(Waku)
-    var ln2 = setupTestNode(Waku)
+    var ln1 = setupTestNode(rng, Waku)
+    var ln2 = setupTestNode(rng, Waku)
 
     await ln1.setLightNode(true)
     await ln2.setLightNode(true)
@@ -387,8 +388,8 @@ suite "Waku connections":
 
   asyncTest "Waku set-topic-interest":
     var
-      wakuTopicNode = setupTestNode(Waku)
-      wakuNode = setupTestNode(Waku)
+      wakuTopicNode = setupTestNode(rng, Waku)
+      wakuNode = setupTestNode(rng, Waku)
 
     let
       topic1 = [byte 0xDA, 0xDA, 0xDA, 0xAA]
@@ -417,8 +418,8 @@ suite "Waku connections":
 
   asyncTest "Waku set-minimum-pow":
     var
-      wakuPowNode = setupTestNode(Waku)
-      wakuNode = setupTestNode(Waku)
+      wakuPowNode = setupTestNode(rng, Waku)
+      wakuNode = setupTestNode(rng, Waku)
 
     wakuNode.startListening()
     await wakuPowNode.peerPool.connectToNode(newNode(wakuNode.toENode()))
@@ -437,8 +438,8 @@ suite "Waku connections":
 
   asyncTest "Waku set-light-node":
     var
-      wakuLightNode = setupTestNode(Waku)
-      wakuNode = setupTestNode(Waku)
+      wakuLightNode = setupTestNode(rng, Waku)
+      wakuNode = setupTestNode(rng, Waku)
 
     wakuNode.startListening()
     await wakuLightNode.peerPool.connectToNode(newNode(wakuNode.toENode()))
@@ -457,8 +458,8 @@ suite "Waku connections":
 
   asyncTest "Waku set-bloom-filter":
     var
-      wakuBloomNode = setupTestNode(Waku)
-      wakuNode = setupTestNode(Waku)
+      wakuBloomNode = setupTestNode(rng, Waku)
+      wakuNode = setupTestNode(rng, Waku)
       bloom = fullBloom()
       topics = @[[byte 0xDA, 0xDA, 0xDA, 0xAA]]
 
@@ -506,8 +507,8 @@ suite "Waku connections":
 
   asyncTest "Waku topic-interest":
     var
-      wakuTopicNode = setupTestNode(Waku)
-      wakuNode = setupTestNode(Waku)
+      wakuTopicNode = setupTestNode(rng, Waku)
+      wakuNode = setupTestNode(rng, Waku)
 
     let
       topic1 = [byte 0xDA, 0xDA, 0xDA, 0xAA]
@@ -531,8 +532,8 @@ suite "Waku connections":
 
   asyncTest "Waku topic-interest versus bloom filter":
     var
-      wakuTopicNode = setupTestNode(Waku)
-      wakuNode = setupTestNode(Waku)
+      wakuTopicNode = setupTestNode(rng, Waku)
+      wakuNode = setupTestNode(rng, Waku)
 
     let
       topic1 = [byte 0xDA, 0xDA, 0xDA, 0xAA]
