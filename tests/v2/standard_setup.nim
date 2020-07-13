@@ -6,19 +6,20 @@ const
 
 import
   options, tables, chronicles, chronos,
-  libp2p/[switch, peer, peerinfo, connection, multiaddress, crypto/crypto],
+  libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
+  libp2p/stream/connection,
   libp2p/transports/[transport, tcptransport],
   libp2p/muxers/[muxer, mplex/mplex, mplex/types],
   libp2p/protocols/[identify, secure/secure],
   libp2p/protocols/pubsub/[pubsub, gossipsub],
-  ../../waku/protocol/v2/waku_protocol
+  ../../waku/protocol/v2/waku_protocol2
 
 import
   libp2p/protocols/secure/noise,
   libp2p/protocols/secure/secio
 
 export
-  switch, peer, peerinfo, connection, multiaddress, crypto
+  switch, peerinfo, connection, multiaddress, crypto
 
 type
   SecureProtocol* {.pure.} = enum
@@ -28,6 +29,7 @@ type
 proc newStandardSwitch*(privKey = none(PrivateKey),
                         address = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet(),
                         triggerSelf = false,
+                        gossip = false,
                         secureManagers: openarray[SecureProtocol] = [
                         # NOTE below relates to Eth2
                         # TODO investigate why we're getting fewer peers on public testnets with noise
@@ -36,13 +38,14 @@ proc newStandardSwitch*(privKey = none(PrivateKey),
                         ],
                         verifySignature = libp2p_pubsub_verify,
                         sign = libp2p_pubsub_sign,
-                        transportFlags: set[ServerFlags] = {}): Switch =
+                        transportFlags: set[ServerFlags] = {},
+                        rng = newRng()): Switch =
   info "newStandardSwitch"
   proc createMplex(conn: Connection): Muxer =
     result = newMplex(conn)
 
   let
-    seckey = privKey.get(otherwise = PrivateKey.random(ECDSA).tryGet())
+    seckey = privKey.get(otherwise = PrivateKey.random(ECDSA, rng[]).tryGet())
     peerInfo = PeerInfo.init(seckey, [address])
     mplexProvider = newMuxerProvider(createMplex, MplexCodec)
     transports = @[Transport(TcpTransport.init(transportFlags))]
@@ -54,9 +57,9 @@ proc newStandardSwitch*(privKey = none(PrivateKey),
   for sec in secureManagers:
     case sec
     of SecureProtocol.Noise:
-      secureManagerInstances &= newNoise(seckey).Secure
+      secureManagerInstances &= newNoise(rng, seckey).Secure
     of SecureProtocol.Secio:
-      secureManagerInstances &= newSecio(seckey).Secure
+      secureManagerInstances &= newSecio(rng, seckey).Secure
 
   let pubSub = PubSub newPubSub(WakuSub, peerInfo, triggerSelf)
 

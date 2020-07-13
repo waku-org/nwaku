@@ -61,7 +61,7 @@ proc setupNat(conf: WakuNodeConf): tuple[ip: IpAddress,
       if extPorts.isSome:
         (result.tcpPort, result.udpPort) = extPorts.get()
 
-proc run(config: WakuNodeConf) =
+proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext) =
   let
     (ip, tcpPort, udpPort) = setupNat(config)
     address = Address(ip: ip, tcpPort: tcpPort, udpPort: udpPort)
@@ -112,7 +112,7 @@ proc run(config: WakuNodeConf) =
       Port(config.rpcPort + config.portsShift))
     var rpcServer = newRpcHttpServer([ta])
     let keys = newKeyStorage()
-    setupWakuRPC(node, keys, rpcServer)
+    setupWakuRPC(node, keys, rpcServer, rng)
     setupWakuSimRPC(node, rpcServer)
     rpcServer.start()
 
@@ -154,13 +154,15 @@ proc run(config: WakuNodeConf) =
   runForever()
 
 when isMainModule:
-  let conf = WakuNodeConf.load()
+  let
+    rng = keys.newRng()
+    conf = WakuNodeConf.load()
 
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
 
   case conf.cmd
   of genNodekey:
-    echo PrivateKey.random().expect("Enough randomness to generate a key")
+    echo PrivateKey.random(rng[])
   of noCommand:
-    run(conf)
+    run(conf, rng)

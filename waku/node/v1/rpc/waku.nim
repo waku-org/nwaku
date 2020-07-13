@@ -9,7 +9,8 @@ from stew/byteutils import hexToSeqByte, hexToByteArray
 
 # Blatant copy of Whisper RPC but for the Waku protocol
 
-proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer) =
+proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer,
+    rng: ref BrHmacDrbgContext) =
 
   rpcsrv.rpc("waku_version") do() -> string:
     ## Returns string of the current Waku protocol version.
@@ -70,8 +71,8 @@ proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer) =
     ## encryption.
     ##
     ## Returns key identifier on success and an error on failure.
-    result = generateRandomID().Identifier
-    keys.asymKeys.add(result.string, KeyPair.random().tryGet())
+    result = generateRandomID(rng[]).Identifier
+    keys.asymKeys.add(result.string, KeyPair.random(rng[]))
 
   rpcsrv.rpc("waku_addPrivateKey") do(key: PrivateKey) -> Identifier:
     ## Stores the key pair, and returns its ID.
@@ -79,7 +80,7 @@ proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer) =
     ## key: Private key as hex bytes.
     ##
     ## Returns key identifier on success and an error on failure.
-    result = generateRandomID().Identifier
+    result = generateRandomID(rng[]).Identifier
 
     keys.asymKeys.add(result.string, key.toKeyPair())
 
@@ -127,7 +128,7 @@ proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer) =
     ## known to both parties.
     ##
     ## Returns key identifier on success and an error on failure.
-    result = generateRandomID().Identifier
+    result = generateRandomID(rng[]).Identifier
     var key: SymKey
     if randomBytes(key) != key.len:
       raise newException(KeyGenerationError, "Failed generating key")
@@ -141,7 +142,7 @@ proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer) =
     ## key: The raw key for symmetric encryption as hex bytes.
     ##
     ## Returns key identifier on success and an error on failure.
-    result = generateRandomID().Identifier
+    result = generateRandomID(rng[]).Identifier
 
     keys.symKeys.add(result.string, key)
 
@@ -159,7 +160,7 @@ proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer) =
     if pbkdf2(ctx, password, "", 65356, symKey) != sizeof(SymKey):
       raise newException(KeyGenerationError, "Failed generating key")
 
-    result = generateRandomID().Identifier
+    result = generateRandomID(rng[]).Identifier
     keys.symKeys.add(result.string, symKey)
 
   rpcsrv.rpc("waku_hasSymKey") do(id: Identifier) -> bool:

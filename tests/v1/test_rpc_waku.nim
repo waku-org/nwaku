@@ -11,19 +11,21 @@ import
 const sigPath = sourceDir / ParDir / ParDir / "waku" / "node" / "v1" / "rpc" / "wakucallsigs.nim"
 createRpcSigs(RpcSocketClient, sigPath)
 
-proc setupNode(capabilities: varargs[ProtocolInfo, `protocolInfo`]): EthereumNode =
+proc setupNode(capabilities: varargs[ProtocolInfo, `protocolInfo`],
+    rng: ref BrHmacDrbgContext, ): EthereumNode =
   let
-    keypair = KeyPair.random()[]
+    keypair = KeyPair.random(rng[])
     srvAddress = Address(ip: parseIpAddress("0.0.0.0"), tcpPort: Port(30303),
       udpPort: Port(30303))
 
   result = newEthereumNode(keypair, srvAddress, 1, nil, "waku test rpc",
-    addAllCapabilities = false)
+    addAllCapabilities = false, rng = rng)
   for capability in capabilities:
     result.addCapability capability
 
 proc doTests {.async.} =
-  var ethNode = setupNode(Waku)
+  let rng = keys.newRng()
+  var ethNode = setupNode(Waku, rng)
 
   # Create Ethereum RPCs
   let rpcPort = 8545
@@ -31,7 +33,7 @@ proc doTests {.async.} =
     rpcServer = newRpcSocketServer(["localhost:" & $rpcPort])
     client = newRpcSocketClient()
   let keys = newKeyStorage()
-  setupWakuRPC(ethNode, keys, rpcServer)
+  setupWakuRPC(ethNode, keys, rpcServer, rng)
 
   # Begin tests
   rpcServer.start()

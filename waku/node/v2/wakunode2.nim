@@ -8,7 +8,7 @@ import
   libp2p/protocols/protocol,
   libp2p/peerinfo,
   rpc/wakurpc,
-  ../../protocol/v2/waku_protocol,
+  ../../protocol/v2/waku_protocol2,
   # TODO: Pull out standard switch from tests
   ../../tests/v2/standard_setup,
   waku_types
