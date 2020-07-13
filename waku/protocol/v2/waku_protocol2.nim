@@ -82,7 +82,7 @@ method subscribeTopic*(w: WakuSub,
 
   debug "subscribeTopic", topic=topic, subscribe=subscribe, peerId=peerId
 
-  w.pubsub.subscribeTopic(topic, subscribe, peerId)
+  await procCall w.pubsub.subscribeTopic(topic, subscribe, peerId)
 
   # XXX: This should distingish light and etc node
   # NOTE: Relay subscription
