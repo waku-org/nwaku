@@ -4,11 +4,10 @@ import
   options
   #options as what # TODO: Huh? Redefinition?
 
-from os import DirSep
 from strutils import rsplit
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 
-const sigWakuPath = &"{sourceDir}{DirSep}rpc{DirSep}wakucallsigs.nim"
+const sigWakuPath = sourceDir / "rpc" / "wakucallsigs.nim"
 createRpcSigs(RpcHttpClient, sigWakuPath)
 
 const topicAmount = 10 #100
