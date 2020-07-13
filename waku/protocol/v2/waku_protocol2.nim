@@ -14,6 +14,8 @@ import libp2p/protocols/pubsub/pubsub,
 
 import metrics
 
+import ./waku_mail_server
+
 declarePublicGauge connected_peers, "number of peers in the pool" # XXX
 declarePublicGauge total_messages, "number of messages received"
 
@@ -27,6 +29,8 @@ type
     # XXX: just playing
     text*: string
     gossip_enabled*: bool
+
+    mailserver*: MailServer
 
 method init(w: WakuSub) =
   debug "init"
@@ -45,6 +49,7 @@ method init(w: WakuSub) =
   # XXX: Handler hijack GossipSub here?
   w.handler = handler
   w.codec = WakuSubCodec
+  w.mailserver = MailServer.init()
 
 method initPubSub*(w: WakuSub) =
   debug "initWakuSub"
@@ -81,6 +86,8 @@ method subscribeTopic*(w: WakuSub,
                        peerId: string) {.async, gcsafe.} =
   proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
     info "Hit NOOP handler", topic
+    info "Adding to mailserver"
+    w.mailserver.archive(topic, data)
 
   debug "subscribeTopic", topic=topic, subscribe=subscribe, peerId=peerId
 
