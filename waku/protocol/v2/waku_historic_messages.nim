@@ -1,7 +1,7 @@
 import libp2p/protocols/protocol
 
 const
-  HistoricMessagesCodec* = "/waku/history/1.0.0"
+  HistoricMessagesCodec = "/waku/history/1.0.0"
 
 type
   HistoricMessages* = ref object of LPProtocol
