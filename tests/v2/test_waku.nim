@@ -29,7 +29,6 @@ proc waitSub(sender, receiver: auto; key: string) {.async, gcsafe.} =
   # this is for testing purposes only
   var ceil = 15
   let fsub = cast[WakuSub](sender.pubSub.get())
-  echo fsub.floodsub
   while not fsub.floodsub.hasKey(key) or
         not fsub.floodsub[key].contains(receiver.peerInfo.id):
     await sleepAsync(100.millis)

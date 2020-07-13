@@ -26,7 +26,13 @@ type
   WakuSub* = ref object of GossipSub
     # XXX: just playing
     text*: string
-    pubsub*: Pubsub
+    gossip_enabled*: bool
+
+proc pubsub(w: WakuSub): Pubsub =
+  if w.gossip_enabled:
+    result = GossipSub(w)
+  else:
+    result = FloodSub(w)
 
 method init(w: WakuSub) =
   debug "init"
@@ -52,13 +58,9 @@ method initPubSub*(w: WakuSub) =
   debug "w.text", text = w.text
 
   # Using GossipSub
-  let gossip_enabled = true
-  if gossip_enabled:
-    w.pubsub = GossipSub(w)
-  else:
-    w.pubsub = FloodSub(w)
-    
-  procCall w.pubsub.initPubSub()
+  w.gossip_enabled = true
+  
+  procCall w.pubsub().initPubSub()
 
   w.init()
 
@@ -69,7 +71,7 @@ method subscribe*(w: WakuSub,
   # XXX: Pubsub really
 
   # XXX: This is what is called, I think
-  await procCall w.pubsub.subscribe(topic, handler)
+  await procCall w.pubsub().subscribe(topic, handler)
 
 
 # Subscribing a peer to a specified topic
@@ -82,7 +84,7 @@ method subscribeTopic*(w: WakuSub,
 
   debug "subscribeTopic", topic=topic, subscribe=subscribe, peerId=peerId
 
-  await procCall w.pubsub.subscribeTopic(topic, subscribe, peerId)
+  await procCall w.pubsub().subscribeTopic(topic, subscribe, peerId)
 
   # XXX: This should distingish light and etc node
   # NOTE: Relay subscription
@@ -106,7 +108,7 @@ method rpcHandler*(w: WakuSub,
   # XXX: Right place?
   total_messages.inc()
 
-  await procCall w.pubsub.rpcHandler(peer, rpcMsgs)
+  await procCall w.pubsub().rpcHandler(peer, rpcMsgs)
   # XXX: here
 
 method publish*(w: WakuSub,
@@ -114,19 +116,19 @@ method publish*(w: WakuSub,
                 data: seq[byte]): Future[int] {.async.} =
   debug "publish", topic=topic
 
-  return await procCall w.pubsub.publish(topic, data)
+  return await procCall w.pubsub().publish(topic, data)
 
 method unsubscribe*(w: WakuSub,
                     topics: seq[TopicPair]) {.async.} =
   debug "unsubscribe"
-  await procCall w.pubsub.unsubscribe(topics)
+  await procCall w.pubsub().unsubscribe(topics)
 
 # GossipSub specific methods
 method start*(w: WakuSub) {.async.} =
   debug "start"
-  await procCall w.pubsub.start()
+  await procCall w.pubsub().start()
 
 method stop*(w: WakuSub) {.async.} =
   debug "stop"
 
-  await procCall w.pubsub.stop()
+  await procCall w.pubsub().stop()
