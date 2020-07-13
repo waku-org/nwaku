@@ -52,8 +52,8 @@ method initPubSub*(w: WakuSub) =
   debug "w.text", text = w.text
 
   # Using GossipSub
-  let gossipsub = true
-  if gossipsub:
+  let gossip_enabled = true
+  if gossip_enabled:
     w.pubsub = GossipSub(w)
   else:
     w.pubsub = FloodSub(w)
