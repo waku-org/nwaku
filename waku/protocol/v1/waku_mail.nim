@@ -48,7 +48,7 @@ proc requestMail*(node: EthereumNode, peerId: NodeId, request: MailRequest,
   var writer = initRlpWriter()
   writer.append(request)
   let payload = writer.finish()
-  let data = encode(Payload(payload: payload, symKey: some(symKey)))
+  let data = encode(node.rng[], Payload(payload: payload, symKey: some(symKey)))
   if not data.isSome():
     error "Encoding of payload failed"
     return result

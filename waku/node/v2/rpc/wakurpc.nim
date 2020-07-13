@@ -1,7 +1,7 @@
 import
   json_rpc/rpcserver, options,
   eth/[common, rlp, keys, p2p],
-  ../../../protocol/v2/waku_protocol,
+  ../../../protocol/v2/waku_protocol2,
   nimcrypto/[sysrand, hmac, sha2],
   ../waku_types
 

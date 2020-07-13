@@ -1,4 +1,5 @@
 import
+  # Waku v1 tests
   ./v1/test_waku_connect,
   ./v1/test_waku_config,
   ./v1/test_waku_bridge,

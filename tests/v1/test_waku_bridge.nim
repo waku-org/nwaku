@@ -18,12 +18,13 @@ let safeTTL = 5'u32
 let waitInterval = waku.messageInterval + 150.milliseconds
 
 procSuite "Waku - Whisper bridge tests":
+  let rng = newRng()
   # Waku Whisper node has both capabilities, listens to Whisper and Waku and
   # relays traffic between the two.
   var
-    nodeWakuWhisper = setupTestNode(Whisper, Waku) # This will be the bridge
-    nodeWhisper = setupTestNode(Whisper)
-    nodeWaku = setupTestNode(Waku)
+    nodeWakuWhisper = setupTestNode(rng, Whisper, Waku) # This will be the bridge
+    nodeWhisper = setupTestNode(rng, Whisper)
+    nodeWaku = setupTestNode(rng, Waku)
 
   nodeWakuWhisper.startListening()
   let bridgeNode = newNode(nodeWakuWhisper.toENode())
