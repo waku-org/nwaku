@@ -18,7 +18,6 @@ type
     topics* {.fieldNumber: 5.}: seq[seq[byte]]
     cursor* {.fieldNumber: 6.}: Cursor
 
-
   HistoricMessages* = ref object of LPProtocol
 
 method init*(p: HistoricMessages) =
