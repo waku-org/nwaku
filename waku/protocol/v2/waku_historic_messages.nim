@@ -58,7 +58,7 @@ proc readQuery(buf: seq[byte]): Result[Query, string] =
   if cursorPb.getField(2, after):
     query.cursor.after = after
 
-  return query
+  ok(query)
 
 
 method init*(p: HistoricMessages) =
