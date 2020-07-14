@@ -20,6 +20,7 @@ requires "nim >= 1.2.0",
   "stew",
   "stint",
   "metrics",
+  "protobuf_serialization",
   "libp2p" # For wakunode v2
 
 ### Helper functions
