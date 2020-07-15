@@ -19,9 +19,20 @@ type
     topics*: seq[seq[byte]]
     cursor*: Cursor
 
+  Envelope* = ref object
+    expiry*: int32
+    ttl*: int32
+    nonce*: seq[byte]
+    topic*: seq[byte]
+    data*: seq[byte]
+
+  Response* = ref object
+    envelopes*: seq[Envelope]
+    cursor*: Cursor 
+
   HistoricMessages* = ref object of LPProtocol
 
-proc readQuery(buf: seq[byte]): Result[Query, string] =
+proc init(T: type Query, buf: seq[byte]): Result[T, string] =
   var pb = initProtobuf(buf)
 
   var query: Query
@@ -60,12 +71,13 @@ proc readQuery(buf: seq[byte]): Result[Query, string] =
 
   ok(query)
 
-
 method init*(p: HistoricMessages) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     # @TODO PROBABLY NOT HERE
     var message = conn.readLp(64*1024)
-    var query = message.readQuery()
+    var query = Query.init(message)
+
+    info "received query"
 
     # @TODO QUERY AND THEN RESPOND
 
