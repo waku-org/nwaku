@@ -8,7 +8,7 @@ import
   libp2p/protocols/protocol,
   libp2p/peerinfo,
   rpc/wakurpc,
-  ../../protocol/v2/waku_protocol2,
+  ../../protocol/v2/[waku_protocol2, waku_historic_messages],
   # TODO: Pull out standard switch from tests
   ../../tests/v2/standard_setup,
   waku_types
@@ -144,6 +144,11 @@ proc run(config: WakuNodeConf) =
   var switch = newStandardSwitch(some keys.seckey, hostAddress, triggerSelf = true)
   let wakuProto = newWakuProto(switch)
   switch.mount(wakuProto)
+
+  let historic_messages_enabled = true
+  if historic_messages_enabled:
+    let proto = HistoricMessages.init()
+    switch.mount(proto)
 
   if config.rpc:
     let ta = initTAddress(config.rpcAddress,

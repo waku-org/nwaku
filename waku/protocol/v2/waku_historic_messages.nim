@@ -32,7 +32,7 @@ type
 
   HistoricMessages* = ref object of LPProtocol
 
-proc init(T: type Query, buf: seq[byte]): Result[T, string] =
+proc init*(T: type Query, buf: seq[byte]): Result[T, string] =
   var pb = initProtobuf(buf)
 
   var query: Query
@@ -71,15 +71,18 @@ proc init(T: type Query, buf: seq[byte]): Result[T, string] =
 
   ok(query)
 
-method init*(p: HistoricMessages) =
+method init*(T: type HistoricMessages) = T
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     # @TODO PROBABLY NOT HERE
     var message = conn.readLp(64*1024)
-    var query = Query.init(message)
+    var result = Query.init(message)
+    if result.isError():
+      # @TODO ERROR?
+      return
 
     info "received query"
 
     # @TODO QUERY AND THEN RESPOND
 
-  p.handle = handle
-  p.codec = HistoricMessagesCodec
+  result.handle = handle
+  result.codec = HistoricMessagesCodec
