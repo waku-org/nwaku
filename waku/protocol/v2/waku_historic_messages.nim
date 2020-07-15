@@ -33,9 +33,9 @@ type
   HistoricMessages* = ref object of LPProtocol
 
 proc init*(T: type Query, buf: seq[byte]): Result[T, string] =
-  var pb = initProtobuf(buf)
-
-  var query: Query
+  var
+    pb = initProtobuf(buf)
+    query: Query
 
   var origin: int32
   if pb.getField(1, origin):
@@ -70,6 +70,31 @@ proc init*(T: type Query, buf: seq[byte]): Result[T, string] =
     query.cursor.after = after
 
   ok(query)
+
+proc init*(T: type Envelope, buf: seq[byte]): Result[T, string]
+  var
+    pb = initProtobuf(buf)
+    envelope: Envelope
+
+    var expiry: int32
+    if pb.getField(1, expiry):
+      envelope.expiry = some(expiry)
+
+    var ttl: int32
+    if pb.getField(2, ttl):
+      envelope.ttl = some(ttl)
+
+    var nonce: seq[byte]
+    if pb.getField(3, nonce):
+      envelope.nonce = some(nonce)
+
+    var topic: seq[byte]
+    if pb.getField(4, topic):
+      envelope.topic = some(topic)
+
+    var data: seq[byte]
+    if pb.getField(5, data):
+      envelope.data = some(data)
 
 method init*(T: type HistoricMessages) = T
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
