@@ -14,4 +14,6 @@ import ../../waku/node/v2/wakunode2
 let conf = WakuNodeConf.load()
 
 # Start the node
-# run(conf)
+# Running this should give you output like this:
+# INF Listening on tid=5719 full=/ip4/127.0.0.1/tcp/60000/p2p/16Uiu2HAmNiAqr1cwhyntotP9fiSDyBvfKtB4ZiaDsrkipSCoKCB4
+run(conf)

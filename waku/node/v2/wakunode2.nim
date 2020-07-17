@@ -111,7 +111,7 @@ proc newWakuProto(switch: Switch): WakuProto =
   wakuproto.handler = handle
   return wakuproto
 
-proc run(config: WakuNodeConf) {.async, gcsafe.} =
+proc run*(config: WakuNodeConf) {.async, gcsafe.} =
 
   info "libp2p support WIP"
 
