@@ -134,7 +134,7 @@ proc run(config: WakuNodeConf) {.async, gcsafe.} =
     nodekey = config.nodekey
     seckey = nodekey
     pubkey = seckey.getKey.get()
-    keys = KeyPair(seckey: seckey, pubkey: pubkey)
+    keys = crypto.KeyPair(seckey: seckey, pubkey: pubkey)
 
     peerInfo = PeerInfo.init(nodekey)
 
