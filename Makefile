@@ -92,6 +92,10 @@ wakutest2:
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakutest2 $(NIM_PARAMS) waku.nims
 
+wakuexample2:
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim wakuexample2 $(NIM_PARAMS) waku.nims
+
 # symlink
 waku.nims:
 	ln -s waku.nimble $@
