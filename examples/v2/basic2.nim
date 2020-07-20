@@ -18,7 +18,12 @@ let conf = WakuNodeConf.load()
 # Running this should give you output like this:
 # INF Listening on tid=5719 full=/ip4/127.0.0.1/tcp/60000/p2p/16Uiu2HAmNiAqr1cwhyntotP9fiSDyBvfKtB4ZiaDsrkipSCoKCB4
 # TODO Run this in background
-waitFor run(conf)
+# See https://github.com/status-im/nim-waku/pull/59
+proc runBackground(conf: WakuNodeConf) {.async.} =
+  run(conf)
+  runForever()
+
+discard runBackground(conf)
 
 # To do more operations on this node, we can do this in two ways:
 # - We can use the Nim Node API, which is currently not exposed
