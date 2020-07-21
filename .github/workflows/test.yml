@@ -1,0 +1,55 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    env:
+      - { NPROC: 2 }
+      - { NPROC: 6 }
+
+    runs-on: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+    - name: Setup environment
+      run: echo "::set-env name=NIM_VERSION::$NIM_VERSION"
+
+    - uses: actions/checkout@v2
+
+    - name: Cache choosenim
+      id: cache-choosenim
+      uses: actions/cache@v1
+      with:
+        path: ~/.choosenim
+        key: ${{ runner.os }}-choosenim-${{ env.NIM_VERSION }}
+
+    - name: Cache nimble
+      id: cache-nimble
+      uses: actions/cache@v1
+      with:
+        path: ~/.nimble
+        key: ${{ runner.os }}-nimble-${{ env.NIM_VERSION }}
+
+    - name: Install Nim
+      if: steps.cache-choosenim.outputs.cache-hit != 'true' || steps.cache-nimble.outputs.cache-hit != 'true'
+      run: |
+        export CHOOSENIM_CHOOSE_VERSION="$NIM_VERSION"
+        curl https://nim-lang.org/choosenim/init.sh -sSf > init.sh
+        sh init.sh -y
+
+
+    - name: Install dependencies
+      run: |
+        export PATH=$HOME/.nimble/bin:$PATH
+        echo $PATH
+        nimble install -y
+
+    - name: Run Tests
+      run: |
+        export PATH=$HOME/.nimble/bin:$PATH
+        echo $PATH
+        nimble test
