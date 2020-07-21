@@ -37,10 +37,8 @@ proc waitSub(sender, receiver: auto; key: string) {.async, gcsafe.} =
     doAssert(ceil > 0, "waitSub timeout!")
 
 proc message(): seq[byte] =
-  let value = "hello"
-
   var pb = initProtoBuffer()
-  pb.write(initProtoField(1, value))
+  pb.write(1, "hello")
   pb.finish()
 
   pb.buffer
@@ -50,7 +48,7 @@ proc decodeMessage(data: seq[byte]): string =
   var pb = initProtoBuffer(data)
   
   result = ""
-  let res = pb.getString(1, result)
+  let res = pb.get(1, result)
 
 suite "FloodSub":
   teardown:
