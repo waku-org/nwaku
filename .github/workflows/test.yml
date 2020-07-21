@@ -27,7 +27,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: vendor/nimbus-build-system/vendor/Nim/bin
-          key: ${{ runner.os }}-nim-${{ cd vendor/nimbus-build-system/ && git rev-parse HEAD }}
+          key: ${{ runner.os }}-nim-${{ hashFiles('.gitmodules') }}
 
       - name: Run Tests
         run: |
