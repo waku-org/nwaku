@@ -16,7 +16,7 @@ jobs:
         platform: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.platform }}
     env: ${{ matrix.env }}
-  
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -27,7 +27,7 @@ jobs:
           make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" LOG_LEVEL=TRACE
 
       - name: Cache Nim
-        id: cache-choosenim
+        id: cache-nim
         uses: actions/cache@v1
         with:
           path: vendor/nimbus-build-system/vendor/Nim/bin
@@ -36,3 +36,24 @@ jobs:
       - name: Run Tests
         run: |
           make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" test
+  
+  windows_test:
+    strategy:
+      matrix:
+        env:
+          - { NPROC: 2 }
+          - { NPROC: 6 }
+    runs-on: windows-latest
+    env: ${{ matrix.env }}
+
+  steps:
+    - uses: eine/setup-msys2@v0
+        with:
+          msystem: MSYS
+          update: true
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Build
+      run: |
+        mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% CI_CACHE=NimBinaries update
+        mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% fetch-dlls
