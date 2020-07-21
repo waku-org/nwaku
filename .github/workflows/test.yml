@@ -58,6 +58,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Cache vendor
+        uses: actions/cache@v1
+        with:
+          path: vendor/nimbus-build-system/vendor/Nim/bin
+          key: ${{ runner.os }}-${{ matrix.env.NPROC }}-vendor-${{ hashFiles('.gitmodules') }}
+
       - name: Build
         run: |
           mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% CI_CACHE=NimBinaries update
