@@ -42,7 +42,7 @@ proc newStandardSwitch*(privKey = none(PrivateKey),
                         rng = newRng()): Switch =
   info "newStandardSwitch"
   proc createMplex(conn: Connection): Muxer =
-    result = newMplex(conn)
+    result = Mplex.init(conn)
 
   let
     seckey = privKey.get(otherwise = PrivateKey.random(ECDSA, rng[]).tryGet())
