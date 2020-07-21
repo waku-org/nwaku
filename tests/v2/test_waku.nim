@@ -7,7 +7,7 @@
 #  Apache License, version 2.0, (LICENSE-APACHEv2)
 #            MIT license (LICENSE-MIT)
 
-import unittest, options, tables, sets
+import unittest, options, tables, sets, sequtils
 import chronos, chronicles
 import utils,
        libp2p/errors,
@@ -30,7 +30,7 @@ proc waitSub(sender, receiver: auto; key: string) {.async, gcsafe.} =
   var ceil = 15
   let fsub = cast[WakuSub](sender.pubSub.get())
   while not fsub.floodsub.hasKey(key) or
-        not fsub.floodsub[key].contains(receiver.peerInfo.id):
+        not fsub.floodsub[key].anyIt(it.peerInfo.id == receiver.peerInfo.id):
     await sleepAsync(100.millis)
     dec ceil
     doAssert(ceil > 0, "waitSub timeout!")
