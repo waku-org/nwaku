@@ -44,4 +44,3 @@ proc setupWakuRPC*(wakuProto: WakuProto, rpcsrv: RpcServer) =
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")
 
-
