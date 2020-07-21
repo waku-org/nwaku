@@ -16,10 +16,13 @@ jobs:
         platform: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.platform }}
     env: ${{ matrix.env }}
+  
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
       - name: Install dependencies
         run: |
-          ls -l
           make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" V=1 update 
           make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" LOG_LEVEL=TRACE
 
