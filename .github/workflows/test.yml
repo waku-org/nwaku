@@ -27,7 +27,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: vendor/
-          key: ${{ runner.os }}-nim-${{ hashFiles('.gitmodules') }}
+          key: ${{ runner.os }}-vendor-${{ hashFiles('.gitmodules') }}
 
       - name: Install dependencies
         run: |
