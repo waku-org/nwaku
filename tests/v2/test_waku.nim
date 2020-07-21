@@ -43,7 +43,6 @@ proc message(): seq[byte] =
 
   pb.buffer
 
-
 proc decodeMessage(data: seq[byte]): string =
   var pb = initProtoBuffer(data)
   
