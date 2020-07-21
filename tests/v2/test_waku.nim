@@ -80,8 +80,7 @@ suite "FloodSub":
         nodes[1].stop()
       )
 
-      for fut in nodesFut:
-        let res = fut.read()
-        await allFuturesThrowing(res)
+      await allFuturesThrowing(nodesFut)
+      
     check:
       waitFor(runTests()) == true
