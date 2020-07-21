@@ -73,7 +73,7 @@ suite "FloodSub":
       # TODO: you might want to check the value here
       discard await nodes[0].publish("foobar", cast[seq[byte]]("Hello!"))
 
-      result = await completionFut.wait(30.seconds)
+      result = await completionFut.wait(3000.seconds)
 
       await allFuturesThrowing(
         nodes[0].stop(),
