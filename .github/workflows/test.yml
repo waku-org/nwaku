@@ -55,9 +55,17 @@ jobs:
         with:
           msystem: MSYS
           update: true
+
     - name: Checkout code
       uses: actions/checkout@v2
+
     - name: Build
       run: |
         mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% CI_CACHE=NimBinaries update
         mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% fetch-dlls
+
+    - name: Run Tests
+      run: |
+        mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% LOG_LEVEL=TRACE
+        build\wakunode.exe --help
+        mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% test
