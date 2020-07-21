@@ -28,6 +28,8 @@ type
     text*: string
     gossip_enabled*: bool
 
+    filters: Filters
+
 method init(w: WakuSub) =
   debug "init"
   proc handler(conn: Connection, proto: string) {.async.} =
@@ -81,6 +83,7 @@ method subscribeTopic*(w: WakuSub,
                        peerId: string) {.async, gcsafe.} =
   proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
     info "Hit NOOP handler", topic
+    w.filters.notify(topic, data)
 
   debug "subscribeTopic", topic=topic, subscribe=subscribe, peerId=peerId
 
