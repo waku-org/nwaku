@@ -63,7 +63,7 @@ proc connectToNodes(p: WakuProto, nodes: openArray[string]) =
 # NOTE: Looks almost identical to beacon_chain/eth2_network.nim
 proc setupNat(conf: WakuNodeConf): tuple[ip: IpAddress,
                                            tcpPort: Port,
-                                           udpPort: Port] =
+                                           udpPort: Port] {.gcsafe.} =
   # defaults
   result.ip = globalListeningAddr
   result.tcpPort = Port(conf.tcpPort + conf.portsShift)
@@ -92,9 +92,11 @@ proc setupNat(conf: WakuNodeConf): tuple[ip: IpAddress,
     let extIP = getExternalIP(nat)
     if extIP.isSome:
       result.ip = extIP.get()
-      let extPorts = redirectPorts(tcpPort = result.tcpPort,
-                                   udpPort = result.udpPort,
-                                   description = clientId)
+      # XXX: GC safety danger zone! See NBC eth2_network.nim
+      let extPorts = ({.gcsafe.}:
+        redirectPorts(tcpPort = result.tcpPort,
+                      udpPort = result.udpPort,
+                      description = clientId))
       if extPorts.isSome:
         (result.tcpPort, result.udpPort) = extPorts.get()
 
@@ -109,13 +111,14 @@ proc newWakuProto(switch: Switch): WakuProto =
   wakuproto.handler = handle
   return wakuproto
 
-proc run(config: WakuNodeConf) =
+proc run*(config: WakuNodeConf) =
 
   info "libp2p support WIP"
 
   if config.logLevel != LogLevel.NONE:
     setLogLevel(config.logLevel)
 
+  # TODO Clean up host and announced IP a la eth2_network.nim
   let
     # External TCP and UDP ports
     (ip, tcpPort, udpPort) = setupNat(config)
@@ -131,7 +134,7 @@ proc run(config: WakuNodeConf) =
     nodekey = config.nodekey
     seckey = nodekey
     pubkey = seckey.getKey.get()
-    keys = KeyPair(seckey: seckey, pubkey: pubkey)
+    keys = crypto.KeyPair(seckey: seckey, pubkey: pubkey)
 
     peerInfo = PeerInfo.init(nodekey)
 
