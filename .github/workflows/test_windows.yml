@@ -20,7 +20,7 @@ jobs:
 
   steps:
     - uses: eine/setup-msys2@v0
-        with:
+      with:
           msystem: MSYS
           update: true
 
