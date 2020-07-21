@@ -48,7 +48,7 @@ proc decodeMessage(data: seq[byte]): string =
   var pb = initProtoBuffer(data)
   
   result = ""
-  let res = pb.get(1, result)
+  let res = pb.getField(1, result)
 
 suite "FloodSub":
   teardown:
