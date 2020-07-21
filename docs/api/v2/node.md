@@ -88,10 +88,6 @@ Call signatures:
 
 ```Nim
 proc waku_version(): string
-<<<<<<< HEAD
-proc waku_publish(topic: string, message: seq[byte]): bool
-proc waku_subscribe(topic: string): bool
-=======
 proc waku_info(): WakuInfo
 proc waku_publish(topic: string, message: string): bool
 proc waku_subscribe(topics: seq[string]): Identifier
@@ -103,6 +99,4 @@ proc waku_unsubscribe(id: Identifier): bool
 proc waku_setLightNode(isLightNode: bool)
 proc waku_setTopicInterest(topics: seq[string])
 proc waku_setBloomFilter(topics: seq[string])
-
->>>>>>> bump/libp2p
 ```
