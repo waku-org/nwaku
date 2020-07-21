@@ -23,11 +23,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Cache vendor
+      - name: Cache nim
         uses: actions/cache@v1
         with:
           path: vendor/nimbus-build-system/vendor/Nim/bin
-          key: ${{ runner.os }}-${{ matrix.env.NPROC }}-vendor-${{ hashFiles('.gitmodules') }}
+          key: ${{ runner.os }}-${{ matrix.env.NPROC }}-nim-${{ hashFiles('.gitmodules') }}
 
       - name: Install dependencies
         run: |
@@ -58,11 +58,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Cache vendor
+      - name: Cache nim
         uses: actions/cache@v1
         with:
           path: vendor/nimbus-build-system/vendor/Nim/bin
-          key: ${{ runner.os }}-${{ matrix.env.NPROC }}-vendor-${{ hashFiles('.gitmodules') }}
+          key: ${{ runner.os }}-${{ matrix.env.NPROC }}-nim-${{ hashFiles('.gitmodules') }}
 
       - name: Build
         run: |
