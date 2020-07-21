@@ -17,6 +17,8 @@ jobs:
     runs-on: ${{ matrix.platform }}
     env: ${{ matrix.env }}
 
+    name: ${{ matrix.platform }} - ${{ matrix.env.NPROC }} processes
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -37,7 +39,7 @@ jobs:
         run: |
           make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" test
   
-  windows_test:
+  windows:
     strategy:
       matrix:
         env:
@@ -45,6 +47,8 @@ jobs:
           - { NPROC: 6 }
     runs-on: windows-latest
     env: ${{ matrix.env }}
+
+  name: windows - ${{ matrix.env.NPROC }} processes
 
   steps:
     - uses: eine/setup-msys2@v0
