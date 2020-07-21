@@ -7,25 +7,28 @@ on:
       - master
 
 jobs:
-  build:
-    env:
-      - { NPROC: 2 }
-      - { NPROC: 6 }
+  test:
+    strategy:
+      matrix:
+        env:
+          - { NPROC: 2 }
+          - { NPROC: 6 }
+        platform: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
+    env: ${{ matrix.env }}
+    steps:
+      - name: Install dependencies
+        run: |
+          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" V=1 update 
+          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" LOG_LEVEL=TRACE
 
-    runs-on: [ubuntu-latest, macos-latest]
+      - name: Cache Nim
+        id: cache-choosenim
+        uses: actions/cache@v1
+        with:
+          path: vendor/nimbus-build-system/vendor/Nim/bin
+          key: ${{ runner.os }}-nim-${{ hashFiles(vendor/nimbus-build-system/) }}
 
-    - name: Install dependencies
-      run: |
-        make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" V=1 update 
-        make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" LOG_LEVEL=TRACE
-
-    - name: Cache Nim
-      id: cache-choosenim
-      uses: actions/cache@v1
-      with:
-        path: vendor/nimbus-build-system/vendor/Nim/bin
-        key: ${{ runner.os }}-nim-${{ hashFiles(vendor/nimbus-build-system/) }}
-
-    - name: Run Tests
-      run: |
-        make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" test
+      - name: Run Tests
+        run: |
+          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" test
