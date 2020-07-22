@@ -84,6 +84,9 @@ method subscribeTopic*(w: WakuSub,
                        peerId: string) {.async, gcsafe.} =
   proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
     info "Hit NOOP handler", topic
+
+    # Currently we are using the libp2p topic here.
+    # This will need to be change to a Waku topic.
     w.filters.notify(topic, data)
 
   debug "subscribeTopic", topic=topic, subscribe=subscribe, peerId=peerId
