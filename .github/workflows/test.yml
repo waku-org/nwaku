@@ -25,7 +25,7 @@ jobs:
 
       - name: Submodules
         run: |
-          git submodule update --recursive
+          git submodule update --init --recursive
 
       - name: Cache nim
         uses: actions/cache@v1
@@ -64,7 +64,7 @@ jobs:
 
       - name: Submodules
         run: |
-          git submodule update --recursive
+          git submodule update --init --recursive
 
       - name: Cache nim
         uses: actions/cache@v1
