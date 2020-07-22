@@ -12,7 +12,6 @@ jobs:
       matrix:
         env:
           - { NPROC: 2 }
-          - { NPROC: 6 }
         platform: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.platform }}
     env: ${{ matrix.env }}
@@ -44,7 +43,6 @@ jobs:
       matrix:
         env:
           - { NPROC: 2 }
-          - { NPROC: 6 }
     runs-on: windows-latest
     env: ${{ matrix.env }}
 
