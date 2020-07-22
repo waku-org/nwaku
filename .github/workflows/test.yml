@@ -23,17 +23,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Cache nim
+        uses: actions/cache@v1
+        with:
+          path: vendor/nimbus-build-system/vendor/Nim/bin
+          key: ${{ runner.os }}-${{ matrix.env.NPROC }}-nim-${{ hashFiles('.gitmodules') }}
+
       - name: Install dependencies
         run: |
           make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" V=1 update 
           make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" LOG_LEVEL=TRACE
-
-      - name: Cache Nim
-        id: cache-nim
-        uses: actions/cache@v1
-        with:
-          path: vendor/nimbus-build-system/vendor/Nim/bin
-          key: ${{ runner.os }}-nim-${{ hashFiles('.gitmodules') }}
 
       - name: Run Tests
         run: |
@@ -58,6 +57,12 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v2
+
+      - name: Cache nim
+        uses: actions/cache@v1
+        with:
+          path: vendor/nimbus-build-system/vendor/Nim/bin
+          key: ${{ runner.os }}-${{ matrix.env.NPROC }}-nim-${{ hashFiles('.gitmodules') }}
 
       - name: Build
         run: |
