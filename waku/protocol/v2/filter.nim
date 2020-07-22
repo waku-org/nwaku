@@ -19,7 +19,7 @@ proc init*(T: type Filter, topics: seq[string], handler: FilterMessageHandler): 
 
 proc notify*(filters: var Filters, topic: string, msg: seq[byte]) {.gcsafe.} =
   for filter in filters.mvalues:
-    if filter.topics.len > 0 && topic notin filter.topics:
+    if filter.topics.len > 0 and topic notin filter.topics:
       continue
 
     filter.handler(msg)
