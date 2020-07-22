@@ -25,7 +25,7 @@ jobs:
 
       - name: Submodules
         uses: textbook/git-checkout-submodule-action@master
-          args: --recursive
+        args: --recursive
 
       - name: Cache nim
         uses: actions/cache@v1
@@ -64,7 +64,7 @@ jobs:
 
       - name: Submodules
         uses: textbook/git-checkout-submodule-action@master
-          args: --recursive
+        args: --recursive
 
       - name: Cache nim
         uses: actions/cache@v1
