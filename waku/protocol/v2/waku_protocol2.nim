@@ -5,6 +5,7 @@
 
 import strutils
 import chronos, chronicles
+import ./filters
 import libp2p/protocols/pubsub/pubsub,
        libp2p/protocols/pubsub/pubsubpeer,
        libp2p/protocols/pubsub/floodsub,
