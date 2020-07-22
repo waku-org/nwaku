@@ -47,6 +47,7 @@ method init(w: WakuSub) =
 
   # XXX: Handler hijack GossipSub here?
   w.handler = handler
+  w.filters = initTable[string, Filter]()
   w.codec = WakuSubCodec
 
 method initPubSub*(w: WakuSub) =
