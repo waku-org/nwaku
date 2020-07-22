@@ -3,7 +3,7 @@ import
 
 type 
 
-  FilterMessageHandler* = proc(msg: Data) {.gcsafe, closure.}
+  FilterMessageHandler* = proc(msg: seq[byte]) {.gcsafe, closure.}
 
   Filter* = object
     topics: seq[string] # @TODO TOPIC
