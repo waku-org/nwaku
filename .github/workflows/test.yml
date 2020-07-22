@@ -24,9 +24,8 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Submodules
-        uses: srt32/git-actions@v0.0.3
-        with:
-          args: git submodule update --init --recursive
+        uses: textbook/git-checkout-submodule-action@master
+          args: --recursive
 
       - name: Cache nim
         uses: actions/cache@v1
@@ -64,9 +63,8 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Submodules
-        uses: srt32/git-actions@v0.0.3
-        with:
-          args: git submodule update --init --recursive
+        uses: textbook/git-checkout-submodule-action@master
+          args: --recursive
 
       - name: Cache nim
         uses: actions/cache@v1
