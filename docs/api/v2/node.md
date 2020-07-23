@@ -99,5 +99,4 @@ proc waku_unsubscribe(id: Identifier): bool
 proc waku_setLightNode(isLightNode: bool)
 proc waku_setTopicInterest(topics: seq[string])
 proc waku_setBloomFilter(topics: seq[string])
-
 ```
