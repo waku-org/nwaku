@@ -1,5 +1,7 @@
 import
-  confutils/defs, chronicles, chronos,
+  strutils,
+  confutils, confutils/defs, confutils/std/net,
+  chronicles, chronos,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   nimcrypto/utils,
@@ -18,15 +20,20 @@ type
       defaultValue: LogLevel.INFO
       name: "log-level" }: LogLevel
 
+    libp2pAddress* {.
+      defaultValue: defaultListenAddress(config)
+      desc: "Listening address for the LibP2P traffic."
+      name: "listen-address"}: ValidIpAddress
+
     tcpPort* {.
       desc: "TCP listening port."
       defaultValue: 60000
-      name: "tcp-port" }: uint16
+      name: "tcp-port" }: Port
 
     udpPort* {.
       desc: "UDP listening port."
       defaultValue: 60000
-      name: "udp-port" }: uint16
+      name: "udp-port" }: Port
 
     portsShift* {.
       desc: "Add a shift to all port numbers."
@@ -105,8 +112,8 @@ type
 
     rpcAddress* {.
       desc: "Listening address of the RPC server.",
-      defaultValue: parseIpAddress("127.0.0.1")
-      name: "rpc-address" }: IpAddress
+      defaultValue: ValidIpAddress.init("127.0.0.1")
+      name: "rpc-address" }: ValidIpAddress
 
     rpcPort* {.
       desc: "Listening port of the RPC server.",
@@ -120,8 +127,8 @@ type
 
     metricsServerAddress* {.
       desc: "Listening address of the metrics server."
-      defaultValue: parseIpAddress("127.0.0.1")
-      name: "metrics-server-address" }: IpAddress
+      defaultValue: ValidIpAddress.init("127.0.0.1")
+      name: "metrics-server-address" }: ValidIpAddress
 
     metricsServerPort* {.
       desc: "Listening HTTP port of the metrics server."
@@ -149,11 +156,25 @@ proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =
 proc completeCmdArg*(T: type crypto.PrivateKey, val: TaintedString): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type IpAddress, p: TaintedString): T =
+proc parseCmdArg*(T: type ValidIpAddress, p: TaintedString): T =
   try:
-    result = parseIpAddress(p)
+    result = ValidIpAddress.init(p)
   except CatchableError as e:
     raise newException(ConfigurationError, "Invalid IP address")
 
-proc completeCmdArg*(T: type IpAddress, val: TaintedString): seq[string] =
+proc completeCmdArg*(T: type ValidIpAddress, val: TaintedString): seq[string] =
   return @[]
+
+proc parseCmdArg*(T: type Port, p: TaintedString): T =
+  try:
+    result = Port(parseInt(p))
+  except CatchableError as e:
+    raise newException(ConfigurationError, "Invalid Port number")
+
+proc completeCmdArg*(T: type Port, val: TaintedString): seq[string] =
+  return @[]
+
+func defaultListenAddress*(conf: WakuNodeConf): ValidIpAddress =
+  # TODO: How should we select between IPv4 and IPv6
+  # Maybe there should be a config option for this.
+  (static ValidIpAddress.init("0.0.0.0"))
