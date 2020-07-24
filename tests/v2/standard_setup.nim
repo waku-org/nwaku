@@ -39,10 +39,15 @@ proc newStandardSwitch*(privKey = none(PrivateKey),
                         verifySignature = libp2p_pubsub_verify,
                         sign = libp2p_pubsub_sign,
                         transportFlags: set[ServerFlags] = {},
-                        rng = newRng()): Switch =
+                        rng = newRng(),
+                        inTimeout: Duration = 1.minutes,
+                        outTimeout: Duration = 1.minutes): Switch =
   info "newStandardSwitch"
   proc createMplex(conn: Connection): Muxer =
-    result = Mplex.init(conn)
+    Mplex.init(
+      conn,
+      inTimeout = inTimeout,
+      outTimeout = outTimeout)
 
   let
     seckey = privKey.get(otherwise = PrivateKey.random(ECDSA, rng[]).tryGet())

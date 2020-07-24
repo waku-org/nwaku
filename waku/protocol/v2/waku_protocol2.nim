@@ -56,8 +56,8 @@ method initPubSub*(w: WakuSub) =
   w.text = "Foobar"
   debug "w.text", text = w.text
 
-  # Using GossipSub
-  w.gossip_enabled = true
+  # Not using GossipSub
+  w.gossip_enabled = false
 
   if w.gossip_enabled:
     procCall GossipSub(w).initPubSub()

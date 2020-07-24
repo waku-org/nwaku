@@ -7,6 +7,7 @@ import
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   libp2p/peerinfo,
+  stew/shims/net as stewNet,
   rpc/wakurpc,
   ../../protocol/v2/[waku_protocol2, waku_historic_messages],
   # TODO: Pull out standard switch from tests
@@ -19,15 +20,28 @@ type
   PublicKey* = crypto.PublicKey
   PrivateKey* = crypto.PrivateKey
 
-const clientId = "Nimbus waku node"
+  # NOTE: based on Eth2Node in NBC eth2_network.nim
+  WakuNode* = ref object of RootObj
+    switch*: Switch
+    # XXX: Unclear if we need this
+    peerInfo*: PeerInfo
+    libp2pTransportLoops*: seq[Future[void]]
 
-let globalListeningAddr = parseIpAddress("0.0.0.0")
+const clientId = "Nimbus waku node"
 
 proc setBootNodes(nodes: openArray[string]): seq[ENode] =
   result = newSeqOfCap[ENode](nodes.len)
   for nodeId in nodes:
     # TODO: something more user friendly than an expect
     result.add(ENode.fromString(nodeId).expect("correct node"))
+
+# NOTE Any difference here in Waku vs Eth2?
+# E.g. Devp2p/Libp2p support, etc.
+#func asLibp2pKey*(key: keys.PublicKey): PublicKey =
+#  PublicKey(scheme: Secp256k1, skkey: secp.SkPublicKey(key))
+
+func asEthKey*(key: PrivateKey): keys.PrivateKey =
+  keys.PrivateKey(key.skkey)
 
 proc initAddress(T: type MultiAddress, str: string): T =
   let address = MultiAddress.init(str).tryGet()
@@ -36,6 +50,9 @@ proc initAddress(T: type MultiAddress, str: string): T =
   else:
     raise newException(ValueError,
                        "Invalid bootstrap node multi-address")
+
+template tcpEndPoint(address, port): auto =
+  MultiAddress.init(address, tcpProtocol, port)
 
 proc dialPeer(p: WakuProto, address: string) {.async.} =
   info "dialPeer", address = address
@@ -60,17 +77,17 @@ proc connectToNodes(p: WakuProto, nodes: openArray[string]) =
     #    let whisperENode = ENode.fromString(nodeId).expect("correct node")
     #    traceAsyncErrors node.peerPool.connectToNode(newNode(whisperENode))
 
-# NOTE: Looks almost identical to beacon_chain/eth2_network.nim
-proc setupNat(conf: WakuNodeConf): tuple[ip: IpAddress,
+# NOTE Identical with eth2_network, pull out into common?
+# NOTE Except portsShift
+proc setupNat(conf: WakuNodeConf): tuple[ip: Option[ValidIpAddress],
                                            tcpPort: Port,
                                            udpPort: Port] {.gcsafe.} =
   # defaults
-  result.ip = globalListeningAddr
-  result.tcpPort = Port(conf.tcpPort + conf.portsShift)
-  result.udpPort = Port(conf.udpPort + conf.portsShift)
+  result.tcpPort = Port(uint16(conf.tcpPort) + conf.portsShift)
+  result.udpPort = Port(uint16(conf.udpPort) + conf.portsShift)
 
   var nat: NatStrategy
-  case conf.nat.toLowerAscii():
+  case conf.nat.toLowerAscii:
     of "any":
       nat = NatAny
     of "none":
@@ -80,19 +97,24 @@ proc setupNat(conf: WakuNodeConf): tuple[ip: IpAddress,
     of "pmp":
       nat = NatPmp
     else:
-      if conf.nat.startsWith("extip:") and isIpAddress(conf.nat[6..^1]):
-        # any required port redirection is assumed to be done by hand
-        result.ip = parseIpAddress(conf.nat[6..^1])
-        nat = NatNone
+      if conf.nat.startsWith("extip:"):
+        try:
+          # any required port redirection is assumed to be done by hand
+          result.ip = some(ValidIpAddress.init(conf.nat[6..^1]))
+          nat = NatNone
+        except ValueError:
+          error "nor a valid IP address", address = conf.nat[6..^1]
+          quit QuitFailure
       else:
-        error "not a valid NAT mechanism, nor a valid IP address", value = conf.nat
-        quit(QuitFailure)
+        error "not a valid NAT mechanism", value = conf.nat
+        quit QuitFailure
 
   if nat != NatNone:
-    let extIP = getExternalIP(nat)
+    let extIp = getExternalIP(nat)
     if extIP.isSome:
-      result.ip = extIP.get()
-      # XXX: GC safety danger zone! See NBC eth2_network.nim
+      result.ip = some(ValidIpAddress.init extIp.get)
+      # TODO redirectPorts in considered a gcsafety violation
+      # because it obtains the address of a non-gcsafe proc?
       let extPorts = ({.gcsafe.}:
         redirectPorts(tcpPort = result.tcpPort,
                       udpPort = result.udpPort,
@@ -111,42 +133,58 @@ proc newWakuProto(switch: Switch): WakuProto =
   wakuproto.handler = handle
   return wakuproto
 
-proc run*(config: WakuNodeConf) =
+# TODO Consider removing unused arguments
+proc init*(T: type WakuNode, conf: WakuNodeConf, switch: Switch,
+                   ip: Option[ValidIpAddress], tcpPort, udpPort: Port,
+                   privKey: keys.PrivateKey,
+                   peerInfo: PeerInfo): T =
+  new result
+  result.switch = switch
+  result.peerInfo = peerInfo
+  # TODO Peer pool, discovery, protocol state, etc
 
-  info "libp2p support WIP"
+proc createWakuNode*(conf: WakuNodeConf): Future[WakuNode] {.async, gcsafe.} =
+  var
+    (extIp, extTcpPort, extUdpPort) = setupNat(conf)
+    hostAddress = tcpEndPoint(conf.libp2pAddress, Port(uint16(conf.tcpPort) + conf.portsShift))
+    announcedAddresses = if extIp.isNone(): @[]
+                         else: @[tcpEndPoint(extIp.get(), extTcpPort)]
 
-  if config.logLevel != LogLevel.NONE:
-    setLogLevel(config.logLevel)
+  info "Initializing networking", hostAddress,
+                                  announcedAddresses
 
-  # TODO Clean up host and announced IP a la eth2_network.nim
   let
-    # External TCP and UDP ports
-    (ip, tcpPort, udpPort) = setupNat(config)
-    nat_address = Address(ip: ip, tcpPort: tcpPort, udpPort: udpPort)
-    #port = 60000 + tcpPort
-    #DefaultAddr = "/ip4/127.0.0.1/tcp/55505"
-    address = "/ip4/127.0.0.1/tcp/" & $tcpPort
-    hostAddress = MultiAddress.init(address).tryGet()
-
-    # XXX: Address and hostAddress usage needs more clarity
-    # Difference between announced and host address relevant for running behind NAT, however doesn't seem like nim-libp2p supports this. GHI?
-    # NOTE: This is a privatekey
-    nodekey = config.nodekey
-    seckey = nodekey
-    pubkey = seckey.getKey.get()
-    keys = crypto.KeyPair(seckey: seckey, pubkey: pubkey)
-
+    nodekey = conf.nodekey
+    pubkey = nodekey.getKey.get()
+    keys = KeyPair(seckey: nodekey, pubkey: pubkey)
     peerInfo = PeerInfo.init(nodekey)
 
-  #INF 2020-05-28 11:15:50+08:00 Initializing networking (host address and announced same) tid=15555 address=192.168.1.101:30305:30305
-  info "Initializing networking (nat address unused)", nat_address, address
-  peerInfo.addrs.add(Multiaddress.init(address).tryGet())
+  # XXX: Add this when we create node or start it?
+  peerInfo.addrs.add(hostAddress)
 
-  # switch.pubsub = wakusub, plus all the peer info etc
-  # And it has wakuProto lets use wakuProto maybe, cause it has switch
   var switch = newStandardSwitch(some keys.seckey, hostAddress, triggerSelf = true)
-  let wakuProto = newWakuProto(switch)
-  switch.mount(wakuProto)
+
+  # TODO Either persist WakuNode or something here
+
+  # TODO Look over this
+  # XXX Consider asEthKey and asLibp2pKey
+  result = WakuNode.init(conf, switch, extIp, extTcpPort, extUdpPort, keys.seckey.asEthKey, peerInfo)
+
+proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
+  node.libp2pTransportLoops = await node.switch.start()
+
+  let wakuProto = newWakuProto(node.switch)
+  node.switch.mount(wakuProto)
+  wakuProto.started = true
+
+  # TODO Move out into separate proc
+  if conf.rpc:
+    let ta = initTAddress(conf.rpcAddress,
+                          Port(conf.rpcPort + conf.portsShift))
+    var rpcServer = newRpcHttpServer([ta])
+    setupWakuRPC(wakuProto, rpcServer)
+    rpcServer.start()
+    info "rpcServer started", ta=ta
 
   let historic_messages_enabled = true
   if historic_messages_enabled:
@@ -154,42 +192,29 @@ proc run*(config: WakuNodeConf) =
     switch.mount(proto)
 
     let filter = proto.filter()
-    # @TODO SET ON WAKUSUB
 
-  if config.rpc:
-    let ta = initTAddress(config.rpcAddress,
-                          Port(config.rpcPort + config.portsShift))
-    var rpcServer = newRpcHttpServer([ta])
-    setupWakuRPC(wakuProto, rpcServer)
-    rpcServer.start()
-    info "rpcServer started", ta=ta
-
-  # TODO: Make context async
-  #let fut = await switch.start()
-  discard switch.start()
-  wakuProto.started = true
-
+  # TODO Get this from WakuNode obj
+  let peerInfo = node.peerInfo
   let id = peerInfo.peerId.pretty
   info "PeerInfo", id = id, addrs = peerInfo.addrs
-  # Try p2p instead
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & id
-  #let listenStr = $peerInfo.addrs[0] & "/ipfs/" & id
-  # XXX: this should be /ip4..., / stripped?
+  ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
 
   # XXX: So doing this _after_ other setup
   # Optionally direct connect with a set of nodes
-  if config.staticnodes.len > 0: connectToNodes(wakuProto, config.staticnodes)
+  if conf.staticnodes.len > 0: connectToNodes(wakuProto, conf.staticnodes)
 
+  # TODO Move out into separate proc
   when defined(insecure):
-    if config.metricsServer:
+    if conf.metricsServer:
       let
-        address = config.metricsServerAddress
-        port = config.metricsServerPort + config.portsShift
+        address = conf.metricsServerAddress
+        port = conf.metricsServerPort + conf.portsShift
       info "Starting metrics HTTP server", address, port
       metrics.startHttpServer($address, Port(port))
 
-    if config.logMetrics:
+    if conf.logMetrics:
       proc logMetrics(udata: pointer) {.closure, gcsafe.} =
         {.gcsafe.}:
           let
@@ -200,8 +225,16 @@ proc run*(config: WakuNodeConf) =
         addTimer(Moment.fromNow(2.seconds), logMetrics)
       addTimer(Moment.fromNow(2.seconds), logMetrics)
 
+# TODO Get rid of this
+# runForever()
+
+#proc run(conf: WakuNodeConf) {.async, gcsafe.} =
+
+proc init*() {.async.} =
+  let conf = WakuNodeConf.load()
+  let network = await createWakuNode(conf)
+  waitFor network.start(conf)
   runForever()
 
 when isMainModule:
-  let conf = WakuNodeConf.load()
-  run(conf)
+  discard init()
