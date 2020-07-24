@@ -30,7 +30,7 @@ type
     text*: string
     gossip_enabled*: bool
 
-    filters: Filters
+    filters*: Filters
 
 method init(w: WakuSub) =
   debug "init"

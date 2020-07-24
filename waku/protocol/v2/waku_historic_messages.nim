@@ -111,3 +111,9 @@ method init*(T: type HistoricMessages) = T
 
   result.handle = handle
   result.codec = HistoricMessagesCodec
+
+proc subscribe*(proto: HistoricMessages, filters: var Filters) =
+  proc handle(msg: seq[byte]) =
+    discard
+
+  filters.notify("@TODO TOPIC", handle)
