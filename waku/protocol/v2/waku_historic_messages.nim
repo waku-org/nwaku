@@ -3,6 +3,8 @@ import
   libp2p/protobuf/minprotobuf,
   stew/results
 
+import ./filter
+
 const
   HistoricMessagesCodec = "/waku/history/1.0.0"
 
@@ -112,8 +114,8 @@ method init*(T: type HistoricMessages) = T
   result.handle = handle
   result.codec = HistoricMessagesCodec
 
-proc subscribe*(proto: HistoricMessages, filters: var Filters) =
+proc filter*(proto: HistoricMessages): Filter =
   proc handle(msg: seq[byte]) =
     discard
 
-  filters.notify("@TODO TOPIC", handle)
+  Filter.init(@[], handle)

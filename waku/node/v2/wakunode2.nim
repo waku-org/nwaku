@@ -152,9 +152,9 @@ proc run*(config: WakuNodeConf) =
   if historic_messages_enabled:
     let proto = HistoricMessages.init()
     switch.mount(proto)
-    # @TODO NEED TO SUBSCRIBE TO THE FILTERS
-    # NOT SURE WHERE WAKUSUB IS INITIALZIED
-    #proto.subscribe(wakuProto.filters)
+
+    let filter = proto.filter()
+    # @TODO SET ON WAKUSUB
 
   if config.rpc:
     let ta = initTAddress(config.rpcAddress,
