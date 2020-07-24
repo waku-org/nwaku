@@ -5,6 +5,8 @@
 
 import strutils
 import chronos, chronicles
+import ./filter
+import tables
 import libp2p/protocols/pubsub/pubsub,
        libp2p/protocols/pubsub/pubsubpeer,
        libp2p/protocols/pubsub/floodsub,
@@ -28,6 +30,8 @@ type
     text*: string
     gossip_enabled*: bool
 
+    filters: Filters
+
 method init(w: WakuSub) =
   debug "init"
   proc handler(conn: Connection, proto: string) {.async.} =
@@ -44,6 +48,7 @@ method init(w: WakuSub) =
 
   # XXX: Handler hijack GossipSub here?
   w.handler = handler
+  w.filters = initTable[string, Filter]()
   w.codec = WakuSubCodec
 
 method initPubSub*(w: WakuSub) =
@@ -51,8 +56,8 @@ method initPubSub*(w: WakuSub) =
   w.text = "Foobar"
   debug "w.text", text = w.text
 
-  # Using GossipSub
-  w.gossip_enabled = true
+  # Not using GossipSub
+  w.gossip_enabled = false
 
   if w.gossip_enabled:
     procCall GossipSub(w).initPubSub()
@@ -81,6 +86,10 @@ method subscribeTopic*(w: WakuSub,
                        peerId: string) {.async, gcsafe.} =
   proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
     info "Hit NOOP handler", topic
+
+    # Currently we are using the libp2p topic here.
+    # This will need to be change to a Waku topic.
+    w.filters.notify(topic, data)
 
   debug "subscribeTopic", topic=topic, subscribe=subscribe, peerId=peerId
 

@@ -21,13 +21,12 @@ proc setupWakuRPC*(wakuProto: WakuProto, rpcsrv: RpcServer) =
      result = WakuSubCodec
 
   # TODO: Implement symkey etc logic
-  rpcsrv.rpc("waku_publish") do(topic: string, message: string) -> bool:
-    let data = cast[seq[byte]](message)
+  rpcsrv.rpc("waku_publish") do(topic: string, message: seq[byte]) -> bool:
     # Assumes someone subscribing on this topic
     #let wakuSub = wakuProto.switch.pubsub
     let wakuSub = cast[WakuSub](wakuProto.switch.pubSub.get())
     # XXX also future return type
-    discard wakuSub.publish(topic, data)
+    discard wakuSub.publish(topic, message)
     return true
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")
@@ -44,5 +43,4 @@ proc setupWakuRPC*(wakuProto: WakuProto, rpcsrv: RpcServer) =
     return true
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")
-
 
