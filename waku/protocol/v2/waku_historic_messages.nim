@@ -36,7 +36,7 @@ type
 
 proc init*(T: type Query, buf: seq[byte]): Result[T, string] =
   var
-    pb = initProtobuf(buf)
+    pb = initProtoBuffer(buf)
     query: Query
 
   var origin: int32
