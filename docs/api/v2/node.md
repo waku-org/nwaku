@@ -2,9 +2,9 @@
 
 ## Nim API
 
-The Nim Waku API consist of five functions. Some of them have different arity
+The Nim Waku API consist of five methods. Some of them have different arity
 depending on what privacy/bandwidth trade-off the consumer wants to make. These
-five functions are:
+five method are:
 
 1. **Init** - create and start a node.
 2. **Subscribe** - to a topic or a specific content filter.
@@ -19,7 +19,7 @@ proc init*(conf: WakuNodeConf): Future[WakuNode]
   ## Status: Partially implemented.
   ## TODO Take conf as a parameter and return a started WakuNode
 
-proc subscribe*(topic: Topic, handler: TopicHandler)
+method subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler)
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
   ## this topic. TopicHandler is a method that takes a topic and a `Message`.
   ##
@@ -27,7 +27,7 @@ proc subscribe*(topic: Topic, handler: TopicHandler)
   ## TODO Implement as wrapper around `waku_protocol`, and ensure Message is
   ## passed, not `data` field.
 
-proc subscribe*(contentFilter: ContentFilter, handler: ContentFilterHandler)
+method subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFilterHandler)
   ## Subscribes to a ContentFilter. Triggers handler when receiving messages on
   ## this content filter. ContentFilter is a method that takes some content
   ## filter, specifically with `ContentTopic`, and a `Message`. The `Message`
@@ -37,26 +37,26 @@ proc subscribe*(contentFilter: ContentFilter, handler: ContentFilterHandler)
   ## TODO Implement as wrapper around `waku_protocol` and `subscribe` above, and
   ## ensure Message is passed, not `data` field.
 
-proc unsubscribe*(topic: Topic)
+method unsubscribe*(w: WakuNode, topic: Topic)
   ## Unsubscribe from a topic.
   ##
   ## Status: Not yet implemented.
   ## TODO Implement.
 
-proc unsubscribe*(contentFilter: ContentFilter)
+method unsubscribe*(w: WakuNode, contentFilter: ContentFilter)
   ## Unsubscribe from a content filter.
   ##
   ## Status: Not yet implemented.
   ## TODO Implement.
 
-proc publish*(topic: Topic, message: Message)
+method publish*(w: WakuNode, topic: Topic, message: Message)
   ## Publish a `Message` to a PubSub topic.
   ##
   ## Status: Not yet implemented.
   ## TODO Implement as wrapper around `waku_protocol`, and ensure Message is
   ## passed, not `data` field.
 
-proc publish*(topic: Topic, contentFilter: ContentFilter, message: Message)
+method publish*(w: WakuNode, topic: Topic, contentFilter: ContentFilter, message: Message)
   ## Publish a `Message` to a PubSub topic with a specific content filter.
   ## Currently this means a `contentTopic`.
   ##
@@ -65,7 +65,7 @@ proc publish*(topic: Topic, contentFilter: ContentFilter, message: Message)
   ## Message is passed, not `data` field. Also ensure content filter is in
   ## Message.
 
-proc query*(query: HistoryQuery): HistoryResponse
+method query*(w: WakuNode, query: HistoryQuery): HistoryResponse
   ## Queries for historical messages.
   ##
   ## Status: Not yet implemented.
