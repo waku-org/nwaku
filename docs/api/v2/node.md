@@ -2,101 +2,76 @@
 
 ## Nim API
 
-### WakuSub API
+The Nim Waku API consist of five methods. Some of them have different arity
+depending on what privacy/bandwidth trade-off the consumer wants to make. These
+five method are:
 
-This is an internal API to be used by the Waku API. It is practically a small
-layer above GossipSub. And possibly a request/response libp2p protocol.
-
-```Nim
-# TODO: Some init call to set things up?
-method publish*(w: WakuSub, topic: string, data: seq[byte]) {.async.}
-method subscribe*(w: WakuSub, topic: string, handler: TopicHandler) {.async.}
-method unsubscribe*(w: WakuSub, topics: seq[TopicPair]) {.async.}
-
-# TODO: Calls for non GossipSub communication.
-```
-
-### Waku API
-
-This API is very dependend on how the protocol should work for functionality
-such as light nodes (no relaying) and nodes that do not want to get messages
-from all `WakuTopic`s.
-
-See also issue:
-https://github.com/vacp2p/specs/issues/156
-
-For now it is assumed that we will require a seperate request-response protocol
-for this, next to the GossipSub domain.
+1. **Init** - create and start a node.
+2. **Subscribe** - to a topic or a specific content filter.
+3. **Unsubscribe** - to a topic or a specific content filter.
+4. **Publish** - to a topic, or a topic and a specific content filter.
+5. **Query** - for historical messages.
 
 ```Nim
-type
-  WakuOptions = object
-    # If there are more capabilities than just light node, we can create a
-    # capabilities field.
-    lightNode: bool
-    topics: seq[WakuTopic]
-    bloomfilter: Bloom # TODO: No longer needed with Gossip?
-    limits: Limits
+proc init*(conf: WakuNodeConf): Future[WakuNode]
+  ## Creates and starts a Waku node.
+  ##
+  ## Status: Partially implemented.
+  ## TODO Take conf as a parameter and return a started WakuNode
 
-proc init(w: WakuNode, conf: WakuConfig)
-## Initialize the WakuNode.
-##
-## When not a light node, this will set up the node to be part of the gossipsub
-## network with a subscription to the general Waku Topic.
-## When a light node, this will connect to full node peer(s) with provided
-## `topics` or `bloomfilter` for the full node to filter messages on.
+method subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler)
+  ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
+  ## this topic. TopicHandler is a method that takes a topic and a `Message`.
+  ##
+  ## Status: Not yet implemented.
+  ## TODO Implement as wrapper around `waku_protocol`, and ensure Message is
+  ## passed, not `data` field.
 
-proc publish(w: WakuNode, topic: WakuTopic, data: seq[byte]): bool
-## Publish a message with specified `WakuTopic`.
-##
-## Both full node and light node can use the GossipSub network to publish.
+method subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFilterHandler)
+  ## Subscribes to a ContentFilter. Triggers handler when receiving messages on
+  ## this content filter. ContentFilter is a method that takes some content
+  ## filter, specifically with `ContentTopic`, and a `Message`. The `Message`
+  ## has to match the `ContentTopic`.
 
-proc subscribe(w: WakuNode, topics: seq[WakuTopic], handler: WakuHandler): Identifier
-## Subscribe to the provided `topics`, handler will be called on receival of
-## messages on those topics.
-##
-## In case of a full node, this will be through the GossipSub network (see,
-## subscription in `init`)
-## In case of the light node, this will likely be through a separate request
-## response network where the full node filters out the messages.
+  ## Status: Not yet implemented.
+  ## TODO Implement as wrapper around `waku_protocol` and `subscribe` above, and
+  ## ensure Message is passed, not `data` field.
 
-proc unsubscribe(id: Identifier): bool
-## Unsubscribe handler for topics.
+method unsubscribe*(w: WakuNode, topic: Topic)
+  ## Unsubscribe from a topic.
+  ##
+  ## Status: Not yet implemented.
+  ## TODO Implement.
 
-# Can get rid of the identifiers in subscribe and unsubscribe and track topics +
-# handler like in WakuSub, if that is more convenient.
+method unsubscribe*(w: WakuNode, contentFilter: ContentFilter)
+  ## Unsubscribe from a content filter.
+  ##
+  ## Status: Not yet implemented.
+  ## TODO Implement.
 
-proc setLightNode(isLightNode: bool)
-## Change light node setting. This might trigger change in subscriptions from
-## the gossip domain to the request response domain and vice versa.
+method publish*(w: WakuNode, topic: Topic, message: Message)
+  ## Publish a `Message` to a PubSub topic.
+  ##
+  ## Status: Not yet implemented.
+  ## TODO Implement as wrapper around `waku_protocol`, and ensure Message is
+  ## passed, not `data` field.
 
-proc setTopicInterest(topics: seq[string])
-## Change the topic interests.
-# TODO: Only valid if light node?
+method publish*(w: WakuNode, topic: Topic, contentFilter: ContentFilter, message: Message)
+  ## Publish a `Message` to a PubSub topic with a specific content filter.
+  ## Currently this means a `contentTopic`.
+  ##
+  ## Status: Not yet implemented.
+  ## TODO Implement as wrapper around `waku_protocol` and `publish`, and ensure
+  ## Message is passed, not `data` field. Also ensure content filter is in
+  ## Message.
 
-proc setBloomFilter(topics: seq[string])
-## Change the topic interests.
-# TODO: Still required if we have gossip?
+method query*(w: WakuNode, query: HistoryQuery): HistoryResponse
+  ## Queries for historical messages.
+  ##
+  ## Status: Not yet implemented.
+  ## TODO Implement as wrapper around `waku_protocol` and send `RPCMsg`.
 ```
 
 ## JSON RPC
 
-**TODO: Data should be RPC Messages / bytes**
-**TODO: Enable topic handler**
-
-Call signatures:
-
-```Nim
-proc waku_version(): string
-proc waku_info(): WakuInfo
-proc waku_publish(topic: string, message: string): bool
-proc waku_subscribe(topics: seq[string]): Identifier
-proc waku_unsubscribe(id: Identifier): bool
-
-# TODO: Do we still want to be able to pull for data also?
-# E.g. a getTopicsMessages(topics: seq[string])?
-
-proc waku_setLightNode(isLightNode: bool)
-proc waku_setTopicInterest(topics: seq[string])
-proc waku_setBloomFilter(topics: seq[string])
-```
+### TODO To specify
