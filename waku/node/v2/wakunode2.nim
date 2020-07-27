@@ -230,11 +230,97 @@ proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
 
 #proc run(conf: WakuNodeConf) {.async, gcsafe.} =
 
+## Public API
+##
+
+# TODO Take conf as a parameter and return a started WakuNode
 proc init*() {.async.} =
   let conf = WakuNodeConf.load()
   let network = await createWakuNode(conf)
   waitFor network.start(conf)
   runForever()
+
+# TODO Replace init above
+method init2*(conf: WakuNodeConf): Future[WakuNode] {.async.} =
+  ## Creates and starts a Waku node.
+  ##
+  ## Status: Partially implemented.
+  ## TODO Take conf as a parameter and return a started WakuNode
+  let node = await createWakuNode(conf)
+  await node.start(conf)
+  return node
+
+type Topic* = string
+type Message* = seq[byte]
+type ContentFilter* = object
+    contentTopic*: string
+type TopicHandler* = proc(topic: Topic, message: Message)
+type ContentFilterHandler* = proc(contentFilter: ContentFilter, message: Message)
+
+type HistoryQuery = object
+    xxx*: seq[byte]
+
+type HistoryResponse = object
+    xxx*: seq[byte]
+
+method subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler) =
+  echo "NYI"
+  ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
+  ## this topic. TopicHandler is a method that takes a topic and a `Message`.
+  ##
+  ## Status: Not yet implemented.
+  ## TODO Implement as wrapper around `waku_protocol`, and ensure Message is
+  ## passed, not `data` field.
+
+method subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFilterHandler) =
+  echo "NYI"
+  ## Subscribes to a ContentFilter. Triggers handler when receiving messages on
+  ## this content filter. ContentFilter is a method that takes some content
+  ## filter, specifically with `ContentTopic`, and a `Message`. The `Message`
+  ## has to match the `ContentTopic`.
+
+  ## Status: Not yet implemented.
+  ## TODO Implement as wrapper around `waku_protocol` and `subscribe` above, and
+  ## ensure Message is passed, not `data` field.
+
+method unsubscribe*(w: WakuNode, topic: Topic) =
+  echo "NYI"
+  ## Unsubscribe from a topic.
+  ##
+  ## Status: Not yet implemented.
+  ## TODO Implement.
+
+method unsubscribe*(w: WakuNode, contentFilter: ContentFilter) =
+  echo "NYI"
+  ## Unsubscribe from a content filter.
+  ##
+  ## Status: Not yet implemented.
+  ## TODO Implement.
+
+method publish*(w: WakuNode, topic: Topic, message: Message) =
+  echo "NYI"
+  ## Publish a `Message` to a PubSub topic.
+  ##
+  ## Status: Not yet implemented.
+  ## TODO Implement as wrapper around `waku_protocol`, and ensure Message is
+  ## passed, not `data` field.
+
+method publish*(w: WakuNode, topic: Topic, contentFilter: ContentFilter, message: Message) =
+  echo "NYI"
+  ## Publish a `Message` to a PubSub topic with a specific content filter.
+  ## Currently this means a `contentTopic`.
+  ##
+  ## Status: Not yet implemented.
+  ## TODO Implement as wrapper around `waku_protocol` and `publish`, and ensure
+  ## Message is passed, not `data` field. Also ensure content filter is in
+  ## Message.
+
+method query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
+  echo "NYI"
+  ## Queries for historical messages.
+  ##
+  ## Status: Not yet implemented.
+  ## TODO Implement as wrapper around `waku_protocol` and send `RPCMsg`.
 
 when isMainModule:
   discard init()
