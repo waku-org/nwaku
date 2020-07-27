@@ -89,7 +89,6 @@ method subscribeTopic*(w: WakuSub,
 
     # Currently we are using the libp2p topic here.
     # This will need to be change to a Waku topic.
-    w.filters.notify(topic, data)
 
   debug "subscribeTopic", topic=topic, subscribe=subscribe, peerId=peerId
 
@@ -125,6 +124,10 @@ method rpcHandler*(w: WakuSub,
   else:
     await procCall FloodSub(w).rpcHandler(peer, rpcMsgs)
   # XXX: here
+  
+  for rpcs in rpcMsgs:
+    for msg in rpcs.messages:
+      w.filters.notify(msg)
 
 method publish*(w: WakuSub,
                 topic: string,
