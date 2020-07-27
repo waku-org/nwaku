@@ -116,11 +116,6 @@ method rpcHandler*(w: WakuSub,
                    rpcMsgs: seq[RPCMsg]) {.async.} =
   debug "rpcHandler"
 
-  for rpcs in rpcMsgs:
-    for msg in rpcs.messages:
-      w.filters.notify(msg)
-
-
   # XXX: Right place?
   total_messages.inc()
 
@@ -129,6 +124,10 @@ method rpcHandler*(w: WakuSub,
   else:
     await procCall FloodSub(w).rpcHandler(peer, rpcMsgs)
   # XXX: here
+  
+  for rpcs in rpcMsgs:
+    for msg in rpcs.messages:
+      w.filters.notify(msg)
 
 method publish*(w: WakuSub,
                 topic: string,
