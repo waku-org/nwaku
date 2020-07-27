@@ -29,22 +29,38 @@ For now it is assumed that we will require a seperate request-response protocol
 for this, next to the GossipSub domain.
 
 ```Nim
+## Implemented
+##----------------------------------------------------------
 type
-  WakuOptions = object
-    # If there are more capabilities than just light node, we can create a
-    # capabilities field.
-    lightNode: bool
-    topics: seq[WakuTopic]
-    bloomfilter: Bloom # TODO: No longer needed with Gossip?
-    limits: Limits
+  WakuNode* = ref object of RootObj
+  switch*: Switch
+  peerInfo*: PeerInfo
+  libp2pTransportLoops*: seq[Future[void]]
 
-proc init(w: WakuNode, conf: WakuConfig)
-## Initialize the WakuNode.
+proc createWakuNode*(conf: WakuNodeConf): Future[WakuNode] {.async, gcsafe.} =
+## Creates the WakuNode.
+
+proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
+## Starts an already created WakuNode.
 ##
 ## When not a light node, this will set up the node to be part of the gossipsub
 ## network with a subscription to the general Waku Topic.
 ## When a light node, this will connect to full node peer(s) with provided
-## `topics` or `bloomfilter` for the full node to filter messages on.
+## `contentFilter` for the full node to filter on. Currently this means
+## `contentTopic`, but this could potentially be `bloomFilter` and other filters
+## as well.
+
+## Not yet implemented / under consideration
+##----------------------------------------------------------
+
+type
+  WakuOptions = object
+  # If there are more capabilities than just light node, we can create a
+  # capabilities field.
+    lightNode: bool
+    topics: seq[WakuTopic]
+    bloomfilter: Bloom # TODO: No longer needed with Gossip?
+    limits: Limits
 
 proc publish(w: WakuNode, topic: WakuTopic, data: seq[byte]): bool
 ## Publish a message with specified `WakuTopic`.
