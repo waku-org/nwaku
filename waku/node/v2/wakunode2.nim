@@ -248,48 +248,48 @@ proc init*() {.async.} =
 ## passed, not `data` field.
 
 ##method subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFilterHandler)
-  ## Subscribes to a ContentFilter. Triggers handler when receiving messages on
-  ## this content filter. ContentFilter is a method that takes some content
-  ## filter, specifically with `ContentTopic`, and a `Message`. The `Message`
-  ## has to match the `ContentTopic`.
+## Subscribes to a ContentFilter. Triggers handler when receiving messages on
+## this content filter. ContentFilter is a method that takes some content
+## filter, specifically with `ContentTopic`, and a `Message`. The `Message`
+## has to match the `ContentTopic`.
 
-  ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_protocol` and `subscribe` above, and
-  ## ensure Message is passed, not `data` field.
+## Status: Not yet implemented.
+## TODO Implement as wrapper around `waku_protocol` and `subscribe` above, and
+## ensure Message is passed, not `data` field.
 
 ##method unsubscribe*(w: WakuNode, topic: Topic)
-  ## Unsubscribe from a topic.
-  ##
-  ## Status: Not yet implemented.
-  ## TODO Implement.
+## Unsubscribe from a topic.
+##
+## Status: Not yet implemented.
+## TODO Implement.
 
 ##method unsubscribe*(w: WakuNode, contentFilter: ContentFilter)
-  ## Unsubscribe from a content filter.
-  ##
-  ## Status: Not yet implemented.
-  ## TODO Implement.
+## Unsubscribe from a content filter.
+##
+## Status: Not yet implemented.
+## TODO Implement.
 
 ##method publish*(w: WakuNode, topic: Topic, message: Message)
-  ## Publish a `Message` to a PubSub topic.
-  ##
-  ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_protocol`, and ensure Message is
-  ## passed, not `data` field.
+## Publish a `Message` to a PubSub topic.
+##
+## Status: Not yet implemented.
+## TODO Implement as wrapper around `waku_protocol`, and ensure Message is
+## passed, not `data` field.
 
 ##method publish*(w: WakuNode, topic: Topic, contentFilter: ContentFilter, message: Message)
-  ## Publish a `Message` to a PubSub topic with a specific content filter.
-  ## Currently this means a `contentTopic`.
-  ##
-  ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_protocol` and `publish`, and ensure
-  ## Message is passed, not `data` field. Also ensure content filter is in
-  ## Message.
+## Publish a `Message` to a PubSub topic with a specific content filter.
+## Currently this means a `contentTopic`.
+##
+## Status: Not yet implemented.
+## TODO Implement as wrapper around `waku_protocol` and `publish`, and ensure
+## Message is passed, not `data` field. Also ensure content filter is in
+## Message.
 
 ##method query*(w: WakuNode, query: HistoryQuery): HistoryResponse
-  ## Queries for historical messages.
-  ##
-  ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_protocol` and send `RPCMsg`.
+## Queries for historical messages.
+##
+## Status: Not yet implemented.
+## TODO Implement as wrapper around `waku_protocol` and send `RPCMsg`.
 
 when isMainModule:
   discard init()
