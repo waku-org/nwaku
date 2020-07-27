@@ -1,9 +1,11 @@
+import libp2p/protocols/pubsub/rpc/messages
+
 import 
   tables
 
 type 
 
-  FilterMessageHandler* = proc(msg: seq[byte]) {.gcsafe, closure.}
+  FilterMessageHandler* = proc(msg: Message) {.gcsafe, closure.}
 
   Filter* = object
     topics: seq[string] # @TODO TOPIC
@@ -17,9 +19,16 @@ proc init*(T: type Filter, topics: seq[string], handler: FilterMessageHandler): 
     handler: handler
   )
 
-proc notify*(filters: var Filters, topic: string, msg: seq[byte]) {.gcsafe.} =
+proc containsMatch(lhs: seq[string], rhs: seq[string]): bool =
+  for leftItem in lhs:
+    for rightItem in rhs:
+      if leftItem == rightItem:
+        return true
+
+proc notify*(filters: var Filters, msg: Message) {.gcsafe.} =
   for filter in filters.mvalues:
-    if filter.topics.len > 0 and topic notin filter.topics:
+    # @TODO WILL NEED TO CHECK SUBTOPICS IN FUTURE FOR WAKU TOPICS NOT LIBP2P ONES
+    if filter.topics.len > 0 and not filter.topics.containsMatch(msg.topicIDs):
       continue
 
     filter.handler(msg)
