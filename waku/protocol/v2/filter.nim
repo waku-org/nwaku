@@ -21,9 +21,10 @@ proc init*(T: type Filter, topics: seq[string], handler: FilterMessageHandler): 
 
 proc containsMatch(lhs: seq[string], rhs: seq[string]): bool =
   for leftItem in lhs:
-    for rightItem in rhs:
-      if leftItem == rightItem:
-        return true
+    if leftItem in rhs:
+      return true
+
+  return false
 
 proc notify*(filters: var Filters, msg: Message) {.gcsafe.} =
   for filter in filters.mvalues:
