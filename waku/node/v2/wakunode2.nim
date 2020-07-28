@@ -305,11 +305,12 @@ method publish*(w: WakuNode, topic: Topic, contentFilter: ContentFilter, message
   ## Message.
   ## 
 
-  ## @TODO PUBLISH AND ALL THAT
   w.messages.insert((contentFilter.contentTopic, message))
 
   let wakuSub = w.switch.pubSub.get()
   # XXX Consider awaiting here
+
+  # @TODO MAKE SURE WE PASS CONTENT FILTER
   discard wakuSub.publish(topic, message)
 
 method query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
