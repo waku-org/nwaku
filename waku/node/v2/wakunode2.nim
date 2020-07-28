@@ -1,5 +1,5 @@
 import
-  confutils, config, strutils, chronos, json_rpc/rpcserver, metrics,
+  confutils, config, strutils, chronos, json_rpc/rpcserver, metrics, sequtils,
   chronicles/topics_registry, # TODO: What? Need this for setLoglevel, weird.
   eth/[keys, p2p], eth/net/nat,
   eth/p2p/[discovery, enode],
@@ -28,6 +28,7 @@ type
     # XXX: Unclear if we need this
     peerInfo*: PeerInfo
     libp2pTransportLoops*: seq[Future[void]]
+    messages: seq[(Topic, Message)]
 
 const clientId = "Nimbus waku node"
 
@@ -243,10 +244,10 @@ type ContentFilter* = object
 type ContentFilterHandler* = proc(contentFilter: ContentFilter, message: Message)
 
 type HistoryQuery = object
-    xxx*: seq[byte]
+    topics*: seq[string]
 
 type HistoryResponse = object
-    xxx*: seq[byte]
+    messages*: seq[Message]
 
 method subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler) =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
@@ -295,7 +296,6 @@ method publish*(w: WakuNode, topic: Topic, message: Message) =
   discard wakuSub.publish(topic, message)
 
 method publish*(w: WakuNode, topic: Topic, contentFilter: ContentFilter, message: Message) =
-  echo "NYI"
   ## Publish a `Message` to a PubSub topic with a specific content filter.
   ## Currently this means a `contentTopic`.
   ##
@@ -303,13 +303,23 @@ method publish*(w: WakuNode, topic: Topic, contentFilter: ContentFilter, message
   ## TODO Implement as wrapper around `waku_protocol` and `publish`, and ensure
   ## Message is passed, not `data` field. Also ensure content filter is in
   ## Message.
+  ## 
+
+  ## @TODO PUBLISH AND ALL THAT
+  w.messages.insert((contentFilter.contentTopic, message))
 
 method query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
-  echo "NYI"
   ## Queries for historical messages.
   ##
   ## Status: Not yet implemented.
   ## TODO Implement as wrapper around `waku_protocol` and send `RPCMsg`.
+  result.messages = newSeq[Message]()
+
+  for msg in w.messages:
+    if msg[0] notin query.topics:
+      continue
+
+    result.messages.insert(msg[1])
 
 when isMainModule:
   let conf = WakuNodeConf.load()
