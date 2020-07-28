@@ -15,15 +15,18 @@ import ../../waku/node/v2/wakunode2
 # Loads the config in `waku/node/v2/config.nim`
 let conf = WakuNodeConf.load()
 
-# Create and start the node
-#proc runBackground(conf: WakuNodeConf) {.async.} =
-#  init(conf)
-#  runForever()
+# Node operations happens asynchronously
+proc runBackground(conf: WakuNodeConf) {.async.} =
+  # Create and start the node
+  let node = await init(conf)
 
-discard init(conf)
+  # Subscribe to a topic
+  let topic = "foobar"
+  proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+    info "Hit subscribe handler", topic=topic, data=data
+  node.subscribe(topic, handler)
 
-echo("Do stuff after with node")
-
+discard runBackground(conf)
 runForever()
 
 # TODO Lets start with Nim Node API first

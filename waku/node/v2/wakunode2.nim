@@ -6,6 +6,8 @@ import
   libp2p/multiaddress,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
+  # NOTE For TopicHandler, solve with exports?
+  libp2p/protocols/pubsub/pubsub,
   libp2p/peerinfo,
   stew/shims/net as stewNet,
   rpc/wakurpc,
@@ -231,8 +233,13 @@ method init*(conf: WakuNodeConf): Future[WakuNode] {.async.} =
 type Topic* = string
 type Message* = seq[byte]
 type ContentFilter* = object
-    contentTopic*: string
-type TopicHandler* = proc(topic: Topic, message: Message)
+  contentTopic*: string
+
+# TODO Update TopicHandler to take Message, not seq[byte] data
+#type TopicHandler* = proc(topic: Topic, message: Message)
+# Currently this is using the one in pubsub.nim, roughly:
+#type TopicHandler* = proc(topic: string, data: seq[byte])
+
 type ContentFilterHandler* = proc(contentFilter: ContentFilter, message: Message)
 
 type HistoryQuery = object
@@ -242,13 +249,16 @@ type HistoryResponse = object
     xxx*: seq[byte]
 
 method subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler) =
-  echo "NYI"
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
   ## this topic. TopicHandler is a method that takes a topic and a `Message`.
   ##
-  ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_protocol`, and ensure Message is
-  ## passed, not `data` field.
+  ## Status: Partially implemented.
+  ## TODO Ensure Message is passed, not `data` field. This means modifying
+  ## TopicHandler.
+
+  let wakuSub = w.switch.pubSub.get()
+  # XXX Consider awaiting here
+  discard wakuSub.subscribe(topic, handler)
 
 method subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFilterHandler) =
   echo "NYI"
