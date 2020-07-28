@@ -22,6 +22,11 @@ type
   PublicKey* = crypto.PublicKey
   PrivateKey* = crypto.PrivateKey
 
+  Topic* = string
+  Message* = seq[byte]
+  ContentFilter* = object
+    contentTopic*: string
+
   # NOTE: based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj
     switch*: Switch
@@ -230,11 +235,6 @@ method init*(T: type WakuNode, conf: WakuNodeConf): Future[T] {.async.} =
   let node = await createWakuNode(conf)
   await node.start(conf)
   return node
-
-type Topic* = string
-type Message* = seq[byte]
-type ContentFilter* = object
-  contentTopic*: string
 
 # TODO Update TopicHandler to take Message, not seq[byte] data
 #type TopicHandler* = proc(topic: Topic, message: Message)
