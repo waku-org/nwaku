@@ -18,7 +18,7 @@ let conf = WakuNodeConf.load()
 # Node operations happens asynchronously
 proc runBackground(conf: WakuNodeConf) {.async.} =
   # Create and start the node
-  let node = await init(conf)
+  let node = await WakuNode.init(conf)
 
   # Subscribe to a topic
   let topic = "foobar"
