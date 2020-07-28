@@ -3,6 +3,7 @@
 
 import confutils, chronicles, chronos, os
 
+import stew/shims/net as stewNet
 import libp2p/crypto/crypto
 import libp2p/crypto/secp
 import eth/keys
@@ -14,16 +15,18 @@ import ../../waku/node/v2/wakunode2
 # Loads the config in `waku/node/v2/config.nim`
 let conf = WakuNodeConf.load()
 
-# Start the node
-# Running this should give you output like this:
-# INF Listening on tid=5719 full=/ip4/127.0.0.1/tcp/60000/p2p/16Uiu2HAmNiAqr1cwhyntotP9fiSDyBvfKtB4ZiaDsrkipSCoKCB4
-# TODO Run this in background
-# See https://github.com/status-im/nim-waku/pull/59
-proc runBackground(conf: WakuNodeConf) {.async.} =
-  run(conf)
-  runForever()
+# Create and start the node
+#proc runBackground(conf: WakuNodeConf) {.async.} =
+#  init(conf)
+#  runForever()
 
-discard runBackground(conf)
+discard init(conf)
+
+echo("Do stuff after with node")
+
+runForever()
+
+# TODO Lets start with Nim Node API first
 
 # To do more operations on this node, we can do this in two ways:
 # - We can use the Nim Node API, which is currently not exposed
@@ -35,17 +38,17 @@ discard runBackground(conf)
 # Here's how to do it with JSON RPC
 
 # Get RPC call signatures in Nim
-from strutils import rsplit
-template sourceDir: string = currentSourcePath.parentDir().parentDir().rsplit(DirSep, 1)[0]
-const sigWakuPath = sourceDir / "waku" / "node" / "v2" / "rpc" / "wakucallsigs.nim"
+#from strutils import rsplit
+#template sourceDir: string = currentSourcePath.parentDir().parentDir().rsplit(DirSep, 1)[0]
+#const sigWakuPath = sourceDir / "waku" / "node" / "v2" / "rpc" / "wakucallsigs.nim"
 
-createRpcSigs(RpcHttpClient, sigWakuPath)
+#createRpcSigs(RpcHttpClient, sigWakuPath)
 
 # Create RPC Client and connect to it
-var node = newRpcHttpClient()
-waitfor node.connect("localhost", Port(8547))
+#var node = newRpcHttpClient()
+#waitfor node.connect("localhost", Port(8547))
 
 # TODO Do something with res
-var res = waitFor node.wakuSubscribe("apptopic")
+#var res = waitFor node.wakuSubscribe("apptopic")
 
 # TODO Use publish as well

@@ -16,8 +16,7 @@ five method are:
 proc init*(conf: WakuNodeConf): Future[WakuNode]
   ## Creates and starts a Waku node.
   ##
-  ## Status: Partially implemented.
-  ## TODO Take conf as a parameter and return a started WakuNode
+  ## Status: Implemented.
 
 method subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler)
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
