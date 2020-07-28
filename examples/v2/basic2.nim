@@ -31,6 +31,7 @@ proc runBackground(conf: WakuNodeConf) {.async.} =
   node.publish(topic, message)
 
 discard runBackground(conf)
+
 runForever()
 
 # TODO Lets start with Nim Node API first
