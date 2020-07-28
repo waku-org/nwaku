@@ -1,5 +1,5 @@
 import chronos
-import standard_setup
+import ../../waku/node/v2/standard_setup
 export standard_setup
 
 proc generateNodes*(num: Natural, gossip: bool = false): seq[Switch] =
