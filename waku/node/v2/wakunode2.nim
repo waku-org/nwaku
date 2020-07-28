@@ -12,6 +12,7 @@ import
   stew/shims/net as stewNet,
   rpc/wakurpc,
   standard_setup,
+  ../../protocol/v2/waku_protocol2,
   # TODO: Pull out standard switch from tests
   waku_types
 
