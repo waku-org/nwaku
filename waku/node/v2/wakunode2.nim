@@ -218,19 +218,8 @@ proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
         addTimer(Moment.fromNow(2.seconds), logMetrics)
       addTimer(Moment.fromNow(2.seconds), logMetrics)
 
-# TODO Get rid of this
-# runForever()
-
-#proc run(conf: WakuNodeConf) {.async, gcsafe.} =
-
 ## Public API
 ##
-
-# TODO Take conf as a parameter and return a started WakuNode
-#proc init*() {.async.} =
-#  let conf = WakuNodeConf.load()
-#  let network = await createWakuNode(conf)
-#  waitFor network.start(conf)
 
 method init*(conf: WakuNodeConf): Future[WakuNode] {.async.} =
   ## Creates and starts a Waku node.
