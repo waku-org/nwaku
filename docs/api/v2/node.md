@@ -13,7 +13,7 @@ five method are:
 5. **Query** - for historical messages.
 
 ```Nim
-proc init*(conf: WakuNodeConf): Future[WakuNode]
+proc init*(T: type WakuNode, conf: WakuNodeConf): Future[T]
   ## Creates and starts a Waku node.
   ##
   ## Status: Implemented.
