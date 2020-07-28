@@ -23,8 +23,12 @@ proc runBackground(conf: WakuNodeConf) {.async.} =
   # Subscribe to a topic
   let topic = "foobar"
   proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-    info "Hit subscribe handler", topic=topic, data=data
+    info "Hit subscribe handler", topic=topic, data=data, decoded=cast[string](data)
   node.subscribe(topic, handler)
+
+  # Publish to a topic
+  let message = cast[seq[byte]]("hello world")
+  node.publish(topic, message)
 
 discard runBackground(conf)
 runForever()

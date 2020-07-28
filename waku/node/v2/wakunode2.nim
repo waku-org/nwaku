@@ -286,12 +286,13 @@ method unsubscribe*(w: WakuNode, contentFilter: ContentFilter) =
   ## TODO Implement.
 
 method publish*(w: WakuNode, topic: Topic, message: Message) =
-  echo "NYI"
   ## Publish a `Message` to a PubSub topic.
   ##
-  ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_protocol`, and ensure Message is
-  ## passed, not `data` field.
+  ## Status: Partially implemented.
+  ## TODO: Esure Message is passed, not seq[byte] `data` field.
+  let wakuSub = w.switch.pubSub.get()
+  # XXX Consider awaiting here
+  discard wakuSub.publish(topic, message)
 
 method publish*(w: WakuNode, topic: Topic, contentFilter: ContentFilter, message: Message) =
   echo "NYI"
