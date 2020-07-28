@@ -223,7 +223,7 @@ proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
 ## Public API
 ##
 
-method init*(conf: WakuNodeConf): Future[WakuNode] {.async.} =
+method init*(T: type WakuNode, conf: WakuNodeConf): Future[T] {.async.} =
   ## Creates and starts a Waku node.
   ##
   let node = await createWakuNode(conf)
@@ -313,5 +313,5 @@ method query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
 
 when isMainModule:
   let conf = WakuNodeConf.load()
-  discard init(conf)
+  discard WakuNode.init(conf)
   runForever()
