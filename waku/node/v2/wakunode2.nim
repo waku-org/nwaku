@@ -11,9 +11,9 @@ import
   libp2p/peerinfo,
   stew/shims/net as stewNet,
   rpc/wakurpc,
+  standard_setup,
   ../../protocol/v2/waku_protocol2,
   # TODO: Pull out standard switch from tests
-  ../../tests/v2/standard_setup,
   waku_types
 
 # key and crypto modules different
