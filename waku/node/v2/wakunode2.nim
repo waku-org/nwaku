@@ -27,6 +27,12 @@ type
   ContentFilter* = object
     contentTopic*: string
 
+  HistoryQuery* = object
+    topics*: seq[string]
+
+  HistoryResponse* = object
+    messages*: seq[Message]
+
   # NOTE: based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj
     switch*: Switch
@@ -242,12 +248,6 @@ method init*(T: type WakuNode, conf: WakuNodeConf): Future[T] {.async.} =
 #type TopicHandler* = proc(topic: string, data: seq[byte])
 
 type ContentFilterHandler* = proc(contentFilter: ContentFilter, message: Message)
-
-type HistoryQuery = object
-    topics*: seq[string]
-
-type HistoryResponse = object
-    messages*: seq[Message]
 
 method subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler) =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on

@@ -10,7 +10,7 @@
 import
   sequtils, tables, unittest, chronos, eth/[keys, p2p], eth/p2p/peer_pool,
   ../../waku/protocol/v1/waku_protocol,
-  ./test_helpers
+  ../test_helpers
 
 const
   safeTTL = 5'u32
