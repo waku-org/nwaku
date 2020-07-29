@@ -10,6 +10,10 @@ const
   WakuStoreCodec = "/vac/waku/store/2.0.0-alpha2"
 
 type
+  StoreRPC* = object
+    query*: seq[HistoryQuery]
+    response*: seq[HistoryResponse] 
+
   HistoryQuery* = object
     topics*: seq[string]
 
@@ -19,31 +23,41 @@ type
   WakuStore* = ref object of LPProtocol
     messages*: seq[Message]
 
+method init*(T: type StoreRPC): T =
+  discard
+
+method encode*(response: StoreRPC): seq[byte] =
+  discard
+
 method init*(T: type HistoryQuery): T =
   discard
 
 method encode*(response: HistoryResponse): seq[byte] =
   discard
 
+proc query(w: WakuStore, query: HistoryQuery): HistoryResponse =
+  for msg in result.messages:
+    block topicLoop:
+      for topic in query.topics:
+        if topic in msg.topics:
+          result.messages.insert(msg)
+          break topicLoop
+
 method init*(T: type WakuStore) = T
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var message = conn.readLp(64*1024)
-    var query = HistoryQuery.init(message)
-    if query.isError():
+    var rpc = StoreRPC.init(message)
+    if rpc.isError():
       return
 
     info "received query"
 
-    var returns = HistoryResponse(messages: newSeq[Message]())
-    
-    for msg in result.messages:
-      block topicLoop:
-        for topic in query.topics:
-          if topic in msg.topics:
-            returns.insert(msg)
-            break topicLoop
+    var response = StoreRPC(query: newSeq[HistoryQuery](), response: newSeq[HistoryResponse]())
 
-    conn.writeLp(returns)
+    for query in rpc.query:
+      response.response.insert(result.query(query))
+
+    conn.writeLp(response.encode())
 
   result.handle = handle
   result.codec = WakuStoreCodec
