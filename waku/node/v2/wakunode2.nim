@@ -1,5 +1,5 @@
 import
-  confutils, config, strutils, chronos, json_rpc/rpcserver, metrics,
+  confutils, config, strutils, chronos, json_rpc/rpcserver, metrics, sequtils,
   chronicles/topics_registry, # TODO: What? Need this for setLoglevel, weird.
   eth/[keys, p2p], eth/net/nat,
   eth/p2p/[discovery, enode],
@@ -22,12 +22,24 @@ type
   PublicKey* = crypto.PublicKey
   PrivateKey* = crypto.PrivateKey
 
+  Topic* = string
+  Message* = seq[byte]
+  ContentFilter* = object
+    contentTopic*: string
+
+  HistoryQuery* = object
+    topics*: seq[string]
+
+  HistoryResponse* = object
+    messages*: seq[Message]
+
   # NOTE: based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj
     switch*: Switch
     # XXX: Unclear if we need this
     peerInfo*: PeerInfo
     libp2pTransportLoops*: seq[Future[void]]
+    messages: seq[(Topic, Message)]
 
 const clientId = "Nimbus waku node"
 
@@ -230,23 +242,12 @@ method init*(T: type WakuNode, conf: WakuNodeConf): Future[T] {.async.} =
   await node.start(conf)
   return node
 
-type Topic* = string
-type Message* = seq[byte]
-type ContentFilter* = object
-  contentTopic*: string
-
 # TODO Update TopicHandler to take Message, not seq[byte] data
 #type TopicHandler* = proc(topic: Topic, message: Message)
 # Currently this is using the one in pubsub.nim, roughly:
 #type TopicHandler* = proc(topic: string, data: seq[byte])
 
 type ContentFilterHandler* = proc(contentFilter: ContentFilter, message: Message)
-
-type HistoryQuery = object
-    xxx*: seq[byte]
-
-type HistoryResponse = object
-    xxx*: seq[byte]
 
 method subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler) =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
@@ -295,7 +296,6 @@ method publish*(w: WakuNode, topic: Topic, message: Message) =
   discard wakuSub.publish(topic, message)
 
 method publish*(w: WakuNode, topic: Topic, contentFilter: ContentFilter, message: Message) =
-  echo "NYI"
   ## Publish a `Message` to a PubSub topic with a specific content filter.
   ## Currently this means a `contentTopic`.
   ##
@@ -303,13 +303,28 @@ method publish*(w: WakuNode, topic: Topic, contentFilter: ContentFilter, message
   ## TODO Implement as wrapper around `waku_protocol` and `publish`, and ensure
   ## Message is passed, not `data` field. Also ensure content filter is in
   ## Message.
+  ## 
+
+  w.messages.insert((contentFilter.contentTopic, message))
+
+  let wakuSub = w.switch.pubSub.get()
+  # XXX Consider awaiting here
+
+  # @TODO MAKE SURE WE PASS CONTENT FILTER
+  discard wakuSub.publish(topic, message)
 
 method query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
-  echo "NYI"
   ## Queries for historical messages.
   ##
   ## Status: Not yet implemented.
   ## TODO Implement as wrapper around `waku_protocol` and send `RPCMsg`.
+  result.messages = newSeq[Message]()
+
+  for msg in w.messages:
+    if msg[0] notin query.topics:
+      continue
+
+    result.messages.insert(msg[1])
 
 when isMainModule:
   let conf = WakuNodeConf.load()

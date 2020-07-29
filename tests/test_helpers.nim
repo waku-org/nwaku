@@ -1,5 +1,5 @@
 import
-  unittest, chronos, strutils,
+  unittest, chronos,
   eth/[keys, p2p]
 
 var nextPort = 30303
@@ -30,5 +30,3 @@ template procSuite*(name, body: untyped) =
       body
 
   suitePayload()
-
-template sourceDir*: string = currentSourcePath.rsplit(DirSep, 1)[0]
