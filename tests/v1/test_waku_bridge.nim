@@ -12,7 +12,7 @@ import
   eth/p2p/rlpx_protocols/whisper_protocol as whisper,
   ../../waku/protocol/v1/waku_protocol as waku,
   ../../waku/protocol/v1/waku_bridge,
-  ./test_helpers
+  ../test_helpers
 
 let safeTTL = 5'u32
 let waitInterval = waku.messageInterval + 150.milliseconds
