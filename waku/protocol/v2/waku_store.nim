@@ -36,12 +36,12 @@ method encode*(response: HistoryResponse): seq[byte] =
   discard
 
 proc query(w: WakuStore, query: HistoryQuery): HistoryResponse =
-  for msg in result.messages:
-    block topicLoop:
-      for topic in query.topics:
-        if topic in msg.topics:
-          result.messages.insert(msg)
-          break topicLoop
+  block msgLoop:  
+    for msg in result.messages:
+        for topic in query.topics:
+          if topic in msg.topics:
+            result.messages.insert(msg)
+            continue msgLoop
 
 method init*(T: type WakuStore) = T
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
