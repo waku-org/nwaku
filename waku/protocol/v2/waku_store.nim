@@ -1,7 +1,7 @@
 import
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
-  libp2p/protocols/pubsub/rpc/messages
+  libp2p/protocols/pubsub/rpc/[messages, protobuf]
   
 import stew/results
 import ./filter
@@ -26,14 +26,29 @@ type
 method init*(T: type StoreRPC): T =
   discard
 
-method encode*(response: StoreRPC): seq[byte] =
-  discard
+method encode*(response: StoreRPC): ProtoBuffer =
+  result = initProtoBuffer()
+
+  for query in response.query:
+    result.write(1, query.encode().buffer)
+
+  for response in response.response:
+    result.write(2, response.encode().buffer)
 
 method init*(T: type HistoryQuery): T =
   discard
 
-method encode*(response: HistoryResponse): seq[byte] =
-  discard
+method encode*(query: HistoryQuery): ProtoBuffer =
+  result = initProtoBuffer()
+
+  for topic in query.topics:
+    result.write(1, topic)
+
+method encode*(response: HistoryResponse): ProtoBuffer =
+  result = initProtoBuffer()
+
+  for msg in response.messages:
+    result.write(1, msg.encodeMessage())
 
 proc query(w: WakuStore, query: HistoryQuery): HistoryResponse =
   block msgLoop:  
