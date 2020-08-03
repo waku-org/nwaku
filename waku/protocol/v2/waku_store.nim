@@ -23,8 +23,10 @@ type
   WakuStore* = ref object of LPProtocol
     messages*: seq[Message]
 
-method init*(T: type StoreRPC): T =
-  discard
+method init*(T: type StoreRPC, buffer: seq[byte]): T =
+  let pb = initProtoBuffer(buffer)
+  
+  # @TODO
 
 method encode*(response: StoreRPC): ProtoBuffer =
   result = initProtoBuffer()
@@ -35,8 +37,14 @@ method encode*(response: StoreRPC): ProtoBuffer =
   for response in response.response:
     result.write(2, response.encode().buffer)
 
-method init*(T: type HistoryQuery): T =
-  discard
+method init*(T: type HistoryQuery, buffer: seq[byte]): T =
+  result = HistoryQuery()
+  let pb = initProtoBuffer(buffer)
+
+  var topics: seq[string]
+  let res = pb.getRepeatedField(1, topics)
+
+  result.topics = topics
 
 method encode*(query: HistoryQuery): ProtoBuffer =
   result = initProtoBuffer()
