@@ -24,9 +24,20 @@ type
     messages*: seq[Message]
 
 method init*(T: type StoreRPC, buffer: seq[byte]): T =
+  result = StoreRPC()
   let pb = initProtoBuffer(buffer)
   
-  # @TODO
+  var queries: seq[seq[byte]]
+  let res = pb.getRepeatedField(1, queries)
+
+  for buffer in queries:
+    result.query.add(HistoryQuery.init(buffer))
+
+  var responses: seq[seq[byte]]
+  let res = pb.getRepeatedField(2, responses)
+
+  for buffer in responses:
+    result.response.add(HistoryResponse.init(buffer))
 
 method encode*(response: StoreRPC): ProtoBuffer =
   result = initProtoBuffer()
