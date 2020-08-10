@@ -15,7 +15,7 @@ import metrics
 import stew/results
 
 const
-  WakuStoreCodec = "/vac/waku/store/2.0.0-alpha2"
+  WakuStoreCodec* = "/vac/waku/store/2.0.0-alpha2"
 
 type
   StoreRPC* = object
@@ -40,7 +40,22 @@ method init*(T: type HistoryQuery, buffer: seq[byte]): T =
 
   result.topics = topics
 
-method init*(T: type StoreRPC, buffer: seq[byte]): T =
+method init*(T: type HistoryResponse, buffer: seq[byte]): T =
+  result = HistoryResponse()
+  let pb = initProtoBuffer(buffer)
+
+  var messages: seq[seq[byte]]
+  let res = pb.getRepeatedField(1, messages)
+
+  for buffer in messages:
+    let protoRes = decodeMessage(initProtoBuffer(buffer))
+    if res.isErr:
+      # @TODO
+      continue
+
+    result.messages.add(protoRes.value)
+
+proc init*(T: type StoreRPC, buffer: seq[byte]): T =
   result = StoreRPC()
   let pb = initProtoBuffer(buffer)
   
@@ -52,13 +67,13 @@ method init*(T: type StoreRPC, buffer: seq[byte]): T =
   for buffer in queries:
     result.query.add(HistoryQuery.init(buffer))
 
-  # var responses: seq[seq[byte]]
-  # res = pb.getRepeatedField(2, responses)
+  var responses: seq[seq[byte]]
+  res = pb.getRepeatedField(2, responses)
 
   # # @TODO CHECK RES
 
-  # for buffer in responses:
-  #   result.response.add(HistoryResponse.init(buffer))
+  for buffer in responses:
+    result.response.add(HistoryResponse.init(buffer))
 
 method encode*(query: HistoryQuery): ProtoBuffer =
   result = initProtoBuffer()
@@ -82,11 +97,13 @@ method encode*(response: StoreRPC): ProtoBuffer =
     result.write(2, response.encode().buffer)
 
 proc query(w: WakuStore, query: HistoryQuery): HistoryResponse =
+  result = HistoryResponse(messages: newSeq[Message]())
   for msg in w.messages:
-    for topic in query.topics:
-      if topic in msg.topicIDs:
-        result.messages.insert(msg)
-        break
+    result.messages.insert(msg)
+    # for topic in query.topics:
+    #   if topic in msg.topicIDs:
+    #     result.messages.insert(msg)
+    #     break
 
 method init*(T: type WakuStore): T =
   var ws = WakuStore()

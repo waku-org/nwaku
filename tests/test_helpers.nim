@@ -1,6 +1,8 @@
 import
-  unittest, chronos,
+  unittest, chronos, bearssl,
   eth/[keys, p2p]
+
+import libp2p/crypto/crypto
 
 var nextPort = 30303
 
@@ -12,7 +14,7 @@ proc localAddress*(port: int): Address =
 proc setupTestNode*(
     rng: ref BrHmacDrbgContext,
     capabilities: varargs[ProtocolInfo, `protocolInfo`]): EthereumNode =
-  let keys1 = KeyPair.random(rng[])
+  let keys1 = keys.KeyPair.random(rng[])
   result = newEthereumNode(keys1, localAddress(nextPort), 1, nil,
                            addAllCapabilities = false, rng = rng)
   nextPort.inc
@@ -30,3 +32,20 @@ template procSuite*(name, body: untyped) =
       body
 
   suitePayload()
+
+type RngWrap = object
+  rng: ref BrHmacDrbgContext
+
+var rngVar: RngWrap
+
+proc getRng(): ref BrHmacDrbgContext =
+  # TODO if `rngVar` is a threadvar like it should be, there are random and
+  #      spurious compile failures on mac - this is not gcsafe but for the
+  #      purpose of the tests, it's ok as long as we only use a single thread
+  {.gcsafe.}:
+    if rngVar.rng.isNil:
+      rngVar.rng = crypto.newRng()
+    rngVar.rng
+
+template rng*(): ref BrHmacDrbgContext =
+  getRng()
