@@ -52,7 +52,8 @@ method init*(T: type WakuStore): T =
   # if the peer subscribed.
   
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
-      discard
+    var message = await conn.readLp(64*1024)
+    var rpc = FilterRPC.init(message)
 
   ws.handler = handle
   ws.codec = WakuFilterCodec
