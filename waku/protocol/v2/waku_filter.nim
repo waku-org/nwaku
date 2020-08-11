@@ -46,6 +46,10 @@ proc init*(T: type FilterRPC, buffer: seq[byte]): T =
 
 method init*(T: type WakuStore): T =
   var ws = WakuFilter()
+
+  # From my understanding we need to set up filters,
+  # then on every message received we need the handle function to send it to the connection
+  # if the peer subscribed.
   
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
       discard
