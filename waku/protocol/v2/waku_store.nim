@@ -40,17 +40,16 @@ method init*(T: type HistoryQuery, buffer: seq[byte]): T =
 
   result.topics = topics
 
-method init*(T: type HistoryResponse, buffer: seq[byte]): T =
+proc init*(T: type HistoryResponse, buffer: seq[byte]): T =
   result = HistoryResponse()
   let pb = initProtoBuffer(buffer)
 
   var messages: seq[seq[byte]]
   let res = pb.getRepeatedField(1, messages)
 
-  for buffer in messages:
-    let protoRes = decodeMessage(initProtoBuffer(buffer))
-    if res.isErr:
-      # @TODO
+  for buf in messages:
+    let protoRes = decodeMessage(initProtoBuffer(buf))
+    if protoRes.isErr:
       continue
 
     result.messages.add(protoRes.value)
@@ -99,7 +98,7 @@ method encode*(response: StoreRPC): ProtoBuffer =
 proc query(w: WakuStore, query: HistoryQuery): HistoryResponse =
   result = HistoryResponse(messages: newSeq[Message]())
   for msg in w.messages:
-    result.messages.insert(msg)
+    result.messages.add(msg)
     # for topic in query.topics:
     #   if topic in msg.topicIDs:
     #     result.messages.insert(msg)
@@ -116,11 +115,13 @@ method init*(T: type WakuStore): T =
 
     info "received query"
 
-    var response = StoreRPC(query: newSeq[HistoryQuery](), response: newSeq[HistoryResponse]())
+    var response = StoreRPC(query: newSeq[HistoryQuery](0), response: newSeq[HistoryResponse](0))
 
     for query in rpc.query:
       let res = ws.query(query)
-      response.response.insert(res)
+      response.response.add(res)
+
+    echo response
 
     await conn.writeLp(response.encode().buffer)
 
@@ -130,6 +131,6 @@ method init*(T: type WakuStore): T =
 
 proc filter*(proto: WakuStore): Filter =
   proc handle(msg: Message) =
-    proto.messages.insert(msg)
+    proto.messages.add(msg)
 
   Filter.init(@[], handle)
