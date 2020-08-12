@@ -24,7 +24,12 @@ type
   FilterRPC* = object
     filters*: seq[ContentFilter]
 
+  Subscriber = object
+    connection: Connection
+    filter: FilterRPC
+
   WakuFilter* = ref object of LPProtocol
+    subscribers*: seq[Subscriber]
 
 proc init*(T: type ContentFilter, buffer: seq[byte]): T =
   result = ContentFilter()
@@ -45,7 +50,7 @@ proc init*(T: type FilterRPC, buffer: seq[byte]): T =
     result.filters.add(ContentFilter.init(buf))
 
 method init*(T: type WakuStore): T =
-  var ws = WakuFilter()
+  var ws = WakuFilter(subscribers: newSeq[Subscriber](0))
 
   # From my understanding we need to set up filters,
   # then on every message received we need the handle function to send it to the connection
@@ -55,6 +60,20 @@ method init*(T: type WakuStore): T =
     var message = await conn.readLp(64*1024)
     var rpc = FilterRPC.init(message)
 
+    ws.subscribers.add(Subscriber(connection: conn, filter: rpc))
+    # @TODO THIS IS A VERY ROUGH EXPERIMENT
+
   ws.handler = handle
   ws.codec = WakuFilterCodec
   result = ws
+
+proc filter*(proto: WakuFilter): Filter =
+  proc handle(msg: Message) =
+    for subscriber in proto.subscribers:
+      for f in subscriber.filter.filters:
+        for topic in f.topics:
+          if f.topic in msg.topicIDs:
+            subscriber.connection.writeLp(msg.encode().buffer)
+            break
+
+  Filter.init(@[], handle)
