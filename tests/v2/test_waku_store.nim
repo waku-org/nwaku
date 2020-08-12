@@ -19,8 +19,8 @@ procSuite "Waku Store":
 
   test "encoding and decoding history response":
     let
-        peer = PeerInfo.init(PrivateKey.random(ECDSA, rng[]).get())
-        msg = Message.init(peer, @[byte 1, 2, 3], "topic", 3, false)
+      peer = PeerInfo.init(PrivateKey.random(ECDSA, rng[]).get())
+      msg = Message.init(peer, @[byte 1, 2, 3], "topic", 3, false)
 
     let testing = HistoryResponse(messages: @[msg])
     let buf = testing.encode()
@@ -39,9 +39,9 @@ procSuite "Waku Store":
     filters["test"] = filter
 
     let
-        peer = PeerInfo.init(PrivateKey.random(ECDSA, rng[]).get())
-        msg = Message.init(peer, @[byte 1, 2, 3], "topic", 3, false)
-        msg2 = Message.init(peer, @[byte 1, 2, 3], "topic2", 4, false)
+      peer = PeerInfo.init(PrivateKey.random(ECDSA, rng[]).get())
+      msg = Message.init(peer, @[byte 1, 2, 3], "topic", 3, false)
+      msg2 = Message.init(peer, @[byte 1, 2, 3], "topic2", 4, false)
             
     filters.notify(msg)
     filters.notify(msg2)
