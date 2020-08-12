@@ -48,7 +48,7 @@ proc init*(T: type HistoryResponse, buffer: seq[byte]): T =
   let res = pb.getRepeatedField(1, messages)
 
   for buf in messages:
-    let protoRes = decodeMessage(initProtoBuffer(buf))
+    let protoRes = protobuf.decodeMessage(initProtoBuffer(buf))
     if protoRes.isErr:
       continue
 
@@ -98,11 +98,10 @@ method encode*(response: StoreRPC): ProtoBuffer =
 proc query(w: WakuStore, query: HistoryQuery): HistoryResponse =
   result = HistoryResponse(messages: newSeq[Message]())
   for msg in w.messages:
-    result.messages.add(msg)
-    # for topic in query.topics:
-    #   if topic in msg.topicIDs:
-    #     result.messages.insert(msg)
-    #     break
+    for topic in query.topics:
+      if topic in msg.topicIDs:
+        result.messages.insert(msg)
+        break
 
 method init*(T: type WakuStore): T =
   var ws = WakuStore()
@@ -120,8 +119,6 @@ method init*(T: type WakuStore): T =
     for query in rpc.query:
       let res = ws.query(query)
       response.response.add(res)
-
-    echo response
 
     await conn.writeLp(response.encode().buffer)
 

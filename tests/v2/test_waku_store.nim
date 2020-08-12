@@ -18,7 +18,9 @@ import ../test_helpers
 procSuite "Waku Store":
 
   test "encoding and decoding history response":
-    let msg = Message.init(PeerInfo(), @[byte 1, 2, 3], "topic", 3, false)
+    let
+        peer = PeerInfo.init(PrivateKey.random(ECDSA, rng[]).get())
+        msg = Message.init(peer, @[byte 1, 2, 3], "topic", 3, false)
 
     let testing = HistoryResponse(messages: @[msg])
     let buf = testing.encode()
@@ -28,18 +30,22 @@ procSuite "Waku Store":
     check:
       decode == testing
 
-
-
   asyncTest "handle query":
-    let proto = WakuStore.init()
-    let filter = proto.filter()
+    let 
+      proto = WakuStore.init()
+      filter = proto.filter()
 
     var filters = initTable[string, Filter]()
     filters["test"] = filter
 
-    let msg = Message.init(PeerInfo(), @[byte 1, 2, 3], "topic", 3, false)
+    let
+        peer = PeerInfo.init(PrivateKey.random(ECDSA, rng[]).get())
+        msg = Message.init(peer, @[byte 1, 2, 3], "topic", 3, false)
+        msg2 = Message.init(peer, @[byte 1, 2, 3], "topic2", 4, false)
+            
     filters.notify(msg)
-    
+    filters.notify(msg2)
+
     let ma: MultiAddress = Multiaddress.init("/ip4/0.0.0.0/tcp/0").tryGet()
     let remoteSecKey = PrivateKey.random(ECDSA, rng[]).get()
     let remotePeerInfo = PeerInfo.init(remoteSecKey,
@@ -65,9 +71,8 @@ procSuite "Waku Store":
     await conn.writeLP(rpc.encode().buffer)
 
     var message = await conn.readLp(64*1024)
-    var response = StoreRPC.init(message)
-    echo response
-    #conn.writeLp()
+    let response = StoreRPC.init(message)
 
-    #var message = await conn.readLp(64*1024)
-
+    check:
+      response.response[0].messages.len() == 1
+      response.response[0].messages[0] == msg
