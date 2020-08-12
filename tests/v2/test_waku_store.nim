@@ -16,6 +16,20 @@ import ../../waku/protocol/v2/[waku_protocol2, waku_store, filter]
 import ../test_helpers
 
 procSuite "Waku Store":
+
+  test "encoding and decoding history response":
+    let msg = Message.init(PeerInfo(), @[byte 1, 2, 3], "topic", 3, false)
+
+    let testing = HistoryResponse(messages: @[msg])
+    let buf = testing.encode()
+
+    let decode = HistoryResponse.init(buf.buffer)
+
+    check:
+      decode == testing
+
+
+
   asyncTest "handle query":
     let proto = WakuStore.init()
     let filter = proto.filter()
@@ -25,47 +39,35 @@ procSuite "Waku Store":
 
     let msg = Message.init(PeerInfo(), @[byte 1, 2, 3], "topic", 3, false)
     filters.notify(msg)
+    
+    let ma: MultiAddress = Multiaddress.init("/ip4/0.0.0.0/tcp/0").tryGet()
+    let remoteSecKey = PrivateKey.random(ECDSA, rng[]).get()
+    let remotePeerInfo = PeerInfo.init(remoteSecKey,
+                                        [ma],
+                                        ["/test/proto1/1.0.0",
+                                         "/test/proto2/1.0.0"])
+    var serverFut: Future[void]
+    let msListen = newMultistream()
 
-    let testing = HistoryResponse(messages: @[msg])
-    echo testing
-    let buf = testing.encode()
-    echo buf
+    msListen.addHandler(WakuStoreCodec, proto)
+    proc connHandler(conn: Connection): Future[void] {.async, gcsafe.} =
+      await msListen.handle(conn)
 
-    let decode = HistoryResponse.init(buf.buffer)
-    echo decode
+    var transport1 = TcpTransport.init()
+    serverFut = await transport1.listen(ma, connHandler)
 
+    let msDial = newMultistream()
+    let transport2: TcpTransport = TcpTransport.init()
+    let conn = await transport2.dial(transport1.ma)
 
+    var rpc = StoreRPC(query: @[HistoryQuery(topics: @["topic"])])
+    discard await msDial.select(conn, WakuStoreCodec)
+    await conn.writeLP(rpc.encode().buffer)
 
+    var message = await conn.readLp(64*1024)
+    var response = StoreRPC.init(message)
+    echo response
+    #conn.writeLp()
 
-
-    # let ma: MultiAddress = Multiaddress.init("/ip4/0.0.0.0/tcp/0").tryGet()
-    # let remoteSecKey = PrivateKey.random(ECDSA, rng[]).get()
-    # let remotePeerInfo = PeerInfo.init(remoteSecKey,
-    #                                     [ma],
-    #                                     ["/test/proto1/1.0.0",
-    #                                      "/test/proto2/1.0.0"])
-    # var serverFut: Future[void]
-    # let msListen = newMultistream()
-
-    # msListen.addHandler(WakuStoreCodec, proto)
-    # proc connHandler(conn: Connection): Future[void] {.async, gcsafe.} =
-    #   await msListen.handle(conn)
-
-    # var transport1 = TcpTransport.init()
-    # serverFut = await transport1.listen(ma, connHandler)
-
-    # let msDial = newMultistream()
-    # let transport2: TcpTransport = TcpTransport.init()
-    # let conn = await transport2.dial(transport1.ma)
-
-    # var rpc = StoreRPC(query: @[HistoryQuery(topics: @["topic"])])
-    # discard await msDial.select(conn, WakuStoreCodec)
-    # await conn.writeLP(rpc.encode().buffer)
-
-    # var message = await conn.readLp(64*1024)
-    # var response = StoreRPC.init(message)
-    # echo response
-    ##conn.writeLp()
-
-    ##var message = await conn.readLp(64*1024)
+    #var message = await conn.readLp(64*1024)
 
