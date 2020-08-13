@@ -44,7 +44,7 @@ procSuite "Waku Store":
       peer = PeerInfo.init(PrivateKey.random(ECDSA, rng[]).get())
       msg = Message.init(peer, @[byte 1, 2, 3], "topic", 3, false)
       msg2 = Message.init(peer, @[byte 1, 2, 3], "topic2", 4, false)
-            
+
     filters.notify(msg)
     filters.notify(msg2)
 
