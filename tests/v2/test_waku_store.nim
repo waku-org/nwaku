@@ -17,18 +17,20 @@ import ../test_helpers
 
 procSuite "Waku Store":
 
-  # test "encoding and decoding history response":
-  #   let
-  #     peer = PeerInfo.init(PrivateKey.random(ECDSA, rng[]).get())
-  #     msg = Message.init(peer, @[byte 1, 2, 3], "topic", 3, false)
+  test "encoding and decoding StoreRPC":
+    let
+      peer = PeerInfo.init(PrivateKey.random(ECDSA, rng[]).get())
+      msg = Message.init(peer, @[byte 1, 2, 3], "topic", 3, false)
 
-  #   let testing = HistoryResponse(messages: @[msg])
-  #   let buf = testing.encode()
+      rpc = StoreRPC(query: @[HistoryQuery(topics: @["foo"])], response: @[HistoryResponse(messages: @[msg])])
 
-  #   let decode = ? HistoryResponse.init(buf.buffer)
+    let buf = rpc.encode()
 
-  #   check:
-  #     decode == testing
+    let decode = StoreRPC.init(buf.buffer)
+
+    check:
+      decode.isErr == false
+      decode.value == rpc
 
   asyncTest "handle query":
     let 
