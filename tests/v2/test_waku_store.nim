@@ -50,10 +50,12 @@ procSuite "Waku Store":
 
     let ma: MultiAddress = Multiaddress.init("/ip4/0.0.0.0/tcp/0").tryGet()
     let remoteSecKey = PrivateKey.random(ECDSA, rng[]).get()
-    let remotePeerInfo = PeerInfo.init(remoteSecKey,
-                                        [ma],
-                                        ["/test/proto1/1.0.0",
-                                         "/test/proto2/1.0.0"])
+    let remotePeerInfo = PeerInfo.init(
+      remoteSecKey,
+      [ma],
+      ["/test/proto1/1.0.0", "/test/proto2/1.0.0"]
+    )
+
     var serverFut: Future[void]
     let msListen = newMultistream()
 
