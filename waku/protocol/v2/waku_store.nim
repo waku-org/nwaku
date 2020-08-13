@@ -31,48 +31,45 @@ type
   WakuStore* = ref object of LPProtocol
     messages*: seq[Message]
 
-method init*(T: type HistoryQuery, buffer: seq[byte]): T =
-  result = HistoryQuery()
+method init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
+  var msg = HistoryQuery()
   let pb = initProtoBuffer(buffer)
 
   var topics: seq[string]
-  let res = pb.getRepeatedField(1, topics)
+  discard ? pb.getRepeatedField(1, topics)
 
-  result.topics = topics
+  msg.topics = topics
+  ok(msg)
 
-proc init*(T: type HistoryResponse, buffer: seq[byte]): T =
-  result = HistoryResponse()
+proc init*(T: type HistoryResponse, buffer: seq[byte]): ProtoResult[T] =
+  var msg = HistoryResponse()
   let pb = initProtoBuffer(buffer)
 
   var messages: seq[seq[byte]]
-  let res = pb.getRepeatedField(1, messages)
+  discard ? pb.getRepeatedField(1, messages)
 
   for buf in messages:
-    let protoRes = protobuf.decodeMessage(initProtoBuffer(buf))
-    if protoRes.isErr:
-      continue
+    msg.messages.add(? protobuf.decodeMessage(initProtoBuffer(buf)))
 
-    result.messages.add(protoRes.value)
+  ok(msg)
 
-proc init*(T: type StoreRPC, buffer: seq[byte]): T =
-  result = StoreRPC()
+proc init*(T: type StoreRPC, buffer: seq[byte]): ProtoResult[T] =
+  var rpc = StoreRPC()
   let pb = initProtoBuffer(buffer)
   
   var queries: seq[seq[byte]]
-  var res = pb.getRepeatedField(1, queries)
-
-  # @TODO CHECK RES
+  discard ? pb.getRepeatedField(1, queries)
 
   for buffer in queries:
-    result.query.add(HistoryQuery.init(buffer))
+    rpc.query.add(? HistoryQuery.init(buffer))
 
   var responses: seq[seq[byte]]
-  res = pb.getRepeatedField(2, responses)
-
-  # # @TODO CHECK RES
+  discard ? pb.getRepeatedField(2, responses)
 
   for buffer in responses:
-    result.response.add(HistoryResponse.init(buffer))
+    rpc.response.add(? HistoryResponse.init(buffer))
+
+  ok(rpc)
 
 method encode*(query: HistoryQuery): ProtoBuffer =
   result = initProtoBuffer()
@@ -109,14 +106,14 @@ method init*(T: type WakuStore): T =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var message = await conn.readLp(64*1024)
     var rpc = StoreRPC.init(message)
-    #if rpc.isErr:
-    #  return
+    if rpc.isErr:
+      return
 
     info "received query"
 
     var response = StoreRPC(query: newSeq[HistoryQuery](0), response: newSeq[HistoryResponse](0))
 
-    for query in rpc.query:
+    for query in rpc.value.query:
       let res = ws.query(query)
       response.response.add(res)
 
