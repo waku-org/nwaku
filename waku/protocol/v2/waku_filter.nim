@@ -31,25 +31,39 @@ type
   WakuFilter* = ref object of LPProtocol
     subscribers*: seq[Subscriber]
 
-proc init*(T: type ContentFilter, buffer: seq[byte]): T =
-  result = ContentFilter()
+method encode*(filter: ContentFilter): ProtoBuffer =
+  result = initProtoBuffer()
 
+  for topic in filter.topics:
+    result.write(1, topic)
+
+method encode*(rpc: FilterRPC): ProtoBuffer =
+  result = initProtoBuffer()
+
+  for filter in rpc.filters:
+    result.write(1, filter.encode())
+
+proc init*(T: type ContentFilter, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
 
   var topics: seq[string]
-  var res = pb.getRepeatedField(1, topics)
-  result.topics = topics
+  discard ? pb.getRepeatedField(1, topics)
 
-proc init*(T: type FilterRPC, buffer: seq[byte]): T =
-  result = FilterRPC(filters: @[])
+  ok(ContentFilter(topics: topics))
+
+proc init*(T: type FilterRPC, buffer: seq[byte]): ProtoResult[T] =
+  var rpc = FilterRPC(filters: @[])
   let pb = initProtoBuffer(buffer)
 
   var buffs: seq[seq[byte]]
-  var res = pb.getRepeatedField(1, buffs)
+  discard ? pb.getRepeatedField(1, buffs)
+  
   for buf in buffs:
-    result.filters.add(ContentFilter.init(buf))
+    rpc.filters.add(? ContentFilter.init(buf))
 
-method init*(T: type WakuStore): T =
+  ok(rpc)
+
+method init*(T: type WakuFilter): T =
   var ws = WakuFilter(subscribers: newSeq[Subscriber](0))
 
   # From my understanding we need to set up filters,
@@ -58,9 +72,11 @@ method init*(T: type WakuStore): T =
   
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var message = await conn.readLp(64*1024)
-    var rpc = FilterRPC.init(message)
+    var res = FilterRPC.init(message)
+    if res.isErr:
+      return
 
-    ws.subscribers.add(Subscriber(connection: conn, filter: rpc))
+    ws.subscribers.add(Subscriber(connection: conn, filter: res.value))
     # @TODO THIS IS A VERY ROUGH EXPERIMENT
 
   ws.handler = handle
@@ -69,11 +85,12 @@ method init*(T: type WakuStore): T =
 
 proc filter*(proto: WakuFilter): Filter =
   proc handle(msg: Message) =
-    for subscriber in proto.subscribers:
-      for f in subscriber.filter.filters:
-        for topic in f.topics:
-          if f.topic in msg.topicIDs:
-            subscriber.connection.writeLp(msg.encode().buffer)
-            break
+    discard
+    # for subscriber in proto.subscribers:
+    #   for f in subscriber.filter.filters:
+    #     for topic in f.topics:
+    #       if f.topic in msg.topicIDs:
+    #         subscriber.connection.writeLp(msg.encode().buffer)
+    #         break
 
   Filter.init(@[], handle)
