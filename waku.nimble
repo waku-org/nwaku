@@ -54,7 +54,7 @@ task protocol2, "Build the experimental Waku protocol":
   buildBinary "waku_protocol2", "waku/protocol/v2/", "-d:chronicles_log_level=TRACE"
 
 task wakutest2, "Build Experimental Waku tests":
-  let name = "v2/test_waku"
+  let name = "v2/all_tests_v2"
   buildBinary name, "tests/", "-d:chronicles_log_level=DEBUG"
   exec "build/" & name
 
