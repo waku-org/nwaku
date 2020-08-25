@@ -124,6 +124,10 @@ method init*(T: type WakuStore): T =
   result = ws
 
 proc filter*(proto: WakuStore): Filter =
+  ## The filter function returns the pubsub filter for the node.
+  ## This is used to pipe messages into the storage, therefore
+  ## the filter should be used by the component that receives
+  ## new messages.
   proc handle(msg: Message) =
     proto.messages.add(msg)
 
