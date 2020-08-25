@@ -22,9 +22,13 @@ declarePublicGauge total_messages, "number of messages received"
 logScope:
     topic = "WakuSub"
 
-const WakuSubCodec* = "/wakusub/2.0.0-alpha1"
+const WakuSubCodec* = "/vac/waku/relay/2.0.0-alpha2"
 
 type
+  # TODO Decide if this should be WakuSub or WakuRelay
+  # Argument for WakuSub is that it is currently using Flood/GossipSub, and in
+  # future we might want different type of Relay.
+  # Argument for WakuRelay is that it corresponds to protocol strong.
   WakuSub* = ref object of GossipSub
     # XXX: just playing
     text*: string

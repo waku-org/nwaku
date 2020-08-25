@@ -16,7 +16,7 @@ import utils,
        libp2p/stream/[bufferstream, connection],
        libp2p/crypto/crypto,
        libp2p/protocols/pubsub/floodsub
-import ../../waku/protocol/v2/waku_protocol2
+import ../../waku/protocol/v2/waku_relay
 
 import ../test_helpers
 

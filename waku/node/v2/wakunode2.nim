@@ -12,7 +12,7 @@ import
   stew/shims/net as stewNet,
   rpc/wakurpc,
   standard_setup,
-  ../../protocol/v2/waku_protocol2,
+  ../../protocol/v2/waku_relay,
   # TODO: Pull out standard switch from tests
   waku_types
 
@@ -68,7 +68,7 @@ proc initAddress(T: type MultiAddress, str: string): T =
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
-proc dialPeer(p: WakuProto, address: string) {.async.} =
+proc dialPeer(p: WakuRelayProto, address: string) {.async.} =
   info "dialPeer", address = address
   # XXX: This turns ipfs into p2p, not quite sure why
   let multiAddr = MultiAddress.initAddress(address)
@@ -82,7 +82,7 @@ proc dialPeer(p: WakuProto, address: string) {.async.} =
   # Isn't there just one p instance? Why connected here?
   p.connected = true
 
-proc connectToNodes(p: WakuProto, nodes: openArray[string]) =
+proc connectToNodes(p: WakuRelayProto, nodes: openArray[string]) =
   for nodeId in nodes:
     info "connectToNodes", node = nodeId
     # XXX: This seems...brittle
@@ -136,16 +136,16 @@ proc setupNat(conf: WakuNodeConf): tuple[ip: Option[ValidIpAddress],
       if extPorts.isSome:
         (result.tcpPort, result.udpPort) = extPorts.get()
 
-proc newWakuProto(switch: Switch): WakuProto =
-  var wakuproto = WakuProto(switch: switch, codec: WakuSubCodec)
+proc newWakuRelayProto(switch: Switch): WakuRelayProto =
+  var wakuRelayProto = WakuRelayProto(switch: switch, codec: WakuSubCodec)
 
   proc handle(conn: Connection, proto: string) {.async, gcsafe.} =
     let msg = cast[string](await conn.readLp(1024))
     await conn.writeLp("Hello!")
     await conn.close()
 
-  wakuproto.handler = handle
-  return wakuproto
+  wakuRelayProto.handler = handle
+  return wakuRelayProto
 
 # TODO Consider removing unused arguments
 proc init*(T: type WakuNode, conf: WakuNodeConf, switch: Switch,
@@ -187,16 +187,17 @@ proc createWakuNode*(conf: WakuNodeConf): Future[WakuNode] {.async, gcsafe.} =
 proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
   node.libp2pTransportLoops = await node.switch.start()
 
-  let wakuProto = newWakuProto(node.switch)
-  node.switch.mount(wakuProto)
-  wakuProto.started = true
+  # TODO Mount Waku Store and Waku Filter here
+  let wakuRelayProto = newWakuRelayProto(node.switch)
+  node.switch.mount(wakuRelayProto)
+  wakuRelayProto.started = true
 
   # TODO Move out into separate proc
   if conf.rpc:
     let ta = initTAddress(conf.rpcAddress,
                           Port(conf.rpcPort + conf.portsShift))
     var rpcServer = newRpcHttpServer([ta])
-    setupWakuRPC(wakuProto, rpcServer)
+    setupWakuRPC(wakuRelayProto, rpcServer)
     rpcServer.start()
     info "rpcServer started", ta=ta
 
@@ -210,7 +211,7 @@ proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
 
   # XXX: So doing this _after_ other setup
   # Optionally direct connect with a set of nodes
-  if conf.staticnodes.len > 0: connectToNodes(wakuProto, conf.staticnodes)
+  if conf.staticnodes.len > 0: connectToNodes(wakuRelayProto, conf.staticnodes)
 
   # TODO Move out into separate proc
   when defined(insecure):
