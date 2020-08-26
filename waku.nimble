@@ -53,11 +53,6 @@ task wakusim, "Build Waku simulation tools":
 task protocol2, "Build the experimental Waku protocol":
   buildBinary "waku_protocol2", "waku/protocol/v2/", "-d:chronicles_log_level=TRACE"
 
-task wakutest2, "Build Experimental Waku tests":
-  let name = "v2/test_waku"
-  buildBinary name, "tests/", "-d:chronicles_log_level=DEBUG"
-  exec "build/" & name
-
 task wakunode2, "Build Experimental Waku cli":
   buildBinary "wakunode2", "waku/node/v2/", "-d:chronicles_log_level=TRACE"
 
