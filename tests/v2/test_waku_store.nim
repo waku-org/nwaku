@@ -70,15 +70,15 @@ procSuite "Waku Store":
     let transport2: TcpTransport = TcpTransport.init()
     let conn = await transport2.dial(transport1.ma)
 
-    var rpc = HistoryQuery(requestID: 1, topics: @["topic"])
+    var rpc = StoreRPC(query: @[HistoryQuery(requestID: 1, topics: @["topic"])])
     discard await msDial.select(conn, WakuStoreCodec)
     await conn.writeLP(rpc.encode().buffer)
 
     var message = await conn.readLp(64*1024)
-    let response = HistoryResponse.init(message)
+    let response = StoreRPC.init(message)
 
     check:
       response.isErr == false
-      response.value.requestID == rpc.requestID
-      response.value.messages.len() == 1
-      response.value.messages[0] == msg
+      response.value.response[0].requestID == rpc.query[0].requestID
+      response.value.response[0].messages.len() == 1
+      response.value.response[0].messages[0] == msg
