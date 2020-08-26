@@ -1,4 +1,3 @@
-
 import
   confutils, chronicles, chronos, stew/byteutils,
   eth/[keys, p2p, async_utils],
@@ -6,22 +5,7 @@ import
   ../../waku/node/v1/waku_helpers,
   ./config_example
 
-## This is a simple Waku v1 example to show the Waku API usage.
-##
-## It can be used on its own e.g.:
-## ```./example```
-## In this case it will just post and receive its own messages.
-##
-## Several instances can also be launched, but you need to provide the enode
-## string via the staticnode config to be able to connect to each other, e.g.:
-## ```sh
-## # Launch first node
-## ./example
-## # Grab the enode string from the logs of the first node and start the second
-## # node with that enode string as staticnode config option.
-## ./example --staticnode:enode://26..5b@0.0.0.0:30303 --ports-shift:1
-## ```
-## Now you will receive messages from each other also.
+## This is a simple Waku v1 example to show the Waku v1 API usage.
 
 const clientId = "Waku example v1"
 
@@ -63,14 +47,14 @@ if config.staticnodes.len > 0:
 # connect to bootnodes, and/or start discovery.
 # This will block until first connection is made, which in this case can only
 # happen if we directly connect to nodes (step above) or if an incoming
-# connection occurs, why is why we use `traceAsyncErrors` instead of `await`.
+# connection occurs, which is why we use `traceAsyncErrors` instead of `await`.
 # TODO: This looks a bit awkward and the API should perhaps be altered here.
 traceAsyncErrors node.connectToNetwork(@[],
   true, # Enable listening
   false # Disable discovery (only discovery v4 is currently supported)
   )
 
-# Using a hardcared symmetric key for encryption of the payload for the sake of
+# Using a hardcoded symmetric key for encryption of the payload for the sake of
 # simplicity.
 var symKey: SymKey
 symKey[31] = 1
