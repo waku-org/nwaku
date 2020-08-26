@@ -4,7 +4,7 @@ import libp2p/multiaddress,
        libp2p/peerinfo,
        standard_setup
 
-type WakuProto* = ref object of LPProtocol
+type WakuRelayProto* = ref object of LPProtocol
   switch*: Switch
   conn*: Connection
   connected*: bool
