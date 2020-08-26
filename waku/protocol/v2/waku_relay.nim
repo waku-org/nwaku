@@ -20,23 +20,19 @@ declarePublicGauge connected_peers, "number of peers in the pool" # XXX
 declarePublicGauge total_messages, "number of messages received"
 
 logScope:
-    topic = "WakuSub"
+    topic = "WakuRelay"
 
-const WakuSubCodec* = "/vac/waku/relay/2.0.0-alpha2"
+const WakuRelayCodec* = "/vac/waku/relay/2.0.0-alpha2"
 
 type
-  # TODO Decide if this should be WakuSub or WakuRelay
-  # Argument for WakuSub is that it is currently using Flood/GossipSub, and in
-  # future we might want different type of Relay.
-  # Argument for WakuRelay is that it corresponds to protocol strong.
-  WakuSub* = ref object of GossipSub
+  WakuRelay* = ref object of GossipSub
     # XXX: just playing
     text*: string
     gossip_enabled*: bool
 
     filters: Filters
 
-method init(w: WakuSub) =
+method init(w: WakuRelay) =
   debug "init"
   proc handler(conn: Connection, proto: string) {.async.} =
     ## main protocol handler that gets triggered on every
@@ -44,7 +40,7 @@ method init(w: WakuSub) =
     ## e.g. ``/wakusub/0.0.1``, etc...
     ##
 
-    debug "Incoming WakuSub connection"
+    debug "Incoming WakuRelay connection"
     # XXX: Increment connectedPeers counter, unclear if this is the right place tho
     # Where is the disconnect event?
     connected_peers.inc()
@@ -53,10 +49,10 @@ method init(w: WakuSub) =
   # XXX: Handler hijack GossipSub here?
   w.handler = handler
   w.filters = initTable[string, Filter]()
-  w.codec = WakuSubCodec
+  w.codec = WakuRelayCodec
 
-method initPubSub*(w: WakuSub) =
-  debug "initWakuSub"
+method initPubSub*(w: WakuRelay) =
+  debug "initWakuRelay"
   w.text = "Foobar"
   debug "w.text", text = w.text
 
@@ -70,7 +66,7 @@ method initPubSub*(w: WakuSub) =
 
   w.init()
 
-method subscribe*(w: WakuSub,
+method subscribe*(w: WakuRelay,
                   topic: string,
                   handler: TopicHandler) {.async.} =
   debug "subscribe", topic=topic
@@ -84,7 +80,7 @@ method subscribe*(w: WakuSub,
 
 
 # Subscribing a peer to a specified topic
-method subscribeTopic*(w: WakuSub,
+method subscribeTopic*(w: WakuRelay,
                        topic: string,
                        subscribe: bool,
                        peerId: string) {.async, gcsafe.} =
@@ -111,11 +107,11 @@ method subscribeTopic*(w: WakuSub,
 
 
 # TODO: Fix decrement connected peers here or somewhere else
-method handleDisconnect*(w: WakuSub, peer: PubSubPeer) {.async.} =
+method handleDisconnect*(w: WakuRelay, peer: PubSubPeer) {.async.} =
   debug "handleDisconnect (NYI)"
   #connected_peers.dec()
 
-method rpcHandler*(w: WakuSub,
+method rpcHandler*(w: WakuRelay,
                    peer: PubSubPeer,
                    rpcMsgs: seq[RPCMsg]) {.async.} =
   debug "rpcHandler"
@@ -133,7 +129,7 @@ method rpcHandler*(w: WakuSub,
     for msg in rpcs.messages:
       w.filters.notify(msg)
 
-method publish*(w: WakuSub,
+method publish*(w: WakuRelay,
                 topic: string,
                 data: seq[byte]): Future[int] {.async.} =
   debug "publish", topic=topic
@@ -143,7 +139,7 @@ method publish*(w: WakuSub,
   else:
     return await procCall FloodSub(w).publish(topic, data)
 
-method unsubscribe*(w: WakuSub,
+method unsubscribe*(w: WakuRelay,
                     topics: seq[TopicPair]) {.async.} =
   debug "unsubscribe"
   if w.gossip_enabled:
@@ -152,14 +148,14 @@ method unsubscribe*(w: WakuSub,
     await procCall FloodSub(w).unsubscribe(topics)
 
 # GossipSub specific methods
-method start*(w: WakuSub) {.async.} =
+method start*(w: WakuRelay) {.async.} =
   debug "start"
   if w.gossip_enabled:
     await procCall GossipSub(w).start()
   else:
     await procCall FloodSub(w).start()
 
-method stop*(w: WakuSub) {.async.} =
+method stop*(w: WakuRelay) {.async.} =
   debug "stop"
   if w.gossip_enabled:
     await procCall GossipSub(w).stop()

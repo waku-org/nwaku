@@ -19,13 +19,13 @@ proc setupWakuRPC*(wakuRelayProto: WakuRelayProto, rpcsrv: RpcServer) =
   # Seems easy enough, lets try to get this first
   rpcsrv.rpc("waku_version") do() -> string:
      ## Returns string of the current Waku protocol version.
-     result = WakuSubCodec
+     result = WakuRelayCodec
 
   # TODO: Implement symkey etc logic
   rpcsrv.rpc("waku_publish") do(topic: string, message: seq[byte]) -> bool:
     # Assumes someone subscribing on this topic
     #let wakuSub = wakuRelayProto.switch.pubsub
-    let wakuSub = cast[WakuSub](wakuRelayProto.switch.pubSub.get())
+    let wakuSub = cast[WakuRelay](wakuRelayProto.switch.pubSub.get())
     # XXX also future return type
     discard wakuSub.publish(topic, message)
     return true
@@ -34,7 +34,7 @@ proc setupWakuRPC*(wakuRelayProto: WakuRelayProto, rpcsrv: RpcServer) =
 
   # TODO: Handler / Identifier logic
   rpcsrv.rpc("waku_subscribe") do(topic: string) -> bool:
-    let wakuSub = cast[WakuSub](wakuRelayProto.switch.pubSub.get())
+    let wakuSub = cast[WakuRelay](wakuRelayProto.switch.pubSub.get())
 
     # XXX: Hacky in-line handler
     proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =

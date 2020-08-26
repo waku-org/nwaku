@@ -77,7 +77,7 @@ proc dialPeer(p: WakuRelayProto, address: string) {.async.} =
   let remotePeer = PeerInfo.init(parts[^1], [multiAddr])
 
   info "Dialing peer", multiAddr
-  p.conn = await p.switch.dial(remotePeer, WakuSubCodec)
+  p.conn = await p.switch.dial(remotePeer, WakuRelayCodec)
   info "Post switch dial"
   # Isn't there just one p instance? Why connected here?
   p.connected = true
@@ -137,7 +137,7 @@ proc setupNat(conf: WakuNodeConf): tuple[ip: Option[ValidIpAddress],
         (result.tcpPort, result.udpPort) = extPorts.get()
 
 proc newWakuRelayProto(switch: Switch): WakuRelayProto =
-  var wakuRelayProto = WakuRelayProto(switch: switch, codec: WakuSubCodec)
+  var wakuRelayProto = WakuRelayProto(switch: switch, codec: WakuRelayCodec)
 
   proc handle(conn: Connection, proto: string) {.async, gcsafe.} =
     let msg = cast[string](await conn.readLp(1024))

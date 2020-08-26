@@ -26,12 +26,12 @@ const
 
 # TODO: Start with floodsub here, then move other logic here
 
-# XXX: If I cast to WakuSub here I get a SIGSEGV
+# XXX: If I cast to WakuRelay here I get a SIGSEGV
 proc waitSub(sender, receiver: auto; key: string) {.async, gcsafe.} =
   # turn things deterministic
   # this is for testing purposes only
   var ceil = 15
-  let fsub = cast[WakuSub](sender.pubSub.get())
+  let fsub = cast[WakuRelay](sender.pubSub.get())
   while not fsub.floodsub.hasKey(key) or
         not fsub.floodsub[key].anyIt(it.peerInfo.id == receiver.peerInfo.id):
     await sleepAsync(100.millis)

@@ -66,7 +66,7 @@ proc newStandardSwitch*(privKey = none(PrivateKey),
     of SecureProtocol.Secio:
       secureManagerInstances &= newSecio(rng, seckey).Secure
 
-  let pubSub = PubSub newPubSub(WakuSub, peerInfo, triggerSelf)
+  let pubSub = PubSub newPubSub(WakuRelay, peerInfo, triggerSelf)
 
   result = newSwitch(peerInfo,
                      transports,
