@@ -25,6 +25,8 @@ DOCKER_IMAGE_NIM_PARAMS ?= -d:chronicles_colors:none -d:insecure
 	deps \
 	update \
 	wakunode \
+	wakusim \
+	wakuexample \
 	test \
 	clean \
 	libbacktrace
@@ -45,7 +47,7 @@ GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 else # "variables.mk" was included. Business as usual until the end of this file.
 
 # default target, because it's the first one that doesn't start with '.'
-all: | wakunode wakusim wakunode2 wakusim2
+all: | wakunode wakusim wakuexample wakunode2 wakusim2
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
@@ -75,6 +77,10 @@ wakunode: | build deps
 wakusim: | build deps wakunode
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakusim $(NIM_PARAMS) waku.nims
+
+wakuexample: | build deps
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim wakuexample $(NIM_PARAMS) waku.nims
 
 wakunode2: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
