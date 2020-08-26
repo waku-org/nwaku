@@ -11,7 +11,7 @@ import utils,
        libp2p/multistream,
        libp2p/transports/transport,
        libp2p/transports/tcptransport
-import ../../waku/protocol/v2/[waku_protocol2, waku_store, filter]
+import ../../waku/protocol/v2/[waku_relay, waku_store, filter]
 
 import ../test_helpers
 
