@@ -1,7 +1,7 @@
 import
   json_rpc/rpcserver, options,
   eth/[common, rlp, keys, p2p],
-  ../../../protocol/v2/waku_protocol2,
+  ../../../protocol/v2/waku_relay,
   nimcrypto/[sysrand, hmac, sha2],
   ../waku_types
 
@@ -13,18 +13,19 @@ import
 # Where is the equivalent in Waku/2?
 # TODO: Extend to get access to protocol state and keys
 #proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer) =
-proc setupWakuRPC*(wakuProto: WakuProto, rpcsrv: RpcServer) =
+# TODO This should probably take node, not wakuRelayProto
+proc setupWakuRPC*(wakuRelayProto: WakuRelayProto, rpcsrv: RpcServer) =
 
   # Seems easy enough, lets try to get this first
   rpcsrv.rpc("waku_version") do() -> string:
      ## Returns string of the current Waku protocol version.
-     result = WakuSubCodec
+     result = WakuRelayCodec
 
   # TODO: Implement symkey etc logic
   rpcsrv.rpc("waku_publish") do(topic: string, message: seq[byte]) -> bool:
     # Assumes someone subscribing on this topic
-    #let wakuSub = wakuProto.switch.pubsub
-    let wakuSub = cast[WakuSub](wakuProto.switch.pubSub.get())
+    #let wakuSub = wakuRelayProto.switch.pubsub
+    let wakuSub = cast[WakuRelay](wakuRelayProto.switch.pubSub.get())
     # XXX also future return type
     discard wakuSub.publish(topic, message)
     return true
@@ -33,7 +34,7 @@ proc setupWakuRPC*(wakuProto: WakuProto, rpcsrv: RpcServer) =
 
   # TODO: Handler / Identifier logic
   rpcsrv.rpc("waku_subscribe") do(topic: string) -> bool:
-    let wakuSub = cast[WakuSub](wakuProto.switch.pubSub.get())
+    let wakuSub = cast[WakuRelay](wakuRelayProto.switch.pubSub.get())
 
     # XXX: Hacky in-line handler
     proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
