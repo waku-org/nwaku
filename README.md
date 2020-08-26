@@ -58,6 +58,13 @@ You can also run a specific test (and alter compile options as you want):
 nim c -r ./tests/v1/test_waku_connect.nim
 ```
 
+### Waku Protocol Example
+There is a more basic example, more limited in features and configuration than
+the `wakunode`, located in `examples/v1/example.nim`.
+
+More information on how to run this example can be found it its
+[readme](examples/v1/README.md).
+
 ### Waku Quick Simulation
 One can set up several nodes, get them connected and then instruct them via the
 JSON-RPC interface. This can be done via e.g. web3.js, nim-web3 (needs to be

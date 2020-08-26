@@ -43,20 +43,19 @@ task test, "Run waku v1 tests":
 task test2, "Run waku v2 tests":
   test "all_tests_v2"
 
-task wakunode, "Build Waku cli":
+task wakunode, "Build Waku v1 cli node":
   buildBinary "wakunode", "waku/node/v1/", "-d:chronicles_log_level=TRACE"
 
-task wakusim, "Build Waku simulation tools":
+task wakusim, "Build Waku v1 simulation tools":
   buildBinary "quicksim", "waku/node/v1/", "-d:chronicles_log_level=INFO"
   buildBinary "start_network", "waku/node/v1/", "-d:chronicles_log_level=DEBUG"
 
-task protocol2, "Build the experimental Waku protocol":
-  buildBinary "waku_protocol2", "waku/protocol/v2/", "-d:chronicles_log_level=TRACE"
+task wakuexample, "Build Waku v1 example":
+  buildBinary "example", "examples/v1/", "-d:chronicles_log_level=DEBUG"
 
-task wakutest2, "Build Experimental Waku tests":
-  let name = "v2/test_waku"
-  buildBinary name, "tests/", "-d:chronicles_log_level=DEBUG"
-  exec "build/" & name
+# TODO Also build Waku store and filter protocols here
+task protocol2, "Build the experimental Waku protocol":
+  buildBinary "waku_relay", "waku/protocol/v2/", "-d:chronicles_log_level=TRACE"
 
 task wakunode2, "Build Experimental Waku cli":
   buildBinary "wakunode2", "waku/node/v2/", "-d:chronicles_log_level=TRACE"
