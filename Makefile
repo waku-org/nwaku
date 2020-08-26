@@ -88,9 +88,9 @@ protocol2:
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim protocol2 $(NIM_PARAMS) waku.nims
 
-wakutest2:
+test2:
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim wakutest2 $(NIM_PARAMS) waku.nims
+		$(ENV_SCRIPT) nim test2 $(NIM_PARAMS) waku.nims
 
 wakuexample2:
 	echo -e $(BUILD_MSG) "build/$@" && \
