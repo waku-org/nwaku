@@ -33,6 +33,7 @@ template procSuite*(name, body: untyped) =
 
   suitePayload()
 
+# Copied from here: https://github.com/status-im/nim-libp2p/blob/d522537b19a532bc4af94fcd146f779c1f23bad0/tests/helpers.nim#L28
 type RngWrap = object
   rng: ref BrHmacDrbgContext
 
