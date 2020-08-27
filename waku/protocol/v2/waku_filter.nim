@@ -85,12 +85,11 @@ method init*(T: type WakuFilter): T =
 
 proc filter*(proto: WakuFilter): Filter =
   proc handle(msg: Message) =
-    discard
-    # for subscriber in proto.subscribers:
-    #   for f in subscriber.filter.filters:
-    #     for topic in f.topics:
-    #       if f.topic in msg.topicIDs:
-    #         subscriber.connection.writeLp(msg.encode().buffer)
-    #         break
+    for subscriber in proto.subscribers:
+      for f in subscriber.filter.filters:
+        for topic in f.topics:
+          if topic in msg.topicIDs:
+            subscriber.connection.writeLp(msg.encodeMessage())
+            break
 
   Filter.init(@[], handle)
