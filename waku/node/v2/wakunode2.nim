@@ -243,24 +243,21 @@ method init*(T: type WakuNode, conf: WakuNodeConf): Future[T] {.async.} =
   await node.start(conf)
   return node
 
-# TODO Update TopicHandler to take Message, not seq[byte] data
-#type TopicHandler* = proc(topic: Topic, message: Message)
-# Currently this is using the one in pubsub.nim, roughly:
+# NOTE TopicHandler is defined in pubsub.nim, roughly:
 #type TopicHandler* = proc(topic: string, data: seq[byte])
 
 type ContentFilterHandler* = proc(contentFilter: ContentFilter, message: Message)
 
 method subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler) =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
-  ## this topic. TopicHandler is a method that takes a topic and a `Message`.
+  ## this topic. TopicHandler is a method that takes a topic and some data.
   ##
-  ## Status: Partially implemented.
-  ## TODO Ensure Message is passed, not `data` field. This means modifying
-  ## TopicHandler.
+  ## NOTE The data field SHOULD be read as a WakuMessage.
+  ## Status: Implemented.
 
-  let wakuSub = w.switch.pubSub.get()
+  let wakuRelay = w.switch.pubSub.get()
   # XXX Consider awaiting here
-  discard wakuSub.subscribe(topic, handler)
+  discard wakuRelay.subscribe(topic, handler)
 
 method subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFilterHandler) =
   echo "NYI"
@@ -270,8 +267,7 @@ method subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFil
   ## has to match the `ContentTopic`.
 
   ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_protocol` and `subscribe` above, and
-  ## ensure Message is passed, not `data` field.
+  ## TODO Implement as wrapper around `waku_filter` and `subscribe` above.
 
 method unsubscribe*(w: WakuNode, topic: Topic) =
   echo "NYI"
@@ -291,7 +287,8 @@ method publish*(w: WakuNode, topic: Topic, message: Message) =
   ## Publish a `Message` to a PubSub topic.
   ##
   ## Status: Partially implemented.
-  ## TODO: Esure Message is passed, not seq[byte] `data` field.
+  ##
+  ## TODO WakuMessage OR seq[byte]. NOT PubSub Message.
   let wakuSub = w.switch.pubSub.get()
   # XXX Consider awaiting here
   discard wakuSub.publish(topic, message)
@@ -301,24 +298,21 @@ method publish*(w: WakuNode, topic: Topic, contentFilter: ContentFilter, message
   ## Currently this means a `contentTopic`.
   ##
   ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_protocol` and `publish`, and ensure
-  ## Message is passed, not `data` field. Also ensure content filter is in
-  ## Message.
-  ## 
+  ## TODO Implement as wrapper around `waku_relay` and `publish`.
+  ## TODO WakuMessage. Ensure content filter is in it.
 
   w.messages.insert((contentFilter.contentTopic, message))
 
   let wakuSub = w.switch.pubSub.get()
   # XXX Consider awaiting here
 
-  # @TODO MAKE SURE WE PASS CONTENT FILTER
   discard wakuSub.publish(topic, message)
 
 method query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
   ## Queries for historical messages.
   ##
   ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_protocol` and send `RPCMsg`.
+  ## TODO Implement as wrapper around `waku_store` and send RPC.
   result.messages = newSeq[Message]()
 
   for msg in w.messages:
