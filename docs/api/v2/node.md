@@ -22,7 +22,7 @@ method subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler)
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
   ## this topic. TopicHandler is a method that takes a topic and some data.
   ##
-  ## NOTE The data field SHOULD be read as a WakuMessage.
+  ## NOTE The data field SHOULD be decoded as a WakuMessage.
   ## Status: Implemented.
 
 method subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFilterHandler)
