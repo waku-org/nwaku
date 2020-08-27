@@ -1,7 +1,7 @@
 import
   std/strutils,
   confutils, chronos, json_rpc/rpcserver, metrics, metrics/chronicles_support,
-  eth/[keys, p2p, async_utils], eth/common/utils,
+  eth/[keys, p2p], eth/common/utils,
   eth/p2p/[discovery, enode, peer_pool, bootnodes, whispernodes],
   eth/p2p/rlpx_protocols/whisper_protocol,
   ../../protocol/v1/[waku_protocol, waku_bridge],
@@ -46,8 +46,13 @@ proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext) =
                   elif config.fleet == test : setBootNodes(StatusBootNodesTest)
                   else: @[]
 
-  traceAsyncErrors node.connectToNetwork(bootnodes, not config.noListen,
+  let connectedFut = node.connectToNetwork(bootnodes, not config.noListen,
     config.discovery)
+  connectedFut.callback = proc(data: pointer) {.gcsafe.} =
+    {.gcsafe.}:
+      if connectedFut.failed:
+        fatal "connectToNetwork failed", msg = connectedFut.readError.msg
+        quit(1)
 
   if not config.bootnodeOnly:
     # Optionally direct connect with a set of nodes
