@@ -1,6 +1,6 @@
 import
   confutils, chronicles, chronos, stew/byteutils,
-  eth/[keys, p2p, async_utils],
+  eth/[keys, p2p],
   ../../waku/protocol/v1/waku_protocol,
   ../../waku/node/v1/waku_helpers,
   ./config_example
@@ -47,12 +47,18 @@ if config.staticnodes.len > 0:
 # connect to bootnodes, and/or start discovery.
 # This will block until first connection is made, which in this case can only
 # happen if we directly connect to nodes (step above) or if an incoming
-# connection occurs, which is why we use `traceAsyncErrors` instead of `await`.
+# connection occurs, which is why we use a callback to exit on errors instead of
+# using `await`.
 # TODO: This looks a bit awkward and the API should perhaps be altered here.
-traceAsyncErrors node.connectToNetwork(@[],
+let connectedFut = node.connectToNetwork(@[],
   true, # Enable listening
   false # Disable discovery (only discovery v4 is currently supported)
   )
+connectedFut.callback = proc(data: pointer) {.gcsafe.} =
+  {.gcsafe.}:
+    if connectedFut.failed:
+      fatal "connectToNetwork failed", msg = connectedFut.readError.msg
+      quit(1)
 
 # Using a hardcoded symmetric key for encryption of the payload for the sake of
 # simplicity.
