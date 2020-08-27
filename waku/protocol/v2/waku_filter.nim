@@ -89,7 +89,7 @@ proc filter*(proto: WakuFilter): Filter =
       for f in subscriber.filter.filters:
         for topic in f.topics:
           if topic in msg.topicIDs:
-            subscriber.connection.writeLp(msg.encodeMessage())
+            discard subscriber.connection.writeLp(msg.encodeMessage())
             break
 
   Filter.init(@[], handle)
