@@ -20,11 +20,10 @@ proc init*(T: type WakuNode, conf: WakuNodeConf): Future[T]
 
 method subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler)
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
-  ## this topic. TopicHandler is a method that takes a topic and a `Message`.
+  ## this topic. TopicHandler is a method that takes a topic and some data.
   ##
-  ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_protocol`, and ensure Message is
-  ## passed, not `data` field.
+  ## NOTE The data field SHOULD be decoded as a WakuMessage.
+  ## Status: Implemented.
 
 method subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFilterHandler)
   ## Subscribes to a ContentFilter. Triggers handler when receiving messages on
@@ -33,8 +32,7 @@ method subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFil
   ## has to match the `ContentTopic`.
 
   ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_protocol` and `subscribe` above, and
-  ## ensure Message is passed, not `data` field.
+  ## TODO Implement as wrapper around `waku_filter` and `subscribe` above.
 
 method unsubscribe*(w: WakuNode, topic: Topic)
   ## Unsubscribe from a topic.
@@ -51,24 +49,22 @@ method unsubscribe*(w: WakuNode, contentFilter: ContentFilter)
 method publish*(w: WakuNode, topic: Topic, message: Message)
   ## Publish a `Message` to a PubSub topic.
   ##
-  ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_protocol`, and ensure Message is
-  ## passed, not `data` field.
+  ## Status: Partially implemented.
+  ## TODO WakuMessage OR seq[byte]. NOT PubSub Message.
 
 method publish*(w: WakuNode, topic: Topic, contentFilter: ContentFilter, message: Message)
   ## Publish a `Message` to a PubSub topic with a specific content filter.
   ## Currently this means a `contentTopic`.
   ##
   ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_protocol` and `publish`, and ensure
-  ## Message is passed, not `data` field. Also ensure content filter is in
-  ## Message.
+  ## TODO Implement as wrapper around `waku_relay` and `publish`.
+  ## TODO WakuMessage. Ensure content filter is in it.
 
 method query*(w: WakuNode, query: HistoryQuery): HistoryResponse
   ## Queries for historical messages.
   ##
   ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_protocol` and send `RPCMsg`.
+  ## TODO Implement as wrapper around `waku_store` and send RPC.
 ```
 
 ## JSON RPC

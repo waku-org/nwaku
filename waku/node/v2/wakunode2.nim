@@ -12,7 +12,7 @@ import
   stew/shims/net as stewNet,
   rpc/wakurpc,
   standard_setup,
-  ../../protocol/v2/waku_protocol2,
+  ../../protocol/v2/waku_relay,
   # TODO: Pull out standard switch from tests
   waku_types
 
@@ -68,7 +68,7 @@ proc initAddress(T: type MultiAddress, str: string): T =
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
-proc dialPeer(p: WakuProto, address: string) {.async.} =
+proc dialPeer(p: WakuRelayProto, address: string) {.async.} =
   info "dialPeer", address = address
   # XXX: This turns ipfs into p2p, not quite sure why
   let multiAddr = MultiAddress.initAddress(address)
@@ -77,12 +77,12 @@ proc dialPeer(p: WakuProto, address: string) {.async.} =
   let remotePeer = PeerInfo.init(parts[^1], [multiAddr])
 
   info "Dialing peer", multiAddr
-  p.conn = await p.switch.dial(remotePeer, WakuSubCodec)
+  p.conn = await p.switch.dial(remotePeer, WakuRelayCodec)
   info "Post switch dial"
   # Isn't there just one p instance? Why connected here?
   p.connected = true
 
-proc connectToNodes(p: WakuProto, nodes: openArray[string]) =
+proc connectToNodes(p: WakuRelayProto, nodes: openArray[string]) =
   for nodeId in nodes:
     info "connectToNodes", node = nodeId
     # XXX: This seems...brittle
@@ -136,16 +136,16 @@ proc setupNat(conf: WakuNodeConf): tuple[ip: Option[ValidIpAddress],
       if extPorts.isSome:
         (result.tcpPort, result.udpPort) = extPorts.get()
 
-proc newWakuProto(switch: Switch): WakuProto =
-  var wakuproto = WakuProto(switch: switch, codec: WakuSubCodec)
+proc newWakuRelayProto(switch: Switch): WakuRelayProto =
+  var wakuRelayProto = WakuRelayProto(switch: switch, codec: WakuRelayCodec)
 
   proc handle(conn: Connection, proto: string) {.async, gcsafe.} =
     let msg = cast[string](await conn.readLp(1024))
     await conn.writeLp("Hello!")
     await conn.close()
 
-  wakuproto.handler = handle
-  return wakuproto
+  wakuRelayProto.handler = handle
+  return wakuRelayProto
 
 # TODO Consider removing unused arguments
 proc init*(T: type WakuNode, conf: WakuNodeConf, switch: Switch,
@@ -187,16 +187,17 @@ proc createWakuNode*(conf: WakuNodeConf): Future[WakuNode] {.async, gcsafe.} =
 proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
   node.libp2pTransportLoops = await node.switch.start()
 
-  let wakuProto = newWakuProto(node.switch)
-  node.switch.mount(wakuProto)
-  wakuProto.started = true
+  # TODO Mount Waku Store and Waku Filter here
+  let wakuRelayProto = newWakuRelayProto(node.switch)
+  node.switch.mount(wakuRelayProto)
+  wakuRelayProto.started = true
 
   # TODO Move out into separate proc
   if conf.rpc:
     let ta = initTAddress(conf.rpcAddress,
                           Port(conf.rpcPort + conf.portsShift))
     var rpcServer = newRpcHttpServer([ta])
-    setupWakuRPC(wakuProto, rpcServer)
+    setupWakuRPC(wakuRelayProto, rpcServer)
     rpcServer.start()
     info "rpcServer started", ta=ta
 
@@ -210,7 +211,7 @@ proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
 
   # XXX: So doing this _after_ other setup
   # Optionally direct connect with a set of nodes
-  if conf.staticnodes.len > 0: connectToNodes(wakuProto, conf.staticnodes)
+  if conf.staticnodes.len > 0: connectToNodes(wakuRelayProto, conf.staticnodes)
 
   # TODO Move out into separate proc
   when defined(insecure):
@@ -242,24 +243,21 @@ method init*(T: type WakuNode, conf: WakuNodeConf): Future[T] {.async.} =
   await node.start(conf)
   return node
 
-# TODO Update TopicHandler to take Message, not seq[byte] data
-#type TopicHandler* = proc(topic: Topic, message: Message)
-# Currently this is using the one in pubsub.nim, roughly:
+# NOTE TopicHandler is defined in pubsub.nim, roughly:
 #type TopicHandler* = proc(topic: string, data: seq[byte])
 
 type ContentFilterHandler* = proc(contentFilter: ContentFilter, message: Message)
 
 method subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler) =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
-  ## this topic. TopicHandler is a method that takes a topic and a `Message`.
+  ## this topic. TopicHandler is a method that takes a topic and some data.
   ##
-  ## Status: Partially implemented.
-  ## TODO Ensure Message is passed, not `data` field. This means modifying
-  ## TopicHandler.
+  ## NOTE The data field SHOULD be decoded as a WakuMessage.
+  ## Status: Implemented.
 
-  let wakuSub = w.switch.pubSub.get()
+  let wakuRelay = w.switch.pubSub.get()
   # XXX Consider awaiting here
-  discard wakuSub.subscribe(topic, handler)
+  discard wakuRelay.subscribe(topic, handler)
 
 method subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFilterHandler) =
   echo "NYI"
@@ -269,8 +267,7 @@ method subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFil
   ## has to match the `ContentTopic`.
 
   ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_protocol` and `subscribe` above, and
-  ## ensure Message is passed, not `data` field.
+  ## TODO Implement as wrapper around `waku_filter` and `subscribe` above.
 
 method unsubscribe*(w: WakuNode, topic: Topic) =
   echo "NYI"
@@ -290,7 +287,8 @@ method publish*(w: WakuNode, topic: Topic, message: Message) =
   ## Publish a `Message` to a PubSub topic.
   ##
   ## Status: Partially implemented.
-  ## TODO: Esure Message is passed, not seq[byte] `data` field.
+  ##
+  ## TODO WakuMessage OR seq[byte]. NOT PubSub Message.
   let wakuSub = w.switch.pubSub.get()
   # XXX Consider awaiting here
   discard wakuSub.publish(topic, message)
@@ -300,24 +298,21 @@ method publish*(w: WakuNode, topic: Topic, contentFilter: ContentFilter, message
   ## Currently this means a `contentTopic`.
   ##
   ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_protocol` and `publish`, and ensure
-  ## Message is passed, not `data` field. Also ensure content filter is in
-  ## Message.
-  ## 
+  ## TODO Implement as wrapper around `waku_relay` and `publish`.
+  ## TODO WakuMessage. Ensure content filter is in it.
 
   w.messages.insert((contentFilter.contentTopic, message))
 
   let wakuSub = w.switch.pubSub.get()
   # XXX Consider awaiting here
 
-  # @TODO MAKE SURE WE PASS CONTENT FILTER
   discard wakuSub.publish(topic, message)
 
 method query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
   ## Queries for historical messages.
   ##
   ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_protocol` and send `RPCMsg`.
+  ## TODO Implement as wrapper around `waku_store` and send RPC.
   result.messages = newSeq[Message]()
 
   for msg in w.messages:
