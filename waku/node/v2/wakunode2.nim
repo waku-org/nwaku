@@ -195,7 +195,8 @@ proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
   let storeProto = WakuStore.init()
   node.switch.mount(storeProto)
 
-  wakuRelayProto.filters["store"] = storeProto.filter()
+  # @TODO THIS DOES NOT WORK, HOW DO I GET ACCESS TO `WakuRelay`
+  # wakuRelayProto.filters["store"] = storeProto.filter()
 
   # TODO Move out into separate proc
   if conf.rpc:
