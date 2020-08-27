@@ -12,7 +12,7 @@ import
   stew/shims/net as stewNet,
   rpc/wakurpc,
   standard_setup,
-  ../../protocol/v2/waku_relay,
+  ../../protocol/v2/[waku_relay, waku_store],
   # TODO: Pull out standard switch from tests
   waku_types
 
@@ -191,6 +191,11 @@ proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
   let wakuRelayProto = newWakuRelayProto(node.switch)
   node.switch.mount(wakuRelayProto)
   wakuRelayProto.started = true
+
+  let storeProto = WakuStore.init()
+  node.switch.mount(storeProto)
+
+  wakuRelayProto.filters["store"] = storeProto.filter()
 
   # TODO Move out into separate proc
   if conf.rpc:
