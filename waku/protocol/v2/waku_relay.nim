@@ -14,7 +14,6 @@ import
   libp2p/stream/connection,
   ./filter
 
-declarePublicGauge connected_peers, "number of peers in the pool" # XXX
 declarePublicGauge total_messages, "number of messages received"
 
 logScope:
@@ -39,9 +38,6 @@ method init(w: WakuRelay) =
     ##
 
     debug "Incoming WakuRelay connection"
-    # XXX: Increment connectedPeers counter, unclear if this is the right place tho
-    # Where is the disconnect event?
-    connected_peers.inc()
     await w.handleConn(conn, proto)
 
   # XXX: Handler hijack GossipSub here?
@@ -100,11 +96,6 @@ method subscribeTopic*(w: WakuRelay,
   # TODO: If peer is light node
   info "about to call subscribe"
   await w.subscribe(topic, handler)
-
-# TODO: Fix decrement connected peers here or somewhere else
-proc handleDisconnect*(w: WakuRelay, peer: PubSubPeer) =
-  debug "handleDisconnect (NYI)"
-  #connected_peers.dec()
 
 method rpcHandler*(w: WakuRelay,
                    peer: PubSubPeer,
