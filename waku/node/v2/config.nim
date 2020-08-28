@@ -1,5 +1,5 @@
 import
-  strutils,
+  std/strutils,
   confutils, confutils/defs, confutils/std/net,
   chronicles, chronos,
   libp2p/crypto/crypto,

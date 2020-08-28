@@ -1,19 +1,17 @@
 import
-  confutils, config, strutils, chronos, json_rpc/rpcserver, metrics, sequtils,
-  chronicles/topics_registry, # TODO: What? Need this for setLoglevel, weird.
-  eth/[keys, p2p], eth/net/nat,
-  eth/p2p/[discovery, enode],
+  std/[strutils, options],
+  chronos, confutils, json_rpc/rpcserver, metrics, stew/shims/net as stewNet,
+  # TODO: Why do we need eth keys?
+  eth/keys, eth/net/nat,
+  # eth/[keys, p2p], eth/net/nat, eth/p2p/[discovery, enode],
   libp2p/multiaddress,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   # NOTE For TopicHandler, solve with exports?
   libp2p/protocols/pubsub/pubsub,
   libp2p/peerinfo,
-  stew/shims/net as stewNet,
-  rpc/wakurpc,
-  standard_setup,
   ../../protocol/v2/waku_relay,
-  waku_types
+  ./waku_types, ./config, ./standard_setup, ./rpc/wakurpc
 
 # key and crypto modules different
 type
@@ -33,12 +31,6 @@ type
     messages*: seq[Message]
 
 const clientId = "Nimbus waku node"
-
-proc setBootNodes(nodes: openArray[string]): seq[ENode] =
-  result = newSeqOfCap[ENode](nodes.len)
-  for nodeId in nodes:
-    # TODO: something more user friendly than an expect
-    result.add(ENode.fromString(nodeId).expect("correct node"))
 
 # NOTE Any difference here in Waku vs Eth2?
 # E.g. Devp2p/Libp2p support, etc.
@@ -216,7 +208,7 @@ proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
 ## Public API
 ##
 
-method init*(T: type WakuNode, conf: WakuNodeConf): Future[T] {.async.} =
+proc init*(T: type WakuNode, conf: WakuNodeConf): Future[T] {.async.} =
   ## Creates and starts a Waku node.
   ##
   let node = await createWakuNode(conf)
@@ -228,7 +220,7 @@ method init*(T: type WakuNode, conf: WakuNodeConf): Future[T] {.async.} =
 
 type ContentFilterHandler* = proc(contentFilter: ContentFilter, message: Message)
 
-method subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler) =
+proc subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler) =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
   ## this topic. TopicHandler is a method that takes a topic and some data.
   ##
@@ -239,7 +231,7 @@ method subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler) =
   # XXX Consider awaiting here
   discard wakuRelay.subscribe(topic, handler)
 
-method subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFilterHandler) =
+proc subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFilterHandler) =
   echo "NYI"
   ## Subscribes to a ContentFilter. Triggers handler when receiving messages on
   ## this content filter. ContentFilter is a method that takes some content
@@ -249,21 +241,21 @@ method subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFil
   ## Status: Not yet implemented.
   ## TODO Implement as wrapper around `waku_filter` and `subscribe` above.
 
-method unsubscribe*(w: WakuNode, topic: Topic) =
+proc unsubscribe*(w: WakuNode, topic: Topic) =
   echo "NYI"
   ## Unsubscribe from a topic.
   ##
   ## Status: Not yet implemented.
   ## TODO Implement.
 
-method unsubscribe*(w: WakuNode, contentFilter: ContentFilter) =
+proc unsubscribe*(w: WakuNode, contentFilter: ContentFilter) =
   echo "NYI"
   ## Unsubscribe from a content filter.
   ##
   ## Status: Not yet implemented.
   ## TODO Implement.
 
-method publish*(w: WakuNode, topic: Topic, message: Message) =
+proc publish*(w: WakuNode, topic: Topic, message: Message) =
   ## Publish a `Message` to a PubSub topic.
   ##
   ## Status: Partially implemented.
@@ -273,7 +265,7 @@ method publish*(w: WakuNode, topic: Topic, message: Message) =
   # XXX Consider awaiting here
   discard wakuSub.publish(topic, message)
 
-method publish*(w: WakuNode, topic: Topic, contentFilter: ContentFilter, message: Message) =
+proc publish*(w: WakuNode, topic: Topic, contentFilter: ContentFilter, message: Message) =
   ## Publish a `Message` to a PubSub topic with a specific content filter.
   ## Currently this means a `contentTopic`.
   ##
@@ -288,7 +280,7 @@ method publish*(w: WakuNode, topic: Topic, contentFilter: ContentFilter, message
 
   discard wakuSub.publish(topic, message)
 
-method query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
+proc query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
   ## Queries for historical messages.
   ##
   ## Status: Not yet implemented.

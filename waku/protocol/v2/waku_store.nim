@@ -1,18 +1,11 @@
-import chronos, chronicles
-import ./filter
-import tables
-import libp2p/protocols/pubsub/pubsub,
-       libp2p/protocols/pubsub/pubsubpeer,
-       libp2p/protocols/pubsub/floodsub,
-       libp2p/protocols/pubsub/gossipsub,
-       libp2p/protocols/pubsub/rpc/[messages, protobuf],
-       libp2p/protocols/protocol,
-       libp2p/protobuf/minprotobuf,
-       libp2p/stream/connection
-
-import metrics
-
-import stew/results
+import
+  std/tables,
+  chronos, chronicles, metrics, stew/results,
+  libp2p/protocols/pubsub/rpc/[messages, protobuf],
+  libp2p/protocols/protocol,
+  libp2p/protobuf/minprotobuf,
+  libp2p/stream/connection,
+  ./filter
 
 const
   WakuStoreCodec* = "/vac/waku/store/2.0.0-alpha2"
@@ -33,7 +26,7 @@ type
   WakuStore* = ref object of LPProtocol
     messages*: seq[Message]
 
-method init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
+proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryQuery()
   let pb = initProtoBuffer(buffer)
 
@@ -77,7 +70,7 @@ proc init*(T: type StoreRPC, buffer: seq[byte]): ProtoResult[T] =
 
   ok(rpc)
 
-method encode*(query: HistoryQuery): ProtoBuffer =
+proc encode*(query: HistoryQuery): ProtoBuffer =
   result = initProtoBuffer()
 
   result.write(1, query.uuid)
@@ -85,7 +78,7 @@ method encode*(query: HistoryQuery): ProtoBuffer =
   for topic in query.topics:
     result.write(2, topic)
 
-method encode*(response: HistoryResponse): ProtoBuffer =
+proc encode*(response: HistoryResponse): ProtoBuffer =
   result = initProtoBuffer()
 
   result.write(1, response.uuid)
@@ -93,7 +86,7 @@ method encode*(response: HistoryResponse): ProtoBuffer =
   for msg in response.messages:
     result.write(2, msg.encodeMessage())
 
-method encode*(response: StoreRPC): ProtoBuffer =
+proc encode*(response: StoreRPC): ProtoBuffer =
   result = initProtoBuffer()
 
   for query in response.query:
@@ -110,7 +103,7 @@ proc query(w: WakuStore, query: HistoryQuery): HistoryResponse =
         result.messages.insert(msg)
         break
 
-method init*(T: type WakuStore): T =
+proc init*(T: type WakuStore): T =
   var ws = WakuStore()
   
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =

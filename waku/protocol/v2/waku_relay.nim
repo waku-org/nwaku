@@ -3,18 +3,16 @@
 ## This file should eventually correspond to waku_protocol as RLPx subprotocol.
 ## Instead, it should likely be on top of GossipSub with a similar interface.
 
-import strutils
-import chronos, chronicles
-import ./filter
-import tables
-import libp2p/protocols/pubsub/pubsub,
-       libp2p/protocols/pubsub/pubsubpeer,
-       libp2p/protocols/pubsub/floodsub,
-       libp2p/protocols/pubsub/gossipsub,
-       libp2p/protocols/pubsub/rpc/[messages],
-       libp2p/stream/connection
-
-import metrics
+import
+  std/[strutils, tables],
+  chronos, chronicles, metrics,
+  libp2p/protocols/pubsub/pubsub,
+  libp2p/protocols/pubsub/pubsubpeer,
+  libp2p/protocols/pubsub/floodsub,
+  libp2p/protocols/pubsub/gossipsub,
+  libp2p/protocols/pubsub/rpc/[messages],
+  libp2p/stream/connection,
+  ./filter
 
 declarePublicGauge connected_peers, "number of peers in the pool" # XXX
 declarePublicGauge total_messages, "number of messages received"
@@ -28,7 +26,7 @@ type
   WakuRelay* = ref object of GossipSub
     # XXX: just playing
     text*: string
-    gossip_enabled*: bool
+    gossipEnabled*: bool
 
     filters: Filters
 
@@ -57,9 +55,9 @@ method initPubSub*(w: WakuRelay) =
   debug "w.text", text = w.text
 
   # Not using GossipSub
-  w.gossip_enabled = false
+  w.gossipEnabled = false
 
-  if w.gossip_enabled:
+  if w.gossipEnabled:
     procCall GossipSub(w).initPubSub()
   else:
     procCall FloodSub(w).initPubSub()
@@ -73,7 +71,7 @@ method subscribe*(w: WakuRelay,
   # XXX: Pubsub really
 
   # XXX: This is what is called, I think
-  if w.gossip_enabled:
+  if w.gossipEnabled:
     await procCall GossipSub(w).subscribe(topic, handler)
   else:
     await procCall FloodSub(w).subscribe(topic, handler)
@@ -92,7 +90,7 @@ method subscribeTopic*(w: WakuRelay,
 
   debug "subscribeTopic", topic=topic, subscribe=subscribe, peerId=peerId
 
-  if w.gossip_enabled:
+  if w.gossipEnabled:
     await procCall GossipSub(w).subscribeTopic(topic, subscribe, peerId)
   else:
     await procCall FloodSub(w).subscribeTopic(topic, subscribe, peerId)
@@ -103,11 +101,8 @@ method subscribeTopic*(w: WakuRelay,
   info "about to call subscribe"
   await w.subscribe(topic, handler)
 
-
-
-
 # TODO: Fix decrement connected peers here or somewhere else
-method handleDisconnect*(w: WakuRelay, peer: PubSubPeer) {.async.} =
+proc handleDisconnect*(w: WakuRelay, peer: PubSubPeer) =
   debug "handleDisconnect (NYI)"
   #connected_peers.dec()
 
@@ -119,7 +114,7 @@ method rpcHandler*(w: WakuRelay,
   # XXX: Right place?
   total_messages.inc()
 
-  if w.gossip_enabled:
+  if w.gossipEnabled:
     await procCall GossipSub(w).rpcHandler(peer, rpcMsgs)
   else:
     await procCall FloodSub(w).rpcHandler(peer, rpcMsgs)
@@ -134,7 +129,7 @@ method publish*(w: WakuRelay,
                 data: seq[byte]): Future[int] {.async.} =
   debug "publish", topic=topic
 
-  if w.gossip_enabled:
+  if w.gossipEnabled:
     return await procCall GossipSub(w).publish(topic, data)
   else:
     return await procCall FloodSub(w).publish(topic, data)
@@ -142,7 +137,7 @@ method publish*(w: WakuRelay,
 method unsubscribe*(w: WakuRelay,
                     topics: seq[TopicPair]) {.async.} =
   debug "unsubscribe"
-  if w.gossip_enabled:
+  if w.gossipEnabled:
     await procCall GossipSub(w).unsubscribe(topics)
   else:
     await procCall FloodSub(w).unsubscribe(topics)
@@ -150,14 +145,14 @@ method unsubscribe*(w: WakuRelay,
 # GossipSub specific methods
 method start*(w: WakuRelay) {.async.} =
   debug "start"
-  if w.gossip_enabled:
+  if w.gossipEnabled:
     await procCall GossipSub(w).start()
   else:
     await procCall FloodSub(w).start()
 
 method stop*(w: WakuRelay) {.async.} =
   debug "stop"
-  if w.gossip_enabled:
+  if w.gossipEnabled:
     await procCall GossipSub(w).stop()
   else:
     await procCall FloodSub(w).stop()
