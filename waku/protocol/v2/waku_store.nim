@@ -23,11 +23,11 @@ type
     response*: seq[HistoryResponse]
 
   HistoryQuery* = object
-    requestID*: uint64
+    uuid*: string
     topics*: seq[string]
 
   HistoryResponse* = object
-    requestID*: uint64
+    uuid*: string
     messages*: seq[Message]
 
   WakuStore* = ref object of LPProtocol
@@ -39,7 +39,7 @@ method init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
 
   var topics: seq[string]
 
-  discard ? pb.getField(1, msg.requestID)
+  discard ? pb.getField(1, msg.uuid)
   discard ? pb.getRepeatedField(2, topics)
 
   msg.topics = topics
@@ -51,7 +51,7 @@ proc init*(T: type HistoryResponse, buffer: seq[byte]): ProtoResult[T] =
 
   var messages: seq[seq[byte]]
 
-  discard ? pb.getField(1, msg.requestID)
+  discard ? pb.getField(1, msg.uuid)
   discard ? pb.getRepeatedField(2, messages)
 
   for buf in messages:
@@ -80,7 +80,7 @@ proc init*(T: type StoreRPC, buffer: seq[byte]): ProtoResult[T] =
 method encode*(query: HistoryQuery): ProtoBuffer =
   result = initProtoBuffer()
 
-  result.write(1, query.requestID)
+  result.write(1, query.uuid)
 
   for topic in query.topics:
     result.write(2, topic)
@@ -88,7 +88,7 @@ method encode*(query: HistoryQuery): ProtoBuffer =
 method encode*(response: HistoryResponse): ProtoBuffer =
   result = initProtoBuffer()
 
-  result.write(1, response.requestID)
+  result.write(1, response.uuid)
 
   for msg in response.messages:
     result.write(2, msg.encodeMessage())
@@ -103,7 +103,7 @@ method encode*(response: StoreRPC): ProtoBuffer =
     result.write(2, response.encode().buffer)
 
 proc query(w: WakuStore, query: HistoryQuery): HistoryResponse =
-  result = HistoryResponse(requestID: query.requestID, messages: newSeq[Message]())
+  result = HistoryResponse(uuid: query.uuid, messages: newSeq[Message]())
   for msg in w.messages:
     for topic in query.topics:
       if topic in msg.topicIDs:
