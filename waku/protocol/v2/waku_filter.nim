@@ -84,6 +84,8 @@ method init*(T: type WakuFilter): T =
   result = ws
 
 proc filter*(proto: WakuFilter): Filter =
+  ## Returns a Filter for the specific protocol
+  ## This filter can then be used to send messages to subscribers that match conditions.
   proc handle(msg: Message) =
     for subscriber in proto.subscribers:
       for f in subscriber.filter.filters:
