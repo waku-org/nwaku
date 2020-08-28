@@ -3,6 +3,7 @@ import
   eth/[common, rlp, keys, p2p],
   ../../../protocol/v2/waku_relay,
   nimcrypto/[sysrand, hmac, sha2],
+  ../wakunode2,
   ../waku_types
 
 # Instead of using rlpx waku_protocol here, lets do mock waku2_protocol
@@ -13,8 +14,7 @@ import
 # Where is the equivalent in Waku/2?
 # TODO: Extend to get access to protocol state and keys
 #proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer) =
-# TODO This should probably take node, not wakuRelayProto
-proc setupWakuRPC*(wakuRelayProto: WakuRelayProto, rpcsrv: RpcServer) =
+proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
 
   # Seems easy enough, lets try to get this first
   rpcsrv.rpc("waku_version") do() -> string:
@@ -23,24 +23,23 @@ proc setupWakuRPC*(wakuRelayProto: WakuRelayProto, rpcsrv: RpcServer) =
 
   # TODO: Implement symkey etc logic
   rpcsrv.rpc("waku_publish") do(topic: string, message: seq[byte]) -> bool:
-    # Assumes someone subscribing on this topic
-    #let wakuSub = wakuRelayProto.switch.pubsub
-    let wakuSub = cast[WakuRelay](wakuRelayProto.switch.pubSub.get())
+    # XXX Why is casting necessary here but not in Nim node API?
+    let wakuRelay = cast[WakuRelay](node.switch.pubSub.get())
     # XXX also future return type
-    discard wakuSub.publish(topic, message)
+    discard wakuRelay.publish(topic, message)
     return true
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")
 
   # TODO: Handler / Identifier logic
   rpcsrv.rpc("waku_subscribe") do(topic: string) -> bool:
-    let wakuSub = cast[WakuRelay](wakuRelayProto.switch.pubSub.get())
+    let wakuRelay = cast[WakuRelay](node.switch.pubSub.get())
 
     # XXX: Hacky in-line handler
     proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
       info "Hit subscribe handler", topic=topic, data=data
 
-    discard wakuSub.subscribe(topic, handler)
+    discard wakuRelay.subscribe(topic, handler)
     return true
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")
