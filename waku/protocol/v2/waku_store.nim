@@ -110,7 +110,7 @@ proc query(w: WakuStore, query: HistoryQuery): HistoryResponse =
         result.messages.insert(msg)
         break
 
-method init*(T: type WakuStore): T =
+proc init*(T: type WakuStore): T =
   var ws = WakuStore()
   
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =

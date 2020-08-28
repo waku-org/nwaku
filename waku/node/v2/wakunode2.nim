@@ -13,7 +13,6 @@ import
   rpc/wakurpc,
   standard_setup,
   ../../protocol/v2/[waku_relay, waku_store],
-  # TODO: Pull out standard switch from tests
   waku_types
 
 # key and crypto modules different
@@ -22,7 +21,7 @@ type
   PublicKey* = crypto.PublicKey
   PrivateKey* = crypto.PrivateKey
 
-  Topic* = string
+  Topic* = waku_types.Topic
   Message* = seq[byte]
   ContentFilter* = object
     contentTopic*: string
@@ -32,14 +31,6 @@ type
 
   HistoryResponse* = object
     messages*: seq[Message]
-
-  # NOTE: based on Eth2Node in NBC eth2_network.nim
-  WakuNode* = ref object of RootObj
-    switch*: Switch
-    # XXX: Unclear if we need this
-    peerInfo*: PeerInfo
-    libp2pTransportLoops*: seq[Future[void]]
-    messages: seq[(Topic, Message)]
 
 const clientId = "Nimbus waku node"
 
@@ -68,7 +59,7 @@ proc initAddress(T: type MultiAddress, str: string): T =
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
-proc dialPeer(p: WakuRelayProto, address: string) {.async.} =
+proc dialPeer(n: WakuNode, address: string) {.async.} =
   info "dialPeer", address = address
   # XXX: This turns ipfs into p2p, not quite sure why
   let multiAddr = MultiAddress.initAddress(address)
@@ -77,16 +68,18 @@ proc dialPeer(p: WakuRelayProto, address: string) {.async.} =
   let remotePeer = PeerInfo.init(parts[^1], [multiAddr])
 
   info "Dialing peer", multiAddr
-  p.conn = await p.switch.dial(remotePeer, WakuRelayCodec)
+  # NOTE This is dialing on WakuRelay protocol specifically
+  # TODO Keep track of conn and connected state somewhere (WakuRelay?)
+  #p.conn = await p.switch.dial(remotePeer, WakuRelayCodec)
+  #p.connected = true
+  discard n.switch.dial(remotePeer, WakuRelayCodec)
   info "Post switch dial"
-  # Isn't there just one p instance? Why connected here?
-  p.connected = true
 
-proc connectToNodes(p: WakuRelayProto, nodes: openArray[string]) =
+proc connectToNodes(n: WakuNode, nodes: openArray[string]) =
   for nodeId in nodes:
     info "connectToNodes", node = nodeId
     # XXX: This seems...brittle
-    discard dialPeer(p, nodeId)
+    discard dialPeer(n, nodeId)
     # Waku 1
     #    let whisperENode = ENode.fromString(nodeId).expect("correct node")
     #    traceAsyncErrors node.peerPool.connectToNode(newNode(whisperENode))
@@ -136,17 +129,6 @@ proc setupNat(conf: WakuNodeConf): tuple[ip: Option[ValidIpAddress],
       if extPorts.isSome:
         (result.tcpPort, result.udpPort) = extPorts.get()
 
-proc newWakuRelayProto(switch: Switch): WakuRelayProto =
-  var wakuRelayProto = WakuRelayProto(switch: switch, codec: WakuRelayCodec)
-
-  proc handle(conn: Connection, proto: string) {.async, gcsafe.} =
-    let msg = cast[string](await conn.readLp(1024))
-    await conn.writeLp("Hello!")
-    await conn.close()
-
-  wakuRelayProto.handler = handle
-  return wakuRelayProto
-
 # TODO Consider removing unused arguments
 proc init*(T: type WakuNode, conf: WakuNodeConf, switch: Switch,
                    ip: Option[ValidIpAddress], tcpPort, udpPort: Port,
@@ -187,23 +169,18 @@ proc createWakuNode*(conf: WakuNodeConf): Future[WakuNode] {.async, gcsafe.} =
 proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
   node.libp2pTransportLoops = await node.switch.start()
 
-  # TODO Mount Waku Store and Waku Filter here
-  let wakuRelayProto = newWakuRelayProto(node.switch)
-  node.switch.mount(wakuRelayProto)
-  wakuRelayProto.started = true
-
+  # NOTE WakuRelay is being instantiated as part of creating switch with PubSub field set
   let storeProto = WakuStore.init()
   node.switch.mount(storeProto)
 
-  # @TODO THIS DOES NOT WORK, HOW DO I GET ACCESS TO `WakuRelay`
-  # wakuRelayProto.filters["store"] = storeProto.filter()
+  let wakuRelayProto = cast[WakuRelay](node.switch.pubSub.get())
+  wakuRelayProto.addFilter("store", storeProto.filter())
 
   # TODO Move out into separate proc
   if conf.rpc:
-    let ta = initTAddress(conf.rpcAddress,
-                          Port(conf.rpcPort + conf.portsShift))
+    let ta = initTAddress(conf.rpcAddress, Port(conf.rpcPort + conf.portsShift))
     var rpcServer = newRpcHttpServer([ta])
-    setupWakuRPC(wakuRelayProto, rpcServer)
+    setupWakuRPC(node, rpcServer)
     rpcServer.start()
     info "rpcServer started", ta=ta
 
@@ -217,7 +194,7 @@ proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
 
   # XXX: So doing this _after_ other setup
   # Optionally direct connect with a set of nodes
-  if conf.staticnodes.len > 0: connectToNodes(wakuRelayProto, conf.staticnodes)
+  if conf.staticnodes.len > 0: connectToNodes(node, conf.staticnodes)
 
   # TODO Move out into separate proc
   when defined(insecure):
