@@ -11,6 +11,7 @@ import json_rpc/[rpcclient, rpcserver]
 
 import ../../waku/node/v2/config
 import ../../waku/node/v2/wakunode2
+import ../../waku/node/v2/waku_types
 
 # Loads the config in `waku/node/v2/config.nim`
 let conf = WakuNodeConf.load()
