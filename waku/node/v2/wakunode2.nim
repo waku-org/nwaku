@@ -76,8 +76,7 @@ proc connectToNodes(n: WakuNode, nodes: openArray[string]) =
     #    let whisperENode = ENode.fromString(nodeId).expect("correct node")
     #    traceAsyncErrors node.peerPool.connectToNode(newNode(whisperENode))
 
-# NOTE Identical with eth2_network, pull out into common?
-# NOTE Except portsShift
+# TODO: Make common version, pull out portsShift and make the ports als Optional
 proc setupNat(conf: WakuNodeConf): tuple[ip: Option[ValidIpAddress],
                                            tcpPort: Port,
                                            udpPort: Port] {.gcsafe.} =
@@ -121,43 +120,7 @@ proc setupNat(conf: WakuNodeConf): tuple[ip: Option[ValidIpAddress],
       if extPorts.isSome:
         (result.tcpPort, result.udpPort) = extPorts.get()
 
-# TODO Consider removing unused arguments
-proc init*(T: type WakuNode, conf: WakuNodeConf, switch: Switch,
-                   ip: Option[ValidIpAddress], tcpPort, udpPort: Port,
-                   privKey: keys.PrivateKey,
-                   peerInfo: PeerInfo): T =
-  new result
-  result.switch = switch
-  result.peerInfo = peerInfo
-  # TODO Peer pool, discovery, protocol state, etc
-
-proc createWakuNode*(conf: WakuNodeConf): Future[WakuNode] {.async, gcsafe.} =
-  var
-    (extIp, extTcpPort, extUdpPort) = setupNat(conf)
-    hostAddress = tcpEndPoint(conf.libp2pAddress, Port(uint16(conf.tcpPort) + conf.portsShift))
-    announcedAddresses = if extIp.isNone(): @[]
-                         else: @[tcpEndPoint(extIp.get(), extTcpPort)]
-
-  info "Initializing networking", hostAddress,
-                                  announcedAddresses
-
-  let
-    nodekey = conf.nodekey
-    pubkey = nodekey.getKey.get()
-    keys = KeyPair(seckey: nodekey, pubkey: pubkey)
-    peerInfo = PeerInfo.init(nodekey)
-
-  # XXX: Add this when we create node or start it?
-  peerInfo.addrs.add(hostAddress)
-
-  var switch = newStandardSwitch(some keys.seckey, hostAddress, triggerSelf = true)
-
-  # TODO Either persist WakuNode or something here
-
-  # TODO Look over this
-  # XXX Consider asEthKey and asLibp2pKey
-  result = WakuNode.init(conf, switch, extIp, extTcpPort, extUdpPort, keys.seckey.asEthKey, peerInfo)
-
+# TODO: separate core WakuNode stuff from rpc/metrics, etc to remove conf dep.
 proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
   node.libp2pTransportLoops = await node.switch.start()
 
@@ -208,12 +171,23 @@ proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
 ## Public API
 ##
 
-proc init*(T: type WakuNode, conf: WakuNodeConf): Future[T] {.async.} =
+proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
+    bindIp: ValidIpAddress, bindPort: Port,
+    extIp = none[ValidIpAddress](), extPort = none[Port]()): T =
   ## Creates and starts a Waku node.
-  ##
-  let node = await createWakuNode(conf)
-  await node.start(conf)
-  return node
+  let
+    hostAddress = tcpEndPoint(bindIp, bindPort)
+    announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
+                         else: @[tcpEndPoint(extIp.get(), extPort.get())]
+    peerInfo = PeerInfo.init(nodekey)
+  info "Initializing networking", hostAddress,
+                                  announcedAddresses
+  # XXX: Add this when we create node or start it?
+  peerInfo.addrs.add(hostAddress)
+
+  var switch = newStandardSwitch(some(nodekey), hostAddress, triggerSelf = true)
+
+  return WakuNode(switch: switch, peerInfo: peerInfo)
 
 # NOTE TopicHandler is defined in pubsub.nim, roughly:
 #type TopicHandler* = proc(topic: string, data: seq[byte])
@@ -294,6 +268,11 @@ proc query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
     result.messages.insert(msg[1])
 
 when isMainModule:
-  let conf = WakuNodeConf.load()
-  discard WakuNode.init(conf)
+  let
+    conf = WakuNodeConf.load()
+    (extIp, extTcpPort, extUdpPort) = setupNat(conf)
+    node = WakuNode.init(conf.nodeKey, conf.libp2pAddress,
+      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, some(extTcpPort))
+
+  waitFor node.start(conf)
   runForever()
