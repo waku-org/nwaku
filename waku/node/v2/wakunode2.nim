@@ -30,7 +30,7 @@ type
   HistoryResponse* = object
     messages*: seq[Message]
 
-const clientId = "Nimbus waku node"
+const clientId = "Nimbus Waku v2 node"
 
 # NOTE Any difference here in Waku vs Eth2?
 # E.g. Devp2p/Libp2p support, etc.
@@ -76,16 +76,13 @@ proc connectToNodes(n: WakuNode, nodes: openArray[string]) =
     #    let whisperENode = ENode.fromString(nodeId).expect("correct node")
     #    traceAsyncErrors node.peerPool.connectToNode(newNode(whisperENode))
 
-# TODO: Make common version, pull out portsShift and make the ports als Optional
-proc setupNat(conf: WakuNodeConf): tuple[ip: Option[ValidIpAddress],
-                                           tcpPort: Port,
-                                           udpPort: Port] {.gcsafe.} =
-  # defaults
-  result.tcpPort = Port(uint16(conf.tcpPort) + conf.portsShift)
-  result.udpPort = Port(uint16(conf.udpPort) + conf.portsShift)
+# TODO: Make common version with v1
+proc setupNat(natConf, clientId: string, tcpPort, udpPort: Port):
+    tuple[ip: Option[ValidIpAddress], tcpPort: Option[Port],
+    udpPort: Option[Port]] {.gcsafe.} =
 
   var nat: NatStrategy
-  case conf.nat.toLowerAscii:
+  case natConf.toLowerAscii:
     of "any":
       nat = NatAny
     of "none":
@@ -95,16 +92,16 @@ proc setupNat(conf: WakuNodeConf): tuple[ip: Option[ValidIpAddress],
     of "pmp":
       nat = NatPmp
     else:
-      if conf.nat.startsWith("extip:"):
+      if natConf.startsWith("extip:"):
         try:
           # any required port redirection is assumed to be done by hand
-          result.ip = some(ValidIpAddress.init(conf.nat[6..^1]))
+          result.ip = some(ValidIpAddress.init(natConf[6..^1]))
           nat = NatNone
         except ValueError:
-          error "nor a valid IP address", address = conf.nat[6..^1]
+          error "nor a valid IP address", address = natConf[6..^1]
           quit QuitFailure
       else:
-        error "not a valid NAT mechanism", value = conf.nat
+        error "not a valid NAT mechanism", value = natConf
         quit QuitFailure
 
   if nat != NatNone:
@@ -114,11 +111,13 @@ proc setupNat(conf: WakuNodeConf): tuple[ip: Option[ValidIpAddress],
       # TODO redirectPorts in considered a gcsafety violation
       # because it obtains the address of a non-gcsafe proc?
       let extPorts = ({.gcsafe.}:
-        redirectPorts(tcpPort = result.tcpPort,
-                      udpPort = result.udpPort,
+        redirectPorts(tcpPort = tcpPort,
+                      udpPort = udpPort,
                       description = clientId))
       if extPorts.isSome:
-        (result.tcpPort, result.udpPort) = extPorts.get()
+        let (extTcpPort, extUdpPort) = extPorts.get()
+        result.tcpPort = some(extTcpPort)
+        result.udpPort = some(extUdpPort)
 
 proc startRpc(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port) =
   let
@@ -261,9 +260,11 @@ proc query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
 when isMainModule:
   let
     conf = WakuNodeConf.load()
-    (extIp, extTcpPort, extUdpPort) = setupNat(conf)
+    (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
+      Port(uint16(conf.tcpPort) + conf.portsShift),
+      Port(uint16(conf.udpPort) + conf.portsShift))
     node = WakuNode.init(conf.nodeKey, conf.libp2pAddress,
-      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, some(extTcpPort))
+      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
 
   waitFor node.start()
 
