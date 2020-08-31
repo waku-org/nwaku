@@ -6,6 +6,7 @@
 #            Licensed under either of
 #  Apache License, version 2.0, (LICENSE-APACHEv2)
 #            MIT license (LICENSE-MIT)
+{.used.}
 
 import unittest, options, tables, sets, sequtils
 import chronos, chronicles
@@ -91,7 +92,7 @@ procSuite "FloodSub":
     let msg = message()
     discard await nodes[0].publish("foobar", msg)
 
-    let result = await completionFut.wait(5.seconds)
+    check: await completionFut.wait(5.seconds)
 
     await allFuturesThrowing(
       nodes[0].stop(),
@@ -101,6 +102,3 @@ procSuite "FloodSub":
     for fut in nodesFut:
       let res = fut.read()
       await allFuturesThrowing(res)
-
-    check:
-      result == true
