@@ -168,7 +168,7 @@ proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
   node.switch.mount(storeProto)
 
   let wakuRelay = cast[WakuRelay](node.switch.pubSub.get())
-  wakuRelayProto.addFilter("store", storeProto.filter())
+  wakuRelay.addFilter("store", storeProto.filter())
 
   # TODO Move out into separate proc
   if conf.rpc:
