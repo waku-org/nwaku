@@ -12,4 +12,5 @@ proc subscribeNodes*(nodes: seq[Switch]) {.async.} =
     for node in nodes:
       if dialer.peerInfo.peerId != node.peerInfo.peerId:
         dials.add(dialer.connect(node.peerInfo))
+        # TODO: Hmm, does this make sense?
         await allFutures(dials)

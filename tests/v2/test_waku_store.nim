@@ -1,19 +1,18 @@
-import unittest, options, tables, sets, sequtils
-import chronos, chronicles
-import utils,
-       libp2p/errors,
-       libp2p/switch,
-       libp2p/protobuf/minprotobuf,
-       libp2p/stream/[bufferstream, connection],
-       libp2p/crypto/crypto,
-       libp2p/protocols/pubsub/floodsub,
-       libp2p/protocols/pubsub/rpc/message,
-       libp2p/multistream,
-       libp2p/transports/transport,
-       libp2p/transports/tcptransport
-import ../../waku/protocol/v2/[waku_relay, waku_store, filter]
+{.used.}
 
-import ../test_helpers
+import
+  std/[unittest, options, tables, sets],
+  chronos, chronicles,
+  libp2p/switch,
+  libp2p/protobuf/minprotobuf,
+  libp2p/stream/[bufferstream, connection],
+  libp2p/crypto/crypto,
+  libp2p/protocols/pubsub/rpc/message,
+  libp2p/multistream,
+  libp2p/transports/transport,
+  libp2p/transports/tcptransport,
+  ../../waku/protocol/v2/[waku_store, filter],
+  ../test_helpers, ./utils
 
 procSuite "Waku Store":
 
@@ -22,7 +21,7 @@ procSuite "Waku Store":
       peer = PeerInfo.init(PrivateKey.random(ECDSA, rng[]).get())
       msg = Message.init(peer, @[byte 1, 2, 3], "topic", 3, false)
 
-      rpc = StoreRPC(query: @[HistoryQuery(requestID: 1, topics: @["foo"])], response: @[HistoryResponse(requestID: 1, messages: @[msg])])
+      rpc = StoreRPC(query: @[HistoryQuery(uuid: "1", topics: @["foo"])], response: @[HistoryResponse(uuid: "1", messages: @[msg])])
 
     let buf = rpc.encode()
 
@@ -70,7 +69,7 @@ procSuite "Waku Store":
     let transport2: TcpTransport = TcpTransport.init()
     let conn = await transport2.dial(transport1.ma)
 
-    var rpc = StoreRPC(query: @[HistoryQuery(requestID: 1, topics: @["topic"])])
+    var rpc = StoreRPC(query: @[HistoryQuery(uuid: "1234", topics: @["topic"])])
     discard await msDial.select(conn, WakuStoreCodec)
     await conn.writeLP(rpc.encode().buffer)
 
@@ -79,6 +78,6 @@ procSuite "Waku Store":
 
     check:
       response.isErr == false
-      response.value.response[0].requestID == rpc.query[0].requestID
+      response.value.response[0].uuid == rpc.query[0].uuid
       response.value.response[0].messages.len() == 1
       response.value.response[0].messages[0] == msg

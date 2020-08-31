@@ -1,9 +1,9 @@
 import
-  json_rpc/rpcserver, options,
+  std/options,
+  json_rpc/rpcserver,
+  nimcrypto/[sysrand, hmac, sha2],
   eth/[common, rlp, keys, p2p],
   ../../../protocol/v2/waku_relay,
-  nimcrypto/[sysrand, hmac, sha2],
-  ../wakunode2,
   ../waku_types
 
 # Instead of using rlpx waku_protocol here, lets do mock waku2_protocol
