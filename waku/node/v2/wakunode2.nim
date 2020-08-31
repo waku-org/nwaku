@@ -10,7 +10,6 @@ import
   # NOTE For TopicHandler, solve with exports?
   libp2p/protocols/pubsub/pubsub,
   libp2p/peerinfo,
-  stew/shims/net as stewNet,
   rpc/wakurpc,
   standard_setup,
   ../../protocol/v2/[waku_relay, waku_store],
