@@ -2,7 +2,7 @@ import
   std/[strutils, options],
   chronos, confutils, json_rpc/rpcserver, metrics, stew/shims/net as stewNet,
   # TODO: Why do we need eth keys?
-  eth/keys, eth/net/nat,
+  eth/keys,
   # eth/[keys, p2p], eth/net/nat, eth/p2p/[discovery, enode],
   libp2p/multiaddress,
   libp2p/crypto/crypto,
@@ -10,7 +10,7 @@ import
   # NOTE For TopicHandler, solve with exports?
   libp2p/protocols/pubsub/pubsub,
   libp2p/peerinfo,
-  ../../protocol/v2/waku_relay,
+  ../../protocol/v2/waku_relay, ../common,
   ./waku_types, ./config, ./standard_setup, ./rpc/wakurpc
 
 # key and crypto modules different
@@ -75,49 +75,6 @@ proc connectToNodes(n: WakuNode, nodes: openArray[string]) =
     # Waku 1
     #    let whisperENode = ENode.fromString(nodeId).expect("correct node")
     #    traceAsyncErrors node.peerPool.connectToNode(newNode(whisperENode))
-
-# TODO: Make common version with v1
-proc setupNat(natConf, clientId: string, tcpPort, udpPort: Port):
-    tuple[ip: Option[ValidIpAddress], tcpPort: Option[Port],
-    udpPort: Option[Port]] {.gcsafe.} =
-
-  var nat: NatStrategy
-  case natConf.toLowerAscii:
-    of "any":
-      nat = NatAny
-    of "none":
-      nat = NatNone
-    of "upnp":
-      nat = NatUpnp
-    of "pmp":
-      nat = NatPmp
-    else:
-      if natConf.startsWith("extip:"):
-        try:
-          # any required port redirection is assumed to be done by hand
-          result.ip = some(ValidIpAddress.init(natConf[6..^1]))
-          nat = NatNone
-        except ValueError:
-          error "nor a valid IP address", address = natConf[6..^1]
-          quit QuitFailure
-      else:
-        error "not a valid NAT mechanism", value = natConf
-        quit QuitFailure
-
-  if nat != NatNone:
-    let extIp = getExternalIP(nat)
-    if extIP.isSome:
-      result.ip = some(ValidIpAddress.init extIp.get)
-      # TODO redirectPorts in considered a gcsafety violation
-      # because it obtains the address of a non-gcsafe proc?
-      let extPorts = ({.gcsafe.}:
-        redirectPorts(tcpPort = tcpPort,
-                      udpPort = udpPort,
-                      description = clientId))
-      if extPorts.isSome:
-        let (extTcpPort, extUdpPort) = extPorts.get()
-        result.tcpPort = some(extTcpPort)
-        result.udpPort = some(extUdpPort)
 
 proc startRpc(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port) =
   let
