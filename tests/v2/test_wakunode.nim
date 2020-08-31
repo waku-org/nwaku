@@ -1,16 +1,14 @@
-import unittest
+{.used.}
 
-import confutils, chronicles, chronos, os
-
-import stew/shims/net as stewNet
-import libp2p/crypto/crypto
-import libp2p/crypto/secp
-import eth/keys
-import json_rpc/[rpcclient, rpcserver]
-
-import ../../waku/node/v2/[config, wakunode2, waku_types]
-
-import ../test_helpers
+import
+  std/[unittest, os],
+  confutils, chronicles, chronos, stew/shims/net as stewNet,
+  json_rpc/[rpcclient, rpcserver],
+  libp2p/crypto/crypto,
+  libp2p/crypto/secp,
+  eth/keys,
+  ../../waku/node/v2/[config, wakunode2, waku_types],
+  ../test_helpers
 
 procSuite "WakuNode":
   asyncTest "Message published with content filter is retrievable":

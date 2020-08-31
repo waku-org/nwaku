@@ -11,7 +11,7 @@ import
   libp2p/transports/[transport, tcptransport],
   libp2p/muxers/[muxer, mplex/mplex, mplex/types],
   libp2p/protocols/[identify, secure/secure],
-  libp2p/protocols/pubsub/[pubsub, gossipsub],
+  libp2p/protocols/pubsub/pubsub,
   ../../protocol/v2/waku_relay
 
 import
