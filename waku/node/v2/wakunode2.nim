@@ -120,53 +120,29 @@ proc setupNat(conf: WakuNodeConf): tuple[ip: Option[ValidIpAddress],
       if extPorts.isSome:
         (result.tcpPort, result.udpPort) = extPorts.get()
 
-# TODO: separate core WakuNode stuff from rpc/metrics, etc to remove conf dep.
-proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
-  node.libp2pTransportLoops = await node.switch.start()
+proc startRpc(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port) =
+  let
+    ta = initTAddress(rpcIp, rpcPort)
+    rpcServer = newRpcHttpServer([ta])
+  setupWakuRPC(node, rpcServer)
+  rpcServer.start()
+  info "RPC Server started", ta
 
-  # NOTE WakuRelay is being instantiated as part of creating switch with PubSub field set
-  #
-  # TODO Mount Waku Store and Waku Filter here
+proc startMetricsServer(serverIp: ValidIpAddress, serverPort: Port) =
+    info "Starting metrics HTTP server", serverIp, serverPort
+    metrics.startHttpServer($serverIp, serverPort)
 
-  # TODO Move out into separate proc
-  if conf.rpc:
-    let ta = initTAddress(conf.rpcAddress, Port(conf.rpcPort + conf.portsShift))
-    var rpcServer = newRpcHttpServer([ta])
-    setupWakuRPC(node, rpcServer)
-    rpcServer.start()
-    info "rpcServer started", ta=ta
-
-  # TODO Get this from WakuNode obj
-  let peerInfo = node.peerInfo
-  let id = peerInfo.peerId.pretty
-  info "PeerInfo", id = id, addrs = peerInfo.addrs
-  let listenStr = $peerInfo.addrs[0] & "/p2p/" & id
-  ## XXX: this should be /ip4..., / stripped?
-  info "Listening on", full = listenStr
-
-  # XXX: So doing this _after_ other setup
-  # Optionally direct connect with a set of nodes
-  if conf.staticnodes.len > 0: connectToNodes(node, conf.staticnodes)
-
-  # TODO Move out into separate proc
-  when defined(insecure):
-    if conf.metricsServer:
+proc startMetricsLog() =
+  proc logMetrics(udata: pointer) {.closure, gcsafe.} =
+    {.gcsafe.}:
+      # TODO: libp2p_pubsub_peers is not public, so we need to make this either
+      # public in libp2p or do our own peer counting after all.
       let
-        address = conf.metricsServerAddress
-        port = conf.metricsServerPort + conf.portsShift
-      info "Starting metrics HTTP server", address, port
-      metrics.startHttpServer($address, Port(port))
+        totalMessages = total_messages.value
 
-    if conf.logMetrics:
-      proc logMetrics(udata: pointer) {.closure, gcsafe.} =
-        {.gcsafe.}:
-          let
-            connectedPeers = connected_peers.value
-            totalMessages = total_messages.value
-
-        info "Node metrics", connectedPeers, totalMessages
-        addTimer(Moment.fromNow(2.seconds), logMetrics)
-      addTimer(Moment.fromNow(2.seconds), logMetrics)
+    info "Node metrics", totalMessages
+    discard setTimer(Moment.fromNow(2.seconds), logMetrics)
+  discard setTimer(Moment.fromNow(2.seconds), logMetrics)
 
 ## Public API
 ##
@@ -188,6 +164,21 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   var switch = newStandardSwitch(some(nodekey), hostAddress, triggerSelf = true)
 
   return WakuNode(switch: switch, peerInfo: peerInfo)
+
+proc start*(node: WakuNode) {.async.} =
+  node.libp2pTransportLoops = await node.switch.start()
+
+  # NOTE WakuRelay is being instantiated as part of creating switch with PubSub field set
+  #
+  # TODO Mount Waku Store and Waku Filter here
+
+  # TODO Get this from WakuNode obj
+  let peerInfo = node.peerInfo
+  let id = peerInfo.peerId.pretty
+  info "PeerInfo", id = id, addrs = peerInfo.addrs
+  let listenStr = $peerInfo.addrs[0] & "/p2p/" & id
+  ## XXX: this should be /ip4..., / stripped?
+  info "Listening on", full = listenStr
 
 # NOTE TopicHandler is defined in pubsub.nim, roughly:
 #type TopicHandler* = proc(topic: string, data: seq[byte])
@@ -274,5 +265,20 @@ when isMainModule:
     node = WakuNode.init(conf.nodeKey, conf.libp2pAddress,
       Port(uint16(conf.tcpPort) + conf.portsShift), extIp, some(extTcpPort))
 
-  waitFor node.start(conf)
+  waitFor node.start()
+
+  if conf.staticnodes.len > 0:
+    connectToNodes(node, conf.staticnodes)
+
+  if conf.rpc:
+    startRpc(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift))
+
+  if conf.logMetrics:
+    startMetricsLog()
+
+  when defined(insecure):
+    if conf.metricsServer:
+      startMetricsServer(conf.metricsServerAddress,
+        Port(conf.metricsServerPort + conf.portsShift))
+
   runForever()

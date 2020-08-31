@@ -1,29 +1,27 @@
 {.used.}
 
 import
-  std/[unittest, os],
-  confutils, chronicles, chronos, stew/shims/net as stewNet,
-  json_rpc/[rpcclient, rpcserver],
+  std/unittest,
+  chronicles, chronos, stew/shims/net as stewNet, stew/byteutils,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   eth/keys,
-  ../../waku/node/v2/[config, wakunode2, waku_types],
+  ../../waku/node/v2/[wakunode2, waku_types],
   ../test_helpers
 
 procSuite "WakuNode":
   asyncTest "Message published with content filter is retrievable":
-    let conf = WakuNodeConf.load()
     let
       rng = keys.newRng()
       nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node = WakuNode.init(nodeKey, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
 
-    await node.start(conf) # TODO: get rid of conf
+    await node.start()
 
-    let topic = "foobar"
-
-    let message = cast[seq[byte]]("hello world")
+    let
+      topic = "foobar"
+      message = ("hello world").toBytes
     node.publish(topic, ContentFilter(contentTopic: topic), message)
 
     let response = node.query(HistoryQuery(topics: @[topic]))
