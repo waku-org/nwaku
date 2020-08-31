@@ -1,7 +1,6 @@
-import libp2p/protocols/pubsub/rpc/messages
-
-import 
-  tables
+import
+  std/tables,
+  libp2p/protocols/pubsub/rpc/messages
 
 type 
 

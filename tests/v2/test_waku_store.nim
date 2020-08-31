@@ -1,19 +1,18 @@
-import unittest, options, tables, sets, sequtils
-import chronos, chronicles
-import utils,
-       libp2p/errors,
-       libp2p/switch,
-       libp2p/protobuf/minprotobuf,
-       libp2p/stream/[bufferstream, connection],
-       libp2p/crypto/crypto,
-       libp2p/protocols/pubsub/floodsub,
-       libp2p/protocols/pubsub/rpc/message,
-       libp2p/multistream,
-       libp2p/transports/transport,
-       libp2p/transports/tcptransport
-import ../../waku/protocol/v2/[waku_relay, waku_store, filter]
+{.used.}
 
-import ../test_helpers
+import
+  std/[unittest, options, tables, sets],
+  chronos, chronicles,
+  libp2p/switch,
+  libp2p/protobuf/minprotobuf,
+  libp2p/stream/[bufferstream, connection],
+  libp2p/crypto/crypto,
+  libp2p/protocols/pubsub/rpc/message,
+  libp2p/multistream,
+  libp2p/transports/transport,
+  libp2p/transports/tcptransport,
+  ../../waku/protocol/v2/[waku_store, filter],
+  ../test_helpers, ./utils
 
 procSuite "Waku Store":
 

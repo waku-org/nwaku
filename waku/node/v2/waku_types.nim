@@ -2,8 +2,6 @@ import
   chronos,
   libp2p/multiaddress,
   libp2p/crypto/crypto,
-  libp2p/protocols/protocol,
-  libp2p/protocols/pubsub/pubsub,
   libp2p/peerinfo,
   standard_setup
 
