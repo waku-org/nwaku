@@ -1,19 +1,14 @@
-import chronos, chronicles
-import ./filter
-import tables
-import libp2p/protocols/pubsub/pubsub,
-       libp2p/protocols/pubsub/pubsubpeer,
-       libp2p/protocols/pubsub/floodsub,
-       libp2p/protocols/pubsub/gossipsub,
-       libp2p/protocols/pubsub/rpc/[messages, protobuf],
-       libp2p/protocols/protocol,
-       libp2p/protobuf/minprotobuf,
-       libp2p/stream/connection
-
-import metrics
-
-import stew/results
-
+import
+  std/tables,
+  chronos, chronicles, metrics, stew/results,
+  libp2p/protocols/pubsub/pubsubpeer,
+  libp2p/protocols/pubsub/floodsub,
+  libp2p/protocols/pubsub/gossipsub,
+  libp2p/protocols/pubsub/rpc/[messages, protobuf],
+  libp2p/protocols/protocol,
+  libp2p/protobuf/minprotobuf,
+  libp2p/stream/connection,
+  ./filter
 
 # NOTE This is just a start, the design of this protocol isn't done yet. It
 # should be direct payload exchange (a la req-resp), not be coupled with the
@@ -36,13 +31,13 @@ type
   WakuFilter* = ref object of LPProtocol
     subscribers*: seq[Subscriber]
 
-method encode*(filter: ContentFilter): ProtoBuffer =
+proc encode*(filter: ContentFilter): ProtoBuffer =
   result = initProtoBuffer()
 
   for topic in filter.topics:
     result.write(1, topic)
 
-method encode*(rpc: FilterRPC): ProtoBuffer =
+proc encode*(rpc: FilterRPC): ProtoBuffer =
   result = initProtoBuffer()
 
   for filter in rpc.filters:
@@ -68,7 +63,7 @@ proc init*(T: type FilterRPC, buffer: seq[byte]): ProtoResult[T] =
 
   ok(rpc)
 
-method init*(T: type WakuFilter): T =
+proc init*(T: type WakuFilter): T =
   var ws = WakuFilter(subscribers: newSeq[Subscriber](0))
 
   # From my understanding we need to set up filters,
