@@ -179,9 +179,11 @@ proc unsubscribe*(w: WakuNode, contentFilter: ContentFilter) =
 
 
 proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
-  ## Publish a `Message` to a PubSub topic.
+  ## Publish a `WakuMessage` to a PubSub topic. `WakuMessage` should contain a
+  ## `contentTopic` field for light node functionality. This field may be also
+  ## be omitted.
   ##
-  ## Status: Partially implemented.
+  ## Status: Implemented.
   ##
 
   # TODO Basic getter function for relay
