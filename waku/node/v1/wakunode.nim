@@ -1,19 +1,29 @@
 import
-  std/strutils,
   confutils, chronos, json_rpc/rpcserver, metrics, metrics/chronicles_support,
+  stew/shims/net as stewNet,
   eth/[keys, p2p], eth/common/utils,
   eth/p2p/[discovery, enode, peer_pool, bootnodes, whispernodes],
   eth/p2p/rlpx_protocols/whisper_protocol,
-  ../../protocol/v1/[waku_protocol, waku_bridge],
+  ../../protocol/v1/[waku_protocol, waku_bridge], ../common,
   ./rpc/[waku, wakusim, key_storage], ./waku_helpers, ./config
 
 const clientId = "Nimbus waku node"
 
 proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext) =
   let
-    (ip, tcpPort, udpPort) = setupNat(config.nat, clientId, config.tcpPort,
-      config.udpPort, config.portsShift)
-    address = Address(ip: ip, tcpPort: tcpPort, udpPort: udpPort)
+    (ipExt, tcpPortExt, udpPortExt) = setupNat(config.nat, clientId,
+      Port(config.tcpPort + config.portsShift),
+      Port(config.udpPort + config.portsShift))
+  # TODO: EthereumNode should have a better split of binding address and
+  # external address. Also, can't have different ports as it stands now.
+    address = if ipExt.isNone():
+                Address(ip: parseIpAddress("0.0.0.0"),
+                  tcpPort: Port(config.tcpPort + config.portsShift),
+                  udpPort: Port(config.udpPort + config.portsShift))
+              else:
+                Address(ip: ipExt.get(),
+                  tcpPort: Port(config.tcpPort + config.portsShift),
+                  udpPort: Port(config.udpPort + config.portsShift))
 
   # Set-up node
   var node = newEthereumNode(config.nodekey, address, 1, nil, clientId,
