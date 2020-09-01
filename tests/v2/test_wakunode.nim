@@ -20,11 +20,10 @@ procSuite "WakuNode":
     await node.start()
 
     let
-      topic = "foobar"
-      message = ("hello world").toBytes
-    node.publish(topic, ContentFilter(contentTopic: topic), message)
+      topic = "foo"
+      contentTopic = "foobar"
+      wakuMessage = WakuMessage(payload: ("hello world").toBytes,
+        contentTopic: contentTopic)
 
-    let response = node.query(HistoryQuery(topics: @[topic]))
-    check:
-      response.messages.len == 1
-      response.messages[0] == message
+    node.publish(topic, wakuMessage)
+    # TODO: Add actual subscribe part with receival of message
