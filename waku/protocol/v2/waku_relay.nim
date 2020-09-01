@@ -57,9 +57,6 @@ method subscribe*(w: WakuRelay,
                   topic: string,
                   handler: TopicHandler) {.async.} =
   debug "subscribe", topic=topic
-  # XXX: Pubsub really
-
-  # XXX: This is what is called, I think
   if w.gossipEnabled:
     await procCall GossipSub(w).subscribe(topic, handler)
   else:

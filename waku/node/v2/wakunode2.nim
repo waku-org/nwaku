@@ -19,6 +19,7 @@ type
   PublicKey* = crypto.PublicKey
   PrivateKey* = crypto.PrivateKey
 
+  # TODO Get rid of this and use waku_types one
   Topic* = waku_types.Topic
   Message* = seq[byte]
   ContentFilter* = object
@@ -176,30 +177,22 @@ proc unsubscribe*(w: WakuNode, contentFilter: ContentFilter) =
   ## Status: Not yet implemented.
   ## TODO Implement.
 
-proc publish*(w: WakuNode, topic: Topic, message: Message) =
+
+proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
   ## Publish a `Message` to a PubSub topic.
   ##
   ## Status: Partially implemented.
   ##
-  ## TODO WakuMessage OR seq[byte]. NOT PubSub Message.
-  let wakuSub = w.switch.pubSub.get()
+
+  # TODO Basic getter function for relay
+  let wakuRelay = cast[WakuRelay](node.switch.pubSub.get())
+
+  # XXX Unclear what the purpose of this is
+  # Commenting out as it is later expected to be Message type, not WakuMessage
+  #node.messages.insert((topic, message))
+
   # XXX Consider awaiting here
-  discard wakuSub.publish(topic, message)
-
-proc publish*(w: WakuNode, topic: Topic, contentFilter: ContentFilter, message: Message) =
-  ## Publish a `Message` to a PubSub topic with a specific content filter.
-  ## Currently this means a `contentTopic`.
-  ##
-  ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_relay` and `publish`.
-  ## TODO WakuMessage. Ensure content filter is in it.
-
-  w.messages.insert((contentFilter.contentTopic, message))
-
-  let wakuSub = w.switch.pubSub.get()
-  # XXX Consider awaiting here
-
-  discard wakuSub.publish(topic, message)
+  discard wakuRelay.publish(topic, message)
 
 proc query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
   ## Queries for historical messages.
@@ -212,7 +205,8 @@ proc query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
     if msg[0] notin query.topics:
       continue
 
-    result.messages.insert(msg[1])
+    # XXX Unclear how this should be hooked up, Message or WakuMessage?
+    # result.messages.insert(msg[1])
 
 when isMainModule:
   let

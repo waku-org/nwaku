@@ -18,7 +18,8 @@ type
     switch*: Switch
     peerInfo*: PeerInfo
     libp2pTransportLoops*: seq[Future[void]]
-    messages*: seq[(Topic, Message)]
+  # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
+    messages*: seq[(Topic, WakuMessage)]
 
   WakuMessage* = object
     payload*: seq[byte]

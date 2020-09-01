@@ -11,6 +11,9 @@ import
   ../../waku/node/v2/[config, wakunode2, waku_types],
   ../../waku/node/common
 
+type
+  Topic* = waku_types.Topic
+
 # Node operations happens asynchronously
 proc runBackground() {.async.} =
   let
@@ -24,13 +27,14 @@ proc runBackground() {.async.} =
   await node.start()
 
   # Subscribe to a topic
-  let topic = "foobar"
-  proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+  let topic = cast[Topic]("foobar")
+  proc handler(topic: Topic, data: seq[byte]) {.async, gcsafe.} =
     info "Hit subscribe handler", topic=topic, data=data, decoded=cast[string](data)
   node.subscribe(topic, handler)
 
   # Publish to a topic
-  let message = cast[seq[byte]]("hello world")
+  let payload = cast[seq[byte]]("hello world")
+  let message = WakuMessage(payload: payload, contentTopic: "foo")
   node.publish(topic, message)
 
 # TODO Await with try/except here
