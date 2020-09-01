@@ -25,8 +25,6 @@ type
     payload*: seq[byte]
     contentTopic*: string
 
-
-
 # Encoding and decoding -------------------------------------------------------
 
 proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
