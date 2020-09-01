@@ -108,12 +108,11 @@ method rpcHandler*(w: WakuRelay,
 
 method publish*(w: WakuRelay,
                 topic: string,
-                data: seq[byte]
- #               message: WakuMessage
+                message: WakuMessage
                ): Future[int] {.async.} =
-  debug "publish", topic=topic
+  debug "publish", topic=topic, contentTopic=message.contentTopic
 
-#  let data = message.encode().buffer
+  let data = message.encode().buffer
 
   if w.gossipEnabled:
     return await procCall GossipSub(w).publish(topic, data)
