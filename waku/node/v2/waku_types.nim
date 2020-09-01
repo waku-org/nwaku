@@ -20,3 +20,7 @@ type
     peerInfo*: PeerInfo
     libp2pTransportLoops*: seq[Future[void]]
     messages*: seq[(Topic, Message)]
+
+  WakuMessage* =
+    payload*: seq[byte]
+    contentTopic*: string
