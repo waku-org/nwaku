@@ -25,6 +25,9 @@ proc containsMatch(lhs: seq[string], rhs: seq[string]): bool =
 
   return false
 
+proc subscribe*(filters: var Filters, name: string, filter: Filter) =
+  filters.add(name, filter)
+
 proc notify*(filters: var Filters, msg: Message) {.gcsafe.} =
   for filter in filters.mvalues:
     # @TODO WILL NEED TO CHECK SUBTOPICS IN FUTURE FOR WAKU TOPICS NOT LIBP2P ONES

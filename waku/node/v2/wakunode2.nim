@@ -10,7 +10,7 @@ import
   # NOTE For TopicHandler, solve with exports?
   libp2p/protocols/pubsub/pubsub,
   libp2p/peerinfo,
-  ../../protocol/v2/waku_relay, ../common,
+  ../../protocol/v2/[waku_relay, waku_filter], ../common,
   ./waku_types, ./config, ./standard_setup, ./rpc/wakurpc
 
 # key and crypto modules different
@@ -127,6 +127,12 @@ proc start*(node: WakuNode) {.async.} =
   # NOTE WakuRelay is being instantiated as part of creating switch with PubSub field set
   #
   # TODO Mount Waku Store and Waku Filter here
+
+  let filterProto = WakuFilter.init()
+  node.switch.mount(filterProto)
+
+  let wakuRelay = cast[WakuRelay](node.switch.pubSub.get())
+  wakuRelay.addFilter(WakuFilterCodec, filterProto.filter())
 
   # TODO Get this from WakuNode obj
   let peerInfo = node.peerInfo
