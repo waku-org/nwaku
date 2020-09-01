@@ -32,7 +32,7 @@ type
   HistoryResponse* = object
     messages*: seq[Message]
 
-const clientId = "Nimbus Waku v2 node"
+const clientId* = "Nimbus Waku v2 node"
 
 # NOTE Any difference here in Waku vs Eth2?
 # E.g. Devp2p/Libp2p support, etc.
