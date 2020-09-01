@@ -29,7 +29,9 @@ proc runBackground() {.async.} =
   # Subscribe to a topic
   let topic = cast[Topic]("foobar")
   proc handler(topic: Topic, data: seq[byte]) {.async, gcsafe.} =
-    info "Hit subscribe handler", topic=topic, data=data, decoded=cast[string](data)
+    let message = WakuMessage.init(data).value
+    let payload = cast[string](message.payload)
+    info "Hit subscribe handler", topic=topic, payload=payload, contentTopic=message.contentTopic
   node.subscribe(topic, handler)
 
   # Publish to a topic
