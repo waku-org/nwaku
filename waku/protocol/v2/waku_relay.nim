@@ -6,12 +6,10 @@
 import
   std/[strutils, tables],
   chronos, chronicles, metrics,
-  libp2p/protocols/pubsub/pubsub,
-  libp2p/protocols/pubsub/pubsubpeer,
-  libp2p/protocols/pubsub/floodsub,
-  libp2p/protocols/pubsub/gossipsub,
-  libp2p/protocols/pubsub/rpc/[messages],
+  libp2p/protocols/pubsub/[pubsub, pubsubpeer, floodsub, gossipsub],
+  libp2p/protocols/pubsub/rpc/messages,
   libp2p/stream/connection,
+  ../../node/v2/waku_types,
   ./filter
 
 declarePublicGauge total_messages, "number of messages received"
@@ -23,13 +21,10 @@ const WakuRelayCodec* = "/vac/waku/relay/2.0.0-alpha2"
 
 type
   WakuRelay* = ref object of GossipSub
-    # XXX: just playing
-    text*: string
     gossipEnabled*: bool
+    filters*: Filters
 
-    filters: Filters
-
-method init(w: WakuRelay) =
+method init*(w: WakuRelay) =
   debug "init"
   proc handler(conn: Connection, proto: string) {.async.} =
     ## main protocol handler that gets triggered on every
@@ -47,8 +42,6 @@ method init(w: WakuRelay) =
 
 method initPubSub*(w: WakuRelay) =
   debug "initWakuRelay"
-  w.text = "Foobar"
-  debug "w.text", text = w.text
 
   # Not using GossipSub
   w.gossipEnabled = false
@@ -72,8 +65,6 @@ method subscribe*(w: WakuRelay,
   else:
     await procCall FloodSub(w).subscribe(topic, handler)
 
-
-# Subscribing a peer to a specified topic
 method subscribeTopic*(w: WakuRelay,
                        topic: string,
                        subscribe: bool,
@@ -117,8 +108,12 @@ method rpcHandler*(w: WakuRelay,
 
 method publish*(w: WakuRelay,
                 topic: string,
-                data: seq[byte]): Future[int] {.async.} =
+                data: seq[byte]
+ #               message: WakuMessage
+               ): Future[int] {.async.} =
   debug "publish", topic=topic
+
+#  let data = message.encode().buffer
 
   if w.gossipEnabled:
     return await procCall GossipSub(w).publish(topic, data)
@@ -133,7 +128,7 @@ method unsubscribe*(w: WakuRelay,
   else:
     await procCall FloodSub(w).unsubscribe(topics)
 
-# GossipSub specific methods
+# GossipSub specific methods --------------------------------------------------
 method start*(w: WakuRelay) {.async.} =
   debug "start"
   if w.gossipEnabled:
