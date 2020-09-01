@@ -21,7 +21,7 @@ proc runBackground() {.async.} =
     node = WakuNode.init(conf.nodeKey, conf.libp2pAddress,
       Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
 
-  waitFor node.start()
+  await node.start()
 
   # Subscribe to a topic
   let topic = "foobar"
