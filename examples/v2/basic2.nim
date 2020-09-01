@@ -2,7 +2,8 @@
 ## topics, and publish to them.
 
 import
-  confutils, chronicles, chronos, os,
+  std/os,
+  confutils, chronicles, chronos,
   stew/shims/net as stewNet,
   libp2p/crypto/[crypto,secp],
   eth/keys,
