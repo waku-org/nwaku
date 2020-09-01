@@ -1,25 +1,26 @@
-# Here's an example of how you would start a Waku node, subscribe to topics, and
-# publish to them
+## Here's a basic example of how you would start a Waku node, subscribe to
+## topics, and publish to them.
 
-import confutils, chronicles, chronos, os
-
-import stew/shims/net as stewNet
-import libp2p/crypto/crypto
-import libp2p/crypto/secp
-import eth/keys
-import json_rpc/[rpcclient, rpcserver]
-
-import ../../waku/node/v2/config
-import ../../waku/node/v2/wakunode2
-import ../../waku/node/v2/waku_types
-
-# Loads the config in `waku/node/v2/config.nim`
-let conf = WakuNodeConf.load()
+import
+  confutils, chronicles, chronos, os,
+  stew/shims/net as stewNet,
+  libp2p/crypto/[crypto,secp],
+  eth/keys,
+  json_rpc/[rpcclient, rpcserver],
+  ../../waku/node/v2/[config, wakunode2, waku_types],
+  ../../waku/node/common
 
 # Node operations happens asynchronously
-proc runBackground(conf: WakuNodeConf) {.async.} =
-  # Create and start the node
-  let node = await WakuNode.init(conf)
+proc runBackground() {.async.} =
+  let
+    conf = WakuNodeConf.load()
+    (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
+      Port(uint16(conf.tcpPort) + conf.portsShift),
+      Port(uint16(conf.udpPort) + conf.portsShift))
+    node = WakuNode.init(conf.nodeKey, conf.libp2pAddress,
+      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
+
+  waitFor node.start()
 
   # Subscribe to a topic
   let topic = "foobar"
@@ -31,6 +32,7 @@ proc runBackground(conf: WakuNodeConf) {.async.} =
   let message = cast[seq[byte]]("hello world")
   node.publish(topic, message)
 
-discard runBackground(conf)
+
+discard runBackground()
 
 runForever()
