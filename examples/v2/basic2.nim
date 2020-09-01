@@ -33,7 +33,7 @@ proc runBackground() {.async.} =
   let message = cast[seq[byte]]("hello world")
   node.publish(topic, message)
 
-TODO Await with try/except here
+# TODO Await with try/except here
 discard runBackground()
 
 runForever()
