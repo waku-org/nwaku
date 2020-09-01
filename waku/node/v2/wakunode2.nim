@@ -2,7 +2,7 @@ import
   std/[strutils, options],
   chronos, confutils, json_rpc/rpcserver, metrics, stew/shims/net as stewNet,
   # TODO: Why do we need eth keys?
-  eth/keys, eth/net/nat,
+  eth/keys,
   # eth/[keys, p2p], eth/net/nat, eth/p2p/[discovery, enode],
   libp2p/multiaddress,
   libp2p/crypto/crypto,
@@ -10,7 +10,7 @@ import
   # NOTE For TopicHandler, solve with exports?
   libp2p/protocols/pubsub/pubsub,
   libp2p/peerinfo,
-  ../../protocol/v2/waku_relay,
+  ../../protocol/v2/waku_relay, ../common,
   ./waku_types, ./config, ./standard_setup, ./rpc/wakurpc
 
 # key and crypto modules different
@@ -30,7 +30,7 @@ type
   HistoryResponse* = object
     messages*: seq[Message]
 
-const clientId = "Nimbus waku node"
+const clientId = "Nimbus Waku v2 node"
 
 # NOTE Any difference here in Waku vs Eth2?
 # E.g. Devp2p/Libp2p support, etc.
@@ -76,102 +76,57 @@ proc connectToNodes(n: WakuNode, nodes: openArray[string]) =
     #    let whisperENode = ENode.fromString(nodeId).expect("correct node")
     #    traceAsyncErrors node.peerPool.connectToNode(newNode(whisperENode))
 
-# NOTE Identical with eth2_network, pull out into common?
-# NOTE Except portsShift
-proc setupNat(conf: WakuNodeConf): tuple[ip: Option[ValidIpAddress],
-                                           tcpPort: Port,
-                                           udpPort: Port] {.gcsafe.} =
-  # defaults
-  result.tcpPort = Port(uint16(conf.tcpPort) + conf.portsShift)
-  result.udpPort = Port(uint16(conf.udpPort) + conf.portsShift)
+proc startRpc(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port) =
+  let
+    ta = initTAddress(rpcIp, rpcPort)
+    rpcServer = newRpcHttpServer([ta])
+  setupWakuRPC(node, rpcServer)
+  rpcServer.start()
+  info "RPC Server started", ta
 
-  var nat: NatStrategy
-  case conf.nat.toLowerAscii:
-    of "any":
-      nat = NatAny
-    of "none":
-      nat = NatNone
-    of "upnp":
-      nat = NatUpnp
-    of "pmp":
-      nat = NatPmp
-    else:
-      if conf.nat.startsWith("extip:"):
-        try:
-          # any required port redirection is assumed to be done by hand
-          result.ip = some(ValidIpAddress.init(conf.nat[6..^1]))
-          nat = NatNone
-        except ValueError:
-          error "nor a valid IP address", address = conf.nat[6..^1]
-          quit QuitFailure
-      else:
-        error "not a valid NAT mechanism", value = conf.nat
-        quit QuitFailure
+proc startMetricsServer(serverIp: ValidIpAddress, serverPort: Port) =
+    info "Starting metrics HTTP server", serverIp, serverPort
+    metrics.startHttpServer($serverIp, serverPort)
 
-  if nat != NatNone:
-    let extIp = getExternalIP(nat)
-    if extIP.isSome:
-      result.ip = some(ValidIpAddress.init extIp.get)
-      # TODO redirectPorts in considered a gcsafety violation
-      # because it obtains the address of a non-gcsafe proc?
-      let extPorts = ({.gcsafe.}:
-        redirectPorts(tcpPort = result.tcpPort,
-                      udpPort = result.udpPort,
-                      description = clientId))
-      if extPorts.isSome:
-        (result.tcpPort, result.udpPort) = extPorts.get()
+proc startMetricsLog() =
+  proc logMetrics(udata: pointer) {.closure, gcsafe.} =
+    {.gcsafe.}:
+      # TODO: libp2p_pubsub_peers is not public, so we need to make this either
+      # public in libp2p or do our own peer counting after all.
+      let
+        totalMessages = total_messages.value
 
-# TODO Consider removing unused arguments
-proc init*(T: type WakuNode, conf: WakuNodeConf, switch: Switch,
-                   ip: Option[ValidIpAddress], tcpPort, udpPort: Port,
-                   privKey: keys.PrivateKey,
-                   peerInfo: PeerInfo): T =
-  new result
-  result.switch = switch
-  result.peerInfo = peerInfo
-  # TODO Peer pool, discovery, protocol state, etc
+    info "Node metrics", totalMessages
+    discard setTimer(Moment.fromNow(2.seconds), logMetrics)
+  discard setTimer(Moment.fromNow(2.seconds), logMetrics)
 
-proc createWakuNode*(conf: WakuNodeConf): Future[WakuNode] {.async, gcsafe.} =
-  var
-    (extIp, extTcpPort, extUdpPort) = setupNat(conf)
-    hostAddress = tcpEndPoint(conf.libp2pAddress, Port(uint16(conf.tcpPort) + conf.portsShift))
-    announcedAddresses = if extIp.isNone(): @[]
-                         else: @[tcpEndPoint(extIp.get(), extTcpPort)]
+## Public API
+##
 
+proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
+    bindIp: ValidIpAddress, bindPort: Port,
+    extIp = none[ValidIpAddress](), extPort = none[Port]()): T =
+  ## Creates and starts a Waku node.
+  let
+    hostAddress = tcpEndPoint(bindIp, bindPort)
+    announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
+                         else: @[tcpEndPoint(extIp.get(), extPort.get())]
+    peerInfo = PeerInfo.init(nodekey)
   info "Initializing networking", hostAddress,
                                   announcedAddresses
-
-  let
-    nodekey = conf.nodekey
-    pubkey = nodekey.getKey.get()
-    keys = KeyPair(seckey: nodekey, pubkey: pubkey)
-    peerInfo = PeerInfo.init(nodekey)
-
   # XXX: Add this when we create node or start it?
   peerInfo.addrs.add(hostAddress)
 
-  var switch = newStandardSwitch(some keys.seckey, hostAddress, triggerSelf = true)
+  var switch = newStandardSwitch(some(nodekey), hostAddress, triggerSelf = true)
 
-  # TODO Either persist WakuNode or something here
+  return WakuNode(switch: switch, peerInfo: peerInfo)
 
-  # TODO Look over this
-  # XXX Consider asEthKey and asLibp2pKey
-  result = WakuNode.init(conf, switch, extIp, extTcpPort, extUdpPort, keys.seckey.asEthKey, peerInfo)
-
-proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
+proc start*(node: WakuNode) {.async.} =
   node.libp2pTransportLoops = await node.switch.start()
 
   # NOTE WakuRelay is being instantiated as part of creating switch with PubSub field set
   #
   # TODO Mount Waku Store and Waku Filter here
-
-  # TODO Move out into separate proc
-  if conf.rpc:
-    let ta = initTAddress(conf.rpcAddress, Port(conf.rpcPort + conf.portsShift))
-    var rpcServer = newRpcHttpServer([ta])
-    setupWakuRPC(node, rpcServer)
-    rpcServer.start()
-    info "rpcServer started", ta=ta
 
   # TODO Get this from WakuNode obj
   let peerInfo = node.peerInfo
@@ -180,40 +135,6 @@ proc start*(node: WakuNode, conf: WakuNodeConf) {.async.} =
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & id
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
-
-  # XXX: So doing this _after_ other setup
-  # Optionally direct connect with a set of nodes
-  if conf.staticnodes.len > 0: connectToNodes(node, conf.staticnodes)
-
-  # TODO Move out into separate proc
-  when defined(insecure):
-    if conf.metricsServer:
-      let
-        address = conf.metricsServerAddress
-        port = conf.metricsServerPort + conf.portsShift
-      info "Starting metrics HTTP server", address, port
-      metrics.startHttpServer($address, Port(port))
-
-    if conf.logMetrics:
-      proc logMetrics(udata: pointer) {.closure, gcsafe.} =
-        {.gcsafe.}:
-          let
-            connectedPeers = connected_peers.value
-            totalMessages = total_messages.value
-
-        info "Node metrics", connectedPeers, totalMessages
-        addTimer(Moment.fromNow(2.seconds), logMetrics)
-      addTimer(Moment.fromNow(2.seconds), logMetrics)
-
-## Public API
-##
-
-proc init*(T: type WakuNode, conf: WakuNodeConf): Future[T] {.async.} =
-  ## Creates and starts a Waku node.
-  ##
-  let node = await createWakuNode(conf)
-  await node.start(conf)
-  return node
 
 # NOTE TopicHandler is defined in pubsub.nim, roughly:
 #type TopicHandler* = proc(topic: string, data: seq[byte])
@@ -294,6 +215,28 @@ proc query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
     result.messages.insert(msg[1])
 
 when isMainModule:
-  let conf = WakuNodeConf.load()
-  discard WakuNode.init(conf)
+  let
+    conf = WakuNodeConf.load()
+    (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
+      Port(uint16(conf.tcpPort) + conf.portsShift),
+      Port(uint16(conf.udpPort) + conf.portsShift))
+    node = WakuNode.init(conf.nodeKey, conf.libp2pAddress,
+      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
+
+  waitFor node.start()
+
+  if conf.staticnodes.len > 0:
+    connectToNodes(node, conf.staticnodes)
+
+  if conf.rpc:
+    startRpc(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift))
+
+  if conf.logMetrics:
+    startMetricsLog()
+
+  when defined(insecure):
+    if conf.metricsServer:
+      startMetricsServer(conf.metricsServerAddress,
+        Port(conf.metricsServerPort + conf.portsShift))
+
   runForever()

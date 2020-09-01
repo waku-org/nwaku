@@ -1,8 +1,9 @@
 import
-  confutils, chronicles, chronos, stew/byteutils,
+  confutils, chronicles, chronos, stew/byteutils, stew/shims/net as stewNet,
   eth/[keys, p2p],
   ../../waku/protocol/v1/waku_protocol,
   ../../waku/node/v1/waku_helpers,
+  ../../waku/node/common,
   ./config_example
 
 ## This is a simple Waku v1 example to show the Waku v1 API usage.
@@ -15,9 +16,19 @@ let
   # Seed the rng.
   rng = keys.newRng()
   # Set up the address according to NAT information.
-  (ip, tcpPort, udpPort) = setupNat(config.nat, clientId, config.tcpPort,
-    config.udpPort, config.portsShift)
-  address = Address(ip: ip, tcpPort: tcpPort, udpPort: udpPort)
+  (ipExt, tcpPortExt, udpPortExt) = setupNat(config.nat, clientId,
+    Port(config.tcpPort + config.portsShift),
+    Port(config.udpPort + config.portsShift))
+  # TODO: EthereumNode should have a better split of binding address and
+  # external address. Also, can't have different ports as it stands now.
+  address = if ipExt.isNone():
+              Address(ip: parseIpAddress("0.0.0.0"),
+                tcpPort: Port(config.tcpPort + config.portsShift),
+                udpPort: Port(config.udpPort + config.portsShift))
+            else:
+              Address(ip: ipExt.get(),
+                tcpPort: Port(config.tcpPort + config.portsShift),
+                udpPort: Port(config.udpPort + config.portsShift))
 
 # Create Ethereum Node
 var node = newEthereumNode(config.nodekey, # Node identifier
