@@ -14,6 +14,11 @@ import metrics
 
 import stew/results
 
+
+# NOTE This is just a start, the design of this protocol isn't done yet. It
+# should be direct payload exchange (a la req-resp), not be coupled with the
+# relay protocol.
+
 const
   WakuFilterCodec* = "/vac/waku/filter/2.0.0-alpha2"
 
