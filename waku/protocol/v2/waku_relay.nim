@@ -22,7 +22,6 @@ const WakuRelayCodec* = "/vac/waku/relay/2.0.0-alpha2"
 type
   WakuRelay* = ref object of GossipSub
     gossipEnabled*: bool
-    filters*: filter.Filters
 
 method init*(w: WakuRelay) =
   debug "init"
@@ -38,7 +37,6 @@ method init*(w: WakuRelay) =
   # XXX: Handler hijack GossipSub here?
   w.handler = handler
   w.codec = WakuRelayCodec
-  w.filters = initTable[string, filter.Filter]()
 
 method initPubSub*(w: WakuRelay) =
   debug "initWakuRelay"
@@ -95,6 +93,3 @@ method stop*(w: WakuRelay) {.async.} =
     await procCall GossipSub(w).stop()
   else:
     await procCall FloodSub(w).stop()
-
-proc addFilter*(w: WakuRelay, name: string, filter: filter.Filter) =
-  w.filters.subscribe(name, filter)
