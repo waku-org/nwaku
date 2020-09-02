@@ -24,7 +24,7 @@ type
   FilterRPC* = object
     filters*: seq[ContentFilter]
 
-  Subscriber = object
+  Subscriber* = object
     connection: Connection
     filter: FilterRPC
 
