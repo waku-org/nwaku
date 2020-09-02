@@ -4,13 +4,11 @@
 ## Instead, it should likely be on top of GossipSub with a similar interface.
 
 import
-  std/[strutils, tables],
+  std/strutils,
   chronos, chronicles, metrics,
-  libp2p/protocols/pubsub/[pubsub, pubsubpeer, floodsub, gossipsub],
+  libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub],
   libp2p/protocols/pubsub/rpc/messages,
-  libp2p/stream/connection,
-  ../../node/v2/waku_types,
-  ./filter
+  libp2p/stream/connection
 
 declarePublicGauge total_messages, "number of messages received"
 
