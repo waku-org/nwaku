@@ -1,5 +1,5 @@
 import
-  std/[strutils, options],
+  std/[strutils, options, tables],
   chronos, confutils, json_rpc/rpcserver, metrics, stew/shims/net as stewNet,
   # TODO: Why do we need eth keys?
   eth/keys,
@@ -24,8 +24,6 @@ type
   # TODO Get rid of this and use waku_types one
   Topic* = waku_types.Topic
   Message* = seq[byte]
-  ContentFilter* = object
-    contentTopic*: string
 
   HistoryQuery* = object
     topics*: seq[string]
@@ -142,10 +140,11 @@ proc start*(node: WakuNode) {.async.} =
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
 
-# NOTE TopicHandler is defined in pubsub.nim, roughly:
-#type TopicHandler* = proc(topic: string, data: seq[byte])
+proc stop*(node: WakuNode) {.async.} =
+  let wakuRelay = node.switch.pubSub.get()
+  await wakuRelay.stop()
 
-type ContentFilterHandler* = proc(contentFilter: ContentFilter, message: Message)
+  await node.switch.stop()
 
 proc subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler) =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
@@ -159,14 +158,13 @@ proc subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler) =
   discard wakuRelay.subscribe(topic, handler)
 
 proc subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFilterHandler) =
-  echo "NYI"
   ## Subscribes to a ContentFilter. Triggers handler when receiving messages on
   ## this content filter. ContentFilter is a method that takes some content
   ## filter, specifically with `ContentTopic`, and a `Message`. The `Message`
   ## has to match the `ContentTopic`.
 
-  ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_filter` and `subscribe` above.
+  # TODO: get some random id, or use the Filter directly as key
+  w.filters.add("some random id", Filter(contentFilter: contentFilter, handler: handler))
 
 proc unsubscribe*(w: WakuNode, topic: Topic) =
   echo "NYI"
@@ -198,8 +196,11 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
   # Commenting out as it is later expected to be Message type, not WakuMessage
   #node.messages.insert((topic, message))
 
+  debug "publish", topic=topic, contentTopic=message.contentTopic
+  let data = message.encode().buffer
+
   # XXX Consider awaiting here
-  discard wakuRelay.publish(topic, message)
+  discard wakuRelay.publish(topic, data)
 
 proc query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
   ## Queries for historical messages.
