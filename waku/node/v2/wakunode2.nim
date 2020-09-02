@@ -129,9 +129,6 @@ proc start*(node: WakuNode) {.async.} =
   let storeProto = WakuStore.init()
   node.switch.mount(storeProto)
 
-  let wakuRelay = cast[WakuRelay](node.switch.pubSub.get())
-  wakuRelay.addFilter("store", storeProto.filter())
-
   # TODO Get this from WakuNode obj
   let peerInfo = node.peerInfo
   let id = peerInfo.peerId.pretty
