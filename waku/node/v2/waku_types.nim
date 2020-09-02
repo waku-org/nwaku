@@ -1,13 +1,13 @@
+## Core Waku data types are defined here to avoid recursive dependencies.
+##
+## TODO Move more common data types here
+
 import
   chronos,
-  libp2p/multiaddress,
-  libp2p/crypto/crypto,
-  libp2p/peerinfo,
-  standard_setup
+  libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
+  libp2p/protobuf/minprotobuf
 
-# Core Waku data types are defined here to avoid recursive dependencies.
-#
-# TODO Move more common data types here
+# Common data types -----------------------------------------------------------
 
 type
   Topic* = string
@@ -16,7 +16,28 @@ type
   # NOTE based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj
     switch*: Switch
-    # XXX Unclear if we need this
     peerInfo*: PeerInfo
     libp2pTransportLoops*: seq[Future[void]]
-    messages*: seq[(Topic, Message)]
+  # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
+    messages*: seq[(Topic, WakuMessage)]
+
+  WakuMessage* = object
+    payload*: seq[byte]
+    contentTopic*: string
+
+# Encoding and decoding -------------------------------------------------------
+
+proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
+  var msg = WakuMessage()
+  let pb = initProtoBuffer(buffer)
+
+  discard ? pb.getField(1, msg.payload)
+  discard ? pb.getField(2, msg.contentTopic)
+
+  ok(msg)
+
+proc encode*(message: WakuMessage): ProtoBuffer =
+  result = initProtoBuffer()
+
+  result.write(1, message.payload)
+  result.write(2, message.contentTopic)
