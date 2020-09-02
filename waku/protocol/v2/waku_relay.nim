@@ -138,3 +138,6 @@ method stop*(w: WakuRelay) {.async.} =
     await procCall GossipSub(w).stop()
   else:
     await procCall FloodSub(w).stop()
+
+proc addFilter*(w: WakuRelay, name: string, filter: Filter) =
+  w.filters.subscribe(name, filter)
