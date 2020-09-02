@@ -12,6 +12,9 @@ type
     
   Filters* = Table[string, Filter]
 
+proc subscribe*(filters: var Filters, name: string, filter: Filter) =
+  filters.add(name, filter)
+
 proc init*(T: type Filter, topics: seq[string], handler: FilterMessageHandler): T =
   result = T(
     topics: topics,
