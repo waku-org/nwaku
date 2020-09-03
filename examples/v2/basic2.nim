@@ -28,11 +28,14 @@ proc runBackground() {.async.} =
 
   # Subscribe to a topic
   let topic = cast[Topic]("foobar")
-  proc handler(topic: Topic, data: seq[byte]) {.async, gcsafe.} =
+  proc handler(topic: Topic, data: seq[byte]) {.async.} =
     let message = WakuMessage.init(data).value
     let payload = cast[string](message.payload)
     info "Hit subscribe handler", topic=topic, payload=payload, contentTopic=message.contentTopic
-  node.subscribe(topic, handler)
+
+  # Using subscribe2 results in:
+  # Error: 'runBackground_continue' is not GC-safe as it accesses 'nameIterVar`gensym142156020' which is a global using GC'ed memory
+  node.subscribe2(topic, handler)
 
   # Publish to a topic
   let payload = cast[seq[byte]]("hello world")

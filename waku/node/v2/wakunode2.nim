@@ -170,8 +170,8 @@ proc subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFilte
 let defaultTopic = cast[Topic]("waku")
 let emptyContentFilter = ContentFilter()
 # TODO Name these functions to ensure type interference works correctly?
-proc emptyTopicHandler*(topic: string, data: seq[byte]) {.async, gcsafe.} = discard
-proc emptyContentFilterHandler*(message: seq[byte]) {.gcsafe.} = discard
+proc emptyTopicHandler*(topic: string, data: seq[byte]) {.async.} = discard
+proc emptyContentFilterHandler*(message: seq[byte]) = discard
 
 proc subscribe2*(node: WakuNode,
                  topic = defaultTopic,
