@@ -143,6 +143,9 @@ proc stop*(node: WakuNode) {.async.} =
 
   await node.switch.stop()
 
+# TODO Gradual phase out - subscribe2 is experimental and it may or may not be a good idea
+# If it seems reasonable, we can migrate over to only using subscribe2.
+
 proc subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler) =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
   ## this topic. TopicHandler is a method that takes a topic and some data.
@@ -163,6 +166,36 @@ proc subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFilte
   # TODO: get some random id, or use the Filter directly as key
   w.filters.add("some random id", Filter(contentFilter: contentFilter, handler: handler))
 
+# TODO Move these helpers up, here to make it easier to iterate on API
+let defaultTopic = cast[Topic]("waku")
+let emptyContentFilter = ContentFilter()
+# TODO Name these functions to ensure type interference works correctly?
+proc emptyTopicHandler*(topic: string, data: seq[byte]) {.async, gcsafe.} = discard
+proc emptyContentFilterHandler*(message: seq[byte]) {.gcsafe.} = discard
+
+proc subscribe2*(node: WakuNode,
+                 topic = defaultTopic,
+                 topicHandler = emptyTopicHandler,
+                 contentFilter = emptyContentFilter,
+                 contentHandler = emptyContentFilterHandler) =
+  ## Subscribes to a PubSub topic with an optional content filter. If topic is
+  ## omitted, defaults to the default topic. If content filter is omitted, no
+  ## filtering takes places.
+  ##
+  ## Optionally specify a topic and content handler. This will be called when a
+  ## message matches the topic and content filter, respectively. Topic handler
+  ## takes a topic and some data. Content handler only takes a message. If these
+  ## aren't specified, the messages are discarded by default.
+  ##
+  ## Status: Experimental
+
+  let wakuRelay = node.switch.pubSub.get()
+  # XXX Consider awaiting here
+  discard wakuRelay.subscribe(topic, topicHandler)
+
+  # XXX Only do this if contentFilter has some topics in it?
+  node.filters.add("some random id", Filter(contentFilter: contentFilter, handler: contentHandler))
+
 proc unsubscribe*(w: WakuNode, topic: Topic) =
   echo "NYI"
   ## Unsubscribe from a topic.
@@ -177,6 +210,8 @@ proc unsubscribe*(w: WakuNode, contentFilter: ContentFilter) =
   ## Status: Not yet implemented.
   ## TODO Implement.
 
+# TODO Assuming subscribe2 seems fine, implement similar for unsubscribe
+# proc unsubscribe2*(w: WakuNode, contentFilter: ContentFilter) =
 
 proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
   ## Publish a `WakuMessage` to a PubSub topic. `WakuMessage` should contain a
