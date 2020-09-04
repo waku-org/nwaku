@@ -5,7 +5,7 @@ import
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
-  ./filter
+  ./message_notifier
 
 const
   WakuStoreCodec* = "/vac/waku/store/2.0.0-alpha2"
@@ -126,7 +126,7 @@ proc init*(T: type WakuStore): T =
   ws.codec = WakuStoreCodec
   result = ws
 
-proc filter*(proto: WakuStore): Filter =
+proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   ## The filter function returns the pubsub filter for the node.
   ## This is used to pipe messages into the storage, therefore
   ## the filter should be used by the component that receives
@@ -134,4 +134,4 @@ proc filter*(proto: WakuStore): Filter =
   proc handle(msg: Message) =
     proto.messages.add(msg)
 
-  Filter.init(@[], handle)
+  MessageNotificationSubscription.init(@[], handle)

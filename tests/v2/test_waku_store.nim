@@ -11,7 +11,7 @@ import
   libp2p/multistream,
   libp2p/transports/transport,
   libp2p/transports/tcptransport,
-  ../../waku/protocol/v2/[waku_store, filter],
+  ../../waku/protocol/v2/[waku_store, message_notifier],
   ../test_helpers, ./utils
 
 procSuite "Waku Store":
@@ -34,18 +34,18 @@ procSuite "Waku Store":
   asyncTest "handle query":
     let 
       proto = WakuStore.init()
-      filter = proto.filter()
+      subscription = proto.subscription()
 
-    var filters = initTable[string, Filter]()
-    filters["test"] = filter
+    var subscriptions = initTable[string, MessageNotificationSubscription]()
+    subscriptions["test"] = subscription
 
     let
       peer = PeerInfo.init(PrivateKey.random(ECDSA, rng[]).get())
       msg = Message.init(peer, @[byte 1, 2, 3], "topic", 3, false)
       msg2 = Message.init(peer, @[byte 1, 2, 3], "topic2", 4, false)
 
-    filters.notify(msg)
-    filters.notify(msg2)
+    subscriptions.notify(msg)
+    subscriptions.notify(msg2)
 
     let ma: MultiAddress = Multiaddress.init("/ip4/0.0.0.0/tcp/0").tryGet()
     let remoteSecKey = PrivateKey.random(ECDSA, rng[]).get()

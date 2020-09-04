@@ -8,7 +8,7 @@ import
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
-  ./filter
+  ./message_notifier
 
 # NOTE This is just a start, the design of this protocol isn't done yet. It
 # should be direct payload exchange (a la req-resp), not be coupled with the
@@ -83,7 +83,7 @@ proc init*(T: type WakuFilter): T =
   ws.codec = WakuFilterCodec
   result = ws
 
-proc filter*(proto: WakuFilter): Filter =
+proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
   ## Returns a Filter for the specific protocol
   ## This filter can then be used to send messages to subscribers that match conditions.
   proc handle(msg: Message) =
@@ -94,4 +94,4 @@ proc filter*(proto: WakuFilter): Filter =
             discard subscriber.connection.writeLp(msg.encodeMessage())
             break
 
-  Filter.init(@[], handle)
+  MessageNotificationSubscription.init(@[], handle)
