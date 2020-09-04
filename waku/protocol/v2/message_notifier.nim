@@ -2,8 +2,13 @@ import
   std/tables,
   libp2p/protocols/pubsub/rpc/messages
 
-type 
+# The Message Notification system is a method to notify various protocols
+# running on a node when a new message was received.
+#
+# Protocols can subscribe to messages of specific topics, then when one is received
+# The notification handler function will be called.
 
+type
   MessageNotificationHandler* = proc(msg: Message) {.gcsafe, closure.}
 
   MessageNotificationSubscription* = object
