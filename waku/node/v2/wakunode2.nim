@@ -122,6 +122,14 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
 
   return WakuNode(switch: switch, peerInfo: peerInfo)
 
+proc setLightNode(node: WakuNode, lightNode: bool) =
+  node.lightNode = lightNode
+  # Need to switch the subscribes, etc. between WakuRelay and WakuFilter.
+  # As we reuse the same set of filters, nothing needs to be done there
+  # (except maybe removing some in case it was a full node talking with
+  # a light node).
+  discard
+
 proc start*(node: WakuNode) {.async.} =
   node.libp2pTransportLoops = await node.switch.start()
 
@@ -150,9 +158,19 @@ proc subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler) =
   ## NOTE The data field SHOULD be decoded as a WakuMessage.
   ## Status: Implemented.
 
-  let wakuRelay = w.switch.pubSub.get()
+  if not w.lightNode:
+    let wakuRelay = w.switch.pubSub.get()
   # XXX Consider awaiting here
-  discard wakuRelay.subscribe(topic, handler)
+    discard wakuRelay.subscribe(topic, handler)
+  else:
+    # Do the wakuFilter subscribes.
+    discard
+
+# TODO: will need whole lot of logic still to forward (filtered) messages
+# between WakuRelay and WakuFilter (as a full node). This can be achieved by
+# registering a contentFilter handler on all the content that the light nodes
+# are interested in. The handler of that filter would then have to push the
+# correct messages (based on contentFilter) the right peers.
 
 proc subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFilterHandler) =
   ## Subscribes to a ContentFilter. Triggers handler when receiving messages on

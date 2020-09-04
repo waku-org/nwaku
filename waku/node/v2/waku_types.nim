@@ -32,6 +32,7 @@ type
   WakuNode* = ref object of RootObj
     switch*: Switch
     peerInfo*: PeerInfo
+    lightNode*: bool # For now just one setting.
     libp2pTransportLoops*: seq[Future[void]]
   # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
     messages*: seq[(Topic, WakuMessage)]

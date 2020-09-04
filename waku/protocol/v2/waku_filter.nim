@@ -17,6 +17,11 @@ import
 const
   WakuFilterCodec* = "/vac/waku/filter/2.0.0-alpha2"
 
+# TODO: This will be an asymmetric Protocol so we probably need some full node
+# vs light node identification?
+# Or we check this with ContentFilter somehow? If none is set it can be
+# considered a full node?
+
 type
   ContentFilter* = object
     topics*: seq[string]
@@ -30,6 +35,10 @@ type
 
   WakuFilter* = ref object of LPProtocol
     subscribers*: seq[Subscriber]
+    # This handler should be triggered on incoming messages through th
+    # WakuFilter protocol. This part of the RPC + logic around it is not
+    # implemented currently.
+    messageHandler*: FilterMessageHandler
 
 proc encode*(filter: ContentFilter): ProtoBuffer =
   result = initProtoBuffer()
@@ -51,6 +60,15 @@ proc init*(T: type ContentFilter, buffer: seq[byte]): ProtoResult[T] =
 
   ok(ContentFilter(topics: topics))
 
+# TODO: This should probably be done in some general init, but there is nothing
+# else to init for now.
+# The relayHandler would be added at WakuNode level and can probably be the
+# same one as for WakuRelay.
+# Perhaps this can also be done in the subscribe call, would be good to keep
+# things similar/consistent with what is done at WakuRelay, if possible.
+proc setHandler(wakuFilter: WakuFilter, handler: FilterMessageHandler) =
+  wakuFilter.messageHandler = handler
+
 proc init*(T: type FilterRPC, buffer: seq[byte]): ProtoResult[T] =
   var rpc = FilterRPC(filters: @[])
   let pb = initProtoBuffer(buffer)
@@ -62,6 +80,11 @@ proc init*(T: type FilterRPC, buffer: seq[byte]): ProtoResult[T] =
     rpc.filters.add(? ContentFilter.init(buf))
 
   ok(rpc)
+
+proc subscribe(wakuFilter: WakuFilter, topics: seq[string]) =
+  # This should Update the ContentFilter to add the topics
+  # and transfer this to the full node peers.
+  discard
 
 proc init*(T: type WakuFilter): T =
   var ws = WakuFilter(subscribers: newSeq[Subscriber](0))
