@@ -34,7 +34,7 @@ type
 
   Subscriber = object
     connection: Connection
-    filter: FilterRPC
+    filter: seq[FilterRequest]
 
   WakuFilter* = ref object of LPProtocol
     subscribers*: seq[Subscriber]
@@ -133,22 +133,22 @@ proc init*(T: type WakuFilter): T =
     if res.isErr:
       return
 
-    ws.subscribers.add(Subscriber(connection: conn, filter: res.value))
+    ws.subscribers.add(Subscriber(connection: conn, filter: res.value.filterRequest))
     # @TODO THIS IS A VERY ROUGH EXPERIMENT
 
   ws.handler = handle
   ws.codec = WakuFilterCodec
   result = ws
 
-# proc filter*(proto: WakuFilter): Filter =
-#   ## Returns a Filter for the specific protocol
-#   ## This filter can then be used to send messages to subscribers that match conditions.
-#   proc handle(msg: Message) =
-#     for subscriber in proto.subscribers:
-#       for f in subscriber.filter.filters:
-#         for topic in f.topics:
-#           if topic in msg.topicIDs:
-#             discard subscriber.connection.writeLp(msg.encodeMessage())
-#             break
+proc filter*(proto: WakuFilter): Filter =
+  ## Returns a Filter for the specific protocol
+  ## This filter can then be used to send messages to subscribers that match conditions.
+  proc handle(msg: Message) =
+    for subscriber in proto.subscribers:
+      for filter in subscriber.filter:
+        if filter.topic in msg.topicIDs:
+          # @TODO PROBABLY WANT TO BATCH MESSAGES
+          discard subscriber.connection.writeLp(FilterRPC(messagePush: @[MessagePush(message: @[msg])]).encode().buffer)
+          break
 
-#   Filter.init(@[], handle)
+  Filter.init(@[], handle)

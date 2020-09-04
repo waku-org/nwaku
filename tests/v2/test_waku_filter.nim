@@ -32,53 +32,55 @@ procSuite "Waku Filter":
       decode.isErr == false
       decode.value == rpc
 
-  # asyncTest "handle filter":
-  #   let
-  #     proto = WakuFilter.init()
-  #     filter = proto.filter()
+  asyncTest "handle filter":
+    let
+      proto = WakuFilter.init()
+      filter = proto.filter()
 
-  #   var filters = initTable[string, Filter]()
-  #   filters["test"] = filter
+    var filters = initTable[string, Filter]()
+    filters["test"] = filter
 
-  #   let
-  #     peer = PeerInfo.init(PrivateKey.random(ECDSA, rng[]).get())
-  #     msg = Message.init(peer, @[byte 1, 2, 3], "topic", 3, false)
-  #     msg2 = Message.init(peer, @[byte 1, 2, 3], "topic2", 4, false)
+    let
+      peer = PeerInfo.init(PrivateKey.random(ECDSA, rng[]).get())
+      msg = Message.init(peer, @[byte 1, 2, 3], "topic", 3, false)
+      msg2 = Message.init(peer, @[byte 1, 2, 3], "topic2", 4, false)
 
-  #   let ma: MultiAddress = Multiaddress.init("/ip4/0.0.0.0/tcp/0").tryGet()
-  #   let remoteSecKey = PrivateKey.random(ECDSA, rng[]).get()
-  #   let remotePeerInfo = PeerInfo.init(
-  #     remoteSecKey,
-  #     [ma],
-  #     ["/test/proto1/1.0.0", "/test/proto2/1.0.0"]
-  #   )
+    let ma: MultiAddress = Multiaddress.init("/ip4/0.0.0.0/tcp/0").tryGet()
+    let remoteSecKey = PrivateKey.random(ECDSA, rng[]).get()
+    let remotePeerInfo = PeerInfo.init(
+      remoteSecKey,
+      [ma],
+      ["/test/proto1/1.0.0", "/test/proto2/1.0.0"]
+    )
 
-  #   var serverFut: Future[void]
-  #   let msListen = newMultistream()
+    var serverFut: Future[void]
+    let msListen = newMultistream()
 
-  #   msListen.addHandler(WakuFilterCodec, proto)
-  #   proc connHandler(conn: Connection): Future[void] {.async, gcsafe.} =
-  #     await msListen.handle(conn)
+    msListen.addHandler(WakuFilterCodec, proto)
+    proc connHandler(conn: Connection): Future[void] {.async, gcsafe.} =
+      await msListen.handle(conn)
 
-  #   var transport1 = TcpTransport.init()
-  #   serverFut = await transport1.listen(ma, connHandler)
+    var transport1 = TcpTransport.init()
+    serverFut = await transport1.listen(ma, connHandler)
 
-  #   let msDial = newMultistream()
-  #   let transport2: TcpTransport = TcpTransport.init()
-  #   let conn = await transport2.dial(transport1.ma)
+    let msDial = newMultistream()
+    let transport2: TcpTransport = TcpTransport.init()
+    let conn = await transport2.dial(transport1.ma)
 
-  #   var rpc = FilterRPC(filters: @[ContentFilter(topics: @["topic"])])
-  #   discard await msDial.select(conn, WakuFilterCodec)
-  #   await conn.writeLP(rpc.encode().buffer)
+    var rpc = FilterRPC(filterRequest: @[FilterRequest(contentFilter: @[ContentFilter(topics: @[])], topic: "topic")])
+    discard await msDial.select(conn, WakuFilterCodec)
+    await conn.writeLP(rpc.encode().buffer)
 
-  #   await sleepAsync(2.seconds)
+    await sleepAsync(2.seconds)
 
-  #   filters.notify(msg) 
-  #   filters.notify(msg2)
+    filters.notify(msg) 
+    filters.notify(msg2)
     
-  #   var message = await conn.readLp(64*1024)
+    var message = await conn.readLp(64*1024)
 
-  #   let response = protobuf.decodeMessage(initProtoBuffer(message))
-
-  #   check:
-  #     msg == response.value
+    let response = FilterRPC.init(message)
+    let res = response.value
+    check:
+      res.messagePush.len() == 1
+      res.messagePush[0].message.len() == 1
+      res.messagePush[0].message[0] == msg
