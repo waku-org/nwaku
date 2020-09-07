@@ -46,19 +46,12 @@ method unsubscribe*(w: WakuNode, contentFilter: ContentFilter)
   ## Status: Not yet implemented.
   ## TODO Implement.
 
-method publish*(w: WakuNode, topic: Topic, message: Message)
-  ## Publish a `Message` to a PubSub topic.
+method publish*(w: WakuNode, topic: Topic, message: WakuMessage)
+  ## Publish a `WakuMessage` to a PubSub topic. `WakuMessage` should contain a
+  ## `contentTopic` field for light node functionality. This field may be also
+  ## be omitted.
   ##
-  ## Status: Partially implemented.
-  ## TODO WakuMessage OR seq[byte]. NOT PubSub Message.
-
-method publish*(w: WakuNode, topic: Topic, contentFilter: ContentFilter, message: Message)
-  ## Publish a `Message` to a PubSub topic with a specific content filter.
-  ## Currently this means a `contentTopic`.
-  ##
-  ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_relay` and `publish`.
-  ## TODO WakuMessage. Ensure content filter is in it.
+  ## Status: Implemented.
 
 method query*(w: WakuNode, query: HistoryQuery): HistoryResponse
   ## Queries for historical messages.

@@ -22,11 +22,12 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
      result = WakuRelayCodec
 
   # TODO: Implement symkey etc logic
-  rpcsrv.rpc("waku_publish") do(topic: string, message: seq[byte]) -> bool:
+  rpcsrv.rpc("waku_publish") do(topic: string, payload: seq[byte]) -> bool:
     # XXX Why is casting necessary here but not in Nim node API?
     let wakuRelay = cast[WakuRelay](node.switch.pubSub.get())
     # XXX also future return type
-    discard wakuRelay.publish(topic, message)
+    # TODO: Shouldn't we really be doing WakuNode publish here?
+    discard wakuRelay.publish(topic, payload)
     return true
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")
@@ -39,6 +40,7 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
     proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
       info "Hit subscribe handler", topic=topic, data=data
 
+    # TODO: Shouldn't we really be doing WakuNode subscribe here?
     discard wakuRelay.subscribe(topic, handler)
     return true
     #if not result:

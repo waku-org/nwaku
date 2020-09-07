@@ -67,4 +67,3 @@ task wakusim2, "Build Experimental Waku simulation tools":
 task wakuexample2, "Build example Waku usage":
   let name = "basic2"
   buildBinary name, "examples/v2/", "-d:chronicles_log_level=DEBUG"
-  exec "build/" & name

@@ -1,5 +1,5 @@
 import
-  std/[strutils, options],
+  std/[strutils, options, tables],
   chronos, confutils, json_rpc/rpcserver, metrics, stew/shims/net as stewNet,
   # TODO: Why do we need eth keys?
   eth/keys,
@@ -10,7 +10,9 @@ import
   # NOTE For TopicHandler, solve with exports?
   libp2p/protocols/pubsub/pubsub,
   libp2p/peerinfo,
-  ../../protocol/v2/[waku_relay, waku_filter], ../common,
+  rpc/wakurpc,
+  standard_setup,
+  ../../protocol/v2/[waku_relay, waku_store, waku_filter], ../common,
   ./waku_types, ./config, ./standard_setup, ./rpc/wakurpc
 
 # key and crypto modules different
@@ -19,10 +21,9 @@ type
   PublicKey* = crypto.PublicKey
   PrivateKey* = crypto.PrivateKey
 
+  # TODO Get rid of this and use waku_types one
   Topic* = waku_types.Topic
   Message* = seq[byte]
-  ContentFilter* = object
-    contentTopic*: string
 
   HistoryQuery* = object
     topics*: seq[string]
@@ -125,14 +126,11 @@ proc start*(node: WakuNode) {.async.} =
   node.libp2pTransportLoops = await node.switch.start()
 
   # NOTE WakuRelay is being instantiated as part of creating switch with PubSub field set
-  #
-  # TODO Mount Waku Store and Waku Filter here
+  let storeProto = WakuStore.init()
+  node.switch.mount(storeProto)
 
   let filterProto = WakuFilter.init()
   node.switch.mount(filterProto)
-
-  let wakuRelay = cast[WakuRelay](node.switch.pubSub.get())
-  wakuRelay.addFilter(WakuFilterCodec, filterProto.filter())
 
   # TODO Get this from WakuNode obj
   let peerInfo = node.peerInfo
@@ -142,10 +140,11 @@ proc start*(node: WakuNode) {.async.} =
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
 
-# NOTE TopicHandler is defined in pubsub.nim, roughly:
-#type TopicHandler* = proc(topic: string, data: seq[byte])
+proc stop*(node: WakuNode) {.async.} =
+  let wakuRelay = node.switch.pubSub.get()
+  await wakuRelay.stop()
 
-type ContentFilterHandler* = proc(contentFilter: ContentFilter, message: Message)
+  await node.switch.stop()
 
 proc subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler) =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
@@ -158,15 +157,14 @@ proc subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler) =
   # XXX Consider awaiting here
   discard wakuRelay.subscribe(topic, handler)
 
-proc subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFilterHandler) =
-  echo "NYI"
+proc subscribe*(w: WakuNode, contentFilter: waku_types.ContentFilter, handler: ContentFilterHandler) =
   ## Subscribes to a ContentFilter. Triggers handler when receiving messages on
   ## this content filter. ContentFilter is a method that takes some content
   ## filter, specifically with `ContentTopic`, and a `Message`. The `Message`
   ## has to match the `ContentTopic`.
 
-  ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_filter` and `subscribe` above.
+  # TODO: get some random id, or use the Filter directly as key
+  w.filters.add("some random id", Filter(contentFilter: contentFilter, handler: handler))
 
 proc unsubscribe*(w: WakuNode, topic: Topic) =
   echo "NYI"
@@ -175,37 +173,34 @@ proc unsubscribe*(w: WakuNode, topic: Topic) =
   ## Status: Not yet implemented.
   ## TODO Implement.
 
-proc unsubscribe*(w: WakuNode, contentFilter: ContentFilter) =
+proc unsubscribe*(w: WakuNode, contentFilter: waku_types.ContentFilter) =
   echo "NYI"
   ## Unsubscribe from a content filter.
   ##
   ## Status: Not yet implemented.
   ## TODO Implement.
 
-proc publish*(w: WakuNode, topic: Topic, message: Message) =
-  ## Publish a `Message` to a PubSub topic.
+
+proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
+  ## Publish a `WakuMessage` to a PubSub topic. `WakuMessage` should contain a
+  ## `contentTopic` field for light node functionality. This field may be also
+  ## be omitted.
   ##
-  ## Status: Partially implemented.
+  ## Status: Implemented.
   ##
-  ## TODO WakuMessage OR seq[byte]. NOT PubSub Message.
-  let wakuSub = w.switch.pubSub.get()
+
+  # TODO Basic getter function for relay
+  let wakuRelay = cast[WakuRelay](node.switch.pubSub.get())
+
+  # XXX Unclear what the purpose of this is
+  # Commenting out as it is later expected to be Message type, not WakuMessage
+  #node.messages.insert((topic, message))
+
+  debug "publish", topic=topic, contentTopic=message.contentTopic
+  let data = message.encode().buffer
+
   # XXX Consider awaiting here
-  discard wakuSub.publish(topic, message)
-
-proc publish*(w: WakuNode, topic: Topic, contentFilter: ContentFilter, message: Message) =
-  ## Publish a `Message` to a PubSub topic with a specific content filter.
-  ## Currently this means a `contentTopic`.
-  ##
-  ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_relay` and `publish`.
-  ## TODO WakuMessage. Ensure content filter is in it.
-
-  w.messages.insert((contentFilter.contentTopic, message))
-
-  let wakuSub = w.switch.pubSub.get()
-  # XXX Consider awaiting here
-
-  discard wakuSub.publish(topic, message)
+  discard wakuRelay.publish(topic, data)
 
 proc query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
   ## Queries for historical messages.
@@ -218,7 +213,8 @@ proc query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
     if msg[0] notin query.topics:
       continue
 
-    result.messages.insert(msg[1])
+    # XXX Unclear how this should be hooked up, Message or WakuMessage?
+    # result.messages.insert(msg[1])
 
 when isMainModule:
   let
