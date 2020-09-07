@@ -11,7 +11,7 @@ import
   libp2p/multistream,
   libp2p/transports/transport,
   libp2p/transports/tcptransport,
-  ../../waku/protocol/v2/[waku_filter, message_notifier],
+  ../../waku/protocol/v2/[waku_relay, waku_filter, message_notifier],
   ../test_helpers, ./utils
 
 procSuite "Waku Filter":
