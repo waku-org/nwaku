@@ -17,7 +17,12 @@ import
 procSuite "Waku Filter":
 
   test "encoding and decoding FilterRPC":
-    let rpc = FilterRPC(filters: @[ContentFilter(topics: @["foo", "bar"])])
+    let 
+      peer = PeerInfo.init(PrivateKey.random(ECDSA, rng[]).get())
+      rpc = FilterRPC(
+        filterRequest: @[FilterRequest(contentFilter: @[ContentFilter(topics: @["foo", "bar"])], topic: "foo")],
+        messagePush: @[MessagePush(message: @[Message.init(peer, @[byte 1, 2, 3], "topic", 3, false)])]
+      )
 
     let buf = rpc.encode()
 
@@ -62,7 +67,7 @@ procSuite "Waku Filter":
     let transport2: TcpTransport = TcpTransport.init()
     let conn = await transport2.dial(transport1.ma)
 
-    var rpc = FilterRPC(filters: @[ContentFilter(topics: @["topic"])])
+    var rpc = FilterRPC(filterRequest: @[FilterRequest(contentFilter: @[ContentFilter(topics: @[])], topic: "topic")])
     discard await msDial.select(conn, WakuFilterCodec)
     await conn.writeLP(rpc.encode().buffer)
 
@@ -73,7 +78,9 @@ procSuite "Waku Filter":
     
     var message = await conn.readLp(64*1024)
 
-    let response = protobuf.decodeMessage(initProtoBuffer(message))
-
+    let response = FilterRPC.init(message)
+    let res = response.value
     check:
-      msg == response.value
+      res.messagePush.len() == 1
+      res.messagePush[0].message.len() == 1
+      res.messagePush[0].message[0] == msg
