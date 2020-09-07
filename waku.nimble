@@ -64,6 +64,10 @@ task wakusim2, "Build Experimental Waku simulation tools":
   buildBinary "quicksim2", "waku/node/v2/", "-d:chronicles_log_level=DEBUG"
   buildBinary "start_network2", "waku/node/v2/", "-d:chronicles_log_level=TRACE"
 
+task scripts2, "Build Waku v2 scripts":
+  buildBinary "rpc_publish", "waku/node/v2/rpc/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "rpc_subscribe", "waku/node/v2/rpc/", "-d:chronicles_log_level=DEBUG"
+
 task wakuexample2, "Build example Waku usage":
   let name = "basic2"
   buildBinary name, "examples/v2/", "-d:chronicles_log_level=DEBUG"
