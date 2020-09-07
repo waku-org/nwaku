@@ -11,7 +11,7 @@ import
   libp2p/multistream,
   libp2p/transports/transport,
   libp2p/transports/tcptransport,
-  ../../waku/protocol/v2/[waku_filter, filter],
+  ../../waku/protocol/v2/[waku_filter, message_notifier],
   ../test_helpers, ./utils
 
 procSuite "Waku Filter":
@@ -35,10 +35,10 @@ procSuite "Waku Filter":
   asyncTest "handle filter":
     let
       proto = WakuFilter.init()
-      filter = proto.filter()
+      subscription = proto.subscription()
 
-    var filters = initTable[string, Filter]()
-    filters["test"] = filter
+    var subscriptions = initTable[string, MessageNotificationSubscription]()
+    subscriptions["test"] = subscription
 
     let
       peer = PeerInfo.init(PrivateKey.random(ECDSA, rng[]).get())
@@ -73,8 +73,8 @@ procSuite "Waku Filter":
 
     await sleepAsync(2.seconds)
 
-    filters.notify(msg) 
-    filters.notify(msg2)
+    subscriptions.notify(msg) 
+    subscriptions.notify(msg2)
     
     var message = await conn.readLp(64*1024)
 
