@@ -12,7 +12,7 @@ import
   libp2p/peerinfo,
   rpc/wakurpc,
   standard_setup,
-  ../../protocol/v2/[waku_relay, waku_store], ../common,
+  ../../protocol/v2/[waku_relay, waku_store, waku_filter], ../common,
   ./waku_types, ./config, ./standard_setup, ./rpc/wakurpc
 
 # key and crypto modules different
@@ -129,6 +129,9 @@ proc start*(node: WakuNode) {.async.} =
   let storeProto = WakuStore.init()
   node.switch.mount(storeProto)
 
+  let filterProto = WakuFilter.init()
+  node.switch.mount(filterProto)
+
   # TODO Get this from WakuNode obj
   let peerInfo = node.peerInfo
   let id = peerInfo.peerId.pretty
@@ -154,7 +157,7 @@ proc subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler) =
   # XXX Consider awaiting here
   discard wakuRelay.subscribe(topic, handler)
 
-proc subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFilterHandler) =
+proc subscribe*(w: WakuNode, contentFilter: waku_types.ContentFilter, handler: ContentFilterHandler) =
   ## Subscribes to a ContentFilter. Triggers handler when receiving messages on
   ## this content filter. ContentFilter is a method that takes some content
   ## filter, specifically with `ContentTopic`, and a `Message`. The `Message`
@@ -170,7 +173,7 @@ proc unsubscribe*(w: WakuNode, topic: Topic) =
   ## Status: Not yet implemented.
   ## TODO Implement.
 
-proc unsubscribe*(w: WakuNode, contentFilter: ContentFilter) =
+proc unsubscribe*(w: WakuNode, contentFilter: waku_types.ContentFilter) =
   echo "NYI"
   ## Unsubscribe from a content filter.
   ##
