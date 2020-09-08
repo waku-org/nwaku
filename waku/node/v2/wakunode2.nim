@@ -131,6 +131,9 @@ proc start*(node: WakuNode) {.async.} =
 
   let filterProto = WakuFilter.init()
   node.switch.mount(filterProto)
+  node.subscribers.subscribe(WakuFilterCodec, filterProto.subscription())
+
+  ## @TODO HOW DO WE GET THE MESSAGES FROM RELAY BEST HERE TO PUMP INTO THE SUBSCRIPTION?
 
   # TODO Get this from WakuNode obj
   let peerInfo = node.peerInfo
@@ -188,6 +191,9 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
   ##
   ## Status: Implemented.
   ##
+
+  # @TODO MAYBE THIS?
+  # node.subscriptions.notify(message)
 
   # TODO Basic getter function for relay
   let wakuRelay = cast[WakuRelay](node.switch.pubSub.get())

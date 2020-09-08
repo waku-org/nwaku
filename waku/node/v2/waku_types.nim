@@ -6,7 +6,8 @@ import
   std/tables,
   chronos,
   libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
-  libp2p/protobuf/minprotobuf
+  libp2p/protobuf/minprotobuf,
+  ../../protocol/v2/message_notifier
 
 # Common data types -----------------------------------------------------------
 
@@ -36,6 +37,7 @@ type
   # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
     messages*: seq[(Topic, WakuMessage)]
     filters*: Filters
+    subscriptions*: MessageNotificationSubscription
 
   WakuMessage* = object
     payload*: seq[byte]
