@@ -10,9 +10,6 @@ SHELL := bash # the shell used internally by Make
 # used inside the included makefiles
 BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 
-# Docker image name
-DOCKER_IMAGE_TAG ?= latest
-DOCKER_IMAGE_NAME ?= statusteam/nim-waku:$(DOCKER_IMAGE_TAG)
 # -d:insecure - Necessary to enable Prometheus HTTP endpoint for metrics
 # -d:chronicles_colors:none - Necessary to disable colors in logs for Docker
 DOCKER_IMAGE_NIM_PARAMS ?= -d:chronicles_colors:none -d:insecure
@@ -24,8 +21,9 @@ DOCKER_IMAGE_NIM_PARAMS ?= -d:chronicles_colors:none -d:insecure
 	all \
 	deps \
 	update \
-	wakunode \
 	wakusim \
+	wakunode \
+	wakunode2 \
 	wakuexample \
 	test \
 	clean \
@@ -115,8 +113,12 @@ libbacktrace:
 	+ $(MAKE) -C vendor/nim-libbacktrace --no-print-directory BUILD_CXX_LIB=0
 
 # build a docker image for the fleet
+docker-image: MAKE_TARGET ?= wakunode
+docker-image: DOCKER_IMAGE_TAG ?= $(MAKE_TARGET)
+docker-image: DOCKER_IMAGE_NAME ?= statusteam/nim-waku:$(DOCKER_IMAGE_TAG)
 docker-image:
 	docker build \
+		--build-arg="MAKE_TARGET=$(MAKE_TARGET)" \
 		--build-arg="NIM_PARAMS=$(DOCKER_IMAGE_NIM_PARAMS)" \
 		--tag $(DOCKER_IMAGE_NAME) .
 
