@@ -1,6 +1,7 @@
 # Alpha - Currently implemented in v2
 proc waku_version(): string
 proc waku_publish(topic: string, message: seq[byte]): bool
+proc waku_publish2(topic: string, message: WakuMessage): bool
 proc waku_subscribe(topic: string): bool
 #proc waku_subscribe(topic: string, handler: Topichandler): bool
 

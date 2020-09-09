@@ -33,6 +33,14 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")
 
+  rpcsrv.rpc("waku_publish2") do(topic: string, message: WakuMessage) -> bool:
+    # XXX also future return type
+    debug "waku_publish2", topic=topic, message=message
+    discard node.publish(topic, message)
+    return true
+    #if not result:
+    #  raise newException(ValueError, "Message could not be posted")
+
   # TODO: Handler / Identifier logic
   rpcsrv.rpc("waku_subscribe") do(topic: string) -> bool:
     let wakuRelay = cast[WakuRelay](node.switch.pubSub.get())
