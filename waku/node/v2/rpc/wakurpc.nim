@@ -27,6 +27,7 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
     let wakuRelay = cast[WakuRelay](node.switch.pubSub.get())
     # XXX also future return type
     # TODO: Shouldn't we really be doing WakuNode publish here?
+    debug "waku_publish", topic=topic, payload=payload
     discard wakuRelay.publish(topic, payload)
     return true
     #if not result:

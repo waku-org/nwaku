@@ -25,4 +25,5 @@ waitfor node.connect("localhost", Port(8545))
 
 #var res = node.wakuSubscribe("waku")
 
-var res2 = waitfor node.wakuPublish("waku", message(0).buffer)
+# TODO When RPC uses Node, create WakuMessage and pass instead
+var res2 = waitfor node.wakuPublish("waku", cast[seq[byte]]("hello world"))
