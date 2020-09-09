@@ -2,6 +2,7 @@
 FROM alpine:3.11 AS nim-build
 
 ARG NIM_PARAMS
+ARG MAKE_TARGET=wakunode
 
 # Get build tools and required header files
 RUN apk add --no-cache bash build-base pcre-dev linux-headers git
@@ -14,7 +15,7 @@ ADD . .
 RUN git submodule update --init --recursive
 
 # Build the node binary
-RUN make -j$(nproc) wakunode NIM_PARAMS="${NIM_PARAMS}"
+RUN make -j$(nproc) ${MAKE_TARGET} NIM_PARAMS="${NIM_PARAMS}"
 
 # ACTUAL IMAGE -------------------------------------------------------
 FROM alpine:3.11
@@ -31,8 +32,8 @@ RUN apk add --no-cache libgcc pcre-dev
 # Fix for 'Error loading shared library libpcre.so.3: No such file or directory'
 RUN ln -s /usr/lib/libpcre.so /usr/lib/libpcre.so.3
 
-COPY --from=nim-build /app/build/wakunode /usr/bin/wakunode
+COPY --from=nim-build /app/build/${MAKE_TARGET} /usr/bin/${MAKE_TARGET}
 
-ENTRYPOINT ["/usr/bin/wakunode"]
+ENTRYPOINT ["/usr/bin/${MAKE_TARGET}"]
 # By default just show help if called without arguments
 CMD ["--help"]
