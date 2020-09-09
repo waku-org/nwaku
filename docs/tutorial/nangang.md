@@ -17,7 +17,7 @@ Run two nodes and connect them:
 ```
 # Starts listening on 60000 with RPC server on 8545.
 # Note the "listening on address" in logs.
-./build/wakunode2 --ports-shift:0`
+./build/wakunode2 --ports-shift:0
 
 # Run another node with staticnode argument
 ./build/wakunode2 --ports-shift:1 --staticnode:/ip4/0.0.0.0/tcp/60000/p2p/16Uiu2HAmF4tuht6fmna6uDqoSMgFqhUrdaVR6VQRyGr6sCpfS2jp
