@@ -28,9 +28,9 @@ You should see your nodes connecting.
 Do basic RPC calls:
 
 ```
-/build/rpc_subscribe 8545
-/build/rpc_subscribe 8546
-/build/rpc_publish 8545 # enter your message in STDIN
+./build/rpc_subscribe 8545
+./build/rpc_subscribe 8546
+./build/rpc_publish 8545 # enter your message in STDIN
 ```
 
 You should see other node receive something.
