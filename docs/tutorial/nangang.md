@@ -8,7 +8,7 @@ https://github.com/vacp2p/research/issues/43 for more.
 Build:
 
 ```
-make wakunode2
+# make wakunode2 is run as part of scripts2 target
 make scripts2
 ```
 
