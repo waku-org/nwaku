@@ -11,12 +11,23 @@ import
 # Common data types -----------------------------------------------------------
 
 type
+# key and crypto modules different
+  KeyPair* = crypto.KeyPair
+  PublicKey* = crypto.PublicKey
+  PrivateKey* = crypto.PrivateKey
+
   Topic* = string
   Message* = seq[byte]
 
   # TODO: these filter structures can be simplified but like this for now to
   # match Node API
   # Also, should reuse in filter/wakufilter code, but cyclic imports right now.
+  HistoryQuery* = object
+    topics*: seq[string]
+
+  HistoryResponse* = object
+    messages*: seq[Message]
+
   ContentFilter* = object
     topics*: seq[string]
 
@@ -40,6 +51,7 @@ type
   WakuMessage* = object
     payload*: seq[byte]
     contentTopic*: string
+
 
 # Encoding and decoding -------------------------------------------------------
 
