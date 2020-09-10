@@ -45,7 +45,7 @@ type
         defaultValue: KeyPair.random(keys.newRng()[])
         name: "nodekey" 
         .}
-        
+
       topics* {.
         desc: "Default topics to subscribe to (space seperated list)."
         defaultValue: "waku"
