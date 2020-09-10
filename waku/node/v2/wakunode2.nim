@@ -131,7 +131,7 @@ proc start*(node: WakuNode) {.async.} =
 
   let filterProto = WakuFilter.init()
   node.switch.mount(filterProto)
-  node.subscribers.subscribe(WakuFilterCodec, filterProto.subscription())
+  node.subscriptions.subscribe(WakuFilterCodec, filterProto.subscription())
 
   ## @TODO HOW DO WE GET THE MESSAGES FROM RELAY BEST HERE TO PUMP INTO THE SUBSCRIPTION?
 
