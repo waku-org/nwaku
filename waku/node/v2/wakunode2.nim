@@ -32,6 +32,9 @@ type
 
 const clientId* = "Nimbus Waku v2 node"
 
+template tcpEndPoint(address, port): auto =
+  MultiAddress.init(address, tcpProtocol, port)
+
 ## Public API
 ##
 
