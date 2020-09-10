@@ -15,22 +15,6 @@ import
   ../test_helpers, ./utils
 
 procSuite "Waku Store":
-
-  test "encoding and decoding StoreRPC":
-    let
-      peer = PeerInfo.init(PrivateKey.random(ECDSA, rng[]).get())
-      msg = Message.init(peer, @[byte 1, 2, 3], "topic", 3, false)
-
-      rpc = StoreRPC(query: @[HistoryQuery(uuid: "1", topics: @["foo"])], response: @[HistoryResponse(uuid: "1", messages: @[msg])])
-
-    let buf = rpc.encode()
-
-    let decode = StoreRPC.init(buf.buffer)
-
-    check:
-      decode.isErr == false
-      decode.value == rpc
-
   asyncTest "handle query":
     let 
       proto = WakuStore.init()
@@ -69,15 +53,15 @@ procSuite "Waku Store":
     let transport2: TcpTransport = TcpTransport.init()
     let conn = await transport2.dial(transport1.ma)
 
-    var rpc = StoreRPC(query: @[HistoryQuery(uuid: "1234", topics: @["topic"])])
+    var rpc = HistoryQuery(uuid: "1234", topics: @["topic"])
     discard await msDial.select(conn, WakuStoreCodec)
     await conn.writeLP(rpc.encode().buffer)
 
     var message = await conn.readLp(64*1024)
-    let response = StoreRPC.init(message)
+    let response = HistoryResponse.init(message)
 
     check:
       response.isErr == false
-      response.value.response[0].uuid == rpc.query[0].uuid
-      response.value.response[0].messages.len() == 1
-      response.value.response[0].messages[0] == msg
+      response.value.uuid == rpc.uuid
+      response.value.messages.len() == 1
+      response.value.messages[0] == msg

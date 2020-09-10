@@ -15,7 +15,7 @@ import
 # relay protocol.
 
 const
-  WakuFilterCodec* = "/vac/waku/filter/2.0.0-alpha3"
+  WakuFilterCodec* = "/vac/waku/filter/2.0.0-alpha4"
 
 type
   ContentFilter* = object
@@ -26,15 +26,11 @@ type
     topic*: string
 
   MessagePush* = object
-    message*: seq[Message]
-
-  FilterRPC* = object
-    filterRequest*: seq[FilterRequest]
-    messagePush*: seq[MessagePush]
+    messages*: seq[Message]
 
   Subscriber = object
     connection: Connection
-    filter: seq[FilterRequest]
+    filter: FilterRequest # @TODO MAKE THIS A SEQUENCE AGAIN?
 
   WakuFilter* = ref object of LPProtocol
     subscribers*: seq[Subscriber]
@@ -78,17 +74,8 @@ proc init*(T: type FilterRequest, buffer: seq[byte]): ProtoResult[T] =
 proc encode*(push: MessagePush): ProtoBuffer =
   result = initProtoBuffer()
 
-  for push in push.message:
+  for push in push.messages:
     result.write(1, push.encodeMessage())
-
-proc encode*(rpc: FilterRPC): ProtoBuffer =
-  result = initProtoBuffer()
-
-  for request in rpc.filterRequest:
-    result.write(1, request.encode())
-  
-  for push in rpc.messagePush:
-    result.write(2, push.encode())
 
 proc init*(T: type MessagePush, buffer: seq[byte]): ProtoResult[T] =
   var push = MessagePush()
@@ -98,27 +85,9 @@ proc init*(T: type MessagePush, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getRepeatedField(1, messages)
 
   for buf in messages:
-    push.message.add(? protobuf.decodeMessage(initProtoBuffer(buf)))
+    push.messages.add(? protobuf.decodeMessage(initProtoBuffer(buf)))
 
   ok(push)
-
-proc init*(T: type FilterRPC, buffer: seq[byte]): ProtoResult[T] = 
-  var rpc = FilterRPC()
-  let pb = initProtoBuffer(buffer)
-  
-  var requests: seq[seq[byte]]
-  discard ? pb.getRepeatedField(1, requests)
-
-  for buffer in requests:
-    rpc.filterRequest.add(? FilterRequest.init(buffer))
-
-  var pushes: seq[seq[byte]]
-  discard ? pb.getRepeatedField(2, pushes)
-
-  for buffer in pushes:
-    rpc.messagePush.add(? MessagePush.init(buffer))
-
-  ok(rpc)
 
 proc init*(T: type WakuFilter): T =
   var ws = WakuFilter(subscribers: newSeq[Subscriber](0))
@@ -129,11 +98,11 @@ proc init*(T: type WakuFilter): T =
   
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var message = await conn.readLp(64*1024)
-    var res = FilterRPC.init(message)
+    var res = FilterRequest.init(message)
     if res.isErr:
       return
 
-    ws.subscribers.add(Subscriber(connection: conn, filter: res.value.filterRequest))
+    ws.subscribers.add(Subscriber(connection: conn, filter: res.value))
     # @TODO THIS IS A VERY ROUGH EXPERIMENT
 
   ws.handler = handle
@@ -145,10 +114,9 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
   ## This filter can then be used to send messages to subscribers that match conditions.
   proc handle(msg: Message) =
     for subscriber in proto.subscribers:
-      for filter in subscriber.filter:
-        if filter.topic in msg.topicIDs:
+        if subscriber.filter.topic in msg.topicIDs:
           # @TODO PROBABLY WANT TO BATCH MESSAGES
-          discard subscriber.connection.writeLp(FilterRPC(messagePush: @[MessagePush(message: @[msg])]).encode().buffer)
+          discard subscriber.connection.writeLp(MessagePush(messages: @[msg]).encode().buffer)
           break
 
   MessageNotificationSubscription.init(@[], handle)
