@@ -120,7 +120,12 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
 
   var switch = newStandardSwitch(some(nodekey), hostAddress, triggerSelf = true)
 
-  return WakuNode(switch: switch, peerInfo: peerInfo)
+  result = WakuNode(switch: switch, peerInfo: peerInfo)
+
+  proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+    debug "Hit handler", topic=topic, data=data
+
+  result.subscribe("waku", handler)
 
 proc start*(node: WakuNode) {.async.} =
   node.libp2pTransportLoops = await node.switch.start()
