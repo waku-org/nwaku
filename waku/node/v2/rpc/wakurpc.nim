@@ -35,6 +35,7 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
 
   # TODO: Handler / Identifier logic
   rpcsrv.rpc("waku_subscribe") do(topic: string) -> bool:
+    debug "waku_subscribe", topic=topic
     let wakuRelay = cast[WakuRelay](node.switch.pubSub.get())
 
     # XXX: Hacky in-line handler

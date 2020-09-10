@@ -17,8 +17,11 @@ if paramCount() < 1:
 
 let rpcPort = Port(parseInt(paramStr(1)))
 
-var node = newRpcHttpClient()
-waitfor node.connect("localhost", rpcPort)
+var client = newRpcHttpClient()
+waitfor client.connect("localhost", rpcPort)
+
+echo "Subscribing"
 
 # Subscribe to waku topic
-var res = node.wakuSubscribe("waku")
+var res = waitFor client.wakuSubscribe("waku")
+echo res
