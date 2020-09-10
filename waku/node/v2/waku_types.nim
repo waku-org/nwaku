@@ -6,6 +6,7 @@ import
   std/tables,
   chronos,
   libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
+  libp2p/protocols/pubsub/rpc/[messages, protobuf],
   libp2p/protobuf/minprotobuf
 
 # Common data types -----------------------------------------------------------
@@ -17,7 +18,7 @@ type
   PrivateKey* = crypto.PrivateKey
 
   Topic* = string
-  Message* = seq[byte]
+#  Message* = seq[byte]
 
   # TODO: these filter structures can be simplified but like this for now to
   # match Node API

@@ -5,7 +5,8 @@ import
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
-  ./message_notifier
+  ./message_notifier,
+  ../../node/v2/waku_types
 
 const
   WakuStoreCodec* = "/vac/waku/store/2.0.0-alpha2"
@@ -14,14 +15,6 @@ type
   StoreRPC* = object
     query*: seq[HistoryQuery]
     response*: seq[HistoryResponse]
-
-  HistoryQuery* = object
-    uuid*: string
-    topics*: seq[string]
-
-  HistoryResponse* = object
-    uuid*: string
-    messages*: seq[Message]
 
   WakuStore* = ref object of LPProtocol
     messages*: seq[Message]
