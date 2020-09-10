@@ -90,6 +90,10 @@ wakusim2: | build deps wakunode2
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakusim2 $(NIM_PARAMS) waku.nims
 
+scripts2: | build deps wakunode2
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim scripts2 $(NIM_PARAMS) waku.nims
+
 protocol2:
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim protocol2 $(NIM_PARAMS) waku.nims
