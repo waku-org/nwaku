@@ -50,24 +50,24 @@ method initPubSub*(w: WakuRelay) =
   w.init()
 
 method subscribe*(w: WakuRelay,
-                  topic: string,
+                  pubSubTopic: string,
                   handler: TopicHandler) {.async.} =
-  debug "subscribe", topic=topic
+  debug "subscribe", pubSubTopic=pubSubTopic
   if w.gossipEnabled:
-    await procCall GossipSub(w).subscribe(topic, handler)
+    await procCall GossipSub(w).subscribe(pubSubTopic, handler)
   else:
-    await procCall FloodSub(w).subscribe(topic, handler)
+    await procCall FloodSub(w).subscribe(pubSubTopic, handler)
 
 method publish*(w: WakuRelay,
-                topic: string,
+                pubSubTopic: string,
                 message: seq[byte]
                ): Future[int] {.async.} =
-  debug "publish", topic=topic
+  debug "publish", pubSubTopic=pubSubTopic, message=message
 
   if w.gossipEnabled:
-    return await procCall GossipSub(w).publish(topic, message)
+    return await procCall GossipSub(w).publish(pubSubTopic, message)
   else:
-    return await procCall FloodSub(w).publish(topic, message)
+    return await procCall FloodSub(w).publish(pubSubTopic, message)
 
 method unsubscribe*(w: WakuRelay,
                     topics: seq[TopicPair]) {.async.} =
