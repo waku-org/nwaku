@@ -106,7 +106,7 @@ proc startMetricsLog() =
 
 proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
-    extIp = none[ValidIpAddress](), extPort = none[Port]()): T =
+    extIp = none[ValidIpAddress](), extPort = none[Port](), topics = newSeq[string]()): T =
   ## Creates and starts a Waku node.
   let
     hostAddress = tcpEndPoint(bindIp, bindPort)
@@ -122,10 +122,11 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
 
   result = WakuNode(switch: switch, peerInfo: peerInfo)
 
-  proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-    debug "Hit handler", topic=topic, data=data
+  for topic in topics:
+    proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+      debug "Hit handler", topic=topic, data=data
 
-  result.subscribe("waku", handler)
+    result.subscribe("waku", handler)
 
 proc start*(node: WakuNode) {.async.} =
   node.libp2pTransportLoops = await node.switch.start()
@@ -228,7 +229,7 @@ when isMainModule:
       Port(uint16(conf.tcpPort) + conf.portsShift),
       Port(uint16(conf.udpPort) + conf.portsShift))
     node = WakuNode.init(conf.nodeKey, conf.libp2pAddress,
-      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
+      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort, conf.topics.split(" "))
 
   waitFor node.start()
 

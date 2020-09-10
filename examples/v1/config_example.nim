@@ -43,7 +43,14 @@ type
       nodekey* {.
         desc: "P2P node private key as hex.",
         defaultValue: KeyPair.random(keys.newRng()[])
-        name: "nodekey" .}: KeyPair
+        name: "nodekey" 
+        .}
+        
+      topics* {.
+        desc: "Default topics to subscribe to (space seperated list)."
+        defaultValue: "waku"
+        name: "topics"
+        .}: string
 
 proc parseCmdArg*(T: type KeyPair, p: TaintedString): T =
   try:
