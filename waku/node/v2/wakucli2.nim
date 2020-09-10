@@ -2,6 +2,7 @@ import
   std/[strutils, options, tables],
   chronos, confutils, json_rpc/rpcserver, metrics, stew/shims/net as stewNet,
   # TODO: Why do we need eth keys?
+  #keys.newRng in config
   eth/keys,
   # eth/[keys, p2p], eth/net/nat, eth/p2p/[discovery, enode],
   libp2p/multiaddress,
@@ -20,8 +21,15 @@ import
 #func asLibp2pKey*(key: keys.PublicKey): PublicKey =
 #  PublicKey(scheme: Secp256k1, skkey: secp.SkPublicKey(key))
 
-func asEthKey*(key: PrivateKey): keys.PrivateKey =
-  keys.PrivateKey(key.skkey)
+#type
+  # XXX Resolve this in nicer way, a mess now with waku_types alias etc
+  # Just making the compiler happy for now
+#  PrivateKey* = crypto.PrivateKey
+
+#func asEthKey*(key: PrivateKey): keys.PrivateKey =
+#  keys.PrivateKey(key.skkey)
+
+const clientId* = "Nimbus Waku v2 node"
 
 proc initAddress(T: type MultiAddress, str: string): T =
   let address = MultiAddress.init(str).tryGet()
@@ -30,9 +38,6 @@ proc initAddress(T: type MultiAddress, str: string): T =
   else:
     raise newException(ValueError,
                        "Invalid bootstrap node multi-address")
-
-template tcpEndPoint(address, port): auto =
-  MultiAddress.init(address, tcpProtocol, port)
 
 proc dialPeer(n: WakuNode, address: string) {.async.} =
   info "dialPeer", address = address
