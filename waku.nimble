@@ -57,8 +57,11 @@ task wakuexample, "Build Waku v1 example":
 task protocol2, "Build the experimental Waku protocol":
   buildBinary "waku_relay", "waku/protocol/v2/", "-d:chronicles_log_level=TRACE"
 
-task wakunode2, "Build Experimental Waku cli":
+task wakunode2, "Build Waku v2 Node API":
   buildBinary "wakunode2", "waku/node/v2/", "-d:chronicles_log_level=TRACE"
+
+task wakucli2, "Build Waku v2 CLI":
+  buildBinary "wakucli2", "waku/node/v2/", "-d:chronicles_log_level=TRACE"
 
 task wakusim2, "Build Experimental Waku simulation tools":
   buildBinary "quicksim2", "waku/node/v2/", "-d:chronicles_log_level=DEBUG"
