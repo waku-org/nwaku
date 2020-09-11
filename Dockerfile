@@ -32,8 +32,8 @@ RUN apk add --no-cache libgcc pcre-dev
 # Fix for 'Error loading shared library libpcre.so.3: No such file or directory'
 RUN ln -s /usr/lib/libpcre.so /usr/lib/libpcre.so.3
 
-COPY --from=nim-build /app/build/${MAKE_TARGET} /usr/bin/${MAKE_TARGET}
+COPY --from=nim-build /app/build/${MAKE_TARGET} /usr/bin/wakunode
 
-ENTRYPOINT ["/usr/bin/${MAKE_TARGET}"]
+ENTRYPOINT ["/usr/bin/wakunode"]
 # By default just show help if called without arguments
 CMD ["--help"]
