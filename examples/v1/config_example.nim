@@ -45,11 +45,6 @@ type
         defaultValue: KeyPair.random(keys.newRng()[])
         name: "nodekey" .}: KeyPair
 
-      topics* {.
-        desc: "Default topics to subscribe to (space seperated list)."
-        defaultValue: "waku"
-        name: "topics" .}: string
-
 proc parseCmdArg*(T: type KeyPair, p: TaintedString): T =
   try:
     let privkey = PrivateKey.fromHex(string(p)).tryGet()
