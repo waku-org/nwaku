@@ -38,7 +38,7 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
     if msg.isOk():
       debug "waku_publish", msg=msg
     else:
-      warn "waku_publish decode error"
+      warn "waku_publish decode error", msg=msg
 
     debug "waku_publish", topic=topic, payload=payload, msg=msg[]
     node.publish(topic, msg[])
@@ -49,14 +49,18 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
   # TODO: Handler / Identifier logic
   rpcsrv.rpc("waku_subscribe") do(topic: string) -> bool:
     debug "waku_subscribe", topic=topic
-    let wakuRelay = cast[WakuRelay](node.switch.pubSub.get())
 
     # XXX: Hacky in-line handler
     proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      info "Hit subscribe handler", topic=topic, data=data
+      let msg = WakuMessage.init(data)
+      if msg.isOk():
+        debug "waku_subscribe handler", msg=msg
+      else:
+        warn "waku_subscribe decode error", msg=msg
 
-    # TODO: Shouldn't we really be doing WakuNode subscribe here?
-    discard wakuRelay.subscribe(topic, handler)
+      info "Hit subscribe handler", topic=topic, msg=msg[], payload=msg[].payload
+
+    node.subscribe(topic, handler)
     return true
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")
