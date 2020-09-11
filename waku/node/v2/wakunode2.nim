@@ -75,7 +75,7 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
       debug "Hit handler", topic=topic, data=data
 
-    result.subscribe("waku", handler)
+    result.subscribe(topic, handler)
 
 proc start*(node: WakuNode) {.async.} =
   node.libp2pTransportLoops = await node.switch.start()
