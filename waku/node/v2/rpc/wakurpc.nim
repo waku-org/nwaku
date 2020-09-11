@@ -4,7 +4,7 @@ import
   nimcrypto/[sysrand, hmac, sha2],
   eth/[common, rlp, keys, p2p],
   ../../../protocol/v2/waku_relay,
-  ../waku_types
+  ../waku_types, ../wakunode2
 
 # Instead of using rlpx waku_protocol here, lets do mock waku2_protocol
 # This should wrap GossipSub, not use EthereumNode here
@@ -33,18 +33,35 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")
 
-  # TODO: Handler / Identifier logic
-  rpcsrv.rpc("waku_subscribe") do(topic: string) -> bool:
-    debug "waku_subscribe", topic=topic
-    let wakuRelay = cast[WakuRelay](node.switch.pubSub.get())
+  rpcsrv.rpc("waku_publish2") do(topic: string, payload: seq[byte]) -> bool:
+    let msg = WakuMessage.init(payload)
+    if msg.isOk():
+      debug "waku_publish", msg=msg
+    else:
+      warn "waku_publish decode error", msg=msg
 
-    # XXX: Hacky in-line handler
-    proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      info "Hit subscribe handler", topic=topic, data=data
-
-    # TODO: Shouldn't we really be doing WakuNode subscribe here?
-    discard wakuRelay.subscribe(topic, handler)
+    debug "waku_publish", topic=topic, payload=payload, msg=msg[]
+    node.publish(topic, msg[])
     return true
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")
 
+  # TODO: Handler / Identifier logic
+  rpcsrv.rpc("waku_subscribe") do(topic: string) -> bool:
+    debug "waku_subscribe", topic=topic
+
+    # XXX: Hacky in-line handler
+    proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+      let msg = WakuMessage.init(data)
+      if msg.isOk():
+        debug "waku_subscribe handler", msg=msg
+      else:
+        warn "waku_subscribe decode error", msg=msg
+
+      var readable_str = cast[string](msg[].payload)
+      info "Hit subscribe handler", topic=topic, msg=msg[], payload=readable_str
+
+    node.subscribe(topic, handler)
+    return true
+    #if not result:
+    #  raise newException(ValueError, "Message could not be posted")
