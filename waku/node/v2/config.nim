@@ -139,6 +139,11 @@ type
       desc: "Enable metrics logging."
       defaultValue: false
       name: "log-metrics" }: bool
+      
+    topics* {.
+      desc: "Default topics to subscribe to (space seperated list)."
+      defaultValue: "waku"
+      name: "topics" .}: string
 
     # TODO:
     # - discv5 + topic register
