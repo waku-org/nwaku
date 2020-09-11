@@ -58,7 +58,8 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
       else:
         warn "waku_subscribe decode error", msg=msg
 
-      info "Hit subscribe handler", topic=topic, msg=msg[], payload=msg[].payload
+      var readable_str = cast[string](msg[].payload)
+      info "Hit subscribe handler", topic=topic, msg=msg[], payload=readable_str
 
     node.subscribe(topic, handler)
     return true
