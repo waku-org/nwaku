@@ -4,7 +4,7 @@ import
   nimcrypto/[sysrand, hmac, sha2],
   eth/[common, rlp, keys, p2p],
   ../../../protocol/v2/waku_relay,
-  ../waku_types
+  ../waku_types, ../wakunode2
 
 # Instead of using rlpx waku_protocol here, lets do mock waku2_protocol
 # This should wrap GossipSub, not use EthereumNode here
@@ -47,4 +47,3 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
     return true
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")
-
