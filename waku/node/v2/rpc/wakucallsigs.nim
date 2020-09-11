@@ -1,6 +1,9 @@
 # Alpha - Currently implemented in v2
 proc waku_version(): string
+# TODO Deprecate old waku_publish, requires adjust simulation code etc
 proc waku_publish(topic: string, message: seq[byte]): bool
+# TODO This should be properly done with rpc types, etc.
+proc waku_publish2(topic: string, message: seq[byte]): bool
 proc waku_subscribe(topic: string): bool
 #proc waku_subscribe(topic: string, handler: Topichandler): bool
 
