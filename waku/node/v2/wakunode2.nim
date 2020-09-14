@@ -92,9 +92,8 @@ proc start*(node: WakuNode) {.async.} =
 
   # TODO Get this from WakuNode obj
   let peerInfo = node.peerInfo
-  let id = peerInfo.peerId.pretty
-  info "PeerInfo", id = id, addrs = peerInfo.addrs
-  let listenStr = $peerInfo.addrs[0] & "/p2p/" & id
+  info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
+  let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
 
