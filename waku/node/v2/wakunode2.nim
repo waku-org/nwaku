@@ -70,9 +70,16 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
 
   var switch = newStandardSwitch(some(nodekey), hostAddress, triggerSelf = true)
   # TODO Untested - verify behavior after switch interface change
-  WakuRelay.init(switch)
+  # More like this:
+  # let pubsub = GossipSub.init(
+  #    switch = switch,
+  #    msgIdProvider = msgIdProvider,
+  #    triggerSelf = true, sign = false,
+  #    verifySignature = false).PubSub
+  let wakuRelay = WakuRelay.init(switch)
+  switch.mount(wakuRelay)
 
-  result = WakuNode(switch: switch, peerInfo: peerInfo)
+  result = WakuNode(switch: switch, peerInfo: peerInfo, wakuRelay: wakuRelay)
 
   for topic in topics:
     proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
@@ -83,7 +90,7 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
 proc start*(node: WakuNode) {.async.} =
   node.libp2pTransportLoops = await node.switch.start()
 
-  # NOTE WakuRelay is being instantiated as part of creating switch with PubSub field set
+  # NOTE WakuRelay is being instantiated as part of initing node
   let storeProto = WakuStore.init()
   node.switch.mount(storeProto)
 
@@ -98,19 +105,19 @@ proc start*(node: WakuNode) {.async.} =
   info "Listening on", full = listenStr
 
 proc stop*(node: WakuNode) {.async.} =
-  let wakuRelay = node.switch.pubSub.get()
+  let wakuRelay = node.wakuRelay
   await wakuRelay.stop()
 
   await node.switch.stop()
 
-proc subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler) =
+proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
   ## this topic. TopicHandler is a method that takes a topic and some data.
   ##
   ## NOTE The data field SHOULD be decoded as a WakuMessage.
   ## Status: Implemented.
 
-  let wakuRelay = w.switch.pubSub.get()
+  let wakuRelay = node.wakuRelay
   # XXX Consider awaiting here
   discard wakuRelay.subscribe(topic, handler)
 
@@ -146,8 +153,7 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
   ## Status: Implemented.
   ##
 
-  # TODO Basic getter function for relay
-  let wakuRelay = cast[WakuRelay](node.switch.pubSub.get())
+  let wakuRelay = node.wakuRelay
 
   # XXX Unclear what the purpose of this is
   # Commenting out as it is later expected to be Message type, not WakuMessage
