@@ -5,11 +5,13 @@ const
 
 import random
 import chronos
-import nim-libp2p/[standard_setup,
-                   protocols/pubsub/pubsub,
-                   protocols/pubsub/floodsub,
-                   protocols/pubsub/gossipsub,
-                   protocols/secure/secure]
+import libp2p/[standard_setup,
+               protocols/pubsub/pubsub,
+               protocols/pubsub/floodsub,
+               protocols/pubsub/gossipsub,
+               protocols/secure/secure]
+import ../../waku/protocol/v2/waku_relay,
+       ../../waku/node/v2/waku_types
 
 export standard_setup
 
