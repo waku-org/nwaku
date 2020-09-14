@@ -30,23 +30,16 @@ proc generateNodes*(
 
   for i in 0..<num:
     let switch = newStandardSwitch(secureManagers = secureManagers)
-    let pubsub = if gossip:
-      GossipSub.init(
-        switch = switch,
-        triggerSelf = triggerSelf,
-        verifySignature = verifySignature,
-        sign = sign,
-        msgIdProvider = msgIdProvider).PubSub
-    else:
-      FloodSub.init(
-        switch = switch,
-        triggerSelf = triggerSelf,
-        verifySignature = verifySignature,
-        sign = sign,
-        msgIdProvider = msgIdProvider).PubSub
+    let wakuRelay = WakuRelay.init(
+      switch = switch,
+      triggerSelf = triggerSelf,
+      verifySignature = verifySignature,
+      sign = sign,
+      gossipEnable = gossip,
+      msgIdProvider = msgIdProvider).PubSub
 
-    switch.mount(pubsub)
-    result.add(pubsub)
+    switch.mount(wakuRelay)
+    result.add(wakuRelay)
 
 proc subscribeNodes*(nodes: seq[PubSub]) {.async.} =
   for dialer in nodes:
