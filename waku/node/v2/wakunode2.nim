@@ -68,7 +68,7 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   # XXX: Add this when we create node or start it?
   peerInfo.addrs.add(hostAddress)
 
-  var switch = newStandardSwitch(some(nodekey), hostAddress, triggerSelf = true)
+  var switch = newStandardSwitch(some(nodekey), hostAddress)
   # TODO Untested - verify behavior after switch interface change
   # More like this:
   # let pubsub = GossipSub.init(
