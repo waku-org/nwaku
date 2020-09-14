@@ -37,7 +37,8 @@ proc generateNodes*(
       triggerSelf = triggerSelf,
       verifySignature = verifySignature,
       sign = sign,
-      gossipEnable = gossip,
+      # XXX unclear why including this causes a compiler error, it is part of WakuRelay type
+      #gossipEnabled = gossip,
       msgIdProvider = msgIdProvider).PubSub
 
     switch.mount(wakuRelay)
