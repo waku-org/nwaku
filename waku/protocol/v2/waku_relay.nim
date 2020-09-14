@@ -8,7 +8,8 @@ import
   chronos, chronicles, metrics,
   libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub],
   libp2p/protocols/pubsub/rpc/messages,
-  libp2p/stream/connection
+  libp2p/stream/connection,
+  ../../node/v2/waku_types
 
 declarePublicGauge total_messages, "number of messages received"
 
@@ -16,10 +17,6 @@ logScope:
     topic = "WakuRelay"
 
 const WakuRelayCodec* = "/vac/waku/relay/2.0.0-alpha2"
-
-type
-  WakuRelay* = ref object of GossipSub
-    gossipEnabled*: bool
 
 method init*(w: WakuRelay) =
   debug "init"
