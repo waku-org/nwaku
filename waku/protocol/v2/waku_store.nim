@@ -8,13 +8,9 @@ import
   ./message_notifier
 
 const
-  WakuStoreCodec* = "/vac/waku/store/2.0.0-alpha2"
+  WakuStoreCodec* = "/vac/waku/store/2.0.0-alpha4"
 
 type
-  StoreRPC* = object
-    query*: seq[HistoryQuery]
-    response*: seq[HistoryResponse]
-
   HistoryQuery* = object
     uuid*: string
     topics*: seq[string]
@@ -52,24 +48,6 @@ proc init*(T: type HistoryResponse, buffer: seq[byte]): ProtoResult[T] =
 
   ok(msg)
 
-proc init*(T: type StoreRPC, buffer: seq[byte]): ProtoResult[T] =
-  var rpc = StoreRPC()
-  let pb = initProtoBuffer(buffer)
-
-  var queries: seq[seq[byte]]
-  discard ? pb.getRepeatedField(1, queries)
-
-  for buffer in queries:
-    rpc.query.add(? HistoryQuery.init(buffer))
-
-  var responses: seq[seq[byte]]
-  discard ? pb.getRepeatedField(2, responses)
-
-  for buffer in responses:
-    rpc.response.add(? HistoryResponse.init(buffer))
-
-  ok(rpc)
-
 proc encode*(query: HistoryQuery): ProtoBuffer =
   result = initProtoBuffer()
 
@@ -86,15 +64,6 @@ proc encode*(response: HistoryResponse): ProtoBuffer =
   for msg in response.messages:
     result.write(2, msg.encodeMessage())
 
-proc encode*(response: StoreRPC): ProtoBuffer =
-  result = initProtoBuffer()
-
-  for query in response.query:
-    result.write(1, query.encode().buffer)
-
-  for response in response.response:
-    result.write(2, response.encode().buffer)
-
 proc query(w: WakuStore, query: HistoryQuery): HistoryResponse =
   result = HistoryResponse(uuid: query.uuid, messages: newSeq[Message]())
   for msg in w.messages:
@@ -108,19 +77,15 @@ proc init*(T: type WakuStore): T =
   
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var message = await conn.readLp(64*1024)
-    var rpc = StoreRPC.init(message)
+    var rpc = HistoryQuery.init(message)
     if rpc.isErr:
       return
 
     info "received query"
 
-    var response = StoreRPC(query: newSeq[HistoryQuery](0), response: newSeq[HistoryResponse](0))
+    let res = ws.query(rpc.value)
 
-    for query in rpc.value.query:
-      let res = ws.query(query)
-      response.response.add(res)
-
-    await conn.writeLp(response.encode().buffer)
+    await conn.writeLp(res.encode().buffer)
 
   ws.handler = handle
   ws.codec = WakuStoreCodec
