@@ -9,8 +9,9 @@ import
   # NOTE For TopicHandler, solve with exports?
   libp2p/protocols/pubsub/pubsub,
   libp2p/peerinfo,
+  libp2p/standard_setup,
   ../../protocol/v2/[waku_relay, waku_store, waku_filter],
-  ./waku_types, ./standard_setup
+  ./waku_types
 
 # Default clientId
 const clientId* = "Nimbus Waku v2 node"
@@ -68,6 +69,8 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   peerInfo.addrs.add(hostAddress)
 
   var switch = newStandardSwitch(some(nodekey), hostAddress, triggerSelf = true)
+  # TODO Untested - verify behavior after switch interface change
+  WakuRelay.init(switch)
 
   result = WakuNode(switch: switch, peerInfo: peerInfo)
 
