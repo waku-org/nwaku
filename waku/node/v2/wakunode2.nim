@@ -7,11 +7,14 @@ import
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   # NOTE For TopicHandler, solve with exports?
-  libp2p/protocols/pubsub/pubsub,
+  libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub],
   libp2p/peerinfo,
   libp2p/standard_setup,
   ../../protocol/v2/[waku_relay, waku_store, waku_filter],
   ./waku_types
+
+logScope:
+  topics = "wakunode"
 
 # Default clientId
 const clientId* = "Nimbus Waku v2 node"
@@ -70,22 +73,32 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
 
   var switch = newStandardSwitch(some(nodekey), hostAddress)
   # TODO Untested - verify behavior after switch interface change
-  # More like this:
-  # let pubsub = GossipSub.init(
-  #    switch = switch,
-  #    msgIdProvider = msgIdProvider,
-  #    triggerSelf = true, sign = false,
-  #    verifySignature = false).PubSub
-  let wakuRelay = WakuRelay.init(switch)
+  let wakuRelay = WakuRelay.init(
+    switch = switch,
+    triggerSelf = true,
+    sign = false,
+    verifySignature = false).PubSub
   switch.mount(wakuRelay)
 
+  #NBC
+  #let pubsub = GossipSub.init(
+  #  switch = switch,
+  #  msgIdProvider = msgIdProvider,
+  #  triggerSelf = true, sign = false,
+  #  verifySignature = false).PubSub
+  #switch.mount(pubsub)
+
+
+  # XXX: pubSub and wakuRelay a bit confusing here
   result = WakuNode(switch: switch, peerInfo: peerInfo, wakuRelay: wakuRelay)
 
   for topic in topics:
     proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
       debug "Hit handler", topic=topic, data=data
 
-    result.subscribe(topic, handler)
+    # XXX: Is using discard here fine? Not sure if we want init to be async?
+    # Can also move this to the start proc, possibly wiser?
+    discard result.subscribe(topic, handler)
 
 proc start*(node: WakuNode) {.async.} =
   node.libp2pTransportLoops = await node.switch.start()
@@ -110,25 +123,26 @@ proc stop*(node: WakuNode) {.async.} =
 
   await node.switch.stop()
 
-proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) =
+proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) {.async.} =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
   ## this topic. TopicHandler is a method that takes a topic and some data.
   ##
   ## NOTE The data field SHOULD be decoded as a WakuMessage.
   ## Status: Implemented.
+  info "subscribe", topic=topic
 
   let wakuRelay = node.wakuRelay
-  # XXX Consider awaiting here
-  discard wakuRelay.subscribe(topic, handler)
+  await wakuRelay.subscribe(topic, handler)
 
-proc subscribe*(w: WakuNode, contentFilter: waku_types.ContentFilter, handler: ContentFilterHandler) =
+proc subscribe*(node: WakuNode, contentFilter: waku_types.ContentFilter, handler: ContentFilterHandler) {.async.} =
   ## Subscribes to a ContentFilter. Triggers handler when receiving messages on
   ## this content filter. ContentFilter is a method that takes some content
   ## filter, specifically with `ContentTopic`, and a `Message`. The `Message`
   ## has to match the `ContentTopic`.
+  info "subscribe content", contentFilter=contentFilter
 
   # TODO: get some random id, or use the Filter directly as key
-  w.filters.add("some random id", Filter(contentFilter: contentFilter, handler: handler))
+  node.filters.add("some random id", Filter(contentFilter: contentFilter, handler: handler))
 
 proc unsubscribe*(w: WakuNode, topic: Topic) =
   echo "NYI"

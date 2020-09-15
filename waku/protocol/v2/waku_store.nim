@@ -7,6 +7,9 @@ import
   libp2p/stream/connection,
   ./message_notifier
 
+logScope:
+  topics = "wakustore"
+
 const
   WakuStoreCodec* = "/vac/waku/store/2.0.0-alpha4"
 
