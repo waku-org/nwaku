@@ -92,7 +92,7 @@ procSuite "WakuNode":
     await allFutures([node1.start(), node2.start()])
 
     # Subscribe our node to the pubSubTopic where all chat data go onto.
-    node1.subscribe(pubSubTopic, relayHandler)
+    await node1.subscribe(pubSubTopic, relayHandler)
     # Subscribe a contentFilter to trigger a specific application handler when
     # WakuMessages with that content are received
     node1.subscribe(contentFilter, contentHandler1)

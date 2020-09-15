@@ -94,7 +94,9 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
       debug "Hit handler", topic=topic, data=data
 
-    result.subscribe(topic, handler)
+    # XXX: Is using discard here fine? Not sure if we want init to be async?
+    # Can also move this to the start proc, possibly wiser?
+    discard result.subscribe(topic, handler)
 
 proc start*(node: WakuNode) {.async.} =
   node.libp2pTransportLoops = await node.switch.start()
@@ -119,7 +121,7 @@ proc stop*(node: WakuNode) {.async.} =
 
   await node.switch.stop()
 
-proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) =
+proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) {.async.} =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
   ## this topic. TopicHandler is a method that takes a topic and some data.
   ##
@@ -128,8 +130,7 @@ proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) =
   info "subscribe", topic=topic
 
   let wakuRelay = node.wakuRelay
-  # XXX Consider awaiting here
-  discard wakuRelay.subscribe(topic, handler)
+  await wakuRelay.subscribe(topic, handler)
 
 proc subscribe*(w: WakuNode, contentFilter: waku_types.ContentFilter, handler: ContentFilterHandler) =
   ## Subscribes to a ContentFilter. Triggers handler when receiving messages on

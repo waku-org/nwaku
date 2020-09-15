@@ -60,7 +60,8 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
       var readable_str = cast[string](msg[].payload)
       info "Hit subscribe handler", topic=topic, msg=msg[], payload=readable_str
 
-    node.subscribe(topic, handler)
+    # XXX: Can we make this context async to use await?
+    discard node.subscribe(topic, handler)
     return true
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")
