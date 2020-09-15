@@ -14,7 +14,7 @@ import
 declarePublicGauge total_messages, "number of messages received"
 
 logScope:
-    topic = "WakuRelay"
+    topics = "wakurelay"
 
 const WakuRelayCodec* = "/vac/waku/relay/2.0.0-alpha2"
 
