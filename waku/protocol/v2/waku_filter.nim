@@ -14,6 +14,9 @@ import
 # should be direct payload exchange (a la req-resp), not be coupled with the
 # relay protocol.
 
+logScope:
+  topics = "wakufilter"
+
 const
   WakuFilterCodec* = "/vac/waku/filter/2.0.0-alpha5"
 

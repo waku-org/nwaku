@@ -13,6 +13,9 @@ import
   ../../protocol/v2/[waku_relay, waku_store, waku_filter],
   ./waku_types
 
+logScope:
+  topics = "wakunode"
+
 # Default clientId
 const clientId* = "Nimbus Waku v2 node"
 
