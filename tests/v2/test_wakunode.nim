@@ -95,7 +95,7 @@ procSuite "WakuNode":
     await node1.subscribe(pubSubTopic, relayHandler)
     # Subscribe a contentFilter to trigger a specific application handler when
     # WakuMessages with that content are received
-    node1.subscribe(contentFilter, contentHandler1)
+    await node1.subscribe(contentFilter, contentHandler1)
     # Connect peers by dialing from node2 to node1
     let conn = await node2.switch.dial(node1.peerInfo, WakuRelayCodec)
     node2.publish(pubSubTopic, message)

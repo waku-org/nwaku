@@ -86,6 +86,7 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     triggerSelf = true,
     sign = false,
     verifySignature = false)
+  # This gets messy with: .PubSub
   switch.mount(wakuRelay)
 
   result = WakuNode(switch: switch, peerInfo: peerInfo, wakuRelay: wakuRelay)
@@ -132,7 +133,7 @@ proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) {.async.} =
   let wakuRelay = node.wakuRelay
   await wakuRelay.subscribe(topic, handler)
 
-proc subscribe*(w: WakuNode, contentFilter: waku_types.ContentFilter, handler: ContentFilterHandler) =
+proc subscribe*(node: WakuNode, contentFilter: waku_types.ContentFilter, handler: ContentFilterHandler) {.async.} =
   ## Subscribes to a ContentFilter. Triggers handler when receiving messages on
   ## this content filter. ContentFilter is a method that takes some content
   ## filter, specifically with `ContentTopic`, and a `Message`. The `Message`
@@ -140,7 +141,7 @@ proc subscribe*(w: WakuNode, contentFilter: waku_types.ContentFilter, handler: C
   info "subscribe content", contentFilter=contentFilter
 
   # TODO: get some random id, or use the Filter directly as key
-  w.filters.add("some random id", Filter(contentFilter: contentFilter, handler: handler))
+  node.filters.add("some random id", Filter(contentFilter: contentFilter, handler: handler))
 
 proc unsubscribe*(w: WakuNode, topic: Topic) =
   echo "NYI"
