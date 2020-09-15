@@ -76,7 +76,13 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   #    msgIdProvider = msgIdProvider,
   #    triggerSelf = true, sign = false,
   #    verifySignature = false).PubSub
-  let wakuRelay = WakuRelay.init(switch)
+  let wakuRelay = WakuRelay.init(
+    switch = switch,
+    # Use default
+    #msgIdProvider = msgIdProvider,
+    triggerSelf = true,
+    sign = false,
+    verifySignature = false)
   switch.mount(wakuRelay)
 
   result = WakuNode(switch: switch, peerInfo: peerInfo, wakuRelay: wakuRelay)
@@ -116,6 +122,7 @@ proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) =
   ##
   ## NOTE The data field SHOULD be decoded as a WakuMessage.
   ## Status: Implemented.
+  info "subscribe", topic=topic
 
   let wakuRelay = node.wakuRelay
   # XXX Consider awaiting here
@@ -126,6 +133,7 @@ proc subscribe*(w: WakuNode, contentFilter: waku_types.ContentFilter, handler: C
   ## this content filter. ContentFilter is a method that takes some content
   ## filter, specifically with `ContentTopic`, and a `Message`. The `Message`
   ## has to match the `ContentTopic`.
+  info "subscribe content", contentFilter=contentFilter
 
   # TODO: get some random id, or use the Filter directly as key
   w.filters.add("some random id", Filter(contentFilter: contentFilter, handler: handler))
