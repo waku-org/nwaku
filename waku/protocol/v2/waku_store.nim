@@ -96,7 +96,7 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   ## This is used to pipe messages into the storage, therefore
   ## the filter should be used by the component that receives
   ## new messages.
-  proc handle(msg: Message) =
+  proc handle(msg: Message) {.async.} =
     proto.messages.add(msg)
 
   MessageNotificationSubscription.init(@[], handle)

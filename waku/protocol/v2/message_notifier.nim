@@ -1,4 +1,5 @@
 import
+  chronos,
   std/tables,
   libp2p/protocols/pubsub/rpc/messages
 
@@ -9,15 +10,15 @@ import
 # The notification handler function will be called.
 
 type
-  MessageNotificationHandler* = proc(msg: Message) {.gcsafe, closure.}
+  MessageNotificationHandler* = proc(msg: Message): Future[void] {.gcsafe, closure.}
 
   MessageNotificationSubscription* = object
     topics: seq[string] # @TODO TOPIC
     handler: MessageNotificationHandler
-    
-  MessageNotificationSubscriptions* = Table[string, MessageNotificationSubscription]
 
-proc subscribe*(subscriptions: var MessageNotificationSubscriptions, name: string, subscription: MessageNotificationSubscription) =
+  MessageNotificationSubscriptions* = TableRef[string, MessageNotificationSubscription]
+
+proc subscribe*(subscriptions: MessageNotificationSubscriptions, name: string, subscription: MessageNotificationSubscription) =
   subscriptions.add(name, subscription)
 
 proc init*(T: type MessageNotificationSubscription, topics: seq[string], handler: MessageNotificationHandler): T =
@@ -33,10 +34,14 @@ proc containsMatch(lhs: seq[string], rhs: seq[string]): bool =
 
   return false
 
-proc notify*(subscriptions: var MessageNotificationSubscriptions, msg: Message) {.gcsafe.} =
+proc notify*(subscriptions: MessageNotificationSubscriptions, msg: Message) {.async, gcsafe.} =
+  var futures = newSeq[Future[void]]()
+
   for subscription in subscriptions.mvalues:
     # @TODO WILL NEED TO CHECK SUBTOPICS IN FUTURE FOR WAKU TOPICS NOT LIBP2P ONES
     if subscription.topics.len > 0 and not subscription.topics.containsMatch(msg.topicIDs):
       continue
 
-    subscription.handler(msg)
+    futures.add(subscription.handler(msg))
+
+  await allFutures(futures)

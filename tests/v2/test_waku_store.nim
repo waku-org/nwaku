@@ -20,7 +20,7 @@ procSuite "Waku Store":
       proto = WakuStore.init()
       subscription = proto.subscription()
 
-    var subscriptions = initTable[string, MessageNotificationSubscription]()
+    var subscriptions = newTable[string, MessageNotificationSubscription]()
     subscriptions["test"] = subscription
 
     let
@@ -28,8 +28,8 @@ procSuite "Waku Store":
       msg = Message.init(peer, @[byte 1, 2, 3], "topic", 3, false)
       msg2 = Message.init(peer, @[byte 1, 2, 3], "topic2", 4, false)
 
-    subscriptions.notify(msg)
-    subscriptions.notify(msg2)
+    await subscriptions.notify(msg)
+    await subscriptions.notify(msg2)
 
     let ma: MultiAddress = Multiaddress.init("/ip4/0.0.0.0/tcp/0").tryGet()
     let remoteSecKey = PrivateKey.random(ECDSA, rng[]).get()

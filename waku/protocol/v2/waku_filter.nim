@@ -112,11 +112,14 @@ proc init*(T: type WakuFilter): T =
 proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
   ## Returns a Filter for the specific protocol
   ## This filter can then be used to send messages to subscribers that match conditions.
-  proc handle(msg: Message) =
+  proc handle(msg: Message) {.async.} =
+    var futures = newSeq[Future[void]]()
+
     for subscriber in proto.subscribers:
         if subscriber.filter.topic in msg.topicIDs:
           # @TODO PROBABLY WANT TO BATCH MESSAGES
-          discard subscriber.connection.writeLp(MessagePush(messages: @[msg]).encode().buffer)
-          break
+          futures.add(subscriber.connection.writeLp(MessagePush(messages: @[msg]).encode().buffer))
+
+    await allFutures(futures)
 
   MessageNotificationSubscription.init(@[], handle)

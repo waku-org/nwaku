@@ -127,7 +127,7 @@ docker-push:
 
 # builds and runs the test suite
 test: | build deps
-	$(ENV_SCRIPT) nim test $(NIM_PARAMS) waku.nims
+	# $(ENV_SCRIPT) nim test $(NIM_PARAMS) waku.nims
 	$(ENV_SCRIPT) nim test2 $(NIM_PARAMS) waku.nims
 
 # usual cleaning
