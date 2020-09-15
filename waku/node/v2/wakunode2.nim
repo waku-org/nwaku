@@ -92,7 +92,7 @@ proc start*(node: WakuNode) {.async.} =
   proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
     let msg = WakuMessage.init(data)
     if msg.isOk():
-      node.subscriptions.notify(msg[])
+      node.subscriptions.notify(msg)
 
   let wakuRelay = cast[WakuRelay](node.switch.pubSub.get())
   wakuRelay.subscribe("waku", relayHandler)
