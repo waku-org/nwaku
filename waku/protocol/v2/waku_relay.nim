@@ -39,10 +39,12 @@ method initPubSub*(w: WakuRelay) =
   # Not using GossipSub
   w.gossipEnabled = false
 
-  if w.gossipEnabled:
-    procCall GossipSub(w).initPubSub()
-  else:
-    procCall FloodSub(w).initPubSub()
+  # XXX: Unclear how we toggle with gossip/flood here?
+  #if w.gossipEnabled:
+  #  procCall GossipSub(w).initPubSub()
+  #else:
+  #  procCall FloodSub(w).initPubSub()
+  procCall PubSub(w).initPubSub()
 
   w.init()
 
@@ -50,10 +52,12 @@ method subscribe*(w: WakuRelay,
                   pubSubTopic: string,
                   handler: TopicHandler) {.async.} =
   debug "subscribe", pubSubTopic=pubSubTopic
-  if w.gossipEnabled:
-    await procCall GossipSub(w).subscribe(pubSubTopic, handler)
-  else:
-    await procCall FloodSub(w).subscribe(pubSubTopic, handler)
+
+  await procCall PubSub(w).subscribe(pubSubTopic, handler)
+  #if w.gossipEnabled:
+  #  await procCall GossipSub(w).subscribe(pubSubTopic, handler)
+  #else:
+  #  await procCall FloodSub(w).subscribe(pubSubTopic, handler)
 
 method publish*(w: WakuRelay,
                 pubSubTopic: string,
@@ -61,30 +65,36 @@ method publish*(w: WakuRelay,
                ): Future[int] {.async.} =
   debug "publish", pubSubTopic=pubSubTopic, message=message
 
-  if w.gossipEnabled:
-    return await procCall GossipSub(w).publish(pubSubTopic, message)
-  else:
-    return await procCall FloodSub(w).publish(pubSubTopic, message)
+  return await procCall PubSub(w).publish(pubSubTopic, message)
+  #if w.gossipEnabled:
+  #  return await procCall GossipSub(w).publish(pubSubTopic, message)
+  #else:
+  #  return await procCall FloodSub(w).publish(pubSubTopic, message)
 
 method unsubscribe*(w: WakuRelay,
                     topics: seq[TopicPair]) {.async.} =
   debug "unsubscribe"
-  if w.gossipEnabled:
-    await procCall GossipSub(w).unsubscribe(topics)
-  else:
-    await procCall FloodSub(w).unsubscribe(topics)
+  await procCall PubSub(w).unsubscribe(topics)
+  #if w.gossipEnabled:
+  #  await procCall GossipSub(w).unsubscribe(topics)
+  #else:
+  #  await procCall FloodSub(w).unsubscribe(topics)
 
 # GossipSub specific methods --------------------------------------------------
 method start*(w: WakuRelay) {.async.} =
   debug "start"
-  if w.gossipEnabled:
-    await procCall GossipSub(w).start()
-  else:
-    await procCall FloodSub(w).start()
+  # XXX: This is in GossipSub
+  await procCall PubSub(w).start()
+#  if w.gossipEnabled:
+#    await procCall GossipSub(w).start()
+#  else:
+#    await procCall FloodSub(w).start()
 
 method stop*(w: WakuRelay) {.async.} =
   debug "stop"
-  if w.gossipEnabled:
-    await procCall GossipSub(w).stop()
-  else:
-    await procCall FloodSub(w).stop()
+  # XXX: This is in GossipSub
+  await procCall PubSub(w).start()
+#  if w.gossipEnabled:
+#    await procCall GossipSub(w).stop()
+#  else:
+#    await procCall FloodSub(w).stop()
