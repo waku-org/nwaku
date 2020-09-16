@@ -37,7 +37,8 @@ method initPubSub*(w: WakuRelay) =
   debug "initWakuRelay"
 
   # Not using GossipSub
-  w.gossipEnabled = false
+  # XXX: FloodSub subscribe doesn't work
+  w.gossipEnabled = true
 
   if w.gossipEnabled:
     procCall GossipSub(w).initPubSub()
