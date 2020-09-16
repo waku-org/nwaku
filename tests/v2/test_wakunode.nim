@@ -98,16 +98,12 @@ procSuite "WakuNode":
     await node1.subscribe(contentFilter, contentHandler1)
     # Connect peers by dialing from node2 to node1
     let conn = await node2.switch.dial(node1.peerInfo, WakuRelayCodec)
-
-    info "Going to sleep to allow subsribe to go through"
-    # XXX This doesn't help either
+    #
+    # We need to sleep to allow the subscription to go through
+    info "Going to sleep to allow subscribe to go through"
     await sleepAsync(2000.millis)
 
     info "Waking up and publishing"
-    node2.publish(pubSubTopic, message)
-
-    await sleepAsync(2000.millis)
-    info "Publishing again, brute force!"
     node2.publish(pubSubTopic, message)
 
     check:
