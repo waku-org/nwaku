@@ -12,6 +12,7 @@ import
   libp2p/transports/transport,
   libp2p/transports/tcptransport,
   ../../waku/protocol/v2/[waku_store, message_notifier],
+  ../../waku/node/v2/waku_types,
   ../test_helpers, ./utils
 
 procSuite "Waku Store":
@@ -25,11 +26,11 @@ procSuite "Waku Store":
 
     let
       peer = PeerInfo.init(PrivateKey.random(ECDSA, rng[]).get())
-      msg = Message.init(peer, @[byte 1, 2, 3], "topic", 3, false)
-      msg2 = Message.init(peer, @[byte 1, 2, 3], "topic2", 4, false)
+      msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: "topic")
+      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: "topic2")
 
-    subscriptions.notify(msg)
-    subscriptions.notify(msg2)
+    subscriptions.notify("foo", msg)
+    subscriptions.notify("foo", msg2)
 
     let ma: MultiAddress = Multiaddress.init("/ip4/0.0.0.0/tcp/0").tryGet()
     let remoteSecKey = PrivateKey.random(ECDSA, rng[]).get()
