@@ -46,7 +46,7 @@ proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], master = false, lab
   info "Address", address
   # TODO: Need to port shift
   peerInfo.addrs.add(hostAddress)
-  let id = peerInfo.id
+  let id = $peerInfo.peerId
 
   info "PeerInfo", id = id, addrs = peerInfo.addrs
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & id
