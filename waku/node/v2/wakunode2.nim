@@ -9,8 +9,12 @@ import
   # NOTE For TopicHandler, solve with exports?
   libp2p/protocols/pubsub/pubsub,
   libp2p/peerinfo,
+  libp2p/standard_setup,
   ../../protocol/v2/[waku_relay, waku_store, waku_filter],
-  ./waku_types, ./standard_setup
+  ./waku_types
+
+logScope:
+  topics = "wakunode"
 
 # Default clientId
 const clientId* = "Nimbus Waku v2 node"
@@ -67,20 +71,38 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   # XXX: Add this when we create node or start it?
   peerInfo.addrs.add(hostAddress)
 
-  var switch = newStandardSwitch(some(nodekey), hostAddress, triggerSelf = true)
+  var switch = newStandardSwitch(some(nodekey), hostAddress)
+  # TODO Untested - verify behavior after switch interface change
+  # More like this:
+  # let pubsub = GossipSub.init(
+  #    switch = switch,
+  #    msgIdProvider = msgIdProvider,
+  #    triggerSelf = true, sign = false,
+  #    verifySignature = false).PubSub
+  let wakuRelay = WakuRelay.init(
+    switch = switch,
+    # Use default
+    #msgIdProvider = msgIdProvider,
+    triggerSelf = true,
+    sign = false,
+    verifySignature = false)
+  # This gets messy with: .PubSub
+  switch.mount(wakuRelay)
 
-  result = WakuNode(switch: switch, peerInfo: peerInfo)
+  result = WakuNode(switch: switch, peerInfo: peerInfo, wakuRelay: wakuRelay)
 
   for topic in topics:
     proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
       debug "Hit handler", topic=topic, data=data
 
-    result.subscribe(topic, handler)
+    # XXX: Is using discard here fine? Not sure if we want init to be async?
+    # Can also move this to the start proc, possibly wiser?
+    discard result.subscribe(topic, handler)
 
 proc start*(node: WakuNode) {.async.} =
   node.libp2pTransportLoops = await node.switch.start()
 
-  # NOTE WakuRelay is being instantiated as part of creating switch with PubSub field set
+  # NOTE WakuRelay is being instantiated as part of initing node
   let storeProto = WakuStore.init()
   node.switch.mount(storeProto)
 
@@ -89,37 +111,37 @@ proc start*(node: WakuNode) {.async.} =
 
   # TODO Get this from WakuNode obj
   let peerInfo = node.peerInfo
-  let id = peerInfo.peerId.pretty
-  info "PeerInfo", id = id, addrs = peerInfo.addrs
-  let listenStr = $peerInfo.addrs[0] & "/p2p/" & id
+  info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
+  let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
 
 proc stop*(node: WakuNode) {.async.} =
-  let wakuRelay = node.switch.pubSub.get()
+  let wakuRelay = node.wakuRelay
   await wakuRelay.stop()
 
   await node.switch.stop()
 
-proc subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler) =
+proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) {.async.} =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
   ## this topic. TopicHandler is a method that takes a topic and some data.
   ##
   ## NOTE The data field SHOULD be decoded as a WakuMessage.
   ## Status: Implemented.
+  info "subscribe", topic=topic
 
-  let wakuRelay = w.switch.pubSub.get()
-  # XXX Consider awaiting here
-  discard wakuRelay.subscribe(topic, handler)
+  let wakuRelay = node.wakuRelay
+  await wakuRelay.subscribe(topic, handler)
 
-proc subscribe*(w: WakuNode, contentFilter: waku_types.ContentFilter, handler: ContentFilterHandler) =
+proc subscribe*(node: WakuNode, contentFilter: waku_types.ContentFilter, handler: ContentFilterHandler) {.async.} =
   ## Subscribes to a ContentFilter. Triggers handler when receiving messages on
   ## this content filter. ContentFilter is a method that takes some content
   ## filter, specifically with `ContentTopic`, and a `Message`. The `Message`
   ## has to match the `ContentTopic`.
+  info "subscribe content", contentFilter=contentFilter
 
   # TODO: get some random id, or use the Filter directly as key
-  w.filters.add("some random id", Filter(contentFilter: contentFilter, handler: handler))
+  node.filters.add("some random id", Filter(contentFilter: contentFilter, handler: handler))
 
 proc unsubscribe*(w: WakuNode, topic: Topic) =
   echo "NYI"
@@ -144,8 +166,7 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
   ## Status: Implemented.
   ##
 
-  # TODO Basic getter function for relay
-  let wakuRelay = cast[WakuRelay](node.switch.pubSub.get())
+  let wakuRelay = node.wakuRelay
 
   # XXX Unclear what the purpose of this is
   # Commenting out as it is later expected to be Message type, not WakuMessage

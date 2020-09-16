@@ -7,6 +7,9 @@ import
   ./message_notifier,
   ./../../node/v2/waku_types
 
+logScope:
+  topics = "wakustore"
+
 const
   WakuStoreCodec* = "/vac/waku/store/2.0.0-alpha5"
 
