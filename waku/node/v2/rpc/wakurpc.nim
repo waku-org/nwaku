@@ -27,8 +27,7 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
     # XXX also future return type
     # TODO: Shouldn't we really be doing WakuNode publish here?
     debug "waku_publish", topic=topic, payload=payload
-    # XXX Doesn't work, remove this - using waku_publish2 instead now, except for simulation
-    #discard wakuRelay.publish(topic, payload)
+    discard wakuRelay.publish(topic, payload)
     return true
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")

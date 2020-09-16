@@ -32,9 +32,7 @@ type
   # NOTE based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj
     switch*: Switch
-    #XXX
-    #wakuRelay*: WakuRelay
-    wakuRelay*: PubSub
+    wakuRelay*: WakuRelay
     peerInfo*: PeerInfo
     libp2pTransportLoops*: seq[Future[void]]
   # TODO Revist messages field indexing as well as if this should be Message or WakuMessage

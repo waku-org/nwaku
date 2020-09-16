@@ -7,7 +7,7 @@ import
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   # NOTE For TopicHandler, solve with exports?
-  libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub],
+  libp2p/protocols/pubsub/pubsub,
   libp2p/peerinfo,
   libp2p/standard_setup,
   ../../protocol/v2/[waku_relay, waku_store, waku_filter],
@@ -73,23 +73,22 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
 
   var switch = newStandardSwitch(some(nodekey), hostAddress)
   # TODO Untested - verify behavior after switch interface change
+  # More like this:
+  # let pubsub = GossipSub.init(
+  #    switch = switch,
+  #    msgIdProvider = msgIdProvider,
+  #    triggerSelf = true, sign = false,
+  #    verifySignature = false).PubSub
   let wakuRelay = WakuRelay.init(
     switch = switch,
+    # Use default
+    #msgIdProvider = msgIdProvider,
     triggerSelf = true,
     sign = false,
-    verifySignature = false).PubSub
+    verifySignature = false)
+  # This gets messy with: .PubSub
   switch.mount(wakuRelay)
 
-  #NBC
-  #let pubsub = GossipSub.init(
-  #  switch = switch,
-  #  msgIdProvider = msgIdProvider,
-  #  triggerSelf = true, sign = false,
-  #  verifySignature = false).PubSub
-  #switch.mount(pubsub)
-
-
-  # XXX: pubSub and wakuRelay a bit confusing here
   result = WakuNode(switch: switch, peerInfo: peerInfo, wakuRelay: wakuRelay)
 
   for topic in topics:
