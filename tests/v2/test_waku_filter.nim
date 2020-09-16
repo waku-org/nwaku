@@ -7,11 +7,11 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/stream/[bufferstream, connection],
   libp2p/crypto/crypto,
-  libp2p/protocols/pubsub/rpc/[message, messages, protobuf],
   libp2p/multistream,
   libp2p/transports/transport,
   libp2p/transports/tcptransport,
   ../../waku/protocol/v2/[waku_relay, waku_filter, message_notifier],
+  ../../waku/node/v2/waku_types,
   ../test_helpers, ./utils
 
 procSuite "Waku Filter":
@@ -26,8 +26,8 @@ procSuite "Waku Filter":
 
     let
       peer = PeerInfo.init(PrivateKey.random(ECDSA, rng[]).get())
-      msg = Message.init(peer, @[byte 1, 2, 3], "topic", 3, false)
-      msg2 = Message.init(peer, @[byte 1, 2, 3], "topic2", 4, false)
+      msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: "pew")
+      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: "pew2")
 
     let ma: MultiAddress = Multiaddress.init("/ip4/0.0.0.0/tcp/0").tryGet()
     let remoteSecKey = PrivateKey.random(ECDSA, rng[]).get()
@@ -51,14 +51,14 @@ procSuite "Waku Filter":
     let transport2: TcpTransport = TcpTransport.init()
     let conn = await transport2.dial(transport1.ma)
 
-    var rpc = FilterRequest(contentFilter: @[ContentFilter(topics: @[])], topic: "topic")
+    var rpc = FilterRequest(contentFilter: @[waku_filter.ContentFilter(topics: @["pew", "pew2"])], topic: "topic")
     discard await msDial.select(conn, WakuFilterCodec)
     await conn.writeLP(rpc.encode().buffer)
 
     await sleepAsync(2.seconds)
 
-    subscriptions.notify(msg) 
-    subscriptions.notify(msg2)
+    subscriptions.notify("topic", msg)
+    subscriptions.notify("topic", msg2)
     
     var message = await conn.readLp(64*1024)
 
