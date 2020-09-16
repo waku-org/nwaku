@@ -23,8 +23,7 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
 
   # TODO: Implement symkey etc logic
   rpcsrv.rpc("waku_publish") do(topic: string, payload: seq[byte]) -> bool:
-    # XXX Why is casting necessary here but not in Nim node API?
-    let wakuRelay = cast[WakuRelay](node.switch.pubSub.get())
+    let wakuRelay = node.wakuRelay
     # XXX also future return type
     # TODO: Shouldn't we really be doing WakuNode publish here?
     debug "waku_publish", topic=topic, payload=payload
@@ -61,7 +60,8 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
       var readable_str = cast[string](msg[].payload)
       info "Hit subscribe handler", topic=topic, msg=msg[], payload=readable_str
 
-    node.subscribe(topic, handler)
+    # XXX: Can we make this context async to use await?
+    discard node.subscribe(topic, handler)
     return true
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")

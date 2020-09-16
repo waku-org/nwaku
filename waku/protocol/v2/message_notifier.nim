@@ -1,6 +1,6 @@
 import
   std/tables,
-  libp2p/protocols/pubsub/rpc/messages
+  ./../../node/v2/waku_message
 
 # The Message Notification system is a method to notify various protocols
 # running on a node when a new message was received.
@@ -9,7 +9,7 @@ import
 # The notification handler function will be called.
 
 type
-  MessageNotificationHandler* = proc(msg: Message) {.gcsafe, closure.}
+  MessageNotificationHandler* = proc(topic: string, msg: WakuMessage) {.gcsafe, closure.}
 
   MessageNotificationSubscription* = object
     topics: seq[string] # @TODO TOPIC
@@ -33,10 +33,10 @@ proc containsMatch(lhs: seq[string], rhs: seq[string]): bool =
 
   return false
 
-proc notify*(subscriptions: var MessageNotificationSubscriptions, msg: Message) {.gcsafe.} =
+proc notify*(subscriptions: var MessageNotificationSubscriptions, topic: string, msg: WakuMessage) {.gcsafe.} =
   for subscription in subscriptions.mvalues:
     # @TODO WILL NEED TO CHECK SUBTOPICS IN FUTURE FOR WAKU TOPICS NOT LIBP2P ONES
-    if subscription.topics.len > 0 and not subscription.topics.containsMatch(msg.topicIDs):
+    if subscription.topics.len > 0 and topic notin subscription.topics:
       continue
 
-    subscription.handler(msg)
+    subscription.handler(topic, msg)

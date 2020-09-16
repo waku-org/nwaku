@@ -1,14 +1,17 @@
 import
   std/tables,
   chronos, chronicles, metrics, stew/results,
-  libp2p/protocols/pubsub/rpc/[messages, protobuf],
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
-  ./message_notifier
+  ./message_notifier,
+  ./../../node/v2/[waku_types, waku_message]
+
+logScope:
+  topics = "wakustore"
 
 const
-  WakuStoreCodec* = "/vac/waku/store/2.0.0-alpha4"
+  WakuStoreCodec* = "/vac/waku/store/2.0.0-alpha5"
 
 type
   HistoryQuery* = object
@@ -17,10 +20,10 @@ type
 
   HistoryResponse* = object
     uuid*: string
-    messages*: seq[Message]
+    messages*: seq[WakuMessage]
 
   WakuStore* = ref object of LPProtocol
-    messages*: seq[Message]
+    messages*: seq[WakuMessage]
 
 proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryQuery()
@@ -44,7 +47,7 @@ proc init*(T: type HistoryResponse, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getRepeatedField(2, messages)
 
   for buf in messages:
-    msg.messages.add(? protobuf.decodeMessage(initProtoBuffer(buf)))
+    msg.messages.add(? WakuMessage.init(buf))
 
   ok(msg)
 
@@ -62,15 +65,13 @@ proc encode*(response: HistoryResponse): ProtoBuffer =
   result.write(1, response.uuid)
 
   for msg in response.messages:
-    result.write(2, msg.encodeMessage())
+    result.write(2, msg.encode())
 
 proc query(w: WakuStore, query: HistoryQuery): HistoryResponse =
-  result = HistoryResponse(uuid: query.uuid, messages: newSeq[Message]())
+  result = HistoryResponse(uuid: query.uuid, messages: newSeq[WakuMessage]())
   for msg in w.messages:
-    for topic in query.topics:
-      if topic in msg.topicIDs:
-        result.messages.insert(msg)
-        break
+    if msg.contentTopic in query.topics:
+      result.messages.insert(msg)
 
 proc init*(T: type WakuStore): T =
   var ws = WakuStore()
@@ -96,7 +97,7 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   ## This is used to pipe messages into the storage, therefore
   ## the filter should be used by the component that receives
   ## new messages.
-  proc handle(msg: Message) =
+  proc handle(topic: string, msg: WakuMessage) =
     proto.messages.add(msg)
 
   MessageNotificationSubscription.init(@[], handle)

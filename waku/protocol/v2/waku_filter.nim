@@ -4,18 +4,21 @@ import
   libp2p/protocols/pubsub/pubsubpeer,
   libp2p/protocols/pubsub/floodsub,
   libp2p/protocols/pubsub/gossipsub,
-  libp2p/protocols/pubsub/rpc/[messages, protobuf],
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
-  ./message_notifier
+  ./message_notifier,
+  ./../../node/v2/[waku_message, waku_types]
 
 # NOTE This is just a start, the design of this protocol isn't done yet. It
 # should be direct payload exchange (a la req-resp), not be coupled with the
 # relay protocol.
 
+logScope:
+  topics = "wakufilter"
+
 const
-  WakuFilterCodec* = "/vac/waku/filter/2.0.0-alpha4"
+  WakuFilterCodec* = "/vac/waku/filter/2.0.0-alpha5"
 
 type
   ContentFilter* = object
@@ -26,7 +29,7 @@ type
     topic*: string
 
   MessagePush* = object
-    messages*: seq[Message]
+    messages*: seq[WakuMessage]
 
   Subscriber = object
     connection: Connection
@@ -75,7 +78,7 @@ proc encode*(push: MessagePush): ProtoBuffer =
   result = initProtoBuffer()
 
   for push in push.messages:
-    result.write(1, push.encodeMessage())
+    result.write(1, push.encode())
 
 proc init*(T: type MessagePush, buffer: seq[byte]): ProtoResult[T] =
   var push = MessagePush()
@@ -85,7 +88,7 @@ proc init*(T: type MessagePush, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getRepeatedField(1, messages)
 
   for buf in messages:
-    push.messages.add(? protobuf.decodeMessage(initProtoBuffer(buf)))
+    push.messages.add(? WakuMessage.init(buf))
 
   ok(push)
 
@@ -111,11 +114,14 @@ proc init*(T: type WakuFilter): T =
 
 proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
   ## Returns a Filter for the specific protocol
-  ## This filter can then be used to send messages to subscribers that match conditions.
-  proc handle(msg: Message) =
+  ## This filter can then be used to send messages to subscribers that match conditions.   
+  proc handle(topic: string, msg: WakuMessage) =
     for subscriber in proto.subscribers:
-        if subscriber.filter.topic in msg.topicIDs:
-          # @TODO PROBABLY WANT TO BATCH MESSAGES
+      if subscriber.filter.topic != topic:
+        continue
+
+      for filter in subscriber.filter.contentFilter:
+        if msg.contentTopic in filter.topics:
           discard subscriber.connection.writeLp(MessagePush(messages: @[msg]).encode().buffer)
           break
 

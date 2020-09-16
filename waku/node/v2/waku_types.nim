@@ -7,6 +7,8 @@ import
   chronos,
   libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
   libp2p/protobuf/minprotobuf,
+  libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub],
+  ./waku_message,
   ../../protocol/v2/message_notifier
 
 # Common data types -----------------------------------------------------------
@@ -32,16 +34,16 @@ type
   # NOTE based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj
     switch*: Switch
+    wakuRelay*: WakuRelay
     peerInfo*: PeerInfo
     libp2pTransportLoops*: seq[Future[void]]
   # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
     messages*: seq[(Topic, WakuMessage)]
     filters*: Filters
-    subscriptions*: MessageNotificationSubscription
+    subscriptions*: MessageNotificationSubscriptions
 
-  WakuMessage* = object
-    payload*: seq[byte]
-    contentTopic*: string
+  WakuRelay* = ref object of GossipSub
+    gossipEnabled*: bool
 
 # Encoding and decoding -------------------------------------------------------
 

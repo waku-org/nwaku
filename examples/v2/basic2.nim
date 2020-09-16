@@ -32,7 +32,7 @@ proc runBackground() {.async.} =
     let message = WakuMessage.init(data).value
     let payload = cast[string](message.payload)
     info "Hit subscribe handler", topic=topic, payload=payload, contentTopic=message.contentTopic
-  node.subscribe(topic, handler)
+  await node.subscribe(topic, handler)
 
   # Publish to a topic
   let payload = cast[seq[byte]]("hello world")
