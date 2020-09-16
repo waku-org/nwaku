@@ -11,7 +11,7 @@ import
   libp2p/peerinfo,
   libp2p/standard_setup,
   ../../protocol/v2/[waku_relay, waku_store, waku_filter, message_notifier],
-  ./waku_types, ./waku_message
+  ./waku_types
 
 logScope:
   topics = "wakunode"

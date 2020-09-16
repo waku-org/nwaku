@@ -8,7 +8,7 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
   ./message_notifier,
-  ./../../node/v2/[waku_message, waku_types]
+  ./../../node/v2/waku_types
 
 # NOTE This is just a start, the design of this protocol isn't done yet. It
 # should be direct payload exchange (a la req-resp), not be coupled with the

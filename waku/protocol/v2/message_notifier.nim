@@ -1,22 +1,12 @@
 import
   std/tables,
-  ./../../node/v2/waku_message
+  ./../../node/v2/waku_types
 
 # The Message Notification system is a method to notify various protocols
 # running on a node when a new message was received.
 #
 # Protocols can subscribe to messages of specific topics, then when one is received
 # The notification handler function will be called.
-
-type
-  MessageNotificationHandler* = proc(topic: string, msg: WakuMessage) {.gcsafe, closure.}
-
-  MessageNotificationSubscription* = object
-    topics: seq[string] # @TODO TOPIC
-    handler: MessageNotificationHandler
-    
-  MessageNotificationSubscriptions* = Table[string, MessageNotificationSubscription]
-
 proc subscribe*(subscriptions: var MessageNotificationSubscriptions, name: string, subscription: MessageNotificationSubscription) =
   subscriptions.add(name, subscription)
 

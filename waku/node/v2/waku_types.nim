@@ -7,9 +7,7 @@ import
   chronos,
   libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
   libp2p/protobuf/minprotobuf,
-  libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub],
-  ./waku_message,
-  ../../protocol/v2/message_notifier
+  libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub]
 
 # Common data types -----------------------------------------------------------
 
@@ -30,6 +28,18 @@ type
     handler*: ContentFilterHandler
 
   Filters* = Table[string, Filter]
+
+  WakuMessage* = object
+    payload*: seq[byte]
+    contentTopic*: string
+
+  MessageNotificationHandler* = proc(topic: string, msg: WakuMessage) {.gcsafe, closure.}
+
+  MessageNotificationSubscriptions* = Table[string, MessageNotificationSubscription]
+
+  MessageNotificationSubscription* = object
+    topics*: seq[string] # @TODO TOPIC
+    handler*: MessageNotificationHandler
 
   # NOTE based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj

@@ -8,7 +8,7 @@ import
   libp2p/switch,
   eth/keys,
   ../../waku/protocol/v2/waku_relay,
-  ../../waku/node/v2/[wakunode2, waku_types, waku_message],
+  ../../waku/node/v2/[wakunode2, waku_types],
   ../test_helpers
 
 procSuite "WakuNode":

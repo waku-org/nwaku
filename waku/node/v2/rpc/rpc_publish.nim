@@ -5,7 +5,7 @@ import
   eth/common as eth_common, eth/keys,
   system,
   options,
-  ../waku_types, ../waku_message
+  ../waku_types
 
 from strutils import rsplit
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]

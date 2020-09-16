@@ -12,7 +12,7 @@ import
   libp2p/transports/transport,
   libp2p/transports/tcptransport,
   ../../waku/protocol/v2/[waku_store, message_notifier],
-  ../../waku/node/v2/waku_message,
+  ../../waku/node/v2/waku_types,
   ../test_helpers, ./utils
 
 procSuite "Waku Store":
