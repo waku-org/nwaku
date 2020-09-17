@@ -154,6 +154,7 @@ proc subscribe*(node: WakuNode, contentFilter: waku_types.ContentFilter, handler
 
 proc query*(node: WakuNode, topics: seq[string]) {.async.} =
   # @TODO CALL THE FILTER PROTOCOL HOWEVER THAT IS POSSIBLE.
+  discard
 
 proc unsubscribe*(w: WakuNode, topic: Topic) =
   echo "NYI"
