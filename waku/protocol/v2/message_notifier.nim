@@ -1,5 +1,6 @@
 import
   std/tables,
+  chronos,
   ./../../node/v2/waku_types
 
 # The Message Notification system is a method to notify various protocols
@@ -7,7 +8,7 @@ import
 #
 # Protocols can subscribe to messages of specific topics, then when one is received
 # The notification handler function will be called.
-proc subscribe*(subscriptions: var MessageNotificationSubscriptions, name: string, subscription: MessageNotificationSubscription) =
+proc subscribe*(subscriptions: MessageNotificationSubscriptions, name: string, subscription: MessageNotificationSubscription) =
   subscriptions.add(name, subscription)
 
 proc init*(T: type MessageNotificationSubscription, topics: seq[string], handler: MessageNotificationHandler): T =
@@ -23,10 +24,14 @@ proc containsMatch(lhs: seq[string], rhs: seq[string]): bool =
 
   return false
 
-proc notify*(subscriptions: var MessageNotificationSubscriptions, topic: string, msg: WakuMessage) {.gcsafe.} =
+proc notify*(subscriptions: MessageNotificationSubscriptions, topic: string, msg: WakuMessage) {.async, gcsafe.} =
+  var futures = newSeq[Future[void]]()
+
   for subscription in subscriptions.mvalues:
     # @TODO WILL NEED TO CHECK SUBTOPICS IN FUTURE FOR WAKU TOPICS NOT LIBP2P ONES
     if subscription.topics.len > 0 and topic notin subscription.topics:
       continue
 
-    subscription.handler(topic, msg)
+    futures.add(subscription.handler(topic, msg))
+
+  await allFutures(futures)
