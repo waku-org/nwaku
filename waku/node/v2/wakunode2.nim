@@ -29,12 +29,6 @@ type
   Topic* = waku_types.Topic
   Message* = seq[byte]
 
-  HistoryQuery* = object
-    topics*: seq[string]
-
-  HistoryResponse* = object
-    messages*: seq[Message]
-
 # NOTE Any difference here in Waku vs Eth2?
 # E.g. Devp2p/Libp2p support, etc.
 #func asLibp2pKey*(key: keys.PublicKey): PublicKey =
@@ -193,7 +187,7 @@ proc query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
   ## Status: Not yet implemented.
   ## TODO Implement as wrapper around `waku_store` and send RPC.
   # DOES NOT SEEM TO WORK?
-  w.wakuStore.query(query)
+  return w.wakuStore.query(query)
 
 when isMainModule:
   import

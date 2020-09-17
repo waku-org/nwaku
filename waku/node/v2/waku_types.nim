@@ -43,6 +43,14 @@ type
     topics*: seq[string] # @TODO TOPIC
     handler*: MessageNotificationHandler
 
+  HistoryQuery* = object
+    uuid*: string
+    topics*: seq[string]
+
+  HistoryResponse* = object
+    uuid*: string
+    messages*: seq[WakuMessage]
+
   WakuStore* = ref object of LPProtocol
     messages*: seq[WakuMessage]
 
