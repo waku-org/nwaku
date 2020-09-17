@@ -21,7 +21,7 @@ procSuite "Waku Filter":
       proto = WakuFilter.init()
       subscription = proto.subscription()
 
-    var subscriptions = initTable[string, MessageNotificationSubscription]()
+    var subscriptions = newTable[string, MessageNotificationSubscription]()
     subscriptions["test"] = subscription
 
     let

@@ -83,7 +83,12 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   # This gets messy with: .PubSub
   switch.mount(wakuRelay)
 
-  result = WakuNode(switch: switch, peerInfo: peerInfo, wakuRelay: wakuRelay)
+  result = WakuNode(
+    switch: switch, 
+    peerInfo: peerInfo,
+    wakuRelay: wakuRelay,
+    subscriptions: newTable[string, MessageNotificationSubscription]()
+  )
 
   for topic in topics:
     proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
@@ -108,7 +113,7 @@ proc start*(node: WakuNode) {.async.} =
   proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
     let msg = WakuMessage.init(data)
     if msg.isOk():
-      node.subscriptions.notify(topic, msg.value())
+      await node.subscriptions.notify(topic, msg.value())
 
   await node.wakuRelay.subscribe("waku", relayHandler)
 
