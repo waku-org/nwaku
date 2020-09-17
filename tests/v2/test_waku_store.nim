@@ -30,8 +30,6 @@ procSuite "Waku Store":
       msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: "topic")
       msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: "topic2")
 
-    var serverFut: Future[void]
-
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()
 
