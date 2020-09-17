@@ -16,7 +16,7 @@ declarePublicGauge total_messages, "number of messages received"
 logScope:
     topics = "wakurelay"
 
-const WakuRelayCodec* = "/vac/waku/relay/2.0.0-alpha2"
+const WakuRelayCodec* = "/vac/waku/relay/2.0.0-beta1"
 
 method init*(w: WakuRelay) =
   debug "init"
