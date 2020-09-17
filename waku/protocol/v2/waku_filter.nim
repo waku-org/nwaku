@@ -109,3 +109,7 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
           break
 
   MessageNotificationSubscription.init(@[], handle)
+
+proc filter*(proto: WakuFilter, handler: proc(msgs: MessagePush): Future[void]) =
+  # @TODO WE PROBABLY WANT TO CALL ONE OF THE CONS HERE TO SUBSCRIBE?
+  discard
