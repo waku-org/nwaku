@@ -20,24 +20,6 @@ logScope:
 const
   WakuFilterCodec* = "/vac/waku/filter/2.0.0-alpha5"
 
-type
-  ContentFilter* = object
-    topics*: seq[string]
-
-  FilterRequest* = object
-    contentFilter*: seq[ContentFilter] 
-    topic*: string
-
-  MessagePush* = object
-    messages*: seq[WakuMessage]
-
-  Subscriber = object
-    connection: Connection
-    filter: FilterRequest # @TODO MAKE THIS A SEQUENCE AGAIN?
-
-  WakuFilter* = ref object of LPProtocol
-    subscribers*: seq[Subscriber]
-
 proc encode*(filter: ContentFilter): ProtoBuffer =
   result = initProtoBuffer()
 

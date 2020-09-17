@@ -8,6 +8,7 @@ import
   libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
   libp2p/protobuf/minprotobuf,
   libp2p/protocols/protocol,
+  libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub]
 
 # Common data types -----------------------------------------------------------
@@ -45,11 +46,26 @@ type
   WakuStore* = ref object of LPProtocol
     messages*: seq[WakuMessage]
 
+  FilterRequest* = object
+    contentFilter*: seq[ContentFilter] 
+    topic*: string
+
+  MessagePush* = object
+    messages*: seq[WakuMessage]
+
+  Subscriber* = object
+    connection*: Connection
+    filter*: FilterRequest # @TODO MAKE THIS A SEQUENCE AGAIN?
+
+  WakuFilter* = ref object of LPProtocol
+    subscribers*: seq[Subscriber]
+
   # NOTE based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj
     switch*: Switch
     wakuRelay*: WakuRelay
     wakuStore*: WakuStore
+    wakuFilter*: WakuFilter
     peerInfo*: PeerInfo
     libp2pTransportLoops*: seq[Future[void]]
   # TODO Revist messages field indexing as well as if this should be Message or WakuMessage

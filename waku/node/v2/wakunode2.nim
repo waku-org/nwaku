@@ -107,9 +107,9 @@ proc start*(node: WakuNode) {.async.} =
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
-  let filterProto = WakuFilter.init()
-  node.switch.mount(filterProto)
-  node.subscriptions.subscribe(WakuFilterCodec, filterProto.subscription())
+  node.wakuFilter = WakuFilter.init()
+  node.switch.mount(node.wakuFilter)
+  node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
   proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
     let msg = WakuMessage.init(data)
@@ -192,7 +192,8 @@ proc query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
   ##
   ## Status: Not yet implemented.
   ## TODO Implement as wrapper around `waku_store` and send RPC.
-  w.wakuStore.query(query)
+  # DOES NOT SEEM TO WORK?
+  # w.wakuStore.query(query)
 
 when isMainModule:
   import
