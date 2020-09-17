@@ -7,16 +7,6 @@ import
 #
 # Protocols can subscribe to messages of specific topics, then when one is received
 # The notification handler function will be called.
-
-type
-  MessageNotificationHandler* = proc(topic: string, msg: WakuMessage) {.gcsafe, closure.}
-
-  MessageNotificationSubscription* = object
-    topics: seq[string] # @TODO TOPIC
-    handler: MessageNotificationHandler
-    
-  MessageNotificationSubscriptions* = Table[string, MessageNotificationSubscription]
-
 proc subscribe*(subscriptions: var MessageNotificationSubscriptions, name: string, subscription: MessageNotificationSubscription) =
   subscriptions.add(name, subscription)
 

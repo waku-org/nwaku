@@ -29,6 +29,18 @@ type
 
   Filters* = Table[string, Filter]
 
+  WakuMessage* = object
+    payload*: seq[byte]
+    contentTopic*: string
+
+  MessageNotificationHandler* = proc(topic: string, msg: WakuMessage) {.gcsafe, closure.}
+
+  MessageNotificationSubscriptions* = Table[string, MessageNotificationSubscription]
+
+  MessageNotificationSubscription* = object
+    topics*: seq[string] # @TODO TOPIC
+    handler*: MessageNotificationHandler
+
   # NOTE based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj
     switch*: Switch
@@ -38,10 +50,7 @@ type
   # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
     messages*: seq[(Topic, WakuMessage)]
     filters*: Filters
-
-  WakuMessage* = object
-    payload*: seq[byte]
-    contentTopic*: string
+    subscriptions*: MessageNotificationSubscriptions
 
   WakuRelay* = ref object of GossipSub
     gossipEnabled*: bool
