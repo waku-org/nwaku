@@ -115,14 +115,18 @@ proc init*(T: type WakuFilter): T =
 proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
   ## Returns a Filter for the specific protocol
   ## This filter can then be used to send messages to subscribers that match conditions.   
-  proc handle(topic: string, msg: WakuMessage) =
+  proc handle(topic: string, msg: WakuMessage) {.async.} =
+    var futures = newSeq[Future[void]]()
+
     for subscriber in proto.subscribers:
       if subscriber.filter.topic != topic:
         continue
 
       for filter in subscriber.filter.contentFilter:
         if msg.contentTopic in filter.topics:
-          discard subscriber.connection.writeLp(MessagePush(messages: @[msg]).encode().buffer)
+          futures.add(subscriber.connection.writeLp(MessagePush(messages: @[msg]).encode().buffer))
           break
+
+    await allFutures(futures)
 
   MessageNotificationSubscription.init(@[], handle)
