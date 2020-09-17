@@ -22,9 +22,6 @@ type
     uuid*: string
     messages*: seq[WakuMessage]
 
-  WakuStore* = ref object of LPProtocol
-    messages*: seq[WakuMessage]
-
 proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryQuery()
   let pb = initProtoBuffer(buffer)
@@ -67,7 +64,7 @@ proc encode*(response: HistoryResponse): ProtoBuffer =
   for msg in response.messages:
     result.write(2, msg.encode())
 
-proc query(w: WakuStore, query: HistoryQuery): HistoryResponse =
+proc query*(w: WakuStore, query: HistoryQuery): HistoryResponse =
   result = HistoryResponse(uuid: query.uuid, messages: newSeq[WakuMessage]())
   for msg in w.messages:
     if msg.contentTopic in query.topics:
@@ -101,8 +98,3 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
     proto.messages.add(msg)
 
   MessageNotificationSubscription.init(@[], handle)
-
-proc query*(p: HistoryQuery, conn: Connection): HistoryResponse = 
-  await conn.writeLp(p.encode().buffer)
-  var message = await conn.readLp(64*1024)
-  return HistoryResponse.init(message)

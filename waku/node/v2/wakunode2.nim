@@ -103,7 +103,7 @@ proc start*(node: WakuNode) {.async.} =
   node.libp2pTransportLoops = await node.switch.start()
 
   # NOTE WakuRelay is being instantiated as part of initing node
-  let storeProto = WakuStore.init()
+  node.wakuStore = WakuStore.init()
   node.switch.mount(storeProto)
   node.subscriptions.subscribe(WakuStoreCodec, storeProto.subscription())
 
@@ -192,14 +192,7 @@ proc query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
   ##
   ## Status: Not yet implemented.
   ## TODO Implement as wrapper around `waku_store` and send RPC.
-  result.messages = newSeq[Message]()
-
-  for msg in w.messages:
-    if msg[0] notin query.topics:
-      continue
-
-    # XXX Unclear how this should be hooked up, Message or WakuMessage?
-    # result.messages.insert(msg[1])
+  w.wakuStore.query(query)
 
 when isMainModule:
   import
