@@ -104,8 +104,8 @@ proc start*(node: WakuNode) {.async.} =
 
   # NOTE WakuRelay is being instantiated as part of initing node
   node.wakuStore = WakuStore.init()
-  node.switch.mount(storeProto)
-  node.subscriptions.subscribe(WakuStoreCodec, storeProto.subscription())
+  node.switch.mount(node.wakuStore)
+  node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
   let filterProto = WakuFilter.init()
   node.switch.mount(filterProto)
