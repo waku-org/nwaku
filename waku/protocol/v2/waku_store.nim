@@ -70,7 +70,7 @@ proc query*(w: WakuStore, query: HistoryQuery): HistoryResponse =
     if msg.contentTopic in query.topics:
       result.messages.insert(msg)
 
-proc init*(ws: WakuStore) =  
+method init*(ws: WakuStore) =  
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var message = await conn.readLp(64*1024)
     var rpc = HistoryQuery.init(message)
