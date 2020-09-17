@@ -25,37 +25,26 @@ procSuite "Waku Store":
     subscriptions["test"] = subscription
 
     let
-      peer = PeerInfo.init(PrivateKey.random(ECDSA, rng[]).get())
+      key = PrivateKey.random(ECDSA, rng[]).get()
+      peer = PeerInfo.init(key)
       msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: "topic")
       msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: "topic2")
+
+    var serverFut: Future[void]
+
+    var dialSwitch = newStandardSwitch()
+    discard await dialSwitch.start()
+
+    var listenSwitch = newStandardSwitch(some(key))
+    listenSwitch.mount(proto)
+    discard await listenSwitch.start()
 
     await subscriptions.notify("foo", msg)
     await subscriptions.notify("foo", msg2)
 
-    let ma: MultiAddress = Multiaddress.init("/ip4/0.0.0.0/tcp/0").tryGet()
-    let remoteSecKey = PrivateKey.random(ECDSA, rng[]).get()
-    let remotePeerInfo = PeerInfo.init(
-      remoteSecKey,
-      [ma],
-      ["/test/proto1/1.0.0", "/test/proto2/1.0.0"]
-    )
-
-    var serverFut: Future[void]
-    let msListen = newMultistream()
-
-    msListen.addHandler(WakuStoreCodec, proto)
-    proc connHandler(conn: Connection): Future[void] {.async, gcsafe.} =
-      await msListen.handle(conn)
-
-    var transport1 = TcpTransport.init()
-    serverFut = await transport1.listen(ma, connHandler)
-
-    let msDial = newMultistream()
-    let transport2: TcpTransport = TcpTransport.init()
-    let conn = await transport2.dial(transport1.ma)
+    let conn = await dialSwitch.dial(listenSwitch.peerInfo.peerId, listenSwitch.peerInfo.addrs, WakuStoreCodec)
 
     var rpc = HistoryQuery(uuid: "1234", topics: @["topic"])
-    discard await msDial.select(conn, WakuStoreCodec)
     await conn.writeLP(rpc.encode().buffer)
 
     var message = await conn.readLp(64*1024)
