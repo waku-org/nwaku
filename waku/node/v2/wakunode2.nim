@@ -193,7 +193,7 @@ proc query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
   ## Status: Not yet implemented.
   ## TODO Implement as wrapper around `waku_store` and send RPC.
   # DOES NOT SEEM TO WORK?
-  # w.wakuStore.query(query)
+  w.wakuStore.query(query)
 
 when isMainModule:
   import
