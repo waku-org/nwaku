@@ -10,7 +10,7 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/peerinfo,
   libp2p/standard_setup,
-  ../../protocol/v2/[waku_relay, waku_store, waku_filter],
+  ../../protocol/v2/[waku_relay, waku_store, waku_filter, message_notifier],
   ./waku_types
 
 logScope:
@@ -105,9 +105,18 @@ proc start*(node: WakuNode) {.async.} =
   # NOTE WakuRelay is being instantiated as part of initing node
   let storeProto = WakuStore.init()
   node.switch.mount(storeProto)
+  node.subscriptions.subscribe(WakuStoreCodec, storeProto.subscription())
 
   let filterProto = WakuFilter.init()
   node.switch.mount(filterProto)
+  node.subscriptions.subscribe(WakuFilterCodec, filterProto.subscription())
+
+  proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+    let msg = WakuMessage.init(data)
+    if msg.isOk():
+      node.subscriptions.notify(topic, msg.value())
+
+  await node.wakuRelay.subscribe("waku", relayHandler)
 
   # TODO Get this from WakuNode obj
   let peerInfo = node.peerInfo
