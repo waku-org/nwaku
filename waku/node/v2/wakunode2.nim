@@ -152,10 +152,6 @@ proc subscribe*(node: WakuNode, contentFilter: waku_types.ContentFilter, handler
   # TODO: get some random id, or use the Filter directly as key
   node.filters.add("some random id", Filter(contentFilter: contentFilter, handler: handler))
 
-proc query*(node: WakuNode, topics: seq[string]) {.async.} =
-  # @TODO CALL THE FILTER PROTOCOL HOWEVER THAT IS POSSIBLE.
-  discard
-
 proc unsubscribe*(w: WakuNode, topic: Topic) =
   echo "NYI"
   ## Unsubscribe from a topic.
