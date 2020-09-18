@@ -43,6 +43,8 @@ type
     topics*: seq[string] # @TODO TOPIC
     handler*: MessageNotificationHandler
 
+  QueryHandlerFunc* = proc(response: HistoryResponse): Future[void] {.gcsafe, closure.}
+
   HistoryQuery* = object
     uuid*: string
     topics*: seq[string]

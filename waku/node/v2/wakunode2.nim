@@ -182,13 +182,12 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
   # XXX Consider awaiting here
   discard wakuRelay.publish(topic, data)
 
-# @TODO THIS MAY NEED A HANDLER FUNCTION, IF WE CALL MULTIPLE NODES WE GET MULTIPLE HISTORYRESPONSES
-proc query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
+proc query*(w: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
   ## Queries for historical messages.
   ##
   ## Status: Not yet implemented.
   ## TODO Implement as wrapper around `waku_store` and send RPC.
-  return w.wakuStore.query(query)
+  await w.wakuStore.query(query, handler)
 
 when isMainModule:
   import

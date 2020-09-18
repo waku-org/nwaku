@@ -55,7 +55,7 @@ proc encode*(response: HistoryResponse): ProtoBuffer =
   for msg in response.messages:
     result.write(2, msg.encode())
 
-proc query(w: WakuStore, query: HistoryQuery): HistoryResponse =
+proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   result = HistoryResponse(uuid: query.uuid, messages: newSeq[WakuMessage]())
   for msg in w.messages:
     if msg.contentTopic in query.topics:
@@ -70,7 +70,7 @@ method init*(ws: WakuStore) =
 
     info "received query"
 
-    let res = ws.query(rpc.value)
+    let res = ws.findMessages(rpc.value)
 
     await conn.writeLp(res.encode().buffer)
 
@@ -90,3 +90,6 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
     proto.messages.add(msg)
 
   MessageNotificationSubscription.init(@[], handle)
+
+proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
+  discard
