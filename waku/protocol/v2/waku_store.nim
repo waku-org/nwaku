@@ -61,7 +61,7 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
     if msg.contentTopic in query.topics:
       result.messages.insert(msg)
 
-method init*(ws: WakuStore) =
+method init*(ws: WakuStore, peer: PeerInfo) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var message = await conn.readLp(64*1024)
     var rpc = HistoryQuery.init(message)
@@ -75,6 +75,7 @@ method init*(ws: WakuStore) =
     await conn.writeLp(res.encode().buffer)
 
   ws.handler = handle
+  ws.peerInfo = peer
   ws.codec = WakuStoreCodec
 
 proc init*(T: type WakuStore): T =
@@ -92,4 +93,13 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   MessageNotificationSubscription.init(@[], handle)
 
 proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
-  discard
+  let conn = await switch.dial(w.peerInfo.peerId, w.peerInfo.addrs, WakuStoreCodec)
+
+  var rpc = HistoryQuery(uuid: "1234", topics: @["topic"])
+  await conn.writeLP(rpc.encode().buffer)
+
+  var message = await conn.readLp(64*1024)
+  let response = HistoryResponse.init(message)
+
+  if response.isOk:
+    await handler(response.value)

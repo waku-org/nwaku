@@ -54,6 +54,7 @@ type
     messages*: seq[WakuMessage]
 
   WakuStore* = ref object of LPProtocol
+    peerInfo*: PeerInfo
     messages*: seq[WakuMessage]
 
   FilterRequest* = object
