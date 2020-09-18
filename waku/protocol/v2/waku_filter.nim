@@ -74,25 +74,22 @@ proc init*(T: type MessagePush, buffer: seq[byte]): ProtoResult[T] =
 
   ok(push)
 
-proc init*(T: type WakuFilter): T =
-  var ws = WakuFilter(subscribers: newSeq[Subscriber](0))
-
-  # From my understanding we need to set up filters,
-  # then on every message received we need the handle function to send it to the connection
-  # if the peer subscribed.
-  
+method init*(wf: WakuFilter) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var message = await conn.readLp(64*1024)
     var res = FilterRequest.init(message)
     if res.isErr:
       return
 
-    ws.subscribers.add(Subscriber(connection: conn, filter: res.value))
+    wf.subscribers.add(Subscriber(connection: conn, filter: res.value))
     # @TODO THIS IS A VERY ROUGH EXPERIMENT
 
-  ws.handler = handle
-  ws.codec = WakuFilterCodec
-  result = ws
+  wf.handler = handle
+  wf.codec = WakuFilterCodec
+
+proc init*(T: type WakuFilter): T =
+  new result
+  result.init()
 
 proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
   ## Returns a Filter for the specific protocol
