@@ -1,6 +1,7 @@
 import
   std/tables,
   chronos, chronicles, metrics, stew/results,
+  libp2p/switch,
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
@@ -61,7 +62,7 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
     if msg.contentTopic in query.topics:
       result.messages.insert(msg)
 
-method init*(ws: WakuStore, peer: PeerInfo) =
+method init*(ws: WakuStore) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var message = await conn.readLp(64*1024)
     var rpc = HistoryQuery.init(message)
@@ -75,11 +76,12 @@ method init*(ws: WakuStore, peer: PeerInfo) =
     await conn.writeLp(res.encode().buffer)
 
   ws.handler = handle
-  ws.peerInfo = peer
   ws.codec = WakuStoreCodec
 
-proc init*(T: type WakuStore): T =
+proc init*(T: type WakuStore, peer: PeerInfo, switch: Switch): T =
   new result
+  result.peerInfo = peer
+  result.switch = switch
   result.init()
 
 proc subscription*(proto: WakuStore): MessageNotificationSubscription =
@@ -93,7 +95,7 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   MessageNotificationSubscription.init(@[], handle)
 
 proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
-  let conn = await switch.dial(w.peerInfo.peerId, w.peerInfo.addrs, WakuStoreCodec)
+  let conn = await w.switch.dial(w.peerInfo.peerId, w.peerInfo.addrs, WakuStoreCodec)
 
   var rpc = HistoryQuery(uuid: "1234", topics: @["topic"])
   await conn.writeLP(rpc.encode().buffer)
@@ -102,4 +104,4 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
   let response = HistoryResponse.init(message)
 
   if response.isOk:
-    await handler(response.value)
+    handler(response.value)

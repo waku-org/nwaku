@@ -30,8 +30,9 @@ procSuite "Waku Store":
     discard await listenSwitch.start()
 
     let
-      proto = WakuStore.init(listenSwitch.peerInfo)
+      proto = WakuStore.init(listenSwitch.peerInfo, dialSwitch)
       subscription = proto.subscription()
+      rpc = HistoryQuery(uuid: "1234", topics: @["topic"])
 
     var subscriptions = newTable[string, MessageNotificationSubscription]()
     subscriptions["test"] = subscription
@@ -43,14 +44,14 @@ procSuite "Waku Store":
 
     var completionFut = newFuture[bool]()
 
-    proc handler(response: HistoryResponse): Future[void] {.gcsafe, closure.} =
+    proc handler(response: HistoryResponse) {.gcsafe, closure.} =
       check:
         response.uuid == rpc.uuid
         response.messages.len() == 1
         response.messages[0] == msg
       completionFut.complete(true)
 
-    await proto.query(HistoryQuery(uuid: "1234", topics: @["topic"]), handler)
+    await proto.query(rpc, handler)
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true

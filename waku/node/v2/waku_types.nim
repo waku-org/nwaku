@@ -8,6 +8,7 @@ import
   libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
   libp2p/protobuf/minprotobuf,
   libp2p/protocols/protocol,
+  libp2p/switch,
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub]
 
@@ -43,7 +44,7 @@ type
     topics*: seq[string] # @TODO TOPIC
     handler*: MessageNotificationHandler
 
-  QueryHandlerFunc* = proc(response: HistoryResponse): Future[void] {.gcsafe, closure.}
+  QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
 
   HistoryQuery* = object
     uuid*: string
@@ -54,6 +55,7 @@ type
     messages*: seq[WakuMessage]
 
   WakuStore* = ref object of LPProtocol
+    switch*: Switch
     peerInfo*: PeerInfo
     messages*: seq[WakuMessage]
 
