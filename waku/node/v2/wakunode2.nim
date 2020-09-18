@@ -182,10 +182,6 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
 
   let wakuRelay = node.wakuRelay
 
-  # XXX Unclear what the purpose of this is
-  # Commenting out as it is later expected to be Message type, not WakuMessage
-  #node.messages.insert((topic, message))
-
   debug "publish", topic=topic, contentTopic=message.contentTopic
   let data = message.encode().buffer
 
