@@ -97,8 +97,7 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
 proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
   let conn = await w.switch.dial(w.peerInfo.peerId, w.peerInfo.addrs, WakuStoreCodec)
 
-  var rpc = HistoryQuery(uuid: "1234", topics: @["topic"])
-  await conn.writeLP(rpc.encode().buffer)
+  await conn.writeLP(query.encode().buffer)
 
   var message = await conn.readLp(64*1024)
   let response = HistoryResponse.init(message)
