@@ -13,18 +13,6 @@ logScope:
 const
   WakuStoreCodec* = "/vac/waku/store/2.0.0-alpha5"
 
-type
-  HistoryQuery* = object
-    uuid*: string
-    topics*: seq[string]
-
-  HistoryResponse* = object
-    uuid*: string
-    messages*: seq[WakuMessage]
-
-  WakuStore* = ref object of LPProtocol
-    messages*: seq[WakuMessage]
-
 proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryQuery()
   let pb = initProtoBuffer(buffer)
