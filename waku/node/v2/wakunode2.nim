@@ -29,12 +29,6 @@ type
   Topic* = waku_types.Topic
   Message* = seq[byte]
 
-  HistoryQuery* = object
-    topics*: seq[string]
-
-  HistoryResponse* = object
-    messages*: seq[Message]
-
 # NOTE Any difference here in Waku vs Eth2?
 # E.g. Devp2p/Libp2p support, etc.
 #func asLibp2pKey*(key: keys.PublicKey): PublicKey =
@@ -108,13 +102,13 @@ proc start*(node: WakuNode) {.async.} =
   node.libp2pTransportLoops = await node.switch.start()
 
   # NOTE WakuRelay is being instantiated as part of initing node
-  let storeProto = WakuStore.init()
-  node.switch.mount(storeProto)
-  node.subscriptions.subscribe(WakuStoreCodec, storeProto.subscription())
+  node.wakuStore = WakuStore.init()
+  node.switch.mount(node.wakuStore)
+  node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
-  let filterProto = WakuFilter.init()
-  node.switch.mount(filterProto)
-  node.subscriptions.subscribe(WakuFilterCodec, filterProto.subscription())
+  node.wakuFilter = WakuFilter.init()
+  node.switch.mount(node.wakuFilter)
+  node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
   proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
     let msg = WakuMessage.init(data)
@@ -193,14 +187,10 @@ proc query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
   ##
   ## Status: Not yet implemented.
   ## TODO Implement as wrapper around `waku_store` and send RPC.
-  result.messages = newSeq[Message]()
-
-  for msg in w.messages:
-    if msg[0] notin query.topics:
-      continue
-
-    # XXX Unclear how this should be hooked up, Message or WakuMessage?
-    # result.messages.insert(msg[1])
+  
+  # XXX Unclear how this should be hooked up, Message or WakuMessage?
+  # result.messages.insert(msg[1])
+  discard
 
 when isMainModule:
   import
