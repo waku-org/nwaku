@@ -182,15 +182,13 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
   # XXX Consider awaiting here
   discard wakuRelay.publish(topic, data)
 
+# @TODO THIS MAY NEED A HANDLER FUNCTION, IF WE CALL MULTIPLE NODES WE GET MULTIPLE HISTORYRESPONSES
 proc query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
   ## Queries for historical messages.
   ##
   ## Status: Not yet implemented.
   ## TODO Implement as wrapper around `waku_store` and send RPC.
-  
-  # XXX Unclear how this should be hooked up, Message or WakuMessage?
-  # result.messages.insert(msg[1])
-  discard
+  return w.wakuStore.query(query)
 
 when isMainModule:
   import
