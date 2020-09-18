@@ -61,9 +61,7 @@ proc query(w: WakuStore, query: HistoryQuery): HistoryResponse =
     if msg.contentTopic in query.topics:
       result.messages.insert(msg)
 
-proc init*(T: type WakuStore): T =
-  var ws = WakuStore()
-  
+method init*(ws: WakuStore) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var message = await conn.readLp(64*1024)
     var rpc = HistoryQuery.init(message)
@@ -78,7 +76,10 @@ proc init*(T: type WakuStore): T =
 
   ws.handler = handle
   ws.codec = WakuStoreCodec
-  result = ws
+
+proc init*(T: type WakuStore): T =
+  new result
+  result.init()
 
 proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   ## The filter function returns the pubsub filter for the node.
