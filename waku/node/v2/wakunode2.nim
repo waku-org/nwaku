@@ -184,7 +184,8 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
   discard wakuRelay.publish(topic, data)
 
 proc query*(w: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
-  ## Queries for historical messages.
+  ## Queries known nodes for historical messages. Triggers the handler whenever a response is received.
+  ## QueryHandlerFunc is a method that takes a HistoryResponse.
   ##
   ## Status: Implemented.
   await w.wakuStore.query(query, handler)
