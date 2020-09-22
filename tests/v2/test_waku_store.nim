@@ -30,9 +30,11 @@ procSuite "Waku Store":
     discard await listenSwitch.start()
 
     let
-      proto = WakuStore.init(listenSwitch.peerInfo, dialSwitch)
+      proto = WakuStore.init(dialSwitch)
       subscription = proto.subscription()
       rpc = HistoryQuery(uuid: "1234", topics: @["topic"])
+
+    proto.setPeer(listenSwitch.peerInfo)
 
     var subscriptions = newTable[string, MessageNotificationSubscription]()
     subscriptions["test"] = subscription

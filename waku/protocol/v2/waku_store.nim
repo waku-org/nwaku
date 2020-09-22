@@ -78,11 +78,14 @@ method init*(ws: WakuStore) =
   ws.handler = handle
   ws.codec = WakuStoreCodec
 
-proc init*(T: type WakuStore, peer: PeerInfo, switch: Switch): T =
+proc init*(T: type WakuStore, switch: Switch): T =
   new result
-  result.peerInfo = peer
   result.switch = switch
   result.init()
+
+# @TODO THIS SHOULD PROBABLY BE AN ADD FUNCTION AND APPEND THE PEER TO AN ARRAY
+proc setPeer*(ws: WakuStore, peer: PeerInfo) =
+  ws.peerInfo = peer
 
 proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   ## The filter function returns the pubsub filter for the node.

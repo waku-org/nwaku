@@ -7,7 +7,7 @@ import
   libp2p/crypto/secp,
   libp2p/switch,
   eth/keys,
-  ../../waku/protocol/v2/waku_relay,
+  ../../waku/protocol/v2/[waku_relay, waku_store, message_notifier],
   ../../waku/node/v2/[wakunode2, waku_types],
   ../test_helpers
 
@@ -106,6 +106,40 @@ procSuite "WakuNode":
     info "Waking up and publishing"
     node2.publish(pubSubTopic, message)
 
+    check:
+      (await completionFut.withTimeout(5.seconds)) == true
+    await allFutures([node1.stop(), node2.stop()])
+
+  asyncTest "Store protocol returns expected message":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        Port(60002))
+      contentTopic = "foobar"
+      message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
+      uuid = "123"
+
+    var completionFut = newFuture[bool]()
+
+    await allFutures([node1.start(), node2.start()])
+
+    await node2.subscriptions.notify("", message)
+
+    await sleepAsync(2000.millis)
+
+    node1.wakuStore.setPeer(node2.peerInfo)
+
+    proc storeHandler(response: HistoryResponse) {.gcsafe, closure.} =
+      check:
+        response.uuid == uuid
+        response.messages[0] == message
+      completionFut.complete(true)
+
+    await node1.query(HistoryQuery(uuid: uuid, topics: @[contentTopic]), storeHandler)
+    
     check:
       (await completionFut.withTimeout(5.seconds)) == true
     await allFutures([node1.stop(), node2.stop()])
