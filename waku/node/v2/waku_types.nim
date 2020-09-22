@@ -61,11 +61,14 @@ type
   MessagePush* = object
     messages*: seq[WakuMessage]
 
+  FilterHandlerFunc* = proc(push: MessagePush) {.async, gcsafe, closure.}
+
   Subscriber* = object
     connection*: Connection
     filter*: FilterRequest # @TODO MAKE THIS A SEQUENCE AGAIN?
 
   WakuFilter* = ref object of LPProtocol
+    peerInfo*: PeerInfo
     subscribers*: seq[Subscriber]
 
   # NOTE based on Eth2Node in NBC eth2_network.nim
