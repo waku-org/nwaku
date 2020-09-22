@@ -54,11 +54,11 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
       let msg = WakuMessage.init(data)
       if msg.isOk():
         debug "waku_subscribe handler", msg=msg
+        var readable_str = cast[string](msg[].payload)
+        info "Hit subscribe handler", topic=topic, msg=msg[], payload=readable_str
       else:
         warn "waku_subscribe decode error", msg=msg
-
-      var readable_str = cast[string](msg[].payload)
-      info "Hit subscribe handler", topic=topic, msg=msg[], payload=readable_str
+        info "waku_subscribe raw data string", str=cast[string](data)
 
     # XXX: Can we make this context async to use await?
     discard node.subscribe(topic, handler)
