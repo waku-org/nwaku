@@ -57,8 +57,8 @@ procSuite "Waku Filter":
 
     await sleepAsync(2.seconds)
 
-    subscriptions.notify("topic", msg)
-    subscriptions.notify("topic", msg2)
+    await subscriptions.notify("topic", msg)
+    await subscriptions.notify("topic", msg2)
     
     var message = await conn.readLp(64*1024)
 
