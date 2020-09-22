@@ -9,6 +9,7 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/protocols/protocol,
   libp2p/stream/connection,
+  libp2p/switch,
   libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub]
 
 # Common data types -----------------------------------------------------------
@@ -61,7 +62,7 @@ type
   MessagePush* = object
     messages*: seq[WakuMessage]
 
-  FilterHandlerFunc* = proc(push: MessagePush) {.async, gcsafe, closure.}
+  FilterHandlerFunc* = proc(push: MessagePush): Future[void] {.gcsafe, closure.}
 
   Subscriber* = object
     connection*: Connection
@@ -69,6 +70,7 @@ type
 
   WakuFilter* = ref object of LPProtocol
     peerInfo*: PeerInfo
+    switch*: Switch
     subscribers*: seq[Subscriber]
 
   # NOTE based on Eth2Node in NBC eth2_network.nim

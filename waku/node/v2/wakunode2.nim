@@ -106,7 +106,7 @@ proc start*(node: WakuNode) {.async.} =
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
-  node.wakuFilter = WakuFilter.init()
+  node.wakuFilter = WakuFilter.init(node.switch)
   node.switch.mount(node.wakuFilter)
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 

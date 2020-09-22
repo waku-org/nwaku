@@ -1,6 +1,7 @@
 import
   std/tables,
   chronos, chronicles, metrics, stew/results,
+  libp2p/switch,
   libp2p/protocols/pubsub/pubsubpeer,
   libp2p/protocols/pubsub/floodsub,
   libp2p/protocols/pubsub/gossipsub,
@@ -87,8 +88,9 @@ method init*(wf: WakuFilter) =
   wf.handler = handle
   wf.codec = WakuFilterCodec
 
-proc init*(T: type WakuFilter): T =
+proc init*(T: type WakuFilter, switch: Switch): T =
   new result
+  result.switch = switch
   result.init()
 
 proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
@@ -110,10 +112,10 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
 
   MessageNotificationSubscription.init(@[], handle)
 
-proc setPeer*(w: WakuStore, peer: PeerInfo) =
+proc setPeer*(w: WakuFilter, peer: PeerInfo) =
   w.peerInfo = peer
 
-proc filter*(w: WakuStore, request: FilterRequest, handler: FilterHandlerFunc) {.async, gcsafe.} =
+proc filter*(w: WakuFilter, request: FilterRequest, handler: FilterHandlerFunc) {.async, gcsafe.} =
   let conn = await w.switch.dial(w.peerInfo.peerId, w.peerInfo.addrs, WakuFilterCodec)
 
   await conn.writeLP(request.encode().buffer)
@@ -126,4 +128,4 @@ proc filter*(w: WakuStore, request: FilterRequest, handler: FilterHandlerFunc) {
       error "failed to decode response"
       continue
 
-    handler(response.value)
+    await handler(response.value)
