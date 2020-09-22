@@ -69,8 +69,12 @@ type
     peer*: PeerInfo
     filter*: FilterRequest # @TODO MAKE THIS A SEQUENCE AGAIN?
 
+  MessagePushHandler* = proc(msg: MessagePush): Future[void] {.gcsafe, closure.}
+
   WakuFilter* = ref object of LPProtocol
+    switch*: Switch
     subscribers*: seq[Subscriber]
+    pushHandler*: MessagePushHandler
 
   # NOTE based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj

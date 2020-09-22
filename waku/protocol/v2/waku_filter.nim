@@ -7,6 +7,7 @@ import
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
+  libp2p/switch,
   ./message_notifier,
   ./../../node/v2/waku_types
 
@@ -86,34 +87,37 @@ proc init*(T: type FilterRPC, buffer: seq[byte]): ProtoResult[T] =
   var pushBuffer: seq[byte]
   discard ? pb.getField(2, pushBuffer)
 
-  rpc.push = ? FilterRequest.init(pushBuffer)
+  rpc.push = ? MessagePush.init(pushBuffer)
 
   ok(rpc)
 
 proc encode*(rpc: FilterRPC): ProtoBuffer =
   result = initProtoBuffer()
 
-  result.write(1, request.encode())
-  result.write(2, push.encode())
+  result.write(1, rpc.request.encode())
+  result.write(2, rpc.push.encode())
 
 method init*(wf: WakuFilter) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var message = await conn.readLp(64*1024)
     var res = FilterRPC.init(message)
     if res.isErr:
+      error "failed to decode rpc"
       return
 
     let value = res.value
     if value.push != MessagePush():
-      # @TODO HANDLE PUSH
+      await wf.pushHandler(value.push)
     if value.request != FilterRequest():
       wf.subscribers.add(Subscriber(peer: conn.peerInfo, filter: value.request))
 
   wf.handler = handle
   wf.codec = WakuFilterCodec
 
-proc init*(T: type WakuFilter): T =
+proc init*(T: type WakuFilter, switch: Switch, handler: MessagePushHandler): T =
   new result
+  result.switch = switch
+  result.pushHandler = handler
   result.init()
 
 proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
@@ -126,9 +130,13 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
 
       for filter in subscriber.filter.contentFilter:
         if msg.contentTopic in filter.topics:
-          let push = MessagePush(messages: @[msg])
-          let conn = await w.switch.dial(w.peerInfo.peerId, w.peerInfo.addrs, WakuStoreCodec)
+          let push = FilterRPC(push: MessagePush(messages: @[msg]))
+          let conn = await proto.switch.dial(subscriber.peer.peerId, subscriber.peer.addrs, WakuFilterCodec)
           await conn.writeLP(push.encode().buffer)
           break
 
   MessageNotificationSubscription.init(@[], handle)
+
+proc subscribe*(wf: WakuFilter, peer: PeerInfo, request: FilterRequest) {.async, gcsafe.} =
+  let conn = await wf.switch.dial(peer.peerId, peer.addrs, WakuFilterCodec)
+  await conn.writeLP(FilterRPC(request: request).encode().buffer)
