@@ -71,7 +71,7 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
 
     # XXX: Hacky in-line handler
     proc handler(response: HistoryResponse) {.gcsafe.} =
-      info "Hit response handler", response.uuid
+      info "Hit response handler", uuid=response.uuid
 
     await node.query(HistoryQuery(uuid: uuid, topics: topics), handler)
     return true
