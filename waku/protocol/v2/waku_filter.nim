@@ -116,14 +116,14 @@ proc setPeer*(w: WakuStore, peer: PeerInfo) =
 proc filter*(w: WakuStore, request: FilterRequest, handler: FilterHandlerFunc) {.async, gcsafe.} =
   let conn = await w.switch.dial(w.peerInfo.peerId, w.peerInfo.addrs, WakuFilterCodec)
 
-    await conn.writeLP(request.encode().buffer)
+  await conn.writeLP(request.encode().buffer)
 
-    while true:
-      var message = await conn.readLp(64*1024)
+  while true:
+    var message = await conn.readLp(64*1024)
 
-      let response = MessagePush.init(message)
-      if response.isErr:
-        error "failed to decode response"
-        continue
+    let response = MessagePush.init(message)
+    if response.isErr:
+      error "failed to decode response"
+      continue
 
-      handler(response.value)
+    handler(response.value)
