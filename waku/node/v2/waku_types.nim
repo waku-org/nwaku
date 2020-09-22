@@ -61,8 +61,12 @@ type
   MessagePush* = object
     messages*: seq[WakuMessage]
 
+  FilterRPC* = object
+    request*: FilterRequest
+    push*: MessagePush
+
   Subscriber* = object
-    connection*: Connection
+    peer*: PeerInfo
     filter*: FilterRequest # @TODO MAKE THIS A SEQUENCE AGAIN?
 
   WakuFilter* = ref object of LPProtocol

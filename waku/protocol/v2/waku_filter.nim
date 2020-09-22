@@ -74,15 +74,40 @@ proc init*(T: type MessagePush, buffer: seq[byte]): ProtoResult[T] =
 
   ok(push)
 
+proc init*(T: type FilterRPC, buffer: seq[byte]): ProtoResult[T] =
+  var rpc = FilterRPC()
+  let pb = initProtoBuffer(buffer) 
+
+  var requestBuffer: seq[byte]
+  discard ? pb.getField(1, requestBuffer)
+
+  rpc.request = ? FilterRequest.init(requestBuffer)
+
+  var pushBuffer: seq[byte]
+  discard ? pb.getField(2, pushBuffer)
+
+  rpc.push = ? FilterRequest.init(pushBuffer)
+
+  ok(rpc)
+
+proc encode*(rpc: FilterRPC): ProtoBuffer =
+  result = initProtoBuffer()
+
+  result.write(1, request.encode())
+  result.write(2, push.encode())
+
 method init*(wf: WakuFilter) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var message = await conn.readLp(64*1024)
-    var res = FilterRequest.init(message)
+    var res = FilterRPC.init(message)
     if res.isErr:
       return
 
-    wf.subscribers.add(Subscriber(connection: conn, filter: res.value))
-    # @TODO THIS IS A VERY ROUGH EXPERIMENT
+    let value = res.value
+    if value.push != MessagePush():
+      # @TODO HANDLE PUSH
+    if value.request != FilterRequest():
+      wf.subscribers.add(Subscriber(peer: conn.peerInfo, filter: value.request))
 
   wf.handler = handle
   wf.codec = WakuFilterCodec
@@ -95,17 +120,15 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
   ## Returns a Filter for the specific protocol
   ## This filter can then be used to send messages to subscribers that match conditions.   
   proc handle(topic: string, msg: WakuMessage) {.async.} =
-    var futures = newSeq[Future[void]]()
-
     for subscriber in proto.subscribers:
       if subscriber.filter.topic != topic:
         continue
 
       for filter in subscriber.filter.contentFilter:
         if msg.contentTopic in filter.topics:
-          futures.add(subscriber.connection.writeLp(MessagePush(messages: @[msg]).encode().buffer))
+          let push = MessagePush(messages: @[msg])
+          let conn = await w.switch.dial(w.peerInfo.peerId, w.peerInfo.addrs, WakuStoreCodec)
+          await conn.writeLP(push.encode().buffer)
           break
-
-    await allFutures(futures)
 
   MessageNotificationSubscription.init(@[], handle)
