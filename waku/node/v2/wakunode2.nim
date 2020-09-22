@@ -186,8 +186,7 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
 proc query*(w: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
   ## Queries for historical messages.
   ##
-  ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_store` and send RPC.
+  ## Status: Implemented.
   await w.wakuStore.query(query, handler)
 
 when isMainModule:
