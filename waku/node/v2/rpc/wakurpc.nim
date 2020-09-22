@@ -73,8 +73,7 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
     proc handler(response: HistoryResponse) {.gcsafe.} =
       info "Hit response handler", response.uuid
 
-    # XXX: Can we make this context async to use await?
-    discard node.query(HistoryQuery(uuid: uuid, topics: topics), handler)
+    await node.query(HistoryQuery(uuid: uuid, topics: topics), handler)
     return true
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")
