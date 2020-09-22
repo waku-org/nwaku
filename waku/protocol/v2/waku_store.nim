@@ -102,5 +102,8 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
   var message = await conn.readLp(64*1024)
   let response = HistoryResponse.init(message)
 
-  if response.isOk:
-    handler(response.value)
+  if response.isErr:
+    error "failed to decode response"
+    return
+
+  handler(response.value)
