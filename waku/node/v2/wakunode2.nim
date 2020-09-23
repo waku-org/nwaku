@@ -195,6 +195,9 @@ proc query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
   # result.messages.insert(msg[1])
   discard
 
+proc filter*(w: WakuNode, filter: FilterRequest, handler: MessagePushHandler) {.async, gcsafe, closure.} =
+  discard
+
 when isMainModule:
   import
     std/strutils,
