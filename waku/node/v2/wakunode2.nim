@@ -107,6 +107,8 @@ proc start*(node: WakuNode) {.async.} =
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
+  echo "testerrrrr - ", node.wakuStore == nil
+
   proc pushHandler(msg: MessagePush) {.async, gcsafe.} =
     info "push received"
 

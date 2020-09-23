@@ -108,7 +108,8 @@ procSuite "WakuNode":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
-    await allFutures([node1.stop(), node2.stop()])
+    await node1.stop() 
+    await node2.stop()
 
   asyncTest "Store protocol returns expected message":
     let
@@ -124,11 +125,12 @@ procSuite "WakuNode":
 
     var completionFut = newFuture[bool]()
 
-    await allFutures([node1.start(), node2.start()])
+    await node1.start()
+    await node2.start()
 
     await node2.subscriptions.notify("waku", message)
 
-    await sleepAsync(2000.millis)
+    await sleepAsync(2.seconds)
 
     node1.wakuStore.setPeer(node2.peerInfo)
 
