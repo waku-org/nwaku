@@ -85,7 +85,7 @@ proc init*(T: type WakuStore, switch: Switch): T =
 
 # @TODO THIS SHOULD PROBABLY BE AN ADD FUNCTION AND APPEND THE PEER TO AN ARRAY
 proc setPeer*(ws: WakuStore, peer: PeerInfo) =
-  ws.peerInfo = peer
+  ws.peers.add(HistoryPeer(peerInfo: peer))
 
 proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   ## The filter function returns the pubsub filter for the node.
@@ -98,7 +98,15 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   MessageNotificationSubscription.init(@[], handle)
 
 proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
-  let conn = await w.switch.dial(w.peerInfo.peerId, w.peerInfo.addrs, WakuStoreCodec)
+  # @TODO We need to be more stratigic about which peers we dial. Right now we just set one on the service.
+  # Ideally depending on the query and our set  of peers we take a subset of ideal peers.
+  # This will require us to check for various factors such as:
+  #  - which topics they track
+  #  - latency?
+  #  - default store peer?
+
+  let peer = w.peers[0]
+  let conn = await w.switch.dial(peer.peerInfo.peerId, peer.peerInfo.addrs, WakuStoreCodec)
 
   await conn.writeLP(query.encode().buffer)
 

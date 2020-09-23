@@ -54,9 +54,12 @@ type
     uuid*: string
     messages*: seq[WakuMessage]
 
+  HistoryPeer* = object
+    peerInfo*: PeerInfo
+
   WakuStore* = ref object of LPProtocol
     switch*: Switch
-    peerInfo*: PeerInfo
+    peers*: seq[HistoryPeer]
     messages*: seq[WakuMessage]
 
   FilterRequest* = object
