@@ -130,7 +130,7 @@ procSuite "WakuNode":
 
     await node2.subscriptions.notify("waku", message)
 
-    await sleepAsync(2.seconds)
+    await sleepAsync(2000.millis)
 
     node1.wakuStore.setPeer(node2.peerInfo)
 
