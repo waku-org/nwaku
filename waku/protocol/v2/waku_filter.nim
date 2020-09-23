@@ -1,7 +1,6 @@
 import
   std/tables,
   chronos, chronicles, metrics, stew/results,
-  libp2p/switch,
   libp2p/protocols/pubsub/pubsubpeer,
   libp2p/protocols/pubsub/floodsub,
   libp2p/protocols/pubsub/gossipsub,
