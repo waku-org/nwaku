@@ -62,13 +62,11 @@ type
   MessagePush* = object
     messages*: seq[WakuMessage]
 
-<<<<<<< HEAD
   FilterHandlerFunc* = proc(push: MessagePush): Future[void] {.gcsafe, closure.}
-=======
+
   FilterRPC* = object
     request*: FilterRequest
     push*: MessagePush
->>>>>>> master
 
   Subscriber* = object
     peer*: PeerInfo
@@ -77,10 +75,6 @@ type
   MessagePushHandler* = proc(msg: MessagePush): Future[void] {.gcsafe, closure.}
 
   WakuFilter* = ref object of LPProtocol
-<<<<<<< HEAD
-    peerInfo*: PeerInfo
-=======
->>>>>>> master
     switch*: Switch
     subscribers*: seq[Subscriber]
     pushHandler*: MessagePushHandler
