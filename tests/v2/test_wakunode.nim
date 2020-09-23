@@ -126,7 +126,7 @@ procSuite "WakuNode":
 
     await allFutures([node1.start(), node2.start()])
 
-    await node2.subscriptions.notify("", message)
+    await node2.subscriptions.notify("waku", message)
 
     await sleepAsync(2000.millis)
 
