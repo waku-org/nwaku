@@ -9,7 +9,6 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/protocols/protocol,
   libp2p/stream/connection,
-  libp2p/switch,
   libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub]
 
 # Common data types -----------------------------------------------------------
