@@ -107,7 +107,10 @@ proc start*(node: WakuNode) {.async.} =
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
-  node.wakuFilter = WakuFilter.init()
+  proc pushHandler(msg: MessagePush) {.async, gcsafe.} =
+    info "push received"
+
+  node.wakuFilter = WakuFilter.init(node.switch, pushHandler)
   node.switch.mount(node.wakuFilter)
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
