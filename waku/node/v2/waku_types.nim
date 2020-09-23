@@ -62,16 +62,28 @@ type
   MessagePush* = object
     messages*: seq[WakuMessage]
 
+<<<<<<< HEAD
   FilterHandlerFunc* = proc(push: MessagePush): Future[void] {.gcsafe, closure.}
+=======
+  FilterRPC* = object
+    request*: FilterRequest
+    push*: MessagePush
+>>>>>>> master
 
   Subscriber* = object
-    connection*: Connection
+    peer*: PeerInfo
     filter*: FilterRequest # @TODO MAKE THIS A SEQUENCE AGAIN?
 
+  MessagePushHandler* = proc(msg: MessagePush): Future[void] {.gcsafe, closure.}
+
   WakuFilter* = ref object of LPProtocol
+<<<<<<< HEAD
     peerInfo*: PeerInfo
+=======
+>>>>>>> master
     switch*: Switch
     subscribers*: seq[Subscriber]
+    pushHandler*: MessagePushHandler
 
   # NOTE based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj
