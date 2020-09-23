@@ -102,7 +102,7 @@ proc start*(node: WakuNode) {.async.} =
   node.libp2pTransportLoops = await node.switch.start()
 
   # NOTE WakuRelay is being instantiated as part of initing node
-  # @TODO MOUNT PEER AND SWITCH
+
   node.wakuStore = WakuStore.init(node.switch)
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
