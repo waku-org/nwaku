@@ -62,8 +62,6 @@ type
   MessagePush* = object
     messages*: seq[WakuMessage]
 
-  FilterHandlerFunc* = proc(push: MessagePush): Future[void] {.gcsafe, closure.}
-
   FilterRPC* = object
     request*: FilterRequest
     push*: MessagePush
