@@ -5,6 +5,7 @@
 import
   std/tables,
   chronos,
+  random,
   libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
   libp2p/protobuf/minprotobuf,
   libp2p/protocols/protocol,
@@ -70,11 +71,13 @@ type
     messages*: seq[WakuMessage]
 
   FilterRPC* = object
+    requestId*: string
     request*: FilterRequest
     push*: MessagePush
 
   Subscriber* = object
     peer*: PeerInfo
+    requestId*: string
     filter*: FilterRequest # @TODO MAKE THIS A SEQUENCE AGAIN?
 
   MessagePushHandler* = proc(msg: MessagePush): Future[void] {.gcsafe, closure.}
@@ -124,3 +127,7 @@ proc notify*(filters: Filters, msg: WakuMessage) =
     if filter.contentFilter.topics.len > 0:
       if msg.contentTopic in filter.contentFilter.topics:
         filter.handler(msg.payload)
+
+proc generateRequestId*(): string =
+  for _ in .. 10:
+    add(result, char(rand(int('A') .. int('z'))))
