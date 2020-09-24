@@ -102,7 +102,8 @@ proc start*(node: WakuNode) {.async.} =
   node.libp2pTransportLoops = await node.switch.start()
 
   # NOTE WakuRelay is being instantiated as part of initing node
-  node.wakuStore = WakuStore.init()
+
+  node.wakuStore = WakuStore.init(node.switch)
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
@@ -185,15 +186,12 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
   # XXX Consider awaiting here
   discard wakuRelay.publish(topic, data)
 
-proc query*(w: WakuNode, query: HistoryQuery): HistoryResponse =
-  ## Queries for historical messages.
+proc query*(w: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
+  ## Queries known nodes for historical messages. Triggers the handler whenever a response is received.
+  ## QueryHandlerFunc is a method that takes a HistoryResponse.
   ##
-  ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_store` and send RPC.
-  
-  # XXX Unclear how this should be hooked up, Message or WakuMessage?
-  # result.messages.insert(msg[1])
-  discard
+  ## Status: Implemented.
+  await w.wakuStore.query(query, handler)
 
 proc filter*(w: WakuNode, filter: FilterRequest, handler: MessagePushHandler) {.async, gcsafe, closure.} =
   discard

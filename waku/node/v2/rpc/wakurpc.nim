@@ -65,3 +65,13 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
     return true
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")
+
+  rpcsrv.rpc("waku_query") do(uuid: string, topics: seq[string]) -> bool:
+    debug "waku_query", uuid=uuid
+
+    # XXX: Hacky in-line handler
+    proc handler(response: HistoryResponse) {.gcsafe.} =
+      info "Hit response handler", uuid=response.uuid, messages=response.messages
+
+    await node.query(HistoryQuery(uuid: uuid, topics: topics), handler)
+    return true

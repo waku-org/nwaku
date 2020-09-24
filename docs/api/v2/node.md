@@ -53,11 +53,11 @@ method publish*(w: WakuNode, topic: Topic, message: WakuMessage)
   ##
   ## Status: Implemented.
 
-method query*(w: WakuNode, query: HistoryQuery): HistoryResponse
-  ## Queries for historical messages.
+method query*(w: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
+  ## Queries known nodes for historical messages. Triggers the handler whenever a response is received.
+  ## QueryHandlerFunc is a method that takes a HistoryResponse.
   ##
-  ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_store` and send RPC.
+  ## Status: Implemented.
 ```
 
 ## JSON RPC

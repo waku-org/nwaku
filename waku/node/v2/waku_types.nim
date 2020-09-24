@@ -5,9 +5,11 @@
 import
   std/tables,
   chronos,
+  random,
   libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
   libp2p/protobuf/minprotobuf,
   libp2p/protocols/protocol,
+  libp2p/switch,
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub]
 
@@ -43,6 +45,8 @@ type
     topics*: seq[string] # @TODO TOPIC
     handler*: MessageNotificationHandler
 
+  QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
+
   HistoryQuery* = object
     uuid*: string
     topics*: seq[string]
@@ -51,7 +55,12 @@ type
     uuid*: string
     messages*: seq[WakuMessage]
 
+  HistoryPeer* = object
+    peerInfo*: PeerInfo
+
   WakuStore* = ref object of LPProtocol
+    switch*: Switch
+    peers*: seq[HistoryPeer]
     messages*: seq[WakuMessage]
 
   FilterRequest* = object
@@ -62,11 +71,13 @@ type
     messages*: seq[WakuMessage]
 
   FilterRPC* = object
+    requestId*: string
     request*: FilterRequest
     push*: MessagePush
 
   Subscriber* = object
     peer*: PeerInfo
+    requestId*: string
     filter*: FilterRequest # @TODO MAKE THIS A SEQUENCE AGAIN?
 
   MessagePushHandler* = proc(msg: MessagePush): Future[void] {.gcsafe, closure.}
@@ -116,3 +127,7 @@ proc notify*(filters: Filters, msg: WakuMessage) =
     if filter.contentFilter.topics.len > 0:
       if msg.contentTopic in filter.contentFilter.topics:
         filter.handler(msg.payload)
+
+proc generateRequestId*(): string =
+  for _ in .. 10:
+    add(result, char(rand(int('A') .. int('z'))))
