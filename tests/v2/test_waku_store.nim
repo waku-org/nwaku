@@ -17,13 +17,6 @@ import
 
 procSuite "Waku Store":
   asyncTest "handle query":
-    let 
-      proto = WakuStore.init()
-      subscription = proto.subscription()
-
-    var subscriptions = newTable[string, MessageNotificationSubscription]()
-    subscriptions["test"] = subscription
-
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
@@ -34,22 +27,33 @@ procSuite "Waku Store":
     discard await dialSwitch.start()
 
     var listenSwitch = newStandardSwitch(some(key))
-    listenSwitch.mount(proto)
     discard await listenSwitch.start()
+
+    let
+      proto = WakuStore.init(dialSwitch)
+      subscription = proto.subscription()
+      rpc = HistoryQuery(uuid: "1234", topics: @["topic"])
+
+    proto.setPeer(listenSwitch.peerInfo)
+
+    var subscriptions = newTable[string, MessageNotificationSubscription]()
+    subscriptions["test"] = subscription
+
+    listenSwitch.mount(proto)
 
     await subscriptions.notify("foo", msg)
     await subscriptions.notify("foo", msg2)
 
-    let conn = await dialSwitch.dial(listenSwitch.peerInfo.peerId, listenSwitch.peerInfo.addrs, WakuStoreCodec)
+    var completionFut = newFuture[bool]()
 
-    var rpc = HistoryQuery(uuid: "1234", topics: @["topic"])
-    await conn.writeLP(rpc.encode().buffer)
+    proc handler(response: HistoryResponse) {.gcsafe, closure.} =
+      check:
+        response.uuid == rpc.uuid
+        response.messages.len() == 1
+        response.messages[0] == msg
+      completionFut.complete(true)
 
-    var message = await conn.readLp(64*1024)
-    let response = HistoryResponse.init(message)
+    await proto.query(rpc, handler)
 
     check:
-      response.isErr == false
-      response.value.uuid == rpc.uuid
-      response.value.messages.len() == 1
-      response.value.messages[0] == msg
+      (await completionFut.withTimeout(5.seconds)) == true

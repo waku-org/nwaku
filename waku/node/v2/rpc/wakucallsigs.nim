@@ -5,6 +5,7 @@ proc waku_publish(topic: string, message: seq[byte]): bool
 # TODO This should be properly done with rpc types, etc.
 proc waku_publish2(topic: string, message: seq[byte]): bool
 proc waku_subscribe(topic: string): bool
+proc waku_query(uuid: string, topics: seq[string]): bool
 #proc waku_subscribe(topic: string, handler: Topichandler): bool
 
 # NYI
