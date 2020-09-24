@@ -19,7 +19,7 @@ logScope:
   topics = "wakufilter"
 
 const
-  WakuFilterCodec* = "/vac/waku/filter/2.0.0-alpha5"
+  WakuFilterCodec* = "/vac/waku/filter/2.0.0-alpha6"
 
 proc encode*(filter: ContentFilter): ProtoBuffer =
   result = initProtoBuffer()
@@ -109,7 +109,7 @@ method init*(wf: WakuFilter) =
     if value.push != MessagePush():
       await wf.pushHandler(value.push)
     if value.request != FilterRequest():
-      wf.subscribers.add(Subscriber(peer: conn.peerInfo, filter: value.request))
+      wf.subscribers.add(Subscriber(peer: conn.peerInfo, requestId: value.requestId, filter: value.request))
 
   wf.handler = handle
   wf.codec = WakuFilterCodec
@@ -130,7 +130,7 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
 
       for filter in subscriber.filter.contentFilter:
         if msg.contentTopic in filter.topics:
-          let push = FilterRPC(push: MessagePush(messages: @[msg]))
+          let push = FilterRPC(requestId: subscriber.requestId, push: MessagePush(messages: @[msg]))
           let conn = await proto.switch.dial(subscriber.peer.peerId, subscriber.peer.addrs, WakuFilterCodec)
           await conn.writeLP(push.encode().buffer)
           break
@@ -139,4 +139,4 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
 
 proc subscribe*(wf: WakuFilter, peer: PeerInfo, request: FilterRequest) {.async, gcsafe.} =
   let conn = await wf.switch.dial(peer.peerId, peer.addrs, WakuFilterCodec)
-  await conn.writeLP(FilterRPC(request: request).encode().buffer)
+  await conn.writeLP(FilterRPC(requestId: generateRequestId(), request: request).encode().buffer)
