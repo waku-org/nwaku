@@ -47,12 +47,15 @@ type
   QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
 
   HistoryQuery* = object
-    uuid*: string
     topics*: seq[string]
 
   HistoryResponse* = object
-    uuid*: string
     messages*: seq[WakuMessage]
+
+  HistoryRPC* = object
+    requestId*: string
+    query*: HistoryQuery
+    response*: HistoryResponse
 
   HistoryPeer* = object
     peerInfo*: PeerInfo
