@@ -199,7 +199,7 @@ when isMainModule:
     confutils, json_rpc/rpcserver, metrics,
     ./config, ./rpc/wakurpc, ../common
 
-  proc parsePeerInfo(address: stirng): PeerInfo =
+  proc parsePeerInfo(address: string): PeerInfo =
     let multiAddr = MultiAddress.initAddress(address)
     let parts = address.split("/")
     return PeerInfo.init(parts[^1], [multiAddr])
@@ -209,7 +209,7 @@ when isMainModule:
     # XXX: This turns ipfs into p2p, not quite sure why
     let remotePeer = parsePeerInfo(address)
 
-    info "Dialing peer", remotePeer.addrs[0]
+    info "Dialing peer", ma = remotePeer.addrs[0]
     # NOTE This is dialing on WakuRelay protocol specifically
     # TODO Keep track of conn and connected state somewhere (WakuRelay?)
     #p.conn = await p.switch.dial(remotePeer, WakuRelayCodec)

@@ -12,7 +12,7 @@ template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 const sigWakuPath = sourceDir / "wakucallsigs.nim"
 createRpcSigs(RpcHttpClient, sigWakuPath)
 
-if paramCount() < 2:
+if paramCount() < 1:
   echo "Please provide rpcPort as argument."
   quit(1)
 
