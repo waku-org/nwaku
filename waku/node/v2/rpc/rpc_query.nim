@@ -1,12 +1,10 @@
 import
   os, strutils, strformat, chronicles, json_rpc/[rpcclient, rpcserver], nimcrypto/sysrand,
-  stew/byteutils,
   libp2p/protobuf/minprotobuf,
   libp2p/[peerinfo, multiaddress],
   eth/common as eth_common, eth/keys,
   system,
-  options,
-  ../waku_types
+  options
 
 from strutils import rsplit
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
