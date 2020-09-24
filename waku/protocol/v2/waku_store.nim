@@ -129,11 +129,11 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
 
   await conn.writeLP(HistoryRPC(requestId: "foo", query: query).encode().buffer)
 
-  # var message = await conn.readLp(64*1024)
-  # let response = HistoryRPC.init(message)
+  var message = await conn.readLp(64*1024)
+  let response = HistoryRPC.init(message)
 
-  # if response.isErr:
-    # error "failed to decode response"
-    # return
+  if response.isErr:
+    error "failed to decode response"
+    return
 
-  # handler(response.value.response)
+  handler(response.value.response)
