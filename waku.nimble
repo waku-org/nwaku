@@ -71,6 +71,7 @@ task wakusim2, "Build Experimental Waku simulation tools":
 task scripts2, "Build Waku v2 scripts":
   buildBinary "rpc_publish", "waku/node/v2/rpc/", "-d:chronicles_log_level=DEBUG"
   buildBinary "rpc_subscribe", "waku/node/v2/rpc/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "rpc_query", "waku/node/v2/rpc/", "-d:chronicles_log_level=DEBUG"
 
 task wakuexample2, "Build example Waku usage":
   let name = "basic2"
