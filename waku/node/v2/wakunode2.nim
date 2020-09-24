@@ -199,21 +199,30 @@ when isMainModule:
     confutils, json_rpc/rpcserver, metrics,
     ./config, ./rpc/wakurpc, ../common
 
+  proc parsePeerInfo(address: stirng): PeerInfo =
+    let multiAddr = MultiAddress.initAddress(address)
+    let parts = address.split("/")
+    return PeerInfo.init(parts[^1], [multiAddr])
+
   proc dialPeer(n: WakuNode, address: string) {.async.} =
     info "dialPeer", address = address
     # XXX: This turns ipfs into p2p, not quite sure why
-    let multiAddr = MultiAddress.initAddress(address)
-    info "multiAddr", ma = multiAddr
-    let parts = address.split("/")
-    let remotePeer = PeerInfo.init(parts[^1], [multiAddr])
+    let remotePeer = parsePeerInfo(address)
 
-    info "Dialing peer", multiAddr
+    info "Dialing peer", remotePeer.addrs[0]
     # NOTE This is dialing on WakuRelay protocol specifically
     # TODO Keep track of conn and connected state somewhere (WakuRelay?)
     #p.conn = await p.switch.dial(remotePeer, WakuRelayCodec)
     #p.connected = true
     discard n.switch.dial(remotePeer, WakuRelayCodec)
     info "Post switch dial"
+
+  proc setStorePeer(n: WakuNode, address: string) =
+    info "dialPeer", address = address
+
+    let remotePeer = parsePeerInfo(address)
+
+    n.wakuStore.setPeer(remotePeer)
 
   proc connectToNodes(n: WakuNode, nodes: openArray[string]) =
     for nodeId in nodes:
@@ -260,6 +269,9 @@ when isMainModule:
 
   if conf.staticnodes.len > 0:
     connectToNodes(node, conf.staticnodes)
+
+  if conf.storenode != "":
+    setStorePeer(node, conf.storenode)
 
   if conf.rpc:
     startRpc(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift))
