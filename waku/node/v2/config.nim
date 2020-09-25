@@ -68,6 +68,11 @@ type
       desc: "Enode URL to directly connect with. Argument may be repeated."
       name: "staticnode" }: seq[string]
 
+    storenode* {.
+      desc: "Enode URL to query for storage.",
+      defaultValue: ""
+      name: "storenode" }: string
+
     whisper* {.
       desc: "Enable the Whisper protocol."
       defaultValue: false
