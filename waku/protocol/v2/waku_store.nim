@@ -12,7 +12,7 @@ logScope:
   topics = "wakustore"
 
 const
-  WakuStoreCodec* = "/vac/waku/store/2.0.0-alpha5"
+  WakuStoreCodec* = "/vac/waku/store/2.0.0-alpha6"
 
 proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryQuery()
