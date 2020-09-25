@@ -121,7 +121,6 @@ procSuite "WakuNode":
         Port(60002))
       contentTopic = "foobar"
       message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
-      uuid = "123"
 
     var completionFut = newFuture[bool]()
 
@@ -136,11 +135,10 @@ procSuite "WakuNode":
 
     proc storeHandler(response: HistoryResponse) {.gcsafe, closure.} =
       check:
-        response.uuid == uuid
         response.messages[0] == message
       completionFut.complete(true)
 
-    await node1.query(HistoryQuery(uuid: uuid, topics: @[contentTopic]), storeHandler)
+    await node1.query(HistoryQuery(topics: @[contentTopic]), storeHandler)
     
     check:
       (await completionFut.withTimeout(5.seconds)) == true
