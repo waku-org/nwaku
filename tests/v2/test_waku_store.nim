@@ -32,7 +32,7 @@ procSuite "Waku Store":
     let
       proto = WakuStore.init(dialSwitch)
       subscription = proto.subscription()
-      rpc = HistoryQuery(uuid: "1234", topics: @["topic"])
+      rpc = HistoryQuery(topics: @["topic"])
 
     proto.setPeer(listenSwitch.peerInfo)
 
@@ -48,7 +48,6 @@ procSuite "Waku Store":
 
     proc handler(response: HistoryResponse) {.gcsafe, closure.} =
       check:
-        response.uuid == rpc.uuid
         response.messages.len() == 1
         response.messages[0] == msg
       completionFut.complete(true)
