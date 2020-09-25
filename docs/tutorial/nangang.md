@@ -20,7 +20,7 @@ Run two nodes and connect them:
 ./build/wakunode2 --ports-shift:0
 
 # Run another node with staticnode argument
-./build/wakunode2 --ports-shift:1 --staticnode:/ip4/0.0.0.0/tcp/60000/p2p/16Uiu2HAmF4tuht6fmna6uDqoSMgFqhUrdaVR6VQRyGr6sCpfS2jp --storenode:/ip4/0.0.0.0/tcp/60000/p2p/16Uiu2HAmF4tuht6fmna6uDqoSMgFqhUrdaVR6VQRyGr6sCpfS2jp
+./build/wakunode2 --ports-shift:1 --staticnode:/ip4/0.0.0.0/tcp/60000/p2p/16Uiu2HAmF4tuht6fmna6uDqoSMgFqhUrdaVR6VQRyGr6sCpfS2jp
 ```
 
 You should see your nodes connecting.
@@ -31,7 +31,6 @@ Do basic RPC calls:
 ./build/rpc_subscribe 8545
 ./build/rpc_subscribe 8546
 ./build/rpc_publish 8545 # enter your message in STDIN
-./build/rpc_query 8546 # enter your topic default is "foobar"
 ```
 
 You should see other node receive something.
