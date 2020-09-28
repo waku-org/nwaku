@@ -30,7 +30,7 @@ procSuite "Waku Store":
     discard await listenSwitch.start()
 
     let
-      proto = WakuStore.init(dialSwitch)
+      proto = WakuStore.init(dialSwitch, crypto.newRng())
       subscription = proto.subscription()
       rpc = HistoryQuery(topics: @["topic"])
 
