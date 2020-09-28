@@ -138,5 +138,6 @@ proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
   let 
     rngPtr = rng[].unsafeAddr # doesn't escape
     length = 10
-  result = newString(length)
-  brHmacDrbgGenerate(rngPtr, result[0].addr, csize_t length)
+  var bytes: array[10, byte]
+  brHmacDrbgGenerate(rngPtr, bytes[0].addr, csize_t length)
+  toHex(bytes)
