@@ -37,7 +37,7 @@ procSuite "Waku Filter":
       completionFut.complete(true)
 
     let
-      proto = WakuFilter.init(dialSwitch, handle)
+      proto = WakuFilter.init(dialSwitch, crypto.newRng(), handle)
       rpc = FilterRequest(contentFilter: @[ContentFilter(topics: @["pew", "pew2"])], topic: "topic")
 
     dialSwitch.mount(proto)
@@ -46,7 +46,7 @@ procSuite "Waku Filter":
       discard
 
     let 
-      proto2 = WakuFilter.init(listenSwitch, emptyHandle)
+      proto2 = WakuFilter.init(listenSwitch, crypto.newRng(), emptyHandle)
       subscription = proto2.subscription()
 
     var subscriptions = newTable[string, MessageNotificationSubscription]()

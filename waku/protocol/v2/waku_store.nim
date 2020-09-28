@@ -1,7 +1,9 @@
 import
   std/tables,
+  bearssl,
   chronos, chronicles, metrics, stew/results,
   libp2p/switch,
+  libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
@@ -97,8 +99,9 @@ method init*(ws: WakuStore) =
   ws.handler = handle
   ws.codec = WakuStoreCodec
 
-proc init*(T: type WakuStore, switch: Switch): T =
+proc init*(T: type WakuStore, switch: Switch, rng: ref BrHmacDrbgContext): T =
   new result
+  result.rng = rng
   result.switch = switch
   result.init()
 
@@ -127,7 +130,7 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
   let peer = w.peers[0]
   let conn = await w.switch.dial(peer.peerInfo.peerId, peer.peerInfo.addrs, WakuStoreCodec)
 
-  await conn.writeLP(HistoryRPC(requestId: "foo", query: query).encode().buffer)
+  await conn.writeLP(HistoryRPC(requestId: generateRequestId(w.rng), query: query).encode().buffer)
 
   var message = await conn.readLp(64*1024)
   let response = HistoryRPC.init(message)

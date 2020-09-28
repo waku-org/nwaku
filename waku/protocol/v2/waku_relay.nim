@@ -4,7 +4,6 @@
 ## Instead, it should likely be on top of GossipSub with a similar interface.
 
 import
-  std/strutils,
   chronos, chronicles, metrics,
   libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub],
   libp2p/protocols/pubsub/rpc/messages,
