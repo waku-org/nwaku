@@ -135,5 +135,6 @@ proc generateRequestId*(): string =
   let 
     rng = crypto.newRng()
     rngPtr = rng[].unsafeAddr # doesn't escape
-  result = newString(10)
-  brHmacDrbgGenerate(rngPtr, result[0].addr, csize_t 10)
+    length = 10
+  result = newString(length)
+  brHmacDrbgGenerate(rngPtr, result[0].addr, csize_t length)
