@@ -4,14 +4,13 @@
 
 import
   std/tables,
-  chronos,
-  bearssl,
+  chronos, bearssl, stew/byteutils,
   libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
   libp2p/protobuf/minprotobuf,
   libp2p/protocols/protocol,
   libp2p/switch,
   libp2p/stream/connection,
-  libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub]
+  libp2p/protocols/pubsub/[pubsub, gossipsub]
 
 # Common data types -----------------------------------------------------------
 
@@ -135,9 +134,6 @@ proc notify*(filters: Filters, msg: WakuMessage) =
         filter.handler(msg.payload)
 
 proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
-  let 
-    rngPtr = rng[].unsafeAddr # doesn't escape
-    length = 10
   var bytes: array[10, byte]
-  brHmacDrbgGenerate(rngPtr, bytes[0].addr, csize_t length)
+  brHmacDrbgGenerate(rng[], bytes)
   toHex(bytes)
