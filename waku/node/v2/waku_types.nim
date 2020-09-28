@@ -4,14 +4,13 @@
 
 import
   std/tables,
-  chronos,
-  random,
+  chronos, bearssl, stew/byteutils,
   libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
   libp2p/protobuf/minprotobuf,
   libp2p/protocols/protocol,
   libp2p/switch,
   libp2p/stream/connection,
-  libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub]
+  libp2p/protocols/pubsub/[pubsub, gossipsub]
 
 # Common data types -----------------------------------------------------------
 
@@ -63,6 +62,7 @@ type
 
   WakuStore* = ref object of LPProtocol
     switch*: Switch
+    rng*: ref BrHmacDrbgContext
     peers*: seq[HistoryPeer]
     messages*: seq[WakuMessage]
 
@@ -86,6 +86,7 @@ type
   MessagePushHandler* = proc(msg: MessagePush): Future[void] {.gcsafe, closure.}
 
   WakuFilter* = ref object of LPProtocol
+    rng*: ref BrHmacDrbgContext
     switch*: Switch
     subscribers*: seq[Subscriber]
     pushHandler*: MessagePushHandler
@@ -102,6 +103,7 @@ type
     messages*: seq[(Topic, WakuMessage)]
     filters*: Filters
     subscriptions*: MessageNotificationSubscriptions
+    rng*: ref BrHmacDrbgContext
 
   WakuRelay* = ref object of GossipSub
     gossipEnabled*: bool
@@ -131,6 +133,7 @@ proc notify*(filters: Filters, msg: WakuMessage) =
       if msg.contentTopic in filter.contentFilter.topics:
         filter.handler(msg.payload)
 
-proc generateRequestId*(): string =
-  for _ in .. 10:
-    add(result, char(rand(int('A') .. int('z'))))
+proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
+  var bytes: array[10, byte]
+  brHmacDrbgGenerate(rng[], bytes)
+  toHex(bytes)
