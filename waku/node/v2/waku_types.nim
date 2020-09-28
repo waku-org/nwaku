@@ -5,7 +5,7 @@
 import
   std/tables,
   chronos,
-  random,
+  bearssl,
   libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
   libp2p/protobuf/minprotobuf,
   libp2p/protocols/protocol,
@@ -132,5 +132,8 @@ proc notify*(filters: Filters, msg: WakuMessage) =
         filter.handler(msg.payload)
 
 proc generateRequestId*(): string =
-  for _ in .. 10:
-    add(result, char(rand(int('A') .. int('z'))))
+  let 
+    rng = crypto.newRng()
+    rngPtr = rng[].unsafeAddr # doesn't escape
+  result = newString(10)
+  brHmacDrbgGenerate(rngPtr, result[0].addr, csize_t 10)
