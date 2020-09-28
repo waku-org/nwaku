@@ -1,5 +1,6 @@
 import
   std/tables,
+  bearssl,
   chronos, chronicles, metrics, stew/results,
   libp2p/protocols/pubsub/pubsubpeer,
   libp2p/protocols/pubsub/floodsub,
@@ -7,6 +8,7 @@ import
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
+  libp2p/crypto/crypto,
   libp2p/switch,
   ./message_notifier,
   ./../../node/v2/waku_types
@@ -114,8 +116,9 @@ method init*(wf: WakuFilter) =
   wf.handler = handle
   wf.codec = WakuFilterCodec
 
-proc init*(T: type WakuFilter, switch: Switch, handler: MessagePushHandler): T =
+proc init*(T: type WakuFilter, switch: Switch, rng: ref BrHmacDrbgContext, handler: MessagePushHandler): T =
   new result
+  result.rng = crypto.newRng()
   result.switch = switch
   result.pushHandler = handler
   result.init()
@@ -139,4 +142,4 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
 
 proc subscribe*(wf: WakuFilter, peer: PeerInfo, request: FilterRequest) {.async, gcsafe.} =
   let conn = await wf.switch.dial(peer.peerId, peer.addrs, WakuFilterCodec)
-  await conn.writeLP(FilterRPC(requestId: generateRequestId(), request: request).encode().buffer)
+  await conn.writeLP(FilterRPC(requestId: generateRequestId(wf.rng), request: request).encode().buffer)

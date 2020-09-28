@@ -63,6 +63,7 @@ type
 
   WakuStore* = ref object of LPProtocol
     switch*: Switch
+    rng*: ref BrHmacDrbgContext
     peers*: seq[HistoryPeer]
     messages*: seq[WakuMessage]
 
@@ -86,6 +87,7 @@ type
   MessagePushHandler* = proc(msg: MessagePush): Future[void] {.gcsafe, closure.}
 
   WakuFilter* = ref object of LPProtocol
+    rng*: ref BrHmacDrbgContext
     switch*: Switch
     subscribers*: seq[Subscriber]
     pushHandler*: MessagePushHandler
@@ -102,6 +104,7 @@ type
     messages*: seq[(Topic, WakuMessage)]
     filters*: Filters
     subscriptions*: MessageNotificationSubscriptions
+    rng*: ref BrHmacDrbgContext
 
   WakuRelay* = ref object of GossipSub
     gossipEnabled*: bool
@@ -131,9 +134,8 @@ proc notify*(filters: Filters, msg: WakuMessage) =
       if msg.contentTopic in filter.contentFilter.topics:
         filter.handler(msg.payload)
 
-proc generateRequestId*(): string =
+proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
   let 
-    rng = crypto.newRng()
     rngPtr = rng[].unsafeAddr # doesn't escape
     length = 10
   result = newString(length)
