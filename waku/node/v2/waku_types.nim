@@ -85,9 +85,13 @@ type
 
   MessagePushHandler* = proc(msg: MessagePush): Future[void] {.gcsafe, closure.}
 
+  FilterPeer* = object
+    peerInfo*: PeerInfo
+
   WakuFilter* = ref object of LPProtocol
     rng*: ref BrHmacDrbgContext
     switch*: Switch
+    peers*: seq[FilterPeer]
     subscribers*: seq[Subscriber]
     pushHandler*: MessagePushHandler
 

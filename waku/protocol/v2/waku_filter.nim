@@ -123,6 +123,10 @@ proc init*(T: type WakuFilter, switch: Switch, rng: ref BrHmacDrbgContext, handl
   result.pushHandler = handler
   result.init()
 
+# @TODO THIS SHOULD PROBABLY BE AN ADD FUNCTION AND APPEND THE PEER TO AN ARRAY
+proc setPeer*(wf: WakuFilter, peer: PeerInfo) =
+  wf.peers.add(FilterPeer(peerInfo: peer))
+
 proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
   ## Returns a Filter for the specific protocol
   ## This filter can then be used to send messages to subscribers that match conditions.   
@@ -140,6 +144,7 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
 
   MessageNotificationSubscription.init(@[], handle)
 
-proc subscribe*(wf: WakuFilter, peer: PeerInfo, request: FilterRequest) {.async, gcsafe.} =
+proc subscribe*(wf: WakuFilter, request: FilterRequest) {.async, gcsafe.} =
+  let peer = wf.peers[0].peerInfo
   let conn = await wf.switch.dial(peer.peerId, peer.addrs, WakuFilterCodec)
   await conn.writeLP(FilterRPC(requestId: generateRequestId(wf.rng), request: request).encode().buffer)

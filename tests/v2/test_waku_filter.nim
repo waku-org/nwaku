@@ -41,6 +41,7 @@ procSuite "Waku Filter":
       rpc = FilterRequest(contentFilter: @[ContentFilter(topics: @["pew", "pew2"])], topic: "topic")
 
     dialSwitch.mount(proto)
+    proto.setPeer(listenSwitch.peerInfo)
 
     proc emptyHandle(msg: MessagePush) {.async, gcsafe, closure.} =
       discard
@@ -53,7 +54,7 @@ procSuite "Waku Filter":
     subscriptions["test"] = subscription
     listenSwitch.mount(proto2)
 
-    await proto.subscribe(listenSwitch.peerInfo, rpc)
+    await proto.subscribe(rpc)
 
     await sleepAsync(2.seconds)
 

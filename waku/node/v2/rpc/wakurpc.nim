@@ -75,3 +75,17 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
 
     await node.query(HistoryQuery(topics: topics), handler)
     return true
+  
+  rpcsrv.rpc("waku_filter") do(topic: string, contentTopics: seq[seq[string]]) -> bool:
+    debug "waku_filter"
+
+    # XXX: Hacky in-line handler
+    proc handler(msg: MessagePush) {.gcsafe, closure.} -
+      info "Hit filter response", nessages=msg.messages
+
+    var content = newSeq[ContentFilter]()
+    for topics in contentTopics:
+      content.add(ContentFilter(topics: topics))
+
+    await node.filter(FilterRequest(topic: topic, contentTopics: content), handler)
+    return true
