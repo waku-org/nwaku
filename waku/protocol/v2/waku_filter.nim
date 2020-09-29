@@ -81,13 +81,15 @@ proc init*(T: type FilterRPC, buffer: seq[byte]): ProtoResult[T] =
   var rpc = FilterRPC()
   let pb = initProtoBuffer(buffer) 
 
+  discard ? pb.getField(1, rpc.requestId)
+
   var requestBuffer: seq[byte]
-  discard ? pb.getField(1, requestBuffer)
+  discard ? pb.getField(2, requestBuffer)
 
   rpc.request = ? FilterRequest.init(requestBuffer)
 
   var pushBuffer: seq[byte]
-  discard ? pb.getField(2, pushBuffer)
+  discard ? pb.getField(3, pushBuffer)
 
   rpc.push = ? MessagePush.init(pushBuffer)
 
@@ -96,8 +98,9 @@ proc init*(T: type FilterRPC, buffer: seq[byte]): ProtoResult[T] =
 proc encode*(rpc: FilterRPC): ProtoBuffer =
   result = initProtoBuffer()
 
-  result.write(1, rpc.request.encode())
-  result.write(2, rpc.push.encode())
+  result.write(1, rpc.requestId)
+  result.write(2, rpc.request.encode())
+  result.write(3, rpc.push.encode())
 
 method init*(wf: WakuFilter) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
@@ -109,7 +112,7 @@ method init*(wf: WakuFilter) =
 
     let value = res.value
     if value.push != MessagePush():
-      await wf.pushHandler(value.push)
+      await wf.pushHandler(value.requestId, value.push)
     if value.request != FilterRequest():
       wf.subscribers.add(Subscriber(peer: conn.peerInfo, requestId: value.requestId, filter: value.request))
 
@@ -144,7 +147,9 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
 
   MessageNotificationSubscription.init(@[], handle)
 
-proc subscribe*(wf: WakuFilter, request: FilterRequest) {.async, gcsafe.} =
+proc subscribe*(wf: WakuFilter, request: FilterRequest): Future[string] {.async, gcsafe.} =
   let peer = wf.peers[0].peerInfo
   let conn = await wf.switch.dial(peer.peerId, peer.addrs, WakuFilterCodec)
-  await conn.writeLP(FilterRPC(requestId: generateRequestId(wf.rng), request: request).encode().buffer)
+  let id = generateRequestId(wf.rng)
+  await conn.writeLP(FilterRPC(requestId: id, request: request).encode().buffer)
+  result = id
