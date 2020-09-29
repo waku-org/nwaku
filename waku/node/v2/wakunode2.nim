@@ -84,7 +84,8 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   switch.mount(wakuRelay)
 
   result = WakuNode(
-    switch: switch, 
+    switch: switch,
+    rng: crypto.newRng(),
     peerInfo: peerInfo,
     wakuRelay: wakuRelay,
     subscriptions: newTable[string, MessageNotificationSubscription]()
@@ -103,14 +104,14 @@ proc start*(node: WakuNode) {.async.} =
 
   # NOTE WakuRelay is being instantiated as part of initing node
 
-  node.wakuStore = WakuStore.init(node.switch)
+  node.wakuStore = WakuStore.init(node.switch, node.rng)
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
   proc pushHandler(msg: MessagePush) {.async, gcsafe.} =
     info "push received"
 
-  node.wakuFilter = WakuFilter.init(node.switch, pushHandler)
+  node.wakuFilter = WakuFilter.init(node.switch, node.rng, pushHandler)
   node.switch.mount(node.wakuFilter)
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
