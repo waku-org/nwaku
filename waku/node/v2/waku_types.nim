@@ -95,6 +95,8 @@ type
     subscribers*: seq[Subscriber]
     pushHandler*: MessagePushHandler
 
+  FilterHandler* = proc(msg: MessagePush): Future[void] {.gcsafe, closure.}
+
   # NOTE based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj
     switch*: Switch
@@ -106,6 +108,7 @@ type
   # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
     messages*: seq[(Topic, WakuMessage)]
     filters*: Filters
+    filterHandlers*: Table[string, FilterHandler]
     subscriptions*: MessageNotificationSubscriptions
     rng*: ref BrHmacDrbgContext
 

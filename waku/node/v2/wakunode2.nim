@@ -88,7 +88,8 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     rng: crypto.newRng(),
     peerInfo: peerInfo,
     wakuRelay: wakuRelay,
-    subscriptions: newTable[string, MessageNotificationSubscription]()
+    subscriptions: newTable[string, MessageNotificationSubscription](),
+    filterHandlers: initTable[string, FilterHandler]()
   )
 
   for topic in topics:
@@ -108,10 +109,12 @@ proc start*(node: WakuNode) {.async.} =
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
-  proc pushHandler(requestId: string, msg: MessagePush) {.async, gcsafe.} =
+  proc filterHandler(requestId: string, msg: MessagePush) {.async, gcsafe.} =
     info "push received"
+    let handler = node.filterHandlers[requestId]
+    await handler(msg)
 
-  node.wakuFilter = WakuFilter.init(node.switch, node.rng, pushHandler)
+  node.wakuFilter = WakuFilter.init(node.switch, node.rng, filterHandler)
   node.switch.mount(node.wakuFilter)
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
@@ -194,13 +197,13 @@ proc query*(w: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async
   ## Status: Implemented.
   await w.wakuStore.query(query, handler)
 
-proc filter*(w: WakuNode, filter: FilterRequest, handler: MessagePushHandler) {.async, gcsafe.} =
+proc filter*(w: WakuNode, filter: FilterRequest, handler: FilterHandler) {.async, gcsafe.} =
   ## Queries known nodes for historical messages. Triggers the handler whenever a response is received.
   ## QueryHandlerFunc is a method that takes a HistoryResponse.
   ##
   ## Status: Implemented.
-  discard
-  # await w.wakuFilter.query(query, handler)
+  let id = await w.wakuFilter.subscribe(filter)
+  w.filterHandlers[id] = handler
 
 when isMainModule:
   import
