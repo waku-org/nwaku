@@ -80,7 +80,7 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
     debug "waku_filter"
 
     # XXX: Hacky in-line handler
-    proc handler(msg: MessagePush) {.gcsafe, closure.} -
+    proc handler(msg: MessagePush) {.gcsafe, closure.} =
       info "Hit filter response", nessages=msg.messages
 
     var content = newSeq[ContentFilter]()
