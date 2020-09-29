@@ -83,7 +83,7 @@ type
     requestId*: string
     filter*: FilterRequest # @TODO MAKE THIS A SEQUENCE AGAIN?
 
-  MessagePushHandler* = proc(requestId: string, msg: MessagePush): Future[void] {.gcsafe, closure.}
+  MessagePushHandler* = proc(requestId: string, msg: MessagePush) {.gcsafe, closure.}
 
   FilterPeer* = object
     peerInfo*: PeerInfo
@@ -95,7 +95,7 @@ type
     subscribers*: seq[Subscriber]
     pushHandler*: MessagePushHandler
 
-  FilterHandler* = proc(msg: MessagePush): Future[void] {.gcsafe, closure.}
+  FilterHandler* = proc(msg: MessagePush) {.gcsafe, closure.}
 
   # NOTE based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj

@@ -163,7 +163,7 @@ procSuite "WakuNode":
 
     node1.wakuFilter.setPeer(node2.peerInfo)
 
-    proc filterHandler(msg: MessagePush) {.async, gcsafe, closure.} =
+    proc filterHandler(msg: MessagePush) {.gcsafe, closure.} =
       echo msg
       check:
         msg.messages[0] == message

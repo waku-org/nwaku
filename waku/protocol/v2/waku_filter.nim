@@ -112,7 +112,7 @@ method init*(wf: WakuFilter) =
 
     let value = res.value
     if value.push != MessagePush():
-      await wf.pushHandler(value.requestId, value.push)
+      wf.pushHandler(value.requestId, value.push)
     if value.request != FilterRequest():
       wf.subscribers.add(Subscriber(peer: conn.peerInfo, requestId: value.requestId, filter: value.request))
 

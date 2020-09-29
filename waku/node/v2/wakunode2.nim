@@ -109,10 +109,10 @@ proc start*(node: WakuNode) {.async.} =
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
-  proc filterHandler(requestId: string, msg: MessagePush) {.async, gcsafe.} =
+  proc filterHandler(requestId: string, msg: MessagePush) {.gcsafe.} =
     info "push received"
     let handler = node.filterHandlers[requestId]
-    await handler(msg)
+    handler(msg)
 
   node.wakuFilter = WakuFilter.init(node.switch, node.rng, filterHandler)
   node.switch.mount(node.wakuFilter)

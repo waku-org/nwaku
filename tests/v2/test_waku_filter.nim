@@ -30,7 +30,7 @@ procSuite "Waku Filter":
     discard await listenSwitch.start()
 
     var responseRequestIdFuture = newFuture[string]()
-    proc handle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
+    proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
       check:
         msg.messages.len() == 1
         msg.messages[0] == post
@@ -43,7 +43,7 @@ procSuite "Waku Filter":
     dialSwitch.mount(proto)
     proto.setPeer(listenSwitch.peerInfo)
 
-    proc emptyHandle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
+    proc emptyHandle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
       discard
 
     let 
