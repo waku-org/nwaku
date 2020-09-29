@@ -7,7 +7,7 @@ import
   libp2p/crypto/secp,
   libp2p/switch,
   eth/keys,
-  ../../waku/protocol/v2/[waku_relay, waku_store, message_notifier],
+  ../../waku/protocol/v2/[waku_relay, waku_store, waku_filter, message_notifier],
   ../../waku/node/v2/[wakunode2, waku_types],
   ../test_helpers
 
@@ -140,6 +140,41 @@ procSuite "WakuNode":
 
     await node1.query(HistoryQuery(topics: @[contentTopic]), storeHandler)
     
+    check:
+      (await completionFut.withTimeout(5.seconds)) == true
+    await node1.stop()
+    await node2.stop()
+
+  asyncTest "Filter protocol returns expected message":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        Port(60002))
+      contentTopic = "foobar"
+      message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
+
+    var completionFut = newFuture[bool]()
+
+    await node1.start()
+    await node2.start()
+
+    node1.wakuFilter.setPeer(node2.peerInfo)
+
+    proc filterHandler(msg: MessagePush) {.async, gcsafe, closure.} =
+      echo msg
+      check:
+        msg.messages[0] == message
+      completionFut.complete(true)
+
+    await node1.filter(FilterRequest(topic: "waku", contentFilter: @[ContentFilter(topics: @[contentTopic])]), filterHandler)
+    
+    await node2.subscriptions.notify("waku", message)
+
+    await sleepAsync(2000.millis)
+
     check:
       (await completionFut.withTimeout(5.seconds)) == true
     await node1.stop()

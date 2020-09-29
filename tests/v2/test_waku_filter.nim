@@ -31,7 +31,6 @@ procSuite "Waku Filter":
 
     var responseRequestIdFuture = newFuture[string]()
     proc handle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
-      echo "requestID", requestId
       check:
         msg.messages.len() == 1
         msg.messages[0] == post
