@@ -76,7 +76,7 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
     await node.query(HistoryQuery(topics: topics), handler)
     return true
   
-  rpcsrv.rpc("waku_subscribe2") do(topic: string, contentTopics: seq[seq[string]]) -> bool:
+  rpcsrv.rpc("waku_subscribe2") do(topic: string, contentFilters: seq[seq[string]]) -> bool:
     debug "waku_subscribe"
 
     # XXX: Hacky in-line handler
@@ -84,7 +84,7 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
       info "Hit subscribe response", nessages=msg.messages
 
     var content = newSeq[ContentFilter]()
-    for topics in contentTopics:
+    for topics in contentFilters:
       content.add(ContentFilter(topics: topics))
 
     await node.subscribe(FilterRequest(topic: topic, contentFilter: content), handler)
