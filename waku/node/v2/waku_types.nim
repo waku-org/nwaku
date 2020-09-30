@@ -18,20 +18,6 @@ type
   Topic* = string
   Message* = seq[byte]
 
-  # TODO: these filter structures can be simplified but like this for now to
-  # match Node API
-  # Also, should reuse in filter/wakufilter code, but cyclic imports right now.
-  ContentFilter* = object
-    topics*: seq[string]
-
-  ContentFilterHandler* = proc(message: seq[byte]) {.gcsafe, closure.}
-
-  Filter* = object
-    contentFilter*: ContentFilter
-    handler*: ContentFilterHandler
-
-  Filters* = Table[string, Filter]
-
   WakuMessage* = object
     payload*: seq[byte]
     contentTopic*: string
@@ -95,7 +81,13 @@ type
     subscribers*: seq[Subscriber]
     pushHandler*: MessagePushHandler
 
-  FilterHandler* = proc(msg: MessagePush) {.gcsafe, closure.}
+  ContentFilter* = object
+    topics*: seq[string]
+
+  ContentFilterHandler* = proc(msg: MessagePush) {.gcsafe, closure.}
+
+  # @TODO MAYBE MORE INFO?
+  Filters* = Table[string, ContentFilterHandler]
 
   # NOTE based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj
@@ -108,7 +100,6 @@ type
   # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
     messages*: seq[(Topic, WakuMessage)]
     filters*: Filters
-    filterHandlers*: Table[string, FilterHandler]
     subscriptions*: MessageNotificationSubscriptions
     rng*: ref BrHmacDrbgContext
 
@@ -131,14 +122,6 @@ proc encode*(message: WakuMessage): ProtoBuffer =
 
   result.write(1, message.payload)
   result.write(2, message.contentTopic)
-
-proc notify*(filters: Filters, msg: WakuMessage) =
-  for filter in filters.values:
-    # TODO: In case of no topics we should either trigger here for all messages,
-    # or we should not allow such filter to exist in the first place.
-    if filter.contentFilter.topics.len > 0:
-      if msg.contentTopic in filter.contentFilter.topics:
-        filter.handler(msg.payload)
 
 proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
   var bytes: array[10, byte]
