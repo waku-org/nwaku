@@ -76,3 +76,9 @@ task scripts2, "Build Waku v2 scripts":
 task wakuexample2, "Build example Waku usage":
   let name = "basic2"
   buildBinary name, "examples/v2/", "-d:chronicles_log_level=DEBUG"
+
+task wakuchat2, "Build example Waku chat usage":
+  let name = "chat2"
+  # NOTE For debugging, set debug level. For chat usage we want minimal log
+  # output to STDOUT. Can be fixed by redirecting logs to file (e.g.)
+  buildBinary name, "examples/v2/", "-d:chronicles_log_level=WARN"
