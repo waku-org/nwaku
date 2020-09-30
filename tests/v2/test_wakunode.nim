@@ -163,13 +163,13 @@ procSuite "WakuNode":
 
     node1.wakuFilter.setPeer(node2.peerInfo)
 
-    proc filterHandler(msg: MessagePush) {.gcsafe, closure.} =
+    proc handler(msg: MessagePush) {.gcsafe, closure.} =
       echo msg
       check:
         msg.messages[0] == message
       completionFut.complete(true)
 
-    await node1.filter(FilterRequest(topic: "waku", contentFilter: @[ContentFilter(topics: @[contentTopic])]), filterHandler)
+    await node1.subscribe(FilterRequest(topic: "waku", contentFilter: @[ContentFilter(topics: @[contentTopic])]), handler)
 
     await sleepAsync(2000.millis)
 

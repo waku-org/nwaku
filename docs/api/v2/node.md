@@ -25,7 +25,7 @@ method subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler)
   ## NOTE The data field SHOULD be decoded as a WakuMessage.
   ## Status: Implemented.
 
-proc filter*(w: WakuNode, filter: FilterRequest, handler: FilterHandler) {.async, gcsafe.} =
+proc subscribe*(w: WakuNode, filter: FilterRequest, handler: FilterHandler) {.async, gcsafe.} =
   ## Registers for messages that match a specific filter. Triggers the handler whenever a message is received.
   ## FilterHandler is a method that takes a MessagePush.
   ##
