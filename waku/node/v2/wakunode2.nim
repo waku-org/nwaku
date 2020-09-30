@@ -197,13 +197,13 @@ proc query*(w: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async
   ## Status: Implemented.
   await w.wakuStore.query(query, handler)
 
-proc subscribe*(w: WakuNode, filter: FilterRequest, handler: FilterHandler) {.async, gcsafe.} =
+proc subscribe*(node: WakuNode, filter: FilterRequest, handler: FilterHandler) {.async, gcsafe.} =
   ## Registers for messages that match a specific filter. Triggers the handler whenever a message is received.
   ## FilterHandler is a method that takes a MessagePush.
   ##
   ## Status: Implemented.
-  let id = await w.wakuFilter.subscribe(filter)
-  w.filterHandlers[id] = handler
+  let id = await node.wakuFilter.subscribe(filter)
+  node.filterHandlers[id] = handler
 
 when isMainModule:
   import
