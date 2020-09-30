@@ -76,7 +76,7 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
     await node.query(HistoryQuery(topics: topics), handler)
     return true
   
-  rpcsrv.rpc("waku_subscribe") do(topic: string, contentTopics: seq[seq[string]]) -> bool:
+  rpcsrv.rpc("waku_subscribe2") do(topic: string, contentTopics: seq[seq[string]]) -> bool:
     debug "waku_subscribe"
 
     # XXX: Hacky in-line handler
