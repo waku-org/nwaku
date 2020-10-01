@@ -80,7 +80,7 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
     debug "waku_subscribe2"
 
     # XXX: Hacky in-line handler
-    proc handler(msg: MessagePush) {.gcsafe, closure.} =
+    proc handler(msg: WakuMessage) {.gcsafe, closure.} =
       info "Hit subscribe response", nessages=msg.messages
 
     var filters = newSeq[ContentFilter]()
