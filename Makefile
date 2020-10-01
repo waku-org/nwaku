@@ -106,7 +106,7 @@ wakuexample2:
 
 chat2:
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim wakuchat2 $(NIM_PARAMS) waku.nims
+		$(ENV_SCRIPT) nim chat2 $(NIM_PARAMS) waku.nims
 
 # symlink
 waku.nims:
