@@ -53,7 +53,7 @@ type
     messages*: seq[WakuMessage]
 
   FilterRequest* = object
-    contentFilter*: seq[ContentFilter]
+    contentFilters*: seq[ContentFilter]
     topic*: string
 
   MessagePush* = object

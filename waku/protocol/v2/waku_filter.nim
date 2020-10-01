@@ -32,7 +32,7 @@ proc encode*(filter: ContentFilter): ProtoBuffer =
 proc encode*(rpc: FilterRequest): ProtoBuffer =
   result = initProtoBuffer()
 
-  for filter in rpc.contentFilter:
+  for filter in rpc.contentFilters:
     result.write(1, filter.encode())
 
   result.write(2, rpc.topic)
@@ -46,14 +46,14 @@ proc init*(T: type ContentFilter, buffer: seq[byte]): ProtoResult[T] =
   ok(ContentFilter(topics: topics))
 
 proc init*(T: type FilterRequest, buffer: seq[byte]): ProtoResult[T] =
-  var rpc = FilterRequest(contentFilter: @[], topic: "")
+  var rpc = FilterRequest(contentFilters: @[], topic: "")
   let pb = initProtoBuffer(buffer)
 
   var buffs: seq[seq[byte]]
   discard ? pb.getRepeatedField(1, buffs)
   
   for buf in buffs:
-    rpc.contentFilter.add(? ContentFilter.init(buf))
+    rpc.contentFilters.add(? ContentFilter.init(buf))
 
   discard ? pb.getField(2, rpc.topic)
 
@@ -138,7 +138,7 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
       if subscriber.filter.topic != topic:
         continue
 
-      for filter in subscriber.filter.contentFilter:
+      for filter in subscriber.filter.contentFilters:
         if msg.contentTopic in filter.topics:
           let push = FilterRPC(requestId: subscriber.requestId, push: MessagePush(messages: @[msg]))
           let conn = await proto.switch.dial(subscriber.peer.peerId, subscriber.peer.addrs, WakuFilterCodec)

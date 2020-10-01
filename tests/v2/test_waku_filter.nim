@@ -38,7 +38,7 @@ procSuite "Waku Filter":
 
     let
       proto = WakuFilter.init(dialSwitch, crypto.newRng(), handle)
-      rpc = FilterRequest(contentFilter: @[ContentFilter(topics: @["pew", "pew2"])], topic: "topic")
+      rpc = FilterRequest(contentFilters: @[ContentFilter(topics: @["pew", "pew2"])], topic: "topic")
 
     dialSwitch.mount(proto)
     proto.setPeer(listenSwitch.peerInfo)

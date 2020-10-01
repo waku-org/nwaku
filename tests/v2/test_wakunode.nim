@@ -71,7 +71,7 @@ procSuite "WakuNode":
         msg.messages[0] == message
       completionFut.complete(true)
 
-    await node1.subscribe(FilterRequest(topic: "waku", contentFilter: @[ContentFilter(topics: @[contentTopic])]), handler)
+    await node1.subscribe(FilterRequest(topic: "waku", contentFilters: @[ContentFilter(topics: @[contentTopic])]), handler)
 
     await sleepAsync(2000.millis)
 
