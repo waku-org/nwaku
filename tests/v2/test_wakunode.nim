@@ -63,9 +63,6 @@ procSuite "WakuNode":
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
-      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node3 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
-        Port(60004))
       pubSubTopic = "chat"
       contentTopic = "foobar"
       filterRequest = FilterRequest(topic: pubSubTopic, contentFilters: @[ContentFilter(topics: @[contentTopic])])
@@ -90,14 +87,14 @@ procSuite "WakuNode":
         message == "hello world"
       completionFut.complete(true)
 
-    await allFutures([node1.start(), node2.start(), node3.start()])
+    await allFutures([node1.start(), node2.start()])
 
     # Subscribe our node to the pubSubTopic where all chat data go onto.
     await node1.subscribe(pubSubTopic, relayHandler)
     # Subscribe a contentFilter to trigger a specific application handler when
     # WakuMessages with that content are received
-    node3.wakuFilter.setPeer(node1.peerInfo)
-    await node3.subscribe(filterRequest, contentHandler)
+    node1.wakuFilter.setPeer(node2.peerInfo)
+    await node1.subscribe(filterRequest, contentHandler)
     await sleepAsync(2000.millis)
 
     # Connect peers by dialing from node2 to node1
@@ -114,7 +111,6 @@ procSuite "WakuNode":
       (await completionFut.withTimeout(5.seconds)) == true
     await node1.stop() 
     await node2.stop()
-    await node3.stop()
 
   asyncTest "Store protocol returns expected message":
     let

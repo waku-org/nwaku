@@ -140,6 +140,7 @@ proc notify*(filters: Filters, msg: WakuMessage, requestId: string = "") =
       if contentFilter.topics.len > 0:
         if msg.contentTopic in contentFilter.topics:
           filter.handler(msg)
+          break
 
 proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
   var bytes: array[10, byte]

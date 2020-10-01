@@ -151,7 +151,8 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
 
 proc subscribe*(wf: WakuFilter, request: FilterRequest): Future[string] {.async, gcsafe.} =
   let id = generateRequestId(wf.rng)
-  let peer = wf.peers[0].peerInfo
-  let conn = await wf.switch.dial(peer.peerId, peer.addrs, WakuFilterCodec)
-  await conn.writeLP(FilterRPC(requestId: id, request: request).encode().buffer)
+  if wf.peers.len >= 1:
+    let peer = wf.peers[0].peerInfo
+    let conn = await wf.switch.dial(peer.peerId, peer.addrs, WakuFilterCodec)
+    await conn.writeLP(FilterRPC(requestId: id, request: request).encode().buffer)
   result = id
