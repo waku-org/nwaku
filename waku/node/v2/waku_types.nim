@@ -84,10 +84,14 @@ type
   ContentFilter* = object
     topics*: seq[string]
 
-  ContentFilterHandler* = proc(msg: MessagePush) {.gcsafe, closure.}
+  ContentFilterHandler* = proc(msg: WakuMessage) {.gcsafe, closure.}
+
+  Filter* = object
+    contentFilters*: seq[ContentFilter]
+    handler*: ContentFilterHandler
 
   # @TODO MAYBE MORE INFO?
-  Filters* = Table[string, ContentFilterHandler]
+  Filters* = Table[string, Filter]
 
   # NOTE based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj
@@ -122,6 +126,20 @@ proc encode*(message: WakuMessage): ProtoBuffer =
 
   result.write(1, message.payload)
   result.write(2, message.contentTopic)
+
+proc notify*(filters: Filters, msg: WakuMessage, requestId: string = "") =
+  for key in filters.keys:
+    let filter = filters[key]
+    if requestId != "" and requestId == key:
+      filter.handler(msg)
+      continue
+
+    # TODO: In case of no topics we should either trigger here for all messages,
+    # or we should not allow such filter to exist in the first place.
+    for contentFilter in filter.contentFilters:
+      if contentFilter.topics.len > 0:
+        if msg.contentTopic in contentFilter.topics:
+          filter.handler(msg)
 
 proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
   var bytes: array[10, byte]

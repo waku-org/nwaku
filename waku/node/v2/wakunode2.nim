@@ -89,7 +89,7 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     peerInfo: peerInfo,
     wakuRelay: wakuRelay,
     subscriptions: newTable[string, MessageNotificationSubscription](),
-    filters: initTable[string, ContentFilterHandler]()
+    filters: initTable[string, Filter]()
   )
 
   for topic in topics:
@@ -111,9 +111,8 @@ proc start*(node: WakuNode) {.async.} =
 
   proc filterHandler(requestId: string, msg: MessagePush) {.gcsafe.} =
     info "push received"
-    if node.filters.hasKey(requestId):
-      let handler = node.filters[requestId]
-      handler(msg)
+    for message in msg.messages:
+      node.filters.notify(message, requestId)
 
   node.wakuFilter = WakuFilter.init(node.switch, node.rng, filterHandler)
   node.switch.mount(node.wakuFilter)
@@ -122,7 +121,7 @@ proc start*(node: WakuNode) {.async.} =
   proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
     let msg = WakuMessage.init(data)
     if msg.isOk():
-      await node.subscriptions.notify(topic, msg.value())
+      node.filters.notify(msg.value(), "")
 
   await node.wakuRelay.subscribe("waku", relayHandler)
 
@@ -158,7 +157,7 @@ proc subscribe*(node: WakuNode, filter: FilterRequest, handler: ContentFilterHan
   info "subscribe content", filter=filter
 
   let id = await node.wakuFilter.subscribe(filter)
-  node.filters[id] = handler
+  node.filters[id] = Filter(contentFilters: filter.contentFilters, handler: handler)
 
 proc unsubscribe*(w: WakuNode, topic: Topic) =
   echo "NYI"
