@@ -111,8 +111,9 @@ proc start*(node: WakuNode) {.async.} =
 
   proc filterHandler(requestId: string, msg: MessagePush) {.gcsafe.} =
     info "push received"
-    let handler = node.filters[requestId]
-    handler(msg)
+    if node.filters.hasKey(requestId):
+      let handler = node.filters[requestId]
+      handler(msg)
 
   node.wakuFilter = WakuFilter.init(node.switch, node.rng, filterHandler)
   node.switch.mount(node.wakuFilter)
