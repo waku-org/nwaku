@@ -22,9 +22,9 @@ DOCKER_IMAGE_NIM_PARAMS ?= -d:chronicles_colors:none -d:insecure
 	deps \
 	update \
 	sim \
-	node \
-	node2 \
-	example \
+	wakunode1 \
+	wakunode2 \
+	example1 \
 	test \
 	clean \
 	libbacktrace
@@ -45,7 +45,7 @@ GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 else # "variables.mk" was included. Business as usual until the end of this file.
 
 # default target, because it's the first one that doesn't start with '.'
-all: | node sim example node2 sim2 example2
+all: | wakunode1 sim example wakunode2 sim2 example2
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
@@ -68,27 +68,27 @@ update: | update-common
 		$(MAKE) waku.nims $(HANDLE_OUTPUT)
 
 # a phony target, because teaching `make` how to do conditional recompilation of Nim projects is too complicated
-node: | build deps
+wakunode1: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim node $(NIM_PARAMS) waku.nims
+		$(ENV_SCRIPT) nim wakunode1 $(NIM_PARAMS) waku.nims
 
-sim: | build deps node
+sim: | build deps wakunode1
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim sim $(NIM_PARAMS) waku.nims
 
-example: | build deps
+example1: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim example $(NIM_PARAMS) waku.nims
+		$(ENV_SCRIPT) nim example1 $(NIM_PARAMS) waku.nims
 
-node2: | build deps
+wakunode2: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim node2 $(NIM_PARAMS) waku.nims
+		$(ENV_SCRIPT) nim wakunode2 $(NIM_PARAMS) waku.nims
 
-sim2: | build deps node2
+sim2: | build deps wakunode2
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim sim2 $(NIM_PARAMS) waku.nims
 
-scripts2: | build deps node2
+scripts2: | build deps wakunode2
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim scripts2 $(NIM_PARAMS) waku.nims
 
@@ -113,7 +113,7 @@ libbacktrace:
 	+ $(MAKE) -C vendor/nim-libbacktrace --no-print-directory BUILD_CXX_LIB=0
 
 # build a docker image for the fleet
-docker-image: MAKE_TARGET ?= node
+docker-image: MAKE_TARGET ?= wakunode1
 docker-image: DOCKER_IMAGE_TAG ?= $(MAKE_TARGET)
 docker-image: DOCKER_IMAGE_NAME ?= statusteam/nim-waku:$(DOCKER_IMAGE_TAG)
 docker-image:
