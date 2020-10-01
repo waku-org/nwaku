@@ -110,6 +110,8 @@ method init*(wf: WakuFilter) =
       error "failed to decode rpc"
       return
 
+    info "filter message received"
+
     let value = res.value
     if value.push != MessagePush():
       wf.pushHandler(value.requestId, value.push)

@@ -87,5 +87,5 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
     for topics in contentFilters:
       filters.add(ContentFilter(topics: topics))
 
-    await node.subscribe(FilterRequest(topic: topic, contentFilters: content), handler)
+    await node.subscribe(FilterRequest(topic: topic, contentFilters: filters), handler)
     return true
