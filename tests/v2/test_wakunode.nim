@@ -113,7 +113,7 @@ procSuite "WakuNode":
 
     # Connect peers by dialing from node2 to node1
     let conn = await node2.switch.dial(node1.peerInfo, WakuRelayCodec)
-    #
+
     # We need to sleep to allow the subscription to go through
     info "Going to sleep to allow subscribe to go through"
     await sleepAsync(2000.millis)
