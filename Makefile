@@ -104,7 +104,7 @@ wakuexample2:
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakuexample2 $(NIM_PARAMS) waku.nims
 
-wakuchat2:
+chat2:
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakuchat2 $(NIM_PARAMS) waku.nims
 
