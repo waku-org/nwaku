@@ -88,5 +88,5 @@ jobs:
       - name: Run Tests
         run: |
           mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% LOG_LEVEL=TRACE
-          build\wakunode.exe --help
+          build\wakunode1.exe --help
           mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% test
