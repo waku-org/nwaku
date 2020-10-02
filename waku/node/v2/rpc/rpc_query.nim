@@ -26,5 +26,5 @@ echo "Input is:", input
 var node = newRpcHttpClient()
 waitfor node.connect("localhost", rpcPort)
 
-var res = waitfor node.wakuQuery("foo", @[input])
+var res = waitfor node.wakuQuery(@[input])
 echo "Waku query response: ", res
