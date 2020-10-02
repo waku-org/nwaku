@@ -88,7 +88,8 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     rng: crypto.newRng(),
     peerInfo: peerInfo,
     wakuRelay: wakuRelay,
-    subscriptions: newTable[string, MessageNotificationSubscription]()
+    subscriptions: newTable[string, MessageNotificationSubscription](),
+    filters: initTable[string, Filter]()
   )
 
   for topic in topics:
@@ -108,17 +109,19 @@ proc start*(node: WakuNode) {.async.} =
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
-  proc pushHandler(msg: MessagePush) {.async, gcsafe.} =
+  proc filterHandler(requestId: string, msg: MessagePush) {.gcsafe.} =
     info "push received"
+    for message in msg.messages:
+      node.filters.notify(message, requestId)
 
-  node.wakuFilter = WakuFilter.init(node.switch, node.rng, pushHandler)
+  node.wakuFilter = WakuFilter.init(node.switch, node.rng, filterHandler)
   node.switch.mount(node.wakuFilter)
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
   proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
     let msg = WakuMessage.init(data)
     if msg.isOk():
-      await node.subscriptions.notify(topic, msg.value())
+      node.filters.notify(msg.value(), "")
 
   await node.wakuRelay.subscribe("waku", relayHandler)
 
@@ -146,15 +149,16 @@ proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) {.async.} =
   let wakuRelay = node.wakuRelay
   await wakuRelay.subscribe(topic, handler)
 
-proc subscribe*(node: WakuNode, contentFilter: waku_types.ContentFilter, handler: ContentFilterHandler) {.async.} =
-  ## Subscribes to a ContentFilter. Triggers handler when receiving messages on
-  ## this content filter. ContentFilter is a method that takes some content
-  ## filter, specifically with `ContentTopic`, and a `Message`. The `Message`
-  ## has to match the `ContentTopic`.
-  info "subscribe content", contentFilter=contentFilter
+proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHandler) {.async, gcsafe.} =
+  ## Registers for messages that match a specific filter. Triggers the handler whenever a message is received.
+  ## FilterHandler is a method that takes a MessagePush.
+  ##
+  ## Status: Implemented.
+  info "subscribe content", filter=request
 
-  # TODO: get some random id, or use the Filter directly as key
-  node.filters.add("some random id", Filter(contentFilter: contentFilter, handler: handler))
+  # @TODO: ERROR HANDLING
+  let id = await node.wakuFilter.subscribe(request)
+  node.filters[id] = Filter(contentFilters: request.contentFilters, handler: handler)
 
 proc unsubscribe*(w: WakuNode, topic: Topic) =
   echo "NYI"
