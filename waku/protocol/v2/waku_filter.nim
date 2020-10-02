@@ -32,7 +32,7 @@ proc encode*(filter: ContentFilter): ProtoBuffer =
 proc encode*(rpc: FilterRequest): ProtoBuffer =
   result = initProtoBuffer()
 
-  for filter in rpc.contentFilter:
+  for filter in rpc.contentFilters:
     result.write(1, filter.encode())
 
   result.write(2, rpc.topic)
@@ -46,14 +46,14 @@ proc init*(T: type ContentFilter, buffer: seq[byte]): ProtoResult[T] =
   ok(ContentFilter(topics: topics))
 
 proc init*(T: type FilterRequest, buffer: seq[byte]): ProtoResult[T] =
-  var rpc = FilterRequest(contentFilter: @[], topic: "")
+  var rpc = FilterRequest(contentFilters: @[], topic: "")
   let pb = initProtoBuffer(buffer)
 
   var buffs: seq[seq[byte]]
   discard ? pb.getRepeatedField(1, buffs)
   
   for buf in buffs:
-    rpc.contentFilter.add(? ContentFilter.init(buf))
+    rpc.contentFilters.add(? ContentFilter.init(buf))
 
   discard ? pb.getField(2, rpc.topic)
 
@@ -81,13 +81,15 @@ proc init*(T: type FilterRPC, buffer: seq[byte]): ProtoResult[T] =
   var rpc = FilterRPC()
   let pb = initProtoBuffer(buffer) 
 
+  discard ? pb.getField(1, rpc.requestId)
+
   var requestBuffer: seq[byte]
-  discard ? pb.getField(1, requestBuffer)
+  discard ? pb.getField(2, requestBuffer)
 
   rpc.request = ? FilterRequest.init(requestBuffer)
 
   var pushBuffer: seq[byte]
-  discard ? pb.getField(2, pushBuffer)
+  discard ? pb.getField(3, pushBuffer)
 
   rpc.push = ? MessagePush.init(pushBuffer)
 
@@ -96,8 +98,9 @@ proc init*(T: type FilterRPC, buffer: seq[byte]): ProtoResult[T] =
 proc encode*(rpc: FilterRPC): ProtoBuffer =
   result = initProtoBuffer()
 
-  result.write(1, rpc.request.encode())
-  result.write(2, rpc.push.encode())
+  result.write(1, rpc.requestId)
+  result.write(2, rpc.request.encode())
+  result.write(3, rpc.push.encode())
 
 method init*(wf: WakuFilter) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
@@ -107,9 +110,11 @@ method init*(wf: WakuFilter) =
       error "failed to decode rpc"
       return
 
+    info "filter message received"
+
     let value = res.value
     if value.push != MessagePush():
-      await wf.pushHandler(value.push)
+      wf.pushHandler(value.requestId, value.push)
     if value.request != FilterRequest():
       wf.subscribers.add(Subscriber(peer: conn.peerInfo, requestId: value.requestId, filter: value.request))
 
@@ -123,6 +128,10 @@ proc init*(T: type WakuFilter, switch: Switch, rng: ref BrHmacDrbgContext, handl
   result.pushHandler = handler
   result.init()
 
+# @TODO THIS SHOULD PROBABLY BE AN ADD FUNCTION AND APPEND THE PEER TO AN ARRAY
+proc setPeer*(wf: WakuFilter, peer: PeerInfo) =
+  wf.peers.add(FilterPeer(peerInfo: peer))
+
 proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
   ## Returns a Filter for the specific protocol
   ## This filter can then be used to send messages to subscribers that match conditions.   
@@ -131,7 +140,7 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
       if subscriber.filter.topic != topic:
         continue
 
-      for filter in subscriber.filter.contentFilter:
+      for filter in subscriber.filter.contentFilters:
         if msg.contentTopic in filter.topics:
           let push = FilterRPC(requestId: subscriber.requestId, push: MessagePush(messages: @[msg]))
           let conn = await proto.switch.dial(subscriber.peer.peerId, subscriber.peer.addrs, WakuFilterCodec)
@@ -140,6 +149,11 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
 
   MessageNotificationSubscription.init(@[], handle)
 
-proc subscribe*(wf: WakuFilter, peer: PeerInfo, request: FilterRequest) {.async, gcsafe.} =
-  let conn = await wf.switch.dial(peer.peerId, peer.addrs, WakuFilterCodec)
-  await conn.writeLP(FilterRPC(requestId: generateRequestId(wf.rng), request: request).encode().buffer)
+proc subscribe*(wf: WakuFilter, request: FilterRequest): Future[string] {.async, gcsafe.} =
+  let id = generateRequestId(wf.rng)
+  if wf.peers.len >= 1:
+    let peer = wf.peers[0].peerInfo
+    # @TODO: THERE SHOULD BE ERROR HANDLING HERE, WHAT IF A PEER IS GONE? WHAT IF THERE IS A TIMEOUT ETC.
+    let conn = await wf.switch.dial(peer.peerId, peer.addrs, WakuFilterCodec)
+    await conn.writeLP(FilterRPC(requestId: id, request: request).encode().buffer)
+  result = id
