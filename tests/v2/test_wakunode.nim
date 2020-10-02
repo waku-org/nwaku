@@ -37,7 +37,6 @@ procSuite "WakuNode":
 
     # This would be the actual application handler
     proc contentHandler(msg: WakuMessage) {.gcsafe, closure.} =
-      echo "MOTHER FUCK"
       let message = string.fromBytes(msg.payload)
       check:
         message == "hello world"
