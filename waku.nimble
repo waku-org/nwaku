@@ -57,10 +57,6 @@ task sim1, "Build Waku v1 simulation tools":
 task example1, "Build Waku v1 example":
   buildBinary "example", "examples/v1/", "-d:chronicles_log_level=DEBUG"
 
-task example2, "Build Waku v2 example":
-  buildBinary "basic2", "examples/v2/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "chat2", "examples/v2/", "-d:chronicles_log_level=DEBUG"
-
 # TODO Also build Waku store and filter protocols here
 task protocol2, "Build the experimental Waku protocol":
   buildBinary "waku_relay", "waku/protocol/v2/", "-d:chronicles_log_level=TRACE"
