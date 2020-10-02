@@ -130,6 +130,9 @@ proc encode*(message: WakuMessage): ProtoBuffer =
 proc notify*(filters: Filters, msg: WakuMessage, requestId: string = "") =
   for key in filters.keys:
     let filter = filters[key]
+    # We do this because the key for the filter is set to the requestId received from the filter protocol.
+    # This means we do not need to check the content filter explicitly as all MessagePushs already contain
+    # the requestId of the coresponding filter.
     if requestId != "" and requestId == key:
       filter.handler(msg)
       continue
