@@ -46,7 +46,7 @@ GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 else # "variables.mk" was included. Business as usual until the end of this file.
 
 # default target, because it's the first one that doesn't start with '.'
-all: | wakunode1 sim example1 wakunode2 sim2 example2
+all: | wakunode1 sim1 example1 wakunode2 sim2 example2
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
