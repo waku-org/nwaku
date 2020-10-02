@@ -156,6 +156,7 @@ proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHa
   ## Status: Implemented.
   info "subscribe content", filter=request
 
+  # @TODO: ERROR HANDLING
   let id = await node.wakuFilter.subscribe(request)
   node.filters[id] = Filter(contentFilters: request.contentFilters, handler: handler)
 

@@ -153,6 +153,7 @@ proc subscribe*(wf: WakuFilter, request: FilterRequest): Future[string] {.async,
   let id = generateRequestId(wf.rng)
   if wf.peers.len >= 1:
     let peer = wf.peers[0].peerInfo
+    # @TODO: THERE SHOULD BE ERROR HANDLING HERE, WHAT IF A PEER IS GONE? WHAT IF THERE IS A TIMEOUT ETC.
     let conn = await wf.switch.dial(peer.peerId, peer.addrs, WakuFilterCodec)
     await conn.writeLP(FilterRPC(requestId: id, request: request).encode().buffer)
   result = id
