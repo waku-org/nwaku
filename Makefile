@@ -21,10 +21,11 @@ DOCKER_IMAGE_NIM_PARAMS ?= -d:chronicles_colors:none -d:insecure
 	all \
 	deps \
 	update \
-	sim \
+	sim1 \
 	wakunode1 \
 	wakunode2 \
 	example1 \
+	example2 \
 	test \
 	clean \
 	libbacktrace
@@ -72,13 +73,17 @@ wakunode1: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakunode1 $(NIM_PARAMS) waku.nims
 
-sim: | build deps wakunode1
+sim1: | build deps wakunode1
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim sim $(NIM_PARAMS) waku.nims
+		$(ENV_SCRIPT) nim sim1 $(NIM_PARAMS) waku.nims
 
 example1: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim example1 $(NIM_PARAMS) waku.nims
+
+example2: | build deps
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim example2 $(NIM_PARAMS) waku.nims
 
 wakunode2: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \

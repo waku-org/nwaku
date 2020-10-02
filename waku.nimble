@@ -50,12 +50,15 @@ task test2, "Run waku v2 tests":
 task wakunode1, "Build Waku v1 cli node":
   buildBinary "wakunode", "waku/node/v1/", "-d:chronicles_log_level=TRACE"
 
-task sim, "Build Waku v1 simulation tools":
+task sim1, "Build Waku v1 simulation tools":
   buildBinary "quicksim", "waku/node/v1/", "-d:chronicles_log_level=INFO"
   buildBinary "start_network", "waku/node/v1/", "-d:chronicles_log_level=DEBUG"
 
 task example1, "Build Waku v1 example":
   buildBinary "example", "examples/v1/", "-d:chronicles_log_level=DEBUG"
+
+task example2, "Build Waku v2 example":
+  buildBinary "example", "examples/v2/", "-d:chronicles_log_level=DEBUG"
 
 # TODO Also build Waku store and filter protocols here
 task protocol2, "Build the experimental Waku protocol":
