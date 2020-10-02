@@ -25,14 +25,11 @@ method subscribe*(w: WakuNode, topic: Topic, handler: TopicHandler)
   ## NOTE The data field SHOULD be decoded as a WakuMessage.
   ## Status: Implemented.
 
-method subscribe*(w: WakuNode, contentFilter: ContentFilter, handler: ContentFilterHandler)
-  ## Subscribes to a ContentFilter. Triggers handler when receiving messages on
-  ## this content filter. ContentFilter is a method that takes some content
-  ## filter, specifically with `ContentTopic`, and a `Message`. The `Message`
-  ## has to match the `ContentTopic`.
-
-  ## Status: Not yet implemented.
-  ## TODO Implement as wrapper around `waku_filter` and `subscribe` above.
+method subscribe*(w: WakuNode, filter: FilterRequest, handler: ContentFilterHandler)
+  ## Registers for messages that match a specific filter. Triggers the handler whenever a message is received.
+  ## FilterHandler is a method that takes a MessagePush.
+  ##
+  ## Status: Implemented.
 
 method unsubscribe*(w: WakuNode, topic: Topic)
   ## Unsubscribe from a topic.
