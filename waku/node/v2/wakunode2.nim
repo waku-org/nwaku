@@ -149,15 +149,15 @@ proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) {.async.} =
   let wakuRelay = node.wakuRelay
   await wakuRelay.subscribe(topic, handler)
 
-proc subscribe*(node: WakuNode, filter: FilterRequest, handler: ContentFilterHandler) {.async, gcsafe.} =
+proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHandler) {.async, gcsafe.} =
   ## Registers for messages that match a specific filter. Triggers the handler whenever a message is received.
   ## FilterHandler is a method that takes a MessagePush.
   ##
   ## Status: Implemented.
-  info "subscribe content", filter=filter
+  info "subscribe content", filter=request
 
-  let id = await node.wakuFilter.subscribe(filter)
-  node.filters[id] = Filter(contentFilters: filter.contentFilters, handler: handler)
+  let id = await node.wakuFilter.subscribe(request)
+  node.filters[id] = Filter(contentFilters: request.contentFilters, handler: handler)
 
 proc unsubscribe*(w: WakuNode, topic: Topic) =
   echo "NYI"
