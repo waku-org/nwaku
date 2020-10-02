@@ -7,7 +7,7 @@ import
   libp2p/crypto/secp,
   libp2p/switch,
   eth/keys,
-  ../../waku/protocol/v2/[waku_relay, waku_store, message_notifier],
+  ../../waku/protocol/v2/[waku_relay, waku_store, waku_filter, message_notifier],
   ../../waku/node/v2/[wakunode2, waku_types],
   ../test_helpers
 
@@ -20,7 +20,7 @@ procSuite "WakuNode":
         Port(60000))
       pubSubTopic = "chat"
       contentTopic = "foobar"
-      contentFilter = ContentFilter(topics: @[contentTopic])
+      filterRequest = FilterRequest(topic: pubSubTopic, contentFilters: @[ContentFilter(topics: @[contentTopic])])
       message = WakuMessage(payload: "hello world".toBytes(),
         contentTopic: contentTopic)
 
@@ -31,24 +31,28 @@ procSuite "WakuNode":
       if msg.isOk():
         check:
           topic == "chat"
-        node.filters.notify(msg[])
+        node.filters.notify(msg.value(), topic)
 
     var completionFut = newFuture[bool]()
 
     # This would be the actual application handler
-    proc contentHandler(message: seq[byte]) {.gcsafe, closure.} =
-      let msg = string.fromBytes(message)
+    proc contentHandler(msg: WakuMessage) {.gcsafe, closure.} =
+      let message = string.fromBytes(msg.payload)
       check:
-        msg == "hello world"
+        message == "hello world"
       completionFut.complete(true)
 
     await node.start()
 
     # Subscribe our node to the pubSubTopic where all chat data go onto.
     await node.subscribe(pubSubTopic, relayHandler)
+
     # Subscribe a contentFilter to trigger a specific application handler when
     # WakuMessages with that content are received
-    await node.subscribe(contentFilter, contentHandler)
+    # node2.wakuFilter.setPeer(node1.peerInfo)
+    await node.subscribe(filterRequest, contentHandler)
+
+    await sleepAsync(2000.millis)
 
     node.publish(pubSubTopic, message)
 
@@ -67,7 +71,7 @@ procSuite "WakuNode":
         Port(60002))
       pubSubTopic = "chat"
       contentTopic = "foobar"
-      contentFilter = ContentFilter(topics: @[contentTopic])
+      filterRequest = FilterRequest(topic: pubSubTopic, contentFilters: @[ContentFilter(topics: @[contentTopic])])
       message = WakuMessage(payload: "hello world".toBytes(),
         contentTopic: contentTopic)
 
@@ -80,13 +84,13 @@ procSuite "WakuNode":
       if msg.isOk():
         check:
           topic == "chat"
-        node1.filters.notify(msg[])
+        node1.filters.notify(msg.value(), topic)
 
     # This would be the actual application handler
-    proc contentHandler1(message: seq[byte]) {.gcsafe, closure.} =
-      let msg = string.fromBytes(message)
+    proc contentHandler(msg: WakuMessage) {.gcsafe, closure.} =
+      let message = string.fromBytes(msg.payload)
       check:
-        msg == "hello world"
+        message == "hello world"
       completionFut.complete(true)
 
     await allFutures([node1.start(), node2.start()])
@@ -95,10 +99,13 @@ procSuite "WakuNode":
     await node1.subscribe(pubSubTopic, relayHandler)
     # Subscribe a contentFilter to trigger a specific application handler when
     # WakuMessages with that content are received
-    await node1.subscribe(contentFilter, contentHandler1)
+    node1.wakuFilter.setPeer(node2.peerInfo)
+    await node1.subscribe(filterRequest, contentHandler)
+    await sleepAsync(2000.millis)
+
     # Connect peers by dialing from node2 to node1
     let conn = await node2.switch.dial(node1.peerInfo, WakuRelayCodec)
-    #
+
     # We need to sleep to allow the subscription to go through
     info "Going to sleep to allow subscribe to go through"
     await sleepAsync(2000.millis)
@@ -140,6 +147,42 @@ procSuite "WakuNode":
 
     await node1.query(HistoryQuery(topics: @[contentTopic]), storeHandler)
     
+    check:
+      (await completionFut.withTimeout(5.seconds)) == true
+    await node1.stop()
+    await node2.stop()
+
+  asyncTest "Filter protocol returns expected message":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        Port(60002))
+      contentTopic = "foobar"
+      message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
+
+    var completionFut = newFuture[bool]()
+
+    await node1.start()
+    await node2.start()
+
+    node1.wakuFilter.setPeer(node2.peerInfo)
+
+    proc handler(msg: WakuMessage) {.gcsafe, closure.} =
+      check:
+        msg == message
+      completionFut.complete(true)
+
+    await node1.subscribe(FilterRequest(topic: "waku", contentFilters: @[ContentFilter(topics: @[contentTopic])]), handler)
+
+    await sleepAsync(2000.millis)
+
+    await node2.subscriptions.notify("waku", message)
+
+    await sleepAsync(2000.millis)
+
     check:
       (await completionFut.withTimeout(5.seconds)) == true
     await node1.stop()

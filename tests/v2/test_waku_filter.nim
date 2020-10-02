@@ -29,20 +29,21 @@ procSuite "Waku Filter":
     var listenSwitch = newStandardSwitch(some(key))
     discard await listenSwitch.start()
 
-    var completionFut = newFuture[bool]()
-    proc handle(msg: MessagePush) {.async, gcsafe, closure.} =
+    var responseRequestIdFuture = newFuture[string]()
+    proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
       check:
         msg.messages.len() == 1
         msg.messages[0] == post
-      completionFut.complete(true)
+      responseRequestIdFuture.complete(requestId)
 
     let
       proto = WakuFilter.init(dialSwitch, crypto.newRng(), handle)
-      rpc = FilterRequest(contentFilter: @[ContentFilter(topics: @["pew", "pew2"])], topic: "topic")
+      rpc = FilterRequest(contentFilters: @[ContentFilter(topics: @["pew", "pew2"])], topic: "topic")
 
     dialSwitch.mount(proto)
+    proto.setPeer(listenSwitch.peerInfo)
 
-    proc emptyHandle(msg: MessagePush) {.async, gcsafe, closure.} =
+    proc emptyHandle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
       discard
 
     let 
@@ -53,11 +54,11 @@ procSuite "Waku Filter":
     subscriptions["test"] = subscription
     listenSwitch.mount(proto2)
 
-    await proto.subscribe(listenSwitch.peerInfo, rpc)
+    let id = await proto.subscribe(rpc)
 
     await sleepAsync(2.seconds)
 
     await subscriptions.notify("topic", post)
 
     check:
-      (await completionFut.withTimeout(5.seconds)) == true
+      (await responseRequestIdFuture) == id

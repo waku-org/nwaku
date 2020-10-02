@@ -18,20 +18,6 @@ type
   Topic* = string
   Message* = seq[byte]
 
-  # TODO: these filter structures can be simplified but like this for now to
-  # match Node API
-  # Also, should reuse in filter/wakufilter code, but cyclic imports right now.
-  ContentFilter* = object
-    topics*: seq[string]
-
-  ContentFilterHandler* = proc(message: seq[byte]) {.gcsafe, closure.}
-
-  Filter* = object
-    contentFilter*: ContentFilter
-    handler*: ContentFilterHandler
-
-  Filters* = Table[string, Filter]
-
   WakuMessage* = object
     payload*: seq[byte]
     contentTopic*: string
@@ -67,7 +53,7 @@ type
     messages*: seq[WakuMessage]
 
   FilterRequest* = object
-    contentFilter*: seq[ContentFilter]
+    contentFilters*: seq[ContentFilter]
     topic*: string
 
   MessagePush* = object
@@ -83,13 +69,29 @@ type
     requestId*: string
     filter*: FilterRequest # @TODO MAKE THIS A SEQUENCE AGAIN?
 
-  MessagePushHandler* = proc(msg: MessagePush): Future[void] {.gcsafe, closure.}
+  MessagePushHandler* = proc(requestId: string, msg: MessagePush) {.gcsafe, closure.}
+
+  FilterPeer* = object
+    peerInfo*: PeerInfo
 
   WakuFilter* = ref object of LPProtocol
     rng*: ref BrHmacDrbgContext
     switch*: Switch
+    peers*: seq[FilterPeer]
     subscribers*: seq[Subscriber]
     pushHandler*: MessagePushHandler
+
+  ContentFilter* = object
+    topics*: seq[string]
+
+  ContentFilterHandler* = proc(msg: WakuMessage) {.gcsafe, closure.}
+
+  Filter* = object
+    contentFilters*: seq[ContentFilter]
+    handler*: ContentFilterHandler
+
+  # @TODO MAYBE MORE INFO?
+  Filters* = Table[string, Filter]
 
   # NOTE based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj
@@ -125,13 +127,23 @@ proc encode*(message: WakuMessage): ProtoBuffer =
   result.write(1, message.payload)
   result.write(2, message.contentTopic)
 
-proc notify*(filters: Filters, msg: WakuMessage) =
-  for filter in filters.values:
+proc notify*(filters: Filters, msg: WakuMessage, requestId: string = "") =
+  for key in filters.keys:
+    let filter = filters[key]
+    # We do this because the key for the filter is set to the requestId received from the filter protocol.
+    # This means we do not need to check the content filter explicitly as all MessagePushs already contain
+    # the requestId of the coresponding filter.
+    if requestId != "" and requestId == key:
+      filter.handler(msg)
+      continue
+
     # TODO: In case of no topics we should either trigger here for all messages,
     # or we should not allow such filter to exist in the first place.
-    if filter.contentFilter.topics.len > 0:
-      if msg.contentTopic in filter.contentFilter.topics:
-        filter.handler(msg.payload)
+    for contentFilter in filter.contentFilters:
+      if contentFilter.topics.len > 0:
+        if msg.contentTopic in contentFilter.topics:
+          filter.handler(msg)
+          break
 
 proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
   var bytes: array[10, byte]
