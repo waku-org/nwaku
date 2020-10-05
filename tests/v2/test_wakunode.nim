@@ -49,7 +49,6 @@ procSuite "WakuNode":
 
     # Subscribe a contentFilter to trigger a specific application handler when
     # WakuMessages with that content are received
-    # node2.wakuFilter.setPeer(node1.peerInfo)
     await node.subscribe(filterRequest, contentHandler)
 
     await sleepAsync(2000.millis)
