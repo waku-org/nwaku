@@ -175,6 +175,13 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
     info "Hit subscribe handler", topic=topic, payload=payload, contentTopic=message.contentTopic
   await node.subscribe(topic, handler)
 
+  proc storeHandler(response: HistoryResponse) {.gcsafe.} =
+    for msg in response.messages:
+      echo &"{msg}"
+    info "Hit store handler"
+
+  await node.query(HistoryQuery(topics: @[topic]), storeHandler)
+
   var chat = Chat(node: node, transp: transp, subscribed: true, connected: false, started: true)
 
   await chat.readWriteLoop()
