@@ -26,7 +26,6 @@ Do basic RPC calls:
 
 ```
 ./build/rpc_subscribe 8545
-./build/rpc_subscribe 8546
 ./build/rpc_subscribe_filter 8546 # enter your topic default is "foobar"
 ./build/rpc_publish 8545 # enter your message in STDIN
 ```
