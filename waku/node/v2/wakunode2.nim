@@ -105,19 +105,6 @@ proc start*(node: WakuNode) {.async.} =
 
   # NOTE WakuRelay is being instantiated as part of initing node
 
-  node.wakuStore = WakuStore.init(node.switch, node.rng)
-  node.switch.mount(node.wakuStore)
-  node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
-
-  proc filterHandler(requestId: string, msg: MessagePush) {.gcsafe.} =
-    info "push received"
-    for message in msg.messages:
-      node.filters.notify(message, requestId)
-
-  node.wakuFilter = WakuFilter.init(node.switch, node.rng, filterHandler)
-  node.switch.mount(node.wakuFilter)
-  node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
-
   proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
     let msg = WakuMessage.init(data)
     if msg.isOk():
@@ -131,6 +118,21 @@ proc start*(node: WakuNode) {.async.} =
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
+
+proc startFilter*(node: WakuNode) =
+  proc filterHandler(requestId: string, msg: MessagePush) {.gcsafe.} =
+    info "push received"
+    for message in msg.messages:
+      node.filters.notify(message, requestId)
+
+  node.wakuFilter = WakuFilter.init(node.switch, node.rng, filterHandler)
+  node.switch.mount(node.wakuFilter)
+  node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
+
+proc startStore*(node: WakuNode) =
+  node.wakuStore = WakuStore.init(node.switch, node.rng)
+  node.switch.mount(node.wakuStore)
+  node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
 proc stop*(node: WakuNode) {.async.} =
   let wakuRelay = node.wakuRelay
@@ -271,6 +273,12 @@ when isMainModule:
       Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort, conf.topics.split(" "))
 
   waitFor node.start()
+
+  if conf.store:
+    startStore(node)
+  
+  if conf.filter:
+    startFilter(node)
 
   if conf.staticnodes.len > 0:
     connectToNodes(node, conf.staticnodes)

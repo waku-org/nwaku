@@ -73,6 +73,16 @@ type
       defaultValue: ""
       name: "storenode" }: string
 
+    store* {.
+      desc: "Flag whether to start store protocol",
+      defaultValue: false
+      name: "store" }: bool
+
+    filter* {.
+      desc: "Flag whether to start filter protocol",
+      defaultValue: false
+      name: "filter" }: bool
+
     whisper* {.
       desc: "Enable the Whisper protocol."
       defaultValue: false

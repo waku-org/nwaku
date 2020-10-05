@@ -95,6 +95,9 @@ procSuite "WakuNode":
 
     await allFutures([node1.start(), node2.start()])
 
+    node1.startFilter()
+    node2.startFilter()
+
     # Subscribe our node to the pubSubTopic where all chat data go onto.
     await node1.subscribe(pubSubTopic, relayHandler)
     # Subscribe a contentFilter to trigger a specific application handler when
@@ -132,7 +135,9 @@ procSuite "WakuNode":
     var completionFut = newFuture[bool]()
 
     await node1.start()
+    node1.startStore()
     await node2.start()
+    node2.startStore()
 
     await node2.subscriptions.notify("waku", message)
 
@@ -166,7 +171,9 @@ procSuite "WakuNode":
     var completionFut = newFuture[bool]()
 
     await node1.start()
+    node1.startFilter()
     await node2.start()
+    node2.startFilter()
 
     node1.wakuFilter.setPeer(node2.peerInfo)
 
