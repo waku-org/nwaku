@@ -306,7 +306,7 @@ when isMainModule:
     mountFilter(node)
 
   if conf.filter:
-    await mountRelay(node)
+    waitFor mountRelay(node)
 
   if conf.staticnodes.len > 0:
     connectToNodes(node, conf.staticnodes)
