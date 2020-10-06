@@ -110,15 +110,6 @@ proc start*(node: WakuNode) {.async.} =
   ##
   node.libp2pTransportLoops = await node.switch.start()
 
-  # NOTE WakuRelay is being instantiated as part of initing node
-
-  proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-    let msg = WakuMessage.init(data)
-    if msg.isOk():
-      node.filters.notify(msg.value(), "")
-
-  await node.wakuRelay.subscribe("waku", relayHandler)
-
   # TODO Get this from WakuNode obj
   let peerInfo = node.peerInfo
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
@@ -142,6 +133,15 @@ proc mountStore*(node: WakuNode) =
   node.wakuStore = WakuStore.init(node.switch, node.rng)
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
+
+proc mountRelay*(node: WakuNode) {.async, gcsafe.} =
+  info "mounting relay"
+  proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+    let msg = WakuMessage.init(data)
+    if msg.isOk():
+      node.filters.notify(msg.value(), "")
+
+  await node.wakuRelay.subscribe("waku", relayHandler)
 
 proc stop*(node: WakuNode) {.async.} =
   let wakuRelay = node.wakuRelay
@@ -304,6 +304,9 @@ when isMainModule:
   
   if conf.filter:
     mountFilter(node)
+
+  if conf.filter:
+    await mountRelay(node)
 
   if conf.staticnodes.len > 0:
     connectToNodes(node, conf.staticnodes)

@@ -44,6 +44,8 @@ procSuite "WakuNode":
 
     await node.start()
 
+    await node.mountRelay()
+
     # Subscribe our node to the pubSubTopic where all chat data go onto.
     await node.subscribe(pubSubTopic, relayHandler)
 
@@ -93,6 +95,9 @@ procSuite "WakuNode":
       completionFut.complete(true)
 
     await allFutures([node1.start(), node2.start()])
+
+    await node1.mountRelay()
+    await node2.mountRelay()
 
     node1.mountFilter()
     node2.mountFilter()

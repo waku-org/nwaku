@@ -82,6 +82,11 @@ type
       desc: "Flag whether to start filter protocol",
       defaultValue: false
       name: "filter" }: bool
+    
+    relay* {.
+      desc: "Flag whether to start relay protocol",
+      defaultValue: false
+      name: "relay" }: bool
 
     whisper* {.
       desc: "Enable the Whisper protocol."
