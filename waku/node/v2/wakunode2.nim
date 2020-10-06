@@ -119,7 +119,7 @@ proc start*(node: WakuNode) {.async.} =
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
 
-proc startFilter*(node: WakuNode) =
+proc mountFilter*(node: WakuNode) =
   proc filterHandler(requestId: string, msg: MessagePush) {.gcsafe.} =
     info "push received"
     for message in msg.messages:
@@ -129,7 +129,7 @@ proc startFilter*(node: WakuNode) =
   node.switch.mount(node.wakuFilter)
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
-proc startStore*(node: WakuNode) =
+proc mountStore*(node: WakuNode) =
   node.wakuStore = WakuStore.init(node.switch, node.rng)
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
@@ -278,10 +278,10 @@ when isMainModule:
   waitFor node.start()
 
   if conf.store:
-    startStore(node)
+    mountStore(node)
   
   if conf.filter:
-    startFilter(node)
+    mountFilter(node)
 
   if conf.staticnodes.len > 0:
     connectToNodes(node, conf.staticnodes)

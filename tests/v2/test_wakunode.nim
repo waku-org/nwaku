@@ -94,8 +94,8 @@ procSuite "WakuNode":
 
     await allFutures([node1.start(), node2.start()])
 
-    node1.startFilter()
-    node2.startFilter()
+    node1.mountFilter()
+    node2.mountFilter()
 
     # Subscribe our node to the pubSubTopic where all chat data go onto.
     await node1.subscribe(pubSubTopic, relayHandler)
@@ -134,9 +134,9 @@ procSuite "WakuNode":
     var completionFut = newFuture[bool]()
 
     await node1.start()
-    node1.startStore()
+    node1.mountStore()
     await node2.start()
-    node2.startStore()
+    node2.mountStore()
 
     await node2.subscriptions.notify("waku", message)
 
@@ -170,9 +170,9 @@ procSuite "WakuNode":
     var completionFut = newFuture[bool]()
 
     await node1.start()
-    node1.startFilter()
+    node1.mountFilter()
     await node2.start()
-    node2.startFilter()
+    node2.mountFilter()
 
     node1.wakuFilter.setPeer(node2.peerInfo)
 
