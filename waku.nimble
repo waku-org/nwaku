@@ -41,8 +41,8 @@ proc test(name: string, lang = "c") =
   exec "build/" & name
 
 ### Tasks
-task test, "Run waku v1 tests":
-  test "all_tests"
+task test1, "Run waku v1 tests":
+  test "all_tests_v1"
 
 task test2, "Run waku v2 tests":
   test "all_tests_v2"
