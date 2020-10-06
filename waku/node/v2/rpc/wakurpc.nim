@@ -6,17 +6,8 @@ import
   ../../../protocol/v2/waku_relay,
   ../waku_types, ../wakunode2
 
-# Instead of using rlpx waku_protocol here, lets do mock waku2_protocol
-# This should wrap GossipSub, not use EthereumNode here
-
-# In Waku0/1 we use node.protocolState(Waku) a lot to get information
-# Also keys to get priate key, etc
-# Where is the equivalent in Waku/2?
-# TODO: Extend to get access to protocol state and keys
-#proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer) =
 proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
 
-  # Seems easy enough, lets try to get this first
   rpcsrv.rpc("waku_version") do() -> string:
      ## Returns string of the current Waku protocol version.
      result = WakuRelayCodec
@@ -89,3 +80,12 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
 
     await node.subscribe(FilterRequest(topic: topic, contentFilters: filters), handler)
     return true
+
+  rpcsrv.rpc("waku_info") do() -> string:
+    debug "waku_node_info"
+
+    let wakuInfo = node.info()
+    let listenStr = wakuInfo.listenStr
+    info "Listening on", full = listenStr
+
+    return listenStr

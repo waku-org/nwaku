@@ -54,7 +54,10 @@ template tcpEndPoint(address, port): auto =
 proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
     extIp = none[ValidIpAddress](), extPort = none[Port](), topics = newSeq[string]()): T =
-  ## Creates and starts a Waku node.
+  ## Creates a Waku Node.
+  ##
+  ## Status: Implemented.
+  ##
   let
     hostAddress = tcpEndPoint(bindIp, bindPort)
     announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
@@ -101,6 +104,10 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     discard result.subscribe(topic, handler)
 
 proc start*(node: WakuNode) {.async.} =
+  ## Starts a created Waku Node.
+  ##
+  ## Status: Implemented.
+  ##
   node.libp2pTransportLoops = await node.switch.start()
 
   # NOTE WakuRelay is being instantiated as part of initing node
@@ -196,12 +203,25 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
   # XXX Consider awaiting here
   discard wakuRelay.publish(topic, data)
 
-proc query*(w: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
+proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
   ## Queries known nodes for historical messages. Triggers the handler whenever a response is received.
   ## QueryHandlerFunc is a method that takes a HistoryResponse.
   ##
   ## Status: Implemented.
-  await w.wakuStore.query(query, handler)
+  await node.wakuStore.query(query, handler)
+
+# TODO Extend with more relevant info: topics, peers, memory usage, online time, etc
+proc info*(node: WakuNode): WakuInfo =
+  ## Returns information about the Node, such as what multiaddress it can be reached at.
+  ##
+  ## Status: Implemented.
+  ##
+
+  # TODO Generalize this for other type of multiaddresses
+  let peerInfo = node.peerInfo
+  let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
+  let wakuInfo = WakuInfo(listenStr: listenStr)
+  return wakuInfo
 
 when isMainModule:
   import
