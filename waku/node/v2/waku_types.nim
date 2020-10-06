@@ -110,6 +110,11 @@ type
   WakuRelay* = ref object of GossipSub
     gossipEnabled*: bool
 
+  WakuInfo* = object
+   # NOTE One for simplicity, can extend later as needed
+   listenStr*: string
+   #multiaddrStrings*: seq[string]
+
 # Encoding and decoding -------------------------------------------------------
 
 proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
