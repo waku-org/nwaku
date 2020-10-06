@@ -8,6 +8,9 @@ proc waku_subscribe(topic: string): bool
 proc waku_query(topics: seq[string]): bool
 proc waku_subscribe_filter(topic: string, contentFilters: seq[seq[string]]): bool
 #proc waku_subscribe(topic: string, handler: Topichandler): bool
+#
+# TODO turn into WakuInfo object
+proc waku_info(): string
 
 # NYI
 #proc waku_info(): WakuInfo
