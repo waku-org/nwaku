@@ -127,6 +127,7 @@ proc start*(node: WakuNode) {.async.} =
   info "Listening on", full = listenStr
 
 proc mountFilter*(node: WakuNode) =
+  info "mounting filter"
   proc filterHandler(requestId: string, msg: MessagePush) {.gcsafe.} =
     info "push received"
     for message in msg.messages:
@@ -137,6 +138,7 @@ proc mountFilter*(node: WakuNode) =
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
 proc mountStore*(node: WakuNode) =
+  info "mounting store"
   node.wakuStore = WakuStore.init(node.switch, node.rng)
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
