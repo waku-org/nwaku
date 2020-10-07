@@ -58,7 +58,7 @@ jobs:
     name: windows - ${{ matrix.env.NPROC }} processes
 
     steps:
-      - uses: eine/setup-msys2@v0
+      - uses: eine/setup-msys2@v2
         with:
             msystem: MSYS
             update: true
