@@ -46,7 +46,7 @@ GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 else # "variables.mk" was included. Business as usual until the end of this file.
 
 # default target, because it's the first one that doesn't start with '.'
-all: | wakunode1 sim1 example1 wakunode2 sim2 example2
+all: | wakunode1 sim1 example1 wakunode2 sim2 example2 chat2
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
@@ -69,6 +69,8 @@ update: | update-common
 		$(MAKE) waku.nims $(HANDLE_OUTPUT)
 
 # a phony target, because teaching `make` how to do conditional recompilation of Nim projects is too complicated
+
+# Waku v1 targets
 wakunode1: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakunode1 $(NIM_PARAMS) waku.nims
@@ -81,10 +83,11 @@ example1: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim example1 $(NIM_PARAMS) waku.nims
 
-example2: | build deps
+test1: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim example2 $(NIM_PARAMS) waku.nims
+		$(ENV_SCRIPT) nim test1 $(NIM_PARAMS) waku.nims
 
+# Waku v2 targets
 wakunode2: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakunode2 $(NIM_PARAMS) waku.nims
@@ -93,25 +96,24 @@ sim2: | build deps wakunode2
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim sim2 $(NIM_PARAMS) waku.nims
 
+example2: | build deps
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim example2 $(NIM_PARAMS) waku.nims
+
+test2: | build deps
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim test2 $(NIM_PARAMS) waku.nims
+
 scripts2: | build deps wakunode2
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim scripts2 $(NIM_PARAMS) waku.nims
 
-protocol2:
-	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim protocol2 $(NIM_PARAMS) waku.nims
-
-test2:
-	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim test2 $(NIM_PARAMS) waku.nims
-
-example2:
-	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim example2 $(NIM_PARAMS) waku.nims
-
-chat2:
+chat2: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim chat2 $(NIM_PARAMS) waku.nims
+
+# Builds and run the test suite (Waku v1 + v2)
+test: | test1 test2
 
 # symlink
 waku.nims:
@@ -133,11 +135,6 @@ docker-image:
 
 docker-push:
 	docker push $(DOCKER_IMAGE_NAME)
-
-# builds and runs the test suite
-test: | build deps
-	$(ENV_SCRIPT) nim test $(NIM_PARAMS) waku.nims
-	$(ENV_SCRIPT) nim test2 $(NIM_PARAMS) waku.nims
 
 # usual cleaning
 clean: | clean-common

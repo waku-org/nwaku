@@ -20,7 +20,7 @@ requires "nim >= 1.2.0",
   "stew",
   "stint",
   "metrics",
-  "libp2p" # For wakunode v2
+  "libp2p" # Only for Waku v2
 
 ### Helper functions
 proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
@@ -40,13 +40,7 @@ proc test(name: string, lang = "c") =
   #buildBinary name, "tests/", "-d:chronicles_log_level=ERROR"
   exec "build/" & name
 
-### Tasks
-task test, "Run waku v1 tests":
-  test "all_tests"
-
-task test2, "Run waku v2 tests":
-  test "all_tests_v2"
-
+### Waku v1 tasks
 task wakunode1, "Build Waku v1 cli node":
   buildBinary "wakunode", "waku/node/v1/", "-d:chronicles_log_level=TRACE"
 
@@ -57,28 +51,32 @@ task sim1, "Build Waku v1 simulation tools":
 task example1, "Build Waku v1 example":
   buildBinary "example", "examples/v1/", "-d:chronicles_log_level=DEBUG"
 
-# TODO Also build Waku store and filter protocols here
-task protocol2, "Build the experimental Waku protocol":
-  buildBinary "waku_relay", "waku/protocol/v2/", "-d:chronicles_log_level=TRACE"
+task test1, "Build & run Waku v1 tests":
+  test "all_tests_v1"
 
-task wakunode2, "Build Experimental Waku cli":
+### Waku v2 tasks
+task wakunode2, "Build Waku v2 (experimental) cli node":
   buildBinary "wakunode2", "waku/node/v2/", "-d:chronicles_log_level=TRACE"
 
-task sim2, "Build Experimental Waku simulation tools":
+task sim2, "Build Waku v2 simulation tools":
   buildBinary "quicksim2", "waku/node/v2/", "-d:chronicles_log_level=DEBUG"
   buildBinary "start_network2", "waku/node/v2/", "-d:chronicles_log_level=TRACE"
+
+task example2, "Build Waku v2 example":
+  let name = "basic2"
+  buildBinary name, "examples/v2/", "-d:chronicles_log_level=DEBUG"
+
+task test2, "Build & run Waku v2 tests":
+  test "all_tests_v2"
 
 task scripts2, "Build Waku v2 scripts":
   buildBinary "rpc_publish", "waku/node/v2/rpc/", "-d:chronicles_log_level=DEBUG"
   buildBinary "rpc_subscribe", "waku/node/v2/rpc/", "-d:chronicles_log_level=DEBUG"
   buildBinary "rpc_subscribe_filter", "waku/node/v2/rpc/", "-d:chronicles_log_level=DEBUG"
   buildBinary "rpc_query", "waku/node/v2/rpc/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "rpc_info", "waku/node/v2/rpc/", "-d:chronicles_log_level=DEBUG"
 
-task example2, "Build example Waku usage":
-  let name = "basic2"
-  buildBinary name, "examples/v2/", "-d:chronicles_log_level=DEBUG"
-
-task chat2, "Build example Waku chat usage":
+task chat2, "Build example Waku v2 chat usage":
   let name = "chat2"
   # NOTE For debugging, set debug level. For chat usage we want minimal log
   # output to STDOUT. Can be fixed by redirecting logs to file (e.g.)
