@@ -4,7 +4,6 @@ import
   ../../../protocol/v1/waku_protocol
 
 proc generateTraffic(node: EthereumNode, amount = 100) {.async.} =
-  var topicNumber  = 0'u32
   let payload = @[byte 0]
   for i in 0..<amount:
     discard waku_protocol.postMessage(node, ttl = 10,
