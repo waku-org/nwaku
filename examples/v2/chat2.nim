@@ -57,15 +57,16 @@ proc initAddress(T: type MultiAddress, str: string): T =
     raise newException(ValueError,
                          "Invalid bootstrap node multi-address")
 
-# NOTE Dialing on WakuRelay specifically
-proc dialPeer(c: Chat, address: string) {.async.} =
+proc parsePeer(address: string): PeerInfo = 
   let multiAddr = MultiAddress.initAddress(address)
   let parts = address.split("/")
-  let remotePeer = PeerInfo.init(parts[^1], [multiAddr])
+  result = PeerInfo.init(parts[^1], [multiAddr])
 
-  echo &"dialing peer: {multiAddr}"
+# NOTE Dialing on WakuRelay specifically
+proc dialPeer(c: Chat, peer: PeerInfo) {.async.} =
+  echo &"dialing peer: {peer.peerId}"
   # XXX Discarding conn, do we want to keep this here?
-  discard await c.node.switch.dial(remotePeer, WakuRelayCodec)
+  discard await c.node.switch.dial(peer, WakuRelayCodec)
   c.connected = true
 
 proc publish(c: Chat, line: string) =
@@ -110,7 +111,9 @@ proc writeAndPrint(c: Chat) {.async.} =
       echo "enter address of remote peer"
       let address = await c.transp.readLine()
       if address.len > 0:
-        await c.dialPeer(address)
+        let peer = parsePeer(address)
+        await c.dialPeer(peer)
+        c.node.wakuStore.setPeer(peer)
 
 #    elif line.startsWith("/exit"):
 #      if p.connected and p.conn.closed.not:
@@ -128,7 +131,8 @@ proc writeAndPrint(c: Chat) {.async.} =
       else:
         try:
           if line.startsWith("/") and "p2p" in line:
-            await c.dialPeer(line)
+            let peer = parsePeer(address)
+            await c.dialPeer(peer)
         except:
           echo &"unable to dial remote peer {line}"
           echo getCurrentExceptionMsg()
