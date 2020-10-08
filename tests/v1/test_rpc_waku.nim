@@ -1,6 +1,8 @@
+{.used.}
+
 import
-  unittest, options, os, stew/byteutils, strutils,
-  json_rpc/[rpcserver, rpcclient],
+  std/[unittest, options, os, strutils],
+  stew/byteutils, json_rpc/[rpcserver, rpcclient],
   eth/common as eth_common, eth/[rlp, keys, p2p],
   ../../waku/protocol/v1/waku_protocol,
   ../../waku/node/v1/rpc/[hexstrings, rpc_types, waku, key_storage]
