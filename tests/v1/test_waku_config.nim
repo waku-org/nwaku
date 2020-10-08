@@ -6,9 +6,10 @@
 #            Licensed under either of
 #  Apache License, version 2.0, (LICENSE-APACHEv2)
 #            MIT license (LICENSE-MIT)
+{.used.}
 
 import
-  sequtils, options, unittest, times,
+  std/[sequtils, options, unittest, times],
   ../../waku/protocol/v1/waku_protocol
 
 suite "Waku envelope validation":

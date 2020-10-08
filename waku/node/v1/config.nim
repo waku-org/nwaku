@@ -153,7 +153,7 @@ proc parseCmdArg*(T: type KeyPair, p: TaintedString): T =
   try:
     let privkey = PrivateKey.fromHex(string(p)).tryGet()
     result = privkey.toKeyPair()
-  except CatchableError as e:
+  except CatchableError:
     raise newException(ConfigurationError, "Invalid private key")
 
 proc completeCmdArg*(T: type KeyPair, val: TaintedString): seq[string] =
@@ -162,7 +162,7 @@ proc completeCmdArg*(T: type KeyPair, val: TaintedString): seq[string] =
 proc parseCmdArg*(T: type IpAddress, p: TaintedString): T =
   try:
     result = parseIpAddress(p)
-  except CatchableError as e:
+  except CatchableError:
     raise newException(ConfigurationError, "Invalid IP address")
 
 proc completeCmdArg*(T: type IpAddress, val: TaintedString): seq[string] =
