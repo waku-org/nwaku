@@ -153,11 +153,11 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
       Port(uint16(conf.tcpPort) + conf.portsShift),
       Port(uint16(conf.udpPort) + conf.portsShift))
     node = WakuNode.init(conf.nodeKey, conf.libp2pAddress,
-      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort, conf.topics.split(" "))
+      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
 
   # waitFor vs await
   await node.start()
-  await node.mountRelay()
+  await node.mountRelay(conf.topics.split(" "))
 
   let peerInfo = node.peerInfo
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
