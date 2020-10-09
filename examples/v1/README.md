@@ -10,7 +10,7 @@ messages can be passed around.
 
 ## How to build
 ```sh
-make wakuexample
+make example1
 ```
 
 ## How to run
