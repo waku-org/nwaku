@@ -249,6 +249,13 @@ when isMainModule:
 
     n.wakuStore.setPeer(remotePeer)
 
+  proc setFilterPeer(n: WakuNode, address: string) =
+    info "dialPeer", address = address
+
+    let remotePeer = parsePeerInfo(address)
+
+    n.wakuFilter.setPeer(remotePeer)
+
   proc connectToNodes(n: WakuNode, nodes: openArray[string]) =
     for nodeId in nodes:
       info "connectToNodes", node = nodeId
@@ -297,6 +304,9 @@ when isMainModule:
 
   if conf.storenode != "":
     setStorePeer(node, conf.storenode)
+
+  if conf.filternode != "":
+    setFilterPeer(node, conf.filternode)
 
   if conf.rpc:
     startRpc(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift))
