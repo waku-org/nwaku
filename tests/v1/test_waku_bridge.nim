@@ -6,9 +6,11 @@
 #            Licensed under either of
 #  Apache License, version 2.0, (LICENSE-APACHEv2)
 #            MIT license (LICENSE-MIT)
+{.used.}
 
 import
-  sequtils, unittest, tables, chronos, eth/p2p, eth/p2p/peer_pool,
+  std/[sequtils, unittest, tables],
+  chronos, eth/p2p, eth/p2p/peer_pool,
   eth/p2p/rlpx_protocols/whisper_protocol as whisper,
   ../../waku/protocol/v1/waku_protocol as waku,
   ../../waku/protocol/v1/waku_bridge,

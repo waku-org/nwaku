@@ -1,9 +1,9 @@
 # nim-waku
-## Introduction
-The nim-waku repository holds a Nim implementation of the [Waku protocol](https://specs.vac.dev/waku/waku.html) and a cli application `wakunode` that allows you to run a Waku
-enabled node from command line.
+## Waku v1
+### Introduction
+The nim-waku repository holds a Nim implementation of the [Waku v1 protocol](https://specs.vac.dev/waku/waku.html) and a cli application `wakunode` that allows you to run a Waku enabled node from command line.
 
-The Waku specification is still in draft and thus this implementation will
+The Waku v1 specification is still in draft and thus this implementation will
 change accordingly. For supported specification details see [here](#spec-support).
 
 Additionally the original Whisper (EIP-627) protocol can also be enabled as can
@@ -12,23 +12,23 @@ an experimental Whisper - Waku bridging option.
 The underlying transport protocol is [rlpx + devp2p](https://github.com/ethereum/devp2p/blob/master/rlpx.md) and the [nim-eth](https://github.com/status-im/nim-eth) implementation is used.
 
 This repository is also a place for experimenting with possible future versions
-of Waku such as replacing the transport protocol with libp2p.
+of Waku such as replacing the transport protocol with libp2p, see also [Waku v2 protocol](#waku-v2)
 
-## How to Build & Run
+### How to Build & Run
 
-### Prerequisites
+#### Prerequisites
 
 * GNU Make, Bash and the usual POSIX utilities. Git 2.9.4 or newer.
 * PCRE
 
 More information on the installation of these can be found [here](https://github.com/status-im/nimbus#prerequisites).
 
-### Wakunode
+#### Wakunode
 
 ```bash
 # The first `make` invocation will update all Git submodules.
 # You'll run `make update` after each `git pull`, in the future, to keep those submodules up to date.
-make wakunode
+make wakunode1
 
 # See available command line options
 ./build/wakunode --help
@@ -37,17 +37,11 @@ make wakunode
 ./build/wakunode --log-level:debug --discovery:off --fleet:test --log-metrics
 ```
 
-You can also create a Docker image using:
-```bash
-make docker-image
-docker run --rm -it statusteam/nim-waku:latest --help
-```
-
-### Waku Protocol Test Suite
+#### Waku v1 Protocol Test Suite
 
 ```bash
-# Run all the tests
-make test
+# Run all the Waku v1 tests
+make test1
 ```
 
 You can also run a specific test (and alter compile options as you want):
@@ -58,14 +52,14 @@ You can also run a specific test (and alter compile options as you want):
 nim c -r ./tests/v1/test_waku_connect.nim
 ```
 
-### Waku Protocol Example
+#### Waku v1 Protocol Example
 There is a more basic example, more limited in features and configuration than
 the `wakunode`, located in `examples/v1/example.nim`.
 
 More information on how to run this example can be found it its
 [readme](examples/v1/README.md).
 
-### Waku Quick Simulation
+#### Waku Quick Simulation
 One can set up several nodes, get them connected and then instruct them via the
 JSON-RPC interface. This can be done via e.g. web3.js, nim-web3 (needs to be
 updated) or simply curl your way out.
@@ -80,7 +74,7 @@ The quick simulation uses this approach, `start_network` launches a set of
 Example of how to build and run:
 ```bash
 # Build wakunode + quicksim with metrics enabled
-make NIMFLAGS="-d:insecure" wakusim
+make NIMFLAGS="-d:insecure" sim1
 
 # Start the simulation nodes, this currently requires multitail to be installed
 ./build/start_network --topology:FullMesh --amount:6 --test-node-peers:2
@@ -103,14 +97,14 @@ This dashboard can be found at `./metrics/waku-sim-all-nodes-grafana-dashboard.j
 
 To read more details about metrics, see [next](#using-metrics) section.
 
-## Using Metrics
+### Using Metrics
 
 Metrics are available for valid envelopes and dropped envelopes.
 
 To compile in an HTTP endpoint for accessing the metrics we need to provide the
 `insecure` flag:
 ```bash
-make NIMFLAGS="-d:insecure" wakunode
+make NIMFLAGS="-d:insecure" wakunode1
 ./build/wakunode --metrics-server
 ```
 
@@ -127,13 +121,13 @@ For visualisation, similar steps can be used as is written down for Nimbus
 [here](https://github.com/status-im/nimbus#metric-visualisation).
 
 There is a similar example dashboard that includes visualisation of the
-envelopes available at `waku/node/v1/examples/waku-grafana-dashboard.json`.
+envelopes available at `metrics/waku-grafana-dashboard.json`.
 
-## Spec support
+### Spec support
 
 *This section last updated April 21, 2020*
 
-This client of Waku is spec compliant with [Waku spec v1.0](https://specs.vac.dev/waku/waku.html).
+This client of Waku is spec compliant with [Waku spec v1.0.0](https://specs.vac.dev/waku/waku.html).
 
 It doesn't yet implement the following recommended features:
 - No support for rate limiting
@@ -149,9 +143,23 @@ Additionally it makes the following choices:
 ## Waku v2
 
 Waku v2 is under active development but is currently in an early alpha state.
-See `waku/node` and `waku/protocol` directory for more details on the current
+See `waku/node/v2/` and `waku/protocol/v2/` directory for more details on the current
 state.
 
 Here's a post outlining the [current plan for Waku
 v2](https://vac.dev/waku-v2-plan), and here's the current roadmap and progress
 https://github.com/vacp2p/research/issues/40
+
+## Docker Image
+You can create a Docker image using:
+```bash
+make docker-image
+docker run --rm -it statusteam/nim-waku:latest --help
+```
+
+Default, the target will be a docker image with `wakunode`, which is the Waku v1 node.
+You can change this to `wakunode2`, the Waku v2 node like this:
+```bash
+make docker-image MAKE_TARGET=wakunode2
+docker run --rm -it statusteam/nim-waku:latest --help
+```
