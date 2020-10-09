@@ -73,6 +73,11 @@ type
       defaultValue: ""
       name: "storenode" }: string
 
+    filternode* {.
+      desc: "Enode URL to filter.",
+      defaultValue: ""
+      name: "filternode" }: string
+
     whisper* {.
       desc: "Enable the Whisper protocol."
       defaultValue: false
