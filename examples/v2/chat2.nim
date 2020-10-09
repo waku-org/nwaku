@@ -129,7 +129,7 @@ proc writeAndPrint(c: Chat) {.async.} =
       else:
         try:
           if line.startsWith("/") and "p2p" in line:
-            let peer = parsePeer(address)
+            let peer = parsePeer(line)
             await c.dialPeer(peer)
         except:
           echo &"unable to dial remote peer {line}"
