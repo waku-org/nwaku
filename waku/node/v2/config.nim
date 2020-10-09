@@ -88,6 +88,11 @@ type
       defaultValue: false
       name: "relay" }: bool
 
+    filternode* {.
+      desc: "Enode URL to filter.",
+      defaultValue: ""
+      name: "filternode" }: string
+
     whisper* {.
       desc: "Enable the Whisper protocol."
       defaultValue: false
