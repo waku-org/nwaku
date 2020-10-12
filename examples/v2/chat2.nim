@@ -131,6 +131,7 @@ proc writeAndPrint(c: Chat) {.async.} =
           if line.startsWith("/") and "p2p" in line:
             let peer = parsePeer(line)
             await c.dialPeer(peer)
+            c.node.wakuStore.setPeer(peer)
         except:
           echo &"unable to dial remote peer {line}"
           echo getCurrentExceptionMsg()
