@@ -2,6 +2,8 @@
 
 ## Basic chat usage
 
+> The chat app requires that the remote peer connected to is supports the WakuStore protocol. For Dingpu this is already the case.
+
 Start two chat apps:
 
 ```
