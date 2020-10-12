@@ -111,7 +111,6 @@ proc writeAndPrint(c: Chat) {.async.} =
       if address.len > 0:
         let peer = parsePeer(address)
         await c.dialPeer(peer)
-        c.node.wakuStore.setPeer(peer)
 
 #    elif line.startsWith("/exit"):
 #      if p.connected and p.conn.closed.not:
@@ -131,7 +130,6 @@ proc writeAndPrint(c: Chat) {.async.} =
           if line.startsWith("/") and "p2p" in line:
             let peer = parsePeer(line)
             await c.dialPeer(peer)
-            c.node.wakuStore.setPeer(peer)
         except:
           echo &"unable to dial remote peer {line}"
           echo getCurrentExceptionMsg()
@@ -167,16 +165,11 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
   echo &"Listening on\n {listenStr}"
 
-  # Subscribe to a topic
-  # TODO To get end to end sender would require more information in payload
-  # We could possibly indicate the relayer point with connection somehow probably (?)
-  let topic = cast[Topic](DefaultTopic)
-  proc handler(topic: Topic, data: seq[byte]) {.async, gcsafe.} =
-    let message = WakuMessage.init(data).value
-    let payload = cast[string](message.payload)
-    echo &"{payload}"
-    info "Hit subscribe handler", topic=topic, payload=payload, contentTopic=message.contentTopic
-  await node.subscribe(topic, handler)
+  let topic = cast[Topic](DefaultContentTopic)
+  let multiAddr = MultiAddress.initAddress(conf.storenode)
+  let parts = conf.storenode.split("/")
+
+  node.wakuStore.setPeer(PeerInfo.init(parts[^1], [multiAddr]))
 
   proc storeHandler(response: HistoryResponse) {.gcsafe.} =
     for msg in response.messages:
@@ -184,6 +177,16 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
     info "Hit store handler"
 
   await node.query(HistoryQuery(topics: @[topic]), storeHandler)
+
+  # Subscribe to a topic
+  # TODO To get end to end sender would require more information in payload
+  # We could possibly indicate the relayer point with connection somehow probably (?)
+  proc handler(topic: Topic, data: seq[byte]) {.async, gcsafe.} =
+    let message = WakuMessage.init(data).value
+    let payload = cast[string](message.payload)
+    echo &"{payload}"
+    info "Hit subscribe handler", topic=topic, payload=payload, contentTopic=message.contentTopic
+  await node.subscribe(topic, handler)
 
   var chat = Chat(node: node, transp: transp, subscribed: true, connected: false, started: true)
 
