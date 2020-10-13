@@ -41,6 +41,11 @@ type
     msg*: WakuMessage
     index*: Index
 
+  # PagingInfo holds the information needed for the pagination
+  PagingInfo* = object
+    pageSize*: int
+    cursor*: Index
+    direction*: bool
 
   HistoryQuery* = object
     topics*: seq[string]
