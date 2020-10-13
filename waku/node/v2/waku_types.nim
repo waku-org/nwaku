@@ -34,6 +34,7 @@ type
 
 
   Index* = object
+    ## This type contains the  description of an index used in the pagination of waku messages
     digest*: string
     timestamp*: string 
 
@@ -41,17 +42,19 @@ type
     msg*: WakuMessage
     index*: Index
 
-  # PagingInfo holds the information needed for the pagination
   PagingInfo* = object
+    ## This type holds the information needed for the pagination 
     pageSize*: int
     cursor*: Index
     direction*: bool
 
   HistoryQuery* = object
     topics*: seq[string]
+    pagingInfo*: PagingInfo
 
   HistoryResponse* = object
     messages*: seq[WakuMessage]
+    pagingInfo*: PagingInfo
 
   HistoryRPC* = object
     requestId*: string
