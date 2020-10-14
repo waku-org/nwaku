@@ -53,7 +53,7 @@ template tcpEndPoint(address, port): auto =
 
 proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
-    extIp = none[ValidIpAddress](), extPort = none[Port](), topics = newSeq[string]()): T =
+    extIp = none[ValidIpAddress](), extPort = none[Port]()): T =
   ## Creates a Waku Node.
   ##
   ## Status: Implemented.
@@ -97,16 +97,6 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     filters: initTable[string, Filter]()
   )
 
-  # TODO This is _not_ safe. Subscribe should happen in start and after things settled down.
-  # Otherwise GRAFT message isn't sent to a node.
-  for topic in topics:
-    proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      debug "Hit handler", topic=topic, data=data
-
-    # XXX: Is using discard here fine? Not sure if we want init to be async?
-    # Can also move this to the start proc, possibly wiser?
-    discard result.subscribe(topic, handler)
-
 proc start*(node: WakuNode) {.async.} =
   ## Starts a created Waku Node.
   ##
@@ -135,6 +125,7 @@ proc start*(node: WakuNode) {.async.} =
       node.filters.notify(msg.value(), "")
       await node.subscriptions.notify(topic, msg.value())
 
+  # @TODO IS THIS SAFE?
   await node.wakuRelay.subscribe("waku", relayHandler)
 
   # TODO Get this from WakuNode obj
@@ -300,7 +291,7 @@ when isMainModule:
       Port(uint16(conf.tcpPort) + conf.portsShift),
       Port(uint16(conf.udpPort) + conf.portsShift))
     node = WakuNode.init(conf.nodeKey, conf.libp2pAddress,
-      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort, conf.topics.split(" "))
+      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
 
   waitFor node.start()
 
@@ -323,5 +314,15 @@ when isMainModule:
     if conf.metricsServer:
       startMetricsServer(conf.metricsServerAddress,
         Port(conf.metricsServerPort + conf.portsShift))
+
+  await sleepAsync(5.seconds)
+  let topics = conf.topics.split(" ")
+  for topic in topics:
+    proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+      debug "Hit handler", topic=topic, data=data
+
+    # XXX: Is using discard here fine? Not sure if we want init to be async?
+    # Can also move this to the start proc, possibly wiser?
+    await result.subscribe(topic, handler)
 
   runForever()
