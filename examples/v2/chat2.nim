@@ -162,10 +162,10 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
       Port(uint16(conf.tcpPort) + conf.portsShift),
       Port(uint16(conf.udpPort) + conf.portsShift))
     node = WakuNode.init(conf.nodeKey, conf.libp2pAddress,
-      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort, conf.topics.split(" "))
+      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
 
   # waitFor vs await
-  await node.start()
+  await node.start(conf.topics.split(" "))
 
   var chat = Chat(node: node, transp: transp, subscribed: true, connected: false, started: true)
 
