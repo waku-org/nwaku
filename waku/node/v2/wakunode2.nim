@@ -97,6 +97,8 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     filters: initTable[string, Filter]()
   )
 
+  # TODO This is _not_ safe. Subscribe should happen in start and after things settled down.
+  # Otherwise GRAFT message isn't sent to a node.
   for topic in topics:
     proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
       debug "Hit handler", topic=topic, data=data
