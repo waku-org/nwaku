@@ -175,11 +175,11 @@ proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
   brHmacDrbgGenerate(rng[], bytes)
   toHex(bytes)
 
-proc computeIndex* (w: WakuMessage): Index=
+proc computeIndex*(msg: WakuMessage): Index =
   ## Takes a WakuMessage and returns its index
-  let payloadStr=w.payload.join("") #convers payload to string
+  let payloadStr = msg.payload.join("") # converts payload to string
   var data: string
-  data.add(w.contentTopic)
+  data.add(msg.contentTopic)
   data.add(payloadStr)
-  result.digest= $secureHash(data) #computes sha1 of data
-  result.timeStamp= $getTime().utc #gets the timestamp in utc with seconds precision
+  result.digest = $secureHash(data) # computes sha1 of data
+  result.timeStamp = $getTime().utc # gets the timestamp in utc with seconds precision
