@@ -131,6 +131,7 @@ proc start*(node: WakuNode) {.async.} =
     let msg = WakuMessage.init(data)
     if msg.isOk():
       node.filters.notify(msg.value(), "")
+      await node.subscriptions.notify(topic, msg.value())
 
   await node.wakuRelay.subscribe("waku", relayHandler)
 

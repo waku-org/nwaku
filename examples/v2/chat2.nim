@@ -173,7 +173,8 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
 
   proc storeHandler(response: HistoryResponse) {.gcsafe.} =
     for msg in response.messages:
-      echo &"{msg}"
+      let payload = cast[string](msg.payload)
+      echo &"{payload}"
     info "Hit store handler"
 
   await node.query(HistoryQuery(topics: @[topic]), storeHandler)
