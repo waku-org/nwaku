@@ -3,7 +3,9 @@
 ## TODO Move more common data types here
 
 import
-  std/tables,
+  std/[tables,sha1],
+  strutils,
+  times,
   chronos, bearssl, stew/byteutils,
   libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
   libp2p/protobuf/minprotobuf,
@@ -172,3 +174,12 @@ proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
   var bytes: array[10, byte]
   brHmacDrbgGenerate(rng[], bytes)
   toHex(bytes)
+
+proc computeIndex* (w: WakuMessage): Index=
+  ## Takes a WakuMessage and returns its index
+  let payloadStr=w.payload.join("") #convers payload to string
+  var data: string
+  data.add(w.contentTopic)
+  data.add(payloadStr)
+  result.digest= $secureHash(data) #computes sha1 of data
+  result.timeStamp= $getTime().utc #gets the timestamp in utc with seconds precision
