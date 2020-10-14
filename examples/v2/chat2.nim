@@ -70,7 +70,8 @@ proc dialPeer(c: Chat, peer: PeerInfo) {.async.} =
 proc connectToNodes(c: Chat, nodes: openArray[string]) =
   echo "Connecting to nodes"
   for nodeId in nodes:
-    discard dialPeer(c, nodeId)
+    let peer = parsePeer(nodeId)
+    discard dialPeer(c, peer)
 
 proc publish(c: Chat, line: string) =
   let payload = cast[seq[byte]](line)
