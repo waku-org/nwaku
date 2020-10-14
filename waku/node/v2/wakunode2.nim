@@ -97,7 +97,7 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     filters: initTable[string, Filter]()
   )
 
-proc start*(node: WakuNode) {.async.} =
+proc start*(node: WakuNode, topics = newSeq[string]()) {.async.} =
   ## Starts a created Waku Node.
   ##
   ## Status: Implemented.
@@ -119,14 +119,7 @@ proc start*(node: WakuNode) {.async.} =
   node.switch.mount(node.wakuFilter)
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
-  proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-    let msg = WakuMessage.init(data)
-    if msg.isOk():
-      node.filters.notify(msg.value(), "")
-      await node.subscriptions.notify(topic, msg.value())
-
-  # @TODO IS THIS SAFE?
-  await node.wakuRelay.subscribe("waku", relayHandler)
+  await sleepAsync(5.seconds)
 
   # TODO Get this from WakuNode obj
   let peerInfo = node.peerInfo
@@ -134,6 +127,17 @@ proc start*(node: WakuNode) {.async.} =
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
+
+  proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+    let msg = WakuMessage.init(data)
+    if msg.isOk():
+      node.filters.notify(msg.value(), "")
+      await node.subscriptions.notify(topic, msg.value())
+
+  var t = topics
+  t.add("waku")
+  for topic in t:
+    await node.wakuRelay.subscribe(topic, relayHandler)
 
 proc stop*(node: WakuNode) {.async.} =
   let wakuRelay = node.wakuRelay
@@ -293,7 +297,7 @@ when isMainModule:
     node = WakuNode.init(conf.nodeKey, conf.libp2pAddress,
       Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
 
-  waitFor node.start()
+  waitFor node.start(conf.topics.split(" "))
 
   if conf.staticnodes.len > 0:
     connectToNodes(node, conf.staticnodes)
@@ -314,12 +318,6 @@ when isMainModule:
     if conf.metricsServer:
       startMetricsServer(conf.metricsServerAddress,
         Port(conf.metricsServerPort + conf.portsShift))
-
-  await sleepAsync(5.seconds)
-  let topics = conf.topics.split(" ")
-  for topic in topics:
-    proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      debug "Hit handler", topic=topic, data=data
 
     # XXX: Is using discard here fine? Not sure if we want init to be async?
     # Can also move this to the start proc, possibly wiser?
