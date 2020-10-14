@@ -21,7 +21,7 @@ logScope:
   topics = "wakufilter"
 
 const
-  WakuFilterCodec* = "/vac/waku/filter/2.0.0-alpha6"
+  WakuFilterCodec* = "/vac/waku/filter/2.0.0-beta1"
 
 proc encode*(filter: ContentFilter): ProtoBuffer =
   result = initProtoBuffer()
