@@ -180,10 +180,10 @@ proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
 proc computeIndex*(msg: WakuMessage): Index =
   ## Takes a WakuMessage and returns its index
   var data: string
-  if msg.contentTopic.len != 0:
+  if msg.contentTopic.len != 0: # checks for non-empty contentTopic
     data = msg.contentTopic
   let payloadStr = msg.payload.join("") # converts payload to string
   data = data & payloadStr
-  result.digest = $sha256.digest(data) # computes the hash of data
+  result.digest = $sha256.digest(data) # computes the hash
   result.receivedTime = epochTime() # gets the unix timestamp
 
