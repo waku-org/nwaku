@@ -22,7 +22,7 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   ##
   ## Status: Implemented.
 
-proc start*(node: WakuNode) {.async.} =
+proc start*(node: WakuNode, topics = newSeq[string]()) {.async.} =
   ## Starts a created Waku Node.
   ##
   ## Status: Implemented.
