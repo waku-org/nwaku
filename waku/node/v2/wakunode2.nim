@@ -101,8 +101,8 @@ proc start*(node: WakuNode) {.async.} =
   info "Listening on", full = listenStr
 
 proc stop*(node: WakuNode) {.async.} =
-  let wakuRelay = node.wakuRelay
-  await wakuRelay.stop()
+  if not node.wakuRelay.isNil:
+    await node.wakuRelay.stop()
 
   await node.switch.stop()
 
@@ -208,7 +208,8 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.async
     sign = false,
     verifySignature = false
   )
-  
+
+  node.wakuRelay = wakuRelay
   node.switch.mount(wakuRelay)
 
   await sleepAsync(5.seconds)
