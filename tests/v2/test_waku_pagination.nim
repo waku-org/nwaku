@@ -21,5 +21,5 @@ procSuite "pagination":
         let wm2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: "topic2")
         let index2=wm2.computeIndex()
         check:
-            # the index of two identical WakuMessages must be the same
+            # the digests of two identical WakuMessages must be the same
             index1.digest==index2.digest
