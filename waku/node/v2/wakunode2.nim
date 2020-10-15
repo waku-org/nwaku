@@ -59,6 +59,7 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   ## Status: Implemented.
   ##
   let
+    rng = crypto.newRng()
     hostAddress = tcpEndPoint(bindIp, bindPort)
     announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
                          else: @[tcpEndPoint(extIp.get(), extPort.get())]
@@ -68,7 +69,8 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   # XXX: Add this when we create node or start it?
   peerInfo.addrs.add(hostAddress)
 
-  var switch = newStandardSwitch(some(nodekey), hostAddress)
+  var switch = newStandardSwitch(some(nodekey), hostAddress,
+    transportFlags = {ServerFlags.ReuseAddr}, rng = rng)
   # TODO Untested - verify behavior after switch interface change
   # More like this:
   # let pubsub = GossipSub.init(
@@ -78,7 +80,7 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   #    verifySignature = false).PubSub
   result = WakuNode(
     switch: switch,
-    rng: crypto.newRng(),
+    rng: rng,
     peerInfo: peerInfo,
     subscriptions: newTable[string, MessageNotificationSubscription](),
     filters: initTable[string, Filter]()
