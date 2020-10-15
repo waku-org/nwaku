@@ -19,7 +19,7 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                muxers/muxer,             # define an interface for stream multiplexing, allowing peers to offer many protocols over a single connection
                muxers/mplex/mplex]       # define some contants and message types for stream multiplexing
 import   ../../waku/node/v2/[config, wakunode2, waku_types],
-         ../../waku/protocol/v2/waku_relay,
+         ../../waku/protocol/v2/[waku_relay, waku_store],
          ../../waku/node/common
 
 const Help = """
@@ -55,15 +55,17 @@ proc initAddress(T: type MultiAddress, str: string): T =
     raise newException(ValueError,
                          "Invalid bootstrap node multi-address")
 
-# NOTE Dialing on WakuRelay specifically
-proc dialPeer(c: Chat, address: string) {.async.} =
+proc parsePeer(address: string): PeerInfo = 
   let multiAddr = MultiAddress.initAddress(address)
   let parts = address.split("/")
-  let remotePeer = PeerInfo.init(parts[^1], [multiAddr])
+  result = PeerInfo.init(parts[^1], [multiAddr])
 
-  echo &"dialing peer: {multiAddr}"
+# NOTE Dialing on WakuRelay specifically
+proc dialPeer(c: Chat, address: string) {.async.} =
+  let peer = parsePeer(address)
+  echo &"dialing peer: {peer.peerId}"
   # XXX Discarding conn, do we want to keep this here?
-  discard await c.node.switch.dial(remotePeer, WakuRelayCodec)
+  discard await c.node.switch.dial(peer, WakuRelayCodec)
   c.connected = true
 
 proc connectToNodes(c: Chat, nodes: openArray[string]) =
@@ -172,10 +174,20 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
   echo &"Listening on\n {listenStr}"
 
+  if conf.storenode != "":
+    node.wakuStore.setPeer(parsePeer(conf.storenode))
+
+    proc storeHandler(response: HistoryResponse) {.gcsafe.} =
+      for msg in response.messages:
+        let payload = cast[string](msg.payload)
+        echo &"{payload}"
+      info "Hit store handler"
+
+    await node.query(HistoryQuery(topics: @[DefaultContentTopic]), storeHandler)
+
   # Subscribe to a topic
   # TODO To get end to end sender would require more information in payload
   # We could possibly indicate the relayer point with connection somehow probably (?)
-  let topic = cast[Topic](DefaultTopic)
   proc handler(topic: Topic, data: seq[byte]) {.async, gcsafe.} =
     let message = WakuMessage.init(data).value
     let payload = cast[string](message.payload)
@@ -184,6 +196,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
 
   # XXX Timing issue with subscribe, need to wait a bit to ensure GRAFT message is sent
   await sleepAsync(5.seconds)
+  let topic = cast[Topic](DefaultTopic)
   await node.subscribe(topic, handler)
 
   await chat.readWriteLoop()
