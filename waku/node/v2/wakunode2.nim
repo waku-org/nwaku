@@ -134,9 +134,7 @@ proc start*(node: WakuNode, topics = newSeq[string]()) {.async.} =
       node.filters.notify(msg.value(), "")
       await node.subscriptions.notify(topic, msg.value())
 
-  var t = topics
-  t.add("waku")
-  for topic in t:
+  for topic in topics:
     await node.wakuRelay.subscribe(topic, relayHandler)
 
 proc stop*(node: WakuNode) {.async.} =
