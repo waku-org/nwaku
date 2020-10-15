@@ -1,11 +1,12 @@
 import
     std/unittest, times,
     ../../waku/node/v2/waku_types,
-    ../test_helpers
+    ../test_helpers,
+    nimcrypto/sha2
 
 procSuite "pagination":
 
-    test "computeIndex should handle empty contentTopic":
+    test "computeIndex empty contentTopic test":
         let wm = WakuMessage(payload: @[byte 1, 2, 3])
         let index=wm.computeIndex()
         check:
@@ -13,7 +14,7 @@ procSuite "pagination":
             index.digest.len != 0
             index.receivedTime!=0 
         
-    test "get idential digests for identical wakumessages ":
+    test "computeIndex identical WakuMessages test":
         let wm = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: "topic2")
         let index1=wm.computeIndex()
 
