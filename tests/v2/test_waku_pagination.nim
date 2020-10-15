@@ -26,11 +26,3 @@ procSuite "pagination":
             # the digests of two identical WakuMessages must be the same
             index1.digest == index2.digest
 
-    test "computeIndex: empty WakuMessages test":
-        let
-            wm = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: "topic2")
-            index1 = wm.computeIndex()
-
-        check:
-            # the digests of two identical WakuMessages must be the same
-            index1.digest == index2.digest
