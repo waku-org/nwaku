@@ -319,8 +319,4 @@ when isMainModule:
       startMetricsServer(conf.metricsServerAddress,
         Port(conf.metricsServerPort + conf.portsShift))
 
-    # XXX: Is using discard here fine? Not sure if we want init to be async?
-    # Can also move this to the start proc, possibly wiser?
-    await result.subscribe(topic, handler)
-
   runForever()
