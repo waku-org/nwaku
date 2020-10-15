@@ -176,7 +176,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
   echo &"Listening on\n {listenStr}"
 
-  if conf.storenode != ""
+  if conf.storenode != "":
     let topic = cast[Topic](DefaultContentTopic)
     let multiAddr = MultiAddress.initAddress(conf.storenode)
     let parts = conf.storenode.split("/")
