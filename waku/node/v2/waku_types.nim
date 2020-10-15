@@ -38,7 +38,7 @@ type
   Index* = object
     ## This type contains the  description of an index used in the pagination of waku messages
     digest*: string
-    receivedTime*: string 
+    receivedTime*: float 
 
   IndexedWakuMessage* = object 
     msg*: WakuMessage
@@ -182,6 +182,8 @@ proc computeIndex*(msg: WakuMessage): Index =
     data=msg.contentTopic
   let payloadStr = msg.payload.join("") # converts payload to string
   data= data & payloadStr
-  
+
   result.digest = $secureHash(data) # computes sha1 of data
-  result.receivedTime = $getTime().utc # gets the timestamp in utc with seconds precision
+  result.receivedTime = epochTime() # gets the unix timestamp 
+
+  
