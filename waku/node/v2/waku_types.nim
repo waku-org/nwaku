@@ -3,7 +3,7 @@
 ## TODO Move more common data types here
 
 import
-  std/[tables,sha1],
+  std/[tables, sha1],
   strutils,
   times,
   chronos, bearssl, stew/byteutils,
@@ -25,7 +25,8 @@ type
     payload*: seq[byte]
     contentTopic*: string
 
-  MessageNotificationHandler* = proc(topic: string, msg: WakuMessage): Future[void] {.gcsafe, closure.}
+  MessageNotificationHandler* = proc(topic: string, msg: WakuMessage): Future[
+      void] {.gcsafe, closure.}
 
   MessageNotificationSubscriptions* = TableRef[string, MessageNotificationSubscription]
 
@@ -39,14 +40,14 @@ type
   Index* = object
     ## This type contains the  description of an index used in the pagination of waku messages
     digest*: string
-    receivedTime*: float 
+    receivedTime*: float
 
-  IndexedWakuMessage* = object 
+  IndexedWakuMessage* = object
     msg*: WakuMessage
     index*: Index
 
   PagingInfo* = object
-    ## This type holds the information needed for the pagination 
+    ## This type holds the information needed for the pagination
     pageSize*: int
     cursor*: Index
     direction*: bool
@@ -132,11 +133,11 @@ type
     gossipEnabled*: bool
 
   WakuInfo* = object
-   # NOTE One for simplicity, can extend later as needed
-   listenStr*: string
-   #multiaddrStrings*: seq[string]
+    # NOTE One for simplicity, can extend later as needed
+    listenStr*: string
+    #multiaddrStrings*: seq[string]
 
-# Encoding and decoding -------------------------------------------------------
+  # Encoding and decoding -------------------------------------------------------
 
 proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
   var msg = WakuMessage()
@@ -180,10 +181,9 @@ proc computeIndex*(msg: WakuMessage): Index =
   ## Takes a WakuMessage and returns its index
   var data: string
   if msg.contentTopic.len != 0:
-    data=msg.contentTopic
+    data = msg.contentTopic
   let payloadStr = msg.payload.join("") # converts payload to string
-  data= data & payloadStr 
+  data = data & payloadStr
   result.digest = $sha256.digest(data) # computes the hash of data
-  result.receivedTime = epochTime() # gets the unix timestamp 
+  result.receivedTime = epochTime() # gets the unix timestamp
 
-  
