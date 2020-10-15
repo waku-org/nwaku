@@ -176,19 +176,20 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
   echo &"Listening on\n {listenStr}"
 
-  let topic = cast[Topic](DefaultContentTopic)
-  let multiAddr = MultiAddress.initAddress(conf.storenode)
-  let parts = conf.storenode.split("/")
+  if conf.storenode != ""
+    let topic = cast[Topic](DefaultContentTopic)
+    let multiAddr = MultiAddress.initAddress(conf.storenode)
+    let parts = conf.storenode.split("/")
 
-  node.wakuStore.setPeer(PeerInfo.init(parts[^1], [multiAddr]))
+    node.wakuStore.setPeer(PeerInfo.init(parts[^1], [multiAddr]))
 
-  proc storeHandler(response: HistoryResponse) {.gcsafe.} =
-    for msg in response.messages:
-      let payload = cast[string](msg.payload)
-      echo &"{payload}"
-    info "Hit store handler"
+    proc storeHandler(response: HistoryResponse) {.gcsafe.} =
+      for msg in response.messages:
+        let payload = cast[string](msg.payload)
+        echo &"{payload}"
+      info "Hit store handler"
 
-  await node.query(HistoryQuery(topics: @[topic]), storeHandler)
+    await node.query(HistoryQuery(topics: @[topic]), storeHandler)
 
   # Subscribe to a topic
   # TODO To get end to end sender would require more information in payload
