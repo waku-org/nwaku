@@ -174,8 +174,6 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
   echo &"Listening on\n {listenStr}"
 
-  let topic = cast[Topic](DefaultContentTopic)
-
   if conf.storenode != "":
     node.wakuStore.setPeer(parsePeer(conf.storenode))
 
@@ -185,7 +183,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
         echo &"{payload}"
       info "Hit store handler"
 
-    await node.query(HistoryQuery(topics: @[topic]), storeHandler)
+    await node.query(HistoryQuery(topics: @[DefaultContentTopic]), storeHandler)
 
   # Subscribe to a topic
   # TODO To get end to end sender would require more information in payload
@@ -198,6 +196,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
 
   # XXX Timing issue with subscribe, need to wait a bit to ensure GRAFT message is sent
   await sleepAsync(5.seconds)
+  let topic = cast[Topic](DefaultTopic)
   await node.subscribe(topic, handler)
 
   await chat.readWriteLoop()
