@@ -25,8 +25,7 @@ type
     payload*: seq[byte]
     contentTopic*: string
 
-  MessageNotificationHandler* = proc(topic: string, msg: WakuMessage): Future[
-      void] {.gcsafe, closure.}
+  MessageNotificationHandler* = proc(topic: string, msg: WakuMessage): Future[void] {.gcsafe, closure.}
 
   MessageNotificationSubscriptions* = TableRef[string, MessageNotificationSubscription]
 
