@@ -177,10 +177,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   let topic = cast[Topic](DefaultContentTopic)
 
   if conf.storenode != "":
-    let multiAddr = MultiAddress.initAddress(conf.storenode)
-    let parts = conf.storenode.split("/")
-
-    node.wakuStore.setPeer(PeerInfo.init(parts[^1], [multiAddr]))
+    node.wakuStore.setPeer(parsePeer(conf.storenode))
 
     proc storeHandler(response: HistoryResponse) {.gcsafe.} =
       for msg in response.messages:
