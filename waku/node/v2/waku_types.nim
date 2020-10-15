@@ -27,8 +27,7 @@ type
     contentTopic*: ContentTopic
     version*: uint32
 
-  MessageNotificationHandler* = proc(topic: string, msg: WakuMessage): Future[
-      void] {.gcsafe, closure.}
+  MessageNotificationHandler* = proc(topic: string, msg: WakuMessage): Future[void] {.gcsafe, closure.}
 
   MessageNotificationSubscriptions* = TableRef[string, MessageNotificationSubscription]
 
