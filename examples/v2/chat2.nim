@@ -61,7 +61,8 @@ proc parsePeer(address: string): PeerInfo =
   result = PeerInfo.init(parts[^1], [multiAddr])
 
 # NOTE Dialing on WakuRelay specifically
-proc dialPeer(c: Chat, peer: PeerInfo) {.async.} =
+proc dialPeer(c: Chat, address: string) {.async.} =
+  let peer = parsePeer(address)
   echo &"dialing peer: {peer.peerId}"
   # XXX Discarding conn, do we want to keep this here?
   discard await c.node.switch.dial(peer, WakuRelayCodec)
@@ -70,8 +71,7 @@ proc dialPeer(c: Chat, peer: PeerInfo) {.async.} =
 proc connectToNodes(c: Chat, nodes: openArray[string]) =
   echo "Connecting to nodes"
   for nodeId in nodes:
-    let peer = parsePeer(nodeId)
-    discard dialPeer(c, peer)
+    discard dialPeer(c, nodeId)
 
 proc publish(c: Chat, line: string) =
   let payload = cast[seq[byte]](line)
@@ -115,8 +115,7 @@ proc writeAndPrint(c: Chat) {.async.} =
       echo "enter address of remote peer"
       let address = await c.transp.readLine()
       if address.len > 0:
-        let peer = parsePeer(address)
-        await c.dialPeer(peer)
+        await c.dialPeer(address)
 
 #    elif line.startsWith("/exit"):
 #      if p.connected and p.conn.closed.not:
@@ -134,8 +133,7 @@ proc writeAndPrint(c: Chat) {.async.} =
       else:
         try:
           if line.startsWith("/") and "p2p" in line:
-            let peer = parsePeer(line)
-            await c.dialPeer(peer)
+            await c.dialPeer(line)
         except:
           echo &"unable to dial remote peer {line}"
           echo getCurrentExceptionMsg()
@@ -176,19 +174,16 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
   echo &"Listening on\n {listenStr}"
 
-  let topic = cast[Topic](DefaultContentTopic)
-  let multiAddr = MultiAddress.initAddress(conf.storenode)
-  let parts = conf.storenode.split("/")
+  if conf.storenode != "":
+    node.wakuStore.setPeer(parsePeer(conf.storenode))
 
-  node.wakuStore.setPeer(PeerInfo.init(parts[^1], [multiAddr]))
+    proc storeHandler(response: HistoryResponse) {.gcsafe.} =
+      for msg in response.messages:
+        let payload = cast[string](msg.payload)
+        echo &"{payload}"
+      info "Hit store handler"
 
-  proc storeHandler(response: HistoryResponse) {.gcsafe.} =
-    for msg in response.messages:
-      let payload = cast[string](msg.payload)
-      echo &"{payload}"
-    info "Hit store handler"
-
-  await node.query(HistoryQuery(topics: @[topic]), storeHandler)
+    await node.query(HistoryQuery(topics: @[DefaultContentTopic]), storeHandler)
 
   # Subscribe to a topic
   # TODO To get end to end sender would require more information in payload
@@ -201,6 +196,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
 
   # XXX Timing issue with subscribe, need to wait a bit to ensure GRAFT message is sent
   await sleepAsync(5.seconds)
+  let topic = cast[Topic](DefaultTopic)
   await node.subscribe(topic, handler)
 
   await chat.readWriteLoop()
