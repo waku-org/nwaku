@@ -59,6 +59,7 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   ## Status: Implemented.
   ##
   let
+    rng = crypto.newRng()
     hostAddress = tcpEndPoint(bindIp, bindPort)
     announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
                          else: @[tcpEndPoint(extIp.get(), extPort.get())]
@@ -68,7 +69,8 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   # XXX: Add this when we create node or start it?
   peerInfo.addrs.add(hostAddress)
 
-  var switch = newStandardSwitch(some(nodekey), hostAddress)
+  var switch = newStandardSwitch(some(nodekey), hostAddress,
+    transportFlags = {ServerFlags.ReuseAddr}, rng = rng)
   # TODO Untested - verify behavior after switch interface change
   # More like this:
   # let pubsub = GossipSub.init(
@@ -88,13 +90,15 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
 
   result = WakuNode(
     switch: switch,
-    rng: crypto.newRng(),
+    rng: rng,
     peerInfo: peerInfo,
     wakuRelay: wakuRelay,
     subscriptions: newTable[string, MessageNotificationSubscription](),
     filters: initTable[string, Filter]()
   )
 
+  # TODO This is _not_ safe. Subscribe should happen in start and after things settled down.
+  # Otherwise GRAFT message isn't sent to a node.
   for topic in topics:
     proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
       debug "Hit handler", topic=topic, data=data
@@ -129,6 +133,7 @@ proc start*(node: WakuNode) {.async.} =
     let msg = WakuMessage.init(data)
     if msg.isOk():
       node.filters.notify(msg.value(), "")
+      await node.subscriptions.notify(topic, msg.value())
 
   await node.wakuRelay.subscribe("waku", relayHandler)
 
