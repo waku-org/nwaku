@@ -4,7 +4,6 @@
 
 import
   std/[tables, sha1],
-  strutils,
   times,
   chronos, bearssl, stew/byteutils,
   libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
@@ -13,7 +12,8 @@ import
   libp2p/switch,
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
-  nimcrypto/sha2
+  nimcrypto/sha2,
+  stew/byteutils
 
 # Common data types -----------------------------------------------------------
 
@@ -39,7 +39,7 @@ type
 
   Index* = object
     ## This type contains the  description of an index used in the pagination of waku messages
-    digest*: string
+    digest*: MDigest[256]
     receivedTime*: float
 
   IndexedWakuMessage* = object
@@ -179,11 +179,14 @@ proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
 
 proc computeIndex*(msg: WakuMessage): Index =
   ## Takes a WakuMessage and returns its index
-  var data: string
+  var ctx: sha256
+  ctx.init()
   if msg.contentTopic.len != 0: # checks for non-empty contentTopic
-    data = msg.contentTopic
-  let payloadStr = msg.payload.join("") # converts payload to string
-  data = data & payloadStr
-  result.digest = $sha256.digest(data) # computes the hash
+    ctx.update(msg.contentTopic.toBytes()) # converts the topic to bytes
+  ctx.update(msg.payload)
+  let digest = ctx.finish()  # computes the hash
+  ctx.clear()
+
+  result.digest = digest
   result.receivedTime = epochTime() # gets the unix timestamp
 
