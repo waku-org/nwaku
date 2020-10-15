@@ -12,7 +12,8 @@ import
   libp2p/protocols/protocol,
   libp2p/switch,
   libp2p/stream/connection,
-  libp2p/protocols/pubsub/[pubsub, gossipsub]
+  libp2p/protocols/pubsub/[pubsub, gossipsub],
+  nimcrypto/sha2
 
 # Common data types -----------------------------------------------------------
 
@@ -181,9 +182,8 @@ proc computeIndex*(msg: WakuMessage): Index =
   if msg.contentTopic.len != 0:
     data=msg.contentTopic
   let payloadStr = msg.payload.join("") # converts payload to string
-  data= data & payloadStr
-
-  result.digest = $secureHash(data) # computes sha1 of data
+  data= data & payloadStr 
+  result.digest = $sha256.digest(data) # computes the hash of data
   result.receivedTime = epochTime() # gets the unix timestamp 
 
   
