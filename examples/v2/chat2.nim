@@ -176,6 +176,8 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   echo &"Listening on\n {listenStr}"
 
   if conf.storenode != "":
+    node.mountStore()
+
     node.wakuStore.setPeer(parsePeer(conf.storenode))
 
     proc storeHandler(response: HistoryResponse) {.gcsafe.} =
