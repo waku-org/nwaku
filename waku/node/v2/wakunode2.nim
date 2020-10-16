@@ -124,7 +124,6 @@ proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHa
   ## Status: Implemented.
   info "subscribe content", filter=request
 
-  # @TODO: GENERATE
   var id = generateRequestId(node.rng)
   if node.wakuFilter.isNil == false:
     # @TODO: ERROR HANDLING
