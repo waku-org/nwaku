@@ -1,6 +1,6 @@
 import
-    std/unittest,
-    ../../waku/node/v2/waku_types
+  std/unittest,
+  ../../waku/node/v2/waku_types
 
 suite "pagination":
   test "computeIndex: empty contentTopic test":
