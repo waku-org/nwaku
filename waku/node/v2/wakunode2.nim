@@ -319,7 +319,7 @@ when isMainModule:
   if conf.filter:
     mountFilter(node)
 
-  if conf.filter:
+  if conf.relay:
     waitFor mountRelay(node, conf.topics.split(" "))
 
   if conf.staticnodes.len > 0:
