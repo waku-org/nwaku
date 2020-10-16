@@ -1,8 +1,9 @@
 import
   std/unittest,
-  ../../waku/node/v2/waku_types
+  ../../waku/node/v2/waku_types,
+  ../test_helpers
 
-suite "pagination":
+procSuite "pagination":
   test "computeIndex: empty contentTopic test":
       let
           wm = WakuMessage(payload: @[byte 1, 2, 3])
@@ -10,7 +11,8 @@ suite "pagination":
       check:
           # the fields of the index should be non-empty
           len(index.digest.data) != 0
-          index.receivedTime != 0
+          len(index.digest.data) == 32 # sha2 output length in bytes
+          index.receivedTime != 0 # the timestamp should be a non-zero value
 
   test "computeIndex: identical WakuMessages test":
       let
