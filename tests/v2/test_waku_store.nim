@@ -56,3 +56,11 @@ procSuite "Waku Store":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
+  test "Protobuf encoder/decoder test":
+    let 
+      index=computeIndex(WakuMessage(payload: @[byte 1], contentTopic:"topic 1"))
+      pb=index.encode()
+    
+    echo "protobuf ", pb.buffer
+    let decoded_index= Index.init(pb.buffer)
+
