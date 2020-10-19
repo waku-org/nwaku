@@ -31,7 +31,7 @@ const Help = """
 """
 
 const DefaultTopic = "waku"
-const DefaultContentTopic = "dingpu"
+const DefaultContentTopic = ContentTopic(1)
 
 # XXX Connected is a bit annoying, because incoming connections don't trigger state change
 # Could poll connection pool or something here, I suppose
