@@ -85,7 +85,7 @@ type
     
     relay* {.
       desc: "Flag whether to start relay protocol",
-      defaultValue: false
+      defaultValue: true
       name: "relay" }: bool
 
     filternode* {.
