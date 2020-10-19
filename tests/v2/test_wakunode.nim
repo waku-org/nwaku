@@ -19,7 +19,7 @@ procSuite "WakuNode":
       node = WakuNode.init(nodeKey, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
       pubSubTopic = "chat"
-      contentTopic = "foobar"
+      contentTopic = ContentTopic(1)
       filterRequest = FilterRequest(topic: pubSubTopic, contentFilters: @[ContentFilter(topics: @[contentTopic])])
       message = WakuMessage(payload: "hello world".toBytes(),
         contentTopic: contentTopic)
@@ -70,7 +70,7 @@ procSuite "WakuNode":
       node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
       pubSubTopic = "chat"
-      contentTopic = "foobar"
+      contentTopic = ContentTopic(1)
       filterRequest = FilterRequest(topic: pubSubTopic, contentFilters: @[ContentFilter(topics: @[contentTopic])])
       message = WakuMessage(payload: "hello world".toBytes(),
         contentTopic: contentTopic)
@@ -126,7 +126,7 @@ procSuite "WakuNode":
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
-      contentTopic = "foobar"
+      contentTopic = ContentTopic(1)
       message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
 
     var completionFut = newFuture[bool]()
@@ -160,7 +160,7 @@ procSuite "WakuNode":
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
-      contentTopic = "foobar"
+      contentTopic = ContentTopic(1)
       message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
 
     var completionFut = newFuture[bool]()

@@ -15,12 +15,14 @@ import
 # Common data types -----------------------------------------------------------
 
 type
+  ContentTopic* = uint32
+
   Topic* = string
   Message* = seq[byte]
 
   WakuMessage* = object
     payload*: seq[byte]
-    contentTopic*: string
+    contentTopic*: ContentTopic
 
   MessageNotificationHandler* = proc(topic: string, msg: WakuMessage): Future[void] {.gcsafe, closure.}
 
@@ -33,7 +35,7 @@ type
   QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
 
   HistoryQuery* = object
-    topics*: seq[string]
+    topics*: seq[ContentTopic]
 
   HistoryResponse* = object
     messages*: seq[WakuMessage]
@@ -82,7 +84,7 @@ type
     pushHandler*: MessagePushHandler
 
   ContentFilter* = object
-    topics*: seq[string]
+    topics*: seq[ContentTopic]
 
   ContentFilterHandler* = proc(msg: WakuMessage) {.gcsafe, closure.}
 
