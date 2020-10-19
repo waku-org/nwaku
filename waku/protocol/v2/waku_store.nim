@@ -16,6 +16,28 @@ logScope:
 const
   WakuStoreCodec* = "/vac/waku/store/2.0.0-beta1"
 
+
+proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
+  var index = Index()
+  let pb = initProtoBuffer(buffer)
+
+  var data: array[32, byte] # should have an init?
+  discard ? pb.getField(1, data)
+  # create digest
+  index.digest = MDigest(data:data)
+
+  var receivedTime: float64
+  discard ? pb.getField(2, receivedTime)
+  index.receivedTime = receivedTime
+
+  ok(msg) # ?
+
+proc encode*(rpc: Index): ProtoBuffer =
+  result = initProtoBuffer()
+
+  result.write(1, rpc.digest.data)
+  result.write(2, rpc.receivedTime)
+
 proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryQuery()
   let pb = initProtoBuffer(buffer)
