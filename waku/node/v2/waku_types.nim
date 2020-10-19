@@ -3,8 +3,7 @@
 ## TODO Move more common data types here
 
 import
-  std/[tables, sha1],
-  times,
+  std/[tables, times],
   chronos, bearssl, stew/byteutils,
   libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
   libp2p/protobuf/minprotobuf,
