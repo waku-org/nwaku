@@ -99,7 +99,6 @@ proc start*(node: WakuNode) {.async.} =
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
-  await sleepAsync(5.seconds)
 
 proc stop*(node: WakuNode) {.async.} =
   if not node.wakuRelay.isNil:
@@ -212,6 +211,8 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.async
   node.wakuRelay = wakuRelay
   node.switch.mount(wakuRelay)
 
+  # This sleep is done to ensure we only subscribe when the protocol has been mounted.
+  # Meaning graft messages were received.
   await sleepAsync(5.seconds)
 
   info "mounting relay"
