@@ -33,7 +33,7 @@ const Help = """
 const DefaultTopic = "waku"
 
 const Dingpu = "dingpu".toBytes
-const DefaultContentTopic = ContentTopic(uint32.fromBytes([Dingpu[0], Dingpu[1], Dingpu[2], Dingpu[3]]))
+const DefaultContentTopic = ContentTopic(uint32.fromBytes(Dingpu))
 
 # XXX Connected is a bit annoying, because incoming connections don't trigger state change
 # Could poll connection pool or something here, I suppose
