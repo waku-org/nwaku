@@ -24,7 +24,7 @@ RUN make -j$(nproc) $MAKE_TARGET NIM_PARAMS="$NIM_PARAMS"
 
 FROM alpine:3.12
 
-ARG MAKE_TARGET=wakunode
+ARG MAKE_TARGET=wakunode2
 
 LABEL maintainer="jakub@status.im"
 LABEL source="https://github.com/status-im/nim-waku"
@@ -45,6 +45,6 @@ COPY --from=nim-build /app/build/$MAKE_TARGET /usr/local/bin/
 # Symlink the correct wakunode binary
 RUN ln -sv /usr/local/bin/$MAKE_TARGET /usr/bin/wakunode
 
-ENTRYPOINT ["/usr/bin/wakunode"]
+ENTRYPOINT ["/usr/bin/wakunode", "--store:true", "--relay:true", "--filter:true"]
 # By default just show help if called without arguments
 CMD ["--help"]
