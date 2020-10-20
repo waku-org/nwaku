@@ -4,15 +4,14 @@
 
 import
   std/[tables, times],
-  chronos, bearssl, stew/byteutils,
+  chronos, bearssl, stew/[byteutils, endians2],
   libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
   libp2p/protobuf/minprotobuf,
   libp2p/protocols/protocol,
   libp2p/switch,
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
-  nimcrypto/sha2,
-  stew/byteutils
+  nimcrypto/sha2
 
 # Common data types -----------------------------------------------------------
 
@@ -181,7 +180,7 @@ proc computeIndex*(msg: WakuMessage): Index =
   ## Takes a WakuMessage and returns its index
   var ctx: sha256
   ctx.init()
-  if msg.contentTopic.len != 0: # checks for non-empty contentTopic
+  if msg.contentTopic != 0: # checks for non-empty contentTopic
     ctx.update(msg.contentTopic.toBytes()) # converts the topic to bytes
   ctx.update(msg.payload)
   let digest = ctx.finish()  # computes the hash
