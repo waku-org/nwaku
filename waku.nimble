@@ -82,3 +82,6 @@ task chat2, "Build example Waku v2 chat usage":
   # output to STDOUT. Can be fixed by redirecting logs to file (e.g.)
   #buildBinary name, "examples/v2/", "-d:chronicles_log_level=WARN"
   buildBinary name, "examples/v2/", "-d:chronicles_log_level=DEBUG"
+
+task bridge, "Build Waku v1 - v2 bridge":
+  buildBinary "wakubridge", "waku/node/", "-d:chronicles_log_level=DEBUG"
