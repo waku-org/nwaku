@@ -22,9 +22,11 @@ suite "Waku v2 Remote Procedure Calls":
     bindIp = ValidIpAddress.init("0.0.0.0")
     extIp = ValidIpAddress.init("127.0.0.1")
     port = Port(9000)
-    node = WakuNode.init(privkey, bindIp, port, some(extIp), some(port), @["waku"])
+    node = WakuNode.init(privkey, bindIp, port, some(extIp), some(port))
 
   waitFor node.start()
+
+  waitFor node.mountRelay(@["waku"])
 
   # RPC server setup
   let

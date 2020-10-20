@@ -53,7 +53,7 @@ template tcpEndPoint(address, port): auto =
 
 proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
-    extIp = none[ValidIpAddress](), extPort = none[Port](), topics = newSeq[string]()): T =
+    extIp = none[ValidIpAddress](), extPort = none[Port]()): T =
   ## Creates a Waku Node.
   ##
   ## Status: Implemented.
@@ -78,34 +78,13 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   #    msgIdProvider = msgIdProvider,
   #    triggerSelf = true, sign = false,
   #    verifySignature = false).PubSub
-  let wakuRelay = WakuRelay.init(
-    switch = switch,
-    # Use default
-    #msgIdProvider = msgIdProvider,
-    triggerSelf = true,
-    sign = false,
-    verifySignature = false)
-  # This gets messy with: .PubSub
-  switch.mount(wakuRelay)
-
   result = WakuNode(
     switch: switch,
     rng: rng,
     peerInfo: peerInfo,
-    wakuRelay: wakuRelay,
     subscriptions: newTable[string, MessageNotificationSubscription](),
     filters: initTable[string, Filter]()
   )
-
-  # TODO This is _not_ safe. Subscribe should happen in start and after things settled down.
-  # Otherwise GRAFT message isn't sent to a node.
-  for topic in topics:
-    proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      debug "Hit handler", topic=topic, data=data
-
-    # XXX: Is using discard here fine? Not sure if we want init to be async?
-    # Can also move this to the start proc, possibly wiser?
-    discard result.subscribe(topic, handler)
 
 proc start*(node: WakuNode) {.async.} =
   ## Starts a created Waku Node.
@@ -113,29 +92,6 @@ proc start*(node: WakuNode) {.async.} =
   ## Status: Implemented.
   ##
   node.libp2pTransportLoops = await node.switch.start()
-
-  # NOTE WakuRelay is being instantiated as part of initing node
-
-  node.wakuStore = WakuStore.init(node.switch, node.rng)
-  node.switch.mount(node.wakuStore)
-  node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
-
-  proc filterHandler(requestId: string, msg: MessagePush) {.gcsafe.} =
-    info "push received"
-    for message in msg.messages:
-      node.filters.notify(message, requestId)
-
-  node.wakuFilter = WakuFilter.init(node.switch, node.rng, filterHandler)
-  node.switch.mount(node.wakuFilter)
-  node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
-
-  proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-    let msg = WakuMessage.init(data)
-    if msg.isOk():
-      node.filters.notify(msg.value(), "")
-      await node.subscriptions.notify(topic, msg.value())
-
-  await node.wakuRelay.subscribe("waku", relayHandler)
 
   # TODO Get this from WakuNode obj
   let peerInfo = node.peerInfo
@@ -145,8 +101,8 @@ proc start*(node: WakuNode) {.async.} =
   info "Listening on", full = listenStr
 
 proc stop*(node: WakuNode) {.async.} =
-  let wakuRelay = node.wakuRelay
-  await wakuRelay.stop()
+  if not node.wakuRelay.isNil:
+    await node.wakuRelay.stop()
 
   await node.switch.stop()
 
@@ -168,8 +124,10 @@ proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHa
   ## Status: Implemented.
   info "subscribe content", filter=request
 
-  # @TODO: ERROR HANDLING
-  let id = await node.wakuFilter.subscribe(request)
+  var id = generateRequestId(node.rng)
+  if node.wakuFilter.isNil == false:
+    # @TODO: ERROR HANDLING
+    id = await node.wakuFilter.subscribe(request)
   node.filters[id] = Filter(contentFilters: request.contentFilters, handler: handler)
 
 proc unsubscribe*(w: WakuNode, topic: Topic) =
@@ -222,6 +180,56 @@ proc info*(node: WakuNode): WakuInfo =
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
   let wakuInfo = WakuInfo(listenStr: listenStr)
   return wakuInfo
+
+proc mountFilter*(node: WakuNode) =
+  info "mounting filter"
+  proc filterHandler(requestId: string, msg: MessagePush) {.gcsafe.} =
+    info "push received"
+    for message in msg.messages:
+      node.filters.notify(message, requestId)
+
+  node.wakuFilter = WakuFilter.init(node.switch, node.rng, filterHandler)
+  node.switch.mount(node.wakuFilter)
+  node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
+
+proc mountStore*(node: WakuNode) =
+  info "mounting store"
+  node.wakuStore = WakuStore.init(node.switch, node.rng)
+  node.switch.mount(node.wakuStore)
+  node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
+
+proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.async, gcsafe.} =
+  let wakuRelay = WakuRelay.init(
+    switch = node.switch,
+    # Use default
+    #msgIdProvider = msgIdProvider,
+    triggerSelf = true,
+    sign = false,
+    verifySignature = false
+  )
+
+  node.wakuRelay = wakuRelay
+  node.switch.mount(wakuRelay)
+
+  await sleepAsync(5.seconds)
+
+  info "mounting relay"
+  proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+    let msg = WakuMessage.init(data)
+    if msg.isOk():
+      node.filters.notify(msg.value(), "")
+      await node.subscriptions.notify(topic, msg.value())
+
+  await node.wakuRelay.subscribe("waku", relayHandler)
+
+  for topic in topics:
+    proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+      debug "Hit handler", topic=topic, data=data
+
+    # XXX: Is using discard here fine? Not sure if we want init to be async?
+    # Can also move this to the start proc, possibly wiser?
+    discard node.subscribe(topic, handler)
+
 
 when isMainModule:
   import
@@ -300,9 +308,18 @@ when isMainModule:
       Port(uint16(conf.tcpPort) + conf.portsShift),
       Port(uint16(conf.udpPort) + conf.portsShift))
     node = WakuNode.init(conf.nodeKey, conf.libp2pAddress,
-      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort, conf.topics.split(" "))
+      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
 
   waitFor node.start()
+
+  if conf.store:
+    mountStore(node)
+  
+  if conf.filter:
+    mountFilter(node)
+
+  if conf.relay:
+    waitFor mountRelay(node, conf.topics.split(" "))
 
   if conf.staticnodes.len > 0:
     connectToNodes(node, conf.staticnodes)
