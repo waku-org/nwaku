@@ -64,5 +64,6 @@ procSuite "Waku Store":
     echo "protobuf ", pb.buffer
     let decoded_index= Index.init(pb.buffer)
     
-    echo  decoded_index
+    check:
+      decoded_index.value.receivedTime == index.receivedTime
 

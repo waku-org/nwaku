@@ -21,10 +21,10 @@ proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
   var index = Index()
   let pb = initProtoBuffer(buffer)
 
-  #var data: array[32, byte] # should have an init?
-  #discard ? pb.getField(1, data)
+  var data: array[32, byte] # should have an init?
+  discard ? pb.getField(1, data)
   # create digest
-  #index.digest = MDigest[256](data:data)
+  index.digest = MDigest[256](data:data)
 
   var receivedTime: float64
   discard ? pb.getField(2, receivedTime)
