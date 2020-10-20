@@ -311,7 +311,7 @@ when isMainModule:
     node = WakuNode.init(conf.nodeKey, conf.libp2pAddress,
       Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
 
-  waitFor node.start(conf.topics.split(" "))
+  waitFor node.start()
 
   if conf.store:
     mountStore(node)
