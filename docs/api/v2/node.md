@@ -23,7 +23,7 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   ## Status: Implemented.
 
 proc start*(node: WakuNode) {.async.} =
-  ## Starts a created Waku Node. A user can pass a list of pubsub topics that the node should subscribe to.
+  ## Starts a created Waku Node.
   ##
   ## Status: Implemented.
 
