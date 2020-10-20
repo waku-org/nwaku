@@ -78,10 +78,14 @@ procSuite "FloodSub":
 
     let
       nodes = generateNodes(2)
+      
       nodesFut = await allFinished(
         nodes[0].start(),
         nodes[1].start()
       )
+
+    for node in nodes:
+      await node.mountRelay()
 
     await subscribeNodes(nodes)
 
