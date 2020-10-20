@@ -26,6 +26,8 @@ suite "Waku v2 Remote Procedure Calls":
 
   waitFor node.start()
 
+  waitFor node.mountRelay(@["waku"])
+
   # RPC server setup
   let
     rpcPort = Port(8545)
