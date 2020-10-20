@@ -3,14 +3,16 @@
 ## TODO Move more common data types here
 
 import
-  std/tables,
+  std/[tables, times],
   chronos, bearssl, stew/byteutils,
   libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
   libp2p/protobuf/minprotobuf,
   libp2p/protocols/protocol,
   libp2p/switch,
   libp2p/stream/connection,
-  libp2p/protocols/pubsub/[pubsub, gossipsub]
+  libp2p/protocols/pubsub/[pubsub, gossipsub],
+  nimcrypto/sha2,
+  stew/byteutils
 
 # Common data types -----------------------------------------------------------
 
@@ -32,11 +34,29 @@ type
 
   QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
 
+
+  Index* = object
+    ## This type contains the  description of an index used in the pagination of waku messages
+    digest*: MDigest[256]
+    receivedTime*: float
+
+  IndexedWakuMessage* = object
+    msg*: WakuMessage
+    index*: Index
+
+  PagingInfo* = object
+    ## This type holds the information needed for the pagination
+    pageSize*: int
+    cursor*: Index
+    direction*: bool
+
   HistoryQuery* = object
     topics*: seq[string]
+    pagingInfo*: PagingInfo
 
   HistoryResponse* = object
     messages*: seq[WakuMessage]
+    pagingInfo*: PagingInfo
 
   HistoryRPC* = object
     requestId*: string
@@ -111,11 +131,11 @@ type
     gossipEnabled*: bool
 
   WakuInfo* = object
-   # NOTE One for simplicity, can extend later as needed
-   listenStr*: string
-   #multiaddrStrings*: seq[string]
+    # NOTE One for simplicity, can extend later as needed
+    listenStr*: string
+    #multiaddrStrings*: seq[string]
 
-# Encoding and decoding -------------------------------------------------------
+  # Encoding and decoding -------------------------------------------------------
 
 proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
   var msg = WakuMessage()
@@ -154,3 +174,17 @@ proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
   var bytes: array[10, byte]
   brHmacDrbgGenerate(rng[], bytes)
   toHex(bytes)
+
+proc computeIndex*(msg: WakuMessage): Index =
+  ## Takes a WakuMessage and returns its index
+  var ctx: sha256
+  ctx.init()
+  if msg.contentTopic.len != 0: # checks for non-empty contentTopic
+    ctx.update(msg.contentTopic.toBytes()) # converts the topic to bytes
+  ctx.update(msg.payload)
+  let digest = ctx.finish()  # computes the hash
+  ctx.clear()
+
+  result.digest = digest
+  result.receivedTime = epochTime() # gets the unix timestamp
+
