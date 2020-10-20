@@ -41,8 +41,9 @@ proc startWakuV1(config: WakuNodeConf, rng: ref BrHmacDrbgContext):
   # This node is being set up as a bridge so it gets configured as a node with
   # a full bloom filter so that it will receive and forward all messages.
   # TODO: What is the PoW setting now?
-  let wakuConfig = WakuConfig(powRequirement: 0.002,  bloom: some(fullBloom()),
-    isLightNode: false, maxMsgSize: waku_protocol.defaultMaxMsgSize,
+  let wakuConfig = WakuConfig(powRequirement: config.wakuPow,
+    bloom: some(fullBloom()), isLightNode: false,
+    maxMsgSize: waku_protocol.defaultMaxMsgSize,
     topics: none(seq[waku_protocol.Topic]))
   node.configureWaku(wakuConfig)
 

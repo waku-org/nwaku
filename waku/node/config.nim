@@ -92,6 +92,11 @@ type
       defaultValue: keys.KeyPair.random(keys.newRng()[])
       name: "nodekeyv1" .}: keys.KeyPair
 
+    wakuPow* {.
+      desc: "PoW requirement of Waku node.",
+      defaultValue: 0.002
+      name: "waku-pow" .}: float64
+
     ### Waku v2 options
     staticnodesv2* {.
       desc: "Multiaddr of peer to directly connect with. Argument may be repeated"
