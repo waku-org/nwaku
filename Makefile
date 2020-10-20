@@ -26,6 +26,7 @@ DOCKER_IMAGE_NIM_PARAMS ?= -d:chronicles_colors:none -d:insecure
 	wakunode2 \
 	example1 \
 	example2 \
+	bridge \
 	test \
 	clean \
 	libbacktrace
@@ -46,7 +47,7 @@ GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 else # "variables.mk" was included. Business as usual until the end of this file.
 
 # default target, because it's the first one that doesn't start with '.'
-all: | wakunode1 sim1 example1 wakunode2 sim2 example2 chat2 wakubridge
+all: | wakunode1 sim1 example1 wakunode2 sim2 example2 chat2 bridge
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
