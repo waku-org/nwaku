@@ -71,10 +71,18 @@ proc startWakuV2(config: WakuNodeConf): Future[WakuNode] {.async.} =
       Port(uint16(config.libp2pTcpPort) + config.portsShift),
       Port(uint16(config.udpPort) + config.portsShift))
     node = WakuNode.init(config.nodeKeyv2, config.listenAddress,
-      Port(uint16(config.libp2pTcpPort) + config.portsShift), extIp, extTcpPort,
-        config.topics.split(" "))
+      Port(uint16(config.libp2pTcpPort) + config.portsShift), extIp, extTcpPort)
 
   await node.start()
+
+  if config.store:
+    mountStore(node)
+
+  if config.filter:
+    mountFilter(node)
+
+  if config.relay:
+    waitFor mountRelay(node, config.topics.split(" "))
 
   if config.staticnodesv2.len > 0:
     connectToNodes(node, config.staticnodesv2)

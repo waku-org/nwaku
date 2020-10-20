@@ -112,6 +112,21 @@ type
       defaultValue: "waku"
       name: "topics" .}: string
 
+    store* {.
+      desc: "Flag whether to start store protocol",
+      defaultValue: false
+      name: "store" }: bool
+
+    filter* {.
+      desc: "Flag whether to start filter protocol",
+      defaultValue: false
+      name: "filter" }: bool
+
+    relay* {.
+      desc: "Flag whether to start relay protocol",
+      defaultValue: true
+      name: "relay" }: bool
+
     storenode* {.
       desc: "Multiaddr of peer to connect with for waku store protocol"
       defaultValue: ""
