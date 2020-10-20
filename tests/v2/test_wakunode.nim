@@ -215,10 +215,14 @@ procSuite "WakuNode":
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
-    await node1.start(@[pubSubTopic])
-    await node2.start(@[pubSubTopic])
+    await node1.start()
+    await node1.mountRelay(@[pubSubTopic])
+
+    await node2.start()
+    await node2.mountRelay(@[pubSubTopic])
 
     await node3.start()
+    await node3.mountRelay(@[pubSubTopic])
 
     discard await node1.switch.dial(node2.peerInfo, WakuRelayCodec)
     discard await node3.switch.dial(node2.peerInfo, WakuRelayCodec)
