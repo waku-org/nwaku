@@ -1,5 +1,7 @@
 import
-  confutils/defs, chronicles, chronos, eth/keys
+  confutils, confutils/defs, confutils/std/net, chronicles, chronos,
+  libp2p/crypto/[crypto, secp],
+  eth/keys
 
 type
   FleetV1* =  enum
@@ -10,96 +12,139 @@ type
 
   WakuNodeConf* = object
     logLevel* {.
-      desc: "Sets the log level."
+      desc: "Sets the log level"
       defaultValue: LogLevel.INFO
       name: "log-level" .}: LogLevel
 
+    listenAddress* {.
+      defaultValue: defaultListenAddress(config)
+      desc: "Listening address for the LibP2P traffic"
+      name: "listen-address"}: ValidIpAddress
+
     libp2pTcpPort* {.
-      desc: "Libp2p TCP listening port (for Waku v2)."
+      desc: "Libp2p TCP listening port (for Waku v2)"
       defaultValue: 9000
       name: "libp2p-tcp-port" .}: uint16
 
     devp2pTcpPort* {.
-      desc: "Devp2p TCP listening port (for Waku v1)."
+      desc: "Devp2p TCP listening port (for Waku v1)"
       defaultValue: 30303
       name: "devp2p-tcp-port" .}: uint16
 
     udpPort* {.
-      desc: "UDP listening port."
+      desc: "UDP listening port"
       defaultValue: 9000
       name: "udp-port" .}: uint16
 
     portsShift* {.
-      desc: "Add a shift to all default port numbers."
+      desc: "Add a shift to all default port numbers"
       defaultValue: 0
       name: "ports-shift" .}: uint16
 
     nat* {.
       desc: "Specify method to use for determining public address. " &
-            "Must be one of: any, none, upnp, pmp, extip:<IP>."
+            "Must be one of: any, none, upnp, pmp, extip:<IP>"
       defaultValue: "any" .}: string
 
     rpc* {.
-      desc: "Enable Waku RPC server.",
+      desc: "Enable Waku RPC server"
       defaultValue: false
       name: "rpc" .}: bool
 
     rpcAddress* {.
-      desc: "Listening address of the RPC server.",
-      defaultValue: parseIpAddress("127.0.0.1")
-      name: "rpc-address" .}: IpAddress
+      desc: "Listening address of the RPC server",
+      defaultValue: ValidIpAddress.init("127.0.0.1")
+      name: "rpc-address" }: ValidIpAddress
 
     rpcPort* {.
-      desc: "Listening port of the RPC server.",
+      desc: "Listening port of the RPC server"
       defaultValue: 8545
       name: "rpc-port" .}: uint16
 
     metricsServer* {.
-      desc: "Enable the metrics server."
+      desc: "Enable the metrics server"
       defaultValue: false
       name: "metrics-server" .}: bool
 
     metricsServerAddress* {.
-      desc: "Listening address of the metrics server."
-      defaultValue: parseIpAddress("127.0.0.1")
-      name: "metrics-server-address" .}: IpAddress
+      desc: "Listening address of the metrics server"
+      defaultValue: ValidIpAddress.init("127.0.0.1")
+      name: "metrics-server-address" }: ValidIpAddress
 
     metricsServerPort* {.
-      desc: "Listening HTTP port of the metrics server."
+      desc: "Listening HTTP port of the metrics server"
       defaultValue: 8008
       name: "metrics-server-port" .}: uint16
 
     ### Waku v1 options
     fleetv1* {.
-      desc: "Select the Waku v1 fleet to connect to."
+      desc: "Select the Waku v1 fleet to connect to"
       defaultValue: FleetV1.none
       name: "fleetv1" .}: FleetV1
 
-    staticnodes* {.
-      desc: "Enode URL to directly connect with. Argument may be repeated."
-      name: "staticnode" .}: seq[string]
+    staticnodesv1* {.
+      desc: "Enode URL to directly connect with. Argument may be repeated"
+      name: "staticnodev1" .}: seq[string]
 
-    nodekey* {.
-      desc: "DevP2P node private key as hex.",
+    nodekeyv1* {.
+      desc: "DevP2P node private key as hex",
       # TODO: can the rng be passed in somehow via Load?
-      defaultValue: KeyPair.random(keys.newRng()[])
-      name: "nodekey" .}: KeyPair
+      defaultValue: keys.KeyPair.random(keys.newRng()[])
+      name: "nodekeyv1" .}: keys.KeyPair
 
-proc parseCmdArg*(T: type KeyPair, p: TaintedString): T =
+    ### Waku v2 options
+    staticnodesv2* {.
+      desc: "Multiaddr of peer to directly connect with. Argument may be repeated"
+      name: "staticnodev2" }: seq[string]
+
+    nodekeyv2* {.
+      desc: "P2P node private key as hex"
+      defaultValue: crypto.PrivateKey.random(Secp256k1, keys.newRng()[]).tryGet()
+      name: "nodekeyv2" }: crypto.PrivateKey
+
+    topics* {.
+      desc: "Default topics to subscribe to (space seperated list)"
+      defaultValue: "waku"
+      name: "topics" .}: string
+
+    storenode* {.
+      desc: "Multiaddr of peer to connect with for waku store protocol"
+      defaultValue: ""
+      name: "storenode" }: string
+
+    filternode* {.
+      desc: "Multiaddr of peer to connect with for waku filter protocol"
+      defaultValue: ""
+      name: "filternode" }: string
+
+proc parseCmdArg*(T: type keys.KeyPair, p: TaintedString): T =
   try:
-    let privkey = PrivateKey.fromHex(string(p)).tryGet()
+    let privkey = keys.PrivateKey.fromHex(string(p)).tryGet()
     result = privkey.toKeyPair()
   except CatchableError:
     raise newException(ConfigurationError, "Invalid private key")
 
-proc completeCmdArg*(T: type KeyPair, val: TaintedString): seq[string] =
+proc completeCmdArg*(T: type keys.KeyPair, val: TaintedString): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type IpAddress, p: TaintedString): T =
+proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =
+  let key = SkPrivateKey.init(p)
+  if key.isOk():
+    crypto.PrivateKey(scheme: Secp256k1, skkey: key.get())
+  else:
+    raise newException(ConfigurationError, "Invalid private key")
+
+proc completeCmdArg*(T: type crypto.PrivateKey, val: TaintedString): seq[string] =
+  return @[]
+
+proc parseCmdArg*(T: type ValidIpAddress, p: TaintedString): T =
   try:
-    result = parseIpAddress(p)
+    result = ValidIpAddress.init(p)
   except CatchableError:
     raise newException(ConfigurationError, "Invalid IP address")
 
-proc completeCmdArg*(T: type IpAddress, val: TaintedString): seq[string] =
+proc completeCmdArg*(T: type ValidIpAddress, val: TaintedString): seq[string] =
   return @[]
+
+func defaultListenAddress*(conf: WakuNodeConf): ValidIpAddress =
+  (static ValidIpAddress.init("0.0.0.0"))

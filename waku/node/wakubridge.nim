@@ -1,11 +1,17 @@
 import
-  confutils, chronos, json_rpc/rpcserver, metrics,
-  chronicles, chronicles/topics_registry,
-  stew/shims/net as stewNet,
+  std/strutils,
+  chronos, confutils, chronicles, chronicles/topics_registry, metrics,
+  stew/shims/net as stewNet, json_rpc/rpcserver,
+  # Waku v1 imports
   eth/[keys, p2p], eth/common/utils,
   eth/p2p/[enode, whispernodes],
   ../protocol/v1/waku_protocol, ./common,
   ./v1/rpc/[waku, wakusim, key_storage], ./v1/waku_helpers,
+  # Waku v2 imports
+  libp2p/crypto/crypto,
+  ./v2/wakunode2,
+  ./v2/rpc/wakurpc,
+  # Common cli config
   ./config
 
 const clientIdV1 = "nim-waku v1 node"
@@ -13,7 +19,7 @@ const clientIdV1 = "nim-waku v1 node"
 proc startWakuV1(config: WakuNodeConf, rng: ref BrHmacDrbgContext):
     EthereumNode =
   let
-    (ipExt, tcpPortExt, udpPortExt) = setupNat(config.nat, clientIdV1,
+    (ipExt, _, _) = setupNat(config.nat, clientIdV1,
       Port(config.devp2pTcpPort + config.portsShift),
       Port(config.udpPort + config.portsShift))
   # TODO: EthereumNode should have a better split of binding address and
@@ -28,7 +34,7 @@ proc startWakuV1(config: WakuNodeConf, rng: ref BrHmacDrbgContext):
                   udpPort: Port(config.udpPort + config.portsShift))
 
   # Set-up node
-  var node = newEthereumNode(config.nodekey, address, 1, nil, clientIdV1,
+  var node = newEthereumNode(config.nodekeyv1, address, 1, nil, clientIdV1,
     addAllCapabilities = false, rng = rng)
   node.addCapability Waku # Always enable Waku protocol
   # Set up the Waku configuration.
@@ -41,7 +47,7 @@ proc startWakuV1(config: WakuNodeConf, rng: ref BrHmacDrbgContext):
   node.configureWaku(wakuConfig)
 
   # Optionally direct connect with a set of nodes
-  if config.staticnodes.len > 0: connectToNodes(node, config.staticnodes)
+  if config.staticnodesv1.len > 0: connectToNodes(node, config.staticnodesv1)
   elif config.fleetv1 == prod: connectToNodes(node, WhisperNodes)
   elif config.fleetv1 == staging: connectToNodes(node, WhisperNodesStaging)
   elif config.fleetv1 == test: connectToNodes(node, WhisperNodesTest)
@@ -58,23 +64,53 @@ proc startWakuV1(config: WakuNodeConf, rng: ref BrHmacDrbgContext):
 
   return node
 
+proc startWakuV2(config: WakuNodeConf): Future[WakuNode] {.async.} =
+  let
+    (extIp, extTcpPort, _) = setupNat(config.nat, clientId,
+      Port(uint16(config.libp2pTcpPort) + config.portsShift),
+      Port(uint16(config.udpPort) + config.portsShift))
+    node = WakuNode.init(config.nodeKeyv2, config.listenAddress,
+      Port(uint16(config.libp2pTcpPort) + config.portsShift), extIp, extTcpPort,
+        config.topics.split(" "))
+
+  await node.start()
+
+  if config.staticnodesv2.len > 0:
+    connectToNodes(node, config.staticnodesv2)
+
+  if config.storenode != "":
+    setStorePeer(node, config.storenode)
+
+  if config.filternode != "":
+    setFilterPeer(node, config.filternode)
+
+  return node
+
 when isMainModule:
   let
     rng = keys.newRng()
-    conf = WakuNodeConf.load()
+  let conf = WakuNodeConf.load()
 
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
 
-  let nodev1 = startWakuV1(conf, rng)
+  let
+    nodev1 = startWakuV1(conf, rng)
+    nodev2 = waitFor startWakuV2(conf)
 
   if conf.rpc:
     let ta = initTAddress(conf.rpcAddress,
       Port(conf.rpcPort + conf.portsShift))
     var rpcServer = newRpcHttpServer([ta])
-    let keys = newKeyStorage()
-    setupWakuRPC(nodev1, keys, rpcServer, rng)
+    # Waku v1 RPC
+    # TODO: Commented out the Waku v1 RPC calls as there is a conflict because
+    # of exact same named rpc calls between v1 and v2
+    # let keys = newKeyStorage()
+    # setupWakuRPC(nodev1, keys, rpcServer, rng)
     setupWakuSimRPC(nodev1, rpcServer)
+    # Waku v2 rpc
+    setupWakuRPC(nodev2, rpcServer)
+
     rpcServer.start()
 
   when defined(insecure):
