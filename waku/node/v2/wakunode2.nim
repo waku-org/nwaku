@@ -92,6 +92,13 @@ proc start*(node: WakuNode) {.async.} =
   ## Status: Implemented.
   ##
   node.libp2pTransportLoops = await node.switch.start()
+  
+  # TODO Get this from WakuNode obj
+  let peerInfo = node.peerInfo
+  info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
+  let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
+  ## XXX: this should be /ip4..., / stripped?
+  info "Listening on", full = listenStr
   await sleepAsync(5.seconds)
 
 proc stop*(node: WakuNode) {.async.} =
