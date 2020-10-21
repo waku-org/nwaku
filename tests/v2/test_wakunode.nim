@@ -211,7 +211,7 @@ procSuite "WakuNode":
       node3 = WakuNode.init(nodeKey3, ValidIpAddress.init("0.0.0.0"),
         Port(60003))
       pubSubTopic = "test"
-      contentTopic = "foobar"
+      contentTopic = ContentTopic(1)
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
