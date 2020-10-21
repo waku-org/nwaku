@@ -62,20 +62,10 @@ proc parsePeer(address: string): PeerInfo =
   let parts = address.split("/")
   result = PeerInfo.init(parts[^1], [multiAddr])
 
-# NOTE Dialing on WakuRelay specifically
-proc dialPeer(c: Chat, address: string) {.async.} =
-  let peer = parsePeer(address)
-  echo &"dialing peer: {peer.peerId}"
-  # XXX Discarding conn, do we want to keep this here?
-  discard await c.node.switch.dial(peer, WakuRelayCodec)
-  c.connected = true
-
 proc connectToNodes(c: Chat, nodes: seq[string]) {.async.} =
   echo "Connecting to nodes"
-  for nodeId in nodes:
-    await dialPeer(c, nodeId)
-
-  await sleepAsync(5.seconds)
+  c.node.connectToNodes(nodes)
+  c.connected = true
 
 proc publish(c: Chat, line: string) =
   let payload = cast[seq[byte]](line)

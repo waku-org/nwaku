@@ -224,9 +224,8 @@ procSuite "WakuNode":
     await node3.start()
     await node3.mountRelay(@[pubSubTopic])
 
-    discard await node1.switch.dial(node2.peerInfo, WakuRelayCodec)
-    discard await node3.switch.dial(node2.peerInfo, WakuRelayCodec)
-    await sleepAsync(2000.millis)
+    await node1.connectToNodes(@[node2.peerInfo])
+    await node3.connectToNodes(@[node2.peerInfo])
 
     var completionFut = newFuture[bool]()
     proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =

@@ -246,7 +246,7 @@ proc dialPeer*(n: WakuNode, address: string) {.async.} =
   # TODO Keep track of conn and connected state somewhere (WakuRelay?)
   #p.conn = await p.switch.dial(remotePeer, WakuRelayCodec)
   #p.connected = true
-  discard n.switch.dial(remotePeer, WakuRelayCodec)
+  discard await n.switch.dial(remotePeer, WakuRelayCodec)
   info "Post switch dial"
 
 proc setStorePeer*(n: WakuNode, address: string) =
@@ -263,12 +263,21 @@ proc setFilterPeer*(n: WakuNode, address: string) =
 
   n.wakuFilter.setPeer(remotePeer)
 
-proc connectToNodes*(n: WakuNode, nodes: openArray[string]) =
+proc connectToNodes*(n: WakuNode, nodes: seq[string]) {.async.} =
   for nodeId in nodes:
     info "connectToNodes", node = nodeId
     # XXX: This seems...brittle
     await dialPeer(n, nodeId)
+    
+  # This sleep is done to ensure we only subscribe when the protocol has been mounted.
+  # Meaning graft messages were received.
+  await sleepAsync(5.seconds)
 
+proc connectToNodes*(n: WakuNode, nodes: seq[PeerInfo]) {.async.} =
+  for peerInfo in nodes:
+    info "connectToNodes", peer = peerInfo
+    discard await n.switch.dial(peerInfo, WakuRelayCodec)
+  
   # This sleep is done to ensure we only subscribe when the protocol has been mounted.
   # Meaning graft messages were received.
   await sleepAsync(5.seconds)
