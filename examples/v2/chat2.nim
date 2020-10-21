@@ -62,14 +62,6 @@ proc parsePeer(address: string): PeerInfo =
   let parts = address.split("/")
   result = PeerInfo.init(parts[^1], [multiAddr])
 
-# NOTE Dialing on WakuRelay specifically
-proc dialPeer(c: Chat, address: string) {.async.} =
-  let peer = parsePeer(address)
-  echo &"dialing peer: {peer.peerId}"
-  # XXX Discarding conn, do we want to keep this here?
-  discard await c.node.switch.dial(peer, WakuRelayCodec)
-  c.connected = true
-
 proc connectToNodes(c: Chat, nodes: seq[string]) {.async.} =
   echo "Connecting to nodes"
   await c.node.connectToNodes(nodes)
@@ -117,7 +109,7 @@ proc writeAndPrint(c: Chat) {.async.} =
       echo "enter address of remote peer"
       let address = await c.transp.readLine()
       if address.len > 0:
-        await c.dialPeer(address)
+        await c.connectToNodes(@[address])
 
 #    elif line.startsWith("/exit"):
 #      if p.connected and p.conn.closed.not:
@@ -135,7 +127,7 @@ proc writeAndPrint(c: Chat) {.async.} =
       else:
         try:
           if line.startsWith("/") and "p2p" in line:
-            await c.dialPeer(line)
+            await c.connectToNodes(@[line])
         except:
           echo &"unable to dial remote peer {line}"
           echo getCurrentExceptionMsg()
