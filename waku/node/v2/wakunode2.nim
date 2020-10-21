@@ -1,5 +1,5 @@
 import
-  std/[options, tables],
+  std/[options, tables, strutils],
   chronos, chronicles, stew/shims/net as stewNet,
   # TODO: Why do we need eth keys?
   eth/keys,
@@ -12,6 +12,8 @@ import
   libp2p/standard_setup,
   ../../protocol/v2/[waku_relay, waku_store, waku_filter, message_notifier],
   ./waku_types
+
+export waku_types
 
 logScope:
   topics = "wakunode"
@@ -232,53 +234,49 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.async
     # Can also move this to the start proc, possibly wiser?
     discard node.subscribe(topic, handler)
 
+## Helpers
+proc parsePeerInfo(address: string): PeerInfo =
+  let multiAddr = MultiAddress.initAddress(address)
+  let parts = address.split("/")
+  return PeerInfo.init(parts[^1], [multiAddr])
+
+proc dialPeer*(n: WakuNode, address: string) {.async.} =
+  info "dialPeer", address = address
+  # XXX: This turns ipfs into p2p, not quite sure why
+  let remotePeer = parsePeerInfo(address)
+
+  info "Dialing peer", ma = remotePeer.addrs[0]
+  # NOTE This is dialing on WakuRelay protocol specifically
+  # TODO Keep track of conn and connected state somewhere (WakuRelay?)
+  #p.conn = await p.switch.dial(remotePeer, WakuRelayCodec)
+  #p.connected = true
+  discard n.switch.dial(remotePeer, WakuRelayCodec)
+  info "Post switch dial"
+
+proc setStorePeer*(n: WakuNode, address: string) =
+  info "dialPeer", address = address
+
+  let remotePeer = parsePeerInfo(address)
+
+  n.wakuStore.setPeer(remotePeer)
+
+proc setFilterPeer*(n: WakuNode, address: string) =
+  info "dialPeer", address = address
+
+  let remotePeer = parsePeerInfo(address)
+
+  n.wakuFilter.setPeer(remotePeer)
+
+proc connectToNodes*(n: WakuNode, nodes: openArray[string]) =
+  for nodeId in nodes:
+    info "connectToNodes", node = nodeId
+    # XXX: This seems...brittle
+    discard dialPeer(n, nodeId)
 
 when isMainModule:
   import
-    std/strutils,
     confutils, json_rpc/rpcserver, metrics,
     ./config, ./rpc/wakurpc, ../common
-
-  proc parsePeerInfo(address: string): PeerInfo =
-    let multiAddr = MultiAddress.initAddress(address)
-    let parts = address.split("/")
-    return PeerInfo.init(parts[^1], [multiAddr])
-
-  proc dialPeer(n: WakuNode, address: string) {.async.} =
-    info "dialPeer", address = address
-    # XXX: This turns ipfs into p2p, not quite sure why
-    let remotePeer = parsePeerInfo(address)
-
-    info "Dialing peer", ma = remotePeer.addrs[0]
-    # NOTE This is dialing on WakuRelay protocol specifically
-    # TODO Keep track of conn and connected state somewhere (WakuRelay?)
-    #p.conn = await p.switch.dial(remotePeer, WakuRelayCodec)
-    #p.connected = true
-    discard n.switch.dial(remotePeer, WakuRelayCodec)
-    info "Post switch dial"
-
-  proc setStorePeer(n: WakuNode, address: string) =
-    info "dialPeer", address = address
-
-    let remotePeer = parsePeerInfo(address)
-
-    n.wakuStore.setPeer(remotePeer)
-
-  proc setFilterPeer(n: WakuNode, address: string) =
-    info "dialPeer", address = address
-
-    let remotePeer = parsePeerInfo(address)
-
-    n.wakuFilter.setPeer(remotePeer)
-
-  proc connectToNodes(n: WakuNode, nodes: openArray[string]) =
-    for nodeId in nodes:
-      info "connectToNodes", node = nodeId
-      # XXX: This seems...brittle
-      discard dialPeer(n, nodeId)
-      # Waku 1
-      #    let whisperENode = ENode.fromString(nodeId).expect("correct node")
-      #    traceAsyncErrors node.peerPool.connectToNode(newNode(whisperENode))
 
   proc startRpc(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port) =
     let

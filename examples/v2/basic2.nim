@@ -37,7 +37,7 @@ proc runBackground() {.async.} =
 
   # Publish to a topic
   let payload = cast[seq[byte]]("hello world")
-  let message = WakuMessage(payload: payload, contentTopic: "foo")
+  let message = WakuMessage(payload: payload, contentTopic: ContentTopic(1))
   node.publish(topic, message)
 
 # TODO Await with try/except here
