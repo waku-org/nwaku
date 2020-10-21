@@ -3,7 +3,7 @@ when not(compileOption("threads")):
 
 import std/[tables, strformat, strutils]
 import confutils, chronicles, chronos, stew/shims/net as stewNet,
-       eth/keys, bearssl
+       eth/keys, bearssl, stew/[byteutils, endians2]
 import libp2p/[switch,                   # manage transports, a single entry point for dialing and listening
                multistream,              # tag stream with short header to identify it
                crypto/crypto,            # cryptographic functions
@@ -31,7 +31,9 @@ const Help = """
 """
 
 const DefaultTopic = "waku"
-const DefaultContentTopic = "dingpu"
+
+const Dingpu = "dingpu".toBytes
+const DefaultContentTopic = ContentTopic(uint32.fromBytes(Dingpu))
 
 # XXX Connected is a bit annoying, because incoming connections don't trigger state change
 # Could poll connection pool or something here, I suppose

@@ -57,17 +57,21 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")
 
-  rpcsrv.rpc("waku_query") do(topics: seq[string]) -> bool:
+  rpcsrv.rpc("waku_query") do(topics: seq[int]) -> bool:
     debug "waku_query"
 
     # XXX: Hacky in-line handler
     proc handler(response: HistoryResponse) {.gcsafe.} =
       info "Hit response handler", messages=response.messages
 
-    await node.query(HistoryQuery(topics: topics), handler)
+    var contentTopics = newSeq[ContentTopic]()
+    for topic in topics:
+      contentTopics.add(ContentTopic(topic))
+
+    await node.query(HistoryQuery(topics: contentTopics), handler)
     return true
   
-  rpcsrv.rpc("waku_subscribe_filter") do(topic: string, contentFilters: seq[seq[string]]) -> bool:
+  rpcsrv.rpc("waku_subscribe_filter") do(topic: string, contentFilters: seq[seq[int]]) -> bool:
     debug "waku_subscribe_filter"
 
     # XXX: Hacky in-line handler
@@ -76,7 +80,10 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
 
     var filters = newSeq[ContentFilter]()
     for topics in contentFilters:
-      filters.add(ContentFilter(topics: topics))
+      var contentTopics = newSeq[ContentTopic]()
+      for topic in topics:
+        contentTopics.add(ContentTopic(topic))
+      filters.add(ContentFilter(topics: contentTopics))
 
     await node.subscribe(FilterRequest(topic: topic, contentFilters: filters), handler)
     return true
