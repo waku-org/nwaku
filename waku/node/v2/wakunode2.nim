@@ -331,7 +331,7 @@ when isMainModule:
     waitFor mountRelay(node, conf.topics.split(" "))
 
   if conf.staticnodes.len > 0:
-    connectToNodes(node, conf.staticnodes)
+    waitFor connectToNodes(node, conf.staticnodes)
 
   if conf.storenode != "":
     setStorePeer(node, conf.storenode)
