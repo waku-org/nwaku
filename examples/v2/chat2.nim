@@ -70,10 +70,12 @@ proc dialPeer(c: Chat, address: string) {.async.} =
   discard await c.node.switch.dial(peer, WakuRelayCodec)
   c.connected = true
 
-proc connectToNodes(c: Chat, nodes: openArray[string]) =
+proc connectToNodes(c: Chat, nodes: seq[string]) {.async.} =
   echo "Connecting to nodes"
   for nodeId in nodes:
-    discard dialPeer(c, nodeId)
+    await dialPeer(c, nodeId)
+
+  await sleepAsync(5.seconds)
 
 proc publish(c: Chat, line: string) =
   let payload = cast[seq[byte]](line)
@@ -171,7 +173,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   var chat = Chat(node: node, transp: transp, subscribed: true, connected: false, started: true)
 
   if conf.staticnodes.len > 0:
-    connectToNodes(chat, conf.staticnodes)
+    await connectToNodes(chat, conf.staticnodes)
 
   let peerInfo = node.peerInfo
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
@@ -199,8 +201,6 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
     echo &"{payload}"
     info "Hit subscribe handler", topic=topic, payload=payload, contentTopic=message.contentTopic
 
-  # XXX Timing issue with subscribe, need to wait a bit to ensure GRAFT message is sent
-  await sleepAsync(5.seconds)
   let topic = cast[Topic](DefaultTopic)
   await node.subscribe(topic, handler)
 

@@ -213,10 +213,6 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.async
   node.wakuRelay = wakuRelay
   node.switch.mount(wakuRelay)
 
-  # This sleep is done to ensure we only subscribe when the protocol has been mounted.
-  # Meaning graft messages were received.
-  await sleepAsync(5.seconds)
-
   info "mounting relay"
   proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
     let msg = WakuMessage.init(data)
@@ -271,7 +267,11 @@ proc connectToNodes*(n: WakuNode, nodes: openArray[string]) =
   for nodeId in nodes:
     info "connectToNodes", node = nodeId
     # XXX: This seems...brittle
-    discard dialPeer(n, nodeId)
+    await dialPeer(n, nodeId)
+
+  # This sleep is done to ensure we only subscribe when the protocol has been mounted.
+  # Meaning graft messages were received.
+  await sleepAsync(5.seconds)
 
 when isMainModule:
   import
