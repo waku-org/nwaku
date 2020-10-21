@@ -12,7 +12,7 @@ import
   ./v2/wakunode2,
   ./v2/rpc/wakurpc,
   # Common cli config
-  ./config
+  ./config_bridge
 
 const clientIdV1 = "nim-waku v1 node"
 

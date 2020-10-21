@@ -15,11 +15,28 @@ By specifying `staticnode` it connects to that node subscribes to the `waku` top
 
 Then type messages to publish.
 
+## Interactively add a node
+
+There is also an interactive mode. Type `/connect` then paste address of other node. However, this currently has some timing issues with mesh not being updated, so it is adviced not to use this until this has been addressed. See https://github.com/status-im/nim-waku/issues/231
+
 ## Dingpu cluster node
 
 ```
 /ip4/134.209.139.210/tcp/60000/p2p/16Uiu2HAmJb2e28qLXxT5kZxVUUoJt72EMzNGXB47Rxx5hw3q4YjS
 ```
-## Interactively add a node
 
-There is also an interactive mode. Type `/connect` then paste address of other node. However, this currently has some timing issues with mesh not being updated, so it is adviced not to use this until this has been addressed. See https://github.com/status-im/nim-waku/issues/231
+## Run a node
+
+To just run a node and not interact on the chat it is enough to run `wakunode2`:
+```
+./build/wakunode2 --staticnode:<multiaddr>
+```
+
+You can also run the `wakubridge` process, which currently runs both a Waku v1
+and Waku v2 node. Currently, it has the same effect as running a `wakunode` and
+`wakunode2` process separately, but bridging functionality will be added later
+to this application.
+
+```
+./build/wakubridge --staticnodev2:<multiaddr> --fleetv1:test
+```
