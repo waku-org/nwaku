@@ -21,7 +21,8 @@ procSuite "Waku Filter":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
-      post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: "pew2")
+      contentTopic = ContentTopic(1)
+      post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
 
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()
@@ -38,7 +39,7 @@ procSuite "Waku Filter":
 
     let
       proto = WakuFilter.init(dialSwitch, crypto.newRng(), handle)
-      rpc = FilterRequest(contentFilters: @[ContentFilter(topics: @["pew", "pew2"])], topic: "topic")
+      rpc = FilterRequest(contentFilters: @[ContentFilter(topics: @[contentTopic])], topic: "topic")
 
     dialSwitch.mount(proto)
     proto.setPeer(listenSwitch.peerInfo)
