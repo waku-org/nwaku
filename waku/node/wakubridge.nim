@@ -85,7 +85,7 @@ proc startWakuV2(config: WakuNodeConf): Future[WakuNode] {.async.} =
     waitFor mountRelay(node, config.topics.split(" "))
 
   if config.staticnodesv2.len > 0:
-    connectToNodes(node, config.staticnodesv2)
+    await connectToNodes(node, config.staticnodesv2)
 
   if config.storenode != "":
     setStorePeer(node, config.storenode)
