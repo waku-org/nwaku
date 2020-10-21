@@ -64,7 +64,7 @@ proc parsePeer(address: string): PeerInfo =
 
 proc connectToNodes(c: Chat, nodes: seq[string]) {.async.} =
   echo "Connecting to nodes"
-  c.node.connectToNodes(nodes)
+  await c.node.connectToNodes(nodes)
   c.connected = true
 
 proc publish(c: Chat, line: string) =
