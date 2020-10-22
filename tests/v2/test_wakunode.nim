@@ -198,3 +198,54 @@ procSuite "WakuNode":
       (await completionFut.withTimeout(5.seconds)) == true
     await node1.stop()
     await node2.stop()
+
+  asyncTest "Messages are correctly relayed":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        Port(60002))
+      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node3 = WakuNode.init(nodeKey3, ValidIpAddress.init("0.0.0.0"),
+        Port(60003))
+      pubSubTopic = "test"
+      contentTopic = ContentTopic(1)
+      payload = "hello world".toBytes()
+      message = WakuMessage(payload: payload, contentTopic: contentTopic)
+
+    await node1.start()
+    await node1.mountRelay(@[pubSubTopic])
+
+    await node2.start()
+    await node2.mountRelay(@[pubSubTopic])
+
+    await node3.start()
+    await node3.mountRelay(@[pubSubTopic])
+
+    await node1.connectToNodes(@[node2.peerInfo])
+    await node3.connectToNodes(@[node2.peerInfo])
+
+    var completionFut = newFuture[bool]()
+    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+      let msg = WakuMessage.init(data)
+      if msg.isOk():
+        let val = msg.value()
+        check:
+          topic == pubSubTopic
+          val.contentTopic == contentTopic
+          val.payload == payload
+      completionFut.complete(true)
+
+    await node3.subscribe(pubSubTopic, relayHandler)
+    await sleepAsync(2000.millis)
+
+    node1.publish(pubSubTopic, message)
+    await sleepAsync(2000.millis)
+
+    check:
+      (await completionFut.withTimeout(5.seconds)) == true
+    await node1.stop()
+    await node2.stop()
+    await node3.stop()
