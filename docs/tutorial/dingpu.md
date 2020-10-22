@@ -32,10 +32,10 @@ To just run a node and not interact on the chat it is enough to run `wakunode2`:
 ./build/wakunode2 --staticnode:<multiaddr>
 ```
 
-You can also run the `wakubridge` process, which currently runs both a Waku v1
-and Waku v2 node. Currently, it has the same effect as running a `wakunode` and
-`wakunode2` process separately, but bridging functionality will be added later
-to this application.
+You can also run the `wakubridge` process, which runs both a Waku v1 and Waku v2
+node. Currently, it has the same effect as running a `wakunode` and `wakunode2`
+process separately, but bridging functionality will be added later to this
+application.
 
 ```
 ./build/wakubridge --staticnodev2:<multiaddr> --fleetv1:test
