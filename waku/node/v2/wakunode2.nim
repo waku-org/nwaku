@@ -268,18 +268,26 @@ proc connectToNodes*(n: WakuNode, nodes: seq[string]) {.async.} =
     info "connectToNodes", node = nodeId
     # XXX: This seems...brittle
     await dialPeer(n, nodeId)
-    
-  # This sleep is done to ensure we only subscribe when the protocol has been mounted.
-  # Meaning graft messages were received.
+
+  # The issue seems to be around peers not being fully connected when
+  # trying to subscribe. So what we do is sleep to guarantee nodes are
+  # fully connected.
+  #
+  # This issue was known to Dmitiry on nim-libp2p and may be resolvable
+  # later.
   await sleepAsync(5.seconds)
 
 proc connectToNodes*(n: WakuNode, nodes: seq[PeerInfo]) {.async.} =
   for peerInfo in nodes:
     info "connectToNodes", peer = peerInfo
     discard await n.switch.dial(peerInfo, WakuRelayCodec)
-  
-  # This sleep is done to ensure we only subscribe when the protocol has been mounted.
-  # Meaning graft messages were received.
+
+  # The issue seems to be around peers not being fully connected when
+  # trying to subscribe. So what we do is sleep to guarantee nodes are
+  # fully connected.
+  #
+  # This issue was known to Dmitiry on nim-libp2p and may be resolvable
+  # later.
   await sleepAsync(5.seconds)
 
 when isMainModule:
