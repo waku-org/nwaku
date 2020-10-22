@@ -17,7 +17,7 @@ the consumer wants to make. These methods are:
 ```Nim
 proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
-    extIp = none[ValidIpAddress](), extPort = none[Port](), topics = newSeq[string]()): T =
+    extIp = none[ValidIpAddress](), extPort = none[Port]()): T =
   ## Creates a Waku Node.
   ##
   ## Status: Implemented.

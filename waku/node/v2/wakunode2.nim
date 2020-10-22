@@ -94,7 +94,7 @@ proc start*(node: WakuNode) {.async.} =
   ## Status: Implemented.
   ##
   node.libp2pTransportLoops = await node.switch.start()
-
+  
   # TODO Get this from WakuNode obj
   let peerInfo = node.peerInfo
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
@@ -213,8 +213,6 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.async
   node.wakuRelay = wakuRelay
   node.switch.mount(wakuRelay)
 
-  await sleepAsync(5.seconds)
-
   info "mounting relay"
   proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
     let msg = WakuMessage.init(data)
@@ -248,7 +246,7 @@ proc dialPeer*(n: WakuNode, address: string) {.async.} =
   # TODO Keep track of conn and connected state somewhere (WakuRelay?)
   #p.conn = await p.switch.dial(remotePeer, WakuRelayCodec)
   #p.connected = true
-  discard n.switch.dial(remotePeer, WakuRelayCodec)
+  discard await n.switch.dial(remotePeer, WakuRelayCodec)
   info "Post switch dial"
 
 proc setStorePeer*(n: WakuNode, address: string) =
@@ -265,11 +263,32 @@ proc setFilterPeer*(n: WakuNode, address: string) =
 
   n.wakuFilter.setPeer(remotePeer)
 
-proc connectToNodes*(n: WakuNode, nodes: openArray[string]) =
+proc connectToNodes*(n: WakuNode, nodes: seq[string]) {.async.} =
   for nodeId in nodes:
     info "connectToNodes", node = nodeId
     # XXX: This seems...brittle
-    discard dialPeer(n, nodeId)
+    await dialPeer(n, nodeId)
+
+  # The issue seems to be around peers not being fully connected when
+  # trying to subscribe. So what we do is sleep to guarantee nodes are
+  # fully connected.
+  #
+  # This issue was known to Dmitiry on nim-libp2p and may be resolvable
+  # later.
+  await sleepAsync(5.seconds)
+
+proc connectToNodes*(n: WakuNode, nodes: seq[PeerInfo]) {.async.} =
+  for peerInfo in nodes:
+    info "connectToNodes", peer = peerInfo
+    discard await n.switch.dial(peerInfo, WakuRelayCodec)
+
+  # The issue seems to be around peers not being fully connected when
+  # trying to subscribe. So what we do is sleep to guarantee nodes are
+  # fully connected.
+  #
+  # This issue was known to Dmitiry on nim-libp2p and may be resolvable
+  # later.
+  await sleepAsync(5.seconds)
 
 when isMainModule:
   import
@@ -320,7 +339,7 @@ when isMainModule:
     waitFor mountRelay(node, conf.topics.split(" "))
 
   if conf.staticnodes.len > 0:
-    connectToNodes(node, conf.staticnodes)
+    waitFor connectToNodes(node, conf.staticnodes)
 
   if conf.storenode != "":
     setStorePeer(node, conf.storenode)
