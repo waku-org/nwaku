@@ -324,7 +324,7 @@ when isMainModule:
     (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
       Port(uint16(conf.tcpPort) + conf.portsShift),
       Port(uint16(conf.udpPort) + conf.portsShift))
-    node = WakuNode.init(conf.nodeKey, conf.libp2pAddress,
+    node = WakuNode.init(conf.nodeKey, conf.listenAddress,
       Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
 
   waitFor node.start()
