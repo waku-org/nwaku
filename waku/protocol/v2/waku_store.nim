@@ -24,8 +24,13 @@ proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
   var data: seq[byte] # should have an init?
   discard ? pb.getField(1, data)
   # create digest
-  
-  index.digest = MDigest[256](data:data)
+  echo "here is the encoded data ", data
+
+  index.digest = MDigest[256]()
+  var count=0
+  for b in data:
+    index.digest.data[count]=b
+    count.inc
 
   var receivedTime: float64
   discard ? pb.getField(2, receivedTime)
