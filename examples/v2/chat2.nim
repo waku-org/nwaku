@@ -195,7 +195,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
       info "Hit store handler"
 
     await node.query(
-      FilterRequest(contentFilters: @[ContentFilter(topics: @[DefaultContentTopic])], topics: DefaultTopic),
+      FilterRequest(contentFilters: @[ContentFilter(topics: @[DefaultContentTopic])], topic: DefaultTopic),
       storeHandler
     )
 
