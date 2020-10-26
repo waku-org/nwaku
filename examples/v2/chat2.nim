@@ -198,7 +198,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
 
     await node.query(
       FilterRequest(contentFilters: @[ContentFilter(topics: @[DefaultContentTopic])], topic: DefaultTopic),
-      storeHandler
+      filterHandler
     )
 
   # Subscribe to a topic
