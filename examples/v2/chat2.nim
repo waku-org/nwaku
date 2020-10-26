@@ -161,6 +161,8 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
 
   if conf.filternode == "":
     await node.mountRelay(conf.topics.split(" "))
+  else:
+    await node.mountRelay(@[])
 
   var chat = Chat(node: node, transp: transp, subscribed: true, connected: false, started: true)
 
