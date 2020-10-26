@@ -182,6 +182,18 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
 
     await node.query(HistoryQuery(topics: @[DefaultContentTopic]), storeHandler)
 
+  if conf.filternode != "":
+    node.mountFilter()
+
+    node.wakuFilter.setPeer(parsePeer(conf.filternode))
+
+    proc filterHandler(msg: WakuMessage) {.gcsafe.} =
+      let payload = cast[string](msg.payload)
+      echo &"{payload}"
+      info "Hit store handler"
+
+    await node.query(FilterRequest(contentFilters: @[ContentFilter(topics: @[DefaultContentTopic])], topics: DefaultTopic), storeHandler)
+
   # Subscribe to a topic
   # TODO To get end to end sender would require more information in payload
   # We could possibly indicate the relayer point with connection somehow probably (?)
