@@ -159,7 +159,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   # waitFor vs await
   await node.start()
 
-  if conf.filternode == "":
+  if conf.filternode != "":
     await node.mountRelay(conf.topics.split(" "))
   else:
     await node.mountRelay(@[])
@@ -194,9 +194,9 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
     proc filterHandler(msg: WakuMessage) {.gcsafe.} =
       let payload = cast[string](msg.payload)
       echo &"{payload}"
-      info "Hit store handler"
+      info "Hit filter handler"
 
-    await node.query(
+    await node.subscribe(
       FilterRequest(contentFilters: @[ContentFilter(topics: @[DefaultContentTopic])], topic: DefaultTopic),
       filterHandler
     )
