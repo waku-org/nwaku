@@ -158,7 +158,9 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
 
   # waitFor vs await
   await node.start()
-  await node.mountRelay(conf.topics.split(" "))
+
+  if conf.filternode == "":
+    await node.mountRelay(conf.topics.split(" "))
 
   var chat = Chat(node: node, transp: transp, subscribed: true, connected: false, started: true)
 
@@ -192,7 +194,10 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
       echo &"{payload}"
       info "Hit store handler"
 
-    await node.query(FilterRequest(contentFilters: @[ContentFilter(topics: @[DefaultContentTopic])], topics: DefaultTopic), storeHandler)
+    await node.query(
+      FilterRequest(contentFilters: @[ContentFilter(topics: @[DefaultContentTopic])], topics: DefaultTopic),
+      storeHandler
+    )
 
   # Subscribe to a topic
   # TODO To get end to end sender would require more information in payload
