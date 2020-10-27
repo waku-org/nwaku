@@ -79,7 +79,7 @@ proc encode*(rpc: PagingInfo): ProtoBuffer =
 
   # write the data fields of the rpc i.e., PagingInfo into the resultant ProtoBuffer
   result.write(1, rpc.pageSize)
-  result.write(2, rpc.cursor)
+  result.write(2, rpc.cursor.encode())
   result.write(2, rpc.direction)
 
 proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
