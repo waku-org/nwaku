@@ -18,20 +18,22 @@ const
 
 
 proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
+  ## reads the content of buffer into an Index object
   var index = Index()
   let pb = initProtoBuffer(buffer)
 
-  var data: seq[byte] # should have an init?
+  var data: seq[byte] 
   discard ? pb.getField(1, data)
-  # create digest
+  
   echo "here is the encoded data ", data
-
+  # create digest from data
   index.digest = MDigest[256]()
   var count=0
   for b in data:
     index.digest.data[count]=b
     count.inc
 
+  # read the receivedTime
   var receivedTime: float64
   discard ? pb.getField(2, receivedTime)
   index.receivedTime = receivedTime
@@ -39,6 +41,7 @@ proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
   ok(index) # ?
 
 proc encode*(rpc: Index): ProtoBuffer =
+  # intiate a ProtoBuffer
   result = initProtoBuffer()
 
   result.write(1, rpc.digest.data)
