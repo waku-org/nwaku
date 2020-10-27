@@ -132,12 +132,24 @@ proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHa
     id = await node.wakuFilter.subscribe(request)
   node.filters[id] = Filter(contentFilters: request.contentFilters, handler: handler)
 
-proc unsubscribe*(w: WakuNode, topic: Topic) =
-  echo "NYI"
-  ## Unsubscribe from a topic.
+proc unsubscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) {.async.} =
+  ## Unsubscribes a handler from a PubSub topic.
   ##
-  ## Status: Not yet implemented.
-  ## TODO Implement.
+  ## Status: Implemented.
+  info "unsubscribe", topic=topic
+
+  let wakuRelay = node.wakuRelay
+  await wakuRelay.unsubscribe(@[(topic, handler)])
+
+proc unsubscribeAll*(node: WakuNode, topic: Topic) {.async.} =
+  ## Unsubscribes all handlers registered on a specific PubSub topic.
+  ##
+  ## Status: Implemented.
+  info "unsubscribeAll", topic=topic
+
+  let wakuRelay = node.wakuRelay
+  await wakuRelay.unsubscribeAll(topic)
+  
 
 proc unsubscribe*(w: WakuNode, contentFilter: waku_types.ContentFilter) =
   echo "NYI"
