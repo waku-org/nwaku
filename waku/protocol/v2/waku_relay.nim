@@ -74,6 +74,14 @@ method unsubscribe*(w: WakuRelay,
   else:
     await procCall FloodSub(w).unsubscribe(topics)
 
+method unsubscribeAll*(w: WakuRelay,
+                       pubSubTopic: string) {.async.} =
+  debug "unsubscribeAll"
+  if w.gossipEnabled:
+    await procCall GossipSub(w).unsubscribeAll(pubSubTopic)
+  else:
+    await procCall FloodSub(w).unsubscribeAll(pubSubTopic)
+
 # GossipSub specific methods --------------------------------------------------
 method start*(w: WakuRelay) {.async.} =
   debug "start"
