@@ -47,7 +47,7 @@ type
 
   PagingInfo* = object
     ## This type holds the information needed for the pagination
-    pageSize*: int
+    pageSize*: uint64
     cursor*: Index
     direction*: bool
 
