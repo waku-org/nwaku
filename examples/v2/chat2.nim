@@ -19,7 +19,7 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                muxers/muxer,             # define an interface for stream multiplexing, allowing peers to offer many protocols over a single connection
                muxers/mplex/mplex]       # define some contants and message types for stream multiplexing
 import   ../../waku/node/v2/[config, wakunode2, waku_types],
-         ../../waku/protocol/v2/[waku_relay, waku_store],
+         ../../waku/protocol/v2/[waku_relay, waku_store, waku_filter],
          ../../waku/node/common
 
 const Help = """
@@ -158,7 +158,11 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
 
   # waitFor vs await
   await node.start()
-  await node.mountRelay(conf.topics.split(" "))
+
+  if conf.filternode != "":
+    await node.mountRelay(conf.topics.split(" "))
+  else:
+    await node.mountRelay(@[])
 
   var chat = Chat(node: node, transp: transp, subscribed: true, connected: false, started: true)
 
@@ -181,6 +185,21 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
       info "Hit store handler"
 
     await node.query(HistoryQuery(topics: @[DefaultContentTopic]), storeHandler)
+
+  if conf.filternode != "":
+    node.mountFilter()
+
+    node.wakuFilter.setPeer(parsePeer(conf.filternode))
+
+    proc filterHandler(msg: WakuMessage) {.gcsafe.} =
+      let payload = cast[string](msg.payload)
+      echo &"{payload}"
+      info "Hit filter handler"
+
+    await node.subscribe(
+      FilterRequest(contentFilters: @[ContentFilter(topics: @[DefaultContentTopic])], topic: DefaultTopic),
+      filterHandler
+    )
 
   # Subscribe to a topic
   # TODO To get end to end sender would require more information in payload
