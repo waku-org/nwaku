@@ -18,19 +18,19 @@ const
 
 
 proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
-  ## reads the content of buffer into an Index object
+  ## creates and returns an Index object out of the given byte sequence i.e., buffer
   var index = Index()
   let pb = initProtoBuffer(buffer)
 
-  var data: seq[byte] 
+  var data: seq[byte]
   discard ? pb.getField(1, data)
-  
+
   echo "here is the encoded data ", data
   # create digest from data
   index.digest = MDigest[256]()
-  var count=0
+  var count = 0
   for b in data:
-    index.digest.data[count]=b
+    index.digest.data[count] = b
     count.inc
 
   # read the receivedTime
@@ -41,11 +41,46 @@ proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
   ok(index) # ?
 
 proc encode*(rpc: Index): ProtoBuffer =
+  ## encodes the data fields of an Index object into a ProtoBuffer
+  ## returns the resultant ProtoBuffer
+  
   # intiate a ProtoBuffer
   result = initProtoBuffer()
 
   result.write(1, rpc.digest.data)
   result.write(2, rpc.receivedTime)
+
+proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
+  ## creates and returns a PagingInfo object out of the given byte sequence i.e., buffer
+  var pagingInfo: PagingInfo()
+  let pb = initProtoBuffer(buffer)
+
+  var pageSize: int
+  discard ? pb.getField(1, pageSize)
+  pagingInfo.pageSize = pageSize
+
+
+  var cursorBuffer: seq[byte]
+  discard ? pb.getField(2, cursorBuffer)
+  pagingInfo.cursor = ? Index.init(cursorBuffer)
+
+  var direction: bool
+  discard ? pb.getField(3, direction)
+  pagingInfo.direction = direction
+
+  ok(pagingInfo)
+
+proc encode*(rpc: PagingInfo): ProtoBuffer =
+  ## encodes the data fields of a PagingInfo object into a ProtoBuffer
+  ## returns the resultant ProtoBuffer
+  
+  # intiate a ProtoBuffer
+  result = initProtoBuffer()
+
+  # write the data fields of the rpc i.e., PagingInfo into the resultant ProtoBuffer
+  result.write(1, rpc.pageSize)
+  result.write(2, rpc.cursor)
+  result.write(2, rpc.direction)
 
 proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryQuery()
@@ -66,7 +101,7 @@ proc init*(T: type HistoryResponse, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getRepeatedField(1, messages)
 
   for buf in messages:
-    msg.messages.add(? WakuMessage.init(buf))
+    msg.messages.add( ? WakuMessage.init(buf))
 
   ok(msg)
 
@@ -125,7 +160,8 @@ method init*(ws: WakuStore) =
 
     let value = res.value
     let response = ws.findMessages(res.value.query)
-    await conn.writeLp(HistoryRPC(requestId: value.requestId, response: response).encode().buffer)
+    await conn.writeLp(HistoryRPC(requestId: value.requestId,
+        response: response).encode().buffer)
 
   ws.handler = handle
   ws.codec = WakuStoreCodec
@@ -150,7 +186,8 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
 
   MessageNotificationSubscription.init(@[], handle)
 
-proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
+proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.
+    async, gcsafe.} =
   # @TODO We need to be more stratigic about which peers we dial. Right now we just set one on the service.
   # Ideally depending on the query and our set  of peers we take a subset of ideal peers.
   # This will require us to check for various factors such as:
@@ -161,7 +198,8 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
   let peer = w.peers[0]
   let conn = await w.switch.dial(peer.peerInfo.peerId, peer.peerInfo.addrs, WakuStoreCodec)
 
-  await conn.writeLP(HistoryRPC(requestId: generateRequestId(w.rng), query: query).encode().buffer)
+  await conn.writeLP(HistoryRPC(requestId: generateRequestId(w.rng),
+      query: query).encode().buffer)
 
   var message = await conn.readLp(64*1024)
   let response = HistoryRPC.init(message)
