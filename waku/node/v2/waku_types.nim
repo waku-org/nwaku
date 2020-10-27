@@ -25,7 +25,8 @@ type
     payload*: seq[byte]
     contentTopic*: string
 
-  MessageNotificationHandler* = proc(topic: string, msg: WakuMessage): Future[void] {.gcsafe, closure.}
+  MessageNotificationHandler* = proc(topic: string, msg: WakuMessage): Future[
+      void] {.gcsafe, closure.}
 
   MessageNotificationSubscriptions* = TableRef[string, MessageNotificationSubscription]
 
@@ -45,11 +46,15 @@ type
     msg*: WakuMessage
     index*: Index
 
+  PagingDirection* {.pure.} = enum
+    FORWARD = uint32(1)
+    BACKWARD = uint32(2)
+
   PagingInfo* = object
     ## This type holds the information needed for the pagination
     pageSize*: uint64
     cursor*: Index
-    direction*: bool
+    direction*: PagingDirection
 
   HistoryQuery* = object
     topics*: seq[string]
@@ -183,7 +188,7 @@ proc computeIndex*(msg: WakuMessage): Index =
   if msg.contentTopic.len != 0: # checks for non-empty contentTopic
     ctx.update(msg.contentTopic.toBytes()) # converts the topic to bytes
   ctx.update(msg.payload)
-  let digest = ctx.finish()  # computes the hash
+  let digest = ctx.finish() # computes the hash
   ctx.clear()
 
   result.digest = digest

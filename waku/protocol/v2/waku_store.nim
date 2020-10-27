@@ -50,12 +50,31 @@ proc encode*(rpc: Index): ProtoBuffer =
   result.write(1, rpc.digest.data)
   result.write(2, rpc.receivedTime)
 
-proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
-  ## creates and returns a PagingInfo object out of the given byte sequence i.e., buffer
-  var pagingInfo: PagingInfo()
+proc init*(T: type PagingDirection, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
 
-  var pageSize: int
+  var dir: uint32
+  discard ? pb.getField(1, dir)
+
+  var direction=PagingDirection(dir)
+
+  ok(direction)
+
+proc encode*(rpc: PagingDirection): ProtoBuffer =
+  ## encodes the data fields of an PagingDirection into a ProtoBuffer
+  ## returns the resultant ProtoBuffer
+  
+  # intiate a ProtoBuffer
+  result = initProtoBuffer()
+
+  result.write(1, uint32(ord(rpc)))
+
+proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
+  ## creates and returns a PagingInfo object out of the given byte sequence i.e., buffer
+  var pagingInfo= PagingInfo()
+  let pb = initProtoBuffer(buffer)
+
+  var pageSize: uint32
   discard ? pb.getField(1, pageSize)
   pagingInfo.pageSize = pageSize
 
@@ -64,9 +83,9 @@ proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(2, cursorBuffer)
   pagingInfo.cursor = ? Index.init(cursorBuffer)
 
-  var direction: bool
-  discard ? pb.getField(3, direction)
-  pagingInfo.direction = direction
+  var directionBuffer: seq[byte]
+  discard ? pb.getField(3, directionBuffer)
+  pagingInfo.direction = ? PagingDirection.init(directionBuffer)
 
   ok(pagingInfo)
 
@@ -80,7 +99,7 @@ proc encode*(rpc: PagingInfo): ProtoBuffer =
   # write the data fields of the rpc i.e., PagingInfo into the resultant ProtoBuffer
   result.write(1, rpc.pageSize)
   result.write(2, rpc.cursor.encode())
-  result.write(2, rpc.direction)
+  result.write(2, rpc.direction.encode())
 
 proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryQuery()
