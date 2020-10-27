@@ -40,11 +40,15 @@ proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHa
   ##
   ## Status: Implemented.
 
-proc unsubscribe*(w: WakuNode, topic: Topic) =
-  ## Unsubscribe from a topic.
+proc unsubscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) {.async.} =
+  ## Unsubscribes a handler from a PubSub topic.
   ##
-  ## Status: Not yet implemented.
-  ## TODO Implement.
+  ## Status: Implemented.
+
+proc unsubscribeAll*(node: WakuNode, topic: Topic) {.async.} =
+  ## Unsubscribes all handlers registered on a specific PubSub topic.
+  ##
+  ## Status: Implemented.
 
 proc unsubscribe*(w: WakuNode, contentFilter: ContentFilter) =
   ## Unsubscribe from a content filter.
