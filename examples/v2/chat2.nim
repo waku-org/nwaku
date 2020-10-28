@@ -30,7 +30,7 @@ const Help = """
   exit: closes the chat
 """
 
-const DefaultTopic = "waku"
+const DefaultTopic = "/waku/2/default-waku/proto"
 
 const Dingpu = "dingpu".toBytes
 const DefaultContentTopic = ContentTopic(uint32.fromBytes(Dingpu))

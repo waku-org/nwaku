@@ -11,6 +11,8 @@ template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 const sigWakuPath = sourceDir / "rpc" / "wakucallsigs.nim"
 createRpcSigs(RpcHttpClient, sigWakuPath)
 
+const defaultTopic = "/waku/2/default-waku/proto"
+
 const topicAmount = 10 #100
 
 proc message(i: int): ProtoBuffer =
@@ -31,7 +33,7 @@ for i in 0..<amount:
   var node = newRpcHttpClient()
   nodes.add(node)
   waitFor nodes[i].connect("localhost", Port(8547+i))
-  var res = waitFor nodes[i].wakuSubscribe("waku")
+  var res = waitFor nodes[i].wakuSubscribe(defaultTopic)
 
 os.sleep(2000)
 
@@ -40,18 +42,18 @@ os.sleep(2000)
 #   os.sleep(50)
 #   # TODO: This would then publish on a subtopic here
 #   var s = "hello " & $2
-#   var res3 = waitFor nodes[0].wakuPublish("waku", s)
+#   var res3 = waitFor nodes[0].wakuPublish(defaultTopic, s)
 
 # Scenario xx3 - same as xx1 but publish from multiple nodes
 # To compare FloodSub and GossipSub factor
 for i in 0..<topicAmount:
   os.sleep(50)
   # TODO: This would then publish on a subtopic here
-  var res3 = waitFor nodes[0].wakuPublish("waku", message(0).buffer)
-  res3 = waitFor nodes[1].wakuPublish("waku", message(1).buffer)
-  res3 = waitFor nodes[2].wakuPublish("waku", message(2).buffer)
-  res3 = waitFor nodes[3].wakuPublish("waku", message(3).buffer)
-  res3 = waitFor nodes[4].wakuPublish("waku", message(4).buffer)
+  var res3 = waitFor nodes[0].wakuPublish(defaultTopic, message(0).buffer)
+  res3 = waitFor nodes[1].wakuPublish(defaultTopic, message(1).buffer)
+  res3 = waitFor nodes[2].wakuPublish(defaultTopic, message(2).buffer)
+  res3 = waitFor nodes[3].wakuPublish(defaultTopic, message(3).buffer)
+  res3 = waitFor nodes[4].wakuPublish(defaultTopic, message(4).buffer)
 
 # Scenario xx2 - 14 full nodes, two edge nodes
 # Assume one full topic
@@ -65,8 +67,8 @@ for i in 0..<topicAmount:
 #let version = waitFor nodea.wakuVersion()
 #info "Version is", version
 #
-#let res1 = waitFor nodea.wakuSubscribe("waku")
-#let res2 = waitFor nodeb.wakuSubscribe("waku")
+#let res1 = waitFor nodea.wakuSubscribe(defaultTopic)
+#let res2 = waitFor nodeb.wakuSubscribe(defaultTopic)
 #
 #let amount = 14
 #var nodes: seq[RPCHttpClient]
@@ -74,7 +76,7 @@ for i in 0..<topicAmount:
 #  var node = newRpcHttpClient()
 #  nodes.add(node)
 #  waitFor nodes[i].connect("localhost", Port(8547+i))
-#  var res = waitFor nodes[i].wakuSubscribe("waku")
+#  var res = waitFor nodes[i].wakuSubscribe(defaultTopic)
 #
 #os.sleep(2000)
 #
@@ -83,7 +85,7 @@ for i in 0..<topicAmount:
 #  os.sleep(50)
 #  # TODO: This would then publish on a subtopic here
 #  var s = "hello " & $2
-#  var res3 = waitFor nodea.wakuPublish("waku", s)
+#  var res3 = waitFor nodea.wakuPublish(defaultTopic, s)
 
 # Misc old scenarios
 #########################################
