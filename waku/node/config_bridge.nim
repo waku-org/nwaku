@@ -137,6 +137,11 @@ type
       defaultValue: ""
       name: "filternode" }: string
 
+    dbpath* {.
+      desc: "DB path for waku store.",
+      defaultValue: ""
+      name: "dbpath" }: string
+
 proc parseCmdArg*(T: type keys.KeyPair, p: TaintedString): T =
   try:
     let privkey = keys.PrivateKey.fromHex(string(p)).tryGet()
