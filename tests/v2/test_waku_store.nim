@@ -74,7 +74,7 @@ procSuite "Waku Store":
       decodedEmptyIndex = Index.init(epb.buffer)
 
     check:
-      # the fields of decodedIndex must be the same as the original index
+      # check the correctness of init and encode for an empty Index
       decodedEmptyIndex.isErr == false
       decodedEmptyIndex.value == emptyIndex
 
@@ -108,7 +108,7 @@ procSuite "Waku Store":
       decodedEmptyPagingInfo = PagingInfo.init(epb.buffer)
 
     check:
-      # check the correctness of init and encode for empty PagingInfo
+      # check the correctness of init and encode for an empty PagingInfo
       decodedEmptyPagingInfo.isErr == false
       decodedEmptyPagingInfo.value == emptyPagingInfo
   
@@ -131,7 +131,7 @@ procSuite "Waku Store":
       decodedEmptyQuery = HistoryQuery.init(epb.buffer)
 
     check:
-      # check the correctness of init and encode for empty HistoryQuery
+      # check the correctness of init and encode for an empty HistoryQuery
       decodedEmptyQuery.isErr == false
       decodedEmptyQuery.value == emptyQuery
   
