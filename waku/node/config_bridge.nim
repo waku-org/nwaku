@@ -108,8 +108,8 @@ type
       name: "nodekeyv2" }: crypto.PrivateKey
 
     topics* {.
-      desc: "Default topics to subscribe to (space seperated list)"
-      defaultValue: "waku"
+      desc: "Default topics to subscribe to (space separated list)"
+      defaultValue: "/waku/2/default-waku/proto"
       name: "topics" .}: string
 
     store* {.

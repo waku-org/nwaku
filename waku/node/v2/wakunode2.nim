@@ -232,7 +232,7 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.async
       node.filters.notify(msg.value(), "")
       await node.subscriptions.notify(topic, msg.value())
 
-  await node.wakuRelay.subscribe("waku", relayHandler)
+  await node.wakuRelay.subscribe("/waku/2/default-waku/proto", relayHandler)
 
   for topic in topics:
     proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
