@@ -155,12 +155,16 @@ proc encode*(query: HistoryQuery): ProtoBuffer =
 
   for topic in query.topics:
     result.write(1, topic)
+  
+  result.write(2, query.pagingInfo.encode())
 
 proc encode*(response: HistoryResponse): ProtoBuffer =
   result = initProtoBuffer()
 
   for msg in response.messages:
     result.write(1, msg.encode())
+
+  result.write(2, response.pagingInfo.encode())
 
 proc encode*(rpc: HistoryRPC): ProtoBuffer =
   result = initProtoBuffer()
