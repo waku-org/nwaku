@@ -59,7 +59,7 @@ procSuite "Waku Store":
   
   test "Index Protobuf encoder/decoder test":
     let 
-      index=computeIndex(WakuMessage(payload: @[byte 1], contentTopic:"topic 1"))
+      index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic:"topic 1"))
       pb=index.encode()
       decoded_index = Index.init(pb.buffer)
     
@@ -88,5 +88,4 @@ procSuite "Waku Store":
       decodedPagingInfo.value.pageSize == pagingInfo.pageSize
       decodedPagingInfo.value.cursor == pagingInfo.cursor
       decodedPagingInfo.value.direction == pagingInfo.direction
-
 
