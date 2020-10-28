@@ -61,26 +61,28 @@ procSuite "Waku Store":
     let 
       index=computeIndex(WakuMessage(payload: @[byte 1], contentTopic:"topic 1"))
       pb=index.encode()
-
-    
-    echo "protobuf ", pb.buffer
-    let decoded_index = Index.init(pb.buffer)
-    echo decoded_index
-    echo index
+      decoded_index = Index.init(pb.buffer)
     
     check:
       decoded_index.value.receivedTime == index.receivedTime
       decoded_index.value.digest.data == index.digest.data
 
+
+  test "PagingDirection Protobuf encod/init test": 
+    let 
+      pagingDirection=PagingDirection.BACKWARD
+      pb = pagingDirection.encode()
+      decodedPagingDirection = PagingDirection.init(pb.buffer)
+    
+    check:
+      decodedPagingDirection.value == pagingDirection
+
   test "PagingInfo Protobuf encod/init test": 
     let 
       index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic:"topic 1"))
-      pagingInfo = PagingInfo(pageSize:1,cursor:index,direction:PagingDirection.BACKWARD)
+      pagingInfo = PagingInfo(pageSize:1, cursor:index, direction:PagingDirection.BACKWARD)
       pb = pagingInfo.encode()
-    echo "protobuf ", pb.buffer
-    let decodedPagingInfo = PagingInfo.init(pb.buffer)
-    echo decodedPagingInfo
-    echo pagingInfo
+      decodedPagingInfo = PagingInfo.init(pb.buffer)
     
     check:
       decodedPagingInfo.value.pageSize == pagingInfo.pageSize
