@@ -76,7 +76,7 @@ proc startWakuV2(config: WakuNodeConf): Future[WakuNode] {.async.} =
   await node.start()
 
   if config.store:
-    mountStore(node)
+    mountStore(node, config.dbpath)
 
   if config.filter:
     mountFilter(node)
