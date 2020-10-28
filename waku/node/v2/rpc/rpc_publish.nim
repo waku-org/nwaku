@@ -27,10 +27,7 @@ echo "Input is:", input
 var node = newRpcHttpClient()
 waitfor node.connect("localhost", rpcPort)
 
-# Subscribe ourselves to topic
-#var res = node.wakuSubscribe("waku")
-
-let pubSubTopic = "waku"
+let pubSubTopic = "/waku/2/default-waku/proto"
 let contentTopic = "foobar"
 var wakuMessage = WakuMessage(payload: input.toBytes(), contentTopic: contentTopic)
 # XXX This should be WakuMessage type, but need to setup JSON-RPC mapping for that to work

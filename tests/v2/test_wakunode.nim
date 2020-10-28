@@ -143,7 +143,7 @@ procSuite "WakuNode":
     await node2.start()
     node2.mountStore()
 
-    await node2.subscriptions.notify("waku", message)
+    await node2.subscriptions.notify("/waku/2/default-waku/proto", message)
 
     await sleepAsync(2000.millis)
 
@@ -186,11 +186,11 @@ procSuite "WakuNode":
         msg == message
       completionFut.complete(true)
 
-    await node1.subscribe(FilterRequest(topic: "waku", contentFilters: @[ContentFilter(topics: @[contentTopic])]), handler)
+    await node1.subscribe(FilterRequest(topic: "/waku/2/default-waku/proto", contentFilters: @[ContentFilter(topics: @[contentTopic])]), handler)
 
     await sleepAsync(2000.millis)
 
-    await node2.subscriptions.notify("waku", message)
+    await node2.subscriptions.notify("/waku/2/default-waku/proto", message)
 
     await sleepAsync(2000.millis)
 

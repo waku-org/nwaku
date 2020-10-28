@@ -69,8 +69,8 @@ type
       name: "filternode" }: string
 
     topics* {.
-      desc: "Default topics to subscribe to (space seperated list)."
-      defaultValue: "waku"
+      desc: "Default topics to subscribe to (space separated list)."
+      defaultValue: "/waku/2/default-waku/proto"
       name: "topics" .}: string
 
     # NOTE: Signature is different here, we return PrivateKey and not KeyPair
