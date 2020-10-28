@@ -38,15 +38,17 @@ type
 
 
   Index* = object
-    ## This type contains the  description of an index used in the pagination of waku messages
+    ## This type contains the  description of an Index used in the pagination of WakuMessages
     digest*: MDigest[256]
     receivedTime*: float64
 
   IndexedWakuMessage* = object
+    ## This type is used to encapsulate a WakuMessage and its Index
     msg*: WakuMessage
     index*: Index
 
   PagingDirection* {.pure.} = enum
+    ## PagingDirection determines the direction of pagination
     BACKWARD = uint32(0)
     FORWARD = uint32(1)
 

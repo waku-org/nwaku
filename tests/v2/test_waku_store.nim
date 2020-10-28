@@ -135,7 +135,7 @@ procSuite "Waku Store":
       decodedEmptyRes = HistoryResponse.init(epb.buffer)
 
     check:
-      # check the correctness of init and encode for empty HistoryResponse
+      # check the correctness of init and encode for an empty HistoryResponse
       decodedEmptyRes.isErr == false
       decodedEmptyRes.value == emptyRes
     
