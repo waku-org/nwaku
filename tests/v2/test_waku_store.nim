@@ -66,8 +66,7 @@ procSuite "Waku Store":
     check:
       # the fields of decodedIndex must be the same as the original index
       decodedIndex.isErr == false
-      decodedIndex.value.receivedTime == index.receivedTime
-      decodedIndex.value.digest.data == index.digest.data
+      decodedIndex.value == index
 
 
   test "PagingDirection Protobuf encod/init test":
@@ -91,9 +90,7 @@ procSuite "Waku Store":
     check:
       # the fields of decodedPagingInfo must be the same as the original pagingInfo
       decodedPagingInfo.isErr == false
-      decodedPagingInfo.value.pageSize == pagingInfo.pageSize
-      decodedPagingInfo.value.cursor == pagingInfo.cursor
-      decodedPagingInfo.value.direction == pagingInfo.direction
+      decodedPagingInfo.value == pagingInfo
   
   test "HistoryQuery Protobuf encod/init test":
     let
@@ -106,8 +103,7 @@ procSuite "Waku Store":
     check:
       # the fields of decoded query decodedQuery must be the same as the original query query
       decodedQuery.isErr == false
-      decodedQuery.value.topics == query.topics
-      decodedQuery.value.pagingInfo == query.pagingInfo
+      decodedQuery.value == query
     
     let 
       emptyQuery=HistoryQuery()
@@ -117,8 +113,7 @@ procSuite "Waku Store":
     check:
       # check the correctness of init and encode for empty HistoryQuery
       decodedEmptyQuery.isErr == false
-      decodedEmptyQuery.value.topics == emptyQuery.topics
-      decodedEmptyQuery.value.pagingInfo == emptyQuery.pagingInfo
+      decodedEmptyQuery.value == emptyQuery
   
   test "HistoryResponse Protobuf encod/init test":
     let
@@ -132,8 +127,7 @@ procSuite "Waku Store":
     check:
       # the fields of decoded response decodedRes must be the same as the original response res
       decodedRes.isErr == false
-      decodedRes.value.messages == res.messages
-      decodedRes.value.pagingInfo == res.pagingInfo
+      decodedRes.value == res
     
     let 
       emptyRes=HistoryResponse()
@@ -143,6 +137,5 @@ procSuite "Waku Store":
     check:
       # check the correctness of init and encode for empty HistoryResponse
       decodedEmptyRes.isErr == false
-      decodedEmptyRes.value.messages == emptyRes.messages
-      decodedEmptyRes.value.pagingInfo == emptyRes.pagingInfo
+      decodedEmptyRes.value == emptyRes
     
