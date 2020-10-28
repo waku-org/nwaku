@@ -94,3 +94,15 @@ procSuite "Waku Store":
       decodedPagingInfo.value.pageSize == pagingInfo.pageSize
       decodedPagingInfo.value.cursor == pagingInfo.cursor
       decodedPagingInfo.value.direction == pagingInfo.direction
+  
+  test "HistoryQuery Protobuf encod/init test":
+    let
+      index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: "topic 1"))
+      pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
+      query=HistoryQuery(topics: @["topic1"], pagingInfo: pagingInfo)
+      pb = query.encode()
+      decodedQuery = HistoryQuery.init(pb.buffer)
+
+    check:
+      decodedQuery.value.topics == query.topics
+      decodedQuery.value.pagingInfo == query.pagingInfo
