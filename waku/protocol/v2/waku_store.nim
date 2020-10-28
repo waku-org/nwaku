@@ -17,8 +17,41 @@ const
   WakuStoreCodec* = "/vac/waku/store/2.0.0-beta1"
 
 
+proc encode*(index: Index): ProtoBuffer =
+  ## encodes an Index object into a ProtoBuffer
+  ## returns the resultant ProtoBuffer
+
+  # intiate a ProtoBuffer
+  result = initProtoBuffer()
+
+  # encodes index
+  result.write(1, index.digest.data)
+  result.write(2, index.receivedTime)
+
+proc encode*(pd: PagingDirection): ProtoBuffer =
+  ## encodes a PagingDirection into a ProtoBuffer
+  ## returns the resultant ProtoBuffer
+
+  # intiate a ProtoBuffer
+  result = initProtoBuffer()
+
+  # encodes pd
+  result.write(1, uint32(ord(pd)))
+
+proc encode*(pinfo: PagingInfo): ProtoBuffer =
+  ## encodes a PagingInfo object into a ProtoBuffer
+  ## returns the resultant ProtoBuffer
+
+  # intiate a ProtoBuffer
+  result = initProtoBuffer()
+
+  # encodes pinfo
+  result.write(1, pinfo.pageSize)
+  result.write(2, pinfo.cursor.encode())
+  result.write(3, pinfo.direction.encode())
+
 proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
-  ## creates and returns an Index object out of the given byte sequence i.e., buffer
+  ## creates and returns an Index object out of buffer
   var index = Index()
   let pb = initProtoBuffer(buffer)
 
@@ -37,19 +70,10 @@ proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(2, receivedTime)
   index.receivedTime = receivedTime
 
-  ok(index) # ?
-
-proc encode*(rpc: Index): ProtoBuffer =
-  ## encodes the data fields of an Index object into a ProtoBuffer
-  ## returns the resultant ProtoBuffer
-
-  # intiate a ProtoBuffer
-  result = initProtoBuffer()
-
-  result.write(1, rpc.digest.data)
-  result.write(2, rpc.receivedTime)
+  ok(index) 
 
 proc init*(T: type PagingDirection, buffer: seq[byte]): ProtoResult[T] =
+  ## creates and returns a PagingDirection object out of buffer
   let pb = initProtoBuffer(buffer)
 
   var dir: uint32
@@ -58,17 +82,8 @@ proc init*(T: type PagingDirection, buffer: seq[byte]): ProtoResult[T] =
 
   ok(direction)
 
-proc encode*(rpc: PagingDirection): ProtoBuffer =
-  ## encodes the data fields of an PagingDirection into a ProtoBuffer
-  ## returns the resultant ProtoBuffer
-
-  # intiate a ProtoBuffer
-  result = initProtoBuffer()
-
-  result.write(1, uint32(ord(rpc)))
-
 proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
-  ## creates and returns a PagingInfo object out of the given byte sequence i.e., buffer
+  ## creates and returns a PagingInfo object out of buffer
   var pagingInfo = PagingInfo()
   let pb = initProtoBuffer(buffer)
 
@@ -85,20 +100,8 @@ proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(3, directionBuffer)
   pagingInfo.direction = ? PagingDirection.init(directionBuffer)
 
-  ok(pagingInfo)
-
-proc encode*(rpc: PagingInfo): ProtoBuffer =
-  ## encodes the data fields of a PagingInfo object into a ProtoBuffer
-  ## returns the resultant ProtoBuffer
-
-  # intiate a ProtoBuffer
-  result = initProtoBuffer()
-
-  # write the data fields of the rpc i.e., PagingInfo into the resultant ProtoBuffer
-  result.write(1, rpc.pageSize)
-  result.write(2, rpc.cursor.encode())
-  result.write(3, rpc.direction.encode())
-
+  ok(pagingInfo) 
+  
 proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryQuery()
   let pb = initProtoBuffer(buffer)
