@@ -12,6 +12,7 @@ import
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
   nimcrypto/sha2
+  db_sqlite
 
 # Common data types -----------------------------------------------------------
 
@@ -70,7 +71,7 @@ type
     switch*: Switch
     rng*: ref BrHmacDrbgContext
     peers*: seq[HistoryPeer]
-    messages*: seq[WakuMessage]
+    db*: DbConn
 
   FilterRequest* = object
     contentFilters*: seq[ContentFilter]

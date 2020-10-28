@@ -8,7 +8,9 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
   ./message_notifier,
-  ./../../node/v2/waku_types
+  ./../../node/v2/waku_types,
+  db_sqlite,
+  strutils
 
 logScope:
   topics = "wakustore"
@@ -78,9 +80,11 @@ proc encode*(rpc: HistoryRPC): ProtoBuffer =
 
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   result = HistoryResponse(messages: newSeq[WakuMessage]())
-  for msg in w.messages:
-    if msg.contentTopic in query.topics:
-      result.messages.insert(msg)
+
+  let topics = join(query.topics, ", ")
+
+  for row in db.fastRows(sql"SELECT contentTopic, payload FROM messsages, WHERE contentTopic IN (" + topics + ")"):
+    result.messages.append(WakuMessage(payload: cast[seq[byte]](row[1]), contentTopic: row[0]))
 
 method init*(ws: WakuStore) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
@@ -115,7 +119,10 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   ## the filter should be used by the component that receives
   ## new messages.
   proc handle(topic: string, msg: WakuMessage) {.async.} =
-    proto.messages.add(msg)
+    proto.db.exec(
+      sql"INSERT INTO messsages (topic, contentTopic, payload) VALUES (?, ?, ?)", 
+      topic, msg.contentTopic, msg.payload
+    )
 
   MessageNotificationSubscription.init(@[], handle)
 
