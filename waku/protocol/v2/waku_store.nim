@@ -43,7 +43,7 @@ proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
 proc encode*(rpc: Index): ProtoBuffer =
   ## encodes the data fields of an Index object into a ProtoBuffer
   ## returns the resultant ProtoBuffer
-  
+
   # intiate a ProtoBuffer
   result = initProtoBuffer()
 
@@ -55,15 +55,14 @@ proc init*(T: type PagingDirection, buffer: seq[byte]): ProtoResult[T] =
 
   var dir: uint32
   discard ? pb.getField(1, dir)
-  echo dir
-  var direction=PagingDirection(dir)
+  var direction = PagingDirection(dir)
 
   ok(direction)
 
 proc encode*(rpc: PagingDirection): ProtoBuffer =
   ## encodes the data fields of an PagingDirection into a ProtoBuffer
   ## returns the resultant ProtoBuffer
-  
+
   # intiate a ProtoBuffer
   result = initProtoBuffer()
 
@@ -71,7 +70,7 @@ proc encode*(rpc: PagingDirection): ProtoBuffer =
 
 proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
   ## creates and returns a PagingInfo object out of the given byte sequence i.e., buffer
-  var pagingInfo= PagingInfo()
+  var pagingInfo = PagingInfo()
   let pb = initProtoBuffer(buffer)
 
   var pageSize: uint32
@@ -92,7 +91,7 @@ proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
 proc encode*(rpc: PagingInfo): ProtoBuffer =
   ## encodes the data fields of a PagingInfo object into a ProtoBuffer
   ## returns the resultant ProtoBuffer
-  
+
   # intiate a ProtoBuffer
   result = initProtoBuffer()
 
