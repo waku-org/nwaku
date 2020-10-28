@@ -47,8 +47,8 @@ type
     index*: Index
 
   PagingDirection* {.pure.} = enum
+    BACKWARD = uint32(0)
     FORWARD = uint32(1)
-    BACKWARD = uint32(2)
 
   PagingInfo* = object
     ## This type holds the information needed for the pagination
