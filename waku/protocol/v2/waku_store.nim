@@ -55,7 +55,7 @@ proc init*(T: type PagingDirection, buffer: seq[byte]): ProtoResult[T] =
 
   var dir: uint32
   discard ? pb.getField(1, dir)
-
+  echo dir
   var direction=PagingDirection(dir)
 
   ok(direction)
@@ -99,7 +99,7 @@ proc encode*(rpc: PagingInfo): ProtoBuffer =
   # write the data fields of the rpc i.e., PagingInfo into the resultant ProtoBuffer
   result.write(1, rpc.pageSize)
   result.write(2, rpc.cursor.encode())
-  result.write(2, rpc.direction.encode())
+  result.write(3, rpc.direction.encode())
 
 proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryQuery()
