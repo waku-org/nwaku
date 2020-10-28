@@ -68,6 +68,11 @@ type
       defaultValue: ""
       name: "filternode" }: string
 
+    dbpath* {.
+      desc: "DB path for waku store.",
+      defaultValue: ""
+      name: "dbpath" }: string
+
     topics* {.
       desc: "Default topics to subscribe to (space separated list)."
       defaultValue: "/waku/2/default-waku/proto"

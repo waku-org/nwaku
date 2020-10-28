@@ -13,7 +13,7 @@ import
   libp2p/transports/tcptransport,
   ../../waku/protocol/v2/[waku_store, message_notifier],
   ../../waku/node/v2/waku_types,
-  ../test_helpers, ./utils
+  ../test_helpers, ./utils, db_sqlite
 
 procSuite "Waku Store":
   asyncTest "handle query":
@@ -31,7 +31,7 @@ procSuite "Waku Store":
     discard await listenSwitch.start()
 
     let
-      proto = WakuStore.init(dialSwitch, crypto.newRng())
+      proto = WakuStore.init(dialSwitch, crypto.newRng(), open("", "", "", ""))
       subscription = proto.subscription()
       rpc = HistoryQuery(topics: @[topic])
 

@@ -25,7 +25,7 @@ proc runBackground() {.async.} =
       Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
 
   await node.start()
-  await node.mountRelay()
+  await node.mountRelay(conf.dbpath)
 
   # Subscribe to a topic
   let topic = cast[Topic]("foobar")

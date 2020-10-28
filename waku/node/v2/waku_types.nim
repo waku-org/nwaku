@@ -11,7 +11,7 @@ import
   libp2p/switch,
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
-  nimcrypto/sha2
+  nimcrypto/sha2,
   db_sqlite
 
 # Common data types -----------------------------------------------------------

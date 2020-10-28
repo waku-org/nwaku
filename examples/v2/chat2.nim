@@ -174,7 +174,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   echo &"Listening on\n {listenStr}"
 
   if conf.storenode != "":
-    node.mountStore()
+    node.mountStore(conf.dbpath)
 
     node.wakuStore.setPeer(parsePeer(conf.storenode))
 

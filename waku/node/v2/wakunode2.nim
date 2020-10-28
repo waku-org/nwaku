@@ -11,7 +11,8 @@ import
   libp2p/peerinfo,
   libp2p/standard_setup,
   ../../protocol/v2/[waku_relay, waku_store, waku_filter, message_notifier],
-  ./waku_types
+  ./waku_types,
+  db_sqlite
 
 export waku_types
 
@@ -206,9 +207,10 @@ proc mountFilter*(node: WakuNode) =
   node.switch.mount(node.wakuFilter)
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
-proc mountStore*(node: WakuNode) =
+proc mountStore*(node: WakuNode, path: string) =
+  var db = db_sqlite.open(path, "", "", "")
   info "mounting store"
-  node.wakuStore = WakuStore.init(node.switch, node.rng)
+  node.wakuStore = WakuStore.init(node.switch, node.rng, db)
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
@@ -342,7 +344,7 @@ when isMainModule:
   waitFor node.start()
 
   if conf.store:
-    mountStore(node)
+    mountStore(node, conf.dbpath)
   
   if conf.filter:
     mountFilter(node)

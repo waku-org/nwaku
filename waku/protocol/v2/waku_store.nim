@@ -82,11 +82,16 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   result = HistoryResponse(messages: newSeq[WakuMessage]())
 
   let topics = join(query.topics, ", ")
-
-  for row in db.fastRows(sql"SELECT contentTopic, payload FROM messsages, WHERE contentTopic IN (" + topics + ")"):
-    result.messages.append(WakuMessage(payload: cast[seq[byte]](row[1]), contentTopic: row[0]))
+  for row in w.db.rows(SqlQuery("SELECT contentTopic, payload FROM messages WHERE contentTopic IN (" & topics & ")")):
+    result.messages.add(WakuMessage(payload: cast[seq[byte]](row[1]), contentTopic: ContentTopic(row[0].parseInt)))
 
 method init*(ws: WakuStore) =
+  ws.db.exec(sql"""CREATE TABLE IF NOT EXISTS messages (
+                 topic TEXT NOT NULL,
+                 contentTopic   INTEGER,
+                 payload BLOB NOT NULL
+              )""")
+
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var message = await conn.readLp(64*1024)
     var res = HistoryRPC.init(message)
@@ -103,10 +108,11 @@ method init*(ws: WakuStore) =
   ws.handler = handle
   ws.codec = WakuStoreCodec
 
-proc init*(T: type WakuStore, switch: Switch, rng: ref BrHmacDrbgContext): T =
+proc init*(T: type WakuStore, switch: Switch, rng: ref BrHmacDrbgContext, db: DbConn): T =
   new result
   result.rng = rng
   result.switch = switch
+  result.db = db
   result.init()
 
 # @TODO THIS SHOULD PROBABLY BE AN ADD FUNCTION AND APPEND THE PEER TO AN ARRAY
@@ -120,8 +126,8 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   ## new messages.
   proc handle(topic: string, msg: WakuMessage) {.async.} =
     proto.db.exec(
-      sql"INSERT INTO messsages (topic, contentTopic, payload) VALUES (?, ?, ?)", 
-      topic, msg.contentTopic, msg.payload
+      sql"INSERT INTO messages (topic, contentTopic, payload) VALUES (?, ?, ?)", 
+      topic, msg.contentTopic, cast[string](msg.payload)
     )
 
   MessageNotificationSubscription.init(@[], handle)
