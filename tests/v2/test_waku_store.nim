@@ -61,11 +61,12 @@ procSuite "Waku Store":
     let
       index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: "topic 1"))
       pb = index.encode()
-      decoded_index = Index.init(pb.buffer)
+      decodedIndex = Index.init(pb.buffer)
 
     check:
-      decoded_index.value.receivedTime == index.receivedTime
-      decoded_index.value.digest.data == index.digest.data
+      # the fields of decodedIndex must be the same as the original index
+      decodedIndex.value.receivedTime == index.receivedTime
+      decodedIndex.value.digest.data == index.digest.data
 
 
   test "PagingDirection Protobuf encod/init test":
@@ -74,14 +75,9 @@ procSuite "Waku Store":
       pb = pagingDirection.encode()
       decodedPagingDirection = PagingDirection.init(pb.buffer)
 
-    #var
-      #emptyPagingDirection: PagingDirection
-      #pbEmpty = emptyPagingDirection.encode()
-      #decodedEmptyPagingDirection = PagingDirection.init(pbEmpty.buffer)
-
     check:
+      # the decodedPagingDirection must be the same as the original pagingDirection
       decodedPagingDirection.value == pagingDirection
-      #emptyPagingDirection.value == decodedEmptyPagingDirection
 
   test "PagingInfo Protobuf encod/init test":
     let
@@ -91,6 +87,7 @@ procSuite "Waku Store":
       decodedPagingInfo = PagingInfo.init(pb.buffer)
 
     check:
+      # the fields of decodedPagingInfo must be the same as the original pagingInfo
       decodedPagingInfo.value.pageSize == pagingInfo.pageSize
       decodedPagingInfo.value.cursor == pagingInfo.cursor
       decodedPagingInfo.value.direction == pagingInfo.direction
@@ -104,6 +101,7 @@ procSuite "Waku Store":
       decodedQuery = HistoryQuery.init(pb.buffer)
 
     check:
+      # the fields of decoded query decodedQuery must be the same as the original query query
       decodedQuery.value.topics == query.topics
       decodedQuery.value.pagingInfo == query.pagingInfo
   
@@ -117,5 +115,6 @@ procSuite "Waku Store":
       decodedRes = HistoryResponse.init(pb.buffer)
 
     check:
+      # the fields of decoded response decodedRes must be the same as the original response res
       decodedRes.value.messages == res.messages
       decodedRes.value.pagingInfo == res.pagingInfo
