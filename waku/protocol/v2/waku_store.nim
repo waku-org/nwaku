@@ -108,6 +108,12 @@ proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getRepeatedField(1, topics)
 
   msg.topics = topics
+
+  var pagingInfoBuffer: seq[byte]
+  discard ? pb.getField(2, pagingInfoBuffer)
+
+  msg.pagingInfo = ? PagingInfo.init(pagingInfoBuffer)
+
   ok(msg)
 
 proc init*(T: type HistoryResponse, buffer: seq[byte]): ProtoResult[T] =
@@ -119,6 +125,10 @@ proc init*(T: type HistoryResponse, buffer: seq[byte]): ProtoResult[T] =
 
   for buf in messages:
     msg.messages.add( ? WakuMessage.init(buf))
+
+  var pagingInfoBuffer: seq[byte]
+  discard ? pb.getField(2,pagingInfoBuffer)
+  msg.pagingInfo= ? PagingInfo.init(pagingInfoBuffer)
 
   ok(msg)
 
