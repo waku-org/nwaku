@@ -68,6 +68,16 @@ procSuite "Waku Store":
       decodedIndex.isErr == false
       decodedIndex.value == index
 
+    let
+      emptyIndex = Index()
+      epb = emptyIndex.encode()
+      decodedEmptyIndex = Index.init(epb.buffer)
+
+    check:
+      # the fields of decodedIndex must be the same as the original index
+      decodedEmptyIndex.isErr == false
+      decodedEmptyIndex.value == emptyIndex
+
 
   test "PagingDirection Protobuf encod/init test":
     let
@@ -91,6 +101,16 @@ procSuite "Waku Store":
       # the fields of decodedPagingInfo must be the same as the original pagingInfo
       decodedPagingInfo.isErr == false
       decodedPagingInfo.value == pagingInfo
+    
+    let
+      emptyPagingInfo = PagingInfo()
+      epb = emptyPagingInfo.encode()
+      decodedEmptyPagingInfo = PagingInfo.init(epb.buffer)
+
+    check:
+      # check the correctness of init and encode for empty PagingInfo
+      decodedEmptyPagingInfo.isErr == false
+      decodedEmptyPagingInfo.value == emptyPagingInfo
   
   test "HistoryQuery Protobuf encod/init test":
     let
