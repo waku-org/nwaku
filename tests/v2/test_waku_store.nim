@@ -70,7 +70,7 @@ procSuite "Waku Store":
 
   test "PagingDirection Protobuf encod/init test": 
     let 
-      pagingDirection=PagingDirection.BACKWARD
+      pagingDirection = PagingDirection.BACKWARD
       pb = pagingDirection.encode()
       decodedPagingDirection = PagingDirection.init(pb.buffer)
     
@@ -88,4 +88,3 @@ procSuite "Waku Store":
       decodedPagingInfo.value.pageSize == pagingInfo.pageSize
       decodedPagingInfo.value.cursor == pagingInfo.cursor
       decodedPagingInfo.value.direction == pagingInfo.direction
-
