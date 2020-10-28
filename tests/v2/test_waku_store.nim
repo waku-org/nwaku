@@ -65,6 +65,7 @@ procSuite "Waku Store":
 
     check:
       # the fields of decodedIndex must be the same as the original index
+      decodedIndex.isErr == false
       decodedIndex.value.receivedTime == index.receivedTime
       decodedIndex.value.digest.data == index.digest.data
 
@@ -77,6 +78,7 @@ procSuite "Waku Store":
 
     check:
       # the decodedPagingDirection must be the same as the original pagingDirection
+      decodedPagingDirection.isErr == false
       decodedPagingDirection.value == pagingDirection
 
   test "PagingInfo Protobuf encod/init test":
@@ -88,6 +90,7 @@ procSuite "Waku Store":
 
     check:
       # the fields of decodedPagingInfo must be the same as the original pagingInfo
+      decodedPagingInfo.isErr == false
       decodedPagingInfo.value.pageSize == pagingInfo.pageSize
       decodedPagingInfo.value.cursor == pagingInfo.cursor
       decodedPagingInfo.value.direction == pagingInfo.direction
@@ -102,19 +105,44 @@ procSuite "Waku Store":
 
     check:
       # the fields of decoded query decodedQuery must be the same as the original query query
+      decodedQuery.isErr == false
       decodedQuery.value.topics == query.topics
       decodedQuery.value.pagingInfo == query.pagingInfo
+    
+    let 
+      emptyQuery=HistoryQuery()
+      epb = emptyQuery.encode()
+      decodedEmptyQuery = HistoryQuery.init(epb.buffer)
+
+    check:
+      # check the correctness of init and encode for empty HistoryQuery
+      decodedEmptyQuery.isErr == false
+      decodedEmptyQuery.value.topics == emptyQuery.topics
+      decodedEmptyQuery.value.pagingInfo == emptyQuery.pagingInfo
   
   test "HistoryResponse Protobuf encod/init test":
     let
       wm = WakuMessage(payload: @[byte 1], contentTopic: "topic 1")
       index = computeIndex(wm)
       pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
-      res=HistoryResponse(messages: @[wm], pagingInfo: pagingInfo)
+      res=HistoryResponse(messages: @[wm], pagingInfo:pagingInfo)
       pb = res.encode()
       decodedRes = HistoryResponse.init(pb.buffer)
 
     check:
       # the fields of decoded response decodedRes must be the same as the original response res
+      decodedRes.isErr == false
       decodedRes.value.messages == res.messages
       decodedRes.value.pagingInfo == res.pagingInfo
+    
+    let 
+      emptyRes=HistoryResponse()
+      epb = emptyRes.encode()
+      decodedEmptyRes = HistoryResponse.init(epb.buffer)
+
+    check:
+      # check the correctness of init and encode for empty HistoryResponse
+      decodedEmptyRes.isErr == false
+      decodedEmptyRes.value.messages == emptyRes.messages
+      decodedEmptyRes.value.pagingInfo == emptyRes.pagingInfo
+    
