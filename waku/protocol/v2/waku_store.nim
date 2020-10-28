@@ -25,7 +25,6 @@ proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
   var data: seq[byte]
   discard ? pb.getField(1, data)
 
-  echo "here is the encoded data ", data
   # create digest from data
   index.digest = MDigest[256]()
   var count = 0
