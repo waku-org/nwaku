@@ -20,8 +20,9 @@ procSuite "Waku Store":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
-      msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: "topic")
-      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: "topic2")
+      topic = ContentTopic(1)
+      msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic)
+      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(2))
 
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()
@@ -32,7 +33,7 @@ procSuite "Waku Store":
     let
       proto = WakuStore.init(dialSwitch, crypto.newRng())
       subscription = proto.subscription()
-      rpc = HistoryQuery(topics: @["topic"])
+      rpc = HistoryQuery(topics: @[topic])
 
     proto.setPeer(listenSwitch.peerInfo)
 

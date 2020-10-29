@@ -17,7 +17,7 @@ the consumer wants to make. These methods are:
 ```Nim
 proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
-    extIp = none[ValidIpAddress](), extPort = none[Port](), topics = newSeq[string]()): T =
+    extIp = none[ValidIpAddress](), extPort = none[Port]()): T =
   ## Creates a Waku Node.
   ##
   ## Status: Implemented.
@@ -40,11 +40,15 @@ proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHa
   ##
   ## Status: Implemented.
 
-proc unsubscribe*(w: WakuNode, topic: Topic) =
-  ## Unsubscribe from a topic.
+proc unsubscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) {.async.} =
+  ## Unsubscribes a handler from a PubSub topic.
   ##
-  ## Status: Not yet implemented.
-  ## TODO Implement.
+  ## Status: Implemented.
+
+proc unsubscribeAll*(node: WakuNode, topic: Topic) {.async.} =
+  ## Unsubscribes all handlers registered on a specific PubSub topic.
+  ##
+  ## Status: Implemented.
 
 proc unsubscribe*(w: WakuNode, contentFilter: ContentFilter) =
   ## Unsubscribe from a content filter.

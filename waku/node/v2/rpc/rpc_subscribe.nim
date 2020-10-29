@@ -23,5 +23,5 @@ waitfor client.connect("localhost", rpcPort)
 echo "Subscribing"
 
 # Subscribe to waku topic
-var res = waitFor client.wakuSubscribe("waku")
+var res = waitFor client.wakuSubscribe("/waku/2/default-waku/proto")
 echo res

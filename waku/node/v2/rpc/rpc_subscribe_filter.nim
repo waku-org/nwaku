@@ -26,7 +26,7 @@ echo "Input is:", input
 var node = newRpcHttpClient()
 waitfor node.connect("localhost", rpcPort)
 
-let pubSubTopic = "waku"
+let pubSubTopic = "/waku/2/default-waku/proto"
 let contentTopic = "foobar"
 var res = waitfor node.wakuSubscribeFilter(pubSubTopic, @[@[contentTopic]])
 echo "Waku query response: ", res

@@ -40,7 +40,7 @@ proc encode*(rpc: FilterRequest): ProtoBuffer =
 proc init*(T: type ContentFilter, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
 
-  var topics: seq[string]
+  var topics: seq[ContentTopic]
   discard ? pb.getRepeatedField(1, topics)
 
   ok(ContentFilter(topics: topics))

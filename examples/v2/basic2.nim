@@ -21,10 +21,11 @@ proc runBackground() {.async.} =
     (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
       Port(uint16(conf.tcpPort) + conf.portsShift),
       Port(uint16(conf.udpPort) + conf.portsShift))
-    node = WakuNode.init(conf.nodeKey, conf.libp2pAddress,
+    node = WakuNode.init(conf.nodeKey, conf.listenAddress,
       Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
 
   await node.start()
+  await node.mountRelay()
 
   # Subscribe to a topic
   let topic = cast[Topic]("foobar")
@@ -36,7 +37,7 @@ proc runBackground() {.async.} =
 
   # Publish to a topic
   let payload = cast[seq[byte]]("hello world")
-  let message = WakuMessage(payload: payload, contentTopic: "foo")
+  let message = WakuMessage(payload: payload, contentTopic: ContentTopic(1))
   node.publish(topic, message)
 
 # TODO Await with try/except here

@@ -1,5 +1,5 @@
 import
-  std/[options, tables],
+  std/[options, tables, strutils],
   chronos, chronicles, stew/shims/net as stewNet,
   # TODO: Why do we need eth keys?
   eth/keys,
@@ -12,6 +12,8 @@ import
   libp2p/standard_setup,
   ../../protocol/v2/[waku_relay, waku_store, waku_filter, message_notifier],
   ./waku_types
+
+export waku_types
 
 logScope:
   topics = "wakunode"
@@ -53,7 +55,7 @@ template tcpEndPoint(address, port): auto =
 
 proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
-    extIp = none[ValidIpAddress](), extPort = none[Port](), topics = newSeq[string]()): T =
+    extIp = none[ValidIpAddress](), extPort = none[Port]()): T =
   ## Creates a Waku Node.
   ##
   ## Status: Implemented.
@@ -78,34 +80,13 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   #    msgIdProvider = msgIdProvider,
   #    triggerSelf = true, sign = false,
   #    verifySignature = false).PubSub
-  let wakuRelay = WakuRelay.init(
-    switch = switch,
-    # Use default
-    #msgIdProvider = msgIdProvider,
-    triggerSelf = true,
-    sign = false,
-    verifySignature = false)
-  # This gets messy with: .PubSub
-  switch.mount(wakuRelay)
-
   result = WakuNode(
     switch: switch,
     rng: rng,
     peerInfo: peerInfo,
-    wakuRelay: wakuRelay,
     subscriptions: newTable[string, MessageNotificationSubscription](),
     filters: initTable[string, Filter]()
   )
-
-  # TODO This is _not_ safe. Subscribe should happen in start and after things settled down.
-  # Otherwise GRAFT message isn't sent to a node.
-  for topic in topics:
-    proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      debug "Hit handler", topic=topic, data=data
-
-    # XXX: Is using discard here fine? Not sure if we want init to be async?
-    # Can also move this to the start proc, possibly wiser?
-    discard result.subscribe(topic, handler)
 
 proc start*(node: WakuNode) {.async.} =
   ## Starts a created Waku Node.
@@ -113,30 +94,7 @@ proc start*(node: WakuNode) {.async.} =
   ## Status: Implemented.
   ##
   node.libp2pTransportLoops = await node.switch.start()
-
-  # NOTE WakuRelay is being instantiated as part of initing node
-
-  node.wakuStore = WakuStore.init(node.switch, node.rng)
-  node.switch.mount(node.wakuStore)
-  node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
-
-  proc filterHandler(requestId: string, msg: MessagePush) {.gcsafe.} =
-    info "push received"
-    for message in msg.messages:
-      node.filters.notify(message, requestId)
-
-  node.wakuFilter = WakuFilter.init(node.switch, node.rng, filterHandler)
-  node.switch.mount(node.wakuFilter)
-  node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
-
-  proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-    let msg = WakuMessage.init(data)
-    if msg.isOk():
-      node.filters.notify(msg.value(), "")
-      await node.subscriptions.notify(topic, msg.value())
-
-  await node.wakuRelay.subscribe("waku", relayHandler)
-
+  
   # TODO Get this from WakuNode obj
   let peerInfo = node.peerInfo
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
@@ -145,8 +103,8 @@ proc start*(node: WakuNode) {.async.} =
   info "Listening on", full = listenStr
 
 proc stop*(node: WakuNode) {.async.} =
-  let wakuRelay = node.wakuRelay
-  await wakuRelay.stop()
+  if not node.wakuRelay.isNil:
+    await node.wakuRelay.stop()
 
   await node.switch.stop()
 
@@ -168,16 +126,30 @@ proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHa
   ## Status: Implemented.
   info "subscribe content", filter=request
 
-  # @TODO: ERROR HANDLING
-  let id = await node.wakuFilter.subscribe(request)
+  var id = generateRequestId(node.rng)
+  if node.wakuFilter.isNil == false:
+    # @TODO: ERROR HANDLING
+    id = await node.wakuFilter.subscribe(request)
   node.filters[id] = Filter(contentFilters: request.contentFilters, handler: handler)
 
-proc unsubscribe*(w: WakuNode, topic: Topic) =
-  echo "NYI"
-  ## Unsubscribe from a topic.
+proc unsubscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) {.async.} =
+  ## Unsubscribes a handler from a PubSub topic.
   ##
-  ## Status: Not yet implemented.
-  ## TODO Implement.
+  ## Status: Implemented.
+  info "unsubscribe", topic=topic
+
+  let wakuRelay = node.wakuRelay
+  await wakuRelay.unsubscribe(@[(topic, handler)])
+
+proc unsubscribeAll*(node: WakuNode, topic: Topic) {.async.} =
+  ## Unsubscribes all handlers registered on a specific PubSub topic.
+  ##
+  ## Status: Implemented.
+  info "unsubscribeAll", topic=topic
+
+  let wakuRelay = node.wakuRelay
+  await wakuRelay.unsubscribeAll(topic)
+  
 
 proc unsubscribe*(w: WakuNode, contentFilter: waku_types.ContentFilter) =
   echo "NYI"
@@ -223,52 +195,117 @@ proc info*(node: WakuNode): WakuInfo =
   let wakuInfo = WakuInfo(listenStr: listenStr)
   return wakuInfo
 
+proc mountFilter*(node: WakuNode) =
+  info "mounting filter"
+  proc filterHandler(requestId: string, msg: MessagePush) {.gcsafe.} =
+    info "push received"
+    for message in msg.messages:
+      node.filters.notify(message, requestId)
+
+  node.wakuFilter = WakuFilter.init(node.switch, node.rng, filterHandler)
+  node.switch.mount(node.wakuFilter)
+  node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
+
+proc mountStore*(node: WakuNode) =
+  info "mounting store"
+  node.wakuStore = WakuStore.init(node.switch, node.rng)
+  node.switch.mount(node.wakuStore)
+  node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
+
+proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.async, gcsafe.} =
+  let wakuRelay = WakuRelay.init(
+    switch = node.switch,
+    # Use default
+    #msgIdProvider = msgIdProvider,
+    triggerSelf = true,
+    sign = false,
+    verifySignature = false
+  )
+
+  node.wakuRelay = wakuRelay
+  node.switch.mount(wakuRelay)
+
+  info "mounting relay"
+  proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+    let msg = WakuMessage.init(data)
+    if msg.isOk():
+      node.filters.notify(msg.value(), "")
+      await node.subscriptions.notify(topic, msg.value())
+
+  await node.wakuRelay.subscribe("/waku/2/default-waku/proto", relayHandler)
+
+  for topic in topics:
+    proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+      debug "Hit handler", topic=topic, data=data
+
+    # XXX: Is using discard here fine? Not sure if we want init to be async?
+    # Can also move this to the start proc, possibly wiser?
+    discard node.subscribe(topic, handler)
+
+## Helpers
+proc parsePeerInfo(address: string): PeerInfo =
+  let multiAddr = MultiAddress.initAddress(address)
+  let parts = address.split("/")
+  return PeerInfo.init(parts[^1], [multiAddr])
+
+proc dialPeer*(n: WakuNode, address: string) {.async.} =
+  info "dialPeer", address = address
+  # XXX: This turns ipfs into p2p, not quite sure why
+  let remotePeer = parsePeerInfo(address)
+
+  info "Dialing peer", ma = remotePeer.addrs[0]
+  # NOTE This is dialing on WakuRelay protocol specifically
+  # TODO Keep track of conn and connected state somewhere (WakuRelay?)
+  #p.conn = await p.switch.dial(remotePeer, WakuRelayCodec)
+  #p.connected = true
+  discard await n.switch.dial(remotePeer, WakuRelayCodec)
+  info "Post switch dial"
+
+proc setStorePeer*(n: WakuNode, address: string) =
+  info "dialPeer", address = address
+
+  let remotePeer = parsePeerInfo(address)
+
+  n.wakuStore.setPeer(remotePeer)
+
+proc setFilterPeer*(n: WakuNode, address: string) =
+  info "dialPeer", address = address
+
+  let remotePeer = parsePeerInfo(address)
+
+  n.wakuFilter.setPeer(remotePeer)
+
+proc connectToNodes*(n: WakuNode, nodes: seq[string]) {.async.} =
+  for nodeId in nodes:
+    info "connectToNodes", node = nodeId
+    # XXX: This seems...brittle
+    await dialPeer(n, nodeId)
+
+  # The issue seems to be around peers not being fully connected when
+  # trying to subscribe. So what we do is sleep to guarantee nodes are
+  # fully connected.
+  #
+  # This issue was known to Dmitiry on nim-libp2p and may be resolvable
+  # later.
+  await sleepAsync(5.seconds)
+
+proc connectToNodes*(n: WakuNode, nodes: seq[PeerInfo]) {.async.} =
+  for peerInfo in nodes:
+    info "connectToNodes", peer = peerInfo
+    discard await n.switch.dial(peerInfo, WakuRelayCodec)
+
+  # The issue seems to be around peers not being fully connected when
+  # trying to subscribe. So what we do is sleep to guarantee nodes are
+  # fully connected.
+  #
+  # This issue was known to Dmitiry on nim-libp2p and may be resolvable
+  # later.
+  await sleepAsync(5.seconds)
+
 when isMainModule:
   import
-    std/strutils,
     confutils, json_rpc/rpcserver, metrics,
     ./config, ./rpc/wakurpc, ../common
-
-  proc parsePeerInfo(address: string): PeerInfo =
-    let multiAddr = MultiAddress.initAddress(address)
-    let parts = address.split("/")
-    return PeerInfo.init(parts[^1], [multiAddr])
-
-  proc dialPeer(n: WakuNode, address: string) {.async.} =
-    info "dialPeer", address = address
-    # XXX: This turns ipfs into p2p, not quite sure why
-    let remotePeer = parsePeerInfo(address)
-
-    info "Dialing peer", ma = remotePeer.addrs[0]
-    # NOTE This is dialing on WakuRelay protocol specifically
-    # TODO Keep track of conn and connected state somewhere (WakuRelay?)
-    #p.conn = await p.switch.dial(remotePeer, WakuRelayCodec)
-    #p.connected = true
-    discard n.switch.dial(remotePeer, WakuRelayCodec)
-    info "Post switch dial"
-
-  proc setStorePeer(n: WakuNode, address: string) =
-    info "dialPeer", address = address
-
-    let remotePeer = parsePeerInfo(address)
-
-    n.wakuStore.setPeer(remotePeer)
-
-  proc setFilterPeer(n: WakuNode, address: string) =
-    info "dialPeer", address = address
-
-    let remotePeer = parsePeerInfo(address)
-
-    n.wakuFilter.setPeer(remotePeer)
-
-  proc connectToNodes(n: WakuNode, nodes: openArray[string]) =
-    for nodeId in nodes:
-      info "connectToNodes", node = nodeId
-      # XXX: This seems...brittle
-      discard dialPeer(n, nodeId)
-      # Waku 1
-      #    let whisperENode = ENode.fromString(nodeId).expect("correct node")
-      #    traceAsyncErrors node.peerPool.connectToNode(newNode(whisperENode))
 
   proc startRpc(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port) =
     let
@@ -299,13 +336,22 @@ when isMainModule:
     (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
       Port(uint16(conf.tcpPort) + conf.portsShift),
       Port(uint16(conf.udpPort) + conf.portsShift))
-    node = WakuNode.init(conf.nodeKey, conf.libp2pAddress,
-      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort, conf.topics.split(" "))
+    node = WakuNode.init(conf.nodeKey, conf.listenAddress,
+      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
 
   waitFor node.start()
 
+  if conf.store:
+    mountStore(node)
+  
+  if conf.filter:
+    mountFilter(node)
+
+  if conf.relay:
+    waitFor mountRelay(node, conf.topics.split(" "))
+
   if conf.staticnodes.len > 0:
-    connectToNodes(node, conf.staticnodes)
+    waitFor connectToNodes(node, conf.staticnodes)
 
   if conf.storenode != "":
     setStorePeer(node, conf.storenode)

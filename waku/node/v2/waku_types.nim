@@ -3,27 +3,27 @@
 ## TODO Move more common data types here
 
 import
-  std/[tables, sha1],
-  times,
-  chronos, bearssl, stew/byteutils,
+  std/[tables, times],
+  chronos, bearssl, stew/[byteutils, endians2],
   libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
   libp2p/protobuf/minprotobuf,
   libp2p/protocols/protocol,
   libp2p/switch,
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
-  nimcrypto/sha2,
-  stew/byteutils
+  nimcrypto/sha2
 
 # Common data types -----------------------------------------------------------
 
 type
+  ContentTopic* = uint32
+
   Topic* = string
   Message* = seq[byte]
 
   WakuMessage* = object
     payload*: seq[byte]
-    contentTopic*: string
+    contentTopic*: ContentTopic
 
   MessageNotificationHandler* = proc(topic: string, msg: WakuMessage): Future[
       void] {.gcsafe, closure.}
@@ -59,7 +59,7 @@ type
     direction*: PagingDirection
 
   HistoryQuery* = object
-    topics*: seq[string]
+    topics*: seq[ContentTopic]
     pagingInfo*: PagingInfo
 
   HistoryResponse* = object
@@ -110,7 +110,7 @@ type
     pushHandler*: MessagePushHandler
 
   ContentFilter* = object
-    topics*: seq[string]
+    topics*: seq[ContentTopic]
 
   ContentFilterHandler* = proc(msg: WakuMessage) {.gcsafe, closure.}
 
