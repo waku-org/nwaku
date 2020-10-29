@@ -207,7 +207,7 @@ proc mountFilter*(node: WakuNode) =
   node.switch.mount(node.wakuFilter)
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
-proc mountStore*(node: WakuNode, path: string) =
+proc mountStore*(node: WakuNode, path = "") =
   var db = db_sqlite.open(path, "", "", "")
   info "mounting store"
   node.wakuStore = WakuStore.init(node.switch, node.rng, db)
