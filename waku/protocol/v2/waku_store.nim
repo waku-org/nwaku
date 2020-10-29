@@ -194,8 +194,7 @@ method init*(ws: WakuStore) =
 
     let value = res.value
     let response = ws.findMessages(res.value.query)
-    await conn.writeLp(HistoryRPC(requestId: value.requestId,
-        response: response).encode().buffer)
+    await conn.writeLp(HistoryRPC(requestId: value.requestId, response: response).encode().buffer)
 
   ws.handler = handle
   ws.codec = WakuStoreCodec
@@ -220,8 +219,7 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
 
   MessageNotificationSubscription.init(@[], handle)
 
-proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.
-    async, gcsafe.} =
+proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
   # @TODO We need to be more stratigic about which peers we dial. Right now we just set one on the service.
   # Ideally depending on the query and our set  of peers we take a subset of ideal peers.
   # This will require us to check for various factors such as:
@@ -232,8 +230,7 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.
   let peer = w.peers[0]
   let conn = await w.switch.dial(peer.peerInfo.peerId, peer.peerInfo.addrs, WakuStoreCodec)
 
-  await conn.writeLP(HistoryRPC(requestId: generateRequestId(w.rng),
-      query: query).encode().buffer)
+  await conn.writeLP(HistoryRPC(requestId: generateRequestId(w.rng), query: query).encode().buffer)
 
   var message = await conn.readLp(64*1024)
   let response = HistoryRPC.init(message)
