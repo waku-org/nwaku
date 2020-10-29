@@ -125,10 +125,13 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   ## the filter should be used by the component that receives
   ## new messages.
   proc handle(topic: string, msg: WakuMessage) {.async.} =
-    proto.db.exec(
-      sql"INSERT INTO messages (topic, contentTopic, payload) VALUES (?, ?, ?)", 
-      topic, msg.contentTopic, cast[string](msg.payload)
-    )
+    try:
+      proto.db.exec(
+        sql"INSERT INTO messages (topic, contentTopic, payload) VALUES (?, ?, ?)",
+        topic, msg.contentTopic, cast[string](msg.payload)
+      )
+    except:
+      warn "dropped message due to sqlite error: " & getCurrentExceptionMsg()
 
   MessageNotificationSubscription.init(@[], handle)
 

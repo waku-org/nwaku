@@ -138,7 +138,7 @@ type
       name: "filternode" }: string
 
     dbpath* {.
-      desc: "DB path for waku store.",
+      desc: "DB path for waku store protocol in WakuV2.",
       defaultValue: ""
       name: "dbpath" }: string
 
