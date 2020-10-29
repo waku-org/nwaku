@@ -187,7 +187,7 @@ proc computeIndex*(msg: WakuMessage): Index =
   ## Takes a WakuMessage and returns its index
   var ctx: sha256
   ctx.init()
-  if msg.contentTopic.len != 0: # checks for non-empty contentTopic
+  if msg.contentTopic != 0: # checks for non-empty contentTopic
     ctx.update(msg.contentTopic.toBytes()) # converts the topic to bytes
   ctx.update(msg.payload)
   let digest = ctx.finish() # computes the hash
