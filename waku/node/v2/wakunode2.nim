@@ -34,6 +34,7 @@ type
 
   WakuNodeError* = enum
     FailedToOpenDatabase = "node: failed to open db"
+    FailedToMountStore = "node: failed to mount store"
 
 # NOTE Any difference here in Waku vs Eth2?
 # E.g. Devp2p/Libp2p support, etc.
@@ -218,7 +219,12 @@ proc mountStore*(node: WakuNode, path = ""): Result[void, WakuNodeError] =
     return err(FailedToOpenDatabase)
   
   info "mounting store"
-  node.wakuStore = WakuStore.init(node.switch, node.rng, db)
+
+  let store = WakuStore.init(node.switch, node.rng, db)
+  if store.isErr:
+    return err(FailedToMountStore)
+
+  node.wakuStore = store.value
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
@@ -357,7 +363,7 @@ when isMainModule:
     let res = mountStore(node, conf.dbpath)
     if res.isErr:
       info "failed to mount store"
-      return
+      system.quit(system.QuitFailure)
   
   if conf.filter:
     mountFilter(node)

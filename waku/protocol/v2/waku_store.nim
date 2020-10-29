@@ -18,6 +18,17 @@ logScope:
 const
   WakuStoreCodec* = "/vac/waku/store/2.0.0-beta1"
 
+  ## Table is the SQL query for creating the messages Table.
+  ## It contains:
+  ##  - Pubsub topic stored as a string
+  ##  - 4-Byte ContentTopic stored as an Integer
+  ##  - Payload stored as a blob
+  Table = sql"CREATE TABLE IF NOT EXISTS messages (topic TEXT NOT NULL, contentTopic INTEGER, payload BLOB NOT NULL)"
+
+type
+  StoreError* = enum
+    FailedToCreateDatabase = "store: failed to create db"
+
 proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryQuery()
   let pb = initProtoBuffer(buffer)
@@ -85,12 +96,11 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   for row in w.db.rows(SqlQuery("SELECT contentTopic, payload FROM messages WHERE contentTopic IN (" & topics & ")")):
     result.messages.add(WakuMessage(payload: cast[seq[byte]](row[1]), contentTopic: ContentTopic(row[0].parseInt)))
 
-method init*(ws: WakuStore) =
-  ws.db.exec(sql"""CREATE TABLE IF NOT EXISTS messages (
-                 topic TEXT NOT NULL,
-                 contentTopic   INTEGER,
-                 payload BLOB NOT NULL
-              )""")
+method init*(ws: WakuStore): Result[void, StoreError] =
+  try:
+    ws.db.exec(Table)
+  except:
+    return err(FailedToCreateDatabase)
 
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var message = await conn.readLp(64*1024)
@@ -107,13 +117,16 @@ method init*(ws: WakuStore) =
 
   ws.handler = handle
   ws.codec = WakuStoreCodec
+  ok()
 
-proc init*(T: type WakuStore, switch: Switch, rng: ref BrHmacDrbgContext, db: DbConn): T =
-  new result
-  result.rng = rng
-  result.switch = switch
-  result.db = db
-  result.init()
+proc init*(T: type WakuStore, switch: Switch, rng: ref BrHmacDrbgContext, db: DbConn): Result[T, StoreError] =
+  let res = new WakuStore
+  res.rng = rng
+  res.switch = switch
+  res.db = db
+  ? res.init()
+
+  ok(res)
 
 # @TODO THIS SHOULD PROBABLY BE AN ADD FUNCTION AND APPEND THE PEER TO AN ARRAY
 proc setPeer*(ws: WakuStore, peer: PeerInfo) =
