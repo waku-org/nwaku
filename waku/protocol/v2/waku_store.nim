@@ -60,8 +60,8 @@ proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
 
   # create digest from data
   index.digest = MDigest[256]()
-  for i, b in data:
-    index.digest.data[i] = b
+  for count, b in data:
+    index.digest.data[count] = b
 
   # read the receivedTime
   var receivedTime: float64
