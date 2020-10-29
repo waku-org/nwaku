@@ -60,7 +60,7 @@ procSuite "Waku Store":
 
   test "Index Protobuf encoder/decoder test":
     let
-      index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: "topic 1"))
+      index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: ContentTopic(1)))
       pb = index.encode()
       decodedIndex = Index.init(pb.buffer)
 
@@ -93,7 +93,7 @@ procSuite "Waku Store":
 
   test "PagingInfo Protobuf encod/init test":
     let
-      index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: "topic 1"))
+      index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: ContentTopic(1)))
       pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
       pb = pagingInfo.encode()
       decodedPagingInfo = PagingInfo.init(pb.buffer)
@@ -115,9 +115,9 @@ procSuite "Waku Store":
   
   test "HistoryQuery Protobuf encod/init test":
     let
-      index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: "topic 1"))
+      index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: ContentTopic(1)))
       pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
-      query=HistoryQuery(topics: @["topic1"], pagingInfo: pagingInfo)
+      query=HistoryQuery(topics: @[ContentTopic(1)], pagingInfo: pagingInfo)
       pb = query.encode()
       decodedQuery = HistoryQuery.init(pb.buffer)
 
@@ -138,7 +138,7 @@ procSuite "Waku Store":
   
   test "HistoryResponse Protobuf encod/init test":
     let
-      wm = WakuMessage(payload: @[byte 1], contentTopic: "topic 1")
+      wm = WakuMessage(payload: @[byte 1], contentTopic: ContentTopic(1))
       index = computeIndex(wm)
       pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
       res = HistoryResponse(messages: @[wm], pagingInfo:pagingInfo)
