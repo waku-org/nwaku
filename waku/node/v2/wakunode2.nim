@@ -32,6 +32,9 @@ type
   Topic* = waku_types.Topic
   Message* = seq[byte]
 
+  WakuNodeError* = enum
+    FailedToOpenDatabase = "node: failed to open db"
+
 # NOTE Any difference here in Waku vs Eth2?
 # E.g. Devp2p/Libp2p support, etc.
 #func asLibp2pKey*(key: keys.PublicKey): PublicKey =
@@ -207,12 +210,19 @@ proc mountFilter*(node: WakuNode) =
   node.switch.mount(node.wakuFilter)
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
-proc mountStore*(node: WakuNode, path = "") =
-  var db = db_sqlite.open(path, "", "", "")
+proc mountStore*(node: WakuNode, path = ""): Result[void, WakuNodeError] =
+  var db: DbConn
+  try:
+    db = db_sqlite.open(path, "", "", "")
+  except:
+    return err(FailedToOpenDatabase)
+  
   info "mounting store"
   node.wakuStore = WakuStore.init(node.switch, node.rng, db)
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
+
+  ok()
 
 proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.async, gcsafe.} =
   let wakuRelay = WakuRelay.init(
@@ -344,7 +354,10 @@ when isMainModule:
   waitFor node.start()
 
   if conf.store:
-    mountStore(node, conf.dbpath)
+    let res = mountStore(node, conf.dbpath)
+    if res.isErr:
+      info "failed to mount store"
+      return
   
   if conf.filter:
     mountFilter(node)

@@ -76,7 +76,10 @@ proc startWakuV2(config: WakuNodeConf): Future[WakuNode] {.async.} =
   await node.start()
 
   if config.store:
-    mountStore(node, config.dbpath)
+    let res = mountStore(node, conf.dbpath)
+    if res.isErr:
+      info "failed to mount store"
+      return
 
   if config.filter:
     mountFilter(node)
