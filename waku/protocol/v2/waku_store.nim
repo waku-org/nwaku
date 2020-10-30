@@ -16,7 +16,6 @@ logScope:
 const
   WakuStoreCodec* = "/vac/waku/store/2.0.0-beta1"
 
-
 proc encode*(index: Index): ProtoBuffer =
   ## encodes an Index object into a ProtoBuffer
   ## returns the resultant ProtoBuffer
