@@ -109,7 +109,7 @@ procSuite "pagination":
         IndexedWakuMessage(msg: WakuMessage(payload: @[byte 9]),
             index: computeIndex(WakuMessage(payload: @[byte 9])))]
 
-      pagingInfo = PagingInfo(pageSize: 2, cursor: msgList[3].index, direction: true)
+      pagingInfo = PagingInfo(pageSize: 2, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
 
     # test for a normal pagination
     var (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
@@ -120,7 +120,7 @@ procSuite "pagination":
       newPagingInfo.pageSize == pagingInfo.pageSize
     
     # test for a page size larger than the remaining messages
-    pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[3].index, direction: true)
+    pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
     check:
       data == msgList[4..9]
@@ -129,7 +129,7 @@ procSuite "pagination":
       newPagingInfo.pageSize == 6
 
     # test for a page size larger than the maximum allowed page size
-    pagingInfo = PagingInfo(pageSize: MaxPageSize+1, cursor: msgList[3].index, direction: true)
+    pagingInfo = PagingInfo(pageSize: MaxPageSize+1, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
     check:
       data.len <= MaxPageSize
@@ -137,7 +137,7 @@ procSuite "pagination":
       newPagingInfo.pageSize <= MaxPageSize
 
     # test for a cursor poiting to the end of the message list
-    pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[9].index, direction: true)
+    pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[9].index, direction: PagingDirection.FORWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
     check:
       data.len == 0
@@ -146,7 +146,7 @@ procSuite "pagination":
       newPagingInfo.pageSize == 0
     
     # test for an invalid cursor 
-    pagingInfo = PagingInfo(pageSize: 10, cursor: computeIndex(WakuMessage(payload: @[byte 10])), direction: true)
+    pagingInfo = PagingInfo(pageSize: 10, cursor: computeIndex(WakuMessage(payload: @[byte 10])), direction: PagingDirection.FORWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
     check:
       data.len == 0
@@ -177,7 +177,7 @@ procSuite "pagination":
         IndexedWakuMessage(msg: WakuMessage(payload: @[byte 9]),
             index: computeIndex(WakuMessage(payload: @[byte 9])))]
 
-      pagingInfo = PagingInfo(pageSize: 2, cursor: msgList[3].index, direction: false)
+      pagingInfo = PagingInfo(pageSize: 2, cursor: msgList[3].index, direction: PagingDirection.BACKWARD)
 
     # test for a normal pagination
     var (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
@@ -188,7 +188,7 @@ procSuite "pagination":
       newPagingInfo.pageSize == pagingInfo.pageSize
       
     # test for a page size larger than the remaining messages
-    pagingInfo = PagingInfo(pageSize: 5, cursor: msgList[3].index, direction: false)
+    pagingInfo = PagingInfo(pageSize: 5, cursor: msgList[3].index, direction: PagingDirection.BACKWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
     check:
       data == msgList[0..2]
@@ -197,7 +197,7 @@ procSuite "pagination":
       newPagingInfo.pageSize == 3
     
     # test for a page size larger than the Maximum allowed page size
-    pagingInfo = PagingInfo(pageSize: MaxPageSize+1, cursor: msgList[3].index, direction: false)
+    pagingInfo = PagingInfo(pageSize: MaxPageSize+1, cursor: msgList[3].index, direction: PagingDirection.BACKWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
     check:
       data.len <= MaxPageSize
@@ -205,7 +205,7 @@ procSuite "pagination":
       newPagingInfo.pageSize <= MaxPageSize
 
     # test for a cursor poiting to the end of the message list
-    pagingInfo = PagingInfo(pageSize: 5, cursor: msgList[0].index, direction: false)
+    pagingInfo = PagingInfo(pageSize: 5, cursor: msgList[0].index, direction: PagingDirection.BACKWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
     check:
       data.len == 0
@@ -214,7 +214,7 @@ procSuite "pagination":
       newPagingInfo.pageSize == 0
 
     # test for an invalid cursor 
-    pagingInfo = PagingInfo(pageSize: 5, cursor: computeIndex(WakuMessage(payload: @[byte 10])), direction: false)
+    pagingInfo = PagingInfo(pageSize: 5, cursor: computeIndex(WakuMessage(payload: @[byte 10])), direction: PagingDirection.BACKWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
     check:
       data.len == 0
