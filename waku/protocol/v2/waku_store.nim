@@ -240,8 +240,8 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
         sql"INSERT INTO messages (topic, contentTopic, payload) VALUES (?, ?, ?)",
         topic, msg.contentTopic, cast[string](msg.payload)
       )
-    except:
-      warn "dropped message due to sqlite error: " & getCurrentExceptionMsg()
+    except DbError as e:
+      warn "dropped message due to sqlite error", error = e.msg
 
   MessageNotificationSubscription.init(@[], handle)
 
