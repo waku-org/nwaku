@@ -362,7 +362,7 @@ when isMainModule:
   if conf.store:
     let res = mountStore(node, conf.dbpath)
     if res.isErr:
-      info "failed to mount store"
+      error "failed to mount store"
       system.quit(system.QuitFailure)
   
   if conf.filter:

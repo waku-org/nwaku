@@ -176,7 +176,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   if conf.storenode != "":
     let res = node.mountStore(conf.dbpath)
     if res.isErr:
-      info "failed to mount store"
+      error "failed to mount store"
       return
 
     node.wakuStore.setPeer(parsePeer(conf.storenode))
