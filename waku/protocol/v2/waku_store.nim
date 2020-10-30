@@ -185,8 +185,9 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
   ## takes msgList, and perfomrs paging based on pinfo 
   ## returns the retrieved IndexedWakuMessage
   
-  # TODO set a default pagingInfo, and use the default values for any empty/invalid field of the pinfo
+  # @TODO set a default pagingInfo, and use the default values for any empty/invalid field of the pinfo
   var msgList:seq[IndexedWakuMessage]= list # makes a copy of the list
+  echo msgList
   msgList.sort(indexedWakuMessageComparison) # sorts msgList based on the custom comparison proc indexedWakuMessageComparison
   let
     cursor = pinfo.cursor
@@ -200,15 +201,15 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
   var retrievedPageSize, s, e: int
   var newCursor: Index
   case dir
-    of true: # forward pagination
+    of PagingDirection.FORWARD: # forward pagination
       let remainingMessages= msgList.len - foundIndex - 1
-      retrievedPageSize = min(pageSize, MaxPageSize).min(remainingMessages) # the number of queried messages cannot exceed the MaxPageSize and the total remaining messages i.e., msgList.len-found
+      retrievedPageSize = min( int(pageSize), MaxPageSize).min(remainingMessages)  # the number of queried messages cannot exceed the MaxPageSize and the total remaining messages i.e., msgList.len-found
       s=foundIndex+1
       e=foundIndex+retrievedPageSize
       newCursor= msgList[e].index
-    of false: # backward pagination
+    of PagingDirection.BACKWARD: # backward pagination
       let remainingMessages=foundIndex
-      retrievedPageSize = min(pageSize, MaxPageSize).min(remainingMessages) # the number of queried messages cannot exceed the MaxPageSize and the total remaining messages i.e., msgList.len-found
+      retrievedPageSize = min( int(pageSize), MaxPageSize).min(remainingMessages) # the number of queried messages cannot exceed the MaxPageSize and the total remaining messages i.e., msgList.len-found
       s= foundIndex-retrievedPageSize
       e= foundIndex-1
       newCursor= msgList[s].index
@@ -217,7 +218,7 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
   for i in s..e:
     result[0].add(msgList[i])
 
-  result[1] = PagingInfo(pageSize: retrievedPageSize, cursor:newCursor, direction: pinfo.direction)
+  result[1] = PagingInfo(pageSize: uint64(retrievedPageSize), cursor:newCursor, direction: pinfo.direction)
 
 
 proc paginateWithoutIndex( list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[WakuMessage], PagingInfo) =
