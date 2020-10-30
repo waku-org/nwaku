@@ -147,6 +147,7 @@ type
   WakuResult*[T] = Result[T, cstring]
 
 const MaxPageSize* = 100 # maximum number of waku messages in each page 
+const DefaultPageSize* = 10 # maximum number of waku messages in each page 
 
   # Encoding and decoding -------------------------------------------------------
 
@@ -224,12 +225,3 @@ proc indexedWakuMessageComparison* (x, y: IndexedWakuMessage): int =
   ## returns 1 if x > y
   result= indexComparison(x.index, y.index)
 
-proc `==`* (x, y: Index): bool =
-  ## returns true if x == y, otherwise false
-  let
-    timecmp = x.receivedTime == y.receivedTime 
-    digestcm= x.digest.data == y.digest.data
-  result=timecmp and digestcm
-
-#[proc `$`* (iwm: IndexedWakuMessage): string=
-  result= "msg: " & $iwm.msg & " index:" & $iwm.index]#
