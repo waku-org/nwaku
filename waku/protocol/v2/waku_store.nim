@@ -23,7 +23,7 @@ const
   ##  - Pubsub topic stored as a string
   ##  - 4-Byte ContentTopic stored as an Integer
   ##  - Payload stored as a blob
-  Table = sql"CREATE TABLE IF NOT EXISTS messages (topic TEXT NOT NULL, contentTopic INTEGER, payload BLOB NOT NULL)"
+  Table = sql"CREATE TABLE IF NOT EXISTS messages (topic TEXT NOT NULL, contentTopic INTEGER NOT NULL, payload BLOB NOT NULL)"
 
 type
   StoreError* = enum
