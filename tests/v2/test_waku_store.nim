@@ -58,3 +58,106 @@ procSuite "Waku Store":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
+
+  test "Index Protobuf encoder/decoder test":
+    let
+      index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: ContentTopic(1)))
+      pb = index.encode()
+      decodedIndex = Index.init(pb.buffer)
+
+    check:
+      # the fields of decodedIndex must be the same as the original index
+      decodedIndex.isErr == false
+      decodedIndex.value == index
+
+    let
+      emptyIndex = Index()
+      epb = emptyIndex.encode()
+      decodedEmptyIndex = Index.init(epb.buffer)
+
+    check:
+      # check the correctness of init and encode for an empty Index
+      decodedEmptyIndex.isErr == false
+      decodedEmptyIndex.value == emptyIndex
+
+
+  test "PagingDirection Protobuf encod/init test":
+    let
+      pagingDirection = PagingDirection.BACKWARD
+      pb = pagingDirection.encode()
+      decodedPagingDirection = PagingDirection.init(pb.buffer)
+
+    check:
+      # the decodedPagingDirection must be the same as the original pagingDirection
+      decodedPagingDirection.isErr == false
+      decodedPagingDirection.value == pagingDirection
+
+  test "PagingInfo Protobuf encod/init test":
+    let
+      index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: ContentTopic(1)))
+      pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
+      pb = pagingInfo.encode()
+      decodedPagingInfo = PagingInfo.init(pb.buffer)
+
+    check:
+      # the fields of decodedPagingInfo must be the same as the original pagingInfo
+      decodedPagingInfo.isErr == false
+      decodedPagingInfo.value == pagingInfo
+    
+    let
+      emptyPagingInfo = PagingInfo()
+      epb = emptyPagingInfo.encode()
+      decodedEmptyPagingInfo = PagingInfo.init(epb.buffer)
+
+    check:
+      # check the correctness of init and encode for an empty PagingInfo
+      decodedEmptyPagingInfo.isErr == false
+      decodedEmptyPagingInfo.value == emptyPagingInfo
+  
+  test "HistoryQuery Protobuf encod/init test":
+    let
+      index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: ContentTopic(1)))
+      pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
+      query=HistoryQuery(topics: @[ContentTopic(1)], pagingInfo: pagingInfo)
+      pb = query.encode()
+      decodedQuery = HistoryQuery.init(pb.buffer)
+
+    check:
+      # the fields of decoded query decodedQuery must be the same as the original query query
+      decodedQuery.isErr == false
+      decodedQuery.value == query
+    
+    let 
+      emptyQuery=HistoryQuery()
+      epb = emptyQuery.encode()
+      decodedEmptyQuery = HistoryQuery.init(epb.buffer)
+
+    check:
+      # check the correctness of init and encode for an empty HistoryQuery
+      decodedEmptyQuery.isErr == false
+      decodedEmptyQuery.value == emptyQuery
+  
+  test "HistoryResponse Protobuf encod/init test":
+    let
+      wm = WakuMessage(payload: @[byte 1], contentTopic: ContentTopic(1))
+      index = computeIndex(wm)
+      pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
+      res = HistoryResponse(messages: @[wm], pagingInfo:pagingInfo)
+      pb = res.encode()
+      decodedRes = HistoryResponse.init(pb.buffer)
+
+    check:
+      # the fields of decoded response decodedRes must be the same as the original response res
+      decodedRes.isErr == false
+      decodedRes.value == res
+    
+    let 
+      emptyRes=HistoryResponse()
+      epb = emptyRes.encode()
+      decodedEmptyRes = HistoryResponse.init(epb.buffer)
+
+    check:
+      # check the correctness of init and encode for an empty HistoryResponse
+      decodedEmptyRes.isErr == false
+      decodedEmptyRes.value == emptyRes
+    
