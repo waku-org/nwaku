@@ -5,4 +5,5 @@ import
   ./v2/test_wakunode,
   ./v2/test_waku_store,
   ./v2/test_waku_filter,
-  ./v2/test_rpc_waku
+  ./v2/test_rpc_waku,
+  ./v2/test_waku_pagination
