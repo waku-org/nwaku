@@ -24,6 +24,7 @@ type
   WakuMessage* = object
     payload*: seq[byte]
     contentTopic*: ContentTopic
+    version*: string
 
   MessageNotificationHandler* = proc(topic: string, msg: WakuMessage): Future[
       void] {.gcsafe, closure.}
@@ -151,6 +152,7 @@ proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
 
   discard ? pb.getField(1, msg.payload)
   discard ? pb.getField(2, msg.contentTopic)
+  discard ? pb.getField(3, msg.version)
 
   ok(msg)
 
@@ -159,6 +161,7 @@ proc encode*(message: WakuMessage): ProtoBuffer =
 
   result.write(1, message.payload)
   result.write(2, message.contentTopic)
+  result.write(3, message.version)
 
 proc notify*(filters: Filters, msg: WakuMessage, requestId: string = "") =
   for key in filters.keys:
