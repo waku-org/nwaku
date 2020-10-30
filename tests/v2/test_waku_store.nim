@@ -16,7 +16,7 @@ import
   ../test_helpers, ./utils
 
 procSuite "Waku Store":
-  asyncTest "handle query":
+  #[asyncTest "handle query":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
@@ -56,27 +56,27 @@ procSuite "Waku Store":
     await proto.query(rpc, handler)
 
     check:
-      (await completionFut.withTimeout(5.seconds)) == true
+      (await completionFut.withTimeout(5.seconds)) == true]#
   
   asyncTest "handle query with pagination":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
     var
-      msgList = @[IndexedWakuMessage(msg: WakuMessage(payload: @[byte 0], contentTopic: "topic2"),
-          index: computeIndex(WakuMessage(payload: @[byte 0],contentTopic: "topic2"))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 1],contentTopic: "topic"), index: computeIndex(WakuMessage(payload: @[byte 1],contentTopic: "topic"))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 2],contentTopic: "topic"), index: computeIndex(WakuMessage(payload: @[byte 2],contentTopic: "topic"))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 3],contentTopic: "topic"), index: computeIndex(WakuMessage(payload: @[byte 3],contentTopic: "topic"))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 4],contentTopic: "topic"), index: computeIndex(WakuMessage(payload: @[byte 4],contentTopic: "topic"))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 5],contentTopic: "topic"), index: computeIndex(WakuMessage(payload: @[byte 5],contentTopic: "topic"))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 6],contentTopic: "topic"), index: computeIndex(WakuMessage(payload: @[byte 6],contentTopic: "topic"))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 7],contentTopic: "topic"), index: computeIndex(WakuMessage(payload: @[byte 7],contentTopic: "topic"))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 8],contentTopic: "topic"), index: computeIndex(WakuMessage(payload: @[byte 8],contentTopic: "topic"))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 9],contentTopic: "topic2"), index: computeIndex(WakuMessage(payload: @[byte 9],contentTopic: "topic2")))]
+      msgList = @[IndexedWakuMessage(msg: WakuMessage(payload: @[byte 0], contentTopic: ContentTopic(2)),
+          index: computeIndex(WakuMessage(payload: @[byte 0],contentTopic: ContentTopic(2)))),
+        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 1],contentTopic: ContentTopic(1)), index: computeIndex(WakuMessage(payload: @[byte 1],contentTopic: ContentTopic(1)))),
+        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 2],contentTopic: ContentTopic(1)), index: computeIndex(WakuMessage(payload: @[byte 2],contentTopic: ContentTopic(1)))),
+        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 3],contentTopic: ContentTopic(1)), index: computeIndex(WakuMessage(payload: @[byte 3],contentTopic: ContentTopic(1)))),
+        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 4],contentTopic: ContentTopic(1)), index: computeIndex(WakuMessage(payload: @[byte 4],contentTopic: ContentTopic(1)))),
+        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 5],contentTopic: ContentTopic(1)), index: computeIndex(WakuMessage(payload: @[byte 5],contentTopic: ContentTopic(1)))),
+        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 6],contentTopic: ContentTopic(1)), index: computeIndex(WakuMessage(payload: @[byte 6],contentTopic: ContentTopic(1)))),
+        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 7],contentTopic: ContentTopic(1)), index: computeIndex(WakuMessage(payload: @[byte 7],contentTopic: ContentTopic(1)))),
+        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 8],contentTopic: ContentTopic(1)), index: computeIndex(WakuMessage(payload: @[byte 8],contentTopic: ContentTopic(1)))),
+        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 9],contentTopic: ContentTopic(2)), index: computeIndex(WakuMessage(payload: @[byte 9],contentTopic: ContentTopic(2))))]
             
-      #msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: "topic")
-      #msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: "topic2")
+      #msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(1))
+      #msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(2))
 
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()
@@ -87,8 +87,11 @@ procSuite "Waku Store":
     let
       proto = WakuStore.init(dialSwitch, crypto.newRng())
       subscription = proto.subscription()
-      rpc = HistoryQuery(topics: @["topic"], pagingInfo: PagingInfo(pageSize: 2, cursor: msgList[5].index, direction: true) )
+      #rpc = HistoryQuery(topics: @[ContentTopic(1)], pagingInfo: PagingInfo(pageSize: 2, cursor: msgList[5].index, direction: PagingDirection.FORWARD) )
+      rpc = HistoryQuery(topics: @[ContentTopic(1)], pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD) )
 
+    echo "the query before protobuf ", rpc
+    echo "msglist[5] ", msgList[5].index
     proto.setPeer(listenSwitch.peerInfo)
 
     var subscriptions = newTable[string, MessageNotificationSubscription]()
@@ -106,10 +109,11 @@ procSuite "Waku Store":
 
     proc handler(response: HistoryResponse) {.gcsafe, closure.} =
       check:
+        #echo response.messages
         response.messages.len() == 3
         response.messages[0] == msgList[6].msg
         response.messages[1] == msgList[7].msg
-        response.pagingInfo == PagingInfo(pageSize: 5, cursor: msgList[8].index, direction: true)
+        response.pagingInfo == PagingInfo(pageSize: 5, cursor: msgList[8].index, direction: PagingDirection.FORWARD)
       completionFut.complete(true)
 
     await proto.query(rpc, handler)
@@ -117,7 +121,7 @@ procSuite "Waku Store":
     check:
       (await completionFut.withTimeout(5.seconds)) == true
 
-  test "Index Protobuf encoder/decoder test":
+  #[test "Index Protobuf encoder/decoder test":
     let
       index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: ContentTopic(1)))
       pb = index.encode()
@@ -218,4 +222,4 @@ procSuite "Waku Store":
       # check the correctness of init and encode for an empty HistoryResponse
       decodedEmptyRes.isErr == false
       decodedEmptyRes.value == emptyRes
-    
+    ]#
