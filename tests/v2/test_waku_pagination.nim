@@ -7,6 +7,12 @@ import
   ../../waku/protocol/v2/waku_store,
   ../test_helpers
 
+
+proc CreateSampleList( size : int) : seq[IndexedWakuMessage] =
+  let data: array[32, byte] = [byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+  for i in 0..<size:
+    result.add(IndexedWakuMessage(msg: WakuMessage(payload: @[byte i]), index: Index(receivedTime: float64(i), digest: MDigest[256](data: data)) ))
+
 procSuite "pagination":
   test "computeindex: empty contentTopic test":
     let
@@ -70,74 +76,37 @@ procSuite "pagination":
       
   
   test "Find index test": 
-    var
-      msgList = @[IndexedWakuMessage(msg: WakuMessage(payload: @[byte 0]),
-          index: computeIndex(WakuMessage(payload: @[byte 0]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 1]),
-            index: computeIndex(WakuMessage(payload: @[byte 1]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 2]),
-            index: computeIndex(WakuMessage(payload: @[byte 2]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 3]),
-            index: computeIndex(WakuMessage(payload: @[byte 3]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 4]),
-            index: computeIndex(WakuMessage(payload: @[byte 4]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 5]),
-            index: computeIndex(WakuMessage(payload: @[byte 5]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 6]),
-            index: computeIndex(WakuMessage(payload: @[byte 6]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 7]),
-            index: computeIndex(WakuMessage(payload: @[byte 7]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 8]),
-            index: computeIndex(WakuMessage(payload: @[byte 8]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 9]),
-            index: computeIndex(WakuMessage(payload: @[byte 9])))]
-
+    let
+      msgList = CreateSampleList(10)
     check:
       msgList.findIndex( msgList[3].index) == 3
       msgList.findIndex(Index()) == -1 
 
   test "Forward pagination test":
-    var
-      msgList = @[IndexedWakuMessage(msg: WakuMessage(payload: @[byte 0]),
-          index: computeIndex(WakuMessage(payload: @[byte 0]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 1]),
-            index: computeIndex(WakuMessage(payload: @[byte 1]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 2]),
-            index: computeIndex(WakuMessage(payload: @[byte 2]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 3]),
-            index: computeIndex(WakuMessage(payload: @[byte 3]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 4]),
-            index: computeIndex(WakuMessage(payload: @[byte 4]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 5]),
-            index: computeIndex(WakuMessage(payload: @[byte 5]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 6]),
-            index: computeIndex(WakuMessage(payload: @[byte 6]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 7]),
-            index: computeIndex(WakuMessage(payload: @[byte 7]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 8]),
-            index: computeIndex(WakuMessage(payload: @[byte 8]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 9]),
-            index: computeIndex(WakuMessage(payload: @[byte 9])))]
+    let msgList = CreateSampleList(10)
 
-      pagingInfo = PagingInfo(pageSize: 2, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
-
+    var pagingInfo = PagingInfo(pageSize: 2, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
     # test for a normal pagination
     var (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
     check:
+      data.len == 2
       data == msgList[4..5]
       newPagingInfo.cursor == msgList[5].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == pagingInfo.pageSize
-    
+   
+  
     # test for a page size larger than the remaining messages
     pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
     check:
+      data.len == 6
       data == msgList[4..9]
       newPagingInfo.cursor == msgList[9].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 6
-
+  
+   
     # test for a page size larger than the maximum allowed page size
     pagingInfo = PagingInfo(pageSize: MaxPageSize+1, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
@@ -145,7 +114,8 @@ procSuite "pagination":
       data.len <= MaxPageSize
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize <= MaxPageSize
-
+  
+    
     # test for a cursor poiting to the end of the message list
     pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[9].index, direction: PagingDirection.FORWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
@@ -166,26 +136,7 @@ procSuite "pagination":
  
   test "Backward pagination test":
     var
-      msgList = @[IndexedWakuMessage(msg: WakuMessage(payload: @[byte 0]),
-          index: computeIndex(WakuMessage(payload: @[byte 0]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 1]),
-            index: computeIndex(WakuMessage(payload: @[byte 1]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 2]),
-            index: computeIndex(WakuMessage(payload: @[byte 2]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 3]),
-            index: computeIndex(WakuMessage(payload: @[byte 3]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 4]),
-            index: computeIndex(WakuMessage(payload: @[byte 4]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 5]),
-            index: computeIndex(WakuMessage(payload: @[byte 5]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 6]),
-            index: computeIndex(WakuMessage(payload: @[byte 6]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 7]),
-            index: computeIndex(WakuMessage(payload: @[byte 7]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 8]),
-            index: computeIndex(WakuMessage(payload: @[byte 8]))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 9]),
-            index: computeIndex(WakuMessage(payload: @[byte 9])))]
+      msgList = CreateSampleList(10)
 
       pagingInfo = PagingInfo(pageSize: 2, cursor: msgList[3].index, direction: PagingDirection.BACKWARD)
 
@@ -231,7 +182,6 @@ procSuite "pagination":
       newPagingInfo.cursor == pagingInfo.cursor
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 0
-
  
 
-
+    
