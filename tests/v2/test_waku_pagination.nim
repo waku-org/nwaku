@@ -1,6 +1,6 @@
 {.used.}
 import
-  std/unittest,
+  std/[unittest,algorithm],
   nimcrypto/sha2,
   stew/byteutils,
   ../../waku/node/v2/waku_types,
@@ -28,18 +28,20 @@ procSuite "pagination":
     check:
       # the digests of two identical WakuMessages must be the same
       index1.digest == index2.digest
-  test "Index comparison and indexedWakuMessage comparison test":
+  test "Index comparison and indexedWakuMessage comparison and sort test":
     let
       data1: array[32, byte] = [byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
           1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
       data2: array[32, byte] = [byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-          1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-      data3: array[32, byte] = [byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
           1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2]
+      data3: array[32, byte] = [byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+          1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3]
+      
 
       index1: Index = Index(receivedTime: 1, digest: MDigest[256](data: data1))
-      index2: Index = Index(receivedTime: 2, digest: MDigest[256](data: data2))
-      index3: Index = Index(receivedTime: 1, digest: MDigest[256](data: data3))
+      index2: Index = Index(receivedTime: 1, digest: MDigest[256](data: data2))
+      index3: Index = Index(receivedTime: 2, digest: MDigest[256](data: data3))
+      
 
       iwm1 = IndexedWakuMessage(index: index1)
       iwm2 = IndexedWakuMessage(index: index2)
@@ -58,6 +60,14 @@ procSuite "pagination":
       indexedWakuMessageComparison(iwm2, iwm1) == 1
       indexedWakuMessageComparison(iwm1, iwm3) == -1
       indexedWakuMessageComparison(iwm3, iwm1) == 1
+    
+    var sortingList= @[iwm3,iwm1,iwm2 ]
+    sortingList.sort(indexedWakuMessageComparison)
+    check: 
+      sortingList[0] ==  iwm1
+      sortingList[1] ==  iwm2
+      sortingList[2] ==  iwm3
+      
   
   test "Find index test": 
     var

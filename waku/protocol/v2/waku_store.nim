@@ -187,7 +187,6 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
   
   # @TODO set a default pagingInfo, and use the default values for any empty/invalid field of the pinfo
   var msgList:seq[IndexedWakuMessage]= list # makes a copy of the list
-  echo msgList
   msgList.sort(indexedWakuMessageComparison) # sorts msgList based on the custom comparison proc indexedWakuMessageComparison
   let
     cursor = pinfo.cursor
