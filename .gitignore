@@ -23,7 +23,7 @@
 *.exe
 *.dll
 
-.DS_STORE
+.DS_Store
 
 # Ignore simulation generated metrics files
 /metrics/prometheus
