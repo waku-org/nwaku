@@ -1,3 +1,4 @@
+{.used.}
 import
   std/unittest,
   ../../waku/node/v2/waku_types,
