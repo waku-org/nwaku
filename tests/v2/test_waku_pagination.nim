@@ -95,6 +95,16 @@ procSuite "pagination":
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == pagingInfo.pageSize
    
+   # test for an intial pagination request with empty cursor
+    pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD)
+    (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
+    check:
+      data.len == 2
+      data == msgList[0..1]
+      newPagingInfo.cursor == msgList[1].index
+      newPagingInfo.direction == pagingInfo.direction
+      newPagingInfo.pageSize == 2
+
   
     # test for a page size larger than the remaining messages
     pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
@@ -106,7 +116,8 @@ procSuite "pagination":
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 6
   
-   
+    
+
     # test for a page size larger than the maximum allowed page size
     pagingInfo = PagingInfo(pageSize: MaxPageSize+1, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
@@ -147,7 +158,18 @@ procSuite "pagination":
       newPagingInfo.cursor == msgList[1].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == pagingInfo.pageSize
-      
+    
+    # test for an intial pagination request with empty cursor
+    pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD)
+    (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
+    check:
+      data.len == 2
+      data == msgList[8..9]
+      newPagingInfo.cursor == msgList[8].index
+      newPagingInfo.direction == pagingInfo.direction
+      newPagingInfo.pageSize == 2
+
+
     # test for a page size larger than the remaining messages
     pagingInfo = PagingInfo(pageSize: 5, cursor: msgList[3].index, direction: PagingDirection.BACKWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
