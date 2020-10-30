@@ -1,5 +1,5 @@
 import
-  std/tables,
+  std/[tables, sequtils, future, algorithm],
   bearssl,
   chronos, chronicles, metrics, stew/results,
   libp2p/switch,
@@ -173,11 +173,75 @@ proc encode*(rpc: HistoryRPC): ProtoBuffer =
   result.write(2, rpc.query.encode())
   result.write(3, rpc.response.encode())
 
+proc findIndex*(msgList: seq[IndexedWakuMessage], index: Index): int=
+  ## returns the position of an IndexedWakuMessage in msgList whose index matches the given index
+  ## returns -1 if no match is found
+  for i, indexedWakuMessage in msgList:
+    if indexedWakuMessage.index == index:
+      return i
+  return -1
+
+proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWakuMessage], PagingInfo) =
+  ## takes msgList, and perfomrs paging based on pinfo 
+  ## returns the retrieved IndexedWakuMessage
+  
+  # TODO set a default pagingInfo, and use the default values for any empty/invalid field of the pinfo
+  var msgList:seq[IndexedWakuMessage]= list # makes a copy of the list
+  msgList.sort(indexedWakuMessageComparison) # sorts msgList based on the custom comparison proc indexedWakuMessageComparison
+  let
+    cursor = pinfo.cursor
+    pageSize = pinfo.pageSize
+    dir = pinfo.direction
+    foundIndex=msgList.findIndex(cursor)
+
+  if foundIndex == -1: # the cursor is not valid
+    return (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction))
+
+  var retrievedPageSize, s, e: int
+  var newCursor: Index
+  case dir
+    of true: # forward pagination
+      let remainingMessages= msgList.len - foundIndex - 1
+      retrievedPageSize = min(pageSize, MaxPageSize).min(remainingMessages) # the number of queried messages cannot exceed the MaxPageSize and the total remaining messages i.e., msgList.len-found
+      s=foundIndex+1
+      e=foundIndex+retrievedPageSize
+      newCursor= msgList[e].index
+    of false: # backward pagination
+      let remainingMessages=foundIndex
+      retrievedPageSize = min(pageSize, MaxPageSize).min(remainingMessages) # the number of queried messages cannot exceed the MaxPageSize and the total remaining messages i.e., msgList.len-found
+      s= foundIndex-retrievedPageSize
+      e= foundIndex-1
+      newCursor= msgList[s].index
+
+  # retrieve the messages
+  for i in s..e:
+    result[0].add(msgList[i])
+
+  result[1] = PagingInfo(pageSize: retrievedPageSize, cursor:newCursor, direction: pinfo.direction)
+
+
+proc paginateWithoutIndex( list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[WakuMessage], PagingInfo) =
+  var (indexedData, updatedPagingInfo)= paginateWithIndex(list,pinfo)
+  for indexedMsg in indexedData:
+    result[0].add(indexedMsg.msg)
+  result[1]=updatedPagingInfo
+
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   result = HistoryResponse(messages: newSeq[WakuMessage]())
-  for msg in w.messages:
-    if msg.contentTopic in query.topics:
-      result.messages.insert(msg)
+  echo "list of messages when the query arrives: ", w.messages.len
+  echo "list of messages when the query arrives: ", w.messages
+  echo "History query: ", query
+  var data: seq[IndexedWakuMessage]= @[] # data holds IndexedWakuMessage whose topics match the query
+  for indexedMsg in w.messages:
+    if indexedMsg.msg.contentTopic in query.topics:
+      #result.messages.insert(indexedMsg.msg)
+      data.add(indexedMsg)
+  
+  # perform pagination
+  (result.messages, result.pagingInfo)= paginateWithoutIndex(data, query.pagingInfo)
+  echo "pages result: ", result.messages
+  echo "paging info result: ", result.pagingInfo
+
 
 method init*(ws: WakuStore) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
@@ -191,7 +255,8 @@ method init*(ws: WakuStore) =
 
     let value = res.value
     let response = ws.findMessages(res.value.query)
-    await conn.writeLp(HistoryRPC(requestId: value.requestId, response: response).encode().buffer)
+    await conn.writeLp(HistoryRPC(requestId: value.requestId,
+        response: response).encode().buffer)
 
   ws.handler = handle
   ws.codec = WakuStoreCodec
@@ -212,7 +277,9 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   ## the filter should be used by the component that receives
   ## new messages.
   proc handle(topic: string, msg: WakuMessage) {.async.} =
-    proto.messages.add(msg)
+    let index = msg.computeIndex()
+    proto.messages.add(IndexedWakuMessage(msg: msg, index: index))
+    echo msg
 
   MessageNotificationSubscription.init(@[], handle)
 
@@ -227,7 +294,8 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
   let peer = w.peers[0]
   let conn = await w.switch.dial(peer.peerInfo.peerId, peer.peerInfo.addrs, WakuStoreCodec)
 
-  await conn.writeLP(HistoryRPC(requestId: generateRequestId(w.rng), query: query).encode().buffer)
+  await conn.writeLP(HistoryRPC(requestId: generateRequestId(w.rng),
+      query: query).encode().buffer)
 
   var message = await conn.readLp(64*1024)
   let response = HistoryRPC.init(message)
@@ -237,3 +305,6 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
     return
 
   handler(response.value.response)
+
+
+

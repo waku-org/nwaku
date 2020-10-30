@@ -11,10 +11,10 @@ import
   libp2p/switch,
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
-  nimcrypto/sha2,
-  stew/byteutils
+  nimcrypto/sha2
 
 # Common data types -----------------------------------------------------------
+const MaxPageSize* = 100 # maximum number of waku messages in each page 
 
 type
   ContentTopic* = uint32
@@ -27,7 +27,8 @@ type
     contentTopic*: ContentTopic
     version*: uint32
 
-  MessageNotificationHandler* = proc(topic: string, msg: WakuMessage): Future[void] {.gcsafe, closure.}
+  MessageNotificationHandler* = proc(topic: string, msg: WakuMessage): Future[
+      void] {.gcsafe, closure.}
 
   MessageNotificationSubscriptions* = TableRef[string, MessageNotificationSubscription]
 
@@ -79,7 +80,8 @@ type
     switch*: Switch
     rng*: ref BrHmacDrbgContext
     peers*: seq[HistoryPeer]
-    messages*: seq[WakuMessage]
+    messages*: seq[IndexedWakuMessage]
+
 
   FilterRequest* = object
     contentFilters*: seq[ContentFilter]
@@ -201,3 +203,32 @@ proc computeIndex*(msg: WakuMessage): Index =
   result.digest = digest
   result.receivedTime = epochTime() # gets the unix timestamp
 
+proc indexComparison* (x, y: Index): int =
+  ## compares x and y
+  ## returns 0 if they are equal 
+  ## returns -1 if x < y
+  ## returns 1 if x > y
+  let 
+    timecmp = system.cmp(x.receivedTime, y.receivedTime)
+    digestcm= system.cmp(x.digest.data, y.digest.data)
+  if timecmp == 0: # timestamp has higher priority for comparison
+    return digestcm
+  return timecmp
+
+
+proc indexedWakuMessageComparison* (x, y: IndexedWakuMessage): int =
+  ## compares x and y
+  ## returns 0 if they are equal 
+  ## returns -1 if x < y
+  ## returns 1 if x > y
+  result= indexComparison(x.index, y.index)
+
+proc `==`* (x, y: Index): bool =
+  ## returns true if x == y, otherwise false
+  let
+    timecmp = x.receivedTime == y.receivedTime 
+    digestcm= x.digest.data == y.digest.data
+  result=timecmp and digestcm
+
+#[proc `$`* (iwm: IndexedWakuMessage): string=
+  result= "msg: " & $iwm.msg & " index:" & $iwm.index]#
