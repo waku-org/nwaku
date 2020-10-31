@@ -15,6 +15,7 @@ import
   ../../waku/node/v2/waku_types,
   ../test_helpers, ./utils
 
+
 procSuite "Waku Store":
   #[asyncTest "handle query":
     let
@@ -63,17 +64,16 @@ procSuite "Waku Store":
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
     var
-      msgList = @[IndexedWakuMessage(msg: WakuMessage(payload: @[byte 0], contentTopic: ContentTopic(2)),
-          index: computeIndex(WakuMessage(payload: @[byte 0],contentTopic: ContentTopic(2)))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 1],contentTopic: ContentTopic(1)), index: computeIndex(WakuMessage(payload: @[byte 1],contentTopic: ContentTopic(1)))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 2],contentTopic: ContentTopic(1)), index: computeIndex(WakuMessage(payload: @[byte 2],contentTopic: ContentTopic(1)))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 3],contentTopic: ContentTopic(1)), index: computeIndex(WakuMessage(payload: @[byte 3],contentTopic: ContentTopic(1)))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 4],contentTopic: ContentTopic(1)), index: computeIndex(WakuMessage(payload: @[byte 4],contentTopic: ContentTopic(1)))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 5],contentTopic: ContentTopic(1)), index: computeIndex(WakuMessage(payload: @[byte 5],contentTopic: ContentTopic(1)))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 6],contentTopic: ContentTopic(1)), index: computeIndex(WakuMessage(payload: @[byte 6],contentTopic: ContentTopic(1)))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 7],contentTopic: ContentTopic(1)), index: computeIndex(WakuMessage(payload: @[byte 7],contentTopic: ContentTopic(1)))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 8],contentTopic: ContentTopic(1)), index: computeIndex(WakuMessage(payload: @[byte 8],contentTopic: ContentTopic(1)))),
-        IndexedWakuMessage(msg: WakuMessage(payload: @[byte 9],contentTopic: ContentTopic(2)), index: computeIndex(WakuMessage(payload: @[byte 9],contentTopic: ContentTopic(2))))]
+      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic(2)),
+        WakuMessage(payload: @[byte 1],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 2],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 3],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 4],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 5],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 6],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 7],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 8],contentTopic: ContentTopic(1)), 
+        WakuMessage(payload: @[byte 9],contentTopic: ContentTopic(2))]
             
       #msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(1))
       #msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(2))
@@ -87,11 +87,10 @@ procSuite "Waku Store":
     let
       proto = WakuStore.init(dialSwitch, crypto.newRng())
       subscription = proto.subscription()
-      #rpc = HistoryQuery(topics: @[ContentTopic(1)], pagingInfo: PagingInfo(pageSize: 2, cursor: msgList[5].index, direction: PagingDirection.FORWARD) )
       rpc = HistoryQuery(topics: @[ContentTopic(1)], pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD) )
+      
 
     echo "the query before protobuf ", rpc
-    echo "msglist[5] ", msgList[5].index
     proto.setPeer(listenSwitch.peerInfo)
 
     var subscriptions = newTable[string, MessageNotificationSubscription]()
@@ -99,8 +98,8 @@ procSuite "Waku Store":
 
     listenSwitch.mount(proto)
 
-    for indexedWakuMsg in msgList:
-      await subscriptions.notify("foo", indexedWakuMsg.msg)
+    for wakuMsg in msgList:
+      await subscriptions.notify("foo", wakuMsg)
 
     #await subscriptions.notify("foo", msg)
     #await subscriptions.notify("foo", msg2)
@@ -110,11 +109,133 @@ procSuite "Waku Store":
     proc handler(response: HistoryResponse) {.gcsafe, closure.} =
       check:
         #echo response.messages
-        response.messages.len() == 3
-        response.messages[0] == msgList[6].msg
-        response.messages[1] == msgList[7].msg
-        response.pagingInfo == PagingInfo(pageSize: 5, cursor: msgList[8].index, direction: PagingDirection.FORWARD)
+        response.messages.len() == 2
+        response.messages[0] == msgList[1]
+        response.messages[1] == msgList[2]
+        response.pagingInfo == PagingInfo(pageSize: 2, cursor: proto.messages[2].index, direction: PagingDirection.FORWARD)
       completionFut.complete(true)
+
+    await proto.query(rpc, handler)
+
+    check:
+      (await completionFut.withTimeout(5.seconds)) == true
+
+  asyncTest "handle query with pagination":
+    let
+      key = PrivateKey.random(ECDSA, rng[]).get()
+      peer = PeerInfo.init(key)
+    var
+      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic(2)),
+        WakuMessage(payload: @[byte 1],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 2],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 3],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 4],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 5],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 6],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 7],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 8],contentTopic: ContentTopic(1)), 
+        WakuMessage(payload: @[byte 9],contentTopic: ContentTopic(2))]
+            
+      #msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(1))
+      #msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(2))
+
+    var dialSwitch = newStandardSwitch()
+    discard await dialSwitch.start()
+
+    var listenSwitch = newStandardSwitch(some(key))
+    discard await listenSwitch.start()
+
+    let
+      proto = WakuStore.init(dialSwitch, crypto.newRng())
+      subscription = proto.subscription()
+      
+
+    proto.setPeer(listenSwitch.peerInfo)
+
+    var subscriptions = newTable[string, MessageNotificationSubscription]()
+    subscriptions["test"] = subscription
+
+    listenSwitch.mount(proto)
+
+    for wakuMsg in msgList:
+      await subscriptions.notify("foo", wakuMsg)
+
+    #await subscriptions.notify("foo", msg)
+    #await subscriptions.notify("foo", msg2)
+
+    var completionFut = newFuture[bool]()
+
+    proc handler(response: HistoryResponse) {.gcsafe, closure.} =
+      check:
+        #echo response.messages
+        response.messages.len() == 2
+        response.messages[0] == msgList[3]
+        response.messages[1] == msgList[4]
+        response.pagingInfo == PagingInfo(pageSize: 2, cursor: proto.messages[4].index, direction: PagingDirection.FORWARD)
+      completionFut.complete(true)
+
+    let rpc = HistoryQuery(topics: @[ContentTopic(1)], pagingInfo: PagingInfo(pageSize: 2, cursor: proto.messages[2].index, direction: PagingDirection.FORWARD) )
+    echo "the query before protobuf ", rpc
+
+    await proto.query(rpc, handler)
+
+    check:
+      (await completionFut.withTimeout(5.seconds)) == true
+
+  asyncTest "handle query with pagination":
+    let
+      key = PrivateKey.random(ECDSA, rng[]).get()
+      peer = PeerInfo.init(key)
+    var
+      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic(2)),
+        WakuMessage(payload: @[byte 1],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 2],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 3],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 4],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 5],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 6],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 7],contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 8],contentTopic: ContentTopic(1)), 
+        WakuMessage(payload: @[byte 9],contentTopic: ContentTopic(2))]
+            
+      #msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(1))
+      #msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(2))
+
+    var dialSwitch = newStandardSwitch()
+    discard await dialSwitch.start()
+
+    var listenSwitch = newStandardSwitch(some(key))
+    discard await listenSwitch.start()
+
+    let
+      proto = WakuStore.init(dialSwitch, crypto.newRng())
+      subscription = proto.subscription()
+      
+
+    proto.setPeer(listenSwitch.peerInfo)
+
+    var subscriptions = newTable[string, MessageNotificationSubscription]()
+    subscriptions["test"] = subscription
+
+    listenSwitch.mount(proto)
+
+    for wakuMsg in msgList:
+      await subscriptions.notify("foo", wakuMsg)
+
+    #await subscriptions.notify("foo", msg)
+    #await subscriptions.notify("foo", msg2)
+
+    var completionFut = newFuture[bool]()
+
+    proc handler(response: HistoryResponse) {.gcsafe, closure.} =
+      check:
+        #echo response.messages
+        response.messages.len() == 8
+        response.pagingInfo == PagingInfo()
+      completionFut.complete(true)
+
+    let rpc = HistoryQuery(topics: @[ContentTopic(1)] )
+    echo "the query before protobuf ", rpc
 
     await proto.query(rpc, handler)
 
