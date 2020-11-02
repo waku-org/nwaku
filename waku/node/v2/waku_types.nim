@@ -24,8 +24,10 @@ type
   WakuMessage* = object
     payload*: seq[byte]
     contentTopic*: ContentTopic
+    version*: string
 
-  MessageNotificationHandler* = proc(topic: string, msg: WakuMessage): Future[void] {.gcsafe, closure.}
+  MessageNotificationHandler* = proc(topic: string, msg: WakuMessage): Future[
+      void] {.gcsafe, closure.}
 
   MessageNotificationSubscriptions* = TableRef[string, MessageNotificationSubscription]
 
@@ -35,20 +37,27 @@ type
 
   QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
 
+
   Index* = object
-    ## This type contains the  description of an index used in the pagination of waku messages
+    ## This type contains the  description of an Index used in the pagination of WakuMessages
     digest*: MDigest[256]
-    receivedTime*: float
+    receivedTime*: float64
 
   IndexedWakuMessage* = object
+    ## This type is used to encapsulate a WakuMessage and its Index
     msg*: WakuMessage
     index*: Index
 
+  PagingDirection* {.pure.} = enum
+    ## PagingDirection determines the direction of pagination
+    BACKWARD = uint32(0)
+    FORWARD = uint32(1)
+
   PagingInfo* = object
     ## This type holds the information needed for the pagination
-    pageSize*: int
+    pageSize*: uint64
     cursor*: Index
-    direction*: bool
+    direction*: PagingDirection
 
   HistoryQuery* = object
     topics*: seq[ContentTopic]
@@ -144,6 +153,7 @@ proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
 
   discard ? pb.getField(1, msg.payload)
   discard ? pb.getField(2, msg.contentTopic)
+  discard ? pb.getField(3, msg.version)
 
   ok(msg)
 
@@ -152,6 +162,7 @@ proc encode*(message: WakuMessage): ProtoBuffer =
 
   result.write(1, message.payload)
   result.write(2, message.contentTopic)
+  result.write(3, message.version)
 
 proc notify*(filters: Filters, msg: WakuMessage, requestId: string = "") =
   for key in filters.keys:
@@ -183,7 +194,7 @@ proc computeIndex*(msg: WakuMessage): Index =
   if msg.contentTopic != 0: # checks for non-empty contentTopic
     ctx.update(msg.contentTopic.toBytes()) # converts the topic to bytes
   ctx.update(msg.payload)
-  let digest = ctx.finish()  # computes the hash
+  let digest = ctx.finish() # computes the hash
   ctx.clear()
 
   result.digest = digest
