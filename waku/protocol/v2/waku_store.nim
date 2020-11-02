@@ -229,22 +229,6 @@ proc init*(T: type WakuStore, switch: Switch, rng: ref BrHmacDrbgContext, db: Db
 proc setPeer*(ws: WakuStore, peer: PeerInfo) =
   ws.peers.add(HistoryPeer(peerInfo: peer))
 
-proc subscription*(proto: WakuStore): MessageNotificationSubscription =
-  ## The filter function returns the pubsub filter for the node.
-  ## This is used to pipe messages into the storage, therefore
-  ## the filter should be used by the component that receives
-  ## new messages.
-  proc handle(topic: string, msg: WakuMessage) {.async.} =
-    try:
-      proto.db.exec(
-        sql"INSERT INTO messages (topic, contentTopic, payload) VALUES (?, ?, ?)",
-        topic, msg.contentTopic, cast[string](msg.payload)
-      )
-    except DbError as e:
-      warn "dropped message due to sqlite error", error = e.msg
-
-  MessageNotificationSubscription.init(@[], handle)
-
 proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
   # @TODO We need to be more stratigic about which peers we dial. Right now we just set one on the service.
   # Ideally depending on the query and our set  of peers we take a subset of ideal peers.

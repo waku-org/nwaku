@@ -33,7 +33,6 @@ procSuite "Waku Store":
     let
       res = WakuStore.init(dialSwitch, crypto.newRng(), open("", "", "", ""))
       proto = res.value
-      subscription = proto.subscription()
       rpc = HistoryQuery(topics: @[topic])
 
     proto.setPeer(listenSwitch.peerInfo)

@@ -226,7 +226,6 @@ proc mountStore*(node: WakuNode, path = ""): Result[void, WakuNodeError] =
 
   node.wakuStore = store.value
   node.switch.mount(node.wakuStore)
-  node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
   ok()
 
