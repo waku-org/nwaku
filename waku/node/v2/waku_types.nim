@@ -60,11 +60,11 @@ type
 
   HistoryQuery* = object
     topics*: seq[ContentTopic]
-    pagingInfo*: PagingInfo
+    pagingInfo*: PagingInfo # used for pagination
 
   HistoryResponse* = object
     messages*: seq[WakuMessage]
-    pagingInfo*: PagingInfo
+    pagingInfo*: PagingInfo # used for pagination
 
   HistoryRPC* = object
     requestId*: string
@@ -145,11 +145,11 @@ type
     #multiaddrStrings*: seq[string]
 
   WakuResult*[T] = Result[T, cstring]
+# constants required for pagination -------------------------------------------
+const MaxPageSize* = 100 # Maximum number of waku messages in each page 
+const DefaultPageSize* = 10 # The default number of waku messages in each page 
 
-const MaxPageSize* = 100 # maximum number of waku messages in each page 
-const DefaultPageSize* = 10 # maximum number of waku messages in each page 
-
-  # Encoding and decoding -------------------------------------------------------
+# Encoding and decoding -------------------------------------------------------
 
 proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
   var msg = WakuMessage()
