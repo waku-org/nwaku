@@ -95,7 +95,7 @@ procSuite "pagination":
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == pagingInfo.pageSize
    
-   # test for an intial pagination request with empty cursor
+   # test for an intial pagination request with an empty cursor
     pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
     check:
@@ -105,7 +105,13 @@ procSuite "pagination":
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 2
 
-  
+    # test for an empty msgList
+    pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD)
+    (data, newPagingInfo) = paginateWithIndex(@[], pagingInfo)
+    check:
+      data.len == 0
+      newPagingInfo == pagingInfo
+
     # test for a page size larger than the remaining messages
     pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)

@@ -193,6 +193,9 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
   if pageSize == 0: # pageSize being zero indicates that no pagination is required
     return (list, pinfo)
 
+  if list.len == 0: # no pagination is needed for an empty list
+    return (list, pinfo)
+
   var msgList:seq[IndexedWakuMessage]= list # makes a copy of the list
   msgList.sort(indexedWakuMessageComparison) # sorts msgList based on the custom comparison proc indexedWakuMessageComparison
 
