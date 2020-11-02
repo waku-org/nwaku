@@ -1,3 +1,4 @@
+{.used.}
 import
   std/unittest,
   ../../waku/node/v2/waku_types,
@@ -16,9 +17,9 @@ procSuite "pagination":
 
   test "computeIndex: identical WakuMessages test":
     let
-      wm = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: "topic2")
+      wm = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(1))
       index1 = wm.computeIndex()
-      wm2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: "topic2")
+      wm2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(1))
       index2 = wm2.computeIndex()
 
     check:
