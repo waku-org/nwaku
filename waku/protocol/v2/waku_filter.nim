@@ -1,5 +1,5 @@
 import
-  std/tables,
+  std/[tables, sequtils],
   bearssl,
   chronos, chronicles, metrics, stew/results,
   libp2p/protocols/pubsub/pubsubpeer,
@@ -23,6 +23,28 @@ logScope:
 const
   WakuFilterCodec* = "/vac/waku/filter/2.0.0-beta1"
 
+proc unsubscribeFilters(subscribers: var Table[PeerID, Subscriber], request: FilterRequest, peerId: PeerID) =
+  # Flatten all unsubscribe topics into single seq
+  var unsubscribeTopics: seq[ContentTopic]
+  for cf in request.contentFilters:
+    unsubscribeTopics = unsubscribeTopics.concat(cf.topics)
+
+  subscribers.withValue(peerId, subscriber):
+    # Select subscriber entry on peer ID to remove matching content topics
+    for cf in subscriber.filter.contentFilters.mitems:
+      # Iterate content filters in filter entry
+      cf.topics.keepIf(proc (t: auto): bool = t notin unsubscribeTopics)
+
+    # make sure we delete the content filter
+    # if no more topics are left
+    subscriber.filter.contentFilters.keepIf(proc (cf: auto): bool = cf.topics.len > 0)
+
+    if subscriber.filter.contentFilters.len == 0:
+        # make sure we delete the subscriber
+        # if no more content filters left
+        subscribers.del(peerId)
+        # @TODO: metrics?
+
 proc encode*(filter: ContentFilter): ProtoBuffer =
   result = initProtoBuffer()
 
@@ -31,11 +53,13 @@ proc encode*(filter: ContentFilter): ProtoBuffer =
 
 proc encode*(rpc: FilterRequest): ProtoBuffer =
   result = initProtoBuffer()
-
-  for filter in rpc.contentFilters:
-    result.write(1, filter.encode())
+  
+  result.write(1, uint64(rpc.subscribe))
 
   result.write(2, rpc.topic)
+
+  for filter in rpc.contentFilters:
+    result.write(3, filter.encode())
 
 proc init*(T: type ContentFilter, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
@@ -49,13 +73,17 @@ proc init*(T: type FilterRequest, buffer: seq[byte]): ProtoResult[T] =
   var rpc = FilterRequest(contentFilters: @[], topic: "")
   let pb = initProtoBuffer(buffer)
 
+  var subflag: uint64
+  if ? pb.getField(1, subflag):
+    rpc.subscribe = bool(subflag)
+
+  discard ? pb.getField(2, rpc.topic)
+
   var buffs: seq[seq[byte]]
-  discard ? pb.getRepeatedField(1, buffs)
+  discard ? pb.getRepeatedField(3, buffs)
   
   for buf in buffs:
     rpc.contentFilters.add(? ContentFilter.init(buf))
-
-  discard ? pb.getField(2, rpc.topic)
 
   ok(rpc)
 
@@ -116,10 +144,14 @@ method init*(wf: WakuFilter) =
     if value.push != MessagePush():
       wf.pushHandler(value.requestId, value.push)
     if value.request != FilterRequest():
-      wf.subscribers.add(Subscriber(peer: conn.peerInfo, requestId: value.requestId, filter: value.request))
+      if value.request.subscribe:
+        wf.subscribers[conn.peerInfo.peerId] = Subscriber(peer: conn.peerInfo, requestId: value.requestId, filter: value.request)
+      else:
+        wf.subscribers.unsubscribeFilters(value.request, conn.peerInfo.peerId)
 
   wf.handler = handle
   wf.codec = WakuFilterCodec
+  wf.subscribers = initTable[PeerID, Subscriber]()
 
 proc init*(T: type WakuFilter, switch: Switch, rng: ref BrHmacDrbgContext, handler: MessagePushHandler): T =
   new result
@@ -136,7 +168,7 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
   ## Returns a Filter for the specific protocol
   ## This filter can then be used to send messages to subscribers that match conditions.   
   proc handle(topic: string, msg: WakuMessage) {.async.} =
-    for subscriber in proto.subscribers:
+    for subscriber in proto.subscribers.values:
       if subscriber.filter.topic != topic:
         continue
 
@@ -157,3 +189,12 @@ proc subscribe*(wf: WakuFilter, request: FilterRequest): Future[string] {.async,
     let conn = await wf.switch.dial(peer.peerId, peer.addrs, WakuFilterCodec)
     await conn.writeLP(FilterRPC(requestId: id, request: request).encode().buffer)
   result = id
+
+proc unsubscribe*(wf: WakuFilter, request: FilterRequest) {.async, gcsafe.} =
+  # @TODO: NO REAL REASON TO GENERATE REQUEST ID FOR UNSUBSCRIBE OTHER THAN CREATING SANE-LOOKING RPC.
+  let id = generateRequestId(wf.rng)
+  if wf.peers.len >= 1:
+    let peer = wf.peers[0].peerInfo
+    # @TODO: THERE SHOULD BE ERROR HANDLING HERE, WHAT IF A PEER IS GONE? WHAT IF THERE IS A TIMEOUT ETC.
+    let conn = await wf.switch.dial(peer.peerId, peer.addrs, WakuFilterCodec)
+    await conn.writeLP(FilterRPC(requestId: id, request: request).encode().buffer)

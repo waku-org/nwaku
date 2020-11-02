@@ -1,5 +1,5 @@
 import
-  std/[options, tables, strutils],
+  std/[options, tables, strutils, sequtils],
   chronos, chronicles, stew/shims/net as stewNet,
   # TODO: Why do we need eth keys?
   eth/keys,
@@ -46,6 +46,30 @@ proc initAddress(T: type MultiAddress, str: string): T =
   else:
     raise newException(ValueError,
                        "Invalid bootstrap node multi-address")
+
+proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilter]) {.gcsafe.} =
+  # Flatten all unsubscribe topics into single seq
+  var unsubscribeTopics: seq[ContentTopic]
+  for cf in contentFilters:
+    unsubscribeTopics = unsubscribeTopics.concat(cf.topics)
+
+  var rIdToRemove: seq[string] = @[]
+  for rId, f in filters.mpairs:
+    # Iterate filter entries to remove matching content topics
+    for cf in f.contentFilters.mitems:
+      # Iterate content filters in filter entry
+      cf.topics.keepIf(proc (t: auto): bool = t notin unsubscribeTopics)
+    # make sure we delete the content filter
+    # if no more topics are left
+    f.contentFilters.keepIf(proc (cf: auto): bool = cf.topics.len > 0)
+
+    if f.contentFilters.len == 0:
+      rIdToRemove.add(rId)
+
+  # make sure we delete the filter entry
+  # if no more content filters left
+  for rId in rIdToRemove:
+    filters.del(rId)
 
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
@@ -124,6 +148,10 @@ proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHa
   ## FilterHandler is a method that takes a MessagePush.
   ##
   ## Status: Implemented.
+  
+  # Sanity check for well-formed subscribe FilterRequest
+  doAssert(request.subscribe, "invalid subscribe request")
+  
   info "subscribe content", filter=request
 
   var id = generateRequestId(node.rng)
@@ -151,13 +179,18 @@ proc unsubscribeAll*(node: WakuNode, topic: Topic) {.async.} =
   await wakuRelay.unsubscribeAll(topic)
   
 
-proc unsubscribe*(w: WakuNode, contentFilter: waku_types.ContentFilter) =
-  echo "NYI"
+proc unsubscribe*(node: WakuNode, request: FilterRequest) {.async, gcsafe.} =
   ## Unsubscribe from a content filter.
   ##
-  ## Status: Not yet implemented.
-  ## TODO Implement.
-
+  ## Status: Implemented.
+  
+  # Sanity check for well-formed unsubscribe FilterRequest
+  doAssert(!request.subscribe, "invalid unsubscribe request")
+  
+  info "unsubscribe content", filter=request
+  
+  await node.wakuFilter.unsubscribe(request)
+  node.filters.removeContentFilters(request.contentFilters)
 
 proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
   ## Publish a `WakuMessage` to a PubSub topic. `WakuMessage` should contain a
