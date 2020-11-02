@@ -192,12 +192,10 @@ proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
   toHex(bytes)
 
 proc computeIndex*(msg: WakuMessage): Index =
-  ## Takes a WakuMessage and returns its index
+  ## Takes a WakuMessage and returns its Index 
   var ctx: sha256
   ctx.init()
-  # @TODO check contentTopic==0 can be a valid value or not
-  if msg.contentTopic != 0: # checks for non-empty contentTopic 
-    ctx.update(msg.contentTopic.toBytes()) # converts the topic to bytes
+  ctx.update(msg.contentTopic.toBytes()) # converts the contentTopic to bytes
   ctx.update(msg.payload)
   let digest = ctx.finish() # computes the hash
   ctx.clear()
@@ -213,7 +211,7 @@ proc indexComparison* (x, y: Index): int =
   let 
     timecmp = system.cmp(x.receivedTime, y.receivedTime)
     digestcm= system.cmp(x.digest.data, y.digest.data)
-  if timecmp != 0: # timestamp has higher priority for comparison
+  if timecmp != 0: # timestamp has a higher priority for comparison
     return timecmp
   return digestcm
 
