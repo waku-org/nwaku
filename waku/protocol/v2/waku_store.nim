@@ -174,7 +174,7 @@ proc encode*(rpc: HistoryRPC): ProtoBuffer =
   result.write(3, rpc.response.encode())
 
 proc findIndex*(msgList: seq[IndexedWakuMessage], index: Index): int=
-  ## returns the position of an IndexedWakuMessage in msgList whose index matches the given index
+  ## returns the position of an IndexedWakuMessage in msgList whose index value matches the given index
   ## returns -1 if no match is found
   for i, indexedWakuMessage in msgList:
     if indexedWakuMessage.index  == index :
@@ -182,8 +182,8 @@ proc findIndex*(msgList: seq[IndexedWakuMessage], index: Index): int=
   return -1
 
 proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWakuMessage], PagingInfo) =
-  ## takes msgList, and perfomrs paging based on pinfo 
-  ## returns the retrieved IndexedWakuMessage
+  ## takes list, and perfomrs paging based on pinfo 
+  ## returns the page i.e, a sequence of IndexedWakuMessage and the new paging info to be used for the next paging request
   
   var
     cursor = pinfo.cursor
@@ -194,51 +194,53 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
     return (list, pinfo)
 
   if list.len == 0: # no pagination is needed for an empty list
-    return (list, pinfo)
+    return (list, PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction))
 
   var msgList:seq[IndexedWakuMessage]= list # makes a copy of the list
   msgList.sort(indexedWakuMessageComparison) # sorts msgList based on the custom comparison proc indexedWakuMessageComparison
 
   var initQuery : bool = false
-  if cursor == Index(): # an empty cursor means it is an intial query
-    initQuery = true
+  if cursor == Index(): 
+    initQuery = true # an empty cursor means it is an intial query
     case dir
       of PagingDirection.FORWARD: 
-        cursor = list[0].index
+        cursor = list[0].index # perform paging from the begining of the list
       of PagingDirection.BACKWARD: 
-        cursor = list[list.len - 1].index
+        cursor = list[list.len - 1].index # perform paging from the end of the list
       
   
-  var foundIndex=msgList.findIndex(cursor)
+  var foundIndex = msgList.findIndex(cursor) 
   if foundIndex == -1: # the cursor is not valid
     return (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction))
 
   var retrievedPageSize, s, e: int
-  var newCursor: Index
+  var newCursor: Index # to be returned as part of the new paging info
   case dir
     of PagingDirection.FORWARD: # forward pagination
       let remainingMessages= msgList.len - foundIndex - 1
-      retrievedPageSize = min( int(pageSize), MaxPageSize).min(remainingMessages)  # the number of queried messages cannot exceed the MaxPageSize and the total remaining messages i.e., msgList.len-found
+      retrievedPageSize = min( int(pageSize), MaxPageSize).min(remainingMessages)  # the number of queried messages cannot exceed the MaxPageSize and the total remaining messages i.e., msgList.len-foundIndex
       if initQuery : foundIndex = foundIndex - 1
-      s = foundIndex+1  # non inclusive
-      e=foundIndex+retrievedPageSize 
-      newCursor= msgList[e].index
+      s = foundIndex + 1  # non inclusive
+      e = foundIndex + retrievedPageSize 
+      newCursor = msgList[e].index # the new cursor points to the end of the page
     of PagingDirection.BACKWARD: # backward pagination
       let remainingMessages=foundIndex
-      retrievedPageSize = min( int(pageSize), MaxPageSize).min(remainingMessages) # the number of queried messages cannot exceed the MaxPageSize and the total remaining messages i.e., msgList.len-found
+      retrievedPageSize = min( int(pageSize), MaxPageSize).min(remainingMessages) # the number of queried messages cannot exceed the MaxPageSize and the total remaining messages i.e., foundIndex-0
       if initQuery : foundIndex = foundIndex + 1
-      s= foundIndex-retrievedPageSize 
-      e= foundIndex-1
-      newCursor= msgList[s].index
+      s = foundIndex - retrievedPageSize 
+      e = foundIndex - 1
+      newCursor = msgList[s].index # the new cursor points to the begining of the page
 
   # retrieve the messages
   for i in s..e:
     result[0].add(msgList[i])
 
-  result[1] = PagingInfo(pageSize: uint64(retrievedPageSize), cursor:newCursor, direction: pinfo.direction)
+  result[1] = PagingInfo(pageSize : uint64(retrievedPageSize), cursor : newCursor, direction : pinfo.direction)
 
 
 proc paginateWithoutIndex( list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[WakuMessage], PagingInfo) =
+  ## takes list, and perfomrs paging based on pinfo 
+  ## returns the page i.e, a sequence of WakuMessage and the new paging info to be used for the next paging request  
   var (indexedData, updatedPagingInfo)= paginateWithIndex(list,pinfo)
   for indexedMsg in indexedData:
     result[0].add(indexedMsg.msg)
@@ -252,7 +254,6 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   var data: seq[IndexedWakuMessage]= @[] # data holds IndexedWakuMessage whose topics match the query
   for indexedMsg in w.messages:
     if indexedMsg.msg.contentTopic in query.topics:
-      #result.messages.insert(indexedMsg.msg)
       data.add(indexedMsg)
   
   # perform pagination
