@@ -248,9 +248,6 @@ proc paginateWithoutIndex( list: seq[IndexedWakuMessage], pinfo: PagingInfo): (s
 
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   result = HistoryResponse(messages: newSeq[WakuMessage]())
-  echo "Number of messages when the query arrives: ", w.messages.len
-  echo "list of messages when the query arrives: ", w.messages
-  echo "History query: ", query
   var data: seq[IndexedWakuMessage]= @[] # data holds IndexedWakuMessage whose topics match the query
   for indexedMsg in w.messages:
     if indexedMsg.msg.contentTopic in query.topics:
@@ -258,8 +255,6 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   
   # perform pagination
   (result.messages, result.pagingInfo)= paginateWithoutIndex(data, query.pagingInfo)
-  echo "pages result: ", result.messages
-  echo "paging info result: ", result.pagingInfo
 
 
 method init*(ws: WakuStore) =
@@ -298,7 +293,7 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   proc handle(topic: string, msg: WakuMessage) {.async.} =
     let index = msg.computeIndex()
     proto.messages.add(IndexedWakuMessage(msg: msg, index: index))
-    echo msg
+    
 
   MessageNotificationSubscription.init(@[], handle)
 

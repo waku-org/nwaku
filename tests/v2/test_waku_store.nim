@@ -17,7 +17,7 @@ import
 
 
 procSuite "Waku Store":
-  #[asyncTest "handle query":
+  asyncTest "handle query":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
@@ -57,9 +57,9 @@ procSuite "Waku Store":
     await proto.query(rpc, handler)
 
     check:
-      (await completionFut.withTimeout(5.seconds)) == true]#
+      (await completionFut.withTimeout(5.seconds)) == true
   
-  asyncTest "handle query with pagination":
+  asyncTest "handle query with forward pagination":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
@@ -74,9 +74,6 @@ procSuite "Waku Store":
         WakuMessage(payload: @[byte 7],contentTopic: ContentTopic(1)),
         WakuMessage(payload: @[byte 8],contentTopic: ContentTopic(1)), 
         WakuMessage(payload: @[byte 9],contentTopic: ContentTopic(2))]
-            
-      #msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(1))
-      #msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(2))
 
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()
@@ -89,8 +86,6 @@ procSuite "Waku Store":
       subscription = proto.subscription()
       rpc = HistoryQuery(topics: @[ContentTopic(1)], pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD) )
       
-
-    echo "the query before protobuf ", rpc
     proto.setPeer(listenSwitch.peerInfo)
 
     var subscriptions = newTable[string, MessageNotificationSubscription]()
@@ -101,14 +96,10 @@ procSuite "Waku Store":
     for wakuMsg in msgList:
       await subscriptions.notify("foo", wakuMsg)
 
-    #await subscriptions.notify("foo", msg)
-    #await subscriptions.notify("foo", msg2)
-
     var completionFut = newFuture[bool]()
 
     proc handler(response: HistoryResponse) {.gcsafe, closure.} =
       check:
-        #echo response.messages
         response.messages.len() == 2
         response.messages[0] == msgList[1]
         response.messages[1] == msgList[2]
@@ -120,7 +111,7 @@ procSuite "Waku Store":
     check:
       (await completionFut.withTimeout(5.seconds)) == true
 
-  asyncTest "handle query with pagination":
+  asyncTest "handle query with backward pagination":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
@@ -136,9 +127,6 @@ procSuite "Waku Store":
         WakuMessage(payload: @[byte 8],contentTopic: ContentTopic(1)), 
         WakuMessage(payload: @[byte 9],contentTopic: ContentTopic(2))]
             
-      #msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(1))
-      #msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(2))
-
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()
 
@@ -160,14 +148,11 @@ procSuite "Waku Store":
     for wakuMsg in msgList:
       await subscriptions.notify("foo", wakuMsg)
 
-    #await subscriptions.notify("foo", msg)
-    #await subscriptions.notify("foo", msg2)
 
     var completionFut = newFuture[bool]()
 
     proc handler(response: HistoryResponse) {.gcsafe, closure.} =
       check:
-        #echo response.messages
         response.messages.len() == 2
         response.messages[0] == msgList[3]
         response.messages[1] == msgList[4]
@@ -175,14 +160,12 @@ procSuite "Waku Store":
       completionFut.complete(true)
 
     let rpc = HistoryQuery(topics: @[ContentTopic(1)], pagingInfo: PagingInfo(pageSize: 2, cursor: proto.messages[2].index, direction: PagingDirection.FORWARD) )
-    echo "the query before protobuf ", rpc
-
     await proto.query(rpc, handler)
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
 
-  asyncTest "handle query with pagination":
+  asyncTest "handle intial paging requests":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
@@ -197,9 +180,6 @@ procSuite "Waku Store":
         WakuMessage(payload: @[byte 7],contentTopic: ContentTopic(1)),
         WakuMessage(payload: @[byte 8],contentTopic: ContentTopic(1)), 
         WakuMessage(payload: @[byte 9],contentTopic: ContentTopic(2))]
-            
-      #msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(1))
-      #msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(2))
 
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()
@@ -222,27 +202,23 @@ procSuite "Waku Store":
     for wakuMsg in msgList:
       await subscriptions.notify("foo", wakuMsg)
 
-    #await subscriptions.notify("foo", msg)
-    #await subscriptions.notify("foo", msg2)
 
     var completionFut = newFuture[bool]()
 
     proc handler(response: HistoryResponse) {.gcsafe, closure.} =
       check:
-        #echo response.messages
         response.messages.len() == 8
         response.pagingInfo == PagingInfo()
       completionFut.complete(true)
 
     let rpc = HistoryQuery(topics: @[ContentTopic(1)] )
-    echo "the query before protobuf ", rpc
 
     await proto.query(rpc, handler)
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
 
-  #[test "Index Protobuf encoder/decoder test":
+  test "Index Protobuf encoder/decoder test":
     let
       index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: ContentTopic(1)))
       pb = index.encode()
@@ -343,4 +319,4 @@ procSuite "Waku Store":
       # check the correctness of init and encode for an empty HistoryResponse
       decodedEmptyRes.isErr == false
       decodedEmptyRes.value == emptyRes
-    ]#
+    

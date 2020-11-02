@@ -8,13 +8,14 @@ import
   ../test_helpers
 
 
-proc CreateSampleList( size : int) : seq[IndexedWakuMessage] =
+proc CreateSampleList( s : int) : seq[IndexedWakuMessage] =
+  ## takes s as input and outputs a sequence with s amount of IndexedWakuMessage 
   let data: array[32, byte] = [byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-  for i in 0..<size:
+  for i in 0..<s:
     result.add(IndexedWakuMessage(msg: WakuMessage(payload: @[byte i]), index: Index(receivedTime: float64(i), digest: MDigest[256](data: data)) ))
 
 procSuite "pagination":
-  test "computeindex: empty contentTopic test":
+  test "Index computation test":
     let
       wm = WakuMessage(payload: @[byte 1, 2, 3])
       index = wm.computeIndex()
@@ -24,17 +25,17 @@ procSuite "pagination":
       len(index.digest.data) == 32 # sha2 output length in bytes
       index.receivedTime != 0 # the timestamp should be a non-zero value
 
-  test "computeindex: identical WakuMessages test":
     let
-      wm = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(1))
-      index1 = wm.computeIndex()
+      wm1 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(1))
+      index1 = wm1.computeIndex()
       wm2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(1))
       index2 = wm2.computeIndex()
 
     check:
       # the digests of two identical WakuMessages must be the same
       index1.digest == index2.digest
-  test "Index comparison and indexedWakuMessage comparison and sort test":
+
+  test "Index comparison, IndexedWakuMessage comparison, and Sorting tests":
     let
       data1: array[32, byte] = [byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
           1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
@@ -75,7 +76,7 @@ procSuite "pagination":
       sortingList[2] ==  iwm3
       
   
-  test "Find index test": 
+  test "Find Index test": 
     let
       msgList = CreateSampleList(10)
     check:
@@ -83,9 +84,10 @@ procSuite "pagination":
       msgList.findIndex(Index()) == -1 
 
   test "Forward pagination test":
-    let msgList = CreateSampleList(10)
+    var 
+      msgList = CreateSampleList(10)
+      pagingInfo = PagingInfo(pageSize: 2, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
 
-    var pagingInfo = PagingInfo(pageSize: 2, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
     # test for a normal pagination
     var (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
     check:
@@ -95,7 +97,7 @@ procSuite "pagination":
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == pagingInfo.pageSize
    
-   # test for an intial pagination request with an empty cursor
+   # test for an initial pagination request with an empty cursor
     pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
     check:
@@ -110,7 +112,9 @@ procSuite "pagination":
     (data, newPagingInfo) = paginateWithIndex(@[], pagingInfo)
     check:
       data.len == 0
-      newPagingInfo == pagingInfo
+      newPagingInfo.pageSize == 0
+      newPagingInfo.direction == pagingInfo.direction
+      newPagingInfo.cursor == pagingInfo.cursor
 
     # test for a page size larger than the remaining messages
     pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
@@ -121,8 +125,6 @@ procSuite "pagination":
       newPagingInfo.cursor == msgList[9].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 6
-  
-    
 
     # test for a page size larger than the maximum allowed page size
     pagingInfo = PagingInfo(pageSize: MaxPageSize+1, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
@@ -132,7 +134,6 @@ procSuite "pagination":
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize <= MaxPageSize
   
-    
     # test for a cursor poiting to the end of the message list
     pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[9].index, direction: PagingDirection.FORWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
@@ -154,7 +155,6 @@ procSuite "pagination":
   test "Backward pagination test":
     var
       msgList = CreateSampleList(10)
-
       pagingInfo = PagingInfo(pageSize: 2, cursor: msgList[3].index, direction: PagingDirection.BACKWARD)
 
     # test for a normal pagination
@@ -164,8 +164,17 @@ procSuite "pagination":
       newPagingInfo.cursor == msgList[1].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == pagingInfo.pageSize
-    
-    # test for an intial pagination request with empty cursor
+
+    # test for an empty msgList
+    pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD)
+    (data, newPagingInfo) = paginateWithIndex(@[], pagingInfo)
+    check:
+      data.len == 0
+      newPagingInfo.pageSize == 0
+      newPagingInfo.direction == pagingInfo.direction
+      newPagingInfo.cursor == pagingInfo.cursor
+
+    # test for an initial pagination request with an empty cursor
     pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
     check:
@@ -193,7 +202,7 @@ procSuite "pagination":
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize <= MaxPageSize
 
-    # test for a cursor poiting to the end of the message list
+    # test for a cursor pointing to the begining of the message list
     pagingInfo = PagingInfo(pageSize: 5, cursor: msgList[0].index, direction: PagingDirection.BACKWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
     check:
