@@ -38,7 +38,6 @@ type
 
   QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
 
-
   Index* = object
     ## This type contains the  description of an Index used in the pagination of WakuMessages
     digest*: MDigest[256]
