@@ -24,7 +24,7 @@ type
   WakuMessage* = object
     payload*: seq[byte]
     contentTopic*: ContentTopic
-    version*: string
+    version*: uint32
 
   MessageNotificationHandler* = proc(topic: string, msg: WakuMessage): Future[
       void] {.gcsafe, closure.}
