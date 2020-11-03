@@ -185,7 +185,7 @@ proc unsubscribe*(node: WakuNode, request: FilterRequest) {.async, gcsafe.} =
   ## Status: Implemented.
   
   # Sanity check for well-formed unsubscribe FilterRequest
-  doAssert(!request.subscribe, "invalid unsubscribe request")
+  doAssert(request.subscribe == false, "invalid unsubscribe request")
   
   info "unsubscribe content", filter=request
   
