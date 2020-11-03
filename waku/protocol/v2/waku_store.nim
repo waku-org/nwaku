@@ -241,7 +241,7 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
 proc paginateWithoutIndex(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[WakuMessage], PagingInfo) =
   ## takes list, and perfomrs paging based on pinfo 
   ## returns the page i.e, a sequence of WakuMessage and the new paging info to be used for the next paging request  
-  var (indexedData, updatedPagingInfo)= paginateWithIndex(list,pinfo)
+  var (indexedData, updatedPagingInfo) = paginateWithIndex(list,pinfo)
   for indexedMsg in indexedData:
     result[0].add(indexedMsg.msg)
   result[1]=updatedPagingInfo
