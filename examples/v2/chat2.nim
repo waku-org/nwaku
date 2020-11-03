@@ -94,7 +94,7 @@ proc publish(c: Chat, line: string) =
         contentTopic: DefaultContentTopic, version: version)
       c.node.publish(DefaultTopic, message)
     else:
-      warn "Payload encoding failed"
+      warn "Payload encoding failed", error = encodedPayload.error
   else:
     # No payload encoding/encryption from Waku
     let message = WakuMessage(payload: line.toBytes(),
@@ -248,7 +248,8 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
           info "Hit subscribe handler", topic, payload,
             contentTopic = msg.contentTopic
         else:
-          debug "Invalid encoded WakuMessage payload"
+          debug "Invalid encoded WakuMessage payload",
+            error = decodedPayload.error
       else:
         # No payload encoding/encryption from Waku
         let payload = string.fromBytes(msg.payload)
@@ -256,7 +257,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
         info "Hit subscribe handler", topic, payload,
           contentTopic = msg.contentTopic
     else:
-      trace "Invalid encoded WakuMessage"
+      trace "Invalid encoded WakuMessage", error = decoded.error
 
   let topic = cast[Topic](DefaultTopic)
   await node.subscribe(topic, handler)
