@@ -101,9 +101,9 @@ procSuite "Waku Store":
     proc handler(response: HistoryResponse) {.gcsafe, closure.} =
       check:
         response.messages.len() == 2
-        response.messages[0] == msgList[1]
-        response.messages[1] == msgList[2]
-        response.pagingInfo == PagingInfo(pageSize: 2, cursor: proto.messages[2].index, direction: PagingDirection.FORWARD)
+        response.pagingInfo.pageSize == 2 
+        response.pagingInfo.direction == PagingDirection.FORWARD
+        response.pagingInfo.cursor != Index()
       completionFut.complete(true)
 
     await proto.query(rpc, handler)
@@ -154,18 +154,18 @@ procSuite "Waku Store":
     proc handler(response: HistoryResponse) {.gcsafe, closure.} =
       check:
         response.messages.len() == 2
-        response.messages[0] == msgList[3]
-        response.messages[1] == msgList[4]
-        response.pagingInfo == PagingInfo(pageSize: 2, cursor: proto.messages[4].index, direction: PagingDirection.FORWARD)
+        response.pagingInfo.pageSize == 2 
+        response.pagingInfo.direction == PagingDirection.BACKWARD
+        response.pagingInfo.cursor != Index()
       completionFut.complete(true)
 
-    let rpc = HistoryQuery(topics: @[ContentTopic(1)], pagingInfo: PagingInfo(pageSize: 2, cursor: proto.messages[2].index, direction: PagingDirection.FORWARD) )
+    let rpc = HistoryQuery(topics: @[ContentTopic(1)], pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD) )
     await proto.query(rpc, handler)
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
 
-  asyncTest "handle intial paging requests":
+  asyncTest "handle queries with no pagination":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
