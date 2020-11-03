@@ -144,6 +144,8 @@ type
     listenStr*: string
     #multiaddrStrings*: seq[string]
 
+  WakuResult*[T] = Result[T, cstring]
+
   # Encoding and decoding -------------------------------------------------------
 
 proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
