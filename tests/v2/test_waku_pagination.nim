@@ -8,7 +8,7 @@ import
   ../test_helpers
 
 
-proc CreateSampleList( s : int) : seq[IndexedWakuMessage] =
+proc CreateSampleList(s : int) : seq[IndexedWakuMessage] =
   ## takes s as input and outputs a sequence with s amount of IndexedWakuMessage 
   let data: array[32, byte] = [byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
   for i in 0..<s:
