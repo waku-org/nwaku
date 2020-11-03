@@ -1,6 +1,6 @@
 {.used.}
 import
-  std/[unittest,algorithm],
+  std/[unittest,algorithm,options],
   nimcrypto/sha2,
   stew/byteutils,
   ../../waku/node/v2/waku_types,
@@ -80,8 +80,8 @@ procSuite "pagination":
     let
       msgList = CreateSampleList(10)
     check:
-      msgList.findIndex( msgList[3].index) == 3
-      msgList.findIndex(Index()) == -1 
+      msgList.findIndex( msgList[3].index).get() == 3
+      msgList.findIndex(Index()).isNone == true
 
   test "Forward pagination test":
     var 

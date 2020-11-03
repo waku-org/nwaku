@@ -1,5 +1,5 @@
 import
-  std/[tables, sequtils, future, algorithm],
+  std/[tables, sequtils, future, algorithm, options],
   bearssl,
   chronos, chronicles, metrics, stew/results,
   libp2p/switch,
@@ -173,13 +173,13 @@ proc encode*(rpc: HistoryRPC): ProtoBuffer =
   result.write(2, rpc.query.encode())
   result.write(3, rpc.response.encode())
 
-proc findIndex*(msgList: seq[IndexedWakuMessage], index: Index): int =
+proc findIndex*(msgList: seq[IndexedWakuMessage], index: Index): Option[int] =
   ## returns the position of an IndexedWakuMessage in msgList whose index value matches the given index
-  ## returns -1 if no match is found
+  ## returns none if no match is found
   for i, indexedWakuMessage in msgList:
     if indexedWakuMessage.index  == index :
-      return i
-  return -1
+      return some(i)
+  return none(int)
 
 proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWakuMessage], PagingInfo) =
   ## takes list, and performs paging based on pinfo 
@@ -209,10 +209,10 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
         cursor = list[list.len - 1].index # perform paging from the end of the list
       
   
-  var foundIndex = msgList.findIndex(cursor) 
-  if foundIndex == -1: # the cursor is not valid
+  var foundIndexOption = msgList.findIndex(cursor) 
+  if foundIndexOption.isNone : # the cursor is not valid
     return (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction))
-
+  var foundIndex = foundIndexOption.get()
   var retrievedPageSize, s, e: int
   var newCursor: Index # to be returned as part of the new paging info
   case dir
