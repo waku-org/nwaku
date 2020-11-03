@@ -182,7 +182,7 @@ proc findIndex*(msgList: seq[IndexedWakuMessage], index: Index): int=
   return -1
 
 proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWakuMessage], PagingInfo) =
-  ## takes list, and perfomrs paging based on pinfo 
+  ## takes list, and performs paging based on pinfo 
   ## returns the page i.e, a sequence of IndexedWakuMessage and the new paging info to be used for the next paging request
   
   var
@@ -319,6 +319,5 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
     return
 
   handler(response.value.response)
-
 
 
