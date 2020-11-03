@@ -23,14 +23,16 @@ logScope:
 const
   WakuFilterCodec* = "/vac/waku/filter/2.0.0-beta1"
 
-proc unsubscribeFilters(subscribers: var Table[PeerID, Subscriber], request: FilterRequest, peerId: PeerID) =
+proc unsubscribeFilters(subscribers: var seq[Subscriber], request: FilterRequest, peerId: PeerID) =
   # Flatten all unsubscribe topics into single seq
   var unsubscribeTopics: seq[ContentTopic]
   for cf in request.contentFilters:
     unsubscribeTopics = unsubscribeTopics.concat(cf.topics)
 
-  subscribers.withValue(peerId, subscriber):
-    # Select subscriber entry on peer ID to remove matching content topics
+  for subscriber in subscribers.mitems:
+    if subscriber.peer.peerId != peerId: continue
+    
+    # Iterate through subscriber entries matching peer ID to remove matching content topics
     for cf in subscriber.filter.contentFilters.mitems:
       # Iterate content filters in filter entry
       cf.topics.keepIf(proc (t: auto): bool = t notin unsubscribeTopics)
@@ -39,11 +41,10 @@ proc unsubscribeFilters(subscribers: var Table[PeerID, Subscriber], request: Fil
     # if no more topics are left
     subscriber.filter.contentFilters.keepIf(proc (cf: auto): bool = cf.topics.len > 0)
 
-    if subscriber.filter.contentFilters.len == 0:
-        # make sure we delete the subscriber
-        # if no more content filters left
-        subscribers.del(peerId)
-        # @TODO: metrics?
+  # make sure we delete the subscriber
+  # if no more content filters left
+  subscribers.keepIf(proc (s: auto): bool = s.filter.contentFilters.len > 0)
+  # @TODO: metrics?
 
 proc encode*(filter: ContentFilter): ProtoBuffer =
   result = initProtoBuffer()
@@ -145,13 +146,12 @@ method init*(wf: WakuFilter) =
       wf.pushHandler(value.requestId, value.push)
     if value.request != FilterRequest():
       if value.request.subscribe:
-        wf.subscribers[conn.peerInfo.peerId] = Subscriber(peer: conn.peerInfo, requestId: value.requestId, filter: value.request)
+        wf.subscribers.add(Subscriber(peer: conn.peerInfo, requestId: value.requestId, filter: value.request))
       else:
         wf.subscribers.unsubscribeFilters(value.request, conn.peerInfo.peerId)
 
   wf.handler = handle
   wf.codec = WakuFilterCodec
-  wf.subscribers = initTable[PeerID, Subscriber]()
 
 proc init*(T: type WakuFilter, switch: Switch, rng: ref BrHmacDrbgContext, handler: MessagePushHandler): T =
   new result
@@ -168,7 +168,7 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
   ## Returns a Filter for the specific protocol
   ## This filter can then be used to send messages to subscribers that match conditions.   
   proc handle(topic: string, msg: WakuMessage) {.async.} =
-    for subscriber in proto.subscribers.values:
+    for subscriber in proto.subscribers:
       if subscriber.filter.topic != topic:
         continue
 

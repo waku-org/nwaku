@@ -108,7 +108,7 @@ type
     rng*: ref BrHmacDrbgContext
     switch*: Switch
     peers*: seq[FilterPeer]
-    subscribers*: Table[PeerID, Subscriber]
+    subscribers*: seq[Subscriber]
     pushHandler*: MessagePushHandler
 
   ContentFilter* = object
