@@ -128,9 +128,30 @@ proc put(db: MessageStore, message: WakuMessage): MessageStoreResult[void] =
 
   ok()
 
-proc get(db: MessageStore): MessageStoreResult[seq[WakuMessage]] =
-  let stmt ? db.prepareStmt("INSERT INTO messages (topic, contentTopic, payload) VALUES (?, ?, ?)")
+proc get(db: MessageStore, topics: seq[ContentTopic]): MessageStoreResult[seq[WakuMessage]] =
+  let stmt ? db.prepareStmt("SELECT contentTopic, payload FROM messages WHERE contentTopic IN (" & join(topics, ", ") & ")")
 
-  ## @TODO FIGURE OUT WTF TO DO HERE
+  var msgs = newSeq[WakuMessage]()
 
-  return err("")
+  while true:
+    let
+      v = sqlite3_step(stmt)
+      res = case v
+        of SQLITE_ROW:
+          let
+            topic = sqlite3_column_int(stmt, 0)
+            p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(getStmt, 0))
+            l = sqlite3_column_bytes(getStmt, 0)
+            msg = WakuMessage(contentTopic: topic, payload: cast[string](toOpenArray(p, 0, l-1)))
+          
+          msgs.add(msg)
+        of SQLITE_DONE:
+          break
+        else:
+          return err($sqlite3_errstr(v))
+
+    # release implicit transaction
+  discard sqlite3_reset(stmt) # same return information as step
+  discard sqlite3_clear_bindings(stmt) # no errors possible
+
+  ok(msgs)
