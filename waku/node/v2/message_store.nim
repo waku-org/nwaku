@@ -1,13 +1,30 @@
 import 
-    os, 
-    sqlite3_abi,
-    waku_types
+  os, 
+  sqlite3_abi,
+  waku_types,
+  stew/results,
+  strutils, sequtils
 
 type
-  MessageStoreResult*[T] = Result[T, string]
+  RawStmtPtr = ptr sqlite3_stmt
 
-  MessageStore* = object
-    env: Sqlite
+  AutoDisposed[T: ptr|ref] = object
+    val: T
+
+template dispose(db: Sqlite) =
+  discard sqlite3_close(db)
+
+template dispose(db: RawStmtPtr) =
+  discard sqlite3_finalize(db)
+
+proc release[T](x: var AutoDisposed[T]): T =
+  result = x.val
+  x.val = nil
+
+proc disposeIfUnreleased[T](x: var AutoDisposed[T]) =
+  mixin dispose
+  if x.val != nil:
+    dispose(x.release)
 
 template checkErr(op, cleanup: untyped) =
   if (let v = (op); v != SQLITE_OK):
@@ -81,9 +98,12 @@ proc init*(
   checkWalPragmaResult(journalModePragma)
   checkExec(journalModePragma)
 
+  ## Table is the SQL query for creating the messages Table.
+  ## It contains:
+  ##  - 4-Byte ContentTopic stored as an Integer
+  ##  - Payload stored as a blob
   checkExec """
     CREATE TABLE IF NOT EXISTS messages (
-        topic TEXT NOT NULL,
         contentTopic INTEGER NOT NULL, 
         payload BLOB NOT NULL
     );
@@ -93,19 +113,11 @@ proc init*(
     env: env.release
   ))
 
-template prepare(q: string, cleanup: untyped): ptr sqlite3_stmt =
+template prepare(env: Sqlite, q: string, cleanup: untyped): ptr sqlite3_stmt =
   var s: ptr sqlite3_stmt
-  checkErr sqlite3_prepare_v2(env.val, q, q.len.cint, addr s, nil):
+  checkErr sqlite3_prepare_v2(env, q, q.len.cint, addr s, nil):
     cleanup
   s
-
-proc prepareStmt*(db: MessageStore,
-                  stmt: string,
-                  Params: type,
-                  Res: type): KvResult[SqliteStmt[Params, Res]] =
-  var s: RawStmtPtr
-  checkErr sqlite3_prepare_v2(db.env, stmt, stmt.len.cint, addr s, nil)
-  ok SqliteStmt[Params, Res](s)
 
 proc bindParam(s: RawStmtPtr, n: int, val: auto): cint =
   when val is openarray[byte]|seq[byte]:
@@ -115,21 +127,22 @@ proc bindParam(s: RawStmtPtr, n: int, val: auto): cint =
       sqlite3_bind_blob(s, n.cint, nil, 0.cint, nil)
   elif val is int32:
     sqlite3_bind_int(s, n.cint, val)
+  elif val is uint32:
+    sqlite3_bind_int(s, int(n).cint, int(val).cint)
   elif val is int64:
     sqlite3_bind_int64(s, n.cint, val)
   else:
-    {.fatal: "Please add support for the '" & $(T) & "' type".}
+    {.fatal: "Please add support for the 'kek' type".}
 
 proc put(db: MessageStore, message: WakuMessage): MessageStoreResult[void] =
-  let stmt ? db.prepareStmt("INSERT INTO messages (topic, contentTopic, payload) VALUES (?, ?, ?)")
-  checkErr bindParam(s, 1, message.topic)
-  checkErr bindParam(s, 2, message.contentTopic)
-  checkErr bindParam(s, 3, cast[string](msg.payload))
+  let s = prepare(db.env, "INSERT INTO messages (contentTopic, payload) VALUES (?, ?)"): discard
+  checkErr bindParam(s, 1, message.contentTopic)
+  checkErr bindParam(s, 2, message.payload)
 
   ok()
 
 proc get(db: MessageStore, topics: seq[ContentTopic]): MessageStoreResult[seq[WakuMessage]] =
-  let stmt ? db.prepareStmt("SELECT contentTopic, payload FROM messages WHERE contentTopic IN (" & join(topics, ", ") & ")")
+  let stmt = prepare(db.env, "SELECT contentTopic, payload FROM messages WHERE contentTopic IN (" & join(topics, ", ") & ")"): discard
 
   var msgs = newSeq[WakuMessage]()
 
@@ -140,11 +153,10 @@ proc get(db: MessageStore, topics: seq[ContentTopic]): MessageStoreResult[seq[Wa
         of SQLITE_ROW:
           let
             topic = sqlite3_column_int(stmt, 0)
-            p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(getStmt, 0))
-            l = sqlite3_column_bytes(getStmt, 0)
-            msg = WakuMessage(contentTopic: topic, payload: cast[string](toOpenArray(p, 0, l-1)))
-          
-          msgs.add(msg)
+            p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(stmt, 0))
+            l = sqlite3_column_bytes(stmt, 0)
+            
+          msgs.add(WakuMessage(contentTopic: ContentTopic(int(topic)), payload: @(toOpenArray(p, 0, l-1))))
         of SQLITE_DONE:
           break
         else:

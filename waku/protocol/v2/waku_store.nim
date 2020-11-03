@@ -8,22 +8,13 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
   ./message_notifier,
-  ./../../node/v2/waku_types,
-  db_sqlite,
-  strutils
+  ./../../node/v2/[waku_types, message_store]
 
 logScope:
   topics = "wakustore"
 
 const
   WakuStoreCodec* = "/vac/waku/store/2.0.0-beta1"
-
-  ## Table is the SQL query for creating the messages Table.
-  ## It contains:
-  ##  - Pubsub topic stored as a string
-  ##  - 4-Byte ContentTopic stored as an Integer
-  ##  - Payload stored as a blob
-  Table = sql"CREATE TABLE IF NOT EXISTS messages (topic TEXT NOT NULL, contentTopic INTEGER NOT NULL, payload BLOB NOT NULL)"
 
 type
   StoreError* = enum
@@ -189,9 +180,14 @@ proc encode*(rpc: HistoryRPC): ProtoBuffer =
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   result = HistoryResponse(messages: newSeq[WakuMessage]())
 
-  let topics = join(query.topics, ", ")
-  for row in w.db.rows(SqlQuery("SELECT contentTopic, payload FROM messages WHERE contentTopic IN (" & topics & ")")):
-    result.messages.add(WakuMessage(payload: cast[seq[byte]](row[1]), contentTopic: ContentTopic(row[0].parseInt)))
+  if isNil(w.store):
+    return
+
+  let res = w.store.get(query.topics)
+  if res.isErr:
+    return
+
+  result.messages = res
 
 method init*(ws: WakuStore): Result[void, StoreError] =
   try:

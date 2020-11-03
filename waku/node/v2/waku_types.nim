@@ -12,7 +12,7 @@ import
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
   nimcrypto/sha2,
-  db_sqlite
+  sqlite3_abi
 
 # Common data types -----------------------------------------------------------
 
@@ -75,11 +75,18 @@ type
   HistoryPeer* = object
     peerInfo*: PeerInfo
 
+  MessageStoreResult*[T] = Result[T, string]
+
+  Sqlite* = ptr sqlite3
+
+  MessageStore* = ref object of RootObj
+    env*: Sqlite
+
   WakuStore* = ref object of LPProtocol
     switch*: Switch
     rng*: ref BrHmacDrbgContext
     peers*: seq[HistoryPeer]
-    db*: DbConn
+    store*: MessageStore
 
   FilterRequest* = object
     contentFilters*: seq[ContentFilter]

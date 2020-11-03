@@ -12,7 +12,7 @@ import
   libp2p/transports/transport,
   libp2p/transports/tcptransport,
   ../../waku/protocol/v2/[waku_store, message_notifier],
-  ../../waku/node/v2/waku_types,
+  ../../waku/node/v2/[waku_types, message_store],
   ../test_helpers, ./utils, db_sqlite
 
 procSuite "Waku Store":
@@ -31,19 +31,18 @@ procSuite "Waku Store":
     discard await listenSwitch.start()
 
     let
-      res = WakuStore.init(dialSwitch, crypto.newRng(), open("", "", "", ""))
+      res = WakuStore.init(dialSwitch, crypto.newRng())
       proto = res.value
       rpc = HistoryQuery(topics: @[topic])
 
     proto.setPeer(listenSwitch.peerInfo)
 
-    # var subscriptions = newTable[string, MessageNotificationSubscription]()
-    # subscriptions["test"] = subscription
+    res.store ? MessageStore.init("", "", false, true)
+
+    res.store.put(msg)
+    res.store.put(msg2)
 
     listenSwitch.mount(proto)
-
-    # await subscriptions.notify("foo", msg)
-    # await subscriptions.notify("foo", msg2)
 
     var completionFut = newFuture[bool]()
 
