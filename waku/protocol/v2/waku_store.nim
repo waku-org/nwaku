@@ -173,7 +173,7 @@ proc encode*(rpc: HistoryRPC): ProtoBuffer =
   result.write(2, rpc.query.encode())
   result.write(3, rpc.response.encode())
 
-proc findIndex*(msgList: seq[IndexedWakuMessage], index: Index): int=
+proc findIndex*(msgList: seq[IndexedWakuMessage], index: Index): int =
   ## returns the position of an IndexedWakuMessage in msgList whose index value matches the given index
   ## returns -1 if no match is found
   for i, indexedWakuMessage in msgList:
@@ -319,5 +319,4 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
     return
 
   handler(response.value.response)
-
 
