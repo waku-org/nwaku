@@ -238,7 +238,7 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
   result[1] = PagingInfo(pageSize : uint64(retrievedPageSize), cursor : newCursor, direction : pinfo.direction)
 
 
-proc paginateWithoutIndex( list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[WakuMessage], PagingInfo) =
+proc paginateWithoutIndex(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[WakuMessage], PagingInfo) =
   ## takes list, and perfomrs paging based on pinfo 
   ## returns the page i.e, a sequence of WakuMessage and the new paging info to be used for the next paging request  
   var (indexedData, updatedPagingInfo)= paginateWithIndex(list,pinfo)
@@ -319,4 +319,3 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
     return
 
   handler(response.value.response)
-
