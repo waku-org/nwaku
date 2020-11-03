@@ -14,7 +14,7 @@ procSuite "Waku Payload":
 
     # Encoding
     let
-      version = "0"
+      version = 0'u32
       payload = @[byte 0, 1, 2]
       msg = WakuMessage(payload: payload, version: version)
       pb =  msg.encode()
@@ -36,7 +36,7 @@ procSuite "Waku Payload":
 
     # Encoding
     let
-      version = "0"
+      version = 0'u32
       payload = Payload(payload: @[byte 0, 1, 2])
       encodedPayload = payload.encode(version, rng[])
 
@@ -61,7 +61,7 @@ procSuite "Waku Payload":
     # Encoding
     let
       privKey = PrivateKey.random(rng[])
-      version = "1"
+      version = 1'u32
       payload = Payload(payload: @[byte 0, 1, 2],
         dst: some(privKey.toPublicKey()))
       encodedPayload = payload.encode(version, rng[])
@@ -85,7 +85,7 @@ procSuite "Waku Payload":
 
   test "Encode with unsupported version":
     let
-      version = "2"
+      version = 2'u32
       payload = Payload(payload: @[byte 0, 1, 2])
       encodedPayload = payload.encode(version, rng[])
 
@@ -94,7 +94,7 @@ procSuite "Waku Payload":
   test "Decode with unsupported version":
     # Encoding
     let
-      version = "2"
+      version = 2'u32
       payload = @[byte 0, 1, 2]
       msg = WakuMessage(payload: payload, version: version)
       pb =  msg.encode()

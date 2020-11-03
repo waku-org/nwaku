@@ -32,9 +32,9 @@ type
 proc decodePayload*(message: WakuMessage, keyInfo: KeyInfo):
     WakuResult[DecodedPayload] =
   case message.version
-  of "0":
+  of 0:
     return ok(DecodedPayload(payload:message.payload))
-  of "1":
+  of 1:
     case keyInfo.kind
     of Symmetric:
       let decoded = message.payload.decode(none[PrivateKey](),
@@ -57,13 +57,13 @@ proc decodePayload*(message: WakuMessage, keyInfo: KeyInfo):
 
 # TODO: same story as for `decodedPayload`, but then regarding the `Payload`
 # object.
-proc encode*(payload: Payload, version: string, rng: var BrHmacDrbgContext):
+proc encode*(payload: Payload, version: uint32, rng: var BrHmacDrbgContext):
     WakuResult[seq[byte]] =
   case version
-  of "0":
+  of 0:
     # This is rather silly
     return ok(payload.payload)
-  of "1":
+  of 1:
     let encoded = encode(rng, payload)
     if encoded.isSome():
       return ok(encoded.get())

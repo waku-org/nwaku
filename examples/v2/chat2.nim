@@ -87,7 +87,7 @@ proc publish(c: Chat, line: string) =
     # Use Waku v1 payload encoding/encryption
     let
       payload = Payload(payload: line.toBytes(), symKey: some(DefaultSymKey))
-      version = "1"
+      version = 1'u32
       encodedPayload = payload.encode(version, c.node.rng[])
     if encodedPayload.isOk():
       let message = WakuMessage(payload: encodedPayload.get(),
@@ -98,7 +98,7 @@ proc publish(c: Chat, line: string) =
   else:
     # No payload encoding/encryption from Waku
     let message = WakuMessage(payload: line.toBytes(),
-      contentTopic: DefaultContentTopic, version: "0")
+      contentTopic: DefaultContentTopic, version: 0)
     c.node.publish(DefaultTopic, message)
 
 # TODO This should read or be subscribe handler subscribe
