@@ -25,7 +25,7 @@ type
   WakuMessage* = object
     payload*: seq[byte]
     contentTopic*: ContentTopic
-    version*: string
+    version*: uint32
 
   MessageNotificationHandler* = proc(topic: string, msg: WakuMessage): Future[
       void] {.gcsafe, closure.}
@@ -150,6 +150,8 @@ type
     # NOTE One for simplicity, can extend later as needed
     listenStr*: string
     #multiaddrStrings*: seq[string]
+
+  WakuResult*[T] = Result[T, cstring]
 
   # Encoding and decoding -------------------------------------------------------
 

@@ -3,7 +3,8 @@ when not(compileOption("threads")):
 
 import std/[tables, strformat, strutils]
 import confutils, chronicles, chronos, stew/shims/net as stewNet,
-       eth/keys, bearssl, stew/[byteutils, endians2]
+       eth/keys, bearssl, stew/[byteutils, endians2],
+       nimcrypto/pbkdf2
 import libp2p/[switch,                   # manage transports, a single entry point for dialing and listening
                multistream,              # tag stream with short header to identify it
                crypto/crypto,            # cryptographic functions
@@ -18,7 +19,7 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                protocols/secure/secio,   # define the protocol of secure input / output, allows encrypted communication that uses public keys to validate signed messages instead of a certificate authority like in TLS
                muxers/muxer,             # define an interface for stream multiplexing, allowing peers to offer many protocols over a single connection
                muxers/mplex/mplex]       # define some contants and message types for stream multiplexing
-import   ../../waku/node/v2/[config, wakunode2, waku_types],
+import   ../../waku/node/v2/[config, wakunode2, waku_types, waku_payload],
          ../../waku/protocol/v2/[waku_relay, waku_store, waku_filter],
          ../../waku/node/common
 
@@ -30,10 +31,12 @@ const Help = """
   exit: closes the chat
 """
 
-const DefaultTopic = "/waku/2/default-waku/proto"
+const
+  PayloadV1* {.booldefine.} = false
+  DefaultTopic = "/waku/2/default-waku/proto"
 
-const Dingpu = "dingpu".toBytes
-const DefaultContentTopic = ContentTopic(uint32.fromBytes(Dingpu))
+  Dingpu = "dingpu".toBytes
+  DefaultContentTopic = ContentTopic(uint32.fromBytes(Dingpu))
 
 # XXX Connected is a bit annoying, because incoming connections don't trigger state change
 # Could poll connection pool or something here, I suppose
@@ -48,6 +51,18 @@ type Chat = ref object
 type
   PrivateKey* = crypto.PrivateKey
   Topic* = waku_types.Topic
+
+
+# Similarly as Status public chats now.
+proc generateSymKey(contentTopic: ContentTopic): SymKey =
+  var ctx: HMAC[sha256]
+  var symKey: SymKey
+  if pbkdf2(ctx, contentTopic.toBytes(), "", 65356, symKey) != sizeof(SymKey):
+    raise (ref Defect)(msg: "Should not occur as array is properly sized")
+
+  symKey
+
+let DefaultSymKey = generateSymKey(DefaultContentTopic)
 
 proc initAddress(T: type MultiAddress, str: string): T =
   let address = MultiAddress.init(str).tryGet()
@@ -68,9 +83,23 @@ proc connectToNodes(c: Chat, nodes: seq[string]) {.async.} =
   c.connected = true
 
 proc publish(c: Chat, line: string) =
-  let payload = cast[seq[byte]](line)
-  let message = WakuMessage(payload: payload, contentTopic: DefaultContentTopic)
-  c.node.publish(DefaultTopic, message)
+  when PayloadV1:
+    # Use Waku v1 payload encoding/encryption
+    let
+      payload = Payload(payload: line.toBytes(), symKey: some(DefaultSymKey))
+      version = 1'u32
+      encodedPayload = payload.encode(version, c.node.rng[])
+    if encodedPayload.isOk():
+      let message = WakuMessage(payload: encodedPayload.get(),
+        contentTopic: DefaultContentTopic, version: version)
+      c.node.publish(DefaultTopic, message)
+    else:
+      warn "Payload encoding failed", error = encodedPayload.error
+  else:
+    # No payload encoding/encryption from Waku
+    let message = WakuMessage(payload: line.toBytes(),
+      contentTopic: DefaultContentTopic, version: 0)
+    c.node.publish(DefaultTopic, message)
 
 # TODO This should read or be subscribe handler subscribe
 proc readAndPrint(c: Chat) {.async.} =
@@ -156,7 +185,6 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
     node = WakuNode.init(conf.nodeKey, conf.listenAddress,
       Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
 
-  # waitFor vs await
   await node.start()
 
   if conf.filternode != "":
@@ -183,7 +211,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
 
     proc storeHandler(response: HistoryResponse) {.gcsafe.} =
       for msg in response.messages:
-        let payload = cast[string](msg.payload)
+        let payload = string.fromBytes(msg.payload)
         echo &"{payload}"
       info "Hit store handler"
 
@@ -195,7 +223,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
     node.wakuFilter.setPeer(parsePeer(conf.filternode))
 
     proc filterHandler(msg: WakuMessage) {.gcsafe.} =
-      let payload = cast[string](msg.payload)
+      let payload = string.fromBytes(msg.payload)
       echo &"{payload}"
       info "Hit filter handler"
 
@@ -208,10 +236,31 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   # TODO To get end to end sender would require more information in payload
   # We could possibly indicate the relayer point with connection somehow probably (?)
   proc handler(topic: Topic, data: seq[byte]) {.async, gcsafe.} =
-    let message = WakuMessage.init(data).value
-    let payload = cast[string](message.payload)
-    echo &"{payload}"
-    info "Hit subscribe handler", topic=topic, payload=payload, contentTopic=message.contentTopic
+    let decoded = WakuMessage.init(data)
+    if decoded.isOk():
+      let msg = decoded.get()
+      when PayloadV1:
+        # Use Waku v1 payload encoding/encryption
+        let
+          keyInfo = KeyInfo(kind: Symmetric, symKey: DefaultSymKey)
+          decodedPayload = decodePayload(decoded.get(), keyInfo)
+
+        if decodedPayload.isOK():
+          let payload = string.fromBytes(decodedPayload.get().payload)
+          echo &"{payload}"
+          info "Hit subscribe handler", topic, payload,
+            contentTopic = msg.contentTopic
+        else:
+          debug "Invalid encoded WakuMessage payload",
+            error = decodedPayload.error
+      else:
+        # No payload encoding/encryption from Waku
+        let payload = string.fromBytes(msg.payload)
+        echo &"{payload}"
+        info "Hit subscribe handler", topic, payload,
+          contentTopic = msg.contentTopic
+    else:
+      trace "Invalid encoded WakuMessage", error = decoded.error
 
   let topic = cast[Topic](DefaultTopic)
   await node.subscribe(topic, handler)
