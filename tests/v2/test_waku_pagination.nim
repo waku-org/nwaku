@@ -36,22 +36,21 @@ procSuite "pagination":
       index1.digest == index2.digest
 
   test "Index comparison, IndexedWakuMessage comparison, and Sorting tests":
-    let
-      data1: array[32, byte] = [byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-          1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-      data2: array[32, byte] = [byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-          1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2]
-      data3: array[32, byte] = [byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-          1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3]
+    var data1 {.noinit.}: array[32, byte]
+    for x in data1.mitems: x = 1
+    var data2 {.noinit.}: array[32, byte]
+    for x in data2.mitems: x = 2
+    var data3 {.noinit.}: array[32, byte]
+    for x in data3.mitems: x = 3
       
-
+    let
       index1: Index = Index(receivedTime: 1, digest: MDigest[256](data: data1))
       index2: Index = Index(receivedTime: 1, digest: MDigest[256](data: data2))
       index3: Index = Index(receivedTime: 2, digest: MDigest[256](data: data3))
       iwm1 = IndexedWakuMessage(index: index1)
       iwm2 = IndexedWakuMessage(index: index2)
       iwm3 = IndexedWakuMessage(index: index3)
-
+    
     check:
       indexComparison(index1, index1) == 0
       indexComparison(index1, index2) == -1
