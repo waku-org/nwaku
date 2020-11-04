@@ -45,6 +45,6 @@ COPY --from=nim-build /app/build/$MAKE_TARGET /usr/local/bin/
 # Symlink the correct wakunode binary
 RUN ln -sv /usr/local/bin/$MAKE_TARGET /usr/bin/wakunode
 
-ENTRYPOINT ["/usr/bin/wakunode", "--store:true", "--relay:true", "--filter:true"]
+ENTRYPOINT ["/usr/bin/wakunode"]
 # By default just show help if called without arguments
 CMD ["--help"]
