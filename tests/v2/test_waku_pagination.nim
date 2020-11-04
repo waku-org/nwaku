@@ -69,9 +69,9 @@ procSuite "pagination":
     var sortingList = @[iwm3, iwm1, iwm2]
     sortingList.sort(indexedWakuMessageComparison)
     check: 
-      sortingList[0] ==  iwm1
-      sortingList[1] ==  iwm2
-      sortingList[2] ==  iwm3
+      sortingList[0] == iwm1
+      sortingList[1] == iwm2
+      sortingList[2] == iwm3
       
   
   test "Find Index test": 
