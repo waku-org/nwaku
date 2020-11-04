@@ -210,16 +210,15 @@ proc indexComparison* (x, y: Index): int =
   ## returns 1 if x > y
   let 
     timecmp = system.cmp(x.receivedTime, y.receivedTime)
-    digestcm= system.cmp(x.digest.data, y.digest.data)
+    digestcm = system.cmp(x.digest.data, y.digest.data)
   if timecmp != 0: # timestamp has a higher priority for comparison
     return timecmp
   return digestcm
 
 
-proc indexedWakuMessageComparison* (x, y: IndexedWakuMessage): int =
+proc indexedWakuMessageComparison*(x, y: IndexedWakuMessage): int =
   ## compares x and y
   ## returns 0 if they are equal 
   ## returns -1 if x < y
   ## returns 1 if x > y
-  result= indexComparison(x.index, y.index)
-
+  result = indexComparison(x.index, y.index)

@@ -136,8 +136,6 @@ procSuite "Waku Store":
     let
       proto = WakuStore.init(dialSwitch, crypto.newRng())
       subscription = proto.subscription()
-      
-
     proto.setPeer(listenSwitch.peerInfo)
 
     var subscriptions = newTable[string, MessageNotificationSubscription]()
@@ -147,8 +145,6 @@ procSuite "Waku Store":
 
     for wakuMsg in msgList:
       await subscriptions.notify("foo", wakuMsg)
-
-
     var completionFut = newFuture[bool]()
 
     proc handler(response: HistoryResponse) {.gcsafe, closure.} =
@@ -190,8 +186,6 @@ procSuite "Waku Store":
     let
       proto = WakuStore.init(dialSwitch, crypto.newRng())
       subscription = proto.subscription()
-      
-
     proto.setPeer(listenSwitch.peerInfo)
 
     var subscriptions = newTable[string, MessageNotificationSubscription]()
@@ -201,8 +195,6 @@ procSuite "Waku Store":
 
     for wakuMsg in msgList:
       await subscriptions.notify("foo", wakuMsg)
-
-
     var completionFut = newFuture[bool]()
 
     proc handler(response: HistoryResponse) {.gcsafe, closure.} =
