@@ -246,10 +246,7 @@ proc paginateWithoutIndex(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (se
 
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   result = HistoryResponse(messages: newSeq[WakuMessage]())
-  var data: seq[IndexedWakuMessage] = @[] # data holds IndexedWakuMessage whose topics match the query
-  for indexedMsg in w.messages:
-    if indexedMsg.msg.contentTopic in query.topics:
-      data.add(indexedMsg)
+var data = w.messages.filterIt(it.msg.contentTopic in query.topics)
   
   # perform pagination
   (result.messages, result.pagingInfo)= paginateWithoutIndex(data, query.pagingInfo)
