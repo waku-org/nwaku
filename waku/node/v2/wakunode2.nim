@@ -52,6 +52,8 @@ proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilte
   var unsubscribeTopics: seq[ContentTopic]
   for cf in contentFilters:
     unsubscribeTopics = unsubscribeTopics.concat(cf.topics)
+  
+  debug "unsubscribing", unsubscribeTopics=unsubscribeTopics
 
   var rIdToRemove: seq[string] = @[]
   for rId, f in filters.mpairs:
@@ -70,6 +72,8 @@ proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilte
   # if no more content filters left
   for rId in rIdToRemove:
     filters.del(rId)
+  
+  debug "filters modified", filters=filters
 
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)

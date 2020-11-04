@@ -28,6 +28,8 @@ proc unsubscribeFilters(subscribers: var seq[Subscriber], request: FilterRequest
   var unsubscribeTopics: seq[ContentTopic]
   for cf in request.contentFilters:
     unsubscribeTopics = unsubscribeTopics.concat(cf.topics)
+  
+  debug "unsubscribing", peerId=peerId, unsubscribeTopics=unsubscribeTopics
 
   for subscriber in subscribers.mitems:
     if subscriber.peer.peerId != peerId: continue
@@ -44,6 +46,8 @@ proc unsubscribeFilters(subscribers: var seq[Subscriber], request: FilterRequest
   # make sure we delete the subscriber
   # if no more content filters left
   subscribers.keepIf(proc (s: auto): bool = s.filter.contentFilters.len > 0)
+
+  debug "subscribers modified", subscribers=subscribers
   # @TODO: metrics?
 
 proc encode*(filter: ContentFilter): ProtoBuffer =
