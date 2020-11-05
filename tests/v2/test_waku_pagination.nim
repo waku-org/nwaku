@@ -2,7 +2,6 @@
 import
   std/[unittest,algorithm,options],
   nimcrypto/sha2,
-  stew/byteutils,
   ../../waku/node/v2/waku_types,
   ../../waku/protocol/v2/waku_store,
   ../test_helpers
@@ -74,14 +73,14 @@ procSuite "pagination":
       
   
   test "Find Index test": 
-    let msgList = CreateSampleList(10)
+    let msgList = createSampleList(10)
     check:
       msgList.findIndex(msgList[3].index).get() == 3
       msgList.findIndex(Index()).isNone == true
 
   test "Forward pagination test":
     var 
-      msgList = CreateSampleList(10)
+      msgList = createSampleList(10)
       pagingInfo = PagingInfo(pageSize: 2, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
 
     # test for a normal pagination
@@ -150,7 +149,7 @@ procSuite "pagination":
  
   test "Backward pagination test":
     var
-      msgList = CreateSampleList(10)
+      msgList = createSampleList(10)
       pagingInfo = PagingInfo(pageSize: 2, cursor: msgList[3].index, direction: PagingDirection.BACKWARD)
 
     # test for a normal pagination
