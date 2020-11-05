@@ -9,7 +9,8 @@ import
 
 proc createSampleList(s: int): seq[IndexedWakuMessage] =
   ## takes s as input and outputs a sequence with s amount of IndexedWakuMessage 
-  let data: array[32, byte] = [byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+  var data {.noinit.}: array[32, byte]
+  for x in data.mitems: x = 1
   for i in 0..<s:
     result.add(IndexedWakuMessage(msg: WakuMessage(payload: @[byte i]), index: Index(receivedTime: float64(i), digest: MDigest[256](data: data)) ))
 
