@@ -8,7 +8,7 @@ import
   ../test_helpers
 
 
-proc CreateSampleList(s: int): seq[IndexedWakuMessage] =
+proc createSampleList(s: int): seq[IndexedWakuMessage] =
   ## takes s as input and outputs a sequence with s amount of IndexedWakuMessage 
   let data: array[32, byte] = [byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
   for i in 0..<s:
@@ -44,9 +44,9 @@ procSuite "pagination":
     for x in data3.mitems: x = 3
       
     let
-      index1: Index = Index(receivedTime: 1, digest: MDigest[256](data: data1))
-      index2: Index = Index(receivedTime: 1, digest: MDigest[256](data: data2))
-      index3: Index = Index(receivedTime: 2, digest: MDigest[256](data: data3))
+      index1 = Index(receivedTime: 1, digest: MDigest[256](data: data1))
+      index2 = Index(receivedTime: 1, digest: MDigest[256](data: data2))
+      index3 = Index(receivedTime: 2, digest: MDigest[256](data: data3))
       iwm1 = IndexedWakuMessage(index: index1)
       iwm2 = IndexedWakuMessage(index: index2)
       iwm3 = IndexedWakuMessage(index: index3)

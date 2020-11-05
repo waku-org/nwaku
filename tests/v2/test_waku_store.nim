@@ -167,15 +167,15 @@ procSuite "Waku Store":
       peer = PeerInfo.init(key)
     var
       msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic(2)),
-        WakuMessage(payload: @[byte 1],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 2],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 3],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 4],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 5],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 6],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 7],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 8],contentTopic: ContentTopic(1)), 
-        WakuMessage(payload: @[byte 9],contentTopic: ContentTopic(2))]
+        WakuMessage(payload: @[byte 1], contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 2], contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 3], contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 4], contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 5], contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 6], contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 7], contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 8], contentTopic: ContentTopic(1)), 
+        WakuMessage(payload: @[byte 9], contentTopic: ContentTopic(2))]
 
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()
