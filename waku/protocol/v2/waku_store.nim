@@ -1,7 +1,7 @@
 import
   std/[tables, sequtils, future, algorithm, options],
   bearssl,
-  chronos, chronicles, metrics, stew/results,
+  chronos, chronicles, metrics, stew/[results,byteutils],
   libp2p/switch,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
@@ -173,6 +173,25 @@ proc encode*(rpc: HistoryRPC): ProtoBuffer =
   result.write(2, rpc.query.encode())
   result.write(3, rpc.response.encode())
 
+proc indexComparison* (x, y: Index): int =
+  ## compares x and y
+  ## returns 0 if they are equal 
+  ## returns -1 if x < y
+  ## returns 1 if x > y
+  let 
+    timecmp = system.cmp(x.receivedTime, y.receivedTime)
+    digestcm = system.cmp(x.digest.data, y.digest.data)
+  if timecmp != 0: # timestamp has a higher priority for comparison
+    return timecmp
+  return digestcm
+
+proc indexedWakuMessageComparison*(x, y: IndexedWakuMessage): int =
+  ## compares x and y
+  ## returns 0 if they are equal 
+  ## returns -1 if x < y
+  ## returns 1 if x > y
+  result = indexComparison(x.index, y.index)
+
 proc findIndex*(msgList: seq[IndexedWakuMessage], index: Index): Option[int] =
   ## returns the position of an IndexedWakuMessage in msgList whose index value matches the given index
   ## returns none if no match is found
@@ -184,7 +203,6 @@ proc findIndex*(msgList: seq[IndexedWakuMessage], index: Index): Option[int] =
 proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWakuMessage], PagingInfo) =
   ## takes list, and performs paging based on pinfo 
   ## returns the page i.e, a sequence of IndexedWakuMessage and the new paging info to be used for the next paging request
-  
   var
     cursor = pinfo.cursor
     pageSize = pinfo.pageSize
@@ -197,7 +215,8 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
     return (list, PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction))
 
   var msgList = list # makes a copy of the list
-  msgList.sort(indexedWakuMessageComparison) # sorts msgList based on the custom comparison proc indexedWakuMessageComparison
+  # sorts msgList based on the custom comparison proc indexedWakuMessageComparison
+  msgList.sort(indexedWakuMessageComparison) 
 
   var initQuery = false
   if cursor == Index(): 
@@ -216,14 +235,16 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
   case dir
     of PagingDirection.FORWARD: # forward pagination
       let remainingMessages= msgList.len - foundIndex - 1
-      retrievedPageSize = min(int(pageSize), MaxPageSize).min(remainingMessages)  # the number of queried messages cannot exceed the MaxPageSize and the total remaining messages i.e., msgList.len-foundIndex
+      # the number of queried messages cannot exceed the MaxPageSize and the total remaining messages i.e., msgList.len-foundIndex
+      retrievedPageSize = min(int(pageSize), MaxPageSize).min(remainingMessages)  
       if initQuery : foundIndex = foundIndex - 1
       s = foundIndex + 1  # non inclusive
       e = foundIndex + retrievedPageSize 
       newCursor = msgList[e].index # the new cursor points to the end of the page
     of PagingDirection.BACKWARD: # backward pagination
       let remainingMessages=foundIndex
-      retrievedPageSize = min(int(pageSize), MaxPageSize).min(remainingMessages) # the number of queried messages cannot exceed the MaxPageSize and the total remaining messages i.e., foundIndex-0
+      # the number of queried messages cannot exceed the MaxPageSize and the total remaining messages i.e., foundIndex-0
+      retrievedPageSize = min(int(pageSize), MaxPageSize).min(remainingMessages) 
       if initQuery : foundIndex = foundIndex + 1
       s = foundIndex - retrievedPageSize 
       e = foundIndex - 1
@@ -246,7 +267,8 @@ proc paginateWithoutIndex(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (se
 
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   result = HistoryResponse(messages: newSeq[WakuMessage]())
-  var data = w.messages.filterIt(it.msg.contentTopic in query.topics)  # data holds IndexedWakuMessage whose topics match the query
+  # data holds IndexedWakuMessage whose topics match the query
+  var data = w.messages.filterIt(it.msg.contentTopic in query.topics)  
   
   # perform pagination
   (result.messages, result.pagingInfo)= paginateWithoutIndex(data, query.pagingInfo)
