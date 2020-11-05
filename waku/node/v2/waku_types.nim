@@ -12,7 +12,8 @@ import
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
   nimcrypto/sha2
-
+# constants required for pagination -------------------------------------------
+const MaxPageSize* = 100 # Maximum number of waku messages in each page 
 # Common data types -----------------------------------------------------------
 type
   ContentTopic* = uint32
@@ -145,10 +146,6 @@ type
     #multiaddrStrings*: seq[string]
 
   WakuResult*[T] = Result[T, cstring]
-# constants required for pagination -------------------------------------------
-const MaxPageSize* = 100 # Maximum number of waku messages in each page 
-const DefaultPageSize* = 10 # The default number of waku messages in each page 
-
 # Encoding and decoding -------------------------------------------------------
 
 proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
