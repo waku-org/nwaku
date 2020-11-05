@@ -202,7 +202,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   echo &"Listening on\n {listenStr}"
 
   if conf.storenode != "":
-    let res = node.mountStore(conf.dbpath)
+    let res = node.mountStore()
     if res.isErr:
       error "failed to mount store"
       return

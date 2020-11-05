@@ -37,10 +37,11 @@ procSuite "Waku Store":
 
     proto.setPeer(listenSwitch.peerInfo)
 
-    res.store ? MessageStore.init("", "", false, true)
+    let store = MessageStore.init("", "", false, true)
+    proto.store = store.value
 
-    res.store.put(msg)
-    res.store.put(msg2)
+    discard proto.store.put(msg)
+    discard proto.store.put(msg2)
 
     listenSwitch.mount(proto)
 

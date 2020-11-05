@@ -11,6 +11,8 @@ type
   AutoDisposed[T: ptr|ref] = object
     val: T
 
+  DataProc* = proc(val: WakuMessage) {.gcsafe, raises: [Defect].}
+
 template dispose(db: Sqlite) =
   discard sqlite3_close(db)
 
@@ -134,36 +136,36 @@ proc bindParam(s: RawStmtPtr, n: int, val: auto): cint =
   else:
     {.fatal: "Please add support for the 'kek' type".}
 
-proc put(db: MessageStore, message: WakuMessage): MessageStoreResult[void] =
+proc put*(db: MessageStore, message: WakuMessage): MessageStoreResult[void] =
   let s = prepare(db.env, "INSERT INTO messages (contentTopic, payload) VALUES (?, ?)"): discard
   checkErr bindParam(s, 1, message.contentTopic)
   checkErr bindParam(s, 2, message.payload)
 
   ok()
 
-proc get(db: MessageStore, topics: seq[ContentTopic]): MessageStoreResult[seq[WakuMessage]] =
+proc get*(db: MessageStore, topics: seq[ContentTopic], onData: DataProc): MessageStoreResult[bool] =
   let stmt = prepare(db.env, "SELECT contentTopic, payload FROM messages WHERE contentTopic IN (" & join(topics, ", ") & ")"): discard
 
-  var msgs = newSeq[WakuMessage]()
+  let
+    v = sqlite3_step(stmt)
+    res = case v
+      of SQLITE_ROW:
+        let
+          topic = sqlite3_column_int(stmt, 0)
+          p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(stmt, 0))
+          l = sqlite3_column_bytes(stmt, 0)
 
-  while true:
-    let
-      v = sqlite3_step(stmt)
-      res = case v
-        of SQLITE_ROW:
-          let
-            topic = sqlite3_column_int(stmt, 0)
-            p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(stmt, 0))
-            l = sqlite3_column_bytes(stmt, 0)
-            
-          msgs.add(WakuMessage(contentTopic: ContentTopic(int(topic)), payload: @(toOpenArray(p, 0, l-1))))
-        of SQLITE_DONE:
-          break
-        else:
-          return err($sqlite3_errstr(v))
+        onData(WakuMessage(contentTopic: ContentTopic(int(topic)), payload: @(toOpenArray(p, 0, l-1))))
+        ok(true)
+      of SQLITE_DONE:
+        ok(false)
+      else:
+        err($sqlite3_errstr(v))
+  
 
     # release implicit transaction
   discard sqlite3_reset(stmt) # same return information as step
   discard sqlite3_clear_bindings(stmt) # no errors possible
 
-  ok(msgs)
+  res
+  # ok(true)

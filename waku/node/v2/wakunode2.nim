@@ -211,16 +211,10 @@ proc mountFilter*(node: WakuNode) =
   node.switch.mount(node.wakuFilter)
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
-proc mountStore*(node: WakuNode, path = ""): Result[void, WakuNodeError] =
-  var db: DbConn
-  try:
-    db = db_sqlite.open(path, "", "", "")
-  except:
-    return err(FailedToOpenDatabase)
-  
+proc mountStore*(node: WakuNode): Result[void, WakuNodeError] =
   info "mounting store"
 
-  let store = WakuStore.init(node.switch, node.rng, db)
+  let store = WakuStore.init(node.switch, node.rng)
   if store.isErr:
     return err(FailedToMountStore)
 
@@ -359,7 +353,7 @@ when isMainModule:
   waitFor node.start()
 
   if conf.store:
-    let res = mountStore(node, conf.dbpath)
+    let res = mountStore(node)
     if res.isErr:
       error "failed to mount store"
       system.quit(system.QuitFailure)

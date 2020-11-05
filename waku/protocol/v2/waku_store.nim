@@ -183,18 +183,17 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   if isNil(w.store):
     return
 
-  let res = w.store.get(query.topics)
+  var messages = newSeq[WakuMessage]()
+  proc data(val: WakuMessage) =
+    messages.add(val)
+
+  let res = w.store.get(query.topics, data)
   if res.isErr:
     return
 
-  result.messages = res
+  result.messages = messages
 
 method init*(ws: WakuStore): Result[void, StoreError] =
-  try:
-    ws.db.exec(Table)
-  except:
-    return err(FailedToCreateDatabase)
-
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var message = await conn.readLp(64*1024)
     var res = HistoryRPC.init(message)
@@ -212,11 +211,10 @@ method init*(ws: WakuStore): Result[void, StoreError] =
   ws.codec = WakuStoreCodec
   ok()
 
-proc init*(T: type WakuStore, switch: Switch, rng: ref BrHmacDrbgContext, db: DbConn): Result[T, StoreError] =
+proc init*(T: type WakuStore, switch: Switch, rng: ref BrHmacDrbgContext): Result[T, StoreError] =
   let res = new WakuStore
   res.rng = rng
   res.switch = switch
-  res.db = db
   ? res.init()
 
   ok(res)
