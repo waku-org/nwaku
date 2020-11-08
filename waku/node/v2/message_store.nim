@@ -2,7 +2,13 @@ import
   os, 
   sqlite3_abi,
   waku_types,
-  stew/results,
+  chronos, chronicles, metrics, stew/results,
+  libp2p/switch,
+  libp2p/crypto/crypto,
+  libp2p/protocols/protocol,
+  libp2p/protobuf/minprotobuf,
+  libp2p/stream/connection,
+  stew/results, metrics,
   strutils, sequtils
 
 {.push raises: [Defect].}
@@ -146,28 +152,50 @@ proc put*(db: MessageStore, message: WakuMessage): MessageStoreResult[void] =
   ok()
 
 proc get*(db: MessageStore, topics: seq[ContentTopic], onData: DataProc): MessageStoreResult[bool] =
-  let stmt = prepare(db.env, "SELECT contentTopic, payload FROM messages WHERE contentTopic IN (" & join(topics, ", ") & ")"): discard
+  let s = prepare(db.env, "SELECT contentTopic, payload FROM messages WHERE contentTopic IN (" & join(topics, ", ") & ")"): discard
 
-  let
-    v = sqlite3_step(stmt)
-    res = case v
+  try:
+    var gotResults = false
+    while true:
+      let v = sqlite3_step(s)
+      case v
       of SQLITE_ROW:
         let
-          topic = sqlite3_column_int(stmt, 0)
-          p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(stmt, 0))
-          l = sqlite3_column_bytes(stmt, 0)
+          topic = sqlite3_column_int(s, 0)
+          p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 0))
+          l = sqlite3_column_bytes(s, 0)
 
         onData(WakuMessage(contentTopic: ContentTopic(int(topic)), payload: @(toOpenArray(p, 0, l-1))))
-        ok(true)
+        gotResults = true
       of SQLITE_DONE:
-        ok(false)
+        break
       else:
-        err($sqlite3_errstr(v))
-  
+        return err($sqlite3_errstr(v))
+    return ok gotResults
+  finally:
+  # release implicit transaction
+    discard sqlite3_reset(s) # same return information as step
+    discard sqlite3_clear_bindings(s) # no errors possible
 
+  # try:
+  # while true:
+  #   let v = sqlite3_step(stmt)
+  #   case v
+  #   of SQLITE_ROW:
+  #     let
+  #       topic = sqlite3_column_int(stmt, 0)
+  #       p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(stmt, 0))
+  #       l = sqlite3_column_bytes(stmt, 0)
+      
+  #     msgs.add(WakuMessage(contentTopic: ContentTopic(int(topic)), payload: @(toOpenArray(p, 0, l-1))))
+  #   of SQLITE_DONE:
+  #     break
+  #   else:
+  #     return err($sqlite3_errstr(v))
+  # return ok(msgs)
+  # finally:
+    # info "fuck"
     # release implicit transaction
-  discard sqlite3_reset(stmt) # same return information as step
-  discard sqlite3_clear_bindings(stmt) # no errors possible
-
-  res
+    # discard sqlite3_reset(stmt) # same return information as step
+    # discard sqlite3_clear_bindings(stmt) # no errors possible
   # ok(true)

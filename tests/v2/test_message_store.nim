@@ -8,16 +8,25 @@ import
 suite "Message Store":
   test "set and get works":
     let 
-      store = MessageStore.init("", "db", inMemory =true).value
+      store = MessageStore.init("/tmp/", "db", inMemory = true).value
       topic = ContentTopic(1)
-      msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic)
+      msg1 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic)
+      # msg2 = WakuMessage(payload: @[byte 1, 2, 3, 4], contentTopic: topic)
 
-    discard store.put(msg)
+    discard store.put(msg1)
+    # discard store.put(msg2)
 
-    # @TODO: WE NEED TO FIGURE OUT HOW TO FUCKING RETURN MULTIPLE ROWS AND WAIT.
-
-    proc handler(val: WakuMessage) {.closure.} =
+    proc data(msg: WakuMessage) =
+      info "fuck", msg=msg
       check:
-        msg == val
+        msg == msg1
+    # @TODO: WE NEED TO FIGURE OUT HOW TO FUCKING RETURN MULTIPLE ROWS AND WAIT.
+    
+    let res = store.get(@[topic], data)
+    
+    check:
+      res.value == true
+      res.isErr == false
 
-    discard store.get(@[topic], handler)
+    # check:
+    #   res.value.len == 2
