@@ -5,13 +5,15 @@ import
   stew/results,
   strutils, sequtils
 
+{.push raises: [Defect].}
+
 type
   RawStmtPtr = ptr sqlite3_stmt
 
   AutoDisposed[T: ptr|ref] = object
     val: T
 
-  DataProc* = proc(val: WakuMessage) {.gcsafe, raises: [Defect].}
+  DataProc* = proc(msg: WakuMessage) {.closure.} 
 
 template dispose(db: Sqlite) =
   discard sqlite3_close(db)

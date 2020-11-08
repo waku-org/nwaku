@@ -117,7 +117,7 @@ procSuite "Waku Store":
     let
       index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: ContentTopic(1)))
       pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
-      query=HistoryQuery(topics: @[ContentTopic(1)], pagingInfo: pagingInfo)
+      query = HistoryQuery(topics: @[ContentTopic(1)], pagingInfo: pagingInfo)
       pb = query.encode()
       decodedQuery = HistoryQuery.init(pb.buffer)
 
