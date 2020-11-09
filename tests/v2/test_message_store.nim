@@ -27,5 +27,4 @@ suite "Message Store":
     check:
       res.isErr == false
       msgs.len == 2
-      msgs[0] == msg1
-      msgs[1] == msg2
+      ((msgs[0] == msg1 and msgs[1] == msg2) or (msgs[0] == msg2 and msgs[1] == msg1))

@@ -23,7 +23,7 @@ procSuite "Waku Store":
       peer = PeerInfo.init(key)
       topic = ContentTopic(1)
       msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic)
-      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(2))
+      msg2 = WakuMessage(payload: @[byte 1, 2, 3, 4], contentTopic: ContentTopic(2))
 
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()
