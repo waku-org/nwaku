@@ -1,7 +1,7 @@
 import
-  std/tables,
+  std/[tables, sequtils, future, algorithm, options],
   bearssl,
-  chronos, chronicles, metrics, stew/results,
+  chronos, chronicles, metrics, stew/[results,byteutils],
   libp2p/switch,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
@@ -205,7 +205,8 @@ method init*(ws: WakuStore): Result[void, StoreError] =
 
     let value = res.value
     let response = ws.findMessages(res.value.query)
-    await conn.writeLp(HistoryRPC(requestId: value.requestId, response: response).encode().buffer)
+    await conn.writeLp(HistoryRPC(requestId: value.requestId,
+        response: response).encode().buffer)
 
   ws.handler = handle
   ws.codec = WakuStoreCodec
@@ -223,28 +224,6 @@ proc init*(T: type WakuStore, switch: Switch, rng: ref BrHmacDrbgContext): Resul
 proc setPeer*(ws: WakuStore, peer: PeerInfo) =
   ws.peers.add(HistoryPeer(peerInfo: peer))
 
-proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
-  # @TODO We need to be more stratigic about which peers we dial. Right now we just set one on the service.
-  # Ideally depending on the query and our set  of peers we take a subset of ideal peers.
-  # This will require us to check for various factors such as:
-  #  - which topics they track
-  #  - latency?
-  #  - default store peer?
-
-  let peer = w.peers[0]
-  let conn = await w.switch.dial(peer.peerInfo.peerId, peer.peerInfo.addrs, WakuStoreCodec)
-
-  await conn.writeLP(HistoryRPC(requestId: generateRequestId(w.rng), query: query).encode().buffer)
-
-  var message = await conn.readLp(64*1024)
-  let response = HistoryRPC.init(message)
-
-  if response.isErr:
-    error "failed to decode response"
-    return
-
-  handler(response.value.response)
-
 proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   ## The filter function returns the pubsub filter for the node.
   ## This is used to pipe messages into the storage, therefore
@@ -257,3 +236,26 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
     discard proto.store.put(msg)
 
   MessageNotificationSubscription.init(@[], handle)
+
+proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
+  # @TODO We need to be more stratigic about which peers we dial. Right now we just set one on the service.
+  # Ideally depending on the query and our set  of peers we take a subset of ideal peers.
+  # This will require us to check for various factors such as:
+  #  - which topics they track
+  #  - latency?
+  #  - default store peer?
+
+  let peer = w.peers[0]
+  let conn = await w.switch.dial(peer.peerInfo.peerId, peer.peerInfo.addrs, WakuStoreCodec)
+
+  await conn.writeLP(HistoryRPC(requestId: generateRequestId(w.rng),
+      query: query).encode().buffer)
+
+  var message = await conn.readLp(64*1024)
+  let response = HistoryRPC.init(message)
+
+  if response.isErr:
+    error "failed to decode response"
+    return
+
+  handler(response.value.response)

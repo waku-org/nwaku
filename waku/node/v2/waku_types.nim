@@ -14,6 +14,8 @@ import
   nimcrypto/sha2,
   sqlite3_abi
 
+# constants required for pagination -------------------------------------------
+const MaxPageSize* = 100 # Maximum number of waku messages in each page 
 # Common data types -----------------------------------------------------------
 
 type
@@ -61,11 +63,11 @@ type
 
   HistoryQuery* = object
     topics*: seq[ContentTopic]
-    pagingInfo*: PagingInfo
+    pagingInfo*: PagingInfo # used for pagination
 
   HistoryResponse* = object
     messages*: seq[WakuMessage]
-    pagingInfo*: PagingInfo
+    pagingInfo*: PagingInfo # used for pagination
 
   HistoryRPC* = object
     requestId*: string
@@ -152,8 +154,7 @@ type
     #multiaddrStrings*: seq[string]
 
   WakuResult*[T] = Result[T, cstring]
-
-  # Encoding and decoding -------------------------------------------------------
+# Encoding and decoding -------------------------------------------------------
 
 proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
   var msg = WakuMessage()
@@ -196,15 +197,13 @@ proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
   toHex(bytes)
 
 proc computeIndex*(msg: WakuMessage): Index =
-  ## Takes a WakuMessage and returns its index
+  ## Takes a WakuMessage and returns its Index 
   var ctx: sha256
   ctx.init()
-  if msg.contentTopic != 0: # checks for non-empty contentTopic
-    ctx.update(msg.contentTopic.toBytes()) # converts the topic to bytes
+  ctx.update(msg.contentTopic.toBytes()) # converts the contentTopic to bytes
   ctx.update(msg.payload)
   let digest = ctx.finish() # computes the hash
   ctx.clear()
 
   result.digest = digest
   result.receivedTime = epochTime() # gets the unix timestamp
-

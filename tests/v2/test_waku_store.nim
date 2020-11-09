@@ -15,6 +15,7 @@ import
   ../../waku/node/v2/[waku_types, message_store],
   ../test_helpers, ./utils, db_sqlite
 
+
 procSuite "Waku Store":
   asyncTest "handle query":
     let
@@ -80,7 +81,6 @@ procSuite "Waku Store":
       # check the correctness of init and encode for an empty Index
       decodedEmptyIndex.isErr == false
       decodedEmptyIndex.value == emptyIndex
-
 
   test "PagingDirection Protobuf encod/init test":
     let
