@@ -187,7 +187,7 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   proc data(val: WakuMessage) =
     messages.add(val)
 
-  let res = w.store.get(query.topics, data)
+  let res = w.store.get(query.topics, query.pagingInfo, data)
   if res.isErr:
     return
 

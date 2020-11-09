@@ -168,8 +168,24 @@ proc close*(db: MessageStore) =
 
   db[] = MessageStore()[]
 
-proc get*(db: MessageStore, topics: seq[ContentTopic], onData: DataProc): MessageStoreResult[bool] =
-  let s = prepare(db.env, "SELECT contentTopic, payload FROM messages WHERE contentTopic IN (" & join(topics, ", ") & ")"): discard
+proc get*(db: MessageStore, topics: seq[ContentTopic], paging: PagingInfo, onData: DataProc): MessageStoreResult[bool] =
+  let direction =
+    case paging.direction
+    of FORWARD:
+      "ASC"
+    of BACKWARD:
+      "DESC"
+
+  var pageSize = paging.pageSize
+  if pageSize == 0:
+    pageSize = MaxPageSize
+
+  let query = """
+    SELECT contentTopic, payload FROM messages
+    WHERE contentTopic IN (""" & join(topics, ", ") & """)
+    ORDER BY id """ & direction & """ LIMIT """ & $pageSize
+  
+  let s = prepare(db.env, query): discard
 
   try:
     var gotResults = false
