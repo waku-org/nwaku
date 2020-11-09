@@ -196,14 +196,11 @@ proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
   brHmacDrbgGenerate(rng[], bytes)
   toHex(bytes)
 
-proc computeIndex*(msg: WakuMessage): Index =
-  ## Takes a WakuMessage and returns its Index 
+proc id*(msg: WakuMessage): MDigest[256] =
+  ## Takes a WakuMessage and returns its ID 
   var ctx: sha256
   ctx.init()
   ctx.update(msg.contentTopic.toBytes()) # converts the contentTopic to bytes
   ctx.update(msg.payload)
-  let digest = ctx.finish() # computes the hash
+  result = ctx.finish() # computes the hash
   ctx.clear()
-
-  result.digest = digest
-  result.receivedTime = epochTime() # gets the unix timestamp

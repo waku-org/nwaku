@@ -114,9 +114,10 @@ proc init*(
   ##  - Payload stored as a blob
   checkExec """
     CREATE TABLE IF NOT EXISTS messages (
+        id BLOB PRIMARY KEY,
         contentTopic INTEGER NOT NULL, 
         payload BLOB
-    );
+    ) WITHOUT ROWID;
     """
 
   ok(MessageStore(
@@ -145,9 +146,10 @@ proc bindParam(s: RawStmtPtr, n: int, val: auto): cint =
     {.fatal: "Please add support for the 'kek' type".}
 
 proc put*(db: MessageStore, message: WakuMessage): MessageStoreResult[void] =
-  let s = prepare(db.env, "INSERT INTO messages (contentTopic, payload) VALUES (?, ?);"): discard
-  checkErr bindParam(s, 1, message.contentTopic)
-  checkErr bindParam(s, 2, message.payload)
+  let s = prepare(db.env, "INSERT INTO messages (id, contentTopic, payload) VALUES (?, ?, ?);"): discard
+  checkErr bindParam(s, 1, @(message.id().data))
+  checkErr bindParam(s, 2, message.contentTopic)
+  checkErr bindParam(s, 3, message.payload)
 
   let res =
     if (let v = sqlite3_step(s); v != SQLITE_DONE):
