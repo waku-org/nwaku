@@ -244,3 +244,16 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
     return
 
   handler(response.value.response)
+
+proc subscription*(proto: WakuStore): MessageNotificationSubscription =
+  ## The filter function returns the pubsub filter for the node.
+  ## This is used to pipe messages into the storage, therefore
+  ## the filter should be used by the component that receives
+  ## new messages.
+  proc handle(topic: string, msg: WakuMessage) {.async.} =
+    if proto.store.isNil:
+      return
+
+    discard proto.store.put(msg)
+
+  MessageNotificationSubscription.init(@[], handle)

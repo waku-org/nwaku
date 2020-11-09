@@ -31,18 +31,20 @@ procSuite "Waku Store":
     discard await listenSwitch.start()
 
     let
-      res = WakuStore.init(dialSwitch, crypto.newRng())
-      proto = res.value
+      proto = WakuStore.init(dialSwitch, crypto.newRng())[]
+      subscription = proto.subscription()
       rpc = HistoryQuery(topics: @[topic])
 
     proto.setPeer(listenSwitch.peerInfo)
+    
+    var subscriptions = newTable[string, MessageNotificationSubscription]()
+    subscriptions["test"] = subscription
 
     let store = MessageStore.init("", "", false, true)
     proto.store = store.value
 
-    discard proto.store.put(msg)
-    discard proto.store.put(msg2)
-
+    await subscriptions.notify("foo", msg)
+    await subscriptions.notify("foo", msg2)
     listenSwitch.mount(proto)
 
     var completionFut = newFuture[bool]()

@@ -8,7 +8,7 @@ import
   libp2p/switch,
   eth/keys,
   ../../waku/protocol/v2/[waku_relay, waku_store, waku_filter, message_notifier],
-  ../../waku/node/v2/[wakunode2, waku_types],
+  ../../waku/node/v2/[wakunode2, waku_types, message_store],
   ../test_helpers
 
 procSuite "WakuNode":
@@ -142,6 +142,9 @@ procSuite "WakuNode":
     discard node1.mountStore()
     await node2.start()
     discard node2.mountStore()
+
+    let store = MessageStore.init("", "", false, true)[]
+    node2.wakuStore.store = store
 
     await node2.subscriptions.notify("/waku/2/default-waku/proto", message)
 
