@@ -20,7 +20,7 @@ procSuite "WakuNode":
         Port(60000))
       pubSubTopic = "chat"
       contentTopic = ContentTopic(1)
-      filterRequest = FilterRequest(topic: pubSubTopic, contentFilters: @[ContentFilter(topics: @[contentTopic])])
+      filterRequest = FilterRequest(topic: pubSubTopic, contentFilters: @[ContentFilter(topics: @[contentTopic])], subscribe: true)
       message = WakuMessage(payload: "hello world".toBytes(),
         contentTopic: contentTopic)
 
@@ -72,7 +72,7 @@ procSuite "WakuNode":
         Port(60002))
       pubSubTopic = "chat"
       contentTopic = ContentTopic(1)
-      filterRequest = FilterRequest(topic: pubSubTopic, contentFilters: @[ContentFilter(topics: @[contentTopic])])
+      filterRequest = FilterRequest(topic: pubSubTopic, contentFilters: @[ContentFilter(topics: @[contentTopic])], subscribe: true)
       message = WakuMessage(payload: "hello world".toBytes(),
         contentTopic: contentTopic)
 
@@ -190,7 +190,7 @@ procSuite "WakuNode":
         msg == message
       completionFut.complete(true)
 
-    await node1.subscribe(FilterRequest(topic: "/waku/2/default-waku/proto", contentFilters: @[ContentFilter(topics: @[contentTopic])]), handler)
+    await node1.subscribe(FilterRequest(topic: "/waku/2/default-waku/proto", contentFilters: @[ContentFilter(topics: @[contentTopic])], subscribe: true), handler)
 
     await sleepAsync(2000.millis)
 
