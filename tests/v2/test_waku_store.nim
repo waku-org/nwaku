@@ -34,7 +34,7 @@ procSuite "Waku Store":
     let
       proto = WakuStore.init(dialSwitch, crypto.newRng())[]
       subscription = proto.subscription()
-      rpc = HistoryQuery(topics: @[topic])
+      rpc = HistoryQuery(topics: @[topic], pagingInfo: PagingInfo(direction: PagingDirection.FORWARD))
 
     proto.setPeer(listenSwitch.peerInfo)
     
@@ -43,6 +43,7 @@ procSuite "Waku Store":
 
     let store = MessageStore.init("", "", false, true)
     proto.store = store.value
+    defer: proto.store.close()
 
     await subscriptions.notify("foo", msg)
     await subscriptions.notify("foo", msg2)

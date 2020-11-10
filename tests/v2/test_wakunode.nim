@@ -145,6 +145,7 @@ procSuite "WakuNode":
 
     let store = MessageStore.init("", "", false, true)[]
     node2.wakuStore.store = store
+    defer: node2.wakuStore.store.close()
 
     await node2.subscriptions.notify("/waku/2/default-waku/proto", message)
 
@@ -157,7 +158,7 @@ procSuite "WakuNode":
         response.messages[0] == message
       completionFut.complete(true)
 
-    await node1.query(HistoryQuery(topics: @[contentTopic]), storeHandler)
+    await node1.query(HistoryQuery(topics: @[contentTopic], pagingInfo: PagingInfo(direction: PagingDirection.FORWARD)), storeHandler)
     
     check:
       (await completionFut.withTimeout(5.seconds)) == true

@@ -9,7 +9,7 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
   stew/results, metrics,
-  strutils, sequtils
+  strutils, sequtils, times
 
 {.push raises: [Defect].}
 
@@ -115,6 +115,7 @@ proc init*(
   checkExec """
     CREATE TABLE IF NOT EXISTS messages (
         id BLOB PRIMARY KEY,
+        timestamp INTEGER NOT NULL,
         contentTopic INTEGER NOT NULL, 
         payload BLOB
     ) WITHOUT ROWID;
@@ -146,10 +147,11 @@ proc bindParam(s: RawStmtPtr, n: int, val: auto): cint =
     {.fatal: "Please add support for the 'kek' type".}
 
 proc put*(db: MessageStore, message: WakuMessage): MessageStoreResult[void] =
-  let s = prepare(db.env, "INSERT INTO messages (id, contentTopic, payload) VALUES (?, ?, ?);"): discard
+  let s = prepare(db.env, "INSERT INTO messages (id, timestamp, contentTopic, payload) VALUES (?, ?, ?, ?);"): discard
   checkErr bindParam(s, 1, @(message.id().data))
-  checkErr bindParam(s, 2, message.contentTopic)
-  checkErr bindParam(s, 3, message.payload)
+  checkErr bindParam(s, 2, toUnix(now().toTime))
+  checkErr bindParam(s, 3, message.contentTopic)
+  checkErr bindParam(s, 4, message.payload)
 
   let res =
     if (let v = sqlite3_step(s); v != SQLITE_DONE):
@@ -169,23 +171,26 @@ proc close*(db: MessageStore) =
   db[] = MessageStore()[]
 
 proc get*(db: MessageStore, topics: seq[ContentTopic], paging: PagingInfo, onData: DataProc): MessageStoreResult[bool] =
+  var limit = ""
+  if paging.pageSize > 0:
+    limit = "LIMIT " & $paging.pageSize
+  if paging.pageSize > MaxPageSize:
+    limit = "LIMIT " & $MaxPageSize
+
   let direction =
     case paging.direction
     of FORWARD:
-      "ASC"
+      "timestamp > " & $paging.cursor.receivedTime & " AND id > ?"
     of BACKWARD:
-      "DESC"
-
-  var pageSize = paging.pageSize
-  if pageSize == 0:
-    pageSize = MaxPageSize
+      "timestamp < " & $paging.cursor.receivedTime & " AND id < ?"
 
   let query = """
     SELECT contentTopic, payload FROM messages
-    WHERE contentTopic IN (""" & join(topics, ", ") & """)
-    ORDER BY id """ & direction & """ LIMIT """ & $pageSize
+    WHERE contentTopic IN (""" & join(topics, ", ") & """) AND """ & direction & """
+    ORDER BY timestamp, id """ & limit
   
   let s = prepare(db.env, query): discard
+  checkErr bindParam(s, 1, @(paging.cursor.digest.data))
 
   try:
     var gotResults = false
