@@ -93,6 +93,7 @@ type
   FilterRequest* = object
     contentFilters*: seq[ContentFilter]
     topic*: string
+    subscribe*: bool
 
   MessagePush* = object
     messages*: seq[WakuMessage]
