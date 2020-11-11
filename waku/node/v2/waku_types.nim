@@ -12,8 +12,10 @@ import
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
   nimcrypto/sha2
-# constants required for pagination -------------------------------------------
-const MaxPageSize* = 100 # Maximum number of waku messages in each page 
+
+# Constants required for pagination -------------------------------------------
+const MaxPageSize* = 100 # Maximum number of waku messages in each page
+
 # Common data types -----------------------------------------------------------
 type
   ContentTopic* = uint32
@@ -146,8 +148,21 @@ type
     #multiaddrStrings*: seq[string]
 
   WakuResult*[T] = Result[T, cstring]
-# Encoding and decoding -------------------------------------------------------
 
+  Beneficiary* = seq[byte]
+
+  # TODO Consider adding payment threshhold and terms field
+  Handshake* = object
+    beneficiary*: Beneficiary
+
+  Cheque* = object
+    beneficiary*: Beneficiary
+    date*: uint32
+    amount*: uint32
+
+# Encoding and decoding -------------------------------------------------------
+# TODO Move out to to waku_message module
+# Possibly same with util functions
 proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
   var msg = WakuMessage()
   let pb = initProtoBuffer(buffer)

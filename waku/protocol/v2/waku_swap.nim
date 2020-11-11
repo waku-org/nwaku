@@ -1,3 +1,14 @@
+import
+  std/tables,
+  bearssl,
+  chronos, chronicles, metrics, stew/results,
+  libp2p/protocols/protocol,
+  libp2p/protobuf/minprotobuf,
+  libp2p/stream/connection,
+  libp2p/crypto/crypto,
+  libp2p/switch,
+  ./../../node/v2/waku_types
+
 ## SWAP implements Accounting for Waku. See
 ## https://github.com/vacp2p/specs/issues/24 for more.
 ##
@@ -21,4 +32,40 @@
 ## Things like settlement is for future work.
 ##
 
-## TODO Basic protobufs
+  logScope:
+    topics = "wakuswap"
+
+  const
+    WakuSwapCodec* = "/vac/waku/swap/2.0.0-alpha1"
+
+proc encode*(handshake: Handshake): ProtuBuffer =
+  result = initProtoBuffer()
+  result.write(1, handshake.beneficiary)
+
+proc encode*(cheque: Cheque): ProtuBuffer =
+  result = initProtoBuffer()
+  result.write(1, handshake.beneficiary)
+  result.write(2, handshake.date)
+  result.write(3, handshake.amount)
+
+proc init*(T: type Handshake, buffer: seq[byte]): ProtoResult[T] =
+  var beneficiary: seq[byte]
+  var handshake = Handshake()
+  let pb = initProtoBuffer(buffer)
+
+  discard ? pb.getField(1, handshake.beneficiary)
+
+  ok(handshake)
+
+proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
+  var beneficiary: seq[byte]
+  var date: uint32
+  var amount: uint32
+  var cheque = Cheque()
+  let pb = initProtoBuffer(buffer)
+
+  discard ? pb.getField(1, cheque.beneficiary)
+  discard ? pb.getField(2, cheque.date)
+  discard ? pb.getField(2, cheque.amount)
+
+  ok(cheque)
