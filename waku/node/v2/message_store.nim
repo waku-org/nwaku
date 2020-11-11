@@ -13,6 +13,11 @@ import
 
 {.push raises: [Defect].}
 
+# The code in this file is an adaptation of the Sqlite KV Store found in nim-eth.
+# https://github.com/status-im/nim-eth/blob/master/eth/db/kvstore_sqlite3.nim
+#
+# Most of it is a direct copy, the only unique functions being `get` and `put`.
+
 type
   RawStmtPtr = ptr sqlite3_stmt
 
@@ -147,6 +152,14 @@ proc bindParam(s: RawStmtPtr, n: int, val: auto): cint =
     {.fatal: "Please add support for the 'kek' type".}
 
 proc put*(db: MessageStore, message: WakuMessage): MessageStoreResult[void] =
+  ## Adds a message to the storage.
+  ##
+  ## **Example:**
+  ##
+  ## .. code-block::
+  ##   let res = db.put(message)
+  ##   if res.isErr:
+  ##     echo "error"
   let s = prepare(db.env, "INSERT INTO messages (id, timestamp, contentTopic, payload) VALUES (?, ?, ?, ?);"): discard
   checkErr bindParam(s, 1, @(message.id().data))
   checkErr bindParam(s, 2, toUnix(now().toTime))
@@ -171,6 +184,17 @@ proc close*(db: MessageStore) =
   db[] = MessageStore()[]
 
 proc get*(db: MessageStore, topics: seq[ContentTopic], paging: PagingInfo, onData: DataProc): MessageStoreResult[bool] =
+  ## Retreives a message from the storage.
+  ##
+  ## **Example:**
+  ##
+  ## .. code-block::
+  ##   proc data(msg: WakuMessage) =
+  ##     echo cast[string](msg.payload)
+  ##
+  ##   let res = db.get(topics, paging, data)
+  ##   if res.isErr:
+  ##     echo "error"
   var limit = ""
   if paging.pageSize > 0:
     limit = "LIMIT " & $paging.pageSize
