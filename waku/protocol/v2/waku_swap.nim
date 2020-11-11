@@ -68,6 +68,6 @@ proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
 
   discard ? pb.getField(1, cheque.beneficiary)
   discard ? pb.getField(2, cheque.date)
-  discard ? pb.getField(2, cheque.amount)
+  discard ? pb.getField(3, cheque.amount)
 
   ok(cheque)

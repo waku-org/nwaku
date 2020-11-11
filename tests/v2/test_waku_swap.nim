@@ -18,4 +18,16 @@ procSuite "Waku SWAP Accounting":
       decodedHandshake.isErr == false
       decodedHandshake.get().beneficiary == beneficiary
 
-    # TODO Cheque test
+  test "Cheque Encode/Decode":
+    let
+      amount = 1'u32
+      date = 9000'u32
+      beneficiary = @[byte 0, 1, 2]
+      cheque = Cheque(beneficiary: beneficiary, amount: amount, date: date)
+      pb = cheque.encode()
+
+    let decodedCheque = Cheque.init(pb.buffer)
+
+    check:
+      decodedCheque.isErr == false
+      decodedCheque.get() == cheque
