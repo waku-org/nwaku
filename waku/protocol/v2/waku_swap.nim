@@ -1,14 +1,3 @@
-import
-  std/tables,
-  bearssl,
-  chronos, chronicles, metrics, stew/results,
-  libp2p/protocols/protocol,
-  libp2p/protobuf/minprotobuf,
-  libp2p/stream/connection,
-  libp2p/crypto/crypto,
-  libp2p/switch,
-  ./../../node/v2/waku_types
-
 ## SWAP implements Accounting for Waku. See
 ## https://github.com/vacp2p/specs/issues/24 for more.
 ##
@@ -32,21 +21,34 @@ import
 ## Things like settlement is for future work.
 ##
 
-  logScope:
-    topics = "wakuswap"
+import
+  std/[tables, sequtils, future, algorithm, options],
+  bearssl,
+  chronos, chronicles, metrics, stew/[results,byteutils],
+  libp2p/switch,
+  libp2p/crypto/crypto,
+  libp2p/protocols/protocol,
+  libp2p/protobuf/minprotobuf,
+  libp2p/stream/connection,
+  ./message_notifier,
+  ./../../node/v2/waku_types
 
-  const
-    WakuSwapCodec* = "/vac/waku/swap/2.0.0-alpha1"
+export waku_types
 
-proc encode*(handshake: Handshake): ProtuBuffer =
+logScope:
+  topics = "wakuswap"
+
+const WakuSwapCodec* = "/vac/waku/swap/2.0.0-alpha1"
+
+proc encode*(handshake: Handshake): ProtoBuffer =
   result = initProtoBuffer()
   result.write(1, handshake.beneficiary)
 
-proc encode*(cheque: Cheque): ProtuBuffer =
+proc encode*(cheque: Cheque): ProtoBuffer =
   result = initProtoBuffer()
-  result.write(1, handshake.beneficiary)
-  result.write(2, handshake.date)
-  result.write(3, handshake.amount)
+  result.write(1, cheque.beneficiary)
+  result.write(2, cheque.date)
+  result.write(3, cheque.amount)
 
 proc init*(T: type Handshake, buffer: seq[byte]): ProtoResult[T] =
   var beneficiary: seq[byte]
