@@ -52,7 +52,7 @@ template checkErr(op) =
 proc init*(
     T: type MessageStore,
     basePath: string,
-    name: string,
+    name: string = "store",
     readOnly = false,
     inMemory = false): MessageStoreResult[T] =
   var env: AutoDisposed[ptr sqlite3]

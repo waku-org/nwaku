@@ -8,7 +8,7 @@ import
 suite "Message Store":
   test "set and get works":
     let 
-      store = MessageStore.init("", "test", inMemory = true)[]
+      store = MessageStore.init("", inMemory = true)[]
       topic = ContentTopic(1)
       msg1 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic)
       msg2 = WakuMessage(payload: @[byte 1, 2, 3, 4], contentTopic: topic)

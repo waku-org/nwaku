@@ -41,7 +41,7 @@ procSuite "Waku Store":
     var subscriptions = newTable[string, MessageNotificationSubscription]()
     subscriptions["test"] = subscription
 
-    let store = MessageStore.init("", "", false, true)[]
+    let store = MessageStore.init("", inMemory = true)[]
     proto.store = store
     defer: store.close()
 
@@ -104,7 +104,7 @@ procSuite "Waku Store":
 
     proto.setPeer(listenSwitch.peerInfo)
 
-    let store = MessageStore.init("", "", false, true)[]
+    let store = MessageStore.init("", inMemory = true)[]
     proto.store = store
     defer: store.close()
 

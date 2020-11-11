@@ -143,7 +143,7 @@ procSuite "WakuNode":
     await node2.start()
     discard node2.mountStore()
 
-    let store = MessageStore.init("", "", false, true)[]
+    let store = MessageStore.init("", inMemory = true)[]
     node2.wakuStore.store = store
     defer: node2.wakuStore.store.close()
 
