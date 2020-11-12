@@ -24,10 +24,10 @@ suite "Message Store":
     proc data(timestamp: uint64, msg: WakuMessage) =
       msgs.add(msg)
     
-    let res = store.get(@[topic], PagingInfo(direction: FORWARD, pageSize: 2), data)
+    let res = store.get(@[topic], PagingInfo(direction: BACKWARD, pageSize: 2), data)
     
     check:
       res.isErr == false
       msgs.len == 2
-      msgs[0] == msg2
+      msgs[0] == msg1
       msgs[1] == msg3

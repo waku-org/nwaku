@@ -13,7 +13,7 @@ import
   libp2p/transports/tcptransport,
   ../../waku/protocol/v2/[waku_store, message_notifier],
   ../../waku/node/v2/[waku_types, message_store],
-  ../test_helpers, ./utils, db_sqlite
+  ../test_helpers, ./utils, db_sqlite, times
 
 
 procSuite "Waku Store":
@@ -60,7 +60,7 @@ procSuite "Waku Store":
     await proto.query(rpc, handler)
 
     check:
-      (await completionFut.withTimeout(5.seconds)) == true
+      (await completionFut.withTimeout(chronos.seconds(5))) == true
 
   test "PagingDirection Protobuf encod/init test":
     let
@@ -130,7 +130,7 @@ procSuite "Waku Store":
     await proto.query(rpc, handler)
 
     check:
-      (await completionFut.withTimeout(5.seconds)) == true
+      (await completionFut.withTimeout(chronos.seconds(5))) == true
 
   asyncTest "handle query with backward pagination":
     let
@@ -184,7 +184,7 @@ procSuite "Waku Store":
     await proto.query(rpc, handler)
 
     check:
-      (await completionFut.withTimeout(5.seconds)) == true
+      (await completionFut.withTimeout(chronos.seconds(5))) == true
 
   asyncTest "handle queries with no pagination":
     let
@@ -237,4 +237,64 @@ procSuite "Waku Store":
     await proto.query(rpc, handler)
 
     check:
-      (await completionFut.withTimeout(5.seconds)) == true
+      (await completionFut.withTimeout(chronos.seconds(5))) == true
+
+  asyncTest "handle queries with timestamp pagination":
+    let
+      key = PrivateKey.random(ECDSA, rng[]).get()
+      peer = PeerInfo.init(key)
+    var
+      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic(2)),
+        WakuMessage(payload: @[byte 1], contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 2], contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 3], contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 4], contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 5], contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 6], contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 7], contentTopic: ContentTopic(1)),
+        WakuMessage(payload: @[byte 8], contentTopic: ContentTopic(1)), 
+        WakuMessage(payload: @[byte 9], contentTopic: ContentTopic(2))]
+
+    var dialSwitch = newStandardSwitch()
+    discard await dialSwitch.start()
+
+    var listenSwitch = newStandardSwitch(some(key))
+    discard await listenSwitch.start()
+
+    let
+      proto = WakuStore.init(dialSwitch, crypto.newRng())[]
+      subscription = proto.subscription()
+    proto.setPeer(listenSwitch.peerInfo)
+
+    let store = MessageStore.init("", "", false, true)[]
+    proto.store = store
+    defer: store.close()
+
+    var subscriptions = newTable[string, MessageNotificationSubscription]()
+    subscriptions["test"] = subscription
+
+    listenSwitch.mount(proto)
+
+    for wakuMsg in msgList:
+      await subscriptions.notify("foo", wakuMsg)
+    var completionFut = newFuture[bool]()
+
+    await sleepAsync(2000.millis)
+
+    let time = toUnix(now().toTime)
+
+    proc handler(response: HistoryResponse) {.gcsafe, closure.} =
+      check:
+        response.messages.len() == 2
+        response.pagingInfo.pageSize == 2
+      completionFut.complete(true)
+
+    let rpc = HistoryQuery(
+      topics: @[ContentTopic(1)],
+      pagingInfo: PagingInfo(pageSize: 2, direction: BACKWARD, cursor: Index(receivedTime: float(time)))
+    )
+
+    await proto.query(rpc, handler)
+
+    check:
+      (await completionFut.withTimeout(chronos.seconds(5))) == true

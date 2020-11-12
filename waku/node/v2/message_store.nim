@@ -219,29 +219,27 @@ proc get*(db: MessageStore, topics: seq[ContentTopic], paging: PagingInfo, onDat
 
     s = prepare(db.env, query): discard
   else:
-    # @TODO
-    discard
+    let order =
+      case paging.direction
+        of FORWARD:
+          "ORDER BY timestamp ASC, id ASC"
+        of BACKWARD:
+          "ORDER BY timestamp DESC, id DESC"
 
-  # var limit = ""
-  # if paging.pageSize > 0:
-  #   limit = "LIMIT " & $paging.pageSize
-  # if paging.pageSize > MaxPageSize:
-  #   limit = "LIMIT " & $MaxPageSize
+    let where =
+      case paging.direction
+        of FORWARD:
+          "AND timestamp > ?"
+        of BACKWARD:
+          "AND timestamp < ?"
 
-  # let direction =
-  #   case paging.direction
-  #   of FORWARD:
-  #     "timestamp > " & $paging.cursor.receivedTime & " AND id > ?"
-  #   of BACKWARD:
-  #     "timestamp < " & $paging.cursor.receivedTime & " AND id < ?"
+    var query = "SELECT timestamp, contentTopic, payload FROM messages WHERE contentTopic IN (" & join(topics, ", ") & ") " & where & " " & order
 
-  # let query = """
-  #   SELECT contentTopic, payload FROM messages
-  #   WHERE contentTopic IN (""" & join(topics, ", ") & """) AND """ & direction & """
-  #   ORDER BY timestamp, id """ & limit
-  
-  # let s = prepare(db.env, query): discard
-  # checkErr bindParam(s, 1, @(paging.cursor.digest.data))
+    if pageSize > 0:
+      query &= " LIMIT " & $pageSize
+
+    s = prepare(db.env, query): discard
+    checkErr bindParam(s, 1, int64(paging.cursor.receivedTime))
 
   try:
     var gotResults = false
