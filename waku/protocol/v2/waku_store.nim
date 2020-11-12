@@ -184,14 +184,35 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
     return
 
   var messages = newSeq[WakuMessage]()
-  proc data(val: WakuMessage) =
+  var cursorTime: uint64
+
+  proc data(timestamp: uint64, val: WakuMessage) =
     messages.add(val)
+
+    if query.pagingInfo.direction == BACKWARD:
+      if messages.len == 0:
+        cursorTime = timestamp
+    else:
+      cursorTime = timestamp
 
   let res = w.store.get(query.topics, query.pagingInfo, data)
   if res.isErr:
     return
 
+  var pagingInfo = PagingInfo(
+    pageSize: uint64(messages.len),
+    direction: query.pagingInfo.direction
+  )
+
+  pagingInfo.cursor =
+    case query.pagingInfo.direction
+      of FORWARD:
+        Index(receivedTime: float64(cursorTime), digest: messages[(messages.len - 1)].id())
+      of BACKWARD:
+        Index(receivedTime: float64(cursorTime), digest: messages[0].id())
+
   result.messages = messages
+  result.pagingInfo = pagingInfo
 
 method init*(ws: WakuStore): Result[void, StoreError] =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =

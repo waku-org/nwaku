@@ -15,7 +15,7 @@ import
   sqlite3_abi
 
 # constants required for pagination -------------------------------------------
-const MaxPageSize* = 100 # Maximum number of waku messages in each page 
+const MaxPageSize* = uint64(100) # Maximum number of waku messages in each page 
 # Common data types -----------------------------------------------------------
 
 type

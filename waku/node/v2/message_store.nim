@@ -24,7 +24,7 @@ type
   AutoDisposed[T: ptr|ref] = object
     val: T
 
-  DataProc* = proc(msg: WakuMessage) {.closure.} 
+  DataProc* = proc(timestamp: uint64, msg: WakuMessage) {.closure.} 
 
 template dispose(db: Sqlite) =
   discard sqlite3_close(db)
@@ -195,26 +195,53 @@ proc get*(db: MessageStore, topics: seq[ContentTopic], paging: PagingInfo, onDat
   ##   let res = db.get(topics, paging, data)
   ##   if res.isErr:
   ##     echo "error"
-  var limit = ""
-  if paging.pageSize > 0:
-    limit = "LIMIT " & $paging.pageSize
-  if paging.pageSize > MaxPageSize:
-    limit = "LIMIT " & $MaxPageSize
 
-  let direction =
-    case paging.direction
-    of FORWARD:
-      "timestamp > " & $paging.cursor.receivedTime & " AND id > ?"
-    of BACKWARD:
-      "timestamp < " & $paging.cursor.receivedTime & " AND id < ?"
+  var s: ptr sqlite3_stmt
 
-  let query = """
-    SELECT contentTopic, payload FROM messages
-    WHERE contentTopic IN (""" & join(topics, ", ") & """) AND """ & direction & """
-    ORDER BY timestamp, id """ & limit
+  let pageSize = 
+    if paging.pageSize > 0 and paging.pageSize > MaxPageSize:
+      MaxPageSize
+    else:
+      paging.pageSize 
+
+  if paging.cursor == Index():
+    let order =
+      case paging.direction
+        of FORWARD:
+          "ORDER BY timestamp ASC, id ASC"
+        of BACKWARD:
+          "ORDER BY timestamp DESC, id DESC"
+
+    var query = "SELECT timestamp, contentTopic, payload FROM messages WHERE contentTopic IN (" & join(topics, ", ") & ") " & order
+
+    if pageSize > 0:
+      query &= " LIMIT " & $pageSize
+
+    s = prepare(db.env, query): discard
+  else:
+    # @TODO
+    discard
+
+  # var limit = ""
+  # if paging.pageSize > 0:
+  #   limit = "LIMIT " & $paging.pageSize
+  # if paging.pageSize > MaxPageSize:
+  #   limit = "LIMIT " & $MaxPageSize
+
+  # let direction =
+  #   case paging.direction
+  #   of FORWARD:
+  #     "timestamp > " & $paging.cursor.receivedTime & " AND id > ?"
+  #   of BACKWARD:
+  #     "timestamp < " & $paging.cursor.receivedTime & " AND id < ?"
+
+  # let query = """
+  #   SELECT contentTopic, payload FROM messages
+  #   WHERE contentTopic IN (""" & join(topics, ", ") & """) AND """ & direction & """
+  #   ORDER BY timestamp, id """ & limit
   
-  let s = prepare(db.env, query): discard
-  checkErr bindParam(s, 1, @(paging.cursor.digest.data))
+  # let s = prepare(db.env, query): discard
+  # checkErr bindParam(s, 1, @(paging.cursor.digest.data))
 
   try:
     var gotResults = false
@@ -223,11 +250,12 @@ proc get*(db: MessageStore, topics: seq[ContentTopic], paging: PagingInfo, onDat
       case v
       of SQLITE_ROW:
         let
-          topic = sqlite3_column_int(s, 0)
-          p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 1))
-          l = sqlite3_column_bytes(s, 1)
+          timestamp = sqlite3_column_int64(s, 0)
+          topic = sqlite3_column_int(s, 1)
+          p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 2))
+          l = sqlite3_column_bytes(s, 2)
 
-        onData(WakuMessage(contentTopic: ContentTopic(int(topic)), payload: @(toOpenArray(p, 0, l-1))))
+        onData(uint64(timestamp), WakuMessage(contentTopic: ContentTopic(int(topic)), payload: @(toOpenArray(p, 0, l-1))))
         gotResults = true
       of SQLITE_DONE:
         break

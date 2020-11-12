@@ -21,7 +21,7 @@ suite "Message Store":
     discard store.put(msg3)
 
     var msgs = newSeq[WakuMessage]()
-    proc data(msg: WakuMessage) =
+    proc data(timestamp: uint64, msg: WakuMessage) =
       msgs.add(msg)
     
     let res = store.get(@[topic], PagingInfo(direction: FORWARD, pageSize: 2), data)
