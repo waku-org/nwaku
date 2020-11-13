@@ -11,7 +11,8 @@ import
   libp2p/switch,
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
-  nimcrypto/sha2
+  nimcrypto/sha2,
+  sqlite3_abi
 # constants required for pagination -------------------------------------------
 const MaxPageSize* = 100 # Maximum number of waku messages in each page 
 # Common data types -----------------------------------------------------------
@@ -75,12 +76,19 @@ type
   HistoryPeer* = object
     peerInfo*: PeerInfo
 
+  MessageStoreResult*[T] = Result[T, string]
+
+  Sqlite* = ptr sqlite3
+
+  MessageStore* = ref object of RootObj
+    env*: Sqlite
+
   WakuStore* = ref object of LPProtocol
     switch*: Switch
     rng*: ref BrHmacDrbgContext
     peers*: seq[HistoryPeer]
     messages*: seq[IndexedWakuMessage]
-
+    store*: MessageStore
 
   FilterRequest* = object
     contentFilters*: seq[ContentFilter]
@@ -189,14 +197,17 @@ proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
   brHmacDrbgGenerate(rng[], bytes)
   toHex(bytes)
 
-proc computeIndex*(msg: WakuMessage): Index =
-  ## Takes a WakuMessage and returns its Index 
+proc id*(msg: WakuMessage): MDigest[256] =
+  ## Generates an ID from the message
   var ctx: sha256
   ctx.init()
   ctx.update(msg.contentTopic.toBytes()) # converts the contentTopic to bytes
   ctx.update(msg.payload)
-  let digest = ctx.finish() # computes the hash
+  result = ctx.finish() # computes the hash
   ctx.clear()
 
-  result.digest = digest
+proc computeIndex*(msg: WakuMessage): Index =
+  ## Takes a WakuMessage and returns its Index 
+  result.digest = msg.id()
   result.receivedTime = epochTime() # gets the unix timestamp
+

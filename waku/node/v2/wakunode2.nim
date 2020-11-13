@@ -243,9 +243,9 @@ proc mountFilter*(node: WakuNode) =
   node.switch.mount(node.wakuFilter)
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
-proc mountStore*(node: WakuNode) =
+proc mountStore*(node: WakuNode, store: MessageStore = nil) =
   info "mounting store"
-  node.wakuStore = WakuStore.init(node.switch, node.rng)
+  node.wakuStore = WakuStore.init(node.switch, node.rng, store)
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
@@ -379,7 +379,10 @@ when isMainModule:
   waitFor node.start()
 
   if conf.store:
-    mountStore(node)
+    var store: MessageStore
+    store = ? MessageStore.init("/tmp/")
+
+    mountStore(node, store)
   
   if conf.filter:
     mountFilter(node)
