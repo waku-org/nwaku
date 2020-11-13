@@ -298,8 +298,9 @@ method init*(ws: WakuStore) =
   proc onData(timestamp: uint64, msg: WakuMessage) =
     ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex()))
 
-  # @TODO ERROR
-  discard ws.store.getAll(onData)
+  let res = ws.store.getAll(onData)
+  if res.isErr:
+    warn "failed to load messages from store", err = res.error
 
 proc init*(T: type WakuStore, switch: Switch, rng: ref BrHmacDrbgContext, store: MessageStore = nil): T =
   new result
@@ -323,7 +324,9 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
     if proto.store.isNil:
       return
   
-    discard proto.store.put(index, msg)
+    let res = proto.store.put(index, msg)
+    if res.isErr:
+      warn "failed to store messages", err = res.error
 
   MessageNotificationSubscription.init(@[], handle)
 
