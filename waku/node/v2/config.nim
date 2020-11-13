@@ -67,6 +67,11 @@ type
       desc: "Enode URL to filter.",
       defaultValue: ""
       name: "filternode" }: string
+    
+    dbpath* {.
+      desc: "The database path for the store protocol.",
+      defaultValue: ""
+      name: "dbpath" }: string
 
     topics* {.
       desc: "Default topics to subscribe to (space separated list)."
