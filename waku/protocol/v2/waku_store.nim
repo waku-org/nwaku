@@ -352,3 +352,38 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
     return
 
   handler(response.value.response)
+
+# TODO Move to better place
+type AccountUpdateFunc = proc(peerId: PeerId, amount: int) {.gcsafe.}
+
+# NOTE: Experimental, maybe incorporate as part of query call
+proc queryWithAccounting*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc,
+                          accountFor: AccountUpdateFunc) {.async, gcsafe.} =
+  # @TODO We need to be more stratigic about which peers we dial. Right now we just set one on the service.
+  # Ideally depending on the query and our set  of peers we take a subset of ideal peers.
+  # This will require us to check for various factors such as:
+  #  - which topics they track
+  #  - latency?
+  #  - default store peer?
+
+  let peer = w.peers[0]
+  let conn = await w.switch.dial(peer.peerInfo.peerId, peer.peerInfo.addrs, WakuStoreCodec)
+
+  await conn.writeLP(HistoryRPC(requestId: generateRequestId(w.rng),
+      query: query).encode().buffer)
+
+  var message = await conn.readLp(64*1024)
+  let response = HistoryRPC.init(message)
+
+  if response.isErr:
+    error "failed to decode response"
+    return
+
+  # NOTE Perform accounting operation
+  #  if SWAPAccountingEnabled:
+  let peerId = peer.peerInfo.peerId
+  # TODO Replace with WakuMessage's
+  let volume = 1
+  accountFor(peerId, volume)
+
+  handler(response.value.response)
