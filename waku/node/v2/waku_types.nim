@@ -13,8 +13,10 @@ import
   libp2p/protocols/pubsub/[pubsub, gossipsub],
   nimcrypto/sha2,
   sqlite3_abi
-# constants required for pagination -------------------------------------------
-const MaxPageSize* = 100 # Maximum number of waku messages in each page 
+
+# Constants required for pagination -------------------------------------------
+const MaxPageSize* = 100 # Maximum number of waku messages in each page
+
 # Common data types -----------------------------------------------------------
 type
   ContentTopic* = uint32
@@ -155,8 +157,21 @@ type
     #multiaddrStrings*: seq[string]
 
   WakuResult*[T] = Result[T, cstring]
-# Encoding and decoding -------------------------------------------------------
 
+  Beneficiary* = seq[byte]
+
+  # TODO Consider adding payment threshhold and terms field
+  Handshake* = object
+    beneficiary*: Beneficiary
+
+  Cheque* = object
+    beneficiary*: Beneficiary
+    date*: uint32
+    amount*: uint32
+
+# Encoding and decoding -------------------------------------------------------
+# TODO Move out to to waku_message module
+# Possibly same with util functions
 proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
   var msg = WakuMessage()
   let pb = initProtoBuffer(buffer)
@@ -206,8 +221,13 @@ proc id*(msg: WakuMessage): MDigest[256] =
   result = ctx.finish() # computes the hash
   ctx.clear()
 
+<<<<<<< HEAD
 proc computeIndex*(msg: WakuMessage): Index =
   ## Takes a WakuMessage and returns its Index 
   result.digest = msg.id()
   result.receivedTime = epochTime() # gets the unix timestamp
 
+=======
+  result.digest = digest
+  result.receivedTime = epochTime() # gets the unix timestamp
+>>>>>>> master
