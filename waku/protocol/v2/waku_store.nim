@@ -296,7 +296,7 @@ method init*(ws: WakuStore) =
     return
 
   proc onData(timestamp: uint64, msg: WakuMessage) =
-    ws.messages.add(IndexedWakuMessage(msg: msg, index: Index(digest: msg.id(), receivedTime: float(timestamp))))
+    ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex()))
 
   # @TODO ERROR
   discard ws.store.getAll(onData)

@@ -382,7 +382,7 @@ when isMainModule:
     var store: MessageStore
 
     if conf.dbpath != "":
-      store = ? MessageStore.init(dbpath)
+      store = ? MessageStore.init(conf.dbpath)
 
     mountStore(node, store)
   
