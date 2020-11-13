@@ -221,13 +221,8 @@ proc id*(msg: WakuMessage): MDigest[256] =
   result = ctx.finish() # computes the hash
   ctx.clear()
 
-<<<<<<< HEAD
 proc computeIndex*(msg: WakuMessage): Index =
   ## Takes a WakuMessage and returns its Index 
   result.digest = msg.id()
   result.receivedTime = epochTime() # gets the unix timestamp
 
-=======
-  result.digest = digest
-  result.receivedTime = epochTime() # gets the unix timestamp
->>>>>>> master
