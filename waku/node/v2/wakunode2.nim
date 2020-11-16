@@ -11,7 +11,7 @@ import
   libp2p/peerinfo,
   libp2p/standard_setup,
   ../../protocol/v2/[waku_relay, waku_store, waku_filter, message_notifier],
-  ./waku_types
+  ./waku_types, ./message_store
 
 export waku_types
 
@@ -243,9 +243,9 @@ proc mountFilter*(node: WakuNode) =
   node.switch.mount(node.wakuFilter)
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
-proc mountStore*(node: WakuNode) =
+proc mountStore*(node: WakuNode, store: MessageStore = nil) =
   info "mounting store"
-  node.wakuStore = WakuStore.init(node.switch, node.rng)
+  node.wakuStore = WakuStore.init(node.switch, node.rng, store)
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
@@ -379,7 +379,16 @@ when isMainModule:
   waitFor node.start()
 
   if conf.store:
-    mountStore(node)
+    var store: MessageStore
+
+    if conf.dbpath != "":
+      let res = MessageStore.init(conf.dbpath)
+      if res.isErr:
+        warn "failed to init MessageStore", err = res.error
+      else:
+        store = res.value
+
+    mountStore(node, store)
   
   if conf.filter:
     mountFilter(node)

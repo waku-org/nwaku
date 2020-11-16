@@ -8,7 +8,7 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
   ./message_notifier,
-  ./../../node/v2/waku_types
+  ./../../node/v2/[waku_types, message_store]
 
 logScope:
   topics = "wakustore"
@@ -124,7 +124,7 @@ proc init*(T: type HistoryResponse, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getRepeatedField(1, messages)
 
   for buf in messages:
-    msg.messages.add( ? WakuMessage.init(buf))
+    msg.messages.add(? WakuMessage.init(buf))
 
   var pagingInfoBuffer: seq[byte]
   discard ? pb.getField(2,pagingInfoBuffer)
@@ -292,10 +292,21 @@ method init*(ws: WakuStore) =
   ws.handler = handle
   ws.codec = WakuStoreCodec
 
-proc init*(T: type WakuStore, switch: Switch, rng: ref BrHmacDrbgContext): T =
+  if ws.store.isNil:
+    return
+
+  proc onData(timestamp: uint64, msg: WakuMessage) =
+    ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex()))
+
+  let res = ws.store.getAll(onData)
+  if res.isErr:
+    warn "failed to load messages from store", err = res.error
+
+proc init*(T: type WakuStore, switch: Switch, rng: ref BrHmacDrbgContext, store: MessageStore = nil): T =
   new result
   result.rng = rng
   result.switch = switch
+  result.store = store
   result.init()
 
 # @TODO THIS SHOULD PROBABLY BE AN ADD FUNCTION AND APPEND THE PEER TO AN ARRAY
@@ -310,7 +321,12 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   proc handle(topic: string, msg: WakuMessage) {.async.} =
     let index = msg.computeIndex()
     proto.messages.add(IndexedWakuMessage(msg: msg, index: index))
-    
+    if proto.store.isNil:
+      return
+  
+    let res = proto.store.put(index, msg)
+    if res.isErr:
+      warn "failed to store messages", err = res.error
 
   MessageNotificationSubscription.init(@[], handle)
 

@@ -12,7 +12,7 @@ import
   libp2p/transports/transport,
   libp2p/transports/tcptransport,
   ../../waku/protocol/v2/[waku_store, message_notifier],
-  ../../waku/node/v2/waku_types,
+  ../../waku/node/v2/[waku_types, message_store],
   ../test_helpers, ./utils
 
 
@@ -58,7 +58,73 @@ procSuite "Waku Store":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
-  
+
+  asyncTest "handle query with store and restarts":
+    let
+      key = PrivateKey.random(ECDSA, rng[]).get()
+      peer = PeerInfo.init(key)
+      topic = ContentTopic(1)
+      store = MessageStore.init("/foo", inMemory = true)[]
+      msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic)
+      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(2))
+
+    var dialSwitch = newStandardSwitch()
+    discard await dialSwitch.start()
+
+    var listenSwitch = newStandardSwitch(some(key))
+    discard await listenSwitch.start()
+
+    let
+      proto = WakuStore.init(dialSwitch, crypto.newRng(), store)
+      subscription = proto.subscription()
+      rpc = HistoryQuery(topics: @[topic])
+
+    proto.setPeer(listenSwitch.peerInfo)
+
+    var subscriptions = newTable[string, MessageNotificationSubscription]()
+    subscriptions["test"] = subscription
+
+    listenSwitch.mount(proto)
+
+    await subscriptions.notify("foo", msg)
+    await subscriptions.notify("foo", msg2)
+
+    var completionFut = newFuture[bool]()
+
+    proc handler(response: HistoryResponse) {.gcsafe, closure.} =
+      check:
+        response.messages.len() == 1
+        response.messages[0] == msg
+      completionFut.complete(true)
+
+    await proto.query(rpc, handler)
+
+    check:
+      (await completionFut.withTimeout(5.seconds)) == true
+
+    let 
+      proto2 = WakuStore.init(dialSwitch, crypto.newRng(), store)
+      key2 = PrivateKey.random(ECDSA, rng[]).get()
+
+    var listenSwitch2 = newStandardSwitch(some(key2))
+    discard await listenSwitch2.start()
+
+    proto2.setPeer(listenSwitch2.peerInfo)
+
+    listenSwitch2.mount(proto2)
+
+    var completionFut2 = newFuture[bool]()
+    proc handler2(response: HistoryResponse) {.gcsafe, closure.} =
+      check:
+        response.messages.len() == 1
+        response.messages[0] == msg
+      completionFut2.complete(true)
+
+    await proto2.query(rpc, handler2)
+
+    check:
+      (await completionFut2.withTimeout(5.seconds)) == true
+
   asyncTest "handle query with forward pagination":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
