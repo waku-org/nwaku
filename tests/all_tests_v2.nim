@@ -8,4 +8,5 @@ import
   ./v2/test_waku_pagination,
   ./v2/test_waku_payload,
   ./v2/test_rpc_waku,
-  ./v2/test_waku_swap
+  ./v2/test_waku_swap,
+  ./v2/test_message_store

@@ -11,7 +11,8 @@ import
   libp2p/switch,
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
-  nimcrypto/sha2
+  nimcrypto/sha2,
+  sqlite3_abi
 
 # Constants required for pagination -------------------------------------------
 const MaxPageSize* = 100 # Maximum number of waku messages in each page
@@ -77,12 +78,19 @@ type
   HistoryPeer* = object
     peerInfo*: PeerInfo
 
+  MessageStoreResult*[T] = Result[T, string]
+
+  Sqlite* = ptr sqlite3
+
+  MessageStore* = ref object of RootObj
+    env*: Sqlite
+
   WakuStore* = ref object of LPProtocol
     switch*: Switch
     rng*: ref BrHmacDrbgContext
     peers*: seq[HistoryPeer]
     messages*: seq[IndexedWakuMessage]
-
+    store*: MessageStore
 
   FilterRequest* = object
     contentFilters*: seq[ContentFilter]
@@ -212,6 +220,6 @@ proc computeIndex*(msg: WakuMessage): Index =
   ctx.update(msg.payload)
   let digest = ctx.finish() # computes the hash
   ctx.clear()
-
   result.digest = digest
   result.receivedTime = epochTime() # gets the unix timestamp
+
