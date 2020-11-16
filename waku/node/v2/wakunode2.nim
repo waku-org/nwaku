@@ -11,7 +11,7 @@ import
   libp2p/peerinfo,
   libp2p/standard_setup,
   ../../protocol/v2/[waku_relay, waku_store, waku_filter, message_notifier],
-  ./waku_types
+  ./waku_types, ./message_store
 
 export waku_types
 
@@ -382,7 +382,11 @@ when isMainModule:
     var store: MessageStore
 
     if conf.dbpath != "":
-      store = ? MessageStore.init(conf.dbpath)
+      let res = MessageStore.init(conf.dbpath)
+      if res.isErr:
+        warn "failed to init MessageStore", err = res.error
+      else:
+        store = res.value
 
     mountStore(node, store)
   
