@@ -169,6 +169,9 @@ type
     date*: uint32
     amount*: uint32
 
+  AccountUpdateFunc* = proc(peerId: PeerId, amount: int) {.gcsafe.}
+
+
 # Encoding and decoding -------------------------------------------------------
 # TODO Move out to to waku_message module
 # Possibly same with util functions
