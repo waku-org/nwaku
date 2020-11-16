@@ -21,8 +21,7 @@ logScope:
 # Default clientId
 const clientId* = "Nimbus Waku v2 node"
 
-# TODO Default to false
-const SWAPAccountingEnabled* = true
+const SWAPAccountingEnabled* = false
 
 # key and crypto modules different
 type
