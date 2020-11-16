@@ -10,7 +10,7 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/peerinfo,
   libp2p/standard_setup,
-  ../../protocol/v2/[waku_relay, waku_store, waku_filter, message_notifier],
+  ../../protocol/v2/[waku_relay, waku_store, waku_filter, waku_swap, message_notifier],
   ./waku_types, ./message_store
 
 export waku_types
@@ -20,6 +20,8 @@ logScope:
 
 # Default clientId
 const clientId* = "Nimbus Waku v2 node"
+
+const SWAPAccountingEnabled* = false
 
 # key and crypto modules different
 type
@@ -196,6 +198,7 @@ proc unsubscribe*(node: WakuNode, request: FilterRequest) {.async, gcsafe.} =
   await node.wakuFilter.unsubscribe(request)
   node.filters.removeContentFilters(request.contentFilters)
 
+
 proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
   ## Publish a `WakuMessage` to a PubSub topic. `WakuMessage` should contain a
   ## `contentTopic` field for light node functionality. This field may be also
@@ -218,6 +221,10 @@ proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.as
   ##
   ## Status: Implemented.
   await node.wakuStore.query(query, handler)
+
+  if SWAPAccountingEnabled:
+    debug "Using SWAPAccounting query"
+    await node.wakuStore.queryWithAccounting(query, handler, accountFor)
 
 # TODO Extend with more relevant info: topics, peers, memory usage, online time, etc
 proc info*(node: WakuNode): WakuInfo =
@@ -377,6 +384,12 @@ when isMainModule:
       Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
 
   waitFor node.start()
+
+  # TODO Move to conf
+  if SWAPAccountingEnabled:
+    info "SWAP Accounting enabled"
+    # TODO Mount SWAP protocol
+    # TODO Enable account module
 
   if conf.store:
     var store: MessageStore
