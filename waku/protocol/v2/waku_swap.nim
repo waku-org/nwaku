@@ -71,3 +71,13 @@ proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(3, cheque.amount)
 
   ok(cheque)
+
+
+# Accounting
+#
+
+proc accountFor*(peerId: PeerId, n: int) {.gcsafe.} =
+  info "Accounting for", peerId, n
+
+# TODO End to end communication
+# TODO Better state management (STDOUT for now)

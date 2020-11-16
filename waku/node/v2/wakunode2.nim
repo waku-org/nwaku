@@ -10,7 +10,7 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/peerinfo,
   libp2p/standard_setup,
-  ../../protocol/v2/[waku_relay, waku_store, waku_filter, message_notifier],
+  ../../protocol/v2/[waku_relay, waku_store, waku_filter, waku_swap, message_notifier],
   ./waku_types, ./message_store
 
 export waku_types
@@ -199,9 +199,6 @@ proc unsubscribe*(node: WakuNode, request: FilterRequest) {.async, gcsafe.} =
   await node.wakuFilter.unsubscribe(request)
   node.filters.removeContentFilters(request.contentFilters)
 
-# TODO Move to better place, i.e. separate module
-proc accountFor(peerId: PeerId, n: int) {.gcsafe.} =
-  info "Accounting for", peerId, n
 
 proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
   ## Publish a `WakuMessage` to a PubSub topic. `WakuMessage` should contain a
