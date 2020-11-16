@@ -353,9 +353,6 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
 
   handler(response.value.response)
 
-# TODO Move to better place
-type AccountUpdateFunc = proc(peerId: PeerId, amount: int) {.gcsafe.}
-
 # NOTE: Experimental, maybe incorporate as part of query call
 proc queryWithAccounting*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc,
                           accountFor: AccountUpdateFunc) {.async, gcsafe.} =
