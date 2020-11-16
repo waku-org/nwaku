@@ -382,8 +382,7 @@ proc queryWithAccounting*(w: WakuStore, query: HistoryQuery, handler: QueryHandl
   # NOTE Perform accounting operation
   #  if SWAPAccountingEnabled:
   let peerId = peer.peerInfo.peerId
-  # TODO Replace with WakuMessage's
-  let volume = 1
-  accountFor(peerId, volume)
+  let messages = response.value.response.messages
+  accountFor(peerId, messages.len)
 
   handler(response.value.response)
