@@ -1,7 +1,7 @@
 import
   json_rpc/rpcserver, stew/endians2, nimcrypto/sysrand,
   eth/[p2p, async_utils],
-  ../../../protocol/v1/waku_protocol
+  ../../protocol/waku_protocol
 
 proc generateTraffic(node: EthereumNode, amount = 100) {.async.} =
   let payload = @[byte 0]

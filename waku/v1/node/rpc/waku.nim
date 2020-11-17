@@ -3,7 +3,7 @@ import
   eth/[common, rlp, keys, p2p],
   nimcrypto/[sysrand, hmac, sha2, pbkdf2],
   rpc_types, hexstrings, key_storage,
-  ../../../protocol/v1/waku_protocol
+  ../../protocol/waku_protocol
 
 from stew/byteutils import hexToSeqByte, hexToByteArray
 

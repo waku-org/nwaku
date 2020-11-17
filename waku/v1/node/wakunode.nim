@@ -4,7 +4,8 @@ import
   eth/[keys, p2p], eth/common/utils,
   eth/p2p/[discovery, enode, peer_pool, bootnodes, whispernodes],
   eth/p2p/rlpx_protocols/whisper_protocol,
-  ../../protocol/v1/[waku_protocol, waku_bridge], ../common,
+  ../protocol/[waku_protocol, waku_bridge],
+  ../../common/utils/nat,
   ./rpc/[waku, wakusim, key_storage], ./waku_helpers, ./config
 
 const clientId = "Nimbus waku node"

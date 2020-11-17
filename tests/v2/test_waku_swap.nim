@@ -1,8 +1,8 @@
 import
   std/[unittest, options, tables, sets],
   chronos, chronicles,
-  ../../waku/protocol/v2/waku_swap,
-  ../../waku/node/v2/waku_types,
+  ../../waku/v2/protocol/waku_swap,
+  ../../waku/v2/waku_types,
   ../test_helpers, ./utils
 
 procSuite "Waku SWAP Accounting":

@@ -8,7 +8,7 @@ import
   libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub],
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/stream/connection,
-  ../../node/v2/waku_types
+  ../waku_types
 
 declarePublicGauge total_messages, "number of messages received"
 

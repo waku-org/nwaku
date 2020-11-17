@@ -31,7 +31,7 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
   ./message_notifier,
-  ./../../node/v2/waku_types
+  ../waku_types
 
 export waku_types
 

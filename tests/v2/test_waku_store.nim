@@ -11,9 +11,10 @@ import
   libp2p/multistream,
   libp2p/transports/transport,
   libp2p/transports/tcptransport,
-  ../../waku/protocol/v2/[waku_store, message_notifier],
-  ../../waku/node/v2/[waku_types, message_store],
-  ../test_helpers, ./utils
+  ../../waku/v2/protocol/[waku_store, message_notifier],
+  ../../waku/v2/node/message_store,
+  ../test_helpers, ./utils,
+  ../../waku/v2/waku_types
 
 
 procSuite "Waku Store":

@@ -10,8 +10,8 @@ import
   libp2p/multistream,
   libp2p/transports/transport,
   libp2p/transports/tcptransport,
-  ../../waku/protocol/v2/[waku_relay, waku_filter, message_notifier],
-  ../../waku/node/v2/waku_types,
+  ../../waku/v2/protocol/[waku_relay, waku_filter, message_notifier],
+  ../../waku/v2/waku_types,
   ../test_helpers, ./utils
 
 procSuite "Waku Filter":
