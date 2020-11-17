@@ -1,5 +1,5 @@
-# Waku node v2
+# Waku Node v2
 
-Status: pre-alpha
+This folder contains code related to running a `wakunode2` process. The main entrypoint is the `wakunode2` file.
 
-Right now a hacky PoC for running on libp2p.
+See `../../docs/api/v2/node.md` for more details on the the Nim Node API.
