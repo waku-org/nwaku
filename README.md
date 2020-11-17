@@ -47,7 +47,7 @@ make wakunode1 wakunode2
 
 ```bash
 # Run all the Waku v1 and v2 tests
-make test1 test2
+make test
 ```
 
 ### Examples
