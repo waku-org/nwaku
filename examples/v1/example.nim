@@ -3,7 +3,7 @@ import
   eth/[keys, p2p],
   ../../waku/v1/protocol/waku_protocol,
   ../../waku/v1/node/waku_helpers,
-  ../../waku/common/common,
+  ../../waku/common/utils/nat,
   ./config_example
 
 ## This is a simple Waku v1 example to show the Waku v1 API usage.

@@ -351,7 +351,7 @@ when isMainModule:
   import
     confutils, json_rpc/rpcserver, metrics,
     ./config, ./rpc/wakurpc,
-    ../../common/common
+    ../../common/utils/nat
 
   proc startRpc(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port) =
     let

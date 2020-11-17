@@ -9,7 +9,7 @@ import
   eth/keys,
   json_rpc/[rpcclient, rpcserver],
   ../../waku/v2/node/[config, wakunode2, waku_types],
-  ../../waku/common/common
+  ../../waku/common/utils/nat
 
 type
   Topic* = waku_types.Topic

@@ -5,7 +5,8 @@ import
   # Waku v1 imports
   eth/[keys, p2p], eth/common/utils,
   eth/p2p/[enode, whispernodes],
-  ../v1/protocol/waku_protocol, ./common,
+  ../v1/protocol/waku_protocol,
+  ./utils/nat,
   ../v1/node/rpc/[waku, wakusim, key_storage],
   ../v1/node/waku_helpers,
   # Waku v2 imports

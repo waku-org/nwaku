@@ -21,7 +21,7 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                muxers/mplex/mplex]       # define some contants and message types for stream multiplexing
 import   ../../waku/v2/node/[config, wakunode2, waku_types, waku_payload],
          ../../waku/v2/protocol/[waku_relay, waku_store, waku_filter],
-         ../../waku/common/common
+         ../../waku/common/utils/nat
 
 const Help = """
   Commands: /[?|help|connect|disconnect|exit]
