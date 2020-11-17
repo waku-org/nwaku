@@ -5,7 +5,7 @@
 
 import
   chronos, chronicles, metrics,
-  libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub],
+  libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub10],
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/stream/connection,
   ../waku_types

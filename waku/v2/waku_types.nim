@@ -10,7 +10,7 @@ import
   libp2p/protocols/protocol,
   libp2p/switch,
   libp2p/stream/connection,
-  libp2p/protocols/pubsub/[pubsub, gossipsub],
+  libp2p/protocols/pubsub/[pubsub, gossipsub10],
   nimcrypto/sha2,
   sqlite3_abi
 
