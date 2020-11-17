@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The nim-waku repository implements Waku v1 and v2, and provide tools related to it.
+The nim-waku repository implements Waku v1 and v2, and provides tools related to it.
 
 - A Nim implementation of the [Waku v1 protocol](https://specs.vac.dev/waku/waku.html).
 - A Nim implementation of the [Waku v2 protocol](https://specs.vac.dev/specs/waku/v2/waku-v2.html).
