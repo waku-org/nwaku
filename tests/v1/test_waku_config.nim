@@ -10,7 +10,7 @@
 
 import
   std/[sequtils, options, unittest, times],
-  ../../waku/protocol/v1/waku_protocol
+  ../../waku/v1/protocol/waku_protocol
 
 suite "Waku envelope validation":
   test "should validate and allow envelope according to config":

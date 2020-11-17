@@ -5,13 +5,15 @@ import
   stew/shims/net as stewNet,
   json_rpc/[rpcserver, rpcclient],
   libp2p/crypto/crypto,
-  ../../waku/node/v2/[waku_types, wakunode2],
-  ../../waku/node/v2/rpc/wakurpc,
-  ../../waku/protocol/v2/waku_relay,
+  ../../waku/v2/node/wakunode2,
+  ../../waku/v2/node/rpc/wakurpc,
+  ../../waku/v2/protocol/waku_relay,
+  ../../waku/v2/waku_types,
   ../test_helpers
 
+
 template sourceDir*: string = currentSourcePath.rsplit(DirSep, 1)[0]
-const sigPath = sourceDir / ParDir / ParDir / "waku" / "node" / "v2" / "rpc" / "wakucallsigs.nim"
+const sigPath = sourceDir / ParDir / ParDir / "waku" / "v2" / "node" / "rpc" / "wakucallsigs.nim"
 createRpcSigs(RpcHttpClient, sigPath)
 
 suite "Waku v2 Remote Procedure Calls":

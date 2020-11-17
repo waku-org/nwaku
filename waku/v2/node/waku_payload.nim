@@ -2,7 +2,7 @@ import
   std/options,
   eth/keys,
   eth/p2p/rlpx_protocols/whisper/whisper_types,
-  ./waku_types
+  ../waku_types
 
 export whisper_types, waku_types, keys, options
 

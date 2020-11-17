@@ -10,8 +10,8 @@ import libp2p/[standard_setup,
                protocols/pubsub/floodsub,
                protocols/pubsub/gossipsub,
                protocols/secure/secure]
-import ../../waku/protocol/v2/waku_relay,
-       ../../waku/node/v2/waku_types
+import ../../waku/v2/protocol/waku_relay,
+       ../../waku/v2/waku_types
 
 export standard_setup
 
