@@ -3,8 +3,9 @@ import
   json_rpc/rpcserver,
   nimcrypto/[sysrand, hmac, sha2],
   eth/[common, rlp, keys, p2p],
-  ../../../protocol/v2/waku_relay,
-  ../waku_types, ../wakunode2
+  ../../protocol/waku_relay,
+  ../waku_types,
+  ../wakunode2
 
 proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
 

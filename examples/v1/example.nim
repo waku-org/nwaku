@@ -1,9 +1,9 @@
 import
   confutils, chronicles, chronos, stew/byteutils, stew/shims/net as stewNet,
   eth/[keys, p2p],
-  ../../waku/protocol/v1/waku_protocol,
-  ../../waku/node/v1/waku_helpers,
-  ../../waku/node/common,
+  ../../waku/v1/protocol/waku_protocol,
+  ../../waku/v1/node/waku_helpers,
+  ../../waku/common/common,
   ./config_example
 
 ## This is a simple Waku v1 example to show the Waku v1 API usage.

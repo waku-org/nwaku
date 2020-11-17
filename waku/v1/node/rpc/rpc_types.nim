@@ -1,6 +1,6 @@
 import
   hexstrings, options, eth/[keys, rlp],
-  ../../../protocol/v1/waku_protocol
+  ../../protocol/waku_protocol
 
 #[
   Notes:

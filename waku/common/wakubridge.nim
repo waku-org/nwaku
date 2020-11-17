@@ -5,12 +5,13 @@ import
   # Waku v1 imports
   eth/[keys, p2p], eth/common/utils,
   eth/p2p/[enode, whispernodes],
-  ../protocol/v1/waku_protocol, ./common,
-  ./v1/rpc/[waku, wakusim, key_storage], ./v1/waku_helpers,
+  ../v1/protocol/waku_protocol, ./common,
+  ../v1/node/rpc/[waku, wakusim, key_storage],
+  ../v1/node/waku_helpers,
   # Waku v2 imports
   libp2p/crypto/crypto,
-  ./v2/wakunode2,
-  ./v2/rpc/wakurpc,
+  ../v2/node/wakunode2,
+  ../v2/node/rpc/wakurpc,
   # Common cli config
   ./config_bridge
 

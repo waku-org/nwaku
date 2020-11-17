@@ -10,8 +10,9 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/peerinfo,
   libp2p/standard_setup,
-  ../../protocol/v2/[waku_relay, waku_store, waku_filter, waku_swap, message_notifier],
-  ./waku_types, ./message_store
+  ../protocol/[waku_relay, waku_store, waku_filter, waku_swap, message_notifier],
+  ./waku_types,
+  ./message_store
 
 export waku_types
 
@@ -349,7 +350,8 @@ proc connectToNodes*(n: WakuNode, nodes: seq[PeerInfo]) {.async.} =
 when isMainModule:
   import
     confutils, json_rpc/rpcserver, metrics,
-    ./config, ./rpc/wakurpc, ../common
+    ./config, ./rpc/wakurpc,
+    ../../common/common
 
   proc startRpc(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port) =
     let
