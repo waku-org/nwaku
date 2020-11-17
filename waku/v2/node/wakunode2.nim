@@ -11,7 +11,7 @@ import
   libp2p/peerinfo,
   libp2p/standard_setup,
   ../protocol/[waku_relay, waku_store, waku_filter, waku_swap, message_notifier],
-  ./waku_types,
+  ../waku_types,
   ./message_store
 
 export waku_types

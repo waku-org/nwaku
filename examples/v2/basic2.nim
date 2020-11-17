@@ -8,8 +8,10 @@ import
   libp2p/crypto/[crypto,secp],
   eth/keys,
   json_rpc/[rpcclient, rpcserver],
-  ../../waku/v2/node/[config, wakunode2, waku_types],
-  ../../waku/common/utils/nat
+  ../../waku/v2/node/[config, wakunode2],
+  ../../waku/common/utils/nat,
+  ../../waku/v2/waku_types
+
 
 type
   Topic* = waku_types.Topic

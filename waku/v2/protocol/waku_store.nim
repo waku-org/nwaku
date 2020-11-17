@@ -8,7 +8,8 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
   ./message_notifier,
-  ../node/[waku_types, message_store]
+  ../node/message_store,
+  ../waku_types
 
 logScope:
   topics = "wakustore"
