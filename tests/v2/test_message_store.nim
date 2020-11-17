@@ -2,8 +2,9 @@
 import
   std/[unittest, options, tables, sets],
   chronos, chronicles,
-  ../../waku/node/v2/[waku_types, message_store],
-  ../test_helpers, ./utils
+  ../../waku/v2/node/message_store,
+  ../test_helpers, ./utils,
+  ../../waku/v2/waku_types
 
 suite "Message Store":
   test "set and get works":

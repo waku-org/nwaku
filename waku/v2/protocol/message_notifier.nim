@@ -1,7 +1,7 @@
 import
   std/tables,
   chronos,
-  ./../../node/v2/waku_types
+  ../waku_types
 
 # The Message Notification system is a method to notify various protocols
 # running on a node when a new message was received.

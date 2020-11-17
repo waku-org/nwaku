@@ -1,13 +1,13 @@
 import 
   os, 
   sqlite3_abi,
-  waku_types,
   chronos, chronicles, metrics, stew/results,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
-  stew/results, metrics
+  stew/results, metrics,
+  ../waku_types
 
 {.push raises: [Defect].}
 

@@ -19,9 +19,10 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                protocols/secure/secio,   # define the protocol of secure input / output, allows encrypted communication that uses public keys to validate signed messages instead of a certificate authority like in TLS
                muxers/muxer,             # define an interface for stream multiplexing, allowing peers to offer many protocols over a single connection
                muxers/mplex/mplex]       # define some contants and message types for stream multiplexing
-import   ../../waku/node/v2/[config, wakunode2, waku_types, waku_payload],
-         ../../waku/protocol/v2/[waku_relay, waku_store, waku_filter],
-         ../../waku/node/common
+import   ../../waku/v2/node/[config, wakunode2, waku_payload],
+         ../../waku/v2/protocol/[waku_relay, waku_store, waku_filter],
+         ../../waku/common/utils/nat,
+         ../../waku/v2/waku_types
 
 const Help = """
   Commands: /[?|help|connect|disconnect|exit]

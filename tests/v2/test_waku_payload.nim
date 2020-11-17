@@ -2,7 +2,7 @@
 
 import
   std/unittest,
-  ../../waku/node/v2/waku_payload,
+  ../../waku/v2/node/waku_payload,
   ../test_helpers
 
 procSuite "Waku Payload":
