@@ -76,8 +76,33 @@ proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
 # Accounting
 #
 
-proc accountFor*(peerId: PeerId, n: int) {.gcsafe.} =
-  info "Accounting for", peerId, n
+proc init*(wakuSwap: WakuSwap) =
+  info "wakuSwap init 1"
+  proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
+    info "NYI swap handle incoming connection"
+
+  proc accountFor(peerId: PeerId, n: int) {.gcsafe, closure.} =
+    info "Accounting for", peerId, n
+    info "Accounting test", text = wakuSwap.text
+    # Nicer way to write this?
+    if wakuSwap.accounting.hasKey(peerId):
+      wakuSwap.accounting[peerId] += n
+    else:
+      wakuSwap.accounting[peerId] = n
+    info "Accounting state", accounting = wakuSwap.accounting[peerId]
+
+  wakuSwap.handler = handle
+  wakuSwap.codec = WakuSwapCodec
+  wakuSwap.accountFor = accountFor
+
+
+proc init*(T: type WakuSwap, switch: Switch, rng: ref BrHmacDrbgContext): T =
+  info "wakuSwap init 2"
+  new result
+  result.rng = rng
+  result.switch = switch
+  result.accounting = initTable[PeerId, int]()
+  result.text = "test"
+  result.init()
 
 # TODO End to end communication
-# TODO Better state management (STDOUT for now)

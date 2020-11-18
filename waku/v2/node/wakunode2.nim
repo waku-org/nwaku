@@ -22,6 +22,8 @@ logScope:
 # Default clientId
 const clientId* = "Nimbus Waku v2 node"
 
+# TODO Toggle
+# To be fixed here: https://github.com/status-im/nim-waku/issues/271
 const SWAPAccountingEnabled* = false
 
 # key and crypto modules different
@@ -225,7 +227,7 @@ proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.as
 
   if SWAPAccountingEnabled:
     debug "Using SWAPAccounting query"
-    await node.wakuStore.queryWithAccounting(query, handler, accountFor)
+    await node.wakuStore.queryWithAccounting(query, handler, node.wakuSwap)
 
 # TODO Extend with more relevant info: topics, peers, memory usage, online time, etc
 proc info*(node: WakuNode): WakuInfo =
@@ -256,6 +258,13 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil) =
   node.wakuStore = WakuStore.init(node.switch, node.rng, store)
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
+
+proc mountSwap*(node: WakuNode) =
+  info "mounting swap"
+  node.wakuSwap = WakuSwap.init(node.switch, node.rng)
+  node.switch.mount(node.wakuSwap)
+  # NYI - Do we need this?
+  #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
 
 proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.async, gcsafe.} =
   let wakuRelay = WakuRelay.init(
@@ -390,8 +399,7 @@ when isMainModule:
   # TODO Move to conf
   if SWAPAccountingEnabled:
     info "SWAP Accounting enabled"
-    # TODO Mount SWAP protocol
-    # TODO Enable account module
+    mountSwap(node)
 
   if conf.store:
     var store: MessageStore

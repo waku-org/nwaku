@@ -213,6 +213,11 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
         echo &"{payload}"
       info "Hit store handler"
 
+    # TODO Use same flag as wakunode
+    # To be fixed here: https://github.com/status-im/nim-waku/issues/271
+    if false:
+      node.mountSwap()
+
     await node.query(HistoryQuery(topics: @[DefaultContentTopic]), storeHandler)
 
   if conf.filternode != "":
