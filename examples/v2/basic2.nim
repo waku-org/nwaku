@@ -2,7 +2,7 @@
 ## topics, and publish to them.
 
 import
-  std/os,
+  std/[os,options],
   confutils, chronicles, chronos,
   stew/shims/net as stewNet,
   libp2p/crypto/[crypto,secp],
