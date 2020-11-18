@@ -1,5 +1,5 @@
 import
-  strformat, os, osproc, net, confutils, strformat, chronicles, json, strutils,
+  options, strformat, os, osproc, net, confutils, strformat, chronicles, json, strutils,
   eth/keys, eth/p2p/enode
 
 const
