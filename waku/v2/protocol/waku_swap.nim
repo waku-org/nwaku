@@ -81,3 +81,10 @@ proc accountFor*(peerId: PeerId, n: int) {.gcsafe.} =
 
 # TODO End to end communication
 # TODO Better state management (STDOUT for now)
+proc init*(T: type WakuSwap, switch: Switch, rng: ref BrHmacDrbgContext): T =
+  new result
+  result.rng = rng
+  result.switch = switch
+  result.accounting = initTable[PeerId, int]()
+  result.text = "test"
+  result.init()
