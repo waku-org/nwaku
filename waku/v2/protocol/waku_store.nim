@@ -356,7 +356,7 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
 
 # NOTE: Experimental, maybe incorporate as part of query call
 proc queryWithAccounting*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc,
-                          accountFor: AccountUpdateFunc) {.async, gcsafe.} =
+                          wakuSwap: WakuSwap) {.async, gcsafe.} =
   # @TODO We need to be more stratigic about which peers we dial. Right now we just set one on the service.
   # Ideally depending on the query and our set  of peers we take a subset of ideal peers.
   # This will require us to check for various factors such as:
@@ -381,6 +381,6 @@ proc queryWithAccounting*(w: WakuStore, query: HistoryQuery, handler: QueryHandl
   #  if SWAPAccountingEnabled:
   let peerId = peer.peerInfo.peerId
   let messages = response.value.response.messages
-  accountFor(peerId, messages.len)
+  wakuSwap.accountFor(peerId, messages.len)
 
   handler(response.value.response)

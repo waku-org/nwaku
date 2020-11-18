@@ -134,12 +134,23 @@ type
   # @TODO MAYBE MORE INFO?
   Filters* = Table[string, Filter]
 
+  AccountHandler* = proc (peerId: PeerId, amount: int) {.gcsafe, closure.}
+
+  WakuSwap* = ref object of LPProtocol
+    switch*: Switch
+    rng*: ref BrHmacDrbgContext
+    #peers*: seq[PeerInfo]
+    text*: string
+    accounting*: Table[PeerId, int]
+    accountFor*: AccountHandler
+
   # NOTE based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj
     switch*: Switch
     wakuRelay*: WakuRelay
     wakuStore*: WakuStore
     wakuFilter*: WakuFilter
+    wakuSwap*: WakuSwap
     peerInfo*: PeerInfo
     libp2pTransportLoops*: seq[Future[void]]
   # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
