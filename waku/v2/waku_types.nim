@@ -134,12 +134,15 @@ type
   # @TODO MAYBE MORE INFO?
   Filters* = Table[string, Filter]
 
+  AccountHandler* = proc (peerId: PeerId, amount: int) {.gcsafe, closure.}
+
   WakuSwap* = ref object of LPProtocol
     switch*: Switch
     rng*: ref BrHmacDrbgContext
     #peers*: seq[PeerInfo]
     text*: string
     accounting*: Table[PeerId, int]
+    accountFor*: AccountHandler
 
   # NOTE based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj

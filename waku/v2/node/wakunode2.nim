@@ -257,6 +257,13 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil) =
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
+proc mountSwap*(node: WakuNode) =
+  info "mounting swap"
+  node.wakuSwap = WakuSwap.init(node.switch, node.rng)
+  node.switch.mount(node.wakuSwap)
+  # NYI - Do we need this?
+  #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
+
 proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.async, gcsafe.} =
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
@@ -390,8 +397,7 @@ when isMainModule:
   # TODO Move to conf
   if SWAPAccountingEnabled:
     info "SWAP Accounting enabled"
-    # TODO Mount SWAP protocol
-    # TODO Enable account module
+    mountSwap(node)
 
   if conf.store:
     var store: MessageStore
