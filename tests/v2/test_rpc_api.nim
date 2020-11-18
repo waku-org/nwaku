@@ -8,13 +8,14 @@ import
   libp2p/stream/[bufferstream, connection],
   libp2p/crypto/crypto,
   libp2p/protocols/pubsub/rpc/message,
-  ../../waku/node/v2/[waku_types, wakunode2],
-  ../../waku/node/v2/rpc_api/[waku_api_rpc, waku_api_types],
-  ../../waku/protocol/v2/[waku_store, message_notifier],
+  ../../waku/v2/waku_types,
+  ../../waku/v2/node/wakunode2,
+  ../../waku/v2/node/rpc_api/[waku_api_rpc, waku_api_types],
+  ../../waku/v2/protocol/[waku_store, message_notifier],
   ../test_helpers
 
 template sourceDir*: string = currentSourcePath.rsplit(DirSep, 1)[0]
-const sigPath = sourceDir / ParDir / ParDir / "waku" / "node" / "v2" / "rpc_api" / "waku_api_callsigs.nim"
+const sigPath = sourceDir / ParDir / ParDir / "waku" / "v2" / "node" / "rpc_api" / "waku_api_callsigs.nim"
 createRpcSigs(RpcHttpClient, sigPath)
 
 suite "Waku v2 JSON-RPC API":

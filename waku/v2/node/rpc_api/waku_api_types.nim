@@ -1,5 +1,5 @@
 import
-  ../waku_types,
+  ../../waku_types,
   options
 
 type

@@ -2,7 +2,8 @@ import
   json_rpc/rpcserver,
   eth/async_utils,
   waku_api_tools, waku_api_types,
-  ../waku_types,../wakunode2
+  ../../waku_types,
+  ../wakunode2
 
 proc setupWakuRPCAPI*(node: WakuNode, rpcsrv: RpcServer) =
   
