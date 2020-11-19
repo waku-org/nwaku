@@ -12,7 +12,8 @@ import
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
   nimcrypto/sha2,
-  sqlite3_abi
+  sqlite3_abi,
+  ./sqlite
 
 # Constants required for pagination -------------------------------------------
 const MaxPageSize* = 100 # Maximum number of waku messages in each page
@@ -83,7 +84,7 @@ type
   Sqlite* = ptr sqlite3
 
   MessageStore* = ref object of RootObj
-    env*: Sqlite
+    database*: SqliteDatabase
 
   WakuStore* = ref object of LPProtocol
     switch*: Switch

@@ -7,7 +7,8 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
   stew/results, metrics,
-  ../waku_types
+  ../waku_types,
+  ./sqlite
 
 {.push raises: [Defect].}
 
@@ -127,27 +128,6 @@ proc init*(
   ok(MessageStore(
     env: env.release
   ))
-
-template prepare(env: Sqlite, q: string, cleanup: untyped): ptr sqlite3_stmt =
-  var s: ptr sqlite3_stmt
-  checkErr sqlite3_prepare_v2(env, q, q.len.cint, addr s, nil):
-    cleanup
-  s
-
-proc bindParam(s: RawStmtPtr, n: int, val: auto): cint =
-  when val is openarray[byte]|seq[byte]:
-    if val.len > 0:
-      sqlite3_bind_blob(s, n.cint, unsafeAddr val[0], val.len.cint, nil)
-    else:
-      sqlite3_bind_blob(s, n.cint, nil, 0.cint, nil)
-  elif val is int32:
-    sqlite3_bind_int(s, n.cint, val)
-  elif val is uint32:
-    sqlite3_bind_int(s, int(n).cint, int(val).cint)
-  elif val is int64:
-    sqlite3_bind_int64(s, n.cint, val)
-  else:
-    {.fatal: "Please add support for the 'kek' type".}
 
 proc put*(db: MessageStore, cursor: Index, message: WakuMessage): MessageStoreResult[void] =
   ## Adds a message to the storage.
