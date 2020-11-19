@@ -20,6 +20,7 @@ type
 
   Sqlite = ptr sqlite3
 
+  NoParams* = tuple
   RawStmtPtr = ptr sqlite3_stmt
   SqliteStmt*[Params; Result] = distinct RawStmtPtr
 
@@ -77,16 +78,13 @@ proc init*(
 
   checkErr sqlite3_open_v2(name, addr env.val, flags.cint, nil)
 
-  ok(DatabaseResult(db: env))
-
-
-  template prepare*(q: string, cleanup: untyped): ptr sqlite3_stmt =
+  template prepare(q: string, cleanup: untyped): ptr sqlite3_stmt =
     var s: ptr sqlite3_stmt
     checkErr sqlite3_prepare_v2(env.val, q, q.len.cint, addr s, nil):
       cleanup
     s
 
-  template checkExec*(s: ptr sqlite3_stmt) =
+  template checkExec(s: ptr sqlite3_stmt) =
     if (let x = sqlite3_step(s); x != SQLITE_DONE):
       discard sqlite3_finalize(s)
       return err($sqlite3_errstr(x))
@@ -94,7 +92,7 @@ proc init*(
     if (let x = sqlite3_finalize(s); x != SQLITE_OK):
       return err($sqlite3_errstr(x))
 
-  template checkExec*(q: string) =
+  template checkExec(q: string) =
     let s = prepare(q): discard
     checkExec(s)
 
@@ -172,8 +170,8 @@ proc exec*[P](s: SqliteStmt[P, void], params: P): DatabaseResult[void] =
 type 
   DataProc* = proc(s: ptr sqlite3_stmt) {.closure.}
 
-proc query*[P](db: SqliteDatabase, query: string, onData: DataProc): DatabaseResult[void] =
-  var s = prepare(query): discard
+proc query*(db: SqliteDatabase, query: string, onData: DataProc): DatabaseResult[bool] =
+  var s = prepare(db.env, query): discard
 
   try:
     var gotResults = false

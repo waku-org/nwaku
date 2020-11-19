@@ -10,8 +10,6 @@ import
   ../waku_types,
   ./sqlite
 
-{.push raises: [Defect].}
-
 # The code in this file is an adaptation of the Sqlite KV Store found in nim-eth.
 # https://github.com/status-im/nim-eth/blob/master/eth/db/kvstore_sqlite3.nim
 #
@@ -25,14 +23,21 @@ proc init*(T: type MessageStore, db: SqliteDatabase): MessageStoreResult[T] =
   ## It contains:
   ##  - 4-Byte ContentTopic stored as an Integer
   ##  - Payload stored as a blob
-  db.exec("""
+  let prepare = db.prepareStmt("""
     CREATE TABLE IF NOT EXISTS messages (
         id BLOB PRIMARY KEY,
         timestamp INTEGER NOT NULL,
         contentTopic INTEGER NOT NULL, 
         payload BLOB
     ) WITHOUT ROWID;
-    """, tuple)
+    """, NoParams, void)
+
+  if prepare.isErr:
+    return err("failed to prepare")
+
+  let res = prepare.value.exec(())
+  if res.isErr:
+    return err("failed to exec")
 
   ok(MessageStore(database: db))
 
@@ -61,9 +66,6 @@ proc put*(db: MessageStore, cursor: Index, message: WakuMessage): MessageStoreRe
 
   ok()
 
-proc close*(db: MessageStore) =
-  db.database.close()
-
 proc getAll*(db: MessageStore, onData: DataProc): MessageStoreResult[bool] =
   ## Retreives all messages from the storage.
   ##
@@ -76,7 +78,9 @@ proc getAll*(db: MessageStore, onData: DataProc): MessageStoreResult[bool] =
   ##   let res = db.get(data)
   ##   if res.isErr:
   ##     echo "error"
+  var gotMessages = false
   proc msg(s: ptr sqlite3_stmt) = 
+    gotMessages = true
     let
       timestamp = sqlite3_column_int64(s, 0)
       topic = sqlite3_column_int(s, 1)
@@ -89,7 +93,8 @@ proc getAll*(db: MessageStore, onData: DataProc): MessageStoreResult[bool] =
   if res.isErr:
     return err("failed")
 
-  ok()
+  ok gotMessages
 
 proc close*(db: MessageStore) = 
+  ## Closes the database.
   db.database.close()

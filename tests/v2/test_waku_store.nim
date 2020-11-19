@@ -12,7 +12,7 @@ import
   libp2p/transports/transport,
   libp2p/transports/tcptransport,
   ../../waku/v2/protocol/[waku_store, message_notifier],
-  ../../waku/v2/node/message_store,
+  ../../waku/v2/node/[message_store, sqlite],
   ../test_helpers, ./utils,
   ../../waku/v2/waku_types
 
@@ -65,7 +65,7 @@ procSuite "Waku Store":
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
       topic = ContentTopic(1)
-      database = Database.init("", inMemory = true)[]
+      database = SqliteDatabase.init("", inMemory = true)[]
       store = MessageStore.init(database)[]
       msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic)
       msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(2))

@@ -12,7 +12,8 @@ import
   libp2p/standard_setup,
   ../protocol/[waku_relay, waku_store, waku_filter, waku_swap, message_notifier],
   ../waku_types,
-  ./message_store
+  ./message_store,
+  ./sqlite
 
 export waku_types
 
@@ -405,7 +406,7 @@ when isMainModule:
     var store: MessageStore
 
     if conf.dbpath != "":
-      let dbRes = Database.init(conf.dbpath)
+      let dbRes = SqliteDatabase.init(conf.dbpath)
       if dbRes.isErr:
         warn "failed to init database", err = dbRes.error
 

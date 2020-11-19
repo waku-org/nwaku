@@ -10,7 +10,7 @@ import
 suite "Message Store":
   test "set and get works":
     let 
-      database = Database.init("", inMemory = true)[]
+      database = SqliteDatabase.init("", inMemory = true)[]
       store = MessageStore.init(database)[]
       topic = ContentTopic(1)
 
