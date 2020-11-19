@@ -169,6 +169,36 @@ proc exec*[P](s: SqliteStmt[P, void], params: P): DatabaseResult[void] =
 
   res
 
+type 
+  DataProc* = proc(s: ptr sqlite3_stmt) {.closure.}
+
+proc query*[P](db: SqliteDatabase, query: string, onData: DataProc): DatabaseResult[void] =
+  var s = prepare(query): discard
+
+  try:
+    var gotResults = false
+    while true:
+      let v = sqlite3_step(s)
+      case v
+      of SQLITE_ROW:
+        let
+          timestamp = sqlite3_column_int64(s, 0)
+          topic = sqlite3_column_int(s, 1)
+          p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 2))
+          l = sqlite3_column_bytes(s, 2)
+
+        onData(s)
+        gotResults = true
+      of SQLITE_DONE:
+        break
+      else:
+        return err($sqlite3_errstr(v))
+    return ok gotResults
+  finally:
+    # release implicit transaction
+    discard sqlite3_reset(s) # same return information as step
+    discard sqlite3_clear_bindings(s) # no errors possible
+
 proc prepareStmt*(
   db: SqliteDatabase,
   stmt: string,

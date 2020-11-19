@@ -76,32 +76,20 @@ proc getAll*(db: MessageStore, onData: DataProc): MessageStoreResult[bool] =
   ##   let res = db.get(data)
   ##   if res.isErr:
   ##     echo "error"
-  let query = "SELECT timestamp, contentTopic, payload FROM messages"
-  var s = prepare(db.env, query): discard
+  proc msg(s: ptr sqlite3_stmt) = 
+    let
+      timestamp = sqlite3_column_int64(s, 0)
+      topic = sqlite3_column_int(s, 1)
+      p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 2))
+      l = sqlite3_column_bytes(s, 2)
 
-  try:
-    var gotResults = false
-    while true:
-      let v = sqlite3_step(s)
-      case v
-      of SQLITE_ROW:
-        let
-          timestamp = sqlite3_column_int64(s, 0)
-          topic = sqlite3_column_int(s, 1)
-          p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 2))
-          l = sqlite3_column_bytes(s, 2)
+    onData(uint64(timestamp), WakuMessage(contentTopic: ContentTopic(int(topic)), payload: @(toOpenArray(p, 0, l-1))))
 
-        onData(uint64(timestamp), WakuMessage(contentTopic: ContentTopic(int(topic)), payload: @(toOpenArray(p, 0, l-1))))
-        gotResults = true
-      of SQLITE_DONE:
-        break
-      else:
-        return err($sqlite3_errstr(v))
-    return ok gotResults
-  finally:
-    # release implicit transaction
-    discard sqlite3_reset(s) # same return information as step
-    discard sqlite3_clear_bindings(s) # no errors possible
+  let res = db.database.query("SELECT timestamp, contentTopic, payload FROM messages", msg)
+  if res.isErr:
+    return err("failed")
+
+  ok()
 
 proc close*(db: MessageStore) = 
   db.database.close()
