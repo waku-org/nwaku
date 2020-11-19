@@ -20,7 +20,7 @@ import
 type
   DataProc* = proc(timestamp: uint64, msg: WakuMessage) {.closure.}
 
-proc init*(T: type MessageStore): MessageStoreResult[T] =
+proc init*(T: type MessageStore, db: SqliteDatabase): MessageStoreResult[T] =
   ## Table is the SQL query for creating the messages Table.
   ## It contains:
   ##  - 4-Byte ContentTopic stored as an Integer
@@ -34,7 +34,7 @@ proc init*(T: type MessageStore): MessageStoreResult[T] =
     ) WITHOUT ROWID;
     """
 
-  ok(MessageStore())
+  ok(MessageStore(database: db))
 
 proc put*(db: MessageStore, cursor: Index, message: WakuMessage): MessageStoreResult[void] =
   ## Adds a message to the storage.
