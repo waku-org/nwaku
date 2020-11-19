@@ -76,7 +76,6 @@ proc getAll*(db: MessageStore, onData: DataProc): MessageStoreResult[bool] =
   ##   let res = db.get(data)
   ##   if res.isErr:
   ##     echo "error"
-
   let query = "SELECT timestamp, contentTopic, payload FROM messages"
   var s = prepare(db.env, query): discard
 
