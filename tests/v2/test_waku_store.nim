@@ -65,7 +65,8 @@ procSuite "Waku Store":
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
       topic = ContentTopic(1)
-      store = MessageStore.init("/foo", inMemory = true)[]
+      database = Database.init("", inMemory = true)[]
+      store = MessageStore.init(database)[]
       msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic)
       msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(2))
 

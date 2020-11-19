@@ -405,7 +405,11 @@ when isMainModule:
     var store: MessageStore
 
     if conf.dbpath != "":
-      let res = MessageStore.init(conf.dbpath)
+      let dbRes = Database.init(conf.dbpath)
+      if dbRes.isErr:
+        warn "failed to init database", err = dbRes.error
+
+      let res = MessageStore.init(database)
       if res.isErr:
         warn "failed to init MessageStore", err = res.error
       else:

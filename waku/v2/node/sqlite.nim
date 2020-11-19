@@ -6,8 +6,7 @@ import
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
-  stew/results, metrics,
-  ../waku_types
+  stew/results, metrics
 
 {.push raises: [Defect].}
 
@@ -17,12 +16,16 @@ import
 # Most of it is a direct copy, the only unique functions being `get` and `put`.
 
 type
+  DatabaseResult*[T] = Result[T, string]
+
+  Sqlite = ptr sqlite3
+
   RawStmtPtr = ptr sqlite3_stmt
 
   AutoDisposed[T: ptr|ref] = object
     val: T
 
-  Database* = ref object of RootObj
+  SqliteDatabase* = ref object of RootObj
     env*: Sqlite
 
 template dispose(db: Sqlite) =
@@ -40,20 +43,20 @@ proc disposeIfUnreleased[T](x: var AutoDisposed[T]) =
   if x.val != nil:
     dispose(x.release)
 
-template checkErr(op, cleanup: untyped) =
+template checkErr*(op, cleanup: untyped) =
   if (let v = (op); v != SQLITE_OK):
     cleanup
     return err($sqlite3_errstr(v))
 
-template checkErr(op) =
+template checkErr*(op) =
   checkErr(op): discard
 
 proc init*(
-    T: type MessageStore,
+    T: type SqliteDatabase,
     basePath: string,
     name: string = "store",
     readOnly = false,
-    inMemory = false): MessageStoreResult[T] =
+    inMemory = false): DatabaseResult[T] =
   var env: AutoDisposed[ptr sqlite3]
   defer: disposeIfUnreleased(env)
 
@@ -73,13 +76,16 @@ proc init*(
 
   checkErr sqlite3_open_v2(name, addr env.val, flags.cint, nil)
 
-  template prepare(q: string, cleanup: untyped): ptr sqlite3_stmt =
+  ok(DatabaseResult(db: env))
+
+
+  template prepare*(q: string, cleanup: untyped): ptr sqlite3_stmt =
     var s: ptr sqlite3_stmt
     checkErr sqlite3_prepare_v2(env.val, q, q.len.cint, addr s, nil):
       cleanup
     s
 
-  template checkExec(s: ptr sqlite3_stmt) =
+  template checkExec*(s: ptr sqlite3_stmt) =
     if (let x = sqlite3_step(s); x != SQLITE_DONE):
       discard sqlite3_finalize(s)
       return err($sqlite3_errstr(x))
@@ -87,7 +93,7 @@ proc init*(
     if (let x = sqlite3_finalize(s); x != SQLITE_OK):
       return err($sqlite3_errstr(x))
 
-  template checkExec(q: string) =
+  template checkExec*(q: string) =
     let s = prepare(q): discard
     checkExec(s)
 
@@ -112,30 +118,17 @@ proc init*(
   checkWalPragmaResult(journalModePragma)
   checkExec(journalModePragma)
 
-  ## Table is the SQL query for creating the messages Table.
-  ## It contains:
-  ##  - 4-Byte ContentTopic stored as an Integer
-  ##  - Payload stored as a blob
-  checkExec """
-    CREATE TABLE IF NOT EXISTS messages (
-        id BLOB PRIMARY KEY,
-        timestamp INTEGER NOT NULL,
-        contentTopic INTEGER NOT NULL, 
-        payload BLOB
-    ) WITHOUT ROWID;
-    """
-
-  ok(MessageStore(
+  ok(SqliteDatabase(
     env: env.release
   ))
 
-template prepare(env: Sqlite, q: string, cleanup: untyped): ptr sqlite3_stmt =
+template prepare*(env: Sqlite, q: string, cleanup: untyped): ptr sqlite3_stmt =
   var s: ptr sqlite3_stmt
   checkErr sqlite3_prepare_v2(env, q, q.len.cint, addr s, nil):
     cleanup
   s
 
-proc bindParam(s: RawStmtPtr, n: int, val: auto): cint =
+proc bindParam*(s: RawStmtPtr, n: int, val: auto): cint =
   when val is openarray[byte]|seq[byte]:
     if val.len > 0:
       sqlite3_bind_blob(s, n.cint, unsafeAddr val[0], val.len.cint, nil)
@@ -150,7 +143,7 @@ proc bindParam(s: RawStmtPtr, n: int, val: auto): cint =
   else:
     {.fatal: "Please add support for the 'kek' type".}
 
-proc close*(db: MessageStore) =
+proc close*(db: SqliteDatabase) =
   discard sqlite3_close(db.env)
 
-  db[] = MessageStore()[]
+  db[] = SqliteDatabase()[]

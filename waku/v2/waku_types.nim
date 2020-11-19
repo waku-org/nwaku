@@ -12,7 +12,6 @@ import
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
   nimcrypto/sha2,
-  sqlite3_abi,
   ./node/sqlite
 
 # Constants required for pagination -------------------------------------------
@@ -80,8 +79,6 @@ type
     peerInfo*: PeerInfo
 
   MessageStoreResult*[T] = Result[T, string]
-
-  Sqlite* = ptr sqlite3
 
   MessageStore* = ref object of RootObj
     database*: SqliteDatabase
