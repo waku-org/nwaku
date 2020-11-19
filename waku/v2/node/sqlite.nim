@@ -21,6 +21,7 @@ type
   Sqlite = ptr sqlite3
 
   RawStmtPtr = ptr sqlite3_stmt
+  SqliteStmt*[Params; Result] = distinct RawStmtPtr
 
   AutoDisposed[T: ptr|ref] = object
     val: T
@@ -142,6 +143,41 @@ proc bindParam*(s: RawStmtPtr, n: int, val: auto): cint =
     sqlite3_bind_int64(s, n.cint, val)
   else:
     {.fatal: "Please add support for the 'kek' type".}
+
+template bindParams(s: RawStmtPtr, params: auto) =
+  when params is tuple:
+    var i = 1
+    for param in fields(params):
+      checkErr bindParam(s, i, param)
+      inc i
+  else:
+    checkErr bindParam(s, 1, params)
+
+proc exec*[P](s: SqliteStmt[P, void], params: P): DatabaseResult[void] =
+  let s = RawStmtPtr s
+  bindParams(s, params)
+
+  let res =
+    if (let v = sqlite3_step(s); v != SQLITE_DONE):
+      err($sqlite3_errstr(v))
+    else:
+      ok()
+
+  # release implict transaction
+  discard sqlite3_reset(s) # same return information as step
+  discard sqlite3_clear_bindings(s) # no errors possible
+
+  res
+
+proc prepareStmt*(
+  db: SqliteDatabase,
+  stmt: string,
+  Params: type,
+  Res: type
+): DatabaseResult[SqliteStmt[Params, Res]] =
+  var s: RawStmtPtr
+  checkErr sqlite3_prepare_v2(db.env, stmt, stmt.len.cint, addr s, nil)
+  ok SqliteStmt[Params, Res](s)
 
 proc close*(db: SqliteDatabase) =
   discard sqlite3_close(db.env)

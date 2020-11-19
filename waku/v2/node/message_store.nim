@@ -25,14 +25,14 @@ proc init*(T: type MessageStore, db: SqliteDatabase): MessageStoreResult[T] =
   ## It contains:
   ##  - 4-Byte ContentTopic stored as an Integer
   ##  - Payload stored as a blob
-  checkExec """
+  db.exec("""
     CREATE TABLE IF NOT EXISTS messages (
         id BLOB PRIMARY KEY,
         timestamp INTEGER NOT NULL,
         contentTopic INTEGER NOT NULL, 
         payload BLOB
     ) WITHOUT ROWID;
-    """
+    """, tuple)
 
   ok(MessageStore(database: db))
 
@@ -45,28 +45,24 @@ proc put*(db: MessageStore, cursor: Index, message: WakuMessage): MessageStoreRe
   ##   let res = db.put(message)
   ##   if res.isErr:
   ##     echo "error"
-  let s = prepare(db.env, "INSERT INTO messages (id, timestamp, contentTopic, payload) VALUES (?, ?, ?, ?);"): discard
-  checkErr bindParam(s, 1, @(cursor.digest.data))
-  checkErr bindParam(s, 2, int64(cursor.receivedTime))
-  checkErr bindParam(s, 3, message.contentTopic)
-  checkErr bindParam(s, 4, message.payload)
+  ## 
+  let prepare = db.database.prepareStmt(
+    "INSERT INTO messages (id, timestamp, contentTopic, payload) VALUES (?, ?, ?, ?);",
+    (seq[byte], int64, uint32, seq[byte]),
+    void
+  )
 
-  let res =
-    if (let v = sqlite3_step(s); v != SQLITE_DONE):
-      err($sqlite3_errstr(v))
-    else:
-      ok()
+  if prepare.isErr:
+    return err("failed to prepare")
 
-  # release implict transaction
-  discard sqlite3_reset(s) # same return information as step
-  discard sqlite3_clear_bindings(s) # no errors possible
+  let res = prepare.value.exec((@(cursor.digest.data), int64(cursor.receivedTime), message.contentTopic, message.payload))
+  if res.isErr:
+    return err("failed")
 
-  res
+  ok()
 
 proc close*(db: MessageStore) =
-  discard sqlite3_close(db.env)
-
-  db[] = MessageStore()[]
+  db.database.close()
 
 proc getAll*(db: MessageStore, onData: DataProc): MessageStoreResult[bool] =
   ## Retreives all messages from the storage.
