@@ -13,7 +13,7 @@ import
   libp2p/protocols/pubsub/[pubsub, gossipsub],
   nimcrypto/sha2,
   sqlite3_abi,
-  ./sqlite
+  ./node/sqlite
 
 # Constants required for pagination -------------------------------------------
 const MaxPageSize* = 100 # Maximum number of waku messages in each page
