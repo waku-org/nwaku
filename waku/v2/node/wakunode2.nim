@@ -410,7 +410,7 @@ when isMainModule:
       if dbRes.isErr:
         warn "failed to init database", err = dbRes.error
 
-      let res = MessageStore.init(database)
+      let res = MessageStore.init(dbRes.value)
       if res.isErr:
         warn "failed to init MessageStore", err = res.error
       else:
