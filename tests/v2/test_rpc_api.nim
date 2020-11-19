@@ -21,6 +21,9 @@ createRpcSigs(RpcHttpClient, sigPath)
 suite "Waku v2 JSON-RPC API":
 
   asyncTest "get_waku_v2_store_query":
+    const defaultTopic = "/waku/2/default-waku/proto"
+    const testCodec = "/waku/2/default-waku/codec"
+
     # WakuNode setup
     let
       rng = crypto.newRng()
@@ -32,7 +35,7 @@ suite "Waku v2 JSON-RPC API":
 
     waitFor node.start()
 
-    waitFor node.mountRelay(@["waku"])
+    waitFor node.mountRelay(@[defaultTopic])
 
     # RPC server setup
     let
@@ -60,7 +63,7 @@ suite "Waku v2 JSON-RPC API":
     listenSwitch.mount(node.wakuStore)
 
     var subscriptions = newTable[string, MessageNotificationSubscription]()
-    subscriptions["test"] = subscription
+    subscriptions[testCodec] = subscription
 
     # Now prime it with some history before tests
     var
@@ -76,7 +79,7 @@ suite "Waku v2 JSON-RPC API":
         WakuMessage(payload: @[byte 9], contentTopic: ContentTopic(2))]
 
     for wakuMsg in msgList:
-      waitFor subscriptions.notify("foo", wakuMsg)
+      waitFor subscriptions.notify(defaultTopic, wakuMsg)
 
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort)
