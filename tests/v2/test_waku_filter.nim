@@ -8,9 +8,7 @@ import
   libp2p/stream/[bufferstream, connection],
   libp2p/crypto/crypto,
   libp2p/multistream,
-  libp2p/transports/transport,
-  libp2p/transports/tcptransport,
-  ../../waku/v2/protocol/[waku_relay, waku_filter, message_notifier],
+  ../../waku/v2/protocol/[waku_filter, message_notifier],
   ../../waku/v2/waku_types,
   ../test_helpers, ./utils
 
