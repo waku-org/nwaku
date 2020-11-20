@@ -179,12 +179,6 @@ proc query*(db: SqliteDatabase, query: string, onData: DataProc): DatabaseResult
       let v = sqlite3_step(s)
       case v
       of SQLITE_ROW:
-        let
-          timestamp = sqlite3_column_int64(s, 0)
-          topic = sqlite3_column_int(s, 1)
-          p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 2))
-          l = sqlite3_column_bytes(s, 2)
-
         onData(s)
         gotResults = true
       of SQLITE_DONE:
