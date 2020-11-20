@@ -30,39 +30,15 @@ import
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
-  ./message_notifier,
-  ../waku_types
+  ../message_notifier,
+   waku_swap_types
 
-export waku_types
+export waku_swap_types
 
 logScope:
   topics = "wakuswap"
 
 const WakuSwapCodec* = "/vac/waku/swap/2.0.0-alpha1"
-
-type
-  Beneficiary* = seq[byte]
-
-  # TODO Consider adding payment threshhold and terms field
-  Handshake* = object
-    beneficiary*: Beneficiary
-
-  Cheque* = object
-    beneficiary*: Beneficiary
-    date*: uint32
-    amount*: uint32
-
-  AccountUpdateFunc* = proc(peerId: PeerId, amount: int) {.gcsafe.}
-
-  AccountHandler* = proc (peerId: PeerId, amount: int) {.gcsafe, closure.}
-
-  WakuSwap* = ref object of LPProtocol
-    switch*: Switch
-    rng*: ref BrHmacDrbgContext
-    #peers*: seq[PeerInfo]
-    text*: string
-    accounting*: Table[PeerId, int]
-    accountFor*: AccountHandler
 
 proc encode*(handshake: Handshake): ProtoBuffer =
   result = initProtoBuffer()

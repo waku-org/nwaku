@@ -11,7 +11,7 @@ import
   libp2p/switch,
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
-  protocol/waku_swap,
+  protocol/waku_swap/waku_swap_types,
   nimcrypto/sha2,
   sqlite3_abi
 
