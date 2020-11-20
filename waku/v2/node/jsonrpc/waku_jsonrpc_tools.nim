@@ -1,6 +1,6 @@
 import
-  waku_api_types,
-  options,
+  ./waku_jsonrpc_types,
+  std/options,
   ../wakunode2
 
 ## Conversion tools
@@ -9,13 +9,13 @@ import
 proc convertToAPI*(response: HistoryResponse): HistoryResponseAPI =
   if response.pagingInfo != PagingInfo():
     # PagingInfo is not empty. Set pagingInfo Option on API response.
-    result = HistoryResponseAPI(messages: response.messages, pagingInfo: some(response.pagingInfo))
+    HistoryResponseAPI(messages: response.messages, pagingInfo: some(response.pagingInfo))
   else:
-    result = HistoryResponseAPI(messages: response.messages, pagingInfo: none(PagingInfo))
+    HistoryResponseAPI(messages: response.messages, pagingInfo: none(PagingInfo))
 
 proc convertFromAPI*(query: HistoryQueryAPI): HistoryQuery =
   if query.pagingInfo.isSome:
     # PagingInfo Option is set. Add paging info to query.
-    result = HistoryQuery(topics: query.topics, pagingInfo: query.pagingInfo.get)
+    HistoryQuery(topics: query.topics, pagingInfo: query.pagingInfo.get)
   else:
-    result = HistoryQuery(topics: query.topics)
+    HistoryQuery(topics: query.topics)

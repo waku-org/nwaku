@@ -1,6 +1,6 @@
 import
   ../../waku_types,
-  options
+  std/options
 
 type
   HistoryQueryAPI* = object

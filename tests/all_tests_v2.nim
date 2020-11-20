@@ -10,4 +10,4 @@ import
   ./v2/test_rpc_waku,
   ./v2/test_waku_swap,
   ./v2/test_message_store,
-  ./v2/test_rpc_api
+  ./v2/test_jsonrpc_waku

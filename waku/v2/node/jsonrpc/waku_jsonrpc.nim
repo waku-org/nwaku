@@ -1,7 +1,6 @@
 import
   json_rpc/rpcserver,
-  eth/async_utils,
-  waku_api_tools, waku_api_types,
+  ./waku_jsonrpc_tools, ./waku_jsonrpc_types,
   ../../waku_types,
   ../wakunode2
 
@@ -22,7 +21,7 @@ proc setupWakuRPCAPI*(node: WakuNode, rpcsrv: RpcServer) =
 
     if (await responseFut.withTimeout(5.seconds)):
       # Future completed
-      result = responseFut.read()
+      return responseFut.read()
     else:
       # Future failed to complete
       raise newException(ValueError, "No history response received")
