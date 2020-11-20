@@ -8,14 +8,10 @@ import
   libp2p/stream/[bufferstream, connection],
   libp2p/crypto/crypto,
   libp2p/protocols/pubsub/rpc/message,
-  libp2p/multistream,
-  libp2p/transports/transport,
-  libp2p/transports/tcptransport,
   ../../waku/v2/protocol/[waku_store, message_notifier],
   ../../waku/v2/node/[message_store, sqlite],
   ../test_helpers, ./utils,
   ../../waku/v2/waku_types
-
 
 procSuite "Waku Store":
   asyncTest "handle query":

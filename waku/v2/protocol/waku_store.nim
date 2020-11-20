@@ -1,5 +1,5 @@
 import
-  std/[tables, sequtils, future, algorithm, options],
+  std/[tables, sequtils, algorithm, options],
   bearssl,
   chronos, chronicles, metrics, stew/[results,byteutils],
   libp2p/switch,

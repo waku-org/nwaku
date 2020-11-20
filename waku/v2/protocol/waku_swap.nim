@@ -22,9 +22,9 @@
 ##
 
 import
-  std/[tables, sequtils, future, algorithm, options],
+  std/[tables, options],
   bearssl,
-  chronos, chronicles, metrics, stew/[results,byteutils],
+  chronos, chronicles, metrics, stew/results,
   libp2p/switch,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
