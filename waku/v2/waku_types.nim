@@ -11,6 +11,7 @@ import
   libp2p/switch,
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
+  protocol/waku_swap,
   nimcrypto/sha2,
   sqlite3_abi
 
@@ -39,7 +40,6 @@ type
     handler*: MessageNotificationHandler
 
   QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
-
 
   Index* = object
     ## This type contains the  description of an Index used in the pagination of WakuMessages
@@ -134,16 +134,6 @@ type
   # @TODO MAYBE MORE INFO?
   Filters* = Table[string, Filter]
 
-  AccountHandler* = proc (peerId: PeerId, amount: int) {.gcsafe, closure.}
-
-  WakuSwap* = ref object of LPProtocol
-    switch*: Switch
-    rng*: ref BrHmacDrbgContext
-    #peers*: seq[PeerInfo]
-    text*: string
-    accounting*: Table[PeerId, int]
-    accountFor*: AccountHandler
-
   # NOTE based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj
     switch*: Switch
@@ -168,20 +158,6 @@ type
     #multiaddrStrings*: seq[string]
 
   WakuResult*[T] = Result[T, cstring]
-
-  Beneficiary* = seq[byte]
-
-  # TODO Consider adding payment threshhold and terms field
-  Handshake* = object
-    beneficiary*: Beneficiary
-
-  Cheque* = object
-    beneficiary*: Beneficiary
-    date*: uint32
-    amount*: uint32
-
-  AccountUpdateFunc* = proc(peerId: PeerId, amount: int) {.gcsafe.}
-
 
 # Encoding and decoding -------------------------------------------------------
 # TODO Move out to to waku_message module
