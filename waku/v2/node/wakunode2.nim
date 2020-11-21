@@ -310,7 +310,7 @@ proc dialPeer*(n: WakuNode, address: string) {.async.} =
   # TODO Keep track of conn and connected state somewhere (WakuRelay?)
   #p.conn = await p.switch.dial(remotePeer, WakuRelayCodec)
   #p.connected = true
-  discard await n.switch.dial(remotePeer, WakuRelayCodec)
+  discard await n.switch.dial(remotePeer.peerId, remotePeer.addrs, WakuRelayCodec)
   info "Post switch dial"
 
 proc setStorePeer*(n: WakuNode, address: string) =
@@ -344,7 +344,7 @@ proc connectToNodes*(n: WakuNode, nodes: seq[string]) {.async.} =
 proc connectToNodes*(n: WakuNode, nodes: seq[PeerInfo]) {.async.} =
   for peerInfo in nodes:
     info "connectToNodes", peer = peerInfo
-    discard await n.switch.dial(peerInfo, WakuRelayCodec)
+    discard await n.switch.dial(peerInfo.peerId, peerInfo.addrs, WakuRelayCodec)
 
   # The issue seems to be around peers not being fully connected when
   # trying to subscribe. So what we do is sleep to guarantee nodes are
