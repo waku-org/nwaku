@@ -63,6 +63,11 @@ type
       defaultValue: true
       name: "relay" }: bool
 
+    swap* {.
+      desc: "Flag whether to start swap protocol",
+      defaultValue: false
+      name: "swap" }: bool
+
     filternode* {.
       desc: "Enode URL to filter.",
       defaultValue: ""

@@ -23,10 +23,6 @@ logScope:
 # Default clientId
 const clientId* = "Nimbus Waku v2 node"
 
-# TODO Toggle
-# To be fixed here: https://github.com/status-im/nim-waku/issues/271
-const SWAPAccountingEnabled* = false
-
 # key and crypto modules different
 type
   KeyPair* = crypto.KeyPair
@@ -224,9 +220,11 @@ proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.as
   ## QueryHandlerFunc is a method that takes a HistoryResponse.
   ##
   ## Status: Implemented.
-  await node.wakuStore.query(query, handler)
 
-  if SWAPAccountingEnabled:
+  if node.wakuSwap.isNil:
+    debug "Using default query"
+    await node.wakuStore.query(query, handler)
+  else:
     debug "Using SWAPAccounting query"
     await node.wakuStore.queryWithAccounting(query, handler, node.wakuSwap)
 
@@ -397,9 +395,7 @@ when isMainModule:
 
   waitFor node.start()
 
-  # TODO Move to conf
-  if SWAPAccountingEnabled:
-    info "SWAP Accounting enabled"
+  if conf.swap:
     mountSwap(node)
 
   if conf.store:
