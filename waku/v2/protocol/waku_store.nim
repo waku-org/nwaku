@@ -9,6 +9,7 @@ import
   libp2p/stream/connection,
   ./message_notifier,
   ../node/message_store,
+  waku_swap/waku_swap,
   ../waku_types
 
 logScope:
