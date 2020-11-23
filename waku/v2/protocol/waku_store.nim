@@ -1,5 +1,5 @@
 import
-  std/[tables, sequtils, future, algorithm, options],
+  std/[tables, sequtils, algorithm, options],
   bearssl,
   chronos, chronicles, metrics, stew/[results,byteutils],
   libp2p/switch,
@@ -9,6 +9,7 @@ import
   libp2p/stream/connection,
   ./message_notifier,
   ../node/message_store,
+  waku_swap/waku_swap,
   ../waku_types
 
 logScope:
