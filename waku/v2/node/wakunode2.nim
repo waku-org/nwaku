@@ -270,7 +270,6 @@ proc mountFilter*(node: WakuNode) =
   node.switch.mount(node.wakuFilter)
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
-
 # NOTE: If using the swap protocol, it must be mounted before store. This is
 # because store is using a reference to the swap protocol.
 proc mountSwap*(node: WakuNode) =
@@ -280,7 +279,7 @@ proc mountSwap*(node: WakuNode) =
   # NYI - Do we need this?
   #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
 
-proc mountStore*(node: WakuNode, store: MessageStore = nil, wakuSwap: WakuSwap = nil) =
+proc mountStore*(node: WakuNode, store: MessageStore = nil) =
   info "mounting store"
 
   if node.wakuSwap.isNil:
@@ -288,7 +287,7 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, wakuSwap: WakuSwap =
     node.wakuStore = WakuStore.init(node.switch, node.rng, store)
   else:
     debug "mounting store with swap"
-    node.wakuStore = WakuStore.init(node.switch, node.rng, store, wakuSwap)
+    node.wakuStore = WakuStore.init(node.switch, node.rng, store, node.wakuSwap)
 
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())

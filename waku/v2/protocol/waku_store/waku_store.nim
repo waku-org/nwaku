@@ -318,6 +318,8 @@ method init*(ws: WakuStore) =
       let peerId = conn.peerInfo.peerId
       let messages = response.messages
       ws.wakuSwap.credit(peerId, messages.len)
+    else:
+      info "handle store swap is nil"
 
     await conn.writeLp(HistoryRPC(requestId: value.requestId,
         response: response).encode().buffer)
