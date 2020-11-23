@@ -238,13 +238,14 @@ proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.as
   ##
   ## Status: Implemented.
 
+  # TODO Once waku swap is less experimental, this can simplified
   if node.wakuSwap.isNil:
     debug "Using default query"
     await node.wakuStore.query(query, handler)
   else:
     debug "Using SWAPAccounting query"
     # TODO wakuSwap now part of wakuStore object
-    await node.wakuStore.queryWithAccounting(query, handler, node.wakuSwap)
+    await node.wakuStore.queryWithAccounting(query, handler)
 
 # TODO Extend with more relevant info: topics, peers, memory usage, online time, etc
 proc info*(node: WakuNode): WakuInfo =
