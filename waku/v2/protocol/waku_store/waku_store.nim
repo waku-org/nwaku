@@ -315,10 +315,9 @@ method init*(ws: WakuStore) =
     if not ws.wakuSwap.isNil:
       info "handle store swap test", text=ws.wakuSwap.text
       # NOTE Perform accounting operation
-      let peerId = connection.peerInfo.peerId
-      let messages = response.value.response.messages
-      # TODO Turn negative, probably with credit/debit?
-      wakuSwap.accountFor(peerId, messages.len)
+      let peerId = conn.peerInfo.peerId
+      let messages = response.messages
+      ws.wakuSwap.credit(peerId, messages.len)
 
     await conn.writeLp(HistoryRPC(requestId: value.requestId,
         response: response).encode().buffer)
@@ -413,9 +412,8 @@ proc queryWithAccounting*(w: WakuStore, query: HistoryQuery, handler: QueryHandl
     return
 
   # NOTE Perform accounting operation
-  #  if SWAPAccountingEnabled:
   let peerId = peer.peerInfo.peerId
   let messages = response.value.response.messages
-  wakuSwap.accountFor(peerId, messages.len)
+  wakuSwap.debit(peerId, messages.len)
 
   handler(response.value.response)

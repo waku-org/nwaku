@@ -17,7 +17,8 @@ type
     date*: uint32
     amount*: uint32
 
-  AccountHandler* = proc (peerId: PeerId, amount: int) {.gcsafe, closure.}
+  CreditHandler* = proc (peerId: PeerId, amount: int) {.gcsafe, closure.}
+  DebitHandler* = proc (peerId: PeerId, amount: int) {.gcsafe, closure.}
 
   WakuSwap* = ref object of LPProtocol
     switch*: Switch
@@ -25,4 +26,5 @@ type
     #peers*: seq[PeerInfo]
     text*: string
     accounting*: Table[PeerId, int]
-    accountFor*: AccountHandler
+    credit*: CreditHandler
+    debit*: DebitHandler
