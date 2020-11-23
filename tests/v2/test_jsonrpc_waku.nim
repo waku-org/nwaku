@@ -10,17 +10,17 @@ import
   libp2p/protocols/pubsub/rpc/message,
   ../../waku/v2/waku_types,
   ../../waku/v2/node/wakunode2,
-  ../../waku/v2/node/jsonrpc/[waku_jsonrpc, waku_jsonrpc_types],
+  ../../waku/v2/node/jsonrpc/[jsonrpc_types,store_api],
   ../../waku/v2/protocol/[waku_store, message_notifier],
   ../test_helpers
 
 template sourceDir*: string = currentSourcePath.rsplit(DirSep, 1)[0]
-const sigPath = sourceDir / ParDir / ParDir / "waku" / "v2" / "node" / "jsonrpc" / "waku_jsonrpc_callsigs.nim"
+const sigPath = sourceDir / ParDir / ParDir / "waku" / "v2" / "node" / "jsonrpc" / "jsonrpc_callsigs.nim"
 createRpcSigs(RpcHttpClient, sigPath)
 
 suite "Waku v2 JSON-RPC API":
 
-  asyncTest "get_waku_v2_store_query":
+  asyncTest "get_waku_v2_store_v1_messages":
     const defaultTopic = "/waku/2/default-waku/proto"
     const testCodec = "/waku/2/default-waku/codec"
 
@@ -43,7 +43,7 @@ suite "Waku v2 JSON-RPC API":
       ta = initTAddress(bindIp, rpcPort)
       server = newRpcHttpServer([ta])
 
-    setupWakuRPCAPI(node, server)
+    setupWakuJSONRPC(node, server)
     server.start()
 
     # WakuStore setup
@@ -84,10 +84,10 @@ suite "Waku v2 JSON-RPC API":
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort)
 
-    let response = await client.get_waku_v2_store_query(HistoryQueryAPI(topics: @[ContentTopic(1)]))
+    let response = await client.get_waku_v2_store_v1_messages(@[ContentTopic(1)], some(StorePagingOptions()))
     check:
       response.messages.len() == 8
-      response.pagingInfo.isNone
+      response.pagingOptions.isNone
       
     server.stop()
     server.close()
