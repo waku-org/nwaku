@@ -61,11 +61,11 @@ procSuite "Waku SWAP Accounting":
 
     # Start nodes and mount protocols
     await node1.start()
+    node1.mountSwap()
     node1.mountStore()
-    node1.mountSwap()
     await node2.start()
+    node2.mountSwap()
     node2.mountStore()
-    node1.mountSwap()
 
     await node2.subscriptions.notify("/waku/2/default-waku/proto", message)
 
