@@ -22,18 +22,18 @@
 ##
 
 import
-  std/[tables, sequtils, future, algorithm, options],
+  std/[tables, options],
   bearssl,
-  chronos, chronicles, metrics, stew/[results,byteutils],
+  chronos, chronicles, metrics, stew/results,
   libp2p/switch,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
-  ./message_notifier,
-  ../waku_types
+  ../message_notifier,
+   waku_swap_types
 
-export waku_types
+export waku_swap_types
 
 logScope:
   topics = "wakuswap"

@@ -10,7 +10,8 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/peerinfo,
   libp2p/standard_setup,
-  ../protocol/[waku_relay, waku_store, waku_filter, waku_swap, message_notifier],
+  ../protocol/[waku_relay, waku_store, waku_filter, message_notifier],
+  ../protocol/waku_swap/waku_swap,
   ../waku_types,
   ./message_store
 
@@ -21,10 +22,6 @@ logScope:
 
 # Default clientId
 const clientId* = "Nimbus Waku v2 node"
-
-# TODO Toggle
-# To be fixed here: https://github.com/status-im/nim-waku/issues/271
-const SWAPAccountingEnabled* = false
 
 # key and crypto modules different
 type
@@ -223,9 +220,11 @@ proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.as
   ## QueryHandlerFunc is a method that takes a HistoryResponse.
   ##
   ## Status: Implemented.
-  await node.wakuStore.query(query, handler)
 
-  if SWAPAccountingEnabled:
+  if node.wakuSwap.isNil:
+    debug "Using default query"
+    await node.wakuStore.query(query, handler)
+  else:
     debug "Using SWAPAccounting query"
     await node.wakuStore.queryWithAccounting(query, handler, node.wakuSwap)
 
@@ -312,7 +311,7 @@ proc dialPeer*(n: WakuNode, address: string) {.async.} =
   # TODO Keep track of conn and connected state somewhere (WakuRelay?)
   #p.conn = await p.switch.dial(remotePeer, WakuRelayCodec)
   #p.connected = true
-  discard await n.switch.dial(remotePeer, WakuRelayCodec)
+  discard await n.switch.dial(remotePeer.peerId, remotePeer.addrs, WakuRelayCodec)
   info "Post switch dial"
 
 proc setStorePeer*(n: WakuNode, address: string) =
@@ -346,7 +345,7 @@ proc connectToNodes*(n: WakuNode, nodes: seq[string]) {.async.} =
 proc connectToNodes*(n: WakuNode, nodes: seq[PeerInfo]) {.async.} =
   for peerInfo in nodes:
     info "connectToNodes", peer = peerInfo
-    discard await n.switch.dial(peerInfo, WakuRelayCodec)
+    discard await n.switch.dial(peerInfo.peerId, peerInfo.addrs, WakuRelayCodec)
 
   # The issue seems to be around peers not being fully connected when
   # trying to subscribe. So what we do is sleep to guarantee nodes are
@@ -396,9 +395,7 @@ when isMainModule:
 
   waitFor node.start()
 
-  # TODO Move to conf
-  if SWAPAccountingEnabled:
-    info "SWAP Accounting enabled"
+  if conf.swap:
     mountSwap(node)
 
   if conf.store:
