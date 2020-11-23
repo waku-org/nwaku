@@ -314,6 +314,11 @@ method init*(ws: WakuStore) =
     # How do we get node or swap context?
     if not ws.wakuSwap.isNil:
       info "handle store swap test", text=ws.wakuSwap.text
+      # NOTE Perform accounting operation
+      let peerId = connection.peerInfo.peerId
+      let messages = response.value.response.messages
+      # TODO Turn negative, probably with credit/debit?
+      wakuSwap.accountFor(peerId, messages.len)
 
     await conn.writeLp(HistoryRPC(requestId: value.requestId,
         response: response).encode().buffer)
