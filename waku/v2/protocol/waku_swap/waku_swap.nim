@@ -30,10 +30,10 @@ import
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
-  ./message_notifier,
-  ../waku_types
+  ../message_notifier,
+   waku_swap_types
 
-export waku_types
+export waku_swap_types
 
 logScope:
   topics = "wakuswap"
