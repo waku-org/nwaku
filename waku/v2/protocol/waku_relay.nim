@@ -39,6 +39,12 @@ method initPubSub*(w: WakuRelay) =
   # XXX: FloodSub subscribe doesn't work
   w.gossipEnabled = true
 
+  # after discussions with @sinkingsugar, this is essentially what is needed for
+  # the libp2p `StrictNoSign` policy
+  w.anonymize = true
+  w.verifySignature = false
+  w.sign = false
+
   if w.gossipEnabled:
     procCall GossipSub(w).initPubSub()
   else:
