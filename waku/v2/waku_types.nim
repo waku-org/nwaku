@@ -1,6 +1,6 @@
 ## Core Waku data types are defined here to avoid recursive dependencies.
 ##
-## TODO Move more common data types here
+## TODO Move types here into their appropriate place
 
 import
   std/[tables, times],
@@ -12,6 +12,7 @@ import
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
   protocol/waku_swap/waku_swap_types,
+  protocol/waku_store/waku_store_types,
   nimcrypto/sha2,
   ./node/sqlite
 
@@ -38,57 +39,6 @@ type
   MessageNotificationSubscription* = object
     topics*: seq[string] # @TODO TOPIC
     handler*: MessageNotificationHandler
-
-  QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
-
-  Index* = object
-    ## This type contains the  description of an Index used in the pagination of WakuMessages
-    digest*: MDigest[256]
-    receivedTime*: float64
-
-  IndexedWakuMessage* = object
-    ## This type is used to encapsulate a WakuMessage and its Index
-    msg*: WakuMessage
-    index*: Index
-
-  PagingDirection* {.pure.} = enum
-    ## PagingDirection determines the direction of pagination
-    BACKWARD = uint32(0)
-    FORWARD = uint32(1)
-
-  PagingInfo* = object
-    ## This type holds the information needed for the pagination
-    pageSize*: uint64
-    cursor*: Index
-    direction*: PagingDirection
-
-  HistoryQuery* = object
-    topics*: seq[ContentTopic]
-    pagingInfo*: PagingInfo # used for pagination
-
-  HistoryResponse* = object
-    messages*: seq[WakuMessage]
-    pagingInfo*: PagingInfo # used for pagination
-
-  HistoryRPC* = object
-    requestId*: string
-    query*: HistoryQuery
-    response*: HistoryResponse
-
-  HistoryPeer* = object
-    peerInfo*: PeerInfo
-
-  MessageStoreResult*[T] = Result[T, string]
-
-  MessageStore* = ref object of RootObj
-    database*: SqliteDatabase
-
-  WakuStore* = ref object of LPProtocol
-    switch*: Switch
-    rng*: ref BrHmacDrbgContext
-    peers*: seq[HistoryPeer]
-    messages*: seq[IndexedWakuMessage]
-    store*: MessageStore
 
   FilterRequest* = object
     contentFilters*: seq[ContentFilter]
