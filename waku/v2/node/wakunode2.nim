@@ -243,6 +243,7 @@ proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.as
     await node.wakuStore.query(query, handler)
   else:
     debug "Using SWAPAccounting query"
+    # TODO wakuSwap now part of wakuStore object
     await node.wakuStore.queryWithAccounting(query, handler, node.wakuSwap)
 
 # TODO Extend with more relevant info: topics, peers, memory usage, online time, etc
@@ -269,18 +270,25 @@ proc mountFilter*(node: WakuNode) =
   node.switch.mount(node.wakuFilter)
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
-proc mountStore*(node: WakuNode, store: MessageStore = nil) =
-  info "mounting store"
-  node.wakuStore = WakuStore.init(node.switch, node.rng, store)
-  node.switch.mount(node.wakuStore)
-  node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
-
 proc mountSwap*(node: WakuNode) =
   info "mounting swap"
   node.wakuSwap = WakuSwap.init(node.switch, node.rng)
   node.switch.mount(node.wakuSwap)
   # NYI - Do we need this?
   #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
+
+proc mountStore*(node: WakuNode, store: MessageStore = nil, wakuSwap: WakuSwap = nil) =
+  info "mounting store"
+
+  if node.wakuSwap.isNil:
+    debug "mounting store without swap"
+    node.wakuStore = WakuStore.init(node.switch, node.rng, store)
+  else:
+    debug "mounting store with swap"
+    node.wakuStore = WakuStore.init(node.switch, node.rng, store, wakuSwap)
+
+  node.switch.mount(node.wakuStore)
+  node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
 proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.async, gcsafe.} =
   let wakuRelay = WakuRelay.init(
@@ -430,7 +438,7 @@ when isMainModule:
         store = res.value
 
     mountStore(node, store)
-  
+
   if conf.filter:
     mountFilter(node)
 

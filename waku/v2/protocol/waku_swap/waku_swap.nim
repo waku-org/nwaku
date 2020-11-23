@@ -95,7 +95,7 @@ proc init*(wakuSwap: WakuSwap) =
   wakuSwap.codec = WakuSwapCodec
   wakuSwap.accountFor = accountFor
 
-
+# TODO Expression return?
 proc init*(T: type WakuSwap, switch: Switch, rng: ref BrHmacDrbgContext): T =
   info "wakuSwap init 2"
   new result

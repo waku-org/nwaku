@@ -309,6 +309,12 @@ method init*(ws: WakuStore) =
 
     let value = res.value
     let response = ws.findMessages(res.value.query)
+
+    # TODO Do accounting here, response is HistoryResponse
+    # How do we get node or swap context?
+    if not ws.wakuSwap.isNil:
+      info "handle store swap test", text=ws.wakuSwap.text
+
     await conn.writeLp(HistoryRPC(requestId: value.requestId,
         response: response).encode().buffer)
 
@@ -325,11 +331,13 @@ method init*(ws: WakuStore) =
   if res.isErr:
     warn "failed to load messages from store", err = res.error
 
-proc init*(T: type WakuStore, switch: Switch, rng: ref BrHmacDrbgContext, store: MessageStore = nil): T =
+proc init*(T: type WakuStore, switch: Switch, rng: ref BrHmacDrbgContext,
+                   store: MessageStore = nil, wakuSwap: WakuSwap = nil): T =
   new result
   result.rng = rng
   result.switch = switch
   result.store = store
+  result.wakuSwap = wakuSwap
   result.init()
 
 # @TODO THIS SHOULD PROBABLY BE AN ADD FUNCTION AND APPEND THE PEER TO AN ARRAY
