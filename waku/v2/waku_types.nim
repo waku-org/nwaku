@@ -150,7 +150,6 @@ type
     rng*: ref BrHmacDrbgContext
 
   WakuRelay* = ref object of GossipSub
-    gossipEnabled*: bool
 
   WakuInfo* = object
     # NOTE One for simplicity, can extend later as needed
