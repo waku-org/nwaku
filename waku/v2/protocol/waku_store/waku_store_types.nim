@@ -4,16 +4,10 @@ import
   bearssl, stew/[byteutils, endians2],
   libp2p/[switch, peerinfo],
   libp2p/protocols/protocol,
-  ../../waku_types,
-  sqlite3_abi
+  ../../waku_types
 
 type
   QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
-
-  Index* = object
-    ## This type contains the  description of an Index used in the pagination of WakuMessages
-    digest*: MDigest[256]
-    receivedTime*: float64
 
   IndexedWakuMessage* = object
     ## This type is used to encapsulate a WakuMessage and its Index

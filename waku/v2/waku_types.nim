@@ -12,7 +12,6 @@ import
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
   protocol/waku_swap/waku_swap_types,
-  protocol/waku_store/waku_store_types,
   nimcrypto/sha2,
   ./node/sqlite
 
@@ -21,6 +20,12 @@ const MaxPageSize* = 100 # Maximum number of waku messages in each page
 
 # Common data types -----------------------------------------------------------
 type
+
+  Index* = object
+    ## This type contains the  description of an Index used in the pagination of WakuMessages
+    digest*: MDigest[256]
+    receivedTime*: float64
+
   ContentTopic* = uint32
 
   Topic* = string
@@ -82,21 +87,6 @@ type
   # @TODO MAYBE MORE INFO?
   Filters* = Table[string, Filter]
 
-  # NOTE based on Eth2Node in NBC eth2_network.nim
-  WakuNode* = ref object of RootObj
-    switch*: Switch
-    wakuRelay*: WakuRelay
-    wakuStore*: WakuStore
-    wakuFilter*: WakuFilter
-    wakuSwap*: WakuSwap
-    peerInfo*: PeerInfo
-    libp2pTransportLoops*: seq[Future[void]]
-  # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
-    messages*: seq[(Topic, WakuMessage)]
-    filters*: Filters
-    subscriptions*: MessageNotificationSubscriptions
-    rng*: ref BrHmacDrbgContext
-
   WakuRelay* = ref object of GossipSub
     gossipEnabled*: bool
 
@@ -106,6 +96,13 @@ type
     #multiaddrStrings*: seq[string]
 
   WakuResult*[T] = Result[T, cstring]
+
+  MessageStoreResult*[T] = Result[T, string]
+
+  Sqlite* = ptr sqlite3
+
+  MessageStore* = ref object of RootObj
+    env*: Sqlite
 
 # Encoding and decoding -------------------------------------------------------
 # TODO Move out to to waku_message module
@@ -149,15 +146,3 @@ proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
   var bytes: array[10, byte]
   brHmacDrbgGenerate(rng[], bytes)
   toHex(bytes)
-
-proc computeIndex*(msg: WakuMessage): Index =
-  ## Takes a WakuMessage and returns its Index 
-  var ctx: sha256
-  ctx.init()
-  ctx.update(msg.contentTopic.toBytes()) # converts the contentTopic to bytes
-  ctx.update(msg.payload)
-  let digest = ctx.finish() # computes the hash
-  ctx.clear()
-  result.digest = digest
-  result.receivedTime = epochTime() # gets the unix timestamp
-
