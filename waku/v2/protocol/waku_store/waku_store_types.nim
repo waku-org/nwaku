@@ -41,13 +41,6 @@ type
   HistoryPeer* = object
     peerInfo*: PeerInfo
 
-  MessageStoreResult*[T] = Result[T, string]
-
-  Sqlite* = ptr sqlite3
-
-  MessageStore* = ref object of RootObj
-    database*: SqliteDatabase
-
   WakuStore* = ref object of LPProtocol
     switch*: Switch
     rng*: ref BrHmacDrbgContext

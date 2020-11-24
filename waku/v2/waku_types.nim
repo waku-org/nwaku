@@ -99,10 +99,8 @@ type
 
   MessageStoreResult*[T] = Result[T, string]
 
-  Sqlite* = ptr sqlite3
-
   MessageStore* = ref object of RootObj
-    env*: Sqlite
+    database*: SqliteDatabase
 
 # Encoding and decoding -------------------------------------------------------
 # TODO Move out to to waku_message module
