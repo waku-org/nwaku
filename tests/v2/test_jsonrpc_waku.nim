@@ -11,7 +11,8 @@ import
   ../../waku/v2/waku_types,
   ../../waku/v2/node/wakunode2,
   ../../waku/v2/node/jsonrpc/[jsonrpc_types,store_api],
-  ../../waku/v2/protocol/[waku_store, message_notifier],
+  ../../waku/v2/protocol/message_notifier,
+  ../../waku/v2/protocol/waku_store/waku_store,
   ../test_helpers
 
 template sourceDir*: string = currentSourcePath.rsplit(DirSep, 1)[0]
