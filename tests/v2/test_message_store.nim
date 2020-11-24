@@ -3,6 +3,7 @@ import
   std/[unittest, options, tables, sets],
   chronos, chronicles,
   ../../waku/v2/node/message_store,
+  ../../waku/v2/protocol/waku_store/waku_store,
   ./utils,
   ../../waku/v2/waku_types,
   ../../waku/v2/node/sqlite

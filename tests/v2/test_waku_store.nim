@@ -8,7 +8,8 @@ import
   libp2p/stream/[bufferstream, connection],
   libp2p/crypto/crypto,
   libp2p/protocols/pubsub/rpc/message,
-  ../../waku/v2/protocol/[waku_store, message_notifier],
+  ../../waku/v2/protocol/message_notifier,
+  ../../waku/v2/protocol/waku_store/waku_store,
   ../../waku/v2/node/[message_store, sqlite],
   ../test_helpers, ./utils,
   ../../waku/v2/waku_types
