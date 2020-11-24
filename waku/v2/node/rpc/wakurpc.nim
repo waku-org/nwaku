@@ -5,6 +5,7 @@ import
   eth/[common, rlp, keys, p2p],
   ../../protocol/waku_relay,
   ../../waku_types,
+  ../../protocol/waku_store/waku_store,
   ../wakunode2
 
 proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
