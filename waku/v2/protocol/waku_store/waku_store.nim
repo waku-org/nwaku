@@ -309,6 +309,18 @@ method init*(ws: WakuStore) =
 
     let value = res.value
     let response = ws.findMessages(res.value.query)
+
+    # TODO Do accounting here, response is HistoryResponse
+    # How do we get node or swap context?
+    if not ws.wakuSwap.isNil:
+      info "handle store swap test", text=ws.wakuSwap.text
+      # NOTE Perform accounting operation
+      let peerId = conn.peerInfo.peerId
+      let messages = response.messages
+      ws.wakuSwap.credit(peerId, messages.len)
+    else:
+      info "handle store swap is nil"
+
     await conn.writeLp(HistoryRPC(requestId: value.requestId,
         response: response).encode().buffer)
 
@@ -325,11 +337,13 @@ method init*(ws: WakuStore) =
   if res.isErr:
     warn "failed to load messages from store", err = res.error
 
-proc init*(T: type WakuStore, switch: Switch, rng: ref BrHmacDrbgContext, store: MessageStore = nil): T =
+proc init*(T: type WakuStore, switch: Switch, rng: ref BrHmacDrbgContext,
+                   store: MessageStore = nil, wakuSwap: WakuSwap = nil): T =
   new result
   result.rng = rng
   result.switch = switch
   result.store = store
+  result.wakuSwap = wakuSwap
   result.init()
 
 # @TODO THIS SHOULD PROBABLY BE AN ADD FUNCTION AND APPEND THE PEER TO AN ARRAY
@@ -377,8 +391,7 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
   handler(response.value.response)
 
 # NOTE: Experimental, maybe incorporate as part of query call
-proc queryWithAccounting*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc,
-                          wakuSwap: WakuSwap) {.async, gcsafe.} =
+proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
   # @TODO We need to be more stratigic about which peers we dial. Right now we just set one on the service.
   # Ideally depending on the query and our set  of peers we take a subset of ideal peers.
   # This will require us to check for various factors such as:
@@ -386,10 +399,10 @@ proc queryWithAccounting*(w: WakuStore, query: HistoryQuery, handler: QueryHandl
   #  - latency?
   #  - default store peer?
 
-  let peer = w.peers[0]
-  let conn = await w.switch.dial(peer.peerInfo.peerId, peer.peerInfo.addrs, WakuStoreCodec)
+  let peer = ws.peers[0]
+  let conn = await ws.switch.dial(peer.peerInfo.peerId, peer.peerInfo.addrs, WakuStoreCodec)
 
-  await conn.writeLP(HistoryRPC(requestId: generateRequestId(w.rng),
+  await conn.writeLP(HistoryRPC(requestId: generateRequestId(ws.rng),
       query: query).encode().buffer)
 
   var message = await conn.readLp(64*1024)
@@ -400,9 +413,9 @@ proc queryWithAccounting*(w: WakuStore, query: HistoryQuery, handler: QueryHandl
     return
 
   # NOTE Perform accounting operation
-  #  if SWAPAccountingEnabled:
+  # Assumes wakuSwap protocol is mounted
   let peerId = peer.peerInfo.peerId
   let messages = response.value.response.messages
-  wakuSwap.accountFor(peerId, messages.len)
+  ws.wakuSwap.debit(peerId, messages.len)
 
   handler(response.value.response)

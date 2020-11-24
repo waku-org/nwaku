@@ -4,7 +4,8 @@ import
   bearssl, stew/[byteutils, endians2],
   libp2p/[switch, peerinfo],
   libp2p/protocols/protocol,
-  ../../waku_types
+  ../../waku_types,
+  ../waku_swap/waku_swap_types
 
 type
   QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
@@ -47,3 +48,4 @@ type
     peers*: seq[HistoryPeer]
     messages*: seq[IndexedWakuMessage]
     store*: MessageStore
+    wakuSwap*: WakuSwap

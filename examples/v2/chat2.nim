@@ -203,6 +203,9 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
   echo &"Listening on\n {listenStr}"
 
+  if conf.swap:
+    node.mountSwap()
+
   if conf.storenode != "":
     node.mountStore()
 
@@ -213,9 +216,6 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
         let payload = string.fromBytes(msg.payload)
         echo &"{payload}"
       info "Hit store handler"
-
-    if conf.swap:
-      node.mountSwap()
 
     await node.query(HistoryQuery(topics: @[DefaultContentTopic]), storeHandler)
 

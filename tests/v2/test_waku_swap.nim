@@ -61,11 +61,11 @@ procSuite "Waku SWAP Accounting":
 
     # Start nodes and mount protocols
     await node1.start()
+    node1.mountSwap()
     node1.mountStore()
-    node1.mountSwap()
     await node2.start()
+    node2.mountSwap()
     node2.mountStore()
-    node1.mountSwap()
 
     await node2.subscriptions.notify("/waku/2/default-waku/proto", message)
 
@@ -81,13 +81,10 @@ procSuite "Waku SWAP Accounting":
 
     await node1.query(HistoryQuery(topics: @[contentTopic]), storeHandler)
 
-    # TODO Other node accounting field not set
-    # info "node2", msgs = node2.wakuSwap.accounting # crashes
-    # node2.wakuSwap.accounting[node1.peerInfo.peerId] = -1
-
     check:
       (await completionFut.withTimeout(5.seconds)) == true
-      # Accounting table updated with one message credit
+      # Accounting table updated with credit and debit, respectively
       node1.wakuSwap.accounting[node2.peerInfo.peerId] == 1
+      node2.wakuSwap.accounting[node1.peerInfo.peerId] == -1
     await node1.stop()
     await node2.stop()
