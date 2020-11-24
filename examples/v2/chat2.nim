@@ -20,7 +20,8 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                muxers/muxer,             # define an interface for stream multiplexing, allowing peers to offer many protocols over a single connection
                muxers/mplex/mplex]       # define some contants and message types for stream multiplexing
 import   ../../waku/v2/node/[config, wakunode2, waku_payload],
-         ../../waku/v2/protocol/[waku_relay, waku_store, waku_filter],
+         ../../waku/v2/protocol/[waku_relay, waku_filter],
+         ../../waku/v2/protocol/waku_store/waku_store,
          ../../waku/common/utils/nat,
          ../../waku/v2/waku_types
 

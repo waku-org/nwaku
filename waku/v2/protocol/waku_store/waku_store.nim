@@ -7,10 +7,10 @@ import
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
-  ./message_notifier,
-  ../node/message_store,
-  waku_swap/waku_swap,
-  ../waku_types
+  ../message_notifier,
+  ../../node/message_store,
+  ../waku_swap/waku_swap,
+  ../../waku_types
 
 logScope:
   topics = "wakustore"
