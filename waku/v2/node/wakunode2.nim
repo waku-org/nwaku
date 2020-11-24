@@ -238,12 +238,14 @@ proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.as
   ##
   ## Status: Implemented.
 
+  # TODO Once waku swap is less experimental, this can simplified
   if node.wakuSwap.isNil:
     debug "Using default query"
     await node.wakuStore.query(query, handler)
   else:
     debug "Using SWAPAccounting query"
-    await node.wakuStore.queryWithAccounting(query, handler, node.wakuSwap)
+    # TODO wakuSwap now part of wakuStore object
+    await node.wakuStore.queryWithAccounting(query, handler)
 
 # TODO Extend with more relevant info: topics, peers, memory usage, online time, etc
 proc info*(node: WakuNode): WakuInfo =
@@ -269,18 +271,27 @@ proc mountFilter*(node: WakuNode) =
   node.switch.mount(node.wakuFilter)
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
-proc mountStore*(node: WakuNode, store: MessageStore = nil) =
-  info "mounting store"
-  node.wakuStore = WakuStore.init(node.switch, node.rng, store)
-  node.switch.mount(node.wakuStore)
-  node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
-
+# NOTE: If using the swap protocol, it must be mounted before store. This is
+# because store is using a reference to the swap protocol.
 proc mountSwap*(node: WakuNode) =
   info "mounting swap"
   node.wakuSwap = WakuSwap.init(node.switch, node.rng)
   node.switch.mount(node.wakuSwap)
   # NYI - Do we need this?
   #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
+
+proc mountStore*(node: WakuNode, store: MessageStore = nil) =
+  info "mounting store"
+
+  if node.wakuSwap.isNil:
+    debug "mounting store without swap"
+    node.wakuStore = WakuStore.init(node.switch, node.rng, store)
+  else:
+    debug "mounting store with swap"
+    node.wakuStore = WakuStore.init(node.switch, node.rng, store, node.wakuSwap)
+
+  node.switch.mount(node.wakuStore)
+  node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
 proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.async, gcsafe.} =
   let wakuRelay = WakuRelay.init(
@@ -430,7 +441,7 @@ when isMainModule:
         store = res.value
 
     mountStore(node, store)
-  
+
   if conf.filter:
     mountFilter(node)
 
