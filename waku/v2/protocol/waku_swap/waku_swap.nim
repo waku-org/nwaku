@@ -81,10 +81,44 @@ proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
 
 # TODO Test for credit/debit operations in succession
 
+proc sendCheque*(ws: WakuSwap) {.async.} =
+  # TODO Better peer selection, for now using hardcoded peer
+  let peer = ws.peers[0]
+  let conn = await ws.switch.dial(peer.peerInfo.peerId, peer.peerInfo.addrs, WakuSwapCodec)
+
+  info "sendCheque"
+
+  # TODO Add beneficiary, etc
+  # XXX Hardcoded amount for now
+  await conn.writeLP(Cheque(amount: 1).encode().buffer)
+
+  # Set new balance
+  # XXX Assume peerId is first peer
+  let peerId = ws.peers[0].peerInfo.peerId
+  ws.accounting[peerId] -= 1
+  info "New accounting state", accounting = ws.accounting[peerId]
+
+# TODO Authenticate cheque, check beneficiary etc
+proc handleCheque*(ws: WakuSwap, cheque: Cheque) =
+  info "handle incoming cheque"
+  # XXX Assume peerId is first peer
+  let peerId = ws.peers[0].peerInfo.peerId
+  ws.accounting[peerId] += int(cheque.amount)
+  info "New accounting state", accounting = ws.accounting[peerId]
+
 proc init*(wakuSwap: WakuSwap) =
   info "wakuSwap init 1"
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
-    info "NYI swap handle incoming connection"
+    info "swap handle incoming connection"
+    var message = await conn.readLp(64*1024)
+    # XXX This can be handshake, etc
+    var res = Cheque.init(message)
+    if res.isErr:
+      error "failed to decode rpc"
+      return
+
+    info "received cheque", value=res.value
+    wakuSwap.handleCheque(res.value)
 
   proc credit(peerId: PeerId, n: int) {.gcsafe, closure.} =
     info "Crediting peer for", peerId, n
@@ -94,6 +128,14 @@ proc init*(wakuSwap: WakuSwap) =
       wakuSwap.accounting[peerId] = -n
     info "Accounting state", accounting = wakuSwap.accounting[peerId]
 
+    # TODO Isolate to policy function
+    # TODO Tunable disconnect threshhold, hard code for PoC
+    let disconnectThreshhold = 2
+    if wakuSwap.accounting[peerId] >= disconnectThreshhold:
+      info "Disconnect threshhold hit, disconnect peer"
+    else:
+      info "Disconnect threshhold not hit"
+
   # TODO Debit and credit here for Karma asset
   proc debit(peerId: PeerId, n: int) {.gcsafe, closure.} =
     info "Debiting peer for", peerId, n
@@ -102,6 +144,15 @@ proc init*(wakuSwap: WakuSwap) =
     else:
       wakuSwap.accounting[peerId] = n
     info "Accounting state", accounting = wakuSwap.accounting[peerId]
+
+    # TODO Isolate to policy function
+    # TODO Tunable payment threshhold, hard code for PoC
+    let paymentThreshhold = 1
+    if wakuSwap.accounting[peerId] >= paymentThreshhold:
+      info "Payment threshhold hit, send cheque"
+      discard wakuSwap.sendCheque()
+    else:
+      info "Payment threshhold not hit"
 
   wakuSwap.handler = handle
   wakuSwap.codec = WakuSwapCodec
@@ -118,4 +169,8 @@ proc init*(T: type WakuSwap, switch: Switch, rng: ref BrHmacDrbgContext): T =
   result.text = "test"
   result.init()
 
+proc setPeer*(ws: WakuSwap, peer: PeerInfo) =
+  ws.peers.add(SwapPeer(peerInfo: peer))
+
 # TODO End to end communication
+
