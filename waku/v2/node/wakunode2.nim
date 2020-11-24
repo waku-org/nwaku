@@ -13,7 +13,8 @@ import
   ../protocol/[waku_relay, waku_store, waku_filter, message_notifier],
   ../protocol/waku_swap/waku_swap,
   ../waku_types,
-  ./message_store
+  ./message_store,
+  ./sqlite
 
 export waku_types
 
@@ -402,7 +403,11 @@ when isMainModule:
     var store: MessageStore
 
     if conf.dbpath != "":
-      let res = MessageStore.init(conf.dbpath)
+      let dbRes = SqliteDatabase.init(conf.dbpath)
+      if dbRes.isErr:
+        warn "failed to init database", err = dbRes.error
+
+      let res = MessageStore.init(dbRes.value)
       if res.isErr:
         warn "failed to init MessageStore", err = res.error
       else:
