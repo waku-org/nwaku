@@ -1,22 +1,43 @@
+## Waku Store protocol for historical messaging support.
+## See spec for more details:
+## https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-store.md
+
 import
-  std/[tables, sequtils, algorithm, options],
+  std/[tables, times, sequtils, algorithm, options],
   bearssl,
-  chronos, chronicles, metrics, stew/[results,byteutils],
+  chronos, chronicles, metrics, stew/[results, byteutils, endians2],
   libp2p/switch,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
-  ./message_notifier,
-  ../node/message_store,
-  waku_swap/waku_swap,
-  ../waku_types
+  ../message_notifier,
+  ../../node/message_store,
+  ../waku_swap/waku_swap,
+  ../../waku_types,
+  ./waku_store_types
+
+export waku_store_types
 
 logScope:
   topics = "wakustore"
 
 const
   WakuStoreCodec* = "/vac/waku/store/2.0.0-beta1"
+
+# TODO Move serialization function to separate file, too noisy
+# TODO Move pagination to separate file, self-contained logic
+
+proc computeIndex*(msg: WakuMessage): Index =
+  ## Takes a WakuMessage and returns its Index
+  var ctx: sha256
+  ctx.init()
+  ctx.update(msg.contentTopic.toBytes()) # converts the contentTopic to bytes
+  ctx.update(msg.payload)
+  let digest = ctx.finish() # computes the hash
+  ctx.clear()
+  result.digest = digest
+  result.receivedTime = epochTime() # gets the unix timestamp
 
 proc encode*(index: Index): ProtoBuffer =
   ## encodes an Index object into a ProtoBuffer

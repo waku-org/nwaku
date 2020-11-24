@@ -10,7 +10,8 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/peerinfo,
   libp2p/standard_setup,
-  ../protocol/[waku_relay, waku_store, waku_filter, message_notifier],
+  ../protocol/[waku_relay, waku_filter, message_notifier],
+  ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
   ../waku_types,
   ./message_store,
@@ -33,6 +34,21 @@ type
   # TODO Get rid of this and use waku_types one
   Topic* = waku_types.Topic
   Message* = seq[byte]
+
+  # NOTE based on Eth2Node in NBC eth2_network.nim
+  WakuNode* = ref object of RootObj
+    switch*: Switch
+    wakuRelay*: WakuRelay
+    wakuStore*: WakuStore
+    wakuFilter*: WakuFilter
+    wakuSwap*: WakuSwap
+    peerInfo*: PeerInfo
+    libp2pTransportLoops*: seq[Future[void]]
+  # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
+    messages*: seq[(Topic, WakuMessage)]
+    filters*: Filters
+    subscriptions*: MessageNotificationSubscriptions
+    rng*: ref BrHmacDrbgContext
 
 # NOTE Any difference here in Waku vs Eth2?
 # E.g. Devp2p/Libp2p support, etc.
