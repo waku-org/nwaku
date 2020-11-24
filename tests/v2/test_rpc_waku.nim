@@ -45,3 +45,7 @@ suite "Waku v2 Remote Procedure Calls":
     await client.connect("127.0.0.1", rpcPort)
 
     check await(client.waku_version()) == WakuRelayCodec
+  
+  server.stop()
+  server.close()
+  waitfor node.stop()
