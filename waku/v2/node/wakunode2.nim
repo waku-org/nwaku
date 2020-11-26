@@ -426,6 +426,8 @@ when isMainModule:
   if conf.swap:
     mountSwap(node)
 
+  # TODO Set swap peer, for now should be same as store peer
+
   if conf.store:
     var store: MessageStore
 
