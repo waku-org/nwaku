@@ -7,10 +7,11 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/stream/[bufferstream, connection],
   libp2p/crypto/crypto,
+  libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/rpc/message,
   ../../waku/v2/waku_types,
   ../../waku/v2/node/wakunode2,
-  ../../waku/v2/node/jsonrpc/[jsonrpc_types,store_api],
+  ../../waku/v2/node/jsonrpc/[jsonrpc_types,store_api,relay_api,debug_api],
   ../../waku/v2/protocol/message_notifier,
   ../../waku/v2/protocol/waku_store/waku_store,
   ../test_helpers
@@ -19,21 +20,87 @@ template sourceDir*: string = currentSourcePath.rsplit(DirSep, 1)[0]
 const sigPath = sourceDir / ParDir / ParDir / "waku" / "v2" / "node" / "jsonrpc" / "jsonrpc_callsigs.nim"
 createRpcSigs(RpcHttpClient, sigPath)
 
-suite "Waku v2 JSON-RPC API":
+procSuite "Waku v2 JSON-RPC API":
+  const defaultTopic = "/waku/2/default-waku/proto"
+  const testCodec = "/waku/2/default-waku/codec"
 
-  asyncTest "get_waku_v2_store_v1_messages":
-    const defaultTopic = "/waku/2/default-waku/proto"
-    const testCodec = "/waku/2/default-waku/codec"
+  let
+    rng = crypto.newRng()
+    privkey = crypto.PrivateKey.random(Secp256k1, rng[]).tryGet()
+    bindIp = ValidIpAddress.init("0.0.0.0")
+    extIp = ValidIpAddress.init("127.0.0.1")
+    port = Port(9000)
+    node = WakuNode.init(privkey, bindIp, port, some(extIp), some(port))
 
-    # WakuNode setup
+  asyncTest "debug_api": 
+    waitFor node.start()
+
+    waitFor node.mountRelay()
+
+    # RPC server setup
     let
-      rng = crypto.newRng()
-      privkey = crypto.PrivateKey.random(Secp256k1, rng[]).tryGet()
-      bindIp = ValidIpAddress.init("0.0.0.0")
-      extIp = ValidIpAddress.init("127.0.0.1")
-      port = Port(9000)
-      node = WakuNode.init(privkey, bindIp, port, some(extIp), some(port))
+      rpcPort = Port(8545)
+      ta = initTAddress(bindIp, rpcPort)
+      server = newRpcHttpServer([ta])
 
+    installDebugApiHandlers(node, server)
+    server.start()
+
+    let client = newRpcHttpClient()
+    await client.connect("127.0.0.1", rpcPort)
+
+    let response = await client.get_waku_v2_debug_v1_info()
+
+    check:
+      response.listenStr == $node.peerInfo.addrs[0] & "/p2p/" & $node.peerInfo.peerId
+
+    server.stop()
+    server.close()
+    waitfor node.stop()
+
+  asyncTest "relay_api": 
+    waitFor node.start()
+
+    waitFor node.mountRelay()
+
+    # RPC server setup
+    let
+      rpcPort = Port(8545)
+      ta = initTAddress(bindIp, rpcPort)
+      server = newRpcHttpServer([ta])
+
+    installRelayApiHandlers(node, server)
+    server.start()
+
+    let client = newRpcHttpClient()
+    await client.connect("127.0.0.1", rpcPort)
+    
+    check:
+      # At this stage the node is only subscribed to the default topic
+      PubSub(node.wakuRelay).topics.len == 1
+    
+    # Subscribe to new topics
+    let newTopics = @["1","2","3"]
+    var response = await client.post_waku_v2_relay_v1_subscriptions(newTopics)
+
+    check:
+      # Node is now subscribed to default + new topics
+      PubSub(node.wakuRelay).topics.len == 1 + newTopics.len
+      response == true
+    
+    # Unsubscribe from new topics
+    response = await client.delete_waku_v2_relay_v1_subscriptions(newTopics)
+
+    check:
+      # Node is now unsubscribed from new topics
+      PubSub(node.wakuRelay).topics.len == 1
+      response == true
+
+    server.stop()
+    server.close()
+    waitfor node.stop()
+
+  asyncTest "store_api":      
     waitFor node.start()
 
     waitFor node.mountRelay(@[defaultTopic])
@@ -44,7 +111,7 @@ suite "Waku v2 JSON-RPC API":
       ta = initTAddress(bindIp, rpcPort)
       server = newRpcHttpServer([ta])
 
-    setupWakuJSONRPC(node, server)
+    installStoreApiHandlers(node, server)
     server.start()
 
     # WakuStore setup
