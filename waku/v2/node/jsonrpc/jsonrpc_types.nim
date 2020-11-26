@@ -12,3 +12,7 @@ type
     pageSize*: uint64
     cursor*: Option[Index]
     forward*: bool
+
+  WakuRelayMessage* = object
+    payload*: seq[byte]
+    contentTopic*: Option[ContentTopic]

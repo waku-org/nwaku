@@ -22,3 +22,10 @@ proc toPagingOptions*(pagingInfo: PagingInfo): StorePagingOptions =
 proc toStoreResponse*(historyResponse: HistoryResponse): StoreResponse =
   StoreResponse(messages: historyResponse.messages,
                 pagingOptions: if historyResponse.pagingInfo != PagingInfo(): some(historyResponse.pagingInfo.toPagingOptions()) else: none(StorePagingOptions))
+
+proc toWakuMessage*(relayMessage: WakuRelayMessage, version: uint32): WakuMessage =
+  # @TODO global definition for default content topic
+  const defaultCT = 0
+  WakuMessage(payload: relayMessage.payload,
+              contentTopic: if relayMessage.contentTopic.isSome: relayMessage.contentTopic.get else: defaultCT,
+              version: version)
