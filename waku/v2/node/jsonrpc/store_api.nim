@@ -6,7 +6,7 @@ import
   ../wakunode2,
   ./jsonrpc_types, ./jsonrpc_utils
 
-proc setupWakuJSONRPC*(node: WakuNode, rpcsrv: RpcServer) =
+proc installStoreApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
   const futTimeout = 5.seconds
 
   ## Store API version 1 definitions
