@@ -1,29 +1,6 @@
 pipeline {
   agent { label 'linux' }
 
-  parameters {
-    string(
-      name: 'BRANCH',
-      defaultValue: 'master',
-      description: 'Name of branch to build.'
-    )
-    string(
-      name: 'IMAGE_TAG',
-      defaultValue: 'wakunode2',
-      description: 'Name of Docker tag to push.'
-    )
-    string(
-      name: 'IMAGE_NAME',
-      defaultValue: 'statusteam/nim-waku',
-      description: 'Name of Docker image to push.'
-    )
-    string(
-      name: 'NIM_PARAMS',
-      defaultValue: '-d:disableMarchNative -d:chronicles_colors:none -d:insecure',
-      description: 'Flags for Nim compilation.'
-    )
-  }
-
   options {
     timestamps()
     /* manage how many builds we keep */
@@ -33,12 +10,37 @@ pipeline {
     ))
   }
 
+  /* WARNING: Two more parameters can be defined.
+   * See 'environment' section. */
+  parameters {
+    string(
+      name: 'MAKE_TARGET',
+      description: 'Makefile target to build. Optional Parameter.',
+      defaultValue: params.MAKE_TARGET ?: 'wakunode2',
+    )
+    string(
+      name: 'IMAGE_TAG',
+      description: 'Name of Docker tag to push. Optional Parameter.',
+      defaultValue: params.IMAGE_TAG ?: 'deploy-v2-test',
+    )
+    string(
+      name: 'IMAGE_NAME',
+      description: 'Name of Docker image to push.',
+      defaultValue: params.IMAGE_NAME ?: 'statusteam/nim-waku',
+    )
+    string(
+      name: 'NIM_PARAMS',
+      description: 'Flags for Nim compilation.',
+      defaultValue: params.NIM_PARAMS ?: '-d:disableMarchNative -d:chronicles_colors:none -d:insecure',
+    )
+  }
+
   stages {
     stage('Build') {
       steps { script {
         image = docker.build(
           "${params.IMAGE_NAME}:${env.GIT_COMMIT.take(6)}",
-          "--build-arg=MAKE_TARGET='${params.IMAGE_TAG}' " +
+          "--build-arg=MAKE_TARGET='${params.MAKE_TARGET}' " +
           "--build-arg=NIM_PARAMS='${params.NIM_PARAMS}' ."
         )
       } }
@@ -48,9 +50,7 @@ pipeline {
       steps { script {
         withDockerRegistry([credentialsId: "dockerhub-statusteam-auto", url: ""]) {
           image.push()
-        }
-        withDockerRegistry([credentialsId: "dockerhub-statusteam-auto", url: ""]) {
-          image.push(params.IMAGE_TAG)
+          image.push(env.IMAGE_TAG)
         }
       } }
     }
