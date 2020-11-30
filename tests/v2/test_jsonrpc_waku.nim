@@ -106,6 +106,77 @@ procSuite "Waku v2 JSON-RPC API":
     server.stop()
     server.close()
     waitfor node.stop()
+  
+  asyncTest "relay_polling": 
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.init(nodeKey1, bindIp, Port(60000))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.init(nodeKey2, bindIp, Port(60002))
+      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node3 = WakuNode.init(nodeKey3, bindIp, Port(60003), some(extIp), some(port))
+      pubSubTopic = "polling"
+      contentTopic = ContentTopic(1)
+      payload = @[byte 9]
+      message = WakuMessage(payload: payload, contentTopic: contentTopic)
+
+    await node1.start()
+    await node1.mountRelay(@[pubSubTopic])
+
+    await node2.start()
+    await node2.mountRelay(@[pubSubTopic])
+
+    await node3.start()
+    await node3.mountRelay(@[pubSubTopic])
+
+    await node1.connectToNodes(@[node2.peerInfo])
+    await node3.connectToNodes(@[node2.peerInfo])
+
+    # RPC server setup
+    let
+      rpcPort = Port(8545)
+      ta = initTAddress(bindIp, rpcPort)
+      server = newRpcHttpServer([ta])
+    
+    # Let's connect to node 3 via the API
+    installRelayApiHandlers(node3, server)
+    server.start()
+
+    let client = newRpcHttpClient()
+    await client.connect("127.0.0.1", rpcPort)
+
+    echo "Now try to subscribe using API"
+
+    var response = await client.post_waku_v2_relay_v1_subscriptions(@[pubSubTopic])
+
+    await sleepAsync(2000.millis)
+
+    check:
+      # Node is now subscribed to pubSubTopic
+      response == true
+
+    # Now publish a message on node1 and see if we receive it on node3
+    node1.publish(pubSubTopic, message)
+
+    await sleepAsync(2000.millis)
+    
+    var messages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)
+
+    check:
+      messages.len == 1
+      messages[0].contentTopic == contentTopic
+      messages[0].payload == payload
+    
+    # Ensure that read messages are cleared from cache
+    messages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)  
+    check:
+      messages.len == 0
+
+    server.stop()
+    server.close()
+    await node1.stop()
+    await node2.stop()
+    await node3.stop()
 
   asyncTest "store_api":      
     waitFor node.start()
