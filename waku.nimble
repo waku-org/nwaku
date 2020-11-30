@@ -43,7 +43,7 @@ proc test(name: string, lang = "c") =
 
 ### Waku v1 tasks
 task wakunode1, "Build Waku v1 cli node":
-  buildBinary "wakunode", "waku/v1/node/", "-d:chronicles_log_level=TRACE"
+  buildBinary "wakunode1", "waku/v1/node/", "-d:chronicles_log_level=TRACE"
 
 task sim1, "Build Waku v1 simulation tools":
   buildBinary "quicksim", "waku/v1/node/", "-d:chronicles_log_level=INFO"
