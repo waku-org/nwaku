@@ -11,7 +11,7 @@ import
   libp2p/protocols/pubsub/rpc/message,
   ../../waku/v2/waku_types,
   ../../waku/v2/node/wakunode2,
-  ../../waku/v2/node/jsonrpc/[jsonrpc_types,store_api,relay_api,debug_api],
+  ../../waku/v2/node/jsonrpc/[jsonrpc_types,store_api,relay_api,debug_api,filter_api],
   ../../waku/v2/protocol/message_notifier,
   ../../waku/v2/protocol/waku_store/waku_store,
   ../test_helpers
@@ -88,6 +88,13 @@ procSuite "Waku v2 JSON-RPC API":
       PubSub(node.wakuRelay).topics.len == 1 + newTopics.len
       response == true
     
+    # Publish a message on the default topic
+    response = await client.post_waku_v2_relay_v1_message(defaultTopic, WakuRelayMessage(payload: @[byte 1], contentTopic: some(ContentTopic(1))))
+
+    check:
+      # @TODO poll topic to verify message has been published
+      response == true
+    
     # Unsubscribe from new topics
     response = await client.delete_waku_v2_relay_v1_subscriptions(newTopics)
 
@@ -157,6 +164,49 @@ procSuite "Waku v2 JSON-RPC API":
       response.messages.len() == 8
       response.pagingOptions.isNone
       
+    server.stop()
+    server.close()
+    waitfor node.stop()
+  
+  asyncTest "filter_api": 
+    waitFor node.start()
+
+    waitFor node.mountRelay()
+
+    node.mountFilter()
+
+    # RPC server setup
+    let
+      rpcPort = Port(8545)
+      ta = initTAddress(bindIp, rpcPort)
+      server = newRpcHttpServer([ta])
+
+    installFilterApiHandlers(node, server)
+    server.start()
+
+    let client = newRpcHttpClient()
+    await client.connect("127.0.0.1", rpcPort)
+
+    check:
+      # Light node has not yet subscribed to any filters
+      node.filters.len() == 0
+
+    let contentFilters = @[ContentFilter(topics: @[ContentTopic(1), ContentTopic(2)]),
+                           ContentFilter(topics: @[ContentTopic(3), ContentTopic(4)])]
+    var response = await client.post_waku_v2_filter_v1_subscription(contentFilters = contentFilters, topic = some(defaultTopic))
+    
+    check:
+      # Light node has successfully subscribed to a single filter
+      node.filters.len() == 1
+      response == true
+
+    response = await client.delete_waku_v2_filter_v1_subscription(contentFilters = contentFilters, topic = some(defaultTopic))
+    
+    check:
+      # Light node has successfully unsubscribed from all filters
+      node.filters.len() == 0
+      response == true
+
     server.stop()
     server.close()
     waitfor node.stop()

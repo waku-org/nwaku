@@ -2,12 +2,21 @@ import
   json_rpc/rpcserver,
   eth/[common, rlp, keys, p2p],
   ../../waku_types,  
-  ../wakunode2
+  ../wakunode2,
+  ./jsonrpc_types, ./jsonrpc_utils
 
 proc installRelayApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
   const futTimeout = 5.seconds
 
   ## Relay API version 1 definitions
+  
+  rpcsrv.rpc("post_waku_v2_relay_v1_message") do(topic: string, message: WakuRelayMessage) -> bool:
+    ## Publishes a WakuMessage to a PubSub topic
+    debug "post_waku_v2_relay_v1_message"
+
+    node.publish(topic, message.toWakuMessage(version = 0))
+
+    return true
 
   rpcsrv.rpc("post_waku_v2_relay_v1_subscriptions") do(topics: seq[string]) -> bool:
     ## Subscribes a node to a list of PubSub topics
