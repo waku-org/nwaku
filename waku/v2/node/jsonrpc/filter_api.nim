@@ -1,3 +1,5 @@
+{.push raises: [Exception, Defect].}
+
 import
   json_rpc/rpcserver,
   eth/[common, rlp, keys, p2p],

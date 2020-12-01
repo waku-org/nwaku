@@ -5,6 +5,7 @@ proc get_waku_v2_debug_v1_info(): WakuInfo
 # Relay API
 
 proc post_waku_v2_relay_v1_message(topic: string, message: WakuRelayMessage): bool
+proc get_waku_v2_relay_v1_messages(topic: string): seq[WakuMessage]
 proc post_waku_v2_relay_v1_subscriptions(topics: seq[string]): bool
 proc delete_waku_v2_relay_v1_subscriptions(topics: seq[string]): bool
 
