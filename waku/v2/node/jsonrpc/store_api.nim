@@ -1,3 +1,5 @@
+{.push raises: [Exception, Defect].}
+
 import
   std/options,
   json_rpc/rpcserver,
