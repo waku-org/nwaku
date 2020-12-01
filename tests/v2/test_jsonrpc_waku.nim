@@ -32,7 +32,7 @@ procSuite "Waku v2 JSON-RPC API":
     port = Port(9000)
     node = WakuNode.init(privkey, bindIp, port, some(extIp), some(port))
 
-  asyncTest "debug_api": 
+  asyncTest "Debug API: get node info": 
     waitFor node.start()
 
     waitFor node.mountRelay()
@@ -58,7 +58,7 @@ procSuite "Waku v2 JSON-RPC API":
     server.close()
     waitfor node.stop()
 
-  asyncTest "relay_api": 
+  asyncTest "Relay API: publish and subscribe/unsubscribe": 
     waitFor node.start()
 
     waitFor node.mountRelay()
@@ -107,7 +107,7 @@ procSuite "Waku v2 JSON-RPC API":
     server.close()
     waitfor node.stop()
   
-  asyncTest "relay_polling": 
+  asyncTest "Relay API: get latest messages": 
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.init(nodeKey1, bindIp, Port(60000))
@@ -145,7 +145,7 @@ procSuite "Waku v2 JSON-RPC API":
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort)
 
-    echo "Now try to subscribe using API"
+    # Now try to subscribe using API
 
     var response = await client.post_waku_v2_relay_v1_subscriptions(@[pubSubTopic])
 
@@ -178,7 +178,7 @@ procSuite "Waku v2 JSON-RPC API":
     await node2.stop()
     await node3.stop()
 
-  asyncTest "store_api":      
+  asyncTest "Store API: retrieve historical messages":      
     waitFor node.start()
 
     waitFor node.mountRelay(@[defaultTopic])
@@ -239,7 +239,7 @@ procSuite "Waku v2 JSON-RPC API":
     server.close()
     waitfor node.stop()
   
-  asyncTest "filter_api": 
+  asyncTest "Filter API: subscribe/unsubscribe": 
     waitFor node.start()
 
     waitFor node.mountRelay()
