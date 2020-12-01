@@ -94,14 +94,14 @@ proc publish(c: Chat, line: string) =
     if encodedPayload.isOk():
       let message = WakuMessage(payload: encodedPayload.get(),
         contentTopic: DefaultContentTopic, version: version)
-      c.node.publish(DefaultTopic, message)
+      asyncSpawn c.node.publish(DefaultTopic, message)
     else:
       warn "Payload encoding failed", error = encodedPayload.error
   else:
     # No payload encoding/encryption from Waku
     let message = WakuMessage(payload: line.toBytes(),
       contentTopic: DefaultContentTopic, version: 0)
-    c.node.publish(DefaultTopic, message)
+    asyncSpawn c.node.publish(DefaultTopic, message)
 
 # TODO This should read or be subscribe handler subscribe
 proc readAndPrint(c: Chat) {.async.} =
