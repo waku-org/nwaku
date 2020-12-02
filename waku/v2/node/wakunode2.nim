@@ -216,7 +216,7 @@ proc unsubscribe*(node: WakuNode, request: FilterRequest) {.async, gcsafe.} =
   node.filters.removeContentFilters(request.contentFilters)
 
 
-proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
+proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) {.async, gcsafe.} =
   ## Publish a `WakuMessage` to a PubSub topic. `WakuMessage` should contain a
   ## `contentTopic` field for light node functionality. This field may be also
   ## be omitted.
@@ -229,8 +229,7 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
   debug "publish", topic=topic, contentTopic=message.contentTopic
   let data = message.encode().buffer
 
-  # XXX Consider awaiting here
-  discard wakuRelay.publish(topic, data)
+  discard await wakuRelay.publish(topic, data)
 
 proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
   ## Queries known nodes for historical messages. Triggers the handler whenever a response is received.

@@ -156,7 +156,7 @@ procSuite "Waku v2 JSON-RPC API":
       response == true
 
     # Now publish a message on node1 and see if we receive it on node3
-    node1.publish(pubSubTopic, message)
+    await node1.publish(pubSubTopic, message)
 
     await sleepAsync(2000.millis)
     
