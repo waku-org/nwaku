@@ -57,7 +57,7 @@ procSuite "WakuNode":
 
     await sleepAsync(2000.millis)
 
-    node.publish(pubSubTopic, message)
+    await node.publish(pubSubTopic, message)
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
@@ -120,7 +120,7 @@ procSuite "WakuNode":
     await sleepAsync(2000.millis)
 
     info "Waking up and publishing"
-    node2.publish(pubSubTopic, message)
+    await node2.publish(pubSubTopic, message)
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
@@ -243,7 +243,7 @@ procSuite "WakuNode":
     await node3.subscribe(pubSubTopic, relayHandler)
     await sleepAsync(2000.millis)
 
-    node1.publish(pubSubTopic, message)
+    await node1.publish(pubSubTopic, message)
     await sleepAsync(2000.millis)
 
     check:

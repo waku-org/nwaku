@@ -34,9 +34,12 @@ proc installRelayApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
     ## Publishes a WakuMessage to a PubSub topic
     debug "post_waku_v2_relay_v1_message"
 
-    node.publish(topic, message.toWakuMessage(version = 0))
-
-    return true
+    if (await node.publish(topic, message.toWakuMessage(version = 0)).withTimeout(futTimeout)):
+      # Successfully published message
+      return true
+    else:
+      # Failed to publish message to topic
+      raise newException(ValueError, "Failed to publish to topic " & topic)
 
   rpcsrv.rpc("get_waku_v2_relay_v1_messages") do(topic: string) -> seq[WakuMessage]:
     ## Returns all WakuMessages received on a PubSub topic since the
