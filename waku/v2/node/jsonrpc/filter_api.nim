@@ -7,7 +7,8 @@ import
   ../../waku_types,
   ../wakunode2
 
-const futTimeout = 5.seconds
+const futTimeout* = 5.seconds # Max time to wait for futures
+const maxCache* = 100 # Max number of messages cached per topic @TODO make this configurable
 
 proc installFilterApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
   ## Create a message cache indexed on content topic
@@ -16,10 +17,20 @@ proc installFilterApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
     messageCache = initTable[ContentTopic, seq[WakuMessage]]()
   
   proc filterHandler(msg: WakuMessage) {.gcsafe, closure.} =
-    debug "WakuMessage received", msg=msg
     # Add message to current cache
-    # @TODO limit max content topics and messages
-    messageCache.mgetOrPut(msg.contentTopic, @[]).add(msg)
+    trace "WakuMessage received", msg=msg
+    
+    # Make a copy of msgs for this topic to modify
+    var msgs = messageCache.getOrDefault(msg.contentTopic, @[])
+
+    if msgs.len >= maxCache:
+      # Message cache on this topic exceeds maximum. Delete oldest.
+      msgs.delete(0,0)
+    msgs.add(msg)
+
+    # Replace indexed entry with copy
+    # @TODO max number of content topics could be limited in node
+    messageCache[msg.contentTopic] = msgs
 
   ## Filter API version 1 definitions
   

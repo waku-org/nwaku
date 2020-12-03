@@ -334,12 +334,28 @@ procSuite "Waku v2 JSON-RPC API":
       response.allIt(it.contentTopic == cTopic)
 
     # No new messages
-    
     response = await client.get_waku_v2_filter_v1_messages(cTopic)
 
     check:
       response.len() == 0
-      
+    
+    # Now ensure that no more than the preset max messages can be cached
+
+    let maxSize = filter_api.maxCache
+
+    for x in 1..(maxSize + 1):
+      # Try to cache 1 more than maximum allowed
+      filters.notify(WakuMessage(payload: @[byte x], contentTopic: cTopic), requestId)
+
+    response = await client.get_waku_v2_filter_v1_messages(cTopic)
+    check:
+      # Max messages has not been exceeded
+      response.len == maxSize
+      response.allIt(it.contentTopic == cTopic)
+      # Check that oldest item has been removed
+      response[0].payload == @[byte 2]
+      response[maxSize - 1].payload == @[byte (maxSize + 1)]
+
     server.stop()
     server.close()
     waitfor node.stop()
