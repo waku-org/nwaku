@@ -11,4 +11,4 @@ import
   ./v2/test_waku_swap,
   ./v2/test_message_store,
   ./v2/test_jsonrpc_waku,
-  ./v2/test_web3
+  ./v2/test_web3 # will remove it when rln-relay tests get added
