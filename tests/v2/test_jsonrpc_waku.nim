@@ -1,5 +1,5 @@
 import
-  std/[unittest, options, sets, tables, os, strutils],
+  std/[unittest, options, sets, tables, os, strutils, sequtils],
   stew/shims/net as stewNet,
   json_rpc/[rpcserver, rpcclient],
   libp2p/standard_setup,
@@ -13,6 +13,7 @@ import
   ../../waku/v2/node/wakunode2,
   ../../waku/v2/node/jsonrpc/[jsonrpc_types,store_api,relay_api,debug_api,filter_api],
   ../../waku/v2/protocol/message_notifier,
+  ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_store/waku_store,
   ../test_helpers
 
@@ -278,6 +279,67 @@ procSuite "Waku v2 JSON-RPC API":
       node.filters.len() == 0
       response == true
 
+    server.stop()
+    server.close()
+    waitfor node.stop()
+  
+  asyncTest "Filter API: get latest messages":
+    const cTopic = ContentTopic(1)
+
+    waitFor node.start()
+
+    # RPC server setup
+    let
+      rpcPort = Port(8545)
+      ta = initTAddress(bindIp, rpcPort)
+      server = newRpcHttpServer([ta])
+
+    installFilterApiHandlers(node, server)
+    server.start()
+    
+    node.mountFilter()
+
+    let client = newRpcHttpClient()
+    await client.connect("127.0.0.1", rpcPort)
+
+    # First ensure subscription exists
+
+    let sub = await client.post_waku_v2_filter_v1_subscription(contentFilters = @[ContentFilter(topics: @[cTopic])], topic = some(defaultTopic))
+    check:
+      sub
+
+    # Now prime the node with some messages before tests
+    var
+      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic(2)),
+        WakuMessage(payload: @[byte 1], contentTopic: cTopic),
+        WakuMessage(payload: @[byte 2], contentTopic: cTopic),
+        WakuMessage(payload: @[byte 3], contentTopic: cTopic),
+        WakuMessage(payload: @[byte 4], contentTopic: cTopic),
+        WakuMessage(payload: @[byte 5], contentTopic: cTopic),
+        WakuMessage(payload: @[byte 6], contentTopic: cTopic),
+        WakuMessage(payload: @[byte 7], contentTopic: cTopic),
+        WakuMessage(payload: @[byte 8], contentTopic: cTopic), 
+        WakuMessage(payload: @[byte 9], contentTopic: ContentTopic(2))]
+
+    let
+      filters = node.filters
+      requestId = toSeq(Table(filters).keys)[0]
+
+    for wakuMsg in msgList:
+      filters.notify(wakuMsg, requestId)
+
+    var response = await client.get_waku_v2_filter_v1_messages(cTopic)
+    check:
+      response.len() == 8
+      response.allIt(it.contentTopic == cTopic)
+
+    # No new messages
+    
+    response = await client.get_waku_v2_filter_v1_messages(cTopic)
+
+    check:
+      response.len() == 0
+      
     server.stop()
     server.close()
     waitfor node.stop()
