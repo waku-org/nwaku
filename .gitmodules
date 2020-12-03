@@ -103,3 +103,6 @@
 	url = https://github.com/arnetheduck/nim-sqlite3-abi.git
 	ignore = dirty
 	branch = master
+[submodule "vendor/nim-web3"]
+	path = vendor/nim-web3
+	url = https://github.com/status-im/nim-web3.git
