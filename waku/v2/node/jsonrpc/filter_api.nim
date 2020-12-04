@@ -10,11 +10,14 @@ import
 const futTimeout* = 5.seconds # Max time to wait for futures
 const maxCache* = 100 # Max number of messages cached per topic @TODO make this configurable
 
+type
+  MessageCache* = Table[ContentTopic, seq[WakuMessage]]
+
 proc installFilterApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
   ## Create a message cache indexed on content topic
   ## @TODO consider moving message cache elsewhere. Perhaps to node?
   var
-    messageCache = initTable[ContentTopic, seq[WakuMessage]]()
+    messageCache: MessageCache
   
   proc filterHandler(msg: WakuMessage) {.gcsafe, closure.} =
     # Add message to current cache
@@ -25,6 +28,7 @@ proc installFilterApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
 
     if msgs.len >= maxCache:
       # Message cache on this topic exceeds maximum. Delete oldest.
+      # @TODO this may become a bottle neck if called as the norm rather than exception when adding messages. Performance profile needed.
       msgs.delete(0,0)
     msgs.add(msg)
 
