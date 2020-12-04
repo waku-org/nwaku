@@ -28,7 +28,22 @@ proc membershipTest() {.async.} =
   balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
   echo "balance after contract deployement: ", balance
 
+  var sender = web3.contractSender(MembershipContract, contractAddress) # creates a Sender object with a web3 field and contract address of type Address
 
+  echo "this is the registration result ", await sender.registerSingle(20.u256).call(value = 1.u256) # value is the membership fee # send takes three parameters, c: ContractCallBase, value = 0.u256, gas = 3000000'u64 gasPrice = 0 
+  balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
+  echo "balance after sent: ", balance
+
+  echo "this is the root verification result: ", await  sender.isValidMembershipRoot(10.u256).send()
+  await web3.close()
+
+
+  var newWeb3 = await newWeb3("ws://localhost:8545/")
+  newWeb3.defaultAccount = accounts[2]
+  var sender2 = newWeb3.contractSender(MembershipContract, contractAddress) 
+  echo "this is the registration result ", await sender2.registerSingle(1.u256).call(value = 1.u256) # value is the membership fee # send takes three parameters, c: ContractCallBase, value = 0.u256, gas = 3000000'u64 gasPrice = 0 
+  balance = await newWeb3.provider.eth_getBalance(newWeb3.defaultAccount , "latest")
+  echo "balance after sent: ", balance
 
 # This is only a test contract for the expermentation, will be removed on the final merge
 
