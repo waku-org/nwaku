@@ -20,7 +20,8 @@ requires "nim >= 1.2.0",
   "stew",
   "stint",
   "metrics",
-  "libp2p" # Only for Waku v2
+  "libp2p", # Only for Waku v2
+  "web3"
 
 ### Helper functions
 proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
