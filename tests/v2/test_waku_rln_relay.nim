@@ -10,7 +10,7 @@ const membershipContractCode = "0x6080604052600060085560006009553480156200001b57
 
 contract(MembershipContract):
   proc registerSingle(newMember: Uint256): Uint256 # payable call
-  proc isValidMembershipRoot(membershipRoot: Uint256): Bool  {.view.}
+  proc isValidMembershipRoot(membershipRoot: Uint256): Bool  
 
 proc membershipTest() {.async.} =
   let web3 = await newWeb3("ws://localhost:8545/")
@@ -34,7 +34,7 @@ proc membershipTest() {.async.} =
   balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
   echo "balance after sent: ", balance
 
-  echo "this is the root verification result: ", await  sender.isValidMembershipRoot(10.u256).send()
+  echo "this is the root verification result: ", await  sender.isValidMembershipRoot(10.u256).call()
   await web3.close()
 
 
