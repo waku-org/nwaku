@@ -9,21 +9,36 @@ import
   ../wakunode2,
   ./jsonrpc_types, ./jsonrpc_utils
 
-const futTimeout = 5.seconds
+const futTimeout* = 5.seconds # Max time to wait for futures
+const maxCache* = 100 # Max number of messages cached per topic @TODO make this configurable
+
+type
+  TopicCache* = Table[string, seq[WakuMessage]]
 
 proc installRelayApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
   ## Create a per-topic message cache
   var
-    topicCache = initTable[string, seq[WakuMessage]]()
+    topicCache: TopicCache
   
   proc topicHandler(topic: string, data: seq[byte]) {.async.} =
-    debug "Topic handler triggered"
+    trace "Topic handler triggered"
     let msg = WakuMessage.init(data)
     if msg.isOk():
-      debug "WakuMessage received", msg=msg, topic=topic
       # Add message to current cache
-      # @TODO limit max topics and messages
-      topicCache.mgetOrPut(topic, @[]).add(msg[])
+      trace "WakuMessage received", msg=msg, topic=topic
+          
+      # Make a copy of msgs for this topic to modify
+      var msgs = topicCache.getOrDefault(topic, @[])
+
+      if msgs.len >= maxCache:
+        # Message cache on this topic exceeds maximum. Delete oldest.
+        # @TODO this may become a bottle neck if called as the norm rather than exception when adding messages. Performance profile needed.
+        msgs.delete(0,0)
+      msgs.add(msg[])
+
+      # Replace indexed entry with copy
+      # @TODO max number of topics could be limited in node
+      topicCache[topic] = msgs
     else:
       debug "WakuMessage received but failed to decode", msg=msg, topic=topic
       # @TODO handle message decode failure
