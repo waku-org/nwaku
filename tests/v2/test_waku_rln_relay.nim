@@ -34,7 +34,7 @@ proc membershipTest() {.async.} =
   balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
   echo "balance after sent: ", balance
 
-  echo "this is the root verification result: ", await  sender.isValidMembershipRoot(10.u256).call()
+  echo "this is the root verification result: ", await  sender.isValidMembershipRoot(10.u256).send()
   await web3.close()
 
 
