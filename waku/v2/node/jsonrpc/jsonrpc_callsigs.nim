@@ -1,3 +1,7 @@
+# Admin API
+
+proc get_waku_v2_admin_v1_peers(): seq[WakuPeer]
+
 # Debug API
 
 proc get_waku_v2_debug_v1_info(): WakuInfo

@@ -16,3 +16,8 @@ type
   WakuRelayMessage* = object
     payload*: seq[byte]
     contentTopic*: Option[ContentTopic]
+
+  WakuPeer* = object
+    multiaddr*: string
+    protocol*: string
+    connected*: bool
