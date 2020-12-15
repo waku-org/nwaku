@@ -2,8 +2,7 @@ import
   std/[unittest, options, sets, tables, os, strutils, sequtils],
   stew/shims/net as stewNet,
   json_rpc/[rpcserver, rpcclient],
-  libp2p/standard_setup,
-  libp2p/switch,
+  libp2p/[standard_setup, switch, multiaddress],
   libp2p/protobuf/minprotobuf,
   libp2p/stream/[bufferstream, connection],
   libp2p/crypto/crypto,
@@ -11,10 +10,11 @@ import
   libp2p/protocols/pubsub/rpc/message,
   ../../waku/v2/waku_types,
   ../../waku/v2/node/wakunode2,
-  ../../waku/v2/node/jsonrpc/[jsonrpc_types,store_api,relay_api,debug_api,filter_api],
+  ../../waku/v2/node/jsonrpc/[jsonrpc_types,store_api,relay_api,debug_api,filter_api,admin_api],
   ../../waku/v2/protocol/message_notifier,
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_store/waku_store,
+  ../../waku/v2/protocol/waku_swap/waku_swap,
   ../test_helpers
 
 template sourceDir*: string = currentSourcePath.rsplit(DirSep, 1)[0]
@@ -357,5 +357,57 @@ procSuite "Waku v2 JSON-RPC API":
       response[maxSize - 1].payload == @[byte (maxSize + 1)]
 
     server.stop()
+    server.close()
+    waitfor node.stop()
+  
+  asyncTest "Admin API: get peer information":
+    const cTopic = ContentTopic(1)
+
+    waitFor node.start()
+
+    # RPC server setup
+    let
+      rpcPort = Port(8545)
+      ta = initTAddress(bindIp, rpcPort)
+      server = newRpcHttpServer([ta])
+
+    installAdminApiHandlers(node, server)
+    server.start()
+
+    let client = newRpcHttpClient()
+    await client.connect("127.0.0.1", rpcPort)
+
+    node.mountFilter()
+    node.mountSwap()
+    node.mountStore()
+
+    # Create and set some peers
+    let
+      locationAddr = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet()
+
+      filterKey = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
+      filterPeer = PeerInfo.init(filterKey, @[locationAddr])
+
+      swapKey = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
+      swapPeer = PeerInfo.init(swapKey, @[locationAddr])
+
+      storeKey = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
+      storePeer = PeerInfo.init(storeKey, @[locationAddr])
+
+    node.wakuFilter.setPeer(filterPeer)
+    node.wakuSwap.setPeer(swapPeer)
+    node.wakuStore.setPeer(storePeer)
+
+    let response = await client.get_waku_v2_admin_v1_peers()
+
+    check:
+      response.len == 3
+      # Check filter peer
+      (response.filterIt(it.protocol == WakuFilterCodec)[0]).multiaddr == constructMultiaddrStr(filterPeer)
+      # Check swap peer
+      (response.filterIt(it.protocol == WakuSwapCodec)[0]).multiaddr == constructMultiaddrStr(swapPeer)
+      # Check store peer
+      (response.filterIt(it.protocol == WakuStoreCodec)[0]).multiaddr == constructMultiaddrStr(storePeer)
+
     server.close()
     waitfor node.stop()
