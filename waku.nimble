@@ -20,7 +20,8 @@ requires "nim >= 1.2.0",
   "stew",
   "stint",
   "metrics",
-  "libp2p" # Only for Waku v2
+  "libp2p", # Only for Waku v2
+  "web3"
 
 ### Helper functions
 proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
@@ -42,7 +43,7 @@ proc test(name: string, lang = "c") =
 
 ### Waku v1 tasks
 task wakunode1, "Build Waku v1 cli node":
-  buildBinary "wakunode", "waku/v1/node/", "-d:chronicles_log_level=TRACE"
+  buildBinary "wakunode1", "waku/v1/node/", "-d:chronicles_log_level=TRACE"
 
 task sim1, "Build Waku v1 simulation tools":
   buildBinary "quicksim", "waku/v1/node/", "-d:chronicles_log_level=INFO"
