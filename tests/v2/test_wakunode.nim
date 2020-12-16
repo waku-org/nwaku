@@ -7,7 +7,8 @@ import
   libp2p/crypto/secp,
   libp2p/switch,
   eth/keys,
-  ../../waku/v2/protocol/[waku_relay, waku_store, waku_filter, message_notifier],
+  ../../waku/v2/protocol/[waku_relay, waku_filter, message_notifier],
+  ../../waku/v2/protocol/waku_store/waku_store,
   ../../waku/v2/node/wakunode2,
   ../test_helpers,
   ../../waku/v2/waku_types
@@ -56,7 +57,7 @@ procSuite "WakuNode":
 
     await sleepAsync(2000.millis)
 
-    node.publish(pubSubTopic, message)
+    await node.publish(pubSubTopic, message)
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
@@ -119,7 +120,7 @@ procSuite "WakuNode":
     await sleepAsync(2000.millis)
 
     info "Waking up and publishing"
-    node2.publish(pubSubTopic, message)
+    await node2.publish(pubSubTopic, message)
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
@@ -242,7 +243,7 @@ procSuite "WakuNode":
     await node3.subscribe(pubSubTopic, relayHandler)
     await sleepAsync(2000.millis)
 
-    node1.publish(pubSubTopic, message)
+    await node1.publish(pubSubTopic, message)
     await sleepAsync(2000.millis)
 
     check:

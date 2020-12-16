@@ -10,10 +10,12 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/peerinfo,
   libp2p/standard_setup,
-  ../protocol/[waku_relay, waku_store, waku_filter, message_notifier],
+  ../protocol/[waku_relay, waku_filter, message_notifier],
+  ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
   ../waku_types,
-  ./message_store
+  ./message_store,
+  ./sqlite
 
 export waku_types
 
@@ -32,6 +34,21 @@ type
   # TODO Get rid of this and use waku_types one
   Topic* = waku_types.Topic
   Message* = seq[byte]
+
+  # NOTE based on Eth2Node in NBC eth2_network.nim
+  WakuNode* = ref object of RootObj
+    switch*: Switch
+    wakuRelay*: WakuRelay
+    wakuStore*: WakuStore
+    wakuFilter*: WakuFilter
+    wakuSwap*: WakuSwap
+    peerInfo*: PeerInfo
+    libp2pTransportLoops*: seq[Future[void]]
+  # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
+    messages*: seq[(Topic, WakuMessage)]
+    filters*: Filters
+    subscriptions*: MessageNotificationSubscriptions
+    rng*: ref BrHmacDrbgContext
 
 # NOTE Any difference here in Waku vs Eth2?
 # E.g. Devp2p/Libp2p support, etc.
@@ -199,7 +216,7 @@ proc unsubscribe*(node: WakuNode, request: FilterRequest) {.async, gcsafe.} =
   node.filters.removeContentFilters(request.contentFilters)
 
 
-proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
+proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) {.async, gcsafe.} =
   ## Publish a `WakuMessage` to a PubSub topic. `WakuMessage` should contain a
   ## `contentTopic` field for light node functionality. This field may be also
   ## be omitted.
@@ -212,8 +229,7 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) =
   debug "publish", topic=topic, contentTopic=message.contentTopic
   let data = message.encode().buffer
 
-  # XXX Consider awaiting here
-  discard wakuRelay.publish(topic, data)
+  discard await wakuRelay.publish(topic, data)
 
 proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
   ## Queries known nodes for historical messages. Triggers the handler whenever a response is received.
@@ -221,12 +237,14 @@ proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.as
   ##
   ## Status: Implemented.
 
+  # TODO Once waku swap is less experimental, this can simplified
   if node.wakuSwap.isNil:
     debug "Using default query"
     await node.wakuStore.query(query, handler)
   else:
     debug "Using SWAPAccounting query"
-    await node.wakuStore.queryWithAccounting(query, handler, node.wakuSwap)
+    # TODO wakuSwap now part of wakuStore object
+    await node.wakuStore.queryWithAccounting(query, handler)
 
 # TODO Extend with more relevant info: topics, peers, memory usage, online time, etc
 proc info*(node: WakuNode): WakuInfo =
@@ -252,18 +270,27 @@ proc mountFilter*(node: WakuNode) =
   node.switch.mount(node.wakuFilter)
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
-proc mountStore*(node: WakuNode, store: MessageStore = nil) =
-  info "mounting store"
-  node.wakuStore = WakuStore.init(node.switch, node.rng, store)
-  node.switch.mount(node.wakuStore)
-  node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
-
+# NOTE: If using the swap protocol, it must be mounted before store. This is
+# because store is using a reference to the swap protocol.
 proc mountSwap*(node: WakuNode) =
   info "mounting swap"
   node.wakuSwap = WakuSwap.init(node.switch, node.rng)
   node.switch.mount(node.wakuSwap)
   # NYI - Do we need this?
   #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
+
+proc mountStore*(node: WakuNode, store: MessageStore = nil) =
+  info "mounting store"
+
+  if node.wakuSwap.isNil:
+    debug "mounting store without swap"
+    node.wakuStore = WakuStore.init(node.switch, node.rng, store)
+  else:
+    debug "mounting store with swap"
+    node.wakuStore = WakuStore.init(node.switch, node.rng, store, node.wakuSwap)
+
+  node.switch.mount(node.wakuStore)
+  node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
 proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.async, gcsafe.} =
   let wakuRelay = WakuRelay.init(
@@ -398,18 +425,24 @@ when isMainModule:
   if conf.swap:
     mountSwap(node)
 
+  # TODO Set swap peer, for now should be same as store peer
+
   if conf.store:
     var store: MessageStore
 
     if conf.dbpath != "":
-      let res = MessageStore.init(conf.dbpath)
+      let dbRes = SqliteDatabase.init(conf.dbpath)
+      if dbRes.isErr:
+        warn "failed to init database", err = dbRes.error
+
+      let res = MessageStore.init(dbRes.value)
       if res.isErr:
         warn "failed to init MessageStore", err = res.error
       else:
         store = res.value
 
     mountStore(node, store)
-  
+
   if conf.filter:
     mountFilter(node)
 

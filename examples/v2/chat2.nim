@@ -20,7 +20,8 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                muxers/muxer,             # define an interface for stream multiplexing, allowing peers to offer many protocols over a single connection
                muxers/mplex/mplex]       # define some contants and message types for stream multiplexing
 import   ../../waku/v2/node/[config, wakunode2, waku_payload],
-         ../../waku/v2/protocol/[waku_relay, waku_store, waku_filter],
+         ../../waku/v2/protocol/[waku_relay, waku_filter],
+         ../../waku/v2/protocol/waku_store/waku_store,
          ../../waku/common/utils/nat,
          ../../waku/v2/waku_types
 
@@ -93,14 +94,14 @@ proc publish(c: Chat, line: string) =
     if encodedPayload.isOk():
       let message = WakuMessage(payload: encodedPayload.get(),
         contentTopic: DefaultContentTopic, version: version)
-      c.node.publish(DefaultTopic, message)
+      asyncSpawn c.node.publish(DefaultTopic, message)
     else:
       warn "Payload encoding failed", error = encodedPayload.error
   else:
     # No payload encoding/encryption from Waku
     let message = WakuMessage(payload: line.toBytes(),
       contentTopic: DefaultContentTopic, version: 0)
-    c.node.publish(DefaultTopic, message)
+    asyncSpawn c.node.publish(DefaultTopic, message)
 
 # TODO This should read or be subscribe handler subscribe
 proc readAndPrint(c: Chat) {.async.} =
@@ -202,6 +203,9 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
   echo &"Listening on\n {listenStr}"
 
+  if conf.swap:
+    node.mountSwap()
+
   if conf.storenode != "":
     node.mountStore()
 
@@ -212,9 +216,6 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
         let payload = string.fromBytes(msg.payload)
         echo &"{payload}"
       info "Hit store handler"
-
-    if conf.swap:
-      node.mountSwap()
 
     await node.query(HistoryQuery(topics: @[DefaultContentTopic]), storeHandler)
 

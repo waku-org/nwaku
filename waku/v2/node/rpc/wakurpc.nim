@@ -5,6 +5,7 @@ import
   eth/[common, rlp, keys, p2p],
   ../../protocol/waku_relay,
   ../../waku_types,
+  ../../protocol/waku_store/waku_store,
   ../wakunode2
 
 proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
@@ -32,7 +33,7 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
       warn "waku_publish decode error", msg=msg
 
     debug "waku_publish", topic=topic, payload=payload, msg=msg[]
-    node.publish(topic, msg[])
+    await node.publish(topic, msg[])
     return true
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")
