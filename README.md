@@ -15,7 +15,9 @@ For more details on Waku v1 and v2, see their respective home folders:
 - [Waku v1](waku/v1/README.md)
 - [Waku v2](waku/v2/README.md)
 
-You can view waku for both v1 and v2 metrics [here](https://grafana.infra.status.im/d/yy23i_zGk/nim-waku-v1?orgId=1&refresh=5m).
+You can view metrics for both versions of Waku here:
+ - [Waku v1](https://grafana.infra.status.im/d/yy23i_zGk/nim-waku-v1?orgId=1&refresh=5m)
+ - [Waku v2](https://grafana.infra.status.im/d/qrp_ZCTGz/nim-waku-v2?orgId=1&refresh=5m)
 
 ## How to Build & Run
 
