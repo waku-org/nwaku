@@ -35,6 +35,12 @@ method init*(w: WakuRelay) =
 method initPubSub*(w: WakuRelay) =
   debug "initWakuRelay"
 
+  # after discussions with @sinkingsugar, this is essentially what is needed for
+  # the libp2p `StrictNoSign` policy
+  w.anonymize = true
+  w.verifySignature = false
+  w.sign = false
+
   procCall GossipSub(w).initPubSub()
 
   w.init()
