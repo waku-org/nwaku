@@ -4,6 +4,7 @@
 
 - Calls to `publish` a message on `wakunode2` now `await` instead of `discard` dispatched [`WakuRelay`](https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-relay.md) procedures
 - Added JSON-RPC Admin API to retrieve information about peers registered on the `wakunode2`
+- `StrictNoSign` enabled.
 
 ## 2020-11-30 v0.1
 
