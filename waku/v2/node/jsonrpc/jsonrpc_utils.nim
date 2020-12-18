@@ -1,9 +1,13 @@
 import
   std/options,
+  eth/keys,
+  ../../../v1/node/rpc/hexstrings,
   ../../waku_types,
   ../../protocol/waku_store/waku_store_types,
-  ../wakunode2,
+  ../wakunode2, ../waku_payload,
   ./jsonrpc_types
+
+export hexstrings
 
 ## Conversion tools
 ## Since the Waku v2 JSON-RPC API has its own defined types,
@@ -29,3 +33,28 @@ proc toWakuMessage*(relayMessage: WakuRelayMessage, version: uint32): WakuMessag
   WakuMessage(payload: relayMessage.payload,
               contentTopic: if relayMessage.contentTopic.isSome: relayMessage.contentTopic.get else: defaultCT,
               version: version)
+
+proc toWakuMessage*(relayMessage: WakuRelayMessage, version: uint32, rng: ref BrHmacDrbgContext, symkey: Option[SymKey], pubKey: Option[keys.PublicKey]): WakuMessage =
+  # @TODO global definition for default content topic
+  const defaultCT = 0
+
+  let payload = Payload(payload: relayMessage.payload,
+                        dst: pubKey,
+                        symkey: symkey)
+
+  WakuMessage(payload: payload.encode(version, rng[]).get(),
+              contentTopic: if relayMessage.contentTopic.isSome: relayMessage.contentTopic.get else: defaultCT,
+              version: version)
+
+proc toWakuRelayMessage*(message: WakuMessage, symkey: Option[SymKey], privateKey: Option[keys.PrivateKey]): WakuRelayMessage =
+  # @TODO global definition for default content topic
+
+  let
+    keyInfo = if symkey.isSome(): KeyInfo(kind: Symmetric, symKey: symkey.get()) 
+              elif privateKey.isSome(): KeyInfo(kind: Asymmetric, privKey: privateKey.get())
+              else: KeyInfo(kind: None)
+    decoded = decodePayload(message, keyInfo)
+
+  WakuRelayMessage(payload: decoded.get().payload,
+                   contentTopic: some(message.contentTopic))
+

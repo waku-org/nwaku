@@ -1,6 +1,7 @@
 import
+  eth/keys,
   ../../waku_types,
-  std/options
+  std/[options,tables]
 
 type
   StoreResponse* = object
@@ -21,3 +22,11 @@ type
     multiaddr*: string
     protocol*: string
     connected*: bool
+
+  WakuKeyPair* = object
+    seckey*: PrivateKey
+    pubkey*: PublicKey
+
+  TopicCache* = TableRef[string, seq[WakuMessage]]
+
+  MessageCache* = TableRef[ContentTopic, seq[WakuMessage]]
