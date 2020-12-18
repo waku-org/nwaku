@@ -105,8 +105,3 @@ proc installPrivateApiHandlers*(node: WakuNode, rpcsrv: RpcServer, rng: ref BrHm
     else:
       # Not subscribed to this topic
       raise newException(ValueError, "Not subscribed to topic: " & topic)
-
-
-
-
-  
