@@ -22,7 +22,7 @@ procSuite "Waku Store":
       msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic)
       msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(2))
 
-    var dialSwitch = newStandardSwitch()
+    var dialSwitch = newStandardSwitch() 
     discard await dialSwitch.start()
 
     var listenSwitch = newStandardSwitch(some(key))
@@ -35,12 +35,12 @@ procSuite "Waku Store":
 
     proto.setPeer(listenSwitch.peerInfo)
 
-    var subscriptions = newTable[string, MessageNotificationSubscription]()
-    subscriptions["test"] = subscription
+    var subscriptions = newTable[string, MessageNotificationSubscription]() # listener
+    subscriptions["test"] = subscription 
 
     listenSwitch.mount(proto)
 
-    await subscriptions.notify("foo", msg)
+    await subscriptions.notify("foo", msg) # probably pubsub topic
     await subscriptions.notify("foo", msg2)
 
     var completionFut = newFuture[bool]()
