@@ -45,6 +45,22 @@ proc membershipTest() {.async.} =
 
 # This is only a test contract for the expermentation, will be removed on the final merge
 
+#[
+pragma solidity >=0.4.22 <0.8.0;
+
+contract NumberContract {
+    uint256 public number;
+
+    function setNumber(uint256 newNumber) public {
+        number = newNumber;
+    }
+
+    function getNumber() public view returns (uint256) {
+        return number;
+    }
+}
+]#
+
 contract(NumberContract):
   proc setNumber(number: Uint256)
   proc getNumber(): Uint256  {.view.}
