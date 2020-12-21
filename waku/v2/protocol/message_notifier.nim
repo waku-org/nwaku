@@ -12,15 +12,17 @@ import
 ## This works as follows:
 ## 
 ## .. code-block::
+##   var topic = "foo"
+##   
 ##   proc handle(topic: string, msg: WakuMessage) {.async.} =
 ##    info "new message", msg = msg
 ##
-##   MessageNotificationSubscription.init(@[], handle)
+##   MessageNotificationSubscription.init(@[topic], handle)
 ## 
 ##   var subscriptions = newTable[string, MessageNotificationSubscription]()
 ##   subscriptions["identifier"] = subscription
 ## 
-##   await subscriptions.notify("foo", WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(1)))
+##   await subscriptions.notify(topic, WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(1)))
 proc subscribe*(subscriptions: MessageNotificationSubscriptions, name: string, subscription: MessageNotificationSubscription) =
   subscriptions.add(name, subscription)
 
