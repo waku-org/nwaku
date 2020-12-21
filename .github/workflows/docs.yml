@@ -9,6 +9,7 @@ env:
   nim-version: stable
   nim-src: waku/waku.nim
   deploy-dir: .gh-pages
+  key:  
 
 jobs:
   docs:
@@ -32,8 +33,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" V=1 update 
-          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" LOG_LEVEL=TRACE
+          make -j2 NIMFLAGS="--parallelBuild:2" V=1 update 
+          make -j2 NIMFLAGS="--parallelBuild:2" LOG_LEVEL=TRACE
       - run: nim doc --index:on --project --out:${{ env.deploy-dir }} ${{ env.nim-src }}
       - name: Deploy documents
         uses: peaceiris/actions-gh-pages@v3
