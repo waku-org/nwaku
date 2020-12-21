@@ -7,7 +7,7 @@ import
   eth/p2p/[enode, whispernodes],
   ../v1/protocol/waku_protocol,
   ./utils/nat,
-  ../v1/node/rpc/[waku, wakusim, key_storage],
+  ../v1/node/rpc/wakusim,
   ../v1/node/waku_helpers,
   # Waku v2 imports
   libp2p/crypto/crypto,

@@ -1,7 +1,7 @@
 ## Types for waku_store protocol.
 
 import
-  bearssl, stew/[byteutils, endians2],
+  bearssl,
   libp2p/[switch, peerinfo],
   libp2p/protocols/protocol,
   ../../waku_types,
