@@ -5,11 +5,6 @@ on:
     branches:
       - master
 
-env:
-  nim-version: stable
-  nim-src: waku/waku.nim
-  deploy-dir: .gh-pages
-
 jobs:
   docs:
     runs-on: ubuntu-latest
@@ -34,8 +29,9 @@ jobs:
         run: |
           make -j2 NIMFLAGS="--parallelBuild:2" V=1 update 
           make -j2 NIMFLAGS="--parallelBuild:2" LOG_LEVEL=TRACE
-      - uses: jiro4989/setup-nim-action@v1
-      - run: nimble doc --accept --index:on --project --out:${{ env.deploy-dir }} ${{ env.nim-src }}
+      - name: Install dependencies
+        run: |
+          make -j2 NIMFLAGS="--parallelBuild:2" V=1 docs 
       - name: Deploy documents
         uses: peaceiris/actions-gh-pages@v3
         with:
