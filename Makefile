@@ -88,6 +88,10 @@ test1: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test1 $(NIM_PARAMS) waku.nims
 
+docs: | build deps
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nimble doc --accept --index:on --project --out:.gh-pages waku/waku.nim waku.nims
+
 # Waku v2 targets
 wakunode2: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
