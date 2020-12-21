@@ -35,7 +35,7 @@ jobs:
           make -j2 NIMFLAGS="--parallelBuild:2" V=1 update 
           make -j2 NIMFLAGS="--parallelBuild:2" LOG_LEVEL=TRACE
       - uses: jiro4989/setup-nim-action@v1
-      - run: nimble doc --index:on --project --out:${{ env.deploy-dir }} ${{ env.nim-src }}
+      - run: nimble doc --accept --index:on --project --out:${{ env.deploy-dir }} ${{ env.nim-src }}
       - name: Deploy documents
         uses: peaceiris/actions-gh-pages@v3
         with:
