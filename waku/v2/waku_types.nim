@@ -3,15 +3,14 @@
 ## TODO Move types here into their appropriate place
 
 import
-  std/[tables, times],
-  chronos, bearssl, stew/[byteutils, endians2],
+  std/tables,
+  chronos, bearssl, stew/byteutils,
   libp2p/[switch, peerinfo, multiaddress, crypto/crypto],
   libp2p/protobuf/minprotobuf,
   libp2p/protocols/protocol,
   libp2p/switch,
   libp2p/stream/connection,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
-  protocol/waku_swap/waku_swap_types,
   nimcrypto/sha2,
   ./node/sqlite
 
