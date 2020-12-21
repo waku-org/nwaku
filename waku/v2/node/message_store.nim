@@ -1,7 +1,6 @@
 import 
-  os, 
   sqlite3_abi,
-  chronos, chronicles, metrics, stew/results,
+  chronos, metrics, stew/results,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,

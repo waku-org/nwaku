@@ -9,7 +9,7 @@ import
   ../../protocol/waku_swap/[waku_swap_types, waku_swap],
   ../../protocol/waku_filter,
   ../wakunode2,
-  ./jsonrpc_types, ./jsonrpc_utils
+  ./jsonrpc_types
 
 proc constructMultiaddrStr*(peerInfo: PeerInfo): string =
   # Constructs a multiaddress with both location address and p2p identity
