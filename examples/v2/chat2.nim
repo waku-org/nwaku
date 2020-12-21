@@ -6,7 +6,6 @@ import confutils, chronicles, chronos, stew/shims/net as stewNet,
        eth/keys, bearssl, stew/[byteutils, endians2],
        nimcrypto/pbkdf2
 import libp2p/[switch,                   # manage transports, a single entry point for dialing and listening
-               multistream,              # tag stream with short header to identify it
                crypto/crypto,            # cryptographic functions
                protocols/identify,       # identify the peer info of a peer
                stream/connection,        # create and close stream read / write connections
