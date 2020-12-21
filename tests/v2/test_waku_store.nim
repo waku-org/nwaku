@@ -35,12 +35,12 @@ procSuite "Waku Store":
 
     proto.setPeer(listenSwitch.peerInfo)
 
-    var subscriptions = newTable[string, MessageNotificationSubscription]() # listener
+    var subscriptions = newTable[string, MessageNotificationSubscription]()
     subscriptions["test"] = subscription 
 
     listenSwitch.mount(proto)
 
-    await subscriptions.notify("foo", msg) # probably pubsub topic
+    await subscriptions.notify("foo", msg)
     await subscriptions.notify("foo", msg2)
 
     var completionFut = newFuture[bool]()
