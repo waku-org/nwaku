@@ -7,7 +7,7 @@ on:
 
 env:
   nim-version: stable
-  nim-src: waku/v2/node/wakunode2.nim
+  nim-src: waku/waku.nim
   deploy-dir: .gh-pages
 
 jobs:
