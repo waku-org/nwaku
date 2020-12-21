@@ -9,7 +9,6 @@ env:
   nim-version: stable
   nim-src: waku/waku.nim
   deploy-dir: .gh-pages
-  key:  
 
 jobs:
   docs:
