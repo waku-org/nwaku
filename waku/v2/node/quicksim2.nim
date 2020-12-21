@@ -1,5 +1,5 @@
 import
-  os, strutils, strformat, chronicles, json_rpc/[rpcclient, rpcserver], nimcrypto/sysrand,
+  os, strutils, chronicles, json_rpc/[rpcclient, rpcserver],
   libp2p/protobuf/minprotobuf,
   eth/common as eth_common, eth/keys,
   options
