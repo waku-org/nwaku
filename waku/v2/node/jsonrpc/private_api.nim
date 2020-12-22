@@ -9,7 +9,7 @@ import
   ../wakunode2, ../waku_payload,
   ./jsonrpc_types, ./jsonrpc_utils
 
-export waku_payload
+export waku_payload, jsonrpc_types
 
 const futTimeout* = 5.seconds # Max time to wait for futures
 
