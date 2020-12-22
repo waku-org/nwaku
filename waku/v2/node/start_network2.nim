@@ -1,5 +1,5 @@
 import
-  strformat, os, osproc, net, confutils, strformat, chronicles, json,
+  strformat, os, osproc, net, strformat, chronicles, json,
   libp2p/multiaddress,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,

@@ -1,0 +1,39 @@
+name: docs
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+        # We need to do this because of how github cache works
+        # I am not sure we can move the cache file, so if we do not do this
+        # make update breaks because the cached compiler is there where the submodules
+        # are meant to go.
+      - name: Submodules
+        run: |
+          git submodule update --init --recursive
+      - name: Cache nim
+        uses: actions/cache@v1
+        with:
+          path: vendor/nimbus-build-system/vendor/Nim/bin
+          key: ${{ runner.os }}-2-nim-${{ hashFiles('.gitmodules') }}
+
+      - name: Install dependencies
+        run: |
+          make -j2 NIMFLAGS="--parallelBuild:2" V=1 update 
+          make -j2 NIMFLAGS="--parallelBuild:2" LOG_LEVEL=TRACE
+      - name: Generate docs
+        run: |
+          make -j2 NIMFLAGS="--parallelBuild:2" V=1 docs 
+      - name: Deploy documents
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ${{ env.deploy-dir }}
