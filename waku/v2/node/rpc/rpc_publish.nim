@@ -5,7 +5,7 @@ import
   eth/common as eth_common, eth/keys,
   system,
   options,
-  ../waku_types
+  ../../waku_types
 
 from strutils import rsplit
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
@@ -28,7 +28,7 @@ var node = newRpcHttpClient()
 waitfor node.connect("localhost", rpcPort)
 
 let pubSubTopic = "/waku/2/default-waku/proto"
-let contentTopic = "foobar"
+let contentTopic = ContentTopic(1)
 var wakuMessage = WakuMessage(payload: input.toBytes(), contentTopic: contentTopic)
 # XXX This should be WakuMessage type, but need to setup JSON-RPC mapping for that to work
 var raw_bytes = wakuMessage.encode().buffer
