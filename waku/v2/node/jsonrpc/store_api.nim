@@ -8,6 +8,8 @@ import
   ../wakunode2,
   ./jsonrpc_types, ./jsonrpc_utils
 
+export jsonrpc_types
+
 proc installStoreApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
   const futTimeout = 5.seconds
 

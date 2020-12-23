@@ -9,16 +9,12 @@ import
   ../wakunode2,
   ./jsonrpc_types, ./jsonrpc_utils
 
+export jsonrpc_types
+
 const futTimeout* = 5.seconds # Max time to wait for futures
 const maxCache* = 100 # Max number of messages cached per topic @TODO make this configurable
 
-type
-  TopicCache* = Table[string, seq[WakuMessage]]
-
-proc installRelayApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
-  ## Create a per-topic message cache
-  var
-    topicCache: TopicCache
+proc installRelayApiHandlers*(node: WakuNode, rpcsrv: RpcServer, topicCache: TopicCache) =
   
   proc topicHandler(topic: string, data: seq[byte]) {.async.} =
     trace "Topic handler triggered"
