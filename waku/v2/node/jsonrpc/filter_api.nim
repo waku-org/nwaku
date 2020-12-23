@@ -5,19 +5,15 @@ import
   json_rpc/rpcserver,
   eth/[common, rlp, keys, p2p],
   ../../waku_types,
-  ../wakunode2
+  ../wakunode2,
+  ./jsonrpc_types
+
+export jsonrpc_types
 
 const futTimeout* = 5.seconds # Max time to wait for futures
 const maxCache* = 100 # Max number of messages cached per topic @TODO make this configurable
 
-type
-  MessageCache* = Table[ContentTopic, seq[WakuMessage]]
-
-proc installFilterApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
-  ## Create a message cache indexed on content topic
-  ## @TODO consider moving message cache elsewhere. Perhaps to node?
-  var
-    messageCache: MessageCache
+proc installFilterApiHandlers*(node: WakuNode, rpcsrv: RpcServer, messageCache: MessageCache) =
   
   proc filterHandler(msg: WakuMessage) {.gcsafe, closure.} =
     # Add message to current cache

@@ -11,6 +11,8 @@ import
   ../wakunode2,
   ./jsonrpc_types
 
+export jsonrpc_types
+
 proc constructMultiaddrStr*(peerInfo: PeerInfo): string =
   # Constructs a multiaddress with both location address and p2p identity
   $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
