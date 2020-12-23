@@ -385,14 +385,40 @@ proc connectToNodes*(n: WakuNode, nodes: seq[PeerInfo]) {.async.} =
 when isMainModule:
   import
     confutils, json_rpc/rpcserver, metrics,
-    ./config, ./rpc/wakurpc,
+    ./config, 
+    ./jsonrpc/[admin_api,
+               debug_api,
+               filter_api,
+               private_api,
+               relay_api,
+               store_api],
     ../../common/utils/nat
 
-  proc startRpc(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port) =
+  proc startRpc(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port, conf: WakuNodeConf) =
     let
       ta = initTAddress(rpcIp, rpcPort)
       rpcServer = newRpcHttpServer([ta])
-    setupWakuRPC(node, rpcServer)
+    installDebugApiHandlers(node, rpcServer)
+
+    # Install enabled API handlers:
+    if conf.relay:
+      let topicCache = newTable[string, seq[WakuMessage]]()
+      installRelayApiHandlers(node, rpcServer, topicCache)
+      if conf.rpcPrivate:
+        # Private API access allows WakuRelay functionality that 
+        # is backwards compatible with Waku v1.
+        installPrivateApiHandlers(node, rpcServer, node.rng, topicCache)
+    
+    if conf.filter:
+      let messageCache = newTable[ContentTopic, seq[WakuMessage]]()
+      installFilterApiHandlers(node, rpcServer, messageCache)
+    
+    if conf.store:
+      installStoreApiHandlers(node, rpcServer)
+    
+    if conf.rpcAdmin:
+      installAdminApiHandlers(node, rpcServer)
+    
     rpcServer.start()
     info "RPC Server started", ta
 
@@ -459,7 +485,7 @@ when isMainModule:
     setFilterPeer(node, conf.filternode)
 
   if conf.rpc:
-    startRpc(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift))
+    startRpc(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift), conf)
 
   if conf.logMetrics:
     startMetricsLog()
