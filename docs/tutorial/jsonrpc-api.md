@@ -2,7 +2,7 @@
 
 ## Background
 
-This tutorial provides step-by-step instructions on how to get a `wakunode2` up and running and using the [JSON-RPC API](https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-v2-rpc-api.md) for basic peer-to-peer messaging using publish-subscribe (pubsub) patterns. Libp2p pubsub-functionality is provided in Waku v2 and accessed via the [Relay API](https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-v2-rpc-api.md#relay-api). Debugging methods are accessed via the [Debug API](https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-v2-rpc-api.md#debug-api).
+This tutorial provides step-by-step instructions on how to start a `wakunode2` with the [JSON-RPC API](https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-v2-rpc-api.md) for basic peer-to-peer messaging using publish-subscribe (pubsub) patterns. Libp2p pubsub-functionality is provided in Waku v2 and accessed via the [Relay API](https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-v2-rpc-api.md#relay-api). Debugging methods are accessed via the [Debug API](https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-v2-rpc-api.md#debug-api).
 
 ## Setup
 
@@ -35,7 +35,7 @@ You can perform a basic health check to verify that the `wakunode2` and API is u
 
 ### Example request
 
-```jsonrpc
+```json
 {
   "jsonrpc": "2.0",
   "id": "id",
@@ -48,7 +48,7 @@ You can perform a basic health check to verify that the `wakunode2` and API is u
 
 The response
 
-```jsonrpc
+```json
 {
   "jsonrpc": "2.0",
   "id": "id",
@@ -66,7 +66,7 @@ You can subscribe to pubsub topics by calling the [`post_waku_v2_relay_v1_subscr
 
 ### Example request
 
-```jsonrpc
+```json
 {
   "jsonrpc": "2.0",
   "id": "id",
@@ -85,7 +85,7 @@ You can subscribe to pubsub topics by calling the [`post_waku_v2_relay_v1_subscr
 
 The response
 
-```jsonrpc
+```json
 {
   "jsonrpc": "2.0",
   "id": "id",
@@ -101,7 +101,7 @@ To publish a message to a pubsub topic, call the [`post_waku_v2_relay_v1_message
 
 ### Example request
 
-```jsonrpc
+```json
 {
   "jsonrpc": "2.0",
   "id": "id",
@@ -119,7 +119,7 @@ To publish a message to a pubsub topic, call the [`post_waku_v2_relay_v1_message
 
 The response
 
-```jsonrpc
+```json
 {
   "jsonrpc": "2.0",
   "id": "id",
@@ -135,7 +135,7 @@ Use the [`get_waku_v2_relay_v1_messages` method](https://github.com/vacp2p/specs
 
 ### Example request
 
-```jsonrpc
+```json
 {
   "jsonrpc": "2.0",
   "id": "id",
@@ -150,7 +150,7 @@ Use the [`get_waku_v2_relay_v1_messages` method](https://github.com/vacp2p/specs
 
 The response is an `Array` of [`WakuMessage` objects](https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-v2-rpc-api.md#wakumessage).
 
-```jsonrpc
+```json
 {
   "jsonrpc": "2.0",
   "id": "id",
@@ -172,7 +172,7 @@ The response is an `Array` of [`WakuMessage` objects](https://github.com/vacp2p/
 
 Calling the same method again returns
 
-```jsonrpc
+```json
 {
   "jsonrpc": "2.0",
   "id": "id",
@@ -188,7 +188,7 @@ To unsubscribe from pubsub topics, call the [`delete_waku_v2_relay_v1_subscripti
 
 ### Example request
 
-```jsonrpc
+```json
 {
   "jsonrpc": "2.0",
   "id": "id",
@@ -206,7 +206,7 @@ To unsubscribe from pubsub topics, call the [`delete_waku_v2_relay_v1_subscripti
 
 The response
 
-```jsonrpc
+```json
 {
   "jsonrpc": "2.0",
   "id": "id",
