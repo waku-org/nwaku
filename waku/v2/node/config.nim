@@ -90,19 +90,29 @@ type
       name: "nodekey" }: crypto.PrivateKey
 
     rpc* {.
-      desc: "Enable Waku RPC server.",
+      desc: "Enable Waku JSON-RPC server.",
       defaultValue: true
       name: "rpc" }: bool
 
     rpcAddress* {.
-      desc: "Listening address of the RPC server.",
+      desc: "Listening address of the JSON-RPC server.",
       defaultValue: ValidIpAddress.init("127.0.0.1")
       name: "rpc-address" }: ValidIpAddress
 
     rpcPort* {.
-      desc: "Listening port of the RPC server.",
+      desc: "Listening port of the JSON-RPC server.",
       defaultValue: 8545
       name: "rpc-port" }: uint16
+    
+    rpcAdmin* {.
+      desc: "Enable access to JSON-RPC Admin API.",
+      defaultValue: false
+      name: "rpc-admin" }: bool
+    
+    rpcPrivate* {.
+      desc: "Enable access to JSON-RPC Private API.",
+      defaultValue: false
+      name: "rpc-private" }: bool
 
     metricsServer* {.
       desc: "Enable the metrics server."
