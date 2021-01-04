@@ -3,11 +3,26 @@ import
   chronos,
   ../waku_types
 
-# The Message Notification system is a method to notify various protocols
-# running on a node when a new message was received.
+## The Message Notification system is a method to notify various protocols
+## running on a node when a new message was received.
 #
-# Protocols can subscribe to messages of specific topics, then when one is received
-# The notification handler function will be called.
+## Protocols can subscribe to messages of specific topics, then when one is received
+## The notification handler function will be called.
+## 
+## This works as follows:
+## 
+## .. code-block::
+##   var topic = "foo"
+##   
+##   proc handle(topic: string, msg: WakuMessage) {.async.} =
+##    info "new message", msg = msg
+##
+##   MessageNotificationSubscription.init(@[topic], handle)
+## 
+##   var subscriptions = newTable[string, MessageNotificationSubscription]()
+##   subscriptions["identifier"] = subscription
+## 
+##   await subscriptions.notify(topic, WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(1)))
 proc subscribe*(subscriptions: MessageNotificationSubscriptions, name: string, subscription: MessageNotificationSubscription) =
   subscriptions.add(name, subscription)
 
