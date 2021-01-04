@@ -38,11 +38,13 @@ type
   MessageNotificationHandler* = proc(topic: string, msg: WakuMessage): Future[
       void] {.gcsafe, closure.}
 
-  MessageNotificationSubscriptions* = TableRef[string, MessageNotificationSubscription]
+  MessageNotificationSubscriptionIdentifier* = string
 
   MessageNotificationSubscription* = object
     topics*: seq[string] # @TODO TOPIC
     handler*: MessageNotificationHandler
+ 
+  MessageNotificationSubscriptions* = TableRef[MessageNotificationSubscriptionIdentifier, MessageNotificationSubscription]
 
   FilterRequest* = object
     contentFilters*: seq[ContentFilter]
