@@ -6,6 +6,7 @@ import
   ../../protocol/waku_relay,
   ../../waku_types,
   ../../protocol/waku_store/waku_store,
+  ../../protocol/waku_filter/waku_filter,
   ../wakunode2
 
 proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =

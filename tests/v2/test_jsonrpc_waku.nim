@@ -19,9 +19,9 @@ import
                               admin_api,
                               private_api],
   ../../waku/v2/protocol/message_notifier,
-  ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_store/waku_store,
   ../../waku/v2/protocol/waku_swap/waku_swap,
+  ../../waku/v2/protocol/waku_filter/waku_filter,
   ../test_helpers
 
 template sourceDir*: string = currentSourcePath.rsplit(DirSep, 1)[0]

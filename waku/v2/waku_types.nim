@@ -20,6 +20,8 @@ const MaxPageSize* = 100 # Maximum number of waku messages in each page
 # Common data types -----------------------------------------------------------
 type
 
+  # Message -------------------------------------------------------------------
+
   Index* = object
     ## This type contains the  description of an Index used in the pagination of WakuMessages
     digest*: MDigest[256]
@@ -46,47 +48,7 @@ type
  
   MessageNotificationSubscriptions* = TableRef[MessageNotificationSubscriptionIdentifier, MessageNotificationSubscription]
 
-  FilterRequest* = object
-    contentFilters*: seq[ContentFilter]
-    topic*: string
-    subscribe*: bool
-
-  MessagePush* = object
-    messages*: seq[WakuMessage]
-
-  FilterRPC* = object
-    requestId*: string
-    request*: FilterRequest
-    push*: MessagePush
-
-  Subscriber* = object
-    peer*: PeerInfo
-    requestId*: string
-    filter*: FilterRequest # @TODO MAKE THIS A SEQUENCE AGAIN?
-
-  MessagePushHandler* = proc(requestId: string, msg: MessagePush) {.gcsafe, closure.}
-
-  FilterPeer* = object
-    peerInfo*: PeerInfo
-
-  WakuFilter* = ref object of LPProtocol
-    rng*: ref BrHmacDrbgContext
-    switch*: Switch
-    peers*: seq[FilterPeer]
-    subscribers*: seq[Subscriber]
-    pushHandler*: MessagePushHandler
-
-  ContentFilter* = object
-    topics*: seq[ContentTopic]
-
-  ContentFilterHandler* = proc(msg: WakuMessage) {.gcsafe, closure.}
-
-  Filter* = object
-    contentFilters*: seq[ContentFilter]
-    handler*: ContentFilterHandler
-
-  # @TODO MAYBE MORE INFO?
-  Filters* = Table[string, Filter]
+  # Relay protocol types -------------------------------------------------------
 
   WakuRelay* = ref object of GossipSub
 
@@ -121,24 +83,6 @@ proc encode*(message: WakuMessage): ProtoBuffer =
   result.write(1, message.payload)
   result.write(2, message.contentTopic)
   result.write(3, message.version)
-
-proc notify*(filters: Filters, msg: WakuMessage, requestId: string = "") =
-  for key in filters.keys:
-    let filter = filters[key]
-    # We do this because the key for the filter is set to the requestId received from the filter protocol.
-    # This means we do not need to check the content filter explicitly as all MessagePushs already contain
-    # the requestId of the coresponding filter.
-    if requestId != "" and requestId == key:
-      filter.handler(msg)
-      continue
-
-    # TODO: In case of no topics we should either trigger here for all messages,
-    # or we should not allow such filter to exist in the first place.
-    for contentFilter in filter.contentFilters:
-      if contentFilter.topics.len > 0:
-        if msg.contentTopic in contentFilter.topics:
-          filter.handler(msg)
-          break
 
 proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
   var bytes: array[10, byte]
