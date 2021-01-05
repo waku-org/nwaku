@@ -1,6 +1,5 @@
 import
   json_rpc/rpcserver,
-  ../../waku_types,
   ../wakunode2
 
 proc installDebugApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =

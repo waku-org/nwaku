@@ -8,7 +8,7 @@ import chronos
 import libp2p/[standard_setup,
                protocols/pubsub/pubsub,
                protocols/secure/secure]
-import ../../waku/v2/waku_types
+import ../../waku/v2/protocol/waku_relay
 
 export standard_setup
 

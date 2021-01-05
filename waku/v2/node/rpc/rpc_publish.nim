@@ -4,8 +4,7 @@ import
   libp2p/protobuf/minprotobuf,
   eth/common as eth_common, eth/keys,
   system,
-  options,
-  ../../waku_types
+  options
 
 from strutils import rsplit
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]

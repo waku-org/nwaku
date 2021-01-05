@@ -4,7 +4,6 @@ import
   std/[options,sequtils],
   json_rpc/rpcserver,
   libp2p/[peerinfo, switch],
-  ../../waku_types,
   ../../protocol/waku_store/[waku_store_types, waku_store],
   ../../protocol/waku_swap/[waku_swap_types, waku_swap],
   ../../protocol/waku_filter/[waku_filter_types, waku_filter],

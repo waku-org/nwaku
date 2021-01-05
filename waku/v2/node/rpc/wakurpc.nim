@@ -4,7 +4,6 @@ import
   nimcrypto/[sysrand, hmac, sha2],
   eth/[common, rlp, keys, p2p],
   ../../protocol/waku_relay,
-  ../../waku_types,
   ../../protocol/waku_store/waku_store,
   ../../protocol/waku_filter/waku_filter,
   ../wakunode2

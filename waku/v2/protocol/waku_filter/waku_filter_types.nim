@@ -3,7 +3,9 @@ import
   bearssl,
   libp2p/[switch, peerinfo],
   libp2p/protocols/protocol,
-  ../../waku_types
+  ../waku_message
+
+export waku_message
 
 type
   ContentFilter* = object

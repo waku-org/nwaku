@@ -2,7 +2,6 @@
 import
   std/[unittest,algorithm,options],
   nimcrypto/sha2,
-  ../../waku/v2/waku_types,
   ../../waku/v2/protocol/waku_store/waku_store,
   ../test_helpers
 
