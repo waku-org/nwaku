@@ -10,9 +10,10 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/peerinfo,
   libp2p/standard_setup,
-  ../protocol/[waku_relay, waku_filter, message_notifier],
+  ../protocol/[waku_relay, message_notifier],
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
+  ../protocol/waku_filter/waku_filter,
   ../waku_types,
   ./message_store,
   ./sqlite

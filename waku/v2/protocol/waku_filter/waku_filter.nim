@@ -10,18 +10,39 @@ import
   libp2p/stream/connection,
   libp2p/crypto/crypto,
   libp2p/switch,
-  ./message_notifier,
-  ../waku_types
+  ../message_notifier,
+  ../../waku_types,
+  waku_filter_types
 
 # NOTE This is just a start, the design of this protocol isn't done yet. It
 # should be direct payload exchange (a la req-resp), not be coupled with the
 # relay protocol.
+
+export waku_filter_types
 
 logScope:
   topics = "wakufilter"
 
 const
   WakuFilterCodec* = "/vac/waku/filter/2.0.0-beta1"
+
+proc notify*(filters: Filters, msg: WakuMessage, requestId: string = "") =
+  for key in filters.keys:
+    let filter = filters[key]
+    # We do this because the key for the filter is set to the requestId received from the filter protocol.
+    # This means we do not need to check the content filter explicitly as all MessagePushs already contain
+    # the requestId of the coresponding filter.
+    if requestId != "" and requestId == key:
+      filter.handler(msg)
+      continue
+
+    # TODO: In case of no topics we should either trigger here for all messages,
+    # or we should not allow such filter to exist in the first place.
+    for contentFilter in filter.contentFilters:
+      if contentFilter.topics.len > 0:
+        if msg.contentTopic in contentFilter.topics:
+          filter.handler(msg)
+          break
 
 proc unsubscribeFilters(subscribers: var seq[Subscriber], request: FilterRequest, peerId: PeerID) =
   # Flatten all unsubscribe topics into single seq

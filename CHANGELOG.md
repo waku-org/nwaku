@@ -6,6 +6,7 @@
 - Added JSON-RPC Admin API to retrieve information about peers registered on the `wakunode2`
 - `StrictNoSign` enabled.
 - Added JSON-RPC Private API to enable using symmetric or asymmetric cryptography to encrypt/decrypt message payloads
+- Refactor: Move `waku_filter` protocol into its own module.
 
 ## 2020-11-30 v0.1
 
