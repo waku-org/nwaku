@@ -1,12 +1,23 @@
 # Changelog
 
-## Next version
+## 2021-01-05 v0.2
 
-- Calls to `publish` a message on `wakunode2` now `await` instead of `discard` dispatched [`WakuRelay`](https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-relay.md) procedures
-- Added JSON-RPC Admin API to retrieve information about peers registered on the `wakunode2`
-- `StrictNoSign` enabled.
-- Added JSON-RPC Private API to enable using symmetric or asymmetric cryptography to encrypt/decrypt message payloads
+This release contains the following changes:
+
+- Calls to `publish` a message on `wakunode2` now `await` instead of `discard` dispatched [`WakuRelay`](https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-relay.md) procedures.
+- [`StrictNoSign`](https://github.com/libp2p/specs/tree/master/pubsub#message-signing) enabled.
+- Add JSON-RPC API for external access to `wakunode2` functionality:
+  - Admin API retrieves information about peers registered on the `wakunode2`.
+  - Debug API exposes debug information about a `wakunode2`.
+  - Filter API saves bandwidth by allowing light nodes to filter for specific content.
+  - Private API enables symmetric or asymmetric cryptography to encrypt/decrypt message payloads.
+  - Relay API allows basic pub/sub functionality.
+  - Store API retrieves historical messages.
+- Add tutorial on how to use JSON-RPC API.
 - Refactor: Move `waku_filter` protocol into its own module.
+
+The Waku v2 implementation, and [most protocols it consist of](https://specs.vac.dev/specs/waku/),
+are still in a draft/beta state. The Waku v1 implementation is stable but not under active development.
 
 ## 2020-11-30 v0.1
 
