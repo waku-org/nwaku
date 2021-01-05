@@ -7,7 +7,7 @@ import
   ../../waku_types,
   ../../protocol/waku_store/[waku_store_types, waku_store],
   ../../protocol/waku_swap/[waku_swap_types, waku_swap],
-  ../../protocol/waku_filter,
+  ../../protocol/waku_filter/[waku_filter_types, waku_filter],
   ../wakunode2,
   ./jsonrpc_types
 

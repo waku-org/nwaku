@@ -7,8 +7,9 @@ import
   libp2p/crypto/secp,
   libp2p/switch,
   eth/keys,
-  ../../waku/v2/protocol/[waku_relay, waku_filter, message_notifier],
+  ../../waku/v2/protocol/[waku_relay, message_notifier],
   ../../waku/v2/protocol/waku_store/waku_store,
+  ../../waku/v2/protocol/waku_filter/waku_filter,
   ../../waku/v2/node/wakunode2,
   ../test_helpers,
   ../../waku/v2/waku_types
