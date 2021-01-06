@@ -8,7 +8,6 @@ import
   ../../waku/v2/node/wakunode2,
   ../../waku/v2/node/rpc/wakurpc,
   ../../waku/v2/protocol/waku_relay,
-  ../../waku/v2/waku_types,
   ../test_helpers
 
 

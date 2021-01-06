@@ -1,7 +1,8 @@
 import
+  std/[options,tables],
   eth/keys,
-  ../../waku_types,
-  std/[options,tables]
+  ../../protocol/waku_message,
+  ../../utils/pagination
 
 type
   StoreResponse* = object

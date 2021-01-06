@@ -10,7 +10,6 @@ import
   libp2p/multistream,
   ../../waku/v2/protocol/[message_notifier],
   ../../waku/v2/protocol/waku_filter/waku_filter,
-  ../../waku/v2/waku_types,
   ../test_helpers, ./utils
 
 procSuite "Waku Filter":

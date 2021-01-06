@@ -7,12 +7,11 @@ import
   libp2p/crypto/[crypto, secp],
   libp2p/switch,
   eth/keys,
-  ../../waku/v2/protocol/[message_notifier],
+  ../../waku/v2/protocol/[waku_message, message_notifier],
   ../../waku/v2/protocol/waku_store/waku_store,
   ../../waku/v2/protocol/waku_swap/waku_swap,
   ../../waku/v2/node/wakunode2,
-  ../test_helpers, ./utils,
-  ../../waku/v2/waku_types
+  ../test_helpers, ./utils
 
 procSuite "Waku SWAP Accounting":
   test "Handshake Encode/Decode":
