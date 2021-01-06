@@ -4,10 +4,19 @@ import
   bearssl,
   libp2p/[switch, peerinfo],
   libp2p/protocols/protocol,
-  ../../waku_types,
-  ../waku_swap/waku_swap_types
+  ../waku_swap/waku_swap_types,
+  ../waku_message,
+  ../../node/message_store,
+  ../../utils/pagination
+
+export waku_message
+export pagination
+
+# Constants required for pagination -------------------------------------------
+const MaxPageSize* = 100 # Maximum number of waku messages in each page
 
 type
+
   QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
 
   IndexedWakuMessage* = object

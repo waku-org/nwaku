@@ -11,8 +11,8 @@ import
   libp2p/crypto/crypto,
   libp2p/switch,
   ../message_notifier,
-  ../../waku_types,
-  waku_filter_types
+  waku_filter_types,
+  ../../utils/requests
 
 # NOTE This is just a start, the design of this protocol isn't done yet. It
 # should be direct payload exchange (a la req-resp), not be coupled with the

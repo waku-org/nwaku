@@ -1,7 +1,7 @@
 import
   std/tables,
   chronos,
-  ../waku_types
+  waku_message
 
 ## The Message Notification system is a method to notify various protocols
 ## running on a node when a new message was received.
@@ -23,6 +23,19 @@ import
 ##   subscriptions["identifier"] = subscription
 ## 
 ##   await subscriptions.notify(topic, WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(1)))
+
+type
+  MessageNotificationHandler* = proc(topic: string, msg: WakuMessage): Future[
+    void] {.gcsafe, closure.}
+
+  MessageNotificationSubscriptionIdentifier* = string
+
+  MessageNotificationSubscription* = object
+    topics*: seq[string] # @TODO TOPIC
+    handler*: MessageNotificationHandler
+
+  MessageNotificationSubscriptions* = TableRef[MessageNotificationSubscriptionIdentifier, MessageNotificationSubscription]
+
 proc subscribe*(subscriptions: MessageNotificationSubscriptions, name: string, subscription: MessageNotificationSubscription) =
   subscriptions.add(name, subscription)
 

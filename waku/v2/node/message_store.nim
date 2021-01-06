@@ -6,8 +6,9 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
   stew/results, metrics,
-  ../waku_types,
-  ./sqlite
+  ./sqlite,
+  ../protocol/waku_message,
+  ../utils/pagination
 
 # The code in this file is an adaptation of the Sqlite KV Store found in nim-eth.
 # https://github.com/status-im/nim-eth/blob/master/eth/db/kvstore_sqlite3.nim
@@ -16,6 +17,11 @@ import
 
 type
   DataProc* = proc(timestamp: uint64, msg: WakuMessage) {.closure.}
+
+  MessageStoreResult*[T] = Result[T, string]
+
+  MessageStore* = ref object of RootObj
+    database*: SqliteDatabase
 
 proc init*(T: type MessageStore, db: SqliteDatabase): MessageStoreResult[T] =
   ## Table is the SQL query for creating the messages Table.

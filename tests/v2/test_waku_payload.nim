@@ -2,6 +2,7 @@
 
 import
   std/unittest,
+  ../../waku/v2/protocol/waku_message,
   ../../waku/v2/node/waku_payload,
   ../test_helpers
 

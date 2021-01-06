@@ -10,7 +10,6 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/rpc/message,
   ../../waku/v1/node/rpc/hexstrings,
-  ../../waku/v2/waku_types,
   ../../waku/v2/node/wakunode2,
   ../../waku/v2/node/jsonrpc/[store_api,
                               relay_api,

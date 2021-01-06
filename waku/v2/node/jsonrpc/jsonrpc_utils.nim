@@ -2,7 +2,6 @@ import
   std/options,
   eth/keys,
   ../../../v1/node/rpc/hexstrings,
-  ../../waku_types,
   ../../protocol/waku_store/waku_store_types,
   ../wakunode2, ../waku_payload,
   ./jsonrpc_types

@@ -14,11 +14,9 @@ import
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter/waku_filter,
-  ../waku_types,
   ./message_store,
-  ./sqlite
-
-export waku_types
+  ./sqlite,
+  ../utils/requests
 
 logScope:
   topics = "wakunode"
@@ -32,9 +30,14 @@ type
   PublicKey* = crypto.PublicKey
   PrivateKey* = crypto.PrivateKey
 
-  # TODO Get rid of this and use waku_types one
-  Topic* = waku_types.Topic
+  # XXX: Weird type, should probably be using pubsub Topic object name?
+  Topic* = string
   Message* = seq[byte]
+
+  WakuInfo* = object
+    # NOTE One for simplicity, can extend later as needed
+    listenStr*: string
+    #multiaddrStrings*: seq[string]
 
   # NOTE based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj
