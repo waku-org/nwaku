@@ -4,7 +4,6 @@ import
   std/[tables,sequtils],
   json_rpc/rpcserver,
   eth/[common, rlp, keys, p2p],
-  ../../waku_types,
   ../../protocol/waku_filter/waku_filter_types,
   ../wakunode2,
   ./jsonrpc_types

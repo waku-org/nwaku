@@ -1,14 +1,13 @@
-## Waku on libp2p
+## Waku Relay module. Thin layer on top of GossipSub.
 ##
-## This file should eventually correspond to waku_protocol as RLPx subprotocol.
-## Instead, it should likely be on top of GossipSub with a similar interface.
+## See https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-relay.md
+## for spec.
 
 import
   chronos, chronicles, metrics,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
   libp2p/protocols/pubsub/rpc/messages,
-  libp2p/stream/connection,
-  ../waku_types
+  libp2p/stream/connection
 
 declarePublicGauge total_messages, "number of messages received"
 
@@ -16,6 +15,9 @@ logScope:
     topics = "wakurelay"
 
 const WakuRelayCodec* = "/vac/waku/relay/2.0.0-beta2"
+
+type
+  WakuRelay* = ref object of GossipSub
 
 method init*(w: WakuRelay) =
   debug "init"

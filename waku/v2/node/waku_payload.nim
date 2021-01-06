@@ -2,9 +2,9 @@ import
   std/options,
   eth/keys,
   eth/p2p/rlpx_protocols/whisper/whisper_types,
-  ../waku_types
+  ../protocol/waku_message
 
-export whisper_types, waku_types, keys, options
+export whisper_types, keys, options
 
 type
   KeyKind* = enum
@@ -20,6 +20,10 @@ type
       privKey*: PrivateKey
     of None:
       discard
+
+  # NOTE: Currently only used here, if we start using it elsewhere pull it out.
+  WakuResult*[T] = Result[T, cstring]
+
 
 # TODO:
 # - This is using `DecodedPayload` from Waku v1 / Whisper and could be altered

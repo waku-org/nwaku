@@ -14,8 +14,8 @@ import
   ../message_notifier,
   ../../node/message_store,
   ../waku_swap/waku_swap,
-  ../../waku_types,
-  ./waku_store_types
+  ./waku_store_types,
+  ../../utils/requests
 
 export waku_store_types
 

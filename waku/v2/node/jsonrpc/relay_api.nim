@@ -5,9 +5,9 @@ import
   json_rpc/rpcserver,
   libp2p/protocols/pubsub/pubsub,
   eth/[common, rlp, keys, p2p],
-  ../../waku_types,  
   ../wakunode2,
-  ./jsonrpc_types, ./jsonrpc_utils
+  ./jsonrpc_types, ./jsonrpc_utils,
+  ../../protocol/waku_message
 
 export jsonrpc_types
 

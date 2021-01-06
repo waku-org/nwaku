@@ -19,11 +19,10 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                muxers/muxer,             # define an interface for stream multiplexing, allowing peers to offer many protocols over a single connection
                muxers/mplex/mplex]       # define some contants and message types for stream multiplexing
 import   ../../waku/v2/node/[config, wakunode2, waku_payload],
-         ../../waku/v2/protocol/[waku_relay],
+         ../../waku/v2/protocol/[waku_relay, waku_message],
          ../../waku/v2/protocol/waku_store/waku_store,
          ../../waku/v2/protocol/waku_filter/waku_filter,
-         ../../waku/common/utils/nat,
-         ../../waku/v2/waku_types
+         ../../waku/common/utils/nat
 
 const Help = """
   Commands: /[?|help|connect|disconnect|exit]
@@ -52,7 +51,7 @@ type Chat = ref object
 
 type
   PrivateKey* = crypto.PrivateKey
-  Topic* = waku_types.Topic
+  Topic* = wakunode2.Topic
 
 
 # Similarly as Status public chats now.
