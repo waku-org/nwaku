@@ -3,7 +3,7 @@
 ## Next version
 
 - Refactor: Split out `waku_types` types into right place; create utils folder.
-- Docs: Add information on how to query Status test fleet for node addresses.
+- Docs: Add information on how to query Status test fleet for node addresses and view logs.
 
 ## 2021-01-05 v0.2
 
