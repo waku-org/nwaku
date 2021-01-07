@@ -1,5 +1,7 @@
 # Dingpu testnet
 
+*NOTE: Some of these addresses might change. To get the latest, please see `curl -s https://fleets.status.im | jq '.fleets["wakuv2.test"]'`*
+
 ## Basic chat usage
 
 > If historical messaging is desired, the chat app requires that the remote peer specified in `storenode` option supports the WakuStore protocol. For the current cluster node deployed as part of Dingpu this is already the case.

@@ -7,3 +7,5 @@ Example resources:
 
 - How to do releases
 - Viewing and modifying metrics dashboard
+- Continuous integration process
+- How to view Status cluster logs
