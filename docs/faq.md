@@ -17,3 +17,20 @@ Grep for "Listening on". It should be printed at INFO level at the beginning. E.
 ## How do I update all submodules at once?
 
 `git submodule foreach --recursive git submodule update --init`
+
+## How do I find out node addresses at the test cluster?
+
+The easiest way is to use `jq` and query the fleets registry that Status operates:
+
+```
+curl -s https://fleets.status.im | jq '.fleets["wakuv2.test"]'
+
+# Output
+{
+  "waku": {
+    "node-01.ac-cn-hongkong-c.wakuv2.test": "/ip4/0.0.0.0/tcp/30303/p2p/16Uiu2HAmSyrYVycqBCWcHyNVQS6zYQcdQbwyov1CDijboVRsQS37",
+    "node-01.do-ams3.wakuv2.test": "/ip4/0.0.0.0/tcp/30303/p2p/16Uiu2HAmPLe7Mzm8TsYUubgCAW1aJoeFScxrLj8ppHFivPo97bUZ",
+    "node-01.gc-us-central1-a.wakuv2.test": "/ip4/0.0.0.0/tcp/30303/p2p/16Uiu2HAmPLe7Mzm8TsYUubgCAW1aJoeFScxrLj8ppHFivPo97bUZ"
+  }
+}
+```
