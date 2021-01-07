@@ -6,10 +6,6 @@ Grep for "Listening on". It should be printed at INFO level at the beginning. E.
 
 `Oct 7, 2020 @ 23:17:00.383INF 2020-10-07 23:17:00.375+00:00 Listening on                               topics="wakunode" tid=1 file=wakunode2.nim:140 full=/ip4/0.0.0.0/tcp/60000/p2p/16Uiu2HAmJb2e28qLXxT5kZxVUUoJt72EMzNGXB47Rxx5hw3q4YjS`
 
-## How do I update all submodules at once?
-
-`git submodule foreach --recursive git submodule update --init`
-
 ## How do I find out node addresses at the test cluster?
 
 The easiest way is to use `jq` and query the fleets registry that Status operates:
