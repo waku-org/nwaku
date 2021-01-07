@@ -1,3 +1,6 @@
+## chat2 is an example of usage of Waku v2. For suggested usage options, please
+## see dingpu tutorial in docs folder.
+
 when not(compileOption("threads")):
   {.fatal: "Please, compile this program with the --threads:on option!".}
 
