@@ -297,6 +297,7 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil) =
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
 proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.async, gcsafe.} =
+  # TODO add the RLN registration
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
     # Use default
