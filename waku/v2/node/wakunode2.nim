@@ -485,7 +485,7 @@ when isMainModule:
     mountFilter(node)
 
   if conf.relay:
-    waitFor mountRelay(node, conf.topics.split(" "), conf.rlnrelay)
+    waitFor mountRelay(node, conf.topics.split(" "), rlnRelayEnabled = conf.rlnrelay)
 
   if conf.staticnodes.len > 0:
     waitFor connectToNodes(node, conf.staticnodes)
