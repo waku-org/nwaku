@@ -310,7 +310,7 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
   if rlnRelayEnabled:
     debug "Using WakuRLNRelay"
   else:
-    debug "WakuRLNRelay is diabled"
+    debug "WakuRLNRelay is disabled"
 
 
 
