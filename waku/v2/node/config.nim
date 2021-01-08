@@ -62,6 +62,11 @@ type
       desc: "Flag whether to start relay protocol",
       defaultValue: true
       name: "relay" }: bool
+    
+    rlnrelay* {.
+      desc: "Flag whether to enable spam protection through rln-relay",
+      defaultValue: false
+      name: "rlnrelay" }: bool
 
     swap* {.
       desc: "Flag whether to start swap protocol",
