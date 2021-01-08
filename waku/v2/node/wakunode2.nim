@@ -296,7 +296,7 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil) =
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
-proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.async, gcsafe.} =
+proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRelayEnabled: bool = false) {.async, gcsafe.} =
   # TODO add the RLN registration
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
@@ -306,6 +306,13 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.async
     sign = false,
     verifySignature = false
   )
+  # TODO if rln-relay enabled, then perform registration
+  if rlnRelayEnabled:
+    debug "Using WakuRLNRelay"
+  else:
+    debug "WakuRLNRelay is disabled"
+
+
 
   node.wakuRelay = wakuRelay
   node.switch.mount(wakuRelay)
@@ -478,7 +485,7 @@ when isMainModule:
     mountFilter(node)
 
   if conf.relay:
-    waitFor mountRelay(node, conf.topics.split(" "))
+    waitFor mountRelay(node, conf.topics.split(" "), rlnRelayEnabled = conf.rlnrelay)
 
   if conf.staticnodes.len > 0:
     waitFor connectToNodes(node, conf.staticnodes)
