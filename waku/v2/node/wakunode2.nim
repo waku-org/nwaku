@@ -120,7 +120,9 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   info "Initializing networking", hostAddress,
                                   announcedAddresses
   # XXX: Add this when we create node or start it?
-  peerInfo.addrs.add(hostAddress)
+  peerInfo.addrs.add(hostAddress) # Index 0
+  for multiaddr in announcedAddresses:
+    peerInfo.addrs.add(multiaddr) # Announced addresses in index > 0
 
   var switch = newStandardSwitch(some(nodekey), hostAddress,
     transportFlags = {ServerFlags.ReuseAddr}, rng = rng)
@@ -149,7 +151,7 @@ proc start*(node: WakuNode) {.async.} =
   # TODO Get this from WakuNode obj
   let peerInfo = node.peerInfo
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
-  let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
+  let listenStr = $peerInfo.addrs[^1] & "/p2p/" & $peerInfo.peerId
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
 
@@ -259,7 +261,7 @@ proc info*(node: WakuNode): WakuInfo =
 
   # TODO Generalize this for other type of multiaddresses
   let peerInfo = node.peerInfo
-  let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
+  let listenStr = $peerInfo.addrs[^1] & "/p2p/" & $peerInfo.peerId
   let wakuInfo = WakuInfo(listenStr: listenStr)
   return wakuInfo
 
@@ -455,8 +457,13 @@ when isMainModule:
     (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
       Port(uint16(conf.tcpPort) + conf.portsShift),
       Port(uint16(conf.udpPort) + conf.portsShift))
+    ## @TODO: the NAT setup assumes a manual port mapping configuration if extIp config is set. This probably
+    ## implies adding manual config item for extPort as well. The following heuristic assumes that, in absence of manual
+    ## config, the external port is the same as the bind port.
+    extPort = if extIp.isSome() and extTcpPort.isNone(): some(Port(uint16(conf.tcpPort) + conf.portsShift))
+              else: extTcpPort
     node = WakuNode.init(conf.nodeKey, conf.listenAddress,
-      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
+      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extPort)
 
   waitFor node.start()
 
