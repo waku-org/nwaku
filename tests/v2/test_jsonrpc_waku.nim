@@ -59,7 +59,7 @@ procSuite "Waku v2 JSON-RPC API":
     let response = await client.get_waku_v2_debug_v1_info()
 
     check:
-      response.listenStr == $node.peerInfo.addrs[0] & "/p2p/" & $node.peerInfo.peerId
+      response.listenStr == $node.peerInfo.addrs[^1] & "/p2p/" & $node.peerInfo.peerId
 
     server.stop()
     server.close()
