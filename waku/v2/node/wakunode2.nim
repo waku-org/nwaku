@@ -14,8 +14,7 @@ import
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter/waku_filter,
-  ./message_store,
-  ./sqlite,
+  ./message_store/message_store,
   ../utils/requests
 
 logScope:
@@ -406,6 +405,7 @@ when isMainModule:
                private_api,
                relay_api,
                store_api],
+    ./message_store/waku_message_store,
     ../../common/utils/nat
 
   proc startRpc(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port, conf: WakuNodeConf) =
@@ -473,16 +473,16 @@ when isMainModule:
   # TODO Set swap peer, for now should be same as store peer
 
   if conf.store:
-    var store: MessageStore
+    var store: WakuMessageStore
 
     if conf.dbpath != "":
       let dbRes = SqliteDatabase.init(conf.dbpath)
       if dbRes.isErr:
         warn "failed to init database", err = dbRes.error
 
-      let res = MessageStore.init(dbRes.value)
+      let res = WakuMessageStore.init(dbRes.value)
       if res.isErr:
-        warn "failed to init MessageStore", err = res.error
+        warn "failed to init WakuMessageStore", err = res.error
       else:
         store = res.value
 

@@ -2,16 +2,15 @@
 import
   std/[unittest, options, tables, sets],
   chronos, chronicles,
-  ../../waku/v2/node/message_store,
+  ../../waku/v2/node/message_store/waku_message_store,
   ../../waku/v2/protocol/waku_store/waku_store,
-  ./utils,
-  ../../waku/v2/node/sqlite
+  ./utils
 
 suite "Message Store":
   test "set and get works":
     let 
       database = SqliteDatabase.init("", inMemory = true)[]
-      store = MessageStore.init(database)[]
+      store = WakuMessageStore.init(database)[]
       topic = ContentTopic(1)
 
     var msgs = @[

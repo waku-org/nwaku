@@ -3,7 +3,7 @@ import
   eth/keys,
   ../../../v1/node/rpc/hexstrings,
   ../../protocol/waku_store/waku_store_types,
-  ../wakunode2, ../waku_payload,
+  ../waku_payload,
   ./jsonrpc_types
 
 export hexstrings

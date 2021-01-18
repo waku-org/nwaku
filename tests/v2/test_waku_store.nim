@@ -10,7 +10,7 @@ import
   libp2p/protocols/pubsub/rpc/message,
   ../../waku/v2/protocol/[waku_message, message_notifier],
   ../../waku/v2/protocol/waku_store/waku_store,
-  ../../waku/v2/node/[message_store, sqlite],
+  ../../waku/v2/node/message_store/waku_message_store,
   ../test_helpers, ./utils
 
 procSuite "Waku Store":
@@ -62,7 +62,7 @@ procSuite "Waku Store":
       peer = PeerInfo.init(key)
       topic = ContentTopic(1)
       database = SqliteDatabase.init("", inMemory = true)[]
-      store = MessageStore.init(database)[]
+      store = WakuMessageStore.init(database)[]
       msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic)
       msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(2))
 
