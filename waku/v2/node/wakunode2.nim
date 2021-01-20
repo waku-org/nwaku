@@ -339,15 +339,35 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
 ## Helpers
 proc parsePeerInfo(address: string): PeerInfo =
   let multiAddr = MultiAddress.initAddress(address)
-  let parts = address.split("/")
-  return PeerInfo.init(parts[^1], [multiAddr])
+
+  var
+    ipPart, tcpPart, p2pPart: MultiAddress
+
+  for addrPart in multiAddr.items():
+    case addrPart[].protoName()[]
+    of "ip4", "ip6":
+      ipPart = addrPart.tryGet()
+    of "tcp":
+      tcpPart = addrPart.tryGet()
+    of "p2p":
+      p2pPart = addrPart.tryGet()
+  
+  # nim-libp2p dialing requires remote peers to be initialised with a peerId and a wire address
+  let
+    peerIdStr = p2pPart.toString()[].split("/")[^1]
+    wireAddr = ipPart & tcpPart
+  
+  if (not wireAddr.isWire()):
+    raise newException(ValueError, "Invalid node multi-address")
+  
+  return PeerInfo.init(peerIdStr, [wireAddr])
 
 proc dialPeer*(n: WakuNode, address: string) {.async.} =
   info "dialPeer", address = address
   # XXX: This turns ipfs into p2p, not quite sure why
   let remotePeer = parsePeerInfo(address)
 
-  info "Dialing peer", ma = remotePeer.addrs[0]
+  info "Dialing peer", wireAddr = remotePeer.addrs[0], peerId = remotePeer.peerId
   # NOTE This is dialing on WakuRelay protocol specifically
   # TODO Keep track of conn and connected state somewhere (WakuRelay?)
   #p.conn = await p.switch.dial(remotePeer, WakuRelayCodec)

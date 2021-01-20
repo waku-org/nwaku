@@ -78,8 +78,27 @@ proc initAddress(T: type MultiAddress, str: string): T =
 
 proc parsePeer(address: string): PeerInfo = 
   let multiAddr = MultiAddress.initAddress(address)
-  let parts = address.split("/")
-  result = PeerInfo.init(parts[^1], [multiAddr])
+  var
+    ipPart, tcpPart, p2pPart: MultiAddress
+
+  for addrPart in multiAddr.items():
+    case addrPart[].protoName()[]
+    of "ip4", "ip6":
+      ipPart = addrPart.tryGet()
+    of "tcp":
+      tcpPart = addrPart.tryGet()
+    of "p2p":
+      p2pPart = addrPart.tryGet()
+  
+  # nim-libp2p dialing requires remote peers to be initialised with a peerId and a wire address
+  let
+    peerIdStr = p2pPart.toString()[].split("/")[^1]
+    wireAddr = ipPart & tcpPart
+  
+  if (not wireAddr.isWire()):
+    raise newException(ValueError, "Invalid node multi-address")
+  
+  return PeerInfo.init(peerIdStr, [wireAddr])
 
 proc connectToNodes(c: Chat, nodes: seq[string]) {.async.} =
   echo "Connecting to nodes"
