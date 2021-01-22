@@ -6,7 +6,7 @@ import
   libp2p/protocols/protocol,
   ../waku_swap/waku_swap_types,
   ../waku_message,
-  ../../node/message_store,
+  ../../node/message_store/message_store,
   ../../utils/pagination
 
 export waku_message
