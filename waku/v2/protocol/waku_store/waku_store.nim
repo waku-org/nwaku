@@ -12,7 +12,7 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
   ../message_notifier,
-  ../../node/message_store,
+  ../../node/message_store/message_store,
   ../waku_swap/waku_swap,
   ./waku_store_types,
   ../../utils/requests
