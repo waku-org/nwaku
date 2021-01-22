@@ -259,6 +259,7 @@ procSuite "WakuNode":
     ## This is such an important utility function for wakunode2
     ## that it deserves its own test :)
     
+    # First test the `happy path` expected case
     let
       addrStr = "/ip4/127.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
       peerInfo = parsePeerInfo(addrStr)
@@ -267,3 +268,28 @@ procSuite "WakuNode":
       $(peerInfo.peerId) == "16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
       $(peerInfo.addrs[0][0].tryGet()) == "/ip4/127.0.0.1"
       $(peerInfo.addrs[0][1].tryGet()) == "/tcp/60002"
+    
+    # Now test some common corner cases
+    expect ValueError:
+      # gibberish
+      discard parsePeerInfo("/p2p/$UCH GIBBER!SH")
+
+    expect ValueError:
+      # leading whitespace
+      discard parsePeerInfo(" /ip4/127.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
+
+    expect ValueError:
+      # trailing whitespace
+      discard parsePeerInfo("/ip4/127.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc ")
+
+    expect ValueError:
+      # invalid IP address
+      discard parsePeerInfo("/ip4/127.0.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
+    
+    expect ValueError:
+      # no PeerID
+      discard parsePeerInfo("/ip4/127.0.0.1/tcp/60002")
+    
+    expect ValueError:
+      # unsupported transport
+      discard parsePeerInfo("/ip4/127.0.0.1/udp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
