@@ -1,14 +1,17 @@
 import 
   sqlite3_abi,
-  chronos, metrics, stew/results,
+  chronos, metrics,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
   stew/results, metrics,
   ./sqlite,
-  ../protocol/waku_message,
-  ../utils/pagination
+  ./message_store,
+  ../../protocol/waku_message,
+  ../../utils/pagination
+
+export sqlite
 
 # The code in this file is an adaptation of the Sqlite KV Store found in nim-eth.
 # https://github.com/status-im/nim-eth/blob/master/eth/db/kvstore_sqlite3.nim
@@ -16,14 +19,10 @@ import
 # Most of it is a direct copy, the only unique functions being `get` and `put`.
 
 type
-  DataProc* = proc(timestamp: uint64, msg: WakuMessage) {.closure.}
-
-  MessageStoreResult*[T] = Result[T, string]
-
-  MessageStore* = ref object of RootObj
+  WakuMessageStore* = ref object of MessageStore
     database*: SqliteDatabase
 
-proc init*(T: type MessageStore, db: SqliteDatabase): MessageStoreResult[T] =
+proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] =
   ## Table is the SQL query for creating the messages Table.
   ## It contains:
   ##  - 4-Byte ContentTopic stored as an Integer
@@ -44,9 +43,9 @@ proc init*(T: type MessageStore, db: SqliteDatabase): MessageStoreResult[T] =
   if res.isErr:
     return err("failed to exec")
 
-  ok(MessageStore(database: db))
+  ok(WakuMessageStore(database: db))
 
-proc put*(db: MessageStore, cursor: Index, message: WakuMessage): MessageStoreResult[void] =
+method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage): MessageStoreResult[void] =
   ## Adds a message to the storage.
   ##
   ## **Example:**
@@ -71,7 +70,7 @@ proc put*(db: MessageStore, cursor: Index, message: WakuMessage): MessageStoreRe
 
   ok()
 
-proc getAll*(db: MessageStore, onData: DataProc): MessageStoreResult[bool] =
+method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageStoreResult[bool] =
   ## Retreives all messages from the storage.
   ##
   ## **Example:**
@@ -100,6 +99,6 @@ proc getAll*(db: MessageStore, onData: DataProc): MessageStoreResult[bool] =
 
   ok gotMessages
 
-proc close*(db: MessageStore) = 
+proc close*(db: WakuMessageStore) = 
   ## Closes the database.
   db.database.close()
