@@ -10,21 +10,18 @@ import confutils, chronicles, chronos, stew/shims/net as stewNet,
        nimcrypto/pbkdf2
 import libp2p/[switch,                   # manage transports, a single entry point for dialing and listening
                crypto/crypto,            # cryptographic functions
-               protocols/identify,       # identify the peer info of a peer
                stream/connection,        # create and close stream read / write connections
-               transports/tcptransport,  # listen and dial to other peers using client-server protocol
                multiaddress,             # encode different addressing schemes. For example, /ip4/7.7.7.7/tcp/6543 means it is using IPv4 protocol and TCP
                peerinfo,                 # manage the information of a peer, such as peer ID and public / private key
                peerid,                   # Implement how peers interact
                protocols/protocol,       # define the protocol base type
-               protocols/secure/secure,  # define the protocol of secure connection
                protocols/secure/secio,   # define the protocol of secure input / output, allows encrypted communication that uses public keys to validate signed messages instead of a certificate authority like in TLS
-               muxers/muxer,             # define an interface for stream multiplexing, allowing peers to offer many protocols over a single connection
-               muxers/mplex/mplex]       # define some contants and message types for stream multiplexing
+               muxers/muxer]             # define an interface for stream multiplexing, allowing peers to offer many protocols over a single connection
 import   ../../waku/v2/node/[config, wakunode2, waku_payload],
-         ../../waku/v2/protocol/[waku_relay, waku_message],
+         ../../waku/v2/protocol/waku_message,
          ../../waku/v2/protocol/waku_store/waku_store,
          ../../waku/v2/protocol/waku_filter/waku_filter,
+         ../../waku/v2/utils/peers,
          ../../waku/common/utils/nat
 
 const Help = """
@@ -67,19 +64,6 @@ proc generateSymKey(contentTopic: ContentTopic): SymKey =
   symKey
 
 let DefaultSymKey = generateSymKey(DefaultContentTopic)
-
-proc initAddress(T: type MultiAddress, str: string): T =
-  let address = MultiAddress.init(str).tryGet()
-  if IPFS.match(address) and matchPartial(multiaddress.TCP, address):
-    result = address
-  else:
-    raise newException(ValueError,
-                         "Invalid bootstrap node multi-address")
-
-proc parsePeer(address: string): PeerInfo = 
-  let multiAddr = MultiAddress.initAddress(address)
-  let parts = address.split("/")
-  result = PeerInfo.init(parts[^1], [multiAddr])
 
 proc connectToNodes(c: Chat, nodes: seq[string]) {.async.} =
   echo "Connecting to nodes"
@@ -211,7 +195,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   if conf.storenode != "":
     node.mountStore()
 
-    node.wakuStore.setPeer(parsePeer(conf.storenode))
+    node.wakuStore.setPeer(parsePeerInfo(conf.storenode))
 
     proc storeHandler(response: HistoryResponse) {.gcsafe.} =
       for msg in response.messages:
@@ -224,7 +208,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   if conf.filternode != "":
     node.mountFilter()
 
-    node.wakuFilter.setPeer(parsePeer(conf.filternode))
+    node.wakuFilter.setPeer(parsePeerInfo(conf.filternode))
 
     proc filterHandler(msg: WakuMessage) {.gcsafe.} =
       let payload = string.fromBytes(msg.payload)

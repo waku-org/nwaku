@@ -5,11 +5,14 @@ import
   chronicles, chronos, stew/shims/net as stewNet, stew/byteutils,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
+  libp2p/peerid,
+  libp2p/multiaddress,
   libp2p/switch,
   eth/keys,
   ../../waku/v2/protocol/[waku_relay, waku_message, message_notifier],
   ../../waku/v2/protocol/waku_store/waku_store,
   ../../waku/v2/protocol/waku_filter/waku_filter,
+  ../../waku/v2/utils/peers,
   ../../waku/v2/node/wakunode2,
   ../test_helpers
 
@@ -251,3 +254,42 @@ procSuite "WakuNode":
     await node1.stop()
     await node2.stop()
     await node3.stop()
+
+  asyncTest "Peer info parses correctly":
+    ## This is such an important utility function for wakunode2
+    ## that it deserves its own test :)
+    
+    # First test the `happy path` expected case
+    let
+      addrStr = "/ip4/127.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
+      peerInfo = parsePeerInfo(addrStr)
+    
+    check:
+      $(peerInfo.peerId) == "16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
+      $(peerInfo.addrs[0][0].tryGet()) == "/ip4/127.0.0.1"
+      $(peerInfo.addrs[0][1].tryGet()) == "/tcp/60002"
+    
+    # Now test some common corner cases
+    expect ValueError:
+      # gibberish
+      discard parsePeerInfo("/p2p/$UCH GIBBER!SH")
+
+    expect ValueError:
+      # leading whitespace
+      discard parsePeerInfo(" /ip4/127.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
+
+    expect ValueError:
+      # trailing whitespace
+      discard parsePeerInfo("/ip4/127.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc ")
+
+    expect ValueError:
+      # invalid IP address
+      discard parsePeerInfo("/ip4/127.0.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
+    
+    expect ValueError:
+      # no PeerID
+      discard parsePeerInfo("/ip4/127.0.0.1/tcp/60002")
+    
+    expect ValueError:
+      # unsupported transport
+      discard parsePeerInfo("/ip4/127.0.0.1/udp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
