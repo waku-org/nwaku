@@ -16,7 +16,6 @@ import
   ../protocol/waku_filter/waku_filter,
   ../utils/peers,
   ./message_store/message_store,
-  ./sqlite,
   ../utils/requests
 
 logScope:
