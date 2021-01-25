@@ -14,6 +14,7 @@ import
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter/waku_filter,
+  ../utils/peers,
   ./message_store/message_store,
   ../utils/requests
 
@@ -60,14 +61,6 @@ type
 
 func asEthKey*(key: PrivateKey): keys.PrivateKey =
   keys.PrivateKey(key.skkey)
-
-proc initAddress(T: type MultiAddress, str: string): T =
-  let address = MultiAddress.init(str).tryGet()
-  if IPFS.match(address) and matchPartial(multiaddress.TCP, address):
-    result = address
-  else:
-    raise newException(ValueError,
-                       "Invalid bootstrap node multi-address")
 
 proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilter]) {.gcsafe.} =
   # Flatten all unsubscribe topics into single seq
@@ -336,17 +329,12 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
     discard node.subscribe(topic, handler)
 
 ## Helpers
-proc parsePeerInfo(address: string): PeerInfo =
-  let multiAddr = MultiAddress.initAddress(address)
-  let parts = address.split("/")
-  return PeerInfo.init(parts[^1], [multiAddr])
-
 proc dialPeer*(n: WakuNode, address: string) {.async.} =
   info "dialPeer", address = address
   # XXX: This turns ipfs into p2p, not quite sure why
   let remotePeer = parsePeerInfo(address)
 
-  info "Dialing peer", ma = remotePeer.addrs[0]
+  info "Dialing peer", wireAddr = remotePeer.addrs[0], peerId = remotePeer.peerId
   # NOTE This is dialing on WakuRelay protocol specifically
   # TODO Keep track of conn and connected state somewhere (WakuRelay?)
   #p.conn = await p.switch.dial(remotePeer, WakuRelayCodec)
