@@ -19,6 +19,10 @@ import
 
 export waku_store_types
 
+declarePublicGauge waku_store_messages, "number of historical messages"
+declarePublicGauge waku_store_peers, "number of store peers"
+declarePublicGauge waku_store_errors, "number of store protocol errors", ["type"]
+
 logScope:
   topics = "wakustore"
 
@@ -303,6 +307,7 @@ method init*(ws: WakuStore) =
     var res = HistoryRPC.init(message)
     if res.isErr:
       error "failed to decode rpc"
+      waku_store_errors.inc(labelValues = ["decode_rpc_failure"])
       return
 
     info "received query"
@@ -336,6 +341,9 @@ method init*(ws: WakuStore) =
   let res = ws.store.getAll(onData)
   if res.isErr:
     warn "failed to load messages from store", err = res.error
+    waku_store_errors.inc(labelValues = ["store_load_failure"])
+  
+  waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
 
 proc init*(T: type WakuStore, switch: Switch, rng: ref BrHmacDrbgContext,
                    store: MessageStore = nil, wakuSwap: WakuSwap = nil): T =
@@ -349,6 +357,7 @@ proc init*(T: type WakuStore, switch: Switch, rng: ref BrHmacDrbgContext,
 # @TODO THIS SHOULD PROBABLY BE AN ADD FUNCTION AND APPEND THE PEER TO AN ARRAY
 proc setPeer*(ws: WakuStore, peer: PeerInfo) =
   ws.peers.add(HistoryPeer(peerInfo: peer))
+  waku_store_peers.inc()
 
 proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   ## The filter function returns the pubsub filter for the node.
@@ -358,12 +367,14 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   proc handle(topic: string, msg: WakuMessage) {.async.} =
     let index = msg.computeIndex()
     proto.messages.add(IndexedWakuMessage(msg: msg, index: index))
+    waku_store_messages.inc(labelValues = ["stored"])
     if proto.store.isNil:
       return
   
     let res = proto.store.put(index, msg)
     if res.isErr:
       warn "failed to store messages", err = res.error
+      waku_store_errors.inc(labelValues = ["store_failure"])
 
   MessageNotificationSubscription.init(@[], handle)
 
@@ -386,7 +397,10 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
 
   if response.isErr:
     error "failed to decode response"
+    waku_store_errors.inc(labelValues = ["decode_rpc_failure"])
     return
+
+  waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
 
   handler(response.value.response)
 
@@ -410,6 +424,7 @@ proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHand
 
   if response.isErr:
     error "failed to decode response"
+    waku_store_errors.inc(labelValues = ["decode_rpc_failure"])
     return
 
   # NOTE Perform accounting operation
@@ -417,5 +432,7 @@ proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHand
   let peerId = peer.peerInfo.peerId
   let messages = response.value.response.messages
   ws.wakuSwap.debit(peerId, messages.len)
+
+  waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
 
   handler(response.value.response)
