@@ -9,8 +9,6 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/stream/connection
 
-declarePublicGauge total_messages, "number of messages received"
-
 logScope:
     topics = "wakurelay"
 

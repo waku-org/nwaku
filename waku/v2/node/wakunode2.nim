@@ -1,6 +1,6 @@
 import
   std/[options, tables, strutils, sequtils],
-  chronos, chronicles, stew/shims/net as stewNet,
+  chronos, chronicles, metrics, stew/shims/net as stewNet,
   # TODO: Why do we need eth keys?
   eth/keys,
   libp2p/multiaddress,
@@ -17,6 +17,10 @@ import
   ../utils/peers,
   ./message_store/message_store,
   ../utils/requests
+
+declarePublicCounter waku_node_messages, "number of messages received", ["type"]
+declarePublicGauge waku_node_filters, "number of content filter subscriptions"
+declarePublicGauge waku_node_errors, "number of wakunode errors", ["type"]
 
 logScope:
   topics = "wakunode"
@@ -181,6 +185,8 @@ proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHa
     id = await node.wakuFilter.subscribe(request)
   node.filters[id] = Filter(contentFilters: request.contentFilters, handler: handler)
 
+  waku_node_filters.set(node.filters.len.int64)
+
 proc unsubscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) {.async.} =
   ## Unsubscribes a handler from a PubSub topic.
   ##
@@ -212,6 +218,8 @@ proc unsubscribe*(node: WakuNode, request: FilterRequest) {.async, gcsafe.} =
   
   await node.wakuFilter.unsubscribe(request)
   node.filters.removeContentFilters(request.contentFilters)
+
+  waku_node_filters.set(node.filters.len.int64)
 
 
 proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) {.async, gcsafe.} =
@@ -263,6 +271,7 @@ proc mountFilter*(node: WakuNode) =
     info "push received"
     for message in msg.messages:
       node.filters.notify(message, requestId)
+      waku_node_messages.inc(labelValues = ["filter"])
 
   node.wakuFilter = WakuFilter.init(node.switch, node.rng, filterHandler)
   node.switch.mount(node.wakuFilter)
@@ -317,6 +326,7 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
     if msg.isOk():
       node.filters.notify(msg.value(), "")
       await node.subscriptions.notify(topic, msg.value())
+      waku_node_messages.inc(labelValues = ["relay"])
 
   await node.wakuRelay.subscribe("/waku/2/default-waku/proto", relayHandler)
 
@@ -433,8 +443,11 @@ when isMainModule:
       {.gcsafe.}:
         # TODO: libp2p_pubsub_peers is not public, so we need to make this either
         # public in libp2p or do our own peer counting after all.
-        let
-          totalMessages = total_messages.value
+        var
+          totalMessages = 0.float64
+
+        for key in waku_node_messages.metrics.keys():
+          totalMessages = totalMessages + waku_node_messages.value(key)
 
       info "Node metrics", totalMessages
       discard setTimer(Moment.fromNow(2.seconds), logMetrics)
@@ -467,10 +480,12 @@ when isMainModule:
       let dbRes = SqliteDatabase.init(conf.dbpath)
       if dbRes.isErr:
         warn "failed to init database", err = dbRes.error
+        waku_node_errors.inc(labelValues = ["init_db_failure"])
 
       let res = WakuMessageStore.init(dbRes.value)
       if res.isErr:
         warn "failed to init WakuMessageStore", err = res.error
+        waku_node_errors.inc(labelValues = ["init_store_failure"])
       else:
         store = res.value
 

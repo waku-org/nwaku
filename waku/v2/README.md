@@ -87,7 +87,7 @@ prometheus with this config, e.g.:
 
 ```bash
 cd ./metrics/prometheus
-prometheus
+prometheus --config.file=prometheus.yml
 ```
 
 A Grafana dashboard containing the example dashboard for each simulation node

@@ -35,6 +35,9 @@ import
 
 export waku_swap_types
 
+declarePublicGauge waku_swap_peers, "number of swap peers"
+declarePublicGauge waku_swap_errors, "number of swap protocol errors", ["type"]
+
 logScope:
   topics = "wakuswap"
 
@@ -115,6 +118,7 @@ proc init*(wakuSwap: WakuSwap) =
     var res = Cheque.init(message)
     if res.isErr:
       error "failed to decode rpc"
+      waku_swap_errors.inc(labelValues = ["decode_rpc_failure"])
       return
 
     info "received cheque", value=res.value
@@ -171,6 +175,7 @@ proc init*(T: type WakuSwap, switch: Switch, rng: ref BrHmacDrbgContext): T =
 
 proc setPeer*(ws: WakuSwap, peer: PeerInfo) =
   ws.peers.add(SwapPeer(peerInfo: peer))
+  waku_swap_peers.inc()
 
 # TODO End to end communication
 

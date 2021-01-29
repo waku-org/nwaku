@@ -20,6 +20,10 @@ import
 
 export waku_filter_types
 
+declarePublicGauge waku_filter_peers, "number of filter peers"
+declarePublicGauge waku_filter_subscribers, "number of light node filter subscribers"
+declarePublicGauge waku_filter_errors, "number of filter protocol errors", ["type"]
+
 logScope:
   topics = "wakufilter"
 
@@ -162,6 +166,7 @@ method init*(wf: WakuFilter) =
     var res = FilterRPC.init(message)
     if res.isErr:
       error "failed to decode rpc"
+      waku_filter_errors.inc(labelValues = ["decode_rpc_failure"])
       return
 
     info "filter message received"
@@ -174,6 +179,8 @@ method init*(wf: WakuFilter) =
         wf.subscribers.add(Subscriber(peer: conn.peerInfo, requestId: value.requestId, filter: value.request))
       else:
         wf.subscribers.unsubscribeFilters(value.request, conn.peerInfo.peerId)
+      
+      waku_filter_subscribers.set(wf.subscribers.len.int64)
 
   wf.handler = handle
   wf.codec = WakuFilterCodec
@@ -188,6 +195,7 @@ proc init*(T: type WakuFilter, switch: Switch, rng: ref BrHmacDrbgContext, handl
 # @TODO THIS SHOULD PROBABLY BE AN ADD FUNCTION AND APPEND THE PEER TO AN ARRAY
 proc setPeer*(wf: WakuFilter, peer: PeerInfo) =
   wf.peers.add(FilterPeer(peerInfo: peer))
+  waku_filter_peers.inc()
 
 proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
   ## Returns a Filter for the specific protocol
