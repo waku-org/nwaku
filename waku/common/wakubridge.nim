@@ -84,7 +84,7 @@ proc startWakuV2(config: WakuNodeConf): Future[WakuNode] {.async.} =
     mountFilter(node)
 
   if config.relay:
-    waitFor mountRelay(node, config.topics.split(" "))
+    mountRelay(node, config.topics.split(" "))
 
   if config.staticnodesv2.len > 0:
     waitFor connectToNodes(node, config.staticnodesv2)
