@@ -27,7 +27,7 @@ suite "Waku v2 Remote Procedure Calls":
 
   waitFor node.start()
 
-  waitFor node.mountRelay(@["waku"])
+  node.mountRelay(@["waku"])
 
   # RPC server setup
   let

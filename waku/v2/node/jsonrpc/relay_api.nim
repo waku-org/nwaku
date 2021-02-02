@@ -70,45 +70,26 @@ proc installRelayApiHandlers*(node: WakuNode, rpcsrv: RpcServer, topicCache: Top
   rpcsrv.rpc("post_waku_v2_relay_v1_subscriptions") do(topics: seq[string]) -> bool:
     ## Subscribes a node to a list of PubSub topics
     debug "post_waku_v2_relay_v1_subscriptions"
-  
-    var failedTopics: seq[string]
 
     # Subscribe to all requested topics
     for topic in topics:
-      if not(await node.subscribe(topic, topicHandler).withTimeout(futTimeout)):
-        # If any topic fails to subscribe, add to list of failedTopics
-        failedTopics.add(topic)
-      else:
-        # Create message cache for this topic
-        debug "MessageCache for topic", topic=topic
-        topicCache[topic] = @[]
-
-    if (failedTopics.len() == 0):
-      # Successfully subscribed to all requested topics
-      return true
-    else:
-      # Failed to subscribe to one or more topics
-      raise newException(ValueError, "Failed to subscribe to topics " & repr(failedTopics))
+      node.subscribe(topic, topicHandler)      
+      # Create message cache for this topic
+      debug "MessageCache for topic", topic=topic
+      topicCache[topic] = @[]
+    
+    # Successfully subscribed to all requested topics
+    return true
 
   rpcsrv.rpc("delete_waku_v2_relay_v1_subscriptions") do(topics: seq[string]) -> bool:
     ## Unsubscribes a node from a list of PubSub topics
     debug "delete_waku_v2_relay_v1_subscriptions"
-   
-    var failedTopics: seq[string]
 
     # Unsubscribe all handlers from requested topics
     for topic in topics:
-      if not(await node.unsubscribeAll(topic).withTimeout(futTimeout)):
-        # If any topic fails to unsubscribe, add to list of failedTopics
-        failedTopics.add(topic)
-      else:
-        # Remove message cache for topic
-        topicCache.del(topic)
+      node.unsubscribeAll(topic)
+      # Remove message cache for topic
+      topicCache.del(topic)
 
-    if (failedTopics.len() == 0):
-      # Successfully unsubscribed from all requested topics
-      return true
-    else:
-      # Failed to unsubscribe from one or more topics
-      raise newException(ValueError, "Failed to unsubscribe from topics " & repr(failedTopics))
-    
+    # Successfully unsubscribed from all requested topics
+    return true 

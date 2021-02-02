@@ -176,9 +176,9 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   await node.start()
 
   if conf.filternode != "":
-    await node.mountRelay(conf.topics.split(" "), rlnRelayEnabled = conf.rlnrelay)
+    node.mountRelay(conf.topics.split(" "), rlnRelayEnabled = conf.rlnrelay)
   else:
-    await node.mountRelay(@[], rlnRelayEnabled = conf.rlnrelay)
+    node.mountRelay(@[], rlnRelayEnabled = conf.rlnrelay)
 
   var chat = Chat(node: node, transp: transp, subscribed: true, connected: false, started: true)
 
@@ -251,7 +251,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
       trace "Invalid encoded WakuMessage", error = decoded.error
 
   let topic = cast[Topic](DefaultTopic)
-  await node.subscribe(topic, handler)
+  node.subscribe(topic, handler)
 
   await chat.readWriteLoop()
   runForever()
