@@ -42,7 +42,7 @@ procSuite "Waku v2 JSON-RPC API":
   asyncTest "Debug API: get node info": 
     waitFor node.start()
 
-    waitFor node.mountRelay()
+    node.mountRelay()
 
     # RPC server setup
     let
@@ -68,7 +68,7 @@ procSuite "Waku v2 JSON-RPC API":
   asyncTest "Relay API: publish and subscribe/unsubscribe": 
     waitFor node.start()
 
-    waitFor node.mountRelay()
+    node.mountRelay()
 
     # RPC server setup
     let
@@ -128,13 +128,13 @@ procSuite "Waku v2 JSON-RPC API":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    await node1.mountRelay(@[pubSubTopic])
+    node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    await node2.mountRelay(@[pubSubTopic])
+    node2.mountRelay(@[pubSubTopic])
 
     await node3.start()
-    await node3.mountRelay(@[pubSubTopic])
+    node3.mountRelay(@[pubSubTopic])
 
     await node1.connectToNodes(@[node2.peerInfo])
     await node3.connectToNodes(@[node2.peerInfo])
@@ -188,7 +188,7 @@ procSuite "Waku v2 JSON-RPC API":
   asyncTest "Store API: retrieve historical messages":      
     waitFor node.start()
 
-    waitFor node.mountRelay(@[defaultTopic])
+    node.mountRelay(@[defaultTopic])
 
     # RPC server setup
     let
@@ -249,7 +249,7 @@ procSuite "Waku v2 JSON-RPC API":
   asyncTest "Filter API: subscribe/unsubscribe": 
     waitFor node.start()
 
-    waitFor node.mountRelay()
+    node.mountRelay()
 
     node.mountFilter()
 
@@ -434,13 +434,13 @@ procSuite "Waku v2 JSON-RPC API":
       topicCache = newTable[string, seq[WakuMessage]]()
 
     await node1.start()
-    await node1.mountRelay(@[pubSubTopic])
+    node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    await node2.mountRelay(@[pubSubTopic])
+    node2.mountRelay(@[pubSubTopic])
 
     await node3.start()
-    await node3.mountRelay(@[pubSubTopic])
+    node3.mountRelay(@[pubSubTopic])
 
     await node1.connectToNodes(@[node2.peerInfo])
     await node3.connectToNodes(@[node2.peerInfo])
@@ -524,13 +524,13 @@ procSuite "Waku v2 JSON-RPC API":
       topicCache = newTable[string, seq[WakuMessage]]()
 
     await node1.start()
-    await node1.mountRelay(@[pubSubTopic])
+    node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    await node2.mountRelay(@[pubSubTopic])
+    node2.mountRelay(@[pubSubTopic])
 
     await node3.start()
-    await node3.mountRelay(@[pubSubTopic])
+    node3.mountRelay(@[pubSubTopic])
 
     await node1.connectToNodes(@[node2.peerInfo])
     await node3.connectToNodes(@[node2.peerInfo])

@@ -27,7 +27,7 @@ proc start*(node: WakuNode) {.async.} =
   ##
   ## Status: Implemented.
 
-proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) {.async.} =
+proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
   ## this topic. TopicHandler is a method that takes a topic and some data.
   ##
@@ -40,12 +40,12 @@ proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHa
   ##
   ## Status: Implemented.
 
-proc unsubscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) {.async.} =
+proc unsubscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) =
   ## Unsubscribes a handler from a PubSub topic.
   ##
   ## Status: Implemented.
 
-proc unsubscribeAll*(node: WakuNode, topic: Topic) {.async.} =
+proc unsubscribeAll*(node: WakuNode, topic: Topic) =
   ## Unsubscribes all handlers registered on a specific PubSub topic.
   ##
   ## Status: Implemented.

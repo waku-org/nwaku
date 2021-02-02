@@ -157,7 +157,7 @@ proc stop*(node: WakuNode) {.async.} =
 
   await node.switch.stop()
 
-proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) {.async.} =
+proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
   ## this topic. TopicHandler is a method that takes a topic and some data.
   ##
@@ -166,7 +166,7 @@ proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) {.async.} =
   info "subscribe", topic=topic
 
   let wakuRelay = node.wakuRelay
-  await wakuRelay.subscribe(topic, handler)
+  wakuRelay.subscribe(topic, handler)
 
 proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHandler) {.async, gcsafe.} =
   ## Registers for messages that match a specific filter. Triggers the handler whenever a message is received.
@@ -187,23 +187,23 @@ proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHa
 
   waku_node_filters.set(node.filters.len.int64)
 
-proc unsubscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) {.async.} =
+proc unsubscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) =
   ## Unsubscribes a handler from a PubSub topic.
   ##
   ## Status: Implemented.
   info "unsubscribe", topic=topic
 
   let wakuRelay = node.wakuRelay
-  await wakuRelay.unsubscribe(@[(topic, handler)])
+  wakuRelay.unsubscribe(@[(topic, handler)])
 
-proc unsubscribeAll*(node: WakuNode, topic: Topic) {.async.} =
+proc unsubscribeAll*(node: WakuNode, topic: Topic) =
   ## Unsubscribes all handlers registered on a specific PubSub topic.
   ##
   ## Status: Implemented.
   info "unsubscribeAll", topic=topic
 
   let wakuRelay = node.wakuRelay
-  await wakuRelay.unsubscribeAll(topic)
+  wakuRelay.unsubscribeAll(topic)
   
 
 proc unsubscribe*(node: WakuNode, request: FilterRequest) {.async, gcsafe.} =
@@ -299,7 +299,7 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil) =
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
-proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRelayEnabled: bool = false) {.async, gcsafe.} =
+proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRelayEnabled: bool = false) {.gcsafe.} =
   # TODO add the RLN registration
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
@@ -328,15 +328,13 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
       await node.subscriptions.notify(topic, msg.value())
       waku_node_messages.inc(labelValues = ["relay"])
 
-  await node.wakuRelay.subscribe("/waku/2/default-waku/proto", relayHandler)
+  node.wakuRelay.subscribe("/waku/2/default-waku/proto", relayHandler)
 
   for topic in topics:
     proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
       debug "Hit handler", topic=topic, data=data
 
-    # XXX: Is using discard here fine? Not sure if we want init to be async?
-    # Can also move this to the start proc, possibly wiser?
-    discard node.subscribe(topic, handler)
+    node.subscribe(topic, handler)
 
 ## Helpers
 proc dialPeer*(n: WakuNode, address: string) {.async.} =
@@ -495,7 +493,7 @@ when isMainModule:
     mountFilter(node)
 
   if conf.relay:
-    waitFor mountRelay(node, conf.topics.split(" "), rlnRelayEnabled = conf.rlnrelay)
+    mountRelay(node, conf.topics.split(" "), rlnRelayEnabled = conf.rlnrelay)
 
   if conf.staticnodes.len > 0:
     waitFor connectToNodes(node, conf.staticnodes)
