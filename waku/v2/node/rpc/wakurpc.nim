@@ -53,8 +53,7 @@ proc setupWakuRPC*(node: WakuNode, rpcsrv: RpcServer) =
         warn "waku_subscribe decode error", msg=msg
         info "waku_subscribe raw data string", str=cast[string](data)
 
-    # XXX: Can we make this context async to use await?
-    discard node.subscribe(topic, handler)
+    node.subscribe(topic, handler)
     return true
     #if not result:
     #  raise newException(ValueError, "Message could not be posted")
