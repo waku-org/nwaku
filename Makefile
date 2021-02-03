@@ -115,9 +115,17 @@ else
  detected_OS := $(strip $(shell uname))
 endif
 
-test2: | build deps
+installganache: 
+	npm install ganache-cli; npx ganache-cli -p	8540	-g	0	-l	3000000000000&
+
+
+test2: | build deps installganache
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test2 $(NIM_PARAMS) waku.nims
+	# the following command (pkill -f ganache-cli) attempts to kill ganache-cli process on macos  
+	# if we do not kill the process then it would hang there and causes issue in GitHub Actions macos job (the job never finsihes)
+	(([[ $(detected_OS) = macOS ]] && \
+		pkill -f ganache-cli) || true)
 
 scripts2: | build deps wakunode2
 	echo -e $(BUILD_MSG) "build/$@" && \
