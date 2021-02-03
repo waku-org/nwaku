@@ -71,11 +71,11 @@ task test2, "Build & run Waku v2 tests":
   test "all_tests_v2"
 
 task scripts2, "Build Waku v2 scripts":
-  buildBinary "rpc_publish", "waku/v2/node/rpc/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "rpc_subscribe", "waku/v2/node/rpc/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "rpc_subscribe_filter", "waku/v2/node/rpc/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "rpc_query", "waku/v2/node/rpc/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "rpc_info", "waku/v2/node/rpc/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "rpc_publish", "waku/v2/node/scripts/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "rpc_subscribe", "waku/v2/node/scripts/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "rpc_subscribe_filter", "waku/v2/node/scripts/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "rpc_query", "waku/v2/node/scripts/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "rpc_info", "waku/v2/node/scripts/", "-d:chronicles_log_level=DEBUG"
 
 task chat2, "Build example Waku v2 chat usage":
   let name = "chat2"
