@@ -47,10 +47,10 @@ method initPubSub*(w: WakuRelay) =
 
 method subscribe*(w: WakuRelay,
                   pubSubTopic: string,
-                  handler: TopicHandler) {.async.} =
+                  handler: TopicHandler) =
   debug "subscribe", pubSubTopic=pubSubTopic
 
-  await procCall GossipSub(w).subscribe(pubSubTopic, handler)
+  procCall GossipSub(w).subscribe(pubSubTopic, handler)
 
 method publish*(w: WakuRelay,
                 pubSubTopic: string,
@@ -61,16 +61,16 @@ method publish*(w: WakuRelay,
   return await procCall GossipSub(w).publish(pubSubTopic, message)
 
 method unsubscribe*(w: WakuRelay,
-                    topics: seq[TopicPair]) {.async.} =
+                    topics: seq[TopicPair]) =
   debug "unsubscribe"
 
-  await procCall GossipSub(w).unsubscribe(topics)
+  procCall GossipSub(w).unsubscribe(topics)
 
 method unsubscribeAll*(w: WakuRelay,
-                       pubSubTopic: string) {.async.} =
+                       pubSubTopic: string) =
   debug "unsubscribeAll"
 
-  await procCall GossipSub(w).unsubscribeAll(pubSubTopic)
+  procCall GossipSub(w).unsubscribeAll(pubSubTopic)
 
 # GossipSub specific methods --------------------------------------------------
 method start*(w: WakuRelay) {.async.} =

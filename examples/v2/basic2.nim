@@ -23,7 +23,7 @@ proc runBackground() {.async.} =
       Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
 
   await node.start()
-  await node.mountRelay(rlnRelayEnabled = conf.rlnrelay)
+  node.mountRelay(rlnRelayEnabled = conf.rlnrelay)
 
   # Subscribe to a topic
   let topic = cast[Topic]("foobar")
@@ -31,7 +31,7 @@ proc runBackground() {.async.} =
     let message = WakuMessage.init(data).value
     let payload = cast[string](message.payload)
     info "Hit subscribe handler", topic=topic, payload=payload, contentTopic=message.contentTopic
-  await node.subscribe(topic, handler)
+  node.subscribe(topic, handler)
 
   # Publish to a topic
   let payload = cast[seq[byte]]("hello world")
