@@ -105,6 +105,16 @@ example2: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim example2 $(NIM_PARAMS) waku.nims
 
+# detecting the os
+ifeq ($(OS),Windows_NT) # is Windows_NT on XP, 2000, 7, Vista, 10...
+ detected_OS := Windows
+else ifeq ($(strip $(shell uname)),Darwin)
+ detected_OS := macOS
+else
+ # e.g. Linux
+ detected_OS := $(strip $(shell uname))
+endif
+
 test2: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test2 $(NIM_PARAMS) waku.nims
