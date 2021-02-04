@@ -8,7 +8,6 @@ import
   libp2p/protocols/protocol,
   # NOTE For TopicHandler, solve with exports?
   libp2p/protocols/pubsub/pubsub,
-  libp2p/peerinfo,
   libp2p/standard_setup,
   ../protocol/[waku_relay, message_notifier],
   ../protocol/waku_store/waku_store,
@@ -16,7 +15,8 @@ import
   ../protocol/waku_filter/waku_filter,
   ../utils/peers,
   ./message_store/message_store,
-  ../utils/requests
+  ../utils/requests,
+  ./peer_manager
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicGauge waku_node_filters, "number of content filter subscriptions"
@@ -45,6 +45,7 @@ type
 
   # NOTE based on Eth2Node in NBC eth2_network.nim
   WakuNode* = ref object of RootObj
+    peerManager*: PeerManager
     switch*: Switch
     wakuRelay*: WakuRelay
     wakuStore*: WakuStore
@@ -130,6 +131,7 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   #    triggerSelf = true, sign = false,
   #    verifySignature = false).PubSub
   result = WakuNode(
+    peerManager: PeerManager.new(switch),
     switch: switch,
     rng: rng,
     peerInfo: peerInfo,
@@ -344,11 +346,8 @@ proc dialPeer*(n: WakuNode, address: string) {.async.} =
 
   info "Dialing peer", wireAddr = remotePeer.addrs[0], peerId = remotePeer.peerId
   # NOTE This is dialing on WakuRelay protocol specifically
-  # TODO Keep track of conn and connected state somewhere (WakuRelay?)
-  #p.conn = await p.switch.dial(remotePeer, WakuRelayCodec)
-  #p.connected = true
-  discard await n.switch.dial(remotePeer.peerId, remotePeer.addrs, WakuRelayCodec)
-  info "Post switch dial"
+  discard await n.peerManager.dialPeer(remotePeer, WakuRelayCodec)
+  info "Post peerManager dial"
 
 proc setStorePeer*(n: WakuNode, address: string) =
   info "dialPeer", address = address
@@ -381,7 +380,7 @@ proc connectToNodes*(n: WakuNode, nodes: seq[string]) {.async.} =
 proc connectToNodes*(n: WakuNode, nodes: seq[PeerInfo]) {.async.} =
   for peerInfo in nodes:
     info "connectToNodes", peer = peerInfo
-    discard await n.switch.dial(peerInfo.peerId, peerInfo.addrs, WakuRelayCodec)
+    discard await n.peerManager.dialPeer(peerInfo, WakuRelayCodec)
 
   # The issue seems to be around peers not being fully connected when
   # trying to subscribe. So what we do is sleep to guarantee nodes are
