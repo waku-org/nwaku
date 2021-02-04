@@ -1,5 +1,5 @@
 import
-  std/strutils,
+  std/[strutils, tables],
   chronos, confutils, chronicles, chronicles/topics_registry, metrics,
   stew/shims/net as stewNet, json_rpc/rpcserver,
   # Waku v1 imports
@@ -8,11 +8,17 @@ import
   ../v1/protocol/waku_protocol,
   ./utils/nat,
   ../v1/node/rpc/wakusim,
+  ../v1/node/rpc/waku,
+  ../v1/node/rpc/key_storage,
   ../v1/node/waku_helpers,
   # Waku v2 imports
   libp2p/crypto/crypto,
+  ../v2/protocol/waku_filter/waku_filter_types,
   ../v2/node/wakunode2,
-  ../v2/node/rpc/wakurpc,
+  ../v2/node/jsonrpc/[debug_api,
+                      filter_api,
+                      relay_api,
+                      store_api],
   # Common cli config
   ./config_bridge
 
@@ -98,6 +104,23 @@ proc startWakuV2(config: WakuNodeConf): Future[WakuNode] {.async.} =
   return node
 
 when isMainModule:
+  proc startV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: WakuNodeConf) =
+    installDebugApiHandlers(node, rpcServer)
+
+    # Install enabled API handlers:
+    if conf.relay:
+      let topicCache = newTable[string, seq[WakuMessage]]()
+      installRelayApiHandlers(node, rpcServer, topicCache)
+    
+    if conf.filter:
+      let messageCache = newTable[ContentTopic, seq[WakuMessage]]()
+      installFilterApiHandlers(node, rpcServer, messageCache)
+    
+    if conf.store:
+      installStoreApiHandlers(node, rpcServer)
+    
+    rpcServer.start()
+  
   let
     rng = keys.newRng()
   let conf = WakuNodeConf.load()
@@ -114,13 +137,11 @@ when isMainModule:
       Port(conf.rpcPort + conf.portsShift))
     var rpcServer = newRpcHttpServer([ta])
     # Waku v1 RPC
-    # TODO: Commented out the Waku v1 RPC calls as there is a conflict because
-    # of exact same named rpc calls between v1 and v2
-    # let keys = newKeyStorage()
-    # setupWakuRPC(nodev1, keys, rpcServer, rng)
+    let keys = newKeyStorage()
+    setupWakuRPC(nodev1, keys, rpcServer, rng)
     setupWakuSimRPC(nodev1, rpcServer)
     # Waku v2 rpc
-    setupWakuRPC(nodev2, rpcServer)
+    startV2Rpc(nodev2, rpcServer, conf)
 
     rpcServer.start()
 
