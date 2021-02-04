@@ -5,6 +5,11 @@ import
   libp2p/standard_setup,
   libp2p/peerstore
 
+export peerstore, standard_setup
+
+logScope:
+  topics = "wakupeers"
+
 type
   PeerManager* = ref object of RootObj
     switch*: Switch
