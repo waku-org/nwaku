@@ -15,7 +15,7 @@ import
   ../test_helpers
 
 procSuite "Peer Manager":
-  asyncTest "Peer dialing":
+  asyncTest "Peer dialing works":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
@@ -31,7 +31,7 @@ procSuite "Peer Manager":
     node2.mountRelay()
 
     # Dial node2 from node1
-    let conn = await node1.peerManager.dialPeer(peerInfo2, WakuRelayCodec)
+    let conn = (await node1.peerManager.dialPeer(peerInfo2, WakuRelayCodec)).get()
 
     # Check connection
     check:
@@ -45,4 +45,30 @@ procSuite "Peer Manager":
     # Check connectedness
     check:
       node1.peerManager.connectedness(peerInfo2.peerId)
+    
+    await allFutures([node1.stop(), node2.stop()])
+  
+  asyncTest "Dialing fails gracefully":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        Port(60002))
+      peerInfo2 = node2.peerInfo
+    
+    await node1.start()
+    # Purposefully don't start node2
 
+    node1.mountRelay()
+    node2.mountRelay()
+
+    # Dial node2 from node1
+    let connOpt = await node1.peerManager.dialPeer(peerInfo2, WakuRelayCodec, 2.seconds)
+
+    # Check connection failed gracefully
+    check:
+      connOpt.isNone()
+    
+    await node1.stop()
