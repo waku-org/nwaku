@@ -4,12 +4,18 @@ import
   libp2p/[peerinfo, multiaddress],
   eth/common as eth_common, eth/keys,
   system,
-  options
+  options,
+  ../wakunode2,
+  ../waku_payload,
+  ../jsonrpc/jsonrpc_types,
+  ../../protocol/waku_filter/waku_filter_types,
+  ../../protocol/waku_store/waku_store_types,
+  ../../../v1/node/rpc/hexstrings
 
 from strutils import rsplit
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 
-const sigWakuPath = sourceDir / "wakucallsigs.nim"
+const sigWakuPath = sourceDir / "../jsonrpc/jsonrpc_callsigs.nim"
 createRpcSigs(RpcHttpClient, sigWakuPath)
 
 if paramCount() < 1:
@@ -26,5 +32,7 @@ echo "Input is:", input
 var node = newRpcHttpClient()
 waitfor node.connect("localhost", rpcPort)
 
-var res = waitfor node.wakuQuery(@[input])
+let pubSubTopic = "/waku/2/default-waku/proto"
+let contentTopic = ContentTopic(1)
+var res = waitfor node.post_waku_v2_filter_v1_subscription(@[ContentFilter(topics: @[contentTopic])], some(pubSubTopic))
 echo "Waku query response: ", res
