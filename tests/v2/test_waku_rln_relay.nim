@@ -142,6 +142,7 @@ proc membershipTest() {.async.} =
   # echo "Balance after registration: ", balance
 
   await web3.close()
+  echo "closed"
 
 
 waitFor membershipTest()
