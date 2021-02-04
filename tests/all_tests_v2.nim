@@ -10,5 +10,6 @@ import
   ./v2/test_waku_swap,
   ./v2/test_message_store,
   ./v2/test_jsonrpc_waku,
+  ./v2/test_peer_manager,
   ./v2/test_web3 # will remove it when rln-relay tests get added
   # TODO ./v2/test_waku_rln_relay
