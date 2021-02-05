@@ -18,6 +18,7 @@ import
                               admin_api,
                               private_api],
   ../../waku/v2/protocol/message_notifier,
+  ../../waku/v2/protocol/waku_relay,
   ../../waku/v2/protocol/waku_store/waku_store,
   ../../waku/v2/protocol/waku_swap/waku_swap,
   ../../waku/v2/protocol/waku_filter/waku_filter,
@@ -366,7 +367,59 @@ procSuite "Waku v2 JSON-RPC API":
     server.close()
     waitfor node.stop()
   
-  asyncTest "Admin API: get peer information":
+  asyncTest "Admin API: get managed peer information":
+    # Create a couple of nodes
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        Port(60002))
+      peerInfo2 = node2.peerInfo
+      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node3 = WakuNode.init(nodeKey3, ValidIpAddress.init("0.0.0.0"),
+        Port(60004))
+      peerInfo3 = node3.peerInfo
+    
+    await allFutures([node1.start(), node2.start(), node3.start()])
+
+    node1.mountRelay()
+    node2.mountRelay()
+    node3.mountRelay()
+
+    # Dial nodes 2 and 3 from node1
+    await node1.dialPeer(constructMultiaddrStr(peerInfo2))
+    await node1.dialPeer(constructMultiaddrStr(peerInfo3))
+
+    # RPC server setup
+    let
+      rpcPort = Port(8545)
+      ta = initTAddress(bindIp, rpcPort)
+      server = newRpcHttpServer([ta])
+
+    installAdminApiHandlers(node1, server)
+    server.start()
+
+    let client = newRpcHttpClient()
+    await client.connect("127.0.0.1", rpcPort)
+
+    let response = await client.get_waku_v2_admin_v1_peers()
+
+    check:
+      response.len == 2
+      # Check peer 2
+      response.anyIt(it.protocol == WakuRelayCodec and
+                     it.multiaddr == constructMultiaddrStr(peerInfo2))
+      # Check peer 3
+      response.anyIt(it.protocol == WakuRelayCodec and
+                     it.multiaddr == constructMultiaddrStr(peerInfo3))
+
+    server.stop()
+    server.close()
+    await allFutures([node1.stop(), node2.stop(), node3.stop()])
+  
+  asyncTest "Admin API: get unmanaged peer information":
     const cTopic = ContentTopic(1)
 
     waitFor node.start()
