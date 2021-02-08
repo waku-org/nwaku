@@ -16,7 +16,8 @@ type
   Buffer* = object
     `ptr`*: pointer
     len: csize_t
-  RLNBn256* = pointer
+  RLNBn256* = object
+  RLNBn256Ptr* = ptr RLNBn256
 
 # Procedures ------------------------------
  # all the following procedures are Nim wrappers for the libName
@@ -27,7 +28,7 @@ type
 #     parameters_buffer: *const Buffer,
 #     ctx: *mut *mut RLN<Bn256>,
 # ) -> bool 
-proc newCircuitFromParams(merkle_depth: csize_t, parameters_buffer: ptr Buffer, ctx: ptr RLNBn256){.importc: "new_circuit_from_params".}
+proc newCircuitFromParams(merkle_depth: csize_t, parameters_buffer: ptr Buffer, ctx: var RLNBn256Ptr): bool{.importc: "new_circuit_from_params".}
 
 # pub extern "C" fn key_gen(ctx: *const RLN<Bn256>, keypair_buffer: *mut Buffer) -> bool
 proc keyGen(ctx: RLNBn256, keypair_buffer: ptr Buffer): bool {.importc: "key_gen".}
@@ -58,21 +59,25 @@ proc hash(ctx: ptr RLNBn256, inputs_buffer:ptr Buffer, input_len: ptr csize_t, o
 
 {.pop.}
 # Tests -------------------------------------
-var merkleDepth: csize_t = 5
+var merkleDepth: csize_t = 3
 var parameters = readFile(sourceDir / "parameters.key")
 var pbytes = parameters.toBytes()
 echo pbytes.len
 var len : csize_t = uint(pbytes.len)
 var parametersBuffer = Buffer(`ptr`: unsafeAddr parameters, len: len)
-var cData: array[1024, byte]
-var ctx : RLNBn256 = unsafeAddr cData
-newCircuitFromParams(merkleDepth, unsafeAddr parametersBuffer,  unsafeAddr  ctx)
-# echo "ctx ", ctx
-var keys : array[64, byte]  
-var keysLen : csize_t = 64
-var keysBuffer: Buffer = Buffer(`ptr`: unsafeAddr keys, len: keysLen)
-var done = keyGen(ctx, unsafeAddr keysBuffer) 
-echo done
-if done:
-  var generatedKeys = cast[ptr array[64, byte]](keysBuffer.`ptr`)[]
-  echo generatedKeys
+var obj = RLNBn256()
+var objPtr = unsafeAddr(obj)
+# var objPtrPtr = unsafeAddr(objPtr)
+var ctx = objPtr
+echo "ctx ", repr(ctx)
+let res = newCircuitFromParams(merkleDepth, unsafeAddr parametersBuffer, ctx)
+echo "ctx ", repr(ctx)
+echo res
+# var keys : array[64, byte]  
+# var keysLen : csize_t = 64
+# var keysBuffer: Buffer = Buffer(`ptr`: unsafeAddr keys, len: keysLen)
+# var done = keyGen(ctx, unsafeAddr keysBuffer) 
+# echo done
+# if done:
+#   var generatedKeys = cast[ptr array[64, byte]](keysBuffer.`ptr`)[]
+#   echo generatedKeys
