@@ -22,3 +22,6 @@ procSuite "Basic balance test":
 
     check:
       contains(output, "ETH")
+
+  # TODO Setup more tasks in Swap module for e2e PoC
+  # TODO Use basic JSON interface instead of strings for basic IO
