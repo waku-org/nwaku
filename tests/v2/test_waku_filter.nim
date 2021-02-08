@@ -8,7 +8,8 @@ import
   libp2p/stream/[bufferstream, connection],
   libp2p/crypto/crypto,
   libp2p/multistream,
-  ../../waku/v2/protocol/[message_notifier],
+  ../../waku/v2/node/peer_manager,
+  ../../waku/v2/protocol/message_notifier,
   ../../waku/v2/protocol/waku_filter/waku_filter,
   ../test_helpers, ./utils
 
@@ -37,7 +38,7 @@ procSuite "Waku Filter":
       responseRequestIdFuture.complete(requestId)
 
     let
-      proto = WakuFilter.init(dialSwitch, crypto.newRng(), handle)
+      proto = WakuFilter.init(PeerManager.new(dialSwitch), crypto.newRng(), handle)
       rpc = FilterRequest(contentFilters: @[ContentFilter(topics: @[contentTopic])], topic: defaultTopic, subscribe: true)
 
     dialSwitch.mount(proto)
@@ -47,14 +48,14 @@ procSuite "Waku Filter":
       discard
 
     let 
-      proto2 = WakuFilter.init(listenSwitch, crypto.newRng(), emptyHandle)
+      proto2 = WakuFilter.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle)
       subscription = proto2.subscription()
 
     var subscriptions = newTable[string, MessageNotificationSubscription]()
     subscriptions["test"] = subscription
     listenSwitch.mount(proto2)
 
-    let id = await proto.subscribe(rpc)
+    let id = (await proto.subscribe(rpc)).get()
 
     await sleepAsync(2.seconds)
 
@@ -86,7 +87,7 @@ procSuite "Waku Filter":
       responseCompletionFuture.complete(true)
 
     let
-      proto = WakuFilter.init(dialSwitch, crypto.newRng(), handle)
+      proto = WakuFilter.init(PeerManager.new(dialSwitch), crypto.newRng(), handle)
       rpc = FilterRequest(contentFilters: @[ContentFilter(topics: @[contentTopic])], topic: defaultTopic, subscribe: true)
 
     dialSwitch.mount(proto)
@@ -96,14 +97,14 @@ procSuite "Waku Filter":
       discard
 
     let 
-      proto2 = WakuFilter.init(listenSwitch, crypto.newRng(), emptyHandle)
+      proto2 = WakuFilter.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle)
       subscription = proto2.subscription()
 
     var subscriptions = newTable[string, MessageNotificationSubscription]()
     subscriptions["test"] = subscription
     listenSwitch.mount(proto2)
 
-    let id = await proto.subscribe(rpc)
+    let id = (await proto.subscribe(rpc)).get()
 
     await sleepAsync(2.seconds)
 
@@ -128,3 +129,27 @@ procSuite "Waku Filter":
     check:
       # Check that unsubscribe works as expected
       (await responseCompletionFuture.withTimeout(5.seconds)) == false
+  
+  asyncTest "handle filter subscribe failures":
+    const defaultTopic = "/waku/2/default-waku/proto"
+
+    let
+      contentTopic = ContentTopic(1)
+
+    var dialSwitch = newStandardSwitch()
+    discard await dialSwitch.start()
+
+    var responseRequestIdFuture = newFuture[string]()
+    proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
+      discard
+
+    let
+      proto = WakuFilter.init(PeerManager.new(dialSwitch), crypto.newRng(), handle)
+      rpc = FilterRequest(contentFilters: @[ContentFilter(topics: @[contentTopic])], topic: defaultTopic, subscribe: true)
+
+    dialSwitch.mount(proto)
+
+    let idOpt = (await proto.subscribe(rpc))
+
+    check:
+      idOpt.isNone
