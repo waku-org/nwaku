@@ -6,7 +6,6 @@ import
   std/[tables, times, sequtils, algorithm, options],
   bearssl,
   chronos, chronicles, metrics, stew/[results, byteutils, endians2],
-  libp2p/switch,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
@@ -15,7 +14,8 @@ import
   ../../node/message_store/message_store,
   ../waku_swap/waku_swap,
   ./waku_store_types,
-  ../../utils/requests
+  ../../utils/requests,
+  ../../node/peer_manager
 
 export waku_store_types
 
@@ -28,6 +28,11 @@ logScope:
 
 const
   WakuStoreCodec* = "/vac/waku/store/2.0.0-beta1"
+
+# Error types (metric label values)
+const
+  dialFailure = "dial_failure"
+  decodeRpcFailure = "decode_rpc_failure"
 
 # TODO Move serialization function to separate file, too noisy
 # TODO Move pagination to separate file, self-contained logic
@@ -307,7 +312,7 @@ method init*(ws: WakuStore) =
     var res = HistoryRPC.init(message)
     if res.isErr:
       error "failed to decode rpc"
-      waku_store_errors.inc(labelValues = ["decode_rpc_failure"])
+      waku_store_errors.inc(labelValues = [decodeRpcFailure])
       return
 
     info "received query"
@@ -345,11 +350,11 @@ method init*(ws: WakuStore) =
   
   waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
 
-proc init*(T: type WakuStore, switch: Switch, rng: ref BrHmacDrbgContext,
+proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgContext,
                    store: MessageStore = nil, wakuSwap: WakuSwap = nil): T =
   new result
   result.rng = rng
-  result.switch = switch
+  result.peerManager = peerManager
   result.store = store
   result.wakuSwap = wakuSwap
   result.init()
@@ -387,17 +392,23 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
   #  - default store peer?
 
   let peer = w.peers[0]
-  let conn = await w.switch.dial(peer.peerInfo.peerId, peer.peerInfo.addrs, WakuStoreCodec)
+  let connOpt = await w.peerManager.dialPeer(peer.peerInfo, WakuStoreCodec)
 
-  await conn.writeLP(HistoryRPC(requestId: generateRequestId(w.rng),
+  if connOpt.isNone():
+    # @TODO more sophisticated error handling here
+    error "failed to connect to remote peer"
+    waku_store_errors.inc(labelValues = [dialFailure])
+    return
+
+  await connOpt.get().writeLP(HistoryRPC(requestId: generateRequestId(w.rng),
       query: query).encode().buffer)
 
-  var message = await conn.readLp(64*1024)
+  var message = await connOpt.get().readLp(64*1024)
   let response = HistoryRPC.init(message)
 
   if response.isErr:
     error "failed to decode response"
-    waku_store_errors.inc(labelValues = ["decode_rpc_failure"])
+    waku_store_errors.inc(labelValues = [decodeRpcFailure])
     return
 
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
@@ -414,17 +425,23 @@ proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHand
   #  - default store peer?
 
   let peer = ws.peers[0]
-  let conn = await ws.switch.dial(peer.peerInfo.peerId, peer.peerInfo.addrs, WakuStoreCodec)
+  let connOpt = await ws.peerManager.dialPeer(peer.peerInfo, WakuStoreCodec)
 
-  await conn.writeLP(HistoryRPC(requestId: generateRequestId(ws.rng),
+  if connOpt.isNone():
+    # @TODO more sophisticated error handling here
+    error "failed to connect to remote peer"
+    waku_store_errors.inc(labelValues = [dialFailure])
+    return
+
+  await connOpt.get().writeLP(HistoryRPC(requestId: generateRequestId(ws.rng),
       query: query).encode().buffer)
 
-  var message = await conn.readLp(64*1024)
+  var message = await connOpt.get().readLp(64*1024)
   let response = HistoryRPC.init(message)
 
   if response.isErr:
     error "failed to decode response"
-    waku_store_errors.inc(labelValues = ["decode_rpc_failure"])
+    waku_store_errors.inc(labelValues = [decodeRpcFailure])
     return
 
   # NOTE Perform accounting operation
