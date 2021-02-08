@@ -30,6 +30,12 @@ logScope:
 const
   WakuFilterCodec* = "/vac/waku/filter/2.0.0-beta1"
 
+
+# Error types (metric label values)
+const
+  dialFailure = "dial_failure"
+  decodeRpcFailure = "decode_rpc_failure"
+
 proc notify*(filters: Filters, msg: WakuMessage, requestId: string = "") =
   for key in filters.keys:
     let filter = filters[key]
@@ -166,7 +172,7 @@ method init*(wf: WakuFilter) =
     var res = FilterRPC.init(message)
     if res.isErr:
       error "failed to decode rpc"
-      waku_filter_errors.inc(labelValues = ["decode_rpc_failure"])
+      waku_filter_errors.inc(labelValues = [decodeRpcFailure])
       return
 
     info "filter message received"
@@ -216,7 +222,7 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
           else:
             # @TODO more sophisticated error handling here
             error "failed to push messages to remote peer"
-            waku_filter_errors.inc(labelValues = ["dial_failure"])
+            waku_filter_errors.inc(labelValues = [dialFailure])
           break
 
   MessageNotificationSubscription.init(@[], handle)
@@ -235,7 +241,7 @@ proc subscribe*(wf: WakuFilter, request: FilterRequest): Future[Option[string]] 
     else:
       # @TODO more sophisticated error handling here
       error "failed to connect to remote peer"
-      waku_filter_errors.inc(labelValues = ["dial_failure"])
+      waku_filter_errors.inc(labelValues = [dialFailure])
       return none(string)
 
 proc unsubscribe*(wf: WakuFilter, request: FilterRequest) {.async, gcsafe.} =
@@ -251,4 +257,4 @@ proc unsubscribe*(wf: WakuFilter, request: FilterRequest) {.async, gcsafe.} =
     else:
       # @TODO more sophisticated error handling here
       error "failed to connect to remote peer"
-      waku_filter_errors.inc(labelValues = ["dial_failure"])
+      waku_filter_errors.inc(labelValues = [dialFailure])

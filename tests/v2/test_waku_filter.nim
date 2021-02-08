@@ -134,10 +134,7 @@ procSuite "Waku Filter":
     const defaultTopic = "/waku/2/default-waku/proto"
 
     let
-      key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.init(key)
       contentTopic = ContentTopic(1)
-      post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
 
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()
