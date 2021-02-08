@@ -1,7 +1,7 @@
 {.push raises: [Defect, Exception].}
 
 import
-  std/options,
+  std/[options, sets],
   chronos, chronicles, metrics,
   libp2p/standard_setup,
   libp2p/peerstore
@@ -26,16 +26,18 @@ proc new*(T: type PeerManager, switch: Switch): PeerManager =
     peerStore: PeerStore.new())
 
 ####################
-# Dialer interface #
+# Helper functions #
 ####################
 
-proc dialPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string, dialTimeout = defaultDialTimeout): Future[Option[Connection]] {.async.} =
-  # Dial a given peer and add it to the list of known peers
-  # @TODO check peer validity, duplicates and score before continuing. Limit number of peers to be managed.
-  
-  # First add dialed peer info to peer store...
+proc hasPeer(pm: PeerManager, peerInfo: PeerInfo, proto: string): bool =
+  # Returns `true` if peer is included in manager for the specified protocol
 
-  debug "Adding dialed peer to manager", peerId = peerInfo.peerId, addr = peerInfo.addrs[0], proto = proto
+  pm.peerStore.get(peerInfo.peerId).protos.contains(proto)
+
+proc addPeer(pm: PeerManager, peerInfo: PeerInfo, proto: string) =
+  # Adds peer to manager for the specified protocol
+
+  debug "Adding peer to manager", peerId = peerInfo.peerId, addr = peerInfo.addrs[0], proto = proto
   
   # ...known addresses
   for multiaddr in peerInfo.addrs:
@@ -49,6 +51,20 @@ proc dialPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string, dialTimeout =
 
   # ...associated protocols
   pm.peerStore.protoBook.add(peerInfo.peerId, proto)
+
+
+####################
+# Dialer interface #
+####################
+
+proc dialPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string, dialTimeout = defaultDialTimeout): Future[Option[Connection]] {.async.} =
+  # Dial a given peer and add it to the list of known peers
+  # @TODO check peer validity and score before continuing. Limit number of peers to be managed.
+  
+  # First add dialed peer info to peer store, if it does not exist yet...
+  if not pm.hasPeer(peerInfo, proto):
+    trace "Adding newly dialed peer to manager", peerId = peerInfo.peerId, addr = peerInfo.addrs[0], proto = proto
+    pm.addPeer(peerInfo, proto)
 
   info "Dialing peer from manager", wireAddr = peerInfo.addrs[0], peerId = peerInfo.peerId
 
