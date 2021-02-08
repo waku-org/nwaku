@@ -64,7 +64,7 @@ var parameters = readFile(sourceDir / "parameters.key")
 var pbytes = parameters.toBytes()
 echo pbytes.len
 var len : csize_t = uint(pbytes.len)
-var parametersBuffer = Buffer(`ptr`: unsafeAddr parameters, len: len)
+var parametersBuffer = Buffer(`ptr`: unsafeAddr pbytes, len: len)
 var obj = RLNBn256()
 var objPtr = unsafeAddr(obj)
 # var objPtrPtr = unsafeAddr(objPtr)
