@@ -25,11 +25,11 @@ import
   std/[tables, options],
   bearssl,
   chronos, chronicles, metrics, stew/results,
-  libp2p/switch,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
+  ../../node/peer_manager,
   ../message_notifier,
   ./waku_swap_types
 
@@ -42,6 +42,11 @@ logScope:
   topics = "wakuswap"
 
 const WakuSwapCodec* = "/vac/waku/swap/2.0.0-alpha1"
+
+# Error types (metric label values)
+const
+  dialFailure = "dial_failure"
+  decodeRpcFailure = "decode_rpc_failure"
 
 # Serialization
 # -------------------------------------------------------------------------------
@@ -87,13 +92,19 @@ proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
 proc sendCheque*(ws: WakuSwap) {.async.} =
   # TODO Better peer selection, for now using hardcoded peer
   let peer = ws.peers[0]
-  let conn = await ws.switch.dial(peer.peerInfo.peerId, peer.peerInfo.addrs, WakuSwapCodec)
+  let connOpt = await ws.peerManager.dialPeer(peer.peerInfo, WakuSwapCodec)
+
+  if connOpt.isNone():
+    # @TODO more sophisticated error handling here
+    error "failed to connect to remote peer"
+    waku_swap_errors.inc(labelValues = [dialFailure])
+    return
 
   info "sendCheque"
 
   # TODO Add beneficiary, etc
   # XXX Hardcoded amount for now
-  await conn.writeLP(Cheque(amount: 1).encode().buffer)
+  await connOpt.get().writeLP(Cheque(amount: 1).encode().buffer)
 
   # Set new balance
   # XXX Assume peerId is first peer
@@ -118,7 +129,7 @@ proc init*(wakuSwap: WakuSwap) =
     var res = Cheque.init(message)
     if res.isErr:
       error "failed to decode rpc"
-      waku_swap_errors.inc(labelValues = ["decode_rpc_failure"])
+      waku_swap_errors.inc(labelValues = [decodeRpcFailure])
       return
 
     info "received cheque", value=res.value
@@ -164,11 +175,11 @@ proc init*(wakuSwap: WakuSwap) =
   wakuSwap.debit = debit
 
 # TODO Expression return?
-proc init*(T: type WakuSwap, switch: Switch, rng: ref BrHmacDrbgContext): T =
+proc init*(T: type WakuSwap, peerManager: PeerManager, rng: ref BrHmacDrbgContext): T =
   info "wakuSwap init 2"
   new result
   result.rng = rng
-  result.switch = switch
+  result.peerManager = peerManager
   result.accounting = initTable[PeerId, int]()
   result.text = "test"
   result.init()

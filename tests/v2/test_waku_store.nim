@@ -11,6 +11,7 @@ import
   ../../waku/v2/protocol/[waku_message, message_notifier],
   ../../waku/v2/protocol/waku_store/waku_store,
   ../../waku/v2/node/message_store/waku_message_store,
+  ../../waku/v2/node/peer_manager,
   ../test_helpers, ./utils
 
 procSuite "Waku Store":
@@ -29,7 +30,7 @@ procSuite "Waku Store":
     discard await listenSwitch.start()
 
     let
-      proto = WakuStore.init(dialSwitch, crypto.newRng())
+      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
       subscription = proto.subscription()
       rpc = HistoryQuery(topics: @[topic])
 
@@ -73,7 +74,7 @@ procSuite "Waku Store":
     discard await listenSwitch.start()
 
     let
-      proto = WakuStore.init(dialSwitch, crypto.newRng(), store)
+      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
       subscription = proto.subscription()
       rpc = HistoryQuery(topics: @[topic])
 
@@ -101,7 +102,7 @@ procSuite "Waku Store":
       (await completionFut.withTimeout(5.seconds)) == true
 
     let 
-      proto2 = WakuStore.init(dialSwitch, crypto.newRng(), store)
+      proto2 = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
       key2 = PrivateKey.random(ECDSA, rng[]).get()
 
     var listenSwitch2 = newStandardSwitch(some(key2))
@@ -146,7 +147,7 @@ procSuite "Waku Store":
     discard await listenSwitch.start()
 
     let
-      proto = WakuStore.init(dialSwitch, crypto.newRng())
+      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
       subscription = proto.subscription()
       rpc = HistoryQuery(topics: @[ContentTopic(1)], pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD) )
       
@@ -198,7 +199,7 @@ procSuite "Waku Store":
     discard await listenSwitch.start()
 
     let
-      proto = WakuStore.init(dialSwitch, crypto.newRng())
+      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
       subscription = proto.subscription()
     proto.setPeer(listenSwitch.peerInfo)
 
@@ -248,7 +249,7 @@ procSuite "Waku Store":
     discard await listenSwitch.start()
 
     let
-      proto = WakuStore.init(dialSwitch, crypto.newRng())
+      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
       subscription = proto.subscription()
     proto.setPeer(listenSwitch.peerInfo)
 

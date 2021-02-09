@@ -2,12 +2,13 @@
 
 import
   bearssl,
-  libp2p/[switch, peerinfo],
+  libp2p/peerinfo,
   libp2p/protocols/protocol,
   ../waku_swap/waku_swap_types,
   ../waku_message,
   ../../node/message_store/message_store,
-  ../../utils/pagination
+  ../../utils/pagination,
+  ../../node/peer_manager
 
 export waku_message
 export pagination
@@ -52,7 +53,7 @@ type
     peerInfo*: PeerInfo
 
   WakuStore* = ref object of LPProtocol
-    switch*: Switch
+    peerManager*: PeerManager
     rng*: ref BrHmacDrbgContext
     peers*: seq[HistoryPeer]
     messages*: seq[IndexedWakuMessage]

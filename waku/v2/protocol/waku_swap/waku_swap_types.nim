@@ -2,8 +2,8 @@ import
   std/tables,
   bearssl,
   libp2p/protocols/protocol,
-  libp2p/switch,
-  libp2p/peerinfo
+  libp2p/peerinfo,
+  ../../node/peer_manager  
 
 type
   Beneficiary* = seq[byte]
@@ -24,7 +24,7 @@ type
     peerInfo*: PeerInfo
 
   WakuSwap* = ref object of LPProtocol
-    switch*: Switch
+    peerManager*: PeerManager
     rng*: ref BrHmacDrbgContext
     peers*: seq[SwapPeer]
     text*: string
