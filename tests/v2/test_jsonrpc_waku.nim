@@ -421,6 +421,10 @@ procSuite "Waku v2 JSON-RPC API":
   
   asyncTest "Admin API: get unmanaged peer information":
     const cTopic = ContentTopic(1)
+    let
+      nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node = WakuNode.init(nodeKey, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
 
     waitFor node.start()
 
