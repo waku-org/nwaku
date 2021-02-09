@@ -292,7 +292,7 @@ proc mountFilter*(node: WakuNode) =
 # because store is using a reference to the swap protocol.
 proc mountSwap*(node: WakuNode) =
   info "mounting swap"
-  node.wakuSwap = WakuSwap.init(node.switch, node.rng)
+  node.wakuSwap = WakuSwap.init(node.peerManager, node.rng)
   node.switch.mount(node.wakuSwap)
   # NYI - Do we need this?
   #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
@@ -302,10 +302,10 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil) =
 
   if node.wakuSwap.isNil:
     debug "mounting store without swap"
-    node.wakuStore = WakuStore.init(node.switch, node.rng, store)
+    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store)
   else:
     debug "mounting store with swap"
-    node.wakuStore = WakuStore.init(node.switch, node.rng, store, node.wakuSwap)
+    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, node.wakuSwap)
 
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())

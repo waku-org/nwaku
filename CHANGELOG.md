@@ -5,7 +5,7 @@
 - Refactor: Split out `waku_types` types into right place; create utils folder.
 - Docs: Add information on how to query Status test fleet for node addresses; how to view logs and how to update submodules.
 - PubSub topic `subscribe` and `unsubscribe` no longer returns a future (removed `async` designation)
-- Added a peer manager for `relay` and `filter` peers.
+- Added a peer manager for `relay`, `filter`, `store` and `swap` peers.
 
 ## 2021-01-05 v0.2
 
