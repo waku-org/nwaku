@@ -30,7 +30,6 @@ logScope:
 const
   WakuFilterCodec* = "/vac/waku/filter/2.0.0-beta1"
 
-
 # Error types (metric label values)
 const
   dialFailure = "dial_failure"
@@ -198,9 +197,8 @@ proc init*(T: type WakuFilter, peerManager: PeerManager, rng: ref BrHmacDrbgCont
   result.pushHandler = handler
   result.init()
 
-# @TODO THIS SHOULD PROBABLY BE AN ADD FUNCTION AND APPEND THE PEER TO AN ARRAY
 proc setPeer*(wf: WakuFilter, peer: PeerInfo) =
-  wf.peers.add(FilterPeer(peerInfo: peer))
+  wf.peerManager.addPeer(peer, WakuFilterCodec)
   waku_filter_peers.inc()
 
 proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
@@ -228,8 +226,10 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
   MessageNotificationSubscription.init(@[], handle)
 
 proc subscribe*(wf: WakuFilter, request: FilterRequest): Future[Option[string]] {.async, gcsafe.} =
-  if wf.peers.len >= 1:
-    let peer = wf.peers[0].peerInfo # @TODO: select peer from manager rather than from local set
+  let peerOpt = wf.peerManager.selectPeer(WakuFilterCodec)
+
+  if peerOpt.isSome:
+    let peer = peerOpt.get()
     
     let connOpt = await wf.peerManager.dialPeer(peer, WakuFilterCodec)
 
@@ -246,9 +246,13 @@ proc subscribe*(wf: WakuFilter, request: FilterRequest): Future[Option[string]] 
 
 proc unsubscribe*(wf: WakuFilter, request: FilterRequest) {.async, gcsafe.} =
   # @TODO: NO REAL REASON TO GENERATE REQUEST ID FOR UNSUBSCRIBE OTHER THAN CREATING SANE-LOOKING RPC.
-  let id = generateRequestId(wf.rng)
-  if wf.peers.len >= 1:
-    let peer = wf.peers[0].peerInfo # @TODO: select peer from manager rather than from local set
+  let
+    id = generateRequestId(wf.rng)
+    peerOpt = wf.peerManager.selectPeer(WakuFilterCodec)
+
+  if peerOpt.isSome:
+    # @TODO: if there are more than one WakuFilter peer, WakuFilter should unsubscribe from all peers
+    let peer = peerOpt.get()
     
     let connOpt = await wf.peerManager.dialPeer(peer, WakuFilterCodec)
     
