@@ -1,8 +1,9 @@
 import
   std/[tables],
   bearssl,
-  libp2p/[switch, peerinfo],
+  libp2p/peerinfo,
   libp2p/protocols/protocol,
+  ../../node/peer_manager,
   ../waku_message
 
 export waku_message
@@ -45,7 +46,7 @@ type
 
   WakuFilter* = ref object of LPProtocol
     rng*: ref BrHmacDrbgContext
-    switch*: Switch
+    peerManager*: PeerManager
     peers*: seq[FilterPeer]
     subscribers*: seq[Subscriber]
     pushHandler*: MessagePushHandler

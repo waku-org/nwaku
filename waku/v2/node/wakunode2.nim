@@ -182,11 +182,20 @@ proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHa
   info "subscribe content", filter=request
 
   var id = generateRequestId(node.rng)
-  if node.wakuFilter.isNil == false:
-    # @TODO: ERROR HANDLING
-    id = await node.wakuFilter.subscribe(request)
-  node.filters[id] = Filter(contentFilters: request.contentFilters, handler: handler)
 
+  if node.wakuFilter.isNil == false:
+    let idOpt = await node.wakuFilter.subscribe(request)
+
+    if idOpt.isSome():
+      # Subscribed successfully.
+      id = idOpt.get()
+    else:
+      # Failed to subscribe
+      error "remote subscription to filter failed", filter = request
+      waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
+
+  # Register handler for filter, whether remote subscription succeeded or not
+  node.filters[id] = Filter(contentFilters: request.contentFilters, handler: handler)
   waku_node_filters.set(node.filters.len.int64)
 
 proc unsubscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) =
@@ -275,7 +284,7 @@ proc mountFilter*(node: WakuNode) =
       node.filters.notify(message, requestId)
       waku_node_messages.inc(labelValues = ["filter"])
 
-  node.wakuFilter = WakuFilter.init(node.switch, node.rng, filterHandler)
+  node.wakuFilter = WakuFilter.init(node.peerManager, node.rng, filterHandler)
   node.switch.mount(node.wakuFilter)
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
@@ -283,7 +292,7 @@ proc mountFilter*(node: WakuNode) =
 # because store is using a reference to the swap protocol.
 proc mountSwap*(node: WakuNode) =
   info "mounting swap"
-  node.wakuSwap = WakuSwap.init(node.switch, node.rng)
+  node.wakuSwap = WakuSwap.init(node.peerManager, node.rng)
   node.switch.mount(node.wakuSwap)
   # NYI - Do we need this?
   #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
@@ -293,10 +302,10 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil) =
 
   if node.wakuSwap.isNil:
     debug "mounting store without swap"
-    node.wakuStore = WakuStore.init(node.switch, node.rng, store)
+    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store)
   else:
     debug "mounting store with swap"
-    node.wakuStore = WakuStore.init(node.switch, node.rng, store, node.wakuSwap)
+    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, node.wakuSwap)
 
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())

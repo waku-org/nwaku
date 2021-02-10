@@ -1,5 +1,5 @@
 import
-  std/[tables, sequtils],
+  std/[tables, sequtils, options],
   bearssl,
   chronos, chronicles, metrics, stew/results,
   libp2p/protocols/pubsub/pubsubpeer,
@@ -9,10 +9,10 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
   libp2p/crypto/crypto,
-  libp2p/switch,
   ../message_notifier,
   waku_filter_types,
-  ../../utils/requests
+  ../../utils/requests,
+  ../../node/peer_manager
 
 # NOTE This is just a start, the design of this protocol isn't done yet. It
 # should be direct payload exchange (a la req-resp), not be coupled with the
@@ -29,6 +29,12 @@ logScope:
 
 const
   WakuFilterCodec* = "/vac/waku/filter/2.0.0-beta1"
+
+
+# Error types (metric label values)
+const
+  dialFailure = "dial_failure"
+  decodeRpcFailure = "decode_rpc_failure"
 
 proc notify*(filters: Filters, msg: WakuMessage, requestId: string = "") =
   for key in filters.keys:
@@ -166,7 +172,7 @@ method init*(wf: WakuFilter) =
     var res = FilterRPC.init(message)
     if res.isErr:
       error "failed to decode rpc"
-      waku_filter_errors.inc(labelValues = ["decode_rpc_failure"])
+      waku_filter_errors.inc(labelValues = [decodeRpcFailure])
       return
 
     info "filter message received"
@@ -185,10 +191,10 @@ method init*(wf: WakuFilter) =
   wf.handler = handle
   wf.codec = WakuFilterCodec
 
-proc init*(T: type WakuFilter, switch: Switch, rng: ref BrHmacDrbgContext, handler: MessagePushHandler): T =
+proc init*(T: type WakuFilter, peerManager: PeerManager, rng: ref BrHmacDrbgContext, handler: MessagePushHandler): T =
   new result
   result.rng = crypto.newRng()
-  result.switch = switch
+  result.peerManager = peerManager
   result.pushHandler = handler
   result.init()
 
@@ -208,26 +214,47 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
       for filter in subscriber.filter.contentFilters:
         if msg.contentTopic in filter.topics:
           let push = FilterRPC(requestId: subscriber.requestId, push: MessagePush(messages: @[msg]))
-          let conn = await proto.switch.dial(subscriber.peer.peerId, subscriber.peer.addrs, WakuFilterCodec)
-          await conn.writeLP(push.encode().buffer)
+          
+          let connOpt = await proto.peerManager.dialPeer(subscriber.peer, WakuFilterCodec)
+
+          if connOpt.isSome:
+            await connOpt.get().writeLP(push.encode().buffer)
+          else:
+            # @TODO more sophisticated error handling here
+            error "failed to push messages to remote peer"
+            waku_filter_errors.inc(labelValues = [dialFailure])
           break
 
   MessageNotificationSubscription.init(@[], handle)
 
-proc subscribe*(wf: WakuFilter, request: FilterRequest): Future[string] {.async, gcsafe.} =
-  let id = generateRequestId(wf.rng)
+proc subscribe*(wf: WakuFilter, request: FilterRequest): Future[Option[string]] {.async, gcsafe.} =
   if wf.peers.len >= 1:
-    let peer = wf.peers[0].peerInfo
-    # @TODO: THERE SHOULD BE ERROR HANDLING HERE, WHAT IF A PEER IS GONE? WHAT IF THERE IS A TIMEOUT ETC.
-    let conn = await wf.switch.dial(peer.peerId, peer.addrs, WakuFilterCodec)
-    await conn.writeLP(FilterRPC(requestId: id, request: request).encode().buffer)
-  result = id
+    let peer = wf.peers[0].peerInfo # @TODO: select peer from manager rather than from local set
+    
+    let connOpt = await wf.peerManager.dialPeer(peer, WakuFilterCodec)
+
+    if connOpt.isSome:
+      # This is the only successful path to subscription
+      let id = generateRequestId(wf.rng)
+      await connOpt.get().writeLP(FilterRPC(requestId: id, request: request).encode().buffer)
+      return some(id)
+    else:
+      # @TODO more sophisticated error handling here
+      error "failed to connect to remote peer"
+      waku_filter_errors.inc(labelValues = [dialFailure])
+      return none(string)
 
 proc unsubscribe*(wf: WakuFilter, request: FilterRequest) {.async, gcsafe.} =
   # @TODO: NO REAL REASON TO GENERATE REQUEST ID FOR UNSUBSCRIBE OTHER THAN CREATING SANE-LOOKING RPC.
   let id = generateRequestId(wf.rng)
   if wf.peers.len >= 1:
-    let peer = wf.peers[0].peerInfo
-    # @TODO: THERE SHOULD BE ERROR HANDLING HERE, WHAT IF A PEER IS GONE? WHAT IF THERE IS A TIMEOUT ETC.
-    let conn = await wf.switch.dial(peer.peerId, peer.addrs, WakuFilterCodec)
-    await conn.writeLP(FilterRPC(requestId: id, request: request).encode().buffer)
+    let peer = wf.peers[0].peerInfo # @TODO: select peer from manager rather than from local set
+    
+    let connOpt = await wf.peerManager.dialPeer(peer, WakuFilterCodec)
+    
+    if connOpt.isSome:
+      await connOpt.get().writeLP(FilterRPC(requestId: id, request: request).encode().buffer)
+    else:
+      # @TODO more sophisticated error handling here
+      error "failed to connect to remote peer"
+      waku_filter_errors.inc(labelValues = [dialFailure])
