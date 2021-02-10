@@ -4,9 +4,17 @@ import stew/byteutils, os
 from strutils import rsplit
 
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
-const libName* = sourceDir / "librln.dylib" # TODO may need to  load different libs based on OS type
+# librln.dylib is the binary executable of rln library (originally implemented in rust with an exposed C API)  
+# contains the key generation and other relevant functions
+# to generate librln.dylib, clone this repo https://github.com/kilic/rln 
+# and run the following command in the root directory of the cloned project
+# cargo build
+# can find the .dylib file under the target/debug directory
+# this file is already generated and copied here
+const libName* = sourceDir / "librln.dylib" # TODO may need to load different libs based on OS
 
-# data types -----------------------------
+# Data types -----------------------------
+
 # pub struct Buffer {
 #     pub ptr: *const u8,
 #     pub len: usize,
@@ -15,23 +23,23 @@ const libName* = sourceDir / "librln.dylib" # TODO may need to  load different l
 type
   Buffer* = object
     `ptr`*: pointer
-    len: csize_t
+    len*: csize_t
   RLNBn256* = object
-  RLNBn256Ptr* = ptr RLNBn256
 
 # Procedures ------------------------------
- # all the following procedures are Nim wrappers for the libName
+ # all the following procedures are Nim wrappers for the functions defined in libName
 {.push dynlib: libName.}
 
 # pub extern "C" fn new_circuit_from_params(
 #     merkle_depth: usize,
+#     index: usize,
 #     parameters_buffer: *const Buffer,
 #     ctx: *mut *mut RLN<Bn256>,
-# ) -> bool 
-proc newCircuitFromParams(merkle_depth: csize_t, parameters_buffer: ptr Buffer, ctx: var RLNBn256Ptr): bool{.importc: "new_circuit_from_params".}
+# ) -> bool
+proc newCircuitFromParams*(merkle_depth: csize_t, parameters_buffer: ptr Buffer, ctx: var  ptr RLNBn256): bool{.importc: "new_circuit_from_params".}
 
 # pub extern "C" fn key_gen(ctx: *const RLN<Bn256>, keypair_buffer: *mut Buffer) -> bool
-proc keyGen(ctx: RLNBn256, keypair_buffer: ptr Buffer): bool {.importc: "key_gen".}
+proc keyGen*(ctx: ptr RLNBn256, keypair_buffer: var Buffer): bool {.importc: "key_gen".}
 
 
 # pub extern "C" fn hash(
@@ -40,7 +48,7 @@ proc keyGen(ctx: RLNBn256, keypair_buffer: ptr Buffer): bool {.importc: "key_gen
 #     input_len: *const usize,
 #     output_buffer: *mut Buffer,
 # ) -> bool 
-proc hash(ctx: ptr RLNBn256, inputs_buffer:ptr Buffer, input_len: ptr csize_t, output_buffer: ptr Buffer ) {.importc: "hash".}
+proc hash*(ctx: ptr RLNBn256, inputs_buffer:ptr Buffer, input_len: ptr csize_t, output_buffer: ptr Buffer ) {.importc: "hash".} #TODO not tested yet
 
 # pub extern "C" fn verify(
 #     ctx: *const RLN<Bn256>,
@@ -58,26 +66,3 @@ proc hash(ctx: ptr RLNBn256, inputs_buffer:ptr Buffer, input_len: ptr csize_t, o
 # ) -> bool
 
 {.pop.}
-# Tests -------------------------------------
-var merkleDepth: csize_t = 3
-var parameters = readFile(sourceDir / "parameters.key")
-var pbytes = parameters.toBytes()
-echo pbytes.len
-var len : csize_t = uint(pbytes.len)
-var parametersBuffer = Buffer(`ptr`: unsafeAddr pbytes, len: len)
-var obj = RLNBn256()
-var objPtr = unsafeAddr(obj)
-# var objPtrPtr = unsafeAddr(objPtr)
-var ctx = objPtr
-echo "ctx ", repr(ctx)
-let res = newCircuitFromParams(merkleDepth, unsafeAddr parametersBuffer, ctx)
-echo "ctx ", repr(ctx)
-echo res
-# var keys : array[64, byte]  
-# var keysLen : csize_t = 64
-# var keysBuffer: Buffer = Buffer(`ptr`: unsafeAddr keys, len: keysLen)
-# var done = keyGen(ctx, unsafeAddr keysBuffer) 
-# echo done
-# if done:
-#   var generatedKeys = cast[ptr array[64, byte]](keysBuffer.`ptr`)[]
-#   echo generatedKeys
