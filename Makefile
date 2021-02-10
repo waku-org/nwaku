@@ -118,8 +118,10 @@ endif
 installganache: 
 	npm install ganache-cli; npx ganache-cli -p	8540	-g	0	-l	3000000000000&
 
+rlnlib:
+	git clone https://github.com/kilic/rln; git branch full-node; cargo build --manifest-path rln/Cargo.toml;
 
-test2: | build deps installganache
+test2: | build deps installganache rlnlib
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test2 $(NIM_PARAMS) waku.nims
 	# the following command (pkill -f ganache-cli) attempts to kill ganache-cli process on macos  
