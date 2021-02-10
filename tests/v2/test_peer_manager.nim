@@ -47,7 +47,7 @@ procSuite "Peer Manager":
 
     # Check connectedness
     check:
-      node1.peerManager.connectedness(peerInfo2.peerId)
+      node1.peerManager.connectedness(peerInfo2.peerId) == Connectedness.Connected
     
     await allFutures([node1.stop(), node2.stop()])
   
