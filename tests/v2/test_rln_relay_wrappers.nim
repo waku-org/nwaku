@@ -3,6 +3,7 @@
 import
   std/[unittest],
   stew/byteutils,
+  chronicles,
   ../../waku/v2/protocol/waku_rln_relay/rln  
 
 suite "Waku rln relay":
@@ -45,5 +46,5 @@ suite "Waku rln relay":
       check:
         # the public and secret keys together are 64 bytes
         generatedKeys.len == 64
-      echo "generated keys: ", generatedKeys
+      debug "generated keys: ", generatedKeys 
     
