@@ -1,7 +1,7 @@
 {.push raises: [Defect, Exception].}
 
 import
-  std/[options, sets],
+  std/[options, sets, sequtils],
   chronos, chronicles, metrics,
   libp2p/standard_setup,
   libp2p/peerstore
@@ -29,12 +29,42 @@ proc new*(T: type PeerManager, switch: Switch): PeerManager =
 # Helper functions #
 ####################
 
-proc hasPeer(pm: PeerManager, peerInfo: PeerInfo, proto: string): bool =
+proc toPeerInfo(storedInfo: StoredInfo): PeerInfo =
+  PeerInfo.init(peerId = storedInfo.peerId,
+                addrs = toSeq(storedInfo.addrs),
+                protocols = toSeq(storedInfo.protos))
+
+#####################
+# Manager interface #
+#####################
+
+proc peers*(pm: PeerManager): seq[StoredInfo] =
+  # Return the known info for all peers
+  pm.peerStore.peers()
+
+proc peers*(pm: PeerManager, proto: string): seq[StoredInfo] =
+  # Return the known info for all peers registered on the specified protocol
+  pm.peers.filterIt(it.protos.contains(proto))
+
+proc connectedness*(pm: PeerManager, peerId: PeerId): bool =
+  # Return the connection state of the given, managed peer
+  # @TODO the PeerManager should keep and update local connectedness state for peers, redial on disconnect, etc.
+  # @TODO richer return than just bool, e.g. add enum "CanConnect", "CannotConnect", etc. based on recent connection attempts
+
+  let storedInfo = pm.peerStore.get(peerId)
+
+  if (storedInfo == StoredInfo()):
+    # Peer is not managed, therefore not connected
+    return false
+  else:
+    pm.switch.isConnected(peerId)
+
+proc hasPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string): bool =
   # Returns `true` if peer is included in manager for the specified protocol
 
   pm.peerStore.get(peerInfo.peerId).protos.contains(proto)
 
-proc addPeer(pm: PeerManager, peerInfo: PeerInfo, proto: string) =
+proc addPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string) =
   # Adds peer to manager for the specified protocol
 
   debug "Adding peer to manager", peerId = peerInfo.peerId, addr = peerInfo.addrs[0], proto = proto
@@ -52,6 +82,17 @@ proc addPeer(pm: PeerManager, peerInfo: PeerInfo, proto: string) =
   # ...associated protocols
   pm.peerStore.protoBook.add(peerInfo.peerId, proto)
 
+proc selectPeer*(pm: PeerManager, proto: string): Option[PeerInfo] =
+  # Selects the best peer for a given protocol
+  let peers = pm.peers.filterIt(it.protos.contains(proto))
+
+  if peers.len >= 1:
+     # @TODO proper heuristic here that compares peer scores and selects "best" one. For now the first peer for the given protocol is returned
+    let peerStored = peers[0]
+
+    return some(peerStored.toPeerInfo())
+  else:
+    return none(PeerInfo)
 
 ####################
 # Dialer interface #
@@ -89,24 +130,3 @@ proc dialPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string, dialTimeout =
     debug "Dialing remote peer failed", msg = e.msg
     waku_peers_dials.inc(labelValues = ["failed"])
     return none(Connection)
-
-#####################
-# Manager interface #
-#####################
-
-proc peers*(pm: PeerManager): seq[StoredInfo] =
-  # Return the known info for all peers
-  pm.peerStore.peers()
-
-proc connectedness*(pm: PeerManager, peerId: PeerId): bool =
-  # Return the connection state of the given, managed peer
-  # @TODO the PeerManager should keep and update local connectedness state for peers, redial on disconnect, etc.
-  # @TODO richer return than just bool, e.g. add enum "CanConnect", "CannotConnect", etc. based on recent connection attempts
-
-  let storedInfo = pm.peerStore.get(peerId)
-
-  if (storedInfo == StoredInfo()):
-    # Peer is not managed, therefore not connected
-    return false
-  else:
-    pm.switch.isConnected(peerId)

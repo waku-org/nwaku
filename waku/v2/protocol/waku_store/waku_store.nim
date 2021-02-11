@@ -361,7 +361,7 @@ proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgConte
 
 # @TODO THIS SHOULD PROBABLY BE AN ADD FUNCTION AND APPEND THE PEER TO AN ARRAY
 proc setPeer*(ws: WakuStore, peer: PeerInfo) =
-  ws.peers.add(HistoryPeer(peerInfo: peer))
+  ws.peerManager.addPeer(peer, WakuStoreCodec)
   waku_store_peers.inc()
 
 proc subscription*(proto: WakuStore): MessageNotificationSubscription =
@@ -391,8 +391,14 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
   #  - latency?
   #  - default store peer?
 
-  let peer = w.peers[0]
-  let connOpt = await w.peerManager.dialPeer(peer.peerInfo, WakuStoreCodec)
+  let peerOpt = w.peerManager.selectPeer(WakuStoreCodec)
+
+  if peerOpt.isNone():
+    error "failed to connect to remote peer"
+    waku_store_errors.inc(labelValues = [dialFailure])
+    return
+
+  let connOpt = await w.peerManager.dialPeer(peerOpt.get(), WakuStoreCodec)
 
   if connOpt.isNone():
     # @TODO more sophisticated error handling here
@@ -424,8 +430,14 @@ proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHand
   #  - latency?
   #  - default store peer?
 
-  let peer = ws.peers[0]
-  let connOpt = await ws.peerManager.dialPeer(peer.peerInfo, WakuStoreCodec)
+  let peerOpt = ws.peerManager.selectPeer(WakuStoreCodec)
+
+  if peerOpt.isNone():
+    error "failed to connect to remote peer"
+    waku_store_errors.inc(labelValues = [dialFailure])
+    return
+
+  let connOpt = await ws.peerManager.dialPeer(peerOpt.get(), WakuStoreCodec)
 
   if connOpt.isNone():
     # @TODO more sophisticated error handling here
@@ -446,7 +458,7 @@ proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHand
 
   # NOTE Perform accounting operation
   # Assumes wakuSwap protocol is mounted
-  let peerId = peer.peerInfo.peerId
+  let peerId = peerOpt.get().peerId
   let messages = response.value.response.messages
   ws.wakuSwap.debit(peerId, messages.len)
 
