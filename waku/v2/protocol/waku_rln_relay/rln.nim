@@ -1,9 +1,7 @@
 # this module contains the Nim wrappers for the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
 
-import stew/byteutils, os
-from strutils import rsplit
+import os
 
-template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 # librln.dylib is the binary executable of rln library (originally implemented in rust with an exposed C API)  
 # contains the key generation and other relevant functions
 # to generate librln.dylib, clone this repo https://github.com/kilic/rln 
