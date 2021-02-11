@@ -11,8 +11,14 @@ template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 # cargo build
 # can find the .dylib file under the target/debug directory
 # this file is already generated and copied here
-# const libName* = sourceDir / "librln.dylib" # TODO may need to load different libs based on OS
-const libName* = "rln/target/debug/librln.dylib" # TODO may need to load different libs based on OS
+const libPath = "rln/target/debug/"
+# const libName* = "librln.dylib" 
+when defined(Windows):
+  const libName* = libPath / "librln.dll"
+elif defined(Linux):
+  const libName* = libPath / "librln.so"
+elif defined(MacOsX):
+  const libName* = libPath / "librln.dylib"
 
 # Data types -----------------------------
 
