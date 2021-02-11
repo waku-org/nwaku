@@ -12,7 +12,7 @@ import os
 const libPath = "rln/target/debug/"
 # const libName* = "librln.dylib" 
 when defined(Windows):
-  const libName* = libPath / "librln.dll"
+  const libName* = libPath / "librln.exe"
 elif defined(Linux):
   const libName* = libPath / "librln.so"
 elif defined(MacOsX):
