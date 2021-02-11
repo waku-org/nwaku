@@ -2,15 +2,10 @@
 
 import os
 
-# librln.dylib is the binary executable of rln library (originally implemented in rust with an exposed C API)  
+# librln.dylib is the rln library taken from https://github.com/kilic/rln (originally implemented in rust with an exposed C API)  
 # contains the key generation and other relevant functions
-# to generate librln.dylib, clone this repo https://github.com/kilic/rln 
-# and run the following command in the root directory of the cloned project
-# cargo build
-# can find the .dylib file under the target/debug directory
-# this file is already generated and copied here
+
 const libPath = "rln/target/debug/"
-# const libName* = "librln.dylib" 
 when defined(Windows):
   const libName* = libPath / "rln.dll"
 elif defined(Linux):
