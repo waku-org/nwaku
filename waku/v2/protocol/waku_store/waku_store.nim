@@ -394,7 +394,7 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
   let peerOpt = w.peerManager.selectPeer(WakuStoreCodec)
 
   if peerOpt.isNone():
-    error "failed to connect to remote peer"
+    error "no suitable remote peers"
     waku_store_errors.inc(labelValues = [dialFailure])
     return
 
@@ -433,7 +433,7 @@ proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHand
   let peerOpt = ws.peerManager.selectPeer(WakuStoreCodec)
 
   if peerOpt.isNone():
-    error "failed to connect to remote peer"
+    error "no suitable remote peers"
     waku_store_errors.inc(labelValues = [dialFailure])
     return
 
