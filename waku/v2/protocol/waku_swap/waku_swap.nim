@@ -90,9 +90,16 @@ proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
 # TODO Test for credit/debit operations in succession
 
 proc sendCheque*(ws: WakuSwap) {.async.} =
-  # TODO Better peer selection, for now using hardcoded peer
-  let peer = ws.peers[0]
-  let connOpt = await ws.peerManager.dialPeer(peer.peerInfo, WakuSwapCodec)
+  let peerOpt = ws.peerManager.selectPeer(WakuSwapCodec)
+
+  if peerOpt.isNone():
+    error "failed to connect to remote peer"
+    waku_swap_errors.inc(labelValues = [dialFailure])
+    return
+
+  let peer = peerOpt.get()
+
+  let connOpt = await ws.peerManager.dialPeer(peer, WakuSwapCodec)
 
   if connOpt.isNone():
     # @TODO more sophisticated error handling here
@@ -107,8 +114,7 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
   await connOpt.get().writeLP(Cheque(amount: 1).encode().buffer)
 
   # Set new balance
-  # XXX Assume peerId is first peer
-  let peerId = ws.peers[0].peerInfo.peerId
+  let peerId = peer.peerId
   ws.accounting[peerId] -= 1
   info "New accounting state", accounting = ws.accounting[peerId]
 
@@ -116,7 +122,8 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
 proc handleCheque*(ws: WakuSwap, cheque: Cheque) =
   info "handle incoming cheque"
   # XXX Assume peerId is first peer
-  let peerId = ws.peers[0].peerInfo.peerId
+  let peerOpt = ws.peerManager.selectPeer(WakuSwapCodec)
+  let peerId = peerOpt.get().peerId
   ws.accounting[peerId] += int(cheque.amount)
   info "New accounting state", accounting = ws.accounting[peerId]
 
@@ -185,7 +192,7 @@ proc init*(T: type WakuSwap, peerManager: PeerManager, rng: ref BrHmacDrbgContex
   result.init()
 
 proc setPeer*(ws: WakuSwap, peer: PeerInfo) =
-  ws.peers.add(SwapPeer(peerInfo: peer))
+  ws.peerManager.addPeer(peer, WakuSwapCodec)
   waku_swap_peers.inc()
 
 # TODO End to end communication

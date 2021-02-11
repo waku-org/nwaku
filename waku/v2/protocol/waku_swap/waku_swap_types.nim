@@ -20,13 +20,9 @@ type
   CreditHandler* = proc (peerId: PeerId, amount: int) {.gcsafe, closure.}
   DebitHandler* = proc (peerId: PeerId, amount: int) {.gcsafe, closure.}
 
-  SwapPeer* = object
-    peerInfo*: PeerInfo
-
   WakuSwap* = ref object of LPProtocol
     peerManager*: PeerManager
     rng*: ref BrHmacDrbgContext
-    peers*: seq[SwapPeer]
     text*: string
     accounting*: Table[PeerId, int]
     credit*: CreditHandler

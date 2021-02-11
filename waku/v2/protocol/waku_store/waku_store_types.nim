@@ -49,13 +49,9 @@ type
     query*: HistoryQuery
     response*: HistoryResponse
 
-  HistoryPeer* = object
-    peerInfo*: PeerInfo
-
   WakuStore* = ref object of LPProtocol
     peerManager*: PeerManager
     rng*: ref BrHmacDrbgContext
-    peers*: seq[HistoryPeer]
     messages*: seq[IndexedWakuMessage]
     store*: MessageStore
     wakuSwap*: WakuSwap
