@@ -47,7 +47,7 @@ procSuite "Peer Manager":
 
     # Check connectedness
     check:
-      node1.peerManager.connectedness(peerInfo2.peerId)
+      node1.peerManager.connectedness(peerInfo2.peerId) == Connectedness.Connected
     
     await allFutures([node1.stop(), node2.stop()])
   
@@ -118,3 +118,45 @@ procSuite "Peer Manager":
                                                    it.protos.contains(WakuStoreCodec))
     
     await node.stop()
+  
+
+  asyncTest "Peer manager keeps track of connections":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        Port(60002))
+      peerInfo2 = node2.peerInfo
+    
+    await node1.start()
+
+    node1.mountRelay()
+    node2.mountRelay()
+
+    # Test default connectedness for new peers
+    node1.peerManager.addPeer(peerInfo2, WakuRelayCodec)
+    check:
+      # No information about node2's connectedness
+      node1.peerManager.connectedness(peerInfo2.peerId) == NotConnected
+
+    # Purposefully don't start node2
+    # Attempt dialing node2 from node1
+    discard await node1.peerManager.dialPeer(peerInfo2, WakuRelayCodec, 2.seconds)
+    check:
+      # Cannot connect to node2
+      node1.peerManager.connectedness(peerInfo2.peerId) == CannotConnect
+
+    # Successful connection
+    await node2.start()
+    discard await node1.peerManager.dialPeer(peerInfo2, WakuRelayCodec, 2.seconds)
+    check:
+      # Currently connected to node2
+      node1.peerManager.connectedness(peerInfo2.peerId) == Connected
+
+    # Stop node. Gracefully disconnect from all peers.
+    await node1.stop()
+    check:
+      # Not currently connected to node2, but had recent, successful connection.
+      node1.peerManager.connectedness(peerInfo2.peerId) == CanConnect

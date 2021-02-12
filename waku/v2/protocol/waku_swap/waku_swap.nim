@@ -93,7 +93,7 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
   let peerOpt = ws.peerManager.selectPeer(WakuSwapCodec)
 
   if peerOpt.isNone():
-    error "failed to connect to remote peer"
+    error "no suitable remote peers"
     waku_swap_errors.inc(labelValues = [dialFailure])
     return
 
