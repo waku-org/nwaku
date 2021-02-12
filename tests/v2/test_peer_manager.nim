@@ -12,6 +12,9 @@ import
   ../../waku/v2/node/wakunode2,
   ../../waku/v2/node/peer_manager,
   ../../waku/v2/protocol/waku_relay,
+  ../../waku/v2/protocol/waku_filter/waku_filter,
+  ../../waku/v2/protocol/waku_store/waku_store,
+  ../../waku/v2/protocol/waku_swap/waku_swap,
   ../test_helpers
 
 procSuite "Peer Manager":
@@ -72,3 +75,46 @@ procSuite "Peer Manager":
       connOpt.isNone()
     
     await node1.stop()
+
+  asyncTest "Adding, selecting and filtering peers work":
+    let
+      nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node = WakuNode.init(nodeKey, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
+      # Create filter peer
+      filterLoc = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet()
+      filterKey = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
+      filterPeer = PeerInfo.init(filterKey, @[filterLoc])
+      # Create swap peer
+      swapLoc = MultiAddress.init("/ip4/127.0.0.2/tcp/2").tryGet()
+      swapKey = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
+      swapPeer = PeerInfo.init(swapKey, @[swapLoc])
+      # Create store peer
+      storeLoc = MultiAddress.init("/ip4/127.0.0.3/tcp/4").tryGet()
+      storeKey = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
+      storePeer = PeerInfo.init(storeKey, @[storeLoc])
+    
+    await node.start()
+
+    node.mountFilter()
+    node.mountSwap()
+    node.mountStore()
+
+    node.wakuFilter.setPeer(filterPeer)
+    node.wakuSwap.setPeer(swapPeer)
+    node.wakuStore.setPeer(storePeer)
+
+    # Check peers were successfully added to peer manager
+    check:
+      node.peerManager.peers().len == 3
+      node.peerManager.peers(WakuFilterCodec).allIt(it.peerId == filterPeer.peerId and
+                                                    it.addrs.contains(filterLoc) and
+                                                    it.protos.contains(WakuFilterCodec))
+      node.peerManager.peers(WakuSwapCodec).allIt(it.peerId == swapPeer.peerId and
+                                                  it.addrs.contains(swapLoc) and
+                                                  it.protos.contains(WakuSwapCodec))
+      node.peerManager.peers(WakuStoreCodec).allIt(it.peerId == storePeer.peerId and
+                                                   it.addrs.contains(storeLoc) and
+                                                   it.protos.contains(WakuStoreCodec))
+    
+    await node.stop()
