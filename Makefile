@@ -59,7 +59,7 @@ else
 NIM_PARAMS := $(NIM_PARAMS) -d:release
 endif
 
-deps: | deps-common nat-libs waku.nims
+deps: | deps-common nat-libs waku.nims rlnlib
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
 endif
@@ -118,6 +118,9 @@ endif
 installganache: 
 	npm install ganache-cli; npx ganache-cli -p	8540	-g	0	-l	3000000000000&
 
+rlnlib:
+	#cargo clean --manifest-path rln/Cargo.toml #TODO may need to clean the rln directory before cloning the rln repo
+	git clone --branch full-node https://github.com/kilic/rln; git --git-dir=rln/.git reset --hard a80f5d0; cargo build --manifest-path rln/Cargo.toml;
 
 test2: | build deps installganache
 	echo -e $(BUILD_MSG) "build/$@" && \
