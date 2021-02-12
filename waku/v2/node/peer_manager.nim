@@ -14,16 +14,54 @@ logScope:
   topics = "wakupeers"
 
 type
+  Connectedness* = enum
+    # NotConnected: default state for a new peer. No connection and no further information on connectedness.
+    NotConnected,
+    # CannotConnect: attempted to connect to peer, but failed.
+    CannotConnect,
+    # CanConnect: was recently connected to peer and disconnected gracefully.
+    CanConnect,
+    # Connected: actively connected to peer.
+    Connected
+  
+  ConnectionBook* = object of PeerBook[Connectedness]
+
+  WakuPeerStore* = ref object of PeerStore
+    connectionBook*: ConnectionBook
+
   PeerManager* = ref object of RootObj
     switch*: Switch
-    peerStore*: PeerStore
+    peerStore*: WakuPeerStore
 
 const
   defaultDialTimeout = 1.minutes # @TODO should this be made configurable?
 
+proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async.} =
+  case event.kind
+  of ConnEventKind.Connected:
+    pm.peerStore.connectionBook.set(peerId, Connected)
+    return
+  of ConnEventKind.Disconnected:
+    pm.peerStore.connectionBook.set(peerId, CanConnect)
+    return
+
+proc new*(T: type WakuPeerStore): WakuPeerStore =
+  var p: WakuPeerStore
+  new(p)
+  return p
+
 proc new*(T: type PeerManager, switch: Switch): PeerManager =
-  T(switch: switch,
-    peerStore: PeerStore.new())
+  let pm = PeerManager(switch: switch,
+                       peerStore: WakuPeerStore.new())
+
+  proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
+    onConnEvent(pm, peerId, event)
+  
+
+  pm.switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
+  pm.switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
+
+  return pm
 
 ####################
 # Helper functions #
@@ -46,7 +84,7 @@ proc peers*(pm: PeerManager, proto: string): seq[StoredInfo] =
   # Return the known info for all peers registered on the specified protocol
   pm.peers.filterIt(it.protos.contains(proto))
 
-proc connectedness*(pm: PeerManager, peerId: PeerId): bool =
+proc connectedness*(pm: PeerManager, peerId: PeerId): Connectedness =
   # Return the connection state of the given, managed peer
   # @TODO the PeerManager should keep and update local connectedness state for peers, redial on disconnect, etc.
   # @TODO richer return than just bool, e.g. add enum "CanConnect", "CannotConnect", etc. based on recent connection attempts
@@ -55,9 +93,9 @@ proc connectedness*(pm: PeerManager, peerId: PeerId): bool =
 
   if (storedInfo == StoredInfo()):
     # Peer is not managed, therefore not connected
-    return false
+    return NotConnected
   else:
-    pm.switch.isConnected(peerId)
+    pm.peerStore.connectionBook.get(peerId)
 
 proc hasPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string): bool =
   # Returns `true` if peer is included in manager for the specified protocol
@@ -123,10 +161,12 @@ proc dialPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string, dialTimeout =
       # @TODO indicate CannotConnect on peer metadata
       debug "Dialing remote peer timed out"
       waku_peers_dials.inc(labelValues = ["timeout"])
+      pm.peerStore.connectionBook.set(peerInfo.peerId, CannotConnect)
       return none(Connection)
   except CatchableError as e:
     # @TODO any redial attempts?
     # @TODO indicate CannotConnect on peer metadata
     debug "Dialing remote peer failed", msg = e.msg
     waku_peers_dials.inc(labelValues = ["failed"])
+    pm.peerStore.connectionBook.set(peerInfo.peerId, CannotConnect)
     return none(Connection)
