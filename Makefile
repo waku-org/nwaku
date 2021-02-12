@@ -119,7 +119,8 @@ installganache:
 	npm install ganache-cli; npx ganache-cli -p	8540	-g	0	-l	3000000000000&
 
 rlnlib:
-	git clone --branch full-node https://github.com/kilic/rln; cargo build --manifest-path rln/Cargo.toml;
+	#cargo clean --manifest-path rln/Cargo.toml #TODO may need to clean the rln directory before cloning the rln repo
+	git clone --branch full-node https://github.com/kilic/rln; git --git-dir=rln/.git reset --hard a80f5d0; cargo build --manifest-path rln/Cargo.toml;
 
 test2: | build deps installganache
 	echo -e $(BUILD_MSG) "build/$@" && \
