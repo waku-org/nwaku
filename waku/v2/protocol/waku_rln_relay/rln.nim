@@ -1,17 +1,17 @@
 # this module contains the Nim wrappers for the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
 
-import stew/byteutils, os
-from strutils import rsplit
+import os
 
-template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
-# librln.dylib is the binary executable of rln library (originally implemented in rust with an exposed C API)  
+# librln.dylib is the rln library taken from https://github.com/kilic/rln (originally implemented in rust with an exposed C API)  
 # contains the key generation and other relevant functions
-# to generate librln.dylib, clone this repo https://github.com/kilic/rln 
-# and run the following command in the root directory of the cloned project
-# cargo build
-# can find the .dylib file under the target/debug directory
-# this file is already generated and copied here
-const libName* = sourceDir / "librln.dylib" # TODO may need to load different libs based on OS
+
+const libPath = "rln/target/debug/"
+when defined(Windows):
+  const libName* = libPath / "rln.dll"
+elif defined(Linux):
+  const libName* = libPath / "librln.so"
+elif defined(MacOsX):
+  const libName* = libPath / "librln.dylib"
 
 # Data types -----------------------------
 
