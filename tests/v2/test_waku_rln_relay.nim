@@ -1,11 +1,15 @@
 import
-  chronos, nimcrypto, options, json, stint,
-  test_utils,
-  web3
+  chronos, chronicles, options, stint, unittest,
+  web3,
+  ../test_helpers,
+  test_utils
 
 # the address of Ethereum client (ganache-cli for now)
 const ethClient = "ws://localhost:8540/"
-
+# inputs of membership contract constructor
+const 
+    MembershipFee = 5.u256
+    Depth = 5.u256
 # poseidonHasherCode holds the bytecode of Poseidon hasher solidity smart contract: 
 # https://github.com/kilic/rlnapp/blob/master/packages/contracts/contracts/crypto/PoseidonHasher.sol 
 # the solidity contract is compiled separately and the resultant bytecode is copied here
@@ -80,10 +84,8 @@ contract(MembershipContract):
   # proc withdraw(secret: Uint256, pubkeyIndex: Uint256, receiver: Address)
   # proc withdrawBatch( secrets: seq[Uint256], pubkeyIndex: seq[Uint256], receiver: seq[Address])
 
-
-proc membershipTest() {.async.} =
-  # connect to the eth client
-  let web3 = await newWeb3(ethClient)
+proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
+  let web3 = await newWeb3(ethClientAddress)
   echo "web3 connected"
 
   # fetch the list of registered accounts
@@ -100,15 +102,11 @@ proc membershipTest() {.async.} =
     hasherAddress = hasherReceipt.contractAddress.get
   echo "hasher address: ", hasherAddress
   
-  # inputs of membership contract constructor
-  let
-    membershipFee = 5.u256
-    depth = 5.u256
-  
+
   # encode membership contract inputs to 32 bytes zero-padded
   let 
-    membershipFeeEncoded = encode(membershipFee).data 
-    depthEncoded = encode(depth).data 
+    membershipFeeEncoded = encode(MembershipFee).data 
+    depthEncoded = encode(Depth).data 
     hasherAddressEncoded = encode(hasherAddress).data
     # this is the contract constructor input
     contractInput = membershipFeeEncoded & depthEncoded & hasherAddressEncoded
@@ -127,23 +125,35 @@ proc membershipTest() {.async.} =
   # balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
   # echo "Account balance after the contract deployment: ", balance
 
-  # prepare a contract sender to interact with it
-  echo "registering a user..."
-  var sender = web3.contractSender(MembershipContract, contractAddress) # creates a Sender object with a web3 field and contract address of type Address
-
-  # send takes three parameters, c: ContractCallBase, value = 0.u256, gas = 3000000'u64 gasPrice = 0 
-  # should use send proc for the contract functions that update the state of the contract
-  echo "The hash of registration tx: ", await sender.register(20.u256).send(value = membershipFee) # value is the membership fee
-
-  # var members: array[2, uint256] = [20.u256, 21.u256]
-  # echo "This is the batch registration result ", await sender.registerBatch(members).send(value = (members.len * membershipFee)) # value is the membership fee
-
-  # balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
-  # echo "Balance after registration: ", balance
-
   await web3.close()
-  echo "closed"
 
+  return contractAddress
 
-waitFor membershipTest()
-echo " rln-relay test ended"
+procSuite "Waku rln relay":
+  asyncTest  "contract membership":
+    let contractAddress = await uploadContract(ethClient)
+    # connect to the eth client
+    let web3 = await newWeb3(ethClient)
+    echo "web3 connected"
+
+    # fetch the list of registered accounts
+    let accounts = await web3.provider.eth_accounts()
+    web3.defaultAccount = accounts[1]
+    echo "contract deployer account address ", web3.defaultAccount 
+
+    # prepare a contract sender to interact with it
+    echo "registering a user..."
+    var sender = web3.contractSender(MembershipContract, contractAddress) # creates a Sender object with a web3 field and contract address of type Address
+
+    # send takes three parameters, c: ContractCallBase, value = 0.u256, gas = 3000000'u64 gasPrice = 0 
+    # should use send proc for the contract functions that update the state of the contract
+    echo "The hash of registration tx: ", await sender.register(20.u256).send(value = MembershipFee) # value is the membership fee
+
+    # var members: array[2, uint256] = [20.u256, 21.u256]
+    # echo "This is the batch registration result ", await sender.registerBatch(members).send(value = (members.len * membershipFee)) # value is the membership fee
+
+    # balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
+    # echo "Balance after registration: ", balance
+
+    await web3.close()
+    echo "web3 closed"
