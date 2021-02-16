@@ -1,12 +1,17 @@
 import
   chronos, chronicles, options, stint, unittest,
   web3,
+  stew/byteutils,
+  ../../waku/v2/protocol/waku_rln_relay/rln,
   ../test_helpers,
   test_utils
 
+
+  
+
 # the address of Ethereum client (ganache-cli for now)
-const ethClient = "ws://localhost:8540/"
-# inputs of membership contract constructor
+const EthClient = "ws://localhost:8540/"
+# inputs of the membership contract constructor
 const 
     MembershipFee = 5.u256
     Depth = 5.u256
@@ -86,7 +91,7 @@ contract(MembershipContract):
 
 proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
   let web3 = await newWeb3(ethClientAddress)
-  echo "web3 connected"
+  echo "web3 connected to", ethClientAddress
 
   # fetch the list of registered accounts
   let accounts = await web3.provider.eth_accounts()
@@ -123,18 +128,19 @@ proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
   echo "Address of the deployed membership contract: ", contractAddress
 
   # balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
-  # echo "Account balance after the contract deployment: ", balance
+  # debug "Account balance after the contract deployment: ", balance
 
   await web3.close()
+  echo "disconnected from ", ethClientAddress
 
   return contractAddress
 
 procSuite "Waku rln relay":
   asyncTest  "contract membership":
-    let contractAddress = await uploadContract(ethClient)
+    let contractAddress = await uploadContract(EthClient)
     # connect to the eth client
-    let web3 = await newWeb3(ethClient)
-    echo "web3 connected"
+    let web3 = await newWeb3(EthClient)
+    echo "web3 connected to", EthClient
 
     # fetch the list of registered accounts
     let accounts = await web3.provider.eth_accounts()
@@ -142,7 +148,6 @@ procSuite "Waku rln relay":
     echo "contract deployer account address ", web3.defaultAccount 
 
     # prepare a contract sender to interact with it
-    echo "registering a user..."
     var sender = web3.contractSender(MembershipContract, contractAddress) # creates a Sender object with a web3 field and contract address of type Address
 
     # send takes three parameters, c: ContractCallBase, value = 0.u256, gas = 3000000'u64 gasPrice = 0 
@@ -150,10 +155,53 @@ procSuite "Waku rln relay":
     echo "The hash of registration tx: ", await sender.register(20.u256).send(value = MembershipFee) # value is the membership fee
 
     # var members: array[2, uint256] = [20.u256, 21.u256]
-    # echo "This is the batch registration result ", await sender.registerBatch(members).send(value = (members.len * membershipFee)) # value is the membership fee
+    # debug "This is the batch registration result ", await sender.registerBatch(members).send(value = (members.len * membershipFee)) # value is the membership fee
 
     # balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
-    # echo "Balance after registration: ", balance
+    # debug "Balance after registration: ", balance
 
     await web3.close()
-    echo "web3 closed"
+    echo "disconnected from", EthClient
+
+suite "Waku rln relay":
+  test "Keygen Nim Wrappers":
+    var 
+      merkleDepth: csize_t = 32
+      # parameters.key contains the parameters related to the Poseidon hasher
+      # to generate this file, clone this repo https://github.com/kilic/rln 
+      # and run the following command in the root directory of the cloned project
+      # cargo run --example export_test_keys
+      # the file is generated separately and copied here
+      parameters = readFile("waku/v2/protocol/waku_rln_relay/parameters.key")
+      pbytes = parameters.toBytes()
+      len : csize_t = uint(pbytes.len)
+      parametersBuffer = Buffer(`ptr`: unsafeAddr(pbytes[0]), len: len)
+    check:
+      # check the parameters.key is not empty
+      pbytes.len != 0
+
+    # ctx holds the information that is going to be used for  the key generation
+    var 
+      obj = RLNBn256()
+      objPtr = unsafeAddr(obj)
+      ctx = objPtr
+    let res = newCircuitFromParams(merkleDepth, unsafeAddr parametersBuffer, ctx)
+    check:
+      # check whether the circuit parameters are generated successfully
+      res == true
+
+    # keysBufferPtr will hold the generated key pairs i.e., secret and public keys 
+    var 
+      keysBufferPtr : Buffer
+      done = keyGen(ctx, keysBufferPtr) 
+    check:
+      # check whether the keys are generated successfully
+      done == true
+
+    if done:
+      var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
+      check:
+        # the public and secret keys together are 64 bytes
+        generatedKeys.len == 64
+      debug "generated keys: ", generatedKeys 
+    
