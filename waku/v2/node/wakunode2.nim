@@ -323,7 +323,7 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
   )
   # TODO if rln-relay enabled, then perform registration
   if rlnRelayEnabled:
-    debug "Using WakuRLNRelay"
+    debug "WakuRLNRelay is enabled"
     # create an RLNRelayPeer
     # generate the membership keys
     let membershipKeyPair = membershipKeyGen()
@@ -338,8 +338,8 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
     
     # register the rln-relay peer to the membership contract
     let status = await rlnPeer.register()
-    check:
-      status
+    doAssert(status)
+    debug "peer is successfully registered into the membership contract"
   else:
     debug "WakuRLNRelay is disabled"
 
