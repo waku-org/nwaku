@@ -13,6 +13,7 @@ import
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter/waku_filter,
+  ../protocol/waku_rln_relay/waku_rln_relay_utils,
   ../utils/peers,
   ./message_store/message_store,
   ../utils/requests,
@@ -323,6 +324,22 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
   # TODO if rln-relay enabled, then perform registration
   if rlnRelayEnabled:
     debug "Using WakuRLNRelay"
+    # create an RLNRelayPeer
+    # generate the membership keys
+    let membershipKeyPair = membershipKeyGen()
+    doAssert(membershipKeyPair.isSome())
+    debug "the membership key for the rln relay is generated"
+
+    # initialize the RLNRelayPeer
+    var rlnPeer = RLNRelayPeer(membershipKeyPair: membershipKeyPair.get(),
+      ethClientAddress: EthClient,
+      ethAccountAddress: ethAccountAddress,
+      membershipContractAddress: contractAddress)
+    
+    # register the rln-relay peer to the membership contract
+    let status = await rlnPeer.register()
+    check:
+      status
   else:
     debug "WakuRLNRelay is disabled"
 
