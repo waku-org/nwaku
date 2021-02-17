@@ -10,6 +10,7 @@ import
   
 
 # the address of Ethereum client (ganache-cli for now)
+# TODO this address in hardcoded in the code, we may need to take it as input from the user
 const EthClient = "ws://localhost:8540/"
 
 # poseidonHasherCode holds the bytecode of Poseidon hasher solidity smart contract: 
