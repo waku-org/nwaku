@@ -7,7 +7,12 @@ type MembershipKeyPair* = object
   secretKey*: array[32, byte]
   publicKey*: array[32, byte]
 
-
+type RLNRelayPeer* = object 
+  keyPair*: MembershipKeyPair
+  ethClientAddress*: string
+  accountAddress*: Address
+  membershipContractAddress*: Address
+  
 proc membershipKeyGen*(): Option[MembershipKeyPair] =
   # generates a MembershipKeyPair that can be used for the registration into the rln membership contract
   var 
