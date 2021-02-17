@@ -215,3 +215,14 @@ suite "Waku rln relay":
       key.get().publicKey != empty
     
     debug "the generated membership key pair: ", key 
+  test "register procedure":
+    #privateKey
+    let 
+      web3 = await newWeb3("ws://localhost:8540/")
+      accounts = await web3.provider.eth_accounts()
+      accounts[0].privateKey
+      p = RLNRelayPeer()
+      keyPair = membershipKeyGen()
+      ethClientAddress = "ws://localhost:8540/"
+      accountAddress*  Address
+      membershipContractAddress*: Address
