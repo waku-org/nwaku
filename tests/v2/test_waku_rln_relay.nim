@@ -184,7 +184,7 @@ procSuite "Waku rln relay":
       ethAccountAddress: ethAccountAddress,
       membershipContractAddress: contractAddress)
     
-    # register t5he rln-relay peer to the membership contract
+    # register the rln-relay peer to the membership contract
     let status = await rlnPeer.register()
     check:
       status
