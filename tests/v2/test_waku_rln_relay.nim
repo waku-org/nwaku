@@ -91,21 +91,22 @@ contract(MembershipContract):
 
 proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
   let web3 = await newWeb3(ethClientAddress)
-  echo "web3 connected to", ethClientAddress
+  debug "web3 connected to", ethClientAddress
 
   # fetch the list of registered accounts
   let accounts = await web3.provider.eth_accounts()
   web3.defaultAccount = accounts[1]
-  echo "contract deployer account address ", web3.defaultAccount 
+  let add =web3.defaultAccount 
+  debug "contract deployer account address ", add
 
   var balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
-  echo "Initial account balance: ", balance
+  debug "Initial account balance: ", balance
 
   # deploy the poseidon hash first
   let 
     hasherReceipt = await web3.deployContract(poseidonHasherCode)
     hasherAddress = hasherReceipt.contractAddress.get
-  echo "hasher address: ", hasherAddress
+  debug "hasher address: ", hasherAddress
   
 
   # encode membership contract inputs to 32 bytes zero-padded
@@ -117,21 +118,21 @@ proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
     contractInput = membershipFeeEncoded & depthEncoded & hasherAddressEncoded
 
 
-  echo "encoded membership fee: ", membershipFeeEncoded
-  echo "encoded depth: ", depthEncoded
-  echo "encoded hasher address: ", hasherAddressEncoded
-  echo "encoded contract input:" , contractInput
+  debug "encoded membership fee: ", membershipFeeEncoded
+  debug "encoded depth: ", depthEncoded
+  debug "encoded hasher address: ", hasherAddressEncoded
+  debug "encoded contract input:" , contractInput
 
   # deploy membership contract with its constructor inputs
   let receipt = await web3.deployContract(membershipContractCode, contractInput = contractInput)
   var contractAddress = receipt.contractAddress.get
-  echo "Address of the deployed membership contract: ", contractAddress
+  debug "Address of the deployed membership contract: ", contractAddress
 
   # balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
   # debug "Account balance after the contract deployment: ", balance
 
   await web3.close()
-  echo "disconnected from ", ethClientAddress
+  debug "disconnected from ", ethClientAddress
 
   return contractAddress
 
@@ -140,19 +141,21 @@ procSuite "Waku rln relay":
     let contractAddress = await uploadContract(EthClient)
     # connect to the eth client
     let web3 = await newWeb3(EthClient)
-    echo "web3 connected to", EthClient
+    debug "web3 connected to", EthClient
 
     # fetch the list of registered accounts
     let accounts = await web3.provider.eth_accounts()
     web3.defaultAccount = accounts[1]
-    echo "contract deployer account address ", web3.defaultAccount 
+    let add = web3.defaultAccount 
+    debug "contract deployer account address ", add
 
     # prepare a contract sender to interact with it
     var sender = web3.contractSender(MembershipContract, contractAddress) # creates a Sender object with a web3 field and contract address of type Address
 
     # send takes three parameters, c: ContractCallBase, value = 0.u256, gas = 3000000'u64 gasPrice = 0 
     # should use send proc for the contract functions that update the state of the contract
-    echo "The hash of registration tx: ", await sender.register(20.u256).send(value = MembershipFee) # value is the membership fee
+    let tx = await sender.register(20.u256).send(value = MembershipFee)
+    debug "The hash of registration tx: ", tx # value is the membership fee
 
     # var members: array[2, uint256] = [20.u256, 21.u256]
     # debug "This is the batch registration result ", await sender.registerBatch(members).send(value = (members.len * membershipFee)) # value is the membership fee
@@ -161,10 +164,10 @@ procSuite "Waku rln relay":
     # debug "Balance after registration: ", balance
 
     await web3.close()
-    echo "disconnected from", EthClient
+    debug "disconnected from", EthClient
 
 suite "Waku rln relay":
-  test "rln lib Nim Wrappers":
+  test "Keygen Nim Wrappers":
     var 
       merkleDepth: csize_t = 32
       # parameters.key contains the parameters related to the Poseidon hasher
