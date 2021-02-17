@@ -1,11 +1,20 @@
 import
-  chronos, nimcrypto, options, json, stint,
-  test_utils,
-  web3
+  chronos, chronicles, options, stint, unittest,
+  web3,
+  stew/byteutils,
+  ../../waku/v2/protocol/waku_rln_relay/rln,
+  ../test_helpers,
+  test_utils
+
+
+  
 
 # the address of Ethereum client (ganache-cli for now)
-const ethClient = "ws://localhost:8540/"
-
+const EthClient = "ws://localhost:8540/"
+# inputs of the membership contract constructor
+const 
+    MembershipFee = 5.u256
+    Depth = 5.u256
 # poseidonHasherCode holds the bytecode of Poseidon hasher solidity smart contract: 
 # https://github.com/kilic/rlnapp/blob/master/packages/contracts/contracts/crypto/PoseidonHasher.sol 
 # the solidity contract is compiled separately and the resultant bytecode is copied here
@@ -80,70 +89,121 @@ contract(MembershipContract):
   # proc withdraw(secret: Uint256, pubkeyIndex: Uint256, receiver: Address)
   # proc withdrawBatch( secrets: seq[Uint256], pubkeyIndex: seq[Uint256], receiver: seq[Address])
 
-
-proc membershipTest() {.async.} =
-  # connect to the eth client
-  let web3 = await newWeb3(ethClient)
-  echo "web3 connected"
+proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
+  let web3 = await newWeb3(ethClientAddress)
+  debug "web3 connected to", ethClientAddress
 
   # fetch the list of registered accounts
   let accounts = await web3.provider.eth_accounts()
   web3.defaultAccount = accounts[1]
-  echo "contract deployer account address ", web3.defaultAccount 
+  let add =web3.defaultAccount 
+  debug "contract deployer account address ", add
 
   var balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
-  echo "Initial account balance: ", balance
+  debug "Initial account balance: ", balance
 
   # deploy the poseidon hash first
   let 
     hasherReceipt = await web3.deployContract(poseidonHasherCode)
     hasherAddress = hasherReceipt.contractAddress.get
-  echo "hasher address: ", hasherAddress
+  debug "hasher address: ", hasherAddress
   
-  # inputs of membership contract constructor
-  let
-    membershipFee = 5.u256
-    depth = 5.u256
-  
+
   # encode membership contract inputs to 32 bytes zero-padded
   let 
-    membershipFeeEncoded = encode(membershipFee).data 
-    depthEncoded = encode(depth).data 
+    membershipFeeEncoded = encode(MembershipFee).data 
+    depthEncoded = encode(Depth).data 
     hasherAddressEncoded = encode(hasherAddress).data
     # this is the contract constructor input
     contractInput = membershipFeeEncoded & depthEncoded & hasherAddressEncoded
 
 
-  echo "encoded membership fee: ", membershipFeeEncoded
-  echo "encoded depth: ", depthEncoded
-  echo "encoded hasher address: ", hasherAddressEncoded
-  echo "encoded contract input:" , contractInput
+  debug "encoded membership fee: ", membershipFeeEncoded
+  debug "encoded depth: ", depthEncoded
+  debug "encoded hasher address: ", hasherAddressEncoded
+  debug "encoded contract input:" , contractInput
 
   # deploy membership contract with its constructor inputs
   let receipt = await web3.deployContract(membershipContractCode, contractInput = contractInput)
   var contractAddress = receipt.contractAddress.get
-  echo "Address of the deployed membership contract: ", contractAddress
+  debug "Address of the deployed membership contract: ", contractAddress
 
   # balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
-  # echo "Account balance after the contract deployment: ", balance
-
-  # prepare a contract sender to interact with it
-  echo "registering a user..."
-  var sender = web3.contractSender(MembershipContract, contractAddress) # creates a Sender object with a web3 field and contract address of type Address
-
-  # send takes three parameters, c: ContractCallBase, value = 0.u256, gas = 3000000'u64 gasPrice = 0 
-  # should use send proc for the contract functions that update the state of the contract
-  echo "The hash of registration tx: ", await sender.register(20.u256).send(value = membershipFee) # value is the membership fee
-
-  # var members: array[2, uint256] = [20.u256, 21.u256]
-  # echo "This is the batch registration result ", await sender.registerBatch(members).send(value = (members.len * membershipFee)) # value is the membership fee
-
-  # balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
-  # echo "Balance after registration: ", balance
+  # debug "Account balance after the contract deployment: ", balance
 
   await web3.close()
-  echo "closed"
+  debug "disconnected from ", ethClientAddress
 
+  return contractAddress
 
-waitFor membershipTest()
-echo " rln-relay test ended"
+procSuite "Waku rln relay":
+  asyncTest  "contract membership":
+    let contractAddress = await uploadContract(EthClient)
+    # connect to the eth client
+    let web3 = await newWeb3(EthClient)
+    debug "web3 connected to", EthClient
+
+    # fetch the list of registered accounts
+    let accounts = await web3.provider.eth_accounts()
+    web3.defaultAccount = accounts[1]
+    let add = web3.defaultAccount 
+    debug "contract deployer account address ", add
+
+    # prepare a contract sender to interact with it
+    var sender = web3.contractSender(MembershipContract, contractAddress) # creates a Sender object with a web3 field and contract address of type Address
+
+    # send takes three parameters, c: ContractCallBase, value = 0.u256, gas = 3000000'u64 gasPrice = 0 
+    # should use send proc for the contract functions that update the state of the contract
+    let tx = await sender.register(20.u256).send(value = MembershipFee)
+    debug "The hash of registration tx: ", tx # value is the membership fee
+
+    # var members: array[2, uint256] = [20.u256, 21.u256]
+    # debug "This is the batch registration result ", await sender.registerBatch(members).send(value = (members.len * membershipFee)) # value is the membership fee
+
+    # balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
+    # debug "Balance after registration: ", balance
+
+    await web3.close()
+    debug "disconnected from", EthClient
+
+suite "Waku rln relay":
+  test "Keygen Nim Wrappers":
+    var 
+      merkleDepth: csize_t = 32
+      # parameters.key contains the parameters related to the Poseidon hasher
+      # to generate this file, clone this repo https://github.com/kilic/rln 
+      # and run the following command in the root directory of the cloned project
+      # cargo run --example export_test_keys
+      # the file is generated separately and copied here
+      parameters = readFile("waku/v2/protocol/waku_rln_relay/parameters.key")
+      pbytes = parameters.toBytes()
+      len : csize_t = uint(pbytes.len)
+      parametersBuffer = Buffer(`ptr`: unsafeAddr(pbytes[0]), len: len)
+    check:
+      # check the parameters.key is not empty
+      pbytes.len != 0
+
+    # ctx holds the information that is going to be used for  the key generation
+    var 
+      obj = RLNBn256()
+      objPtr = unsafeAddr(obj)
+      ctx = objPtr
+    let res = newCircuitFromParams(merkleDepth, unsafeAddr parametersBuffer, ctx)
+    check:
+      # check whether the circuit parameters are generated successfully
+      res == true
+
+    # keysBufferPtr will hold the generated key pairs i.e., secret and public keys 
+    var 
+      keysBufferPtr : Buffer
+      done = keyGen(ctx, keysBufferPtr) 
+    check:
+      # check whether the keys are generated successfully
+      done == true
+
+    if done:
+      var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
+      check:
+        # the public and secret keys together are 64 bytes
+        generatedKeys.len == 64
+      debug "generated keys: ", generatedKeys 
