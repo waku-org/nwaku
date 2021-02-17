@@ -207,4 +207,3 @@ suite "Waku rln relay":
         # the public and secret keys together are 64 bytes
         generatedKeys.len == 64
       debug "generated keys: ", generatedKeys 
-    
