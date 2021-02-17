@@ -13,6 +13,10 @@ type RLNRelayPeer* = object
   membershipKeyPair*: MembershipKeyPair
   ethClientAddress*: string
   ethAccountAddress*: Address
+  # this field is required for signing transactions
+  # TODO may need to erase this ethAccountPrivateKey when is not used
+  # TODO may need to make ethAccountPrivateKey mandatory
+  ethAccountPrivateKey*: Option[PrivateKey]
   membershipContractAddress*: Address
 
 # inputs of the membership contract constructor
@@ -83,9 +87,11 @@ proc membershipKeyGen*(): Option[MembershipKeyPair] =
 proc register*(rlnPeer: RLNRelayPeer): Future[bool] {.async.} =
   let web3 = await newWeb3(rlnPeer.ethClientAddress)
   web3.defaultAccount = rlnPeer.ethAccountAddress
+  # when the private key is set in a web3 instance, the send proc (sender.register(pk).send(MembershipFee))
+  # does the signing using the provided key
+  web3.privateKey = rlnPeer.ethAccountPrivateKey
   var sender = web3.contractSender(MembershipContract, rlnPeer.membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
   let pk = cast[UInt256](rlnPeer.membershipKeyPair.publicKey)
-  # TODO sign the transaction
   discard await sender.register(pk).send(MembershipFee)
   # TODO check the receipt and then return true/false
   await web3.close()
