@@ -162,6 +162,30 @@ procSuite "Waku rln relay":
 
     await web3.close()
     echo "disconnected from", EthClient
+  asyncTest "registration procedure":
+
+    let 
+      web3 = await newWeb3(EthClientAddress)
+      accounts = await web3.provider.eth_accounts()
+      ethAccountAddress = accounts[9]
+    await web3.close()
+
+    let
+      # deploy the contract
+      contractAddress = await uploadContract(EthClientAddress)
+      membershipKeyPair = membershipKeyGen()
+       #await createEthAccount(EthClientAddress, 100.u256)
+    check:
+      membershipKeyPair.isSome
+  
+    var rlnPeer = RLNRelayPeer(keyPair: membershipKeyPair.get(),
+      ethClientAddress: EthClientAddress,
+      accountAddress: ethAccountAddress,
+      membershipContractAddress: contractAddress)
+    let status = await rlnPeer.register()
+    echo status
+    check:
+      status
 
 suite "Waku rln relay":
   test "rln lib Nim Wrappers":
@@ -215,13 +239,3 @@ suite "Waku rln relay":
       key.get().publicKey != empty
     
     debug "the generated membership key pair: ", key 
-  test "registration procedure":
-    let 
-      web3 = await newWeb3("ws://localhost:8540/")
-      accounts = await web3.provider.eth_accounts()
-      accounts[0].privateKey
-      p = RLNRelayPeer()
-      keyPair = membershipKeyGen()
-      ethClientAddress = "ws://localhost:8540/"
-      accountAddress*  Address
-      membershipContractAddress*: Address
