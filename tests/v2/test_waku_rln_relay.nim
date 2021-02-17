@@ -215,8 +215,7 @@ suite "Waku rln relay":
       key.get().publicKey != empty
     
     debug "the generated membership key pair: ", key 
-  test "register procedure":
-    #privateKey
+  test "registration procedure":
     let 
       web3 = await newWeb3("ws://localhost:8540/")
       accounts = await web3.provider.eth_accounts()
