@@ -2,7 +2,7 @@ import
   chronos, chronicles, options, stint, unittest,
   web3,
   stew/byteutils,
-  ../../waku/v2/protocol/waku_rln_relay/rln,
+  ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils],
   ../test_helpers,
   test_utils
 
@@ -164,7 +164,7 @@ procSuite "Waku rln relay":
     echo "disconnected from", EthClient
 
 suite "Waku rln relay":
-  test "Keygen Nim Wrappers":
+  test "rln lib Nim Wrappers":
     var 
       merkleDepth: csize_t = 32
       # parameters.key contains the parameters related to the Poseidon hasher
@@ -204,4 +204,14 @@ suite "Waku rln relay":
         # the public and secret keys together are 64 bytes
         generatedKeys.len == 64
       debug "generated keys: ", generatedKeys 
+  test "membership Key Gen":
+    var key = membershipKeyGen()
+    var empty : array[32,byte]
+    check:
+      key.isSome
+      key.get().secretKey.len == 32
+      key.get().publicKey.len == 32
+      key.get().secretKey != empty
+      key.get().publicKey != empty
     
+    debug "the generated membership key pair: ", key 
