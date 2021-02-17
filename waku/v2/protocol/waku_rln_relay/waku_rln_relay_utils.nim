@@ -27,7 +27,6 @@ proc membershipKeyGen*(): Option[MembershipKeyPair] =
     debug "error in parameters.key"
     return none(MembershipKeyPair)
     
-
   # ctx holds the information that is going to be used for  the key generation
   var 
     obj = RLNBn256()
@@ -50,8 +49,6 @@ proc membershipKeyGen*(): Option[MembershipKeyPair] =
     debug "error in key generation"
     return none(MembershipKeyPair)
     
-
-  
   var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
   # the public and secret keys together are 64 bytes
   if (generatedKeys.len != 64):
