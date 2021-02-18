@@ -1,8 +1,10 @@
 import
   chronos, chronicles, options, stint, unittest,
   web3,
-  stew/byteutils,
+  stew/byteutils, stew/shims/net as stewNet,
+  libp2p/crypto/crypto,
   ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils],
+  ../../waku/v2/node/wakunode2,
   ../test_helpers,
   test_utils
 
@@ -189,6 +191,48 @@ procSuite "Waku rln relay":
     let status = await rlnPeer.register()
     check:
       status
+  asyncTest "mounting waku relay protocol with rln enabled":
+    let
+      nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node = WakuNode.init(nodeKey, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
+      # pubSubTopic = "chat"
+      # contentTopic = ContentTopic(1)
+      # filterRequest = FilterRequest(topic: pubSubTopic, contentFilters: @[ContentFilter(topics: @[contentTopic])], subscribe: true)
+      # message = WakuMessage(payload: "hello world".toBytes(),
+      #   contentTopic: contentTopic)
+
+    # This could/should become a more fixed handler (at least default) that
+    # would be enforced on WakuNode level.
+    # proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+    #   let msg = WakuMessage.init(data)
+    #   if msg.isOk():
+    #     check:
+    #       topic == "chat"
+    #     node.filters.notify(msg.value(), topic)
+
+    # var completionFut = newFuture[bool]()
+
+    # This would be the actual application handler
+    # proc contentHandler(msg: WakuMessage) {.gcsafe, closure.} =
+    #   let message = string.fromBytes(msg.payload)
+    #   check:
+    #     message == "hello world"
+    #   completionFut.complete(true)
+
+    await node.start()
+    # deploy the contract
+    let membershipContractAddress = await uploadContract(EthClient)
+
+    # prepare rln-relay peer inputs
+    let 
+      web3 = await newWeb3(EthClient)
+      accounts = await web3.provider.eth_accounts()
+      # choose one of the existing account for the rln-relay peer  
+      ethAccountAddress = accounts[9]
+    await web3.close()
+
+    await node.mountRelay(rlnRelayEnabled = true, ethClientAddress = some(EthClient), ethAccountAddress =  some(ethAccountAddress), membershipContractAddress =  some(membershipContractAddress))
 
 suite "Waku rln relay":
   test "rln lib Nim Wrappers":
