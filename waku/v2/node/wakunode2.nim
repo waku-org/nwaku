@@ -3,6 +3,7 @@ import
   chronos, chronicles, metrics, stew/shims/net as stewNet,
   # TODO: Why do we need eth keys?
   eth/keys,
+  web3,
   libp2p/multiaddress,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
@@ -311,8 +312,7 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil) =
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
-proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRelayEnabled: bool = false) {.gcsafe.} =
-  # TODO add the RLN registration
+proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRelayEnabled: bool = false, ethClientAddress: Option[string] = none(string), ethAccountAddress: Option[Address] = none(Address), membershipContractAddress:  Option[Address] = none(Address)) {.gcsafe, async.} =
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
     # Use default
@@ -321,23 +321,29 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
     sign = false,
     verifySignature = false
   )
-  # TODO if rln-relay enabled, then perform registration
   if rlnRelayEnabled:
     debug "WakuRLNRelay is enabled"
-    # create an RLNRelayPeer
+
+    # check whether inputs are provided
+    doAssert(ethClientAddress.isSome())
+    doAssert(ethAccountAddress.isSome())
+    doAssert(membershipContractAddress.isSome())
+
     # generate the membership keys
     let membershipKeyPair = membershipKeyGen()
+    # check whether keys are generated
     doAssert(membershipKeyPair.isSome())
     debug "the membership key for the rln relay is generated"
 
     # initialize the RLNRelayPeer
     var rlnPeer = RLNRelayPeer(membershipKeyPair: membershipKeyPair.get(),
-      ethClientAddress: EthClient,
-      ethAccountAddress: ethAccountAddress,
-      membershipContractAddress: contractAddress)
+      ethClientAddress: ethClientAddress.get(),
+      ethAccountAddress: ethAccountAddress.get(),
+      membershipContractAddress: membershipContractAddress.get())
     
     # register the rln-relay peer to the membership contract
     let status = await rlnPeer.register()
+    # check whether registration is done
     doAssert(status)
     debug "peer is successfully registered into the membership contract"
   else:
