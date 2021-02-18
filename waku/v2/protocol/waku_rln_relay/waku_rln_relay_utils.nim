@@ -23,6 +23,8 @@ type RLNRelayPeer* = object
 const 
     MembershipFee* = 5.u256
     Depth* = 32.u256
+    # TODO the EthClient should be an input to the rln-relay
+    EthClient* = "ws://localhost:8540/"
 
 contract(MembershipContract):
   proc register(pubkey: Uint256) # external payable
