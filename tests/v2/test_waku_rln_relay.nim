@@ -11,10 +11,7 @@ import
 
 # the address of Ethereum client (ganache-cli for now)
 const EthClient = "ws://localhost:8540/"
-# inputs of the membership contract constructor
-const 
-    MembershipFee = 5.u256
-    Depth = 5.u256
+
 # poseidonHasherCode holds the bytecode of Poseidon hasher solidity smart contract: 
 # https://github.com/kilic/rlnapp/blob/master/packages/contracts/contracts/crypto/PoseidonHasher.sol 
 # the solidity contract is compiled separately and the resultant bytecode is copied here
@@ -166,6 +163,34 @@ procSuite "Waku rln relay":
     await web3.close()
     debug "disconnected from", EthClient
 
+  asyncTest "registration procedure":
+    # deploy the contract
+    let contractAddress = await uploadContract(EthClient)
+
+    # prepare rln-relay peer inputs
+    let 
+      web3 = await newWeb3(EthClient)
+      accounts = await web3.provider.eth_accounts()
+      # choose one of the existing accounts for the rln-relay peer  
+      ethAccountAddress = accounts[9]
+    await web3.close()
+
+    # generate the membership keys
+    let membershipKeyPair = membershipKeyGen()
+    
+    check:
+      membershipKeyPair.isSome
+
+    # initialize the RLNRelayPeer
+    var rlnPeer = RLNRelayPeer(membershipKeyPair: membershipKeyPair.get(),
+      ethClientAddress: EthClient,
+      ethAccountAddress: ethAccountAddress,
+      membershipContractAddress: contractAddress)
+    
+    # register the rln-relay peer to the membership contract
+    let is_successful = await rlnPeer.register()
+    check:
+      is_successful
 suite "Waku rln relay":
   test "Keygen Nim Wrappers":
     var 
