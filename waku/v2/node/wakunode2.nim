@@ -342,9 +342,7 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.gcsaf
 
     node.subscribe(topic, handler)
 
-proc mountRlnRelay(ethClientAddress: Option[string] = none(string), ethAccountAddress: Option[Address] = none(Address), membershipContractAddress:  Option[Address] = none(Address)) {.async.} =
-  # if rlnRelayEnabled:
-  #   debug "WakuRLNRelay is enabled"
+proc mountRlnRelay(node: WakuNode, ethClientAddress: Option[string] = none(string), ethAccountAddress: Option[Address] = none(Address), membershipContractAddress:  Option[Address] = none(Address)) {.async.} =
   # check whether inputs are provided
   doAssert(ethClientAddress.isSome())
   doAssert(ethAccountAddress.isSome())
@@ -367,8 +365,8 @@ proc mountRlnRelay(ethClientAddress: Option[string] = none(string), ethAccountAd
   # check whether registration is done
   doAssert(status)
   debug "peer is successfully registered into the membership contract"
-  # else:
-  #   debug "WakuRLNRelay is disabled"
+
+  node.wakuRlnRelay = rlnPeer
 
 ## Helpers
 proc dialPeer*(n: WakuNode, address: string) {.async.} =
@@ -528,7 +526,9 @@ when isMainModule:
   
   if conf.rlnrelay:
     # TODO pass inputs to this proc
-    discard await mountRlnRelay()
+    debug "WakuRLNRelay is enabled"
+    discard await mountRlnRelay(node)
+  debug "WakuRLNRelay is mounted successfully"
 
   if conf.staticnodes.len > 0:
     waitFor connectToNodes(node, conf.staticnodes)
