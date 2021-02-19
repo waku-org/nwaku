@@ -79,8 +79,9 @@ proc membershipKeyGen*(): Option[MembershipKeyPair] =
 
   return some(keypair)
 
-
 proc register*(rlnPeer: RLNRelayPeer): Future[bool] {.async.} =
+  ## registers the public key of the rlnPeer which is rlnPeer.membershipKeyPair.publicKey
+  ## into the membership contract whose address is in rlnPeer.membershipContractAddress
   let web3 = await newWeb3(rlnPeer.ethClientAddress)
   web3.defaultAccount = rlnPeer.ethAccountAddress
   var sender = web3.contractSender(MembershipContract, rlnPeer.membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
@@ -90,4 +91,3 @@ proc register*(rlnPeer: RLNRelayPeer): Future[bool] {.async.} =
   # TODO check the receipt and then return true/false
   await web3.close()
   return true 
- 
