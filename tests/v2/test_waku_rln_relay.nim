@@ -171,13 +171,13 @@ procSuite "Waku rln relay":
     let 
       web3 = await newWeb3(EthClient)
       accounts = await web3.provider.eth_accounts()
-      # choose one of the existing account for the rln-relay peer  
+      # choose one of the existing accounts for the rln-relay peer  
       ethAccountAddress = accounts[9]
     await web3.close()
 
     # generate the membership keys
     let membershipKeyPair = membershipKeyGen()
-       #await createEthAccount(EthClientAddress, 100.u256)
+    
     check:
       membershipKeyPair.isSome
 
@@ -188,9 +188,9 @@ procSuite "Waku rln relay":
       membershipContractAddress: contractAddress)
     
     # register the rln-relay peer to the membership contract
-    let status = await rlnPeer.register()
+    let is_successful = await rlnPeer.register()
     check:
-      status
+      is_successful
 suite "Waku rln relay":
   test "Keygen Nim Wrappers":
     var 
