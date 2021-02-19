@@ -11,10 +11,7 @@ import
 
 # the address of Ethereum client (ganache-cli for now)
 const EthClient = "ws://localhost:8540/"
-# inputs of the membership contract constructor
-const 
-    MembershipFee = 5.u256
-    Depth = 5.u256
+
 # poseidonHasherCode holds the bytecode of Poseidon hasher solidity smart contract: 
 # https://github.com/kilic/rlnapp/blob/master/packages/contracts/contracts/crypto/PoseidonHasher.sol 
 # the solidity contract is compiled separately and the resultant bytecode is copied here
