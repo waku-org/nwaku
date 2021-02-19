@@ -313,7 +313,7 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil) =
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
-proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.gcsafe, async.} =
+proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.gcsafe.} =
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
     # Use default
