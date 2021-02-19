@@ -313,7 +313,34 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil) =
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
-proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.gcsafe.} =
+proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(string), ethAccountAddress: Option[Address] = none(Address), membershipContractAddress:  Option[Address] = none(Address)) {.async.} =
+  # check whether inputs are provided
+  doAssert(ethClientAddress.isSome())
+  doAssert(ethAccountAddress.isSome())
+  doAssert(membershipContractAddress.isSome())
+
+  # generate the membership keys
+  let membershipKeyPair = membershipKeyGen()
+  # check whether keys are generated
+  doAssert(membershipKeyPair.isSome())
+  debug "the membership key for the rln relay is generated"
+
+  # initialize the WakuRLNRelay
+  var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
+    ethClientAddress: ethClientAddress.get(),
+    ethAccountAddress: ethAccountAddress.get(),
+    membershipContractAddress: membershipContractAddress.get())
+  
+  # register the rln-relay peer to the membership contract
+  let is_successful = await rlnPeer.register()
+  # check whether registration is done
+  doAssert(is_successful)
+  debug "peer is successfully registered into the membership contract"
+
+  node.wakuRlnRelay = rlnPeer
+
+
+proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRelayEnabled = false) {.gcsafe.} =
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
     # Use default
@@ -342,31 +369,11 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.gcsaf
 
     node.subscribe(topic, handler)
 
-proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(string), ethAccountAddress: Option[Address] = none(Address), membershipContractAddress:  Option[Address] = none(Address)) {.async.} =
-  # check whether inputs are provided
-  doAssert(ethClientAddress.isSome())
-  doAssert(ethAccountAddress.isSome())
-  doAssert(membershipContractAddress.isSome())
-
-  # generate the membership keys
-  let membershipKeyPair = membershipKeyGen()
-  # check whether keys are generated
-  doAssert(membershipKeyPair.isSome())
-  debug "the membership key for the rln relay is generated"
-
-  # initialize the WakuRLNRelay
-  var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
-    ethClientAddress: ethClientAddress.get(),
-    ethAccountAddress: ethAccountAddress.get(),
-    membershipContractAddress: membershipContractAddress.get())
-  
-  # register the rln-relay peer to the membership contract
-  let status = await rlnPeer.register()
-  # check whether registration is done
-  doAssert(status)
-  debug "peer is successfully registered into the membership contract"
-
-  node.wakuRlnRelay = rlnPeer
+  if rlnRelayEnabled:
+    # TODO pass rln relay inputs to this proc, right now it uses default values that are set in the mountRlnRelay proc
+    info "WakuRLNRelay is enabled"
+    waitFor mountRlnRelay(node)
+    info "WakuRLNRelay is mounted successfully"
 
 ## Helpers
 proc dialPeer*(n: WakuNode, address: string) {.async.} =
@@ -522,13 +529,7 @@ when isMainModule:
     mountFilter(node)
 
   if conf.relay:
-    mountRelay(node, conf.topics.split(" "))
-  
-  if conf.rlnrelay:
-    # TODO pass rln relay inputs to this proc, right now it uses default values that are set in the mountRlnRelay proc
-    debug "WakuRLNRelay is enabled"
-    waitFor mountRlnRelay(node)
-    debug "WakuRLNRelay is mounted successfully"
+    mountRelay(node, conf.topics.split(" "), rlnRelayEnabled = conf.rlnrelay)
 
   if conf.staticnodes.len > 0:
     waitFor connectToNodes(node, conf.staticnodes)
