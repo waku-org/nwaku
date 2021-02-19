@@ -1,12 +1,29 @@
 import 
   chronicles, options, chronos, stint,
   stew/byteutils,
+  web3,
+  eth/keys,
   rln 
 
 type MembershipKeyPair* = object 
   secretKey*: array[32, byte]
   publicKey*: array[32, byte]
 
+type RLNRelayPeer* = object 
+  membershipKeyPair*: MembershipKeyPair
+  ethClientAddress*: string
+  ethAccountAddress*: Address
+  membershipContractAddress*: Address
+
+# inputs of the membership contract constructor
+const 
+    MembershipFee* = 5.u256
+    Depth* = 32.u256
+
+# membership contract interface
+contract(MembershipContract):
+  # TODO define a return type of bool for register method to signify a successful registration
+  proc register(pubkey: Uint256) # external payable
 
 proc membershipKeyGen*(): Option[MembershipKeyPair] =
   # generates a MembershipKeyPair that can be used for the registration into the rln membership contract
@@ -61,3 +78,16 @@ proc membershipKeyGen*(): Option[MembershipKeyPair] =
     keypair = MembershipKeyPair(secretKey: secret, publicKey: public)
 
   return some(keypair)
+
+proc register*(rlnPeer: RLNRelayPeer): Future[bool] {.async.} =
+  ## registers the public key of the rlnPeer which is rlnPeer.membershipKeyPair.publicKey
+  ## into the membership contract whose address is in rlnPeer.membershipContractAddress
+  let web3 = await newWeb3(rlnPeer.ethClientAddress)
+  web3.defaultAccount = rlnPeer.ethAccountAddress
+  var sender = web3.contractSender(MembershipContract, rlnPeer.membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
+  let pk = cast[UInt256](rlnPeer.membershipKeyPair.publicKey)
+  # TODO sign the transaction
+  discard await sender.register(pk).send(MembershipFee)
+  # TODO check the receipt and then return true/false
+  await web3.close()
+  return true 
