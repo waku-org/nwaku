@@ -191,7 +191,7 @@ procSuite "Waku rln relay":
     let status = await rlnPeer.register()
     check:
       status
-  asyncTest "mounting waku relay protocol with rln enabled":
+  asyncTest "mounting waku rln relay":
     let
       nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node = WakuNode.init(nodeKey, ValidIpAddress.init("0.0.0.0"),
