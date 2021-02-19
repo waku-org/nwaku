@@ -22,6 +22,7 @@ const
 
 # membership contract interface
 contract(MembershipContract):
+  # TODO define a return type of bool for register method to signify a successful registration
   proc register(pubkey: Uint256) # external payable
 
 proc membershipKeyGen*(): Option[MembershipKeyPair] =
