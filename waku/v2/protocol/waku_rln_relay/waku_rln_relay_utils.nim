@@ -9,7 +9,7 @@ type MembershipKeyPair* = object
   secretKey*: array[32, byte]
   publicKey*: array[32, byte]
 
-type RLNRelayPeer* = object 
+type WakuRLNRelay* = object 
   membershipKeyPair*: MembershipKeyPair
   ethClientAddress*: string
   ethAccountAddress*: Address
@@ -86,7 +86,7 @@ proc membershipKeyGen*(): Option[MembershipKeyPair] =
 
   return some(keypair)
 
-proc register*(rlnPeer: RLNRelayPeer): Future[bool] {.async.} =
+proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   let web3 = await newWeb3(rlnPeer.ethClientAddress)
   web3.defaultAccount = rlnPeer.ethAccountAddress
   # when the private key is set in a web3 instance, the send proc (sender.register(pk).send(MembershipFee))
