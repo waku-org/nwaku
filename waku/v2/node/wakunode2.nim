@@ -525,10 +525,10 @@ when isMainModule:
     mountRelay(node, conf.topics.split(" "))
   
   if conf.rlnrelay:
-    # TODO pass rln relay inputs to this proc
+    # TODO pass rln relay inputs to this proc, right now it uses default values that are set in the mountRlnRelay proc
     debug "WakuRLNRelay is enabled"
     discard await mountRlnRelay(node)
-  debug "WakuRLNRelay is mounted successfully"
+    debug "WakuRLNRelay is mounted successfully"
 
   if conf.staticnodes.len > 0:
     waitFor connectToNodes(node, conf.staticnodes)
