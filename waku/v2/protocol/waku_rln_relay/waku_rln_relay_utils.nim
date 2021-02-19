@@ -26,13 +26,15 @@ const
     # TODO the EthClient should be an input to the rln-relay
     EthClient* = "ws://localhost:8540/"
 
+# membership contract interface
 contract(MembershipContract):
+  # TODO define a return type of bool for register method to signify a successful registration
   proc register(pubkey: Uint256) # external payable
-  
+
 proc membershipKeyGen*(): Option[MembershipKeyPair] =
   # generates a MembershipKeyPair that can be used for the registration into the rln membership contract
   var 
-    merkleDepth: csize_t = cast[csize_t](Depth)
+    merkleDepth: csize_t = 32
     # parameters.key contains the parameters related to the Poseidon hasher
     # to generate this file, clone this repo https://github.com/kilic/rln 
     # and run the following command in the root directory of the cloned project
@@ -48,7 +50,6 @@ proc membershipKeyGen*(): Option[MembershipKeyPair] =
     debug "error in parameters.key"
     return none(MembershipKeyPair)
     
-
   # ctx holds the information that is going to be used for  the key generation
   var 
     obj = RLNBn256()
@@ -71,8 +72,6 @@ proc membershipKeyGen*(): Option[MembershipKeyPair] =
     debug "error in key generation"
     return none(MembershipKeyPair)
     
-
-  
   var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
   # the public and secret keys together are 64 bytes
   if (generatedKeys.len != 64):
@@ -87,6 +86,8 @@ proc membershipKeyGen*(): Option[MembershipKeyPair] =
   return some(keypair)
 
 proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
+  ## registers the public key of the rlnPeer which is rlnPeer.membershipKeyPair.publicKey
+  ## into the membership contract whose address is in rlnPeer.membershipContractAddress
   let web3 = await newWeb3(rlnPeer.ethClientAddress)
   web3.defaultAccount = rlnPeer.ethAccountAddress
   # when the private key is set in a web3 instance, the send proc (sender.register(pk).send(MembershipFee))
