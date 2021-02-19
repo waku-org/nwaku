@@ -53,7 +53,7 @@ type
     wakuStore*: WakuStore
     wakuFilter*: WakuFilter
     wakuSwap*: WakuSwap
-    wakuRlnRelay: WakuRLNRelay
+    wakuRlnRelay*: WakuRLNRelay
     peerInfo*: PeerInfo
     libp2pTransportLoops*: seq[Future[void]]
   # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
