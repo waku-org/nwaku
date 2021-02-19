@@ -181,8 +181,8 @@ procSuite "Waku rln relay":
     check:
       membershipKeyPair.isSome
 
-    # initialize the RLNRelayPeer
-    var rlnPeer = RLNRelayPeer(membershipKeyPair: membershipKeyPair.get(),
+    # initialize the WakuRLNRelay 
+    var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
       ethClientAddress: EthClient,
       ethAccountAddress: ethAccountAddress,
       membershipContractAddress: contractAddress)
@@ -196,35 +196,12 @@ procSuite "Waku rln relay":
       nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node = WakuNode.init(nodeKey, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
-      # pubSubTopic = "chat"
-      # contentTopic = ContentTopic(1)
-      # filterRequest = FilterRequest(topic: pubSubTopic, contentFilters: @[ContentFilter(topics: @[contentTopic])], subscribe: true)
-      # message = WakuMessage(payload: "hello world".toBytes(),
-      #   contentTopic: contentTopic)
-
-    # This could/should become a more fixed handler (at least default) that
-    # would be enforced on WakuNode level.
-    # proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-    #   let msg = WakuMessage.init(data)
-    #   if msg.isOk():
-    #     check:
-    #       topic == "chat"
-    #     node.filters.notify(msg.value(), topic)
-
-    # var completionFut = newFuture[bool]()
-
-    # This would be the actual application handler
-    # proc contentHandler(msg: WakuMessage) {.gcsafe, closure.} =
-    #   let message = string.fromBytes(msg.payload)
-    #   check:
-    #     message == "hello world"
-    #   completionFut.complete(true)
-
     await node.start()
+
     # deploy the contract
     let membershipContractAddress = await uploadContract(EthClient)
 
-    # prepare rln-relay peer inputs
+    # prepare rln-relay inputs
     let 
       web3 = await newWeb3(EthClient)
       accounts = await web3.provider.eth_accounts()
@@ -232,7 +209,8 @@ procSuite "Waku rln relay":
       ethAccountAddress = accounts[9]
     await web3.close()
 
-    await node.mountRelay(rlnRelayEnabled = true, ethClientAddress = some(EthClient), ethAccountAddress =  some(ethAccountAddress), membershipContractAddress =  some(membershipContractAddress))
+    # start rln-relay
+    await node.mountRlnRelay(ethClientAddress = some(EthClient), ethAccountAddress =  some(ethAccountAddress), membershipContractAddress =  some(membershipContractAddress))
 
 suite "Waku rln relay":
   test "rln lib Nim Wrappers":
