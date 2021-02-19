@@ -342,7 +342,7 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string]()) {.gcsaf
 
     node.subscribe(topic, handler)
 
-proc mountRlnRelay(node: WakuNode, ethClientAddress: Option[string] = none(string), ethAccountAddress: Option[Address] = none(Address), membershipContractAddress:  Option[Address] = none(Address)) {.async.} =
+proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(string), ethAccountAddress: Option[Address] = none(Address), membershipContractAddress:  Option[Address] = none(Address)) {.async.} =
   # check whether inputs are provided
   doAssert(ethClientAddress.isSome())
   doAssert(ethAccountAddress.isSome())
@@ -354,8 +354,8 @@ proc mountRlnRelay(node: WakuNode, ethClientAddress: Option[string] = none(strin
   doAssert(membershipKeyPair.isSome())
   debug "the membership key for the rln relay is generated"
 
-  # initialize the RLNRelayPeer
-  var rlnPeer = RLNRelayPeer(membershipKeyPair: membershipKeyPair.get(),
+  # initialize the WakuRLNRelay
+  var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
     ethClientAddress: ethClientAddress.get(),
     ethAccountAddress: ethAccountAddress.get(),
     membershipContractAddress: membershipContractAddress.get())
@@ -525,7 +525,7 @@ when isMainModule:
     mountRelay(node, conf.topics.split(" "))
   
   if conf.rlnrelay:
-    # TODO pass inputs to this proc
+    # TODO pass rln relay inputs to this proc
     debug "WakuRLNRelay is enabled"
     discard await mountRlnRelay(node)
   debug "WakuRLNRelay is mounted successfully"
