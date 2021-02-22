@@ -18,23 +18,14 @@ procSuite "Basic balance test":
 
   test "Get balance from running node":
     # NOTE: This corresponds to the first default account in Hardhat
-    let taskString = "npx hardhat --network localhost balance --account 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-    let cmdString = "cd ../swap-contracts-module; " & &"{taskString}"
-    echo cmdString
-    let (output, errC) = osproc.execCmdEx(cmdString)
-    echo output
+    let balance = waku_swap_contracts.getBalance("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
 
     check:
-      contains(output, "ETH")
+      contains(balance, "ETH")
 
   test "Setup Swap":
-    let taskString = "npx hardhat --network localhost setupSwap"
-    let cmdString = "cd ../swap-contracts-module; " & &"{taskString}"
-    echo cmdString
-    let (output, errC) = osproc.execCmdEx(cmdString)
+    let json = waku_swap_contracts.setupSwap()
 
-    # XXX Assume succeeds
-    let json = parseJson(output)
     var aliceAddress = json["aliceAddress"].getStr()
     aliceSwapAddress = json["aliceSwapAddress"].getStr()
     erc20address = json["erc20address"].getStr()
@@ -47,19 +38,7 @@ procSuite "Basic balance test":
 
   test "Sign Cheque":
     let signature = waku_swap_contracts.signCheque(aliceSwapAddress)
-    # #npx hardhat signCheque --swapaddress "0x94099942864EA81cCF197E9D71ac53310b1468D8"
-    # let taskString = "npx hardhat --network localhost signCheque --swapaddress '" & &"{aliceSwapAddress}" & "'"
-    # let cmdString = "cd ../swap-contracts-module; " & &"{taskString}"
-    # echo cmdString
-    # let (output, errC) = osproc.execCmdEx(cmdString)
 
-    # # XXX Assume succeeds
-    # let json = parseJson(output)
-    # signature = json["signature"].getStr()
-    # echo json
-    # echo signature
-
-    # Contains some signature
     check:
       contains(signature, "0x")
 
