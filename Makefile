@@ -120,7 +120,7 @@ installganache:
 
 rlnlib:
 	#cargo clean --manifest-path rln/Cargo.toml #TODO may need to clean the rln directory before cloning the rln repo
-	git clone --branch full-node https://github.com/kilic/rln; git --git-dir=rln/.git reset --hard a80f5d0; cargo build --manifest-path rln/Cargo.toml;
+	rm -rf rln; git clone --branch full-node https://github.com/kilic/rln; git --git-dir=rln/.git reset --hard a80f5d0; cargo build --manifest-path rln/Cargo.toml;
 
 test2: | build deps installganache
 	echo -e $(BUILD_MSG) "build/$@" && \

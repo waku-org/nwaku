@@ -3,6 +3,7 @@ import
   chronos, chronicles, metrics, stew/shims/net as stewNet,
   # TODO: Why do we need eth keys?
   eth/keys,
+  web3,
   libp2p/multiaddress,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
@@ -13,6 +14,7 @@ import
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter/waku_filter,
+  ../protocol/waku_rln_relay/waku_rln_relay_utils,
   ../utils/peers,
   ./message_store/message_store,
   ../utils/requests,
@@ -51,6 +53,7 @@ type
     wakuStore*: WakuStore
     wakuFilter*: WakuFilter
     wakuSwap*: WakuSwap
+    wakuRlnRelay*: WakuRLNRelay
     peerInfo*: PeerInfo
     libp2pTransportLoops*: seq[Future[void]]
   # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
@@ -310,8 +313,34 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil) =
   node.switch.mount(node.wakuStore)
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
-proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRelayEnabled: bool = false) {.gcsafe.} =
-  # TODO add the RLN registration
+proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(string), ethAccountAddress: Option[Address] = none(Address), membershipContractAddress:  Option[Address] = none(Address)) {.async.} =
+  # check whether inputs are provided
+  doAssert(ethClientAddress.isSome())
+  doAssert(ethAccountAddress.isSome())
+  doAssert(membershipContractAddress.isSome())
+
+  # generate the membership keys
+  let membershipKeyPair = membershipKeyGen()
+  # check whether keys are generated
+  doAssert(membershipKeyPair.isSome())
+  debug "the membership key for the rln relay is generated"
+
+  # initialize the WakuRLNRelay
+  var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
+    ethClientAddress: ethClientAddress.get(),
+    ethAccountAddress: ethAccountAddress.get(),
+    membershipContractAddress: membershipContractAddress.get())
+  
+  # register the rln-relay peer to the membership contract
+  let is_successful = await rlnPeer.register()
+  # check whether registration is done
+  doAssert(is_successful)
+  debug "peer is successfully registered into the membership contract"
+
+  node.wakuRlnRelay = rlnPeer
+
+
+proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRelayEnabled = false) {.gcsafe.} =
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
     # Use default
@@ -320,13 +349,6 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
     sign = false,
     verifySignature = false
   )
-  # TODO if rln-relay enabled, then perform registration
-  if rlnRelayEnabled:
-    debug "Using WakuRLNRelay"
-  else:
-    debug "WakuRLNRelay is disabled"
-
-
 
   node.wakuRelay = wakuRelay
   node.switch.mount(wakuRelay)
@@ -346,6 +368,12 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
       debug "Hit handler", topic=topic, data=data
 
     node.subscribe(topic, handler)
+
+  if rlnRelayEnabled:
+    # TODO pass rln relay inputs to this proc, right now it uses default values that are set in the mountRlnRelay proc
+    info "WakuRLNRelay is enabled"
+    waitFor mountRlnRelay(node)
+    info "WakuRLNRelay is mounted successfully"
 
 ## Helpers
 proc dialPeer*(n: WakuNode, address: string) {.async.} =
