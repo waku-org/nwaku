@@ -69,11 +69,9 @@ procSuite "Basic balance test":
 
     # XXX Assume succeeds
     let json = parseJson(output)
-    echo json
 
-    # Contains some signature
     check:
-      contains(signature, "0x")
+      json["bobBalance"].getInt() == 10000
 
   test "Redeem cheque and check balance":
     # XXX Simplify string creation
