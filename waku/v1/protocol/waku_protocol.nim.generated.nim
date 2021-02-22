@@ -188,10 +188,10 @@ proc statusRawSender(peerOrResponder: Peer; options: StatusOptions;
 
 template status*(peer: Peer; options: StatusOptions;
                 timeout: Duration = milliseconds(10000'i64)): Future[statusObj] =
-  let peer_175950056 = peer
-  let sendingFuture`gensym175950057 = statusRawSender(peer, options)
-  handshakeImpl(peer_175950056, sendingFuture`gensym175950057,
-                nextMsg(peer_175950056, statusObj), timeout)
+  let peer_183870056 = peer
+  let sendingFuture`gensym183870057 = statusRawSender(peer, options)
+  handshakeImpl(peer_183870056, sendingFuture`gensym183870057,
+                nextMsg(peer_183870056, statusObj), timeout)
 
 proc messages*(peerOrResponder: Peer; envelopes: openarray[Envelope]): Future[void] {.
     gcsafe.} =
@@ -272,9 +272,9 @@ proc p2pSyncResponse*(peerOrResponder: ResponderWithId[p2pSyncResponseObj]): Fut
   let msgBytes = finish(writer)
   return sendMsg(peer, msgBytes)
 
-template send*(r`gensym175950072: ResponderWithId[p2pSyncResponseObj];
-              args`gensym175950073: varargs[untyped]): auto =
-  p2pSyncResponse(r`gensym175950072, args`gensym175950073)
+template send*(r`gensym183870072: ResponderWithId[p2pSyncResponseObj];
+              args`gensym183870073: varargs[untyped]): auto =
+  p2pSyncResponse(r`gensym183870072, args`gensym183870073)
 
 proc p2pSyncRequest*(peerOrResponder: Peer;
                     timeout: Duration = milliseconds(10000'i64)): Future[
@@ -458,71 +458,71 @@ proc p2pRequestCompleteUserHandler(peer: Peer; requestId: Hash;
 
   discard
 
-proc statusThunk(peer: Peer; _`gensym175950033: int; data`gensym175950034: Rlp) {.
+proc statusThunk(peer: Peer; _`gensym183870033: int; data`gensym183870034: Rlp) {.
     async, gcsafe.} =
-  var rlp = data`gensym175950034
+  var rlp = data`gensym183870034
   var msg {.noinit.}: statusObj
   msg.options = checkedRlpRead(peer, rlp, StatusOptions)
   
-proc messagesThunk(peer: Peer; _`gensym175950058: int; data`gensym175950059: Rlp) {.
+proc messagesThunk(peer: Peer; _`gensym183870058: int; data`gensym183870059: Rlp) {.
     async, gcsafe.} =
-  var rlp = data`gensym175950059
+  var rlp = data`gensym183870059
   var msg {.noinit.}: messagesObj
   msg.envelopes = checkedRlpRead(peer, rlp, openarray[Envelope])
   await(messagesUserHandler(peer, msg.envelopes))
   
-proc statusOptionsThunk(peer: Peer; _`gensym175950060: int; data`gensym175950061: Rlp) {.
+proc statusOptionsThunk(peer: Peer; _`gensym183870060: int; data`gensym183870061: Rlp) {.
     async, gcsafe.} =
-  var rlp = data`gensym175950061
+  var rlp = data`gensym183870061
   var msg {.noinit.}: statusOptionsObj
   msg.options = checkedRlpRead(peer, rlp, StatusOptions)
   await(statusOptionsUserHandler(peer, msg.options))
   
-proc p2pRequestThunk(peer: Peer; _`gensym175950062: int; data`gensym175950063: Rlp) {.
+proc p2pRequestThunk(peer: Peer; _`gensym183870062: int; data`gensym183870063: Rlp) {.
     async, gcsafe.} =
-  var rlp = data`gensym175950063
+  var rlp = data`gensym183870063
   var msg {.noinit.}: p2pRequestObj
   msg.envelope = checkedRlpRead(peer, rlp, Envelope)
   await(p2pRequestUserHandler(peer, msg.envelope))
   
-proc p2pMessageThunk(peer: Peer; _`gensym175950064: int; data`gensym175950065: Rlp) {.
+proc p2pMessageThunk(peer: Peer; _`gensym183870064: int; data`gensym183870065: Rlp) {.
     async, gcsafe.} =
-  var rlp = data`gensym175950065
+  var rlp = data`gensym183870065
   var msg {.noinit.}: p2pMessageObj
   msg.envelopes = checkedRlpRead(peer, rlp, openarray[Envelope])
   await(p2pMessageUserHandler(peer, msg.envelopes))
   
-proc batchAcknowledgedThunk(peer: Peer; _`gensym175950066: int;
-                           data`gensym175950067: Rlp) {.async, gcsafe.} =
-  var rlp = data`gensym175950067
+proc batchAcknowledgedThunk(peer: Peer; _`gensym183870066: int;
+                           data`gensym183870067: Rlp) {.async, gcsafe.} =
+  var rlp = data`gensym183870067
   var msg {.noinit.}: batchAcknowledgedObj
   await(batchAcknowledgedUserHandler(peer))
   
-proc messageResponseThunk(peer: Peer; _`gensym175950068: int;
-                         data`gensym175950069: Rlp) {.async, gcsafe.} =
-  var rlp = data`gensym175950069
+proc messageResponseThunk(peer: Peer; _`gensym183870068: int;
+                         data`gensym183870069: Rlp) {.async, gcsafe.} =
+  var rlp = data`gensym183870069
   var msg {.noinit.}: messageResponseObj
   await(messageResponseUserHandler(peer))
   
-proc p2pSyncResponseThunk(peer: Peer; _`gensym175950070: int;
-                         data`gensym175950071: Rlp) {.async, gcsafe.} =
-  var rlp = data`gensym175950071
+proc p2pSyncResponseThunk(peer: Peer; _`gensym183870070: int;
+                         data`gensym183870071: Rlp) {.async, gcsafe.} =
+  var rlp = data`gensym183870071
   var msg {.noinit.}: p2pSyncResponseObj
   let reqId = read(rlp, int)
   await(p2pSyncResponseUserHandler(peer, reqId))
   resolveResponseFuture(peer, perPeerMsgId(peer, p2pSyncResponseObj), addr(msg),
                         reqId)
 
-proc p2pSyncRequestThunk(peer: Peer; _`gensym175950074: int;
-                        data`gensym175950075: Rlp) {.async, gcsafe.} =
-  var rlp = data`gensym175950075
+proc p2pSyncRequestThunk(peer: Peer; _`gensym183870074: int;
+                        data`gensym183870075: Rlp) {.async, gcsafe.} =
+  var rlp = data`gensym183870075
   var msg {.noinit.}: p2pSyncRequestObj
   let reqId = read(rlp, int)
   await(p2pSyncRequestUserHandler(peer, reqId))
   
-proc p2pRequestCompleteThunk(peer: Peer; _`gensym175950076: int;
-                            data`gensym175950077: Rlp) {.async, gcsafe.} =
-  var rlp = data`gensym175950077
+proc p2pRequestCompleteThunk(peer: Peer; _`gensym183870076: int;
+                            data`gensym183870077: Rlp) {.async, gcsafe.} =
+  var rlp = data`gensym183870077
   var msg {.noinit.}: p2pRequestCompleteObj
   tryEnterList(rlp)
   msg.requestId = checkedRlpRead(peer, rlp, Hash)
