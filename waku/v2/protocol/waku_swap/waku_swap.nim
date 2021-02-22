@@ -89,6 +89,8 @@ proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
 
 # TODO Test for credit/debit operations in succession
 
+
+# TODO Assume we calculated cheque
 proc sendCheque*(ws: WakuSwap) {.async.} =
   let peerOpt = ws.peerManager.selectPeer(WakuSwapCodec)
 
@@ -109,8 +111,17 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
 
   info "sendCheque"
 
+  # TODO Encode cheque here for what we need to send
+  # cd ../swap-contracts-module; npx hardhat --network localhost redeemCheque --swapaddress '0x524F04724632eED237cbA3c37272e018b3A7967e' --signature '0x76d18d68134ff590eda2f9fec2cbb3bebdcc1e1c56844ec9d8be9f3c24303f8e3ca003713ee3274030c8797480dcf0cad71ba9f141f86f de26bc94beb886fd781c'
+  # We need: swapaddress, signature, and....
+
   # TODO Add beneficiary, etc
   # XXX Hardcoded amount for now
+  # TODO This should be based on the thing we actually have
+  # Also need to sign it, etc
+  # XXX Here atm - how to do this semimanually, based on test we compute? need fn to get cheque, assuming node is running?
+  #
+  # signCheque
   await connOpt.get().writeLP(Cheque(amount: 1).encode().buffer)
 
   # Set new balance
@@ -119,6 +130,7 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
   info "New accounting state", accounting = ws.accounting[peerId]
 
 # TODO Authenticate cheque, check beneficiary etc
+# TODO Redeem cheque
 proc handleCheque*(ws: WakuSwap, cheque: Cheque) =
   info "handle incoming cheque"
   # XXX Assume peerId is first peer
@@ -169,6 +181,7 @@ proc init*(wakuSwap: WakuSwap) =
 
     # TODO Isolate to policy function
     # TODO Tunable payment threshhold, hard code for PoC
+    # XXX: Where should this happen? Apply policy...
     let paymentThreshhold = 1
     if wakuSwap.accounting[peerId] >= paymentThreshhold:
       info "Payment threshhold hit, send cheque"
