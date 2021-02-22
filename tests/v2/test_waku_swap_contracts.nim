@@ -2,7 +2,8 @@
  #
 import
   std/[unittest, options, tables, sets, osproc, strutils, strformat, json],
-  ../test_helpers, ./utils
+  ../test_helpers, ./utils,
+  ../../waku/v2/protocol/waku_swap/waku_swap_contracts
 
 procSuite "Basic balance test":
   var aliceSwapAddress = ""
@@ -45,17 +46,18 @@ procSuite "Basic balance test":
       contains(aliceAddress, "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
 
   test "Sign Cheque":
-    #npx hardhat signCheque --swapaddress "0x94099942864EA81cCF197E9D71ac53310b1468D8"
-    let taskString = "npx hardhat --network localhost signCheque --swapaddress '" & &"{aliceSwapAddress}" & "'"
-    let cmdString = "cd ../swap-contracts-module; " & &"{taskString}"
-    echo cmdString
-    let (output, errC) = osproc.execCmdEx(cmdString)
+    let signature = waku_swap_contracts.signCheque(aliceSwapAddress)
+    # #npx hardhat signCheque --swapaddress "0x94099942864EA81cCF197E9D71ac53310b1468D8"
+    # let taskString = "npx hardhat --network localhost signCheque --swapaddress '" & &"{aliceSwapAddress}" & "'"
+    # let cmdString = "cd ../swap-contracts-module; " & &"{taskString}"
+    # echo cmdString
+    # let (output, errC) = osproc.execCmdEx(cmdString)
 
-    # XXX Assume succeeds
-    let json = parseJson(output)
-    signature = json["signature"].getStr()
-    echo json
-    echo signature
+    # # XXX Assume succeeds
+    # let json = parseJson(output)
+    # signature = json["signature"].getStr()
+    # echo json
+    # echo signature
 
     # Contains some signature
     check:
