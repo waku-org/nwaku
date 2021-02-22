@@ -8,23 +8,26 @@ import
 # XXX In general this is not a good API, more a collection of hacky glue code for PoC.
 #
 # TODO Error handling
-# TODO util for task/cmd string
+
+# Interacts with node in sibling path and interacts with a local Hardhat node.
+const taskPrelude = "npx hardhat --network localhost "
+const cmdPrelude = "cd ../swap-contracts-module; " & taskPrelude
+
+proc execNodeTask(taskStr: string): tuple[output: TaintedString, exitCode: int] =
+  let cmdString = $cmdPrelude & $taskStr
+  echo cmdString
+  return osproc.execCmdEx(cmdString)
 
 # TODO JSON?
 proc getBalance*(accountAddress: string): string =
-    # NOTE: This corresponds to the first default account in Hardhat
-    let taskString = "npx hardhat --network localhost balance --account " & $accountAddress
-    let cmdString = "cd ../swap-contracts-module; " & $taskString
-    echo cmdString
-    let (output, errC) = osproc.execCmdEx(cmdString)
+    let task = "balance --account " & $accountAddress
+    let (output, errC) = execNodeTask(task)
     echo output
     return output
 
 proc setupSwap*(): JsonNode =
-    let taskString = "npx hardhat --network localhost setupSwap"
-    let cmdString = "cd ../swap-contracts-module; " & $taskString
-    echo cmdString
-    let (output, errC) = osproc.execCmdEx(cmdString)
+    let task = "setupSwap"
+    let (output, errC) = execNodeTask(task)
 
     # XXX Assume succeeds
     let json = parseJson(output)
@@ -32,10 +35,8 @@ proc setupSwap*(): JsonNode =
  
 # TODO Signature
 proc signCheque*(swapAddress: string): string =
-  let taskString = "npx hardhat --network localhost signCheque --swapaddress '" & $swapAddress & "'"
-  let cmdString = "cd ../swap-contracts-module; " & $taskString
-  echo cmdString
-  let (output, errC) = osproc.execCmdEx(cmdString)
+  let task = "signCheque --swapaddress '" & $swapAddress & "'"
+  let (output, errC) = execNodeTask(task)
 
  # XXX Assume succeeds
   let json = parseJson(output)
@@ -45,11 +46,17 @@ proc signCheque*(swapAddress: string): string =
   return signature
 
 proc getERC20Balances*(erc20address: string): JsonNode =
-    let taskString = "npx hardhat --network localhost getBalances --erc20address '" & $erc20address & "'"
-    let cmdString = "cd ../swap-contracts-module; " & $taskString
-    echo cmdString
-    let (output, errC) = osproc.execCmdEx(cmdString)
+    let task = "getBalances --erc20address '" & $erc20address & "'"
+    let (output, errC) = execNodeTask(task)
 
     # XXX Assume succeeds
     let json = parseJson(output)
     return json
+
+proc redeemCheque*(swapAddress: string, signature: string): JsonNode =
+  let task = "redeemCheque --swapaddress '" & $swapAddress & "' --signature '" & $signature & "'"
+  let (output, errC) = execNodeTask(task)
+
+  # XXX Assume succeeds
+  let json = parseJson(output)
+  return json

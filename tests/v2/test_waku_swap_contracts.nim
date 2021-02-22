@@ -42,20 +42,13 @@ procSuite "Basic balance test":
     check:
       contains(signature, "0x")
 
-  test "Get balances 1":
-    let taskString = "npx hardhat --network localhost getBalances --erc20address '" & &"{erc20address}" & "'"
-    let cmdString = "cd ../swap-contracts-module; " & &"{taskString}"
-    echo cmdString
-    let (output, errC) = osproc.execCmdEx(cmdString)
-
-    # XXX Assume succeeds
-    let json = parseJson(output)
+  test "Get ERC20 Balances":
+    let json = getERC20Balances(erc20address)
 
     check:
       json["bobBalance"].getInt() == 10000
 
   test "Redeem cheque and check balance":
-    # XXX Simplify string creation
     let taskString = "npx hardhat --network localhost redeemCheque --swapaddress '" & &"{aliceSwapAddress}" & "' --signature '" & &"{signature}" & "'"
     let cmdString = "cd ../swap-contracts-module; " & &"{taskString}"
     echo cmdString
