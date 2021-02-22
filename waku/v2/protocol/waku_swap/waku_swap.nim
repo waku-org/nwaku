@@ -31,7 +31,8 @@ import
   libp2p/stream/connection,
   ../../node/peer_manager,
   ../message_notifier,
-  ./waku_swap_types
+  ./waku_swap_types,
+  ../../waku/v2/protocol/waku_swap/waku_swap_contracts
 
 export waku_swap_types
 
@@ -111,9 +112,11 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
 
   info "sendCheque"
 
+  # TODO We get this from the setup of swap setup, dynamic, should be part of setup
+  var aliceSwapAddress = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
+  let signature = waku_swap_contracts.signCheque(aliceSwapAddress)
+  info "Signed Cheque", swapAddress = aliceSwapAddress, signature = signature
   # TODO Encode cheque here for what we need to send
-  # cd ../swap-contracts-module; npx hardhat --network localhost redeemCheque --swapaddress '0x524F04724632eED237cbA3c37272e018b3A7967e' --signature '0x76d18d68134ff590eda2f9fec2cbb3bebdcc1e1c56844ec9d8be9f3c24303f8e3ca003713ee3274030c8797480dcf0cad71ba9f141f86f de26bc94beb886fd781c'
-  # We need: swapaddress, signature, and....
 
   # TODO Add beneficiary, etc
   # XXX Hardcoded amount for now
