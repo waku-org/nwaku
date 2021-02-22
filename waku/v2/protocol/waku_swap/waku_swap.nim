@@ -60,6 +60,7 @@ proc encode*(cheque: Cheque): ProtoBuffer =
   result.write(1, cheque.beneficiary)
   result.write(2, cheque.date)
   result.write(3, cheque.amount)
+  result.write(4, cheque.signature)
 
 proc init*(T: type Handshake, buffer: seq[byte]): ProtoResult[T] =
   var beneficiary: seq[byte]
@@ -74,12 +75,14 @@ proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
   var beneficiary: seq[byte]
   var date: uint32
   var amount: uint32
+  var signature: seq[byte]
   var cheque = Cheque()
   let pb = initProtoBuffer(buffer)
 
   discard ? pb.getField(1, cheque.beneficiary)
   discard ? pb.getField(2, cheque.date)
   discard ? pb.getField(3, cheque.amount)
+  discard ? pb.getField(4, cheque.signature)
 
   ok(cheque)
 
@@ -113,19 +116,13 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
   info "sendCheque"
 
   # TODO We get this from the setup of swap setup, dynamic, should be part of setup
+  # TODO Add beneficiary, etc
   var aliceSwapAddress = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
   let signature = waku_swap_contracts.signCheque(aliceSwapAddress)
   info "Signed Cheque", swapAddress = aliceSwapAddress, signature = signature
-  # TODO Encode cheque here for what we need to send
 
-  # TODO Add beneficiary, etc
-  # XXX Hardcoded amount for now
-  # TODO This should be based on the thing we actually have
-  # Also need to sign it, etc
-  # XXX Here atm - how to do this semimanually, based on test we compute? need fn to get cheque, assuming node is running?
-  #
-  # signCheque
-  await connOpt.get().writeLP(Cheque(amount: 1).encode().buffer)
+  let sigBytes = cast[seq[byte]](signature)
+  await connOpt.get().writeLP(Cheque(amount: 1, signature: sigBytes).encode().buffer)
 
   # Set new balance
   let peerId = peer.peerId

@@ -12,10 +12,13 @@ type
   Handshake* = object
     beneficiary*: Beneficiary
 
+  # XXX I'm confused by lack of signature here, most important thing...
+  # TODO Look over these data structures again
   Cheque* = object
     beneficiary*: Beneficiary
     date*: uint32
     amount*: uint32
+    signature*: seq[byte]
 
   CreditHandler* = proc (peerId: PeerId, amount: int) {.gcsafe, closure.}
   DebitHandler* = proc (peerId: PeerId, amount: int) {.gcsafe, closure.}
