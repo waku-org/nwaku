@@ -1,8 +1,10 @@
 import
   chronos, chronicles, options, stint, unittest,
   web3,
-  stew/byteutils,
+  stew/byteutils, stew/shims/net as stewNet,
+  libp2p/crypto/crypto,
   ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils],
+  ../../waku/v2/node/wakunode2,
   ../test_helpers,
   test_utils
 
@@ -10,6 +12,7 @@ import
   
 
 # the address of Ethereum client (ganache-cli for now)
+# TODO this address in hardcoded in the code, we may need to take it as input from the user
 const EthClient = "ws://localhost:8540/"
 
 # poseidonHasherCode holds the bytecode of Poseidon hasher solidity smart contract: 
@@ -181,8 +184,8 @@ procSuite "Waku rln relay":
     check:
       membershipKeyPair.isSome
 
-    # initialize the RLNRelayPeer
-    var rlnPeer = RLNRelayPeer(membershipKeyPair: membershipKeyPair.get(),
+    # initialize the WakuRLNRelay 
+    var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
       ethClientAddress: EthClient,
       ethAccountAddress: ethAccountAddress,
       membershipContractAddress: contractAddress)
@@ -191,6 +194,27 @@ procSuite "Waku rln relay":
     let is_successful = await rlnPeer.register()
     check:
       is_successful
+  asyncTest "mounting waku rln relay":
+    let
+      nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node = WakuNode.init(nodeKey, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
+    await node.start()
+
+    # deploy the contract
+    let membershipContractAddress = await uploadContract(EthClient)
+
+    # prepare rln-relay inputs
+    let 
+      web3 = await newWeb3(EthClient)
+      accounts = await web3.provider.eth_accounts()
+      # choose one of the existing account for the rln-relay peer  
+      ethAccountAddress = accounts[9]
+    await web3.close()
+
+    # start rln-relay
+    await node.mountRlnRelay(ethClientAddress = some(EthClient), ethAccountAddress =  some(ethAccountAddress), membershipContractAddress =  some(membershipContractAddress))
+
 suite "Waku rln relay":
   test "Keygen Nim Wrappers":
     var 
