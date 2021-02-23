@@ -7,7 +7,7 @@ import
   ./v2/test_waku_filter,
   ./v2/test_waku_pagination,
   ./v2/test_waku_payload,
-  ./v2/test_waku_swap,
+#  ./v2/test_waku_swap,
   ./v2/test_message_store,
   ./v2/test_jsonrpc_waku,
   ./v2/test_peer_manager,

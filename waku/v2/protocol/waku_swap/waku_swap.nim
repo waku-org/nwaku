@@ -31,7 +31,8 @@ import
   libp2p/stream/connection,
   ../../node/peer_manager,
   ../message_notifier,
-  ./waku_swap_types
+  ./waku_swap_types,
+  ../../waku/v2/protocol/waku_swap/waku_swap_contracts
 
 export waku_swap_types
 
@@ -59,6 +60,7 @@ proc encode*(cheque: Cheque): ProtoBuffer =
   result.write(1, cheque.beneficiary)
   result.write(2, cheque.date)
   result.write(3, cheque.amount)
+  result.write(4, cheque.signature)
 
 proc init*(T: type Handshake, buffer: seq[byte]): ProtoResult[T] =
   var beneficiary: seq[byte]
@@ -73,12 +75,14 @@ proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
   var beneficiary: seq[byte]
   var date: uint32
   var amount: uint32
+  var signature: seq[byte]
   var cheque = Cheque()
   let pb = initProtoBuffer(buffer)
 
   discard ? pb.getField(1, cheque.beneficiary)
   discard ? pb.getField(2, cheque.date)
   discard ? pb.getField(3, cheque.amount)
+  discard ? pb.getField(4, cheque.signature)
 
   ok(cheque)
 
@@ -89,6 +93,8 @@ proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
 
 # TODO Test for credit/debit operations in succession
 
+
+# TODO Assume we calculated cheque
 proc sendCheque*(ws: WakuSwap) {.async.} =
   let peerOpt = ws.peerManager.selectPeer(WakuSwapCodec)
 
@@ -109,9 +115,14 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
 
   info "sendCheque"
 
+  # TODO We get this from the setup of swap setup, dynamic, should be part of setup
   # TODO Add beneficiary, etc
-  # XXX Hardcoded amount for now
-  await connOpt.get().writeLP(Cheque(amount: 1).encode().buffer)
+  var aliceSwapAddress = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
+  let signature = waku_swap_contracts.signCheque(aliceSwapAddress)
+  info "Signed Cheque", swapAddress = aliceSwapAddress, signature = signature
+
+  let sigBytes = cast[seq[byte]](signature)
+  await connOpt.get().writeLP(Cheque(amount: 1, signature: sigBytes).encode().buffer)
 
   # Set new balance
   let peerId = peer.peerId
@@ -119,6 +130,7 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
   info "New accounting state", accounting = ws.accounting[peerId]
 
 # TODO Authenticate cheque, check beneficiary etc
+# TODO Redeem cheque
 proc handleCheque*(ws: WakuSwap, cheque: Cheque) =
   info "handle incoming cheque"
   # XXX Assume peerId is first peer
@@ -169,6 +181,7 @@ proc init*(wakuSwap: WakuSwap) =
 
     # TODO Isolate to policy function
     # TODO Tunable payment threshhold, hard code for PoC
+    # XXX: Where should this happen? Apply policy...
     let paymentThreshhold = 1
     if wakuSwap.accounting[peerId] >= paymentThreshhold:
       info "Payment threshhold hit, send cheque"
