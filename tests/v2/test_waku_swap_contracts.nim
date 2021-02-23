@@ -2,6 +2,7 @@
  #
 import
   std/[unittest, options, tables, sets, osproc, strutils, strformat, json],
+  chronicles,
   ../test_helpers, ./utils,
   ../../waku/v2/protocol/waku_swap/waku_swap_contracts
 
@@ -11,7 +12,7 @@ procSuite "Basic balance test":
   var erc20address = ""
   test "Get pwd of swap module":
     let (output, errC) = osproc.execCmdEx("(cd ../swap-contracts-module && pwd)")
-    echo output
+    debug "output", output
 
     check:
       contains(output, "swap-contracts-module")
@@ -29,8 +30,8 @@ procSuite "Basic balance test":
     var aliceAddress = json["aliceAddress"].getStr()
     aliceSwapAddress = json["aliceSwapAddress"].getStr()
     erc20address = json["erc20address"].getStr()
-    echo erc20address
-    echo json
+    debug "erc20address", erc20address
+    debug "json", json
 
     # Contains default Alice account
     check:
@@ -51,11 +52,11 @@ procSuite "Basic balance test":
   test "Redeem cheque and check balance":
     let json = waku_swap_contracts.redeemCheque(aliceSwapAddress, signature)
     var resp = json["resp"].getStr()
-    echo json
+    debug "json", json
 
-    echo "Get balances"
+    debug "Get balances"
     let json2 = getERC20Balances(erc20address)
-    echo json2
+    debug "json", json2
 
     # Balance for Bob has now increased
     check:
