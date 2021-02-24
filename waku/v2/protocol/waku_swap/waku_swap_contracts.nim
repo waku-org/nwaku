@@ -14,7 +14,7 @@ logScope:
 
 # TODO Richer error types than string, overkill for now...
 type NodeTaskStrResult = Result[string, string]
-type NodeTaskJSONResult = Result[JsonNode, string]
+type NodeTaskJsonResult = Result[JsonNode, string]
 
 # XXX In general this is not a good API, more a collection of hacky glue code for PoC.
 #
@@ -29,22 +29,34 @@ proc execNodeTask(taskStr: string): tuple[output: TaintedString, exitCode: int] 
   debug "execNodeTask", cmdString
   return osproc.execCmdEx(cmdString)
 
+proc execNodeTaskJson(taskStr: string): NodeTaskJsonResult =
+  let cmdString = $cmdPrelude & $taskStr
+  debug "execNodeTask", cmdString
+  let (output, errC) = osproc.execCmdEx(cmdString)
+
+  if errC>0:
+    error "Error executing node task", output
+    return err(output)
+
+  debug "Command executed", output
+
+  try:
+    let json = parseJson(output)
+    return ok(json)
+  except JsonParsingError:
+    return err("Unable to parse JSON:" & $output)
+
+
 proc getBalance*(accountAddress: string): NodeTaskStrResult =
     let task = "balance --account " & $accountAddress
-    let (output, errC) = execNodeTask(task)
-    debug "getBalance", output
+    let res = execNodeTaskJson(task)
+    if res.isErr():
+      return err("Unable to execute task" & $res)
 
-    if errC>0:
-      error "Error executing node task", output
-      return err(output)
-
-    try:
-      let json = parseJson(output)
-      let balance = json["balance"].getStr()
-      debug "getBalance", json=json, balance=balance
-      return ok(balance)
-    except JsonParsingError:
-      return err("Unable to parse JSON:" & $output)
+    let json = res[]
+    let balance = json["balance"].getStr()
+    debug "getBalance", json=json, balance=balance
+    return ok(balance)
 
 proc setupSwap*(): JsonNode =
     let task = "setupSwap"
@@ -54,7 +66,6 @@ proc setupSwap*(): JsonNode =
     let json = parseJson(output)
     return json
  
-# TODO JSON
 proc signCheque*(swapAddress: string): NodeTaskStrResult =
   let task = "signCheque --swapaddress '" & $swapAddress & "'"
   var (output, errC) = execNodeTask(task)
@@ -73,27 +84,22 @@ proc signCheque*(swapAddress: string): NodeTaskStrResult =
   except JsonParsingError:
     return err("Unable to parse JSON:" & $output)
 
-proc getERC20Balances*(erc20address: string): JsonNode =
+proc getERC20Balances*(erc20address: string): NodeTaskJsonResult =
     let task = "getBalances --erc20address '" & $erc20address & "'"
-    let (output, errC) = execNodeTask(task)
+    let res = execNodeTaskJson(task)
+    debug "getERC20Balances", res
+    return res
 
-    # XXX Assume succeeds
-    let json = parseJson(output)
-    return json
-
-proc redeemCheque*(swapAddress: string, signature: string): JsonNode =
+proc redeemCheque*(swapAddress: string, signature: string): NodeTaskJsonResult =
   let task = "redeemCheque --swapaddress '" & $swapAddress & "' --signature '" & $signature & "'"
-  let (output, errC) = execNodeTask(task)
+  let res = execNodeTaskJson(task)
+  return res
 
-  # XXX Assume succeeds
-  let json = parseJson(output)
-  return json
-
-
-var aliceSwapAddress = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
-var sigRes = signCheque(aliceSwapAddress)
-if sigRes.isOk:
-  echo "All good"
-  echo "Signature ", sigRes[]
-else:
-  echo sigRes
+when isMainModule:
+  var aliceSwapAddress = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
+  var sigRes = signCheque(aliceSwapAddress)
+  if sigRes.isOk:
+    echo "All good"
+    echo "Signature ", sigRes[]
+  else:
+    echo sigRes

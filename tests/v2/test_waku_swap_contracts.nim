@@ -50,20 +50,21 @@ procSuite "Basic balance test":
       contains(sigRes[], "0x")
 
   test "Get ERC20 Balances":
-    let json = getERC20Balances(erc20address)
+    let res = waku_swap_contracts.getERC20Balances(erc20address)
 
     check:
-      json["bobBalance"].getInt() == 10000
+      res.isOk()
+      res[]["bobBalance"].getInt() == 10000
 
   test "Redeem cheque and check balance":
-    let json = waku_swap_contracts.redeemCheque(aliceSwapAddress, signature)
-    var resp = json["resp"].getStr()
-    debug "json", json
+    let redeemRes = waku_swap_contracts.redeemCheque(aliceSwapAddress, signature)
+    var resp = redeemRes[]["resp"].getStr()
+    debug "Redeem resp", resp
 
-    debug "Get balances"
-    let json2 = getERC20Balances(erc20address)
-    debug "json", json2
+    let balRes = getERC20Balances(erc20address)
 
     # Balance for Bob has now increased
     check:
-      json2["bobBalance"].getInt() == 10500
+      redeemRes.isOk()
+      balRes.isOk()
+      balRes[]["bobBalance"].getInt() == 10500
