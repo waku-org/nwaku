@@ -19,10 +19,11 @@ procSuite "Basic balance test":
 
   test "Get balance from running node":
     # NOTE: This corresponds to the first default account in Hardhat
-    let balance = waku_swap_contracts.getBalance("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
+    let balRes = waku_swap_contracts.getBalance("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
 
     check:
-      parseFloat(balance) > 0
+      balRes.isOk()
+      parseFloat(balRes[]) > 0
 
   test "Setup Swap":
     let json = waku_swap_contracts.setupSwap()
@@ -38,10 +39,15 @@ procSuite "Basic balance test":
       contains(aliceAddress, "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
 
   test "Sign Cheque":
-    signature = waku_swap_contracts.signCheque(aliceSwapAddress)
+    var sigRes = waku_swap_contracts.signCheque(aliceSwapAddress)
+
+    # Used in later tests
+    if sigRes.isOk():
+      signature = sigRes[]
 
     check:
-      contains(signature, "0x")
+      sigRes.isOk()
+      contains(sigRes[], "0x")
 
   test "Get ERC20 Balances":
     let json = getERC20Balances(erc20address)

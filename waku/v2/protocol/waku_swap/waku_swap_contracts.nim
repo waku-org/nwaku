@@ -2,12 +2,19 @@
 #
 # Assumes swap-contracts-module node is running.
 #
+
+#{.push raises: [Defect].}
+
 import
   std/[osproc, strutils, json],
-  chronicles
+  chronicles, stew/results
 
 logScope:
   topics = "wakuswapcontracts"
+
+# TODO Richer error types than string, overkill for now...
+type NodeTaskStrResult = Result[string, string]
+type NodeTaskJSONResult = Result[JsonNode, string]
 
 # XXX In general this is not a good API, more a collection of hacky glue code for PoC.
 #
@@ -22,17 +29,22 @@ proc execNodeTask(taskStr: string): tuple[output: TaintedString, exitCode: int] 
   debug "execNodeTask", cmdString
   return osproc.execCmdEx(cmdString)
 
-# TODO JSON?
-proc getBalance*(accountAddress: string): string =
+proc getBalance*(accountAddress: string): NodeTaskStrResult =
     let task = "balance --account " & $accountAddress
     let (output, errC) = execNodeTask(task)
     debug "getBalance", output
 
-  # XXX Assume succeeds
-    let json = parseJson(output)
-    let balance = json["balance"].getStr()
-    debug "getBalance", json=json, balance=balance
-    return balance
+    if errC>0:
+      error "Error executing node task", output
+      return err(output)
+
+    try:
+      let json = parseJson(output)
+      let balance = json["balance"].getStr()
+      debug "getBalance", json=json, balance=balance
+      return ok(balance)
+    except JsonParsingError:
+      return err("Unable to parse JSON:" & $output)
 
 proc setupSwap*(): JsonNode =
     let task = "setupSwap"
@@ -43,15 +55,23 @@ proc setupSwap*(): JsonNode =
     return json
  
 # TODO JSON
-proc signCheque*(swapAddress: string): string =
+proc signCheque*(swapAddress: string): NodeTaskStrResult =
   let task = "signCheque --swapaddress '" & $swapAddress & "'"
-  let (output, errC) = execNodeTask(task)
+  var (output, errC) = execNodeTask(task)
 
- # XXX Assume succeeds
-  let json = parseJson(output)
-  let signature = json["signature"].getStr()
-  debug "signCheque", json=json, signature=signature
-  return signature
+  if errC>0:
+    error "Error executing node task", output
+    return err(output)
+
+  debug "Command executed", output
+
+  try:
+    let json = parseJson(output)
+    let signature = json["signature"].getStr()
+    info "signCheque", json=json, signature=signature
+    return ok(signature)
+  except JsonParsingError:
+    return err("Unable to parse JSON:" & $output)
 
 proc getERC20Balances*(erc20address: string): JsonNode =
     let task = "getBalances --erc20address '" & $erc20address & "'"
@@ -68,3 +88,12 @@ proc redeemCheque*(swapAddress: string, signature: string): JsonNode =
   # XXX Assume succeeds
   let json = parseJson(output)
   return json
+
+
+var aliceSwapAddress = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
+var sigRes = signCheque(aliceSwapAddress)
+if sigRes.isOk:
+  echo "All good"
+  echo "Signature ", sigRes[]
+else:
+  echo sigRes
