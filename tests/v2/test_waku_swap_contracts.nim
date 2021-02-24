@@ -22,7 +22,7 @@ procSuite "Basic balance test":
     let balance = waku_swap_contracts.getBalance("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
 
     check:
-      contains(balance, "ETH")
+      parseFloat(balance) > 0
 
   test "Setup Swap":
     let json = waku_swap_contracts.setupSwap()

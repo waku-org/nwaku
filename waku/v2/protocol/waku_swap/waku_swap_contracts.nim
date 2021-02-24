@@ -27,7 +27,12 @@ proc getBalance*(accountAddress: string): string =
     let task = "balance --account " & $accountAddress
     let (output, errC) = execNodeTask(task)
     debug "getBalance", output
-    return output
+
+  # XXX Assume succeeds
+    let json = parseJson(output)
+    let balance = json["balance"].getStr()
+    debug "getBalance", json=json, balance=balance
+    return balance
 
 proc setupSwap*(): JsonNode =
     let task = "setupSwap"
@@ -37,7 +42,7 @@ proc setupSwap*(): JsonNode =
     let json = parseJson(output)
     return json
  
-# TODO Signature
+# TODO JSON
 proc signCheque*(swapAddress: string): string =
   let task = "signCheque --swapaddress '" & $swapAddress & "'"
   let (output, errC) = execNodeTask(task)
