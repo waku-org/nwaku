@@ -19,13 +19,20 @@ procSuite "Basic balance test":
 
   test "Get balance from running node":
     # NOTE: This corresponds to the first default account in Hardhat
-    let balance = waku_swap_contracts.getBalance("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
+    let balRes = waku_swap_contracts.getBalance("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
+    var balance: float
+    if balRes.isOk():
+      let json = balRes[]
+      let balanceStr = json["balance"].getStr()
+      balance = parseFloat(balanceStr)
 
     check:
-      contains(balance, "ETH")
+      balRes.isOk()
+      balance > 0
 
   test "Setup Swap":
-    let json = waku_swap_contracts.setupSwap()
+    let res = waku_swap_contracts.setupSwap()
+    let json = res[]
 
     var aliceAddress = json["aliceAddress"].getStr()
     aliceSwapAddress = json["aliceSwapAddress"].getStr()
@@ -38,26 +45,31 @@ procSuite "Basic balance test":
       contains(aliceAddress, "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
 
   test "Sign Cheque":
-    signature = waku_swap_contracts.signCheque(aliceSwapAddress)
+    var sigRes = waku_swap_contracts.signCheque(aliceSwapAddress)
+    if sigRes.isOk():
+      let json = sigRes[]
+      signature = json["signature"].getStr()
 
     check:
+      sigRes.isOk()
       contains(signature, "0x")
 
   test "Get ERC20 Balances":
-    let json = getERC20Balances(erc20address)
+    let res = waku_swap_contracts.getERC20Balances(erc20address)
 
     check:
-      json["bobBalance"].getInt() == 10000
+      res.isOk()
+      res[]["bobBalance"].getInt() == 10000
 
   test "Redeem cheque and check balance":
-    let json = waku_swap_contracts.redeemCheque(aliceSwapAddress, signature)
-    var resp = json["resp"].getStr()
-    debug "json", json
+    let redeemRes = waku_swap_contracts.redeemCheque(aliceSwapAddress, signature)
+    var resp = redeemRes[]["resp"].getStr()
+    debug "Redeem resp", resp
 
-    debug "Get balances"
-    let json2 = getERC20Balances(erc20address)
-    debug "json", json2
+    let balRes = getERC20Balances(erc20address)
 
     # Balance for Bob has now increased
     check:
-      json2["bobBalance"].getInt() == 10500
+      redeemRes.isOk()
+      balRes.isOk()
+      balRes[]["bobBalance"].getInt() == 10500
