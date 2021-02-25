@@ -22,7 +22,7 @@
 ##
 
 import
-  std/[tables, options],
+  std/[tables, options, json],
   bearssl,
   chronos, chronicles, metrics, stew/results,
   libp2p/crypto/crypto,
@@ -118,9 +118,18 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
   # TODO We get this from the setup of swap setup, dynamic, should be part of setup
   # TODO Add beneficiary, etc
   var aliceSwapAddress = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
-  let signature = waku_swap_contracts.signCheque(aliceSwapAddress)
-  info "Signed Cheque", swapAddress = aliceSwapAddress, signature = signature
+  var signature: string
 
+  var res = waku_swap_contracts.signCheque(aliceSwapAddress)
+  if res.isOk():
+    echo "signCheque ", res[]
+    let json = res[]
+    signature = json["signature"].getStr()
+  else:
+    # To test code paths, this should look different in a production setting
+    warn "Something went wrong when signing cheque, sending anyway"
+
+  info "Signed Cheque", swapAddress = aliceSwapAddress, signature = signature
   let sigBytes = cast[seq[byte]](signature)
   await connOpt.get().writeLP(Cheque(amount: 1, signature: sigBytes).encode().buffer)
 
