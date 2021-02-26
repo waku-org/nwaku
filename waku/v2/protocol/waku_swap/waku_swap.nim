@@ -139,12 +139,27 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
   info "New accounting state", accounting = ws.accounting[peerId]
 
 # TODO Authenticate cheque, check beneficiary etc
-# TODO Redeem cheque
 proc handleCheque*(ws: WakuSwap, cheque: Cheque) =
   info "handle incoming cheque"
   # XXX Assume peerId is first peer
   let peerOpt = ws.peerManager.selectPeer(WakuSwapCodec)
   let peerId = peerOpt.get().peerId
+
+  # TODO Redeem cheque here
+  var signature = cast[string](cheque.signature)
+  # TODO Where should Alice Swap Address come from? Handshake probably?
+  # Hacky for now
+  var aliceSwapAddress = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
+  info "Redeeming cheque with", swapAddress=aliceSwapAddress, signature=signature
+  var res = waku_swap_contracts.redeemCheque(aliceSwapAddress, signature)
+  if res.isOk():
+    info "redeemCheque ok", redeem=res[]
+  else:
+    info "Unable to redeem cheque"
+
+  # TODO This should be conditional
+  info "Updating accounting state regardless of redeem result"
+  # TODO Check balance to verify here?
   ws.accounting[peerId] += int(cheque.amount)
   info "New accounting state", accounting = ws.accounting[peerId]
 
