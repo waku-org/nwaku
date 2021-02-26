@@ -122,7 +122,7 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
 
   var res = waku_swap_contracts.signCheque(aliceSwapAddress)
   if res.isOk():
-    echo "signCheque ", res[]
+    info "signCheque ", res=res[]
     let json = res[]
     signature = json["signature"].getStr()
   else:
@@ -171,10 +171,14 @@ proc handleCheque*(ws: WakuSwap, cheque: Cheque) =
   else:
     info "Problem getting Bob balance"
 
-  # TODO This should be conditional
-  info "Updating accounting state regardless of redeem result"
-  # TODO Check balance to verify here?
-  ws.accounting[peerId] += int(cheque.amount)
+  # TODO Could imagine scenario where you don't cash cheque but leave it as credit
+  # In that case, we would probably update accounting state, but keep track of cheques
+  if res.isOk():
+    info "Updating accounting state with redeemed cheque"
+    ws.accounting[peerId] += int(cheque.amount)
+  else:
+    info "Not updating accounting state with due to bad cheque"
+
   info "New accounting state", accounting = ws.accounting[peerId]
 
 proc init*(wakuSwap: WakuSwap) =
