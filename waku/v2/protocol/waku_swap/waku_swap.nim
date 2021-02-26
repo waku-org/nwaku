@@ -157,6 +157,20 @@ proc handleCheque*(ws: WakuSwap, cheque: Cheque) =
   else:
     info "Unable to redeem cheque"
 
+  # Check balance here
+  # TODO How do we get ERC20 address here?
+  # XXX This one is wrong
+  # Normally this would be part of initial setup, otherwise we need some temp persistence here
+  # Possibly as part of handshake?
+  var erc20address = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
+  let balRes = waku_swap_contracts.getERC20Balances(erc20address)
+  if balRes.isOk():
+    # XXX: Assumes Alice and Bob here...
+    var bobBalance = balRes[]["bobBalance"].getInt()
+    info "New balance is", balance=bobBalance
+  else:
+    info "Problem getting Bob balance"
+
   # TODO This should be conditional
   info "Updating accounting state regardless of redeem result"
   # TODO Check balance to verify here?
