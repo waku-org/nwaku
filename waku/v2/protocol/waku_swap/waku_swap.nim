@@ -167,7 +167,7 @@ proc handleCheque*(ws: WakuSwap, cheque: Cheque) =
   if balRes.isOk():
     # XXX: Assumes Alice and Bob here...
     var bobBalance = balRes[]["bobBalance"].getInt()
-    info "New balance is", balance=bobBalance
+    info "New balance is", balance = bobBalance
   else:
     info "Problem getting Bob balance"
 
@@ -261,4 +261,3 @@ proc setPeer*(ws: WakuSwap, peer: PeerInfo) =
   waku_swap_peers.inc()
 
 # TODO End to end communication
-
