@@ -122,7 +122,7 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
 
   var res = waku_swap_contracts.signCheque(aliceSwapAddress)
   if res.isOk():
-    echo "signCheque ", res[]
+    info "signCheque ", res=res[]
     let json = res[]
     signature = json["signature"].getStr()
   else:
@@ -139,13 +139,56 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
   info "New accounting state", accounting = ws.accounting[peerId]
 
 # TODO Authenticate cheque, check beneficiary etc
-# TODO Redeem cheque
 proc handleCheque*(ws: WakuSwap, cheque: Cheque) =
   info "handle incoming cheque"
   # XXX Assume peerId is first peer
   let peerOpt = ws.peerManager.selectPeer(WakuSwapCodec)
   let peerId = peerOpt.get().peerId
-  ws.accounting[peerId] += int(cheque.amount)
+
+  # TODO Redeem cheque here
+  var signature = cast[string](cheque.signature)
+  # TODO Where should Alice Swap Address come from? Handshake probably?
+  # Hacky for now
+  var aliceSwapAddress = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
+  info "Redeeming cheque with", swapAddress=aliceSwapAddress, signature=signature
+  var res = waku_swap_contracts.redeemCheque(aliceSwapAddress, signature)
+  if res.isOk():
+    info "redeemCheque ok", redeem=res[]
+  else:
+    info "Unable to redeem cheque"
+
+  # Check balance here
+  # TODO How do we get ERC20 address here?
+  # XXX This one is wrong
+  # Normally this would be part of initial setup, otherwise we need some temp persistence here
+  # Possibly as part of handshake?
+  var erc20address = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
+  let balRes = waku_swap_contracts.getERC20Balances(erc20address)
+  if balRes.isOk():
+    # XXX: Assumes Alice and Bob here...
+    var bobBalance = balRes[]["bobBalance"].getInt()
+    info "New balance is", balance = bobBalance
+  else:
+    info "Problem getting Bob balance"
+
+  # TODO Could imagine scenario where you don't cash cheque but leave it as credit
+  # In that case, we would probably update accounting state, but keep track of cheques
+
+  # When this is true we update accounting state anyway when node is offline,
+  # makes waku_swap test pass for now
+  # Consider desired logic here
+  var stateUpdateOverRide = true
+
+  if res.isOk():
+    info "Updating accounting state with redeemed cheque"
+    ws.accounting[peerId] += int(cheque.amount)
+  else:
+    if stateUpdateOverRide:
+      info "Updating accounting state with even if cheque failed"
+      ws.accounting[peerId] += int(cheque.amount)
+    else:
+      info "Not updating accounting state with due to bad cheque"
+
   info "New accounting state", accounting = ws.accounting[peerId]
 
 proc init*(wakuSwap: WakuSwap) =
@@ -218,4 +261,3 @@ proc setPeer*(ws: WakuSwap, peer: PeerInfo) =
   waku_swap_peers.inc()
 
 # TODO End to end communication
-

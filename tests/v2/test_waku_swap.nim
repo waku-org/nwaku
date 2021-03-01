@@ -40,6 +40,9 @@ procSuite "Waku SWAP Accounting":
       decodedCheque.isErr == false
       decodedCheque.get() == cheque
 
+  # TODO To do this reliably we need access to contract node
+  # With current logic state isn't updated because of bad cheque
+  # Consider moving this test to e2e test, and/or move swap module to be on by default
   asyncTest "Update accounting state after store operations":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
