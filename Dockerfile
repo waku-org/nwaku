@@ -6,7 +6,7 @@ ARG NIM_PARAMS
 ARG MAKE_TARGET=wakunode
 
 # Get build tools and required header files
-RUN apk add --no-cache bash build-base pcre-dev linux-headers git
+RUN apk add --no-cache bash git rust cargo build-base pcre-dev linux-headers
 
 WORKDIR /app
 COPY . .
