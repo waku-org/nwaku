@@ -5,7 +5,8 @@ import os
 # librln.dylib is the rln library taken from https://github.com/kilic/rln (originally implemented in rust with an exposed C API)  
 # contains the key generation and other relevant functions
 
-const libPath = "rln/target/debug/"
+
+const libPath = "vendor/rln/target/debug/"
 when defined(Windows):
   const libName* = libPath / "rln.dll"
 elif defined(Linux):
