@@ -106,10 +106,6 @@
 [submodule "vendor/nim-web3"]
 	path = vendor/nim-web3
 	url = https://github.com/status-im/nim-web3.git
-[submodule "rln"]
-	path = rln
-	url = https://github.com/kilic/rln
-	branch = full-node
 [submodule "vendor/rln"]
 	path = vendor/rln
 	url = https://github.com/kilic/rln
