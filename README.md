@@ -1,41 +1,56 @@
-# RLN
+# nim-waku
 
-This is the development repo of rate limit nullifier zkSNARK circuits.
+## Introduction
 
-For details, see work in progress document [here](https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view)
+The nim-waku repository implements Waku v1 and v2, and provides tools related to it.
 
-## Test
+- A Nim implementation of the [Waku v1 protocol](https://specs.vac.dev/waku/waku.html).
+- A Nim implementation of the [Waku v2 protocol](https://specs.vac.dev/specs/waku/v2/waku-v2.html).
+- CLI applications `wakunode` and `wakunode2` that allows you to run a Waku v1 or v2 node.
+- Examples of Waku v1 and v2 usage.
+- Various tests of above.
 
+For more details on Waku v1 and v2, see their respective home folders:
+
+- [Waku v1](waku/v1/README.md)
+- [Waku v2](waku/v2/README.md)
+
+## How to Build & Run
+
+These instructions are generic and apply to both Waku v1 and v2. For more
+detailed instructions, see Waku v1 and v2 home above.
+
+### Prerequisites
+
+* GNU Make, Bash and the usual POSIX utilities. Git 2.9.4 or newer.
+* PCRE
+
+More information on the installation of these can be found [here](https://github.com/status-im/nimbus#prerequisites).
+
+### Wakunode
+
+```bash
+# The first `make` invocation will update all Git submodules.
+# You'll run `make update` after each `git pull`, in the future, to keep those submodules up to date.
+make wakunode1 wakunode2
+
+# See available command line options
+./build/wakunode --help
+./build/wakunode2 --help
+
+# Connect the client directly with the Status test fleet
+./build/wakunode --log-level:debug --discovery:off --fleet:test --log-metrics
+# TODO Equivalent for v2 
 ```
-cargo test --release --features multicore rln_32 -- --nocapture
+
+### Waku Protocol Test Suite
+
+```bash
+# Run all the Waku v1 and v2 tests
+make test
 ```
 
-## Generate Test Keys
+### Examples
 
-```
-cargo run --release --example export_test_keys
-```
-
-## Wasm Support
-
-### Build
-
-```
-wasm-pack build --release --target=nodejs --scope=rln --out-name=$PACKAGE --out-dir=$PACKAGE_DIR -- --features wasm
-```
-
-### Test
-
-With wasm-pack:
-
-```
-wasm-pack test --release --node -- --features wasm
-```
-
-With cargo:
-
-Follow the steps [here](https://rustwasm.github.io/docs/wasm-bindgen/wasm-bindgen-test/usage.html#appendix-using-wasm-bindgen-test-without-wasm-pack) before running the test, then run:
-
-```
-cargo test --release --target wasm32-unknown-unknown --features wasm
-```
+Examples can be found in the examples folder. For Waku v2, there is a fully
+featured chat example.
