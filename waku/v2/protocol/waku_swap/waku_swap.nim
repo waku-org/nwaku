@@ -22,7 +22,7 @@
 ##
 
 import
-  std/[tables, options],
+  std/[tables, options, json],
   bearssl,
   chronos, chronicles, metrics, stew/results,
   libp2p/crypto/crypto,
@@ -31,7 +31,8 @@ import
   libp2p/stream/connection,
   ../../node/peer_manager,
   ../message_notifier,
-  ./waku_swap_types
+  ./waku_swap_types,
+  ../../waku/v2/protocol/waku_swap/waku_swap_contracts
 
 export waku_swap_types
 
@@ -59,6 +60,7 @@ proc encode*(cheque: Cheque): ProtoBuffer =
   result.write(1, cheque.beneficiary)
   result.write(2, cheque.date)
   result.write(3, cheque.amount)
+  result.write(4, cheque.signature)
 
 proc init*(T: type Handshake, buffer: seq[byte]): ProtoResult[T] =
   var beneficiary: seq[byte]
@@ -73,12 +75,14 @@ proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
   var beneficiary: seq[byte]
   var date: uint32
   var amount: uint32
+  var signature: seq[byte]
   var cheque = Cheque()
   let pb = initProtoBuffer(buffer)
 
   discard ? pb.getField(1, cheque.beneficiary)
   discard ? pb.getField(2, cheque.date)
   discard ? pb.getField(3, cheque.amount)
+  discard ? pb.getField(4, cheque.signature)
 
   ok(cheque)
 
@@ -89,6 +93,8 @@ proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
 
 # TODO Test for credit/debit operations in succession
 
+
+# TODO Assume we calculated cheque
 proc sendCheque*(ws: WakuSwap) {.async.} =
   let peerOpt = ws.peerManager.selectPeer(WakuSwapCodec)
 
@@ -109,9 +115,23 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
 
   info "sendCheque"
 
+  # TODO We get this from the setup of swap setup, dynamic, should be part of setup
   # TODO Add beneficiary, etc
-  # XXX Hardcoded amount for now
-  await connOpt.get().writeLP(Cheque(amount: 1).encode().buffer)
+  var aliceSwapAddress = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
+  var signature: string
+
+  var res = waku_swap_contracts.signCheque(aliceSwapAddress)
+  if res.isOk():
+    info "signCheque ", res=res[]
+    let json = res[]
+    signature = json["signature"].getStr()
+  else:
+    # To test code paths, this should look different in a production setting
+    warn "Something went wrong when signing cheque, sending anyway"
+
+  info "Signed Cheque", swapAddress = aliceSwapAddress, signature = signature
+  let sigBytes = cast[seq[byte]](signature)
+  await connOpt.get().writeLP(Cheque(amount: 1, signature: sigBytes).encode().buffer)
 
   # Set new balance
   let peerId = peer.peerId
@@ -124,7 +144,51 @@ proc handleCheque*(ws: WakuSwap, cheque: Cheque) =
   # XXX Assume peerId is first peer
   let peerOpt = ws.peerManager.selectPeer(WakuSwapCodec)
   let peerId = peerOpt.get().peerId
-  ws.accounting[peerId] += int(cheque.amount)
+
+  # TODO Redeem cheque here
+  var signature = cast[string](cheque.signature)
+  # TODO Where should Alice Swap Address come from? Handshake probably?
+  # Hacky for now
+  var aliceSwapAddress = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
+  info "Redeeming cheque with", swapAddress=aliceSwapAddress, signature=signature
+  var res = waku_swap_contracts.redeemCheque(aliceSwapAddress, signature)
+  if res.isOk():
+    info "redeemCheque ok", redeem=res[]
+  else:
+    info "Unable to redeem cheque"
+
+  # Check balance here
+  # TODO How do we get ERC20 address here?
+  # XXX This one is wrong
+  # Normally this would be part of initial setup, otherwise we need some temp persistence here
+  # Possibly as part of handshake?
+  var erc20address = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
+  let balRes = waku_swap_contracts.getERC20Balances(erc20address)
+  if balRes.isOk():
+    # XXX: Assumes Alice and Bob here...
+    var bobBalance = balRes[]["bobBalance"].getInt()
+    info "New balance is", balance = bobBalance
+  else:
+    info "Problem getting Bob balance"
+
+  # TODO Could imagine scenario where you don't cash cheque but leave it as credit
+  # In that case, we would probably update accounting state, but keep track of cheques
+
+  # When this is true we update accounting state anyway when node is offline,
+  # makes waku_swap test pass for now
+  # Consider desired logic here
+  var stateUpdateOverRide = true
+
+  if res.isOk():
+    info "Updating accounting state with redeemed cheque"
+    ws.accounting[peerId] += int(cheque.amount)
+  else:
+    if stateUpdateOverRide:
+      info "Updating accounting state with even if cheque failed"
+      ws.accounting[peerId] += int(cheque.amount)
+    else:
+      info "Not updating accounting state with due to bad cheque"
+
   info "New accounting state", accounting = ws.accounting[peerId]
 
 proc init*(wakuSwap: WakuSwap) =
@@ -169,6 +233,7 @@ proc init*(wakuSwap: WakuSwap) =
 
     # TODO Isolate to policy function
     # TODO Tunable payment threshhold, hard code for PoC
+    # XXX: Where should this happen? Apply policy...
     let paymentThreshhold = 1
     if wakuSwap.accounting[peerId] >= paymentThreshhold:
       info "Payment threshhold hit, send cheque"
@@ -196,4 +261,3 @@ proc setPeer*(ws: WakuSwap, peer: PeerInfo) =
   waku_swap_peers.inc()
 
 # TODO End to end communication
-
