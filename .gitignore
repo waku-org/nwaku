@@ -30,3 +30,4 @@
 /metrics/waku-sim-all-nodes-grafana-dashboard.json
 
 rln
+*.log
