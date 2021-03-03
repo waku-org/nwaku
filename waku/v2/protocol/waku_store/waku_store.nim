@@ -19,7 +19,7 @@ import
 
 export waku_store_types
 
-declarePublicGauge waku_store_messages, "number of historical messages"
+declarePublicGauge waku_store_messages, "number of historical messages", ["type"]
 declarePublicGauge waku_store_peers, "number of store peers"
 declarePublicGauge waku_store_errors, "number of store protocol errors", ["type"]
 
