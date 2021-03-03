@@ -4,7 +4,7 @@
 when not(compileOption("threads")):
   {.fatal: "Please, compile this program with the --threads:on option!".}
 
-import std/[tables, strformat, strutils]
+import std/[tables, strformat, strutils, times, httpclient, json, sequtils, random]
 import confutils, chronicles, chronos, stew/shims/net as stewNet,
        eth/keys, bearssl, stew/[byteutils, endians2],
        nimcrypto/pbkdf2
@@ -48,6 +48,7 @@ type Chat = ref object
     subscribed: bool        # indicates if a node is subscribed or not to a topic
     connected: bool         # if the node is connected to another peer
     started: bool           # if the node has started
+    nick: string            # nickname for this chat session
 
 type
   PrivateKey* = crypto.PrivateKey
@@ -69,6 +70,23 @@ proc connectToNodes(c: Chat, nodes: seq[string]) {.async.} =
   echo "Connecting to nodes"
   await c.node.connectToNodes(nodes)
   c.connected = true
+
+proc selectRandomNode(): string =
+  randomize()
+  let
+    # Get latest fleet
+    fleet = newHttpClient().getContent("https://fleets.status.im")
+    # Select the JSONObject corresponding to the wakuv2 test fleet and convert to seq of key-val pairs
+    nodes = toSeq(fleet.parseJson(){"fleets", "wakuv2.test", "waku"}.pairs())
+    
+  # Select a random node from the test fleet, convert to string and return
+  return nodes[rand(nodes.len - 1)].val.getStr()
+
+proc readNick(transp: StreamTransport): Future[string] {.async.} =
+  # Chat prompt
+  stdout.write("Choose a nickname >> ")
+  stdout.flushFile()
+  return await transp.readLine()
 
 proc publish(c: Chat, line: string) =
   when PayloadV1:
@@ -107,6 +125,10 @@ proc writeAndPrint(c: Chat) {.async.} =
 #      echo "type an address or wait for a connection:"
 #      echo "type /[help|?] for help"
 
+    # Chat prompt
+    stdout.write(">> ")
+    stdout.flushFile()
+
     let line = await c.transp.readLine()
     if line.startsWith("/help") or line.startsWith("/?") or not c.started:
       echo Help
@@ -127,6 +149,11 @@ proc writeAndPrint(c: Chat) {.async.} =
       let address = await c.transp.readLine()
       if address.len > 0:
         await c.connectToNodes(@[address])
+    
+    elif line.startsWith("/nick"):
+      # Set a new nickname
+      c.nick = await readNick(c.transp)
+      echo "You are now known as " & c.nick
 
 #    elif line.startsWith("/exit"):
 #      if p.connected and p.conn.closed.not:
@@ -139,7 +166,10 @@ proc writeAndPrint(c: Chat) {.async.} =
     else:
       # XXX connected state problematic
       if c.started:
-        c.publish(line)
+        # Get message timestamp
+        let time = getTime().utc().format("'<'HH:mm'>'")
+
+        c.publish(time & " " & c.nick & ": " & line)
         # TODO Connect to peer logic?
       else:
         try:
@@ -179,11 +209,23 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
     node.mountRelay(conf.topics.split(" "), rlnRelayEnabled = conf.rlnrelay)
   else:
     node.mountRelay(@[], rlnRelayEnabled = conf.rlnrelay)
+  
+  let nick = await readNick(transp)
+  echo "Welcome, " & nick & "!"
 
-  var chat = Chat(node: node, transp: transp, subscribed: true, connected: false, started: true)
+  var chat = Chat(node: node, transp: transp, subscribed: true, connected: false, started: true, nick: nick)
 
   if conf.staticnodes.len > 0:
     await connectToNodes(chat, conf.staticnodes)
+  else:
+    # Connect to at least one random fleet node
+    echo "No static peers configured. Choosing one at random from test fleet..."
+    
+    let randNode = selectRandomNode()
+    
+    echo "Connecting to " & randNode
+
+    await connectToNodes(chat, @[randNode])
 
   let peerInfo = node.peerInfo
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
