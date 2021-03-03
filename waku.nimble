@@ -83,7 +83,7 @@ task chat2, "Build example Waku v2 chat usage":
   # NOTE For debugging, set debug level. For chat usage we want minimal log
   # output to STDOUT. Can be fixed by redirecting logs to file (e.g.)
   #buildBinary name, "examples/v2/", "-d:chronicles_log_level=WARN"
-  buildBinary name, "examples/v2/", "-d:chronicles_log_level=DEBUG"
+  buildBinary name, "examples/v2/", "-d:chronicles_log_level=DEBUG -d:chronicles_sinks=textlines[file] -d:ssl"
 
 task bridge, "Build Waku v1 - v2 bridge":
   buildBinary "wakubridge", "waku/common/", "-d:chronicles_log_level=DEBUG"
