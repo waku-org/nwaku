@@ -25,11 +25,10 @@ import   ../../waku/v2/node/[config, wakunode2, waku_payload],
          ../../waku/common/utils/nat
 
 const Help = """
-  Commands: /[?|help|connect|disconnect|exit]
+  Commands: /[?|help|connect|nick]
   help: Prints this help
   connect: dials a remote peer
-  disconnect: ends current session
-  exit: closes the chat
+  nick: change nickname for current chat session
 """
 
 const
@@ -166,8 +165,8 @@ proc writeAndPrint(c: Chat) {.async.} =
     else:
       # XXX connected state problematic
       if c.started:
-        # Get message timestamp
-        let time = getTime().utc().format("'<'HH:mm'>'")
+        # Get message date and timestamp
+        let time = now().utc().format("'<'MMM' 'dd,' 'HH:mm'>'")
 
         c.publish(time & " " & c.nick & ": " & line)
         # TODO Connect to peer logic?
@@ -234,10 +233,21 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   if conf.swap:
     node.mountSwap()
 
-  if conf.storenode != "":
+  if (conf.storenode != "") or (conf.store == true):
     node.mountStore()
 
-    node.wakuStore.setPeer(parsePeerInfo(conf.storenode))
+    var storenode: string
+
+    if conf.storenode != "":
+      storenode = conf.storenode
+    else:
+      echo "Store enabled, but no store nodes configured. Choosing one at random from test fleet..."
+      
+      storenode = selectRandomNode()
+
+      echo "Connecting to storenode: " & storenode
+    
+    node.wakuStore.setPeer(parsePeerInfo(storenode))
 
     proc storeHandler(response: HistoryResponse) {.gcsafe.} =
       for msg in response.messages:
