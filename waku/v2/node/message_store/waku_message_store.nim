@@ -93,7 +93,7 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageSto
 
     onData(uint64(timestamp), WakuMessage(contentTopic: ContentTopic(int(topic)), payload: @(toOpenArray(p, 0, l-1))))
 
-  let res = db.database.query("SELECT timestamp, contentTopic, payload FROM messages", msg)
+  let res = db.database.query("SELECT timestamp, contentTopic, payload FROM messages ORDER BY timestamp ASC", msg)
   if res.isErr:
     return err("failed")
 
