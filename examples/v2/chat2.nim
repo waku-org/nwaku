@@ -48,6 +48,7 @@ type Chat = ref object
     connected: bool         # if the node is connected to another peer
     started: bool           # if the node has started
     nick: string            # nickname for this chat session
+    prompt: bool            # chat prompt is showing
 
 type
   PrivateKey* = crypto.PrivateKey
@@ -69,6 +70,12 @@ proc connectToNodes(c: Chat, nodes: seq[string]) {.async.} =
   echo "Connecting to nodes"
   await c.node.connectToNodes(nodes)
   c.connected = true
+
+proc showChatPrompt(c: Chat) =
+  if not c.prompt:
+    stdout.write(">> ")
+    stdout.flushFile()
+    c.prompt = true
 
 proc selectRandomNode(): string =
   randomize()
@@ -125,8 +132,7 @@ proc writeAndPrint(c: Chat) {.async.} =
 #      echo "type /[help|?] for help"
 
     # Chat prompt
-    stdout.write(">> ")
-    stdout.flushFile()
+    showChatPrompt(c)
 
     let line = await c.transp.readLine()
     if line.startsWith("/help") or line.startsWith("/?") or not c.started:
@@ -212,7 +218,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   let nick = await readNick(transp)
   echo "Welcome, " & nick & "!"
 
-  var chat = Chat(node: node, transp: transp, subscribed: true, connected: false, started: true, nick: nick)
+  var chat = Chat(node: node, transp: transp, subscribed: true, connected: false, started: true, nick: nick, prompt: false)
 
   if conf.staticnodes.len > 0:
     await connectToNodes(chat, conf.staticnodes)
@@ -288,6 +294,8 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
         if decodedPayload.isOK():
           let payload = string.fromBytes(decodedPayload.get().payload)
           echo &"{payload}"
+          chat.prompt = false
+          showChatPrompt(chat)
           info "Hit subscribe handler", topic, payload,
             contentTopic = msg.contentTopic
         else:
@@ -297,6 +305,8 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
         # No payload encoding/encryption from Waku
         let payload = string.fromBytes(msg.payload)
         echo &"{payload}"
+        chat.prompt = false
+        showChatPrompt(chat)
         info "Hit subscribe handler", topic, payload,
           contentTopic = msg.contentTopic
     else:
