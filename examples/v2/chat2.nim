@@ -14,6 +14,7 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                multiaddress,             # encode different addressing schemes. For example, /ip4/7.7.7.7/tcp/6543 means it is using IPv4 protocol and TCP
                peerinfo,                 # manage the information of a peer, such as peer ID and public / private key
                peerid,                   # Implement how peers interact
+               protobuf/minprotobuf,     # message serialisation/deserialisation from and to protobufs
                protocols/protocol,       # define the protocol base type
                protocols/secure/secio,   # define the protocol of secure input / output, allows encrypted communication that uses public keys to validate signed messages instead of a certificate authority like in TLS
                muxers/muxer]             # define an interface for stream multiplexing, allowing peers to offer many protocols over a single connection
@@ -54,6 +55,44 @@ type
   PrivateKey* = crypto.PrivateKey
   Topic* = wakunode2.Topic
 
+#####################
+## chat2 protobufs ##
+#####################
+
+type Chat2Message* = object
+  timestamp*: int64
+  nick*: string
+  payload*: seq[byte]
+
+proc init*(T: type Chat2Message, buffer: seq[byte]): ProtoResult[T] =
+  var msg = Chat2Message()
+  let pb = initProtoBuffer(buffer)
+
+  var timestamp: uint64
+  discard ? pb.getField(1, timestamp)
+  msg.timestamp = int64(timestamp)
+
+  discard ? pb.getField(2, msg.nick)
+  discard ? pb.getField(3, msg.payload)
+
+  ok(msg)
+
+proc encode*(message: Chat2Message): ProtoBuffer =
+  var serialised = initProtoBuffer()
+
+  serialised.write(1, uint64(message.timestamp))
+  serialised.write(2, message.nick)
+  serialised.write(3, message.payload)
+
+  return serialised
+
+proc toString*(message: Chat2Message): string =
+  # Get message date and timestamp in local time
+  let time = message.timestamp.fromUnix().local().format("'<'MMM' 'dd,' 'HH:mm'>'")
+
+  return time & " " & message.nick & ": " & string.fromBytes(message.payload)
+
+#####################
 
 # Similarly as Status public chats now.
 proc generateSymKey(contentTopic: ContentTopic): SymKey =
@@ -95,10 +134,15 @@ proc readNick(transp: StreamTransport): Future[string] {.async.} =
   return await transp.readLine()
 
 proc publish(c: Chat, line: string) =
+  # First create a Chat2Message protobuf with this line of text
+  let chat2pb = Chat2Message(timestamp: getTime().toUnix(),
+                             nick: c.nick,
+                             payload: line.toBytes()).encode()
+
   when PayloadV1:
     # Use Waku v1 payload encoding/encryption
     let
-      payload = Payload(payload: line.toBytes(), symKey: some(DefaultSymKey))
+      payload = Payload(payload: chat2pb.buffer, symKey: some(DefaultSymKey))
       version = 1'u32
       encodedPayload = payload.encode(version, c.node.rng[])
     if encodedPayload.isOk():
@@ -109,7 +153,7 @@ proc publish(c: Chat, line: string) =
       warn "Payload encoding failed", error = encodedPayload.error
   else:
     # No payload encoding/encryption from Waku
-    let message = WakuMessage(payload: line.toBytes(),
+    let message = WakuMessage(payload: chat2pb.buffer,
       contentTopic: DefaultContentTopic, version: 0)
     asyncSpawn c.node.publish(DefaultTopic, message)
 
@@ -171,10 +215,7 @@ proc writeAndPrint(c: Chat) {.async.} =
     else:
       # XXX connected state problematic
       if c.started:
-        # Get message date and timestamp
-        let time = now().utc().format("'<'MMM' 'dd,' 'HH:mm'>'")
-
-        c.publish(time & " " & c.nick & ": " & line)
+        c.publish(line)
         # TODO Connect to peer logic?
       else:
         try:
@@ -257,8 +298,11 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
 
     proc storeHandler(response: HistoryResponse) {.gcsafe.} =
       for msg in response.messages:
-        let payload = string.fromBytes(msg.payload)
-        echo &"{payload}"
+        let
+          pb = Chat2Message.init(msg.payload)
+          chatLine = if pb.isOk: pb[].toString()
+                     else: string.fromBytes(msg.payload)
+        echo &"{chatLine}"
       info "Hit store handler"
 
     await node.query(HistoryQuery(topics: @[DefaultContentTopic]), storeHandler)
@@ -269,8 +313,11 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
     node.wakuFilter.setPeer(parsePeerInfo(conf.filternode))
 
     proc filterHandler(msg: WakuMessage) {.gcsafe.} =
-      let payload = string.fromBytes(msg.payload)
-      echo &"{payload}"
+      let
+        pb = Chat2Message.init(msg.payload)
+        chatLine = if pb.isOk: pb[].toString()
+                   else: string.fromBytes(msg.payload)
+      echo &"{chatLine}"
       info "Hit filter handler"
 
     await node.subscribe(
@@ -292,22 +339,28 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
           decodedPayload = decodePayload(decoded.get(), keyInfo)
 
         if decodedPayload.isOK():
-          let payload = string.fromBytes(decodedPayload.get().payload)
-          echo &"{payload}"
+          let
+            pb = Chat2Message.init(decodedPayload.get().payload)
+            chatLine = if pb.isOk: pb[].toString()
+                       else: string.fromBytes(decodedPayload.get().payload)
+          echo &"{chatLine}"
           chat.prompt = false
           showChatPrompt(chat)
-          info "Hit subscribe handler", topic, payload,
+          info "Hit subscribe handler", topic, chatLine,
             contentTopic = msg.contentTopic
         else:
           debug "Invalid encoded WakuMessage payload",
             error = decodedPayload.error
       else:
         # No payload encoding/encryption from Waku
-        let payload = string.fromBytes(msg.payload)
-        echo &"{payload}"
+        let
+          pb = Chat2Message.init(msg.payload)
+          chatLine = if pb.isOk: pb[].toString()
+                     else: string.fromBytes(msg.payload)
+        echo &"{chatLine}"
         chat.prompt = false
         showChatPrompt(chat)
-        info "Hit subscribe handler", topic, payload,
+        info "Hit subscribe handler", topic, chatLine,
           contentTopic = msg.contentTopic
     else:
       trace "Invalid encoded WakuMessage", error = decoded.error
