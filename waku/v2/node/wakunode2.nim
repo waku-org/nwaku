@@ -30,6 +30,9 @@ logScope:
 # Default clientId
 const clientId* = "Nimbus Waku v2 node"
 
+# Default topic
+const defaultTopic = "/waku/2/default-waku/proto"
+
 # key and crypto modules different
 type
   KeyPair* = crypto.KeyPair
@@ -361,7 +364,7 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
       await node.subscriptions.notify(topic, msg.value())
       waku_node_messages.inc(labelValues = ["relay"])
 
-  node.wakuRelay.subscribe("/waku/2/default-waku/proto", relayHandler)
+  node.wakuRelay.subscribe(defaultTopic, relayHandler)
 
   for topic in topics:
     proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
