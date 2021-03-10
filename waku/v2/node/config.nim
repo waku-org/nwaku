@@ -40,41 +40,41 @@ type
       defaultValue: "any" }: string
 
     staticnodes* {.
-      desc: "Enode URL to directly connect with. Argument may be repeated."
+      desc: "Peer multiaddr to directly connect with. Argument may be repeated."
       name: "staticnode" }: seq[string]
 
     storenode* {.
-      desc: "Enode URL to query for storage.",
+      desc: "Peer multiaddr to query for storage.",
       defaultValue: ""
       name: "storenode" }: string
 
     store* {.
-      desc: "Flag whether to start store protocol",
+      desc: "Enable store protocol: true|false",
       defaultValue: false
       name: "store" }: bool
 
     filter* {.
-      desc: "Flag whether to start filter protocol",
+      desc: "Enable filter protocol: true|false",
       defaultValue: false
       name: "filter" }: bool
     
     relay* {.
-      desc: "Flag whether to start relay protocol",
+      desc: "Enable relay protocol: true|false",
       defaultValue: true
       name: "relay" }: bool
     
     rlnrelay* {.
-      desc: "Flag whether to enable spam protection through rln-relay",
+      desc: "Enable spam protection through rln-relay: true|false",
       defaultValue: false
       name: "rlnrelay" }: bool
 
     swap* {.
-      desc: "Flag whether to start swap protocol",
+      desc: "Enable swap protocol: true|false",
       defaultValue: false
       name: "swap" }: bool
 
     filternode* {.
-      desc: "Enode URL to filter.",
+      desc: "Peer multiaddr to request content filtering of messages.",
       defaultValue: ""
       name: "filternode" }: string
     
@@ -90,12 +90,12 @@ type
 
     # NOTE: Signature is different here, we return PrivateKey and not KeyPair
     nodekey* {.
-      desc: "P2P node private key as hex.",
+      desc: "P2P node private key as 64 char hex string.",
       defaultValue: crypto.PrivateKey.random(Secp256k1, keys.newRng()[]).tryGet()
       name: "nodekey" }: crypto.PrivateKey
 
     rpc* {.
-      desc: "Enable Waku JSON-RPC server.",
+      desc: "Enable Waku JSON-RPC server: true|false",
       defaultValue: true
       name: "rpc" }: bool
 
@@ -110,17 +110,17 @@ type
       name: "rpc-port" }: uint16
     
     rpcAdmin* {.
-      desc: "Enable access to JSON-RPC Admin API.",
+      desc: "Enable access to JSON-RPC Admin API: true|false",
       defaultValue: false
       name: "rpc-admin" }: bool
     
     rpcPrivate* {.
-      desc: "Enable access to JSON-RPC Private API.",
+      desc: "Enable access to JSON-RPC Private API: true|false",
       defaultValue: false
       name: "rpc-private" }: bool
 
     metricsServer* {.
-      desc: "Enable the metrics server."
+      desc: "Enable the metrics server: true|false"
       defaultValue: false
       name: "metrics-server" }: bool
 
@@ -135,7 +135,7 @@ type
       name: "metrics-server-port" }: uint16
 
     logMetrics* {.
-      desc: "Enable metrics logging."
+      desc: "Enable metrics logging: true|false"
       defaultValue: false
       name: "log-metrics" }: bool
 
