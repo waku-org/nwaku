@@ -9,7 +9,7 @@ import
   libp2p/multiaddress,
   libp2p/switch,
   libp2p/protocols/pubsub/rpc/messages,
-  libp2p/protocols/pubsub/[pubsub],
+  libp2p/protocols/pubsub/pubsub,
   eth/keys,
   ../../waku/v2/protocol/[waku_relay, waku_message, message_notifier],
   ../../waku/v2/protocol/waku_store/waku_store,
