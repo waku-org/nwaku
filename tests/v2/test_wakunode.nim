@@ -343,7 +343,8 @@ procSuite "WakuNode":
 
     proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
       ## the validator that only allows messages with contentTopic1 to be relayed
-      check topic == pubsubTopic
+      check:
+        topic == pubSubTopic
       let msg = WakuMessage.init(message.data) 
       if msg.isOk():
         # only relay messages with contentTopic1
