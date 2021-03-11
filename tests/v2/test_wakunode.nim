@@ -383,9 +383,9 @@ procSuite "WakuNode":
 
     check:
       (await completionFut.withTimeout(10.seconds)) == true
-      # check validators is called for message1
+      # check that validator is called for message1
       (await completionFutValidatorAcc.withTimeout(13.seconds)) == true
-      # check validators is called for message2
+      # check that validator is called for message2
       (await completionFutValidatorRej.withTimeout(13.seconds)) == true
 
     
