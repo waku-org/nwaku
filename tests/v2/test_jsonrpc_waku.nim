@@ -367,6 +367,62 @@ procSuite "Waku v2 JSON-RPC API":
     server.close()
     waitfor node.stop()
   
+  asyncTest "Admin API: connect to ad-hoc peers":
+    # Create a couple of nodes
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        Port(60002))
+      peerInfo2 = node2.peerInfo
+      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node3 = WakuNode.init(nodeKey3, ValidIpAddress.init("0.0.0.0"),
+        Port(60004))
+      peerInfo3 = node3.peerInfo
+    
+    await allFutures([node1.start(), node2.start(), node3.start()])
+
+    node1.mountRelay()
+    node2.mountRelay()
+    node3.mountRelay()
+
+    # RPC server setup
+    let
+      rpcPort = Port(8545)
+      ta = initTAddress(bindIp, rpcPort)
+      server = newRpcHttpServer([ta])
+
+    installAdminApiHandlers(node1, server)
+    server.start()
+
+    let client = newRpcHttpClient()
+    await client.connect("127.0.0.1", rpcPort)
+
+    # Connect to nodes 2 and 3 using the Admin API
+    let postRes = await client.post_waku_v2_admin_v1_peers(@[constructMultiaddrStr(peerInfo2),
+                                                             constructMultiaddrStr(peerInfo3)])
+
+    check:
+      postRes
+    
+    # Verify that newly connected peers are being managed
+    let getRes = await client.get_waku_v2_admin_v1_peers()
+
+    check:
+      getRes.len == 2
+      # Check peer 2
+      getRes.anyIt(it.protocol == WakuRelayCodec and
+                   it.multiaddr == constructMultiaddrStr(peerInfo2))
+      # Check peer 3
+      getRes.anyIt(it.protocol == WakuRelayCodec and
+                   it.multiaddr == constructMultiaddrStr(peerInfo3))
+
+    server.stop()
+    server.close()
+    await allFutures([node1.stop(), node2.stop(), node3.stop()])
+  
   asyncTest "Admin API: get managed peer information":
     # Create a couple of nodes
     let
