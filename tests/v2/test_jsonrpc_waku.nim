@@ -153,6 +153,23 @@ procSuite "Waku v2 JSON-RPC API":
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort)
 
+    # First see if we can retrieve messages published on the default topic (node is already subscribed)
+    await node2.publish(defaultTopic, message)
+
+    await sleepAsync(2000.millis)
+
+    var messages = await client.get_waku_v2_relay_v1_messages(defaultTopic)
+
+    check:
+      messages.len == 1
+      messages[0].contentTopic == contentTopic
+      messages[0].payload == payload
+    
+    # Ensure that read messages are cleared from cache
+    messages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)  
+    check:
+      messages.len == 0
+
     # Now try to subscribe using API
 
     var response = await client.post_waku_v2_relay_v1_subscriptions(@[pubSubTopic])
@@ -168,7 +185,7 @@ procSuite "Waku v2 JSON-RPC API":
 
     await sleepAsync(2000.millis)
     
-    var messages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)
+    messages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)
 
     check:
       messages.len == 1
