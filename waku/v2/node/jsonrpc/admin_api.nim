@@ -14,6 +14,8 @@ import
 
 export jsonrpc_types
 
+const futTimeout* = 30.seconds # Max time to wait for futures
+
 proc constructMultiaddrStr*(wireaddr: MultiAddress, peerId: PeerId): string =
   # Constructs a multiaddress with both wire address and p2p identity
   $wireaddr & "/p2p/" & $peerId
@@ -25,6 +27,17 @@ proc constructMultiaddrStr*(peerInfo: PeerInfo): string =
 proc installAdminApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
 
   ## Admin API version 1 definitions
+  
+  rpcsrv.rpc("post_waku_v2_admin_v1_peers") do(peers: seq[string]) -> bool:
+    ## Connect to a list of peers
+    debug "post_waku_v2_admin_v1_peers"
+
+    if (await node.connectToNodes(peers).withTimeout(futTimeout)):
+      # Successfully connected to peers
+      return true
+    else:
+      # Failed to connect to peers
+      raise newException(ValueError, "Failed to connect to peers: " & $peers)
 
   rpcsrv.rpc("get_waku_v2_admin_v1_peers") do() -> seq[WakuPeer]:
     ## Returns history for a list of content topics with optional paging
