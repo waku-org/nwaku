@@ -17,7 +17,7 @@ const maxCache* = 100 # Max number of messages cached per topic @TODO make this 
 proc installRelayApiHandlers*(node: WakuNode, rpcsrv: RpcServer, topicCache: TopicCache) =
   
   proc topicHandler(topic: string, data: seq[byte]) {.async.} =
-    trace "Topic handler triggered"
+    trace "Topic handler triggered", topic=topic
     let msg = WakuMessage.init(data)
     if msg.isOk():
       # Add message to current cache
@@ -38,6 +38,16 @@ proc installRelayApiHandlers*(node: WakuNode, rpcsrv: RpcServer, topicCache: Top
     else:
       debug "WakuMessage received but failed to decode", msg=msg, topic=topic
       # @TODO handle message decode failure
+  
+  ## Node may already be subscribed to some topics when Relay API handlers are installed. Let's add these
+  for topic in PubSub(node.wakuRelay).topics.keys:
+    debug "Adding API topic handler for existing subscription", topic=topic
+
+    node.subscribe(topic, topicHandler)      
+    
+    # Create message cache for this topic
+    debug "MessageCache for topic", topic=topic
+    topicCache[topic] = @[]
 
   ## Relay API version 1 definitions
   
@@ -73,10 +83,12 @@ proc installRelayApiHandlers*(node: WakuNode, rpcsrv: RpcServer, topicCache: Top
 
     # Subscribe to all requested topics
     for topic in topics:
-      node.subscribe(topic, topicHandler)      
-      # Create message cache for this topic
-      debug "MessageCache for topic", topic=topic
-      topicCache[topic] = @[]
+      # Only subscribe to topics for which we have no subscribed topic handlers yet
+      if not topicCache.hasKey(topic):
+        node.subscribe(topic, topicHandler)
+        # Create message cache for this topic
+        trace "MessageCache for topic", topic=topic
+        topicCache[topic] = @[]
     
     # Successfully subscribed to all requested topics
     return true
