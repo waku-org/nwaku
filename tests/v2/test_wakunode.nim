@@ -301,6 +301,7 @@ procSuite "WakuNode":
     ## node1 and node3 set node2 as their relay node
     ## node3 publishes two messages with two different contentTopics but on the same pubsub topic 
     ## node1 is also subscribed  to the same pubsub topic 
+    ## node2 sets a validator for the same pubsub topic
     ## only one of the messages gets delivered to  node1 because the validator only validates one of the content topics
 
     let
