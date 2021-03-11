@@ -374,21 +374,21 @@ procSuite "WakuNode":
   
 
     node3.subscribe(pubSubTopic, relayHandler)
-    await sleepAsync(4000.millis)
+    await sleepAsync(2000.millis)
 
     await node1.publish(pubSubTopic, message1)
-    await sleepAsync(4000.millis)
+    await sleepAsync(2000.millis)
     
     # message2 never gets relayed because of the validator
     await node1.publish(pubSubTopic, message2)
-    await sleepAsync(4000.millis)
+    await sleepAsync(2000.millis)
 
     check:
       (await completionFut.withTimeout(10.seconds)) == true
       # check that validator is called for message1
-      (await completionFutValidatorAcc.withTimeout(13.seconds)) == true
+      (await completionFutValidatorAcc.withTimeout(10.seconds)) == true
       # check that validator is called for message2
-      (await completionFutValidatorRej.withTimeout(13.seconds)) == true
+      (await completionFutValidatorRej.withTimeout(10.seconds)) == true
 
     
     await node1.stop()
