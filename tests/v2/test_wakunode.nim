@@ -337,7 +337,6 @@ procSuite "WakuNode":
     await node3.connectToNodes(@[node2.peerInfo])
 
 
-    # add a topic validator to the relay node 
     var completionFutValidatorAcc = newFuture[bool]()
     var completionFutValidatorRej = newFuture[bool]()
 
@@ -354,6 +353,7 @@ procSuite "WakuNode":
           result = ValidationResult.Reject
           completionFutValidatorRej.complete(true)
 
+    # set a topic validator for pubSubTopic 
     let pb  = PubSub(node2.wakuRelay)
     pb.addValidator(pubSubTopic, validator)
 
@@ -365,6 +365,7 @@ procSuite "WakuNode":
         let val = msg.value()
         check:
           topic == pubSubTopic
+          # check that only messages with contentTopic1 is relayed (but not contentTopic2)
           val.contentTopic == contentTopic1
       # relay handler is called
       completionFut.complete(true)
@@ -373,7 +374,6 @@ procSuite "WakuNode":
     node3.subscribe(pubSubTopic, relayHandler)
     await sleepAsync(4000.millis)
 
-    # message will be relayed
     await node1.publish(pubSubTopic, message1)
     await sleepAsync(4000.millis)
     
