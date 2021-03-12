@@ -99,3 +99,9 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   # TODO check the receipt and then return true/false
   await web3.close()
   return true 
+
+proc proofGen*(data: seq[byte]): seq[byte] =
+  return newSeq[byte]()
+
+proc proofVrfy*(data, proof: seq[byte]): bool =
+  return true
