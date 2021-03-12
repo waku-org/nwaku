@@ -67,3 +67,10 @@ proc hash*(ctx: ptr RLNBn256, inputs_buffer:ptr Buffer, input_len: ptr csize_t, 
 # ) -> bool
 
 {.pop.}
+
+
+proc proofGen(data: seq[byte]): seq[byte] =
+  return newSeq[byte]()
+
+proc proofVrfy(data, proof: seq[byte]): bool =
+  return true
