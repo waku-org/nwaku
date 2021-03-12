@@ -10,7 +10,7 @@ import
   # NOTE For TopicHandler, solve with exports?
   libp2p/protocols/pubsub/pubsub,
   libp2p/standard_setup,
-  ../protocol/[waku_relay, message_notifier],
+  ../protocol/[waku_relay, waku_message, message_notifier],
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter/waku_filter,
@@ -239,7 +239,7 @@ proc unsubscribe*(node: WakuNode, request: FilterRequest) {.async, gcsafe.} =
   waku_node_filters.set(node.filters.len.int64)
 
 
-proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) {.async, gcsafe.} =
+proc publish*(node: WakuNode, topic: Topic, message: WakuMessage,  rlnRelayEnabled: bool = false) {.async, gcsafe.} =
   ## Publish a `WakuMessage` to a PubSub topic. `WakuMessage` should contain a
   ## `contentTopic` field for light node functionality. This field may be also
   ## be omitted.
@@ -248,8 +248,15 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) {.async, gcsaf
   ##
 
   let wakuRelay = node.wakuRelay
-
   debug "publish", topic=topic, contentTopic=message.contentTopic
+  var publishingMessage = message
+
+  if rlnRelayEnabled:
+    let 
+      proof = proofGen(message.payload)
+      # TODO it might be better take the input type of message as var
+      publishingMessage = WakuMessage(payload: message.payload, contentTopic: message.contentTopic, version: message.version, proof: proof)
+
   let data = message.encode().buffer
 
   discard await wakuRelay.publish(topic, data)
