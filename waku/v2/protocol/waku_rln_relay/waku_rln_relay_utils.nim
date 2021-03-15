@@ -101,7 +101,9 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   return true 
 
 proc proofGen*(data: seq[byte]): seq[byte] =
-  return "proof".toBytes() #newSeq[byte]()
+  # TODO to implement the actual proof generation logic
+  return "proof".toBytes() 
 
 proc proofVrfy*(data, proof: seq[byte]): bool =
+  # TODO to implement the actual proof verification logic
   return true
