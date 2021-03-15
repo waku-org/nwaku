@@ -394,14 +394,8 @@ procSuite "WakuNode":
     await node1.stop()
     await node2.stop()
     await node3.stop()
-asyncTest "filtering relayed messages  using topic validators":
-    ## test scenario: 
-    ## node1 and node3 set node2 as their relay node
-    ## node3 publishes two messages with two different contentTopics but on the same pubsub topic 
-    ## node1 is also subscribed  to the same pubsub topic 
-    ## node2 sets a validator for the same pubsub topic
-    ## only one of the messages gets delivered to  node1 because the validator only validates one of the content topics
-
+asyncTest "testing rln-relay with mocked zkp":
+    
     let
       # publisher node
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
@@ -413,14 +407,10 @@ asyncTest "filtering relayed messages  using topic validators":
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node3 = WakuNode.init(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
 
-      pubSubTopic = "test"
+      pubSubTopic = "defaultTopic"
       contentTopic1 = ContentTopic(1)
       payload = "hello world".toBytes()
       message1 = WakuMessage(payload: payload, contentTopic: contentTopic1)
-
-      payload2 = "you should not see this message!".toBytes()
-      contentTopic2 = ContentTopic(2)
-      message2 = WakuMessage(payload: payload2, contentTopic: contentTopic2)
 
     # start all the nodes
     await node1.start()
@@ -428,6 +418,7 @@ asyncTest "filtering relayed messages  using topic validators":
 
     await node2.start()
     node2.mountRelay(@[pubSubTopic])
+    node2.addRLNRelayValidator(pubSubTopic)
 
     await node3.start()
     node3.mountRelay(@[pubSubTopic])
@@ -435,59 +426,25 @@ asyncTest "filtering relayed messages  using topic validators":
     await node1.connectToNodes(@[node2.peerInfo])
     await node3.connectToNodes(@[node2.peerInfo])
 
-
-    var completionFutValidatorAcc = newFuture[bool]()
-    var completionFutValidatorRej = newFuture[bool]()
-
-    proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
-      ## the validator that only allows messages with contentTopic1 to be relayed
-      check:
-        topic == pubSubTopic
-      let msg = WakuMessage.init(message.data) 
-      if msg.isOk():
-        # only relay messages with contentTopic1
-        if msg.value().contentTopic  == contentTopic1:
-          result = ValidationResult.Accept
-          completionFutValidatorAcc.complete(true)
-        else:
-          result = ValidationResult.Reject
-          completionFutValidatorRej.complete(true)
-
-    # set a topic validator for pubSubTopic 
-    let pb  = PubSub(node2.wakuRelay)
-    pb.addValidator(pubSubTopic, validator)
-
     var completionFut = newFuture[bool]()
     proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      debug "relayed pubsub topic:", topic
       let msg = WakuMessage.init(data)
       if msg.isOk():
         let val = msg.value()
-        check:
-          topic == pubSubTopic
-          # check that only messages with contentTopic1 is relayed (but not contentTopic2)
-          val.contentTopic == contentTopic1
-      # relay handler is called
-      completionFut.complete(true)
-  
+        debug "The received topic:", topic
+        if topic == pubSubTopic:
+          completionFut.complete(true)
+
 
     node3.subscribe(pubSubTopic, relayHandler)
     await sleepAsync(2000.millis)
 
-    await node1.publish(pubSubTopic, message1)
+    await node1.publish(pubSubTopic, message1, rlnRelayEnabled = true)
     await sleepAsync(2000.millis)
-    
-    # message2 never gets relayed because of the validator
-    await node1.publish(pubSubTopic, message2)
-    await sleepAsync(2000.millis)
+
 
     check:
       (await completionFut.withTimeout(10.seconds)) == true
-      # check that validator is called for message1
-      (await completionFutValidatorAcc.withTimeout(10.seconds)) == true
-      # check that validator is called for message2
-      (await completionFutValidatorRej.withTimeout(10.seconds)) == true
-
     
     await node1.stop()
     await node2.stop()
