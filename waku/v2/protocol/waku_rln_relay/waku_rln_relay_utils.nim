@@ -1,5 +1,5 @@
 import 
-  chronicles, options, chronos, stint, 
+  chronicles, options, chronos, stint, sequtils,
   web3,
   stew/byteutils,
   eth/keys,
@@ -101,7 +101,7 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   return true 
 
 proc proofGen*(data: seq[byte]): seq[byte] =
-  return newSeq[byte]()
+  return "proof".toBytes() #newSeq[byte]()
 
 proc proofVrfy*(data, proof: seq[byte]): bool =
   return true
