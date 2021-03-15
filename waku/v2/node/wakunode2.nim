@@ -246,7 +246,7 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage,  rlnRelayEnabl
   ## be omitted.
   ##
   ## Status: Implemented.
-  ##
+  ## When rlnRelayEnabled is true, a zkp will be generated and attached to the message (it is an experimental feature)
 
   let wakuRelay = node.wakuRelay
   debug "publish", topic=topic, contentTopic=message.contentTopic
@@ -256,7 +256,8 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage,  rlnRelayEnabl
     # if rln relay is enabled then a proof must be generated and added to the waku message
     let 
       proof = proofGen(message.payload)
-      # TODO it might be better take the input type of message as var
+      ## TODO here  since the message is immutable we have to make a copy of it and then attach the proof to its duplicate 
+      ## TODO however, it might be better to change message type to mutable (i.e., var) so that we can add the proof field to the original message
       publishingMessage = WakuMessage(payload: message.payload, contentTopic: message.contentTopic, version: message.version, proof: proof)
 
   let data = message.encode().buffer
@@ -353,12 +354,16 @@ proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(stri
 
 
 proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
+  ## this procedure is a thin wrapper for the pubsub addValidator method
+  ## it sets message validator on the given pubsubTopic, the validator will check that
+  ## all the messages published in the pubsubTopic have a valid zero-knowledge proof 
   proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
     let msg = WakuMessage.init(message.data) 
     if msg.isOk():
+      #  check the proof
       if proofVrfy(msg.value().payload, msg.value().proof):
         result = ValidationResult.Accept
-  # set a validator for the defaultTopic 
+  # set a validator for the pubsubTopic 
   let pb  = PubSub(node.wakuRelay)
   pb.addValidator(pubsubTopic, validator)
 
@@ -396,6 +401,7 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
     # TODO pass rln relay inputs to this proc, right now it uses default values that are set in the mountRlnRelay proc
     info "WakuRLNRelay is enabled"
     waitFor mountRlnRelay(node)
+    # TODO currently the message validator is set for the defaultTopic, this can be configurable to accept other pubsub topics as wellpublish
     addRLNRelayValidator(node, defaultTopic)
     info "WakuRLNRelay is mounted successfully"
 
