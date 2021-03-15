@@ -368,7 +368,6 @@ proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
   pb.addValidator(pubsubTopic, validator)
 
 proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRelayEnabled = false) {.gcsafe.} =
-  # set a pubsub topic validator to verify messages based on their proofs
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
     # Use default
@@ -401,7 +400,7 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
     # TODO pass rln relay inputs to this proc, right now it uses default values that are set in the mountRlnRelay proc
     info "WakuRLNRelay is enabled"
     waitFor mountRlnRelay(node)
-    # TODO currently the message validator is set for the defaultTopic, this can be configurable to accept other pubsub topics as wellpublish
+    # TODO currently the message validator is set for the defaultTopic, this can be configurable to accept other pubsub topics as well 
     addRLNRelayValidator(node, defaultTopic)
     info "WakuRLNRelay is mounted successfully"
 
