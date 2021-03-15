@@ -8,6 +8,7 @@ import
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   # NOTE For TopicHandler, solve with exports?
+  libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
   libp2p/standard_setup,
   ../protocol/[waku_relay, waku_message, message_notifier],
@@ -252,6 +253,7 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage,  rlnRelayEnabl
   var publishingMessage = message
 
   if rlnRelayEnabled:
+    # if rln relay is enabled then a proof must be generated and added to the waku message
     let 
       proof = proofGen(message.payload)
       # TODO it might be better take the input type of message as var
@@ -350,7 +352,18 @@ proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(stri
   node.wakuRlnRelay = rlnPeer
 
 
+proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
+  proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
+    let msg = WakuMessage.init(message.data) 
+    if msg.isOk():
+      if proofVrfy(msg.value().payload, msg.value().proof):
+        result = ValidationResult.Accept
+  # set a validator for the defaultTopic 
+  let pb  = PubSub(node.wakuRelay)
+  pb.addValidator(pubsubTopic, validator)
+
 proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRelayEnabled = false) {.gcsafe.} =
+  # set a pubsub topic validator to verify messages based on their proofs
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
     # Use default
@@ -383,7 +396,9 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
     # TODO pass rln relay inputs to this proc, right now it uses default values that are set in the mountRlnRelay proc
     info "WakuRLNRelay is enabled"
     waitFor mountRlnRelay(node)
+    addRLNRelayValidator(node, defaultTopic)
     info "WakuRLNRelay is mounted successfully"
+
 
 ## Helpers
 proc dialPeer*(n: WakuNode, address: string) {.async.} =
