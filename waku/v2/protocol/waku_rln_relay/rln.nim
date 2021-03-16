@@ -67,3 +67,5 @@ proc hash*(ctx: ptr RLNBn256, inputs_buffer:ptr Buffer, input_len: ptr csize_t, 
 # ) -> bool
 
 {.pop.}
+
+

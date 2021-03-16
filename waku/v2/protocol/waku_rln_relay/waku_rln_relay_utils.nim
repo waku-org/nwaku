@@ -1,5 +1,5 @@
 import 
-  chronicles, options, chronos, stint, 
+  chronicles, options, chronos, stint, sequtils,
   web3,
   stew/byteutils,
   eth/keys,
@@ -99,3 +99,11 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   # TODO check the receipt and then return true/false
   await web3.close()
   return true 
+
+proc proofGen*(data: seq[byte]): seq[byte] =
+  # TODO to implement the actual proof generation logic
+  return "proof".toBytes() 
+
+proc proofVrfy*(data, proof: seq[byte]): bool =
+  # TODO to implement the actual proof verification logic
+  return true
