@@ -27,7 +27,7 @@ proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext) =
                   udpPort: Port(config.udpPort + config.portsShift))
 
   # Set-up node
-  var node = newEthereumNode(config.nodekey, address, 1, nil, clientId,
+  var node = newEthereumNode(config.nodekey, address, NetworkId(1), nil, clientId,
     addAllCapabilities = false, rng = rng)
   if not config.bootnodeOnly:
     node.addCapability Waku # Always enable Waku protocol
