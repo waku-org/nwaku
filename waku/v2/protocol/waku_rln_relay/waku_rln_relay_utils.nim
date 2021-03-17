@@ -86,15 +86,20 @@ proc membershipKeyGen*(inCtx: Option[ptr RLN[Bn256]] = none(ptr RLN[Bn256])): Op
     debug "error in key generation"
     return none(MembershipKeyPair)
     
-  var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
+  var generatedKeys = cast[array[64, byte]](keysBufferPtr.`ptr`[])
   # the public and secret keys together are 64 bytes
   if (generatedKeys.len != 64):
     debug "the generated keys are invalid"
     return none(MembershipKeyPair)
   
+  # TODO define a separate proc to decode the generated keys to the secret and public components
   var 
-    secret = cast[array[32, byte]](generatedKeys[0..31])
-    public = cast[array[32, byte]](generatedKeys[31..^1])
+    secret: array[32, byte] 
+    public: array[32, byte]
+  for (i,x) in secret.mpairs: x = generatedKeys[i]
+  for (i,x) in public.mpairs: x = generatedKeys[i+32]
+  
+  var 
     keypair = MembershipKeyPair(secretKey: secret, publicKey: public)
 
   return some(keypair)
