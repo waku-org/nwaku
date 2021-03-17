@@ -215,6 +215,30 @@ procSuite "Waku rln relay":
     # start rln-relay
     await node.mountRlnRelay(ethClientAddress = some(EthClient), ethAccountAddress =  some(ethAccountAddress), membershipContractAddress =  some(membershipContractAddress))
 
+proc getSK(keyPairBuffer: ptr Buffer): ptr Buffer =
+  var 
+    generatedKeys = cast[ptr array[64, byte]](keyPairBuffer.`ptr`)[]
+    secret = cast[array[32, byte]](generatedKeys[0..31])
+  let skBuffer = Buffer(`ptr`: unsafeAddr(secret[0]), len: 32)
+  let skBufferPtr = unsafeAddr skBuffer
+  return skBufferPtr
+
+proc getPK(keyPairBuffer: ptr Buffer): ptr Buffer =
+  var 
+    generatedKeys = cast[ptr array[64, byte]](keyPairBuffer.`ptr`)[]
+    public = cast[array[32, byte]](generatedKeys[31..^1])
+  let pkBuffer = Buffer(`ptr`: unsafeAddr(public[0]), len: 32)
+  let pkBufferPtr = unsafeAddr pkBuffer
+  return pkBufferPtr
+
+proc genRandPK(): ptr Buffer =
+  var 
+    pkBytes : array[32, byte] 
+  for x in pkBytes.mitems: x = 2
+  let pkBuffer = Buffer(`ptr`: unsafeAddr(pkBytes[0]), len: 32)
+  let pkBufferPtr = unsafeAddr pkBuffer
+  return pkBufferPtr
+
 suite "Waku rln relay":
   test "key_gen Nim Wrappers":
     var 
@@ -284,3 +308,71 @@ suite "Waku rln relay":
     var member_is_added = update_next_member(ctx, keysBufferPtr)
     check:
       member_is_added == true
+  
+  test "generate_proof Nim Wrapper":
+    var ctxInstance = createRLNInstance(32) 
+    doAssert(ctxInstance.isSome())
+    var ctx = ctxInstance.get() # ptr RLN[Bn256]
+
+    
+    var 
+      keypairBufferPtr = generateKeyPairBuffer(ctx)
+      pkBufferPtr = keypairBufferPtr.getPK()
+      skBufferPtr = keypairBufferPtr.getSK()
+    # add members to the tree
+    # TODO add a test for a wrong index, it should fail
+    var index = 6
+    for i in 0..10:
+      echo i
+      if (i == index):
+        var member_is_added = update_next_member(ctx, pkBufferPtr)
+        doAssert(member_is_added)
+      else:
+        let randPkPtr = genRandPK()
+        var member_is_added = update_next_member(ctx, randPkPtr)
+        doAssert(member_is_added)
+
+
+    # var member_is_added = update_next_member(ctx, pkBufferPtr)
+    # doAssert(member_is_added)
+    # debug "ctx after update", ctx
+
+    let
+      epoch: uint = 1
+      epochBytes = cast[array[32,byte]](epoch)
+    debug "epochBytes", epochBytes
+    let decodeEpoch = cast[uint](epochBytes)
+    debug "epoch", decodeEpoch
+
+    doAssert(decodeEpoch == epoch)
+    var messageBytes {.noinit.}: array[32, byte]
+    for x in messageBytes.mitems: x = 1
+    debug "messageBytes", messageBytes
+
+    var epochBytesSeq = @epochBytes
+    var messageBytesSeq = @messageBytes
+    var epochMessage = epochBytesSeq & messageBytesSeq
+    debug "@epochBytes", epochBytesSeq
+    debug "@messageBytes", messageBytesSeq
+    debug "epochMessage", epochMessage
+    var inputBytes{.noinit.}: array[64, byte]
+    for (i, x) in inputBytes.mpairs: x = epochMessage[i]
+    var
+      # inputBytes = cast[array[64, byte]](@epochBytes & @messageBytes)
+      input_buffer = Buffer(`ptr`: unsafeAddr(inputBytes[0]), len: 64)
+      input_buffer_ptr = unsafeAddr(input_buffer)
+
+    debug "inputBytes", inputBytes
+    debug "input_buffer", input_buffer
+
+    var auth: Auth = Auth(secret_buffer: skBufferPtr, index: uint(index))
+    var auth_Ptr = unsafeAddr(auth)
+
+    debug "auth", auth
+
+    var proof: Buffer
+    var proofPtr = unsafeAddr(proof)
+    let proof_res = generate_proof(ctx, input_buffer_ptr, authPtr, proofPtr)
+
+    check:
+      proof_res == true
