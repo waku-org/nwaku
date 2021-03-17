@@ -320,16 +320,26 @@ suite "Waku rln relay":
   test "generate_proof Nim Wrapper":
     var ctxInstance = createRLNInstance(32) 
     doAssert(ctxInstance.isSome())
-    var ctx = ctxInstance.get() # ptr RLN[Bn256]
-
+    # ptr RLN[Bn256]
+    var ctx = ctxInstance.get() 
     
+    # prepare user's secret and public keys 
     var 
       keypairBufferPtr = generateKeyPairBuffer(ctx)
       pkBufferPtr = keypairBufferPtr.getPK()
       skBufferPtr = keypairBufferPtr.getSK()
-    # add members to the tree
-    # TODO add a test for a wrong index, it should fail
+
+    # user's index in the tree
     var index = 6
+
+    # prepare the secret information of the proof i.e., the sk and the user index in the tree
+    var auth: Auth = Auth(secret_buffer: skBufferPtr, index: uint(index))
+    var auth_Ptr = unsafeAddr(auth)
+
+    debug "auth", auth
+
+    # add some random members to the tree
+    # TODO add a test for a wrong index, it should fail
     for i in 0..10:
       echo i
       if (i == index):
@@ -341,43 +351,39 @@ suite "Waku rln relay":
         doAssert(member_is_added)
 
 
-    # var member_is_added = update_next_member(ctx, pkBufferPtr)
-    # doAssert(member_is_added)
-    # debug "ctx after update", ctx
-
+    # prepare the epoch
     let
       epoch: uint = 1
       epochBytes = cast[array[32,byte]](epoch)
     debug "epochBytes", epochBytes
-    let decodeEpoch = cast[uint](epochBytes)
-    debug "epoch", decodeEpoch
+    # let decodeEpoch = cast[uint](epochBytes)
+    # debug "epoch", decodeEpoch
+    # doAssert(decodeEpoch == epoch)
 
-    doAssert(decodeEpoch == epoch)
+    # prepare the message
     var messageBytes {.noinit.}: array[32, byte]
     for x in messageBytes.mitems: x = 1
     debug "messageBytes", messageBytes
 
-    var epochBytesSeq = @epochBytes
-    var messageBytesSeq = @messageBytes
-    var epochMessage = epochBytesSeq & messageBytesSeq
+    # serialize message and epoch 
+    var 
+      epochBytesSeq = @epochBytes
+      messageBytesSeq = @messageBytes
+      epochMessage = epochBytesSeq & messageBytesSeq
     debug "@epochBytes", epochBytesSeq
     debug "@messageBytes", messageBytesSeq
-    debug "epochMessage", epochMessage
-    var inputBytes{.noinit.}: array[64, byte]
+    debug "epoch||Message", epochMessage
+    var inputBytes{.noinit.}: array[64, byte] #the serialized epoch||Message 
     for (i, x) in inputBytes.mpairs: x = epochMessage[i]
     var
-      # inputBytes = cast[array[64, byte]](@epochBytes & @messageBytes)
       input_buffer = Buffer(`ptr`: unsafeAddr(inputBytes[0]), len: 64)
       input_buffer_ptr = unsafeAddr(input_buffer)
 
     debug "inputBytes", inputBytes
     debug "input_buffer", input_buffer
 
-    var auth: Auth = Auth(secret_buffer: skBufferPtr, index: uint(index))
-    var auth_Ptr = unsafeAddr(auth)
 
-    debug "auth", auth
-
+    # generate the proof
     var proof: Buffer
     var proofPtr = unsafeAddr(proof)
     let proof_res = generate_proof(ctx, input_buffer_ptr, authPtr, proofPtr)
