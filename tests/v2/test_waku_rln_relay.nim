@@ -215,6 +215,14 @@ procSuite "Waku rln relay":
     # start rln-relay
     await node.mountRlnRelay(ethClientAddress = some(EthClient), ethAccountAddress =  some(ethAccountAddress), membershipContractAddress =  some(membershipContractAddress))
 
+proc generateKeyPairBuffer(ctx: ptr RLN[Bn256]): ptr Buffer = 
+  var 
+    keysBuffer : Buffer
+    keysBufferPtr = unsafeAddr(keysBuffer)
+    done = key_gen(ctx, keysBufferPtr) 
+  
+  return keysBufferPtr
+
 proc getSK(keyPairBuffer: ptr Buffer): ptr Buffer =
   var 
     generatedKeys = cast[ptr array[64, byte]](keyPairBuffer.`ptr`)[]
