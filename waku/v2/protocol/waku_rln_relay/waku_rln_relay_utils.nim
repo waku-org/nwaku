@@ -30,10 +30,11 @@ const
 contract(MembershipContract):
   # TODO define a return type of bool for register method to signify a successful registration
   proc register(pubkey: Uint256) # external payable
-  
-proc createRLNInstance*(merkleTreeDepth: int): Option[ptr RLN[Bn256]] = 
+
+proc createRLNInstance*(d: int): Option[ptr RLN[Bn256]] = 
+  ## generates an instance of RLN for a Merkle tree with the depth of d
   var  
-    merkleDepth: csize_t = uint(merkleTreeDepth)
+    merkleDepth: csize_t = uint(d)
     # parameters.key contains the parameters related to the Poseidon hasher
     # to generate this file, clone this repo https://github.com/kilic/rln 
     # and run the following command in the root directory of the cloned project
