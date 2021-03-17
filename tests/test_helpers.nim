@@ -15,7 +15,7 @@ proc setupTestNode*(
     rng: ref BrHmacDrbgContext,
     capabilities: varargs[ProtocolInfo, `protocolInfo`]): EthereumNode =
   let keys1 = keys.KeyPair.random(rng[])
-  result = newEthereumNode(keys1, localAddress(nextPort), 1, nil,
+  result = newEthereumNode(keys1, localAddress(nextPort), NetworkId(1), nil,
                            addAllCapabilities = false, rng = rng)
   nextPort.inc
   for capability in capabilities:
