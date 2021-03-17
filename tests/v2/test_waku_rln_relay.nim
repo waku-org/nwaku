@@ -270,3 +270,17 @@ suite "Waku rln relay":
       key.get().publicKey != empty
     
     debug "the generated membership key pair: ", key 
+  
+  test "update_next_member Nim Wrapper":
+    var ctxInstance = createRLNInstance(32) 
+    doAssert(ctxInstance.isSome())
+    var ctx = ctxInstance.get()
+    
+    var keypair = membershipKeyGen(some(ctx))
+    doAssert(keypair.isSome())
+    let keysBuffer = Buffer(`ptr`: unsafeAddr(keypair.get().publicKey[0]), len: 32)
+    let keysBufferPtr = unsafeAddr keysBuffer
+
+    var member_is_added = update_next_member(ctx, keysBufferPtr)
+    check:
+      member_is_added == true
