@@ -8,9 +8,10 @@ import
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   # NOTE For TopicHandler, solve with exports?
+  libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
   libp2p/standard_setup,
-  ../protocol/[waku_relay, message_notifier],
+  ../protocol/[waku_relay, waku_message, message_notifier],
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter/waku_filter,
@@ -239,17 +240,26 @@ proc unsubscribe*(node: WakuNode, request: FilterRequest) {.async, gcsafe.} =
   waku_node_filters.set(node.filters.len.int64)
 
 
-proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) {.async, gcsafe.} =
+proc publish*(node: WakuNode, topic: Topic, message: WakuMessage,  rlnRelayEnabled: bool = false) {.async, gcsafe.} =
   ## Publish a `WakuMessage` to a PubSub topic. `WakuMessage` should contain a
   ## `contentTopic` field for light node functionality. This field may be also
   ## be omitted.
   ##
   ## Status: Implemented.
-  ##
+  ## When rlnRelayEnabled is true, a zkp will be generated and attached to the message (it is an experimental feature)
 
   let wakuRelay = node.wakuRelay
-
   debug "publish", topic=topic, contentTopic=message.contentTopic
+  var publishingMessage = message
+
+  if rlnRelayEnabled:
+    # if rln relay is enabled then a proof must be generated and added to the waku message
+    let 
+      proof = proofGen(message.payload)
+      ## TODO here  since the message is immutable we have to make a copy of it and then attach the proof to its duplicate 
+      ## TODO however, it might be better to change message type to mutable (i.e., var) so that we can add the proof field to the original message
+      publishingMessage = WakuMessage(payload: message.payload, contentTopic: message.contentTopic, version: message.version, proof: proof)
+
   let data = message.encode().buffer
 
   discard await wakuRelay.publish(topic, data)
@@ -343,6 +353,20 @@ proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(stri
   node.wakuRlnRelay = rlnPeer
 
 
+proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
+  ## this procedure is a thin wrapper for the pubsub addValidator method
+  ## it sets message validator on the given pubsubTopic, the validator will check that
+  ## all the messages published in the pubsubTopic have a valid zero-knowledge proof 
+  proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
+    let msg = WakuMessage.init(message.data) 
+    if msg.isOk():
+      #  check the proof
+      if proofVrfy(msg.value().payload, msg.value().proof):
+        result = ValidationResult.Accept
+  # set a validator for the pubsubTopic 
+  let pb  = PubSub(node.wakuRelay)
+  pb.addValidator(pubsubTopic, validator)
+
 proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRelayEnabled = false) {.gcsafe.} =
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
@@ -376,7 +400,10 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
     # TODO pass rln relay inputs to this proc, right now it uses default values that are set in the mountRlnRelay proc
     info "WakuRLNRelay is enabled"
     waitFor mountRlnRelay(node)
+    # TODO currently the message validator is set for the defaultTopic, this can be configurable to accept other pubsub topics as well 
+    addRLNRelayValidator(node, defaultTopic)
     info "WakuRLNRelay is mounted successfully"
+
 
 ## Helpers
 proc dialPeer*(n: WakuNode, address: string) {.async.} =
