@@ -216,7 +216,7 @@ procSuite "Waku rln relay":
     await node.mountRlnRelay(ethClientAddress = some(EthClient), ethAccountAddress =  some(ethAccountAddress), membershipContractAddress =  some(membershipContractAddress))
 
 suite "Waku rln relay":
-  test "Keygen Nim Wrappers":
+  test "key_gen Nim Wrappers":
     var 
       merkleDepth: csize_t = 32
       # parameters.key contains the parameters related to the Poseidon hasher
@@ -234,18 +234,20 @@ suite "Waku rln relay":
 
     # ctx holds the information that is going to be used for  the key generation
     var 
-      obj = RLNBn256()
+      obj = RLN[Bn256]()
       objPtr = unsafeAddr(obj)
-      ctx = objPtr
-    let res = newCircuitFromParams(merkleDepth, unsafeAddr parametersBuffer, ctx)
+      objptrptr = unsafeAddr(objPtr)
+      ctx = objptrptr
+    let res = new_circuit_from_params(merkleDepth, unsafeAddr parametersBuffer, ctx)
     check:
       # check whether the circuit parameters are generated successfully
       res == true
 
     # keysBufferPtr will hold the generated key pairs i.e., secret and public keys 
     var 
-      keysBufferPtr : Buffer
-      done = keyGen(ctx, keysBufferPtr) 
+      keysBuffer : Buffer
+      keysBufferPtr = unsafeAddr(keysBuffer)
+      done = key_gen(ctx[], keysBufferPtr) 
     check:
       # check whether the keys are generated successfully
       done == true
