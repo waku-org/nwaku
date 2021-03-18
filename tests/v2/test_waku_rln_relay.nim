@@ -215,54 +215,32 @@ procSuite "Waku rln relay":
     # start rln-relay
     await node.mountRlnRelay(ethClientAddress = some(EthClient), ethAccountAddress =  some(ethAccountAddress), membershipContractAddress =  some(membershipContractAddress))
 
-proc generateKeyPairBuffer(ctx: ptr RLN[Bn256]): ptr Buffer = 
-  var 
-    keysBuffer : Buffer
-    keysBufferPtr = unsafeAddr(keysBuffer)
-    done = key_gen(ctx, keysBufferPtr) 
-  
-  return keysBufferPtr
+# proc generateKeyPairBuffer(ctx: ptr RLN[Bn256]): ptr Buffer = 
+#   var 
+#     keysBuffer : Buffer
+#     keysBufferPtr = unsafeAddr(keysBuffer)
+#     done = key_gen(ctx, keysBufferPtr) 
+#   doAssert(done)
+#   return keysBufferPtr
 
-proc getSKPK2(keyPairBuffer: ptr Buffer): (ptr Buffer, ptr Buffer) =
-  var 
-    generatedKeys = cast[array[64, byte]](keyPairBuffer.`ptr`[])
-    secret = cast[array[32, byte]](generatedKeys[0..31])
-    public = cast[array[32, byte]](generatedKeys[32..63])
-  let skBuffer = Buffer(`ptr`: unsafeAddr(secret[0]), len: 32)
-  let skBufferPtr = unsafeAddr skBuffer
-  let pkBuffer = Buffer(`ptr`: unsafeAddr(public[0]), len: 32)
-  let pkBufferPtr = unsafeAddr pkBuffer
-  # echo "keys", generatedKeys
-  # echo "secret", secret
-  # echo "secret length", secret.len
-  # echo "public", public
-  # echo "secret length", public.len
-  
-  return (skBufferPtr, pkBufferPtr)
+# TODO unit test for genSKPK
+proc genSKPK(ctx: ptr RLN[Bn256]): (Buffer, Buffer) =
+  var keypair = membershipKeyGen(some(ctx))
+  doAssert(keypair.isSome())
+  let pkBuffer = Buffer(`ptr`: unsafeAddr(keypair.get().publicKey[0]), len: 32)
+  # let pkBufferPtr = unsafeAddr pkBuffer
 
-proc getSKPK(keyPairBuffer: ptr Buffer): (ptr Buffer, ptr Buffer) =
-  var 
-    generatedKeys = cast[array[64, byte]](keyPairBuffer.`ptr`[])
-    secret: array[32, byte] 
-    public: array[32, byte]
-  for (i,x) in secret.mpairs: x = generatedKeys[i]
-  for (i,x) in public.mpairs: x = generatedKeys[i+32]
-
-  let skBuffer = Buffer(`ptr`: unsafeAddr(secret[0]), len: 32)
-  let skBufferPtr = unsafeAddr skBuffer
-  let pkBuffer = Buffer(`ptr`: unsafeAddr(public[0]), len: 32)
-  let pkBufferPtr = unsafeAddr pkBuffer
-
-  return (skBufferPtr, pkBufferPtr)
+  let skBuffer = Buffer(`ptr`: unsafeAddr(keypair.get().secretKey[0]), len: 32)
+  # let skBufferPtr = unsafeAddr skBuffer
+  return(skBuffer,pkBuffer)
 
 
-proc genRandPK(): ptr Buffer =
+proc genRandPK(): Buffer =
   var 
     pkBytes : array[32, byte] 
   for x in pkBytes.mitems: x = 2
   let pkBuffer = Buffer(`ptr`: unsafeAddr(pkBytes[0]), len: 32)
-  let pkBufferPtr = unsafeAddr pkBuffer
-  return pkBufferPtr
+  return pkBuffer
 
 suite "Waku rln relay":
   test "key_gen Nim Wrappers":
@@ -341,68 +319,74 @@ suite "Waku rln relay":
     var ctx = ctxInstance.get() 
     
     # prepare user's secret and public keys 
+    var (skBuffer,pkBuffer) = genSKPK(ctx)
     let 
-      keypairBufferPtr = generateKeyPairBuffer(ctx)
-      (skBufferPtr,pkBufferPtr) = keypairBufferPtr.getSKPK()
+      skBufferPtr = unsafeAddr skBuffer
+      pkBufferPtr = unsafeAddr pkBuffer
 
     # user's index in the tree
-    var index = 6
+    var index = 5
 
-  #   # prepare the secret information of the proof i.e., the sk and the user index in the tree
-  #   var auth: Auth = Auth(secret_buffer: skBufferPtr, index: uint(index))
-  #   var auth_Ptr = unsafeAddr(auth)
+    # prepare the secret information of the proof i.e., the sk and the user index in the tree
+    var auth: Auth = Auth(secret_buffer: skBufferPtr, index: uint(index))
+    var auth_Ptr = unsafeAddr(auth)
 
-  #   debug "auth", auth
+    debug "auth", auth
 
-  #   # add some random members to the tree
-  #   # TODO add a test for a wrong index, it should fail
-  #   for i in 0..10:
-  #     echo i
-  #     if (i == index):
-  #       var member_is_added = update_next_member(ctx, pkBufferPtr)
-  #       doAssert(member_is_added)
-  #     else:
-  #       let randPkPtr = genRandPK()
-  #       var member_is_added = update_next_member(ctx, randPkPtr)
-  #       doAssert(member_is_added)
+    # add some random members to the tree
+    for i in 0..10:
+      echo i
+      var member_is_added: bool = false
+      if (i == index):
+        member_is_added = update_next_member(ctx, pkBufferPtr)
+      else:
+        # var (sk,pk) = genSKPK(ctx)
+        var pk = genRandPK()
+        let pkPtr = unsafeAddr pk
+        member_is_added = update_next_member(ctx, pkPtr)
+      doAssert(member_is_added)
 
-
-  #   # prepare the epoch
-  #   let
-  #     epoch: uint = 1
-  #     epochBytes = cast[array[32,byte]](epoch)
-  #   debug "epochBytes", epochBytes
-  #   # let decodeEpoch = cast[uint](epochBytes)
-  #   # debug "epoch", decodeEpoch
-  #   # doAssert(decodeEpoch == epoch)
-
-  #   # prepare the message
-  #   var messageBytes {.noinit.}: array[32, byte]
-  #   for x in messageBytes.mitems: x = 1
-  #   debug "messageBytes", messageBytes
-
-  #   # serialize message and epoch 
-  #   var 
-  #     epochBytesSeq = @epochBytes
-  #     messageBytesSeq = @messageBytes
-  #     epochMessage = epochBytesSeq & messageBytesSeq
-  #   debug "@epochBytes", epochBytesSeq
-  #   debug "@messageBytes", messageBytesSeq
-  #   debug "epoch||Message", epochMessage
-  #   var inputBytes{.noinit.}: array[64, byte] #the serialized epoch||Message 
-  #   for (i, x) in inputBytes.mpairs: x = epochMessage[i]
-  #   var
-  #     input_buffer = Buffer(`ptr`: unsafeAddr(inputBytes[0]), len: 64)
-  #     input_buffer_ptr = unsafeAddr(input_buffer)
-
-  #   debug "inputBytes", inputBytes
-  #   debug "input_buffer", input_buffer
+    # prepare the message
+    var messageBytes {.noinit.}: array[32, byte]
+    for x in messageBytes.mitems: x = 1
+    debug "messageBytes", messageBytes
 
 
-  #   # generate the proof
-  #   var proof: Buffer
-  #   var proofPtr = unsafeAddr(proof)
-  #   let proof_res = generate_proof(ctx, input_buffer_ptr, authPtr, proofPtr)
+    # prepare the epoch
+    let
+      epoch: uint = 1
+      epochBytes = cast[array[32,byte]](epoch)
+    debug "epochBytes", epochBytes
+   
 
-  #   check:
-  #     proof_res == true
+    # serialize message and epoch 
+    # TODO add a proc for serializing
+    var epochMessage = @epochBytes & @messageBytes
+    debug "epoch in Bytes", epochBytes
+    debug "message in Bytes", messageBytes
+    debug "epoch||Message", epochMessage
+    var inputBytes{.noinit.}: array[64, byte] #the serialized epoch||Message 
+    for (i, x) in inputBytes.mpairs: x = epochMessage[i]
+    var
+      input_buffer = Buffer(`ptr`: unsafeAddr(inputBytes[0]), len: 64)
+      input_buffer_ptr = unsafeAddr(input_buffer)
+
+    debug "inputBytes", inputBytes
+    debug "input_buffer", input_buffer
+
+
+    # generate the proof
+    var proof: Buffer
+    var proofPtr = unsafeAddr(proof)
+    let proof_res = generate_proof(ctx, input_buffer_ptr, authPtr, proofPtr)
+
+    check:
+      proof_res == true
+    # TODO further checks on the internal components of the proof
+    let prooRepr = (proofPtr[]).`ptr`[]
+    let size = proofPtr[].len
+    debug "proof", prooRepr
+    debug " proof len", size
+
+    # TODO add a test for a wrong index, it should fail
+
