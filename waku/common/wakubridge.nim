@@ -1,6 +1,7 @@
 import
   std/[strutils, tables],
   chronos, confutils, chronicles, chronicles/topics_registry, metrics,
+  stew/endians2,
   stew/shims/net as stewNet, json_rpc/rpcserver,
   # Waku v1 imports
   eth/[keys, p2p], eth/common/utils,
@@ -22,7 +23,24 @@ import
   # Common cli config
   ./config_bridge
 
-const clientIdV1 = "nim-waku v1 node"
+const
+  clientIdV1 = "nim-waku v1 node"
+  defaultBridgeTopic = "/waku/2/default-bridge/proto"
+  defaultTTL = 5'u32
+
+proc toWakuMessage(env: Envelope): WakuMessage =
+  # Translate a Waku v1 envelope to a Waku v2 message
+  WakuMessage(payload: env.data,
+              contentTopic: ContentTopic(uint32.fromBytes(env.topic)),
+              version: 1)
+
+proc toWakuV2(env: Envelope, nodev2: WakuNode) {.async.} =
+  await nodev2.publish(defaultBridgeTopic, env.toWakuMessage())
+
+proc toWakuV1(msg: WakuMessage, nodev1: EthereumNode) {.gcsafe.} =
+  discard nodev1.postMessage(ttl = defaultTTL,
+                             topic = msg.contentTopic.toBytes(),
+                             payload = msg.payload)
 
 proc startWakuV1(config: WakuNodeConf, rng: ref BrHmacDrbgContext):
     EthereumNode =
@@ -127,10 +145,31 @@ when isMainModule:
 
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
+  
+  var
+    nodev1 {.threadvar.}: EthereumNode
+    nodev2 {.threadvar.}: WakuNode
 
-  let
-    nodev1 = startWakuV1(conf, rng)
-    nodev2 = waitFor startWakuV2(conf)
+  nodev1 = startWakuV1(conf, rng)
+  nodev2 = waitFor startWakuV2(conf)
+
+    
+  # Handle messages on Waku v1 and bridge to Waku v2  
+  proc handleEnvReceived(envelope: Envelope) {.gcsafe.} =
+    debug "Bridging envelope from V1 to V2", envelope=envelope
+    waitFor envelope.toWakuV2(nodev2)
+
+  nodev1.registerEnvReceivedHandler(handleEnvReceived)
+
+  # Handle messages on Waku v2 and bridge to Waku v1
+  proc relayHandler(pubsubTopic: string, data: seq[byte]) {.async, gcsafe.} =
+    let msg = WakuMessage.init(data)
+    if msg.isOk():
+      debug "Bridging message from V2 to V1", msg=msg[]
+      msg[].toWakuV1(nodev1)
+  
+  nodev2.subscribe(defaultBridgeTopic, relayHandler)
+
 
   if conf.rpc:
     let ta = initTAddress(conf.rpcAddress,
