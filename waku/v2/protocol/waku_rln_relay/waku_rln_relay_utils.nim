@@ -62,24 +62,54 @@ contract(MembershipContract):
 #     debug "error in parameters generation"
 #     return none(ptr RLN[Bn256])
 #   return some(ctx[])
+proc createRLNInstance*(d: int, ctxPtrPtr: ptr (ptr RLN[Bn256])) = 
+  ## generates an instance of RLN for a Merkle tree with the depth of d
+  var  
+    merkleDepth: csize_t = uint(d)
+    # parameters.key contains the parameters related to the Poseidon hasher
+    # to generate this file, clone this repo https://github.com/kilic/rln 
+    # and run the following command in the root directory of the cloned project
+    # cargo run --example export_test_keys
+    # the file is generated separately and copied here
+    parameters = readFile("waku/v2/protocol/waku_rln_relay/parameters.key")
+    pbytes = parameters.toBytes()
+    len : csize_t = uint(pbytes.len)
+    parametersBuffer = Buffer(`ptr`: unsafeAddr(pbytes[0]), len: len)
 
-proc membershipKeyGen*(inCtx: Option[ptr RLN[Bn256]] = none(ptr RLN[Bn256])): Option[MembershipKeyPair] =
+  # check the parameters.key is not empty
+  doAssert(not(pbytes.len == 0))
+    # debug "error in parameters.key"
+    # return none(RLN[Bn256])
+    
+  # ctx holds the information that is going to be used for  the key generation
+  # var 
+  #   obj = RLN[Bn256]()
+  #   objPtr = unsafeAddr(obj)
+  #   objptrptr = unsafeAddr(objPtr)
+  #   ctx = objptrptr
+  let res = new_circuit_from_params(merkleDepth, unsafeAddr parametersBuffer, ctxPtrPtr)
+  # check whether the circuit parameters are generated successfully
+  doAssert(not(res == false))
+    # debug "error in parameters generation"
+  #   return none(ptr RLN[Bn256])
+  # return some(ctx[])
+proc membershipKeyGen*(ctxPtr: ptr RLN[Bn256]): Option[MembershipKeyPair] =
   ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract
-  var ctx: ptr RLN[Bn256]
-  if inCtx.isSome():
-    ctx = inCtx.get()
-  else:
-    let genCtx = createRLNInstance(32)
-    if genCtx.isNone():
-      debug "error in rln instance creation"
-      return none(MembershipKeyPair)
-    ctx = genCtx.get()
+  # var ctx: ptr RLN[Bn256]
+  # if inCtx.isSome():
+  #   ctx = inCtx.get()
+  # else:
+  #   let genCtx = createRLNInstance(32)
+  #   if genCtx.isNone():
+  #     debug "error in rln instance creation"
+  #     return none(MembershipKeyPair)
+  #   ctx = genCtx.get()
     
   # keysBufferPtr will hold the generated key pairs i.e., secret and public keys 
   var 
     keysBuffer : Buffer
     keysBufferPtr = unsafeAddr(keysBuffer)
-    done = key_gen(ctx, keysBufferPtr)  
+    done = key_gen(ctxPtr, keysBufferPtr)  
 
   # check whether the keys are generated successfully
   if(done == false):

@@ -178,8 +178,15 @@ procSuite "Waku rln relay":
       ethAccountAddress = accounts[9]
     await web3.close()
 
+    # create an RLN instance
+    var 
+      ctx = RLN[Bn256]()
+      ctxPtr = unsafeAddr(ctx)
+      ctxPtrPtr = unsafeAddr(ctxPtr)
+    createRLNInstance(32, ctxPtrPtr)
+
     # generate the membership keys
-    let membershipKeyPair = membershipKeyGen()
+    let membershipKeyPair = membershipKeyGen(ctxPtrPtr[])
     
     check:
       membershipKeyPair.isSome
@@ -225,7 +232,7 @@ procSuite "Waku rln relay":
 
 # TODO unit test for genSKPK
 proc genSKPK(ctx: ptr RLN[Bn256]): (Buffer, Buffer) =
-  var keypair = membershipKeyGen(some(ctx))
+  var keypair = membershipKeyGen(ctx)
   doAssert(keypair.isSome())
   let pkBuffer = Buffer(`ptr`: unsafeAddr(keypair.get().publicKey[0]), len: 32)
   # let pkBufferPtr = unsafeAddr pkBuffer
@@ -287,7 +294,14 @@ suite "Waku rln relay":
       debug "generated keys: ", generatedKeys 
       
   test "membership Key Gen":
-    var key = membershipKeyGen()
+    # create an RLN instance
+    var 
+      ctx = RLN[Bn256]()
+      ctxPtr = unsafeAddr(ctx)
+      ctxPtrPtr = unsafeAddr(ctxPtr)
+    createRLNInstance(32, ctxPtrPtr)
+
+    var key = membershipKeyGen(ctxPtrPtr[])
     var empty : array[32,byte]
     check:
       key.isSome
@@ -299,27 +313,33 @@ suite "Waku rln relay":
     debug "the generated membership key pair: ", key 
   
   test "update_next_member Nim Wrapper":
-    var ctxInstance = createRLNInstance(32) 
-    doAssert(ctxInstance.isSome())
-    var ctx = ctxInstance.get()
+    # create an RLN instance
+    var 
+      ctx = RLN[Bn256]()
+      ctxPtr = unsafeAddr(ctx)
+      ctxPtrPtr = unsafeAddr(ctxPtr)
+    createRLNInstance(32, ctxPtrPtr)
     
-    var keypair = membershipKeyGen(some(ctx))
+    var keypair = membershipKeyGen(ctxPtrPtr[])
     doAssert(keypair.isSome())
     let keysBuffer = Buffer(`ptr`: unsafeAddr(keypair.get().publicKey[0]), len: 32)
     let keysBufferPtr = unsafeAddr keysBuffer
 
-    var member_is_added = update_next_member(ctx, keysBufferPtr)
+    var member_is_added = update_next_member(ctxPtrPtr[], keysBufferPtr)
     check:
       member_is_added == true
   
   test "generate_proof Nim Wrapper":
-    var ctxInstance = createRLNInstance(32) 
-    doAssert(ctxInstance.isSome())
-    # ptr RLN[Bn256]
-    var ctx = ctxInstance.get() 
+    # create an RLN instance
+    var 
+      ctx = RLN[Bn256]()
+      ctxPtr = unsafeAddr(ctx)
+      ctxPtrPtr = unsafeAddr(ctxPtr)
+    createRLNInstance(32, ctxPtrPtr)
+    
     
     # prepare user's secret and public keys 
-    var (skBuffer,pkBuffer) = genSKPK(ctx)
+    var (skBuffer,pkBuffer) = genSKPK(ctxPtrPtr[])
     let 
       skBufferPtr = unsafeAddr skBuffer
       pkBufferPtr = unsafeAddr pkBuffer
@@ -338,12 +358,12 @@ suite "Waku rln relay":
       echo i
       var member_is_added: bool = false
       if (i == index):
-        member_is_added = update_next_member(ctx, pkBufferPtr)
+        member_is_added = update_next_member(ctxPtrPtr[], pkBufferPtr)
       else:
         # var (sk,pk) = genSKPK(ctx)
         var pk = genRandPK()
         let pkPtr = unsafeAddr pk
-        member_is_added = update_next_member(ctx, pkPtr)
+        member_is_added = update_next_member(ctxPtrPtr[], pkPtr)
       doAssert(member_is_added)
 
     # prepare the message
@@ -378,14 +398,14 @@ suite "Waku rln relay":
     # generate the proof
     var proof: Buffer
     var proofPtr = unsafeAddr(proof)
-    let proof_res = generate_proof(ctx, input_buffer_ptr, authPtr, proofPtr)
+    let proof_res = generate_proof(ctxPtrPtr[], input_buffer_ptr, authPtr, proofPtr)
 
     check:
       proof_res == true
     # TODO further checks on the internal components of the proof
-    let prooRepr = (proofPtr[]).`ptr`[]
+    let proofRepr = (proofPtr[]).`ptr`[]
     let size = proofPtr[].len
-    debug "proof", prooRepr
+    debug "proof", proofRepr
     debug " proof len", size
 
     # TODO add a test for a wrong index, it should fail
