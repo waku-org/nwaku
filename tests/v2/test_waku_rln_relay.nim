@@ -242,12 +242,12 @@ proc genSKPK(ctx: ptr RLN[Bn256]): (Buffer, Buffer) =
   return(skBuffer,pkBuffer)
 
 
-proc genRandPK(): Buffer =
-  var 
-    pkBytes : array[32, byte] 
-  for x in pkBytes.mitems: x = 2
-  let pkBuffer = Buffer(`ptr`: unsafeAddr(pkBytes[0]), len: 32)
-  return pkBuffer
+# proc genRandPK(): Buffer =
+#   var 
+#     pkBytes : array[32, byte] 
+#   for x in pkBytes.mitems: x = 2
+#   let pkBuffer = Buffer(`ptr`: unsafeAddr(pkBytes[0]), len: 32)
+#   return pkBuffer
 
 suite "Waku rln relay":
   test "key_gen Nim Wrappers":
@@ -349,7 +349,7 @@ suite "Waku rln relay":
 
     # prepare the secret information of the proof i.e., the sk and the user index in the tree
     var auth: Auth = Auth(secret_buffer: skBufferPtr, index: uint(index))
-    var auth_Ptr = unsafeAddr(auth)
+    var authPtr = unsafeAddr(auth)
 
     debug "auth", auth
 
@@ -359,8 +359,8 @@ suite "Waku rln relay":
       if (i == index):
         member_is_added = update_next_member(ctxPtrPtr[], pkBufferPtr)
       else:
-        # var (sk,pk) = genSKPK(ctx)
-        var pk = genRandPK()
+        var (sk,pk) = genSKPK(ctxPtrPtr[])
+        # var pk = genRandPK()
         let pkPtr = unsafeAddr pk
         member_is_added = update_next_member(ctxPtrPtr[], pkPtr)
       doAssert(member_is_added)
@@ -384,6 +384,7 @@ suite "Waku rln relay":
     debug "epoch in Bytes", epochBytes
     debug "message in Bytes", messageBytes
     debug "epoch||Message", epochMessage
+    doAssert(epochMessage.len == 64)
     var inputBytes{.noinit.}: array[64, byte] #the serialized epoch||Message 
     for (i, x) in inputBytes.mpairs: x = epochMessage[i]
     var
