@@ -47,6 +47,7 @@ proc generate_proof*(ctx: ptr RLN[Bn256],
                      input_buffer: ptr Buffer,
                      auth: ptr Auth,
                      output_buffer: ptr Buffer): bool {.importc: "generate_proof".}
+proc get_root*(ctx: ptr RLN[Bn256], output_buffer: ptr Buffer): bool {.importc: "get_root".}
 
 proc verify*(ctx: ptr RLN[Bn256],
              proof_buffer: ptr Buffer,
