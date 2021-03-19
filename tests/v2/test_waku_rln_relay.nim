@@ -320,6 +320,7 @@ suite "Waku rln relay":
       ctxPtrPtr = unsafeAddr(ctxPtr)
     createRLNInstance(32, ctxPtrPtr)
     
+
     var keypair = membershipKeyGen(ctxPtrPtr[])
     doAssert(keypair.isSome())
     let keysBuffer = Buffer(`ptr`: unsafeAddr(keypair.get().publicKey[0]), len: 32)
@@ -336,84 +337,176 @@ suite "Waku rln relay":
       ctxPtr = unsafeAddr(ctx)
       ctxPtrPtr = unsafeAddr(ctxPtr)
     createRLNInstance(32, ctxPtrPtr)
+
+    # test a simple hash
+    var
+      sample_hash_input_bytes : array[32, byte]
+    for x in sample_hash_input_bytes.mitems: x=0
+
+    echo "sample_hash_input_buffer", sample_hash_input_bytes.toHex()
+    echo sample_hash_input_bytes
+
+    var 
+      sample_hash_input_buffer = Buffer(`ptr`: unsafeAddr(sample_hash_input_bytes[0]), len: 32 ) 
+      output_buffer: Buffer
+    let hash_success = hash(ctxPtrPtr[], unsafeAddr(sample_hash_input_buffer), 32.uint, unsafeAddr(output_buffer) )
+    doAssert(hash_success)
+    var hashoutput = cast[array[32,byte]] (sample_hash_input_buffer.`ptr`[])
+    echo "output_buffer ", hashoutput.toHex()
+
+
     
-    
-    # prepare user's secret and public keys 
-    var (skBuffer,pkBuffer) = genSKPK(ctxPtrPtr[])
-    let 
-      skBufferPtr = unsafeAddr skBuffer
-      pkBufferPtr = unsafeAddr pkBuffer
+    var root {.noinit.} : Buffer = Buffer()
+    var rootPtr = unsafeAddr(root)
+    var get_root_successful = get_root(ctxPtrPtr[],rootPtr)
+    doAssert(get_root_successful)
+    root = rootPtr[]
+    var rootSize = root.len
+    # debug "rootSize", rootSize
+    var rootValue = cast[array[32,byte]] (rootPtr.`ptr`[])
+    echo "initial root ", rootValue.toHex
 
-    # user's index in the tree
-    var index = 5
-
-    # prepare the secret information of the proof i.e., the sk and the user index in the tree
-    var auth: Auth = Auth(secret_buffer: skBufferPtr, index: uint(index))
-    var authPtr = unsafeAddr(auth)
-
-    debug "auth", auth
-
-    # add some random members to the tree
-    for i in 0..10:
-      var member_is_added: bool = false
-      if (i == index):
-        member_is_added = update_next_member(ctxPtrPtr[], pkBufferPtr)
-      else:
-        var (sk,pk) = genSKPK(ctxPtrPtr[])
-        # var pk = genRandPK()
-        let pkPtr = unsafeAddr pk
-        member_is_added = update_next_member(ctxPtrPtr[], pkPtr)
-      doAssert(member_is_added)
-
-    # prepare the message
-    var messageBytes {.noinit.}: array[32, byte]
-    for x in messageBytes.mitems: x = 1
-    debug "messageBytes", messageBytes
+    var root2 {.noinit.} : Buffer = Buffer()
+    var rootPtr2 = unsafeAddr(root2)
+    var get_root_successful2 = get_root(ctxPtrPtr[],rootPtr2)
+    doAssert(get_root_successful2)
+    root2 = rootPtr2[]
+    var rootSize2 = root2.len
+    # debug "rootSize", rootSize
+    var rootValue2 = cast[array[32,byte]] (rootPtr2.`ptr`[])
+    echo "initial root second call ", rootValue2.toHex
 
 
-    # prepare the epoch
-    let
-      epoch: uint = 1
-      epochBytes = cast[array[32,byte]](epoch)
-    debug "epochBytes", epochBytes
+    var root3 {.noinit.} : Buffer = Buffer()
+    var rootPtr3 = unsafeAddr(root3)
+    var get_root_successful3 = get_root(ctxPtrPtr[],rootPtr3)
+    doAssert(get_root_successful3)
+    root3 = rootPtr3[]
+    var rootSize3 = root3.len
+    # debug "rootSize", rootSize
+    var rootValue3 = cast[array[32,byte]] (rootPtr3.`ptr`[])
+    echo "initial root third call ", rootValue3.toHex
+
    
 
-    # serialize message and epoch 
-    # TODO add a proc for serializing
-    var epochMessage = @epochBytes & @messageBytes
-    debug "epoch in Bytes", epochBytes
-    debug "message in Bytes", messageBytes
-    debug "epoch||Message", epochMessage
-    doAssert(epochMessage.len == 64)
-    var inputBytes{.noinit.}: array[64, byte] #the serialized epoch||Message 
-    for (i, x) in inputBytes.mpairs: x = epochMessage[i]
-    var
-      input_buffer = Buffer(`ptr`: unsafeAddr(inputBytes[0]), len: 64)
-      input_buffer_ptr = unsafeAddr(input_buffer)
 
-    debug "inputBytes", inputBytes
-    debug "input_buffer", input_buffer
+    # # prepare user's secret and public keys 
+    # var (skBuffer,pkBuffer) = genSKPK(ctxPtrPtr[])
+    # let 
+    #   skBufferPtr = unsafeAddr skBuffer
+    #   pkBufferPtr = unsafeAddr pkBuffer
+
+    # # user's index in the tree
+    # var index = 5
+
+    # # prepare the secret information of the proof i.e., the sk and the user index in the tree
+    # var auth: Auth = Auth(secret_buffer: skBufferPtr, index: uint(index))
+    # var authPtr = unsafeAddr(auth)
+
+    # debug "auth", auth
+
+    # rootPtr = unsafeAddr(root)
+    # get_root_successful = get_root(ctxPtrPtr[],rootPtr)
+    # doAssert(get_root_successful)
+    # rootSize = root.len
+    # # debug "rootSize", rootSize
+    # rootValue = cast[array[32,byte]] (root.`ptr`[])
+    # echo "initial root after key gen", rootValue.toHex
 
 
-    # generate the proof
-    var proof: Buffer
-    var proofPtr = unsafeAddr(proof)
-    let proof_res = generate_proof(ctxPtrPtr[], input_buffer_ptr, authPtr, proofPtr)
+    # # add some random members to the tree
+    # for i in 0..10:
+    #   echo i
+    #   var member_is_added: bool = false
+    #   if (i == index):
+    #     member_is_added = update_next_member(ctxPtrPtr[], pkBufferPtr)
+    #     var root : Buffer
+    #     var rootPtr = unsafeAddr(root)
+    #     var get_root_successful = get_root(ctxPtrPtr[],rootPtr)
+    #     doAssert(get_root_successful)
+    #     var rootSize = root.len
+    #     # debug "rootSize", rootSize
+    #     var rootValue = cast[array[32,byte]] (root.`ptr`[])
+    #     echo "root value ", i, " ", rootValue.toHex
+    #   else:
+    #     var (sk,pk) = genSKPK(ctxPtrPtr[])
+    #     # var pk = genRandPK()
+    #     let pkPtr = unsafeAddr pk
+    #     member_is_added = update_next_member(ctxPtrPtr[], pkPtr)
+    #     var root : Buffer
+    #     var rootPtr = unsafeAddr(root)
+    #     var get_root_successful = get_root(ctxPtrPtr[],rootPtr)
+    #     doAssert(get_root_successful)
+    #     var rootSize = root.len
+    #     # debug "rootSize", rootSize
+    #     var rootValue = cast[array[32,byte]] (root.`ptr`[])
+    #     echo "root value ", i, " " , rootValue.toHex
+    #   doAssert(member_is_added)
+
+    # var deleted_member_index = uint(10)
+    # let deletion_success = delete_member(ctxPtrPtr[], deleted_member_index)
+    # doAssert(deletion_success)
+    # # var root : Buffer
+    # rootPtr = unsafeAddr(root)
+    # get_root_successful = get_root(ctxPtrPtr[],rootPtr)
+    # doAssert(get_root_successful)
+    # rootSize = root.len
+    # # debug "rootSize", rootSize
+    # rootValue = cast[array[32,byte]] (root.`ptr`[])
+    # echo "root value after 10 is deleted ", rootValue.toHex
 
   
-    check:
-      proof_res == true
-    # TODO further checks on the internal components of the proof, the length is off
-    let proofRepr = proofPtr[]
-    debug "proof", proofRepr
+    # # prepare the message
+    # var messageBytes {.noinit.}: array[32, byte]
+    # for x in messageBytes.mitems: x = 1
+    # debug "messageBytes", messageBytes
 
-    # TODO add a test for a wrong index, it should fail
 
-    var f = 0.uint32
-    let success = verify(ctxPtrPtr[],proofPtr, unsafeAddr(f))
-    doAssert(success)
-    # TODO the value of f must be zero, but it is not, have to investigate more
-    # doAssert(f==0)
-    debug "f", f 
+    # # prepare the epoch
+    # let
+    #   epoch: uint = 1
+    #   epochBytes = cast[array[32,byte]](epoch)
+    # debug "epochBytes", epochBytes
+   
+
+    # # serialize message and epoch 
+    # # TODO add a proc for serializing
+    # var epochMessage = @epochBytes & @messageBytes
+    # debug "epoch in Bytes", epochBytes
+    # debug "message in Bytes", messageBytes
+    # debug "epoch||Message", epochMessage
+    # doAssert(epochMessage.len == 64)
+    # var inputBytes{.noinit.}: array[64, byte] #the serialized epoch||Message 
+    # for (i, x) in inputBytes.mpairs: x = epochMessage[i]
+    # var
+    #   input_buffer = Buffer(`ptr`: unsafeAddr(inputBytes[0]), len: 64)
+    #   input_buffer_ptr = unsafeAddr(input_buffer)
+
+    # debug "inputBytes", inputBytes
+    # debug "input_buffer", input_buffer
+
+
+    # # generate the proof
+    # var proof: Buffer
+    # var proofPtr = unsafeAddr(proof)
+    # let proof_res = generate_proof(ctxPtrPtr[], input_buffer_ptr, authPtr, proofPtr)
+
+  
+    # check:
+    #   proof_res == true
+    # # TODO further checks on the internal components of the proof, the length is off
+    # let proofRepr = proofPtr[]
+    # debug "proof", proofRepr
+
+    # # TODO add a test for a wrong index, it should fail
+
+    # var f = 0.uint32
+    # var fPtr = unsafeAddr(f)
+    # let success = verify(ctxPtrPtr[], proofPtr, fPtr)
+    # doAssert(success)
+    # # TODO the value of f must be zero, but it is not, have to investigate more
+    # # doAssert(f==0)
+    # f = fPtr[] 
+    # debug "f", f 
  
 
