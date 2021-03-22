@@ -141,7 +141,7 @@ proc `%`*(value: seq[byte]): JsonNode =
   if value.len > 0:
     result = %("0x" & value.toHex)
   else:
-    result = newJNull()
+    result = newJArray()
 
 # Helpers for the fromJson procs
 
