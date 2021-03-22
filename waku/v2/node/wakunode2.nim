@@ -327,6 +327,7 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil) =
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
 proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(string), ethAccountAddress: Option[Address] = none(Address), membershipContractAddress:  Option[Address] = none(Address)) {.async.} =
+  # TODO return a bool value to indicate the success fo the call
   # check whether inputs are provided
   doAssert(ethClientAddress.isSome())
   doAssert(ethAccountAddress.isSome())
@@ -337,7 +338,7 @@ proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(stri
     ctx = RLN[Bn256]()
     ctxPtr = unsafeAddr(ctx)
     ctxPtrPtr = unsafeAddr(ctxPtr)
-  createRLNInstance(32, ctxPtrPtr)
+  doAssert(createRLNInstance(32, ctxPtrPtr))
 
   # generate the membership keys
   let membershipKeyPair = membershipKeyGen(ctxPtrPtr[])

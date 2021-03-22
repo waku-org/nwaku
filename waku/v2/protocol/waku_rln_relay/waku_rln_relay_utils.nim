@@ -58,6 +58,7 @@ proc createRLNInstance*(d: int, ctxPtrPtr: ptr (ptr RLN[Bn256])): bool =
   if (res == false): 
     debug "error in parameters generation"
     return false
+  return true
 
 proc membershipKeyGen*(ctxPtr: ptr RLN[Bn256]): Option[MembershipKeyPair] =
   ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract

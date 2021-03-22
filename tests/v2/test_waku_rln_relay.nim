@@ -183,7 +183,7 @@ procSuite "Waku rln relay":
       ctx = RLN[Bn256]()
       ctxPtr = unsafeAddr(ctx)
       ctxPtrPtr = unsafeAddr(ctxPtr)
-    createRLNInstance(32, ctxPtrPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
 
     # generate the membership keys
     let membershipKeyPair = membershipKeyGen(ctxPtrPtr[])
@@ -282,7 +282,7 @@ suite "Waku rln relay":
       ctx = RLN[Bn256]()
       ctxPtr = unsafeAddr(ctx)
       ctxPtrPtr = unsafeAddr(ctxPtr)
-    createRLNInstance(32, ctxPtrPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
 
     var key = membershipKeyGen(ctxPtrPtr[])
     var empty : array[32,byte]
@@ -301,7 +301,7 @@ suite "Waku rln relay":
       ctx = RLN[Bn256]()
       ctxPtr = unsafeAddr(ctx)
       ctxPtrPtr = unsafeAddr(ctxPtr)
-    createRLNInstance(32, ctxPtrPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
 
     # read the Merkle Tree root
     var 
@@ -334,7 +334,7 @@ suite "Waku rln relay":
       ctx = RLN[Bn256]()
       ctxPtr = unsafeAddr(ctx)
       ctxPtrPtr = unsafeAddr(ctxPtr)
-    createRLNInstance(32, ctxPtrPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
 
     # generate a key pair
     var keypair = membershipKeyGen(ctxPtrPtr[])
@@ -353,7 +353,7 @@ suite "Waku rln relay":
       ctx = RLN[Bn256]()
       ctxPtr = unsafeAddr(ctx)
       ctxPtrPtr = unsafeAddr(ctxPtr)
-    createRLNInstance(32, ctxPtrPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
 
     # delete the first member 
     var deleted_member_index = uint(0)
@@ -366,7 +366,7 @@ suite "Waku rln relay":
       ctx = RLN[Bn256]()
       ctxPtr = unsafeAddr(ctx)
       ctxPtrPtr = unsafeAddr(ctxPtr)
-    createRLNInstance(32, ctxPtrPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
 
     # read the Merkle Tree root
     var 
