@@ -327,7 +327,7 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil) =
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
 proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(string), ethAccountAddress: Option[Address] = none(Address), membershipContractAddress:  Option[Address] = none(Address)) {.async.} =
-  # TODO return a bool value to indicate the success fo the call
+  # TODO return a bool value to indicate the success of the call
   # check whether inputs are provided
   doAssert(ethClientAddress.isSome())
   doAssert(ethAccountAddress.isSome())
