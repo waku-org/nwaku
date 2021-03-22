@@ -426,4 +426,3 @@ suite "Waku rln relay":
     ## The initial root of the tree (empty tree) must be identical to 
     ## the root of the tree after one insertion followed by a deletion
     doAssert(rootHex1 == rootHex3)
-   
