@@ -138,7 +138,10 @@ proc `%`*(value: waku_protocol.Topic): JsonNode =
   result = %("0x" & value.toHex)
 
 proc `%`*(value: seq[byte]): JsonNode =
-  result = %("0x" & value.toHex)
+  if value.len > 0:
+    result = %("0x" & value.toHex)
+  else:
+    result = newJArray()
 
 # Helpers for the fromJson procs
 
@@ -210,12 +213,6 @@ proc fromJson*(n: JsonNode, argName: string, result: var waku_protocol.Topic) =
 # Following procs currently required only for testing, the `createRpcSigs` macro
 # requires it as it will convert the JSON results back to the original Nim
 # types, but it needs the `fromJson` calls for those specific Nim types to do so
-proc fromJson*(n: JsonNode, argName: string, result: var seq[byte]) =
-  n.kind.expect(JString, argName)
-  let hexStr = n.getStr()
-  if not hexStr.isValidHexData:
-    raise newException(ValueError, invalidMsg(argName) & " as a hex data \"" & hexStr & "\"")
-  result = hexToSeqByte(hexStr)
 
 proc fromJson*(n: JsonNode, argName: string, result: var Hash256) =
   n.kind.expect(JString, argName)
