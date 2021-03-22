@@ -1,5 +1,5 @@
 import 
-  chronicles, options, chronos, stint, sequtils,
+  chronicles, options, chronos, stint,
   web3,
   stew/byteutils,
   eth/keys,

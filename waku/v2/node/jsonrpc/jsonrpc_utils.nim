@@ -1,5 +1,5 @@
 import
-  std/[options, json, sequtils],
+  std/[options, json],
   eth/keys,
   ../../../v1/node/rpc/hexstrings,
   ../../protocol/waku_store/waku_store_types,
