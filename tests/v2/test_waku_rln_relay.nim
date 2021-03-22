@@ -215,6 +215,8 @@ procSuite "Waku rln relay":
     # start rln-relay
     await node.mountRlnRelay(ethClientAddress = some(EthClient), ethAccountAddress =  some(ethAccountAddress), membershipContractAddress =  some(membershipContractAddress))
 
+    await node.stop()
+
 suite "Waku rln relay":
   test "Keygen Nim Wrappers":
     var 
