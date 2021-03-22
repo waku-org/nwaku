@@ -1,5 +1,5 @@
 import
-  std/options,
+  std/[options, json, sequtils],
   eth/keys,
   ../../../v1/node/rpc/hexstrings,
   ../../protocol/waku_store/waku_store_types,
@@ -7,6 +7,16 @@ import
   ./jsonrpc_types
 
 export hexstrings
+
+## Json marshalling
+
+proc `%`*(value: WakuMessage): JsonNode =
+  ## This ensures that seq[byte] fields are marshalled to hex-format JStrings
+  ## (as defined in `hexstrings.nim`) rather than the default JArray[JInt]
+  let jObj = newJObject()
+  for k, v in value.fieldPairs:
+    jObj[k] = %v
+  return jObj
 
 ## Conversion tools
 ## Since the Waku v2 JSON-RPC API has its own defined types,
