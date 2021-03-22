@@ -228,7 +228,7 @@ proc genSKPK(ctx: ptr RLN[Bn256]): (Buffer, Buffer) =
   ## generates a pair of secret and public key where pk = hash(sk)
   var keypair = membershipKeyGen(ctx)
   doAssert(keypair.isSome())
-  
+
   let pkBuffer = Buffer(`ptr`: unsafeAddr(keypair.get().publicKey[0]), len: 32)
   let skBuffer = Buffer(`ptr`: unsafeAddr(keypair.get().secretKey[0]), len: 32)
   return(skBuffer,pkBuffer)
@@ -420,6 +420,10 @@ suite "Waku rln relay":
     let rootHex3 = rootValue3[].toHex
     debug "The root after deletion", rootHex3
 
-
-    doAssert(rootHex1 == rootHex3)
+    # the root must change after the insertion
     doAssert(not(rootHex1 == rootHex2))
+
+    ## The initial root of the tree (empty tree) must be identical to 
+    ## the root of the tree after one insertion followed by a deletion
+    doAssert(rootHex1 == rootHex3)
+   
