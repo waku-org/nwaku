@@ -87,11 +87,14 @@ type
 
   P2PRequestHandler* = proc(peer: Peer, envelope: Envelope) {.gcsafe.}
 
+  EnvReceivedHandler* = proc(envelope: Envelope) {.gcsafe.}
+
   WakuNetwork = ref object
     queue*: ref Queue
     filters*: Filters
     config*: WakuConfig
     p2pRequestHandler*: P2PRequestHandler
+    envReceivedHandler*: EnvReceivedHandler
 
   RateLimits* = object
     # TODO: uint or specifically uint32?
@@ -321,6 +324,9 @@ p2pProtocol Waku(version = wakuVersion,
       if peer.networkState.queue[].add(msg):
         # notify filters of this message
         peer.networkState.filters.notify(msg)
+        # trigger handler on received envelope, if registered
+        if not peer.networkState.envReceivedHandler.isNil():
+          peer.networkState.envReceivedHandler(envelope)
 
   nextID 22
 
@@ -644,6 +650,10 @@ proc configureWaku*(node: EthereumNode, config: WakuConfig) =
 proc registerP2PRequestHandler*(node: EthereumNode,
     customHandler: P2PRequestHandler) =
   node.protocolState(Waku).p2pRequestHandler = customHandler
+
+proc registerEnvReceivedHandler*(node: EthereumNode,
+                                 customHandler: EnvReceivedHandler) =
+  node.protocolState(Waku).envReceivedHandler = customHandler
 
 proc resetMessageQueue*(node: EthereumNode) =
   ## Full reset of the message queue.

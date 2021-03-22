@@ -20,7 +20,7 @@ proc setupNode(capabilities: varargs[ProtocolInfo, `protocolInfo`],
     srvAddress = Address(ip: parseIpAddress("0.0.0.0"), tcpPort: Port(30303),
       udpPort: Port(30303))
 
-  result = newEthereumNode(keypair, srvAddress, 1, nil, "waku test rpc",
+  result = newEthereumNode(keypair, srvAddress, NetworkId(1), nil, "waku test rpc",
     addAllCapabilities = false, rng = rng)
   for capability in capabilities:
     result.addCapability capability

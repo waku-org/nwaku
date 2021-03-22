@@ -222,6 +222,8 @@ procSuite "Waku rln relay":
     # start rln-relay
     await node.mountRlnRelay(ethClientAddress = some(EthClient), ethAccountAddress =  some(ethAccountAddress), membershipContractAddress =  some(membershipContractAddress))
 
+    await node.stop()
+
 
 # TODO unit test for genSKPK
 proc genSKPK(ctx: ptr RLN[Bn256]): (Buffer, Buffer) =
