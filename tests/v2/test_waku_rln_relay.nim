@@ -1,7 +1,7 @@
 import
   chronos, chronicles, options, stint, unittest,
   web3,
-  stew/byteutils as stewByteUtils, stew/shims/net as stewNet,
+  stew/shims/net as stewNet,
   libp2p/crypto/crypto,
   ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils],
   ../../waku/v2/node/wakunode2,
