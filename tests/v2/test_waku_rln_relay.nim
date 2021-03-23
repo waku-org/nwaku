@@ -181,8 +181,8 @@ procSuite "Waku rln relay":
     # create an RLN instance
     var 
       ctx = RLN[Bn256]()
-      ctxPtr = unsafeAddr(ctx)
-      ctxPtrPtr = unsafeAddr(ctxPtr)
+      ctxPtr = addr(ctx)
+      ctxPtrPtr = addr(ctxPtr)
     createRLNInstance(32, ctxPtrPtr)
 
     # generate the membership keys
@@ -227,9 +227,9 @@ procSuite "Waku rln relay":
 proc genSKPK(ctx: ptr RLN[Bn256]): (Buffer, Buffer) =
   var keypair = membershipKeyGen(ctx)
   doAssert(keypair.isSome())
-  let pkBuffer = Buffer(`ptr`: unsafeAddr(keypair.get().publicKey[0]), len: 32)
+  let pkBuffer = Buffer(`ptr`: addr(keypair.get().publicKey[0]), len: 32)
 
-  let skBuffer = Buffer(`ptr`: unsafeAddr(keypair.get().secretKey[0]), len: 32)
+  let skBuffer = Buffer(`ptr`: addr(keypair.get().secretKey[0]), len: 32)
   return(skBuffer,pkBuffer)
 
 suite "Waku rln relay":
@@ -244,7 +244,7 @@ suite "Waku rln relay":
       parameters = readFile("waku/v2/protocol/waku_rln_relay/parameters.key")
       pbytes = parameters.toBytes()
       len : csize_t = uint(pbytes.len)
-      parametersBuffer = Buffer(`ptr`: unsafeAddr(pbytes[0]), len: len)
+      parametersBuffer = Buffer(`ptr`: addr(pbytes[0]), len: len)
     check:
       # check the parameters.key is not empty
       pbytes.len != 0
@@ -252,10 +252,10 @@ suite "Waku rln relay":
     # ctx holds the information that is going to be used for  the key generation
     var 
       obj = RLN[Bn256]()
-      objPtr = unsafeAddr(obj)
-      objptrptr = unsafeAddr(objPtr)
+      objPtr = addr(obj)
+      objptrptr = addr(objPtr)
       ctx = objptrptr
-    let res = new_circuit_from_params(merkleDepth, unsafeAddr parametersBuffer, ctx)
+    let res = new_circuit_from_params(merkleDepth, addr parametersBuffer, ctx)
     check:
       # check whether the circuit parameters are generated successfully
       res == true
@@ -263,7 +263,7 @@ suite "Waku rln relay":
     # keysBufferPtr will hold the generated key pairs i.e., secret and public keys 
     var 
       keysBuffer : Buffer
-      keysBufferPtr = unsafeAddr(keysBuffer)
+      keysBufferPtr = addr(keysBuffer)
       done = key_gen(ctx[], keysBufferPtr) 
     check:
       # check whether the keys are generated successfully
@@ -280,8 +280,8 @@ suite "Waku rln relay":
     # create an RLN instance
     var 
       ctx = RLN[Bn256]()
-      ctxPtr = unsafeAddr(ctx)
-      ctxPtrPtr = unsafeAddr(ctxPtr)
+      ctxPtr = addr(ctx)
+      ctxPtrPtr = addr(ctxPtr)
     createRLNInstance(32, ctxPtrPtr)
 
     var key = membershipKeyGen(ctxPtrPtr[])
@@ -299,14 +299,14 @@ suite "Waku rln relay":
     # create an RLN instance which includes an empty Merkle tree inside its struct
     var 
       ctx = RLN[Bn256]()
-      ctxPtr = unsafeAddr(ctx)
-      ctxPtrPtr = unsafeAddr(ctxPtr)
+      ctxPtr = addr(ctx)
+      ctxPtrPtr = addr(ctxPtr)
     createRLNInstance(32, ctxPtrPtr)
 
     # read the Merkle Tree root
     var 
       root1 {.noinit.} : Buffer = Buffer()
-      rootPtr1 = unsafeAddr(root1)
+      rootPtr1 = addr(root1)
       get_root_successful1 = get_root(ctxPtrPtr[], rootPtr1)
     doAssert(get_root_successful1)
     doAssert(root1.len == 32)
@@ -314,7 +314,7 @@ suite "Waku rln relay":
     # read the Merkle Tree root
     var 
       root2 {.noinit.} : Buffer = Buffer()
-      rootPtr2 = unsafeAddr(root2)
+      rootPtr2 = addr(root2)
       get_root_successful2 = get_root(ctxPtrPtr[], rootPtr2)
     doAssert(get_root_successful2)
     doAssert(root2.len == 32)
@@ -332,15 +332,15 @@ suite "Waku rln relay":
     # create an RLN instance which includes an empty Merkle tree inside its struct
     var 
       ctx = RLN[Bn256]()
-      ctxPtr = unsafeAddr(ctx)
-      ctxPtrPtr = unsafeAddr(ctxPtr)
+      ctxPtr = addr(ctx)
+      ctxPtrPtr = addr(ctxPtr)
     createRLNInstance(32, ctxPtrPtr)
 
     # generate a key pair
     var keypair = membershipKeyGen(ctxPtrPtr[])
     doAssert(keypair.isSome())
-    let pkBuffer = Buffer(`ptr`: unsafeAddr(keypair.get().publicKey[0]), len: 32)
-    let pkBufferPtr = unsafeAddr pkBuffer
+    var pkBuffer = Buffer(`ptr`: addr(keypair.get().publicKey[0]), len: 32)
+    let pkBufferPtr = addr pkBuffer
 
     # add the member to the tree
     var member_is_added = update_next_member(ctxPtrPtr[], pkBufferPtr)
@@ -351,8 +351,8 @@ suite "Waku rln relay":
     # create an RLN instance which includes an empty Merkle tree inside its struct
     var 
       ctx = RLN[Bn256]()
-      ctxPtr = unsafeAddr(ctx)
-      ctxPtrPtr = unsafeAddr(ctxPtr)
+      ctxPtr = addr(ctx)
+      ctxPtrPtr = addr(ctxPtr)
     createRLNInstance(32, ctxPtrPtr)
 
     # delete the first member 
@@ -364,14 +364,14 @@ suite "Waku rln relay":
     # create an RLN instance
     var 
       ctx = RLN[Bn256]()
-      ctxPtr = unsafeAddr(ctx)
-      ctxPtrPtr = unsafeAddr(ctxPtr)
+      ctxPtr = addr(ctx)
+      ctxPtrPtr = addr(ctxPtr)
     createRLNInstance(32, ctxPtrPtr)
 
     # read the Merkle Tree root
     var 
       root1 {.noinit.} : Buffer = Buffer()
-      rootPtr1 = unsafeAddr(root1)
+      rootPtr1 = addr(root1)
       get_root_successful1 = get_root(ctxPtrPtr[], rootPtr1)
     doAssert(get_root_successful1)
     doAssert(root1.len == 32)
@@ -379,8 +379,8 @@ suite "Waku rln relay":
     # generate a key pair
     var keypair = membershipKeyGen(ctxPtrPtr[])
     doAssert(keypair.isSome())
-    let pkBuffer = Buffer(`ptr`: unsafeAddr(keypair.get().publicKey[0]), len: 32)
-    let pkBufferPtr = unsafeAddr pkBuffer
+    var pkBuffer = Buffer(`ptr`: addr(keypair.get().publicKey[0]), len: 32)
+    let pkBufferPtr = addr pkBuffer
 
     # add the member to the tree
     var member_is_added = update_next_member(ctxPtrPtr[], pkBufferPtr)
@@ -389,7 +389,7 @@ suite "Waku rln relay":
     # read the Merkle Tree root after insertion
     var 
       root2 {.noinit.} : Buffer = Buffer()
-      rootPtr2 = unsafeAddr(root2)
+      rootPtr2 = addr(root2)
       get_root_successful2 = get_root(ctxPtrPtr[], rootPtr2)
     doAssert(get_root_successful2)
     doAssert(root2.len == 32)
@@ -402,7 +402,7 @@ suite "Waku rln relay":
     # read the Merkle Tree root after the deletion
     var 
       root3 {.noinit.} : Buffer = Buffer()
-      rootPtr3 = unsafeAddr(root3)
+      rootPtr3 = addr(root3)
       get_root_successful3 = get_root(ctxPtrPtr[], rootPtr3)
     doAssert(get_root_successful3)
     doAssert(root3.len == 32)
@@ -427,8 +427,8 @@ suite "Waku rln relay":
     # create an RLN instance
     var 
       ctx = RLN[Bn256]()
-      ctxPtr = unsafeAddr(ctx)
-      ctxPtrPtr = unsafeAddr(ctxPtr)
+      ctxPtr = addr(ctx)
+      ctxPtrPtr = addr(ctxPtr)
     createRLNInstance(32, ctxPtrPtr) 
     # prepare hash input
     var
@@ -438,12 +438,12 @@ suite "Waku rln relay":
     echo "sample_hash_input_bytes", sample_hash_input_bytes.toHex()
 
     var 
-      sample_hash_input_buffer = Buffer(`ptr`: unsafeAddr(sample_hash_input_bytes[0]), len: 32 ) 
+      sample_hash_input_buffer = Buffer(`ptr`: addr(sample_hash_input_bytes[0]), len: 32 ) 
       output_buffer: Buffer
-      output_buffer_ptr = unsafeAddr output_buffer
+      output_buffer_ptr = addr output_buffer
       data_length = 1.uint
       
-    let hash_success = hash(ctxPtrPtr[], unsafeAddr(sample_hash_input_buffer), data_length, output_buffer_ptr)
+    let hash_success = hash(ctxPtrPtr[], addr(sample_hash_input_buffer), data_length, output_buffer_ptr)
     doAssert(hash_success)
     var hashoutput = cast[ptr array[32,byte]] (output_buffer_ptr.`ptr`)
     echo "output_buffer ", hashoutput[].toHex()
@@ -452,23 +452,23 @@ suite "Waku rln relay":
     # create an RLN instance
     var 
       ctx = RLN[Bn256]()
-      ctxPtr = unsafeAddr(ctx)
-      ctxPtrPtr = unsafeAddr(ctxPtr)
+      ctxPtr = addr(ctx)
+      ctxPtrPtr = addr(ctxPtr)
     createRLNInstance(32, ctxPtrPtr)
 
 
     # prepare user's secret and public keys 
     var (skBuffer,pkBuffer) = genSKPK(ctxPtrPtr[])
     let 
-      skBufferPtr = unsafeAddr skBuffer
-      pkBufferPtr = unsafeAddr pkBuffer
+      skBufferPtr = addr skBuffer
+      pkBufferPtr = addr pkBuffer
 
     # user's index in the tree
     var index = 5
 
     # prepare the secret information of the proof i.e., the sk and the user index in the tree
     var auth: Auth = Auth(secret_buffer: skBufferPtr, index: uint(index))
-    var authPtr = unsafeAddr(auth)
+    var authPtr = addr(auth)
 
     debug "auth", auth
 
@@ -480,7 +480,7 @@ suite "Waku rln relay":
       if (i == index):
         member_is_added = update_next_member(ctxPtrPtr[], pkBufferPtr)
         var root : Buffer
-        var rootPtr = unsafeAddr(root)
+        var rootPtr = addr(root)
         var get_root_successful = get_root(ctxPtrPtr[],rootPtr)
         doAssert(get_root_successful)
         var rootSize = root.len
@@ -490,10 +490,10 @@ suite "Waku rln relay":
       else:
         var (sk,pk) = genSKPK(ctxPtrPtr[])
         # var pk = genRandPK()
-        let pkPtr = unsafeAddr pk
+        let pkPtr = addr pk
         member_is_added = update_next_member(ctxPtrPtr[], pkPtr)
         var root : Buffer
-        var rootPtr = unsafeAddr(root)
+        var rootPtr = addr(root)
         var get_root_successful = get_root(ctxPtrPtr[],rootPtr)
         doAssert(get_root_successful)
         var rootSize = root.len
@@ -526,15 +526,15 @@ suite "Waku rln relay":
     var inputBytes{.noinit.}: array[64, byte] #the serialized epoch||Message 
     for (i, x) in inputBytes.mpairs: x = epochMessage[i]
     var
-      input_buffer = Buffer(`ptr`: unsafeAddr(inputBytes[0]), len: 64)
-      input_buffer_ptr = unsafeAddr(input_buffer)
+      input_buffer = Buffer(`ptr`: addr(inputBytes[0]), len: 64)
+      input_buffer_ptr = addr(input_buffer)
 
     echo "inputBytes", inputBytes.toHex()
   
 
     # generate the proof
     var proof: Buffer
-    var proofPtr = unsafeAddr(proof)
+    var proofPtr = addr(proof)
     let proof_res = generate_proof(ctxPtrPtr[], input_buffer_ptr, authPtr, proofPtr)
     var proofValue = cast[ptr array[416,byte]] (proof.`ptr`)
     echo "proof content", proofValue[].toHex
@@ -570,14 +570,9 @@ suite "Waku rln relay":
     # TODO add a test for a wrong index, it should fail
 
     var f = 0.uint32
-    var fPtr = unsafeAddr(f)
-    let success = verify(ctxPtrPtr[], unsafeAddr proof, fPtr)
+    var fPtr = addr(f)
+    let success = verify(ctxPtrPtr[], addr proof, fPtr)
     doAssert(success)
     # TODO the value of f must be zero, but it is not, have to investigate more
     # doAssert(f==0)
     debug "f", f 
-
-
-    
-
- 
