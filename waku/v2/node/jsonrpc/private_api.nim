@@ -10,6 +10,9 @@ import
 
 export waku_payload, jsonrpc_types
 
+logScope:
+  topics = "private api"
+
 const futTimeout* = 5.seconds # Max time to wait for futures
 
 proc installPrivateApiHandlers*(node: WakuNode, rpcsrv: RpcServer, rng: ref BrHmacDrbgContext, topicCache: TopicCache) =

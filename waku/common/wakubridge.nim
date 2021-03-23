@@ -1,27 +1,20 @@
 import
-  std/[strutils, tables],
+  std/tables,
   chronos, confutils, chronicles, chronicles/topics_registry, metrics,
   stew/endians2,
   stew/shims/net as stewNet, json_rpc/rpcserver,
   # Waku v1 imports
   eth/[keys, p2p], eth/common/utils,
-  eth/p2p/[enode, whispernodes],
+  eth/p2p/enode,
   ../v1/protocol/waku_protocol,
-  ./utils/nat,
-  ../v1/node/rpc/wakusim,
-  ../v1/node/rpc/waku,
-  ../v1/node/rpc/key_storage,
-  ../v1/node/waku_helpers,
   # Waku v2 imports
   libp2p/crypto/crypto,
   ../v2/protocol/waku_filter/waku_filter_types,
   ../v2/node/wakunode2,
-  ../v2/node/jsonrpc/[debug_api,
-                      filter_api,
-                      relay_api,
-                      store_api],
   # Common cli config
   ./config_bridge
+
+declarePublicCounter waku_bridge_transfers, "Number of messages transferred between Waku v1 and v2 networks", ["type"]
 
 logScope:
   topics = "wakubridge"
@@ -51,15 +44,17 @@ type
 func toWakuMessage(env: Envelope): WakuMessage =
   # Translate a Waku v1 envelope to a Waku v2 message
   WakuMessage(payload: env.data,
-              contentTopic: ContentTopic(uint32.fromBytes(env.topic)),
+              contentTopic: ContentTopic(uint32.fromBytes(env.topic, Endianness.bigEndian)),
               version: 1)
 
 proc toWakuV2(bridge: WakuBridge, env: Envelope) {.async.} =
+  waku_bridge_transfers.inc(labelValues = ["v1_to_v2"])
   await bridge.nodev2.publish(defaultBridgeTopic, env.toWakuMessage())
 
 proc toWakuV1(bridge: WakuBridge, msg: WakuMessage) {.gcsafe.} =
+  waku_bridge_transfers.inc(labelValues = ["v2_to_v1"])
   discard bridge.nodev1.postMessage(ttl = defaultTTL,
-                                    topic = msg.contentTopic.toBytes(),
+                                    topic = msg.contentTopic.toBytes(Endianness.bigEndian),
                                     payload = msg.payload)
 
 ##############
@@ -144,6 +139,18 @@ proc stop*(bridge: WakuBridge) {.async.} =
   await bridge.nodev2.stop()
 
 when isMainModule:
+  import
+    eth/p2p/whispernodes,
+    ./utils/nat,
+    ../v1/node/rpc/wakusim,
+    ../v1/node/rpc/waku,
+    ../v1/node/rpc/key_storage,
+    ../v1/node/waku_helpers,
+    ../v2/node/jsonrpc/[debug_api,
+                        filter_api,
+                        relay_api,
+                        store_api]
+
   proc startV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: WakuNodeConf) =
     installDebugApiHandlers(node, rpcServer)
 

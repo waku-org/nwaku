@@ -1,3 +1,4 @@
+{.used.}
 
 import
   std/[unittest, options, tables, sets],

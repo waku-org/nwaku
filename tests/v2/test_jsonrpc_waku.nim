@@ -1,3 +1,5 @@
+{.used.}
+
 import
   std/[unittest, options, sets, tables, os, strutils, sequtils],
   stew/shims/net as stewNet,
