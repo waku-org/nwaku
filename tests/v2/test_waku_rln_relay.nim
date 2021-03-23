@@ -448,37 +448,156 @@ suite "Waku rln relay":
     var hashoutput = cast[ptr array[32,byte]] (output_buffer_ptr.`ptr`)
     echo "output_buffer ", hashoutput[].toHex()
 
-  test "generate_proof and verify Nim Wrappers":
-    # create an RLN instance
+  # test "generate_proof and verify Nim Wrappers":
+  #   # create an RLN instance
+  #   var 
+  #     ctx = RLN[Bn256]()
+  #     ctxPtr = addr(ctx)
+  #     ctxPtrPtr = addr(ctxPtr)
+  #   createRLNInstance(32, ctxPtrPtr)
+
+
+  #   # prepare user's secret and public keys 
+  #   var (skBuffer,pkBuffer) = genSKPK(ctxPtrPtr[])
+  #   let 
+  #     skBufferPtr = addr skBuffer
+  #     pkBufferPtr = addr pkBuffer
+
+  #   # user's index in the tree
+  #   var index = 5
+
+  #   # prepare the secret information of the proof i.e., the sk and the user index in the tree
+  #   var auth: Auth = Auth(secret_buffer: skBufferPtr, index: uint(index))
+  #   var authPtr = addr(auth)
+
+  #   debug "auth", auth
+
+
+  #   # add some random members to the tree
+  #   for i in 0..10:
+  #     echo i
+  #     var member_is_added: bool = false
+  #     if (i == index):
+  #       member_is_added = update_next_member(ctxPtrPtr[], pkBufferPtr)
+  #       var root : Buffer
+  #       var rootPtr = addr(root)
+  #       var get_root_successful = get_root(ctxPtrPtr[],rootPtr)
+  #       doAssert(get_root_successful)
+  #       var rootSize = root.len
+  #       # debug "rootSize", rootSize
+  #       var rootValue = cast[ptr array[32,byte]] (root.`ptr`)
+  #       echo "root value ", i, " ", rootValue[].toHex
+  #     else:
+  #       var (sk,pk) = genSKPK(ctxPtrPtr[])
+  #       # var pk = genRandPK()
+  #       let pkPtr = addr pk
+  #       member_is_added = update_next_member(ctxPtrPtr[], pkPtr)
+  #       var root : Buffer
+  #       var rootPtr = addr(root)
+  #       var get_root_successful = get_root(ctxPtrPtr[],rootPtr)
+  #       doAssert(get_root_successful)
+  #       var rootSize = root.len
+  #       # debug "rootSize", rootSize
+  #       var rootValue = cast[ptr array[32,byte]] (root.`ptr`)
+  #       echo "root value ", i, " " , rootValue[].toHex
+  #     doAssert(member_is_added)
+
+  #   # prepare the message
+  #   var messageBytes {.noinit.}: array[32, byte]
+  #   for x in messageBytes.mitems: x = 1
+  #   debug "messageBytes", messageBytes
+
+
+  #   # prepare the epoch
+  #   # let
+  #   #   epoch: uint = 1
+  #   var  epochBytes : array[32,byte]
+  #   for x in epochBytes.mitems : x = 0
+  #   debug "epochBytes", epochBytes
+   
+
+  #   # serialize message and epoch 
+  #   # TODO add a proc for serializing
+  #   var epochMessage = @epochBytes & @messageBytes
+  #   echo "epoch in Bytes", epochBytes.toHex()
+  #   echo "message in Bytes", messageBytes.toHex()
+  #   echo "epoch||Message", stewByteUtils.toHex(epochMessage)
+  #   doAssert(epochMessage.len == 64)
+  #   var inputBytes{.noinit.}: array[64, byte] #the serialized epoch||Message 
+  #   for (i, x) in inputBytes.mpairs: x = epochMessage[i]
+  #   var
+  #     input_buffer = Buffer(`ptr`: addr(inputBytes[0]), len: 64)
+  #     input_buffer_ptr = addr(input_buffer)
+
+  #   echo "inputBytes", inputBytes.toHex()
+  
+
+  #   # generate the proof
+  #   var proof: Buffer
+  #   var proofPtr = addr(proof)
+  #   let proof_res = generate_proof(ctxPtrPtr[], input_buffer_ptr, authPtr, proofPtr)
+  #   var proofValue = cast[ptr array[416,byte]] (proof.`ptr`)
+  #   echo "proof content", proofValue[].toHex
+  #   let proofHex = proofValue[].toHex
+  
+  #   check:
+  #     proof_res == true
+  #     proof.len ==  416
+  #     proofHex.len == 832
+  
+  #   var 
+  #   #   proofArray = cast[ptr array[416, byte]] (proof.`ptr`)[]
+  #     zkSNARK = proofHex[0..511]
+  #     proofRoot = proofHex[512..575] #stewByteUtils.toHex(proofArray[256..287])
+  #     proofEpoch = proofHex[576..639]#stewByteUtils.toHex(proofArray[288..319])
+  #     shareX = proofHex[640..703]#stewByteUtils.toHex(proofArray[320..352])
+  #     shareY = proofHex[704..767]#stewByteUtils.toHex(proofArray[353..383])
+  #     nullifier = proofHex[768..831]#stewByteUtils.toHex(proofArray[384..415])
+  #   debug "zkSNARK ", zkSNARK
+  #   echo(zkSNARK.len == 512)
+  #   debug "root ", proofRoot
+  #   echo(proofRoot.len == 64)
+  #   debug "epoch ", proofEpoch
+  #   echo(proofEpoch.len == 64)
+  #   debug "shareX", shareX
+  #   echo(shareX.len == 64)
+  #   debug "shareY", shareY
+  #   echo(shareY.len == 64)
+  #   debug "nullifier", nullifier
+  #   echo(nullifier.len == 64)
+    
+
+  #   # TODO add a test for a wrong index, it should fail
+
+  #   var f = 0.uint32
+  #   var fPtr = addr(f)
+  #   let success = verify(ctxPtrPtr[], addr proof, fPtr)
+  #   doAssert(success)
+  #   # TODO the value of f must be zero, but it is not, have to investigate more
+  #   # doAssert(f==0)
+  #   debug "f", f 
+  test "another test":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
       ctxPtrPtr = addr(ctxPtr)
+
     createRLNInstance(32, ctxPtrPtr)
 
+    var auth = membershipKeyGen(ctxPtrPtr[])
 
-    # prepare user's secret and public keys 
-    var (skBuffer,pkBuffer) = genSKPK(ctxPtrPtr[])
-    let 
-      skBufferPtr = addr skBuffer
-      pkBufferPtr = addr pkBuffer
-
-    # user's index in the tree
     var index = 5
-
-    # prepare the secret information of the proof i.e., the sk and the user index in the tree
-    var auth: Auth = Auth(secret_buffer: skBufferPtr, index: uint(index))
-    var authPtr = addr(auth)
-
-    debug "auth", auth
 
 
     # add some random members to the tree
     for i in 0..10:
       echo i
       var member_is_added: bool = false
-      if (i == index):
-        member_is_added = update_next_member(ctxPtrPtr[], pkBufferPtr)
+      if (i == 6):
+
+        var pkBuffer = Buffer(`ptr`: addr(auth.get().publicKey[0]), len: 32)
+        # member_is_added = update_next_member(ctxPtrPtr[], pkBufferPtr)
+        member_is_added = update_next_member(ctxPtrPtr[], addr pkBuffer)
         var root : Buffer
         var rootPtr = addr(root)
         var get_root_successful = get_root(ctxPtrPtr[],rootPtr)
@@ -488,10 +607,13 @@ suite "Waku rln relay":
         var rootValue = cast[ptr array[32,byte]] (root.`ptr`)
         echo "root value ", i, " ", rootValue[].toHex
       else:
-        var (sk,pk) = genSKPK(ctxPtrPtr[])
+        # var (sk,pk) = genSKPK(ctxPtrPtr[])
+        var memberKeys = membershipKeyGen(ctxPtrPtr[])
+
         # var pk = genRandPK()
-        let pkPtr = addr pk
-        member_is_added = update_next_member(ctxPtrPtr[], pkPtr)
+        # let pkPtr = addr pk
+        var pkBuffer = Buffer(`ptr`: addr(memberKeys.get().publicKey[0]), len: 32)
+        member_is_added = update_next_member(ctxPtrPtr[], addr pkBuffer)
         var root : Buffer
         var rootPtr = addr(root)
         var get_root_successful = get_root(ctxPtrPtr[],rootPtr)
@@ -514,14 +636,14 @@ suite "Waku rln relay":
     var  epochBytes : array[32,byte]
     for x in epochBytes.mitems : x = 0
     debug "epochBytes", epochBytes
-   
+
 
     # serialize message and epoch 
     # TODO add a proc for serializing
     var epochMessage = @epochBytes & @messageBytes
     echo "epoch in Bytes", epochBytes.toHex()
     echo "message in Bytes", messageBytes.toHex()
-    echo "epoch||Message", stewByteUtils.toHex(epochMessage)
+    # echo "epoch||Message", stewByteUtils.toHex(epochMessage)
     doAssert(epochMessage.len == 64)
     var inputBytes{.noinit.}: array[64, byte] #the serialized epoch||Message 
     for (i, x) in inputBytes.mpairs: x = epochMessage[i]
@@ -530,21 +652,26 @@ suite "Waku rln relay":
       input_buffer_ptr = addr(input_buffer)
 
     echo "inputBytes", inputBytes.toHex()
-  
+
 
     # generate the proof
+    var skBuffer = Buffer(`ptr`: addr(auth.get().secretKey[0]), len: 32)
+
+    var authObj: Auth = Auth(secret_buffer: addr skBuffer, index: uint(index))
+    var authPtr = addr(authObj)
+
     var proof: Buffer
     var proofPtr = addr(proof)
     let proof_res = generate_proof(ctxPtrPtr[], input_buffer_ptr, authPtr, proofPtr)
     var proofValue = cast[ptr array[416,byte]] (proof.`ptr`)
     echo "proof content", proofValue[].toHex
     let proofHex = proofValue[].toHex
-  
-    check:
-      proof_res == true
-      proof.len ==  416
-      proofHex.len == 832
-  
+
+    echo "some checks"
+    echo proof_res
+    echo proof.len
+    echo proofHex.len
+
     var 
     #   proofArray = cast[ptr array[416, byte]] (proof.`ptr`)[]
       zkSNARK = proofHex[0..511]
@@ -565,7 +692,7 @@ suite "Waku rln relay":
     echo(shareY.len == 64)
     debug "nullifier", nullifier
     echo(nullifier.len == 64)
-    
+
 
     # TODO add a test for a wrong index, it should fail
 
@@ -574,5 +701,5 @@ suite "Waku rln relay":
     let success = verify(ctxPtrPtr[], addr proof, fPtr)
     doAssert(success)
     # TODO the value of f must be zero, but it is not, have to investigate more
-    # doAssert(f==0)
-    debug "f", f 
+    doAssert(f==0)
+    echo f
