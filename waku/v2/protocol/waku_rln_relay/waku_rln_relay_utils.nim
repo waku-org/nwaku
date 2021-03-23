@@ -74,7 +74,7 @@ proc membershipKeyGen*(ctxPtr: ptr RLN[Bn256]): Option[MembershipKeyPair] =
     debug "error in key generation"
     return none(MembershipKeyPair)
     
-  var generatedKeys = cast[array[64, byte]](keysBufferPtr.`ptr`[])
+  var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
   # the public and secret keys together are 64 bytes
   if (generatedKeys.len != 64):
     debug "the generated keys are invalid"
