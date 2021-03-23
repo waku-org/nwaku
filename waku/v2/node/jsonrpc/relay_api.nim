@@ -11,6 +11,9 @@ import
 
 export jsonrpc_types
 
+logScope:
+  topics = "relay api"
+
 const futTimeout* = 5.seconds # Max time to wait for futures
 const maxCache* = 100 # Max number of messages cached per topic @TODO make this configurable
 

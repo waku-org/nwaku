@@ -1,3 +1,5 @@
+{.used.}
+
 import
   chronos, chronicles, options, stint, unittest,
   web3,

@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/unittest,
+  std/[unittest, strutils],
   chronicles, chronos, stew/shims/net as stewNet, stew/byteutils,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
@@ -14,10 +14,10 @@ import
   eth/keys,
   ../../waku/common/wakubridge,
   ../../waku/v1/protocol/waku_protocol,
-  ../../waku/v2/protocol/[waku_message, message_notifier],
+  ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store/waku_store,
   ../../waku/v2/protocol/waku_filter/waku_filter,
-  ../../waku/v2/node/wakunode2,
+  ../../waku/v2/node/[wakunode2, waku_payload],
   ../test_helpers
 
 procSuite "WakuBridge":
@@ -61,6 +61,10 @@ procSuite "WakuBridge":
     proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
       let msg = WakuMessage.init(data)
       if msg.isOk() and msg.value().version == 1:
+        check:
+          # Message fields are as expected
+          msg.value().contentTopic == contentTopic # Topic translation worked
+          string.fromBytes(msg.value().payload).contains("from V1")
         completionFut.complete(true)
 
     v2Node.subscribe(defaultBridgeTopic, relayHandler)
@@ -75,6 +79,13 @@ procSuite "WakuBridge":
     check:
       # v1Node received message published by v2Node
       v1Node.protocolState(Waku).queue.items.len == 1
+
+    let msg = v1Node.protocolState(Waku).queue.items[0]
+
+    check:
+      # Message fields are as expected
+      msg.env.topic == topic # Topic translation worked
+      string.fromBytes(msg.env.data).contains("from V2")
     
     # Test bridging from V1 to V2
     check:
