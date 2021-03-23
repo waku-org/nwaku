@@ -225,15 +225,15 @@ procSuite "Waku rln relay":
     await node.stop()
 
 
-# TODO unit test for genSKPK
-proc genSKPK(ctx: ptr RLN[Bn256]): (Buffer, Buffer) =
-  ## generates a pair of secret and public key where pk = hash(sk)
-  var keypair = membershipKeyGen(ctx)
-  doAssert(keypair.isSome())
+# # TODO unit test for genSKPK
+# proc genSKPK(ctx: ptr RLN[Bn256]): (Buffer, Buffer) =
+#   ## generates a pair of secret and public key where pk = hash(sk)
+#   var keypair = membershipKeyGen(ctx)
+#   doAssert(keypair.isSome())
 
-  let pkBuffer = Buffer(`ptr`: unsafeAddr(keypair.get().publicKey[0]), len: 32)
-  let skBuffer = Buffer(`ptr`: unsafeAddr(keypair.get().secretKey[0]), len: 32)
-  return(skBuffer,pkBuffer)
+#   let pkBuffer = Buffer(`ptr`: unsafeAddr(keypair.get().publicKey[0]), len: 32)
+#   let skBuffer = Buffer(`ptr`: unsafeAddr(keypair.get().secretKey[0]), len: 32)
+#   return(skBuffer,pkBuffer)
 
 suite "Waku rln relay":
   test "key_gen Nim Wrappers":
