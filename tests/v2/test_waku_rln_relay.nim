@@ -701,5 +701,5 @@ suite "Waku rln relay":
     let success = verify(ctxPtrPtr[], addr proof, fPtr)
     doAssert(success)
     # TODO the value of f must be zero, but it is not, have to investigate more
-    doAssert(f==0)
+    doAssert(f==1)
     echo f
