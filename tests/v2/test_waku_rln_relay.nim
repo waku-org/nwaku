@@ -422,7 +422,32 @@ suite "Waku rln relay":
 
     doAssert(rootHex1 == rootHex3)
     doAssert(not(rootHex1 == rootHex2))
-  
+
+  test "hash Nim Wrappers":
+    # create an RLN instance
+    var 
+      ctx = RLN[Bn256]()
+      ctxPtr = unsafeAddr(ctx)
+      ctxPtrPtr = unsafeAddr(ctxPtr)
+    createRLNInstance(32, ctxPtrPtr) 
+    # prepare hash input
+    var
+      sample_hash_input_bytes : array[32, byte]
+    for x in sample_hash_input_bytes.mitems: x= 1
+
+    echo "sample_hash_input_bytes", sample_hash_input_bytes.toHex()
+
+    var 
+      sample_hash_input_buffer = Buffer(`ptr`: unsafeAddr(sample_hash_input_bytes[0]), len: 32 ) 
+      output_buffer: Buffer
+      output_buffer_ptr = unsafeAddr output_buffer
+      data_length = 32.uint
+      
+    let hash_success = hash(ctxPtrPtr[], unsafeAddr(sample_hash_input_buffer), data_length, output_buffer_ptr)
+    doAssert(hash_success)
+    var hashoutput = cast[ptr array[32,byte]] (output_buffer_ptr.`ptr`)
+    echo "output_buffer ", hashoutput[].toHex()
+
   # test "generate_proof and verify Nim Wrappers":
   #   # create an RLN instance
   #   var 
@@ -560,28 +585,8 @@ suite "Waku rln relay":
 
   #   echo "inputBytes", inputBytes.toHex()
   #   # debug "input_buffer", input_buffer
-
-  #   # test a simple hash
-  #   # var
-  #   #   sample_hash_input_bytes : array[32, byte]
-  #   # for x in sample_hash_input_bytes.mitems: x= 1
-
-  #   # echo "sample_hash_input_buffer", sample_hash_input_bytes.toHex()
-  #   # echo sample_hash_input_bytes
-
-  #   # var 
-  #   #   output_buffer: Buffer
-  #   #   output_buffer_ptr = unsafeAddr output_buffer
-  #   #   data_length = 32.uint
-  #   #   sample_hash_input_buffer = Buffer(`ptr`: unsafeAddr(messageBytes[0]), len: 32 ) 
-      
-  #   # # var (sample_hash_input_buffer,_) = genSKPK(ctxPtrPtr[])
-  #   # let hash_success = hash(ctxPtrPtr[], unsafeAddr(sample_hash_input_buffer), data_length, output_buffer_ptr)
-  #   # # doAssert(hash_success)
-  #   # var hashoutput = cast[ptr array[32,byte]] (output_buffer_ptr.`ptr`)
-  #   # echo "output_buffer ", hashoutput[].toHex()
-
-
+  
+  # var (sample_hash_input_buffer,_) = genSKPK(ctxPtrPtr[])
 
   #   # generate the proof
   #   var proof: Buffer
