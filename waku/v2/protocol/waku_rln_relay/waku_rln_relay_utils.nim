@@ -107,8 +107,8 @@ proc membershipKeyGen*(ctxPtr: ptr RLN[Bn256]): Option[MembershipKeyPair] =
     
   # keysBufferPtr will hold the generated key pairs i.e., secret and public keys 
   var 
-    keysBuffer : Buffer
-    keysBufferPtr = unsafeAddr(keysBuffer)
+    keysBuffer :Buffer = Buffer()
+    keysBufferPtr = addr(keysBuffer)
     done = key_gen(ctxPtr, keysBufferPtr)  
 
   # check whether the keys are generated successfully
@@ -116,7 +116,7 @@ proc membershipKeyGen*(ctxPtr: ptr RLN[Bn256]): Option[MembershipKeyPair] =
     debug "error in key generation"
     return none(MembershipKeyPair)
     
-  var generatedKeys = cast[array[64, byte]](keysBufferPtr.`ptr`[])
+  var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
   # the public and secret keys together are 64 bytes
   if (generatedKeys.len != 64):
     debug "the generated keys are invalid"
@@ -131,6 +131,7 @@ proc membershipKeyGen*(ctxPtr: ptr RLN[Bn256]): Option[MembershipKeyPair] =
   
   var 
     keypair = MembershipKeyPair(secretKey: secret, publicKey: public)
+
 
   return some(keypair)
 
