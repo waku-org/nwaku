@@ -45,7 +45,7 @@ proc createRLNInstance*(d: int, ctxPtrPtr: ptr (ptr RLN[Bn256])): bool =
     parameters = readFile("waku/v2/protocol/waku_rln_relay/parameters.key")
     pbytes = parameters.toBytes()
     len : csize_t = uint(pbytes.len)
-    parametersBuffer = Buffer(`ptr`: unsafeAddr(pbytes[0]), len: len)
+    parametersBuffer = Buffer(`ptr`: addr(pbytes[0]), len: len)
 
   # check the parameters.key is not empty
   if (pbytes.len == 0):
@@ -53,7 +53,7 @@ proc createRLNInstance*(d: int, ctxPtrPtr: ptr (ptr RLN[Bn256])): bool =
     return false
   
   # create an instance of RLN
-  let res = new_circuit_from_params(merkleDepth, unsafeAddr parametersBuffer, ctxPtrPtr)
+  let res = new_circuit_from_params(merkleDepth, addr parametersBuffer, ctxPtrPtr)
   # check whether the circuit parameters are generated successfully
   if (res == false): 
     debug "error in parameters generation"
@@ -66,7 +66,7 @@ proc membershipKeyGen*(ctxPtr: ptr RLN[Bn256]): Option[MembershipKeyPair] =
   # keysBufferPtr will hold the generated key pairs i.e., secret and public keys 
   var 
     keysBuffer : Buffer
-    keysBufferPtr = unsafeAddr(keysBuffer)
+    keysBufferPtr = addr(keysBuffer)
     done = key_gen(ctxPtr, keysBufferPtr)  
 
   # check whether the keys are generated successfully

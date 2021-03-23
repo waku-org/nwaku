@@ -336,8 +336,8 @@ proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(stri
   # create an RLN instance
   var 
     ctx = RLN[Bn256]()
-    ctxPtr = unsafeAddr(ctx)
-    ctxPtrPtr = unsafeAddr(ctxPtr)
+    ctxPtr = addr(ctx)
+    ctxPtrPtr = addr(ctxPtr)
   doAssert(createRLNInstance(32, ctxPtrPtr))
 
   # generate the membership keys
