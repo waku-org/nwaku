@@ -457,40 +457,6 @@ suite "Waku rln relay":
     createRLNInstance(32, ctxPtrPtr)
 
 
-    # var root {.noinit.} : Buffer = Buffer()
-    # var rootPtr = unsafeAddr(root)
-    # var get_root_successful = get_root(ctxPtrPtr[],rootPtr)
-    # doAssert(get_root_successful)
-    # root = rootPtr[]
-    # var rootSize = root.len
-    # # debug "rootSize", rootSize
-    # var rootValue = cast[ptr array[32,byte]] (rootPtr.`ptr`)
-    # echo "initial root ", rootValue[].toHex
-
-    # var root2 {.noinit.} : Buffer = Buffer()
-    # var rootPtr2 = unsafeAddr(root2)
-    # var get_root_successful2 = get_root(ctxPtrPtr[],rootPtr2)
-    # doAssert(get_root_successful2)
-    # root2 = rootPtr2[]
-    # var rootSize2 = root2.len
-    # # debug "rootSize", rootSize
-    # var rootValue2 = cast[ptr array[32,byte]] (rootPtr2.`ptr`)
-    # echo "initial root second call ", rootValue2[].toHex
-
-
-    # var root3 {.noinit.} : Buffer = Buffer()
-    # var rootPtr3 = unsafeAddr(root3)
-    # var get_root_successful3 = get_root(ctxPtrPtr[],rootPtr3)
-    # doAssert(get_root_successful3)
-    # root3 = rootPtr3[]
-    # var rootSize3 = root3.len
-    # # debug "rootSize", rootSize
-    # var rootValue3 = cast[ptr array[32,byte]] (rootPtr3.`ptr`)
-    # echo "initial root third call ", rootValue3[].toHex
-
-   
-
-
     # prepare user's secret and public keys 
     var (skBuffer,pkBuffer) = genSKPK(ctxPtrPtr[])
     let 
@@ -505,14 +471,6 @@ suite "Waku rln relay":
     var authPtr = unsafeAddr(auth)
 
     debug "auth", auth
-
-    # rootPtr = unsafeAddr(root)
-    # get_root_successful = get_root(ctxPtrPtr[],rootPtr)
-    # doAssert(get_root_successful)
-    # rootSize = root.len
-    # # debug "rootSize", rootSize
-    # rootValue = cast[ptr array[32,byte]] (root.`ptr`)
-    # echo "initial root after key gen", rootValue[].toHex
 
 
     # add some random members to the tree
@@ -543,18 +501,6 @@ suite "Waku rln relay":
         var rootValue = cast[ptr array[32,byte]] (root.`ptr`)
         echo "root value ", i, " " , rootValue[].toHex
       doAssert(member_is_added)
-
-    # var deleted_member_index = uint(10)
-    # let deletion_success = delete_member(ctxPtrPtr[], deleted_member_index)
-    # doAssert(deletion_success)
-    # # var root : Buffer
-    # rootPtr = unsafeAddr(root)
-    # get_root_successful = get_root(ctxPtrPtr[],rootPtr)
-    # doAssert(get_root_successful)
-    # rootSize = root.len
-    # # debug "rootSize", rootSize
-    # rootValue = cast[ptr array[32,byte]] (root.`ptr`)
-    # echo "root value after 10 is deleted ", rootValue[].toHex
 
     # prepare the message
     var messageBytes {.noinit.}: array[32, byte]
