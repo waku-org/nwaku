@@ -184,7 +184,7 @@ procSuite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-    doAssert(createRLNInstance2(32, ctxPtr))
+    doAssert(createRLNInstance(32, ctxPtr))
 
     # generate the membership keys
     let membershipKeyPair = membershipKeyGen(ctxPtr)
@@ -275,7 +275,7 @@ suite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-    doAssert(createRLNInstance2(32, ctxPtr))
+    doAssert(createRLNInstance(32, ctxPtr))
 
     var key = membershipKeyGen(ctxPtr)
     var empty : array[32,byte]
@@ -293,7 +293,7 @@ suite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-    doAssert(createRLNInstance2(32, ctxPtr))
+    doAssert(createRLNInstance(32, ctxPtr))
 
     # read the Merkle Tree root
     var 
@@ -325,7 +325,7 @@ suite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-    doAssert(createRLNInstance2(32, ctxPtr))
+    doAssert(createRLNInstance(32, ctxPtr))
 
     # generate a key pair
     var keypair = membershipKeyGen(ctxPtr)
@@ -343,7 +343,7 @@ suite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-    doAssert(createRLNInstance2(32, ctxPtr))
+    doAssert(createRLNInstance(32, ctxPtr))
 
     # delete the first member 
     var deleted_member_index = uint(0)
@@ -355,7 +355,7 @@ suite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-    doAssert(createRLNInstance2(32, ctxPtr))
+    doAssert(createRLNInstance(32, ctxPtr))
 
     # read the Merkle Tree root
     var 
@@ -419,7 +419,7 @@ suite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-    doAssert(createRLNInstance2(32, ctxPtr))
+    doAssert(createRLNInstance(32, ctxPtr))
     # prepare hash input
     var
       sample_hash_input_bytes : array[32, byte]
@@ -443,7 +443,7 @@ suite "Waku rln relay":
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
 
-    doAssert(createRLNInstance2(32, ctxPtr))
+    doAssert(createRLNInstance(32, ctxPtr))
 
     var auth = membershipKeyGen(ctxPtr)
 
@@ -534,7 +534,6 @@ suite "Waku rln relay":
     echo proofHex.len
 
     var 
-    #   proofArray = cast[ptr array[416, byte]] (proof.`ptr`)[]
       zkSNARK = proofHex[0..511]
       proofRoot = proofHex[512..575] #stewByteUtils.toHex(proofArray[256..287])
       proofEpoch = proofHex[576..639]#stewByteUtils.toHex(proofArray[288..319])
