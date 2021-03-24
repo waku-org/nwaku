@@ -60,6 +60,36 @@ proc createRLNInstance*(d: int, ctxPtrPtr: ptr (ptr RLN[Bn256])): bool =
     return false
   return true
 
+proc createRLNInstance2*(d: int, ctxPtr: var ptr RLN[Bn256]): bool = 
+  ## generates an instance of RLN 
+  ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
+  ## d indicates the depth of Merkle tree 
+  var  
+    ctxPtrPtr = addr(ctxPtr)
+    merkleDepth: csize_t = uint(d)
+    # parameters.key contains the parameters related to the Poseidon hasher
+    # to generate this file, clone this repo https://github.com/kilic/rln 
+    # and run the following command in the root directory of the cloned project
+    # cargo run --example export_test_keys
+    # the file is generated separately and copied here
+    parameters = readFile("waku/v2/protocol/waku_rln_relay/parameters.key")
+    pbytes = parameters.toBytes()
+    len : csize_t = uint(pbytes.len)
+    parametersBuffer = Buffer(`ptr`: addr(pbytes[0]), len: len)
+
+  # check the parameters.key is not empty
+  if (pbytes.len == 0):
+    debug "error in parameters.key"
+    return false
+  
+  # create an instance of RLN
+  let res = new_circuit_from_params(merkleDepth, addr parametersBuffer, ctxPtrPtr)
+  # check whether the circuit parameters are generated successfully
+  if (res == false): 
+    debug "error in parameters generation"
+    return false
+  return true
+
 proc membershipKeyGen*(ctxPtr: ptr RLN[Bn256]): Option[MembershipKeyPair] =
   ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract
     

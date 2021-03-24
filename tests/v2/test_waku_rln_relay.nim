@@ -449,11 +449,10 @@ suite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-      ctxPtrPtr = addr(ctxPtr)
 
-    doAssert(createRLNInstance(32, ctxPtrPtr))
+    doAssert(createRLNInstance2(32, ctxPtr))
 
-    var auth = membershipKeyGen(ctxPtrPtr[])
+    var auth = membershipKeyGen(ctxPtr)
 
     var index = 5
 
@@ -466,10 +465,10 @@ suite "Waku rln relay":
 
         var pkBuffer = Buffer(`ptr`: addr(auth.get().publicKey[0]), len: 32)
         # member_is_added = update_next_member(ctxPtrPtr[], pkBufferPtr)
-        member_is_added = update_next_member(ctxPtrPtr[], addr pkBuffer)
+        member_is_added = update_next_member(ctxPtr, addr pkBuffer)
         var root : Buffer
         var rootPtr = addr(root)
-        var get_root_successful = get_root(ctxPtrPtr[],rootPtr)
+        var get_root_successful = get_root(ctxPtr,rootPtr)
         doAssert(get_root_successful)
         var rootSize = root.len
         # debug "rootSize", rootSize
@@ -477,15 +476,15 @@ suite "Waku rln relay":
         echo "root value ", i, " ", rootValue[].toHex
       else:
         # var (sk,pk) = genSKPK(ctxPtrPtr[])
-        var memberKeys = membershipKeyGen(ctxPtrPtr[])
+        var memberKeys = membershipKeyGen(ctxPtr)
 
         # var pk = genRandPK()
         # let pkPtr = addr pk
         var pkBuffer = Buffer(`ptr`: addr(memberKeys.get().publicKey[0]), len: 32)
-        member_is_added = update_next_member(ctxPtrPtr[], addr pkBuffer)
+        member_is_added = update_next_member(ctxPtr, addr pkBuffer)
         var root : Buffer
         var rootPtr = addr(root)
-        var get_root_successful = get_root(ctxPtrPtr[],rootPtr)
+        var get_root_successful = get_root(ctxPtr,rootPtr)
         doAssert(get_root_successful)
         var rootSize = root.len
         # debug "rootSize", rootSize
@@ -531,7 +530,7 @@ suite "Waku rln relay":
 
     var proof: Buffer
     var proofPtr = addr(proof)
-    let proof_res = generate_proof(ctxPtrPtr[], input_buffer_ptr, authPtr, proofPtr)
+    let proof_res = generate_proof(ctxPtr, input_buffer_ptr, authPtr, proofPtr)
     var proofValue = cast[ptr array[416,byte]] (proof.`ptr`)
     echo "proof content", proofValue[].toHex
     let proofHex = proofValue[].toHex
@@ -567,7 +566,7 @@ suite "Waku rln relay":
 
     var f = 0.uint32
     var fPtr = addr(f)
-    let success = verify(ctxPtrPtr[], addr proof, fPtr)
+    let success = verify(ctxPtr, addr proof, fPtr)
     doAssert(success)
     # TODO the value of f must be zero, but it is not, have to investigate more
     doAssert(f==0)
