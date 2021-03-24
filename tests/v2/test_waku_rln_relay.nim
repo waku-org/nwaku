@@ -452,7 +452,7 @@ suite "Waku rln relay":
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
 
-    # check if it is created successfully 
+    # check if the rln instance is created successfully 
     doAssert(createRLNInstance(32, ctxPtr))
 
     # create the membership key
@@ -469,7 +469,7 @@ suite "Waku rln relay":
     for i in 0..10:
       var member_is_added: bool = false
       if (i == index):
-        #  set the leaf at position index of the tree to the current peer's pk
+        #  insert the current peer's pk
         var pkBuffer = Buffer(`ptr`: addr(auth.get().publicKey[0]), len: 32)
         member_is_added = update_next_member(ctxPtr, addr pkBuffer)
       else:
@@ -540,7 +540,7 @@ suite "Waku rln relay":
     let verifyIsSuccessful = verify(ctxPtr, addr proof, addr f)
     doAssert(verifyIsSuccessful)
     # f = 0 means the proof is verified
-    doAssert(f==0)
+    doAssert(f == 0)
 
 
 
@@ -558,4 +558,4 @@ suite "Waku rln relay":
     doAssert(badVerifyIsSuccessful)
     # badF=1 means the proof is not verified
     # verification of the bad proof should fail
-    doAssert(badF==1)
+    doAssert(badF == 1)
