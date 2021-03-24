@@ -15,7 +15,7 @@ import
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter/waku_filter,
-  ../protocol/waku_rln_relay/waku_rln_relay_utils,
+  ../protocol/waku_rln_relay/[rln,waku_rln_relay_utils],
   ../utils/peers,
   ./message_store/message_store,
   ../utils/requests,
@@ -327,13 +327,21 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil) =
   node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
 proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(string), ethAccountAddress: Option[Address] = none(Address), membershipContractAddress:  Option[Address] = none(Address)) {.async.} =
+  # TODO return a bool value to indicate the success of the call
   # check whether inputs are provided
   doAssert(ethClientAddress.isSome())
   doAssert(ethAccountAddress.isSome())
   doAssert(membershipContractAddress.isSome())
 
+  # create an RLN instance
+  var 
+    ctx = RLN[Bn256]()
+    ctxPtr = addr(ctx)
+    ctxPtrPtr = addr(ctxPtr)
+  doAssert(createRLNInstance(32, ctxPtrPtr))
+
   # generate the membership keys
-  let membershipKeyPair = membershipKeyGen()
+  let membershipKeyPair = membershipKeyGen(ctxPtrPtr[])
   # check whether keys are generated
   doAssert(membershipKeyPair.isSome())
   debug "the membership key for the rln relay is generated"
