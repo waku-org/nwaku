@@ -5,11 +5,11 @@ import
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
-  stew/results, metrics,
-  ./sqlite,
+  stew/results,
   ./message_store,
-  ../../protocol/waku_message,
-  ../../utils/pagination
+  ../sqlite,
+  ../../../protocol/waku_message,
+  ../../../utils/pagination
 
 export sqlite
 
