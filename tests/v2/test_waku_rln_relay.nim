@@ -469,7 +469,7 @@ suite "Waku rln relay":
     for i in 0..10:
       var member_is_added: bool = false
       if (i == index):
-        #  set the indexth leaf of the tree to the current peer's pk
+        #  set the leaf at position index of the tree to the current peer's pk
         var pkBuffer = Buffer(`ptr`: addr(auth.get().publicKey[0]), len: 32)
         member_is_added = update_next_member(ctxPtr, addr pkBuffer)
       else:
