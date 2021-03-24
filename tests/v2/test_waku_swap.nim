@@ -1,3 +1,5 @@
+{.used.}
+
 import
   std/[unittest, options, tables, sets],
   chronos, chronicles, stew/shims/net as stewNet, stew/byteutils,
