@@ -184,11 +184,10 @@ procSuite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-      ctxPtrPtr = addr(ctxPtr)
-    doAssert(createRLNInstance(32, ctxPtrPtr))
+    doAssert(createRLNInstance2(32, ctxPtr))
 
     # generate the membership keys
-    let membershipKeyPair = membershipKeyGen(ctxPtrPtr[])
+    let membershipKeyPair = membershipKeyGen(ctxPtr)
     
     check:
       membershipKeyPair.isSome
@@ -276,10 +275,9 @@ suite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-      ctxPtrPtr = addr(ctxPtr)
-    doAssert(createRLNInstance(32, ctxPtrPtr))
+    doAssert(createRLNInstance2(32, ctxPtr))
 
-    var key = membershipKeyGen(ctxPtrPtr[])
+    var key = membershipKeyGen(ctxPtr)
     var empty : array[32,byte]
     check:
       key.isSome
@@ -295,14 +293,13 @@ suite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-      ctxPtrPtr = addr(ctxPtr)
-    doAssert(createRLNInstance(32, ctxPtrPtr))
+    doAssert(createRLNInstance2(32, ctxPtr))
 
     # read the Merkle Tree root
     var 
       root1 {.noinit.} : Buffer = Buffer()
       rootPtr1 = addr(root1)
-      get_root_successful1 = get_root(ctxPtrPtr[], rootPtr1)
+      get_root_successful1 = get_root(ctxPtr, rootPtr1)
     doAssert(get_root_successful1)
     doAssert(root1.len == 32)
 
@@ -310,7 +307,7 @@ suite "Waku rln relay":
     var 
       root2 {.noinit.} : Buffer = Buffer()
       rootPtr2 = addr(root2)
-      get_root_successful2 = get_root(ctxPtrPtr[], rootPtr2)
+      get_root_successful2 = get_root(ctxPtr, rootPtr2)
     doAssert(get_root_successful2)
     doAssert(root2.len == 32)
 
@@ -328,17 +325,16 @@ suite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-      ctxPtrPtr = addr(ctxPtr)
-    doAssert(createRLNInstance(32, ctxPtrPtr))
+    doAssert(createRLNInstance2(32, ctxPtr))
 
     # generate a key pair
-    var keypair = membershipKeyGen(ctxPtrPtr[])
+    var keypair = membershipKeyGen(ctxPtr)
     doAssert(keypair.isSome())
     var pkBuffer = Buffer(`ptr`: addr(keypair.get().publicKey[0]), len: 32)
     let pkBufferPtr = addr pkBuffer
 
     # add the member to the tree
-    var member_is_added = update_next_member(ctxPtrPtr[], pkBufferPtr)
+    var member_is_added = update_next_member(ctxPtr, pkBufferPtr)
     check:
       member_is_added == true
       
@@ -347,12 +343,11 @@ suite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-      ctxPtrPtr = addr(ctxPtr)
-    doAssert(createRLNInstance(32, ctxPtrPtr))
+    doAssert(createRLNInstance2(32, ctxPtr))
 
     # delete the first member 
     var deleted_member_index = uint(0)
-    let deletion_success = delete_member(ctxPtrPtr[], deleted_member_index)
+    let deletion_success = delete_member(ctxPtr, deleted_member_index)
     doAssert(deletion_success)
   
   test "Merkle tree consistency check between deletion and insertion":
@@ -360,45 +355,44 @@ suite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-      ctxPtrPtr = addr(ctxPtr)
-    doAssert(createRLNInstance(32, ctxPtrPtr))
+    doAssert(createRLNInstance2(32, ctxPtr))
 
     # read the Merkle Tree root
     var 
       root1 {.noinit.} : Buffer = Buffer()
       rootPtr1 = addr(root1)
-      get_root_successful1 = get_root(ctxPtrPtr[], rootPtr1)
+      get_root_successful1 = get_root(ctxPtr, rootPtr1)
     doAssert(get_root_successful1)
     doAssert(root1.len == 32)
     
     # generate a key pair
-    var keypair = membershipKeyGen(ctxPtrPtr[])
+    var keypair = membershipKeyGen(ctxPtr)
     doAssert(keypair.isSome())
     var pkBuffer = Buffer(`ptr`: addr(keypair.get().publicKey[0]), len: 32)
     let pkBufferPtr = addr pkBuffer
 
     # add the member to the tree
-    var member_is_added = update_next_member(ctxPtrPtr[], pkBufferPtr)
+    var member_is_added = update_next_member(ctxPtr, pkBufferPtr)
     doAssert(member_is_added)
 
     # read the Merkle Tree root after insertion
     var 
       root2 {.noinit.} : Buffer = Buffer()
       rootPtr2 = addr(root2)
-      get_root_successful2 = get_root(ctxPtrPtr[], rootPtr2)
+      get_root_successful2 = get_root(ctxPtr, rootPtr2)
     doAssert(get_root_successful2)
     doAssert(root2.len == 32)
 
     # delete the first member 
     var deleted_member_index = uint(0)
-    let deletion_success = delete_member(ctxPtrPtr[], deleted_member_index)
+    let deletion_success = delete_member(ctxPtr, deleted_member_index)
     doAssert(deletion_success)
 
     # read the Merkle Tree root after the deletion
     var 
       root3 {.noinit.} : Buffer = Buffer()
       rootPtr3 = addr(root3)
-      get_root_successful3 = get_root(ctxPtrPtr[], rootPtr3)
+      get_root_successful3 = get_root(ctxPtr, rootPtr3)
     doAssert(get_root_successful3)
     doAssert(root3.len == 32)
 
@@ -425,8 +419,7 @@ suite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-      ctxPtrPtr = addr(ctxPtr)
-    doAssert(createRLNInstance(32, ctxPtrPtr))
+    doAssert(createRLNInstance2(32, ctxPtr))
     # prepare hash input
     var
       sample_hash_input_bytes : array[32, byte]
@@ -440,7 +433,7 @@ suite "Waku rln relay":
       output_buffer_ptr = addr output_buffer
       data_length = 1.uint
       
-    let hash_success = hash(ctxPtrPtr[], addr(sample_hash_input_buffer), data_length, output_buffer_ptr)
+    let hash_success = hash(ctxPtr, addr(sample_hash_input_buffer), data_length, output_buffer_ptr)
     doAssert(hash_success)
     var hashoutput = cast[ptr array[32,byte]] (output_buffer_ptr.`ptr`)
     echo "output_buffer ", hashoutput[].toHex()
