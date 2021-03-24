@@ -426,7 +426,7 @@ suite "Waku rln relay":
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
       ctxPtrPtr = addr(ctxPtr)
-    createRLNInstance(32, ctxPtrPtr) 
+    doAssert(createRLNInstance(32, ctxPtrPtr))
     # prepare hash input
     var
       sample_hash_input_bytes : array[32, byte]
@@ -451,7 +451,7 @@ suite "Waku rln relay":
       ctxPtr = addr(ctx)
       ctxPtrPtr = addr(ctxPtr)
 
-    createRLNInstance(32, ctxPtrPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
 
     var auth = membershipKeyGen(ctxPtrPtr[])
 
@@ -462,7 +462,7 @@ suite "Waku rln relay":
     for i in 0..10:
       echo i
       var member_is_added: bool = false
-      if (i == 6):
+      if (i == index):
 
         var pkBuffer = Buffer(`ptr`: addr(auth.get().publicKey[0]), len: 32)
         # member_is_added = update_next_member(ctxPtrPtr[], pkBufferPtr)
@@ -570,5 +570,5 @@ suite "Waku rln relay":
     let success = verify(ctxPtrPtr[], addr proof, fPtr)
     doAssert(success)
     # TODO the value of f must be zero, but it is not, have to investigate more
-    doAssert(f==1)
+    doAssert(f==0)
     echo f
