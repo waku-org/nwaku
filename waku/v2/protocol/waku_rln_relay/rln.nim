@@ -28,6 +28,7 @@ proc key_gen*(ctx: ptr RLN[Bn256], keypair_buffer: ptr Buffer): bool {.importc: 
 proc new_circuit_from_params*(merkle_depth: uint,
                               parameters_buffer: ptr Buffer,
                               ctx: ptr (ptr RLN[Bn256])): bool {.importc: "new_circuit_from_params".}
+
 #------------------------------Merkle Tree operations -----------------------------------------
 proc update_next_member*(ctx: ptr RLN[Bn256],
                          input_buffer: ptr Buffer): bool {.importc: "update_next_member".}
