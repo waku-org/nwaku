@@ -14,6 +14,9 @@ import
 
 export jsonrpc_types
 
+logScope:
+  topics = "admin api"
+
 const futTimeout* = 30.seconds # Max time to wait for futures
 
 proc constructMultiaddrStr*(wireaddr: MultiAddress, peerId: PeerId): string =

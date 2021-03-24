@@ -2,6 +2,9 @@ import
   json_rpc/rpcserver,
   ../wakunode2
 
+logScope:
+  topics = "debug api"
+
 proc installDebugApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
 
   ## Debug API version 1 definitions

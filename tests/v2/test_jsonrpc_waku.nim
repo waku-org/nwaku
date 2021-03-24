@@ -1,3 +1,5 @@
+{.used.}
+
 import
   std/[unittest, options, sets, tables, os, strutils, sequtils],
   stew/shims/net as stewNet,
@@ -206,7 +208,7 @@ procSuite "Waku v2 JSON-RPC API":
   asyncTest "Store API: retrieve historical messages":      
     waitFor node.start()
 
-    node.mountRelay(@[defaultTopic])
+    node.mountRelay()
 
     # RPC server setup
     let
@@ -231,6 +233,7 @@ procSuite "Waku v2 JSON-RPC API":
 
     node.wakuStore.setPeer(listenSwitch.peerInfo)
 
+    listenSwitch.mount(node.wakuRelay)
     listenSwitch.mount(node.wakuStore)
 
     var subscriptions = newTable[string, MessageNotificationSubscription]()

@@ -1,5 +1,5 @@
 import 
-  chronicles, options, chronos, stint, sequtils,
+  chronicles, options, chronos, stint,
   web3,
   stew/byteutils,
   eth/keys,
@@ -31,39 +31,10 @@ contract(MembershipContract):
   # TODO define a return type of bool for register method to signify a successful registration
   proc register(pubkey: Uint256) # external payable
 
-# proc createRLNInstance*(d: int): Option[ptr RLN[Bn256]] = 
-#   ## generates an instance of RLN for a Merkle tree with the depth of d
-#   var  
-#     merkleDepth: csize_t = uint(d)
-#     # parameters.key contains the parameters related to the Poseidon hasher
-#     # to generate this file, clone this repo https://github.com/kilic/rln 
-#     # and run the following command in the root directory of the cloned project
-#     # cargo run --example export_test_keys
-#     # the file is generated separately and copied here
-#     parameters = readFile("waku/v2/protocol/waku_rln_relay/parameters.key")
-#     pbytes = parameters.toBytes()
-#     len : csize_t = uint(pbytes.len)
-#     parametersBuffer = Buffer(`ptr`: unsafeAddr(pbytes[0]), len: len)
-
-#   # check the parameters.key is not empty
-#   if(pbytes.len == 0):
-#     debug "error in parameters.key"
-#     return none(ptr RLN[Bn256])
-    
-#   # ctx holds the information that is going to be used for  the key generation
-#   var 
-#     obj = RLN[Bn256]()
-#     objPtr = unsafeAddr(obj)
-#     objptrptr = unsafeAddr(objPtr)
-#     ctx = objptrptr
-#   let res = new_circuit_from_params(merkleDepth, unsafeAddr parametersBuffer, ctx)
-#   # check whether the circuit parameters are generated successfully
-#   if(res == false):
-#     debug "error in parameters generation"
-#     return none(ptr RLN[Bn256])
-#   return some(ctx[])
-proc createRLNInstance*(d: int, ctxPtrPtr: ptr (ptr RLN[Bn256])) = 
-  ## generates an instance of RLN for a Merkle tree with the depth of d
+proc createRLNInstance*(d: int, ctxPtrPtr: ptr (ptr RLN[Bn256])): bool = 
+  ## generates an instance of RLN 
+  ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
+  ## d indicates the depth of Merkle tree 
   var  
     merkleDepth: csize_t = uint(d)
     # parameters.key contains the parameters related to the Poseidon hasher
@@ -74,40 +45,27 @@ proc createRLNInstance*(d: int, ctxPtrPtr: ptr (ptr RLN[Bn256])) =
     parameters = readFile("waku/v2/protocol/waku_rln_relay/parameters.key")
     pbytes = parameters.toBytes()
     len : csize_t = uint(pbytes.len)
-    parametersBuffer = Buffer(`ptr`: unsafeAddr(pbytes[0]), len: len)
+    parametersBuffer = Buffer(`ptr`: addr(pbytes[0]), len: len)
 
   # check the parameters.key is not empty
-  doAssert(not(pbytes.len == 0))
-    # debug "error in parameters.key"
-    # return none(RLN[Bn256])
-    
-  # ctx holds the information that is going to be used for  the key generation
-  # var 
-  #   obj = RLN[Bn256]()
-  #   objPtr = unsafeAddr(obj)
-  #   objptrptr = unsafeAddr(objPtr)
-  #   ctx = objptrptr
-  let res = new_circuit_from_params(merkleDepth, unsafeAddr parametersBuffer, ctxPtrPtr)
+  if (pbytes.len == 0):
+    debug "error in parameters.key"
+    return false
+  
+  # create an instance of RLN
+  let res = new_circuit_from_params(merkleDepth, addr parametersBuffer, ctxPtrPtr)
   # check whether the circuit parameters are generated successfully
-  doAssert(not(res == false))
-    # debug "error in parameters generation"
-  #   return none(ptr RLN[Bn256])
-  # return some(ctx[])
+  if (res == false): 
+    debug "error in parameters generation"
+    return false
+  return true
+
 proc membershipKeyGen*(ctxPtr: ptr RLN[Bn256]): Option[MembershipKeyPair] =
   ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract
-  # var ctx: ptr RLN[Bn256]
-  # if inCtx.isSome():
-  #   ctx = inCtx.get()
-  # else:
-  #   let genCtx = createRLNInstance(32)
-  #   if genCtx.isNone():
-  #     debug "error in rln instance creation"
-  #     return none(MembershipKeyPair)
-  #   ctx = genCtx.get()
     
   # keysBufferPtr will hold the generated key pairs i.e., secret and public keys 
   var 
-    keysBuffer :Buffer = Buffer()
+    keysBuffer : Buffer
     keysBufferPtr = addr(keysBuffer)
     done = key_gen(ctxPtr, keysBufferPtr)  
 

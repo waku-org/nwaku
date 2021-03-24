@@ -1,3 +1,5 @@
+{.used.}
+
 import
   chronos, chronicles, options, stint, unittest,
   web3,
@@ -183,7 +185,7 @@ procSuite "Waku rln relay":
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
       ctxPtrPtr = addr(ctxPtr)
-    createRLNInstance(32, ctxPtrPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
 
     # generate the membership keys
     let membershipKeyPair = membershipKeyGen(ctxPtrPtr[])
@@ -222,15 +224,8 @@ procSuite "Waku rln relay":
     # start rln-relay
     await node.mountRlnRelay(ethClientAddress = some(EthClient), ethAccountAddress =  some(ethAccountAddress), membershipContractAddress =  some(membershipContractAddress))
 
+    await node.stop()
 
-# TODO unit test for genSKPK
-proc genSKPK(ctx: ptr RLN[Bn256]): (Buffer, Buffer) =
-  var keypair = membershipKeyGen(ctx)
-  doAssert(keypair.isSome())
-  let pkBuffer = Buffer(`ptr`: addr(keypair.get().publicKey[0]), len: 32)
-
-  let skBuffer = Buffer(`ptr`: addr(keypair.get().secretKey[0]), len: 32)
-  return(skBuffer,pkBuffer)
 
 suite "Waku rln relay":
   test "key_gen Nim Wrappers":
@@ -282,7 +277,7 @@ suite "Waku rln relay":
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
       ctxPtrPtr = addr(ctxPtr)
-    createRLNInstance(32, ctxPtrPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
 
     var key = membershipKeyGen(ctxPtrPtr[])
     var empty : array[32,byte]
@@ -296,12 +291,12 @@ suite "Waku rln relay":
     debug "the generated membership key pair: ", key 
   
   test "get_root Nim binding":
-    # create an RLN instance which includes an empty Merkle tree inside its struct
+    # create an RLN instance which also includes an empty Merkle tree
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
       ctxPtrPtr = addr(ctxPtr)
-    createRLNInstance(32, ctxPtrPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
 
     # read the Merkle Tree root
     var 
@@ -329,12 +324,12 @@ suite "Waku rln relay":
     doAssert(rootHex1 == rootHex2)
 
   test "update_next_member Nim Wrapper":
-    # create an RLN instance which includes an empty Merkle tree inside its struct
+    # create an RLN instance which also includes an empty Merkle tree
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
       ctxPtrPtr = addr(ctxPtr)
-    createRLNInstance(32, ctxPtrPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
 
     # generate a key pair
     var keypair = membershipKeyGen(ctxPtrPtr[])
@@ -348,12 +343,12 @@ suite "Waku rln relay":
       member_is_added == true
       
   test "delete_member Nim wrapper":
-    # create an RLN instance which includes an empty Merkle tree inside its struct
+    # create an RLN instance which also includes an empty Merkle tree
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
       ctxPtrPtr = addr(ctxPtr)
-    createRLNInstance(32, ctxPtrPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
 
     # delete the first member 
     var deleted_member_index = uint(0)
@@ -366,7 +361,7 @@ suite "Waku rln relay":
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
       ctxPtrPtr = addr(ctxPtr)
-    createRLNInstance(32, ctxPtrPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
 
     # read the Merkle Tree root
     var 
@@ -419,10 +414,12 @@ suite "Waku rln relay":
     let rootHex3 = rootValue3[].toHex
     debug "The root after deletion", rootHex3
 
-
-    doAssert(rootHex1 == rootHex3)
+    # the root must change after the insertion
     doAssert(not(rootHex1 == rootHex2))
 
+    ## The initial root of the tree (empty tree) must be identical to 
+    ## the root of the tree after one insertion followed by a deletion
+    doAssert(rootHex1 == rootHex3)
   test "hash Nim Wrappers":
     # create an RLN instance
     var 

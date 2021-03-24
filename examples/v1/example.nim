@@ -33,7 +33,7 @@ let
 # Create Ethereum Node
 var node = newEthereumNode(config.nodekey, # Node identifier
   address, # Address reachable for incoming requests
-  1, # Network Id, only applicable for ETH protocol
+  NetworkId(1), # Network Id, only applicable for ETH protocol
   nil, # Database, not required for Waku
   clientId, # Client id string
   addAllCapabilities = false, # Disable default all RLPx capabilities
