@@ -9,7 +9,7 @@ import
   ../../protocol/waku_filter/[waku_filter_types, waku_filter],
   ../../protocol/waku_relay,
   ../wakunode2,
-  ../peer_manager,
+  ../peer_manager/peer_manager,
   ./jsonrpc_types
 
 export jsonrpc_types
