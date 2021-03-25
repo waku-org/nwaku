@@ -3,7 +3,7 @@
 import
   chronos, chronicles, options, stint, unittest,
   web3,
-  stew/byteutils as stewByteUtils, stew/shims/net as stewNet, stew/endians2,
+  stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
   ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils],
   ../../waku/v2/node/wakunode2,
@@ -423,28 +423,27 @@ suite "Waku rln relay":
 
     # prepare the input
     var
-      sample_hash_input_bytes : array[32, byte]
-    for x in sample_hash_input_bytes.mitems: x= 1
+      hashInput : array[32, byte]
+    for x in hashInput.mitems: x= 1
     var 
-      input_hex = sample_hash_input_bytes.toHex()
-      sample_hash_input_buffer = Buffer(`ptr`: addr(sample_hash_input_bytes[0]), len: 32 ) 
+      hashInputHex = hashInput.toHex()
+      hashInputBuffer = Buffer(`ptr`: addr hashInput[0], len: 32 ) 
 
-    debug "sample_hash_input_bytes", input_hex
+    debug "sample_hash_input_bytes", hashInputHex
 
     # prepare other inputs to the hash function
     var 
-      output_buffer: Buffer
-      output_buffer_ptr = addr output_buffer
-      data_length = 1.uint # the number of hash inputs that can be 1 or 2
+      outputBuffer: Buffer
+      numOfInputs = 1.uint # the number of hash inputs that can be 1 or 2
     
-    let hash_success = hash(ctxPtr, addr(sample_hash_input_buffer), data_length, output_buffer_ptr)
-    doAssert(hash_success)
+    let hashSuccess = hash(ctxPtr, addr hashInputBuffer, numOfInputs, addr outputBuffer)
+    doAssert(hashSuccess)
 
     var 
-      hash_output = cast[ptr array[32,byte]] (output_buffer_ptr.`ptr`)[]
-      hash_output_hex = hash_output.toHex()
+      hashOutput = cast[ptr array[32,byte]] (outputBuffer.`ptr`)[]
+      hashOutputHex = hashOutput.toHex()
 
-    debug "output_buffer ", hash_output_hex
+    debug "hash output", hashOutputHex
 
   test "generate_proof and verify Nim Wrappers":
     # create an RLN instance
