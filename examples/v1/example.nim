@@ -91,18 +91,14 @@ proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext) =
   var repeatMessage: proc(udata: pointer) {.gcsafe, raises: [Defect].}
   repeatMessage = proc(udata: pointer) =
     {.gcsafe.}:
-      try:
-        # Post a waku message on the network, encrypted with provided symmetric key,
-        # signed with asymmetric key, on topic and with ttl of 30 seconds.
-        let posted = node.postMessage(
-          symKey = some(symKey), src = some(signKeyPair.seckey),
-          ttl = 30, topic = topic, payload = @[byte 0x48, 0x65, 0x6C, 0x6C, 0x6F])
+      # Post a waku message on the network, encrypted with provided symmetric key,
+      # signed with asymmetric key, on topic and with ttl of 30 seconds.
+      let posted = node.postMessage(
+        symKey = some(symKey), src = some(signKeyPair.seckey),
+        ttl = 30, topic = topic, payload = @[byte 0x48, 0x65, 0x6C, 0x6C, 0x6F])
 
-        if posted: echo "Posted message as ", $signKeyPair.pubkey
-        else: echo "Posting message failed."
-      except Exception:
-        # TODO: Fix in nim-eth
-        discard
+      if posted: echo "Posted message as ", $signKeyPair.pubkey
+      else: echo "Posting message failed."
 
     discard setTimer(Moment.fromNow(5.seconds), repeatMessage)
   discard setTimer(Moment.fromNow(5.seconds), repeatMessage)

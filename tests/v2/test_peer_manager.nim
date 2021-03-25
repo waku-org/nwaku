@@ -1,8 +1,8 @@
 {.used.}
 
 import
-  std/[unittest, options, sets, tables, sequtils],
-  stew/shims/net as stewNet,
+  std/[options, sets, tables, sequtils],
+  testutils/unittests, stew/shims/net as stewNet,
   json_rpc/[rpcserver, rpcclient],
   eth/[keys, rlp], eth/common/eth_types,
   libp2p/[standard_setup, switch, multiaddress],
