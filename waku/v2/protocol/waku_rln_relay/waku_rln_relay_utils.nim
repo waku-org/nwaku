@@ -119,4 +119,13 @@ proc proofVrfy*(data, proof: seq[byte]): bool =
   # TODO to implement the actual proof verification logic
   return true
 
-# proc addMembers(rlnInstance: ptr RLN[Bn256], pkList: seq[])
+proc addMembers(rlnInstance: ptr RLN[Bn256], pkList: seq[RLNPublicKey]): bool =
+  for pk in pkList:
+    var pkBuffer = Buffer(`ptr`: addr(pk[0]), len: 32)
+    let pkBufferPtr = addr pkBuffer
+    # add the member to the tree
+    var member_is_added = update_next_member(rlnInstance, pkBufferPtr)
+    # TODO better error handling
+    if not(member_is_added):
+      return false
+  return true
