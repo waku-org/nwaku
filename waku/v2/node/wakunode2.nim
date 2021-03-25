@@ -17,7 +17,7 @@ import
   ../protocol/waku_filter/waku_filter,
   ../protocol/waku_rln_relay/[rln,waku_rln_relay_utils],
   ../utils/peers,
-  ./message_store/message_store,
+  ./storage/message/message_store,
   ../utils/requests,
   ./peer_manager
 
@@ -475,7 +475,7 @@ when isMainModule:
                private_api,
                relay_api,
                store_api],
-    ./message_store/waku_message_store,
+    ./storage/message/waku_message_store,
     ../../common/utils/nat
 
   proc startRpc(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port, conf: WakuNodeConf) =

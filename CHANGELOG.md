@@ -8,6 +8,7 @@
 - Added a peer manager for `relay`, `filter`, `store` and `swap` peers.
 - `relay`, `filter`, `store` and `swap` peers are now stored in a common, shared peer store and no longer in separate sets.
 - Admin API now provides a `post` method to connect to peers on an ad-hoc basis
+- Added persistent peer storage
 
 ## 2021-01-05 v0.2
 
