@@ -419,7 +419,7 @@ suite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-    doAssert(createRLNInstance(32, ctxPtr))
+    doAssert(createRLNInstance(30, ctxPtr))
 
     # prepare the input
     var
@@ -438,6 +438,8 @@ suite "Waku rln relay":
     
     let hashSuccess = hash(ctxPtr, addr hashInputBuffer, numOfInputs, addr outputBuffer)
     doAssert(hashSuccess)
+    let outputArr = cast[ptr array[32,byte]](outputBuffer.`ptr`)[]
+    doAssert("53a6338cdbf02f0563cec1898e354d0d272c8f98b606c538945c6f41ef101828" == outputArr.toHex())
 
     var 
       hashOutput = cast[ptr array[32,byte]] (outputBuffer.`ptr`)[]
