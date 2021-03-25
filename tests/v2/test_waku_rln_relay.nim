@@ -180,8 +180,15 @@ procSuite "Waku rln relay":
       ethAccountAddress = accounts[9]
     await web3.close()
 
+    # create an RLN instance
+    var 
+      ctx = RLN[Bn256]()
+      ctxPtr = addr(ctx)
+      ctxPtrPtr = addr(ctxPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
+
     # generate the membership keys
-    let membershipKeyPair = membershipKeyGen()
+    let membershipKeyPair = membershipKeyGen(ctxPtrPtr[])
     
     check:
       membershipKeyPair.isSome
@@ -219,8 +226,9 @@ procSuite "Waku rln relay":
 
     await node.stop()
 
+
 suite "Waku rln relay":
-  test "Keygen Nim Wrappers":
+  test "key_gen Nim Wrappers":
     var 
       merkleDepth: csize_t = 32
       # parameters.key contains the parameters related to the Poseidon hasher
@@ -231,25 +239,27 @@ suite "Waku rln relay":
       parameters = readFile("waku/v2/protocol/waku_rln_relay/parameters.key")
       pbytes = parameters.toBytes()
       len : csize_t = uint(pbytes.len)
-      parametersBuffer = Buffer(`ptr`: unsafeAddr(pbytes[0]), len: len)
+      parametersBuffer = Buffer(`ptr`: addr(pbytes[0]), len: len)
     check:
       # check the parameters.key is not empty
       pbytes.len != 0
 
     # ctx holds the information that is going to be used for  the key generation
     var 
-      obj = RLNBn256()
-      objPtr = unsafeAddr(obj)
-      ctx = objPtr
-    let res = newCircuitFromParams(merkleDepth, unsafeAddr parametersBuffer, ctx)
+      obj = RLN[Bn256]()
+      objPtr = addr(obj)
+      objptrptr = addr(objPtr)
+      ctx = objptrptr
+    let res = new_circuit_from_params(merkleDepth, addr parametersBuffer, ctx)
     check:
       # check whether the circuit parameters are generated successfully
       res == true
 
     # keysBufferPtr will hold the generated key pairs i.e., secret and public keys 
     var 
-      keysBufferPtr : Buffer
-      done = keyGen(ctx, keysBufferPtr) 
+      keysBuffer : Buffer
+      keysBufferPtr = addr(keysBuffer)
+      done = key_gen(ctx[], keysBufferPtr) 
     check:
       # check whether the keys are generated successfully
       done == true
@@ -262,7 +272,14 @@ suite "Waku rln relay":
       debug "generated keys: ", generatedKeys 
       
   test "membership Key Gen":
-    var key = membershipKeyGen()
+    # create an RLN instance
+    var 
+      ctx = RLN[Bn256]()
+      ctxPtr = addr(ctx)
+      ctxPtrPtr = addr(ctxPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
+
+    var key = membershipKeyGen(ctxPtrPtr[])
     var empty : array[32,byte]
     check:
       key.isSome
@@ -272,3 +289,134 @@ suite "Waku rln relay":
       key.get().publicKey != empty
     
     debug "the generated membership key pair: ", key 
+  
+  test "get_root Nim binding":
+    # create an RLN instance which also includes an empty Merkle tree
+    var 
+      ctx = RLN[Bn256]()
+      ctxPtr = addr(ctx)
+      ctxPtrPtr = addr(ctxPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
+
+    # read the Merkle Tree root
+    var 
+      root1 {.noinit.} : Buffer = Buffer()
+      rootPtr1 = addr(root1)
+      get_root_successful1 = get_root(ctxPtrPtr[], rootPtr1)
+    doAssert(get_root_successful1)
+    doAssert(root1.len == 32)
+
+    # read the Merkle Tree root
+    var 
+      root2 {.noinit.} : Buffer = Buffer()
+      rootPtr2 = addr(root2)
+      get_root_successful2 = get_root(ctxPtrPtr[], rootPtr2)
+    doAssert(get_root_successful2)
+    doAssert(root2.len == 32)
+
+    var rootValue1 = cast[ptr array[32,byte]] (root1.`ptr`)
+    let rootHex1 = rootValue1[].toHex
+
+    var rootValue2 = cast[ptr array[32,byte]] (root2.`ptr`)
+    let rootHex2 = rootValue2[].toHex
+
+    # the two roots must be identical
+    doAssert(rootHex1 == rootHex2)
+
+  test "update_next_member Nim Wrapper":
+    # create an RLN instance which also includes an empty Merkle tree
+    var 
+      ctx = RLN[Bn256]()
+      ctxPtr = addr(ctx)
+      ctxPtrPtr = addr(ctxPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
+
+    # generate a key pair
+    var keypair = membershipKeyGen(ctxPtrPtr[])
+    doAssert(keypair.isSome())
+    var pkBuffer = Buffer(`ptr`: addr(keypair.get().publicKey[0]), len: 32)
+    let pkBufferPtr = addr pkBuffer
+
+    # add the member to the tree
+    var member_is_added = update_next_member(ctxPtrPtr[], pkBufferPtr)
+    check:
+      member_is_added == true
+      
+  test "delete_member Nim wrapper":
+    # create an RLN instance which also includes an empty Merkle tree
+    var 
+      ctx = RLN[Bn256]()
+      ctxPtr = addr(ctx)
+      ctxPtrPtr = addr(ctxPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
+
+    # delete the first member 
+    var deleted_member_index = uint(0)
+    let deletion_success = delete_member(ctxPtrPtr[], deleted_member_index)
+    doAssert(deletion_success)
+  
+  test "Merkle tree consistency check between deletion and insertion":
+    # create an RLN instance
+    var 
+      ctx = RLN[Bn256]()
+      ctxPtr = addr(ctx)
+      ctxPtrPtr = addr(ctxPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
+
+    # read the Merkle Tree root
+    var 
+      root1 {.noinit.} : Buffer = Buffer()
+      rootPtr1 = addr(root1)
+      get_root_successful1 = get_root(ctxPtrPtr[], rootPtr1)
+    doAssert(get_root_successful1)
+    doAssert(root1.len == 32)
+    
+    # generate a key pair
+    var keypair = membershipKeyGen(ctxPtrPtr[])
+    doAssert(keypair.isSome())
+    var pkBuffer = Buffer(`ptr`: addr(keypair.get().publicKey[0]), len: 32)
+    let pkBufferPtr = addr pkBuffer
+
+    # add the member to the tree
+    var member_is_added = update_next_member(ctxPtrPtr[], pkBufferPtr)
+    doAssert(member_is_added)
+
+    # read the Merkle Tree root after insertion
+    var 
+      root2 {.noinit.} : Buffer = Buffer()
+      rootPtr2 = addr(root2)
+      get_root_successful2 = get_root(ctxPtrPtr[], rootPtr2)
+    doAssert(get_root_successful2)
+    doAssert(root2.len == 32)
+
+    # delete the first member 
+    var deleted_member_index = uint(0)
+    let deletion_success = delete_member(ctxPtrPtr[], deleted_member_index)
+    doAssert(deletion_success)
+
+    # read the Merkle Tree root after the deletion
+    var 
+      root3 {.noinit.} : Buffer = Buffer()
+      rootPtr3 = addr(root3)
+      get_root_successful3 = get_root(ctxPtrPtr[], rootPtr3)
+    doAssert(get_root_successful3)
+    doAssert(root3.len == 32)
+
+    var rootValue1 = cast[ptr array[32,byte]] (root1.`ptr`)
+    let rootHex1 = rootValue1[].toHex
+    debug "The initial root", rootHex1
+
+    var rootValue2 = cast[ptr array[32,byte]] (root2.`ptr`)
+    let rootHex2 = rootValue2[].toHex
+    debug "The root after insertion", rootHex2
+
+    var rootValue3 = cast[ptr array[32,byte]] (root3.`ptr`)
+    let rootHex3 = rootValue3[].toHex
+    debug "The root after deletion", rootHex3
+
+    # the root must change after the insertion
+    doAssert(not(rootHex1 == rootHex2))
+
+    ## The initial root of the tree (empty tree) must be identical to 
+    ## the root of the tree after one insertion followed by a deletion
+    doAssert(rootHex1 == rootHex3)
