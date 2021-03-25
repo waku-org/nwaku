@@ -139,6 +139,7 @@ proc bindParam*(s: RawStmtPtr, n: int, val: auto): cint =
     sqlite3_bind_int(s, int(n).cint, int(val).cint)
   elif val is int64:
     sqlite3_bind_int64(s, n.cint, val)
+  # Note: bind_text not yet supported in sqlite3_abi wrapper
   # elif val is string:
   #   sqlite3_bind_text(s, n.cint, val.cstring, -1, nil)  # `-1` implies string length is the number of bytes up to the first null-terminator
   else:
