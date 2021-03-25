@@ -12,7 +12,7 @@ elif defined(MacOsX):
   const libName* = libPath / "librln.dylib"
 
  # all the following procedures are Nim wrappers for the functions defined in libName
-{.push dynlib: libName.}
+{.push dynlib: libName, raises: [Defect].}
 
 type RLN*[E] {.incompleteStruct.} = object
 type Bn256* = pointer
