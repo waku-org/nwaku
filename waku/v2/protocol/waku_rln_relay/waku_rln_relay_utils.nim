@@ -5,9 +5,13 @@ import
   eth/keys,
   rln 
 
+type 
+  RLNSecretKey = array[32, byte]
+  RLNPublicKey = array[32, byte]
+
 type MembershipKeyPair* = object 
-  secretKey*: array[32, byte]
-  publicKey*: array[32, byte]
+  secretKey*: RLNSecretKey
+  publicKey*: RLNPublicKey
 
 type WakuRLNRelay* = object 
   membershipKeyPair*: MembershipKeyPair
@@ -114,3 +118,5 @@ proc proofGen*(data: seq[byte]): seq[byte] =
 proc proofVrfy*(data, proof: seq[byte]): bool =
   # TODO to implement the actual proof verification logic
   return true
+
+# proc addMembers(rlnInstance: ptr RLN[Bn256], pkList: seq[])
