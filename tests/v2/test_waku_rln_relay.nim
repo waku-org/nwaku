@@ -523,6 +523,7 @@ suite "Waku rln relay":
     doAssert(zkSNARK.len == 512)
     doAssert(proofRoot.len == 64)
     doAssert(proofEpoch.len == 64)
+    doAssert(epochHex == proofEpoch)
     doAssert(shareX.len == 64)
     doAssert(shareY.len == 64)
     doAssert(nullifier.len == 64)
