@@ -429,12 +429,33 @@ suite "Waku rln relay":
     doAssert(createRLNInstance(32, ctxPtrPtr))
 
     var 
+      root1 {.noinit.} : Buffer = Buffer()
+      getRoot1 = get_root(ctxPtrPtr[], addr root1)
+      rootValue1 = cast[ptr array[32,byte]] (root1.`ptr`)[]
+      rootHex1 = rootValue1.toHex
+    doAssert(getRoot1)
+    doAssert(root1.len == 32)
+    debug "root before insertion ", rootHex1
+    
+
+    var 
       pk1, pk2, pk3: RLNPublicKey 
     for x in pk1.mitems: x = 1
     for x in pk2.mitems: x = 2
     for x in pk3.mitems: x = 3
 
     doAssert(addMembers(ctxPtrPtr[],@[pk1,pk2,pk3]))
+
+    var 
+      root2 {.noinit.} : Buffer = Buffer()
+      getRoot2 = get_root(ctxPtrPtr[], addr root2)
+      rootValue2 = cast[ptr array[32,byte]] (root2.`ptr`)[]
+      rootHex2 = rootValue2.toHex
+    doAssert(getRoot2)
+    doAssert(root2.len == 32)
+    debug "root after insertion ", rootHex2
+
+    doAssert(rootHex1 != rootHex2)
     
 
 
