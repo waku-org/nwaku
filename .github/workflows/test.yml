@@ -82,6 +82,7 @@ jobs:
 
       - name: Build
         run: |
+          pacman -Sy
           mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% CI_CACHE=NimBinaries update
           mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% fetch-dlls
 
