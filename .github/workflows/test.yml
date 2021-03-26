@@ -61,7 +61,7 @@ jobs:
       - uses: eine/setup-msys2@v2
         with:
             msystem: MSYS
-            # update: true
+            update: true
 
       - name: Checkout code
         uses: actions/checkout@v2
