@@ -1,17 +1,14 @@
 {.used.}
 
 import
-  chronos, chronicles, options, stint, unittest,
-  web3,
+  std/options,
+  testutils/unittests, chronos, chronicles, stint, web3,
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
   ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils],
   ../../waku/v2/node/wakunode2,
   ../test_helpers,
-  test_utils
-
-
-  
+  ./test_utils
 
 # the address of Ethereum client (ganache-cli for now)
 # TODO this address in hardcoded in the code, we may need to take it as input from the user

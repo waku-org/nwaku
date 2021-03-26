@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/unittest,
+  testutils/unittests,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/node/waku_payload,
   ../test_helpers

@@ -1,8 +1,8 @@
 {.used.}
 
 import
-  std/[unittest, options, tables, sets],
-  chronos, chronicles,
+  std/[options, tables, sets],
+  testutils/unittests, chronos, chronicles,
   libp2p/switch,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/[bufferstream, connection],
