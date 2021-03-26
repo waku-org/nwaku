@@ -1,7 +1,8 @@
 {.used.}
 
 import
-  std/[unittest, options, tables, sets],
+  std/[options, tables, sets],
+  testutils/unittests,
   chronos, chronicles, stew/shims/net as stewNet, stew/byteutils,
   libp2p/switch,
   libp2p/protobuf/minprotobuf,

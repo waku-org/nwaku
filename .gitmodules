@@ -110,3 +110,13 @@
 	path = vendor/rln
 	url = https://github.com/kilic/rln
 	branch = full-node
+[submodule "vendor/nim-testutils"]
+	path = vendor/nim-testutils
+	url = https://github.com/status-im/nim-testutils.git
+	ignore = untracked
+	branch = master
+[submodule "vendor/nim-unittest2"]
+	path = vendor/nim-unittest2
+	url = https://github.com/status-im/nim-unittest2.git
+	ignore = untracked
+	branch = master
