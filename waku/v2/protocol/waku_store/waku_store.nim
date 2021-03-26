@@ -15,7 +15,7 @@ import
   ../waku_swap/waku_swap,
   ./waku_store_types,
   ../../utils/requests,
-  ../../node/peer_manager
+  ../../node/peer_manager/peer_manager
 
 export waku_store_types
 

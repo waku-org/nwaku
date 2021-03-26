@@ -1,0 +1,209 @@
+{.push raises: [Defect, Exception].}
+
+import
+  std/[options, sets, sequtils],
+  chronos, chronicles, metrics,
+  ./waku_peer_store,
+  ../storage/peer/peer_storage
+
+export waku_peer_store
+
+declareCounter waku_peers_dials, "Number of peer dials", ["outcome"]
+declarePublicGauge waku_peers_errors, "Number of peer manager errors", ["type"]
+
+logScope:
+  topics = "wakupeers"
+
+type
+  PeerManager* = ref object of RootObj
+    switch*: Switch
+    peerStore*: WakuPeerStore
+    storage: PeerStorage
+
+const
+  defaultDialTimeout = 1.minutes # @TODO should this be made configurable?
+
+####################
+# Helper functions #
+####################
+
+proc toPeerInfo(storedInfo: StoredInfo): PeerInfo =
+  PeerInfo.init(peerId = storedInfo.peerId,
+                addrs = toSeq(storedInfo.addrs),
+                protocols = toSeq(storedInfo.protos))
+
+proc insertOrReplace(ps: PeerStorage, peerId: PeerID, storedInfo: StoredInfo, connectedness: Connectedness) =
+  # Insert peer entry into persistent storage, or replace existing entry with updated info
+  let res = ps.put(peerId, storedInfo, connectedness)
+  if res.isErr:
+    warn "failed to store peers", err = res.error
+    waku_peers_errors.inc(labelValues = ["storage_failure"])
+
+proc dialPeer(pm: PeerManager, peerId: PeerID, 
+              addrs: seq[MultiAddress], proto: string,
+              dialTimeout = defaultDialTimeout): Future[Option[Connection]] {.async.} =
+  info "Dialing peer from manager", wireAddr = addrs[0], peerId = peerId
+
+  # Dial Peer
+  let dialFut = pm.switch.dial(peerId, addrs, proto)
+
+  try:
+    # Attempt to dial remote peer
+    if (await dialFut.withTimeout(dialTimeout)):
+      waku_peers_dials.inc(labelValues = ["successful"])
+      return some(dialFut.read())
+    else:
+      # @TODO any redial attempts?
+      debug "Dialing remote peer timed out"
+      waku_peers_dials.inc(labelValues = ["timeout"])
+
+      pm.peerStore.connectionBook.set(peerId, CannotConnect)
+      if not pm.storage.isNil:
+        pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), CannotConnect)
+      
+      return none(Connection)
+  except CatchableError as e:
+    # @TODO any redial attempts?
+    debug "Dialing remote peer failed", msg = e.msg
+    waku_peers_dials.inc(labelValues = ["failed"])
+    
+    pm.peerStore.connectionBook.set(peerId, CannotConnect)
+    if not pm.storage.isNil:
+      pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), CannotConnect)
+    
+    return none(Connection)
+
+proc loadFromStorage(pm: PeerManager) =
+  # Load peers from storage, if available
+  proc onData(peerId: PeerID, storedInfo: StoredInfo, connectedness: Connectedness) =
+    pm.peerStore.addressBook.set(peerId, storedInfo.addrs)
+    pm.peerStore.protoBook.set(peerId, storedInfo.protos)
+    pm.peerStore.keyBook.set(peerId, storedInfo.publicKey)
+    pm.peerStore.connectionBook.set(peerId, NotConnected)  # Reset connectedness state
+  
+  let res = pm.storage.getAll(onData)
+  if res.isErr:
+    warn "failed to load peers from storage", err = res.error
+    waku_peers_errors.inc(labelValues = ["storage_load_failure"])
+  
+##################
+# Initialisation #
+##################   
+
+proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async.} =
+  case event.kind
+  of ConnEventKind.Connected:
+    pm.peerStore.connectionBook.set(peerId, Connected)
+    if not pm.storage.isNil:
+      pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), Connected)
+    return
+  of ConnEventKind.Disconnected:
+    pm.peerStore.connectionBook.set(peerId, CanConnect)
+    if not pm.storage.isNil:
+      pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), CanConnect)
+    return
+
+proc new*(T: type PeerManager, switch: Switch, storage: PeerStorage = nil): PeerManager =
+  let pm = PeerManager(switch: switch,
+                       peerStore: WakuPeerStore.new(),
+                       storage: storage)
+
+  proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
+    onConnEvent(pm, peerId, event)
+  
+  pm.switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
+  pm.switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
+
+  if not storage.isNil:
+    pm.loadFromStorage() # Load previously managed peers.
+    
+  return pm
+
+#####################
+# Manager interface #
+#####################
+
+proc peers*(pm: PeerManager): seq[StoredInfo] =
+  # Return the known info for all peers
+  pm.peerStore.peers()
+
+proc peers*(pm: PeerManager, proto: string): seq[StoredInfo] =
+  # Return the known info for all peers registered on the specified protocol
+  pm.peers.filterIt(it.protos.contains(proto))
+
+proc connectedness*(pm: PeerManager, peerId: PeerId): Connectedness =
+  # Return the connection state of the given, managed peer
+  # @TODO the PeerManager should keep and update local connectedness state for peers, redial on disconnect, etc.
+  # @TODO richer return than just bool, e.g. add enum "CanConnect", "CannotConnect", etc. based on recent connection attempts
+
+  let storedInfo = pm.peerStore.get(peerId)
+
+  if (storedInfo == StoredInfo()):
+    # Peer is not managed, therefore not connected
+    return NotConnected
+  else:
+    pm.peerStore.connectionBook.get(peerId)
+
+proc hasPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string): bool =
+  # Returns `true` if peer is included in manager for the specified protocol
+
+  pm.peerStore.get(peerInfo.peerId).protos.contains(proto)
+
+proc addPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string) =
+  # Adds peer to manager for the specified protocol
+
+  debug "Adding peer to manager", peerId = peerInfo.peerId, addr = peerInfo.addrs[0], proto = proto
+  
+  # ...known addresses
+  for multiaddr in peerInfo.addrs:
+    pm.peerStore.addressBook.add(peerInfo.peerId, multiaddr)
+  
+  # ...public key
+  var publicKey: PublicKey
+  discard peerInfo.peerId.extractPublicKey(publicKey)
+
+  pm.peerStore.keyBook.set(peerInfo.peerId, publicKey)
+
+  # ...associated protocols
+  pm.peerStore.protoBook.add(peerInfo.peerId, proto)
+
+  # Add peer to storage. Entry will subsequently be updated with connectedness information
+  if not pm.storage.isNil:
+    pm.storage.insertOrReplace(peerInfo.peerId, pm.peerStore.get(peerInfo.peerId), NotConnected)
+
+proc selectPeer*(pm: PeerManager, proto: string): Option[PeerInfo] =
+  # Selects the best peer for a given protocol
+  let peers = pm.peers.filterIt(it.protos.contains(proto))
+
+  if peers.len >= 1:
+     # @TODO proper heuristic here that compares peer scores and selects "best" one. For now the first peer for the given protocol is returned
+    let peerStored = peers[0]
+
+    return some(peerStored.toPeerInfo())
+  else:
+    return none(PeerInfo)
+
+proc reconnectPeers*(pm: PeerManager, proto: string) {.async.} =
+  ## Reconnect to peers registered for this protocol. This will update connectedness.
+  ## Especially useful to resume connections from persistent storage after a restart.
+  
+  debug "Reconnecting peers", proto=proto
+  
+  for storedInfo in pm.peers(proto):
+    trace "Reconnecting to peer", peerId=storedInfo.peerId
+    discard await pm.dialPeer(storedInfo.peerId, toSeq(storedInfo.addrs), proto)
+
+####################
+# Dialer interface #
+####################
+
+proc dialPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string, dialTimeout = defaultDialTimeout): Future[Option[Connection]] {.async.} =
+  # Dial a given peer and add it to the list of known peers
+  # @TODO check peer validity and score before continuing. Limit number of peers to be managed.
+  
+  # First add dialed peer info to peer store, if it does not exist yet...
+  if not pm.hasPeer(peerInfo, proto):
+    trace "Adding newly dialed peer to manager", peerId = peerInfo.peerId, addr = peerInfo.addrs[0], proto = proto
+    pm.addPeer(peerInfo, proto)
+
+  return await pm.dialPeer(peerInfo.peerId, peerInfo.addrs, proto, dialTimeout)
