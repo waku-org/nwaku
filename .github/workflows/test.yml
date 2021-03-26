@@ -61,7 +61,7 @@ jobs:
       - uses: eine/setup-msys2@v2
         with:
             msystem: MSYS
-            update: true
+            # update: true
 
       - name: Checkout code
         uses: actions/checkout@v2
@@ -82,7 +82,6 @@ jobs:
 
       - name: Build
         run: |
-          pacman -Sy
           mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% CI_CACHE=NimBinaries update
           mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% fetch-dlls
 
