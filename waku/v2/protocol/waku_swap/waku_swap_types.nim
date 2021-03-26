@@ -3,7 +3,7 @@ import
   bearssl,
   libp2p/protocols/protocol,
   libp2p/peerinfo,
-  ../../node/peer_manager  
+  ../../node/peer_manager/peer_manager  
 
 type
   Beneficiary* = seq[byte]

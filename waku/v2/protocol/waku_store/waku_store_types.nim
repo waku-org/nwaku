@@ -8,7 +8,7 @@ import
   ../waku_message,
   ../../node/storage/message/message_store,
   ../../utils/pagination,
-  ../../node/peer_manager
+  ../../node/peer_manager/peer_manager
 
 export waku_message
 export pagination
