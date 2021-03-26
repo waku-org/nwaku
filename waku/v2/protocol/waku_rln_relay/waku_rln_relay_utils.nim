@@ -6,8 +6,8 @@ import
   rln 
 
 type 
-  RLNSecretKey = array[32, byte]
-  RLNPublicKey = array[32, byte]
+  RLNSecretKey* = array[32, byte]
+  RLNPublicKey* = array[32, byte]
 
 type MembershipKeyPair* = object 
   secretKey*: RLNSecretKey
@@ -121,7 +121,7 @@ proc proofVrfy*(data, proof: seq[byte]): bool =
 
 proc addMembers*(rlnInstance: ptr RLN[Bn256], pkList: seq[RLNPublicKey]): bool =
   for pk in pkList:
-    var pkBuffer = Buffer(`ptr`: addr(pk[0]), len: 32)
+    var pkBuffer = Buffer(`ptr`: unsafeAddr pk[0], len: 32)
     let pkBufferPtr = addr pkBuffer
     # add the member to the tree
     var member_is_added = update_next_member(rlnInstance, pkBufferPtr)
@@ -129,8 +129,3 @@ proc addMembers*(rlnInstance: ptr RLN[Bn256], pkList: seq[RLNPublicKey]): bool =
     if not(member_is_added):
       return false
   return true
-
-# proc toByteArray*(buff: Buffer): array[byte] =
-#   let len = buff.len
-#   var arr = cast[ptr array[byte, len]] (buff.`ptr`)[]
-#   return arr
