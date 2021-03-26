@@ -1,7 +1,7 @@
 {.used.}
 import
-  std/[unittest,algorithm,options],
-  nimcrypto/sha2,
+  std/[algorithm, options],
+  testutils/unittests, nimcrypto/sha2,
   ../../waku/v2/protocol/waku_store/waku_store,
   ../test_helpers
 
