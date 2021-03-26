@@ -73,7 +73,7 @@ proc dialPeer(pm: PeerManager, peerId: PeerID,
     
     return none(Connection)
 
-proc primeFromStorage(pm: PeerManager) =
+proc loadFromStorage(pm: PeerManager) =
   # Load peers from storage, if available
   proc onData(peerId: PeerID, storedInfo: StoredInfo, connectedness: Connectedness) =
     pm.peerStore.addressBook.set(peerId, storedInfo.addrs)
@@ -115,7 +115,7 @@ proc new*(T: type PeerManager, switch: Switch, storage: PeerStorage = nil): Peer
   pm.switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
 
   if not storage.isNil:
-    pm.primeFromStorage() # Load previously managed peers. Attempt redial where necessary.
+    pm.loadFromStorage() # Load previously managed peers.
     
   return pm
 
