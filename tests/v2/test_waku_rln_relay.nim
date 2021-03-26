@@ -420,3 +420,24 @@ suite "Waku rln relay":
     ## The initial root of the tree (empty tree) must be identical to 
     ## the root of the tree after one insertion followed by a deletion
     doAssert(rootHex1 == rootHex3)
+  test "add Members":
+    # create an RLN instance
+    var 
+      ctx = RLN[Bn256]()
+      ctxPtr = addr(ctx)
+      ctxPtrPtr = addr(ctxPtr)
+    doAssert(createRLNInstance(32, ctxPtrPtr))
+
+    var 
+      pk1, pk2, pk3: RLNPublicKey 
+    for x in pk1.mitems: x = 1
+    for x in pk2.mitems: x = 2
+    for x in pk3.mitems: x = 3
+
+    doAssert(addMembers(ctxPtrPtr[],@[pk1,pk2,pk3]))
+    
+
+
+
+
+    

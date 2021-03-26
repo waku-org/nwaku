@@ -119,7 +119,7 @@ proc proofVrfy*(data, proof: seq[byte]): bool =
   # TODO to implement the actual proof verification logic
   return true
 
-proc addMembers(rlnInstance: ptr RLN[Bn256], pkList: seq[RLNPublicKey]): bool =
+proc addMembers*(rlnInstance: ptr RLN[Bn256], pkList: seq[RLNPublicKey]): bool =
   for pk in pkList:
     var pkBuffer = Buffer(`ptr`: addr(pk[0]), len: 32)
     let pkBufferPtr = addr pkBuffer
@@ -129,3 +129,8 @@ proc addMembers(rlnInstance: ptr RLN[Bn256], pkList: seq[RLNPublicKey]): bool =
     if not(member_is_added):
       return false
   return true
+
+# proc toByteArray*(buff: Buffer): array[byte] =
+#   let len = buff.len
+#   var arr = cast[ptr array[byte, len]] (buff.`ptr`)[]
+#   return arr
