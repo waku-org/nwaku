@@ -12,7 +12,7 @@ import
   ../message_notifier,
   waku_filter_types,
   ../../utils/requests,
-  ../../node/peer_manager
+  ../../node/peer_manager/peer_manager
 
 # NOTE This is just a start, the design of this protocol isn't done yet. It
 # should be direct payload exchange (a la req-resp), not be coupled with the

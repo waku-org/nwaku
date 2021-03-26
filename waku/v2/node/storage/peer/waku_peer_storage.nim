@@ -4,20 +4,15 @@ import
   chronos, metrics,
   libp2p/protobuf/minprotobuf,
   stew/results,
+  ./peer_storage,
   ../sqlite,
-  ../../peer_manager
+  ../../peer_manager/waku_peer_store
 
 export sqlite
 
 type
-  WakuPeerStorage* = ref object of RootObj
+  WakuPeerStorage* = ref object of PeerStorage
     database*: SqliteDatabase
-  
-  WakuPeerStorageResult*[T] = Result[T, string]
-
-  DataProc* = proc(peerId: PeerID, storedInfo: StoredInfo,
-                   connectedness: Connectedness) {.closure.}
-
 
 ##########################
 # Protobuf Serialisation #
@@ -60,7 +55,7 @@ proc encode*(storedInfo: StoredInfo): ProtoBuffer =
 # Storage implementation #
 ##########################
 
-proc init*(T: type WakuPeerStorage, db: SqliteDatabase): WakuPeerStorageResult[T] =
+proc new*(T: type WakuPeerStorage, db: SqliteDatabase): PeerStorageResult[T] =
   ## Create the "Peers" table
   ## It contains:
   ##  - peer id as primary key, stored as a blob
@@ -84,14 +79,14 @@ proc init*(T: type WakuPeerStorage, db: SqliteDatabase): WakuPeerStorageResult[T
   ok(WakuPeerStorage(database: db))
 
 
-proc put*(db: WakuPeerStorage,
-          peerId: PeerID,
-          storedInfo: StoredInfo,
-          connectedness: Connectedness): WakuPeerStorageResult[void] =
+method put*(db: WakuPeerStorage,
+            peerId: PeerID,
+            storedInfo: StoredInfo,
+            connectedness: Connectedness): PeerStorageResult[void] =
 
-  ## Adds a peer to storage
+  ## Adds a peer to storage or replaces existing entry if it already exists
   let prepare = db.database.prepareStmt(
-    "INSERT INTO Peers (peerId, storedInfo, connectedness) VALUES (?, ?, ?);",
+    "REPLACE INTO Peers (peerId, storedInfo, connectedness) VALUES (?, ?, ?);",
     (seq[byte], seq[byte], int32),
     void
   )
@@ -105,7 +100,7 @@ proc put*(db: WakuPeerStorage,
 
   ok()
 
-proc getAll*(db: WakuPeerStorage, onData: DataProc): WakuPeerStorageResult[bool] =
+method getAll*(db: WakuPeerStorage, onData: peer_storage.DataProc): PeerStorageResult[bool] =
   ## Retrieves all peers from storage
   var gotPeers = false
 

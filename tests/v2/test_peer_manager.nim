@@ -12,7 +12,8 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/rpc/message,
   ../../waku/v2/node/wakunode2,
-  ../../waku/v2/node/peer_manager,
+  ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/node/storage/peer/waku_peer_storage,
   ../../waku/v2/protocol/waku_relay,
   ../../waku/v2/protocol/waku_filter/waku_filter,
   ../../waku/v2/protocol/waku_store/waku_store,
@@ -162,3 +163,53 @@ procSuite "Peer Manager":
     check:
       # Not currently connected to node2, but had recent, successful connection.
       node1.peerManager.connectedness(peerInfo2.peerId) == CanConnect
+    
+    await node2.stop()
+
+  asyncTest "Peer manager can use persistent storage and survive restarts":
+    let
+      database = SqliteDatabase.init("", inMemory = true)[]
+      storage = WakuPeerStorage.new(database)[]
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        Port(60000), peerStorage = storage)
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        Port(60002))
+      peerInfo2 = node2.peerInfo
+    
+    await node1.start()
+    await node2.start()
+
+    node1.mountRelay()
+    node2.mountRelay()
+
+    discard await node1.peerManager.dialPeer(peerInfo2, WakuRelayCodec, 2.seconds)
+    check:
+      # Currently connected to node2
+      node1.peerManager.peers().len == 1
+      node1.peerManager.peers().anyIt(it.peerId == peerInfo2.peerId)
+      node1.peerManager.connectedness(peerInfo2.peerId) == Connected
+
+    # Simulate restart by initialising a new node using the same storage
+    let
+      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node3 = WakuNode.init(nodeKey3, ValidIpAddress.init("0.0.0.0"),
+        Port(60004), peerStorage = storage)
+    
+    await node3.start()
+    check:
+      # Node2 has been loaded after "restart", but we have not yet reconnected
+      node3.peerManager.peers().len == 1
+      node3.peerManager.peers().anyIt(it.peerId == peerInfo2.peerId)
+      node3.peerManager.connectedness(peerInfo2.peerId) == NotConnected
+
+    node3.mountRelay()  # This should trigger a reconnect
+    
+    check:
+      # Reconnected to node2 after "restart"
+      node3.peerManager.peers().len == 1
+      node3.peerManager.peers().anyIt(it.peerId == peerInfo2.peerId)
+      node3.peerManager.connectedness(peerInfo2.peerId) == Connected
+    
+    await allFutures([node1.stop(), node2.stop(), node3.stop()])
