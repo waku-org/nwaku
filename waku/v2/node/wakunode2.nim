@@ -581,7 +581,8 @@ when isMainModule:
 
   # TODO Set swap peer, for now should be same as store peer
 
-  if conf.store:
+  # Store setup
+  if (conf.storenode != "") or (conf.store):
     var store: WakuMessageStore
 
     if not sqliteDatabase.isNil:
@@ -594,20 +595,22 @@ when isMainModule:
 
     mountStore(node, store)
 
-  if conf.filter:
+    if conf.storenode != "":
+      setStorePeer(node, conf.storenode)
+
+  # Filter setup
+  if (conf.filternode != "") or (conf.filter):
     mountFilter(node)
 
-  if conf.relay:
+    if conf.filternode != "":
+      setFilterPeer(node, conf.filternode)
+
+  # Relay setup
+  if conf.relay:  # True by default
     mountRelay(node, conf.topics.split(" "), rlnRelayEnabled = conf.rlnrelay)
 
-  if conf.staticnodes.len > 0:
-    waitFor connectToNodes(node, conf.staticnodes)
-
-  if conf.storenode != "":
-    setStorePeer(node, conf.storenode)
-
-  if conf.filternode != "":
-    setFilterPeer(node, conf.filternode)
+    if conf.staticnodes.len > 0:
+      waitFor connectToNodes(node, conf.staticnodes)
 
   if conf.rpc:
     startRpc(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift), conf)
