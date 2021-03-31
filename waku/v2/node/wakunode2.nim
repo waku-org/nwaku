@@ -162,6 +162,9 @@ proc start*(node: WakuNode) {.async.} =
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
 
+  if not node.wakuRelay.isNil:
+    await node.wakuRelay.start()
+
 proc stop*(node: WakuNode) {.async.} =
   if not node.wakuRelay.isNil:
     await node.wakuRelay.stop()
@@ -416,6 +419,13 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
     # TODO currently the message validator is set for the defaultTopic, this can be configurable to accept other pubsub topics as well 
     addRLNRelayValidator(node, defaultTopic)
     info "WakuRLNRelay is mounted successfully"
+  
+  if node.libp2pTransportLoops.len > 0:
+    # Node has already started. Start the WakuRelay protocol
+
+    waitFor node.wakuRelay.start()
+
+    info "relay mounted and started successfully"
 
 
 ## Helpers
