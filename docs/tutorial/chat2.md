@@ -69,3 +69,17 @@ This will bypass the random peer selection process and connect to the specified 
 | `/help` | displays available in-chat commands |
 | `/connect` | interactively connect to a new peer |
 | `/nick` | change nickname for current chat session |
+
+## `chat2` message protobuf format
+
+Each `chat2` message is encoded as follows
+
+```protobuf
+message Chat2Message {
+  uint64 timestamp = 1;
+  string nick = 2;
+  bytes payload = 3;
+}
+```
+
+where `timestamp` is the Unix timestamp of the message, `nick` is the relevant `chat2` user's selected nickname and `payload` is the actual chat message being sent. The `payload` is the byte array representation of a UTF8 encoded string.
