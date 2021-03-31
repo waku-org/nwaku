@@ -1,7 +1,8 @@
 {.used.}
 
 import
-  std/[unittest, strutils],
+  std/strutils,
+  testutils/unittests,
   chronicles, chronos, stew/shims/net as stewNet, stew/byteutils,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,

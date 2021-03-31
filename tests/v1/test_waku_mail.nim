@@ -1,8 +1,8 @@
 {.used.}
 
 import
-  std/[unittest, tables, sequtils, times],
-  chronos, eth/[p2p, async_utils], eth/p2p/peer_pool,
+  std/[tables, sequtils, times],
+  chronos, testutils/unittests, eth/[p2p, async_utils], eth/p2p/peer_pool,
   ../../waku/v1/protocol/[waku_protocol, waku_mail],
   ../test_helpers
 

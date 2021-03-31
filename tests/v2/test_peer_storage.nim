@@ -4,15 +4,15 @@ import
   std/[unittest, sets],
   libp2p/crypto/crypto,
   ../test_helpers,
-  ../../waku/v2/node/peer_manager,
+  ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/storage/peer/waku_peer_storage
 
 suite "Peer Storage":
 
-  test "Store and retrieve from persistent peer storage":
+  test "Store, replace and retrieve from persistent peer storage":
     let 
       database = SqliteDatabase.init("", inMemory = true)[]
-      storage = WakuPeerStorage.init(database)[]
+      storage = WakuPeerStorage.new(database)[]
 
       # Test Peer
       peerLoc = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet()
@@ -24,6 +24,8 @@ suite "Peer Storage":
        
     defer: storage.close()
     
+    # Test insert and retrieve
+
     discard storage.put(peer.peerId, stored, conn)
     
     var responseCount = 0
@@ -39,4 +41,22 @@ suite "Peer Storage":
     
     check:
       res.isErr == false
+      responseCount == 1
+    
+    # Test replace and retrieve (update an existing entry)
+    discard storage.put(peer.peerId, stored, Connectedness.CannotConnect)
+    
+    responseCount = 0
+    proc replacedData(peerId: PeerID, storedInfo: StoredInfo,
+                      connectedness: Connectedness) =
+      responseCount += 1
+      check:
+        peerId == peer.peerId
+        storedInfo == stored
+        connectedness == CannotConnect
+    
+    let repRes = storage.getAll(replacedData)
+    
+    check:
+      repRes.isErr == false
       responseCount == 1

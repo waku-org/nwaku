@@ -83,7 +83,9 @@ proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext) =
 
 
   if config.logAccounting:
-    proc logPeerAccounting(udata: pointer) {.closure, gcsafe.} =
+    # https://github.com/nim-lang/Nim/issues/17369
+    var logPeerAccounting: proc(udata: pointer) {.gcsafe, raises: [Defect].}
+    logPeerAccounting = proc(udata: pointer) =
       {.gcsafe.}:
         for peer in node.peerPool.peers:
           let
@@ -105,7 +107,9 @@ proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext) =
       metrics.startHttpServer($address, Port(port))
 
   if config.logMetrics:
-    proc logMetrics(udata: pointer) {.closure, gcsafe.} =
+    # https://github.com/nim-lang/Nim/issues/17369
+    var logMetrics: proc(udata: pointer) {.gcsafe, raises: [Defect].}
+    logMetrics = proc(udata: pointer) =
       {.gcsafe.}:
         let
           connectedPeers = connected_peers

@@ -3,7 +3,7 @@ import
   bearssl,
   libp2p/peerinfo,
   libp2p/protocols/protocol,
-  ../../node/peer_manager,
+  ../../node/peer_manager/peer_manager,
   ../waku_message
 
 export waku_message

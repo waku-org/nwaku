@@ -18,8 +18,9 @@ import
   ../protocol/waku_rln_relay/[rln,waku_rln_relay_utils],
   ../utils/peers,
   ./storage/message/message_store,
+  ./storage/peer/peer_storage,
   ../utils/requests,
-  ./peer_manager
+  ./peer_manager/peer_manager
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicGauge waku_node_filters, "number of content filter subscriptions"
@@ -110,7 +111,8 @@ template tcpEndPoint(address, port): auto =
 
 proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
-    extIp = none[ValidIpAddress](), extPort = none[Port]()): T =
+    extIp = none[ValidIpAddress](), extPort = none[Port](),
+    peerStorage: PeerStorage = nil): T =
   ## Creates a Waku Node.
   ##
   ## Status: Implemented.
@@ -127,7 +129,7 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   peerInfo.addrs.add(hostAddress) # Index 0
   for multiaddr in announcedAddresses:
     peerInfo.addrs.add(multiaddr) # Announced addresses in index > 0
-
+  
   var switch = newStandardSwitch(some(nodekey), hostAddress,
     transportFlags = {ServerFlags.ReuseAddr}, rng = rng)
   # TODO Untested - verify behavior after switch interface change
@@ -138,7 +140,7 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   #    triggerSelf = true, sign = false,
   #    verifySignature = false).PubSub
   result = WakuNode(
-    peerManager: PeerManager.new(switch),
+    peerManager: PeerManager.new(switch, peerStorage),
     switch: switch,
     rng: rng,
     peerInfo: peerInfo,
@@ -387,6 +389,9 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
   node.wakuRelay = wakuRelay
   node.switch.mount(wakuRelay)
 
+  # Reonnect to previous relay peers
+  waitFor node.peerManager.reconnectPeers(WakuRelayCodec)
+
   info "mounting relay"
   proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
     let msg = WakuMessage.init(data)
@@ -475,6 +480,7 @@ when isMainModule:
                relay_api,
                store_api],
     ./storage/message/waku_message_store,
+    ./storage/peer/waku_peer_storage,
     ../../common/utils/nat
 
   proc startRpc(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port, conf: WakuNodeConf) =
@@ -510,7 +516,9 @@ when isMainModule:
       metrics.startHttpServer($serverIp, serverPort)
 
   proc startMetricsLog() =
-    proc logMetrics(udata: pointer) {.closure, gcsafe.} =
+    # https://github.com/nim-lang/Nim/issues/17369
+    var logMetrics: proc(udata: pointer) {.gcsafe, raises: [Defect].}
+    logMetrics = proc(udata: pointer) =
       {.gcsafe.}:
         # TODO: libp2p_pubsub_peers is not public, so we need to make this either
         # public in libp2p or do our own peer counting after all.
@@ -518,14 +526,40 @@ when isMainModule:
           totalMessages = 0.float64
 
         for key in waku_node_messages.metrics.keys():
-          totalMessages = totalMessages + waku_node_messages.value(key)
+          try:
+            totalMessages = totalMessages + waku_node_messages.value(key)
+          except KeyError:
+            discard
 
       info "Node metrics", totalMessages
       discard setTimer(Moment.fromNow(2.seconds), logMetrics)
     discard setTimer(Moment.fromNow(2.seconds), logMetrics)
-
+  
   let
     conf = WakuNodeConf.load()
+
+  # Storage setup
+  var sqliteDatabase: SqliteDatabase
+
+  if conf.dbpath != "":
+    let dbRes = SqliteDatabase.init(conf.dbpath)
+    if dbRes.isErr:
+      warn "failed to init database", err = dbRes.error
+      waku_node_errors.inc(labelValues = ["init_db_failure"])
+    else:
+      sqliteDatabase = dbRes.value
+  
+  var pStorage: WakuPeerStorage
+
+  if not sqliteDatabase.isNil:
+    let res = WakuPeerStorage.new(sqliteDatabase)
+    if res.isErr:
+      warn "failed to init new WakuPeerStorage", err = res.error
+      waku_node_errors.inc(labelValues = ["init_store_failure"])
+    else:
+      pStorage = res.value
+
+  let
     (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
       Port(uint16(conf.tcpPort) + conf.portsShift),
       Port(uint16(conf.udpPort) + conf.portsShift))
@@ -534,8 +568,10 @@ when isMainModule:
     ## config, the external port is the same as the bind port.
     extPort = if extIp.isSome() and extTcpPort.isNone(): some(Port(uint16(conf.tcpPort) + conf.portsShift))
               else: extTcpPort
-    node = WakuNode.init(conf.nodeKey, conf.listenAddress,
-      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extPort)
+    node = WakuNode.init(conf.nodeKey,
+                         conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
+                         extIp, extPort,
+                         pStorage)
 
   waitFor node.start()
 
@@ -547,13 +583,8 @@ when isMainModule:
   if conf.store:
     var store: WakuMessageStore
 
-    if conf.dbpath != "":
-      let dbRes = SqliteDatabase.init(conf.dbpath)
-      if dbRes.isErr:
-        warn "failed to init database", err = dbRes.error
-        waku_node_errors.inc(labelValues = ["init_db_failure"])
-
-      let res = WakuMessageStore.init(dbRes.value)
+    if not sqliteDatabase.isNil:
+      let res = WakuMessageStore.init(sqliteDatabase)
       if res.isErr:
         warn "failed to init WakuMessageStore", err = res.error
         waku_node_errors.inc(labelValues = ["init_store_failure"])

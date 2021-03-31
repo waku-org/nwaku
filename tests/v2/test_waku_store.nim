@@ -1,8 +1,8 @@
 {.used.}
 
 import
-  std/[unittest, options, tables, sets],
-  chronos, chronicles,
+  std/[options, tables, sets],
+  testutils/unittests, chronos, chronicles,
   libp2p/switch,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/[bufferstream, connection],
@@ -11,7 +11,7 @@ import
   ../../waku/v2/protocol/[waku_message, message_notifier],
   ../../waku/v2/protocol/waku_store/waku_store,
   ../../waku/v2/node/storage/message/waku_message_store,
-  ../../waku/v2/node/peer_manager,
+  ../../waku/v2/node/peer_manager/peer_manager,
   ../test_helpers, ./utils
 
 procSuite "Waku Store":

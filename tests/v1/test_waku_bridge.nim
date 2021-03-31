@@ -9,8 +9,8 @@
 {.used.}
 
 import
-  std/[sequtils, unittest, tables],
-  chronos, eth/p2p, eth/p2p/peer_pool,
+  std/[sequtils, tables],
+  chronos, testutils/unittests, eth/p2p, eth/p2p/peer_pool,
   eth/p2p/rlpx_protocols/whisper_protocol as whisper,
   ../../waku/v1/protocol/waku_protocol as waku,
   ../../waku/v1/protocol/waku_bridge,
