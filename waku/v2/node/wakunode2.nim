@@ -339,11 +339,10 @@ proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(stri
   var 
     ctx = RLN[Bn256]()
     ctxPtr = addr(ctx)
-    ctxPtrPtr = addr(ctxPtr)
-  doAssert(createRLNInstance(32, ctxPtrPtr))
+  doAssert(createRLNInstance(32, ctxPtr))
 
   # generate the membership keys
-  let membershipKeyPair = membershipKeyGen(ctxPtrPtr[])
+  let membershipKeyPair = membershipKeyGen(ctxPtr)
   # check whether keys are generated
   doAssert(membershipKeyPair.isSome())
   debug "the membership key for the rln relay is generated"
