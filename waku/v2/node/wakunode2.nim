@@ -66,6 +66,7 @@ type
     filters*: Filters
     subscriptions*: MessageNotificationSubscriptions
     rng*: ref BrHmacDrbgContext
+    started*: bool # Indicates that node has started listening
 
 # NOTE Any difference here in Waku vs Eth2?
 # E.g. Devp2p/Libp2p support, etc.
@@ -162,11 +163,18 @@ proc start*(node: WakuNode) {.async.} =
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
 
+  if not node.wakuRelay.isNil:
+    await node.wakuRelay.start()
+  
+  node.started = true
+
 proc stop*(node: WakuNode) {.async.} =
   if not node.wakuRelay.isNil:
     await node.wakuRelay.stop()
 
   await node.switch.stop()
+
+  node.started = false
 
 proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
@@ -415,6 +423,13 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
     # TODO currently the message validator is set for the defaultTopic, this can be configurable to accept other pubsub topics as well 
     addRLNRelayValidator(node, defaultTopic)
     info "WakuRLNRelay is mounted successfully"
+  
+  if node.started:
+    # Node has already started. Start the WakuRelay protocol
+
+    waitFor node.wakuRelay.start()
+
+    info "relay mounted and started successfully"
 
 
 ## Helpers
