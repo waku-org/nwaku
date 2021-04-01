@@ -31,11 +31,12 @@ contract(MembershipContract):
   # TODO define a return type of bool for register method to signify a successful registration
   proc register(pubkey: Uint256) # external payable
 
-proc createRLNInstance*(d: int, ctxPtrPtr: ptr (ptr RLN[Bn256])): bool = 
+proc createRLNInstance*(d: int, ctxPtr: var ptr RLN[Bn256]): bool = 
   ## generates an instance of RLN 
   ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
   ## d indicates the depth of Merkle tree 
   var  
+    ctxPtrPtr = addr(ctxPtr)
     merkleDepth: csize_t = uint(d)
     # parameters.key contains the parameters related to the Poseidon hasher
     # to generate this file, clone this repo https://github.com/kilic/rln 
@@ -89,6 +90,7 @@ proc membershipKeyGen*(ctxPtr: ptr RLN[Bn256]): Option[MembershipKeyPair] =
   
   var 
     keypair = MembershipKeyPair(secretKey: secret, publicKey: public)
+
 
   return some(keypair)
 
