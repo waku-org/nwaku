@@ -146,6 +146,10 @@ proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
 
   msg.pagingInfo = ? PagingInfo.init(pagingInfoBuffer)
 
+  discard ? pb.getField(3, msg.startTime)
+  discard ? pb.getField(4, msg.endTime)
+
+
   ok(msg)
 
 proc init*(T: type HistoryResponse, buffer: seq[byte]): ProtoResult[T] =
@@ -189,6 +193,9 @@ proc encode*(query: HistoryQuery): ProtoBuffer =
     result.write(1, topic)
   
   result.write(2, query.pagingInfo.encode())
+
+  result.write(3, query.startTime)
+  result.write(4, query.endTime)
 
 proc encode*(response: HistoryResponse): ProtoBuffer =
   result = initProtoBuffer()
