@@ -217,8 +217,8 @@ procSuite "pagination":
       newPagingInfo.pageSize == 0
 
 suite "time-window pagination":
-  test "Encode/Decode with timestamp":
-    # to check whether the encoding and decoding of the proof field of a WakuMessage 
+  test "Encode/Decode waku message with timestamp":
+    # test encoding and decoding of the timestamp field of a WakuMessage 
     # Encoding
     let
       version = 0'u32
@@ -238,8 +238,8 @@ suite "time-window pagination":
       timestampDecoded = msgDecoded.value.timestamp
     check:
       timestampDecoded == timestamp
-  test "Encode/Decode without timestamp":
-    # to check whether the encoding and decoding of a WakuMessage with an empty proof field  
+  test "Encode/Decode waku message without timestamp":
+    # test the encoding and decoding of a WakuMessage with an empty timestamp field  
 
     # Encoding
     let
