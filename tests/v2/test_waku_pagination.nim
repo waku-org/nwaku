@@ -2,6 +2,7 @@
 import
   std/[algorithm, options],
   testutils/unittests, nimcrypto/sha2,
+  libp2p/protobuf/minprotobuf,
   ../../waku/v2/protocol/waku_store/waku_store,
   ../test_helpers
 
@@ -214,3 +215,47 @@ procSuite "pagination":
       newPagingInfo.cursor == pagingInfo.cursor
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 0
+
+suite "time-window history query":
+  test "Encode/Decode waku message with timestamp":
+    # test encoding and decoding of the timestamp field of a WakuMessage 
+    # Encoding
+    let
+      version = 0'u32
+      payload = @[byte 0, 1, 2]
+      proof = @[byte 0, 1, 2, 3]
+      timestamp = float64(10)
+      msg = WakuMessage(payload: payload, version: version, proof: proof, timestamp: timestamp)
+      pb =  msg.encode()
+    
+    # Decoding
+    let
+      msgDecoded = WakuMessage.init(pb.buffer)
+    check:
+      msgDecoded.isOk()
+    
+    let 
+      timestampDecoded = msgDecoded.value.timestamp
+    check:
+      timestampDecoded == timestamp
+  test "Encode/Decode waku message without timestamp":
+    # test the encoding and decoding of a WakuMessage with an empty timestamp field  
+
+    # Encoding
+    let
+      version = 0'u32
+      payload = @[byte 0, 1, 2]
+      proof = @[byte 0, 1, 2, 3]
+      msg = WakuMessage(payload: payload, version: version, proof: proof)
+      pb =  msg.encode()
+      
+    # Decoding
+    let
+      msgDecoded = WakuMessage.init(pb.buffer)
+    doAssert:
+      msgDecoded.isOk()
+    
+    let 
+      timestampDecoded = msgDecoded.value.timestamp
+    check:
+      timestampDecoded == float64(0)
