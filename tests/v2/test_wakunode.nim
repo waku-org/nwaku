@@ -10,6 +10,7 @@ import
   libp2p/switch,
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
+  libp2p/protocols/pubsub/gossipsub,
   eth/keys,
   ../../waku/v2/protocol/[waku_relay, waku_message, message_notifier],
   ../../waku/v2/protocol/waku_store/waku_store,
@@ -394,7 +395,8 @@ procSuite "WakuNode":
     await node1.stop()
     await node2.stop()
     await node3.stop()
-asyncTest "testing rln-relay with mocked zkp":
+  
+  asyncTest "testing rln-relay with mocked zkp":
     
     let
       # publisher node
@@ -449,3 +451,41 @@ asyncTest "testing rln-relay with mocked zkp":
     await node1.stop()
     await node2.stop()
     await node3.stop()
+
+  asyncTest "Relay protocol is started correctly":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
+
+    # Relay protocol starts if mounted after node start
+
+    await node1.start()
+
+    node1.mountRelay()
+
+    check:
+      GossipSub(node1.wakuRelay).heartbeatFut.isNil == false
+
+    # Relay protocol starts if mounted before node start
+
+    let
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        Port(60002))
+
+    node2.mountRelay()
+
+    check:
+      # Relay has not yet started as node has not yet started
+      GossipSub(node2.wakuRelay).heartbeatFut.isNil
+    
+    await node2.start()
+
+    check:
+      # Relay started on node start
+      GossipSub(node2.wakuRelay).heartbeatFut.isNil == false
+    
+    await allFutures([node1.stop(), node2.stop()])
+
+
