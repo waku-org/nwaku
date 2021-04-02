@@ -39,6 +39,8 @@ type
   HistoryQuery* = object
     topics*: seq[ContentTopic]
     pagingInfo*: PagingInfo # used for pagination
+    startTime*: float64 # used for time-window query
+    endTime*: float64 # used for time-window query
 
   HistoryResponse* = object
     messages*: seq[WakuMessage]
