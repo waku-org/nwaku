@@ -216,7 +216,7 @@ procSuite "pagination":
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 0
 
-suite "time-window pagination":
+suite "time-window history query":
   test "Encode/Decode waku message with timestamp":
     # test encoding and decoding of the timestamp field of a WakuMessage 
     # Encoding
