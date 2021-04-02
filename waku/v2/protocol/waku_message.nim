@@ -19,6 +19,8 @@ type
     # the proof field indicates that the message is not a spam
     # this field will be used in the rln-relay protocol
     proof*: seq[byte]
+    # sender generated timestamp
+    timestamp*: float64
 
 # Encoding and decoding -------------------------------------------------------
 proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
@@ -29,6 +31,7 @@ proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(2, msg.contentTopic)
   discard ? pb.getField(3, msg.version)
   discard ? pb.getField(4, msg.proof)
+  discard ? pb.getField(5, msg.timestamp)
 
   ok(msg)
 
@@ -39,3 +42,4 @@ proc encode*(message: WakuMessage): ProtoBuffer =
   result.write(2, message.contentTopic)
   result.write(3, message.version)
   result.write(4, message.proof)
+  result.write(5, message.timestamp)
