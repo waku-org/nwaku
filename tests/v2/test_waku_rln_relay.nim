@@ -181,11 +181,10 @@ procSuite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-      ctxPtrPtr = addr(ctxPtr)
-    doAssert(createRLNInstance(32, ctxPtrPtr))
+    doAssert(createRLNInstance(32, ctxPtr))
 
     # generate the membership keys
-    let membershipKeyPair = membershipKeyGen(ctxPtrPtr[])
+    let membershipKeyPair = membershipKeyGen(ctxPtr)
     
     check:
       membershipKeyPair.isSome
@@ -273,10 +272,9 @@ suite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-      ctxPtrPtr = addr(ctxPtr)
-    doAssert(createRLNInstance(32, ctxPtrPtr))
+    doAssert(createRLNInstance(32, ctxPtr))
 
-    var key = membershipKeyGen(ctxPtrPtr[])
+    var key = membershipKeyGen(ctxPtr)
     var empty : array[32,byte]
     check:
       key.isSome
@@ -292,14 +290,13 @@ suite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-      ctxPtrPtr = addr(ctxPtr)
-    doAssert(createRLNInstance(32, ctxPtrPtr))
+    doAssert(createRLNInstance(32, ctxPtr))
 
     # read the Merkle Tree root
     var 
       root1 {.noinit.} : Buffer = Buffer()
       rootPtr1 = addr(root1)
-      get_root_successful1 = get_root(ctxPtrPtr[], rootPtr1)
+      get_root_successful1 = get_root(ctxPtr, rootPtr1)
     doAssert(get_root_successful1)
     doAssert(root1.len == 32)
 
@@ -307,7 +304,7 @@ suite "Waku rln relay":
     var 
       root2 {.noinit.} : Buffer = Buffer()
       rootPtr2 = addr(root2)
-      get_root_successful2 = get_root(ctxPtrPtr[], rootPtr2)
+      get_root_successful2 = get_root(ctxPtr, rootPtr2)
     doAssert(get_root_successful2)
     doAssert(root2.len == 32)
 
@@ -325,17 +322,16 @@ suite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-      ctxPtrPtr = addr(ctxPtr)
-    doAssert(createRLNInstance(32, ctxPtrPtr))
+    doAssert(createRLNInstance(32, ctxPtr))
 
     # generate a key pair
-    var keypair = membershipKeyGen(ctxPtrPtr[])
+    var keypair = membershipKeyGen(ctxPtr)
     doAssert(keypair.isSome())
     var pkBuffer = Buffer(`ptr`: addr(keypair.get().publicKey[0]), len: 32)
     let pkBufferPtr = addr pkBuffer
 
     # add the member to the tree
-    var member_is_added = update_next_member(ctxPtrPtr[], pkBufferPtr)
+    var member_is_added = update_next_member(ctxPtr, pkBufferPtr)
     check:
       member_is_added == true
       
@@ -344,12 +340,11 @@ suite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-      ctxPtrPtr = addr(ctxPtr)
-    doAssert(createRLNInstance(32, ctxPtrPtr))
+    doAssert(createRLNInstance(32, ctxPtr))
 
     # delete the first member 
     var deleted_member_index = uint(0)
-    let deletion_success = delete_member(ctxPtrPtr[], deleted_member_index)
+    let deletion_success = delete_member(ctxPtr, deleted_member_index)
     doAssert(deletion_success)
   
   test "Merkle tree consistency check between deletion and insertion":
@@ -357,45 +352,44 @@ suite "Waku rln relay":
     var 
       ctx = RLN[Bn256]()
       ctxPtr = addr(ctx)
-      ctxPtrPtr = addr(ctxPtr)
-    doAssert(createRLNInstance(32, ctxPtrPtr))
+    doAssert(createRLNInstance(32, ctxPtr))
 
     # read the Merkle Tree root
     var 
       root1 {.noinit.} : Buffer = Buffer()
       rootPtr1 = addr(root1)
-      get_root_successful1 = get_root(ctxPtrPtr[], rootPtr1)
+      get_root_successful1 = get_root(ctxPtr, rootPtr1)
     doAssert(get_root_successful1)
     doAssert(root1.len == 32)
     
     # generate a key pair
-    var keypair = membershipKeyGen(ctxPtrPtr[])
+    var keypair = membershipKeyGen(ctxPtr)
     doAssert(keypair.isSome())
     var pkBuffer = Buffer(`ptr`: addr(keypair.get().publicKey[0]), len: 32)
     let pkBufferPtr = addr pkBuffer
 
     # add the member to the tree
-    var member_is_added = update_next_member(ctxPtrPtr[], pkBufferPtr)
+    var member_is_added = update_next_member(ctxPtr, pkBufferPtr)
     doAssert(member_is_added)
 
     # read the Merkle Tree root after insertion
     var 
       root2 {.noinit.} : Buffer = Buffer()
       rootPtr2 = addr(root2)
-      get_root_successful2 = get_root(ctxPtrPtr[], rootPtr2)
+      get_root_successful2 = get_root(ctxPtr, rootPtr2)
     doAssert(get_root_successful2)
     doAssert(root2.len == 32)
 
     # delete the first member 
     var deleted_member_index = uint(0)
-    let deletion_success = delete_member(ctxPtrPtr[], deleted_member_index)
+    let deletion_success = delete_member(ctxPtr, deleted_member_index)
     doAssert(deletion_success)
 
     # read the Merkle Tree root after the deletion
     var 
       root3 {.noinit.} : Buffer = Buffer()
       rootPtr3 = addr(root3)
-      get_root_successful3 = get_root(ctxPtrPtr[], rootPtr3)
+      get_root_successful3 = get_root(ctxPtr, rootPtr3)
     doAssert(get_root_successful3)
     doAssert(root3.len == 32)
 
@@ -417,3 +411,150 @@ suite "Waku rln relay":
     ## The initial root of the tree (empty tree) must be identical to 
     ## the root of the tree after one insertion followed by a deletion
     doAssert(rootHex1 == rootHex3)
+  test "hash Nim Wrappers":
+    # create an RLN instance
+    var 
+      ctx = RLN[Bn256]()
+      ctxPtr = addr(ctx)
+    doAssert(createRLNInstance(30, ctxPtr))
+
+    # prepare the input
+    var
+      hashInput : array[32, byte]
+    for x in hashInput.mitems: x= 1
+    var 
+      hashInputHex = hashInput.toHex()
+      hashInputBuffer = Buffer(`ptr`: addr hashInput[0], len: 32 ) 
+
+    debug "sample_hash_input_bytes", hashInputHex
+
+    # prepare other inputs to the hash function
+    var 
+      outputBuffer: Buffer
+      numOfInputs = 1.uint # the number of hash inputs that can be 1 or 2
+    
+    let hashSuccess = hash(ctxPtr, addr hashInputBuffer, numOfInputs, addr outputBuffer)
+    doAssert(hashSuccess)
+    let outputArr = cast[ptr array[32,byte]](outputBuffer.`ptr`)[]
+    doAssert("53a6338cdbf02f0563cec1898e354d0d272c8f98b606c538945c6f41ef101828" == outputArr.toHex())
+
+    var 
+      hashOutput = cast[ptr array[32,byte]] (outputBuffer.`ptr`)[]
+      hashOutputHex = hashOutput.toHex()
+
+    debug "hash output", hashOutputHex
+
+  test "generate_proof and verify Nim Wrappers":
+    # create an RLN instance
+    var 
+      ctx = RLN[Bn256]()
+      ctxPtr = addr(ctx)
+
+    # check if the rln instance is created successfully 
+    doAssert(createRLNInstance(32, ctxPtr))
+
+    # create the membership key
+    var auth = membershipKeyGen(ctxPtr)
+    var skBuffer = Buffer(`ptr`: addr(auth.get().secretKey[0]), len: 32)
+
+    # peer's index in the Merkle Tree
+    var index = 5
+
+    # prepare the authentication object with peer's index and sk
+    var authObj: Auth = Auth(secret_buffer: addr skBuffer, index: uint(index))
+
+    # Create a Merkle tree with random members 
+    for i in 0..10:
+      var member_is_added: bool = false
+      if (i == index):
+        #  insert the current peer's pk
+        var pkBuffer = Buffer(`ptr`: addr(auth.get().publicKey[0]), len: 32)
+        member_is_added = update_next_member(ctxPtr, addr pkBuffer)
+      else:
+        var memberKeys = membershipKeyGen(ctxPtr)
+        var pkBuffer = Buffer(`ptr`: addr(memberKeys.get().publicKey[0]), len: 32)
+        member_is_added = update_next_member(ctxPtr, addr pkBuffer)
+      # check the member is added
+      doAssert(member_is_added)
+
+    # prepare the message
+    var messageBytes {.noinit.}: array[32, byte]
+    for x in messageBytes.mitems: x = 1
+    var messageHex = messageBytes.toHex()
+    debug "message", messageHex
+
+    # prepare the epoch
+    var  epochBytes : array[32,byte]
+    for x in epochBytes.mitems : x = 0
+    var epochHex = epochBytes.toHex()
+    debug "epoch in bytes", epochHex
+
+
+    # serialize message and epoch 
+    # TODO add a proc for serializing
+    var epochMessage = @epochBytes & @messageBytes
+    doAssert(epochMessage.len == 64)
+    var inputBytes{.noinit.}: array[64, byte] # holds epoch||Message 
+    for (i, x) in inputBytes.mpairs: x = epochMessage[i]
+    var inputHex = inputBytes.toHex()
+    debug "serialized epoch and message ", inputHex
+    # put the serialized epoch||message into a buffer
+    var inputBuffer = Buffer(`ptr`: addr(inputBytes[0]), len: 64)
+
+    # generate the proof
+    var proof: Buffer
+    let proofIsSuccessful = generate_proof(ctxPtr, addr inputBuffer, addr authObj, addr proof)
+    # check whether the generate_proof call is done successfully
+    doAssert(proofIsSuccessful)
+    var proofValue = cast[ptr array[416,byte]] (proof.`ptr`)
+    let proofHex = proofValue[].toHex
+    debug "proof content", proofHex
+
+    # display the proof breakdown
+    var 
+      zkSNARK = proofHex[0..511]
+      proofRoot = proofHex[512..575] 
+      proofEpoch = proofHex[576..639]
+      shareX = proofHex[640..703]
+      shareY = proofHex[704..767]
+      nullifier = proofHex[768..831]
+
+    doAssert(zkSNARK.len == 512)
+    doAssert(proofRoot.len == 64)
+    doAssert(proofEpoch.len == 64)
+    doAssert(epochHex == proofEpoch)
+    doAssert(shareX.len == 64)
+    doAssert(shareY.len == 64)
+    doAssert(nullifier.len == 64)
+
+    debug "zkSNARK ", zkSNARK
+    debug "root ", proofRoot
+    debug "epoch ", proofEpoch
+    debug "shareX", shareX
+    debug "shareY", shareY
+    debug "nullifier", nullifier
+
+
+    var f = 0.uint32
+    let verifyIsSuccessful = verify(ctxPtr, addr proof, addr f)
+    doAssert(verifyIsSuccessful)
+    # f = 0 means the proof is verified
+    doAssert(f == 0)
+
+
+
+    # create and test a bad proof
+    # prepare a bad authentication object with a wrong peer's index
+    var badIndex = 8
+    var badAuthObj: Auth = Auth(secret_buffer: addr skBuffer, index: uint(badIndex))
+    var badProof: Buffer
+    let badProofIsSuccessful = generate_proof(ctxPtr, addr inputBuffer, addr badAuthObj, addr badProof)
+    # check whether the generate_proof call is done successfully
+    doAssert(badProofIsSuccessful)
+
+    var badF = 0.uint32
+    let badVerifyIsSuccessful = verify(ctxPtr, addr badProof, addr badF)
+    doAssert(badVerifyIsSuccessful)
+    # badF=1 means the proof is not verified
+    # verification of the bad proof should fail
+    doAssert(badF == 1)

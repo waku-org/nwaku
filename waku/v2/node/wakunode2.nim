@@ -66,6 +66,7 @@ type
     filters*: Filters
     subscriptions*: MessageNotificationSubscriptions
     rng*: ref BrHmacDrbgContext
+    started*: bool # Indicates that node has started listening
 
 # NOTE Any difference here in Waku vs Eth2?
 # E.g. Devp2p/Libp2p support, etc.
@@ -162,11 +163,18 @@ proc start*(node: WakuNode) {.async.} =
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
 
+  if not node.wakuRelay.isNil:
+    await node.wakuRelay.start()
+  
+  node.started = true
+
 proc stop*(node: WakuNode) {.async.} =
   if not node.wakuRelay.isNil:
     await node.wakuRelay.stop()
 
   await node.switch.stop()
+
+  node.started = false
 
 proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
@@ -339,11 +347,10 @@ proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(stri
   var 
     ctx = RLN[Bn256]()
     ctxPtr = addr(ctx)
-    ctxPtrPtr = addr(ctxPtr)
-  doAssert(createRLNInstance(32, ctxPtrPtr))
+  doAssert(createRLNInstance(32, ctxPtr))
 
   # generate the membership keys
-  let membershipKeyPair = membershipKeyGen(ctxPtrPtr[])
+  let membershipKeyPair = membershipKeyGen(ctxPtr)
   # check whether keys are generated
   doAssert(membershipKeyPair.isSome())
   debug "the membership key for the rln relay is generated"
@@ -416,6 +423,13 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
     # TODO currently the message validator is set for the defaultTopic, this can be configurable to accept other pubsub topics as well 
     addRLNRelayValidator(node, defaultTopic)
     info "WakuRLNRelay is mounted successfully"
+  
+  if node.started:
+    # Node has already started. Start the WakuRelay protocol
+
+    waitFor node.wakuRelay.start()
+
+    info "relay mounted and started successfully"
 
 
 ## Helpers
@@ -581,7 +595,8 @@ when isMainModule:
 
   # TODO Set swap peer, for now should be same as store peer
 
-  if conf.store:
+  # Store setup
+  if (conf.storenode != "") or (conf.store):
     var store: WakuMessageStore
 
     if not sqliteDatabase.isNil:
@@ -594,20 +609,22 @@ when isMainModule:
 
     mountStore(node, store)
 
-  if conf.filter:
+    if conf.storenode != "":
+      setStorePeer(node, conf.storenode)
+
+  # Filter setup
+  if (conf.filternode != "") or (conf.filter):
     mountFilter(node)
 
-  if conf.relay:
+    if conf.filternode != "":
+      setFilterPeer(node, conf.filternode)
+
+  # Relay setup
+  if conf.relay:  # True by default
     mountRelay(node, conf.topics.split(" "), rlnRelayEnabled = conf.rlnrelay)
 
-  if conf.staticnodes.len > 0:
-    waitFor connectToNodes(node, conf.staticnodes)
-
-  if conf.storenode != "":
-    setStorePeer(node, conf.storenode)
-
-  if conf.filternode != "":
-    setFilterPeer(node, conf.filternode)
+    if conf.staticnodes.len > 0:
+      waitFor connectToNodes(node, conf.staticnodes)
 
   if conf.rpc:
     startRpc(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift), conf)
