@@ -411,19 +411,49 @@ procSuite "Waku Store":
 
     for wakuMsg in msgList:
       await subscriptions.notify("foo", wakuMsg)
-    var completionFut = newFuture[bool]()
+    
+    asyncTest "handle temporal history query with a valid time-window":
+      var completionFut = newFuture[bool]()
 
-    proc handler(response: HistoryResponse) {.gcsafe, closure.} =
-      echo response.messages[0]
-      echo response.messages[1]
+      proc handler(response: HistoryResponse) {.gcsafe, closure.} =
+        check:
+          response.messages.len() == 2
+          response.messages.anyIt(it.timestamp == float(3))
+          response.messages.anyIt(it.timestamp == float(5))
+        completionFut.complete(true)
+
+      let rpc = HistoryQuery(topics: @[ContentTopic(1)], startTime: float(2), endTime: float(5))
+      await proto.query(rpc, handler)
+
       check:
-        response.messages.len() == 2
-        response.messages.anyIt(it.timestamp == float(3))
-        response.messages.anyIt(it.timestamp == float(5))
-      completionFut.complete(true)
+        (await completionFut.withTimeout(5.seconds)) == true
 
-    let rpc = HistoryQuery(topics: @[ContentTopic(1)], startTime: float(2), endTime: float(5))
-    await proto.query(rpc, handler)
+    asyncTest "handle temporal history queries with zero-size window":
+      var completionFut = newFuture[bool]()
 
-    check:
-      (await completionFut.withTimeout(5.seconds)) == true
+      proc handler(response: HistoryResponse) {.gcsafe, closure.} =
+        check:
+          response.messages.len() == 5
+        completionFut.complete(true)
+
+      let rpc = HistoryQuery(topics: @[ContentTopic(1)], startTime: float(2), endTime: float(2))
+      await proto.query(rpc, handler)
+
+      check:
+        (await completionFut.withTimeout(5.seconds)) == true
+
+    asyncTest "handle temporal history queries with invalid time window":
+      var completionFut = newFuture[bool]()
+
+      proc handler(response: HistoryResponse) {.gcsafe, closure.} =
+        check:
+          response.messages.len() == 5
+        completionFut.complete(true)
+
+      let rpc = HistoryQuery(topics: @[ContentTopic(1)], startTime: float(5), endTime: float(2))
+      await proto.query(rpc, handler)
+
+      check:
+        (await completionFut.withTimeout(5.seconds)) == true
+      
+    
