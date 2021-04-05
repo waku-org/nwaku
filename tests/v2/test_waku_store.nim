@@ -377,7 +377,7 @@ procSuite "Waku Store":
       decodedEmptyRes.isErr == false
       decodedEmptyRes.value == emptyRes
     
-  asyncTest "handle temporal history queries":
+  asyncTest "temporal history queries":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
@@ -412,7 +412,7 @@ procSuite "Waku Store":
     for wakuMsg in msgList:
       await subscriptions.notify("foo", wakuMsg)
     
-    asyncTest "handle temporal history query with a valid time-window":
+    asyncTest "handle temporal history query with a valid time window":
       var completionFut = newFuture[bool]()
 
       proc handler(response: HistoryResponse) {.gcsafe, closure.} =
@@ -428,7 +428,7 @@ procSuite "Waku Store":
       check:
         (await completionFut.withTimeout(5.seconds)) == true
 
-    asyncTest "handle temporal history queries with zero-size window":
+    asyncTest "handle temporal history query with a zero-size time window":
       var completionFut = newFuture[bool]()
 
       proc handler(response: HistoryResponse) {.gcsafe, closure.} =
@@ -442,7 +442,7 @@ procSuite "Waku Store":
       check:
         (await completionFut.withTimeout(5.seconds)) == true
 
-    asyncTest "handle temporal history queries with invalid time window":
+    asyncTest "handle temporal history query with an invalid time window":
       var completionFut = newFuture[bool]()
 
       proc handler(response: HistoryResponse) {.gcsafe, closure.} =
