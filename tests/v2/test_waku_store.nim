@@ -450,6 +450,7 @@ procSuite "Waku Store":
           response.messages.len() == 5
         completionFut.complete(true)
 
+      # time window is invalid since start time > end time
       let rpc = HistoryQuery(topics: @[ContentTopic(1)], startTime: float(5), endTime: float(2))
       await proto.query(rpc, handler)
 
