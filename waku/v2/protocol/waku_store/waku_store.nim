@@ -312,7 +312,7 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   # temporal filtering
   if (query.endTime > query.startTime):
     # for a non-zero time range, select messages whose timestamps fall bw the queried start time and end time
-    data = data.filterIt(it.msg.timestamp < query.endTime and it.msg.timestamp > query.startTime)
+    data = data.filterIt(it.msg.timestamp <= query.endTime and it.msg.timestamp >= query.startTime)
 
   
   # perform pagination
