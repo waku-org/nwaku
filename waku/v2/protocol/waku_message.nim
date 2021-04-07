@@ -16,11 +16,13 @@ type
     payload*: seq[byte]
     contentTopic*: ContentTopic
     version*: uint32
-    # the proof field indicates that the message is not a spam
-    # this field will be used in the rln-relay protocol
-    proof*: seq[byte]
     # sender generated timestamp
     timestamp*: float64
+    # the proof field indicates that the message is not a spam
+    # this field will be used in the rln-relay protocol
+    # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec and not yet part of WakuMessage spec
+    proof*: seq[byte]
+   
 
 # Encoding and decoding -------------------------------------------------------
 proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
