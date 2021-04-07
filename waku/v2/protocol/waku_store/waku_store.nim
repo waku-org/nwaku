@@ -59,16 +59,6 @@ proc encode*(index: Index): ProtoBuffer =
   result.write(1, index.digest.data)
   result.write(2, index.receivedTime)
 
-proc encode*(pd: PagingDirection): ProtoBuffer =
-  ## encodes a PagingDirection into a ProtoBuffer
-  ## returns the resultant ProtoBuffer
-
-  # intiate a ProtoBuffer
-  result = initProtoBuffer()
-
-  # encodes pd
-  result.write(1, uint32(ord(pd)))
-
 proc encode*(pinfo: PagingInfo): ProtoBuffer =
   ## encodes a PagingInfo object into a ProtoBuffer
   ## returns the resultant ProtoBuffer
@@ -79,7 +69,7 @@ proc encode*(pinfo: PagingInfo): ProtoBuffer =
   # encodes pinfo
   result.write(1, pinfo.pageSize)
   result.write(2, pinfo.cursor.encode())
-  result.write(3, pinfo.direction.encode())
+  result.write(3, uint32(ord(pinfo.direction)))
 
 proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
   ## creates and returns an Index object out of buffer

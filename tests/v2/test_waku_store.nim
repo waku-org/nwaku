@@ -298,18 +298,6 @@ procSuite "Waku Store":
       decodedEmptyIndex.isErr == false
       decodedEmptyIndex.value == emptyIndex
 
-
-  test "PagingDirection Protobuf encod/init test":
-    let
-      pagingDirection = PagingDirection.BACKWARD
-      pb = pagingDirection.encode()
-      decodedPagingDirection = PagingDirection.init(pb.buffer)
-
-    check:
-      # the decodedPagingDirection must be the same as the original pagingDirection
-      decodedPagingDirection.isErr == false
-      decodedPagingDirection.value == pagingDirection
-
   test "PagingInfo Protobuf encod/init test":
     let
       index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: defaultContentTopic))
