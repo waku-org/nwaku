@@ -14,7 +14,7 @@ export waku_message
 export pagination
 
 # Constants required for pagination -------------------------------------------
-const MaxPageSize* = 100 # Maximum number of waku messages in each page
+const MaxPageSize* = uint64(100) # Maximum number of waku messages in each page
 
 type
 
