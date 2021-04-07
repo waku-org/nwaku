@@ -21,7 +21,7 @@ procSuite "Waku Filter":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
-      contentTopic = ContentTopic(1)
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
       post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
 
     var dialSwitch = newStandardSwitch()
@@ -70,7 +70,7 @@ procSuite "Waku Filter":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
-      contentTopic = ContentTopic(1)
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
       post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
 
     var dialSwitch = newStandardSwitch()
@@ -134,7 +134,7 @@ procSuite "Waku Filter":
     const defaultTopic = "/waku/2/default-waku/proto"
 
     let
-      contentTopic = ContentTopic(1)
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
 
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()

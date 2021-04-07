@@ -5,7 +5,7 @@ import
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
-  stew/results,
+  stew/[byteutils, results],
   ./message_store,
   ../sqlite,
   ../../../protocol/waku_message,
@@ -31,7 +31,7 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] 
     CREATE TABLE IF NOT EXISTS messages (
         id BLOB PRIMARY KEY,
         timestamp INTEGER NOT NULL,
-        contentTopic INTEGER NOT NULL, 
+        contentTopic BLOB NOT NULL,
         payload BLOB
     ) WITHOUT ROWID;
     """, NoParams, void)
@@ -57,14 +57,14 @@ method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage): MessageS
   ## 
   let prepare = db.database.prepareStmt(
     "INSERT INTO messages (id, timestamp, contentTopic, payload) VALUES (?, ?, ?, ?);",
-    (seq[byte], int64, uint32, seq[byte]),
+    (seq[byte], int64, seq[byte], seq[byte]),
     void
   )
 
   if prepare.isErr:
     return err("failed to prepare")
 
-  let res = prepare.value.exec((@(cursor.digest.data), int64(cursor.receivedTime), message.contentTopic, message.payload))
+  let res = prepare.value.exec((@(cursor.digest.data), int64(cursor.receivedTime), message.contentTopic.toBytes(), message.payload))
   if res.isErr:
     return err("failed")
 
@@ -87,11 +87,14 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageSto
     gotMessages = true
     let
       timestamp = sqlite3_column_int64(s, 0)
-      topic = sqlite3_column_int(s, 1)
+      topic = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 1))
+      topicL = sqlite3_column_bytes(s,1)
       p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 2))
       l = sqlite3_column_bytes(s, 2)
 
-    onData(uint64(timestamp), WakuMessage(contentTopic: ContentTopic(int(topic)), payload: @(toOpenArray(p, 0, l-1))))
+    onData(uint64(timestamp),
+           WakuMessage(contentTopic: ContentTopic(string.fromBytes(@(toOpenArray(topic, 0, topicL-1)))),
+                       payload: @(toOpenArray(p, 0, l-1))))
 
   let res = db.database.query("SELECT timestamp, contentTopic, payload FROM messages ORDER BY timestamp ASC", msg)
   if res.isErr:

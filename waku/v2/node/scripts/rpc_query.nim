@@ -32,5 +32,5 @@ echo "Input is:", input
 var node = newRpcHttpClient()
 waitfor node.connect("localhost", rpcPort)
 
-var res = waitfor node.get_waku_v2_store_v1_messages(@[ContentTopic(parseUInt(input))], none(StorePagingOptions))
+var res = waitfor node.get_waku_v2_store_v1_messages(@[ContentTopic(input)], none(StorePagingOptions))
 echo "Waku query response: ", res
