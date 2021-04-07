@@ -301,7 +301,7 @@ procSuite "Waku Store":
   test "PagingInfo Protobuf encod/init test":
     let
       index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: defaultContentTopic))
-      pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
+      pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.FORWARD)
       pb = pagingInfo.encode()
       decodedPagingInfo = PagingInfo.init(pb.buffer)
 
@@ -309,6 +309,7 @@ procSuite "Waku Store":
       # the fields of decodedPagingInfo must be the same as the original pagingInfo
       decodedPagingInfo.isErr == false
       decodedPagingInfo.value == pagingInfo
+      decodedPagingInfo.value.direction == pagingInfo.direction
     
     let
       emptyPagingInfo = PagingInfo()

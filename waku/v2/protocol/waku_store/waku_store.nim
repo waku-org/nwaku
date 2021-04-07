@@ -91,16 +91,6 @@ proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
 
   ok(index) 
 
-proc init*(T: type PagingDirection, buffer: seq[byte]): ProtoResult[T] =
-  ## creates and returns a PagingDirection object out of buffer
-  let pb = initProtoBuffer(buffer)
-
-  var dir: uint32
-  discard ? pb.getField(1, dir)
-  var direction = PagingDirection(dir)
-
-  ok(direction)
-
 proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
   ## creates and returns a PagingInfo object out of buffer
   var pagingInfo = PagingInfo()
@@ -115,9 +105,9 @@ proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(2, cursorBuffer)
   pagingInfo.cursor = ? Index.init(cursorBuffer)
 
-  var directionBuffer: seq[byte]
-  discard ? pb.getField(3, directionBuffer)
-  pagingInfo.direction = ? PagingDirection.init(directionBuffer)
+  var direction: uint32
+  discard ? pb.getField(3, direction)
+  pagingInfo.direction = PagingDirection(direction)
 
   ok(pagingInfo) 
   
