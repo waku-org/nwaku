@@ -310,8 +310,14 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   var data = w.messages.filterIt(it.msg.contentTopic in query.topics)  
 
   # temporal filtering
-  if (query.endTime > query.startTime):
-    # for a non-zero time range, select messages whose timestamps fall bw the queried start time and end time
+  # an invalid time query will be ignored
+  let 
+    # check whether the history query contains a time filter
+    hasTimeQuery = (query.endTime != float64(0) and query.startTime != float64(0))
+    # check whether the time window has a valid range
+    hasValidRange = (query.endTime >= query.startTime)
+  if (hasTimeQuery and hasValidRange):
+    # for a valid time query, select messages whose sender generated timestamps fall bw the queried start time and end time
     data = data.filterIt(it.msg.timestamp <= query.endTime and it.msg.timestamp >= query.startTime)
 
   
