@@ -33,6 +33,7 @@ proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(2, msg.contentTopic)
   discard ? pb.getField(3, msg.version)
   discard ? pb.getField(4, msg.timestamp)
+# XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec and not yet part of WakuMessage spec
   discard ? pb.getField(21, msg.proof)
 
 
