@@ -429,12 +429,12 @@ procSuite "Waku Store":
         (await completionFut.withTimeout(5.seconds)) == true
 
     asyncTest "handle temporal history query with a zero-size time window":
-      #  a zero-size window results in an empty list of history messages
+      # a zero-size window results in an empty list of history messages
       var completionFut = newFuture[bool]()
 
       proc handler(response: HistoryResponse) {.gcsafe, closure.} =
         check:
-          #  a zero-size window results in an empty list of history messages
+          # a zero-size window results in an empty list of history messages
           response.messages.len() == 0
         completionFut.complete(true)
 
@@ -445,13 +445,13 @@ procSuite "Waku Store":
         (await completionFut.withTimeout(5.seconds)) == true
 
     asyncTest "handle temporal history query with an invalid time window":
-      #  an invalid time query will be ignored and only the content topic filter will get through
+      # a history query with an invalid time range results in an empty list of history messages
       var completionFut = newFuture[bool]()
 
       proc handler(response: HistoryResponse) {.gcsafe, closure.} =
         check:
-          #  an invalid time query will be ignored and only the content topic filter will get through
-          response.messages.len() == 5
+          # a history query with an invalid time range results in an empty list of history messages
+          response.messages.len() == 0
         completionFut.complete(true)
 
       # time window is invalid since start time > end time
