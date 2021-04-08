@@ -44,7 +44,7 @@ proc test(name: string, lang = "c") =
 
 ### Waku v1 tasks
 task wakunode1, "Build Waku v1 cli node":
-  buildBinary "wakunode1", "waku/v1/node/", "-d:chronicles_log_level=TRACE"
+  buildBinary "wakunode1", "waku/v1/node/", "-d:chronicles_log_level=DEBUG"
 
 task sim1, "Build Waku v1 simulation tools":
   buildBinary "quicksim", "waku/v1/node/", "-d:chronicles_log_level=INFO"
@@ -58,7 +58,7 @@ task test1, "Build & run Waku v1 tests":
 
 ### Waku v2 tasks
 task wakunode2, "Build Waku v2 (experimental) cli node":
-  buildBinary "wakunode2", "waku/v2/node/", "-d:chronicles_log_level=TRACE"
+  buildBinary "wakunode2", "waku/v2/node/", "-d:chronicles_log_level=DEBUG"
 
 task sim2, "Build Waku v2 simulation tools":
   buildBinary "quicksim2", "waku/v2/node/", "-d:chronicles_log_level=DEBUG"

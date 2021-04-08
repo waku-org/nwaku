@@ -10,7 +10,7 @@ import
   libp2p/protobuf/minprotobuf
 
 type
-  ContentTopic* = uint32
+  ContentTopic* = string
 
   WakuMessage* = object
     payload*: seq[byte]

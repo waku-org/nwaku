@@ -43,7 +43,7 @@ proc installAdminApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
       raise newException(ValueError, "Failed to connect to peers: " & $peers)
 
   rpcsrv.rpc("get_waku_v2_admin_v1_peers") do() -> seq[WakuPeer]:
-    ## Returns history for a list of content topics with optional paging
+    ## Returns a list of peers registered for this node
     debug "get_waku_v2_admin_v1_peers"
 
     # Create a single list of peers from mounted protocols.
