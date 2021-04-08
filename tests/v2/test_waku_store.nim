@@ -88,6 +88,7 @@ procSuite "Waku Store":
     listenSwitch.mount(proto)
 
     await subscriptions.notify("foo", msg)
+    await sleepAsync(1.millis)  # Sleep a millisecond to ensure messages are stored chronologically
     await subscriptions.notify("foo", msg2)
 
     var completionFut = newFuture[bool]()
@@ -162,6 +163,7 @@ procSuite "Waku Store":
 
     for wakuMsg in msgList:
       await subscriptions.notify("foo", wakuMsg)
+      await sleepAsync(1.millis)  # Sleep a millisecond to ensure messages are stored chronologically
 
     var completionFut = newFuture[bool]()
 
@@ -212,6 +214,7 @@ procSuite "Waku Store":
 
     for wakuMsg in msgList:
       await subscriptions.notify("foo", wakuMsg)
+      await sleepAsync(1.millis)  # Sleep a millisecond to ensure messages are stored chronologically
     var completionFut = newFuture[bool]()
 
     proc handler(response: HistoryResponse) {.gcsafe, closure.} =
@@ -262,6 +265,7 @@ procSuite "Waku Store":
 
     for wakuMsg in msgList:
       await subscriptions.notify("foo", wakuMsg)
+      await sleepAsync(1.millis)  # Sleep a millisecond to ensure messages are stored chronologically
     var completionFut = newFuture[bool]()
 
     proc handler(response: HistoryResponse) {.gcsafe, closure.} =
