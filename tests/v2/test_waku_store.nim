@@ -15,13 +15,15 @@ import
   ../test_helpers, ./utils
 
 procSuite "Waku Store":
+  const defaultContentTopic = ContentTopic("1")
+  
   asyncTest "handle query":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
-      topic = ContentTopic(1)
+      topic = defaultContentTopic
       msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic)
-      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(2))
+      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic("2"))
 
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()
@@ -61,11 +63,11 @@ procSuite "Waku Store":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
-      topic = ContentTopic(1)
+      topic = defaultContentTopic
       database = SqliteDatabase.init("", inMemory = true)[]
       store = WakuMessageStore.init(database)[]
       msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic)
-      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(2))
+      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic("2"))
 
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()
@@ -129,16 +131,16 @@ procSuite "Waku Store":
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
     var
-      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic(2)),
-        WakuMessage(payload: @[byte 1],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 2],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 3],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 4],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 5],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 6],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 7],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 8],contentTopic: ContentTopic(1)), 
-        WakuMessage(payload: @[byte 9],contentTopic: ContentTopic(2))]
+      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
+        WakuMessage(payload: @[byte 1],contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 2],contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 3],contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 4],contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 5],contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 6],contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 7],contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 8],contentTopic: defaultContentTopic), 
+        WakuMessage(payload: @[byte 9],contentTopic: ContentTopic("2"))]
 
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()
@@ -149,7 +151,7 @@ procSuite "Waku Store":
     let
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
       subscription = proto.subscription()
-      rpc = HistoryQuery(topics: @[ContentTopic(1)], pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD) )
+      rpc = HistoryQuery(topics: @[defaultContentTopic], pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD) )
       
     proto.setPeer(listenSwitch.peerInfo)
 
@@ -181,16 +183,16 @@ procSuite "Waku Store":
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
     var
-      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic(2)),
-        WakuMessage(payload: @[byte 1],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 2],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 3],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 4],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 5],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 6],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 7],contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 8],contentTopic: ContentTopic(1)), 
-        WakuMessage(payload: @[byte 9],contentTopic: ContentTopic(2))]
+      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
+        WakuMessage(payload: @[byte 1],contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 2],contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 3],contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 4],contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 5],contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 6],contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 7],contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 8],contentTopic: defaultContentTopic), 
+        WakuMessage(payload: @[byte 9],contentTopic: ContentTopic("2"))]
             
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()
@@ -220,7 +222,7 @@ procSuite "Waku Store":
         response.pagingInfo.cursor != Index()
       completionFut.complete(true)
 
-    let rpc = HistoryQuery(topics: @[ContentTopic(1)], pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD) )
+    let rpc = HistoryQuery(topics: @[defaultContentTopic], pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD) )
     await proto.query(rpc, handler)
 
     check:
@@ -231,16 +233,16 @@ procSuite "Waku Store":
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
     var
-      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic(2)),
-        WakuMessage(payload: @[byte 1], contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 2], contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 3], contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 4], contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 5], contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 6], contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 7], contentTopic: ContentTopic(1)),
-        WakuMessage(payload: @[byte 8], contentTopic: ContentTopic(1)), 
-        WakuMessage(payload: @[byte 9], contentTopic: ContentTopic(2))]
+      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
+        WakuMessage(payload: @[byte 1], contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 2], contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 3], contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 4], contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 5], contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 6], contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 7], contentTopic: defaultContentTopic),
+        WakuMessage(payload: @[byte 8], contentTopic: defaultContentTopic), 
+        WakuMessage(payload: @[byte 9], contentTopic: ContentTopic("2"))]
 
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()
@@ -268,7 +270,7 @@ procSuite "Waku Store":
         response.pagingInfo == PagingInfo()
       completionFut.complete(true)
 
-    let rpc = HistoryQuery(topics: @[ContentTopic(1)] )
+    let rpc = HistoryQuery(topics: @[defaultContentTopic] )
 
     await proto.query(rpc, handler)
 
@@ -277,7 +279,7 @@ procSuite "Waku Store":
 
   test "Index Protobuf encoder/decoder test":
     let
-      index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: ContentTopic(1)))
+      index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: defaultContentTopic))
       pb = index.encode()
       decodedIndex = Index.init(pb.buffer)
 
@@ -310,7 +312,7 @@ procSuite "Waku Store":
 
   test "PagingInfo Protobuf encod/init test":
     let
-      index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: ContentTopic(1)))
+      index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: defaultContentTopic))
       pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
       pb = pagingInfo.encode()
       decodedPagingInfo = PagingInfo.init(pb.buffer)
@@ -332,9 +334,9 @@ procSuite "Waku Store":
   
   test "HistoryQuery Protobuf encode/init test":
     let
-      index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: ContentTopic(1)))
+      index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: defaultContentTopic))
       pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
-      query=HistoryQuery(topics: @[ContentTopic(1)], pagingInfo: pagingInfo, startTime: float64(10), endTime: float64(11))
+      query=HistoryQuery(topics: @[defaultContentTopic], pagingInfo: pagingInfo, startTime: float64(10), endTime: float64(11))
       pb = query.encode()
       decodedQuery = HistoryQuery.init(pb.buffer)
 
@@ -355,7 +357,7 @@ procSuite "Waku Store":
   
   test "HistoryResponse Protobuf encod/init test":
     let
-      wm = WakuMessage(payload: @[byte 1], contentTopic: ContentTopic(1))
+      wm = WakuMessage(payload: @[byte 1], contentTopic: defaultContentTopic)
       index = computeIndex(wm)
       pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
       res = HistoryResponse(messages: @[wm], pagingInfo:pagingInfo)

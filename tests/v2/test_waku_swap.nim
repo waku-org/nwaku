@@ -54,7 +54,7 @@ procSuite "Waku SWAP Accounting":
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60001))
-      contentTopic = ContentTopic(1)
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
       message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
 
     var completionFut = newFuture[bool]()
@@ -100,7 +100,7 @@ procSuite "Waku SWAP Accounting":
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60001))
-      contentTopic = ContentTopic(1)
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
       message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
 
     var futures = [newFuture[bool](), newFuture[bool]()]

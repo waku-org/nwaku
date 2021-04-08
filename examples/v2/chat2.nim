@@ -36,8 +36,7 @@ const
   PayloadV1* {.booldefine.} = false
   DefaultTopic = "/waku/2/default-waku/proto"
 
-  Dingpu = "dingpu".toBytes
-  DefaultContentTopic = ContentTopic(uint32.fromBytes(Dingpu))
+  DefaultContentTopic = ContentTopic("dingpu")
 
 # XXX Connected is a bit annoying, because incoming connections don't trigger state change
 # Could poll connection pool or something here, I suppose
