@@ -234,6 +234,7 @@ proc indexedWakuMessageComparison*(x, y: IndexedWakuMessage): int =
 proc findIndex*(msgList: seq[IndexedWakuMessage], index: Index): Option[int] =
   ## returns the position of an IndexedWakuMessage in msgList whose index value matches the given index
   ## returns none if no match is found
+  debug "looking for index", msgList=msgList, index=index
   for i, indexedWakuMessage in msgList:
     if indexedWakuMessage.index == index:
       return some(i)
@@ -246,6 +247,8 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
     cursor = pinfo.cursor
     pageSize = pinfo.pageSize
     dir = pinfo.direction
+  
+  debug "trying to paginateWithIndex", pinfo=pinfo, list=list
 
   if pageSize == 0: # pageSize being zero indicates that no pagination is required
     return (list, pinfo)
@@ -253,20 +256,26 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
   if list.len == 0: # no pagination is needed for an empty list
     return (list, PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction))
 
+  debug "valid list.len and pageSize. continuing.", cursor=cursor, direction=dir, pageSize=pageSize
+
   var msgList = list # makes a copy of the list
   # sorts msgList based on the custom comparison proc indexedWakuMessageComparison
   msgList.sort(indexedWakuMessageComparison) 
 
   var initQuery = false
-  if cursor == Index(): 
+  if cursor == Index():
     initQuery = true # an empty cursor means it is an intial query
+    debug "empty cursor. Initial query. Initialising cursor based on direction", direction=dir
     case dir
       of PagingDirection.FORWARD: 
         cursor = list[0].index # perform paging from the begining of the list
       of PagingDirection.BACKWARD: 
         cursor = list[list.len - 1].index # perform paging from the end of the list
+    debug "cursor initialised", cursor=cursor
   var foundIndexOption = msgList.findIndex(cursor) 
+  debug "found index was", foundIndexOption=foundIndexOption
   if foundIndexOption.isNone: # the cursor is not valid
+    debug "Invalid cursor! None found!"
     return (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction))
   var foundIndex = foundIndexOption.get()
   var retrievedPageSize, s, e: int
@@ -298,7 +307,9 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
 
 proc paginateWithoutIndex(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[WakuMessage], PagingInfo) =
   ## takes list, and perfomrs paging based on pinfo 
-  ## returns the page i.e, a sequence of WakuMessage and the new paging info to be used for the next paging request  
+  ## returns the page i.e, a sequence of WakuMessage and the new paging info to be used for the next paging request
+  
+  debug "trying to paginate", list=list, pinfo=pinfo
   var (indexedData, updatedPagingInfo) = paginateWithIndex(list,pinfo)
   for indexedMsg in indexedData:
     result[0].add(indexedMsg.msg)
@@ -306,8 +317,11 @@ proc paginateWithoutIndex(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (se
 
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   result = HistoryResponse(messages: newSeq[WakuMessage]())
+  debug "trying to find messages for query", query=query, topics=query.topics
   # data holds IndexedWakuMessage whose topics match the query
-  var data = w.messages.filterIt(it.msg.contentTopic in query.topics)  
+  debug "messages currently held", messages=w.messages
+  var data = w.messages.filterIt(it.msg.contentTopic in query.topics)
+  debug "found data", data=data
   
   # perform pagination
   (result.messages, result.pagingInfo)= paginateWithoutIndex(data, query.pagingInfo)
@@ -322,10 +336,12 @@ method init*(ws: WakuStore) =
       waku_store_errors.inc(labelValues = [decodeRpcFailure])
       return
 
-    info "received query"
+    info "received query", res=res
 
     let value = res.value
     let response = ws.findMessages(res.value.query)
+
+    debug "prepared a response", response=response
 
     # TODO Do accounting here, response is HistoryResponse
     # How do we get node or swap context?
@@ -340,6 +356,8 @@ method init*(ws: WakuStore) =
 
     await conn.writeLp(HistoryRPC(requestId: value.requestId,
         response: response).encode().buffer)
+    
+    debug "response successfully provided"
 
   ws.handler = handle
   ws.codec = WakuStoreCodec
@@ -413,11 +431,15 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
     waku_store_errors.inc(labelValues = [dialFailure])
     return
 
+  debug "Succesful connection to store peer. Writing query.", query=query
+
   await connOpt.get().writeLP(HistoryRPC(requestId: generateRequestId(w.rng),
       query: query).encode().buffer)
 
   var message = await connOpt.get().readLp(64*1024)
   let response = HistoryRPC.init(message)
+
+  debug "Received response", message=message, response=response
 
   if response.isErr:
     error "failed to decode response"
