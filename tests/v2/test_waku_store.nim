@@ -15,7 +15,7 @@ import
   ../test_helpers, ./utils
 
 procSuite "Waku Store":
-  const defaultContentTopic = ContentTopic("/waku/2/default-content/proto")
+  const defaultContentTopic = ContentTopic("1")
   
   asyncTest "handle query":
     let
