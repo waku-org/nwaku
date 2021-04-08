@@ -358,12 +358,16 @@ procSuite "Waku v2 JSON-RPC API":
     check:
       response.len() == 8
       response.allIt(it.contentTopic == defaultContentTopic)
+    
+    await sleepAsync(2000.millis)
 
     # No new messages
     response = await client.get_waku_v2_filter_v1_messages(defaultContentTopic)
 
     check:
       response.len() == 0
+    
+    await sleepAsync(2000.millis)
     
     # Now ensure that no more than the preset max messages can be cached
 
