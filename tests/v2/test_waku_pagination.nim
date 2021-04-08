@@ -26,9 +26,9 @@ procSuite "pagination":
       index.receivedTime != 0 # the timestamp should be a non-zero value
 
     let
-      wm1 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(1))
+      wm1 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic("/waku/2/default-content/proto"))
       index1 = wm1.computeIndex()
-      wm2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic(1))
+      wm2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic("/waku/2/default-content/proto"))
       index2 = wm2.computeIndex()
 
     check:

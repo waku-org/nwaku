@@ -33,6 +33,6 @@ var node = newRpcHttpClient()
 waitfor node.connect("localhost", rpcPort)
 
 let pubSubTopic = "/waku/2/default-waku/proto"
-let contentTopic = ContentTopic(1)
+let contentTopic = ContentTopic("/waku/2/default-content/proto")
 var res = waitfor node.post_waku_v2_filter_v1_subscription(@[ContentFilter(topics: @[contentTopic])], some(pubSubTopic))
 echo "Waku query response: ", res

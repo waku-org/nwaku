@@ -33,7 +33,7 @@ var node = newRpcHttpClient()
 waitfor node.connect("localhost", rpcPort)
 
 let pubSubTopic = "/waku/2/default-waku/proto"
-let contentTopic = ContentTopic(1)
+let contentTopic = ContentTopic("/waku/2/default-content/proto")
 let relayMessage = WakuRelayMessage(payload: input.toBytes(), contentTopic: some(contentTopic))
 var res = waitfor node.post_waku_v2_relay_v1_message(pubSubTopic, relayMessage)
 echo "Waku publish response: ", res
