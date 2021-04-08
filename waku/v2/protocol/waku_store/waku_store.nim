@@ -251,7 +251,7 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
     return (list, pinfo)
 
   if list.len == 0: # no pagination is needed for an empty list
-    return (list, PagingInfo(pageSize: uint64(0), cursor:pinfo.cursor, direction: pinfo.direction))
+    return (list, PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction))
 
   var msgList = list # makes a copy of the list
   # sorts msgList based on the custom comparison proc indexedWakuMessageComparison
@@ -268,7 +268,7 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
   var foundIndexOption = msgList.findIndex(cursor) 
   # echo "foundIndexOption", foundIndexOption.get()
   if foundIndexOption.isNone: # the cursor is not valid
-    return (@[], PagingInfo(pageSize: uint64(0), cursor:pinfo.cursor, direction: pinfo.direction))
+    return (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction))
   var foundIndex = uint64(foundIndexOption.get())
   var retrievedPageSize, s, e: uint64
   var newCursor: Index # to be returned as part of the new paging info
@@ -291,12 +291,12 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
       newCursor = msgList[s].index # the new cursor points to the begining of the page
 
   if (retrievedPageSize == 0):
-    return (@[], PagingInfo(pageSize: uint64(0), cursor:pinfo.cursor, direction: pinfo.direction))
+    return (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction))
 
   # retrieve the messages
   for i in s..e:
     result[0].add(msgList[i])
-  result[1] = PagingInfo(pageSize : uint64(retrievedPageSize), cursor : newCursor, direction : pinfo.direction)
+  result[1] = PagingInfo(pageSize : retrievedPageSize, cursor : newCursor, direction : pinfo.direction)
 
 proc paginateWithoutIndex(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[WakuMessage], PagingInfo) =
   ## takes list, and perfomrs paging based on pinfo 
