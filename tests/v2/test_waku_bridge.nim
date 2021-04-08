@@ -3,7 +3,7 @@
 import
   std/strutils,
   testutils/unittests,
-  chronicles, chronos, stew/shims/net as stewNet, stew/byteutils,
+  chronicles, chronos, stew/shims/net as stewNet, stew/[byteutils, objects],
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/peerid,
@@ -44,8 +44,8 @@ procSuite "WakuBridge":
       v2NodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
       v2Node = WakuNode.init(v2NodeKey, ValidIpAddress.init("0.0.0.0"), Port(60002))
 
-      topic = [byte 0x00, 0, 0, byte 0x01]
-      contentTopic = ContentTopic(1)
+      contentTopic = ContentTopic("0001")
+      topic = toArray(4, contentTopic.toBytes()[0..3])
       payloadV1 = "hello from V1".toBytes()
       payloadV2 = "hello from V2".toBytes()
       message = WakuMessage(payload: payloadV2, contentTopic: contentTopic)

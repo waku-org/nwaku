@@ -27,7 +27,7 @@ procSuite "WakuNode":
       node = WakuNode.init(nodeKey, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
       pubSubTopic = "chat"
-      contentTopic = ContentTopic(1)
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
       filterRequest = FilterRequest(topic: pubSubTopic, contentFilters: @[ContentFilter(topics: @[contentTopic])], subscribe: true)
       message = WakuMessage(payload: "hello world".toBytes(),
         contentTopic: contentTopic)
@@ -79,7 +79,7 @@ procSuite "WakuNode":
       node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
       pubSubTopic = "chat"
-      contentTopic = ContentTopic(1)
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
       filterRequest = FilterRequest(topic: pubSubTopic, contentFilters: @[ContentFilter(topics: @[contentTopic])], subscribe: true)
       message = WakuMessage(payload: "hello world".toBytes(),
         contentTopic: contentTopic)
@@ -141,7 +141,7 @@ procSuite "WakuNode":
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
-      contentTopic = ContentTopic(1)
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
       message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
 
     var completionFut = newFuture[bool]()
@@ -177,7 +177,7 @@ procSuite "WakuNode":
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
-      contentTopic = ContentTopic(1)
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
       message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
 
     var completionFut = newFuture[bool]()
@@ -219,7 +219,7 @@ procSuite "WakuNode":
       node3 = WakuNode.init(nodeKey3, ValidIpAddress.init("0.0.0.0"),
         Port(60003))
       pubSubTopic = "test"
-      contentTopic = ContentTopic(1)
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
@@ -317,12 +317,12 @@ procSuite "WakuNode":
       node3 = WakuNode.init(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
 
       pubSubTopic = "test"
-      contentTopic1 = ContentTopic(1)
+      contentTopic1 = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message1 = WakuMessage(payload: payload, contentTopic: contentTopic1)
 
       payload2 = "you should not see this message!".toBytes()
-      contentTopic2 = ContentTopic(2)
+      contentTopic2 = ContentTopic("2")
       message2 = WakuMessage(payload: payload2, contentTopic: contentTopic2)
 
     # start all the nodes
@@ -410,7 +410,7 @@ procSuite "WakuNode":
       node3 = WakuNode.init(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
 
       pubSubTopic = "defaultTopic"
-      contentTopic1 = ContentTopic(1)
+      contentTopic1 = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message1 = WakuMessage(payload: payload, contentTopic: contentTopic1)
 

@@ -3,6 +3,7 @@ import
   eth/keys,
   ../../../v1/node/rpc/hexstrings,
   ../../protocol/waku_store/waku_store_types,
+  ../../protocol/waku_message,
   ../waku_payload,
   ./jsonrpc_types
 
@@ -37,15 +38,14 @@ proc toStoreResponse*(historyResponse: HistoryResponse): StoreResponse =
                 pagingOptions: if historyResponse.pagingInfo != PagingInfo(): some(historyResponse.pagingInfo.toPagingOptions()) else: none(StorePagingOptions))
 
 proc toWakuMessage*(relayMessage: WakuRelayMessage, version: uint32): WakuMessage =
-  # @TODO global definition for default content topic
-  const defaultCT = 0
+  const defaultCT = ContentTopic("/waku/2/default-content/proto")
   WakuMessage(payload: relayMessage.payload,
               contentTopic: if relayMessage.contentTopic.isSome: relayMessage.contentTopic.get else: defaultCT,
               version: version)
 
 proc toWakuMessage*(relayMessage: WakuRelayMessage, version: uint32, rng: ref BrHmacDrbgContext, symkey: Option[SymKey], pubKey: Option[keys.PublicKey]): WakuMessage =
   # @TODO global definition for default content topic
-  const defaultCT = 0
+  const defaultCT = ContentTopic("/waku/2/default-content/proto")
 
   let payload = Payload(payload: relayMessage.payload,
                         dst: pubKey,

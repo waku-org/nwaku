@@ -18,7 +18,7 @@ createRpcSigs(RpcHttpClient, sigWakuPath)
 
 const defaultTopic = "/waku/2/default-waku/proto"
 
-const defaultContentTopic = ContentTopic(1)
+const defaultContentTopic = ContentTopic("waku/2/default-content/proto")
 
 const topicAmount = 10 #100
 
