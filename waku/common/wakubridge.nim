@@ -1,7 +1,7 @@
 import
   std/tables,
   chronos, confutils, chronicles, chronicles/topics_registry, metrics,
-  stew/endians2,
+  stew/[byteutils, objects],
   stew/shims/net as stewNet, json_rpc/rpcserver,
   # Waku v1 imports
   eth/[keys, p2p], eth/common/utils,
@@ -44,17 +44,22 @@ type
 func toWakuMessage(env: Envelope): WakuMessage =
   # Translate a Waku v1 envelope to a Waku v2 message
   WakuMessage(payload: env.data,
-              contentTopic: ContentTopic(uint32.fromBytes(env.topic, Endianness.bigEndian)),
+              contentTopic: ContentTopic(string.fromBytes(env.topic)),
               version: 1)
 
 proc toWakuV2(bridge: WakuBridge, env: Envelope) {.async.} =
   waku_bridge_transfers.inc(labelValues = ["v1_to_v2"])
+  
   await bridge.nodev2.publish(defaultBridgeTopic, env.toWakuMessage())
 
 proc toWakuV1(bridge: WakuBridge, msg: WakuMessage) {.gcsafe.} =
   waku_bridge_transfers.inc(labelValues = ["v2_to_v1"])
+
+  # @TODO: use namespacing to map v2 contentTopics to v1 topics
+  let v1TopicSeq = msg.contentTopic.toBytes()[0..3]
+  
   discard bridge.nodev1.postMessage(ttl = defaultTTL,
-                                    topic = msg.contentTopic.toBytes(Endianness.bigEndian),
+                                    topic = toArray(4, v1TopicSeq),
                                     payload = msg.payload)
 
 ##############
