@@ -46,7 +46,7 @@ proc computeIndex*(msg: WakuMessage): Index =
   let digest = ctx.finish() # computes the hash
   ctx.clear()
   result.digest = digest
-  result.receivedTime = epochTime() # gets the unix timestamp
+  result.receivedTime = getTime().toUnixFloat() # gets the unix timestamp in subsecond resolution
 
 proc encode*(index: Index): ProtoBuffer =
   ## encodes an Index object into a ProtoBuffer
