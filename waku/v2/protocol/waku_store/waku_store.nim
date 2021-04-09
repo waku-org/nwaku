@@ -290,6 +290,13 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   result = HistoryResponse(messages: newSeq[WakuMessage]())
   # data holds IndexedWakuMessage whose topics match the query
   var data = w.messages.filterIt(it.msg.contentTopic in query.topics)  
+
+  # temporal filtering   
+  # check whether the history query contains a time filter
+  if (query.endTime != float64(0) and query.startTime != float64(0)):
+    # for a valid time query, select messages whose sender generated timestamps fall bw the queried start time and end time
+    data = data.filterIt(it.msg.timestamp <= query.endTime and it.msg.timestamp >= query.startTime)
+
   
   # perform pagination
   (result.messages, result.pagingInfo)= paginateWithoutIndex(data, query.pagingInfo)
