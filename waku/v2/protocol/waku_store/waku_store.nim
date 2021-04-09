@@ -117,17 +117,17 @@ proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
 
   var topics: seq[ContentTopic]
 
-  discard ? pb.getRepeatedField(1, topics)
+  discard ? pb.getRepeatedField(2, topics)
 
   msg.topics = topics
 
   var pagingInfoBuffer: seq[byte]
-  discard ? pb.getField(2, pagingInfoBuffer)
+  discard ? pb.getField(3, pagingInfoBuffer)
 
   msg.pagingInfo = ? PagingInfo.init(pagingInfoBuffer)
 
-  discard ? pb.getField(3, msg.startTime)
-  discard ? pb.getField(4, msg.endTime)
+  discard ? pb.getField(4, msg.startTime)
+  discard ? pb.getField(5, msg.endTime)
 
 
   ok(msg)
@@ -170,12 +170,12 @@ proc encode*(query: HistoryQuery): ProtoBuffer =
   result = initProtoBuffer()
 
   for topic in query.topics:
-    result.write(1, topic)
+    result.write(2, topic)
   
-  result.write(2, query.pagingInfo.encode())
+  result.write(3, query.pagingInfo.encode())
 
-  result.write(3, query.startTime)
-  result.write(4, query.endTime)
+  result.write(4, query.startTime)
+  result.write(5, query.endTime)
 
 proc encode*(response: HistoryResponse): ProtoBuffer =
   result = initProtoBuffer()
