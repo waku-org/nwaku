@@ -242,9 +242,9 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
     initQuery = true # an empty cursor means it is an initial query
     case dir
       of PagingDirection.FORWARD: 
-        cursor = list[0].index # perform paging from the begining of the list
+        cursor = msgList[0].index # perform paging from the begining of the list
       of PagingDirection.BACKWARD: 
-        cursor = list[list.len - 1].index # perform paging from the end of the list
+        cursor = msgList[list.len - 1].index # perform paging from the end of the list
   var foundIndexOption = msgList.findIndex(cursor) 
   # echo "foundIndexOption", foundIndexOption.get()
   if foundIndexOption.isNone: # the cursor is not valid
