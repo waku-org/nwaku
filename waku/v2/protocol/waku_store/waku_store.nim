@@ -59,16 +59,6 @@ proc encode*(index: Index): ProtoBuffer =
   result.write(1, index.digest.data)
   result.write(2, index.receivedTime)
 
-proc encode*(pd: PagingDirection): ProtoBuffer =
-  ## encodes a PagingDirection into a ProtoBuffer
-  ## returns the resultant ProtoBuffer
-
-  # intiate a ProtoBuffer
-  result = initProtoBuffer()
-
-  # encodes pd
-  result.write(1, uint32(ord(pd)))
-
 proc encode*(pinfo: PagingInfo): ProtoBuffer =
   ## encodes a PagingInfo object into a ProtoBuffer
   ## returns the resultant ProtoBuffer
@@ -79,7 +69,7 @@ proc encode*(pinfo: PagingInfo): ProtoBuffer =
   # encodes pinfo
   result.write(1, pinfo.pageSize)
   result.write(2, pinfo.cursor.encode())
-  result.write(3, pinfo.direction.encode())
+  result.write(3, uint32(ord(pinfo.direction)))
 
 proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
   ## creates and returns an Index object out of buffer
@@ -101,22 +91,12 @@ proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
 
   ok(index) 
 
-proc init*(T: type PagingDirection, buffer: seq[byte]): ProtoResult[T] =
-  ## creates and returns a PagingDirection object out of buffer
-  let pb = initProtoBuffer(buffer)
-
-  var dir: uint32
-  discard ? pb.getField(1, dir)
-  var direction = PagingDirection(dir)
-
-  ok(direction)
-
 proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
   ## creates and returns a PagingInfo object out of buffer
   var pagingInfo = PagingInfo()
   let pb = initProtoBuffer(buffer)
 
-  var pageSize: uint32
+  var pageSize: uint64
   discard ? pb.getField(1, pageSize)
   pagingInfo.pageSize = pageSize
 
@@ -125,9 +105,9 @@ proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(2, cursorBuffer)
   pagingInfo.cursor = ? Index.init(cursorBuffer)
 
-  var directionBuffer: seq[byte]
-  discard ? pb.getField(3, directionBuffer)
-  pagingInfo.direction = ? PagingDirection.init(directionBuffer)
+  var direction: uint32
+  discard ? pb.getField(3, direction)
+  pagingInfo.direction = PagingDirection(direction)
 
   ok(pagingInfo) 
   
@@ -137,17 +117,17 @@ proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
 
   var topics: seq[ContentTopic]
 
-  discard ? pb.getRepeatedField(1, topics)
+  discard ? pb.getRepeatedField(2, topics)
 
   msg.topics = topics
 
   var pagingInfoBuffer: seq[byte]
-  discard ? pb.getField(2, pagingInfoBuffer)
+  discard ? pb.getField(3, pagingInfoBuffer)
 
   msg.pagingInfo = ? PagingInfo.init(pagingInfoBuffer)
 
-  discard ? pb.getField(3, msg.startTime)
-  discard ? pb.getField(4, msg.endTime)
+  discard ? pb.getField(4, msg.startTime)
+  discard ? pb.getField(5, msg.endTime)
 
 
   ok(msg)
@@ -190,12 +170,12 @@ proc encode*(query: HistoryQuery): ProtoBuffer =
   result = initProtoBuffer()
 
   for topic in query.topics:
-    result.write(1, topic)
+    result.write(2, topic)
   
-  result.write(2, query.pagingInfo.encode())
+  result.write(3, query.pagingInfo.encode())
 
-  result.write(3, query.startTime)
-  result.write(4, query.endTime)
+  result.write(4, query.startTime)
+  result.write(5, query.endTime)
 
 proc encode*(response: HistoryResponse): ProtoBuffer =
   result = initProtoBuffer()
@@ -247,7 +227,7 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
     pageSize = pinfo.pageSize
     dir = pinfo.direction
 
-  if pageSize == 0: # pageSize being zero indicates that no pagination is required
+  if pageSize == uint64(0): # pageSize being zero indicates that no pagination is required
     return (list, pinfo)
 
   if list.len == 0: # no pagination is needed for an empty list
@@ -256,45 +236,47 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
   var msgList = list # makes a copy of the list
   # sorts msgList based on the custom comparison proc indexedWakuMessageComparison
   msgList.sort(indexedWakuMessageComparison) 
-
+  
   var initQuery = false
   if cursor == Index(): 
-    initQuery = true # an empty cursor means it is an intial query
+    initQuery = true # an empty cursor means it is an initial query
     case dir
       of PagingDirection.FORWARD: 
-        cursor = list[0].index # perform paging from the begining of the list
+        cursor = msgList[0].index # perform paging from the begining of the list
       of PagingDirection.BACKWARD: 
-        cursor = list[list.len - 1].index # perform paging from the end of the list
+        cursor = msgList[list.len - 1].index # perform paging from the end of the list
   var foundIndexOption = msgList.findIndex(cursor) 
+  # echo "foundIndexOption", foundIndexOption.get()
   if foundIndexOption.isNone: # the cursor is not valid
     return (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction))
-  var foundIndex = foundIndexOption.get()
-  var retrievedPageSize, s, e: int
+  var foundIndex = uint64(foundIndexOption.get())
+  var retrievedPageSize, s, e: uint64
   var newCursor: Index # to be returned as part of the new paging info
   case dir
     of PagingDirection.FORWARD: # forward pagination
-      let remainingMessages= msgList.len - foundIndex - 1
+      let remainingMessages= uint64(msgList.len) - uint64(foundIndex) - 1
       # the number of queried messages cannot exceed the MaxPageSize and the total remaining messages i.e., msgList.len-foundIndex
-      retrievedPageSize = min(int(pageSize), MaxPageSize).min(remainingMessages)  
+      retrievedPageSize = min(uint64(pageSize), MaxPageSize).min(remainingMessages)  
       if initQuery : foundIndex = foundIndex - 1
       s = foundIndex + 1  # non inclusive
       e = foundIndex + retrievedPageSize 
       newCursor = msgList[e].index # the new cursor points to the end of the page
     of PagingDirection.BACKWARD: # backward pagination
-      let remainingMessages=foundIndex
+      let remainingMessages = foundIndex
       # the number of queried messages cannot exceed the MaxPageSize and the total remaining messages i.e., foundIndex-0
-      retrievedPageSize = min(int(pageSize), MaxPageSize).min(remainingMessages) 
+      retrievedPageSize = min(uint64(pageSize), MaxPageSize).min(remainingMessages) 
       if initQuery : foundIndex = foundIndex + 1
       s = foundIndex - retrievedPageSize 
       e = foundIndex - 1
       newCursor = msgList[s].index # the new cursor points to the begining of the page
 
+  if (retrievedPageSize == 0):
+    return (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction))
+
   # retrieve the messages
   for i in s..e:
     result[0].add(msgList[i])
-
-  result[1] = PagingInfo(pageSize : uint64(retrievedPageSize), cursor : newCursor, direction : pinfo.direction)
-
+  result[1] = PagingInfo(pageSize : retrievedPageSize, cursor : newCursor, direction : pinfo.direction)
 
 proc paginateWithoutIndex(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[WakuMessage], PagingInfo) =
   ## takes list, and perfomrs paging based on pinfo 
