@@ -104,7 +104,7 @@ procSuite "pagination":
       newPagingInfo.pageSize == 2
     
     # test for an initial pagination request with an empty cursor to fetch the entire history
-    pagingInfo = PagingInfo(pageSize: uint64(msgList.len), direction: PagingDirection.FORWARD)
+    pagingInfo = PagingInfo(pageSize: 13, direction: PagingDirection.FORWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
     check:
       data.len == 10
@@ -211,7 +211,7 @@ procSuite "pagination":
       newPagingInfo.pageSize == 2
     
     # test for an initial pagination request with an empty cursor to fetch the entire history
-    pagingInfo = PagingInfo(pageSize: uint64(msgList.len), direction: PagingDirection.BACKWARD)
+    pagingInfo = PagingInfo(pageSize: 13, direction: PagingDirection.BACKWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
     check:
       data.len == 10
