@@ -14,13 +14,13 @@ logScope:
   topics = "filter api"
 
 const futTimeout* = 5.seconds # Max time to wait for futures
-const maxCache* = 10 # Max number of messages cached per topic @TODO make this configurable
+const maxCache* = 100 # Max number of messages cached per topic @TODO make this configurable
 
 proc installFilterApiHandlers*(node: WakuNode, rpcsrv: RpcServer, messageCache: MessageCache) =
   
   proc filterHandler(msg: WakuMessage) {.gcsafe, closure.} =
     # Add message to current cache
-    debug "WakuMessage received", msg=msg
+    trace "WakuMessage received", msg=msg
     
     # Make a copy of msgs for this topic to modify
     var msgs = messageCache.getOrDefault(msg.contentTopic, @[])
@@ -33,13 +33,9 @@ proc installFilterApiHandlers*(node: WakuNode, rpcsrv: RpcServer, messageCache: 
       debug "after deletion", msgs=msgs
     msgs.add(msg)
 
-    debug "added new message", msgs=msgs
-
     # Replace indexed entry with copy
     # @TODO max number of content topics could be limited in node
     messageCache[msg.contentTopic] = msgs
-
-    debug "cache after adding", messageCache=messageCache
 
   ## Filter API version 1 definitions
   
