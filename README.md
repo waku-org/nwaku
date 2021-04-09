@@ -40,7 +40,7 @@ make wakunode1 wakunode2
 
 # Connect the client directly with the Status test fleet
 ./build/wakunode --log-level:debug --discovery:off --fleet:test --log-metrics
-# TODO Equivalent for v2 
+# TODO Equivalent for v2
 ```
 
 ### Waku Protocol Test Suite
