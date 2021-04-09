@@ -372,6 +372,8 @@ procSuite "Waku v2 JSON-RPC API":
     for x in 1..(maxSize + 1):
       # Try to cache 1 more than maximum allowed
       filters.notify(WakuMessage(payload: @[byte x], contentTopic: defaultContentTopic), requestId)
+    
+    await sleepAsync(2000.millis)
 
     response = await client.get_waku_v2_filter_v1_messages(defaultContentTopic)
     check:
