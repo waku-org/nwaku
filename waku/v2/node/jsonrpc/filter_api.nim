@@ -14,26 +14,32 @@ logScope:
   topics = "filter api"
 
 const futTimeout* = 5.seconds # Max time to wait for futures
-const maxCache* = 100 # Max number of messages cached per topic @TODO make this configurable
+const maxCache* = 10 # Max number of messages cached per topic @TODO make this configurable
 
 proc installFilterApiHandlers*(node: WakuNode, rpcsrv: RpcServer, messageCache: MessageCache) =
   
   proc filterHandler(msg: WakuMessage) {.gcsafe, closure.} =
     # Add message to current cache
-    trace "WakuMessage received", msg=msg
+    debug "WakuMessage received", msg=msg
     
     # Make a copy of msgs for this topic to modify
     var msgs = messageCache.getOrDefault(msg.contentTopic, @[])
 
     if msgs.len >= maxCache:
+      debug "msgs max size exceeded. Deleting oldest", msgs=msgs
       # Message cache on this topic exceeds maximum. Delete oldest.
       # @TODO this may become a bottle neck if called as the norm rather than exception when adding messages. Performance profile needed.
       msgs.delete(0,0)
+      debug "after deletion", msgs=msgs
     msgs.add(msg)
+
+    debug "added new message", msgs=msgs
 
     # Replace indexed entry with copy
     # @TODO max number of content topics could be limited in node
     messageCache[msg.contentTopic] = msgs
+
+    debug "cache after adding", messageCache=messageCache
 
   ## Filter API version 1 definitions
   
@@ -43,10 +49,15 @@ proc installFilterApiHandlers*(node: WakuNode, rpcsrv: RpcServer, messageCache: 
     ## @TODO ability to specify a return message limit
     debug "get_waku_v2_filter_v1_messages", contentTopic=contentTopic
 
+    debug "filter cache currently", messageCache=messageCache
+
     if messageCache.hasKey(contentTopic):
+      debug "found key", contentTopic=contentTopic
       let msgs = messageCache[contentTopic]
+      debug "msgs found", msgs=msgs
       # Clear cache before next call
       messageCache[contentTopic] = @[]
+      debug "cache cleared", messageCache=messageCache
       return msgs
     else:
       # Not subscribed to this content topic

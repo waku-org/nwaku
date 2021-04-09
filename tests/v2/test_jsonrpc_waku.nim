@@ -358,8 +358,12 @@ procSuite "Waku v2 JSON-RPC API":
     check:
       response.len() == 8
       response.allIt(it.contentTopic == defaultContentTopic)
+
+    debug "starting to sleep 1"
     
     await sleepAsync(2000.millis)
+
+    debug "stop sleep 1"
 
     # No new messages
     response = await client.get_waku_v2_filter_v1_messages(defaultContentTopic)
@@ -367,8 +371,12 @@ procSuite "Waku v2 JSON-RPC API":
     check:
       response.len() == 0
     
-    await sleepAsync(2000.millis)
+    debug "starting to sleep 2"
     
+    await sleepAsync(2000.millis)
+
+    debug "stop sleep 2"
+
     # Now ensure that no more than the preset max messages can be cached
 
     let maxSize = filter_api.maxCache
@@ -376,6 +384,12 @@ procSuite "Waku v2 JSON-RPC API":
     for x in 1..(maxSize + 1):
       # Try to cache 1 more than maximum allowed
       filters.notify(WakuMessage(payload: @[byte x], contentTopic: defaultContentTopic), requestId)
+    
+    debug "starting to sleep 3"
+    
+    await sleepAsync(2000.millis)
+
+    debug "stop sleep 3"
 
     response = await client.get_waku_v2_filter_v1_messages(defaultContentTopic)
     check:
