@@ -126,7 +126,7 @@ procSuite "pagination":
     pagingInfo = PagingInfo(pageSize: MaxPageSize+1, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
     check:
-      data.len <= MaxPageSize
+      uint64(data.len) <= MaxPageSize
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize <= MaxPageSize
   
@@ -194,13 +194,14 @@ procSuite "pagination":
     pagingInfo = PagingInfo(pageSize: MaxPageSize+1, cursor: msgList[3].index, direction: PagingDirection.BACKWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
     check:
-      data.len <= MaxPageSize
+      uint64(data.len) <= MaxPageSize
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize <= MaxPageSize
 
     # test for a cursor pointing to the begining of the message list
     pagingInfo = PagingInfo(pageSize: 5, cursor: msgList[0].index, direction: PagingDirection.BACKWARD)
     (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
+
     check:
       data.len == 0
       newPagingInfo.cursor == msgList[0].index
