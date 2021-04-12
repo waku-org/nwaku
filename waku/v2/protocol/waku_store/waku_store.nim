@@ -254,7 +254,9 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
   var newCursor: Index # to be returned as part of the new paging info
   case dir
     of PagingDirection.FORWARD: # forward pagination
-      let remainingMessages= uint64(msgList.len) - uint64(foundIndex) - 1
+      # the message that is pointed by the cursor is excluded for the retrieved list, this is because this message has already been retrieved by the querier in its prior request
+      var remainingMessages= uint64(msgList.len) - uint64(foundIndex) - 1 
+      if initQuery:  remainingMessages = remainingMessages + 1
       # the number of queried messages cannot exceed the MaxPageSize and the total remaining messages i.e., msgList.len-foundIndex
       retrievedPageSize = min(uint64(pageSize), MaxPageSize).min(remainingMessages)  
       if initQuery : foundIndex = foundIndex - 1
@@ -262,7 +264,8 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
       e = foundIndex + retrievedPageSize 
       newCursor = msgList[e].index # the new cursor points to the end of the page
     of PagingDirection.BACKWARD: # backward pagination
-      let remainingMessages = foundIndex
+      var remainingMessages = foundIndex 
+      if initQuery:  remainingMessages = remainingMessages + 1
       # the number of queried messages cannot exceed the MaxPageSize and the total remaining messages i.e., foundIndex-0
       retrievedPageSize = min(uint64(pageSize), MaxPageSize).min(remainingMessages) 
       if initQuery : foundIndex = foundIndex + 1
