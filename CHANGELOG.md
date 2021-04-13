@@ -9,6 +9,8 @@
 - `relay`, `filter`, `store` and `swap` peers are now stored in a common, shared peer store and no longer in separate sets.
 - Admin API now provides a `post` method to connect to peers on an ad-hoc basis
 - Added persistent peer storage. A node will now attempt to reconnect to `relay` peers after a restart.
+- Changed `contentTopic` back to a string
+- Fixed: content filtering now works on any PubSub topic and not just the `waku` default.
 
 ## 2021-01-05 v0.2
 
