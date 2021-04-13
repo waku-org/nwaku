@@ -33,3 +33,4 @@ rln
 *.log
 package-lock.json
 node_modules/
+/.update.timestamp
