@@ -114,10 +114,10 @@ proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
 proc init*(T: type ContentFilter, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
 
-  var topics: seq[ContentTopic]
-  discard ? pb.getRepeatedField(1, topics)
+  var topic: ContentTopic
+  discard ? pb.getField(1, topic)
 
-  ok(ContentFilter(topics: topics))
+  ok(ContentFilter(topic: topic))
 
 proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryQuery()
@@ -181,9 +181,7 @@ proc init*(T: type HistoryRPC, buffer: seq[byte]): ProtoResult[T] =
 
 proc encode*(filter: ContentFilter): ProtoBuffer =
   result = initProtoBuffer()
-
-  for topic in filter.topics:
-    result.write(1, topic)
+  result.write(1, filter.topic)
 
 proc encode*(query: HistoryQuery): ProtoBuffer =
   result = initProtoBuffer()
@@ -315,8 +313,8 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   # data holds IndexedWakuMessage whose topics match the query
   var data : seq[IndexedWakuMessage] = @[]
   for filter in query.contentFilters:
-    var matched = w.messages.filterIt(it.msg.contentTopic in filter.topics)  
-    # TODO check for duplicate messages 
+    var matched = w.messages.filterIt(it.msg.contentTopic  == filter.topic)  
+    # TODO remove duplicates from data 
     data.add(matched)
 
   # temporal filtering   
