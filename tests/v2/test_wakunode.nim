@@ -162,7 +162,9 @@ procSuite "WakuNode":
         response.messages[0] == message
       completionFut.complete(true)
 
-    await node1.query(HistoryQuery(topics: @[contentTopic]), storeHandler)
+    # await node1.query(HistoryQuery(topics: @[contentTopic]), storeHandler)
+    await node1.query(HistoryQuery(contentFilters: @[HistoryContentFilter(topic: contentTopic)]), storeHandler)
+
     
     check:
       (await completionFut.withTimeout(5.seconds)) == true

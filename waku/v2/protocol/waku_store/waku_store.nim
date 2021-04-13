@@ -111,13 +111,13 @@ proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
 
   ok(pagingInfo) 
 
-proc init*(T: type ContentFilter, buffer: seq[byte]): ProtoResult[T] =
+proc init*(T: type HistoryContentFilter, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
 
   var topic: ContentTopic
   discard ? pb.getField(1, topic)
 
-  ok(ContentFilter(topic: topic))
+  ok(HistoryContentFilter(topic: topic))
 
 proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryQuery()
@@ -131,7 +131,7 @@ proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getRepeatedField(2, buffs)
   
   for buf in buffs:
-    msg.contentFilters.add(? ContentFilter.init(buf))
+    msg.contentFilters.add(? HistoryContentFilter.init(buf))
 
 
   var pagingInfoBuffer: seq[byte]
@@ -179,7 +179,7 @@ proc init*(T: type HistoryRPC, buffer: seq[byte]): ProtoResult[T] =
 
   ok(rpc)
 
-proc encode*(filter: ContentFilter): ProtoBuffer =
+proc encode*(filter: HistoryContentFilter): ProtoBuffer =
   result = initProtoBuffer()
   result.write(1, filter.topic)
 
