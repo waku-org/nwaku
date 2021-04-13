@@ -102,6 +102,16 @@ procSuite "pagination":
       newPagingInfo.cursor == msgList[1].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 2
+    
+    # test for an initial pagination request with an empty cursor to fetch the entire history
+    pagingInfo = PagingInfo(pageSize: 13, direction: PagingDirection.FORWARD)
+    (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
+    check:
+      data.len == 10
+      data == msgList[0..9]
+      newPagingInfo.cursor == msgList[9].index
+      newPagingInfo.direction == pagingInfo.direction
+      newPagingInfo.pageSize == 10
 
     # test for an empty msgList
     pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD)
@@ -147,7 +157,27 @@ procSuite "pagination":
       newPagingInfo.cursor == pagingInfo.cursor
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 0
- 
+
+    # test initial paging query over a message list with one message 
+    var singleItemMsgList = msgList[0..0]
+    pagingInfo = PagingInfo(pageSize: 10, direction: PagingDirection.FORWARD)
+    (data, newPagingInfo) = paginateWithIndex(singleItemMsgList, pagingInfo)
+    check:
+      data.len == 1
+      newPagingInfo.cursor == msgList[0].index
+      newPagingInfo.direction == pagingInfo.direction
+      newPagingInfo.pageSize == 1
+
+    # test pagination over a message list with one message
+    singleItemMsgList = msgList[0..0]
+    pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[0].index, direction: PagingDirection.FORWARD)
+    (data, newPagingInfo) = paginateWithIndex(singleItemMsgList, pagingInfo)
+    check:
+      data.len == 0
+      newPagingInfo.cursor == msgList[0].index
+      newPagingInfo.direction == pagingInfo.direction
+      newPagingInfo.pageSize == 0
+
   test "Backward pagination test":
     var
       msgList = createSampleList(10)
@@ -179,6 +209,16 @@ procSuite "pagination":
       newPagingInfo.cursor == msgList[8].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 2
+    
+    # test for an initial pagination request with an empty cursor to fetch the entire history
+    pagingInfo = PagingInfo(pageSize: 13, direction: PagingDirection.BACKWARD)
+    (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
+    check:
+      data.len == 10
+      data == msgList[0..9]
+      newPagingInfo.cursor == msgList[0].index
+      newPagingInfo.direction == pagingInfo.direction
+      newPagingInfo.pageSize == 10
 
 
     # test for a page size larger than the remaining messages
@@ -214,6 +254,26 @@ procSuite "pagination":
     check:
       data.len == 0
       newPagingInfo.cursor == pagingInfo.cursor
+      newPagingInfo.direction == pagingInfo.direction
+      newPagingInfo.pageSize == 0
+    
+    # test initial paging query over a message list with one message
+    var singleItemMsgList = msgList[0..0]
+    pagingInfo = PagingInfo(pageSize: 10, direction: PagingDirection.BACKWARD)
+    (data, newPagingInfo) = paginateWithIndex(singleItemMsgList, pagingInfo)
+    check:
+      data.len == 1
+      newPagingInfo.cursor == msgList[0].index
+      newPagingInfo.direction == pagingInfo.direction
+      newPagingInfo.pageSize == 1
+    
+    # test paging query over a message list with one message
+    singleItemMsgList = msgList[0..0]
+    pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[0].index, direction: PagingDirection.BACKWARD)
+    (data, newPagingInfo) = paginateWithIndex(singleItemMsgList, pagingInfo)
+    check:
+      data.len == 0
+      newPagingInfo.cursor == msgList[0].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 0
 
