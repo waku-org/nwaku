@@ -176,16 +176,37 @@ proc stop*(node: WakuNode) {.async.} =
 
   node.started = false
 
+proc subscribe(node: WakuNode, topic: Topic, handler: Option[TopicHandler]) =
+  info "subscribe", topic=topic
+
+  proc defaultHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+    # A default handler should be registered for all topics
+    trace "Hit default handler", topic=topic, data=data
+
+    let msg = WakuMessage.init(data)
+    if msg.isOk():
+      node.filters.notify(msg.value(), "")  # Trigger filter handlers on a light node
+      await node.subscriptions.notify(topic, msg.value()) # Trigger subscription handlers on a store/filter node
+      waku_node_messages.inc(labelValues = ["relay"])
+
+  let wakuRelay = node.wakuRelay
+
+  if topic notin PubSub(wakuRelay).topics:
+    # Add default handler only for new topics
+    debug "Registering default handler", topic=topic
+    wakuRelay.subscribe(topic, defaultHandler)
+
+  if handler.isSome:
+    debug "Registering handler", topic=topic
+    wakuRelay.subscribe(topic, handler.get())
+
 proc subscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
   ## this topic. TopicHandler is a method that takes a topic and some data.
   ##
   ## NOTE The data field SHOULD be decoded as a WakuMessage.
   ## Status: Implemented.
-  info "subscribe", topic=topic
-
-  let wakuRelay = node.wakuRelay
-  wakuRelay.subscribe(topic, handler)
+  node.subscribe(topic, some(handler))
 
 proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHandler) {.async, gcsafe.} =
   ## Registers for messages that match a specific filter. Triggers the handler whenever a message is received.
@@ -369,7 +390,6 @@ proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(stri
 
   node.wakuRlnRelay = rlnPeer
 
-
 proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
   ## this procedure is a thin wrapper for the pubsub addValidator method
   ## it sets message validator on the given pubsubTopic, the validator will check that
@@ -401,20 +421,11 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
   waitFor node.peerManager.reconnectPeers(WakuRelayCodec)
 
   info "mounting relay"
-  proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-    let msg = WakuMessage.init(data)
-    if msg.isOk():
-      node.filters.notify(msg.value(), "")
-      await node.subscriptions.notify(topic, msg.value())
-      waku_node_messages.inc(labelValues = ["relay"])
 
-  node.wakuRelay.subscribe(defaultTopic, relayHandler)
+  node.subscribe(defaultTopic, none(TopicHandler))
 
   for topic in topics:
-    proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      debug "Hit handler", topic=topic, data=data
-
-    node.subscribe(topic, handler)
+    node.subscribe(topic, none(TopicHandler))
 
   if rlnRelayEnabled:
     # TODO pass rln relay inputs to this proc, right now it uses default values that are set in the mountRlnRelay proc
@@ -430,7 +441,6 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
     waitFor node.wakuRelay.start()
 
     info "relay mounted and started successfully"
-
 
 ## Helpers
 proc dialPeer*(n: WakuNode, address: string) {.async.} =

@@ -132,6 +132,82 @@ procSuite "WakuNode":
       (await completionFut.withTimeout(5.seconds)) == true
     await node1.stop() 
     await node2.stop()
+  
+  asyncTest "Can receive filtered messages published on both default and other topics":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      defaultTopic = "/waku/2/default-waku/proto"
+      otherTopic = "/non/waku/formatted"
+      defaultContentTopic = "defaultCT"
+      otherContentTopic = "otherCT"
+      defaultPayload = @[byte 1]
+      otherPayload = @[byte 9]
+      defaultMessage = WakuMessage(payload: defaultPayload, contentTopic: defaultContentTopic)
+      otherMessage = WakuMessage(payload: otherPayload, contentTopic: otherContentTopic)
+      defaultFR = FilterRequest(contentFilters: @[ContentFilter(topics: @[defaultContentTopic])], subscribe: true)
+      otherFR = FilterRequest(contentFilters: @[ContentFilter(topics: @[otherContentTopic])], subscribe: true)
+
+    await node1.start()
+    node1.mountRelay()
+    node1.mountFilter()
+
+    await node2.start()
+    node2.mountRelay()
+    node2.mountFilter()
+    node2.wakuFilter.setPeer(node1.peerInfo)
+
+    var defaultComplete = newFuture[bool]()
+    var otherComplete = newFuture[bool]()
+
+    # Subscribe nodes 1 and 2 to otherTopic
+    proc emptyHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+      # Do not notify filters or subscriptions here. This should be default behaviour for all topics
+      discard
+    
+    node1.subscribe(otherTopic, emptyHandler)
+    node2.subscribe(otherTopic, emptyHandler)
+
+    await sleepAsync(2000.millis)
+
+    proc defaultHandler(msg: WakuMessage) {.gcsafe, closure.} =
+      check:
+        msg.payload == defaultPayload
+        msg.contentTopic == defaultContentTopic
+      defaultComplete.complete(true)
+    
+    proc otherHandler(msg: WakuMessage) {.gcsafe, closure.} =
+      check:
+        msg.payload == otherPayload
+        msg.contentTopic == otherContentTopic
+      otherComplete.complete(true)
+
+    # Subscribe a contentFilter to trigger a specific application handler when
+    # WakuMessages with that content are received
+    await node2.subscribe(defaultFR, defaultHandler)
+
+    await sleepAsync(2000.millis)
+
+    # Let's check that content filtering works on the default topic
+    await node1.publish(defaultTopic, defaultMessage)
+
+    check:
+      (await defaultComplete.withTimeout(5.seconds)) == true
+
+    # Now check that content filtering works on other topics
+    await node2.subscribe(otherFR, otherHandler)
+
+    await sleepAsync(2000.millis)
+
+    await node1.publish(otherTopic,otherMessage)
+    
+    check:
+      (await otherComplete.withTimeout(5.seconds)) == true
+
+    await node1.stop()
+    await node2.stop()
 
   asyncTest "Store protocol returns expected message":
     let
