@@ -29,7 +29,7 @@ proc installStoreApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
     
     var contentFilters: seq[HistoryContentFilter] = @[]
     for topic in topics:
-      contentFilters.add(HistoryContentFilter(topic: topic))
+      contentFilters.add(HistoryContentFilter(contentTopic: topic))
     let historyQuery = HistoryQuery(contentFilters: contentFilters,
                                     pagingInfo: if pagingOptions.isSome: pagingOptions.get.toPagingInfo() else: PagingInfo())
     

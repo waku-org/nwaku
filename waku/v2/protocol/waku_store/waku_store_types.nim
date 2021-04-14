@@ -18,7 +18,7 @@ const MaxPageSize* = uint64(100) # Maximum number of waku messages in each page
 
 type
   HistoryContentFilter* = object
-    topic*: ContentTopic
+    contentTopic*: ContentTopic
 
   QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
 

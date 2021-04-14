@@ -239,7 +239,7 @@ procSuite "WakuNode":
       completionFut.complete(true)
 
     
-    await node1.query(HistoryQuery(contentFilters: @[HistoryContentFilter(topic: contentTopic)]), storeHandler)
+    await node1.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic)]), storeHandler)
 
     
     check:
