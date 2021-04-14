@@ -208,7 +208,7 @@ proc writeAndPrint(c: Chat) {.async.} =
      await c.node.stop()
 
      echo "quitting..."
-     quit(0)
+     quit(QuitSuccess)
     else:
       # XXX connected state problematic
       if c.started:
