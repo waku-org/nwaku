@@ -69,6 +69,7 @@ This will bypass the random peer selection process and connect to the specified 
 | `/help` | displays available in-chat commands |
 | `/connect` | interactively connect to a new peer |
 | `/nick` | change nickname for current chat session |
+| `/exit` | exits the current chat session |
 
 ## `chat2` message protobuf format
 
