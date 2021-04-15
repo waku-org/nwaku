@@ -417,9 +417,6 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
   node.wakuRelay = wakuRelay
   node.switch.mount(wakuRelay)
 
-  # Reonnect to previous relay peers
-  waitFor node.peerManager.reconnectPeers(WakuRelayCodec)
-
   info "mounting relay"
 
   node.subscribe(defaultTopic, none(TopicHandler))
@@ -441,6 +438,9 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
     waitFor node.wakuRelay.start()
 
     info "relay mounted and started successfully"
+  
+  # Reconnect to previous relay peers
+  waitFor node.peerManager.reconnectPeers(WakuRelayCodec)
 
 ## Helpers
 proc dialPeer*(n: WakuNode, address: string) {.async.} =
@@ -496,6 +496,7 @@ proc connectToNodes*(n: WakuNode, nodes: seq[PeerInfo]) {.async.} =
 
 when isMainModule:
   import
+    system/ansi_c,
     confutils, json_rpc/rpcserver, metrics,
     ./config, 
     ./jsonrpc/[admin_api,
@@ -646,5 +647,27 @@ when isMainModule:
     if conf.metricsServer:
       startMetricsServer(conf.metricsServerAddress,
         Port(conf.metricsServerPort + conf.portsShift))
+  
+  # Setup graceful shutdown
+  
+  # Handle Ctrl-C SIGINT
+  proc handleCtrlC() {.noconv.} =
+    when defined(windows):
+      # workaround for https://github.com/nim-lang/Nim/issues/4057
+      setupForeignThreadGc()
+    info "Shutting down after receiving SIGINT"
+    waitFor node.stop()
+    quit(QuitSuccess)
+  
+  setControlCHook(handleCtrlC)
+
+  # Handle SIGTERM
+  when defined(posix):
+    proc handleSigterm(signal: cint) {.noconv.} =
+      info "Shutting down after receiving SIGTERM"
+      waitFor node.stop()
+      quit(QuitSuccess)
+    
+    c_signal(SIGTERM, handleSigterm)
 
   runForever()
