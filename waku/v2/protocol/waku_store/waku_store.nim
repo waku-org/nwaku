@@ -123,10 +123,7 @@ proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryQuery()
   let pb = initProtoBuffer(buffer)
 
-  # var topics: seq[ContentTopic]
 
-  # discard ? pb.getRepeatedField(2, topics)
-  # msg.topics = topics
   var buffs: seq[seq[byte]]
   discard ? pb.getRepeatedField(2, buffs)
   
@@ -141,6 +138,7 @@ proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
 
   discard ? pb.getField(4, msg.startTime)
   discard ? pb.getField(5, msg.endTime)
+  discard ? pb.getField(6, msg.pubsubTopic)
 
 
   ok(msg)
@@ -195,6 +193,8 @@ proc encode*(query: HistoryQuery): ProtoBuffer =
 
   result.write(4, query.startTime)
   result.write(5, query.endTime)
+
+  result.write(6, query.pubsubTopic)
 
 proc encode*(response: HistoryResponse): ProtoBuffer =
   result = initProtoBuffer()
@@ -310,12 +310,17 @@ proc paginateWithoutIndex(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (se
 
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   result = HistoryResponse(messages: newSeq[WakuMessage]())
-  # data holds IndexedWakuMessage whose topics match the query
+  # data holds IndexedWakuMessage whose content topics match the query
   var data : seq[IndexedWakuMessage] = @[]
   for filter in query.contentFilters:
     var matched = w.messages.filterIt(it.msg.contentTopic  == filter.contentTopic)  
     # TODO remove duplicates from data 
     data.add(matched)
+
+  # filter based on pubsub topic
+  # an empty pubsub topic means no pubsub topic filter is requested
+  if ((query.pubsubTopic).len != 0):
+    data = data.filterIt(it.pubsubTopic == query.pubsubTopic)
 
   # temporal filtering   
   # check whether the history query contains a time filter
@@ -362,8 +367,9 @@ method init*(ws: WakuStore) =
   if ws.store.isNil:
     return
 
-  proc onData(timestamp: uint64, msg: WakuMessage) =
-    ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex()))
+  proc onData(timestamp: uint64, msg: WakuMessage, pubsubTopic:  string) =
+    # TODO index should not be recalculated
+    ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex(), pubsubTopic: pubsubTopic))
 
   let res = ws.store.getAll(onData)
   if res.isErr:
@@ -393,17 +399,17 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   ## new messages.
   proc handle(topic: string, msg: WakuMessage) {.async.} =
     let index = msg.computeIndex()
-    proto.messages.add(IndexedWakuMessage(msg: msg, index: index))
+    proto.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: topic))
     waku_store_messages.inc(labelValues = ["stored"])
     if proto.store.isNil:
       return
   
-    let res = proto.store.put(index, msg)
+    let res = proto.store.put(index, msg, topic)
     if res.isErr:
       warn "failed to store messages", err = res.error
       waku_store_errors.inc(labelValues = ["store_failure"])
 
-  MessageNotificationSubscription.init(@[], handle)
+  result = MessageNotificationSubscription.init(@[], handle)
 
 proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
   # @TODO We need to be more stratigic about which peers we dial. Right now we just set one on the service.

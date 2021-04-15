@@ -26,6 +26,7 @@ type
     ## This type is used to encapsulate a WakuMessage and its Index
     msg*: WakuMessage
     index*: Index
+    pubsubTopic*: string
 
   PagingDirection* {.pure.} = enum
     ## PagingDirection determines the direction of pagination
@@ -40,6 +41,7 @@ type
 
   HistoryQuery* = object
     contentFilters*: seq[HistoryContentFilter]
+    pubsubTopic*: string
     pagingInfo*: PagingInfo # used for pagination
     startTime*: float64 # used for time-window query
     endTime*: float64 # used for time-window query

@@ -104,6 +104,56 @@ procSuite "Waku Store":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
+  
+  asyncTest "handle query with pubsub topic filter":
+    let
+      key = PrivateKey.random(ECDSA, rng[]).get()
+      peer = PeerInfo.init(key)
+      topic1 = defaultContentTopic
+      topic2 = ContentTopic("2")
+      topic3 = ContentTopic("3")
+      msg1 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic1)
+      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic2)
+      msg3 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic3)
+
+    var dialSwitch = newStandardSwitch()
+    discard await dialSwitch.start()
+
+    var listenSwitch = newStandardSwitch(some(key))
+    discard await listenSwitch.start()
+
+    let
+      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
+      pubsubtopic1 = "subscribed topic"
+      pubsubtopic2 = "non subscribed topic"
+    var subscription: MessageNotificationSubscription = proto.subscription()
+    subscription.topics = @[pubsubtopic1]
+    let       
+      rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: topic1), HistoryContentFilter(contentTopic: topic3)])
+
+    proto.setPeer(listenSwitch.peerInfo)
+
+    var subscriptions = newTable[string, MessageNotificationSubscription]()
+    subscriptions["test"] = subscription
+
+    listenSwitch.mount(proto)
+
+    await subscriptions.notify(pubsubtopic1, msg1)
+    await subscriptions.notify(pubsubtopic2, msg2)
+    await subscriptions.notify(pubsubtopic2, msg3)
+
+    var completionFut = newFuture[bool]()
+
+    proc handler(response: HistoryResponse) {.gcsafe, closure.} =
+      check:
+        response.messages.len() == 1
+        response.messages.anyIt(it == msg1)
+      completionFut.complete(true)
+
+    await proto.query(rpc, handler)
+
+    check:
+      (await completionFut.withTimeout(5.seconds)) == true
 
   asyncTest "handle query with store and restarts":
     let
