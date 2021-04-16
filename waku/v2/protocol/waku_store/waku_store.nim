@@ -114,10 +114,11 @@ proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
 proc init*(T: type HistoryContentFilter, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
 
-  var topic: ContentTopic
-  discard ? pb.getField(1, topic)
+  # ContentTopic corresponds to the contentTopic field of waku message (not to be confused with pubsub topic)
+  var contentTopic: ContentTopic
+  discard ? pb.getField(1, contentTopic)
 
-  ok(HistoryContentFilter(contentTopic: topic))
+  ok(HistoryContentFilter(contentTopic: contentTopic))
 
 proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryQuery()
