@@ -109,12 +109,12 @@ procSuite "Waku Store":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
-      topic1 = defaultContentTopic
-      topic2 = ContentTopic("2")
-      topic3 = ContentTopic("3")
-      msg1 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic1)
-      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic2)
-      msg3 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic3)
+      contentTopic1 = defaultContentTopic
+      contentTopic2 = ContentTopic("2")
+      contentTopic3 = ContentTopic("3")
+      msg1 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic1)
+      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic2)
+      msg3 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic3)
 
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()
@@ -126,10 +126,9 @@ procSuite "Waku Store":
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
       pubsubtopic1 = "subscribed topic"
       pubsubtopic2 = "non subscribed topic"
-    var subscription: MessageNotificationSubscription = proto.subscription()
-    subscription.topics = @[pubsubtopic1]
-    let       
-      rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: topic1), HistoryContentFilter(contentTopic: topic3)])
+      subscription: MessageNotificationSubscription = proto.subscription() 
+      # this query targets: pubsubtopic1 AND (contentTopic1 OR contentTopic3)    
+      rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic1), HistoryContentFilter(contentTopic: contentTopic3)], pubsubTopic: pubsubTopic1)
 
     proto.setPeer(listenSwitch.peerInfo)
 
@@ -138,6 +137,7 @@ procSuite "Waku Store":
 
     listenSwitch.mount(proto)
 
+    # publish messages
     await subscriptions.notify(pubsubtopic1, msg1)
     await subscriptions.notify(pubsubtopic2, msg2)
     await subscriptions.notify(pubsubtopic2, msg3)
@@ -147,6 +147,7 @@ procSuite "Waku Store":
     proc handler(response: HistoryResponse) {.gcsafe, closure.} =
       check:
         response.messages.len() == 1
+        # msg1 is the only match for the query predicate pubsubtopic1 AND (contentTopic1 OR contentTopic3) 
         response.messages.anyIt(it == msg1)
       completionFut.complete(true)
 
