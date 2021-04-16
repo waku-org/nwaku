@@ -319,7 +319,9 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
     for filter in query.contentFilters:
       var matched = w.messages.filterIt(it.msg.contentTopic  == filter.contentTopic)  
       matchedMessages.add(matched)
-    data = matchedMessages
+    # remove duplicates 
+    # duplicates may exist if two content filters target the same content topic, then the matched message gets added more than once
+    data = matchedMessages.deduplicate()
 
   # filter based on pubsub topic
   # an empty pubsub topic means no pubsub topic filter is requested
