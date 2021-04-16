@@ -309,12 +309,17 @@ proc paginateWithoutIndex(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (se
 
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   result = HistoryResponse(messages: newSeq[WakuMessage]())
-  # data holds IndexedWakuMessage whose content topics match the query
-  var data : seq[IndexedWakuMessage] = @[]
-  for filter in query.contentFilters:
-    var matched = w.messages.filterIt(it.msg.contentTopic  == filter.contentTopic)  
-    # TODO remove duplicates from data 
-    data.add(matched)
+  var data : seq[IndexedWakuMessage] = w.messages
+
+  # filter based on content filters
+  # an empty list of contentFilters means no content filter is requested
+  if ((query.contentFilters).len != 0):
+    # matchedMessages holds IndexedWakuMessage whose content topics match the queried Content filters
+    var matchedMessages : seq[IndexedWakuMessage] = @[]
+    for filter in query.contentFilters:
+      var matched = w.messages.filterIt(it.msg.contentTopic  == filter.contentTopic)  
+      matchedMessages.add(matched)
+    data = matchedMessages
 
   # filter based on pubsub topic
   # an empty pubsub topic means no pubsub topic filter is requested
