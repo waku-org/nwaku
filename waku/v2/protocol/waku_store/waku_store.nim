@@ -131,15 +131,15 @@ proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   for buf in buffs:
     msg.contentFilters.add(? HistoryContentFilter.init(buf))
 
+  discard ? pb.getField(3, msg.pubsubTopic)
 
   var pagingInfoBuffer: seq[byte]
-  discard ? pb.getField(3, pagingInfoBuffer)
+  discard ? pb.getField(4, pagingInfoBuffer)
 
   msg.pagingInfo = ? PagingInfo.init(pagingInfoBuffer)
 
-  discard ? pb.getField(4, msg.startTime)
-  discard ? pb.getField(5, msg.endTime)
-  discard ? pb.getField(6, msg.pubsubTopic)
+  discard ? pb.getField(5, msg.startTime)
+  discard ? pb.getField(6, msg.endTime)
 
 
   ok(msg)
@@ -185,17 +185,15 @@ proc encode*(filter: HistoryContentFilter): ProtoBuffer =
 proc encode*(query: HistoryQuery): ProtoBuffer =
   result = initProtoBuffer()
 
-  # for topic in query.topics:
-  #   result.write(2, topic)
   for filter in query.contentFilters:
     result.write(2, filter.encode())
-  
-  result.write(3, query.pagingInfo.encode())
+  result.write(3, query.pubsubTopic)
 
-  result.write(4, query.startTime)
-  result.write(5, query.endTime)
+  result.write(4, query.pagingInfo.encode())
 
-  result.write(6, query.pubsubTopic)
+  result.write(5, query.startTime)
+  result.write(6, query.endTime)
+
 
 proc encode*(response: HistoryResponse): ProtoBuffer =
   result = initProtoBuffer()
