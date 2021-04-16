@@ -419,10 +419,31 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
 
   info "mounting relay"
 
-  node.subscribe(defaultTopic, none(TopicHandler))
+  if node.peerManager.hasPeers(WakuRelayCodec):
+    trace "Found previous WakuRelay peers. Reconnecting."
+    # Reconnect to previous relay peers
+    waitFor node.peerManager.reconnectPeers(WakuRelayCodec)
+    
+    ## GossipSub specifies a backoff period after disconnecting and unsubscribing before attempting
+    ## to re-graft peer on previous topics. We have to respect this period before starting WakuRelay.
+    trace "Backing off before grafting after reconnecting to WakuRelay peers", backoff=wakuRelay.parameters.pruneBackoff
 
-  for topic in topics:
-    node.subscribe(topic, none(TopicHandler))
+    proc subscribeFuture() {.async.} =
+      # Subscribe after the backoff period
+      await sleepAsync(wakuRelay.parameters.pruneBackoff)
+
+      node.subscribe(defaultTopic, none(TopicHandler))
+
+      for topic in topics:
+        node.subscribe(topic, none(TopicHandler))
+    
+    discard subscribeFuture() # Dispatch future, but do not await.
+  else:
+    # Subscribe immediately
+    node.subscribe(defaultTopic, none(TopicHandler))
+
+    for topic in topics:
+      node.subscribe(topic, none(TopicHandler))
 
   if rlnRelayEnabled:
     # TODO pass rln relay inputs to this proc, right now it uses default values that are set in the mountRlnRelay proc
@@ -438,9 +459,6 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
     waitFor node.wakuRelay.start()
 
     info "relay mounted and started successfully"
-  
-  # Reconnect to previous relay peers
-  waitFor node.peerManager.reconnectPeers(WakuRelayCodec)
 
 ## Helpers
 proc dialPeer*(n: WakuNode, address: string) {.async.} =

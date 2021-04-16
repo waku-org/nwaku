@@ -76,6 +76,10 @@ proc dialPeer(pm: PeerManager, peerId: PeerID,
 proc loadFromStorage(pm: PeerManager) =
   # Load peers from storage, if available
   proc onData(peerId: PeerID, storedInfo: StoredInfo, connectedness: Connectedness) =
+    if peerId == pm.switch.peerInfo.peerId:
+      # Do not manage self
+      return
+
     pm.peerStore.addressBook.set(peerId, storedInfo.addrs)
     pm.peerStore.protoBook.set(peerId, storedInfo.protos)
     pm.peerStore.keyBook.set(peerId, storedInfo.publicKey)
@@ -149,9 +153,17 @@ proc hasPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string): bool =
 
   pm.peerStore.get(peerInfo.peerId).protos.contains(proto)
 
+proc hasPeers*(pm: PeerManager, proto: string): bool =
+  # Returns `true` if manager has any peers for the specified protocol
+  pm.peers.anyIt(it.protos.contains(proto))
+
 proc addPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string) =
   # Adds peer to manager for the specified protocol
 
+  if peerInfo.peerId == pm.switch.peerInfo.peerId:
+    # Do not attempt to manage our unmanageable self
+    return
+  
   debug "Adding peer to manager", peerId = peerInfo.peerId, addr = peerInfo.addrs[0], proto = proto
   
   # ...known addresses
