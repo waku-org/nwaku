@@ -17,6 +17,8 @@ export pagination
 const MaxPageSize* = uint64(100) # Maximum number of waku messages in each page
 
 type
+  HistoryContentFilter* = object
+    contentTopic*: ContentTopic
 
   QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
 
@@ -37,7 +39,7 @@ type
     direction*: PagingDirection
 
   HistoryQuery* = object
-    topics*: seq[ContentTopic]
+    contentFilters*: seq[HistoryContentFilter]
     pagingInfo*: PagingInfo # used for pagination
     startTime*: float64 # used for time-window query
     endTime*: float64 # used for time-window query

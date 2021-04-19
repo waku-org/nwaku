@@ -34,7 +34,7 @@ procSuite "Waku Store":
     let
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
       subscription = proto.subscription()
-      rpc = HistoryQuery(topics: @[topic])
+      rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: topic)])
 
     proto.setPeer(listenSwitch.peerInfo)
 
@@ -52,6 +52,52 @@ procSuite "Waku Store":
       check:
         response.messages.len() == 1
         response.messages[0] == msg
+      completionFut.complete(true)
+
+    await proto.query(rpc, handler)
+
+    check:
+      (await completionFut.withTimeout(5.seconds)) == true
+  asyncTest "handle query with multiple content filters":
+    let
+      key = PrivateKey.random(ECDSA, rng[]).get()
+      peer = PeerInfo.init(key)
+      topic1 = defaultContentTopic
+      topic2 = ContentTopic("2")
+      topic3 = ContentTopic("3")
+      msg1 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic1)
+      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic2)
+      msg3 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic3)
+
+    var dialSwitch = newStandardSwitch()
+    discard await dialSwitch.start()
+
+    var listenSwitch = newStandardSwitch(some(key))
+    discard await listenSwitch.start()
+
+    let
+      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
+      subscription = proto.subscription()
+      rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: topic1), HistoryContentFilter(contentTopic: topic3)])
+
+    proto.setPeer(listenSwitch.peerInfo)
+
+    var subscriptions = newTable[string, MessageNotificationSubscription]()
+    subscriptions["test"] = subscription
+
+    listenSwitch.mount(proto)
+
+    await subscriptions.notify("foo", msg1)
+    await subscriptions.notify("foo", msg2)
+    await subscriptions.notify("foo", msg3)
+
+    var completionFut = newFuture[bool]()
+
+    proc handler(response: HistoryResponse) {.gcsafe, closure.} =
+      check:
+        response.messages.len() == 2
+        response.messages.anyIt(it == msg1)
+        response.messages.anyIt(it == msg3)
       completionFut.complete(true)
 
     await proto.query(rpc, handler)
@@ -78,7 +124,7 @@ procSuite "Waku Store":
     let
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
       subscription = proto.subscription()
-      rpc = HistoryQuery(topics: @[topic])
+      rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: topic)])
 
     proto.setPeer(listenSwitch.peerInfo)
 
@@ -152,7 +198,7 @@ procSuite "Waku Store":
     let
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
       subscription = proto.subscription()
-      rpc = HistoryQuery(topics: @[defaultContentTopic], pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD) )
+      rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: defaultContentTopic)], pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD) )
       
     proto.setPeer(listenSwitch.peerInfo)
 
@@ -225,7 +271,7 @@ procSuite "Waku Store":
         response.pagingInfo.cursor != Index()
       completionFut.complete(true)
 
-    let rpc = HistoryQuery(topics: @[defaultContentTopic], pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD) )
+    let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: defaultContentTopic)], pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD) )
     await proto.query(rpc, handler)
 
     check:
@@ -274,7 +320,7 @@ procSuite "Waku Store":
         response.pagingInfo == PagingInfo()
       completionFut.complete(true)
 
-    let rpc = HistoryQuery(topics: @[defaultContentTopic] )
+    let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: defaultContentTopic)] )
 
     await proto.query(rpc, handler)
 
@@ -329,7 +375,7 @@ procSuite "Waku Store":
     let
       index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: defaultContentTopic))
       pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
-      query=HistoryQuery(topics: @[defaultContentTopic], pagingInfo: pagingInfo, startTime: float64(10), endTime: float64(11))
+      query = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: defaultContentTopic), HistoryContentFilter(contentTopic: defaultContentTopic)], pagingInfo: pagingInfo, startTime: float64(10), endTime: float64(11))
       pb = query.encode()
       decodedQuery = HistoryQuery.init(pb.buffer)
 
@@ -417,7 +463,7 @@ procSuite "Waku Store":
           response.messages.anyIt(it.timestamp == float(5))
         completionFut.complete(true)
 
-      let rpc = HistoryQuery(topics: @[ContentTopic("1")], startTime: float(2), endTime: float(5))
+      let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: ContentTopic("1"))], startTime: float(2), endTime: float(5))
       await proto.query(rpc, handler)
 
       check:
@@ -433,7 +479,7 @@ procSuite "Waku Store":
           response.messages.len() == 0
         completionFut.complete(true)
 
-      let rpc = HistoryQuery(topics: @[ContentTopic("1")], startTime: float(2), endTime: float(2))
+      let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: ContentTopic("1"))], startTime: float(2), endTime: float(2))
       await proto.query(rpc, handler)
 
       check:
@@ -450,7 +496,7 @@ procSuite "Waku Store":
         completionFut.complete(true)
 
       # time window is invalid since start time > end time
-      let rpc = HistoryQuery(topics: @[ContentTopic("1")], startTime: float(5), endTime: float(2))
+      let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: ContentTopic("1"))], startTime: float(5), endTime: float(2))
       await proto.query(rpc, handler)
 
       check:
