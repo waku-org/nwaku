@@ -124,6 +124,7 @@ proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryQuery()
   let pb = initProtoBuffer(buffer)
 
+  # var topics: seq[ContentTopic]
 
   var buffs: seq[seq[byte]]
   discard ? pb.getRepeatedField(2, buffs)
