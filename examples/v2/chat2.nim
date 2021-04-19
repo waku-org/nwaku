@@ -302,7 +302,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
         echo &"{chatLine}"
       info "Hit store handler"
 
-    await node.query(HistoryQuery(topics: @[DefaultContentTopic]), storeHandler)
+    await node.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)]), storeHandler)
 
   if conf.filternode != "":
     node.mountFilter()
