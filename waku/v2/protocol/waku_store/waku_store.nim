@@ -110,16 +110,30 @@ proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
   pagingInfo.direction = PagingDirection(direction)
 
   ok(pagingInfo) 
-  
+
+proc init*(T: type HistoryContentFilter, buffer: seq[byte]): ProtoResult[T] =
+  let pb = initProtoBuffer(buffer)
+
+  # ContentTopic corresponds to the contentTopic field of waku message (not to be confused with pubsub topic)
+  var contentTopic: ContentTopic
+  discard ? pb.getField(1, contentTopic)
+
+  ok(HistoryContentFilter(contentTopic: contentTopic))
+
 proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryQuery()
   let pb = initProtoBuffer(buffer)
 
-  var topics: seq[ContentTopic]
+  # var topics: seq[ContentTopic]
 
-  discard ? pb.getRepeatedField(2, topics)
+  # discard ? pb.getRepeatedField(2, topics)
+  # msg.topics = topics
+  var buffs: seq[seq[byte]]
+  discard ? pb.getRepeatedField(2, buffs)
+  
+  for buf in buffs:
+    msg.contentFilters.add(? HistoryContentFilter.init(buf))
 
-  msg.topics = topics
 
   var pagingInfoBuffer: seq[byte]
   discard ? pb.getField(3, pagingInfoBuffer)
@@ -166,11 +180,17 @@ proc init*(T: type HistoryRPC, buffer: seq[byte]): ProtoResult[T] =
 
   ok(rpc)
 
+proc encode*(filter: HistoryContentFilter): ProtoBuffer =
+  result = initProtoBuffer()
+  result.write(1, filter.contentTopic)
+
 proc encode*(query: HistoryQuery): ProtoBuffer =
   result = initProtoBuffer()
 
-  for topic in query.topics:
-    result.write(2, topic)
+  # for topic in query.topics:
+  #   result.write(2, topic)
+  for filter in query.contentFilters:
+    result.write(2, filter.encode())
   
   result.write(3, query.pagingInfo.encode())
 
@@ -292,7 +312,11 @@ proc paginateWithoutIndex(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (se
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   result = HistoryResponse(messages: newSeq[WakuMessage]())
   # data holds IndexedWakuMessage whose topics match the query
-  var data = w.messages.filterIt(it.msg.contentTopic in query.topics)  
+  var data : seq[IndexedWakuMessage] = @[]
+  for filter in query.contentFilters:
+    var matched = w.messages.filterIt(it.msg.contentTopic  == filter.contentTopic)  
+    # TODO remove duplicates from data 
+    data.add(matched)
 
   # temporal filtering   
   # check whether the history query contains a time filter

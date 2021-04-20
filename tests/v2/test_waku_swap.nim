@@ -81,7 +81,7 @@ procSuite "Waku SWAP Accounting":
         response.messages[0] == message
       completionFut.complete(true)
 
-    await node1.query(HistoryQuery(topics: @[contentTopic]), storeHandler)
+    await node1.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic)]), storeHandler)
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
@@ -127,8 +127,8 @@ procSuite "Waku SWAP Accounting":
       futures[1].complete(true)
 
     # TODO Handshakes - for now we assume implicit, e2e still works for PoC
-    await node1.query(HistoryQuery(topics: @[contentTopic]), handler1)
-    await node1.query(HistoryQuery(topics: @[contentTopic]), handler2)
+    await node1.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic)]), handler1)
+    await node1.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic)]), handler2)
 
     check:
       (await allFutures(futures).withTimeout(5.seconds)) == true
