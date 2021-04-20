@@ -13,7 +13,7 @@ suite "Message Store":
       database = SqliteDatabase.init("", inMemory = true)[]
       store = WakuMessageStore.init(database)[]
       topic = ContentTopic("/waku/2/default-content/proto")
-      pubsubTopic = "pubsubTopic"
+      pubsubTopic =  "/waku/2/default-waku/proto"
 
     var msgs = @[
       WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic),
