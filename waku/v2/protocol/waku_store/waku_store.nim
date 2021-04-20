@@ -348,6 +348,7 @@ method init*(ws: WakuStore) =
       waku_store_errors.inc(labelValues = [decodeRpcFailure])
       return
 
+    # TODO Print more info here
     info "received query"
 
     let value = res.value
@@ -363,6 +364,8 @@ method init*(ws: WakuStore) =
       ws.wakuSwap.credit(peerId, messages.len)
     else:
       info "handle store swap is nil"
+
+    info "sending response", messages=response.messages.len
 
     await conn.writeLp(HistoryRPC(requestId: value.requestId,
         response: response).encode().buffer)
@@ -386,6 +389,7 @@ method init*(ws: WakuStore) =
 
 proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgContext,
                    store: MessageStore = nil, wakuSwap: WakuSwap = nil): T =
+  debug "init"
   new result
   result.rng = rng
   result.peerManager = peerManager
@@ -404,6 +408,7 @@ proc subscription*(proto: WakuStore): MessageNotificationSubscription =
   ## the filter should be used by the component that receives
   ## new messages.
   proc handle(topic: string, msg: WakuMessage) {.async.} =
+    debug "subscription handle", topic=topic
     let index = msg.computeIndex()
     proto.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: topic))
     waku_store_messages.inc(labelValues = ["stored"])
