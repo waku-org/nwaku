@@ -10,6 +10,7 @@ import
   # NOTE For TopicHandler, solve with exports?
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
+  libp2p/protocols/pubsub/gossipsub,
   libp2p/standard_setup,
   ../protocol/[waku_relay, waku_message, message_notifier],
   ../protocol/waku_store/waku_store,
@@ -419,31 +420,16 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
 
   info "mounting relay"
 
+  node.subscribe(defaultTopic, none(TopicHandler))
+
+  for topic in topics:
+    node.subscribe(topic, none(TopicHandler))
+
   if node.peerManager.hasPeers(WakuRelayCodec):
     trace "Found previous WakuRelay peers. Reconnecting."
-    # Reconnect to previous relay peers
-    waitFor node.peerManager.reconnectPeers(WakuRelayCodec)
-    
-    ## GossipSub specifies a backoff period after disconnecting and unsubscribing before attempting
-    ## to re-graft peer on previous topics. We have to respect this period before starting WakuRelay.
-    trace "Backing off before grafting after reconnecting to WakuRelay peers", backoff=wakuRelay.parameters.pruneBackoff
-
-    proc subscribeFuture() {.async.} =
-      # Subscribe after the backoff period
-      await sleepAsync(wakuRelay.parameters.pruneBackoff)
-
-      node.subscribe(defaultTopic, none(TopicHandler))
-
-      for topic in topics:
-        node.subscribe(topic, none(TopicHandler))
-    
-    discard subscribeFuture() # Dispatch future, but do not await.
-  else:
-    # Subscribe immediately
-    node.subscribe(defaultTopic, none(TopicHandler))
-
-    for topic in topics:
-      node.subscribe(topic, none(TopicHandler))
+    # Reconnect to previous relay peers. This will respect a backoff period, if necessary
+    waitFor node.peerManager.reconnectPeers(WakuRelayCodec,
+                                            wakuRelay.parameters.pruneBackoff + chronos.seconds(BackoffSlackTime))
 
   if rlnRelayEnabled:
     # TODO pass rln relay inputs to this proc, right now it uses default values that are set in the mountRlnRelay proc
@@ -595,7 +581,7 @@ when isMainModule:
   
   var pStorage: WakuPeerStorage
 
-  if not sqliteDatabase.isNil:
+  if conf.peerpersist and not sqliteDatabase.isNil:
     let res = WakuPeerStorage.new(sqliteDatabase)
     if res.isErr:
       warn "failed to init new WakuPeerStorage", err = res.error
