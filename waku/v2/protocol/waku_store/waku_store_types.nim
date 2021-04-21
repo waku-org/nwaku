@@ -23,10 +23,10 @@ type
   QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
 
   IndexedWakuMessage* = object
+    # TODO may need to rename this object as it holds both the index and the pubsub topic of a waku message
     ## This type is used to encapsulate a WakuMessage and its Index
     msg*: WakuMessage
     index*: Index
-    # TODO may need to rename this object as it holds both the index and the pubsub topic of a waku message
     pubsubTopic*: string
 
   PagingDirection* {.pure.} = enum
