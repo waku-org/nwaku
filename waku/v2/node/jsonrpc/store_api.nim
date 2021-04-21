@@ -27,10 +27,6 @@ proc installStoreApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
       debug "get_waku_v2_store_v1_messages response"
       responseFut.complete(response.toStoreResponse())
     
-    # var contentFilters: seq[HistoryContentFilter] = @[]
-    # # items in contentTopics map to the contentTopic field of waku message (not to be confused with pubsub topic)
-    # for ct in contentTopics:
-    #   contentFilters.add(HistoryContentFilter(contentTopic: ct))
     let historyQuery = HistoryQuery(contentFilters: contentFilters,
                                     pagingInfo: if pagingOptions.isSome: pagingOptions.get.toPagingInfo() else: PagingInfo())
     
