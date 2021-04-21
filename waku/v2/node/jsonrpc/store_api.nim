@@ -38,4 +38,3 @@ proc installStoreApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
     else:
       # Future failed to complete
       raise newException(ValueError, "No history response received")
-    
