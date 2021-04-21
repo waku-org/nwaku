@@ -12,12 +12,13 @@ type
   PeerStorageResult*[T] = Result[T, string]
 
   DataProc* = proc(peerId: PeerID, storedInfo: StoredInfo,
-                   connectedness: Connectedness) {.closure.}
+                   connectedness: Connectedness, disconnectTime: int64) {.closure.}
 
 # PeerStorage interface
 method put*(db: PeerStorage,
             peerId: PeerID,
             storedInfo: StoredInfo,
-            connectedness: Connectedness): PeerStorageResult[void] {.base.} = discard
+            connectedness: Connectedness,
+            disconnectTime: int64): PeerStorageResult[void] {.base.} = discard
 
 method getAll*(db: PeerStorage, onData: DataProc): PeerStorageResult[bool] {.base.} = discard
