@@ -56,16 +56,18 @@ proc encode*(storedInfo: StoredInfo): ProtoBuffer =
 ##########################
 
 proc new*(T: type WakuPeerStorage, db: SqliteDatabase): PeerStorageResult[T] =
-  ## Create the "Peers" table
+  ## Create the "Peer" table
   ## It contains:
   ##  - peer id as primary key, stored as a blob
   ##  - stored info (serialised protobuf), stored as a blob
   ##  - last known enumerated connectedness state, stored as an integer
+  ##  - disconnect time in epoch seconds, if applicable
   let prepare = db.prepareStmt("""
-    CREATE TABLE IF NOT EXISTS Peers (
+    CREATE TABLE IF NOT EXISTS Peer (
         peerId BLOB PRIMARY KEY,
         storedInfo BLOB,
-        connectedness INTEGER
+        connectedness INTEGER,
+        disconnectTime INTEGER
     ) WITHOUT ROWID;
     """, NoParams, void)
 
@@ -82,19 +84,20 @@ proc new*(T: type WakuPeerStorage, db: SqliteDatabase): PeerStorageResult[T] =
 method put*(db: WakuPeerStorage,
             peerId: PeerID,
             storedInfo: StoredInfo,
-            connectedness: Connectedness): PeerStorageResult[void] =
+            connectedness: Connectedness,
+            disconnectTime: int64): PeerStorageResult[void] =
 
   ## Adds a peer to storage or replaces existing entry if it already exists
   let prepare = db.database.prepareStmt(
-    "REPLACE INTO Peers (peerId, storedInfo, connectedness) VALUES (?, ?, ?);",
-    (seq[byte], seq[byte], int32),
+    "REPLACE INTO Peer (peerId, storedInfo, connectedness, disconnectTime) VALUES (?, ?, ?, ?);",
+    (seq[byte], seq[byte], int32, int64),
     void
   )
 
   if prepare.isErr:
     return err("failed to prepare")
 
-  let res = prepare.value.exec((peerId.data, storedInfo.encode().buffer, int32(ord(connectedness))))
+  let res = prepare.value.exec((peerId.data, storedInfo.encode().buffer, int32(ord(connectedness)), disconnectTime))
   if res.isErr:
     return err("failed")
 
@@ -117,10 +120,12 @@ method getAll*(db: WakuPeerStorage, onData: peer_storage.DataProc): PeerStorageR
       storedInfo = StoredInfo.init(@(toOpenArray(sTo, 0, sToL - 1))).tryGet()
       # Connectedness
       connectedness = Connectedness(sqlite3_column_int(s, 2))
+      # DisconnectTime
+      disconnectTime = sqlite3_column_int64(s, 3)
 
-    onData(peerId, storedInfo, connectedness)
+    onData(peerId, storedInfo, connectedness, disconnectTime)
 
-  let res = db.database.query("SELECT peerId, storedInfo, connectedness FROM Peers", peer)
+  let res = db.database.query("SELECT peerId, storedInfo, connectedness, disconnectTime FROM Peer", peer)
   if res.isErr:
     return err("failed")
 

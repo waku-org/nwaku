@@ -19,8 +19,11 @@ type
   
   ConnectionBook* = object of PeerBook[Connectedness]
 
+  DisconnectBook* = object of PeerBook[int64] # Keeps track of when peers were disconnected in Unix timestamps
+
   WakuPeerStore* = ref object of PeerStore
     connectionBook*: ConnectionBook
+    disconnectBook*: DisconnectBook
 
 proc new*(T: type WakuPeerStore): WakuPeerStore =
   var p: WakuPeerStore

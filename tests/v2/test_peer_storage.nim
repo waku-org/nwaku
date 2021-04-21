@@ -21,21 +21,23 @@ suite "Peer Storage":
       peerProto = "/waku/2/default-waku/codec"
       stored = StoredInfo(peerId: peer.peerId, addrs: toHashSet([peerLoc]), protos: toHashSet([peerProto]), publicKey: peerKey.getKey().tryGet())
       conn = Connectedness.CanConnect
+      disconn = 999999
        
     defer: storage.close()
     
     # Test insert and retrieve
 
-    discard storage.put(peer.peerId, stored, conn)
+    discard storage.put(peer.peerId, stored, conn, disconn)
     
     var responseCount = 0
     proc data(peerId: PeerID, storedInfo: StoredInfo,
-              connectedness: Connectedness) =
+              connectedness: Connectedness, disconnectTime: int64) =
       responseCount += 1
       check:
         peerId == peer.peerId
         storedInfo == stored
         connectedness == conn
+        disconnectTime == disconn
     
     let res = storage.getAll(data)
     
@@ -44,16 +46,17 @@ suite "Peer Storage":
       responseCount == 1
     
     # Test replace and retrieve (update an existing entry)
-    discard storage.put(peer.peerId, stored, Connectedness.CannotConnect)
+    discard storage.put(peer.peerId, stored, Connectedness.CannotConnect, disconn + 10)
     
     responseCount = 0
     proc replacedData(peerId: PeerID, storedInfo: StoredInfo,
-                      connectedness: Connectedness) =
+                      connectedness: Connectedness, disconnectTime: int64) =
       responseCount += 1
       check:
         peerId == peer.peerId
         storedInfo == stored
         connectedness == CannotConnect
+        disconnectTime == disconn + 10
     
     let repRes = storage.getAll(replacedData)
     
