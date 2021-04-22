@@ -58,12 +58,12 @@ proc installFilterApiHandlers*(node: WakuNode, rpcsrv: RpcServer, messageCache: 
 
     # Construct a filter request
     # @TODO use default PubSub topic if undefined
-    let fReq = if topic.isSome: FilterRequest(topic: topic.get, contentFilters: contentFilters, subscribe: true) else: FilterRequest(contentFilters: contentFilters, subscribe: true)
+    let fReq = if topic.isSome: FilterRequest(pubSubTopic: topic.get, contentFilters: contentFilters, subscribe: true) else: FilterRequest(contentFilters: contentFilters, subscribe: true)
     
     if (await node.subscribe(fReq, filterHandler).withTimeout(futTimeout)):
       # Successfully subscribed to all content filters
       
-      for cTopic in concat(contentFilters.mapIt(it.topics)):
+      for cTopic in concat(contentFilters.mapIt(it.contentTopics)):
         # Create message cache for each subscribed content topic
         messageCache[cTopic] = @[]
       
@@ -78,12 +78,12 @@ proc installFilterApiHandlers*(node: WakuNode, rpcsrv: RpcServer, messageCache: 
 
     # Construct a filter request
     # @TODO consider using default PubSub topic if undefined
-    let fReq = if topic.isSome: FilterRequest(topic: topic.get, contentFilters: contentFilters, subscribe: false) else: FilterRequest(contentFilters: contentFilters, subscribe: false)
+    let fReq = if topic.isSome: FilterRequest(pubSubTopic: topic.get, contentFilters: contentFilters, subscribe: false) else: FilterRequest(contentFilters: contentFilters, subscribe: false)
 
     if (await node.unsubscribe(fReq).withTimeout(futTimeout)):
       # Successfully unsubscribed from all content filters
 
-      for cTopic in concat(contentFilters.mapIt(it.topics)):
+      for cTopic in concat(contentFilters.mapIt(it.contentTopics)):
         # Remove message cache for each unsubscribed content topic
         messageCache.del(cTopic)
 

@@ -81,7 +81,7 @@ proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilte
   # Flatten all unsubscribe topics into single seq
   var unsubscribeTopics: seq[ContentTopic]
   for cf in contentFilters:
-    unsubscribeTopics = unsubscribeTopics.concat(cf.topics)
+    unsubscribeTopics = unsubscribeTopics.concat(cf.contentTopics)
   
   debug "unsubscribing", unsubscribeTopics=unsubscribeTopics
 
@@ -90,10 +90,10 @@ proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilte
     # Iterate filter entries to remove matching content topics
     for cf in f.contentFilters.mitems:
       # Iterate content filters in filter entry
-      cf.topics.keepIf(proc (t: auto): bool = t notin unsubscribeTopics)
+      cf.contentTopics.keepIf(proc (t: auto): bool = t notin unsubscribeTopics)
     # make sure we delete the content filter
     # if no more topics are left
-    f.contentFilters.keepIf(proc (cf: auto): bool = cf.topics.len > 0)
+    f.contentFilters.keepIf(proc (cf: auto): bool = cf.contentTopics.len > 0)
 
     if f.contentFilters.len == 0:
       rIdToRemove.add(rId)
@@ -186,7 +186,6 @@ proc subscribe(node: WakuNode, topic: Topic, handler: Option[TopicHandler]) =
 
     let msg = WakuMessage.init(data)
     if msg.isOk():
-      node.filters.notify(msg.value(), "")  # Trigger filter handlers on a light node
       await node.subscriptions.notify(topic, msg.value()) # Trigger subscription handlers on a store/filter node
       waku_node_messages.inc(labelValues = ["relay"])
 
@@ -329,7 +328,7 @@ proc mountFilter*(node: WakuNode) =
   proc filterHandler(requestId: string, msg: MessagePush) {.gcsafe.} =
     info "push received"
     for message in msg.messages:
-      node.filters.notify(message, requestId)
+      node.filters.notify(message, requestId) # Trigger filter handlers on a light node
       waku_node_messages.inc(labelValues = ["filter"])
 
   node.wakuFilter = WakuFilter.init(node.peerManager, node.rng, filterHandler)
