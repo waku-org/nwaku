@@ -38,8 +38,6 @@ procSuite "Waku Light Push":
       debug "handle push req"
       check:
         1 == 0
-        #msg.messages.len() == 1
-        #msg.messages[0] == post
       responseRequestIdFuture.complete(requestId)
 
     # FIXME Unclear how we want to use subscriptions, if at all
@@ -51,8 +49,6 @@ procSuite "Waku Light Push":
     dialSwitch.mount(proto)
     proto.setPeer(listenSwitch.peerInfo)
 
-    #var subscriptions = newTable[string, MessageNotificationSubscription]()
-    #subscriptions["test"] = subscription
 
     # TODO Can possibly get rid of this if it isn't dynamic
     proc requestHandle(requestId: string, msg: PushRequest) {.gcsafe, closure.} =
@@ -71,11 +67,10 @@ procSuite "Waku Light Push":
       debug "push response handler, expecting false"
       check:
         response.isSuccess == false
-      #completionFut.complete(true)
+      completionFut.complete(true)
 
-    discard proto.request(rpc, handler)
-    #await proto.request(rpc, handler)
+    await proto.request(rpc, handler)
     await sleepAsync(2.seconds)
 
-#    check:
-#      (await completionFut.withTimeout(5.seconds)) == true
+    check:
+      (await completionFut.withTimeout(5.seconds)) == true
