@@ -20,8 +20,11 @@ type
   PushRPC* = object
     requestId*: string
     request*: PushRequest
-    push*: PushResponse
+    response*: PushResponse
+
+  PushRequestHandler* = proc(requestId: string, msg: PushRequest) {.gcsafe, closure.}
 
   WakuLightPush* = ref object of LPProtocol
     rng*: ref BrHmacDrbgContext
     peerManager*: PeerManager
+    pushHandler*: PushRequestHandler

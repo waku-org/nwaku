@@ -14,6 +14,17 @@ import
   ../../utils/requests,
   ../../node/peer_manager/peer_manager
 
+export waku_lightpush_types
+
+# TODO metrics
+declarePublicGauge waku_lightpush_errors, "number of lightpush protocol errors", ["type"]
+
+logScope:
+  topics = "wakulightpush"
+
+const
+  WakuFilterCodec* = "/vac/waku/lightpush/2.0.0-alpha1"
+
 # Encoding and decoding -------------------------------------------------------
 proc encode*(rpc: PushRequest): ProtoBuffer =
   result = initProtoBuffer()
@@ -77,6 +88,38 @@ proc init*(T: type PushRPC, buffer: seq[byte]): ProtoResult[T] =
   var pushBuffer: seq[byte]
   discard ? pb.getField(3, pushBuffer)
 
-  rpc.push = ? PushResponse.init(pushBuffer)
+  rpc.response = ? PushResponse.init(pushBuffer)
 
   ok(rpc)
+
+# Protocol -------------------------------------------------------
+proc init*(T: type WakuLightPush, peerManager: PeerManager, rng: ref BrHmacDrbgContext, handler: PushRequestHandler): T =
+  new result
+  result.rng = crypto.newRng()
+  result.peerManager = peerManager
+  result.pushRequestHandler = handler
+  result.init()
+
+method init*(wlp: WakuLightPush) =
+  proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
+    var message = await conn.readLp(64*1024)
+    var res = PushRPC.init(message)
+    if res.isErr:
+      error "failed to decode rpc"
+      waku_lightpush_errors.inc(labelValues = [decodeRpcFailure])
+      return
+
+    info "lightpush message received"
+
+    let value = res.value
+    if value.push != PushRequest():
+      # TODO: This should deal with messages
+      wlp.pushRequestHandler(value.requestId, value.push)
+    if value.request != PushResponse():
+      if value.response.isSuccessful:
+        info "lightpush message success"
+      else:
+        info "lightpush message failure", info=value.response.info
+
+  wlp.handler = handle
+  wlp.codec = WakuLightPushCodec
