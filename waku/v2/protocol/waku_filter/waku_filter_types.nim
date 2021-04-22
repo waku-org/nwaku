@@ -10,7 +10,7 @@ export waku_message
 
 type
   ContentFilter* = object
-    topics*: seq[ContentTopic]
+    contentTopics*: seq[ContentTopic]
 
   ContentFilterHandler* = proc(msg: WakuMessage) {.gcsafe, closure.}
 
@@ -23,7 +23,7 @@ type
 
   FilterRequest* = object
     contentFilters*: seq[ContentFilter]
-    topic*: string
+    pubSubTopic*: string
     subscribe*: bool
 
   MessagePush* = object

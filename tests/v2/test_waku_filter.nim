@@ -39,7 +39,7 @@ procSuite "Waku Filter":
 
     let
       proto = WakuFilter.init(PeerManager.new(dialSwitch), crypto.newRng(), handle)
-      rpc = FilterRequest(contentFilters: @[ContentFilter(topics: @[contentTopic])], topic: defaultTopic, subscribe: true)
+      rpc = FilterRequest(contentFilters: @[ContentFilter(contentTopics: @[contentTopic])], pubSubTopic: defaultTopic, subscribe: true)
 
     dialSwitch.mount(proto)
     proto.setPeer(listenSwitch.peerInfo)
@@ -88,7 +88,7 @@ procSuite "Waku Filter":
 
     let
       proto = WakuFilter.init(PeerManager.new(dialSwitch), crypto.newRng(), handle)
-      rpc = FilterRequest(contentFilters: @[ContentFilter(topics: @[contentTopic])], topic: defaultTopic, subscribe: true)
+      rpc = FilterRequest(contentFilters: @[ContentFilter(contentTopics: @[contentTopic])], pubSubTopic: defaultTopic, subscribe: true)
 
     dialSwitch.mount(proto)
     proto.setPeer(listenSwitch.peerInfo)
@@ -118,7 +118,7 @@ procSuite "Waku Filter":
     responseCompletionFuture = newFuture[bool]()
 
     let
-      rpcU = FilterRequest(contentFilters: @[ContentFilter(topics: @[contentTopic])], topic: defaultTopic, subscribe: false)
+      rpcU = FilterRequest(contentFilters: @[ContentFilter(contentTopics: @[contentTopic])], pubSubTopic: defaultTopic, subscribe: false)
 
     await proto.unsubscribe(rpcU)
 
@@ -145,7 +145,7 @@ procSuite "Waku Filter":
 
     let
       proto = WakuFilter.init(PeerManager.new(dialSwitch), crypto.newRng(), handle)
-      rpc = FilterRequest(contentFilters: @[ContentFilter(topics: @[contentTopic])], topic: defaultTopic, subscribe: true)
+      rpc = FilterRequest(contentFilters: @[ContentFilter(contentTopics: @[contentTopic])], pubSubTopic: defaultTopic, subscribe: true)
 
     dialSwitch.mount(proto)
 
