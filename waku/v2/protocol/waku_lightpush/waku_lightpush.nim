@@ -123,8 +123,11 @@ method init*(wlp: WakuLightPush) =
     let value = res.value
     if value.request != PushRequest():
       info "lightpush push request"
-      # TODO: This should deal with messages
-      wlp.requestHandler(value.requestId, value.request)
+      # TODO Relay messages here
+      var response = PushResponse(is_success: false, info: "NYI")
+      await conn.writeLp(PushRPC(requestId: value.requestId,
+      response: response).encode().buffer)
+      #wlp.requestHandler(value.requestId, value.request)
     if value.response != PushResponse():
       if value.response.isSuccess:
         info "lightpush message success"
@@ -133,3 +136,32 @@ method init*(wlp: WakuLightPush) =
 
   wlp.handler = handle
   wlp.codec = WakuLightPushCodec
+
+proc request*(w: WakuLightPush, request: PushRequest, handler: PushResponseHandler) {.async, gcsafe.} =
+  let peerOpt = w.peerManager.selectPeer(WakuLightPushCodec)
+
+  if peerOpt.isNone():
+    error "no suitable remote peers"
+    waku_lightpush_errors.inc(labelValues = [dialFailure])
+    return
+
+  let connOpt = await w.peerManager.dialPeer(peerOpt.get(), WakuLightPushCodec)
+
+  if connOpt.isNone():
+    # @TODO more sophisticated error handling here
+    error "failed to connect to remote peer"
+    waku_lightpush_errors.inc(labelValues = [dialFailure])
+    return
+
+  await connOpt.get().writeLP(PushRPC(requestId: generateRequestId(w.rng),
+                                      request: request).encode().buffer)
+
+  var message = await connOpt.get().readLp(64*1024)
+  let response = PushRPC.init(message)
+
+  if response.isErr:
+    error "failed to decode response"
+    waku_lightpush_errors.inc(labelValues = [decodeRpcFailure])
+    return
+
+  handler(response.value.response)

@@ -22,6 +22,8 @@ type
     request*: PushRequest
     response*: PushResponse
 
+  PushResponseHandler* = proc(response: PushResponse) {.gcsafe, closure.}
+
   PushRequestHandler* = proc(requestId: string, msg: PushRequest) {.gcsafe, closure.}
 
   WakuLightPush* = ref object of LPProtocol

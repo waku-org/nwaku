@@ -31,107 +31,51 @@ procSuite "Waku Light Push":
     discard await listenSwitch.start()
 
     var responseRequestIdFuture = newFuture[string]()
+    var completionFut = newFuture[bool]()
+
     proc handle(requestId: string, msg: PushRequest) {.gcsafe, closure.} =
       # TODO Success return here
-      echo "handle push req"
-      #check:
+      debug "handle push req"
+      check:
+        1 == 0
         #msg.messages.len() == 1
         #msg.messages[0] == post
       responseRequestIdFuture.complete(requestId)
 
     # FIXME Unclear how we want to use subscriptions, if at all
-    # let
-    #   proto = WakuLightPush.init(PeerManager.new(dialSwitch), crypto.newRng(), handle)
-    #   wm = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
-    #   rpc = PushRequest(pubSubTopic: defaultTopic, message: wm)
+    let
+      proto = WakuLightPush.init(PeerManager.new(dialSwitch), crypto.newRng(), handle)
+      wm = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
+      rpc = PushRequest(pubSubTopic: defaultTopic, message: wm)
 
-    # dialSwitch.mount(proto)
-    # proto.setPeer(listenSwitch.peerInfo)
+    dialSwitch.mount(proto)
+    proto.setPeer(listenSwitch.peerInfo)
 
-    # proc emptyHandle(requestId: string, msg: PushRequest) {.gcsafe, closure.} =
-    #   discard
+    #var subscriptions = newTable[string, MessageNotificationSubscription]()
+    #subscriptions["test"] = subscription
 
-    # let
-    #   proto2 = WakuLightPush.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle)
-    #   subscription = proto2.subscription()
+    # TODO Can possibly get rid of this if it isn't dynamic
+    proc requestHandle(requestId: string, msg: PushRequest) {.gcsafe, closure.} =
+      debug "push request handler"
+      # TODO: Also relay message
+      # TODO: Here we want to send back response with is_success true
+      discard
 
-    # var subscriptions = newTable[string, MessageNotificationSubscription]()
-    # subscriptions["test"] = subscription
-    # listenSwitch.mount(proto2)
+    let
+      proto2 = WakuLightPush.init(PeerManager.new(listenSwitch), crypto.newRng(), requestHandle)
 
-    # let id = (await proto.subscribe(rpc)).get()
+    listenSwitch.mount(proto2)
 
-    # await sleepAsync(2.seconds)
+    # FIXME Don't think this will be hit yet
+    proc handler(response: PushResponse) {.gcsafe, closure.} =
+      debug "push response handler, expecting false"
+      check:
+        response.isSuccess == false
+      #completionFut.complete(true)
 
-    # await subscriptions.notify(defaultTopic, post)
+    discard proto.request(rpc, handler)
+    #await proto.request(rpc, handler)
+    await sleepAsync(2.seconds)
 
-    # check:
-    #   (await responseRequestIdFuture) == id
-
-  # TODO something similar
-  #
-  # asyncTest "Can subscribe and unsubscribe from content filter":
-  #   const defaultTopic = "/waku/2/default-waku/proto"
-
-  #   let
-  #     key = PrivateKey.random(ECDSA, rng[]).get()
-  #     peer = PeerInfo.init(key)
-  #     contentTopic = ContentTopic("/waku/2/default-content/proto")
-  #     post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
-
-  #   var dialSwitch = newStandardSwitch()
-  #   discard await dialSwitch.start()
-
-  #   var listenSwitch = newStandardSwitch(some(key))
-  #   discard await listenSwitch.start()
-
-  #   var responseCompletionFuture = newFuture[bool]()
-  #   proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
-  #     check:
-  #       msg.messages.len() == 1
-  #       msg.messages[0] == post
-  #     responseCompletionFuture.complete(true)
-
-  #   let
-  #     proto = WakuFilter.init(PeerManager.new(dialSwitch), crypto.newRng(), handle)
-  #     rpc = FilterRequest(contentFilters: @[ContentFilter(topics: @[contentTopic])], topic: defaultTopic, subscribe: true)
-
-  #   dialSwitch.mount(proto)
-  #   proto.setPeer(listenSwitch.peerInfo)
-
-  #   proc emptyHandle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
-  #     discard
-
-  #   let
-  #     proto2 = WakuFilter.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle)
-  #     subscription = proto2.subscription()
-
-  #   var subscriptions = newTable[string, MessageNotificationSubscription]()
-  #   subscriptions["test"] = subscription
-  #   listenSwitch.mount(proto2)
-
-  #   let id = (await proto.subscribe(rpc)).get()
-
-  #   await sleepAsync(2.seconds)
-
-  #   await subscriptions.notify(defaultTopic, post)
-
-  #   check:
-  #     # Check that subscription works as expected
-  #     (await responseCompletionFuture.withTimeout(3.seconds)) == true
-
-  #   # Reset to test unsubscribe
-  #   responseCompletionFuture = newFuture[bool]()
-
-  #   let
-  #     rpcU = FilterRequest(contentFilters: @[ContentFilter(topics: @[contentTopic])], topic: defaultTopic, subscribe: false)
-
-  #   await proto.unsubscribe(rpcU)
-
-  #   await sleepAsync(2.seconds)
-
-  #   await subscriptions.notify(defaultTopic, post)
-
-  #   check:
-  #     # Check that unsubscribe works as expected
-  #     (await responseCompletionFuture.withTimeout(5.seconds)) == false
+#    check:
+#      (await completionFut.withTimeout(5.seconds)) == true
