@@ -27,4 +27,4 @@ type
   WakuLightPush* = ref object of LPProtocol
     rng*: ref BrHmacDrbgContext
     peerManager*: PeerManager
-    pushHandler*: PushRequestHandler
+    requestHandler*: PushRequestHandler

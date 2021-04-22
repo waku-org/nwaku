@@ -16,14 +16,19 @@ import
 
 export waku_lightpush_types
 
-# TODO metrics
+declarePublicGauge waku_lightpush_peers, "number of lightpush peers"
 declarePublicGauge waku_lightpush_errors, "number of lightpush protocol errors", ["type"]
 
 logScope:
   topics = "wakulightpush"
 
 const
-  WakuFilterCodec* = "/vac/waku/lightpush/2.0.0-alpha1"
+  WakuLightPushCodec* = "/vac/waku/lightpush/2.0.0-alpha1"
+
+# Error types (metric label values)
+const
+  dialFailure = "dial_failure"
+  decodeRpcFailure = "decode_rpc_failure"
 
 # Encoding and decoding -------------------------------------------------------
 proc encode*(rpc: PushRequest): ProtoBuffer =
@@ -33,33 +38,33 @@ proc encode*(rpc: PushRequest): ProtoBuffer =
   result.write(2, rpc.message.encode())
 
 proc init*(T: type PushRequest, buffer: seq[byte]): ProtoResult[T] =
-  var rpc = PushRequest(pubsubTopic: "", message: WakuMessage())
+  #var rpc = PushRequest(pubsubTopic: "", message: WakuMessage())
+  var rpc = PushRequest()
   let pb = initProtoBuffer(buffer)
 
   var pubsubTopic: string
   discard ? pb.getField(1, pubsubTopic)
   rpc.pubsubTopic = pubsubTopic
 
-  var message: seq[byte]
-  discard ? pb.getRepeatedField(2, message)
-  WakuMessage.init(message)
-  rpc.message = message
+  var buf: seq[byte]
+  discard ? pb.getField(2, buf)
+  rpc.message = ? WakuMessage.init(buf)
 
   ok(rpc)
 
 proc encode*(rpc: PushResponse): ProtoBuffer =
   result = initProtoBuffer()
 
-  result.write(1, bool(rpc.isSuccess))
+  result.write(1, uint64(rpc.isSuccess))
   result.write(2, rpc.info)
 
 proc init*(T: type PushResponse, buffer: seq[byte]): ProtoResult[T] =
   var rpc = PushResponse(isSuccess: false, info: "")
   let pb = initProtoBuffer(buffer)
 
-  var isSuccess: bool
-  discard ? pb.getField(1, isSuccess)
-  rpc.isSuccess = isSuccess
+  var isSuccess: uint64
+  if ? pb.getField(1, isSuccess):
+    rpc.isSuccess = bool(isSuccess)
 
   var info: string
   discard ? pb.getField(2, info)
@@ -97,8 +102,12 @@ proc init*(T: type WakuLightPush, peerManager: PeerManager, rng: ref BrHmacDrbgC
   new result
   result.rng = crypto.newRng()
   result.peerManager = peerManager
-  result.pushRequestHandler = handler
+  result.requestHandler = handler
   result.init()
+
+proc setPeer*(wlp: WakuLightPush, peer: PeerInfo) =
+  wlp.peerManager.addPeer(peer, WakuLightPushCodec)
+  waku_lightpush_peers.inc()
 
 method init*(wlp: WakuLightPush) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
@@ -112,11 +121,12 @@ method init*(wlp: WakuLightPush) =
     info "lightpush message received"
 
     let value = res.value
-    if value.push != PushRequest():
+    if value.request != PushRequest():
+      info "lightpush push request"
       # TODO: This should deal with messages
-      wlp.pushRequestHandler(value.requestId, value.push)
-    if value.request != PushResponse():
-      if value.response.isSuccessful:
+      wlp.requestHandler(value.requestId, value.request)
+    if value.response != PushResponse():
+      if value.response.isSuccess:
         info "lightpush message success"
       else:
         info "lightpush message failure", info=value.response.info
