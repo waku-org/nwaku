@@ -48,8 +48,8 @@ proc notify*(filters: Filters, msg: WakuMessage, requestId: string = "") =
     # TODO: In case of no topics we should either trigger here for all messages,
     # or we should not allow such filter to exist in the first place.
     for contentFilter in filter.contentFilters:
-      if contentFilter.topics.len > 0:
-        if msg.contentTopic in contentFilter.topics:
+      if contentFilter.contentTopics.len > 0:
+        if msg.contentTopic in contentFilter.contentTopics:
           filter.handler(msg)
           break
 
@@ -57,7 +57,7 @@ proc unsubscribeFilters(subscribers: var seq[Subscriber], request: FilterRequest
   # Flatten all unsubscribe topics into single seq
   var unsubscribeTopics: seq[ContentTopic]
   for cf in request.contentFilters:
-    unsubscribeTopics = unsubscribeTopics.concat(cf.topics)
+    unsubscribeTopics = unsubscribeTopics.concat(cf.contentTopics)
   
   debug "unsubscribing", peerId=peerId, unsubscribeTopics=unsubscribeTopics
 
@@ -67,11 +67,11 @@ proc unsubscribeFilters(subscribers: var seq[Subscriber], request: FilterRequest
     # Iterate through subscriber entries matching peer ID to remove matching content topics
     for cf in subscriber.filter.contentFilters.mitems:
       # Iterate content filters in filter entry
-      cf.topics.keepIf(proc (t: auto): bool = t notin unsubscribeTopics)
+      cf.contentTopics.keepIf(proc (t: auto): bool = t notin unsubscribeTopics)
 
     # make sure we delete the content filter
     # if no more topics are left
-    subscriber.filter.contentFilters.keepIf(proc (cf: auto): bool = cf.topics.len > 0)
+    subscriber.filter.contentFilters.keepIf(proc (cf: auto): bool = cf.contentTopics.len > 0)
 
   # make sure we delete the subscriber
   # if no more content filters left
@@ -83,15 +83,15 @@ proc unsubscribeFilters(subscribers: var seq[Subscriber], request: FilterRequest
 proc encode*(filter: ContentFilter): ProtoBuffer =
   result = initProtoBuffer()
 
-  for topic in filter.topics:
-    result.write(1, topic)
+  for contentTopic in filter.contentTopics:
+    result.write(1, contentTopic)
 
 proc encode*(rpc: FilterRequest): ProtoBuffer =
   result = initProtoBuffer()
   
   result.write(1, uint64(rpc.subscribe))
 
-  result.write(2, rpc.topic)
+  result.write(2, rpc.pubSubTopic)
 
   for filter in rpc.contentFilters:
     result.write(3, filter.encode())
@@ -99,20 +99,20 @@ proc encode*(rpc: FilterRequest): ProtoBuffer =
 proc init*(T: type ContentFilter, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
 
-  var topics: seq[ContentTopic]
-  discard ? pb.getRepeatedField(1, topics)
+  var contentTopics: seq[ContentTopic]
+  discard ? pb.getRepeatedField(1, contentTopics)
 
-  ok(ContentFilter(topics: topics))
+  ok(ContentFilter(contentTopics: contentTopics))
 
 proc init*(T: type FilterRequest, buffer: seq[byte]): ProtoResult[T] =
-  var rpc = FilterRequest(contentFilters: @[], topic: "")
+  var rpc = FilterRequest(contentFilters: @[], pubSubTopic: "")
   let pb = initProtoBuffer(buffer)
 
   var subflag: uint64
   if ? pb.getField(1, subflag):
     rpc.subscribe = bool(subflag)
 
-  discard ? pb.getField(2, rpc.topic)
+  discard ? pb.getField(2, rpc.pubSubTopic)
 
   var buffs: seq[seq[byte]]
   discard ? pb.getRepeatedField(3, buffs)
@@ -205,12 +205,16 @@ proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
   ## Returns a Filter for the specific protocol
   ## This filter can then be used to send messages to subscribers that match conditions.   
   proc handle(topic: string, msg: WakuMessage) {.async.} =
+    trace "handle WakuFilter subscription", topic=topic, msg=msg
+
     for subscriber in proto.subscribers:
-      if subscriber.filter.topic != topic:
+      if subscriber.filter.pubSubTopic != "" and subscriber.filter.pubSubTopic != topic:
+        trace "Subscriber's filter pubsubTopic does not match message topic", filter=subscriber.filter.pubSubTopic, topic=topic
         continue
 
       for filter in subscriber.filter.contentFilters:
-        if msg.contentTopic in filter.topics:
+        if msg.contentTopic in filter.contentTopics:
+          trace "Found matching contentTopic", filter=filter, msg=msg
           let push = FilterRPC(requestId: subscriber.requestId, push: MessagePush(messages: @[msg]))
           
           let connOpt = await proto.peerManager.dialPeer(subscriber.peer, WakuFilterCodec)
