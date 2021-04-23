@@ -297,6 +297,20 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage,  rlnRelayEnabl
 
   discard await wakuRelay.publish(topic, data)
 
+proc lightpush*(node: WakuNode, topic: Topic, message: WakuMessage, handler: PushResponseHandler) {.async, gcsafe.} =
+  ## Pushes a `WakuMessage` to a node which relays it further on PubSub topic.
+  ## `WakuMessage` should contain a `contentTopic` field for light node
+  ## functionality. This field may be also be omitted.
+  ##
+  ## Status: Implemented.
+
+  debug "Publishing with lightpush", topic=topic, contentTopic=message.contentTopic
+  #var publishingMessage = message
+  #let data = message.encode().buffer
+
+  let rpc = PushRequest(pubSubTopic: topic, message: message)
+  await node.wakuLightPush.request(rpc, handler)
+
 proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
   ## Queries known nodes for historical messages. Triggers the handler whenever a response is received.
   ## QueryHandlerFunc is a method that takes a HistoryResponse.
@@ -447,7 +461,7 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
 
     info "relay mounted and started successfully"
 
-proc mountLightPush*(node: WakuNode, relay: WakuRelay = nil) =
+proc mountLightPush*(node: WakuNode) =
   info "mounting light push"
 
   if node.wakuRelay.isNil:
@@ -455,7 +469,7 @@ proc mountLightPush*(node: WakuNode, relay: WakuRelay = nil) =
     node.wakuLightPush = WakuLightPush.init(node.peerManager, node.rng, nil)
   else:
     debug "mounting lightpush with relay"
-    node.wakuLightPush = WakuLightPush.init(node.peerManager, node.rng, nil, relay)
+    node.wakuLightPush = WakuLightPush.init(node.peerManager, node.rng, nil, node.wakuRelay)
 
   node.switch.mount(node.wakuLightPush)
 
