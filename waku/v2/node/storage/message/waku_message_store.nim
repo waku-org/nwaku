@@ -13,6 +13,7 @@ import
 
 export sqlite
 
+const TABLE_TITLE = "Message"
 # The code in this file is an adaptation of the Sqlite KV Store found in nim-eth.
 # https://github.com/status-im/nim-eth/blob/master/eth/db/kvstore_sqlite3.nim
 #
@@ -28,7 +29,7 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] 
   ##  - 4-Byte ContentTopic stored as an Integer
   ##  - Payload stored as a blob
   let prepare = db.prepareStmt("""
-    CREATE TABLE IF NOT EXISTS messages (
+    CREATE TABLE IF NOT EXISTS """ & TABLE_TITLE & """ (
         id BLOB PRIMARY KEY,
         timestamp INTEGER NOT NULL,
         contentTopic BLOB NOT NULL,
@@ -57,7 +58,7 @@ method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTop
   ##     echo "error"
   ## 
   let prepare = db.database.prepareStmt(
-    "INSERT INTO messages (id, timestamp, contentTopic, payload, pubsubTopic) VALUES (?, ?, ?, ?, ?);",
+    "INSERT INTO " & TABLE_TITLE & " (id, timestamp, contentTopic, payload, pubsubTopic) VALUES (?, ?, ?, ?, ?);",
     (seq[byte], int64, seq[byte], seq[byte], seq[byte]),
     void
   )
@@ -100,7 +101,7 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageSto
                        payload: @(toOpenArray(p, 0, l-1))), 
                        string.fromBytes(@(toOpenArray(pubsubTopic, 0, pubsubTopicL-1))))
 
-  let res = db.database.query("SELECT timestamp, contentTopic, payload, pubsubTopic FROM messages ORDER BY timestamp ASC", msg)
+  let res = db.database.query("SELECT timestamp, contentTopic, payload, pubsubTopic FROM " & TABLE_TITLE & " ORDER BY timestamp ASC", msg)
   if res.isErr:
     return err("failed")
 
