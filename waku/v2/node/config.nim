@@ -42,6 +42,11 @@ type
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
       name: "staticnode" }: seq[string]
+    
+    peerpersist* {.
+      desc: "Enable peer persistence: true|false",
+      defaultValue: false
+      name: "peerpersist" }: bool
 
     storenode* {.
       desc: "Peer multiaddr to query for storage.",

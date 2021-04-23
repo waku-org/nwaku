@@ -10,6 +10,7 @@ import
   # NOTE For TopicHandler, solve with exports?
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
+  libp2p/protocols/pubsub/gossipsub,
   libp2p/standard_setup,
   ../protocol/[waku_relay, waku_message, message_notifier],
   ../protocol/waku_store/waku_store,
@@ -80,7 +81,7 @@ proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilte
   # Flatten all unsubscribe topics into single seq
   var unsubscribeTopics: seq[ContentTopic]
   for cf in contentFilters:
-    unsubscribeTopics = unsubscribeTopics.concat(cf.topics)
+    unsubscribeTopics = unsubscribeTopics.concat(cf.contentTopics)
   
   debug "unsubscribing", unsubscribeTopics=unsubscribeTopics
 
@@ -89,10 +90,10 @@ proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilte
     # Iterate filter entries to remove matching content topics
     for cf in f.contentFilters.mitems:
       # Iterate content filters in filter entry
-      cf.topics.keepIf(proc (t: auto): bool = t notin unsubscribeTopics)
+      cf.contentTopics.keepIf(proc (t: auto): bool = t notin unsubscribeTopics)
     # make sure we delete the content filter
     # if no more topics are left
-    f.contentFilters.keepIf(proc (cf: auto): bool = cf.topics.len > 0)
+    f.contentFilters.keepIf(proc (cf: auto): bool = cf.contentTopics.len > 0)
 
     if f.contentFilters.len == 0:
       rIdToRemove.add(rId)
@@ -185,7 +186,6 @@ proc subscribe(node: WakuNode, topic: Topic, handler: Option[TopicHandler]) =
 
     let msg = WakuMessage.init(data)
     if msg.isOk():
-      node.filters.notify(msg.value(), "")  # Trigger filter handlers on a light node
       await node.subscriptions.notify(topic, msg.value()) # Trigger subscription handlers on a store/filter node
       waku_node_messages.inc(labelValues = ["relay"])
 
@@ -328,7 +328,7 @@ proc mountFilter*(node: WakuNode) =
   proc filterHandler(requestId: string, msg: MessagePush) {.gcsafe.} =
     info "push received"
     for message in msg.messages:
-      node.filters.notify(message, requestId)
+      node.filters.notify(message, requestId) # Trigger filter handlers on a light node
       waku_node_messages.inc(labelValues = ["filter"])
 
   node.wakuFilter = WakuFilter.init(node.peerManager, node.rng, filterHandler)
@@ -419,31 +419,16 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
 
   info "mounting relay"
 
+  node.subscribe(defaultTopic, none(TopicHandler))
+
+  for topic in topics:
+    node.subscribe(topic, none(TopicHandler))
+
   if node.peerManager.hasPeers(WakuRelayCodec):
     trace "Found previous WakuRelay peers. Reconnecting."
-    # Reconnect to previous relay peers
-    waitFor node.peerManager.reconnectPeers(WakuRelayCodec)
-    
-    ## GossipSub specifies a backoff period after disconnecting and unsubscribing before attempting
-    ## to re-graft peer on previous topics. We have to respect this period before starting WakuRelay.
-    trace "Backing off before grafting after reconnecting to WakuRelay peers", backoff=wakuRelay.parameters.pruneBackoff
-
-    proc subscribeFuture() {.async.} =
-      # Subscribe after the backoff period
-      await sleepAsync(wakuRelay.parameters.pruneBackoff)
-
-      node.subscribe(defaultTopic, none(TopicHandler))
-
-      for topic in topics:
-        node.subscribe(topic, none(TopicHandler))
-    
-    discard subscribeFuture() # Dispatch future, but do not await.
-  else:
-    # Subscribe immediately
-    node.subscribe(defaultTopic, none(TopicHandler))
-
-    for topic in topics:
-      node.subscribe(topic, none(TopicHandler))
+    # Reconnect to previous relay peers. This will respect a backoff period, if necessary
+    waitFor node.peerManager.reconnectPeers(WakuRelayCodec,
+                                            wakuRelay.parameters.pruneBackoff + chronos.seconds(BackoffSlackTime))
 
   if rlnRelayEnabled:
     # TODO pass rln relay inputs to this proc, right now it uses default values that are set in the mountRlnRelay proc
@@ -595,7 +580,7 @@ when isMainModule:
   
   var pStorage: WakuPeerStorage
 
-  if not sqliteDatabase.isNil:
+  if conf.peerpersist and not sqliteDatabase.isNil:
     let res = WakuPeerStorage.new(sqliteDatabase)
     if res.isErr:
       warn "failed to init new WakuPeerStorage", err = res.error
