@@ -12,7 +12,8 @@ import
   ../message_notifier,
   waku_lightpush_types,
   ../../utils/requests,
-  ../../node/peer_manager/peer_manager
+  ../../node/peer_manager/peer_manager,
+  ../waku_relay
 
 export waku_lightpush_types
 
@@ -98,11 +99,13 @@ proc init*(T: type PushRPC, buffer: seq[byte]): ProtoResult[T] =
   ok(rpc)
 
 # Protocol -------------------------------------------------------
-proc init*(T: type WakuLightPush, peerManager: PeerManager, rng: ref BrHmacDrbgContext, handler: PushRequestHandler): T =
+proc init*(T: type WakuLightPush, peerManager: PeerManager, rng: ref BrHmacDrbgContext, handler: PushRequestHandler, relay: WakuRelay = nil): T =
+  debug "init"
   new result
   result.rng = crypto.newRng()
   result.peerManager = peerManager
   result.requestHandler = handler
+  result.relayReference = relay
   result.init()
 
 proc setPeer*(wlp: WakuLightPush, peer: PeerInfo) =

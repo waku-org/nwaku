@@ -17,6 +17,7 @@ import
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter/waku_filter,
   ../protocol/waku_rln_relay/[rln,waku_rln_relay_utils],
+  ../protocol/waku_lightpush/waku_lightpush,
   ../utils/peers,
   ./storage/message/message_store,
   ./storage/peer/peer_storage,
@@ -60,6 +61,7 @@ type
     wakuFilter*: WakuFilter
     wakuSwap*: WakuSwap
     wakuRlnRelay*: WakuRLNRelay
+    wakuLightPush*: WakuLightPush
     peerInfo*: PeerInfo
     libp2pTransportLoops*: seq[Future[void]]
   # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
@@ -445,6 +447,19 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
 
     info "relay mounted and started successfully"
 
+proc mountLightPush*(node: WakuNode, relay: WakuRelay = nil) =
+  info "mounting light push"
+
+  if node.wakuRelay.isNil:
+    debug "mounting lightpush without relay"
+    node.wakuLightPush = WakuLightPush.init(node.peerManager, node.rng, nil)
+  else:
+    debug "mounting lightpush with relay"
+    node.wakuLightPush = WakuLightPush.init(node.peerManager, node.rng, nil, relay)
+
+  node.switch.mount(node.wakuLightPush)
+
+
 ## Helpers
 proc dialPeer*(n: WakuNode, address: string) {.async.} =
   info "dialPeer", address = address
@@ -606,6 +621,9 @@ when isMainModule:
 
   if conf.swap:
     mountSwap(node)
+
+  if conf.lightpush:
+    mountLightPush(node)
 
   # TODO Set swap peer, for now should be same as store peer
 
