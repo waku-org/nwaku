@@ -299,14 +299,13 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage,  rlnRelayEnabl
 
 proc lightpush*(node: WakuNode, topic: Topic, message: WakuMessage, handler: PushResponseHandler) {.async, gcsafe.} =
   ## Pushes a `WakuMessage` to a node which relays it further on PubSub topic.
+  ## Returns whether relaying was successful or not in `handler`.
   ## `WakuMessage` should contain a `contentTopic` field for light node
   ## functionality. This field may be also be omitted.
   ##
   ## Status: Implemented.
 
   debug "Publishing with lightpush", topic=topic, contentTopic=message.contentTopic
-  #var publishingMessage = message
-  #let data = message.encode().buffer
 
   let rpc = PushRequest(pubSubTopic: topic, message: message)
   await node.wakuLightPush.request(rpc, handler)
@@ -635,7 +634,6 @@ when isMainModule:
 
   if conf.swap:
     mountSwap(node)
-
 
   # TODO Set swap peer, for now should be same as store peer
 

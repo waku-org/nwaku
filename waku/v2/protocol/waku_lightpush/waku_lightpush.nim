@@ -127,8 +127,6 @@ method init*(wlp: WakuLightPush) =
     let value = res.value
     if value.request != PushRequest():
       info "lightpush push request"
-      # TODO Relay messages here
-      # We want to take the message here and relay it
       let
         pubSubTopic = value.request.pubSubTopic
         message = value.request.message
@@ -139,7 +137,6 @@ method init*(wlp: WakuLightPush) =
         let data = message.encode().buffer
         # XXX Assumes success, should probably be extended to check for network, peers, etc
         discard wakuRelay.publish(pubSubTopic, data)
-        # TODO assuming success, send is_success
         response = PushResponse(is_success: true, info: "Totally.")
       else:
         debug "No relay protocol present, unsuccesssful push"
