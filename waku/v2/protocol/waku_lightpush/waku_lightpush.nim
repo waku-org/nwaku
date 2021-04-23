@@ -113,6 +113,7 @@ proc setPeer*(wlp: WakuLightPush, peer: PeerInfo) =
   waku_lightpush_peers.inc()
 
 method init*(wlp: WakuLightPush) =
+  debug "init"
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var message = await conn.readLp(64*1024)
     var res = PushRPC.init(message)
@@ -127,7 +128,22 @@ method init*(wlp: WakuLightPush) =
     if value.request != PushRequest():
       info "lightpush push request"
       # TODO Relay messages here
-      var response = PushResponse(is_success: false, info: "NYI")
+      # We want to take the message here and relay it
+      let
+        pubSubTopic = value.request.pubSubTopic
+        message = value.request.message
+      debug "PushRequest", pubSubTopic=pubSubTopic, msg=message
+      var response: PushResponse
+      if wlp.relayReference != nil:
+        let wakuRelay = wlp.relayReference
+        let data = message.encode().buffer
+        # XXX Assumes success, should probably be extended to check for network, peers, etc
+        discard wakuRelay.publish(pubSubTopic, data)
+        # TODO assuming success, send is_success
+        response = PushResponse(is_success: true, info: "Totally.")
+      else:
+        debug "No relay protocol present, unsuccesssful push"
+        response = PushResponse(is_success: false, info: "No relay protocol")
       await conn.writeLp(PushRPC(requestId: value.requestId,
       response: response).encode().buffer)
       #wlp.requestHandler(value.requestId, value.request)
