@@ -10,7 +10,7 @@ export waku_message
 
 type
   PushRequest* = object
-    pubsubTopic*: string
+    pubSubTopic*: string
     message*: WakuMessage
 
   PushResponse* = object

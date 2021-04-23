@@ -34,17 +34,17 @@ const
 proc encode*(rpc: PushRequest): ProtoBuffer =
   result = initProtoBuffer()
 
-  result.write(1, rpc.pubsubTopic)
+  result.write(1, rpc.pubSubTopic)
   result.write(2, rpc.message.encode())
 
 proc init*(T: type PushRequest, buffer: seq[byte]): ProtoResult[T] =
-  #var rpc = PushRequest(pubsubTopic: "", message: WakuMessage())
+  #var rpc = PushRequest(pubSubTopic: "", message: WakuMessage())
   var rpc = PushRequest()
   let pb = initProtoBuffer(buffer)
 
-  var pubsubTopic: string
-  discard ? pb.getField(1, pubsubTopic)
-  rpc.pubsubTopic = pubsubTopic
+  var pubSubTopic: string
+  discard ? pb.getField(1, pubSubTopic)
+  rpc.pubSubTopic = pubSubTopic
 
   var buf: seq[byte]
   discard ? pb.getField(2, buf)
