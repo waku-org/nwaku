@@ -24,7 +24,8 @@ suite "Message Store":
     defer: store.close()
 
     for msg in msgs:
-      discard store.put(computeIndex(msg), msg, pubsubTopic)
+      let output = store.put(computeIndex(msg), msg, pubsubTopic)
+      check output.isOk
 
     var responseCount = 0
     proc data(timestamp: uint64, msg: WakuMessage, psTopic: string) =
