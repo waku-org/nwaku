@@ -622,8 +622,6 @@ when isMainModule:
   if conf.swap:
     mountSwap(node)
 
-  if conf.lightpush:
-    mountLightPush(node)
 
   # TODO Set swap peer, for now should be same as store peer
 
@@ -657,6 +655,10 @@ when isMainModule:
 
     if conf.staticnodes.len > 0:
       waitFor connectToNodes(node, conf.staticnodes)
+
+  # NOTE Must be mounted after relay
+  if conf.lightpush:
+    mountLightPush(node)
 
   if conf.rpc:
     startRpc(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift), conf)
