@@ -15,7 +15,8 @@ import
 
 procSuite "Waku Light Push":
 
-  asyncTest "handle light push request":
+  # NOTE See test_wakunode for light push request success
+  asyncTest "handle light push request fail":
     const defaultTopic = "/waku/2/default-waku/proto"
 
     let
@@ -62,11 +63,11 @@ procSuite "Waku Light Push":
 
     listenSwitch.mount(proto2)
 
-    # FIXME Don't think this will be hit yet
     proc handler(response: PushResponse) {.gcsafe, closure.} =
       debug "push response handler, expecting false"
       check:
         response.isSuccess == false
+      debug "Additional info", info=response.info
       completionFut.complete(true)
 
     await proto.request(rpc, handler)

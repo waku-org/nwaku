@@ -17,6 +17,7 @@ import
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter/waku_filter,
   ../protocol/waku_rln_relay/[rln,waku_rln_relay_utils],
+  ../protocol/waku_lightpush/waku_lightpush,
   ../utils/peers,
   ./storage/message/message_store,
   ./storage/peer/peer_storage,
@@ -60,6 +61,7 @@ type
     wakuFilter*: WakuFilter
     wakuSwap*: WakuSwap
     wakuRlnRelay*: WakuRLNRelay
+    wakuLightPush*: WakuLightPush
     peerInfo*: PeerInfo
     libp2pTransportLoops*: seq[Future[void]]
   # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
@@ -295,6 +297,19 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage,  rlnRelayEnabl
 
   discard await wakuRelay.publish(topic, data)
 
+proc lightpush*(node: WakuNode, topic: Topic, message: WakuMessage, handler: PushResponseHandler) {.async, gcsafe.} =
+  ## Pushes a `WakuMessage` to a node which relays it further on PubSub topic.
+  ## Returns whether relaying was successful or not in `handler`.
+  ## `WakuMessage` should contain a `contentTopic` field for light node
+  ## functionality. This field may be also be omitted.
+  ##
+  ## Status: Implemented.
+
+  debug "Publishing with lightpush", topic=topic, contentTopic=message.contentTopic
+
+  let rpc = PushRequest(pubSubTopic: topic, message: message)
+  await node.wakuLightPush.request(rpc, handler)
+
 proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
   ## Queries known nodes for historical messages. Triggers the handler whenever a response is received.
   ## QueryHandlerFunc is a method that takes a HistoryResponse.
@@ -444,6 +459,19 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
     waitFor node.wakuRelay.start()
 
     info "relay mounted and started successfully"
+
+proc mountLightPush*(node: WakuNode) =
+  info "mounting light push"
+
+  if node.wakuRelay.isNil:
+    debug "mounting lightpush without relay"
+    node.wakuLightPush = WakuLightPush.init(node.peerManager, node.rng, nil)
+  else:
+    debug "mounting lightpush with relay"
+    node.wakuLightPush = WakuLightPush.init(node.peerManager, node.rng, nil, node.wakuRelay)
+
+  node.switch.mount(node.wakuLightPush)
+
 
 ## Helpers
 proc dialPeer*(n: WakuNode, address: string) {.async.} =
@@ -639,6 +667,10 @@ when isMainModule:
 
     if conf.staticnodes.len > 0:
       waitFor connectToNodes(node, conf.staticnodes)
+
+  # NOTE Must be mounted after relay
+  if conf.lightpush:
+    mountLightPush(node)
 
   if conf.rpc:
     startRpc(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift), conf)
