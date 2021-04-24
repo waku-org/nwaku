@@ -235,7 +235,7 @@ proc findIndex*(msgList: seq[IndexedWakuMessage], index: Index): Option[int] =
   ## returns the position of an IndexedWakuMessage in msgList whose index value matches the given index
   ## returns none if no match is found
   for i, indexedWakuMessage in msgList:
-    if indexedWakuMessage.index == index:
+    if indexComparison(indexedWakuMessage.index, index) == 0:
       return some(i)
   return none(int)
 
