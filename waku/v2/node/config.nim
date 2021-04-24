@@ -78,6 +78,11 @@ type
       defaultValue: false
       name: "swap" }: bool
 
+    lightpush* {.
+      desc: "Enable lightpush protocol: true|false",
+      defaultValue: false
+      name: "lightpush" }: bool
+
     filternode* {.
       desc: "Peer multiaddr to request content filtering of messages.",
       defaultValue: ""
