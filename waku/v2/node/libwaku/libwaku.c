@@ -4,7 +4,9 @@
 #include "libwaku.h"
 
 int main(int argc, char* argv[]) {
+  char* string;
   NimMain();
-  echo();
-  //info("hello there");
+  //echo();
+  string = info("hello there");
+  printf("Info: %s", string);
 }

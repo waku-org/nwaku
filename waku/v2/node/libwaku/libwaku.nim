@@ -10,10 +10,10 @@
 # TODO Init a node
 
 # proc info*(node: WakuNode): WakuInfo =
-proc info(foo: string): string {.exportc.} =
-  let s = "info about waku node" & foo
-  echo s
-  return s
+proc info(foo: cstring): cstring {.exportc.} =
+  echo "info about node"
+  echo foo
+  return foo
 
 proc echo() {.exportc.} =
  echo "echo"
