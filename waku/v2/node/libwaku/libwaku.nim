@@ -17,3 +17,20 @@ proc info(foo: cstring): cstring {.exportc.} =
 
 proc echo() {.exportc.} =
  echo "echo"
+
+# TODO Here at the moment, start the node
+# Then do info call
+# WIP
+#proc main() {.async.} =
+#  let
+#    rng = crypto.newRng()
+#    conf = WakuNodeConf.load()
+#    (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
+#      Port(uint16(conf.tcpPort) + conf.portsShift),
+#      Port(uint16(conf.udpPort) + conf.portsShift))
+#    node = WakuNode.init(conf.nodeKey, conf.listenAddress,
+#      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
+#
+#  await node.start()
+#
+#main()
