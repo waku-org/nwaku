@@ -27,7 +27,7 @@ logScope:
   topics = "wakustore"
 
 const
-  WakuStoreCodec* = "/vac/waku/store/2.0.0-beta2"
+  WakuStoreCodec* = "/vac/waku/store/2.0.0-beta3"
 
 # Error types (metric label values)
 const
