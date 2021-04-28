@@ -13,6 +13,7 @@ suite "Message Store":
       database = SqliteDatabase.init("", inMemory = true)[]
       store = WakuMessageStore.init(database)[]
       topic = ContentTopic("/waku/2/default-content/proto")
+      pubsubTopic =  "/waku/2/default-waku/proto"
 
     var msgs = @[
       WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic),
@@ -23,12 +24,14 @@ suite "Message Store":
     defer: store.close()
 
     for msg in msgs:
-      discard store.put(computeIndex(msg), msg)
+      let output = store.put(computeIndex(msg), msg, pubsubTopic)
+      check output.isOk
 
     var responseCount = 0
-    proc data(timestamp: uint64, msg: WakuMessage) =
+    proc data(timestamp: uint64, msg: WakuMessage, psTopic: string) =
       responseCount += 1
       check msg in msgs
+      check psTopic == pubsubTopic
     
     let res = store.getAll(data)
     
