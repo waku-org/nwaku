@@ -641,7 +641,7 @@ when isMainModule:
   if (conf.storenode != "") or (conf.store):
     var store: WakuMessageStore
 
-    if not sqliteDatabase.isNil:
+    if (not sqliteDatabase.isNil) and conf.persistmessages:
       let res = WakuMessageStore.init(sqliteDatabase)
       if res.isErr:
         warn "failed to init WakuMessageStore", err = res.error

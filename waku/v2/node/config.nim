@@ -53,6 +53,11 @@ type
       defaultValue: ""
       name: "storenode" }: string
 
+    persistmessages* {.
+      desc: "Enable message persistence: true|false",
+      defaultValue: false
+      name: "persist-messages" }: bool
+
     store* {.
       desc: "Enable store protocol: true|false",
       defaultValue: false
