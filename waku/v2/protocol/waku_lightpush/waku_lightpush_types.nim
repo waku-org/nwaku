@@ -4,7 +4,8 @@ import
   libp2p/peerinfo,
   libp2p/protocols/protocol,
   ../../node/peer_manager/peer_manager,
-  ../waku_message
+  ../waku_message,
+  ../waku_relay
 
 export waku_message
 
@@ -30,3 +31,4 @@ type
     rng*: ref BrHmacDrbgContext
     peerManager*: PeerManager
     requestHandler*: PushRequestHandler
+    relayReference*: WakuRelay
