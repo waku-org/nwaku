@@ -216,8 +216,9 @@ proc indexComparison* (x, y: Index): int =
   ## returns -1 if x < y
   ## returns 1 if x > y
   let 
-    timecmp = system.cmp(x.receivedTime, y.receivedTime)
+    timecmp = system.cmp[float64](x.receivedTime, y.receivedTime)
     digestcm = system.cmp(x.digest.data, y.digest.data)
+  info "indexComparison", timecmp=timecmp, digestcm=digestcm
   if timecmp != 0: # timestamp has a higher priority for comparison
     return timecmp
   return digestcm
