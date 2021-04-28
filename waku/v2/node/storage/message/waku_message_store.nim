@@ -13,6 +13,7 @@ import
 
 export sqlite
 
+const TABLE_TITLE = "Message"
 # The code in this file is an adaptation of the Sqlite KV Store found in nim-eth.
 # https://github.com/status-im/nim-eth/blob/master/eth/db/kvstore_sqlite3.nim
 #
@@ -28,10 +29,11 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] 
   ##  - 4-Byte ContentTopic stored as an Integer
   ##  - Payload stored as a blob
   let prepare = db.prepareStmt("""
-    CREATE TABLE IF NOT EXISTS messages (
+    CREATE TABLE IF NOT EXISTS """ & TABLE_TITLE & """ (
         id BLOB PRIMARY KEY,
         timestamp INTEGER NOT NULL,
         contentTopic BLOB NOT NULL,
+        pubsubTopic BLOB NOT NULL,
         payload BLOB
     ) WITHOUT ROWID;
     """, NoParams, void)
@@ -45,7 +47,7 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] 
 
   ok(WakuMessageStore(database: db))
 
-method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage): MessageStoreResult[void] =
+method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTopic: string): MessageStoreResult[void] =
   ## Adds a message to the storage.
   ##
   ## **Example:**
@@ -56,15 +58,15 @@ method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage): MessageS
   ##     echo "error"
   ## 
   let prepare = db.database.prepareStmt(
-    "INSERT INTO messages (id, timestamp, contentTopic, payload) VALUES (?, ?, ?, ?);",
-    (seq[byte], int64, seq[byte], seq[byte]),
+    "INSERT INTO " & TABLE_TITLE & " (id, timestamp, contentTopic, payload, pubsubTopic) VALUES (?, ?, ?, ?, ?);",
+    (seq[byte], int64, seq[byte], seq[byte], seq[byte]),
     void
   )
 
   if prepare.isErr:
     return err("failed to prepare")
 
-  let res = prepare.value.exec((@(cursor.digest.data), int64(cursor.receivedTime), message.contentTopic.toBytes(), message.payload))
+  let res = prepare.value.exec((@(cursor.digest.data), int64(cursor.receivedTime), message.contentTopic.toBytes(), message.payload, pubsubTopic.toBytes()))
   if res.isErr:
     return err("failed")
 
@@ -91,12 +93,15 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageSto
       topicL = sqlite3_column_bytes(s,1)
       p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 2))
       l = sqlite3_column_bytes(s, 2)
+      pubsubTopic = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 3))
+      pubsubTopicL = sqlite3_column_bytes(s,3)
 
     onData(uint64(timestamp),
            WakuMessage(contentTopic: ContentTopic(string.fromBytes(@(toOpenArray(topic, 0, topicL-1)))),
-                       payload: @(toOpenArray(p, 0, l-1))))
+                       payload: @(toOpenArray(p, 0, l-1))), 
+                       string.fromBytes(@(toOpenArray(pubsubTopic, 0, pubsubTopicL-1))))
 
-  let res = db.database.query("SELECT timestamp, contentTopic, payload FROM messages ORDER BY timestamp ASC", msg)
+  let res = db.database.query("SELECT timestamp, contentTopic, payload, pubsubTopic FROM " & TABLE_TITLE & " ORDER BY timestamp ASC", msg)
   if res.isErr:
     return err("failed")
 
