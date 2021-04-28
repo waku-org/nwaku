@@ -16,7 +16,7 @@ proc delete_waku_v2_relay_v1_subscriptions(topics: seq[string]): bool
 
 # Store API
 
-proc get_waku_v2_store_v1_messages(pubsubTopic: string, contentFilters: seq[HistoryContentFilter], pagingOptions: Option[StorePagingOptions]): StoreResponse
+proc get_waku_v2_store_v1_messages(contentFilters: seq[HistoryContentFilter], pagingOptions: Option[StorePagingOptions]): StoreResponse
 
 # Filter API
 

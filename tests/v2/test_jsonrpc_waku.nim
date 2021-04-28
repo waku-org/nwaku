@@ -259,7 +259,7 @@ procSuite "Waku v2 JSON-RPC API":
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort)
 
-    let response = await client.get_waku_v2_store_v1_messages(defaultTopic, @[HistoryContentFilter(contentTopic: defaultContentTopic)], some(StorePagingOptions()))
+    let response = await client.get_waku_v2_store_v1_messages(@[HistoryContentFilter(contentTopic: defaultContentTopic)], some(StorePagingOptions()))
     check:
       response.messages.len() == 8
       response.pagingOptions.isNone
