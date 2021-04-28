@@ -17,7 +17,7 @@ proc installStoreApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
 
   ## Store API version 1 definitions
 
-  rpcsrv.rpc("get_waku_v2_store_v1_messages") do(contentFilters: seq[HistoryContentFilter], pagingOptions: Option[StorePagingOptions]) -> StoreResponse:
+  rpcsrv.rpc("get_waku_v2_store_v1_messages") do(pubsubTopic: string, contentFilters: seq[HistoryContentFilter], pagingOptions: Option[StorePagingOptions]) -> StoreResponse:
     ## Returns history for a list of content topics with optional paging
     debug "get_waku_v2_store_v1_messages"
 
@@ -27,7 +27,8 @@ proc installStoreApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
       debug "get_waku_v2_store_v1_messages response"
       responseFut.complete(response.toStoreResponse())
     
-    let historyQuery = HistoryQuery(contentFilters: contentFilters,
+    let historyQuery = HistoryQuery(pubsubTopic: pubsubTopic,
+                                    contentFilters: contentFilters,
                                     pagingInfo: if pagingOptions.isSome: pagingOptions.get.toPagingInfo() else: PagingInfo())
     
     await node.query(historyQuery, queryFuncHandler)
