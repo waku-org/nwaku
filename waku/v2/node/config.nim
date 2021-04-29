@@ -72,6 +72,11 @@ type
       desc: "Enable spam protection through rln-relay: true|false",
       defaultValue: false
       name: "rlnrelay" }: bool
+    
+    keepAlive* {.
+      desc: "Enable keep-alive for idle connections: true|false",
+      defaultValue: false
+      name: "keep-alive" }: bool
 
     swap* {.
       desc: "Enable swap protocol: true|false",
