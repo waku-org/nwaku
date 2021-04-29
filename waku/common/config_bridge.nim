@@ -119,9 +119,9 @@ type
 
     persistmessages* {.
       desc: "Enable message persistence: true|false",
-      defaultValue: false
+      defaultValue: true
       name: "persist-messages" }: bool
-      
+
     filter* {.
       desc: "Flag whether to start filter protocol",
       defaultValue: false
