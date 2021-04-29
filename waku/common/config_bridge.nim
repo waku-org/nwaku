@@ -117,6 +117,11 @@ type
       defaultValue: false
       name: "store" }: bool
 
+    persistmessages* {.
+      desc: "Enable message persistence: true|false",
+      defaultValue: false
+      name: "persist-messages" }: bool
+      
     filter* {.
       desc: "Flag whether to start filter protocol",
       defaultValue: false
