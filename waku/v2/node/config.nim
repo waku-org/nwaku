@@ -60,7 +60,7 @@ type
 
     store* {.
       desc: "Enable store protocol: true|false",
-      defaultValue: false
+      defaultValue: true
       name: "store" }: bool
 
     filter* {.
