@@ -359,7 +359,7 @@ proc mountSwap*(node: WakuNode) =
   # NYI - Do we need this?
   #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
 
-proc mountStore*(node: WakuNode, store: MessageStore = nil) =
+proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: bool = false) =
   info "mounting store"
 
   if node.wakuSwap.isNil:
@@ -370,7 +370,8 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil) =
     node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, node.wakuSwap)
 
   node.switch.mount(node.wakuStore)
-  node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
+  if persistMessages:
+    node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
 proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(string), ethAccountAddress: Option[Address] = none(Address), membershipContractAddress:  Option[Address] = none(Address)) {.async.} =
   # TODO return a bool value to indicate the success of the call
@@ -649,7 +650,7 @@ when isMainModule:
       else:
         store = res.value
 
-    mountStore(node, store)
+    mountStore(node, store, conf.persistmessages)
 
     if conf.storenode != "":
       setStorePeer(node, conf.storenode)
