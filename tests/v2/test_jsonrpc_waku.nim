@@ -225,7 +225,7 @@ procSuite "Waku v2 JSON-RPC API":
       key = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
     
-    node.mountStore()
+    node.mountStore(persistMessages = true)
     let
       subscription = node.wakuStore.subscription()
     
@@ -518,7 +518,7 @@ procSuite "Waku v2 JSON-RPC API":
 
     node.mountFilter()
     node.mountSwap()
-    node.mountStore()
+    node.mountStore(persistMessages = true)
 
     # Create and set some peers
     let
