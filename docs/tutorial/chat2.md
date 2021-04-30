@@ -44,7 +44,7 @@ The `chat2` application can retrieve historical chat messages from a node suppor
 ./build/chat2 --storenode:/ip4/134.209.139.210/tcp/30303/p2p/16Uiu2HAmPLe7Mzm8TsYUubgCAW1aJoeFScxrLj8ppHFivPo97bUZ
 ```
 
-Alternatively, the `chat2` application will select a random `storenode` for you from the test fleet if the `store` option is set to `true` and `storenode` left unspecified.
+Alternatively, the `chat2` application will select a random `storenode` for you from the test fleet if `storenode` left unspecified.
 
 ```
 ./build/chat2 --store:true
