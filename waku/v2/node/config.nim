@@ -55,7 +55,7 @@ type
 
     persistmessages* {.
       desc: "Enable message persistence: true|false",
-      defaultValue: true
+      defaultValue: false
       name: "persist-messages" }: bool
 
     store* {.
