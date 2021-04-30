@@ -455,7 +455,7 @@ proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
   let pb  = PubSub(node.wakuRelay)
   pb.addValidator(pubsubTopic, validator)
 
-proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRelayEnabled = false) {.gcsafe.} =
+proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRelayEnabled = false, keepAlive = false) {.gcsafe.} =
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
     # Use default
@@ -464,6 +464,8 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
     sign = false,
     verifySignature = false
   )
+
+  wakuRelay.keepAlive = keepAlive
 
   node.wakuRelay = wakuRelay
   node.switch.mount(wakuRelay)
@@ -692,7 +694,7 @@ when isMainModule:
 
   # Relay setup
   if conf.relay:  # True by default
-    mountRelay(node, conf.topics.split(" "), rlnRelayEnabled = conf.rlnrelay)
+    mountRelay(node, conf.topics.split(" "), rlnRelayEnabled = conf.rlnrelay, keepAlive = conf.keepAlive)
 
     if conf.staticnodes.len > 0:
       waitFor connectToNodes(node, conf.staticnodes)
