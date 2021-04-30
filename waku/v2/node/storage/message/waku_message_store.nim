@@ -34,7 +34,8 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] 
         timestamp INTEGER NOT NULL,
         contentTopic BLOB NOT NULL,
         pubsubTopic BLOB NOT NULL,
-        payload BLOB
+        payload BLOB,
+        version 
     ) WITHOUT ROWID;
     """, NoParams, void)
 
@@ -47,7 +48,7 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] 
 
   ok(WakuMessageStore(database: db))
 
-method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTopic: string): MessageStoreResult[void] =
+method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTopic: string, version: uint32): MessageStoreResult[void] =
   ## Adds a message to the storage.
   ##
   ## **Example:**
@@ -58,8 +59,8 @@ method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTop
   ##     echo "error"
   ## 
   let prepare = db.database.prepareStmt(
-    "INSERT INTO " & TABLE_TITLE & " (id, timestamp, contentTopic, payload, pubsubTopic) VALUES (?, ?, ?, ?, ?);",
-    (seq[byte], int64, seq[byte], seq[byte], seq[byte]),
+    "INSERT INTO " & TABLE_TITLE & " (id, timestamp, contentTopic, payload, pubsubTopic, version) VALUES (?, ?, ?, ?, ?, ?);",
+    (seq[byte], int64, seq[byte], seq[byte], seq[byte], uint32),
     void
   )
 
@@ -101,7 +102,7 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageSto
                        payload: @(toOpenArray(p, 0, l-1))), 
                        string.fromBytes(@(toOpenArray(pubsubTopic, 0, pubsubTopicL-1))))
 
-  let res = db.database.query("SELECT timestamp, contentTopic, payload, pubsubTopic FROM " & TABLE_TITLE & " ORDER BY timestamp ASC", msg)
+  let res = db.database.query("SELECT timestamp, contentTopic, payload, pubsubTopic, version FROM " & TABLE_TITLE & " ORDER BY timestamp ASC", msg)
   if res.isErr:
     return err("failed")
 

@@ -15,6 +15,6 @@ type
   MessageStore* = ref object of RootObj
 
 # MessageStore interface
-method put*(db: MessageStore, cursor: Index, message: WakuMessage, pubsubTopic: string): MessageStoreResult[void] {.base.} = discard
+method put*(db: MessageStore, cursor: Index, message: WakuMessage, pubsubTopic: string, version: uint32): MessageStoreResult[void] {.base.} = discard
 method getAll*(db: MessageStore, onData: DataProc): MessageStoreResult[bool] {.base.} = discard
 
