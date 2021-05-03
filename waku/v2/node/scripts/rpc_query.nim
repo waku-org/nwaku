@@ -37,5 +37,5 @@ echo "Content topic is:", input
 var node = newRpcHttpClient()
 waitfor node.connect("localhost", rpcPort)
 
-var res = waitfor node.get_waku_v2_store_v1_messages(pubsubTopic, @[HistoryContentFilter(contentTopic: ContentTopic(input))], none(StorePagingOptions))
+var res = waitfor node.get_waku_v2_store_v1_messages(some(pubsubTopic), some(@[HistoryContentFilter(contentTopic: ContentTopic(input))]), none(StorePagingOptions))
 echo "Waku query response: ", res

@@ -81,21 +81,17 @@ func asEthKey*(key: PrivateKey): keys.PrivateKey =
 
 proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilter]) {.gcsafe.} =
   # Flatten all unsubscribe topics into single seq
-  var unsubscribeTopics: seq[ContentTopic]
-  for cf in contentFilters:
-    unsubscribeTopics = unsubscribeTopics.concat(cf.contentTopics)
+  let unsubscribeTopics = contentFilters.mapIt(it.contentTopic)
   
   debug "unsubscribing", unsubscribeTopics=unsubscribeTopics
 
   var rIdToRemove: seq[string] = @[]
   for rId, f in filters.mpairs:
     # Iterate filter entries to remove matching content topics
-    for cf in f.contentFilters.mitems:
-      # Iterate content filters in filter entry
-      cf.contentTopics.keepIf(proc (t: auto): bool = t notin unsubscribeTopics)
+  
     # make sure we delete the content filter
     # if no more topics are left
-    f.contentFilters.keepIf(proc (cf: auto): bool = cf.contentTopics.len > 0)
+    f.contentFilters.keepIf(proc (cf: auto): bool = cf.contentTopic notin unsubscribeTopics)
 
     if f.contentFilters.len == 0:
       rIdToRemove.add(rId)
@@ -367,20 +363,6 @@ proc mountFilter*(node: WakuNode) =
       node.filters.notify(message, requestId) # Trigger filter handlers on a light node
       waku_node_messages.inc(labelValues = ["filter"])
 
-  if node.wakuRelay.isNil:
-    debug "light node: mounting relay without starting"
-    ## WakuFilter currently requires WakuRelay to be mounted in order to work.
-    ## This is to allow protocol stream negotation with full nodes to succeed.
-    ## Here we mount relay on the switch only, but do not subscribe to any pubsub
-    ## topics. We also never start the relay protocol.
-    ## @TODO: remove WakuRelay dependency
-    node.switch.mount(WakuRelay.init(
-      switch = node.switch,
-      triggerSelf = true,
-      sign = false,
-      verifySignature = false
-    ))
-
   node.wakuFilter = WakuFilter.init(node.peerManager, node.rng, filterHandler)
   node.switch.mount(node.wakuFilter)
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
@@ -394,7 +376,7 @@ proc mountSwap*(node: WakuNode) =
   # NYI - Do we need this?
   #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
 
-proc mountStore*(node: WakuNode, store: MessageStore = nil) =
+proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: bool) =
   info "mounting store"
 
   if node.wakuSwap.isNil:
@@ -405,7 +387,8 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil) =
     node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, node.wakuSwap)
 
   node.switch.mount(node.wakuStore)
-  node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
+  if persistMessages:
+    node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
 proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(string), ethAccountAddress: Option[Address] = none(Address), membershipContractAddress:  Option[Address] = none(Address)) {.async.} =
   # TODO return a bool value to indicate the success of the call
@@ -454,7 +437,11 @@ proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
   let pb  = PubSub(node.wakuRelay)
   pb.addValidator(pubsubTopic, validator)
 
-proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRelayEnabled = false, keepAlive = false) {.gcsafe.} =
+proc mountRelay*(node: WakuNode,
+                 topics: seq[string] = newSeq[string](),
+                 rlnRelayEnabled = false,
+                 keepAlive = false,
+                 relayMessages = true) {.gcsafe.} =
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
     # Use default
@@ -463,13 +450,22 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
     sign = false,
     verifySignature = false
   )
+  
+  info "mounting relay", rlnRelayEnabled=rlnRelayEnabled, keepAlive=keepAlive, relayMessages=relayMessages
 
-  wakuRelay.keepAlive = keepAlive
-
-  node.wakuRelay = wakuRelay
   node.switch.mount(wakuRelay)
 
-  info "mounting relay"
+  if not relayMessages:
+    ## Some nodes may choose not to have the capability to relay messages (e.g. "light" nodes).
+    ## All nodes, however, currently require WakuRelay, regardless of desired capabilities.
+    ## This is to allow protocol stream negotation with relay-capable nodes to succeed.
+    ## Here we mount relay on the switch only, but do not proceed to subscribe to any pubsub
+    ## topics. We also never start the relay protocol. node.wakuRelay remains nil.
+    ## @TODO: in future, this WakuRelay dependency will be removed completely
+    return
+
+  node.wakuRelay = wakuRelay
+  wakuRelay.keepAlive = keepAlive
 
   node.subscribe(defaultTopic, none(TopicHandler))
 
@@ -508,7 +504,6 @@ proc mountLightPush*(node: WakuNode) =
     node.wakuLightPush = WakuLightPush.init(node.peerManager, node.rng, nil, node.wakuRelay)
 
   node.switch.mount(node.wakuLightPush)
-
 
 ## Helpers
 proc dialPeer*(n: WakuNode, address: string) {.async.} =
@@ -678,7 +673,7 @@ when isMainModule:
   if (conf.storenode != "") or (conf.store):
     var store: WakuMessageStore
 
-    if not sqliteDatabase.isNil:
+    if (not sqliteDatabase.isNil) and conf.persistmessages:
       let res = WakuMessageStore.init(sqliteDatabase)
       if res.isErr:
         warn "failed to init WakuMessageStore", err = res.error
@@ -686,17 +681,20 @@ when isMainModule:
       else:
         store = res.value
 
-    mountStore(node, store)
+    mountStore(node, store, conf.persistmessages)
 
     if conf.storenode != "":
       setStorePeer(node, conf.storenode)
 
   # Relay setup
-  if conf.relay:  # True by default
-    mountRelay(node, conf.topics.split(" "), rlnRelayEnabled = conf.rlnrelay, keepAlive = conf.keepAlive)
+  mountRelay(node,
+             conf.topics.split(" "),
+             rlnRelayEnabled = conf.rlnrelay,
+             keepAlive = conf.keepAlive,
+             relayMessages = conf.relay) # Indicates if node is capable to relay messages
 
-    if conf.staticnodes.len > 0:
-      waitFor connectToNodes(node, conf.staticnodes)
+  if conf.staticnodes.len > 0:
+    waitFor connectToNodes(node, conf.staticnodes)
 
   # NOTE Must be mounted after relay
   if conf.lightpush:

@@ -3,6 +3,7 @@
 ## Next version
 
 - Refactor: Split out `waku_types` types into right place; create utils folder.
+- Refactor: Replace sequence of ContentTopics in ContentFilter with a single ContentTopic.
 - Docs: Add information on how to query Status test fleet for node addresses; how to view logs and how to update submodules.
 - PubSub topic `subscribe` and `unsubscribe` no longer returns a future (removed `async` designation)
 - Added a peer manager for `relay`, `filter`, `store` and `swap` peers.
@@ -13,6 +14,8 @@
 - Fixed: content filtering now works on any PubSub topic and not just the `waku` default.
 - Added the `pubsubTopic` field to the `HistoryQuery`. Now, the message history can be filtered and queried based on the `pubsubTopic`.
 - Added a new table of `Message` to the message store db. The new table has an additional column of `pubsubTopic` and will be used instead of the old table `messages`.  The message history in the old table `messages` will not be accessed and have to be removed.
+- Fix: allow mounting light protocols without `relay`
+- Add `keep-alive` option to maintain stable connection to `relay` peers on idle topics
 
 ## 2021-01-05 v0.2
 

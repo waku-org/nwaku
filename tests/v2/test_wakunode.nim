@@ -30,7 +30,7 @@ procSuite "WakuNode":
         Port(60000))
       pubSubTopic = "chat"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
-      filterRequest = FilterRequest(pubSubTopic: pubSubTopic, contentFilters: @[ContentFilter(contentTopics: @[contentTopic])], subscribe: true)
+      filterRequest = FilterRequest(pubSubTopic: pubSubTopic, contentFilters: @[ContentFilter(contentTopic: contentTopic)], subscribe: true)
       message = WakuMessage(payload: "hello world".toBytes(),
         contentTopic: contentTopic)
 
@@ -82,7 +82,7 @@ procSuite "WakuNode":
         Port(60002))
       pubSubTopic = "chat"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
-      filterRequest = FilterRequest(pubSubTopic: pubSubTopic, contentFilters: @[ContentFilter(contentTopics: @[contentTopic])], subscribe: true)
+      filterRequest = FilterRequest(pubSubTopic: pubSubTopic, contentFilters: @[ContentFilter(contentTopic: contentTopic)], subscribe: true)
       message = WakuMessage(payload: "hello world".toBytes(),
         contentTopic: contentTopic)
 
@@ -149,8 +149,8 @@ procSuite "WakuNode":
       otherPayload = @[byte 9]
       defaultMessage = WakuMessage(payload: defaultPayload, contentTopic: defaultContentTopic)
       otherMessage = WakuMessage(payload: otherPayload, contentTopic: otherContentTopic)
-      defaultFR = FilterRequest(contentFilters: @[ContentFilter(contentTopics: @[defaultContentTopic])], subscribe: true)
-      otherFR = FilterRequest(contentFilters: @[ContentFilter(contentTopics: @[otherContentTopic])], subscribe: true)
+      defaultFR = FilterRequest(contentFilters: @[ContentFilter(contentTopic: defaultContentTopic)], subscribe: true)
+      otherFR = FilterRequest(contentFilters: @[ContentFilter(contentTopic: otherContentTopic)], subscribe: true)
 
     await node1.start()
     node1.mountRelay()
@@ -210,6 +210,54 @@ procSuite "WakuNode":
 
     await node1.stop()
     await node2.stop()
+  
+  asyncTest "Filter protocol works on node without relay capability":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      defaultTopic = "/waku/2/default-waku/proto"
+      contentTopic = "defaultCT"
+      payload = @[byte 1]
+      message = WakuMessage(payload: payload, contentTopic: contentTopic)
+      filterRequest = FilterRequest(contentFilters: @[ContentFilter(contentTopic: contentTopic)], subscribe: true)
+
+    await node1.start()
+    node1.mountRelay()
+    node1.mountFilter()
+
+    await node2.start()
+    node2.mountRelay(relayMessages=false) # Do not start WakuRelay or subscribe to any topics
+    node2.mountFilter()
+    node2.wakuFilter.setPeer(node1.peerInfo)
+
+    check:
+      node1.wakuRelay.isNil == false # Node1 is a full node
+      node2.wakuRelay.isNil == true # Node 2 is a light node
+
+    var completeFut = newFuture[bool]()
+
+    proc filterHandler(msg: WakuMessage) {.gcsafe, closure.} =
+      check:
+        msg.payload == payload
+        msg.contentTopic == contentTopic
+      completeFut.complete(true)
+
+    # Subscribe a contentFilter to trigger a specific application handler when
+    # WakuMessages with that content are received
+    await node2.subscribe(filterRequest, filterHandler)
+
+    await sleepAsync(2000.millis)
+
+    # Let's check that content filtering works on the default topic
+    await node1.publish(defaultTopic, message)
+
+    check:
+      (await completeFut.withTimeout(5.seconds)) == true
+
+    await node1.stop()
+    await node2.stop()
 
   asyncTest "Store protocol returns expected message":
     let
@@ -225,9 +273,9 @@ procSuite "WakuNode":
     var completionFut = newFuture[bool]()
 
     await node1.start()
-    node1.mountStore()
+    node1.mountStore(persistMessages = true)
     await node2.start()
-    node2.mountStore()
+    node2.mountStore(persistMessages = true)
 
     await node2.subscriptions.notify("/waku/2/default-waku/proto", message)
 
@@ -274,7 +322,7 @@ procSuite "WakuNode":
         msg == message
       completionFut.complete(true)
 
-    await node1.subscribe(FilterRequest(pubSubTopic: "/waku/2/default-waku/proto", contentFilters: @[ContentFilter(contentTopics: @[contentTopic])], subscribe: true), handler)
+    await node1.subscribe(FilterRequest(pubSubTopic: "/waku/2/default-waku/proto", contentFilters: @[ContentFilter(contentTopic: contentTopic)], subscribe: true), handler)
 
     await sleepAsync(2000.millis)
 

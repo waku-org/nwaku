@@ -10,7 +10,7 @@ export waku_message
 
 type
   ContentFilter* = object
-    contentTopics*: seq[ContentTopic]
+    contentTopic*: ContentTopic
 
   ContentFilterHandler* = proc(msg: WakuMessage) {.gcsafe, closure.}
 
