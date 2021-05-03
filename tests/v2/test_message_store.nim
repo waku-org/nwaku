@@ -16,13 +16,13 @@ suite "Message Store":
       pubsubTopic =  "/waku/2/default-waku/proto"
 
     var msgs = @[
-      WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic),
-      WakuMessage(payload: @[byte 1, 2, 3, 4], contentTopic: topic),
-      WakuMessage(payload: @[byte 1, 2, 3, 4, 5], contentTopic: topic),
+      WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic, version: uint32(4294967295)),
+      WakuMessage(payload: @[byte 1, 2, 3, 4], contentTopic: topic, version: uint32(4294967295)),
+      WakuMessage(payload: @[byte 1, 2, 3, 4, 5], contentTopic: topic, version: uint32(4294967295)),
     ]
 
     defer: store.close()
-
+    echo "here we are"
     for msg in msgs:
       let output = store.put(computeIndex(msg), msg, pubsubTopic)
       check output.isOk
@@ -32,6 +32,7 @@ suite "Message Store":
       responseCount += 1
       check msg in msgs
       check psTopic == pubsubTopic
+      check msg.version == uint32(4294967295)
     
     let res = store.getAll(data)
     
