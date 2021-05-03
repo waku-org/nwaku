@@ -35,11 +35,12 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] 
         contentTopic BLOB NOT NULL,
         pubsubTopic BLOB NOT NULL,
         payload BLOB,
-        version INTEGER NOT NULL,
+        version INTEGER NOT NULL
     ) WITHOUT ROWID;
     """, NoParams, void)
+
   if prepare.isErr:
-    return err("failed to prepare db")
+    return err("failed to prepare")
 
   let res = prepare.value.exec(())
   if res.isErr:
