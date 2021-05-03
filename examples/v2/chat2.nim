@@ -249,9 +249,9 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   await node.start()
 
   if conf.filternode != "":
-    node.mountRelay(conf.topics.split(" "), rlnRelayEnabled = conf.rlnrelay)
+    node.mountRelay(conf.topics.split(" "), rlnRelayEnabled = conf.rlnrelay, keepAlive = conf.keepAlive)
   else:
-    node.mountRelay(@[], rlnRelayEnabled = conf.rlnrelay)
+    node.mountRelay(@[], rlnRelayEnabled = conf.rlnrelay, keepAlive = conf.keepAlive)
   
   let nick = await readNick(transp)
   echo "Welcome, " & nick & "!"
