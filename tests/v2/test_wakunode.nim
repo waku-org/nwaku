@@ -225,9 +225,9 @@ procSuite "WakuNode":
     var completionFut = newFuture[bool]()
 
     await node1.start()
-    node1.mountStore()
+    node1.mountStore(persistMessages = true)
     await node2.start()
-    node2.mountStore()
+    node2.mountStore(persistMessages = true)
 
     await node2.subscriptions.notify("/waku/2/default-waku/proto", message)
 

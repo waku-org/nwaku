@@ -20,8 +20,11 @@ Run two nodes and connect them:
 ./build/wakunode2 --ports-shift:1 --staticnode:/ip4/0.0.0.0/tcp/60000/p2p/16Uiu2HAmF4tuht6fmna6uDqoSMgFqhUrdaVR6VQRyGr6sCpfS2jp --storenode:/ip4/0.0.0.0/tcp/60000/p2p/16Uiu2HAmF4tuht6fmna6uDqoSMgFqhUrdaVR6VQRyGr6sCpfS2jp
 ```
 
-When passing the flag `dbpath` with a path, messages are persisted and stored in a database called `store` under the specified path. 
-When none is passed, messages are not persisted and are only stored in-memory.
+When flag `persist-messages` is passed messages are going to be persisted in-memory. 
+If additionally flag `dbpath` is passed with a path, messages are persisted and stored in a database called `store` under the specified path. 
+If flag `persist-messages` is not passed, messages are not persisted and stored at all.
+
+
 
 You should see your nodes connecting.
 

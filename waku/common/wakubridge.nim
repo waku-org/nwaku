@@ -219,7 +219,7 @@ when isMainModule:
 
   # Mount configured Waku v2 protocols
   if conf.store:
-    mountStore(bridge.nodev2)
+    mountStore(bridge.nodev2, persistMessages = conf.persistmessages)
 
   if conf.filter:
     mountFilter(bridge.nodev2)
