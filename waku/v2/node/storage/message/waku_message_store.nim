@@ -65,7 +65,7 @@ method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTop
   )
 
   if prepare.isErr:
-    return err("failed to prepare put statement")
+    return err("failed to prepare")
 
   let res = prepare.value.exec((@(cursor.digest.data), int64(cursor.receivedTime), message.contentTopic.toBytes(), message.payload, pubsubTopic.toBytes(), int64(message.version)))
   if res.isErr:
