@@ -35,12 +35,11 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] 
         contentTopic BLOB NOT NULL,
         pubsubTopic BLOB NOT NULL,
         payload BLOB,
-        version 
+        version INTEGER NOT NULL,
     ) WITHOUT ROWID;
     """, NoParams, void)
-
   if prepare.isErr:
-    return err("failed to prepare")
+    return err("failed to prepare db")
 
   let res = prepare.value.exec(())
   if res.isErr:
@@ -48,7 +47,7 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] 
 
   ok(WakuMessageStore(database: db))
 
-method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTopic: string, version: uint32): MessageStoreResult[void] =
+method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTopic: string): MessageStoreResult[void] =
   ## Adds a message to the storage.
   ##
   ## **Example:**
@@ -60,14 +59,14 @@ method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTop
   ## 
   let prepare = db.database.prepareStmt(
     "INSERT INTO " & TABLE_TITLE & " (id, timestamp, contentTopic, payload, pubsubTopic, version) VALUES (?, ?, ?, ?, ?, ?);",
-    (seq[byte], int64, seq[byte], seq[byte], seq[byte], uint32),
+    (seq[byte], int64, seq[byte], seq[byte], seq[byte], int64),
     void
   )
 
   if prepare.isErr:
-    return err("failed to prepare")
+    return err("failed to prepare put statement")
 
-  let res = prepare.value.exec((@(cursor.digest.data), int64(cursor.receivedTime), message.contentTopic.toBytes(), message.payload, pubsubTopic.toBytes()))
+  let res = prepare.value.exec((@(cursor.digest.data), int64(cursor.receivedTime), message.contentTopic.toBytes(), message.payload, pubsubTopic.toBytes(), int64(message.version)))
   if res.isErr:
     return err("failed")
 
@@ -96,10 +95,12 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageSto
       l = sqlite3_column_bytes(s, 2)
       pubsubTopic = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 3))
       pubsubTopicL = sqlite3_column_bytes(s,3)
+      version = sqlite3_column_int64(s, 4)
 
+      # TODO retrieve the version number
     onData(uint64(timestamp),
            WakuMessage(contentTopic: ContentTopic(string.fromBytes(@(toOpenArray(topic, 0, topicL-1)))),
-                       payload: @(toOpenArray(p, 0, l-1))), 
+                       payload: @(toOpenArray(p, 0, l-1)), version: uint32(version)), 
                        string.fromBytes(@(toOpenArray(pubsubTopic, 0, pubsubTopicL-1))))
 
   let res = db.database.query("SELECT timestamp, contentTopic, payload, pubsubTopic, version FROM " & TABLE_TITLE & " ORDER BY timestamp ASC", msg)
