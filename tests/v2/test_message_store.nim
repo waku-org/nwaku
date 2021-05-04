@@ -22,7 +22,7 @@ suite "Message Store":
     ]
 
     defer: store.close()
-    echo "here we are"
+
     for msg in msgs:
       let output = store.put(computeIndex(msg), msg, pubsubTopic)
       check output.isOk
