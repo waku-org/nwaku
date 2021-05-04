@@ -278,7 +278,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
     node.mountSwap()
 
   if (conf.storenode != "") or (conf.store == true):
-    node.mountStore()
+    node.mountStore(persistMessages = conf.persistmessages)
 
     var storenode: string
 

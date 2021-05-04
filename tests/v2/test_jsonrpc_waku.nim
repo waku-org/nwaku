@@ -225,7 +225,7 @@ procSuite "Waku v2 JSON-RPC API":
       key = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
     
-    node.mountStore()
+    node.mountStore(persistMessages = true)
     let
       subscription = node.wakuStore.subscription()
     
@@ -259,7 +259,7 @@ procSuite "Waku v2 JSON-RPC API":
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort)
 
-    let response = await client.get_waku_v2_store_v1_messages(defaultTopic, @[HistoryContentFilter(contentTopic: defaultContentTopic)], some(StorePagingOptions()))
+    let response = await client.get_waku_v2_store_v1_messages(some(defaultTopic), some(@[HistoryContentFilter(contentTopic: defaultContentTopic)]), some(StorePagingOptions()))
     check:
       response.messages.len() == 8
       response.pagingOptions.isNone
@@ -518,7 +518,7 @@ procSuite "Waku v2 JSON-RPC API":
 
     node.mountFilter()
     node.mountSwap()
-    node.mountStore()
+    node.mountStore(persistMessages = true)
 
     # Create and set some peers
     let
