@@ -211,7 +211,7 @@ procSuite "WakuNode":
     await node1.stop()
     await node2.stop()
   
-  asyncTest "Filter protocol works between light node and full node":
+  asyncTest "Filter protocol works on node without relay capability":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
@@ -228,7 +228,7 @@ procSuite "WakuNode":
     node1.mountFilter()
 
     await node2.start()
-    node2.mountLightRelay() # Do not start WakuRelay or subscribe to any topics
+    node2.mountRelay(relayMessages=false) # Do not start WakuRelay or subscribe to any topics
     node2.mountFilter()
     node2.wakuFilter.setPeer(node1.peerInfo)
 

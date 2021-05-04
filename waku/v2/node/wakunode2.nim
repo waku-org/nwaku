@@ -359,20 +359,6 @@ proc info*(node: WakuNode): WakuInfo =
   let wakuInfo = WakuInfo(listenStr: listenStr)
   return wakuInfo
 
-proc mountLightRelay*(node: WakuNode) = 
-  info "light node: mounting relay without starting"
-  ## Light nodes currently require WakuRelay to be mounted in order to work.
-  ## This is to allow protocol stream negotation with full nodes to succeed.
-  ## Here we mount relay on the switch only, but do not subscribe to any pubsub
-  ## topics. We also never start the relay protocol. node.wakuRelay remains nil.
-  ## @TODO: in future, this WakuRelay dependency will be removed completely
-  node.switch.mount(WakuRelay.init(
-    switch = node.switch,
-    triggerSelf = true,
-    sign = false,
-    verifySignature = false
-  ))
-
 proc mountFilter*(node: WakuNode) =
   info "mounting filter"
   proc filterHandler(requestId: string, msg: MessagePush) {.gcsafe.} =
@@ -454,7 +440,11 @@ proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
   let pb  = PubSub(node.wakuRelay)
   pb.addValidator(pubsubTopic, validator)
 
-proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRelayEnabled = false, keepAlive = false) {.gcsafe.} =
+proc mountRelay*(node: WakuNode,
+                 topics: seq[string] = newSeq[string](),
+                 rlnRelayEnabled = false,
+                 keepAlive = false,
+                 relayMessages = true) {.gcsafe.} =
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
     # Use default
@@ -463,13 +453,22 @@ proc mountRelay*(node: WakuNode, topics: seq[string] = newSeq[string](), rlnRela
     sign = false,
     verifySignature = false
   )
+  
+  info "mounting relay", rlnRelayEnabled=rlnRelayEnabled, keepAlive=keepAlive, relayMessages=relayMessages
 
-  wakuRelay.keepAlive = keepAlive
-
-  node.wakuRelay = wakuRelay
   node.switch.mount(wakuRelay)
 
-  info "mounting relay", keepAlive=wakuRelay.keepAlive
+  if not relayMessages:
+    ## Some nodes may choose not to have the capability to relay messages (e.g. "light" nodes).
+    ## All nodes, however, currently require WakuRelay, regardless of desired capabilities.
+    ## This is to allow protocol stream negotation with relay-capable nodes to succeed.
+    ## Here we mount relay on the switch only, but do not proceed to subscribe to any pubsub
+    ## topics. We also never start the relay protocol. node.wakuRelay remains nil.
+    ## @TODO: in future, this WakuRelay dependency will be removed completely
+    return
+
+  node.wakuRelay = wakuRelay
+  wakuRelay.keepAlive = keepAlive
 
   node.subscribe(defaultTopic, none(TopicHandler))
 
@@ -691,14 +690,14 @@ when isMainModule:
       setStorePeer(node, conf.storenode)
 
   # Relay setup
-  if conf.relay:  # True by default
-    mountRelay(node, conf.topics.split(" "), rlnRelayEnabled = conf.rlnrelay, keepAlive = conf.keepAlive)
+  mountRelay(node,
+             conf.topics.split(" "),
+             rlnRelayEnabled = conf.rlnrelay,
+             keepAlive = conf.keepAlive,
+             relayMessages = conf.relay) # Indicates if node is capable to relay messages
 
-    if conf.staticnodes.len > 0:
-      waitFor connectToNodes(node, conf.staticnodes)
-  else:
-    # @TODO: "Light" relay is not a protocol, but a temporary workaround required by libp2p protocol negotation
-    mountLightRelay(node) # We need to mount a "light" relay for protocol negotiation to succeed on light nodes
+  if conf.staticnodes.len > 0:
+    waitFor connectToNodes(node, conf.staticnodes)
 
   # NOTE Must be mounted after relay
   if conf.lightpush:
