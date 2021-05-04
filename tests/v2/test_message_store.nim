@@ -36,7 +36,7 @@ suite "Message Store":
       # check the correct retrieval of versions
       if msg.version == uint32(0): v0Flag = true
       if msg.version == uint32(1): v1Flag = true
-      # 4294967295 is the largest value that fits in uint32, this is to make sure there is no overflow in the storage
+      # high(uint32) is the largest value that fits in uint32, this is to make sure there is no overflow in the storage
       if msg.version == high(uint32): vMaxFlag = true
 
 
