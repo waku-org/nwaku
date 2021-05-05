@@ -81,21 +81,17 @@ func asEthKey*(key: PrivateKey): keys.PrivateKey =
 
 proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilter]) {.gcsafe.} =
   # Flatten all unsubscribe topics into single seq
-  var unsubscribeTopics: seq[ContentTopic]
-  for cf in contentFilters:
-    unsubscribeTopics = unsubscribeTopics.concat(cf.contentTopics)
+  let unsubscribeTopics = contentFilters.mapIt(it.contentTopic)
   
   debug "unsubscribing", unsubscribeTopics=unsubscribeTopics
 
   var rIdToRemove: seq[string] = @[]
   for rId, f in filters.mpairs:
     # Iterate filter entries to remove matching content topics
-    for cf in f.contentFilters.mitems:
-      # Iterate content filters in filter entry
-      cf.contentTopics.keepIf(proc (t: auto): bool = t notin unsubscribeTopics)
+  
     # make sure we delete the content filter
     # if no more topics are left
-    f.contentFilters.keepIf(proc (cf: auto): bool = cf.contentTopics.len > 0)
+    f.contentFilters.keepIf(proc (cf: auto): bool = cf.contentTopic notin unsubscribeTopics)
 
     if f.contentFilters.len == 0:
       rIdToRemove.add(rId)

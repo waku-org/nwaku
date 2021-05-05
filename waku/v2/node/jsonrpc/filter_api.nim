@@ -63,7 +63,7 @@ proc installFilterApiHandlers*(node: WakuNode, rpcsrv: RpcServer, messageCache: 
     if (await node.subscribe(fReq, filterHandler).withTimeout(futTimeout)):
       # Successfully subscribed to all content filters
       
-      for cTopic in concat(contentFilters.mapIt(it.contentTopics)):
+      for cTopic in contentFilters.mapIt(it.contentTopic):
         # Create message cache for each subscribed content topic
         messageCache[cTopic] = @[]
       
@@ -83,7 +83,7 @@ proc installFilterApiHandlers*(node: WakuNode, rpcsrv: RpcServer, messageCache: 
     if (await node.unsubscribe(fReq).withTimeout(futTimeout)):
       # Successfully unsubscribed from all content filters
 
-      for cTopic in concat(contentFilters.mapIt(it.contentTopics)):
+      for cTopic in contentFilters.mapIt(it.contentTopic):
         # Remove message cache for each unsubscribed content topic
         messageCache.del(cTopic)
 
