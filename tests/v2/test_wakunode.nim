@@ -30,7 +30,7 @@ procSuite "WakuNode":
         Port(60000))
       pubSubTopic = "chat"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
-      filterRequest = FilterRequest(pubSubTopic: pubSubTopic, contentFilters: @[ContentFilter(contentTopics: @[contentTopic])], subscribe: true)
+      filterRequest = FilterRequest(pubSubTopic: pubSubTopic, contentFilters: @[ContentFilter(contentTopic: contentTopic)], subscribe: true)
       message = WakuMessage(payload: "hello world".toBytes(),
         contentTopic: contentTopic)
 
@@ -82,7 +82,7 @@ procSuite "WakuNode":
         Port(60002))
       pubSubTopic = "chat"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
-      filterRequest = FilterRequest(pubSubTopic: pubSubTopic, contentFilters: @[ContentFilter(contentTopics: @[contentTopic])], subscribe: true)
+      filterRequest = FilterRequest(pubSubTopic: pubSubTopic, contentFilters: @[ContentFilter(contentTopic: contentTopic)], subscribe: true)
       message = WakuMessage(payload: "hello world".toBytes(),
         contentTopic: contentTopic)
 
@@ -149,8 +149,8 @@ procSuite "WakuNode":
       otherPayload = @[byte 9]
       defaultMessage = WakuMessage(payload: defaultPayload, contentTopic: defaultContentTopic)
       otherMessage = WakuMessage(payload: otherPayload, contentTopic: otherContentTopic)
-      defaultFR = FilterRequest(contentFilters: @[ContentFilter(contentTopics: @[defaultContentTopic])], subscribe: true)
-      otherFR = FilterRequest(contentFilters: @[ContentFilter(contentTopics: @[otherContentTopic])], subscribe: true)
+      defaultFR = FilterRequest(contentFilters: @[ContentFilter(contentTopic: defaultContentTopic)], subscribe: true)
+      otherFR = FilterRequest(contentFilters: @[ContentFilter(contentTopic: otherContentTopic)], subscribe: true)
 
     await node1.start()
     node1.mountRelay()
@@ -221,7 +221,7 @@ procSuite "WakuNode":
       contentTopic = "defaultCT"
       payload = @[byte 1]
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
-      filterRequest = FilterRequest(contentFilters: @[ContentFilter(contentTopics: @[contentTopic])], subscribe: true)
+      filterRequest = FilterRequest(contentFilters: @[ContentFilter(contentTopic: contentTopic)], subscribe: true)
 
     await node1.start()
     node1.mountRelay()
@@ -322,7 +322,7 @@ procSuite "WakuNode":
         msg == message
       completionFut.complete(true)
 
-    await node1.subscribe(FilterRequest(pubSubTopic: "/waku/2/default-waku/proto", contentFilters: @[ContentFilter(contentTopics: @[contentTopic])], subscribe: true), handler)
+    await node1.subscribe(FilterRequest(pubSubTopic: "/waku/2/default-waku/proto", contentFilters: @[ContentFilter(contentTopic: contentTopic)], subscribe: true), handler)
 
     await sleepAsync(2000.millis)
 

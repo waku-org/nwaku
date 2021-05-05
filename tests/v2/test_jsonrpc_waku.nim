@@ -291,8 +291,11 @@ procSuite "Waku v2 JSON-RPC API":
       # Light node has not yet subscribed to any filters
       node.filters.len() == 0
 
-    let contentFilters = @[ContentFilter(contentTopics: @[defaultContentTopic, ContentTopic("2")]),
-                           ContentFilter(contentTopics: @[ContentTopic("3"), ContentTopic("4")])]
+    let contentFilters = @[ContentFilter(contentTopic: defaultContentTopic),
+                           ContentFilter(contentTopic: ContentTopic("2")),
+                           ContentFilter(contentTopic: ContentTopic("3")),
+                           ContentFilter(contentTopic: ContentTopic("4")),
+                           ]
     var response = await client.post_waku_v2_filter_v1_subscription(contentFilters = contentFilters, topic = some(defaultTopic))
     
     check:
@@ -330,7 +333,7 @@ procSuite "Waku v2 JSON-RPC API":
 
     # First ensure subscription exists
 
-    let sub = await client.post_waku_v2_filter_v1_subscription(contentFilters = @[ContentFilter(contentTopics: @[defaultContentTopic])], topic = some(defaultTopic))
+    let sub = await client.post_waku_v2_filter_v1_subscription(contentFilters = @[ContentFilter(contentTopic: defaultContentTopic)], topic = some(defaultTopic))
     check:
       sub
 
