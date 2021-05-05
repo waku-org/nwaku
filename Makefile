@@ -47,7 +47,7 @@ GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 else # "variables.mk" was included. Business as usual until the end of this file.
 
 # default target, because it's the first one that doesn't start with '.'
-all: | wakunode1 sim1 example1 wakunode2 sim2 example2 chat2 bridge
+all: | wakunode1 sim1 example1 wakunode2 sim2 example2 chat2 bridge chat2bridge
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
@@ -140,6 +140,10 @@ chat2: | build deps
 bridge: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim bridge $(NIM_PARAMS) waku.nims
+
+chat2bridge: | build deps
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim chat2bridge $(NIM_PARAMS) waku.nims
 
 # Builds and run the test suite (Waku v1 + v2)
 test: | test1 test2
