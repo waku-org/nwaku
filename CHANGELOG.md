@@ -14,6 +14,7 @@
 - Fixed: content filtering now works on any PubSub topic and not just the `waku` default.
 - Added the `pubsubTopic` field to the `HistoryQuery`. Now, the message history can be filtered and queried based on the `pubsubTopic`.
 - Added a new table of `Message` to the message store db. The new table has an additional column of `pubsubTopic` and will be used instead of the old table `messages`.  The message history in the old table `messages` will not be accessed and have to be removed.
+- Added a new column of `version` to the `Message` table of the message store db.
 - Fix: allow mounting light protocols without `relay`
 - Add `keep-alive` option to maintain stable connection to `relay` peers on idle topics
 
