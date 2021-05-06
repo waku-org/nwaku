@@ -25,20 +25,20 @@ requires "nim >= 1.2.0",
   "rln"
 
 ### Helper functions
-proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
+proc buildBinary(name: string, srcDir = "./", params = "", lang = "c", paramOffset = 0) =
   if not dirExists "build":
     mkDir "build"
   # allow something like "nim nimbus --verbosity:0 --hints:off nimbus.nims"
   var extra_params = params
-  for i in 2..<paramCount():
+  for i in 2..<paramCount()-paramOffset:
     extra_params &= " " & paramStr(i)
   exec "nim " & lang & " --out:build/" & name & " " & extra_params & " " & srcDir & name & ".nim"
 
-proc test(name: string, lang = "c") =
+proc test(name: string, lang = "c", paramOffset = 0) =
   # XXX: When running `> NIM_PARAMS="-d:chronicles_log_level=INFO" make test2`
   # I expect compiler flag to be overridden, however it stays with whatever is
   # specified here.
-  buildBinary name, "tests/", "-d:chronicles_log_level=DEBUG"
+  buildBinary name, "tests/", "-d:chronicles_log_level=DEBUG", "c", paramOffset
   #buildBinary name, "tests/", "-d:chronicles_log_level=ERROR"
   exec "build/" & name
 
@@ -90,5 +90,12 @@ task bridge, "Build Waku v1 - v2 bridge":
 
 task chat2bridge, "Build chat2-matterbridge":
   let name = "chat2bridge"
-
   buildBinary name, "examples/v2/matterbridge/", "-d:chronicles_log_level=DEBUG"
+
+task testScript, "Runs a targeted script":
+  let count = paramCount()
+  if count > 2:
+    let test_case = paramStr(count-1)
+    let test_version = paramStr(count)
+    let test_command =  "v" & test_version & "/" & test_case 
+    test test_command, "c", 2

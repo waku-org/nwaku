@@ -148,6 +148,16 @@ chat2bridge: | build deps
 # Builds and run the test suite (Waku v1 + v2)
 test: | test1 test2
 
+runtest: | build deps
+ifndef test
+	echo -e "test case was not set. Run make runtest version=<version_number> test=<target_test>"
+else ifndef v
+	echo -e "version number was not set. Run make runtest version=<version_number> test=<target_test>"
+else
+	echo -e $(BUILD_MSG) "build/$@" && \
+	$(ENV_SCRIPT) nim testScript $(NIM_PARAMS) waku.nims $(test) $(v)
+endif
+
 # symlink
 waku.nims:
 	ln -s waku.nimble $@
