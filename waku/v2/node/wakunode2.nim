@@ -376,7 +376,7 @@ proc mountSwap*(node: WakuNode) =
   # NYI - Do we need this?
   #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
 
-proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: bool) =
+proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: bool = false) =
   info "mounting store"
 
   if node.wakuSwap.isNil:
