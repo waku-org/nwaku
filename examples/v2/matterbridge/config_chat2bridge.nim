@@ -105,11 +105,16 @@ type
       defaultValue: ""
       name: "filternode" }: string
     
-    # Matterbridge options
-    mbHostUri* {.
-      desc: "Matterbridge host API address"
-      defaultValue: "http://127.0.0.1:4242"
-      name: "mb-host-uri" }: string
+    # Matterbridge options    
+    mbHostAddress* {.
+      desc: "Listening address of the Matterbridge host",
+      defaultValue: ValidIpAddress.init("127.0.0.1")
+      name: "mb-host-address" }: ValidIpAddress
+
+    mbHostPort* {.
+      desc: "Listening port of the Matterbridge host",
+      defaultValue: 4242
+      name: "mb-host-port" }: uint16
     
     mbGateway* {.
       desc: "Matterbridge gateway"
