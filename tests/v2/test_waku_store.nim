@@ -663,18 +663,18 @@ procSuite "Waku Store":
       check:
         (await completionFut.withTimeout(5.seconds)) == true
 
-    asyncTest "fin last seen ":
+    test "find last seen ":
       var
-        msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
-          WakuMessage(payload: @[byte 1],contentTopic: ContentTopic("1"), timestamp: float(1)),
-          WakuMessage(payload: @[byte 2],contentTopic: ContentTopic("2"), timestamp: float(2)),
-          WakuMessage(payload: @[byte 3],contentTopic: ContentTopic("1"), timestamp: float(3)),
-          WakuMessage(payload: @[byte 4],contentTopic: ContentTopic("2"), timestamp: float(4)),
-          WakuMessage(payload: @[byte 5],contentTopic: ContentTopic("1"), timestamp: float(5)),
-          WakuMessage(payload: @[byte 6],contentTopic: ContentTopic("2"), timestamp: float(6)),
-          WakuMessage(payload: @[byte 7],contentTopic: ContentTopic("1"), timestamp: float(7)),
-          WakuMessage(payload: @[byte 8],contentTopic: ContentTopic("2"), timestamp: float(8)),
-          WakuMessage(payload: @[byte 9],contentTopic: ContentTopic("1"),timestamp: float(9))]      var completionFut = newFuture[bool]()
+        msgList = @[IndexedWakuMessage(msg: WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"))),
+          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 1],contentTopic: ContentTopic("1"), timestamp: float(1))),
+          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 2],contentTopic: ContentTopic("2"), timestamp: float(2))),
+          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 3],contentTopic: ContentTopic("1"), timestamp: float(3))),
+          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 4],contentTopic: ContentTopic("2"), timestamp: float(4))),
+          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 5],contentTopic: ContentTopic("1"), timestamp: float(9))),
+          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 6],contentTopic: ContentTopic("2"), timestamp: float(6))),
+          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 7],contentTopic: ContentTopic("1"), timestamp: float(7))),
+          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 8],contentTopic: ContentTopic("2"), timestamp: float(8))),
+          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 9],contentTopic: ContentTopic("1"),timestamp: float(5)))]     
 
       check:
-        findLastSeen(msgList) = float(9)
+        findLastSeen(msgList) == float(9)
