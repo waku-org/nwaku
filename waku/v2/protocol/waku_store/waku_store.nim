@@ -388,7 +388,7 @@ method init*(ws: WakuStore) =
   waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
 
   
-proc findLastSeen(list: seq[WakuMessage]): float = 
+proc findLastSeen*(list: seq[WakuMessage]): float = 
   var lastSeenTime = float(0)
   for msg in list.items : 
     lastSeenTime = if msg.timestamp > lastSeenTime: msg.timestamp 
