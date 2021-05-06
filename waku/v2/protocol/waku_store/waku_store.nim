@@ -387,6 +387,34 @@ method init*(ws: WakuStore) =
   
   waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
 
+  
+proc findLastSeen(list: seq[WakuMessage]): float = 
+  var lastSeenTime = float(0)
+  for msg in list.items : 
+    lastSeenTime = if msg.timestamp > lastSeenTime: msg.timestamp 
+  return lastSeenTime
+    
+  
+proc resume*(ws: WakuStore) =
+  # TODO fetch the message history of the DefaultTopic since the last seen message in the db
+  let currentTime = epochTime()
+  var lastSeenTime: float = findLastSeen(ws.messages)
+
+  proc handler(response: HistoryResponse) {.gcsafe, closure.}=
+    let index = msg.computeIndex()
+    for msg in response.messages:
+      ws.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: DefaultTopic))
+      waku_store_messages.inc(labelValues = ["stored"])
+      if ws.store.isNil: continue
+      let res = ws.store.put(index, msg, topic)
+      if res.isErr:
+        warn "failed to store messages", err = res.error
+        waku_store_errors.inc(labelValues = ["store_failure"])
+
+    let rpc = HistoryQuery(pubsubTopic: DefaultTopic, startTime: lastSeenTime, endTime: lastSeenMessageTime)
+    await query(rpc, handler)
+
+
 proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgContext,
                    store: MessageStore = nil, wakuSwap: WakuSwap = nil): T =
   debug "init"
