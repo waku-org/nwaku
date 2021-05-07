@@ -84,3 +84,80 @@ message Chat2Message {
 ```
 
 where `timestamp` is the Unix timestamp of the message, `nick` is the relevant `chat2` user's selected nickname and `payload` is the actual chat message being sent. The `payload` is the byte array representation of a UTF8 encoded string.
+
+# Bridge messages between `chat2` and matterbridge
+
+To facilitate `chat2` use in a variety of contexts, a `chat2bridge` can be deployed to bridge messages between `chat2` and any protocol supported by matterbridge.
+
+## Configure and run matterbridge
+
+1. Download and install [matterbridge](https://github.com/42wim/matterbridge) and configure an instance for the protocol(s) you want to bridge to.
+Basic configuration instructions [here](https://github.com/42wim/matterbridge/wiki/How-to-create-your-config)
+2. Configure the matterbridge API.
+This is used by the `chat2bridge` to relay `chat2` messages to and from matterbridge.
+Configuration instructions for the matterbridge API can be found [here](https://github.com/42wim/matterbridge/wiki/Api).
+The full matterbridge API specification can be found [here](https://app.swaggerhub.com/apis-docs/matterbridge/matterbridge-api/0.1.0-oas3).
+The template below shows an example of a `matterbridge.toml` configuration file for bridging `chat2` to Discord.
+Follow the matterbridge [Discord instructions](https://github.com/42wim/matterbridge/wiki/Section-Discord-%28basic%29) to configure your own `Token` and `Server`.
+```toml
+[discord.mydiscord]
+
+# You can get your token by following the instructions on
+# https://github.com/42wim/matterbridge/wiki/Discord-bot-setup.
+# If you want roles/groups mentions to be shown with names instead of ID, 
+# you'll need to give your bot the "Manage Roles" permission.
+Token="MTk4NjIyNDgzNDcdOTI1MjQ4.Cl2FMZ.ZnCjm1XVW7vRze4b7Cq4se7kKWs-abD"
+
+Server="myserver" # picked from guilds the bot is connected to
+
+RemoteNickFormat="{NICK}@chat2: "
+
+[api.myapi]
+BindAddress="127.0.0.1:4242"
+Buffer=1000
+RemoteNickFormat="{NICK}@{PROTOCOL}"
+
+[[gateway]]
+name="gateway1"
+enable=true
+
+[[gateway.inout]]
+account="discord.mydiscord"
+channel="general"
+
+[[gateway.inout]]
+account="api.myapi"
+channel="api"
+```
+3. Run matterbridge using the configuration file created in the previous step.
+Note the API listening address and port in the matterbridge logs (configured as the `BindAddress` in the previous step).
+```
+./matterbridge -conf matterbridge.toml
+```
+```
+[0000]  INFO api:          Listening on 127.0.0.1:4242
+```
+## Configure and run `chat2bridge`
+1. From the `nim-waku` project directory, make the `chat2bridge` target
+```
+make chat2bridge
+```
+2. Run `chat2bridge` with the following configuration options:
+```
+--mb-host-address         Listening address of the Matterbridge host
+--mb-host-port            Listening port of the Matterbridge host
+--mb-gateway              Matterbridge gateway
+```
+```
+./build/chat2bridge --mb-host-address=127.0.0.1 --mb-host-port=4242 --mb-gateway="gateway1"
+```
+Note that `chat2bridge` encompasses a full `wakunode2` which can be configured with the normal configuration parameters.
+For a full list of configuration options, run `--help`.
+```
+./build/chat2bridge --help
+```
+## Connect `chat2bridge` to a `chat2` network
+1. To bridge messages on an existing `chat2` network, connect to any relay peer(s) in that network from `chat2bridge`.
+This can be done by either specifying the peer(s) as a `--staticnode` when starting the `chat2bridge` or calling the [`post_waku_v2_admin_v1_peers`](https://rfc.vac.dev/spec/16/#post_waku_v2_admin_v1_peers) method on the JSON-RPC API.
+Note that the latter requires the `chat2bridge` to be run with `--rpc=true` and `--rpc-admin=true`.
+1. To bridge from a new `chat2` instance, simply specify the `chat2bridge` listening address as a `chat2` [static peer](#Specifying-a-static-peer).

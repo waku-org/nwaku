@@ -1,5 +1,7 @@
+{.push raises: [Defect, Exception].}
+
 import
-  std/[tables, times, strutils],
+  std/[tables, times, strutils, hashes, sequtils],
   chronos, confutils, chronicles, chronicles/topics_registry, metrics,
   stew/[byteutils, endians2],
   stew/shims/net as stewNet, json_rpc/rpcserver,
@@ -15,6 +17,7 @@ import
   ./config_chat2bridge
 
 declarePublicCounter chat2_mb_transfers, "Number of messages transferred between chat2 and Matterbridge", ["type"]
+declarePublicCounter chat2_mb_dropped, "Number of messages dropped", ["reason"]
 
 logScope:
   topics = "chat2bridge"
@@ -26,6 +29,7 @@ logScope:
 const
   DefaultTopic* = chat2.DefaultTopic
   DefaultContentTopic* = chat2.DefaultContentTopic
+  DeduplQSize = 20  # Maximum number of seen messages to keep in deduplication queue
 
 #########
 # Types #
@@ -37,12 +41,25 @@ type
     nodev2*: WakuNode
     running: bool
     pollPeriod: chronos.Duration
+    seen: seq[Hash] #FIFO queue
   
   MbMessageHandler* = proc (jsonNode: JsonNode) {.gcsafe.}
 
 ###################
 # Helper funtions #
 ###################S
+
+proc containsOrAdd(sequence: var seq[Hash], hash: Hash): bool =
+  if sequence.contains(hash):
+    return true 
+
+  if sequence.len >= DeduplQSize:
+    trace "Deduplication queue full. Removing oldest item."
+    sequence.delete 0, 0  # Remove first item in queue
+  
+  sequence.add(hash)
+
+  return false
 
 proc toWakuMessage(jsonNode: JsonNode): WakuMessage =
   # Translates a Matterbridge API JSON response to a Waku v2 message
@@ -59,29 +76,49 @@ proc toWakuMessage(jsonNode: JsonNode): WakuMessage =
               version: 0)
 
 proc toChat2(cmb: Chat2MatterBridge, jsonNode: JsonNode) {.async.} =
-  chat2_mb_transfers.inc(labelValues = ["v1_to_v2"])
+  let msg = jsonNode.toWakuMessage()
+
+  if cmb.seen.containsOrAdd(msg.payload.hash()):
+    # This is a duplicate message. Return.
+    chat2_mb_dropped.inc(labelValues = ["duplicate"])
+    return
 
   trace "Post Matterbridge message to chat2"
+  
+  chat2_mb_transfers.inc(labelValues = ["mb_to_chat2"])
 
-  await cmb.nodev2.publish(DefaultTopic, jsonNode.toWakuMessage())
+  await cmb.nodev2.publish(DefaultTopic, msg)
 
 proc toMatterbridge(cmb: Chat2MatterBridge, msg: WakuMessage) {.gcsafe.} =
-  chat2_mb_transfers.inc(labelValues = ["v2_to_v1"])
+  if cmb.seen.containsOrAdd(msg.payload.hash()):
+    # This is a duplicate message. Return.
+    chat2_mb_dropped.inc(labelValues = ["duplicate"])
+    return
 
   trace "Post chat2 message to Matterbridge"
+
+  chat2_mb_transfers.inc(labelValues = ["chat2_to_mb"])
 
   let chat2Msg = Chat2Message.init(msg.payload)
 
   assert chat2Msg.isOk
 
-  cmb.mbClient.postMessage(text = string.fromBytes(chat2Msg[].payload),
-                           username = chat2Msg[].nick)
+  try:
+    cmb.mbClient.postMessage(text = string.fromBytes(chat2Msg[].payload),
+                             username = chat2Msg[].nick)
+  except OSError, IOError:
+    chat2_mb_dropped.inc(labelValues = ["duplicate"])
+    error "Matterbridge host unreachable. Dropping message."
 
 proc pollMatterbridge(cmb: Chat2MatterBridge, handler: MbMessageHandler) {.async.} =
   while cmb.running:
-    for jsonNode in cmb.mbClient.getMessages():
-      handler(jsonNode)
-    
+    try:
+      for jsonNode in cmb.mbClient.getMessages():
+        handler(jsonNode)
+    except OSError, IOError:
+      error "Matterbridge host unreachable. Sleeping before retrying."
+      await sleepAsync(chronos.seconds(10))
+
     await sleepAsync(cmb.pollPeriod)
 
 ##############
@@ -99,6 +136,15 @@ proc new*(T: type Chat2MatterBridge,
   # Setup Matterbridge 
   let
     mbClient = MatterbridgeClient.new(mbHostUri, mbGateway)
+  
+  # Let's verify the Matterbridge configuration before continuing
+  try:
+    if mbClient.isHealthy():
+      info "Reached Matterbridge host", host=mbClient.host
+    else:
+      raise newException(ValueError, "Matterbridge client not healthy")
+  except OSError, IOError:
+    raise newException(ValueError, "Matterbridge host unreachable")
 
   # Setup Waku v2 node
   let
@@ -185,7 +231,7 @@ when isMainModule:
 
   let
     bridge = Chat2Matterbridge.new(
-                            mbHostUri = conf.mbHostUri,
+                            mbHostUri = "http://" & $initTAddress(conf.mbHostAddress, Port(conf.mbHostPort)),
                             mbGateway = conf.mbGateway,
                             nodev2Key = conf.nodeKeyv2,
                             nodev2BindIp = conf.listenAddress, nodev2BindPort = Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
