@@ -685,6 +685,9 @@ when isMainModule:
 
     if conf.storenode != "":
       setStorePeer(node, conf.storenode)
+    
+    # TODO resume the history using node.wakuStore.resume()
+
 
   # Relay setup
   mountRelay(node,
