@@ -486,6 +486,8 @@ proc resume*(ws: WakuStore) {.async, gcsafe.} =
         waku_store_errors.inc(labelValues = ["store_failure"])
 
   let rpc = HistoryQuery(pubsubTopic: DefaultTopic, startTime: lastSeenTime, endTime: lastSeenTime)
+  # we rely on the peer selection of the underlying peer manager
+  # this a one time attempt, though it should ideally try all the peers in the peer manager to fetch the history
   await ws.query(rpc, handler)
 
 # NOTE: Experimental, maybe incorporate as part of query call
