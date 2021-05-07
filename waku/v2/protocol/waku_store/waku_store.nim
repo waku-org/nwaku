@@ -264,7 +264,6 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
       of PagingDirection.BACKWARD: 
         cursor = msgList[list.len - 1].index # perform paging from the end of the list
   var foundIndexOption = msgList.findIndex(cursor) 
-  # echo "foundIndexOption", foundIndexOption.get()
   if foundIndexOption.isNone: # the cursor is not valid
     return (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction))
   var foundIndex = uint64(foundIndexOption.get())
@@ -308,7 +307,6 @@ proc paginateWithoutIndex(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (se
   result[1] = updatedPagingInfo
 
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
-  echo "queried node", w.messages.len
   result = HistoryResponse(messages: newSeq[WakuMessage]())
   var data : seq[IndexedWakuMessage] = w.messages
 
@@ -450,7 +448,6 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
   await connOpt.get().writeLP(HistoryRPC(requestId: generateRequestId(w.rng),
       query: query).encode().buffer)
 
-  echo "everything is alright"
   var message = await connOpt.get().readLp(64*1024)
   let response = HistoryRPC.init(message)
 
@@ -460,7 +457,6 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
     return
 
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
-  echo "fetched response ", response.value.response.messages.len
   handler(response.value.response)
 
   
@@ -471,8 +467,8 @@ proc findLastSeen*(list: seq[IndexedWakuMessage]): float =
   return lastSeenTime
 
 proc resume*(ws: WakuStore){.async, gcsafe.} =
+  ## fetch the message history of the DefaultTopic since the last seen message in the db
   debug "resume"
-  # TODO fetch the message history of the DefaultTopic since the last seen message in the db
   var currentTime = epochTime()
   var lastSeenTime: float = findLastSeen(ws.messages)
 
@@ -482,7 +478,6 @@ proc resume*(ws: WakuStore){.async, gcsafe.} =
   lastSeenTime = max(lastSeenTime - offset, 0)
 
   proc handler(response: HistoryResponse) {.gcsafe.} =
-    echo "here", response.messages.len
     for msg in response.messages:
       let index = msg.computeIndex()
       ws.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: DefaultTopic))
@@ -493,7 +488,6 @@ proc resume*(ws: WakuStore){.async, gcsafe.} =
         warn "failed to store messages", err = res.error
         waku_store_errors.inc(labelValues = ["store_failure"])
 
-  echo "queried time: ", currentTime, " to ", lastSeenTime
   let rpc = HistoryQuery(pubsubTopic: DefaultTopic, startTime: lastSeenTime, endTime: currentTime)
   # we rely on the peer selection of the underlying peer manager
   # this a one time attempt, though it should ideally try all the peers in the peer manager to fetch the history
