@@ -581,6 +581,7 @@ procSuite "Waku Store":
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()
 
+    # to be connected to
     var listenSwitch = newStandardSwitch(some(key))
     discard await listenSwitch.start()
 
@@ -647,24 +648,7 @@ procSuite "Waku Store":
       check:
         (await completionFut.withTimeout(5.seconds)) == true
 
-  
-    asyncTest "handle temporal history query with a zero-size time window":
-      # a zero-size window results in an empty list of history messages
-      var completionFut = newFuture[bool]()
-
-      proc handler(response: HistoryResponse) {.gcsafe, closure.} =
-        check:
-          # a zero-size window results in an empty list of history messages
-          response.messages.len() == 0
-        completionFut.complete(true)
-
-      let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: ContentTopic("1"))], startTime: float(2), endTime: float(2))
-      await proto.query(rpc, handler)
-
-      check:
-        (await completionFut.withTimeout(5.seconds)) == true
-
-    test "find last seen ":
+    test "find last seen message":
       var
         msgList = @[IndexedWakuMessage(msg: WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"))),
           IndexedWakuMessage(msg: WakuMessage(payload: @[byte 1],contentTopic: ContentTopic("1"), timestamp: float(1))),
@@ -680,8 +664,8 @@ procSuite "Waku Store":
       check:
         findLastSeen(msgList) == float(9)
 
-    asyncTest "resume history":
-      # spin up a new node
+    asyncTest "resume message history":
+      # starts a new node
       var dialSwitch2 = newStandardSwitch()
       discard await dialSwitch2.start()
       let
