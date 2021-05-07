@@ -387,12 +387,6 @@ method init*(ws: WakuStore) =
   
   waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
 
-  
-proc findLastSeen*(list: seq[IndexedWakuMessage]): float = 
-  var lastSeenTime = float64(0)
-  for iwmsg in list.items : 
-    lastSeenTime = if iwmsg.msg.timestamp>lastSeenTime: iwmsg.msg.timestamp else: lastSeenTime 
-  return lastSeenTime
 
 proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgContext,
                    store: MessageStore = nil, wakuSwap: WakuSwap = nil): T =
@@ -466,8 +460,16 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
 
   handler(response.value.response)
+
   
+proc findLastSeen*(list: seq[IndexedWakuMessage]): float = 
+  var lastSeenTime = float64(0)
+  for iwmsg in list.items : 
+    lastSeenTime = if iwmsg.msg.timestamp>lastSeenTime: iwmsg.msg.timestamp else: lastSeenTime 
+  return lastSeenTime
+ 
 proc resume*(ws: WakuStore) {.async, gcsafe.} =
+  debug "resume"
   # TODO fetch the message history of the DefaultTopic since the last seen message in the db
   let currentTime = epochTime()
   var lastSeenTime: float = findLastSeen(ws.messages)
