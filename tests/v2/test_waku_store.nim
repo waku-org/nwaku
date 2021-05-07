@@ -567,7 +567,7 @@ procSuite "Waku Store":
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
     var
-      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
+      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: float(0)),
         WakuMessage(payload: @[byte 1],contentTopic: ContentTopic("1"), timestamp: float(1)),
         WakuMessage(payload: @[byte 2],contentTopic: ContentTopic("2"), timestamp: float(2)),
         WakuMessage(payload: @[byte 3],contentTopic: ContentTopic("1"), timestamp: float(3)),
@@ -595,7 +595,8 @@ procSuite "Waku Store":
     listenSwitch.mount(proto)
 
     for wakuMsg in msgList:
-      await subscriptions.notify("foo", wakuMsg)
+      # the pubsub topic should be DefaultTopic
+      await subscriptions.notify(DefaultTopic, wakuMsg)
     
     asyncTest "handle temporal history query with a valid time window":
       var completionFut = newFuture[bool]()
@@ -678,3 +679,14 @@ procSuite "Waku Store":
 
       check:
         findLastSeen(msgList) == float(9)
+
+    asyncTest "resume history":
+      # spin up a new node
+      var dialSwitch2 = newStandardSwitch()
+      discard await dialSwitch2.start()
+      let
+        proto2 = WakuStore.init(PeerManager.new(dialSwitch2), crypto.newRng())
+       
+      proto2.setPeer(listenSwitch.peerInfo)
+      await proto2.resume()
+      check proto2.messages.len == 10
