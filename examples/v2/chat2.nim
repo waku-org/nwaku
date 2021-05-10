@@ -242,22 +242,24 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
     (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
       Port(uint16(conf.tcpPort) + conf.portsShift),
       Port(uint16(conf.udpPort) + conf.portsShift))
-    node = WakuNode.init(conf.nodeKey, conf.listenAddress,
+    node = WakuNode.init(conf.nodekey_depr, conf.listenAddress, # @TODO remove deprecated config item
       Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
 
   await node.start()
 
   if conf.filternode != "":
-    node.mountRelay(conf.topics.split(" "), rlnRelayEnabled = conf.rlnrelay, keepAlive = conf.keepAlive)
+    node.mountRelay(conf.topics.split(" "), rlnRelayEnabled = (conf.rlnrelay_depr or conf.rlnRelay), keepAlive = conf.keepAlive) # @TODO remove deprecated config item
   else:
-    node.mountRelay(@[], rlnRelayEnabled = conf.rlnrelay, keepAlive = conf.keepAlive)
+    node.mountRelay(@[], rlnRelayEnabled = (conf.rlnrelay_depr or conf.rlnRelay), keepAlive = conf.keepAlive) # @TODO remove deprecated config item
   
   let nick = await readNick(transp)
   echo "Welcome, " & nick & "!"
 
   var chat = Chat(node: node, transp: transp, subscribed: true, connected: false, started: true, nick: nick, prompt: false)
 
-  if conf.staticnodes.len > 0:
+  if conf.staticnodes_depr.len > 0: # @TODO remove deprecated config item
+    await connectToNodes(chat, conf.staticnodes_depr)
+  elif conf.staticnodes.len > 0:
     await connectToNodes(chat, conf.staticnodes)
   else:
     # Connect to at least one random fleet node
@@ -277,7 +279,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
     node.mountSwap()
 
   if (conf.storenode != "") or (conf.store == true):
-    node.mountStore(persistMessages = conf.persistmessages)
+    node.mountStore(persistMessages = conf.persistMessages)
 
     var storenode: string
 
