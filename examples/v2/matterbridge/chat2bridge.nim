@@ -233,7 +233,7 @@ when isMainModule:
     bridge = Chat2Matterbridge.new(
                             mbHostUri = "http://" & $initTAddress(conf.mbHostAddress, Port(conf.mbHostPort)),
                             mbGateway = conf.mbGateway,
-                            nodev2Key = conf.nodeKeyv2,
+                            nodev2Key = conf.nodekey,
                             nodev2BindIp = conf.listenAddress, nodev2BindPort = Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
                             nodev2ExtIp = nodev2ExtIp, nodev2ExtPort = nodev2ExtPort)
   
@@ -247,8 +247,8 @@ when isMainModule:
   if conf.filter:
     mountFilter(bridge.nodev2)
 
-  if conf.staticnodesv2.len > 0:
-    waitFor connectToNodes(bridge.nodev2, conf.staticnodesv2)
+  if conf.staticnodes.len > 0:
+    waitFor connectToNodes(bridge.nodev2, conf.staticnodes)
 
   if conf.storenode != "":
     setStorePeer(bridge.nodev2, conf.storenode)
