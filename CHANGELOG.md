@@ -17,6 +17,8 @@
 - Added a new column of `version` to the `Message` table of the message store db.
 - Fix: allow mounting light protocols without `relay`
 - Add `keep-alive` option to maintain stable connection to `relay` peers on idle topics
+- Add a bridge between Waku v1 and v2
+- Add a chat application (`chat2`) over Waku v2 with bridging to matterbridge
 
 ## 2021-01-05 v0.2
 

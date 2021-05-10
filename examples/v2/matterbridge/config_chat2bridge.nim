@@ -66,14 +66,14 @@ type
       name: "metrics-server-port" .}: uint16
 
     ### Waku v2 options
-    staticnodesv2* {.
+    staticnodes* {.
       desc: "Multiaddr of peer to directly connect with. Argument may be repeated"
-      name: "staticnodev2" }: seq[string]
+      name: "staticnode" }: seq[string]
 
-    nodekeyv2* {.
+    nodekey* {.
       desc: "P2P node private key as hex"
       defaultValue: crypto.PrivateKey.random(Secp256k1, newRng()[]).tryGet()
-      name: "nodekeyv2" }: crypto.PrivateKey
+      name: "nodekey" }: crypto.PrivateKey
 
     topics* {.
       desc: "Default topics to subscribe to (space separated list)"
