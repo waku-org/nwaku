@@ -66,14 +66,15 @@ type
       name: "metrics-server-port" .}: uint16
 
     ### Waku v2 options
-    staticnodesv2* {.
+    
+    staticnodes* {.
       desc: "Multiaddr of peer to directly connect with. Argument may be repeated"
-      name: "staticnodev2" }: seq[string]
+      name: "staticnode" }: seq[string]
 
-    nodekeyv2* {.
+    nodekey* {.
       desc: "P2P node private key as hex"
       defaultValue: crypto.PrivateKey.random(Secp256k1, newRng()[]).tryGet()
-      name: "nodekeyv2" }: crypto.PrivateKey
+      name: "nodekey" }: crypto.PrivateKey
 
     topics* {.
       desc: "Default topics to subscribe to (space separated list)"
@@ -105,11 +106,16 @@ type
       defaultValue: ""
       name: "filternode" }: string
     
-    # Matterbridge options
-    mbHostUri* {.
-      desc: "Matterbridge host API address"
-      defaultValue: "http://127.0.0.1:4242"
-      name: "mb-host-uri" }: string
+    # Matterbridge options    
+    mbHostAddress* {.
+      desc: "Listening address of the Matterbridge host",
+      defaultValue: ValidIpAddress.init("127.0.0.1")
+      name: "mb-host-address" }: ValidIpAddress
+
+    mbHostPort* {.
+      desc: "Listening port of the Matterbridge host",
+      defaultValue: 4242
+      name: "mb-host-port" }: uint16
     
     mbGateway* {.
       desc: "Matterbridge gateway"
