@@ -95,7 +95,7 @@ type
     
     staticnodesV1* {.
       desc: "Enode URL to directly connect with. Argument may be repeated"
-      name: "staticnodes-v1" .}: seq[string]
+      name: "staticnode-v1" .}: seq[string]
 
     # @TODO: deprecate this item. Name changed from `nodekeyv1` -> `node-key-v1`
     nodekeyv1_depr* {.
@@ -123,7 +123,7 @@ type
     
     staticnodesV2* {.
       desc: "Multiaddr of peer to directly connect with. Argument may be repeated"
-      name: "staticnodes-v2" }: seq[string]
+      name: "staticnode-v2" }: seq[string]
 
     # @TODO: deprecate this item. Name changed from `nodekeyv2` -> `node-key-v2`
     nodekeyv2_depr* {.

@@ -257,9 +257,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
 
   var chat = Chat(node: node, transp: transp, subscribed: true, connected: false, started: true, nick: nick, prompt: false)
 
-  if conf.staticnodes_depr.len > 0: # @TODO remove deprecated config item
-    await connectToNodes(chat, conf.staticnodes_depr)
-  elif conf.staticnodes.len > 0:
+  if conf.staticnodes.len > 0:
     await connectToNodes(chat, conf.staticnodes)
   else:
     # Connect to at least one random fleet node

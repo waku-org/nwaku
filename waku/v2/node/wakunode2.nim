@@ -700,9 +700,7 @@ when isMainModule:
              keepAlive = conf.keepAlive,
              relayMessages = conf.relay) # Indicates if node is capable to relay messages
 
-  if conf.staticnodes_depr.len > 0: # @TODO remove deprecated config item
-    waitFor connectToNodes(node, conf.staticnodes_depr)
-  elif conf.staticnodes.len > 0:
+  if conf.staticnodes.len > 0:
     waitFor connectToNodes(node, conf.staticnodes)
 
   # NOTE Must be mounted after relay

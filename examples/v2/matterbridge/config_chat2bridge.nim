@@ -66,14 +66,10 @@ type
       name: "metrics-server-port" .}: uint16
 
     ### Waku v2 options
-    # @TODO: deprecate this item. Name changed from `staticnode` -> `staticnodes`
-    staticnodes_depr* {.
-      desc: "Multiaddr of peer to directly connect with. Argument may be repeated"
-      name: "staticnode" }: seq[string]
     
     staticnodes* {.
       desc: "Multiaddr of peer to directly connect with. Argument may be repeated"
-      name: "staticnodes" }: seq[string]
+      name: "staticnode" }: seq[string]
 
     # @TODO: deprecate this item. Name changed from `nodekey` -> `node-key`
     nodekey_depr* {.

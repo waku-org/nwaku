@@ -99,14 +99,9 @@ type
       defaultValue: false
       name: "rln-relay" }: bool
     
-    # @TODO: deprecate this item. Name changed from `staticnode` -> `staticnodes`
-    staticnodes_depr* {. 
-      desc: "Peer multiaddr to directly connect with. Argument may be repeated."
-      name: "staticnode" }: seq[string]
-    
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
-      name: "staticnodes" }: seq[string]
+      name: "staticnode" }: seq[string]
     
     keepAlive* {.
       desc: "Enable keep-alive for idle connections: true|false",
