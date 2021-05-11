@@ -664,7 +664,7 @@ when isMainModule:
     ## config, the external port is the same as the bind port.
     extPort = if extIp.isSome() and extTcpPort.isNone(): some(Port(uint16(conf.tcpPort) + conf.portsShift))
               else: extTcpPort
-    node = WakuNode.init(conf.nodekey_depr, # @TODO remove deprecated config item
+    node = WakuNode.init(conf.nodekey,
                          conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
                          extIp, extPort,
                          pStorage)

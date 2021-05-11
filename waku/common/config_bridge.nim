@@ -104,11 +104,11 @@ type
       defaultValue: keys.KeyPair.random(keys.newRng()[])
       name: "nodekeyv1" .}: keys.KeyPair
     
-    nodeKeyV1* {.
+    nodekeyV1* {.
       desc: "DevP2P node private key as hex",
       # TODO: can the rng be passed in somehow via Load?
       defaultValue: keys.KeyPair.random(keys.newRng()[])
-      name: "node-key-v1" .}: keys.KeyPair
+      name: "nodekey-v1" .}: keys.KeyPair
 
     wakuPow* {.
       desc: "PoW requirement of Waku node.",
@@ -131,10 +131,10 @@ type
       defaultValue: crypto.PrivateKey.random(Secp256k1, keys.newRng()[]).tryGet()
       name: "nodekeyv2" }: crypto.PrivateKey
     
-    nodeKeyV2* {.
+    nodekeyV2* {.
       desc: "P2P node private key as hex"
       defaultValue: crypto.PrivateKey.random(Secp256k1, keys.newRng()[]).tryGet()
-      name: "node-key-v2" }: crypto.PrivateKey
+      name: "nodekey-v2" }: crypto.PrivateKey
 
     topics* {.
       desc: "Default topics to subscribe to (space separated list)"

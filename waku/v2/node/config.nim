@@ -16,16 +16,10 @@ type
       defaultValue: LogLevel.INFO
       name: "log-level" }: LogLevel
     
-    # @TODO: deprecate this item. Name changed from `nodekey` -> `node-key`
-    nodekey_depr* {.
+    nodekey* {.
       desc: "P2P node private key as 64 char hex string.",
       defaultValue: crypto.PrivateKey.random(Secp256k1, keys.newRng()[]).tryGet()
       name: "nodekey" }: crypto.PrivateKey
-    
-    nodeKey* {.
-      desc: "P2P node private key as 64 char hex string.",
-      defaultValue: crypto.PrivateKey.random(Secp256k1, keys.newRng()[]).tryGet()
-      name: "node-key" }: crypto.PrivateKey
 
     listenAddress* {.
       defaultValue: defaultListenAddress(config)

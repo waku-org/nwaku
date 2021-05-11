@@ -233,7 +233,7 @@ when isMainModule:
     bridge = Chat2Matterbridge.new(
                             mbHostUri = "http://" & $initTAddress(conf.mbHostAddress, Port(conf.mbHostPort)),
                             mbGateway = conf.mbGateway,
-                            nodev2Key = conf.nodekey_depr, # @TODO remove deprecated config item
+                            nodev2Key = conf.nodekey,
                             nodev2BindIp = conf.listenAddress, nodev2BindPort = Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
                             nodev2ExtIp = nodev2ExtIp, nodev2ExtPort = nodev2ExtPort)
   
