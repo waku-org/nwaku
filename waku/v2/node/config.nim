@@ -9,10 +9,17 @@ import
 
 type
   WakuNodeConf* = object
+    ## General node config
+
     logLevel* {.
       desc: "Sets the log level."
       defaultValue: LogLevel.INFO
       name: "log-level" }: LogLevel
+    
+    nodekey* {.
+      desc: "P2P node private key as 64 char hex string.",
+      defaultValue: crypto.PrivateKey.random(Secp256k1, keys.newRng()[]).tryGet()
+      name: "nodekey" }: crypto.PrivateKey
 
     listenAddress* {.
       defaultValue: defaultListenAddress(config)
@@ -38,81 +45,107 @@ type
       desc: "Specify method to use for determining public address. " &
             "Must be one of: any, none, upnp, pmp, extip:<IP>."
       defaultValue: "any" }: string
-
-    staticnodes* {.
-      desc: "Peer multiaddr to directly connect with. Argument may be repeated."
-      name: "staticnode" }: seq[string]
     
-    peerpersist* {.
+    ## Persistence config
+
+    # @TODO: deprecate this item. Name changed from `dbpath` -> `db-path`
+    dbpath_depr* {.
+      desc: "The database path for peristent storage",
+      defaultValue: ""
+      name: "dbpath" }: string
+    
+    dbPath* {.
+      desc: "The database path for peristent storage",
+      defaultValue: ""
+      name: "db-path" }: string
+    
+    # @TODO: deprecate this item. Name changed from `peerpersist` -> `persist-peers`
+    peerpersist_depr* {.
       desc: "Enable peer persistence: true|false",
       defaultValue: false
       name: "peerpersist" }: bool
-
-    storenode* {.
-      desc: "Peer multiaddr to query for storage.",
-      defaultValue: ""
-      name: "storenode" }: string
-
-    persistmessages* {.
+    
+    persistPeers* {.
+      desc: "Enable peer persistence: true|false",
+      defaultValue: false
+      name: "persist-peers" }: bool
+    
+    persistMessages* {.
       desc: "Enable message persistence: true|false",
       defaultValue: false
       name: "persist-messages" }: bool
 
-    store* {.
-      desc: "Enable store protocol: true|false",
-      defaultValue: true
-      name: "store" }: bool
-
-    filter* {.
-      desc: "Enable filter protocol: true|false",
-      defaultValue: false
-      name: "filter" }: bool
+    ## Relay config
     
     relay* {.
       desc: "Enable relay protocol: true|false",
       defaultValue: true
       name: "relay" }: bool
     
-    rlnrelay* {.
+    # @TODO: deprecate this item. Name changed from `rlnrelay` -> `rln-relay`
+    rlnrelay_depr* {.
       desc: "Enable spam protection through rln-relay: true|false",
       defaultValue: false
       name: "rlnrelay" }: bool
+    
+    rlnRelay* {.
+      desc: "Enable spam protection through rln-relay: true|false",
+      defaultValue: false
+      name: "rln-relay" }: bool
+    
+    staticnodes* {.
+      desc: "Peer multiaddr to directly connect with. Argument may be repeated."
+      name: "staticnode" }: seq[string]
     
     keepAlive* {.
       desc: "Enable keep-alive for idle connections: true|false",
       defaultValue: false
       name: "keep-alive" }: bool
 
-    swap* {.
-      desc: "Enable swap protocol: true|false",
-      defaultValue: false
-      name: "swap" }: bool
-
-    lightpush* {.
-      desc: "Enable lightpush protocol: true|false",
-      defaultValue: false
-      name: "lightpush" }: bool
-
-    filternode* {.
-      desc: "Peer multiaddr to request content filtering of messages.",
-      defaultValue: ""
-      name: "filternode" }: string
-    
-    dbpath* {.
-      desc: "The database path for the store protocol.",
-      defaultValue: ""
-      name: "dbpath" }: string
-
     topics* {.
       desc: "Default topics to subscribe to (space separated list)."
       defaultValue: "/waku/2/default-waku/proto"
       name: "topics" .}: string
 
-    # NOTE: Signature is different here, we return PrivateKey and not KeyPair
-    nodekey* {.
-      desc: "P2P node private key as 64 char hex string.",
-      defaultValue: crypto.PrivateKey.random(Secp256k1, keys.newRng()[]).tryGet()
-      name: "nodekey" }: crypto.PrivateKey
+    ## Store config
+
+    store* {.
+      desc: "Enable store protocol: true|false",
+      defaultValue: true
+      name: "store" }: bool
+
+    storenode* {.
+      desc: "Peer multiaddr to query for storage.",
+      defaultValue: ""
+      name: "storenode" }: string
+    
+    ## Filter config
+
+    filter* {.
+      desc: "Enable filter protocol: true|false",
+      defaultValue: false
+      name: "filter" }: bool
+    
+    filternode* {.
+      desc: "Peer multiaddr to request content filtering of messages.",
+      defaultValue: ""
+      name: "filternode" }: string
+    
+    ## Swap config
+
+    swap* {.
+      desc: "Enable swap protocol: true|false",
+      defaultValue: false
+      name: "swap" }: bool
+    
+    ## Lightpush config
+
+    lightpush* {.
+      desc: "Enable lightpush protocol: true|false",
+      defaultValue: false
+      name: "lightpush" }: bool
+    
+    ## JSON-RPC config
 
     rpc* {.
       desc: "Enable Waku JSON-RPC server: true|false",
@@ -138,6 +171,8 @@ type
       desc: "Enable access to JSON-RPC Private API: true|false",
       defaultValue: false
       name: "rpc-private" }: bool
+    
+    ## Metrics config
 
     metricsServer* {.
       desc: "Enable the metrics server: true|false"
@@ -154,10 +189,16 @@ type
       defaultValue: 8008
       name: "metrics-server-port" }: uint16
 
-    logMetrics* {.
+    # @TODO: deprecate this item. Name changed from `log-metrics` -> `metrics-logging`
+    logMetrics_depr* {.
       desc: "Enable metrics logging: true|false"
       defaultValue: false
       name: "log-metrics" }: bool
+
+    metricsLogging* {.
+      desc: "Enable metrics logging: true|false"
+      defaultValue: false
+      name: "metrics-logging" }: bool
 
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =

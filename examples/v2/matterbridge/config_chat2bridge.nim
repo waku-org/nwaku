@@ -66,6 +66,7 @@ type
       name: "metrics-server-port" .}: uint16
 
     ### Waku v2 options
+    
     staticnodes* {.
       desc: "Multiaddr of peer to directly connect with. Argument may be repeated"
       name: "staticnode" }: seq[string]

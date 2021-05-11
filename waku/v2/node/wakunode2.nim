@@ -630,8 +630,15 @@ when isMainModule:
   # Storage setup
   var sqliteDatabase: SqliteDatabase
 
-  if conf.dbpath != "":
-    let dbRes = SqliteDatabase.init(conf.dbpath)
+  if conf.dbpath_depr != "":  # @TODO remove deprecated config item
+    let dbRes = SqliteDatabase.init(conf.dbpath_depr)
+    if dbRes.isErr:
+      warn "failed to init database", err = dbRes.error
+      waku_node_errors.inc(labelValues = ["init_db_failure"])
+    else:
+      sqliteDatabase = dbRes.value
+  elif conf.dbPath != "":
+    let dbRes = SqliteDatabase.init(conf.dbPath)
     if dbRes.isErr:
       warn "failed to init database", err = dbRes.error
       waku_node_errors.inc(labelValues = ["init_db_failure"])
@@ -640,7 +647,7 @@ when isMainModule:
   
   var pStorage: WakuPeerStorage
 
-  if conf.peerpersist and not sqliteDatabase.isNil:
+  if (conf.peerpersist_depr or conf.persistPeers) and not sqliteDatabase.isNil: # @TODO remove deprecated config item
     let res = WakuPeerStorage.new(sqliteDatabase)
     if res.isErr:
       warn "failed to init new WakuPeerStorage", err = res.error
@@ -657,7 +664,7 @@ when isMainModule:
     ## config, the external port is the same as the bind port.
     extPort = if extIp.isSome() and extTcpPort.isNone(): some(Port(uint16(conf.tcpPort) + conf.portsShift))
               else: extTcpPort
-    node = WakuNode.init(conf.nodeKey,
+    node = WakuNode.init(conf.nodekey,
                          conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
                          extIp, extPort,
                          pStorage)
@@ -673,7 +680,7 @@ when isMainModule:
   if (conf.storenode != "") or (conf.store):
     var store: WakuMessageStore
 
-    if (not sqliteDatabase.isNil) and conf.persistmessages:
+    if (not sqliteDatabase.isNil) and conf.persistMessages:
       let res = WakuMessageStore.init(sqliteDatabase)
       if res.isErr:
         warn "failed to init WakuMessageStore", err = res.error
@@ -681,7 +688,7 @@ when isMainModule:
       else:
         store = res.value
 
-    mountStore(node, store, conf.persistmessages)
+    mountStore(node, store, conf.persistMessages)
 
     if conf.storenode != "":
       setStorePeer(node, conf.storenode)
@@ -689,7 +696,7 @@ when isMainModule:
   # Relay setup
   mountRelay(node,
              conf.topics.split(" "),
-             rlnRelayEnabled = conf.rlnrelay,
+             rlnRelayEnabled = conf.rlnrelay_depr or conf.rlnRelay, # @TODO remove deprecated config item
              keepAlive = conf.keepAlive,
              relayMessages = conf.relay) # Indicates if node is capable to relay messages
 
@@ -710,7 +717,7 @@ when isMainModule:
   if conf.rpc:
     startRpc(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift), conf)
 
-  if conf.logMetrics:
+  if conf.logMetrics_depr or conf.metricsLogging: # @TODO remove deprecated config item
     startMetricsLog()
 
   when defined(insecure):
