@@ -631,7 +631,7 @@ when isMainModule:
   var sqliteDatabase: SqliteDatabase
 
   if conf.dbpath_depr != "":  # @TODO remove deprecated config item
-    let dbRes = SqliteDatabase.init(conf.dbpath)
+    let dbRes = SqliteDatabase.init(conf.dbpath_depr)
     if dbRes.isErr:
       warn "failed to init database", err = dbRes.error
       waku_node_errors.inc(labelValues = ["init_db_failure"])
