@@ -200,11 +200,11 @@ when isMainModule:
                                                Port(uint16(conf.udpPort) + conf.portsShift))
 
   let
-    bridge = WakuBridge.new(nodev1Key = conf.nodekeyv1_depr,  # @TODO remove deprecated config item
+    bridge = WakuBridge.new(nodev1Key = conf.nodekeyV1,
                             nodev1Address = nodev1Address,
                             powRequirement = conf.wakuPow,
                             rng = rng,
-                            nodev2Key = conf.nodekeyv2_depr, # @TODO remove deprecated config item
+                            nodev2Key = conf.nodekeyV2,
                             nodev2BindIp = conf.listenAddress, nodev2BindPort = Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
                             nodev2ExtIp = nodev2ExtIp, nodev2ExtPort = nodev2ExtPort)
   
@@ -212,11 +212,6 @@ when isMainModule:
 
   # Now load rest of config
   # Optionally direct connect nodev1 with a set of nodes
-  # @TODO remove deprecated config items
-  if conf.staticnodesv1_depr.len > 0: connectToNodes(bridge.nodev1, conf.staticnodesv1_depr)
-  elif conf.fleetv1_depr == prod: connectToNodes(bridge.nodev1, WhisperNodes)
-  elif conf.fleetv1_depr == staging: connectToNodes(bridge.nodev1, WhisperNodesStaging)
-  elif conf.fleetv1_depr == test: connectToNodes(bridge.nodev1, WhisperNodesTest)
 
   if conf.staticnodesV1.len > 0: connectToNodes(bridge.nodev1, conf.staticnodesV1)
   elif conf.fleetV1 == prod: connectToNodes(bridge.nodev1, WhisperNodes)
@@ -230,9 +225,7 @@ when isMainModule:
   if conf.filter:
     mountFilter(bridge.nodev2)
 
-  if conf.staticnodesv2_depr.len > 0: # @TODO remove deprecated config item
-    waitFor connectToNodes(bridge.nodev2, conf.staticnodesv2_depr)
-  elif conf.staticnodesV2.len > 0:
+  if conf.staticnodesV2.len > 0:
     waitFor connectToNodes(bridge.nodev2, conf.staticnodesV2)
 
   if conf.storenode != "":
