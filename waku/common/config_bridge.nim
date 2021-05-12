@@ -77,32 +77,15 @@ type
       name: "metrics-server-port" .}: uint16
 
     ### Waku v1 options
-    # @TODO: deprecate this item. Name changed from `fleetv1` -> `fleet-v1`
-    fleetv1_depr* {.
-      desc: "Select the Waku v1 fleet to connect to"
-      defaultValue: FleetV1.none
-      name: "fleetv1" .}: FleetV1
     
     fleetV1* {.
       desc: "Select the Waku v1 fleet to connect to"
       defaultValue: FleetV1.none
       name: "fleet-v1" .}: FleetV1
-
-    # @TODO: deprecate this item. Name changed from `staticnodev1` -> `staticnodes-v1`
-    staticnodesv1_depr* {.
-      desc: "Enode URL to directly connect with. Argument may be repeated"
-      name: "staticnodev1" .}: seq[string]
     
     staticnodesV1* {.
       desc: "Enode URL to directly connect with. Argument may be repeated"
       name: "staticnode-v1" .}: seq[string]
-
-    # @TODO: deprecate this item. Name changed from `nodekeyv1` -> `node-key-v1`
-    nodekeyv1_depr* {.
-      desc: "DevP2P node private key as hex",
-      # TODO: can the rng be passed in somehow via Load?
-      defaultValue: keys.KeyPair.random(keys.newRng()[])
-      name: "nodekeyv1" .}: keys.KeyPair
     
     nodekeyV1* {.
       desc: "DevP2P node private key as hex",
@@ -116,21 +99,11 @@ type
       name: "waku-pow" .}: float64
 
     ### Waku v2 options
-    # @TODO: deprecate this item. Name changed from `staticnodev2` -> `staticnodes-v2`
-    staticnodesv2_depr* {.
-      desc: "Multiaddr of peer to directly connect with. Argument may be repeated"
-      name: "staticnodev2" }: seq[string]
-    
+
     staticnodesV2* {.
       desc: "Multiaddr of peer to directly connect with. Argument may be repeated"
       name: "staticnode-v2" }: seq[string]
 
-    # @TODO: deprecate this item. Name changed from `nodekeyv2` -> `node-key-v2`
-    nodekeyv2_depr* {.
-      desc: "P2P node private key as hex"
-      defaultValue: crypto.PrivateKey.random(Secp256k1, keys.newRng()[]).tryGet()
-      name: "nodekeyv2" }: crypto.PrivateKey
-    
     nodekeyV2* {.
       desc: "P2P node private key as hex"
       defaultValue: crypto.PrivateKey.random(Secp256k1, keys.newRng()[]).tryGet()

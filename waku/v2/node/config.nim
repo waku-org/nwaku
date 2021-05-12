@@ -47,23 +47,11 @@ type
       defaultValue: "any" }: string
     
     ## Persistence config
-
-    # @TODO: deprecate this item. Name changed from `dbpath` -> `db-path`
-    dbpath_depr* {.
-      desc: "The database path for peristent storage",
-      defaultValue: ""
-      name: "dbpath" }: string
     
     dbPath* {.
       desc: "The database path for peristent storage",
       defaultValue: ""
       name: "db-path" }: string
-    
-    # @TODO: deprecate this item. Name changed from `peerpersist` -> `persist-peers`
-    peerpersist_depr* {.
-      desc: "Enable peer persistence: true|false",
-      defaultValue: false
-      name: "peerpersist" }: bool
     
     persistPeers* {.
       desc: "Enable peer persistence: true|false",
@@ -81,12 +69,6 @@ type
       desc: "Enable relay protocol: true|false",
       defaultValue: true
       name: "relay" }: bool
-    
-    # @TODO: deprecate this item. Name changed from `rlnrelay` -> `rln-relay`
-    rlnrelay_depr* {.
-      desc: "Enable spam protection through rln-relay: true|false",
-      defaultValue: false
-      name: "rlnrelay" }: bool
     
     rlnRelay* {.
       desc: "Enable spam protection through rln-relay: true|false",
@@ -188,12 +170,6 @@ type
       desc: "Listening HTTP port of the metrics server."
       defaultValue: 8008
       name: "metrics-server-port" }: uint16
-
-    # @TODO: deprecate this item. Name changed from `log-metrics` -> `metrics-logging`
-    logMetrics_depr* {.
-      desc: "Enable metrics logging: true|false"
-      defaultValue: false
-      name: "log-metrics" }: bool
 
     metricsLogging* {.
       desc: "Enable metrics logging: true|false"
