@@ -630,14 +630,7 @@ when isMainModule:
   # Storage setup
   var sqliteDatabase: SqliteDatabase
 
-  if conf.dbpath_depr != "":  # @TODO remove deprecated config item
-    let dbRes = SqliteDatabase.init(conf.dbpath_depr)
-    if dbRes.isErr:
-      warn "failed to init database", err = dbRes.error
-      waku_node_errors.inc(labelValues = ["init_db_failure"])
-    else:
-      sqliteDatabase = dbRes.value
-  elif conf.dbPath != "":
+  if conf.dbPath != "":
     let dbRes = SqliteDatabase.init(conf.dbPath)
     if dbRes.isErr:
       warn "failed to init database", err = dbRes.error
@@ -647,7 +640,7 @@ when isMainModule:
   
   var pStorage: WakuPeerStorage
 
-  if (conf.peerpersist_depr or conf.persistPeers) and not sqliteDatabase.isNil: # @TODO remove deprecated config item
+  if conf.persistPeers and not sqliteDatabase.isNil:
     let res = WakuPeerStorage.new(sqliteDatabase)
     if res.isErr:
       warn "failed to init new WakuPeerStorage", err = res.error
@@ -696,7 +689,7 @@ when isMainModule:
   # Relay setup
   mountRelay(node,
              conf.topics.split(" "),
-             rlnRelayEnabled = conf.rlnrelay_depr or conf.rlnRelay, # @TODO remove deprecated config item
+             rlnRelayEnabled = conf.rlnRelay,
              keepAlive = conf.keepAlive,
              relayMessages = conf.relay) # Indicates if node is capable to relay messages
 
@@ -717,7 +710,7 @@ when isMainModule:
   if conf.rpc:
     startRpc(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift), conf)
 
-  if conf.logMetrics_depr or conf.metricsLogging: # @TODO remove deprecated config item
+  if conf.metricsLogging:
     startMetricsLog()
 
   when defined(insecure):

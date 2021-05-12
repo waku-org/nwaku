@@ -248,9 +248,9 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   await node.start()
 
   if conf.filternode != "":
-    node.mountRelay(conf.topics.split(" "), rlnRelayEnabled = (conf.rlnrelay_depr or conf.rlnRelay), keepAlive = conf.keepAlive) # @TODO remove deprecated config item
+    node.mountRelay(conf.topics.split(" "), rlnRelayEnabled = conf.rlnRelay, keepAlive = conf.keepAlive)
   else:
-    node.mountRelay(@[], rlnRelayEnabled = (conf.rlnrelay_depr or conf.rlnRelay), keepAlive = conf.keepAlive) # @TODO remove deprecated config item
+    node.mountRelay(@[], rlnRelayEnabled = conf.rlnRelay, keepAlive = conf.keepAlive)
   
   let nick = await readNick(transp)
   echo "Welcome, " & nick & "!"
