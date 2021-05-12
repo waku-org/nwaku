@@ -463,11 +463,23 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
 proc findLastSeen*(list: seq[IndexedWakuMessage]): float = 
   var lastSeenTime = float64(0)
   for iwmsg in list.items : 
-    lastSeenTime = if iwmsg.msg.timestamp>lastSeenTime: iwmsg.msg.timestamp else: lastSeenTime 
+    if iwmsg.msg.timestamp>lastSeenTime: 
+      lastSeenTime = iwmsg.msg.timestamp 
   return lastSeenTime
 
 proc resume*(ws: WakuStore){.async, gcsafe.} =
-  ## fetch the message history of the DefaultTopic since the last seen message in the db
+  ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku store node has been online 
+  ## The node's last online time is considered to be the sender generated timestamp of the most recent persisted waku message 
+  ## the offline time window is the difference between the current time and the timestamp of the last seen message
+  ## the time window is additionally offsseted by 20 sec to count for nodes asynchrony
+  ## all the messages within that window is fetched and persisted in the store node's messages field and in message store db
+  ## a history query for the offline time window is made and sent over to one of the persisted store enabled peer 
+  ## the peer selection for the query is implicit and is handled as part of the query procedure through peer manager
+  ## the assumption is that the queried node has been online for that time window and hence the history will be fetched successfully
+  ## no query failure is supported for now
+  ## the history will be fetched successfully assuming that the store node 
+  ## TODO we need to develop a peer discovery method to obtain list of nodes that have been online for a specific time window
+  ## TODO such list then can be passed to the resume proc 
   debug "resume"
   var currentTime = epochTime()
   var lastSeenTime: float = findLastSeen(ws.messages)
