@@ -480,8 +480,8 @@ proc resume*(ws: WakuStore){.async, gcsafe.} =
   ## the history will be fetched successfully assuming that the store node 
   ## TODO we need to develop a peer discovery method to obtain list of nodes that have been online for a specific time window
   ## TODO such list then can be passed to the resume proc 
-  debug "resume"
   var currentTime = epochTime()
+  debug "resume", currentEpochTime=currentTime
   var lastSeenTime: float = findLastSeen(ws.messages)
 
   # adjust the time window with an offset of 20 seconds
