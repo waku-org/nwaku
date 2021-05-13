@@ -469,19 +469,16 @@ proc findLastSeen*(list: seq[IndexedWakuMessage]): float =
 
 proc resume*(ws: WakuStore){.async, gcsafe.} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku store node has been online 
-  ## The node's last online time is considered to be the sender generated timestamp of the most recent persisted waku message 
-  ## the offline time window is the difference between the current time and the timestamp of the last seen message
-  ## the time window is additionally offsseted by 20 sec to count for nodes asynchrony
-  ## all the messages within that window is fetched and persisted in the store node's messages field and in message store db
-  ## a history query for the offline time window is made and sent over to one of the persisted store enabled peer 
-  ## the peer selection for the query is implicit and is handled as part of the query procedure through peer manager
-  ## the assumption is that the queried node has been online for that time window and hence the history will be fetched successfully
-  ## no query failure is supported for now
-  ## the history will be fetched successfully assuming that the store node 
+  ## messages are stored in the store node's messages field and in the message db
+  ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message 
+  ## an offset of 20 second is added to the time window to count for nodes asynchrony
+  ## the history is fetched from one of the peers persisted in the waku store node's peer manager unit  
+  ## the peer selection for the query is implicit and is handled as part of the waku store query procedure
+  ## the history gets fetched successfully if the dialed peer has been online during the queried time window
   ## TODO we need to develop a peer discovery method to obtain list of nodes that have been online for a specific time window
-  ## TODO such list then can be passed to the resume proc 
-  var currentTime = epochTime()
+  ## TODO such list then can be passed to the resume proc to query from
   debug "resume", currentEpochTime=currentTime
+  var currentTime = epochTime()
   var lastSeenTime: float = findLastSeen(ws.messages)
 
   # adjust the time window with an offset of 20 seconds
