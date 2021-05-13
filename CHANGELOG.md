@@ -1,24 +1,72 @@
 # Changelog
 
-## Next version
+## 2021-05-11 v0.3
 
-- Refactor: Split out `waku_types` types into right place; create utils folder.
-- Refactor: Replace sequence of ContentTopics in ContentFilter with a single ContentTopic.
-- Docs: Add information on how to query Status test fleet for node addresses; how to view logs and how to update submodules.
-- PubSub topic `subscribe` and `unsubscribe` no longer returns a future (removed `async` designation)
-- Added a peer manager for `relay`, `filter`, `store` and `swap` peers.
-- `relay`, `filter`, `store` and `swap` peers are now stored in a common, shared peer store and no longer in separate sets.
-- Admin API now provides a `post` method to connect to peers on an ad-hoc basis
-- Added persistent peer storage. A node will now attempt to reconnect to `relay` peers after a restart.
-- Changed `contentTopic` back to a string
-- Fixed: content filtering now works on any PubSub topic and not just the `waku` default.
-- Added the `pubsubTopic` field to the `HistoryQuery`. Now, the message history can be filtered and queried based on the `pubsubTopic`.
-- Added a new table of `Message` to the message store db. The new table has an additional column of `pubsubTopic` and will be used instead of the old table `messages`.  The message history in the old table `messages` will not be accessed and have to be removed.
-- Added a new column of `version` to the `Message` table of the message store db.
-- Fix: allow mounting light protocols without `relay`
-- Add `keep-alive` option to maintain stable connection to `relay` peers on idle topics
-- Add a bridge between Waku v1 and v2
-- Add a chat application (`chat2`) over Waku v2 with bridging to matterbridge
+This release contains the following:
+
+### Features
+
+- Start of [`RLN relay` implementation](https://rfc.vac.dev/spec/17/)
+- Start of [`swap` implementation](https://rfc.vac.dev/spec/18/)
+- Start of [fault-tolerant `store` implementation](https://rfc.vac.dev/spec/21/)
+- Initial [`bridge` implementation](https://rfc.vac.dev/spec/15/) between Waku v1 and v2 protocols
+- Initial [`lightpush` implementation](https://rfc.vac.dev/spec/19/)
+- A peer manager for `relay`, `filter`, `store` and `swap` peers
+- Persistent storage for peers: A node with this feature enabled will now attempt to reconnect to `relay` peers after a restart. It will respect the gossipsub [PRUNE backoff](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#prune-backoff-and-peer-exchange) period before attempting to do so.
+- `--persist-peers` CLI option to persist peers in local storage
+- `--persist-messages` CLI option to store historical messages locally
+- `--keep-alive` CLI option to maintain a stable connection to `relay` peers on idle topics
+- A CLI chat application ([`chat2`](https://github.com/status-im/nim-waku/blob/master/docs/tutorial/chat2.md)) over Waku v2 with [bridging to matterbridge](https://github.com/status-im/nim-waku/blob/master/docs/tutorial/chat2.md#bridge-messages-between-chat2-and-matterbridge)
+
+### Changes
+
+#### General refactoring
+
+- Split out `waku_types` types into the right place; create `utils` folder.
+- Change type of `contentTopic` in [`ContentFilter`](https://rfc.vac.dev/spec/12/#protobuf) to `string`.
+- Replace sequence of `contentTopics` in [`ContentFilter`](https://rfc.vac.dev/spec/12/#protobuf) with a single `contentTopic`.
+- Add `timestamp` field to [`WakuMessage`](https://rfc.vac.dev/spec/14/#payloads).
+- Ensure CLI config parameters use a consistent naming scheme. Summary of changes [here](https://github.com/status-im/nim-waku/pull/543).
+
+#### Docs
+
+Several clarifications and additions aimed at contributors, including
+  - information on [how to query Status test fleet](https://github.com/status-im/nim-waku/blob/master/docs/faq.md) for node addresses,
+  - [how to view logs](https://github.com/status-im/nim-waku/blob/master/docs/contributors/cluster-logs.md), and
+  - [how to update submodules](https://github.com/status-im/nim-waku/blob/master/docs/contributors/git-submodules.md).
+
+#### Schema
+
+- Add `Message` table to the persistent message store. This table replaces the old `messages` table. It has two additional columns, namely
+  - `pubsubTopic`, and
+  - `version`.
+- Add `Peer` table for persistent peer storage.
+
+#### API
+
+- [JSON-RPC Admin API](https://rfc.vac.dev/spec/16): Added a [`post` method](https://rfc.vac.dev/spec/16/#post_waku_v2_admin_v1_peers) to connect to peers on an ad-hoc basis.
+- [Nim API](https://github.com/status-im/nim-waku/blob/master/docs/api/v2/node.md): PubSub topic `subscribe` and `unsubscribe` no longer returns a future (removed `async` designation).
+- [`HistoryQuery`](https://rfc.vac.dev/spec/13/#historyquery): Added  `pubsubTopic` field. Message history can now be filtered and queried based on the `pubsubTopic`.
+- [`HistoryQuery`](https://rfc.vac.dev/spec/13/#historyquery): Added support for querying a time window by specifying start and end times.
+
+### Fixes
+
+- Running nodes can now be shut down gracefully
+- Content filtering now works on any PubSub topic and not just the `waku` default.
+- Nodes can now mount protocols without supporting `relay` as a capability
+
+The [Waku v2 suite of protocols](https://rfc.vac.dev/) are still in a raw/draft state.
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`17/WAKU-RLN`](https://rfc.vac.dev/spec/17/) | `raw` | `/vac/waku/waku-rln-relay/2.0.0-alpha1` |
+| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `raw` | `/vac/waku/swap/2.0.0-alpha1` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `raw` | `/vac/waku/lightpush/2.0.0-alpha1` |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `draft` | `/vac/waku/relay/2.0.0-beta2` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta3` |
+
+The Waku v1 implementation is stable but not under active development.
 
 ## 2021-01-05 v0.2
 
