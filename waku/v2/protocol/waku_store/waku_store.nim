@@ -467,7 +467,7 @@ proc findLastSeen*(list: seq[IndexedWakuMessage]): float =
       lastSeenTime = iwmsg.msg.timestamp 
   return lastSeenTime
 
-proc resume*(ws: WakuStore){.async, gcsafe.} =
+proc resume*(ws: WakuStore) {.async, gcsafe.} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku store node has been online 
   ## messages are stored in the store node's messages field and in the message db
   ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message 
