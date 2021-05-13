@@ -264,7 +264,6 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
       of PagingDirection.BACKWARD: 
         cursor = msgList[list.len - 1].index # perform paging from the end of the list
   var foundIndexOption = msgList.findIndex(cursor) 
-  # echo "foundIndexOption", foundIndexOption.get()
   if foundIndexOption.isNone: # the cursor is not valid
     return (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction))
   var foundIndex = uint64(foundIndexOption.get())
@@ -387,6 +386,7 @@ method init*(ws: WakuStore) =
   
   waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
 
+
 proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgContext,
                    store: MessageStore = nil, wakuSwap: WakuSwap = nil): T =
   debug "init"
@@ -457,8 +457,50 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
     return
 
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
-
   handler(response.value.response)
+
+  
+proc findLastSeen*(list: seq[IndexedWakuMessage]): float = 
+  var lastSeenTime = float64(0)
+  for iwmsg in list.items : 
+    if iwmsg.msg.timestamp>lastSeenTime: 
+      lastSeenTime = iwmsg.msg.timestamp 
+  return lastSeenTime
+
+proc resume*(ws: WakuStore) {.async, gcsafe.} =
+  ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku store node has been online 
+  ## messages are stored in the store node's messages field and in the message db
+  ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message 
+  ## an offset of 20 second is added to the time window to count for nodes asynchrony
+  ## the history is fetched from one of the peers persisted in the waku store node's peer manager unit  
+  ## the peer selection for the query is implicit and is handled as part of the waku store query procedure
+  ## the history gets fetched successfully if the dialed peer has been online during the queried time window
+  ## TODO we need to develop a peer discovery method to obtain list of nodes that have been online for a specific time window
+  ## TODO such list then can be passed to the resume proc to query from
+  var currentTime = epochTime()
+  var lastSeenTime: float = findLastSeen(ws.messages)
+  debug "resume", currentEpochTime=currentTime
+
+  # adjust the time window with an offset of 20 seconds
+  let offset: float64 = 200000
+  currentTime = currentTime + offset
+  lastSeenTime = max(lastSeenTime - offset, 0)
+
+  proc handler(response: HistoryResponse) {.gcsafe.} =
+    for msg in response.messages:
+      let index = msg.computeIndex()
+      ws.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: DefaultTopic))
+      waku_store_messages.inc(labelValues = ["stored"])
+      if ws.store.isNil: continue
+      let res = ws.store.put(index, msg, DefaultTopic)
+      if res.isErr:
+        warn "failed to store messages", err = res.error
+        waku_store_errors.inc(labelValues = ["store_failure"])
+
+  let rpc = HistoryQuery(pubsubTopic: DefaultTopic, startTime: lastSeenTime, endTime: currentTime)
+  # we rely on the peer selection of the underlying peer manager
+  # this a one time attempt, though it should ideally try all the peers in the peer manager to fetch the history
+  await ws.query(rpc, handler)
 
 # NOTE: Experimental, maybe incorporate as part of query call
 proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
