@@ -477,9 +477,9 @@ proc resume*(ws: WakuStore) {.async, gcsafe.} =
   ## the history gets fetched successfully if the dialed peer has been online during the queried time window
   ## TODO we need to develop a peer discovery method to obtain list of nodes that have been online for a specific time window
   ## TODO such list then can be passed to the resume proc to query from
-  debug "resume", currentEpochTime=currentTime
   var currentTime = epochTime()
   var lastSeenTime: float = findLastSeen(ws.messages)
+  debug "resume", currentEpochTime=currentTime
 
   # adjust the time window with an offset of 20 seconds
   let offset: float64 = 200000
