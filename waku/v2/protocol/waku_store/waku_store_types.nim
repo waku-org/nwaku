@@ -15,6 +15,8 @@ export pagination
 
 # Constants required for pagination -------------------------------------------
 const MaxPageSize* = uint64(100) # Maximum number of waku messages in each page
+const DefaultTopic* = "/waku/2/default-waku/proto"
+
 
 type
   HistoryContentFilter* = object

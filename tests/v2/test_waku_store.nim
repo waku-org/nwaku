@@ -567,7 +567,7 @@ procSuite "Waku Store":
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.init(key)
     var
-      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
+      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: float(0)),
         WakuMessage(payload: @[byte 1],contentTopic: ContentTopic("1"), timestamp: float(1)),
         WakuMessage(payload: @[byte 2],contentTopic: ContentTopic("2"), timestamp: float(2)),
         WakuMessage(payload: @[byte 3],contentTopic: ContentTopic("1"), timestamp: float(3)),
@@ -581,6 +581,7 @@ procSuite "Waku Store":
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()
 
+    # to be connected to
     var listenSwitch = newStandardSwitch(some(key))
     discard await listenSwitch.start()
 
@@ -595,7 +596,8 @@ procSuite "Waku Store":
     listenSwitch.mount(proto)
 
     for wakuMsg in msgList:
-      await subscriptions.notify("foo", wakuMsg)
+      # the pubsub topic should be DefaultTopic
+      await subscriptions.notify(DefaultTopic, wakuMsg)
     
     asyncTest "handle temporal history query with a valid time window":
       var completionFut = newFuture[bool]()
@@ -645,5 +647,30 @@ procSuite "Waku Store":
 
       check:
         (await completionFut.withTimeout(5.seconds)) == true
-      
-    
+
+    test "find last seen message":
+      var
+        msgList = @[IndexedWakuMessage(msg: WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"))),
+          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 1],contentTopic: ContentTopic("1"), timestamp: float(1))),
+          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 2],contentTopic: ContentTopic("2"), timestamp: float(2))),
+          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 3],contentTopic: ContentTopic("1"), timestamp: float(3))),
+          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 4],contentTopic: ContentTopic("2"), timestamp: float(4))),
+          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 5],contentTopic: ContentTopic("1"), timestamp: float(9))),
+          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 6],contentTopic: ContentTopic("2"), timestamp: float(6))),
+          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 7],contentTopic: ContentTopic("1"), timestamp: float(7))),
+          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 8],contentTopic: ContentTopic("2"), timestamp: float(8))),
+          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 9],contentTopic: ContentTopic("1"),timestamp: float(5)))]     
+
+      check:
+        findLastSeen(msgList) == float(9)
+
+    asyncTest "resume message history":
+      # starts a new node
+      var dialSwitch2 = newStandardSwitch()
+      discard await dialSwitch2.start()
+      let
+        proto2 = WakuStore.init(PeerManager.new(dialSwitch2), crypto.newRng())
+       
+      proto2.setPeer(listenSwitch.peerInfo)
+      await proto2.resume()
+      check proto2.messages.len == 10
