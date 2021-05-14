@@ -675,6 +675,23 @@ procSuite "Waku Store":
       check:
         proto2.messages.len == 10
 
+    asyncTest "queryFrom":
+
+      var completionFut = newFuture[bool]()
+
+      proc handler(response: HistoryResponse) {.gcsafe, closure.} =
+        check:
+          response.messages.len() == 4
+        completionFut.complete(true)
+
+      let rpc = HistoryQuery(startTime: float(2), endTime: float(5))
+      let success = await proto.queryFrom(rpc, handler, listenSwitch.peerInfo)
+
+      check:
+        (await completionFut.withTimeout(5.seconds)) == true
+        success == true
+
+
     asyncTest "resume history from a list of candidate peers":
 
       var offListenSwitch = newStandardSwitch(some(PrivateKey.random(ECDSA, rng[]).get()))
