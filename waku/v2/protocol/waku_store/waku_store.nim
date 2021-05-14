@@ -466,7 +466,6 @@ proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, pe
   echo "here"
 
   if connOpt.isNone():
-    # TODO more sophisticated error handling here
     error "failed to connect to remote peer"
     waku_store_errors.inc(labelValues = [dialFailure])
     return false
@@ -477,25 +476,26 @@ proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, pe
   var message = await connOpt.get().readLp(64*1024)
   let response = HistoryRPC.init(message)
 
-
   if response.isErr:
     error "failed to decode response"
     waku_store_errors.inc(labelValues = [decodeRpcFailure])
     return false
+
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
   handler(response.value.response)
   return true
   
 
 proc queryLoop*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, candidateList: seq[PeerInfo]): Future[bool]  {.async.}= 
-  ## loops through the candidateList sequentially and sends the query to them until one of them gets through without error. 
+  ## loops through the candidateList in order and sends the query to each until one of the query gets resolved successfully without error
   ## returns false if all the requests fail
   for peer in candidateList.items: 
     let success = await w.queryFrom(query, handler, peer)
-    if success:
-      return true
-  debug "no peer was available"
+    if success: return true
+
+  debug "failed to resolve the query"
   return false
+
 proc findLastSeen*(list: seq[IndexedWakuMessage]): float = 
   var lastSeenTime = float64(0)
   for iwmsg in list.items : 
@@ -539,7 +539,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]]) {.async.} =
   else:
     let success = await ws.queryLoop(rpc, handler, peerList.get())
     if success == false:
-      debug "failed to resume history"
+      debug "failed to resume the history"
     
 
 # NOTE: Experimental, maybe incorporate as part of query call
