@@ -486,7 +486,7 @@ proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, pe
   return true
   
 
-proc queryLoop*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, candidateList: seq[PeerInfo]): Future[bool]  {.async.}= 
+proc queryLoop(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, candidateList: seq[PeerInfo]): Future[bool]  {.async.}= 
   ## loops through the candidateList in order and sends the query to each until one of the query gets resolved successfully without error
   ## returns false if all the requests fail
   for peer in candidateList.items: 
