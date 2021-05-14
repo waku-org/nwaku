@@ -459,7 +459,43 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
   handler(response.value.response)
 
+proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, peer: PeerInfo): Future[bool] {.async.} =
+  # sends the query to the given peer
+  # returns true if no error occurs, otherwise false
+  let connOpt = await w.peerManager.dialPeer(peer, WakuStoreCodec)
+  echo "here"
+
+  if connOpt.isNone():
+    # TODO more sophisticated error handling here
+    error "failed to connect to remote peer"
+    waku_store_errors.inc(labelValues = [dialFailure])
+    return false
+
+  await connOpt.get().writeLP(HistoryRPC(requestId: generateRequestId(w.rng),
+      query: query).encode().buffer)
+
+  var message = await connOpt.get().readLp(64*1024)
+  let response = HistoryRPC.init(message)
+
+
+  if response.isErr:
+    error "failed to decode response"
+    waku_store_errors.inc(labelValues = [decodeRpcFailure])
+    return false
+  waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
+  handler(response.value.response)
+  return true
   
+
+proc queryLoop*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, candidateList: seq[PeerInfo]): Future[bool]  {.async.}= 
+  ## loops through the candidateList sequentially and sends the query to them until one of them gets through without error. 
+  ## returns false if all the requests fail
+  for peer in candidateList.items: 
+    let success = await w.queryFrom(query, handler, peer)
+    if success:
+      return true
+  debug "no peer was available"
+  return false
 proc findLastSeen*(list: seq[IndexedWakuMessage]): float = 
   var lastSeenTime = float64(0)
   for iwmsg in list.items : 
@@ -467,7 +503,7 @@ proc findLastSeen*(list: seq[IndexedWakuMessage]): float =
       lastSeenTime = iwmsg.msg.timestamp 
   return lastSeenTime
 
-proc resume*(ws: WakuStore) {.async, gcsafe.} =
+proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]]) {.async.} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku store node has been online 
   ## messages are stored in the store node's messages field and in the message db
   ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message 
@@ -475,8 +511,6 @@ proc resume*(ws: WakuStore) {.async, gcsafe.} =
   ## the history is fetched from one of the peers persisted in the waku store node's peer manager unit  
   ## the peer selection for the query is implicit and is handled as part of the waku store query procedure
   ## the history gets fetched successfully if the dialed peer has been online during the queried time window
-  ## TODO we need to develop a peer discovery method to obtain list of nodes that have been online for a specific time window
-  ## TODO such list then can be passed to the resume proc to query from
   var currentTime = epochTime()
   var lastSeenTime: float = findLastSeen(ws.messages)
   debug "resume", currentEpochTime=currentTime
@@ -498,9 +532,15 @@ proc resume*(ws: WakuStore) {.async, gcsafe.} =
         waku_store_errors.inc(labelValues = ["store_failure"])
 
   let rpc = HistoryQuery(pubsubTopic: DefaultTopic, startTime: lastSeenTime, endTime: currentTime)
-  # we rely on the peer selection of the underlying peer manager
-  # this a one time attempt, though it should ideally try all the peers in the peer manager to fetch the history
-  await ws.query(rpc, handler)
+
+  if peerList.isNone:
+    # if no peerList is set then the normal query procedure is invoked
+    await ws.query(rpc, handler)
+  else:
+    let success = await ws.queryLoop(rpc, handler, peerList.get())
+    if success == false:
+      debug "failed to resume history"
+    
 
 # NOTE: Experimental, maybe incorporate as part of query call
 proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =

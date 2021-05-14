@@ -668,9 +668,24 @@ procSuite "Waku Store":
       # starts a new node
       var dialSwitch2 = newStandardSwitch()
       discard await dialSwitch2.start()
-      let
-        proto2 = WakuStore.init(PeerManager.new(dialSwitch2), crypto.newRng())
-       
+      let proto2 = WakuStore.init(PeerManager.new(dialSwitch2), crypto.newRng())
       proto2.setPeer(listenSwitch.peerInfo)
-      await proto2.resume()
-      check proto2.messages.len == 10
+
+      await proto2.resume(none(seq[PeerInfo]))
+      check:
+        proto2.messages.len == 10
+
+    asyncTest "resume history from a list of candidate peers":
+
+      var offListenSwitch = newStandardSwitch(some(PrivateKey.random(ECDSA, rng[]).get()))
+
+      # starts a new node
+      var dialSwitch3 = newStandardSwitch()
+      discard await dialSwitch3.start()
+      let proto3 = WakuStore.init(PeerManager.new(dialSwitch3), crypto.newRng())
+
+      await proto3.resume(some(@[offListenSwitch.peerInfo, listenSwitch.peerInfo, listenSwitch.peerInfo]))
+      check:
+        proto3.messages.len == 10
+
+       
