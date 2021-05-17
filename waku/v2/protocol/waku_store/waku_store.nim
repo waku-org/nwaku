@@ -509,8 +509,9 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]]) {.async.} =
   ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message 
   ## an offset of 20 second is added to the time window to count for nodes asynchrony
   ## the history is fetched from one of the peers persisted in the waku store node's peer manager unit  
-  ## the peer selection for the query is implicit and is handled as part of the waku store query procedure
-  ## the history gets fetched successfully if the dialed peer has been online during the queried time window
+  ## peerList indicates the list of peers to query from. The history is fetched from the first available peer in this list. Such candidates should be found through a discovery method (to be developed).
+  ## if no peerList is passed, the underlying peer manager unit of the store protocol will pick one of the current connections randomly to fetch the history from. 
+  ## In this case, the history gets fetched successfully if the dialed peer has been online during the queried time window.
   var currentTime = epochTime()
   var lastSeenTime: float = findLastSeen(ws.messages)
   debug "resume", currentEpochTime=currentTime
