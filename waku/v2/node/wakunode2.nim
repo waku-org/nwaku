@@ -342,6 +342,10 @@ proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.as
     # TODO wakuSwap now part of wakuStore object
     await node.wakuStore.queryWithAccounting(query, handler)
 
+     #Log the Swap account Balance after the debit has been done
+    for peerId, bal in node.wakuSwap.accounting:
+      debug "Accounting: ", peer=peerId, balance=bal
+
 # TODO Extend with more relevant info: topics, peers, memory usage, online time, etc
 proc info*(node: WakuNode): WakuInfo =
   ## Returns information about the Node, such as what multiaddress it can be reached at.
@@ -685,6 +689,11 @@ when isMainModule:
 
     if conf.storenode != "":
       setStorePeer(node, conf.storenode)
+
+    #Log the Swap Account Balance just after the store node has been mounted and the peer has been credited
+    if conf.swap:
+      for peerId, bal in node.wakuSwap.accounting:
+        debug "Accounting: ", peer=peerId, balance=bal
     
     # TODO resume the history using node.wakuStore.resume() only if conf.persistmessages is set to true
 
