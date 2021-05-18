@@ -459,16 +459,15 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
   handler(response.value.response)
 
-proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, peer: PeerInfo): Future[bool] {.async.} =
+proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, peer: PeerInfo): Future[Result[int64, string]] {.async.} =
   # sends the query to the given peer
-  # returns true if no error occurs, otherwise false
+  # returns the number of retrieved messages if no error occurs, otherwise returns the error string
   let connOpt = await w.peerManager.dialPeer(peer, WakuStoreCodec)
-  echo "here"
 
   if connOpt.isNone():
     error "failed to connect to remote peer"
     waku_store_errors.inc(labelValues = [dialFailure])
-    return false
+    return err("failed to connect to remote peer")
 
   await connOpt.get().writeLP(HistoryRPC(requestId: generateRequestId(w.rng),
       query: query).encode().buffer)
@@ -479,22 +478,24 @@ proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, pe
   if response.isErr:
     error "failed to decode response"
     waku_store_errors.inc(labelValues = [decodeRpcFailure])
-    return false
+    return err("failed to decode response")
+    
 
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
   handler(response.value.response)
-  return true
+  return ok(response.value.response.messages.len.int64)
+  
   
 
-proc queryLoop(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, candidateList: seq[PeerInfo]): Future[bool]  {.async.}= 
-  ## loops through the candidateList in order and sends the query to each until one of the query gets resolved successfully without error
-  ## returns false if all the requests fail
+proc queryLoop(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, candidateList: seq[PeerInfo]): Future[Result[int64, string]]  {.async.}= 
+  ## loops through the candidateList in order and sends the query to each until one of the query gets resolved successfully
+  ## returns the number of retrieved messages, or error if all the requests fail
   for peer in candidateList.items: 
-    let success = await w.queryFrom(query, handler, peer)
-    if success: return true
+    let successResult = await w.queryFrom(query, handler, peer)
+    if successResult.isOk: return ok(successResult.value)
 
   debug "failed to resolve the query"
-  return false
+  return err("failed to resolve the query")
 
 proc findLastSeen*(list: seq[IndexedWakuMessage]): float = 
   var lastSeenTime = float64(0)
@@ -503,18 +504,20 @@ proc findLastSeen*(list: seq[IndexedWakuMessage]): float =
       lastSeenTime = iwmsg.msg.timestamp 
   return lastSeenTime
 
-proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]]) {.async.} =
+proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo])): Future[Result[int64, string]] {.async.} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku store node has been online 
   ## messages are stored in the store node's messages field and in the message db
   ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message 
   ## an offset of 20 second is added to the time window to count for nodes asynchrony
   ## the history is fetched from one of the peers persisted in the waku store node's peer manager unit  
   ## peerList indicates the list of peers to query from. The history is fetched from the first available peer in this list. Such candidates should be found through a discovery method (to be developed).
-  ## if no peerList is passed, the underlying peer manager unit of the store protocol will pick one of the current connections randomly to fetch the history from. The history gets fetched successfully if the dialed peer has been online during the queried time window.
+  ## if no peerList is passed, one of the peers in the underlying peer manager unit of the store protocol is picked randomly to fetch the history from. The history gets fetched successfully if the dialed peer has been online during the queried time window.
+  ## the resume proc returns the number of retrieved messages if no error occurs, otherwise returns the error string
+
   var currentTime = epochTime()
   var lastSeenTime: float = findLastSeen(ws.messages)
   debug "resume", currentEpochTime=currentTime
-
+  
   # adjust the time window with an offset of 20 seconds
   let offset: float64 = 200000
   currentTime = currentTime + offset
@@ -533,14 +536,26 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]]) {.async.} =
 
   let rpc = HistoryQuery(pubsubTopic: DefaultTopic, startTime: lastSeenTime, endTime: currentTime)
 
-  if peerList.isNone:
-    # if no peerList is set then the normal query procedure is invoked
-    await ws.query(rpc, handler)
+  if peerList.isSome:
+    let successResult = await ws.queryLoop(rpc, handler, peerList.get())
+    if successResult.isErr:
+      debug "failed to resume the history from the list of candidates"
+      return err("failed to resume the history from the list of candidates")
+    return ok(successResult.value)
   else:
-    let success = await ws.queryLoop(rpc, handler, peerList.get())
-    if success == false:
+    # if no peerList is set then query from one of the peers stored in the peer manager 
+    let peerOpt = ws.peerManager.selectPeer(WakuStoreCodec)
+    if peerOpt.isNone():
+      error "no suitable remote peers"
+      waku_store_errors.inc(labelValues = [dialFailure])
+      return err("no suitable remote peers")
+
+    let peerInfo = peerOpt.get()
+    let successResult = await ws.queryFrom(rpc, handler, peerInfo)
+    if successResult.isErr: 
       debug "failed to resume the history"
-    
+      return err("failed to resume the history")
+    return ok(successResult.value)
 
 # NOTE: Experimental, maybe incorporate as part of query call
 proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
