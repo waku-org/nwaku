@@ -668,11 +668,14 @@ procSuite "Waku Store":
       # starts a new node
       var dialSwitch2 = newStandardSwitch()
       discard await dialSwitch2.start()
+    
       let proto2 = WakuStore.init(PeerManager.new(dialSwitch2), crypto.newRng())
       proto2.setPeer(listenSwitch.peerInfo)
 
-      await proto2.resume(none(seq[PeerInfo]))
+      let successResult = await proto2.resume()
       check:
+        successResult.isOk 
+        successResult.value == 10
         proto2.messages.len == 10
 
     asyncTest "queryFrom":
@@ -685,11 +688,12 @@ procSuite "Waku Store":
         completionFut.complete(true)
 
       let rpc = HistoryQuery(startTime: float(2), endTime: float(5))
-      let success = await proto.queryFrom(rpc, handler, listenSwitch.peerInfo)
+      let successResult = await proto.queryFrom(rpc, handler, listenSwitch.peerInfo)
 
       check:
         (await completionFut.withTimeout(5.seconds)) == true
-        success == true
+        successResult.isOk
+        successResult.value == 4
 
 
     asyncTest "resume history from a list of candidate peers":
@@ -701,8 +705,10 @@ procSuite "Waku Store":
       discard await dialSwitch3.start()
       let proto3 = WakuStore.init(PeerManager.new(dialSwitch3), crypto.newRng())
 
-      await proto3.resume(some(@[offListenSwitch.peerInfo, listenSwitch.peerInfo, listenSwitch.peerInfo]))
+      let successResult = await proto3.resume(some(@[offListenSwitch.peerInfo, listenSwitch.peerInfo, listenSwitch.peerInfo]))
       check:
         proto3.messages.len == 10
+        successResult.isOk
+        successResult.value == 10
 
        
