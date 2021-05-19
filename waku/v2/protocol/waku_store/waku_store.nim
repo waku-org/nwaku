@@ -459,7 +459,7 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
   handler(response.value.response)
 
-proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, peer: PeerInfo): Future[Result[int64, string]] {.async.} =
+proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, peer: PeerInfo): Future[QueryResult] {.async.} =
   # sends the query to the given peer
   # returns the number of retrieved messages if no error occurs, otherwise returns the error string
   let connOpt = await w.peerManager.dialPeer(peer, WakuStoreCodec)
@@ -487,7 +487,7 @@ proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, pe
   
   
 
-proc queryLoop(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, candidateList: seq[PeerInfo]): Future[Result[int64, string]]  {.async.}= 
+proc queryLoop(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, candidateList: seq[PeerInfo]): Future[QueryResult]  {.async.}= 
   ## loops through the candidateList in order and sends the query to each until one of the query gets resolved successfully
   ## returns the number of retrieved messages, or error if all the requests fail
   for peer in candidateList.items: 
@@ -504,7 +504,7 @@ proc findLastSeen*(list: seq[IndexedWakuMessage]): float =
       lastSeenTime = iwmsg.msg.timestamp 
   return lastSeenTime
 
-proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo])): Future[Result[int64, string]] {.async.} =
+proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo])): Future[QueryResult] {.async.} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku store node has been online 
   ## messages are stored in the store node's messages field and in the message db
   ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message 
