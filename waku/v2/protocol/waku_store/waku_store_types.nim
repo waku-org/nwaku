@@ -58,6 +58,8 @@ type
     query*: HistoryQuery
     response*: HistoryResponse
 
+  QueryResult* = Result[int64, string]
+  
   WakuStore* = ref object of LPProtocol
     peerManager*: PeerManager
     rng*: ref BrHmacDrbgContext
