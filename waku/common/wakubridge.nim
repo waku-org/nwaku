@@ -1,5 +1,5 @@
 import
-  std/tables,
+  std/[tables, hashes, sequtils],
   chronos, confutils, chronicles, chronicles/topics_registry, metrics,
   stew/[byteutils, objects],
   stew/shims/net as stewNet, json_rpc/rpcserver,
@@ -15,6 +15,7 @@ import
   ./config_bridge
 
 declarePublicCounter waku_bridge_transfers, "Number of messages transferred between Waku v1 and v2 networks", ["type"]
+declarePublicCounter waku_bridge_dropped, "Number of messages dropped", ["type"]
 
 logScope:
   topics = "wakubridge"
@@ -24,9 +25,10 @@ logScope:
 ##################
 
 const
-  defaultBridgeTopic* = "/waku/2/default-bridge/proto"
-  clientIdV1 = "nim-waku v1 node"
-  defaultTTL = 5'u32
+  DefaultBridgeTopic* = "/waku/2/default-bridge/proto"
+  ClientIdV1 = "nim-waku v1 node"
+  DefaultTTL = 5'u32
+  DeduplQSize = 20  # Maximum number of seen messages to keep in deduplication queue
 
 #########
 # Types #
@@ -36,10 +38,23 @@ type
   WakuBridge* = ref object of RootObj
     nodev1*: EthereumNode
     nodev2*: WakuNode
+    seen: seq[hashes.Hash] # FIFO queue of seen WakuMessages. Used for deduplication.
 
 ###################
 # Helper funtions #
 ###################
+
+proc containsOrAdd(sequence: var seq[hashes.Hash], hash: hashes.Hash): bool =
+  if sequence.contains(hash):
+    return true 
+
+  if sequence.len >= DeduplQSize:
+    trace "Deduplication queue full. Removing oldest item."
+    sequence.delete 0, 0  # Remove first item in queue
+  
+  sequence.add(hash)
+
+  return false
 
 func toWakuMessage(env: Envelope): WakuMessage =
   # Translate a Waku v1 envelope to a Waku v2 message
@@ -48,17 +63,35 @@ func toWakuMessage(env: Envelope): WakuMessage =
               version: 1)
 
 proc toWakuV2(bridge: WakuBridge, env: Envelope) {.async.} =
+  let msg = env.toWakuMessage()
+
+  debug "message converted to V2", msg=msg
+
+  if bridge.seen.containsOrAdd(msg.encode().buffer.hash()):
+    # This is a duplicate message. Return
+    trace "Already seen. Dropping.", msg=msg
+    waku_bridge_dropped.inc(labelValues = ["duplicate"])
+    return
+
   waku_bridge_transfers.inc(labelValues = ["v1_to_v2"])
   
-  await bridge.nodev2.publish(defaultBridgeTopic, env.toWakuMessage())
+  await bridge.nodev2.publish(DefaultBridgeTopic, msg)
 
 proc toWakuV1(bridge: WakuBridge, msg: WakuMessage) {.gcsafe.} =
+  debug "sending message to V1", msg=msg
+
+  if bridge.seen.containsOrAdd(msg.encode().buffer.hash()):
+    # This is a duplicate message. Return
+    trace "Already seen. Dropping.", msg=msg
+    waku_bridge_dropped.inc(labelValues = ["duplicate"])
+    return
+
   waku_bridge_transfers.inc(labelValues = ["v2_to_v1"])
 
   # @TODO: use namespacing to map v2 contentTopics to v1 topics
   let v1TopicSeq = msg.contentTopic.toBytes()[0..3]
   
-  discard bridge.nodev1.postMessage(ttl = defaultTTL,
+  discard bridge.nodev1.postMessage(ttl = DefaultTTL,
                                     topic = toArray(4, v1TopicSeq),
                                     payload = msg.payload)
 
@@ -79,7 +112,7 @@ proc new*(T: type WakuBridge,
   # Setup Waku v1 node
   var
     nodev1 = newEthereumNode(keys = nodev1Key, address = nodev1Address,
-                             networkId = NetworkId(1), chain = nil, clientId = clientIdV1,
+                             networkId = NetworkId(1), chain = nil, clientId = ClientIdV1,
                              addAllCapabilities = false, rng = rng)
   
   nodev1.addCapability Waku # Always enable Waku protocol
@@ -138,7 +171,7 @@ proc start*(bridge: WakuBridge) {.async.} =
       trace "Bridging message from V2 to V1", msg=msg[]
       bridge.toWakuV1(msg[])
   
-  bridge.nodev2.subscribe(defaultBridgeTopic, relayHandler)
+  bridge.nodev2.subscribe(DefaultBridgeTopic, relayHandler)
 
 proc stop*(bridge: WakuBridge) {.async.} =
   await bridge.nodev2.stop()
@@ -182,7 +215,7 @@ when isMainModule:
 
   # Load address configuration
   let
-    (nodev1ExtIp, _, _) = setupNat(conf.nat, clientIdV1,
+    (nodev1ExtIp, _, _) = setupNat(conf.nat, ClientIdV1,
                                    Port(conf.devp2pTcpPort + conf.portsShift),
                                    Port(conf.udpPort + conf.portsShift))
     # TODO: EthereumNode should have a better split of binding address and
