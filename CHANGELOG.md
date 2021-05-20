@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.4
+This release contains the following:
+
+### Features
+### Changes
+#### General refactoring
+#### Docs
+#### Schema
+#### API
+- [JSON-RPC Store API](https://rfc.vac.dev/spec/16): Added an optional time-based query to filter historical messages.
+### Fixes
+
 ## 2021-05-11 v0.3
 
 This release contains the following:
