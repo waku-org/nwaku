@@ -704,15 +704,11 @@ procSuite "WakuNode":
 
     node1.wakuStore.setPeer(node2.peerInfo)
 
-    let resumeStatus = await node1.wakuStore.resume()
+    await node1.resume()
 
-    
     check:
-      # no error occurs
-      resumeStatus.isOk
-      # check the number of retrieved messages
-      resumeStatus.value == 1
       # message is correctly stored
       node1.wakuStore.messages.len == 1
+
     await node1.stop()
     await node2.stop()

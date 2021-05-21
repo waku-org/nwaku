@@ -342,6 +342,13 @@ proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.as
     # TODO wakuSwap now part of wakuStore object
     await node.wakuStore.queryWithAccounting(query, handler)
 
+proc resume*(node: WakuNode, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo])) {.async, gcsafe.} =
+  if (not node.wakuStore.isNil):
+    let retrievedMessages = await node.wakuStore.resume(peerList)
+    if retrievedMessages.isOk:
+      info "the number of retrieved messages since the last online time: ", number=retrievedMessages.value
+
+
 # TODO Extend with more relevant info: topics, peers, memory usage, online time, etc
 proc info*(node: WakuNode): WakuInfo =
   ## Returns information about the Node, such as what multiaddress it can be reached at.
@@ -687,8 +694,8 @@ when isMainModule:
       setStorePeer(node, conf.storenode)
     
     # TODO resume the history using node.wakuStore.resume() only if conf.persistmessages is set to true
-    if (not node.wakuStore.isNil) and conf.persistMessages:
-      let retrievedMessages = waitFor node.wakuStore.resume()
+    if conf.persistMessages:
+      let retrievedMessages = waitFor node.resume()
       if retrievedMessages.isOk:
         info "the number of retrieved messages since the last online time: ", number=retrievedMessages.value
 
