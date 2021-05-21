@@ -687,7 +687,7 @@ when isMainModule:
       setStorePeer(node, conf.storenode)
     
     # TODO resume the history using node.wakuStore.resume() only if conf.persistmessages is set to true
-    if conf.persistMessages:
+    if (not node.wakuStore.isNil) and conf.persistMessages:
       let retrievedMessages = waitFor node.wakuStore.resume()
       if retrievedMessages.isOk:
         info "the number of retrieved messages since the last online time: ", number=retrievedMessages.value
