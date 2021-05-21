@@ -680,3 +680,39 @@ procSuite "WakuNode":
   #   await node1.stop()
   #   await node2.stop()
   #   await node3.stop()
+  asyncTest "Resume proc fetches the history":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        Port(60002))
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
+      message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
+
+    var completionFut = newFuture[bool]()
+
+    await node1.start()
+    node1.mountStore(persistMessages = true)
+    await node2.start()
+    node2.mountStore(persistMessages = true)
+
+    await node2.subscriptions.notify("/waku/2/default-waku/proto", message)
+
+    await sleepAsync(2000.millis)
+
+    node1.wakuStore.setPeer(node2.peerInfo)
+
+    let resumeStatus = await node1.wakuStore.resume()
+
+    
+    check:
+      # no error occurs
+      resumeStatus.isOk
+      # check the number of retrieved messages
+      resumeStatus.value == 1
+      # message is correctly stored
+      node1.wakuStore.messages.len == 1
+    await node1.stop()
+    await node2.stop()
