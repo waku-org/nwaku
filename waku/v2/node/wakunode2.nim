@@ -344,6 +344,7 @@ proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.as
 
 proc resume*(node: WakuNode, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo])) {.async, gcsafe.} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku node has been online 
+  ## for resume to work properly the waku node must have store mounted in the full mode (persisting messages)
   ## messages are stored in the the wakuStore's messages field and in the message db
   ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message 
   ## an offset of 20 second is added to the time window to count for nodes asynchrony
@@ -351,7 +352,7 @@ proc resume*(node: WakuNode, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo
   ## if no peerList is passed, one of the peers in the underlying peer manager unit of the store protocol is picked randomly to fetch the history from. 
   ## The history gets fetched successfully if the dialed peer has been online during the queried time window.
   
-  if (not node.wakuStore.isNil):
+  if not node.wakuStore.isNil:
     let retrievedMessages = await node.wakuStore.resume(peerList)
     if retrievedMessages.isOk:
       info "the number of retrieved messages since the last online time: ", number=retrievedMessages.value
