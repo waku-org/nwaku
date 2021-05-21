@@ -242,16 +242,16 @@ procSuite "Waku v2 JSON-RPC API":
 
     # Now prime it with some history before tests
     var
-      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
-        WakuMessage(payload: @[byte 1], contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 2], contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 3], contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 4], contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 5], contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 6], contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 7], contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 8], contentTopic: defaultContentTopic), 
-        WakuMessage(payload: @[byte 9], contentTopic: ContentTopic("2"))]
+      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: 0),
+        WakuMessage(payload: @[byte 1], contentTopic: defaultContentTopic, timestamp: 1),
+        WakuMessage(payload: @[byte 2], contentTopic: defaultContentTopic, timestamp: 2),
+        WakuMessage(payload: @[byte 3], contentTopic: defaultContentTopic, timestamp: 3),
+        WakuMessage(payload: @[byte 4], contentTopic: defaultContentTopic, timestamp: 4),
+        WakuMessage(payload: @[byte 5], contentTopic: defaultContentTopic, timestamp: 5),
+        WakuMessage(payload: @[byte 6], contentTopic: defaultContentTopic, timestamp: 6),
+        WakuMessage(payload: @[byte 7], contentTopic: defaultContentTopic, timestamp: 7),
+        WakuMessage(payload: @[byte 8], contentTopic: defaultContentTopic, timestamp: 8), 
+        WakuMessage(payload: @[byte 9], contentTopic: ContentTopic("2"), timestamp: 9)]
 
     for wakuMsg in msgList:
       waitFor subscriptions.notify(defaultTopic, wakuMsg)
@@ -259,7 +259,7 @@ procSuite "Waku v2 JSON-RPC API":
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort)
 
-    let response = await client.get_waku_v2_store_v1_messages(some(defaultTopic), some(@[HistoryContentFilter(contentTopic: defaultContentTopic)]), some(StorePagingOptions()))
+    let response = await client.get_waku_v2_store_v1_messages(some(defaultTopic), some(@[HistoryContentFilter(contentTopic: defaultContentTopic)]), some(0.float64), some(9.float64), some(StorePagingOptions()))
     check:
       response.messages.len() == 8
       response.pagingOptions.isNone
