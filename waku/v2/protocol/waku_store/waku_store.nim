@@ -510,9 +510,9 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
   ## messages are stored in the store node's messages field and in the message db
   ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message 
   ## an offset of 20 second is added to the time window to count for nodes asynchrony
-  ## the history is fetched from one of the peers persisted in the waku store node's peer manager unit  
   ## peerList indicates the list of peers to query from. The history is fetched from the first available peer in this list. Such candidates should be found through a discovery method (to be developed).
-  ## if no peerList is passed, one of the peers in the underlying peer manager unit of the store protocol is picked randomly to fetch the history from. The history gets fetched successfully if the dialed peer has been online during the queried time window.
+  ## if no peerList is passed, one of the peers in the underlying peer manager unit of the store protocol is picked randomly to fetch the history from. 
+  ## The history gets fetched successfully if the dialed peer has been online during the queried time window.
   ## the resume proc returns the number of retrieved messages if no error occurs, otherwise returns the error string
   
   # TODO remove duplicate messages from the fetched history
