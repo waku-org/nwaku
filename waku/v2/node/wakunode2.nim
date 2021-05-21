@@ -702,7 +702,6 @@ when isMainModule:
     if conf.storenode != "":
       setStorePeer(node, conf.storenode)
     
-    # TODO resume the history using node.wakuStore.resume() only if conf.persistmessages is set to true
     if conf.persistMessages:
       let retrievedMessages = waitFor node.resume()
       if retrievedMessages.isOk:
