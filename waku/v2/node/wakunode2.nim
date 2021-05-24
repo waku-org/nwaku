@@ -441,12 +441,13 @@ proc mountRelay*(node: WakuNode,
                  topics: seq[string] = newSeq[string](),
                  rlnRelayEnabled = false,
                  keepAlive = false,
-                 relayMessages = true) {.gcsafe.} =
+                 relayMessages = true,
+                 triggerSelf = true) {.gcsafe.} =
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
     # Use default
     #msgIdProvider = msgIdProvider,
-    triggerSelf = true,
+    triggerSelf = triggerSelf,
     sign = false,
     verifySignature = false
   )
