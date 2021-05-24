@@ -65,26 +65,26 @@ func toWakuMessage(env: Envelope): WakuMessage =
 proc toWakuV2(bridge: WakuBridge, env: Envelope) {.async.} =
   let msg = env.toWakuMessage()
 
-  debug "message converted to V2", msg=msg
-
   if bridge.seen.containsOrAdd(msg.encode().buffer.hash()):
     # This is a duplicate message. Return
     trace "Already seen. Dropping.", msg=msg
     waku_bridge_dropped.inc(labelValues = ["duplicate"])
     return
+  
+  trace "Sending message to V2", msg=msg
 
   waku_bridge_transfers.inc(labelValues = ["v1_to_v2"])
   
   await bridge.nodev2.publish(DefaultBridgeTopic, msg)
 
 proc toWakuV1(bridge: WakuBridge, msg: WakuMessage) {.gcsafe.} =
-  debug "sending message to V1", msg=msg
-
   if bridge.seen.containsOrAdd(msg.encode().buffer.hash()):
     # This is a duplicate message. Return
     trace "Already seen. Dropping.", msg=msg
     waku_bridge_dropped.inc(labelValues = ["duplicate"])
     return
+
+  trace "Sending message to V1", msg=msg
 
   waku_bridge_transfers.inc(labelValues = ["v2_to_v1"])
 
@@ -154,7 +154,9 @@ proc start*(bridge: WakuBridge) {.async.} =
   debug "Start listening on Waku v2"
   await bridge.nodev2.start()
   
-  bridge.nodev2.mountRelay() # Always mount relay for bridge
+  # Always mount relay for bridge.
+  # `triggerSelf` is false on a `bridge` to avoid duplicates
+  bridge.nodev2.mountRelay(triggerSelf = false)
 
   # Bridging
   # Handle messages on Waku v1 and bridge to Waku v2  
