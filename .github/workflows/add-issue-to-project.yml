@@ -1,0 +1,15 @@
+name: Add new issues Vac PM Board
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  add-new-issue-to-new-column:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: alex-page/github-project-automation-plus@v0.6.0
+        with:
+          project: Vac PM Board
+          column: New
+          repo-token: ${{ secrets.GH_ACTION_PROJECT_MGMT }}
