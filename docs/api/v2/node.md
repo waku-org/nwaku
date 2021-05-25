@@ -13,6 +13,7 @@ the consumer wants to make. These methods are:
 5. **Publish** - to a topic, or a topic and a specific content filter.
 6. **Query** - for historical messages.
 7. **Info** - to get information about the node.
+8. **Resume** - to retrieve and persist the message history since the node's last online time.
 
 ```Nim
 proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
