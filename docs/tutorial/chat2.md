@@ -2,7 +2,10 @@
 
 ## Background
 
-The `chat2` application is a basic command-line chat app using the [Waku v2 suite of protocols](https://specs.vac.dev/specs/waku/v2/waku-v2). It connects to a [fleet of test nodes](fleets.status.im) to provide end-to-end p2p chat capabilities. The Waku team is currently using this application for internal testing. If you want try our protocols, or join the dogfooding fun, follow the instructions below.
+The `chat2` application is a basic command-line chat app using the [Waku v2 suite of protocols](https://specs.vac.dev/specs/waku/v2/waku-v2).
+It optionally connects to a [fleet of nodes](fleets.status.im) to provide end-to-end p2p chat capabilities.
+The Waku team is currently using this application on the `prod` fleet for internal testing.
+If you want try our protocols, or join the dogfooding fun, follow the instructions below.
 
 ## Preparation
 
@@ -28,29 +31,47 @@ You should be prompted to provide a nickname for the chat session.
 Choose a nickname >>
 ```
 
-After entering a nickname, the app will randomly select and connect to a peer from the test fleet.
+After entering a nickname, the app will randomly select and connect to a peer from the `prod` fleet.
 
 ```
-No static peers configured. Choosing one at random from test fleet...
+No static peers configured. Choosing one at random from prod fleet...
+```
+
+It will then attempt to download historical messages from a random peer in the `prod` fleet.
+
+```
+Store enabled, but no store nodes configured. Choosing one at random from prod fleet...
 ```
 
 Wait for the chat prompt (`>>`) and chat away!
 
+To gracefully exit the `chat2` application, use the `/exit` [in-chat option](#in-chat-options)
+
+```
+>> /exit
+quitting...
+```
+
 ## Retrieving historical messages
 
-The `chat2` application can retrieve historical chat messages from a node supporting and running the [Waku v2 store protocol](https://specs.vac.dev/specs/waku/v2/waku-store). Just specify the selected node's `multiaddr` as `storenode` when starting the app:
+The `chat2` application can retrieve historical chat messages from a node supporting and running the [Waku v2 store protocol](https://specs.vac.dev/specs/waku/v2/waku-store), and will attempt to do so by default.
+It's possible to query a *specific* store node by configuring its `multiaddr` as `storenode` when starting the app:
 
 ```
 ./build/chat2 --storenode:/ip4/134.209.139.210/tcp/30303/p2p/16Uiu2HAmPLe7Mzm8TsYUubgCAW1aJoeFScxrLj8ppHFivPo97bUZ
 ```
 
-Alternatively, the `chat2` application will select a random `storenode` for you from the test fleet if `storenode` left unspecified.
+Alternatively, the `chat2` application will select a random `storenode` for you from the configured fleet (`prod` by default) if `storenode` is left unspecified.
 
 ```
 ./build/chat2
 ```
 
-> *NOTE: Currently (Mar 3, 2021) the only node in the test fleet that provides reliable store functionality is `/ip4/134.209.139.210/tcp/30303/p2p/16Uiu2HAmPLe7Mzm8TsYUubgCAW1aJoeFScxrLj8ppHFivPo97bUZ`. We're working on fixing this.*
+To disable historical message retrieval, use the `--store:false` option:
+
+```
+./build/chat2 --store:false
+```
 
 ## Specifying a static peer
 
@@ -61,6 +82,19 @@ In order to connect to a *specific* node as [`relay`](https://specs.vac.dev/spec
 ```
 
 This will bypass the random peer selection process and connect to the specified node.
+
+## Connecting to a Waku v2 fleet
+
+It is possible to specify a specific Waku v2 fleet to connect to when starting the app by using the `--fleet` option:
+
+```
+./build/chat2 --fleet:test
+```
+
+There are currently two fleets to select from, namely `prod` and `test`.
+The `test` fleet is updated more regularly so may have more advanced features, but will be less stable as a result.
+If no `fleet` is specified, `chat2` will connect to the `prod` fleet by default.
+To start `chat2` without connecting to a fleet, use the `--fleet:none` option _or_ [specify a static peer](#specifying-a-static-peer).
 
 ## In-chat options
 
@@ -83,7 +117,8 @@ message Chat2Message {
 }
 ```
 
-where `timestamp` is the Unix timestamp of the message, `nick` is the relevant `chat2` user's selected nickname and `payload` is the actual chat message being sent. The `payload` is the byte array representation of a UTF8 encoded string.
+where `timestamp` is the Unix timestamp of the message, `nick` is the relevant `chat2` user's selected nickname and `payload` is the actual chat message being sent.
+The `payload` is the byte array representation of a UTF8 encoded string.
 
 # Bridge messages between `chat2` and matterbridge
 
