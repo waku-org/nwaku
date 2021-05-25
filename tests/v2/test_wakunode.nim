@@ -634,6 +634,7 @@ procSuite "WakuNode":
 
     # Light node, only lightpush
     await node1.start()
+    node1.mountRelay(relayMessages=false) # Mount WakuRelay, but do not start or subscribe to any topics
     node1.mountLightPush()
 
     # Intermediate node
