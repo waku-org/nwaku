@@ -172,7 +172,9 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
   debug "Start listening on Waku v2"
   await cmb.nodev2.start()
   
-  cmb.nodev2.mountRelay() # Always mount relay for bridge
+  # Always mount relay for bridge
+  # `triggerSelf` is false on a `bridge` to avoid duplicates
+  cmb.nodev2.mountRelay(triggerSelf = false)
 
   # Bridging
   # Handle messages on Waku v2 and bridge to Matterbridge
