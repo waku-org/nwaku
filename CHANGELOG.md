@@ -31,7 +31,7 @@ This release contains the following:
 - A CLI chat application ([`chat2`](https://github.com/status-im/nim-waku/blob/master/docs/tutorial/chat2.md)) over Waku v2 with [bridging to matterbridge](https://github.com/status-im/nim-waku/blob/master/docs/tutorial/chat2.md#bridge-messages-between-chat2-and-matterbridge)
 
 ### Changes
-
+- Enable `SWAP` by default.
 #### General refactoring
 
 - Split out `waku_types` types into the right place; create `utils` folder.
