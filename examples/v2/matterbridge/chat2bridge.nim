@@ -28,7 +28,6 @@ logScope:
 
 const
   DefaultTopic* = chat2.DefaultTopic
-  DefaultContentTopic* = chat2.DefaultContentTopic
   DeduplQSize = 20  # Maximum number of seen messages to keep in deduplication queue
 
 #########
@@ -42,6 +41,7 @@ type
     running: bool
     pollPeriod: chronos.Duration
     seen: seq[Hash] #FIFO queue
+    contentTopic: string
   
   MbMessageHandler* = proc (jsonNode: JsonNode) {.gcsafe.}
 
@@ -61,7 +61,7 @@ proc containsOrAdd(sequence: var seq[Hash], hash: Hash): bool =
 
   return false
 
-proc toWakuMessage(jsonNode: JsonNode): WakuMessage =
+proc toWakuMessage(cmb: Chat2MatterBridge, jsonNode: JsonNode): WakuMessage =
   # Translates a Matterbridge API JSON response to a Waku v2 message
   let msgFields = jsonNode.getFields()
 
@@ -72,11 +72,11 @@ proc toWakuMessage(jsonNode: JsonNode): WakuMessage =
                              payload: msgFields["text"].getStr().toBytes()).encode()
 
   WakuMessage(payload: chat2pb.buffer,
-              contentTopic: DefaultContentTopic,
+              contentTopic: cmb.contentTopic,
               version: 0)
 
 proc toChat2(cmb: Chat2MatterBridge, jsonNode: JsonNode) {.async.} =
-  let msg = jsonNode.toWakuMessage()
+  let msg = cmb.toWakuMessage(jsonNode)
 
   if cmb.seen.containsOrAdd(msg.payload.hash()):
     # This is a duplicate message. Return.
@@ -131,7 +131,8 @@ proc new*(T: type Chat2MatterBridge,
           # NodeV2 initialisation
           nodev2Key: crypto.PrivateKey,
           nodev2BindIp: ValidIpAddress, nodev2BindPort: Port,
-          nodev2ExtIp = none[ValidIpAddress](), nodev2ExtPort = none[Port]()): T =
+          nodev2ExtIp = none[ValidIpAddress](), nodev2ExtPort = none[Port](),
+          contentTopic: string): T =
 
   # Setup Matterbridge 
   let
@@ -152,7 +153,11 @@ proc new*(T: type Chat2MatterBridge,
                            nodev2BindIp, nodev2BindPort,
                            nodev2ExtIp, nodev2ExtPort)
   
-  return Chat2MatterBridge(mbClient: mbClient, nodev2: nodev2, running: false, pollPeriod: chronos.seconds(1))
+  return Chat2MatterBridge(mbClient: mbClient,
+                           nodev2: nodev2,
+                           running: false,
+                           pollPeriod: chronos.seconds(1),
+                           contentTopic: contentTopic)
 
 proc start*(cmb: Chat2MatterBridge) {.async.} =
   info "Starting Chat2MatterBridge"
@@ -237,7 +242,8 @@ when isMainModule:
                             mbGateway = conf.mbGateway,
                             nodev2Key = conf.nodekey,
                             nodev2BindIp = conf.listenAddress, nodev2BindPort = Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
-                            nodev2ExtIp = nodev2ExtIp, nodev2ExtPort = nodev2ExtPort)
+                            nodev2ExtIp = nodev2ExtIp, nodev2ExtPort = nodev2ExtPort,
+                            contentTopic = conf.contentTopic)
   
   waitFor bridge.start()
 
