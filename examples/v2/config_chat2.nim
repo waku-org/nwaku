@@ -122,7 +122,7 @@ type
 
     swap* {.
       desc: "Enable swap protocol: true|false",
-      defaultValue: false
+      defaultValue: true
       name: "swap" }: bool
     
     ## Lightpush config
@@ -187,6 +187,11 @@ type
       desc: "Select the fleet to connect to."
       defaultValue: Fleet.prod
       name: "fleet" .}: Fleet
+
+    contentTopic* {.
+      desc: "Content topic for chat messages."
+      defaultValue: "/waku/2/huilong/proto"
+      name: "content-topic" .}: string
 
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =

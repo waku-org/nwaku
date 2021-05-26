@@ -4,7 +4,9 @@
 
 The `chat2` application is a basic command-line chat app using the [Waku v2 suite of protocols](https://specs.vac.dev/specs/waku/v2/waku-v2).
 It optionally connects to a [fleet of nodes](fleets.status.im) to provide end-to-end p2p chat capabilities.
-The Waku team is currently using this application on the `prod` fleet for internal testing.
+Each fleet is a publicly accessible network of Waku v2 peers, providing a bootstrap connection point for new peers, historical message storage, etc.
+The Waku team is currently using this application on the _production_ fleet for internal testing.
+For more information on the available fleets, see [`Connecting to a Waku v2 fleet`](#connecting-to-a-waku-v2-fleet).
 If you want try our protocols, or join the dogfooding fun, follow the instructions below.
 
 ## Preparation
@@ -91,10 +93,22 @@ It is possible to specify a specific Waku v2 fleet to connect to when starting t
 ./build/chat2 --fleet:test
 ```
 
-There are currently two fleets to select from, namely `prod` and `test`.
-The `test` fleet is updated more regularly so may have more advanced features, but will be less stable as a result.
+There are currently two fleets to select from, namely _production_ (`wakuv2.prod`) and _test_ (`wakuv2.test`).
+The `test` fleet is updated with each incremental change to the `nim-waku` codebase.
+As a result it may have more advanced and experimental features, but will be less stable than `prod`.
+The `prod` fleet is a deployed network of the latest released Waku v2 nodes.
 If no `fleet` is specified, `chat2` will connect to the `prod` fleet by default.
 To start `chat2` without connecting to a fleet, use the `--fleet:none` option _or_ [specify a static peer](#specifying-a-static-peer).
+
+## Specifying a content topic
+
+To publish chat messages on a specific [content topic](https://rfc.vac.dev/spec/14/#wakumessage), use the `--content-topic` option:
+
+```
+./build/chat2 --content-topic:/waku/2/my-content-topic/proto
+```
+
+> **NOTE:** Currently (2021/05/26) the content topic defaults to `/waku/2/huilong/proto` if left unspecified, where `huilong` is the name of our latest testnet. 
 
 ## In-chat options
 

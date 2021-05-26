@@ -37,7 +37,6 @@ const Help = """
 const
   PayloadV1* {.booldefine.} = false
   DefaultTopic* = "/waku/2/default-waku/proto"
-  DefaultContentTopic* = ContentTopic("/waku/2/huilong/proto")
 
 # XXX Connected is a bit annoying, because incoming connections don't trigger state change
 # Could poll connection pool or something here, I suppose
@@ -50,6 +49,8 @@ type Chat = ref object
     started: bool           # if the node has started
     nick: string            # nickname for this chat session
     prompt: bool            # chat prompt is showing
+    contentTopic: string    # default content topic for chat messages
+    symkey: SymKey          # SymKey used for v1 payload encryption (if enabled)
 
 type
   PrivateKey* = crypto.PrivateKey
@@ -103,8 +104,6 @@ proc generateSymKey(contentTopic: ContentTopic): SymKey =
 
   symKey
 
-let DefaultSymKey = generateSymKey(DefaultContentTopic)
-
 proc connectToNodes(c: Chat, nodes: seq[string]) {.async.} =
   echo "Connecting to nodes"
   await c.node.connectToNodes(nodes)
@@ -142,19 +141,19 @@ proc publish(c: Chat, line: string) =
   when PayloadV1:
     # Use Waku v1 payload encoding/encryption
     let
-      payload = Payload(payload: chat2pb.buffer, symKey: some(DefaultSymKey))
+      payload = Payload(payload: chat2pb.buffer, symKey: some(c.symKey))
       version = 1'u32
       encodedPayload = payload.encode(version, c.node.rng[])
     if encodedPayload.isOk():
       let message = WakuMessage(payload: encodedPayload.get(),
-        contentTopic: DefaultContentTopic, version: version)
+        contentTopic: c.contentTopic, version: version)
       asyncSpawn c.node.publish(DefaultTopic, message)
     else:
       warn "Payload encoding failed", error = encodedPayload.error
   else:
     # No payload encoding/encryption from Waku
     let message = WakuMessage(payload: chat2pb.buffer,
-      contentTopic: DefaultContentTopic, version: 0)
+      contentTopic: c.contentTopic, version: 0)
     asyncSpawn c.node.publish(DefaultTopic, message)
 
 # TODO This should read or be subscribe handler subscribe
@@ -256,7 +255,15 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   let nick = await readNick(transp)
   echo "Welcome, " & nick & "!"
 
-  var chat = Chat(node: node, transp: transp, subscribed: true, connected: false, started: true, nick: nick, prompt: false)
+  var chat = Chat(node: node,
+                  transp: transp,
+                  subscribed: true,
+                  connected: false,
+                  started: true,
+                  nick: nick, 
+                  prompt: false,
+                  contentTopic: conf.contentTopic,
+                  symKey: generateSymKey(conf.contentTopic))
 
   if conf.staticnodes.len > 0:
     await connectToNodes(chat, conf.staticnodes)
@@ -305,7 +312,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
           echo &"{chatLine}"
         info "Hit store handler"
 
-      await node.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)]), storeHandler)
+      await node.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: chat.contentTopic)]), storeHandler)
 
   if conf.filternode != "":
     node.mountFilter()
@@ -321,7 +328,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
       info "Hit filter handler"
 
     await node.subscribe(
-      FilterRequest(contentFilters: @[ContentFilter(contentTopic: DefaultContentTopic)], pubSubTopic: DefaultTopic, subscribe: true),
+      FilterRequest(contentFilters: @[ContentFilter(contentTopic: chat.contentTopic)], pubSubTopic: DefaultTopic, subscribe: true),
       filterHandler
     )
 
@@ -335,7 +342,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
       when PayloadV1:
         # Use Waku v1 payload encoding/encryption
         let
-          keyInfo = KeyInfo(kind: Symmetric, symKey: DefaultSymKey)
+          keyInfo = KeyInfo(kind: Symmetric, symKey: chat.symKey)
           decodedPayload = decodePayload(decoded.get(), keyInfo)
 
         if decodedPayload.isOK():
