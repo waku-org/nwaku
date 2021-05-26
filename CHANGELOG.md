@@ -10,6 +10,7 @@ This release contains the following:
 #### Schema
 #### API
 - [JSON-RPC Store API](https://rfc.vac.dev/spec/16): Added an optional time-based query to filter historical messages.
+- [Nim API](https://github.com/status-im/nim-waku/blob/master/docs/api/v2/node.md): Added `resume` method.
 ### Fixes
 
 ## 2021-05-11 v0.3

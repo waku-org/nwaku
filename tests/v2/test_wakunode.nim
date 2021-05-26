@@ -680,3 +680,42 @@ procSuite "WakuNode":
       (await completionFutLightPush.withTimeout(5.seconds)) == true
 
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
+
+  #   check:
+  #     (await completionFutRelay.withTimeout(5.seconds)) == true
+  #     (await completionFutLightPush.withTimeout(5.seconds)) == true
+  #   await node1.stop()
+  #   await node2.stop()
+  #   await node3.stop()
+  asyncTest "Resume proc fetches the history":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        Port(60002))
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
+      message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
+
+    var completionFut = newFuture[bool]()
+
+    await node1.start()
+    node1.mountStore(persistMessages = true)
+    await node2.start()
+    node2.mountStore(persistMessages = true)
+
+    await node2.subscriptions.notify("/waku/2/default-waku/proto", message)
+
+    await sleepAsync(2000.millis)
+
+    node1.wakuStore.setPeer(node2.peerInfo)
+
+    await node1.resume()
+
+    check:
+      # message is correctly stored
+      node1.wakuStore.messages.len == 1
+
+    await node1.stop()
+    await node2.stop()

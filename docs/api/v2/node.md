@@ -13,6 +13,7 @@ the consumer wants to make. These methods are:
 5. **Publish** - to a topic, or a topic and a specific content filter.
 6. **Query** - for historical messages.
 7. **Info** - to get information about the node.
+8. **Resume** - to retrieve and persist the message history since the node's last online time.
 
 ```Nim
 proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
@@ -71,6 +72,16 @@ proc query*(w: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async
 
 proc info*(node: WakuNode): WakuInfo =
   ## Returns information about the Node, such as what multiaddress it can be reached at.
+  ##
+  ## Status: Implemented.
+  ##
+
+proc resume*(node: WakuNode, peerList: Option[seq[PeerInfo]]) =
+  ## Retrieves and persists the history of waku messages published on the default waku pubsub topic since the last time the waku node has been online. 
+  ## It requires the waku node to have the store protocol mounted in the full mode (i.e., persisting messages).
+  ## `peerList` indicates the list of peers to query from. The history is fetched from the first available peer in this list. 
+  ## If no peerList is passed, the history is fetched from one of the known peers. 
+  ## It retrieves the history successfully given that the dialed peer has been online during the queried time window.
   ##
   ## Status: Implemented.
   ##
