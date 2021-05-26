@@ -2,7 +2,12 @@
 
 ## Background
 
-The `chat2` application is a basic command-line chat app using the [Waku v2 suite of protocols](https://specs.vac.dev/specs/waku/v2/waku-v2). It connects to a [fleet of test nodes](fleets.status.im) to provide end-to-end p2p chat capabilities. The Waku team is currently using this application for internal testing. If you want try our protocols, or join the dogfooding fun, follow the instructions below.
+The `chat2` application is a basic command-line chat app using the [Waku v2 suite of protocols](https://specs.vac.dev/specs/waku/v2/waku-v2).
+It optionally connects to a [fleet of nodes](fleets.status.im) to provide end-to-end p2p chat capabilities.
+Each fleet is a publicly accessible network of Waku v2 peers, providing a bootstrap connection point for new peers, historical message storage, etc.
+The Waku team is currently using this application on the _production_ fleet for internal testing.
+For more information on the available fleets, see [`Connecting to a Waku v2 fleet`](#connecting-to-a-waku-v2-fleet).
+If you want try our protocols, or join the dogfooding fun, follow the instructions below.
 
 ## Preparation
 
@@ -28,29 +33,47 @@ You should be prompted to provide a nickname for the chat session.
 Choose a nickname >>
 ```
 
-After entering a nickname, the app will randomly select and connect to a peer from the test fleet.
+After entering a nickname, the app will randomly select and connect to a peer from the `prod` fleet.
 
 ```
-No static peers configured. Choosing one at random from test fleet...
+No static peers configured. Choosing one at random from prod fleet...
+```
+
+It will then attempt to download historical messages from a random peer in the `prod` fleet.
+
+```
+Store enabled, but no store nodes configured. Choosing one at random from prod fleet...
 ```
 
 Wait for the chat prompt (`>>`) and chat away!
 
+To gracefully exit the `chat2` application, use the `/exit` [in-chat option](#in-chat-options)
+
+```
+>> /exit
+quitting...
+```
+
 ## Retrieving historical messages
 
-The `chat2` application can retrieve historical chat messages from a node supporting and running the [Waku v2 store protocol](https://specs.vac.dev/specs/waku/v2/waku-store). Just specify the selected node's `multiaddr` as `storenode` when starting the app:
+The `chat2` application can retrieve historical chat messages from a node supporting and running the [Waku v2 store protocol](https://specs.vac.dev/specs/waku/v2/waku-store), and will attempt to do so by default.
+It's possible to query a *specific* store node by configuring its `multiaddr` as `storenode` when starting the app:
 
 ```
 ./build/chat2 --storenode:/ip4/134.209.139.210/tcp/30303/p2p/16Uiu2HAmPLe7Mzm8TsYUubgCAW1aJoeFScxrLj8ppHFivPo97bUZ
 ```
 
-Alternatively, the `chat2` application will select a random `storenode` for you from the test fleet if `storenode` left unspecified.
+Alternatively, the `chat2` application will select a random `storenode` for you from the configured fleet (`prod` by default) if `storenode` is left unspecified.
 
 ```
 ./build/chat2
 ```
 
-> *NOTE: Currently (Mar 3, 2021) the only node in the test fleet that provides reliable store functionality is `/ip4/134.209.139.210/tcp/30303/p2p/16Uiu2HAmPLe7Mzm8TsYUubgCAW1aJoeFScxrLj8ppHFivPo97bUZ`. We're working on fixing this.*
+To disable historical message retrieval, use the `--store:false` option:
+
+```
+./build/chat2 --store:false
+```
 
 ## Specifying a static peer
 
@@ -61,6 +84,31 @@ In order to connect to a *specific* node as [`relay`](https://specs.vac.dev/spec
 ```
 
 This will bypass the random peer selection process and connect to the specified node.
+
+## Connecting to a Waku v2 fleet
+
+It is possible to specify a specific Waku v2 fleet to connect to when starting the app by using the `--fleet` option:
+
+```
+./build/chat2 --fleet:test
+```
+
+There are currently two fleets to select from, namely _production_ (`wakuv2.prod`) and _test_ (`wakuv2.test`).
+The `test` fleet is updated with each incremental change to the `nim-waku` codebase.
+As a result it may have more advanced and experimental features, but will be less stable than `prod`.
+The `prod` fleet is a deployed network of the latest released Waku v2 nodes.
+If no `fleet` is specified, `chat2` will connect to the `prod` fleet by default.
+To start `chat2` without connecting to a fleet, use the `--fleet:none` option _or_ [specify a static peer](#specifying-a-static-peer).
+
+## Specifying a content topic
+
+To publish chat messages on a specific [content topic](https://rfc.vac.dev/spec/14/#wakumessage), use the `--content-topic` option:
+
+```
+./build/chat2 --content-topic:/waku/2/my-content-topic/proto
+```
+
+> **NOTE:** Currently (2021/05/26) the content topic defaults to `/waku/2/huilong/proto` if left unspecified, where `huilong` is the name of our latest testnet. 
 
 ## In-chat options
 
@@ -83,7 +131,8 @@ message Chat2Message {
 }
 ```
 
-where `timestamp` is the Unix timestamp of the message, `nick` is the relevant `chat2` user's selected nickname and `payload` is the actual chat message being sent. The `payload` is the byte array representation of a UTF8 encoded string.
+where `timestamp` is the Unix timestamp of the message, `nick` is the relevant `chat2` user's selected nickname and `payload` is the actual chat message being sent.
+The `payload` is the byte array representation of a UTF8 encoded string.
 
 # Bridge messages between `chat2` and matterbridge
 

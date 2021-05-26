@@ -122,6 +122,13 @@ type
       defaultValue: "gateway1"
       name: "mb-gateway" }: string
 
+    ## Chat2 options
+
+    contentTopic* {.
+      desc: "Content topic to bridge chat messages to."
+      defaultValue: "/waku/2/huilong/proto"
+      name: "content-topic" }: string
+
 proc parseCmdArg*(T: type keys.KeyPair, p: TaintedString): T =
   try:
     let privkey = keys.PrivateKey.fromHex(string(p)).tryGet()
