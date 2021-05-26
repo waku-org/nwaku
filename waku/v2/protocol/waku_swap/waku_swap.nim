@@ -207,37 +207,38 @@ proc init*(wakuSwap: WakuSwap) =
     wakuSwap.handleCheque(res.value)
 
   proc credit(peerId: PeerId, n: int) {.gcsafe, closure.} =
-    info "Crediting peer for", peerId, n
+    info "Crediting peer: ", peer=peerId, amount=n
     if wakuSwap.accounting.hasKey(peerId):
       wakuSwap.accounting[peerId] -= n
     else:
       wakuSwap.accounting[peerId] = -n
     info "Accounting state", accounting = wakuSwap.accounting[peerId]
-
-    # TODO Isolate to policy function
-    # TODO Tunable disconnect threshhold, hard code for PoC
-    let disconnectThreshhold = 2
-    if wakuSwap.accounting[peerId] >= disconnectThreshhold:
-      info "Disconnect threshhold hit, disconnect peer"
-    else:
-      info "Disconnect threshhold not hit"
+    wakuSwap.applyPolicy(peerId)
 
   # TODO Debit and credit here for Karma asset
   proc debit(peerId: PeerId, n: int) {.gcsafe, closure.} =
-    info "Debiting peer for", peerId, n
+    info "Debiting peer: ", peer=peerId, amount=n
     if wakuSwap.accounting.hasKey(peerId):
       wakuSwap.accounting[peerId] += n
     else:
       wakuSwap.accounting[peerId] = n
     info "Accounting state", accounting = wakuSwap.accounting[peerId]
+    wakuSwap.applyPolicy(peerId)
+    
+  proc applyPolicy(peerId: PeerId) {.gcsafe, closure.} = 
+    # TODO Separate out depending on if policy is soft (accounting only) mock (send cheque but don't cash/verify) hard (actually send funds over testnet)
 
-    # TODO Isolate to policy function
-    # TODO Tunable payment threshhold, hard code for PoC
-    # XXX: Where should this happen? Apply policy...
-    let paymentThreshhold = 1
-    if wakuSwap.accounting[peerId] >= paymentThreshhold:
-      info "Payment threshhold hit, send cheque"
-      discard wakuSwap.sendCheque()
+    #Check if the Disconnect Threshold has been hit. Account Balance nears the disconnectThreshold after a Credit has been done
+    if wakuSwap.accounting[peerId] <= wakuSwap.disconnectThreshold:
+      warn "Disconnect threshhold has been reached: ", threshold=wakuSwap.disconnectThreshold, balance=wakuSwap.accounting[peerId]
+    else:
+      info "Disconnect threshhold not hit"
+
+    #Check if the Payment threshold has been hit. Account Balance nears the paymentThreshold after a Debit has been done
+    if wakuSwap.accounting[peerId] >= wakuSwap.paymentThreshold:
+      warn "Payment threshhold has been reached: ", threshold=wakuSwap.paymentThreshold, balance=wakuSwap.accounting[peerId]
+      #In soft phase we don't send cheques yet
+      #discard wakuSwap.sendCheque()
     else:
       info "Payment threshhold not hit"
 
@@ -245,6 +246,7 @@ proc init*(wakuSwap: WakuSwap) =
   wakuSwap.codec = WakuSwapCodec
   wakuSwap.credit = credit
   wakuSwap.debit = debit
+  wakuswap.applyPolicy = applyPolicy
 
 # TODO Expression return?
 proc init*(T: type WakuSwap, peerManager: PeerManager, rng: ref BrHmacDrbgContext): T =
@@ -254,6 +256,8 @@ proc init*(T: type WakuSwap, peerManager: PeerManager, rng: ref BrHmacDrbgContex
   result.peerManager = peerManager
   result.accounting = initTable[PeerId, int]()
   result.text = "test"
+  result.paymentThreshold = 100
+  result.disconnectThreshold = -100
   result.init()
 
 proc setPeer*(ws: WakuSwap, peer: PeerInfo) =

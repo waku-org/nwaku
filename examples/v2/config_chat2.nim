@@ -8,7 +8,12 @@ import
   eth/keys
 
 type
-  WakuNodeConf* = object
+  Fleet* =  enum
+    none
+    prod
+    test
+  
+  Chat2Conf* = object
     ## General node config
 
     logLevel* {.
@@ -175,6 +180,18 @@ type
       desc: "Enable metrics logging: true|false"
       defaultValue: false
       name: "metrics-logging" }: bool
+    
+    ## Chat2 configuration
+    
+    fleet* {.
+      desc: "Select the fleet to connect to."
+      defaultValue: Fleet.prod
+      name: "fleet" }: Fleet
+
+    contentTopic* {.
+      desc: "Content topic for chat messages."
+      defaultValue: "/waku/2/huilong/proto"
+      name: "content-topic" }: string
 
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =
@@ -206,7 +223,7 @@ proc parseCmdArg*(T: type Port, p: TaintedString): T =
 proc completeCmdArg*(T: type Port, val: TaintedString): seq[string] =
   return @[]
 
-func defaultListenAddress*(conf: WakuNodeConf): ValidIpAddress =
+func defaultListenAddress*(conf: Chat2Conf): ValidIpAddress =
   # TODO: How should we select between IPv4 and IPv6
   # Maybe there should be a config option for this.
   (static ValidIpAddress.init("0.0.0.0"))
