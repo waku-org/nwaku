@@ -713,7 +713,7 @@ when isMainModule:
              relayMessages = conf.relay) # Indicates if node is capable to relay messages
   
   # Resume historical messages, this has to be called after the relay setup           
-  if conf.persistMessages:
+  if conf.store and conf.persistMessages:
     waitFor node.resume()
 
   if conf.staticnodes.len > 0:
