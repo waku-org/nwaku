@@ -42,7 +42,7 @@ declarePublicGauge waku_swap_errors, "number of swap protocol errors", ["type"]
 logScope:
   topics = "wakuswap"
 
-const WakuSwapCodec* = "/vac/waku/swap/2.0.0-alpha1"
+const WakuSwapCodec* = "/vac/waku/swap/2.0.0-beta1"
 
 # Error types (metric label values)
 const
