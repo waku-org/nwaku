@@ -28,9 +28,15 @@ proc keepAlive*(w: WakuRelay) {.async.} =
 
     for topic in w.topics.keys:
       trace "Keepalive on topic", topic=topic
-      let mpeers = w.mesh.getOrDefault(topic)
+      let
+        # Mesh peers for topic
+        mpeers = toSeq(w.mesh.getOrDefault(topic))
+        # Peers we're backing off from on topic
+        backoffPeers = w.backingOff.getOrDefault(topic)
+        # Only keep peers alive that we're not backing off from
+        keepAlivePeers = mpeers.filterIt(not backoffPeers.hasKey(it.peerId))
 
-      w.broadcast(toSeq(mpeers), RPCMsg(control: some(ControlMessage(graft: @[ControlGraft(topicID: topic)]))))
+      w.broadcast(keepAlivePeers, RPCMsg(control: some(ControlMessage(graft: @[ControlGraft(topicID: topic)]))))
     
     await sleepAsync(DefaultKeepAlive)
 
