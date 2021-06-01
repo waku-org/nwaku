@@ -39,7 +39,6 @@ proc encode*(msg: KeepaliveMessage): ProtoBuffer =
   return pb
 
 proc init*(T: type KeepaliveMessage, buffer: seq[byte]): ProtoResult[T] =
-  #var rpc = PushRequest(pubSubTopic: "", message: WakuMessage())
   var msg = KeepaliveMessage()
   let pb = initProtoBuffer(buffer)
 
