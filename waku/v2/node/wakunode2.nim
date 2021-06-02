@@ -642,7 +642,10 @@ when isMainModule:
 
   proc startMetricsServer(serverIp: ValidIpAddress, serverPort: Port) =
       info "Starting metrics HTTP server", serverIp, serverPort
+      
       metrics.startHttpServer($serverIp, serverPort)
+
+      info "Metrics HTTP server started", serverIp, serverPort
 
   proc startMetricsLog() =
     # https://github.com/nim-lang/Nim/issues/17369
