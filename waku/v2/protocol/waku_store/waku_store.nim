@@ -483,6 +483,7 @@ proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, pe
     
 
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
+  debug "handler is going to be called"
   handler(response.value.response)
   return ok(response.value.response.messages.len.int64)
   
@@ -527,6 +528,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
   debug "the  offline time window is", lastSeenTime=lastSeenTime, currentTime=currentTime
 
   proc handler(response: HistoryResponse) {.gcsafe.} =
+    debug "resume handler is called"
     for msg in response.messages:
       let index = msg.computeIndex()
       let indexedWakuMsg = IndexedWakuMessage(msg: msg, index: index, pubsubTopic: DefaultTopic)
