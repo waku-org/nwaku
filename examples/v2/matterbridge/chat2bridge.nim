@@ -95,6 +95,11 @@ proc toMatterbridge(cmb: Chat2MatterBridge, msg: WakuMessage) {.gcsafe.} =
     chat2_mb_dropped.inc(labelValues = ["duplicate"])
     return
 
+  if msg.contentTopic != cmb.contentTopic:
+    # Only bridge messages on the configured content topic
+    chat2_mb_dropped.inc(labelValues = ["filtered"])
+    return
+
   trace "Post chat2 message to Matterbridge"
 
   chat2_mb_transfers.inc(labelValues = ["chat2_to_mb"])
@@ -249,6 +254,8 @@ when isMainModule:
 
   # Now load rest of config
   # Mount configured Waku v2 protocols
+  mountKeepalive(bridge.nodev2)
+
   if conf.store:
     mountStore(bridge.nodev2)
 
