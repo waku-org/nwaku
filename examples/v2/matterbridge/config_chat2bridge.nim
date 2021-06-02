@@ -126,7 +126,7 @@ type
 
     contentTopic* {.
       desc: "Content topic to bridge chat messages to."
-      defaultValue: "/waku/2/huilong/proto"
+      defaultValue: "/toy-chat/2/huilong/proto"
       name: "content-topic" }: string
 
 proc parseCmdArg*(T: type keys.KeyPair, p: TaintedString): T =
