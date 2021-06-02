@@ -84,7 +84,7 @@ method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTop
 
   let res = prepare.value.exec((@(cursor.digest.data), cursor.receivedTime.toBytes(), message.contentTopic.toBytes(), message.payload, pubsubTopic.toBytes(), int64(message.version), message.timestamp.toBytes()))
   if res.isErr:
-    return err("failed")
+    return err($res)
 
   ok()
 
