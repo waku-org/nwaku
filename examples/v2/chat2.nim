@@ -248,9 +248,11 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   await node.start()
 
   if conf.filternode != "":
-    node.mountRelay(conf.topics.split(" "), rlnRelayEnabled = conf.rlnRelay, keepAlive = conf.keepAlive)
+    node.mountRelay(conf.topics.split(" "), rlnRelayEnabled = conf.rlnRelay)
   else:
-    node.mountRelay(@[], rlnRelayEnabled = conf.rlnRelay, keepAlive = conf.keepAlive)
+    node.mountRelay(@[], rlnRelayEnabled = conf.rlnRelay)
+  
+  node.mountKeepalive()
   
   let nick = await readNick(transp)
   echo "Welcome, " & nick & "!"
@@ -376,6 +378,9 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   node.subscribe(topic, handler)
 
   await chat.readWriteLoop()
+
+  if conf.keepAlive:
+    node.startKeepalive()
 
   runForever()
   #await allFuturesThrowing(libp2pFuts)

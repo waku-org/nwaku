@@ -14,7 +14,8 @@ import
   ./v2/test_web3, # TODO  remove it when rln-relay tests get finalized
   ./v2/test_waku_rln_relay,
   ./v2/test_waku_bridge,
-  ./v2/test_peer_storage
+  ./v2/test_peer_storage,
+  ./v2/test_waku_keepalive
 
 # TODO Only enable this once swap module is integrated more nicely as a dependency, i.e. as submodule with CI etc
 # For PoC execute it manually and run separate module here: https://github.com/vacp2p/swap-contracts-module

@@ -27,7 +27,7 @@ let
 # Helper functions #
 ####################
 
-proc toPeerInfo(storedInfo: StoredInfo): PeerInfo =
+proc toPeerInfo*(storedInfo: StoredInfo): PeerInfo =
   PeerInfo.init(peerId = storedInfo.peerId,
                 addrs = toSeq(storedInfo.addrs),
                 protocols = toSeq(storedInfo.protos))
