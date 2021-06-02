@@ -248,7 +248,7 @@ proc init*(wakuSwap: WakuSwap) =
     else:
       info "Payment threshhold not hit"
 
-    discard wakuSwap.logAccountMetrics(peerId)
+    waitFor wakuSwap.logAccountMetrics(peerId)
 
   wakuSwap.handler = handle
   wakuSwap.codec = WakuSwapCodec
