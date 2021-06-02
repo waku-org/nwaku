@@ -384,6 +384,7 @@ method init*(ws: WakuStore) =
     warn "failed to load messages from store", err = res.error
     waku_store_errors.inc(labelValues = ["store_load_failure"])
   
+  debug "the number of messages in the memory", messageNum=ws.messages.len
   waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
 
 
@@ -506,6 +507,15 @@ proc findLastSeen*(list: seq[IndexedWakuMessage]): float =
       lastSeenTime = iwmsg.msg.timestamp 
   return lastSeenTime
 
+proc isDuplicate(message: WakuMessage, list: seq[WakuMessage]): bool =
+  debug "compared msg", msg=message
+  for msg in list:
+    if message == msg:
+      return true
+  # if message in list: return true
+  return false
+
+
 proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo])): Future[QueryResult] {.async, gcsafe.} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku store node has been online 
   ## messages are stored in the store node's messages field and in the message db
@@ -518,7 +528,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
   
   # TODO remove duplicate messages from the fetched history
   var currentTime = epochTime()
-  var lastSeenTime: float = findLastSeen(ws.messages)
+  var lastSeenTime: float = currentTime #findLastSeen(ws.messages)
   debug "resume", currentEpochTime=currentTime
   
   # adjust the time window with an offset of 20 seconds
@@ -529,19 +539,33 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
 
   proc handler(response: HistoryResponse) {.gcsafe.} =
     debug "resume handler is called"
+
+    # exclude index from the comparison criteria
+    let currentMsgSummary = ws.messages.map(proc(x: IndexedWakuMessage): WakuMessage = x.msg)
+    debug "currentMsgSummary", msgSum=($currentMsgSummary)
+    debug "currentMsgSummary", currentMsgSummary=currentMsgSummary.len
+
     for msg in response.messages:
+      # check for duplicate messages
+      if isDuplicate(msg,currentMsgSummary): 
+        debug "redundant message is dismissed"
+        continue
+
+      # store the new message 
       let index = msg.computeIndex()
       let indexedWakuMsg = IndexedWakuMessage(msg: msg, index: index, pubsubTopic: DefaultTopic)
-      if indexedWakuMsg in ws.messages: 
-        echo "redundant"
-        continue
       ws.messages.add(indexedWakuMsg)
       waku_store_messages.inc(labelValues = ["stored"])
+
+      # store in db if exists
       if ws.store.isNil: continue
       let res = ws.store.put(index, msg, DefaultTopic)
       if res.isErr:
         warn "failed to store messages", err = res.error
         waku_store_errors.inc(labelValues = ["store_failure"])
+
+    debug "number of messages added in resume", total=ws.messages.len
+
 
   let rpc = HistoryQuery(pubsubTopic: DefaultTopic, startTime: lastSeenTime, endTime: currentTime)
 
