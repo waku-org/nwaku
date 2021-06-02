@@ -190,7 +190,7 @@ type
 
     contentTopic* {.
       desc: "Content topic for chat messages."
-      defaultValue: "/waku/2/huilong/proto"
+      defaultValue: "/toy-chat/2/huilong/proto"
       name: "content-topic" }: string
 
 # NOTE: Keys are different in nim-libp2p
