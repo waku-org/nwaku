@@ -529,7 +529,11 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
   proc handler(response: HistoryResponse) {.gcsafe.} =
     for msg in response.messages:
       let index = msg.computeIndex()
-      ws.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: DefaultTopic))
+      let indexedWakuMsg = IndexedWakuMessage(msg: msg, index: index, pubsubTopic: DefaultTopic)
+      if indexedWakuMsg in ws.messages: 
+        echo "redundant"
+        continue
+      ws.messages.add(indexedWakuMsg)
       waku_store_messages.inc(labelValues = ["stored"])
       if ws.store.isNil: continue
       let res = ws.store.put(index, msg, DefaultTopic)
