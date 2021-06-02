@@ -18,6 +18,7 @@ import
   ../protocol/waku_filter/waku_filter,
   ../protocol/waku_rln_relay/[rln,waku_rln_relay_utils],
   ../protocol/waku_lightpush/waku_lightpush,
+  ../protocol/waku_keepalive/waku_keepalive,
   ../utils/peers,
   ./storage/message/message_store,
   ./storage/peer/peer_storage,
@@ -62,6 +63,7 @@ type
     wakuSwap*: WakuSwap
     wakuRlnRelay*: WakuRLNRelay
     wakuLightPush*: WakuLightPush
+    wakuKeepalive*: WakuKeepalive
     peerInfo*: PeerInfo
     libp2pTransportLoops*: seq[Future[void]]
   # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
@@ -456,7 +458,6 @@ proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
 proc mountRelay*(node: WakuNode,
                  topics: seq[string] = newSeq[string](),
                  rlnRelayEnabled = false,
-                 keepAlive = false,
                  relayMessages = true,
                  triggerSelf = true) {.gcsafe.} =
   let wakuRelay = WakuRelay.init(
@@ -468,7 +469,7 @@ proc mountRelay*(node: WakuNode,
     verifySignature = false
   )
   
-  info "mounting relay", rlnRelayEnabled=rlnRelayEnabled, keepAlive=keepAlive, relayMessages=relayMessages
+  info "mounting relay", rlnRelayEnabled=rlnRelayEnabled, relayMessages=relayMessages
 
   node.switch.mount(wakuRelay)
 
@@ -482,7 +483,6 @@ proc mountRelay*(node: WakuNode,
     return
 
   node.wakuRelay = wakuRelay
-  wakuRelay.keepAlive = keepAlive
 
   node.subscribe(defaultTopic, none(TopicHandler))
 
@@ -521,6 +521,29 @@ proc mountLightPush*(node: WakuNode) =
     node.wakuLightPush = WakuLightPush.init(node.peerManager, node.rng, nil, node.wakuRelay)
 
   node.switch.mount(node.wakuLightPush)
+
+proc mountKeepalive*(node: WakuNode) =
+  info "mounting keepalive"
+
+  node.wakuKeepalive = WakuKeepalive.new(node.peerManager, node.rng)
+
+  node.switch.mount(node.wakuKeepalive)
+
+proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
+  while node.started:
+    # Keep all managed peers alive when idle
+    trace "Running keepalive"
+
+    await node.wakuKeepalive.keepAllAlive()
+    
+    await sleepAsync(keepalive)
+
+proc startKeepalive*(node: WakuNode) =
+  let defaultKeepalive = 5.minutes # 50% of the default chronosstream timeout duration
+
+  info "starting keepalive", keepalive=defaultKeepalive
+
+  asyncSpawn node.keepaliveLoop(defaultKeepalive)
 
 ## Helpers
 proc dialPeer*(n: WakuNode, address: string) {.async.} =
@@ -704,13 +727,14 @@ when isMainModule:
       setStorePeer(node, conf.storenode)
     
 
-
   # Relay setup
   mountRelay(node,
              conf.topics.split(" "),
              rlnRelayEnabled = conf.rlnRelay,
-             keepAlive = conf.keepAlive,
              relayMessages = conf.relay) # Indicates if node is capable to relay messages
+  
+  # Keepalive mounted on all nodes
+  mountKeepalive(node)
   
   # Resume historical messages, this has to be called after the relay setup           
   if conf.store and conf.persistMessages:
@@ -762,5 +786,9 @@ when isMainModule:
       quit(QuitSuccess)
     
     c_signal(SIGTERM, handleSigterm)
+  
+  # Start keepalive, if enabled
+  if conf.keepAlive:
+    node.startKeepalive()
 
   runForever()

@@ -15,30 +15,9 @@ logScope:
 
 const
   WakuRelayCodec* = "/vac/waku/relay/2.0.0-beta2"
-  DefaultKeepAlive = 5.minutes # 50% of the default chronosstream timeout duration
 
 type
   WakuRelay* = ref object of GossipSub
-    keepAlive*: bool
-
-proc keepAlive*(w: WakuRelay) {.async.} =
-  while w.keepAlive:
-    # Keep all mesh peers alive when idle
-    trace "Running keepalive"
-
-    for topic in w.topics.keys:
-      trace "Keepalive on topic", topic=topic
-      let
-        # Mesh peers for topic
-        mpeers = toSeq(w.mesh.getOrDefault(topic))
-        # Peers we're backing off from on topic
-        backoffPeers = w.backingOff.getOrDefault(topic)
-        # Only keep peers alive that we're not backing off from
-        keepAlivePeers = mpeers.filterIt(not backoffPeers.hasKey(it.peerId))
-
-      w.broadcast(keepAlivePeers, RPCMsg(control: some(ControlMessage(graft: @[ControlGraft(topicID: topic)]))))
-    
-    await sleepAsync(DefaultKeepAlive)
 
 method init*(w: WakuRelay) =
   debug "init"
@@ -104,14 +83,8 @@ method unsubscribeAll*(w: WakuRelay,
 method start*(w: WakuRelay) {.async.} =
   debug "start"
   await procCall GossipSub(w).start()
-  
-  if w.keepAlive:
-    # Keep connection to mesh peers alive over periods of idleness
-    asyncSpawn keepAlive(w)
 
 method stop*(w: WakuRelay) {.async.} =
   debug "stop"
-
-  w.keepAlive = false
 
   await procCall GossipSub(w).stop()
