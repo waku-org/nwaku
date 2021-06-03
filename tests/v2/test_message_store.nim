@@ -56,12 +56,11 @@ suite "Message Store":
     check:
       res.isErr == false
       responseCount == 3
-      # await allFutures(times)
-      t1Flag == true
-      t2Flag == true
-      t3Flag == true
       v0Flag == true
       v1Flag == true
       vMaxFlag == true
+      t1Flag == true
+      t2Flag == true
+      t3Flag == true
 
 
