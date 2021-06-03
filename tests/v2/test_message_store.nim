@@ -33,8 +33,11 @@ suite "Message Store":
       indexes.add(index)
       check output.isOk
 
+    # flags for version
     var v0Flag, v1Flag, vMaxFlag: bool = false
+    # flags for sender timestamp
     var t1Flag, t2Flag, t3Flag: bool = false
+    # flags for receiver timestamp
     var rt1Flag, rt2Flag, rt3Flag: bool = false
 
     var responseCount = 0
