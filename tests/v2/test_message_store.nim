@@ -30,8 +30,9 @@ suite "Message Store":
     for msg in msgs:
       var index = computeIndex(msg)
       let output = store.put(index, msg, pubsubTopic)
-      indexes.add(index)
       check output.isOk
+      indexes.add(index)
+
 
     # flags for version
     var v0Flag, v1Flag, vMaxFlag: bool = false
