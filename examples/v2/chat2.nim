@@ -131,7 +131,7 @@ proc printReceivedMessage(c: Chat, msg: WakuMessage) =
         echo &"{chatLine}"
         c.prompt = false
         showChatPrompt(c)
-        trace "Printing message", topic, chatLine,
+        trace "Printing message", topic=DefaultTopic, chatLine,
           contentTopic = msg.contentTopic
       else:
         debug "Invalid encoded WakuMessage payload",
@@ -145,7 +145,7 @@ proc printReceivedMessage(c: Chat, msg: WakuMessage) =
     echo &"{chatLine}"
     c.prompt = false
     showChatPrompt(c)
-    trace "Printing message", topic, chatLine,
+    trace "Printing message", topic=DefaultTopic, chatLine,
       contentTopic = msg.contentTopic
 
 proc selectRandomNode(fleetStr: string): string =
