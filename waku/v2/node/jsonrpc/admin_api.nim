@@ -2,6 +2,7 @@
 
 import
   std/[options, sequtils, sets],
+  chronicles,
   json_rpc/rpcserver,
   libp2p/[peerinfo, switch],
   ../../protocol/waku_store/[waku_store_types, waku_store],
@@ -40,7 +41,7 @@ proc installAdminApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
       return true
     else:
       # Failed to connect to peers
-      raise newException(ValueError, "Failed to connect to peers: " & $peers)
+      raise newException(CatchableError, "Failed to connect to peers: " & $peers)
 
   rpcsrv.rpc("get_waku_v2_admin_v1_peers") do() -> seq[WakuPeer]:
     ## Returns a list of peers registered for this node

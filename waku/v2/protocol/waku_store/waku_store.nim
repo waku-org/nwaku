@@ -339,7 +339,7 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
 
 
 method init*(ws: WakuStore) =
-  proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
+  proc handler(conn: Connection, proto: string) {.async, raises: [Defect].} =
     var message = await conn.readLp(64*1024)
     var res = HistoryRPC.init(message)
     if res.isErr:
@@ -369,7 +369,7 @@ method init*(ws: WakuStore) =
     await conn.writeLp(HistoryRPC(requestId: value.requestId,
         response: response).encode().buffer)
 
-  ws.handler = handle
+  ws.handler = handler
   ws.codec = WakuStoreCodec
 
   if ws.store.isNil:
