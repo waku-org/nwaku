@@ -26,14 +26,19 @@ suite "Message Store":
 
     defer: store.close()
 
+    var indexes: seq[Index] = @[]
     for msg in msgs:
-      let output = store.put(computeIndex(msg), msg, pubsubTopic)
+      var index = computeIndex(msg)
+      let output = store.put(index, msg, pubsubTopic)
+      indexes.add(index)
       check output.isOk
 
     var v0Flag, v1Flag, vMaxFlag: bool = false
     var t1Flag, t2Flag, t3Flag: bool = false
+    var rt1Flag, rt2Flag, rt3Flag: bool = false
+
     var responseCount = 0
-    proc data(timestamp: float64, msg: WakuMessage, psTopic: string) =
+    proc data(receiverTimestamp: float64, msg: WakuMessage, psTopic: string) =
       responseCount += 1
       check msg in msgs
       check psTopic == pubsubTopic
@@ -44,10 +49,15 @@ suite "Message Store":
       # high(uint32) is the largest value that fits in uint32, this is to make sure there is no overflow in the storage
       if msg.version == high(uint32): vMaxFlag = true
 
-      # check correct retrieval of timestamps
+      # check correct retrieval of sender timestamps
       if msg.timestamp == t1: t1Flag = true
       if msg.timestamp == t2: t2Flag = true
       if msg.timestamp == t3: t3Flag = true
+
+      # check correct retrieval of receiver timestamps
+      if receiverTimestamp == indexes[0].receivedTime: rt1Flag = true
+      if receiverTimestamp == indexes[1].receivedTime: rt2Flag = true
+      if receiverTimestamp == indexes[2].receivedTime: rt3Flag = true
 
 
     let res = store.getAll(data)
@@ -55,11 +65,17 @@ suite "Message Store":
     check:
       res.isErr == false
       responseCount == 3
+      # check version
       v0Flag == true
       v1Flag == true
       vMaxFlag == true
+      # check sender timestamp
       t1Flag == true
       t2Flag == true
       t3Flag == true
+      # check receiver timestamp
+      rt1Flag == true
+      rt2Flag == true
+      rt3Flag == true
 
 
