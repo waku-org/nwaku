@@ -60,7 +60,6 @@ suite "Message Store":
       t1Flag == true
       t2Flag == true
       t3Flag == true
-
       v0Flag == true
       v1Flag == true
       vMaxFlag == true
