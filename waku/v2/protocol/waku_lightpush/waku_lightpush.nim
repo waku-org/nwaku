@@ -24,7 +24,7 @@ logScope:
   topics = "wakulightpush"
 
 const
-  WakuLightPushCodec* = "/vac/waku/lightpush/2.0.0-alpha1"
+  WakuLightPushCodec* = "/vac/waku/lightpush/2.0.0-beta1"
 
 # Error types (metric label values)
 const
