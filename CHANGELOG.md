@@ -1,10 +1,11 @@
 # Changelog
 
-## v0.4
+## Next release
 This release contains the following:
 
 ### Features
 ### Changes
+- The [toy-chat application](https://github.com/status-im/nim-waku/blob/master/docs/tutorial/chat2.md) can now perform `lightpush` and request content-filtered messages from remote peers.
 #### General refactoring
 #### Docs
 #### Schema
@@ -12,6 +13,7 @@ This release contains the following:
 - [JSON-RPC Store API](https://rfc.vac.dev/spec/16): Added an optional time-based query to filter historical messages.
 - [Nim API](https://github.com/status-im/nim-waku/blob/master/docs/api/v2/node.md): Added `resume` method.
 ### Fixes
+- Connections between nodes no longer become unstable due to keep-alive errors if mesh grows large
 
 ## 2021-05-11 v0.3
 
