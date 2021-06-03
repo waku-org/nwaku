@@ -45,7 +45,7 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] 
   let prepare = db.prepareStmt("""
     CREATE TABLE IF NOT EXISTS """ & TABLE_TITLE & """ (
         id BLOB PRIMARY KEY,
-        receiverTimestamp INTEGER NOT NULL,
+        receiverTimestamp BLOB NOT NULL,
         contentTopic BLOB NOT NULL,
         pubsubTopic BLOB NOT NULL,
         payload BLOB,
@@ -75,14 +75,14 @@ method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTop
   ## 
   let prepare = db.database.prepareStmt(
     "INSERT INTO " & TABLE_TITLE & " (id, receiverTimestamp, contentTopic, payload, pubsubTopic, version, senderTimestamp) VALUES (?, ?, ?, ?, ?, ?, ?);",
-    (seq[byte], int64, seq[byte], seq[byte], seq[byte], int64, seq[byte]),
+    (seq[byte], seq[byte], seq[byte], seq[byte], seq[byte], int64, seq[byte]),
     void
   )
 
   if prepare.isErr:
     return err("failed to prepare")
 
-  let res = prepare.value.exec((@(cursor.digest.data), int64(cursor.receivedTime), message.contentTopic.toBytes(), message.payload, pubsubTopic.toBytes(), int64(message.version), message.timestamp.toBytes()))
+  let res = prepare.value.exec((@(cursor.digest.data), cursor.receivedTime.toBytes(), message.contentTopic.toBytes(), message.payload, pubsubTopic.toBytes(), int64(message.version), message.timestamp.toBytes()))
   if res.isErr:
     return err("failed")
 
@@ -104,26 +104,35 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageSto
   proc msg(s: ptr sqlite3_stmt) = 
     gotMessages = true
     let
-      receiverTimestamp = sqlite3_column_int64(s, 0)
+      # receiverTimestampPointer = sqlite3_column_int64(s, 0)
+      receiverTimestampPointer = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 0)) # get a pointer
+      receiverTimestampL = sqlite3_column_bytes(s,0) # number of bytes
+      receiverTimestampBytes = @(toOpenArray(receiverTimestampPointer, 0, receiverTimestampL-1))
+      receiverTimestamp = float64.fromBytes(receiverTimestampBytes)
+
       topic = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 1))
       topicL = sqlite3_column_bytes(s,1)
+      contentTopic = ContentTopic(string.fromBytes(@(toOpenArray(topic, 0, topicL-1))))
+
       p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 2))
       l = sqlite3_column_bytes(s, 2)
-      pubsubTopic = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 3))
+      payload = @(toOpenArray(p, 0, l-1))
+
+      pubsubTopicPointer = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 3))
       pubsubTopicL = sqlite3_column_bytes(s,3)
+      pubsubTopic = string.fromBytes(@(toOpenArray(pubsubTopicPointer, 0, pubsubTopicL-1)))
+
       version = sqlite3_column_int64(s, 4)
-      # senderTimestamp = sqlite3_column_double(s,5)
+
       senderTimestampPointer = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 5))
       senderTimestampL = sqlite3_column_bytes(s,5)
       senderTimestampBytes = @(toOpenArray(senderTimestampPointer, 0, senderTimestampL-1))
       senderTimestamp = float64.fromBytes(senderTimestampBytes)
 
       # TODO retrieve the version number
-    onData(uint64(receiverTimestamp),
-           WakuMessage(contentTopic: ContentTopic(string.fromBytes(@(toOpenArray(topic, 0, topicL-1)))),
-                       payload: @(toOpenArray(p, 0, l-1)), version: uint32(version), 
-                       timestamp: senderTimestamp), 
-                       string.fromBytes(@(toOpenArray(pubsubTopic, 0, pubsubTopicL-1))))
+    onData(receiverTimestamp,
+           WakuMessage(contentTopic: contentTopic, payload: payload , version: uint32(version), timestamp: senderTimestamp), 
+                       pubsubTopic)
 
   let res = db.database.query("SELECT receiverTimestamp, contentTopic, payload, pubsubTopic, version, senderTimestamp FROM " & TABLE_TITLE & " ORDER BY receiverTimestamp ASC", msg)
   if res.isErr:

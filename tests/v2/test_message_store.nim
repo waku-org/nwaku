@@ -33,8 +33,7 @@ suite "Message Store":
     var v0Flag, v1Flag, vMaxFlag: bool = false
     var t1Flag, t2Flag, t3Flag: bool = false
     var responseCount = 0
-    proc data(timestamp: uint64, msg: WakuMessage, psTopic: string) =
-      echo $msg
+    proc data(timestamp: float64, msg: WakuMessage, psTopic: string) =
       responseCount += 1
       check msg in msgs
       check psTopic == pubsubTopic
