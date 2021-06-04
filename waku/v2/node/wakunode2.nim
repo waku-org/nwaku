@@ -557,18 +557,25 @@ proc dialPeer*(n: WakuNode, address: string) {.async.} =
   info "Post peerManager dial"
 
 proc setStorePeer*(n: WakuNode, address: string) =
-  info "dialPeer", address = address
+  info "Set store peer", address = address
 
   let remotePeer = parsePeerInfo(address)
 
   n.wakuStore.setPeer(remotePeer)
 
 proc setFilterPeer*(n: WakuNode, address: string) =
-  info "dialPeer", address = address
+  info "Set filter peer", address = address
 
   let remotePeer = parsePeerInfo(address)
 
   n.wakuFilter.setPeer(remotePeer)
+
+proc setLightPushPeer*(n: WakuNode, address: string) =
+  info "Set lightpush peer", address = address
+
+  let remotePeer = parsePeerInfo(address)
+
+  n.wakuLightPush.setPeer(remotePeer)
 
 proc connectToNodes*(n: WakuNode, nodes: seq[string]) {.async.} =
   for nodeId in nodes:
@@ -747,8 +754,11 @@ when isMainModule:
     waitFor connectToNodes(node, conf.staticnodes)
 
   # NOTE Must be mounted after relay
-  if conf.lightpush:
+  if (conf.lightpushnode != "") or (conf.lightpush):
     mountLightPush(node)
+
+    if conf.lightpushnode != "":
+      setLightPushPeer(node, conf.lightpushnode)
   
   # Filter setup. NOTE Must be mounted after relay
   if (conf.filternode != "") or (conf.filter):
