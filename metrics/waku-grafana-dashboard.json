@@ -67,25 +67,25 @@
       "pluginVersion": "7.3.7",
       "targets": [
         {
-          "expr": "libp2p_pubsub_peers{node=\"0\"}",
+          "expr": "libp2p_pubsub_peers{instance=\"localhost:8008\",job=\"waku\"}",
           "interval": "",
           "legendFormat": "LibP2P PubSub Peers",
           "refId": "A"
         },
         {
-          "expr": "waku_filter_peers{node=\"0\"}",
+          "expr": "waku_filter_peers{instance=\"localhost:8008\",job=\"waku\"}",
           "interval": "",
           "legendFormat": "Filter Peers",
           "refId": "B"
         },
         {
-          "expr": "waku_store_peers{node=\"0\"}",
+          "expr": "waku_store_peers{instance=\"localhost:8008\",job=\"waku\"}",
           "interval": "",
           "legendFormat": "Store Peers",
           "refId": "C"
         },
         {
-          "expr": "waku_swap_peers{node=\"0\"}",
+          "expr": "waku_swap_peers{instance=\"localhost:8008\",job=\"waku\"}",
           "interval": "",
           "legendFormat": "Swap Peers",
           "refId": "D"
@@ -146,7 +146,7 @@
       "pluginVersion": "7.3.7",
       "targets": [
         {
-          "expr": "rate(process_cpu_seconds_total{node=\"0\"}[5s]) * 100",
+          "expr": "rate(process_cpu_seconds_total{instance=\"localhost:8008\",job=\"waku\"}[5s]) * 100",
           "legendFormat": "CPU Usage",
           "refId": "A"
         }
@@ -206,7 +206,7 @@
       "pluginVersion": "7.3.7",
       "targets": [
         {
-          "expr": "process_resident_memory_bytes{node=\"0\"}",
+          "expr": "process_resident_memory_bytes{instance=\"localhost:8008\",job=\"waku\"}",
           "refId": "A"
         }
       ],
@@ -264,7 +264,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "waku_node_messages_total{node=\"0\"}",
+          "expr": "waku_node_messages_total{instance=\"localhost:8008\",job=\"waku\"}",
           "hide": false,
           "instant": false,
           "interval": "",
@@ -272,7 +272,7 @@
           "refId": "A"
         },
         {
-          "expr": "waku_store_messages{node=\"0\"}",
+          "expr": "waku_store_messages{instance=\"localhost:8008\",job=\"waku\"}",
           "hide": false,
           "instant": false,
           "interval": "",
@@ -370,7 +370,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "libp2p_pubsub_peers{node=\"0\"}",
+          "expr": "libp2p_pubsub_peers{instance=\"localhost:8008\",job=\"waku\"}",
           "hide": false,
           "instant": false,
           "interval": "",
@@ -378,7 +378,7 @@
           "refId": "A"
         },
         {
-          "expr": "waku_filter_peers{node=\"0\"}",
+          "expr": "waku_filter_peers{instance=\"localhost:8008\",job=\"waku\"}",
           "hide": false,
           "instant": false,
           "interval": "",
@@ -386,13 +386,13 @@
           "refId": "B"
         },
         {
-          "expr": "waku_store_peers{node=\"0\"}",
+          "expr": "waku_store_peers{instance=\"localhost:8008\",job=\"waku\"}",
           "interval": "",
           "legendFormat": "Store Peers",
           "refId": "C"
         },
         {
-          "expr": "waku_swap_peers{node=\"0\"}",
+          "expr": "waku_swap_peers{instance=\"localhost:8008\",job=\"waku\"}",
           "interval": "",
           "legendFormat": "Swap Peers",
           "refId": "D"
@@ -488,7 +488,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "waku_node_errors{node=\"0\"}",
+          "expr": "waku_node_errors{instance=\"localhost:8008\",job=\"waku\"}",
           "hide": false,
           "instant": false,
           "interval": "",
@@ -496,7 +496,7 @@
           "refId": "A"
         },
         {
-          "expr": "waku_filter_errors{node=\"0\"}",
+          "expr": "waku_filter_errors{instance=\"localhost:8008\",job=\"waku\"}",
           "hide": false,
           "instant": false,
           "interval": "",
@@ -504,7 +504,7 @@
           "refId": "B"
         },
         {
-          "expr": "waku_store_errors{node=\"0\"}",
+          "expr": "waku_store_errors{instance=\"localhost:8008\",job=\"waku\"}",
           "hide": false,
           "instant": false,
           "interval": "",
@@ -512,7 +512,7 @@
           "refId": "C"
         },
         {
-          "expr": "waku_swap_errors{node=\"0\"}",
+          "expr": "waku_swap_errors{instance=\"localhost:8008\",job=\"waku\"}",
           "hide": false,
           "instant": false,
           "interval": "",
@@ -615,14 +615,14 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "process_resident_memory_bytes{node=\"0\"} / (1024 * 1024)",
+          "expr": "process_resident_memory_bytes{ninstance=\"localhost:8008\",job=\"waku\"} / (1024 * 1024)",
           "interval": "",
           "intervalFactor": 1,
           "legendFormat": "RSS Memory (MB)",
           "refId": "B"
         },
         {
-          "expr": "rate(process_cpu_seconds_total{node=\"0\"}[15s]) * 100",
+          "expr": "rate(process_cpu_seconds_total{instance=\"localhost:8008\",job=\"waku\"}[15s]) * 100",
           "hide": false,
           "legendFormat": "CPU usage %",
           "refId": "C"
@@ -718,22 +718,22 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "nim_gc_mem_bytes{node=\"0\"}",
+          "expr": "nim_gc_mem_bytes{instance=\"localhost:8008\",job=\"waku\"}",
           "legendFormat": "Nim GC total memory",
           "refId": "A"
         },
         {
-          "expr": "nim_gc_mem_occupied_bytes{node=\"0\"}",
+          "expr": "nim_gc_mem_occupied_bytes{instance=\"localhost:8008\",job=\"waku\"}",
           "legendFormat": "Nim GC used memory",
           "refId": "B"
         },
         {
-          "expr": "process_resident_memory_bytes{node=\"0\"}",
+          "expr": "process_resident_memory_bytes{instance=\"localhost:8008\",job=\"waku\"}",
           "legendFormat": "RSS memory",
           "refId": "C"
         },
         {
-          "expr": "process_virtual_memory_bytes{node=\"0\"}",
+          "expr": "process_virtual_memory_bytes{instance=\"localhost:8008\",job=\"waku\"}",
           "legendFormat": "Virtual memory",
           "refId": "D"
         }
@@ -828,12 +828,12 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "process_max_fds{node=\"0\"}",
+          "expr": "process_max_fds{instance=\"localhost:8008\",job=\"waku\"}",
           "legendFormat": "Maximum file descriptors",
           "refId": "A"
         },
         {
-          "expr": "process_open_fds{node=\"0\"}",
+          "expr": "process_open_fds{instance=\"localhost:8008\",job=\"waku\"}",
           "legendFormat": "Open file descriptors",
           "refId": "B"
         }
