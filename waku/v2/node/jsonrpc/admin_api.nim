@@ -1,4 +1,4 @@
-{.push raises: [Exception, Defect].}
+{.push raises: [Defect, CatchableError].}
 
 import
   std/[options, sequtils, sets],
@@ -41,7 +41,7 @@ proc installAdminApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
       return true
     else:
       # Failed to connect to peers
-      raise newException(CatchableError, "Failed to connect to peers: " & $peers)
+      raise newException(ValueError, "Failed to connect to peers: " & $peers)
 
   rpcsrv.rpc("get_waku_v2_admin_v1_peers") do() -> seq[WakuPeer]:
     ## Returns a list of peers registered for this node

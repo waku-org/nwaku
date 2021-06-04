@@ -1,4 +1,4 @@
-{.push raises: [Exception, Defect].}
+{.push raises: [Defect, CatchableError].}
 
 import
   std/[tables,sequtils],

@@ -97,7 +97,7 @@ proc loadFromStorage(pm: PeerManager) =
 # Initialisation #
 ##################   
 
-proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async.} =
+proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async, raises: [Defect].} =
   case event.kind
   of ConnEventKind.Connected:
     pm.peerStore.connectionBook.set(peerId, Connected)
@@ -115,7 +115,7 @@ proc new*(T: type PeerManager, switch: Switch, storage: PeerStorage = nil): Peer
                        peerStore: WakuPeerStore.new(),
                        storage: storage)
 
-  proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
+  proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe, raises: [Defect].} =
     onConnEvent(pm, peerId, event)
   
   pm.switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
