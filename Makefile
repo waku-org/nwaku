@@ -119,8 +119,10 @@ installganache:
 	npm install ganache-cli; npx ganache-cli -p	8540	-g	0	-l	3000000000000&
 
 rlnlib:
+ifdef rlndep
 	cargo build --manifest-path vendor/rln/Cargo.toml
-
+endif
+	
 test2: | build deps installganache
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test2 $(NIM_PARAMS) waku.nims
