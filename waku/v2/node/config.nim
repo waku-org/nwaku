@@ -127,6 +127,11 @@ type
       defaultValue: false
       name: "lightpush" }: bool
     
+    lightpushnode* {.
+      desc: "Peer multiaddr to request lightpush of published messages.",
+      defaultValue: ""
+      name: "lightpushnode" }: string
+    
     ## JSON-RPC config
 
     rpc* {.
