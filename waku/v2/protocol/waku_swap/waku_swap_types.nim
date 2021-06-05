@@ -6,6 +6,14 @@ import
   ../../node/peer_manager/peer_manager  
 
 type
+   #The Swap Mode determines the functionality available in the swap protocol.
+  #It determines the kind of logs to be diplayed as well as tests to be ran.
+  #Refer to https://github/com/vacp2p/research/discussions/61 for more info on Swap Modes
+  SwapMode* = enum
+    Soft,
+    Mock,
+    Hard
+
   Beneficiary* = seq[byte]
 
   # TODO Consider adding payment threshhold and terms field
@@ -34,3 +42,4 @@ type
     credit*: CreditHandler
     debit*: DebitHandler
     applyPolicy*: ApplyPolicyHandler
+    mode*: SwapMode

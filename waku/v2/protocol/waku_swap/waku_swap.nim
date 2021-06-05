@@ -258,6 +258,7 @@ proc init*(T: type WakuSwap, peerManager: PeerManager, rng: ref BrHmacDrbgContex
   result.text = "test"
   result.paymentThreshold = 100
   result.disconnectThreshold = -100
+  result.mode = SwapMode.Soft
   result.init()
 
 proc setPeer*(ws: WakuSwap, peer: PeerInfo) =
