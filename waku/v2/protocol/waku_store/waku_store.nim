@@ -555,7 +555,9 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
       let indexedWakuMsg = IndexedWakuMessage(msg: msg, index: index, pubsubTopic: DefaultTopic)
       ws.messages.add(indexedWakuMsg)
       waku_store_messages.inc(labelValues = ["stored"])
-
+      
+      added = added + 1
+      
       # store in db if exists
       if ws.store.isNil: continue
       let res = ws.store.put(index, msg, DefaultTopic)
@@ -563,7 +565,6 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
         warn "failed to store messages", err = res.error
         waku_store_errors.inc(labelValues = ["store_failure"])
 
-      added = added + 1
 
     debug "number of duplicate messages found in resume", dismissed=dismissed
     debug "number of messages added via resume", added=added
