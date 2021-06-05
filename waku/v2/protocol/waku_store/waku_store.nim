@@ -507,10 +507,10 @@ proc findLastSeen*(list: seq[IndexedWakuMessage]): float =
   return lastSeenTime
 
 proc isDuplicate(message: WakuMessage, list: seq[WakuMessage]): bool =
-  for msg in list:
-    if message == msg:
-      return true
-  # if message in list: return true
+  ## return true if a duplicate message is found, otherwise false
+  # it is defined as a separate proc to be bale to adjust comparison criteria 
+  # e.g., to exclude timestamp or include pubsub topic
+  if message in list: return true
   return false
 
 
@@ -545,6 +545,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
     let currentMsgSummary = ws.messages.map(proc(x: IndexedWakuMessage): WakuMessage = x.msg)
     for msg in response.messages:
       # check for duplicate messages
+      # TODO Should take pubsub topic into account if we are going to support topics rather than the DefaultTopic
       if isDuplicate(msg,currentMsgSummary): 
         dismissed = dismissed + 1
         continue
