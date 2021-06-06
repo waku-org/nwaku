@@ -171,7 +171,7 @@ proc read*(rlp: var Rlp, T: typedesc[StatusOptions]): T =
     of bloomFilterKey:
       let bloom = rlp.read(seq[byte])
       if bloom.len != bloomSize:
-        raise newException(UselessPeerError, "Bloomfilter size mismatch")
+        raise newException(RlpError, "Bloomfilter size mismatch")
       var bloomFilter: Bloom
       bloomFilter.bytesCopy(bloom)
       result.bloomFilter = some(bloomFilter)

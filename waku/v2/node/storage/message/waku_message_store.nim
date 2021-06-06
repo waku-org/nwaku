@@ -1,3 +1,5 @@
+{.push raises: [Defect, Exception].}
+
 import 
   sqlite3_abi,
   chronos, metrics,
@@ -73,7 +75,7 @@ method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTop
 
   ok()
 
-method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageStoreResult[bool] =
+method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageStoreResult[bool] {.raises: [Defect, Exception].} =
   ## Retreives all messages from the storage.
   ##
   ## **Example:**

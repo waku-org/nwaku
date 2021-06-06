@@ -2,6 +2,8 @@
 ## See spec for more details:
 ## https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-store.md
 
+{.push raises: [Defect, Exception].}
+
 import
   std/[tables, times, sequtils, algorithm, options],
   bearssl,
@@ -338,7 +340,7 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   (result.messages, result.pagingInfo)= paginateWithoutIndex(data, query.pagingInfo)
 
 
-method init*(ws: WakuStore) =
+proc init*(ws: WakuStore) {.raises: [Defect, Exception]}=
   proc handler(conn: Connection, proto: string) {.async, raises: [Defect].} =
     var message = await conn.readLp(64*1024)
     var res = HistoryRPC.init(message)

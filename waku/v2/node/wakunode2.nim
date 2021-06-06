@@ -1,6 +1,8 @@
 import
   std/[options, tables, strutils, sequtils],
-  chronos, chronicles, metrics, stew/shims/net as stewNet,
+  chronos, chronicles, metrics,
+  metrics/chronos_httpserver,
+  stew/shims/net as stewNet,
   # TODO: Why do we need eth keys?
   eth/keys,
   web3,
@@ -650,7 +652,7 @@ when isMainModule:
   proc startMetricsServer(serverIp: ValidIpAddress, serverPort: Port) =
       info "Starting metrics HTTP server", serverIp, serverPort
       
-      metrics.startHttpServer($serverIp, serverPort)
+      startMetricsHttpServer($serverIp, serverPort)
 
       info "Metrics HTTP server started", serverIp, serverPort
 
