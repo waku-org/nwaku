@@ -38,6 +38,7 @@ export waku_swap_types
 
 declarePublicGauge waku_swap_peers, "number of swap peers"
 declarePublicGauge waku_swap_errors, "number of swap protocol errors", ["type"]
+declarePublicGauge waku_swap_account_state, "swap account state for each peer", ["peer"]
 
 logScope:
   topics = "wakuswap"
@@ -191,6 +192,11 @@ proc handleCheque*(ws: WakuSwap, cheque: Cheque) =
 
   info "New accounting state", accounting = ws.accounting[peerId]
 
+# Log Account Metrics
+proc logAccountMetrics*(ws: Wakuswap, peer: PeerId) {.async.}=
+  waku_swap_account_state.set(ws.accounting[peer].int64, labelValues = [$peer])
+
+
 proc init*(wakuSwap: WakuSwap) =
   info "wakuSwap init 1"
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
@@ -241,6 +247,8 @@ proc init*(wakuSwap: WakuSwap) =
       #discard wakuSwap.sendCheque()
     else:
       info "Payment threshhold not hit"
+
+    waitFor wakuSwap.logAccountMetrics(peerId)
 
   wakuSwap.handler = handle
   wakuSwap.codec = WakuSwapCodec
