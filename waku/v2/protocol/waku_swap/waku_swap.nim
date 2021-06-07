@@ -244,7 +244,8 @@ proc init*(wakuSwap: WakuSwap) =
     if wakuSwap.accounting[peerId] >= wakuSwap.paymentThreshold:
       warn "Payment threshhold has been reached: ", threshold=wakuSwap.paymentThreshold, balance=wakuSwap.accounting[peerId]
       #In soft phase we don't send cheques yet
-      #discard wakuSwap.sendCheque()
+      if wakuSwap.mode == Mock:
+        discard wakuSwap.sendCheque()
     else:
       info "Payment threshhold not hit"
 
