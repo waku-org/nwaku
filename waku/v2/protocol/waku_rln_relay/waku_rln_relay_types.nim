@@ -3,7 +3,7 @@ import
   web3,
   eth/keys
 
-## Bn256 and RLN are Nim wrappers for the data types defined in 
+## Bn256 and RLN are Nim wrappers for the data types used in 
 ## the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
 ## RLN maps to circuit::rln, public::RLN
 ## Bn256 maps to bellman::pairing::bn256::Bn256
@@ -26,6 +26,7 @@ type WakuRLNRelay* = object
   membershipContractAddress*: Address
 
 # inputs of the membership contract constructor
+# TODO may be able to make these constants private and put them inside the waku_rln_relay_utils
 const 
   MembershipFee* = 5.u256
   Depth* = 32.u256
