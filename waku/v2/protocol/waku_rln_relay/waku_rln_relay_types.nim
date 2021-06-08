@@ -1,9 +1,8 @@
 import 
   chronicles, options, chronos, stint,
   web3,
-  stew/byteutils,
   eth/keys
-  
+
 type MembershipKeyPair* = object 
   secretKey*: array[32, byte]
   publicKey*: array[32, byte]
@@ -24,8 +23,3 @@ const
     Depth* = 32.u256
     # TODO the EthClient should be an input to the rln-relay
     EthClient* = "ws://localhost:8540/"
-
-# membership contract interface
-contract(MembershipContract):
-  # TODO define a return type of bool for register method to signify a successful registration
-  proc register(pubkey: Uint256) # external payable
