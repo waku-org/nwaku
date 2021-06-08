@@ -16,14 +16,17 @@ import
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter/waku_filter,
-  ../protocol/waku_rln_relay/[rln,waku_rln_relay_utils],
   ../protocol/waku_lightpush/waku_lightpush,
+  ../protocol/waku_rln_relay/waku_rln_relay_types,
   ../protocol/waku_keepalive/waku_keepalive,
   ../utils/peers,
   ./storage/message/message_store,
   ./storage/peer/peer_storage,
   ../utils/requests,
   ./peer_manager/peer_manager
+
+when defined(rln):
+  import ../protocol/waku_rln_relay/[rln, waku_rln_relay_utils]
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicGauge waku_node_filters, "number of content filter subscriptions"
@@ -304,13 +307,14 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage,  rlnRelayEnabl
   debug "publish", topic=topic, contentTopic=message.contentTopic
   var publishingMessage = message
 
-  if rlnRelayEnabled:
-    # if rln relay is enabled then a proof must be generated and added to the waku message
-    let 
-      proof = proofGen(message.payload)
-      ## TODO here  since the message is immutable we have to make a copy of it and then attach the proof to its duplicate 
-      ## TODO however, it might be better to change message type to mutable (i.e., var) so that we can add the proof field to the original message
-      publishingMessage = WakuMessage(payload: message.payload, contentTopic: message.contentTopic, version: message.version, proof: proof)
+  when defined(rln):
+    if rlnRelayEnabled:
+      # if rln relay is enabled then a proof must be generated and added to the waku message
+      let 
+        proof = proofGen(message.payload)
+        ## TODO here  since the message is immutable we have to make a copy of it and then attach the proof to its duplicate 
+        ## TODO however, it might be better to change message type to mutable (i.e., var) so that we can add the proof field to the original message
+        publishingMessage = WakuMessage(payload: message.payload, contentTopic: message.contentTopic, version: message.version, proof: proof)
 
   let data = message.encode().buffer
 
@@ -408,52 +412,54 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: boo
   if persistMessages:
     node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
-proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(string), ethAccountAddress: Option[Address] = none(Address), membershipContractAddress:  Option[Address] = none(Address)) {.async.} =
-  # TODO return a bool value to indicate the success of the call
-  # check whether inputs are provided
-  doAssert(ethClientAddress.isSome())
-  doAssert(ethAccountAddress.isSome())
-  doAssert(membershipContractAddress.isSome())
+when defined(rln):
+  proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(string), ethAccountAddress: Option[Address] = none(Address), membershipContractAddress:  Option[Address] = none(Address)) {.async.} =
+    # TODO return a bool value to indicate the success of the call
+    # check whether inputs are provided
+    doAssert(ethClientAddress.isSome())
+    doAssert(ethAccountAddress.isSome())
+    doAssert(membershipContractAddress.isSome())
 
-  # create an RLN instance
-  var 
-    ctx = RLN[Bn256]()
-    ctxPtr = addr(ctx)
-  doAssert(createRLNInstance(32, ctxPtr))
+    # create an RLN instance
+    var 
+      ctx = RLN[Bn256]()
+      ctxPtr = addr(ctx)
+    doAssert(createRLNInstance(32, ctxPtr))
 
-  # generate the membership keys
-  let membershipKeyPair = membershipKeyGen(ctxPtr)
-  # check whether keys are generated
-  doAssert(membershipKeyPair.isSome())
-  debug "the membership key for the rln relay is generated"
+    # generate the membership keys
+    let membershipKeyPair = membershipKeyGen(ctxPtr)
+    # check whether keys are generated
+    doAssert(membershipKeyPair.isSome())
+    debug "the membership key for the rln relay is generated"
 
-  # initialize the WakuRLNRelay
-  var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
-    ethClientAddress: ethClientAddress.get(),
-    ethAccountAddress: ethAccountAddress.get(),
-    membershipContractAddress: membershipContractAddress.get())
-  
-  # register the rln-relay peer to the membership contract
-  let is_successful = await rlnPeer.register()
-  # check whether registration is done
-  doAssert(is_successful)
-  debug "peer is successfully registered into the membership contract"
+    # initialize the WakuRLNRelay
+    var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
+      ethClientAddress: ethClientAddress.get(),
+      ethAccountAddress: ethAccountAddress.get(),
+      membershipContractAddress: membershipContractAddress.get())
+    
+    # register the rln-relay peer to the membership contract
+    let is_successful = await rlnPeer.register()
+    # check whether registration is done
+    doAssert(is_successful)
+    debug "peer is successfully registered into the membership contract"
 
-  node.wakuRlnRelay = rlnPeer
+    node.wakuRlnRelay = rlnPeer
 
-proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
-  ## this procedure is a thin wrapper for the pubsub addValidator method
-  ## it sets message validator on the given pubsubTopic, the validator will check that
-  ## all the messages published in the pubsubTopic have a valid zero-knowledge proof 
-  proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
-    let msg = WakuMessage.init(message.data) 
-    if msg.isOk():
-      #  check the proof
-      if proofVrfy(msg.value().payload, msg.value().proof):
-        result = ValidationResult.Accept
-  # set a validator for the pubsubTopic 
-  let pb  = PubSub(node.wakuRelay)
-  pb.addValidator(pubsubTopic, validator)
+when defined(rln):
+  proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
+    ## this procedure is a thin wrapper for the pubsub addValidator method
+    ## it sets message validator on the given pubsubTopic, the validator will check that
+    ## all the messages published in the pubsubTopic have a valid zero-knowledge proof 
+    proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
+      let msg = WakuMessage.init(message.data) 
+      if msg.isOk():
+        #  check the proof
+        if proofVrfy(msg.value().payload, msg.value().proof):
+          result = ValidationResult.Accept
+    # set a validator for the pubsubTopic 
+    let pb  = PubSub(node.wakuRelay)
+    pb.addValidator(pubsubTopic, validator)
 
 proc mountRelay*(node: WakuNode,
                  topics: seq[string] = newSeq[string](),
@@ -494,14 +500,14 @@ proc mountRelay*(node: WakuNode,
     # Reconnect to previous relay peers. This will respect a backoff period, if necessary
     waitFor node.peerManager.reconnectPeers(WakuRelayCodec,
                                             wakuRelay.parameters.pruneBackoff + chronos.seconds(BackoffSlackTime))
-
-  if rlnRelayEnabled:
-    # TODO pass rln relay inputs to this proc, right now it uses default values that are set in the mountRlnRelay proc
-    info "WakuRLNRelay is enabled"
-    waitFor mountRlnRelay(node)
-    # TODO currently the message validator is set for the defaultTopic, this can be configurable to accept other pubsub topics as well 
-    addRLNRelayValidator(node, defaultTopic)
-    info "WakuRLNRelay is mounted successfully"
+  when defined(rln):
+    if rlnRelayEnabled:
+      # TODO pass rln relay inputs to this proc, right now it uses default values that are set in the mountRlnRelay proc
+      info "WakuRLNRelay is enabled"
+      waitFor mountRlnRelay(node)
+      # TODO currently the message validator is set for the defaultTopic, this can be configurable to accept other pubsub topics as well 
+      addRLNRelayValidator(node, defaultTopic)
+      info "WakuRLNRelay is mounted successfully"
   
   if node.started:
     # Node has already started. Start the WakuRelay protocol
