@@ -1,6 +1,8 @@
 # this module contains the Nim wrappers for the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
 
-import os
+import
+  os,
+  waku_rln_relay_types
 
 const libPath = "vendor/rln/target/debug/"
 when defined(Windows):
@@ -13,8 +15,6 @@ elif defined(MacOsX):
 # all the following procedures are Nim wrappers for the functions defined in libName
 {.push dynlib: libName, raises: [Defect].}
 
-type RLN*[E] {.incompleteStruct.} = object
-type Bn256* = pointer
 
 ## Buffer struct is taken from
 # https://github.com/celo-org/celo-threshold-bls-rs/blob/master/crates/threshold-bls-ffi/src/ffi.rs
@@ -25,7 +25,7 @@ type Buffer* = object
 type Auth* = object
   secret_buffer*: ptr Buffer
   index*: uint
-
+  
 #------------------------------ Merkle Tree operations -----------------------------------------
 
 proc update_next_member*(ctx: ptr RLN[Bn256],

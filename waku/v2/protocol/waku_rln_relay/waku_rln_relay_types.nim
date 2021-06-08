@@ -3,6 +3,14 @@ import
   web3,
   eth/keys
 
+## Bn256 and RLN are Nim wrappers for the data types defined in 
+## the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
+## RLN maps to circuit::rln, public::RLN
+## Bn256 maps to bellman::pairing::bn256::Bn256
+type Bn256* = pointer
+type RLN*[E] {.incompleteStruct.} = object
+
+# Custom data types defined for waku rln relay -------------------------
 type MembershipKeyPair* = object 
   secretKey*: array[32, byte]
   publicKey*: array[32, byte]
@@ -19,7 +27,7 @@ type WakuRLNRelay* = object
 
 # inputs of the membership contract constructor
 const 
-    MembershipFee* = 5.u256
-    Depth* = 32.u256
-    # TODO the EthClient should be an input to the rln-relay
-    EthClient* = "ws://localhost:8540/"
+  MembershipFee* = 5.u256
+  Depth* = 32.u256
+  # TODO the EthClient should be an input to the rln-relay
+  EthClient* = "ws://localhost:8540/"

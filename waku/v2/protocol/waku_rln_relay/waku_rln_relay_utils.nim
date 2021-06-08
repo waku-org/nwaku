@@ -2,7 +2,6 @@ import
   chronicles, options, chronos, stint,
   web3,
   stew/byteutils,
-  eth/keys,
   rln, 
   waku_rln_relay_types
 
@@ -10,7 +9,7 @@ import
 contract(MembershipContract):
   # TODO define a return type of bool for register method to signify a successful registration
   proc register(pubkey: Uint256) # external payable
-  
+
 proc createRLNInstance*(d: int, ctxPtr: var ptr RLN[Bn256]): bool = 
   ## generates an instance of RLN 
   ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
