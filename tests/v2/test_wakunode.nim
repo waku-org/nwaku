@@ -12,6 +12,8 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub,
   eth/keys,
+  ../../waku/v2/node/storage/sqlite,
+  ../../waku/v2/node/storage/message/waku_message_store,
   ../../waku/v2/protocol/[waku_relay, waku_message, message_notifier],
   ../../waku/v2/protocol/waku_store/waku_store,
   ../../waku/v2/protocol/waku_filter/waku_filter,
@@ -699,8 +701,6 @@ procSuite "WakuNode":
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
 
-    var completionFut = newFuture[bool]()
-
     await node1.start()
     node1.mountStore(persistMessages = true)
     await node2.start()
@@ -717,6 +717,67 @@ procSuite "WakuNode":
     check:
       # message is correctly stored
       node1.wakuStore.messages.len == 1
+
+    await node1.stop()
+    await node2.stop()
+
+  asyncTest "Resume proc discards duplicate messages":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        Port(60002))
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
+      msg1 = WakuMessage(payload: "hello world1".toBytes(), contentTopic: contentTopic)
+      msg2 = WakuMessage(payload: "hello world2".toBytes(), contentTopic: contentTopic)
+
+    # setup sqlite database for node1
+    let 
+      database = SqliteDatabase.init("", inMemory = true)[]
+      store = WakuMessageStore.init(database)[]
+    
+
+    var completionFut = newFuture[bool]()
+
+    await node1.start()
+    node1.mountStore(persistMessages = true, store = store)
+    await node2.start()
+    node2.mountStore(persistMessages = true)
+
+    await node2.subscriptions.notify(DefaultTopic, msg1)
+    await node2.subscriptions.notify(DefaultTopic, msg2)
+
+    await sleepAsync(2000.millis)
+
+    node1.wakuStore.setPeer(node2.peerInfo)
+    
+
+    # populate db with msg1 to be a duplicate
+    let index1 = computeIndex(msg1)
+    let output1 = store.put(index1, msg1, DefaultTopic)
+    check output1.isOk
+    node1.wakuStore.messages.add(IndexedWakuMessage(msg: msg1, index: index1, pubsubTopic: DefaultTopic))
+    
+    # now run the resume proc
+    await node1.resume()
+
+    # count the total number of retrieved messages from the database
+    var responseCount = 0
+    proc data(receiverTimestamp: float64, msg: WakuMessage, psTopic: string) =
+      responseCount += 1
+    # retrieve all the messages in the db
+    let res = store.getAll(data)
+    check:
+      res.isErr == false
+
+    check:
+      # if the duplicates are discarded properly, then the total number of messages after resume should be 2
+      # check no duplicates is in the messages field
+      node1.wakuStore.messages.len == 2 
+      # check no duplicates is in the db
+      responseCount == 2
 
     await node1.stop()
     await node2.stop()
