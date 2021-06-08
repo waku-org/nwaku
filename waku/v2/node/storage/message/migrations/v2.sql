@@ -1,0 +1,2 @@
+DELETE TOP (1)
+FROM   Message

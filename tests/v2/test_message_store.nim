@@ -3,9 +3,23 @@
 import
   std/[unittest, options, tables, sets, times],
   chronos, chronicles,
+  sqlite3_abi,
   ../../waku/v2/node/storage/message/waku_message_store,
+  ../../waku/v2/node/storage/sqlite,
   ../../waku/v2/protocol/waku_store/waku_store,
   ./utils
+
+template checkExec(s: ptr sqlite3_stmt) =
+  if (let x = sqlite3_step(s); x != SQLITE_DONE):
+    discard sqlite3_finalize(s)
+    return err($sqlite3_errstr(x))
+
+  if (let x = sqlite3_finalize(s); x != SQLITE_OK):
+    return err($sqlite3_errstr(x))
+
+template checkExec(q: string) =
+  let s = prepare(q): discard
+  checkExec(s)
 
 suite "Message Store":
   test "set and get works":
@@ -81,5 +95,53 @@ suite "Message Store":
       rt1Flag == true
       rt2Flag == true
       rt3Flag == true
+  test "reads user_version":
+    let 
+      database = SqliteDatabase.init("", inMemory = true)[]
+      store = WakuMessageStore.init(database)[]
+    defer: store.close()
 
+    var gotMessages: bool
+    proc migrate(s: ptr sqlite3_stmt) = 
+      gotMessages = true
+      let version = sqlite3_column_int64(s, 0)
+      debug "the current user version", version=version
+
+    let res = database.query("PRAGMA user_version;", migrate)
+    check:
+      res.isErr == false
+      gotMessages == true
+  test "migrate":
+    migrate(2, "/Users/sanaztaheri/GitHub/nim-waku-code/nim-waku/waku/v2/node/storage/message/migrations")
+    check true
+  # test "updates user_version":
+  #   # initialize the db
+  #   let 
+  #     database = SqliteDatabase.init("", inMemory = true)[]
+  #     store = WakuMessageStore.init(database)[]
+  #   defer: store.close()
+
+  #   # # update user version
+  #   # let prepare = database.prepareStmt("PRAGMA user_version= (?);", (int64), void)
+  #   # check:
+  #   #   prepare.isErr == false
+
+  #   # let updateRes = prepare.value.exec((int64(40)))
+  #   # check:
+  #   #   updateRes.isErr == false
+  #   checkExec "PRAGMA user_version = 40;"
+
+  #   # check the version
+  #   var gotMessages: bool
+  #   proc migrate(s: ptr sqlite3_stmt) = 
+  #     gotMessages = true
+  #     let version = sqlite3_column_int64(s, 0)
+  #     debug "the current user version", version=version
+  #     check:
+  #       version == 40.int64
+
+  #   let res = database.query("PRAGMA user_version;", migrate)
+  #   check:
+  #     res.isErr == false
+  #     gotMessages == true
 
