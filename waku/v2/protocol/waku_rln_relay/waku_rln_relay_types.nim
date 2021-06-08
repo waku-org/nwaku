@@ -5,8 +5,6 @@ import
 
 ## Bn256 and RLN are Nim wrappers for the data types used in 
 ## the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
-## RLN maps to circuit::rln, public::RLN
-## Bn256 maps to bellman::pairing::bn256::Bn256
 type Bn256* = pointer
 type RLN*[E] {.incompleteStruct.} = object
 
