@@ -1,3 +1,4 @@
+
 {.used.}
 
 import
@@ -5,10 +6,11 @@ import
   testutils/unittests, chronos, chronicles, stint, web3,
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
-  ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils],
+  ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils, waku_rln_relay_types],
   ../../waku/v2/node/wakunode2,
   ../test_helpers,
   ./test_utils
+
 
 # the address of Ethereum client (ganache-cli for now)
 # TODO this address in hardcoded in the code, we may need to take it as input from the user
@@ -266,7 +268,7 @@ suite "Waku rln relay":
         # the public and secret keys together are 64 bytes
         generatedKeys.len == 64
       debug "generated keys: ", generatedKeys 
-      
+    
   test "membership Key Gen":
     # create an RLN instance
     var 
@@ -284,7 +286,7 @@ suite "Waku rln relay":
       key.get().publicKey != empty
     
     debug "the generated membership key pair: ", key 
-  
+
   test "get_root Nim binding":
     # create an RLN instance which also includes an empty Merkle tree
     var 
@@ -334,7 +336,7 @@ suite "Waku rln relay":
     var member_is_added = update_next_member(ctxPtr, pkBufferPtr)
     check:
       member_is_added == true
-      
+    
   test "delete_member Nim wrapper":
     # create an RLN instance which also includes an empty Merkle tree
     var 
@@ -346,7 +348,7 @@ suite "Waku rln relay":
     var deleted_member_index = uint(0)
     let deletion_success = delete_member(ctxPtr, deleted_member_index)
     doAssert(deletion_success)
-  
+
   test "Merkle tree consistency check between deletion and insertion":
     # create an RLN instance
     var 
@@ -534,14 +536,11 @@ suite "Waku rln relay":
     debug "shareY", shareY
     debug "nullifier", nullifier
 
-
     var f = 0.uint32
     let verifyIsSuccessful = verify(ctxPtr, addr proof, addr f)
     doAssert(verifyIsSuccessful)
     # f = 0 means the proof is verified
     doAssert(f == 0)
-
-
 
     # create and test a bad proof
     # prepare a bad authentication object with a wrong peer's index
