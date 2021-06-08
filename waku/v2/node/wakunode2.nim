@@ -16,14 +16,17 @@ import
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter/waku_filter,
-  ../protocol/waku_rln_relay/[rln,waku_rln_relay_utils],
   ../protocol/waku_lightpush/waku_lightpush,
+  ../protocol/waku_rln_relay/waku_rln_relay_types,
   ../protocol/waku_keepalive/waku_keepalive,
   ../utils/peers,
   ./storage/message/message_store,
   ./storage/peer/peer_storage,
   ../utils/requests,
   ./peer_manager/peer_manager
+
+when defined(rln):
+  import ../protocol/waku_rln_relay/[rln, waku_rln_relay_utils]
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicGauge waku_node_filters, "number of content filter subscriptions"
