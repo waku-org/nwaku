@@ -17,7 +17,7 @@ import
   ./v2/test_waku_keepalive
 
 when defined(rln):
-  ./v2/test_waku_rln_relay
+  import ./v2/test_waku_rln_relay
 
 
 # TODO Only enable this once swap module is integrated more nicely as a dependency, i.e. as submodule with CI etc
