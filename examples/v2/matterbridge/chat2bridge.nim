@@ -1,4 +1,4 @@
-{.push raises: [Defect, Exception].}
+{.push raises: [Defect].}
 
 import
   std/[tables, times, strutils, hashes, sequtils],
@@ -61,7 +61,7 @@ proc containsOrAdd(sequence: var seq[Hash], hash: Hash): bool =
 
   return false
 
-proc toWakuMessage(cmb: Chat2MatterBridge, jsonNode: JsonNode): WakuMessage =
+proc toWakuMessage(cmb: Chat2MatterBridge, jsonNode: JsonNode): WakuMessage {.raises: [Defect, KeyError]} =
   # Translates a Matterbridge API JSON response to a Waku v2 message
   let msgFields = jsonNode.getFields()
 
@@ -89,7 +89,7 @@ proc toChat2(cmb: Chat2MatterBridge, jsonNode: JsonNode) {.async.} =
 
   await cmb.nodev2.publish(DefaultTopic, msg)
 
-proc toMatterbridge(cmb: Chat2MatterBridge, msg: WakuMessage) {.gcsafe.} =
+proc toMatterbridge(cmb: Chat2MatterBridge, msg: WakuMessage) {.gcsafe, raises: [Defect, ValueError].} =
   if cmb.seen.containsOrAdd(msg.payload.hash()):
     # This is a duplicate message. Return.
     chat2_mb_dropped.inc(labelValues = ["duplicate"])

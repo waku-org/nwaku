@@ -1,4 +1,4 @@
-{.push raises: [Defect, Exception].}
+{.push raises: [Defect].}
 
 import
   std/[options, sets, sequtils, times],
@@ -34,7 +34,9 @@ proc toPeerInfo*(storedInfo: StoredInfo): PeerInfo =
 
 proc insertOrReplace(ps: PeerStorage,
                      peerId: PeerID,
-                     storedInfo: StoredInfo, connectedness: Connectedness, disconnectTime: int64 = 0) =
+                     storedInfo: StoredInfo,
+                     connectedness: Connectedness,
+                     disconnectTime: int64 = 0) {.raises: [Defect, Exception]} =
   # Insert peer entry into persistent storage, or replace existing entry with updated info
   let res = ps.put(peerId, storedInfo, connectedness, disconnectTime)
   if res.isErr:
@@ -75,7 +77,7 @@ proc dialPeer(pm: PeerManager, peerId: PeerID,
     
     return none(Connection)
 
-proc loadFromStorage(pm: PeerManager) =
+proc loadFromStorage(pm: PeerManager) {.raises: [Defect, Exception]} =
   # Load peers from storage, if available
   proc onData(peerId: PeerID, storedInfo: StoredInfo, connectedness: Connectedness, disconnectTime: int64) =
     if peerId == pm.switch.peerInfo.peerId:
@@ -97,7 +99,7 @@ proc loadFromStorage(pm: PeerManager) =
 # Initialisation #
 ##################   
 
-proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async, raises: [Defect].} =
+proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async.} =
   case event.kind
   of ConnEventKind.Connected:
     pm.peerStore.connectionBook.set(peerId, Connected)
@@ -110,12 +112,12 @@ proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async, rai
       pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), CanConnect, getTime().toUnix)
     return
 
-proc new*(T: type PeerManager, switch: Switch, storage: PeerStorage = nil): PeerManager =
+proc new*(T: type PeerManager, switch: Switch, storage: PeerStorage = nil): PeerManager {.raises: [Defect, Exception]} =
   let pm = PeerManager(switch: switch,
                        peerStore: WakuPeerStore.new(),
                        storage: storage)
 
-  proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe, raises: [Defect].} =
+  proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(pm, peerId, event)
   
   pm.switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
@@ -160,7 +162,7 @@ proc hasPeers*(pm: PeerManager, proto: string): bool =
   # Returns `true` if manager has any peers for the specified protocol
   pm.peers.anyIt(it.protos.contains(proto))
 
-proc addPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string) =
+proc addPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string) {.raises: [Defect, Exception]} =
   # Adds peer to manager for the specified protocol
 
   if peerInfo.peerId == pm.switch.peerInfo.peerId:
