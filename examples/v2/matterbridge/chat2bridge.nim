@@ -87,7 +87,7 @@ proc toChat2(cmb: Chat2MatterBridge, jsonNode: JsonNode) {.async.} =
 
   await cmb.nodev2.publish(DefaultTopic, msg)
 
-proc toMatterbridge(cmb: Chat2MatterBridge, msg: WakuMessage) {.gcsafe, raises: [Defect, CatchableError].} =
+proc toMatterbridge(cmb: Chat2MatterBridge, msg: WakuMessage) {.gcsafe, raises: [Exception].} =
   if cmb.seen.containsOrAdd(msg.payload.hash()):
     # This is a duplicate message. Return.
     chat2_mb_dropped.inc(labelValues = ["duplicate"])
@@ -170,7 +170,7 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
   debug "Start polling Matterbridge"
   
   # Start Matterbridge polling (@TODO: use streaming interface)
-  proc mbHandler(jsonNode: JsonNode) {.gcsafe, raises: [Defect, CatchableError].} =
+  proc mbHandler(jsonNode: JsonNode) {.gcsafe, raises: [Exception].} =
     trace "Bridging message from Matterbridge to chat2", jsonNode=jsonNode
     waitFor cmb.toChat2(jsonNode)
   
@@ -209,7 +209,7 @@ when isMainModule:
                                   relay_api,
                                   store_api]
 
-  proc startV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: Chat2MatterbridgeConf) {.raises: [Defect, CatchableError].} =
+  proc startV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: Chat2MatterbridgeConf) {.raises: [Exception].} =
     installDebugApiHandlers(node, rpcServer)
 
     # Install enabled API handlers:
