@@ -145,12 +145,65 @@ proc close*(db: WakuMessageStore) =
   db.database.close()
 
 
-proc migrate*(sqlDB: SqliteDatabase, oldVersion: int64, migrationPath: string) = 
+# proc migrate*(sqlDB: SqliteDatabase, oldVersion: int64, migrationPath: string) = 
+#   var env = sqlDB.env
+#   var versionList: seq[string]
+#   for kind, path in walkDir(migrationPath):
+#     # let fileSplit = splitFile(path)
+#     # versionList.add((fileSplit.name&fileSplit.ext))
+#     versionList.add(path)
+
+#     echo("Path:", path)
+
+#   # sort migration files
+#   versionList.sort()
+
+#   for filename in versionList:
+#     let query = readFile(filename)
+#     echo query
+#     # let prepare = sqlDB.prepareStmt(q, void, void)
+#     # if prepare.isErr:
+#     #   echo "failed to prepare"
+    
+#     template prepare(q: string): ptr sqlite3_stmt =
+#       var s: ptr sqlite3_stmt
+#       discard sqlite3_prepare_v2(env, q, q.len.cint, addr s, nil)
+#       s
+
+#     template checkExec(s: ptr sqlite3_stmt) =
+#       if (let x = sqlite3_step(s); x != SQLITE_DONE):
+#         discard sqlite3_finalize(s)
+#         echo "something 1"
+#         # return err($sqlite3_errstr(x))
+
+#       if (let x = sqlite3_finalize(s); x != SQLITE_OK):
+#         echo "something 2"
+#         # return err($sqlite3_errstr(x))
+
+#     template checkExec(q: string) =
+#       let s = prepare(q)
+#       checkExec(s)
+
+#     # if (let x = sqlite3_step(prepare); x != SQLITE_DONE):
+#     #   discard sqlite3_finalize(s)
+#     #   # return err($sqlite3_errstr(x))
+#     checkExec(query)
+
+
+
+#     # var x: void
+#     # let res = prepare.value.exec(x)
+#     # if res.isErr:
+#     #   echo "failed"
+
+proc migrate*(database: SqliteDatabase, oldVersion: int64, migrationPath: string) = 
   var env = sqlDB.env
   var versionList: seq[string]
   for kind, path in walkDir(migrationPath):
-    let fileSplit = splitFile(path)
-    versionList.add((fileSplit.name&fileSplit.ext))
+    # let fileSplit = splitFile(path)
+    # versionList.add((fileSplit.name&fileSplit.ext))
+    versionList.add(path)
+
     echo("Path:", path)
 
   # sort migration files
@@ -159,38 +212,3 @@ proc migrate*(sqlDB: SqliteDatabase, oldVersion: int64, migrationPath: string) =
   for filename in versionList:
     let query = readFile(filename)
     echo query
-    # let prepare = sqlDB.prepareStmt(q, void, void)
-    # if prepare.isErr:
-    #   echo "failed to prepare"
-    
-    template prepare(q: string, cleanup: untyped): ptr sqlite3_stmt =
-      var s: ptr sqlite3_stmt
-      checkErr sqlite3_prepare_v2(env, q, q.len.cint, addr s, nil):
-        echo "error"
-        cleanup
-      s
-
-    template checkExec(s: ptr sqlite3_stmt) =
-      if (let x = sqlite3_step(s); x != SQLITE_DONE):
-        discard sqlite3_finalize(s)
-        return err($sqlite3_errstr(x))
-
-      if (let x = sqlite3_finalize(s); x != SQLITE_OK):
-        return err($sqlite3_errstr(x))
-
-    template checkExec(q: string) =
-      let s = prepare(q): discard
-      checkExec(s)
-
-    # if (let x = sqlite3_step(prepare); x != SQLITE_DONE):
-    #   discard sqlite3_finalize(s)
-    #   # return err($sqlite3_errstr(x))
-    checkExec(query)
-
-
-
-    # var x: void
-    # let res = prepare.value.exec(x)
-    # if res.isErr:
-    #   echo "failed"
-

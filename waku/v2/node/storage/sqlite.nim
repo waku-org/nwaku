@@ -113,6 +113,8 @@ proc init*(
   # TODO: check current version and implement schema versioning
   checkExec "PRAGMA user_version = 2;"
 
+  
+
   let journalModePragma = prepare("PRAGMA journal_mode = WAL;"): discard
   checkWalPragmaResult(journalModePragma)
   checkExec(journalModePragma)

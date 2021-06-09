@@ -112,7 +112,11 @@ suite "Message Store":
       res.isErr == false
       gotMessages == true
   test "migrate":
-    migrate(2, "/Users/sanaztaheri/GitHub/nim-waku-code/nim-waku/waku/v2/node/storage/message/migrations")
+    let 
+      database = SqliteDatabase.init("", inMemory = true)[]
+      store = WakuMessageStore.init(database)[]
+    defer: store.close()
+    database.migrate(2, "/Users/sanaztaheri/GitHub/nim-waku-code/nim-waku/waku/v2/node/storage/message/migrations")
     check true
   # test "updates user_version":
   #   # initialize the db

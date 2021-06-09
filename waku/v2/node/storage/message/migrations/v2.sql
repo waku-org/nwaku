@@ -1,2 +1,1 @@
-DELETE TOP (1)
-FROM   Message
+DELETE TOP (0) FROM   Message;
