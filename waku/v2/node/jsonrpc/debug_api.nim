@@ -1,4 +1,5 @@
 import
+  chronicles,
   json_rpc/rpcserver,
   ../wakunode2
 
