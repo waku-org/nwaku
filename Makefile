@@ -59,6 +59,10 @@ else
 NIM_PARAMS := $(NIM_PARAMS) -d:release
 endif
 
+ifeq ($(RLN), true)
+NIM_PARAMS := $(NIM_PARAMS) -d:rln 
+endif
+
 deps: | deps-common nat-libs waku.nims rlnlib
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
@@ -116,11 +120,15 @@ else
 endif
 
 installganache: 
+ifeq ($(RLN), true)
 	npm install ganache-cli; npx ganache-cli -p	8540	-g	0	-l	3000000000000&
+endif
 
 rlnlib:
+ifeq ($(RLN), true)
 	cargo build --manifest-path vendor/rln/Cargo.toml
-
+endif
+	
 test2: | build deps installganache
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test2 $(NIM_PARAMS) waku.nims
