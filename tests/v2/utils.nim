@@ -5,12 +5,12 @@ const
 
 import random
 import chronos
-import libp2p/[standard_setup,
+import libp2p/[builders,
                protocols/pubsub/pubsub,
                protocols/secure/secure]
 import ../../waku/v2/protocol/waku_relay
 
-export standard_setup
+export builders
 
 randomize()
 

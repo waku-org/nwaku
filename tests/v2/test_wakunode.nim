@@ -401,19 +401,19 @@ procSuite "WakuNode":
       $(peerInfo.addrs[0][1].tryGet()) == "/tcp/60002"
     
     # Now test some common corner cases
-    expect ValueError:
+    expect LPError:
       # gibberish
       discard parsePeerInfo("/p2p/$UCH GIBBER!SH")
 
-    expect ValueError:
+    expect LPError:
       # leading whitespace
       discard parsePeerInfo(" /ip4/127.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
 
-    expect ValueError:
+    expect LPError:
       # trailing whitespace
       discard parsePeerInfo("/ip4/127.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc ")
 
-    expect ValueError:
+    expect LPError:
       # invalid IP address
       discard parsePeerInfo("/ip4/127.0.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
     
