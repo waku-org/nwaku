@@ -16,5 +16,5 @@ type
 
 # MessageStore interface
 method put*(db: MessageStore, cursor: Index, message: WakuMessage, pubsubTopic: string): MessageStoreResult[void] {.base.} = discard
-method getAll*(db: MessageStore, onData: DataProc): MessageStoreResult[bool] {.base.} = discard
+method getAll*(db: MessageStore, onData: DataProc): MessageStoreResult[bool] {.base, raises: [Defect, Exception].} = discard
 

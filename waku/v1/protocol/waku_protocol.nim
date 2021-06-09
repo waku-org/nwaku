@@ -171,7 +171,7 @@ proc read*(rlp: var Rlp, T: typedesc[StatusOptions]): T =
     of bloomFilterKey:
       let bloom = rlp.read(seq[byte])
       if bloom.len != bloomSize:
-        raise newException(UselessPeerError, "Bloomfilter size mismatch")
+        raise newException(RlpTypeMismatch, "Bloomfilter size mismatch")
       var bloomFilter: Bloom
       bloomFilter.bytesCopy(bloom)
       result.bloomFilter = some(bloomFilter)
@@ -210,8 +210,9 @@ proc allowed*(msg: Message, config: WakuConfig): bool =
 
   return true
 
-proc run(peer: Peer) {.gcsafe, async.}
-proc run(node: EthereumNode, network: WakuNetwork) {.gcsafe, async.}
+proc run(peer: Peer) {.gcsafe, async, raises: [Defect].}
+proc run(node: EthereumNode, network: WakuNetwork)
+  {.gcsafe, async, raises: [Defect].}
 
 proc initProtocolState*(network: WakuNetwork, node: EthereumNode) {.gcsafe.} =
   new(network.queue)
@@ -389,7 +390,7 @@ p2pProtocol Waku(version = wakuVersion,
 
 # 'Runner' calls ---------------------------------------------------------------
 
-proc processQueue(peer: Peer) =
+proc processQueue(peer: Peer) {.raises: [Defect].} =
   # Send to peer all valid and previously not send envelopes in the queue.
   var
     envelopes: seq[Envelope] = @[]
@@ -426,7 +427,7 @@ proc processQueue(peer: Peer) =
     # gets dropped
     traceAsyncErrors peer.messages(envelopes)
 
-proc run(peer: Peer) {.async.} =
+proc run(peer: Peer) {.async, raises: [Defect].} =
   while peer.connectionState notin {Disconnecting, Disconnected}:
     peer.processQueue()
     await sleepAsync(messageInterval)
@@ -444,7 +445,7 @@ proc pruneReceived(node: EthereumNode) {.raises: [].} =
       # the received sets.
       peer.received = intersection(peer.received, wakuNet.queue.itemHashes)
 
-proc run(node: EthereumNode, network: WakuNetwork) {.async.} =
+proc run(node: EthereumNode, network: WakuNetwork) {.async, raises: [Defect].} =
   while true:
     # prune message queue every second
     # TTL unit is in seconds, so this should be sufficient?

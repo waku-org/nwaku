@@ -2,6 +2,8 @@
 ## See spec for more details:
 ## https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-store.md
 
+{.push raises: [Defect].}
+
 import
   std/[tables, times, sequtils, algorithm, options],
   bearssl,
@@ -338,8 +340,8 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   (result.messages, result.pagingInfo)= paginateWithoutIndex(data, query.pagingInfo)
 
 
-method init*(ws: WakuStore) =
-  proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
+proc init*(ws: WakuStore) {.raises: [Defect, Exception]} =
+  proc handler(conn: Connection, proto: string) {.async.} =
     var message = await conn.readLp(64*1024)
     var res = HistoryRPC.init(message)
     if res.isErr:
@@ -369,7 +371,7 @@ method init*(ws: WakuStore) =
     await conn.writeLp(HistoryRPC(requestId: value.requestId,
         response: response).encode().buffer)
 
-  ws.handler = handle
+  ws.handler = handler
   ws.codec = WakuStoreCodec
 
   if ws.store.isNil:
@@ -388,7 +390,7 @@ method init*(ws: WakuStore) =
 
 
 proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgContext,
-                   store: MessageStore = nil, wakuSwap: WakuSwap = nil): T =
+                   store: MessageStore = nil, wakuSwap: WakuSwap = nil): T {.raises: [Defect, Exception]} =
   debug "init"
   new result
   result.rng = rng
@@ -398,7 +400,7 @@ proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgConte
   result.init()
 
 # @TODO THIS SHOULD PROBABLY BE AN ADD FUNCTION AND APPEND THE PEER TO AN ARRAY
-proc setPeer*(ws: WakuStore, peer: PeerInfo) =
+proc setPeer*(ws: WakuStore, peer: PeerInfo) {.raises: [Defect, Exception]} =
   ws.peerManager.addPeer(peer, WakuStoreCodec)
   waku_store_peers.inc()
 
@@ -526,7 +528,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
   lastSeenTime = max(lastSeenTime - offset, 0)
   debug "the  offline time window is", lastSeenTime=lastSeenTime, currentTime=currentTime
 
-  proc handler(response: HistoryResponse) {.gcsafe.} =
+  proc handler(response: HistoryResponse) {.gcsafe, raises: [Defect, Exception].} =
     for msg in response.messages:
       let index = msg.computeIndex()
       ws.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: DefaultTopic))
