@@ -1,6 +1,7 @@
 import
   std/[tables, hashes, sequtils],
-  chronos, confutils, chronicles, chronicles/topics_registry, metrics,
+  chronos, confutils, chronicles, chronicles/topics_registry, 
+  metrics, metrics/chronos_httpserver,
   stew/[byteutils, objects],
   stew/shims/net as stewNet, json_rpc/rpcserver,
   # Waku v1 imports
@@ -284,12 +285,11 @@ when isMainModule:
 
     rpcServer.start()
 
-  when defined(insecure):
-    if conf.metricsServer:
-      let
-        address = conf.metricsServerAddress
-        port = conf.metricsServerPort + conf.portsShift
-      info "Starting metrics HTTP server", address, port
-      metrics.startHttpServer($address, Port(port))
+  if conf.metricsServer:
+    let
+      address = conf.metricsServerAddress
+      port = conf.metricsServerPort + conf.portsShift
+    info "Starting metrics HTTP server", address, port
+    startMetricsHttpServer($address, Port(port))
 
   runForever()
