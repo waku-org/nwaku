@@ -279,12 +279,11 @@ when isMainModule:
 
     rpcServer.start()
 
-  when defined(insecure):
-    if conf.metricsServer:
-      let
-        address = conf.metricsServerAddress
-        port = conf.metricsServerPort + conf.portsShift
-      info "Starting metrics HTTP server", address, port
-      startMetricsHttpServer($address, Port(port))
+  if conf.metricsServer:
+    let
+      address = conf.metricsServerAddress
+      port = conf.metricsServerPort + conf.portsShift
+    info "Starting metrics HTTP server", address, port
+    startMetricsHttpServer($address, Port(port))
 
   runForever()
