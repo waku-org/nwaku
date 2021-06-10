@@ -2,12 +2,15 @@
 
 import
   std/[unittest, options, tables, sets, times],
+  os,
   chronos, chronicles,
   sqlite3_abi,
   ../../waku/v2/node/storage/message/waku_message_store,
   ../../waku/v2/node/storage/sqlite,
+  ../../waku/v2/node/storage/migration/[migration_types, migration_utils],
   ../../waku/v2/protocol/waku_store/waku_store,
   ./utils
+from strutils import rsplit
 
 template checkExec(s: ptr sqlite3_stmt) =
   if (let x = sqlite3_step(s); x != SQLITE_DONE):
@@ -95,57 +98,30 @@ suite "Message Store":
       rt1Flag == true
       rt2Flag == true
       rt3Flag == true
-  test "reads user_version":
+  test "set and get user version":
     let 
       database = SqliteDatabase.init("", inMemory = true)[]
-      store = WakuMessageStore.init(database)[]
-    defer: store.close()
 
-    var gotMessages: bool
-    proc migrate(s: ptr sqlite3_stmt) = 
-      gotMessages = true
-      let version = sqlite3_column_int64(s, 0)
-      debug "the current user version", version=version
+    let res = database.setUserVerion(5)
+    check res.isErr == false
 
-    let res = database.query("PRAGMA user_version;", migrate)
+    let ver = database.getUserVerion()
+    check:
+      ver.isErr == false
+      ver.value == 5
+  test "migration":
+    let 
+      database = SqliteDatabase.init("", inMemory = true)[]
+    
+
+    template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
+    let migrationPath = sourceDir / "../../waku/v2/node/storage/migration/migrations_scripts/message"
+
+    let res = database.migrate(migrationPath, 1)
     check:
       res.isErr == false
-      gotMessages == true
-  test "migrate":
-    let 
-      database = SqliteDatabase.init("", inMemory = true)[]
-      store = WakuMessageStore.init(database)[]
-    defer: store.close()
-    database.migrate(2, "/Users/sanaztaheri/GitHub/nim-waku-code/nim-waku/waku/v2/node/storage/message/migrations")
-    check true
-  # test "updates user_version":
-  #   # initialize the db
-  #   let 
-  #     database = SqliteDatabase.init("", inMemory = true)[]
-  #     store = WakuMessageStore.init(database)[]
-  #   defer: store.close()
 
-  #   # # update user version
-  #   # let prepare = database.prepareStmt("PRAGMA user_version= (?);", (int64), void)
-  #   # check:
-  #   #   prepare.isErr == false
-
-  #   # let updateRes = prepare.value.exec((int64(40)))
-  #   # check:
-  #   #   updateRes.isErr == false
-  #   checkExec "PRAGMA user_version = 40;"
-
-  #   # check the version
-  #   var gotMessages: bool
-  #   proc migrate(s: ptr sqlite3_stmt) = 
-  #     gotMessages = true
-  #     let version = sqlite3_column_int64(s, 0)
-  #     debug "the current user version", version=version
-  #     check:
-  #       version == 40.int64
-
-  #   let res = database.query("PRAGMA user_version;", migrate)
-  #   check:
-  #     res.isErr == false
-  #     gotMessages == true
-
+    let ver = database.getUserVerion()
+    check:
+      ver.isErr == false
+      ver.value == 1

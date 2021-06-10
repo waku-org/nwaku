@@ -6,7 +6,8 @@ import
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
-  stew/results, metrics
+  stew/results, metrics,
+  migration/[migration_types,migration_utils]
 
 {.push raises: [Defect].}
 
@@ -111,7 +112,9 @@ proc init*(
       return err("Invalid pragma result: " & $x)
 
   # TODO: check current version and implement schema versioning
-  checkExec "PRAGMA user_version = 2;"
+  # let ver = checkExec "PRAGMA user_version;"
+  # debug "version", ver=ver
+  # checkMigrate
 
   
 
@@ -210,3 +213,24 @@ proc close*(db: SqliteDatabase) =
   discard sqlite3_close(db.env)
 
   db[] = SqliteDatabase()[]
+
+proc getUserVerion*(database: SqliteDatabase): DatabaseResult[int64] = 
+  var version: int64
+  proc handler(s: ptr sqlite3_stmt) = 
+    version = sqlite3_column_int64(s, 0)
+  let res = database.query("PRAGMA user_version;", handler)
+  if res.isErr:
+      return err("failed")
+  ok(version)
+
+
+proc setUserVerion*(database: SqliteDatabase, version: int64): DatabaseResult[bool] = 
+  proc handler(s: ptr sqlite3_stmt) = 
+    discard
+  let query = "PRAGMA user_version=" & $version & ";"
+  let res = database.query(query, handler)
+  if res.isErr:
+      return err("failed")
+  ok(true)
+
+

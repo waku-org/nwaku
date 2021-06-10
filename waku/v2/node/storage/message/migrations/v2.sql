@@ -1,1 +1,0 @@
-DELETE TOP (0) FROM   Message;

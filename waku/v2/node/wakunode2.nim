@@ -1,6 +1,7 @@
 import
   std/[options, tables, strutils, sequtils],
   chronos, chronicles, metrics, stew/shims/net as stewNet,
+  os,
   # TODO: Why do we need eth keys?
   eth/keys,
   web3,
@@ -24,7 +25,7 @@ import
   ./storage/peer/peer_storage,
   ../utils/requests,
   ./peer_manager/peer_manager
-
+from strutils import rsplit
 when defined(rln):
   import ../protocol/waku_rln_relay/[rln, waku_rln_relay_utils]
 
@@ -693,6 +694,13 @@ when isMainModule:
       waku_node_errors.inc(labelValues = ["init_db_failure"])
     else:
       sqliteDatabase = dbRes.value
+    
+    # run the migration 
+    template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
+    let migrationPath = sourceDir / "storage/migration/migrations_scripts/message"
+    let migrationResult = sqliteDatabase.migrate(migrationPath, 1)
+    if migrationResult.isErr:
+      warn "failed to migrate the message database" 
   
   var pStorage: WakuPeerStorage
 

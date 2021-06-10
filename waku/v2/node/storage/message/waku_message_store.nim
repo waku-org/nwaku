@@ -1,6 +1,6 @@
 import 
-  os, sqlite3_abi, algorithm,
-  chronos, metrics,
+  os, sqlite3_abi, algorithm, tables, strutils,
+  chronos, metrics, chronicles,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
@@ -8,6 +8,7 @@ import
   stew/[byteutils, results],
   ./message_store,
   ../sqlite,
+  ../migration/[migration_types,migration_utils],
   ../../../protocol/waku_message,
   ../../../utils/pagination
 
@@ -145,70 +146,38 @@ proc close*(db: WakuMessageStore) =
   db.database.close()
 
 
-# proc migrate*(sqlDB: SqliteDatabase, oldVersion: int64, migrationPath: string) = 
-#   var env = sqlDB.env
-#   var versionList: seq[string]
-#   for kind, path in walkDir(migrationPath):
-#     # let fileSplit = splitFile(path)
-#     # versionList.add((fileSplit.name&fileSplit.ext))
-#     versionList.add(path)
 
-#     echo("Path:", path)
+proc migrate*(db: SqliteDatabase, path: string, tragetVersion: int64): MessageStoreResult[bool] = 
+  ## checks the user_versions of the db and runs migration scripts that are newer than that
+  ## path points to the directory holding the migrations scripts
+  ## once the db is updated, it sets the user_version to the tragetVersion
+  
+  # read database version
+  let dbVersion = db.getUserVerion()
+  debug "dbVersion", dbVersion=dbVersion
+  if dbVersion.value == tragetVersion:
+    # already up to date
+    return
 
-#   # sort migration files
-#   versionList.sort()
+  # TODO check for down migrations
+  # fetch migration scripts
+  let migrationScripts = getMigrationScripts(path) 
+  # filter scripts that are higher than the current db version
+  let scripts = filterMigrationScripts(migrationScripts, dbVersion.value)
+  debug "scripts", scripts=scripts
+  
+  proc handler(s: ptr sqlite3_stmt) = 
+    discard
 
-#   for filename in versionList:
-#     let query = readFile(filename)
-#     echo query
-#     # let prepare = sqlDB.prepareStmt(q, void, void)
-#     # if prepare.isErr:
-#     #   echo "failed to prepare"
-    
-#     template prepare(q: string): ptr sqlite3_stmt =
-#       var s: ptr sqlite3_stmt
-#       discard sqlite3_prepare_v2(env, q, q.len.cint, addr s, nil)
-#       s
+  # apply updates
+  for update in scripts:
+    let res = db.query(update, handler)
+    if res.isErr:
+      return err("failed to run the update script")
+  
+  # bump the user version
+  let res = db.setUserVerion(tragetVersion)
+  if res.isErr:
+    return err("failed to set the new user_version")
 
-#     template checkExec(s: ptr sqlite3_stmt) =
-#       if (let x = sqlite3_step(s); x != SQLITE_DONE):
-#         discard sqlite3_finalize(s)
-#         echo "something 1"
-#         # return err($sqlite3_errstr(x))
-
-#       if (let x = sqlite3_finalize(s); x != SQLITE_OK):
-#         echo "something 2"
-#         # return err($sqlite3_errstr(x))
-
-#     template checkExec(q: string) =
-#       let s = prepare(q)
-#       checkExec(s)
-
-#     # if (let x = sqlite3_step(prepare); x != SQLITE_DONE):
-#     #   discard sqlite3_finalize(s)
-#     #   # return err($sqlite3_errstr(x))
-#     checkExec(query)
-
-
-
-#     # var x: void
-#     # let res = prepare.value.exec(x)
-#     # if res.isErr:
-#     #   echo "failed"
-
-proc migrate*(database: SqliteDatabase, oldVersion: int64, migrationPath: string) = 
-  var env = sqlDB.env
-  var versionList: seq[string]
-  for kind, path in walkDir(migrationPath):
-    # let fileSplit = splitFile(path)
-    # versionList.add((fileSplit.name&fileSplit.ext))
-    versionList.add(path)
-
-    echo("Path:", path)
-
-  # sort migration files
-  versionList.sort()
-
-  for filename in versionList:
-    let query = readFile(filename)
-    echo query
+  ok(true)
