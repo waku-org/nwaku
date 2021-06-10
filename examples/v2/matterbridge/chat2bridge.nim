@@ -1,6 +1,7 @@
 import
   std/[tables, times, strutils, hashes, sequtils],
-  chronos, confutils, chronicles, chronicles/topics_registry, metrics,
+  chronos, confutils, chronicles, chronicles/topics_registry, 
+  metrics, metrics/chronos_httpserver,
   stew/[byteutils, endians2],
   stew/shims/net as stewNet, json_rpc/rpcserver,
   # Matterbridge client imports
@@ -284,6 +285,6 @@ when isMainModule:
         address = conf.metricsServerAddress
         port = conf.metricsServerPort + conf.portsShift
       info "Starting metrics HTTP server", address, port
-      metrics.startHttpServer($address, Port(port))
+      startMetricsHttpServer($address, Port(port))
 
   runForever()
