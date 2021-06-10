@@ -2,7 +2,6 @@
 
 import 
   os, sqlite3_abi, algorithm, tables, strutils,
-  strutils,
   chronos, metrics, chronicles,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
