@@ -781,10 +781,9 @@ when isMainModule:
   if conf.metricsLogging:
     startMetricsLog()
 
-  when defined(insecure):
-    if conf.metricsServer:
-      startMetricsServer(conf.metricsServerAddress,
-        Port(conf.metricsServerPort + conf.portsShift))
+  if conf.metricsServer:
+    startMetricsServer(conf.metricsServerAddress,
+      Port(conf.metricsServerPort + conf.portsShift))
   
   # Setup graceful shutdown
   
