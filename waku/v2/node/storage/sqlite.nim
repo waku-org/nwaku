@@ -113,7 +113,6 @@ proc init*(
 
   # checkExec "PRAGMA user_version = 1;"
 
-  
 
   let journalModePragma = prepare("PRAGMA journal_mode = WAL;"): discard
   checkWalPragmaResult(journalModePragma)
