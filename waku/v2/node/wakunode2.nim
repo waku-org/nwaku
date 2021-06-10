@@ -27,7 +27,7 @@ import
   ./storage/peer/peer_storage,
   ../utils/requests,
   ./peer_manager/peer_manager
-from strutils import rsplit
+
 when defined(rln):
   import ../protocol/waku_rln_relay/[rln, waku_rln_relay_utils]
 
@@ -699,12 +699,13 @@ when isMainModule:
     
     # run the migration 
     info "running migration"
-    template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
-    let migrationPath = sourceDir / "storage/migration/migrations_scripts/message"
-    let migrationResult = sqliteDatabase.migrate(migrationPath, 1)
+    # template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
+    # let migrationPath = sourceDir / "storage/migration/migrations_scripts/message"
+    let migrationResult = sqliteDatabase.migrate()
     if migrationResult.isErr:
       warn "failed to migrate the message database" 
-  
+    else:
+      info "migration is done"
   var pStorage: WakuPeerStorage
 
   if conf.persistPeers and not sqliteDatabase.isNil:
