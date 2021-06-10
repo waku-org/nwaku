@@ -697,13 +697,14 @@ when isMainModule:
     else:
       sqliteDatabase = dbRes.value
     
-    # run the migration 
+    # run migration 
     info "running migration ... "
     let migrationResult = sqliteDatabase.migrate()
     if migrationResult.isErr:
       warn "migration failed" 
     else:
       info "migration is done"
+      
   var pStorage: WakuPeerStorage
 
   if conf.persistPeers and not sqliteDatabase.isNil:
