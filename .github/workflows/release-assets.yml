@@ -50,6 +50,6 @@ jobs:
       - name: Upload asset
         uses: actions/upload-artifact@v2.2.3
         with:
-          name: nim-waku-bin
+          name: nim-waku-${{ matrix.platform }}.tar.gz
           path: ./build/nim-waku-${{ matrix.platform }}.tar.gz
           if-no-files-found: error
