@@ -1,7 +1,8 @@
-{.push raises: [Exception, Defect].}
+{.push raises: [Defect, CatchableError].}
 
 import
   std/options,
+  chronicles,
   json_rpc/rpcserver,
   ../../protocol/waku_store/waku_store_types,
   ../wakunode2,

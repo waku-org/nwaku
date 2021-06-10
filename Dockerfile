@@ -42,8 +42,8 @@ RUN ln -s /usr/lib/libpcre.so /usr/lib/libpcre.so.3
 # Copy to separate location to accomodate different MAKE_TARGET values
 COPY --from=nim-build /app/build/$MAKE_TARGET /usr/local/bin/
 
-# Fix for 'Error loading shared library vendor/rln/target/debug/librln.so: No such file or directory'
-COPY --from=nim-build /app/vendor/rln/target/debug/librln.so vendor/rln/target/debug/librln.so
+# If rln enabled: fix for 'Error loading shared library vendor/rln/target/debug/librln.so: No such file or directory'
+# COPY --from=nim-build /app/vendor/rln/target/debug/librln.so vendor/rln/target/debug/librln.so
 
 # Symlink the correct wakunode binary
 RUN ln -sv /usr/local/bin/$MAKE_TARGET /usr/bin/wakunode

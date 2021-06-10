@@ -1,10 +1,10 @@
 {.push raises: [Defect].}
 
 import
-  libp2p/standard_setup,
+  libp2p/builders,
   libp2p/peerstore
 
-export peerstore, standard_setup
+export peerstore, builders
 
 type
   Connectedness* = enum

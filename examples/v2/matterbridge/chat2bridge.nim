@@ -1,5 +1,3 @@
-{.push raises: [Defect, Exception].}
-
 import
   std/[tables, times, strutils, hashes, sequtils],
   chronos, confutils, chronicles, chronicles/topics_registry, metrics,
@@ -61,7 +59,7 @@ proc containsOrAdd(sequence: var seq[Hash], hash: Hash): bool =
 
   return false
 
-proc toWakuMessage(cmb: Chat2MatterBridge, jsonNode: JsonNode): WakuMessage =
+proc toWakuMessage(cmb: Chat2MatterBridge, jsonNode: JsonNode): WakuMessage {.raises: [Defect, KeyError]} =
   # Translates a Matterbridge API JSON response to a Waku v2 message
   let msgFields = jsonNode.getFields()
 
@@ -89,7 +87,7 @@ proc toChat2(cmb: Chat2MatterBridge, jsonNode: JsonNode) {.async.} =
 
   await cmb.nodev2.publish(DefaultTopic, msg)
 
-proc toMatterbridge(cmb: Chat2MatterBridge, msg: WakuMessage) {.gcsafe.} =
+proc toMatterbridge(cmb: Chat2MatterBridge, msg: WakuMessage) {.gcsafe, raises: [Exception].} =
   if cmb.seen.containsOrAdd(msg.payload.hash()):
     # This is a duplicate message. Return.
     chat2_mb_dropped.inc(labelValues = ["duplicate"])
@@ -111,7 +109,7 @@ proc toMatterbridge(cmb: Chat2MatterBridge, msg: WakuMessage) {.gcsafe.} =
   try:
     cmb.mbClient.postMessage(text = string.fromBytes(chat2Msg[].payload),
                              username = chat2Msg[].nick)
-  except OSError, IOError:
+  except OSError, IOError, TimeoutError:
     chat2_mb_dropped.inc(labelValues = ["duplicate"])
     error "Matterbridge host unreachable. Dropping message."
 
@@ -172,7 +170,7 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
   debug "Start polling Matterbridge"
   
   # Start Matterbridge polling (@TODO: use streaming interface)
-  proc mbHandler(jsonNode: JsonNode) {.gcsafe.} =
+  proc mbHandler(jsonNode: JsonNode) {.gcsafe, raises: [Exception].} =
     trace "Bridging message from Matterbridge to chat2", jsonNode=jsonNode
     waitFor cmb.toChat2(jsonNode)
   
@@ -188,7 +186,7 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
 
   # Bridging
   # Handle messages on Waku v2 and bridge to Matterbridge
-  proc relayHandler(pubsubTopic: string, data: seq[byte]) {.async, gcsafe.} =
+  proc relayHandler(pubsubTopic: string, data: seq[byte]) {.async, gcsafe, raises: [Defect].} =
     let msg = WakuMessage.init(data)
     if msg.isOk():
       trace "Bridging message from Chat2 to Matterbridge", msg=msg[]
@@ -211,7 +209,7 @@ when isMainModule:
                                   relay_api,
                                   store_api]
 
-  proc startV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: Chat2MatterbridgeConf) =
+  proc startV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: Chat2MatterbridgeConf) {.raises: [Exception].} =
     installDebugApiHandlers(node, rpcServer)
 
     # Install enabled API handlers:
