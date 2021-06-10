@@ -44,12 +44,11 @@ jobs:
           make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" LOG_LEVEL=TRACE wakunode1
           make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" LOG_LEVEL=TRACE wakunode2
           make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" LOG_LEVEL=TRACE chat2
-          cd build
-          tar -cvzf nim-waku-${{ matrix.platform }}.tar.gz ./
+          tar -cvzf nim-waku-${{ matrix.platform }}.tar.gz ./build/
 
       - name: Upload asset
         uses: actions/upload-artifact@v2.2.3
         with:
           name: nim-waku-${{ matrix.platform }}.tar.gz
-          path: ./build/nim-waku-${{ matrix.platform }}.tar.gz
+          path: nim-waku-${{ matrix.platform }}.tar.gz
           if-no-files-found: error
