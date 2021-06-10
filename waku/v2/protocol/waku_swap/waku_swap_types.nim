@@ -7,7 +7,7 @@ import
 
 type
   # The Swap Mode determines the functionality available in the swap protocol.
-  # It determines the kind of logs to be displayed as well as tests to be ran.
+  # It determines the kind of logs to be displayed as well as tests to run.
   # Refer to https://github/com/vacp2p/research/discussions/61 for more info on Swap Modes
   SwapMode* = enum
     Soft,
