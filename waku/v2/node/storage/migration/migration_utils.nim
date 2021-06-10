@@ -1,8 +1,9 @@
 import 
-  os, algorithm, tables, strutils, chronicles,
+  os, algorithm, tables, strutils, chronicles, 
+  stew/results,
   migration_types
 
-proc getMigrationScripts*(migrationPath: string): MigrationScripts =
+proc getMigrationScripts*(migrationPath: string): MigrationScriptsResult[MigrationScripts] =
   ## this code is borrowed from https://github.com/status-im/nim-status/blob/21aebe41be03cb6450ea261793b800ed7d3e6cda/nim_status/migrations/sql_generate.nim#L4
   var migrationScripts = MigrationScripts(migrationUp:initOrderedTable[string, string](), migrationDown:initOrderedTable[string, string]())
 
@@ -29,7 +30,7 @@ proc getMigrationScripts*(migrationPath: string): MigrationScripts =
   migrationScripts.migrationDown.sort(system.cmp)
  
 
-  return migrationScripts
+  ok(migrationScripts)
 
 proc filterMigrationScripts*(migrationScripts: MigrationScripts, version: int64): seq[string] = 
   ## filters migration scripts whose version is higher than the given version 
