@@ -2,9 +2,10 @@
 ##
 ## See https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-relay.md
 ## for spec.
+{.push raises: [Defect].}
 
 import
-  std/[tables, sequtils, sets],
+  std/[tables, sets],
   chronos, chronicles, metrics,
   libp2p/protocols/pubsub/[pubsub, gossipsub],
   libp2p/protocols/pubsub/rpc/messages,
@@ -28,13 +29,20 @@ method init*(w: WakuRelay) =
     ##
 
     debug "Incoming WakuRelay connection"
-    await w.handleConn(conn, proto)
+    try:
+      await w.handleConn(conn, proto)
+    except CancelledError:
+      # This is top-level procedure which will work as separate task, so it
+      # do not need to propogate CancelledError.
+      trace "Unexpected cancellation in relay handler", conn
+    except CatchableError as exc:
+      trace "WakuRelay handler leaks an error", exc = exc.msg, conn
 
   # XXX: Handler hijack GossipSub here?
   w.handler = handler
   w.codec = WakuRelayCodec
 
-method initPubSub*(w: WakuRelay) =
+method initPubSub*(w: WakuRelay) {.raises: [Defect, InitializationError].} =
   debug "initWakuRelay"
 
   # after discussions with @sinkingsugar, this is essentially what is needed for
