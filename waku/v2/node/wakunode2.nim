@@ -698,12 +698,10 @@ when isMainModule:
       sqliteDatabase = dbRes.value
     
     # run the migration 
-    info "running migration"
-    # template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
-    # let migrationPath = sourceDir / "storage/migration/migrations_scripts/message"
+    info "running migration ... "
     let migrationResult = sqliteDatabase.migrate()
     if migrationResult.isErr:
-      warn "failed to migrate the message database" 
+      warn "migration failed" 
     else:
       info "migration is done"
   var pStorage: WakuPeerStorage
