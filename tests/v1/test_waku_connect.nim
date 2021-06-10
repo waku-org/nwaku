@@ -25,8 +25,8 @@ proc resetMessageQueues(nodes: varargs[EthereumNode]) =
 
 # check on a condition until true or return a future containing false
 # if timeout expires first
-proc eventually(timeout: Duration, condition: proc(): bool {.gcsafe.}):
-    Future[bool] =
+proc eventually(timeout: Duration,
+    condition: proc(): bool {.gcsafe, raises: [Defect].}): Future[bool] =
   let wrappedCondition = proc(): Future[bool] {.async.} =
     let f = newFuture[bool]()
     while not condition():
