@@ -112,9 +112,7 @@ proc init*(
       return err("Invalid pragma result: " & $x)
 
   # TODO: check current version and implement schema versioning
-  # let ver = checkExec "PRAGMA user_version;"
-  # debug "version", ver=ver
-  # checkMigrate
+  # checkExec "PRAGMA user_version = 1;"
 
   
 
