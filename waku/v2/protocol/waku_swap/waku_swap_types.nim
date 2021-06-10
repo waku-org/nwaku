@@ -46,3 +46,10 @@ type
     debit*: DebitHandler
     applyPolicy*: ApplyPolicyHandler
     config*: SwapConfig
+
+proc init*(_: type[SwapConfig]): SwapConfig =
+  SwapConfig(
+      mode: SwapMode.Soft,
+      paymentThreshold: 100,
+      disconnectThreshold: -100
+  )
