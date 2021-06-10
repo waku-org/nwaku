@@ -5,7 +5,7 @@ import
   testutils/unittests, stew/shims/net as stewNet,
   json_rpc/[rpcserver, rpcclient],
   eth/[keys, rlp], eth/common/eth_types,
-  libp2p/[standard_setup, switch, multiaddress],
+  libp2p/[builders, switch, multiaddress],
   libp2p/protobuf/minprotobuf,
   libp2p/stream/[bufferstream, connection],
   libp2p/crypto/crypto,

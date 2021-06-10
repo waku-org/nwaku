@@ -1,6 +1,8 @@
 import
   std/[options, tables, strutils, sequtils],
-  chronos, chronicles, metrics, stew/shims/net as stewNet,
+  chronos, chronicles, metrics,
+  metrics/chronos_httpserver,
+  stew/shims/net as stewNet,
   # TODO: Why do we need eth keys?
   eth/keys,
   web3,
@@ -11,7 +13,7 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub,
-  libp2p/standard_setup,
+  libp2p/builders,
   ../protocol/[waku_relay, waku_message, message_notifier],
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
@@ -656,7 +658,7 @@ when isMainModule:
   proc startMetricsServer(serverIp: ValidIpAddress, serverPort: Port) =
       info "Starting metrics HTTP server", serverIp, serverPort
       
-      metrics.startHttpServer($serverIp, serverPort)
+      startMetricsHttpServer($serverIp, serverPort)
 
       info "Metrics HTTP server started", serverIp, serverPort
 

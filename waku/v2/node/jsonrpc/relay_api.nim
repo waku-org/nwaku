@@ -1,4 +1,4 @@
-{.push raises: [Exception, Defect].}
+{.push raises: [Defect, CatchableError].}
 
 import
   std/[tables,sequtils],
@@ -19,7 +19,7 @@ const maxCache* = 30 # Max number of messages cached per topic @TODO make this c
 
 proc installRelayApiHandlers*(node: WakuNode, rpcsrv: RpcServer, topicCache: TopicCache) =
   
-  proc topicHandler(topic: string, data: seq[byte]) {.async.} =
+  proc topicHandler(topic: string, data: seq[byte]) {.async, raises: [Defect].} =
     trace "Topic handler triggered", topic=topic
     let msg = WakuMessage.init(data)
     if msg.isOk():

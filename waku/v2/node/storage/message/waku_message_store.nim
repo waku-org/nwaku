@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import 
   sqlite3_abi,
   chronos, metrics,
@@ -73,8 +75,8 @@ method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTop
 
   ok()
 
-method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageStoreResult[bool] =
-  ## Retreives all messages from the storage.
+method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageStoreResult[bool] {.raises: [Defect, Exception].} =
+  ## Retrieves all messages from the storage.
   ##
   ## **Example:**
   ##
@@ -86,7 +88,7 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageSto
   ##   if res.isErr:
   ##     echo "error"
   var gotMessages = false
-  proc msg(s: ptr sqlite3_stmt) = 
+  proc msg(s: ptr sqlite3_stmt) {.raises: [Defect, Exception].} =
     gotMessages = true
     let
       timestamp = sqlite3_column_int64(s, 0)
