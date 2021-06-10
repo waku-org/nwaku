@@ -14,6 +14,11 @@ type
     Mock,
     Hard
 
+  SwapConfig* = object
+    mode* : SwapMode
+    paymentThreshold* : int
+    disconnectThreshold* : int
+
   Beneficiary* = seq[byte]
 
   # TODO Consider adding payment threshhold and terms field
@@ -36,10 +41,8 @@ type
     peerManager*: PeerManager
     rng*: ref BrHmacDrbgContext
     text*: string
-    paymentThreshold*: int
-    disconnectThreshold*: int
     accounting*: Table[PeerId, int]
     credit*: CreditHandler
     debit*: DebitHandler
     applyPolicy*: ApplyPolicyHandler
-    mode*: SwapMode
+    config*: SwapConfig

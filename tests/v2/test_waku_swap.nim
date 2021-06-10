@@ -106,12 +106,15 @@ procSuite "Waku SWAP Accounting":
 
     var futures = [newFuture[bool](), newFuture[bool]()]
 
+    # Define the waku swap Config for this test
+    let swapConfig = SwapConfig(mode: SwapMode.Mock, paymentThreshold: 1, disconnectThreshold: -1)
+
     # Start nodes and mount protocols
     await node1.start()
-    node1.mountSwap()
+    node1.mountSwap(swapConfig)
     node1.mountStore(persistMessages = true)
     await node2.start()
-    node2.mountSwap()
+    node2.mountSwap(swapConfig)
     node2.mountStore(persistMessages = true)
 
     await node2.subscriptions.notify("/waku/2/default-waku/proto", message)
@@ -131,16 +134,11 @@ procSuite "Waku SWAP Accounting":
     await node1.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic)]), handler1)
     await node1.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic)]), handler2)
 
-    # Only check these conditions if the Swap was mounted In the Mock Mode
-    if node1.wakuSwap.mode == SwapMode.Mock and node2.wakuSwap.mode == SwapMode.Mock:
-      check:
-        (await allFutures(futures).withTimeout(5.seconds)) == true
-        # Accounting table updated with credit and debit, respectively
-        # After sending a cheque the balance is partially adjusted
-        node1.wakuSwap.accounting[node2.peerInfo.peerId] == 1
-        node2.wakuSwap.accounting[node1.peerInfo.peerId] == -1
-    else:
-      check:
-        true
+    check:
+      (await allFutures(futures).withTimeout(5.seconds)) == true
+      # Accounting table updated with credit and debit, respectively
+      # After sending a cheque the balance is partially adjusted
+      node1.wakuSwap.accounting[node2.peerInfo.peerId] == 1
+      node2.wakuSwap.accounting[node1.peerInfo.peerId] == -1
     await node1.stop()
     await node2.stop()

@@ -391,9 +391,9 @@ proc mountFilter*(node: WakuNode) =
 
 # NOTE: If using the swap protocol, it must be mounted before store. This is
 # because store is using a reference to the swap protocol.
-proc mountSwap*(node: WakuNode) =
+proc mountSwap*(node: WakuNode, swapConfig: SwapConfig = SwapConfig(mode: SwapMode.Soft, paymentThreshold: 100, disconnectThreshold: -100)) =
   info "mounting swap"
-  node.wakuSwap = WakuSwap.init(node.peerManager, node.rng)
+  node.wakuSwap = WakuSwap.init(node.peerManager, node.rng, swapConfig)
   node.switch.mount(node.wakuSwap)
   # NYI - Do we need this?
   #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
