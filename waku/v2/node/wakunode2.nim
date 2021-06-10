@@ -696,6 +696,7 @@ when isMainModule:
       sqliteDatabase = dbRes.value
     
     # run the migration 
+    info "running migration"
     template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
     let migrationPath = sourceDir / "storage/migration/migrations_scripts/message"
     let migrationResult = sqliteDatabase.migrate(migrationPath, 1)
