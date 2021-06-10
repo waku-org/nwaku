@@ -218,7 +218,7 @@ proc getUserVerion*(database: SqliteDatabase): DatabaseResult[int64] =
     version = sqlite3_column_int64(s, 0)
   let res = database.query("PRAGMA user_version;", handler)
   if res.isErr:
-      return err("failed")
+      return err("failed to get user_version")
   ok(version)
 
 
@@ -228,7 +228,7 @@ proc setUserVerion*(database: SqliteDatabase, version: int64): DatabaseResult[bo
   let query = "PRAGMA user_version=" & $version & ";"
   let res = database.query(query, handler)
   if res.isErr:
-      return err("failed")
+      return err("failed to set user_version")
   ok(true)
 
 
