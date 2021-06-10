@@ -91,8 +91,8 @@ procSuite "Waku SWAP Accounting":
     await node1.stop()
     await node2.stop()
 
-  #TODO Add cheque here
-  #This test will only Be checked if in Mock mode
+  # TODO Add cheque here
+  # This test will only Be checked if in Mock mode
   asyncTest "Update accounting state after sending cheque":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
