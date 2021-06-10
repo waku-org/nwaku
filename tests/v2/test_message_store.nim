@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[unittest, options, tables, sets, times],
+  std/[unittest, strutils, options, tables, sets, times],
   os,
   chronos, chronicles,
   sqlite3_abi,
@@ -10,19 +10,6 @@ import
   ../../waku/v2/node/storage/migration/[migration_types, migration_utils],
   ../../waku/v2/protocol/waku_store/waku_store,
   ./utils
-from strutils import rsplit
-
-template checkExec(s: ptr sqlite3_stmt) =
-  if (let x = sqlite3_step(s); x != SQLITE_DONE):
-    discard sqlite3_finalize(s)
-    return err($sqlite3_errstr(x))
-
-  if (let x = sqlite3_finalize(s); x != SQLITE_OK):
-    return err($sqlite3_errstr(x))
-
-template checkExec(q: string) =
-  let s = prepare(q): discard
-  checkExec(s)
 
 suite "Message Store":
   test "set and get works":
