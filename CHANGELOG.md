@@ -1,19 +1,44 @@
 # Changelog
 
-## Next release
+## 2021-06-03 v0.4
+
 This release contains the following:
 
 ### Features
+
+- Initial [`toy-chat` implementation](https://rfc.vac.dev/spec/22/)
+
 ### Changes
+
 - The [toy-chat application](https://github.com/status-im/nim-waku/blob/master/docs/tutorial/chat2.md) can now perform `lightpush` and request content-filtered messages from remote peers.
-#### General refactoring
-#### Docs
-#### Schema
+- The [toy-chat application](https://github.com/status-im/nim-waku/blob/master/docs/tutorial/chat2.md) now uses default content topic `/toy-chat/2/huilong/proto`
+- Improve `toy-chat` [briding to matterbridge]((https://github.com/status-im/nim-waku/blob/master/docs/tutorial/chat2.md#bridge-messages-between-chat2-and-matterbridge))
+- Improve [`swap`](https://rfc.vac.dev/spec/18/) logging and enable soft mode by default
+- Content topics are no longer in a redundant nested structure
+- Improve error handling
+
 #### API
+
 - [JSON-RPC Store API](https://rfc.vac.dev/spec/16): Added an optional time-based query to filter historical messages.
 - [Nim API](https://github.com/status-im/nim-waku/blob/master/docs/api/v2/node.md): Added `resume` method.
+
 ### Fixes
+
 - Connections between nodes no longer become unstable due to keep-alive errors if mesh grows large
+- Re-enable `lightpush` tests and fix Windows CI failure
+
+The [Waku v2 suite of protocols](https://rfc.vac.dev/) are still in a raw/draft state.
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`17/WAKU-RLN`](https://rfc.vac.dev/spec/17/) | `raw` | `/vac/waku/waku-rln-relay/2.0.0-alpha1` |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `draft` | `/vac/waku/relay/2.0.0-beta2` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta3` |
+| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
 
 ## 2021-05-11 v0.3
 
