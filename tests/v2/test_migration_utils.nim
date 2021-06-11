@@ -11,14 +11,14 @@ const MIGRATION_PATH = sourceDir / "../../waku/v2/node/storage/migration/migrati
 
 suite "Migration utils":
   test "read migration scripts":
-    let migrationScriptsRes = getMigrationScripts(MIGRATION_PATH)
+    let migrationScriptsRes = getScripts(MIGRATION_PATH)
     check:
       migrationScriptsRes.isErr == false
 
   test "filter migration scripts":
     let migrationUp = [("0001_init", "script1"), ("0001_add", "script1"), ("0002_init", "script2"), ("0003_init", "script3")].toOrderedTable()
     let migrationScripts = MigrationScripts(migrationUp: migrationUp)
-    let scriptsRes = filterMigrationScripts(migrationScripts, 1, 3)
+    let scriptsRes = filterScripts(migrationScripts, 1, 3)
     check:
       scriptsRes.isErr == false
       scriptsRes.value.len == 2

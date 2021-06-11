@@ -3,7 +3,7 @@ import
   stew/results,
   migration_types
 
-proc getMigrationScripts*(migrationPath: string): MigrationScriptsResult[MigrationScripts] =
+proc getScripts*(migrationPath: string): MigrationScriptsResult[MigrationScripts] =
   ## this code is borrowed from https://github.com/status-im/nim-status/blob/21aebe41be03cb6450ea261793b800ed7d3e6cda/nim_status/migrations/sql_generate.nim#L4
   var migrationScripts = MigrationScripts(migrationUp:initOrderedTable[string, string](), migrationDown:initOrderedTable[string, string]())
   try:
@@ -37,7 +37,7 @@ proc getMigrationScripts*(migrationPath: string): MigrationScriptsResult[Migrati
     return err("failed to load the migration scripts") 
 
 
-proc filterMigrationScripts*(migrationScripts: MigrationScripts, s: int64, e: int64 ): Result[seq[string], string] = 
+proc filterScripts*(migrationScripts: MigrationScripts, s: int64, e: int64 ): Result[seq[string], string] = 
   ## returns migration scripts with versions fall between s and e, where e is inclusive
   var scripts: seq[string]
   try:

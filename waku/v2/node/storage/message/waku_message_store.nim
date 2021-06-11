@@ -133,7 +133,8 @@ proc close*(db: WakuMessageStore) =
 
 
 proc migrate*(db: SqliteDatabase, path: string = MIGRATION_PATH, tragetVersion: int64 = USER_VERSION): MessageStoreResult[bool] = 
-  ## checks the user_versions of the db and runs migration scripts of the higher versions (does not support down migration)
+  ## compares the user_version of the db with the targetVersion 
+  ## runs migration scripts if the user_version is outdated (does not support down migration)
   ## path points to the directory holding the migrations scripts
   ## once the db is updated, it sets the user_version to the tragetVersion
   
@@ -148,18 +149,18 @@ proc migrate*(db: SqliteDatabase, path: string = MIGRATION_PATH, tragetVersion: 
   else:
     # TODO check for the down migrations i.e., userVersion.value > tragetVersion
     # fetch migration scripts
-    let migrationScriptsRes = getMigrationScripts(path)
+    let migrationScriptsRes = getScripts(path)
     if migrationScriptsRes.isErr:
       return err("failed to load migration scripts")
     let migrationScripts = migrationScriptsRes.value
 
-    # filter scripts that are higher than the current db version
-    let scriptsRes = filterMigrationScripts(migrationScripts, userVersion.value)
+    # filter scripts based on their versions
+    let scriptsRes = migrationScripts.filterScripts(userVersion.value, tragetVersion)
     if scriptsRes.isErr:
-      return err("failed to fetch migration scripts")
+      return err("failed to filter migration scripts")
     
     let scripts = scriptsRes.value
-    info "scripts to be run", scripts=scripts
+    debug "scripts to be run", scripts=scripts
     
     
     proc handler(s: ptr sqlite3_stmt) = 
