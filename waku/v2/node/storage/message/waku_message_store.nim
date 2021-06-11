@@ -96,11 +96,6 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageSto
   proc msg(s: ptr sqlite3_stmt) {.raises: [Defect, Exception].} =
     gotMessages = true
     let
-      # receiverTimestampPointer = sqlite3_column_int64(s, 0)
-      # receiverTimestampPointer = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 0)) # get a pointer
-      # receiverTimestampL = sqlite3_column_bytes(s,0) # number of bytes
-      # receiverTimestampBytes = @(toOpenArray(receiverTimestampPointer, 0, receiverTimestampL-1))
-      # receiverTimestamp = float64.fromBytes(receiverTimestampBytes)
       receiverTimestamp = sqlite3_column_double(s, 0)
 
       topic = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 1))
@@ -117,10 +112,6 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageSto
 
       version = sqlite3_column_int64(s, 4)
 
-      # senderTimestampPointer = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 5))
-      # senderTimestampL = sqlite3_column_bytes(s,5)
-      # senderTimestampBytes = @(toOpenArray(senderTimestampPointer, 0, senderTimestampL-1))
-      # senderTimestamp = float64.fromBytes(senderTimestampBytes)
       senderTimestamp = sqlite3_column_double(s, 5)
 
 
