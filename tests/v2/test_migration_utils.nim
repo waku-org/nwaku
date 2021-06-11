@@ -18,7 +18,7 @@ suite "Migration utils":
   test "filter migration scripts":
     let migrationUp = [("0001_init", "script1"), ("0001_add", "script1"), ("0002_init", "script2"), ("0003_init", "script3")].toOrderedTable()
     let migrationScripts = MigrationScripts(migrationUp: migrationUp)
-    let scriptsRes = filterMigrationScripts(migrationScripts, 1)
+    let scriptsRes = filterMigrationScripts(migrationScripts, 1, 3)
     check:
       scriptsRes.isErr == false
       scriptsRes.value.len == 2

@@ -37,16 +37,16 @@ proc getMigrationScripts*(migrationPath: string): MigrationScriptsResult[Migrati
     return err("failed to load the migration scripts") 
 
 
-proc filterMigrationScripts*(migrationScripts: MigrationScripts, version: int64): Result[seq[string], string] = 
-  ## returns migration scripts that target user versions higher than the input version
+proc filterMigrationScripts*(migrationScripts: MigrationScripts, s: int64, e: int64 ): Result[seq[string], string] = 
+  ## returns migration scripts with versions fall between s and e, where e is inclusive
   var scripts: seq[string]
   try:
     for name, script in migrationScripts.migrationUp:
       let parts = name.split("_")
       #TODO this should be int64
       let ver = parseInt(parts[0])
-      # fetch scripts for higher versions
-      if version < ver:
+      # filter scripts based on their version
+      if s < ver and ver <= e  :
         scripts.add(script)
     ok(scripts)
   except ValueError:
