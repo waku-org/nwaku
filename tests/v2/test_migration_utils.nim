@@ -14,13 +14,14 @@ suite "Migration utils":
     let migrationScriptsRes = getMigrationScripts(MIGRATION_PATH)
     check:
       migrationScriptsRes.isErr == false
-      
+
   test "filter migration scripts":
     let migrationUp = [("0001_init", "script1"), ("0001_add", "script1"), ("0002_init", "script2"), ("0003_init", "script3")].toOrderedTable()
     let migrationScripts = MigrationScripts(migrationUp: migrationUp)
-    let scripts = filterMigrationScripts(migrationScripts, 1)
+    let scriptsRes = filterMigrationScripts(migrationScripts, 1)
     check:
-      scripts.len == 2
+      scriptsRes.isErr == false
+      scriptsRes.value.len == 2
 
   test "split scripts with no queries":
     let script = "; ;"
