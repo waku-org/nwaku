@@ -16,7 +16,7 @@ import
 export sqlite
 
 const TABLE_TITLE = "Message"
-const USER_VERSION = 1 # increase this when there is a breaking change in the table schema
+const USER_VERSION = 2 # increase this when there is a breaking change in the table schema
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 const MIGRATION_PATH = sourceDir / "../migration/migrations_scripts/message"
 
