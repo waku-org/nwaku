@@ -41,3 +41,13 @@ proc filterMigrationScripts*(migrationScripts: MigrationScripts, version: int64)
     # fetch scripts for higher versions
     if version < ver:
       result.add(query)
+
+proc splitScript*(script: string): seq[string] =
+  var queries: seq[string] = @[]
+  for q in script.rsplit(';'):
+    if  isEmptyOrWhitespace(q): continue
+    let query = q & ";"
+    queries.add(query)
+  return queries
+
+
