@@ -13,12 +13,12 @@ DROP TABLE Message;
 
 CREATE TABLE IF NOT EXISTS Message(
         id BLOB PRIMARY KEY,
-        receiverTimestamp REAL NOT NULL,
+        receiverTimestamp BLOB NOT NULL,
         contentTopic BLOB NOT NULL,
         pubsubTopic BLOB NOT NULL,
         payload BLOB,
         version INTEGER NOT NULL,
-        senderTimestamp REAL NOT NULL
+        senderTimestamp BLOB NOT NULL
     ) WITHOUT ROWID;
 
 
