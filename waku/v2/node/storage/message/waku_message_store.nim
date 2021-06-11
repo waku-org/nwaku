@@ -1,8 +1,9 @@
 {.push raises: [Defect].}
 
 import 
-  os, sqlite3_abi, algorithm, tables, strutils,
+  std/[os, algorithm, tables, strutils],
   chronos, metrics, chronicles,
+  sqlite3_abi,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
