@@ -701,7 +701,7 @@ when isMainModule:
     info "running migration ... "
     let migrationResult = sqliteDatabase.migrate()
     if migrationResult.isErr:
-      warn "migration failed" 
+      warn "migration failed"
     else:
       info "migration is done"
       
