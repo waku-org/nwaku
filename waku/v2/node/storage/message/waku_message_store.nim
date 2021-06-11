@@ -187,12 +187,17 @@ proc migrate*(db: SqliteDatabase, path: string = MIGRATION_PATH, tragetVersion: 
 
     # run the scripts
     for script in scripts:
+      debug "script", script=script
       # a script may contain multiple queries
       let queries = script.splitScript()
+      debug "queries", queriesd=($queries)
       for query in queries:
         let res = db.query(query, handler)
         if res.isErr:
+          debug "failed to run the query", query=query
           return err("failed to run the script")
+        else:
+          debug "query is executed", query=query
     
     # bump the user version
     let res = db.setUserVerion(tragetVersion)
