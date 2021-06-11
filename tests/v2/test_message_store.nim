@@ -96,19 +96,20 @@ suite "Message Store":
     check:
       ver.isErr == false
       ver.value == 5
-  test "migration":
-    let 
-      database = SqliteDatabase.init("", inMemory = true)[]
-    
+  # test "migration":
+  #   let 
+  #     database = SqliteDatabase.init("", inMemory = true)[]
+  #     store = WakuMessageStore.init(database)[]
+  #   defer: store.close()
 
-    template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
-    let migrationPath = sourceDir / "../../waku/v2/node/storage/migration/migrations_scripts/message"
+  #   # template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
+  #   # let migrationPath = sourceDir / "../../waku/v2/node/storage/migration/migrations_scripts/message"
 
-    let res = database.migrate(migrationPath, 1)
-    check:
-      res.isErr == false
+  #   let res = database.migrate()
+  #   check:
+  #     res.isErr == false
 
-    let ver = database.getUserVerion()
-    check:
-      ver.isErr == false
-      ver.value == 1
+  #   let ver = database.getUserVerion()
+  #   check:
+  #     ver.isErr == false
+  #     # ver.value == 2
