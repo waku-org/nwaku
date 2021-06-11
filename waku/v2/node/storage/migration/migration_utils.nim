@@ -47,14 +47,14 @@ proc filterScripts*(migrationScripts: MigrationScripts, s: int64, e: int64 ): Re
       #TODO this should be int64
       let ver = parseInt(parts[0])
       # filter scripts based on their version
-      if s < ver and ver <= e  :
+      if s < ver and ver <= e:
         scripts.add(script)
     ok(scripts)
   except ValueError:
     return err("failed to filter scripts")
 
 proc splitScript*(script: string): seq[string] =
-  ## returns the individual sql commands inside the script
+  ## parses the scripts into its  individual sql commands and returns them
   var queries: seq[string] = @[]
   for q in script.split(';'):
     if  isEmptyOrWhitespace(q): continue
