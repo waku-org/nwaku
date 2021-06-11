@@ -12,6 +12,8 @@ proc getMigrationScripts*(migrationPath: string): MigrationScriptsResult[Migrati
     if ext != ".sql": continue
 
     let parts = name.split(".")
+    if parts.len < 2:
+      continue
     let script = parts[0]
     let direction = parts[1]
 
@@ -29,7 +31,7 @@ proc getMigrationScripts*(migrationPath: string): MigrationScriptsResult[Migrati
   migrationScripts.migrationUp.sort(system.cmp)
   migrationScripts.migrationDown.sort(system.cmp)
  
-
+  
   ok(migrationScripts)
 
 proc filterMigrationScripts*(migrationScripts: MigrationScripts, version: int64): seq[string] = 
@@ -44,9 +46,9 @@ proc filterMigrationScripts*(migrationScripts: MigrationScripts, version: int64)
 
 proc splitScript*(script: string): seq[string] =
   var queries: seq[string] = @[]
-  for q in script.rsplit(';'):
+  for q in script.split(';'):
     if  isEmptyOrWhitespace(q): continue
-    let query = q & ";"
+    let query = q.strip() & ";"
     queries.add(query)
   return queries
 
