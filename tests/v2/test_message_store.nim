@@ -1,8 +1,7 @@
 {.used.}
 
 import
-  std/[unittest, strutils, options, tables, sets, times],
-  os,
+  std/[unittest, strutils, options, tables, sets, times, os],
   chronos, chronicles,
   sqlite3_abi,
   ../../waku/v2/node/storage/message/waku_message_store,
