@@ -39,7 +39,7 @@ proc getScripts*(migrationPath: string): MigrationScriptsResult[MigrationScripts
 
 
 proc filterScripts*(migrationScripts: MigrationScripts, s: int64, e: int64 ): Result[seq[string], string] = 
-  ## returns migration scripts with versions fall between s and e, where e is inclusive
+  ## returns migration scripts whose version fall between s and e (e is inclusive)
   var scripts: seq[string]
   try:
     for name, script in migrationScripts.migrationUp:
