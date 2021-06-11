@@ -1,5 +1,6 @@
 import
-  confutils, chronos, json_rpc/rpcserver, metrics, metrics/chronicles_support,
+  confutils, chronos, json_rpc/rpcserver, 
+  metrics, metrics/chronicles_support, metrics/chronos_httpserver,
   stew/shims/net as stewNet,
   eth/[keys, p2p], eth/common/utils,
   eth/p2p/[discovery, enode, peer_pool, bootnodes, whispernodes],
@@ -98,13 +99,12 @@ proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext) =
       discard setTimer(Moment.fromNow(2.seconds), logPeerAccounting)
     discard setTimer(Moment.fromNow(2.seconds), logPeerAccounting)
 
-  when defined(insecure):
-    if config.metricsServer:
-      let
-        address = config.metricsServerAddress
-        port = config.metricsServerPort + config.portsShift
-      info "Starting metrics HTTP server", address, port
-      metrics.startHttpServer($address, Port(port))
+  if config.metricsServer:
+    let
+      address = config.metricsServerAddress
+      port = config.metricsServerPort + config.portsShift
+    info "Starting metrics HTTP server", address, port
+    startMetricsHttpServer($address, Port(port))
 
   if config.logMetrics:
     # https://github.com/nim-lang/Nim/issues/17369
