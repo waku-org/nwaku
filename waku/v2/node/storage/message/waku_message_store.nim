@@ -185,11 +185,14 @@ proc migrate*(db: SqliteDatabase, path: string = MIGRATION_PATH, tragetVersion: 
     proc handler(s: ptr sqlite3_stmt) = 
       discard
 
-    # apply updates
-    for update in scripts:
-      let res = db.query(update, handler)
-      if res.isErr:
-        return err("failed to run the update script")
+    # run the scripts
+    for script in scripts:
+      # a script may contain multiple queries
+      let queries = script.splitScript()
+      for query in queries:
+        let res = db.query(query, handler)
+        if res.isErr:
+          return err("failed to run the script")
     
     # bump the user version
     let res = db.setUserVerion(tragetVersion)
