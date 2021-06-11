@@ -1,4 +1,23 @@
 # Changelog
+## Next
+
+This release contains the following:
+
+### Features
+
+### Changes
+- Enables database migration for message store.
+#### General refactoring
+
+#### Docs
+#### Schema
+- Updates the `Message` table of the persistent message store:
+  - Adds `senderTimestamp` column.
+  - Renames the `timestamp` column to `receiverTimestamp` and changes its type to `REAL`.
+#### API
+
+### Fixes
+
 
 ## 2021-06-03 v0.4
 
@@ -17,12 +36,6 @@ This release contains the following:
 - Content topics are no longer in a redundant nested structure
 - Improve error handling
 
-#### General refactoring
-#### Docs
-#### Schema
-- Updates the `Message` table of the persistent message store:
-  - Adds `senderTimestamp` column.
-  - Renames the `timestamp` column to `receiverTimestamp` and changes its type to `BLOB`.
 #### API
 
 - [JSON-RPC Store API](https://rfc.vac.dev/spec/16): Added an optional time-based query to filter historical messages.
