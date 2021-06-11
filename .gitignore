@@ -36,3 +36,5 @@ node_modules/
 /.update.timestamp
 
 libwaku
+
+tests/v2/test_migration_utils
