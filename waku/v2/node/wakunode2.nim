@@ -1,9 +1,8 @@
 import
-  std/[options, tables, strutils, sequtils],
+  std/[options, tables, strutils, sequtils, os],
   chronos, chronicles, metrics,
   metrics/chronos_httpserver,
   stew/shims/net as stewNet,
-  os,
   # TODO: Why do we need eth keys?
   eth/keys,
   web3,
