@@ -1,5 +1,6 @@
 import 
-  os, algorithm, tables, strutils, chronicles, 
+  std/[os, algorithm, tables, strutils], 
+  chronicles, 
   stew/results,
   migration_types
 
