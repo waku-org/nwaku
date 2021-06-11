@@ -54,7 +54,7 @@ proc filterScripts*(migrationScripts: MigrationScripts, s: int64, e: int64 ): Re
     return err("failed to filter scripts")
 
 proc splitScript*(script: string): seq[string] =
-  ## parses the scripts into its  individual sql commands and returns them
+  ## parses the script into its  individual sql commands and returns them
   var queries: seq[string] = @[]
   for q in script.split(';'):
     if  isEmptyOrWhitespace(q): continue
