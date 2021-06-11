@@ -35,7 +35,7 @@ proc getMigrationScripts*(migrationPath: string): MigrationScriptsResult[Migrati
   ok(migrationScripts)
 
 proc filterMigrationScripts*(migrationScripts: MigrationScripts, version: int64): seq[string] = 
-  ## filters migration scripts whose version is higher than the given version 
+  ## filters migration scripts whose version is strictly higher than the given version 
   for name, query in migrationScripts.migrationUp:
     let parts = name.split("_")
     #TODO this should be int64
