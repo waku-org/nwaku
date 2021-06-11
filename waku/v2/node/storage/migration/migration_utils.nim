@@ -6,45 +6,54 @@ import
 proc getMigrationScripts*(migrationPath: string): MigrationScriptsResult[MigrationScripts] =
   ## this code is borrowed from https://github.com/status-im/nim-status/blob/21aebe41be03cb6450ea261793b800ed7d3e6cda/nim_status/migrations/sql_generate.nim#L4
   var migrationScripts = MigrationScripts(migrationUp:initOrderedTable[string, string](), migrationDown:initOrderedTable[string, string]())
+  try:
+    for kind, path in walkDir(migrationPath):
+      let (_, name, ext) = splitFile(path)
+      if ext != ".sql": continue
 
-  for kind, path in walkDir(migrationPath):
-    let (_, name, ext) = splitFile(path)
-    if ext != ".sql": continue
+      let parts = name.split(".")
+      if parts.len < 2:
+        continue
+      let script = parts[0]
+      let direction = parts[1]
 
-    let parts = name.split(".")
-    if parts.len < 2:
-      continue
-    let script = parts[0]
-    let direction = parts[1]
+      debug "name", script=script
+      case direction:
+      of "up":
+        migrationScripts.migrationUp[script] = readFile(path)
+        debug "up script", readScript=migrationScripts.migrationUp[script]
+      of "down":
+        migrationScripts.migrationDown[script] = readFile(path)
+        debug "down script", readScript=migrationScripts.migrationDown[script]
+      else:
+        debug "Invalid script: ", name
 
-    debug "name", script=script
-    case direction:
-    of "up":
-      migrationScripts.migrationUp[script] = readFile(path)
-      debug "up script", readScript=migrationScripts.migrationUp[script]
-    of "down":
-      migrationScripts.migrationDown[script] = readFile(path)
-      debug "down script", readScript=migrationScripts.migrationDown[script]
-    else:
-      debug "Invalid script: ", name
-
-  migrationScripts.migrationUp.sort(system.cmp)
-  migrationScripts.migrationDown.sort(system.cmp)
- 
+    migrationScripts.migrationUp.sort(system.cmp)
+    migrationScripts.migrationDown.sort(system.cmp)
   
-  ok(migrationScripts)
+    ok(migrationScripts)
 
-proc filterMigrationScripts*(migrationScripts: MigrationScripts, version: int64): seq[string] = 
-  ## filters migration scripts whose version is strictly higher than the given version 
-  for name, query in migrationScripts.migrationUp:
-    let parts = name.split("_")
-    #TODO this should be int64
-    let ver = parseInt(parts[0])
-    # fetch scripts for higher versions
-    if version < ver:
-      result.add(query)
+  except OSError, IOError:
+    return err("failed to load the migration scripts") 
+
+
+proc filterMigrationScripts*(migrationScripts: MigrationScripts, version: int64): Result[seq[string], string] = 
+  ## returns migration scripts that target user versions higher than the input version
+  var scripts: seq[string]
+  try:
+    for name, script in migrationScripts.migrationUp:
+      let parts = name.split("_")
+      #TODO this should be int64
+      let ver = parseInt(parts[0])
+      # fetch scripts for higher versions
+      if version < ver:
+        scripts.add(script)
+    ok(scripts)
+  except ValueError:
+    return err("failed to filter scripts")
 
 proc splitScript*(script: string): seq[string] =
+  ## returns the individual sql commands inside the script
   var queries: seq[string] = @[]
   for q in script.split(';'):
     if  isEmptyOrWhitespace(q): continue

@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/unittest, tables,strutils, os,
+  std/[unittest, tables, strutils, os],
   chronicles,
   stew/results,
   ../../waku/v2/node/storage/migration/[migration_types, migration_utils]
@@ -14,12 +14,12 @@ suite "Migration utils":
     let migrationScriptsRes = getMigrationScripts(MIGRATION_PATH)
     check:
       migrationScriptsRes.isErr == false
-      len((migrationScriptsRes.value).migrationUp) == 1
   test "filter migration scripts":
-    let migrationScripts = getMigrationScripts(MIGRATION_PATH)
-    let scripts = filterMigrationScripts(migrationScripts.value, 0)
+    let migrationUp = [("0001_init", "script1"), ("0001_add", "script1"), ("0002_init", "script2"), ("0003_init", "script3")].toOrderedTable()
+    let migrationScripts = MigrationScripts(migrationUp: migrationUp)
+    let scripts = filterMigrationScripts(migrationScripts, 1)
     check:
-      scripts.len == 1
+      scripts.len == 2
   test "split scripts with multiple queries":
     let script = "; ;"
     let queries = splitScript(script)

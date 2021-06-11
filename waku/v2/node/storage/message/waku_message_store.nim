@@ -167,20 +167,19 @@ proc migrate*(db: SqliteDatabase, path: string = MIGRATION_PATH, tragetVersion: 
   else:
     # TODO check for the down migrations i.e., userVersion.value > tragetVersion
     # fetch migration scripts
-    var migrationScripts: MigrationScripts
-    try:
-      let migrationScriptsResult = getMigrationScripts(path) 
-      migrationScripts = migrationScriptsResult.value
-    except OSError, IOError:
-      return err("failed to fetch migration scripts")
+    let migrationScriptsRes = getMigrationScripts(path)
+    if migrationScriptsRes.isErr:
+      return err("failed to load migration scripts")
+    let migrationScripts = migrationScriptsRes.value
 
     # filter scripts that are higher than the current db version
-    var scripts: seq[string] 
-    try:
-      scripts = filterMigrationScripts(migrationScripts, userVersion.value)
-    except ValueError:
+    let scriptsRes = filterMigrationScripts(migrationScripts, userVersion.value)
+    if scriptsRes.isErr:
       return err("failed to fetch migration scripts")
+    
+    let scripts = scriptsRes.value
     info "scripts to be run", scripts=scripts
+    
     
     proc handler(s: ptr sqlite3_stmt) = 
       discard
