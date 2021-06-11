@@ -6,7 +6,7 @@ This release contains the following:
 ### Features
 
 ### Changes
-- Enables database migration for message store.
+- Enables migration for the message store database.
 #### General refactoring
 
 #### Docs
