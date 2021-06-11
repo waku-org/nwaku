@@ -1,7 +1,29 @@
-CREATE TABLE contacts (
-	contact_id INTEGER PRIMARY KEY,
-	first_name TEXT NOT NULL,
-	last_name TEXT NOT NULL,
-	email TEXT NOT NULL UNIQUE,
-	phone TEXT NOT NULL UNIQUE
-);
+/* Copy the accounts table into a temp table, EXCLUDE the `photoPath` and INCLUDE `identicon` column */
+CREATE TABLE IF NOT EXISTS Message_backup (
+        id BLOB PRIMARY KEY,
+        timestamp INTEGER NOT NULL,
+        contentTopic BLOB NOT NULL,
+        pubsubTopic BLOB NOT NULL,
+        payload BLOB,
+        version INTEGER NOT NULL
+    ) WITHOUT ROWID;
+
+INSERT INTO Message_backup SELECT id, timestamp, contentTopic, pubsubTopic, payload, version FROM Message;
+
+/* Drop the old Message  table and recreate with all columns*/
+DROP TABLE Message;
+
+CREATE TABLE IF NOT EXISTS Message(
+        id BLOB PRIMARY KEY,
+        receiverTimestamp BLOB NOT NULL,
+        contentTopic BLOB NOT NULL,
+        pubsubTopic BLOB NOT NULL,
+        payload BLOB,
+        version INTEGER NOT NULL,
+        senderTimestamp BLOB NOT NULL
+    ) WITHOUT ROWID;
+
+INSERT INTO Message SELECT id, timestamp, contentTopic, pubsubTopic, payload, version, 0  FROM Message_backup;
+
+/* Tidy up, drop the temp table */
+DROP TABLE Message_backup;
