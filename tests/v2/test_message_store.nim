@@ -1,12 +1,10 @@
 {.used.}
 
 import
-  std/[unittest, strutils, options, tables, sets, times, os],
-  chronos, chronicles,
-  sqlite3_abi,
+  std/[unittest, options, tables, sets, times, os],
+  chronos,
   ../../waku/v2/node/storage/message/waku_message_store,
   ../../waku/v2/node/storage/sqlite,
-  ../../waku/v2/node/storage/migration/[migration_types, migration_utils],
   ../../waku/v2/protocol/waku_store/waku_store,
   ./utils
 
