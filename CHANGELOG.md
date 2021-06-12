@@ -6,9 +6,8 @@ This release contains the following:
 ### Features
 
 ### Changes
-- Enables migration for the message store database.
+- Enables db migration for the message store.
 #### General refactoring
-
 #### Docs
 #### Schema
 - Updates the `Message` table of the persistent message store:
