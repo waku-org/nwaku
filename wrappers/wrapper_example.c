@@ -3,6 +3,8 @@
 
 #include "libwaku.h"
 
+void NimMain();
+
 int main(int argc, char* argv[]) {
   char* string;
   NimMain();
