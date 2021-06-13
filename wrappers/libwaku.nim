@@ -99,8 +99,15 @@ proc info(foo: cstring): cstring {.exportc, dynlib.} =
 proc nwaku_start(): bool {.exportc, dynlib.} =
   echo "Start WakuNode"
 
-  let
-    conf = WakuNodeConf.load()
+  # XXX paramCount not supported in dynamic libraries, workaround in local nim-confutil
+  # 1) Upstream error 2) Either use that for now (can compile library locally) or get rid of conf (manual args? error prone)
+  #
+  # nim-confutils/confutils.nim(758, 22) Error: commandLineParams() unsupported by dynamic libraries; usage of 'commandLineParams' is an {.error.}
+  # Loading with cmdLine empty (seq TaintedString)
+  # Same error if we do when declared(commandLineParams) in confutils.nim
+  #let conf = WakuNodeConf.defaults()
+  # Workaround in local nim-confutil
+  let conf = WakuNodeConf.load()
 
   # Storage setup
   var sqliteDatabase: SqliteDatabase
@@ -123,6 +130,11 @@ proc nwaku_start(): bool {.exportc, dynlib.} =
     else:
       pStorage = res.value
 
+  # XXX fPIC in nim-nat-traversal doesn't work, 1) upstream error 2) consdier doing without NAT here initially
+  #usr/bin/ld: /home/oskarth/git/status-im/nim-waku/vendor/nim-nat-traversal/vendor/libnatpmp-upstream/libnatpmp.a(natpmp.o): relocation R_X86_64_32S against `.rodata' can not be used when making a shared object; recompile with -fPIC
+  #/usr/bin/ld: /home/oskarth/git/status-im/nim-waku/vendor/nim-nat-traversal/vendor/libnatpmp-upstream/libnatpmp.a(getgateway.o): relocation R_X86_64_32 against `.rodata.str1.1' can not be used when making a shared object; recompile with -fPIC
+  #collect2: error: ld returned 1 exit status
+  #Error: execution of an external program failed: 'gcc  @libwaku_linkerArgs.txt'
   let
     (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
       Port(uint16(conf.tcpPort) + conf.portsShift),
