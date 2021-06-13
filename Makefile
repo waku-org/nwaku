@@ -29,6 +29,8 @@ DOCKER_IMAGE_NIM_PARAMS ?= -d:chronicles_colors:none -d:insecure
 	bridge \
 	test \
 	clean \
+	libwaku.so \
+	wrappers \
 	libbacktrace
 
 ifeq ($(NIM_PARAMS),)
@@ -128,7 +130,7 @@ rlnlib:
 ifeq ($(RLN), true)
 	cargo build --manifest-path vendor/rln/Cargo.toml
 endif
-	
+
 test2: | build deps installganache
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test2 $(NIM_PARAMS) waku.nims
@@ -185,3 +187,17 @@ ifneq ($(USE_LIBBACKTRACE), 0)
 endif
 
 endif # "variables.mk" was not included
+
+libwaku.so: | build deps
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim c --app:lib --noMain --nimcache:nimcache/libwaku $(NIM_PARAMS) -o:build/$@.0 wrappers/libwaku.nim && \
+		rm -f build/$@ && \
+		ln -s $@.0 build/$@
+
+# libraries for dynamic linking of non-Nim objects
+EXTRA_LIBS_DYNAMIC := -L"$(CURDIR)/build" -lwaku -lm
+wrappers: | build deps libwaku.so
+	echo -e $(BUILD_MSG) "build/C_wrapper_example" && \
+		 $(CC) wrappers/wrapper_example.c -Wl,-rpath,'$$ORIGIN' $(EXTRA_LIBS_DYNAMIC) -g -o build/C_wrapper_example
+	echo -e $(BUILD_MSG) "build/go_wrapper_example" && \
+		go build -ldflags "-linkmode external -extldflags '$(EXTRA_LIBS_DYNAMIC)'" -o build/go_wrapper_example wrappers/wrapper_example.go #wrappers/cfuncs.go
