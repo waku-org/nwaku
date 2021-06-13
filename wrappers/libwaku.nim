@@ -28,18 +28,8 @@ import
   ../waku/v2/protocol/[waku_relay, waku_message, message_notifier],
   ../waku/common/utils/nat
 
-# TODO Start a node
-# TODO Mock info call
-# TODO Write header file
-# TODO Write example C code file
-# TODO Wrap info call
-# TODO Init a node
-
-# proc info*(node: WakuNode): WakuInfo =
-proc info(foo: cstring): cstring {.exportc, dynlib.} =
-  echo "info about node"
-  echo foo
-  return foo
+# Helper functions
+#-----------------------------------------------------------------------------
 
 proc startRpc(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port, conf: WakuNodeConf) =
   let
@@ -96,6 +86,14 @@ proc startMetricsLog() =
     info "Node metrics", totalMessages
     discard setTimer(Moment.fromNow(2.seconds), logMetrics)
   discard setTimer(Moment.fromNow(2.seconds), logMetrics)
+
+# Exported
+#-----------------------------------------------------------------------------
+
+proc info(foo: cstring): cstring {.exportc, dynlib.} =
+  echo "info about node"
+  echo foo
+  return foo
 
 # XXX Async seems tricky with C here
 proc nwaku_start(): bool {.exportc, dynlib.} =
@@ -210,28 +208,10 @@ proc nwaku_start(): bool {.exportc, dynlib.} =
 proc echo() {.exportc.} =
  echo "echo"
 
-# TODO Here at the moment, start the node
-# Then do info call
-# WIP
-#proc main() {.async.} =
-#  let
-#    rng = crypto.newRng()
-#    conf = WakuNodeConf.load()
-#    (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
-#      Port(uint16(conf.tcpPort) + conf.portsShift),
-#      Port(uint16(conf.udpPort) + conf.portsShift))
-#    node = WakuNode.init(conf.nodeKey, conf.listenAddress,
-#      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
-#
-#  await node.start()
-#
-#main()
-
-  # When main done stuff
+# TODO Setup graceful shutdown
+# XXX No node reference here
 
 # Setup graceful shutdown
-
-# XXX No node reference here
 
 # # Handle Ctrl-C SIGINT
 # proc handleCtrlC() {.noconv.} =
@@ -253,7 +233,7 @@ proc echo() {.exportc.} =
 
 #   c_signal(SIGTERM, handleSigterm)
 
-
-echo "hello there"
-var foo = nwaku_start()
+# XXX Ensure only for Nim code, not exported C
+echo "Starting node"
+var res = nwaku_start()
 runForever()
