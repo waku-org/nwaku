@@ -141,7 +141,7 @@ proc migrate*(db: SqliteDatabase, path: string = MIGRATION_PATH, targetVersion: 
   # read database version
   let userVersion = db.getUserVersion()
   debug "current db user_version", userVersion=userVersion
-  if userVersion.value == tragetVersion:
+  if userVersion.value == targetVersion:
     # already up to date
     info "database is up to date"
     ok(true)
