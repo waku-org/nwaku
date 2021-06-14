@@ -255,7 +255,7 @@ when isMainModule:
   elif conf.fleetV1 == test: connectToNodes(bridge.nodev1, WhisperNodesTest)
 
   # Mount configured Waku v2 protocols
-  mountKeepalive(bridge.nodev2)
+  mountLibp2pPing(bridge.nodev2)
   
   if conf.store:
     mountStore(bridge.nodev2, persistMessages = false)  # Bridge does not persist messages

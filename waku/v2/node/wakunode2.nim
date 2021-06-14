@@ -9,6 +9,7 @@ import
   libp2p/multiaddress,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
+  libp2p/protocols/ping,
   # NOTE For TopicHandler, solve with exports?
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
@@ -20,7 +21,6 @@ import
   ../protocol/waku_filter/waku_filter,
   ../protocol/waku_lightpush/waku_lightpush,
   ../protocol/waku_rln_relay/waku_rln_relay_types,
-  ../protocol/waku_keepalive/waku_keepalive,
   ../utils/peers,
   ./storage/message/message_store,
   ./storage/peer/peer_storage,
@@ -68,8 +68,8 @@ type
     wakuSwap*: WakuSwap
     wakuRlnRelay*: WakuRLNRelay
     wakuLightPush*: WakuLightPush
-    wakuKeepalive*: WakuKeepalive
     peerInfo*: PeerInfo
+    libp2pPing*: Ping
     libp2pTransportLoops*: seq[Future[void]]
   # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
     messages*: seq[(Topic, WakuMessage)]
@@ -530,19 +530,34 @@ proc mountLightPush*(node: WakuNode) =
 
   node.switch.mount(node.wakuLightPush)
 
-proc mountKeepalive*(node: WakuNode) =
-  info "mounting keepalive"
+proc mountLibp2pPing*(node: WakuNode) =
+  info "mounting libp2p ping protocol"
 
-  node.wakuKeepalive = WakuKeepalive.new(node.peerManager, node.rng)
+  node.libp2pPing = Ping.new(rng = node.rng)
 
-  node.switch.mount(node.wakuKeepalive)
+  node.switch.mount(node.libp2pPing)
 
 proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
   while node.started:
-    # Keep all managed peers alive when idle
+    # Keep all connected peers alive while running
     trace "Running keepalive"
 
-    await node.wakuKeepalive.keepAllAlive()
+    # First get a list of connected peer infos
+    let peers = node.peerManager.peers()
+                                .filterIt(node.peerManager.connectedness(it.peerId) == Connected)
+                                .mapIt(it.toPeerInfo())
+
+    # Attempt to retrieve and ping the active outgoing connection for each peer
+    for peer in peers:
+      let connOpt = await node.peerManager.dialPeer(peer, PingCodec)
+
+      if connOpt.isNone:
+        # @TODO more sophisticated error handling here
+        debug "failed to connect to remote peer", peer=peer
+        waku_node_errors.inc(labelValues = ["keep_alive_failure"])
+        return
+
+      discard await node.libp2pPing.ping(connOpt.get())  # Ping connection
     
     await sleepAsync(keepalive)
 
@@ -752,7 +767,7 @@ when isMainModule:
              relayMessages = conf.relay) # Indicates if node is capable to relay messages
   
   # Keepalive mounted on all nodes
-  mountKeepalive(node)
+  mountLibp2pPing(node)
   
   # Resume historical messages, this has to be called after the relay setup           
   if conf.store and conf.persistMessages:
