@@ -179,5 +179,6 @@ proc migrate*(db: SqliteDatabase, path: string = MIGRATION_PATH, targetVersion: 
     if res.isErr:
       return err("failed to set the new user_version")
 
+    debug "user_version is set to", targetVersion=targetVersion
     ok(true)
     
