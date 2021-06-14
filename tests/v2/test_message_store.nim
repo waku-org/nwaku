@@ -109,7 +109,7 @@ suite "Message Store":
     check:
       res.isErr == false
 
-    let ver = database.getUserVerion()
+    let ver = database.getUserVersion()
     check:
       ver.isErr == false
       ver.value == 10
