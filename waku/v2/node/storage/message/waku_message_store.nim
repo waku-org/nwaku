@@ -175,7 +175,7 @@ proc migrate*(db: SqliteDatabase, path: string = MIGRATION_PATH, targetVersion: 
         return err("failed to run the script")
     
     # bump the user version
-    let res = db.setUserVersion(tragetVersion)
+    let res = db.setUserVersion(targetVersion)
     if res.isErr:
       return err("failed to set the new user_version")
 
