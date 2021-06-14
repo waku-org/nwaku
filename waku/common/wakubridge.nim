@@ -161,9 +161,9 @@ proc start*(bridge: WakuBridge) {.async.} =
 
   # Bridging
   # Handle messages on Waku v1 and bridge to Waku v2  
-  proc handleEnvReceived(envelope: Envelope) {.gcsafe.} =
+  proc handleEnvReceived(envelope: Envelope) {.gcsafe, raises: [Defect].} =
     trace "Bridging envelope from V1 to V2", envelope=envelope
-    waitFor bridge.toWakuV2(envelope)
+    asyncSpawn bridge.toWakuV2(envelope)
 
   bridge.nodev1.registerEnvReceivedHandler(handleEnvReceived)
 

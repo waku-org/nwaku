@@ -34,27 +34,30 @@ proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
     extra_params &= " " & paramStr(i)
   exec "nim " & lang & " --out:build/" & name & " " & extra_params & " " & srcDir & name & ".nim"
 
-proc test(name: string, lang = "c") =
+proc test(name: string, params = "-d:chronicles_log_level=DEBUG", lang = "c") =
   # XXX: When running `> NIM_PARAMS="-d:chronicles_log_level=INFO" make test2`
   # I expect compiler flag to be overridden, however it stays with whatever is
   # specified here.
-  buildBinary name, "tests/", "-d:chronicles_log_level=DEBUG"
-  #buildBinary name, "tests/", "-d:chronicles_log_level=ERROR"
+  buildBinary name, "tests/", params
   exec "build/" & name
 
 ### Waku v1 tasks
 task wakunode1, "Build Waku v1 cli node":
-  buildBinary "wakunode1", "waku/v1/node/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "wakunode1", "waku/v1/node/",
+    "-d:chronicles_log_level=DEBUG -d:chronosStrictException"
 
 task sim1, "Build Waku v1 simulation tools":
-  buildBinary "quicksim", "waku/v1/node/", "-d:chronicles_log_level=INFO"
-  buildBinary "start_network", "waku/v1/node/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "quicksim", "waku/v1/node/",
+    "-d:chronicles_log_level=INFO -d:chronosStrictException"
+  buildBinary "start_network", "waku/v1/node/",
+    "-d:chronicles_log_level=DEBUG -d:chronosStrictException"
 
 task example1, "Build Waku v1 example":
-  buildBinary "example", "examples/v1/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "example", "examples/v1/",
+    "-d:chronicles_log_level=DEBUG -d:chronosStrictException"
 
 task test1, "Build & run Waku v1 tests":
-  test "all_tests_v1"
+  test "all_tests_v1", "-d:chronicles_log_level=WARN -d:chronosStrictException"
 
 ### Waku v2 tasks
 task wakunode2, "Build Waku v2 (experimental) cli node":
