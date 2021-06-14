@@ -53,13 +53,3 @@ proc filterScripts*(migrationScripts: MigrationScripts, s: int64, e: int64 ): Re
   except ValueError:
     return err("failed to filter scripts")
 
-proc splitScript*(script: string): seq[string] =
-  ## parses the script into its  individual sql commands and returns them
-  var queries: seq[string] = @[]
-  for q in script.split(';'):
-    if  isEmptyOrWhitespace(q): continue
-    let query = q.strip() & ";"
-    queries.add(query)
-  return queries
-
-

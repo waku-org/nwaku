@@ -22,30 +22,3 @@ suite "Migration utils":
     check:
       scriptsRes.isErr == false
       scriptsRes.value.len == 2
-
-  test "split scripts with no queries":
-    let script = "; ;"
-    let queries = splitScript(script)
-    check queries.len == 0
-
-  test "split scripts with multiple queries":
-    let q1 = """CREATE TABLE contacts2 (
-                contact_id INTEGER PRIMARY KEY,
-                first_name TEXT NOT NULL,
-                last_name TEXT NOT NULL,
-                email TEXT NOT NULL UNIQUE,
-                phone TEXT NOT NULL UNIQUE
-                );"""
-    let q2 = """CREATE TABLE contacts2 (
-                contact_id INTEGER PRIMARY KEY,
-                first_name TEXT NOT NULL,
-                last_name TEXT NOT NULL,
-                email TEXT NOT NULL UNIQUE,
-                phone TEXT NOT NULL UNIQUE
-                );"""
-    let script = q1 & q2
-    let queries = splitScript(script)
-    check:
-      queries.len == 2
-      queries[0] == q1
-      queries[1] == q2

@@ -139,7 +139,7 @@ proc migrate*(db: SqliteDatabase, path: string = MIGRATION_PATH, tragetVersion: 
   ## once the db is updated, it sets the user_version to the tragetVersion
   
   # read database version
-  let userVersion = db.getUserVerion()
+  let userVersion = db.getUserVersion()
   debug "current db user_version", userVersion=userVersion
   if userVersion.value == tragetVersion:
     # already up to date
@@ -168,20 +168,14 @@ proc migrate*(db: SqliteDatabase, path: string = MIGRATION_PATH, tragetVersion: 
     
     # run the scripts
     for script in scripts:
-      debug "script", script=script
-      # a script may contain multiple queries
-      let queries = script.splitScript()
-      # TODO queries of the same script should be executed in an atomic manner
-      for query in queries:
-        let res = db.query(query, handler)
-        if res.isErr:
-          debug "failed to run the query", query=query
-          return err("failed to run the script")
-        else:
-          debug "query is executed", query=query
+      debug "running the script", script=script
+      let res = db.query(script, handler)
+      if res.isErr:
+        debug "failed to run the script", script=script
+        return err("failed to run the script")
     
     # bump the user version
-    let res = db.setUserVerion(tragetVersion)
+    let res = db.setUserVersion(tragetVersion)
     if res.isErr:
       return err("failed to set the new user_version")
 
