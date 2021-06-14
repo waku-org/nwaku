@@ -210,7 +210,7 @@ proc close*(db: SqliteDatabase) =
 
   db[] = SqliteDatabase()[]
 
-proc getUserVerion*(database: SqliteDatabase): DatabaseResult[int64] = 
+proc getUserVersion*(database: SqliteDatabase): DatabaseResult[int64] = 
   var version: int64
   proc handler(s: ptr sqlite3_stmt) = 
     version = sqlite3_column_int64(s, 0)
@@ -232,4 +232,3 @@ proc setUserVersion*(database: SqliteDatabase, version: int64): DatabaseResult[b
   if res.isErr:
       return err("failed to set user_version")
   ok(true)
-
