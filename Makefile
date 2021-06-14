@@ -188,9 +188,13 @@ endif
 
 endif # "variables.mk" was not included
 
+# To use nim-nat-traversal as shared library we need this:
+# d:miniupnpcUseSystemLibs -d:libnatpmpUseSystemLibs
+# It seems as if libnatpmp is enough to get rid of linker errors.
+# It probably needs to be explicitly installed in the local system though.
 libwaku.so: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim c --app:lib --noMain --nimcache:nimcache/libwaku $(NIM_PARAMS) -o:build/$@.0 wrappers/libwaku.nim && \
+		$(ENV_SCRIPT) nim c --app:lib --noMain -d:libnatpmpUseSystemLibs --nimcache:nimcache/libwaku $(NIM_PARAMS) -o:build/$@.0 wrappers/libwaku.nim && \
 		rm -f build/$@ && \
 		ln -s $@.0 build/$@
 
