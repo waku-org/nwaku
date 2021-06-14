@@ -88,10 +88,10 @@ suite "Message Store":
       store = WakuMessageStore.init(database)[]
     defer: store.close()
 
-    let res = database.setUserVerion(5)
+    let res = database.setUserVersion(5)
     check res.isErr == false
 
-    let ver = database.getUserVerion()
+    let ver = database.getUserVersion()
     check:
       ver.isErr == false
       ver.value == 5
