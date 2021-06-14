@@ -220,7 +220,7 @@ proc getUserVerion*(database: SqliteDatabase): DatabaseResult[int64] =
   ok(version)
 
 
-proc setUserVerion*(database: SqliteDatabase, version: int64): DatabaseResult[bool] = 
+proc setUserVersion*(database: SqliteDatabase, version: int64): DatabaseResult[bool] = 
   ## sets  the value of the user-version integer at offset 60 in the database header. 
   ## some context borrowed from https://www.sqlite.org/pragma.html#pragma_user_version
   ## The user-version is an integer that is available to applications to use however they want. 
@@ -232,5 +232,4 @@ proc setUserVerion*(database: SqliteDatabase, version: int64): DatabaseResult[bo
   if res.isErr:
       return err("failed to set user_version")
   ok(true)
-
 
