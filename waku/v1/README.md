@@ -20,9 +20,6 @@ All of the below commands should be executed at the root level, i.e. `cd ../..`.
 ### Prerequisites
 
 * GNU Make, Bash and the usual POSIX utilities. Git 2.9.4 or newer.
-* PCRE
-
-More information on the installation of these can be found [here](https://github.com/status-im/nimbus#prerequisites).
 
 ### Wakunode
 
