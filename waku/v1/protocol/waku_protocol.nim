@@ -85,9 +85,10 @@ type
     received: HashSet[Hash]
     accounting*: Accounting
 
-  P2PRequestHandler* = proc(peer: Peer, envelope: Envelope) {.gcsafe.}
+  P2PRequestHandler* = proc(peer: Peer, envelope: Envelope)
+    {.gcsafe, raises: [Defect].}
 
-  EnvReceivedHandler* = proc(envelope: Envelope) {.gcsafe.}
+  EnvReceivedHandler* = proc(envelope: Envelope) {.gcsafe, raises: [Defect].}
 
   WakuNetwork = ref object
     queue*: ref Queue
@@ -227,7 +228,7 @@ proc initProtocolState*(network: WakuNetwork, node: EthereumNode) {.gcsafe.} =
   network.config.rateLimits = none(RateLimits)
   network.config.maxMsgSize = defaultMaxMsgSize
   network.config.topics = none(seq[Topic])
-  asyncCheck node.run(network)
+  asyncSpawn node.run(network)
 
 p2pProtocol Waku(version = wakuVersion,
                  rlpxName = "waku",
@@ -274,7 +275,7 @@ p2pProtocol Waku(version = wakuVersion,
 
     # No timer based queue processing for a light node.
     if not wakuNet.config.isLightNode:
-      traceAsyncErrors peer.run()
+      asyncSpawn peer.run()
 
     debug "Waku peer initialized", peer
 
@@ -461,7 +462,13 @@ proc sendP2PMessage(node: EthereumNode, peerId: NodeId,
     envelopes: openarray[Envelope]): bool =
   for peer in node.peers(Waku):
     if peer.remote.id == peerId:
-      asyncCheck peer.p2pMessage(envelopes)
+      let f = peer.p2pMessage(envelopes)
+      # Can't make p2pMessage not raise so this is the "best" option I can think
+      # of instead of using asyncSpawn and still keeping the call not async.
+      f.callback = proc(data: pointer) {.gcsafe, raises: [Defect].} =
+        if f.failed:
+          warn "P2PMessage send failed", msg = f.readError.msg
+
       return true
 
 proc queueMessage(node: EthereumNode, msg: Message): bool =
