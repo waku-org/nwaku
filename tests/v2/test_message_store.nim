@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[unittest, options, tables, sets, times, os],
+  std/[unittest, options, tables, sets, times, os, strutils],
   chronos,
   ../../waku/v2/node/storage/message/waku_message_store,
   ../../waku/v2/node/storage/sqlite,
@@ -85,6 +85,8 @@ suite "Message Store":
   test "set and get user version":
     let 
       database = SqliteDatabase.init("", inMemory = true)[]
+      store = WakuMessageStore.init(database)[]
+    defer: store.close()
 
     let res = database.setUserVerion(5)
     check res.isErr == false
@@ -93,20 +95,21 @@ suite "Message Store":
     check:
       ver.isErr == false
       ver.value == 5
-  # test "migration":
-  #   let 
-  #     database = SqliteDatabase.init("", inMemory = true)[]
-  #     store = WakuMessageStore.init(database)[]
-  #   defer: store.close()
+  test "migration":
+  # This is commented out but is useful for future debugging
+    let 
+      database = SqliteDatabase.init("", inMemory = true)[]
+      store = WakuMessageStore.init(database)[]
+    defer: store.close()
 
-  #   # template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
-  #   # let migrationPath = sourceDir / "../../waku/v2/node/storage/migration/migrations_scripts/message"
+    template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
+    let migrationPath = sourceDir
 
-  #   let res = database.migrate()
-  #   check:
-  #     res.isErr == false
+    let res = database.migrate(migrationPath, 10)
+    check:
+      res.isErr == false
 
-  #   let ver = database.getUserVerion()
-  #   check:
-  #     ver.isErr == false
-  #     # ver.value == 2
+    let ver = database.getUserVerion()
+    check:
+      ver.isErr == false
+      ver.value == 10
