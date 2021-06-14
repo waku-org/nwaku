@@ -7,8 +7,9 @@ import
 
 type
   # The Swap Mode determines the functionality available in the swap protocol.
-  # It determines the kind of logs to be displayed as well as tests to run.
-  # Refer to https://github/com/vacp2p/research/discussions/61 for more info on Swap Modes
+  # Soft: Deals with the account balance (Credit and debit) of each peer. 
+  # Mock: Includes the Send Cheque Functionality and peer disconnection upon failed signature verification or low balance. 
+  # Hard: Includes interactions with Smart Contracts.
   SwapMode* = enum
     Soft,
     Mock,
