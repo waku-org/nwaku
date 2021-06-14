@@ -1,10 +1,13 @@
 # this module contains the Nim wrappers for the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
 
 import
-  os,
+  std/[os,strutils],
   waku_rln_relay_types
 
-const libPath = "vendor/rln/target/debug/"
+
+template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
+
+const libPath = sourceDir / "../../../../vendor/rln/target/debug/"
 when defined(Windows):
   const libName* = libPath / "rln.dll"
 elif defined(Linux):
