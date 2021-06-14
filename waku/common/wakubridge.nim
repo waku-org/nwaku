@@ -63,7 +63,7 @@ func toWakuMessage(env: Envelope): WakuMessage =
               contentTopic: ContentTopic(string.fromBytes(env.topic)),
               version: 1)
 
-proc toWakuV2(bridge: WakuBridge, env: Envelope) {.async, raises: [Defect].} =
+proc toWakuV2(bridge: WakuBridge, env: Envelope) {.async.} =
   let msg = env.toWakuMessage()
 
   if bridge.seen.containsOrAdd(msg.encode().buffer.hash()):
