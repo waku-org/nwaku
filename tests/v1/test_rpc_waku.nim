@@ -1,8 +1,8 @@
 {.used.}
 
 import
-  std/[unittest, options, os, strutils],
-  stew/byteutils, json_rpc/[rpcserver, rpcclient],
+  std/[options, os, strutils],
+  testutils/unittests, stew/byteutils, json_rpc/[rpcserver, rpcclient],
   eth/common as eth_common, eth/[rlp, keys, p2p],
   ../../waku/v1/protocol/waku_protocol,
   ../../waku/v1/node/rpc/[hexstrings, rpc_types, waku, key_storage]
@@ -26,28 +26,25 @@ proc setupNode(capabilities: varargs[ProtocolInfo, `protocolInfo`],
     result.addCapability capability
 
 proc doTests {.async.} =
-  let rng = keys.newRng()
-  var ethNode = setupNode(Waku, rng)
-
-  # Create Ethereum RPCs
-  let rpcPort = 8545
-  var
-    rpcServer = newRpcSocketServer(["localhost:" & $rpcPort])
-    client = newRpcSocketClient()
-  let keys = newKeyStorage()
-  setupWakuRPC(ethNode, keys, rpcServer, rng)
-
-  # Begin tests
-  rpcServer.start()
-  await client.connect("localhost", Port(rpcPort))
-
   suite "Waku Remote Procedure Calls":
-    test "waku_version":
+    let
+      rng = keys.newRng()
+      ethNode = setupNode(Waku, rng)
+      rpcPort = 8545
+      rpcServer = newRpcSocketServer(["localhost:" & $rpcPort])
+      client = newRpcSocketClient()
+      keys = newKeyStorage()
+
+    setupWakuRPC(ethNode, keys, rpcServer, rng)
+    rpcServer.start()
+    await client.connect("localhost", Port(rpcPort))
+
+    asyncTest "waku_version":
       check await(client.waku_version()) == wakuVersionStr
-    test "waku_info":
+    asyncTest "waku_info":
       let info = await client.waku_info()
       check info.maxMessageSize == defaultMaxMsgSize
-    test "waku_setMaxMessageSize":
+    asyncTest "waku_setMaxMessageSize":
       let testValue = 1024'u64
       check await(client.waku_setMaxMessageSize(testValue)) == true
       var info = await client.waku_info()
@@ -56,14 +53,14 @@ proc doTests {.async.} =
         discard await(client.waku_setMaxMessageSize(defaultMaxMsgSize + 1))
       info = await client.waku_info()
       check info.maxMessageSize == testValue
-    test "waku_setMinPoW":
+    asyncTest "waku_setMinPoW":
       let testValue = 0.0001
       check await(client.waku_setMinPoW(testValue)) == true
       let info = await client.waku_info()
       check info.minPow == testValue
     # test "waku_markTrustedPeer":
       # TODO: need to connect a peer to test
-    test "waku asymKey tests":
+    asyncTest "waku asymKey tests":
       let keyID = await client.waku_newKeyPair()
       check:
         await(client.waku_hasKeyPair(keyID)) == true
@@ -83,7 +80,7 @@ proc doTests {.async.} =
         await(client.waku_hasKeyPair(keyID2)) == false
       expect ValueError:
         discard await(client.waku_deleteKeyPair(keyID2))
-    test "waku symKey tests":
+    asyncTest "waku symKey tests":
       let keyID = await client.waku_newSymKey()
       check:
         await(client.waku_hasSymKey(keyID)) == true
@@ -126,7 +123,7 @@ proc doTests {.async.} =
       powTarget = 0.001
       powTime = 1.0
 
-    test "waku filter create and delete":
+    asyncTest "waku filter create and delete":
       let
         topic = topicStr.toTopic()
         symKeyID = await client.waku_newSymKey()
@@ -140,7 +137,7 @@ proc doTests {.async.} =
       expect ValueError:
         discard await(client.waku_deleteMessageFilter(filterID))
 
-    test "waku symKey post and filter loop":
+    asyncTest "waku symKey post and filter loop":
       let
         topic = topicStr.toTopic()
         symKeyID = await client.waku_newSymKey()
@@ -170,7 +167,7 @@ proc doTests {.async.} =
 
         await(client.waku_deleteMessageFilter(filterID)) == true
 
-    test "waku asymKey post and filter loop":
+    asyncTest "waku asymKey post and filter loop":
       let
         topic = topicStr.toTopic()
         privateKeyID = await client.waku_newKeyPair()
@@ -200,7 +197,7 @@ proc doTests {.async.} =
 
         await(client.waku_deleteMessageFilter(filterID)) == true
 
-    test "waku signature in post and filter loop":
+    asyncTest "waku signature in post and filter loop":
       let
         topic = topicStr.toTopic()
         symKeyID = await client.waku_newSymKey()
@@ -234,7 +231,7 @@ proc doTests {.async.} =
 
         await(client.waku_deleteMessageFilter(filterID)) == true
 
-  rpcServer.stop()
-  rpcServer.close()
+    rpcServer.stop()
+    rpcServer.close()
 
 waitFor doTests()
