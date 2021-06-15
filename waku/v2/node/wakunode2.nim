@@ -695,14 +695,6 @@ when isMainModule:
       waku_node_errors.inc(labelValues = ["init_db_failure"])
     else:
       sqliteDatabase = dbRes.value
-    
-    # run migration 
-    info "running migration ... "
-    let migrationResult = sqliteDatabase.migrate()
-    if migrationResult.isErr:
-      warn "migration failed"
-    else:
-      info "migration is done"
       
   var pStorage: WakuPeerStorage
 
@@ -738,8 +730,16 @@ when isMainModule:
   # Store setup
   if (conf.storenode != "") or (conf.store):
     var store: WakuMessageStore
-
     if (not sqliteDatabase.isNil) and conf.persistMessages:
+
+      # run migration 
+      info "running migration ... "
+      let migrationResult = sqliteDatabase.migrate()
+      if migrationResult.isErr:
+        warn "migration failed"
+      else:
+        info "migration is done"
+
       let res = WakuMessageStore.init(sqliteDatabase)
       if res.isErr:
         warn "failed to init WakuMessageStore", err = res.error
