@@ -40,6 +40,8 @@ else:
 # for heap-usage-by-instance-type metrics and object base-type strings
 --define:nimTypeNames
 
+switch("define", "withoutPCRE")
+
 # the default open files limit is too low on macOS (512), breaking the
 # "--debugger:native" build. It can be increased with `ulimit -n 1024`.
 if not defined(macosx):
