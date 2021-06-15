@@ -133,7 +133,7 @@ proc close*(db: WakuMessageStore) =
   db.database.close()
 
 
-proc migrate*(db: SqliteDatabase, path: string = MIGRATION_PATH, targetVersion: int64 = USER_VERSION): MessageStoreResult[bool] = 
+proc migrate*(db: SqliteDatabase, path: string = MESSAGE_STORE_MIGRATION_PATH, targetVersion: int64 = USER_VERSION): MessageStoreResult[bool] = 
   ## compares the user_version of the db with the targetVersion 
   ## runs migration scripts if the user_version is outdated (does not support down migration)
   ## path points to the directory holding the migrations scripts
