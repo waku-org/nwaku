@@ -19,7 +19,7 @@ export sqlite
 const TABLE_TITLE = "Message"
 const USER_VERSION = 2 # increase this when there is a breaking change in the table schema
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
-const MIGRATION_PATH = sourceDir / "../migration/migrations_scripts/message"
+const MESSAGE_STORE_MIGRATION_PATH = sourceDir / "../migration/migrations_scripts/message"
 
 # The code in this file is an adaptation of the Sqlite KV Store found in nim-eth.
 # https://github.com/status-im/nim-eth/blob/master/eth/db/kvstore_sqlite3.nim
@@ -35,6 +35,7 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] 
   ## It contains:
   ##  - 4-Byte ContentTopic stored as an Integer
   ##  - Payload stored as a blob
+
   let prepare = db.prepareStmt("""
     CREATE TABLE IF NOT EXISTS """ & TABLE_TITLE & """ (
         id BLOB PRIMARY KEY,
@@ -100,16 +101,16 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageSto
       receiverTimestamp = sqlite3_column_double(s, 0)
 
       topic = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 1))
-      topicL = sqlite3_column_bytes(s,1)
-      contentTopic = ContentTopic(string.fromBytes(@(toOpenArray(topic, 0, topicL-1))))
+      topicLength = sqlite3_column_bytes(s,1)
+      contentTopic = ContentTopic(string.fromBytes(@(toOpenArray(topic, 0, topicLength-1))))
 
       p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 2))
-      l = sqlite3_column_bytes(s, 2)
-      payload = @(toOpenArray(p, 0, l-1))
+      length = sqlite3_column_bytes(s, 2)
+      payload = @(toOpenArray(p, 0, length-1))
 
       pubsubTopicPointer = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 3))
-      pubsubTopicL = sqlite3_column_bytes(s,3)
-      pubsubTopic = string.fromBytes(@(toOpenArray(pubsubTopicPointer, 0, pubsubTopicL-1)))
+      pubsubTopicLength = sqlite3_column_bytes(s,3)
+      pubsubTopic = string.fromBytes(@(toOpenArray(pubsubTopicPointer, 0, pubsubTopicLength-1)))
 
       version = sqlite3_column_int64(s, 4)
 
