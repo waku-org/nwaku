@@ -11,15 +11,13 @@ import
   stew/[byteutils, results],
   ./message_store,
   ../sqlite,
-  ../migration/[migration_types,migration_utils],
   ../../../protocol/waku_message,
   ../../../utils/pagination 
 export sqlite
 
 const TABLE_TITLE = "Message"
-const USER_VERSION = 2 # increase this when there is a breaking change in the table schema
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
-const MESSAGE_STORE_MIGRATION_PATH = sourceDir / "../migration/migrations_scripts/message"
+const MESSAGE_STORE_MIGRATION_PATH* = sourceDir / "../migration/migrations_scripts/message"
 
 # The code in this file is an adaptation of the Sqlite KV Store found in nim-eth.
 # https://github.com/status-im/nim-eth/blob/master/eth/db/kvstore_sqlite3.nim
@@ -132,61 +130,4 @@ proc close*(db: WakuMessageStore) =
   ## Closes the database.
   db.database.close()
 
-
-proc migrate*(db: SqliteDatabase, path: string = MESSAGE_STORE_MIGRATION_PATH, targetVersion: int64 = USER_VERSION): MessageStoreResult[bool] = 
-  ## compares the user_version of the db with the targetVersion 
-  ## runs migration scripts if the user_version is outdated (does not support down migration)
-  ## path points to the directory holding the migrations scripts
-  ## once the db is updated, it sets the user_version to the tragetVersion
-  
-  # read database version
-  let userVersion = db.getUserVersion()
-  debug "current db user_version", userVersion=userVersion
-  if userVersion.value == targetVersion:
-    # already up to date
-    info "database is up to date"
-    ok(true)
-  
-  else:
-    # TODO check for the down migrations i.e., userVersion.value > tragetVersion
-    # fetch migration scripts
-    let migrationScriptsRes = getScripts(path)
-    if migrationScriptsRes.isErr:
-      return err("failed to load migration scripts")
-    let migrationScripts = migrationScriptsRes.value
-
-    # filter scripts based on their versions
-    let scriptsRes = migrationScripts.filterScripts(userVersion.value, targetVersion)
-    if scriptsRes.isErr:
-      return err("failed to filter migration scripts")
-    
-    let scripts = scriptsRes.value
-    debug "scripts to be run", scripts=scripts
-    
-    
-    proc handler(s: ptr sqlite3_stmt) = 
-      discard
-    
-    # run the scripts
-    for script in scripts:
-      debug "script", script=script
-      # a script may contain multiple queries
-      let queries = script.splitScript()
-      # TODO queries of the same script should be executed in an atomic manner
-      for query in queries:
-        let res = db.query(query, handler)
-        if res.isErr:
-          debug "failed to run the query", query=query
-          return err("failed to run the script")
-        else:
-          debug "query is executed", query=query
-
-    
-    # bump the user version
-    let res = db.setUserVersion(targetVersion)
-    if res.isErr:
-      return err("failed to set the new user_version")
-
-    debug "user_version is set to", targetVersion=targetVersion
-    ok(true)
     

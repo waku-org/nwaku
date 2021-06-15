@@ -22,6 +22,7 @@ import
   ../protocol/waku_rln_relay/waku_rln_relay_types,
   ../protocol/waku_keepalive/waku_keepalive,
   ../utils/peers,
+  ./storage/sqlite,
   ./storage/message/message_store,
   ./storage/peer/peer_storage,
   ../utils/requests,
@@ -734,7 +735,7 @@ when isMainModule:
 
       # run migration 
       info "running migration ... "
-      let migrationResult = sqliteDatabase.migrate()
+      let migrationResult = sqliteDatabase.migrate(MESSAGE_STORE_MIGRATION_PATH)
       if migrationResult.isErr:
         warn "migration failed"
       else:
