@@ -117,8 +117,8 @@ proc new*(T: type PeerManager, switch: Switch, storage: PeerStorage = nil): Peer
                        peerStore: WakuPeerStore.new(),
                        storage: storage)
 
-  proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
-    onConnEvent(pm, peerId, event)
+  proc peerHook(peerInfo: PeerInfo, event: ConnEvent): Future[void] {.gcsafe.} =
+    onConnEvent(pm, peerInfo.peerId, event)
   
   pm.switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
   pm.switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
