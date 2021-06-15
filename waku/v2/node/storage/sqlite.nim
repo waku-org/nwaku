@@ -109,8 +109,6 @@ proc init*(
       discard sqlite3_finalize(journalModePragma)
       return err("Invalid pragma result: " & $x)
 
-  # checkExec "PRAGMA user_version = 1;"
-
 
   let journalModePragma = prepare("PRAGMA journal_mode = WAL;"): discard
   checkWalPragmaResult(journalModePragma)
