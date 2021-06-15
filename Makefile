@@ -14,6 +14,8 @@ BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 # -d:chronicles_colors:none - Necessary to disable colors in logs for Docker
 DOCKER_IMAGE_NIM_PARAMS ?= -d:chronicles_colors:none -d:insecure
 
+LINK_PCRE := 0
+
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
