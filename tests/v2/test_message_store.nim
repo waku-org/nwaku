@@ -96,7 +96,6 @@ suite "Message Store":
       ver.isErr == false
       ver.value == 5
   test "migration":
-  # This is commented out but is useful for future debugging
     let 
       database = SqliteDatabase.init("", inMemory = true)[]
       store = WakuMessageStore.init(database)[]
