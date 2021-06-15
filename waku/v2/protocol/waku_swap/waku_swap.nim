@@ -235,16 +235,17 @@ proc init*(wakuSwap: WakuSwap) =
     # TODO Separate out depending on if policy is soft (accounting only) mock (send cheque but don't cash/verify) hard (actually send funds over testnet)
 
     #Check if the Disconnect Threshold has been hit. Account Balance nears the disconnectThreshold after a Credit has been done
-    if wakuSwap.accounting[peerId] <= wakuSwap.disconnectThreshold:
-      warn "Disconnect threshhold has been reached: ", threshold=wakuSwap.disconnectThreshold, balance=wakuSwap.accounting[peerId]
+    if wakuSwap.accounting[peerId] <= wakuSwap.config.disconnectThreshold:
+      warn "Disconnect threshhold has been reached: ", threshold=wakuSwap.config.disconnectThreshold, balance=wakuSwap.accounting[peerId]
     else:
       info "Disconnect threshhold not hit"
 
     #Check if the Payment threshold has been hit. Account Balance nears the paymentThreshold after a Debit has been done
-    if wakuSwap.accounting[peerId] >= wakuSwap.paymentThreshold:
-      warn "Payment threshhold has been reached: ", threshold=wakuSwap.paymentThreshold, balance=wakuSwap.accounting[peerId]
+    if wakuSwap.accounting[peerId] >= wakuSwap.config.paymentThreshold:
+      warn "Payment threshhold has been reached: ", threshold=wakuSwap.config.paymentThreshold, balance=wakuSwap.accounting[peerId]
       #In soft phase we don't send cheques yet
-      #discard wakuSwap.sendCheque()
+      if wakuSwap.config.mode == Mock:
+        discard wakuSwap.sendCheque()
     else:
       info "Payment threshhold not hit"
 
@@ -257,15 +258,14 @@ proc init*(wakuSwap: WakuSwap) =
   wakuswap.applyPolicy = applyPolicy
 
 # TODO Expression return?
-proc init*(T: type WakuSwap, peerManager: PeerManager, rng: ref BrHmacDrbgContext): T =
+proc init*(T: type WakuSwap, peerManager: PeerManager, rng: ref BrHmacDrbgContext, swapConfig: SwapConfig): T =
   info "wakuSwap init 2"
   new result
   result.rng = rng
   result.peerManager = peerManager
   result.accounting = initTable[PeerId, int]()
   result.text = "test"
-  result.paymentThreshold = 100
-  result.disconnectThreshold = -100
+  result.config = swapConfig
   result.init()
 
 proc setPeer*(ws: WakuSwap, peer: PeerInfo) =
