@@ -253,7 +253,7 @@ when isMainModule:
 
   # Now load rest of config
   # Mount configured Waku v2 protocols
-  mountKeepalive(bridge.nodev2)
+  mountLibp2pPing(bridge.nodev2)
 
   if conf.store:
     mountStore(bridge.nodev2)
