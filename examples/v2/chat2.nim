@@ -304,7 +304,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
                   rlnRelayEnabled = conf.rlnRelay,
                   relayMessages = conf.relay) # Indicates if node is capable to relay messages
   
-  node.mountKeepalive()
+  node.mountLibp2pPing()
   
   let nick = await readNick(transp)
   echo "Welcome, " & nick & "!"
