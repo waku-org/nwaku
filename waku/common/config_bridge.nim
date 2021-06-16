@@ -97,6 +97,11 @@ type
       desc: "PoW requirement of Waku node.",
       defaultValue: 0.002
       name: "waku-pow" .}: float64
+    
+    wakuTopicInterest* {.
+      desc: "Run as node with a topic-interest",
+      defaultValue: false
+      name: "waku-topic-interest" .}: bool
 
     ### Waku v2 options
 
@@ -138,6 +143,13 @@ type
       desc: "Multiaddr of peer to connect with for waku filter protocol"
       defaultValue: ""
       name: "filternode" }: string
+    
+    ### Bridge options
+
+    bridgePubsubTopic* {.
+      desc: "Waku v2 Pubsub topic to bridge to/from"
+      defaultValue: "/waku/2/default-waku/proto"
+      name: "bridge-pubsub-topic" }: string
 
 proc parseCmdArg*(T: type keys.KeyPair, p: TaintedString): T =
   try:
