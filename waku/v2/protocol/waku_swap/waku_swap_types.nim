@@ -6,6 +6,20 @@ import
   ../../node/peer_manager/peer_manager  
 
 type
+  # The Swap Mode determines the functionality available in the swap protocol.
+  # Soft: Deals with the account balance (Credit and debit) of each peer. 
+  # Mock: Includes the Send Cheque Functionality and peer disconnection upon failed signature verification or low balance. 
+  # Hard: Includes interactions with Smart Contracts.
+  SwapMode* = enum
+    Soft,
+    Mock,
+    Hard
+
+  SwapConfig* = object
+    mode* : SwapMode
+    paymentThreshold* : int
+    disconnectThreshold* : int
+
   Beneficiary* = seq[byte]
 
   # TODO Consider adding payment threshhold and terms field
@@ -28,9 +42,15 @@ type
     peerManager*: PeerManager
     rng*: ref BrHmacDrbgContext
     text*: string
-    paymentThreshold*: int
-    disconnectThreshold*: int
     accounting*: Table[PeerId, int]
     credit*: CreditHandler
     debit*: DebitHandler
     applyPolicy*: ApplyPolicyHandler
+    config*: SwapConfig
+
+proc init*(_: type[SwapConfig]): SwapConfig =
+  SwapConfig(
+      mode: SwapMode.Soft,
+      paymentThreshold: 100,
+      disconnectThreshold: -100
+  )
