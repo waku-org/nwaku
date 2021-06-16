@@ -3,13 +3,13 @@
 import 
   os,
   sqlite3_abi,
-  chronos, chronicles, metrics, stew/results,
+  chronos, chronicles, metrics,
+  stew/results,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
-  stew/results, metrics
-
+  migration/[migration_types,migration_utils]
 # The code in this file is an adaptation of the Sqlite KV Store found in nim-eth.
 # https://github.com/status-im/nim-eth/blob/master/eth/db/kvstore_sqlite3.nim
 #
@@ -29,6 +29,8 @@ type
 
   SqliteDatabase* = ref object of RootObj
     env*: Sqlite
+
+const USER_VERSION = 2 # increase this when there is a breaking change in the table schema
 
 template dispose(db: Sqlite) =
   discard sqlite3_close(db)
@@ -110,8 +112,6 @@ proc init*(
       discard sqlite3_finalize(journalModePragma)
       return err("Invalid pragma result: " & $x)
 
-  # TODO: check current version and implement schema versioning
-  checkExec "PRAGMA user_version = 1;"
 
   let journalModePragma = prepare("PRAGMA journal_mode = WAL;"): discard
   checkWalPragmaResult(journalModePragma)
@@ -139,6 +139,8 @@ proc bindParam*(s: RawStmtPtr, n: int, val: auto): cint =
     sqlite3_bind_int(s, int(n).cint, int(val).cint)
   elif val is int64:
     sqlite3_bind_int64(s, n.cint, val)
+  elif val is float64:
+    sqlite3_bind_double(s, n.cint, val)
   # Note: bind_text not yet supported in sqlite3_abi wrapper
   # elif val is string:
   #   sqlite3_bind_text(s, n.cint, val.cstring, -1, nil)  # `-1` implies string length is the number of bytes up to the first null-terminator
@@ -208,3 +210,84 @@ proc close*(db: SqliteDatabase) =
   discard sqlite3_close(db.env)
 
   db[] = SqliteDatabase()[]
+
+proc getUserVersion*(database: SqliteDatabase): DatabaseResult[int64] = 
+  var version: int64
+  proc handler(s: ptr sqlite3_stmt) = 
+    version = sqlite3_column_int64(s, 0)
+  let res = database.query("PRAGMA user_version;", handler)
+  if res.isErr:
+      return err("failed to get user_version")
+  ok(version)
+
+
+proc setUserVersion*(database: SqliteDatabase, version: int64): DatabaseResult[bool] = 
+  ## sets  the value of the user-version integer at offset 60 in the database header. 
+  ## some context borrowed from https://www.sqlite.org/pragma.html#pragma_user_version
+  ## The user-version is an integer that is available to applications to use however they want. 
+  ## SQLite makes no use of the user-version itself
+  proc handler(s: ptr sqlite3_stmt) = 
+    discard
+  let query = "PRAGMA user_version=" & $version & ";"
+  let res = database.query(query, handler)
+  if res.isErr:
+      return err("failed to set user_version")
+  ok(true)
+
+
+proc migrate*(db: SqliteDatabase, path: string, targetVersion: int64 = USER_VERSION): DatabaseResult[bool] = 
+  ## compares the user_version of the db with the targetVersion 
+  ## runs migration scripts if the user_version is outdated (does not support down migration)
+  ## path points to the directory holding the migrations scripts
+  ## once the db is updated, it sets the user_version to the tragetVersion
+  
+  # read database version
+  let userVersion = db.getUserVersion()
+  debug "current db user_version", userVersion=userVersion
+  if userVersion.value == targetVersion:
+    # already up to date
+    info "database is up to date"
+    ok(true)
+  
+  else:
+    # TODO check for the down migrations i.e., userVersion.value > tragetVersion
+    # fetch migration scripts
+    let migrationScriptsRes = getScripts(path)
+    if migrationScriptsRes.isErr:
+      return err("failed to load migration scripts")
+    let migrationScripts = migrationScriptsRes.value
+
+    # filter scripts based on their versions
+    let scriptsRes = migrationScripts.filterScripts(userVersion.value, targetVersion)
+    if scriptsRes.isErr:
+      return err("failed to filter migration scripts")
+    
+    let scripts = scriptsRes.value
+    debug "scripts to be run", scripts=scripts
+    
+    
+    proc handler(s: ptr sqlite3_stmt) = 
+      discard
+    
+    # run the scripts
+    for script in scripts:
+      debug "script", script=script
+      # a script may contain multiple queries
+      let queries = script.splitScript()
+      # TODO queries of the same script should be executed in an atomic manner
+      for query in queries:
+        let res = db.query(query, handler)
+        if res.isErr:
+          debug "failed to run the query", query=query
+          return err("failed to run the script")
+        else:
+          debug "query is executed", query=query
+
+    
+    # bump the user version
+    let res = db.setUserVersion(targetVersion)
+    if res.isErr:
+      return err("failed to set the new user_version")
+
+    debug "user_version is set to", targetVersion=targetVersion
+    ok(true)

@@ -377,7 +377,7 @@ proc init*(ws: WakuStore) {.raises: [Defect, Exception]} =
   if ws.store.isNil:
     return
 
-  proc onData(timestamp: uint64, msg: WakuMessage, pubsubTopic:  string) =
+  proc onData(timestamp: float64, msg: WakuMessage, pubsubTopic:  string) =
     # TODO index should not be recalculated
     ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex(), pubsubTopic: pubsubTopic))
 
