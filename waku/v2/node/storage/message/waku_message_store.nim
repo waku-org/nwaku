@@ -27,20 +27,6 @@ const MESSAGE_STORE_MIGRATION_PATH* = sourceDir / "../migration/migrations_scrip
 type
   WakuMessageStore* = ref object of MessageStore
     database*: SqliteDatabase
-
-proc toBytes(x: float64): seq[byte] =
-  let xbytes =  cast[array[0..7, byte]](x)
-  return @xbytes
-
-proc fromBytes(T: type float64, bytes: seq[byte]): T =
-  var arr: array[0..7, byte]
-  var i = 0
-  for b in bytes:
-    arr[i] = b
-    i = i+1
-    if i == 8: break
-  let x = cast[float64](arr)
-  return x
   
 proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] =
   ## Table is the SQL query for creating the messages Table.
