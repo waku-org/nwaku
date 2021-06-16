@@ -1,25 +1,28 @@
 import
-  std/[options, tables, strutils, sequtils],
-  chronos, chronicles, metrics, stew/shims/net as stewNet,
+  std/[options, tables, strutils, sequtils, os],
+  chronos, chronicles, metrics,
+  metrics/chronos_httpserver,
+  stew/shims/net as stewNet,
   # TODO: Why do we need eth keys?
   eth/keys,
   web3,
   libp2p/multiaddress,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
+  libp2p/protocols/ping,
   # NOTE For TopicHandler, solve with exports?
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub,
-  libp2p/standard_setup,
+  libp2p/builders,
   ../protocol/[waku_relay, waku_message, message_notifier],
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter/waku_filter,
   ../protocol/waku_lightpush/waku_lightpush,
   ../protocol/waku_rln_relay/waku_rln_relay_types,
-  ../protocol/waku_keepalive/waku_keepalive,
   ../utils/peers,
+  ./storage/sqlite,
   ./storage/message/message_store,
   ./storage/peer/peer_storage,
   ../utils/requests,
@@ -66,8 +69,8 @@ type
     wakuSwap*: WakuSwap
     wakuRlnRelay*: WakuRLNRelay
     wakuLightPush*: WakuLightPush
-    wakuKeepalive*: WakuKeepalive
     peerInfo*: PeerInfo
+    libp2pPing*: Ping
     libp2pTransportLoops*: seq[Future[void]]
   # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
     messages*: seq[(Topic, WakuMessage)]
@@ -391,9 +394,9 @@ proc mountFilter*(node: WakuNode) =
 
 # NOTE: If using the swap protocol, it must be mounted before store. This is
 # because store is using a reference to the swap protocol.
-proc mountSwap*(node: WakuNode) =
-  info "mounting swap"
-  node.wakuSwap = WakuSwap.init(node.peerManager, node.rng)
+proc mountSwap*(node: WakuNode, swapConfig: SwapConfig = SwapConfig.init()) =
+  info "mounting swap", mode = $swapConfig.mode
+  node.wakuSwap = WakuSwap.init(node.peerManager, node.rng, swapConfig)
   node.switch.mount(node.wakuSwap)
   # NYI - Do we need this?
   #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
@@ -528,19 +531,34 @@ proc mountLightPush*(node: WakuNode) =
 
   node.switch.mount(node.wakuLightPush)
 
-proc mountKeepalive*(node: WakuNode) =
-  info "mounting keepalive"
+proc mountLibp2pPing*(node: WakuNode) =
+  info "mounting libp2p ping protocol"
 
-  node.wakuKeepalive = WakuKeepalive.new(node.peerManager, node.rng)
+  node.libp2pPing = Ping.new(rng = node.rng)
 
-  node.switch.mount(node.wakuKeepalive)
+  node.switch.mount(node.libp2pPing)
 
 proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
   while node.started:
-    # Keep all managed peers alive when idle
+    # Keep all connected peers alive while running
     trace "Running keepalive"
 
-    await node.wakuKeepalive.keepAllAlive()
+    # First get a list of connected peer infos
+    let peers = node.peerManager.peers()
+                                .filterIt(node.peerManager.connectedness(it.peerId) == Connected)
+                                .mapIt(it.toPeerInfo())
+
+    # Attempt to retrieve and ping the active outgoing connection for each peer
+    for peer in peers:
+      let connOpt = await node.peerManager.dialPeer(peer, PingCodec)
+
+      if connOpt.isNone:
+        # @TODO more sophisticated error handling here
+        debug "failed to connect to remote peer", peer=peer
+        waku_node_errors.inc(labelValues = ["keep_alive_failure"])
+        return
+
+      discard await node.libp2pPing.ping(connOpt.get())  # Ping connection
     
     await sleepAsync(keepalive)
 
@@ -656,7 +674,7 @@ when isMainModule:
   proc startMetricsServer(serverIp: ValidIpAddress, serverPort: Port) =
       info "Starting metrics HTTP server", serverIp, serverPort
       
-      metrics.startHttpServer($serverIp, serverPort)
+      startMetricsHttpServer($serverIp, serverPort)
 
       info "Metrics HTTP server started", serverIp, serverPort
 
@@ -693,7 +711,7 @@ when isMainModule:
       waku_node_errors.inc(labelValues = ["init_db_failure"])
     else:
       sqliteDatabase = dbRes.value
-  
+      
   var pStorage: WakuPeerStorage
 
   if conf.persistPeers and not sqliteDatabase.isNil:
@@ -728,8 +746,16 @@ when isMainModule:
   # Store setup
   if (conf.storenode != "") or (conf.store):
     var store: WakuMessageStore
-
     if (not sqliteDatabase.isNil) and conf.persistMessages:
+
+      # run migration 
+      info "running migration ... "
+      let migrationResult = sqliteDatabase.migrate(MESSAGE_STORE_MIGRATION_PATH)
+      if migrationResult.isErr:
+        warn "migration failed"
+      else:
+        info "migration is done"
+
       let res = WakuMessageStore.init(sqliteDatabase)
       if res.isErr:
         warn "failed to init WakuMessageStore", err = res.error
@@ -750,7 +776,7 @@ when isMainModule:
              relayMessages = conf.relay) # Indicates if node is capable to relay messages
   
   # Keepalive mounted on all nodes
-  mountKeepalive(node)
+  mountLibp2pPing(node)
   
   # Resume historical messages, this has to be called after the relay setup           
   if conf.store and conf.persistMessages:
@@ -779,10 +805,9 @@ when isMainModule:
   if conf.metricsLogging:
     startMetricsLog()
 
-  when defined(insecure):
-    if conf.metricsServer:
-      startMetricsServer(conf.metricsServerAddress,
-        Port(conf.metricsServerPort + conf.portsShift))
+  if conf.metricsServer:
+    startMetricsServer(conf.metricsServerAddress,
+      Port(conf.metricsServerPort + conf.portsShift))
   
   # Setup graceful shutdown
   

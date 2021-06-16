@@ -25,8 +25,8 @@ type
     connected*: bool
 
   WakuKeyPair* = object
-    seckey*: PrivateKey
-    pubkey*: PublicKey
+    seckey*: keys.PrivateKey
+    pubkey*: keys.PublicKey
 
   TopicCache* = TableRef[string, seq[WakuMessage]]
 

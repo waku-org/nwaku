@@ -1,6 +1,7 @@
 import
   std/[tables, hashes, sequtils],
-  chronos, confutils, chronicles, chronicles/topics_registry, metrics,
+  chronos, confutils, chronicles, chronicles/topics_registry, 
+  metrics, metrics/chronos_httpserver,
   stew/[byteutils, objects],
   stew/shims/net as stewNet, json_rpc/rpcserver,
   # Waku v1 imports
@@ -160,9 +161,9 @@ proc start*(bridge: WakuBridge) {.async.} =
 
   # Bridging
   # Handle messages on Waku v1 and bridge to Waku v2  
-  proc handleEnvReceived(envelope: Envelope) {.gcsafe.} =
+  proc handleEnvReceived(envelope: Envelope) {.gcsafe, raises: [Defect].} =
     trace "Bridging envelope from V1 to V2", envelope=envelope
-    waitFor bridge.toWakuV2(envelope)
+    asyncSpawn bridge.toWakuV2(envelope)
 
   bridge.nodev1.registerEnvReceivedHandler(handleEnvReceived)
 
@@ -254,7 +255,7 @@ when isMainModule:
   elif conf.fleetV1 == test: connectToNodes(bridge.nodev1, WhisperNodesTest)
 
   # Mount configured Waku v2 protocols
-  mountKeepalive(bridge.nodev2)
+  mountLibp2pPing(bridge.nodev2)
   
   if conf.store:
     mountStore(bridge.nodev2, persistMessages = false)  # Bridge does not persist messages
@@ -284,12 +285,11 @@ when isMainModule:
 
     rpcServer.start()
 
-  when defined(insecure):
-    if conf.metricsServer:
-      let
-        address = conf.metricsServerAddress
-        port = conf.metricsServerPort + conf.portsShift
-      info "Starting metrics HTTP server", address, port
-      metrics.startHttpServer($address, Port(port))
+  if conf.metricsServer:
+    let
+      address = conf.metricsServerAddress
+      port = conf.metricsServerPort + conf.portsShift
+    info "Starting metrics HTTP server", address, port
+    startMetricsHttpServer($address, Port(port))
 
   runForever()

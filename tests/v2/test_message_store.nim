@@ -1,9 +1,10 @@
 {.used.}
 
 import
-  std/[unittest, options, tables, sets, times],
-  chronos, chronicles,
+  std/[unittest, options, tables, sets, times, os, strutils],
+  chronos,
   ../../waku/v2/node/storage/message/waku_message_store,
+  ../../waku/v2/node/storage/sqlite,
   ../../waku/v2/protocol/waku_store/waku_store,
   ./utils
 
@@ -81,5 +82,33 @@ suite "Message Store":
       rt1Flag == true
       rt2Flag == true
       rt3Flag == true
+  test "set and get user version":
+    let 
+      database = SqliteDatabase.init("", inMemory = true)[]
+      store = WakuMessageStore.init(database)[]
+    defer: store.close()
 
+    let res = database.setUserVersion(5)
+    check res.isErr == false
 
+    let ver = database.getUserVersion()
+    check:
+      ver.isErr == false
+      ver.value == 5
+  test "migration":
+    let 
+      database = SqliteDatabase.init("", inMemory = true)[]
+      store = WakuMessageStore.init(database)[]
+    defer: store.close()
+
+    template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
+    let migrationPath = sourceDir
+
+    let res = database.migrate(migrationPath, 10)
+    check:
+      res.isErr == false
+
+    let ver = database.getUserVersion()
+    check:
+      ver.isErr == false
+      ver.value == 10

@@ -34,5 +34,3 @@ rln
 package-lock.json
 node_modules/
 /.update.timestamp
-
-libwaku

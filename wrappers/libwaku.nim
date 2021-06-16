@@ -10,7 +10,7 @@
 # TODO Init a node
 
 # proc info*(node: WakuNode): WakuInfo =
-proc info(foo: cstring): cstring {.exportc.} =
+proc info(foo: cstring): cstring {.exportc, dynlib.} =
   echo "info about node"
   echo foo
   return foo
@@ -34,3 +34,5 @@ proc echo() {.exportc.} =
 #  await node.start()
 #
 #main()
+
+  # When main done stuff
