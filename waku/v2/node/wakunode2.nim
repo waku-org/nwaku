@@ -1,5 +1,5 @@
 import
-  std/[options, tables, strutils, sequtils],
+  std/[options, tables, strutils, sequtils, os],
   chronos, chronicles, metrics,
   metrics/chronos_httpserver,
   stew/shims/net as stewNet,
@@ -22,6 +22,7 @@ import
   ../protocol/waku_lightpush/waku_lightpush,
   ../protocol/waku_rln_relay/waku_rln_relay_types,
   ../utils/peers,
+  ./storage/sqlite,
   ./storage/message/message_store,
   ./storage/peer/peer_storage,
   ../utils/requests,
@@ -710,7 +711,7 @@ when isMainModule:
       waku_node_errors.inc(labelValues = ["init_db_failure"])
     else:
       sqliteDatabase = dbRes.value
-  
+      
   var pStorage: WakuPeerStorage
 
   if conf.persistPeers and not sqliteDatabase.isNil:
@@ -745,8 +746,16 @@ when isMainModule:
   # Store setup
   if (conf.storenode != "") or (conf.store):
     var store: WakuMessageStore
-
     if (not sqliteDatabase.isNil) and conf.persistMessages:
+
+      # run migration 
+      info "running migration ... "
+      let migrationResult = sqliteDatabase.migrate(MESSAGE_STORE_MIGRATION_PATH)
+      if migrationResult.isErr:
+        warn "migration failed"
+      else:
+        info "migration is done"
+
       let res = WakuMessageStore.init(sqliteDatabase)
       if res.isErr:
         warn "failed to init WakuMessageStore", err = res.error
