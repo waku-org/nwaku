@@ -24,8 +24,8 @@ suite "Migration utils":
       scriptsRes.value.len == 2
       scriptsRes.value[0] == "script2"
       scriptsRes.value[1] == "script3"
-      
-  test "filter migration scripts with varying zero-leading user versions":
+
+  test "filter migration scripts with varying zero-prefixed user versions":
     let migrationUp = [("0001_init", "script1"), ("1_add", "script1"), ("000002_init", "script2"), ("003_init", "script3")].toOrderedTable()
     let migrationScripts = MigrationScripts(migrationUp: migrationUp)
     let scriptsRes = filterScripts(migrationScripts, 1, 3)
