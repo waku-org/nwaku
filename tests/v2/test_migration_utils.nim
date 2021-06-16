@@ -16,7 +16,7 @@ suite "Migration utils":
       migrationScriptsRes.isErr == false
 
   test "filter migration scripts":
-    let migrationUp = [("0001_init", "script1"), ("1_add", "script1"), ("000002_init", "script2"), ("0003_init", "script3")].toOrderedTable()
+    let migrationUp = [("0001_init", "script1"), ("0001_add", "script1"), ("0002_init", "script2"), ("0003_init", "script3")].toOrderedTable()
     let migrationScripts = MigrationScripts(migrationUp: migrationUp)
     let scriptsRes = filterScripts(migrationScripts, 1, 3)
     check:
@@ -24,7 +24,17 @@ suite "Migration utils":
       scriptsRes.value.len == 2
       scriptsRes.value[0] == "script2"
       scriptsRes.value[1] == "script3"
-  
+      
+  test "filter migration scripts with varying zero-leading user versions":
+    let migrationUp = [("0001_init", "script1"), ("1_add", "script1"), ("000002_init", "script2"), ("003_init", "script3")].toOrderedTable()
+    let migrationScripts = MigrationScripts(migrationUp: migrationUp)
+    let scriptsRes = filterScripts(migrationScripts, 1, 3)
+    check:
+      scriptsRes.isErr == false
+      scriptsRes.value.len == 2
+      scriptsRes.value[0] == "script2"
+      scriptsRes.value[1] == "script3"
+
   test "split scripts with no queries":
     let script = "; ;"
     let queries = splitScript(script)
