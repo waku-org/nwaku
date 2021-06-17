@@ -36,9 +36,11 @@ import
 
 export waku_swap_types
 
-declarePublicGauge waku_swap_peers, "number of swap peers"
+const swapAccountBalanceBuckets = [-Inf, -200.0, -150.0, -100.0, -50.0, 0.0, 50.0, 100.0, 150.0, 200.0, Inf]
+
+declarePublicGauge waku_swap_peers_count, "number of swap peers"
 declarePublicGauge waku_swap_errors, "number of swap protocol errors", ["type"]
-declarePublicGauge waku_swap_account_state, "swap account state for each peer", ["peer"]
+declarePublicHistogram waku_peer_swap_account_balance, "Swap Account Balance for waku peers, aggregated into buckets based on threshold limits", buckets = swapAccountBalanceBuckets
 
 logScope:
   topics = "wakuswap"
@@ -194,7 +196,7 @@ proc handleCheque*(ws: WakuSwap, cheque: Cheque) =
 
 # Log Account Metrics
 proc logAccountMetrics*(ws: Wakuswap, peer: PeerId) {.async.}=
-  waku_swap_account_state.set(ws.accounting[peer].int64, labelValues = [$peer])
+  waku_peer_swap_account_balance.observe(ws.accounting[peer].int64)
 
 
 proc init*(wakuSwap: WakuSwap) =
@@ -270,6 +272,6 @@ proc init*(T: type WakuSwap, peerManager: PeerManager, rng: ref BrHmacDrbgContex
 
 proc setPeer*(ws: WakuSwap, peer: PeerInfo) =
   ws.peerManager.addPeer(peer, WakuSwapCodec)
-  waku_swap_peers.inc()
+  waku_swap_peers_count.inc()
 
 # TODO End to end communication
