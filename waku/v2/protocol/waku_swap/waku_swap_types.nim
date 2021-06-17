@@ -21,15 +21,14 @@ type
     disconnectThreshold* : int
 
   Beneficiary* = seq[byte]
-  Issuer* = seq[byte]
-
+  
   # TODO Consider adding payment threshhold and terms field
   Handshake* = object
     beneficiary*: Beneficiary
 
   # TODO Look over these data structures again
   Cheque* = object
-    issuer*: Issuer
+    issuerAddress*: string
     beneficiary*: Beneficiary
     date*: uint32
     amount*: uint32
