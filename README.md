@@ -23,7 +23,6 @@ detailed instructions, see Waku v1 and v2 home above.
 ### Prerequisites
 
 * GNU Make, Bash and the usual POSIX utilities. Git 2.9.4 or newer.
-* PCRE
 * [Rust](https://www.rust-lang.org/)
 
 More information on the installation of these can be found [here](https://github.com/status-im/nimbus#prerequisites).
