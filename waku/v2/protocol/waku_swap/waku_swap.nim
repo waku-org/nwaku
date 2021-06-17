@@ -148,12 +148,13 @@ proc handleCheque*(ws: WakuSwap, cheque: Cheque) =
   let peerOpt = ws.peerManager.selectPeer(WakuSwapCodec)
   let peerId = peerOpt.get().peerId
 
-    # Get the original signer using web3. Check if web3.eth.personal.ecRecover(messageHash, signature); or an equivalent function has been implemented in nim-web3
+  # Get the original signer using web3. For notw, a static value is used.
+  # Check if web3.eth.personal.ecRecover(messageHash, signature); or an equivalent function has been implemented in nim-web3
   let signer = @[byte 0, 1, 2]
 
+  # Verify that the Issuer was the signer of the signature
   if signer != cheque.issuer:
     warn "Invalid cheque: The address of the issuer is different from the signer."
-
 
   # TODO Redeem cheque here
   var signature = cast[string](cheque.signature)
