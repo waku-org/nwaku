@@ -38,8 +38,8 @@ type
   WakuBridge* = ref object of RootObj
     nodev1*: EthereumNode
     nodev2*: WakuNode
+    nodev2PubsubTopic: wakunode2.Topic # Pubsub topic to bridge to/from
     seen: seq[hashes.Hash] # FIFO queue of seen WakuMessages. Used for deduplication.
-    pubsubTopic: wakunode2.Topic # Pubsub topic to bridge to/from
 
 ###################
 # Helper funtions #
@@ -76,7 +76,7 @@ proc toWakuV2(bridge: WakuBridge, env: Envelope) {.async.} =
 
   waku_bridge_transfers.inc(labelValues = ["v1_to_v2"])
   
-  await bridge.nodev2.publish(bridge.pubsubTopic, msg)
+  await bridge.nodev2.publish(bridge.nodev2PubsubTopic, msg)
 
 proc toWakuV1(bridge: WakuBridge, msg: WakuMessage) {.gcsafe.} =
   if bridge.seen.containsOrAdd(msg.encode().buffer.hash()):
@@ -112,7 +112,7 @@ proc new*(T: type WakuBridge,
           nodev2BindIp: ValidIpAddress, nodev2BindPort: Port,
           nodev2ExtIp = none[ValidIpAddress](), nodev2ExtPort = none[Port](),
           # Bridge configuration
-          pubsubTopic: wakunode2.Topic): T =
+          nodev2PubsubTopic: wakunode2.Topic): T =
 
   # Setup Waku v1 node
   var
@@ -140,7 +140,7 @@ proc new*(T: type WakuBridge,
                            nodev2BindIp, nodev2BindPort,
                            nodev2ExtIp, nodev2ExtPort)
   
-  return WakuBridge(nodev1: nodev1, nodev2: nodev2, pubsubTopic: pubsubTopic)
+  return WakuBridge(nodev1: nodev1, nodev2: nodev2, nodev2PubsubTopic: nodev2PubsubTopic)
 
 proc start*(bridge: WakuBridge) {.async.} =
   info "Starting WakuBridge"
@@ -180,7 +180,7 @@ proc start*(bridge: WakuBridge) {.async.} =
       trace "Bridging message from V2 to V1", msg=msg[]
       bridge.toWakuV1(msg[])
   
-  bridge.nodev2.subscribe(bridge.pubSubTopic, relayHandler)
+  bridge.nodev2.subscribe(bridge.nodev2PubsubTopic, relayHandler)
 
 proc stop*(bridge: WakuBridge) {.async.} =
   await bridge.nodev2.stop()
@@ -245,7 +245,7 @@ when isMainModule:
   var topicInterest: Option[seq[waku_protocol.Topic]]
   var bloom: Option[Bloom]
   
-  if conf.wakuTopicInterest:
+  if conf.wakuV1TopicInterest:
     var topics: seq[waku_protocol.Topic]
     topicInterest = some(topics)
   else:
@@ -254,14 +254,14 @@ when isMainModule:
   let
     bridge = WakuBridge.new(nodev1Key = conf.nodekeyV1,
                             nodev1Address = nodev1Address,
-                            powRequirement = conf.wakuPow,
+                            powRequirement = conf.wakuV1Pow,
                             rng = rng,
                             topicInterest = topicInterest,
                             bloom = bloom,
                             nodev2Key = conf.nodekeyV2,
                             nodev2BindIp = conf.listenAddress, nodev2BindPort = Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
                             nodev2ExtIp = nodev2ExtIp, nodev2ExtPort = nodev2ExtPort,
-                            pubsubTopic = conf.bridgePubsubTopic)
+                            nodev2PubsubTopic = conf.bridgePubsubTopic)
   
   waitFor bridge.start()
 

@@ -93,15 +93,15 @@ type
       defaultValue: keys.KeyPair.random(keys.newRng()[])
       name: "nodekey-v1" .}: keys.KeyPair
 
-    wakuPow* {.
-      desc: "PoW requirement of Waku node.",
+    wakuV1Pow* {.
+      desc: "PoW requirement of Waku v1 node.",
       defaultValue: 0.002
-      name: "waku-pow" .}: float64
+      name: "waku-v1-pow" .}: float64
     
-    wakuTopicInterest* {.
-      desc: "Run as node with a topic-interest",
+    wakuV1TopicInterest* {.
+      desc: "Run as Waku v1 node with a topic-interest",
       defaultValue: false
-      name: "waku-topic-interest" .}: bool
+      name: "waku-v1-topic-interest" .}: bool
 
     ### Waku v2 options
 
@@ -113,11 +113,6 @@ type
       desc: "P2P node private key as hex"
       defaultValue: crypto.PrivateKey.random(Secp256k1, keys.newRng()[]).tryGet()
       name: "nodekey-v2" }: crypto.PrivateKey
-
-    topics* {.
-      desc: "Default topics to subscribe to (space separated list)"
-      defaultValue: "/waku/2/default-waku/proto"
-      name: "topics" .}: string
 
     store* {.
       desc: "Flag whether to start store protocol",

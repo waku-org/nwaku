@@ -41,7 +41,7 @@ procSuite "WakuBridge":
         rng = rng,
         nodev2Key = nodev2Key,
         nodev2BindIp = ValidIpAddress.init("0.0.0.0"), nodev2BindPort= Port(60000),
-        pubsubTopic = DefaultBridgeTopic)
+        nodev2PubsubTopic = DefaultBridgeTopic)
     
     # Waku v1 node
     v1Node = setupTestNode(rng, Waku)
