@@ -148,7 +148,7 @@ proc handleCheque*(ws: WakuSwap, cheque: Cheque) =
   let peerOpt = ws.peerManager.selectPeer(WakuSwapCodec)
   let peerId = peerOpt.get().peerId
 
-  # Get the original signer using web3. For notw, a static value is used.
+  # Get the original signer using web3. For now, a static value (@[byte 0, 1, 2]) will be used.
   # Check if web3.eth.personal.ecRecover(messageHash, signature); or an equivalent function has been implemented in nim-web3
   let signer = @[byte 0, 1, 2]
 
