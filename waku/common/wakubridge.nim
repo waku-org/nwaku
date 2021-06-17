@@ -71,7 +71,7 @@ proc toV2ContentTopic*(v1Topic: waku_protocol.Topic): ContentTopic =
   namespacedTopic.application = "waku"
   namespacedTopic.version = "1"
   namespacedTopic.topicName = v1Topic.toHex()
-  namespacedTopic.encoding = "proto"
+  namespacedTopic.encoding = "rlp"
 
   return ContentTopic($namespacedTopic)
 
