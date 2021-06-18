@@ -22,7 +22,6 @@ import
   ../protocol/waku_lightpush/waku_lightpush,
   ../protocol/waku_rln_relay/waku_rln_relay_types,
   ../utils/peers,
-  ./storage/sqlite,
   ./storage/message/message_store,
   ./storage/peer/peer_storage,
   ../utils/requests,
