@@ -10,6 +10,7 @@ import
   ../v1/protocol/waku_protocol,
   # Waku v2 imports
   libp2p/crypto/crypto,
+  ../v2/utils/namespacing,
   ../v2/protocol/waku_filter/waku_filter_types,
   ../v2/node/wakunode2,
   # Common cli config
@@ -45,6 +46,8 @@ type
 # Helper funtions #
 ###################
 
+# Deduplication
+
 proc containsOrAdd(sequence: var seq[hashes.Hash], hash: hashes.Hash): bool =
   if sequence.contains(hash):
     return true 
@@ -57,10 +60,34 @@ proc containsOrAdd(sequence: var seq[hashes.Hash], hash: hashes.Hash): bool =
 
   return false
 
+# Topic conversion
+
+proc toV2ContentTopic*(v1Topic: waku_protocol.Topic): ContentTopic =
+  ## Convert a 4-byte array v1 topic to a namespaced content topic
+  ## with format `/waku/1/<v1-topic-bytes-as-hex>/proto`
+  
+  var namespacedTopic = NamespacedTopic()
+  
+  namespacedTopic.application = "waku"
+  namespacedTopic.version = "1"
+  namespacedTopic.topicName = v1Topic.toHex()
+  namespacedTopic.encoding = "rlp"
+
+  return ContentTopic($namespacedTopic)
+
+proc toV1Topic*(contentTopic: ContentTopic): waku_protocol.Topic {.raises: [ValueError, Defect]} =
+  ## Extracts the 4-byte array v1 topic from a content topic
+  ## with format `/waku/1/<v1-topic-bytes-as-hex>/proto`
+
+  hexToByteArray(hexStr = NamespacedTopic.fromString(contentTopic).tryGet().topicName,
+                 N = 4)  # Byte array length
+
+# Message conversion
+
 func toWakuMessage(env: Envelope): WakuMessage =
   # Translate a Waku v1 envelope to a Waku v2 message
   WakuMessage(payload: env.data,
-              contentTopic: ContentTopic(string.fromBytes(env.topic)),
+              contentTopic: toV2ContentTopic(env.topic),
               version: 1)
 
 proc toWakuV2(bridge: WakuBridge, env: Envelope) {.async.} =
@@ -78,7 +105,7 @@ proc toWakuV2(bridge: WakuBridge, env: Envelope) {.async.} =
   
   await bridge.nodev2.publish(bridge.nodev2PubsubTopic, msg)
 
-proc toWakuV1(bridge: WakuBridge, msg: WakuMessage) {.gcsafe.} =
+proc toWakuV1(bridge: WakuBridge, msg: WakuMessage) {.gcsafe, raises: [ValueError, Defect].} =
   if bridge.seen.containsOrAdd(msg.encode().buffer.hash()):
     # This is a duplicate message. Return
     trace "Already seen. Dropping.", msg=msg
@@ -93,7 +120,7 @@ proc toWakuV1(bridge: WakuBridge, msg: WakuMessage) {.gcsafe.} =
   let v1TopicSeq = msg.contentTopic.toBytes()[0..3]
   
   discard bridge.nodev1.postMessage(ttl = DefaultTTL,
-                                    topic = toArray(4, v1TopicSeq),
+                                    topic = toV1Topic(msg.contentTopic),
                                     payload = msg.payload)
 
 ##############
@@ -177,8 +204,12 @@ proc start*(bridge: WakuBridge) {.async.} =
   proc relayHandler(pubsubTopic: string, data: seq[byte]) {.async, gcsafe.} =
     let msg = WakuMessage.init(data)
     if msg.isOk():
-      trace "Bridging message from V2 to V1", msg=msg[]
-      bridge.toWakuV1(msg[])
+      try:
+        trace "Bridging message from V2 to V1", msg=msg.tryGet()
+        bridge.toWakuV1(msg.tryGet())
+      except ValueError:
+        trace "Failed to convert message to Waku v1. Check content-topic format.", msg=msg
+        waku_bridge_dropped.inc(labelValues = ["value_error"])
   
   bridge.nodev2.subscribe(bridge.nodev2PubsubTopic, relayHandler)
 
