@@ -26,6 +26,8 @@ procSuite "WakuBridge":
   # Suite setup #
   ###############
 
+  const DefaultBridgeTopic = "/waku/2/default-bridge/proto"
+
   let
     rng = keys.newRng()
 
@@ -38,7 +40,8 @@ procSuite "WakuBridge":
         powRequirement = 0.002,
         rng = rng,
         nodev2Key = nodev2Key,
-        nodev2BindIp = ValidIpAddress.init("0.0.0.0"), nodev2BindPort= Port(60000))
+        nodev2BindIp = ValidIpAddress.init("0.0.0.0"), nodev2BindPort= Port(60000),
+        nodev2PubsubTopic = DefaultBridgeTopic)
     
     # Waku v1 node
     v1Node = setupTestNode(rng, Waku)
