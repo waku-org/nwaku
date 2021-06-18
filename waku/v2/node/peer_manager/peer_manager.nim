@@ -200,6 +200,16 @@ proc selectPeer*(pm: PeerManager, proto: string): Option[PeerInfo] =
   else:
     return none(PeerInfo)
 
+proc getPeerInfo*(pm: PeerManager, peerId: PeerId) : Option[PeerInfo] = 
+  # There should probably be an alternative to filterIt to return a single result
+  let peers = pm.peers.filterIt(it.peerId == peerId)
+  if peers.len > 0:
+    let peer = peers[0]
+    return some(peer.toPeerInfo())
+  else:
+    return none(PeerInfo)
+
+
 proc reconnectPeers*(pm: PeerManager, proto: string, backoff: chronos.Duration = chronos.seconds(0)) {.async.} =
   ## Reconnect to peers registered for this protocol. This will update connectedness.
   ## Especially useful to resume connections from persistent storage after a restart.

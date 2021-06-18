@@ -98,8 +98,8 @@ proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
 
 
 # TODO Assume we calculated cheque
-proc sendCheque*(ws: WakuSwap) {.async.} =
-  let peerOpt = ws.peerManager.selectPeer(WakuSwapCodec)
+proc sendCheque*(ws: WakuSwap, peerId : PeerId) {.async.} =
+  let peerOpt = ws.peerManager.getPeerInfo(WakuSwapCodec, peerId)
 
   if peerOpt.isNone():
     error "no suitable remote peers"
