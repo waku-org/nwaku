@@ -121,6 +121,7 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
   # TODO We get this from the setup of swap setup, dynamic, should be part of setup
   # TODO Add beneficiary, etc
   var aliceSwapAddress = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
+  var aliceWalletAddress = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
   var signature: string
 
   var res = waku_swap_contracts.signCheque(aliceSwapAddress)
@@ -132,9 +133,9 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
     # To test code paths, this should look different in a production setting
     warn "Something went wrong when signing cheque, sending anyway"
 
-  info "Signed Cheque", swapAddress = aliceSwapAddress, signature = signature
+  info "Signed Cheque", swapAddress = aliceSwapAddress, signature = signature, issuerAddress = aliceWalletAddress
   let sigBytes = cast[seq[byte]](signature)
-  await connOpt.get().writeLP(Cheque(amount: 1, signature: sigBytes).encode().buffer)
+  await connOpt.get().writeLP(Cheque(amount: 1, signature: sigBytes, issuerAddress: aliceWalletAddress).encode().buffer)
 
   # Set new balance
   let peerId = peer.peerId
@@ -147,6 +148,14 @@ proc handleCheque*(ws: WakuSwap, cheque: Cheque) =
   # XXX Assume peerId is first peer
   let peerOpt = ws.peerManager.selectPeer(WakuSwapCodec)
   let peerId = peerOpt.get().peerId
+
+  # Get the original signer using web3. For now, a static value (0x6C3d502f1a97d4470b881015b83D9Dd1062172e1) will be used.
+  # Check if web3.eth.personal.ecRecover(messageHash, signature); or an equivalent function has been implemented in nim-web3
+  let signer = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
+
+  # Verify that the Issuer was the signer of the signature
+  if signer != cheque.issuerAddress:
+    warn "Invalid cheque: The address of the issuer is different from the signer."
 
   # TODO Redeem cheque here
   var signature = cast[string](cheque.signature)
