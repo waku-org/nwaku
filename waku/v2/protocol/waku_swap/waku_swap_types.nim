@@ -21,14 +21,14 @@ type
     disconnectThreshold* : int
 
   Beneficiary* = seq[byte]
-
+  
   # TODO Consider adding payment threshhold and terms field
   Handshake* = object
     beneficiary*: Beneficiary
 
-  # XXX I'm confused by lack of signature here, most important thing...
   # TODO Look over these data structures again
   Cheque* = object
+    issuerAddress*: string
     beneficiary*: Beneficiary
     date*: uint32
     amount*: uint32
