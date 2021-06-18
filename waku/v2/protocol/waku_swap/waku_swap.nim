@@ -99,7 +99,7 @@ proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
 
 # TODO Assume we calculated cheque
 proc sendCheque*(ws: WakuSwap, peerId : PeerId) {.async.} =
-  let peerOpt = ws.peerManager.getPeerInfo(WakuSwapCodec, peerId)
+  let peerOpt = ws.peerManager.getPeerInfo(peerId)
 
   if peerOpt.isNone():
     error "no suitable remote peers"
@@ -143,11 +143,10 @@ proc sendCheque*(ws: WakuSwap, peerId : PeerId) {.async.} =
   info "New accounting state", accounting = ws.accounting[peerId]
 
 # TODO Authenticate cheque, check beneficiary etc
-proc handleCheque*(ws: WakuSwap, cheque: Cheque) =
+proc handleCheque*(ws: WakuSwap, cheque: Cheque, peerInfo : PeerInfo) =
   info "handle incoming cheque"
-  # XXX Assume peerId is first peer
-  let peerOpt = ws.peerManager.selectPeer(WakuSwapCodec)
-  let peerId = peerOpt.get().peerId
+
+  let peerId = peerInfo.peerId
 
   # Get the original signer using web3. For now, a static value (0x6C3d502f1a97d4470b881015b83D9Dd1062172e1) will be used.
   # Check if web3.eth.personal.ecRecover(messageHash, signature); or an equivalent function has been implemented in nim-web3
@@ -221,7 +220,7 @@ proc init*(wakuSwap: WakuSwap) =
       return
 
     info "received cheque", value=res.value
-    wakuSwap.handleCheque(res.value)
+    wakuSwap.handleCheque(res.value, conn.peerInfo)
 
   proc credit(peerId: PeerId, n: int) {.gcsafe, closure.} =
     info "Crediting peer: ", peer=peerId, amount=n
@@ -256,7 +255,7 @@ proc init*(wakuSwap: WakuSwap) =
       warn "Payment threshhold has been reached: ", threshold=wakuSwap.config.paymentThreshold, balance=wakuSwap.accounting[peerId]
       #In soft phase we don't send cheques yet
       if wakuSwap.config.mode == Mock:
-        discard wakuSwap.sendCheque()
+        discard wakuSwap.sendCheque(peerId)
     else:
       info "Payment threshhold not hit"
 
