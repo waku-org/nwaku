@@ -635,8 +635,9 @@ proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHand
 
   # NOTE Perform accounting operation
   # Assumes wakuSwap protocol is mounted
+  let peerInfo = peerOpt.get()
   let messages = response.value.response.messages
-  ws.wakuSwap.debit(peerOpt.get(), messages.len)
+  ws.wakuSwap.debit(peerInfo, messages.len)
 
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
 
