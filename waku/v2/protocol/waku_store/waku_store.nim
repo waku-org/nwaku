@@ -360,9 +360,9 @@ proc init*(ws: WakuStore) {.raises: [Defect, Exception]} =
     if not ws.wakuSwap.isNil:
       info "handle store swap test", text=ws.wakuSwap.text
       # NOTE Perform accounting operation
-      let peerId = conn.peerInfo.peerId
+      let peerInfo = conn.peerInfo
       let messages = response.messages
-      ws.wakuSwap.credit(peerId, messages.len)
+      ws.wakuSwap.credit(peerInfo, messages.len)
     else:
       info "handle store swap is nil"
 
@@ -607,6 +607,8 @@ proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHand
   #  - latency?
   #  - default store peer?
 
+
+
   let peerOpt = ws.peerManager.selectPeer(WakuStoreCodec)
 
   if peerOpt.isNone():
@@ -614,6 +616,10 @@ proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHand
     waku_store_errors.inc(labelValues = [dialFailure])
     return
 
+  #Check if the peer Is still conected 
+  let peerConnectionStatus = ws.wakuSwap.getPeerConnectionStatus(peerOpt.get().peerId)
+  if not peerConnectionStatus.isConnected:
+    return
   let connOpt = await ws.peerManager.dialPeer(peerOpt.get(), WakuStoreCodec)
 
   if connOpt.isNone():
@@ -635,9 +641,9 @@ proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHand
 
   # NOTE Perform accounting operation
   # Assumes wakuSwap protocol is mounted
-  let peerId = peerOpt.get().peerId
+  let peerInfo = peerOpt.get()
   let messages = response.value.response.messages
-  ws.wakuSwap.debit(peerId, messages.len)
+  ws.wakuSwap.debit(peerInfo, messages.len)
 
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
 
