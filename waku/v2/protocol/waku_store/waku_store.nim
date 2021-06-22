@@ -386,6 +386,7 @@ proc init*(ws: WakuStore) {.raises: [Defect, Exception]} =
     warn "failed to load messages from store", err = res.error
     waku_store_errors.inc(labelValues = ["store_load_failure"])
   
+  debug "the number of messages in the memory", messageNum=ws.messages.len
   waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
 
 
@@ -486,7 +487,7 @@ proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, pe
 
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
   handler(response.value.response)
-  return ok(response.value.response.messages.len.int64)
+  return ok(response.value.response.messages.len.uint64)
   
   
 
@@ -495,7 +496,7 @@ proc queryLoop(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, can
   ## returns the number of retrieved messages, or error if all the requests fail
   for peer in candidateList.items: 
     let successResult = await w.queryFrom(query, handler, peer)
-    if successResult.isOk: return ok(successResult.value)
+    if successResult.isOk: return ok(successResult.value.uint64)
 
   debug "failed to resolve the query"
   return err("failed to resolve the query")
@@ -506,6 +507,14 @@ proc findLastSeen*(list: seq[IndexedWakuMessage]): float =
     if iwmsg.msg.timestamp>lastSeenTime: 
       lastSeenTime = iwmsg.msg.timestamp 
   return lastSeenTime
+
+proc isDuplicate(message: WakuMessage, list: seq[WakuMessage]): bool =
+  ## return true if a duplicate message is found, otherwise false
+  # it is defined as a separate proc to be bale to adjust comparison criteria 
+  # e.g., to exclude timestamp or include pubsub topic
+  if message in list: return true
+  return false
+
 
 proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo])): Future[QueryResult] {.async, gcsafe.} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku store node has been online 
@@ -528,16 +537,38 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
   lastSeenTime = max(lastSeenTime - offset, 0)
   debug "the  offline time window is", lastSeenTime=lastSeenTime, currentTime=currentTime
 
+  var dismissed: uint = 0
+  var added: uint = 0
   proc handler(response: HistoryResponse) {.gcsafe, raises: [Defect, Exception].} =
+    debug "resume handler is called"
+    # exclude index from the comparison criteria
+    let currentMsgSummary = ws.messages.map(proc(x: IndexedWakuMessage): WakuMessage = x.msg)
     for msg in response.messages:
+      # check for duplicate messages
+      # TODO Should take pubsub topic into account if we are going to support topics rather than the DefaultTopic
+      if isDuplicate(msg,currentMsgSummary): 
+        dismissed = dismissed + 1
+        continue
+
+      # store the new message 
       let index = msg.computeIndex()
-      ws.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: DefaultTopic))
+      let indexedWakuMsg = IndexedWakuMessage(msg: msg, index: index, pubsubTopic: DefaultTopic)
+      ws.messages.add(indexedWakuMsg)
       waku_store_messages.inc(labelValues = ["stored"])
+      
+      added = added + 1
+      
+      # store in db if exists
       if ws.store.isNil: continue
       let res = ws.store.put(index, msg, DefaultTopic)
       if res.isErr:
         warn "failed to store messages", err = res.error
         waku_store_errors.inc(labelValues = ["store_failure"])
+
+
+    debug "number of duplicate messages found in resume", dismissed=dismissed
+    debug "number of messages added via resume", added=added
+
 
   let rpc = HistoryQuery(pubsubTopic: DefaultTopic, startTime: lastSeenTime, endTime: currentTime)
 
@@ -565,7 +596,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
       debug "failed to resume the history"
       return err("failed to resume the history")
     debug "resume is done successfully"
-    return ok(successResult.value)
+    return ok(added)
 
 # NOTE: Experimental, maybe incorporate as part of query call
 proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
