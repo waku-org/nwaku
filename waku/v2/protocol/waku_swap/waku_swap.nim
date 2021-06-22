@@ -98,17 +98,8 @@ proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
 
 
 # TODO Assume we calculated cheque
-proc sendCheque*(ws: WakuSwap) {.async.} =
-  let peerOpt = ws.peerManager.selectPeer(WakuSwapCodec)
-
-  if peerOpt.isNone():
-    error "no suitable remote peers"
-    waku_swap_errors.inc(labelValues = [dialFailure])
-    return
-
-  let peer = peerOpt.get()
-
-  let connOpt = await ws.peerManager.dialPeer(peer, WakuSwapCodec)
+proc sendCheque*(ws: WakuSwap, peerInfo : PeerInfo) {.async.} =
+  let connOpt = await ws.peerManager.dialPeer(peerInfo, WakuSwapCodec)
 
   if connOpt.isNone():
     # @TODO more sophisticated error handling here
@@ -138,16 +129,15 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
   await connOpt.get().writeLP(Cheque(amount: 1, signature: sigBytes, issuerAddress: aliceWalletAddress).encode().buffer)
 
   # Set new balance
-  let peerId = peer.peerId
+  let peerId = peerInfo.peerId
   ws.accounting[peerId] -= 1
   info "New accounting state", accounting = ws.accounting[peerId]
 
 # TODO Authenticate cheque, check beneficiary etc
-proc handleCheque*(ws: WakuSwap, cheque: Cheque) =
+proc handleCheque*(ws: WakuSwap, cheque: Cheque, peerInfo : PeerInfo) =
   info "handle incoming cheque"
-  # XXX Assume peerId is first peer
-  let peerOpt = ws.peerManager.selectPeer(WakuSwapCodec)
-  let peerId = peerOpt.get().peerId
+
+  let peerId = peerInfo.peerId
 
   # Get the original signer using web3. For now, a static value (0x6C3d502f1a97d4470b881015b83D9Dd1062172e1) will be used.
   # Check if web3.eth.personal.ecRecover(messageHash, signature); or an equivalent function has been implemented in nim-web3
@@ -221,28 +211,31 @@ proc init*(wakuSwap: WakuSwap) =
       return
 
     info "received cheque", value=res.value
-    wakuSwap.handleCheque(res.value)
+    wakuSwap.handleCheque(res.value, conn.peerInfo)
 
-  proc credit(peerId: PeerId, n: int) {.gcsafe, closure.} =
+  proc credit(peerInfo: PeerInfo, n: int) {.gcsafe, closure.} =
+    let peerId = peerInfo.peerId
     info "Crediting peer: ", peer=peerId, amount=n
     if wakuSwap.accounting.hasKey(peerId):
       wakuSwap.accounting[peerId] -= n
     else:
       wakuSwap.accounting[peerId] = -n
     info "Accounting state", accounting = wakuSwap.accounting[peerId]
-    wakuSwap.applyPolicy(peerId)
+    wakuSwap.applyPolicy(peerInfo)
 
   # TODO Debit and credit here for Karma asset
-  proc debit(peerId: PeerId, n: int) {.gcsafe, closure.} =
+  proc debit(peerInfo: PeerInfo, n: int) {.gcsafe, closure.} =
+    let peerId = peerInfo.peerId
     info "Debiting peer: ", peer=peerId, amount=n
     if wakuSwap.accounting.hasKey(peerId):
       wakuSwap.accounting[peerId] += n
     else:
       wakuSwap.accounting[peerId] = n
     info "Accounting state", accounting = wakuSwap.accounting[peerId]
-    wakuSwap.applyPolicy(peerId)
+    wakuSwap.applyPolicy(peerInfo)
     
-  proc applyPolicy(peerId: PeerId) {.gcsafe, closure.} = 
+  proc applyPolicy(peerInfo: PeerInfo) {.gcsafe, closure.} = 
+    let peerId = peerInfo.peerId
     # TODO Separate out depending on if policy is soft (accounting only) mock (send cheque but don't cash/verify) hard (actually send funds over testnet)
 
     #Check if the Disconnect Threshold has been hit. Account Balance nears the disconnectThreshold after a Credit has been done
@@ -256,7 +249,7 @@ proc init*(wakuSwap: WakuSwap) =
       warn "Payment threshhold has been reached: ", threshold=wakuSwap.config.paymentThreshold, balance=wakuSwap.accounting[peerId]
       #In soft phase we don't send cheques yet
       if wakuSwap.config.mode == Mock:
-        discard wakuSwap.sendCheque()
+        discard wakuSwap.sendCheque(peerInfo)
     else:
       info "Payment threshhold not hit"
 
