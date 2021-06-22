@@ -360,9 +360,9 @@ proc init*(ws: WakuStore) {.raises: [Defect, Exception]} =
     if not ws.wakuSwap.isNil:
       info "handle store swap test", text=ws.wakuSwap.text
       # NOTE Perform accounting operation
-      let peerId = conn.peerInfo.peerId
+      let peerInfo = conn.peerInfo
       let messages = response.messages
-      ws.wakuSwap.credit(peerId, messages.len)
+      ws.wakuSwap.credit(peerInfo, messages.len)
     else:
       info "handle store swap is nil"
 
@@ -635,9 +635,8 @@ proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHand
 
   # NOTE Perform accounting operation
   # Assumes wakuSwap protocol is mounted
-  let peerId = peerOpt.get().peerId
   let messages = response.value.response.messages
-  ws.wakuSwap.debit(peerId, messages.len)
+  ws.wakuSwap.debit(peerOpt.get(), messages.len)
 
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
 
