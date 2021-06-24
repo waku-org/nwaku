@@ -33,7 +33,7 @@ Similarly, the `peer` folder contains the scripts relevant to the peer store tab
 
 ## Migration File Naming
 The files in [migrations folder](https://github.com/status-im/nim-waku/tree/master/waku/v2/node/storage/migration) MUST follow the following naming style in order to be properly included in the migration process. 
-Files with invalid naming will not be skipped in the migration process.
+Files with invalid naming will be eliminated in the migration process.
 
 `<version number>_<migration script description>.<up|down>.sql`
 
