@@ -4,9 +4,9 @@ This tutorial explains the database migration process in nim-waku.
 # Contributors Guide
 ## Database Migration Flow
 For tracking the database version, nim-waku utilizes the built-in `user-version` variable that Sqlite provides.
-The [user-version](https://github.com/status-im/nim-waku/blob/d4974049d9d3f61dab16223be5dcbb1325b1f7a0/waku/v2/node/storage/sqlite.nim#L33) MUST be bumped up for every update on the database e.g, table schema/title change.
+The [user-version](https://github.com/status-im/nim-waku/blob/master/waku/v2/node/storage/migration/migration_types.nim) MUST be bumped up for every update on the database e.g, table schema/title change.
 Each update should be accompanied by a migration script to move the content of the old version of the database to the new version.
-The script MUST be added to the respective folder as explained in [Migration Folder Structure](#migration-folder-structure) with the proper naming as given in [ Migration Script Naming](#migration-file-naming-). 
+The script MUST be added to the respective folder as explained in [Migration Folder Structure](#migration-folder-structure) with the proper naming as given in [ Migration Script Naming](#migration-file-naming). 
 When connecting to the database, the  
 Migration works by checking the `user_version` pragma of the database against the desired `user_version` of the application. In case that the database `user_version` is behind the most recent version, the migration will take place in which a series of migration scripts located in the folder will be executed to bring the database to the most updated version.
 
@@ -57,4 +57,5 @@ The migration process will consider all such files while upgrading/downgrading t
 Note that currently we **DO NOT** support **down migration**.
 
 # User Guide
-Migrations work out of the box. However, if you want to be extra sure, please take a backup of the SQLite database prior to upgrading your nim-waku version since we currently don't support downgrades of DB.
+Migrations work out of the box. 
+However, if you want to be extra sure, please take a backup of the SQLite database prior to upgrading your nim-waku version since we currently don't support downgrades of DB.
