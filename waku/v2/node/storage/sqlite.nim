@@ -252,7 +252,6 @@ proc migrate*(db: SqliteDatabase, path: string, targetVersion: int64 = migration
     # fetch migration scripts
     let migrationScriptsRes = getScripts(path)
     if migrationScriptsRes.isErr:
-      echo "here"
       return err("failed to load migration scripts")
     let migrationScripts = migrationScriptsRes.value
     
