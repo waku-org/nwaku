@@ -558,7 +558,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
       if ws.store.isNil: continue
       let res = ws.store.put(index, msg, DefaultTopic)
       if res.isErr:
-        warn "failed to store messages", err = res.error, msg=msg, index=index
+        warn "failed to store messages", err = res.error
         waku_store_errors.inc(labelValues = ["store_failure"])
         continue
       
