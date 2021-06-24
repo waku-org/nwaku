@@ -48,7 +48,7 @@ A migration file with the name `00002_addTableX.up.sql` should be interpreted as
 - `addTableX`: What the script does.
 - `up`: This script `upgrade`s the database from `user_version = 00001` to the `user_version = 00002`.
 
-A downgrade migration file for `00002_addTableX.up.sql` would be e.g., `00001_removeTableX.down.sql` and should be interpreted as: 
+A downgrade migration file corresponding to the `00002_addTableX.up.sql` can be e.g., `00001_removeTableX.down.sql` and should be interpreted as: 
 - `00001`:  The targeted `user_version` number.
 - `removeTableX`: What the script does.
 - `down`: This script `downgrade`s the database from `user_version = 00002` to the `user_version = 00001`.
