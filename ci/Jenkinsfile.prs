@@ -1,0 +1,99 @@
+library 'status-jenkins-lib@v1.2.18'
+
+pipeline {
+  agent { label getAgentLabel() }
+
+  parameters {
+    string(
+      name: 'NIM_PARAMS',
+      description: 'Flags for Nim compilation.',
+      defaultValue: params.NIM_PARAMS ?: '-d:disableMarchNative -d:insecure --parallelBuild:6'
+    )
+    string(
+      name: 'LOG_LEVEL',
+      description: 'Build logging level. (DEBUG, TRACE)',
+      defaultValue: params.LOG_LEVEL ?: 'DEBUG'
+    )
+    string(
+      name: 'VERBOSITY',
+      description: 'Makefile verbosity level.(0-2)',
+      defaultValue: params.VERBOSITY ?: '0'
+    )
+    string(
+      name: 'MAKEFLAGS',
+      description: 'Makefile flags.',
+      defaultValue: params.MAKEFLAGS ?: '-j6'
+    )
+  }
+
+  options {
+    timestamps()
+    /* manage how many builds we keep */
+    buildDiscarder(logRotator(
+      numToKeepStr: '3',
+      daysToKeepStr: '30',
+      artifactNumToKeepStr: '1',
+    ))
+  }
+
+  environment {
+    TARGET = getAgentLabel()
+  }
+
+  stages {
+    stage('Deps') { steps {
+      cache(maxCacheSize: 250, caches: [[
+        $class: 'ArbitraryFileCache', excludes: '', includes: '**/*',
+        path: 'vendor/nimbus-build-system/vendor/Nim/bin',
+      ]]) {
+        sh "make V=${params.VERBOSITY} update"
+      }
+      sh "make V=${params.VERBOSITY} deps"
+    } }
+
+    stage('Binaries') {
+      parallel {
+        stage('V1') { steps { sh "make V=${params.VERBOSITY} v1" } }
+        stage('V2') { steps { sh "make V=${params.VERBOSITY} v2" } }
+      }
+    }
+
+    stage('Run Tests') {
+      parallel {
+        stage('V1') { steps { sh "make V=${params.VERBOSITY} test1" } }
+        stage('V2') { steps { sh "make V=${params.VERBOSITY} test2" } }
+      }
+    }
+
+    stage('Upload') { steps { script {
+      def out = genOutputFilename()
+      sh "mv build/wakunode2 ${out}"
+      env.PKG_URL = s3.uploadArtifact(out)
+      jenkins.setBuildDesc(Waku: env.PKG_URL)
+    } } }
+  } // stages
+  post {
+    success { script { github.notifyPR(true) } }
+    failure { script { github.notifyPR(false) } }
+  } // post
+} // pipeline
+
+
+/* This allows us to use one Jenkinsfile and run
+ * jobs on different platforms based on job name. */
+def getAgentLabel() {
+    if (params.AGENT_LABEL) {
+        return params.AGENT_LABEL
+    }
+    def tokens = env.JOB_NAME.split('/')
+    for (platform in ['linux', 'macos', 'windows']) {
+      if (tokens.contains(platform)) { return platform }
+    }
+    throw new Exception('No agent provided or found in job path!')
+}
+
+def genOutputFilename() {
+  return [
+    "wakunode2", utils.timestamp(), utils.gitCommit(), getAgentLabel()
+  ].join('-') + (env.NODE_NAME.startsWith('windows') ? '.exe' : '.bin')
+}
