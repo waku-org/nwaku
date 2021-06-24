@@ -254,7 +254,7 @@ proc migrate*(db: SqliteDatabase, path: string, targetVersion: int64 = migration
     if migrationScriptsRes.isErr:
       return err("failed to load migration scripts")
     let migrationScripts = migrationScriptsRes.value
-    
+  
     # filter scripts based on their versions
     let scriptsRes = migrationScripts.filterScripts(userVersion.value, targetVersion)
     if scriptsRes.isErr:

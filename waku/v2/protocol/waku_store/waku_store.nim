@@ -555,13 +555,13 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
       let indexedWakuMsg = IndexedWakuMessage(msg: msg, index: index, pubsubTopic: DefaultTopic)
       
       # store in db if exists
-      if ws.store.isNil: continue
-      let res = ws.store.put(index, msg, DefaultTopic)
-      if res.isErr:
-        warn "failed to store messages", err = res.error
-        waku_store_errors.inc(labelValues = ["store_failure"])
-        continue
-      
+      if not ws.store.isNil: 
+        let res = ws.store.put(index, msg, DefaultTopic)
+        if res.isErr:
+          warn "failed to store messages", err = res.error
+          waku_store_errors.inc(labelValues = ["store_failure"])
+          continue
+        
       ws.messages.add(indexedWakuMsg)
       waku_store_messages.inc(labelValues = ["stored"])
       
