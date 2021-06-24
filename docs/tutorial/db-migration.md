@@ -8,7 +8,7 @@ The [user_version](https://github.com/status-im/nim-waku/blob/master/waku/v2/nod
 Each update should be accompanied by a migration script to move the content of the old version of the database to the new version.
 The script MUST be added to the respective folder as explained in [Migration Folder Structure](#migration-folder-structure) with the proper naming as given in [ Migration Script Naming](#migration-file-naming). 
 
-The migration is invoked whenever the database `user_version` is behind the target [user_version](https://github.com/status-im/nim-waku/blob/master/waku/v2/node/storage/migration/migration_types.nim) indicated in the application.  
+The migration is invoked whenever the database `user_version` is behind the target [user_version](https://github.com/status-im/nim-waku/blob/master/waku/v2/node/storage/migration/migration_types.nim) indicated in the nim-waku application.  
 The respective migration scripts located in the [migrations folder](https://github.com/status-im/nim-waku/tree/master/waku/v2/node/storage/migration) will be executed to upgrade the database from its old version to the target version.
 
 ## Migration Folder Structure
