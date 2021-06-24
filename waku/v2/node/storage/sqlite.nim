@@ -30,8 +30,6 @@ type
   SqliteDatabase* = ref object of RootObj
     env*: Sqlite
 
-const USER_VERSION = 2 # increase this when there is a breaking change in the table schema
-
 template dispose(db: Sqlite) =
   discard sqlite3_close(db)
 
@@ -235,7 +233,7 @@ proc setUserVersion*(database: SqliteDatabase, version: int64): DatabaseResult[b
   ok(true)
 
 
-proc migrate*(db: SqliteDatabase, path: string, targetVersion: int64 = USER_VERSION): DatabaseResult[bool] = 
+proc migrate*(db: SqliteDatabase, path: string, targetVersion: int64 = migration_types.USER_VERSION): DatabaseResult[bool] = 
   ## compares the user_version of the db with the targetVersion 
   ## runs migration scripts if the user_version is outdated (does not support down migration)
   ## path points to the directory holding the migrations scripts
@@ -254,9 +252,10 @@ proc migrate*(db: SqliteDatabase, path: string, targetVersion: int64 = USER_VERS
     # fetch migration scripts
     let migrationScriptsRes = getScripts(path)
     if migrationScriptsRes.isErr:
+      echo "here"
       return err("failed to load migration scripts")
     let migrationScripts = migrationScriptsRes.value
-
+    
     # filter scripts based on their versions
     let scriptsRes = migrationScripts.filterScripts(userVersion.value, targetVersion)
     if scriptsRes.isErr:
