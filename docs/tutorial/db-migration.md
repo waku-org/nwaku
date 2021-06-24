@@ -1,6 +1,5 @@
 # Database Migration
 This tutorial explains how nim-waku handles database updates and migrate old databases to the new schema. 
-Migrations work out of box, however if you want to be extra sure take a backup of SQLite DB first since we currently don't support downgrades of DB.
 
 # Contributors Guide
 ## Database Migration Flow
@@ -55,3 +54,7 @@ A downgrade migration file for `00002_addTableX.up.sql` would be e.g., `00001_re
 
 There can be more that one migration file for the same `user-version`. 
 The migration process will consider all such files while upgrading/downgrading the database. 
+Note that currently we **DO NOT** support **down migration**.
+
+# Users Guide
+Migrations work out of box. However, if you want to be extra sure, please take a backup of the SQLite database prior to installing the new release of nim-waku since we currently don't support downgrades of DB.
