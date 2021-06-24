@@ -1,11 +1,11 @@
 # Database Migration
-This tutorial explains how nim-waku handles database updates and migrate old databases to the new schema. 
+This tutorial explains the database migration process in nim-waku.
 
 # Contributors Guide
 ## Database Migration Flow
 For tracking the database version, nim-waku utilizes the built-in `user-version` variable that Sqlite provides.
 The [user-version](https://github.com/status-im/nim-waku/blob/d4974049d9d3f61dab16223be5dcbb1325b1f7a0/waku/v2/node/storage/sqlite.nim#L33) MUST be bumped up for every update on the database e.g, table schema/title change.
-Each update should be accompanied by a migration script to  move the content of the old version of the database to the new version.
+Each update should be accompanied by a migration script to move the content of the old version of the database to the new version.
 The script MUST be added to the respective folder as explained in [Migration Folder Structure](#migration-folder-structure) with the proper naming as given in [ Migration Script Naming](#migration-file-naming-). 
 When connecting to the database, the  
 Migration works by checking the `user_version` pragma of the database against the desired `user_version` of the application. In case that the database `user_version` is behind the most recent version, the migration will take place in which a series of migration scripts located in the folder will be executed to bring the database to the most updated version.
@@ -52,9 +52,9 @@ A downgrade migration file for `00002_addTableX.up.sql` would be e.g., `00001_re
 - `removeTableX`: What the script does.
 - `down`: This script `downgrade`s the database from `user-version = 00002` to the `user-version = 00001`.
 
-There can be more that one migration file for the same `user-version`. 
+There can be more than one migration file for the same `user-version`. 
 The migration process will consider all such files while upgrading/downgrading the database. 
 Note that currently we **DO NOT** support **down migration**.
 
-# Users Guide
-Migrations work out of box. However, if you want to be extra sure, please take a backup of the SQLite database prior to installing the new release of nim-waku since we currently don't support downgrades of DB.
+# User Guide
+Migrations work out of the box. However, if you want to be extra sure, please take a backup of the SQLite database prior to upgrading your nim-waku version since we currently don't support downgrades of DB.
