@@ -37,7 +37,7 @@ Files with invalid naming will be eliminated from the migration process.
 
 `<version number>_<migration script description>.<up|down>.sql`
 
-- `version number`: This number should match the updated value of `user_version`.
+- `version number`: This number should match the target value of `user_version`.
 - `migration script description`: A short description of what the migration script does.
 - `up|down`: One of the keywords of `up` or `down` should be selected.
   `up` stands for upgrade and `down` means downgrade.
