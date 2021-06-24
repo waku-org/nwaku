@@ -36,9 +36,11 @@ import
 
 export waku_swap_types
 
-declarePublicGauge waku_swap_peers, "number of swap peers"
+const swapAccountBalanceBuckets = [-Inf, -200.0, -150.0, -100.0, -50.0, 0.0, 50.0, 100.0, 150.0, 200.0, Inf]
+
+declarePublicGauge waku_swap_peers_count, "number of swap peers"
 declarePublicGauge waku_swap_errors, "number of swap protocol errors", ["type"]
-declarePublicGauge waku_swap_account_state, "swap account state for each peer", ["peer"]
+declarePublicHistogram waku_peer_swap_account_balance, "Swap Account Balance for waku peers, aggregated into buckets based on threshold limits", buckets = swapAccountBalanceBuckets
 
 logScope:
   topics = "wakuswap"
@@ -96,17 +98,8 @@ proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
 
 
 # TODO Assume we calculated cheque
-proc sendCheque*(ws: WakuSwap) {.async.} =
-  let peerOpt = ws.peerManager.selectPeer(WakuSwapCodec)
-
-  if peerOpt.isNone():
-    error "no suitable remote peers"
-    waku_swap_errors.inc(labelValues = [dialFailure])
-    return
-
-  let peer = peerOpt.get()
-
-  let connOpt = await ws.peerManager.dialPeer(peer, WakuSwapCodec)
+proc sendCheque*(ws: WakuSwap, peerInfo : PeerInfo) {.async.} =
+  let connOpt = await ws.peerManager.dialPeer(peerInfo, WakuSwapCodec)
 
   if connOpt.isNone():
     # @TODO more sophisticated error handling here
@@ -119,6 +112,7 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
   # TODO We get this from the setup of swap setup, dynamic, should be part of setup
   # TODO Add beneficiary, etc
   var aliceSwapAddress = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
+  var aliceWalletAddress = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
   var signature: string
 
   var res = waku_swap_contracts.signCheque(aliceSwapAddress)
@@ -130,21 +124,28 @@ proc sendCheque*(ws: WakuSwap) {.async.} =
     # To test code paths, this should look different in a production setting
     warn "Something went wrong when signing cheque, sending anyway"
 
-  info "Signed Cheque", swapAddress = aliceSwapAddress, signature = signature
+  info "Signed Cheque", swapAddress = aliceSwapAddress, signature = signature, issuerAddress = aliceWalletAddress
   let sigBytes = cast[seq[byte]](signature)
-  await connOpt.get().writeLP(Cheque(amount: 1, signature: sigBytes).encode().buffer)
+  await connOpt.get().writeLP(Cheque(amount: 1, signature: sigBytes, issuerAddress: aliceWalletAddress).encode().buffer)
 
   # Set new balance
-  let peerId = peer.peerId
+  let peerId = peerInfo.peerId
   ws.accounting[peerId] -= 1
   info "New accounting state", accounting = ws.accounting[peerId]
 
 # TODO Authenticate cheque, check beneficiary etc
-proc handleCheque*(ws: WakuSwap, cheque: Cheque) =
+proc handleCheque*(ws: WakuSwap, cheque: Cheque, peerInfo : PeerInfo) =
   info "handle incoming cheque"
-  # XXX Assume peerId is first peer
-  let peerOpt = ws.peerManager.selectPeer(WakuSwapCodec)
-  let peerId = peerOpt.get().peerId
+
+  let peerId = peerInfo.peerId
+
+  # Get the original signer using web3. For now, a static value (0x6C3d502f1a97d4470b881015b83D9Dd1062172e1) will be used.
+  # Check if web3.eth.personal.ecRecover(messageHash, signature); or an equivalent function has been implemented in nim-web3
+  let signer = "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1"
+
+  # Verify that the Issuer was the signer of the signature
+  if signer != cheque.issuerAddress:
+    warn "Invalid cheque: The address of the issuer is different from the signer."
 
   # TODO Redeem cheque here
   var signature = cast[string](cheque.signature)
@@ -194,7 +195,7 @@ proc handleCheque*(ws: WakuSwap, cheque: Cheque) =
 
 # Log Account Metrics
 proc logAccountMetrics*(ws: Wakuswap, peer: PeerId) {.async.}=
-  waku_swap_account_state.set(ws.accounting[peer].int64, labelValues = [$peer])
+  waku_peer_swap_account_balance.observe(ws.accounting[peer].int64)
 
 
 proc init*(wakuSwap: WakuSwap) =
@@ -210,28 +211,31 @@ proc init*(wakuSwap: WakuSwap) =
       return
 
     info "received cheque", value=res.value
-    wakuSwap.handleCheque(res.value)
+    wakuSwap.handleCheque(res.value, conn.peerInfo)
 
-  proc credit(peerId: PeerId, n: int) {.gcsafe, closure.} =
+  proc credit(peerInfo: PeerInfo, n: int) {.gcsafe, closure.} =
+    let peerId = peerInfo.peerId
     info "Crediting peer: ", peer=peerId, amount=n
     if wakuSwap.accounting.hasKey(peerId):
       wakuSwap.accounting[peerId] -= n
     else:
       wakuSwap.accounting[peerId] = -n
     info "Accounting state", accounting = wakuSwap.accounting[peerId]
-    wakuSwap.applyPolicy(peerId)
+    wakuSwap.applyPolicy(peerInfo)
 
   # TODO Debit and credit here for Karma asset
-  proc debit(peerId: PeerId, n: int) {.gcsafe, closure.} =
+  proc debit(peerInfo: PeerInfo, n: int) {.gcsafe, closure.} =
+    let peerId = peerInfo.peerId
     info "Debiting peer: ", peer=peerId, amount=n
     if wakuSwap.accounting.hasKey(peerId):
       wakuSwap.accounting[peerId] += n
     else:
       wakuSwap.accounting[peerId] = n
     info "Accounting state", accounting = wakuSwap.accounting[peerId]
-    wakuSwap.applyPolicy(peerId)
+    wakuSwap.applyPolicy(peerInfo)
     
-  proc applyPolicy(peerId: PeerId) {.gcsafe, closure.} = 
+  proc applyPolicy(peerInfo: PeerInfo) {.gcsafe, closure.} = 
+    let peerId = peerInfo.peerId
     # TODO Separate out depending on if policy is soft (accounting only) mock (send cheque but don't cash/verify) hard (actually send funds over testnet)
 
     #Check if the Disconnect Threshold has been hit. Account Balance nears the disconnectThreshold after a Credit has been done
@@ -245,7 +249,7 @@ proc init*(wakuSwap: WakuSwap) =
       warn "Payment threshhold has been reached: ", threshold=wakuSwap.config.paymentThreshold, balance=wakuSwap.accounting[peerId]
       #In soft phase we don't send cheques yet
       if wakuSwap.config.mode == Mock:
-        discard wakuSwap.sendCheque()
+        discard wakuSwap.sendCheque(peerInfo)
     else:
       info "Payment threshhold not hit"
 
@@ -270,6 +274,6 @@ proc init*(T: type WakuSwap, peerManager: PeerManager, rng: ref BrHmacDrbgContex
 
 proc setPeer*(ws: WakuSwap, peer: PeerInfo) =
   ws.peerManager.addPeer(peer, WakuSwapCodec)
-  waku_swap_peers.inc()
+  waku_swap_peers_count.inc()
 
 # TODO End to end communication

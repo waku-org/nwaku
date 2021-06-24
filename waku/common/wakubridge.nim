@@ -10,6 +10,7 @@ import
   ../v1/protocol/waku_protocol,
   # Waku v2 imports
   libp2p/crypto/crypto,
+  ../v2/utils/namespacing,
   ../v2/protocol/waku_filter/waku_filter_types,
   ../v2/node/wakunode2,
   # Common cli config
@@ -26,7 +27,6 @@ logScope:
 ##################
 
 const
-  DefaultBridgeTopic* = "/waku/2/default-bridge/proto"
   ClientIdV1 = "nim-waku v1 node"
   DefaultTTL = 5'u32
   DeduplQSize = 20  # Maximum number of seen messages to keep in deduplication queue
@@ -39,11 +39,14 @@ type
   WakuBridge* = ref object of RootObj
     nodev1*: EthereumNode
     nodev2*: WakuNode
+    nodev2PubsubTopic: wakunode2.Topic # Pubsub topic to bridge to/from
     seen: seq[hashes.Hash] # FIFO queue of seen WakuMessages. Used for deduplication.
 
 ###################
 # Helper funtions #
 ###################
+
+# Deduplication
 
 proc containsOrAdd(sequence: var seq[hashes.Hash], hash: hashes.Hash): bool =
   if sequence.contains(hash):
@@ -57,10 +60,34 @@ proc containsOrAdd(sequence: var seq[hashes.Hash], hash: hashes.Hash): bool =
 
   return false
 
+# Topic conversion
+
+proc toV2ContentTopic*(v1Topic: waku_protocol.Topic): ContentTopic =
+  ## Convert a 4-byte array v1 topic to a namespaced content topic
+  ## with format `/waku/1/<v1-topic-bytes-as-hex>/proto`
+  
+  var namespacedTopic = NamespacedTopic()
+  
+  namespacedTopic.application = "waku"
+  namespacedTopic.version = "1"
+  namespacedTopic.topicName = v1Topic.toHex()
+  namespacedTopic.encoding = "rlp"
+
+  return ContentTopic($namespacedTopic)
+
+proc toV1Topic*(contentTopic: ContentTopic): waku_protocol.Topic {.raises: [ValueError, Defect]} =
+  ## Extracts the 4-byte array v1 topic from a content topic
+  ## with format `/waku/1/<v1-topic-bytes-as-hex>/proto`
+
+  hexToByteArray(hexStr = NamespacedTopic.fromString(contentTopic).tryGet().topicName,
+                 N = 4)  # Byte array length
+
+# Message conversion
+
 func toWakuMessage(env: Envelope): WakuMessage =
   # Translate a Waku v1 envelope to a Waku v2 message
   WakuMessage(payload: env.data,
-              contentTopic: ContentTopic(string.fromBytes(env.topic)),
+              contentTopic: toV2ContentTopic(env.topic),
               version: 1)
 
 proc toWakuV2(bridge: WakuBridge, env: Envelope) {.async.} =
@@ -76,9 +103,9 @@ proc toWakuV2(bridge: WakuBridge, env: Envelope) {.async.} =
 
   waku_bridge_transfers.inc(labelValues = ["v1_to_v2"])
   
-  await bridge.nodev2.publish(DefaultBridgeTopic, msg)
+  await bridge.nodev2.publish(bridge.nodev2PubsubTopic, msg)
 
-proc toWakuV1(bridge: WakuBridge, msg: WakuMessage) {.gcsafe.} =
+proc toWakuV1(bridge: WakuBridge, msg: WakuMessage) {.gcsafe, raises: [ValueError, Defect].} =
   if bridge.seen.containsOrAdd(msg.encode().buffer.hash()):
     # This is a duplicate message. Return
     trace "Already seen. Dropping.", msg=msg
@@ -93,7 +120,7 @@ proc toWakuV1(bridge: WakuBridge, msg: WakuMessage) {.gcsafe.} =
   let v1TopicSeq = msg.contentTopic.toBytes()[0..3]
   
   discard bridge.nodev1.postMessage(ttl = DefaultTTL,
-                                    topic = toArray(4, v1TopicSeq),
+                                    topic = toV1Topic(msg.contentTopic),
                                     payload = msg.payload)
 
 ##############
@@ -105,10 +132,14 @@ proc new*(T: type WakuBridge,
           nodev1Address: Address,
           powRequirement = 0.002,
           rng: ref BrHmacDrbgContext,
+          topicInterest = none(seq[waku_protocol.Topic]),
+          bloom = some(fullBloom()),
           # NodeV2 initialisation
           nodev2Key: crypto.PrivateKey,
           nodev2BindIp: ValidIpAddress, nodev2BindPort: Port,
-          nodev2ExtIp = none[ValidIpAddress](), nodev2ExtPort = none[Port]()): T =
+          nodev2ExtIp = none[ValidIpAddress](), nodev2ExtPort = none[Port](),
+          # Bridge configuration
+          nodev2PubsubTopic: wakunode2.Topic): T =
 
   # Setup Waku v1 node
   var
@@ -119,13 +150,15 @@ proc new*(T: type WakuBridge,
   nodev1.addCapability Waku # Always enable Waku protocol
 
   # Setup the Waku configuration.
-  # This node is being set up as a bridge so it gets configured as a node with
+  # This node is being set up as a bridge. By default it gets configured as a node with
   # a full bloom filter so that it will receive and forward all messages.
+  # It is, however, possible to configure a topic interest to bridge only
+  # selected messages.
   # TODO: What is the PoW setting now?
   let wakuConfig = WakuConfig(powRequirement: powRequirement,
-                              bloom: some(fullBloom()), isLightNode: false,
+                              bloom: bloom, isLightNode: false,
                               maxMsgSize: waku_protocol.defaultMaxMsgSize,
-                              topics: none(seq[waku_protocol.Topic]))
+                              topics: topicInterest)
   nodev1.configureWaku(wakuConfig)
 
   # Setup Waku v2 node
@@ -134,7 +167,7 @@ proc new*(T: type WakuBridge,
                            nodev2BindIp, nodev2BindPort,
                            nodev2ExtIp, nodev2ExtPort)
   
-  return WakuBridge(nodev1: nodev1, nodev2: nodev2)
+  return WakuBridge(nodev1: nodev1, nodev2: nodev2, nodev2PubsubTopic: nodev2PubsubTopic)
 
 proc start*(bridge: WakuBridge) {.async.} =
   info "Starting WakuBridge"
@@ -171,10 +204,14 @@ proc start*(bridge: WakuBridge) {.async.} =
   proc relayHandler(pubsubTopic: string, data: seq[byte]) {.async, gcsafe.} =
     let msg = WakuMessage.init(data)
     if msg.isOk():
-      trace "Bridging message from V2 to V1", msg=msg[]
-      bridge.toWakuV1(msg[])
+      try:
+        trace "Bridging message from V2 to V1", msg=msg.tryGet()
+        bridge.toWakuV1(msg.tryGet())
+      except ValueError:
+        trace "Failed to convert message to Waku v1. Check content-topic format.", msg=msg
+        waku_bridge_dropped.inc(labelValues = ["value_error"])
   
-  bridge.nodev2.subscribe(DefaultBridgeTopic, relayHandler)
+  bridge.nodev2.subscribe(bridge.nodev2PubsubTopic, relayHandler)
 
 proc stop*(bridge: WakuBridge) {.async.} =
   await bridge.nodev2.stop()
@@ -234,15 +271,28 @@ when isMainModule:
     (nodev2ExtIp, nodev2ExtPort, _) = setupNat(conf.nat, clientId,
                                                Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
                                                Port(uint16(conf.udpPort) + conf.portsShift))
+  
+  # Topic interest and bloom
+  var topicInterest: Option[seq[waku_protocol.Topic]]
+  var bloom: Option[Bloom]
+  
+  if conf.wakuV1TopicInterest:
+    var topics: seq[waku_protocol.Topic]
+    topicInterest = some(topics)
+  else:
+    bloom = some(fullBloom())
 
   let
     bridge = WakuBridge.new(nodev1Key = conf.nodekeyV1,
                             nodev1Address = nodev1Address,
-                            powRequirement = conf.wakuPow,
+                            powRequirement = conf.wakuV1Pow,
                             rng = rng,
+                            topicInterest = topicInterest,
+                            bloom = bloom,
                             nodev2Key = conf.nodekeyV2,
                             nodev2BindIp = conf.listenAddress, nodev2BindPort = Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
-                            nodev2ExtIp = nodev2ExtIp, nodev2ExtPort = nodev2ExtPort)
+                            nodev2ExtIp = nodev2ExtIp, nodev2ExtPort = nodev2ExtPort,
+                            nodev2PubsubTopic = conf.bridgePubsubTopic)
   
   waitFor bridge.start()
 
@@ -255,7 +305,7 @@ when isMainModule:
   elif conf.fleetV1 == test: connectToNodes(bridge.nodev1, WhisperNodesTest)
 
   # Mount configured Waku v2 protocols
-  mountKeepalive(bridge.nodev2)
+  mountLibp2pPing(bridge.nodev2)
   
   if conf.store:
     mountStore(bridge.nodev2, persistMessages = false)  # Bridge does not persist messages

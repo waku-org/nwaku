@@ -6,43 +6,41 @@ import
   stew/shims/net as stewNet,
   libp2p/switch,
   libp2p/protobuf/minprotobuf,
+  libp2p/protocols/ping,
   libp2p/stream/[bufferstream, connection],
   libp2p/crypto/crypto,
   libp2p/multistream,
   ../../waku/v2/node/wakunode2,
-  ../../waku/v2/protocol/waku_keepalive/waku_keepalive,
   ../test_helpers, ./utils
 
 procSuite "Waku Keepalive":
 
-  asyncTest "handle keepalive":
+  asyncTest "handle ping keepalives":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
 
+    var completionFut = newFuture[bool]()
+
+    proc pingHandler(peer: PeerInfo) {.async, gcsafe, raises: [Defect].} =
+      debug "Ping received"
+
+      check:
+        peer.peerId == node1.switch.peerInfo.peerId
+
+      completionFut.complete(true)
+
     await node1.start()
     node1.mountRelay()
-    node1.mountKeepalive()
+    node1.mountLibp2pPing()
 
     await node2.start()
     node2.mountRelay()
-    node2.mountKeepalive()
+    node2.switch.mount(Ping.new(handler = pingHandler))
 
     await node1.connectToNodes(@[node2.peerInfo])
-
-    var completionFut = newFuture[bool]()
-
-    proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
-      debug "WakuKeepalive message received"
-      
-      check:
-        proto == waku_keepalive.WakuKeepaliveCodec
-      
-      completionFut.complete(true)
-    
-    node2.wakuKeepalive.handler = handle
 
     node1.startKeepalive()
 

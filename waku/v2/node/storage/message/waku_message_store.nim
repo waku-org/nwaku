@@ -27,7 +27,7 @@ const MESSAGE_STORE_MIGRATION_PATH* = sourceDir / "../migration/migrations_scrip
 type
   WakuMessageStore* = ref object of MessageStore
     database*: SqliteDatabase
-
+ 
 proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] =
   ## Table is the SQL query for creating the messages Table.
   ## It contains:

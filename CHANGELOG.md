@@ -7,6 +7,8 @@ This release contains the following:
 
 ### Changes
 - Enables db migration for the message store.
+- The `resume` Nim API eliminates duplicates messages before storing them.
+
 #### General refactoring
 #### Docs
 #### Schema
@@ -16,7 +18,6 @@ This release contains the following:
 #### API
 
 ### Fixes
-
 
 ## 2021-06-03 v0.4
 

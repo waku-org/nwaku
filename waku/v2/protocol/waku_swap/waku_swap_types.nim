@@ -21,22 +21,22 @@ type
     disconnectThreshold* : int
 
   Beneficiary* = seq[byte]
-
+  
   # TODO Consider adding payment threshhold and terms field
   Handshake* = object
     beneficiary*: Beneficiary
 
-  # XXX I'm confused by lack of signature here, most important thing...
   # TODO Look over these data structures again
   Cheque* = object
+    issuerAddress*: string
     beneficiary*: Beneficiary
     date*: uint32
     amount*: uint32
     signature*: seq[byte]
 
-  CreditHandler* = proc (peerId: PeerId, amount: int) {.gcsafe, closure.}
-  DebitHandler* = proc (peerId: PeerId, amount: int) {.gcsafe, closure.}
-  ApplyPolicyHandler* = proc(peerId: PeerId) {.gcsafe, closure.}
+  CreditHandler* = proc (peerInfo: PeerInfo, amount: int) {.gcsafe, closure.}
+  DebitHandler* = proc (peerInfo: PeerInfo, amount: int) {.gcsafe, closure.}
+  ApplyPolicyHandler* = proc(peerInfo: PeerInfo) {.gcsafe, closure.}
 
   WakuSwap* = ref object of LPProtocol
     peerManager*: PeerManager
