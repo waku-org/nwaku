@@ -762,14 +762,6 @@ when isMainModule:
     var store: WakuMessageStore
     if (not sqliteDatabase.isNil) and conf.persistMessages:
 
-      # # run migration 
-      # info "running migration ... "
-      # let migrationResult = sqliteDatabase.migrate(MESSAGE_STORE_MIGRATION_PATH)
-      # if migrationResult.isErr:
-      #   warn "migration failed"
-      # else:
-      #   info "migration is done"
-
       let res = WakuMessageStore.init(sqliteDatabase)
       if res.isErr:
         warn "failed to init WakuMessageStore", err = res.error
