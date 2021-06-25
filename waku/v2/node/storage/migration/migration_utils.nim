@@ -8,7 +8,7 @@ proc getScripts*(migrationPath: string): MigrationScriptsResult[MigrationScripts
   ## the code in this procedure is an adaptation of https://github.com/status-im/nim-status/blob/21aebe41be03cb6450ea261793b800ed7d3e6cda/nim_status/migrations/sql_generate.nim#L4
   var migrationScripts = MigrationScripts(migrationUp:initOrderedTable[string, string](), migrationDown:initOrderedTable[string, string]())
   try:
-    for kind, path in walkDir(migrationPath):
+    for path in walkDirRec(migrationPath):
       let (_, name, ext) = splitFile(path)
       if ext != ".sql": continue
 
@@ -35,6 +35,7 @@ proc getScripts*(migrationPath: string): MigrationScriptsResult[MigrationScripts
     ok(migrationScripts)
 
   except OSError, IOError:
+    debug "failed to load the migration scripts"
     return err("failed to load the migration scripts") 
 
 
