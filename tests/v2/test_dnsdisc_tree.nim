@@ -11,11 +11,11 @@ procSuite "Test DNS Discovery: Merkle Tree":
 
   asyncTest "Parse root entry":
     # Expected case
-    let entryRes = parseRootEntry("matree-root:v1 m=JWXYDBPXYWG6FX3GMDIBFA6CJ4 l=C7HRFPF3BLGF3YR4DY5KX3SMBE seq=1 sig=o908WmNp7LibOfPsr4btQwatZJ5URBr2ZAuxvK4UWHlsB9sUOTJQaGAlLPVAhM__XJesCHxLISo94z5Z2a463gA")
+    let entryRes = parseRootEntry("enrtree-root:v1 e=JWXYDBPXYWG6FX3GMDIBFA6CJ4 l=C7HRFPF3BLGF3YR4DY5KX3SMBE seq=1 sig=o908WmNp7LibOfPsr4btQwatZJ5URBr2ZAuxvK4UWHlsB9sUOTJQaGAlLPVAhM__XJesCHxLISo94z5Z2a463gA")
     
     check:
       entryRes.isOk()
-      entryRes[].mroot == "JWXYDBPXYWG6FX3GMDIBFA6CJ4"
+      entryRes[].eroot == "JWXYDBPXYWG6FX3GMDIBFA6CJ4"
       entryRes[].lroot == "C7HRFPF3BLGF3YR4DY5KX3SMBE"
       entryRes[].seqNo == 1
       entryRes[].signature == Base64Url.decode("o908WmNp7LibOfPsr4btQwatZJ5URBr2ZAuxvK4UWHlsB9sUOTJQaGAlLPVAhM__XJesCHxLISo94z5Z2a463gA")
@@ -28,28 +28,28 @@ procSuite "Test DNS Discovery: Merkle Tree":
                     .contains("Invalid syntax")
 
       # Invalid syntax: no space
-      parseRootEntry("matree-root:v1m=JWXYDBPXYWG6FX3GMDIBFA6CJ4 l=C7HRFPF3BLGF3YR4DY5KX3SMBE seq=1sig=o908WmNp7LibOfPsr4btQwatZJ5URBr2ZAuxvK4UWHlsB9sUOTJQaGAlLPVAhM__XJesCHxLISo94z5Z2a463gA")
+      parseRootEntry("enrtree-root:v1e=JWXYDBPXYWG6FX3GMDIBFA6CJ4 l=C7HRFPF3BLGF3YR4DY5KX3SMBE seq=1sig=o908WmNp7LibOfPsr4btQwatZJ5URBr2ZAuxvK4UWHlsB9sUOTJQaGAlLPVAhM__XJesCHxLISo94z5Z2a463gA")
                     .error()
                     .contains("Invalid syntax")
       
-      # Invalid child: mroot too short
-      parseRootEntry("matree-root:v1 m=JWXYDBPXYWG6FX3GMDIBFA6CJ l=C7HRFPF3BLGF3YR4DY5KX3SMBE seq=1 sig=o908WmNp7LibOfPsr4btQwatZJ5URBr2ZAuxvK4UWHlsB9sUOTJQaGAlLPVAhM__XJesCHxLISo94z5Z2a463gA")
+      # Invalid child: eroot too short
+      parseRootEntry("enrtree-root:v1 e=JWXYDBPXYWG6FX3GMDIBFA6CJ l=C7HRFPF3BLGF3YR4DY5KX3SMBE seq=1 sig=o908WmNp7LibOfPsr4btQwatZJ5URBr2ZAuxvK4UWHlsB9sUOTJQaGAlLPVAhM__XJesCHxLISo94z5Z2a463gA")
                     .error()
                     .contains("Invalid child")
       
       # Invalid child: lroot newline
-      parseRootEntry("matree-root:v1 m=JWXYDBPXYWG6FX3GMDIBFA6CJ4 l=C7HRFPF3BLGF3YR4DY5KX3SM\n\r seq=1 sig=o908WmNp7LibOfPsr4btQwatZJ5URBr2ZAuxvK4UWHlsB9sUOTJQaGAlLPVAhM__XJesCHxLISo94z5Z2a463gA")
+      parseRootEntry("enrtree-root:v1 e=JWXYDBPXYWG6FX3GMDIBFA6CJ4 l=C7HRFPF3BLGF3YR4DY5KX3SM\n\r seq=1 sig=o908WmNp7LibOfPsr4btQwatZJ5URBr2ZAuxvK4UWHlsB9sUOTJQaGAlLPVAhM__XJesCHxLISo94z5Z2a463gA")
                     .error()
                     .contains("Invalid child")
       
       # Invalid signature
-      parseRootEntry("matree-root:v1 m=JWXYDBPXYWG6FX3GMDIBFA6CJ4 l=C7HRFPF3BLGF3YR4DY5KX3SMBE seq=1 sig=o908WmNp7LibOfPsr4btQwatZJ5URBr2ZAuxvK4UWHlsB9sUOTJQaGAlLPVAhM__XJesCHxLISo94z5Z2a463g")
+      parseRootEntry("enrtree-root:v1 e=JWXYDBPXYWG6FX3GMDIBFA6CJ4 l=C7HRFPF3BLGF3YR4DY5KX3SMBE seq=1 sig=o908WmNp7LibOfPsr4btQwatZJ5URBr2ZAuxvK4UWHlsB9sUOTJQaGAlLPVAhM__XJesCHxLISo94z5Z2a463g")
                     .error()
                     .contains("Invalid signature")
 
   asyncTest "Parse branch entry":
     # Expected case
-    let entryRes = parseBranchEntry("matree-branch:2XS2367YHAXJFGLZHVAWLQD4ZY,H4FHT4B454P6UXFD7JCYQ5PWDY,MHTDO6TMUBRIA2XWG5LUDACK24")
+    let entryRes = parseBranchEntry("enrtree-branch:2XS2367YHAXJFGLZHVAWLQD4ZY,H4FHT4B454P6UXFD7JCYQ5PWDY,MHTDO6TMUBRIA2XWG5LUDACK24")
     
     check:
       entryRes.isOk()
@@ -66,21 +66,21 @@ procSuite "Test DNS Discovery: Merkle Tree":
                       .contains("Invalid syntax")
       
       # Invalid syntax: invalid space
-      parseBranchEntry("matree-branch :2XS2367YHAXJFGLZHVAWLQD4ZY,H4FHT4B454P6UXFD7JCYQ5PWDY,MHTDO6TMUBRIA2XWG5LUDACK24")
+      parseBranchEntry("enrtree-branch :2XS2367YHAXJFGLZHVAWLQD4ZY,H4FHT4B454P6UXFD7JCYQ5PWDY,MHTDO6TMUBRIA2XWG5LUDACK24")
                       .error()
                       .contains("Invalid syntax")
 
       # Invalid child: invalid first entry - leading space
-      parseBranchEntry("matree-branch: 2XS2367YHAXJFGLZHVAWLQD4ZY,H4FHT4B454P6UXFD7JCYQ5PWDY,MHTDO6TMUBRIA2XWG5LUDACK24")
+      parseBranchEntry("enrtree-branch: 2XS2367YHAXJFGLZHVAWLQD4ZY,H4FHT4B454P6UXFD7JCYQ5PWDY,MHTDO6TMUBRIA2XWG5LUDACK24")
                       .error()
                       .contains("Invalid child")
       
       # Invalid child: invalid middle entry - too short
-      parseBranchEntry("matree-branch:2XS2367YHAXJFGLZHVAWLQD4ZY,H4FHT4B454P6UXFD7JCYQ5PWD,MHTDO6TMUBRIA2XWG5LUDACK24")
+      parseBranchEntry("enrtree-branch:2XS2367YHAXJFGLZHVAWLQD4ZY,H4FHT4B454P6UXFD7JCYQ5PWD,MHTDO6TMUBRIA2XWG5LUDACK24")
                       .error()
                       .contains("Invalid child")
 
       # Invalid child: invalid last entry - trailing space
-      parseBranchEntry("matree-branch:2XS2367YHAXJFGLZHVAWLQD4ZY,H4FHT4B454P6UXFD7JCYQ5PWDY,MHTDO6TMUBRIA2XWG5LUDACK24 ")
+      parseBranchEntry("enrtree-branch:2XS2367YHAXJFGLZHVAWLQD4ZY,H4FHT4B454P6UXFD7JCYQ5PWDY,MHTDO6TMUBRIA2XWG5LUDACK24 ")
                       .error()
                       .contains("Invalid child")

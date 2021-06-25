@@ -4,24 +4,21 @@ import
   std/[strscans, strutils],
   secp256k1,
   stew/[base32, base64, results],
-  libp2p/multiaddress
+  eth/p2p/discoveryv5/enr
 
-## A collection of utilities for interacting with a list of libp2p peers
+## A collection of utilities for interacting with a list of ENR
 ## encoded as a Merkle Tree conisting of DNS TXT records.
 ## 
-## This forms part of an implementation of 25/LIBP2P-DNS-DISCOVERY 
-## available at https://rfc.vac.dev/spec/25/
-## 
-## Libp2p peer discovery via DNS is based on https://eips.ethereum.org/EIPS/eip-1459
+## Discovery via DNS is based on https://eips.ethereum.org/EIPS/eip-1459
 ## 
 ## This implementation is based on the Go implementation of EIP-1459
 ## at https://github.com/ethereum/go-ethereum/blob/master/p2p/dnsdisc
 
 const
-  RootPrefix = "matree-root:v1"
-  BranchPrefix = "matree-branch:"
-  MultiaddrPrefix = "ma:"
-  LinkPrefix = "matree://"
+  RootPrefix = "enrtree-root:v1"
+  BranchPrefix = "enrtree-branch:"
+  EnrPrefix = "enr:"
+  LinkPrefix = "enrtree://"
 
 type
   EntryParseResult*[T] = Result[T, string]
@@ -29,7 +26,7 @@ type
   # Entry types
 
   RootEntry* = object
-    mroot*: string # Root of subtree containing multiaddrs
+    eroot*: string # Root of subtree containing nodes
     lroot*: string # Root of subtree containing links to other trees
     seqNo*: uint32 # Sequence number, increased with every update
     signature*: seq[byte] # Root entry signature
@@ -37,8 +34,8 @@ type
   BranchEntry* = object
     children*: seq[string] # Hashes pointing to the subdomains of other subtree entries
   
-  MultiaddrEntry* = object
-    multiaddr*: MultiAddress
+  EnrEntry* = object
+    node*: enr.Record
   
   LinkEntry* = object
     pubkey*: string
@@ -70,21 +67,21 @@ proc isValidHash(hashStr: string): bool =
 
 proc parseRootEntry*(entry: string): EntryParseResult[RootEntry] =
   ## Parses a root entry in the format
-  ## 'matree-root:v1 m=<ma-root> l=<link-root> seq=<sequence number> sig=<signature>'
+  ## 'enrtree-root:v1 e=<enr-root> l=<link-root> seq=<sequence-number> sig=<signature>'
   
   var
-    mroot, lroot, sigstr: string
+    eroot, lroot, sigstr: string
     seqNo: int
     signature: seq[byte]
 
   try:
-    if not scanf(entry, RootPrefix & " m=$+ l=$+ seq=$i sig=$+", mroot, lroot, seqNo, sigstr):
+    if not scanf(entry, RootPrefix & " e=$+ l=$+ seq=$i sig=$+", eroot, lroot, seqNo, sigstr):
       # @TODO better error handling
       return err("Invalid syntax")
   except ValueError:
     return err("Invalid syntax")
 
-  if (not isValidHash(mroot)) or (not isValidHash(lroot)):
+  if (not isValidHash(eroot)) or (not isValidHash(lroot)):
     return err("Invalid child")
   
   try:
@@ -95,11 +92,11 @@ proc parseRootEntry*(entry: string): EntryParseResult[RootEntry] =
   if signature.len() != SkRawPublicKeySize:
     return err("Invalid signature")
 
-  ok(RootEntry(mroot: mroot, lroot: lroot, seqNo: uint32(seqNo), signature: signature))
+  ok(RootEntry(eroot: eroot, lroot: lroot, seqNo: uint32(seqNo), signature: signature))
 
 proc parseBranchEntry*(entry: string): EntryParseResult[BranchEntry] =
   ## Parses a branch entry in the format
-  ## 'matree-branch:<h₁>,<h₂>,...,<hₙ>'
+  ## 'enrtree-branch:<h₁>,<h₂>,...,<hₙ>'
   
   var
     hashesSubstr: string
@@ -118,7 +115,7 @@ proc parseBranchEntry*(entry: string): EntryParseResult[BranchEntry] =
 
     hashes.add(hash)
   
-  ok(BranchEntry(children: hashes))  
+  ok(BranchEntry(children: hashes))
 
 # proc parseMultiaddrEntry*(entry: string): ParseResult[MultiaddrEntry] 
 
