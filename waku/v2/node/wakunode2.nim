@@ -24,6 +24,7 @@ import
   ../utils/peers,
   ./storage/message/message_store,
   ./storage/peer/peer_storage,
+  ./storage/migration/migration_types,
   ../utils/requests,
   ./peer_manager/peer_manager
 
@@ -710,7 +711,21 @@ when isMainModule:
       waku_node_errors.inc(labelValues = ["init_db_failure"])
     else:
       sqliteDatabase = dbRes.value
-      
+
+  if not sqliteDatabase.isNil:
+    var  migrationPath = ""
+    if conf.persistPeers and conf.persistMessages: migrationPath = migration_types.ALL_STORE_MIGRATION_PATH
+    elif conf.persistPeers: migrationPath = migration_types.PEER_STORE_MIGRATION_PATH
+    elif conf.persistMessages: migrationPath = migration_types.MESSAGE_STORE_MIGRATION_PATH
+
+    # run migration 
+    info "running migration ... "
+    let migrationResult = sqliteDatabase.migrate(migrationPath)
+    if migrationResult.isErr:
+      warn "migration failed"
+    else:
+      info "migration is done"
+
   var pStorage: WakuPeerStorage
 
   if conf.persistPeers and not sqliteDatabase.isNil:
@@ -746,14 +761,6 @@ when isMainModule:
   if (conf.storenode != "") or (conf.store):
     var store: WakuMessageStore
     if (not sqliteDatabase.isNil) and conf.persistMessages:
-
-      # run migration 
-      info "running migration ... "
-      let migrationResult = sqliteDatabase.migrate(MESSAGE_STORE_MIGRATION_PATH)
-      if migrationResult.isErr:
-        warn "migration failed"
-      else:
-        info "migration is done"
 
       let res = WakuMessageStore.init(sqliteDatabase)
       if res.isErr:
