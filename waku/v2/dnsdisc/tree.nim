@@ -2,9 +2,11 @@
 
 import
   std/[strscans, strutils],
-  secp256k1,
   stew/[base32, base64, results],
+  eth/keys,
   eth/p2p/discoveryv5/enr
+
+export keys, enr
 
 ## A collection of utilities for interacting with a list of ENR
 ## encoded as a Merkle Tree conisting of DNS TXT records.
@@ -26,7 +28,7 @@ type
   # Entry types
 
   RootEntry* = object
-    eroot*: string # Root of subtree containing nodes
+    eroot*: string # Root of subtree containing node records
     lroot*: string # Root of subtree containing links to other trees
     seqNo*: uint32 # Sequence number, increased with every update
     signature*: seq[byte] # Root entry signature
@@ -35,10 +37,11 @@ type
     children*: seq[string] # Hashes pointing to the subdomains of other subtree entries
   
   EnrEntry* = object
-    node*: enr.Record
+    record*: enr.Record # Ethereum node record as per EIP-778
   
   LinkEntry* = object
-    pubkey*: string
+    str*: string  # String representation of subdomain, i.e. <key>@<domain>
+    pubKey*: PublicKey # Public key that signed the list at this link
     domain*: string
 
 ####################
@@ -117,6 +120,52 @@ proc parseBranchEntry*(entry: string): EntryParseResult[BranchEntry] =
   
   ok(BranchEntry(children: hashes))
 
-# proc parseMultiaddrEntry*(entry: string): ParseResult[MultiaddrEntry] 
+proc parseEnrEntry*(entry: string): EntryParseResult[EnrEntry] =
+  ## Parses an enr entry in the format 'enr:<node-record>'.
+  ## <node-record> is the EIP-1459 text encoding of the node record
+  
+  var
+    nodeStr: string
+    record: Record
+  
+  try:
+    if not scanf(entry, EnrPrefix & "$+", nodeStr):
+      # @TODO better error handling
+      return err("Invalid syntax")
+  except ValueError:
+    return err("Invalid syntax")
 
-# proc parseLinkEntry*(entry: string): ParseResult[LinkEntry] 
+  if (not record.fromBase64(nodeStr)):
+    return err("Invalid signature")
+
+  ok(EnrEntry(record: record))
+
+proc parseLinkEntry*(entry: string): EntryParseResult[LinkEntry] =
+  ## Parses a link entry in the format
+  ## 'enrtree://<key>@<fqdn>'
+  
+  var
+    keyStr, fqdnStr: string
+    rawKey: seq[byte]
+    key: PublicKey
+  
+  try:
+    if not scanf(entry, LinkPrefix & "$+@$+", keyStr, fqdnStr):
+      # @TODO better error handling
+      return err("Invalid syntax")
+  except ValueError:
+    return err("Invalid syntax")
+
+  try:
+    rawKey = Base32.decode(keyStr)
+  except Base32Error:
+    return err("Invalid public key")
+
+  try:
+    key = PublicKey.fromRaw(rawKey).tryGet()
+  except CatchableError as e:
+    return err("Invalid public key: " & e.msg)
+
+  ok(LinkEntry(str: keyStr & "@" & fqdnStr,
+               domain: fqdnStr,
+               pubKey: key))

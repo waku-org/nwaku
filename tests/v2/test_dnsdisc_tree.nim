@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[sequtils, strutils],
+  std/strutils,
   testutils/unittests,
   chronos,
   stew/[base64, results],
@@ -84,3 +84,65 @@ procSuite "Test DNS Discovery: Merkle Tree":
       parseBranchEntry("enrtree-branch:2XS2367YHAXJFGLZHVAWLQD4ZY,H4FHT4B454P6UXFD7JCYQ5PWDY,MHTDO6TMUBRIA2XWG5LUDACK24 ")
                       .error()
                       .contains("Invalid child")
+    
+  asyncTest "Parse ENR entry":
+    # Expected case
+    let entryRes = parseEnrEntry("enr:-IS4QHCYrYZbAKWCBRlAy5zzaDZXJBGkcnh4MHcBFZntXNFrdvJjX04jRzjzCBOonrkTfj499SZuOh8R33Ls8RRcy5wBgmlkgnY0gmlwhH8AAAGJc2VjcDI1NmsxoQPKY0yuDUmstAHYpMa2_oxVtw0RW_QAdpzBQA8yWM0xOIN1ZHCCdl8")
+
+    check:
+      entryRes.isOk()
+      $(entryRes[].record) == """(1, id: "v4", ip: 0x7F000001, secp256k1: 0x03CA634CAE0D49ACB401D8A4C6B6FE8C55B70D115BF400769CC1400F3258CD3138, udp: 30303)"""
+    
+    # Invalid cases
+    check:
+      # Invalid syntax: gibberish
+      parseEnrEntry("gibberish")
+                    .error()
+                    .contains("Invalid syntax")
+
+      # Invalid syntax: invalid prefix
+      parseEnrEntry("enr=-IS4QHCYrYZbAKWCBRlAy5zzaDZXJBGkcnh4MHcBFZntXNFrdvJjX04jRzjzCBOonrkTfj499SZuOh8R33Ls8RRcy5wBgmlkgnY0gmlwhH8AAAGJc2VjcDI1NmsxoQPKY0yuDUmstAHYpMa2_oxVtw0RW_QAdpzBQA8yWM0xOIN1ZHCCdl8")
+                    .error()
+                    .contains("Invalid syntax")
+      
+      # Invalid syntax
+      parseEnrEntry("enr:-IS4QHCYrYZbAKWCBRlAy5zzaDZXJBGkcnh4MHcBFZntXNFrdvJjX04jRzjzCBOOnrkTfj499SZuOh8R33Ls8RRcy5wBgmlkgnY0gmlwhH8AAAGJc2VjcDI1NmsxoQPKY0yuDUmstAHYpMa2_oxVtw0RW_QAdpzBQA8yWM0xOIN1ZHCCdl8")
+                    .error()
+                    .contains("Invalid signature")
+  
+  asyncTest "Parse link entry":
+    # Expected case
+    let entryRes = parseLinkEntry("enrtree://AM5FCQLWIZX2QFPNJAP7VUERCCRNGRHWZG3YYHIUV7BVDQ5FDPRT2@morenodes.example.org")
+
+    check:
+      entryRes.isOk()
+      entryRes[].str == "AM5FCQLWIZX2QFPNJAP7VUERCCRNGRHWZG3YYHIUV7BVDQ5FDPRT2@morenodes.example.org"
+      entryRes[].domain == "morenodes.example.org"
+      entryRes[].pubKey.toAddress() == "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"
+    
+    # Invalid cases
+    check:
+      # Invalid syntax: gibberish
+      parseLinkEntry("gibberish")
+                     .error()
+                     .contains("Invalid syntax")
+
+      # Invalid syntax: invalid prefix
+      parseLinkEntry("enr-tree://AM5FCQLWIZX2QFPNJAP7VUERCCRNGRHWZG3YYHIUV7BVDQ5FDPRT2@morenodes.example.org")
+                     .error()
+                     .contains("Invalid syntax")
+      
+      # Invalid syntax: invalid @domain syntax
+      parseLinkEntry("enrtree://AM5FCQLWIZX2QFPNJAP7VUERCCRNGRHWZG3YYHIUV7BVDQ5FDPRT2#morenodes.example.org")
+                     .error()
+                     .contains("Invalid syntax")
+      
+      # Invalid public key: invalid base32
+      parseLinkEntry("enrtree://AM5FCQLWIZX2QFPNJAP7VUERCCRNGRHWZG3YYHIUV7BVDq5FDPRT2@morenodes.example.org")
+                     .error()
+                     .contains("Invalid public key")
+      
+      # Invalid public key: invalid key
+      parseLinkEntry("enrtree://AM5FCQLWIZX2QFPNJAP7VUERCCRNGRHWZG3YYHIUV7BVDQ5DPRT2@morenodes.example.org")
+                     .error()
+                     .contains("Invalid public key")
