@@ -11,6 +11,7 @@ This release contains the following:
 
 #### General refactoring
 #### Docs
+- Adds the database migration tutorial.
 #### Schema
 - Updates the `Message` table of the persistent message store:
   - Adds `senderTimestamp` column.
