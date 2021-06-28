@@ -16,8 +16,6 @@ import
 export sqlite
 
 const TABLE_TITLE = "Message"
-template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
-const MESSAGE_STORE_MIGRATION_PATH* = sourceDir / "../migration/migrations_scripts/message"
 
 # The code in this file is an adaptation of the Sqlite KV Store found in nim-eth.
 # https://github.com/status-im/nim-eth/blob/master/eth/db/kvstore_sqlite3.nim
