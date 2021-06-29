@@ -8,6 +8,7 @@ This release contains the following:
 ### Changes
 - Enables db migration for the message store.
 - The `resume` Nim API eliminates duplicates messages before storing them.
+- Support for stable version of `relay` protocol, with protocol ID `/vac/waku/relay/2.0.0`
 
 #### General refactoring
 #### Docs

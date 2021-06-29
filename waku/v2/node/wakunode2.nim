@@ -480,7 +480,13 @@ proc mountRelay*(node: WakuNode,
   
   info "mounting relay", rlnRelayEnabled=rlnRelayEnabled, relayMessages=relayMessages
 
-  node.switch.mount(wakuRelay)
+  proc relayMatch(proto: string): bool {.gcsafe.} =
+    ## Matches the WakuRelayCodec with any postfix.
+    ## E.g. if WakuRelayCodec is `/vac/waku/relay/2.0.0` it matches:
+    ## `/vac/waku/relay/2.0.0`, `/vac/waku/relay/2.0.0-beta2`, `/vac/waku/relay/2.0.0-actualnonsense`
+    return proto.startsWith(WakuRelayCodec)
+
+  node.switch.mount(wakuRelay, relayMatch)
 
   if not relayMessages:
     ## Some nodes may choose not to have the capability to relay messages (e.g. "light" nodes).
