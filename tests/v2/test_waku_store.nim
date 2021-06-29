@@ -694,25 +694,26 @@ procSuite "Waku Store":
         (await completionFut.withTimeout(5.seconds)) == true
         successResult.isOk
         successResult.value == 4
+        
     asyncTest "queryFromWithPaging without pagination":
 
       let rpc = HistoryQuery(startTime: float(2), endTime: float(5))
 
-      let successResult = await proto.queryFromWithPaging(rpc, listenSwitch.peerInfo)
+      let messagesResult = await proto.queryFromWithPaging(rpc, listenSwitch.peerInfo)
 
       check:
-        successResult.isOk
-        successResult.value.len == 4
+        messagesResult.isOk
+        messagesResult.value.len == 4
 
     asyncTest "queryFromWithPaging with pagination":
       var pinfo = PagingInfo(direction:PagingDirection.FORWARD, pageSize: 1)
       let rpc = HistoryQuery(startTime: float(2), endTime: float(5), pagingInfo: pinfo)
 
-      let successResult = await proto.queryFromWithPaging(rpc, listenSwitch.peerInfo)
+      let messagesResult = await proto.queryFromWithPaging(rpc, listenSwitch.peerInfo)
 
       check:
-        successResult.isOk
-        successResult.value.len == 4
+        messagesResult.isOk
+        messagesResult.value.len == 4
 
     asyncTest "resume history from a list of candidate peers":
 
