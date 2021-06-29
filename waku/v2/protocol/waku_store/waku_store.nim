@@ -570,7 +570,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
 
   var dismissed: uint = 0
   var added: uint = 0
-  proc handler(response: seq[WakuMessage]) {.gcsafe, raises: [Defect, Exception].} =
+  proc handler(response: seq[WakuMessage]) {.raises: [Defect, Exception].} =
     debug "resume handler is called"
     # exclude index from the comparison criteria
     let currentMsgSummary = ws.messages.map(proc(x: IndexedWakuMessage): WakuMessage = x.msg)
