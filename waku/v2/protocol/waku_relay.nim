@@ -15,7 +15,7 @@ logScope:
     topics = "wakurelay"
 
 const
-  WakuRelayCodec* = "/vac/waku/relay/2.0.0-beta2"
+  WakuRelayCodec* = "/vac/waku/relay/2.0.0"
 
 type
   WakuRelay* = ref object of GossipSub
