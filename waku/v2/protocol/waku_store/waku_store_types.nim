@@ -15,7 +15,7 @@ export pagination
 
 # Constants required for pagination -------------------------------------------
 const MaxPageSize* = uint64(100) # Maximum number of waku messages in each page
-# TODO may want to change the DefaultPageSize, it's current value is random
+# TODO the DefaultPageSize can be changed, it's current value is random
 const DefaultPageSize* = uint64(20) # A recommended default number of waku messages per page
 
 const DefaultTopic* = "/waku/2/default-waku/proto"
