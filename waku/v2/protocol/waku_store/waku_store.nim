@@ -521,7 +521,7 @@ proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: PeerInfo): Fu
 
 proc queryLoop(w: WakuStore, query: HistoryQuery, candidateList: seq[PeerInfo]): Future[MessagesResult]  {.async, gcsafe.} = 
   ## loops through the candidateList in order and sends the query to each until one of the query gets resolved successfully
-  ## returns the number of retrieved messages, or error if all the requests fail
+  ## returns the retrieved messages, or error if all the requests fail
   for peer in candidateList.items: 
     let successResult = await w.queryFromWithPaging(query, peer)
     if successResult.isOk: return ok(successResult.value)
