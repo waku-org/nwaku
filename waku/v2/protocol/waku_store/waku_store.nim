@@ -583,7 +583,7 @@ proc queryLoopPaging(w: WakuStore, query: HistoryQuery, candidateList: seq[PeerI
   ## returns the number of retrieved messages, or error if all the requests fail
   debug "queryLoopPaging is called"
   for peer in candidateList.items: 
-    let successResult = await w.queryFromWithPaging(query, peer)
+    let successResult = await w.queryFromWithPaging2(query, peer)
     if successResult.isOk: return ok(successResult.value)
 
   debug "failed to resolve the query"

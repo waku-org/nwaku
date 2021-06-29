@@ -362,7 +362,7 @@ proc resume*(node: WakuNode, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo
   ## The history gets fetched successfully if the dialed peer has been online during the queried time window.
   
   if not node.wakuStore.isNil:
-    let retrievedMessages = await node.wakuStore.resume(peerList)
+    let retrievedMessages = await node.wakuStore.resumePaging(peerList)
     if retrievedMessages.isOk:
       info "the number of retrieved messages since the last online time: ", number=retrievedMessages.value
 
