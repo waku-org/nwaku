@@ -570,11 +570,11 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
 
   var dismissed: uint = 0
   var added: uint = 0
-  proc handler(response: seq[WakuMessage]) {.raises: [Defect, Exception].} =
-    debug "resume handler is called"
+  proc save(msgList: seq[WakuMessage]) {.raises: [Defect, Exception].} =
+    debug "save proc is called"
     # exclude index from the comparison criteria
     let currentMsgSummary = ws.messages.map(proc(x: IndexedWakuMessage): WakuMessage = x.msg)
-    for msg in response:
+    for msg in msgList:
       # check for duplicate messages
       # TODO Should take pubsub topic into account if we are going to support topics rather than the DefaultTopic
       if isDuplicate(msg,currentMsgSummary): 
@@ -608,7 +608,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
       debug "failed to resume the history from the list of candidates"
       return err("failed to resume the history from the list of candidates")
     debug "resume is done successfully"
-    handler(successResult.value)
+    save(successResult.value)
     return ok(added)
   else:
     debug "no candidate list is provided, selecting a random peer"
@@ -626,7 +626,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
       debug "failed to resume the history"
       return err("failed to resume the history")
     debug "resume is done successfully"
-    handler(successResult.value)
+    save(successResult.value)
     return ok(added)
 
 # NOTE: Experimental, maybe incorporate as part of query call
