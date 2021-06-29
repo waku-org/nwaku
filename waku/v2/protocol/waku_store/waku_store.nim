@@ -475,9 +475,11 @@ proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, pe
 
   await connOpt.get().writeLP(HistoryRPC(requestId: generateRequestId(w.rng),
       query: query).encode().buffer)
-
+  debug "query is sent", query=query
   var message = await connOpt.get().readLp(64*1024)
   let response = HistoryRPC.init(message)
+
+  debug "response is received"
 
   if response.isErr:
     error "failed to decode response"
@@ -498,6 +500,7 @@ proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: PeerInfo): Fu
   var messageList: seq[WakuMessage]
   # make a copy of the query
   var q = query
+  debug "query is", q=q
 
   var hasNextPage = true
   proc handler(response: HistoryResponse) {.gcsafe, raises: [Defect, Exception].} =
@@ -516,6 +519,7 @@ proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: PeerInfo): Fu
   while (hasNextPage):
     let successResult = await w.queryFrom(q, handler, peer)
     if not successResult.isOk: return err("failed to resolve the query")
+    debug "hasNextPage", hasNextPage=hasNextPage
 
   return ok(messageList)
 
