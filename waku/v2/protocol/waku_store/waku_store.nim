@@ -515,7 +515,7 @@ proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: PeerInfo): Fu
   # fetch the history in pages
   while (hasNextPage):
     let successResult = await w.queryFrom(q, handler, peer)
-    if not successResult.isOk: return err("")
+    if not successResult.isOk: return err("failed to resolve the query")
 
   return ok(messageList)
 
