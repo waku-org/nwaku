@@ -492,41 +492,51 @@ proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, pe
 proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: PeerInfo): Future[MessagesResult] {.async, gcsafe.} =
   ## sends the query to the given peer
   ## returns the fetched messages if no error occurs, otherwise returns an error string
-  
+  debug "queryFromWithPaging is called"
   var messageList: seq[WakuMessage]
 
   # make a copy of the query
   var q = query
-  #  connect to the peer
-  let connOpt = await w.peerManager.dialPeer(peer, WakuStoreCodec)
-
-  if connOpt.isNone():
-    error "failed to connect to remote peer"
-    waku_store_errors.inc(labelValues = [dialFailure])
-    return err("failed to connect to remote peer")
+  
 
   var hasNextPage = true
+  var i: uint64 = 0
   # fetch the history in pages
   while (hasNextPage):
+    #  connect to the peer
+    let connOpt = await w.peerManager.dialPeer(peer, WakuStoreCodec)
+
+    if connOpt.isNone():
+      error "failed to connect to remote peer"
+      waku_store_errors.inc(labelValues = [dialFailure])
+      return err("failed to connect to remote peer")
+
     # send the query
     await connOpt.get().writeLP(HistoryRPC(requestId: generateRequestId(w.rng), query: q).encode().buffer)
+    debug "query is sent", q=q
     # get the response
     var message = await connOpt.get().readLp(64*1024)
     let historyRPC = HistoryRPC.init(message)
-
+    debug "Response is received"
     if historyRPC.isErr:
       error "failed to decode the response"
       waku_store_errors.inc(labelValues = [decodeRpcFailure])
       return err("failed to decode response")
-
+    
     let historyResponse = historyRPC.value.response
-
+   
+    debug "Response is ok", index=i, historyResponse=historyResponse
+    
     # store messages
     for m in historyResponse.messages.items: messageList.add(m)
     
     # check whether it is the last page
     hasNextPage = (historyResponse.pagingInfo.pageSize != 0)
+    i = cast[uint64](1) + i
+    debug "hasNextPage", hasNextPage=hasNextPage
     q.pagingInfo.cursor = historyResponse.pagingInfo.cursor
+    debug "next paging info", pagingInfo=q.pagingInfo
+
 
   return ok(messageList)
 
@@ -543,6 +553,7 @@ proc queryLoop(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, can
 proc queryLoopPaging(w: WakuStore, query: HistoryQuery, candidateList: seq[PeerInfo]): Future[MessagesResult]  {.async, gcsafe.}= 
   ## loops through the candidateList in order and sends the query to each until one of the query gets resolved successfully
   ## returns the number of retrieved messages, or error if all the requests fail
+  debug "queryLoopPaging is called"
   for peer in candidateList.items: 
     let successResult = await w.queryFromWithPaging(query, peer)
     if successResult.isOk: return ok(successResult.value)
@@ -648,7 +659,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
     debug "resume is done successfully"
     return ok(added)
 
-proc resumePaging*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo])): Future[QueryResult] {.async, gcsafe.} =
+proc resumePaging*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]), pageSize: uint64 = MaxPageSize): Future[QueryResult] {.async, gcsafe.} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku store node has been online 
   ## messages are stored in the store node's messages field and in the message db
   ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message 
@@ -669,7 +680,9 @@ proc resumePaging*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[Pee
   lastSeenTime = max(lastSeenTime - offset, 0)
   debug "the  offline time window is", lastSeenTime=lastSeenTime, currentTime=currentTime
 
-  let rpc = HistoryQuery(pubsubTopic: DefaultTopic, startTime: lastSeenTime, endTime: currentTime)
+  let 
+    pinfo = PagingInfo(direction:PagingDirection.FORWARD, pageSize: 1)
+    rpc = HistoryQuery(pubsubTopic: DefaultTopic, startTime: lastSeenTime, endTime: currentTime, pagingInfo: pinfo)
 
 
   var dismissed: uint = 0
