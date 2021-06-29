@@ -489,7 +489,46 @@ proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, pe
   handler(response.value.response)
   return ok(response.value.response.messages.len.uint64)
   
+proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: PeerInfo): Future[MessagesResult] {.async, gcsafe.} =
+  ## sends the query to the given peer
+  ## returns the fetched messages if no error occurs, otherwise returns an error string
   
+  var messageList: seq[WakuMessage]
+
+  # make a copy of the query
+  var q = query
+  #  connect to the peer
+  let connOpt = await w.peerManager.dialPeer(peer, WakuStoreCodec)
+
+  if connOpt.isNone():
+    error "failed to connect to remote peer"
+    waku_store_errors.inc(labelValues = [dialFailure])
+    return err("failed to connect to remote peer")
+
+  var hasNextPage = true
+  # fetch the history in pages
+  while (hasNextPage):
+    # send the query
+    await connOpt.get().writeLP(HistoryRPC(requestId: generateRequestId(w.rng), query: q).encode().buffer)
+    # get the response
+    var message = await connOpt.get().readLp(64*1024)
+    let historyRPC = HistoryRPC.init(message)
+
+    if historyRPC.isErr:
+      error "failed to decode the response"
+      waku_store_errors.inc(labelValues = [decodeRpcFailure])
+      return err("failed to decode response")
+
+    let historyResponse = historyRPC.value.response
+
+    # store messages
+    for m in historyResponse.messages.items: messageList.add(m)
+    
+    # check whether it is the last page
+    hasNextPage = (historyResponse.pagingInfo.pageSize != 0)
+    q.pagingInfo.cursor = historyResponse.pagingInfo.cursor
+
+  return ok(messageList)
 
 proc queryLoop(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, candidateList: seq[PeerInfo]): Future[QueryResult]  {.async, gcsafe.}= 
   ## loops through the candidateList in order and sends the query to each until one of the query gets resolved successfully

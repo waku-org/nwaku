@@ -59,6 +59,7 @@ type
     response*: HistoryResponse
 
   QueryResult* = Result[uint64, string]
+  MessagesResult* = Result[seq[WakuMessage], string]
   
   WakuStore* = ref object of LPProtocol
     peerManager*: PeerManager
