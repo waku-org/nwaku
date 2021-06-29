@@ -387,6 +387,62 @@ procSuite "WakuNode":
     await node1.stop()
     await node2.stop()
     await node3.stop()
+  
+  asyncTest "Protocol matcher works as expected":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        Port(60002))
+      pubSubTopic = "/waku/2/default-waku/proto"
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
+      payload = "hello world".toBytes()
+      message = WakuMessage(payload: payload, contentTopic: contentTopic)
+
+    # Setup node 1 with stable codec "/vac/waku/relay/2.0.0"
+
+    await node1.start()
+    node1.mountRelay(@[pubSubTopic])
+    node1.wakuRelay.codec = "/vac/waku/relay/2.0.0"
+
+    # Setup node 2 with beta codec "/vac/waku/relay/2.0.0-beta2"
+
+    await node2.start()
+    node2.mountRelay(@[pubSubTopic])
+    node2.wakuRelay.codec = "/vac/waku/relay/2.0.0-beta2"
+
+    check:
+      # Check that mounted codecs are actually different
+      node1.wakuRelay.codec ==  "/vac/waku/relay/2.0.0"
+      node2.wakuRelay.codec == "/vac/waku/relay/2.0.0-beta2"
+
+    # Now verify that protocol matcher returns `true` and relay works
+
+    await node1.connectToNodes(@[node2.peerInfo])
+
+    var completionFut = newFuture[bool]()
+    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+      let msg = WakuMessage.init(data)
+      if msg.isOk():
+        let val = msg.value()
+        check:
+          topic == pubSubTopic
+          val.contentTopic == contentTopic
+          val.payload == payload
+      completionFut.complete(true)
+
+    node2.subscribe(pubSubTopic, relayHandler)
+    await sleepAsync(2000.millis)
+
+    await node1.publish(pubSubTopic, message)
+    await sleepAsync(2000.millis)
+
+    check:
+      (await completionFut.withTimeout(5.seconds)) == true
+    await node1.stop()
+    await node2.stop()
 
   asyncTest "Peer info parses correctly":
     ## This is such an important utility function for wakunode2
