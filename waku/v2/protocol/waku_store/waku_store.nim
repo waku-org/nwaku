@@ -564,7 +564,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
   debug "the  offline time window is", lastSeenTime=lastSeenTime, currentTime=currentTime
 
   let 
-    pinfo = PagingInfo(direction:PagingDirection.FORWARD, pageSize: 1)
+    pinfo = PagingInfo(direction:PagingDirection.FORWARD, pageSize: pageSize)
     rpc = HistoryQuery(pubsubTopic: DefaultTopic, startTime: lastSeenTime, endTime: currentTime, pagingInfo: pinfo)
 
 
