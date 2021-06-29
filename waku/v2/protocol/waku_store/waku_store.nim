@@ -540,6 +540,34 @@ proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: PeerInfo): Fu
 
   return ok(messageList)
 
+proc queryFromWithPaging2*(w: WakuStore, query: HistoryQuery, peer: PeerInfo): Future[MessagesResult] {.async, gcsafe.} =
+  ## sends the query to the given peer
+  ## returns the fetched messages if no error occurs, otherwise returns an error string
+  debug "queryFromWithPaging is called"
+  var messageList: seq[WakuMessage]
+  # make a copy of the query
+  var q = query
+
+  var hasNextPage = true
+  proc handler(response: HistoryResponse) {.gcsafe, raises: [Defect, Exception].} =
+    # store messages
+    for m in response.messages.items: messageList.add(m)
+    
+    # check whether it is the last page
+    hasNextPage = (response.pagingInfo.pageSize != 0)
+    debug "hasNextPage", hasNextPage=hasNextPage
+
+    # update paging cursor
+    q.pagingInfo.cursor = response.pagingInfo.cursor
+    debug "next paging info", pagingInfo=q.pagingInfo
+
+  # fetch the history in pages
+  while (hasNextPage):
+    let successResult = await w.queryFrom(q, handler, peer)
+    if not successResult.isOk: return err("")
+
+  return ok(messageList)
+
 proc queryLoop(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, candidateList: seq[PeerInfo]): Future[QueryResult]  {.async, gcsafe.}= 
   ## loops through the candidateList in order and sends the query to each until one of the query gets resolved successfully
   ## returns the number of retrieved messages, or error if all the requests fail
