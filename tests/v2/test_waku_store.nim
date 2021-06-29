@@ -729,4 +729,17 @@ procSuite "Waku Store":
         successResult.isOk
         successResult.value == 10
 
-       
+    asyncTest "resumePaging history from a list of candidate peers":
+
+      var offListenSwitch = newStandardSwitch(some(PrivateKey.random(ECDSA, rng[]).get()))
+
+      # starts a new node
+      var dialSwitch3 = newStandardSwitch()
+      discard await dialSwitch3.start()
+      let proto3 = WakuStore.init(PeerManager.new(dialSwitch3), crypto.newRng())
+
+      let successResult = await proto3.resumePaging(some(@[offListenSwitch.peerInfo, listenSwitch.peerInfo, listenSwitch.peerInfo]))
+      check:
+        proto3.messages.len == 10
+        successResult.isOk
+        successResult.value == 10
