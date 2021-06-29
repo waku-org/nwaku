@@ -694,8 +694,8 @@ procSuite "Waku Store":
         (await completionFut.withTimeout(5.seconds)) == true
         successResult.isOk
         successResult.value == 4
-        
-    asyncTest "queryFromWithPaging without pagination":
+
+    asyncTest "queryFromWithPaging with empty pagingInfo":
 
       let rpc = HistoryQuery(startTime: float(2), endTime: float(5))
 
