@@ -11,7 +11,9 @@ jobs:
     strategy:
       matrix:
         env:
-          - { NPROC: 2 }
+          - NPROC: 2
+            MAKEFLAGS: "-j${NPROC}"
+            NIMFLAGS: "--parallelBuild:${NPROC}"
         platform: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.platform }}
     env: ${{ matrix.env }}
@@ -28,8 +30,7 @@ jobs:
         # make update breaks because the cached compiler is there where the submodules
         # are meant to go.
       - name: Submodules
-        run: |
-          git submodule update --init --recursive
+        run: git submodule update --init --recursive
 
       - name: Cache nim
         uses: actions/cache@v1
@@ -37,20 +38,28 @@ jobs:
           path: vendor/nimbus-build-system/vendor/Nim/bin
           key: ${{ runner.os }}-${{ matrix.env.NPROC }}-nim-${{ hashFiles('.gitmodules') }}
 
-      - name: Install dependencies
-        run: |
-          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" V=1 update 
-          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" LOG_LEVEL=TRACE
+      - name: Update dependencies
+        run: make V=1 update
 
-      - name: Run Tests
-        run: |
-          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" test
+      - name: Build V1 binaries
+        run: make LOG_LEVEL=TRACE v1
+
+      - name: Build V2 binaries
+        run: make LOG_LEVEL=TRACE v2
+
+      - name: Run V1 Tests
+        run: make test1
+
+      - name: Run V2 Tests
+        run: make test2
 
   windows:
     strategy:
       matrix:
         env:
-          - { NPROC: 2 }
+          - NPROC: 2
+            MAKEFLAGS: "-j${NPROC}"
+            ARCH_OVERRIDE: "%PLATFORM%"
     runs-on: windows-latest
     env: ${{ matrix.env }}
     timeout-minutes: 90
@@ -71,8 +80,7 @@ jobs:
         # make update breaks because the cached compiler is there where the submodules
         # are meant to go.
       - name: Submodules
-        run: |
-          git submodule update --init --recursive
+        run: git submodule update --init --recursive
 
       - name: Cache nim
         uses: actions/cache@v1
@@ -80,13 +88,25 @@ jobs:
           path: vendor/nimbus-build-system/vendor/Nim/bin
           key: ${{ runner.os }}-${{ matrix.env.NPROC }}-nim-${{ hashFiles('.gitmodules') }}
 
-      - name: Build
-        run: |
-          mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% CI_CACHE=NimBinaries update
-          mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% fetch-dlls
+      - name: Update dependencies
+        run: mingw32-make CI_CACHE=NimBinaries update
 
-      - name: Run Tests
+      - name: Fetch DLLs
+        run: mingw32-make fetch-dlls
+
+      - name: Build V1 Binaries
+        run: mingw32-make LOG_LEVEL=TRACE v1
+
+      - name: Build V2 Binaries
+        run: mingw32-make LOG_LEVEL=TRACE v2
+
+      - name: Test Binaries
         run: |
-          mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% LOG_LEVEL=TRACE
           build\wakunode1.exe --help
-          mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% test
+          build\wakunode2.exe --help
+
+      - name: Run V1 Tests
+        run: mingw32-make test1
+
+      - name: Run V2 Tests
+        run: mingw32-make test2
