@@ -16,8 +16,8 @@ suite "Message Store":
       topic = ContentTopic("/waku/2/default-content/proto")
       pubsubTopic =  "/waku/2/default-waku/proto"
 
-      t1 = epochTime()
-      t2 = epochTime()
+      t1 = getTime().toUnixFloat()
+      t2 = getTime().toUnixFloat()
       t3 = high(float64)
     var msgs = @[
       WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic, version: uint32(0), timestamp: t1),
@@ -43,7 +43,7 @@ suite "Message Store":
     var rt1Flag, rt2Flag, rt3Flag: bool = false
 
     var responseCount = 0
-    proc data(receiverTimestamp: float64, msg: WakuMessage, psTopic: string) =
+    proc data(msg: WakuMessage, psTopic: string) =
       responseCount += 1
       check msg in msgs
       check psTopic == pubsubTopic
@@ -59,11 +59,6 @@ suite "Message Store":
       if msg.timestamp == t2: t2Flag = true
       if msg.timestamp == t3: t3Flag = true
 
-      # check correct retrieval of receiver timestamps
-      if receiverTimestamp == indexes[0].receivedTime: rt1Flag = true
-      if receiverTimestamp == indexes[1].receivedTime: rt2Flag = true
-      if receiverTimestamp == indexes[2].receivedTime: rt3Flag = true
-
 
     let res = store.getAll(data)
     
@@ -78,10 +73,7 @@ suite "Message Store":
       t1Flag == true
       t2Flag == true
       t3Flag == true
-      # check receiver timestamp
-      rt1Flag == true
-      rt2Flag == true
-      rt3Flag == true
+
   test "set and get user version":
     let 
       database = SqliteDatabase.init("", inMemory = true)[]

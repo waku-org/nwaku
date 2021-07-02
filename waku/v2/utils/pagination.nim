@@ -8,4 +8,4 @@ type
   Index* = object
     ## This type contains the  description of an Index used in the pagination of WakuMessages
     digest*: MDigest[256]
-    receivedTime*: float64
+    timestamp*: float64 # the time at which the message is generated

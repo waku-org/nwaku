@@ -19,6 +19,7 @@ This release contains the following:
 - Updates the `Message` table of the persistent message store:
   - Adds `senderTimestamp` column.
   - Renames the `timestamp` column to `receiverTimestamp` and changes its type to `REAL`.
+  - Deletes  `receiverTimestamp`.
 #### API
 
 ### Fixes

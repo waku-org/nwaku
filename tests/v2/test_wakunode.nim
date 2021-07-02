@@ -746,36 +746,36 @@ procSuite "WakuNode":
   #   await node1.stop()
   #   await node2.stop()
   #   await node3.stop()
-  asyncTest "Resume proc fetches the history":
-    let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        Port(60000))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
-        Port(60002))
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
+  # asyncTest "Resume proc fetches the history":
+  #   let
+  #     nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+  #     node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+  #       Port(60000))
+  #     nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+  #     node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+  #       Port(60002))
+  #     contentTopic = ContentTopic("/waku/2/default-content/proto")
+  #     message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
 
-    await node1.start()
-    node1.mountStore(persistMessages = true)
-    await node2.start()
-    node2.mountStore(persistMessages = true)
+  #   await node1.start()
+  #   node1.mountStore(persistMessages = true)
+  #   await node2.start()
+  #   node2.mountStore(persistMessages = true)
 
-    await node2.subscriptions.notify("/waku/2/default-waku/proto", message)
+  #   await node2.subscriptions.notify("/waku/2/default-waku/proto", message)
 
-    await sleepAsync(2000.millis)
+  #   await sleepAsync(2000.millis)
 
-    node1.wakuStore.setPeer(node2.peerInfo)
+  #   node1.wakuStore.setPeer(node2.peerInfo)
 
-    await node1.resume()
+  #   await node1.resume()
 
-    check:
-      # message is correctly stored
-      node1.wakuStore.messages.len == 1
+  #   check:
+  #     # message is correctly stored
+  #     node1.wakuStore.messages.len == 1
 
-    await node1.stop()
-    await node2.stop()
+  #   await node1.stop()
+  #   await node2.stop()
 
   asyncTest "Resume proc discards duplicate messages":
     let
@@ -786,8 +786,8 @@ procSuite "WakuNode":
       node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
       contentTopic = ContentTopic("/waku/2/default-content/proto")
-      msg1 = WakuMessage(payload: "hello world1".toBytes(), contentTopic: contentTopic)
-      msg2 = WakuMessage(payload: "hello world2".toBytes(), contentTopic: contentTopic)
+      msg1 = WakuMessage(payload: "hello world1".toBytes(), contentTopic: contentTopic, timestamp: 1)
+      msg2 = WakuMessage(payload: "hello world2".toBytes(), contentTopic: contentTopic, timestamp: 2)
 
     # setup sqlite database for node1
     let 
@@ -821,7 +821,8 @@ procSuite "WakuNode":
 
     # count the total number of retrieved messages from the database
     var responseCount = 0
-    proc data(receiverTimestamp: float64, msg: WakuMessage, psTopic: string) =
+    proc data(msg: WakuMessage, psTopic: string) =
+      echo "here"
       responseCount += 1
     # retrieve all the messages in the db
     let res = store.getAll(data)
