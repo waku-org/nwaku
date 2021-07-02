@@ -41,7 +41,11 @@ pipeline {
   }
 
   stages {
-    stage('Deps') { steps {
+    stage('Deps') { steps { script {
+      /* Avoid checking multiple times. */
+      v1changed = versionWasChanged('v1')
+      v2changed = versionWasChanged('v2')
+      /* Building Nim compiler takes a while. */
       cache(maxCacheSize: 250, caches: [[
         $class: 'ArbitraryFileCache', excludes: '', includes: '**/*',
         path: 'vendor/nimbus-build-system/vendor/Nim/bin',
@@ -49,28 +53,43 @@ pipeline {
         sh "make V=${params.VERBOSITY} update"
       }
       sh "make V=${params.VERBOSITY} deps"
-    } }
+    } } }
 
     stage('Binaries') {
       parallel {
-        stage('V1') { steps { sh "make V=${params.VERBOSITY} v1" } }
-        stage('V2') { steps { sh "make V=${params.VERBOSITY} v2" } }
+        stage('V1') { 
+          when { expression { v1changed } }
+          steps { sh "make V=${params.VERBOSITY} v1" }
+        }
+        stage('V2') {
+          when { expression { v2changed } }
+          steps { sh "make V=${params.VERBOSITY} v2" }
+        }
       }
     }
 
     stage('Run Tests') {
       parallel {
-        stage('V1') { steps { sh "make V=${params.VERBOSITY} test1" } }
-        stage('V2') { steps { sh "make V=${params.VERBOSITY} test2" } }
+        stage('V1') {
+          when { expression { v1changed } }
+          steps { sh "make V=${params.VERBOSITY} test1" }
+        }
+        stage('V2') {
+          when { expression { v2changed } }
+          steps { sh "make V=${params.VERBOSITY} test2" }
+        }
       }
     }
 
-    stage('Upload') { steps { script {
-      def out = genOutputFilename()
-      sh "mv build/wakunode2 ${out}"
-      env.PKG_URL = s3.uploadArtifact(out)
-      jenkins.setBuildDesc(Waku: env.PKG_URL)
-    } } }
+    stage('Upload') {
+      when { expression { v2changed } }
+      steps { script {
+        def out = genOutputFilename()
+        sh "mv build/wakunode2 ${out}"
+        env.PKG_URL = s3.uploadArtifact(out)
+        jenkins.setBuildDesc(Waku: env.PKG_URL)
+      } }
+    }
   } // stages
   post {
     success { script { github.notifyPR(true) } }
@@ -97,4 +116,18 @@ def genOutputFilename() {
   return [
     "wakunode2", utils.timestamp(), utils.gitCommit(), getAgentLabel()
   ].join('-') + (env.NODE_NAME.startsWith('windows') ? '.exe' : '.bin')
+}
+
+def versionWasChanged(version) {
+  def changes = sh(
+    script: "git diff --name-only origin/${env.CHANGE_TARGET}",
+    returnStdout: true
+  )
+  if (changes =~ "(?m)^(Makefile|waku.nimble|config.nims|vendor).*") {
+    return true
+  }
+  if (changes =~ "(?m)^(waku|tests|examples)/(${version}|common)/.*") {
+    return true
+  }
+  return false
 }
