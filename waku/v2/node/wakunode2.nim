@@ -87,6 +87,15 @@ type
 func asEthKey*(key: PrivateKey): keys.PrivateKey =
   keys.PrivateKey(key.skkey)
 
+func protocolMatcher(codec: string): Matcher =
+  ## Returns a protocol matcher function for the provided codec
+  
+  proc match(proto: string): bool {.gcsafe.} =
+    ## Matches a proto with any postfix to the provided codec.
+    ## E.g. if the codec is `/vac/waku/filter/2.0.0` it matches the protos:
+    ## `/vac/waku/filter/2.0.0`, `/vac/waku/filter/2.0.0-beta3`, `/vac/waku/filter/2.0.0-actualnonsense`
+    return proto.startsWith(codec)
+
 proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilter]) {.gcsafe.} =
   # Flatten all unsubscribe topics into single seq
   let unsubscribeTopics = contentFilters.mapIt(it.contentTopic)
@@ -389,7 +398,7 @@ proc mountFilter*(node: WakuNode) =
       waku_node_messages.inc(labelValues = ["filter"])
 
   node.wakuFilter = WakuFilter.init(node.peerManager, node.rng, filterHandler)
-  node.switch.mount(node.wakuFilter)
+  node.switch.mount(node.wakuFilter, protocolMatcher(WakuFilterCodec))
   node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
 # NOTE: If using the swap protocol, it must be mounted before store. This is
@@ -397,7 +406,7 @@ proc mountFilter*(node: WakuNode) =
 proc mountSwap*(node: WakuNode, swapConfig: SwapConfig = SwapConfig.init()) =
   info "mounting swap", mode = $swapConfig.mode
   node.wakuSwap = WakuSwap.init(node.peerManager, node.rng, swapConfig)
-  node.switch.mount(node.wakuSwap)
+  node.switch.mount(node.wakuSwap, protocolMatcher(WakuSwapCodec))
   # NYI - Do we need this?
   #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
 
@@ -411,7 +420,7 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: boo
     debug "mounting store with swap"
     node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, node.wakuSwap)
 
-  node.switch.mount(node.wakuStore)
+  node.switch.mount(node.wakuStore, protocolMatcher(WakuStoreCodec))
   if persistMessages:
     node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
@@ -480,13 +489,7 @@ proc mountRelay*(node: WakuNode,
   
   info "mounting relay", rlnRelayEnabled=rlnRelayEnabled, relayMessages=relayMessages
 
-  proc relayMatch(proto: string): bool {.gcsafe.} =
-    ## Matches the WakuRelayCodec with any postfix.
-    ## E.g. if WakuRelayCodec is `/vac/waku/relay/2.0.0` it matches:
-    ## `/vac/waku/relay/2.0.0`, `/vac/waku/relay/2.0.0-beta2`, `/vac/waku/relay/2.0.0-actualnonsense`
-    return proto.startsWith(WakuRelayCodec)
-
-  node.switch.mount(wakuRelay, relayMatch)
+  node.switch.mount(wakuRelay, protocolMatcher(WakuRelayCodec))
 
   if not relayMessages:
     ## Some nodes may choose not to have the capability to relay messages (e.g. "light" nodes).
@@ -534,8 +537,8 @@ proc mountLightPush*(node: WakuNode) =
   else:
     debug "mounting lightpush with relay"
     node.wakuLightPush = WakuLightPush.init(node.peerManager, node.rng, nil, node.wakuRelay)
-
-  node.switch.mount(node.wakuLightPush)
+  
+  node.switch.mount(node.wakuLightPush, protocolMatcher(WakuLightPushCodec))
 
 proc mountLibp2pPing*(node: WakuNode) =
   info "mounting libp2p ping protocol"
