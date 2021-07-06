@@ -17,7 +17,7 @@ proc createSampleList(s: int): seq[IndexedWakuMessage] =
 procSuite "pagination":
   test "Index computation test":
     let
-      wm = WakuMessage(payload: @[byte 1, 2, 3], senderTime: 2)
+      wm = WakuMessage(payload: @[byte 1, 2, 3], timestamp: 2)
       index = wm.computeIndex()
     check:
       # the fields of the index should be non-empty
