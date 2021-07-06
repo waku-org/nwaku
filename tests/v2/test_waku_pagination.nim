@@ -24,7 +24,7 @@ procSuite "pagination":
       len(index.digest.data) != 0
       len(index.digest.data) == 32 # sha2 output length in bytes
       index.receiverTime != 0 # the receiver timestamp should be a non-zero value
-      index.senderTime == 2 # the timestamp should be a non-zero value
+      index.senderTime == 2 
 
     let
       wm1 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic("/waku/2/default-content/proto"))
