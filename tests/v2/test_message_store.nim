@@ -64,6 +64,7 @@ suite "Message Store":
       if receiverTimestamp == indexes[1].receivedTime: rt2Flag = true
       if receiverTimestamp == indexes[2].receivedTime: rt3Flag = true
 
+
     let res = store.getAll(data)
     
     check:
@@ -81,7 +82,6 @@ suite "Message Store":
       rt1Flag == true
       rt2Flag == true
       rt3Flag == true
-      
   test "set and get user version":
     let 
       database = SqliteDatabase.init("", inMemory = true)[]
