@@ -786,8 +786,8 @@ procSuite "WakuNode":
       node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
       contentTopic = ContentTopic("/waku/2/default-content/proto")
-      msg1 = WakuMessage(payload: "hello world1".toBytes(), contentTopic: contentTopic, timestamp: 1)
-      msg2 = WakuMessage(payload: "hello world2".toBytes(), contentTopic: contentTopic, timestamp: 2)
+      msg1 = WakuMessage(payload: "hello world1".toBytes(), contentTopic: contentTopic, senderTime: 1)
+      msg2 = WakuMessage(payload: "hello world2".toBytes(), contentTopic: contentTopic, senderTime: 2)
 
     # setup sqlite database for node1
     let 
@@ -821,7 +821,7 @@ procSuite "WakuNode":
 
     # count the total number of retrieved messages from the database
     var responseCount = 0
-    proc data(msg: WakuMessage, psTopic: string) =
+    proc data(receiverTimestamp: float64, msg: WakuMessage, psTopic: string) =
       responseCount += 1
     # retrieve all the messages in the db
     let res = store.getAll(data)
