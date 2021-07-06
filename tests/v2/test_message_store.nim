@@ -16,8 +16,8 @@ suite "Message Store":
       topic = ContentTopic("/waku/2/default-content/proto")
       pubsubTopic =  "/waku/2/default-waku/proto"
 
-      t1 = getTime().toUnixFloat()
-      t2 = getTime().toUnixFloat()
+      t1 = epochTime()
+      t2 = epochTime()
       t3 = high(float64)
     var msgs = @[
       WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic, version: uint32(0), timestamp: t1),
