@@ -127,3 +127,5 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageSto
 proc close*(db: WakuMessageStore) = 
   ## Closes the database.
   db.database.close()
+
+
