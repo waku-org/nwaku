@@ -12,18 +12,19 @@ proc createSampleList(s: int): seq[IndexedWakuMessage] =
   var data {.noinit.}: array[32, byte]
   for x in data.mitems: x = 1
   for i in 0..<s:
-    result.add(IndexedWakuMessage(msg: WakuMessage(payload: @[byte i]), index: Index(receivedTime: float64(i), digest: MDigest[256](data: data)) ))
+    result.add(IndexedWakuMessage(msg: WakuMessage(payload: @[byte i]), index: Index(receiverTime: float64(i), senderTime: float64(i), digest: MDigest[256](data: data)) ))
 
 procSuite "pagination":
   test "Index computation test":
     let
-      wm = WakuMessage(payload: @[byte 1, 2, 3])
+      wm = WakuMessage(payload: @[byte 1, 2, 3], timestamp: 2)
       index = wm.computeIndex()
     check:
       # the fields of the index should be non-empty
       len(index.digest.data) != 0
       len(index.digest.data) == 32 # sha2 output length in bytes
-      index.receivedTime != 0 # the timestamp should be a non-zero value
+      index.receiverTime != 0 # the receiver timestamp should be a non-zero value
+      index.senderTime == 2 
 
     let
       wm1 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic("/waku/2/default-content/proto"))
@@ -44,9 +45,9 @@ procSuite "pagination":
     for x in data3.mitems: x = 3
       
     let
-      index1 = Index(receivedTime: 1, digest: MDigest[256](data: data1))
-      index2 = Index(receivedTime: 1, digest: MDigest[256](data: data2))
-      index3 = Index(receivedTime: 2, digest: MDigest[256](data: data3))
+      index1 = Index(receiverTime: 2, senderTime: 1, digest: MDigest[256](data: data1))
+      index2 = Index(receiverTime: 2, senderTime: 1, digest: MDigest[256](data: data2))
+      index3 = Index(receiverTime: 1, senderTime: 2, digest: MDigest[256](data: data3))
       iwm1 = IndexedWakuMessage(index: index1)
       iwm2 = IndexedWakuMessage(index: index2)
       iwm3 = IndexedWakuMessage(index: index3)
