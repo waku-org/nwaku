@@ -72,7 +72,7 @@ method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTop
   if prepare.isErr:
     return err("failed to prepare")
 
-  let res = prepare.value.exec((@(cursor.digest.data), cursor.receivedTime, message.contentTopic.toBytes(), message.payload, pubsubTopic.toBytes(), int64(message.version), message.timestamp))
+  let res = prepare.value.exec((@(cursor.digest.data), cursor.receiverTime, message.contentTopic.toBytes(), message.payload, pubsubTopic.toBytes(), int64(message.version), message.timestamp))
   if res.isErr:
     return err("failed")
 
@@ -128,4 +128,4 @@ proc close*(db: WakuMessageStore) =
   ## Closes the database.
   db.database.close()
 
-    
+

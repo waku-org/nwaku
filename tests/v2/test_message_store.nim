@@ -60,9 +60,9 @@ suite "Message Store":
       if msg.timestamp == t3: t3Flag = true
 
       # check correct retrieval of receiver timestamps
-      if receiverTimestamp == indexes[0].receivedTime: rt1Flag = true
-      if receiverTimestamp == indexes[1].receivedTime: rt2Flag = true
-      if receiverTimestamp == indexes[2].receivedTime: rt3Flag = true
+      if receiverTimestamp == indexes[0].receiverTime: rt1Flag = true
+      if receiverTimestamp == indexes[1].receiverTime: rt2Flag = true
+      if receiverTimestamp == indexes[2].receiverTime: rt3Flag = true
 
 
     let res = store.getAll(data)
