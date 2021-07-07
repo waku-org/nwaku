@@ -46,8 +46,8 @@ procSuite "pagination":
       
     let
       index1 = Index(receiverTime: 2, senderTime: 1, digest: MDigest[256](data: data1))
-      index2 = Index(receiverTime: 2, senderTime:1, digest: MDigest[256](data: data2))
-      index3 = Index(receiverTime: 1, senderTime:2, digest: MDigest[256](data: data3))
+      index2 = Index(receiverTime: 2, senderTime: 1, digest: MDigest[256](data: data2))
+      index3 = Index(receiverTime: 1, senderTime: 2, digest: MDigest[256](data: data3))
       iwm1 = IndexedWakuMessage(index: index1)
       iwm2 = IndexedWakuMessage(index: index2)
       iwm3 = IndexedWakuMessage(index: index3)
