@@ -165,6 +165,10 @@ proc init*(T: type HistoryResponse, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(2,pagingInfoBuffer)
   msg.pagingInfo= ? PagingInfo.init(pagingInfoBuffer)
 
+  var error: uint32
+  discard ? pb.getField(3, error)
+  msg.error = HistoryResponseError(error)
+
   ok(msg)
 
 proc init*(T: type HistoryRPC, buffer: seq[byte]): ProtoResult[T] =
@@ -210,6 +214,8 @@ proc encode*(response: HistoryResponse): ProtoBuffer =
     result.write(1, msg.encode())
 
   result.write(2, response.pagingInfo.encode())
+
+  result.write(3, uint32(ord(response.error)))
 
 proc encode*(rpc: HistoryRPC): ProtoBuffer =
   result = initProtoBuffer()
