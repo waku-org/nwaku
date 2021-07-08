@@ -786,8 +786,8 @@ procSuite "WakuNode":
       node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
       contentTopic = ContentTopic("/waku/2/default-content/proto")
-      msg1 = WakuMessage(payload: "hello world1".toBytes(), contentTopic: contentTopic)
-      msg2 = WakuMessage(payload: "hello world2".toBytes(), contentTopic: contentTopic)
+      msg1 = WakuMessage(payload: "hello world1".toBytes(), contentTopic: contentTopic, timestamp: 1)
+      msg2 = WakuMessage(payload: "hello world2".toBytes(), contentTopic: contentTopic, timestamp: 2)
 
     # setup sqlite database for node1
     let 

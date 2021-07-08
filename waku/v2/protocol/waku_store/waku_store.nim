@@ -47,8 +47,8 @@ proc computeIndex*(msg: WakuMessage): Index =
   ctx.update(msg.payload)
   let digest = ctx.finish() # computes the hash
   ctx.clear()
-  result.digest = digest
-  result.receivedTime = epochTime() # gets the unix timestamp
+  var index = Index(digest:digest, receiverTime: epochTime(), senderTime: msg.timestamp)
+  return index
 
 proc encode*(index: Index): ProtoBuffer =
   ## encodes an Index object into a ProtoBuffer
@@ -59,7 +59,8 @@ proc encode*(index: Index): ProtoBuffer =
 
   # encodes index
   result.write(1, index.digest.data)
-  result.write(2, index.receivedTime)
+  result.write(2, index.receiverTime)
+  result.write(3, index.senderTime)
 
 proc encode*(pinfo: PagingInfo): ProtoBuffer =
   ## encodes a PagingInfo object into a ProtoBuffer
@@ -86,10 +87,15 @@ proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
   for count, b in data:
     index.digest.data[count] = b
 
-  # read the receivedTime
-  var receivedTime: float64
-  discard ? pb.getField(2, receivedTime)
-  index.receivedTime = receivedTime
+  # read the timestamp
+  var receiverTime: float64
+  discard ? pb.getField(2, receiverTime)
+  index.receiverTime = receiverTime
+
+  # read the timestamp
+  var senderTime: float64
+  discard ? pb.getField(3, senderTime)
+  index.senderTime = senderTime
 
   ok(index) 
 
@@ -218,7 +224,7 @@ proc indexComparison* (x, y: Index): int =
   ## returns -1 if x < y
   ## returns 1 if x > y
   let 
-    timecmp = system.cmp(x.receivedTime, y.receivedTime)
+    timecmp = system.cmp(x.senderTime, y.senderTime)
     digestcm = system.cmp(x.digest.data, y.digest.data)
   if timecmp != 0: # timestamp has a higher priority for comparison
     return timecmp
@@ -377,7 +383,7 @@ proc init*(ws: WakuStore) {.raises: [Defect, Exception]} =
   if ws.store.isNil:
     return
 
-  proc onData(timestamp: float64, msg: WakuMessage, pubsubTopic:  string) =
+  proc onData(receiverTime: float64, msg: WakuMessage, pubsubTopic:  string) =
     # TODO index should not be recalculated
     ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex(), pubsubTopic: pubsubTopic))
 
