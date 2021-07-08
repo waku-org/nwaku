@@ -52,7 +52,7 @@ type
     startTime*: float64 # used for time-window query
     endTime*: float64 # used for time-window query
 
-  HistoryResponseError* {.pure.} = enum
+  StoreError* {.pure.} = enum
     ## HistoryResponseError contains error message to inform  the querying node about the state of its request
     OK = uint32(0)
     INVALID_CURSOR = uint32(1)
@@ -60,7 +60,7 @@ type
   HistoryResponse* = object
     messages*: seq[WakuMessage]
     pagingInfo*: PagingInfo # used for pagination
-    error*: HistoryResponseError
+    error*: StoreError
 
   HistoryRPC* = object
     requestId*: string
