@@ -274,7 +274,7 @@ procSuite "pagination":
       newPagingInfo.cursor == pagingInfo.cursor
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 0
-      error == HistoryResponseError.OK
+      error == HistoryResponseError.INVALID_CURSOR
     
     # test initial paging query over a message list with one message
     var singleItemMsgList = msgList[0..0]
