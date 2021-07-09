@@ -54,7 +54,7 @@ type
 
   HistoryResponseError* {.pure.} = enum
     ## HistoryResponseError contains error message to inform  the querying node about the state of its request
-    OK = uint32(0)
+    NONE = uint32(0)
     INVALID_CURSOR = uint32(1)
 
   HistoryResponse* = object

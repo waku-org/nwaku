@@ -260,10 +260,10 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
     dir = pinfo.direction
 
   if pageSize == uint64(0): # pageSize being zero indicates that no pagination is required
-    return (list, pinfo, HistoryResponseError.OK)
+    return (list, pinfo, HistoryResponseError.NONE)
 
   if list.len == 0: # no pagination is needed for an empty list
-    return (list, PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.OK)
+    return (list, PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
 
   var msgList = list # makes a copy of the list
   # sorts msgList based on the custom comparison proc indexedWakuMessageComparison
@@ -305,13 +305,13 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
       newCursor = msgList[s].index # the new cursor points to the begining of the page
 
   if (retrievedPageSize == 0):
-    return (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.OK)
+    return (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
 
   # retrieve the messages
   var retMessages: seq[IndexedWakuMessage]= @[]
   for i in s..e:
     retMessages.add(msgList[i])
-  return (retMessages, PagingInfo(pageSize : retrievedPageSize, cursor : newCursor, direction : pinfo.direction), HistoryResponseError.OK)
+  return (retMessages, PagingInfo(pageSize : retrievedPageSize, cursor : newCursor, direction : pinfo.direction), HistoryResponseError.NONE)
 
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   result = HistoryResponse(messages: newSeq[WakuMessage]())
