@@ -8,7 +8,7 @@ import
   libp2p/stream/[bufferstream, connection],
   libp2p/crypto/crypto,
   libp2p/protocols/pubsub/rpc/message,
-  ../../waku/v2/protocol/[waku_message, message_notifier],
+  ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store/waku_store,
   ../../waku/v2/node/storage/message/waku_message_store,
   ../../waku/v2/node/peer_manager/peer_manager,
@@ -33,18 +33,14 @@ procSuite "Waku Store":
 
     let
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
-      subscription = proto.subscription()
       rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: topic)])
 
     proto.setPeer(listenSwitch.peerInfo)
 
-    var subscriptions = newTable[string, MessageNotificationSubscription]()
-    subscriptions["test"] = subscription
-
     listenSwitch.mount(proto)
 
-    await subscriptions.notify("foo", msg)
-    await subscriptions.notify("foo", msg2)
+    await proto.handleMessage("foo", msg)
+    await proto.handleMessage("foo", msg2)
 
     var completionFut = newFuture[bool]()
 
@@ -77,19 +73,15 @@ procSuite "Waku Store":
 
     let
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
-      subscription = proto.subscription()
       rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: topic1), HistoryContentFilter(contentTopic: topic3)])
 
     proto.setPeer(listenSwitch.peerInfo)
 
-    var subscriptions = newTable[string, MessageNotificationSubscription]()
-    subscriptions["test"] = subscription
-
     listenSwitch.mount(proto)
 
-    await subscriptions.notify("foo", msg1)
-    await subscriptions.notify("foo", msg2)
-    await subscriptions.notify("foo", msg3)
+    await proto.handleMessage("foo", msg1)
+    await proto.handleMessage("foo", msg2)
+    await proto.handleMessage("foo", msg3)
 
     var completionFut = newFuture[bool]()
 
@@ -126,21 +118,17 @@ procSuite "Waku Store":
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
       pubsubtopic1 = "queried topic"
       pubsubtopic2 = "non queried topic"
-      subscription: MessageNotificationSubscription = proto.subscription() 
       # this query targets: pubsubtopic1 AND (contentTopic1 OR contentTopic3)    
       rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic1), HistoryContentFilter(contentTopic: contentTopic3)], pubsubTopic: pubsubTopic1)
 
     proto.setPeer(listenSwitch.peerInfo)
 
-    var subscriptions = newTable[string, MessageNotificationSubscription]()
-    subscriptions["test"] = subscription
-
     listenSwitch.mount(proto)
 
     # publish messages
-    await subscriptions.notify(pubsubtopic1, msg1)
-    await subscriptions.notify(pubsubtopic2, msg2)
-    await subscriptions.notify(pubsubtopic2, msg3)
+    await proto.handleMessage(pubsubtopic1, msg1)
+    await proto.handleMessage(pubsubtopic2, msg2)
+    await proto.handleMessage(pubsubtopic2, msg3)
 
     var completionFut = newFuture[bool]()
 
@@ -174,21 +162,17 @@ procSuite "Waku Store":
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
       pubsubtopic1 = "queried topic"
       pubsubtopic2 = "non queried topic"
-      subscription: MessageNotificationSubscription = proto.subscription() 
       # this query targets: pubsubtopic1  
       rpc = HistoryQuery(pubsubTopic: pubsubTopic1)
 
     proto.setPeer(listenSwitch.peerInfo)
 
-    var subscriptions = newTable[string, MessageNotificationSubscription]()
-    subscriptions["test"] = subscription
-
     listenSwitch.mount(proto)
 
     # publish messages
-    await subscriptions.notify(pubsubtopic2, msg1)
-    await subscriptions.notify(pubsubtopic2, msg2)
-    await subscriptions.notify(pubsubtopic2, msg3)
+    await proto.handleMessage(pubsubtopic2, msg1)
+    await proto.handleMessage(pubsubtopic2, msg2)
+    await proto.handleMessage(pubsubtopic2, msg3)
 
     var completionFut = newFuture[bool]()
 
@@ -218,21 +202,17 @@ procSuite "Waku Store":
     let
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
       pubsubtopic = "queried topic"
-      subscription: MessageNotificationSubscription = proto.subscription() 
       # this query targets: pubsubtopic 
       rpc = HistoryQuery(pubsubTopic: pubsubtopic)
 
     proto.setPeer(listenSwitch.peerInfo)
 
-    var subscriptions = newTable[string, MessageNotificationSubscription]()
-    subscriptions["test"] = subscription
-
     listenSwitch.mount(proto)
 
     # publish messages
-    await subscriptions.notify(pubsubtopic, msg1)
-    await subscriptions.notify(pubsubtopic, msg2)
-    await subscriptions.notify(pubsubtopic, msg3)
+    await proto.handleMessage(pubsubtopic, msg1)
+    await proto.handleMessage(pubsubtopic, msg2)
+    await proto.handleMessage(pubsubtopic, msg3)
 
     var completionFut = newFuture[bool]()
 
@@ -267,19 +247,15 @@ procSuite "Waku Store":
 
     let
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
-      subscription = proto.subscription()
       rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: topic)])
 
     proto.setPeer(listenSwitch.peerInfo)
 
-    var subscriptions = newTable[string, MessageNotificationSubscription]()
-    subscriptions["test"] = subscription
-
     listenSwitch.mount(proto)
 
-    await subscriptions.notify("foo", msg)
+    await proto.handleMessage("foo", msg)
     await sleepAsync(1.millis)  # Sleep a millisecond to ensure messages are stored chronologically
-    await subscriptions.notify("foo", msg2)
+    await proto.handleMessage("foo", msg2)
 
     var completionFut = newFuture[bool]()
 
@@ -341,18 +317,14 @@ procSuite "Waku Store":
 
     let
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
-      subscription = proto.subscription()
       rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: defaultContentTopic)], pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD) )
       
     proto.setPeer(listenSwitch.peerInfo)
 
-    var subscriptions = newTable[string, MessageNotificationSubscription]()
-    subscriptions["test"] = subscription
-
     listenSwitch.mount(proto)
 
     for wakuMsg in msgList:
-      await subscriptions.notify("foo", wakuMsg)
+      await proto.handleMessage("foo", wakuMsg)
       await sleepAsync(1.millis)  # Sleep a millisecond to ensure messages are stored chronologically
 
     var completionFut = newFuture[bool]()
@@ -392,18 +364,14 @@ procSuite "Waku Store":
     var listenSwitch = newStandardSwitch(some(key))
     discard await listenSwitch.start()
 
-    let
-      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
-      subscription = proto.subscription()
-    proto.setPeer(listenSwitch.peerInfo)
+    let proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
 
-    var subscriptions = newTable[string, MessageNotificationSubscription]()
-    subscriptions["test"] = subscription
+    proto.setPeer(listenSwitch.peerInfo)
 
     listenSwitch.mount(proto)
 
     for wakuMsg in msgList:
-      await subscriptions.notify("foo", wakuMsg)
+      await proto.handleMessage("foo", wakuMsg)
       await sleepAsync(1.millis)  # Sleep a millisecond to ensure messages are stored chronologically
     var completionFut = newFuture[bool]()
 
@@ -443,18 +411,14 @@ procSuite "Waku Store":
     var listenSwitch = newStandardSwitch(some(key))
     discard await listenSwitch.start()
 
-    let
-      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
-      subscription = proto.subscription()
-    proto.setPeer(listenSwitch.peerInfo)
+    let proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
 
-    var subscriptions = newTable[string, MessageNotificationSubscription]()
-    subscriptions["test"] = subscription
+    proto.setPeer(listenSwitch.peerInfo)
 
     listenSwitch.mount(proto)
 
     for wakuMsg in msgList:
-      await subscriptions.notify("foo", wakuMsg)
+      await proto.handleMessage("foo", wakuMsg)
       await sleepAsync(1.millis)  # Sleep a millisecond to ensure messages are stored chronologically
     var completionFut = newFuture[bool]()
 
@@ -585,19 +549,15 @@ procSuite "Waku Store":
     var listenSwitch = newStandardSwitch(some(key))
     discard await listenSwitch.start()
 
-    let
-      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
-      subscription = proto.subscription()
-    proto.setPeer(listenSwitch.peerInfo)
+    let proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
 
-    var subscriptions = newTable[string, MessageNotificationSubscription]()
-    subscriptions["test"] = subscription
+    proto.setPeer(listenSwitch.peerInfo)
 
     listenSwitch.mount(proto)
 
     for wakuMsg in msgList:
       # the pubsub topic should be DefaultTopic
-      await subscriptions.notify(DefaultTopic, wakuMsg)
+      await proto.handleMessage(DefaultTopic, wakuMsg)
     
     asyncTest "handle temporal history query with a valid time window":
       var completionFut = newFuture[bool]()
