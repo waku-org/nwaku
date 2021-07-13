@@ -15,7 +15,7 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/builders,
-  ../protocol/[waku_relay, waku_message, message_notifier],
+  ../protocol/[waku_relay, waku_message],
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter/waku_filter,
@@ -75,7 +75,6 @@ type
   # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
     messages*: seq[(Topic, WakuMessage)]
     filters*: Filters
-    subscriptions*: MessageNotificationSubscriptions
     rng*: ref BrHmacDrbgContext
     started*: bool # Indicates that node has started listening
 
@@ -161,7 +160,6 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     switch: switch,
     rng: rng,
     peerInfo: peerInfo,
-    subscriptions: newTable[string, MessageNotificationSubscription](),
     filters: initTable[string, Filter]()
   )
 
@@ -206,7 +204,13 @@ proc subscribe(node: WakuNode, topic: Topic, handler: Option[TopicHandler]) =
 
     let msg = WakuMessage.init(data)
     if msg.isOk():
-      await node.subscriptions.notify(topic, msg.value()) # Trigger subscription handlers on a store/filter node
+      # Notify mounted protocols of new message
+      if (not node.wakuFilter.isNil):
+        await node.wakuFilter.handleMessage(topic, msg.value())
+      
+      if (not node.wakuStore.isNil):
+        await node.wakuStore.handleMessage(topic, msg.value())
+
       waku_node_messages.inc(labelValues = ["relay"])
 
   let wakuRelay = node.wakuRelay
@@ -399,7 +403,6 @@ proc mountFilter*(node: WakuNode) =
 
   node.wakuFilter = WakuFilter.init(node.peerManager, node.rng, filterHandler)
   node.switch.mount(node.wakuFilter, protocolMatcher(WakuFilterCodec))
-  node.subscriptions.subscribe(WakuFilterCodec, node.wakuFilter.subscription())
 
 # NOTE: If using the swap protocol, it must be mounted before store. This is
 # because store is using a reference to the swap protocol.
@@ -415,14 +418,12 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: boo
 
   if node.wakuSwap.isNil:
     debug "mounting store without swap"
-    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store)
+    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, persistMessages=persistMessages)
   else:
     debug "mounting store with swap"
-    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, node.wakuSwap)
+    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, node.wakuSwap, persistMessages=persistMessages)
 
   node.switch.mount(node.wakuStore, protocolMatcher(WakuStoreCodec))
-  if persistMessages:
-    node.subscriptions.subscribe(WakuStoreCodec, node.wakuStore.subscription())
 
 when defined(rln):
   proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(string), ethAccountAddress: Option[Address] = none(Address), membershipContractAddress:  Option[Address] = none(Address)) {.async.} =
