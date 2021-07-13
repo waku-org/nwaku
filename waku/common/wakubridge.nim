@@ -163,7 +163,7 @@ proc new*(T: type WakuBridge,
 
   # Setup Waku v2 node
   let
-    nodev2 = WakuNode.init(nodev2Key,
+    nodev2 = WakuNode.new(nodev2Key,
                            nodev2BindIp, nodev2BindPort,
                            nodev2ExtIp, nodev2ExtPort)
   

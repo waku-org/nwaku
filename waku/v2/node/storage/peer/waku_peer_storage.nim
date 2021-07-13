@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import
   std/sets, 
   sqlite3_abi,
@@ -36,7 +38,7 @@ proc init*(T: type StoredInfo, buffer: seq[byte]): ProtoResult[T] =
 
   ok(storedInfo)
 
-proc encode*(storedInfo: StoredInfo): ProtoBuffer =
+proc encode*(storedInfo: StoredInfo): PeerStorageResult[ProtoBuffer] =
   var pb = initProtoBuffer()
 
   pb.write(1, storedInfo.peerId)
@@ -47,9 +49,12 @@ proc encode*(storedInfo: StoredInfo): ProtoBuffer =
   for proto in storedInfo.protos.items:
     pb.write(3, proto)
   
-  pb.write(4, storedInfo.publicKey)
+  try:
+    pb.write(4, storedInfo.publicKey)
+  except ResultError[CryptoError] as e:
+    return err("Failed to encode public key")
 
-  return pb
+  ok(pb)
 
 ##########################
 # Storage implementation #
@@ -97,7 +102,12 @@ method put*(db: WakuPeerStorage,
   if prepare.isErr:
     return err("failed to prepare")
 
-  let res = prepare.value.exec((peerId.data, storedInfo.encode().buffer, int32(ord(connectedness)), disconnectTime))
+  let encoded = storedInfo.encode()
+
+  if encoded.isErr:
+    return err("failed to encode: " & encoded.error())
+
+  let res = prepare.value.exec((peerId.data, encoded.get().buffer, int32(ord(connectedness)), disconnectTime))
   if res.isErr:
     return err("failed")
 
@@ -107,7 +117,7 @@ method getAll*(db: WakuPeerStorage, onData: peer_storage.DataProc): PeerStorageR
   ## Retrieves all peers from storage
   var gotPeers = false
 
-  proc peer(s: ptr sqlite3_stmt) = 
+  proc peer(s: ptr sqlite3_stmt) {.raises: [Defect, LPError, ResultError[ProtoError]].} = 
     gotPeers = true
     let
       # Peer ID
@@ -125,8 +135,13 @@ method getAll*(db: WakuPeerStorage, onData: peer_storage.DataProc): PeerStorageR
 
     onData(peerId, storedInfo, connectedness, disconnectTime)
 
-  let res = db.database.query("SELECT peerId, storedInfo, connectedness, disconnectTime FROM Peer", peer)
-  if res.isErr:
+  var queryResult: DatabaseResult[bool]
+  try:
+    queryResult = db.database.query("SELECT peerId, storedInfo, connectedness, disconnectTime FROM Peer", peer)
+  except LPError, ResultError[ProtoError]:
+    return err("failed to extract peer from query result")
+  
+  if queryResult.isErr:
     return err("failed")
 
   ok gotPeers

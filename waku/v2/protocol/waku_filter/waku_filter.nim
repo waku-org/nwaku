@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import
   std/[tables, sequtils, options],
   bearssl,
@@ -34,7 +36,7 @@ const
   dialFailure = "dial_failure"
   decodeRpcFailure = "decode_rpc_failure"
 
-proc notify*(filters: Filters, msg: WakuMessage, requestId: string = "") =
+proc notify*(filters: Filters, msg: WakuMessage, requestId: string = "") {.raises: [Defect, KeyError]} =
   for key in filters.keys:
     let filter = filters[key]
     # We do this because the key for the filter is set to the requestId received from the filter protocol.

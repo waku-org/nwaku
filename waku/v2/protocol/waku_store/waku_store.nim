@@ -345,7 +345,7 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   (result.messages, result.pagingInfo)= paginateWithoutIndex(data, query.pagingInfo)
 
 
-proc init*(ws: WakuStore) {.raises: [Defect, Exception]} =
+proc init*(ws: WakuStore) =
   proc handler(conn: Connection, proto: string) {.async.} =
     var message = await conn.readLp(64*1024)
     var res = HistoryRPC.init(message)
@@ -396,7 +396,7 @@ proc init*(ws: WakuStore) {.raises: [Defect, Exception]} =
 
 
 proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgContext,
-                   store: MessageStore = nil, wakuSwap: WakuSwap = nil, persistMessages = true): T {.raises: [Defect, Exception]} =
+                   store: MessageStore = nil, wakuSwap: WakuSwap = nil, persistMessages = true): T =
   debug "init"
   new result
   result.rng = rng
@@ -407,7 +407,7 @@ proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgConte
   result.init()
 
 # @TODO THIS SHOULD PROBABLY BE AN ADD FUNCTION AND APPEND THE PEER TO AN ARRAY
-proc setPeer*(ws: WakuStore, peer: PeerInfo) {.raises: [Defect, Exception]} =
+proc setPeer*(ws: WakuStore, peer: PeerInfo) =
   ws.peerManager.addPeer(peer, WakuStoreCodec)
   waku_store_peers.inc()
 
@@ -508,7 +508,7 @@ proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: PeerInfo): Fu
   debug "query is", q=q
 
   var hasNextPage = true
-  proc handler(response: HistoryResponse) {.gcsafe, raises: [Defect, Exception].} =
+  proc handler(response: HistoryResponse) {.gcsafe.} =
     # store messages
     for m in response.messages.items: messageList.add(m)
     
@@ -579,7 +579,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
 
   var dismissed: uint = 0
   var added: uint = 0
-  proc save(msgList: seq[WakuMessage]) {.raises: [Defect, Exception].} =
+  proc save(msgList: seq[WakuMessage]) =
     debug "save proc is called"
     # exclude index from the comparison criteria
     let currentMsgSummary = ws.messages.map(proc(x: IndexedWakuMessage): WakuMessage = x.msg)

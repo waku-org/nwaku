@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import
   stew/results,
   chronos,
@@ -12,7 +14,7 @@ type
   PeerStorageResult*[T] = Result[T, string]
 
   DataProc* = proc(peerId: PeerID, storedInfo: StoredInfo,
-                   connectedness: Connectedness, disconnectTime: int64) {.closure.}
+                   connectedness: Connectedness, disconnectTime: int64) {.closure, raises: [Defect].}
 
 # PeerStorage interface
 method put*(db: PeerStorage,

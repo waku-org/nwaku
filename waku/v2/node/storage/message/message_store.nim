@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import
   stew/results,
   ../../../protocol/waku_message,
@@ -8,7 +10,7 @@ import
 ## retrieve historical messages
 
 type
-  DataProc* = proc(receiverTimestamp: float64, msg: WakuMessage, pubsubTopic: string) {.closure.}
+  DataProc* = proc(receiverTimestamp: float64, msg: WakuMessage, pubsubTopic: string) {.closure, raises: [Defect].}
 
   MessageStoreResult*[T] = Result[T, string]
 
@@ -16,5 +18,5 @@ type
 
 # MessageStore interface
 method put*(db: MessageStore, cursor: Index, message: WakuMessage, pubsubTopic: string): MessageStoreResult[void] {.base.} = discard
-method getAll*(db: MessageStore, onData: DataProc): MessageStoreResult[bool] {.base, raises: [Defect, Exception].} = discard
+method getAll*(db: MessageStore, onData: DataProc): MessageStoreResult[bool] {.base.} = discard
 

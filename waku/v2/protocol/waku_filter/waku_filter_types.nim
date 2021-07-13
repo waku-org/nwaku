@@ -12,7 +12,7 @@ type
   ContentFilter* = object
     contentTopic*: ContentTopic
 
-  ContentFilterHandler* = proc(msg: WakuMessage) {.gcsafe, closure.}
+  ContentFilterHandler* = proc(msg: WakuMessage) {.gcsafe, closure, raises: [Defect].}
 
   Filter* = object
     contentFilters*: seq[ContentFilter]

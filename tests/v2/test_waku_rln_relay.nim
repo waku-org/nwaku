@@ -204,7 +204,7 @@ procSuite "Waku rln relay":
   asyncTest "mounting waku rln relay":
     let
       nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node = WakuNode.init(nodeKey, ValidIpAddress.init("0.0.0.0"),
+      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
     await node.start()
 

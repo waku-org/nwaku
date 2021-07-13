@@ -18,9 +18,9 @@ procSuite "Waku Keepalive":
   asyncTest "handle ping keepalives":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
 
     var completionFut = newFuture[bool]()
 
