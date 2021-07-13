@@ -9,7 +9,6 @@ import
   libp2p/crypto/crypto,
   libp2p/multistream,
   ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/protocol/message_notifier,
   ../../waku/v2/protocol/waku_lightpush/waku_lightpush,
   ../test_helpers, ./utils
 

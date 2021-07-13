@@ -10,7 +10,7 @@ import
   libp2p/crypto/[crypto, secp],
   libp2p/switch,
   eth/keys,
-  ../../waku/v2/protocol/[waku_message, message_notifier],
+  ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store/waku_store,
   ../../waku/v2/protocol/waku_swap/waku_swap,
   ../../waku/v2/node/wakunode2,
@@ -67,7 +67,7 @@ procSuite "Waku SWAP Accounting":
     node2.mountSwap()
     node2.mountStore(persistMessages = true)
 
-    await node2.subscriptions.notify("/waku/2/default-waku/proto", message)
+    await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
 
     await sleepAsync(2000.millis)
 
@@ -117,7 +117,7 @@ procSuite "Waku SWAP Accounting":
     node2.mountSwap(swapConfig)
     node2.mountStore(persistMessages = true)
 
-    await node2.subscriptions.notify("/waku/2/default-waku/proto", message)
+    await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
 
     await sleepAsync(2000.millis)
 
