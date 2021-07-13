@@ -164,6 +164,10 @@ proc init*(T: type HistoryResponse, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(2,pagingInfoBuffer)
   msg.pagingInfo= ? PagingInfo.init(pagingInfoBuffer)
 
+  var error: uint32
+  discard ? pb.getField(3, error)
+  msg.error = HistoryResponseError(error)
+
   ok(msg)
 
 proc init*(T: type HistoryRPC, buffer: seq[byte]): ProtoResult[T] =
@@ -210,6 +214,8 @@ proc encode*(response: HistoryResponse): ProtoBuffer =
 
   result.write(2, response.pagingInfo.encode())
 
+  result.write(3, uint32(ord(response.error)))
+
 proc encode*(rpc: HistoryRPC): ProtoBuffer =
   result = initProtoBuffer()
 
@@ -244,7 +250,7 @@ proc findIndex*(msgList: seq[IndexedWakuMessage], index: Index): Option[int] =
       return some(i)
   return none(int)
 
-proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWakuMessage], PagingInfo) =
+proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWakuMessage], PagingInfo, HistoryResponseError) =
   ## takes list, and performs paging based on pinfo 
   ## returns the page i.e, a sequence of IndexedWakuMessage and the new paging info to be used for the next paging request
   var
@@ -253,10 +259,10 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
     dir = pinfo.direction
 
   if pageSize == uint64(0): # pageSize being zero indicates that no pagination is required
-    return (list, pinfo)
+    return (list, pinfo, HistoryResponseError.NONE)
 
   if list.len == 0: # no pagination is needed for an empty list
-    return (list, PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction))
+    return (list, PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
 
   var msgList = list # makes a copy of the list
   # sorts msgList based on the custom comparison proc indexedWakuMessageComparison
@@ -272,7 +278,7 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
         cursor = msgList[list.len - 1].index # perform paging from the end of the list
   var foundIndexOption = msgList.findIndex(cursor) 
   if foundIndexOption.isNone: # the cursor is not valid
-    return (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction))
+    return (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.INVALID_CURSOR)
   var foundIndex = uint64(foundIndexOption.get())
   var retrievedPageSize, s, e: uint64
   var newCursor: Index # to be returned as part of the new paging info
@@ -298,20 +304,13 @@ proc paginateWithIndex*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[
       newCursor = msgList[s].index # the new cursor points to the begining of the page
 
   if (retrievedPageSize == 0):
-    return (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction))
+    return (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
 
   # retrieve the messages
+  var retMessages: seq[IndexedWakuMessage]= @[]
   for i in s..e:
-    result[0].add(msgList[i])
-  result[1] = PagingInfo(pageSize : retrievedPageSize, cursor : newCursor, direction : pinfo.direction)
-
-proc paginateWithoutIndex(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[WakuMessage], PagingInfo) =
-  ## takes list, and perfomrs paging based on pinfo 
-  ## returns the page i.e, a sequence of WakuMessage and the new paging info to be used for the next paging request  
-  var (indexedData, updatedPagingInfo) = paginateWithIndex(list,pinfo)
-  for indexedMsg in indexedData:
-    result[0].add(indexedMsg.msg)
-  result[1] = updatedPagingInfo
+    retMessages.add(msgList[i])
+  return (retMessages, PagingInfo(pageSize : retrievedPageSize, cursor : newCursor, direction : pinfo.direction), HistoryResponseError.NONE)
 
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   result = HistoryResponse(messages: newSeq[WakuMessage]())
@@ -342,7 +341,13 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
 
   
   # perform pagination
-  (result.messages, result.pagingInfo)= paginateWithoutIndex(data, query.pagingInfo)
+  var (indexedWakuMsgList, updatedPagingInfo, error) = paginate(data, query.pagingInfo)
+
+  # extract waku messages
+  var wakuMsgList = indexedWakuMsgList.mapIt(it.msg)
+
+  var historyRes = HistoryResponse(messages: wakuMsgList, pagingInfo: updatedPagingInfo, error: error)
+  return historyRes
 
 
 proc init*(ws: WakuStore) {.raises: [Defect, Exception]} =
