@@ -70,3 +70,4 @@ type
     messages*: seq[IndexedWakuMessage]
     store*: MessageStore
     wakuSwap*: WakuSwap
+    persistMessages*: bool

@@ -9,7 +9,6 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
   libp2p/crypto/crypto,
-  ../message_notifier,
   waku_lightpush_types,
   ../../utils/requests,
   ../../node/peer_manager/peer_manager,

@@ -19,7 +19,6 @@ import
                               filter_api,
                               admin_api,
                               private_api],
-  ../../waku/v2/protocol/message_notifier,
   ../../waku/v2/protocol/waku_relay,
   ../../waku/v2/protocol/waku_store/[waku_store, waku_store_types],
   ../../waku/v2/protocol/waku_swap/waku_swap,
@@ -226,8 +225,6 @@ procSuite "Waku v2 JSON-RPC API":
       peer = PeerInfo.init(key)
     
     node.mountStore(persistMessages = true)
-    let
-      subscription = node.wakuStore.subscription()
     
     var listenSwitch = newStandardSwitch(some(key))
     discard waitFor listenSwitch.start()
@@ -236,9 +233,6 @@ procSuite "Waku v2 JSON-RPC API":
 
     listenSwitch.mount(node.wakuRelay)
     listenSwitch.mount(node.wakuStore)
-
-    var subscriptions = newTable[string, MessageNotificationSubscription]()
-    subscriptions[testCodec] = subscription
 
     # Now prime it with some history before tests
     var
@@ -254,7 +248,7 @@ procSuite "Waku v2 JSON-RPC API":
         WakuMessage(payload: @[byte 9], contentTopic: ContentTopic("2"), timestamp: 9)]
 
     for wakuMsg in msgList:
-      waitFor subscriptions.notify(defaultTopic, wakuMsg)
+      waitFor node.wakuStore.handleMessage(defaultTopic, wakuMsg)
 
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort)
