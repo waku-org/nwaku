@@ -110,7 +110,7 @@ proc connectToNodes(c: Chat, nodes: seq[string]) {.async.} =
   await c.node.connectToNodes(nodes)
   c.connected = true
 
-proc showChatPrompt(c: Chat) {.raises: [].} =
+proc showChatPrompt(c: Chat) =
   if not c.prompt:
     try:
       stdout.write(">> ")
