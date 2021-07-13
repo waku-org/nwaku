@@ -86,98 +86,108 @@ procSuite "pagination":
       pagingInfo = PagingInfo(pageSize: 2, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
 
     # test for a normal pagination
-    var (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
+    var (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
     check:
       data.len == 2
       data == msgList[4..5]
       newPagingInfo.cursor == msgList[5].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == pagingInfo.pageSize
+      error == HistoryResponseError.NONE
    
    # test for an initial pagination request with an empty cursor
     pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD)
-    (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
+    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
     check:
       data.len == 2
       data == msgList[0..1]
       newPagingInfo.cursor == msgList[1].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 2
+      error == HistoryResponseError.NONE
     
     # test for an initial pagination request with an empty cursor to fetch the entire history
     pagingInfo = PagingInfo(pageSize: 13, direction: PagingDirection.FORWARD)
-    (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
+    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
     check:
       data.len == 10
       data == msgList[0..9]
       newPagingInfo.cursor == msgList[9].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 10
+      error == HistoryResponseError.NONE
 
     # test for an empty msgList
     pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD)
-    (data, newPagingInfo) = paginateWithIndex(@[], pagingInfo)
+    (data, newPagingInfo, error) = paginate(@[], pagingInfo)
     check:
       data.len == 0
       newPagingInfo.pageSize == 0
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.cursor == pagingInfo.cursor
+      error == HistoryResponseError.NONE
 
     # test for a page size larger than the remaining messages
     pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
-    (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
+    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
     check:
       data.len == 6
       data == msgList[4..9]
       newPagingInfo.cursor == msgList[9].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 6
+      error == HistoryResponseError.NONE
 
     # test for a page size larger than the maximum allowed page size
     pagingInfo = PagingInfo(pageSize: MaxPageSize+1, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
-    (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
+    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
     check:
       uint64(data.len) <= MaxPageSize
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize <= MaxPageSize
+      error == HistoryResponseError.NONE
   
-    # test for a cursor poiting to the end of the message list
+    # test for a cursor pointing to the end of the message list
     pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[9].index, direction: PagingDirection.FORWARD)
-    (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
+    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
     check:
       data.len == 0
       newPagingInfo.cursor == msgList[9].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 0
+      error == HistoryResponseError.NONE
     
     # test for an invalid cursor 
     pagingInfo = PagingInfo(pageSize: 10, cursor: computeIndex(WakuMessage(payload: @[byte 10])), direction: PagingDirection.FORWARD)
-    (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
+    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
     check:
       data.len == 0
       newPagingInfo.cursor == pagingInfo.cursor
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 0
+      error == HistoryResponseError.INVALID_CURSOR
 
     # test initial paging query over a message list with one message 
     var singleItemMsgList = msgList[0..0]
     pagingInfo = PagingInfo(pageSize: 10, direction: PagingDirection.FORWARD)
-    (data, newPagingInfo) = paginateWithIndex(singleItemMsgList, pagingInfo)
+    (data, newPagingInfo, error) = paginate(singleItemMsgList, pagingInfo)
     check:
       data.len == 1
       newPagingInfo.cursor == msgList[0].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 1
+      error == HistoryResponseError.NONE
 
     # test pagination over a message list with one message
     singleItemMsgList = msgList[0..0]
     pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[0].index, direction: PagingDirection.FORWARD)
-    (data, newPagingInfo) = paginateWithIndex(singleItemMsgList, pagingInfo)
+    (data, newPagingInfo, error) = paginate(singleItemMsgList, pagingInfo)
     check:
       data.len == 0
       newPagingInfo.cursor == msgList[0].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 0
+      error == HistoryResponseError.NONE
 
   test "Backward pagination test":
     var
@@ -185,98 +195,108 @@ procSuite "pagination":
       pagingInfo = PagingInfo(pageSize: 2, cursor: msgList[3].index, direction: PagingDirection.BACKWARD)
 
     # test for a normal pagination
-    var (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
+    var (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
     check:
       data == msgList[1..2]
       newPagingInfo.cursor == msgList[1].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == pagingInfo.pageSize
+      error == HistoryResponseError.NONE
 
     # test for an empty msgList
     pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD)
-    (data, newPagingInfo) = paginateWithIndex(@[], pagingInfo)
+    (data, newPagingInfo, error) = paginate(@[], pagingInfo)
     check:
       data.len == 0
       newPagingInfo.pageSize == 0
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.cursor == pagingInfo.cursor
+      error == HistoryResponseError.NONE
 
     # test for an initial pagination request with an empty cursor
     pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD)
-    (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
+    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
     check:
       data.len == 2
       data == msgList[8..9]
       newPagingInfo.cursor == msgList[8].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 2
+      error == HistoryResponseError.NONE
     
     # test for an initial pagination request with an empty cursor to fetch the entire history
     pagingInfo = PagingInfo(pageSize: 13, direction: PagingDirection.BACKWARD)
-    (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
+    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
     check:
       data.len == 10
       data == msgList[0..9]
       newPagingInfo.cursor == msgList[0].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 10
+      error == HistoryResponseError.NONE
 
 
     # test for a page size larger than the remaining messages
     pagingInfo = PagingInfo(pageSize: 5, cursor: msgList[3].index, direction: PagingDirection.BACKWARD)
-    (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
+    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
     check:
       data == msgList[0..2]
       newPagingInfo.cursor == msgList[0].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 3
+      error == HistoryResponseError.NONE
     
     # test for a page size larger than the Maximum allowed page size
     pagingInfo = PagingInfo(pageSize: MaxPageSize+1, cursor: msgList[3].index, direction: PagingDirection.BACKWARD)
-    (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
+    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
     check:
       uint64(data.len) <= MaxPageSize
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize <= MaxPageSize
+      error == HistoryResponseError.NONE
 
     # test for a cursor pointing to the begining of the message list
     pagingInfo = PagingInfo(pageSize: 5, cursor: msgList[0].index, direction: PagingDirection.BACKWARD)
-    (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
+    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
 
     check:
       data.len == 0
       newPagingInfo.cursor == msgList[0].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 0
+      error == HistoryResponseError.NONE
 
     # test for an invalid cursor 
     pagingInfo = PagingInfo(pageSize: 5, cursor: computeIndex(WakuMessage(payload: @[byte 10])), direction: PagingDirection.BACKWARD)
-    (data, newPagingInfo) = paginateWithIndex(msgList, pagingInfo)
+    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
     check:
       data.len == 0
       newPagingInfo.cursor == pagingInfo.cursor
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 0
+      error == HistoryResponseError.INVALID_CURSOR
     
     # test initial paging query over a message list with one message
     var singleItemMsgList = msgList[0..0]
     pagingInfo = PagingInfo(pageSize: 10, direction: PagingDirection.BACKWARD)
-    (data, newPagingInfo) = paginateWithIndex(singleItemMsgList, pagingInfo)
+    (data, newPagingInfo, error) = paginate(singleItemMsgList, pagingInfo)
     check:
       data.len == 1
       newPagingInfo.cursor == msgList[0].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 1
+      error == HistoryResponseError.NONE
     
     # test paging query over a message list with one message
     singleItemMsgList = msgList[0..0]
     pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[0].index, direction: PagingDirection.BACKWARD)
-    (data, newPagingInfo) = paginateWithIndex(singleItemMsgList, pagingInfo)
+    (data, newPagingInfo, error) = paginate(singleItemMsgList, pagingInfo)
     check:
       data.len == 0
       newPagingInfo.cursor == msgList[0].index
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 0
+      error == HistoryResponseError.NONE
 
 suite "time-window history query":
   test "Encode/Decode waku message with timestamp":
