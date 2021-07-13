@@ -9,7 +9,6 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
   libp2p/crypto/crypto,
-  ../message_notifier,
   waku_filter_types,
   ../../utils/requests,
   ../../node/peer_manager/peer_manager
@@ -191,33 +190,30 @@ proc setPeer*(wf: WakuFilter, peer: PeerInfo) =
   wf.peerManager.addPeer(peer, WakuFilterCodec)
   waku_filter_peers.inc()
 
-proc subscription*(proto: WakuFilter): MessageNotificationSubscription =
-  ## Returns a Filter for the specific protocol
-  ## This filter can then be used to send messages to subscribers that match conditions.   
-  proc handle(topic: string, msg: WakuMessage) {.async.} =
-    trace "handle WakuFilter subscription", topic=topic, msg=msg
 
-    for subscriber in proto.subscribers:
-      if subscriber.filter.pubSubTopic != "" and subscriber.filter.pubSubTopic != topic:
-        trace "Subscriber's filter pubsubTopic does not match message topic", filter=subscriber.filter.pubSubTopic, topic=topic
-        continue
+proc handleMessage*(wf: WakuFilter, topic: string, msg: WakuMessage) {.async.} =
+  # Handle WakuMessage according to filter protocol
+  trace "handle message in WakuFilter", topic=topic, msg=msg
 
-      for filter in subscriber.filter.contentFilters:
-        if msg.contentTopic == filter.contentTopic:
-          trace "Found matching contentTopic", filter=filter, msg=msg
-          let push = FilterRPC(requestId: subscriber.requestId, push: MessagePush(messages: @[msg]))
-          
-          let connOpt = await proto.peerManager.dialPeer(subscriber.peer, WakuFilterCodec)
+  for subscriber in wf.subscribers:
+    if subscriber.filter.pubSubTopic != "" and subscriber.filter.pubSubTopic != topic:
+      trace "Subscriber's filter pubsubTopic does not match message topic", filter=subscriber.filter.pubSubTopic, topic=topic
+      continue
 
-          if connOpt.isSome:
-            await connOpt.get().writeLP(push.encode().buffer)
-          else:
-            # @TODO more sophisticated error handling here
-            error "failed to push messages to remote peer"
-            waku_filter_errors.inc(labelValues = [dialFailure])
-          break
+    for filter in subscriber.filter.contentFilters:
+      if msg.contentTopic == filter.contentTopic:
+        trace "Found matching contentTopic", filter=filter, msg=msg
+        let push = FilterRPC(requestId: subscriber.requestId, push: MessagePush(messages: @[msg]))
+        
+        let connOpt = await wf.peerManager.dialPeer(subscriber.peer, WakuFilterCodec)
 
-  MessageNotificationSubscription.init(@[], handle)
+        if connOpt.isSome:
+          await connOpt.get().writeLP(push.encode().buffer)
+        else:
+          # @TODO more sophisticated error handling here
+          error "failed to push messages to remote peer"
+          waku_filter_errors.inc(labelValues = [dialFailure])
+        break
 
 proc subscribe*(wf: WakuFilter, request: FilterRequest): Future[Option[string]] {.async, gcsafe.} =
   let peerOpt = wf.peerManager.selectPeer(WakuFilterCodec)

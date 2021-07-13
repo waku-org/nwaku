@@ -9,7 +9,6 @@ import
   libp2p/crypto/crypto,
   libp2p/multistream,
   ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/protocol/message_notifier,
   ../../waku/v2/protocol/waku_filter/waku_filter,
   ../test_helpers, ./utils
 
@@ -47,19 +46,15 @@ procSuite "Waku Filter":
     proc emptyHandle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
       discard
 
-    let 
-      proto2 = WakuFilter.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle)
-      subscription = proto2.subscription()
+    let proto2 = WakuFilter.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle)
 
-    var subscriptions = newTable[string, MessageNotificationSubscription]()
-    subscriptions["test"] = subscription
     listenSwitch.mount(proto2)
 
     let id = (await proto.subscribe(rpc)).get()
 
     await sleepAsync(2.seconds)
 
-    await subscriptions.notify(defaultTopic, post)
+    await proto2.handleMessage(defaultTopic, post)
 
     check:
       (await responseRequestIdFuture) == id
@@ -96,19 +91,15 @@ procSuite "Waku Filter":
     proc emptyHandle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
       discard
 
-    let 
-      proto2 = WakuFilter.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle)
-      subscription = proto2.subscription()
+    let proto2 = WakuFilter.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle)
 
-    var subscriptions = newTable[string, MessageNotificationSubscription]()
-    subscriptions["test"] = subscription
     listenSwitch.mount(proto2)
 
     let id = (await proto.subscribe(rpc)).get()
 
     await sleepAsync(2.seconds)
 
-    await subscriptions.notify(defaultTopic, post)
+    await proto2.handleMessage(defaultTopic, post)
 
     check:
       # Check that subscription works as expected
@@ -124,7 +115,7 @@ procSuite "Waku Filter":
 
     await sleepAsync(2.seconds)
 
-    await subscriptions.notify(defaultTopic, post)
+    await proto2.handleMessage(defaultTopic, post)
 
     check:
       # Check that unsubscribe works as expected

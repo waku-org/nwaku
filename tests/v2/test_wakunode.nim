@@ -14,7 +14,7 @@ import
   eth/keys,
   ../../waku/v2/node/storage/sqlite,
   ../../waku/v2/node/storage/message/waku_message_store,
-  ../../waku/v2/protocol/[waku_relay, waku_message, message_notifier],
+  ../../waku/v2/protocol/[waku_relay, waku_message],
   ../../waku/v2/protocol/waku_store/waku_store,
   ../../waku/v2/protocol/waku_filter/waku_filter,
   ../../waku/v2/protocol/waku_lightpush/waku_lightpush,
@@ -279,7 +279,7 @@ procSuite "WakuNode":
     await node2.start()
     node2.mountStore(persistMessages = true)
 
-    await node2.subscriptions.notify("/waku/2/default-waku/proto", message)
+    await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
 
     await sleepAsync(2000.millis)
 
@@ -290,10 +290,8 @@ procSuite "WakuNode":
         response.messages[0] == message
       completionFut.complete(true)
 
-    
     await node1.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic)]), storeHandler)
 
-    
     check:
       (await completionFut.withTimeout(5.seconds)) == true
     await node1.stop()
@@ -328,7 +326,7 @@ procSuite "WakuNode":
 
     await sleepAsync(2000.millis)
 
-    await node2.subscriptions.notify("/waku/2/default-waku/proto", message)
+    await node2.wakuFilter.handleMessage("/waku/2/default-waku/proto", message)
 
     await sleepAsync(2000.millis)
 
@@ -762,7 +760,7 @@ procSuite "WakuNode":
     await node2.start()
     node2.mountStore(persistMessages = true)
 
-    await node2.subscriptions.notify("/waku/2/default-waku/proto", message)
+    await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
 
     await sleepAsync(2000.millis)
 
@@ -802,8 +800,8 @@ procSuite "WakuNode":
     await node2.start()
     node2.mountStore(persistMessages = true)
 
-    await node2.subscriptions.notify(DefaultTopic, msg1)
-    await node2.subscriptions.notify(DefaultTopic, msg2)
+    await node2.wakuStore.handleMessage(DefaultTopic, msg1)
+    await node2.wakuStore.handleMessage(DefaultTopic, msg2)
 
     await sleepAsync(2000.millis)
 

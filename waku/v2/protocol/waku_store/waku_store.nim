@@ -12,7 +12,6 @@ import
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
-  ../message_notifier,
   ../../node/storage/message/message_store,
   ../waku_swap/waku_swap,
   ./waku_store_types,
@@ -397,13 +396,14 @@ proc init*(ws: WakuStore) {.raises: [Defect, Exception]} =
 
 
 proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgContext,
-                   store: MessageStore = nil, wakuSwap: WakuSwap = nil): T {.raises: [Defect, Exception]} =
+                   store: MessageStore = nil, wakuSwap: WakuSwap = nil, persistMessages = true): T {.raises: [Defect, Exception]} =
   debug "init"
   new result
   result.rng = rng
   result.peerManager = peerManager
   result.store = store
   result.wakuSwap = wakuSwap
+  result.persistMessages = persistMessages
   result.init()
 
 # @TODO THIS SHOULD PROBABLY BE AN ADD FUNCTION AND APPEND THE PEER TO AN ARRAY
@@ -411,25 +411,24 @@ proc setPeer*(ws: WakuStore, peer: PeerInfo) {.raises: [Defect, Exception]} =
   ws.peerManager.addPeer(peer, WakuStoreCodec)
   waku_store_peers.inc()
 
-proc subscription*(proto: WakuStore): MessageNotificationSubscription =
-  ## The filter function returns the pubsub filter for the node.
-  ## This is used to pipe messages into the storage, therefore
-  ## the filter should be used by the component that receives
-  ## new messages.
-  proc handle(topic: string, msg: WakuMessage) {.async.} =
-    debug "subscription handle", topic=topic
-    let index = msg.computeIndex()
-    proto.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: topic))
-    waku_store_messages.inc(labelValues = ["stored"])
-    if proto.store.isNil:
-      return
-  
-    let res = proto.store.put(index, msg, topic)
-    if res.isErr:
-      warn "failed to store messages", err = res.error
-      waku_store_errors.inc(labelValues = ["store_failure"])
+proc handleMessage*(w: WakuStore, topic: string, msg: WakuMessage) {.async.} =
+  if (not w.persistMessages):
+    # Store is mounted but new messages should not be stored
+    return
 
-  result = MessageNotificationSubscription.init(@[], handle)
+  # Handle WakuMessage according to store protocol
+  trace "handle message in WakuStore", topic=topic, msg=msg
+
+  let index = msg.computeIndex()
+  w.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: topic))
+  waku_store_messages.inc(labelValues = ["stored"])
+  if w.store.isNil:
+    return
+
+  let res = w.store.put(index, msg, topic)
+  if res.isErr:
+    warn "failed to store messages", err = res.error
+    waku_store_errors.inc(labelValues = ["store_failure"])
 
 proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
   # @TODO We need to be more stratigic about which peers we dial. Right now we just set one on the service.
