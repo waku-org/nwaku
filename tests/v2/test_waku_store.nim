@@ -507,7 +507,7 @@ procSuite "Waku Store":
       wm = WakuMessage(payload: @[byte 1], contentTopic: defaultContentTopic)
       index = computeIndex(wm)
       pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
-      res = HistoryResponse(messages: @[wm], pagingInfo:pagingInfo)
+      res = HistoryResponse(messages: @[wm], pagingInfo:pagingInfo, error: HistoryResponseError.INVALID_CURSOR)
       pb = res.encode()
       decodedRes = HistoryResponse.init(pb.buffer)
 
