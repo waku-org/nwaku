@@ -413,13 +413,6 @@ proc init*(ws: WakuStore) {.raises: [Defect, Exception]} =
 proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgContext,
                    store: MessageStore = nil, wakuSwap: WakuSwap = nil, persistMessages = true): T {.raises: [Defect, Exception]} =
   debug "init"
-  # new result
-  # result.rng = rng
-  # result.peerManager = peerManager
-  # result.store = store
-  # result.wakuSwap = wakuSwap
-  # result.persistMessages = persistMessages
-  # result.init()
   var output = WakuStore(rng: rng, peerManager: peerManager, store: store, wakuSwap: wakuSwap, persistMessages: persistMessages)
   output.init()
   return output
