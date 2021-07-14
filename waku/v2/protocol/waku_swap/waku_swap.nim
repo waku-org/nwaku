@@ -271,12 +271,6 @@ proc init*(wakuSwap: WakuSwap) =
 proc init*(T: type WakuSwap, peerManager: PeerManager, rng: ref BrHmacDrbgContext, swapConfig: SwapConfig): T =
   info "wakuSwap init 2"
   var ws = WakuSwap(rng: rng, peerManager: peerManager, accounting: initTable[PeerId, int](), text: "test", config: swapConfig)
-  # new result
-  # result.rng = rng
-  # result.peerManager = peerManager
-  # result.accounting = initTable[PeerId, int]()
-  # result.text = "test"
-  # result.config = swapConfig
   ws.init()
   return ws
 
