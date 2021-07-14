@@ -189,11 +189,7 @@ method init*(wf: WakuFilter) =
   wf.codec = WakuFilterCodec
 
 proc init*(T: type WakuFilter, peerManager: PeerManager, rng: ref BrHmacDrbgContext, handler: MessagePushHandler): T =
-  # new result
   var wf = WakuFilter(rng: crypto.newRng(), peerManager: peerManager, pushHandler: handler)
-  # result.rng = crypto.newRng()
-  # result.peerManager = peerManager
-  # result.pushHandler = handler
   wf.init()
   return wf
 
