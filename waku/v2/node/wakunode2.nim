@@ -144,13 +144,15 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   #    msgIdProvider = msgIdProvider,
   #    triggerSelf = true, sign = false,
   #    verifySignature = false).PubSub
-  return WakuNode(
+  let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
     switch: switch,
     rng: rng,
     peerInfo: peerInfo,
     filters: initTable[string, Filter]()
   )
+
+  return wakuNode
 
 proc start*(node: WakuNode) {.async.} =
   ## Starts a created Waku Node.
@@ -384,7 +386,9 @@ proc info*(node: WakuNode): WakuInfo =
 
 proc mountFilter*(node: WakuNode) {.raises: [Defect, KeyError, LPError]} =
   info "mounting filter"
-  proc filterHandler(requestId: string, msg: MessagePush) {.gcsafe, raises: [Defect, KeyError].} =
+  proc filterHandler(requestId: string, msg: MessagePush)
+    {.gcsafe, raises: [Defect, KeyError].} =
+    
     info "push received"
     for message in msg.messages:
       node.filters.notify(message, requestId) # Trigger filter handlers on a light node
@@ -471,7 +475,9 @@ proc mountRelay*(node: WakuNode,
                  rlnRelayEnabled = false,
                  relayMessages = true,
                  triggerSelf = true)
-                 {.gcsafe, raises: [Defect, InitializationError, LPError, CatchableError].} = # @TODO: Better error handling: CatchableError is raised by `waitFor`
+  # @TODO: Better error handling: CatchableError is raised by `waitFor`
+  {.gcsafe, raises: [Defect, InitializationError, LPError, CatchableError].} = 
+
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
     # Use default
