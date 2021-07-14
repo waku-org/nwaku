@@ -20,6 +20,7 @@
 ##
 ## Things like settlement is for future work.
 ##
+{.push raises: [Defect].}
 
 import
   std/[tables, options, json],

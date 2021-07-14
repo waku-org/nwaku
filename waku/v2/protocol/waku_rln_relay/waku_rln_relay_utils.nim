@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import 
   chronicles, options, chronos, stint,
   web3,
