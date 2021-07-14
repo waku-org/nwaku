@@ -24,10 +24,10 @@ procSuite "Peer Manager":
   asyncTest "Peer dialing works":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
       peerInfo2 = node2.peerInfo
     
@@ -57,10 +57,10 @@ procSuite "Peer Manager":
   asyncTest "Dialing fails gracefully":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
       peerInfo2 = node2.peerInfo
     
@@ -82,7 +82,7 @@ procSuite "Peer Manager":
   asyncTest "Adding, selecting and filtering peers work":
     let
       nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node = WakuNode.init(nodeKey, ValidIpAddress.init("0.0.0.0"),
+      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
       # Create filter peer
       filterLoc = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet()
@@ -126,10 +126,10 @@ procSuite "Peer Manager":
   asyncTest "Peer manager keeps track of connections":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
       peerInfo2 = node2.peerInfo
     
@@ -171,10 +171,10 @@ procSuite "Peer Manager":
       database = SqliteDatabase.init("", inMemory = true)[]
       storage = WakuPeerStorage.new(database)[]
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         Port(60000), peerStorage = storage)
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
       peerInfo2 = node2.peerInfo
     
@@ -194,7 +194,7 @@ procSuite "Peer Manager":
     # Simulate restart by initialising a new node using the same storage
     let
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node3 = WakuNode.init(nodeKey3, ValidIpAddress.init("0.0.0.0"),
+      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"),
         Port(60004), peerStorage = storage)
     
     await node3.start()

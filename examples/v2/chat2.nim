@@ -112,11 +112,14 @@ proc connectToNodes(c: Chat, nodes: seq[string]) {.async.} =
 
 proc showChatPrompt(c: Chat) =
   if not c.prompt:
-    stdout.write(">> ")
-    stdout.flushFile()
-    c.prompt = true
+    try:
+      stdout.write(">> ")
+      stdout.flushFile()
+      c.prompt = true
+    except IOError:
+      discard
 
-proc printReceivedMessage(c: Chat, msg: WakuMessage) =
+proc printReceivedMessage(c: Chat, msg: WakuMessage) {.raises: [Defect].} =
   when PayloadV1:
       # Use Waku v1 payload encoding/encryption
       let
@@ -142,7 +145,12 @@ proc printReceivedMessage(c: Chat, msg: WakuMessage) =
       pb = Chat2Message.init(msg.payload)
       chatLine = if pb.isOk: pb[].toString()
                 else: string.fromBytes(msg.payload)
-    echo &"{chatLine}"
+    try:
+      echo &"{chatLine}"
+    except ValueError:
+      # Formatting fail. Print chat line in any case.
+      echo chatLine
+    
     c.prompt = false
     showChatPrompt(c)
     trace "Printing message", topic=DefaultTopic, chatLine,
@@ -295,7 +303,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
     (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
       Port(uint16(conf.tcpPort) + conf.portsShift),
       Port(uint16(conf.udpPort) + conf.portsShift))
-    node = WakuNode.init(conf.nodekey, conf.listenAddress,
+    node = WakuNode.new(conf.nodekey, conf.listenAddress,
       Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
 
   await node.start()
@@ -379,7 +387,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
 
     node.wakuFilter.setPeer(parsePeerInfo(conf.filternode))
 
-    proc filterHandler(msg: WakuMessage) {.gcsafe.} =
+    proc filterHandler(msg: WakuMessage) {.gcsafe, raises: [Defect].} =
       trace "Hit filter handler", contentTopic=msg.contentTopic
 
       chat.printReceivedMessage(msg)

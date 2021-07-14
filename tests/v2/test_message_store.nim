@@ -41,12 +41,20 @@ suite "Message Store":
     var t1Flag, t2Flag, t3Flag: bool = false
     # flags for receiver timestamp
     var rt1Flag, rt2Flag, rt3Flag: bool = false
+    # flags for message/pubsubTopic (default true)
+    var msgFlag, psTopicFlag = true
 
     var responseCount = 0
-    proc data(receiverTimestamp: float64, msg: WakuMessage, psTopic: string) =
+    proc data(receiverTimestamp: float64, msg: WakuMessage, psTopic: string) {.raises: [Defect].} =
       responseCount += 1
-      check msg in msgs
-      check psTopic == pubsubTopic
+
+      # Note: cannot use `check` within `{.raises: [Defect].}` block:
+      # @TODO: /Nim/lib/pure/unittest.nim(577, 16) Error: can raise an unlisted exception: Exception
+      if msg notin msgs:
+        msgFlag = false
+
+      if psTopic != pubsubTopic:
+        psTopicFlag = false
 
       # check the correct retrieval of versions
       if msg.version == uint32(0): v0Flag = true
@@ -82,6 +90,9 @@ suite "Message Store":
       rt1Flag == true
       rt2Flag == true
       rt3Flag == true
+      # check messages and pubsubTopic
+      msgFlag == true
+      psTopicFlag == true
   test "set and get user version":
     let 
       database = SqliteDatabase.init("", inMemory = true)[]
