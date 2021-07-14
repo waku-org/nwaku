@@ -1,10 +1,13 @@
+{.push raises: [Defect].}
+
 # Collection of utilities related to Waku peers
 import
   std/strutils,
   libp2p/multiaddress,
   libp2p/peerinfo
 
-proc initAddress(T: type MultiAddress, str: string): T =
+proc initAddress(T: type MultiAddress, str: string): T {.raises: [Defect, ValueError, LPError].}=
+  # @TODO: Rather than raising exceptions, this should return a Result
   let address = MultiAddress.init(str).tryGet()
   if IPFS.match(address) and matchPartial(multiaddress.TCP, address):
     result = address
@@ -14,7 +17,7 @@ proc initAddress(T: type MultiAddress, str: string): T =
 
 ## Parses a fully qualified peer multiaddr, in the
 ## format `(ip4|ip6)/tcp/p2p`, into dialable PeerInfo
-proc parsePeerInfo*(address: string): PeerInfo =
+proc parsePeerInfo*(address: string): PeerInfo {.raises: [Defect, ValueError, LPError].}=
   let multiAddr = MultiAddress.initAddress(address)
 
   var
