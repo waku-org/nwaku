@@ -18,7 +18,7 @@ const maxCache* = 30 # Max number of messages cached per topic @TODO make this c
 
 proc installFilterApiHandlers*(node: WakuNode, rpcsrv: RpcServer, messageCache: MessageCache) =
   
-  proc filterHandler(msg: WakuMessage) {.gcsafe, closure.} =
+  proc filterHandler(msg: WakuMessage) {.gcsafe, closure, raises: [Defect].} =
     # Add message to current cache
     trace "WakuMessage received", msg=msg
     

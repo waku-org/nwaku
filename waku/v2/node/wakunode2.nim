@@ -1,18 +1,14 @@
+{.push raises: [Defect].}
+
 import
   std/[options, tables, strutils, sequtils, os],
   chronos, chronicles, metrics,
   metrics/chronos_httpserver,
   stew/shims/net as stewNet,
-  # TODO: Why do we need eth keys?
   eth/keys,
   web3,
-  libp2p/multiaddress,
   libp2p/crypto/crypto,
-  libp2p/protocols/protocol,
   libp2p/protocols/ping,
-  # NOTE For TopicHandler, solve with exports?
-  libp2p/protocols/pubsub/rpc/messages,
-  libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/builders,
   ../protocol/[waku_relay, waku_message],
@@ -22,10 +18,10 @@ import
   ../protocol/waku_lightpush/waku_lightpush,
   ../protocol/waku_rln_relay/waku_rln_relay_types,
   ../utils/peers,
+  ../utils/requests,
   ./storage/message/message_store,
   ./storage/peer/peer_storage,
   ./storage/migration/migration_types,
-  ../utils/requests,
   ./peer_manager/peer_manager
 
 when defined(rln):
@@ -78,14 +74,6 @@ type
     rng*: ref BrHmacDrbgContext
     started*: bool # Indicates that node has started listening
 
-# NOTE Any difference here in Waku vs Eth2?
-# E.g. Devp2p/Libp2p support, etc.
-#func asLibp2pKey*(key: keys.PublicKey): PublicKey =
-#  PublicKey(scheme: Secp256k1, skkey: secp.SkPublicKey(key))
-
-func asEthKey*(key: PrivateKey): keys.PrivateKey =
-  keys.PrivateKey(key.skkey)
-
 func protocolMatcher(codec: string): Matcher =
   ## Returns a protocol matcher function for the provided codec
   
@@ -125,10 +113,11 @@ template tcpEndPoint(address, port): auto =
 ## Public API
 ##
 
-proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
+proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
     extIp = none[ValidIpAddress](), extPort = none[Port](),
-    peerStorage: PeerStorage = nil): T =
+    peerStorage: PeerStorage = nil): T 
+    {.raises: [Defect, LPError].} =
   ## Creates a Waku Node.
   ##
   ## Status: Implemented.
@@ -155,13 +144,15 @@ proc init*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   #    msgIdProvider = msgIdProvider,
   #    triggerSelf = true, sign = false,
   #    verifySignature = false).PubSub
-  result = WakuNode(
+  let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
     switch: switch,
     rng: rng,
     peerInfo: peerInfo,
     filters: initTable[string, Filter]()
   )
+
+  return wakuNode
 
 proc start*(node: WakuNode) {.async.} =
   ## Starts a created Waku Node.
@@ -393,9 +384,11 @@ proc info*(node: WakuNode): WakuInfo =
   let wakuInfo = WakuInfo(listenStr: listenStr)
   return wakuInfo
 
-proc mountFilter*(node: WakuNode) =
+proc mountFilter*(node: WakuNode) {.raises: [Defect, KeyError, LPError]} =
   info "mounting filter"
-  proc filterHandler(requestId: string, msg: MessagePush) {.gcsafe.} =
+  proc filterHandler(requestId: string, msg: MessagePush)
+    {.gcsafe, raises: [Defect, KeyError].} =
+    
     info "push received"
     for message in msg.messages:
       node.filters.notify(message, requestId) # Trigger filter handlers on a light node
@@ -406,14 +399,14 @@ proc mountFilter*(node: WakuNode) =
 
 # NOTE: If using the swap protocol, it must be mounted before store. This is
 # because store is using a reference to the swap protocol.
-proc mountSwap*(node: WakuNode, swapConfig: SwapConfig = SwapConfig.init()) =
+proc mountSwap*(node: WakuNode, swapConfig: SwapConfig = SwapConfig.init()) {.raises: [Defect, LPError].} =
   info "mounting swap", mode = $swapConfig.mode
   node.wakuSwap = WakuSwap.init(node.peerManager, node.rng, swapConfig)
   node.switch.mount(node.wakuSwap, protocolMatcher(WakuSwapCodec))
   # NYI - Do we need this?
   #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
 
-proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: bool = false) =
+proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: bool = false) {.raises: [Defect, LPError].} =
   info "mounting store"
 
   if node.wakuSwap.isNil:
@@ -426,7 +419,10 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: boo
   node.switch.mount(node.wakuStore, protocolMatcher(WakuStoreCodec))
 
 when defined(rln):
-  proc mountRlnRelay*(node: WakuNode, ethClientAddress: Option[string] = none(string), ethAccountAddress: Option[Address] = none(Address), membershipContractAddress:  Option[Address] = none(Address)) {.async.} =
+  proc mountRlnRelay*(node: WakuNode,
+                      ethClientAddress: Option[string] = none(string),
+                      ethAccountAddress: Option[Address] = none(Address),
+                      membershipContractAddress:  Option[Address] = none(Address)) {.async.} =
     # TODO return a bool value to indicate the success of the call
     # check whether inputs are provided
     doAssert(ethClientAddress.isSome())
@@ -469,7 +465,7 @@ when defined(rln):
       if msg.isOk():
         #  check the proof
         if proofVrfy(msg.value().payload, msg.value().proof):
-          result = ValidationResult.Accept
+          return ValidationResult.Accept
     # set a validator for the pubsubTopic 
     let pb  = PubSub(node.wakuRelay)
     pb.addValidator(pubsubTopic, validator)
@@ -478,7 +474,10 @@ proc mountRelay*(node: WakuNode,
                  topics: seq[string] = newSeq[string](),
                  rlnRelayEnabled = false,
                  relayMessages = true,
-                 triggerSelf = true) {.gcsafe.} =
+                 triggerSelf = true)
+  # @TODO: Better error handling: CatchableError is raised by `waitFor`
+  {.gcsafe, raises: [Defect, InitializationError, LPError, CatchableError].} = 
+
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
     # Use default
@@ -529,7 +528,7 @@ proc mountRelay*(node: WakuNode,
 
     info "relay mounted and started successfully"
 
-proc mountLightPush*(node: WakuNode) =
+proc mountLightPush*(node: WakuNode) {.raises: [Defect, LPError].} =
   info "mounting light push"
 
   if node.wakuRelay.isNil:
@@ -541,10 +540,15 @@ proc mountLightPush*(node: WakuNode) =
   
   node.switch.mount(node.wakuLightPush, protocolMatcher(WakuLightPushCodec))
 
-proc mountLibp2pPing*(node: WakuNode) =
+proc mountLibp2pPing*(node: WakuNode) {.raises: [Defect, LPError].} =
   info "mounting libp2p ping protocol"
 
-  node.libp2pPing = Ping.new(rng = node.rng)
+  try:
+    node.libp2pPing = Ping.new(rng = node.rng)
+  except Exception as e:
+    # This is necessary as `Ping.new*` does not have explicit `raises` requirement
+    # @TODO: remove exception handling once explicit `raises` in ping module
+    raise newException(LPError, "Failed to initialise ping protocol")
 
   node.switch.mount(node.libp2pPing)
 
@@ -590,21 +594,21 @@ proc dialPeer*(n: WakuNode, address: string) {.async.} =
   discard await n.peerManager.dialPeer(remotePeer, WakuRelayCodec)
   info "Post peerManager dial"
 
-proc setStorePeer*(n: WakuNode, address: string) =
+proc setStorePeer*(n: WakuNode, address: string) {.raises: [Defect, ValueError, LPError].} =
   info "Set store peer", address = address
 
   let remotePeer = parsePeerInfo(address)
 
   n.wakuStore.setPeer(remotePeer)
 
-proc setFilterPeer*(n: WakuNode, address: string) =
+proc setFilterPeer*(n: WakuNode, address: string) {.raises: [Defect, ValueError, LPError].} =
   info "Set filter peer", address = address
 
   let remotePeer = parsePeerInfo(address)
 
   n.wakuFilter.setPeer(remotePeer)
 
-proc setLightPushPeer*(n: WakuNode, address: string) =
+proc setLightPushPeer*(n: WakuNode, address: string) {.raises: [Defect, ValueError, LPError].} =
   info "Set lightpush peer", address = address
 
   let remotePeer = parsePeerInfo(address)
@@ -638,6 +642,7 @@ proc connectToNodes*(n: WakuNode, nodes: seq[PeerInfo]) {.async.} =
   # later.
   await sleepAsync(5.seconds)
 
+{.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
   import
     system/ansi_c,
@@ -653,7 +658,7 @@ when isMainModule:
     ./storage/peer/waku_peer_storage,
     ../../common/utils/nat
 
-  proc startRpc(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port, conf: WakuNodeConf) =
+  proc startRpc(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port, conf: WakuNodeConf) {.raises: [Defect, RpcBindError, CatchableError].} =
     let
       ta = initTAddress(rpcIp, rpcPort)
       rpcServer = newRpcHttpServer([ta])
@@ -681,7 +686,7 @@ when isMainModule:
     rpcServer.start()
     info "RPC Server started", ta
 
-  proc startMetricsServer(serverIp: ValidIpAddress, serverPort: Port) =
+  proc startMetricsServer(serverIp: ValidIpAddress, serverPort: Port) {.raises: [Defect, Exception].} =
       info "Starting metrics HTTP server", serverIp, serverPort
       
       startMetricsHttpServer($serverIp, serverPort)
@@ -755,10 +760,10 @@ when isMainModule:
     ## config, the external port is the same as the bind port.
     extPort = if extIp.isSome() and extTcpPort.isNone(): some(Port(uint16(conf.tcpPort) + conf.portsShift))
               else: extTcpPort
-    node = WakuNode.init(conf.nodekey,
-                         conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
-                         extIp, extPort,
-                         pStorage)
+    node = WakuNode.new(conf.nodekey,
+                        conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
+                        extIp, extPort,
+                        pStorage)
 
   waitFor node.start()
 
