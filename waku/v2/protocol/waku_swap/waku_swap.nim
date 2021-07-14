@@ -54,15 +54,21 @@ const
 # Serialization
 # -------------------------------------------------------------------------------
 proc encode*(handshake: Handshake): ProtoBuffer =
-  result = initProtoBuffer()
-  result.write(1, handshake.beneficiary)
+  var output: ProtoBuffer = initProtoBuffer()
+
+  output.write(1, handshake.beneficiary)
+
+  return output
 
 proc encode*(cheque: Cheque): ProtoBuffer =
-  result = initProtoBuffer()
-  result.write(1, cheque.beneficiary)
-  result.write(2, cheque.date)
-  result.write(3, cheque.amount)
-  result.write(4, cheque.signature)
+  var output: ProtoBuffer = initProtoBuffer()
+
+  output.write(1, cheque.beneficiary)
+  output.write(2, cheque.date)
+  output.write(3, cheque.amount)
+  output.write(4, cheque.signature)
+
+  return output
 
 proc init*(T: type Handshake, buffer: seq[byte]): ProtoResult[T] =
   var beneficiary: seq[byte]
@@ -71,7 +77,7 @@ proc init*(T: type Handshake, buffer: seq[byte]): ProtoResult[T] =
 
   discard ? pb.getField(1, handshake.beneficiary)
 
-  ok(handshake)
+  return ok(handshake)
 
 proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
   var beneficiary: seq[byte]
@@ -86,7 +92,7 @@ proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(3, cheque.amount)
   discard ? pb.getField(4, cheque.signature)
 
-  ok(cheque)
+  return ok(cheque)
 
 # Accounting
 # -------------------------------------------------------------------------------
@@ -263,13 +269,15 @@ proc init*(wakuSwap: WakuSwap) =
 # TODO Expression return?
 proc init*(T: type WakuSwap, peerManager: PeerManager, rng: ref BrHmacDrbgContext, swapConfig: SwapConfig): T =
   info "wakuSwap init 2"
-  new result
-  result.rng = rng
-  result.peerManager = peerManager
-  result.accounting = initTable[PeerId, int]()
-  result.text = "test"
-  result.config = swapConfig
-  result.init()
+  var ws = WakuSwap(rng: rng, peerManager: peerManager, accounting: initTable[PeerId, int](), text: "test", config: swapConfig)
+  # new result
+  # result.rng = rng
+  # result.peerManager = peerManager
+  # result.accounting = initTable[PeerId, int]()
+  # result.text = "test"
+  # result.config = swapConfig
+  ws.init()
+  return ws
 
 proc setPeer*(ws: WakuSwap, peer: PeerInfo) =
   ws.peerManager.addPeer(peer, WakuSwapCodec)
