@@ -1,0 +1,26 @@
+name: Add new issues to nim-waku project board
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [opened]
+
+jobs:
+  add-new-issue-to-new-column:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add issue to column "New"
+        if: ${{ !!github.event.issue }}
+        uses: alex-page/github-project-automation-plus@v0.6.0
+        with:
+          project: nim-waku
+          column: New
+          repo-token: ${{ secrets.GH_ACTION_PROJECT_MGMT }}
+      - name: Add pull request to column "In Progress"
+        if: ${{ !!github.event.pull_request }}
+        uses: alex-page/github-project-automation-plus@v0.6.0
+        with:
+          project: nim-waku
+          column: In Progress
+          repo-token: ${{ secrets.GH_ACTION_PROJECT_MGMT }}
