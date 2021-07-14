@@ -54,24 +54,28 @@ proc encode*(index: Index): ProtoBuffer =
   ## returns the resultant ProtoBuffer
 
   # intiate a ProtoBuffer
-  result = initProtoBuffer()
+  var output: ProtoBuffer = initProtoBuffer()
 
   # encodes index
-  result.write(1, index.digest.data)
-  result.write(2, index.receiverTime)
-  result.write(3, index.senderTime)
+  output.write(1, index.digest.data)
+  output.write(2, index.receiverTime)
+  output.write(3, index.senderTime)
+
+  return output
 
 proc encode*(pinfo: PagingInfo): ProtoBuffer =
   ## encodes a PagingInfo object into a ProtoBuffer
   ## returns the resultant ProtoBuffer
 
   # intiate a ProtoBuffer
-  result = initProtoBuffer()
+  var output: ProtoBuffer = initProtoBuffer()
 
   # encodes pinfo
-  result.write(1, pinfo.pageSize)
-  result.write(2, pinfo.cursor.encode())
-  result.write(3, uint32(ord(pinfo.direction)))
+  output.write(1, pinfo.pageSize)
+  output.write(2, pinfo.cursor.encode())
+  output.write(3, uint32(ord(pinfo.direction)))
+
+  return output
 
 proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
   ## creates and returns an Index object out of buffer
@@ -96,7 +100,7 @@ proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(3, senderTime)
   index.senderTime = senderTime
 
-  ok(index) 
+  return ok(index) 
 
 proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
   ## creates and returns a PagingInfo object out of buffer
@@ -116,7 +120,7 @@ proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(3, direction)
   pagingInfo.direction = PagingDirection(direction)
 
-  ok(pagingInfo) 
+  return ok(pagingInfo) 
 
 proc init*(T: type HistoryContentFilter, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
@@ -148,7 +152,7 @@ proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(6, msg.endTime)
 
 
-  ok(msg)
+  return ok(msg)
 
 proc init*(T: type HistoryResponse, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryResponse()
@@ -168,7 +172,7 @@ proc init*(T: type HistoryResponse, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(3, error)
   msg.error = HistoryResponseError(error)
 
-  ok(msg)
+  return ok(msg)
 
 proc init*(T: type HistoryRPC, buffer: seq[byte]): ProtoResult[T] =
   var rpc = HistoryRPC()
@@ -186,42 +190,49 @@ proc init*(T: type HistoryRPC, buffer: seq[byte]): ProtoResult[T] =
 
   rpc.response = ? HistoryResponse.init(responseBuffer)
 
-  ok(rpc)
+  return ok(rpc)
 
 proc encode*(filter: HistoryContentFilter): ProtoBuffer =
-  result = initProtoBuffer()
-  result.write(1, filter.contentTopic)
+  var output: ProtoBuffer = initProtoBuffer()
+  output.write(1, filter.contentTopic)
+  return output
 
 proc encode*(query: HistoryQuery): ProtoBuffer =
-  result = initProtoBuffer()
+  var output: ProtoBuffer = initProtoBuffer()
   
-  result.write(2, query.pubsubTopic)
+  output.write(2, query.pubsubTopic)
 
   for filter in query.contentFilters:
-    result.write(3, filter.encode())
+    output.write(3, filter.encode())
 
-  result.write(4, query.pagingInfo.encode())
+  output.write(4, query.pagingInfo.encode())
 
-  result.write(5, query.startTime)
-  result.write(6, query.endTime)
+  output.write(5, query.startTime)
+  output.write(6, query.endTime)
+
+  return output
 
 
 proc encode*(response: HistoryResponse): ProtoBuffer =
-  result = initProtoBuffer()
+  var output: ProtoBuffer = initProtoBuffer()
 
   for msg in response.messages:
-    result.write(1, msg.encode())
+    output.write(1, msg.encode())
 
-  result.write(2, response.pagingInfo.encode())
+  output.write(2, response.pagingInfo.encode())
 
-  result.write(3, uint32(ord(response.error)))
+  output.write(3, uint32(ord(response.error)))
+
+  return output
 
 proc encode*(rpc: HistoryRPC): ProtoBuffer =
-  result = initProtoBuffer()
+  var output: ProtoBuffer = initProtoBuffer()
 
-  result.write(1, rpc.requestId)
-  result.write(2, rpc.query.encode())
-  result.write(3, rpc.response.encode())
+  output.write(1, rpc.requestId)
+  output.write(2, rpc.query.encode())
+  output.write(3, rpc.response.encode())
+
+  return output
 
 proc indexComparison* (x, y: Index): int =
   ## compares x and y
@@ -240,7 +251,7 @@ proc indexedWakuMessageComparison*(x, y: IndexedWakuMessage): int =
   ## returns 0 if they are equal 
   ## returns -1 if x < y
   ## returns 1 if x > y
-  result = indexComparison(x.index, y.index)
+  return indexComparison(x.index, y.index)
 
 proc findIndex*(msgList: seq[IndexedWakuMessage], index: Index): Option[int] =
   ## returns the position of an IndexedWakuMessage in msgList whose index value matches the given index
@@ -313,7 +324,6 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
   return (retMessages, PagingInfo(pageSize : retrievedPageSize, cursor : newCursor, direction : pinfo.direction), HistoryResponseError.NONE)
 
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
-  result = HistoryResponse(messages: newSeq[WakuMessage]())
   var data : seq[IndexedWakuMessage] = w.messages
 
   # filter based on content filters
@@ -346,7 +356,7 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   # extract waku messages
   var wakuMsgList = indexedWakuMsgList.mapIt(it.msg)
 
-  var historyRes = HistoryResponse(messages: wakuMsgList, pagingInfo: updatedPagingInfo, error: error)
+  let historyRes = HistoryResponse(messages: wakuMsgList, pagingInfo: updatedPagingInfo, error: error)
   return historyRes
 
 
@@ -403,13 +413,9 @@ proc init*(ws: WakuStore) {.raises: [Defect, Exception]} =
 proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgContext,
                    store: MessageStore = nil, wakuSwap: WakuSwap = nil, persistMessages = true): T {.raises: [Defect, Exception]} =
   debug "init"
-  new result
-  result.rng = rng
-  result.peerManager = peerManager
-  result.store = store
-  result.wakuSwap = wakuSwap
-  result.persistMessages = persistMessages
-  result.init()
+  var output = WakuStore(rng: rng, peerManager: peerManager, store: store, wakuSwap: wakuSwap, persistMessages: persistMessages)
+  output.init()
+  return output
 
 # @TODO THIS SHOULD PROBABLY BE AN ADD FUNCTION AND APPEND THE PEER TO AN ARRAY
 proc setPeer*(ws: WakuStore, peer: PeerInfo) {.raises: [Defect, Exception]} =
