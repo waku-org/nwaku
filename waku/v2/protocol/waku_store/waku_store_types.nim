@@ -1,5 +1,6 @@
 ## Types for waku_store protocol.
 
+# Group by std, external then internal imports
 import
   # external imports
   bearssl,
@@ -13,6 +14,7 @@ import
   ../waku_swap/waku_swap_types,
   ../waku_message
 
+# export all modules whose types are used in public functions/types
 export 
   bearssl,
   results,
