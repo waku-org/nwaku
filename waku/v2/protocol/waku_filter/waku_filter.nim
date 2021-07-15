@@ -194,6 +194,7 @@ proc init*(T: type WakuFilter, peerManager: PeerManager, rng: ref BrHmacDrbgCont
                       peerManager: peerManager, 
                       pushHandler: handler)
   wf.init()
+  
   return wf
 
 proc setPeer*(wf: WakuFilter, peer: PeerInfo) =

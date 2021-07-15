@@ -114,6 +114,7 @@ proc init*(T: type WakuLightPush, peerManager: PeerManager, rng: ref BrHmacDrbgC
                         requestHandler: handler, 
                         relayReference: relay)
   wl.init()
+  
   return wl
 
 proc setPeer*(wlp: WakuLightPush, peer: PeerInfo) =
