@@ -1,5 +1,7 @@
 # this module contains the Nim wrappers for the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
 
+{.push raises: [Defect].}
+
 import
   os,
   waku_rln_relay_types

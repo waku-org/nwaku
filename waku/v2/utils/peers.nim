@@ -10,7 +10,7 @@ proc initAddress(T: type MultiAddress, str: string): T {.raises: [Defect, ValueE
   # @TODO: Rather than raising exceptions, this should return a Result
   let address = MultiAddress.init(str).tryGet()
   if IPFS.match(address) and matchPartial(multiaddress.TCP, address):
-    result = address
+    return address
   else:
     raise newException(ValueError,
                        "Invalid bootstrap node multi-address")

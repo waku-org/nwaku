@@ -1,9 +1,14 @@
+{.push raises: [Defect].}
+
 import 
   chronicles, options, chronos, stint,
   web3,
   stew/byteutils,
   rln, 
   waku_rln_relay_types
+
+logScope:
+  topics = "wakurlnrelayutils"
 
 # membership contract interface
 contract(MembershipContract):
