@@ -17,10 +17,10 @@ jobs:
           project: nim-waku
           column: New
           repo-token: ${{ secrets.GH_ACTION_PROJECT_MGMT }}
-      - name: Add pull request to column "In Progress"
+      - name: Add pull request to column "Review/QA"
         if: ${{ !!github.event.pull_request }}
         uses: alex-page/github-project-automation-plus@v0.6.0
         with:
           project: nim-waku
-          column: In Progress
+          column: Review/QA
           repo-token: ${{ secrets.GH_ACTION_PROJECT_MGMT }}
