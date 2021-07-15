@@ -1,17 +1,25 @@
 ## Types for waku_store protocol.
 
 import
+  # external imports
   bearssl,
   libp2p/peerinfo,
   libp2p/protocols/protocol,
-  ../waku_swap/waku_swap_types,
-  ../waku_message,
+  stew/results,
+  # internal imports
   ../../node/storage/message/message_store,
   ../../utils/pagination,
-  ../../node/peer_manager/peer_manager
+  ../../node/peer_manager/peer_manager,
+  ../waku_swap/waku_swap_types,
+  ../waku_message
 
-export waku_message
-export pagination
+export 
+  bearssl,
+  results,
+  peer_manager,
+  waku_swap_types,
+  waku_message,
+  pagination
 
 # Constants required for pagination -------------------------------------------
 const MaxPageSize* = uint64(100) # Maximum number of waku messages in each page
