@@ -48,7 +48,7 @@ procSuite "WakuBridge":
 
     # Waku v2 node
     v2NodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-    v2Node = WakuNode.init(v2NodeKey, ValidIpAddress.init("0.0.0.0"), Port(60002))
+    v2Node = WakuNode.new(v2NodeKey, ValidIpAddress.init("0.0.0.0"), Port(60002))
 
     contentTopic = ContentTopic("/waku/1/1a2b3c4d/rlp")
     topic = [byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]

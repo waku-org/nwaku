@@ -28,7 +28,7 @@ procSuite "WakuNode":
   asyncTest "Message published with content filter is retrievable":
     let
       nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node = WakuNode.init(nodeKey, ValidIpAddress.init("0.0.0.0"),
+      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
       pubSubTopic = "chat"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
@@ -77,10 +77,10 @@ procSuite "WakuNode":
   asyncTest "Content filtered publishing over network":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
       pubSubTopic = "chat"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
@@ -140,9 +140,9 @@ procSuite "WakuNode":
   asyncTest "Can receive filtered messages published on both default and other topics":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
       defaultTopic = "/waku/2/default-waku/proto"
       otherTopic = "/non/waku/formatted"
       defaultContentTopic = "defaultCT"
@@ -216,9 +216,9 @@ procSuite "WakuNode":
   asyncTest "Filter protocol works on node without relay capability":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
       defaultTopic = "/waku/2/default-waku/proto"
       contentTopic = "defaultCT"
       payload = @[byte 1]
@@ -264,10 +264,10 @@ procSuite "WakuNode":
   asyncTest "Store protocol returns expected message":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
@@ -300,10 +300,10 @@ procSuite "WakuNode":
   asyncTest "Filter protocol returns expected message":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
@@ -338,13 +338,13 @@ procSuite "WakuNode":
   asyncTest "Messages are correctly relayed":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node3 = WakuNode.init(nodeKey3, ValidIpAddress.init("0.0.0.0"),
+      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"),
         Port(60003))
       pubSubTopic = "test"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
@@ -389,10 +389,10 @@ procSuite "WakuNode":
   asyncTest "Protocol matcher works as expected":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
       pubSubTopic = "/waku/2/default-waku/proto"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
@@ -492,13 +492,13 @@ procSuite "WakuNode":
     let
       # publisher node
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
       # Relay node
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
       # Subscriber
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node3 = WakuNode.init(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
+      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
 
       pubSubTopic = "test"
       contentTopic1 = ContentTopic("/waku/2/default-content/proto")
@@ -586,13 +586,13 @@ procSuite "WakuNode":
       let
         # publisher node
         nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-        node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
+        node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
         # Relay node
         nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-        node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
+        node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
         # Subscriber
         nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-        node3 = WakuNode.init(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
+        node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
 
         pubSubTopic = "defaultTopic"
         contentTopic1 = ContentTopic("/waku/2/default-content/proto")
@@ -640,7 +640,7 @@ procSuite "WakuNode":
   asyncTest "Relay protocol is started correctly":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
 
     # Relay protocol starts if mounted after node start
@@ -656,7 +656,7 @@ procSuite "WakuNode":
 
     let
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
 
     node2.mountRelay()
@@ -676,13 +676,13 @@ procSuite "WakuNode":
   asyncTest "Lightpush message return success":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         Port(60010))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60012))
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node3 = WakuNode.init(nodeKey3, ValidIpAddress.init("0.0.0.0"),
+      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"),
         Port(60013))
       pubSubTopic = "test"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
@@ -747,10 +747,10 @@ procSuite "WakuNode":
   asyncTest "Resume proc fetches the history":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
@@ -778,10 +778,10 @@ procSuite "WakuNode":
   asyncTest "Resume proc discards duplicate messages":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       msg1 = WakuMessage(payload: "hello world1".toBytes(), contentTopic: contentTopic, timestamp: 1)

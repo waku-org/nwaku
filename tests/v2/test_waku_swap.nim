@@ -49,10 +49,10 @@ procSuite "Waku SWAP Accounting":
   asyncTest "Update accounting state after store operations":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60001))
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
@@ -96,10 +96,10 @@ procSuite "Waku SWAP Accounting":
   asyncTest "Update accounting state after sending cheque":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.init(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.init(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60001))
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)

@@ -30,36 +30,53 @@ suite "Peer Storage":
     discard storage.put(peer.peerId, stored, conn, disconn)
     
     var responseCount = 0
+    # flags to check data matches what was stored (default true)
+    var peerIdFlag, storedInfoFlag, connectednessFlag, disconnectFlag: bool
+
     proc data(peerId: PeerID, storedInfo: StoredInfo,
-              connectedness: Connectedness, disconnectTime: int64) =
+              connectedness: Connectedness, disconnectTime: int64) {.raises: [Defect].} =
       responseCount += 1
-      check:
-        peerId == peer.peerId
-        storedInfo == stored
-        connectedness == conn
-        disconnectTime == disconn
+      
+      # Note: cannot use `check` within `{.raises: [Defect].}` block
+      # @TODO: /Nim/lib/pure/unittest.nim(577, 16) Error: can raise an unlisted exception: Exception
+      # These flags are checked outside this block.
+      peerIdFlag = peerId == peer.peerId
+      storedInfoFlag = storedInfo == stored
+      connectednessFlag = connectedness == conn
+      disconnectFlag = disconnectTime == disconn
     
     let res = storage.getAll(data)
     
     check:
       res.isErr == false
       responseCount == 1
+      peerIdFlag
+      storedInfoFlag
+      connectednessFlag
+      disconnectFlag
     
     # Test replace and retrieve (update an existing entry)
     discard storage.put(peer.peerId, stored, Connectedness.CannotConnect, disconn + 10)
     
     responseCount = 0
     proc replacedData(peerId: PeerID, storedInfo: StoredInfo,
-                      connectedness: Connectedness, disconnectTime: int64) =
+                      connectedness: Connectedness, disconnectTime: int64) {.raises: [Defect].} =
       responseCount += 1
-      check:
-        peerId == peer.peerId
-        storedInfo == stored
-        connectedness == CannotConnect
-        disconnectTime == disconn + 10
-    
+      
+      # Note: cannot use `check` within `{.raises: [Defect].}` block
+      # @TODO: /Nim/lib/pure/unittest.nim(577, 16) Error: can raise an unlisted exception: Exception
+      # These flags are checked outside this block.
+      peerIdFlag = peerId == peer.peerId
+      storedInfoFlag = storedInfo == stored
+      connectednessFlag = connectedness == CannotConnect
+      disconnectFlag = disconnectTime == disconn + 10
+
     let repRes = storage.getAll(replacedData)
     
     check:
       repRes.isErr == false
       responseCount == 1
+      peerIdFlag
+      storedInfoFlag
+      connectednessFlag
+      disconnectFlag
