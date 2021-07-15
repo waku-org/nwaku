@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import
   std/[tables, hashes, sequtils],
   chronos, confutils, chronicles, chronicles/topics_registry, 
@@ -11,7 +13,6 @@ import
   # Waku v2 imports
   libp2p/crypto/crypto,
   ../v2/utils/namespacing,
-  ../v2/protocol/waku_filter/waku_filter_types,
   ../v2/node/wakunode2,
   # Common cli config
   ./config_bridge
@@ -75,7 +76,7 @@ proc toV2ContentTopic*(v1Topic: waku_protocol.Topic): ContentTopic =
 
   return ContentTopic($namespacedTopic)
 
-proc toV1Topic*(contentTopic: ContentTopic): waku_protocol.Topic {.raises: [ValueError, Defect]} =
+proc toV1Topic*(contentTopic: ContentTopic): waku_protocol.Topic {.raises: [Defect, LPError, ValueError]} =
   ## Extracts the 4-byte array v1 topic from a content topic
   ## with format `/waku/1/<v1-topic-bytes-as-hex>/proto`
 
@@ -105,7 +106,7 @@ proc toWakuV2(bridge: WakuBridge, env: Envelope) {.async.} =
   
   await bridge.nodev2.publish(bridge.nodev2PubsubTopic, msg)
 
-proc toWakuV1(bridge: WakuBridge, msg: WakuMessage) {.gcsafe, raises: [ValueError, Defect].} =
+proc toWakuV1(bridge: WakuBridge, msg: WakuMessage) {.gcsafe, raises: [Defect, LPError, ValueError].} =
   if bridge.seen.containsOrAdd(msg.encode().buffer.hash()):
     # This is a duplicate message. Return
     trace "Already seen. Dropping.", msg=msg
@@ -139,7 +140,8 @@ proc new*(T: type WakuBridge,
           nodev2BindIp: ValidIpAddress, nodev2BindPort: Port,
           nodev2ExtIp = none[ValidIpAddress](), nodev2ExtPort = none[Port](),
           # Bridge configuration
-          nodev2PubsubTopic: wakunode2.Topic): T =
+          nodev2PubsubTopic: wakunode2.Topic): T
+  {.raises: [Defect, LPError].} =
 
   # Setup Waku v1 node
   var
@@ -164,8 +166,8 @@ proc new*(T: type WakuBridge,
   # Setup Waku v2 node
   let
     nodev2 = WakuNode.new(nodev2Key,
-                           nodev2BindIp, nodev2BindPort,
-                           nodev2ExtIp, nodev2ExtPort)
+                          nodev2BindIp, nodev2BindPort,
+                          nodev2ExtIp, nodev2ExtPort)
   
   return WakuBridge(nodev1: nodev1, nodev2: nodev2, nodev2PubsubTopic: nodev2PubsubTopic)
 
@@ -216,6 +218,7 @@ proc start*(bridge: WakuBridge) {.async.} =
 proc stop*(bridge: WakuBridge) {.async.} =
   await bridge.nodev2.stop()
 
+{.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
   import
     eth/p2p/whispernodes,

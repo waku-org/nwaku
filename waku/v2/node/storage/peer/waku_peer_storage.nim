@@ -3,7 +3,6 @@
 import
   std/sets, 
   sqlite3_abi,
-  chronos, metrics,
   libp2p/protobuf/minprotobuf,
   stew/results,
   ./peer_storage,

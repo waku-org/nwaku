@@ -18,7 +18,7 @@ import
   ../../utils/requests,
   ../../node/peer_manager/peer_manager
 
-export waku_store_types
+export waku_store_types, message_store
 
 declarePublicGauge waku_store_messages, "number of historical messages", ["type"]
 declarePublicGauge waku_store_peers, "number of store peers"

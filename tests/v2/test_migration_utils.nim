@@ -4,7 +4,7 @@ import
   std/[unittest, tables, strutils, os, sequtils],
   chronicles,
   stew/results,
-  ../../waku/v2/node/storage/migration/[migration_types, migration_utils]
+  ../../waku/v2/node/storage/migration/migration_utils
 
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 const MIGRATION_PATH = sourceDir / "../../waku/v2/node/storage/migration/migrations_scripts/message"
