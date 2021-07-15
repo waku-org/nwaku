@@ -34,7 +34,7 @@ const
 
 # Encoding and decoding -------------------------------------------------------
 proc encode*(rpc: PushRequest): ProtoBuffer =
-  var output: ProtoBuffer = initProtoBuffer()
+  var output = initProtoBuffer()
 
   output.write(1, rpc.pubSubTopic)
   output.write(2, rpc.message.encode())
@@ -57,7 +57,7 @@ proc init*(T: type PushRequest, buffer: seq[byte]): ProtoResult[T] =
   return ok(rpc)
 
 proc encode*(rpc: PushResponse): ProtoBuffer =
-  var output: ProtoBuffer = initProtoBuffer()
+  var output = initProtoBuffer()
 
   output.write(1, uint64(rpc.isSuccess))
   output.write(2, rpc.info)
@@ -79,7 +79,7 @@ proc init*(T: type PushResponse, buffer: seq[byte]): ProtoResult[T] =
   return ok(rpc)
 
 proc encode*(rpc: PushRPC): ProtoBuffer =
-  var output: ProtoBuffer = initProtoBuffer()
+  var output = initProtoBuffer()
 
   output.write(1, rpc.requestId)
   output.write(2, rpc.request.encode())
@@ -109,7 +109,10 @@ proc init*(T: type PushRPC, buffer: seq[byte]): ProtoResult[T] =
 proc init*(T: type WakuLightPush, peerManager: PeerManager, rng: ref BrHmacDrbgContext, handler: PushRequestHandler, relay: WakuRelay = nil): T =
   debug "init"
   let rng = crypto.newRng()
-  var wl = WakuLightPush(rng: rng, peerManager: peerManager, requestHandler: handler, relayReference: relay)
+  var wl = WakuLightPush(rng: rng,
+                        peerManager: peerManager, 
+                        requestHandler: handler, 
+                        relayReference: relay)
   wl.init()
   return wl
 
