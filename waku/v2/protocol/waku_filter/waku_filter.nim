@@ -73,19 +73,22 @@ proc unsubscribeFilters(subscribers: var seq[Subscriber], request: FilterRequest
   # @TODO: metrics?
 
 proc encode*(filter: ContentFilter): ProtoBuffer =
-  result = initProtoBuffer()
+  var output = initProtoBuffer()
 
-  result.write(1, filter.contentTopic)
+  output.write(1, filter.contentTopic)
+  return output
 
 proc encode*(rpc: FilterRequest): ProtoBuffer =
-  result = initProtoBuffer()
+  var output = initProtoBuffer()
   
-  result.write(1, uint64(rpc.subscribe))
+  output.write(1, uint64(rpc.subscribe))
 
-  result.write(2, rpc.pubSubTopic)
+  output.write(2, rpc.pubSubTopic)
 
   for filter in rpc.contentFilters:
-    result.write(3, filter.encode())
+    output.write(3, filter.encode())
+
+  return output
 
 proc init*(T: type ContentFilter, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
@@ -93,7 +96,7 @@ proc init*(T: type ContentFilter, buffer: seq[byte]): ProtoResult[T] =
   var contentTopic: ContentTopic
   discard ? pb.getField(1, contentTopic)
 
-  ok(ContentFilter(contentTopic: contentTopic))
+  return ok(ContentFilter(contentTopic: contentTopic))
 
 proc init*(T: type FilterRequest, buffer: seq[byte]): ProtoResult[T] =
   var rpc = FilterRequest(contentFilters: @[], pubSubTopic: "")
@@ -111,13 +114,15 @@ proc init*(T: type FilterRequest, buffer: seq[byte]): ProtoResult[T] =
   for buf in buffs:
     rpc.contentFilters.add(? ContentFilter.init(buf))
 
-  ok(rpc)
+  return ok(rpc)
 
 proc encode*(push: MessagePush): ProtoBuffer =
-  result = initProtoBuffer()
+  var output = initProtoBuffer()
 
   for push in push.messages:
-    result.write(1, push.encode())
+    output.write(1, push.encode())
+
+  return output
 
 proc init*(T: type MessagePush, buffer: seq[byte]): ProtoResult[T] =
   var push = MessagePush()
@@ -129,7 +134,7 @@ proc init*(T: type MessagePush, buffer: seq[byte]): ProtoResult[T] =
   for buf in messages:
     push.messages.add(? WakuMessage.init(buf))
 
-  ok(push)
+  return ok(push)
 
 proc init*(T: type FilterRPC, buffer: seq[byte]): ProtoResult[T] =
   var rpc = FilterRPC()
@@ -147,14 +152,16 @@ proc init*(T: type FilterRPC, buffer: seq[byte]): ProtoResult[T] =
 
   rpc.push = ? MessagePush.init(pushBuffer)
 
-  ok(rpc)
+  return ok(rpc)
 
 proc encode*(rpc: FilterRPC): ProtoBuffer =
-  result = initProtoBuffer()
+  var output = initProtoBuffer()
 
-  result.write(1, rpc.requestId)
-  result.write(2, rpc.request.encode())
-  result.write(3, rpc.push.encode())
+  output.write(1, rpc.requestId)
+  output.write(2, rpc.request.encode())
+  output.write(3, rpc.push.encode())
+
+  return output
 
 method init*(wf: WakuFilter) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
@@ -182,11 +189,13 @@ method init*(wf: WakuFilter) =
   wf.codec = WakuFilterCodec
 
 proc init*(T: type WakuFilter, peerManager: PeerManager, rng: ref BrHmacDrbgContext, handler: MessagePushHandler): T =
-  new result
-  result.rng = crypto.newRng()
-  result.peerManager = peerManager
-  result.pushHandler = handler
-  result.init()
+  let rng = crypto.newRng()
+  var wf = WakuFilter(rng: rng,
+                      peerManager: peerManager, 
+                      pushHandler: handler)
+  wf.init()
+  
+  return wf
 
 proc setPeer*(wf: WakuFilter, peer: PeerInfo) =
   wf.peerManager.addPeer(peer, WakuFilterCodec)
