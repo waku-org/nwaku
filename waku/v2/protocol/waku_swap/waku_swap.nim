@@ -276,8 +276,17 @@ proc init*(wakuSwap: WakuSwap) =
 # TODO Expression return?
 proc init*(T: type WakuSwap, peerManager: PeerManager, rng: ref BrHmacDrbgContext, swapConfig: SwapConfig): T =
   info "wakuSwap init 2"
-  var ws = WakuSwap(rng: rng, peerManager: peerManager, accounting: initTable[PeerId, int](), text: "test", config: swapConfig)
+  let 
+    accounting = initTable[PeerId, int]()
+    text = "test"
+  
+  var ws = WakuSwap(rng: rng,
+                  peerManager: peerManager,
+                  accounting: accounting,
+                  text: text,
+                  config: swapConfig)
   ws.init()
+
   return ws
 
 proc setPeer*(ws: WakuSwap, peer: PeerInfo) =
