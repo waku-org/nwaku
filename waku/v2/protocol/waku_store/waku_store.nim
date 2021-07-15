@@ -17,7 +17,7 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
   metrics,
-  stew/[results, byteutils, endians2],
+  stew/[results, byteutils],
   # internal imports
   ../../node/storage/message/message_store,
   ../../node/peer_manager/peer_manager,
