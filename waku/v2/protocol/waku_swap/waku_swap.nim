@@ -24,8 +24,8 @@
 # Accessing Table's items is prone to KeyError exception when the key does not belong to the table
 # such exception can be avoided by calling hasKey() before accessing the key (which is the case in this module) 
 # but from the compiler point of view, the use of hasKey() does not make any difference in the potential exceptions
-# TODO thus any key access should be wrapped inside try-except 
-# TODO or otherwise the exception should be thrown by the proc and handled by the higher level calls
+# @TODO thus any key access should be wrapped inside try-except 
+# @TODO or otherwise the exception should be thrown by the proc and handled by the higher level calls
 # {.push raises: [Defect].}
 
 import
@@ -61,14 +61,14 @@ const
 # Serialization
 # -------------------------------------------------------------------------------
 proc encode*(handshake: Handshake): ProtoBuffer =
-  var output: ProtoBuffer = initProtoBuffer()
+  var output = initProtoBuffer()
 
   output.write(1, handshake.beneficiary)
 
   return output
 
 proc encode*(cheque: Cheque): ProtoBuffer =
-  var output: ProtoBuffer = initProtoBuffer()
+  var output = initProtoBuffer()
 
   output.write(1, cheque.beneficiary)
   output.write(2, cheque.date)
