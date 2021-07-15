@@ -108,7 +108,8 @@ proc init*(T: type PushRPC, buffer: seq[byte]): ProtoResult[T] =
 # Protocol -------------------------------------------------------
 proc init*(T: type WakuLightPush, peerManager: PeerManager, rng: ref BrHmacDrbgContext, handler: PushRequestHandler, relay: WakuRelay = nil): T =
   debug "init"
-  var wl = WakuLightPush(rng: crypto.newRng(), peerManager: peerManager, requestHandler: handler, relayReference: relay)
+  let rng = crypto.newRng()
+  var wl = WakuLightPush(rng: rng, peerManager: peerManager, requestHandler: handler, relayReference: relay)
   wl.init()
   return wl
 
