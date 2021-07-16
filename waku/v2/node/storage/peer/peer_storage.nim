@@ -2,7 +2,6 @@
 
 import
   stew/results,
-  chronos,
   ../../peer_manager/waku_peer_store
 
 ## This module defines a peer storage interface. Implementations of

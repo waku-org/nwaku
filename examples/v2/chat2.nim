@@ -4,9 +4,11 @@
 when not(compileOption("threads")):
   {.fatal: "Please, compile this program with the --threads:on option!".}
 
+{.push raises: [Defect].}
+
 import std/[tables, strformat, strutils, times, httpclient, json, sequtils, random, options]
 import confutils, chronicles, chronos, stew/shims/net as stewNet,
-       eth/keys, bearssl, stew/[byteutils, endians2],
+       eth/keys, bearssl, stew/[byteutils, endians2, results],
        nimcrypto/pbkdf2
 import libp2p/[switch,                   # manage transports, a single entry point for dialing and listening
                crypto/crypto,            # cryptographic functions
@@ -19,10 +21,6 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                protocols/secure/secio,   # define the protocol of secure input / output, allows encrypted communication that uses public keys to validate signed messages instead of a certificate authority like in TLS
                muxers/muxer]             # define an interface for stream multiplexing, allowing peers to offer many protocols over a single connection
 import   ../../waku/v2/node/[wakunode2, waku_payload],
-         ../../waku/v2/protocol/waku_message,
-         ../../waku/v2/protocol/waku_store/waku_store,
-         ../../waku/v2/protocol/waku_filter/waku_filter,
-         ../../waku/v2/protocol/waku_lightpush/waku_lightpush,
          ../../waku/v2/utils/peers,
          ../../waku/common/utils/nat,
          ./config_chat2
@@ -61,10 +59,13 @@ type
 ## chat2 protobufs ##
 #####################
 
-type Chat2Message* = object
-  timestamp*: int64
-  nick*: string
-  payload*: seq[byte]
+type
+  SelectResult*[T] = Result[T, string]
+
+  Chat2Message* = object
+    timestamp*: int64
+    nick*: string
+    payload*: seq[byte]
 
 proc init*(T: type Chat2Message, buffer: seq[byte]): ProtoResult[T] =
   var msg = Chat2Message()
@@ -119,7 +120,7 @@ proc showChatPrompt(c: Chat) =
     except IOError:
       discard
 
-proc printReceivedMessage(c: Chat, msg: WakuMessage) {.raises: [Defect].} =
+proc printReceivedMessage(c: Chat, msg: WakuMessage) =
   when PayloadV1:
       # Use Waku v1 payload encoding/encryption
       let
@@ -156,16 +157,29 @@ proc printReceivedMessage(c: Chat, msg: WakuMessage) {.raises: [Defect].} =
     trace "Printing message", topic=DefaultTopic, chatLine,
       contentTopic = msg.contentTopic
 
-proc selectRandomNode(fleetStr: string): string =
+proc selectRandomNode(fleetStr: string): SelectResult[string] =
   randomize()
-  let
+  var
+    fleet: string
+    nodes: seq[tuple[key: string, val: JsonNode]]
+    randNode: string
+  try:
     # Get latest fleet addresses
     fleet = newHttpClient().getContent("https://fleets.status.im")
+  
     # Select the JSONObject corresponding to the selected wakuv2 fleet and convert to seq of key-val pairs
     nodes = toSeq(fleet.parseJson(){"fleets", "wakuv2." & fleetStr, "waku"}.pairs())
-    
-  # Select a random node from the selected fleet, convert to string and return
-  return nodes[rand(nodes.len - 1)].val.getStr()
+  
+    if nodes.len < 1:
+      return err("Empty fleet nodes list")
+
+    # Select a random node from the selected fleet, convert to string and return
+    randNode = nodes[rand(nodes.len - 1)].val.getStr()
+  
+  except Exception: # @TODO: HttpClient raises generic Exception
+    return err("Failed to select random node")
+  
+  ok(randNode)
 
 proc readNick(transp: StreamTransport): Future[string] {.async.} =
   # Chat prompt
@@ -286,7 +300,7 @@ proc readWriteLoop(c: Chat) {.async.} =
   asyncSpawn c.writeAndPrint() # execute the async function but does not block
   asyncSpawn c.readAndPrint()
 
-proc readInput(wfd: AsyncFD) {.thread.} =
+proc readInput(wfd: AsyncFD) {.thread, raises: [Defect, CatchableError].} =
   ## This procedure performs reading from `stdin` and sends data over
   ## pipe to main thread.
   let transp = fromPipe(wfd)
@@ -295,6 +309,7 @@ proc readInput(wfd: AsyncFD) {.thread.} =
     let line = stdin.readLine()
     discard waitFor transp.write(line & "\r\n")
 
+{.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   let transp = fromPipe(rfd)
 
@@ -335,9 +350,13 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
     
     let randNode = selectRandomNode($conf.fleet)
     
-    echo "Connecting to " & randNode
+    if randNode.isOk():
+      echo "Connecting to " & randNode.get()
 
-    await connectToNodes(chat, @[randNode])
+      await connectToNodes(chat, @[randNode.get()])
+    else:
+      echo "Couldn't select a random node to connect to. Check --fleet configuration."
+      echo randNode.error()
 
   let peerInfo = node.peerInfo
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
@@ -356,12 +375,17 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
     elif conf.fleet != Fleet.none:
       echo "Store enabled, but no store nodes configured. Choosing one at random from " & $conf.fleet & " fleet..."
       
-      storenode = some(selectRandomNode($conf.fleet))
+      let selectNode = selectRandomNode($conf.fleet)
 
-      echo "Connecting to storenode: " & storenode.get()
-    
+      if selectNode.isOk:
+        storenode = some(selectNode.get())
+      else:
+        echo "Couldn't select a random store node to connect to. Check --fleet configuration."
+        echo selectNode.error()
+      
     if storenode.isSome():
       # We have a viable storenode. Let's query it for historical messages.
+      echo "Connecting to storenode: " & storenode.get()
 
       node.wakuStore.setPeer(parsePeerInfo(storenode.get()))
 
@@ -387,7 +411,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
 
     node.wakuFilter.setPeer(parsePeerInfo(conf.filternode))
 
-    proc filterHandler(msg: WakuMessage) {.gcsafe, raises: [Defect].} =
+    proc filterHandler(msg: WakuMessage) {.gcsafe.} =
       trace "Hit filter handler", contentTopic=msg.contentTopic
 
       chat.printReceivedMessage(msg)

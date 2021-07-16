@@ -1,5 +1,8 @@
+{.push raises: [Defect].}
+
 import
-  std/[httpclient, json, uri, options]
+  std/[httpclient, json, uri, options],
+  stew/results
 
 const
   # Resource locators
@@ -9,6 +12,8 @@ const
   health* = "/api/health"
 
 type
+  MatterbridgeResult[T] = Result[T, string]
+
   MatterbridgeClient* = ref object of RootObj
     hostClient*: HttpClient
     host*: Uri
@@ -16,7 +21,9 @@ type
 
 proc new*(T: type MatterbridgeClient,
           hostUri: string,
-          gateway = "gateway1"): MatterbridgeClient =
+          gateway = "gateway1"): MatterbridgeClient 
+  {.raises: [Defect, KeyError].} =
+  
   let mbClient = MatterbridgeClient()
 
   mbClient.hostClient = newHttpClient()
@@ -27,29 +34,46 @@ proc new*(T: type MatterbridgeClient,
 
   return mbClient
 
-proc getMessages*(mb: MatterbridgeClient): seq[JsonNode] =
-  let response = mb.hostClient.get($(mb.host / messages))
+proc getMessages*(mb: MatterbridgeClient): MatterbridgeResult[seq[JsonNode]] =
+  var
+    response: Response
+    msgs: seq[JsonNode]
+  try:
+    response = mb.hostClient.get($(mb.host / messages))
+    msgs = parseJson(response.body()).getElems()
+  except Exception as e:
+    return err("failed to get messages: " & e.msg)
+
   assert response.status == "200 OK"
 
-  return parseJson(response.body()).getElems()
+  ok(msgs)
 
-proc postMessage*(mb: MatterbridgeClient, msg: JsonNode) =
-  let response = mb.hostClient.request($(mb.host / message),
-                                         httpMethod = HttpPost,
-                                         body = $msg)
+proc postMessage*(mb: MatterbridgeClient, msg: JsonNode): MatterbridgeResult[bool] =
+  var response: Response
+  try:
+    response = mb.hostClient.request($(mb.host / message),
+                                     httpMethod = HttpPost,
+                                     body = $msg)
+  except Exception as e:
+    return err("post request failed: " & e.msg)
 
-  assert response.status == "200 OK"
+  ok(response.status == "200 OK")
 
-  # @TODO: better error-handling here
-
-proc postMessage*(mb: MatterbridgeClient, text: string, username: string) =
+proc postMessage*(mb: MatterbridgeClient, text: string, username: string): MatterbridgeResult[bool] =
   let jsonNode = %* {"text": text,
                      "username": username,
                      "gateway": mb.gateway}
 
-  mb.postMessage(jsonNode)
+  return mb.postMessage(jsonNode)
 
-proc isHealthy*(mb: MatterbridgeClient): bool =
-  let response = mb.hostClient.get($(mb.host / health))
+proc isHealthy*(mb: MatterbridgeClient): MatterbridgeResult[bool] =
+  var
+    response: Response
+    healthOk: bool
+  try:
+    response = mb.hostClient.get($(mb.host / health))
+    healthOk = response.body == "OK"
+  except Exception as e:
+    return err("failed to get health: " & e.msg)
 
-  return response.status == "200 OK" and response.body == "OK"
+  ok(response.status == "200 OK" and healthOk)

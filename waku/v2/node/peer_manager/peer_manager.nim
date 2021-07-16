@@ -6,7 +6,7 @@ import
   ./waku_peer_store,
   ../storage/peer/peer_storage
 
-export waku_peer_store
+export waku_peer_store, peer_storage
 
 declareCounter waku_peers_dials, "Number of peer dials", ["outcome"]
 declarePublicGauge waku_peers_errors, "Number of peer manager errors", ["type"]

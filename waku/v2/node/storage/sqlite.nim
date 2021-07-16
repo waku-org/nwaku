@@ -3,17 +3,16 @@
 import 
   os,
   sqlite3_abi,
-  chronos, chronicles, metrics,
+  chronicles,
   stew/results,
-  libp2p/crypto/crypto,
-  libp2p/protocols/protocol,
-  libp2p/protobuf/minprotobuf,
-  libp2p/stream/connection,
-  migration/[migration_types,migration_utils]
+  migration/migration_utils
 # The code in this file is an adaptation of the Sqlite KV Store found in nim-eth.
 # https://github.com/status-im/nim-eth/blob/master/eth/db/kvstore_sqlite3.nim
 #
 # Most of it is a direct copy, the only unique functions being `get` and `put`.
+
+logScope:
+  topics = "sqlite"
 
 type
   DatabaseResult*[T] = Result[T, string]
@@ -233,7 +232,7 @@ proc setUserVersion*(database: SqliteDatabase, version: int64): DatabaseResult[b
   ok(true)
 
 
-proc migrate*(db: SqliteDatabase, path: string, targetVersion: int64 = migration_types.USER_VERSION): DatabaseResult[bool] = 
+proc migrate*(db: SqliteDatabase, path: string, targetVersion: int64 = migration_utils.USER_VERSION): DatabaseResult[bool] = 
   ## compares the user_version of the db with the targetVersion 
   ## runs migration scripts if the user_version is outdated (does not support down migration)
   ## path points to the directory holding the migrations scripts

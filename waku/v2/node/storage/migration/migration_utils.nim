@@ -1,8 +1,15 @@
+{.push raises: [Defect].}
+
 import 
   std/[os, algorithm, tables, strutils], 
   chronicles, 
   stew/results,
   migration_types
+
+export migration_types
+
+logScope:
+  topics = "migration_utils"
 
 proc getScripts*(migrationPath: string): MigrationScriptsResult[MigrationScripts] =
   ## the code in this procedure is an adaptation of https://github.com/status-im/nim-status/blob/21aebe41be03cb6450ea261793b800ed7d3e6cda/nim_status/migrations/sql_generate.nim#L4
