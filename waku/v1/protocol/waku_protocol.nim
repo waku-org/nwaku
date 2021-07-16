@@ -1,6 +1,6 @@
 #
 #                 Waku
-#              (c) Copyright 2018-2019
+#              (c) Copyright 2018-2021
 #       Status Research & Development GmbH
 #
 #            Licensed under either of
@@ -36,6 +36,8 @@
 ## Now calls such as ``postMessage`` and ``subscribeFilter`` can be done.
 ## However, they only make real sense after ``connectToNetwork`` was started. As
 ## else there will be no peers to send and receive messages from.
+
+{.push raises: [Defect].}
 
 import
   options, tables, times, chronos, chronicles, metrics,
@@ -143,9 +145,14 @@ proc append*(rlpWriter: var RlpWriter, value: StatusOptions) =
 
   let bytes = list.finish()
 
-  rlpWriter.append(rlpFromBytes(bytes))
+  try:
+    rlpWriter.append(rlpFromBytes(bytes))
+  except RlpError as e:
+    # bytes is valid rlp just created here, rlpFromBytes should thus never fail
+    raiseAssert e.msg
 
-proc read*(rlp: var Rlp, T: typedesc[StatusOptions]): T =
+proc read*(rlp: var Rlp, T: typedesc[StatusOptions]):
+    T {.raises: [RlpError, Defect].}=
   if not rlp.isList():
     raise newException(RlpTypeMismatch,
       "List expected, but the source RLP is not a list.")
@@ -433,7 +440,7 @@ proc run(peer: Peer) {.async, raises: [Defect].} =
     peer.processQueue()
     await sleepAsync(messageInterval)
 
-proc pruneReceived(node: EthereumNode) {.raises: [].} =
+proc pruneReceived(node: EthereumNode) =
   if node.peerPool != nil: # XXX: a bit dirty to need to check for this here ...
     var wakuNet = node.protocolState(Waku)
 
@@ -561,7 +568,8 @@ proc unsubscribeFilter*(node: EthereumNode, filterId: string): bool =
   var filter: Filter
   return node.protocolState(Waku).filters.take(filterId, filter)
 
-proc getFilterMessages*(node: EthereumNode, filterId: string): seq[ReceivedMessage] =
+proc getFilterMessages*(node: EthereumNode, filterId: string):
+    seq[ReceivedMessage] {.raises: [KeyError, Defect].} =
   ## Get all the messages currently in the filter queue. This will reset the
   ## filter message queue.
   return node.protocolState(Waku).filters.getFilterMessages(filterId)
