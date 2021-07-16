@@ -8,7 +8,7 @@ when not(compileOption("threads")):
 
 import std/[tables, strformat, strutils, times, httpclient, json, sequtils, random, options]
 import confutils, chronicles, chronos, stew/shims/net as stewNet,
-       eth/keys, bearssl, stew/[byteutils, endians2],
+       eth/keys, bearssl, stew/[byteutils, endians2, results],
        nimcrypto/pbkdf2
 import libp2p/[switch,                   # manage transports, a single entry point for dialing and listening
                crypto/crypto,            # cryptographic functions
@@ -59,10 +59,13 @@ type
 ## chat2 protobufs ##
 #####################
 
-type Chat2Message* = object
-  timestamp*: int64
-  nick*: string
-  payload*: seq[byte]
+type
+  SelectResult*[T] = Result[T, string]
+
+  Chat2Message* = object
+    timestamp*: int64
+    nick*: string
+    payload*: seq[byte]
 
 proc init*(T: type Chat2Message, buffer: seq[byte]): ProtoResult[T] =
   var msg = Chat2Message()
@@ -154,7 +157,7 @@ proc printReceivedMessage(c: Chat, msg: WakuMessage) =
     trace "Printing message", topic=DefaultTopic, chatLine,
       contentTopic = msg.contentTopic
 
-proc selectRandomNode(fleetStr: string): Option[string] =
+proc selectRandomNode(fleetStr: string): SelectResult[string] =
   randomize()
   var
     fleet: string
@@ -163,14 +166,20 @@ proc selectRandomNode(fleetStr: string): Option[string] =
   try:
     # Get latest fleet addresses
     fleet = newHttpClient().getContent("https://fleets.status.im")
+  
     # Select the JSONObject corresponding to the selected wakuv2 fleet and convert to seq of key-val pairs
     nodes = toSeq(fleet.parseJson(){"fleets", "wakuv2." & fleetStr, "waku"}.pairs())
+  
+    if nodes.len < 1:
+      return err("Empty fleet nodes list")
+
     # Select a random node from the selected fleet, convert to string and return
     randNode = nodes[rand(nodes.len - 1)].val.getStr()
-  except Exception: # @TODO: HttpClient raises generic Exception
-    return none(string)
   
-  return some(randNode)
+  except Exception: # @TODO: HttpClient raises generic Exception
+    return err("Failed to select random node")
+  
+  ok(randNode)
 
 proc readNick(transp: StreamTransport): Future[string] {.async.} =
   # Chat prompt
@@ -341,12 +350,13 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
     
     let randNode = selectRandomNode($conf.fleet)
     
-    if randNode.isSome():
+    if randNode.isOk():
       echo "Connecting to " & randNode.get()
 
       await connectToNodes(chat, @[randNode.get()])
     else:
       echo "Couldn't select a random node to connect to. Check --fleet configuration."
+      echo randNode.error()
 
   let peerInfo = node.peerInfo
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
@@ -365,8 +375,14 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
     elif conf.fleet != Fleet.none:
       echo "Store enabled, but no store nodes configured. Choosing one at random from " & $conf.fleet & " fleet..."
       
-      storenode = selectRandomNode($conf.fleet)
-    
+      let selectNode = selectRandomNode($conf.fleet)
+
+      if selectNode.isOk:
+        storenode = some(selectNode.get())
+      else:
+        echo "Couldn't select a random store node to connect to. Check --fleet configuration."
+        echo selectNode.error()
+      
     if storenode.isSome():
       # We have a viable storenode. Let's query it for historical messages.
       echo "Connecting to storenode: " & storenode.get()
