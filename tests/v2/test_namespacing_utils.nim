@@ -19,19 +19,19 @@ procSuite "Namespacing utils":
       ns.encoding == "proto"
     
     # Invalid cases
-    expect ValueError:
+    expect CatchableError:
       # Topic should be namespaced
       discard NamespacedTopic.fromString("this-is-not-namespaced").tryGet()
     
-    expect ValueError:
+    expect CatchableError:
       # Topic should start with '/'
       discard NamespacedTopic.fromString("waku/2/default-waku/proto").tryGet()
 
-    expect ValueError:
+    expect CatchableError:
       # Topic has too few parts
       discard NamespacedTopic.fromString("/waku/2/default-waku").tryGet()
 
-    expect ValueError:
+    expect CatchableError:
       # Topic has too many parts
       discard NamespacedTopic.fromString("/waku/2/default-waku/proto/2").tryGet()
 
