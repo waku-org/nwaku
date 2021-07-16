@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import
   std/[tables, times, strutils, hashes, sequtils],
   chronos, confutils, chronicles, chronicles/topics_registry, 
@@ -8,7 +10,6 @@ import
   ../../../waku/common/utils/matterbridge_client,
   # Waku v2 imports
   libp2p/crypto/crypto,
-  ../../../waku/v2/protocol/waku_filter/waku_filter_types,
   ../../../waku/v2/node/wakunode2,
   # Chat 2 imports
   ../chat2,
@@ -107,19 +108,21 @@ proc toMatterbridge(cmb: Chat2MatterBridge, msg: WakuMessage) {.gcsafe, raises: 
 
   assert chat2Msg.isOk
 
-  try:
-    cmb.mbClient.postMessage(text = string.fromBytes(chat2Msg[].payload),
-                             username = chat2Msg[].nick)
-  except OSError, IOError, TimeoutError:
+  let postRes = cmb.mbClient.postMessage(text = string.fromBytes(chat2Msg[].payload),
+                                         username = chat2Msg[].nick)
+  
+  if postRes.isErr() or (postRes[] == false):
     chat2_mb_dropped.inc(labelValues = ["duplicate"])
     error "Matterbridge host unreachable. Dropping message."
 
 proc pollMatterbridge(cmb: Chat2MatterBridge, handler: MbMessageHandler) {.async.} =
   while cmb.running:
-    try:
-      for jsonNode in cmb.mbClient.getMessages():
+    let getRes = cmb.mbClient.getMessages()
+
+    if getRes.isOk():
+      for jsonNode in getRes[]:
         handler(jsonNode)
-    except OSError, IOError:
+    else:
       error "Matterbridge host unreachable. Sleeping before retrying."
       await sleepAsync(chronos.seconds(10))
 
@@ -136,20 +139,20 @@ proc new*(T: type Chat2MatterBridge,
           nodev2Key: crypto.PrivateKey,
           nodev2BindIp: ValidIpAddress, nodev2BindPort: Port,
           nodev2ExtIp = none[ValidIpAddress](), nodev2ExtPort = none[Port](),
-          contentTopic: string): T =
+          contentTopic: string): T
+  {.raises: [Defect, ValueError, KeyError, LPError].} =
 
   # Setup Matterbridge 
   let
     mbClient = MatterbridgeClient.new(mbHostUri, mbGateway)
   
   # Let's verify the Matterbridge configuration before continuing
-  try:
-    if mbClient.isHealthy():
-      info "Reached Matterbridge host", host=mbClient.host
-    else:
-      raise newException(ValueError, "Matterbridge client not healthy")
-  except OSError, IOError:
-    raise newException(ValueError, "Matterbridge host unreachable")
+  let clientHealth = mbClient.isHealthy()
+
+  if clientHealth.isOk() and clientHealth[]:
+    info "Reached Matterbridge host", host=mbClient.host
+  else:
+    raise newException(ValueError, "Matterbridge client not reachable/healthy")
 
   # Setup Waku v2 node
   let
@@ -202,6 +205,7 @@ proc stop*(cmb: Chat2MatterBridge) {.async.} =
 
   await cmb.nodev2.stop()
 
+{.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
   import
     ../../../waku/common/utils/nat,

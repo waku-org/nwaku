@@ -6,7 +6,6 @@ import
   metrics/chronos_httpserver,
   stew/shims/net as stewNet,
   eth/keys,
-  web3,
   libp2p/crypto/crypto,
   libp2p/protocols/ping,
   libp2p/protocols/pubsub/gossipsub,
@@ -19,10 +18,17 @@ import
   ../protocol/waku_rln_relay/waku_rln_relay_types,
   ../utils/peers,
   ../utils/requests,
-  ./storage/message/message_store,
-  ./storage/peer/peer_storage,
   ./storage/migration/migration_types,
   ./peer_manager/peer_manager
+
+export
+  builders,
+  waku_relay, waku_message,
+  waku_store,
+  waku_swap,
+  waku_filter,
+  waku_lightpush,
+  waku_rln_relay_types
 
 when defined(rln):
   import ../protocol/waku_rln_relay/[rln, waku_rln_relay_utils]

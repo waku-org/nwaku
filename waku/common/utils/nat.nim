@@ -1,13 +1,24 @@
+{.push raises: [Defect].}
+
 import
   std/[strutils, options],
   chronicles, stew/shims/net as stewNet,
   eth/net/nat
 
-proc setupNat*(natConf, clientId: string, tcpPort, udpPort: Port):
-    tuple[ip: Option[ValidIpAddress], tcpPort: Option[Port],
-      udpPort: Option[Port]] {.gcsafe.} =
+logScope:
+  topics = "nat"
 
-  var nat: NatStrategy
+proc setupNat*(natConf, clientId: string, tcpPort, udpPort: Port):
+    tuple[ip: Option[ValidIpAddress],
+          tcpPort: Option[Port],
+          udpPort: Option[Port]] {.gcsafe.} =
+
+  var
+    endpoint: tuple[ip: Option[ValidIpAddress],
+                    tcpPort: Option[Port],
+                    udpPort: Option[Port]]
+    nat: NatStrategy
+  
   case natConf.toLowerAscii:
     of "any":
       nat = NatAny
@@ -21,10 +32,10 @@ proc setupNat*(natConf, clientId: string, tcpPort, udpPort: Port):
       if natConf.startsWith("extip:"):
         try:
           # any required port redirection is assumed to be done by hand
-          result.ip = some(ValidIpAddress.init(natConf[6..^1]))
+          endpoint.ip = some(ValidIpAddress.init(natConf[6..^1]))
           nat = NatNone
         except ValueError:
-          error "nor a valid IP address", address = natConf[6..^1]
+          error "not a valid IP address", address = natConf[6..^1]
           quit QuitFailure
       else:
         error "not a valid NAT mechanism", value = natConf
@@ -33,14 +44,23 @@ proc setupNat*(natConf, clientId: string, tcpPort, udpPort: Port):
   if nat != NatNone:
     let extIp = getExternalIP(nat)
     if extIP.isSome:
-      result.ip = some(ValidIpAddress.init extIp.get)
+      endpoint.ip = some(ValidIpAddress.init extIp.get)
       # TODO redirectPorts in considered a gcsafety violation
       # because it obtains the address of a non-gcsafe proc?
-      let extPorts = ({.gcsafe.}:
-        redirectPorts(tcpPort = tcpPort,
-                      udpPort = udpPort,
-                      description = clientId))
+      var extPorts: Option[(Port, Port)]
+      try:
+        extPorts = ({.gcsafe.}:
+                    redirectPorts(tcpPort = tcpPort,
+                                  udpPort = udpPort,
+                                  description = clientId))
+      except Exception:
+        # @TODO: nat.nim Error: can raise an unlisted exception: Exception. Isolate here for now.
+        error "unable to determine external ports"
+        extPorts = none((Port, Port))
+
       if extPorts.isSome:
         let (extTcpPort, extUdpPort) = extPorts.get()
-        result.tcpPort = some(extTcpPort)
-        result.udpPort = some(extUdpPort)
+        endpoint.tcpPort = some(extTcpPort)
+        endpoint.udpPort = some(extUdpPort)
+  
+  return endpoint
