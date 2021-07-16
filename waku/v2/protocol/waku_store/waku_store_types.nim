@@ -20,6 +20,7 @@ export
   results,
   peer_manager,
   waku_swap_types,
+  message_store,
   waku_message,
   pagination
 
