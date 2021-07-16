@@ -21,6 +21,13 @@
 ## Things like settlement is for future work.
 ##
 
+# Accessing Table's items is prone to KeyError exception when the key does not belong to the table
+# such exception can be avoided by calling hasKey() before accessing the key (which is the case in this module) 
+# but from the compiler point of view, the use of hasKey() does not make any difference in the potential exceptions
+# @TODO thus any key access should be wrapped inside try-except 
+# @TODO or otherwise the exception should be thrown by the proc and handled by the higher level calls
+# {.push raises: [Defect].}
+
 import
   std/[tables, options, json],
   bearssl,
@@ -54,15 +61,21 @@ const
 # Serialization
 # -------------------------------------------------------------------------------
 proc encode*(handshake: Handshake): ProtoBuffer =
-  result = initProtoBuffer()
-  result.write(1, handshake.beneficiary)
+  var output = initProtoBuffer()
+
+  output.write(1, handshake.beneficiary)
+
+  return output
 
 proc encode*(cheque: Cheque): ProtoBuffer =
-  result = initProtoBuffer()
-  result.write(1, cheque.beneficiary)
-  result.write(2, cheque.date)
-  result.write(3, cheque.amount)
-  result.write(4, cheque.signature)
+  var output = initProtoBuffer()
+
+  output.write(1, cheque.beneficiary)
+  output.write(2, cheque.date)
+  output.write(3, cheque.amount)
+  output.write(4, cheque.signature)
+
+  return output
 
 proc init*(T: type Handshake, buffer: seq[byte]): ProtoResult[T] =
   var beneficiary: seq[byte]
@@ -71,7 +84,7 @@ proc init*(T: type Handshake, buffer: seq[byte]): ProtoResult[T] =
 
   discard ? pb.getField(1, handshake.beneficiary)
 
-  ok(handshake)
+  return ok(handshake)
 
 proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
   var beneficiary: seq[byte]
@@ -86,7 +99,7 @@ proc init*(T: type Cheque, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(3, cheque.amount)
   discard ? pb.getField(4, cheque.signature)
 
-  ok(cheque)
+  return ok(cheque)
 
 # Accounting
 # -------------------------------------------------------------------------------
@@ -263,13 +276,18 @@ proc init*(wakuSwap: WakuSwap) =
 # TODO Expression return?
 proc init*(T: type WakuSwap, peerManager: PeerManager, rng: ref BrHmacDrbgContext, swapConfig: SwapConfig): T =
   info "wakuSwap init 2"
-  new result
-  result.rng = rng
-  result.peerManager = peerManager
-  result.accounting = initTable[PeerId, int]()
-  result.text = "test"
-  result.config = swapConfig
-  result.init()
+  let 
+    accounting = initTable[PeerId, int]()
+    text = "test"
+  
+  var ws = WakuSwap(rng: rng,
+                  peerManager: peerManager,
+                  accounting: accounting,
+                  text: text,
+                  config: swapConfig)
+  ws.init()
+
+  return ws
 
 proc setPeer*(ws: WakuSwap, peer: PeerInfo) =
   ws.peerManager.addPeer(peer, WakuSwapCodec)

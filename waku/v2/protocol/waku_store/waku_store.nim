@@ -54,7 +54,7 @@ proc encode*(index: Index): ProtoBuffer =
   ## returns the resultant ProtoBuffer
 
   # intiate a ProtoBuffer
-  var output: ProtoBuffer = initProtoBuffer()
+  var output = initProtoBuffer()
 
   # encodes index
   output.write(1, index.digest.data)
@@ -68,7 +68,7 @@ proc encode*(pinfo: PagingInfo): ProtoBuffer =
   ## returns the resultant ProtoBuffer
 
   # intiate a ProtoBuffer
-  var output: ProtoBuffer = initProtoBuffer()
+  var output = initProtoBuffer()
 
   # encodes pinfo
   output.write(1, pinfo.pageSize)
@@ -193,12 +193,12 @@ proc init*(T: type HistoryRPC, buffer: seq[byte]): ProtoResult[T] =
   return ok(rpc)
 
 proc encode*(filter: HistoryContentFilter): ProtoBuffer =
-  var output: ProtoBuffer = initProtoBuffer()
+  var output = initProtoBuffer()
   output.write(1, filter.contentTopic)
   return output
 
 proc encode*(query: HistoryQuery): ProtoBuffer =
-  var output: ProtoBuffer = initProtoBuffer()
+  var output = initProtoBuffer()
   
   output.write(2, query.pubsubTopic)
 
@@ -214,7 +214,7 @@ proc encode*(query: HistoryQuery): ProtoBuffer =
 
 
 proc encode*(response: HistoryResponse): ProtoBuffer =
-  var output: ProtoBuffer = initProtoBuffer()
+  var output = initProtoBuffer()
 
   for msg in response.messages:
     output.write(1, msg.encode())
@@ -226,7 +226,7 @@ proc encode*(response: HistoryResponse): ProtoBuffer =
   return output
 
 proc encode*(rpc: HistoryRPC): ProtoBuffer =
-  var output: ProtoBuffer = initProtoBuffer()
+  var output = initProtoBuffer()
 
   output.write(1, rpc.requestId)
   output.write(2, rpc.query.encode())

@@ -34,10 +34,12 @@ const
 
 # Encoding and decoding -------------------------------------------------------
 proc encode*(rpc: PushRequest): ProtoBuffer =
-  result = initProtoBuffer()
+  var output = initProtoBuffer()
 
-  result.write(1, rpc.pubSubTopic)
-  result.write(2, rpc.message.encode())
+  output.write(1, rpc.pubSubTopic)
+  output.write(2, rpc.message.encode())
+
+  return output
 
 proc init*(T: type PushRequest, buffer: seq[byte]): ProtoResult[T] =
   #var rpc = PushRequest(pubSubTopic: "", message: WakuMessage())
@@ -52,13 +54,15 @@ proc init*(T: type PushRequest, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(2, buf)
   rpc.message = ? WakuMessage.init(buf)
 
-  ok(rpc)
+  return ok(rpc)
 
 proc encode*(rpc: PushResponse): ProtoBuffer =
-  result = initProtoBuffer()
+  var output = initProtoBuffer()
 
-  result.write(1, uint64(rpc.isSuccess))
-  result.write(2, rpc.info)
+  output.write(1, uint64(rpc.isSuccess))
+  output.write(2, rpc.info)
+
+  return output
 
 proc init*(T: type PushResponse, buffer: seq[byte]): ProtoResult[T] =
   var rpc = PushResponse(isSuccess: false, info: "")
@@ -72,14 +76,16 @@ proc init*(T: type PushResponse, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(2, info)
   rpc.info = info
 
-  ok(rpc)
+  return ok(rpc)
 
 proc encode*(rpc: PushRPC): ProtoBuffer =
-  result = initProtoBuffer()
+  var output = initProtoBuffer()
 
-  result.write(1, rpc.requestId)
-  result.write(2, rpc.request.encode())
-  result.write(3, rpc.response.encode())
+  output.write(1, rpc.requestId)
+  output.write(2, rpc.request.encode())
+  output.write(3, rpc.response.encode())
+
+  return output
 
 proc init*(T: type PushRPC, buffer: seq[byte]): ProtoResult[T] =
   var rpc = PushRPC()
@@ -97,17 +103,19 @@ proc init*(T: type PushRPC, buffer: seq[byte]): ProtoResult[T] =
 
   rpc.response = ? PushResponse.init(pushBuffer)
 
-  ok(rpc)
+  return ok(rpc)
 
 # Protocol -------------------------------------------------------
 proc init*(T: type WakuLightPush, peerManager: PeerManager, rng: ref BrHmacDrbgContext, handler: PushRequestHandler, relay: WakuRelay = nil): T =
   debug "init"
-  new result
-  result.rng = crypto.newRng()
-  result.peerManager = peerManager
-  result.requestHandler = handler
-  result.relayReference = relay
-  result.init()
+  let rng = crypto.newRng()
+  var wl = WakuLightPush(rng: rng,
+                        peerManager: peerManager, 
+                        requestHandler: handler, 
+                        relayReference: relay)
+  wl.init()
+  
+  return wl
 
 proc setPeer*(wlp: WakuLightPush, peer: PeerInfo) =
   wlp.peerManager.addPeer(peer, WakuLightPushCodec)

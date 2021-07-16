@@ -31,10 +31,12 @@ proc fromString*(T: type NamespacedTopic, topic: string): NamespacingResult[Name
     # Ensures that topic starts with a "/"
     return err("invalid topic format")
   
-  ok(NamespacedTopic(application: parts[1],
+  let namespacedTopic= NamespacedTopic(application: parts[1],
                      version: parts[2],
                      topicName: parts[3],
-                     encoding: parts[4]))
+                     encoding: parts[4])
+                     
+  return ok(namespacedTopic)
 
 proc `$`*(namespacedTopic: NamespacedTopic): string =
   ## Returns a string representation of a namespaced topic
