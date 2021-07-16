@@ -74,8 +74,6 @@ type
     peerInfo*: PeerInfo
     libp2pPing*: Ping
     libp2pTransportLoops*: seq[Future[void]]
-  # TODO Revist messages field indexing as well as if this should be Message or WakuMessage
-    messages*: seq[(Topic, WakuMessage)]
     filters*: Filters
     rng*: ref BrHmacDrbgContext
     started*: bool # Indicates that node has started listening
@@ -159,33 +157,6 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   )
 
   return wakuNode
-
-proc start*(node: WakuNode) {.async.} =
-  ## Starts a created Waku Node.
-  ##
-  ## Status: Implemented.
-  ##
-  node.libp2pTransportLoops = await node.switch.start()
-  
-  # TODO Get this from WakuNode obj
-  let peerInfo = node.peerInfo
-  info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
-  let listenStr = $peerInfo.addrs[^1] & "/p2p/" & $peerInfo.peerId
-  ## XXX: this should be /ip4..., / stripped?
-  info "Listening on", full = listenStr
-
-  if not node.wakuRelay.isNil:
-    await node.wakuRelay.start()
-  
-  node.started = true
-
-proc stop*(node: WakuNode) {.async.} =
-  if not node.wakuRelay.isNil:
-    await node.wakuRelay.stop()
-
-  await node.switch.stop()
-
-  node.started = false
 
 proc subscribe(node: WakuNode, topic: Topic, handler: Option[TopicHandler]) =
   if node.wakuRelay.isNil:
@@ -376,7 +347,6 @@ proc resume*(node: WakuNode, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo
     if retrievedMessages.isOk:
       info "the number of retrieved messages since the last online time: ", number=retrievedMessages.value
 
-
 # TODO Extend with more relevant info: topics, peers, memory usage, online time, etc
 proc info*(node: WakuNode): WakuInfo =
   ## Returns information about the Node, such as what multiaddress it can be reached at.
@@ -461,7 +431,6 @@ when defined(rln):
 
     node.wakuRlnRelay = rlnPeer
 
-when defined(rln):
   proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
     ## this procedure is a thin wrapper for the pubsub addValidator method
     ## it sets message validator on the given pubsubTopic, the validator will check that
@@ -475,6 +444,38 @@ when defined(rln):
     # set a validator for the pubsubTopic 
     let pb  = PubSub(node.wakuRelay)
     pb.addValidator(pubsubTopic, validator)
+
+proc startRelay*(node: WakuNode) {.async.} =
+  if node.wakuRelay.isNil:
+    trace "Failed to start relay. Not mounted."
+    return
+
+  ## Setup and start relay protocol
+  info "starting relay"
+  
+  # Topic subscriptions
+  node.subscribe(defaultTopic, none(TopicHandler))
+
+  for topic in node.wakuRelay.confTopics:
+    node.subscribe(topic, none(TopicHandler))
+
+  # Resume previous relay connections
+  if node.peerManager.hasPeers(WakuRelayCodec):
+    info "Found previous WakuRelay peers. Reconnecting."
+    # Reconnect to previous relay peers. This will respect a backoff period, if necessary
+    await node.peerManager.reconnectPeers(WakuRelayCodec,
+                                          node.wakuRelay.parameters.pruneBackoff + chronos.seconds(BackoffSlackTime))
+
+  when defined(rln):
+    if node.wakuRelay.rlnRelayEnabled:
+      # TODO currently the message validator is set for the defaultTopic, this can be configurable to accept other pubsub topics as well 
+      addRLNRelayValidator(node, defaultTopic)
+      info "WakuRLNRelay is mounted successfully"
+  
+  # Start the WakuRelay protocol
+  await node.wakuRelay.start()
+
+  info "relay started successfully"
 
 proc mountRelay*(node: WakuNode,
                  topics: seq[string] = newSeq[string](),
@@ -495,44 +496,32 @@ proc mountRelay*(node: WakuNode,
   
   info "mounting relay", rlnRelayEnabled=rlnRelayEnabled, relayMessages=relayMessages
 
+  wakuRelay.confTopics = topics
+  wakuRelay.rlnRelayEnabled = rlnRelayEnabled
+
   node.switch.mount(wakuRelay, protocolMatcher(WakuRelayCodec))
 
-  if not relayMessages:
+  if relayMessages:
     ## Some nodes may choose not to have the capability to relay messages (e.g. "light" nodes).
     ## All nodes, however, currently require WakuRelay, regardless of desired capabilities.
     ## This is to allow protocol stream negotation with relay-capable nodes to succeed.
     ## Here we mount relay on the switch only, but do not proceed to subscribe to any pubsub
     ## topics. We also never start the relay protocol. node.wakuRelay remains nil.
-    ## @TODO: in future, this WakuRelay dependency will be removed completely
-    return
+    ## @TODO: in future, this WakuRelay dependency will be removed completely  
+    node.wakuRelay = wakuRelay
 
-  node.wakuRelay = wakuRelay
-
-  node.subscribe(defaultTopic, none(TopicHandler))
-
-  for topic in topics:
-    node.subscribe(topic, none(TopicHandler))
-
-  if node.peerManager.hasPeers(WakuRelayCodec):
-    trace "Found previous WakuRelay peers. Reconnecting."
-    # Reconnect to previous relay peers. This will respect a backoff period, if necessary
-    waitFor node.peerManager.reconnectPeers(WakuRelayCodec,
-                                            wakuRelay.parameters.pruneBackoff + chronos.seconds(BackoffSlackTime))
   when defined(rln):
     if rlnRelayEnabled:
       # TODO pass rln relay inputs to this proc, right now it uses default values that are set in the mountRlnRelay proc
       info "WakuRLNRelay is enabled"
       waitFor mountRlnRelay(node)
-      # TODO currently the message validator is set for the defaultTopic, this can be configurable to accept other pubsub topics as well 
-      addRLNRelayValidator(node, defaultTopic)
       info "WakuRLNRelay is mounted successfully"
-  
+
+  info "relay mounted successfully"
+
   if node.started:
-    # Node has already started. Start the WakuRelay protocol
-
-    waitFor node.wakuRelay.start()
-
-    info "relay mounted and started successfully"
+    # Node has started already. Let's start relay too.
+    waitFor node.startRelay()
 
 proc mountLightPush*(node: WakuNode) {.raises: [Defect, LPError].} =
   info "mounting light push"
@@ -648,8 +637,44 @@ proc connectToNodes*(n: WakuNode, nodes: seq[PeerInfo]) {.async.} =
   # later.
   await sleepAsync(5.seconds)
 
+proc start*(node: WakuNode) {.async.} =
+  ## Starts a created Waku Node and
+  ## all its mounted protocols.
+  ##
+  ## Status: Implemented.
+  
+  node.libp2pTransportLoops = await node.switch.start()
+  
+  # TODO Get this from WakuNode obj
+  let peerInfo = node.peerInfo
+  info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
+  let listenStr = $peerInfo.addrs[^1] & "/p2p/" & $peerInfo.peerId
+  ## XXX: this should be /ip4..., / stripped?
+  info "Listening on", full = listenStr
+
+  if not node.wakuRelay.isNil:
+    await node.startRelay()
+  
+  info "Node started successfully"
+  node.started = true
+
+proc stop*(node: WakuNode) {.async.} =
+  if not node.wakuRelay.isNil:
+    await node.wakuRelay.stop()
+
+  await node.switch.stop()
+
+  node.started = false
+
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
+  ## Node setup happens in 6 phases:
+  ## 1. Set up storage
+  ## 2. Initialise node
+  ## 3. Mount and initialise configured protocols
+  ## 4. Setup graceful shutdown hooks
+  ## 5. Start node and mounted protocols
+  ## 6. Start monitoring tools and external interfaces
   import
     system/ansi_c,
     confutils, json_rpc/rpcserver, metrics,
@@ -663,6 +688,13 @@ when isMainModule:
     ./storage/message/waku_message_store,
     ./storage/peer/waku_peer_storage,
     ../../common/utils/nat
+  
+  logScope:
+    topics = "wakunode.setup"
+  
+  ###############################
+  # Node setup helper functions #
+  ###############################
 
   proc startRpc(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port, conf: WakuNodeConf) {.raises: [Defect, RpcBindError, CatchableError].} =
     let
@@ -718,13 +750,41 @@ when isMainModule:
       info "Node metrics", totalMessages
       discard setTimer(Moment.fromNow(2.seconds), logMetrics)
     discard setTimer(Moment.fromNow(2.seconds), logMetrics)
+    
+  proc runMigrations(sqliteDatabase: SqliteDatabase, conf: WakuNodeConf) =
+    # Run migration scripts on persistent storage
+
+    var migrationPath: string
+    if conf.persistPeers and conf.persistMessages:
+      migrationPath = migration_types.ALL_STORE_MIGRATION_PATH
+    elif conf.persistPeers:
+      migrationPath = migration_types.PEER_STORE_MIGRATION_PATH
+    elif conf.persistMessages:
+      migrationPath = migration_types.MESSAGE_STORE_MIGRATION_PATH
+
+    # run migration 
+    info "running migration ... "
+    let migrationResult = sqliteDatabase.migrate(migrationPath)
+    if migrationResult.isErr:
+      warn "migration failed"
+    else:
+      info "migration is done"
   
   let
     conf = WakuNodeConf.load()
 
-  # Storage setup
-  var sqliteDatabase: SqliteDatabase
+  #####################
+  # 1/6 Setup storage #
+  #####################
 
+  debug "1/6 Setting up storage"
+
+  var
+    sqliteDatabase: SqliteDatabase
+    pStorage: WakuPeerStorage
+    mStorage: WakuMessageStore
+
+  # Setup DB
   if conf.dbPath != "":
     let dbRes = SqliteDatabase.init(conf.dbPath)
     if dbRes.isErr:
@@ -734,69 +794,59 @@ when isMainModule:
       sqliteDatabase = dbRes.value
 
   if not sqliteDatabase.isNil:
-    var  migrationPath = ""
-    if conf.persistPeers and conf.persistMessages: migrationPath = migration_types.ALL_STORE_MIGRATION_PATH
-    elif conf.persistPeers: migrationPath = migration_types.PEER_STORE_MIGRATION_PATH
-    elif conf.persistMessages: migrationPath = migration_types.MESSAGE_STORE_MIGRATION_PATH
+    # Database initialised. Let's set it up
+    sqliteDatabase.runMigrations(conf) # First migrate what we have
 
-    # run migration 
-    info "running migration ... "
-    let migrationResult = sqliteDatabase.migrate(migrationPath)
-    if migrationResult.isErr:
-      warn "migration failed"
-    else:
-      info "migration is done"
+    if conf.persistPeers:
+      # Peer persistence enable. Set up Peer table in storage
+      let res = WakuPeerStorage.new(sqliteDatabase)
 
-  var pStorage: WakuPeerStorage
+      if res.isErr:
+        warn "failed to init new WakuPeerStorage", err = res.error
+        waku_node_errors.inc(labelValues = ["init_store_failure"])
+      else:
+        pStorage = res.value
+    
+    if conf.persistMessages:
+      # Historical message persistence enable. Set up Message table in storage
+      let res = WakuMessageStore.init(sqliteDatabase)
 
-  if conf.persistPeers and not sqliteDatabase.isNil:
-    let res = WakuPeerStorage.new(sqliteDatabase)
-    if res.isErr:
-      warn "failed to init new WakuPeerStorage", err = res.error
-      waku_node_errors.inc(labelValues = ["init_store_failure"])
-    else:
-      pStorage = res.value
+      if res.isErr:
+        warn "failed to init WakuMessageStore", err = res.error
+        waku_node_errors.inc(labelValues = ["init_store_failure"])
+      else:
+        mStorage = res.value
+  
+  #######################
+  # 2/6 Initialise node #
+  #######################
+
+  debug "2/6 Initialising node"
 
   let
-    (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
-      Port(uint16(conf.tcpPort) + conf.portsShift),
-      Port(uint16(conf.udpPort) + conf.portsShift))
+    (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat,
+                                               clientId,
+                                               Port(uint16(conf.tcpPort) + conf.portsShift),
+                                               Port(uint16(conf.udpPort) + conf.portsShift))
     ## @TODO: the NAT setup assumes a manual port mapping configuration if extIp config is set. This probably
     ## implies adding manual config item for extPort as well. The following heuristic assumes that, in absence of manual
     ## config, the external port is the same as the bind port.
-    extPort = if extIp.isSome() and extTcpPort.isNone(): some(Port(uint16(conf.tcpPort) + conf.portsShift))
-              else: extTcpPort
+    extPort = if extIp.isSome() and extTcpPort.isNone():
+                some(Port(uint16(conf.tcpPort) + conf.portsShift))
+              else:
+                extTcpPort
     node = WakuNode.new(conf.nodekey,
                         conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
                         extIp, extPort,
                         pStorage)
 
-  waitFor node.start()
+  #######################
+  # 3/6 Mount protocols #
+  #######################
 
-  if conf.swap:
-    mountSwap(node)
+  debug "3/6 Mounting protocols"
 
-  # TODO Set swap peer, for now should be same as store peer
-
-  # Store setup
-  if (conf.storenode != "") or (conf.store):
-    var store: WakuMessageStore
-    if (not sqliteDatabase.isNil) and conf.persistMessages:
-
-      let res = WakuMessageStore.init(sqliteDatabase)
-      if res.isErr:
-        warn "failed to init WakuMessageStore", err = res.error
-        waku_node_errors.inc(labelValues = ["init_store_failure"])
-      else:
-        store = res.value
-
-    mountStore(node, store, conf.persistMessages)
-
-    if conf.storenode != "":
-      setStorePeer(node, conf.storenode)
-    
-
-  # Relay setup
+  # Mount relay on all nodes
   mountRelay(node,
              conf.topics.split(" "),
              rlnRelayEnabled = conf.rlnRelay,
@@ -805,12 +855,16 @@ when isMainModule:
   # Keepalive mounted on all nodes
   mountLibp2pPing(node)
   
-  # Resume historical messages, this has to be called after the relay setup           
-  if conf.store and conf.persistMessages:
-    waitFor node.resume()
+  if conf.swap:
+    mountSwap(node)
+    # TODO Set swap peer, for now should be same as store peer
 
-  if conf.staticnodes.len > 0:
-    waitFor connectToNodes(node, conf.staticnodes)
+  # Store setup
+  if (conf.storenode != "") or (conf.store):
+    mountStore(node, mStorage, conf.persistMessages)
+
+    if conf.storenode != "":
+      setStorePeer(node, conf.storenode)
 
   # NOTE Must be mounted after relay
   if (conf.lightpushnode != "") or (conf.lightpush):
@@ -825,18 +879,12 @@ when isMainModule:
 
     if conf.filternode != "":
       setFilterPeer(node, conf.filternode)
-
-  if conf.rpc:
-    startRpc(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift), conf)
-
-  if conf.metricsLogging:
-    startMetricsLog()
-
-  if conf.metricsServer:
-    startMetricsServer(conf.metricsServerAddress,
-      Port(conf.metricsServerPort + conf.portsShift))
   
-  # Setup graceful shutdown
+  ###############################
+  # 4/6 Setup graceful shutdown #
+  ###############################
+
+  debug "4/6 Setting up shutdown hooks"
   
   # Handle Ctrl-C SIGINT
   proc handleCtrlC() {.noconv.} =
@@ -858,8 +906,43 @@ when isMainModule:
     
     c_signal(SIGTERM, handleSigterm)
   
+  ################################
+  # 5/6 Start node and protocols #
+  ################################
+
+  debug "5/6 Starting node and mounted protocols"
+  
+  # Start Waku v2 node
+  waitFor node.start()
+  
+  # Resume historical messages, this has to be called after the node has been started
+  if conf.store and conf.persistMessages:
+    waitFor node.resume()
+  
+  # Connect to configured static nodes
+  if conf.staticnodes.len > 0:
+    waitFor connectToNodes(node, conf.staticnodes)
+
   # Start keepalive, if enabled
   if conf.keepAlive:
     node.startKeepalive()
+
+  #######################################
+  # 6/6 Start monitoring and interfaces #
+  #######################################
+
+  debug "6/6 Starting monitoring and external interfaces"
+
+  if conf.rpc:
+    startRpc(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift), conf)
+
+  if conf.metricsLogging:
+    startMetricsLog()
+
+  if conf.metricsServer:
+    startMetricsServer(conf.metricsServerAddress,
+      Port(conf.metricsServerPort + conf.portsShift))
+  
+  debug "Node setup complete"
 
   runForever()
