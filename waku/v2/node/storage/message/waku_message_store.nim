@@ -1,18 +1,14 @@
 {.push raises: [Defect].}
 
 import 
-  std/[os, algorithm, tables, strutils],
-  chronos, metrics, chronicles,
+  std/[tables, strutils],
   sqlite3_abi,
-  libp2p/crypto/crypto,
-  libp2p/protocols/protocol,
-  libp2p/protobuf/minprotobuf,
-  libp2p/stream/connection,
   stew/[byteutils, results],
   ./message_store,
   ../sqlite,
   ../../../protocol/waku_message,
-  ../../../utils/pagination 
+  ../../../utils/pagination
+
 export sqlite
 
 const TABLE_TITLE = "Message"

@@ -4,7 +4,6 @@ import
   std/options,
   chronicles,
   json_rpc/rpcserver,
-  ../../protocol/waku_store/waku_store_types,
   ../wakunode2,
   ./jsonrpc_types, ./jsonrpc_utils
 

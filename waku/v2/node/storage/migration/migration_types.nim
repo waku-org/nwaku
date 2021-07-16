@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import tables, stew/results, strutils, os
 
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]

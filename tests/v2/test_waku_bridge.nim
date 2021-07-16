@@ -82,8 +82,8 @@ procSuite "WakuBridge":
       toV2ContentTopic([byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]) == ContentTopic("/waku/1/1a2b3c4d/rlp")
     
     # Invalid cases
-    
-    expect ValueError:
+
+    expect LPError:
       # Content topic not namespaced
       discard toV1Topic(ContentTopic("this-is-my-content"))
     
