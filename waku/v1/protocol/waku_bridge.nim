@@ -12,7 +12,6 @@
 
 import
   eth/p2p,
-  #eth/p2p/rlpx_protocols/whisper_protocol,
   ../../whisper/whisper_protocol,
   ./waku_protocol
 

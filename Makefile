@@ -82,6 +82,11 @@ update: | update-common
 
 # a phony target, because teaching `make` how to do conditional recompilation of Nim projects is too complicated
 
+# Whisper tests
+testwhisper: | build deps
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim testwhisper $(NIM_PARAMS) waku.nims
+
 # Waku v1 targets
 wakunode1: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
