@@ -21,12 +21,16 @@
 ## Things like settlement is for future work.
 ##
 
+{.push raises: [Defect].}
+
+# TODO Generally clean up errors here, a lot of Exceptions, Defects and KeyErros
+#
+# On KeyEror specifically:
 # Accessing Table's items is prone to KeyError exception when the key does not belong to the table
-# such exception can be avoided by calling hasKey() before accessing the key (which is the case in this module) 
+# such exception can be avoided by calling hasKey() before accessing the key (which is the case in this module)
 # but from the compiler point of view, the use of hasKey() does not make any difference in the potential exceptions
-# @TODO thus any key access should be wrapped inside try-except 
-# @TODO or otherwise the exception should be thrown by the proc and handled by the higher level calls
-# {.push raises: [Defect].}
+# - thus any key access should be wrapped inside try-except
+# - or otherwise the exception should be thrown by the proc and handled by the higher level calls
 
 import
   std/[tables, options, json],
@@ -146,7 +150,7 @@ proc sendCheque*(ws: WakuSwap, peerInfo : PeerInfo) {.async.} =
   info "New accounting state", accounting = ws.accounting[peerId]
 
 # TODO Authenticate cheque, check beneficiary etc
-proc handleCheque*(ws: WakuSwap, cheque: Cheque, peerInfo : PeerInfo) =
+proc handleCheque*(ws: WakuSwap, cheque: Cheque, peerInfo : PeerInfo) {.raises: [Defect, KeyError].} =
   info "handle incoming cheque"
 
   let peerId = peerInfo.peerId
@@ -225,7 +229,8 @@ proc init*(wakuSwap: WakuSwap) =
     info "received cheque", value=res.value
     wakuSwap.handleCheque(res.value, conn.peerInfo)
 
-  proc credit(peerInfo: PeerInfo, n: int) {.gcsafe, closure.} =
+  proc credit(peerInfo: PeerInfo, n: int)
+    {.gcsafe, closure, raises: [Defect, KeyError, Exception].} =
     let peerId = peerInfo.peerId
     info "Crediting peer: ", peer=peerId, amount=n
     if wakuSwap.accounting.hasKey(peerId):
@@ -236,7 +241,8 @@ proc init*(wakuSwap: WakuSwap) =
     wakuSwap.applyPolicy(peerInfo)
 
   # TODO Debit and credit here for Karma asset
-  proc debit(peerInfo: PeerInfo, n: int) {.gcsafe, closure.} =
+  proc debit(peerInfo: PeerInfo, n: int)
+    {.gcsafe, closure, raises: [Defect, KeyError, Exception].} =
     let peerId = peerInfo.peerId
     info "Debiting peer: ", peer=peerId, amount=n
     if wakuSwap.accounting.hasKey(peerId):
@@ -246,7 +252,8 @@ proc init*(wakuSwap: WakuSwap) =
     info "Accounting state", accounting = wakuSwap.accounting[peerId]
     wakuSwap.applyPolicy(peerInfo)
     
-  proc applyPolicy(peerInfo: PeerInfo) {.gcsafe, closure.} = 
+  proc applyPolicy(peerInfo: PeerInfo)
+    {.gcsafe, closure, raises: [Defect, KeyError, Exception].} =
     let peerId = peerInfo.peerId
     # TODO Separate out depending on if policy is soft (accounting only) mock (send cheque but don't cash/verify) hard (actually send funds over testnet)
 
