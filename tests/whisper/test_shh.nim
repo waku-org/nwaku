@@ -12,8 +12,8 @@
 import
   std/[sequtils, options, unittest, tables],
   nimcrypto/hash,
-  ../../eth/[keys, rlp],
-  ../../eth/p2p/rlpx_protocols/whisper/whisper_types as whisper
+  eth/[keys, rlp],
+  ../../waku/whisper/whisper_types as whisper
 
 let rng = newRng()
 
