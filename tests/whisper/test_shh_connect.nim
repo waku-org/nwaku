@@ -1,6 +1,6 @@
 #
 #                 Ethereum P2P
-#              (c) Copyright 2018
+#              (c) Copyright 2018-2021
 #       Status Research & Development GmbH
 #
 #            Licensed under either of
