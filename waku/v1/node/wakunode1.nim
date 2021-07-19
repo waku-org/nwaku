@@ -4,7 +4,7 @@ import
   stew/shims/net as stewNet,
   eth/[keys, p2p], eth/common/utils,
   eth/p2p/[discovery, enode, peer_pool, bootnodes, whispernodes],
-  eth/p2p/rlpx_protocols/whisper_protocol,
+  ../../whisper/whisper_protocol,
   ../protocol/[waku_protocol, waku_bridge],
   ../../common/utils/nat,
   ./rpc/[waku, wakusim, key_storage], ./waku_helpers, ./config
