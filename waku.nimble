@@ -41,6 +41,10 @@ proc test(name: string, params = "-d:chronicles_log_level=DEBUG", lang = "c") =
   buildBinary name, "tests/", params
   exec "build/" & name
 
+### Whisper tasks
+task testwhisper, "Build & run Whisper tests":
+  test "all_tests_whisper", "-d:chronicles_log_level=WARN -d:chronosStrictException"
+
 ### Waku v1 tasks
 task wakunode1, "Build Waku v1 cli node":
   buildBinary "wakunode1", "waku/v1/node/",
