@@ -7,7 +7,7 @@
 #  Apache License, version 2.0, (LICENSE-APACHEv2)
 #            MIT license (LICENSE-MIT)
 
-import tables, eth/keys, eth/p2p/rlpx_protocols/whisper/whisper_types
+import tables, eth/keys, ../../../whisper/whisper_types
 
 type
   KeyStorage* = ref object

@@ -1,17 +1,20 @@
+{.push raises: [Defect].}
+
 import
   confutils, chronos, json_rpc/rpcserver, 
   metrics, metrics/chronicles_support, metrics/chronos_httpserver,
   stew/shims/net as stewNet,
   eth/[keys, p2p], eth/common/utils,
   eth/p2p/[discovery, enode, peer_pool, bootnodes, whispernodes],
-  eth/p2p/rlpx_protocols/whisper_protocol,
+  ../../whisper/whisper_protocol,
   ../protocol/[waku_protocol, waku_bridge],
   ../../common/utils/nat,
   ./rpc/[waku, wakusim, key_storage], ./waku_helpers, ./config
 
 const clientId = "Nimbus waku node"
 
-proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext) =
+proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext)
+      {.raises: [Defect, ValueError, RpcBindError, CatchableError, Exception]} =
   let
     (ipExt, tcpPortExt, udpPortExt) = setupNat(config.nat, clientId,
       Port(config.tcpPort + config.portsShift),
@@ -122,6 +125,7 @@ proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext) =
 
   runForever()
 
+{.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
   let
     rng = keys.newRng()
