@@ -61,7 +61,7 @@ proc toWakuRelayMessage*(message: WakuMessage, symkey: Option[SymKey], privateKe
   let
     keyInfo = if symkey.isSome(): KeyInfo(kind: Symmetric, symKey: symkey.get()) 
               elif privateKey.isSome(): KeyInfo(kind: Asymmetric, privKey: privateKey.get())
-              else: KeyInfo(kind: None)
+              else: KeyInfo(kind: KeyKind.None)
     decoded = decodePayload(message, keyInfo)
 
   WakuRelayMessage(payload: decoded.get().payload,

@@ -4,21 +4,36 @@
 
 {.push raises: [Defect].}
 
+# Group by std, external then internal imports
 import
+  # std imports
   std/[tables, times, sequtils, algorithm, options],
+  # external imports
   bearssl,
-  chronos, chronicles, metrics, stew/[results, byteutils, endians2],
+  chronicles,
+  chronos, 
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
+  metrics,
+  stew/[results, byteutils],
+  # internal imports
   ../../node/storage/message/message_store,
-  ../waku_swap/waku_swap,
-  ./waku_store_types,
+  ../../node/peer_manager/peer_manager,
   ../../utils/requests,
-  ../../node/peer_manager/peer_manager
+  ../waku_swap/waku_swap,
+  ./waku_store_types
+  
 
-export waku_store_types, message_store
+# export all modules whose types are used in public functions/types
+export 
+  options,
+  chronos,
+  bearssl,
+  minprotobuf,
+  peer_manager,
+  waku_store_types
 
 declarePublicGauge waku_store_messages, "number of historical messages", ["type"]
 declarePublicGauge waku_store_peers, "number of store peers"
