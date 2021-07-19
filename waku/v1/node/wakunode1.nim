@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import
   confutils, chronos, json_rpc/rpcserver, 
   metrics, metrics/chronicles_support, metrics/chronos_httpserver,
@@ -11,7 +13,8 @@ import
 
 const clientId = "Nimbus waku node"
 
-proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext) =
+proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext)
+      {.raises: [Defect, ValueError, RpcBindError, CatchableError, Exception]} =
   let
     (ipExt, tcpPortExt, udpPortExt) = setupNat(config.nat, clientId,
       Port(config.tcpPort + config.portsShift),
@@ -122,6 +125,7 @@ proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext) =
 
   runForever()
 
+{.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
   let
     rng = keys.newRng()
