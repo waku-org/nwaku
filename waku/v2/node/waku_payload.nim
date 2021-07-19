@@ -3,7 +3,7 @@
 import
   std/options,
   eth/keys,
-  eth/p2p/rlpx_protocols/whisper/whisper_types,
+  ../../whisper/whisper_types,
   ../protocol/waku_message
 
 export whisper_types, keys, options
