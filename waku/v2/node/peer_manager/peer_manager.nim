@@ -19,6 +19,7 @@ type
     switch*: Switch
     peerStore*: WakuPeerStore
     storage: PeerStorage
+    blacklist*: seq[PeerId]
 
 let
   defaultDialTimeout = chronos.minutes(1) # @TODO should this be made configurable?
@@ -55,6 +56,7 @@ proc dialPeer(pm: PeerManager, peerId: PeerID,
     # Attempt to dial remote peer
     if (await dialFut.withTimeout(dialTimeout)):
       waku_peers_dials.inc(labelValues = ["successful"])
+      debug "Dialing Peer"
       return some(dialFut.read())
     else:
       # @TODO any redial attempts?
@@ -94,7 +96,9 @@ proc loadFromStorage(pm: PeerManager) =
   if res.isErr:
     warn "failed to load peers from storage", err = res.error
     waku_peers_errors.inc(labelValues = ["storage_load_failure"])
-  
+
+
+
 ##################
 # Initialisation #
 ##################   
@@ -150,6 +154,8 @@ proc connectedness*(pm: PeerManager, peerId: PeerId): Connectedness =
   if (storedInfo == StoredInfo()):
     # Peer is not managed, therefore not connected
     return NotConnected
+  elif peerId in pm.blacklist:
+    return ShouldNotConnect
   else:
     pm.peerStore.connectionBook.get(peerId)
 
@@ -228,6 +234,13 @@ proc reconnectPeers*(pm: PeerManager, proto: string, backoff: chronos.Duration =
     trace "Reconnecting to peer", peerId=storedInfo.peerId
     discard await pm.dialPeer(storedInfo.peerId, toSeq(storedInfo.addrs), proto)
 
+proc addToBlacklist*(pm: PeerManager, peer: PeerId) = 
+  warn "Adding peer to blacklist"
+  pm.blacklist.add(peer)
+
+proc removeFromBlacklist*(pm: PeerManager, peer: PeerId) = 
+  pm.blacklist.delete(pm.blacklist.find(peer))
+
 ####################
 # Dialer interface #
 ####################
@@ -245,4 +258,11 @@ proc dialPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string, dialTimeout =
     # Do not attempt to dial self
     return none(Connection)
 
+  #Check the connectedness
+  let conn = pm.connectedness(peerInfo.peerId);
+  if conn == ShouldNotConnect:
+    warn "Peer has been blacklisted"
+    return none(Connection)
+
   return await pm.dialPeer(peerInfo.peerId, peerInfo.addrs, proto, dialTimeout)
+

@@ -2,8 +2,8 @@
 
 import
   std/[options, sets, tables, sequtils],
-  testutils/unittests, stew/shims/net as stewNet,
-  json_rpc/[rpcserver, rpcclient],
+  testutils/unittests, stew/shims/net as stewNet, 
+  json_rpc/[rpcserver, rpcclient], chronos, chronicles,
   eth/[keys, rlp], eth/common/eth_types,
   libp2p/[builders, switch, multiaddress],
   libp2p/protobuf/minprotobuf,
@@ -209,3 +209,98 @@ procSuite "Peer Manager":
       node3.peerManager.connectedness(peerInfo2.peerId) == Connected
     
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
+
+
+  asyncTest "Peer dialing fails when peer is blacklisted":
+      let
+        nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+        node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+          Port(60000))
+        nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+        node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+          Port(60002))
+        peerInfo2 = node2.peerInfo
+      
+      await allFutures([node1.start(), node2.start()])
+
+      node1.mountRelay()
+      node2.mountRelay()
+      node2.peerManager.addToBlacklist(node1.peerInfo.peerId)
+
+      # Dial node2 from node1
+      let conn = (await node1.peerManager.dialPeer(peerInfo2, WakuRelayCodec)).get()
+
+      #check blacklist
+      check:
+        node1.peerInfo.peerId in node2.peerManager.blacklist == true
+
+      # Check connection
+      check:
+        conn.activity
+        conn.peerInfo.peerId == peerInfo2.peerId
+      
+      # Check that node2 is being managed in node1
+      check:
+        node1.peerManager.peers().anyIt(it.peerId == peerInfo2.peerId)
+
+      # Check connectedness
+      check:
+        node2.peerManager.connectedness(node1.peerInfo.peerId) == Connectedness.ShouldNotConnect
+      
+      await allFutures([node1.stop(), node2.stop()])
+
+
+
+  asyncTest "Test Adding Peer to Blacklist":
+      let
+        nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+        node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+          Port(60000))
+        nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+        node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+          Port(60002))
+        peerInfo2 = node2.peerInfo
+      
+      await allFutures([node1.start(), node2.start()])
+
+      node1.mountRelay()
+      node2.mountRelay()
+      node2.peerManager.addToBlacklist(node1.peerInfo.peerId)
+
+      # Dial node2 from node1
+      let conn = (await node1.peerManager.dialPeer(peerInfo2, WakuRelayCodec)).get()
+
+      #check blacklist
+      check:
+        node1.peerInfo.peerId in node2.peerManager.blacklist == true
+
+      await allFutures([node1.stop(), node2.stop()])
+
+
+  asyncTest "Test Removing Peer from Blacklist":
+      let
+        nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+        node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+          Port(60000))
+        nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+        node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+          Port(60002))
+        peerInfo2 = node2.peerInfo
+      
+      await allFutures([node1.start(), node2.start()])
+
+      node1.mountRelay()
+      node2.mountRelay()
+      node2.peerManager.addToBlacklist(node1.peerInfo.peerId)
+      node2.peerManager.removeFromBlacklist(node1.peerInfo.peerId)
+
+      # Dial node2 from node1
+      let conn = (await node1.peerManager.dialPeer(peerInfo2, WakuRelayCodec)).get()
+
+      #check blacklist
+      check:
+        node1.peerInfo.peerId in node2.peerManager.blacklist == false
+
+      await allFutures([node1.stop(), node2.stop()])
+
+   

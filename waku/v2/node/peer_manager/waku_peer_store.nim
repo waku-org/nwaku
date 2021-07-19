@@ -16,7 +16,9 @@ type
     # CanConnect: was recently connected to peer and disconnected gracefully.
     CanConnect,
     # Connected: actively connected to peer.
-    Connected
+    Connected,
+    # ShouldNotConnect: connection was refused
+    ShouldNotConnect
   
   ConnectionBook* = object of PeerBook[Connectedness]
 
@@ -57,3 +59,18 @@ proc peers*(peerStore: WakuPeerStore): seq[StoredInfo] =
                        toSeq(keys(peerStore.keyBook.book))).toHashSet()
 
   return allKeys.mapIt(peerStore.get(it))
+
+
+proc deletePeer*(peerStore: WakuPeerStore, peerId: PeerID) =
+
+  if peerId in toSeq(keys(peerStore.addressBook.book)):
+    peerStore.addressBook.book.del(peerId) 
+
+  if peerId in toSeq(keys(peerStore.protoBook.book)):
+    peerStore.protoBook.book.del(peerId)
+
+  if peerId in toSeq(keys(peerStore.keyBook.book)):
+    peerStore.keyBook.book.del(peerId)
+
+  if peerId in toSeq(keys(peerStore.connectionBook.book)):
+    peerStore.connectionBook.book.del(peerId)

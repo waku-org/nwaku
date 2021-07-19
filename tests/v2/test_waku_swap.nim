@@ -107,7 +107,7 @@ procSuite "Waku SWAP Accounting":
     var futures = [newFuture[bool](), newFuture[bool]()]
 
     # Define the waku swap Config for this test
-    let swapConfig = SwapConfig(mode: SwapMode.Mock, paymentThreshold: 1, disconnectThreshold: -1)
+    let swapConfig = SwapConfig(mode: SwapMode.Mock, paymentThreshold: 1, disconnectThreshold: -1, stateUpdateOverRide: true)
 
     # Start nodes and mount protocols
     await node1.start()
@@ -140,5 +140,110 @@ procSuite "Waku SWAP Accounting":
       # After sending a cheque the balance is partially adjusted
       node1.wakuSwap.accounting[node2.peerInfo.peerId] == 1
       node2.wakuSwap.accounting[node1.peerInfo.peerId] == -1
+    await node1.stop()
+    await node2.stop()
+
+
+
+  asyncTest "Add peer to blacklist after disconnect Threshold is reached":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        Port(60001))
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
+      message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
+
+    var completionFut = newFuture[bool]()
+    var futures = [newFuture[bool](), newFuture[bool]()]
+
+
+    # Define the waku swap Config for this test
+    let swapConfig = SwapConfig(mode: SwapMode.Mock, paymentThreshold: 1, disconnectThreshold: -1, stateUpdateOverRide: true)
+
+    # Start nodes and mount protocols
+    await node1.start()
+    node1.mountSwap()
+    node1.mountStore(persistMessages = true)
+    await node2.start()
+    node2.mountSwap(swapConfig)
+    node2.mountStore(persistMessages = true)
+
+    await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
+    await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
+
+    await sleepAsync(2000.millis)
+
+    node1.wakuStore.setPeer(node2.peerInfo)
+    node1.wakuSwap.setPeer(node2.peerInfo)
+    node2.wakuSwap.setPeer(node1.peerInfo)
+
+    proc handler1(response: HistoryResponse) {.gcsafe, closure.} =
+      futures[0].complete(true)
+    proc handler2(response: HistoryResponse) {.gcsafe, closure.} =
+      futures[1].complete(true)
+
+
+    await node1.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic)]), handler1)
+    await node1.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic)]), handler2)
+
+    check:
+      # Accounting table updated with credit and debit, respectively
+      node1.peerInfo.peerId in node2.wakuSwap.peerManager.blacklist == true
+    await node1.stop()
+    await node2.stop()
+
+    # TODO Add cheque here
+  
+  
+  asyncTest "Remove peer from Blacklist after payment has been made":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        Port(60001))
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
+      message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
+
+    var futures = [newFuture[bool](), newFuture[bool]()]
+
+    # Define the waku swap Config for this test
+    let swapConfig = SwapConfig(mode: SwapMode.Mock, paymentThreshold: 1, disconnectThreshold: -10, stateUpdateOverRide: true)
+
+    # Start nodes and mount protocols
+    await node1.start()
+    node1.mountSwap(swapConfig)
+    node1.mountStore(persistMessages = true)
+    await node2.start()
+    node2.mountSwap(swapConfig)
+    node2.mountStore(persistMessages = true)
+
+    await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
+
+    await sleepAsync(2000.millis)
+
+    node1.wakuStore.setPeer(node2.peerInfo)
+    node1.wakuSwap.setPeer(node2.peerInfo)
+    node2.wakuSwap.setPeer(node1.peerInfo)
+    node2.wakuSwap.addPeerToBlacklist(node1.peerInfo)
+
+    proc handler1(response: HistoryResponse) {.gcsafe, closure.} =
+      futures[0].complete(true)
+    proc handler2(response: HistoryResponse) {.gcsafe, closure.} =
+      futures[1].complete(true)
+
+    # TODO Handshakes - for now we assume implicit, e2e still works for PoC
+    await node1.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic)]), handler1)
+    await node1.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic)]), handler2)
+
+    check:
+      (await allFutures(futures).withTimeout(5.seconds)) == true
+      # Accounting table updated with credit and debit, respectively
+      # After sending a cheque the balance is partially adjusted
+      node1.peerInfo.peerId in node2.wakuSwap.peerManager.blacklist == false
     await node1.stop()
     await node2.stop()

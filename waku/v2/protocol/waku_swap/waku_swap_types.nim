@@ -21,6 +21,7 @@ type
     mode* : SwapMode
     paymentThreshold* : int
     disconnectThreshold* : int
+    stateUpdateOverRide*: bool
 
   Beneficiary* = seq[byte]
   
@@ -54,5 +55,6 @@ proc init*(_: type[SwapConfig]): SwapConfig =
   SwapConfig(
       mode: SwapMode.Soft,
       paymentThreshold: 100,
-      disconnectThreshold: -100
+      disconnectThreshold: -100,
+      stateUpdateOverRide: true
   )

@@ -192,18 +192,19 @@ proc handleCheque*(ws: WakuSwap, cheque: Cheque, peerInfo : PeerInfo) {.raises: 
   # TODO Could imagine scenario where you don't cash cheque but leave it as credit
   # In that case, we would probably update accounting state, but keep track of cheques
 
-  # When this is true we update accounting state anyway when node is offline,
-  # makes waku_swap test pass for now
-  # Consider desired logic here
-  var stateUpdateOverRide = true
-
   if res.isOk():
     info "Updating accounting state with redeemed cheque"
     ws.accounting[peerId] += int(cheque.amount)
+
+    #Remove the Peer from the blacklist 
+    info "Removing peer from blacklist"
+    ws.peerManager.removeFromBlacklist(peerId)
+
   else:
-    if stateUpdateOverRide:
+    if ws.config.stateUpdateOverRide:
       info "Updating accounting state with even if cheque failed"
       ws.accounting[peerId] += int(cheque.amount)
+      ws.peerManager.removeFromBlacklist(peerId)
     else:
       info "Not updating accounting state with due to bad cheque"
 
@@ -251,28 +252,36 @@ proc init*(wakuSwap: WakuSwap) =
       wakuSwap.accounting[peerId] = n
     info "Accounting state", accounting = wakuSwap.accounting[peerId]
     wakuSwap.applyPolicy(peerInfo)
-    
-  proc applyPolicy(peerInfo: PeerInfo)
-    {.gcsafe, closure, raises: [Defect, KeyError, Exception].} =
+
+  proc disconnectThresholdReached(ws: WakuSwap, peerInfo: PeerInfo) {.gcsafe, closure.} = 
     let peerId = peerInfo.peerId
-    # TODO Separate out depending on if policy is soft (accounting only) mock (send cheque but don't cash/verify) hard (actually send funds over testnet)
+    warn "Disconnect threshhold has been reached: ", threshold=wakuSwap.config.disconnectThreshold, balance=wakuSwap.accounting[peerId]
+    ws.peerManager.addToBlacklist(peerId);
+    
+  
+  proc paymentThresholdReached(ws: WakuSwap, peerInfo: PeerInfo) {.gcsafe, closure.} = 
+    let peerId = peerInfo.peerId
+    warn "Payment threshhold has been reached: ", threshold=wakuSwap.config.paymentThreshold, balance=wakuSwap.accounting[peerId]
+    #In soft phase we don't send cheques yet
+    if wakuSwap.config.mode == Mock:
+      discard wakuSwap.sendCheque(peerInfo)
+
+
+  proc applyPolicy(peerInfo: PeerInfo) {.gcsafe, closure, raises: [Defect, KeyError, Exception].} =
 
     #Check if the Disconnect Threshold has been hit. Account Balance nears the disconnectThreshold after a Credit has been done
-    if wakuSwap.accounting[peerId] <= wakuSwap.config.disconnectThreshold:
-      warn "Disconnect threshhold has been reached: ", threshold=wakuSwap.config.disconnectThreshold, balance=wakuSwap.accounting[peerId]
+    if wakuSwap.accounting[peerInfo.peerId] <= wakuSwap.config.disconnectThreshold:
+      wakuSwap.disconnectThresholdReached(peerInfo)
     else:
       info "Disconnect threshhold not hit"
 
     #Check if the Payment threshold has been hit. Account Balance nears the paymentThreshold after a Debit has been done
-    if wakuSwap.accounting[peerId] >= wakuSwap.config.paymentThreshold:
-      warn "Payment threshhold has been reached: ", threshold=wakuSwap.config.paymentThreshold, balance=wakuSwap.accounting[peerId]
-      #In soft phase we don't send cheques yet
-      if wakuSwap.config.mode == Mock:
-        discard wakuSwap.sendCheque(peerInfo)
+    if wakuSwap.accounting[peerInfo.peerId] >= wakuSwap.config.paymentThreshold:
+      wakuSwap.paymentThresholdReached(peerInfo)
     else:
       info "Payment threshhold not hit"
 
-    waitFor wakuSwap.logAccountMetrics(peerId)
+    waitFor wakuSwap.logAccountMetrics(peerInfo.peerId)
 
   wakuSwap.handler = handle
   wakuSwap.codec = WakuSwapCodec
@@ -299,5 +308,11 @@ proc init*(T: type WakuSwap, peerManager: PeerManager, rng: ref BrHmacDrbgContex
 proc setPeer*(ws: WakuSwap, peer: PeerInfo) =
   ws.peerManager.addPeer(peer, WakuSwapCodec)
   waku_swap_peers_count.inc()
+
+proc addPeerToBlacklist*(ws: WakuSwap, peer: PeerInfo) =
+  ws.peerManager.addToBlacklist(peer.peerId)
+
+proc removePeerFromBlacklist*(ws: WakuSwap, peer: PeerInfo) =
+  ws.peerManager.removeFromBlacklist(peer.peerId)
 
 # TODO End to end communication
