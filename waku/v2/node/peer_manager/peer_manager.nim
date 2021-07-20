@@ -266,3 +266,7 @@ proc dialPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string, dialTimeout =
 
   return await pm.dialPeer(peerInfo.peerId, peerInfo.addrs, proto, dialTimeout)
 
+proc disconnectPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string) {.async.} =
+  if pm.hasPeer(peerInfo, proto):
+    await pm.switch.disconnect(peerInfo.peerId)
+
