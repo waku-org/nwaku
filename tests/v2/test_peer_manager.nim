@@ -303,4 +303,31 @@ procSuite "Peer Manager":
 
       await allFutures([node1.stop(), node2.stop()])
 
-   
+  asyncTest "Test Disconnecting Peer":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        Port(60000))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        Port(60002))
+      peerInfo2 = node2.peerInfo
+    
+    await allFutures([node1.start(), node2.start()])
+
+    node1.mountRelay()
+    node2.mountRelay()
+
+    # Dial node2 from node1
+    let conn = (await node1.peerManager.dialPeer(peerInfo2, WakuRelayCodec)).get()
+
+    #Disconnect the Peer
+    await node1.peerManager.disconnectPeer(node2.peerInfo, WakuRelayCodec)
+
+    #check if peer is still managed in node1
+    check:
+      node1.peerManager.hasPeer(node2.peerInfo, WakuRelayCodec) == false
+
+    await allFutures([node1.stop(), node2.stop()])
+
+  

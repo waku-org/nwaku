@@ -268,5 +268,7 @@ proc dialPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string, dialTimeout =
 
 proc disconnectPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string) {.async.} =
   if pm.hasPeer(peerInfo, proto):
+    debug "Disconnecting Peer... ", peerId=peerInfo.peerId
     await pm.switch.disconnect(peerInfo.peerId)
+    pm.peerStore.deletePeer(peerInfo.peerId)
 
