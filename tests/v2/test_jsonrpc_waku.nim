@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, sets, tables, os, strutils, sequtils],
+  std/[options, sets, tables, os, strutils, sequtils, times],
   testutils/unittests, stew/shims/net as stewNet,
   json_rpc/[rpcserver, rpcclient],
   eth/[keys, rlp], eth/common/eth_types,
@@ -99,7 +99,7 @@ procSuite "Waku v2 JSON-RPC API":
       response == true
     
     # Publish a message on the default topic
-    response = await client.post_waku_v2_relay_v1_message(defaultTopic, WakuRelayMessage(payload: @[byte 1], contentTopic: some(defaultContentTopic)))
+    response = await client.post_waku_v2_relay_v1_message(defaultTopic, WakuRelayMessage(payload: @[byte 1], contentTopic: some(defaultContentTopic), timestamp: some(epochTime())))
 
     check:
       # @TODO poll topic to verify message has been published
@@ -560,7 +560,7 @@ procSuite "Waku v2 JSON-RPC API":
       pubSubTopic = "polling"
       contentTopic = defaultContentTopic
       payload = @[byte 9]
-      message = WakuRelayMessage(payload: payload, contentTopic: some(contentTopic))
+      message = WakuRelayMessage(payload: payload, contentTopic: some(contentTopic), timestamp: some(epochTime()))
       topicCache = newTable[string, seq[WakuMessage]]()
 
     await node1.start()
@@ -650,7 +650,7 @@ procSuite "Waku v2 JSON-RPC API":
       pubSubTopic = "polling"
       contentTopic = defaultContentTopic
       payload = @[byte 9]
-      message = WakuRelayMessage(payload: payload, contentTopic: some(contentTopic))
+      message = WakuRelayMessage(payload: payload, contentTopic: some(contentTopic), timestamp: some(epochTime()))
       topicCache = newTable[string, seq[WakuMessage]]()
 
     await node1.start()
