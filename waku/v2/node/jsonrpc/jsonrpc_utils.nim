@@ -44,7 +44,7 @@ proc toWakuMessage*(relayMessage: WakuRelayMessage, version: uint32): WakuMessag
     t = relayMessage.timestamp.get 
   else: 
     # incoming WakuRelayMessages with no timestamp will get 0 timestamp
-    t = float(0)
+    t = float64(0)
   WakuMessage(payload: relayMessage.payload,
               contentTopic: if relayMessage.contentTopic.isSome: relayMessage.contentTopic.get else: defaultCT,
               version: version,
@@ -63,7 +63,7 @@ proc toWakuMessage*(relayMessage: WakuRelayMessage, version: uint32, rng: ref Br
     t = relayMessage.timestamp.get 
   else: 
     # incoming WakuRelayMessages with no timestamp will get 0 timestamp
-    t = float(0)
+    t = float64(0)
 
   WakuMessage(payload: payload.encode(version, rng[]).get(),
               contentTopic: if relayMessage.contentTopic.isSome: relayMessage.contentTopic.get else: defaultCT,
