@@ -2,11 +2,13 @@
 
 import
   std/[tables,sequtils],
+  chronicles,
   json_rpc/rpcserver,
   nimcrypto/sysrand,
-  eth/[common, rlp, keys, p2p],
-  ../wakunode2, ../waku_payload,
-  ./jsonrpc_types, ./jsonrpc_utils
+  ../wakunode2,
+  ../waku_payload,
+  ./jsonrpc_types,
+  ./jsonrpc_utils
 
 export waku_payload, jsonrpc_types
 
@@ -37,7 +39,7 @@ proc installPrivateApiHandlers*(node: WakuNode, rpcsrv: RpcServer, rng: ref BrHm
 
     let msg = message.toWakuMessage(version = 1,
                                     rng = rng,
-                                    pubKey = none(keys.PublicKey),
+                                    pubKey = none(waku_payload.PublicKey),
                                     symkey =  some(symkey.toSymKey()))
 
     if (await node.publish(topic, msg).withTimeout(futTimeout)):
@@ -60,7 +62,7 @@ proc installPrivateApiHandlers*(node: WakuNode, rpcsrv: RpcServer, rng: ref BrHm
       # Clear cache before next call
       topicCache[topic] = @[]
       return msgs.mapIt(it.toWakuRelayMessage(symkey = some(symkey.toSymKey()),
-                                              privateKey = none(keys.PrivateKey)))
+                                              privateKey = none(waku_payload.PrivateKey)))
     else:
       # Not subscribed to this topic
       raise newException(ValueError, "Not subscribed to topic: " & topic)
@@ -71,7 +73,7 @@ proc installPrivateApiHandlers*(node: WakuNode, rpcsrv: RpcServer, rng: ref BrHm
     ## Generates and returns a public/private key pair for asymmetric message encryption and decryption.
     debug "get_waku_v2_private_v1_asymmetric_keypair"
 
-    let privKey = keys.PrivateKey.random(rng[])
+    let privKey = waku_payload.PrivateKey.random(rng[])
 
     return WakuKeyPair(seckey: privKey, pubkey: privKey.toPublicKey())
 
