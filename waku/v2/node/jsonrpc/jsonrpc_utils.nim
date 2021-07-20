@@ -9,7 +9,7 @@ import
 
 export hexstrings
 
-# Json marshalling
+## Json marshalling
 
 proc `%`*(value: WakuMessage): JsonNode =
   ## This ensures that seq[byte] fields are marshalled to hex-format JStrings

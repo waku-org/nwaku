@@ -8,10 +8,10 @@
 {.push raises: [Defect].}
 
 import
-  std/[algorithm, bitops, math, options, sets, tables, times, hashes],
+  std/[algorithm, bitops, math, options, tables, times, hashes],
   chronicles, stew/[byteutils, endians2], metrics, bearssl,
   nimcrypto/[bcmode, hash, keccak, rijndael],
-  eth/[keys, rlp], eth/p2p/ecies
+  eth/[keys, rlp, p2p], eth/p2p/ecies
 
 when chronicles.enabledLogLevel == LogLevel.TRACE:
   import std/strutils

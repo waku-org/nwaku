@@ -453,9 +453,7 @@ proc startRelay*(node: WakuNode) {.async.} =
   info "starting relay"
   
   # Topic subscriptions
-  node.subscribe(defaultTopic, none(TopicHandler))
-
-  for topic in node.wakuRelay.confTopics:
+  for topic in node.wakuRelay.defaultTopics:
     node.subscribe(topic, none(TopicHandler))
 
   # Resume previous relay connections
@@ -495,7 +493,9 @@ proc mountRelay*(node: WakuNode,
   
   info "mounting relay", rlnRelayEnabled=rlnRelayEnabled, relayMessages=relayMessages
 
-  wakuRelay.confTopics = topics
+  ## The default relay topics is the union of
+  ## all configured topics plus the hard-coded defaultTopic(s)
+  wakuRelay.defaultTopics = concat(@[defaultTopic], topics)
   wakuRelay.rlnRelayEnabled = rlnRelayEnabled
 
   node.switch.mount(wakuRelay, protocolMatcher(WakuRelayCodec))

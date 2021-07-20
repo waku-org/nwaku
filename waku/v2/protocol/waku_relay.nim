@@ -19,7 +19,7 @@ const
 
 type
   WakuRelay* = ref object of GossipSub
-    confTopics*: seq[string] # Configured PubSub topics
+    defaultTopics*: seq[string] # Default configured PubSub topics
     rlnRelayEnabled*: bool # Flag indicating if RLN relay is enabled
 
 method init*(w: WakuRelay) =
