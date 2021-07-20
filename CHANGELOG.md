@@ -12,7 +12,7 @@ This release contains the following:
 - Support for stable version of `relay` protocol, with protocol ID `/vac/waku/relay/2.0.0`
 - Support for multiple protocol IDs - now matches any protocol that adds postfix to stable ID.
 - Updates the order of fields of `HistoryResponse` protobuf message. 
-  The filed numbers are shifted up by one to match up the [13/WAKU2-STORE](https://rfc.vac.dev/spec/13/) specs. 
+  The filed numbers of `HistoryResponse` are shifted up by one to match up the [13/WAKU2-STORE](https://rfc.vac.dev/spec/13/) specs. 
 
 #### General refactoring
 #### Docs
