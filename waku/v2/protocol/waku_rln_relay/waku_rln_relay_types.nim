@@ -3,6 +3,8 @@ import
   web3,
   eth/keys
 
+export web3
+
 ## Bn256 and RLN are Nim wrappers for the data types used in 
 ## the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
 type Bn256* = pointer
