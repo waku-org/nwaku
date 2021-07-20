@@ -1,39 +1,15 @@
 import
   std/[options, json],
-  stew/byteutils,
   eth/keys,
+  ../../../v1/node/rpc/hexstrings,
   ../../protocol/waku_store/waku_store_types,
   ../../protocol/waku_message,
   ../waku_payload,
   ./jsonrpc_types
 
-type
-  HexStrings* = distinct string
+export hexstrings
 
-## Hex tools
-
-proc toPublicKey*(key: string): waku_payload.PublicKey {.inline.} =
-  result = waku_payload.PublicKey.fromHex(key[4 .. ^1]).tryGet()
-
-proc toPrivateKey*(key: string): waku_payload.PrivateKey {.inline.} =
-  result = waku_payload.PrivateKey.fromHex(key[2 .. ^1]).tryGet()
-
-proc toSymKey*(key: string): SymKey {.inline.} =
-  hexToByteArray(key[2 .. ^1], result)
-
-## Json marshalling
-
-proc `%`*(value: HexStrings): JsonNode =
-  result = %(value.string)
-
-proc `%`*(value: waku_payload.PublicKey): JsonNode =
-  result = %("0x04" & $value)
-
-proc `%`*(value: waku_payload.PrivateKey): JsonNode =
-  result = %("0x" & $value)
-
-proc `%`*(value: SymKey): JsonNode =
-  result = %("0x" & value.toHex)
+# Json marshalling
 
 proc `%`*(value: WakuMessage): JsonNode =
   ## This ensures that seq[byte] fields are marshalled to hex-format JStrings
