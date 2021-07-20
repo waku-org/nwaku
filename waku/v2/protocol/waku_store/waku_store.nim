@@ -174,17 +174,17 @@ proc init*(T: type HistoryResponse, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
 
   var messages: seq[seq[byte]]
-  discard ? pb.getRepeatedField(1, messages)
+  discard ? pb.getRepeatedField(2, messages)
 
   for buf in messages:
     msg.messages.add(? WakuMessage.init(buf))
 
   var pagingInfoBuffer: seq[byte]
-  discard ? pb.getField(2,pagingInfoBuffer)
+  discard ? pb.getField(3, pagingInfoBuffer)
   msg.pagingInfo= ? PagingInfo.init(pagingInfoBuffer)
 
   var error: uint32
-  discard ? pb.getField(3, error)
+  discard ? pb.getField(4, error)
   msg.error = HistoryResponseError(error)
 
   return ok(msg)
@@ -232,11 +232,11 @@ proc encode*(response: HistoryResponse): ProtoBuffer =
   var output = initProtoBuffer()
 
   for msg in response.messages:
-    output.write(1, msg.encode())
+    output.write(2, msg.encode())
 
-  output.write(2, response.pagingInfo.encode())
+  output.write(3, response.pagingInfo.encode())
 
-  output.write(3, uint32(ord(response.error)))
+  output.write(4, uint32(ord(response.error)))
 
   return output
 
