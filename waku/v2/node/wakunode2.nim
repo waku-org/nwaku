@@ -459,9 +459,12 @@ proc startRelay*(node: WakuNode) {.async.} =
   # Resume previous relay connections
   if node.peerManager.hasPeers(WakuRelayCodec):
     info "Found previous WakuRelay peers. Reconnecting."
+    
     # Reconnect to previous relay peers. This will respect a backoff period, if necessary
+    let backoffPeriod = node.wakuRelay.parameters.pruneBackoff + chronos.seconds(BackoffSlackTime)
+
     await node.peerManager.reconnectPeers(WakuRelayCodec,
-                                          node.wakuRelay.parameters.pruneBackoff + chronos.seconds(BackoffSlackTime))
+                                          backoffPeriod)
 
   when defined(rln):
     if node.wakuRelay.rlnRelayEnabled:
