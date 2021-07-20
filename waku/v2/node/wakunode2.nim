@@ -33,6 +33,7 @@ export
 when defined(rln):
   import
     libp2p/protocols/pubsub/rpc/messages,
+    web3,
     ../protocol/waku_rln_relay/[rln, waku_rln_relay_utils]
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
