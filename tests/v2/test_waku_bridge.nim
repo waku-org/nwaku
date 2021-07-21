@@ -50,7 +50,7 @@ procSuite "WakuBridge":
     v2NodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
     v2Node = WakuNode.new(v2NodeKey, ValidIpAddress.init("0.0.0.0"), Port(60002))
 
-    contentTopic = ContentTopic("/waku/1/1a2b3c4d/rlp")
+    contentTopic = ContentTopic("/waku/1/0x1a2b3c4d/rlp")
     topic = [byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]
     payloadV1 = "hello from V1".toBytes()
     payloadV2 = "hello from V2".toBytes()
@@ -74,13 +74,15 @@ procSuite "WakuBridge":
     # Expected cases
     
     check:
-      toV1Topic(ContentTopic("/waku/1/00000000/rlp")) == [byte 0x00, byte 0x00, byte 0x00, byte 0x00]
-      toV2ContentTopic([byte 0x00, byte 0x00, byte 0x00, byte 0x00]) == ContentTopic("/waku/1/00000000/rlp")
-      toV1Topic(ContentTopic("/waku/1/ffffffff/rlp")) == [byte 0xff, byte 0xff, byte 0xff, byte 0xff]
-      toV2ContentTopic([byte 0xff, byte 0xff, byte 0xff, byte 0xff]) == ContentTopic("/waku/1/ffffffff/rlp")
+      toV1Topic(ContentTopic("/waku/1/0x00000000/rlp")) == [byte 0x00, byte 0x00, byte 0x00, byte 0x00]
+      toV2ContentTopic([byte 0x00, byte 0x00, byte 0x00, byte 0x00]) == ContentTopic("/waku/1/0x00000000/rlp")
+      toV1Topic(ContentTopic("/waku/1/0xffffffff/rlp")) == [byte 0xff, byte 0xff, byte 0xff, byte 0xff]
+      toV2ContentTopic([byte 0xff, byte 0xff, byte 0xff, byte 0xff]) == ContentTopic("/waku/1/0xffffffff/rlp")
+      toV1Topic(ContentTopic("/waku/1/0x1a2b3c4d/rlp")) == [byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]
+      toV2ContentTopic([byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]) == ContentTopic("/waku/1/0x1a2b3c4d/rlp")
+      # Topic conversion should still work where '0x' prefix is omitted from <v1 topic byte array>
       toV1Topic(ContentTopic("/waku/1/1a2b3c4d/rlp")) == [byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]
-      toV2ContentTopic([byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]) == ContentTopic("/waku/1/1a2b3c4d/rlp")
-    
+
     # Invalid cases
 
     expect LPError:
@@ -89,7 +91,7 @@ procSuite "WakuBridge":
     
     expect ValueError:
       # Content topic name too short
-      discard toV1Topic(ContentTopic("/waku/1/112233/rlp"))
+      discard toV1Topic(ContentTopic("/waku/1/0x112233/rlp"))
     
     expect ValueError:
       # Content topic name not hex
