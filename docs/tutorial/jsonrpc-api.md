@@ -109,7 +109,8 @@ To publish a message to a pubsub topic, call the [`post_waku_v2_relay_v1_message
   "params": [
     "my_topic_1",
     {
-      "payload": "0x1a2b3c4d5e6f"
+      "payload": "0x1a2b3c4d5e6f",
+      "timestamp": 1626813243.916377
     }
   ]
 }
