@@ -11,6 +11,8 @@ This release contains the following:
 - Updates the `resume` Nim API to fetch historical messages in sequence of pages.
 - Support for stable version of `relay` protocol, with protocol ID `/vac/waku/relay/2.0.0`
 - Support for multiple protocol IDs - now matches any protocol that adds postfix to stable ID.
+- Updates the order of fields of `HistoryResponse` protobuf message. 
+  The filed numbers of the `HistoryResponse` are shifted up by one to match up the [13/WAKU2-STORE](https://rfc.vac.dev/spec/13/) specs. 
 
 #### General refactoring
 #### Docs
