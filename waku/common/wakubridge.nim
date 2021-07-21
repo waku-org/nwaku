@@ -66,12 +66,14 @@ proc containsOrAdd(sequence: var seq[hashes.Hash], hash: hashes.Hash): bool =
 proc toV2ContentTopic*(v1Topic: waku_protocol.Topic): ContentTopic =
   ## Convert a 4-byte array v1 topic to a namespaced content topic
   ## with format `/waku/1/<v1-topic-bytes-as-hex>/proto`
+  ## 
+  ## <v1-topic-bytes-as-hex> should be prefixed with `0x`
   
   var namespacedTopic = NamespacedTopic()
   
   namespacedTopic.application = "waku"
   namespacedTopic.version = "1"
-  namespacedTopic.topicName = v1Topic.toHex()
+  namespacedTopic.topicName = "0x" & v1Topic.toHex()
   namespacedTopic.encoding = "rlp"
 
   return ContentTopic($namespacedTopic)

@@ -24,6 +24,7 @@ This release contains the following:
 #### API
 
 ### Fixes
+- Conversion between topics for the Waku v1 <-> v2 bridge now follows the [RFC recommendation](https://rfc.vac.dev/spec/23/)
 
 ## 2021-06-03 v0.4
 
