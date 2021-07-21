@@ -65,10 +65,13 @@ proc startRpc*(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port, conf: WakuN
   rpcServer.start()
   info "RPC Server started", ta
 
-proc startMetricsServer*(serverIp: ValidIpAddress, serverPort: Port) {.raises: [Defect, Exception].} =
+proc startMetricsServer*(serverIp: ValidIpAddress, serverPort: Port) =
     info "Starting metrics HTTP server", serverIp, serverPort
     
-    startMetricsHttpServer($serverIp, serverPort)
+    try:
+      startMetricsHttpServer($serverIp, serverPort)
+    except Exception as e:
+      raiseAssert("Exception while starting metrics HTTP server: " & e.msg)
 
     info "Metrics HTTP server started", serverIp, serverPort
 
