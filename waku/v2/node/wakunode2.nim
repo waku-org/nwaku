@@ -31,7 +31,10 @@ export
   waku_rln_relay_types
 
 when defined(rln):
-  import ../protocol/waku_rln_relay/[rln, waku_rln_relay_utils]
+  import
+    libp2p/protocols/pubsub/rpc/messages,
+    web3,
+    ../protocol/waku_rln_relay/[rln, waku_rln_relay_utils]
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicGauge waku_node_filters, "number of content filter subscriptions"
@@ -462,6 +465,7 @@ when defined(rln):
     node.wakuRlnRelay = rlnPeer
 
 when defined(rln):
+
   proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
     ## this procedure is a thin wrapper for the pubsub addValidator method
     ## it sets message validator on the given pubsubTopic, the validator will check that
