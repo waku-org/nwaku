@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import
   std/[options,tables],
   eth/keys,
