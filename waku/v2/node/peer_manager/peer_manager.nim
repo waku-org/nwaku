@@ -4,7 +4,8 @@ import
   std/[options, sets, sequtils, times],
   chronos, chronicles, metrics,
   ./waku_peer_store,
-  ../storage/peer/peer_storage
+  ../storage/peer/peer_storage,
+  ../../../../vendor/nim-libp2p/libp2p/errors
 
 export waku_peer_store, peer_storage
 
@@ -266,9 +267,8 @@ proc dialPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string, dialTimeout =
 
   return await pm.dialPeer(peerInfo.peerId, peerInfo.addrs, proto, dialTimeout)
 
-proc disconnectPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string) {.async.} =
+proc disconnectPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string) =
   if pm.hasPeer(peerInfo, proto):
     debug "Disconnecting Peer... ", peerId=peerInfo.peerId
-    await pm.switch.disconnect(peerInfo.peerId)
     pm.peerStore.deletePeer(peerInfo.peerId)
-
+    asyncSpawn pm.switch.disconnect(peerInfo.peerId)

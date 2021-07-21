@@ -107,7 +107,7 @@ procSuite "Waku SWAP Accounting":
     var futures = [newFuture[bool](), newFuture[bool]()]
 
     # Define the waku swap Config for this test
-    let swapConfig = SwapConfig(mode: SwapMode.Mock, paymentThreshold: 1, disconnectThreshold: -1, stateUpdateOverRide: true)
+    let swapConfig = SwapConfig(mode: SwapMode.Mock, paymentThreshold: 1, disconnectThreshold: -1, stateUpdateOverRide: true, closePeerConnection: false)
 
     # Start nodes and mount protocols
     await node1.start()
@@ -161,7 +161,7 @@ procSuite "Waku SWAP Accounting":
 
 
     # Define the waku swap Config for this test
-    let swapConfig = SwapConfig(mode: SwapMode.Mock, paymentThreshold: 1, disconnectThreshold: -1, stateUpdateOverRide: true)
+    let swapConfig = SwapConfig(mode: SwapMode.Mock, paymentThreshold: 1, disconnectThreshold: -1, stateUpdateOverRide: true, closePeerConnection: false)
 
     # Start nodes and mount protocols
     await node1.start()
