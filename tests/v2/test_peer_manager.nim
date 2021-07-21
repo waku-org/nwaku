@@ -322,7 +322,7 @@ procSuite "Peer Manager":
     let conn = (await node1.peerManager.dialPeer(peerInfo2, WakuRelayCodec)).get()
 
     #Disconnect the Peer
-    await node1.peerManager.disconnectPeer(node2.peerInfo, WakuRelayCodec)
+    node1.peerManager.disconnectPeer(node2.peerInfo, WakuRelayCodec)
 
     #check if peer is still managed in node1
     check:
