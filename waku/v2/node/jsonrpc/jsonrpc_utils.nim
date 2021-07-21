@@ -39,9 +39,16 @@ proc toStoreResponse*(historyResponse: HistoryResponse): StoreResponse =
 
 proc toWakuMessage*(relayMessage: WakuRelayMessage, version: uint32): WakuMessage =
   const defaultCT = ContentTopic("/waku/2/default-content/proto")
+  var t: float64
+  if relayMessage.timestamp.isSome: 
+    t = relayMessage.timestamp.get 
+  else: 
+    # incoming WakuRelayMessages with no timestamp will get 0 timestamp
+    t = float64(0)
   WakuMessage(payload: relayMessage.payload,
               contentTopic: if relayMessage.contentTopic.isSome: relayMessage.contentTopic.get else: defaultCT,
-              version: version)
+              version: version,
+              timestamp: t) 
 
 proc toWakuMessage*(relayMessage: WakuRelayMessage, version: uint32, rng: ref BrHmacDrbgContext, symkey: Option[SymKey], pubKey: Option[keys.PublicKey]): WakuMessage =
   # @TODO global definition for default content topic
@@ -51,9 +58,17 @@ proc toWakuMessage*(relayMessage: WakuRelayMessage, version: uint32, rng: ref Br
                         dst: pubKey,
                         symkey: symkey)
 
+  var t: float64
+  if relayMessage.timestamp.isSome: 
+    t = relayMessage.timestamp.get 
+  else: 
+    # incoming WakuRelayMessages with no timestamp will get 0 timestamp
+    t = float64(0)
+
   WakuMessage(payload: payload.encode(version, rng[]).get(),
               contentTopic: if relayMessage.contentTopic.isSome: relayMessage.contentTopic.get else: defaultCT,
-              version: version)
+              version: version,
+              timestamp: t) 
 
 proc toWakuRelayMessage*(message: WakuMessage, symkey: Option[SymKey], privateKey: Option[keys.PrivateKey]): WakuRelayMessage =
   # @TODO global definition for default content topic
@@ -65,5 +80,6 @@ proc toWakuRelayMessage*(message: WakuMessage, symkey: Option[SymKey], privateKe
     decoded = decodePayload(message, keyInfo)
 
   WakuRelayMessage(payload: decoded.get().payload,
-                   contentTopic: some(message.contentTopic))
+                   contentTopic: some(message.contentTopic),
+                   timestamp: some(message.timestamp))
 
