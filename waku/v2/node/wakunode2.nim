@@ -549,7 +549,7 @@ proc mountLibp2pPing*(node: WakuNode) {.raises: [Defect, LPError].} =
   except Exception as e:
     # This is necessary as `Ping.new*` does not have explicit `raises` requirement
     # @TODO: remove exception handling once explicit `raises` in ping module
-    raise newException(LPError, "Failed to initialise ping protocol")
+    raise newException(LPError, "Failed to initialize ping protocol")
 
   node.switch.mount(node.libp2pPing)
 
@@ -676,8 +676,8 @@ proc stop*(node: WakuNode) {.async.} =
 when isMainModule:
   ## Node setup happens in 6 phases:
   ## 1. Set up storage
-  ## 2. Initialise node
-  ## 3. Mount and initialise configured protocols
+  ## 2. Initialize node
+  ## 3. Mount and initialize configured protocols
   ## 4. Start node and mounted protocols
   ## 5. Start monitoring tools and external interfaces
   ## 6. Setup graceful shutdown hooks
@@ -699,8 +699,8 @@ when isMainModule:
   ###################
 
   # 1/6 Setup storage
-  proc setupStorage*(conf: WakuNodeConf):
-    tuple[pStorage: WakuPeerStorage, mStorage: WakuMessageStore] =
+  proc setupStorage(conf: WakuNodeConf):
+    SetupResult[tuple[pStorage: WakuPeerStorage, mStorage: WakuMessageStore]] =
 
     ## Setup a SQLite Database for a wakunode based on a supplied
     ## configuration file and perform all necessary migration.
@@ -718,11 +718,12 @@ when isMainModule:
       if dbRes.isErr:
         warn "failed to init database", err = dbRes.error
         waku_node_errors.inc(labelValues = ["init_db_failure"])
+        return err("failed to init database")
       else:
         sqliteDatabase = dbRes.value
 
     if not sqliteDatabase.isNil:
-      # Database initialised. Let's set it up
+      # Database initialized. Let's set it up
       sqliteDatabase.runMigrations(conf) # First migrate what we have
 
       if conf.persistPeers:
@@ -745,11 +746,11 @@ when isMainModule:
         else:
           storeTuple.mStorage = res.value
     
-    return storeTuple
+    ok(storeTuple)
 
-  # 2/6 Initialise node
-  proc initialiseNode*(conf: WakuNodeConf,
-                       pStorage: WakuPeerStorage = nil): SetupResult[WakuNode] =
+  # 2/6 Initialize node
+  proc initNode(conf: WakuNodeConf,
+                pStorage: WakuPeerStorage = nil): SetupResult[WakuNode] =
     
     ## Setup a basic Waku v2 node based on a supplied configuration
     ## file. Optionally include persistent peer storage.
@@ -774,10 +775,10 @@ when isMainModule:
     
     ok(node)
 
-  # 3/6 Mount and initialise configured protocols
-  proc setupProtocols*(node: var WakuNode,
+  # 3/6 Mount and initialize configured protocols
+  proc setupProtocols(node: var WakuNode,
                        conf: WakuNodeConf,
-                       mStorage: WakuMessageStore = nil) =
+                       mStorage: WakuMessageStore = nil): SetupResult[bool] =
     
     ## Setup configured protocols on an existing Waku v2 node.
     ## Optionally include persistent message storage.
@@ -816,9 +817,11 @@ when isMainModule:
 
       if conf.filternode != "":
         setFilterPeer(node, conf.filternode)
+    
+    ok(true) # Success
 
   # 4/6 Start node and mounted protocols
-  proc startNode*(node: WakuNode, conf: WakuNodeConf) =
+  proc startNode(node: WakuNode, conf: WakuNodeConf): SetupResult[bool] =
     ## Start a configured node and all mounted protocols.
     ## Resume history, connect to static nodes and start
     ## keep-alive, if configured.
@@ -837,9 +840,11 @@ when isMainModule:
     # Start keepalive, if enabled
     if conf.keepAlive:
       node.startKeepalive()
+    
+    ok(true) # Success
 
   # 5/6 Start monitoring tools and external interfaces
-  proc startExternal*(node: WakuNode, conf: WakuNodeConf) =
+  proc startExternal(node: WakuNode, conf: WakuNodeConf): SetupResult[bool] =
     ## Start configured external interfaces and monitoring tools
     ## on a Waku v2 node, including the RPC API and metrics
     ## monitoring ports.
@@ -853,6 +858,8 @@ when isMainModule:
     if conf.metricsServer:
       startMetricsServer(conf.metricsServerAddress,
         Port(conf.metricsServerPort + conf.portsShift))
+    
+    ok(true) # Success
   
   let
     conf = WakuNodeConf.load()
@@ -866,23 +873,47 @@ when isMainModule:
 
   debug "1/6 Setting up storage"
 
-  let (pStorage, mStorage) = setupStorage(conf)
+  var
+    pStorage: WakuPeerStorage
+    mStorage: WakuMessageStore
+  
+  let setupStorageRes = setupStorage(conf)
 
-  debug "2/6 Initialising node"
+  if setupStorageRes.isErr:
+    error "1/6 Setting up storage failed. Continuing without storage."
+  else:
+    (pStorage, mStorage) = setupStorageRes.get()
 
-  node = initialiseNode(conf, pStorage).tryGet()
+  debug "2/6 Initializing node"
+
+  let initNodeRes = initNode(conf, pStorage)
+
+  if initNodeRes.isErr:
+    error "2/6 Initializing node failed. Quitting."
+    quit(QuitFailure)
+  else:
+    node = initNodeRes.get()
 
   debug "3/6 Mounting protocols"
 
-  setupProtocols(node, conf, mStorage)
+  let setupProtocolsRes = setupProtocols(node, conf, mStorage)
+
+  if setupProtocolsRes.isErr:
+    error "3/6 Mounting protocols failed. Continuing in current state."
 
   debug "4/6 Starting node and mounted protocols"
   
-  startNode(node, conf)
+  let startNodeRes = startNode(node, conf)
+
+  if startNodeRes.isErr:
+    error "4/6 Starting node and mounted protocols failed. Continuing in current state."
 
   debug "5/6 Starting monitoring and external interfaces"
 
-  startExternal(node, conf)
+  let startExternalRes = startExternal(node, conf)
+
+  if startExternalRes.isErr:
+    error "5/6 Starting monitoring and external interfaces failed. Continuing in current state."
 
   debug "6/6 Setting up shutdown hooks"
 

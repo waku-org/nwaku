@@ -28,7 +28,7 @@ logScope:
   topics = "wakunode.setup"
 
 type
-  SetupResult*[T] = Result[WakuNode, string]
+  SetupResult*[T] = Result[T, string]
 
 ##########################
 # Setup helper functions #
