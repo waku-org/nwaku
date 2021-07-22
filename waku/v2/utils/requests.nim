@@ -1,5 +1,7 @@
 # Request utils.
 
+{.push raises: [Defect].}
+
 import bearssl, stew/byteutils
 
 proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
