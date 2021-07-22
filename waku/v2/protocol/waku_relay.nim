@@ -19,9 +19,12 @@ const
 
 type
   WakuRelay* = ref object of GossipSub
+    defaultTopics*: seq[string] # Default configured PubSub topics
+    rlnRelayEnabled*: bool # Flag indicating if RLN relay is enabled
 
 method init*(w: WakuRelay) =
-  debug "init"
+  debug "init WakuRelay"
+  
   proc handler(conn: Connection, proto: string) {.async.} =
     ## main protocol handler that gets triggered on every
     ## connection for a protocol string

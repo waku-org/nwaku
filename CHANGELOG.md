@@ -15,6 +15,7 @@ This release contains the following:
   The filed numbers of the `HistoryResponse` are shifted up by one to match up the [13/WAKU2-STORE](https://rfc.vac.dev/spec/13/) specs. 
 - Adds optional `timestamp` to `WakuRelayMessage`.
 #### General refactoring
+- `wakunode2` setup refactored into 6 distinct phases with improved logging and error handling
 #### Docs
 - Adds the database migration tutorial.
 #### Schema
