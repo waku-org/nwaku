@@ -2,6 +2,8 @@
 ##
 ## Used by both message store and store protocol.
 
+{.push raises: [Defect].}
+
 import nimcrypto/hash
 
 type

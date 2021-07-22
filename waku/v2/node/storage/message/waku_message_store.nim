@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import 
-  std/[tables, strutils],
+  std/tables,
   sqlite3_abi,
   stew/[byteutils, results],
   ./message_store,

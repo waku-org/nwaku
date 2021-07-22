@@ -1,5 +1,7 @@
+{.push raises: [Defect].}
+
 import 
-  chronicles, options, chronos, stint,
+  options, chronos, stint,
   web3,
   eth/keys
 

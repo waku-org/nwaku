@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[tables, sequtils, options],
+  std/[tables, options],
   bearssl,
   chronos, chronicles, metrics, stew/results,
   libp2p/protocols/pubsub/pubsubpeer,

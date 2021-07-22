@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import
   std/[options,tables],
   eth/keys,
@@ -18,6 +20,8 @@ type
   WakuRelayMessage* = object
     payload*: seq[byte]
     contentTopic*: Option[ContentTopic]
+    # sender generated timestamp
+    timestamp*: Option[float64]
 
   WakuPeer* = object
     multiaddr*: string
