@@ -2,8 +2,8 @@
 
 import
   std/[tables,sequtils],
+  chronicles,
   json_rpc/rpcserver,
-  eth/[common, rlp, keys, p2p],
   ../wakunode2,
   ./jsonrpc_types
 
