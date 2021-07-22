@@ -1,3 +1,5 @@
+{.push raises: [Defect, CatchableError].}
+
 import
   chronicles,
   json_rpc/rpcserver,
