@@ -1,31 +1,56 @@
 # Changelog
-## Next
+
+## 2021-07-23 v0.5
 
 This release contains the following:
 
 ### Features
+- Support for keep-alives using [libp2p ping protocol](https://docs.libp2p.io/concepts/protocols/#ping).
+- DB migration for the message and peer stores.
+- Support for multiple protocol IDs. Mounted protocols now match versions of the same protocol that adds a postfix to the stable protocol ID.
 
 ### Changes
-- Enables db migration for the message store.
-- The `resume` Nim API eliminates duplicates messages before storing them.
-- Updates the `resume` Nim API to fetch historical messages in sequence of pages.
-- Support for stable version of `relay` protocol, with protocol ID `/vac/waku/relay/2.0.0`
-- Support for multiple protocol IDs - now matches any protocol that adds postfix to stable ID.
-- Updates the order of fields of `HistoryResponse` protobuf message. 
-  The filed numbers of the `HistoryResponse` are shifted up by one to match up the [13/WAKU2-STORE](https://rfc.vac.dev/spec/13/) specs. 
-- Adds optional `timestamp` to `WakuRelayMessage`.
+- Bridge topics are now configurable.
+- The `resume` Nim API now eliminates duplicates messages before storing them.
+- The `resume` Nim API now fetches historical messages in page sequence.
+- Added support for stable version of `relay` protocol, with protocol ID `/vac/waku/relay/2.0.0`.
+- Added optional `timestamp` to `WakuRelayMessage`.
+- Removed `PCRE` as a prerequisite for building Waku v1 and Waku v2.
+- Improved [`swap`](https://rfc.vac.dev/spec/18/) metrics.
+
 #### General refactoring
-- `wakunode2` setup refactored into 6 distinct phases with improved logging and error handling
+- Refactored modules according to [Nim best practices](https://hackmd.io/1imOGULZRsed2HpgmzGleA).
+- Simplified the [way protocols get notified](https://github.com/status-im/nim-waku/issues/574) of new messages.
+- Refactored `wakunode2` setup into 6 distinct phases with improved logging and error handling.
+- Moved `Whisper` types and protocol from the `nim-eth` module to `nim-waku`.
+
 #### Docs
-- Adds the database migration tutorial.
+- Added [database migration tutorial](https://github.com/status-im/nim-waku/blob/master/docs/tutorial/db-migration.md).
+- Added [tutorial to setup `websockify`](https://github.com/status-im/nim-waku/blob/master/docs/tutorial/websocket.md).
+
 #### Schema
-- Updates the `Message` table of the persistent message store:
-  - Adds `senderTimestamp` column.
-  - Renames the `timestamp` column to `receiverTimestamp` and changes its type to `REAL`.
+- Updated the `Message` table of the persistent message store:
+  - Added `senderTimestamp` column.
+  - Renamed the `timestamp` column to `receiverTimestamp` and changes its type to `REAL`.
+
 #### API
+- Added optional `timestamp` to [`WakuRelayMessage`](https://rfc.vac.dev/spec/16/#wakurelaymessage) on JSON-RPC API.
 
 ### Fixes
-- Conversion between topics for the Waku v1 <-> v2 bridge now follows the [RFC recommendation](https://rfc.vac.dev/spec/23/)
+- Conversion between topics for the Waku v1 <-> v2 bridge now follows the [RFC recommendation](https://rfc.vac.dev/spec/23/).
+- Fixed field order of `HistoryResponse` protobuf message: the field numbers of the `HistoryResponse` are shifted up by one to match up the [13/WAKU2-STORE](https://rfc.vac.dev/spec/13/) specs.
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`17/WAKU-RLN`](https://rfc.vac.dev/spec/17/) | `raw` | `/vac/waku/waku-rln-relay/2.0.0-alpha1` |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta3` |
+| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
 
 ## 2021-06-03 v0.4
 
