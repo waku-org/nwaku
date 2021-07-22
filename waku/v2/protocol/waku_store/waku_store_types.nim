@@ -1,5 +1,7 @@
 ## Types for waku_store protocol.
 
+{.push raises: [Defect].}
+
 # Group by std, external then internal imports
 import
   # external imports

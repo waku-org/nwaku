@@ -4,7 +4,7 @@ import
   std/[tables, hashes, sequtils],
   chronos, confutils, chronicles, chronicles/topics_registry, 
   metrics, metrics/chronos_httpserver,
-  stew/[byteutils, objects],
+  stew/byteutils,
   stew/shims/net as stewNet, json_rpc/rpcserver,
   # Waku v1 imports
   eth/[keys, p2p], eth/common/utils,
