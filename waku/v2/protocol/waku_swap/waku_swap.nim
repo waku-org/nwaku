@@ -197,7 +197,7 @@ proc handleCheque*(ws: WakuSwap, cheque: Cheque, peerInfo : PeerInfo) {.raises: 
     ws.accounting[peerId] += int(cheque.amount)
 
     #Remove the Peer from the blacklist 
-    info "Removing peer from blacklist"
+    info "Removing peer from blacklist", peer=peerId
     ws.peerManager.removeFromBlacklist(peerId)
 
   else:

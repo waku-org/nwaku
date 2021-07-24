@@ -73,4 +73,4 @@ proc deletePeer*(peerStore: WakuPeerStore, peerId: PeerID) =
     peerStore.keyBook.book.del(peerId)
 
   if peerId in toSeq(keys(peerStore.connectionBook.book)):
-    peerStore.connectionBook.book.del(peerId)
+    peerStore.connectionBook.set(peerId, ShouldNotConnect)

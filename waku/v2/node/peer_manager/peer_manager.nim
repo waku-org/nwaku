@@ -155,8 +155,6 @@ proc connectedness*(pm: PeerManager, peerId: PeerId): Connectedness =
   if (storedInfo == StoredInfo()):
     # Peer is not managed, therefore not connected
     return NotConnected
-  elif peerId in pm.blacklist:
-    return ShouldNotConnect
   else:
     pm.peerStore.connectionBook.get(peerId)
 
@@ -235,9 +233,11 @@ proc reconnectPeers*(pm: PeerManager, proto: string, backoff: chronos.Duration =
     trace "Reconnecting to peer", peerId=storedInfo.peerId
     discard await pm.dialPeer(storedInfo.peerId, toSeq(storedInfo.addrs), proto)
 
-proc addToBlacklist*(pm: PeerManager, peer: PeerId) = 
-  warn "Adding peer to blacklist"
-  pm.blacklist.add(peer)
+proc addToBlacklist*(pm: PeerManager, peerId: PeerID) = 
+  warn "Adding peer to blacklist", peer=peerId
+  pm.blacklist.add(peerId)
+  pm.peerStore.connectionBook.set(peerId, ShouldNotConnect)
+
 
 proc removeFromBlacklist*(pm: PeerManager, peer: PeerId) = 
   pm.blacklist.delete(pm.blacklist.find(peer))
@@ -262,7 +262,7 @@ proc dialPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string, dialTimeout =
   #Check the connectedness
   let conn = pm.connectedness(peerInfo.peerId);
   if conn == ShouldNotConnect:
-    warn "Peer has been blacklisted"
+    warn "Peer has been blacklisted", peer=peerInfo.peerId
     return none(Connection)
 
   return await pm.dialPeer(peerInfo.peerId, peerInfo.addrs, proto, dialTimeout)
@@ -270,5 +270,6 @@ proc dialPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string, dialTimeout =
 proc disconnectPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string) =
   if pm.hasPeer(peerInfo, proto):
     debug "Disconnecting Peer... ", peerId=peerInfo.peerId
+    pm.addToBlacklist(peerInfo.peerId)
     pm.peerStore.deletePeer(peerInfo.peerId)
     asyncSpawn pm.switch.disconnect(peerInfo.peerId)
