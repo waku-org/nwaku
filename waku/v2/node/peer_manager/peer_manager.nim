@@ -20,7 +20,6 @@ type
     switch*: Switch
     peerStore*: WakuPeerStore
     storage: PeerStorage
-    blacklist*: seq[PeerId]
 
 let
   defaultDialTimeout = chronos.minutes(1) # @TODO should this be made configurable?

@@ -191,7 +191,9 @@ procSuite "Waku SWAP Accounting":
 
     check:
       # Accounting table updated with credit and debit, respectively
-      node1.peerInfo.peerId in node2.wakuSwap.peerManager.blacklist == true
+      #node1.peerInfo.peerId in node2.wakuSwap.peerManager.blacklist == true
+      node2.peerManager.connectedness(node1.peerInfo.peerId) == Connectedness.ShouldNotConnect
+
     await node1.stop()
     await node2.stop()
 
