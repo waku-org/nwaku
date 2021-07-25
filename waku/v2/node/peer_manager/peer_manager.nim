@@ -235,12 +235,11 @@ proc reconnectPeers*(pm: PeerManager, proto: string, backoff: chronos.Duration =
 
 proc addToBlacklist*(pm: PeerManager, peerId: PeerID) = 
   warn "Adding peer to blacklist", peer=peerId
-  pm.blacklist.add(peerId)
   pm.peerStore.connectionBook.set(peerId, ShouldNotConnect)
 
 
 proc removeFromBlacklist*(pm: PeerManager, peer: PeerId) = 
-  pm.blacklist.delete(pm.blacklist.find(peer))
+  pm.peerStore.connectionBook.set(peer, Connected)
 
 ####################
 # Dialer interface #
