@@ -2,6 +2,7 @@
 
 import
   std/[options, sets, tables, sequtils],
+  chronicles,
   testutils/unittests, stew/shims/net as stewNet,
   json_rpc/[rpcserver, rpcclient],
   eth/[keys, rlp], eth/common/eth_types,
@@ -164,7 +165,7 @@ procSuite "Peer Manager":
 
   asyncTest "Peer manager can use persistent storage and survive restarts":
     let
-      database = SqliteDatabase.init("", inMemory = true)[]
+      database = SqliteDatabase.init("1", inMemory = true)[]
       storage = WakuPeerStorage.new(database)[]
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
@@ -206,6 +207,66 @@ procSuite "Peer Manager":
       # Reconnected to node2 after "restart"
       node3.peerManager.peers().len == 1
       node3.peerManager.peers().anyIt(it.peerId == peerInfo2.peerId)
+      node3.peerManager.connectedness(peerInfo2.peerId) == Connected
+    
+    await allFutures([node1.stop(), node2.stop(), node3.stop()])
+
+asyncTest "Peer manager support multiple protocol IDs when reconnecting to peers":
+    let
+      database = SqliteDatabase.init("2", inMemory = true)[]
+      storage = WakuPeerStorage.new(database)[]
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        Port(60000), peerStorage = storage)
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        Port(60002))
+      peerInfo2 = node2.peerInfo
+      betaCodec = "/vac/waku/relay/2.0.0-beta2"
+      stableCodec = "/vac/waku/relay/2.0.0"
+    
+    await node1.start()
+    await node2.start()
+
+    node1.mountRelay()
+    node1.wakuRelay.codec = betaCodec
+    node2.mountRelay()
+    node2.wakuRelay.codec = betaCodec
+
+    discard await node1.peerManager.dialPeer(peerInfo2, node2.wakuRelay.codec, 2.seconds)
+    check:
+      # Currently connected to node2
+      node1.peerManager.peers().len == 1
+      node1.peerManager.peers().anyIt(it.peerId == peerInfo2.peerId)
+      node1.peerManager.peers().anyIt(it.protos.contains(node2.wakuRelay.codec))
+      node1.peerManager.connectedness(peerInfo2.peerId) == Connected
+
+    # Simulate restart by initialising a new node using the same storage
+    let
+      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"),
+        Port(60004), peerStorage = storage)
+    
+    node3.mountRelay()
+    node3.wakuRelay.codec = stableCodec
+    check:
+      # Node 2 and 3 have differing codecs
+      node2.wakuRelay.codec == betaCodec
+      node3.wakuRelay.codec == stableCodec
+      # Node2 has been loaded after "restart", but we have not yet reconnected
+      node3.peerManager.peers().len == 1
+      node3.peerManager.peers().anyIt(it.peerId == peerInfo2.peerId)
+      node3.peerManager.peers().anyIt(it.protos.contains(betaCodec))
+      node3.peerManager.connectedness(peerInfo2.peerId) == NotConnected
+    
+    await node3.start() # This should trigger a reconnect
+
+    check:
+      # Reconnected to node2 after "restart"
+      node3.peerManager.peers().len == 1
+      node3.peerManager.peers().anyIt(it.peerId == peerInfo2.peerId)
+      node3.peerManager.peers().anyIt(it.protos.contains(betaCodec))
+      node3.peerManager.peers().anyIt(it.protos.contains(stableCodec))
       node3.peerManager.connectedness(peerInfo2.peerId) == Connected
     
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
