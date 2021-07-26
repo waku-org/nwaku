@@ -256,8 +256,8 @@ proc init*(wakuSwap: WakuSwap) =
   proc disconnectThresholdReached(ws: WakuSwap, peerInfo: PeerInfo) {.gcsafe, closure.} = 
     let peerId = peerInfo.peerId
     warn "Disconnect threshhold has been reached: ", threshold=wakuSwap.config.disconnectThreshold, balance=wakuSwap.accounting[peerId]
-    ws.peerManager.addToBlacklist(peerId);
-    if ws.config.closePeerConnection:
+    if ws.config.mode == SwapMode.Mock or ws.config.mode == SwapMode.Hard:
+      ws.peerManager.addToBlacklist(peerId);
       ws.peerManager.disconnectPeer(peerInfo, ws.codec)
   
   

@@ -21,8 +21,7 @@ type
     mode* : SwapMode
     paymentThreshold* : int
     disconnectThreshold* : int
-    stateUpdateOverRide*: bool #When enabled, the account balance of the peer is updated even when the cheque is Not successfully redeemed 
-    closePeerConnection*: bool #When enabled, the connection is closed  after the disconnect threshold is exceeded. Disabling this will only add the peer to the blacklist. 
+    stateUpdateOverRide*: bool # When enabled, the account balance of the peer is updated even when the cheque is Not successfully redeemed 
 
   Beneficiary* = seq[byte]
   
@@ -58,5 +57,4 @@ proc init*(_: type[SwapConfig]): SwapConfig =
       paymentThreshold: 100,
       disconnectThreshold: -100,
       stateUpdateOverRide: true,
-      closePeerConnection: true
   )

@@ -258,10 +258,7 @@ procSuite "Peer Manager":
       node1.mountRelay()
       node2.mountRelay()
       node2.peerManager.addToBlacklist(node1.peerInfo.peerId)
-
-      # Dial node2 from node1
-      let conn = (await node1.peerManager.dialPeer(peerInfo2, WakuRelayCodec)).get()
-
+      
       #check blacklist
       check:
         #node1.peerInfo.peerId in node2.peerManager.blacklist == true
@@ -292,7 +289,8 @@ procSuite "Peer Manager":
 
       #check blacklist
       check:
-        node1.peerInfo.peerId in node2.peerManager.blacklist == false
+        #node1.peerInfo.peerId in node2.peerManager.blacklist == false
+        node2.peerManager.connectedness(node1.peerInfo.peerId) == Connectedness.Connected
 
       await allFutures([node1.stop(), node2.stop()])
 

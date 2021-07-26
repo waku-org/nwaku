@@ -107,7 +107,7 @@ procSuite "Waku SWAP Accounting":
     var futures = [newFuture[bool](), newFuture[bool]()]
 
     # Define the waku swap Config for this test
-    let swapConfig = SwapConfig(mode: SwapMode.Mock, paymentThreshold: 1, disconnectThreshold: -1, stateUpdateOverRide: true, closePeerConnection: false)
+    let swapConfig = SwapConfig(mode: SwapMode.Mock, paymentThreshold: 1, disconnectThreshold: -1, stateUpdateOverRide: true)
 
     # Start nodes and mount protocols
     await node1.start()
@@ -161,7 +161,7 @@ procSuite "Waku SWAP Accounting":
 
 
     # Define the waku swap Config for this test
-    let swapConfig = SwapConfig(mode: SwapMode.Mock, paymentThreshold: 1, disconnectThreshold: -1, stateUpdateOverRide: true, closePeerConnection: false)
+    let swapConfig = SwapConfig(mode: SwapMode.Mock, paymentThreshold: 1, disconnectThreshold: -1, stateUpdateOverRide: true)
 
     # Start nodes and mount protocols
     await node1.start()
@@ -246,6 +246,8 @@ procSuite "Waku SWAP Accounting":
       (await allFutures(futures).withTimeout(5.seconds)) == true
       # Accounting table updated with credit and debit, respectively
       # After sending a cheque the balance is partially adjusted
-      node1.peerInfo.peerId in node2.wakuSwap.peerManager.blacklist == false
+      #node1.peerInfo.peerId in node2.wakuSwap.peerManager.blacklist == false
+      node2.peerManager.connectedness(node1.peerInfo.peerId) == Connectedness.Connected
+
     await node1.stop()
     await node2.stop()

@@ -267,7 +267,10 @@ proc dialPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string, dialTimeout =
 
 proc disconnectPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string) =
   if pm.hasPeer(peerInfo, proto):
-    debug "Disconnecting Peer... ", peerId=peerInfo.peerId
-    pm.addToBlacklist(peerInfo.peerId)
-    pm.peerStore.deletePeer(peerInfo.peerId)
-    asyncSpawn pm.switch.disconnect(peerInfo.peerId)
+    try:
+      debug "Disconnecting Peer... ", peerId=peerInfo.peerId
+      pm.addToBlacklist(peerInfo.peerId)
+      pm.peerStore.deletePeer(peerInfo.peerId)
+      #asyncSpawn pm.switch.disconnect(peerInfo.peerId)
+    except CatchableError as e:
+      warn "err ocured", msg=e.msg
