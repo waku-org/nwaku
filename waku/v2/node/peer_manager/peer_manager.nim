@@ -265,12 +265,12 @@ proc dialPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string, dialTimeout =
 
   return await pm.dialPeer(peerInfo.peerId, peerInfo.addrs, proto, dialTimeout)
 
-proc disconnectPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string) =
+proc disconnectPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string) {.raises: [Defect, LPStreamEOFError].} =
   if pm.hasPeer(peerInfo, proto):
     try:
-      debug "Disconnecting Peer... ", peerId=peerInfo.peerId
+      debug "Disconnecting Peer...", peerId=peerInfo.peerId
       pm.addToBlacklist(peerInfo.peerId)
       pm.peerStore.deletePeer(peerInfo.peerId)
       #asyncSpawn pm.switch.disconnect(peerInfo.peerId)
-    except CatchableError as e:
+    except LPStreamEOFError as e:
       warn "err ocured", msg=e.msg
