@@ -3,6 +3,7 @@
 import
   std/[options, sets, sequtils, times],
   chronos, chronicles, metrics,
+  libp2p/multistream,
   ./waku_peer_store,
   ../storage/peer/peer_storage
 
@@ -78,8 +79,11 @@ proc dialPeer(pm: PeerManager, peerId: PeerID,
     return none(Connection)
 
 proc loadFromStorage(pm: PeerManager) =
+  debug "loading peers from storage"
   # Load peers from storage, if available
   proc onData(peerId: PeerID, storedInfo: StoredInfo, connectedness: Connectedness, disconnectTime: int64) =
+    trace "loading peer", peerId=peerId, storedInfo=storedInfo, connectedness=connectedness
+
     if peerId == pm.switch.peerInfo.peerId:
       # Do not manage self
       return
@@ -94,6 +98,8 @@ proc loadFromStorage(pm: PeerManager) =
   if res.isErr:
     warn "failed to load peers from storage", err = res.error
     waku_peers_errors.inc(labelValues = ["storage_load_failure"])
+  else:
+    debug "successfully queried peer storage"
   
 ##################
 # Initialisation #
@@ -116,6 +122,8 @@ proc new*(T: type PeerManager, switch: Switch, storage: PeerStorage = nil): Peer
   let pm = PeerManager(switch: switch,
                        peerStore: WakuPeerStore.new(),
                        storage: storage)
+  
+  debug "creating new PeerManager"
 
   proc peerHook(peerInfo: PeerInfo, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(pm, peerInfo.peerId, event)
@@ -124,7 +132,10 @@ proc new*(T: type PeerManager, switch: Switch, storage: PeerStorage = nil): Peer
   pm.switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
 
   if not storage.isNil:
+    debug "found persistent peer storage"
     pm.loadFromStorage() # Load previously managed peers.
+  else:
+    debug "no peer storage found"
     
   return pm
 
@@ -139,6 +150,10 @@ proc peers*(pm: PeerManager): seq[StoredInfo] =
 proc peers*(pm: PeerManager, proto: string): seq[StoredInfo] =
   # Return the known info for all peers registered on the specified protocol
   pm.peers.filterIt(it.protos.contains(proto))
+
+proc peers*(pm: PeerManager, protocolMatcher: Matcher): seq[StoredInfo] =
+  # Return the known info for all peers matching the provided protocolMatcher
+  pm.peers.filter(proc (storedInfo: StoredInfo): bool = storedInfo.protos.anyIt(protocolMatcher(it)))
 
 proc connectedness*(pm: PeerManager, peerId: PeerId): Connectedness =
   # Return the connection state of the given, managed peer
@@ -161,6 +176,10 @@ proc hasPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string): bool =
 proc hasPeers*(pm: PeerManager, proto: string): bool =
   # Returns `true` if manager has any peers for the specified protocol
   pm.peers.anyIt(it.protos.contains(proto))
+
+proc hasPeers*(pm: PeerManager, protocolMatcher: Matcher): bool =
+  # Returns `true` if manager has any peers matching the protocolMatcher
+  pm.peers.any(proc (storedInfo: StoredInfo): bool = storedInfo.protos.anyIt(protocolMatcher(it)))
 
 proc addPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string) =
   # Adds peer to manager for the specified protocol
@@ -200,13 +219,16 @@ proc selectPeer*(pm: PeerManager, proto: string): Option[PeerInfo] =
   else:
     return none(PeerInfo)
 
-proc reconnectPeers*(pm: PeerManager, proto: string, backoff: chronos.Duration = chronos.seconds(0)) {.async.} =
+proc reconnectPeers*(pm: PeerManager,
+                     proto: string,
+                     protocolMatcher: Matcher,
+                     backoff: chronos.Duration = chronos.seconds(0)) {.async.} =
   ## Reconnect to peers registered for this protocol. This will update connectedness.
   ## Especially useful to resume connections from persistent storage after a restart.
   
   debug "Reconnecting peers", proto=proto
   
-  for storedInfo in pm.peers(proto):
+  for storedInfo in pm.peers(protocolMatcher):
     # Check if peer is reachable.
     if pm.peerStore.connectionBook.get(storedInfo.peerId) == CannotConnect:
       debug "Not reconnecting to unreachable peer", peerId=storedInfo.peerId
@@ -224,6 +246,12 @@ proc reconnectPeers*(pm: PeerManager, proto: string, backoff: chronos.Duration =
       debug "Backing off before reconnect...", peerId=storedInfo.peerId, backoffTime=backoffTime
       # We disconnected recently and still need to wait for a backoff period before connecting
       await sleepAsync(backoffTime)
+    
+    # Add to protos for peer, if it has not been added yet
+    if not pm.peerStore.get(storedInfo.peerId).protos.contains(proto):
+      let peerInfo = storedInfo.toPeerInfo()
+      trace "Adding newly dialed peer to manager", peerId = peerInfo.peerId, addr = peerInfo.addrs[0], proto = proto
+      pm.addPeer(peerInfo, proto)
 
     trace "Reconnecting to peer", peerId=storedInfo.peerId
     discard await pm.dialPeer(storedInfo.peerId, toSeq(storedInfo.addrs), proto)
