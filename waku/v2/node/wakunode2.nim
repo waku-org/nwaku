@@ -80,14 +80,15 @@ type
     rng*: ref BrHmacDrbgContext
     started*: bool # Indicates that node has started listening
 
-func protocolMatcher(codec: string): Matcher =
+proc protocolMatcher(codec: string): Matcher =
   ## Returns a protocol matcher function for the provided codec
-  
   proc match(proto: string): bool {.gcsafe.} =
     ## Matches a proto with any postfix to the provided codec.
     ## E.g. if the codec is `/vac/waku/filter/2.0.0` it matches the protos:
     ## `/vac/waku/filter/2.0.0`, `/vac/waku/filter/2.0.0-beta3`, `/vac/waku/filter/2.0.0-actualnonsense`
     return proto.startsWith(codec)
+
+  return match
 
 proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilter]) {.gcsafe.} =
   # Flatten all unsubscribe topics into single seq
@@ -461,13 +462,14 @@ proc startRelay*(node: WakuNode) {.async.} =
     node.subscribe(topic, none(TopicHandler))
 
   # Resume previous relay connections
-  if node.peerManager.hasPeers(WakuRelayCodec):
+  if node.peerManager.hasPeers(protocolMatcher(WakuRelayCodec)):
     info "Found previous WakuRelay peers. Reconnecting."
     
     # Reconnect to previous relay peers. This will respect a backoff period, if necessary
     let backoffPeriod = node.wakuRelay.parameters.pruneBackoff + chronos.seconds(BackoffSlackTime)
 
     await node.peerManager.reconnectPeers(WakuRelayCodec,
+                                          protocolMatcher(WakuRelayCodec),
                                           backoffPeriod)
 
   when defined(rln):
