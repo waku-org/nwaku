@@ -253,33 +253,32 @@ proc init*(wakuSwap: WakuSwap) =
     info "Accounting state", accounting = wakuSwap.accounting[peerId]
     wakuSwap.applyPolicy(peerInfo)
 
-  proc disconnectThresholdReached(ws: WakuSwap, peerInfo: PeerInfo) {.gcsafe, closure.} = 
-    let peerId = peerInfo.peerId
-    warn "Disconnect threshhold has been reached: ", threshold=wakuSwap.config.disconnectThreshold, balance=wakuSwap.accounting[peerId]
-    if ws.config.mode == SwapMode.Mock or ws.config.mode == SwapMode.Hard:
-      ws.peerManager.addToBlacklist(peerId);
-      ws.peerManager.disconnectPeer(peerInfo, ws.codec)
+  proc disconnectThresholdReached(ws: WakuSwap, peerId: PeerId) : bool {.gcsafe, closure, raises:[KeyError, Exception].}  = 
+    ws.accounting[peerId] <= ws.config.disconnectThreshold
   
   
-  proc paymentThresholdReached(ws: WakuSwap, peerInfo: PeerInfo) {.gcsafe, closure.} = 
-    let peerId = peerInfo.peerId
-    warn "Payment threshhold has been reached: ", threshold=wakuSwap.config.paymentThreshold, balance=wakuSwap.accounting[peerId]
-    #In soft phase we don't send cheques yet
-    if wakuSwap.config.mode == Mock:
-      discard wakuSwap.sendCheque(peerInfo)
+  proc paymentThresholdReached(ws: WakuSwap, peerId: PeerId) : bool {.gcsafe, closure, raises:[KeyError, Exception].} = 
+    ws.accounting[peerId] >= ws.config.paymentThreshold
 
 
   proc applyPolicy(peerInfo: PeerInfo) {.gcsafe, closure, raises: [Defect, KeyError, Exception].} =
-
+    let peerId = peerInfo.peerId
     #Check if the Disconnect Threshold has been hit. Account Balance nears the disconnectThreshold after a Credit has been done
-    if wakuSwap.accounting[peerInfo.peerId] <= wakuSwap.config.disconnectThreshold:
-      wakuSwap.disconnectThresholdReached(peerInfo)
+    if wakuSwap.disconnectThresholdReached(peerId):
+      warn "Disconnect threshhold has been reached: ", threshold=wakuSwap.config.disconnectThreshold, balance=wakuSwap.accounting[peerId]
+      if wakuSwap.config.mode == SwapMode.Mock or wakuSwap.config.mode == SwapMode.Hard:
+        wakuSwap.peerManager.addToBlacklist(peerId);
+        wakuSwap.peerManager.disconnectPeer(peerInfo, wakuSwap.codec)
     else:
       info "Disconnect threshhold not hit"
 
     #Check if the Payment threshold has been hit. Account Balance nears the paymentThreshold after a Debit has been done
-    if wakuSwap.accounting[peerInfo.peerId] >= wakuSwap.config.paymentThreshold:
-      wakuSwap.paymentThresholdReached(peerInfo)
+    if wakuSwap.paymentThresholdReached(peerId):
+      let peerId = peerInfo.peerId
+      warn "Payment threshhold has been reached: ", threshold=wakuSwap.config.paymentThreshold, balance=wakuSwap.accounting[peerId]
+      #In soft phase we don't send cheques yet
+      if wakuSwap.config.mode == Mock:
+        discard wakuSwap.sendCheque(peerInfo)
     else:
       info "Payment threshhold not hit"
 
