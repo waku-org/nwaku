@@ -373,42 +373,39 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
       of PagingDirection.BACKWARD: 
         cursor = msgList[list.len - 1].index # set the cursor to the end of the list
     
-  var foundIndexOption = msgList.findIndex(cursor) 
-  if foundIndexOption.isNone: # the cursor is not valid
+  var cursorIndexOption = msgList.findIndex(cursor) 
+  if cursorIndexOption.isNone: # the cursor is not valid
     return (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.INVALID_CURSOR)
-  var foundIndex = uint64(foundIndexOption.get()) 
+  var cursorIndex = uint64(cursorIndexOption.get()) 
     
   case dir
     of PagingDirection.FORWARD: # forward pagination
-      # adjust the foundIndex for the initial query
+      var startIndex = cursorIndex + 1
+      # adjust the page starting index for the initial query
       if isInitialQuery:  
-        foundIndex = foundIndex - 1
-        
-      # the message that is pointed by the cursor is excluded for the retrieved list, this is because this message has already been retrieved by the querier in its prior request
-      var remainingMessages= total - foundIndex - 1 
+        startIndex = cursorIndex
       
-      # the number of queried messages cannot exceed the total remaining messages i.e., msgList.len-foundIndex
-      pageSize = min(pageSize,remainingMessages)  
+      # the number of queried messages cannot exceed the total remaining messages
+      pageSize = min(pageSize, total - startIndex)  
 
       if (pageSize == 0):
         return (@[], PagingInfo(pageSize: pageSize, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
 
       var 
-        s = foundIndex + 1  
-        e = foundIndex + pageSize 
+        endIndex = startIndex + pageSize - 1 
 
       # retrieve the messages
       var retMessages: seq[IndexedWakuMessage]
-      for i in s..e:
+      for i in startIndex..endIndex:
         retMessages.add(msgList[i])
-      return (retMessages, PagingInfo(pageSize : pageSize, cursor : msgList[e].index, direction : pinfo.direction), HistoryResponseError.NONE)
+      return (retMessages, PagingInfo(pageSize : pageSize, cursor : msgList[endIndex].index, direction : pinfo.direction), HistoryResponseError.NONE)
 
     of PagingDirection.BACKWARD: 
       # adjust the foundIndex for the initial query
       if isInitialQuery:  
-        foundIndex = foundIndex + 1
+        cursorIndex = cursorIndex + 1
 
-      var remainingMessages = foundIndex 
+      var remainingMessages = cursorIndex 
       
       # the number of queried messages cannot exceed the total remaining messages 
       pageSize = min(pageSize, remainingMessages) 
@@ -417,8 +414,8 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
         return (@[], PagingInfo(pageSize: pageSize, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
 
       var
-        s = foundIndex - pageSize 
-        e = foundIndex - 1
+        s = cursorIndex - pageSize 
+        e = cursorIndex - 1
 
       # retrieve the messages
       var retMessages: seq[IndexedWakuMessage]
