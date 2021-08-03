@@ -325,14 +325,14 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
       if isInitialQuery:  
         startIndex = cursorIndex
       
-      # the number of queried messages cannot exceed the total remaining messages
+      # adjust the pageSize based on the total remaining messages
       pageSize = min(pageSize, total - startIndex)  
 
       if (pageSize == 0):
         return (@[], PagingInfo(pageSize: pageSize, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
-
-      var 
-        endIndex = startIndex + pageSize - 1 
+      
+      # set the index of the last message in the page
+      var endIndex = startIndex + pageSize - 1 
 
       # retrieve the messages
       var retMessages: seq[IndexedWakuMessage]
@@ -348,12 +348,13 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
       if isInitialQuery:  
         endIndex = cursorIndex
       
-      # the number of queried messages cannot exceed the total remaining messages 
+      # adjust the pageSize based on the total remaining messages
       pageSize = min(pageSize, endIndex + 1) 
 
       if (pageSize == 0):
         return (@[], PagingInfo(pageSize: pageSize, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
 
+      # set the index of the first message in the page
       var startIndex = endIndex - pageSize + 1
 
       # retrieve the messages
