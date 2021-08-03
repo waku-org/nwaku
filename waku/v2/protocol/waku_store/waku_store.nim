@@ -380,8 +380,10 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
     
   case dir
     of PagingDirection.FORWARD: # forward pagination
+      # set the index of the first message in the page
+      # exclude the message pointing by the cursor 
       var startIndex = cursorIndex + 1
-      # adjust the page starting index for the initial query
+      # for the initial query, include the message pointing by the cursor 
       if isInitialQuery:  
         startIndex = cursorIndex
       
@@ -401,27 +403,26 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
       return (retMessages, PagingInfo(pageSize : pageSize, cursor : msgList[endIndex].index, direction : pinfo.direction), HistoryResponseError.NONE)
 
     of PagingDirection.BACKWARD: 
-      # adjust the foundIndex for the initial query
+      # set the index of the last message in the page
+      # exclude the message pointing by the cursor 
+      var endIndex = cursorIndex - 1
+      # for the initial query, include the message pointing by the cursor
       if isInitialQuery:  
-        cursorIndex = cursorIndex + 1
-
-      var remainingMessages = cursorIndex 
+        endIndex = cursorIndex
       
       # the number of queried messages cannot exceed the total remaining messages 
-      pageSize = min(pageSize, remainingMessages) 
+      pageSize = min(pageSize, endIndex + 1) 
 
       if (pageSize == 0):
         return (@[], PagingInfo(pageSize: pageSize, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
 
-      var
-        s = cursorIndex - pageSize 
-        e = cursorIndex - 1
+      var startIndex = endIndex - pageSize + 1
 
       # retrieve the messages
       var retMessages: seq[IndexedWakuMessage]
-      for i in s..e:
+      for i in startIndex..endIndex:
         retMessages.add(msgList[i])
-      return (retMessages, PagingInfo(pageSize : pageSize, cursor : msgList[s].index, direction : pinfo.direction), HistoryResponseError.NONE)
+      return (retMessages, PagingInfo(pageSize : pageSize, cursor : msgList[startIndex].index, direction : pinfo.direction), HistoryResponseError.NONE)
 
 
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
