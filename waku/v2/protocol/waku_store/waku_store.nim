@@ -303,7 +303,7 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
   
   # set the cursor of the initial paging request
   var isInitialQuery = false
-  if cursor == Index(): 
+  if cursor == Index(): # an empty cursor means it is an initial query
     isInitialQuery = true
     case dir
       of PagingDirection.FORWARD: 
