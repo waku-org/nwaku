@@ -283,12 +283,15 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
     cursor = pinfo.cursor
     pageSize = pinfo.pageSize
     dir = pinfo.direction
+    output: (seq[IndexedWakuMessage], PagingInfo, HistoryResponseError) 
 
   if pageSize == uint64(0): # pageSize being zero indicates that no pagination is required
-    return (list, pinfo, HistoryResponseError.NONE)
+    let output = (list, pinfo, HistoryResponseError.NONE)
+    return output
 
   if list.len == 0: # no pagination is needed for an empty list
-    return (list, PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
+    output = (list, PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
+    return output
   
   # adjust pageSize
   if pageSize > MaxPageSize:
@@ -313,7 +316,8 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
     
   var cursorIndexOption = msgList.findIndex(cursor) 
   if cursorIndexOption.isNone: # the cursor is not valid
-    return (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.INVALID_CURSOR)
+    output = (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.INVALID_CURSOR)
+    return output
   var cursorIndex = uint64(cursorIndexOption.get()) 
     
   case dir
@@ -329,7 +333,8 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
       pageSize = min(pageSize, total - startIndex)  
 
       if (pageSize == 0):
-        return (@[], PagingInfo(pageSize: pageSize, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
+        output = (@[], PagingInfo(pageSize: pageSize, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
+        return output
       
       # set the index of the last message in the page
       var endIndex = startIndex + pageSize - 1 
@@ -338,7 +343,8 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
       var retMessages: seq[IndexedWakuMessage]
       for i in startIndex..endIndex:
         retMessages.add(msgList[i])
-      return (retMessages, PagingInfo(pageSize : pageSize, cursor : msgList[endIndex].index, direction : pinfo.direction), HistoryResponseError.NONE)
+      output = (retMessages, PagingInfo(pageSize : pageSize, cursor : msgList[endIndex].index, direction : pinfo.direction), HistoryResponseError.NONE)
+      return output
 
     of PagingDirection.BACKWARD: 
       # set the index of the last message in the page
@@ -352,7 +358,8 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
       pageSize = min(pageSize, endIndex + 1) 
 
       if (pageSize == 0):
-        return (@[], PagingInfo(pageSize: pageSize, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
+        output =  (@[], PagingInfo(pageSize: pageSize, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
+        return output
 
       # set the index of the first message in the page
       var startIndex = endIndex - pageSize + 1
@@ -361,7 +368,8 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
       var retMessages: seq[IndexedWakuMessage]
       for i in startIndex..endIndex:
         retMessages.add(msgList[i])
-      return (retMessages, PagingInfo(pageSize : pageSize, cursor : msgList[startIndex].index, direction : pinfo.direction), HistoryResponseError.NONE)
+      output = (retMessages, PagingInfo(pageSize : pageSize, cursor : msgList[startIndex].index, direction : pinfo.direction), HistoryResponseError.NONE)
+      return output
 
 
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
