@@ -134,4 +134,4 @@
 	path = vendor/nim-dnsdisc
 	url = https://github.com/status-im/nim-dnsdisc.git
 	ignore = untracked
-	branch = unstable
+	branch = main
