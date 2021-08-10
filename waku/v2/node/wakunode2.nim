@@ -858,7 +858,10 @@ when isMainModule:
       if wakuDnsDiscovery.isOk:
         let discoveredPeers = wakuDnsDiscovery.get().findPeers()
         if discoveredPeers.isOk:
+          info "Connecting to discovered peers"
           waitFor connectToNodes(node, discoveredPeers.get())
+      else:
+        warn "Failed to init Waku DNS discovery"
 
     # Start keepalive, if enabled
     if conf.keepAlive:

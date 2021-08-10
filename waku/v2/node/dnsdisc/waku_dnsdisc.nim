@@ -6,7 +6,9 @@
 import
   std/options,
   stew/shims/net,
+  chronicles,
   chronos,
+  metrics,
   eth/keys,
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
@@ -16,6 +18,12 @@ import
   discovery/dnsdisc/client
 
 export client, enr
+
+declarePublicGauge waku_dnsdisc_discovered, "number of nodes discovered"
+declarePublicGauge waku_dnsdisc_errors, "number of waku dnsdisc errors", ["type"]
+
+logScope:
+  topics = "wakudnsdisc"
 
 type
   WakuDnsDiscovery* = object
@@ -110,21 +118,39 @@ proc emptyResolver*(domain: string): Future[string] {.async, gcsafe.} =
 proc findPeers*(wdd: var WakuDnsDiscovery): Result[seq[PeerInfo], cstring] =
   ## Find peers to connect to using DNS based discovery
   
+  info "Finding peers using Waku DNS discovery"
+  
   # Synchronise client tree using configured resolver
   var tree: Tree
   try:
     tree = wdd.client.getTree(wdd.resolver)  # @TODO: this is currently a blocking operation to not violate memory safety
   except Exception:
+    error "Failed to synchronise client tree"
+    waku_dnsdisc_errors.inc(labelValues = ["tree_sync_failure"])
     return err("Node discovery failed")
+
+  let discoveredEnr = wdd.client.getNodeRecords()
+
+  if discoveredEnr.len > 0:
+    info "Successfully discovered ENR", count=discoveredEnr.len
+  else:
+    trace "No ENR retrieved from client tree"
 
   var discoveredNodes: seq[PeerInfo]
 
-  for enr in wdd.client.getNodeRecords():
+  for enr in discoveredEnr:
     # Convert discovered ENR to PeerInfo and add to discovered nodes
     let res = enr.toPeerInfo()
 
     if res.isOk():
       discoveredNodes.add(res.get())
+    else:
+      error "Failed to convert ENR to peer info", enr=enr, err=res.error()
+      waku_dnsdisc_errors.inc(labelValues = ["peer_info_failure"])
+
+  if discoveredNodes.len > 0:
+    info "Successfully discovered nodes", count=discoveredNodes.len
+    waku_dnsdisc_discovered.inc(discoveredNodes.len.int64)
 
   return ok(discoveredNodes)
 
@@ -134,8 +160,12 @@ proc init*(T: type WakuDnsDiscovery,
            resolver: Resolver): Result[T, cstring] =
   ## Initialise Waku peer discovery via DNS
   
+  debug "init WakuDnsDiscovery", enr=enr, locationUrl=locationUrl
+  
   let
     client = ? Client.init(locationUrl)
     wakuDnsDisc = WakuDnsDiscovery(enr: enr, client: client, resolver: resolver)
+
+  debug "init success"
 
   return ok(wakuDnsDisc)
