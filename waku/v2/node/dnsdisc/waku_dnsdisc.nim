@@ -1,7 +1,9 @@
 {.push raises: [Defect].}
 
 ## A set of utilities to integrate EIP-1459 DNS-based discovery
-## for Waku v2 nodes
+## for Waku v2 nodes.
+## 
+## EIP-1459 is defined in https://eips.ethereum.org/EIPS/eip-1459
 
 import
   std/options,
@@ -17,7 +19,7 @@ import
   libp2p/multiaddress,
   discovery/dnsdisc/client
 
-export client, enr
+export client
 
 declarePublicGauge waku_dnsdisc_discovered, "number of nodes discovered"
 declarePublicGauge waku_dnsdisc_errors, "number of waku dnsdisc errors", ["type"]
@@ -113,6 +115,7 @@ func createEnr*(privateKey: crypto.PrivateKey,
 #####################
 
 proc emptyResolver*(domain: string): Future[string] {.async, gcsafe.} =
+  debug "Empty resolver called", domain=domain
   return ""
 
 proc findPeers*(wdd: var WakuDnsDiscovery): Result[seq[PeerInfo], cstring] =

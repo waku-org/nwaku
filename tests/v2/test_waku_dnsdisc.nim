@@ -53,7 +53,7 @@ procSuite "Waku DNS Discovery":
       domain = "testnodes.aq"
       zoneTxts = tree.buildTXT(domain).get()
       username = Base32.encode(treeKeys.pubkey().toRawCompressed())
-      location = LinkPrefix & username & "@" & domain # See EIP-1459: 
+      location = LinkPrefix & username & "@" & domain # See EIP-1459: https://eips.ethereum.org/EIPS/eip-1459
     
     # Create a resolver for the domain
 

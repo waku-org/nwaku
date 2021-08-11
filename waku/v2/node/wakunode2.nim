@@ -5,6 +5,7 @@ import
   chronos, chronicles, metrics,
   stew/shims/net as stewNet,
   eth/keys,
+  eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
   libp2p/protocols/ping,
   libp2p/protocols/pubsub/gossipsub,
@@ -75,7 +76,7 @@ type
     wakuRlnRelay*: WakuRLNRelay
     wakuLightPush*: WakuLightPush
     peerInfo*: PeerInfo
-    enr*: Record
+    enr*: enr.Record
     libp2pPing*: Ping
     libp2pTransportLoops*: seq[Future[void]]
     filters*: Filters
@@ -852,6 +853,8 @@ when isMainModule:
     # Connect to discovered nodes
     if conf.dnsDiscovery and conf.dnsDiscoveryUrl != "":
       # @ TODO: this is merely POC integration with an empty resolver
+      debug "Waku DNS Discovery enabled. Using empty resolver."
+      
       var wakuDnsDiscovery = WakuDnsDiscovery.init(node.enr,
                                                    conf.dnsDiscoveryUrl,
                                                    emptyResolver)  # TODO: Add DNS resolver
