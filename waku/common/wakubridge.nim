@@ -91,6 +91,7 @@ func toWakuMessage(env: Envelope): WakuMessage =
   # Translate a Waku v1 envelope to a Waku v2 message
   WakuMessage(payload: env.data,
               contentTopic: toV2ContentTopic(env.topic),
+              timestamp: float64(env.expiry - env.ttl),
               version: 1)
 
 proc toWakuV2(bridge: WakuBridge, env: Envelope) {.async.} =
@@ -122,9 +123,9 @@ proc toWakuV1(bridge: WakuBridge, msg: WakuMessage) {.gcsafe, raises: [Defect, L
   # @TODO: use namespacing to map v2 contentTopics to v1 topics
   let v1TopicSeq = msg.contentTopic.toBytes()[0..3]
   
-  discard bridge.nodev1.postMessage(ttl = DefaultTTL,
+  discard bridge.nodev1.postEncoded(ttl = DefaultTTL,
                                     topic = toV1Topic(msg.contentTopic),
-                                    payload = msg.payload)
+                                    encodedPayload = msg.payload) # The payload is already encoded according to https://rfc.vac.dev/spec/7/
 
 ##############
 # Public API #
