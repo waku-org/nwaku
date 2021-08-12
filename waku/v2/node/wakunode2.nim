@@ -5,6 +5,7 @@ import
   chronos, chronicles, metrics,
   stew/shims/net as stewNet,
   eth/keys,
+  eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
   libp2p/protocols/ping,
   libp2p/protocols/pubsub/gossipsub,
@@ -18,7 +19,8 @@ import
   ../utils/peers,
   ../utils/requests,
   ./storage/migration/migration_types,
-  ./peer_manager/peer_manager
+  ./peer_manager/peer_manager,
+  ./dnsdisc/waku_dnsdisc
 
 export
   builders,
@@ -74,6 +76,7 @@ type
     wakuRlnRelay*: WakuRLNRelay
     wakuLightPush*: WakuLightPush
     peerInfo*: PeerInfo
+    enr*: enr.Record
     libp2pPing*: Ping
     libp2pTransportLoops*: seq[Future[void]]
     filters*: Filters
@@ -135,6 +138,12 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
                          else: @[tcpEndPoint(extIp.get(), extPort.get())]
     peerInfo = PeerInfo.init(nodekey)
+    enrIp = if extIp.isSome(): extIp
+            else: some(bindIp)
+    enrTcpPort = if extPort.isSome(): extPort
+                 else: some(bindPort)
+    enr = createEnr(nodeKey, enrIp, enrTcpPort, none(Port))
+  
   info "Initializing networking", hostAddress,
                                   announcedAddresses
   # XXX: Add this when we create node or start it?
@@ -156,6 +165,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     switch: switch,
     rng: rng,
     peerInfo: peerInfo,
+    enr: enr,
     filters: initTable[string, Filter]()
   )
 
@@ -659,6 +669,7 @@ proc start*(node: WakuNode) {.async.} =
   let listenStr = $peerInfo.addrs[^1] & "/p2p/" & $peerInfo.peerId
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
+  info "Discoverable ENR ", enr = node.enr.toURI()
 
   if not node.wakuRelay.isNil:
     await node.startRelay()
@@ -838,6 +849,22 @@ when isMainModule:
     # Connect to configured static nodes
     if conf.staticnodes.len > 0:
       waitFor connectToNodes(node, conf.staticnodes)
+    
+    # Connect to discovered nodes
+    if conf.dnsDiscovery and conf.dnsDiscoveryUrl != "":
+      # @ TODO: this is merely POC integration with an empty resolver
+      debug "Waku DNS Discovery enabled. Using empty resolver."
+      
+      var wakuDnsDiscovery = WakuDnsDiscovery.init(node.enr,
+                                                   conf.dnsDiscoveryUrl,
+                                                   emptyResolver)  # TODO: Add DNS resolver
+      if wakuDnsDiscovery.isOk:
+        let discoveredPeers = wakuDnsDiscovery.get().findPeers()
+        if discoveredPeers.isOk:
+          info "Connecting to discovered peers"
+          waitFor connectToNodes(node, discoveredPeers.get())
+      else:
+        warn "Failed to init Waku DNS discovery"
 
     # Start keepalive, if enabled
     if conf.keepAlive:

@@ -1,5 +1,28 @@
 # Changelog
 
+## Next version
+
+This release contains the following:
+
+### Features
+
+- Start of Waku node discovery via DNS following [EIP-1459](https://eips.ethereum.org/EIPS/eip-1459)
+
+### Changes
+
+- GossipSub [prune backoff period](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#prune-backoff-and-peer-exchange) is now the recommended 1 minute
+
+#### General refactoring
+
+#### Docs
+
+#### Schema
+
+#### API
+
+
+### Fixes
+
 ## 2021-07-26 v0.5.1
 
 This patch release contains the following fix:
