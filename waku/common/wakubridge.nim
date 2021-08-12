@@ -65,7 +65,7 @@ proc containsOrAdd(sequence: var seq[hashes.Hash], hash: hashes.Hash): bool =
 
 proc toV2ContentTopic*(v1Topic: waku_protocol.Topic): ContentTopic =
   ## Convert a 4-byte array v1 topic to a namespaced content topic
-  ## with format `/waku/1/<v1-topic-bytes-as-hex>/proto`
+  ## with format `/waku/1/<v1-topic-bytes-as-hex>/rfc26`
   ## 
   ## <v1-topic-bytes-as-hex> should be prefixed with `0x`
   
@@ -74,13 +74,13 @@ proc toV2ContentTopic*(v1Topic: waku_protocol.Topic): ContentTopic =
   namespacedTopic.application = "waku"
   namespacedTopic.version = "1"
   namespacedTopic.topicName = "0x" & v1Topic.toHex()
-  namespacedTopic.encoding = "rlp"
+  namespacedTopic.encoding = "rfc26"
 
   return ContentTopic($namespacedTopic)
 
 proc toV1Topic*(contentTopic: ContentTopic): waku_protocol.Topic {.raises: [Defect, LPError, ValueError]} =
   ## Extracts the 4-byte array v1 topic from a content topic
-  ## with format `/waku/1/<v1-topic-bytes-as-hex>/proto`
+  ## with format `/waku/1/<v1-topic-bytes-as-hex>/rfc26`
 
   hexToByteArray(hexStr = NamespacedTopic.fromString(contentTopic).tryGet().topicName,
                  N = 4)  # Byte array length
@@ -125,7 +125,7 @@ proc toWakuV1(bridge: WakuBridge, msg: WakuMessage) {.gcsafe, raises: [Defect, L
   
   discard bridge.nodev1.postEncoded(ttl = DefaultTTL,
                                     topic = toV1Topic(msg.contentTopic),
-                                    encodedPayload = msg.payload) # The payload is already encoded according to https://rfc.vac.dev/spec/7/
+                                    encodedPayload = msg.payload) # The payload is already encoded according to https://rfc.vac.dev/spec/26/
 
 ##############
 # Public API #
