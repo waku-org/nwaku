@@ -180,6 +180,18 @@ type
       desc: "Enable metrics logging: true|false"
       defaultValue: false
       name: "metrics-logging" }: bool
+    
+    ## DNS discovery config
+    
+    dnsDiscovery* {.
+      desc: "Enable discovering nodes via DNS"
+      defaultValue: false
+      name: "dns-discovery" }: bool
+    
+    dnsDiscoveryUrl* {.
+      desc: "URL for DNS node list in format 'enrtree://<key>@<fqdn>'",
+      defaultValue: ""
+      name: "dns-discovery-url" }: string
 
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =
