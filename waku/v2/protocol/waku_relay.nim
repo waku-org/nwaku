@@ -54,11 +54,6 @@ method initPubSub*(w: WakuRelay) {.raises: [Defect, InitializationError].} =
   w.verifySignature = false
   w.sign = false
 
-  # Here we can fine-tune GossipSub params for our purposes
-  w.parameters = GossipSubParams.init()
-  # Setting pruneBackoff allows us to restart nodes and trigger a re-subscribe within reasonable time.
-  w.parameters.pruneBackoff = 30.seconds
-
   procCall GossipSub(w).initPubSub()
 
   w.init()
