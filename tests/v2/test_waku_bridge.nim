@@ -55,7 +55,7 @@ procSuite "WakuBridge":
     payloadV1 = "hello from V1".toBytes()
     payloadV2 = "hello from V2".toBytes()
     encodedPayloadV2 = Payload(payload: payloadV2, dst: some(nodev1Key.pubKey))
-    message = WakuMessage(payload: encodedPayloadV2.encode(1, rng[]).get(), contentTopic: contentTopic)
+    message = WakuMessage(payload: encodedPayloadV2.encode(1, rng[]).get(), contentTopic: contentTopic, version: 1)
   
   ########################
   # Tests setup/teardown #
@@ -104,7 +104,7 @@ procSuite "WakuBridge":
     waitFor bridge.start()
 
     waitFor v2Node.start()
-    v2Node.mountRelay(@[DefaultBridgeTopic])
+    v2Node.mountRelay(@[DefaultBridgeTopic], triggerSelf = false)
 
     discard waitFor v1Node.rlpxConnect(newNode(bridge.nodev1.toENode()))
     waitFor v2Node.connectToNodes(@[bridge.nodev2.peerInfo])
