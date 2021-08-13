@@ -122,10 +122,16 @@ proc toWakuV1(bridge: WakuBridge, msg: WakuMessage) {.gcsafe, raises: [Defect, L
 
   # @TODO: use namespacing to map v2 contentTopics to v1 topics
   let v1TopicSeq = msg.contentTopic.toBytes()[0..3]
-  
-  discard bridge.nodev1.postEncoded(ttl = DefaultTTL,
-                                    topic = toV1Topic(msg.contentTopic),
-                                    encodedPayload = msg.payload) # The payload is already encoded according to https://rfc.vac.dev/spec/26/
+
+  case msg.version:
+  of 1:
+    discard bridge.nodev1.postEncoded(ttl = DefaultTTL,
+                                      topic = toV1Topic(msg.contentTopic),
+                                      encodedPayload = msg.payload) # The payload is already encoded according to https://rfc.vac.dev/spec/26/
+  else:
+    discard bridge.nodev1.postMessage(ttl = DefaultTTL,
+                                      topic = toV1Topic(msg.contentTopic),
+                                      payload = msg.payload)
 
 ##############
 # Public API #

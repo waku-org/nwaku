@@ -504,8 +504,8 @@ proc postEncoded*(node: EthereumNode, ttl: uint32,
                   targetPeer = none[NodeId]()): bool =
   ## Post a message from pre-encoded payload on the message queue.
   ## This will be processed at the next `messageInterval`.
-  ## The encodedPayload must be encoded according to RFC 7/WAKU-DATA
-  ## at https://rfc.vac.dev/spec/7/
+  ## The encodedPayload must be encoded according to RFC 26/WAKU-PAYLOAD
+  ## at https://rfc.vac.dev/spec/26/
   
   var env = Envelope(expiry:epochTime().uint32 + ttl,
                        ttl: ttl, topic: topic, data: encodedPayload, nonce: 0)
