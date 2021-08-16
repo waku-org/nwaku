@@ -855,8 +855,7 @@ when isMainModule:
       # @ TODO: this is merely POC integration with an empty resolver
       debug "Waku DNS Discovery enabled. Using empty resolver."
       
-      var wakuDnsDiscovery = WakuDnsDiscovery.init(node.enr,
-                                                   conf.dnsDiscoveryUrl,
+      var wakuDnsDiscovery = WakuDnsDiscovery.init(conf.dnsDiscoveryUrl,
                                                    emptyResolver)  # TODO: Add DNS resolver
       if wakuDnsDiscovery.isOk:
         let discoveredPeers = wakuDnsDiscovery.get().findPeers()
