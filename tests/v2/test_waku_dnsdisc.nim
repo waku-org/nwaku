@@ -65,12 +65,11 @@ procSuite "Waku DNS Discovery":
     let
       nodeKey4 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node4 = WakuNode.new(nodeKey4, bindIp, Port(60004))
-      enr4 = node4.enr
     
     node4.mountRelay()
     await node4.start()
     
-    var wakuDnsDisc = WakuDnsDiscovery.init(enr4, location, resolver).get()
+    var wakuDnsDisc = WakuDnsDiscovery.init(location, resolver).get()
 
     let res = wakuDnsDisc.findPeers()
 
