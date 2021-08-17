@@ -29,7 +29,6 @@ logScope:
 
 type
   WakuDnsDiscovery* = object
-    enr*: enr.Record
     client*: Client
     resolver*: Resolver
 
@@ -158,16 +157,15 @@ proc findPeers*(wdd: var WakuDnsDiscovery): Result[seq[PeerInfo], cstring] =
   return ok(discoveredNodes)
 
 proc init*(T: type WakuDnsDiscovery,
-           enr: enr.Record,
            locationUrl: string,
            resolver: Resolver): Result[T, cstring] =
   ## Initialise Waku peer discovery via DNS
   
-  debug "init WakuDnsDiscovery", enr=enr, locationUrl=locationUrl
+  debug "init WakuDnsDiscovery", locationUrl=locationUrl
   
   let
     client = ? Client.init(locationUrl)
-    wakuDnsDisc = WakuDnsDiscovery(enr: enr, client: client, resolver: resolver)
+    wakuDnsDisc = WakuDnsDiscovery(client: client, resolver: resolver)
 
   debug "init success"
 
