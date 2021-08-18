@@ -32,7 +32,8 @@ type Auth* = object
 
 proc update_next_member*(ctx: ptr RLN[Bn256],
                         input_buffer: ptr Buffer): bool {.importc: "update_next_member".}
-
+proc update_next_member2*(ctx: RLN2[Bn256],
+                        input_buffer: ptr Buffer): bool {.importc: "update_next_member".}
 proc delete_member*(ctx: ptr RLN[Bn256], index: uint): bool {.importc: "delete_member".}
 
 proc get_root*(ctx: ptr RLN[Bn256], output_buffer: ptr Buffer): bool {.importc: "get_root".}
@@ -40,6 +41,7 @@ proc get_root*(ctx: ptr RLN[Bn256], output_buffer: ptr Buffer): bool {.importc: 
 #-------------------------------- zkSNARKs operations -----------------------------------------
 
 proc key_gen*(ctx: ptr RLN[Bn256], keypair_buffer: ptr Buffer): bool {.importc: "key_gen".}
+proc key_gen2*(ctx: RLN2[Bn256], keypair_buffer: ptr Buffer): bool {.importc: "key_gen".}
 
 proc generate_proof*(ctx: ptr RLN[Bn256],
                     input_buffer: ptr Buffer,
@@ -55,6 +57,10 @@ proc verify*(ctx: ptr RLN[Bn256],
 proc new_circuit_from_params*(merkle_depth: uint,
                               parameters_buffer: ptr Buffer,
                               ctx: ptr (ptr RLN[Bn256])): bool {.importc: "new_circuit_from_params".}
+
+proc new_circuit_from_params2*(merkle_depth: uint,
+                              parameters_buffer: ptr Buffer,
+                              ctx: ptr RLN2[Bn256]): bool {.importc: "new_circuit_from_params".}
 
 proc hash*(ctx: ptr RLN[Bn256],
           inputs_buffer: ptr Buffer,
