@@ -35,8 +35,11 @@ proc update_next_member*(ctx: ptr RLN[Bn256],
 proc update_next_member2*(ctx: RLN2[Bn256],
                         input_buffer: ptr Buffer): bool {.importc: "update_next_member".}
 proc delete_member*(ctx: ptr RLN[Bn256], index: uint): bool {.importc: "delete_member".}
+proc delete_member2*(ctx: RLN2[Bn256], index: uint): bool {.importc: "delete_member".}
 
 proc get_root*(ctx: ptr RLN[Bn256], output_buffer: ptr Buffer): bool {.importc: "get_root".}
+proc get_root2*(ctx: RLN2[Bn256], output_buffer: ptr Buffer): bool {.importc: "get_root".}
+
 #----------------------------------------------------------------------------------------------
 #-------------------------------- zkSNARKs operations -----------------------------------------
 

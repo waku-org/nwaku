@@ -592,6 +592,29 @@ suite "Waku rln relay":
       # check the member is added
     doAssert(member_is_added)
 
+
+    var 
+      root1 {.noinit.} : Buffer = Buffer()
+      rootPtr1 = addr(root1)
+      get_root_successful1 = get_root2(rlnInstance.value, rootPtr1)
+    doAssert(get_root_successful1)
+    doAssert(root1.len == 32)
+
+    var rootValue1 = cast[ptr array[32,byte]] (root1.`ptr`)
+    let rootHex1 = rootValue1[].toHex
+    debug "The root after insertion", rootHex1
+
+    var 
+      root2 {.noinit.} : Buffer = Buffer()
+      rootPtr2 = addr(root2)
+      get_root_successful2 = get_root2(rlnInstance.value, rootPtr2)
+    doAssert(get_root_successful2)
+    doAssert(root2.len == 32)
+
+    var rootValue2 = cast[ptr array[32,byte]] (root2.`ptr`)
+    let rootHex2 = rootValue2[].toHex
+    debug "The root after insertion", rootHex2
+
     # # prepare the message
     # var messageBytes {.noinit.}: array[32, byte]
     # for x in messageBytes.mitems: x = 1
