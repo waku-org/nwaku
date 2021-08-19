@@ -244,9 +244,6 @@ suite "Waku rln relay":
     # ctx holds the information that is going to be used for  the key generation
     var 
       rlnInstance: RLN[Bn256]
-      # objPtr = addr(obj)
-      # objptrptr = addr(objPtr)
-      # ctx = objptrptr
     let res = new_circuit_from_params(merkleDepth, addr parametersBuffer, addr rlnInstance)
     check:
       # check whether the circuit parameters are generated successfully
