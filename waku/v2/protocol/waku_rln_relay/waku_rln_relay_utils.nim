@@ -105,8 +105,9 @@ proc proofVrfy*(data, proof: seq[byte]): bool =
   # TODO to implement the actual proof verification logic
   return true
 
-proc insertMember*(rlnInstance: RLN[Bn256], idComm: var IDCommitment): bool = 
-  var pkBuffer = Buffer(`ptr`: addr(idComm[0]), len: 32)
+proc insertMember*(rlnInstance: RLN[Bn256], idComm: IDCommitment): bool = 
+  var temp = idComm
+  var pkBuffer = Buffer(`ptr`: addr(temp[0]), len: 32)
   let pkBufferPtr = addr pkBuffer
 
   # add the member to the tree
@@ -129,4 +130,3 @@ proc getMerkleRoot*(rlnInstance: RLN[Bn256]): MerkleNodeResult =
   var rootValue = cast[ptr array[32,byte]] (root.`ptr`)
   let merkleNode = rootValue[]
   return ok(merkleNode)
-  # let rootHex = rootValue[].toHex
