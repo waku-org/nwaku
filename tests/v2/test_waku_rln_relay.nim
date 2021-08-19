@@ -568,6 +568,17 @@ suite "Waku rln relay":
     check:
       rlnInstance.isOk == true
 
+    var 
+      root0 {.noinit.} : Buffer = Buffer()
+      rootPtr0 = addr(root0)
+      get_root_successful0 = get_root2(rlnInstance.value, rootPtr0)
+    doAssert(get_root_successful0)
+    doAssert(root0.len == 32)
+
+    var rootValue0 = cast[ptr array[32,byte]] (root0.`ptr`)
+    let rootHex0 = rootValue0[].toHex
+    debug "The root ", rootHex0
+
     # create the membership key
     var auth = membershipKeyGen2(rlnInstance.value)
     var skBuffer = Buffer(`ptr`: addr(auth.get().secretKey[0]), len: 32)
@@ -614,6 +625,23 @@ suite "Waku rln relay":
     var rootValue2 = cast[ptr array[32,byte]] (root2.`ptr`)
     let rootHex2 = rootValue2[].toHex
     debug "The root after insertion", rootHex2
+
+
+
+    var deleted_member_index = uint(0)
+    let deletion_success = delete_member2(rlnInstance.value, deleted_member_index)
+    doAssert(deletion_success)
+
+    var 
+      root3 {.noinit.} : Buffer = Buffer()
+      rootPtr3 = addr(root3)
+      get_root_successful3 = get_root2(rlnInstance.value, rootPtr3)
+    doAssert(get_root_successful3)
+    doAssert(root3.len == 32)
+
+    var rootValue3 = cast[ptr array[32,byte]] (root3.`ptr`)
+    let rootHex3 = rootValue3[].toHex
+    debug "The root after deletion", rootHex3
 
     # # prepare the message
     # var messageBytes {.noinit.}: array[32, byte]
