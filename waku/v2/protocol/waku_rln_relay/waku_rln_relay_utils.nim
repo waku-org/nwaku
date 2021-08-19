@@ -103,3 +103,15 @@ proc proofGen*(data: seq[byte]): seq[byte] =
 proc proofVrfy*(data, proof: seq[byte]): bool =
   # TODO to implement the actual proof verification logic
   return true
+
+proc insertMember*(rlnInstance: RLN[Bn256], idComm: var IDCommitment): bool = 
+  var pkBuffer = Buffer(`ptr`: addr(idComm[0]), len: 32)
+  let pkBufferPtr = addr pkBuffer
+
+  # add the member to the tree
+  var member_is_added = update_next_member(rlnInstance, pkBufferPtr)
+  return member_is_added
+
+proc removeMember*(rlnInstance: RLN[Bn256], index: uint): bool = 
+  let deletion_success = delete_member(rlnInstance, index)
+  return deletion_success

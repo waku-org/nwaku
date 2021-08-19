@@ -11,10 +11,13 @@ type Bn256* = pointer
 type RLN*[E] = pointer
 
 
+type IDKey* = array[32, byte]
+type IDCommitment* = array[32, byte]
+
 # Custom data types defined for waku rln relay -------------------------
 type MembershipKeyPair* = object 
-  secretKey*: array[32, byte]
-  publicKey*: array[32, byte]
+  secretKey*: IDKey
+  publicKey*: IDCommitment
 
 type WakuRLNRelay* = object 
   membershipKeyPair*: MembershipKeyPair

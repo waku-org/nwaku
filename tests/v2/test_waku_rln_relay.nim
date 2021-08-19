@@ -340,6 +340,27 @@ suite "Waku rln relay":
     let deletion_success = delete_member(rlnInstance.value, deleted_member_index)
     doAssert(deletion_success)
 
+  test "insertMember rln utils":
+    # create an RLN instance which also includes an empty Merkle tree
+    var rlnInstance = createRLNInstance(32)
+    check:
+      rlnInstance.isOk == true
+    var rln = rlnInstance.value
+    # generate a key pair
+    var keypair = rln.membershipKeyGen()
+    doAssert(keypair.isSome())
+    check:
+      rln.insertMember(keypair.get().publicKey)  
+    
+  test "removeMember rln utils":
+    # create an RLN instance which also includes an empty Merkle tree
+    var rlnInstance = createRLNInstance(32)
+    check:
+      rlnInstance.isOk == true
+    var rln = rlnInstance.value
+    check: 
+      rln.removeMember(uint(0))
+
   test "Merkle tree consistency check between deletion and insertion":
     # create an RLN instance
     var rlnInstance = createRLNInstance(32)
