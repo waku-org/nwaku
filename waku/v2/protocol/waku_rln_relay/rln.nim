@@ -54,6 +54,16 @@ proc generate_proof*(ctx: ptr RLN[Bn256],
 proc verify*(ctx: ptr RLN[Bn256],
             proof_buffer: ptr Buffer,
             result_ptr: ptr uint32): bool {.importc: "verify".}
+
+
+proc generate_proof2*(ctx: RLN2[Bn256],
+                    input_buffer: ptr Buffer,
+                    auth: ptr Auth,
+                    output_buffer: ptr Buffer): bool {.importc: "generate_proof".}
+
+proc verify2*(ctx: RLN2[Bn256],
+            proof_buffer: ptr Buffer,
+            result_ptr: ptr uint32): bool {.importc: "verify".}
 #----------------------------------------------------------------------------------------------
 #-------------------------------- Common procedures -------------------------------------------
 
@@ -66,6 +76,12 @@ proc new_circuit_from_params2*(merkle_depth: uint,
                               ctx: ptr RLN2[Bn256]): bool {.importc: "new_circuit_from_params".}
 
 proc hash*(ctx: ptr RLN[Bn256],
+          inputs_buffer: ptr Buffer,
+          input_len: uint,
+          output_buffer: ptr Buffer): bool {.importc: "hash".}
+
+
+proc hash2*(ctx: RLN2[Bn256],
           inputs_buffer: ptr Buffer,
           input_len: uint,
           output_buffer: ptr Buffer): bool {.importc: "hash".}
