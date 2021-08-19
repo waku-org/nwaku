@@ -411,7 +411,10 @@ when defined(rln):
   proc mountRlnRelay*(node: WakuNode,
                       ethClientAddress: Option[string] = none(string),
                       ethAccountAddress: Option[Address] = none(Address),
-                      membershipContractAddress:  Option[Address] = none(Address)) {.async.} =
+                      membershipContractAddress:  Option[Address] = none(Address),
+                      groupMembers: Option[seq[IDCommitment]] = none(seq[IDCommitment]),
+                      self: Option[MembershipKeyPair] = none(MembershipKeyPair),
+                      index: Option[uint] = none(uint)) {.async.} =
     # TODO return a bool value to indicate the success of the call
     # check whether inputs are provided
     doAssert(ethClientAddress.isSome())
@@ -421,9 +424,19 @@ when defined(rln):
     # create an RLN instance
     var rlnInstance = createRLNInstance(32)
     doAssert(rlnInstance.isOk)
+    var rln = rlnInstance.value
+
+    # add members to the Merkle tree
+    if groupMembers.isSome():
+      for index in 0..groupMembers.get().len:
+        let member = groupMembers.get()[index]
+        let member_is_added = rln.insertMember(member)
+        doAssert(member_is_added)
+    if self.isSome():
+      doAssert(self.get().publicKey in groupMembers.get())
 
     # generate the membership keys
-    let membershipKeyPair = membershipKeyGen(rlnInstance.value)
+    let membershipKeyPair = rln.membershipKeyGen()
     # check whether keys are generated
     doAssert(membershipKeyPair.isSome())
     debug "the membership key for the rln relay is generated"
