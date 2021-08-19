@@ -11,52 +11,52 @@ import
 logScope:
   topics = "wakurlnrelayutils"
 
-type RLNResult* = Result[RLN2[Bn256], string]
+type RLNResult* = Result[RLN[Bn256], string]
 # membership contract interface
 contract(MembershipContract):
   # TODO define a return type of bool for register method to signify a successful registration
   proc register(pubkey: Uint256) # external payable
 
-proc createRLNInstance*(d: int, ctxPtr: var ptr RLN[Bn256]): bool
-  {.raises: [Defect, IOError].} =
+# proc createRLNInstance*(d: int, ctxPtr: var ptr RLN[Bn256]): bool
+#   {.raises: [Defect, IOError].} =
 
-  ## generates an instance of RLN 
-  ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
-  ## d indicates the depth of Merkle tree 
-  var  
-    ctxPtrPtr = addr(ctxPtr)
-    merkleDepth: csize_t = uint(d)
-    # parameters.key contains the parameters related to the Poseidon hasher
-    # to generate this file, clone this repo https://github.com/kilic/rln 
-    # and run the following command in the root directory of the cloned project
-    # cargo run --example export_test_keys
-    # the file is generated separately and copied here
-    parameters = readFile("waku/v2/protocol/waku_rln_relay/parameters.key")
-    pbytes = parameters.toBytes()
-    len : csize_t = uint(pbytes.len)
-    parametersBuffer = Buffer(`ptr`: addr(pbytes[0]), len: len)
+#   ## generates an instance of RLN 
+#   ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
+#   ## d indicates the depth of Merkle tree 
+#   var  
+#     ctxPtrPtr = addr(ctxPtr)
+#     merkleDepth: csize_t = uint(d)
+#     # parameters.key contains the parameters related to the Poseidon hasher
+#     # to generate this file, clone this repo https://github.com/kilic/rln 
+#     # and run the following command in the root directory of the cloned project
+#     # cargo run --example export_test_keys
+#     # the file is generated separately and copied here
+#     parameters = readFile("waku/v2/protocol/waku_rln_relay/parameters.key")
+#     pbytes = parameters.toBytes()
+#     len : csize_t = uint(pbytes.len)
+#     parametersBuffer = Buffer(`ptr`: addr(pbytes[0]), len: len)
 
-  # check the parameters.key is not empty
-  if (pbytes.len == 0):
-    debug "error in parameters.key"
-    return false
+#   # check the parameters.key is not empty
+#   if (pbytes.len == 0):
+#     debug "error in parameters.key"
+#     return false
   
-  # create an instance of RLN
-  let res = new_circuit_from_params(merkleDepth, addr parametersBuffer, ctxPtrPtr)
-  # check whether the circuit parameters are generated successfully
-  if (res == false): 
-    debug "error in parameters generation"
-    return false
-  return true
+#   # create an instance of RLN
+#   let res = new_circuit_from_params(merkleDepth, addr parametersBuffer, ctxPtrPtr)
+#   # check whether the circuit parameters are generated successfully
+#   if (res == false): 
+#     debug "error in parameters generation"
+#     return false
+#   return true
 
-proc createRLNInstance2*(d: int): RLNResult
+proc createRLNInstance*(d: int): RLNResult
   {.raises: [Defect, IOError].} =
 
   ## generates an instance of RLN 
   ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
   ## d indicates the depth of Merkle tree 
   var  
-    rlnInstance: RLN2[Bn256]
+    rlnInstance: RLN[Bn256]
     # ctxPtrPtr = addr(ctxPtr)
     merkleDepth: csize_t = uint(d)
     # parameters.key contains the parameters related to the Poseidon hasher
@@ -75,14 +75,47 @@ proc createRLNInstance2*(d: int): RLNResult
     return err("error in parameters.key")
   
   # create an instance of RLN
-  let res = new_circuit_from_params2(merkleDepth, addr parametersBuffer, addr rlnInstance)
+  let res = new_circuit_from_params(merkleDepth, addr parametersBuffer, addr rlnInstance)
   # check whether the circuit parameters are generated successfully
   if (res == false): 
     debug "error in parameters generation"
     return err("error in parameters generation")
   return ok(rlnInstance)
 
-proc membershipKeyGen*(ctxPtr: ptr RLN[Bn256]): Option[MembershipKeyPair] =
+# proc membershipKeyGen*(ctxPtr: ptr RLN[Bn256]): Option[MembershipKeyPair] =
+#   ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract
+    
+#   # keysBufferPtr will hold the generated key pairs i.e., secret and public keys 
+#   var 
+#     keysBuffer : Buffer
+#     keysBufferPtr = addr(keysBuffer)
+#     done = key_gen(ctxPtr, keysBufferPtr)  
+
+#   # check whether the keys are generated successfully
+#   if(done == false):
+#     debug "error in key generation"
+#     return none(MembershipKeyPair)
+    
+#   var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
+#   # the public and secret keys together are 64 bytes
+#   if (generatedKeys.len != 64):
+#     debug "the generated keys are invalid"
+#     return none(MembershipKeyPair)
+  
+#   # TODO define a separate proc to decode the generated keys to the secret and public components
+#   var 
+#     secret: array[32, byte] 
+#     public: array[32, byte]
+#   for (i,x) in secret.mpairs: x = generatedKeys[i]
+#   for (i,x) in public.mpairs: x = generatedKeys[i+32]
+  
+#   var 
+#     keypair = MembershipKeyPair(secretKey: secret, publicKey: public)
+
+
+#   return some(keypair)
+
+proc membershipKeyGen*(ctxPtr: RLN[Bn256]): Option[MembershipKeyPair] =
   ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract
     
   # keysBufferPtr will hold the generated key pairs i.e., secret and public keys 
@@ -90,39 +123,6 @@ proc membershipKeyGen*(ctxPtr: ptr RLN[Bn256]): Option[MembershipKeyPair] =
     keysBuffer : Buffer
     keysBufferPtr = addr(keysBuffer)
     done = key_gen(ctxPtr, keysBufferPtr)  
-
-  # check whether the keys are generated successfully
-  if(done == false):
-    debug "error in key generation"
-    return none(MembershipKeyPair)
-    
-  var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
-  # the public and secret keys together are 64 bytes
-  if (generatedKeys.len != 64):
-    debug "the generated keys are invalid"
-    return none(MembershipKeyPair)
-  
-  # TODO define a separate proc to decode the generated keys to the secret and public components
-  var 
-    secret: array[32, byte] 
-    public: array[32, byte]
-  for (i,x) in secret.mpairs: x = generatedKeys[i]
-  for (i,x) in public.mpairs: x = generatedKeys[i+32]
-  
-  var 
-    keypair = MembershipKeyPair(secretKey: secret, publicKey: public)
-
-
-  return some(keypair)
-
-proc membershipKeyGen2*(ctxPtr: RLN2[Bn256]): Option[MembershipKeyPair] =
-  ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract
-    
-  # keysBufferPtr will hold the generated key pairs i.e., secret and public keys 
-  var 
-    keysBuffer : Buffer
-    keysBufferPtr = addr(keysBuffer)
-    done = key_gen2(ctxPtr, keysBufferPtr)  
 
   # check whether the keys are generated successfully
   if(done == false):
