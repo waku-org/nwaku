@@ -241,7 +241,6 @@ suite "Waku rln relay":
       # check the parameters.key is not empty
       pbytes.len != 0
 
-    # ctx holds the information that is going to be used for  the key generation
     var 
       rlnInstance: RLN[Bn256]
     let res = new_circuit_from_params(merkleDepth, addr parametersBuffer, addr rlnInstance)
