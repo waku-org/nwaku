@@ -12,6 +12,7 @@ logScope:
   topics = "wakurlnrelayutils"
 
 type RLNResult* = Result[RLN[Bn256], string]
+type MerkleNodeResult* = Result[MerkleNode, string]
 # membership contract interface
 contract(MembershipContract):
   # TODO define a return type of bool for register method to signify a successful registration
@@ -115,3 +116,17 @@ proc insertMember*(rlnInstance: RLN[Bn256], idComm: var IDCommitment): bool =
 proc removeMember*(rlnInstance: RLN[Bn256], index: uint): bool = 
   let deletion_success = delete_member(rlnInstance, index)
   return deletion_success
+
+proc getMerkleRoot*(rlnInstance: RLN[Bn256]): MerkleNodeResult = 
+  # read the Merkle Tree root after insertion
+  var 
+    root {.noinit.} : Buffer = Buffer()
+    rootPtr = addr(root)
+    get_root_successful = get_root(rlnInstance, rootPtr)
+  if (not get_root_successful): return err("could not get the root")
+  if (not (root.len == 32)): return err("wrong output size")
+
+  var rootValue = cast[ptr array[32,byte]] (root.`ptr`)
+  let merkleNode = rootValue[]
+  return ok(merkleNode)
+  # let rootHex = rootValue[].toHex

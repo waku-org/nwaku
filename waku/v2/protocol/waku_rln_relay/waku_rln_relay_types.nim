@@ -13,6 +13,7 @@ type RLN*[E] = pointer
 
 type IDKey* = array[32, byte]
 type IDCommitment* = array[32, byte]
+type MerkleNode* = array[32,byte]
 
 # Custom data types defined for waku rln relay -------------------------
 type MembershipKeyPair* = object 

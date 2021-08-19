@@ -311,6 +311,24 @@ suite "Waku rln relay":
 
     # the two roots must be identical
     doAssert(rootHex1 == rootHex2)
+  test "getMerkleRoot utils":
+    # create an RLN instance which also includes an empty Merkle tree
+    var rlnInstance = createRLNInstance(32)
+    check:
+      rlnInstance.isOk == true
+
+    # read the Merkle Tree root
+    var root1 = getMerkleRoot(rlnInstance.value())
+    doAssert(root1.isOk)
+    let rootHex1 = root1.value().toHex
+
+    # read the Merkle Tree root
+    var root2 = getMerkleRoot(rlnInstance.value())
+    doAssert(root2.isOk)
+    let rootHex2 = root2.value().toHex
+
+    # the two roots must be identical
+    doAssert(rootHex1 == rootHex2)
 
   test "update_next_member Nim Wrapper":
     # create an RLN instance which also includes an empty Merkle tree
@@ -424,6 +442,52 @@ suite "Waku rln relay":
     ## The initial root of the tree (empty tree) must be identical to 
     ## the root of the tree after one insertion followed by a deletion
     doAssert(rootHex1 == rootHex3)
+  test "Merkle tree consistency check between deletion and insertion using rln utils":
+    # create an RLN instance
+    var rlnInstance = createRLNInstance(32)
+    check:
+      rlnInstance.isOk == true
+    var rln = rlnInstance.value()
+
+    # read the Merkle Tree root
+    var root1 = rln.getMerkleRoot()
+    doAssert(root1.isOk)
+    let rootHex1 = root1.value().toHex()
+    
+    # generate a key pair
+    var keypair = rln.membershipKeyGen()
+    doAssert(keypair.isSome())
+    let member_inserted = rln.insertMember(keypair.get().publicKey) 
+    check member_inserted
+
+    # read the Merkle Tree root after insertion
+    var root2 = rln.getMerkleRoot()
+    doAssert(root2.isOk)
+    let rootHex2 = root2.value().toHex()
+
+  
+    # delete the first member 
+    var deleted_member_index = uint(0)
+    let deletion_success = rln.removeMember(deleted_member_index)
+    doAssert(deletion_success)
+
+    # read the Merkle Tree root after the deletion
+    var root3 = rln.getMerkleRoot()
+    doAssert(root3.isOk)
+    let rootHex3 = root3.value().toHex()
+
+
+    debug "The initial root", rootHex1
+    debug "The root after insertion", rootHex2
+    debug "The root after deletion", rootHex3
+
+    # the root must change after the insertion
+    doAssert(not(rootHex1 == rootHex2))
+
+    ## The initial root of the tree (empty tree) must be identical to 
+    ## the root of the tree after one insertion followed by a deletion
+    doAssert(rootHex1 == rootHex3)
+
   test "hash Nim Wrappers":
     # create an RLN instance
     var rlnInstance = createRLNInstance(32)
