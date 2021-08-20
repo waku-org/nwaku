@@ -409,46 +409,60 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: boo
 
 when defined(rln):
   proc mountRlnRelay*(node: WakuNode,
-                      ethClientAddress: Option[string] = none(string),
-                      ethAccountAddress: Option[Address] = none(Address),
-                      membershipContractAddress:  Option[Address] = none(Address),
-                      groupMembers: Option[seq[IDCommitment]] = none(seq[IDCommitment]),
-                      membershipKeyPair: Option[MembershipKeyPair] = none(MembershipKeyPair),
-                      index: Option[uint] = none(uint)) {.async.} =
+                      ethClientAddrOpt: Option[string] = none(string),
+                      ethAccAddrOpt: Option[Address] = none(Address),
+                      memContractAddOpt:  Option[Address] = none(Address),
+                      groupOpt: Option[seq[IDCommitment]] = none(seq[IDCommitment]),
+                      memKeyPairOpt: Option[MembershipKeyPair] = none(MembershipKeyPair),
+                      memIndexOpt: Option[uint] = none(uint)) {.async.} =
     # TODO return a bool value to indicate the success of the call
     # check whether inputs are provided
-    doAssert(ethClientAddress.isSome())
-    doAssert(ethAccountAddress.isSome())
-    doAssert(membershipContractAddress.isSome())
+    doAssert(ethClientAddrOpt.isSome())
+    doAssert(ethAccAddrOpt.isSome())
+    doAssert(memContractAddOpt.isSome())
+    doAssert(groupOpt.isSome())    # TODO this check is not necessary for a dynamic group
+    doAssert(memKeyPairOpt.isSome())
+    doAssert(memIndexOpt.isSome())
+
+    let 
+      ethClientAddr = ethClientAddrOpt.get()
+      ethAccAddr = ethAccAddrOpt.get()
+      memContractAdd = memContractAddOpt.get()
+      group = groupOpt.get()
+      memKeyPair = memKeyPairOpt.get()
+      memIndex = memIndexOpt.get()
+
+
+    # check the peer's index and the inclusion of user's identity commitment in the group
+    doAssert((memKeyPair.idCommitment)  == group[int(memIndex)])
 
     # create an RLN instance
     var rlnInstance = createRLNInstance(32)
     doAssert(rlnInstance.isOk)
     var rln = rlnInstance.value
 
+
+    # TODO the following lines create a membership Key if none is provided 
+    # TODO for now we assume it is provided
     # # generate the membership keys
     # let membershipKeyPair = rln.membershipKeyGen()
     # # check whether keys are generated
-    doAssert(membershipKeyPair.isSome())
+    # doAssert(membershipKeyPair.isSome())
     # debug "the membership key for the rln relay is generated"
 
 
     # add members to the Merkle tree
-    if groupMembers.isSome():
-      for index in 0..groupMembers.get().len-1:
-        let member = groupMembers.get()[index]
-        let member_is_added = rln.insertMember(member)
-        doAssert(member_is_added)
-    if membershipKeyPair.isSome():
-      doAssert((membershipKeyPair.get().idCommitment) in groupMembers.get())
-
+    for index in 0..group.len-1:
+      let member = group[index]
+      let member_is_added = rln.insertMember(member)
+      doAssert(member_is_added)
     
-
-    # initialize the WakuRLNRelay
-    var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
-      ethClientAddress: ethClientAddress.get(),
-      ethAccountAddress: ethAccountAddress.get(),
-      membershipContractAddress: membershipContractAddress.get(),
+    # create the WakuRLNRelay
+    var rlnPeer = WakuRLNRelay(membershipKeyPair: memKeyPair,
+      membershipIndex: memIndex,
+      membershipContractAddress: memContractAdd,
+      ethClientAddress: ethClientAddr,
+      ethAccountAddress: ethAccAddr,
       rlnInstance: rln)
     
     # register the rln-relay peer to the membership contract

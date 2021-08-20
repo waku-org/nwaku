@@ -22,14 +22,16 @@ type MembershipKeyPair* = object
 
 type WakuRLNRelay* = object 
   membershipKeyPair*: MembershipKeyPair
+  membershipIndex*: uint # index of peers in the Merkle tree
+  membershipContractAddress*: Address
   ethClientAddress*: string
   ethAccountAddress*: Address
   # this field is required for signing transactions
   # TODO may need to erase this ethAccountPrivateKey when is not used
   # TODO may need to make ethAccountPrivateKey mandatory
   ethAccountPrivateKey*: Option[PrivateKey]
-  membershipContractAddress*: Address
   rlnInstance*: RLN[Bn256]
+  
 
 # inputs of the membership contract constructor
 # TODO may be able to make these constants private and put them inside the waku_rln_relay_utils
