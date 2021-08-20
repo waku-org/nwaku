@@ -29,6 +29,7 @@ type WakuRLNRelay* = object
   # TODO may need to make ethAccountPrivateKey mandatory
   ethAccountPrivateKey*: Option[PrivateKey]
   membershipContractAddress*: Address
+  rlnInstance*: RLN[Bn256]
 
 # inputs of the membership contract constructor
 # TODO may be able to make these constants private and put them inside the waku_rln_relay_utils

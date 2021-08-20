@@ -218,8 +218,40 @@ procSuite "Waku rln relay":
       ethAccountAddress = accounts[9]
     await web3.close()
 
+    # create current peer's pk
+    var rlnInstance = createRLNInstance(32)
+    check rlnInstance.isOk == true
+    var rln = rlnInstance.value
+    # generate a key pair
+    var keypair = rln.membershipKeyGen()
+    doAssert(keypair.isSome())
+
+    # current peer index in the Merkle tree
+    let index = uint(5)
+
+    # Create a group of 10 members 
+    var group = newSeq[IDCommitment]()
+    for i in 0..10:
+      var member_is_added: bool = false
+      if (uint(i) == index):
+        #  insert the current peer's pk
+        group.add(keypair.get().publicKey)
+        discard rln.insertMember(keypair.get().publicKey)
+      else:
+        var memberKeypair = rln.membershipKeyGen()
+        doAssert(memberKeypair.isSome())
+        group.add(memberKeypair.get().publicKey)
+        discard rln.insertMember(memberKeypair.get().publicKey)
+    
+    let expectedRoot = rln.getMerkleRoot().value().toHex
+    debug "expected root ", expectedRoot
+    
     # start rln-relay
-    await node.mountRlnRelay(ethClientAddress = some(EthClient), ethAccountAddress =  some(ethAccountAddress), membershipContractAddress =  some(membershipContractAddress))
+    await node.mountRlnRelay(ethClientAddress = some(EthClient), ethAccountAddress =  some(ethAccountAddress), membershipContractAddress =  some(membershipContractAddress), groupMembers = some(group), self = some(keypair.get()),  index = some(index))
+    let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
+    debug "calculated root ", calculatedRoot
+
+    check expectedRoot == calculatedRoot
 
     await node.stop()
 

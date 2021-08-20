@@ -428,7 +428,7 @@ when defined(rln):
 
     # add members to the Merkle tree
     if groupMembers.isSome():
-      for index in 0..groupMembers.get().len:
+      for index in 0..groupMembers.get().len-1:
         let member = groupMembers.get()[index]
         let member_is_added = rln.insertMember(member)
         doAssert(member_is_added)
@@ -445,7 +445,8 @@ when defined(rln):
     var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
       ethClientAddress: ethClientAddress.get(),
       ethAccountAddress: ethAccountAddress.get(),
-      membershipContractAddress: membershipContractAddress.get())
+      membershipContractAddress: membershipContractAddress.get(),
+      rlnInstance: rln)
     
     # register the rln-relay peer to the membership contract
     let is_successful = await rlnPeer.register()
