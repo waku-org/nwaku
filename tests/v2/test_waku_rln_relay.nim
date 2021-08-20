@@ -237,13 +237,16 @@ procSuite "Waku rln relay":
       if (uint(i) == index):
         #  insert the current peer's pk
         group.add(keypair.get().idCommitment)
-        discard rln.insertMember(keypair.get().idCommitment)
+        member_is_added = rln.insertMember(keypair.get().idCommitment)
+        doAssert(member_is_added)
+        debug "member key", key=keypair.get().idCommitment.toHex
       else:
         var memberKeypair = rln.membershipKeyGen()
         doAssert(memberKeypair.isSome())
         group.add(memberKeypair.get().idCommitment)
-        discard rln.insertMember(memberKeypair.get().idCommitment)
-    
+        member_is_added = rln.insertMember(memberKeypair.get().idCommitment)
+        doAssert(member_is_added)
+        debug "member key", key=memberKeypair.get().idCommitment.toHex
     let expectedRoot = rln.getMerkleRoot().value().toHex
     debug "expected root ", expectedRoot
 
