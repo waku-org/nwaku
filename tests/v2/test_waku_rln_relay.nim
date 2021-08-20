@@ -235,13 +235,13 @@ procSuite "Waku rln relay":
       var member_is_added: bool = false
       if (uint(i) == index):
         #  insert the current peer's pk
-        group.add(keypair.get().publicKey)
-        discard rln.insertMember(keypair.get().publicKey)
+        group.add(keypair.get().idCommitment)
+        discard rln.insertMember(keypair.get().idCommitment)
       else:
         var memberKeypair = rln.membershipKeyGen()
         doAssert(memberKeypair.isSome())
-        group.add(memberKeypair.get().publicKey)
-        discard rln.insertMember(memberKeypair.get().publicKey)
+        group.add(memberKeypair.get().idCommitment)
+        discard rln.insertMember(memberKeypair.get().idCommitment)
     
     let expectedRoot = rln.getMerkleRoot().value().toHex
     debug "expected root ", expectedRoot
@@ -306,10 +306,10 @@ suite "Waku rln relay":
     var empty : array[32,byte]
     check:
       key.isSome
-      key.get().secretKey.len == 32
-      key.get().publicKey.len == 32
-      key.get().secretKey != empty
-      key.get().publicKey != empty
+      key.get().idKey.len == 32
+      key.get().idCommitment.len == 32
+      key.get().idKey != empty
+      key.get().idCommitment != empty
     
     debug "the generated membership key pair: ", key 
 
@@ -371,7 +371,7 @@ suite "Waku rln relay":
     # generate a key pair
     var keypair = membershipKeyGen(rlnInstance.value)
     doAssert(keypair.isSome())
-    var pkBuffer = Buffer(`ptr`: addr(keypair.get().publicKey[0]), len: 32)
+    var pkBuffer = Buffer(`ptr`: addr(keypair.get().idCommitment[0]), len: 32)
     let pkBufferPtr = addr pkBuffer
 
     # add the member to the tree
@@ -400,7 +400,7 @@ suite "Waku rln relay":
     var keypair = rln.membershipKeyGen()
     doAssert(keypair.isSome())
     check:
-      rln.insertMember(keypair.get().publicKey)  
+      rln.insertMember(keypair.get().idCommitment)  
     
   test "removeMember rln utils":
     # create an RLN instance which also includes an empty Merkle tree
@@ -428,7 +428,7 @@ suite "Waku rln relay":
     # generate a key pair
     var keypair = membershipKeyGen(rlnInstance.value)
     doAssert(keypair.isSome())
-    var pkBuffer = Buffer(`ptr`: addr(keypair.get().publicKey[0]), len: 32)
+    var pkBuffer = Buffer(`ptr`: addr(keypair.get().idCommitment[0]), len: 32)
     let pkBufferPtr = addr pkBuffer
 
     # add the member to the tree
@@ -489,7 +489,7 @@ suite "Waku rln relay":
     # generate a key pair
     var keypair = rln.membershipKeyGen()
     doAssert(keypair.isSome())
-    let member_inserted = rln.insertMember(keypair.get().publicKey) 
+    let member_inserted = rln.insertMember(keypair.get().idCommitment) 
     check member_inserted
 
     # read the Merkle Tree root after insertion
@@ -563,7 +563,7 @@ suite "Waku rln relay":
 
     # create the membership key
     var auth = membershipKeyGen(rlnInstance.value)
-    var skBuffer = Buffer(`ptr`: addr(auth.get().secretKey[0]), len: 32)
+    var skBuffer = Buffer(`ptr`: addr(auth.get().idKey[0]), len: 32)
 
     # peer's index in the Merkle Tree
     var index = 5
@@ -576,11 +576,11 @@ suite "Waku rln relay":
       var member_is_added: bool = false
       if (i == index):
         #  insert the current peer's pk
-        var pkBuffer = Buffer(`ptr`: addr(auth.get().publicKey[0]), len: 32)
+        var pkBuffer = Buffer(`ptr`: addr(auth.get().idCommitment[0]), len: 32)
         member_is_added = update_next_member(rlnInstance.value, addr pkBuffer)
       else:
         var memberKeys = membershipKeyGen(rlnInstance.value)
-        var pkBuffer = Buffer(`ptr`: addr(memberKeys.get().publicKey[0]), len: 32)
+        var pkBuffer = Buffer(`ptr`: addr(memberKeys.get().idCommitment[0]), len: 32)
         member_is_added = update_next_member(rlnInstance.value, addr pkBuffer)
       # check the member is added
       doAssert(member_is_added)

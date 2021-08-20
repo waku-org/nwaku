@@ -17,8 +17,8 @@ type MerkleNode* = array[32,byte]
 
 # Custom data types defined for waku rln relay -------------------------
 type MembershipKeyPair* = object 
-  secretKey*: IDKey
-  publicKey*: IDCommitment
+  idKey*: IDKey
+  idCommitment*: IDCommitment
 
 type WakuRLNRelay* = object 
   membershipKeyPair*: MembershipKeyPair

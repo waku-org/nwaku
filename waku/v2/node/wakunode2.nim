@@ -440,7 +440,7 @@ when defined(rln):
         let member_is_added = rln.insertMember(member)
         doAssert(member_is_added)
     if membershipKeyPair.isSome():
-      doAssert(membershipKeyPair.get().publicKey in groupMembers.get())
+      doAssert((membershipKeyPair.get().idCommitment) in groupMembers.get())
 
     
 

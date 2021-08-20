@@ -78,7 +78,7 @@ proc membershipKeyGen*(ctxPtr: RLN[Bn256]): Option[MembershipKeyPair] =
   for (i,x) in public.mpairs: x = generatedKeys[i+32]
   
   var 
-    keypair = MembershipKeyPair(secretKey: secret, publicKey: public)
+    keypair = MembershipKeyPair(idKey: secret, idCommitment: public)
 
 
   return some(keypair)
@@ -91,7 +91,7 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   # does the signing using the provided key
   web3.privateKey = rlnPeer.ethAccountPrivateKey
   var sender = web3.contractSender(MembershipContract, rlnPeer.membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
-  let pk = cast[UInt256](rlnPeer.membershipKeyPair.publicKey)
+  let pk = cast[UInt256](rlnPeer.membershipKeyPair.idCommitment)
   discard await sender.register(pk).send(MembershipFee)
   # TODO check the receipt and then return true/false
   await web3.close()
