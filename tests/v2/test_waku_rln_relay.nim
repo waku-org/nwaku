@@ -245,9 +245,9 @@ procSuite "Waku rln relay":
     
     let expectedRoot = rln.getMerkleRoot().value().toHex
     debug "expected root ", expectedRoot
-    
+
     # start rln-relay
-    await node.mountRlnRelay(ethClientAddress = some(EthClient), ethAccountAddress =  some(ethAccountAddress), membershipContractAddress =  some(membershipContractAddress), groupMembers = some(group), self = some(keypair.get()),  index = some(index))
+    await node.mountRlnRelay(ethClientAddress = some(EthClient), ethAccountAddress =  some(ethAccountAddress), membershipContractAddress =  some(membershipContractAddress), groupMembers = some(group), membershipKeyPair = some(keypair.get()),  index = some(index))
     let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
     debug "calculated root ", calculatedRoot
 
