@@ -8,7 +8,8 @@ import
 ## Bn256 and RLN are Nim wrappers for the data types used in 
 ## the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
 type Bn256* = pointer
-type RLN*[E] {.incompleteStruct.} = object
+type RLN*[E] = pointer
+
 
 # Custom data types defined for waku rln relay -------------------------
 type MembershipKeyPair* = object 

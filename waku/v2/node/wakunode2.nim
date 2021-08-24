@@ -419,13 +419,11 @@ when defined(rln):
     doAssert(membershipContractAddress.isSome())
 
     # create an RLN instance
-    var 
-      ctx = RLN[Bn256]()
-      ctxPtr = addr(ctx)
-    doAssert(createRLNInstance(32, ctxPtr))
+    var rlnInstance = createRLNInstance(32)
+    doAssert(rlnInstance.isOk)
 
     # generate the membership keys
-    let membershipKeyPair = membershipKeyGen(ctxPtr)
+    let membershipKeyPair = membershipKeyGen(rlnInstance.value)
     # check whether keys are generated
     doAssert(membershipKeyPair.isSome())
     debug "the membership key for the rln relay is generated"
