@@ -3,6 +3,7 @@
 import 
   chronicles, options, chronos, stint,
   web3,
+  stew/results,
   stew/byteutils,
   rln, 
   waku_rln_relay_types
@@ -10,19 +11,20 @@ import
 logScope:
   topics = "wakurlnrelayutils"
 
+type RLNResult* = Result[RLN[Bn256], string]
 # membership contract interface
 contract(MembershipContract):
   # TODO define a return type of bool for register method to signify a successful registration
   proc register(pubkey: Uint256) # external payable
 
-proc createRLNInstance*(d: int, ctxPtr: var ptr RLN[Bn256]): bool
+proc createRLNInstance*(d: int): RLNResult
   {.raises: [Defect, IOError].} =
 
   ## generates an instance of RLN 
   ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
   ## d indicates the depth of Merkle tree 
   var  
-    ctxPtrPtr = addr(ctxPtr)
+    rlnInstance: RLN[Bn256]
     merkleDepth: csize_t = uint(d)
     # parameters.key contains the parameters related to the Poseidon hasher
     # to generate this file, clone this repo https://github.com/kilic/rln 
@@ -37,17 +39,17 @@ proc createRLNInstance*(d: int, ctxPtr: var ptr RLN[Bn256]): bool
   # check the parameters.key is not empty
   if (pbytes.len == 0):
     debug "error in parameters.key"
-    return false
+    return err("error in parameters.key")
   
   # create an instance of RLN
-  let res = new_circuit_from_params(merkleDepth, addr parametersBuffer, ctxPtrPtr)
+  let res = new_circuit_from_params(merkleDepth, addr parametersBuffer, addr rlnInstance)
   # check whether the circuit parameters are generated successfully
   if (res == false): 
     debug "error in parameters generation"
-    return false
-  return true
+    return err("error in parameters generation")
+  return ok(rlnInstance)
 
-proc membershipKeyGen*(ctxPtr: ptr RLN[Bn256]): Option[MembershipKeyPair] =
+proc membershipKeyGen*(ctxPtr: RLN[Bn256]): Option[MembershipKeyPair] =
   ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract
     
   # keysBufferPtr will hold the generated key pairs i.e., secret and public keys 
@@ -79,7 +81,6 @@ proc membershipKeyGen*(ctxPtr: ptr RLN[Bn256]): Option[MembershipKeyPair] =
 
 
   return some(keypair)
-
 proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   ## registers the public key of the rlnPeer which is rlnPeer.membershipKeyPair.publicKey
   ## into the membership contract whose address is in rlnPeer.membershipContractAddress
