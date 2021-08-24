@@ -19,8 +19,10 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                protobuf/minprotobuf,     # message serialisation/deserialisation from and to protobufs
                protocols/protocol,       # define the protocol base type
                protocols/secure/secio,   # define the protocol of secure input / output, allows encrypted communication that uses public keys to validate signed messages instead of a certificate authority like in TLS
+               nameresolving/dnsresolver,# define DNS resolution
                muxers/muxer]             # define an interface for stream multiplexing, allowing peers to offer many protocols over a single connection
 import   ../../waku/v2/node/[wakunode2, waku_payload],
+         ../../waku/v2/node/./dnsdisc/waku_dnsdisc,
          ../../waku/v2/utils/peers,
          ../../waku/common/utils/nat,
          ./config_chat2
@@ -344,6 +346,30 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
 
   if conf.staticnodes.len > 0:
     await connectToNodes(chat, conf.staticnodes)
+  elif conf.dnsDiscovery and conf.dnsDiscoveryUrl != "":
+      # Discover nodes via DNS
+      debug "Discovering nodes using Waku DNS discovery", url=conf.dnsDiscoveryUrl
+
+      var nameServers: seq[TransportAddress]
+      for ip in conf.dnsDiscoveryNameServers:
+        nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
+
+      let dnsResolver = DnsResolver.new(nameServers)
+
+      proc resolver(domain: string): Future[string] {.async, gcsafe.} =
+        trace "resolving", domain=domain
+        let resolved = await dnsResolver.resolveTxt(domain)
+        return resolved[0] # Use only first answer
+      
+      var wakuDnsDiscovery = WakuDnsDiscovery.init(conf.dnsDiscoveryUrl,
+                                                   resolver)
+      if wakuDnsDiscovery.isOk:
+        let discoveredPeers = wakuDnsDiscovery.get().findPeers()
+        if discoveredPeers.isOk:
+          info "Connecting to discovered peers"
+          waitFor chat.node.connectToNodes(discoveredPeers.get())
+      else:
+        warn "Failed to init Waku DNS discovery"
   elif conf.fleet != Fleet.none:
     # Connect to at least one random fleet node
     echo "No static peers configured. Choosing one at random from " & $conf.fleet & " fleet..."
