@@ -441,14 +441,14 @@ when defined(rln):
     doAssert(rlnInstance.isOk)
     var rln = rlnInstance.value
 
-
-    # TODO the following lines create a membership Key if none is provided 
-    # TODO for now we assume it is provided
-    # # generate the membership keys
-    # let membershipKeyPair = rln.membershipKeyGen()
-    # # check whether keys are generated
-    # doAssert(membershipKeyPair.isSome())
-    # debug "the membership key for the rln relay is generated"
+    # generate the membership keys if none is provided
+    # this if condition never gets through for a static group of users
+    # the node should pass its keys i.e., memKeyPairOpt to the function
+    if not memKeyPairOpt.isSome:
+      let membershipKeyPair = rln.membershipKeyGen()
+      # check whether keys are generated
+      doAssert(membershipKeyPair.isSome())
+      debug "the membership key for the rln relay is generated", idKey=membershipKeyPair.get().idKey.toHex, idCommitment=membershipKeyPair.get().idCommitment.toHex
 
 
     # add members to the Merkle tree
