@@ -16,6 +16,8 @@ This release contains the following:
 
 #### Docs
 
+- Added contributor guidelines on Waku v2 fleet monitoring and management.
+
 #### Schema
 
 #### API
