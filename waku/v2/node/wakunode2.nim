@@ -417,12 +417,25 @@ when defined(rln):
                       memIndexOpt: Option[uint] = none(uint)) {.async.} =
     # TODO return a bool value to indicate the success of the call
     # check whether inputs are provided
-    doAssert(ethClientAddrOpt.isSome())
-    doAssert(ethAccAddrOpt.isSome())
-    doAssert(memContractAddOpt.isSome())
-    doAssert(groupOpt.isSome())    # TODO this check is not necessary for a dynamic group
-    doAssert(memKeyPairOpt.isSome())
-    doAssert(memIndexOpt.isSome())
+    if ethClientAddrOpt.isNone():
+      info "failed to mount rln relay: Ethereum client address is not provided"
+      return
+    if ethAccAddrOpt.isNone():
+      info "failed to mount rln relay: Ethereum account address is not provided"
+      return
+    if memContractAddOpt.isNone():
+      info "failed to mount rln relay: membership contract address is not provided"
+      return
+    if groupOpt.isNone():
+      # TODO this check is not necessary for a dynamic group
+      info "failed to mount rln relay:  group information is not provided"
+      return
+    if memKeyPairOpt.isNone():
+      info "failed to mount rln relay: membership key of the node is not provided"
+      return
+    if memIndexOpt.isNone():
+      info "failed to mount rln relay:  membership index is not provided"
+      return
 
     let 
       ethClientAddr = ethClientAddrOpt.get()
