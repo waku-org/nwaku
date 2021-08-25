@@ -135,3 +135,8 @@
 	url = https://github.com/status-im/nim-dnsdisc.git
 	ignore = untracked
 	branch = main
+[submodule "vendor/dnsclient.nim"]
+	path = vendor/dnsclient.nim
+	url = https://github.com/jm-clius/dnsclient.nim.git
+	ignore = untracked
+	branch = master
