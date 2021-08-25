@@ -192,6 +192,11 @@ type
       desc: "URL for DNS node list in format 'enrtree://<key>@<fqdn>'",
       defaultValue: ""
       name: "dns-discovery-url" }: string
+    
+    dnsDiscoveryNameServers* {.
+      desc: "DNS name server IPs to query. Argument may be repeated."
+      defaultValue: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")]
+      name: "dns-discovery-name-server" }: seq[ValidIpAddress]
 
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =

@@ -180,13 +180,12 @@ procSuite "Waku rln relay":
     await web3.close()
 
     # create an RLN instance
-    var 
-      ctx = RLN[Bn256]()
-      ctxPtr = addr(ctx)
-    doAssert(createRLNInstance(32, ctxPtr))
+    var rlnInstance = createRLNInstance(32)
+    check:
+      rlnInstance.isOk == true
 
     # generate the membership keys
-    let membershipKeyPair = membershipKeyGen(ctxPtr)
+    let membershipKeyPair = membershipKeyGen(rlnInstance.value)
     
     check:
       membershipKeyPair.isSome
@@ -242,13 +241,9 @@ suite "Waku rln relay":
       # check the parameters.key is not empty
       pbytes.len != 0
 
-    # ctx holds the information that is going to be used for  the key generation
     var 
-      obj = RLN[Bn256]()
-      objPtr = addr(obj)
-      objptrptr = addr(objPtr)
-      ctx = objptrptr
-    let res = new_circuit_from_params(merkleDepth, addr parametersBuffer, ctx)
+      rlnInstance: RLN[Bn256]
+    let res = new_circuit_from_params(merkleDepth, addr parametersBuffer, addr rlnInstance)
     check:
       # check whether the circuit parameters are generated successfully
       res == true
@@ -257,7 +252,7 @@ suite "Waku rln relay":
     var 
       keysBuffer : Buffer
       keysBufferPtr = addr(keysBuffer)
-      done = key_gen(ctx[], keysBufferPtr) 
+      done = key_gen(rlnInstance, keysBufferPtr) 
     check:
       # check whether the keys are generated successfully
       done == true
@@ -271,12 +266,11 @@ suite "Waku rln relay":
     
   test "membership Key Gen":
     # create an RLN instance
-    var 
-      ctx = RLN[Bn256]()
-      ctxPtr = addr(ctx)
-    doAssert(createRLNInstance(32, ctxPtr))
+    var rlnInstance = createRLNInstance(32)
+    check:
+      rlnInstance.isOk == true
 
-    var key = membershipKeyGen(ctxPtr)
+    var key = membershipKeyGen(rlnInstance.value)
     var empty : array[32,byte]
     check:
       key.isSome
@@ -289,16 +283,15 @@ suite "Waku rln relay":
 
   test "get_root Nim binding":
     # create an RLN instance which also includes an empty Merkle tree
-    var 
-      ctx = RLN[Bn256]()
-      ctxPtr = addr(ctx)
-    doAssert(createRLNInstance(32, ctxPtr))
+    var rlnInstance = createRLNInstance(32)
+    check:
+      rlnInstance.isOk == true
 
     # read the Merkle Tree root
     var 
       root1 {.noinit.} : Buffer = Buffer()
       rootPtr1 = addr(root1)
-      get_root_successful1 = get_root(ctxPtr, rootPtr1)
+      get_root_successful1 = get_root(rlnInstance.value, rootPtr1)
     doAssert(get_root_successful1)
     doAssert(root1.len == 32)
 
@@ -306,7 +299,7 @@ suite "Waku rln relay":
     var 
       root2 {.noinit.} : Buffer = Buffer()
       rootPtr2 = addr(root2)
-      get_root_successful2 = get_root(ctxPtr, rootPtr2)
+      get_root_successful2 = get_root(rlnInstance.value, rootPtr2)
     doAssert(get_root_successful2)
     doAssert(root2.len == 32)
 
@@ -321,77 +314,74 @@ suite "Waku rln relay":
 
   test "update_next_member Nim Wrapper":
     # create an RLN instance which also includes an empty Merkle tree
-    var 
-      ctx = RLN[Bn256]()
-      ctxPtr = addr(ctx)
-    doAssert(createRLNInstance(32, ctxPtr))
+    var rlnInstance = createRLNInstance(32)
+    check:
+      rlnInstance.isOk == true
 
     # generate a key pair
-    var keypair = membershipKeyGen(ctxPtr)
+    var keypair = membershipKeyGen(rlnInstance.value)
     doAssert(keypair.isSome())
     var pkBuffer = Buffer(`ptr`: addr(keypair.get().publicKey[0]), len: 32)
     let pkBufferPtr = addr pkBuffer
 
     # add the member to the tree
-    var member_is_added = update_next_member(ctxPtr, pkBufferPtr)
+    var member_is_added = update_next_member(rlnInstance.value, pkBufferPtr)
     check:
       member_is_added == true
     
   test "delete_member Nim wrapper":
     # create an RLN instance which also includes an empty Merkle tree
-    var 
-      ctx = RLN[Bn256]()
-      ctxPtr = addr(ctx)
-    doAssert(createRLNInstance(32, ctxPtr))
+    var rlnInstance = createRLNInstance(32)
+    check:
+      rlnInstance.isOk == true
 
     # delete the first member 
     var deleted_member_index = uint(0)
-    let deletion_success = delete_member(ctxPtr, deleted_member_index)
+    let deletion_success = delete_member(rlnInstance.value, deleted_member_index)
     doAssert(deletion_success)
 
   test "Merkle tree consistency check between deletion and insertion":
     # create an RLN instance
-    var 
-      ctx = RLN[Bn256]()
-      ctxPtr = addr(ctx)
-    doAssert(createRLNInstance(32, ctxPtr))
+    var rlnInstance = createRLNInstance(32)
+    check:
+      rlnInstance.isOk == true
 
     # read the Merkle Tree root
     var 
       root1 {.noinit.} : Buffer = Buffer()
       rootPtr1 = addr(root1)
-      get_root_successful1 = get_root(ctxPtr, rootPtr1)
+      get_root_successful1 = get_root(rlnInstance.value, rootPtr1)
     doAssert(get_root_successful1)
     doAssert(root1.len == 32)
     
     # generate a key pair
-    var keypair = membershipKeyGen(ctxPtr)
+    var keypair = membershipKeyGen(rlnInstance.value)
     doAssert(keypair.isSome())
     var pkBuffer = Buffer(`ptr`: addr(keypair.get().publicKey[0]), len: 32)
     let pkBufferPtr = addr pkBuffer
 
     # add the member to the tree
-    var member_is_added = update_next_member(ctxPtr, pkBufferPtr)
+    var member_is_added = update_next_member(rlnInstance.value, pkBufferPtr)
     doAssert(member_is_added)
 
     # read the Merkle Tree root after insertion
     var 
       root2 {.noinit.} : Buffer = Buffer()
       rootPtr2 = addr(root2)
-      get_root_successful2 = get_root(ctxPtr, rootPtr2)
+      get_root_successful2 = get_root(rlnInstance.value, rootPtr2)
     doAssert(get_root_successful2)
     doAssert(root2.len == 32)
 
     # delete the first member 
     var deleted_member_index = uint(0)
-    let deletion_success = delete_member(ctxPtr, deleted_member_index)
+    let deletion_success = delete_member(rlnInstance.value, deleted_member_index)
     doAssert(deletion_success)
 
     # read the Merkle Tree root after the deletion
     var 
       root3 {.noinit.} : Buffer = Buffer()
       rootPtr3 = addr(root3)
-      get_root_successful3 = get_root(ctxPtr, rootPtr3)
+      get_root_successful3 = get_root(rlnInstance.value, rootPtr3)
     doAssert(get_root_successful3)
     doAssert(root3.len == 32)
 
@@ -415,11 +405,10 @@ suite "Waku rln relay":
     doAssert(rootHex1 == rootHex3)
   test "hash Nim Wrappers":
     # create an RLN instance
-    var 
-      ctx = RLN[Bn256]()
-      ctxPtr = addr(ctx)
-    doAssert(createRLNInstance(30, ctxPtr))
-
+    var rlnInstance = createRLNInstance(32)
+    check:
+      rlnInstance.isOk == true
+    
     # prepare the input
     var
       hashInput : array[32, byte]
@@ -435,7 +424,7 @@ suite "Waku rln relay":
       outputBuffer: Buffer
       numOfInputs = 1.uint # the number of hash inputs that can be 1 or 2
     
-    let hashSuccess = hash(ctxPtr, addr hashInputBuffer, numOfInputs, addr outputBuffer)
+    let hashSuccess = hash(rlnInstance.value, addr hashInputBuffer, numOfInputs, addr outputBuffer)
     doAssert(hashSuccess)
     let outputArr = cast[ptr array[32,byte]](outputBuffer.`ptr`)[]
     doAssert("53a6338cdbf02f0563cec1898e354d0d272c8f98b606c538945c6f41ef101828" == outputArr.toHex())
@@ -448,15 +437,15 @@ suite "Waku rln relay":
 
   test "generate_proof and verify Nim Wrappers":
     # create an RLN instance
-    var 
-      ctx = RLN[Bn256]()
-      ctxPtr = addr(ctx)
 
     # check if the rln instance is created successfully 
-    doAssert(createRLNInstance(32, ctxPtr))
+    var rlnInstance = createRLNInstance(32)
+    check:
+      rlnInstance.isOk == true
+
 
     # create the membership key
-    var auth = membershipKeyGen(ctxPtr)
+    var auth = membershipKeyGen(rlnInstance.value)
     var skBuffer = Buffer(`ptr`: addr(auth.get().secretKey[0]), len: 32)
 
     # peer's index in the Merkle Tree
@@ -471,11 +460,11 @@ suite "Waku rln relay":
       if (i == index):
         #  insert the current peer's pk
         var pkBuffer = Buffer(`ptr`: addr(auth.get().publicKey[0]), len: 32)
-        member_is_added = update_next_member(ctxPtr, addr pkBuffer)
+        member_is_added = update_next_member(rlnInstance.value, addr pkBuffer)
       else:
-        var memberKeys = membershipKeyGen(ctxPtr)
+        var memberKeys = membershipKeyGen(rlnInstance.value)
         var pkBuffer = Buffer(`ptr`: addr(memberKeys.get().publicKey[0]), len: 32)
-        member_is_added = update_next_member(ctxPtr, addr pkBuffer)
+        member_is_added = update_next_member(rlnInstance.value, addr pkBuffer)
       # check the member is added
       doAssert(member_is_added)
 
@@ -505,7 +494,7 @@ suite "Waku rln relay":
 
     # generate the proof
     var proof: Buffer
-    let proofIsSuccessful = generate_proof(ctxPtr, addr inputBuffer, addr authObj, addr proof)
+    let proofIsSuccessful = generate_proof(rlnInstance.value, addr inputBuffer, addr authObj, addr proof)
     # check whether the generate_proof call is done successfully
     doAssert(proofIsSuccessful)
     var proofValue = cast[ptr array[416,byte]] (proof.`ptr`)
@@ -537,7 +526,7 @@ suite "Waku rln relay":
     debug "nullifier", nullifier
 
     var f = 0.uint32
-    let verifyIsSuccessful = verify(ctxPtr, addr proof, addr f)
+    let verifyIsSuccessful = verify(rlnInstance.value, addr proof, addr f)
     doAssert(verifyIsSuccessful)
     # f = 0 means the proof is verified
     doAssert(f == 0)
@@ -547,12 +536,12 @@ suite "Waku rln relay":
     var badIndex = 8
     var badAuthObj: Auth = Auth(secret_buffer: addr skBuffer, index: uint(badIndex))
     var badProof: Buffer
-    let badProofIsSuccessful = generate_proof(ctxPtr, addr inputBuffer, addr badAuthObj, addr badProof)
+    let badProofIsSuccessful = generate_proof(rlnInstance.value, addr inputBuffer, addr badAuthObj, addr badProof)
     # check whether the generate_proof call is done successfully
     doAssert(badProofIsSuccessful)
 
     var badF = 0.uint32
-    let badVerifyIsSuccessful = verify(ctxPtr, addr badProof, addr badF)
+    let badVerifyIsSuccessful = verify(rlnInstance.value, addr badProof, addr badF)
     doAssert(badVerifyIsSuccessful)
     # badF=1 means the proof is not verified
     # verification of the bad proof should fail
