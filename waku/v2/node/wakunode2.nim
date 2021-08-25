@@ -9,6 +9,7 @@ import
   libp2p/crypto/crypto,
   libp2p/protocols/ping,
   libp2p/protocols/pubsub/gossipsub,
+  libp2p/nameresolving/dnsresolver,
   libp2p/builders,
   ../protocol/[waku_relay, waku_message],
   ../protocol/waku_store/waku_store,
@@ -850,11 +851,21 @@ when isMainModule:
     
     # Connect to discovered nodes
     if conf.dnsDiscovery and conf.dnsDiscoveryUrl != "":
-      # @ TODO: this is merely POC integration with an empty resolver
-      debug "Waku DNS Discovery enabled. Using empty resolver."
+      debug "Discovering nodes using Waku DNS discovery", url=conf.dnsDiscoveryUrl
+
+      var nameServers: seq[TransportAddress]
+      for ip in conf.dnsDiscoveryNameServers:
+        nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
+
+      let dnsResolver = DnsResolver.new(nameServers)
+
+      proc resolver(domain: string): Future[string] {.async, gcsafe.} =
+        trace "resolving", domain=domain
+        let resolved = await dnsResolver.resolveTxt(domain)
+        return resolved[0] # Use only first answer
       
       var wakuDnsDiscovery = WakuDnsDiscovery.init(conf.dnsDiscoveryUrl,
-                                                   emptyResolver)  # TODO: Add DNS resolver
+                                                   resolver)
       if wakuDnsDiscovery.isOk:
         let discoveredPeers = wakuDnsDiscovery.get().findPeers()
         if discoveredPeers.isOk:
