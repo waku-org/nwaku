@@ -11,6 +11,7 @@ This release contains the following:
 ### Changes
 
 - GossipSub [prune backoff period](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#prune-backoff-and-peer-exchange) is now the recommended 1 minute
+- Bridge now uses content topic format according to [23/WAKU2-TOPICS](https://rfc.vac.dev/spec/23/)
 
 #### General refactoring
 
@@ -22,8 +23,10 @@ This release contains the following:
 
 #### API
 
-
 ### Fixes
+
+- Bridge no longer re-encodes already encoded payloads when publishing to V1
+- Bridge now populates WakuMessage timestamps when publishing to V2
 
 ## 2021-07-26 v0.5.1
 

@@ -65,7 +65,7 @@ proc containsOrAdd(sequence: var seq[hashes.Hash], hash: hashes.Hash): bool =
 
 proc toV2ContentTopic*(v1Topic: waku_protocol.Topic): ContentTopic =
   ## Convert a 4-byte array v1 topic to a namespaced content topic
-  ## with format `/waku/1/<v1-topic-bytes-as-hex>/proto`
+  ## with format `/waku/1/<v1-topic-bytes-as-hex>/rfc26`
   ## 
   ## <v1-topic-bytes-as-hex> should be prefixed with `0x`
   
@@ -74,13 +74,13 @@ proc toV2ContentTopic*(v1Topic: waku_protocol.Topic): ContentTopic =
   namespacedTopic.application = "waku"
   namespacedTopic.version = "1"
   namespacedTopic.topicName = "0x" & v1Topic.toHex()
-  namespacedTopic.encoding = "rlp"
+  namespacedTopic.encoding = "rfc26"
 
   return ContentTopic($namespacedTopic)
 
 proc toV1Topic*(contentTopic: ContentTopic): waku_protocol.Topic {.raises: [Defect, LPError, ValueError]} =
   ## Extracts the 4-byte array v1 topic from a content topic
-  ## with format `/waku/1/<v1-topic-bytes-as-hex>/proto`
+  ## with format `/waku/1/<v1-topic-bytes-as-hex>/rfc26`
 
   hexToByteArray(hexStr = NamespacedTopic.fromString(contentTopic).tryGet().topicName,
                  N = 4)  # Byte array length
@@ -91,6 +91,7 @@ func toWakuMessage(env: Envelope): WakuMessage =
   # Translate a Waku v1 envelope to a Waku v2 message
   WakuMessage(payload: env.data,
               contentTopic: toV2ContentTopic(env.topic),
+              timestamp: float64(env.expiry - env.ttl),
               version: 1)
 
 proc toWakuV2(bridge: WakuBridge, env: Envelope) {.async.} =
@@ -121,10 +122,16 @@ proc toWakuV1(bridge: WakuBridge, msg: WakuMessage) {.gcsafe, raises: [Defect, L
 
   # @TODO: use namespacing to map v2 contentTopics to v1 topics
   let v1TopicSeq = msg.contentTopic.toBytes()[0..3]
-  
-  discard bridge.nodev1.postMessage(ttl = DefaultTTL,
-                                    topic = toV1Topic(msg.contentTopic),
-                                    payload = msg.payload)
+
+  case msg.version:
+  of 1:
+    discard bridge.nodev1.postEncoded(ttl = DefaultTTL,
+                                      topic = toV1Topic(msg.contentTopic),
+                                      encodedPayload = msg.payload) # The payload is already encoded according to https://rfc.vac.dev/spec/26/
+  else:
+    discard bridge.nodev1.postMessage(ttl = DefaultTTL,
+                                      topic = toV1Topic(msg.contentTopic),
+                                      payload = msg.payload)
 
 ##############
 # Public API #
