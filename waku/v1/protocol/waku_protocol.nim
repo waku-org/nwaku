@@ -497,6 +497,55 @@ proc queueMessage(node: EthereumNode, msg: Message): bool =
 
 # Public EthereumNode calls ----------------------------------------------------
 
+proc postEncoded*(node: EthereumNode, ttl: uint32,
+                  topic: Topic, encodedPayload: seq[byte],
+                  powTime = 1'f,
+                  powTarget = defaultMinPow,
+                  targetPeer = none[NodeId]()): bool =
+  ## Post a message from pre-encoded payload on the message queue.
+  ## This will be processed at the next `messageInterval`.
+  ## The encodedPayload must be encoded according to RFC 26/WAKU-PAYLOAD
+  ## at https://rfc.vac.dev/spec/26/
+  
+  var env = Envelope(expiry:epochTime().uint32 + ttl,
+                       ttl: ttl, topic: topic, data: encodedPayload, nonce: 0)
+
+  # Allow lightnode to post only direct p2p messages
+  if targetPeer.isSome():
+    return node.sendP2PMessage(targetPeer.get(), [env])
+  else:
+    # non direct p2p message can not have ttl of 0
+    if env.ttl == 0:
+      return false
+    var msg = initMessage(env, powCalc = false)
+    # XXX: make this non blocking or not?
+    # In its current blocking state, it could be noticed by a peer that no
+    # messages are send for a while, and thus that mining PoW is done, and
+    # that next messages contains a message originated from this peer
+    # zah: It would be hard to execute this in a background thread at the
+    # moment. We'll need a way to send custom "tasks" to the async message
+    # loop (e.g. AD2 support for AsyncChannels).
+    if not msg.sealEnvelope(powTime, powTarget):
+      return false
+
+    # need to check expiry after mining PoW
+    if not msg.env.valid():
+      return false
+
+    result = node.queueMessage(msg)
+
+    # Allows light nodes to post via untrusted messages packet.
+    # Queue gets processed immediatly as the node sends only its own messages,
+    # so the privacy ship has already sailed anyhow.
+    # TODO:
+    # - Could be still a concern in terms of efficiency, if multiple messages
+    # need to be send.
+    # - For Waku Mode, the checks in processQueue are rather useless as the
+    # idea is to connect only to 1 node? Also refactor in that case.
+    if node.protocolState(Waku).config.isLightNode:
+      for peer in node.peers(Waku):
+        peer.processQueue()
+
 proc postMessage*(node: EthereumNode, pubKey = none[PublicKey](),
                   symKey = none[SymKey](), src = none[PrivateKey](),
                   ttl: uint32, topic: Topic, payload: seq[byte],
@@ -511,44 +560,7 @@ proc postMessage*(node: EthereumNode, pubKey = none[PublicKey](),
   let payload = encode(node.rng[], Payload(
     payload: payload, src: src, dst: pubKey, symKey: symKey, padding: padding))
   if payload.isSome():
-    var env = Envelope(expiry:epochTime().uint32 + ttl,
-                       ttl: ttl, topic: topic, data: payload.get(), nonce: 0)
-
-    # Allow lightnode to post only direct p2p messages
-    if targetPeer.isSome():
-      return node.sendP2PMessage(targetPeer.get(), [env])
-    else:
-      # non direct p2p message can not have ttl of 0
-      if env.ttl == 0:
-        return false
-      var msg = initMessage(env, powCalc = false)
-      # XXX: make this non blocking or not?
-      # In its current blocking state, it could be noticed by a peer that no
-      # messages are send for a while, and thus that mining PoW is done, and
-      # that next messages contains a message originated from this peer
-      # zah: It would be hard to execute this in a background thread at the
-      # moment. We'll need a way to send custom "tasks" to the async message
-      # loop (e.g. AD2 support for AsyncChannels).
-      if not msg.sealEnvelope(powTime, powTarget):
-        return false
-
-      # need to check expiry after mining PoW
-      if not msg.env.valid():
-        return false
-
-      result = node.queueMessage(msg)
-
-      # Allows light nodes to post via untrusted messages packet.
-      # Queue gets processed immediatly as the node sends only its own messages,
-      # so the privacy ship has already sailed anyhow.
-      # TODO:
-      # - Could be still a concern in terms of efficiency, if multiple messages
-      # need to be send.
-      # - For Waku Mode, the checks in processQueue are rather useless as the
-      # idea is to connect only to 1 node? Also refactor in that case.
-      if node.protocolState(Waku).config.isLightNode:
-        for peer in node.peers(Waku):
-          peer.processQueue()
+    return node.postEncoded(ttl, topic, payload.get(), powTime, powTarget, targetPeer)
   else:
     error "Encoding of payload failed"
     return false
