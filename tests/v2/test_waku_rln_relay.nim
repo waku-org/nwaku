@@ -192,6 +192,7 @@ procSuite "Waku rln relay":
 
     # initialize the WakuRLNRelay 
     var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
+      membershipIndex: uint(0),
       ethClientAddress: EthClient,
       ethAccountAddress: ethAccountAddress,
       membershipContractAddress: contractAddress)
@@ -218,8 +219,43 @@ procSuite "Waku rln relay":
       ethAccountAddress = accounts[9]
     await web3.close()
 
+    # create current peer's pk
+    var rlnInstance = createRLNInstance(32)
+    check rlnInstance.isOk == true
+    var rln = rlnInstance.value
+    # generate a key pair
+    var keypair = rln.membershipKeyGen()
+    doAssert(keypair.isSome())
+
+    # current peer index in the Merkle tree
+    let index = uint(5)
+
+    # Create a group of 10 members 
+    var group = newSeq[IDCommitment]()
+    for i in 0..10:
+      var member_is_added: bool = false
+      if (uint(i) == index):
+        #  insert the current peer's pk
+        group.add(keypair.get().idCommitment)
+        member_is_added = rln.insertMember(keypair.get().idCommitment)
+        doAssert(member_is_added)
+        debug "member key", key=keypair.get().idCommitment.toHex
+      else:
+        var memberKeypair = rln.membershipKeyGen()
+        doAssert(memberKeypair.isSome())
+        group.add(memberKeypair.get().idCommitment)
+        member_is_added = rln.insertMember(memberKeypair.get().idCommitment)
+        doAssert(member_is_added)
+        debug "member key", key=memberKeypair.get().idCommitment.toHex
+    let expectedRoot = rln.getMerkleRoot().value().toHex
+    debug "expected root ", expectedRoot
+
     # start rln-relay
-    await node.mountRlnRelay(ethClientAddress = some(EthClient), ethAccountAddress =  some(ethAccountAddress), membershipContractAddress =  some(membershipContractAddress))
+    await node.mountRlnRelay(ethClientAddrOpt = some(EthClient), ethAccAddrOpt =  some(ethAccountAddress), memContractAddOpt =  some(membershipContractAddress), groupOpt = some(group), memKeyPairOpt = some(keypair.get()),  memIndexOpt = some(index))
+    let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
+    debug "calculated root ", calculatedRoot
+
+    check expectedRoot == calculatedRoot
 
     await node.stop()
 
@@ -274,10 +310,10 @@ suite "Waku rln relay":
     var empty : array[32,byte]
     check:
       key.isSome
-      key.get().secretKey.len == 32
-      key.get().publicKey.len == 32
-      key.get().secretKey != empty
-      key.get().publicKey != empty
+      key.get().idKey.len == 32
+      key.get().idCommitment.len == 32
+      key.get().idKey != empty
+      key.get().idCommitment != empty
     
     debug "the generated membership key pair: ", key 
 
@@ -311,6 +347,24 @@ suite "Waku rln relay":
 
     # the two roots must be identical
     doAssert(rootHex1 == rootHex2)
+  test "getMerkleRoot utils":
+    # create an RLN instance which also includes an empty Merkle tree
+    var rlnInstance = createRLNInstance(32)
+    check:
+      rlnInstance.isOk == true
+
+    # read the Merkle Tree root
+    var root1 = getMerkleRoot(rlnInstance.value())
+    doAssert(root1.isOk)
+    let rootHex1 = root1.value().toHex
+
+    # read the Merkle Tree root
+    var root2 = getMerkleRoot(rlnInstance.value())
+    doAssert(root2.isOk)
+    let rootHex2 = root2.value().toHex
+
+    # the two roots must be identical
+    doAssert(rootHex1 == rootHex2)
 
   test "update_next_member Nim Wrapper":
     # create an RLN instance which also includes an empty Merkle tree
@@ -321,7 +375,7 @@ suite "Waku rln relay":
     # generate a key pair
     var keypair = membershipKeyGen(rlnInstance.value)
     doAssert(keypair.isSome())
-    var pkBuffer = Buffer(`ptr`: addr(keypair.get().publicKey[0]), len: 32)
+    var pkBuffer = Buffer(`ptr`: addr(keypair.get().idCommitment[0]), len: 32)
     let pkBufferPtr = addr pkBuffer
 
     # add the member to the tree
@@ -340,6 +394,27 @@ suite "Waku rln relay":
     let deletion_success = delete_member(rlnInstance.value, deleted_member_index)
     doAssert(deletion_success)
 
+  test "insertMember rln utils":
+    # create an RLN instance which also includes an empty Merkle tree
+    var rlnInstance = createRLNInstance(32)
+    check:
+      rlnInstance.isOk == true
+    var rln = rlnInstance.value
+    # generate a key pair
+    var keypair = rln.membershipKeyGen()
+    doAssert(keypair.isSome())
+    check:
+      rln.insertMember(keypair.get().idCommitment)  
+    
+  test "removeMember rln utils":
+    # create an RLN instance which also includes an empty Merkle tree
+    var rlnInstance = createRLNInstance(32)
+    check:
+      rlnInstance.isOk == true
+    var rln = rlnInstance.value
+    check: 
+      rln.removeMember(uint(0))
+
   test "Merkle tree consistency check between deletion and insertion":
     # create an RLN instance
     var rlnInstance = createRLNInstance(32)
@@ -357,7 +432,7 @@ suite "Waku rln relay":
     # generate a key pair
     var keypair = membershipKeyGen(rlnInstance.value)
     doAssert(keypair.isSome())
-    var pkBuffer = Buffer(`ptr`: addr(keypair.get().publicKey[0]), len: 32)
+    var pkBuffer = Buffer(`ptr`: addr(keypair.get().idCommitment[0]), len: 32)
     let pkBufferPtr = addr pkBuffer
 
     # add the member to the tree
@@ -403,6 +478,52 @@ suite "Waku rln relay":
     ## The initial root of the tree (empty tree) must be identical to 
     ## the root of the tree after one insertion followed by a deletion
     doAssert(rootHex1 == rootHex3)
+  test "Merkle tree consistency check between deletion and insertion using rln utils":
+    # create an RLN instance
+    var rlnInstance = createRLNInstance(32)
+    check:
+      rlnInstance.isOk == true
+    var rln = rlnInstance.value()
+
+    # read the Merkle Tree root
+    var root1 = rln.getMerkleRoot()
+    doAssert(root1.isOk)
+    let rootHex1 = root1.value().toHex()
+    
+    # generate a key pair
+    var keypair = rln.membershipKeyGen()
+    doAssert(keypair.isSome())
+    let member_inserted = rln.insertMember(keypair.get().idCommitment) 
+    check member_inserted
+
+    # read the Merkle Tree root after insertion
+    var root2 = rln.getMerkleRoot()
+    doAssert(root2.isOk)
+    let rootHex2 = root2.value().toHex()
+
+  
+    # delete the first member 
+    var deleted_member_index = uint(0)
+    let deletion_success = rln.removeMember(deleted_member_index)
+    doAssert(deletion_success)
+
+    # read the Merkle Tree root after the deletion
+    var root3 = rln.getMerkleRoot()
+    doAssert(root3.isOk)
+    let rootHex3 = root3.value().toHex()
+
+
+    debug "The initial root", rootHex1
+    debug "The root after insertion", rootHex2
+    debug "The root after deletion", rootHex3
+
+    # the root must change after the insertion
+    doAssert(not(rootHex1 == rootHex2))
+
+    ## The initial root of the tree (empty tree) must be identical to 
+    ## the root of the tree after one insertion followed by a deletion
+    doAssert(rootHex1 == rootHex3)
+
   test "hash Nim Wrappers":
     # create an RLN instance
     var rlnInstance = createRLNInstance(32)
@@ -446,7 +567,7 @@ suite "Waku rln relay":
 
     # create the membership key
     var auth = membershipKeyGen(rlnInstance.value)
-    var skBuffer = Buffer(`ptr`: addr(auth.get().secretKey[0]), len: 32)
+    var skBuffer = Buffer(`ptr`: addr(auth.get().idKey[0]), len: 32)
 
     # peer's index in the Merkle Tree
     var index = 5
@@ -459,11 +580,11 @@ suite "Waku rln relay":
       var member_is_added: bool = false
       if (i == index):
         #  insert the current peer's pk
-        var pkBuffer = Buffer(`ptr`: addr(auth.get().publicKey[0]), len: 32)
+        var pkBuffer = Buffer(`ptr`: addr(auth.get().idCommitment[0]), len: 32)
         member_is_added = update_next_member(rlnInstance.value, addr pkBuffer)
       else:
         var memberKeys = membershipKeyGen(rlnInstance.value)
-        var pkBuffer = Buffer(`ptr`: addr(memberKeys.get().publicKey[0]), len: 32)
+        var pkBuffer = Buffer(`ptr`: addr(memberKeys.get().idCommitment[0]), len: 32)
         member_is_added = update_next_member(rlnInstance.value, addr pkBuffer)
       # check the member is added
       doAssert(member_is_added)
