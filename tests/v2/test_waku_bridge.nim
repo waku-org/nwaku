@@ -50,11 +50,12 @@ procSuite "WakuBridge":
     v2NodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
     v2Node = WakuNode.new(v2NodeKey, ValidIpAddress.init("0.0.0.0"), Port(60002))
 
-    contentTopic = ContentTopic("/waku/1/0x1a2b3c4d/rlp")
+    contentTopic = ContentTopic("/waku/1/0x1a2b3c4d/rfc26")
     topic = [byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]
     payloadV1 = "hello from V1".toBytes()
     payloadV2 = "hello from V2".toBytes()
-    message = WakuMessage(payload: payloadV2, contentTopic: contentTopic)
+    encodedPayloadV2 = Payload(payload: payloadV2, dst: some(nodev1Key.pubKey))
+    message = WakuMessage(payload: encodedPayloadV2.encode(1, rng[]).get(), contentTopic: contentTopic, version: 1)
   
   ########################
   # Tests setup/teardown #
@@ -74,14 +75,14 @@ procSuite "WakuBridge":
     # Expected cases
     
     check:
-      toV1Topic(ContentTopic("/waku/1/0x00000000/rlp")) == [byte 0x00, byte 0x00, byte 0x00, byte 0x00]
-      toV2ContentTopic([byte 0x00, byte 0x00, byte 0x00, byte 0x00]) == ContentTopic("/waku/1/0x00000000/rlp")
-      toV1Topic(ContentTopic("/waku/1/0xffffffff/rlp")) == [byte 0xff, byte 0xff, byte 0xff, byte 0xff]
-      toV2ContentTopic([byte 0xff, byte 0xff, byte 0xff, byte 0xff]) == ContentTopic("/waku/1/0xffffffff/rlp")
-      toV1Topic(ContentTopic("/waku/1/0x1a2b3c4d/rlp")) == [byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]
-      toV2ContentTopic([byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]) == ContentTopic("/waku/1/0x1a2b3c4d/rlp")
+      toV1Topic(ContentTopic("/waku/1/0x00000000/rfc26")) == [byte 0x00, byte 0x00, byte 0x00, byte 0x00]
+      toV2ContentTopic([byte 0x00, byte 0x00, byte 0x00, byte 0x00]) == ContentTopic("/waku/1/0x00000000/rfc26")
+      toV1Topic(ContentTopic("/waku/1/0xffffffff/rfc26")) == [byte 0xff, byte 0xff, byte 0xff, byte 0xff]
+      toV2ContentTopic([byte 0xff, byte 0xff, byte 0xff, byte 0xff]) == ContentTopic("/waku/1/0xffffffff/rfc26")
+      toV1Topic(ContentTopic("/waku/1/0x1a2b3c4d/rfc26")) == [byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]
+      toV2ContentTopic([byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]) == ContentTopic("/waku/1/0x1a2b3c4d/rfc26")
       # Topic conversion should still work where '0x' prefix is omitted from <v1 topic byte array>
-      toV1Topic(ContentTopic("/waku/1/1a2b3c4d/rlp")) == [byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]
+      toV1Topic(ContentTopic("/waku/1/1a2b3c4d/rfc26")) == [byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]
 
     # Invalid cases
 
@@ -91,11 +92,11 @@ procSuite "WakuBridge":
     
     expect ValueError:
       # Content topic name too short
-      discard toV1Topic(ContentTopic("/waku/1/0x112233/rlp"))
+      discard toV1Topic(ContentTopic("/waku/1/0x112233/rfc26"))
     
     expect ValueError:
       # Content topic name not hex
-      discard toV1Topic(ContentTopic("/waku/1/my-content/rlp"))
+      discard toV1Topic(ContentTopic("/waku/1/my-content/rfc26"))
 
   asyncTest "Messages are bridged between Waku v1 and Waku v2":
     # Setup test
@@ -103,7 +104,7 @@ procSuite "WakuBridge":
     waitFor bridge.start()
 
     waitFor v2Node.start()
-    v2Node.mountRelay(@[DefaultBridgeTopic])
+    v2Node.mountRelay(@[DefaultBridgeTopic], triggerSelf = false)
 
     discard waitFor v1Node.rlpxConnect(newNode(bridge.nodev1.toENode()))
     waitFor v2Node.connectToNodes(@[bridge.nodev2.peerInfo])
@@ -134,12 +135,14 @@ procSuite "WakuBridge":
       # v1Node received message published by v2Node
       v1Node.protocolState(Waku).queue.items.len == 1
 
-    let msg = v1Node.protocolState(Waku).queue.items[0]
+    let
+      msg = v1Node.protocolState(Waku).queue.items[0]
+      decodedPayload = msg.env.data.decode(some(nodev1Key.seckey), none[SymKey]()).get()
 
     check:
       # Message fields are as expected
       msg.env.topic == topic # Topic translation worked
-      string.fromBytes(msg.env.data).contains("from V2")
+      string.fromBytes(decodedPayload.payload).contains("from V2")
     
     # Test bridging from V1 to V2
     check:
