@@ -12,6 +12,7 @@ logScope:
   topics = "wakurlnrelayutils"
 
 type RLNResult* = Result[RLN[Bn256], string]
+type MerkleNodeResult* = Result[MerkleNode, string]
 # membership contract interface
 contract(MembershipContract):
   # TODO define a return type of bool for register method to signify a successful registration
@@ -77,7 +78,7 @@ proc membershipKeyGen*(ctxPtr: RLN[Bn256]): Option[MembershipKeyPair] =
   for (i,x) in public.mpairs: x = generatedKeys[i+32]
   
   var 
-    keypair = MembershipKeyPair(secretKey: secret, publicKey: public)
+    keypair = MembershipKeyPair(idKey: secret, idCommitment: public)
 
 
   return some(keypair)
@@ -90,7 +91,7 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   # does the signing using the provided key
   web3.privateKey = rlnPeer.ethAccountPrivateKey
   var sender = web3.contractSender(MembershipContract, rlnPeer.membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
-  let pk = cast[UInt256](rlnPeer.membershipKeyPair.publicKey)
+  let pk = cast[UInt256](rlnPeer.membershipKeyPair.idCommitment)
   discard await sender.register(pk).send(MembershipFee)
   # TODO check the receipt and then return true/false
   await web3.close()
@@ -103,3 +104,29 @@ proc proofGen*(data: seq[byte]): seq[byte] =
 proc proofVrfy*(data, proof: seq[byte]): bool =
   # TODO to implement the actual proof verification logic
   return true
+
+proc insertMember*(rlnInstance: RLN[Bn256], idComm: IDCommitment): bool = 
+  var temp = idComm
+  var pkBuffer = Buffer(`ptr`: addr(temp[0]), len: 32)
+  let pkBufferPtr = addr pkBuffer
+
+  # add the member to the tree
+  var member_is_added = update_next_member(rlnInstance, pkBufferPtr)
+  return member_is_added
+
+proc removeMember*(rlnInstance: RLN[Bn256], index: uint): bool = 
+  let deletion_success = delete_member(rlnInstance, index)
+  return deletion_success
+
+proc getMerkleRoot*(rlnInstance: RLN[Bn256]): MerkleNodeResult = 
+  # read the Merkle Tree root after insertion
+  var 
+    root {.noinit.} : Buffer = Buffer()
+    rootPtr = addr(root)
+    get_root_successful = get_root(rlnInstance, rootPtr)
+  if (not get_root_successful): return err("could not get the root")
+  if (not (root.len == 32)): return err("wrong output size")
+
+  var rootValue = cast[ptr array[32,byte]] (root.`ptr`)
+  let merkleNode = rootValue[]
+  return ok(merkleNode)
