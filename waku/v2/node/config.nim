@@ -75,6 +75,11 @@ type
       defaultValue: false
       name: "rln-relay" }: bool
     
+    rlnRelayMemIndex* {.
+      desc: "the index of node in the rln-relay group: a value between 0-100 inclusive",
+      defaultValue: 0
+      name: "rln-relay-membership-index" }: uint32
+    
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
       name: "staticnode" }: seq[string]
