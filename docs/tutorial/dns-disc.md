@@ -44,7 +44,7 @@ A node will attempt connection to all discovered nodes.
 
 ## Example for `wakuv2.test` fleet
 
-To illustrate the above and proof the concept,
+To illustrate the above and prove the concept,
 a list of `wakuv2.test` fleet nodes was encoded according to EIP-1459 and deployed to `test.nodes.vac.dev`.
 The list was signed by the public key `AOFTICU2XWDULNLZGRMQS4RIZPAZEHYMV4FYHAPW563HNRAOERP7C`.
 The complete URL for DNS discovery is therefore: `enrtree://AOFTICU2XWDULNLZGRMQS4RIZPAZEHYMV4FYHAPW563HNRAOERP7C@test.nodes.vac.dev`.
