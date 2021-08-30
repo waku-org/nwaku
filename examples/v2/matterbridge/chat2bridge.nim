@@ -243,6 +243,12 @@ when isMainModule:
     (nodev2ExtIp, nodev2ExtPort, _) = setupNat(conf.nat, clientId,
                                                Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
                                                Port(uint16(conf.udpPort) + conf.portsShift))
+    ## The following heuristic assumes that, in absence of manual
+    ## config, the external port is the same as the bind port.
+    extPort = if nodev2ExtIp.isSome() and nodev2ExtPort.isNone():
+                some(Port(uint16(conf.libp2pTcpPort) + conf.portsShift))
+              else:
+                nodev2ExtPort
 
   let
     bridge = Chat2Matterbridge.new(
@@ -250,7 +256,7 @@ when isMainModule:
                             mbGateway = conf.mbGateway,
                             nodev2Key = conf.nodekey,
                             nodev2BindIp = conf.listenAddress, nodev2BindPort = Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
-                            nodev2ExtIp = nodev2ExtIp, nodev2ExtPort = nodev2ExtPort,
+                            nodev2ExtIp = nodev2ExtIp, nodev2ExtPort = extPort,
                             contentTopic = conf.contentTopic)
   
   waitFor bridge.start()
