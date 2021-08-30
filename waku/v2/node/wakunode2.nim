@@ -410,30 +410,74 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: boo
 
 when defined(rln):
   proc mountRlnRelay*(node: WakuNode,
-                      ethClientAddress: Option[string] = none(string),
-                      ethAccountAddress: Option[Address] = none(Address),
-                      membershipContractAddress:  Option[Address] = none(Address)) {.async.} =
+                      ethClientAddrOpt: Option[string] = none(string),
+                      ethAccAddrOpt: Option[Address] = none(Address),
+                      memContractAddOpt:  Option[Address] = none(Address),
+                      groupOpt: Option[seq[IDCommitment]] = none(seq[IDCommitment]),
+                      memKeyPairOpt: Option[MembershipKeyPair] = none(MembershipKeyPair),
+                      memIndexOpt: Option[uint] = none(uint)) {.async.} =
     # TODO return a bool value to indicate the success of the call
     # check whether inputs are provided
-    doAssert(ethClientAddress.isSome())
-    doAssert(ethAccountAddress.isSome())
-    doAssert(membershipContractAddress.isSome())
+    if ethClientAddrOpt.isNone():
+      info "failed to mount rln relay: Ethereum client address is not provided"
+      return
+    if ethAccAddrOpt.isNone():
+      info "failed to mount rln relay: Ethereum account address is not provided"
+      return
+    if memContractAddOpt.isNone():
+      info "failed to mount rln relay: membership contract address is not provided"
+      return
+    if groupOpt.isNone():
+      # TODO this check is not necessary for a dynamic group
+      info "failed to mount rln relay:  group information is not provided"
+      return
+    if memKeyPairOpt.isNone():
+      info "failed to mount rln relay: membership key of the node is not provided"
+      return
+    if memIndexOpt.isNone():
+      info "failed to mount rln relay:  membership index is not provided"
+      return
+
+    let 
+      ethClientAddr = ethClientAddrOpt.get()
+      ethAccAddr = ethAccAddrOpt.get()
+      memContractAdd = memContractAddOpt.get()
+      group = groupOpt.get()
+      memKeyPair = memKeyPairOpt.get()
+      memIndex = memIndexOpt.get()
+
+
+    # check the peer's index and the inclusion of user's identity commitment in the group
+    doAssert((memKeyPair.idCommitment)  == group[int(memIndex)])
 
     # create an RLN instance
     var rlnInstance = createRLNInstance(32)
     doAssert(rlnInstance.isOk)
+    var rln = rlnInstance.value
 
-    # generate the membership keys
-    let membershipKeyPair = membershipKeyGen(rlnInstance.value)
-    # check whether keys are generated
-    doAssert(membershipKeyPair.isSome())
-    debug "the membership key for the rln relay is generated"
+    # generate the membership keys if none is provided
+    # this if condition never gets through for a static group of users
+    # the node should pass its keys i.e., memKeyPairOpt to the function
+    if not memKeyPairOpt.isSome:
+      let membershipKeyPair = rln.membershipKeyGen()
+      # check whether keys are generated
+      doAssert(membershipKeyPair.isSome())
+      debug "the membership key for the rln relay is generated", idKey=membershipKeyPair.get().idKey.toHex, idCommitment=membershipKeyPair.get().idCommitment.toHex
 
-    # initialize the WakuRLNRelay
-    var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
-      ethClientAddress: ethClientAddress.get(),
-      ethAccountAddress: ethAccountAddress.get(),
-      membershipContractAddress: membershipContractAddress.get())
+
+    # add members to the Merkle tree
+    for index in 0..group.len-1:
+      let member = group[index]
+      let member_is_added = rln.insertMember(member)
+      doAssert(member_is_added)
+    
+    # create the WakuRLNRelay
+    var rlnPeer = WakuRLNRelay(membershipKeyPair: memKeyPair,
+      membershipIndex: memIndex,
+      membershipContractAddress: memContractAdd,
+      ethClientAddress: ethClientAddr,
+      ethAccountAddress: ethAccAddr,
+      rlnInstance: rln)
     
     # register the rln-relay peer to the membership contract
     let is_successful = await rlnPeer.register()
