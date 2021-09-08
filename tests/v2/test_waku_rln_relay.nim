@@ -138,14 +138,12 @@ proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
   return contractAddress
 
 proc createMembershipList(n: int): (string, string) = 
-  # generates a list of n membership key pairs and converts it into a string
-  # each pair encapsulates the hex representation of an identity key and the corresponding identity commitment key
-  # the output string can be used as an array literal
-  # this proc also returns the root of a Merkle tree constructed out of the identity commitment keys of the generated list
+  ## this proc is used to create test membership keys
+  ## it generates a list of n membership key pairs and converts it into a string which then can be as an array literal
+  ## each membership key pair is the hex representation of an identity key and the corresponding identity commitment key
+  ## this proc also returns the root of a Merkle tree constructed out of the identity commitment keys of the generated list
   
-  # initializes a Merkle tree of depth 32
-  # TODO the rln lib only supports circuit of Merkle tree with depth 32
-  # TODO should communicate with the rln team to add support for variable depths 
+  # initializes a Merkle tree
   var rlnInstance = createRLNInstance()
   check: rlnInstance.isOk == true
   var rln = rlnInstance.value
