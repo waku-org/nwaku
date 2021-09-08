@@ -42,6 +42,6 @@ type WakuRLNRelay* = object
 # TODO may be able to make these constants private and put them inside the waku_rln_relay_utils
 const 
   MembershipFee* = 5.u256
-  Depth* = 32.u256
+  MerkleTreeDepth* = 32
   # TODO the EthClient should be an input to the rln-relay
   EthClient* = "ws://localhost:8540/"
