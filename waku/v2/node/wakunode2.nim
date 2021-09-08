@@ -600,6 +600,7 @@ proc mountRelay*(node: WakuNode,
         # prepare group related inputs from the hardcoded keys
         var groupKeyPairs = newSeq[MembershipKeyPair]()
         var groupIDCommitments = newSeq[IDCommitment]()
+        # TODO use the utils procs for this part and add unit tests for those procs
         for i in 0..groupSize-1:
           groupKeyPairs.add(MembershipKeyPair(idKey: groupKeys[i].hexToByteArray(32), idCommitment: groupKeys[2*i+1].hexToByteArray(32)))
           groupIDCommitments.add(groupKeys[2*i+1].hexToByteArray(32))
