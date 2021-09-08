@@ -137,26 +137,34 @@ proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
 
   return contractAddress
 
-proc createStaticGroup(groupSize: int): string = 
-  # generates groupSize many membership key tuples (identity key, identity commitment key) 
-  # and displays them in an array format
+proc createMembershipList(n: int): (string, string) = 
+  # generates a list of n many membership key pairs and converts it into a string
+  # each pair encapsulates the hex representation of an identity key and the corresponding identity commitment key
+  # this proc returns the Merkle tree root constructed based on the identity commitment keys of the generated list
+  
+  # initializes a Merkle tree of size 32
   var rlnInstance = createRLNInstance(32)
   check: rlnInstance.isOk == true
   var rln = rlnInstance.value
+
   var s: string = "["
-  for i in 0..groupSize-1:
+  for i in 0..n-1:
+
     # generate a key pair
     var keypair = rln.membershipKeyGen()
     doAssert(keypair.isSome())
+
+    # insert the key to yhe Merkle tree
     check: rln.insertMember(keypair.get().idCommitment)  
-    s = s & "(\"" & keypair.get().idKey.toHex & "\", " 
-    s = s & "\"" & keypair.get().idCommitment.toHex  & "\")"    
-    if i != groupSize-1:
+
+    s = s & "\"" & keypair.get().idKey.toHex & "\", " 
+    s = s & "\"" & keypair.get().idCommitment.toHex  & "\""    
+    if i != n-1:
       s = s & ","
   s = s & "]"
-  debug "s", s
-  debug "expected root", root = rln.getMerkleRoot().value.toHex
-  return s
+
+  let root = rln.getMerkleRoot().value.toHex
+  return (s, root)
 
 procSuite "Waku rln relay":
   asyncTest  "contract membership":
@@ -202,14 +210,12 @@ procSuite "Waku rln relay":
 
     # create an RLN instance
     var rlnInstance = createRLNInstance(32)
-    check:
-      rlnInstance.isOk == true
+    check: rlnInstance.isOk == true
 
     # generate the membership keys
     let membershipKeyPair = membershipKeyGen(rlnInstance.value)
     
-    check:
-      membershipKeyPair.isSome
+    check: membershipKeyPair.isSome
 
     # initialize the WakuRLNRelay 
     var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
@@ -280,7 +286,7 @@ procSuite "Waku rln relay":
 
     await node.stop()
 
-  asyncTest "check mounting waku rln-relay with a static hardcoded group":
+  asyncTest "mount waku rln-relay with a static hardcoded group":
     let
       nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"),
@@ -741,7 +747,7 @@ suite "Waku rln relay":
     # verification of the bad proof should fail
     doAssert(badF == 1)
   
-  test "create static members":
-    echo createStaticGroup(100) 
-    
-    
+  test "create a list of membership keys and construct a Merkle tree based on the list":
+    let (list, root) = createMembershipList(100) 
+    debug "created membership key list", list
+    debug "the Merkle tree root", root
