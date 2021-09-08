@@ -113,7 +113,7 @@ proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
   # encode membership contract inputs to 32 bytes zero-padded
   let 
     membershipFeeEncoded = encode(MembershipFee).data 
-    depthEncoded = encode(Depth).data 
+    depthEncoded = encode(MerkleTreeDepth.u256).data 
     hasherAddressEncoded = encode(hasherAddress).data
     # this is the contract constructor input
     contractInput = membershipFeeEncoded & depthEncoded & hasherAddressEncoded
@@ -138,12 +138,15 @@ proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
   return contractAddress
 
 proc createMembershipList(n: int): (string, string) = 
-  # generates a list of n many membership key pairs and converts it into a string
+  # generates a list of n membership key pairs and converts it into a string
   # each pair encapsulates the hex representation of an identity key and the corresponding identity commitment key
-  # this proc returns the Merkle tree root constructed based on the identity commitment keys of the generated list
+  # the output string can be used as an array literal
+  # this proc also returns the root of a Merkle tree constructed out of the identity commitment keys of the generated list
   
-  # initializes a Merkle tree of size 32
-  var rlnInstance = createRLNInstance(32)
+  # initializes a Merkle tree of depth 32
+  # TODO the rln lib only supports circuit of Merkle tree with depth 32
+  # TODO should communicate with the rln team to add support for variable depths 
+  var rlnInstance = createRLNInstance()
   check: rlnInstance.isOk == true
   var rln = rlnInstance.value
 
@@ -209,7 +212,7 @@ procSuite "Waku rln relay":
     await web3.close()
 
     # create an RLN instance
-    var rlnInstance = createRLNInstance(32)
+    var rlnInstance = createRLNInstance()
     check: rlnInstance.isOk == true
 
     # generate the membership keys
@@ -247,7 +250,7 @@ procSuite "Waku rln relay":
     await web3.close()
 
     # create current peer's pk
-    var rlnInstance = createRLNInstance(32)
+    var rlnInstance = createRLNInstance()
     check rlnInstance.isOk == true
     var rln = rlnInstance.value
     # generate a key pair
@@ -304,7 +307,7 @@ procSuite "Waku rln relay":
       ethAccountAddress = accounts[9]
     await web3.close()
 
-    var rlnInstance = createRLNInstance(32)
+    var rlnInstance = createRLNInstance()
     check rlnInstance.isOk == true
     var rln = rlnInstance.value
 
@@ -381,7 +384,7 @@ suite "Waku rln relay":
     
   test "membership Key Gen":
     # create an RLN instance
-    var rlnInstance = createRLNInstance(32)
+    var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
 
@@ -398,7 +401,7 @@ suite "Waku rln relay":
 
   test "get_root Nim binding":
     # create an RLN instance which also includes an empty Merkle tree
-    var rlnInstance = createRLNInstance(32)
+    var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
 
@@ -428,7 +431,7 @@ suite "Waku rln relay":
     doAssert(rootHex1 == rootHex2)
   test "getMerkleRoot utils":
     # create an RLN instance which also includes an empty Merkle tree
-    var rlnInstance = createRLNInstance(32)
+    var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
 
@@ -447,7 +450,7 @@ suite "Waku rln relay":
 
   test "update_next_member Nim Wrapper":
     # create an RLN instance which also includes an empty Merkle tree
-    var rlnInstance = createRLNInstance(32)
+    var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
 
@@ -464,7 +467,7 @@ suite "Waku rln relay":
     
   test "delete_member Nim wrapper":
     # create an RLN instance which also includes an empty Merkle tree
-    var rlnInstance = createRLNInstance(32)
+    var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
 
@@ -475,7 +478,7 @@ suite "Waku rln relay":
 
   test "insertMember rln utils":
     # create an RLN instance which also includes an empty Merkle tree
-    var rlnInstance = createRLNInstance(32)
+    var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
     var rln = rlnInstance.value
@@ -487,7 +490,7 @@ suite "Waku rln relay":
     
   test "removeMember rln utils":
     # create an RLN instance which also includes an empty Merkle tree
-    var rlnInstance = createRLNInstance(32)
+    var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
     var rln = rlnInstance.value
@@ -496,7 +499,7 @@ suite "Waku rln relay":
 
   test "Merkle tree consistency check between deletion and insertion":
     # create an RLN instance
-    var rlnInstance = createRLNInstance(32)
+    var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
 
@@ -559,7 +562,7 @@ suite "Waku rln relay":
     doAssert(rootHex1 == rootHex3)
   test "Merkle tree consistency check between deletion and insertion using rln utils":
     # create an RLN instance
-    var rlnInstance = createRLNInstance(32)
+    var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
     var rln = rlnInstance.value()
@@ -605,7 +608,7 @@ suite "Waku rln relay":
 
   test "hash Nim Wrappers":
     # create an RLN instance
-    var rlnInstance = createRLNInstance(32)
+    var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
     
@@ -639,7 +642,7 @@ suite "Waku rln relay":
     # create an RLN instance
 
     # check if the rln instance is created successfully 
-    var rlnInstance = createRLNInstance(32)
+    var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
 
