@@ -608,7 +608,8 @@ proc mountRelay*(node: WakuNode,
         # mount rlnrelay in offline mode
         waitFor node.mountRlnRelay(groupOpt= some(groupIDCommitments), memKeyPairOpt = some(groupKeyPairs[rlnRelayMemIndex]), memIndexOpt= some(rlnRelayMemIndex), onchainMode = false)
 
-        debug "membership commitment id key", memkeys=groupIDCommitments[rlnRelayMemIndex].toHex
+        info "membership id key", idkey=groupKeyPairs[rlnRelayMemIndex].idKey.toHex
+        info "membership id commitment key", idCommitmentkey=groupIDCommitments[rlnRelayMemIndex].toHex
 
         # check the correct construction of the tree by comparing the calculated root against the expected root
         # no error should happen as it is already captured in the unit tests
