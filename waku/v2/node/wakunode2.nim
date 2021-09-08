@@ -488,9 +488,8 @@ when defined(rln):
       ethAccountAddress: ethAccAddr,
       rlnInstance: rln)
     
-    # register the rln-relay peer to the membership contract
-    # TODO uncomment this line for an on-chain group management
     if onchainMode:
+      # register the rln-relay peer to the membership contract
       let is_successful = await rlnPeer.register()
       # check whether registration is done
       doAssert(is_successful)
@@ -888,8 +887,8 @@ when isMainModule:
     mountRelay(node,
               conf.topics.split(" "),
               rlnRelayEnabled = conf.rlnRelay,
-              relayMessages = conf.relay,
-              rlnRelayMemIndex = conf.rlnRelayMemIndex) # Indicates if node is capable to relay messages
+              relayMessages = conf.relay, # Indicates if node is capable to relay messages
+              rlnRelayMemIndex = conf.rlnRelayMemIndex) 
     
     # Keepalive mounted on all nodes
     mountLibp2pPing(node)
