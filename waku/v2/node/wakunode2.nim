@@ -600,8 +600,7 @@ proc mountRelay*(node: WakuNode,
         # prepare group related inputs from the hardcoded keys
         var groupKeyPairs = groupKeys.toMembershipKeyPairs()
         var groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
-        # TODO use the utils procs for this part and add unit tests for those procs also recalculate the root
-        
+
         # mount rlnrelay in offline mode
         waitFor node.mountRlnRelay(groupOpt= some(groupIDCommitments), memKeyPairOpt = some(groupKeyPairs[rlnRelayMemIndex]), memIndexOpt= some(rlnRelayMemIndex), onchainMode = false)
 
@@ -613,7 +612,7 @@ proc mountRelay*(node: WakuNode,
         # TODO have added this check to account for unseen corner cases, will remove it later 
         let 
           root = node.wakuRlnRelay.rlnInstance.getMerkleRoot.value.toHex() 
-          expectedRoot = "823d1bb20d78cb748a6e0fd0833623ae8fcaafb284634b8a413b9eb154b71b25"
+          expectedRoot = "65b753df62fb9a40575b116ba4138a864c66267357fdfca11db82de8bd73b400"
         if root != expectedRoot:
           error "root mismatch: something went wrong not in Merkle tree construction"
         debug "the calculated root", root
