@@ -6,7 +6,7 @@ This release contains the following:
 
 ### Features
 
-- Start of Waku node discovery via DNS following [EIP-1459](https://eips.ethereum.org/EIPS/eip-1459)
+- Waku v2 node discovery via DNS following [EIP-1459](https://eips.ethereum.org/EIPS/eip-1459)
 
 ### Changes
 
@@ -18,6 +18,7 @@ This release contains the following:
 #### Docs
 
 - Added contributor guidelines on Waku v2 fleet monitoring and management.
+- Added basic tutorial on using Waku v2 DNS-based discovery
 
 #### Schema
 
