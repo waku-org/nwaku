@@ -598,12 +598,9 @@ proc mountRelay*(node: WakuNode,
         error "wrong membership index, failed to mount WakuRLNRelay"
       else: 
         # prepare group related inputs from the hardcoded keys
-        var groupKeyPairs = newSeq[MembershipKeyPair]()
-        var groupIDCommitments = newSeq[IDCommitment]()
-        # TODO use the utils procs for this part and add unit tests for those procs
-        for i in 0..groupSize-1:
-          groupKeyPairs.add(MembershipKeyPair(idKey: groupKeys[i].hexToByteArray(32), idCommitment: groupKeys[2*i+1].hexToByteArray(32)))
-          groupIDCommitments.add(groupKeys[2*i+1].hexToByteArray(32))
+        var groupKeyPairs = groupKeys.toMembershipKeyPairs()
+        var groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
+        # TODO use the utils procs for this part and add unit tests for those procs also recalculate the root
         
         # mount rlnrelay in offline mode
         waitFor node.mountRlnRelay(groupOpt= some(groupIDCommitments), memKeyPairOpt = some(groupKeyPairs[rlnRelayMemIndex]), memIndexOpt= some(rlnRelayMemIndex), onchainMode = false)
