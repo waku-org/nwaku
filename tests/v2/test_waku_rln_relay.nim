@@ -167,27 +167,6 @@ proc createMembershipList(n: int): (string, string) =
   let root = rln.getMerkleRoot().value.toHex
   return (s, root)
 
-# proc toMembershipKeyPairs(groupKeys: seq[string]): seq[MembershipKeyPair] =
-#   ## converts the list of id keys and id commitment keys to a sequence of MembershipKeyPairs
-#   var groupKeyPairs = newSeq[MembershipKeyPair]()
-#   let groupSize = int(groupKeys.len/2)
-#   for i in countup(0, groupSize-1, 2):
-#     groupKeyPairs.add(MembershipKeyPair(idKey: groupKeys[i].hexToByteArray(32), idCommitment: groupKeys[i+1].hexToByteArray(32)))
-#   return groupKeyPairs
-
-# proc calcMerkleRoot(list: seq[IDCommitment]): string = 
-#   ## returns the hex format of the Merkle tree root from the given id commitment keys
-#   var rlnInstance = createRLNInstance()
-#   check rlnInstance.isOk == true
-#   var rln = rlnInstance.value
-#   # create Merkle tree 
-#   for i in 0..list.len-1:
-#     var member_is_added = false
-#     member_is_added = rln.insertMember(list[i])
-#     doAssert(member_is_added)  
-#   let root = rln.getMerkleRoot().value().toHex  
-#   return root
-
 procSuite "Waku rln relay":
   asyncTest  "contract membership":
     let contractAddress = await uploadContract(EthClient)
@@ -752,3 +731,6 @@ suite "Waku rln relay":
     let (list, root) = createMembershipList(100) 
     debug "created membership key list", list
     debug "the Merkle tree root", root
+    check:
+      list.len == 100
+      root.len == 64
