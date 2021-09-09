@@ -130,3 +130,27 @@ proc getMerkleRoot*(rlnInstance: RLN[Bn256]): MerkleNodeResult =
   var rootValue = cast[ptr array[32,byte]] (root.`ptr`)
   let merkleNode = rootValue[]
   return ok(merkleNode)
+
+proc toMembershipKeyPairs*(groupKeys: seq[string]): seq[MembershipKeyPair] {.raises: [Defect, ValueError]} =
+  ## converts the list of id keys and id commitment keys (in hex strings) to a sequence of MembershipKeyPairs
+  var groupKeyPairs = newSeq[MembershipKeyPair]()
+  let groupSize = int(groupKeys.len/2)
+  for i in countup(0, groupSize-1, 2):
+    let 
+      idKey = groupKeys[i].hexToByteArray(32)
+      idCommitment = groupKeys[i+1].hexToByteArray(32)
+    groupKeyPairs.add(MembershipKeyPair(idKey: idKey, idCommitment: idCommitment))
+  return groupKeyPairs
+
+proc calcMerkleRoot*(list: seq[IDCommitment]): string {.raises: [Defect, IOError].} = 
+  ## returns the hex format of the Merkle tree root from the given id commitment keys
+  var rlnInstance = createRLNInstance()
+  doAssert(rlnInstance.isOk)
+  var rln = rlnInstance.value
+  # create Merkle tree 
+  for i in 0..list.len-1:
+    var member_is_added = false
+    member_is_added = rln.insertMember(list[i])
+    doAssert(member_is_added)  
+  let root = rln.getMerkleRoot().value().toHex  
+  return root
