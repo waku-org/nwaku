@@ -295,7 +295,8 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage,  rlnRelayEnabl
   ## be omitted.
   ##
   ## Status: Implemented.
-  ## When rlnRelayEnabled is true, a zkp will be generated and attached to the message (it is an experimental feature)
+  
+  # TODO When rlnRelayEnabled is true, a zkp will be generated and attached to the message (it is an experimental feature)
   
   if node.wakuRelay.isNil:
     error "Invalid API call to `publish`. WakuRelay not mounted. Try `lightpush` instead."
@@ -331,6 +332,8 @@ proc lightpush*(node: WakuNode, topic: Topic, message: WakuMessage, handler: Pus
 
   let rpc = PushRequest(pubSubTopic: topic, message: message)
   await node.wakuLightPush.request(rpc, handler)
+
+  # TODO create zkp proof
 
 proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
   ## Queries known nodes for historical messages. Triggers the handler whenever a response is received.
