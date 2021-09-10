@@ -42,8 +42,7 @@ type WakuRLNRelay* = object
 # TODO may be able to make these constants private and put them inside the waku_rln_relay_utils
 const 
   MembershipFee* = 5.u256
-  # TODO the rln lib only supports circuit of Merkle tree with depth 32
-  # TODO should communicate with the rln team to add support for variable depths 
+  #  the current implementation of the rln lib only provides circuit for Merkle tree with depth 32
   MerkleTreeDepth* = 32
   # TODO the EthClient should be an input to the rln-relay
   EthClient* = "ws://localhost:8540/"
