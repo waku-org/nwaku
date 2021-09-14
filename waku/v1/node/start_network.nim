@@ -30,7 +30,7 @@ type
       name: "amount" .}: int
     
     testNodes* {.
-      desc: "Initialize light test nodes as part of test."
+      desc: "Initialize light test nodes as part of network."
       defaultValue: true
       name: "test-nodes" .}: bool
 
