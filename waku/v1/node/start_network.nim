@@ -4,7 +4,7 @@ import
 
 const
   defaults ="--log-level:DEBUG --log-metrics --metrics-server --rpc"
-  wakuNodeBin = "build" / "wakunode"
+  wakuNodeBin = "build" / "wakunode1"
   metricsDir = "metrics"
   portOffset = 2
 
@@ -28,6 +28,11 @@ type
       desc: "Amount of full nodes to be started."
       defaultValue: 4
       name: "amount" .}: int
+    
+    testNodes* {.
+      desc: "Initialize light test nodes as part of network."
+      defaultValue: true
+      name: "test-nodes" .}: bool
 
     testNodePeers* {.
       desc: "Amount of peers a test node should connect to."
@@ -166,15 +171,16 @@ when isMainModule:
     of DiscoveryBased:
       nodes = discoveryNetwork(conf.amount)
 
-  var staticnodes: seq[string]
-  for i in 0..<conf.testNodePeers:
-    # TODO: could also select nodes randomly
-    staticnodes.add(nodes[i].enode)
-  # light node with topic interest
-  nodes.add(initNodeCmd(LightNode, 0, staticnodes, topicInterest = true,
-    label = "light node topic interest"))
-  # Regular light node
-  nodes.add(initNodeCmd(LightNode, 1, staticnodes, label = "light node"))
+  if conf.testNodes:
+    var staticnodes: seq[string]
+    for i in 0..<conf.testNodePeers:
+      # TODO: could also select nodes randomly
+      staticnodes.add(nodes[i].enode)
+    # light node with topic interest
+    nodes.add(initNodeCmd(LightNode, 0, staticnodes, topicInterest = true,
+      label = "light node topic interest"))
+    # Regular light node
+    nodes.add(initNodeCmd(LightNode, 1, staticnodes, label = "light node"))
 
   var commandStr = "multitail -s 2 -M 0 -x \"Waku Simulation\""
   var count = 0
