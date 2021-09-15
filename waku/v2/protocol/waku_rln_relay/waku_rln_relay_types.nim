@@ -52,7 +52,7 @@ const
   # the size of poseidon hash output in bits
   HashSize* = 256 
   # the size of poseidon hash output as the number hex digits
-  HashHexSize* = HashSize/4 
+  HashHexSize* = int(HashSize/4)
 
 # temporary variables to test waku-rln-relay performance in the static group mode
 const
