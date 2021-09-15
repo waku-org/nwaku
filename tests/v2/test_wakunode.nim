@@ -655,7 +655,7 @@ procSuite "WakuNode":
         message1 = WakuMessage(payload: payload, contentTopic: contentTopic1)
 
       # start all the nodes
-      await node1.start() # runs startRelay which adds topic validator
+      await node1.start() # runs startRelay which adds topic validator if rlnRelayEnabled field of wakuRelay is true, topic validator is set for the default topic that is a constant in wakunode2
       node1.mountRelay(@[pubSubTopic], rlnRelayEnabled = true) # sets up the static group
 
       await node2.start()
