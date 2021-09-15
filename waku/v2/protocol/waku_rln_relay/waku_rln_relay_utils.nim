@@ -132,7 +132,7 @@ proc getMerkleRoot*(rlnInstance: RLN[Bn256]): MerkleNodeResult =
   return ok(merkleNode)
 
 proc toMembershipKeyPairs*(groupKeys: seq[(string, string)]): seq[MembershipKeyPair] {.raises: [Defect, ValueError]} =
-  ## groupKeys is an alternating sequence of identity keys and their corresponding id commitment keys in the hexadecimal format
+  ## groupKeys is  sequence of membership key tuples in the form of (identity key, identity commitment) all in the hexadecimal format
   ## the toMembershipKeyPairs proc populates a sequence of MembershipKeyPairs using the supplied groupKeys
   
   var groupKeyPairs = newSeq[MembershipKeyPair]()
@@ -164,7 +164,7 @@ proc calcMerkleRoot*(list: seq[IDCommitment]): string {.raises: [Defect, IOError
 proc createMembershipList*(n: int): (seq[(string,string)], string) {.raises: [Defect, IOError].} = 
   ## createMembershipList produces a sequence of membership key pairs in the form of (identity key, id commitment keys) in the hexadecimal format
   ## this proc also returns the root of a Merkle tree constructed out of the identity commitment keys of the generated list
-  ## the output of this proc is used  to initialize a static group list
+  ## the output of this proc is used to initialize a static group keys (to test waku-rln-relay in the off-chain mode)
   
   # initialize a Merkle tree
   var rlnInstance = createRLNInstance()
