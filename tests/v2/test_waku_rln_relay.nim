@@ -137,34 +137,6 @@ proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
 
   return contractAddress
 
-proc createMembershipList(n: int): (seq[string], string) = 
-  ##  createMembershipList produces an alternating sequence of identity keys and their corresponding id commitment keys in the hexadecimal format
-  ## this proc also returns the root of a Merkle tree constructed out of the identity commitment keys of the generated list
-  ## the output of this proc is used  to initialize a static group list
-  
-  # initialize a Merkle tree
-  var rlnInstance = createRLNInstance()
-  check: rlnInstance.isOk == true
-  var rln = rlnInstance.value
-
-  var output = newSeq[string]()
-  for i in 0..n-1:
-
-    # generate a key pair
-    var keypair = rln.membershipKeyGen()
-    doAssert(keypair.isSome())
-    
-    output.add(keypair.get().idKey.toHex)
-    output.add(keypair.get().idCommitment.toHex)
-
-    # insert the key to the Merkle tree
-    check: rln.insertMember(keypair.get().idCommitment)  
-    
-
-  let root = rln.getMerkleRoot().value.toHex
-  return (output, root)
-
-
 procSuite "Waku rln relay":
   asyncTest  "contract membership":
     let contractAddress = await uploadContract(EthClient)
@@ -297,10 +269,10 @@ procSuite "Waku rln relay":
     var rln = rlnInstance.value
 
     # current peer index in the Merkle tree
-    let index = uint(5)
+    let index = MembeshipIndex(5)
 
     # Create a group of 50 members 
-    var groupKeys: seq[string] = StaticGroupKeys
+    var groupKeys: seq[(string, string)] = StaticGroupKeys
     var groupKeyPairs = groupKeys.toMembershipKeyPairs()
     debug "groupKeyPairs", groupKeyPairs
     var groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
@@ -447,7 +419,7 @@ suite "Waku rln relay":
       rlnInstance.isOk == true
 
     # delete the first member 
-    var deleted_member_index = uint(0)
+    var deleted_member_index = MembeshipIndex(0)
     let deletion_success = delete_member(rlnInstance.value, deleted_member_index)
     doAssert(deletion_success)
 
@@ -470,7 +442,7 @@ suite "Waku rln relay":
       rlnInstance.isOk == true
     var rln = rlnInstance.value
     check: 
-      rln.removeMember(uint(0))
+      rln.removeMember(MembeshipIndex(0))
 
   test "Merkle tree consistency check between deletion and insertion":
     # create an RLN instance
@@ -505,7 +477,7 @@ suite "Waku rln relay":
     doAssert(root2.len == 32)
 
     # delete the first member 
-    var deleted_member_index = uint(0)
+    var deleted_member_index = MembeshipIndex(0)
     let deletion_success = delete_member(rlnInstance.value, deleted_member_index)
     doAssert(deletion_success)
 
@@ -560,7 +532,7 @@ suite "Waku rln relay":
 
   
     # delete the first member 
-    var deleted_member_index = uint(0)
+    var deleted_member_index = MembeshipIndex(0)
     let deletion_success = rln.removeMember(deleted_member_index)
     doAssert(deletion_success)
 
@@ -630,7 +602,7 @@ suite "Waku rln relay":
     var index = 5
 
     # prepare the authentication object with peer's index and sk
-    var authObj: Auth = Auth(secret_buffer: addr skBuffer, index: uint(index))
+    var authObj: Auth = Auth(secret_buffer: addr skBuffer, index: MembeshipIndex(index))
 
     # Create a Merkle tree with random members 
     for i in 0..10:
@@ -712,7 +684,7 @@ suite "Waku rln relay":
     # create and test a bad proof
     # prepare a bad authentication object with a wrong peer's index
     var badIndex = 8
-    var badAuthObj: Auth = Auth(secret_buffer: addr skBuffer, index: uint(badIndex))
+    var badAuthObj: Auth = Auth(secret_buffer: addr skBuffer, index: MembeshipIndex(badIndex))
     var badProof: Buffer
     let badProofIsSuccessful = generate_proof(rlnInstance.value, addr inputBuffer, addr badAuthObj, addr badProof)
     # check whether the generate_proof call is done successfully
@@ -726,26 +698,28 @@ suite "Waku rln relay":
     doAssert(badF == 1)
   
   test "create a list of membership keys and construct a Merkle tree based on the list":
-    let (list, root) = createMembershipList(100) 
+    let 
+      groupSize = 100
+      (list, root) = createMembershipList(groupSize) 
     debug "created membership key list", list
     check: 
-      list.len == 200 # two parts for each membership key i.e., one id key and one id commitment
+      list.len == groupSize 
     debug "the Merkle tree root", root
     check:
-      root.len == 64
+      root.len == HashSize
   
   test "check correctness of toMembershipKeyPairs and calcMerkleRoot":
-    var groupKeys: seq[string] = StaticGroupKeys
+    var groupKeys: seq[(string, string)] = StaticGroupKeys
     var groupKeyPairs = groupKeys.toMembershipKeyPairs()
     debug "groupKeyPairs", groupKeyPairs
-    check: groupKeyPairs.len == 50
+    check: groupKeyPairs.len == StaticGroupSize
 
     var groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
     debug "groupIDCommitments", groupIDCommitments
     check: 
-      groupIDCommitments.len == 50
+      groupIDCommitments.len == StaticGroupSize
 
     var expectedRoot = calcMerkleRoot(groupIDCommitments)
     debug "expectedRoot", expectedRoot
 
-    check: expectedRoot == "65b753df62fb9a40575b116ba4138a864c66267357fdfca11db82de8bd73b400"
+    check: expectedRoot == StaticGroupMerkleRoot
