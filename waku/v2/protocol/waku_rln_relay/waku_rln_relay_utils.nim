@@ -114,7 +114,7 @@ proc insertMember*(rlnInstance: RLN[Bn256], idComm: IDCommitment): bool =
   var member_is_added = update_next_member(rlnInstance, pkBufferPtr)
   return member_is_added
 
-proc removeMember*(rlnInstance: RLN[Bn256], index: uint): bool = 
+proc removeMember*(rlnInstance: RLN[Bn256], index: MembeshipIndex): bool = 
   let deletion_success = delete_member(rlnInstance, index)
   return deletion_success
 
@@ -131,17 +131,16 @@ proc getMerkleRoot*(rlnInstance: RLN[Bn256]): MerkleNodeResult =
   let merkleNode = rootValue[]
   return ok(merkleNode)
 
-proc toMembershipKeyPairs*(groupKeys: seq[string]): seq[MembershipKeyPair] {.raises: [Defect, ValueError]} =
+proc toMembershipKeyPairs*(groupKeys: seq[(string, string)]): seq[MembershipKeyPair] {.raises: [Defect, ValueError]} =
   ## groupKeys is an alternating sequence of identity keys and their corresponding id commitment keys in the hexadecimal format
   ## the toMembershipKeyPairs proc populates a sequence of MembershipKeyPairs using the supplied groupKeys
   
   var groupKeyPairs = newSeq[MembershipKeyPair]()
-  let groupSize = int(groupKeys.len/2)
   
-  for i in countup(0, groupSize-1, 2):
+  for i in 0..groupKeys.len-1:
     let 
-      idKey = groupKeys[i].hexToByteArray(32)
-      idCommitment = groupKeys[i+1].hexToByteArray(32)
+      idKey = groupKeys[i][0].hexToByteArray(32)
+      idCommitment = groupKeys[i][1].hexToByteArray(32)
     groupKeyPairs.add(MembershipKeyPair(idKey: idKey, idCommitment: idCommitment))
   return groupKeyPairs
 
@@ -161,3 +160,33 @@ proc calcMerkleRoot*(list: seq[IDCommitment]): string {.raises: [Defect, IOError
 
   let root = rln.getMerkleRoot().value().toHex  
   return root
+
+proc createMembershipList*(n: int): (seq[(string,string)], string) {.raises: [Defect, IOError].} = 
+  ## createMembershipList produces a sequence of membership key pairs in the form of (identity key, id commitment keys) in the hexadecimal format
+  ## this proc also returns the root of a Merkle tree constructed out of the identity commitment keys of the generated list
+  ## the output of this proc is used  to initialize a static group list
+  
+  # initialize a Merkle tree
+  var rlnInstance = createRLNInstance()
+  if not rlnInstance.isOk:
+    return (@[], "")
+  var rln = rlnInstance.value
+
+  var output = newSeq[(string,string)]()
+  for i in 0..n-1:
+
+    # generate a key pair
+    let keypair = rln.membershipKeyGen()
+    doAssert(keypair.isSome())
+    
+    let keyTuple = (keypair.get().idKey.toHex, keypair.get().idCommitment.toHex)
+    output.add(keyTuple)
+
+    # insert the key to the Merkle tree
+    let inserted = rln.insertMember(keypair.get().idCommitment)
+    if not inserted:
+      return (@[], "")
+    
+
+  let root = rln.getMerkleRoot().value.toHex
+  return (output, root)

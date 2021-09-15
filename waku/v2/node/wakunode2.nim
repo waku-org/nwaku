@@ -614,7 +614,7 @@ proc mountRelay*(node: WakuNode,
         # TODO have added this check to account for unseen corner cases, will remove it later 
         let 
           root = node.wakuRlnRelay.rlnInstance.getMerkleRoot.value.toHex() 
-          expectedRoot = "65b753df62fb9a40575b116ba4138a864c66267357fdfca11db82de8bd73b400"
+          expectedRoot = StaticGroupMerkleRoot
         if root != expectedRoot:
           error "root mismatch: something went wrong not in Merkle tree construction"
         debug "the calculated root", root
