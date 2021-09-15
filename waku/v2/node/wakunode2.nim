@@ -588,8 +588,9 @@ proc mountRelay*(node: WakuNode,
       info "WakuRLNRelay is enabled"
 
       # a static list of 50 membership keys in hexadecimal format
-      var groupKeys = StaticGroupKeys
-      var groupSize = int(groupKeys.len/2)
+      let
+        groupKeys = StaticGroupKeys
+        groupSize = int(groupKeys.len/2)
 
       debug "rln-relay membership index", rlnRelayMemIndex
 
@@ -598,8 +599,9 @@ proc mountRelay*(node: WakuNode,
         error "wrong membership index, failed to mount WakuRLNRelay"
       else: 
         # prepare group related inputs from the hardcoded keys
-        var groupKeyPairs = groupKeys.toMembershipKeyPairs()
-        var groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
+        let 
+          groupKeyPairs = groupKeys.toMembershipKeyPairs()
+          groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
 
         # mount rlnrelay in offline mode
         waitFor node.mountRlnRelay(groupOpt= some(groupIDCommitments), memKeyPairOpt = some(groupKeyPairs[rlnRelayMemIndex]), memIndexOpt= some(rlnRelayMemIndex), onchainMode = false)
