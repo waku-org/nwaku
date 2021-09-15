@@ -1,5 +1,5 @@
 import
-  strformat, os, osproc, net, strformat, chronicles, json,
+  strformat, os, osproc, net, strformat, chronicles, confutils, json,
   libp2p/multiaddress,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
@@ -9,7 +9,7 @@ import
 import strutils except fromHex
 
 const
-  defaults ="--log-level:TRACE --log-metrics --metrics-server --rpc"
+  defaults ="--log-level:TRACE --metrics-logging --metrics-server --rpc"
   wakuNodeBin = "build" / "wakunode2"
   metricsDir = "metrics"
   portOffset = 2
@@ -25,6 +25,17 @@ type
   Topology = enum
     Star,
     FullMesh
+  
+  WakuNetworkConf* = object
+    topology* {.
+      desc: "Set the network topology."
+      defaultValue: FullMesh
+      name: "topology" .}: Topology
+
+    amount* {.
+      desc: "Amount of relay nodes to be started."
+      defaultValue: 16
+      name: "amount" .}: int
 
 # NOTE: Don't distinguish between node types here a la full node, light node etc
 proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], master = false, label: string): NodeInfo =
@@ -134,12 +145,14 @@ proc proccessGrafanaDashboard(nodes: int, inputFile: string,
   writeFile(outputFile, pretty(outputData))
 
 when isMainModule:
+  let conf = WakuNetworkConf.load()
+
   # TODO: WakuNetworkConf
   var nodes: seq[NodeInfo]
-  let topology = FullMesh
+  let topology = conf.topology
 
   # Scenario xx2 14
-  let amount = 16
+  let amount = conf.amount
 
   case topology:
     of Star:
@@ -147,10 +160,10 @@ when isMainModule:
     of FullMesh:
       nodes = fullMeshNetwork(amount)
 
-  var staticnodes: seq[string]
-  for i in 0..<amount:
-    # TODO: could also select nodes randomly
-    staticnodes.add(nodes[i].address)
+  # var staticnodes: seq[string]
+  # for i in 0..<amount:
+  #   # TODO: could also select nodes randomly
+  #   staticnodes.add(nodes[i].address)
 
   # Scenario xx1 - 16 full nodes, one app topic, full mesh, gossip
 
