@@ -706,7 +706,7 @@ suite "Waku rln relay":
       list.len == groupSize 
     debug "the Merkle tree root", root
     check:
-      root.len == HashSize
+      root.len == HashHexSize
   
   test "check correctness of toMembershipKeyPairs and calcMerkleRoot":
     var groupKeys: seq[(string, string)] = StaticGroupKeys
