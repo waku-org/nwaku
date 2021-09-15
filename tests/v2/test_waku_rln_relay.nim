@@ -268,9 +268,6 @@ procSuite "Waku rln relay":
     check rlnInstance.isOk == true
     var rln = rlnInstance.value
 
-    # current peer index in the Merkle tree
-    let index = MembeshipIndex(5)
-
     # Create a group of 100 members 
     let
       (groupKeys, root) = createMembershipList(100)
@@ -281,6 +278,10 @@ procSuite "Waku rln relay":
     let groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
     debug "groupIDCommitments", groupIDCommitments
    
+    # index indicates the position of a membership key pair in the static group keys i.e., groupKeyPairs 
+    # the corresponding key pair will be used to mount rlnRelay for the current node
+    let index = MembeshipIndex(5)
+
     # start rln-relay in the off-chain mode
     await node.mountRlnRelay(groupOpt = some(groupIDCommitments), memKeyPairOpt = some(groupKeyPairs[index]),  memIndexOpt = some(index), onchainMode = false)
     
