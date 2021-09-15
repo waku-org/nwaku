@@ -257,7 +257,7 @@ procSuite "Waku rln relay":
 
     await node.stop()
 
-  asyncTest "mount waku rln-relay off-chain":
+  asyncTest "mount waku-rln-relay in the off-chain mode":
     let
       nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"),
@@ -271,21 +271,25 @@ procSuite "Waku rln relay":
     # current peer index in the Merkle tree
     let index = MembeshipIndex(5)
 
-    # Create a group of 50 members 
-    var groupKeys: seq[(string, string)] = StaticGroupKeys
-    var groupKeyPairs = groupKeys.toMembershipKeyPairs()
+    # Create a group of 100 members 
+    let
+      (groupKeys, root) = createMembershipList(100)
+      groupKeyPairs = groupKeys.toMembershipKeyPairs()
     debug "groupKeyPairs", groupKeyPairs
-    var groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
+
+    # prepare inputs to mount rln-relay
+    let groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
     debug "groupIDCommitments", groupIDCommitments
-    var expectedRoot = calcMerkleRoot(groupIDCommitments)
-    debug "expectedRoot", expectedRoot
    
-    # start rln-relay in off-chain mode
+    # start rln-relay in the off-chain mode
     await node.mountRlnRelay(groupOpt = some(groupIDCommitments), memKeyPairOpt = some(groupKeyPairs[index]),  memIndexOpt = some(index), onchainMode = false)
     
     let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
     debug "calculated root by wakuRlnRelay", calculatedRoot
-    check expectedRoot == calculatedRoot
+
+    # this part checks whether the Merkle tree is constructed correctly inside the mountRlnRelay proc
+    # the check is done by comparing the tree root  resulted from mountRlnRelay i.e., calculatedRoot against the root which is the expected root
+    check calculatedRoot == root
 
     await node.stop()
 
