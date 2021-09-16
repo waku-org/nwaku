@@ -701,25 +701,30 @@ suite "Waku rln relay":
     let 
       groupSize = 100
       (list, root) = createMembershipList(groupSize) 
+
     debug "created membership key list", list
-    check: 
-      list.len == groupSize 
     debug "the Merkle tree root", root
+    
     check:
-      root.len == HASH_HEX_SIZE
+      list.len == groupSize  # check the number of keys
+      root.len == HASH_HEX_SIZE # check the size of the calculated tree root
   
   test "check correctness of toMembershipKeyPairs and calcMerkleRoot":
-    var groupKeys: seq[(string, string)] = STATIC_GROUP_KEYS
-    var groupKeyPairs = groupKeys.toMembershipKeyPairs()
+    let groupKeys = STATIC_GROUP_KEYS
+
+    # create a set of MembershipKeyPair objects from groupKeys
+    let groupKeyPairs = groupKeys.toMembershipKeyPairs()
+    # extract the id commitments
+    let groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
+    # calculate the Merkle tree root out of the extracted id commitments
+    let root = calcMerkleRoot(groupIDCommitments)
+
     debug "groupKeyPairs", groupKeyPairs
-    check: groupKeyPairs.len == StaticGroupSize
-
-    var groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
     debug "groupIDCommitments", groupIDCommitments
+    debug "root", root
+
     check: 
-      groupIDCommitments.len == StaticGroupSize
-
-    var root = calcMerkleRoot(groupIDCommitments)
-    debug "expectedRoot", root
-
-    check: root == STATIC_GROUP_MERKLE_ROOT
+      # check that the correct number of key pairs are created
+      groupKeyPairs.len == StaticGroupSize
+      # compare the calculated root against the correct root
+      root == STATIC_GROUP_MERKLE_ROOT
