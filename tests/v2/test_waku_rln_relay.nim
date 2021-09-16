@@ -259,14 +259,9 @@ procSuite "Waku rln relay":
         Port(60000))
     await node.start()
 
-    # create an instance of rln which also internally holds a Merkle tree structure
-    var rlnInstance = createRLNInstance()
-    check rlnInstance.isOk == true
-    var rln = rlnInstance.value
+    # preparing inputs to mount rln-relay
 
-    # prepare the inputs to mount rln-relay
-
-    # Create a group of 100 membership keys
+    # create a group of 100 membership keys
     let
       (groupKeys, root) = createMembershipList(100)
       # convert the keys to MembershipKeyPair structs
@@ -286,10 +281,11 @@ procSuite "Waku rln relay":
     
     # get the root of Merkle tree which is constructed inside the mountRlnRelay proc
     let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
-    debug "calculated root by wakuRlnRelay", calculatedRoot
+    debug "calculated root by mountRlnRelay", calculatedRoot
 
     # this part checks whether the Merkle tree is constructed correctly inside the mountRlnRelay proc
-    # this can be done by comparing the tree root resulted from mountRlnRelay i.e., calculatedRoot against the root which is the expected root
+    # this check is done by comparing the tree root resulted from mountRlnRelay i.e., calculatedRoot 
+    # against the root which is the expected root
     check calculatedRoot == root
 
     await node.stop()
