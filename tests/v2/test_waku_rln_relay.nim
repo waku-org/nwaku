@@ -259,6 +259,7 @@ procSuite "Waku rln relay":
         Port(60000))
     await node.start()
 
+    # create an instance of rln which also internally holds a Merkle tree structure
     var rlnInstance = createRLNInstance()
     check rlnInstance.isOk == true
     var rln = rlnInstance.value
@@ -266,25 +267,27 @@ procSuite "Waku rln relay":
     # Create a group of 100 members 
     let
       (groupKeys, root) = createMembershipList(100)
+      # converts the keys to MembershipKeyPair structs
       groupKeyPairs = groupKeys.toMembershipKeyPairs()
     debug "groupKeyPairs", groupKeyPairs
 
-    # prepare inputs to mount rln-relay
+    # prepare the inputs to mount rln-relay
     let groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
     debug "groupIDCommitments", groupIDCommitments
    
-    # index indicates the position of a membership key pair in the static group keys i.e., groupKeyPairs 
-    # the corresponding key pair will be used to mount rlnRelay for the current node
+    # index indicates the position of a membership key pair in the static list of group keys i.e., groupKeyPairs 
+    # the corresponding key pair will be used to mount rlnRelay on the current node
     let index = MembeshipIndex(5)
 
     # start rln-relay in the off-chain mode
     await node.mountRlnRelay(groupOpt = some(groupIDCommitments), memKeyPairOpt = some(groupKeyPairs[index]),  memIndexOpt = some(index), onchainMode = false)
     
+    # get the root of Merkle tree which is constructed inside the mountRlnRelay proc
     let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
     debug "calculated root by wakuRlnRelay", calculatedRoot
 
     # this part checks whether the Merkle tree is constructed correctly inside the mountRlnRelay proc
-    # the check is done by comparing the tree root  resulted from mountRlnRelay i.e., calculatedRoot against the root which is the expected root
+    # this can be done by comparing the tree root resulted from mountRlnRelay i.e., calculatedRoot against the root which is the expected root
     check calculatedRoot == root
 
     await node.stop()
