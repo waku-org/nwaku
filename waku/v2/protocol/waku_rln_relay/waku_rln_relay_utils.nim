@@ -18,7 +18,7 @@ contract(MembershipContract):
   # TODO define a return type of bool for register method to signify a successful registration
   proc register(pubkey: Uint256) # external payable
 
-proc createRLNInstance*(d: int = MerkleTreeDepth): RLNResult
+proc createRLNInstance*(d: int = MERKLE_TREE_DEPTH): RLNResult
   {.raises: [Defect, IOError].} =
 
   ## generates an instance of RLN 

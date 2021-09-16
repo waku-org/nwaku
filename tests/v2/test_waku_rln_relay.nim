@@ -14,16 +14,16 @@ import
 
 # the address of Ethereum client (ganache-cli for now)
 # TODO this address in hardcoded in the code, we may need to take it as input from the user
-const EthClient = "ws://localhost:8540/"
+# const ETH_CLIENT = "ws://localhost:8540/"
 
-# poseidonHasherCode holds the bytecode of Poseidon hasher solidity smart contract: 
+# POSEIDON_HASHER_CODE holds the bytecode of Poseidon hasher solidity smart contract: 
 # https://github.com/kilic/rlnapp/blob/master/packages/contracts/contracts/crypto/PoseidonHasher.sol 
 # the solidity contract is compiled separately and the resultant bytecode is copied here
-const poseidonHasherCode = readFile("tests/v2/poseidonHasher.txt")
-# membershipContractCode contains the bytecode of the membership solidity smart contract:
+const POSEIDON_HASHER_CODE = readFile("tests/v2/poseidonHasher.txt")
+# MEMBERSHIP_CONTRACT_CODE contains the bytecode of the membership solidity smart contract:
 # https://github.com/kilic/rlnapp/blob/master/packages/contracts/contracts/RLN.sol
 # the solidity contract is compiled separately and the resultant bytecode is copied here
-const membershipContractCode = readFile("tests/v2/membershipContract.txt")
+const MEMBERSHIP_CONTRACT_CODE = readFile("tests/v2/membershipContract.txt")
 
 # the membership contract code in solidity
 # uint256 public immutable MEMBERSHIP_DEPOSIT;
@@ -105,7 +105,7 @@ proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
 
   # deploy the poseidon hash first
   let 
-    hasherReceipt = await web3.deployContract(poseidonHasherCode)
+    hasherReceipt = await web3.deployContract(POSEIDON_HASHER_CODE)
     hasherAddress = hasherReceipt.contractAddress.get
   debug "hasher address: ", hasherAddress
   
@@ -113,7 +113,7 @@ proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
   # encode membership contract inputs to 32 bytes zero-padded
   let 
     membershipFeeEncoded = encode(MembershipFee).data 
-    depthEncoded = encode(MerkleTreeDepth.u256).data 
+    depthEncoded = encode(MERKLE_TREE_DEPTH.u256).data 
     hasherAddressEncoded = encode(hasherAddress).data
     # this is the contract constructor input
     contractInput = membershipFeeEncoded & depthEncoded & hasherAddressEncoded
@@ -125,7 +125,7 @@ proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
   debug "encoded contract input:" , contractInput
 
   # deploy membership contract with its constructor inputs
-  let receipt = await web3.deployContract(membershipContractCode, contractInput = contractInput)
+  let receipt = await web3.deployContract(MEMBERSHIP_CONTRACT_CODE, contractInput = contractInput)
   var contractAddress = receipt.contractAddress.get
   debug "Address of the deployed membership contract: ", contractAddress
 
@@ -711,10 +711,10 @@ suite "Waku rln relay":
       list.len == groupSize 
     debug "the Merkle tree root", root
     check:
-      root.len == HashHexSize
+      root.len == HASH_HEX_SIZE
   
   test "check correctness of toMembershipKeyPairs and calcMerkleRoot":
-    var groupKeys: seq[(string, string)] = StaticGroupKeys
+    var groupKeys: seq[(string, string)] = STATIC_GROUP_KEYS
     var groupKeyPairs = groupKeys.toMembershipKeyPairs()
     debug "groupKeyPairs", groupKeyPairs
     check: groupKeyPairs.len == StaticGroupSize
@@ -727,4 +727,4 @@ suite "Waku rln relay":
     var expectedRoot = calcMerkleRoot(groupIDCommitments)
     debug "expectedRoot", expectedRoot
 
-    check: expectedRoot == StaticGroupMerkleRoot
+    check: expectedRoot == STATIC_GROUP_MERKLE_ROOT

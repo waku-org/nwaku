@@ -589,7 +589,7 @@ proc mountRelay*(node: WakuNode,
 
       # a static list of 50 membership keys in hexadecimal format
       let
-        groupKeys = StaticGroupKeys
+        groupKeys = STATIC_GROUP_KEYS
         groupSize = int(groupKeys.len/2)
 
       debug "rln-relay membership index", rlnRelayMemIndex
@@ -614,7 +614,7 @@ proc mountRelay*(node: WakuNode,
         # TODO have added this check to account for unseen corner cases, will remove it later 
         let 
           root = node.wakuRlnRelay.rlnInstance.getMerkleRoot.value.toHex() 
-          expectedRoot = StaticGroupMerkleRoot
+          expectedRoot = STATIC_GROUP_MERKLE_ROOT
         if root != expectedRoot:
           error "root mismatch: something went wrong not in Merkle tree construction"
         debug "the calculated root", root
