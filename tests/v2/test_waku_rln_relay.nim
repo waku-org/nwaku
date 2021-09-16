@@ -725,7 +725,7 @@ suite "Waku rln relay":
     debug "root", root
 
     check: 
-      # check that the correct number of key pairs are created
+      # check that the correct number of key pairs is created
       groupKeyPairs.len == StaticGroupSize
       # compare the calculated root against the correct root
       root == STATIC_GROUP_MERKLE_ROOT
