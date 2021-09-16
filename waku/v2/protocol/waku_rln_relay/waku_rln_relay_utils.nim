@@ -154,7 +154,7 @@ proc calcMerkleRoot*(list: seq[IDCommitment]): string {.raises: [Defect, IOError
 
   # create a Merkle tree 
   for i in 0..list.len-1:
-    var member_is_added = false
+    let member_is_added = false
     member_is_added = rln.insertMember(list[i])
     doAssert(member_is_added)  
 
