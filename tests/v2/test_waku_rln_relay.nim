@@ -719,7 +719,7 @@ suite "Waku rln relay":
     check: 
       groupIDCommitments.len == StaticGroupSize
 
-    var expectedRoot = calcMerkleRoot(groupIDCommitments)
-    debug "expectedRoot", expectedRoot
+    var root = calcMerkleRoot(groupIDCommitments)
+    debug "expectedRoot", root
 
-    check: expectedRoot == STATIC_GROUP_MERKLE_ROOT
+    check: root == STATIC_GROUP_MERKLE_ROOT
