@@ -264,22 +264,24 @@ procSuite "Waku rln relay":
     check rlnInstance.isOk == true
     var rln = rlnInstance.value
 
-    # Create a group of 100 members 
+    # prepare the inputs to mount rln-relay
+
+    # Create a group of 100 membership keys
     let
       (groupKeys, root) = createMembershipList(100)
-      # converts the keys to MembershipKeyPair structs
+      # convert the keys to MembershipKeyPair structs
       groupKeyPairs = groupKeys.toMembershipKeyPairs()
+      # extract the id commitments
+      groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
     debug "groupKeyPairs", groupKeyPairs
-
-    # prepare the inputs to mount rln-relay
-    let groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
     debug "groupIDCommitments", groupIDCommitments
    
     # index indicates the position of a membership key pair in the static list of group keys i.e., groupKeyPairs 
     # the corresponding key pair will be used to mount rlnRelay on the current node
+    # index also represents the index of the leaf in the Merkle tree that contains node's commitment key 
     let index = MembeshipIndex(5)
 
-    # start rln-relay in the off-chain mode
+    # -------- mount rln-relay in the off-chain mode
     await node.mountRlnRelay(groupOpt = some(groupIDCommitments), memKeyPairOpt = some(groupKeyPairs[index]),  memIndexOpt = some(index), onchainMode = false)
     
     # get the root of Merkle tree which is constructed inside the mountRlnRelay proc
