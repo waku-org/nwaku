@@ -4,6 +4,7 @@ import
   std/[options, tables, strutils, sequtils, os],
   chronos, chronicles, metrics,
   stew/shims/net as stewNet,
+  stew/byteutils,
   eth/keys,
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
@@ -16,7 +17,7 @@ import
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter/waku_filter,
   ../protocol/waku_lightpush/waku_lightpush,
-  ../protocol/waku_rln_relay/waku_rln_relay_types,
+  ../protocol/waku_rln_relay/[waku_rln_relay_types], 
   ../utils/peers,
   ../utils/requests,
   ./storage/migration/migration_types,
@@ -36,7 +37,7 @@ when defined(rln):
   import
     libp2p/protocols/pubsub/rpc/messages,
     web3,
-    ../protocol/waku_rln_relay/[rln, waku_rln_relay_utils]
+    ../protocol/waku_rln_relay/[rln, waku_rln_relay_utils, waku_rln_relay_utils]
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicGauge waku_node_filters, "number of content filter subscriptions"
@@ -415,48 +416,56 @@ when defined(rln):
                       memContractAddOpt:  Option[Address] = none(Address),
                       groupOpt: Option[seq[IDCommitment]] = none(seq[IDCommitment]),
                       memKeyPairOpt: Option[MembershipKeyPair] = none(MembershipKeyPair),
-                      memIndexOpt: Option[uint] = none(uint)) {.async.} =
+                      memIndexOpt: Option[uint] = none(uint),
+                      onchainMode: bool = true) {.async.} =
     # TODO return a bool value to indicate the success of the call
     # check whether inputs are provided
-    if ethClientAddrOpt.isNone():
-      info "failed to mount rln relay: Ethereum client address is not provided"
-      return
-    if ethAccAddrOpt.isNone():
-      info "failed to mount rln relay: Ethereum account address is not provided"
-      return
-    if memContractAddOpt.isNone():
-      info "failed to mount rln relay: membership contract address is not provided"
-      return
-    if groupOpt.isNone():
-      # TODO this check is not necessary for a dynamic group
-      info "failed to mount rln relay:  group information is not provided"
-      return
+    if onchainMode:
+      if memContractAddOpt.isNone():
+        error "failed to mount rln relay: membership contract address is not provided"
+        return
+      if ethClientAddrOpt.isNone():
+        error "failed to mount rln relay: Ethereum client address is not provided"
+        return
+      if ethAccAddrOpt.isNone():
+        error "failed to mount rln relay: Ethereum account address is not provided"
+        return
+    else:
+      if groupOpt.isNone():
+        error "failed to mount rln relay:  group information is not provided"
+        return
+
     if memKeyPairOpt.isNone():
-      info "failed to mount rln relay: membership key of the node is not provided"
+      error "failed to mount rln relay: membership key of the node is not provided"
       return
     if memIndexOpt.isNone():
-      info "failed to mount rln relay:  membership index is not provided"
+      error "failed to mount rln relay:  membership index is not provided"
       return
-
-    let 
+    
+    var 
+      ethClientAddr: string 
+      ethAccAddr: Address
+      memContractAdd: Address
+    if onchainMode:
       ethClientAddr = ethClientAddrOpt.get()
       ethAccAddr = ethAccAddrOpt.get()
       memContractAdd = memContractAddOpt.get()
+
+    let 
       group = groupOpt.get()
       memKeyPair = memKeyPairOpt.get()
       memIndex = memIndexOpt.get()
-
 
     # check the peer's index and the inclusion of user's identity commitment in the group
     doAssert((memKeyPair.idCommitment)  == group[int(memIndex)])
 
     # create an RLN instance
-    var rlnInstance = createRLNInstance(32)
+    var rlnInstance = createRLNInstance()
     doAssert(rlnInstance.isOk)
     var rln = rlnInstance.value
 
     # generate the membership keys if none is provided
-    # this if condition never gets through for a static group of users
+    # in a happy path, this condition never gets through for a static group of users
     # the node should pass its keys i.e., memKeyPairOpt to the function
     if not memKeyPairOpt.isSome:
       let membershipKeyPair = rln.membershipKeyGen()
@@ -479,11 +488,12 @@ when defined(rln):
       ethAccountAddress: ethAccAddr,
       rlnInstance: rln)
     
-    # register the rln-relay peer to the membership contract
-    let is_successful = await rlnPeer.register()
-    # check whether registration is done
-    doAssert(is_successful)
-    debug "peer is successfully registered into the membership contract"
+    if onchainMode:
+      # register the rln-relay peer to the membership contract
+      let is_successful = await rlnPeer.register()
+      # check whether registration is done
+      doAssert(is_successful)
+      debug "peer is successfully registered into the membership contract"
 
     node.wakuRlnRelay = rlnPeer
 
@@ -539,6 +549,7 @@ proc startRelay*(node: WakuNode) {.async.} =
 proc mountRelay*(node: WakuNode,
                  topics: seq[string] = newSeq[string](),
                  rlnRelayEnabled = false,
+                 rlnRelayMemIndex = uint(0),
                  relayMessages = true,
                  triggerSelf = true)
   # @TODO: Better error handling: CatchableError is raised by `waitFor`
@@ -573,11 +584,42 @@ proc mountRelay*(node: WakuNode,
 
   when defined(rln):
     if rlnRelayEnabled:
-      # TODO pass rln relay inputs to this proc, right now it uses default values that are set in the mountRlnRelay proc
+      # TODO get user inputs via cli options
       info "WakuRLNRelay is enabled"
-      waitFor mountRlnRelay(node)
-      info "WakuRLNRelay is mounted successfully"
 
+      # a static list of 50 membership keys in hexadecimal format
+      let
+        groupKeys = STATIC_GROUP_KEYS
+        groupSize = int(groupKeys.len/2)
+
+      debug "rln-relay membership index", rlnRelayMemIndex
+
+      # validate the user-supplied membership index
+      if rlnRelayMemIndex < uint(0) or rlnRelayMemIndex >= uint(groupSize):
+        error "wrong membership index, failed to mount WakuRLNRelay"
+      else: 
+        # prepare group related inputs from the hardcoded keys
+        let 
+          groupKeyPairs = groupKeys.toMembershipKeyPairs()
+          groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
+
+        # mount rlnrelay in offline mode
+        waitFor node.mountRlnRelay(groupOpt= some(groupIDCommitments), memKeyPairOpt = some(groupKeyPairs[rlnRelayMemIndex]), memIndexOpt= some(rlnRelayMemIndex), onchainMode = false)
+
+        info "membership id key", idkey=groupKeyPairs[rlnRelayMemIndex].idKey.toHex
+        info "membership id commitment key", idCommitmentkey=groupIDCommitments[rlnRelayMemIndex].toHex
+
+        # check the correct construction of the tree by comparing the calculated root against the expected root
+        # no error should happen as it is already captured in the unit tests
+        # TODO have added this check to account for unseen corner cases, will remove it later 
+        let 
+          root = node.wakuRlnRelay.rlnInstance.getMerkleRoot.value.toHex() 
+          expectedRoot = STATIC_GROUP_MERKLE_ROOT
+        if root != expectedRoot:
+          error "root mismatch: something went wrong not in Merkle tree construction"
+        debug "the calculated root", root
+        info "WakuRLNRelay is mounted successfully"
+        
   info "relay mounted successfully"
 
   if node.started:
@@ -844,7 +886,8 @@ when isMainModule:
     mountRelay(node,
               conf.topics.split(" "),
               rlnRelayEnabled = conf.rlnRelay,
-              relayMessages = conf.relay) # Indicates if node is capable to relay messages
+              relayMessages = conf.relay, # Indicates if node is capable to relay messages
+              rlnRelayMemIndex = conf.rlnRelayMemIndex) 
     
     # Keepalive mounted on all nodes
     mountLibp2pPing(node)
