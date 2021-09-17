@@ -18,7 +18,7 @@ contract(MembershipContract):
   # TODO define a return type of bool for register method to signify a successful registration
   proc register(pubkey: Uint256) # external payable
 
-proc createRLNInstance*(d: int): RLNResult
+proc createRLNInstance*(d: int = MERKLE_TREE_DEPTH): RLNResult
   {.raises: [Defect, IOError].} =
 
   ## generates an instance of RLN 
@@ -114,7 +114,7 @@ proc insertMember*(rlnInstance: RLN[Bn256], idComm: IDCommitment): bool =
   var member_is_added = update_next_member(rlnInstance, pkBufferPtr)
   return member_is_added
 
-proc removeMember*(rlnInstance: RLN[Bn256], index: uint): bool = 
+proc removeMember*(rlnInstance: RLN[Bn256], index: MembeshipIndex): bool = 
   let deletion_success = delete_member(rlnInstance, index)
   return deletion_success
 
@@ -130,3 +130,63 @@ proc getMerkleRoot*(rlnInstance: RLN[Bn256]): MerkleNodeResult =
   var rootValue = cast[ptr array[32,byte]] (root.`ptr`)
   let merkleNode = rootValue[]
   return ok(merkleNode)
+
+proc toMembershipKeyPairs*(groupKeys: seq[(string, string)]): seq[MembershipKeyPair] {.raises: [Defect, ValueError]} =
+  ## groupKeys is  sequence of membership key tuples in the form of (identity key, identity commitment) all in the hexadecimal format
+  ## the toMembershipKeyPairs proc populates a sequence of MembershipKeyPairs using the supplied groupKeys
+  
+  var groupKeyPairs = newSeq[MembershipKeyPair]()
+  
+  for i in 0..groupKeys.len-1:
+    let 
+      idKey = groupKeys[i][0].hexToByteArray(32)
+      idCommitment = groupKeys[i][1].hexToByteArray(32)
+    groupKeyPairs.add(MembershipKeyPair(idKey: idKey, idCommitment: idCommitment))
+  return groupKeyPairs
+
+proc calcMerkleRoot*(list: seq[IDCommitment]): string {.raises: [Defect, IOError].} = 
+  ## returns the root of the Merkle tree that is computed from the supplied list 
+  ## the root is in hexadecimal format
+  
+  var rlnInstance = createRLNInstance()
+  doAssert(rlnInstance.isOk)
+  var rln = rlnInstance.value
+
+  # create a Merkle tree 
+  for i in 0..list.len-1:
+    var member_is_added = false
+    member_is_added = rln.insertMember(list[i])
+    doAssert(member_is_added)  
+
+  let root = rln.getMerkleRoot().value().toHex  
+  return root
+
+proc createMembershipList*(n: int): (seq[(string,string)], string) {.raises: [Defect, IOError].} = 
+  ## createMembershipList produces a sequence of membership key pairs in the form of (identity key, id commitment keys) in the hexadecimal format
+  ## this proc also returns the root of a Merkle tree constructed out of the identity commitment keys of the generated list
+  ## the output of this proc is used to initialize a static group keys (to test waku-rln-relay in the off-chain mode)
+  
+  # initialize a Merkle tree
+  var rlnInstance = createRLNInstance()
+  if not rlnInstance.isOk:
+    return (@[], "")
+  var rln = rlnInstance.value
+
+  var output = newSeq[(string,string)]()
+  for i in 0..n-1:
+
+    # generate a key pair
+    let keypair = rln.membershipKeyGen()
+    doAssert(keypair.isSome())
+    
+    let keyTuple = (keypair.get().idKey.toHex, keypair.get().idCommitment.toHex)
+    output.add(keyTuple)
+
+    # insert the key to the Merkle tree
+    let inserted = rln.insertMember(keypair.get().idCommitment)
+    if not inserted:
+      return (@[], "")
+    
+
+  let root = rln.getMerkleRoot().value.toHex
+  return (output, root)
