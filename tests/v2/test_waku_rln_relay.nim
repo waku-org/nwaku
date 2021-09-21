@@ -11,19 +11,14 @@ import
   ../test_helpers,
   ./test_utils
 
-
-# the address of Ethereum client (ganache-cli for now)
-# TODO this address in hardcoded in the code, we may need to take it as input from the user
-const EthClient = "ws://localhost:8540/"
-
-# poseidonHasherCode holds the bytecode of Poseidon hasher solidity smart contract: 
+# POSEIDON_HASHER_CODE holds the bytecode of Poseidon hasher solidity smart contract: 
 # https://github.com/kilic/rlnapp/blob/master/packages/contracts/contracts/crypto/PoseidonHasher.sol 
 # the solidity contract is compiled separately and the resultant bytecode is copied here
-const poseidonHasherCode = readFile("tests/v2/poseidonHasher.txt")
-# membershipContractCode contains the bytecode of the membership solidity smart contract:
+const POSEIDON_HASHER_CODE = readFile("tests/v2/poseidonHasher.txt")
+# MEMBERSHIP_CONTRACT_CODE contains the bytecode of the membership solidity smart contract:
 # https://github.com/kilic/rlnapp/blob/master/packages/contracts/contracts/RLN.sol
 # the solidity contract is compiled separately and the resultant bytecode is copied here
-const membershipContractCode = readFile("tests/v2/membershipContract.txt")
+const MEMBERSHIP_CONTRACT_CODE = readFile("tests/v2/membershipContract.txt")
 
 # the membership contract code in solidity
 # uint256 public immutable MEMBERSHIP_DEPOSIT;
@@ -105,7 +100,7 @@ proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
 
   # deploy the poseidon hash first
   let 
-    hasherReceipt = await web3.deployContract(poseidonHasherCode)
+    hasherReceipt = await web3.deployContract(POSEIDON_HASHER_CODE)
     hasherAddress = hasherReceipt.contractAddress.get
   debug "hasher address: ", hasherAddress
   
@@ -113,7 +108,7 @@ proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
   # encode membership contract inputs to 32 bytes zero-padded
   let 
     membershipFeeEncoded = encode(MembershipFee).data 
-    depthEncoded = encode(MerkleTreeDepth.u256).data 
+    depthEncoded = encode(MERKLE_TREE_DEPTH.u256).data 
     hasherAddressEncoded = encode(hasherAddress).data
     # this is the contract constructor input
     contractInput = membershipFeeEncoded & depthEncoded & hasherAddressEncoded
@@ -125,7 +120,7 @@ proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
   debug "encoded contract input:" , contractInput
 
   # deploy membership contract with its constructor inputs
-  let receipt = await web3.deployContract(membershipContractCode, contractInput = contractInput)
+  let receipt = await web3.deployContract(MEMBERSHIP_CONTRACT_CODE, contractInput = contractInput)
   var contractAddress = receipt.contractAddress.get
   debug "Address of the deployed membership contract: ", contractAddress
 
@@ -285,35 +280,41 @@ procSuite "Waku rln relay":
 
     await node.stop()
 
-  asyncTest "mount waku rln-relay off-chain":
+  asyncTest "mount waku-rln-relay in the off-chain mode":
     let
       nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
     await node.start()
 
-    var rlnInstance = createRLNInstance()
-    check rlnInstance.isOk == true
-    var rln = rlnInstance.value
+    # preparing inputs to mount rln-relay
 
-    # current peer index in the Merkle tree
-    let index = uint(5)
-
-    # Create a group of 50 members 
-    var groupKeys: seq[string] = StaticGroupKeys
-    var groupKeyPairs = groupKeys.toMembershipKeyPairs()
+    # create a group of 100 membership keys
+    let
+      (groupKeys, root) = createMembershipList(100)
+      # convert the keys to MembershipKeyPair structs
+      groupKeyPairs = groupKeys.toMembershipKeyPairs()
+      # extract the id commitments
+      groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
     debug "groupKeyPairs", groupKeyPairs
-    var groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
     debug "groupIDCommitments", groupIDCommitments
-    var expectedRoot = calcMerkleRoot(groupIDCommitments)
-    debug "expectedRoot", expectedRoot
    
-    # start rln-relay in off-chain mode
+    # index indicates the position of a membership key pair in the static list of group keys i.e., groupKeyPairs 
+    # the corresponding key pair will be used to mount rlnRelay on the current node
+    # index also represents the index of the leaf in the Merkle tree that contains node's commitment key 
+    let index = MembeshipIndex(5)
+
+    # -------- mount rln-relay in the off-chain mode
     await node.mountRlnRelay(groupOpt = some(groupIDCommitments), memKeyPairOpt = some(groupKeyPairs[index]),  memIndexOpt = some(index), onchainMode = false)
     
+    # get the root of Merkle tree which is constructed inside the mountRlnRelay proc
     let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
-    debug "calculated root by wakuRlnRelay", calculatedRoot
-    check expectedRoot == calculatedRoot
+    debug "calculated root by mountRlnRelay", calculatedRoot
+
+    # this part checks whether the Merkle tree is constructed correctly inside the mountRlnRelay proc
+    # this check is done by comparing the tree root resulted from mountRlnRelay i.e., calculatedRoot 
+    # against the root which is the expected root
+    check calculatedRoot == root
 
     await node.stop()
 
@@ -447,7 +448,7 @@ suite "Waku rln relay":
       rlnInstance.isOk == true
 
     # delete the first member 
-    var deleted_member_index = uint(0)
+    var deleted_member_index = MembeshipIndex(0)
     let deletion_success = delete_member(rlnInstance.value, deleted_member_index)
     doAssert(deletion_success)
 
@@ -470,7 +471,7 @@ suite "Waku rln relay":
       rlnInstance.isOk == true
     var rln = rlnInstance.value
     check: 
-      rln.removeMember(uint(0))
+      rln.removeMember(MembeshipIndex(0))
 
   test "Merkle tree consistency check between deletion and insertion":
     # create an RLN instance
@@ -505,7 +506,7 @@ suite "Waku rln relay":
     doAssert(root2.len == 32)
 
     # delete the first member 
-    var deleted_member_index = uint(0)
+    var deleted_member_index = MembeshipIndex(0)
     let deletion_success = delete_member(rlnInstance.value, deleted_member_index)
     doAssert(deletion_success)
 
@@ -560,7 +561,7 @@ suite "Waku rln relay":
 
   
     # delete the first member 
-    var deleted_member_index = uint(0)
+    var deleted_member_index = MembeshipIndex(0)
     let deletion_success = rln.removeMember(deleted_member_index)
     doAssert(deletion_success)
 
@@ -630,7 +631,7 @@ suite "Waku rln relay":
     var index = 5
 
     # prepare the authentication object with peer's index and sk
-    var authObj: Auth = Auth(secret_buffer: addr skBuffer, index: uint(index))
+    var authObj: Auth = Auth(secret_buffer: addr skBuffer, index: MembeshipIndex(index))
 
     # Create a Merkle tree with random members 
     for i in 0..10:
@@ -712,7 +713,7 @@ suite "Waku rln relay":
     # create and test a bad proof
     # prepare a bad authentication object with a wrong peer's index
     var badIndex = 8
-    var badAuthObj: Auth = Auth(secret_buffer: addr skBuffer, index: uint(badIndex))
+    var badAuthObj: Auth = Auth(secret_buffer: addr skBuffer, index: MembeshipIndex(badIndex))
     var badProof: Buffer
     let badProofIsSuccessful = generate_proof(rlnInstance.value, addr inputBuffer, addr badAuthObj, addr badProof)
     # check whether the generate_proof call is done successfully
@@ -726,26 +727,33 @@ suite "Waku rln relay":
     doAssert(badF == 1)
   
   test "create a list of membership keys and construct a Merkle tree based on the list":
-    let (list, root) = createMembershipList(100) 
+    let 
+      groupSize = 100
+      (list, root) = createMembershipList(groupSize) 
+
     debug "created membership key list", list
-    check: 
-      list.len == 200 # two parts for each membership key i.e., one id key and one id commitment
     debug "the Merkle tree root", root
+    
     check:
-      root.len == 64
+      list.len == groupSize  # check the number of keys
+      root.len == HASH_HEX_SIZE # check the size of the calculated tree root
   
   test "check correctness of toMembershipKeyPairs and calcMerkleRoot":
-    var groupKeys: seq[string] = StaticGroupKeys
-    var groupKeyPairs = groupKeys.toMembershipKeyPairs()
+    let groupKeys = STATIC_GROUP_KEYS
+
+    # create a set of MembershipKeyPair objects from groupKeys
+    let groupKeyPairs = groupKeys.toMembershipKeyPairs()
+    # extract the id commitments
+    let groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
+    # calculate the Merkle tree root out of the extracted id commitments
+    let root = calcMerkleRoot(groupIDCommitments)
+
     debug "groupKeyPairs", groupKeyPairs
-    check: groupKeyPairs.len == 50
-
-    var groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
     debug "groupIDCommitments", groupIDCommitments
+    debug "root", root
+
     check: 
-      groupIDCommitments.len == 50
-
-    var expectedRoot = calcMerkleRoot(groupIDCommitments)
-    debug "expectedRoot", expectedRoot
-
-    check: expectedRoot == "65b753df62fb9a40575b116ba4138a864c66267357fdfca11db82de8bd73b400"
+      # check that the correct number of key pairs is created
+      groupKeyPairs.len == StaticGroupSize
+      # compare the calculated root against the correct root
+      root == STATIC_GROUP_MERKLE_ROOT

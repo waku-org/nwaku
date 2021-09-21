@@ -76,7 +76,7 @@ type
       name: "rln-relay" }: bool
     
     rlnRelayMemIndex* {.
-      desc: "the index of node in the rln-relay group: a value between 0-49 inclusive",
+      desc: "(experimental) the index of node in the rln-relay group: a value between 0-49 inclusive",
       defaultValue: 0
       name: "rln-relay-membership-index" }: uint32
     
