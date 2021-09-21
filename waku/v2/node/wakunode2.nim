@@ -543,12 +543,6 @@ proc startRelay*(node: WakuNode) {.async.} =
     await node.peerManager.reconnectPeers(WakuRelayCodec,
                                           protocolMatcher(WakuRelayCodec),
                                           backoffPeriod)
-
-  # when defined(rln):
-  #   if node.wakuRelay.rlnRelayEnabled:
-  #     # TODO currently the message validator is set for the defaultTopic, this can be configurable to accept other pubsub topics as well 
-  #     addRLNRelayValidator(node, defaultTopic)
-  #     info "WakuRLNRelay is mounted successfully"
   
   # Start the WakuRelay protocol
   await node.wakuRelay.start()
@@ -557,7 +551,6 @@ proc startRelay*(node: WakuNode) {.async.} =
 
 proc mountRelay*(node: WakuNode,
                  topics: seq[string] = newSeq[string](),
-                #  rlnRelayEnabled = false,
                  relayMessages = true,
                  triggerSelf = true)
   # @TODO: Better error handling: CatchableError is raised by `waitFor`
@@ -577,7 +570,6 @@ proc mountRelay*(node: WakuNode,
   ## The default relay topics is the union of
   ## all configured topics plus the hard-coded defaultTopic(s)
   wakuRelay.defaultTopics = concat(@[defaultTopic], topics)
-  # wakuRelay.rlnRelayEnabled = rlnRelayEnabled
 
   node.switch.mount(wakuRelay, protocolMatcher(WakuRelayCodec))
 
