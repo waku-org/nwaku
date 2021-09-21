@@ -80,7 +80,11 @@ type
       desc: "(experimental) the index of node in the rln-relay group: a value between 0-99 inclusive",
       defaultValue: MembeshipIndex(0)
       name: "rln-relay-membership-index" }: MembeshipIndex
-    
+
+    rlnRelayPubsubTopic* {.
+      desc: "the pubsub topic for which rln-relay gets enabled",
+      defaultValue: ""
+      name: "rln-relay-pubsub-topic" }: string
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
       name: "staticnode" }: seq[string]
