@@ -548,8 +548,8 @@ proc startRelay*(node: WakuNode) {.async.} =
 
 proc mountRelay*(node: WakuNode,
                  topics: seq[string] = newSeq[string](),
-                 rlnRelayEnabled = false,
-                 rlnRelayMemIndex = uint(0),
+                # #  rlnRelayEnabled = false,
+                #  rlnRelayMemIndex = uint(0),
                  relayMessages = true,
                  triggerSelf = true)
   # @TODO: Better error handling: CatchableError is raised by `waitFor`
@@ -595,7 +595,7 @@ proc mountRelay*(node: WakuNode,
       debug "rln-relay membership index", rlnRelayMemIndex
 
       # validate the user-supplied membership index
-      if rlnRelayMemIndex < uint(0) or rlnRelayMemIndex >= uint(groupSize):
+      if rlnRelayMemIndex < MembeshipIndex(0) or rlnRelayMemIndex >= MembeshipIndex(groupSize):
         error "wrong membership index, failed to mount WakuRLNRelay"
       else: 
         # prepare group related inputs from the hardcoded keys
