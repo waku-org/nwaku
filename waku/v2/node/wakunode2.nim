@@ -416,7 +416,7 @@ when defined(rln):
                       memContractAddOpt:  Option[Address] = none(Address),
                       groupOpt: Option[seq[IDCommitment]] = none(seq[IDCommitment]),
                       memKeyPairOpt: Option[MembershipKeyPair] = none(MembershipKeyPair),
-                      memIndexOpt: Option[uint] = none(uint),
+                      memIndexOpt: Option[MembeshipIndex] = none(MembeshipIndex),
                       onchainMode: bool = true) {.async.} =
     # TODO return a bool value to indicate the success of the call
     # check whether inputs are provided
@@ -548,7 +548,7 @@ proc startRelay*(node: WakuNode) {.async.} =
 
 proc mountRelay*(node: WakuNode,
                  topics: seq[string] = newSeq[string](),
-                # #  rlnRelayEnabled = false,
+                #  rlnRelayEnabled = false,
                 #  rlnRelayMemIndex = uint(0),
                  relayMessages = true,
                  triggerSelf = true)
@@ -582,43 +582,31 @@ proc mountRelay*(node: WakuNode,
     ## @TODO: in future, this WakuRelay dependency will be removed completely  
     node.wakuRelay = wakuRelay
 
-  when defined(rln):
-    if rlnRelayEnabled:
-      # TODO get user inputs via cli options
-      info "WakuRLNRelay is enabled"
+  # when defined(rln):
+  #   if rlnRelayEnabled:
+  #     # TODO get user inputs via cli options
+  #     info "WakuRLNRelay is enabled"
+  #     # set up rln relay inputs
+  #     let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(rlnRelayMemIndex)
+  #     if memIndexOpt.isNone:
+  #       error "failed to mount WakuRLNRelay"
+  #     else:
+  #       # mount rlnrelay in offline mode
+  #       waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false)
 
-      # a static list of 50 membership keys in hexadecimal format
-      let
-        groupKeys = STATIC_GROUP_KEYS
-        groupSize = int(groupKeys.len/2)
+  #       info "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
+  #       info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
 
-      debug "rln-relay membership index", rlnRelayMemIndex
-
-      # validate the user-supplied membership index
-      if rlnRelayMemIndex < MembeshipIndex(0) or rlnRelayMemIndex >= MembeshipIndex(groupSize):
-        error "wrong membership index, failed to mount WakuRLNRelay"
-      else: 
-        # prepare group related inputs from the hardcoded keys
-        let 
-          groupKeyPairs = groupKeys.toMembershipKeyPairs()
-          groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
-
-        # mount rlnrelay in offline mode
-        waitFor node.mountRlnRelay(groupOpt= some(groupIDCommitments), memKeyPairOpt = some(groupKeyPairs[rlnRelayMemIndex]), memIndexOpt= some(rlnRelayMemIndex), onchainMode = false)
-
-        info "membership id key", idkey=groupKeyPairs[rlnRelayMemIndex].idKey.toHex
-        info "membership id commitment key", idCommitmentkey=groupIDCommitments[rlnRelayMemIndex].toHex
-
-        # check the correct construction of the tree by comparing the calculated root against the expected root
-        # no error should happen as it is already captured in the unit tests
-        # TODO have added this check to account for unseen corner cases, will remove it later 
-        let 
-          root = node.wakuRlnRelay.rlnInstance.getMerkleRoot.value.toHex() 
-          expectedRoot = STATIC_GROUP_MERKLE_ROOT
-        if root != expectedRoot:
-          error "root mismatch: something went wrong not in Merkle tree construction"
-        debug "the calculated root", root
-        info "WakuRLNRelay is mounted successfully"
+  #       # check the correct construction of the tree by comparing the calculated root against the expected root
+  #       # no error should happen as it is already captured in the unit tests
+  #       # TODO have added this check to account for unseen corner cases, will remove it later 
+  #       let 
+  #         root = node.wakuRlnRelay.rlnInstance.getMerkleRoot.value.toHex() 
+  #         expectedRoot = STATIC_GROUP_MERKLE_ROOT
+  #       if root != expectedRoot:
+  #         error "root mismatch: something went wrong not in Merkle tree construction"
+  #       debug "the calculated root", root
+  #       info "WakuRLNRelay is mounted successfully"
         
   info "relay mounted successfully"
 
@@ -885,13 +873,38 @@ when isMainModule:
     # Mount relay on all nodes
     mountRelay(node,
               conf.topics.split(" "),
-              rlnRelayEnabled = conf.rlnRelay,
               relayMessages = conf.relay, # Indicates if node is capable to relay messages
-              rlnRelayMemIndex = conf.rlnRelayMemIndex) 
+              ) 
     
     # Keepalive mounted on all nodes
     mountLibp2pPing(node)
     
+    when defined(rln): 
+      if conf.rlnRelay:
+        info "WakuRLNRelay is enabled"
+
+        # set up rln relay inputs
+        let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(rlnRelayMemIndex)
+        if memIndexOpt.isNone:
+          error "failed to mount WakuRLNRelay"
+        else:
+          # mount rlnrelay in offline mode (for now)
+          waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false)
+
+          info "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
+          info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
+
+          # check the correct construction of the tree by comparing the calculated root against the expected root
+          # no error should happen as it is already captured in the unit tests
+          # TODO have added this check to account for unseen corner cases, will remove it later 
+          let 
+            root = node.wakuRlnRelay.rlnInstance.getMerkleRoot.value.toHex() 
+            expectedRoot = STATIC_GROUP_MERKLE_ROOT
+          if root != expectedRoot:
+            error "root mismatch: something went wrong not in Merkle tree construction"
+          debug "the calculated root", root
+          info "WakuRLNRelay is mounted successfully"
+
     if conf.swap:
       mountSwap(node)
       # TODO Set swap peer, for now should be same as store peer
