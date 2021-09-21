@@ -549,7 +549,6 @@ proc startRelay*(node: WakuNode) {.async.} =
 proc mountRelay*(node: WakuNode,
                  topics: seq[string] = newSeq[string](),
                  rlnRelayEnabled = false,
-                #  rlnRelayMemIndex = uint(0),
                  relayMessages = true,
                  triggerSelf = true)
   # @TODO: Better error handling: CatchableError is raised by `waitFor`
@@ -581,32 +580,6 @@ proc mountRelay*(node: WakuNode,
     ## topics. We also never start the relay protocol. node.wakuRelay remains nil.
     ## @TODO: in future, this WakuRelay dependency will be removed completely  
     node.wakuRelay = wakuRelay
-
-  # when defined(rln):
-  #   if rlnRelayEnabled:
-  #     # TODO get user inputs via cli options
-  #     info "WakuRLNRelay is enabled"
-  #     # set up rln relay inputs
-  #     let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(rlnRelayMemIndex)
-  #     if memIndexOpt.isNone:
-  #       error "failed to mount WakuRLNRelay"
-  #     else:
-  #       # mount rlnrelay in offline mode
-  #       waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false)
-
-  #       info "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
-  #       info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
-
-  #       # check the correct construction of the tree by comparing the calculated root against the expected root
-  #       # no error should happen as it is already captured in the unit tests
-  #       # TODO have added this check to account for unseen corner cases, will remove it later 
-  #       let 
-  #         root = node.wakuRlnRelay.rlnInstance.getMerkleRoot.value.toHex() 
-  #         expectedRoot = STATIC_GROUP_MERKLE_ROOT
-  #       if root != expectedRoot:
-  #         error "root mismatch: something went wrong not in Merkle tree construction"
-  #       debug "the calculated root", root
-  #       info "WakuRLNRelay is mounted successfully"
         
   info "relay mounted successfully"
 
