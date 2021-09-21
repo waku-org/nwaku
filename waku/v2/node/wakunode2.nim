@@ -548,7 +548,7 @@ proc startRelay*(node: WakuNode) {.async.} =
 
 proc mountRelay*(node: WakuNode,
                  topics: seq[string] = newSeq[string](),
-                #  rlnRelayEnabled = false,
+                 rlnRelayEnabled = false,
                 #  rlnRelayMemIndex = uint(0),
                  relayMessages = true,
                  triggerSelf = true)
@@ -873,6 +873,7 @@ when isMainModule:
     # Mount relay on all nodes
     mountRelay(node,
               conf.topics.split(" "),
+              rlnRelayEnabled = conf.rlnRelay,
               relayMessages = conf.relay, # Indicates if node is capable to relay messages
               ) 
     
@@ -884,7 +885,7 @@ when isMainModule:
         info "WakuRLNRelay is enabled"
 
         # set up rln relay inputs
-        let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(rlnRelayMemIndex)
+        let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(conf.rlnRelayMemIndex)
         if memIndexOpt.isNone:
           error "failed to mount WakuRLNRelay"
         else:
