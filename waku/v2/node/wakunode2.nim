@@ -409,6 +409,20 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: boo
 
   node.switch.mount(node.wakuStore, protocolMatcher(WakuStoreCodec))
 
+proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
+  ## this procedure is a thin wrapper for the pubsub addValidator method
+  ## it sets message validator on the given pubsubTopic, the validator will check that
+  ## all the messages published in the pubsubTopic have a valid zero-knowledge proof 
+  proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
+    let msg = WakuMessage.init(message.data) 
+    if msg.isOk():
+      #  check the proof
+      if proofVrfy(msg.value().payload, msg.value().proof):
+        return ValidationResult.Accept
+  # set a validator for the pubsubTopic 
+  let pb  = PubSub(node.wakuRelay)
+  pb.addValidator(pubsubTopic, validator)
+    
 when defined(rln):
   proc mountRlnRelay*(node: WakuNode,
                       ethClientAddrOpt: Option[string] = none(string),
@@ -417,9 +431,15 @@ when defined(rln):
                       groupOpt: Option[seq[IDCommitment]] = none(seq[IDCommitment]),
                       memKeyPairOpt: Option[MembershipKeyPair] = none(MembershipKeyPair),
                       memIndexOpt: Option[MembeshipIndex] = none(MembeshipIndex),
-                      onchainMode: bool = true) {.async.} =
+                      onchainMode: bool = true,
+                      pubsubTopic: string) {.async.} =
     # TODO return a bool value to indicate the success of the call
     # check whether inputs are provided
+
+    # relay protocol is the prerequisite of rln-relay
+    if node.wakuRelay.isNil:
+      trace "Failed to mount WakuRLNRelay. Relay protocol is not mounted."
+      return
     if onchainMode:
       if memContractAddOpt.isNone():
         error "failed to mount rln relay: membership contract address is not provided"
@@ -495,22 +515,12 @@ when defined(rln):
       doAssert(is_successful)
       debug "peer is successfully registered into the membership contract"
 
+    # TODO currently the message validator is set for the defaultTopic, this can be configurable to accept other pubsub topics as well 
+    addRLNRelayValidator(node, pubsubTopic)
+    debug "rln relay topic validator is mounted successfully", pubsubTopic=pubsubTopic
+
     node.wakuRlnRelay = rlnPeer
 
-
-  proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
-    ## this procedure is a thin wrapper for the pubsub addValidator method
-    ## it sets message validator on the given pubsubTopic, the validator will check that
-    ## all the messages published in the pubsubTopic have a valid zero-knowledge proof 
-    proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
-      let msg = WakuMessage.init(message.data) 
-      if msg.isOk():
-        #  check the proof
-        if proofVrfy(msg.value().payload, msg.value().proof):
-          return ValidationResult.Accept
-    # set a validator for the pubsubTopic 
-    let pb  = PubSub(node.wakuRelay)
-    pb.addValidator(pubsubTopic, validator)
 
 proc startRelay*(node: WakuNode) {.async.} =
   if node.wakuRelay.isNil:
@@ -535,11 +545,11 @@ proc startRelay*(node: WakuNode) {.async.} =
                                           protocolMatcher(WakuRelayCodec),
                                           backoffPeriod)
 
-  when defined(rln):
-    if node.wakuRelay.rlnRelayEnabled:
-      # TODO currently the message validator is set for the defaultTopic, this can be configurable to accept other pubsub topics as well 
-      addRLNRelayValidator(node, defaultTopic)
-      info "WakuRLNRelay is mounted successfully"
+  # when defined(rln):
+  #   if node.wakuRelay.rlnRelayEnabled:
+  #     # TODO currently the message validator is set for the defaultTopic, this can be configurable to accept other pubsub topics as well 
+  #     addRLNRelayValidator(node, defaultTopic)
+  #     info "WakuRLNRelay is mounted successfully"
   
   # Start the WakuRelay protocol
   await node.wakuRelay.start()
@@ -548,7 +558,7 @@ proc startRelay*(node: WakuNode) {.async.} =
 
 proc mountRelay*(node: WakuNode,
                  topics: seq[string] = newSeq[string](),
-                 rlnRelayEnabled = false,
+                #  rlnRelayEnabled = false,
                  relayMessages = true,
                  triggerSelf = true)
   # @TODO: Better error handling: CatchableError is raised by `waitFor`
@@ -563,12 +573,12 @@ proc mountRelay*(node: WakuNode,
     verifySignature = false
   )
   
-  info "mounting relay", rlnRelayEnabled=rlnRelayEnabled, relayMessages=relayMessages
+  info "mounting relay", relayMessages=relayMessages
 
   ## The default relay topics is the union of
   ## all configured topics plus the hard-coded defaultTopic(s)
   wakuRelay.defaultTopics = concat(@[defaultTopic], topics)
-  wakuRelay.rlnRelayEnabled = rlnRelayEnabled
+  # wakuRelay.rlnRelayEnabled = rlnRelayEnabled
 
   node.switch.mount(wakuRelay, protocolMatcher(WakuRelayCodec))
 
