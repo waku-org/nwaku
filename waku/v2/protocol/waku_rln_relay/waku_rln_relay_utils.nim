@@ -193,8 +193,8 @@ proc createMembershipList*(n: int): (seq[(string,string)], string) {.raises: [De
   return (output, root)
 
 proc rlnRelaySetUp*(rlnRelayMemIndex = MembeshipIndex(0)): (Option[seq[IDCommitment]],Option[MembershipKeyPair], Option[MembeshipIndex]) {.raises:[Defect, ValueError].} =
-  # a static list of 50 membership keys in hexadecimal format
   let
+    # static group
     groupKeys = STATIC_GROUP_KEYS
     groupSize = STATIC_GROUP_SIZE
 
@@ -204,12 +204,12 @@ proc rlnRelaySetUp*(rlnRelayMemIndex = MembeshipIndex(0)): (Option[seq[IDCommitm
   if rlnRelayMemIndex < MembeshipIndex(0) or rlnRelayMemIndex >= MembeshipIndex(groupSize):
     error "wrong membership index"
     return(none(seq[IDCommitment]), none(MembershipKeyPair), none(MembeshipIndex))
-  else: 
-    # prepare group related inputs from the hardcoded keys
-    let 
-      groupKeyPairs = groupKeys.toMembershipKeyPairs()
-      groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
-      groupOpt= some(groupIDCommitments)
-      memKeyPairOpt = some(groupKeyPairs[rlnRelayMemIndex])
-      memIndexOpt= some(rlnRelayMemIndex)
-    return (groupOpt, memKeyPairOpt, memIndexOpt)
+  
+  # prepare group related inputs from the hardcoded keys
+  let 
+    groupKeyPairs = groupKeys.toMembershipKeyPairs()
+    groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
+    groupOpt= some(groupIDCommitments)
+    memKeyPairOpt = some(groupKeyPairs[rlnRelayMemIndex])
+    memIndexOpt= some(rlnRelayMemIndex)
+  return (groupOpt, memKeyPairOpt, memIndexOpt)
