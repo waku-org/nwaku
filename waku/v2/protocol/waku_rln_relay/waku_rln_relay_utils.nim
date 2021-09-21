@@ -205,11 +205,15 @@ proc rlnRelaySetUp*(rlnRelayMemIndex: MembeshipIndex): (Option[seq[IDCommitment]
     error "wrong membership index"
     return(none(seq[IDCommitment]), none(MembershipKeyPair), none(MembeshipIndex))
   
-  # prepare group related inputs from the hardcoded keys
+  # prepare the outputs from the static group keys
   let 
+    # create a sequence of MembershipKeyPairs from the group keys (group keys are in string format)
     groupKeyPairs = groupKeys.toMembershipKeyPairs()
+    # extract id commitment keys
     groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
     groupOpt= some(groupIDCommitments)
+    # user selected membership key pair
     memKeyPairOpt = some(groupKeyPairs[rlnRelayMemIndex])
     memIndexOpt= some(rlnRelayMemIndex)
+    
   return (groupOpt, memKeyPairOpt, memIndexOpt)
