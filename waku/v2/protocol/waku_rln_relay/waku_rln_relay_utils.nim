@@ -192,7 +192,7 @@ proc createMembershipList*(n: int): (seq[(string,string)], string) {.raises: [De
   let root = rln.getMerkleRoot().value.toHex
   return (output, root)
 
-proc rlnRelaySetUp*(rlnRelayMemIndex = MembeshipIndex(0)): (Option[seq[IDCommitment]],Option[MembershipKeyPair], Option[MembeshipIndex]) {.raises:[Defect, ValueError].} =
+proc rlnRelaySetUp*(rlnRelayMemIndex: MembeshipIndex): (Option[seq[IDCommitment]],Option[MembershipKeyPair], Option[MembeshipIndex]) {.raises:[Defect, ValueError].} =
   let
     # static group
     groupKeys = STATIC_GROUP_KEYS
