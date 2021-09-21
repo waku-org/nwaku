@@ -885,7 +885,7 @@ when isMainModule:
           if root != expectedRoot:
             error "root mismatch: something went wrong not in Merkle tree construction"
           debug "the calculated root", root
-          info "WakuRLNRelay is mounted successfully"
+          info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic
 
     if conf.swap:
       mountSwap(node)
