@@ -515,7 +515,6 @@ when defined(rln):
       doAssert(is_successful)
       debug "peer is successfully registered into the membership contract"
 
-    # TODO currently the message validator is set for the defaultTopic, this can be configurable to accept other pubsub topics as well 
     addRLNRelayValidator(node, pubsubTopic)
     debug "rln relay topic validator is mounted successfully", pubsubTopic=pubsubTopic
 
@@ -856,7 +855,6 @@ when isMainModule:
     # Mount relay on all nodes
     mountRelay(node,
               conf.topics.split(" "),
-              rlnRelayEnabled = conf.rlnRelay,
               relayMessages = conf.relay, # Indicates if node is capable to relay messages
               ) 
     
@@ -873,7 +871,7 @@ when isMainModule:
           error "failed to mount WakuRLNRelay"
         else:
           # mount rlnrelay in offline mode (for now)
-          waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false)
+          waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = conf.rlnRelayPubsubTopic)
 
           info "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
           info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
