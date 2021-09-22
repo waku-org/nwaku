@@ -408,22 +408,22 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: boo
     node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, node.wakuSwap, persistMessages=persistMessages)
 
   node.switch.mount(node.wakuStore, protocolMatcher(WakuStoreCodec))
-
-proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
-  ## this procedure is a thin wrapper for the pubsub addValidator method
-  ## it sets message validator on the given pubsubTopic, the validator will check that
-  ## all the messages published in the pubsubTopic have a valid zero-knowledge proof 
-  proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
-    let msg = WakuMessage.init(message.data) 
-    if msg.isOk():
-      #  check the proof
-      if proofVrfy(msg.value().payload, msg.value().proof):
-        return ValidationResult.Accept
-  # set a validator for the pubsubTopic 
-  let pb  = PubSub(node.wakuRelay)
-  pb.addValidator(pubsubTopic, validator)
     
 when defined(rln):
+  proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
+    ## this procedure is a thin wrapper for the pubsub addValidator method
+    ## it sets message validator on the given pubsubTopic, the validator will check that
+    ## all the messages published in the pubsubTopic have a valid zero-knowledge proof 
+    proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
+      let msg = WakuMessage.init(message.data) 
+      if msg.isOk():
+        #  check the proof
+        if proofVrfy(msg.value().payload, msg.value().proof):
+          return ValidationResult.Accept
+    # set a validator for the pubsubTopic 
+    let pb  = PubSub(node.wakuRelay)
+    pb.addValidator(pubsubTopic, validator)
+
   proc mountRlnRelay*(node: WakuNode,
                       ethClientAddrOpt: Option[string] = none(string),
                       ethAccAddrOpt: Option[Address] = none(Address),
