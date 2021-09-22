@@ -36,6 +36,7 @@ type WakuRLNRelay* = object
   # TODO may need to make ethAccountPrivateKey mandatory
   ethAccountPrivateKey*: Option[PrivateKey]
   rlnInstance*: RLN[Bn256]
+  pubsubTopic*: string # the pubsub topic for which rln relay is mounted
   
 type MembeshipIndex* = uint
 
