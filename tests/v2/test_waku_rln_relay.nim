@@ -134,34 +134,6 @@ proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
 
   return contractAddress
 
-proc createMembershipList(n: int): (seq[string], string) = 
-  ##  createMembershipList produces an alternating sequence of identity keys and their corresponding id commitment keys in the hexadecimal format
-  ## this proc also returns the root of a Merkle tree constructed out of the identity commitment keys of the generated list
-  ## the output of this proc is used  to initialize a static group list
-  
-  # initialize a Merkle tree
-  var rlnInstance = createRLNInstance()
-  check: rlnInstance.isOk == true
-  var rln = rlnInstance.value
-
-  var output = newSeq[string]()
-  for i in 0..n-1:
-
-    # generate a key pair
-    var keypair = rln.membershipKeyGen()
-    doAssert(keypair.isSome())
-    
-    output.add(keypair.get().idKey.toHex)
-    output.add(keypair.get().idCommitment.toHex)
-
-    # insert the key to the Merkle tree
-    check: rln.insertMember(keypair.get().idCommitment)  
-    
-
-  let root = rln.getMerkleRoot().value.toHex
-  return (output, root)
-
-
 procSuite "Waku rln relay":
   asyncTest  "contract membership":
     let contractAddress = await uploadContract(EthClient)
@@ -295,6 +267,8 @@ procSuite "Waku rln relay":
     # create a group of 100 membership keys
     let
       (groupKeys, root) = createMembershipList(100)
+    check groupKeys.len == 100
+    let 
       # convert the keys to MembershipKeyPair structs
       groupKeyPairs = groupKeys.toMembershipKeyPairs()
       # extract the id commitments
