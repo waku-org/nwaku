@@ -442,7 +442,7 @@ when defined(rln):
       return
     # check whether the pubsub topic is supported at the relay level
     if pubsubTopic notin node.wakuRelay.defaultTopics:
-      error "Failed to mount WakuRLNRelay. The relay protocol does not support the requested pubsub topic.", pubsubTopic=pubsubTopic
+      error "Failed to mount WakuRLNRelay. The relay protocol does not support the configured pubsub topic.", pubsubTopic=pubsubTopic
     if onchainMode:
       if memContractAddOpt.isNone():
         error "failed to mount rln relay: membership contract address is not provided"
