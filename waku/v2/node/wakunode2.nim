@@ -515,6 +515,9 @@ when defined(rln):
       doAssert(is_successful)
       debug "peer is successfully registered into the membership contract"
 
+    # adds a topic validator for the supplied pubsub topic
+    # messages published in this pubsub topic will be relayed upon a successful validation, otherwise they will be dropped
+    # the topic validator checks for the correct non-spamming proof of the message
     addRLNRelayValidator(node, pubsubTopic)
     debug "rln relay topic validator is mounted successfully", pubsubTopic=pubsubTopic
 
