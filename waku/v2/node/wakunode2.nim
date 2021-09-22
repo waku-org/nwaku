@@ -506,6 +506,16 @@ when defined(rln):
       let member_is_added = rln.insertMember(member)
       doAssert(member_is_added)
     
+
+    # create the WakuRLNRelay
+    var rlnPeer = WakuRLNRelay(membershipKeyPair: memKeyPair,
+      membershipIndex: memIndex,
+      membershipContractAddress: memContractAdd,
+      ethClientAddress: ethClientAddr,
+      ethAccountAddress: ethAccAddr,
+      rlnInstance: rln,
+      pubsubTopic: pubsubTopic)
+      
     if onchainMode:
       # register the rln-relay peer to the membership contract
       let is_successful = await rlnPeer.register()
@@ -518,15 +528,6 @@ when defined(rln):
     # the topic validator checks for the correct non-spamming proof of the message
     addRLNRelayValidator(node, pubsubTopic)
     debug "rln relay topic validator is mounted successfully", pubsubTopic=pubsubTopic
-
-    # create the WakuRLNRelay
-    var rlnPeer = WakuRLNRelay(membershipKeyPair: memKeyPair,
-      membershipIndex: memIndex,
-      membershipContractAddress: memContractAdd,
-      ethClientAddress: ethClientAddr,
-      ethAccountAddress: ethAccAddr,
-      rlnInstance: rln,
-      pubsubTopic: pubsubTopic)
       
     node.wakuRlnRelay = rlnPeer
 
