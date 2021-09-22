@@ -649,23 +649,33 @@ procSuite "WakuNode":
         nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
         node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
 
-        pubSubTopic = "defaultTopic"
+        pubSubTopic = "/waku/2/spam-protection/proto"
         contentTopic1 = ContentTopic("/waku/2/default-content/proto")
         payload = "hello world".toBytes()
         message1 = WakuMessage(payload: payload, contentTopic: contentTopic1)
 
       # start all the nodes
       node1.mountRelay(@[pubSubTopic]) 
-      node1.mountRlnRelay()
+      # set up rln relay inputs
+      let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(1)
+      # mount rlnrelay in offline mode
+      waitFor node1.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = pubSubTopic)
       await node1.start() 
 
       
       node2.mountRelay(@[pubSubTopic])
-      node2.addRLNRelayValidator(pubSubTopic)
+      # set up rln relay inputs
+      let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(2)
+      # mount rlnrelay in offline mode
+      waitFor node2.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = pubSubTopic)
       await node2.start()
 
       
       node3.mountRelay(@[pubSubTopic])
+      # set up rln relay inputs
+      let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(3)
+      # mount rlnrelay in offline mode
+      waitFor node3.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = pubSubTopic)
       await node3.start()
 
       await node1.connectToNodes(@[node2.peerInfo])
