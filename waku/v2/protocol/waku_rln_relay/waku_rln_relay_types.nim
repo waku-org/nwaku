@@ -67,6 +67,5 @@ const
   # STATIC_GROUP_MERKLE_ROOT is the root of the Merkle tree constructed from the STATIC_GROUP_KEYS above
   # only identity commitments are used for the Merkle tree construction
   # the root is created locally, using createMembershipList proc from waku_rln_relay_utils module, and the result is hardcoded in here 
-  STATIC_GROUP_MERKLE_ROOT* = "25e03b7d551c3016cb21c057a113be5bf27eaa9b2529e806715bc0a1ef221e07"
-  
+  STATIC_GROUP_MERKLE_ROOT* = "25e03b7d551c3016cb21c057a113be5bf27eaa9b2529e806715bc0a1ef221e07"  
 

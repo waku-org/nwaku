@@ -1,6 +1,7 @@
 {.push raises: [Defect].}
 
 import 
+  std/sequtils,
   chronicles, options, chronos, stint,
   web3,
   stew/results,
@@ -190,3 +191,29 @@ proc createMembershipList*(n: int): (seq[(string,string)], string) {.raises: [De
 
   let root = rln.getMerkleRoot().value.toHex
   return (output, root)
+
+proc rlnRelaySetUp*(rlnRelayMemIndex: MembeshipIndex): (Option[seq[IDCommitment]],Option[MembershipKeyPair], Option[MembeshipIndex]) {.raises:[Defect, ValueError].} =
+  let
+    # static group
+    groupKeys = STATIC_GROUP_KEYS
+    groupSize = STATIC_GROUP_SIZE
+
+  debug "rln-relay membership index", rlnRelayMemIndex
+
+  # validate the user-supplied membership index
+  if rlnRelayMemIndex < MembeshipIndex(0) or rlnRelayMemIndex >= MembeshipIndex(groupSize):
+    error "wrong membership index"
+    return(none(seq[IDCommitment]), none(MembershipKeyPair), none(MembeshipIndex))
+  
+  # prepare the outputs from the static group keys
+  let 
+    # create a sequence of MembershipKeyPairs from the group keys (group keys are in string format)
+    groupKeyPairs = groupKeys.toMembershipKeyPairs()
+    # extract id commitment keys
+    groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
+    groupOpt= some(groupIDCommitments)
+    # user selected membership key pair
+    memKeyPairOpt = some(groupKeyPairs[rlnRelayMemIndex])
+    memIndexOpt= some(rlnRelayMemIndex)
+    
+  return (groupOpt, memKeyPairOpt, memIndexOpt)
