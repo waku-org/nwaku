@@ -23,6 +23,9 @@ import
   ../../waku/v2/node/wakunode2,
   ../test_helpers
 
+when defined(rln):
+  import ../../waku/v2/protocol/waku_rln_relay/[waku_rln_relay_utils, waku_rln_relay_types]
+
 procSuite "WakuNode":
   let rng = keys.newRng()
   asyncTest "Message published with content filter is retrievable":
@@ -657,25 +660,25 @@ procSuite "WakuNode":
       # start all the nodes
       node1.mountRelay(@[pubSubTopic]) 
       # set up rln relay inputs
-      let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(1)
+      let (groupOpt1, memKeyPairOpt1, memIndexOpt1) = rlnRelaySetUp(1)
       # mount rlnrelay in offline mode
-      waitFor node1.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = pubSubTopic)
+      waitFor node1.mountRlnRelay(groupOpt = groupOpt1, memKeyPairOpt = memKeyPairOpt1, memIndexOpt= memIndexOpt1, onchainMode = false, pubsubTopic = pubSubTopic)
       await node1.start() 
 
       
       node2.mountRelay(@[pubSubTopic])
       # set up rln relay inputs
-      let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(2)
+      let (groupOpt2, memKeyPairOpt2, memIndexOpt2) = rlnRelaySetUp(2)
       # mount rlnrelay in offline mode
-      waitFor node2.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = pubSubTopic)
+      waitFor node2.mountRlnRelay(groupOpt = groupOpt2, memKeyPairOpt = memKeyPairOpt2, memIndexOpt= memIndexOpt2, onchainMode = false, pubsubTopic = pubSubTopic)
       await node2.start()
 
       
       node3.mountRelay(@[pubSubTopic])
       # set up rln relay inputs
-      let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(3)
+      let (groupOpt3, memKeyPairOpt3, memIndexOpt3) = rlnRelaySetUp(3)
       # mount rlnrelay in offline mode
-      waitFor node3.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = pubSubTopic)
+      waitFor node3.mountRlnRelay(groupOpt = groupOpt3, memKeyPairOpt = memKeyPairOpt3, memIndexOpt= memIndexOpt3, onchainMode = false, pubsubTopic = pubSubTopic)
       await node3.start()
 
       await node1.connectToNodes(@[node2.peerInfo])
