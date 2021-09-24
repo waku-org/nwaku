@@ -98,8 +98,61 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   await web3.close()
   return true 
 
-proc proofGen*(data: seq[byte]): seq[byte] =
+proc proofGen*(rlnInstance: RLN[Bn256], data: seq[byte], memKeys: MembershipKeyPair, memIndex: MembeshipIndex, epoch: Epoch): seq[byte] =
   # TODO to implement the actual proof generation logic
+  var auth = memKeys
+  var skBuffer = Buffer(`ptr`: addr(auth.idKey[0]), len: 32)
+
+  # peer's index in the Merkle Tree
+  var index = memIndex
+
+  # prepare the authentication object with peer's index and sk
+  var authObj: Auth = Auth(secret_buffer: addr skBuffer, index: MembeshipIndex(index))
+  # prepare the epoch
+  var  epochBytes : array[32,byte]
+  for x in epochBytes.mitems : x = 0
+  var epochHex = epochBytes.toHex()
+  debug "epoch in bytes", epochHex
+
+
+  # serialize message and epoch 
+  # TODO add a proc for serializing
+  var epochMessage = @epochBytes & @messageBytes
+  doAssert(epochMessage.len == 64)
+  var inputBytes{.noinit.}: array[64, byte] # holds epoch||Message 
+  for (i, x) in inputBytes.mpairs: x = epochMessage[i]
+  var inputHex = inputBytes.toHex()
+  debug "serialized epoch and message ", inputHex
+  # put the serialized epoch||message into a buffer
+  var inputBuffer = Buffer(`ptr`: addr(inputBytes[0]), len: 64)
+
+  # generate the proof
+  var proof: Buffer
+  let proofIsSuccessful = generate_proof(rlnInstance.value, addr inputBuffer, addr authObj, addr proof)
+  # check whether the generate_proof call is done successfully
+  doAssert(proofIsSuccessful)
+  var proofValue = cast[ptr array[416,byte]] (proof.`ptr`)
+  let proofHex = proofValue[].toHex
+  debug "proof content", proofHex
+
+  # display the proof breakdown
+  var 
+    zkSNARK = proofHex[0..511]
+    proofRoot = proofHex[512..575] 
+    proofEpoch = proofHex[576..639]
+    shareX = proofHex[640..703]
+    shareY = proofHex[704..767]
+    nullifier = proofHex[768..831]
+
+  doAssert(zkSNARK.len == 512)
+  doAssert(proofRoot.len == 64)
+  doAssert(proofEpoch.len == 64)
+  doAssert(epochHex == proofEpoch)
+  doAssert(shareX.len == 64)
+  doAssert(shareY.len == 64)
+  doAssert(nullifier.len == 64)
+
+
   return "proof".toBytes() 
 
 proc proofVrfy*(data, proof: seq[byte]): bool =
