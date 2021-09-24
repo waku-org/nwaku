@@ -430,7 +430,7 @@ when defined(rln):
                       memContractAddOpt:  Option[Address] = none(Address),
                       groupOpt: Option[seq[IDCommitment]] = none(seq[IDCommitment]),
                       memKeyPairOpt: Option[MembershipKeyPair] = none(MembershipKeyPair),
-                      memIndexOpt: Option[MembeshipIndex] = none(MembeshipIndex),
+                      memIndexOpt: Option[MembershipIndex] = none(MembershipIndex),
                       onchainMode: bool = true,
                       pubsubTopic: string) {.async.} =
     # TODO return a bool value to indicate the success of the call
@@ -443,6 +443,7 @@ when defined(rln):
     # check whether the pubsub topic is supported at the relay level
     if pubsubTopic notin node.wakuRelay.defaultTopics:
       error "Failed to mount WakuRLNRelay. The relay protocol does not support the configured pubsub topic.", pubsubTopic=pubsubTopic
+      return
     if onchainMode:
       if memContractAddOpt.isNone():
         error "failed to mount rln relay: membership contract address is not provided"

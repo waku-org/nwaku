@@ -37,7 +37,7 @@ type WakuRLNRelay* = object
   ethAccountPrivateKey*: Option[PrivateKey]
   rlnInstance*: RLN[Bn256]
   
-type MembeshipIndex* = uint
+type MembershipIndex* = uint
 
 # inputs of the membership contract constructor
 # TODO may be able to make these constants private and put them inside the waku_rln_relay_utils
