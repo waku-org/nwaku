@@ -20,6 +20,7 @@ type
   MerkleNode* = array[32,byte] # Each node of the Merkle tee is a Poseidon hash which is a 32 byte value
   Nullifier* = array[32,byte]
   ZKSNARK* = array[512, byte]
+  Epoch* = uint32
 
 # Custom data types defined for waku rln relay -------------------------
 type MembershipKeyPair* = object 
@@ -30,7 +31,7 @@ type MembershipKeyPair* = object
   idCommitment*: IDCommitment 
 
 type NonSpamProof* = object
-  epoch*: int64
+  epoch*: Epoch
   merkleRoot*: MerkleNode
   shareX*: MerkleNode
   shareY*: MerkleNode
