@@ -446,6 +446,7 @@ when defined(rln):
     # check whether the pubsub topic is supported at the relay level
     if pubsubTopic notin node.wakuRelay.defaultTopics:
       error "Failed to mount WakuRLNRelay. The relay protocol does not support the configured pubsub topic.", pubsubTopic=pubsubTopic
+      return 
     if onchainMode:
       if memContractAddOpt.isNone():
         error "failed to mount rln relay: membership contract address is not provided"
@@ -515,7 +516,7 @@ when defined(rln):
       ethAccountAddress: ethAccAddr,
       rlnInstance: rln,
       pubsubTopic: pubsubTopic)
-      
+
     if onchainMode:
       # register the rln-relay peer to the membership contract
       let is_successful = await rlnPeer.register()
