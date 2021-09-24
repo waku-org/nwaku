@@ -326,7 +326,6 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   await node.start()
 
   node.mountRelay(conf.topics.split(" "),
-                  rlnRelayEnabled = conf.rlnRelay,
                   relayMessages = conf.relay) # Indicates if node is capable to relay messages
   
   node.mountLibp2pPing()
