@@ -5,7 +5,8 @@ import
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   nimcrypto/utils,
-  eth/keys
+  eth/keys,
+  ../protocol/waku_rln_relay/[waku_rln_relay_types]
 
 type
   WakuNodeConf* = object
@@ -76,10 +77,14 @@ type
       name: "rln-relay" }: bool
     
     rlnRelayMemIndex* {.
-      desc: "(experimental) the index of node in the rln-relay group: a value between 0-49 inclusive",
-      defaultValue: 0
-      name: "rln-relay-membership-index" }: uint32
-    
+      desc: "(experimental) the index of node in the rln-relay group: a value between 0-99 inclusive",
+      defaultValue: MembershipIndex(0)
+      name: "rln-relay-membership-index" }: MembershipIndex
+
+    rlnRelayPubsubTopic* {.
+      desc: "the pubsub topic for which rln-relay gets enabled",
+      defaultValue: "waku/2/rlnrelay/proto"
+      name: "rln-relay-pubsub-topic" }: string
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
       name: "staticnode" }: seq[string]

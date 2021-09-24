@@ -408,18 +408,42 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: boo
     node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, node.wakuSwap, persistMessages=persistMessages)
 
   node.switch.mount(node.wakuStore, protocolMatcher(WakuStoreCodec))
-
+    
 when defined(rln):
+  proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
+    ## this procedure is a thin wrapper for the pubsub addValidator method
+    ## it sets message validator on the given pubsubTopic, the validator will check that
+    ## all the messages published in the pubsubTopic have a valid zero-knowledge proof 
+    proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
+      let msg = WakuMessage.init(message.data) 
+      if msg.isOk():
+        #  check the proof
+        if proofVrfy(msg.value().payload, msg.value().proof):
+          return ValidationResult.Accept
+    # set a validator for the pubsubTopic 
+    let pb  = PubSub(node.wakuRelay)
+    pb.addValidator(pubsubTopic, validator)
+
   proc mountRlnRelay*(node: WakuNode,
                       ethClientAddrOpt: Option[string] = none(string),
                       ethAccAddrOpt: Option[Address] = none(Address),
                       memContractAddOpt:  Option[Address] = none(Address),
                       groupOpt: Option[seq[IDCommitment]] = none(seq[IDCommitment]),
                       memKeyPairOpt: Option[MembershipKeyPair] = none(MembershipKeyPair),
-                      memIndexOpt: Option[uint] = none(uint),
-                      onchainMode: bool = true) {.async.} =
+                      memIndexOpt: Option[MembershipIndex] = none(MembershipIndex),
+                      onchainMode: bool = true,
+                      pubsubTopic: string) {.async.} =
     # TODO return a bool value to indicate the success of the call
     # check whether inputs are provided
+
+    # relay protocol is the prerequisite of rln-relay
+    if node.wakuRelay.isNil:
+      error "Failed to mount WakuRLNRelay. Relay protocol is not mounted."
+      return
+    # check whether the pubsub topic is supported at the relay level
+    if pubsubTopic notin node.wakuRelay.defaultTopics:
+      error "Failed to mount WakuRLNRelay. The relay protocol does not support the configured pubsub topic.", pubsubTopic=pubsubTopic
+      return
     if onchainMode:
       if memContractAddOpt.isNone():
         error "failed to mount rln relay: membership contract address is not provided"
@@ -495,22 +519,14 @@ when defined(rln):
       doAssert(is_successful)
       debug "peer is successfully registered into the membership contract"
 
+    # adds a topic validator for the supplied pubsub topic at the relay protocol
+    # messages published on this pubsub topic will be relayed upon a successful validation, otherwise they will be dropped
+    # the topic validator checks for the correct non-spamming proof of the message
+    addRLNRelayValidator(node, pubsubTopic)
+    debug "rln relay topic validator is mounted successfully", pubsubTopic=pubsubTopic
+
     node.wakuRlnRelay = rlnPeer
 
-
-  proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
-    ## this procedure is a thin wrapper for the pubsub addValidator method
-    ## it sets message validator on the given pubsubTopic, the validator will check that
-    ## all the messages published in the pubsubTopic have a valid zero-knowledge proof 
-    proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
-      let msg = WakuMessage.init(message.data) 
-      if msg.isOk():
-        #  check the proof
-        if proofVrfy(msg.value().payload, msg.value().proof):
-          return ValidationResult.Accept
-    # set a validator for the pubsubTopic 
-    let pb  = PubSub(node.wakuRelay)
-    pb.addValidator(pubsubTopic, validator)
 
 proc startRelay*(node: WakuNode) {.async.} =
   if node.wakuRelay.isNil:
@@ -534,12 +550,6 @@ proc startRelay*(node: WakuNode) {.async.} =
     await node.peerManager.reconnectPeers(WakuRelayCodec,
                                           protocolMatcher(WakuRelayCodec),
                                           backoffPeriod)
-
-  when defined(rln):
-    if node.wakuRelay.rlnRelayEnabled:
-      # TODO currently the message validator is set for the defaultTopic, this can be configurable to accept other pubsub topics as well 
-      addRLNRelayValidator(node, defaultTopic)
-      info "WakuRLNRelay is mounted successfully"
   
   # Start the WakuRelay protocol
   await node.wakuRelay.start()
@@ -548,8 +558,6 @@ proc startRelay*(node: WakuNode) {.async.} =
 
 proc mountRelay*(node: WakuNode,
                  topics: seq[string] = newSeq[string](),
-                 rlnRelayEnabled = false,
-                 rlnRelayMemIndex = uint(0),
                  relayMessages = true,
                  triggerSelf = true)
   # @TODO: Better error handling: CatchableError is raised by `waitFor`
@@ -564,12 +572,11 @@ proc mountRelay*(node: WakuNode,
     verifySignature = false
   )
   
-  info "mounting relay", rlnRelayEnabled=rlnRelayEnabled, relayMessages=relayMessages
+  info "mounting relay", relayMessages=relayMessages
 
   ## The default relay topics is the union of
   ## all configured topics plus the hard-coded defaultTopic(s)
   wakuRelay.defaultTopics = concat(@[defaultTopic], topics)
-  wakuRelay.rlnRelayEnabled = rlnRelayEnabled
 
   node.switch.mount(wakuRelay, protocolMatcher(WakuRelayCodec))
 
@@ -581,44 +588,6 @@ proc mountRelay*(node: WakuNode,
     ## topics. We also never start the relay protocol. node.wakuRelay remains nil.
     ## @TODO: in future, this WakuRelay dependency will be removed completely  
     node.wakuRelay = wakuRelay
-
-  when defined(rln):
-    if rlnRelayEnabled:
-      # TODO get user inputs via cli options
-      info "WakuRLNRelay is enabled"
-
-      # a static list of 50 membership keys in hexadecimal format
-      let
-        groupKeys = STATIC_GROUP_KEYS
-        groupSize = int(groupKeys.len/2)
-
-      debug "rln-relay membership index", rlnRelayMemIndex
-
-      # validate the user-supplied membership index
-      if rlnRelayMemIndex < uint(0) or rlnRelayMemIndex >= uint(groupSize):
-        error "wrong membership index, failed to mount WakuRLNRelay"
-      else: 
-        # prepare group related inputs from the hardcoded keys
-        let 
-          groupKeyPairs = groupKeys.toMembershipKeyPairs()
-          groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
-
-        # mount rlnrelay in offline mode
-        waitFor node.mountRlnRelay(groupOpt= some(groupIDCommitments), memKeyPairOpt = some(groupKeyPairs[rlnRelayMemIndex]), memIndexOpt= some(rlnRelayMemIndex), onchainMode = false)
-
-        info "membership id key", idkey=groupKeyPairs[rlnRelayMemIndex].idKey.toHex
-        info "membership id commitment key", idCommitmentkey=groupIDCommitments[rlnRelayMemIndex].toHex
-
-        # check the correct construction of the tree by comparing the calculated root against the expected root
-        # no error should happen as it is already captured in the unit tests
-        # TODO have added this check to account for unseen corner cases, will remove it later 
-        let 
-          root = node.wakuRlnRelay.rlnInstance.getMerkleRoot.value.toHex() 
-          expectedRoot = STATIC_GROUP_MERKLE_ROOT
-        if root != expectedRoot:
-          error "root mismatch: something went wrong not in Merkle tree construction"
-        debug "the calculated root", root
-        info "WakuRLNRelay is mounted successfully"
         
   info "relay mounted successfully"
 
@@ -885,13 +854,38 @@ when isMainModule:
     # Mount relay on all nodes
     mountRelay(node,
               conf.topics.split(" "),
-              rlnRelayEnabled = conf.rlnRelay,
               relayMessages = conf.relay, # Indicates if node is capable to relay messages
-              rlnRelayMemIndex = conf.rlnRelayMemIndex) 
+              ) 
     
     # Keepalive mounted on all nodes
     mountLibp2pPing(node)
     
+    when defined(rln): 
+      if conf.rlnRelay:
+        info "WakuRLNRelay is enabled"
+
+        # set up rln relay inputs
+        let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(conf.rlnRelayMemIndex)
+        if memIndexOpt.isNone:
+          error "failed to mount WakuRLNRelay"
+        else:
+          # mount rlnrelay in offline mode (for now)
+          waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = conf.rlnRelayPubsubTopic)
+
+          info "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
+          info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
+
+          # check the correct construction of the tree by comparing the calculated root against the expected root
+          # no error should happen as it is already captured in the unit tests
+          # TODO have added this check to account for unseen corner cases, will remove it later 
+          let 
+            root = node.wakuRlnRelay.rlnInstance.getMerkleRoot.value.toHex() 
+            expectedRoot = STATIC_GROUP_MERKLE_ROOT
+          if root != expectedRoot:
+            error "root mismatch: something went wrong not in Merkle tree construction"
+          debug "the calculated root", root
+          info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic
+
     if conf.swap:
       mountSwap(node)
       # TODO Set swap peer, for now should be same as store peer
