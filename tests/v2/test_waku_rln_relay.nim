@@ -11,6 +11,8 @@ import
   ../test_helpers,
   ./test_utils
 
+const RLNRELAY_PUBSUB_TOPIC = "waku/2/rlnrelay/proto"
+
 # POSEIDON_HASHER_CODE holds the bytecode of Poseidon hasher solidity smart contract: 
 # https://github.com/kilic/rlnapp/blob/master/packages/contracts/contracts/crypto/PoseidonHasher.sol 
 # the solidity contract is compiled separately and the resultant bytecode is copied here
@@ -244,7 +246,8 @@ procSuite "Waku rln relay":
     debug "expected root ", expectedRoot
 
     # start rln-relay
-    await node.mountRlnRelay(ethClientAddrOpt = some(EthClient), ethAccAddrOpt =  some(ethAccountAddress), memContractAddOpt =  some(membershipContractAddress), groupOpt = some(group), memKeyPairOpt = some(keypair.get()),  memIndexOpt = some(index))
+    node.mountRelay()
+    await node.mountRlnRelay(ethClientAddrOpt = some(EthClient), ethAccAddrOpt =  some(ethAccountAddress), memContractAddOpt =  some(membershipContractAddress), groupOpt = some(group), memKeyPairOpt = some(keypair.get()),  memIndexOpt = some(index), pubsubTopic = RLNRELAY_PUBSUB_TOPIC)
     let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
     debug "calculated root ", calculatedRoot
 
@@ -274,10 +277,11 @@ procSuite "Waku rln relay":
     # index indicates the position of a membership key pair in the static list of group keys i.e., groupKeyPairs 
     # the corresponding key pair will be used to mount rlnRelay on the current node
     # index also represents the index of the leaf in the Merkle tree that contains node's commitment key 
-    let index = MembeshipIndex(5)
+    let index = MembershipIndex(5)
 
     # -------- mount rln-relay in the off-chain mode
-    await node.mountRlnRelay(groupOpt = some(groupIDCommitments), memKeyPairOpt = some(groupKeyPairs[index]),  memIndexOpt = some(index), onchainMode = false)
+    node.mountRelay()
+    await node.mountRlnRelay(groupOpt = some(groupIDCommitments), memKeyPairOpt = some(groupKeyPairs[index]),  memIndexOpt = some(index), onchainMode = false, pubsubTopic = RLNRELAY_PUBSUB_TOPIC)
     
     # get the root of Merkle tree which is constructed inside the mountRlnRelay proc
     let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
@@ -420,7 +424,7 @@ suite "Waku rln relay":
       rlnInstance.isOk == true
 
     # delete the first member 
-    var deleted_member_index = MembeshipIndex(0)
+    var deleted_member_index = MembershipIndex(0)
     let deletion_success = delete_member(rlnInstance.value, deleted_member_index)
     doAssert(deletion_success)
 
@@ -443,7 +447,7 @@ suite "Waku rln relay":
       rlnInstance.isOk == true
     var rln = rlnInstance.value
     check: 
-      rln.removeMember(MembeshipIndex(0))
+      rln.removeMember(MembershipIndex(0))
 
   test "Merkle tree consistency check between deletion and insertion":
     # create an RLN instance
@@ -478,7 +482,7 @@ suite "Waku rln relay":
     doAssert(root2.len == 32)
 
     # delete the first member 
-    var deleted_member_index = MembeshipIndex(0)
+    var deleted_member_index = MembershipIndex(0)
     let deletion_success = delete_member(rlnInstance.value, deleted_member_index)
     doAssert(deletion_success)
 
@@ -533,7 +537,7 @@ suite "Waku rln relay":
 
   
     # delete the first member 
-    var deleted_member_index = MembeshipIndex(0)
+    var deleted_member_index = MembershipIndex(0)
     let deletion_success = rln.removeMember(deleted_member_index)
     doAssert(deletion_success)
 
@@ -603,7 +607,7 @@ suite "Waku rln relay":
     var index = 5
 
     # prepare the authentication object with peer's index and sk
-    var authObj: Auth = Auth(secret_buffer: addr skBuffer, index: MembeshipIndex(index))
+    var authObj: Auth = Auth(secret_buffer: addr skBuffer, index: MembershipIndex(index))
 
     # Create a Merkle tree with random members 
     for i in 0..10:
@@ -685,7 +689,7 @@ suite "Waku rln relay":
     # create and test a bad proof
     # prepare a bad authentication object with a wrong peer's index
     var badIndex = 8
-    var badAuthObj: Auth = Auth(secret_buffer: addr skBuffer, index: MembeshipIndex(badIndex))
+    var badAuthObj: Auth = Auth(secret_buffer: addr skBuffer, index: MembershipIndex(badIndex))
     var badProof: Buffer
     let badProofIsSuccessful = generate_proof(rlnInstance.value, addr inputBuffer, addr badAuthObj, addr badProof)
     # check whether the generate_proof call is done successfully
