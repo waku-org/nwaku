@@ -34,9 +34,9 @@ proc createRLNInstance*(d: int = MERKLE_TREE_DEPTH): RLNResult
     ## cargo run --example export_test_keys
     ## the file is generated separately and copied here
     ## parameters are function of tree depth and poseidon hasher
-    ## to generate parameters for a different tree depth, change the tree size in the following link
+    ## to generate parameters for a different tree depth, change the tree size in the following line of rln library
     ## https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/examples/export_test_keys/main.rs#L4
-    ## and then run the preceding command
+    ## and then proceed as explained above
     parameters = readFile("waku/v2/protocol/waku_rln_relay/parameters.key")
     pbytes = parameters.toBytes()
     len : csize_t = uint(pbytes.len)
