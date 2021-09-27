@@ -44,7 +44,7 @@ type MembershipIndex* = uint
 const 
   MEMBERSHIP_FEE* = 5.u256
   #  the current implementation of the rln lib only supports a circuit for Merkle tree with depth 32
-  MERKLE_TREE_DEPTH* = 32
+  MERKLE_TREE_DEPTH* = 20
   # TODO the ETH_CLIENT should be an input to the rln-relay, though hardcoded for now
   # the current address is the address of ganache-cli when run locally
   ETH_CLIENT* = "ws://localhost:8540/"
