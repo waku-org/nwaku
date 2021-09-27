@@ -78,12 +78,12 @@ type
     
     rlnRelayMemIndex* {.
       desc: "(experimental) the index of node in the rln-relay group: a value between 0-99 inclusive",
-      defaultValue: MembeshipIndex(0)
-      name: "rln-relay-membership-index" }: MembeshipIndex
+      defaultValue: MembershipIndex(0)
+      name: "rln-relay-membership-index" }: MembershipIndex
 
     rlnRelayPubsubTopic* {.
       desc: "the pubsub topic for which rln-relay gets enabled",
-      defaultValue: ""
+      defaultValue: "waku/2/rlnrelay/proto"
       name: "rln-relay-pubsub-topic" }: string
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."

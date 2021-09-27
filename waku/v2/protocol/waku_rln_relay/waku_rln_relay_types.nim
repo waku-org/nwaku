@@ -51,7 +51,7 @@ type WakuRLNRelay* = object
   rlnInstance*: RLN[Bn256]
   pubsubTopic*: string # the pubsub topic for which rln relay is mounted
   
-type MembeshipIndex* = uint
+type MembershipIndex* = uint
 
 # inputs of the membership contract constructor
 # TODO may be able to make these constants private and put them inside the waku_rln_relay_utils
