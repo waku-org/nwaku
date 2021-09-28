@@ -37,7 +37,7 @@ when defined(rln):
   import
     libp2p/protocols/pubsub/rpc/messages,
     web3,
-    ../protocol/waku_rln_relay/[rln, waku_rln_relay_utils, waku_rln_relay_utils]
+    ../protocol/waku_rln_relay/[rln, waku_rln_relay_utils]
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicGauge waku_node_filters, "number of content filter subscriptions"
@@ -289,7 +289,7 @@ proc unsubscribe*(node: WakuNode, request: FilterRequest) {.async, gcsafe.} =
   waku_node_filters.set(node.filters.len.int64)
 
 
-proc publish*(node: WakuNode, topic: Topic, message: WakuMessage,  rlnRelayEnabled: bool = false) {.async, gcsafe.} =
+proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) {.async, gcsafe.} =
   ## Publish a `WakuMessage` to a PubSub topic. `WakuMessage` should contain a
   ## `contentTopic` field for light node functionality. This field may be also
   ## be omitted.
@@ -308,13 +308,22 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage,  rlnRelayEnabl
   var publishingMessage = message
 
   when defined(rln):
-    if rlnRelayEnabled:
-      # if rln relay is enabled then a proof must be generated and added to the waku message
-      let 
-        proof = proofGen(message.payload)
-        ## TODO here  since the message is immutable we have to make a copy of it and then attach the proof to its duplicate 
-        ## TODO however, it might be better to change message type to mutable (i.e., var) so that we can add the proof field to the original message
-        publishingMessage = WakuMessage(payload: message.payload, contentTopic: message.contentTopic, version: message.version, proof: proof)
+    # check whether rlnrelay is mounted
+    if not node.wakuRlnRelay.isNil:
+      # check the pubsub topic
+      if node.wakuRlnRelay.pubsubTopic == topic:
+        var epoch: Epoch 
+        let 
+          nonSpamProof = node.wakuRlnRelay.rlnInstance.proofGen(data = message.payload, 
+                                                        memKeys = node.wakuRlnRelay.membershipKeyPair, 
+                                                        memIndex = node.wakuRlnRelay.membershipIndex, 
+                                                        epoch = epoch)
+          ## TODO here  since the message is immutable we have to make a copy of it and then attach the proof to its duplicate 
+          ## TODO however, it might be better to change message type to mutable (i.e., var) so that we can add the proof field to the original message
+          publishingMessage = WakuMessage(payload: message.payload, 
+                                          contentTopic: message.contentTopic, 
+                                          version: message.version, 
+                                          proof: nonSpamProof)
 
   let data = message.encode().buffer
 
