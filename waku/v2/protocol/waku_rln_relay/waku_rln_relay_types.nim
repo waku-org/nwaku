@@ -3,7 +3,8 @@
 import 
   options, chronos, stint,
   web3,
-  eth/keys
+  eth/keys,
+  libp2p/protobuf/minprotobuf
 
 ## Bn256 and RLN are Nim wrappers for the data types used in 
 ## the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
@@ -19,8 +20,8 @@ type
 type 
   MerkleNode* = array[32,byte] # Each node of the Merkle tee is a Poseidon hash which is a 32 byte value
   Nullifier* = array[32,byte]
-  ZKSNARK* = array[512, byte]
-  Epoch* = uint32
+  ZKSNARK* = array[256, byte]
+  Epoch* = array[32,byte]
 
 # Custom data types defined for waku rln relay -------------------------
 type MembershipKeyPair* = object 
@@ -31,14 +32,15 @@ type MembershipKeyPair* = object
   idCommitment*: IDCommitment 
 
 type NonSpamProof* = object
-  epoch*: Epoch
+  proof*: ZKSNARK
   merkleRoot*: MerkleNode
+  epoch*: Epoch
   shareX*: MerkleNode
   shareY*: MerkleNode
   nullifier*: Nullifier
-  proof*: ZKSNARK
+  
 
-type WakuRLNRelay* = object 
+type WakuRLNRelay* = ref object 
   membershipKeyPair*: MembershipKeyPair
   membershipIndex*: uint # index of peers in the Merkle tree
   membershipContractAddress*: Address
@@ -83,3 +85,46 @@ const
   # the root is created locally, using createMembershipList proc from waku_rln_relay_utils module, and the result is hardcoded in here 
   STATIC_GROUP_MERKLE_ROOT* = "a1877a553eff12e1b21632a0545a916a5c5b8060ad7cc6c69956741134397b2d"  
 
+# Protobufs enc and init
+
+proc init*(T: type NonSpamProof, buffer: seq[byte]): ProtoResult[T] =
+  var nsp: NonSpamProof
+  let pb = initProtoBuffer(buffer)
+
+  var proof: seq[byte]
+  discard ? pb.getField(1, proof)
+  nsp.proof = cast[ZKSNARK](proof)
+
+  var merkleRoot: seq[byte]
+  discard ? pb.getField(2, merkleRoot)
+  nsp.merkleRoot = cast[MerkleNode](merkleRoot)
+
+  var epoch: seq[byte]
+  discard ? pb.getField(3, epoch)
+  nsp.epoch = cast[Epoch](epoch)
+
+  var shareX: seq[byte]
+  discard ? pb.getField(4, shareX)
+  nsp.shareX = cast[MerkleNode](shareX)
+
+  var shareY: seq[byte]
+  discard ? pb.getField(5, shareY)
+  nsp.shareY = cast[MerkleNode](shareY)
+
+  var nullifier: seq[byte]
+  discard ? pb.getField(6, nullifier)
+  nsp.nullifier = cast[Nullifier](nullifier)
+
+  return ok(nsp) 
+
+proc encode*(nsp: NonSpamProof): ProtoBuffer = 
+  var output = initProtoBuffer()
+
+  output.write(1, nsp.proof)
+  output.write(2, nsp.merkleRoot)
+  output.write(3, nsp.epoch)
+  output.write(4, nsp.shareX)
+  output.write(5, nsp.shareY)
+  output.write(6, nsp.nullifier)
+
+  return output
