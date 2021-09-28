@@ -28,11 +28,15 @@ proc createRLNInstance*(d: int = MERKLE_TREE_DEPTH): RLNResult
   var  
     rlnInstance: RLN[Bn256]
     merkleDepth: csize_t = uint(d)
-    # parameters.key contains the parameters related to the Poseidon hasher
-    # to generate this file, clone this repo https://github.com/kilic/rln 
-    # and run the following command in the root directory of the cloned project
-    # cargo run --example export_test_keys
-    # the file is generated separately and copied here
+    ## parameters.key contains the prover and verifier keys
+    ## to generate this file, clone this repo https://github.com/kilic/rln 
+    ## and run the following command in the root directory of the cloned project
+    ## cargo run --example export_test_keys
+    ## the file is generated separately and copied here
+    ## parameters are function of tree depth and poseidon hasher
+    ## to generate parameters for a different tree depth, change the tree size in the following line of rln library
+    ## https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/examples/export_test_keys/main.rs#L4
+    ## and then proceed as explained above
     parameters = readFile("waku/v2/protocol/waku_rln_relay/parameters.key")
     pbytes = parameters.toBytes()
     len : csize_t = uint(pbytes.len)
