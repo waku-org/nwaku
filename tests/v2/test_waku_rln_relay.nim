@@ -246,7 +246,7 @@ procSuite "Waku rln relay":
     debug "expected root ", expectedRoot
 
     # start rln-relay
-    node.mountRelay()
+    node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
     await node.mountRlnRelay(ethClientAddrOpt = some(EthClient), ethAccAddrOpt =  some(ethAccountAddress), memContractAddOpt =  some(membershipContractAddress), groupOpt = some(group), memKeyPairOpt = some(keypair.get()),  memIndexOpt = some(index), pubsubTopic = RLNRELAY_PUBSUB_TOPIC)
     let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
     debug "calculated root ", calculatedRoot
@@ -280,7 +280,7 @@ procSuite "Waku rln relay":
     let index = MembershipIndex(5)
 
     # -------- mount rln-relay in the off-chain mode
-    node.mountRelay()
+    node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
     await node.mountRlnRelay(groupOpt = some(groupIDCommitments), memKeyPairOpt = some(groupKeyPairs[index]),  memIndexOpt = some(index), onchainMode = false, pubsubTopic = RLNRELAY_PUBSUB_TOPIC)
     
     # get the root of Merkle tree which is constructed inside the mountRlnRelay proc
