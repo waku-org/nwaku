@@ -102,8 +102,8 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   await web3.close()
   return true 
 
-proc proofGen*(rlnInstance: RLN[Bn256], data: seq[byte], memKeys: MembershipKeyPair, memIndex: MembeshipIndex, epoch: Epoch): seq[byte] =
-  # TODO to implement the actual proof generation logic
+proc proofGen*(rlnInstance: RLN[Bn256], data: seq[byte], memKeys: MembershipKeyPair, memIndex: MembershipIndex, epoch: Epoch): NonSpamProof = 
+  # # TODO to implement the actual proof generation logic
   var auth = memKeys
   var skBuffer = Buffer(`ptr`: addr(auth.idKey[0]), len: 32)
 
@@ -111,7 +111,7 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: seq[byte], memKeys: MembershipKeyP
   var index = memIndex
 
   # prepare the authentication object with peer's index and sk
-  var authObj: Auth = Auth(secret_buffer: addr skBuffer, index: MembeshipIndex(index))
+  var authObj: Auth = Auth(secret_buffer: addr skBuffer, index: index)
   # prepare the epoch
   var  epochBytes : array[32,byte]
   for x in epochBytes.mitems : x = 0
@@ -121,8 +121,9 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: seq[byte], memKeys: MembershipKeyP
 
   # serialize message and epoch 
   # TODO add a proc for serializing
-  var epochMessage = @epochBytes & @messageBytes
+  var epochMessage = @epochBytes & data
   doAssert(epochMessage.len == 64)
+  # convert the seq to an array
   var inputBytes{.noinit.}: array[64, byte] # holds epoch||Message 
   for (i, x) in inputBytes.mpairs: x = epochMessage[i]
   var inputHex = inputBytes.toHex()
@@ -132,10 +133,11 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: seq[byte], memKeys: MembershipKeyP
 
   # generate the proof
   var proof: Buffer
-  let proofIsSuccessful = generate_proof(rlnInstance.value, addr inputBuffer, addr authObj, addr proof)
+  let proofIsSuccessful = generate_proof(rlnInstance, addr inputBuffer, addr authObj, addr proof)
   # check whether the generate_proof call is done successfully
   doAssert(proofIsSuccessful)
   var proofValue = cast[ptr array[416,byte]] (proof.`ptr`)
+  let proofBytes: array[416,byte] = proofValue[]
   let proofHex = proofValue[].toHex
   debug "proof content", proofHex
 
@@ -156,10 +158,28 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: seq[byte], memKeys: MembershipKeyP
   doAssert(shareY.len == 64)
   doAssert(nullifier.len == 64)
 
+  let 
+    proofOffset = 256
+    rootOffset = proofOffset + 32
+    epochOffset = rootOffset + 32
+    shareXOffset = epochOffset + 32
+    shareYOffset = shareXOffset + 32
+    nullifierOffset = shareYOffset + 32
+  
+  # var zkSNARKBytes: ZKSNARK 
+  # for x in zkSNARKBytes: x = 
 
-  return "proof".toBytes() 
+  let output = NonSpamProof(proof: cast[ZKSNARK](proofBytes[0..proofOffset-1]),
+                            merkleRoot: cast[MerkleNode](proofBytes[proofOffset..rootOffset-1]),
+                            epoch: cast[Epoch](proofBytes[rootOffset..epochOffset-1]),
+                            shareX: cast[MerkleNode](proofBytes[epochOffset..shareXOffset-1]),
+                            shareY: cast[MerkleNode](proofBytes[shareXOffset..shareYOffset-1]),
+                            nullifier: cast[Nullifier](proofBytes[shareYOffset..nullifierOffset-1])
+                            )
 
-proc proofVrfy*(data, proof: seq[byte]): bool =
+  return output
+
+proc proofVrfy*(data: seq[byte], proof: NonSpamProof): bool =
   # TODO to implement the actual proof verification logic
   return true
 
