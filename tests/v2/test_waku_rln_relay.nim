@@ -735,3 +735,32 @@ suite "Waku rln relay":
       groupKeyPairs.len == StaticGroupSize
       # compare the calculated root against the correct root
       root == STATIC_GROUP_MERKLE_ROOT
+  
+  test "NonSpamProof Protobuf encode/init test":
+    var 
+      proof: ZKSNARK
+      merkleRoot: MerkleNode
+      epoch: Epoch
+      shareX: MerkleNode
+      shareY: MerkleNode
+      nullifier: Nullifier
+    for x in proof.mitems : x = 1
+    for x in merkleRoot.mitems : x = 2
+    for x in epoch.mitems : x = 3
+    for x in shareX.mitems : x = 4
+    for x in shareY.mitems : x = 5
+    for x in nullifier.mitems : x = 6
+    
+    let 
+      nsp = NonSpamProof(proof: proof,
+                          merkleRoot: merkleRoot,
+                          epoch: epoch,
+                          shareX: shareX,
+                          shareY: shareY,
+                          nullifier: nullifier)
+      protobuf = nsp.encode()
+      decodednsp = NonSpamProof.init(protobuf.buffer)
+
+    check:
+      decodednsp.isErr == false
+      decodednsp.value == nsp
