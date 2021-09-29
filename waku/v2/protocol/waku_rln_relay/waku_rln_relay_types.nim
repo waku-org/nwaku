@@ -4,7 +4,8 @@ import
   options, chronos, stint,
   web3,
   eth/keys,
-  libp2p/protobuf/minprotobuf
+  libp2p/protobuf/minprotobuf,
+  stew/arrayops
 
 ## Bn256 and RLN are Nim wrappers for the data types used in 
 ## the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
@@ -93,27 +94,39 @@ proc init*(T: type NonSpamProof, buffer: seq[byte]): ProtoResult[T] =
 
   var proof: seq[byte]
   discard ? pb.getField(1, proof)
-  nsp.proof = cast[ZKSNARK](proof)
+  var nbytes = nsp.proof.copyFrom(proof)
+  # check the number of copied bytes
+  doAssert(nbytes == ZKSNARK.len)
 
   var merkleRoot: seq[byte]
   discard ? pb.getField(2, merkleRoot)
-  nsp.merkleRoot = cast[MerkleNode](merkleRoot)
+  nbytes = nsp.merkleRoot.copyFrom(merkleRoot)
+  # check the number of copied bytes
+  doAssert(nbytes == MerkleNode.len)
 
   var epoch: seq[byte]
   discard ? pb.getField(3, epoch)
-  nsp.epoch = cast[Epoch](epoch)
+  nbytes = nsp.epoch.copyFrom(epoch)
+  # check the number of copied bytes
+  doAssert(nbytes == Epoch.len)
 
   var shareX: seq[byte]
   discard ? pb.getField(4, shareX)
-  nsp.shareX = cast[MerkleNode](shareX)
+  nbytes = nsp.shareX.copyFrom(shareX)
+  # check the number of copied bytes
+  doAssert(nbytes == MerkleNode.len)
 
   var shareY: seq[byte]
   discard ? pb.getField(5, shareY)
-  nsp.shareY = cast[MerkleNode](shareY)
+  nbytes = nsp.shareY.copyFrom(shareY)
+  # check the number of copied bytes
+  doAssert(nbytes == MerkleNode.len)
 
   var nullifier: seq[byte]
   discard ? pb.getField(6, nullifier)
-  nsp.nullifier = cast[Nullifier](nullifier)
+  nbytes = nsp.nullifier.copyFrom(nullifier)
+  # check the number of copied bytes
+  doAssert(nbytes == Nullifier.len)
 
   return ok(nsp) 
 
