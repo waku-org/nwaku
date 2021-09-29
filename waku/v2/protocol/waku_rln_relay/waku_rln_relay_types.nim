@@ -94,39 +94,27 @@ proc init*(T: type NonSpamProof, buffer: seq[byte]): ProtoResult[T] =
 
   var proof: seq[byte]
   discard ? pb.getField(1, proof)
-  var nbytes = nsp.proof.copyFrom(proof)
-  # check the number of copied bytes
-  doAssert(nbytes == ZKSNARK.len)
+  discard nsp.proof.copyFrom(proof)
 
   var merkleRoot: seq[byte]
   discard ? pb.getField(2, merkleRoot)
-  nbytes = nsp.merkleRoot.copyFrom(merkleRoot)
-  # check the number of copied bytes
-  doAssert(nbytes == MerkleNode.len)
+  discard nsp.merkleRoot.copyFrom(merkleRoot)
 
   var epoch: seq[byte]
   discard ? pb.getField(3, epoch)
-  nbytes = nsp.epoch.copyFrom(epoch)
-  # check the number of copied bytes
-  doAssert(nbytes == Epoch.len)
+  discard nsp.epoch.copyFrom(epoch)
 
   var shareX: seq[byte]
   discard ? pb.getField(4, shareX)
-  nbytes = nsp.shareX.copyFrom(shareX)
-  # check the number of copied bytes
-  doAssert(nbytes == MerkleNode.len)
+  discard nsp.shareX.copyFrom(shareX)
 
   var shareY: seq[byte]
   discard ? pb.getField(5, shareY)
-  nbytes = nsp.shareY.copyFrom(shareY)
-  # check the number of copied bytes
-  doAssert(nbytes == MerkleNode.len)
+  discard nsp.shareY.copyFrom(shareY)
 
   var nullifier: seq[byte]
   discard ? pb.getField(6, nullifier)
-  nbytes = nsp.nullifier.copyFrom(nullifier)
-  # check the number of copied bytes
-  doAssert(nbytes == Nullifier.len)
+  discard nsp.nullifier.copyFrom(nullifier)
 
   return ok(nsp) 
 
