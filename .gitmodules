@@ -124,7 +124,7 @@
 	path = vendor/nim-websock
 	url = https://github.com/status-im/nim-websock.git
 	ignore = untracked
-	branch = master
+	branch = main
 [submodule "vendor/nim-zlib"]
 	path = vendor/nim-zlib
 	url = https://github.com/status-im/nim-zlib.git
@@ -137,6 +137,6 @@
 	branch = main
 [submodule "vendor/dnsclient.nim"]
 	path = vendor/dnsclient.nim
-	url = https://github.com/jm-clius/dnsclient.nim.git
+	url = https://github.com/ba0f3/dnsclient.nim.git
 	ignore = untracked
 	branch = master
