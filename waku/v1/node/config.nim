@@ -28,11 +28,6 @@ type
         defaultValue: 30303
         name: "tcp-port" .}: uint16
 
-      udpPort* {.
-        desc: "UDP listening port."
-        defaultValue: 30303
-        name: "udp-port" .}: uint16
-
       portsShift* {.
         desc: "Add a shift to all port numbers."
         defaultValue: 0

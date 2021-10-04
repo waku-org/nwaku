@@ -265,24 +265,28 @@ when isMainModule:
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
 
+  ## `udpPort` is only supplied to satisfy underlying APIs but is not
+  ## actually a supported transport.
+  let udpPort = conf.devp2pTcpPort
+
   # Load address configuration
   let
     (nodev1ExtIp, _, _) = setupNat(conf.nat, ClientIdV1,
                                    Port(conf.devp2pTcpPort + conf.portsShift),
-                                   Port(conf.udpPort + conf.portsShift))
+                                   Port(udpPort + conf.portsShift))
     # TODO: EthereumNode should have a better split of binding address and
     # external address. Also, can't have different ports as it stands now.
     nodev1Address = if nodev1ExtIp.isNone():
                       Address(ip: parseIpAddress("0.0.0.0"),
                               tcpPort: Port(conf.devp2pTcpPort + conf.portsShift),
-                              udpPort: Port(conf.udpPort + conf.portsShift))
+                              udpPort: Port(udpPort + conf.portsShift))
                     else:
                       Address(ip: nodev1ExtIp.get(),
                               tcpPort: Port(conf.devp2pTcpPort + conf.portsShift),
-                              udpPort: Port(conf.udpPort + conf.portsShift))
+                              udpPort: Port(udpPort + conf.portsShift))
     (nodev2ExtIp, nodev2ExtPort, _) = setupNat(conf.nat, clientId,
                                                Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
-                                               Port(uint16(conf.udpPort) + conf.portsShift))
+                                               Port(uint16(udpPort) + conf.portsShift))
   
   # Topic interest and bloom
   var topicInterest: Option[seq[waku_protocol.Topic]]
