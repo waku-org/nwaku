@@ -5,7 +5,7 @@ import
   chronicles, options, chronos, stint,
   web3,
   stew/results,
-  stew/[byteutils,arrayops],
+  stew/[byteutils, arrayops],
   rln, 
   waku_rln_relay_types
 
@@ -102,13 +102,21 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   await web3.close()
   return true 
 
-proc hash*(rlnInstance: RLN[Bn256], data: seq[byte]): MerkleNode =   
+proc toBuffer(x: openArray[byte]): Buffer =
+  var temp = @x
+  let output = Buffer(`ptr`: addr(temp[0]), len: uint(temp.len))
+  return output
+
+proc hash*(rlnInstance: RLN[Bn256], data: openArray[byte]): MerkleNode =   
+  echo "in hash"
+  echo data.toHex()
   var 
-    hashInput = data
-    hashInputBuffer = Buffer(`ptr`: addr hashInput[0], len: uint(data.len)) 
+    hashInputBuffer = data.toBuffer()
     outputBuffer: Buffer # will holds the hash output
     numOfInputs = 1.uint # the number of hash inputs that can be 1 or 2
   
+  echo hashInputBuffer.len
+  echo "before hashing"
   let 
     hashSuccess = hash(rlnInstance, addr hashInputBuffer, numOfInputs, addr outputBuffer)
     output = cast[ptr MerkleNode](outputBuffer.`ptr`)[]
@@ -203,10 +211,7 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: seq[byte], memKeys: MembershipKeyP
 
   return output
 
-proc toBuffer(x: openArray[byte]): Buffer =
-  var temp = @x
-  let output = Buffer(`ptr`: addr(temp[0]), len: uint(temp.len))
-  return output
+
 
 proc serializeProof(proof: NonSpamProof): seq[byte] =
   var  proofBytes = concat(@(proof.proof),
