@@ -629,7 +629,7 @@ procSuite "WakuNode":
       node3.subscribe(pubSubTopic, relayHandler)
       await sleepAsync(2000.millis)
 
-      await node1.publish(pubSubTopic, message1, rlnRelayEnabled = true)
+      await node1.publish(pubSubTopic, message1)
       await sleepAsync(2000.millis)
 
 
@@ -706,7 +706,7 @@ procSuite "WakuNode":
       node3.subscribe(pubSubTopic, relayHandler)
       await sleepAsync(2000.millis)
 
-      await node1.publish(pubSubTopic, message1, rlnRelayEnabled = true)
+      await node1.publish(pubSubTopic, message1)
       await sleepAsync(2000.millis)
 
 
