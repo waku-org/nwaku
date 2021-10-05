@@ -5,7 +5,7 @@ import
   chronicles, options, chronos, stint,
   web3,
   stew/results,
-  stew/byteutils,
+  stew/[byteutils,arrayops],
   rln, 
   waku_rln_relay_types
 
@@ -102,6 +102,19 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   await web3.close()
   return true 
 
+proc hash*(rlnInstance: RLN[Bn256], data: seq[byte]): MerkleNode =   
+  var 
+    hashInput = data
+    hashInputBuffer = Buffer(`ptr`: addr hashInput[0], len: uint(data.len)) 
+    outputBuffer: Buffer # will holds the hash output
+    numOfInputs = 1.uint # the number of hash inputs that can be 1 or 2
+  
+  let 
+    hashSuccess = hash(rlnInstance, addr hashInputBuffer, numOfInputs, addr outputBuffer)
+    output = cast[ptr MerkleNode](outputBuffer.`ptr`)[]
+
+  return output
+
 proc proofGen*(rlnInstance: RLN[Bn256], data: seq[byte], memKeys: MembershipKeyPair, memIndex: MembershipIndex, epoch: Epoch): NonSpamProof = 
   # # TODO to implement the actual proof generation logic
   var auth = memKeys
@@ -142,21 +155,21 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: seq[byte], memKeys: MembershipKeyP
   debug "proof content", proofHex
 
   # display the proof breakdown
-  var 
-    zkSNARK = proofHex[0..511]
-    proofRoot = proofHex[512..575] 
-    proofEpoch = proofHex[576..639]
-    shareX = proofHex[640..703]
-    shareY = proofHex[704..767]
-    nullifier = proofHex[768..831]
+  # var 
+  #   zkSNARK = proofHex[0..511]
+  #   proofRoot = proofHex[512..575] 
+  #   proofEpoch = proofHex[576..639]
+  #   shareX = proofHex[640..703]
+  #   shareY = proofHex[704..767]
+  #   nullifier = proofHex[768..831]
 
-  doAssert(zkSNARK.len == 512)
-  doAssert(proofRoot.len == 64)
-  doAssert(proofEpoch.len == 64)
-  doAssert(epochHex == proofEpoch)
-  doAssert(shareX.len == 64)
-  doAssert(shareY.len == 64)
-  doAssert(nullifier.len == 64)
+  # doAssert(zkSNARK.len == 512)
+  # doAssert(proofRoot.len == 64)
+  # doAssert(proofEpoch.len == 64)
+  # doAssert(epochHex == proofEpoch)
+  # doAssert(shareX.len == 64)
+  # doAssert(shareY.len == 64)
+  # doAssert(nullifier.len == 64)
 
   let 
     proofOffset = 256
@@ -168,20 +181,56 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: seq[byte], memKeys: MembershipKeyP
   
   # var zkSNARKBytes: ZKSNARK 
   # for x in zkSNARKBytes: x = 
+  var 
+    zkproof: ZKSNARK 
+    proofRoot, shareX, shareY: MerkleNode
+    epoch: Epoch
+    nullifier: Nullifier
 
-  let output = NonSpamProof(proof: cast[ZKSNARK](proofBytes[0..proofOffset-1]),
-                            merkleRoot: cast[MerkleNode](proofBytes[proofOffset..rootOffset-1]),
-                            epoch: cast[Epoch](proofBytes[rootOffset..epochOffset-1]),
-                            shareX: cast[MerkleNode](proofBytes[epochOffset..shareXOffset-1]),
-                            shareY: cast[MerkleNode](proofBytes[shareXOffset..shareYOffset-1]),
-                            nullifier: cast[Nullifier](proofBytes[shareYOffset..nullifierOffset-1])
-                            )
+  discard zkproof.copyFrom(proofBytes[0..proofOffset-1])
+  discard proofRoot.copyFrom(proofBytes[proofOffset..rootOffset-1])
+  discard epoch.copyFrom(proofBytes[rootOffset..epochOffset-1])
+  discard shareX.copyFrom(proofBytes[epochOffset..shareXOffset-1])
+  discard shareY.copyFrom(proofBytes[shareXOffset..shareYOffset-1])
+  discard nullifier.copyFrom(proofBytes[shareYOffset..nullifierOffset-1])
+
+  let output = NonSpamProof(proof: zkproof,
+                            merkleRoot: proofRoot,
+                            epoch: epoch,
+                            shareX: shareX,
+                            shareY: shareY,
+                            nullifier: nullifier)
 
   return output
 
-proc proofVrfy*(data: seq[byte], proof: NonSpamProof): bool =
-  # TODO to implement the actual proof verification logic
-  return true
+proc toBuffer(x: openArray[byte]): Buffer =
+  var temp = @x
+  let output = Buffer(`ptr`: addr(temp[0]), len: uint(temp.len))
+  return output
+
+proc serializeProof(proof: NonSpamProof): seq[byte] =
+  var  proofBytes = concat(@(proof.proof),
+                          @(proof.merkleRoot),
+                          @(proof.epoch),
+                          @(proof.shareX),
+                          @(proof.shareY),
+                          @(proof.nullifier))
+
+  return proofBytes
+
+proc proofVrfy*(rlnInstance: RLN[Bn256], data: seq[byte], proof: NonSpamProof): bool =
+  var 
+    proofBytes= serializeProof(proof)
+    proofBuffer = proofBytes.toBuffer()
+    f = 0.uint32
+  debug "serialized proof", proof=proofBytes.toHex()
+  let verifyIsSuccessful = verify(rlnInstance, addr proofBuffer, addr f)
+  if not verifyIsSuccessful:
+    return false # something went wrong in verification
+  # f = 0 means the proof is verified
+  if f == 0:
+    return true
+  return false
 
 proc insertMember*(rlnInstance: RLN[Bn256], idComm: IDCommitment): bool = 
   var temp = idComm
