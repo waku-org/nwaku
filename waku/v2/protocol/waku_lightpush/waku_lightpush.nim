@@ -117,7 +117,7 @@ proc init*(T: type WakuLightPush, peerManager: PeerManager, rng: ref BrHmacDrbgC
   
   return wl
 
-proc setPeer*(wlp: WakuLightPush, peer: PeerInfo) =
+proc setPeer*(wlp: WakuLightPush, peer: RemotePeerInfo) =
   wlp.peerManager.addPeer(peer, WakuLightPushCodec)
   waku_lightpush_peers.inc()
 

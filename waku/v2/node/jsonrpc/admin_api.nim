@@ -24,6 +24,10 @@ proc constructMultiaddrStr*(peerInfo: PeerInfo): string =
   # Constructs a multiaddress with both location (wire) address and p2p identity
   constructMultiaddrStr(peerInfo.addrs[0], peerInfo.peerId)
 
+proc constructMultiaddrStr*(remotePeerInfo: RemotePeerInfo): string =
+  # Constructs a multiaddress with both location (wire) address and p2p identity
+  constructMultiaddrStr(remotePeerInfo.addrs[0], remotePeerInfo.peerId)
+
 proc installAdminApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
 
   ## Admin API version 1 definitions

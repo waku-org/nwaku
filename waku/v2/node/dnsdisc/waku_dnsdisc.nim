@@ -15,9 +15,10 @@ import
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
-  libp2p/peerinfo,
   libp2p/multiaddress,
-  discovery/dnsdisc/client
+  libp2p/peerid,
+  discovery/dnsdisc/client,
+  ../../utils/peers
 
 export client
 
@@ -45,7 +46,7 @@ func getTransportProtocol(typedR: TypedRecord): Option[IpTransportProtocol] =
 
   return none(IpTransportProtocol)
 
-func toPeerInfo*(enr: enr.Record): Result[PeerInfo, cstring] =
+func toRemotePeerInfo*(enr: enr.Record): Result[RemotePeerInfo, cstring] =
   let typedR = ? enr.toTypedRecord
 
   if not typedR.secp256k1.isSome:
@@ -94,7 +95,7 @@ func toPeerInfo*(enr: enr.Record): Result[PeerInfo, cstring] =
   if addrs.len == 0:
     return err("enr: no addresses in record")
 
-  return ok(PeerInfo.init(peerId, addrs))
+  return ok(RemotePeerInfo.init(peerId, addrs))
 
 func createEnr*(privateKey: crypto.PrivateKey,
                 enrIp: Option[ValidIpAddress],
@@ -117,7 +118,7 @@ proc emptyResolver*(domain: string): Future[string] {.async, gcsafe.} =
   debug "Empty resolver called", domain=domain
   return ""
 
-proc findPeers*(wdd: var WakuDnsDiscovery): Result[seq[PeerInfo], cstring] =
+proc findPeers*(wdd: var WakuDnsDiscovery): Result[seq[RemotePeerInfo], cstring] =
   ## Find peers to connect to using DNS based discovery
   
   info "Finding peers using Waku DNS discovery"
@@ -138,11 +139,11 @@ proc findPeers*(wdd: var WakuDnsDiscovery): Result[seq[PeerInfo], cstring] =
   else:
     trace "No ENR retrieved from client tree"
 
-  var discoveredNodes: seq[PeerInfo]
+  var discoveredNodes: seq[RemotePeerInfo]
 
   for enr in discoveredEnr:
-    # Convert discovered ENR to PeerInfo and add to discovered nodes
-    let res = enr.toPeerInfo()
+    # Convert discovered ENR to RemotePeerInfo and add to discovered nodes
+    let res = enr.toRemotePeerInfo()
 
     if res.isOk():
       discoveredNodes.add(res.get())

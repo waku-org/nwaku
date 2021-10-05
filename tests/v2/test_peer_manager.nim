@@ -34,12 +34,12 @@ procSuite "Peer Manager":
     node2.mountRelay()
 
     # Dial node2 from node1
-    let conn = (await node1.peerManager.dialPeer(peerInfo2, WakuRelayCodec)).get()
+    let conn = (await node1.peerManager.dialPeer(peerInfo2.toRemotePeerInfo(), WakuRelayCodec)).get()
 
     # Check connection
     check:
       conn.activity
-      conn.peerInfo.peerId == peerInfo2.peerId
+      conn.peerId == peerInfo2.peerId
     
     # Check that node2 is being managed in node1
     check:
@@ -68,7 +68,7 @@ procSuite "Peer Manager":
     node2.mountRelay()
 
     # Dial node2 from node1
-    let connOpt = await node1.peerManager.dialPeer(peerInfo2, WakuRelayCodec, 2.seconds)
+    let connOpt = await node1.peerManager.dialPeer(peerInfo2.toRemotePeerInfo(), WakuRelayCodec, 2.seconds)
 
     # Check connection failed gracefully
     check:
@@ -100,9 +100,9 @@ procSuite "Peer Manager":
     node.mountSwap()
     node.mountStore(persistMessages = true)
 
-    node.wakuFilter.setPeer(filterPeer)
-    node.wakuSwap.setPeer(swapPeer)
-    node.wakuStore.setPeer(storePeer)
+    node.wakuFilter.setPeer(filterPeer.toRemotePeerInfo())
+    node.wakuSwap.setPeer(swapPeer.toRemotePeerInfo())
+    node.wakuStore.setPeer(storePeer.toRemotePeerInfo())
 
     # Check peers were successfully added to peer manager
     check:
@@ -136,21 +136,21 @@ procSuite "Peer Manager":
     node2.mountRelay()
 
     # Test default connectedness for new peers
-    node1.peerManager.addPeer(peerInfo2, WakuRelayCodec)
+    node1.peerManager.addPeer(peerInfo2.toRemotePeerInfo(), WakuRelayCodec)
     check:
       # No information about node2's connectedness
       node1.peerManager.connectedness(peerInfo2.peerId) == NotConnected
 
     # Purposefully don't start node2
     # Attempt dialing node2 from node1
-    discard await node1.peerManager.dialPeer(peerInfo2, WakuRelayCodec, 2.seconds)
+    discard await node1.peerManager.dialPeer(peerInfo2.toRemotePeerInfo(), WakuRelayCodec, 2.seconds)
     check:
       # Cannot connect to node2
       node1.peerManager.connectedness(peerInfo2.peerId) == CannotConnect
 
     # Successful connection
     await node2.start()
-    discard await node1.peerManager.dialPeer(peerInfo2, WakuRelayCodec, 2.seconds)
+    discard await node1.peerManager.dialPeer(peerInfo2.toRemotePeerInfo(), WakuRelayCodec, 2.seconds)
     check:
       # Currently connected to node2
       node1.peerManager.connectedness(peerInfo2.peerId) == Connected
@@ -181,7 +181,7 @@ procSuite "Peer Manager":
     node1.mountRelay()
     node2.mountRelay()
 
-    discard await node1.peerManager.dialPeer(peerInfo2, WakuRelayCodec, 2.seconds)
+    discard await node1.peerManager.dialPeer(peerInfo2.toRemotePeerInfo(), WakuRelayCodec, 2.seconds)
     check:
       # Currently connected to node2
       node1.peerManager.peers().len == 1
@@ -233,7 +233,7 @@ asyncTest "Peer manager support multiple protocol IDs when reconnecting to peers
     node2.mountRelay()
     node2.wakuRelay.codec = betaCodec
 
-    discard await node1.peerManager.dialPeer(peerInfo2, node2.wakuRelay.codec, 2.seconds)
+    discard await node1.peerManager.dialPeer(peerInfo2.toRemotePeerInfo(), node2.wakuRelay.codec, 2.seconds)
     check:
       # Currently connected to node2
       node1.peerManager.peers().len == 1

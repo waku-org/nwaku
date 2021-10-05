@@ -41,7 +41,7 @@ procSuite "Waku Filter":
       rpc = FilterRequest(contentFilters: @[ContentFilter(contentTopic: contentTopic)], pubSubTopic: defaultTopic, subscribe: true)
 
     dialSwitch.mount(proto)
-    proto.setPeer(listenSwitch.peerInfo)
+    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
     proc emptyHandle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
       discard
@@ -86,7 +86,7 @@ procSuite "Waku Filter":
       rpc = FilterRequest(contentFilters: @[ContentFilter(contentTopic: contentTopic)], pubSubTopic: defaultTopic, subscribe: true)
 
     dialSwitch.mount(proto)
-    proto.setPeer(listenSwitch.peerInfo)
+    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
     proc emptyHandle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
       discard

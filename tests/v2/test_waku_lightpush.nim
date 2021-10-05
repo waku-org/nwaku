@@ -47,7 +47,7 @@ procSuite "Waku Light Push":
       rpc = PushRequest(pubSubTopic: defaultTopic, message: wm)
 
     dialSwitch.mount(proto)
-    proto.setPeer(listenSwitch.peerInfo)
+    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
 
     # TODO Can possibly get rid of this if it isn't dynamic

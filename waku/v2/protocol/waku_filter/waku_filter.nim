@@ -59,7 +59,7 @@ proc unsubscribeFilters(subscribers: var seq[Subscriber], request: FilterRequest
   debug "unsubscribing", peerId=peerId, unsubscribeTopics=unsubscribeTopics
 
   for subscriber in subscribers.mitems:
-    if subscriber.peer.peerId != peerId: continue
+    if subscriber.peer != peerId: continue
     
     # make sure we delete the content filter
     # if no more topics are left
@@ -179,9 +179,9 @@ method init*(wf: WakuFilter) =
       wf.pushHandler(value.requestId, value.push)
     if value.request != FilterRequest():
       if value.request.subscribe:
-        wf.subscribers.add(Subscriber(peer: conn.peerInfo, requestId: value.requestId, filter: value.request))
+        wf.subscribers.add(Subscriber(peer: conn.peerId, requestId: value.requestId, filter: value.request))
       else:
-        wf.subscribers.unsubscribeFilters(value.request, conn.peerInfo.peerId)
+        wf.subscribers.unsubscribeFilters(value.request, conn.peerId)
       
       waku_filter_subscribers.set(wf.subscribers.len.int64)
 
@@ -197,7 +197,7 @@ proc init*(T: type WakuFilter, peerManager: PeerManager, rng: ref BrHmacDrbgCont
   
   return wf
 
-proc setPeer*(wf: WakuFilter, peer: PeerInfo) =
+proc setPeer*(wf: WakuFilter, peer: RemotePeerInfo) =
   wf.peerManager.addPeer(peer, WakuFilterCodec)
   waku_filter_peers.inc()
 
