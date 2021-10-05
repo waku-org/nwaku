@@ -807,7 +807,9 @@ suite "Waku rln relay":
       # check the member is added
       doAssert(member_is_added)
 
-    # prepare the message
+    # prepare the message 
+    # TODO this message format is artificial (to bypass the Poseidon hasher issue)
+    # TODO in  practice we should be able to pick messages of arbitrary size and format
     var messageBytes {.noinit.}: array[32, byte]
     for x in messageBytes.mitems: x = 1
     var messageHex = messageBytes.toHex()
