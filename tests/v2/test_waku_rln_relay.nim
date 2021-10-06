@@ -781,29 +781,30 @@ suite "Waku rln relay":
     check:
       decodednsp.isErr == false
       decodednsp.value == nsp
+
   test "proofVrfy and proofGen test":
     var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
     var rln = rlnInstance.value
 
-    # create the membership key
-    var memKeys = membershipKeyGen(rln).get()
-
-    # peer's index in the Merkle Tree
-    var index = 5
+    
+    let 
+      # create the membership key
+      memKeys = membershipKeyGen(rln).get()
+      # peer's index in the Merkle Tree
+      index = 5
 
     # Create a Merkle tree with random members 
     for i in 0..10:
       var member_is_added: bool = false
       if (i == index):
-        #  insert the current peer's pk
-        var pkBuffer = Buffer(`ptr`: addr(memKeys.idCommitment[0]), len: 32)
-        member_is_added = update_next_member(rln, addr pkBuffer)
+        # insert the current peer's pk
+        member_is_added = rln.insertMember(memKeys.idCommitment)
       else:
-        var memberKeys = membershipKeyGen(rln)
-        var pkBuffer = Buffer(`ptr`: addr(memberKeys.get().idCommitment[0]), len: 32)
-        member_is_added = update_next_member(rln, addr pkBuffer)
+        # create a new key pair
+        let memberKeys = rln.membershipKeyGen()
+        member_is_added = rln.insertMember(memberKeys.get().idCommitment)
       # check the member is added
       doAssert(member_is_added)
 
@@ -821,81 +822,38 @@ suite "Waku rln relay":
     var epochHex = epoch.toHex()
     debug "epoch in bytes", epochHex
 
+    # hash the message
+    let msgHash = @(rln.hash(messageBytes))
+    let msgHashHex = byteutils.toHex(msgHash)
+    debug "message hash", mh=msgHashHex
 
-    # # serialize message and epoch 
-    # # TODO add a proc for serializing
-    # var epochMessage = @epochBytes & @messageBytes
-    # doAssert(epochMessage.len == 64)
-    # var inputBytes{.noinit.}: array[64, byte] # holds epoch||Message 
-    # for (i, x) in inputBytes.mpairs: x = epochMessage[i]
-    # var inputHex = inputBytes.toHex()
-    # debug "serialized epoch and message ", inputHex
-    # # put the serialized epoch||message into a buffer
-    # var inputBuffer = Buffer(`ptr`: addr(inputBytes[0]), len: 64)
-
-    # # generate the proof
-    # var proof: Buffer
-    # let proofIsSuccessful = generate_proof(rlnInstance.value, addr inputBuffer, addr authObj, addr proof)
-    # # check whether the generate_proof call is done successfully
-    # doAssert(proofIsSuccessful)
-    # var proofValue = cast[ptr array[416,byte]] (proof.`ptr`)
-    # let proofHex = proofValue[].toHex
-    # debug "proof content", proofHex
-
-    # display the proof breakdown
-    # var 
-    #   zkSNARK = proofHex[0..511]
-    #   proofRoot = proofHex[512..575] 
-    #   proofEpoch = proofHex[576..639]
-    #   shareX = proofHex[640..703]
-    #   shareY = proofHex[704..767]
-    #   nullifier = proofHex[768..831]
-
-    # doAssert(zkSNARK.len == 512)
-    # doAssert(proofRoot.len == 64)
-    # doAssert(proofEpoch.len == 64)
-    # doAssert(epochHex == proofEpoch)
-    # doAssert(shareX.len == 64)
-    # doAssert(shareY.len == 64)
-    # doAssert(nullifier.len == 64)
-
-    # debug "zkSNARK ", zkSNARK
-    # debug "root ", proofRoot
-    # debug "epoch ", proofEpoch
-    # debug "shareX", shareX
-    # debug "shareY", shareY
-    # debug "nullifier", nullifier
-
-    # proofGen*(rlnInstance: RLN[Bn256], data: seq[byte], memKeys: MembershipKeyPair, memIndex: MembershipIndex, epoch: Epoch): NonSpamProof
-    let msgHash = @(rln.hash(@messageBytes))
+    # generate proof
     let proof = rln.proofGen(data = msgHash, 
                 memKeys = memKeys,
                 memIndex = MembershipIndex(index),
                 epoch = epoch)
 
-    # var f = 0.uint32
-    # let verifyIsSuccessful = verify(rlnInstance.value, addr proof, addr f)
-    # doAssert(verifyIsSuccessful)
-    # # f = 0 means the proof is verified
-    # doAssert(f == 0)
-
-    # proc proofVrfy*(rlnInstance: RLN[Bn256], data: seq[byte], proof: NonSpamProof): bool =
-
-    let valid = rln.proofVrfy(data = msgHash,
+    # verify the proof
+    let verified = rln.proofVrfy(data = messageBytes,
                       proof = proof)
-    check valid == true
-    # create and test a bad proof
-    # prepare a bad authentication object with a wrong peer's index
-    # var badIndex = 8
-    # var badAuthObj: Auth = Auth(secret_buffer: addr skBuffer, index: MembershipIndex(badIndex))
-    # var badProof: Buffer
-    # let badProofIsSuccessful = generate_proof(rlnInstance.value, addr inputBuffer, addr badAuthObj, addr badProof)
-    # # check whether the generate_proof call is done successfully
-    # doAssert(badProofIsSuccessful)
+    check verified == true
 
-    # var badF = 0.uint32
-    # let badVerifyIsSuccessful = verify(rlnInstance.value, addr badProof, addr badF)
-    # doAssert(badVerifyIsSuccessful)
-    # # badF=1 means the proof is not verified
-    # # verification of the bad proof should fail
-    # doAssert(badF == 1)
+    # create a another message and try to verify it using a mismatching proof
+    # badProof.memIndex = MembershipIndex(1)
+
+    # var badMessageBytes {.noinit.}: array[32, byte]
+    # for x in badMessageBytes.mitems: x = 2
+    # # var badMessageHex = badMessageBytes.toHex()
+    # # debug "bad message", badMessageHex
+
+
+    # # hash the message
+    # # let badMsgHash = @(rln.hash(badMessageBytes))
+    # # let badMsgHashHex = byteutils.toHex(badMsgHash)
+    # # debug "bad message hash", bmh=badMsgHashHex
+
+    # # the proof should not be verified 
+    # # verify the proof
+    # let verified_bad_proof = rln.proofVrfy(data = @badMessageBytes,
+    #                   proof = proof)
+    # check verified_bad_proof == false
