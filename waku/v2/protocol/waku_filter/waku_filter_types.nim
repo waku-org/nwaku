@@ -1,7 +1,6 @@
 import
   std/[tables],
   bearssl,
-  libp2p/peerinfo,
   libp2p/protocols/protocol,
   ../../node/peer_manager/peer_manager,
   ../waku_message
@@ -35,7 +34,7 @@ type
     push*: MessagePush
 
   Subscriber* = object
-    peer*: PeerInfo
+    peer*: PeerID
     requestId*: string
     filter*: FilterRequest # @TODO MAKE THIS A SEQUENCE AGAIN?
 

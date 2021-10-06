@@ -23,6 +23,7 @@ import
   ../../waku/v2/protocol/waku_store/[waku_store, waku_store_types],
   ../../waku/v2/protocol/waku_swap/waku_swap,
   ../../waku/v2/protocol/waku_filter/waku_filter,
+  ../../waku/v2/utils/peers,
   ../test_helpers
 
 template sourceDir*: string = currentSourcePath.rsplit(DirSep, 1)[0]
@@ -139,8 +140,8 @@ procSuite "Waku v2 JSON-RPC API":
     await node3.start()
     node3.mountRelay(@[pubSubTopic])
 
-    await node1.connectToNodes(@[node2.peerInfo])
-    await node3.connectToNodes(@[node2.peerInfo])
+    await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
+    await node3.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
 
     # RPC server setup
     let
@@ -229,7 +230,7 @@ procSuite "Waku v2 JSON-RPC API":
     var listenSwitch = newStandardSwitch(some(key))
     discard waitFor listenSwitch.start()
 
-    node.wakuStore.setPeer(listenSwitch.peerInfo)
+    node.wakuStore.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
     listenSwitch.mount(node.wakuRelay)
     listenSwitch.mount(node.wakuStore)
@@ -530,9 +531,9 @@ procSuite "Waku v2 JSON-RPC API":
       storeKey = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
       storePeer = PeerInfo.init(storeKey, @[locationAddr])
 
-    node.wakuFilter.setPeer(filterPeer)
-    node.wakuSwap.setPeer(swapPeer)
-    node.wakuStore.setPeer(storePeer)
+    node.wakuFilter.setPeer(filterPeer.toRemotePeerInfo())
+    node.wakuSwap.setPeer(swapPeer.toRemotePeerInfo())
+    node.wakuStore.setPeer(storePeer.toRemotePeerInfo())
 
     let response = await client.get_waku_v2_admin_v1_peers()
 
@@ -572,8 +573,8 @@ procSuite "Waku v2 JSON-RPC API":
     await node3.start()
     node3.mountRelay(@[pubSubTopic])
 
-    await node1.connectToNodes(@[node2.peerInfo])
-    await node3.connectToNodes(@[node2.peerInfo])
+    await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
+    await node3.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
 
     # Setup two servers so we can see both sides of encrypted communication
     let
@@ -662,8 +663,8 @@ procSuite "Waku v2 JSON-RPC API":
     await node3.start()
     node3.mountRelay(@[pubSubTopic])
 
-    await node1.connectToNodes(@[node2.peerInfo])
-    await node3.connectToNodes(@[node2.peerInfo])
+    await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
+    await node3.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
 
     # Setup two servers so we can see both sides of encrypted communication
     let

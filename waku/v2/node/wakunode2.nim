@@ -347,7 +347,7 @@ proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.as
     # TODO wakuSwap now part of wakuStore object
     await node.wakuStore.queryWithAccounting(query, handler)
 
-proc resume*(node: WakuNode, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo])) {.async, gcsafe.} =
+proc resume*(node: WakuNode, peerList: Option[seq[RemotePeerInfo]] = none(seq[RemotePeerInfo])) {.async, gcsafe.} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku node has been online 
   ## for resume to work properly the waku node must have the store protocol mounted in the full mode (i.e., persisting messages)
   ## messages are stored in the the wakuStore's messages field and in the message db
@@ -627,7 +627,7 @@ proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
     # First get a list of connected peer infos
     let peers = node.peerManager.peers()
                                 .filterIt(node.peerManager.connectedness(it.peerId) == Connected)
-                                .mapIt(it.toPeerInfo())
+                                .mapIt(it.toRemotePeerInfo())
 
     # Attempt to retrieve and ping the active outgoing connection for each peer
     for peer in peers:
@@ -654,7 +654,7 @@ proc startKeepalive*(node: WakuNode) =
 proc dialPeer*(n: WakuNode, address: string) {.async.} =
   info "dialPeer", address = address
   # XXX: This turns ipfs into p2p, not quite sure why
-  let remotePeer = parsePeerInfo(address)
+  let remotePeer = parseRemotePeerInfo(address)
 
   info "Dialing peer", wireAddr = remotePeer.addrs[0], peerId = remotePeer.peerId
   # NOTE This is dialing on WakuRelay protocol specifically
@@ -664,21 +664,21 @@ proc dialPeer*(n: WakuNode, address: string) {.async.} =
 proc setStorePeer*(n: WakuNode, address: string) {.raises: [Defect, ValueError, LPError].} =
   info "Set store peer", address = address
 
-  let remotePeer = parsePeerInfo(address)
+  let remotePeer = parseRemotePeerInfo(address)
 
   n.wakuStore.setPeer(remotePeer)
 
 proc setFilterPeer*(n: WakuNode, address: string) {.raises: [Defect, ValueError, LPError].} =
   info "Set filter peer", address = address
 
-  let remotePeer = parsePeerInfo(address)
+  let remotePeer = parseRemotePeerInfo(address)
 
   n.wakuFilter.setPeer(remotePeer)
 
 proc setLightPushPeer*(n: WakuNode, address: string) {.raises: [Defect, ValueError, LPError].} =
   info "Set lightpush peer", address = address
 
-  let remotePeer = parsePeerInfo(address)
+  let remotePeer = parseRemotePeerInfo(address)
 
   n.wakuLightPush.setPeer(remotePeer)
 
@@ -696,10 +696,10 @@ proc connectToNodes*(n: WakuNode, nodes: seq[string]) {.async.} =
   # later.
   await sleepAsync(5.seconds)
 
-proc connectToNodes*(n: WakuNode, nodes: seq[PeerInfo]) {.async.} =
-  for peerInfo in nodes:
-    info "connectToNodes", peer = peerInfo
-    discard await n.peerManager.dialPeer(peerInfo, WakuRelayCodec)
+proc connectToNodes*(n: WakuNode, nodes: seq[RemotePeerInfo]) {.async.} =
+  for remotePeerInfo in nodes:
+    info "connectToNodes", peer = remotePeerInfo
+    discard await n.peerManager.dialPeer(remotePeerInfo, WakuRelayCodec)
 
   # The issue seems to be around peers not being fully connected when
   # trying to subscribe. So what we do is sleep to guarantee nodes are

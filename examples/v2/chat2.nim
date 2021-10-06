@@ -412,7 +412,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
       # We have a viable storenode. Let's query it for historical messages.
       echo "Connecting to storenode: " & storenode.get()
 
-      node.wakuStore.setPeer(parsePeerInfo(storenode.get()))
+      node.wakuStore.setPeer(parseRemotePeerInfo(storenode.get()))
 
       proc storeHandler(response: HistoryResponse) {.gcsafe.} =
         for msg in response.messages:
@@ -429,12 +429,12 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   if conf.lightpushnode != "":
     mountLightPush(node)
 
-    node.wakuLightPush.setPeer(parsePeerInfo(conf.lightpushnode))
+    node.wakuLightPush.setPeer(parseRemotePeerInfo(conf.lightpushnode))
 
   if conf.filternode != "":
     node.mountFilter()
 
-    node.wakuFilter.setPeer(parsePeerInfo(conf.filternode))
+    node.wakuFilter.setPeer(parseRemotePeerInfo(conf.filternode))
 
     proc filterHandler(msg: WakuMessage) {.gcsafe.} =
       trace "Hit filter handler", contentTopic=msg.contentTopic

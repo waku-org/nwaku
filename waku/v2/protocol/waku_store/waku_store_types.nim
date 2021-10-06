@@ -6,7 +6,6 @@
 import
   # external imports
   bearssl,
-  libp2p/peerinfo,
   libp2p/protocols/protocol,
   stew/results,
   # internal imports

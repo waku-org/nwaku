@@ -118,7 +118,7 @@ procSuite "WakuNode":
     node1.subscribe(pubSubTopic, relayHandler)
     # Subscribe a contentFilter to trigger a specific application handler when
     # WakuMessages with that content are received
-    node1.wakuFilter.setPeer(node2.peerInfo)
+    node1.wakuFilter.setPeer(node2.peerInfo.toRemotePeerInfo())
     await node1.subscribe(filterRequest, contentHandler)
     await sleepAsync(2000.millis)
 
@@ -161,7 +161,7 @@ procSuite "WakuNode":
     await node2.start()
     node2.mountRelay()
     node2.mountFilter()
-    node2.wakuFilter.setPeer(node1.peerInfo)
+    node2.wakuFilter.setPeer(node1.peerInfo.toRemotePeerInfo())
 
     var defaultComplete = newFuture[bool]()
     var otherComplete = newFuture[bool]()
@@ -232,7 +232,7 @@ procSuite "WakuNode":
     await node2.start()
     node2.mountRelay(relayMessages=false) # Do not start WakuRelay or subscribe to any topics
     node2.mountFilter()
-    node2.wakuFilter.setPeer(node1.peerInfo)
+    node2.wakuFilter.setPeer(node1.peerInfo.toRemotePeerInfo())
 
     check:
       node1.wakuRelay.isNil == false # Node1 is a full node
@@ -283,7 +283,7 @@ procSuite "WakuNode":
 
     await sleepAsync(2000.millis)
 
-    node1.wakuStore.setPeer(node2.peerInfo)
+    node1.wakuStore.setPeer(node2.peerInfo.toRemotePeerInfo())
 
     proc storeHandler(response: HistoryResponse) {.gcsafe, closure.} =
       check:
@@ -315,7 +315,7 @@ procSuite "WakuNode":
     await node2.start()
     node2.mountFilter()
 
-    node1.wakuFilter.setPeer(node2.peerInfo)
+    node1.wakuFilter.setPeer(node2.peerInfo.toRemotePeerInfo())
 
     proc handler(msg: WakuMessage) {.gcsafe, closure.} =
       check:
@@ -360,8 +360,8 @@ procSuite "WakuNode":
     await node3.start()
     node3.mountRelay(@[pubSubTopic])
 
-    await node1.connectToNodes(@[node2.peerInfo])
-    await node3.connectToNodes(@[node2.peerInfo])
+    await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
+    await node3.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
 
     var completionFut = newFuture[bool]()
     proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
@@ -418,7 +418,7 @@ procSuite "WakuNode":
 
     # Now verify that protocol matcher returns `true` and relay works
 
-    await node1.connectToNodes(@[node2.peerInfo])
+    await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
 
     var completionFut = newFuture[bool]()
     proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
@@ -449,37 +449,37 @@ procSuite "WakuNode":
     # First test the `happy path` expected case
     let
       addrStr = "/ip4/127.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
-      peerInfo = parsePeerInfo(addrStr)
+      remotePeerInfo = parseRemotePeerInfo(addrStr)
     
     check:
-      $(peerInfo.peerId) == "16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
-      $(peerInfo.addrs[0][0].tryGet()) == "/ip4/127.0.0.1"
-      $(peerInfo.addrs[0][1].tryGet()) == "/tcp/60002"
+      $(remotePeerInfo.peerId) == "16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
+      $(remotePeerInfo.addrs[0][0].tryGet()) == "/ip4/127.0.0.1"
+      $(remotePeerInfo.addrs[0][1].tryGet()) == "/tcp/60002"
     
     # Now test some common corner cases
     expect LPError:
       # gibberish
-      discard parsePeerInfo("/p2p/$UCH GIBBER!SH")
+      discard parseRemotePeerInfo("/p2p/$UCH GIBBER!SH")
 
     expect LPError:
       # leading whitespace
-      discard parsePeerInfo(" /ip4/127.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
+      discard parseRemotePeerInfo(" /ip4/127.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
 
     expect LPError:
       # trailing whitespace
-      discard parsePeerInfo("/ip4/127.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc ")
+      discard parseRemotePeerInfo("/ip4/127.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc ")
 
     expect LPError:
       # invalid IP address
-      discard parsePeerInfo("/ip4/127.0.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
+      discard parseRemotePeerInfo("/ip4/127.0.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
     
     expect ValueError:
       # no PeerID
-      discard parsePeerInfo("/ip4/127.0.0.1/tcp/60002")
+      discard parseRemotePeerInfo("/ip4/127.0.0.1/tcp/60002")
     
     expect ValueError:
       # unsupported transport
-      discard parsePeerInfo("/ip4/127.0.0.1/udp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
+      discard parseRemotePeerInfo("/ip4/127.0.0.1/udp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
   
   asyncTest "filtering relayed messages  using topic validators":
     ## test scenario: 
@@ -519,8 +519,8 @@ procSuite "WakuNode":
     await node3.start()
     node3.mountRelay(@[pubSubTopic])
 
-    await node1.connectToNodes(@[node2.peerInfo])
-    await node3.connectToNodes(@[node2.peerInfo])
+    await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
+    await node3.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
 
 
     var completionFutValidatorAcc = newFuture[bool]()
@@ -610,8 +610,8 @@ procSuite "WakuNode":
       await node3.start()
       node3.mountRelay(@[pubSubTopic])
 
-      await node1.connectToNodes(@[node2.peerInfo])
-      await node3.connectToNodes(@[node2.peerInfo])
+      await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
+      await node3.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
 
       var completionFut = newFuture[bool]()
       proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
@@ -703,9 +703,9 @@ procSuite "WakuNode":
     await node3.start()
     node3.mountRelay(@[pubSubTopic])
 
-    discard await node1.peerManager.dialPeer(node2.peerInfo, WakuLightPushCodec)
+    discard await node1.peerManager.dialPeer(node2.peerInfo.toRemotePeerInfo(), WakuLightPushCodec)
     await sleepAsync(5.seconds)
-    await node3.connectToNodes(@[node2.peerInfo])
+    await node3.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
 
     var completionFutLightPush = newFuture[bool]()
     var completionFutRelay = newFuture[bool]()
@@ -764,7 +764,7 @@ procSuite "WakuNode":
 
     await sleepAsync(2000.millis)
 
-    node1.wakuStore.setPeer(node2.peerInfo)
+    node1.wakuStore.setPeer(node2.peerInfo.toRemotePeerInfo())
 
     await node1.resume()
 
@@ -805,7 +805,7 @@ procSuite "WakuNode":
 
     await sleepAsync(2000.millis)
 
-    node1.wakuStore.setPeer(node2.peerInfo)
+    node1.wakuStore.setPeer(node2.peerInfo.toRemotePeerInfo())
     
 
     # populate db with msg1 to be a duplicate

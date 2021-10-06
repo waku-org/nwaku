@@ -1,7 +1,6 @@
 import
   std/[tables],
   bearssl,
-  libp2p/peerinfo,
   libp2p/protocols/protocol,
   ../../node/peer_manager/peer_manager,
   ../waku_message,
