@@ -838,7 +838,7 @@ suite "Waku rln relay":
                       proof = proof)
     check verified == true
 
-  test "bad proofVrfy and proofGen test":
+  test "proofVrfy and proofGen unhappy test":
     var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
@@ -894,23 +894,3 @@ suite "Waku rln relay":
     let verified = rln.proofVrfy(data = messageBytes,
                       proof = proof)
     check verified == false
-
-    # create a another message and try to verify it using a mismatching proof
-    # badProof.memIndex = MembershipIndex(1)
-
-    # var badMessageBytes {.noinit.}: array[32, byte]
-    # for x in badMessageBytes.mitems: x = 2
-    # # var badMessageHex = badMessageBytes.toHex()
-    # # debug "bad message", badMessageHex
-
-
-    # # hash the message
-    # # let badMsgHash = @(rln.hash(badMessageBytes))
-    # # let badMsgHashHex = byteutils.toHex(badMsgHash)
-    # # debug "bad message hash", bmh=badMsgHashHex
-
-    # # the proof should not be verified 
-    # # verify the proof
-    # let verified_bad_proof = rln.proofVrfy(data = @badMessageBytes,
-    #                   proof = proof)
-    # check verified_bad_proof == false
