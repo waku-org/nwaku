@@ -637,7 +637,8 @@ procSuite "WakuNode":
       # connect them together
       await node1.connectToNodes(@[node2.peerInfo])
       await node3.connectToNodes(@[node2.peerInfo])
-
+      
+      # setup relay handler
       var completionFut = newFuture[bool]()
       proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
         let msg = WakuMessage.init(data)
@@ -647,7 +648,7 @@ procSuite "WakuNode":
           if topic == pubSubTopic:
             completionFut.complete(true)
 
-
+      
       node3.subscribe(pubSubTopic, relayHandler)
       await sleepAsync(2000.millis)
 
