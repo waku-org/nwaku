@@ -429,9 +429,9 @@ proc init*(ws: WakuStore) =
     if not ws.wakuSwap.isNil:
       info "handle store swap test", text=ws.wakuSwap.text
       # NOTE Perform accounting operation
-      let peerInfo = conn.peerInfo
+      let peerId = conn.peerId
       let messages = response.messages
-      ws.wakuSwap.credit(peerInfo, messages.len)
+      ws.wakuSwap.credit(peerId, messages.len)
     else:
       info "handle store swap is nil"
 
@@ -467,7 +467,7 @@ proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgConte
   return output
 
 # @TODO THIS SHOULD PROBABLY BE AN ADD FUNCTION AND APPEND THE PEER TO AN ARRAY
-proc setPeer*(ws: WakuStore, peer: PeerInfo) =
+proc setPeer*(ws: WakuStore, peer: RemotePeerInfo) =
   ws.peerManager.addPeer(peer, WakuStoreCodec)
   waku_store_peers.inc()
 
@@ -527,7 +527,7 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
   handler(response.value.response)
 
-proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, peer: PeerInfo): Future[QueryResult] {.async, gcsafe.} =
+proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, peer: RemotePeerInfo): Future[QueryResult] {.async, gcsafe.} =
   ## sends the query to the given peer
   ## returns the number of retrieved messages if no error occurs, otherwise returns the error string
   # TODO dialPeer add it to the list of known peers, while it does not cause any issue but might be unnecessary
@@ -556,7 +556,7 @@ proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, pe
   handler(response.value.response)
   return ok(response.value.response.messages.len.uint64)
 
-proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: PeerInfo): Future[MessagesResult] {.async, gcsafe.} =
+proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: RemotePeerInfo): Future[MessagesResult] {.async, gcsafe.} =
   ## a thin wrapper for queryFrom
   ## sends the query to the given peer
   ## when the query has a valid pagingInfo, it retrieves the historical messages in pages
@@ -588,7 +588,7 @@ proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: PeerInfo): Fu
 
   return ok(messageList)
 
-proc queryLoop(w: WakuStore, query: HistoryQuery, candidateList: seq[PeerInfo]): Future[MessagesResult]  {.async, gcsafe.} = 
+proc queryLoop(w: WakuStore, query: HistoryQuery, candidateList: seq[RemotePeerInfo]): Future[MessagesResult]  {.async, gcsafe.} = 
   ## loops through the candidateList in order and sends the query to each until one of the query gets resolved successfully
   ## returns the retrieved messages, or error if all the requests fail
   for peer in candidateList.items: 
@@ -612,7 +612,7 @@ proc isDuplicate(message: WakuMessage, list: seq[WakuMessage]): bool =
   if message in list: return true
   return false
 
-proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]), pageSize: uint64 = DefaultPageSize): Future[QueryResult] {.async, gcsafe.} =
+proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[RemotePeerInfo]), pageSize: uint64 = DefaultPageSize): Future[QueryResult] {.async, gcsafe.} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku store node has been online 
   ## messages are stored in the store node's messages field and in the message db
   ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message 
@@ -689,8 +689,8 @@ proc resume*(ws: WakuStore, peerList: Option[seq[PeerInfo]] = none(seq[PeerInfo]
       return err("no suitable remote peers")
 
     debug "a peer is selected from peer manager"
-    let peerInfo = peerOpt.get()
-    let successResult = await ws.queryFromWithPaging(rpc, peerInfo)
+    let remotePeerInfo = peerOpt.get()
+    let successResult = await ws.queryFromWithPaging(rpc, remotePeerInfo)
     if successResult.isErr: 
       debug "failed to resume the history"
       return err("failed to resume the history")
@@ -735,9 +735,9 @@ proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHand
 
   # NOTE Perform accounting operation
   # Assumes wakuSwap protocol is mounted
-  let peerInfo = peerOpt.get()
+  let remotePeerInfo = peerOpt.get()
   let messages = response.value.response.messages
-  ws.wakuSwap.debit(peerInfo, messages.len)
+  ws.wakuSwap.debit(remotePeerInfo.peerId, messages.len)
 
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
 

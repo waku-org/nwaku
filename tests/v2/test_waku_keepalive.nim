@@ -11,6 +11,7 @@ import
   libp2p/crypto/crypto,
   libp2p/multistream,
   ../../waku/v2/node/wakunode2,
+  ../../waku/v2/utils/peers,
   ../test_helpers, ./utils
 
 procSuite "Waku Keepalive":
@@ -24,11 +25,11 @@ procSuite "Waku Keepalive":
 
     var completionFut = newFuture[bool]()
 
-    proc pingHandler(peer: PeerInfo) {.async, gcsafe, raises: [Defect].} =
+    proc pingHandler(peerId: PeerID) {.async, gcsafe, raises: [Defect].} =
       debug "Ping received"
 
       check:
-        peer.peerId == node1.switch.peerInfo.peerId
+        peerId == node1.switch.peerInfo.peerId
 
       completionFut.complete(true)
 
@@ -40,7 +41,7 @@ procSuite "Waku Keepalive":
     node2.mountRelay()
     node2.switch.mount(Ping.new(handler = pingHandler))
 
-    await node1.connectToNodes(@[node2.peerInfo])
+    await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
 
     node1.startKeepalive()
 

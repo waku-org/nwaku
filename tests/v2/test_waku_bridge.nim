@@ -19,6 +19,7 @@ import
   ../../waku/v2/protocol/waku_store/waku_store,
   ../../waku/v2/protocol/waku_filter/waku_filter,
   ../../waku/v2/node/[wakunode2, waku_payload],
+  ../../waku/v2/utils/peers,
   ../test_helpers
 
 procSuite "WakuBridge":
@@ -107,7 +108,7 @@ procSuite "WakuBridge":
     v2Node.mountRelay(@[DefaultBridgeTopic], triggerSelf = false)
 
     discard waitFor v1Node.rlpxConnect(newNode(bridge.nodev1.toENode()))
-    waitFor v2Node.connectToNodes(@[bridge.nodev2.peerInfo])
+    waitFor v2Node.connectToNodes(@[bridge.nodev2.peerInfo.toRemotePeerInfo()])
 
     var completionFut = newFuture[bool]()
 
