@@ -838,7 +838,7 @@ procSuite "WakuNode":
 
   asyncTest "Maximum connections can be configured":
     let
-      maxConnections = 1
+      maxConnections = 2
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         Port(60010), maxConnections = maxConnections)
