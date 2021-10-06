@@ -838,6 +838,63 @@ suite "Waku rln relay":
                       proof = proof)
     check verified == true
 
+  test "bad proofVrfy and proofGen test":
+    var rlnInstance = createRLNInstance()
+    check:
+      rlnInstance.isOk == true
+    var rln = rlnInstance.value
+
+    
+    let 
+      # create the membership key
+      memKeys = membershipKeyGen(rln).get()
+      # peer's index in the Merkle Tree
+      index = 5
+
+    # Create a Merkle tree with random members 
+    for i in 0..10:
+      var member_is_added: bool = false
+      if (i == index):
+        # insert the current peer's pk
+        member_is_added = rln.insertMember(memKeys.idCommitment)
+      else:
+        # create a new key pair
+        let memberKeys = rln.membershipKeyGen()
+        member_is_added = rln.insertMember(memberKeys.get().idCommitment)
+      # check the member is added
+      doAssert(member_is_added)
+
+    # prepare the message 
+    # TODO this message format is artificial (to bypass the Poseidon hasher issue)
+    # TODO in  practice we should be able to pick messages of arbitrary size and format
+    var messageBytes {.noinit.}: array[32, byte]
+    for x in messageBytes.mitems: x = 1
+    var messageHex = messageBytes.toHex()
+    debug "message", messageHex
+
+    # prepare the epoch
+    var  epoch : Epoch
+    for x in epoch.mitems : x = 0
+    var epochHex = epoch.toHex()
+    debug "epoch in bytes", epochHex
+
+    # hash the message
+    let msgHash = @(rln.hash(messageBytes))
+    let msgHashHex = byteutils.toHex(msgHash)
+    debug "message hash", mh=msgHashHex
+
+    let badIndex = 4
+    # generate proof
+    let proof = rln.proofGen(data = msgHash, 
+                memKeys = memKeys,
+                memIndex = MembershipIndex(badIndex),
+                epoch = epoch)
+
+    # verify the proof (should not be verified)
+    let verified = rln.proofVrfy(data = messageBytes,
+                      proof = proof)
+    check verified == false
+
     # create a another message and try to verify it using a mismatching proof
     # badProof.memIndex = MembershipIndex(1)
 
