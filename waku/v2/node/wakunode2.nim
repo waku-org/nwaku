@@ -12,6 +12,8 @@ import
   libp2p/protocols/pubsub/gossipsub,
   libp2p/nameresolving/dnsresolver,
   libp2p/builders,
+  libp2p/transports/wstransport,
+  libp2p/multicodec,
   ../protocol/[waku_relay, waku_message],
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
@@ -122,14 +124,16 @@ proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilte
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
+template addWssFlag() =
+  MultiAddress.init(multiCodec("ws"))
+
 ## Public API
 ##
 
 proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
     extIp = none[ValidIpAddress](), extPort = none[Port](),
-    peerStorage: PeerStorage = nil,
-    maxConnections = builders.MaxConnections): T 
+    peerStorage: PeerStorage = nil): T 
     {.raises: [Defect, LPError].} =
   ## Creates a Waku Node.
   ##
@@ -137,7 +141,10 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   ##
   let
     rng = crypto.newRng()
-    hostAddress = tcpEndPoint(bindIp, bindPort)
+    hostAddress = tcpEndPoint(bindIp, bindPort) 
+
+    hostAddressWithWss = hostAddress & addWssFlag.get()
+
     announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
                          else: @[tcpEndPoint(extIp.get(), extPort.get())]
     peerInfo = PeerInfo.init(nodekey)
@@ -154,13 +161,26 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   for multiaddr in announcedAddresses:
     peerInfo.addrs.add(multiaddr) # Announced addresses in index > 0
   
-  var switch = newStandardSwitch(
-    some(nodekey),
-    hostAddress,
-    transportFlags = {ServerFlags.ReuseAddr},
-    rng = rng,
-    maxConnections = maxConnections)
+  # WSS switch builder code
+  let WssSwitch = SwitchBuilder
+    .new()
+    .withAddress(hostAddress)
+    .withRng(rng)
+    .withMplex()
+    .withTransport(proc (upgr: Upgrade): Transport = WsTransport.new(upgr))
+    .withNoise()
+    .build()
 
+
+  var switch = newStandardSwitch(some(nodekey), hostAddress,
+    transportFlags = {ServerFlags.ReuseAddr}, rng = rng)
+  # TODO Untested - verify behavior after switch interface change
+  # More like this:
+  # let pubsub = GossipSub.init(
+  #    switch = switch,
+  #    msgIdProvider = msgIdProvider,
+  #    triggerSelf = true, sign = false,
+  #    verifySignature = false).PubSub
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
     switch: switch,
@@ -169,7 +189,6 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     enr: enr,
     filters: initTable[string, Filter]()
   )
-
   return wakuNode
 
 proc subscribe(node: WakuNode, topic: Topic, handler: Option[TopicHandler]) =
@@ -822,14 +841,11 @@ when isMainModule:
     ## file. Optionally include persistent peer storage.
     ## No protocols are mounted yet.
 
-    ## `udpPort` is only supplied to satisfy underlying APIs but is not
-    ## actually a supported transport.
-    let udpPort = conf.tcpPort
     let
       (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat,
                                                 clientId,
                                                 Port(uint16(conf.tcpPort) + conf.portsShift),
-                                                Port(uint16(udpPort) + conf.portsShift))
+                                                Port(uint16(conf.udpPort) + conf.portsShift))
       ## @TODO: the NAT setup assumes a manual port mapping configuration if extIp config is set. This probably
       ## implies adding manual config item for extPort as well. The following heuristic assumes that, in absence of manual
       ## config, the external port is the same as the bind port.
@@ -840,8 +856,7 @@ when isMainModule:
       node = WakuNode.new(conf.nodekey,
                           conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
                           extIp, extPort,
-                          pStorage,
-                          conf.maxConnections.int)
+                          pStorage)
     
     ok(node)
 
