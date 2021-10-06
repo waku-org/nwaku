@@ -28,6 +28,13 @@ type
     keyBook*: KeyBook
     connectionBook*: ConnectionBook
     disconnectBook*: DisconnectBook
+  
+  StoredInfo* = object
+    # Collates stored info about a peer
+    peerId*: PeerID
+    addrs*: HashSet[MultiAddress]
+    protos*: HashSet[string]
+    publicKey*: PublicKey
 
 proc new*(T: type WakuPeerStore): WakuPeerStore =
   var p: WakuPeerStore

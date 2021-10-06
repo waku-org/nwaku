@@ -35,7 +35,7 @@ procSuite "Waku Store":
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
       rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: topic)])
 
-    proto.setPeer(listenSwitch.peerInfo)
+    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
     listenSwitch.mount(proto)
 
@@ -75,7 +75,7 @@ procSuite "Waku Store":
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
       rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: topic1), HistoryContentFilter(contentTopic: topic3)])
 
-    proto.setPeer(listenSwitch.peerInfo)
+    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
     listenSwitch.mount(proto)
 
@@ -121,7 +121,7 @@ procSuite "Waku Store":
       # this query targets: pubsubtopic1 AND (contentTopic1 OR contentTopic3)    
       rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic1), HistoryContentFilter(contentTopic: contentTopic3)], pubsubTopic: pubsubTopic1)
 
-    proto.setPeer(listenSwitch.peerInfo)
+    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
     listenSwitch.mount(proto)
 
@@ -165,7 +165,7 @@ procSuite "Waku Store":
       # this query targets: pubsubtopic1  
       rpc = HistoryQuery(pubsubTopic: pubsubTopic1)
 
-    proto.setPeer(listenSwitch.peerInfo)
+    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
     listenSwitch.mount(proto)
 
@@ -205,7 +205,7 @@ procSuite "Waku Store":
       # this query targets: pubsubtopic 
       rpc = HistoryQuery(pubsubTopic: pubsubtopic)
 
-    proto.setPeer(listenSwitch.peerInfo)
+    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
     listenSwitch.mount(proto)
 
@@ -249,7 +249,7 @@ procSuite "Waku Store":
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
       rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: topic)])
 
-    proto.setPeer(listenSwitch.peerInfo)
+    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
     listenSwitch.mount(proto)
 
@@ -277,7 +277,7 @@ procSuite "Waku Store":
     var listenSwitch2 = newStandardSwitch(some(key2))
     discard await listenSwitch2.start()
 
-    proto2.setPeer(listenSwitch2.peerInfo)
+    proto2.setPeer(listenSwitch2.peerInfo.toRemotePeerInfo())
 
     listenSwitch2.mount(proto2)
 
@@ -319,7 +319,7 @@ procSuite "Waku Store":
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
       rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: defaultContentTopic)], pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD) )
       
-    proto.setPeer(listenSwitch.peerInfo)
+    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
     listenSwitch.mount(proto)
 
@@ -366,7 +366,7 @@ procSuite "Waku Store":
 
     let proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
 
-    proto.setPeer(listenSwitch.peerInfo)
+    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
     listenSwitch.mount(proto)
 
@@ -413,7 +413,7 @@ procSuite "Waku Store":
 
     let proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
 
-    proto.setPeer(listenSwitch.peerInfo)
+    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
     listenSwitch.mount(proto)
 
@@ -551,7 +551,7 @@ procSuite "Waku Store":
 
     let proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
 
-    proto.setPeer(listenSwitch.peerInfo)
+    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
     listenSwitch.mount(proto)
 
@@ -630,7 +630,7 @@ procSuite "Waku Store":
       discard await dialSwitch2.start()
     
       let proto2 = WakuStore.init(PeerManager.new(dialSwitch2), crypto.newRng())
-      proto2.setPeer(listenSwitch.peerInfo)
+      proto2.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
       let successResult = await proto2.resume()
       check:
@@ -648,7 +648,7 @@ procSuite "Waku Store":
         completionFut.complete(true)
 
       let rpc = HistoryQuery(startTime: float(2), endTime: float(5))
-      let successResult = await proto.queryFrom(rpc, handler, listenSwitch.peerInfo)
+      let successResult = await proto.queryFrom(rpc, handler, listenSwitch.peerInfo.toRemotePeerInfo())
 
       check:
         (await completionFut.withTimeout(5.seconds)) == true
@@ -659,7 +659,7 @@ procSuite "Waku Store":
 
       let rpc = HistoryQuery(startTime: float(2), endTime: float(5))
 
-      let messagesResult = await proto.queryFromWithPaging(rpc, listenSwitch.peerInfo)
+      let messagesResult = await proto.queryFromWithPaging(rpc, listenSwitch.peerInfo.toRemotePeerInfo())
 
       check:
         messagesResult.isOk
@@ -669,7 +669,7 @@ procSuite "Waku Store":
       var pinfo = PagingInfo(direction:PagingDirection.FORWARD, pageSize: 1)
       let rpc = HistoryQuery(startTime: float(2), endTime: float(5), pagingInfo: pinfo)
 
-      let messagesResult = await proto.queryFromWithPaging(rpc, listenSwitch.peerInfo)
+      let messagesResult = await proto.queryFromWithPaging(rpc, listenSwitch.peerInfo.toRemotePeerInfo())
 
       check:
         messagesResult.isOk
@@ -684,7 +684,9 @@ procSuite "Waku Store":
       discard await dialSwitch3.start()
       let proto3 = WakuStore.init(PeerManager.new(dialSwitch3), crypto.newRng())
 
-      let successResult = await proto3.resume(some(@[offListenSwitch.peerInfo, listenSwitch.peerInfo, listenSwitch.peerInfo]))
+      let successResult = await proto3.resume(some(@[offListenSwitch.peerInfo.toRemotePeerInfo(),
+                                                     listenSwitch.peerInfo.toRemotePeerInfo(),
+                                                     listenSwitch.peerInfo.toRemotePeerInfo()]))
       check:
         proto3.messages.len == 10
         successResult.isOk

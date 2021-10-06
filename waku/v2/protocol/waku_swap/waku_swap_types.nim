@@ -4,7 +4,6 @@ import
   std/tables,
   bearssl,
   libp2p/protocols/protocol,
-  libp2p/peerinfo,
   ../../node/peer_manager/peer_manager  
 
 type
@@ -36,9 +35,9 @@ type
     amount*: uint32
     signature*: seq[byte]
 
-  CreditHandler* = proc (peerInfo: PeerInfo, amount: int) {.gcsafe, closure.}
-  DebitHandler* = proc (peerInfo: PeerInfo, amount: int) {.gcsafe, closure.}
-  ApplyPolicyHandler* = proc(peerInfo: PeerInfo) {.gcsafe, closure.}
+  CreditHandler* = proc (peerId: PeerID, amount: int) {.gcsafe, closure.}
+  DebitHandler* = proc (peerId: PeerID, amount: int) {.gcsafe, closure.}
+  ApplyPolicyHandler* = proc(peerId: PeerID) {.gcsafe, closure.}
 
   WakuSwap* = ref object of LPProtocol
     peerManager*: PeerManager

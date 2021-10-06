@@ -14,6 +14,7 @@ import
   ../../waku/v2/protocol/waku_store/waku_store,
   ../../waku/v2/protocol/waku_swap/waku_swap,
   ../../waku/v2/node/wakunode2,
+  ../../waku/v2/utils/peers,
   ../test_helpers, ./utils
 
 procSuite "Waku SWAP Accounting":
@@ -71,9 +72,9 @@ procSuite "Waku SWAP Accounting":
 
     await sleepAsync(2000.millis)
 
-    node1.wakuStore.setPeer(node2.peerInfo)
-    node1.wakuSwap.setPeer(node2.peerInfo)
-    node2.wakuSwap.setPeer(node1.peerInfo)
+    node1.wakuStore.setPeer(node2.peerInfo.toRemotePeerInfo())
+    node1.wakuSwap.setPeer(node2.peerInfo.toRemotePeerInfo())
+    node2.wakuSwap.setPeer(node1.peerInfo.toRemotePeerInfo())
 
     proc storeHandler(response: HistoryResponse) {.gcsafe, closure.} =
       debug "storeHandler hit"
@@ -121,9 +122,9 @@ procSuite "Waku SWAP Accounting":
 
     await sleepAsync(2000.millis)
 
-    node1.wakuStore.setPeer(node2.peerInfo)
-    node1.wakuSwap.setPeer(node2.peerInfo)
-    node2.wakuSwap.setPeer(node1.peerInfo)
+    node1.wakuStore.setPeer(node2.peerInfo.toRemotePeerInfo())
+    node1.wakuSwap.setPeer(node2.peerInfo.toRemotePeerInfo())
+    node2.wakuSwap.setPeer(node1.peerInfo.toRemotePeerInfo())
 
     proc handler1(response: HistoryResponse) {.gcsafe, closure.} =
       futures[0].complete(true)
