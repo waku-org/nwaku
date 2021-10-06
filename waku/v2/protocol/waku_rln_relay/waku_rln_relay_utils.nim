@@ -102,7 +102,7 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   await web3.close()
   return true 
 
-proc toBuffer(x: openArray[byte]): Buffer =
+proc toBuffer*(x: openArray[byte]): Buffer =
   var temp = @x
   let output = Buffer(`ptr`: addr(temp[0]), len: uint(temp.len))
   return output
@@ -123,7 +123,8 @@ proc hash*(rlnInstance: RLN[Bn256], data: openArray[byte]): MerkleNode =
 
   return output
 
-proc proofGen*(rlnInstance: RLN[Bn256], data: seq[byte], memKeys: MembershipKeyPair, memIndex: MembershipIndex, epoch: Epoch): NonSpamProof = 
+proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: MembershipKeyPair, memIndex: MembershipIndex, epoch: Epoch): NonSpamProof = 
+
   # # TODO to implement the actual proof generation logic
   var auth = memKeys
   var skBuffer = Buffer(`ptr`: addr(auth.idKey[0]), len: 32)
@@ -142,7 +143,7 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: seq[byte], memKeys: MembershipKeyP
 
   # serialize message and epoch 
   # TODO add a proc for serializing
-  var epochMessage = @epochBytes & data
+  var epochMessage = @epochBytes & @data
   doAssert(epochMessage.len == 64)
   # convert the seq to an array
   var inputBytes{.noinit.}: array[64, byte] # holds epoch||Message 
@@ -161,23 +162,6 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: seq[byte], memKeys: MembershipKeyP
   let proofBytes: array[416,byte] = proofValue[]
   let proofHex = proofValue[].toHex
   debug "proof content", proofHex
-
-  # display the proof breakdown
-  # var 
-  #   zkSNARK = proofHex[0..511]
-  #   proofRoot = proofHex[512..575] 
-  #   proofEpoch = proofHex[576..639]
-  #   shareX = proofHex[640..703]
-  #   shareY = proofHex[704..767]
-  #   nullifier = proofHex[768..831]
-
-  # doAssert(zkSNARK.len == 512)
-  # doAssert(proofRoot.len == 64)
-  # doAssert(proofEpoch.len == 64)
-  # doAssert(epochHex == proofEpoch)
-  # doAssert(shareX.len == 64)
-  # doAssert(shareY.len == 64)
-  # doAssert(nullifier.len == 64)
 
   let 
     proofOffset = 256
@@ -211,8 +195,6 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: seq[byte], memKeys: MembershipKeyP
 
   return output
 
-
-
 proc serializeProof(proof: NonSpamProof): seq[byte] =
   var  proofBytes = concat(@(proof.proof),
                           @(proof.merkleRoot),
@@ -223,7 +205,8 @@ proc serializeProof(proof: NonSpamProof): seq[byte] =
 
   return proofBytes
 
-proc proofVrfy*(rlnInstance: RLN[Bn256], data: seq[byte], proof: NonSpamProof): bool =
+proc proofVrfy*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: NonSpamProof): bool =
+  # TODO proof should be checked against the data
   var 
     proofBytes= serializeProof(proof)
     proofBuffer = proofBytes.toBuffer()
