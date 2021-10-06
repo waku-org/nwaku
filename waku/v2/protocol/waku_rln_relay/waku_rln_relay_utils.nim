@@ -221,8 +221,7 @@ proc proofVrfy*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: NonSpamPr
   return false
 
 proc insertMember*(rlnInstance: RLN[Bn256], idComm: IDCommitment): bool = 
-  var temp = idComm
-  var pkBuffer = Buffer(`ptr`: addr(temp[0]), len: 32)
+  var pkBuffer = toBuffer(idComm)
   let pkBufferPtr = addr pkBuffer
 
   # add the member to the tree
@@ -242,9 +241,8 @@ proc getMerkleRoot*(rlnInstance: RLN[Bn256]): MerkleNodeResult =
   if (not get_root_successful): return err("could not get the root")
   if (not (root.len == 32)): return err("wrong output size")
 
-  var rootValue = cast[ptr array[32,byte]] (root.`ptr`)
-  let merkleNode = rootValue[]
-  return ok(merkleNode)
+  var rootValue = cast[ptr MerkleNode] (root.`ptr`)[]
+  return ok(rootValue)
 
 proc toMembershipKeyPairs*(groupKeys: seq[(string, string)]): seq[MembershipKeyPair] {.raises: [Defect, ValueError]} =
   ## groupKeys is  sequence of membership key tuples in the form of (identity key, identity commitment) all in the hexadecimal format
