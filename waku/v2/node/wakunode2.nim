@@ -12,6 +12,8 @@ import
   libp2p/protocols/pubsub/gossipsub,
   libp2p/nameresolving/dnsresolver,
   libp2p/builders,
+  libp2p/transports/wstransport,
+  libp2p/multicodec,
   ../protocol/[waku_relay, waku_message],
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
@@ -122,6 +124,9 @@ proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilte
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
+template addWssFlag() =
+  MultiAddress.init(multiCodec("ws"))
+
 ## Public API
 ##
 
@@ -136,7 +141,10 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   ##
   let
     rng = crypto.newRng()
-    hostAddress = tcpEndPoint(bindIp, bindPort)
+    hostAddress = tcpEndPoint(bindIp, bindPort) 
+
+    hostAddressWithWss = hostAddress & addWssFlag.get()
+
     announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
                          else: @[tcpEndPoint(extIp.get(), extPort.get())]
     peerInfo = PeerInfo.init(nodekey)
@@ -153,6 +161,17 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   for multiaddr in announcedAddresses:
     peerInfo.addrs.add(multiaddr) # Announced addresses in index > 0
   
+  # WSS switch builder code
+  let WssSwitch = SwitchBuilder
+    .new()
+    .withAddress(hostAddress)
+    .withRng(rng)
+    .withMplex()
+    .withTransport(proc (upgr: Upgrade): Transport = WsTransport.new(upgr))
+    .withNoise()
+    .build()
+
+
   var switch = newStandardSwitch(some(nodekey), hostAddress,
     transportFlags = {ServerFlags.ReuseAddr}, rng = rng)
   # TODO Untested - verify behavior after switch interface change
@@ -170,7 +189,6 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     enr: enr,
     filters: initTable[string, Filter]()
   )
-
   return wakuNode
 
 proc subscribe(node: WakuNode, topic: Topic, handler: Option[TopicHandler]) =
