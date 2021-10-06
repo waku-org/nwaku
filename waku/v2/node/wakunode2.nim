@@ -307,24 +307,6 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) {.async, gcsaf
   debug "publish", topic=topic, contentTopic=message.contentTopic
   var publishingMessage = message
 
-  when defined(rln):
-    # check whether rlnrelay is mounted
-    if not node.wakuRlnRelay.isNil:
-      # check the pubsub topic
-      if node.wakuRlnRelay.pubsubTopic == topic:
-        var epoch: Epoch 
-        let 
-          nonSpamProof = node.wakuRlnRelay.rlnInstance.proofGen(data = message.payload, 
-                                                        memKeys = node.wakuRlnRelay.membershipKeyPair, 
-                                                        memIndex = node.wakuRlnRelay.membershipIndex, 
-                                                        epoch = epoch)
-          ## TODO here  since the message is immutable we have to make a copy of it and then attach the proof to its duplicate 
-          ## TODO however, it might be better to change message type to mutable (i.e., var) so that we can add the proof field to the original message
-          publishingMessage = WakuMessage(payload: message.payload, 
-                                          contentTopic: message.contentTopic, 
-                                          version: message.version, 
-                                          proof: nonSpamProof)
-
   let data = message.encode().buffer
 
   discard await wakuRelay.publish(topic, data)

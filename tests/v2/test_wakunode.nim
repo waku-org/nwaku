@@ -584,61 +584,6 @@ procSuite "WakuNode":
     await node3.stop()
   
   when defined(rln):
-    asyncTest "testing rln-relay with mocked zkp":
-    
-      let
-        # publisher node
-        nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-        node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
-        # Relay node
-        nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-        node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
-        # Subscriber
-        nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-        node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
-
-        pubSubTopic = "defaultTopic"
-        contentTopic1 = ContentTopic("/waku/2/default-content/proto")
-        payload = "hello world".toBytes()
-        message1 = WakuMessage(payload: payload, contentTopic: contentTopic1)
-
-      # start all the nodes
-      await node1.start()
-      node1.mountRelay(@[pubSubTopic])
-
-      await node2.start()
-      node2.mountRelay(@[pubSubTopic])
-      node2.addRLNRelayValidator(pubSubTopic)
-
-      await node3.start()
-      node3.mountRelay(@[pubSubTopic])
-
-      await node1.connectToNodes(@[node2.peerInfo])
-      await node3.connectToNodes(@[node2.peerInfo])
-
-      var completionFut = newFuture[bool]()
-      proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-        let msg = WakuMessage.init(data)
-        if msg.isOk():
-          let val = msg.value()
-          debug "The received topic:", topic
-          if topic == pubSubTopic:
-            completionFut.complete(true)
-
-
-      node3.subscribe(pubSubTopic, relayHandler)
-      await sleepAsync(2000.millis)
-
-      await node1.publish(pubSubTopic, message1)
-      await sleepAsync(2000.millis)
-
-
-      check:
-        (await completionFut.withTimeout(10.seconds)) == true
-      
-      await node1.stop()
-      await node2.stop()
-      await node3.stop()
     asyncTest "testing rln-relay with actual zkp":
     
       let
@@ -653,11 +598,10 @@ procSuite "WakuNode":
         node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
 
         pubSubTopic = "/waku/2/spam-protection/proto"
-        contentTopic1 = ContentTopic("/waku/2/default-content/proto")
-        payload = "hello world".toBytes()
-        message1 = WakuMessage(payload: payload, contentTopic: contentTopic1)
+        contentTopic = ContentTopic("/waku/2/default-content/proto")
 
-      
+      # set up three nodes
+      # node1
       node1.mountRelay(@[pubSubTopic]) 
       let (groupOpt1, memKeyPairOpt1, memIndexOpt1) = rlnRelaySetUp(1) # set up rln relay inputs
       # mount rlnrelay in off-chain mode
@@ -668,7 +612,7 @@ procSuite "WakuNode":
                                   pubsubTopic = pubSubTopic)
       await node1.start() 
 
-      
+      # node 2
       node2.mountRelay(@[pubSubTopic])
       let (groupOpt2, memKeyPairOpt2, memIndexOpt2) = rlnRelaySetUp(2) # set up rln relay inputs
       # mount rlnrelay in off-chain mode
@@ -679,7 +623,7 @@ procSuite "WakuNode":
                                   pubsubTopic = pubSubTopic)
       await node2.start()
 
-      
+      # node 3
       node3.mountRelay(@[pubSubTopic])
       let (groupOpt3, memKeyPairOpt3, memIndexOpt3) = rlnRelaySetUp(3) # set up rln relay inputs
       # mount rlnrelay in off-chain mode
@@ -690,6 +634,7 @@ procSuite "WakuNode":
                                   pubsubTopic = pubSubTopic)
       await node3.start()
 
+      # connect them together
       await node1.connectToNodes(@[node2.peerInfo])
       await node3.connectToNodes(@[node2.peerInfo])
 
@@ -706,7 +651,26 @@ procSuite "WakuNode":
       node3.subscribe(pubSubTopic, relayHandler)
       await sleepAsync(2000.millis)
 
-      await node1.publish(pubSubTopic, message1)
+      # prepare the message payload
+      var payload {.noinit.}: array[32, byte]
+      for x in payload.mitems: x = 1
+      # let message1 = WakuMessage(payload: @payload, contentTopic: contentTopic1)
+
+      # prepare the epoch
+      var epoch {.noinit.}: Epoch
+      for x in epoch.mitems: x = 2
+
+      # prepare the proof
+      let nonSpamProof = node1.wakuRlnRelay.rlnInstance.proofGen(data = payload, 
+                                                                memKeys = node1.wakuRlnRelay.membershipKeyPair, 
+                                                                memIndex = node1.wakuRlnRelay.membershipIndex, 
+                                                                epoch = epoch)
+      let message = WakuMessage(payload: @payload, 
+                                contentTopic: contentTopic,  
+                                proof: nonSpamProof)
+
+
+      await node1.publish(pubSubTopic, message)
       await sleepAsync(2000.millis)
 
 
