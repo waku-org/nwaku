@@ -640,7 +640,7 @@ procSuite "WakuNode":
       await node1.connectToNodes(@[node2.peerInfo])
       await node3.connectToNodes(@[node2.peerInfo])
       
-      # setup relay handler
+      # define a custom relay handler
       var completionFut = newFuture[bool]()
       proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
         let msg = WakuMessage.init(data)
@@ -650,7 +650,7 @@ procSuite "WakuNode":
           if topic == rlnRelayPubSubTopic:
             completionFut.complete(true)
 
-      # mount a custom relay handler
+      # mount the relay handler
       node3.subscribe(rlnRelayPubSubTopic, relayHandler)
       await sleepAsync(2000.millis)
 
@@ -738,7 +738,7 @@ procSuite "WakuNode":
       await node1.connectToNodes(@[node2.peerInfo])
       await node3.connectToNodes(@[node2.peerInfo])
       
-      # setup relay handler
+      # define a custom relay handler
       var completionFut = newFuture[bool]()
       proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
         let msg = WakuMessage.init(data)
@@ -748,7 +748,7 @@ procSuite "WakuNode":
           if topic == rlnRelayPubSubTopic:
             completionFut.complete(true)
 
-      # mount a custom relay handler
+      # mount the relay handler
       node3.subscribe(rlnRelayPubSubTopic, relayHandler)
       await sleepAsync(2000.millis)
 
@@ -777,8 +777,8 @@ procSuite "WakuNode":
       await node1.publish(rlnRelayPubSubTopic, message)
       await sleepAsync(2000.millis)
 
-
       check:
+        # the relayHandler of node3 never gets called
         (await completionFut.withTimeout(10.seconds)) == false
       
       await node1.stop()
