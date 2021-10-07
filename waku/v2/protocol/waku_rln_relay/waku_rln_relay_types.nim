@@ -40,10 +40,14 @@ type NonSpamProof* = object
   shareY*: MerkleNode
   nullifier*: Nullifier
   
+type MembershipIndex* = uint
 
 type WakuRLNRelay* = ref object 
   membershipKeyPair*: MembershipKeyPair
-  membershipIndex*: uint # index of peers in the Merkle tree
+  # membershipIndex denotes the index of a leaf in the Merkle tree 
+  # that contains the pk of the current peer
+  # this index is used to retrieve the peer's authentication path
+  membershipIndex*: MembershipIndex 
   membershipContractAddress*: Address
   ethClientAddress*: string
   ethAccountAddress*: Address
@@ -54,7 +58,6 @@ type WakuRLNRelay* = ref object
   rlnInstance*: RLN[Bn256]
   pubsubTopic*: string # the pubsub topic for which rln relay is mounted
   
-type MembershipIndex* = uint
 
 # inputs of the membership contract constructor
 # TODO may be able to make these constants private and put them inside the waku_rln_relay_utils
