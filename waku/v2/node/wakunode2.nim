@@ -322,8 +322,6 @@ proc lightpush*(node: WakuNode, topic: Topic, message: WakuMessage, handler: Pus
   let rpc = PushRequest(pubSubTopic: topic, message: message)
   await node.wakuLightPush.request(rpc, handler)
 
-  # TODO create zkp proof
-
 proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
   ## Queries known nodes for historical messages. Triggers the handler whenever a response is received.
   ## QueryHandlerFunc is a method that takes a HistoryResponse.
@@ -412,7 +410,7 @@ when defined(rln):
         #  check the proof
         if node.wakuRlnRelay.rlnInstance.proofVrfy(msg.value().payload, msg.value().proof):
           return ValidationResult.Accept
-    # set a validator for the pubsubTopic 
+    # set a validator for the supplied pubsubTopic 
     let pb  = PubSub(node.wakuRelay)
     pb.addValidator(pubsubTopic, validator)
 
