@@ -838,7 +838,7 @@ when isMainModule:
                           conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
                           extIp, extPort,
                           pStorage,
-                          conf.maxConnections)
+                          conf.maxConnections.int)
     
     ok(node)
 
