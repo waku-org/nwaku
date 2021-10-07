@@ -648,7 +648,7 @@ procSuite "WakuNode":
           if topic == pubSubTopic:
             completionFut.complete(true)
 
-
+      # mount a custom relay handler
       node3.subscribe(pubSubTopic, relayHandler)
       await sleepAsync(2000.millis)
 
@@ -670,6 +670,9 @@ procSuite "WakuNode":
                                 proof: nonSpamProof)
 
 
+      ## node1 publishes a message with a non-spam proof, the message is then relayed to node2 which in turn 
+      ## verifies the non-spam proof of the message and relays the message to node3
+      ## verification at node2 occurs inside a topic validator which is installed as part of the waku-rln-relay mount proc
       await node1.publish(pubSubTopic, message)
       await sleepAsync(2000.millis)
 
