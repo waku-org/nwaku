@@ -5,9 +5,10 @@ import
   chronos, chronicles, metrics,
   libp2p/multistream,
   ./waku_peer_store,
-  ../storage/peer/peer_storage
+  ../storage/peer/peer_storage,
+  ../../utils/peers
 
-export waku_peer_store, peer_storage
+export waku_peer_store, peer_storage, peers
 
 declareCounter waku_peers_dials, "Number of peer dials", ["outcome"]
 declarePublicGauge waku_peers_errors, "Number of peer manager errors", ["type"]
@@ -28,10 +29,10 @@ let
 # Helper functions #
 ####################
 
-proc toPeerInfo*(storedInfo: StoredInfo): PeerInfo =
-  PeerInfo.init(peerId = storedInfo.peerId,
-                addrs = toSeq(storedInfo.addrs),
-                protocols = toSeq(storedInfo.protos))
+proc toRemotePeerInfo*(storedInfo: StoredInfo): RemotePeerInfo =
+  RemotePeerInfo.init(peerId = storedInfo.peerId,
+                      addrs = toSeq(storedInfo.addrs),
+                      protocols = toSeq(storedInfo.protos))
 
 proc insertOrReplace(ps: PeerStorage,
                      peerId: PeerID,
@@ -125,8 +126,8 @@ proc new*(T: type PeerManager, switch: Switch, storage: PeerStorage = nil): Peer
   
   debug "creating new PeerManager"
 
-  proc peerHook(peerInfo: PeerInfo, event: ConnEvent): Future[void] {.gcsafe.} =
-    onConnEvent(pm, peerInfo.peerId, event)
+  proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
+    onConnEvent(pm, peerId, event)
   
   pm.switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
   pm.switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
@@ -155,7 +156,7 @@ proc peers*(pm: PeerManager, protocolMatcher: Matcher): seq[StoredInfo] =
   # Return the known info for all peers matching the provided protocolMatcher
   pm.peers.filter(proc (storedInfo: StoredInfo): bool = storedInfo.protos.anyIt(protocolMatcher(it)))
 
-proc connectedness*(pm: PeerManager, peerId: PeerId): Connectedness =
+proc connectedness*(pm: PeerManager, peerId: PeerID): Connectedness =
   # Return the connection state of the given, managed peer
   # @TODO the PeerManager should keep and update local connectedness state for peers, redial on disconnect, etc.
   # @TODO richer return than just bool, e.g. add enum "CanConnect", "CannotConnect", etc. based on recent connection attempts
@@ -168,10 +169,10 @@ proc connectedness*(pm: PeerManager, peerId: PeerId): Connectedness =
   else:
     pm.peerStore.connectionBook.get(peerId)
 
-proc hasPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string): bool =
+proc hasPeer*(pm: PeerManager, peerId: PeerID, proto: string): bool =
   # Returns `true` if peer is included in manager for the specified protocol
 
-  pm.peerStore.get(peerInfo.peerId).protos.contains(proto)
+  pm.peerStore.get(peerId).protos.contains(proto)
 
 proc hasPeers*(pm: PeerManager, proto: string): bool =
   # Returns `true` if manager has any peers for the specified protocol
@@ -181,33 +182,33 @@ proc hasPeers*(pm: PeerManager, protocolMatcher: Matcher): bool =
   # Returns `true` if manager has any peers matching the protocolMatcher
   pm.peers.any(proc (storedInfo: StoredInfo): bool = storedInfo.protos.anyIt(protocolMatcher(it)))
 
-proc addPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string) =
+proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string) =
   # Adds peer to manager for the specified protocol
 
-  if peerInfo.peerId == pm.switch.peerInfo.peerId:
+  if remotePeerInfo.peerId == pm.switch.peerInfo.peerId:
     # Do not attempt to manage our unmanageable self
     return
   
-  debug "Adding peer to manager", peerId = peerInfo.peerId, addr = peerInfo.addrs[0], proto = proto
+  debug "Adding peer to manager", peerId = remotePeerInfo.peerId, addr = remotePeerInfo.addrs[0], proto = proto
   
   # ...known addresses
-  for multiaddr in peerInfo.addrs:
-    pm.peerStore.addressBook.add(peerInfo.peerId, multiaddr)
+  for multiaddr in remotePeerInfo.addrs:
+    pm.peerStore.addressBook.add(remotePeerInfo.peerId, multiaddr)
   
   # ...public key
   var publicKey: PublicKey
-  discard peerInfo.peerId.extractPublicKey(publicKey)
+  discard remotePeerInfo.peerId.extractPublicKey(publicKey)
 
-  pm.peerStore.keyBook.set(peerInfo.peerId, publicKey)
+  pm.peerStore.keyBook.set(remotePeerInfo.peerId, publicKey)
 
   # ...associated protocols
-  pm.peerStore.protoBook.add(peerInfo.peerId, proto)
+  pm.peerStore.protoBook.add(remotePeerInfo.peerId, proto)
 
   # Add peer to storage. Entry will subsequently be updated with connectedness information
   if not pm.storage.isNil:
-    pm.storage.insertOrReplace(peerInfo.peerId, pm.peerStore.get(peerInfo.peerId), NotConnected)
+    pm.storage.insertOrReplace(remotePeerInfo.peerId, pm.peerStore.get(remotePeerInfo.peerId), NotConnected)
 
-proc selectPeer*(pm: PeerManager, proto: string): Option[PeerInfo] =
+proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
   # Selects the best peer for a given protocol
   let peers = pm.peers.filterIt(it.protos.contains(proto))
 
@@ -215,9 +216,9 @@ proc selectPeer*(pm: PeerManager, proto: string): Option[PeerInfo] =
      # @TODO proper heuristic here that compares peer scores and selects "best" one. For now the first peer for the given protocol is returned
     let peerStored = peers[0]
 
-    return some(peerStored.toPeerInfo())
+    return some(peerStored.toRemotePeerInfo())
   else:
-    return none(PeerInfo)
+    return none(RemotePeerInfo)
 
 proc reconnectPeers*(pm: PeerManager,
                      proto: string,
@@ -249,9 +250,9 @@ proc reconnectPeers*(pm: PeerManager,
     
     # Add to protos for peer, if it has not been added yet
     if not pm.peerStore.get(storedInfo.peerId).protos.contains(proto):
-      let peerInfo = storedInfo.toPeerInfo()
-      trace "Adding newly dialed peer to manager", peerId = peerInfo.peerId, addr = peerInfo.addrs[0], proto = proto
-      pm.addPeer(peerInfo, proto)
+      let remotePeerInfo = storedInfo.toRemotePeerInfo()
+      trace "Adding newly dialed peer to manager", peerId = remotePeerInfo.peerId, addr = remotePeerInfo.addrs[0], proto = proto
+      pm.addPeer(remotePeerInfo, proto)
 
     trace "Reconnecting to peer", peerId=storedInfo.peerId
     discard await pm.dialPeer(storedInfo.peerId, toSeq(storedInfo.addrs), proto)
@@ -260,17 +261,31 @@ proc reconnectPeers*(pm: PeerManager,
 # Dialer interface #
 ####################
 
-proc dialPeer*(pm: PeerManager, peerInfo: PeerInfo, proto: string, dialTimeout = defaultDialTimeout): Future[Option[Connection]] {.async.} =
+proc dialPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string, dialTimeout = defaultDialTimeout): Future[Option[Connection]] {.async.} =
   # Dial a given peer and add it to the list of known peers
   # @TODO check peer validity and score before continuing. Limit number of peers to be managed.
   
   # First add dialed peer info to peer store, if it does not exist yet...
-  if not pm.hasPeer(peerInfo, proto):
-    trace "Adding newly dialed peer to manager", peerId = peerInfo.peerId, addr = peerInfo.addrs[0], proto = proto
-    pm.addPeer(peerInfo, proto)
+  if not pm.hasPeer(remotePeerInfo.peerId, proto):
+    trace "Adding newly dialed peer to manager", peerId = remotePeerInfo.peerId, addr = remotePeerInfo.addrs[0], proto = proto
+    pm.addPeer(remotePeerInfo, proto)
   
-  if peerInfo.peerId == pm.switch.peerInfo.peerId:
+  if remotePeerInfo.peerId == pm.switch.peerInfo.peerId:
     # Do not attempt to dial self
     return none(Connection)
 
-  return await pm.dialPeer(peerInfo.peerId, peerInfo.addrs, proto, dialTimeout)
+  return await pm.dialPeer(remotePeerInfo.peerId, remotePeerInfo.addrs, proto, dialTimeout)
+
+proc dialPeer*(pm: PeerManager, peerId: PeerID, proto: string, dialTimeout = defaultDialTimeout): Future[Option[Connection]] {.async.} =
+  # Dial an existing peer by looking up it's existing addrs in the switch's peerStore
+  # @TODO check peer validity and score before continuing. Limit number of peers to be managed.
+   
+  if peerId == pm.switch.peerInfo.peerId:
+    # Do not attempt to dial self
+    return none(Connection)
+
+  let addrs = toSeq(pm.switch.peerStore.addressBook.get(peerId))
+  if addrs.len == 0:
+    return none(Connection)
+
+  return await pm.dialPeer(peerId, addrs, proto, dialTimeout)
