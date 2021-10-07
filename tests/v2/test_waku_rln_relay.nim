@@ -601,11 +601,9 @@ suite "Waku rln relay":
     
     # prepare the input
     # TODO should add support for arbitrary messages, the following input is artificial 
-    var
-      hashInput : array[32, byte]
+    var hashInput : array[32, byte]
     for x in hashInput.mitems: x= 1
-    var hashInputHex = hashInput.toHex()
-    debug "sample_hash_input_bytes", hashInputHex
+    debug "sample_hash_input_bytes", hashInputHex=hashInput.toHex()
 
     let hash = rln.hash(hashInput)
     doAssert("53a6338cdbf02f0563cec1898e354d0d272c8f98b606c538945c6f41ef101828" == hash.toHex())
