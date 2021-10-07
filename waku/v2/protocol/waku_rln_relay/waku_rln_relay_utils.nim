@@ -103,12 +103,15 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   return true 
 
 proc toBuffer*(x: openArray[byte]): Buffer =
+  ## converts the input to a Buffer object
+  ## the Buffer object is used to communicate data with the rln lib
   var temp = @x
   let output = Buffer(`ptr`: addr(temp[0]), len: uint(temp.len))
   return output
 
-proc hash*(rlnInstance: RLN[Bn256], data: openArray[byte]): MerkleNode =   
-  debug "hash input in hex", hashhex=data.toHex()
+proc hash*(rlnInstance: RLN[Bn256], data: openArray[byte]): MerkleNode = 
+  ## a thin layer on top of the Nim wrapper of the Poseidon hasher  
+  debug "hash input", hashhex=data.toHex()
   var 
     hashInputBuffer = data.toBuffer()
     outputBuffer: Buffer # will holds the hash output
@@ -123,9 +126,7 @@ proc hash*(rlnInstance: RLN[Bn256], data: openArray[byte]): MerkleNode =
 
 proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: MembershipKeyPair, memIndex: MembershipIndex, epoch: Epoch): NonSpamProof = 
 
-  # # TODO to implement the actual proof generation logic
-  var auth = memKeys
-  var skBuffer = Buffer(`ptr`: addr(auth.idKey[0]), len: 32)
+  var skBuffer = toBuffer(memKeys.idKey)
 
   # peer's index in the Merkle Tree
   var index = memIndex
@@ -133,23 +134,23 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: Membersh
   # prepare the authentication object with peer's index and sk
   var authObj: Auth = Auth(secret_buffer: addr skBuffer, index: index)
   # prepare the epoch
-  var  epochBytes : array[32,byte]
-  for x in epochBytes.mitems : x = 0
-  var epochHex = epochBytes.toHex()
-  debug "epoch in bytes", epochHex
+  # var  epochBytes : array[32,byte]
+  # for x in epochBytes.mitems : x = 0
+  # var epochHex = epochBytes.toHex()
+  # debug "epoch in bytes", epochHex
 
 
   # serialize message and epoch 
   # TODO add a proc for serializing
-  var epochMessage = @epochBytes & @data
-  doAssert(epochMessage.len == 64)
+  var epochMessage = @epoch & @data
+
   # convert the seq to an array
   var inputBytes{.noinit.}: array[64, byte] # holds epoch||Message 
   for (i, x) in inputBytes.mpairs: x = epochMessage[i]
-  var inputHex = inputBytes.toHex()
-  debug "serialized epoch and message ", inputHex
+  debug "serialized epoch and message ", inputHex=inputBytes.toHex()
+
   # put the serialized epoch||message into a buffer
-  var inputBuffer = Buffer(`ptr`: addr(inputBytes[0]), len: 64)
+  var inputBuffer = toBuffer(inputBytes)
 
   # generate the proof
   var proof: Buffer
@@ -158,9 +159,9 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: Membersh
   doAssert(proofIsSuccessful)
   var proofValue = cast[ptr array[416,byte]] (proof.`ptr`)
   let proofBytes: array[416,byte] = proofValue[]
-  let proofHex = proofValue[].toHex
-  debug "proof content", proofHex
+  debug "proof content", proofHex=proofValue[].toHex
 
+  ## parse the proof as |zkSNARKs<256>|root<32>|epoch<32>|share_x<32>|share_y<32>|nullifier<32>|
   let 
     proofOffset = 256
     rootOffset = proofOffset + 32
@@ -168,9 +169,7 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: Membersh
     shareXOffset = epochOffset + 32
     shareYOffset = shareXOffset + 32
     nullifierOffset = shareYOffset + 32
-  
-  # var zkSNARKBytes: ZKSNARK 
-  # for x in zkSNARKBytes: x = 
+
   var 
     zkproof: ZKSNARK 
     proofRoot, shareX, shareY: MerkleNode
