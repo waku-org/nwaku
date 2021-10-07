@@ -295,9 +295,7 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) {.async, gcsaf
   ## be omitted.
   ##
   ## Status: Implemented.
-  
-  # TODO When rlnRelayEnabled is true, a zkp will be generated and attached to the message (it is an experimental feature)
-  
+    
   if node.wakuRelay.isNil:
     error "Invalid API call to `publish`. WakuRelay not mounted. Try `lightpush` instead."
     # @TODO improved error handling
