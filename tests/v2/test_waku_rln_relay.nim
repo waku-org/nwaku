@@ -651,7 +651,7 @@ suite "Waku rln relay":
     var  epochBytes : array[32,byte]
     for x in epochBytes.mitems : x = 0
     var epochHex = epochBytes.toHex()
-    debug "epoch in bytes", epochHex
+    debug "epoch", epochHex
 
 
     # serialize message and epoch 
@@ -817,7 +817,7 @@ suite "Waku rln relay":
     # prepare the epoch
     var  epoch : Epoch
     for x in epoch.mitems : x = 0
-    debug "epoch in bytes", epochHex=epoch.toHex()
+    debug "epoch", epochHex=epoch.toHex()
 
     # hash the message
     let msgHash = rln.hash(messageBytes)

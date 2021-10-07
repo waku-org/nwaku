@@ -597,41 +597,41 @@ procSuite "WakuNode":
         nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
         node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
 
-        pubSubTopic = "/waku/2/spam-protection/proto"
+        rlnRelayPubSubTopic = "/waku/2/spam-protection/proto"
         contentTopic = ContentTopic("/waku/2/default-content/proto")
 
       # set up three nodes
       # node1
-      node1.mountRelay(@[pubSubTopic]) 
+      node1.mountRelay(@[rlnRelayPubSubTopic]) 
       let (groupOpt1, memKeyPairOpt1, memIndexOpt1) = rlnRelaySetUp(1) # set up rln relay inputs
       # mount rlnrelay in off-chain mode
       waitFor node1.mountRlnRelay(groupOpt = groupOpt1,
                                   memKeyPairOpt = memKeyPairOpt1, 
                                   memIndexOpt= memIndexOpt1, 
                                   onchainMode = false, 
-                                  pubsubTopic = pubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic)
       await node1.start() 
 
       # node 2
-      node2.mountRelay(@[pubSubTopic])
+      node2.mountRelay(@[rlnRelayPubSubTopic])
       let (groupOpt2, memKeyPairOpt2, memIndexOpt2) = rlnRelaySetUp(2) # set up rln relay inputs
       # mount rlnrelay in off-chain mode
       waitFor node2.mountRlnRelay(groupOpt = groupOpt2, 
                                   memKeyPairOpt = memKeyPairOpt2, 
                                   memIndexOpt= memIndexOpt2, 
                                   onchainMode = false, 
-                                  pubsubTopic = pubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic)
       await node2.start()
 
       # node 3
-      node3.mountRelay(@[pubSubTopic])
+      node3.mountRelay(@[rlnRelayPubSubTopic])
       let (groupOpt3, memKeyPairOpt3, memIndexOpt3) = rlnRelaySetUp(3) # set up rln relay inputs
       # mount rlnrelay in off-chain mode
       waitFor node3.mountRlnRelay(groupOpt = groupOpt3, 
                                   memKeyPairOpt = memKeyPairOpt3, 
                                   memIndexOpt= memIndexOpt3, 
                                   onchainMode = false, 
-                                  pubsubTopic = pubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic)
       await node3.start()
 
       # connect them together
@@ -645,11 +645,11 @@ procSuite "WakuNode":
         if msg.isOk():
           let val = msg.value()
           debug "The received topic:", topic
-          if topic == pubSubTopic:
+          if topic == rlnRelayPubSubTopic:
             completionFut.complete(true)
 
       # mount a custom relay handler
-      node3.subscribe(pubSubTopic, relayHandler)
+      node3.subscribe(rlnRelayPubSubTopic, relayHandler)
       await sleepAsync(2000.millis)
 
       # prepare the message payload
@@ -673,7 +673,7 @@ procSuite "WakuNode":
       ## node1 publishes a message with a non-spam proof, the message is then relayed to node2 which in turn 
       ## verifies the non-spam proof of the message and relays the message to node3
       ## verification at node2 occurs inside a topic validator which is installed as part of the waku-rln-relay mount proc
-      await node1.publish(pubSubTopic, message)
+      await node1.publish(rlnRelayPubSubTopic, message)
       await sleepAsync(2000.millis)
 
 
@@ -695,41 +695,41 @@ procSuite "WakuNode":
         nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
         node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
 
-        pubSubTopic = "/waku/2/spam-protection/proto"
+        rlnRelayPubSubTopic = "/waku/2/spam-protection/proto"
         contentTopic = ContentTopic("/waku/2/default-content/proto")
 
       # set up three nodes
       # node1
-      node1.mountRelay(@[pubSubTopic]) 
+      node1.mountRelay(@[rlnRelayPubSubTopic]) 
       let (groupOpt1, memKeyPairOpt1, memIndexOpt1) = rlnRelaySetUp(1) # set up rln relay inputs
       # mount rlnrelay in off-chain mode
       waitFor node1.mountRlnRelay(groupOpt = groupOpt1,
                                   memKeyPairOpt = memKeyPairOpt1, 
                                   memIndexOpt= memIndexOpt1, 
                                   onchainMode = false, 
-                                  pubsubTopic = pubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic)
       await node1.start() 
 
       # node 2
-      node2.mountRelay(@[pubSubTopic])
+      node2.mountRelay(@[rlnRelayPubSubTopic])
       let (groupOpt2, memKeyPairOpt2, memIndexOpt2) = rlnRelaySetUp(2) # set up rln relay inputs
       # mount rlnrelay in off-chain mode
       waitFor node2.mountRlnRelay(groupOpt = groupOpt2, 
                                   memKeyPairOpt = memKeyPairOpt2, 
                                   memIndexOpt= memIndexOpt2, 
                                   onchainMode = false, 
-                                  pubsubTopic = pubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic)
       await node2.start()
 
       # node 3
-      node3.mountRelay(@[pubSubTopic])
+      node3.mountRelay(@[rlnRelayPubSubTopic])
       let (groupOpt3, memKeyPairOpt3, memIndexOpt3) = rlnRelaySetUp(3) # set up rln relay inputs
       # mount rlnrelay in off-chain mode
       waitFor node3.mountRlnRelay(groupOpt = groupOpt3, 
                                   memKeyPairOpt = memKeyPairOpt3, 
                                   memIndexOpt= memIndexOpt3, 
                                   onchainMode = false, 
-                                  pubsubTopic = pubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic)
       await node3.start()
 
       # connect them together
@@ -738,18 +738,16 @@ procSuite "WakuNode":
       
       # setup relay handler
       var completionFut = newFuture[bool]()
-      var count = 0
       proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
         let msg = WakuMessage.init(data)
         if msg.isOk():
           let val = msg.value()
           debug "The received topic:", topic
-          if topic == pubSubTopic:
+          if topic == rlnRelayPubSubTopic:
             completionFut.complete(true)
-            count = count + 1
 
       # mount a custom relay handler
-      node3.subscribe(pubSubTopic, relayHandler)
+      node3.subscribe(rlnRelayPubSubTopic, relayHandler)
       await sleepAsync(2000.millis)
 
       # prepare the message payload
@@ -774,7 +772,7 @@ procSuite "WakuNode":
       ## attempts to verify the non-spam proof and fails hence does not relay the message to node3, thus the relayHandler of node3
       ## never gets called
       ## verification at node2 occurs inside a topic validator which is installed as part of the waku-rln-relay mount proc
-      await node1.publish(pubSubTopic, message)
+      await node1.publish(rlnRelayPubSubTopic, message)
       await sleepAsync(2000.millis)
 
 
