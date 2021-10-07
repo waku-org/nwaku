@@ -14,6 +14,7 @@ logScope:
 
 type RLNResult* = Result[RLN[Bn256], string]
 type MerkleNodeResult* = Result[MerkleNode, string]
+type NonSpamProofResult* = Result[NonSpamProof, string]
 # membership contract interface
 contract(MembershipContract):
   # TODO define a return type of bool for register method to signify a successful registration
@@ -124,7 +125,7 @@ proc hash*(rlnInstance: RLN[Bn256], data: openArray[byte]): MerkleNode =
 
   return output
 
-proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: MembershipKeyPair, memIndex: MembershipIndex, epoch: Epoch): NonSpamProof = 
+proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: MembershipKeyPair, memIndex: MembershipIndex, epoch: Epoch): NonSpamProofResult = 
 
   var skBuffer = toBuffer(memKeys.idKey)
 
@@ -133,12 +134,6 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: Membersh
 
   # prepare the authentication object with peer's index and sk
   var authObj: Auth = Auth(secret_buffer: addr skBuffer, index: index)
-  # prepare the epoch
-  # var  epochBytes : array[32,byte]
-  # for x in epochBytes.mitems : x = 0
-  # var epochHex = epochBytes.toHex()
-  # debug "epoch in bytes", epochHex
-
 
   # serialize message and epoch 
   # TODO add a proc for serializing
@@ -156,7 +151,9 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: Membersh
   var proof: Buffer
   let proofIsSuccessful = generate_proof(rlnInstance, addr inputBuffer, addr authObj, addr proof)
   # check whether the generate_proof call is done successfully
-  doAssert(proofIsSuccessful)
+  if not proofIsSuccessful:
+    return error("could not generate the proof")
+
   var proofValue = cast[ptr array[416,byte]] (proof.`ptr`)
   let proofBytes: array[416,byte] = proofValue[]
   debug "proof content", proofHex=proofValue[].toHex
@@ -190,9 +187,11 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: Membersh
                             shareY: shareY,
                             nullifier: nullifier)
 
-  return output
+  return ok(output)
 
 proc serializeProof(proof: NonSpamProof): seq[byte] =
+  ## a private proc to convert NonSpamProof to a byte seq
+  ## this conversion is used in the proof verification proc
   var  proofBytes = concat(@(proof.proof),
                           @(proof.merkleRoot),
                           @(proof.epoch),
@@ -209,9 +208,11 @@ proc proofVrfy*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: NonSpamPr
     proofBuffer = proofBytes.toBuffer()
     f = 0.uint32
   debug "serialized proof", proof=proofBytes.toHex()
+
   let verifyIsSuccessful = verify(rlnInstance, addr proofBuffer, addr f)
   if not verifyIsSuccessful:
-    return false # something went wrong in verification
+    # something went wrong in verification
+    return false 
   # f = 0 means the proof is verified
   if f == 0:
     return true

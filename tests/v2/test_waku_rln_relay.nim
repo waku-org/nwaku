@@ -824,11 +824,13 @@ suite "Waku rln relay":
     debug "message hash", mh=byteutils.toHex(msgHash)
 
     # generate proof
-    let proof = rln.proofGen(data = msgHash, 
+    let proofRes = rln.proofGen(data = msgHash, 
                 memKeys = memKeys,
                 memIndex = MembershipIndex(index),
                 epoch = epoch)
-
+    doAssert(proofRest.isSome == true)
+    let proof = proofRes.value
+    
     # verify the proof
     let verified = rln.proofVrfy(data = messageBytes,
                                  proof = proof)

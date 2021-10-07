@@ -663,10 +663,13 @@ procSuite "WakuNode":
       for x in epoch.mitems: x = 2
 
       # prepare the proof
-      let nonSpamProof = node1.wakuRlnRelay.rlnInstance.proofGen(data = payload, 
+      let nonSpamProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = payload, 
                                                                 memKeys = node1.wakuRlnRelay.membershipKeyPair, 
                                                                 memIndex = node1.wakuRlnRelay.membershipIndex, 
                                                                 epoch = epoch)
+      doAssert(nonSpamProofRes.isSome)
+      let nonSpamProof = nonSpamProofRes.value     
+
       let message = WakuMessage(payload: @payload, 
                                 contentTopic: contentTopic,  
                                 proof: nonSpamProof)
@@ -761,10 +764,13 @@ procSuite "WakuNode":
       for x in epoch.mitems: x = 2
 
       # prepare the proof
-      let nonSpamProof = node1.wakuRlnRelay.rlnInstance.proofGen(data = payload, 
+      let nonSpamProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = payload, 
                                                                 memKeys = node1.wakuRlnRelay.membershipKeyPair, 
                                                                 memIndex = MembershipIndex(4), 
                                                                 epoch = epoch)
+      doAssert(nonSpamProofRes.isSome)
+      let nonSpamProof = nonSpamProofRes.value     
+
       let message = WakuMessage(payload: @payload, 
                                 contentTopic: contentTopic,  
                                 proof: nonSpamProof)
