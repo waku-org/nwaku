@@ -26,6 +26,8 @@ import
 when defined(rln):
   import ../../waku/v2/protocol/waku_rln_relay/[waku_rln_relay_utils, waku_rln_relay_types]
 
+const RLNRELAY_PUBSUB_TOPIC = "waku/2/rlnrelay/proto"
+
 procSuite "WakuNode":
   let rng = keys.newRng()
   asyncTest "Message published with content filter is retrievable":
@@ -597,7 +599,7 @@ procSuite "WakuNode":
         nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
         node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
 
-        rlnRelayPubSubTopic = "/waku/2/spam-protection/proto"
+        rlnRelayPubSubTopic = RLNRELAY_PUBSUB_TOPIC
         contentTopic = ContentTopic("/waku/2/default-content/proto")
 
       # set up three nodes
@@ -695,7 +697,7 @@ procSuite "WakuNode":
         nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
         node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
 
-        rlnRelayPubSubTopic = "/waku/2/spam-protection/proto"
+        rlnRelayPubSubTopic = RLNRELAY_PUBSUB_TOPIC
         contentTopic = ContentTopic("/waku/2/default-content/proto")
 
       # set up three nodes
