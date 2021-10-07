@@ -648,14 +648,13 @@ procSuite "WakuNode":
           if topic == pubSubTopic:
             completionFut.complete(true)
 
-      
+
       node3.subscribe(pubSubTopic, relayHandler)
       await sleepAsync(2000.millis)
 
       # prepare the message payload
       var payload {.noinit.}: array[32, byte]
       for x in payload.mitems: x = 1
-      # let message1 = WakuMessage(payload: @payload, contentTopic: contentTopic1)
 
       # prepare the epoch
       var epoch {.noinit.}: Epoch

@@ -108,15 +108,13 @@ proc toBuffer*(x: openArray[byte]): Buffer =
   return output
 
 proc hash*(rlnInstance: RLN[Bn256], data: openArray[byte]): MerkleNode =   
-  echo "in hash"
-  echo data.toHex()
+  debug "hash input in hex", hashhex=data.toHex()
   var 
     hashInputBuffer = data.toBuffer()
     outputBuffer: Buffer # will holds the hash output
     numOfInputs = 1.uint # the number of hash inputs that can be 1 or 2
   
-  echo hashInputBuffer.len
-  echo "before hashing"
+  debug "hash input buffer length", bufflen=hashInputBuffer.len
   let 
     hashSuccess = hash(rlnInstance, addr hashInputBuffer, numOfInputs, addr outputBuffer)
     output = cast[ptr MerkleNode](outputBuffer.`ptr`)[]
