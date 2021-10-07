@@ -600,13 +600,14 @@ suite "Waku rln relay":
     let rln = rlnInstance.value
     
     # prepare the input
+    # TODO should add support for arbitrary messages, the following input is artificial 
     var
       hashInput : array[32, byte]
     for x in hashInput.mitems: x= 1
     var hashInputHex = hashInput.toHex()
-
     debug "sample_hash_input_bytes", hashInputHex
-    let hash = rln.hash(@hashInput)
+
+    let hash = rln.hash(hashInput)
     doAssert("53a6338cdbf02f0563cec1898e354d0d272c8f98b606c538945c6f41ef101828" == hash.toHex())
 
   test "generate_proof and verify Nim Wrappers":
@@ -761,6 +762,7 @@ suite "Waku rln relay":
       shareX: MerkleNode
       shareY: MerkleNode
       nullifier: Nullifier
+    # populate fields with dummy values
     for x in proof.mitems : x = 1
     for x in merkleRoot.mitems : x = 2
     for x in epoch.mitems : x = 3
@@ -782,15 +784,14 @@ suite "Waku rln relay":
       decodednsp.isErr == false
       decodednsp.value == nsp
 
-  test "proofVrfy and proofGen test":
+  test "test proofVrfy and proofGen for a valid proof":
     var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
     var rln = rlnInstance.value
 
-    
     let 
-      # create the membership key
+      # create a membership key pair
       memKeys = membershipKeyGen(rln).get()
       # peer's index in the Merkle Tree
       index = 5
@@ -813,19 +814,16 @@ suite "Waku rln relay":
     # TODO in  practice we should be able to pick messages of arbitrary size and format
     var messageBytes {.noinit.}: array[32, byte]
     for x in messageBytes.mitems: x = 1
-    var messageHex = messageBytes.toHex()
-    debug "message", messageHex
+    debug "message", messageHex=messageBytes.toHex()
 
     # prepare the epoch
     var  epoch : Epoch
     for x in epoch.mitems : x = 0
-    var epochHex = epoch.toHex()
-    debug "epoch in bytes", epochHex
+    debug "epoch in bytes", epochHex=epoch.toHex()
 
     # hash the message
-    let msgHash = @(rln.hash(messageBytes))
-    let msgHashHex = byteutils.toHex(msgHash)
-    debug "message hash", mh=msgHashHex
+    let msgHash = rln.hash(messageBytes)
+    debug "message hash", mh=byteutils.toHex(msgHash)
 
     # generate proof
     let proof = rln.proofGen(data = msgHash, 
@@ -835,18 +833,17 @@ suite "Waku rln relay":
 
     # verify the proof
     let verified = rln.proofVrfy(data = messageBytes,
-                      proof = proof)
+                                 proof = proof)
     check verified == true
 
-  test "proofVrfy and proofGen unhappy test":
+  test "test proofVrfy and proofGen for an invalid proof":
     var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
     var rln = rlnInstance.value
 
-    
     let 
-      # create the membership key
+      # create a membership key pair
       memKeys = membershipKeyGen(rln).get()
       # peer's index in the Merkle Tree
       index = 5
@@ -869,19 +866,16 @@ suite "Waku rln relay":
     # TODO in  practice we should be able to pick messages of arbitrary size and format
     var messageBytes {.noinit.}: array[32, byte]
     for x in messageBytes.mitems: x = 1
-    var messageHex = messageBytes.toHex()
-    debug "message", messageHex
+    debug "message", messageHex=messageBytes.toHex()
 
     # prepare the epoch
     var  epoch : Epoch
     for x in epoch.mitems : x = 0
-    var epochHex = epoch.toHex()
-    debug "epoch in bytes", epochHex
+    debug "epoch in bytes", epochHex=epoch.toHex()
 
     # hash the message
-    let msgHash = @(rln.hash(messageBytes))
-    let msgHashHex = byteutils.toHex(msgHash)
-    debug "message hash", mh=msgHashHex
+    let msgHash = rln.hash(messageBytes)
+    debug "message hash", mh=byteutils.toHex(msgHash)
 
     let badIndex = 4
     # generate proof
@@ -892,5 +886,5 @@ suite "Waku rln relay":
 
     # verify the proof (should not be verified)
     let verified = rln.proofVrfy(data = messageBytes,
-                      proof = proof)
+                                 proof = proof)
     check verified == false
