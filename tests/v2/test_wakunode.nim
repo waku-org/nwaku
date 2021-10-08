@@ -780,7 +780,6 @@ procSuite "WakuNode":
       ## never gets called
       ## verification at node2 occurs inside a topic validator which is installed as part of the waku-rln-relay mount proc
       await node1.publish(rlnRelayPubSubTopic, message)
-      await sleepAsync(2000.millis)
 
       check:
         # the relayHandler of node3 never gets called
