@@ -31,11 +31,6 @@ type
       defaultValue: 30303
       name: "devp2p-tcp-port" .}: uint16
 
-    udpPort* {.
-      desc: "UDP listening port"
-      defaultValue: 9000
-      name: "udp-port" .}: uint16
-
     portsShift* {.
       desc: "Add a shift to all default port numbers"
       defaultValue: 0
