@@ -407,8 +407,9 @@ when defined(rln):
       let msg = WakuMessage.init(message.data) 
       if msg.isOk():
         #  check the proof
-        if node.wakuRlnRelay.rlnInstance.proofVrfy(msg.value().payload, msg.value().proof):
+        if node.wakuRlnRelay.rlnInstance.proofVerify(msg.value().payload, msg.value().proof):
           return ValidationResult.Accept
+      return ValidationResult.Reject
     # set a validator for the supplied pubsubTopic 
     let pb  = PubSub(node.wakuRelay)
     pb.addValidator(pubsubTopic, validator)
