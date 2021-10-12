@@ -128,7 +128,8 @@ template tcpEndPoint(address, port): auto =
 proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
     extIp = none[ValidIpAddress](), extPort = none[Port](),
-    peerStorage: PeerStorage = nil): T 
+    peerStorage: PeerStorage = nil,
+    maxConnections = builders.MaxConnections): T 
     {.raises: [Defect, LPError].} =
   ## Creates a Waku Node.
   ##
@@ -153,15 +154,13 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   for multiaddr in announcedAddresses:
     peerInfo.addrs.add(multiaddr) # Announced addresses in index > 0
   
-  var switch = newStandardSwitch(some(nodekey), hostAddress,
-    transportFlags = {ServerFlags.ReuseAddr}, rng = rng)
-  # TODO Untested - verify behavior after switch interface change
-  # More like this:
-  # let pubsub = GossipSub.init(
-  #    switch = switch,
-  #    msgIdProvider = msgIdProvider,
-  #    triggerSelf = true, sign = false,
-  #    verifySignature = false).PubSub
+  var switch = newStandardSwitch(
+    some(nodekey),
+    hostAddress,
+    transportFlags = {ServerFlags.ReuseAddr},
+    rng = rng,
+    maxConnections = maxConnections)
+
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
     switch: switch,
@@ -841,7 +840,8 @@ when isMainModule:
       node = WakuNode.new(conf.nodekey,
                           conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
                           extIp, extPort,
-                          pStorage)
+                          pStorage,
+                          conf.maxConnections.int)
     
     ok(node)
 

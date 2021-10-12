@@ -41,6 +41,11 @@ type
       desc: "Specify method to use for determining public address. " &
             "Must be one of: any, none, upnp, pmp, extip:<IP>."
       defaultValue: "any" }: string
+
+    maxConnections* {.
+      desc: "Maximum allowed number of libp2p connections."
+      defaultValue: 50
+      name: "max-connections" }: uint16
     
     ## Persistence config
     

@@ -835,3 +835,43 @@ procSuite "WakuNode":
 
     await node1.stop()
     await node2.stop()
+
+  asyncTest "Maximum connections can be configured":
+    let
+      maxConnections = 2
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        Port(60010), maxConnections = maxConnections)
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        Port(60012))
+      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"),
+        Port(60013))
+    
+    check:
+      # Sanity check, to verify config was applied
+      node1.switch.connManager.inSema.size == maxConnections
+
+    # Node with connection limit set to 1
+    await node1.start()
+    node1.mountRelay() 
+
+    # Remote node 1
+    await node2.start()
+    node2.mountRelay()
+
+    # Remote node 2
+    await node3.start()
+    node3.mountRelay()
+
+    discard await node1.peerManager.dialPeer(node2.peerInfo.toRemotePeerInfo(), WakuRelayCodec)
+    await sleepAsync(3.seconds)
+    discard await node1.peerManager.dialPeer(node3.peerInfo.toRemotePeerInfo(), WakuRelayCodec)
+
+    check:
+      # Verify that only the first connection succeeded
+      node1.switch.isConnected(node2.peerInfo.peerId)
+      node1.switch.isConnected(node3.peerInfo.peerId) == false
+
+    await allFutures([node1.stop(), node2.stop(), node3.stop()])
