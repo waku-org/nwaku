@@ -18,7 +18,9 @@ proc runBackground() {.async.} =
     conf = WakuNodeConf.load()
     (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
       Port(uint16(conf.tcpPort) + conf.portsShift),
-      Port(uint16(conf.udpPort) + conf.portsShift))
+      # This is actually a UDP port but we're only supplying this value
+      # To satisfy the API.
+      Port(uint16(conf.tcpPort) + conf.portsShift))
     node = WakuNode.new(conf.nodeKey, conf.listenAddress,
       Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
 

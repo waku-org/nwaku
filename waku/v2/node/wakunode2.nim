@@ -128,7 +128,8 @@ template tcpEndPoint(address, port): auto =
 proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
     extIp = none[ValidIpAddress](), extPort = none[Port](),
-    peerStorage: PeerStorage = nil): T 
+    peerStorage: PeerStorage = nil,
+    maxConnections = builders.MaxConnections): T 
     {.raises: [Defect, LPError].} =
   ## Creates a Waku Node.
   ##
@@ -153,15 +154,13 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   for multiaddr in announcedAddresses:
     peerInfo.addrs.add(multiaddr) # Announced addresses in index > 0
   
-  var switch = newStandardSwitch(some(nodekey), hostAddress,
-    transportFlags = {ServerFlags.ReuseAddr}, rng = rng)
-  # TODO Untested - verify behavior after switch interface change
-  # More like this:
-  # let pubsub = GossipSub.init(
-  #    switch = switch,
-  #    msgIdProvider = msgIdProvider,
-  #    triggerSelf = true, sign = false,
-  #    verifySignature = false).PubSub
+  var switch = newStandardSwitch(
+    some(nodekey),
+    hostAddress,
+    transportFlags = {ServerFlags.ReuseAddr},
+    rng = rng,
+    maxConnections = maxConnections)
+
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
     switch: switch,
@@ -815,11 +814,14 @@ when isMainModule:
     ## file. Optionally include persistent peer storage.
     ## No protocols are mounted yet.
 
+    ## `udpPort` is only supplied to satisfy underlying APIs but is not
+    ## actually a supported transport.
+    let udpPort = conf.tcpPort
     let
       (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat,
                                                 clientId,
                                                 Port(uint16(conf.tcpPort) + conf.portsShift),
-                                                Port(uint16(conf.udpPort) + conf.portsShift))
+                                                Port(uint16(udpPort) + conf.portsShift))
       ## @TODO: the NAT setup assumes a manual port mapping configuration if extIp config is set. This probably
       ## implies adding manual config item for extPort as well. The following heuristic assumes that, in absence of manual
       ## config, the external port is the same as the bind port.
@@ -830,7 +832,8 @@ when isMainModule:
       node = WakuNode.new(conf.nodekey,
                           conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
                           extIp, extPort,
-                          pStorage)
+                          pStorage,
+                          conf.maxConnections.int)
     
     ok(node)
 
