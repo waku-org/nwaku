@@ -139,4 +139,4 @@
 	path = vendor/dnsclient.nim
 	url = https://github.com/ba0f3/dnsclient.nim.git
 	ignore = untracked
-	branch = master
+	branch = main
