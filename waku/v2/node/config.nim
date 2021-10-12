@@ -32,11 +32,6 @@ type
       defaultValue: 60000
       name: "tcp-port" }: Port
 
-    udpPort* {.
-      desc: "UDP listening port."
-      defaultValue: 60000
-      name: "udp-port" }: Port
-
     portsShift* {.
       desc: "Add a shift to all port numbers."
       defaultValue: 0
