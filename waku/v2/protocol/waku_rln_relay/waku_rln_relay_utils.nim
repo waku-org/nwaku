@@ -152,7 +152,7 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: Membersh
   let proofIsSuccessful = generate_proof(rlnInstance, addr inputBuffer, addr authObj, addr proof)
   # check whether the generate_proof call is done successfully
   if not proofIsSuccessful:
-    return error("could not generate the proof")
+    return err("could not generate the proof")
 
   var proofValue = cast[ptr array[416,byte]] (proof.`ptr`)
   let proofBytes: array[416,byte] = proofValue[]

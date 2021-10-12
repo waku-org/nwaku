@@ -666,7 +666,7 @@ procSuite "WakuNode":
                                                                 memKeys = node1.wakuRlnRelay.membershipKeyPair, 
                                                                 memIndex = node1.wakuRlnRelay.membershipIndex, 
                                                                 epoch = epoch)
-      doAssert(nonSpamProofRes.isSome)
+      doAssert(nonSpamProofRes.isOk())
       let nonSpamProof = nonSpamProofRes.value     
 
       let message = WakuMessage(payload: @payload, 
