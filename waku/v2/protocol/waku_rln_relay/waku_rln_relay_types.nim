@@ -35,11 +35,18 @@ type MembershipKeyPair* = object
   idCommitment*: IDCommitment 
 
 type RateLimitProof* = object
+  ## RateLimitProof holds the public inputs to rln circuit as defined in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Public-Inputs
+  ## the `proof` field carries the actual zkSNARK proof 
   proof*: ZKSNARK
+  ## the root of Merkle tree used for the generation of the `proof` 
   merkleRoot*: MerkleNode
+  ## the epoch used for the generation of the `proof` 
   epoch*: Epoch
+  ## shareX and shareY are shares of user's identity key
+  ## these shares are created using Shamir secret sharing scheme
   shareX*: MerkleNode
   shareY*: MerkleNode
+  ## nullifier enables linking two messages published during the same epoch
   nullifier*: Nullifier
   
 type MembershipIndex* = uint
