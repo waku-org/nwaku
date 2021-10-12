@@ -662,16 +662,16 @@ procSuite "WakuNode":
       for x in epoch.mitems: x = 2
 
       # prepare the proof
-      let nonSpamProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = payload, 
+      let rateLimitProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = payload, 
                                                                 memKeys = node1.wakuRlnRelay.membershipKeyPair, 
                                                                 memIndex = node1.wakuRlnRelay.membershipIndex, 
                                                                 epoch = epoch)
-      doAssert(nonSpamProofRes.isOk())
-      let nonSpamProof = nonSpamProofRes.value     
+      doAssert(rateLimitProofRes.isOk())
+      let rateLimitProof = rateLimitProofRes.value     
 
       let message = WakuMessage(payload: @payload, 
                                 contentTopic: contentTopic,  
-                                proof: nonSpamProof)
+                                proof: rateLimitProof)
 
 
       ## node1 publishes a message with a non-spam proof, the message is then relayed to node2 which in turn 
@@ -737,8 +737,8 @@ procSuite "WakuNode":
       await node3.start()
 
       # connect them together
-      await node1.connectToNodes(@[node2.peerInfo])
-      await node3.connectToNodes(@[node2.peerInfo])
+      await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
+      await node3.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
       
       # define a custom relay handler
       var completionFut = newFuture[bool]()
@@ -763,16 +763,16 @@ procSuite "WakuNode":
       for x in epoch.mitems: x = 2
 
       # prepare the proof
-      let nonSpamProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = payload, 
+      let rateLimitProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = payload, 
                                                                 memKeys = node1.wakuRlnRelay.membershipKeyPair, 
                                                                 memIndex = MembershipIndex(4), 
                                                                 epoch = epoch)
-      doAssert(nonSpamProofRes.isSome)
-      let nonSpamProof = nonSpamProofRes.value     
+      doAssert(rateLimitProofRes.isOk())
+      let rateLimitProof = rateLimitProofRes.value     
 
       let message = WakuMessage(payload: @payload, 
                                 contentTopic: contentTopic,  
-                                proof: nonSpamProof)
+                                proof: rateLimitProof)
 
 
       ## node1 publishes a message with an invalid non-spam proof, the message is then relayed to node2 which in turn 
@@ -780,6 +780,7 @@ procSuite "WakuNode":
       ## never gets called
       ## verification at node2 occurs inside a topic validator which is installed as part of the waku-rln-relay mount proc
       await node1.publish(rlnRelayPubSubTopic, message)
+      await sleepAsync(2000.millis)
 
       check:
         # the relayHandler of node3 never gets called

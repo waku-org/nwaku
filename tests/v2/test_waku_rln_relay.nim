@@ -752,7 +752,7 @@ suite "Waku rln relay":
       # compare the calculated root against the correct root
       root == STATIC_GROUP_MERKLE_ROOT
   
-  test "NonSpamProof Protobuf encode/init test":
+  test "RateLimitProof Protobuf encode/init test":
     var 
       proof: ZKSNARK
       merkleRoot: MerkleNode
@@ -769,20 +769,20 @@ suite "Waku rln relay":
     for x in nullifier.mitems : x = 6
     
     let 
-      nsp = NonSpamProof(proof: proof,
+      nsp = RateLimitProof(proof: proof,
                           merkleRoot: merkleRoot,
                           epoch: epoch,
                           shareX: shareX,
                           shareY: shareY,
                           nullifier: nullifier)
       protobuf = nsp.encode()
-      decodednsp = NonSpamProof.init(protobuf.buffer)
+      decodednsp = RateLimitProof.init(protobuf.buffer)
 
     check:
       decodednsp.isErr == false
       decodednsp.value == nsp
 
-  test "test proofVrfy and proofGen for a valid proof":
+  test "test proofVerify and proofGen for a valid proof":
     var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
@@ -828,15 +828,16 @@ suite "Waku rln relay":
                 memKeys = memKeys,
                 memIndex = MembershipIndex(index),
                 epoch = epoch)
-    doAssert(proofRest.isSome == true)
+
+    doAssert(proofRes.isOk())
     let proof = proofRes.value
     
     # verify the proof
-    let verified = rln.proofVrfy(data = messageBytes,
+    let verified = rln.proofVerify(data = messageBytes,
                                  proof = proof)
     check verified == true
 
-  test "test proofVrfy and proofGen for an invalid proof":
+  test "test proofVerify and proofGen for an invalid proof":
     var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
@@ -879,12 +880,15 @@ suite "Waku rln relay":
 
     let badIndex = 4
     # generate proof
-    let proof = rln.proofGen(data = msgHash, 
+    let proofRes = rln.proofGen(data = msgHash, 
                 memKeys = memKeys,
                 memIndex = MembershipIndex(badIndex),
                 epoch = epoch)
+    
+    doAssert(proofRes.isOk())
+    let proof = proofRes.value
 
     # verify the proof (should not be verified)
-    let verified = rln.proofVrfy(data = messageBytes,
+    let verified = rln.proofVerify(data = messageBytes,
                                  proof = proof)
     check verified == false

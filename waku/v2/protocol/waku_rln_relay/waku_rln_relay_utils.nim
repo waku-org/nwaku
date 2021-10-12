@@ -14,7 +14,7 @@ logScope:
 
 type RLNResult* = Result[RLN[Bn256], string]
 type MerkleNodeResult* = Result[MerkleNode, string]
-type NonSpamProofResult* = Result[NonSpamProof, string]
+type RateLimitProofResult* = Result[RateLimitProof, string]
 # membership contract interface
 contract(MembershipContract):
   # TODO define a return type of bool for register method to signify a successful registration
@@ -125,7 +125,7 @@ proc hash*(rlnInstance: RLN[Bn256], data: openArray[byte]): MerkleNode =
 
   return output
 
-proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: MembershipKeyPair, memIndex: MembershipIndex, epoch: Epoch): NonSpamProofResult = 
+proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: MembershipKeyPair, memIndex: MembershipIndex, epoch: Epoch): RateLimitProofResult = 
 
   var skBuffer = toBuffer(memKeys.idKey)
 
@@ -180,7 +180,7 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: Membersh
   discard shareY.copyFrom(proofBytes[shareXOffset..shareYOffset-1])
   discard nullifier.copyFrom(proofBytes[shareYOffset..nullifierOffset-1])
 
-  let output = NonSpamProof(proof: zkproof,
+  let output = RateLimitProof(proof: zkproof,
                             merkleRoot: proofRoot,
                             epoch: epoch,
                             shareX: shareX,
@@ -189,8 +189,8 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: Membersh
 
   return ok(output)
 
-proc serializeProof(proof: NonSpamProof): seq[byte] =
-  ## a private proc to convert NonSpamProof to a byte seq
+proc serializeProof(proof: RateLimitProof): seq[byte] =
+  ## a private proc to convert RateLimitProof to a byte seq
   ## this conversion is used in the proof verification proc
   var  proofBytes = concat(@(proof.proof),
                           @(proof.merkleRoot),
@@ -201,7 +201,7 @@ proc serializeProof(proof: NonSpamProof): seq[byte] =
 
   return proofBytes
 
-proc proofVrfy*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: NonSpamProof): bool =
+proc proofVerify*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: RateLimitProof): bool =
   # TODO proof should be checked against the data
   var 
     proofBytes= serializeProof(proof)
