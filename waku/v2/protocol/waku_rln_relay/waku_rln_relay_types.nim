@@ -43,10 +43,12 @@ type RateLimitProof* = object
   ## the epoch used for the generation of the `proof` 
   epoch*: Epoch
   ## shareX and shareY are shares of user's identity key
-  ## these shares are created using Shamir secret sharing scheme
+  ## these shares are created using Shamir secret sharing scheme 
+  ## see details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Linear-Equation-amp-SSS
   shareX*: MerkleNode
   shareY*: MerkleNode
   ## nullifier enables linking two messages published during the same epoch
+  ## see details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Nullifiers
   nullifier*: Nullifier
   
 type MembershipIndex* = uint
