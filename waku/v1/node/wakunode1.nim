@@ -15,20 +15,23 @@ const clientId = "Nimbus waku node"
 
 proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext)
       {.raises: [Defect, ValueError, RpcBindError, CatchableError, Exception]} =
+  ## `udpPort` is only supplied to satisfy underlying APIs but is not
+  ## actually a supported transport.
+  let udpPort = config.tcpPort
   let
-    (ipExt, tcpPortExt, udpPortExt) = setupNat(config.nat, clientId,
+    (ipExt, tcpPortExt, _) = setupNat(config.nat, clientId,
       Port(config.tcpPort + config.portsShift),
-      Port(config.udpPort + config.portsShift))
+      Port(udpPort + config.portsShift))
   # TODO: EthereumNode should have a better split of binding address and
   # external address. Also, can't have different ports as it stands now.
     address = if ipExt.isNone():
                 Address(ip: parseIpAddress("0.0.0.0"),
                   tcpPort: Port(config.tcpPort + config.portsShift),
-                  udpPort: Port(config.udpPort + config.portsShift))
+                  udpPort: Port(udpPort + config.portsShift))
               else:
                 Address(ip: ipExt.get(),
                   tcpPort: Port(config.tcpPort + config.portsShift),
-                  udpPort: Port(config.udpPort + config.portsShift))
+                  udpPort: Port(udpPort + config.portsShift))
 
   # Set-up node
   var node = newEthereumNode(config.nodekey, address, NetworkId(1), nil, clientId,

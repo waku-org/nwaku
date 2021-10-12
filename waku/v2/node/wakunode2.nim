@@ -823,11 +823,14 @@ when isMainModule:
     ## file. Optionally include persistent peer storage.
     ## No protocols are mounted yet.
 
+    ## `udpPort` is only supplied to satisfy underlying APIs but is not
+    ## actually a supported transport.
+    let udpPort = conf.tcpPort
     let
       (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat,
                                                 clientId,
                                                 Port(uint16(conf.tcpPort) + conf.portsShift),
-                                                Port(uint16(conf.udpPort) + conf.portsShift))
+                                                Port(uint16(udpPort) + conf.portsShift))
       ## @TODO: the NAT setup assumes a manual port mapping configuration if extIp config is set. This probably
       ## implies adding manual config item for extPort as well. The following heuristic assumes that, in absence of manual
       ## config, the external port is the same as the bind port.
