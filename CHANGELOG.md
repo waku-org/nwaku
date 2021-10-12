@@ -13,6 +13,7 @@ This release contains the following:
 - GossipSub [prune backoff period](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#prune-backoff-and-peer-exchange) is now the recommended 1 minute
 - Bridge now uses content topic format according to [23/WAKU2-TOPICS](https://rfc.vac.dev/spec/23/)
 - Better internal differentiation between local and remote peer info
+- Maximum number of libp2p connections is now configurable
 
 #### General refactoring
 
