@@ -602,7 +602,7 @@ suite "Waku rln relay":
     # prepare the input
     # TODO should add support for arbitrary messages, the following input is artificial 
     var hashInput : array[32, byte]
-    for x in hashInput.mitems: x= 1
+    for x in hashInput.mitems: x = 1
     debug "sample_hash_input_bytes", hashInputHex=hashInput.toHex()
 
     let hash = rln.hash(hashInput)
