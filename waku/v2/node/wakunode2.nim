@@ -14,6 +14,7 @@ import
   libp2p/builders,
   libp2p/transports/wstransport,
   libp2p/multicodec,
+  libp2p/nameresolving/nameresolver,
   ../protocol/[waku_relay, waku_message],
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
@@ -125,11 +126,47 @@ template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
 template addWssFlag() =
-  MultiAddress.init(multiCodec("ws"))
+  MultiAddress.init(multiCodec("wss"))
 
 ## Public API
 ##
+proc newWakuSwitch*(
+    privKey = none(PrivateKey),
+    address = MultiAddress.init("/ip4/127.0.0.1/tcp/0/wss").tryGet(),
+    secureManagers: openarray[SecureProtocol] = [
+        SecureProtocol.Noise,
+      ],
+    transportFlags: set[ServerFlags] = {},
+    rng = crypto.newRng(),
+    inTimeout: Duration = 5.minutes,
+    outTimeout: Duration = 5.minutes,
+    maxConnections = MaxConnections,
+    maxIn = -1,
+    maxOut = -1,
+    maxConnsPerPeer = MaxConnectionsPerPeer,
+    nameResolver: NameResolver = nil): Switch
+    {.raises: [Defect, LPError].} =
+    if SecureProtocol.Secio in secureManagers:
+        quit("Secio is deprecated!") # use of secio is unsafe
 
+    var b = SwitchBuilder
+      .new()
+      .withAddress(address)
+      .withRng(rng)
+      .withMaxConnections(maxConnections)
+      .withMaxIn(maxIn)
+      .withMaxOut(maxOut)
+      .withMaxConnsPerPeer(maxConnsPerPeer)
+      .withMplex(inTimeout, outTimeout)
+      .withTransport(proc (upgr: Upgrade): Transport = WsTransport.new(upgr))
+      .withNameResolver(nameResolver)
+      .withNoise()
+
+    if privKey.isSome():
+      b = b.withPrivateKey(privKey.get())
+
+    b.build()
+    
 proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
     extIp = none[ValidIpAddress](), extPort = none[Port](),
@@ -142,11 +179,10 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   let
     rng = crypto.newRng()
     hostAddress = tcpEndPoint(bindIp, bindPort) 
-
     hostAddressWithWss = hostAddress & addWssFlag.get()
 
     announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
-                         else: @[tcpEndPoint(extIp.get(), extPort.get())]
+                         else: @[tcpEndPoint(extIp.get(), extPort.get()) & addWssFlag.get()]
     peerInfo = PeerInfo.init(nodekey)
     enrIp = if extIp.isSome(): extIp
             else: some(bindIp)
@@ -154,25 +190,14 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
                  else: some(bindPort)
     enr = createEnr(nodeKey, enrIp, enrTcpPort, none(Port))
   
-  info "Initializing networking", hostAddress,
+  info "Initializing networking", hostAddressWithWss,
                                   announcedAddresses
   # XXX: Add this when we create node or start it?
-  peerInfo.addrs.add(hostAddress) # Index 0
+  peerInfo.addrs.add(hostAddressWithWss) # Index 0
   for multiaddr in announcedAddresses:
     peerInfo.addrs.add(multiaddr) # Announced addresses in index > 0
-  
-  # WSS switch builder code
-  let WssSwitch = SwitchBuilder
-    .new()
-    .withAddress(hostAddress)
-    .withRng(rng)
-    .withMplex()
-    .withTransport(proc (upgr: Upgrade): Transport = WsTransport.new(upgr))
-    .withNoise()
-    .build()
 
-
-  var switch = newStandardSwitch(some(nodekey), hostAddress,
+  var switch = newWakuSwitch(some(nodekey), hostAddressWithWss,
     transportFlags = {ServerFlags.ReuseAddr}, rng = rng)
   # TODO Untested - verify behavior after switch interface change
   # More like this:

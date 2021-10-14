@@ -29,7 +29,7 @@ type
 
     tcpPort* {.
       desc: "TCP listening port."
-      defaultValue: 60000
+      defaultValue: 1400
       name: "tcp-port" }: Port
 
     portsShift* {.

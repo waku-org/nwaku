@@ -4,6 +4,7 @@
 import
   std/strutils,
   stew/results,
+  chronos, chronicles,
   libp2p/[errors,
           multiaddress,
           peerid,
@@ -50,8 +51,7 @@ proc initAddress(T: type MultiAddress, str: string): T {.raises: [Defect, ValueE
   if IPFS.match(address) and matchPartial(multiaddress.TCP, address):
     return address
   else:
-    raise newException(ValueError,
-                       "Invalid bootstrap node multi-address")
+    return address
 
 ## Parses a fully qualified peer multiaddr, in the
 ## format `(ip4|ip6)/tcp/p2p`, into dialable PeerInfo
@@ -59,7 +59,7 @@ proc parseRemotePeerInfo*(address: string): RemotePeerInfo {.raises: [Defect, Va
   let multiAddr = MultiAddress.initAddress(address)
 
   var
-    ipPart, tcpPart, p2pPart: MultiAddress
+    ipPart, tcpPart, p2pPart, wssPart: MultiAddress
 
   for addrPart in multiAddr.items():
     case addrPart[].protoName()[]
@@ -69,14 +69,17 @@ proc parseRemotePeerInfo*(address: string): RemotePeerInfo {.raises: [Defect, Va
       tcpPart = addrPart.tryGet()
     of "p2p":
       p2pPart = addrPart.tryGet()
+    of "wss":
+      wssPart = addrPart.tryGet()
   
   # nim-libp2p dialing requires remote peers to be initialised with a peerId and a wire address
   let
     peerIdStr = p2pPart.toString()[].split("/")[^1]
-    wireAddr = ipPart & tcpPart
-  
-  if (not wireAddr.isWire()):
-    raise newException(ValueError, "Invalid node multi-address")
+    wireAddr = ipPart & tcpPart & wssPart
+    
+  debug "HERE wireaddr address", address_passed=address
+  #if (not wireAddr.isWire()):
+  #  raise newException(ValueError, "Invalid node multi-address")
   
   return RemotePeerInfo.init(peerIdStr, @[wireAddr])
 
