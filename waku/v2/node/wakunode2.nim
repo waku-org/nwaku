@@ -194,6 +194,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   for multiaddr in announcedAddresses:
     peerInfo.addrs.add(multiaddr) # Announced addresses in index > 0
 
+
   var switch = newWakuSwitch(some(nodekey), hostAddressWithWss,
     transportFlags = {ServerFlags.ReuseAddr}, rng = rng)
   # TODO Untested - verify behavior after switch interface change
