@@ -126,13 +126,13 @@ template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
 template addWssFlag() =
-  MultiAddress.init(multiCodec("wss"))
+  MultiAddress.init(multiCodec("ws"))
 
 ## Public API
 ##
 proc newWakuSwitch*(
     privKey = none(PrivateKey),
-    address = MultiAddress.init("/ip4/127.0.0.1/tcp/0/wss").tryGet(),
+    address = MultiAddress.init("/ip4/127.0.0.1/tcp/0/ws").tryGet(),
     secureManagers: openarray[SecureProtocol] = [
         SecureProtocol.Noise,
       ],
@@ -145,9 +145,6 @@ proc newWakuSwitch*(
     maxOut = -1,
     maxConnsPerPeer = MaxConnectionsPerPeer,
     nameResolver: NameResolver = nil): Switch
-    {.raises: [Defect, LPError].} =
-    if SecureProtocol.Secio in secureManagers:
-        quit("Secio is deprecated!") # use of secio is unsafe
 
     var b = SwitchBuilder
       .new()
@@ -865,12 +862,12 @@ when isMainModule:
     ## Setup a basic Waku v2 node based on a supplied configuration
     ## file. Optionally include persistent peer storage.
     ## No protocols are mounted yet.
-
+    let udpPort = conf.tcpPort
     let
       (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat,
                                                 clientId,
                                                 Port(uint16(conf.tcpPort) + conf.portsShift),
-                                                Port(uint16(conf.udpPort) + conf.portsShift))
+                                                Port(uint16(udpPort) + conf.portsShift))
       ## @TODO: the NAT setup assumes a manual port mapping configuration if extIp config is set. This probably
       ## implies adding manual config item for extPort as well. The following heuristic assumes that, in absence of manual
       ## config, the external port is the same as the bind port.
