@@ -31,6 +31,7 @@ type
       desc: "TCP listening port."
       defaultValue: 60000
       name: "tcp-port" }: Port
+    
 
     portsShift* {.
       desc: "Add a shift to all port numbers."
@@ -47,6 +48,10 @@ type
       defaultValue: 50
       name: "max-connections" }: uint16
     
+    nat* {.
+      desc: "Specify transport to use for wakunode " &
+            "Must be one of: tcp, ws, wss"
+      defaultValue: "tcp" }: string
     ## Persistence config
     
     dbPath* {.

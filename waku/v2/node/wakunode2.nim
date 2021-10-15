@@ -122,8 +122,45 @@ proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilte
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
+
+template addWssFlag() =
+  MultiAddress.init(multiCodec("ws"))
+
 ## Public API
 ##
+proc newWakuSwitch*(
+    privKey = none(PrivateKey),
+    address = MultiAddress.init("/ip4/127.0.0.1/tcp/0/ws").tryGet(),
+    secureManagers: openarray[SecureProtocol] = [
+        SecureProtocol.Noise,
+      ],
+    transportFlags: set[ServerFlags] = {},
+    rng = crypto.newRng(),
+    inTimeout: Duration = 5.minutes,
+    outTimeout: Duration = 5.minutes,
+    maxConnections = MaxConnections,
+    maxIn = -1,
+    maxOut = -1,
+    maxConnsPerPeer = MaxConnectionsPerPeer,
+    nameResolver: NameResolver = nil): Switch
+
+    var b = SwitchBuilder
+      .new()
+      .withAddress(address)
+      .withRng(rng)
+      .withMaxConnections(maxConnections)
+      .withMaxIn(maxIn)
+      .withMaxOut(maxOut)
+      .withMaxConnsPerPeer(maxConnsPerPeer)
+      .withMplex(inTimeout, outTimeout)
+      .withTransport(proc (upgr: Upgrade): Transport = WsTransport.new(upgr))
+      .withNameResolver(nameResolver)
+      .withNoise()
+
+    if privKey.isSome():
+      b = b.withPrivateKey(privKey.get())
+
+    b.build()
 
 proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
@@ -815,8 +852,10 @@ when isMainModule:
     ## file. Optionally include persistent peer storage.
     ## No protocols are mounted yet.
 
+
     ## `udpPort` is only supplied to satisfy underlying APIs but is not
     ## actually a supported transport.
+
     let udpPort = conf.tcpPort
     let
       (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat,
