@@ -22,7 +22,8 @@ import
   ../utils/requests,
   ./storage/migration/migration_types,
   ./peer_manager/peer_manager,
-  ./dnsdisc/waku_dnsdisc
+  ./dnsdisc/waku_dnsdisc,
+  ./discv5/waku_discv5
 
 export
   builders,
@@ -83,6 +84,7 @@ type
     libp2pTransportLoops*: seq[Future[void]]
     filters*: Filters
     rng*: ref BrHmacDrbgContext
+    wakuDiscv5*: WakuDiscoveryV5
     started*: bool # Indicates that node has started listening
 
 proc protocolMatcher(codec: string): Matcher =
@@ -708,6 +710,62 @@ proc connectToNodes*(n: WakuNode, nodes: seq[RemotePeerInfo]) {.async.} =
   # later.
   await sleepAsync(5.seconds)
 
+proc runDiscv5Loop*(node: WakuNode) {.async.} =
+  ## Continuously add newly discovered nodes
+  ## using Node Discovery v5
+  if (node.wakuDiscv5.isNil):
+    warn "Trying to run discovery v5 while it's disabled"
+    return
+
+  info "Starting discovery loop"
+
+  while true:
+    ## Query for a random target and collect all discovered nodes
+    ## @TODO: we could filter nodes here
+    let discoveredPeers = await node.wakuDiscv5.findRandomPeers()
+    if discoveredPeers.isOk:
+      ## Let's attempt to connect to peers we
+      ## have not encountered before
+      
+      let newPeers = discoveredPeers.get().filterIt(
+        not node.switch.peerStore.addressBook.contains(it.peerId))
+
+      if newPeers.len > 0:
+        debug "Connecting to newly discovered peers", count=newPeers.len()
+        await connectToNodes(node, newPeers)
+
+    # Discovery `queryRandom` can have a synchronous fast path for example
+    # when no peers are in the routing table. Don't run it in continuous loop.
+    #
+    # Also, give some time to dial the discovered nodes and update stats etc
+    await sleepAsync(5.seconds)
+
+proc startDiscv5*(node: WakuNode): Future[bool] {.async.} =
+  ## Start Discovery v5 service
+  
+  if not node.wakuDiscv5.isNil:
+    ## First start listening on configured port
+    try:
+      node.wakuDiscv5.open()
+    except CatchableError:
+      error "Failed to start discovery service. UDP port may be already in use"
+      return false
+  
+    ## Start Discovery v5
+    node.wakuDiscv5.start()
+    asyncSpawn node.runDiscv5Loop()
+    return true
+
+  return false
+
+proc stopDiscv5*(node: WakuNode): Future[bool] {.async.} =
+  ## Stop Discovery v5 service
+  
+  if not node.wakuDiscv5.isNil:
+    ## Stop Discovery v5 process and close listening port
+    await node.wakuDiscv5.closeWait()
+    await node.runDiscv5Loop.cancelAndWait()
+
 proc start*(node: WakuNode) {.async.} =
   ## Starts a created Waku Node and
   ## all its mounted protocols.
@@ -733,6 +791,9 @@ proc start*(node: WakuNode) {.async.} =
 proc stop*(node: WakuNode) {.async.} =
   if not node.wakuRelay.isNil:
     await node.wakuRelay.stop()
+  
+  if not node.wakuDiscv5.isNil:
+    discard await node.stopDiscv5()
 
   await node.switch.stop()
 
@@ -822,10 +883,10 @@ when isMainModule:
     ## file. Optionally include persistent peer storage.
     ## No protocols are mounted yet.
 
-    ## `udpPort` is only supplied to satisfy underlying APIs but is not
-    ## actually a supported transport.
-    let udpPort = conf.tcpPort
-    let
+    let 
+      ## `udpPort` is only supplied to satisfy underlying APIs but is not
+      ## actually a supported transport for libp2p traffic.
+      udpPort = conf.tcpPort
       (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat,
                                                 clientId,
                                                 Port(uint16(conf.tcpPort) + conf.portsShift),
@@ -837,18 +898,31 @@ when isMainModule:
                   some(Port(uint16(conf.tcpPort) + conf.portsShift))
                 else:
                   extTcpPort
-      node = WakuNode.new(conf.nodekey,
-                          conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
-                          extIp, extPort,
-                          pStorage,
-                          conf.maxConnections.int)
+
+    let node = WakuNode.new(conf.nodekey,
+                            conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
+                            extIp, extPort,
+                            pStorage,
+                            conf.maxConnections.int)
+    
+    if conf.discv5Discovery:
+      let discv5UdpPort = some(Port(uint16(conf.discv5UdpPort)))
+
+      node.wakuDiscv5 = WakuDiscoveryV5.new(
+        conf,
+        extIP, extTcpPort,
+        discv5UdpPort,
+        keys.PrivateKey(conf.nodekey.skkey),
+        [], # Empty enr fields, for now
+        node.rng
+      )
     
     ok(node)
 
   # 3/6 Mount and initialize configured protocols
   proc setupProtocols(node: var WakuNode,
-                       conf: WakuNodeConf,
-                       mStorage: WakuMessageStore = nil): SetupResult[bool] =
+                      conf: WakuNodeConf,
+                      mStorage: WakuMessageStore = nil): SetupResult[bool] =
     
     ## Setup configured protocols on an existing Waku v2 node.
     ## Optionally include persistent message storage.

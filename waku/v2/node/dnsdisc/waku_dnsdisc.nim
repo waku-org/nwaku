@@ -37,66 +37,6 @@ type
 # Util functions #
 ##################
 
-func getTransportProtocol(typedR: TypedRecord): Option[IpTransportProtocol] =
-  if typedR.tcp6.isSome or typedR.tcp.isSome:
-    return some(IpTransportProtocol.tcpProtocol)
-
-  if typedR.udp6.isSome or typedR.udp.isSome:
-    return some(IpTransportProtocol.udpProtocol)
-
-  return none(IpTransportProtocol)
-
-func toRemotePeerInfo*(enr: enr.Record): Result[RemotePeerInfo, cstring] =
-  let typedR = ? enr.toTypedRecord
-
-  if not typedR.secp256k1.isSome:
-    return err("enr: no secp256k1 key in record")
-  
-  let
-    pubKey = ? keys.PublicKey.fromRaw(typedR.secp256k1.get)
-    peerId = ? PeerID.init(crypto.PublicKey(scheme: Secp256k1,
-                                            skkey: secp.SkPublicKey(pubKey)))
-  
-  var addrs = newSeq[MultiAddress]()
-
-  let transportProto = getTransportProtocol(typedR)
-  if transportProto.isNone:
-    return err("enr: could not determine transport protocol")
-
-  case transportProto.get()
-  of tcpProtocol:
-    if typedR.ip.isSome and typedR.tcp.isSome:
-      let ip = ipv4(typedR.ip.get)
-      addrs.add MultiAddress.init(ip, tcpProtocol, Port typedR.tcp.get)
-
-    if typedR.ip6.isSome:
-      let ip = ipv6(typedR.ip6.get)
-      if typedR.tcp6.isSome:
-        addrs.add MultiAddress.init(ip, tcpProtocol, Port typedR.tcp6.get)
-      elif typedR.tcp.isSome:
-        addrs.add MultiAddress.init(ip, tcpProtocol, Port typedR.tcp.get)
-      else:
-        discard
-
-  of udpProtocol:
-    if typedR.ip.isSome and typedR.udp.isSome:
-      let ip = ipv4(typedR.ip.get)
-      addrs.add MultiAddress.init(ip, udpProtocol, Port typedR.udp.get)
-
-    if typedR.ip6.isSome:
-      let ip = ipv6(typedR.ip6.get)
-      if typedR.udp6.isSome:
-        addrs.add MultiAddress.init(ip, udpProtocol, Port typedR.udp6.get)
-      elif typedR.udp.isSome:
-        addrs.add MultiAddress.init(ip, udpProtocol, Port typedR.udp.get)
-      else:
-        discard
-
-  if addrs.len == 0:
-    return err("enr: no addresses in record")
-
-  return ok(RemotePeerInfo.init(peerId, addrs))
-
 func createEnr*(privateKey: crypto.PrivateKey,
                 enrIp: Option[ValidIpAddress],
                 enrTcpPort, enrUdpPort: Option[Port]): enr.Record =
