@@ -32,7 +32,11 @@ type
       defaultValue: 60000
       name: "tcp-port" }: Port
     
-
+    wsPort* {.
+      desc: "Web Socket listening port."
+      defaultValue: 1400
+      name: "ws-port" }: Port
+    
     portsShift* {.
       desc: "Add a shift to all port numbers."
       defaultValue: 0
@@ -48,7 +52,7 @@ type
       defaultValue: 50
       name: "max-connections" }: uint16
     
-    nat* {.
+    transport* {.
       desc: "Specify transport to use for wakunode " &
             "Must be one of: tcp, ws, wss"
       defaultValue: "tcp" }: string

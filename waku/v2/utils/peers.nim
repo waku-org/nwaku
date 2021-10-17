@@ -79,7 +79,6 @@ proc parseRemotePeerInfo*(address: string): RemotePeerInfo {.raises: [Defect, Va
     peerIdStr = p2pPart.toString()[].split("/")[^1]
     wireAddr = ipPart & tcpPart & wsPart
     
-  debug "HERE wireaddr address", address_passed=address
   #if (not wireAddr.isWire()):
   #  raise newException(ValueError, "Invalid node multi-address")
 

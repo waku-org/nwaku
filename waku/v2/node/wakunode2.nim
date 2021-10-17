@@ -12,6 +12,7 @@ import
   libp2p/protocols/pubsub/gossipsub,
   libp2p/nameresolving/dnsresolver,
   libp2p/builders,
+  libp2p/transports/[transport, tcptransport, wstransport],
   ../protocol/[waku_relay, waku_message],
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
@@ -123,14 +124,14 @@ template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
 
-template addWssFlag() =
-  MultiAddress.init(multiCodec("ws"))
+template addWsFlag() =
+  MultiAddress.init("ws").tryGet()
 
 ## Public API
 ##
 proc newWakuSwitch*(
     privKey = none(PrivateKey),
-    address = MultiAddress.init("/ip4/127.0.0.1/tcp/0/ws").tryGet(),
+    address = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet(),
     secureManagers: openarray[SecureProtocol] = [
         SecureProtocol.Noise,
       ],
@@ -142,7 +143,8 @@ proc newWakuSwitch*(
     maxIn = -1,
     maxOut = -1,
     maxConnsPerPeer = MaxConnectionsPerPeer,
-    nameResolver: NameResolver = nil): Switch
+    transport: string): Switch
+    {.raises: [Defect, LPError].} =
 
     var b = SwitchBuilder
       .new()
@@ -153,10 +155,12 @@ proc newWakuSwitch*(
       .withMaxOut(maxOut)
       .withMaxConnsPerPeer(maxConnsPerPeer)
       .withMplex(inTimeout, outTimeout)
-      .withTransport(proc (upgr: Upgrade): Transport = WsTransport.new(upgr))
-      .withNameResolver(nameResolver)
       .withNoise()
 
+    if transport == "ws" or transport == "wss":
+      b = b.withTransport(proc (upgr: Upgrade): Transport = WsTransport.new(upgr))
+    else:
+      b = b.withTcpTransport(transportFlags)
     if privKey.isSome():
       b = b.withPrivateKey(privKey.get())
 
@@ -166,7 +170,9 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
     extIp = none[ValidIpAddress](), extPort = none[Port](),
     peerStorage: PeerStorage = nil,
-    maxConnections = builders.MaxConnections): T 
+    maxConnections = builders.MaxConnections,
+    transport: string,
+    wsBindPort: Port): T 
     {.raises: [Defect, LPError].} =
   ## Creates a Waku Node.
   ##
@@ -175,8 +181,15 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   let
     rng = crypto.newRng()
     hostAddress = tcpEndPoint(bindIp, bindPort)
-    announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
-                         else: @[tcpEndPoint(extIp.get(), extPort.get())]
+    wsHostAddress = tcpEndPoint(bindIp, wsbindPort) & addWsFlag
+    if transport == "ws":
+      announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
+                          else: @[tcpEndPoint(extIp.get(), extPort.get()), 
+                          tcpEndPoint(extIp.get(), extPort.get()) & addWsFlag]
+    else:
+      announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
+                          else: @[tcpEndPoint(extIp.get(), extPort.get()), 
+                          tcpEndPoint(extIp.get(), extPort.get())]
     peerInfo = PeerInfo.init(nodekey)
     enrIp = if extIp.isSome(): extIp
             else: some(bindIp)
@@ -184,19 +197,27 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
                  else: some(bindPort)
     enr = createEnr(nodeKey, enrIp, enrTcpPort, none(Port))
   
-  info "Initializing networking", hostAddress,
+  info "Initializing networking", hostAddress, wsHostAddress,
                                   announcedAddresses
   # XXX: Add this when we create node or start it?
-  peerInfo.addrs.add(hostAddress) # Index 0
+  # Index 0
+  if transport == "ws":
+    peerInfo.addrs.add(wsHostAddress)
+  #else:
+  #  peerInfo.addrs.add(hostAddress)
+  
   for multiaddr in announcedAddresses:
     peerInfo.addrs.add(multiaddr) # Announced addresses in index > 0
   
-  var switch = newStandardSwitch(
-    some(nodekey),
-    hostAddress,
-    transportFlags = {ServerFlags.ReuseAddr},
-    rng = rng,
-    maxConnections = maxConnections)
+  var switch = newWakuSwitch(some(nodekey), wsHostAddress, 
+  transportFlags = {ServerFlags.ReuseAddr}, rng = rng, maxConnections = maxConnections, transport =transport)
+  # TODO Untested - verify behavior after switch interface change
+  # More like this:
+  # let pubsub = GossipSub.init(
+  #    switch = switch,
+  #    msgIdProvider = msgIdProvider,
+  #    triggerSelf = true, sign = false,
+  #    verifySignature = false).PubSub
 
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
@@ -869,11 +890,22 @@ when isMainModule:
                   some(Port(uint16(conf.tcpPort) + conf.portsShift))
                 else:
                   extTcpPort
-      node = WakuNode.new(conf.nodekey,
+      if conf.transport == "ws":
+        node = WakuNode.new(conf.nodekey,
                           conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
                           extIp, extPort,
                           pStorage,
-                          conf.maxConnections.int)
+                          conf.maxConnections.int,
+                          conf.transport,
+                          conf.wsPort)
+      else:
+        node = WakuNode.new(conf.nodekey,
+                          conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
+                          extIp, extPort,
+                          pStorage,
+                          conf.maxConnections.int,
+                          conf.transport,
+                          conf.wsPort)
     
     ok(node)
 
