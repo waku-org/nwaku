@@ -182,14 +182,9 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     rng = crypto.newRng()
     hostAddress = tcpEndPoint(bindIp, bindPort)
     wsHostAddress = tcpEndPoint(bindIp, wsbindPort) & addWsFlag
-    if transport == "ws":
-      announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
-                          else: @[tcpEndPoint(extIp.get(), extPort.get()), 
-                          tcpEndPoint(extIp.get(), extPort.get()) & addWsFlag]
-    else:
-      announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
-                          else: @[tcpEndPoint(extIp.get(), extPort.get()), 
-                          tcpEndPoint(extIp.get(), extPort.get())]
+    announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
+                         else: @[tcpEndPoint(extIp.get(), extPort.get()), 
+                         tcpEndPoint(extIp.get(), extPort.get()) & addWsFlag]
     peerInfo = PeerInfo.init(nodekey)
     enrIp = if extIp.isSome(): extIp
             else: some(bindIp)
@@ -203,8 +198,8 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   # Index 0
   if transport == "ws":
     peerInfo.addrs.add(wsHostAddress)
-  #else:
-  #  peerInfo.addrs.add(hostAddress)
+  else:
+    peerInfo.addrs.add(hostAddress)
   
   for multiaddr in announcedAddresses:
     peerInfo.addrs.add(multiaddr) # Announced addresses in index > 0
@@ -890,22 +885,14 @@ when isMainModule:
                   some(Port(uint16(conf.tcpPort) + conf.portsShift))
                 else:
                   extTcpPort
-      if conf.transport == "ws":
-        node = WakuNode.new(conf.nodekey,
-                          conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
-                          extIp, extPort,
-                          pStorage,
-                          conf.maxConnections.int,
-                          conf.transport,
-                          conf.wsPort)
-      else:
-        node = WakuNode.new(conf.nodekey,
-                          conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
-                          extIp, extPort,
-                          pStorage,
-                          conf.maxConnections.int,
-                          conf.transport,
-                          conf.wsPort)
+
+      node = WakuNode.new(conf.nodekey,
+                        conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
+                        extIp, extPort,
+                        pStorage,
+                        conf.maxConnections.int,
+                        conf.transport,
+                        conf.wsPort)
     
     ok(node)
 
