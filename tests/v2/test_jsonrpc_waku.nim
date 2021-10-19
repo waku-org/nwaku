@@ -640,92 +640,92 @@ procSuite "Waku v2 JSON-RPC API":
     await node2.stop()
     await node3.stop()
 
-  asyncTest "Private API: generate symmetric keys and encrypt/decrypt communication":
-    let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, bindIp, Port(60000))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, bindIp, Port(60002))
-      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node3 = WakuNode.new(nodeKey3, bindIp, Port(60003), some(extIp), some(port))
-      pubSubTopic = "polling"
-      contentTopic = defaultContentTopic
-      payload = @[byte 9]
-      message = WakuRelayMessage(payload: payload, contentTopic: some(contentTopic), timestamp: some(epochTime()))
-      topicCache = newTable[string, seq[WakuMessage]]()
+  # asyncTest "Private API: generate symmetric keys and encrypt/decrypt communication":
+  #   let
+  #     nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+  #     node1 = WakuNode.new(nodeKey1, bindIp, Port(60000))
+  #     nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+  #     node2 = WakuNode.new(nodeKey2, bindIp, Port(60002))
+  #     nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+  #     node3 = WakuNode.new(nodeKey3, bindIp, Port(60003), some(extIp), some(port))
+  #     pubSubTopic = "polling"
+  #     contentTopic = defaultContentTopic
+  #     payload = @[byte 9]
+  #     message = WakuRelayMessage(payload: payload, contentTopic: some(contentTopic), timestamp: some(epochTime()))
+  #     topicCache = newTable[string, seq[WakuMessage]]()
 
-    await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+  #   await node1.start()
+  #   node1.mountRelay(@[pubSubTopic])
 
-    await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+  #   await node2.start()
+  #   node2.mountRelay(@[pubSubTopic])
 
-    await node3.start()
-    node3.mountRelay(@[pubSubTopic])
+  #   await node3.start()
+  #   node3.mountRelay(@[pubSubTopic])
 
-    await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
-    await node3.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
+  #   await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
+  #   await node3.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
 
-    # Setup two servers so we can see both sides of encrypted communication
-    let
-      rpcPort1 = Port(8545)
-      ta1 = initTAddress(bindIp, rpcPort1)
-      server1 = newRpcHttpServer([ta1])
-      rpcPort3 = Port(8546)
-      ta3 = initTAddress(bindIp, rpcPort3)
-      server3 = newRpcHttpServer([ta3])
+  #   # Setup two servers so we can see both sides of encrypted communication
+  #   let
+  #     rpcPort1 = Port(8545)
+  #     ta1 = initTAddress(bindIp, rpcPort1)
+  #     server1 = newRpcHttpServer([ta1])
+  #     rpcPort3 = Port(8546)
+  #     ta3 = initTAddress(bindIp, rpcPort3)
+  #     server3 = newRpcHttpServer([ta3])
     
-    # Let's connect to nodes 1 and 3 via the API
-    installPrivateApiHandlers(node1, server1, rng, newTable[string, seq[WakuMessage]]())
-    installPrivateApiHandlers(node3, server3, rng, topicCache)
-    installRelayApiHandlers(node3, server3, topicCache)
-    server1.start()
-    server3.start()
+  #   # Let's connect to nodes 1 and 3 via the API
+  #   installPrivateApiHandlers(node1, server1, rng, newTable[string, seq[WakuMessage]]())
+  #   installPrivateApiHandlers(node3, server3, rng, topicCache)
+  #   installRelayApiHandlers(node3, server3, topicCache)
+  #   server1.start()
+  #   server3.start()
 
-    let client1 = newRpcHttpClient()
-    await client1.connect("127.0.0.1", rpcPort1)
+  #   let client1 = newRpcHttpClient()
+  #   await client1.connect("127.0.0.1", rpcPort1)
 
-    let client3 = newRpcHttpClient()
-    await client3.connect("127.0.0.1", rpcPort3)
+  #   let client3 = newRpcHttpClient()
+  #   await client3.connect("127.0.0.1", rpcPort3)
 
-    # Let's get a symkey for node3
+  #   # Let's get a symkey for node3
 
-    let symkey = await client3.get_waku_v2_private_v1_symmetric_key()
+  #   let symkey = await client3.get_waku_v2_private_v1_symmetric_key()
 
-    # Now try to subscribe on node3 using API
+  #   # Now try to subscribe on node3 using API
 
-    let sub = await client3.post_waku_v2_relay_v1_subscriptions(@[pubSubTopic])
+  #   let sub = await client3.post_waku_v2_relay_v1_subscriptions(@[pubSubTopic])
 
-    await sleepAsync(2000.millis)
+  #   await sleepAsync(2000.millis)
 
-    check:
-      # node3 is now subscribed to pubSubTopic
-      sub
+  #   check:
+  #     # node3 is now subscribed to pubSubTopic
+  #     sub
 
-    # Now publish and encrypt a message on node1 using node3's symkey
-    let posted = await client1.post_waku_v2_private_v1_symmetric_message(pubSubTopic, message, symkey = (%symkey).getStr())
-    check:
-      posted
+  #   # Now publish and encrypt a message on node1 using node3's symkey
+  #   let posted = await client1.post_waku_v2_private_v1_symmetric_message(pubSubTopic, message, symkey = (%symkey).getStr())
+  #   check:
+  #     posted
 
-    await sleepAsync(2000.millis)
+  #   await sleepAsync(2000.millis)
 
-    # Let's see if we can receive, and decrypt, this message on node3    
-    var messages = await client3.get_waku_v2_private_v1_symmetric_messages(pubSubTopic, symkey = (%symkey).getStr())
+  #   # Let's see if we can receive, and decrypt, this message on node3    
+  #   var messages = await client3.get_waku_v2_private_v1_symmetric_messages(pubSubTopic, symkey = (%symkey).getStr())
 
-    check:
-      messages.len == 1
-      messages[0].contentTopic.get == contentTopic
-      messages[0].payload == payload
+  #   check:
+  #     messages.len == 1
+  #     messages[0].contentTopic.get == contentTopic
+  #     messages[0].payload == payload
     
-    # Ensure that read messages are cleared from cache
-    messages = await client3.get_waku_v2_private_v1_symmetric_messages(pubSubTopic, symkey = (%symkey).getStr())
-    check:
-      messages.len == 0
+  #   # Ensure that read messages are cleared from cache
+  #   messages = await client3.get_waku_v2_private_v1_symmetric_messages(pubSubTopic, symkey = (%symkey).getStr())
+  #   check:
+  #     messages.len == 0
 
-    server1.stop()
-    server1.close()
-    server3.stop()
-    server3.close()
-    await node1.stop()
-    await node2.stop()
-    await node3.stop()
+  #   server1.stop()
+  #   server1.close()
+  #   server3.stop()
+  #   server3.close()
+  #   await node1.stop()
+  #   await node2.stop()
+  #   await node3.stop()
