@@ -46,7 +46,8 @@ proc generate_proof*(ctx: RLN[Bn256],
                     input_buffer: ptr Buffer,
                     auth: ptr Auth,
                     output_buffer: ptr Buffer): bool {.importc: "generate_proof".}
-
+## output_buffer holds the proof data and should be parsed as |proof<256>|root<32>|epoch<32>|share_x<32>|share_y<32>|nullifier<32>|
+## numbers are in bytes
 proc verify*(ctx: RLN[Bn256],
             proof_buffer: ptr Buffer,
             result_ptr: ptr uint32): bool {.importc: "verify".}

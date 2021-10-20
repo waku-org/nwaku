@@ -5,7 +5,7 @@ import
   chronicles, options, chronos, stint,
   web3,
   stew/results,
-  stew/byteutils,
+  stew/[byteutils, arrayops],
   rln, 
   waku_rln_relay_types
 
@@ -14,6 +14,7 @@ logScope:
 
 type RLNResult* = Result[RLN[Bn256], string]
 type MerkleNodeResult* = Result[MerkleNode, string]
+type RateLimitProofResult* = Result[RateLimitProof, string]
 # membership contract interface
 contract(MembershipContract):
   # TODO define a return type of bool for register method to signify a successful registration
@@ -102,17 +103,123 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   await web3.close()
   return true 
 
-proc proofGen*(data: seq[byte]): seq[byte] =
-  # TODO to implement the actual proof generation logic
-  return "proof".toBytes() 
+proc toBuffer*(x: openArray[byte]): Buffer =
+  ## converts the input to a Buffer object
+  ## the Buffer object is used to communicate data with the rln lib
+  var temp = @x
+  let output = Buffer(`ptr`: addr(temp[0]), len: uint(temp.len))
+  return output
 
-proc proofVrfy*(data, proof: seq[byte]): bool =
-  # TODO to implement the actual proof verification logic
-  return true
+proc hash*(rlnInstance: RLN[Bn256], data: openArray[byte]): MerkleNode = 
+  ## a thin layer on top of the Nim wrapper of the Poseidon hasher  
+  debug "hash input", hashhex=data.toHex()
+  var 
+    hashInputBuffer = data.toBuffer()
+    outputBuffer: Buffer # will holds the hash output
+    numOfInputs = 1.uint # the number of hash inputs that can be 1 or 2
+  
+  debug "hash input buffer length", bufflen=hashInputBuffer.len
+  let 
+    hashSuccess = hash(rlnInstance, addr hashInputBuffer, numOfInputs, addr outputBuffer)
+    output = cast[ptr MerkleNode](outputBuffer.`ptr`)[]
+
+  return output
+
+proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: MembershipKeyPair, memIndex: MembershipIndex, epoch: Epoch): RateLimitProofResult = 
+
+  var skBuffer = toBuffer(memKeys.idKey)
+
+  # peer's index in the Merkle Tree
+  var index = memIndex
+
+  # prepare the authentication object with peer's index and sk
+  var authObj: Auth = Auth(secret_buffer: addr skBuffer, index: index)
+
+  # serialize message and epoch 
+  # TODO add a proc for serializing
+  var epochMessage = @epoch & @data
+
+  # convert the seq to an array
+  var inputBytes{.noinit.}: array[64, byte] # holds epoch||Message 
+  for (i, x) in inputBytes.mpairs: x = epochMessage[i]
+  debug "serialized epoch and message ", inputHex=inputBytes.toHex()
+
+  # put the serialized epoch||message into a buffer
+  var inputBuffer = toBuffer(inputBytes)
+
+  # generate the proof
+  var proof: Buffer
+  let proofIsSuccessful = generate_proof(rlnInstance, addr inputBuffer, addr authObj, addr proof)
+  # check whether the generate_proof call is done successfully
+  if not proofIsSuccessful:
+    return err("could not generate the proof")
+
+  var proofValue = cast[ptr array[416,byte]] (proof.`ptr`)
+  let proofBytes: array[416,byte] = proofValue[]
+  debug "proof content", proofHex=proofValue[].toHex
+
+  ## parse the proof as |zkSNARKs<256>|root<32>|epoch<32>|share_x<32>|share_y<32>|nullifier<32>|
+  let 
+    proofOffset = 256
+    rootOffset = proofOffset + 32
+    epochOffset = rootOffset + 32
+    shareXOffset = epochOffset + 32
+    shareYOffset = shareXOffset + 32
+    nullifierOffset = shareYOffset + 32
+
+  var 
+    zkproof: ZKSNARK 
+    proofRoot, shareX, shareY: MerkleNode
+    epoch: Epoch
+    nullifier: Nullifier
+
+  discard zkproof.copyFrom(proofBytes[0..proofOffset-1])
+  discard proofRoot.copyFrom(proofBytes[proofOffset..rootOffset-1])
+  discard epoch.copyFrom(proofBytes[rootOffset..epochOffset-1])
+  discard shareX.copyFrom(proofBytes[epochOffset..shareXOffset-1])
+  discard shareY.copyFrom(proofBytes[shareXOffset..shareYOffset-1])
+  discard nullifier.copyFrom(proofBytes[shareYOffset..nullifierOffset-1])
+
+  let output = RateLimitProof(proof: zkproof,
+                            merkleRoot: proofRoot,
+                            epoch: epoch,
+                            shareX: shareX,
+                            shareY: shareY,
+                            nullifier: nullifier)
+
+  return ok(output)
+
+proc serializeProof(proof: RateLimitProof): seq[byte] =
+  ## a private proc to convert RateLimitProof to a byte seq
+  ## this conversion is used in the proof verification proc
+  var  proofBytes = concat(@(proof.proof),
+                          @(proof.merkleRoot),
+                          @(proof.epoch),
+                          @(proof.shareX),
+                          @(proof.shareY),
+                          @(proof.nullifier))
+
+  return proofBytes
+
+proc proofVerify*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: RateLimitProof): bool =
+  # TODO proof should be checked against the data
+  var 
+    proofBytes= serializeProof(proof)
+    proofBuffer = proofBytes.toBuffer()
+    f = 0.uint32
+  debug "serialized proof", proof=proofBytes.toHex()
+
+  let verifyIsSuccessful = verify(rlnInstance, addr proofBuffer, addr f)
+  if not verifyIsSuccessful:
+    # something went wrong in verification
+    return false 
+  # f = 0 means the proof is verified
+  if f == 0:
+    return true
+  return false
 
 proc insertMember*(rlnInstance: RLN[Bn256], idComm: IDCommitment): bool = 
-  var temp = idComm
-  var pkBuffer = Buffer(`ptr`: addr(temp[0]), len: 32)
+  var pkBuffer = toBuffer(idComm)
   let pkBufferPtr = addr pkBuffer
 
   # add the member to the tree
@@ -132,9 +239,8 @@ proc getMerkleRoot*(rlnInstance: RLN[Bn256]): MerkleNodeResult =
   if (not get_root_successful): return err("could not get the root")
   if (not (root.len == 32)): return err("wrong output size")
 
-  var rootValue = cast[ptr array[32,byte]] (root.`ptr`)
-  let merkleNode = rootValue[]
-  return ok(merkleNode)
+  var rootValue = cast[ptr MerkleNode] (root.`ptr`)[]
+  return ok(rootValue)
 
 proc toMembershipKeyPairs*(groupKeys: seq[(string, string)]): seq[MembershipKeyPair] {.raises: [Defect, ValueError]} =
   ## groupKeys is  sequence of membership key tuples in the form of (identity key, identity commitment) all in the hexadecimal format
