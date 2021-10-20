@@ -103,7 +103,7 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   await web3.close()
   return true 
 
-proc appendLength(input: openArray[byte]): seq[byte] =
+proc appendLength*(input: openArray[byte]): seq[byte] =
   let  ulength = uint64(input.len)
   var length = toBytes(ulength, Endianness.littleEndian)
   let output: seq[byte] = concat(@length, @input)
