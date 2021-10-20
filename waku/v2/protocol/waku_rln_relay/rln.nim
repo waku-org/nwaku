@@ -60,6 +60,6 @@ proc new_circuit_from_params*(merkle_depth: uint,
                               
 proc hash*(ctx: RLN[Bn256],
           inputs_buffer: ptr Buffer,
-          input_len: uint,
-          output_buffer: ptr Buffer): bool {.importc: "hash".}
+          output_buffer: ptr Buffer): bool {.importc: "signal_to_field".}
+
 {.pop.}

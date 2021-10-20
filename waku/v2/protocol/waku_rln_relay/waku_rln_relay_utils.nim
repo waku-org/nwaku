@@ -103,6 +103,12 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   await web3.close()
   return true 
 
+proc appendLength(input: openArray[byte]): seq[byte] =
+  let  ulength = uint64(input.len)
+  var length = toBytes(ulength, Endianness.littleEndian)
+  let output: seq[byte] = concat(@length, @input)
+  return output
+
 proc toBuffer*(x: openArray[byte]): Buffer =
   ## converts the input to a Buffer object
   ## the Buffer object is used to communicate data with the rln lib
@@ -113,14 +119,14 @@ proc toBuffer*(x: openArray[byte]): Buffer =
 proc hash*(rlnInstance: RLN[Bn256], data: openArray[byte]): MerkleNode = 
   ## a thin layer on top of the Nim wrapper of the Poseidon hasher  
   debug "hash input", hashhex=data.toHex()
+  var lenPrefData = appendLength(data)
   var 
-    hashInputBuffer = data.toBuffer()
+    hashInputBuffer = lenPrefData.toBuffer()
     outputBuffer: Buffer # will holds the hash output
-    numOfInputs = 1.uint # the number of hash inputs that can be 1 or 2
   
   debug "hash input buffer length", bufflen=hashInputBuffer.len
   let 
-    hashSuccess = hash(rlnInstance, addr hashInputBuffer, numOfInputs, addr outputBuffer)
+    hashSuccess = hash(rlnInstance, addr hashInputBuffer, addr outputBuffer)
     output = cast[ptr MerkleNode](outputBuffer.`ptr`)[]
 
   return output
