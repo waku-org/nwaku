@@ -267,6 +267,8 @@ procSuite "Waku rln relay":
     # create a group of 100 membership keys
     let
       (groupKeys, root) = createMembershipList(100)
+    check groupKeys.len == 100
+    let 
       # convert the keys to MembershipKeyPair structs
       groupKeyPairs = groupKeys.toMembershipKeyPairs()
       # extract the id commitments
@@ -590,6 +592,22 @@ suite "Waku rln relay":
 
     debug "hash output", hashOutputHex
 
+  test "hash utils":
+    # create an RLN instance
+    var rlnInstance = createRLNInstance()
+    check:
+      rlnInstance.isOk == true
+    let rln = rlnInstance.value
+    
+    # prepare the input
+    # TODO should add support for arbitrary messages, the following input is artificial 
+    var hashInput : array[32, byte]
+    for x in hashInput.mitems: x = 1
+    debug "sample_hash_input_bytes", hashInputHex=hashInput.toHex()
+
+    let hash = rln.hash(hashInput)
+    doAssert("53a6338cdbf02f0563cec1898e354d0d272c8f98b606c538945c6f41ef101828" == hash.toHex())
+
   test "generate_proof and verify Nim Wrappers":
     # create an RLN instance
 
@@ -633,7 +651,7 @@ suite "Waku rln relay":
     var  epochBytes : array[32,byte]
     for x in epochBytes.mitems : x = 0
     var epochHex = epochBytes.toHex()
-    debug "epoch in bytes", epochHex
+    debug "epoch", epochHex
 
 
     # serialize message and epoch 
@@ -733,3 +751,144 @@ suite "Waku rln relay":
       groupKeyPairs.len == StaticGroupSize
       # compare the calculated root against the correct root
       root == STATIC_GROUP_MERKLE_ROOT
+  
+  test "RateLimitProof Protobuf encode/init test":
+    var 
+      proof: ZKSNARK
+      merkleRoot: MerkleNode
+      epoch: Epoch
+      shareX: MerkleNode
+      shareY: MerkleNode
+      nullifier: Nullifier
+    # populate fields with dummy values
+    for x in proof.mitems : x = 1
+    for x in merkleRoot.mitems : x = 2
+    for x in epoch.mitems : x = 3
+    for x in shareX.mitems : x = 4
+    for x in shareY.mitems : x = 5
+    for x in nullifier.mitems : x = 6
+    
+    let 
+      nsp = RateLimitProof(proof: proof,
+                          merkleRoot: merkleRoot,
+                          epoch: epoch,
+                          shareX: shareX,
+                          shareY: shareY,
+                          nullifier: nullifier)
+      protobuf = nsp.encode()
+      decodednsp = RateLimitProof.init(protobuf.buffer)
+
+    check:
+      decodednsp.isErr == false
+      decodednsp.value == nsp
+
+  test "test proofVerify and proofGen for a valid proof":
+    var rlnInstance = createRLNInstance()
+    check:
+      rlnInstance.isOk == true
+    var rln = rlnInstance.value
+
+    let 
+      # create a membership key pair
+      memKeys = membershipKeyGen(rln).get()
+      # peer's index in the Merkle Tree
+      index = 5
+
+    # Create a Merkle tree with random members 
+    for i in 0..10:
+      var member_is_added: bool = false
+      if (i == index):
+        # insert the current peer's pk
+        member_is_added = rln.insertMember(memKeys.idCommitment)
+      else:
+        # create a new key pair
+        let memberKeys = rln.membershipKeyGen()
+        member_is_added = rln.insertMember(memberKeys.get().idCommitment)
+      # check the member is added
+      doAssert(member_is_added)
+
+    # prepare the message 
+    # TODO this message format is artificial (to bypass the Poseidon hasher issue)
+    # TODO in  practice we should be able to pick messages of arbitrary size and format
+    var messageBytes {.noinit.}: array[32, byte]
+    for x in messageBytes.mitems: x = 1
+    debug "message", messageHex=messageBytes.toHex()
+
+    # prepare the epoch
+    var  epoch : Epoch
+    for x in epoch.mitems : x = 0
+    debug "epoch", epochHex=epoch.toHex()
+
+    # hash the message
+    let msgHash = rln.hash(messageBytes)
+    debug "message hash", mh=byteutils.toHex(msgHash)
+
+    # generate proof
+    let proofRes = rln.proofGen(data = msgHash, 
+                memKeys = memKeys,
+                memIndex = MembershipIndex(index),
+                epoch = epoch)
+
+    doAssert(proofRes.isOk())
+    let proof = proofRes.value
+    
+    # verify the proof
+    let verified = rln.proofVerify(data = messageBytes,
+                                 proof = proof)
+    check verified == true
+
+  test "test proofVerify and proofGen for an invalid proof":
+    var rlnInstance = createRLNInstance()
+    check:
+      rlnInstance.isOk == true
+    var rln = rlnInstance.value
+
+    let 
+      # create a membership key pair
+      memKeys = membershipKeyGen(rln).get()
+      # peer's index in the Merkle Tree
+      index = 5
+
+    # Create a Merkle tree with random members 
+    for i in 0..10:
+      var member_is_added: bool = false
+      if (i == index):
+        # insert the current peer's pk
+        member_is_added = rln.insertMember(memKeys.idCommitment)
+      else:
+        # create a new key pair
+        let memberKeys = rln.membershipKeyGen()
+        member_is_added = rln.insertMember(memberKeys.get().idCommitment)
+      # check the member is added
+      doAssert(member_is_added)
+
+    # prepare the message 
+    # TODO this message format is artificial (to bypass the Poseidon hasher issue)
+    # TODO in  practice we should be able to pick messages of arbitrary size and format
+    var messageBytes {.noinit.}: array[32, byte]
+    for x in messageBytes.mitems: x = 1
+    debug "message", messageHex=messageBytes.toHex()
+
+    # prepare the epoch
+    var  epoch : Epoch
+    for x in epoch.mitems : x = 0
+    debug "epoch in bytes", epochHex=epoch.toHex()
+
+    # hash the message
+    let msgHash = rln.hash(messageBytes)
+    debug "message hash", mh=byteutils.toHex(msgHash)
+
+    let badIndex = 4
+    # generate proof
+    let proofRes = rln.proofGen(data = msgHash, 
+                memKeys = memKeys,
+                memIndex = MembershipIndex(badIndex),
+                epoch = epoch)
+    
+    doAssert(proofRes.isOk())
+    let proof = proofRes.value
+
+    # verify the proof (should not be verified)
+    let verified = rln.proofVerify(data = messageBytes,
+                                 proof = proof)
+    check verified == false
