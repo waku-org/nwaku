@@ -50,8 +50,7 @@ proc initAddress(T: type MultiAddress, str: string): T {.raises: [Defect, ValueE
   if IPFS.match(address) and matchPartial(multiaddress.TCP, address):
     return address
   else:
-    raise newException(ValueError,
-                       "Invalid bootstrap node multi-address")
+    return address
 
 ## Parses a fully qualified peer multiaddr, in the
 ## format `(ip4|ip6)/tcp/p2p`, into dialable PeerInfo
