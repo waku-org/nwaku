@@ -5,7 +5,7 @@ import
   chronicles, options, chronos, stint,
   web3,
   stew/results,
-  stew/[byteutils, arrayops],
+  stew/[byteutils, arrayops, endians2],
   rln, 
   waku_rln_relay_types
 
@@ -131,31 +131,41 @@ proc hash*(rlnInstance: RLN[Bn256], data: openArray[byte]): MerkleNode =
 
   return output
 
+proc serializeProofInputs(idKey: IDCommitment, memIndex: MembershipIndex, epoch: Epoch, msg: openArray[byte]): seq[byte] =
+  let memIndexBytes = toBytes(uint64(memIndex), Endianness.littleEndian)
+  let lenPrefMsg = appendLength(msg)
+  let output = concat(@idKey, @memIndexBytes, @epoch,  lenPrefMsg)
+  return output
+
 proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: MembershipKeyPair, memIndex: MembershipIndex, epoch: Epoch): RateLimitProofResult = 
 
-  var skBuffer = toBuffer(memKeys.idKey)
+  # var skBuffer = toBuffer(memKeys.idKey)
 
   # peer's index in the Merkle Tree
-  var index = memIndex
+  # var index = memIndex
 
   # prepare the authentication object with peer's index and sk
-  var authObj: Auth = Auth(secret_buffer: addr skBuffer, index: index)
+  # var authObj: Auth = Auth(secret_buffer: addr skBuffer, index: index)
 
   # serialize message and epoch 
   # TODO add a proc for serializing
-  var epochMessage = @epoch & @data
+  # var epochMessage = @epoch & @data
 
-  # convert the seq to an array
-  var inputBytes{.noinit.}: array[64, byte] # holds epoch||Message 
-  for (i, x) in inputBytes.mpairs: x = epochMessage[i]
-  debug "serialized epoch and message ", inputHex=inputBytes.toHex()
+  # # convert the seq to an array
+  # var inputBytes{.noinit.}: array[64, byte] # holds epoch||Message 
+  # for (i, x) in inputBytes.mpairs: x = epochMessage[i]
+  # debug "serialized epoch and message ", inputHex=inputBytes.toHex()
 
-  # put the serialized epoch||message into a buffer
-  var inputBuffer = toBuffer(inputBytes)
+  # serialize inputs
+  let serializedInputs = serializeProofInputs(idKey = memKeys.idKey,
+                       memIndex = memIndex,
+                       epoch = epoch,
+                       msg = data)
+  var inputBuffer = toBuffer(serializedInputs)
 
   # generate the proof
   var proof: Buffer
-  let proofIsSuccessful = generate_proof(rlnInstance, addr inputBuffer, addr authObj, addr proof)
+  let proofIsSuccessful = generate_proof(rlnInstance, addr inputBuffer, addr proof)
   # check whether the generate_proof call is done successfully
   if not proofIsSuccessful:
     return err("could not generate the proof")

@@ -783,60 +783,60 @@ suite "Waku rln relay":
   #     decodednsp.isErr == false
   #     decodednsp.value == nsp
 
-  # test "test proofVerify and proofGen for a valid proof":
-  #   var rlnInstance = createRLNInstance()
-  #   check:
-  #     rlnInstance.isOk == true
-  #   var rln = rlnInstance.value
+  test "test proofVerify and proofGen for a valid proof":
+    var rlnInstance = createRLNInstance()
+    check:
+      rlnInstance.isOk == true
+    var rln = rlnInstance.value
 
-  #   let 
-  #     # create a membership key pair
-  #     memKeys = membershipKeyGen(rln).get()
-  #     # peer's index in the Merkle Tree
-  #     index = 5
+    let 
+      # create a membership key pair
+      memKeys = membershipKeyGen(rln).get()
+      # peer's index in the Merkle Tree
+      index = 5
 
-  #   # Create a Merkle tree with random members 
-  #   for i in 0..10:
-  #     var member_is_added: bool = false
-  #     if (i == index):
-  #       # insert the current peer's pk
-  #       member_is_added = rln.insertMember(memKeys.idCommitment)
-  #     else:
-  #       # create a new key pair
-  #       let memberKeys = rln.membershipKeyGen()
-  #       member_is_added = rln.insertMember(memberKeys.get().idCommitment)
-  #     # check the member is added
-  #     doAssert(member_is_added)
+    # Create a Merkle tree with random members 
+    for i in 0..10:
+      var member_is_added: bool = false
+      if (i == index):
+        # insert the current peer's pk
+        member_is_added = rln.insertMember(memKeys.idCommitment)
+      else:
+        # create a new key pair
+        let memberKeys = rln.membershipKeyGen()
+        member_is_added = rln.insertMember(memberKeys.get().idCommitment)
+      # check the member is added
+      doAssert(member_is_added)
 
-  #   # prepare the message 
-  #   # TODO this message format is artificial (to bypass the Poseidon hasher issue)
-  #   # TODO in  practice we should be able to pick messages of arbitrary size and format
-  #   var messageBytes {.noinit.}: array[32, byte]
-  #   for x in messageBytes.mitems: x = 1
-  #   debug "message", messageHex=messageBytes.toHex()
+    # prepare the message 
+    # TODO this message format is artificial (to bypass the Poseidon hasher issue)
+    # TODO in  practice we should be able to pick messages of arbitrary size and format
+    var messageBytes {.noinit.}: array[32, byte]
+    for x in messageBytes.mitems: x = 1
+    debug "message", messageHex=messageBytes.toHex()
 
-  #   # prepare the epoch
-  #   var  epoch : Epoch
-  #   for x in epoch.mitems : x = 0
-  #   debug "epoch", epochHex=epoch.toHex()
+    # prepare the epoch
+    var  epoch : Epoch
+    for x in epoch.mitems : x = 0
+    debug "epoch", epochHex=epoch.toHex()
 
-  #   # hash the message
-  #   let msgHash = rln.hash(messageBytes)
-  #   debug "message hash", mh=byteutils.toHex(msgHash)
+    # # hash the message
+    # let msgHash = rln.hash(messageBytes)
+    # debug "message hash", mh=byteutils.toHex(msgHash)
 
-  #   # generate proof
-  #   let proofRes = rln.proofGen(data = msgHash, 
-  #               memKeys = memKeys,
-  #               memIndex = MembershipIndex(index),
-  #               epoch = epoch)
+    # generate proof
+    let proofRes = rln.proofGen(data = "Hello".toBytes(), 
+                memKeys = memKeys,
+                memIndex = MembershipIndex(index),
+                epoch = epoch)
 
-  #   doAssert(proofRes.isOk())
-  #   let proof = proofRes.value
+    doAssert(proofRes.isOk())
+    let proof = proofRes.value
     
-  #   # verify the proof
-  #   let verified = rln.proofVerify(data = messageBytes,
-  #                                proof = proof)
-  #   check verified == true
+    # verify the proof
+    # let verified = rln.proofVerify(data = messageBytes,
+    #                              proof = proof)
+    # check verified == true
 
   # test "test proofVerify and proofGen for an invalid proof":
   #   var rlnInstance = createRLNInstance()

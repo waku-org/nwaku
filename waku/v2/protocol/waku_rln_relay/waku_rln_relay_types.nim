@@ -54,7 +54,7 @@ type RateLimitProof* = object
   ## see details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Nullifiers
   nullifier*: Nullifier
   
-type MembershipIndex* = uint
+type MembershipIndex* = uint64
 
 type WakuRLNRelay* = ref object 
   membershipKeyPair*: MembershipKeyPair
