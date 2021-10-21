@@ -34,7 +34,7 @@ type
     
     wsPort* {.
       desc: "Web Socket listening port."
-      defaultValue: 1400
+      defaultValue: 8000
       name: "ws-port" }: Port
     
     portsShift* {.

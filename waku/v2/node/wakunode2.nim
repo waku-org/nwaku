@@ -168,7 +168,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     extIp = none[ValidIpAddress](), extPort = none[Port](),
     peerStorage: PeerStorage = nil,
     maxConnections = builders.MaxConnections,
-    wsBindPort: Port = (Port)1400): T 
+    wsBindPort: Port = (Port)8000): T 
     {.raises: [Defect, LPError].} =
   ## Creates a Waku Node.
   ##
