@@ -131,7 +131,11 @@ proc hash*(rlnInstance: RLN[Bn256], data: openArray[byte]): MerkleNode =
 
   return output
 
-proc serializeProofInputs(idKey: IDCommitment, memIndex: MembershipIndex, epoch: Epoch, msg: openArray[byte]): seq[byte] =
+proc serialize(idKey: IDKey, memIndex: MembershipIndex, epoch: Epoch, msg: openArray[byte]): seq[byte] =
+  ## a private proc to convert RateLimitProof and the data to a byte seq
+  ## this conversion is used in the proofGen proc
+  ## the serialization is done as instructed in  https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L146
+  ## [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
   let memIndexBytes = toBytes(uint64(memIndex), Endianness.littleEndian)
   let lenPrefMsg = appendLength(msg)
   let output = concat(@idKey, @memIndexBytes, @epoch,  lenPrefMsg)
@@ -139,28 +143,11 @@ proc serializeProofInputs(idKey: IDCommitment, memIndex: MembershipIndex, epoch:
 
 proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: MembershipKeyPair, memIndex: MembershipIndex, epoch: Epoch): RateLimitProofResult = 
 
-  # var skBuffer = toBuffer(memKeys.idKey)
-
-  # peer's index in the Merkle Tree
-  # var index = memIndex
-
-  # prepare the authentication object with peer's index and sk
-  # var authObj: Auth = Auth(secret_buffer: addr skBuffer, index: index)
-
-  # serialize message and epoch 
-  # TODO add a proc for serializing
-  # var epochMessage = @epoch & @data
-
-  # # convert the seq to an array
-  # var inputBytes{.noinit.}: array[64, byte] # holds epoch||Message 
-  # for (i, x) in inputBytes.mpairs: x = epochMessage[i]
-  # debug "serialized epoch and message ", inputHex=inputBytes.toHex()
-
   # serialize inputs
-  let serializedInputs = serializeProofInputs(idKey = memKeys.idKey,
-                       memIndex = memIndex,
-                       epoch = epoch,
-                       msg = data)
+  let serializedInputs = serialize(idKey = memKeys.idKey,
+                                  memIndex = memIndex,
+                                  epoch = epoch,
+                                  msg = data)
   var inputBuffer = toBuffer(serializedInputs)
 
   # generate the proof
@@ -197,18 +184,20 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: Membersh
   discard nullifier.copyFrom(proofBytes[shareYOffset..nullifierOffset-1])
 
   let output = RateLimitProof(proof: zkproof,
-                            merkleRoot: proofRoot,
-                            epoch: epoch,
-                            shareX: shareX,
-                            shareY: shareY,
-                            nullifier: nullifier)
+                              merkleRoot: proofRoot,
+                              epoch: epoch,
+                              shareX: shareX,
+                              shareY: shareY,
+                              nullifier: nullifier)
 
   return ok(output)
 
-proc serializeProof(proof: RateLimitProof, msg: openArray[byte]): seq[byte] =
-  ## a private proc to convert RateLimitProof to a byte seq
+proc serialize(proof: RateLimitProof, data: openArray[byte]): seq[byte] =
+  ## a private proc to convert RateLimitProof and data to a byte seq
   ## this conversion is used in the proof verification proc
-  let lenPrefMsg = appendLength(@msg)
+  ## the order of serialization is based on https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L205
+  ## [ proof<256>| root<32>| epoch<32>| share_x<32>| share_y<32>| nullifier<32> | signal_len<8> | signal<var> ]
+  let lenPrefMsg = appendLength(@data)
   var  proofBytes = concat(@(proof.proof),
                           @(proof.merkleRoot),
                           @(proof.epoch),
@@ -220,9 +209,8 @@ proc serializeProof(proof: RateLimitProof, msg: openArray[byte]): seq[byte] =
   return proofBytes
 
 proc proofVerify*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: RateLimitProof): bool =
-  # TODO proof should be checked against the data
   var 
-    proofBytes= serializeProof(proof, data)
+    proofBytes= serialize(proof, data)
     proofBuffer = proofBytes.toBuffer()
     f = 0.uint32
   debug "serialized proof", proof=proofBytes.toHex()
