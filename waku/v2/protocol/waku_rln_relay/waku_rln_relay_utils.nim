@@ -205,22 +205,24 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: Membersh
 
   return ok(output)
 
-proc serializeProof(proof: RateLimitProof): seq[byte] =
+proc serializeProof(proof: RateLimitProof, msg: openArray[byte]): seq[byte] =
   ## a private proc to convert RateLimitProof to a byte seq
   ## this conversion is used in the proof verification proc
+  let lenPrefMsg = appendLength(@msg)
   var  proofBytes = concat(@(proof.proof),
                           @(proof.merkleRoot),
                           @(proof.epoch),
                           @(proof.shareX),
                           @(proof.shareY),
-                          @(proof.nullifier))
+                          @(proof.nullifier),
+                          lenPrefMsg)
 
   return proofBytes
 
 proc proofVerify*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: RateLimitProof): bool =
   # TODO proof should be checked against the data
   var 
-    proofBytes= serializeProof(proof)
+    proofBytes= serializeProof(proof, data)
     proofBuffer = proofBytes.toBuffer()
     f = 0.uint32
   debug "serialized proof", proof=proofBytes.toHex()
