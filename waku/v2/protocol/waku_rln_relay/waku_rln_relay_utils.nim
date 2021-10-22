@@ -104,12 +104,15 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   return true 
 
 proc appendLength*(input: openArray[byte]): seq[byte] =
-  ## returns length prefixed data
-  ## the output has the following format [len<8>| data<var>]
-  ## the first 8 bytes of the output represent the number of bytes in the data, followed by the data itself
+  ## returns length prefixed version of the input
+  ## with the following format [len<8>|input<var>]
+  ## len: 8-byte value that represents the number of bytes in the `input`
+  ## len is serialized in little-endian
+  ## input: the supplied `input` 
   let 
-    length = toBytes(uint64(input.len), Endianness.littleEndian)
-    output = concat(@length, @input)
+    # the length should be serialized in little-endian
+    len = toBytes(uint64(input.len), Endianness.littleEndian)
+    output = concat(@len, @input)
   return output
 
 proc toBuffer*(x: openArray[byte]): Buffer =
