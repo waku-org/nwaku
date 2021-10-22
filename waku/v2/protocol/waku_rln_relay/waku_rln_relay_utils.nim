@@ -107,8 +107,9 @@ proc appendLength*(input: openArray[byte]): seq[byte] =
   ## returns length prefixed data
   ## the output has the following format [len<8>| data<var>]
   ## the first 8 bytes of the output represent the number of bytes in the data, followed by the data itself
-  var length = toBytes(uint64(input.len), Endianness.littleEndian)
-  let output: seq[byte] = concat(@length, @input)
+  let 
+    length = toBytes(uint64(input.len), Endianness.littleEndian)
+    output = concat(@length, @input)
   return output
 
 proc toBuffer*(x: openArray[byte]): Buffer =
