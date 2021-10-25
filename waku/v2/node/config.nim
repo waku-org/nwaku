@@ -33,7 +33,7 @@ type
       name: "tcp-port" }: Port
     
     wsPort* {.
-      desc: "Web Socket listening port."
+      desc: "WebSocket listening port."
       defaultValue: 8000
       name: "ws-port" }: Port
     
@@ -52,10 +52,10 @@ type
       defaultValue: 50
       name: "max-connections" }: uint16
     
-    transport* {.
-      desc: "Specify transport to use for wakunode " &
-            "Must be one of: tcp, ws, wss"
-      defaultValue: "tcp" }: string
+    websocket* {.
+      desc: "Enable websocket:  true|false",
+      defaultValue: false
+      name: "websocket support"}: bool
     ## Persistence config
     
     dbPath* {.

@@ -127,8 +127,7 @@ template tcpEndPoint(address, port): auto =
 template addWsFlag() =
   MultiAddress.init("/ws").tryGet()
 
-## Public API
-##
+
 proc newWakuSwitch*(
     privKey = none(PrivateKey),
     address = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet(),
@@ -143,12 +142,12 @@ proc newWakuSwitch*(
     maxConnections = MaxConnections,
     maxIn = -1,
     maxOut = -1,
-    maxConnsPerPeer = MaxConnectionsPerPeer): Switch
+    maxConnsPerPeer = MaxConnectionsPerPeer,
+    wsFlag: bool = false): Switch
     {.raises: [Defect, LPError].} =
 
     var b = SwitchBuilder
       .new()
-      .withAddresses(@[wsAddress, address])
       .withRng(rng)
       .withMaxConnections(maxConnections)
       .withMaxIn(maxIn)
@@ -156,10 +155,14 @@ proc newWakuSwitch*(
       .withMaxConnsPerPeer(maxConnsPerPeer)
       .withMplex(inTimeout, outTimeout)
       .withNoise()
-      .withTransport(proc (upgr: Upgrade): Transport = WsTransport.new(upgr))
       .withTcpTransport(transportFlags)
     if privKey.isSome():
       b = b.withPrivateKey(privKey.get())
+    if wsFlag == true:
+      b = b.withAddresses(@[wsAddress, address])
+      b = b.withTransport(proc (upgr: Upgrade): Transport = WsTransport.new(upgr))
+    else :
+      b = b.withAddress(address)
 
     b.build()
 
@@ -168,7 +171,8 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     extIp = none[ValidIpAddress](), extPort = none[Port](),
     peerStorage: PeerStorage = nil,
     maxConnections = builders.MaxConnections,
-    wsBindPort: Port = (Port)8000): T 
+    wsBindPort: Port = (Port)8000,
+    wsFlag: bool = false): T 
     {.raises: [Defect, LPError].} =
   ## Creates a Waku Node.
   ##
@@ -179,8 +183,9 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     hostAddress = tcpEndPoint(bindIp, bindPort)
     wsHostAddress = tcpEndPoint(bindIp, wsbindPort) & addWsFlag
     announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
-                         else: @[tcpEndPoint(extIp.get(), extPort.get()), 
-                         tcpEndPoint(extIp.get(), wsBindPort) & addWsFlag]
+                        elif wsFlag == false: @[tcpEndPoint(extIp.get(), extPort.get())]
+                        else : @[tcpEndPoint(extIp.get(), extPort.get()),
+                        tcpEndPoint(extIp.get(), wsBindPort) & addWsFlag]
     peerInfo = PeerInfo.init(nodekey)
     enrIp = if extIp.isSome(): extIp
             else: some(bindIp)
@@ -188,13 +193,13 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
                  else: some(bindPort)
     enr = createEnr(nodeKey, enrIp, enrTcpPort, none(Port))
   
-  info "Initializing networking", hostAddress, wsHostAddress,
-                                  announcedAddresses
-  # XXX: Add this when we create node or start it?
-  # Index 0
-  
+  info "Initializing networking", hostAddress, announcedAddresses
   peerInfo.addrs.add(hostAddress)
-  peerInfo.addrs.add(wsHostAddress)
+  
+  if wsFlag == true:
+    info "Initializing networking", hostAddress, wsHostAddress,
+                                    announcedAddresses
+    peerInfo.addrs.add(wsHostAddress)
 
   for multiaddr in announcedAddresses:
     peerInfo.addrs.add(multiaddr) # Announced addresses in index > 0
@@ -204,7 +209,8 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   wsHostAddress, 
   transportFlags = {ServerFlags.ReuseAddr},
   rng = rng, 
-  maxConnections = maxConnections)
+  maxConnections = maxConnections,
+  wsFlag = wsFlag)
   # TODO Untested - verify behavior after switch interface change
   # More like this:
   # let pubsub = GossipSub.init(
@@ -890,8 +896,9 @@ when isMainModule:
                         extIp, extPort,
                         pStorage,
                         conf.maxConnections.int,
-                        conf.wsPort)
-    
+                        Port(uint16(conf.wsPort) + conf.portsShift),
+                        conf.websocket)
+
     ok(node)
 
   # 3/6 Mount and initialize configured protocols
