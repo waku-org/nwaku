@@ -5,7 +5,7 @@ import
   chronicles, options, chronos, stint,
   web3,
   stew/results,
-  stew/[byteutils, arrayops],
+  stew/[byteutils, arrayops, endians2],
   rln, 
   waku_rln_relay_types
 
@@ -103,6 +103,18 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   await web3.close()
   return true 
 
+proc appendLength*(input: openArray[byte]): seq[byte] =
+  ## returns length prefixed version of the input
+  ## with the following format [len<8>|input<var>]
+  ## len: 8-byte value that represents the number of bytes in the `input`
+  ## len is serialized in little-endian
+  ## input: the supplied `input` 
+  let 
+    # the length should be serialized in little-endian
+    len = toBytes(uint64(input.len), Endianness.littleEndian)
+    output = concat(@len, @input)
+  return output
+
 proc toBuffer*(x: openArray[byte]): Buffer =
   ## converts the input to a Buffer object
   ## the Buffer object is used to communicate data with the rln lib
@@ -113,43 +125,40 @@ proc toBuffer*(x: openArray[byte]): Buffer =
 proc hash*(rlnInstance: RLN[Bn256], data: openArray[byte]): MerkleNode = 
   ## a thin layer on top of the Nim wrapper of the Poseidon hasher  
   debug "hash input", hashhex=data.toHex()
+  var lenPrefData = appendLength(data)
   var 
-    hashInputBuffer = data.toBuffer()
+    hashInputBuffer = lenPrefData.toBuffer()
     outputBuffer: Buffer # will holds the hash output
-    numOfInputs = 1.uint # the number of hash inputs that can be 1 or 2
   
   debug "hash input buffer length", bufflen=hashInputBuffer.len
   let 
-    hashSuccess = hash(rlnInstance, addr hashInputBuffer, numOfInputs, addr outputBuffer)
+    hashSuccess = hash(rlnInstance, addr hashInputBuffer, addr outputBuffer)
     output = cast[ptr MerkleNode](outputBuffer.`ptr`)[]
 
   return output
 
+proc serialize(idKey: IDKey, memIndex: MembershipIndex, epoch: Epoch, msg: openArray[byte]): seq[byte] =
+  ## a private proc to convert RateLimitProof and the data to a byte seq
+  ## this conversion is used in the proofGen proc
+  ## the serialization is done as instructed in  https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L146
+  ## [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+  let memIndexBytes = toBytes(uint64(memIndex), Endianness.littleEndian)
+  let lenPrefMsg = appendLength(msg)
+  let output = concat(@idKey, @memIndexBytes, @epoch,  lenPrefMsg)
+  return output
+
 proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: MembershipKeyPair, memIndex: MembershipIndex, epoch: Epoch): RateLimitProofResult = 
 
-  var skBuffer = toBuffer(memKeys.idKey)
-
-  # peer's index in the Merkle Tree
-  var index = memIndex
-
-  # prepare the authentication object with peer's index and sk
-  var authObj: Auth = Auth(secret_buffer: addr skBuffer, index: index)
-
-  # serialize message and epoch 
-  # TODO add a proc for serializing
-  var epochMessage = @epoch & @data
-
-  # convert the seq to an array
-  var inputBytes{.noinit.}: array[64, byte] # holds epoch||Message 
-  for (i, x) in inputBytes.mpairs: x = epochMessage[i]
-  debug "serialized epoch and message ", inputHex=inputBytes.toHex()
-
-  # put the serialized epoch||message into a buffer
-  var inputBuffer = toBuffer(inputBytes)
+  # serialize inputs
+  let serializedInputs = serialize(idKey = memKeys.idKey,
+                                  memIndex = memIndex,
+                                  epoch = epoch,
+                                  msg = data)
+  var inputBuffer = toBuffer(serializedInputs)
 
   # generate the proof
   var proof: Buffer
-  let proofIsSuccessful = generate_proof(rlnInstance, addr inputBuffer, addr authObj, addr proof)
+  let proofIsSuccessful = generate_proof(rlnInstance, addr inputBuffer, addr proof)
   # check whether the generate_proof call is done successfully
   if not proofIsSuccessful:
     return err("could not generate the proof")
@@ -181,30 +190,33 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: Membersh
   discard nullifier.copyFrom(proofBytes[shareYOffset..nullifierOffset-1])
 
   let output = RateLimitProof(proof: zkproof,
-                            merkleRoot: proofRoot,
-                            epoch: epoch,
-                            shareX: shareX,
-                            shareY: shareY,
-                            nullifier: nullifier)
+                              merkleRoot: proofRoot,
+                              epoch: epoch,
+                              shareX: shareX,
+                              shareY: shareY,
+                              nullifier: nullifier)
 
   return ok(output)
 
-proc serializeProof(proof: RateLimitProof): seq[byte] =
-  ## a private proc to convert RateLimitProof to a byte seq
+proc serialize(proof: RateLimitProof, data: openArray[byte]): seq[byte] =
+  ## a private proc to convert RateLimitProof and data to a byte seq
   ## this conversion is used in the proof verification proc
+  ## the order of serialization is based on https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L205
+  ## [ proof<256>| root<32>| epoch<32>| share_x<32>| share_y<32>| nullifier<32> | signal_len<8> | signal<var> ]
+  let lenPrefMsg = appendLength(@data)
   var  proofBytes = concat(@(proof.proof),
                           @(proof.merkleRoot),
                           @(proof.epoch),
                           @(proof.shareX),
                           @(proof.shareY),
-                          @(proof.nullifier))
+                          @(proof.nullifier),
+                          lenPrefMsg)
 
   return proofBytes
 
 proc proofVerify*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: RateLimitProof): bool =
-  # TODO proof should be checked against the data
   var 
-    proofBytes= serializeProof(proof)
+    proofBytes= serialize(proof, data)
     proofBuffer = proofBytes.toBuffer()
     f = 0.uint32
   debug "serialized proof", proof=proofBytes.toHex()
