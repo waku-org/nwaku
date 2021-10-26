@@ -1029,6 +1029,7 @@ procSuite "WakuNode":
 
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
 
+    
 asyncTest "Messages are relayed between two websocket nodes":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
