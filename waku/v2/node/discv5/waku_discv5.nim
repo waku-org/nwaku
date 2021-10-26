@@ -19,7 +19,9 @@ logScope:
   topics = "wakudiscv5"
 
 type
-  WakuDiscoveryV5* = protocol.Protocol
+  WakuDiscoveryV5* = ref object
+    protocol*: protocol.Protocol
+    listening*: bool
 
 proc parseBootstrapAddress(address: TaintedString):
     Result[enr.Record, cstring] =
@@ -62,7 +64,7 @@ proc findRandomPeers*(wakuDiscv5: WakuDiscoveryV5): Future[Result[seq[RemotePeer
   
   ## Query for a random target and collect all discovered nodes
   ## @TODO: we could filter nodes here
-  let discoveredNodes = await wakuDiscv5.queryRandom()
+  let discoveredNodes = await wakuDiscv5.protocol.queryRandom()
   
   var discoveredPeers: seq[RemotePeerInfo]
 
@@ -83,20 +85,47 @@ proc findRandomPeers*(wakuDiscv5: WakuDiscoveryV5): Future[Result[seq[RemotePeer
   return ok(discoveredPeers)
 
 proc new*(T: type WakuDiscoveryV5,
-          config: WakuNodeConf,
-          enrIp: Option[ValidIpAddress], enrTcpPort, enrUdpPort: Option[Port],
+          extIp: Option[ValidIpAddress],
+          extTcpPort, extUdpPort: Option[Port],
+          bindIP: ValidIpAddress,
+          discv5UdpPort: Port,
+          bootstrapNodes: seq[string],
+          enrAutoUpdate = false,
           privateKey: PrivateKey,
-          enrFields: openArray[(string, seq[byte])], rng: ref BrHmacDrbgContext):
-          T =
+          enrFields: openArray[(string, seq[byte])],
+          rng: ref BrHmacDrbgContext): T =
   
   var bootstrapEnrs: seq[enr.Record]
-  for node in config.discv5BootstrapNodes:
+  for node in bootstrapNodes:
     addBootstrapNode(node, bootstrapEnrs)
   
   ## TODO: consider loading from a configurable bootstrap file
   
-  newProtocol(privateKey, enrIp, enrTcpPort, enrUdpPort, enrFields, bootstrapEnrs,
-    bindPort = config.discv5UdpPort,
-    bindIp = config.listenAddress,
-    enrAutoUpdate = config.discv5EnrAutoUpdate,
+  let protocol = newProtocol(
+    privateKey,
+    enrIp = extIp, enrTcpPort = extTcpPort, enrUdpPort = extUdpPort, # We use the external IP & ports for ENR
+    enrFields,
+    bootstrapEnrs,
+    bindPort = discv5UdpPort,
+    bindIp = bindIP,
+    enrAutoUpdate = enrAutoUpdate,
     rng = rng)
+  
+  return WakuDiscoveryV5(protocol: protocol, listening: false)
+
+proc open*(wakuDiscv5: WakuDiscoveryV5) {.raises: [Defect, CatchableError].} =
+  debug "Opening Waku discovery v5 ports"
+
+  wakuDiscv5.protocol.open()
+  wakuDiscv5.listening = true
+
+proc start*(wakuDiscv5: WakuDiscoveryV5) =
+  debug "Starting Waku discovery v5 service"
+
+  wakuDiscv5.protocol.start()
+
+proc closeWait*(wakuDiscv5: WakuDiscoveryV5) {.async.} =
+  debug "Closing Waku discovery v5 node"
+
+  wakuDiscv5.listening = false
+  await wakuDiscv5.protocol.closeWait()

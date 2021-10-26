@@ -703,7 +703,7 @@ proc connectToNodes*(n: WakuNode, nodes: seq[RemotePeerInfo]) {.async.} =
   # later.
   await sleepAsync(5.seconds)
 
-proc runDiscv5Loop*(node: WakuNode) {.async.} =
+proc runDiscv5Loop(node: WakuNode) {.async.} =
   ## Continuously add newly discovered nodes
   ## using Node Discovery v5
   if (node.wakuDiscv5.isNil):
@@ -712,7 +712,8 @@ proc runDiscv5Loop*(node: WakuNode) {.async.} =
 
   info "Starting discovery loop"
 
-  while true:
+  while node.wakuDiscv5.listening:
+    trace "Running discovery loop"
     ## Query for a random target and collect all discovered nodes
     ## @TODO: we could filter nodes here
     let discoveredPeers = await node.wakuDiscv5.findRandomPeers()
@@ -720,6 +721,8 @@ proc runDiscv5Loop*(node: WakuNode) {.async.} =
       ## Let's attempt to connect to peers we
       ## have not encountered before
       
+      trace "Discovered peers", count=discoveredPeers.get().len()
+
       let newPeers = discoveredPeers.get().filterIt(
         not node.switch.peerStore.addressBook.contains(it.peerId))
 
@@ -736,17 +739,25 @@ proc runDiscv5Loop*(node: WakuNode) {.async.} =
 proc startDiscv5*(node: WakuNode): Future[bool] {.async.} =
   ## Start Discovery v5 service
   
+  info "Starting discovery v5 service"
+  
   if not node.wakuDiscv5.isNil:
     ## First start listening on configured port
     try:
+      trace "Start listening on discv5 port"
       node.wakuDiscv5.open()
     except CatchableError:
       error "Failed to start discovery service. UDP port may be already in use"
       return false
   
     ## Start Discovery v5
+    trace "Start discv5 service"
     node.wakuDiscv5.start()
+    trace "Start discovering new peers using discv5"
+    
     asyncSpawn node.runDiscv5Loop()
+
+    debug "Successfully started discovery v5 service"
     return true
 
   return false
@@ -755,9 +766,14 @@ proc stopDiscv5*(node: WakuNode): Future[bool] {.async.} =
   ## Stop Discovery v5 service
   
   if not node.wakuDiscv5.isNil:
+    info "Stopping discovery v5 service"
+    
     ## Stop Discovery v5 process and close listening port
-    await node.wakuDiscv5.closeWait()
-    await node.runDiscv5Loop.cancelAndWait()
+    if node.wakuDiscv5.listening:
+      trace "Stop listening on discv5 port"
+      await node.wakuDiscv5.closeWait()
+
+    debug "Successfully stopped discovery v5 service"
 
 proc start*(node: WakuNode) {.async.} =
   ## Starts a created Waku Node and
@@ -899,12 +915,14 @@ when isMainModule:
                             conf.maxConnections.int)
     
     if conf.discv5Discovery:
-      let discv5UdpPort = some(Port(uint16(conf.discv5UdpPort)))
+      let discv5UdpPort = Port(uint16(conf.discv5UdpPort) + conf.portsShift)
 
       node.wakuDiscv5 = WakuDiscoveryV5.new(
-        conf,
-        extIP, extTcpPort,
+        extIP, extTcpPort, some(discv5UdpPort),
+        conf.listenAddress,
         discv5UdpPort,
+        conf.discv5BootstrapNodes,
+        conf.discv5EnrAutoUpdate,
         keys.PrivateKey(conf.nodekey.skkey),
         [], # Empty enr fields, for now
         node.rng
