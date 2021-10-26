@@ -305,9 +305,8 @@ suite "time-window history query":
     let
       version = 0'u32
       payload = @[byte 0, 1, 2]
-      proof = @[byte 0, 1, 2, 3]
       timestamp = float64(10)
-      msg = WakuMessage(payload: payload, version: version, proof: proof, timestamp: timestamp)
+      msg = WakuMessage(payload: payload, version: version, timestamp: timestamp)
       pb =  msg.encode()
     
     # Decoding
@@ -327,8 +326,7 @@ suite "time-window history query":
     let
       version = 0'u32
       payload = @[byte 0, 1, 2]
-      proof = @[byte 0, 1, 2, 3]
-      msg = WakuMessage(payload: payload, version: version, proof: proof)
+      msg = WakuMessage(payload: payload, version: version)
       pb =  msg.encode()
       
     # Decoding
