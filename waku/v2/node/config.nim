@@ -55,7 +55,7 @@ type
     websocket* {.
       desc: "Enable websocket:  true|false",
       defaultValue: false
-      name: "websocket support"}: bool
+      name: "websocket-support"}: bool
     ## Persistence config
     
     dbPath* {.

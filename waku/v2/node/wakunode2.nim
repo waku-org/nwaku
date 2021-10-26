@@ -193,14 +193,14 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
                  else: some(bindPort)
     enr = createEnr(nodeKey, enrIp, enrTcpPort, none(Port))
   
-  info "Initializing networking", hostAddress, announcedAddresses
-  peerInfo.addrs.add(hostAddress)
-  
   if wsFlag == true:
     info "Initializing networking", hostAddress, wsHostAddress,
                                     announcedAddresses
     peerInfo.addrs.add(wsHostAddress)
-
+  else : 
+    info "Initializing networking", hostAddress, announcedAddresses
+    
+  peerInfo.addrs.add(hostAddress)
   for multiaddr in announcedAddresses:
     peerInfo.addrs.add(multiaddr) # Announced addresses in index > 0
   

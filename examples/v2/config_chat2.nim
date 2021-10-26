@@ -51,6 +51,11 @@ type
             "Must be one of: any, none, upnp, pmp, extip:<IP>."
       defaultValue: "any" }: string
     
+    websocket* {.
+      desc: "Enable websocket:  true|false",
+      defaultValue: false
+      name: "websocket-support"}: bool
+    
     ## Persistence config
     
     dbPath* {.
