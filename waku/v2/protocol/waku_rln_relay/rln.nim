@@ -44,13 +44,14 @@ proc key_gen*(ctx: RLN[Bn256], keypair_buffer: ptr Buffer): bool {.importc: "key
 
 proc generate_proof*(ctx: RLN[Bn256],
                     input_buffer: ptr Buffer,
-                    auth: ptr Auth,
                     output_buffer: ptr Buffer): bool {.importc: "generate_proof".}
+## input_buffer serialized as  [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
 ## output_buffer holds the proof data and should be parsed as |proof<256>|root<32>|epoch<32>|share_x<32>|share_y<32>|nullifier<32>|
-## numbers are in bytes
+## sizes are in bytes
 proc verify*(ctx: RLN[Bn256],
             proof_buffer: ptr Buffer,
             result_ptr: ptr uint32): bool {.importc: "verify".}
+## proof_buffer [ proof<256>| root<32>| epoch<32>| share_x<32>| share_y<32>| nullifier<32> | signal_len<8> | signal<var> ]
 #----------------------------------------------------------------------------------------------
 #-------------------------------- Common procedures -------------------------------------------
 
@@ -60,6 +61,6 @@ proc new_circuit_from_params*(merkle_depth: uint,
                               
 proc hash*(ctx: RLN[Bn256],
           inputs_buffer: ptr Buffer,
-          input_len: uint,
-          output_buffer: ptr Buffer): bool {.importc: "hash".}
+          output_buffer: ptr Buffer): bool {.importc: "signal_to_field".}
+
 {.pop.}

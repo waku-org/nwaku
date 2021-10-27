@@ -109,7 +109,7 @@
 [submodule "vendor/rln"]
 	path = vendor/rln
 	url = https://github.com/kilic/rln
-	branch = full-node
+	branch = master
 [submodule "vendor/nim-testutils"]
 	path = vendor/nim-testutils
 	url = https://github.com/status-im/nim-testutils.git
