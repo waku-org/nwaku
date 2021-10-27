@@ -19,7 +19,8 @@ procSuite "Waku Discovery v5":
     
     # Create nodes and ENR. These will be added to the discoverable list
     let
-      bindIp = ValidIpAddress.init("127.0.0.1")
+      bindIp = ValidIpAddress.init("0.0.0.0")
+      extIp = ValidIpAddress.init("127.0.0.1")
 
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       nodeTcpPort1 = Port(60000)
@@ -38,7 +39,7 @@ procSuite "Waku Discovery v5":
     
     # Mount discv5
     node1.wakuDiscv5 = WakuDiscoveryV5.new(
-        some(bindIp), some(nodeTcpPort1), some(nodeUdpPort1),
+        some(extIp), some(nodeTcpPort1), some(nodeUdpPort1),
         bindIp,
         nodeUdpPort1,
         @[],
@@ -49,7 +50,7 @@ procSuite "Waku Discovery v5":
       )
     
     node2.wakuDiscv5 = WakuDiscoveryV5.new(
-        some(bindIp), some(nodeTcpPort2), some(nodeUdpPort2),
+        some(extIp), some(nodeTcpPort2), some(nodeUdpPort2),
         bindIp,
         nodeUdpPort2,
         @[node1.wakuDiscv5.protocol.localNode.record.toURI()], # Bootstrap with node1
@@ -60,7 +61,7 @@ procSuite "Waku Discovery v5":
       )
     
     node3.wakuDiscv5 = WakuDiscoveryV5.new(
-        some(bindIp), some(nodeTcpPort3), some(nodeUdpPort3),
+        some(extIp), some(nodeTcpPort3), some(nodeUdpPort3),
         bindIp,
         nodeUdpPort3,
         @[node2.wakuDiscv5.protocol.localNode.record.toURI()], # Bootstrap with node2
@@ -78,7 +79,7 @@ procSuite "Waku Discovery v5":
 
     await allFutures([node1.startDiscv5(), node2.startDiscv5(), node3.startDiscv5()])
 
-    await sleepAsync(6000.millis) # Give the algorithm some time to work its magic
+    await sleepAsync(8000.millis) # Give the algorithm some time to work its magic
     check:
       # Node 1 has discovered and connected to all other nodes
       node1.switch.peerStore.addressBook.book.len() == 2
