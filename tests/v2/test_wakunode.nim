@@ -478,13 +478,13 @@ procSuite "WakuNode":
       # invalid IP address
       discard parseRemotePeerInfo("/ip4/127.0.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
     
-    expect ValueError:
+    expect LPError:
       # no PeerID
       discard parseRemotePeerInfo("/ip4/127.0.0.1/tcp/60002")
     
-    expect ValueError:
+    #expect ValueError:
       # unsupported transport
-      discard parseRemotePeerInfo("/ip4/127.0.0.1/udp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
+    #  discard parseRemotePeerInfo("/ip4/127.0.0.1/udp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
   
   asyncTest "filtering relayed messages  using topic validators":
     ## test scenario: 
