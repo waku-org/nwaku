@@ -53,6 +53,16 @@ proc initAddress(T: type MultiAddress, str: string): T {.raises: [Defect, ValueE
   else:
     return address
 
+## Check if wire Address is supported
+proc validWireAddr*(ma: MultiAddress): bool =
+  const
+    ValidTransports = mapOr(TCP, WebSockets)
+    ValidAddress = mapAnd(ValidTransports, mapEq("p2p"))
+  if ValidTransports.match(ma) == true:
+    return true
+  else:
+    return false
+
 ## Parses a fully qualified peer multiaddr, in the
 ## format `(ip4|ip6)/tcp/p2p`, into dialable PeerInfo
 proc parseRemotePeerInfo*(address: string): RemotePeerInfo {.raises: [Defect, ValueError, LPError].}=
@@ -78,8 +88,8 @@ proc parseRemotePeerInfo*(address: string): RemotePeerInfo {.raises: [Defect, Va
     peerIdStr = if wsPart.isEmpty(): p2pPart.toString()[].split("/")[^1] 
                 else : p2pPart.toString()[].split("/")[^1]
     wireAddr = ipPart & tcpPart & wsPart
-  #if (not wireAddr.isWire()):
-  #  raise newException(ValueError, "Invalid node multi-address")
+  if (not wireAddr.validWireAddr()):
+    raise newException(ValueError, "Invalid node multi-address")
 
   return RemotePeerInfo.init(peerIdStr, @[wireAddr])
 
