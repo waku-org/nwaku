@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/tables,
+  std/[tables, sequtils],
   chronicles,
   chronos,
   testutils/unittests,
@@ -19,7 +19,7 @@ procSuite "Waku Discovery v5":
     
     # Create nodes and ENR. These will be added to the discoverable list
     let
-      bindIp = ValidIpAddress.init("0.0.0.0")
+      bindIp = ValidIpAddress.init("127.0.0.1")
 
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       nodeTcpPort1 = Port(60000)
@@ -78,6 +78,21 @@ procSuite "Waku Discovery v5":
 
     await allFutures([node1.startDiscv5(), node2.startDiscv5(), node3.startDiscv5()])
 
-    await sleepAsync(2000.millis)
+    await sleepAsync(6000.millis) # Give the algorithm some time to work its magic
+    check:
+      # Node 1 has discovered and connected to all other nodes
+      node1.switch.peerStore.addressBook.book.len() == 2
+      node1.switch.peerStore.addressBook.contains(node2.peerInfo.peerId)
+      node1.switch.peerStore.addressBook.contains(node3.peerInfo.peerId)
+
+      # Node 2 has discovered and connected to all other nodes
+      node2.switch.peerStore.addressBook.book.len() == 2
+      node2.switch.peerStore.addressBook.contains(node1.peerInfo.peerId)
+      node2.switch.peerStore.addressBook.contains(node3.peerInfo.peerId)
+
+      # Node 3 has discovered and connected to all other nodes
+      node3.switch.peerStore.addressBook.book.len() == 2
+      node3.switch.peerStore.addressBook.contains(node1.peerInfo.peerId)
+      node3.switch.peerStore.addressBook.contains(node2.peerInfo.peerId)
 
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
