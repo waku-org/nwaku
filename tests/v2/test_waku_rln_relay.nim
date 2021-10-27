@@ -80,6 +80,7 @@ const MEMBERSHIP_CONTRACT_CODE = readFile("tests/v2/membershipContract.txt")
 # 		_withdraw(secret, _pubkeyIndex, receiver);
 # 	}
 
+
 contract(MembershipContract):
   proc register(pubkey: Uint256) # external payable
   # proc registerBatch(pubkeys: seq[Uint256]) # external payable
@@ -364,16 +365,18 @@ suite "Waku rln relay":
       root1 {.noinit.} : Buffer = Buffer()
       rootPtr1 = addr(root1)
       get_root_successful1 = get_root(rlnInstance.value, rootPtr1)
-    doAssert(get_root_successful1)
-    doAssert(root1.len == 32)
+    check:
+      get_root_successful1
+      root1.len == 32
 
     # read the Merkle Tree root
     var 
       root2 {.noinit.} : Buffer = Buffer()
       rootPtr2 = addr(root2)
       get_root_successful2 = get_root(rlnInstance.value, rootPtr2)
-    doAssert(get_root_successful2)
-    doAssert(root2.len == 32)
+    check: 
+      get_root_successful2
+      root2.len == 32
 
     var rootValue1 = cast[ptr array[32,byte]] (root1.`ptr`)
     let rootHex1 = rootValue1[].toHex
@@ -382,7 +385,7 @@ suite "Waku rln relay":
     let rootHex2 = rootValue2[].toHex
 
     # the two roots must be identical
-    doAssert(rootHex1 == rootHex2)
+    check rootHex1 == rootHex2
   test "getMerkleRoot utils":
     # create an RLN instance which also includes an empty Merkle tree
     var rlnInstance = createRLNInstance()
@@ -391,16 +394,16 @@ suite "Waku rln relay":
 
     # read the Merkle Tree root
     var root1 = getMerkleRoot(rlnInstance.value())
-    doAssert(root1.isOk)
+    check root1.isOk
     let rootHex1 = root1.value().toHex
 
     # read the Merkle Tree root
     var root2 = getMerkleRoot(rlnInstance.value())
-    doAssert(root2.isOk)
+    check root2.isOk
     let rootHex2 = root2.value().toHex
 
     # the two roots must be identical
-    doAssert(rootHex1 == rootHex2)
+    check rootHex1 == rootHex2
 
   test "update_next_member Nim Wrapper":
     # create an RLN instance which also includes an empty Merkle tree
@@ -410,8 +413,8 @@ suite "Waku rln relay":
 
     # generate a key pair
     var keypair = membershipKeyGen(rlnInstance.value)
-    doAssert(keypair.isSome())
-    var pkBuffer = Buffer(`ptr`: addr(keypair.get().idCommitment[0]), len: 32)
+    check keypair.isSome()
+    var pkBuffer = toBuffer(keypair.get().idCommitment)
     let pkBufferPtr = addr pkBuffer
 
     # add the member to the tree
@@ -428,7 +431,7 @@ suite "Waku rln relay":
     # delete the first member 
     var deleted_member_index = MembershipIndex(0)
     let deletion_success = delete_member(rlnInstance.value, deleted_member_index)
-    doAssert(deletion_success)
+    check deletion_success
 
   test "insertMember rln utils":
     # create an RLN instance which also includes an empty Merkle tree
@@ -438,7 +441,7 @@ suite "Waku rln relay":
     var rln = rlnInstance.value
     # generate a key pair
     var keypair = rln.membershipKeyGen()
-    doAssert(keypair.isSome())
+    check keypair.isSome()
     check:
       rln.insertMember(keypair.get().idCommitment)  
     
@@ -462,39 +465,42 @@ suite "Waku rln relay":
       root1 {.noinit.} : Buffer = Buffer()
       rootPtr1 = addr(root1)
       get_root_successful1 = get_root(rlnInstance.value, rootPtr1)
-    doAssert(get_root_successful1)
-    doAssert(root1.len == 32)
+    check:
+      get_root_successful1
+      root1.len == 32
     
     # generate a key pair
     var keypair = membershipKeyGen(rlnInstance.value)
-    doAssert(keypair.isSome())
-    var pkBuffer = Buffer(`ptr`: addr(keypair.get().idCommitment[0]), len: 32)
+    check: keypair.isSome()
+    var pkBuffer = toBuffer(keypair.get().idCommitment)
     let pkBufferPtr = addr pkBuffer
 
     # add the member to the tree
     var member_is_added = update_next_member(rlnInstance.value, pkBufferPtr)
-    doAssert(member_is_added)
+    check member_is_added
 
     # read the Merkle Tree root after insertion
     var 
       root2 {.noinit.} : Buffer = Buffer()
       rootPtr2 = addr(root2)
       get_root_successful2 = get_root(rlnInstance.value, rootPtr2)
-    doAssert(get_root_successful2)
-    doAssert(root2.len == 32)
+    check:
+      get_root_successful2
+      root2.len == 32
 
     # delete the first member 
     var deleted_member_index = MembershipIndex(0)
     let deletion_success = delete_member(rlnInstance.value, deleted_member_index)
-    doAssert(deletion_success)
+    check deletion_success
 
     # read the Merkle Tree root after the deletion
     var 
       root3 {.noinit.} : Buffer = Buffer()
       rootPtr3 = addr(root3)
       get_root_successful3 = get_root(rlnInstance.value, rootPtr3)
-    doAssert(get_root_successful3)
-    doAssert(root3.len == 32)
+    check:
+      get_root_successful3
+      root3.len == 32
 
     var rootValue1 = cast[ptr array[32,byte]] (root1.`ptr`)
     let rootHex1 = rootValue1[].toHex
@@ -509,11 +515,11 @@ suite "Waku rln relay":
     debug "The root after deletion", rootHex3
 
     # the root must change after the insertion
-    doAssert(not(rootHex1 == rootHex2))
+    check: not(rootHex1 == rootHex2)
 
     ## The initial root of the tree (empty tree) must be identical to 
     ## the root of the tree after one insertion followed by a deletion
-    doAssert(rootHex1 == rootHex3)
+    check rootHex1 == rootHex3
   test "Merkle tree consistency check between deletion and insertion using rln utils":
     # create an RLN instance
     var rlnInstance = createRLNInstance()
@@ -523,29 +529,29 @@ suite "Waku rln relay":
 
     # read the Merkle Tree root
     var root1 = rln.getMerkleRoot()
-    doAssert(root1.isOk)
+    check root1.isOk
     let rootHex1 = root1.value().toHex()
     
     # generate a key pair
     var keypair = rln.membershipKeyGen()
-    doAssert(keypair.isSome())
+    check keypair.isSome()
     let member_inserted = rln.insertMember(keypair.get().idCommitment) 
     check member_inserted
 
     # read the Merkle Tree root after insertion
     var root2 = rln.getMerkleRoot()
-    doAssert(root2.isOk)
+    check root2.isOk
     let rootHex2 = root2.value().toHex()
 
   
     # delete the first member 
     var deleted_member_index = MembershipIndex(0)
     let deletion_success = rln.removeMember(deleted_member_index)
-    doAssert(deletion_success)
+    check deletion_success
 
     # read the Merkle Tree root after the deletion
     var root3 = rln.getMerkleRoot()
-    doAssert(root3.isOk)
+    check root3.isOk
     let rootHex3 = root3.value().toHex()
 
 
@@ -554,11 +560,11 @@ suite "Waku rln relay":
     debug "The root after deletion", rootHex3
 
     # the root must change after the insertion
-    doAssert(not(rootHex1 == rootHex2))
+    check not(rootHex1 == rootHex2)
 
     ## The initial root of the tree (empty tree) must be identical to 
     ## the root of the tree after one insertion followed by a deletion
-    doAssert(rootHex1 == rootHex3)
+    check rootHex1 == rootHex3
 
   test "hash Nim Wrappers":
     # create an RLN instance
@@ -567,24 +573,19 @@ suite "Waku rln relay":
       rlnInstance.isOk == true
     
     # prepare the input
-    var
-      hashInput : array[32, byte]
-    for x in hashInput.mitems: x= 1
     var 
-      hashInputHex = hashInput.toHex()
-      hashInputBuffer = Buffer(`ptr`: addr hashInput[0], len: 32 ) 
-
-    debug "sample_hash_input_bytes", hashInputHex
+      msg = "Hello".toBytes()
+      hashInput = appendLength(msg)
+      hashInputBuffer = toBuffer(hashInput) 
 
     # prepare other inputs to the hash function
-    var 
-      outputBuffer: Buffer
-      numOfInputs = 1.uint # the number of hash inputs that can be 1 or 2
+    var outputBuffer: Buffer
     
-    let hashSuccess = hash(rlnInstance.value, addr hashInputBuffer, numOfInputs, addr outputBuffer)
-    doAssert(hashSuccess)
+    let hashSuccess = hash(rlnInstance.value, addr hashInputBuffer, addr outputBuffer)
+    check hashSuccess
     let outputArr = cast[ptr array[32,byte]](outputBuffer.`ptr`)[]
-    doAssert("53a6338cdbf02f0563cec1898e354d0d272c8f98b606c538945c6f41ef101828" == outputArr.toHex())
+    check:
+      "efb8ac39dc22eaf377fe85b405b99ba78dbc2f3f32494add4501741df946bd1d" == outputArr.toHex()
 
     var 
       hashOutput = cast[ptr array[32,byte]] (outputBuffer.`ptr`)[]
@@ -600,125 +601,11 @@ suite "Waku rln relay":
     let rln = rlnInstance.value
     
     # prepare the input
-    # TODO should add support for arbitrary messages, the following input is artificial 
-    var hashInput : array[32, byte]
-    for x in hashInput.mitems: x = 1
-    debug "sample_hash_input_bytes", hashInputHex=hashInput.toHex()
+    let msg = "Hello".toBytes()
 
-    let hash = rln.hash(hashInput)
-    doAssert("53a6338cdbf02f0563cec1898e354d0d272c8f98b606c538945c6f41ef101828" == hash.toHex())
-
-  test "generate_proof and verify Nim Wrappers":
-    # create an RLN instance
-
-    # check if the rln instance is created successfully 
-    var rlnInstance = createRLNInstance()
+    let hash = rln.hash(msg)
     check:
-      rlnInstance.isOk == true
-
-
-    # create the membership key
-    var auth = membershipKeyGen(rlnInstance.value)
-    var skBuffer = Buffer(`ptr`: addr(auth.get().idKey[0]), len: 32)
-
-    # peer's index in the Merkle Tree
-    var index = 5
-
-    # prepare the authentication object with peer's index and sk
-    var authObj: Auth = Auth(secret_buffer: addr skBuffer, index: MembershipIndex(index))
-
-    # Create a Merkle tree with random members 
-    for i in 0..10:
-      var member_is_added: bool = false
-      if (i == index):
-        #  insert the current peer's pk
-        var pkBuffer = Buffer(`ptr`: addr(auth.get().idCommitment[0]), len: 32)
-        member_is_added = update_next_member(rlnInstance.value, addr pkBuffer)
-      else:
-        var memberKeys = membershipKeyGen(rlnInstance.value)
-        var pkBuffer = Buffer(`ptr`: addr(memberKeys.get().idCommitment[0]), len: 32)
-        member_is_added = update_next_member(rlnInstance.value, addr pkBuffer)
-      # check the member is added
-      doAssert(member_is_added)
-
-    # prepare the message
-    var messageBytes {.noinit.}: array[32, byte]
-    for x in messageBytes.mitems: x = 1
-    var messageHex = messageBytes.toHex()
-    debug "message", messageHex
-
-    # prepare the epoch
-    var  epochBytes : array[32,byte]
-    for x in epochBytes.mitems : x = 0
-    var epochHex = epochBytes.toHex()
-    debug "epoch", epochHex
-
-
-    # serialize message and epoch 
-    # TODO add a proc for serializing
-    var epochMessage = @epochBytes & @messageBytes
-    doAssert(epochMessage.len == 64)
-    var inputBytes{.noinit.}: array[64, byte] # holds epoch||Message 
-    for (i, x) in inputBytes.mpairs: x = epochMessage[i]
-    var inputHex = inputBytes.toHex()
-    debug "serialized epoch and message ", inputHex
-    # put the serialized epoch||message into a buffer
-    var inputBuffer = Buffer(`ptr`: addr(inputBytes[0]), len: 64)
-
-    # generate the proof
-    var proof: Buffer
-    let proofIsSuccessful = generate_proof(rlnInstance.value, addr inputBuffer, addr authObj, addr proof)
-    # check whether the generate_proof call is done successfully
-    doAssert(proofIsSuccessful)
-    var proofValue = cast[ptr array[416,byte]] (proof.`ptr`)
-    let proofHex = proofValue[].toHex
-    debug "proof content", proofHex
-
-    # display the proof breakdown
-    var 
-      zkSNARK = proofHex[0..511]
-      proofRoot = proofHex[512..575] 
-      proofEpoch = proofHex[576..639]
-      shareX = proofHex[640..703]
-      shareY = proofHex[704..767]
-      nullifier = proofHex[768..831]
-
-    doAssert(zkSNARK.len == 512)
-    doAssert(proofRoot.len == 64)
-    doAssert(proofEpoch.len == 64)
-    doAssert(epochHex == proofEpoch)
-    doAssert(shareX.len == 64)
-    doAssert(shareY.len == 64)
-    doAssert(nullifier.len == 64)
-
-    debug "zkSNARK ", zkSNARK
-    debug "root ", proofRoot
-    debug "epoch ", proofEpoch
-    debug "shareX", shareX
-    debug "shareY", shareY
-    debug "nullifier", nullifier
-
-    var f = 0.uint32
-    let verifyIsSuccessful = verify(rlnInstance.value, addr proof, addr f)
-    doAssert(verifyIsSuccessful)
-    # f = 0 means the proof is verified
-    doAssert(f == 0)
-
-    # create and test a bad proof
-    # prepare a bad authentication object with a wrong peer's index
-    var badIndex = 8
-    var badAuthObj: Auth = Auth(secret_buffer: addr skBuffer, index: MembershipIndex(badIndex))
-    var badProof: Buffer
-    let badProofIsSuccessful = generate_proof(rlnInstance.value, addr inputBuffer, addr badAuthObj, addr badProof)
-    # check whether the generate_proof call is done successfully
-    doAssert(badProofIsSuccessful)
-
-    var badF = 0.uint32
-    let badVerifyIsSuccessful = verify(rlnInstance.value, addr badProof, addr badF)
-    doAssert(badVerifyIsSuccessful)
-    # badF=1 means the proof is not verified
-    # verification of the bad proof should fail
-    doAssert(badF == 1)
+      "efb8ac39dc22eaf377fe85b405b99ba78dbc2f3f32494add4501741df946bd1d" == hash.toHex()
   
   test "create a list of membership keys and construct a Merkle tree based on the list":
     let 
@@ -769,23 +656,22 @@ suite "Waku rln relay":
     for x in nullifier.mitems : x = 6
     
     let 
-      nsp = RateLimitProof(proof: proof,
+      rateLimitProof = RateLimitProof(proof: proof,
                           merkleRoot: merkleRoot,
                           epoch: epoch,
                           shareX: shareX,
                           shareY: shareY,
                           nullifier: nullifier)
-      protobuf = nsp.encode()
+      protobuf = rateLimitProof.encode()
       decodednsp = RateLimitProof.init(protobuf.buffer)
 
     check:
       decodednsp.isErr == false
-      decodednsp.value == nsp
+      decodednsp.value == rateLimitProof
 
   test "test proofVerify and proofGen for a valid proof":
     var rlnInstance = createRLNInstance()
-    check:
-      rlnInstance.isOk == true
+    check rlnInstance.isOk
     var rln = rlnInstance.value
 
     let 
@@ -805,36 +691,26 @@ suite "Waku rln relay":
         let memberKeys = rln.membershipKeyGen()
         member_is_added = rln.insertMember(memberKeys.get().idCommitment)
       # check the member is added
-      doAssert(member_is_added)
+      check member_is_added
 
     # prepare the message 
-    # TODO this message format is artificial (to bypass the Poseidon hasher issue)
-    # TODO in  practice we should be able to pick messages of arbitrary size and format
-    var messageBytes {.noinit.}: array[32, byte]
-    for x in messageBytes.mitems: x = 1
-    debug "message", messageHex=messageBytes.toHex()
+    let messageBytes = "Hello".toBytes()
 
     # prepare the epoch
     var  epoch : Epoch
-    for x in epoch.mitems : x = 0
     debug "epoch", epochHex=epoch.toHex()
 
-    # hash the message
-    let msgHash = rln.hash(messageBytes)
-    debug "message hash", mh=byteutils.toHex(msgHash)
-
     # generate proof
-    let proofRes = rln.proofGen(data = msgHash, 
-                memKeys = memKeys,
-                memIndex = MembershipIndex(index),
-                epoch = epoch)
-
-    doAssert(proofRes.isOk())
+    let proofRes = rln.proofGen(data = messageBytes, 
+                                memKeys = memKeys,
+                                memIndex = MembershipIndex(index),
+                                epoch = epoch)
+    check proofRes.isOk()
     let proof = proofRes.value
     
     # verify the proof
     let verified = rln.proofVerify(data = messageBytes,
-                                 proof = proof)
+                                    proof = proof)
     check verified == true
 
   test "test proofVerify and proofGen for an invalid proof":
@@ -860,32 +736,23 @@ suite "Waku rln relay":
         let memberKeys = rln.membershipKeyGen()
         member_is_added = rln.insertMember(memberKeys.get().idCommitment)
       # check the member is added
-      doAssert(member_is_added)
+      check member_is_added
 
-    # prepare the message 
-    # TODO this message format is artificial (to bypass the Poseidon hasher issue)
-    # TODO in  practice we should be able to pick messages of arbitrary size and format
-    var messageBytes {.noinit.}: array[32, byte]
-    for x in messageBytes.mitems: x = 1
-    debug "message", messageHex=messageBytes.toHex()
+     # prepare the message 
+    let messageBytes = "Hello".toBytes()
 
     # prepare the epoch
     var  epoch : Epoch
-    for x in epoch.mitems : x = 0
     debug "epoch in bytes", epochHex=epoch.toHex()
 
-    # hash the message
-    let msgHash = rln.hash(messageBytes)
-    debug "message hash", mh=byteutils.toHex(msgHash)
 
     let badIndex = 4
     # generate proof
-    let proofRes = rln.proofGen(data = msgHash, 
-                memKeys = memKeys,
-                memIndex = MembershipIndex(badIndex),
-                epoch = epoch)
-    
-    doAssert(proofRes.isOk())
+    let proofRes = rln.proofGen(data = messageBytes, 
+                                memKeys = memKeys,
+                                memIndex = MembershipIndex(badIndex),
+                                epoch = epoch)
+    check proofRes.isOk()
     let proof = proofRes.value
 
     # verify the proof (should not be verified)
