@@ -2,7 +2,6 @@
 
 # Collection of utilities related to Waku peers
 import
-  chronicles,
   std/strutils,
   stew/results,
   libp2p/[errors,
@@ -45,14 +44,6 @@ proc init*(p: typedesc[RemotePeerInfo],
 
   return remotePeerInfo
 
-proc initAddress(T: type MultiAddress, str: string): T {.raises: [Defect, ValueError, LPError].}=
-  # @TODO: Rather than raising exceptions, this should return a Result
-  let address = MultiAddress.init(str).tryGet()
-  if IPFS.match(address) and matchPartial(multiaddress.TCP, address):
-    return address
-  else:
-    return address
-
 ## Check if wire Address is supported
 proc validWireAddr*(ma: MultiAddress): bool =
   const
@@ -66,7 +57,7 @@ proc validWireAddr*(ma: MultiAddress): bool =
 ## Parses a fully qualified peer multiaddr, in the
 ## format `(ip4|ip6)/tcp/p2p`, into dialable PeerInfo
 proc parseRemotePeerInfo*(address: string): RemotePeerInfo {.raises: [Defect, ValueError, LPError].}=
-  let multiAddr = MultiAddress.initAddress(address)
+  let multiAddr = MultiAddress.init(address).tryGet()
 
   var
 
@@ -85,8 +76,8 @@ proc parseRemotePeerInfo*(address: string): RemotePeerInfo {.raises: [Defect, Va
 
   # nim-libp2p dialing requires remote peers to be initialised with a peerId and a wire address
   let
-    peerIdStr = if wsPart.isEmpty(): p2pPart.toString()[].split("/")[^1] 
-                else : p2pPart.toString()[].split("/")[^1]
+    peerIdStr = p2pPart.toString()[].split("/")[^1] 
+
     wireAddr = ipPart & tcpPart & wsPart
   if (not wireAddr.validWireAddr()):
     raise newException(ValueError, "Invalid node multi-address")

@@ -323,7 +323,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
     node = WakuNode.new(conf.nodekey, conf.listenAddress,
       Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort, 
       wsFlag = conf.websocket)
-  echo "wsflag =  " & $conf.websocket
+  
   await node.start()
 
   node.mountRelay(conf.topics.split(" "),
@@ -332,7 +332,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   node.mountLibp2pPing()
   
   let nick = await readNick(transp)
-
+  echo "Welcome, " & nick & "!"
 
   var chat = Chat(node: node,
                   transp: transp,
