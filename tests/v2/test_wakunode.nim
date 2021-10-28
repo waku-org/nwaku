@@ -1082,7 +1082,7 @@ asyncTest "Messages are relayed with one tcp and one multi transport (tcp and we
         bindPort = Port(60000), wsBindPort = Port(8000), wsFlag = true)
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60002), wsBindPort = Port(8100))
+        bindPort = Port(60002))
       pubSubTopic = "test"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()

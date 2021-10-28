@@ -32,11 +32,6 @@ type
       defaultValue: 60000
       name: "tcp-port" }: Port
     
-    wsPort* {.
-      desc: "WebSocket listening port."
-      defaultValue: 8000
-      name: "ws-port" }: Port
-    
     portsShift* {.
       desc: "Add a shift to all port numbers."
       defaultValue: 0
