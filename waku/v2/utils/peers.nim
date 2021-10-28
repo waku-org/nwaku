@@ -48,7 +48,6 @@ proc init*(p: typedesc[RemotePeerInfo],
 proc validWireAddr*(ma: MultiAddress): bool =
   const
     ValidTransports = mapOr(TCP, WebSockets)
-    ValidAddress = mapAnd(ValidTransports, mapEq("p2p"))
   if ValidTransports.match(ma) == true:
     return true
   else:

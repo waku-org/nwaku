@@ -52,10 +52,6 @@ type
       defaultValue: 50
       name: "max-connections" }: uint16
     
-    websocket* {.
-      desc: "Enable websocket:  true|false",
-      defaultValue: false
-      name: "websocket-support"}: bool
     ## Persistence config
     
     dbPath* {.
@@ -216,6 +212,17 @@ type
       desc: "DNS name server IPs to query. Argument may be repeated."
       defaultValue: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")]
       name: "dns-discovery-name-server" }: seq[ValidIpAddress]
+
+    ## websocket config
+    websocketSupport* {.
+      desc: "Enable websocket:  true|false",
+      defaultValue: false
+      name: "websocket-support"}: bool
+
+    websocketPort* {.
+      desc: "WebSocket listening port."
+      defaultValue: 8000
+      name: "websocket-port" }: Port
 
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =

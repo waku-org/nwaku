@@ -21,6 +21,7 @@ import
   ../protocol/waku_rln_relay/[waku_rln_relay_types], 
   ../utils/peers,
   ../utils/requests,
+  ../utils/wakuswitch,
   ./storage/migration/migration_types,
   ./peer_manager/peer_manager,
   ./dnsdisc/waku_dnsdisc
@@ -127,44 +128,6 @@ template tcpEndPoint(address, port): auto =
 template addWsFlag() =
   MultiAddress.init("/ws").tryGet()
 
-
-proc newWakuSwitch*(
-    privKey = none(PrivateKey),
-    address = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet(),
-    wsAddress = MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet(),
-    secureManagers: openarray[SecureProtocol] = [
-        SecureProtocol.Noise,
-      ],
-    transportFlags: set[ServerFlags] = {},
-    rng = crypto.newRng(),
-    inTimeout: Duration = 5.minutes,
-    outTimeout: Duration = 5.minutes,
-    maxConnections = MaxConnections,
-    maxIn = -1,
-    maxOut = -1,
-    maxConnsPerPeer = MaxConnectionsPerPeer,
-    wsFlag: bool = false): Switch
-    {.raises: [Defect, LPError].} =
-
-    var b = SwitchBuilder
-      .new()
-      .withRng(rng)
-      .withMaxConnections(maxConnections)
-      .withMaxIn(maxIn)
-      .withMaxOut(maxOut)
-      .withMaxConnsPerPeer(maxConnsPerPeer)
-      .withMplex(inTimeout, outTimeout)
-      .withNoise()
-      .withTcpTransport(transportFlags)
-    if privKey.isSome():
-      b = b.withPrivateKey(privKey.get())
-    if wsFlag == true:
-      b = b.withAddresses(@[wsAddress, address])
-      b = b.withTransport(proc (upgr: Upgrade): Transport = WsTransport.new(upgr))
-    else :
-      b = b.withAddress(address)
-
-    b.build()
 
 proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
@@ -896,8 +859,8 @@ when isMainModule:
                         extIp, extPort,
                         pStorage,
                         conf.maxConnections.int,
-                        Port(uint16(conf.wsPort) + conf.portsShift),
-                        conf.websocket)
+                        Port(uint16(conf.websocketPort) + conf.portsShift),
+                        conf.websocketSupport)
 
     ok(node)
 

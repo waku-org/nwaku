@@ -51,11 +51,6 @@ type
             "Must be one of: any, none, upnp, pmp, extip:<IP>."
       defaultValue: "any" }: string
     
-    websocket* {.
-      desc: "Enable websocket:  true|false",
-      defaultValue: false
-      name: "websocket-support"}: bool
-    
     ## Persistence config
     
     dbPath* {.
@@ -219,6 +214,17 @@ type
       desc: "Content topic for chat messages."
       defaultValue: "/toy-chat/2/huilong/proto"
       name: "content-topic" }: string
+
+    ## Websocket Configuration
+    websocketSupport* {.
+      desc: "Enable websocket:  true|false",
+      defaultValue: false
+      name: "websocket-support"}: bool
+    
+    websocketPort* {.
+      desc: "WebSocket listening port."
+      defaultValue: 8000
+      name: "websocket-port" }: Port
 
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =
