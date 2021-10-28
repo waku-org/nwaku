@@ -5,6 +5,7 @@ import
   chronicles,
   chronos,
   testutils/unittests,
+  stew/byteutils,
   stew/shims/net,
   libp2p/crypto/crypto,
   eth/keys,
@@ -16,8 +17,6 @@ import
 procSuite "Waku Discovery v5":
   asyncTest "Waku Discovery v5 end-to-end":
     ## Tests integrated discovery v5
-    
-    # Create nodes and ENR. These will be added to the discoverable list
     let
       bindIp = ValidIpAddress.init("0.0.0.0")
       extIp = ValidIpAddress.init("127.0.0.1")
@@ -36,6 +35,12 @@ procSuite "Waku Discovery v5":
       nodeTcpPort3 = Port(60004)
       nodeUdpPort3 = Port(9004)
       node3 = WakuNode.new(nodeKey3, bindIp, nodeTcpPort3)
+
+      # E2E relay test paramaters
+      pubSubTopic = "/waku/2/default-waku/proto"
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
+      payload = "Can you see me?".toBytes()
+      message = WakuMessage(payload: payload, contentTopic: contentTopic)
     
     # Mount discv5
     node1.wakuDiscv5 = WakuDiscoveryV5.new(
@@ -79,21 +84,30 @@ procSuite "Waku Discovery v5":
 
     await allFutures([node1.startDiscv5(), node2.startDiscv5(), node3.startDiscv5()])
 
-    await sleepAsync(8000.millis) # Give the algorithm some time to work its magic
+    await sleepAsync(3000.millis) # Give the algorithm some time to work its magic
     check:
-      # Node 1 has discovered and connected to all other nodes
-      node1.switch.peerStore.addressBook.book.len() == 2
-      node1.switch.peerStore.addressBook.contains(node2.peerInfo.peerId)
-      node1.switch.peerStore.addressBook.contains(node3.peerInfo.peerId)
+      node1.wakuDiscv5.protocol.nodesDiscovered > 0
+      node2.wakuDiscv5.protocol.nodesDiscovered > 0
+      node3.wakuDiscv5.protocol.nodesDiscovered > 0
+    
+    # Let's see if we can deliver a message end-to-end
+    var completionFut = newFuture[bool]()
+    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+      let msg = WakuMessage.init(data)
+      if msg.isOk():
+        let val = msg.value()
+        check:
+          topic == pubSubTopic
+          val.contentTopic == contentTopic
+          val.payload == payload
+      completionFut.complete(true)
 
-      # Node 2 has discovered and connected to all other nodes
-      node2.switch.peerStore.addressBook.book.len() == 2
-      node2.switch.peerStore.addressBook.contains(node1.peerInfo.peerId)
-      node2.switch.peerStore.addressBook.contains(node3.peerInfo.peerId)
+    node3.subscribe(pubSubTopic, relayHandler)
+    await sleepAsync(2000.millis)
 
-      # Node 3 has discovered and connected to all other nodes
-      node3.switch.peerStore.addressBook.book.len() == 2
-      node3.switch.peerStore.addressBook.contains(node1.peerInfo.peerId)
-      node3.switch.peerStore.addressBook.contains(node2.peerInfo.peerId)
+    await node1.publish(pubSubTopic, message)
+
+    check:
+      (await completionFut.withTimeout(4.seconds)) == true
 
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
