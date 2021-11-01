@@ -135,7 +135,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     peerStorage: PeerStorage = nil,
     maxConnections = builders.MaxConnections,
     wsBindPort: Port = (Port)8000,
-    wsFlag: bool = false): T 
+    wsEnabled: bool = false): T 
     {.raises: [Defect, LPError].} =
   ## Creates a Waku Node.
   ##
@@ -146,7 +146,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     hostAddress = tcpEndPoint(bindIp, bindPort)
     wsHostAddress = tcpEndPoint(bindIp, wsbindPort) & addWsFlag
     announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
-                        elif wsFlag == false: @[tcpEndPoint(extIp.get(), extPort.get())]
+                        elif wsEnabled == false: @[tcpEndPoint(extIp.get(), extPort.get())]
                         else : @[tcpEndPoint(extIp.get(), extPort.get()),
                         tcpEndPoint(extIp.get(), wsBindPort) & addWsFlag]
     peerInfo = PeerInfo.init(nodekey)
@@ -156,7 +156,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
                  else: some(bindPort)
     enr = createEnr(nodeKey, enrIp, enrTcpPort, none(Port))
   
-  if wsFlag == true:
+  if wsEnabled == true:
     info "Initializing networking", hostAddress, wsHostAddress,
                                     announcedAddresses
     peerInfo.addrs.add(wsHostAddress)
@@ -173,15 +173,8 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   transportFlags = {ServerFlags.ReuseAddr},
   rng = rng, 
   maxConnections = maxConnections,
-  wsFlag = wsFlag)
-  # TODO Untested - verify behavior after switch interface change
-  # More like this:
-  # let pubsub = GossipSub.init(
-  #    switch = switch,
-  #    msgIdProvider = msgIdProvider,
-  #    triggerSelf = true, sign = false,
-  #    verifySignature = false).PubSub
-
+  wsEnabled = wsEnabled)
+  
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
     switch: switch,

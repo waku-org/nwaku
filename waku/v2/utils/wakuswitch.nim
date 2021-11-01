@@ -1,13 +1,10 @@
 # Waku Switch utils.
 import
-  std/[options, tables, strutils, sequtils, os],
-  chronos, chronicles, metrics,
-  stew/shims/net as stewNet,
+  std/[options, sequtils],
+  chronos, chronicles,
   stew/byteutils,
   eth/keys,
-  eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
-  libp2p/protocols/ping,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/nameresolving/dnsresolver,
   libp2p/nameresolving/nameresolver,
@@ -33,7 +30,7 @@ proc newWakuSwitch*(
     maxOut = -1,
     maxConnsPerPeer = MaxConnectionsPerPeer,
     nameResolver: NameResolver = nil,
-    wsFlag: bool = false): Switch
+    wsEnabled: bool = false): Switch
     {.raises: [Defect, LPError].} =
 
     var b = SwitchBuilder
@@ -46,9 +43,10 @@ proc newWakuSwitch*(
       .withMplex(inTimeout, outTimeout)
       .withNoise()
       .withTcpTransport(transportFlags)
+      .withNameResolver(nameResolver)
     if privKey.isSome():
       b = b.withPrivateKey(privKey.get())
-    if wsFlag == true:
+    if wsEnabled == true:
       b = b.withAddresses(@[wsAddress, address])
       b = b.withWsTransport()
     else :

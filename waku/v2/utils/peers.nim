@@ -48,10 +48,7 @@ proc init*(p: typedesc[RemotePeerInfo],
 proc validWireAddr*(ma: MultiAddress): bool =
   const
     ValidTransports = mapOr(TCP, WebSockets)
-  if ValidTransports.match(ma) == true:
-    return true
-  else:
-    return false
+  return ValidTransports.match(ma)
 
 ## Parses a fully qualified peer multiaddr, in the
 ## format `(ip4|ip6)/tcp/p2p`, into dialable PeerInfo
