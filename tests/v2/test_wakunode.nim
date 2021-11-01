@@ -1034,10 +1034,10 @@ asyncTest "Messages are relayed between two websocket nodes":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60000), wsBindPort = Port(8000), wsFlag = true)
+        bindPort = Port(60000), wsBindPort = Port(8000), wsEnabled = true)
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60002), wsBindPort = Port(8100), wsFlag = true)
+        bindPort = Port(60002), wsBindPort = Port(8100), wsEnabled = true)
       pubSubTopic = "test"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
@@ -1079,7 +1079,7 @@ asyncTest "Messages are relayed between nodes with multiple transports (TCP and 
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60000), wsBindPort = Port(8000), wsFlag = true)
+        bindPort = Port(60000), wsBindPort = Port(8000), wsEnabled = true)
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         bindPort = Port(60002))
@@ -1126,7 +1126,7 @@ asyncTest "Messages relaying fails with non-overlapping transports (TCP or Webso
         bindPort = Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60002), wsBindPort = Port(8100), wsFlag = true)
+        bindPort = Port(60002), wsBindPort = Port(8100), wsEnabled = true)
       pubSubTopic = "test"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
