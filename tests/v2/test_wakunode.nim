@@ -1075,7 +1075,7 @@ asyncTest "Messages are relayed between two websocket nodes":
     await node2.stop()
 
 
-asyncTest "Messages are relayed with one tcp and one multi transport (tcp and websocket)":
+asyncTest "Messages are relayed between nodes with multiple transports (TCP and Websockets)":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
