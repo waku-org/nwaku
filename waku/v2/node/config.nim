@@ -24,7 +24,7 @@ type
 
     listenAddress* {.
       defaultValue: defaultListenAddress(config)
-      desc: "Listening address for the LibP2P traffic."
+      desc: "Listening address for LibP2P (and Discovery v5, if enabled) traffic."
       name: "listen-address"}: ValidIpAddress
 
     tcpPort* {.
@@ -85,6 +85,7 @@ type
       desc: "the pubsub topic for which rln-relay gets enabled",
       defaultValue: "waku/2/rlnrelay/proto"
       name: "rln-relay-pubsub-topic" }: string
+    
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
       name: "staticnode" }: seq[string]
@@ -207,6 +208,29 @@ type
       desc: "DNS name server IPs to query. Argument may be repeated."
       defaultValue: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")]
       name: "dns-discovery-name-server" }: seq[ValidIpAddress]
+    
+    ## Discovery v5 config
+    
+    discv5Discovery* {.
+      desc: "Enable discovering nodes via Node Discovery v5"
+      defaultValue: false
+      name: "discv5-discovery" }: bool
+    
+    discv5UdpPort* {.
+      desc: "Listening UDP port for Node Discovery v5."
+      defaultValue: 9000
+      name: "discv5-udp-port" }: Port
+    
+    discv5BootstrapNodes* {.
+      desc: "Text-encoded ENR for bootstrap node. Used when connecting to the network. Argument may be repeated."
+      name: "discv5-bootstrap-node" }: seq[string]
+    
+    discv5EnrAutoUpdate* {.
+      desc: "Discovery can automatically update its ENR with the IP address " &
+            "and UDP port as seen by other nodes it communicates with. " &
+            "This option allows to enable/disable this functionality"
+      defaultValue: false
+      name: "discv5-enr-auto-update" .}: bool
 
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =
