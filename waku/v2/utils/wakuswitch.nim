@@ -14,6 +14,26 @@ import
 proc withWsTransport*(b: SwitchBuilder): SwitchBuilder =
   b.withTransport(proc(upgr: Upgrade): Transport = WsTransport.new(upgr))
 
+proc withWssTransport*(b: SwitchBuilder,
+                        SecureKey: String,
+                        SecureCert: String): SwitchBuilder =
+  b.withTransport(proc(upgr: Upgrade): Transport = WsTransport.new(upgr),
+        TLSPrivateKey.init(SecureKey),
+        TLSCertificate.init(SecureCert),
+        {TLSFlags.NoVerifyHost, TLSFlags.NoVerifyServerName}))
+
+proc getSecureKey(path : string): string =
+  if(string = nil):
+    raise newException(ValueError, "Path to secure key is empty")
+  else:
+    return readFile(string)
+
+proc getSecureCert(path : string): string =
+  if(string = nil):
+    raise newException(ValueError, "Path to secure Cert is empty")
+  else:
+    return readFile(string)
+
 proc newWakuSwitch*(
     privKey = none(crypto.PrivateKey),
     address = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet(),
@@ -30,7 +50,10 @@ proc newWakuSwitch*(
     maxOut = -1,
     maxConnsPerPeer = MaxConnectionsPerPeer,
     nameResolver: NameResolver = nil,
-    wsEnabled: bool = false): Switch
+    wsEnabled: bool = false,
+    wssEnabled: bool = false,
+    secureKey: string = "",
+    secureCert: string = ""): Switch
     {.raises: [Defect, LPError].} =
 
     var b = SwitchBuilder
@@ -49,6 +72,9 @@ proc newWakuSwitch*(
     if wsEnabled == true:
       b = b.withAddresses(@[wsAddress, address])
       b = b.withWsTransport()
+    if wssEnabled == true;
+      b = b.withAddresses(@[wsAddress, address])
+      b = b.withWssTransport(SecureKey, SecureCert)
     else :
       b = b.withAddress(address)
 

@@ -128,6 +128,9 @@ template tcpEndPoint(address, port): auto =
 template addWsFlag() =
   MultiAddress.init("/ws").tryGet()
 
+template addWssFlag() =
+  MultiAddress.init("/wss").tryGet()
+
 
 proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
@@ -135,7 +138,10 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     peerStorage: PeerStorage = nil,
     maxConnections = builders.MaxConnections,
     wsBindPort: Port = (Port)8000,
-    wsEnabled: bool = false): T 
+    wsEnabled: bool = false,
+    wssEnabled: bool = false,
+    secureKey: string = nil,
+    secureCert: string = nil): T 
     {.raises: [Defect, LPError].} =
   ## Creates a Waku Node.
   ##
@@ -144,7 +150,8 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   let
     rng = crypto.newRng()
     hostAddress = tcpEndPoint(bindIp, bindPort)
-    wsHostAddress = tcpEndPoint(bindIp, wsbindPort) & addWsFlag
+    wsHostAddress = if wssEnabled : tcpEndPoint(bindIp, wsbindPort) & addWssFlag
+                    else tcpEndPoint(bindIp, wsbindPort) & addWsFlag
     announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
                         elif wsEnabled == false: @[tcpEndPoint(extIp.get(), extPort.get())]
                         else : @[tcpEndPoint(extIp.get(), extPort.get()),
@@ -166,14 +173,17 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   peerInfo.addrs.add(hostAddress)
   for multiaddr in announcedAddresses:
     peerInfo.addrs.add(multiaddr) # Announced addresses in index > 0
-  
+
   var switch = newWakuSwitch(some(nodekey),
   hostAddress,
   wsHostAddress, 
   transportFlags = {ServerFlags.ReuseAddr},
   rng = rng, 
   maxConnections = maxConnections,
-  wsEnabled = wsEnabled)
+  wsEnabled = wsEnabled,
+  wssEnabled = wssEnabled,
+  secureKey = secureKey,
+  secureCert = secureCert)
   
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
@@ -846,6 +856,16 @@ when isMainModule:
                   some(Port(uint16(conf.tcpPort) + conf.portsShift))
                 else:
                   extTcpPort
+                  
+      secureKey = if conf.websocketSecureSupport :
+                    getSecureKey()
+                  else:
+                    nil
+
+      secureCert = if conf.websocketSecureSupport :
+                      getSecureCert()
+                   else:
+                    nil
 
       node = WakuNode.new(conf.nodekey,
                         conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
@@ -853,7 +873,11 @@ when isMainModule:
                         pStorage,
                         conf.maxConnections.int,
                         Port(uint16(conf.websocketPort) + conf.portsShift),
-                        conf.websocketSupport)
+                        conf.websocketSupport,
+                        conf.websocketSecureSupport,
+                        secureKey,
+                        secureCert
+                        )
 
     ok(node)
 
