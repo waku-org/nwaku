@@ -108,6 +108,6 @@ procSuite "Waku Discovery v5":
     await node1.publish(pubSubTopic, message)
 
     check:
-      (await completionFut.withTimeout(4.seconds)) == true
+      (await completionFut.withTimeout(6.seconds)) == true
 
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
