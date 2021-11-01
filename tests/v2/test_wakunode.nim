@@ -1119,7 +1119,7 @@ asyncTest "Messages are relayed between nodes with multiple transports (TCP and 
     await node1.stop()
     await node2.stop()
 
-asyncTest "Messages relay fails with one tcp and only websocket transport":
+asyncTest "Messages relaying fails with non-overlapping transports (TCP or Websockets)":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
