@@ -17,7 +17,8 @@ import
   ./v2/test_waku_keepalive,
   ./v2/test_migration_utils,
   ./v2/test_namespacing_utils,
-  ./v2/test_waku_dnsdisc
+  ./v2/test_waku_dnsdisc,
+  ./v2/test_waku_discv5
 
 when defined(rln):
   import ./v2/test_waku_rln_relay
