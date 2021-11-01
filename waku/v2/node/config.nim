@@ -218,6 +218,11 @@ type
       desc: "WebSocket listening port."
       defaultValue: 8000
       name: "websocket-port" }: Port
+    
+    websocketSecureSupport* {.
+      desc: "Enable secure websocket:  true|false",
+      defaultValue: false
+      name: "websocket-secure-support"}: bool
 
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =
