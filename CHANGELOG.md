@@ -7,6 +7,7 @@ This release contains the following:
 ### Features
 
 - Waku v2 node discovery via DNS following [EIP-1459](https://eips.ethereum.org/EIPS/eip-1459)
+- Waku v2 node discovery via [Node Discovery v5](https://github.com/ethereum/devp2p/blob/master/discv5/discv5-theory.md)
 
 ### Changes
 
