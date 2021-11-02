@@ -491,7 +491,7 @@ proc handleMessage*(w: WakuStore, topic: string, msg: WakuMessage) {.async.} =
 
   let res = w.store.put(index, msg, topic)
   if res.isErr:
-    warn "failed to store messages", err = res.error
+    trace "failed to store messages", err = res.error
     waku_store_errors.inc(labelValues = ["store_failure"])
 
 proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
@@ -662,7 +662,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
       if not ws.store.isNil: 
         let res = ws.store.put(index, msg, DefaultTopic)
         if res.isErr:
-          warn "failed to store messages", err = res.error
+          trace "failed to store messages", err = res.error
           waku_store_errors.inc(labelValues = ["store_failure"])
           continue
         
