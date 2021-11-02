@@ -215,6 +215,17 @@ type
       defaultValue: "/toy-chat/2/huilong/proto"
       name: "content-topic" }: string
 
+    ## Websocket Configuration
+    websocketSupport* {.
+      desc: "Enable websocket:  true|false",
+      defaultValue: false
+      name: "websocket-support"}: bool
+    
+    websocketPort* {.
+      desc: "WebSocket listening port."
+      defaultValue: 8000
+      name: "websocket-port" }: Port
+
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =
   try:

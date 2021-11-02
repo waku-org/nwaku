@@ -321,8 +321,11 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
       Port(uint16(conf.tcpPort) + conf.portsShift),
       Port(uint16(conf.udpPort) + conf.portsShift))
     node = WakuNode.new(conf.nodekey, conf.listenAddress,
-      Port(uint16(conf.tcpPort) + conf.portsShift), extIp, extTcpPort)
-
+      Port(uint16(conf.tcpPort) + conf.portsShift),
+      extIp, extTcpPort, 
+      wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
+      wsEnabled = conf.websocketSupport)
+  
   await node.start()
 
   node.mountRelay(conf.topics.split(" "),

@@ -31,7 +31,7 @@ type
       desc: "TCP listening port."
       defaultValue: 60000
       name: "tcp-port" }: Port
-
+    
     portsShift* {.
       desc: "Add a shift to all port numbers."
       defaultValue: 0
@@ -231,6 +231,17 @@ type
             "This option allows to enable/disable this functionality"
       defaultValue: false
       name: "discv5-enr-auto-update" .}: bool
+
+    ## websocket config
+    websocketSupport* {.
+      desc: "Enable websocket:  true|false",
+      defaultValue: false
+      name: "websocket-support"}: bool
+
+    websocketPort* {.
+      desc: "WebSocket listening port."
+      defaultValue: 8000
+      name: "websocket-port" }: Port
 
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =
