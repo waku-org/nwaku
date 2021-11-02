@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import 
-  std/tables,
+  std/[options, tables],
   sqlite3_abi,
   stew/[byteutils, results],
   ./message_store,
@@ -74,8 +74,9 @@ method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTop
 
   ok()
 
-method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageStoreResult[bool] =
+method getAll*(db: WakuMessageStore, onData: message_store.DataProc, limit = none(int)): MessageStoreResult[bool] =
   ## Retrieves all messages from the storage.
+  ## Optionally limits the number of rows returned.
   ##
   ## **Example:**
   ##
@@ -114,7 +115,15 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageSto
            WakuMessage(contentTopic: contentTopic, payload: payload , version: uint32(version), timestamp: senderTimestamp.float64), 
                        pubsubTopic)
 
-  let res = db.database.query("SELECT receiverTimestamp, contentTopic, payload, pubsubTopic, version, senderTimestamp FROM " & TABLE_TITLE & " ORDER BY receiverTimestamp ASC", msg)
+  var selectQuery = "SELECT receiverTimestamp, contentTopic, payload, pubsubTopic, version, senderTimestamp " &
+                    "FROM " & TABLE_TITLE & " " & 
+                    "ORDER BY receiverTimestamp ASC"
+  if limit.isSome():
+    # Optional limit applies. This works because SQLITE will perform the time-based ORDER BY before applying the limit.
+    selectQuery &= " LIMIT " & $(limit.get()) &
+                   " OFFSET cast((SELECT count(*)  FROM " & TABLE_TITLE & ") AS INT) - " & $(limit.get()) # offset = total_row_count - limit
+  
+  let res = db.database.query(selectQuery, msg)
   if res.isErr:
     return err("failed")
 

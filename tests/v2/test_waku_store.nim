@@ -691,3 +691,25 @@ procSuite "Waku Store":
         proto3.messages.len == 10
         successResult.isOk
         successResult.value == 10
+  
+  asyncTest "limit store capacity":
+    let
+      capacity = 10
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
+      pubsubTopic = "/waku/2/default-waku/proto"
+
+    let store = WakuStore.init(PeerManager.new(newStandardSwitch()), crypto.newRng(), capacity = capacity)
+
+    for i in 1..capacity:
+      await store.handleMessage(pubsubTopic, WakuMessage(payload: @[byte i], contentTopic: contentTopic))
+      await sleepAsync(1.millis)  # Sleep a millisecond to ensure messages are stored chronologically
+
+    check:
+      store.messages.len == capacity # Store is at capacity
+    
+    # Test that capacity holds
+    await store.handleMessage(pubsubTopic, WakuMessage(payload: @[byte (capacity + 1)], contentTopic: contentTopic))
+
+    check:
+      store.messages.len == capacity # Store is still at capacity
+      store.messages.filterIt(it.msg.payload == @[byte (capacity + 1)]).len == 1 # Simple check to verify last added item is stored

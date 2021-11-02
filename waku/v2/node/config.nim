@@ -112,6 +112,11 @@ type
       defaultValue: ""
       name: "storenode" }: string
     
+    storeCapacity* {.
+      desc: "Maximum number of messages to keep in store.",
+      defaultValue: 50000
+      name: "store-capacity" }: int
+    
     ## Filter config
 
     filter* {.
