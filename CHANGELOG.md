@@ -15,6 +15,7 @@ This release contains the following:
 - Bridge now uses content topic format according to [23/WAKU2-TOPICS](https://rfc.vac.dev/spec/23/)
 - Better internal differentiation between local and remote peer info
 - Maximum number of libp2p connections is now configurable
+- Unsecure Websocket is now supported in nim-waku. 
 
 #### General refactoring
 
