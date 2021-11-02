@@ -12,6 +12,7 @@ import
   libp2p/protocols/pubsub/gossipsub,
   libp2p/nameresolving/dnsresolver,
   libp2p/builders,
+  libp2p/transports/[transport, tcptransport, wstransport],
   ../protocol/[waku_relay, waku_message],
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
@@ -20,6 +21,7 @@ import
   ../protocol/waku_rln_relay/[waku_rln_relay_types], 
   ../utils/peers,
   ../utils/requests,
+  ../utils/wakuswitch,
   ./storage/migration/migration_types,
   ./peer_manager/peer_manager,
   ./dnsdisc/waku_dnsdisc,
@@ -124,14 +126,18 @@ proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilte
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
-## Public API
-##
+
+template addWsFlag() =
+  MultiAddress.init("/ws").tryGet()
+
 
 proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
     extIp = none[ValidIpAddress](), extPort = none[Port](),
     peerStorage: PeerStorage = nil,
-    maxConnections = builders.MaxConnections): T 
+    maxConnections = builders.MaxConnections,
+    wsBindPort: Port = (Port)8000,
+    wsEnabled: bool = false): T 
     {.raises: [Defect, LPError].} =
   ## Creates a Waku Node.
   ##
@@ -140,8 +146,11 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   let
     rng = crypto.newRng()
     hostAddress = tcpEndPoint(bindIp, bindPort)
+    wsHostAddress = tcpEndPoint(bindIp, wsbindPort) & addWsFlag
     announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
-                         else: @[tcpEndPoint(extIp.get(), extPort.get())]
+                        elif wsEnabled == false: @[tcpEndPoint(extIp.get(), extPort.get())]
+                        else : @[tcpEndPoint(extIp.get(), extPort.get()),
+                        tcpEndPoint(extIp.get(), wsBindPort) & addWsFlag]
     peerInfo = PeerInfo.init(nodekey)
     enrIp = if extIp.isSome(): extIp
             else: some(bindIp)
@@ -149,20 +158,25 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
                  else: some(bindPort)
     enr = createEnr(nodeKey, enrIp, enrTcpPort, none(Port))
   
-  info "Initializing networking", hostAddress,
-                                  announcedAddresses
-  # XXX: Add this when we create node or start it?
-  peerInfo.addrs.add(hostAddress) # Index 0
+  if wsEnabled == true:
+    info "Initializing networking", hostAddress, wsHostAddress,
+                                    announcedAddresses
+    peerInfo.addrs.add(wsHostAddress)
+  else : 
+    info "Initializing networking", hostAddress, announcedAddresses
+    
+  peerInfo.addrs.add(hostAddress)
   for multiaddr in announcedAddresses:
     peerInfo.addrs.add(multiaddr) # Announced addresses in index > 0
   
-  var switch = newStandardSwitch(
-    some(nodekey),
-    hostAddress,
-    transportFlags = {ServerFlags.ReuseAddr},
-    rng = rng,
-    maxConnections = maxConnections)
-
+  var switch = newWakuSwitch(some(nodekey),
+  hostAddress,
+  wsHostAddress, 
+  transportFlags = {ServerFlags.ReuseAddr},
+  rng = rng, 
+  maxConnections = maxConnections,
+  wsEnabled = wsEnabled)
+  
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
     switch: switch,
@@ -892,6 +906,7 @@ when isMainModule:
     ## file. Optionally include persistent peer storage.
     ## No protocols are mounted yet.
 
+
     let 
       ## `udpPort` is only supplied to satisfy underlying APIs but is not
       ## actually a supported transport for libp2p traffic.
@@ -908,11 +923,14 @@ when isMainModule:
                 else:
                   extTcpPort
 
+
     let node = WakuNode.new(conf.nodekey,
                             conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
                             extIp, extPort,
                             pStorage,
-                            conf.maxConnections.int)
+                            conf.maxConnections.int,
+                            Port(uint16(conf.websocketPort) + conf.portsShift),
+                            conf.websocketSupport)
     
     if conf.discv5Discovery:
       let discv5UdpPort = Port(uint16(conf.discv5UdpPort) + conf.portsShift)

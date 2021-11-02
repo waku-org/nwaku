@@ -48,14 +48,11 @@ proc init*(p: typedesc[RemotePeerInfo],
 
   return remotePeerInfo
 
-proc initAddress(T: type MultiAddress, str: string): T {.raises: [Defect, ValueError, LPError].}=
-  # @TODO: Rather than raising exceptions, this should return a Result
-  let address = MultiAddress.init(str).tryGet()
-  if IPFS.match(address) and matchPartial(multiaddress.TCP, address):
-    return address
-  else:
-    raise newException(ValueError,
-                       "Invalid bootstrap node multi-address")
+## Check if wire Address is supported
+proc validWireAddr*(ma: MultiAddress): bool =
+  const
+    ValidTransports = mapOr(TCP, WebSockets)
+  return ValidTransports.match(ma)
 
 func getTransportProtocol(typedR: TypedRecord): Option[IpTransportProtocol] =
   if typedR.tcp6.isSome or typedR.tcp.isSome:
@@ -69,10 +66,11 @@ func getTransportProtocol(typedR: TypedRecord): Option[IpTransportProtocol] =
 ## Parses a fully qualified peer multiaddr, in the
 ## format `(ip4|ip6)/tcp/p2p`, into dialable PeerInfo
 proc parseRemotePeerInfo*(address: string): RemotePeerInfo {.raises: [Defect, ValueError, LPError].}=
-  let multiAddr = MultiAddress.initAddress(address)
+  let multiAddr = MultiAddress.init(address).tryGet()
 
   var
-    ipPart, tcpPart, p2pPart: MultiAddress
+
+    ipPart, tcpPart, p2pPart, wsPart: MultiAddress
 
   for addrPart in multiAddr.items():
     case addrPart[].protoName()[]
@@ -82,15 +80,17 @@ proc parseRemotePeerInfo*(address: string): RemotePeerInfo {.raises: [Defect, Va
       tcpPart = addrPart.tryGet()
     of "p2p":
       p2pPart = addrPart.tryGet()
-  
+    of "ws":
+      wsPart = addrPart.tryGet()
+
   # nim-libp2p dialing requires remote peers to be initialised with a peerId and a wire address
   let
-    peerIdStr = p2pPart.toString()[].split("/")[^1]
-    wireAddr = ipPart & tcpPart
-  
-  if (not wireAddr.isWire()):
+    peerIdStr = p2pPart.toString()[].split("/")[^1] 
+
+    wireAddr = ipPart & tcpPart & wsPart
+  if (not wireAddr.validWireAddr()):
     raise newException(ValueError, "Invalid node multi-address")
-  
+
   return RemotePeerInfo.init(peerIdStr, @[wireAddr])
 
 ## Converts an ENR to dialable RemotePeerInfo
