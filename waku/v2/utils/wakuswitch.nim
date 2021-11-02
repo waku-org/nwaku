@@ -1,6 +1,7 @@
 # Waku Switch utils.
+{.push raises: [TLSStreamProtocolError, Defect].}
 import
-  std/[options, sequtils],
+  std/[options, sequtils, strutils],
   chronos, chronicles,
   stew/byteutils,
   eth/keys,
@@ -14,25 +15,35 @@ import
 proc withWsTransport*(b: SwitchBuilder): SwitchBuilder =
   b.withTransport(proc(upgr: Upgrade): Transport = WsTransport.new(upgr))
 
+proc getSecureKey(path : string): TLSPrivateKey =
+  doAssert isEmptyOrWhitespace(path) == false
+  try :
+    let keyString : string = readFile(path)
+    let key : TLSPrivateKey = TLSPrivateKey.init(keyString)
+    return key
+  except:
+    raise newException(TLSStreamProtocolError,"key init failed")
+
+proc getSecureCert(path : string): TLSCertificate =
+  doAssert isEmptyOrWhitespace(path) == false
+  try :
+    let certString: string = readFile(path)
+    let cert : TLSCertificate = TLSCertificate.init(certString)
+    return cert
+  except:
+    raise newException(TLSStreamProtocolError,"Cert init failed")
+
 proc withWssTransport*(b: SwitchBuilder,
-                        SecureKey: String,
-                        SecureCert: String): SwitchBuilder =
-  b.withTransport(proc(upgr: Upgrade): Transport = WsTransport.new(upgr),
-        TLSPrivateKey.init(SecureKey),
-        TLSCertificate.init(SecureCert),
-        {TLSFlags.NoVerifyHost, TLSFlags.NoVerifyServerName}))
+                        secureKeyPath: string,
+                        secureCertPath: string): SwitchBuilder =
+  let key : TLSPrivateKey =  getSecureKey(secureKeyPath)
+  let cert : TLSCertificate = getSecureCert(secureCertPath)
+  b.withTransport(proc(upgr: Upgrade): Transport = WsTransport.new(upgr,
+                  tlsPrivateKey = key,
+                  tlsCertificate = cert,
+                  {TLSFlags.NoVerifyHost, TLSFlags.NoVerifyServerName}))
 
-proc getSecureKey(path : string): string =
-  if(string = nil):
-    raise newException(ValueError, "Path to secure key is empty")
-  else:
-    return readFile(string)
 
-proc getSecureCert(path : string): string =
-  if(string = nil):
-    raise newException(ValueError, "Path to secure Cert is empty")
-  else:
-    return readFile(string)
 
 proc newWakuSwitch*(
     privKey = none(crypto.PrivateKey),
@@ -52,9 +63,9 @@ proc newWakuSwitch*(
     nameResolver: NameResolver = nil,
     wsEnabled: bool = false,
     wssEnabled: bool = false,
-    secureKey: string = "",
-    secureCert: string = ""): Switch
-    {.raises: [Defect, LPError].} =
+    secureKeyPath: string = "",
+    secureCertPath: string = ""): Switch
+    {.raises: [Defect,TLSStreamProtocolError, LPError].} =
 
     var b = SwitchBuilder
       .new()
@@ -72,9 +83,9 @@ proc newWakuSwitch*(
     if wsEnabled == true:
       b = b.withAddresses(@[wsAddress, address])
       b = b.withWsTransport()
-    if wssEnabled == true;
+    if wssEnabled == true:
       b = b.withAddresses(@[wsAddress, address])
-      b = b.withWssTransport(SecureKey, SecureCert)
+      b = b.withWssTransport(secureKeyPath, secureCertPath)
     else :
       b = b.withAddress(address)
 
