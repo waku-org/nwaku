@@ -402,15 +402,15 @@ proc mountSwap*(node: WakuNode, swapConfig: SwapConfig = SwapConfig.init()) {.ra
   # NYI - Do we need this?
   #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
 
-proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: bool = false) {.raises: [Defect, LPError].} =
+proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: bool = false, capacity = DefaultStoreCapacity) {.raises: [Defect, LPError].} =
   info "mounting store"
 
   if node.wakuSwap.isNil:
     debug "mounting store without swap"
-    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, persistMessages=persistMessages)
+    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, persistMessages=persistMessages, capacity=capacity)
   else:
     debug "mounting store with swap"
-    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, node.wakuSwap, persistMessages=persistMessages)
+    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, node.wakuSwap, persistMessages=persistMessages, capacity=capacity)
 
   node.switch.mount(node.wakuStore, protocolMatcher(WakuStoreCodec))
     
@@ -998,7 +998,7 @@ when isMainModule:
 
     # Store setup
     if (conf.storenode != "") or (conf.store):
-      mountStore(node, mStorage, conf.persistMessages)
+      mountStore(node, mStorage, conf.persistMessages, conf.storeCapacity)
 
       if conf.storenode != "":
         setStorePeer(node, conf.storenode)
