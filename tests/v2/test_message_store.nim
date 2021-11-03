@@ -140,6 +140,7 @@ suite "Message Store":
         index = computeIndex(msg)
         output = store.put(index, msg, pubsubTopic)
       
+      waitFor sleepAsync(1.millis)  # Ensure stored messages have increasing receiver timestamp
       check output.isOk
 
     var

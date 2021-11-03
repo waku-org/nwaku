@@ -453,11 +453,14 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
     # TODO index should not be recalculated
     ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex(), pubsubTopic: pubsubTopic))
 
+  info "attempting to load messages from persistent storage"
+
   let res = ws.store.getAll(onData, some(capacity))
   if res.isErr:
     warn "failed to load messages from store", err = res.error
     waku_store_errors.inc(labelValues = ["store_load_failure"])
   
+  info "successfully loaded from store"
   debug "the number of messages in the memory", messageNum=ws.messages.len
   waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
 
