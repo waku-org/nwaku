@@ -1099,7 +1099,7 @@ when isMainModule:
     ok(true) # Success
   
   let
-      conf = WakuNodeConf.load()
+    conf = WakuNodeConf.load()
   
   var
     node: WakuNode  # This is the node we're going to setup using the conf

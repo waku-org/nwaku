@@ -255,12 +255,12 @@ type
     
     websocketSecureKey* {.
       desc: "Secure websocket key path:   '/path/to/key.txt' ",
-      defaultValue: false
+      defaultValue: "key.txt"
       name: "websocket-secure-key"}: string
     
     websocketSecureCert* {.
       desc: "Secure websocket Certificate path:   '/path/to/cert.txt' ",
-      defaultValue: false
+      defaultValue: "cert.txt"
       name: "websocket-secure-Cert"}: string
 
 # NOTE: Keys are different in nim-libp2p
