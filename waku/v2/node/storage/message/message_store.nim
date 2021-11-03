@@ -1,6 +1,7 @@
 {.push raises: [Defect].}
 
 import
+  std/options,
   stew/results,
   ../../../protocol/waku_message,
   ../../../utils/pagination
@@ -18,5 +19,5 @@ type
 
 # MessageStore interface
 method put*(db: MessageStore, cursor: Index, message: WakuMessage, pubsubTopic: string): MessageStoreResult[void] {.base.} = discard
-method getAll*(db: MessageStore, onData: DataProc): MessageStoreResult[bool] {.base.} = discard
+method getAll*(db: MessageStore, onData: DataProc, limit = none(int)): MessageStoreResult[bool] {.base.} = discard
 

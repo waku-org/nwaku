@@ -5,6 +5,7 @@
 # Group by std, external then internal imports
 import
   # external imports
+  std/sequtils,
   bearssl,
   libp2p/protocols/protocol,
   stew/results,
@@ -81,11 +82,58 @@ type
 
   QueryResult* = Result[uint64, string]
   MessagesResult* = Result[seq[WakuMessage], string]
+
+  StoreQueue* = object
+    ## Bounded repository for indexed messages
+    ## 
+    ## The store queue will keep messages up to its
+    ## configured capacity. As soon as this capacity
+    ## is reached and a new message is added, the oldest
+    ## item will be removed to make space for the new one.
+    ## This implies both a `delete` and `add` operation
+    ## for new items.
+    ## 
+    ## @ TODO: a circular/ring buffer may be a more efficient implementation
+    ## @ TODO: consider adding message hashes for easy duplicate checks
+    items: seq[IndexedWakuMessage] # FIFO queue of stored messages
+    capacity: int # Maximum amount of messages to keep
   
   WakuStore* = ref object of LPProtocol
     peerManager*: PeerManager
     rng*: ref BrHmacDrbgContext
-    messages*: seq[IndexedWakuMessage]
+    messages*: StoreQueue
     store*: MessageStore
     wakuSwap*: WakuSwap
     persistMessages*: bool
+
+######################
+# StoreQueue helpers #
+######################
+
+proc initQueue*(capacity: int): StoreQueue =
+  var storeQueue: StoreQueue
+  storeQueue.items = newSeqOfCap[IndexedWakuMessage](capacity)
+  storeQueue.capacity = capacity
+  return storeQueue
+
+proc add*(storeQueue: var StoreQueue, msg: IndexedWakuMessage) {.noSideEffect.} =
+  ## Add a message to the queue.
+  ## If we're at capacity, we will be removing,
+  ## the oldest item
+
+  if storeQueue.items.len >= storeQueue.capacity:
+    storeQueue.items.delete 0, 0  # Remove first item in queue
+  
+  storeQueue.items.add(msg)
+
+proc len*(storeQueue: StoreQueue): int {.noSideEffect.} =
+  storeQueue.items.len
+
+proc allItems*(storeQueue: StoreQueue): seq[IndexedWakuMessage] =
+  storeQueue.items
+
+template filterIt*(storeQueue: StoreQueue, pred: untyped): untyped =
+  storeQueue.items.filterIt(pred)
+
+template mapIt*(storeQueue: StoreQueue, op: untyped): untyped =
+  storeQueue.items.mapIt(op)
