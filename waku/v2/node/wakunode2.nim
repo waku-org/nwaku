@@ -142,9 +142,9 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     wsBindPort: Port = (Port)8000,
     wsEnabled: bool = false,
     wssEnabled: bool = false,
-    secureKey: string = nil,
-    secureCert: string = nil): T 
-    {.raises: [Defect, LPError].} =
+    secureKey: string = "",
+    secureCert: string = ""): T 
+    {.raises: [Defect, LPError, TLSStreamProtocolError].} =
   ## Creates a Waku Node.
   ##
   ## Status: Implemented.
@@ -153,7 +153,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     rng = crypto.newRng()
     hostAddress = tcpEndPoint(bindIp, bindPort)
     wsHostAddress = if wssEnabled : tcpEndPoint(bindIp, wsbindPort) & addWssFlag
-                    else tcpEndPoint(bindIp, wsbindPort) & addWsFlag
+                    else : tcpEndPoint(bindIp, wsbindPort) & addWsFlag
     announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
                         elif wsEnabled == false: @[tcpEndPoint(extIp.get(), extPort.get())]
                         else : @[tcpEndPoint(extIp.get(), extPort.get()),
@@ -184,8 +184,8 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   maxConnections = maxConnections,
   wsEnabled = wsEnabled,
   wssEnabled = wssEnabled,
-  secureKey = secureKey,
-  secureCert = secureCert)
+  secureKeyPath = secureKey,
+  secureCertPath = secureCert)
   
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
@@ -932,16 +932,6 @@ when isMainModule:
                   some(Port(uint16(conf.tcpPort) + conf.portsShift))
                 else:
                   extTcpPort
-                  
-      secureKey = if conf.websocketSecureSupport :
-                    getSecureKey()
-                  else:
-                    nil
-
-      secureCert = if conf.websocketSecureSupport :
-                      getSecureCert()
-                   else:
-                    nil
 
       node = WakuNode.new(conf.nodekey,
                         conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
@@ -951,8 +941,8 @@ when isMainModule:
                         Port(uint16(conf.websocketPort) + conf.portsShift),
                         conf.websocketSupport,
                         conf.websocketSecureSupport,
-                        secureKey,
-                        secureCert
+                        conf.websocketSecureKey,
+                        conf.websocketSecureCert
                         )
     
     if conf.discv5Discovery:
@@ -1109,7 +1099,7 @@ when isMainModule:
     ok(true) # Success
   
   let
-    conf = WakuNodeConf.load()
+      conf = WakuNodeConf.load()
   
   var
     node: WakuNode  # This is the node we're going to setup using the conf
