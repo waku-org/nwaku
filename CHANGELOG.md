@@ -1,8 +1,13 @@
-# Changelog
+## 2021-11-05 v0.6
 
-## Next version
+Some useful features and fixes in this release, include:
+- two methods for Waku v2 node discovery
+- support for unsecure websockets, which paves the way for native browser usage
+- a fix for `nim-waku` store nodes running out of memory due to store size: the number of stored messages can now easily be configured
+- a fix for densely connected nodes refusing new connections: the maximum number of allowed connections can now easily be configured
+- support for larger message sizes (up from 64kb to 1Mb per message)
 
-This release contains the following:
+The full list of changes is below.
 
 ### Features
 
@@ -11,27 +16,45 @@ This release contains the following:
 
 ### Changes
 
+- Pagination of historical queries are now simplified
 - GossipSub [prune backoff period](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#prune-backoff-and-peer-exchange) is now the recommended 1 minute
 - Bridge now uses content topic format according to [23/WAKU2-TOPICS](https://rfc.vac.dev/spec/23/)
 - Better internal differentiation between local and remote peer info
 - Maximum number of libp2p connections is now configurable
-- Unsecure Websocket is now supported in nim-waku. 
-
-#### General refactoring
+- `udp-port` CLI option has been removed for binaries where it's not used
+- Waku v2 now supports unsecure WebSockets
+- Waku v2 now supports larger message sizes of up to 1 Mb by default
+- Further experimental development of [RLN for spam protection](https://rfc.vac.dev/spec/17/).
+These changes are disabled by default under a compiler flag. Changes include:
+  - Per-message rate limit proof defined
+  - RLN proof generation and verification integrated into Waku v2
+  - RLN tree depth changed from 32 to 20
+  - Support added for static membership group formation
 
 #### Docs
 
-- Added contributor guidelines on Waku v2 fleet monitoring and management.
-- Added basic tutorial on using Waku v2 DNS-based discovery
-
-#### Schema
-
-#### API
+- Added [contributor guidelines](https://github.com/status-im/nim-waku/blob/master/docs/contributors/waku-fleets.md) on Waku v2 fleet monitoring and management
+- Added [basic tutorial](https://github.com/status-im/nim-waku/blob/master/docs/tutorial/dns-disc.md) on using Waku v2 DNS-based discovery
 
 ### Fixes
 
+- Bridge between `toy-chat` and matterbridge now shows correct announced addresses
 - Bridge no longer re-encodes already encoded payloads when publishing to V1
 - Bridge now populates WakuMessage timestamps when publishing to V2
+- Store now has a configurable maximum number of stored messages
+- Network simulations for Waku v1 and Waku v2 are runnable again
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`17/WAKU-RLN`](https://rfc.vac.dev/spec/17/) | `raw` | `/vac/waku/waku-rln-relay/2.0.0-alpha1` |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta3` |
+| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
 
 ## 2021-07-26 v0.5.1
 
