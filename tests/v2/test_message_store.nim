@@ -123,3 +123,58 @@ suite "Message Store":
     check:
       ver.isErr == false
       ver.value == 10
+
+  test "get works with limit":
+    let 
+      database = SqliteDatabase.init("", inMemory = true)[]
+      store = WakuMessageStore.init(database)[]
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
+      pubsubTopic =  "/waku/2/default-waku/proto"
+      capacity = 10
+
+    defer: store.close()
+
+    for i in 1..capacity:
+      let
+        msg = WakuMessage(payload: @[byte i], contentTopic: contentTopic, version: uint32(0), timestamp: i.float)
+        index = computeIndex(msg)
+        output = store.put(index, msg, pubsubTopic)
+      
+      waitFor sleepAsync(1.millis)  # Ensure stored messages have increasing receiver timestamp
+      check output.isOk
+
+    var
+      responseCount = 0
+      lastMessageTimestamp = 0.float
+
+    proc data(receiverTimestamp: float64, msg: WakuMessage, psTopic: string) {.raises: [Defect].} =
+      responseCount += 1
+      lastMessageTimestamp = msg.timestamp
+
+    # Test limited getAll function when store is at capacity
+    let resMax = store.getAll(data, some(capacity))
+    
+    check:
+      resMax.isOk
+      responseCount == capacity # We retrieved all items
+      lastMessageTimestamp == capacity.float # Returned rows were ordered correctly
+
+    # Now test getAll with a limit smaller than total stored items
+    responseCount = 0 # Reset response count
+    lastMessageTimestamp = 0
+    let resLimit = store.getAll(data, some(capacity - 2))
+
+    check:
+      resLimit.isOk
+      responseCount == capacity - 2 # We retrieved limited number of items
+      lastMessageTimestamp == capacity.float # We retrieved the youngest items in the store, in order
+    
+    # Test zero limit
+    responseCount = 0 # Reset response count
+    lastMessageTimestamp = 0
+    let resZero = store.getAll(data, some(0))
+
+    check:
+      resZero.isOk
+      responseCount == 0 # No items retrieved
+      lastMessageTimestamp == 0.float # No items retrieved

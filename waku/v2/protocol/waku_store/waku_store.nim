@@ -44,6 +44,7 @@ logScope:
 
 const
   WakuStoreCodec* = "/vac/waku/store/2.0.0-beta3"
+  DefaultStoreCapacity* = 50000 # Default maximum of 50k messages stored
 
 # Error types (metric label values)
 const
@@ -373,7 +374,7 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
 
 
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
-  var data : seq[IndexedWakuMessage] = w.messages
+  var data : seq[IndexedWakuMessage] = w.messages.allItems()
 
   # filter based on content filters
   # an empty list of contentFilters means no content filter is requested
@@ -409,7 +410,8 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   return historyRes
 
 
-proc init*(ws: WakuStore) =
+proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
+
   proc handler(conn: Connection, proto: string) {.async.} =
     var message = await conn.readLp(64*1024)
     var res = HistoryRPC.init(message)
@@ -442,6 +444,7 @@ proc init*(ws: WakuStore) =
 
   ws.handler = handler
   ws.codec = WakuStoreCodec
+  ws.messages = initQueue(capacity)
 
   if ws.store.isNil:
     return
@@ -450,20 +453,24 @@ proc init*(ws: WakuStore) =
     # TODO index should not be recalculated
     ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex(), pubsubTopic: pubsubTopic))
 
-  let res = ws.store.getAll(onData)
+  info "attempting to load messages from persistent storage"
+
+  let res = ws.store.getAll(onData, some(capacity))
   if res.isErr:
     warn "failed to load messages from store", err = res.error
     waku_store_errors.inc(labelValues = ["store_load_failure"])
   
+  info "successfully loaded from store"
   debug "the number of messages in the memory", messageNum=ws.messages.len
   waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
 
 
 proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgContext,
-                   store: MessageStore = nil, wakuSwap: WakuSwap = nil, persistMessages = true): T =
+                   store: MessageStore = nil, wakuSwap: WakuSwap = nil, persistMessages = true,
+                   capacity = DefaultStoreCapacity): T =
   debug "init"
   var output = WakuStore(rng: rng, peerManager: peerManager, store: store, wakuSwap: wakuSwap, persistMessages: persistMessages)
-  output.init()
+  output.init(capacity)
   return output
 
 # @TODO THIS SHOULD PROBABLY BE AN ADD FUNCTION AND APPEND THE PEER TO AN ARRAY
@@ -487,7 +494,7 @@ proc handleMessage*(w: WakuStore, topic: string, msg: WakuMessage) {.async.} =
 
   let res = w.store.put(index, msg, topic)
   if res.isErr:
-    warn "failed to store messages", err = res.error
+    trace "failed to store messages", err = res.error
     waku_store_errors.inc(labelValues = ["store_failure"])
 
 proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
@@ -623,7 +630,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
   ## the resume proc returns the number of retrieved messages if no error occurs, otherwise returns the error string
   
   var currentTime = epochTime()
-  var lastSeenTime: float = findLastSeen(ws.messages)
+  var lastSeenTime: float = findLastSeen(ws.messages.allItems())
   debug "resume", currentEpochTime=currentTime
   
   # adjust the time window with an offset of 20 seconds
@@ -642,7 +649,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
   proc save(msgList: seq[WakuMessage]) =
     debug "save proc is called"
     # exclude index from the comparison criteria
-    let currentMsgSummary = ws.messages.map(proc(x: IndexedWakuMessage): WakuMessage = x.msg)
+    let currentMsgSummary = ws.messages.mapIt(it.msg)
     for msg in msgList:
       # check for duplicate messages
       # TODO Should take pubsub topic into account if we are going to support topics rather than the DefaultTopic
@@ -658,7 +665,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
       if not ws.store.isNil: 
         let res = ws.store.put(index, msg, DefaultTopic)
         if res.isErr:
-          warn "failed to store messages", err = res.error
+          trace "failed to store messages", err = res.error
           waku_store_errors.inc(labelValues = ["store_failure"])
           continue
         
