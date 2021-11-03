@@ -165,7 +165,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
                  else: some(bindPort)
     enr = createEnr(nodeKey, enrIp, enrTcpPort, none(Port))
   
-  if wsEnabled == true:
+  if wsEnabled == true or wssEnabled == true:
     info "Initializing networking", hostAddress, wsHostAddress,
                                     announcedAddresses
     peerInfo.addrs.add(wsHostAddress)
