@@ -46,7 +46,7 @@ proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], master = false, lab
     rkey = SkPrivateKey.init(fromHex(hkey))[] #assumes ok
     privKey = PrivateKey(scheme: Secp256k1, skkey: rkey)
     #privKey = PrivateKey.random(Secp256k1)
-    pubkey = privKey.getKey()[] #assumes ok
+    pubkey = privKey.getPublicKey()[] #assumes ok
     keys = KeyPair(seckey: privKey, pubkey: pubkey)
     peerInfo = PeerInfo.new(privKey)
     port = 60000 + shift
