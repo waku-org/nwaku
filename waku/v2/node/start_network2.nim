@@ -48,7 +48,7 @@ proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], master = false, lab
     #privKey = PrivateKey.random(Secp256k1)
     pubkey = privKey.getKey()[] #assumes ok
     keys = KeyPair(seckey: privKey, pubkey: pubkey)
-    peerInfo = PeerInfo.init(privKey)
+    peerInfo = PeerInfo.new(privKey)
     port = 60000 + shift
     #DefaultAddr = "/ip4/127.0.0.1/tcp/55505"
     address = "/ip4/127.0.0.1/tcp/" & $port

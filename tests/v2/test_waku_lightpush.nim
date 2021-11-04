@@ -20,7 +20,7 @@ procSuite "Waku Light Push":
 
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.init(key)
+      peer = PeerInfo.new(key)
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
 
