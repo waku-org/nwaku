@@ -144,7 +144,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     wssEnabled: bool = false,
     secureKey: string = "",
     secureCert: string = ""): T 
-    {.raises: [Defect, LPError, TLSStreamProtocolError].} =
+    {.raises: [Defect, LPError, IOError,TLSStreamProtocolError].} =
   ## Creates a Waku Node.
   ##
   ## Status: Implemented.
