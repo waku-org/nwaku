@@ -84,15 +84,15 @@ procSuite "Peer Manager":
       # Create filter peer
       filterLoc = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet()
       filterKey = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
-      filterPeer = PeerInfo.init(filterKey, @[filterLoc])
+      filterPeer = PeerInfo.new(filterKey, @[filterLoc])
       # Create swap peer
       swapLoc = MultiAddress.init("/ip4/127.0.0.2/tcp/2").tryGet()
       swapKey = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
-      swapPeer = PeerInfo.init(swapKey, @[swapLoc])
+      swapPeer = PeerInfo.new(swapKey, @[swapLoc])
       # Create store peer
       storeLoc = MultiAddress.init("/ip4/127.0.0.3/tcp/4").tryGet()
       storeKey = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
-      storePeer = PeerInfo.init(storeKey, @[storeLoc])
+      storePeer = PeerInfo.new(storeKey, @[storeLoc])
     
     await node.start()
 
