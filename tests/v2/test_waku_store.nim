@@ -20,7 +20,7 @@ procSuite "Waku Store":
   asyncTest "handle query":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.init(key)
+      peer = PeerInfo.new(key)
       topic = defaultContentTopic
       msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic)
       msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic("2"))
@@ -57,7 +57,7 @@ procSuite "Waku Store":
   asyncTest "handle query with multiple content filters":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.init(key)
+      peer = PeerInfo.new(key)
       topic1 = defaultContentTopic
       topic2 = ContentTopic("2")
       topic3 = ContentTopic("3")
@@ -100,7 +100,7 @@ procSuite "Waku Store":
   asyncTest "handle query with pubsub topic filter":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.init(key)
+      peer = PeerInfo.new(key)
       contentTopic1 = defaultContentTopic
       contentTopic2 = ContentTopic("2")
       contentTopic3 = ContentTopic("3")
@@ -147,7 +147,7 @@ procSuite "Waku Store":
   asyncTest "handle query with pubsub topic filter with no match":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.init(key)
+      peer = PeerInfo.new(key)
       msg1 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: defaultContentTopic)
       msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: defaultContentTopic)
       msg3 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: defaultContentTopic)
@@ -188,7 +188,7 @@ procSuite "Waku Store":
   asyncTest "handle query with pubsub topic filter matching the entire stored messages":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.init(key)
+      peer = PeerInfo.new(key)
       msg1 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: defaultContentTopic)
       msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: defaultContentTopic)
       msg3 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: defaultContentTopic)
@@ -232,7 +232,7 @@ procSuite "Waku Store":
   asyncTest "handle query with store and restarts":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.init(key)
+      peer = PeerInfo.new(key)
       topic = defaultContentTopic
       database = SqliteDatabase.init("", inMemory = true)[]
       store = WakuMessageStore.init(database)[]
@@ -296,7 +296,7 @@ procSuite "Waku Store":
   asyncTest "handle query with forward pagination":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.init(key)
+      peer = PeerInfo.new(key)
     var
       msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
         WakuMessage(payload: @[byte 1],contentTopic: defaultContentTopic),
@@ -345,7 +345,7 @@ procSuite "Waku Store":
   asyncTest "handle query with backward pagination":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.init(key)
+      peer = PeerInfo.new(key)
     var
       msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
         WakuMessage(payload: @[byte 1],contentTopic: defaultContentTopic),
@@ -392,7 +392,7 @@ procSuite "Waku Store":
   asyncTest "handle queries with no pagination":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.init(key)
+      peer = PeerInfo.new(key)
     var
       msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
         WakuMessage(payload: @[byte 1], contentTopic: defaultContentTopic),
@@ -529,7 +529,7 @@ procSuite "Waku Store":
   asyncTest "temporal history queries":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.init(key)
+      peer = PeerInfo.new(key)
     var
       msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: float(0)),
         WakuMessage(payload: @[byte 1],contentTopic: ContentTopic("1"), timestamp: float(1)),

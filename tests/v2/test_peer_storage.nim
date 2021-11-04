@@ -17,9 +17,9 @@ suite "Peer Storage":
       # Test Peer
       peerLoc = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet()
       peerKey = crypto.PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.init(peerKey, @[peerLoc])
+      peer = PeerInfo.new(peerKey, @[peerLoc])
       peerProto = "/waku/2/default-waku/codec"
-      stored = StoredInfo(peerId: peer.peerId, addrs: toHashSet([peerLoc]), protos: toHashSet([peerProto]), publicKey: peerKey.getKey().tryGet())
+      stored = StoredInfo(peerId: peer.peerId, addrs: toHashSet([peerLoc]), protos: toHashSet([peerProto]), publicKey: peerKey.getPublicKey().tryGet())
       conn = Connectedness.CanConnect
       disconn = 999999
        

@@ -223,7 +223,7 @@ procSuite "Waku v2 JSON-RPC API":
     # WakuStore setup
     let
       key = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.init(key)
+      peer = PeerInfo.new(key)
     
     node.mountStore(persistMessages = true)
     
@@ -523,13 +523,13 @@ procSuite "Waku v2 JSON-RPC API":
       locationAddr = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet()
 
       filterKey = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
-      filterPeer = PeerInfo.init(filterKey, @[locationAddr])
+      filterPeer = PeerInfo.new(filterKey, @[locationAddr])
 
       swapKey = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
-      swapPeer = PeerInfo.init(swapKey, @[locationAddr])
+      swapPeer = PeerInfo.new(swapKey, @[locationAddr])
 
       storeKey = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
-      storePeer = PeerInfo.init(storeKey, @[locationAddr])
+      storePeer = PeerInfo.new(storeKey, @[locationAddr])
 
     node.wakuFilter.setPeer(filterPeer.toRemotePeerInfo())
     node.wakuSwap.setPeer(swapPeer.toRemotePeerInfo())

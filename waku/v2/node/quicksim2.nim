@@ -33,7 +33,7 @@ proc message(i: int): ProtoBuffer =
   let value = "hello " & $(i)
 
   var result = initProtoBuffer()
-  result.write(initProtoField(1, value))
+  result.write(1, value)
   result.finish()
 
 proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} =
