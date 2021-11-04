@@ -151,7 +151,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
                         elif wsEnabled == false: @[tcpEndPoint(extIp.get(), extPort.get())]
                         else : @[tcpEndPoint(extIp.get(), extPort.get()),
                         tcpEndPoint(extIp.get(), wsBindPort) & addWsFlag]
-    peerInfo = PeerInfo.init(nodekey)
+    peerInfo = PeerInfo.new(nodekey)
     enrIp = if extIp.isSome(): extIp
             else: some(bindIp)
     enrTcpPort = if extPort.isSome(): extPort
