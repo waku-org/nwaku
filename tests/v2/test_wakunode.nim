@@ -2,7 +2,7 @@
 
 import
   testutils/unittests,
-  chronicles, chronos, stew/shims/net as stewNet, stew/byteutils,
+  chronicles, chronos, stew/shims/net as stewNet, stew/byteutils, std/os,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/peerid,
@@ -27,6 +27,9 @@ when defined(rln):
   import ../../waku/v2/protocol/waku_rln_relay/[waku_rln_relay_utils, waku_rln_relay_types]
 
 const RLNRELAY_PUBSUB_TOPIC = "waku/2/rlnrelay/proto"
+template sourceDir: string = currentSourcePath.parentDir()
+const KEY_PATH = sourceDir / "../../waku/v2/node/key.txt"
+const CERT_PATH = sourceDir / "../../waku/v2/node/cert.txt"
 
 procSuite "WakuNode":
   let rng = keys.newRng()
@@ -1171,7 +1174,7 @@ asyncTest "Messages are relayed between nodes with multiple transports (TCP and 
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60000), wsBindPort = Port(8000), wssEnabled = true, secureKey = "../../waku/v2/node/key.txt", secureCert = "../../waku/v2/node/Cert.txt")
+        bindPort = Port(60000), wsBindPort = Port(8000), wssEnabled = true, secureKey = KEY_PATH, secureCert = CERT_PATH)
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         bindPort = Port(60002))
@@ -1224,7 +1227,7 @@ asyncTest "Messages are relayed between nodes with multiple transports (websocke
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60000), wsBindPort = Port(8000), wssEnabled = true, secureKey = "../../waku/v2/node/key.txt", secureCert = "../../waku/v2/node/Cert.txt")
+        bindPort = Port(60000), wsBindPort = Port(8000), wssEnabled = true, secureKey = KEY_PATH, secureCert = CERT_PATH)
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         bindPort = Port(60002),wsBindPort = Port(8100), wsEnabled = true )
