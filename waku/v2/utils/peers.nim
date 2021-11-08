@@ -83,7 +83,7 @@ proc parseRemotePeerInfo*(address: string): RemotePeerInfo {.raises: [Defect, Va
     of "ws":
       wsPart = addrPart.tryGet()
     of "wss":
-      wsPart = addrPart.tryGet()
+      wssPart = addrPart.tryGet()
 
   # nim-libp2p dialing requires remote peers to be initialised with a peerId and a wire address
   let
