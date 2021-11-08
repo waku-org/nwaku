@@ -152,8 +152,8 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   let
     rng = crypto.newRng()
     hostAddress = tcpEndPoint(bindIp, bindPort)
-    wsHostAddress = if wssEnabled : tcpEndPoint(bindIp, wsbindPort) & addWssFlag
-                    else : tcpEndPoint(bindIp, wsbindPort) & addWsFlag
+    wsHostAddress = if wssEnabled: tcpEndPoint(bindIp, wsbindPort) & addWssFlag
+                    else: tcpEndPoint(bindIp, wsbindPort) & addWsFlag
     announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
                         elif wsEnabled == false and wssEnabled == false: @[tcpEndPoint(extIp.get(), extPort.get())]
                         else : @[tcpEndPoint(extIp.get(), extPort.get()),
