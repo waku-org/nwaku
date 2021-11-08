@@ -32,7 +32,7 @@ proc getSecureCert(path : string): TLSCertificate
   trace "Certificate path is.", path=path
   var stringCert : string = readFile(path)
   try :
-    let cert : TLSCertificate = TLSCertificate.init(stringCert)
+    let cert  = TLSCertificate.init(stringCert)
     return cert
   except:
     raise newException(TLSStreamProtocolError,"Certificate init failed")
