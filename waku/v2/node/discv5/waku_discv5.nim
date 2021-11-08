@@ -4,9 +4,9 @@ import
   std/[strutils, options],
   chronos, chronicles, metrics,
   eth/keys,
-  eth/p2p/discoveryv5/[enr, protocol],
+  eth/p2p/discoveryv5/[enr, node, protocol],
   stew/shims/net,
-  stew/results,
+  stew/[byteutils, results],
   ../config,
   ../../utils/peers
 
@@ -18,10 +18,18 @@ declarePublicGauge waku_discv5_errors, "number of waku discv5 errors", ["type"]
 logScope:
   topics = "wakudiscv5"
 
+const
+  WAKU_ENR_FIELD* = "waku"
+  WAKU_ENR_VALUE* = "2"
+
 type
   WakuDiscoveryV5* = ref object
     protocol*: protocol.Protocol
     listening*: bool
+
+####################
+# Helper functions #
+####################
 
 proc parseBootstrapAddress(address: TaintedString):
     Result[enr.Record, cstring] =
@@ -55,6 +63,14 @@ proc addBootstrapNode(bootstrapAddr: string,
     warn "Ignoring invalid bootstrap address",
           bootstrapAddr, reason = enrRes.error
 
+proc isWakuNode(node: Node): bool =
+  let wakuField = node.record.tryGet(WAKU_ENR_FIELD, string)
+  
+  if wakuField.isSome:
+    return wakuField.get() == WAKU_ENR_VALUE # Currently only support waku version 2
+
+  return false
+
 ####################
 # Discovery v5 API #
 ####################
@@ -63,12 +79,14 @@ proc findRandomPeers*(wakuDiscv5: WakuDiscoveryV5): Future[Result[seq[RemotePeer
   ## Find random peers to connect to using Discovery v5
   
   ## Query for a random target and collect all discovered nodes
-  ## @TODO: we could filter nodes here
   let discoveredNodes = await wakuDiscv5.protocol.queryRandom()
   
+  ## Filter based on our needs
+  let filteredNodes = discoveredNodes.filter(isWakuNode) # Currently only a single predicate
+
   var discoveredPeers: seq[RemotePeerInfo]
 
-  for node in discoveredNodes:
+  for node in filteredNodes:
     # Convert discovered ENR to RemotePeerInfo and add to discovered nodes
     let res = node.record.toRemotePeerInfo()
 
@@ -101,10 +119,14 @@ proc new*(T: type WakuDiscoveryV5,
   
   ## TODO: consider loading from a configurable bootstrap file
   
+  ## We always add the waku field as specified
+  var enrInitFields = @[(WAKU_ENR_FIELD, WAKU_ENR_VALUE.toBytes())]
+  enrInitFields.add(enrFields)
+  
   let protocol = newProtocol(
     privateKey,
     enrIp = extIp, enrTcpPort = extTcpPort, enrUdpPort = extUdpPort, # We use the external IP & ports for ENR
-    enrFields,
+    enrInitFields,
     bootstrapEnrs,
     bindPort = discv5UdpPort,
     bindIp = bindIP,
