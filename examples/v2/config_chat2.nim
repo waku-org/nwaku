@@ -229,7 +229,7 @@ type
     websocketSecureSupport* {.
       desc: "WebSocket Secure Support."
       defaultValue: false
-      name: "websocket-Secure-Support" }: bool
+      name: "websocket-secure-support" }: bool
 
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =
