@@ -254,12 +254,14 @@ type
       name: "websocket-secure-support"}: bool
     
     websocketSecureKey* {.
-      desc: "Secure websocket key path:   '/path/to/key' ",
+      desc: "Secure websocket key path:   '/path/to/key.txt' ",
+      defaultValue: ""
       name: "websocket-secure-key"}: string
     
     websocketSecureCert* {.
-      desc: "Secure websocket Certificate path:   '/path/to/cert' ",
-      name: "websocket-secure-Cert"}: string
+      desc: "Secure websocket Certificate path:   '/path/to/cert.txt' ",
+      defaultValue: ""
+      name: "websocket-secure-cert"}: string
 
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =
