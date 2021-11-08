@@ -28,8 +28,8 @@ when defined(rln):
 
 const RLNRELAY_PUBSUB_TOPIC = "waku/2/rlnrelay/proto"
 template sourceDir: string = currentSourcePath.parentDir()
-const KEY_PATH = sourceDir / "../../waku/v2/node/key.txt"
-const CERT_PATH = sourceDir / "../../waku/v2/node/cert.txt"
+const KEY_PATH = sourceDir / "resources/key.pem"
+const CERT_PATH = sourceDir / "resources/cert.pem"
 
 procSuite "WakuNode":
   let rng = keys.newRng()

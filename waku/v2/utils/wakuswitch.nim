@@ -17,8 +17,8 @@ proc withWsTransport*(b: SwitchBuilder): SwitchBuilder =
 
 proc getSecureKey(path : string): TLSPrivateKey
   {.raises: [Defect,TLSStreamProtocolError, IOError].} =
+  trace "Key path is.", path=path
   var stringkey : string = readFile(path)
-  ##echo stringkey
   try :
     let key: TLSPrivateKey = TLSPrivateKey.init(stringkey)
     return key
@@ -29,8 +29,8 @@ proc getSecureKey(path : string): TLSPrivateKey
 
 proc getSecureCert(path : string): TLSCertificate
   {.raises: [Defect,TLSStreamProtocolError, IOError].} =
-  var
-    stringCert : string = readFile(path)
+  trace "Certificate path is.", path=path
+  var stringCert : string = readFile(path)
   try :
     let cert : TLSCertificate = TLSCertificate.init(stringCert)
     return cert
@@ -70,6 +70,9 @@ proc newWakuSwitch*(
     secureKeyPath: string = "",
     secureCertPath: string = ""): Switch
     {.raises: [Defect,TLSStreamProtocolError,IOError, LPError].} =
+
+    if wsEnabled == true and wssEnabled == true:
+       debug "Websocket and secure websocket are enabled simultaneously."
 
     var b = SwitchBuilder
       .new()
