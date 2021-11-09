@@ -1266,9 +1266,3 @@ asyncTest "Messages are relayed between nodes with multiple transports (websocke
       (await completionFut.withTimeout(5.seconds)) == true
     await node1.stop()
     await node2.stop()
-
-
-    
-    
-
-    
