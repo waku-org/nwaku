@@ -1,13 +1,14 @@
 {.push raises: [Defect].}
 
 import 
-  std/sequtils,
+  std/sequtils, tables, times,
   chronicles, options, chronos, stint,
   web3,
   stew/results,
   stew/[byteutils, arrayops, endians2],
   rln, 
-  waku_rln_relay_types
+  waku_rln_relay_types,
+  ../waku_message
 
 logScope:
   topics = "wakurlnrelayutils"
@@ -339,3 +340,35 @@ proc rlnRelaySetUp*(rlnRelayMemIndex: MembershipIndex): (Option[seq[IDCommitment
     memIndexOpt= some(rlnRelayMemIndex)
     
   return (groupOpt, memKeyPairOpt, memIndexOpt)
+
+proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage) {.raises:[KeyError].}=
+  # extracts and saves the `ProofMetadata` of the supplied messages `msg` into the `messageLog` of the `rlnPeer`
+  let proofMD = ProofMetadata(nullifier: msg.proof.nullifier, shareX: msg.proof.shareX, shareY: msg.proof.shareY)
+  rlnPeer.messageLog[msg.proof.epoch].add(proofMD)
+
+proc toEpoch*(t: uint64): Epoch =
+  let bytes = toBytes(t, Endianness.littleEndian)
+  var epoch: Epoch
+  discard epoch.copyFrom(bytes)
+  return epoch
+
+proc fromEpoch(epoch: Epoch): uint64 =
+  ## converts epoch to uint32
+  let t = fromBytesLE(uint64, array[32,byte](epoch))
+  return t
+
+proc getEpoch*(): Epoch =
+  ## current epoch time
+  let currEpoch = uint64(epochTime()/EPOCH_INTERVAL)
+  return toEpoch(currEpoch)
+
+
+proc compareTo(e1, e2: Epoch): int64 =
+  ## returns the gap between e1 and e2
+  
+  # convert epochs to their corresponding numerical values
+  let 
+    epoch1 = fromEpoch(e1)
+    epoch2 = fromEpoch(e2)
+  return int64(epoch1) - int64(epoch2)
+  
