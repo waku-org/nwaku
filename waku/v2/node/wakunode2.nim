@@ -945,8 +945,8 @@ when isMainModule:
                         Port(uint16(conf.websocketPort) + conf.portsShift),
                         conf.websocketSupport,
                         conf.websocketSecureSupport,
-                        conf.websocketSecureKey,
-                        conf.websocketSecureCert
+                        conf.websocketSecureKeyPath,
+                        conf.websocketSecureCertPath
                         )
     
     if conf.discv5Discovery:
