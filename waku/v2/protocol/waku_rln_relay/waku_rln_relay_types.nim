@@ -109,6 +109,7 @@ const
   # the root is created locally, using createMembershipList proc from waku_rln_relay_utils module, and the result is hardcoded in here 
   STATIC_GROUP_MERKLE_ROOT* = "a1877a553eff12e1b21632a0545a916a5c5b8060ad7cc6c69956741134397b2d"  
 
+const EPOCH_INTERVAL* = float64(2)
 # Protobufs enc and init
 
 proc init*(T: type RateLimitProof, buffer: seq[byte]): ProtoResult[T] =
