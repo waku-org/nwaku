@@ -6,7 +6,7 @@ import
   eth/keys,
   eth/p2p/discoveryv5/[enr, node, protocol],
   stew/shims/net,
-  stew/[byteutils, results],
+  stew/results,
   ../config,
   ../../utils/peers
 
@@ -72,7 +72,7 @@ proc isWakuNode(node: Node): bool =
   let wakuField = node.record.tryGet(WAKU_ENR_FIELD, uint8)
   
   if wakuField.isSome:
-    return wakuField.get() == WAKU_ENR_VALUE # Currently only support waku version 2
+    return wakuField.get().WakuEnrBitfield == WAKU_ENR_VALUE # Currently only support waku version 2
 
   return false
 
@@ -125,7 +125,7 @@ proc new*(T: type WakuDiscoveryV5,
   ## TODO: consider loading from a configurable bootstrap file
   
   ## We always add the waku field as specified
-  var enrInitFields = @[(WAKU_ENR_FIELD, WAKU_ENR_VALUE.toBytes())]
+  var enrInitFields = @[(WAKU_ENR_FIELD, @[WAKU_ENR_VALUE.byte])]
   enrInitFields.add(enrFields)
   
   let protocol = newProtocol(
