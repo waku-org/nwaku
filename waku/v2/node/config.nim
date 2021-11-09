@@ -240,7 +240,7 @@ type
     ## websocket config
     websocketSupport* {.
       desc: "Enable websocket:  true|false",
-      defaultValue: false
+      defaultValue: true
       name: "websocket-support"}: bool
 
     websocketPort* {.
