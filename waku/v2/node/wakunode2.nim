@@ -803,7 +803,7 @@ proc stopDiscv5*(node: WakuNode): Future[bool] {.async.} =
 
     debug "Successfully stopped discovery v5 service"
 
-proc start*(node: WakuNode) {.async.} =
+proc start*(node: WakuNode, websocketConn: bool = false) {.async.} =
   ## Starts a created Waku Node and
   ## all its mounted protocols.
   ##
@@ -814,7 +814,9 @@ proc start*(node: WakuNode) {.async.} =
   # TODO Get this from WakuNode obj
   let peerInfo = node.peerInfo
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
-  let listenStr = $peerInfo.addrs[^1] & "/p2p/" & $peerInfo.peerId
+  let listenStr = if websocketConn: @[$peerInfo.addrs[^1] & "/p2p/" & $peerInfo.peerId,
+                                      $peerInfo.addrs[^2] & "/p2p/" & $peerInfo.peerId]
+                  else: $peerInfo.addrs[^1] & "/p2p/" & $peerInfo.peerId
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
   info "Discoverable ENR ", enr = node.enr.toURI()
@@ -1042,8 +1044,14 @@ when isMainModule:
     ## Resume history, connect to static nodes and start
     ## keep-alive, if configured.
 
+    #if websocket or secure websocket enabled,
+    #start websocket server with websocketConn as true.
+    if(conf.websocketSupport):
+      waitFor node.start(websocketConn = true)
+    else:
+      waitFor node.start()
     # Start Waku v2 node
-    waitFor node.start()
+    
     
     # Resume historical messages, this has to be called after the node has been started
     if conf.store and conf.persistMessages:
