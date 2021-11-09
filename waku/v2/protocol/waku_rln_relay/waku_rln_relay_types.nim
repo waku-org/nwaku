@@ -1,6 +1,7 @@
 {.push raises: [Defect].}
 
 import 
+  std/tables,
   options, chronos, stint,
   web3,
   eth/keys,
@@ -55,6 +56,11 @@ type RateLimitProof* = object
   nullifier*: Nullifier
   
 type MembershipIndex* = uint
+
+type ProofMetadata* = object
+  nullifier*: Nullifier
+  shareX*: MerkleNode
+  shareY*: MerkleNode
 
 type WakuRLNRelay* = ref object 
   membershipKeyPair*: MembershipKeyPair
