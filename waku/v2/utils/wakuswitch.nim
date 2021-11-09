@@ -19,7 +19,7 @@ proc getSecureKey(path : string): TLSPrivateKey
   {.raises: [Defect,TLSStreamProtocolError, IOError].} =
   trace "Key path is.", path=path
   var stringkey : string = readFile(path)
-  try :
+  try:
     let key = TLSPrivateKey.init(stringkey)
     return key
   except:
