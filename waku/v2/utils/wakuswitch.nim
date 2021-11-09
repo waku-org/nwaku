@@ -18,7 +18,7 @@ proc withWsTransport*(b: SwitchBuilder): SwitchBuilder =
 proc getSecureKey(path : string): TLSPrivateKey
   {.raises: [Defect,TLSStreamProtocolError, IOError].} =
   trace "Key path is.", path=path
-  var stringkey : string = readFile(path)
+  var stringkey: string = readFile(path)
   try:
     let key = TLSPrivateKey.init(stringkey)
     return key
