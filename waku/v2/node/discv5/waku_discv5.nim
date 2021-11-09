@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[strutils, options],
+  std/[sequtils, strutils, options],
   chronos, chronicles, metrics,
   eth/keys,
   eth/p2p/discoveryv5/[enr, node, protocol],
@@ -18,14 +18,19 @@ declarePublicGauge waku_discv5_errors, "number of waku discv5 errors", ["type"]
 logScope:
   topics = "wakudiscv5"
 
-const
-  WAKU_ENR_FIELD* = "waku"
-  WAKU_ENR_VALUE* = "2"
-
 type
+  ## 8-bit flag field to indicate Waku capabilities.
+  ## Only the LSB is defined and indicates whether
+  ## `waku2` is enabled or not.
+  WakuEnrBitfield* = uint8 
+
   WakuDiscoveryV5* = ref object
     protocol*: protocol.Protocol
     listening*: bool
+
+const
+  WAKU_ENR_FIELD* = "waku2"
+  WAKU_ENR_VALUE* = 1.WakuEnrBitfield # We use only the LSB to indicate `true`
 
 ####################
 # Helper functions #
@@ -64,7 +69,7 @@ proc addBootstrapNode(bootstrapAddr: string,
           bootstrapAddr, reason = enrRes.error
 
 proc isWakuNode(node: Node): bool =
-  let wakuField = node.record.tryGet(WAKU_ENR_FIELD, string)
+  let wakuField = node.record.tryGet(WAKU_ENR_FIELD, uint8)
   
   if wakuField.isSome:
     return wakuField.get() == WAKU_ENR_VALUE # Currently only support waku version 2
