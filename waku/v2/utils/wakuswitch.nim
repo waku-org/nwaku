@@ -30,8 +30,8 @@ proc getSecureKey(path : string): TLSPrivateKey
 proc getSecureCert(path : string): TLSCertificate
   {.raises: [Defect,TLSStreamProtocolError, IOError].} =
   trace "Certificate path is.", path=path
-  var stringCert : string = readFile(path)
-  try :
+  var stringCert: string = readFile(path)
+  try:
     let cert  = TLSCertificate.init(stringCert)
     return cert
   except:
