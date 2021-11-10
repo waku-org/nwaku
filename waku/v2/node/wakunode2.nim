@@ -130,6 +130,9 @@ template tcpEndPoint(address, port): auto =
 template addWsFlag() =
   MultiAddress.init("/ws").tryGet()
 
+template addWssFlag() =
+  MultiAddress.init("/wss").tryGet()
+
 
 proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
@@ -137,8 +140,11 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     peerStorage: PeerStorage = nil,
     maxConnections = builders.MaxConnections,
     wsBindPort: Port = (Port)8000,
-    wsEnabled: bool = false): T 
-    {.raises: [Defect, LPError].} =
+    wsEnabled: bool = false,
+    wssEnabled: bool = false,
+    secureKey: string = "",
+    secureCert: string = ""): T 
+    {.raises: [Defect, LPError, IOError,TLSStreamProtocolError].} =
   ## Creates a Waku Node.
   ##
   ## Status: Implemented.
@@ -146,11 +152,16 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   let
     rng = crypto.newRng()
     hostAddress = tcpEndPoint(bindIp, bindPort)
-    wsHostAddress = tcpEndPoint(bindIp, wsbindPort) & addWsFlag
+    wsHostAddress = if wssEnabled: tcpEndPoint(bindIp, wsbindPort) & addWssFlag
+                    else: tcpEndPoint(bindIp, wsbindPort) & addWsFlag
     announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
-                        elif wsEnabled == false: @[tcpEndPoint(extIp.get(), extPort.get())]
+                        elif wsEnabled == false and wssEnabled == false: 
+                          @[tcpEndPoint(extIp.get(), extPort.get())]
+                        elif wssEnabled:
+                          @[tcpEndPoint(extIp.get(), extPort.get()),
+                          tcpEndPoint(extIp.get(), wsBindPort) & addWssFlag]
                         else : @[tcpEndPoint(extIp.get(), extPort.get()),
-                        tcpEndPoint(extIp.get(), wsBindPort) & addWsFlag]
+                          tcpEndPoint(extIp.get(), wsBindPort) & addWsFlag]
     peerInfo = PeerInfo.new(nodekey)
     enrIp = if extIp.isSome(): extIp
             else: some(bindIp)
@@ -158,7 +169,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
                  else: some(bindPort)
     enr = createEnr(nodeKey, enrIp, enrTcpPort, none(Port))
   
-  if wsEnabled == true:
+  if wsEnabled == true or wssEnabled == true:
     info "Initializing networking", hostAddress, wsHostAddress,
                                     announcedAddresses
     peerInfo.addrs.add(wsHostAddress)
@@ -168,14 +179,17 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   peerInfo.addrs.add(hostAddress)
   for multiaddr in announcedAddresses:
     peerInfo.addrs.add(multiaddr) # Announced addresses in index > 0
-  
+
   var switch = newWakuSwitch(some(nodekey),
   hostAddress,
   wsHostAddress, 
   transportFlags = {ServerFlags.ReuseAddr},
   rng = rng, 
   maxConnections = maxConnections,
-  wsEnabled = wsEnabled)
+  wsEnabled = wsEnabled,
+  wssEnabled = wssEnabled,
+  secureKeyPath = secureKey,
+  secureCertPath = secureCert)
   
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
@@ -923,14 +937,17 @@ when isMainModule:
                 else:
                   extTcpPort
 
-
-    let node = WakuNode.new(conf.nodekey,
-                            conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
-                            extIp, extPort,
-                            pStorage,
-                            conf.maxConnections.int,
-                            Port(uint16(conf.websocketPort) + conf.portsShift),
-                            conf.websocketSupport)
+      node = WakuNode.new(conf.nodekey,
+                        conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
+                        extIp, extPort,
+                        pStorage,
+                        conf.maxConnections.int,
+                        Port(uint16(conf.websocketPort) + conf.portsShift),
+                        conf.websocketSupport,
+                        conf.websocketSecureSupport,
+                        conf.websocketSecureKeyPath,
+                        conf.websocketSecureCertPath
+                        )
     
     if conf.discv5Discovery:
       let discv5UdpPort = Port(uint16(conf.discv5UdpPort) + conf.portsShift)

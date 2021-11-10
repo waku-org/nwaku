@@ -70,7 +70,7 @@ proc parseRemotePeerInfo*(address: string): RemotePeerInfo {.raises: [Defect, Va
 
   var
 
-    ipPart, tcpPart, p2pPart, wsPart: MultiAddress
+    ipPart, tcpPart, p2pPart, wsPart, wssPart: MultiAddress
 
   for addrPart in multiAddr.items():
     case addrPart[].protoName()[]
@@ -82,12 +82,14 @@ proc parseRemotePeerInfo*(address: string): RemotePeerInfo {.raises: [Defect, Va
       p2pPart = addrPart.tryGet()
     of "ws":
       wsPart = addrPart.tryGet()
+    of "wss":
+      wssPart = addrPart.tryGet()
 
   # nim-libp2p dialing requires remote peers to be initialised with a peerId and a wire address
   let
     peerIdStr = p2pPart.toString()[].split("/")[^1] 
 
-    wireAddr = ipPart & tcpPart & wsPart
+    wireAddr = ipPart & tcpPart & wsPart & wssPart
   if (not wireAddr.validWireAddr()):
     raise newException(ValueError, "Invalid node multi-address")
 
