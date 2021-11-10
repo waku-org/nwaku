@@ -785,22 +785,31 @@ suite "Waku rln relay":
 
     var nullifier1: Nullifier
     for index, x in nullifier1.mpairs: nullifier1[index] = 1
+    var shareX1: MerkleNode
+    for index, x in shareX1.mpairs: shareX1[index] = 1
 
     var nullifier2: Nullifier
     for index, x in nullifier2.mpairs: nullifier2[index] = 2
+    var shareX2: MerkleNode
+    for index, x in shareX2.mpairs: shareX2[index] = 2
+
+    let nullifier3 = nullifier1
+    var shareX3: MerkleNode
+    for index, x in shareX3.mpairs: shareX3[index] = 3
 
     let 
-      wm1 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier1))
-      wm2 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier2))
+      wm1 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier1, shareX: shareX1))
+      wm2 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier2, shareX: shareX2))
+      wm3 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier3, shareX: shareX3))
 
     let result1 = wakurlnrelay.updateLog(wm1)
-    check result1 == updateLogResult.success
+    check result1 == UpdateLogResult.Success
 
     let result2 = wakurlnrelay.updateLog(wm2)
-    check result2 == updateLogResult.success
+    check result2 == UpdateLogResult.Success
 
-    # insert wm1 for the second time, it should be found as duplicate
-    let result3 = wakurlnrelay.updateLog(wm1)
-    check result3 == updateLogResult.duplicate
+    #  wm3 has the same nullifier as wm1 but different shareX, it should be detected as spam
+    let result3 = wakurlnrelay.updateLog(wm3)
+    check result3 == UpdateLogResult.Spam
 
     
