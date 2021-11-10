@@ -324,7 +324,8 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
       Port(uint16(conf.tcpPort) + conf.portsShift),
       extIp, extTcpPort, 
       wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
-      wsEnabled = conf.websocketSupport)
+      wsEnabled = conf.websocketSupport,
+      wssEnabled = conf.websocketSecureSupport)
   
   await node.start()
 

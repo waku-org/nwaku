@@ -2,7 +2,7 @@
 
 import
   testutils/unittests,
-  chronicles, chronos, stew/shims/net as stewNet, stew/byteutils,
+  chronicles, chronos, stew/shims/net as stewNet, stew/byteutils, std/os,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/peerid,
@@ -27,9 +27,13 @@ when defined(rln):
   import ../../waku/v2/protocol/waku_rln_relay/[waku_rln_relay_utils, waku_rln_relay_types]
 
 const RLNRELAY_PUBSUB_TOPIC = "waku/2/rlnrelay/proto"
+template sourceDir: string = currentSourcePath.parentDir()
+const KEY_PATH = sourceDir / "resources/test_key.pem"
+const CERT_PATH = sourceDir / "resources/test_cert.pem"
 
 procSuite "WakuNode":
   let rng = keys.newRng()
+ 
   asyncTest "Message published with content filter is retrievable":
     let
       nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
@@ -1163,5 +1167,102 @@ asyncTest "Messages relaying fails with non-overlapping transports (TCP or Webso
 
     check:
       (await completionFut.withTimeout(5.seconds)) == false
+    await node1.stop()
+    await node2.stop()
+
+asyncTest "Messages are relayed between nodes with multiple transports (TCP and secure Websockets)":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        bindPort = Port(60000), wsBindPort = Port(8000), wssEnabled = true, secureKey = KEY_PATH, secureCert = CERT_PATH)
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        bindPort = Port(60002))
+      pubSubTopic = "test"
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
+      payload = "hello world".toBytes()
+      message = WakuMessage(payload: payload, contentTopic: contentTopic)
+
+    await node1.start()
+    node1.mountRelay(@[pubSubTopic])
+
+    await node2.start()
+    node2.mountRelay(@[pubSubTopic])
+
+    await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
+
+    var completionFut = newFuture[bool]()
+    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+      let msg = WakuMessage.init(data)
+      if msg.isOk():
+        let val = msg.value()
+        check:
+          topic == pubSubTopic
+          val.contentTopic == contentTopic
+          val.payload == payload
+      completionFut.complete(true)
+
+    node1.subscribe(pubSubTopic, relayHandler)
+    await sleepAsync(2000.millis)
+    
+    await node2.publish(pubSubTopic, message)
+    await sleepAsync(2000.millis)
+
+
+    check:
+      (await completionFut.withTimeout(5.seconds)) == true
+    await node1.stop()
+    await node2.stop()
+
+asyncTest "Messages fails with wrong key path":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+  
+    expect IOError:
+      # gibberish
+      discard WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        bindPort = Port(60000), wsBindPort = Port(8000), wssEnabled = true, secureKey = "../../waku/v2/node/key_dummy.txt")
+
+asyncTest "Messages are relayed between nodes with multiple transports (websocket and secure Websockets)":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        bindPort = Port(60000), wsBindPort = Port(8000), wssEnabled = true, secureKey = KEY_PATH, secureCert = CERT_PATH)
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+        bindPort = Port(60002),wsBindPort = Port(8100), wsEnabled = true )
+      pubSubTopic = "test"
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
+      payload = "hello world".toBytes()
+      message = WakuMessage(payload: payload, contentTopic: contentTopic)
+
+    await node1.start()
+    node1.mountRelay(@[pubSubTopic])
+
+    await node2.start()
+    node2.mountRelay(@[pubSubTopic])
+
+    await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
+
+    var completionFut = newFuture[bool]()
+    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+      let msg = WakuMessage.init(data)
+      if msg.isOk():
+        let val = msg.value()
+        check:
+          topic == pubSubTopic
+          val.contentTopic == contentTopic
+          val.payload == payload
+      completionFut.complete(true)
+
+    node1.subscribe(pubSubTopic, relayHandler)
+    await sleepAsync(2000.millis)
+    
+    await node2.publish(pubSubTopic, message)
+    await sleepAsync(2000.millis)
+
+
+    check:
+      (await completionFut.withTimeout(5.seconds)) == true
     await node1.stop()
     await node2.stop()
