@@ -761,8 +761,21 @@ suite "Waku rln relay":
     check verified == false
   test "toEpoch and fromEpoch consistency check":
     # check edge cases
-    let time = uint64.high
-    let epoch = time.toEpoch()
-    let decodedTime = epoch.fromEpoch()
+    let 
+      time = uint64.high
+      epoch = time.toEpoch()
+      decodedTime = epoch.fromEpoch()
     check time == decodedTime
     debug "encoded and decode time", time=time, epoch=epoch, decodedTime=decodedTime
+  
+  test "Epoch comparison":
+    # check edge cases
+    let 
+      time1 = uint64.high
+      time2 = uint64.high - 1
+      epoch1 = time1.toEpoch()
+      epoch2 = time2.toEpoch()
+    check compare(epoch1, epoch2) == int64(1)
+    check compare(epoch2, epoch1) == int64(-1)
+  
+  
