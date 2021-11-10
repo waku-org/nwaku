@@ -341,13 +341,39 @@ proc rlnRelaySetUp*(rlnRelayMemIndex: MembershipIndex): (Option[seq[IDCommitment
     
   return (groupOpt, memKeyPairOpt, memIndexOpt)
 
-proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage) {.raises:[KeyError].}=
-  # extracts and saves the `ProofMetadata` of the supplied messages `msg` into the `messageLog` of the `rlnPeer`
+type updateLogResult* = enum
+  success, duplicate, error
+
+proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): updateLogResult =
+  ## extracts and saves the `ProofMetadata` of the supplied messages `msg` into the `messageLog` of the `rlnPeer`
+  ## returns updateLogResult.duplicate if another record is found with identical epoch and nullifier
+  ## returns updateLogResult.error if there is any run-time error
+  ## returns updateLogResult.success if the message is inserted into the `messageLog` of the `rlnPeer`
+
   let proofMD = ProofMetadata(nullifier: msg.proof.nullifier, shareX: msg.proof.shareX, shareY: msg.proof.shareY)
-  # TODO check for duplicate nullifier
-  rlnPeer.messageLog[msg.proof.epoch].add(proofMD)
+  debug "proof metadata", proofMD=proofMD
+  try:
+    # check if the epoch exists
+    if not rlnPeer.messageLog.hasKey(msg.proof.epoch):
+      rlnPeer.messageLog[msg.proof.epoch]= @[proofMD]
+      return updateLogResult.success
+
+    # check for the duplicate messages
+    let duplicates = rlnPeer.messageLog[msg.proof.epoch].filterIt(it.nullifier == proofMD.nullifier)
+
+    #  if there is a duplicate, do not add the message
+    if duplicates.len != 0:
+      return updateLogResult.duplicate
+
+    # if no duplicate exists, then add the message
+    rlnPeer.messageLog[msg.proof.epoch].add(proofMD)
+    return updateLogResult.success
+  except KeyError as e:
+    return updateLogResult.error
+  
 
 proc toEpoch*(t: uint64): Epoch =
+  # converts `t` to `Epoch` in little-endian order
   let bytes = toBytes(t, Endianness.littleEndian)
   debug "bytes", bytes=bytes
   var epoch: Epoch
@@ -355,7 +381,7 @@ proc toEpoch*(t: uint64): Epoch =
   return epoch
 
 proc fromEpoch*(epoch: Epoch): uint64 =
-  ## converts epoch to uint32
+  ## decodes bytes of `epoch` (in little-endian) to uint64
   let t = fromBytesLE(uint64, array[32,byte](epoch))
   return t
 
@@ -365,8 +391,8 @@ proc getCurrentEpoch*(): Epoch =
   return toEpoch(currEpoch)
 
 
-proc compareTo*(e1, e2: Epoch): int64 =
-  ## returns the gap between e1 and e2
+proc compare*(e1, e2: Epoch): int64 =
+  ## returns the difference between e1 and e2 as an int64
   
   # convert epochs to their corresponding numerical values
   let 
