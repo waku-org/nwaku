@@ -341,10 +341,10 @@ proc rlnRelaySetUp*(rlnRelayMemIndex: MembershipIndex): (Option[seq[IDCommitment
     
   return (groupOpt, memKeyPairOpt, memIndexOpt)
 
-type updateLogResult* = enum
-  success, duplicate, error
+type UpdateLogResult* {.pure.} = enum
+    Success, Error, Spam, Redundant
 
-proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): updateLogResult =
+proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): UpdateLogResult =
   ## extracts and saves the `ProofMetadata` of the supplied messages `msg` into the `messageLog` of the `rlnPeer`
   ## returns updateLogResult.duplicate if another record is found with identical epoch and nullifier
   ## returns updateLogResult.error if there is any run-time error
@@ -356,21 +356,23 @@ proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): updateLogResult =
     # check if the epoch exists
     if not rlnPeer.messageLog.hasKey(msg.proof.epoch):
       rlnPeer.messageLog[msg.proof.epoch]= @[proofMD]
-      return updateLogResult.success
+      return UpdateLogResult.Success
+
+    if rlnPeer.messageLog[msg.proof.epoch].contains(proofMD):
+      return UpdateLogResult.Redundant
 
     # check for the duplicate messages
-    let duplicates = rlnPeer.messageLog[msg.proof.epoch].filterIt(it.nullifier == proofMD.nullifier)
+    let matched = rlnPeer.messageLog[msg.proof.epoch].filterIt((it.nullifier == proofMD.nullifier) and ((it.shareX != proofMD.shareX) or (it.shareY != proofMD.shareY)))
 
     #  if there is a duplicate, do not add the message
-    if duplicates.len != 0:
-      return updateLogResult.duplicate
+    if matched.len != 0:
+      return UpdateLogResult.Spam
 
     # if no duplicate exists, then add the message
     rlnPeer.messageLog[msg.proof.epoch].add(proofMD)
-    return updateLogResult.success
+    return UpdateLogResult.Success
   except KeyError as e:
-    return updateLogResult.error
-  
+    return UpdateLogResult.Error 
 
 proc toEpoch*(t: uint64): Epoch =
   # converts `t` to `Epoch` in little-endian order
@@ -387,7 +389,7 @@ proc fromEpoch*(epoch: Epoch): uint64 =
 
 proc getCurrentEpoch*(): Epoch =
   ## current epoch time
-  let currEpoch = uint64(epochTime()/EPOCH_INTERVAL)
+  let currEpoch = uint64(epochTime()/EPOCH_LENGTH_SECONDS)
   return toEpoch(currEpoch)
 
 
@@ -399,4 +401,26 @@ proc compare*(e1, e2: Epoch): int64 =
     epoch1 = fromEpoch(e1)
     epoch2 = fromEpoch(e2)
   return int64(epoch1) - int64(epoch2)
+
+# type MessageValidationResult* {.pure.} = enum
+#     Accept, Reject, Ignore, Spam
+
+# proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage): MessageValidationResult =
+#   #  check if the message's epoch is far from the current epoch
+#   let 
+#     epoch = getCurrentEpoch()
+#     msgEpoch = msg.proof.epoch
+#     gap = compare(epoch, msgEpoch)
   
+#   if abs(gap) > MAX_EPOCH_GAP:
+#     # message's epoch is old
+#     return MessageValidationResult.Reject
+
+#   if not rlnPeer.rlnInstance.proofVerify(msg.payload, msg.proof):
+#     # invalid proof
+#     return MessageValidationResult.Reject
+  
+#   let result = rlnPeer.updateLog(msg)
+#   if result.duplicate:
+#     MessageValidationResult.Spam
+
