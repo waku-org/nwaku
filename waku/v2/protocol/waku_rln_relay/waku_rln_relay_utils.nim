@@ -344,26 +344,28 @@ proc rlnRelaySetUp*(rlnRelayMemIndex: MembershipIndex): (Option[seq[IDCommitment
 proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage) {.raises:[KeyError].}=
   # extracts and saves the `ProofMetadata` of the supplied messages `msg` into the `messageLog` of the `rlnPeer`
   let proofMD = ProofMetadata(nullifier: msg.proof.nullifier, shareX: msg.proof.shareX, shareY: msg.proof.shareY)
+  # TODO check for duplicate nullifier
   rlnPeer.messageLog[msg.proof.epoch].add(proofMD)
 
 proc toEpoch*(t: uint64): Epoch =
   let bytes = toBytes(t, Endianness.littleEndian)
+  debug "bytes", bytes=bytes
   var epoch: Epoch
   discard epoch.copyFrom(bytes)
   return epoch
 
-proc fromEpoch(epoch: Epoch): uint64 =
+proc fromEpoch*(epoch: Epoch): uint64 =
   ## converts epoch to uint32
   let t = fromBytesLE(uint64, array[32,byte](epoch))
   return t
 
-proc getEpoch*(): Epoch =
+proc getCurrentEpoch*(): Epoch =
   ## current epoch time
   let currEpoch = uint64(epochTime()/EPOCH_INTERVAL)
   return toEpoch(currEpoch)
 
 
-proc compareTo(e1, e2: Epoch): int64 =
+proc compareTo*(e1, e2: Epoch): int64 =
   ## returns the gap between e1 and e2
   
   # convert epochs to their corresponding numerical values

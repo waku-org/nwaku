@@ -2,7 +2,7 @@
 {.used.}
 
 import
-  std/options, sequtils,
+  std/options, sequtils, times,
   testutils/unittests, chronos, chronicles, stint, web3,
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
@@ -759,3 +759,10 @@ suite "Waku rln relay":
     let verified = rln.proofVerify(data = messageBytes,
                                  proof = proof)
     check verified == false
+  test "toEpoch and fromEpoch consistency check":
+    # check edge cases
+    let time = uint64.high
+    let epoch = time.toEpoch()
+    let decodedTime = epoch.fromEpoch()
+    check time == decodedTime
+    debug "encoded and decode time", time=time, epoch=epoch, decodedTime=decodedTime
