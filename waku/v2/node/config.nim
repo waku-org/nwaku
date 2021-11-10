@@ -247,6 +247,21 @@ type
       desc: "WebSocket listening port."
       defaultValue: 8000
       name: "websocket-port" }: Port
+    
+    websocketSecureSupport* {.
+      desc: "Enable secure websocket:  true|false",
+      defaultValue: false
+      name: "websocket-secure-support"}: bool
+    
+    websocketSecureKeyPath* {.
+      desc: "Secure websocket key path:   '/path/to/key.txt' ",
+      defaultValue: ""
+      name: "websocket-secure-key-path"}: string
+    
+    websocketSecureCertPath* {.
+      desc: "Secure websocket Certificate path:   '/path/to/cert.txt' ",
+      defaultValue: ""
+      name: "websocket-secure-cert-path"}: string
 
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =

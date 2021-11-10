@@ -2,7 +2,7 @@
 
 import
   std/[tables, hashes, sequtils],
-  chronos, confutils, chronicles, chronicles/topics_registry, 
+  chronos, confutils, chronicles, chronicles/topics_registry, chronos/streams/tlsstream,
   metrics, metrics/chronos_httpserver,
   stew/byteutils,
   stew/shims/net as stewNet, json_rpc/rpcserver,
@@ -150,7 +150,7 @@ proc new*(T: type WakuBridge,
           nodev2ExtIp = none[ValidIpAddress](), nodev2ExtPort = none[Port](),
           # Bridge configuration
           nodev2PubsubTopic: wakunode2.Topic): T
-  {.raises: [Defect, LPError].} =
+  {.raises: [Defect,IOError, TLSStreamProtocolError, LPError].} =
 
   # Setup Waku v1 node
   var
