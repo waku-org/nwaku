@@ -778,4 +778,29 @@ suite "Waku rln relay":
     check compare(epoch1, epoch2) == int64(1)
     check compare(epoch2, epoch1) == int64(-1)
   
-  
+  test "updateLog test":
+    let 
+      wakurlnrelay = WakuRLNRelay()
+      epoch = getCurrentEpoch()
+
+    var nullifier1: Nullifier
+    for index, x in nullifier1.mpairs: nullifier1[index] = 1
+
+    var nullifier2: Nullifier
+    for index, x in nullifier2.mpairs: nullifier2[index] = 2
+
+    let 
+      wm1 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier1))
+      wm2 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier2))
+
+    let result1 = wakurlnrelay.updateLog(wm1)
+    check result1 == updateLogResult.success
+
+    let result2 = wakurlnrelay.updateLog(wm2)
+    check result2 == updateLogResult.success
+
+    # insert wm1 for the second time, it should be found as duplicate
+    let result3 = wakurlnrelay.updateLog(wm1)
+    check result3 == updateLogResult.duplicate
+
+    
