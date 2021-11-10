@@ -112,9 +112,12 @@ const
   # the root is created locally, using createMembershipList proc from waku_rln_relay_utils module, and the result is hardcoded in here 
   STATIC_GROUP_MERKLE_ROOT* = "a1877a553eff12e1b21632a0545a916a5c5b8060ad7cc6c69956741134397b2d"  
 
-const EPOCH_INTERVAL* = float64(2)
-# Protobufs enc and init
+const EPOCH_LENGTH_SECONDS* = float64(2) 
+const MAX_CLOCK_DRIFT_SECONDS* = 20.0 # the maximum clock difference between peers
+# maximum allowed gap between peer's current epoch and the epoch of the incoming message
+const MAX_EPOCH_GAP* = uint64(MAX_CLOCK_DRIFT_SECONDS/EPOCH_LENGTH_SECONDS) 
 
+# Protobufs enc and init
 proc init*(T: type RateLimitProof, buffer: seq[byte]): ProtoResult[T] =
   var nsp: RateLimitProof
   let pb = initProtoBuffer(buffer)
