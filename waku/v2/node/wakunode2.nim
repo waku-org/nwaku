@@ -816,7 +816,7 @@ proc start*(node: WakuNode, websocketConn: bool = false) {.async.} =
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
   let listenStr = if websocketConn: @[$peerInfo.addrs[^1] & "/p2p/" & $peerInfo.peerId,
                                       $peerInfo.addrs[^2] & "/p2p/" & $peerInfo.peerId]
-                  else: $peerInfo.addrs[^1] & "/p2p/" & $peerInfo.peerId
+                  else: @[$peerInfo.addrs[^1] & "/p2p/" & $peerInfo.peerId]
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
   info "Discoverable ENR ", enr = node.enr.toURI()
