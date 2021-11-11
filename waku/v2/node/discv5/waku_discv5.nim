@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[sequtils, strutils, options],
+  std/[bitops, sequtils, strutils, options],
   chronos, chronicles, metrics,
   eth/keys,
   eth/p2p/discoveryv5/[enr, node, protocol],
@@ -20,8 +20,8 @@ logScope:
 
 type
   ## 8-bit flag field to indicate Waku capabilities.
-  ## Only the LSB is defined and indicates whether
-  ## `waku2` is enabled or not.
+  ## Only the 4 LSBs are currently defined according
+  ## to RFC31 (https://rfc.vac.dev/spec/31/).
   WakuEnrBitfield* = uint8 
 
   WakuDiscoveryV5* = ref object
@@ -30,7 +30,6 @@ type
 
 const
   WAKU_ENR_FIELD* = "waku2"
-  WAKU_ENR_VALUE* = 1.WakuEnrBitfield # We use only the LSB to indicate `true`
 
 ####################
 # Helper functions #
@@ -68,11 +67,21 @@ proc addBootstrapNode(bootstrapAddr: string,
     warn "Ignoring invalid bootstrap address",
           bootstrapAddr, reason = enrRes.error
 
+proc initWakuFlags*(lightpush, filter, store, relay: bool): WakuEnrBitfield =
+  ## Creates an waku2 ENR flag bit field according to RFC 31 (https://rfc.vac.dev/spec/31/)
+  var v = 0b0000_0000'u8
+  if lightpush: v.setBit(3)
+  if filter: v.setBit(2)
+  if store: v.setBit(1)
+  if relay: v.setBit(0)
+
+  return v.WakuEnrBitfield
+
 proc isWakuNode(node: Node): bool =
   let wakuField = node.record.tryGet(WAKU_ENR_FIELD, uint8)
   
   if wakuField.isSome:
-    return wakuField.get().WakuEnrBitfield == WAKU_ENR_VALUE # Currently only support waku version 2
+    return wakuField.get().WakuEnrBitfield != 0x00 # True if any flag set to true
 
   return false
 
@@ -115,6 +124,7 @@ proc new*(T: type WakuDiscoveryV5,
           bootstrapNodes: seq[string],
           enrAutoUpdate = false,
           privateKey: PrivateKey,
+          flags: WakuEnrBitfield,
           enrFields: openArray[(string, seq[byte])],
           rng: ref BrHmacDrbgContext): T =
   
@@ -125,7 +135,7 @@ proc new*(T: type WakuDiscoveryV5,
   ## TODO: consider loading from a configurable bootstrap file
   
   ## We always add the waku field as specified
-  var enrInitFields = @[(WAKU_ENR_FIELD, @[WAKU_ENR_VALUE.byte])]
+  var enrInitFields = @[(WAKU_ENR_FIELD, @[flags.byte])]
   enrInitFields.add(enrFields)
   
   let protocol = newProtocol(

@@ -942,6 +942,10 @@ when isMainModule:
         conf.discv5BootstrapNodes,
         conf.discv5EnrAutoUpdate,
         keys.PrivateKey(conf.nodekey.skkey),
+        initWakuFlags(conf.lightpush,
+                      conf.filter,
+                      conf.store,
+                      conf.relay),
         [], # Empty enr fields, for now
         node.rng
       )

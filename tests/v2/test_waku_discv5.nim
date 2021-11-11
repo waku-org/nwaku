@@ -36,6 +36,11 @@ procSuite "Waku Discovery v5":
       nodeUdpPort3 = Port(9004)
       node3 = WakuNode.new(nodeKey3, bindIp, nodeTcpPort3)
 
+      flags = initWakuFlags(lightpush = false,
+                            filter = false,
+                            store = false,
+                            relay = true)
+
       # E2E relay test paramaters
       pubSubTopic = "/waku/2/default-waku/proto"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
@@ -50,6 +55,7 @@ procSuite "Waku Discovery v5":
         @[],
         false,
         keys.PrivateKey(nodeKey1.skkey),
+        flags,
         [], # Empty enr fields, for now
         node1.rng
       )
@@ -61,6 +67,7 @@ procSuite "Waku Discovery v5":
         @[node1.wakuDiscv5.protocol.localNode.record.toURI()], # Bootstrap with node1
         false,
         keys.PrivateKey(nodeKey2.skkey),
+        flags,
         [], # Empty enr fields, for now
         node2.rng
       )
@@ -72,6 +79,7 @@ procSuite "Waku Discovery v5":
         @[node2.wakuDiscv5.protocol.localNode.record.toURI()], # Bootstrap with node2
         false,
         keys.PrivateKey(nodeKey3.skkey),
+        flags,
         [], # Empty enr fields, for now
         node3.rng
       )
