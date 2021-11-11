@@ -803,21 +803,21 @@ suite "Waku rln relay":
       wm3 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier3, shareX: shareX3))
 
     
-    let result1 = wakurlnrelay.isSpam(wm1)
+    let result1 = wakurlnrelay.hasDuplicate(wm1)
     check:
       result1.isOk
       result1.value == false
     discard wakurlnrelay.updateLog(wm1)
 
 
-    let result2 = wakurlnrelay.isSpam(wm2)
+    let result2 = wakurlnrelay.hasDuplicate(wm2)
     check:
       result2.isOk
       result2.value == false
     discard wakurlnrelay.updateLog(wm2)
 
     #  wm3 has the same nullifier as wm1 but different shareX, it should be detected as spam
-    let result3 = wakurlnrelay.isSpam(wm3)
+    let result3 = wakurlnrelay.hasDuplicate(wm3)
     check:
       result3.isOk 
       result3.value == true

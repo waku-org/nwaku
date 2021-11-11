@@ -341,7 +341,11 @@ proc rlnRelaySetUp*(rlnRelayMemIndex: MembershipIndex): (Option[seq[IDCommitment
     
   return (groupOpt, memKeyPairOpt, memIndexOpt)
 
-proc isSpam*(rlnPeer: WakuRLNRelay, msg: WakuMessage): Result[bool, string] = 
+proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): Result[bool, string] = 
+  ## returns true if there is another message in the  `nullifierLog` of the `rlnPeer` with the same 
+  ## epoch and nullifier but different Shamir secret shares
+  ## otherwise, returns false
+  ## emits an error string if `KeyError` occurs (never happens, it is just a precaution and also to handle exception internally)
   let proofMD = ProofMetadata(nullifier: msg.proof.nullifier, shareX: msg.proof.shareX, shareY: msg.proof.shareY)
   # check if the epoch exists
   if not rlnPeer.nullifierLog.hasKey(msg.proof.epoch):
@@ -429,7 +433,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage): MessageValidatio
     # invalid proof
     return MessageValidationResult.Invalid
   
-  let isSpam = rlnPeer.isSpam(msg)
+  let isSpam = rlnPeer.hasDuplicate(msg)
   if isSpam.isOk and isSpam.value == true:
     return MessageValidationResult.Spam
 
