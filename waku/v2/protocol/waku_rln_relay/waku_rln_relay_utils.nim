@@ -425,19 +425,23 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage): MessageValidatio
   
   # validate epoch
   if abs(gap) > MAX_EPOCH_GAP:
-    # message's epoch is old
+    # message's epoch is too old or too ahead
+    # accept messages whose epoch is within +-MAX_EPOCH_GAP from the current epoch
     return MessageValidationResult.Invalid
   
-  # validate proof
+  # verify the proof
   if not rlnPeer.rlnInstance.proofVerify(msg.payload, msg.proof):
     # invalid proof
     return MessageValidationResult.Invalid
   
-  let isSpam = rlnPeer.hasDuplicate(msg)
-  if isSpam.isOk and isSpam.value == true:
+  # check if double messaging has happened
+  let hasDup = rlnPeer.hasDuplicate(msg)
+  if hasDup.isOk and hasDup.value == true:
     return MessageValidationResult.Spam
 
   # insert the message to the message log 
+  # the result is discarded because message insertion is guaranteed by the implementation
+  # it will never error out
   discard rlnPeer.updateLog(msg)
   return MessageValidationResult.Valid
 
