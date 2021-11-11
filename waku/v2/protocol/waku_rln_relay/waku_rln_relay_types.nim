@@ -115,7 +115,7 @@ const
 const EPOCH_LENGTH_SECONDS* = float64(2) 
 const MAX_CLOCK_DRIFT_SECONDS* = 20.0 # the maximum clock difference between peers
 # maximum allowed gap between peer's current epoch and the epoch of the incoming message
-const MAX_EPOCH_GAP* = uint64(MAX_CLOCK_DRIFT_SECONDS/EPOCH_LENGTH_SECONDS) 
+const MAX_EPOCH_GAP* = int64(MAX_CLOCK_DRIFT_SECONDS/EPOCH_LENGTH_SECONDS) 
 
 # Protobufs enc and init
 proc init*(T: type RateLimitProof, buffer: seq[byte]): ProtoResult[T] =
