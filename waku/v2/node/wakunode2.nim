@@ -170,8 +170,6 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     enrTcpPort = if extPort.isSome(): extPort
                  else: some(bindPort)
     enr = createEnr(nodeKey, enrIp, enrTcpPort, none(Port))
-    webSocketEnabled = if wsEnabled or wssEnabled: true
-                       else: false
     
   
   if wsEnabled == true or wssEnabled:
