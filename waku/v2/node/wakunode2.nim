@@ -820,7 +820,7 @@ proc start*(node: WakuNode) {.async.} =
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
   var listenStr = ""
   for address in node.announcedAddress:
-    var fulladdr = "["& $address & "/p2p/" & $peerInfo.peerId & "]" 
+    var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]" 
     addf(listenStr, fulladdr)
                 
   ## XXX: this should be /ip4..., / stripped?
