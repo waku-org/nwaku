@@ -802,13 +802,11 @@ suite "Waku rln relay":
       wm2 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier2, shareX: shareX2))
       wm3 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier3, shareX: shareX3))
 
-    
     let result1 = wakurlnrelay.hasDuplicate(wm1)
     check:
       result1.isOk
       result1.value == false
     discard wakurlnrelay.updateLog(wm1)
-
 
     let result2 = wakurlnrelay.hasDuplicate(wm2)
     check:
@@ -822,4 +820,4 @@ suite "Waku rln relay":
       result3.isOk 
       result3.value == true
 
-    
+  # test "validateMessage":

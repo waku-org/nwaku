@@ -364,7 +364,6 @@ proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): Result[bool, string
   except KeyError as e:
     return err("something went wrong")
 
-
 proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): Result[bool, string] =
   ## extracts and saves the `ProofMetadata` of the supplied messages `msg` into the `messageLog` of the `rlnPeer`
 
@@ -398,11 +397,15 @@ proc fromEpoch*(epoch: Epoch): uint64 =
   let t = fromBytesLE(uint64, array[32,byte](epoch))
   return t
 
+proc calcEpoch*(t: float64): Epoch = 
+  # get time `t` as `flaot64` with subseconds resolution in the fractional part
+  # and convert it to rln `Epoch` type
+  let e = uint64(t/EPOCH_LENGTH_SECONDS)
+  return toEpoch(e)
+
 proc getCurrentEpoch*(): Epoch =
   ## current epoch time
-  let currEpoch = uint64(epochTime()/EPOCH_LENGTH_SECONDS)
-  return toEpoch(currEpoch)
-
+  return calcEpoch(epochTime())
 
 proc compare*(e1, e2: Epoch): int64 =
   ## returns the difference between e1 and e2 as an int64
@@ -413,8 +416,6 @@ proc compare*(e1, e2: Epoch): int64 =
     epoch2 = fromEpoch(e2)
   return int64(epoch1) - int64(epoch2)
 
-type MessageValidationResult* {.pure.} = enum
-    Valid, Invalid, Spam
 
 proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage): MessageValidationResult =
   #  check if the message's epoch is far from the current epoch
@@ -445,3 +446,22 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage): MessageValidatio
   discard rlnPeer.updateLog(msg)
   return MessageValidationResult.Valid
 
+
+proc appendRLNProof*(rlnPeer: WakuRLNRelay, msg: var WakuMessage, epoch: Epoch): bool = 
+  ## returns true if it can create and append a `RateLimitProof` to the supplied `msg`
+  ## returns false otherwise
+
+  let 
+    contentTopicBytes = msg.contentTopic.toBytes
+    input = concat(msg.payload, contentTopicBytes)
+  
+  var proof: RateLimitProofResult = proofGen(rlnInstance = rlnPeer.rlnInstance, data = input,
+                     memKeys = rlnPeer.membershipKeyPair, 
+                     memIndex = rlnPeer.membershipIndex, 
+                     epoch = epoch)
+  
+  if proof.isErr:
+    return false
+
+  msg.proof = proof.value
+  return true

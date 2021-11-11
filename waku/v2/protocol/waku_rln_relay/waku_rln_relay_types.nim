@@ -80,7 +80,9 @@ type WakuRLNRelay* = ref object
   # the log of nullifiers and Shamir shares of the past messages grouped per epoch
   nullifierLog*: Table[Epoch, seq[ProofMetadata]]
 
-
+type MessageValidationResult* {.pure.} = enum
+    Valid, Invalid, Spam
+    
 # inputs of the membership contract constructor
 # TODO may be able to make these constants private and put them inside the waku_rln_relay_utils
 const 
