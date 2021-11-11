@@ -147,7 +147,7 @@ Websocket config needs to be enabled , by default the port is 8000 for websocket
 ./build/wakunode2 --websocket-secure-support=true --websocket-secure-key-path="/path/to/key.pem" --websocket-secure-cert-path="/path/to/cert.pem"
 ```
 
-Self-signed ssl certificate can be used for websockets
+Self-signed ssl certificate can be used for websockets, it can be created like this:
 
 ```
 openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -sha256 
