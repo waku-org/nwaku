@@ -344,14 +344,14 @@ proc rlnRelaySetUp*(rlnRelayMemIndex: MembershipIndex): (Option[seq[IDCommitment
 proc isSpam*(rlnPeer: WakuRLNRelay, msg: WakuMessage): Result[bool, string] = 
   let proofMD = ProofMetadata(nullifier: msg.proof.nullifier, shareX: msg.proof.shareX, shareY: msg.proof.shareY)
   # check if the epoch exists
-  if not rlnPeer.messageLog.hasKey(msg.proof.epoch):
+  if not rlnPeer.nullifierLog.hasKey(msg.proof.epoch):
     return ok(false)
   try:
-    if rlnPeer.messageLog[msg.proof.epoch].contains(proofMD):
+    if rlnPeer.nullifierLog[msg.proof.epoch].contains(proofMD):
       return ok(false)
 
     # check for a message with the same nullifier but different secret shares
-    let matched = rlnPeer.messageLog[msg.proof.epoch].filterIt((it.nullifier == proofMD.nullifier) and ((it.shareX != proofMD.shareX) or (it.shareY != proofMD.shareY)))
+    let matched = rlnPeer.nullifierLog[msg.proof.epoch].filterIt((it.nullifier == proofMD.nullifier) and ((it.shareX != proofMD.shareX) or (it.shareY != proofMD.shareY)))
     # if there is a duplicate, do not add the message
     if matched.len != 0:
       return ok(true)
@@ -368,15 +368,15 @@ proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): Result[bool, string] =
   debug "proof metadata", proofMD=proofMD
 
   # check if the epoch exists, to avoid exception
-  if not rlnPeer.messageLog.hasKey(msg.proof.epoch):
-    rlnPeer.messageLog[msg.proof.epoch]= @[proofMD]
+  if not rlnPeer.nullifierLog.hasKey(msg.proof.epoch):
+    rlnPeer.nullifierLog[msg.proof.epoch]= @[proofMD]
     return ok(true)
   
   try:
-    if rlnPeer.messageLog[msg.proof.epoch].contains(proofMD):
+    if rlnPeer.nullifierLog[msg.proof.epoch].contains(proofMD):
       return ok(true)
 
-    rlnPeer.messageLog[msg.proof.epoch].add(proofMD)
+    rlnPeer.nullifierLog[msg.proof.epoch].add(proofMD)
     return ok(true)
   except KeyError as e:
     return err("something went wrong")

@@ -77,9 +77,8 @@ type WakuRLNRelay* = ref object
   ethAccountPrivateKey*: Option[PrivateKey]
   rlnInstance*: RLN[Bn256]
   pubsubTopic*: string # the pubsub topic for which rln relay is mounted
-  # message queue contains the mapping of the past `Epoch`s and 
-  # the `ProofMetadata` of the waku messages published in that epoch
-  messageLog*: Table[Epoch, seq[ProofMetadata]]
+  # the log of nullifiers and Shamir shares of the past messages grouped per epoch
+  nullifierLog*: Table[Epoch, seq[ProofMetadata]]
 
 
 # inputs of the membership contract constructor
