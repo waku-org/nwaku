@@ -341,38 +341,46 @@ proc rlnRelaySetUp*(rlnRelayMemIndex: MembershipIndex): (Option[seq[IDCommitment
     
   return (groupOpt, memKeyPairOpt, memIndexOpt)
 
-type UpdateLogResult* {.pure.} = enum
-    Success, Error, Spam, Redundant
-
-proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): UpdateLogResult =
-  ## extracts and saves the `ProofMetadata` of the supplied messages `msg` into the `messageLog` of the `rlnPeer`
-  ## returns updateLogResult.duplicate if another record is found with identical epoch and nullifier
-  ## returns updateLogResult.error if there is any run-time error
-  ## returns updateLogResult.success if the message is inserted into the `messageLog` of the `rlnPeer`
-
+proc isSpam*(rlnPeer: WakuRLNRelay, msg: WakuMessage): Result[bool, string] = 
   let proofMD = ProofMetadata(nullifier: msg.proof.nullifier, shareX: msg.proof.shareX, shareY: msg.proof.shareY)
-  debug "proof metadata", proofMD=proofMD
+  # check if the epoch exists
+  if not rlnPeer.messageLog.hasKey(msg.proof.epoch):
+    return ok(false)
+  
   try:
-    # check if the epoch exists
-    if not rlnPeer.messageLog.hasKey(msg.proof.epoch):
-      rlnPeer.messageLog[msg.proof.epoch]= @[proofMD]
-      return UpdateLogResult.Success
-
     if rlnPeer.messageLog[msg.proof.epoch].contains(proofMD):
-      return UpdateLogResult.Redundant
+      return ok(false)
 
-    # check for the duplicate messages
+    # check for a message with the same nullifier but different secret shares
     let matched = rlnPeer.messageLog[msg.proof.epoch].filterIt((it.nullifier == proofMD.nullifier) and ((it.shareX != proofMD.shareX) or (it.shareY != proofMD.shareY)))
 
     #  if there is a duplicate, do not add the message
     if matched.len != 0:
-      return UpdateLogResult.Spam
+      return ok(true)
 
-    # if no duplicate exists, then add the message
-    rlnPeer.messageLog[msg.proof.epoch].add(proofMD)
-    return UpdateLogResult.Success
   except KeyError as e:
-    return UpdateLogResult.Error 
+    return err("something went wrong")
+
+
+proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): Result[bool, string] =
+  ## extracts and saves the `ProofMetadata` of the supplied messages `msg` into the `messageLog` of the `rlnPeer`
+
+  let proofMD = ProofMetadata(nullifier: msg.proof.nullifier, shareX: msg.proof.shareX, shareY: msg.proof.shareY)
+  debug "proof metadata", proofMD=proofMD
+
+  # check if the epoch exists, to avoid exception
+  if not rlnPeer.messageLog.hasKey(msg.proof.epoch):
+    rlnPeer.messageLog[msg.proof.epoch]= @[proofMD]
+    return ok(true)
+  
+  try:
+    if rlnPeer.messageLog[msg.proof.epoch].contains(proofMD):
+      return ok(true)
+
+    rlnPeer.messageLog[msg.proof.epoch].add(proofMD)
+    return ok(true)
+  except KeyError as e:
+    return err("something went wrong")
 
 proc toEpoch*(t: uint64): Epoch =
   # converts `t` to `Epoch` in little-endian order
@@ -402,25 +410,31 @@ proc compare*(e1, e2: Epoch): int64 =
     epoch2 = fromEpoch(e2)
   return int64(epoch1) - int64(epoch2)
 
-# type MessageValidationResult* {.pure.} = enum
-#     Accept, Reject, Ignore, Spam
+type MessageValidationResult* {.pure.} = enum
+    Valid, Invalid, Spam
 
-# proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage): MessageValidationResult =
-#   #  check if the message's epoch is far from the current epoch
-#   let 
-#     epoch = getCurrentEpoch()
-#     msgEpoch = msg.proof.epoch
-#     gap = compare(epoch, msgEpoch)
+proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage): MessageValidationResult =
+  #  check if the message's epoch is far from the current epoch
+  let 
+    epoch = getCurrentEpoch()
+    msgEpoch = msg.proof.epoch
+    gap = compare(epoch, msgEpoch)
   
-#   if abs(gap) > MAX_EPOCH_GAP:
-#     # message's epoch is old
-#     return MessageValidationResult.Reject
+  # validate epoch
+  if abs(gap) > MAX_EPOCH_GAP:
+    # message's epoch is old
+    return MessageValidationResult.Invalid
+  
+  # validate proof
+  if not rlnPeer.rlnInstance.proofVerify(msg.payload, msg.proof):
+    # invalid proof
+    return MessageValidationResult.Invalid
+  
+  let isSpam = rlnPeer.isSpam(msg)
+  if isSpam.isOk and isSpam.value == true:
+    return MessageValidationResult.Spam
 
-#   if not rlnPeer.rlnInstance.proofVerify(msg.payload, msg.proof):
-#     # invalid proof
-#     return MessageValidationResult.Reject
-  
-#   let result = rlnPeer.updateLog(msg)
-#   if result.duplicate:
-#     MessageValidationResult.Spam
+  # insert the message to the message log 
+  discard rlnPeer.updateLog(msg)
+  return MessageValidationResult.Valid
 
