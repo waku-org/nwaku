@@ -55,6 +55,7 @@ const clientId* = "Nimbus Waku v2 node"
 # Default topic
 const defaultTopic = "/waku/2/default-waku/proto"
 
+
 # key and crypto modules different
 type
   KeyPair* = crypto.KeyPair
@@ -87,6 +88,7 @@ type
     filters*: Filters
     rng*: ref BrHmacDrbgContext
     wakuDiscv5*: WakuDiscoveryV5
+    webSocketEnabled*: bool 
     started*: bool # Indicates that node has started listening
 
 proc protocolMatcher(codec: string): Matcher =
@@ -168,8 +170,11 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     enrTcpPort = if extPort.isSome(): extPort
                  else: some(bindPort)
     enr = createEnr(nodeKey, enrIp, enrTcpPort, none(Port))
+    webSocketEnabled = if wsEnabled or wssEnabled: true
+                       else: false
+    
   
-  if wsEnabled == true or wssEnabled == true:
+  if wsEnabled == true or wssEnabled:
     info "Initializing networking", hostAddress, wsHostAddress,
                                     announcedAddresses
     peerInfo.addrs.add(wsHostAddress)
@@ -194,10 +199,11 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
     switch: switch,
-    rng: rng,
+    rng: rng, 
     peerInfo: peerInfo,
     enr: enr,
-    filters: initTable[string, Filter]()
+    filters: initTable[string, Filter](),
+    webSocketEnabled: webSocketEnabled
   )
 
   return wakuNode
@@ -814,7 +820,8 @@ proc start*(node: WakuNode, websocketConn: bool = false) {.async.} =
   # TODO Get this from WakuNode obj
   let peerInfo = node.peerInfo
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
-  let listenStr = if websocketConn: @[$peerInfo.addrs[^1] & "/p2p/" & $peerInfo.peerId,
+  info "webSocketEnabled", webSocketEnabled=node.webSocketEnabled
+  let listenStr = if node.webSocketEnabled: @[$peerInfo.addrs[^1] & "/p2p/" & $peerInfo.peerId,
                                       $peerInfo.addrs[^2] & "/p2p/" & $peerInfo.peerId]
                   else: @[$peerInfo.addrs[^1] & "/p2p/" & $peerInfo.peerId]
   ## XXX: this should be /ip4..., / stripped?
