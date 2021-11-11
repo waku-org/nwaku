@@ -1,6 +1,7 @@
 # Waku Switch utils.
+{.push raises: [TLSStreamProtocolError, IOError, Defect].}
 import
-  std/[options, sequtils],
+  std/[options, sequtils, strutils],
   chronos, chronicles,
   stew/byteutils,
   eth/keys,
@@ -13,6 +14,40 @@ import
 
 proc withWsTransport*(b: SwitchBuilder): SwitchBuilder =
   b.withTransport(proc(upgr: Upgrade): Transport = WsTransport.new(upgr))
+
+proc getSecureKey(path : string): TLSPrivateKey
+  {.raises: [Defect,TLSStreamProtocolError, IOError].} =
+  trace "Key path is.", path=path
+  var stringkey: string = readFile(path)
+  try:
+    let key = TLSPrivateKey.init(stringkey)
+    return key
+  except:
+    raise newException(TLSStreamProtocolError,"Secure key init failed")
+    
+
+
+proc getSecureCert(path : string): TLSCertificate
+  {.raises: [Defect,TLSStreamProtocolError, IOError].} =
+  trace "Certificate path is.", path=path
+  var stringCert: string = readFile(path)
+  try:
+    let cert  = TLSCertificate.init(stringCert)
+    return cert
+  except:
+    raise newException(TLSStreamProtocolError,"Certificate init failed")
+
+proc withWssTransport*(b: SwitchBuilder,
+                        secureKeyPath: string,
+                        secureCertPath: string): SwitchBuilder =
+  let key : TLSPrivateKey =  getSecureKey(secureKeyPath)
+  let cert : TLSCertificate = getSecureCert(secureCertPath)
+  b.withTransport(proc(upgr: Upgrade): Transport = WsTransport.new(upgr,
+                  tlsPrivateKey = key,
+                  tlsCertificate = cert,
+                  {TLSFlags.NoVerifyHost, TLSFlags.NoVerifyServerName}))
+
+
 
 proc newWakuSwitch*(
     privKey = none(crypto.PrivateKey),
@@ -30,8 +65,14 @@ proc newWakuSwitch*(
     maxOut = -1,
     maxConnsPerPeer = MaxConnectionsPerPeer,
     nameResolver: NameResolver = nil,
-    wsEnabled: bool = false): Switch
-    {.raises: [Defect, LPError].} =
+    wsEnabled: bool = false,
+    wssEnabled: bool = false,
+    secureKeyPath: string = "",
+    secureCertPath: string = ""): Switch
+    {.raises: [Defect,TLSStreamProtocolError,IOError, LPError].} =
+
+    if wsEnabled == true and wssEnabled == true:
+       debug "Websocket and secure websocket are enabled simultaneously."
 
     var b = SwitchBuilder
       .new()
@@ -49,6 +90,9 @@ proc newWakuSwitch*(
     if wsEnabled == true:
       b = b.withAddresses(@[wsAddress, address])
       b = b.withWsTransport()
+    if wssEnabled == true:
+      b = b.withAddresses(@[wsAddress, address])
+      b = b.withWssTransport(secureKeyPath, secureCertPath)
     else :
       b = b.withAddress(address)
 

@@ -2,7 +2,7 @@
 
 import
   std/[tables, times, strutils, hashes, sequtils],
-  chronos, confutils, chronicles, chronicles/topics_registry, 
+  chronos, confutils, chronicles, chronicles/topics_registry, chronos/streams/tlsstream,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, endians2],
   stew/shims/net as stewNet, json_rpc/rpcserver,
@@ -140,7 +140,7 @@ proc new*(T: type Chat2MatterBridge,
           nodev2BindIp: ValidIpAddress, nodev2BindPort: Port,
           nodev2ExtIp = none[ValidIpAddress](), nodev2ExtPort = none[Port](),
           contentTopic: string): T
-  {.raises: [Defect, ValueError, KeyError, LPError].} =
+  {.raises: [Defect, ValueError, KeyError, TLSStreamProtocolError, IOError, LPError].} =
 
   # Setup Matterbridge 
   let
