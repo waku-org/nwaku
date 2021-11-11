@@ -346,18 +346,17 @@ proc isSpam*(rlnPeer: WakuRLNRelay, msg: WakuMessage): Result[bool, string] =
   # check if the epoch exists
   if not rlnPeer.messageLog.hasKey(msg.proof.epoch):
     return ok(false)
-  
   try:
     if rlnPeer.messageLog[msg.proof.epoch].contains(proofMD):
       return ok(false)
 
     # check for a message with the same nullifier but different secret shares
     let matched = rlnPeer.messageLog[msg.proof.epoch].filterIt((it.nullifier == proofMD.nullifier) and ((it.shareX != proofMD.shareX) or (it.shareY != proofMD.shareY)))
-
-    #  if there is a duplicate, do not add the message
+    # if there is a duplicate, do not add the message
     if matched.len != 0:
       return ok(true)
 
+    return ok(false)
   except KeyError as e:
     return err("something went wrong")
 
