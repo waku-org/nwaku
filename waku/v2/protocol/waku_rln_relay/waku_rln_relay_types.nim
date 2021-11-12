@@ -115,7 +115,7 @@ const
 
 const EPOCH_UNIT_SECONDS* = float64(2) 
 const MAX_CLOCK_GAP_SECONDS* = 20.0 # the maximum clock difference between peers
-# maximum allowed gap between peer's current epoch and the epoch of the incoming message
+# maximum allowed gap between the epochs of messages' RateLimitProofs 
 const MAX_EPOCH_GAP* = int64(MAX_CLOCK_GAP_SECONDS/EPOCH_UNIT_SECONDS) 
 
 # Protobufs enc and init
