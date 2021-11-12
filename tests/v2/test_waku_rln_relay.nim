@@ -821,10 +821,7 @@ suite "Waku rln relay":
       result3.value == true
 
   test "validateMessage":
-    let time = epochTime()
-    var wm = WakuMessage(payload: "Hello".toBytes(), timestamp: time)
-
-    # setup a wakurlnrelay peer
+    # setup a wakurlnrelay peer ----------
 
     # create a group of 100 membership keys
     # todo make a func for this
@@ -850,9 +847,47 @@ suite "Waku rln relay":
     # add members
     discard rln.addAll(groupIDCommitments)
 
-    let wakuRlnRelay = WakuRLNRelay(membershipIndex: index, membershipKeyPair: groupKeyPairs[index], rlnInstance: rln)
+    let 
+      wakuRlnRelay = WakuRLNRelay(membershipIndex: index, membershipKeyPair: groupKeyPairs[index], rlnInstance: rln)
+
+    #  create some messages from the same user and validate them  ---------
+
+    # get the current epoch time 
+    let time = epochTime()
+    var 
+      wm1 = WakuMessage(payload: "Valid message".toBytes())
+      # another message in the same epoch as wm1, it will break the messaging rate limit
+      wm2 = WakuMessage(payload: "Spam".toBytes())
+      #  wm3 points to the next epoch 
+      wm3 = WakuMessage(payload: "Valid message".toBytes())
+      wm4 = WakuMessage(payload: "Invalid message".toBytes())
     
-    check wakuRlnRelay.appendRLNProof(wm, time)
-    check wakuRlnRelay.validateMessage(wm) == MessageValidationResult.Valid
-    check wakuRlnRelay.validateMessage(WakuMessage()) == MessageValidationResult.Invalid
+    #  append rln proof to the messages, except wm4
+    let
+      proofAdded1 = wakuRlnRelay.appendRLNProof(wm1, time)
+      proofAdded2 = wakuRlnRelay.appendRLNProof(wm2, time)
+      # wm3 is going to be published for the next epoch
+      proofAdded3 = wakuRlnRelay.appendRLNProof(wm3, time+EPOCH_UNIT_SECONDS)
+
+    check:
+      proofAdded1
+      proofAdded2
+      proofAdded3
+
+    # validate messages
+    let
+      msgValidate1 = wakuRlnRelay.validateMessage(wm1)
+      # wm2 is published within the same Epoch as wm1 and should be found as spam
+      msgValidate2 = wakuRlnRelay.validateMessage(wm2)
+      #  a valid message should be validated successfully 
+      msgValidate3 = wakuRlnRelay.validateMessage(wm3)
+      # wm4 has no rln proof and should not be validated
+      msgValidate4 = wakuRlnRelay.validateMessage(wm4)
+
+    
+    check:
+      msgValidate1 == MessageValidationResult.Valid
+      msgValidate2 == MessageValidationResult.Spam      
+      msgValidate3 == MessageValidationResult.Valid
+      msgValidate4 == MessageValidationResult.Invalid
 
