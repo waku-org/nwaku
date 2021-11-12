@@ -82,7 +82,7 @@ type WakuRLNRelay* = ref object
 
 type MessageValidationResult* {.pure.} = enum
     Valid, Invalid, Spam
-    
+
 # inputs of the membership contract constructor
 # TODO may be able to make these constants private and put them inside the waku_rln_relay_utils
 const 
@@ -113,10 +113,10 @@ const
   # the root is created locally, using createMembershipList proc from waku_rln_relay_utils module, and the result is hardcoded in here 
   STATIC_GROUP_MERKLE_ROOT* = "a1877a553eff12e1b21632a0545a916a5c5b8060ad7cc6c69956741134397b2d"  
 
-const EPOCH_LENGTH_SECONDS* = float64(2) 
+const EPOCH_UNIT_SECONDS* = float64(2) 
 const MAX_CLOCK_DRIFT_SECONDS* = 20.0 # the maximum clock difference between peers
 # maximum allowed gap between peer's current epoch and the epoch of the incoming message
-const MAX_EPOCH_GAP* = int64(MAX_CLOCK_DRIFT_SECONDS/EPOCH_LENGTH_SECONDS) 
+const MAX_EPOCH_GAP* = int64(MAX_CLOCK_DRIFT_SECONDS/EPOCH_UNIT_SECONDS) 
 
 # Protobufs enc and init
 proc init*(T: type RateLimitProof, buffer: seq[byte]): ProtoResult[T] =

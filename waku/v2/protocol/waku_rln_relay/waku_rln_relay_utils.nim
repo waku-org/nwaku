@@ -401,7 +401,7 @@ proc fromEpoch*(epoch: Epoch): uint64 =
 proc calcEpoch*(t: float64): Epoch = 
   ## get time `t` as `flaot64` with subseconds resolution in the fractional part
   ## and convert it to rln `Epoch` type
-  let e = uint64(t/EPOCH_LENGTH_SECONDS)
+  let e = uint64(t/EPOCH_UNIT_SECONDS)
   return toEpoch(e)
 
 proc getCurrentEpoch*(): Epoch =
