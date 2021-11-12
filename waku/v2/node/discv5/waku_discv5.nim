@@ -1,10 +1,10 @@
 {.push raises: [Defect].}
 
 import
-  std/[strutils, options],
+  std/[bitops, sequtils, strutils, options],
   chronos, chronicles, metrics,
   eth/keys,
-  eth/p2p/discoveryv5/[enr, protocol],
+  eth/p2p/discoveryv5/[enr, node, protocol],
   stew/shims/net,
   stew/results,
   ../config,
@@ -19,9 +19,21 @@ logScope:
   topics = "wakudiscv5"
 
 type
+  ## 8-bit flag field to indicate Waku capabilities.
+  ## Only the 4 LSBs are currently defined according
+  ## to RFC31 (https://rfc.vac.dev/spec/31/).
+  WakuEnrBitfield* = uint8 
+
   WakuDiscoveryV5* = ref object
     protocol*: protocol.Protocol
     listening*: bool
+
+const
+  WAKU_ENR_FIELD* = "waku2"
+
+####################
+# Helper functions #
+####################
 
 proc parseBootstrapAddress(address: TaintedString):
     Result[enr.Record, cstring] =
@@ -55,6 +67,24 @@ proc addBootstrapNode(bootstrapAddr: string,
     warn "Ignoring invalid bootstrap address",
           bootstrapAddr, reason = enrRes.error
 
+proc initWakuFlags*(lightpush, filter, store, relay: bool): WakuEnrBitfield =
+  ## Creates an waku2 ENR flag bit field according to RFC 31 (https://rfc.vac.dev/spec/31/)
+  var v = 0b0000_0000'u8
+  if lightpush: v.setBit(3)
+  if filter: v.setBit(2)
+  if store: v.setBit(1)
+  if relay: v.setBit(0)
+
+  return v.WakuEnrBitfield
+
+proc isWakuNode(node: Node): bool =
+  let wakuField = node.record.tryGet(WAKU_ENR_FIELD, uint8)
+  
+  if wakuField.isSome:
+    return wakuField.get().WakuEnrBitfield != 0x00 # True if any flag set to true
+
+  return false
+
 ####################
 # Discovery v5 API #
 ####################
@@ -63,12 +93,14 @@ proc findRandomPeers*(wakuDiscv5: WakuDiscoveryV5): Future[Result[seq[RemotePeer
   ## Find random peers to connect to using Discovery v5
   
   ## Query for a random target and collect all discovered nodes
-  ## @TODO: we could filter nodes here
   let discoveredNodes = await wakuDiscv5.protocol.queryRandom()
   
+  ## Filter based on our needs
+  let filteredNodes = discoveredNodes.filter(isWakuNode) # Currently only a single predicate
+
   var discoveredPeers: seq[RemotePeerInfo]
 
-  for node in discoveredNodes:
+  for node in filteredNodes:
     # Convert discovered ENR to RemotePeerInfo and add to discovered nodes
     let res = node.record.toRemotePeerInfo()
 
@@ -92,6 +124,7 @@ proc new*(T: type WakuDiscoveryV5,
           bootstrapNodes: seq[string],
           enrAutoUpdate = false,
           privateKey: PrivateKey,
+          flags: WakuEnrBitfield,
           enrFields: openArray[(string, seq[byte])],
           rng: ref BrHmacDrbgContext): T =
   
@@ -101,10 +134,14 @@ proc new*(T: type WakuDiscoveryV5,
   
   ## TODO: consider loading from a configurable bootstrap file
   
+  ## We always add the waku field as specified
+  var enrInitFields = @[(WAKU_ENR_FIELD, @[flags.byte])]
+  enrInitFields.add(enrFields)
+  
   let protocol = newProtocol(
     privateKey,
     enrIp = extIp, enrTcpPort = extTcpPort, enrUdpPort = extUdpPort, # We use the external IP & ports for ENR
-    enrFields,
+    enrInitFields,
     bootstrapEnrs,
     bindPort = discv5UdpPort,
     bindIp = bindIP,
