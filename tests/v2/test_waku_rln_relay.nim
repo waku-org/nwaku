@@ -188,7 +188,7 @@ procSuite "Waku rln relay":
 
     # initialize the WakuRLNRelay 
     var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
-      membershipIndex: uint(0),
+      membershipIndex: MembershipIndex(0),
       ethClientAddress: EthClient,
       ethAccountAddress: ethAccountAddress,
       membershipContractAddress: contractAddress)
@@ -820,4 +820,39 @@ suite "Waku rln relay":
       result3.isOk 
       result3.value == true
 
-  # test "validateMessage":
+  test "validateMessage":
+    let time = epochTime()
+    var wm = WakuMessage(payload: "Hello".toBytes(), timestamp: time)
+
+    # setup a wakurlnrelay peer
+
+    # create a group of 100 membership keys
+    # todo make a func for this
+    let
+      (groupKeys, root) = createMembershipList(100)
+      # convert the keys to MembershipKeyPair structs
+      groupKeyPairs = groupKeys.toMembershipKeyPairs()
+      # extract the id commitments
+      groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
+    debug "groupKeyPairs", groupKeyPairs
+    debug "groupIDCommitments", groupIDCommitments
+   
+    # index indicates the position of a membership key pair in the static list of group keys i.e., groupKeyPairs 
+    # the corresponding key pair will be used to mount rlnRelay on the current node
+    # index also represents the index of the leaf in the Merkle tree that contains node's commitment key 
+    let index = MembershipIndex(5)
+
+    # create an RLN instance
+    var rlnInstance = createRLNInstance()
+    doAssert(rlnInstance.isOk)
+    var rln = rlnInstance.value
+
+    # add members
+    discard rln.addAll(groupIDCommitments)
+
+    let wakuRlnRelay = WakuRLNRelay(membershipIndex: index, membershipKeyPair: groupKeyPairs[index], rlnInstance: rln)
+    
+    check wakuRlnRelay.appendRLNProof(wm, time)
+    check wakuRlnRelay.validateMessage(wm) == MessageValidationResult.Valid
+    check wakuRlnRelay.validateMessage(WakuMessage()) == MessageValidationResult.Invalid
+

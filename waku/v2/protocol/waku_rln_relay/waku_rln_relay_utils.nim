@@ -365,7 +365,8 @@ proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): Result[bool, string
     return err("something went wrong")
 
 proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): Result[bool, string] =
-  ## extracts and saves the `ProofMetadata` of the supplied messages `msg` into the `messageLog` of the `rlnPeer`
+  ## extracts  the `ProofMetadata` of the supplied messages `msg` and  
+  ## saves it in the `messageLog` of the `rlnPeer`
 
   let proofMD = ProofMetadata(nullifier: msg.proof.nullifier, shareX: msg.proof.shareX, shareY: msg.proof.shareY)
   debug "proof metadata", proofMD=proofMD
@@ -385,7 +386,7 @@ proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): Result[bool, string] =
     return err("something went wrong")
 
 proc toEpoch*(t: uint64): Epoch =
-  # converts `t` to `Epoch` in little-endian order
+  ## converts `t` to `Epoch` in little-endian order
   let bytes = toBytes(t, Endianness.littleEndian)
   debug "bytes", bytes=bytes
   var epoch: Epoch
@@ -398,8 +399,8 @@ proc fromEpoch*(epoch: Epoch): uint64 =
   return t
 
 proc calcEpoch*(t: float64): Epoch = 
-  # get time `t` as `flaot64` with subseconds resolution in the fractional part
-  # and convert it to rln `Epoch` type
+  ## get time `t` as `flaot64` with subseconds resolution in the fractional part
+  ## and convert it to rln `Epoch` type
   let e = uint64(t/EPOCH_LENGTH_SECONDS)
   return toEpoch(e)
 
@@ -408,7 +409,8 @@ proc getCurrentEpoch*(): Epoch =
   return calcEpoch(epochTime())
 
 proc compare*(e1, e2: Epoch): int64 =
-  ## returns the difference between e1 and e2 as an int64
+  ## returns the difference between the two epochs `e1` and `e2`
+  ## i.e., e1 - e2 
   
   # convert epochs to their corresponding numerical values
   let 
@@ -447,9 +449,11 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage): MessageValidatio
   return MessageValidationResult.Valid
 
 
-proc appendRLNProof*(rlnPeer: WakuRLNRelay, msg: var WakuMessage, epoch: Epoch): bool = 
+proc appendRLNProof*(rlnPeer: WakuRLNRelay, msg: var WakuMessage, senderEpochTime: float64): bool = 
   ## returns true if it can create and append a `RateLimitProof` to the supplied `msg`
   ## returns false otherwise
+  ## `senderEpochTime` the number of seconds passed since Unix epoch. The fractional part holds sub-seconds.
+  ## The `epoch` field of `RateLimitProof` is derived from the provided `senderTime`
 
   let 
     contentTopicBytes = msg.contentTopic.toBytes
@@ -458,10 +462,19 @@ proc appendRLNProof*(rlnPeer: WakuRLNRelay, msg: var WakuMessage, epoch: Epoch):
   var proof: RateLimitProofResult = proofGen(rlnInstance = rlnPeer.rlnInstance, data = input,
                      memKeys = rlnPeer.membershipKeyPair, 
                      memIndex = rlnPeer.membershipIndex, 
-                     epoch = epoch)
+                     epoch = calcEpoch(senderEpochTime))
   
   if proof.isErr:
     return false
 
   msg.proof = proof.value
+  return true
+
+proc addAll*(rlnInstance: RLN[Bn256], list: seq[IDCommitment]): bool = 
+  # add members to the Merkle tree of the rlnInstance
+  for i in 0..list.len-1:
+    let member = list[i]
+    let member_is_added = rlnInstance.insertMember(member)
+    if not member_is_added:
+      return false
   return true
