@@ -1,7 +1,6 @@
 {.used.}
 
 import
-  std/times,
   testutils/unittests,
   chronicles, chronos, stew/shims/net as stewNet, stew/byteutils, std/os,
   libp2p/crypto/crypto,
@@ -25,8 +24,10 @@ import
   ../test_helpers
 
 when defined(rln):
-  import ../../waku/v2/protocol/waku_rln_relay/[waku_rln_relay_utils, waku_rln_relay_types]
-
+  import 
+    ../../waku/v2/protocol/waku_rln_relay/[waku_rln_relay_utils, waku_rln_relay_types]
+  from times import epochTime
+  
 const RLNRELAY_PUBSUB_TOPIC = "waku/2/rlnrelay/proto"
 template sourceDir: string = currentSourcePath.parentDir()
 const KEY_PATH = sourceDir / "resources/test_key.pem"
@@ -864,10 +865,10 @@ procSuite "WakuNode":
       
       #  append rln proof to the messages, except wm4
       let
-        proofAdded1 = wakuRlnRelay.appendRLNProof(wm1, time)
-        proofAdded2 = wakuRlnRelay.appendRLNProof(wm2, time)
+        proofAdded1 = node3.wakuRlnRelay.appendRLNProof(wm1, time)
+        proofAdded2 = node3.wakuRlnRelay.appendRLNProof(wm2, time)
         # wm3 is going to be published for the next epoch
-        proofAdded3 = wakuRlnRelay.appendRLNProof(wm3, time+EPOCH_UNIT_SECONDS)
+        proofAdded3 = node3.wakuRlnRelay.appendRLNProof(wm3, time+EPOCH_UNIT_SECONDS)
 
       check:
         proofAdded1
@@ -882,16 +883,16 @@ procSuite "WakuNode":
       proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
         let msg = WakuMessage.init(data)
         if msg.isOk():
-          let val = msg.value()
+          let wm = msg.value()
           debug "The received topic:", topic
           if topic == rlnRelayPubSubTopic:
-            if msg == wm1:
+            if wm == wm1:
               completionFut1.complete(true)
-            if msg == wm2:
+            if wm == wm2:
               completionFut2.complete(true)
-            if msg == msg3:
+            if wm == wm3:
               completionFut3.complete(true)
-            if msg == msg4:
+            if wm == wm4:
               completionFut4.complete(true)
           
 
@@ -899,7 +900,7 @@ procSuite "WakuNode":
       node3.subscribe(rlnRelayPubSubTopic, relayHandler)
       await sleepAsync(2000.millis)
 
-      ## node1 publishes 4 messages to node2
+      ## node1 publishes and relays 4 messages to node2
       ## verification at node2 occurs inside a topic validator which is installed as part of the waku-rln-relay mount proc
       ## node2 relays either of wm1 or wm2 to node3, depending on which message arrives at node2 first
       ## node2 should detect either of wm1 or wm2 as spam and not relay it
