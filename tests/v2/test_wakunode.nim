@@ -664,8 +664,9 @@ procSuite "WakuNode":
       for x in payload.mitems: x = 1
 
       # prepare the epoch
-      var epoch {.noinit.}: Epoch
-      for x in epoch.mitems: x = 2
+      # var epoch {.noinit.}: Epoch
+      # for x in epoch.mitems: x = 2
+      var epoch = getCurrentEpoch()
 
       # prepare the proof
       let rateLimitProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = payload, 
@@ -765,8 +766,9 @@ procSuite "WakuNode":
       for x in payload.mitems: x = 1
 
       # prepare the epoch
-      var epoch {.noinit.}: Epoch
-      for x in epoch.mitems: x = 2
+      # var epoch {.noinit.}: Epoch
+      # for x in epoch.mitems: x = 2
+      var epoch = getCurrentEpoch()
 
       # prepare the proof
       let rateLimitProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = payload, 
