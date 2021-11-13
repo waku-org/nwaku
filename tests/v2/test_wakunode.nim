@@ -660,13 +660,10 @@ procSuite "WakuNode":
       await sleepAsync(2000.millis)
 
       # prepare the message payload
-      var payload {.noinit.}: array[32, byte]
-      for x in payload.mitems: x = 1
+      let payload = "Hello".toBytes()
 
       # prepare the epoch
-      # var epoch {.noinit.}: Epoch
-      # for x in epoch.mitems: x = 2
-      var epoch = getCurrentEpoch()
+      let epoch = getCurrentEpoch()
 
       # prepare the proof
       let rateLimitProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = payload, 
@@ -762,13 +759,10 @@ procSuite "WakuNode":
       await sleepAsync(2000.millis)
 
       # prepare the message payload
-      var payload {.noinit.}: array[32, byte]
-      for x in payload.mitems: x = 1
+      let payload = "Hello".toBytes()
 
       # prepare the epoch
-      # var epoch {.noinit.}: Epoch
-      # for x in epoch.mitems: x = 2
-      var epoch = getCurrentEpoch()
+      let epoch = getCurrentEpoch()
 
       # prepare the proof
       let rateLimitProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = payload, 
