@@ -172,7 +172,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     enr = createEnr(nodeKey, enrIp, enrTcpPort, none(Port))
     
   
-  if wsEnabled == true or wssEnabled:
+  if wsEnabled or wssEnabled:
     info "Initializing networking", hostAddress, wsHostAddress,
                                     announcedAddresses
     peerInfo.addrs.add(wsHostAddress)
@@ -821,7 +821,7 @@ proc start*(node: WakuNode) {.async.} =
   var listenStr = ""
   for address in node.announcedAddresses:
     var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]" 
-    addf(listenStr, fulladdr)
+    listenStr &= fulladdr
                 
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
