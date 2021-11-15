@@ -778,53 +778,64 @@ suite "Waku rln relay":
     check compare(epoch1, epoch2) == int64(1)
     check compare(epoch2, epoch1) == int64(-1)
   
-  test "updateLog test":
+  test "updateLog and hasDuplicate tests":
     let 
       wakurlnrelay = WakuRLNRelay()
       epoch = getCurrentEpoch()
 
+    #  cretae some dummy nullifiers and secret shares
     var nullifier1: Nullifier
     for index, x in nullifier1.mpairs: nullifier1[index] = 1
     var shareX1: MerkleNode
     for index, x in shareX1.mpairs: shareX1[index] = 1
+    let shareY1 = shareX1
 
     var nullifier2: Nullifier
     for index, x in nullifier2.mpairs: nullifier2[index] = 2
     var shareX2: MerkleNode
     for index, x in shareX2.mpairs: shareX2[index] = 2
+    let shareY2 = shareX2
 
     let nullifier3 = nullifier1
     var shareX3: MerkleNode
     for index, x in shareX3.mpairs: shareX3[index] = 3
+    let shareY3 = shareX3
 
     let 
-      wm1 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier1, shareX: shareX1))
-      wm2 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier2, shareX: shareX2))
-      wm3 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier3, shareX: shareX3))
+      wm1 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier1, shareX: shareX1, shareY: shareY1))
+      wm2 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier2, shareX: shareX2, shareY: shareY2))
+      wm3 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier3, shareX: shareX3, shareY: shareY3))
 
+    # check whether hasDuplicate correctly finds records with the same nullifiers but different secret shares
+    # no duplicate for wm1 should be found, since the log is empty
     let result1 = wakurlnrelay.hasDuplicate(wm1)
     check:
       result1.isOk
+      # no duplicate is found
       result1.value == false
+    #  add it to the log
     discard wakurlnrelay.updateLog(wm1)
 
+    # # no duplicate for wm2 should be found, its nullifier differs from wm1
     let result2 = wakurlnrelay.hasDuplicate(wm2)
     check:
       result2.isOk
+      # no duplicate is found
       result2.value == false
+    #  add it to the log
     discard wakurlnrelay.updateLog(wm2)
 
-    #  wm3 has the same nullifier as wm1 but different shareX, it should be detected as spam
+    #  wm3 has the same nullifier as wm1 but different secret shares, it should be detected as duplicate
     let result3 = wakurlnrelay.hasDuplicate(wm3)
     check:
       result3.isOk 
+      # it is a duplicate
       result3.value == true
 
-  test "validateMessage":
-    # setup a wakurlnrelay peer ----------
+  test "validateMessage test":
+    # setup a wakurlnrelay peer with a static group----------
 
     # create a group of 100 membership keys
-    # todo make a func for this
     let
       (groupKeys, root) = createMembershipList(100)
       # convert the keys to MembershipKeyPair structs
@@ -850,36 +861,34 @@ suite "Waku rln relay":
     let 
       wakuRlnRelay = WakuRLNRelay(membershipIndex: index, membershipKeyPair: groupKeyPairs[index], rlnInstance: rln)
 
-    #  create some messages from the same user and validate them  ---------
-
     # get the current epoch time 
     let time = epochTime()
+
+    #  create some messages from the same peer and append rln proof to them, except wm4
     var 
       wm1 = WakuMessage(payload: "Valid message".toBytes())
+      proofAdded1 = wakuRlnRelay.appendRLNProof(wm1, time)
       # another message in the same epoch as wm1, it will break the messaging rate limit
       wm2 = WakuMessage(payload: "Spam".toBytes())
+      proofAdded2 = wakuRlnRelay.appendRLNProof(wm2, time)
       #  wm3 points to the next epoch 
       wm3 = WakuMessage(payload: "Valid message".toBytes())
-      wm4 = WakuMessage(payload: "Invalid message".toBytes())
-    
-    #  append rln proof to the messages, except wm4
-    let
-      proofAdded1 = wakuRlnRelay.appendRLNProof(wm1, time)
-      proofAdded2 = wakuRlnRelay.appendRLNProof(wm2, time)
-      # wm3 is going to be published for the next epoch
       proofAdded3 = wakuRlnRelay.appendRLNProof(wm3, time+EPOCH_UNIT_SECONDS)
-
+      wm4 = WakuMessage(payload: "Invalid message".toBytes())      
+      
+    # checks proofs are added
     check:
       proofAdded1
       proofAdded2
       proofAdded3
 
     # validate messages
+    # validateMessage proc checks the validity of the message fields and adds it to the log (if valid)
     let
       msgValidate1 = wakuRlnRelay.validateMessage(wm1)
       # wm2 is published within the same Epoch as wm1 and should be found as spam
       msgValidate2 = wakuRlnRelay.validateMessage(wm2)
-      #  a valid message should be validated successfully 
+      # a valid message should be validated successfully 
       msgValidate3 = wakuRlnRelay.validateMessage(wm3)
       # wm4 has no rln proof and should not be validated
       msgValidate4 = wakuRlnRelay.validateMessage(wm4)
