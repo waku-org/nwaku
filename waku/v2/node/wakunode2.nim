@@ -55,6 +55,7 @@ const clientId* = "Nimbus Waku v2 node"
 # Default topic
 const defaultTopic = "/waku/2/default-waku/proto"
 
+
 # key and crypto modules different
 type
   KeyPair* = crypto.KeyPair
@@ -87,6 +88,7 @@ type
     filters*: Filters
     rng*: ref BrHmacDrbgContext
     wakuDiscv5*: WakuDiscoveryV5
+    announcedAddresses* : seq[MultiAddress]
     started*: bool # Indicates that node has started listening
 
 proc protocolMatcher(codec: string): Matcher =
@@ -168,8 +170,9 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     enrTcpPort = if extPort.isSome(): extPort
                  else: some(bindPort)
     enr = createEnr(nodeKey, enrIp, enrTcpPort, none(Port))
+    
   
-  if wsEnabled == true or wssEnabled == true:
+  if wsEnabled or wssEnabled:
     info "Initializing networking", hostAddress, wsHostAddress,
                                     announcedAddresses
     peerInfo.addrs.add(wsHostAddress)
@@ -178,7 +181,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     
   peerInfo.addrs.add(hostAddress)
   for multiaddr in announcedAddresses:
-    peerInfo.addrs.add(multiaddr) # Announced addresses in index > 0
+    peerInfo.addrs.add(multiaddr) 
 
   var switch = newWakuSwitch(some(nodekey),
   hostAddress,
@@ -194,10 +197,11 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
     switch: switch,
-    rng: rng,
+    rng: rng, 
     peerInfo: peerInfo,
     enr: enr,
-    filters: initTable[string, Filter]()
+    filters: initTable[string, Filter](),
+    announcedAddresses: announcedAddresses
   )
 
   return wakuNode
@@ -814,7 +818,11 @@ proc start*(node: WakuNode) {.async.} =
   # TODO Get this from WakuNode obj
   let peerInfo = node.peerInfo
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
-  let listenStr = $peerInfo.addrs[^1] & "/p2p/" & $peerInfo.peerId
+  var listenStr = ""
+  for address in node.announcedAddresses:
+    var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]" 
+    listenStr &= fulladdr
+                
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
   info "Discoverable ENR ", enr = node.enr.toURI()
@@ -1046,9 +1054,9 @@ when isMainModule:
     ## Resume history, connect to static nodes and start
     ## keep-alive, if configured.
 
-    # Start Waku v2 node
+   # Start Waku v2 node
     waitFor node.start()
-    
+  
     # Resume historical messages, this has to be called after the node has been started
     if conf.store and conf.persistMessages:
       waitFor node.resume()
