@@ -136,21 +136,22 @@ docker run --rm -it statusteam/nim-waku:latest --help
 ```
 ## Using Websocket and secure Websockets
 
-Websocket config needs to be enabled , by default the port is 8000 for websockets.
-
+Websocket support is hidden under a feature flag and must be explicitly enabled in order to get Websockets support. The default port is 8000.
 
 ```
-# Run unsecure websockets
+# Run unsecure Websockets (doesn't require a certificate)
 ./build/wakunode2 --websocket-support=true 
-
-# Run secure websockets
-./build/wakunode2 --websocket-secure-support=true --websocket-secure-key-path="/path/to/key.pem" --websocket-secure-cert-path="/path/to/cert.pem"
 ```
 
-Self-signed ssl certificate can be used for websockets, it can be created like this:
+Running a secure websockets requires ssl certificate, we can create a self signed websocket however, it requires openssl utility. It can be acheived as:
 
 ```
-openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -sha256 
+mkdir -p ../ssl_dir/
+
+openssl req -x509 -newkey rsa:4096 -keyout ../ssl_dir/key.pem -out ../ssl_dir/cert.pem -sha256
+
+./build/wakunode2 --websocket-secure-support=true --websocket-secure-key-path="../ssl_dir/key.pem" --websocket-secure-cert-path="../ssl_dir/cert.pem"
 ```
+
 
 
