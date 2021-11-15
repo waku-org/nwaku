@@ -143,7 +143,7 @@ Websocket support is hidden under a feature flag and must be explicitly enabled 
 ./build/wakunode2 --websocket-support=true 
 ```
 
-Running a secure websockets requires ssl certificate, we can create a self signed websocket however, it requires openssl utility. It can be acheived as:
+Running a secure websocket requires an ssl certificate. We can create a self signed websocket. However, it requires the `openssl` utility. It can be achieved as:
 
 ```
 mkdir -p ../ssl_dir/
