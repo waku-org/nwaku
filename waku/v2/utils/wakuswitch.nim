@@ -90,7 +90,7 @@ proc newWakuSwitch*(
     if wsEnabled == true:
       b = b.withAddresses(@[wsAddress, address])
       b = b.withWsTransport()
-    if wssEnabled == true:
+    elif wssEnabled == true:
       b = b.withAddresses(@[wsAddress, address])
       b = b.withWssTransport(secureKeyPath, secureCertPath)
     else :
