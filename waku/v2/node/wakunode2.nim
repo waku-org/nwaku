@@ -88,7 +88,7 @@ type
     filters*: Filters
     rng*: ref BrHmacDrbgContext
     wakuDiscv5*: WakuDiscoveryV5
-    announcedAddress* : seq[MultiAddress]
+    announcedAddresses* : seq[MultiAddress]
     started*: bool # Indicates that node has started listening
 
 proc protocolMatcher(codec: string): Matcher =
@@ -201,7 +201,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     peerInfo: peerInfo,
     enr: enr,
     filters: initTable[string, Filter](),
-    announcedAddress: announcedAddresses
+    announcedAddresses: announcedAddresses
   )
 
   return wakuNode
@@ -819,7 +819,7 @@ proc start*(node: WakuNode) {.async.} =
   let peerInfo = node.peerInfo
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
   var listenStr = ""
-  for address in node.announcedAddress:
+  for address in node.announcedAddresses:
     var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]" 
     addf(listenStr, fulladdr)
                 
