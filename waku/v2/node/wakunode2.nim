@@ -436,9 +436,9 @@ when defined(rln):
     proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
       let msg = WakuMessage.init(message.data) 
       if msg.isOk():
-        #  check the proof
         let 
           wakumessage = msg.value()
+          # validate the message
           validationRes = node.wakuRlnRelay.validateMessage(wakumessage)
         case validationRes:
           of Valid:

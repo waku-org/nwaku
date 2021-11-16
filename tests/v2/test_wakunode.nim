@@ -678,8 +678,8 @@ procSuite "WakuNode":
                                 proof: rateLimitProof)
 
 
-      ## node1 publishes a message with a non-spam proof, the message is then relayed to node2 which in turn 
-      ## verifies the non-spam proof of the message and relays the message to node3
+      ## node1 publishes a message with a rate limit proof, the message is then relayed to node2 which in turn 
+      ## verifies the rate limit proof of the message and relays the message to node3
       ## verification at node2 occurs inside a topic validator which is installed as part of the waku-rln-relay mount proc
       await node1.publish(rlnRelayPubSubTopic, message)
       await sleepAsync(2000.millis)
@@ -778,7 +778,7 @@ procSuite "WakuNode":
 
 
       ## node1 publishes a message with an invalid rln proof, the message is then relayed to node2 which in turn 
-      ## attempts to verify the non-spam proof and fails hence does not relay the message to node3, thus the relayHandler of node3
+      ## attempts to verify the rate limit proof and fails hence does not relay the message to node3, thus the relayHandler of node3
       ## never gets called
       ## verification at node2 occurs inside a topic validator which is installed as part of the waku-rln-relay mount proc
       await node1.publish(rlnRelayPubSubTopic, message)
@@ -792,7 +792,7 @@ procSuite "WakuNode":
       await node2.stop()
       await node3.stop()
 
-    asyncTest "testing rln-relay for spam messages":
+    asyncTest "testing rln-relay double-signaling detection":
     
       let
         # publisher node
@@ -842,30 +842,25 @@ procSuite "WakuNode":
                                   pubsubTopic = rlnRelayPubSubTopic)
       await node3.start()
 
-      # connect them together node1 <-> node2 <-> node3
+      # connect the nodes together node1 <-> node2 <-> node3
       await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
       await node3.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
 
       # get the current epoch time 
       let time = epochTime()
+      #  create some messages with rate limit proofs
       var 
-        msg1 = "message 1".toBytes()
-        wm1 = WakuMessage(payload: msg1)
-        # another message in the same epoch as wm1, it will break the messaging rate limit
-        msg2 =  "message2".toBytes()
-        wm2 = WakuMessage(payload: msg2)
-        #  wm3 points to the next epoch 
-        msg3 = "message 3".toBytes()
-        wm3 = WakuMessage(payload: msg3)
-        wm4 = WakuMessage(payload: "message4".toBytes())
-      
-      #  append rln proof to the messages, except wm4
-      let
+        wm1 = WakuMessage(payload: "message 1".toBytes())
         proofAdded1 = node3.wakuRlnRelay.appendRLNProof(wm1, time)
+        # another message in the same epoch as wm1, it will break the messaging rate limit
+        wm2 = WakuMessage(payload: "message2".toBytes())
         proofAdded2 = node3.wakuRlnRelay.appendRLNProof(wm2, time)
-        # wm3 is going to be published for the next epoch
+        #  wm3 points to the next epoch 
+        wm3 = WakuMessage(payload: "message 3".toBytes())
         proofAdded3 = node3.wakuRlnRelay.appendRLNProof(wm3, time+EPOCH_UNIT_SECONDS)
+        wm4 = WakuMessage(payload: "message4".toBytes())
 
+      #  check proofs are added correctly
       check:
         proofAdded1
         proofAdded2
@@ -913,8 +908,8 @@ procSuite "WakuNode":
         res2 = await completionFut2.withTimeout(10.seconds)
 
       check:
-        res1 or res2 == true # one of the wm1 and wm2 is relayed
-        (res1 and res2) == false # one of the wm1 and wm2 is found as spam and not relayed
+        res1 or res2 == true # either of the wm1 and wm2 is relayed
+        (res1 and res2) == false # either of the wm1 and wm2 is found as spam hence not relayed
         (await completionFut2.withTimeout(10.seconds)) == true
         (await completionFut3.withTimeout(10.seconds)) == true
         (await completionFut4.withTimeout(10.seconds)) == false
