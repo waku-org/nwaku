@@ -134,3 +134,24 @@ You can change this to `wakunode2`, the Waku v2 node like this:
 make docker-image MAKE_TARGET=wakunode2
 docker run --rm -it statusteam/nim-waku:latest --help
 ```
+## Using Websocket and secure Websockets
+
+Websocket support is hidden under a feature flag and must be explicitly enabled in order to get Websockets support. The default port is 8000.
+
+```
+# Run unsecure Websockets (doesn't require a certificate)
+./build/wakunode2 --websocket-support=true 
+```
+
+Running a secure websocket requires an ssl certificate. We can create a self signed websocket. However, it requires the `openssl` utility. It can be achieved with:
+
+```
+mkdir -p ../ssl_dir/
+
+openssl req -x509 -newkey rsa:4096 -keyout ../ssl_dir/key.pem -out ../ssl_dir/cert.pem -sha256
+
+./build/wakunode2 --websocket-secure-support=true --websocket-secure-key-path="../ssl_dir/key.pem" --websocket-secure-cert-path="../ssl_dir/cert.pem"
+```
+
+
+
