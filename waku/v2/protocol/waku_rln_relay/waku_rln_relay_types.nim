@@ -57,10 +57,10 @@ type RateLimitProof* = object
   
 type MembershipIndex* = uint
 
-# type ProofMetadata* = object
-#   nullifier*: Nullifier
-#   shareX*: MerkleNode
-#   shareY*: MerkleNode
+type ProofMetadata* = object
+  nullifier*: Nullifier
+  shareX*: MerkleNode
+  shareY*: MerkleNode
 
 type WakuRLNRelay* = ref object 
   membershipKeyPair*: MembershipKeyPair
