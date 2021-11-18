@@ -392,7 +392,6 @@ proc info*(node: WakuNode): WakuInfo =
   ## Status: Implemented.
   ##
 
-  # TODO Generalize this for other type of multiaddresses
   let peerInfo = node.peerInfo
   var listenStr = ""
   for address in node.announcedAddresses:
