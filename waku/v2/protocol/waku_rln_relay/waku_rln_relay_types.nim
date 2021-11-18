@@ -12,7 +12,7 @@ import
 type Bn256* = pointer
 type RLN*[E] = pointer
 
-
+# just a test
 type 
   # identity key as defined in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
   IDKey* = array[32, byte]
