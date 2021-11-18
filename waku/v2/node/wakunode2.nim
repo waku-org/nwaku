@@ -394,7 +394,10 @@ proc info*(node: WakuNode): WakuInfo =
 
   # TODO Generalize this for other type of multiaddresses
   let peerInfo = node.peerInfo
-  let listenStr = $peerInfo.addrs[^1] & "/p2p/" & $peerInfo.peerId
+  var listenStr = ""
+  for address in node.announcedAddresses:
+    var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]" 
+    listenStr &= fulladdr
   let wakuInfo = WakuInfo(listenStr: listenStr)
   return wakuInfo
 
