@@ -78,7 +78,7 @@ type WakuRLNRelay* = ref object
   rlnInstance*: RLN[Bn256]
   pubsubTopic*: string # the pubsub topic for which rln relay is mounted
   # the log of nullifiers and Shamir shares of the past messages grouped per epoch
-  nullifierLog*: Table[Epoch, seq[ProofMetadata]]
+  # nullifierLog*: Table[Epoch, seq[ProofMetadata]]
 
 # type MessageValidationResult* {.pure.} = enum
 #     Valid, Invalid, Spam
