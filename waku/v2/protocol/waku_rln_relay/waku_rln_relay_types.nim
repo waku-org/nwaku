@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import 
-  std/tables,
+  # std/tables,
   options, chronos, stint,
   web3,
   eth/keys,
