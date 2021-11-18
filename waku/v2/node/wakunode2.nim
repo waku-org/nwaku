@@ -34,7 +34,7 @@ export
   waku_swap,
   waku_filter,
   waku_lightpush
-  # waku_rln_relay_types
+  waku_rln_relay_types
 
 when defined(rln):
   import
