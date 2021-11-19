@@ -22,8 +22,8 @@ proc getSecureKey(path : string): TLSPrivateKey
   try:
     let key = TLSPrivateKey.init(stringkey)
     return key
-  except:
-    raise newException(TLSStreamProtocolError,"Secure key init failed")
+  except TLSStreamProtocolError as exc:
+    echo exc.msg
     
 
 
