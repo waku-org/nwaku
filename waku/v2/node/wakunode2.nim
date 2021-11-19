@@ -42,6 +42,7 @@ when defined(rln):
     web3,
     ../protocol/waku_rln_relay/[rln, waku_rln_relay_utils]
 
+# just a test
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicGauge waku_node_filters, "number of content filter subscriptions"
 declarePublicGauge waku_node_errors, "number of wakunode errors", ["type"]
