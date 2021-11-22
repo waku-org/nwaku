@@ -18,24 +18,22 @@ proc withWsTransport*(b: SwitchBuilder): SwitchBuilder =
 proc getSecureKey(path : string): TLSPrivateKey
   {.raises: [Defect,TLSStreamProtocolError, IOError].} =
   trace "Key path is.", path=path
-  let stringkey: string = readFile(path)
+  var stringkey: string = readFile(path)
   try:
     let key = TLSPrivateKey.init(stringkey)
     return key
   except TLSStreamProtocolError as exc:
-    echo exc.msg
-    echo stringkey
+    debug "exception raised from getSecureKey", msg=exc.msg
 
 proc getSecureCert(path : string): TLSCertificate
   {.raises: [Defect,TLSStreamProtocolError, IOError].} =
   trace "Certificate path is.", path=path
-  let stringCert: string = readFile(path)
+  var stringCert: string = readFile(path)
   try:
     let cert  = TLSCertificate.init(stringCert)
     return cert
   except TLSStreamProtocolError as exc:
-    echo exc.msg
-    echo stringCert
+    debug "exception raised from getSecureCert", msg=exc.msg
 
 proc withWssTransport*(b: SwitchBuilder,
                         secureKeyPath: string,
