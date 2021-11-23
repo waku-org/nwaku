@@ -440,10 +440,20 @@ when defined(rln):
     proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
       let msg = WakuMessage.init(message.data) 
       if msg.isOk():
-        #  check the proof
-        if node.wakuRlnRelay.rlnInstance.proofVerify(msg.value().payload, msg.value().proof):
-          return ValidationResult.Accept
-      return ValidationResult.Reject
+        let 
+          wakumessage = msg.value()
+          # validate the message
+          validationRes = node.wakuRlnRelay.validateMessage(wakumessage)
+        case validationRes:
+          of Valid:
+            info "message validity is verified, relaying:", wakumessage=wakumessage
+            return ValidationResult.Accept
+          of Invalid:
+            info "message validity could not be verified, discarding:", wakumessage=wakumessage
+            return ValidationResult.Reject
+          of Spam:
+            info "A spam message is found! yay! discarding:", wakumessage=wakumessage
+            return ValidationResult.Reject          
     # set a validator for the supplied pubsubTopic 
     let pb  = PubSub(node.wakuRelay)
     pb.addValidator(pubsubTopic, validator)
