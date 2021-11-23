@@ -208,6 +208,7 @@ proc publish(c: Chat, line: string) =
     if encodedPayload.isOk():
       let message = WakuMessage(payload: encodedPayload.get(),
         contentTopic: c.contentTopic, version: version)
+      # TODO add proof
       if not c.node.wakuLightPush.isNil():
         # Attempt lightpush
         asyncSpawn c.node.lightpush(DefaultTopic, message, handler)
@@ -219,6 +220,7 @@ proc publish(c: Chat, line: string) =
     # No payload encoding/encryption from Waku
     let message = WakuMessage(payload: chat2pb.buffer,
       contentTopic: c.contentTopic, version: 0)
+    # TODO add proof
     if not c.node.wakuLightPush.isNil():
       # Attempt lightpush
       asyncSpawn c.node.lightpush(DefaultTopic, message, handler)
