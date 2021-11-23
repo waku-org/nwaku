@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[tables, sequtils, options],
+  std/[tables, sequtils, options, times],
   bearssl,
   chronos, chronicles, metrics, stew/results,
   libp2p/protocols/pubsub/pubsubpeer,
@@ -35,6 +35,11 @@ const
 const
   dialFailure = "dial_failure"
   decodeRpcFailure = "decode_rpc_failure"
+
+# Map for failed dialed peers
+var 
+  failedPeers = initTable[string, float]()
+
 
 proc notify*(filters: Filters, msg: WakuMessage, requestId: string = "") {.raises: [Defect, KeyError]} =
   for key in filters.keys:
@@ -194,13 +199,20 @@ proc init*(T: type WakuFilter, peerManager: PeerManager, rng: ref BrHmacDrbgCont
                       peerManager: peerManager, 
                       pushHandler: handler)
   wf.init()
-  
   return wf
 
 proc setPeer*(wf: WakuFilter, peer: RemotePeerInfo) =
   wf.peerManager.addPeer(peer, WakuFilterCodec)
   waku_filter_peers.inc()
 
+proc handleClientError*(wf: WakuFilter, peer: RemotePeerInfo){.raises: [Defect, KeyError].} = 
+  var stringkey: string = $(peer.peerId)
+  if failedPeers.hasKey(stringkey): 
+    failedPeers[stringkey] = cpuTime()
+  else:
+    if(failedPeers[stringkey] - cpuTime() > 60):
+      removePeer(wf.peerManager, peer)
+      failedPeers.del(stringkey)
 
 proc handleMessage*(wf: WakuFilter, topic: string, msg: WakuMessage) {.async.} =
   # Handle WakuMessage according to filter protocol
@@ -221,7 +233,7 @@ proc handleMessage*(wf: WakuFilter, topic: string, msg: WakuMessage) {.async.} =
         if connOpt.isSome:
           await connOpt.get().writeLP(push.encode().buffer)
         else:
-          # @TODO more sophisticated error handling here
+          #handleClientError(wf, subscriber.peer)
           error "failed to push messages to remote peer"
           waku_filter_errors.inc(labelValues = [dialFailure])
         break
