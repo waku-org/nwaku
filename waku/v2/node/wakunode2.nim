@@ -447,6 +447,7 @@ when defined(rln):
         case validationRes:
           of Valid:
             return ValidationResult.Accept
+            info "message validity is verified, relaying:", wakumessage=wakumessage
           of Invalid:
             info "message validity could not be verified, discarding:", wakumessage=wakumessage
             return ValidationResult.Reject
