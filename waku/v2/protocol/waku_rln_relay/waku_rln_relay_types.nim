@@ -1,6 +1,7 @@
 {.push raises: [Defect].}
 
 import 
+  std/tables,
   options, chronos, stint,
   web3,
   eth/keys,
@@ -56,6 +57,11 @@ type RateLimitProof* = object
   
 type MembershipIndex* = uint
 
+type ProofMetadata* = object
+  nullifier*: Nullifier
+  shareX*: MerkleNode
+  shareY*: MerkleNode
+
 type WakuRLNRelay* = ref object 
   membershipKeyPair*: MembershipKeyPair
   # membershipIndex denotes the index of a leaf in the Merkle tree 
@@ -71,7 +77,11 @@ type WakuRLNRelay* = ref object
   ethAccountPrivateKey*: Option[PrivateKey]
   rlnInstance*: RLN[Bn256]
   pubsubTopic*: string # the pubsub topic for which rln relay is mounted
-  
+  # the log of nullifiers and Shamir shares of the past messages grouped per epoch
+  nullifierLog*: Table[Epoch, seq[ProofMetadata]]
+
+type MessageValidationResult* {.pure.} = enum
+    Valid, Invalid, Spam
 
 # inputs of the membership contract constructor
 # TODO may be able to make these constants private and put them inside the waku_rln_relay_utils
@@ -103,8 +113,12 @@ const
   # the root is created locally, using createMembershipList proc from waku_rln_relay_utils module, and the result is hardcoded in here 
   STATIC_GROUP_MERKLE_ROOT* = "a1877a553eff12e1b21632a0545a916a5c5b8060ad7cc6c69956741134397b2d"  
 
-# Protobufs enc and init
+const EPOCH_UNIT_SECONDS* = float64(2) 
+const MAX_CLOCK_GAP_SECONDS* = 20.0 # the maximum clock difference between peers
+# maximum allowed gap between the epochs of messages' RateLimitProofs 
+const MAX_EPOCH_GAP* = int64(MAX_CLOCK_GAP_SECONDS/EPOCH_UNIT_SECONDS) 
 
+# Protobufs enc and init
 proc init*(T: type RateLimitProof, buffer: seq[byte]): ProtoResult[T] =
   var nsp: RateLimitProof
   let pb = initProtoBuffer(buffer)

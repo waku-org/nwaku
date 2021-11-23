@@ -2,7 +2,7 @@
 {.used.}
 
 import
-  std/options, sequtils,
+  std/options, sequtils, times,
   testutils/unittests, chronos, chronicles, stint, web3,
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
@@ -188,7 +188,7 @@ procSuite "Waku rln relay":
 
     # initialize the WakuRLNRelay 
     var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
-      membershipIndex: uint(0),
+      membershipIndex: MembershipIndex(0),
       ethClientAddress: EthClient,
       ethAccountAddress: ethAccountAddress,
       membershipContractAddress: contractAddress)
@@ -759,3 +759,144 @@ suite "Waku rln relay":
     let verified = rln.proofVerify(data = messageBytes,
                                  proof = proof)
     check verified == false
+  test "toEpoch and fromEpoch consistency check":
+    # check edge cases
+    let 
+      time = uint64.high
+      epoch = time.toEpoch()
+      decodedTime = epoch.fromEpoch()
+    check time == decodedTime
+    debug "encoded and decode time", time=time, epoch=epoch, decodedTime=decodedTime
+  
+  test "Epoch comparison":
+    # check edge cases
+    let 
+      time1 = uint64.high
+      time2 = uint64.high - 1
+      epoch1 = time1.toEpoch()
+      epoch2 = time2.toEpoch()
+    check compare(epoch1, epoch2) == int64(1)
+    check compare(epoch2, epoch1) == int64(-1)
+  
+  test "updateLog and hasDuplicate tests":
+    let 
+      wakurlnrelay = WakuRLNRelay()
+      epoch = getCurrentEpoch()
+
+    #  cretae some dummy nullifiers and secret shares
+    var nullifier1: Nullifier
+    for index, x in nullifier1.mpairs: nullifier1[index] = 1
+    var shareX1: MerkleNode
+    for index, x in shareX1.mpairs: shareX1[index] = 1
+    let shareY1 = shareX1
+
+    var nullifier2: Nullifier
+    for index, x in nullifier2.mpairs: nullifier2[index] = 2
+    var shareX2: MerkleNode
+    for index, x in shareX2.mpairs: shareX2[index] = 2
+    let shareY2 = shareX2
+
+    let nullifier3 = nullifier1
+    var shareX3: MerkleNode
+    for index, x in shareX3.mpairs: shareX3[index] = 3
+    let shareY3 = shareX3
+
+    let 
+      wm1 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier1, shareX: shareX1, shareY: shareY1))
+      wm2 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier2, shareX: shareX2, shareY: shareY2))
+      wm3 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier3, shareX: shareX3, shareY: shareY3))
+
+    # check whether hasDuplicate correctly finds records with the same nullifiers but different secret shares
+    # no duplicate for wm1 should be found, since the log is empty
+    let result1 = wakurlnrelay.hasDuplicate(wm1)
+    check:
+      result1.isOk
+      # no duplicate is found
+      result1.value == false
+    #  add it to the log
+    discard wakurlnrelay.updateLog(wm1)
+
+    # # no duplicate for wm2 should be found, its nullifier differs from wm1
+    let result2 = wakurlnrelay.hasDuplicate(wm2)
+    check:
+      result2.isOk
+      # no duplicate is found
+      result2.value == false
+    #  add it to the log
+    discard wakurlnrelay.updateLog(wm2)
+
+    #  wm3 has the same nullifier as wm1 but different secret shares, it should be detected as duplicate
+    let result3 = wakurlnrelay.hasDuplicate(wm3)
+    check:
+      result3.isOk 
+      # it is a duplicate
+      result3.value == true
+
+  test "validateMessage test":
+    # setup a wakurlnrelay peer with a static group----------
+
+    # create a group of 100 membership keys
+    let
+      (groupKeys, root) = createMembershipList(100)
+      # convert the keys to MembershipKeyPair structs
+      groupKeyPairs = groupKeys.toMembershipKeyPairs()
+      # extract the id commitments
+      groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
+    debug "groupKeyPairs", groupKeyPairs
+    debug "groupIDCommitments", groupIDCommitments
+   
+    # index indicates the position of a membership key pair in the static list of group keys i.e., groupKeyPairs 
+    # the corresponding key pair will be used to mount rlnRelay on the current node
+    # index also represents the index of the leaf in the Merkle tree that contains node's commitment key 
+    let index = MembershipIndex(5)
+
+    # create an RLN instance
+    var rlnInstance = createRLNInstance()
+    doAssert(rlnInstance.isOk)
+    var rln = rlnInstance.value
+
+    # add members
+    discard rln.addAll(groupIDCommitments)
+
+    let 
+      wakuRlnRelay = WakuRLNRelay(membershipIndex: index, membershipKeyPair: groupKeyPairs[index], rlnInstance: rln)
+
+    # get the current epoch time 
+    let time = epochTime()
+
+    #  create some messages from the same peer and append rln proof to them, except wm4
+    var 
+      wm1 = WakuMessage(payload: "Valid message".toBytes())
+      proofAdded1 = wakuRlnRelay.appendRLNProof(wm1, time)
+      # another message in the same epoch as wm1, it will break the messaging rate limit
+      wm2 = WakuMessage(payload: "Spam".toBytes())
+      proofAdded2 = wakuRlnRelay.appendRLNProof(wm2, time)
+      #  wm3 points to the next epoch 
+      wm3 = WakuMessage(payload: "Valid message".toBytes())
+      proofAdded3 = wakuRlnRelay.appendRLNProof(wm3, time+EPOCH_UNIT_SECONDS)
+      wm4 = WakuMessage(payload: "Invalid message".toBytes())      
+      
+    # checks proofs are added
+    check:
+      proofAdded1
+      proofAdded2
+      proofAdded3
+
+    # validate messages
+    # validateMessage proc checks the validity of the message fields and adds it to the log (if valid)
+    let
+      msgValidate1 = wakuRlnRelay.validateMessage(wm1)
+      # wm2 is published within the same Epoch as wm1 and should be found as spam
+      msgValidate2 = wakuRlnRelay.validateMessage(wm2)
+      # a valid message should be validated successfully 
+      msgValidate3 = wakuRlnRelay.validateMessage(wm3)
+      # wm4 has no rln proof and should not be validated
+      msgValidate4 = wakuRlnRelay.validateMessage(wm4)
+
+    
+    check:
+      msgValidate1 == MessageValidationResult.Valid
+      msgValidate2 == MessageValidationResult.Spam      
+      msgValidate3 == MessageValidationResult.Valid
+      msgValidate4 == MessageValidationResult.Invalid
+
