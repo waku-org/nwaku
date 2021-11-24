@@ -147,6 +147,7 @@ else  ifeq ($(CI), true)
 	cargo build --manifest-path vendor/rln/Cargo.toml
 endif
 
+
 test2: | build deps installganache
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test2 $(NIM_PARAMS) waku.nims
