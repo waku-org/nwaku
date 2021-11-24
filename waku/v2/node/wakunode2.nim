@@ -68,7 +68,7 @@ type
 
   WakuInfo* = object
     # NOTE One for simplicity, can extend later as needed
-    listenStr*: string
+    listenAddresses*: seq[string]
     #multiaddrStrings*: seq[string]
 
   # NOTE based on Eth2Node in NBC eth2_network.nim
@@ -392,10 +392,12 @@ proc info*(node: WakuNode): WakuInfo =
   ## Status: Implemented.
   ##
 
-  # TODO Generalize this for other type of multiaddresses
   let peerInfo = node.peerInfo
-  let listenStr = $peerInfo.addrs[^1] & "/p2p/" & $peerInfo.peerId
-  let wakuInfo = WakuInfo(listenStr: listenStr)
+  var listenStr : seq[string]
+  for address in node.announcedAddresses:
+    var fulladdr = $address & "/p2p/" & $peerInfo.peerId
+    listenStr &= fulladdr
+  let wakuInfo = WakuInfo(listenAddresses: listenStr)
   return wakuInfo
 
 proc mountFilter*(node: WakuNode) {.raises: [Defect, KeyError, LPError]} =
