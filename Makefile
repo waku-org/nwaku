@@ -68,6 +68,8 @@ endif
 
 ifeq ($(RLN), true)
 NIM_PARAMS := $(NIM_PARAMS) -d:rln 
+else  ifeq ($(CI), true)
+NIM_PARAMS := $(NIM_PARAMS) -d:rln 
 endif
 
 deps: | deps-common nat-libs waku.nims rlnlib
@@ -131,13 +133,17 @@ else
  detected_OS := $(strip $(shell uname))
 endif
 
-installganache: 
-ifeq ($(RLN), true)
+installganache:
+ifeq ($(RLN), true) 
+	npm install ganache-cli; npx ganache-cli -p	8540	-g	0	-l	3000000000000&
+else  ifeq ($(CI), true)
 	npm install ganache-cli; npx ganache-cli -p	8540	-g	0	-l	3000000000000&
 endif
 
 rlnlib:
 ifeq ($(RLN), true)
+	cargo build --manifest-path vendor/rln/Cargo.toml
+else  ifeq ($(CI), true)
 	cargo build --manifest-path vendor/rln/Cargo.toml
 endif
 
