@@ -9,8 +9,9 @@
 {.push raises: [Defect].}
 
 import
-  libp2p/protobuf/minprotobuf,
-  waku_rln_relay/waku_rln_relay_types
+  libp2p/protobuf/minprotobuf
+when defined(rln):
+  import waku_rln_relay/waku_rln_relay_types
 
 type
   ContentTopic* = string

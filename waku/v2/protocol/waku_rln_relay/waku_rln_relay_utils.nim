@@ -1,13 +1,14 @@
 {.push raises: [Defect].}
 
 import 
-  std/sequtils,
+  std/sequtils, tables, times,
   chronicles, options, chronos, stint,
   web3,
   stew/results,
   stew/[byteutils, arrayops, endians2],
   rln, 
-  waku_rln_relay_types
+  waku_rln_relay_types,
+  ../waku_message
 
 logScope:
   topics = "wakurlnrelayutils"
@@ -339,3 +340,158 @@ proc rlnRelaySetUp*(rlnRelayMemIndex: MembershipIndex): (Option[seq[IDCommitment
     memIndexOpt= some(rlnRelayMemIndex)
     
   return (groupOpt, memKeyPairOpt, memIndexOpt)
+
+proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): Result[bool, string] = 
+  ## returns true if there is another message in the  `nullifierLog` of the `rlnPeer` with the same 
+  ## epoch and nullifier as `msg`'s epoch and nullifier but different Shamir secret shares
+  ## otherwise, returns false
+  ## emits an error string if `KeyError` occurs (never happens, it is just to avoid raising unnecessary `KeyError` exception )
+  
+  # extract the proof metadata of the supplied `msg`
+  let proofMD = ProofMetadata(nullifier: msg.proof.nullifier, shareX: msg.proof.shareX, shareY: msg.proof.shareY)
+
+  # check if the epoch exists
+  if not rlnPeer.nullifierLog.hasKey(msg.proof.epoch):
+    return ok(false)
+  try:
+    if rlnPeer.nullifierLog[msg.proof.epoch].contains(proofMD):
+      # there is an identical record, ignore rhe mag
+      return ok(false)
+
+    # check for a message with the same nullifier but different secret shares
+    let matched = rlnPeer.nullifierLog[msg.proof.epoch].filterIt((it.nullifier == proofMD.nullifier) and ((it.shareX != proofMD.shareX) or (it.shareY != proofMD.shareY)))
+    
+    if matched.len != 0:
+      # there is a duplicate
+      return ok(true)
+    
+    # there is no duplicate
+    return ok(false)
+
+  except KeyError as e:
+    return err("the epoch was not found")
+
+proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): Result[bool, string] =
+  ## extracts  the `ProofMetadata` of the supplied messages `msg` and  
+  ## saves it in the `nullifierLog` of the `rlnPeer`
+
+  let proofMD = ProofMetadata(nullifier: msg.proof.nullifier, shareX: msg.proof.shareX, shareY: msg.proof.shareY)
+  debug "proof metadata", proofMD=proofMD
+
+  # check if the epoch exists
+  if not rlnPeer.nullifierLog.hasKey(msg.proof.epoch):
+    rlnPeer.nullifierLog[msg.proof.epoch]= @[proofMD]
+    return ok(true)
+  
+  try:
+    # check if an identical record exists
+    if rlnPeer.nullifierLog[msg.proof.epoch].contains(proofMD):
+      return ok(true)
+    # add proofMD to the log
+    rlnPeer.nullifierLog[msg.proof.epoch].add(proofMD)
+    return ok(true)
+  except KeyError as e:
+    return err("the epoch was not found")
+
+proc toEpoch*(t: uint64): Epoch =
+  ## converts `t` to `Epoch` in little-endian order
+  let bytes = toBytes(t, Endianness.littleEndian)
+  debug "bytes", bytes=bytes
+  var epoch: Epoch
+  discard epoch.copyFrom(bytes)
+  return epoch
+
+proc fromEpoch*(epoch: Epoch): uint64 =
+  ## decodes bytes of `epoch` (in little-endian) to uint64
+  let t = fromBytesLE(uint64, array[32,byte](epoch))
+  return t
+
+proc calcEpoch*(t: float64): Epoch = 
+  ## gets time `t` as `flaot64` with subseconds resolution in the fractional part
+  ## and returns its corresponding rln `Epoch` value
+  let e = uint64(t/EPOCH_UNIT_SECONDS)
+  return toEpoch(e)
+
+proc getCurrentEpoch*(): Epoch =
+  ## gets the current rln Epoch time
+  return calcEpoch(epochTime())
+
+proc compare*(e1, e2: Epoch): int64 =
+  ## returns the difference between the two rln `Epoch`s `e1` and `e2`
+  ## i.e., e1 - e2 
+  
+  # convert epochs to their corresponding unsigned numerical values
+  let 
+    epoch1 = fromEpoch(e1)
+    epoch2 = fromEpoch(e2)
+  return int64(epoch1) - int64(epoch2)
+
+
+proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage): MessageValidationResult =
+  ## validate the supplied `msg` based on the waku-rln-relay routing protocol i.e.,
+  ## the `msg`'s epoch is within MAX_EPOCH_GAP of the current epoch
+  ## the `msg` has valid rate limit proof
+  ## the `msg` does not violate the rate limit
+
+  
+  #  checks if the `msg`'s epoch is far from the current epoch
+  # it corresponds to the validation of rln external nullifier
+  let 
+    # get current rln epoch
+    epoch = getCurrentEpoch()
+    msgEpoch = msg.proof.epoch
+    # calculate the gaps
+    gap = compare(epoch, msgEpoch)
+  
+  # validate the epoch
+  if abs(gap) >= MAX_EPOCH_GAP:
+    # message's epoch is too old or too ahead
+    # accept messages whose epoch is within +-MAX_EPOCH_GAP from the current epoch
+    return MessageValidationResult.Invalid
+  
+  # verify the proof
+  if not rlnPeer.rlnInstance.proofVerify(msg.payload, msg.proof):
+    # invalid proof
+    return MessageValidationResult.Invalid
+  
+  # check if double messaging has happened
+  let hasDup = rlnPeer.hasDuplicate(msg)
+  if hasDup.isOk and hasDup.value == true:
+    return MessageValidationResult.Spam
+
+  # insert the message to the log 
+  # the result of `updateLog` is discarded because message insertion is guaranteed by the implementation i.e.,
+  # it will never error out
+  discard rlnPeer.updateLog(msg)
+  return MessageValidationResult.Valid
+
+
+proc appendRLNProof*(rlnPeer: WakuRLNRelay, msg: var WakuMessage, senderEpochTime: float64): bool = 
+  ## returns true if it can create and append a `RateLimitProof` to the supplied `msg`
+  ## returns false otherwise
+  ## `senderEpochTime` indicates the number of seconds passed since Unix epoch. The fractional part holds sub-seconds.
+  ## The `epoch` field of `RateLimitProof` is derived from the provided `senderEpochTime` (using `calcEpoch()`)
+
+  let 
+    contentTopicBytes = msg.contentTopic.toBytes
+    input = concat(msg.payload, contentTopicBytes)
+  
+  var proof: RateLimitProofResult = proofGen(rlnInstance = rlnPeer.rlnInstance, data = input,
+                     memKeys = rlnPeer.membershipKeyPair, 
+                     memIndex = rlnPeer.membershipIndex, 
+                     epoch = calcEpoch(senderEpochTime))
+  
+  if proof.isErr:
+    return false
+
+  msg.proof = proof.value
+  return true
+
+proc addAll*(rlnInstance: RLN[Bn256], list: seq[IDCommitment]): bool = 
+  # add members to the Merkle tree of the  `rlnInstance`
+  for i in 0..list.len-1:
+    let member = list[i]
+    let member_is_added = rlnInstance.insertMember(member)
+    if not member_is_added:
+      return false
+  return true
