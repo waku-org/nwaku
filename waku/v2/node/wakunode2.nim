@@ -393,11 +393,11 @@ proc info*(node: WakuNode): WakuInfo =
   ##
 
   let peerInfo = node.peerInfo
-  var listenStr = ""
+  var listenStr : seq[string]
   for address in node.announcedAddresses:
-    var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]" 
+    var fulladdr = $address & "/p2p/" & $peerInfo.peerId
     listenStr &= fulladdr
-  let wakuInfo = WakuInfo(listenStr: listenStr)
+  let wakuInfo = WakuInfo(listenStr: $(listenStr))
   return wakuInfo
 
 proc mountFilter*(node: WakuNode) {.raises: [Defect, KeyError, LPError]} =
