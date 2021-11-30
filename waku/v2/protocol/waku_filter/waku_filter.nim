@@ -224,6 +224,7 @@ proc handleMessage*(wf: WakuFilter, topic: string, msg: WakuMessage) {.async.} =
     if subscriber.filter.pubSubTopic != "" and subscriber.filter.pubSubTopic != topic:
       trace "Subscriber's filter pubsubTopic does not match message topic", filter=subscriber.filter.pubSubTopic, topic=topic
       continue
+    
     for filter in subscriber.filter.contentFilters:
       if msg.contentTopic == filter.contentTopic:
         trace "Found matching contentTopic", filter=filter, msg=msg
@@ -232,6 +233,7 @@ proc handleMessage*(wf: WakuFilter, topic: string, msg: WakuMessage) {.async.} =
         if connOpt.isSome:
           await connOpt.get().writeLP(push.encode().buffer)
         else:
+          # @TODO more sophisticated error handling here
           handleMessageFailed = true
           failedSubscriber = subscriber
           error "failed to push messages to remote peer"

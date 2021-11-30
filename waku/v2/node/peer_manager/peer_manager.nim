@@ -208,21 +208,6 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string) =
   if not pm.storage.isNil:
     pm.storage.insertOrReplace(remotePeerInfo.peerId, pm.peerStore.get(remotePeerInfo.peerId), NotConnected)
 
-# Delete peer
-proc removePeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo) =
-  # Remove peer from manager for the specified protocol
-  if remotePeerInfo.peerId == pm.switch.peerInfo.peerId:
-    # Do not attempt to manage our unmanageable self
-    return
-  debug "Removing peer from manager", peerId = remotePeerInfo.peerId, addr = remotePeerInfo.addrs[0]
-  var err = false;
-  err = pm.peerStore.addressBook.delete(remotePeerInfo.peerId) and 
-        pm.peerStore.keyBook.delete(remotePeerInfo.peerId) and
-        pm.peerStore.protoBook.delete(remotePeerInfo.peerId)
-  if err:
-    echo "everything allright"
-  return
-
 proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
   # Selects the best peer for a given protocol
   let peers = pm.peers.filterIt(it.protos.contains(proto))
