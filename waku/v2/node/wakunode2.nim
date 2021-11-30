@@ -125,6 +125,22 @@ proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilte
   
   debug "filters modified", filters=filters
 
+proc updateSwitchPeerInfo(node: WakuNode) =
+  ## TODO: remove this when supported upstream
+  ## 
+  ## nim-libp2p does not yet support announcing addrs
+  ## different from bound addrs.
+  ## 
+  ## This is a temporary workaround to replace
+  ## peer info addrs in switch to announced
+  ## addresses.
+  ## 
+  ## WARNING: this should only be called once the switch
+  ## has already been started.
+  
+  if node.announcedAddresses.len > 0:
+    node.switch.peerInfo.addrs = node.announcedAddresses
+
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
@@ -838,6 +854,9 @@ proc start*(node: WakuNode) {.async.} =
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
   info "Discoverable ENR ", enr = node.enr.toURI()
+
+  ## Update switch peer info with announced addrs
+  node.updateSwitchPeerInfo()
 
   if not node.wakuRelay.isNil:
     await node.startRelay()
