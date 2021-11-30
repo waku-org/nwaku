@@ -30,16 +30,12 @@ logScope:
 
 const
   WakuFilterCodec* = "/vac/waku/filter/2.0.0-beta1"
+  WakuFilterTimeout = 60 * 60 * 24
 
 # Error types (metric label values)
 const
   dialFailure = "dial_failure"
   decodeRpcFailure = "decode_rpc_failure"
-
-# Map for failed dialed peers
-#var 
-#  failedPeers = initTable[string, float]()
-
 
 proc notify*(filters: Filters, msg: WakuMessage, requestId: string = "") {.raises: [Defect, KeyError]} =
   for key in filters.keys:
@@ -168,7 +164,7 @@ proc encode*(rpc: FilterRPC): ProtoBuffer =
 
   return output
 
-method init*(wf: WakuFilter) =
+method init*(wf: WakuFilter, filterTimeout: float) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var message = await conn.readLp(64*1024)
     var res = FilterRPC.init(message)
@@ -192,13 +188,14 @@ method init*(wf: WakuFilter) =
 
   wf.handler = handle
   wf.codec = WakuFilterCodec
+  wf.timeout = filterTimeout
 
-proc init*(T: type WakuFilter, peerManager: PeerManager, rng: ref BrHmacDrbgContext, handler: MessagePushHandler): T =
+proc init*(T: type WakuFilter, peerManager: PeerManager, rng: ref BrHmacDrbgContext, handler: MessagePushHandler,timeout: float = WakuFilterTimeout): T =
   let rng = crypto.newRng()
   var wf = WakuFilter(rng: rng,
                       peerManager: peerManager, 
                       pushHandler: handler)
-  wf.init()
+  wf.init(filterTimeout = timeout)
   return wf
 
 proc setPeer*(wf: WakuFilter, peer: RemotePeerInfo) =
@@ -208,15 +205,15 @@ proc setPeer*(wf: WakuFilter, peer: RemotePeerInfo) =
 proc handleClientError*(wf: WakuFilter, subscriber: Subscriber){.raises: [Defect, KeyError], async.} = 
   var stringkey: string = $(subscriber)
   if not wf.failedPeers.hasKey(stringkey):
-    wf.failedPeers[stringkey] = cpuTime()
+    wf.failedPeers[stringkey] = epochTime()
   else:
-    var elapsedTime = cpuTime() - wf.failedPeers[stringkey]
+    var elapsedTime = epochTime() - wf.failedPeers[stringkey]
     wf.failedPeers.del(stringkey)
-    if(elapsedTime > 0.001):
+    if(elapsedTime > wf.timeout):
       var index = wf.subscribers.find(subscriber)
       wf.subscribers.delete(index)
   return
-      
+
 
 proc handleMessage*(wf: WakuFilter, topic: string, msg: WakuMessage) {.async.} =
   # Handle WakuMessage according to filter protocol

@@ -46,3 +46,4 @@ type
     subscribers*: seq[Subscriber]
     pushHandler*: MessagePushHandler
     failedPeers*: Table[string, float]
+    timeout*: float
