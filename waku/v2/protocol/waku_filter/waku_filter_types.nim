@@ -45,3 +45,4 @@ type
     peerManager*: PeerManager
     subscribers*: seq[Subscriber]
     pushHandler*: MessagePushHandler
+    failedPeers*: Table[string, float]

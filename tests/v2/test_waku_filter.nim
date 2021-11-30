@@ -145,7 +145,7 @@ procSuite "Waku Filter":
     check:
       idOpt.isNone
 
-  asyncTest "Can subscribe and unsubscribe from content filter":
+  asyncTest "Handle failed clients":
     const defaultTopic = "/waku/2/default-waku/proto"
 
     let
@@ -191,21 +191,22 @@ procSuite "Waku Filter":
       # Check that subscription works as expected
       (await responseCompletionFuture.withTimeout(3.seconds)) == true
     
-    # Reset to test unsubscribe
-    responseCompletionFuture = newFuture[bool]()
-
-    echo $proto.peerManager.peers()
+    # Stop switch to test unsubscribe
     discard dialSwitch.stop()
+
     await sleepAsync(2.seconds)
-    #discard await listenSwitch.start()
-    await sleepAsync(2.seconds)
-    #listenSwitch.mount(proto2)
-    #await proto.unsubscribe(rpcU)
-    #await sleepAsync(2.seconds)
+    
+    #First failure should not remove the subscription
     await proto2.handleMessage(defaultTopic, post)
+
     await sleepAsync(2000.millis)
-    echo $proto.peerManager.peers()
+    check:
+      proto2.subscribers.len() == 1
+    
+    #Second failure should remove the subscription
     await proto2.handleMessage(defaultTopic, post)
-    await sleepAsync(2000.millis)
-    echo $proto.peerManager.peers()
+    
+    check:
+      proto2.subscribers.len() == 0
+  
     

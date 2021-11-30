@@ -37,8 +37,8 @@ const
   decodeRpcFailure = "decode_rpc_failure"
 
 # Map for failed dialed peers
-var 
-  failedPeers = initTable[string, float]()
+#var 
+#  failedPeers = initTable[string, float]()
 
 
 proc notify*(filters: Filters, msg: WakuMessage, requestId: string = "") {.raises: [Defect, KeyError]} =
@@ -205,38 +205,43 @@ proc setPeer*(wf: WakuFilter, peer: RemotePeerInfo) =
   wf.peerManager.addPeer(peer, WakuFilterCodec)
   waku_filter_peers.inc()
 
-proc handleClientError*(wf: WakuFilter, peer: RemotePeerInfo){.raises: [Defect, KeyError].} = 
-  var stringkey: string = $(peer.peerId)
-  if failedPeers.hasKey(stringkey): 
-    failedPeers[stringkey] = cpuTime()
+proc handleClientError*(wf: WakuFilter, subscriber: Subscriber){.raises: [Defect, KeyError], async.} = 
+  var stringkey: string = $(subscriber)
+  if not wf.failedPeers.hasKey(stringkey):
+    wf.failedPeers[stringkey] = cpuTime()
   else:
-    if(failedPeers[stringkey] - cpuTime() > 60):
-      removePeer(wf.peerManager, peer)
-      failedPeers.del(stringkey)
+    var elapsedTime = cpuTime() - wf.failedPeers[stringkey]
+    wf.failedPeers.del(stringkey)
+    if(elapsedTime > 0.001):
+      var index = wf.subscribers.find(subscriber)
+      wf.subscribers.delete(index)
+  return
+      
 
 proc handleMessage*(wf: WakuFilter, topic: string, msg: WakuMessage) {.async.} =
   # Handle WakuMessage according to filter protocol
   trace "handle message in WakuFilter", topic=topic, msg=msg
-
+  var handleMessageFailed = false
+  var failedSubscriber: Subscriber
   for subscriber in wf.subscribers:
     if subscriber.filter.pubSubTopic != "" and subscriber.filter.pubSubTopic != topic:
       trace "Subscriber's filter pubsubTopic does not match message topic", filter=subscriber.filter.pubSubTopic, topic=topic
       continue
-
     for filter in subscriber.filter.contentFilters:
       if msg.contentTopic == filter.contentTopic:
         trace "Found matching contentTopic", filter=filter, msg=msg
         let push = FilterRPC(requestId: subscriber.requestId, push: MessagePush(messages: @[msg]))
-        
         let connOpt = await wf.peerManager.dialPeer(subscriber.peer, WakuFilterCodec)
-
         if connOpt.isSome:
           await connOpt.get().writeLP(push.encode().buffer)
         else:
-          #handleClientError(wf, subscriber.peer)
+          handleMessageFailed = true
+          failedSubscriber = subscriber
           error "failed to push messages to remote peer"
           waku_filter_errors.inc(labelValues = [dialFailure])
         break
+  if handleMessageFailed:
+    discard handleClientError(wf, failedSubscriber)
 
 proc subscribe*(wf: WakuFilter, request: FilterRequest): Future[Option[string]] {.async, gcsafe.} =
   let peerOpt = wf.peerManager.selectPeer(WakuFilterCodec)
