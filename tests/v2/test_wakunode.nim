@@ -1389,3 +1389,37 @@ asyncTest "Messages are relayed between nodes with multiple transports (websocke
       (await completionFut.withTimeout(5.seconds)) == true
     await node1.stop()
     await node2.stop()
+  
+asyncTest "Peer info updates with correct announced addresses":
+  let
+    nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+    bindIp = ValidIpAddress.init("0.0.0.0")
+    bindPort = Port(60000)
+    extIp = some(ValidIpAddress.init("127.0.0.1"))
+    extPort = some(Port(60002))
+    node = WakuNode.new(
+      nodeKey,
+      bindIp, bindPort,
+      extIp, extPort)
+     
+  let
+    bindEndpoint = MultiAddress.init(bindIp, tcpProtocol, bindPort)
+    announcedEndpoint = MultiAddress.init(extIp.get(), tcpProtocol, extPort.get())
+
+  check:
+    # Check that underlying peer info contains only bindIp before starting
+    node.switch.peerInfo.addrs.len == 1
+    node.switch.peerInfo.addrs.contains(bindEndpoint)
+    
+    node.announcedAddresses.len == 1
+    node.announcedAddresses.contains(announcedEndpoint)
+      
+  await node.start()
+
+  check:
+    # Check that underlying peer info is updated with announced address
+    node.started
+    node.switch.peerInfo.addrs.len == 1
+    node.switch.peerInfo.addrs.contains(announcedEndpoint)
+
+  await node.stop()
