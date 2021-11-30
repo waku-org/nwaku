@@ -17,7 +17,7 @@ pipeline {
     string(
       name: 'VERBOSITY',
       description: 'Makefile verbosity level.(0-2)',
-      defaultValue: params.VERBOSITY ?: '0'
+      defaultValue: params.VERBOSITY ?: '1'
     )
     string(
       name: 'MAKEFLAGS',

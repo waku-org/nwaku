@@ -71,7 +71,7 @@ type
 
   WakuInfo* = object
     # NOTE One for simplicity, can extend later as needed
-    listenStr*: string
+    listenAddresses*: seq[string]
     #multiaddrStrings*: seq[string]
 
   # NOTE based on Eth2Node in NBC eth2_network.nim
@@ -127,6 +127,22 @@ proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilte
     filters.del(rId)
   
   debug "filters modified", filters=filters
+
+proc updateSwitchPeerInfo(node: WakuNode) =
+  ## TODO: remove this when supported upstream
+  ## 
+  ## nim-libp2p does not yet support announcing addrs
+  ## different from bound addrs.
+  ## 
+  ## This is a temporary workaround to replace
+  ## peer info addrs in switch to announced
+  ## addresses.
+  ## 
+  ## WARNING: this should only be called once the switch
+  ## has already been started.
+  
+  if node.announcedAddresses.len > 0:
+    node.switch.peerInfo.addrs = node.announcedAddresses
 
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
@@ -395,10 +411,12 @@ proc info*(node: WakuNode): WakuInfo =
   ## Status: Implemented.
   ##
 
-  # TODO Generalize this for other type of multiaddresses
   let peerInfo = node.peerInfo
-  let listenStr = $peerInfo.addrs[^1] & "/p2p/" & $peerInfo.peerId
-  let wakuInfo = WakuInfo(listenStr: listenStr)
+  var listenStr : seq[string]
+  for address in node.announcedAddresses:
+    var fulladdr = $address & "/p2p/" & $peerInfo.peerId
+    listenStr &= fulladdr
+  let wakuInfo = WakuInfo(listenAddresses: listenStr)
   return wakuInfo
 
 proc mountFilter*(node: WakuNode, filterTimeout: float = WakuFilterTimeout) {.raises: [Defect, KeyError, LPError]} =
@@ -839,6 +857,9 @@ proc start*(node: WakuNode) {.async.} =
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
   info "Discoverable ENR ", enr = node.enr.toURI()
+
+  ## Update switch peer info with announced addrs
+  node.updateSwitchPeerInfo()
 
   if not node.wakuRelay.isNil:
     await node.startRelay()
