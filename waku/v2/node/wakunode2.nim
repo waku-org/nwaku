@@ -55,6 +55,9 @@ const clientId* = "Nimbus Waku v2 node"
 # Default topic
 const defaultTopic = "/waku/2/default-waku/proto"
 
+# Default Waku Filter Timeout
+const WakuFilterTimeout = 60 * 60 * 24
+
 
 # key and crypto modules different
 type
@@ -398,7 +401,7 @@ proc info*(node: WakuNode): WakuInfo =
   let wakuInfo = WakuInfo(listenStr: listenStr)
   return wakuInfo
 
-proc mountFilter*(node: WakuNode, filterTimeout: float) {.raises: [Defect, KeyError, LPError]} =
+proc mountFilter*(node: WakuNode, filterTimeout: float = WakuFilterTimeout) {.raises: [Defect, KeyError, LPError]} =
   info "mounting filter"
   proc filterHandler(requestId: string, msg: MessagePush)
     {.gcsafe, raises: [Defect, KeyError].} =
