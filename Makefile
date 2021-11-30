@@ -72,7 +72,7 @@ else  ifeq ($(CI), true)
 NIM_PARAMS := $(NIM_PARAMS) -d:rln 
 endif
 
-deps: | deps-common nat-libs waku.nims rlnlib
+deps: | deps-common nat-libs waku.nims rlnlib 
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
 endif
