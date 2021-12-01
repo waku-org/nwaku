@@ -19,9 +19,7 @@ import
   ../protocol/waku_filter/waku_filter,
   ../protocol/waku_lightpush/waku_lightpush,
   ../protocol/waku_rln_relay/[waku_rln_relay_types], 
-  ../utils/peers,
-  ../utils/requests,
-  ../utils/wakuswitch,
+  ../utils/[peers, requests, wakuswitch, wakuenr],
   ./storage/migration/migration_types,
   ./peer_manager/peer_manager,
   ./dnsdisc/waku_dnsdisc,
@@ -144,13 +142,9 @@ proc updateSwitchPeerInfo(node: WakuNode) =
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
-
-template addWsFlag() =
-  MultiAddress.init("/ws").tryGet()
-
-template addWssFlag() =
-  MultiAddress.init("/wss").tryGet()
-
+func wsFlag(wssEnabled: bool): MultiAddress {.raises: [Defect, LPError]} =
+  if wssEnabled: MultiAddress.init("/wss").tryGet()
+  else: MultiAddress.init("/ws").tryGet()
 
 proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
@@ -161,32 +155,50 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     wsEnabled: bool = false,
     wssEnabled: bool = false,
     secureKey: string = "",
-    secureCert: string = ""): T 
-    {.raises: [Defect, LPError, IOError,TLSStreamProtocolError].} =
+    secureCert: string = "",
+    wakuFlags = none(WakuEnrBitfield)
+    ): T 
+    {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
   ## Creates a Waku Node.
   ##
   ## Status: Implemented.
   ##
+
+  # Initialize addresses
+  let
+    # Bind addresses
+    hostAddress = tcpEndPoint(bindIp, bindPort)
+    wsHostAddress = tcpEndPoint(bindIp, wsbindPort) & wsFlag(wssEnabled)
+
+    # Optional external addresses
+    hostExtAddress = if extIp.isNone() or extPort.isNone(): none(MultiAddress)
+                     else: some(tcpEndPoint(extIp.get(), extPort.get()))
+    wsExtAddress = if wsEnabled == false and wssEnabled == false: none(MultiAddress)
+                   elif hostExtAddress.isNone(): none(MultiAddress)
+                   else: some(tcpEndPoint(extIp.get(), wsBindPort) & wsFlag(wssEnabled))
+
+  var announcedAddresses: seq[MultiAddress]
+  if hostExtAddress.isSome:
+    announcedAddresses.add(hostExtAddress.get())
+    
+  if wsExtAddress.isSome:
+    announcedAddresses.add(wsExtAddress.get())
+  
+  # Initialize peer
   let
     rng = crypto.newRng()
-    hostAddress = tcpEndPoint(bindIp, bindPort)
-    wsHostAddress = if wssEnabled: tcpEndPoint(bindIp, wsbindPort) & addWssFlag
-                    else: tcpEndPoint(bindIp, wsbindPort) & addWsFlag
-    announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
-                        elif wsEnabled == false and wssEnabled == false: 
-                          @[tcpEndPoint(extIp.get(), extPort.get())]
-                        elif wssEnabled:
-                          @[tcpEndPoint(extIp.get(), extPort.get()),
-                          tcpEndPoint(extIp.get(), wsBindPort) & addWssFlag]
-                        else : @[tcpEndPoint(extIp.get(), extPort.get()),
-                          tcpEndPoint(extIp.get(), wsBindPort) & addWsFlag]
     peerInfo = PeerInfo.new(nodekey)
     enrIp = if extIp.isSome(): extIp
             else: some(bindIp)
     enrTcpPort = if extPort.isSome(): extPort
                  else: some(bindPort)
-    enr = createEnr(nodeKey, enrIp, enrTcpPort, none(Port))
-    
+    enrMultiaddrs = if wsExtAddress.isSome: @[wsExtAddress.get()] # Only add ws/wss to `multiaddrs` field
+                    else: @[]
+    enr = initEnr(nodeKey,
+                  enrIp,
+                  enrTcpPort, none(Port),
+                  wakuFlags,
+                  enrMultiaddrs)
   
   if wsEnabled or wssEnabled:
     info "Initializing networking", hostAddress, wsHostAddress,
@@ -200,15 +212,15 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     peerInfo.addrs.add(multiaddr) 
 
   var switch = newWakuSwitch(some(nodekey),
-  hostAddress,
-  wsHostAddress, 
-  transportFlags = {ServerFlags.ReuseAddr},
-  rng = rng, 
-  maxConnections = maxConnections,
-  wsEnabled = wsEnabled,
-  wssEnabled = wssEnabled,
-  secureKeyPath = secureKey,
-  secureCertPath = secureCert)
+    hostAddress,
+    wsHostAddress,
+    transportFlags = {ServerFlags.ReuseAddr},
+    rng = rng, 
+    maxConnections = maxConnections,
+    wsEnabled = wsEnabled,
+    wssEnabled = wssEnabled,
+    secureKeyPath = secureKey,
+    secureCertPath = secureCert)
   
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
@@ -408,9 +420,13 @@ proc info*(node: WakuNode): WakuInfo =
   ## Status: Implemented.
   ##
 
-  let peerInfo = node.peerInfo
+  let
+    peerInfo = node.peerInfo
+    availableAddrs = if node.announcedAddress.len > 0: node.announcedAddresses
+                     else: node.peerInfo.addrs
+  
   var listenStr : seq[string]
-  for address in node.announcedAddresses:
+  for address in availableAddrs:
     var fulladdr = $address & "/p2p/" & $peerInfo.peerId
     listenStr &= fulladdr
   let wakuInfo = WakuInfo(listenAddresses: listenStr)
@@ -975,6 +991,11 @@ when isMainModule:
                   some(Port(uint16(conf.tcpPort) + conf.portsShift))
                 else:
                   extTcpPort
+      
+      wakuFlags = initWakuFlags(conf.lightpush,
+                                conf.filter,
+                                conf.store,
+                                conf.relay)
 
       node = WakuNode.new(conf.nodekey,
                         conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
@@ -985,7 +1006,8 @@ when isMainModule:
                         conf.websocketSupport,
                         conf.websocketSecureSupport,
                         conf.websocketSecureKeyPath,
-                        conf.websocketSecureCertPath
+                        conf.websocketSecureCertPath,
+                        some(wakuFlags)
                         )
     
     if conf.discv5Discovery:
@@ -998,10 +1020,7 @@ when isMainModule:
         conf.discv5BootstrapNodes,
         conf.discv5EnrAutoUpdate,
         keys.PrivateKey(conf.nodekey.skkey),
-        initWakuFlags(conf.lightpush,
-                      conf.filter,
-                      conf.store,
-                      conf.relay),
+        wakuFlags,
         [], # Empty enr fields, for now
         node.rng
       )
