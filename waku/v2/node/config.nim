@@ -131,8 +131,8 @@ type
     
     filterTimeout* {.
       desc: "Timeout for filter node in seconds.",
-      defaultValue: 60 * 60 * 24
-      name: "filter-timeout" }: float
+      defaultValue: 86400
+      name: "filter-timeout" }: int64
     
     ## Swap config
 

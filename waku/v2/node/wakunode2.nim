@@ -56,7 +56,7 @@ const clientId* = "Nimbus Waku v2 node"
 const defaultTopic = "/waku/2/default-waku/proto"
 
 # Default Waku Filter Timeout
-const WakuFilterTimeout = 60 * 60 * 24
+const WakuFilterTimeout: Duration = chronos.days(1)
 
 
 # key and crypto modules different
@@ -419,7 +419,7 @@ proc info*(node: WakuNode): WakuInfo =
   let wakuInfo = WakuInfo(listenAddresses: listenStr)
   return wakuInfo
 
-proc mountFilter*(node: WakuNode, filterTimeout: float = WakuFilterTimeout) {.raises: [Defect, KeyError, LPError]} =
+proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {.raises: [Defect, KeyError, LPError]} =
   info "mounting filter"
   proc filterHandler(requestId: string, msg: MessagePush)
     {.gcsafe, raises: [Defect, KeyError].} =
@@ -1075,7 +1075,7 @@ when isMainModule:
     
     # Filter setup. NOTE Must be mounted after relay
     if (conf.filternode != "") or (conf.filter):
-      mountFilter(node, filterTimeout = conf.filterTimeout)
+      mountFilter(node, filterTimeout = chronos.seconds(conf.filterTimeout))
 
       if conf.filternode != "":
         setFilterPeer(node, conf.filternode)

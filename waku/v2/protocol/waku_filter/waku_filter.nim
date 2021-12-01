@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[tables, sequtils, options, times],
+  std/[tables, sequtils, options],
   bearssl,
   chronos, chronicles, metrics, stew/results,
   libp2p/protocols/pubsub/pubsubpeer,
@@ -30,7 +30,7 @@ logScope:
 
 const
   WakuFilterCodec* = "/vac/waku/filter/2.0.0-beta1"
-  WakuFilterTimeout = 60 * 60 * 24
+  WakuFilterTimeout: Duration = chronos.days(1)
 
 # Error types (metric label values)
 const
@@ -164,7 +164,7 @@ proc encode*(rpc: FilterRPC): ProtoBuffer =
 
   return output
 
-method init*(wf: WakuFilter, filterTimeout: float) =
+method init*(wf: WakuFilter, filterTimeout: Duration) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var message = await conn.readLp(64*1024)
     var res = FilterRPC.init(message)
@@ -190,7 +190,7 @@ method init*(wf: WakuFilter, filterTimeout: float) =
   wf.codec = WakuFilterCodec
   wf.timeout = filterTimeout
 
-proc init*(T: type WakuFilter, peerManager: PeerManager, rng: ref BrHmacDrbgContext, handler: MessagePushHandler,timeout: float = WakuFilterTimeout): T =
+proc init*(T: type WakuFilter, peerManager: PeerManager, rng: ref BrHmacDrbgContext, handler: MessagePushHandler,timeout: Duration = WakuFilterTimeout): T =
   let rng = crypto.newRng()
   var wf = WakuFilter(rng: rng,
                       peerManager: peerManager, 
@@ -207,14 +207,14 @@ proc setPeer*(wf: WakuFilter, peer: RemotePeerInfo) =
 proc handleClientError*(wf: WakuFilter, subscriber: Subscriber){.raises: [Defect, KeyError], async.} = 
   var subKey: string = $(subscriber)
   if wf.failedPeers.hasKey(subKey):
-    var elapsedTime = epochTime() - wf.failedPeers[subKey]
+    var elapsedTime = Moment.now() - wf.failedPeers[subKey]
     if(elapsedTime > wf.timeout):
       var index = wf.subscribers.find(subscriber)
       wf.subscribers.delete(index)
       wf.failedPeers.del(subKey)
   else:
     # add the peer to the failed peers table.
-    wf.failedPeers[subKey] = epochTime() 
+    wf.failedPeers[subKey] = Moment.now() 
   return
 
 

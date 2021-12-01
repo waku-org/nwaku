@@ -177,7 +177,7 @@ procSuite "Waku Filter":
     proc emptyHandle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
       discard
 
-    let proto2 = WakuFilter.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle, 1)
+    let proto2 = WakuFilter.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle, 1.seconds)
 
     listenSwitch.mount(proto2)
 
