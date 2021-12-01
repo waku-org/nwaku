@@ -202,16 +202,19 @@ proc setPeer*(wf: WakuFilter, peer: RemotePeerInfo) =
   wf.peerManager.addPeer(peer, WakuFilterCodec)
   waku_filter_peers.inc()
 
+# If we have already failed to send message to this peer,
+# check for elapsed time and if it's been too long, remove the peer.
 proc handleClientError*(wf: WakuFilter, subscriber: Subscriber){.raises: [Defect, KeyError], async.} = 
-  var stringkey: string = $(subscriber)
-  if not wf.failedPeers.hasKey(stringkey):
-    wf.failedPeers[stringkey] = epochTime()
-  else:
-    var elapsedTime = epochTime() - wf.failedPeers[stringkey]
-    wf.failedPeers.del(stringkey)
+  var subKey: string = $(subscriber)
+  if wf.failedPeers.hasKey(subKey):
+    var elapsedTime = epochTime() - wf.failedPeers[subKey]
     if(elapsedTime > wf.timeout):
       var index = wf.subscribers.find(subscriber)
       wf.subscribers.delete(index)
+      wf.failedPeers.del(subKey)
+  else:
+    # add the peer to the failed peers table.
+    wf.failedPeers[subKey] = epochTime() 
   return
 
 
@@ -240,6 +243,7 @@ proc handleMessage*(wf: WakuFilter, topic: string, msg: WakuMessage) {.async.} =
           waku_filter_errors.inc(labelValues = [dialFailure])
         break
   if handleMessageFailed:
+    trace "Remove peer if timeout has reached for", peer=subscriber.peer
     discard handleClientError(wf, failedSubscriber)
 
 proc subscribe*(wf: WakuFilter, request: FilterRequest): Future[Option[string]] {.async, gcsafe.} =
