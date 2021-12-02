@@ -5,7 +5,7 @@ This patch release contains the following fix:
 - Support for full secure websockets.
 
 ### Changes
-- The WakuInfo Object field of listenStr is depreciated and is now replaced with listenAddresses
+- The WakuInfo Object field of `listenStr` is deprecated and is now replaced with `listenAddresses`
 which is a sequence of string.
 
 ## 2021-11-05 v0.6
