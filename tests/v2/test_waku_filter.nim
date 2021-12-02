@@ -271,6 +271,8 @@ procSuite "Waku Filter":
     #Second failure should remove the subscription
     await proto2.handleMessage(defaultTopic, post)
     
+    discard responseCompletionFuture.withTimeout(3.seconds)
+  
     check:
       proto2.failedPeers.len() == 0
 
