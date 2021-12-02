@@ -1266,7 +1266,8 @@ asyncTest "Messages relaying fails with non-overlapping transports (TCP or Webso
     node2.mountRelay(@[pubSubTopic])
 
     #delete websocket peer address
-    node2.peerInfo.addrs.delete(1)
+    # TODO: a better way to find the index - this is too brittle
+    node2.peerInfo.addrs.delete(0)
 
     await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
 

@@ -164,27 +164,32 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   ## Status: Implemented.
   ##
 
-  # Initialize addresses
+  ## Initialize addresses
   let
     # Bind addresses
     hostAddress = tcpEndPoint(bindIp, bindPort)
-    wsHostAddress = tcpEndPoint(bindIp, wsbindPort) & wsFlag(wssEnabled)
+    wsHostAddress = if wsEnabled or wssEnabled: some(tcpEndPoint(bindIp, wsbindPort) & wsFlag(wssEnabled))
+                    else: none(MultiAddress)
 
-    # Optional external addresses
+    # External addresses
     hostExtAddress = if extIp.isNone() or extPort.isNone(): none(MultiAddress)
                      else: some(tcpEndPoint(extIp.get(), extPort.get()))
-    wsExtAddress = if wsEnabled == false and wssEnabled == false: none(MultiAddress)
+    wsExtAddress = if wsHostAddress.isNone(): none(MultiAddress)
                    elif hostExtAddress.isNone(): none(MultiAddress)
                    else: some(tcpEndPoint(extIp.get(), wsBindPort) & wsFlag(wssEnabled))
 
   var announcedAddresses: seq[MultiAddress]
   if hostExtAddress.isSome:
     announcedAddresses.add(hostExtAddress.get())
+  else:
+    announcedAddresses.add(hostAddress) # We always have at least a bind address for the host
     
   if wsExtAddress.isSome:
     announcedAddresses.add(wsExtAddress.get())
+  elif wsHostAddress.isSome:
+    announcedAddresses.add(wsHostAddress.get())
   
-  # Initialize peer
+  ## Initialize peer
   let
     rng = crypto.newRng()
     peerInfo = PeerInfo.new(nodekey)
@@ -193,6 +198,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     enrTcpPort = if extPort.isSome(): extPort
                  else: some(bindPort)
     enrMultiaddrs = if wsExtAddress.isSome: @[wsExtAddress.get()] # Only add ws/wss to `multiaddrs` field
+                    elif wsHostAddress.isSome: @[wsHostAddress.get()]
                     else: @[]
     enr = initEnr(nodeKey,
                   enrIp,
@@ -200,24 +206,18 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
                   wakuFlags,
                   enrMultiaddrs)
   
-  if wsEnabled or wssEnabled:
-    info "Initializing networking", hostAddress, wsHostAddress,
-                                    announcedAddresses
-    peerInfo.addrs.add(wsHostAddress)
-  else : 
-    info "Initializing networking", hostAddress, announcedAddresses
-    
-  peerInfo.addrs.add(hostAddress)
+  # TODO: local peerInfo should be removed
   for multiaddr in announcedAddresses:
     peerInfo.addrs.add(multiaddr) 
 
+  info "Initializing networking", addrs=peerInfo.addrs
+  
   var switch = newWakuSwitch(some(nodekey),
     hostAddress,
     wsHostAddress,
     transportFlags = {ServerFlags.ReuseAddr},
     rng = rng, 
     maxConnections = maxConnections,
-    wsEnabled = wsEnabled,
     wssEnabled = wssEnabled,
     secureKeyPath = secureKey,
     secureCertPath = secureCert)
@@ -422,11 +422,9 @@ proc info*(node: WakuNode): WakuInfo =
 
   let
     peerInfo = node.peerInfo
-    availableAddrs = if node.announcedAddress.len > 0: node.announcedAddresses
-                     else: node.peerInfo.addrs
   
   var listenStr : seq[string]
-  for address in availableAddrs:
+  for address in node.announcedAddresses:
     var fulladdr = $address & "/p2p/" & $peerInfo.peerId
     listenStr &= fulladdr
   let wakuInfo = WakuInfo(listenAddresses: listenStr)
