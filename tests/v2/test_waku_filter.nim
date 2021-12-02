@@ -273,3 +273,6 @@ procSuite "Waku Filter":
     
     check:
       proto2.failedPeers.len() == 0
+
+    discard dialSwitch.stop()
+    discard listenSwitch.stop()
