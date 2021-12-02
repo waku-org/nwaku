@@ -56,7 +56,7 @@ const clientId* = "Nimbus Waku v2 node"
 const defaultTopic = "/waku/2/default-waku/proto"
 
 # Default Waku Filter Timeout
-const WakuFilterTimeout: Duration = chronos.days(1)
+const WakuFilterTimeout: Duration = 1.days
 
 
 # key and crypto modules different

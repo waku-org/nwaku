@@ -1,8 +1,10 @@
 ##  Next version
 
-This patch release contains the following fix:
-- This Patch introduces Filter Protocol timeout.
-- Support for full secure websockets.
+This release contains the following:
+
+### Features
+- Waku v2 node timeout for Filter nodes.
+- Waku v2 node support for secure websockets.
 
 ### Changes
 - The WakuInfo Object field of `listenStr` is deprecated and is now replaced with `listenAddresses`

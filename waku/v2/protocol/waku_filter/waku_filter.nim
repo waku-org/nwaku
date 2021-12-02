@@ -30,7 +30,7 @@ logScope:
 
 const
   WakuFilterCodec* = "/vac/waku/filter/2.0.0-beta1"
-  WakuFilterTimeout: Duration = chronos.days(1)
+  WakuFilterTimeout: Duration = 1.days
 
 # Error types (metric label values)
 const
@@ -164,7 +164,7 @@ proc encode*(rpc: FilterRPC): ProtoBuffer =
 
   return output
 
-method init*(wf: WakuFilter, filterTimeout: Duration) =
+method init*(wf: WakuFilter) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var message = await conn.readLp(64*1024)
     var res = FilterRPC.init(message)
@@ -188,41 +188,49 @@ method init*(wf: WakuFilter, filterTimeout: Duration) =
 
   wf.handler = handle
   wf.codec = WakuFilterCodec
-  wf.timeout = filterTimeout
 
 proc init*(T: type WakuFilter, peerManager: PeerManager, rng: ref BrHmacDrbgContext, handler: MessagePushHandler,timeout: Duration = WakuFilterTimeout): T =
   let rng = crypto.newRng()
   var wf = WakuFilter(rng: rng,
                       peerManager: peerManager, 
-                      pushHandler: handler)
-  wf.init(filterTimeout = timeout)
+                      pushHandler: handler,
+                      timeout: timeout)
+  wf.init()
   return wf
 
 proc setPeer*(wf: WakuFilter, peer: RemotePeerInfo) =
   wf.peerManager.addPeer(peer, WakuFilterCodec)
   waku_filter_peers.inc()
 
+#clear the failed peer table if subscriber was able to connect.
+proc handleClientSuccess*(wf: WakuFilter, subscribers: seq[Subscriber]){.raises: [Defect, KeyError], async.} = 
+  for subscriber in subscribers:
+    var subKey: string = $(subscriber)
+    if wf.failedPeers.hasKey(subKey):
+      wf.failedPeers.del(subKey)
+
 # If we have already failed to send message to this peer,
 # check for elapsed time and if it's been too long, remove the peer.
-proc handleClientError*(wf: WakuFilter, subscriber: Subscriber){.raises: [Defect, KeyError], async.} = 
-  var subKey: string = $(subscriber)
-  if wf.failedPeers.hasKey(subKey):
-    var elapsedTime = Moment.now() - wf.failedPeers[subKey]
-    if(elapsedTime > wf.timeout):
-      var index = wf.subscribers.find(subscriber)
-      wf.subscribers.delete(index)
-      wf.failedPeers.del(subKey)
-  else:
-    # add the peer to the failed peers table.
-    wf.failedPeers[subKey] = Moment.now() 
+proc handleClientError*(wf: WakuFilter, subscribers: seq[Subscriber]){.raises: [Defect, KeyError], async.} = 
+  for subscriber in subscribers:
+    var subKey: string = $(subscriber)
+    if wf.failedPeers.hasKey(subKey):
+      var elapsedTime = Moment.now() - wf.failedPeers[subKey]
+      if(elapsedTime > wf.timeout):
+        var index = wf.subscribers.find(subscriber)
+        wf.subscribers.delete(index)
+        wf.failedPeers.del(subKey)
+    else:
+      # add the peer to the failed peers table.
+      wf.failedPeers[subKey] = Moment.now() 
   return
-
 
 proc handleMessage*(wf: WakuFilter, topic: string, msg: WakuMessage) {.async.} =
   # Handle WakuMessage according to filter protocol
   trace "handle message in WakuFilter", topic=topic, msg=msg
   var handleMessageFailed = false
-  var failedSubscriber: Subscriber
+  var failedSubscriber: seq[Subscriber]
+  var connectedSubscribers: seq[Subscriber]
   for subscriber in wf.subscribers:
     if subscriber.filter.pubSubTopic != "" and subscriber.filter.pubSubTopic != topic:
       trace "Subscriber's filter pubsubTopic does not match message topic", filter=subscriber.filter.pubSubTopic, topic=topic
@@ -235,13 +243,15 @@ proc handleMessage*(wf: WakuFilter, topic: string, msg: WakuMessage) {.async.} =
         let connOpt = await wf.peerManager.dialPeer(subscriber.peer, WakuFilterCodec)
         if connOpt.isSome:
           await connOpt.get().writeLP(push.encode().buffer)
+          connectedSubscribers.add(subscriber)
         else:
           # @TODO more sophisticated error handling here
           handleMessageFailed = true
-          failedSubscriber = subscriber
+          failedSubscriber.add(subscriber)
           error "failed to push messages to remote peer"
           waku_filter_errors.inc(labelValues = [dialFailure])
         break
+  discard handleClientSuccess(wf, connectedSubscribers)
   if handleMessageFailed:
     trace "Remove peer if timeout has reached for", peer=failedSubscriber.peer
     discard handleClientError(wf, failedSubscriber)
