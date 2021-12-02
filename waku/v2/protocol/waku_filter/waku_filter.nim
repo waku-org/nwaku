@@ -243,7 +243,7 @@ proc handleMessage*(wf: WakuFilter, topic: string, msg: WakuMessage) {.async.} =
           waku_filter_errors.inc(labelValues = [dialFailure])
         break
   if handleMessageFailed:
-    trace "Remove peer if timeout has reached for", peer=subscriber.peer
+    trace "Remove peer if timeout has reached for", peer=failedSubscriber.peer
     discard handleClientError(wf, failedSubscriber)
 
 proc subscribe*(wf: WakuFilter, request: FilterRequest): Future[Option[string]] {.async, gcsafe.} =
