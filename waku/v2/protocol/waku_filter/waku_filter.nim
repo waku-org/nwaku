@@ -217,6 +217,7 @@ proc handleClientError*(wf: WakuFilter, subscribers: seq[Subscriber]){.raises: [
     if wf.failedPeers.hasKey(subKey):
       var elapsedTime = Moment.now() - wf.failedPeers[subKey]
       if(elapsedTime > wf.timeout):
+        trace "Remove peer if timeout has reached for", peer=subscriber
         var index = wf.subscribers.find(subscriber)
         wf.subscribers.delete(index)
         wf.failedPeers.del(subKey)
@@ -253,7 +254,6 @@ proc handleMessage*(wf: WakuFilter, topic: string, msg: WakuMessage) {.async.} =
         break
   discard handleClientSuccess(wf, connectedSubscribers)
   if handleMessageFailed:
-    trace "Remove peer if timeout has reached for", peer=failedSubscriber.peer
     discard handleClientError(wf, failedSubscriber)
 
 proc subscribe*(wf: WakuFilter, request: FilterRequest): Future[Option[string]] {.async, gcsafe.} =
