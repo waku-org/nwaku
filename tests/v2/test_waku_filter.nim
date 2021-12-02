@@ -255,6 +255,8 @@ procSuite "Waku Filter":
       # Check that subscription works as expected
       (await responseCompletionFuture.withTimeout(3.seconds)) == true
     
+    responseCompletionFuture = newFuture[bool]()
+
     # Stop switch to test unsubscribe
     discard dialSwitch.stop()
 
