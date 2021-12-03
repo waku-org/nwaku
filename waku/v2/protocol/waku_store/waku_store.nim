@@ -459,8 +459,9 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
   if res.isErr:
     warn "failed to load messages from store", err = res.error
     waku_store_errors.inc(labelValues = ["store_load_failure"])
+  else:
+    info "successfully loaded from store"
   
-  info "successfully loaded from store"
   debug "the number of messages in the memory", messageNum=ws.messages.len
   waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
 
