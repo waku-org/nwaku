@@ -13,6 +13,11 @@ procSuite "ENR utils":
   asyncTest "Parse multiaddr field":
     let
       reasonable = "0x000A047F0000010601BADD03".hexToSeqByte()
+      reasonableDns4 = ("0x002F36286E6F64652D30312E646F2D616D73332E77616B7576322E746" &
+                       "573742E737461747573696D2E6E65740601BBDE03003837316E6F64652D" &
+                       "30312E61632D636E2D686F6E676B6F6E672D632E77616B7576322E74657" &
+                       "3742E737461747573696D2E6E65740601BBDE030029BD03ADADEC040BE0" &
+                       "47F9658668B11A504F3155001F231A37F54C4476C07FB4CC139ED7E30304D2DE03").hexToSeqByte()
       tooLong = "0x000B047F0000010601BADD03".hexToSeqByte()
       tooShort = "0x000A047F0000010601BADD0301".hexToSeqByte()
       gibberish = "0x3270ac4e5011123c".hexToSeqByte()
@@ -22,8 +27,9 @@ procSuite "ENR utils":
     ## any addresses we can and ignore other errors.
     ## Worst case scenario is we return an empty `multiaddrs` seq.    
     check:
-      # Expected case
+      # Expected cases
       reasonable.toMultiAddresses().contains(MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[])
+      reasonableDns4.toMultiAddresses().contains(MultiAddress.init("/dns4/node-01.do-ams3.wakuv2.test.statusim.net/tcp/443/wss")[])
       # Buffer exceeded
       tooLong.toMultiAddresses().len() == 0
       # Buffer remainder
