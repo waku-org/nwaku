@@ -50,7 +50,7 @@ proc withWssTransport*(b: SwitchBuilder,
 proc newWakuSwitch*(
     privKey = none(crypto.PrivateKey),
     address = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet(),
-    wsAddress = MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet(),
+    wsAddress = none(MultiAddress),
     secureManagers: openarray[SecureProtocol] = [
         SecureProtocol.Noise,
       ],
@@ -63,14 +63,10 @@ proc newWakuSwitch*(
     maxOut = -1,
     maxConnsPerPeer = MaxConnectionsPerPeer,
     nameResolver: NameResolver = nil,
-    wsEnabled: bool = false,
     wssEnabled: bool = false,
     secureKeyPath: string = "",
     secureCertPath: string = ""): Switch
     {.raises: [Defect,TLSStreamProtocolError,IOError, LPError].} =
-
-    if wsEnabled == true and wssEnabled == true:
-       debug "Websocket and secure websocket are enabled simultaneously."
 
     var b = SwitchBuilder
       .new()
@@ -85,12 +81,14 @@ proc newWakuSwitch*(
       .withNameResolver(nameResolver)
     if privKey.isSome():
       b = b.withPrivateKey(privKey.get())
-    if wsEnabled == true:
-      b = b.withAddresses(@[wsAddress, address])
-      b = b.withWsTransport()
-    elif wssEnabled == true:
-      b = b.withAddresses(@[wsAddress, address])
-      b = b.withWssTransport(secureKeyPath, secureCertPath)
+    if wsAddress.isSome():
+      b = b.withAddresses(@[wsAddress.get(), address])
+
+      if wssEnabled:
+        b = b.withWssTransport(secureKeyPath, secureCertPath)
+      else:
+        b = b.withWsTransport()
+
     else :
       b = b.withAddress(address)
 

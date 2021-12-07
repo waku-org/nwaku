@@ -107,9 +107,9 @@ proc runMigrations*(sqliteDatabase: SqliteDatabase, conf: WakuNodeConf) =
     migrationPath = migration_types.MESSAGE_STORE_MIGRATION_PATH
 
   # run migration 
-  info "running migration ... "
+  info "running migration ...", migrationPath=migrationPath
   let migrationResult = sqliteDatabase.migrate(migrationPath)
   if migrationResult.isErr:
-    warn "migration failed"
+    warn "migration failed", error=migrationResult.error
   else:
     info "migration is done"

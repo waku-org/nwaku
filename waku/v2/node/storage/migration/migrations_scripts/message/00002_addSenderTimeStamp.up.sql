@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS Message(
     ) WITHOUT ROWID;
 
 
-INSERT INTO Message SELECT id, timestamp, contentTopic, pubsubTopic, payload, version, 0  FROM Message_backup;
+INSERT INTO Message (id, receiverTimestamp, contentTopic, pubsubTopic, payload, version, senderTimestamp)
+    SELECT id, timestamp, contentTopic, pubsubTopic, payload, version, 0
+    FROM Message_backup;
 
 DROP TABLE Message_backup;

@@ -1,16 +1,15 @@
 {.push raises: [Defect].}
 
 import
-  std/[bitops, sequtils, strutils, options],
+  std/[sequtils, strutils, options],
   chronos, chronicles, metrics,
   eth/keys,
   eth/p2p/discoveryv5/[enr, node, protocol],
-  stew/shims/net,
   stew/results,
   ../config,
-  ../../utils/peers
+  ../../utils/[peers, wakuenr]
 
-export protocol
+export protocol, wakuenr
 
 declarePublicGauge waku_discv5_discovered, "number of nodes discovered"
 declarePublicGauge waku_discv5_errors, "number of waku discv5 errors", ["type"]
@@ -19,17 +18,9 @@ logScope:
   topics = "wakudiscv5"
 
 type
-  ## 8-bit flag field to indicate Waku capabilities.
-  ## Only the 4 LSBs are currently defined according
-  ## to RFC31 (https://rfc.vac.dev/spec/31/).
-  WakuEnrBitfield* = uint8 
-
   WakuDiscoveryV5* = ref object
     protocol*: protocol.Protocol
     listening*: bool
-
-const
-  WAKU_ENR_FIELD* = "waku2"
 
 ####################
 # Helper functions #
@@ -66,16 +57,6 @@ proc addBootstrapNode(bootstrapAddr: string,
   else:
     warn "Ignoring invalid bootstrap address",
           bootstrapAddr, reason = enrRes.error
-
-proc initWakuFlags*(lightpush, filter, store, relay: bool): WakuEnrBitfield =
-  ## Creates an waku2 ENR flag bit field according to RFC 31 (https://rfc.vac.dev/spec/31/)
-  var v = 0b0000_0000'u8
-  if lightpush: v.setBit(3)
-  if filter: v.setBit(2)
-  if store: v.setBit(1)
-  if relay: v.setBit(0)
-
-  return v.WakuEnrBitfield
 
 proc isWakuNode(node: Node): bool =
   let wakuField = node.record.tryGet(WAKU_ENR_FIELD, uint8)
@@ -123,7 +104,7 @@ proc new*(T: type WakuDiscoveryV5,
           discv5UdpPort: Port,
           bootstrapNodes: seq[string],
           enrAutoUpdate = false,
-          privateKey: PrivateKey,
+          privateKey: keys.PrivateKey,
           flags: WakuEnrBitfield,
           enrFields: openArray[(string, seq[byte])],
           rng: ref BrHmacDrbgContext): T =
