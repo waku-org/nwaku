@@ -33,23 +33,6 @@ type
     client*: Client
     resolver*: Resolver
 
-##################
-# Util functions #
-##################
-
-func createEnr*(privateKey: crypto.PrivateKey,
-                enrIp: Option[ValidIpAddress],
-                enrTcpPort, enrUdpPort: Option[Port]): enr.Record =
-  
-  assert privateKey.scheme == PKScheme.Secp256k1
-
-  let
-    rawPk = privateKey.getRawBytes().expect("Private key is valid")
-    pk = keys.PrivateKey.fromRaw(rawPk).expect("Raw private key is of valid length")
-    enr = enr.Record.init(1, pk, enrIp, enrTcpPort, enrUdpPort).expect("Record within size limits")
-  
-  return enr
-
 #####################
 # DNS Discovery API #
 #####################
