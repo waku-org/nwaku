@@ -247,6 +247,7 @@ proc migrate*(db: SqliteDatabase, path: string, targetVersion: int64 = migration
     ok(true)
   
   else:
+    info "database user_version outdated. migrating.", userVersion=userVersion, targetVersion=targetVersion
     # TODO check for the down migrations i.e., userVersion.value > tragetVersion
     # fetch migration scripts
     let migrationScriptsRes = getScripts(path)
@@ -260,6 +261,9 @@ proc migrate*(db: SqliteDatabase, path: string, targetVersion: int64 = migration
       return err("failed to filter migration scripts")
     
     let scripts = scriptsRes.value
+    if (scripts.len == 0):
+      return err("no suitable migration scripts")
+    
     debug "scripts to be run", scripts=scripts
     
     
