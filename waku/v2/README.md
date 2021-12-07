@@ -148,7 +148,7 @@ Running a secure websocket requires an ssl certificate. We can create a self sig
 ```
 mkdir -p ../ssl_dir/
 
-openssl req -x509 -newkey rsa:4096 -keyout ../ssl_dir/key.pem -out ../ssl_dir/cert.pem -sha256
+openssl req -x509 -newkey rsa:4096 -keyout ../ssl_dir/key.pem -out ../ssl_dir/cert.pem -sha256 -nodes
 
 ./build/wakunode2 --websocket-secure-support=true --websocket-secure-key-path="../ssl_dir/key.pem" --websocket-secure-cert-path="../ssl_dir/cert.pem"
 ```
