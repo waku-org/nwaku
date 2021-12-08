@@ -203,7 +203,7 @@ proc setPeer*(wf: WakuFilter, peer: RemotePeerInfo) =
   waku_filter_peers.inc()
 
 #clear the failed peer table if subscriber was able to connect.
-proc handleClientSuccess*(wf: WakuFilter, subscribers: seq[Subscriber]){.raises: [Defect, KeyError], async.} = 
+proc handleClientSuccess(wf: WakuFilter, subscribers: seq[Subscriber]){.raises: [Defect, KeyError].} = 
   for subscriber in subscribers:
     var subKey: string = $(subscriber)
     if wf.failedPeers.hasKey(subKey):
@@ -211,7 +211,7 @@ proc handleClientSuccess*(wf: WakuFilter, subscribers: seq[Subscriber]){.raises:
 
 # If we have already failed to send message to this peer,
 # check for elapsed time and if it's been too long, remove the peer.
-proc handleClientError*(wf: WakuFilter, subscribers: seq[Subscriber]){.raises: [Defect, KeyError], async.} = 
+proc handleClientError(wf: WakuFilter, subscribers: seq[Subscriber]){.raises: [Defect, KeyError].} = 
   for subscriber in subscribers:
     var subKey: string = $(subscriber)
     if wf.failedPeers.hasKey(subKey):
@@ -252,9 +252,9 @@ proc handleMessage*(wf: WakuFilter, topic: string, msg: WakuMessage) {.async.} =
           error "failed to push messages to remote peer"
           waku_filter_errors.inc(labelValues = [dialFailure])
         break
-  discard handleClientSuccess(wf, connectedSubscribers)
+  handleClientSuccess(wf, connectedSubscribers)
   if handleMessageFailed:
-    discard handleClientError(wf, failedSubscriber)
+    handleClientError(wf, failedSubscriber)
 
 proc subscribe*(wf: WakuFilter, request: FilterRequest): Future[Option[string]] {.async, gcsafe.} =
   let peerOpt = wf.peerManager.selectPeer(WakuFilterCodec)
