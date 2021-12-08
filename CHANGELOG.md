@@ -1,3 +1,15 @@
+##  Next version
+
+This release contains the following:
+
+### Features
+- Waku v2 node timeout for Filter nodes.
+- Waku v2 node support for secure websockets.
+
+### Changes
+- The WakuInfo Object field of `listenStr` is deprecated and is now replaced with `listenAddresses`
+which is a sequence of string.
+
 ## 2021-11-05 v0.6
 
 Some useful features and fixes in this release, include:
