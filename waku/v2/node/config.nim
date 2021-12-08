@@ -7,7 +7,7 @@ import
   nimcrypto/utils,
   eth/keys,
   ../protocol/waku_rln_relay/[waku_rln_relay_types]
-
+   
 type
   WakuNodeConf* = object
     ## General node config
@@ -128,6 +128,11 @@ type
       desc: "Peer multiaddr to request content filtering of messages.",
       defaultValue: ""
       name: "filternode" }: string
+    
+    filterTimeout* {.
+      desc: "Timeout for filter node in seconds.",
+      defaultValue: 14400 # 4 hours
+      name: "filter-timeout" }: int64
     
     ## Swap config
 

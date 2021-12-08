@@ -53,6 +53,9 @@ const clientId* = "Nimbus Waku v2 node"
 # Default topic
 const defaultTopic = "/waku/2/default-waku/proto"
 
+# Default Waku Filter Timeout
+const WakuFilterTimeout: Duration = 1.days
+
 
 # key and crypto modules different
 type
@@ -430,7 +433,7 @@ proc info*(node: WakuNode): WakuInfo =
   let wakuInfo = WakuInfo(listenAddresses: listenStr)
   return wakuInfo
 
-proc mountFilter*(node: WakuNode) {.raises: [Defect, KeyError, LPError]} =
+proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {.raises: [Defect, KeyError, LPError]} =
   info "mounting filter"
   proc filterHandler(requestId: string, msg: MessagePush)
     {.gcsafe, raises: [Defect, KeyError].} =
@@ -440,7 +443,7 @@ proc mountFilter*(node: WakuNode) {.raises: [Defect, KeyError, LPError]} =
       node.filters.notify(message, requestId) # Trigger filter handlers on a light node
       waku_node_messages.inc(labelValues = ["filter"])
 
-  node.wakuFilter = WakuFilter.init(node.peerManager, node.rng, filterHandler)
+  node.wakuFilter = WakuFilter.init(node.peerManager, node.rng, filterHandler, filterTimeout)
   node.switch.mount(node.wakuFilter, protocolMatcher(WakuFilterCodec))
 
 # NOTE: If using the swap protocol, it must be mounted before store. This is
@@ -1089,7 +1092,7 @@ when isMainModule:
     
     # Filter setup. NOTE Must be mounted after relay
     if (conf.filternode != "") or (conf.filter):
-      mountFilter(node)
+      mountFilter(node, filterTimeout = chronos.seconds(conf.filterTimeout))
 
       if conf.filternode != "":
         setFilterPeer(node, conf.filternode)

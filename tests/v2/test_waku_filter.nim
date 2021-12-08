@@ -144,3 +144,141 @@ procSuite "Waku Filter":
 
     check:
       idOpt.isNone
+
+  asyncTest "Handle failed clients":
+    const defaultTopic = "/waku/2/default-waku/proto"
+
+    let
+      key = PrivateKey.random(ECDSA, rng[]).get()
+      peer = PeerInfo.new(key)
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
+      post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
+
+    var dialSwitch = newStandardSwitch()
+    discard await dialSwitch.start()
+
+    var listenSwitch = newStandardSwitch(some(key))
+    discard await listenSwitch.start()
+
+    var responseCompletionFuture = newFuture[bool]()
+    proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
+      check:
+        msg.messages.len() == 1
+        msg.messages[0] == post
+      responseCompletionFuture.complete(true)
+
+    let
+      proto = WakuFilter.init(PeerManager.new(dialSwitch), crypto.newRng(), handle)
+      rpc = FilterRequest(contentFilters: @[ContentFilter(contentTopic: contentTopic)], pubSubTopic: defaultTopic, subscribe: true)
+
+    dialSwitch.mount(proto)
+    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
+
+    proc emptyHandle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
+      discard
+
+    let proto2 = WakuFilter.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle, 1.seconds)
+
+    listenSwitch.mount(proto2)
+
+    let id = (await proto.subscribe(rpc)).get()
+
+    await sleepAsync(2.seconds)
+
+    await proto2.handleMessage(defaultTopic, post)
+
+    check:
+      # Check that subscription works as expected
+      (await responseCompletionFuture.withTimeout(3.seconds)) == true
+    
+    # Stop switch to test unsubscribe
+    discard dialSwitch.stop()
+
+    await sleepAsync(2.seconds)
+    
+    #First failure should not remove the subscription
+    await proto2.handleMessage(defaultTopic, post)
+
+    await sleepAsync(2000.millis)
+    check:
+      proto2.subscribers.len() == 1
+    
+    #Second failure should remove the subscription
+    await proto2.handleMessage(defaultTopic, post)
+    
+    check:
+      proto2.subscribers.len() == 0
+  
+  asyncTest "Handles failed clients coming back up":
+    const defaultTopic = "/waku/2/default-waku/proto"
+
+    let
+      key = PrivateKey.random(ECDSA, rng[]).get()
+      peer = PeerInfo.new(key)
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
+      post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
+
+    var dialSwitch = newStandardSwitch()
+    discard await dialSwitch.start()
+
+    var listenSwitch = newStandardSwitch(some(key))
+    discard await listenSwitch.start()
+
+    var responseCompletionFuture = newFuture[bool]()
+    proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
+      check:
+        msg.messages.len() == 1
+        msg.messages[0] == post
+      responseCompletionFuture.complete(true)
+
+    let
+      proto = WakuFilter.init(PeerManager.new(dialSwitch), crypto.newRng(), handle)
+      rpc = FilterRequest(contentFilters: @[ContentFilter(contentTopic: contentTopic)], pubSubTopic: defaultTopic, subscribe: true)
+
+    dialSwitch.mount(proto)
+    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
+
+    proc emptyHandle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
+      discard
+
+    let proto2 = WakuFilter.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle, 2.seconds)
+
+    listenSwitch.mount(proto2)
+
+    let id = (await proto.subscribe(rpc)).get()
+
+    await sleepAsync(2.seconds)
+
+    await proto2.handleMessage(defaultTopic, post)
+
+    check:
+      # Check that subscription works as expected
+      (await responseCompletionFuture.withTimeout(3.seconds)) == true
+    
+    responseCompletionFuture = newFuture[bool]()
+
+    # Stop switch to test unsubscribe
+    discard dialSwitch.stop()
+
+    await sleepAsync(1.seconds)
+    
+    #First failure should add to failure list
+    await proto2.handleMessage(defaultTopic, post)
+
+    check:
+      proto2.failedPeers.len() == 1
+    
+    discard dialSwitch.start()
+    dialSwitch.mount(proto)
+    #Second failure should remove the subscription
+    await proto2.handleMessage(defaultTopic, post)
+    
+    check:
+      # Check that subscription works as expected
+      (await responseCompletionFuture.withTimeout(3.seconds)) == true
+  
+    check:
+      proto2.failedPeers.len() == 0
+
+    discard dialSwitch.stop()
+    discard listenSwitch.stop()
