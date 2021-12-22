@@ -71,6 +71,9 @@ jobs:
         with:
             msystem: MSYS
             update: true
+      
+      - name: Support longpaths (Windows)
+        run: git config --system core.longpaths true
 
       - name: Checkout code
         uses: actions/checkout@v2
