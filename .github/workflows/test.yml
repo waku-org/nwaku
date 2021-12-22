@@ -95,7 +95,7 @@ jobs:
         run: mingw32-make fetch-dlls
 
       - name: Build V1 Binaries
-        run: mingw32-make LOG_LEVEL=TRACE v1
+        run: mingw32-make VERBOSE=1 LOG_LEVEL=TRACE v1
 
       - name: Build V2 Binaries
         run: mingw32-make LOG_LEVEL=TRACE v2
