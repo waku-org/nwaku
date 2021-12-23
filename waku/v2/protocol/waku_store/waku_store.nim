@@ -38,6 +38,7 @@ export
 declarePublicGauge waku_store_messages, "number of historical messages", ["type"]
 declarePublicGauge waku_store_peers, "number of store peers"
 declarePublicGauge waku_store_errors, "number of store protocol errors", ["type"]
+declarePublicGauge waku_store_queries, "number of store queries received"
 
 logScope:
   topics = "wakustore"
@@ -422,6 +423,7 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
 
     # TODO Print more info here
     info "received query"
+    waku_store_queries.inc()
 
     let value = res.value
     let response = ws.findMessages(res.value.query)
