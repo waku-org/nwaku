@@ -10,6 +10,9 @@ This release contains the following:
 - The WakuInfo Object field of `listenStr` is deprecated and is now replaced with `listenAddresses`
 which is a sequence of string.
 
+### Fixes
+- Added GossipSub `MessageIdProvider` for `11/WAKU2-RELAY` messages.
+
 ## 2021-11-05 v0.6
 
 Some useful features and fixes in this release, include:
