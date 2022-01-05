@@ -491,7 +491,7 @@ proc handleMessage*(w: WakuStore, topic: string, msg: WakuMessage) {.async.} =
 
   let index = msg.computeIndex()
   w.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: topic))
-  waku_store_messages.inc(labelValues = ["stored"])
+  waku_store_messages.set(w.messages.len.int64, labelValues = ["stored"])
   if w.store.isNil:
     return
 
@@ -673,9 +673,9 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
           continue
         
       ws.messages.add(indexedWakuMsg)
-      waku_store_messages.inc(labelValues = ["stored"])
-      
       added = added + 1
+    
+    waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
 
     debug "number of duplicate messages found in resume", dismissed=dismissed
     debug "number of messages added via resume", added=added
