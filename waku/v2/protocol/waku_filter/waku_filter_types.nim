@@ -8,6 +8,12 @@ import
 
 export waku_message
 
+const
+  # We add a 64kB safety buffer for protocol overhead.
+  # 10x-multiplier also for safety: currently we never
+  # push more than 1 message at a time.
+  MaxRpcSize* = 10 * MaxWakuMessageSize + 64*1024
+
 type
   ContentFilter* = object
     contentTopic*: ContentTopic

@@ -8,6 +8,9 @@ import
 
 export waku_message
 
+const
+  MaxRpcSize* = MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
+
 type
   PushRequest* = object
     pubSubTopic*: string
