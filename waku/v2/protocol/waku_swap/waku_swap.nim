@@ -216,7 +216,7 @@ proc init*(wakuSwap: WakuSwap) =
   info "wakuSwap init 1"
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     info "swap handle incoming connection"
-    var message = await conn.readLp(64*1024)
+    var message = await conn.readLp(MaxChequeSize.int)
     # XXX This can be handshake, etc
     var res = Cheque.init(message)
     if res.isErr:

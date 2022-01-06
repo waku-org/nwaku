@@ -640,7 +640,8 @@ proc mountRelay*(node: WakuNode,
     #msgIdProvider = msgIdProvider,
     triggerSelf = triggerSelf,
     sign = false,
-    verifySignature = false
+    verifySignature = false,
+    maxMessageSize = MaxWakuMessageSize
   )
   
   info "mounting relay", relayMessages=relayMessages

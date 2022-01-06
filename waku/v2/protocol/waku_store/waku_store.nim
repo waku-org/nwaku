@@ -414,7 +414,7 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
 proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
 
   proc handler(conn: Connection, proto: string) {.async.} =
-    var message = await conn.readLp(64*1024)
+    var message = await conn.readLp(MaxRpcSize.int)
     var res = HistoryRPC.init(message)
     if res.isErr:
       error "failed to decode rpc"
@@ -469,8 +469,8 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
 
 
 proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgContext,
-                   store: MessageStore = nil, wakuSwap: WakuSwap = nil, persistMessages = true,
-                   capacity = DefaultStoreCapacity): T =
+           store: MessageStore = nil, wakuSwap: WakuSwap = nil, persistMessages = true,
+           capacity = DefaultStoreCapacity): T =
   debug "init"
   var output = WakuStore(rng: rng, peerManager: peerManager, store: store, wakuSwap: wakuSwap, persistMessages: persistMessages)
   output.init(capacity)
@@ -526,7 +526,7 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
   await connOpt.get().writeLP(HistoryRPC(requestId: generateRequestId(w.rng),
       query: query).encode().buffer)
 
-  var message = await connOpt.get().readLp(64*1024)
+  var message = await connOpt.get().readLp(MaxRpcSize.int)
   let response = HistoryRPC.init(message)
 
   if response.isErr:
@@ -551,7 +551,7 @@ proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, pe
   await connOpt.get().writeLP(HistoryRPC(requestId: generateRequestId(w.rng),
       query: query).encode().buffer)
   debug "query is sent", query=query
-  var message = await connOpt.get().readLp(64*1024)
+  var message = await connOpt.get().readLp(MaxRpcSize.int)
   let response = HistoryRPC.init(message)
 
   debug "response is received"
@@ -735,7 +735,7 @@ proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHand
   await connOpt.get().writeLP(HistoryRPC(requestId: generateRequestId(ws.rng),
       query: query).encode().buffer)
 
-  var message = await connOpt.get().readLp(64*1024)
+  var message = await connOpt.get().readLp(MaxRpcSize.int)
   let response = HistoryRPC.init(message)
 
   if response.isErr:
