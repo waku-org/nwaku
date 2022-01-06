@@ -38,6 +38,7 @@ export
 declarePublicGauge waku_store_messages, "number of historical messages", ["type"]
 declarePublicGauge waku_store_peers, "number of store peers"
 declarePublicGauge waku_store_errors, "number of store protocol errors", ["type"]
+declarePublicGauge waku_store_queries, "number of store queries received"
 
 logScope:
   topics = "wakustore"
@@ -422,6 +423,7 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
 
     # TODO Print more info here
     info "received query"
+    waku_store_queries.inc()
 
     let value = res.value
     let response = ws.findMessages(res.value.query)
@@ -489,7 +491,7 @@ proc handleMessage*(w: WakuStore, topic: string, msg: WakuMessage) {.async.} =
 
   let index = msg.computeIndex()
   w.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: topic))
-  waku_store_messages.inc(labelValues = ["stored"])
+  waku_store_messages.set(w.messages.len.int64, labelValues = ["stored"])
   if w.store.isNil:
     return
 
@@ -671,9 +673,9 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
           continue
         
       ws.messages.add(indexedWakuMsg)
-      waku_store_messages.inc(labelValues = ["stored"])
-      
       added = added + 1
+    
+    waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
 
     debug "number of duplicate messages found in resume", dismissed=dismissed
     debug "number of messages added via resume", added=added
