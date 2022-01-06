@@ -125,7 +125,7 @@ proc setPeer*(wlp: WakuLightPush, peer: RemotePeerInfo) =
 method init*(wlp: WakuLightPush) =
   debug "init"
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
-    var message = await conn.readLp(64*1024)
+    var message = await conn.readLp(MaxRpcSize.int)
     var res = PushRPC.init(message)
     if res.isErr:
       error "failed to decode rpc"
