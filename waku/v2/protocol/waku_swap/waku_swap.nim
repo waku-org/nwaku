@@ -50,6 +50,7 @@ const swapAccountBalanceBuckets = [-Inf, -200.0, -150.0, -100.0, -50.0, 0.0, 50.
 
 declarePublicGauge waku_swap_peers_count, "number of swap peers"
 declarePublicGauge waku_swap_errors, "number of swap protocol errors", ["type"]
+declarePublicGauge waku_swap_messages, "number of swap messages received", ["type"]
 declarePublicHistogram waku_peer_swap_account_balance, "Swap Account Balance for waku peers, aggregated into buckets based on threshold limits", buckets = swapAccountBalanceBuckets
 
 logScope:
@@ -224,6 +225,7 @@ proc init*(wakuSwap: WakuSwap) =
       return
 
     info "received cheque", value=res.value
+    waku_swap_messages.inc(labelValues = ["Cheque"])
     wakuSwap.handleCheque(res.value, conn.peerId)
 
   proc credit(peerId: PeerID, n: int)

@@ -9,6 +9,7 @@ This release contains the following:
 ### Changes
 - The WakuInfo Object field of `listenStr` is deprecated and is now replaced with `listenAddresses`
 which is a sequence of string.
+- Metrics: added counters for protocol messages
 
 ### Fixes
 - Increased maximum length for reading from a libp2p input stream to allow largest possible protocol messages, including `HistoryResponse` messages at max size.
