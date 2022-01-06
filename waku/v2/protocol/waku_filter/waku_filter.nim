@@ -24,6 +24,7 @@ export waku_filter_types
 declarePublicGauge waku_filter_peers, "number of filter peers"
 declarePublicGauge waku_filter_subscribers, "number of light node filter subscribers"
 declarePublicGauge waku_filter_errors, "number of filter protocol errors", ["type"]
+declarePublicGauge waku_filter_messages, "number of filter messages received", ["type"]
 
 logScope:
   topics = "wakufilter"
@@ -177,8 +178,10 @@ method init*(wf: WakuFilter) =
 
     let value = res.value
     if value.push != MessagePush():
+      waku_filter_messages.inc(labelValues = ["MessagePush"])
       wf.pushHandler(value.requestId, value.push)
     if value.request != FilterRequest():
+      waku_filter_messages.inc(labelValues = ["FilterRequest"])
       if value.request.subscribe:
         wf.subscribers.add(Subscriber(peer: conn.peerId, requestId: value.requestId, filter: value.request))
       else:
