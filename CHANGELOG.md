@@ -9,6 +9,7 @@ This release contains the following:
 ### Changes
 - The WakuInfo Object field of `listenStr` is deprecated and is now replaced with `listenAddresses`
 which is a sequence of string.
+- Metrics: added counters for protocol messages
 
 ## 2021-11-05 v0.6
 
