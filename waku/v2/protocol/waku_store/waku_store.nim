@@ -288,19 +288,17 @@ proc paginate*(msgList: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[Indexe
     dir = pinfo.direction
     output: (seq[IndexedWakuMessage], PagingInfo, HistoryResponseError) 
 
-  if pageSize == uint64(0): # pageSize being zero indicates that no pagination is required
-    let output = (msgList, pinfo, HistoryResponseError.NONE)
-    return output
-
   if msgList.len == 0: # no pagination is needed for an empty list
     output = (msgList, PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
     return output
   
-  # adjust pageSize
-  if pageSize > MaxPageSize:
+  ## Adjust pageSize:
+  ## - pageSize should not exceed maximum
+  ## - pageSize being zero indicates "no pagination", but we still limit
+  ##   responses to no more than a page of MaxPageSize messages
+  if (pageSize == uint64(0)) or (pageSize > MaxPageSize):
     pageSize = MaxPageSize
 
-  # sort the existing messages
   let total = uint64(msgList.len)
   
   # set the cursor of the initial paging request
