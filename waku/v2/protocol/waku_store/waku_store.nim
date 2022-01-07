@@ -278,8 +278,9 @@ proc findIndex*(msgList: seq[IndexedWakuMessage], index: Index): Option[int] =
       return some(i)
   return none(int)
 
-proc paginate*(msgList: var seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWakuMessage], PagingInfo, HistoryResponseError) =
-  ## takes a message list, and performs paging based on pinfo 
+proc paginate*(msgList: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWakuMessage], PagingInfo, HistoryResponseError) =
+  ## takes a message list, and performs paging based on pinfo
+  ## the message list must be sorted
   ## returns the page i.e, a sequence of IndexedWakuMessage and the new paging info to be used for the next paging request
   var
     cursor = pinfo.cursor
@@ -301,10 +302,6 @@ proc paginate*(msgList: var seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[In
 
   # sort the existing messages
   let total = uint64(msgList.len)
-
-  # sorts list based on the custom comparison proc indexedWakuMessageComparison
-  # TODO: we can gain a lot by rather sorting on insert. Perhaps use a nim-stew sorted set?
-  msgList.sort(indexedWakuMessageComparison)
   
   # set the cursor of the initial paging request
   var isInitialQuery = false
@@ -410,11 +407,14 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
     
     return true
 
-  ## Filter history using predicate
+  ## Filter history using predicate and sort on indexedWakuMessageComparison 
   ## TODO: since MaxPageSize is likely much smaller than w.messages.len,
   ## we could optimise here by only filtering a portion of w.messages,
   ## and repeat until we have populated a full page.
-  var filteredMsgs = w.messages.filterIt(it.matchesQuery)
+  ## TODO: we can gain a lot by rather sorting on insert. Perhaps use a nim-stew
+  ## sorted set?
+  let filteredMsgs = w.messages.filterIt(it.matchesQuery)
+                               .sorted(indexedWakuMessageComparison)
   
   ## Paginate the filtered messages
   let (indexedWakuMsgList, updatedPagingInfo, error) = paginate(filteredMsgs, query.pagingInfo)
