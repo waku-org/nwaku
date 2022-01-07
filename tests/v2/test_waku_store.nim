@@ -190,8 +190,8 @@ procSuite "Waku Store":
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.new(key)
       msg1 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: defaultContentTopic)
-      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: defaultContentTopic)
-      msg3 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: defaultContentTopic)
+      msg2 = WakuMessage(payload: @[byte 4, 5, 6], contentTopic: defaultContentTopic)
+      msg3 = WakuMessage(payload: @[byte 7, 8, 9,], contentTopic: defaultContentTopic)
 
     var dialSwitch = newStandardSwitch()
     discard await dialSwitch.start()
