@@ -72,9 +72,9 @@ procSuite "Waku SWAP Accounting":
 
     await sleepAsync(2000.millis)
 
-    node1.wakuStore.setPeer(node2.peerInfo.toRemotePeerInfo())
-    node1.wakuSwap.setPeer(node2.peerInfo.toRemotePeerInfo())
-    node2.wakuSwap.setPeer(node1.peerInfo.toRemotePeerInfo())
+    node1.wakuStore.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
+    node1.wakuSwap.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
+    node2.wakuSwap.setPeer(node1.switch.peerInfo.toRemotePeerInfo())
 
     proc storeHandler(response: HistoryResponse) {.gcsafe, closure.} =
       debug "storeHandler hit"
@@ -87,8 +87,8 @@ procSuite "Waku SWAP Accounting":
     check:
       (await completionFut.withTimeout(5.seconds)) == true
       # Accounting table updated with credit and debit, respectively
-      node1.wakuSwap.accounting[node2.peerInfo.peerId] == 1
-      node2.wakuSwap.accounting[node1.peerInfo.peerId] == -1
+      node1.wakuSwap.accounting[node2.switch.peerInfo.peerId] == 1
+      node2.wakuSwap.accounting[node1.switch.peerInfo.peerId] == -1
     await node1.stop()
     await node2.stop()
 
@@ -122,9 +122,9 @@ procSuite "Waku SWAP Accounting":
 
     await sleepAsync(2000.millis)
 
-    node1.wakuStore.setPeer(node2.peerInfo.toRemotePeerInfo())
-    node1.wakuSwap.setPeer(node2.peerInfo.toRemotePeerInfo())
-    node2.wakuSwap.setPeer(node1.peerInfo.toRemotePeerInfo())
+    node1.wakuStore.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
+    node1.wakuSwap.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
+    node2.wakuSwap.setPeer(node1.switch.peerInfo.toRemotePeerInfo())
 
     proc handler1(response: HistoryResponse) {.gcsafe, closure.} =
       futures[0].complete(true)
@@ -139,7 +139,7 @@ procSuite "Waku SWAP Accounting":
       (await allFutures(futures).withTimeout(5.seconds)) == true
       # Accounting table updated with credit and debit, respectively
       # After sending a cheque the balance is partially adjusted
-      node1.wakuSwap.accounting[node2.peerInfo.peerId] == 1
-      node2.wakuSwap.accounting[node1.peerInfo.peerId] == -1
+      node1.wakuSwap.accounting[node2.switch.peerInfo.peerId] == 1
+      node2.wakuSwap.accounting[node1.switch.peerInfo.peerId] == -1
     await node1.stop()
     await node2.stop()
