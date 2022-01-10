@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[options, tables, strutils, sequtils, os],
+  std/[hashes, options, tables, strutils, sequtils, os],
   chronos, chronicles, metrics,
   stew/shims/net as stewNet,
   stew/byteutils,
@@ -9,9 +9,9 @@ import
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
   libp2p/protocols/ping,
-  libp2p/protocols/pubsub/gossipsub,
+  libp2p/protocols/pubsub/[gossipsub, rpc/messages],
   libp2p/nameresolving/dnsresolver,
-  libp2p/builders,
+  libp2p/[builders, multihash],
   libp2p/transports/[transport, tcptransport, wstransport],
   ../protocol/[waku_relay, waku_message],
   ../protocol/waku_store/waku_store,
@@ -632,12 +632,18 @@ proc mountRelay*(node: WakuNode,
                  relayMessages = true,
                  triggerSelf = true)
   # @TODO: Better error handling: CatchableError is raised by `waitFor`
-  {.gcsafe, raises: [Defect, InitializationError, LPError, CatchableError].} = 
+  {.gcsafe, raises: [Defect, InitializationError, LPError, CatchableError].} =
+
+  func msgIdProvider(m: messages.Message): seq[byte] =
+    let mh = MultiHash.digest("sha2-256", m.data)
+    if mh.isOk():
+      return mh[].data.buffer
+    else:
+      return ($m.data.hash).toBytes()
 
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
-    # Use default
-    #msgIdProvider = msgIdProvider,
+    msgIdProvider = msgIdProvider,
     triggerSelf = triggerSelf,
     sign = false,
     verifySignature = false,
