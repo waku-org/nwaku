@@ -108,7 +108,7 @@ procSuite "WakuBridge":
     v2Node.mountRelay(@[DefaultBridgeTopic], triggerSelf = false)
 
     discard waitFor v1Node.rlpxConnect(newNode(bridge.nodev1.toENode()))
-    waitFor v2Node.connectToNodes(@[bridge.nodev2.peerInfo.toRemotePeerInfo()])
+    waitFor v2Node.connectToNodes(@[bridge.nodev2.switch.peerInfo.toRemotePeerInfo()])
 
     var completionFut = newFuture[bool]()
 

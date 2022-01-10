@@ -82,7 +82,6 @@ type
     wakuSwap*: WakuSwap
     wakuRlnRelay*: WakuRLNRelay
     wakuLightPush*: WakuLightPush
-    peerInfo*: PeerInfo
     enr*: enr.Record
     libp2pPing*: Ping
     libp2pTransportLoops*: seq[Future[void]]
@@ -195,7 +194,6 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   ## Initialize peer
   let
     rng = crypto.newRng()
-    peerInfo = PeerInfo.new(nodekey)
     enrIp = if extIp.isSome(): extIp
             else: some(bindIp)
     enrTcpPort = if extPort.isSome(): extPort
@@ -209,12 +207,8 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
                   wakuFlags,
                   enrMultiaddrs)
   
-  # TODO: local peerInfo should be removed
-  for multiaddr in announcedAddresses:
-    peerInfo.addrs.add(multiaddr) 
+  info "Initializing networking", addrs=announcedAddresses
 
-  info "Initializing networking", addrs=peerInfo.addrs
-  
   var switch = newWakuSwitch(some(nodekey),
     hostAddress,
     wsHostAddress,
@@ -228,8 +222,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
     switch: switch,
-    rng: rng, 
-    peerInfo: peerInfo,
+    rng: rng,
     enr: enr,
     filters: initTable[string, Filter](),
     announcedAddresses: announcedAddresses
@@ -423,8 +416,7 @@ proc info*(node: WakuNode): WakuInfo =
   ## Status: Implemented.
   ##
 
-  let
-    peerInfo = node.peerInfo
+  let peerInfo = node.switch.peerInfo
   
   var listenStr : seq[string]
   for address in node.announcedAddresses:
@@ -868,7 +860,7 @@ proc start*(node: WakuNode) {.async.} =
   node.libp2pTransportLoops = await node.switch.start()
   
   # TODO Get this from WakuNode obj
-  let peerInfo = node.peerInfo
+  let peerInfo = node.switch.peerInfo
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
   var listenStr = ""
   for address in node.announcedAddresses:

@@ -9,13 +9,12 @@ This release contains the following:
 ### Changes
 - The WakuInfo Object field of `listenStr` is deprecated and is now replaced with `listenAddresses`
 which is a sequence of string.
+- Removed cached `peerInfo` on local node. Rely on underlying libp2p switch instead.
 - Metrics: added counters for protocol messages
 
 ### Fixes
 - All `HistoryResponse` messages are now auto-paginated to a maximum of 100 messages per response
 - Increased maximum length for reading from a libp2p input stream to allow largest possible protocol messages, including `HistoryResponse` messages at max size.
-
-### Fixes
 - Added GossipSub `MessageIdProvider` for `11/WAKU2-RELAY` messages.
 
 ## 2021-11-05 v0.6

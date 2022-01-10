@@ -63,7 +63,7 @@ procSuite "Waku v2 JSON-RPC API":
     let response = await client.get_waku_v2_debug_v1_info()
 
     check:
-      response.listenAddresses == @[$node.peerInfo.addrs[^1] & "/p2p/" & $node.peerInfo.peerId]
+      response.listenAddresses == @[$node.switch.peerInfo.addrs[^1] & "/p2p/" & $node.switch.peerInfo.peerId]
 
     server.stop()
     server.close()
@@ -142,8 +142,8 @@ procSuite "Waku v2 JSON-RPC API":
     await node3.start()
     node3.mountRelay(@[pubSubTopic])
 
-    await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
-    await node3.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
+    await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
+    await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
     # RPC server setup
     let
@@ -397,11 +397,11 @@ procSuite "Waku v2 JSON-RPC API":
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
-      peerInfo2 = node2.peerInfo
+      peerInfo2 = node2.switch.peerInfo
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"),
         Port(60004))
-      peerInfo3 = node3.peerInfo
+      peerInfo3 = node3.switch.peerInfo
     
     await allFutures([node1.start(), node2.start(), node3.start()])
 
@@ -453,11 +453,11 @@ procSuite "Waku v2 JSON-RPC API":
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
-      peerInfo2 = node2.peerInfo
+      peerInfo2 = node2.switch.peerInfo
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"),
         Port(60004))
-      peerInfo3 = node3.peerInfo
+      peerInfo3 = node3.switch.peerInfo
     
     await allFutures([node1.start(), node2.start(), node3.start()])
 
@@ -575,8 +575,8 @@ procSuite "Waku v2 JSON-RPC API":
     await node3.start()
     node3.mountRelay(@[pubSubTopic])
 
-    await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
-    await node3.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
+    await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
+    await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
     # Setup two servers so we can see both sides of encrypted communication
     let
@@ -665,8 +665,8 @@ procSuite "Waku v2 JSON-RPC API":
     await node3.start()
     node3.mountRelay(@[pubSubTopic])
 
-    await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
-    await node3.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
+    await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
+    await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
     # Setup two servers so we can see both sides of encrypted communication
     let
