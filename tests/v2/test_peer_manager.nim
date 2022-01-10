@@ -26,7 +26,7 @@ procSuite "Peer Manager":
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
-      peerInfo2 = node2.peerInfo
+      peerInfo2 = node2.switch.peerInfo
     
     await allFutures([node1.start(), node2.start()])
 
@@ -59,7 +59,7 @@ procSuite "Peer Manager":
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
-      peerInfo2 = node2.peerInfo
+      peerInfo2 = node2.switch.peerInfo
     
     await node1.start()
     # Purposefully don't start node2
@@ -128,7 +128,7 @@ procSuite "Peer Manager":
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
-      peerInfo2 = node2.peerInfo
+      peerInfo2 = node2.switch.peerInfo
     
     await node1.start()
 
@@ -173,7 +173,7 @@ procSuite "Peer Manager":
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
-      peerInfo2 = node2.peerInfo
+      peerInfo2 = node2.switch.peerInfo
     
     await node1.start()
     await node2.start()
@@ -221,7 +221,7 @@ asyncTest "Peer manager support multiple protocol IDs when reconnecting to peers
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
-      peerInfo2 = node2.peerInfo
+      peerInfo2 = node2.switch.peerInfo
       betaCodec = "/vac/waku/relay/2.0.0-beta2"
       stableCodec = "/vac/waku/relay/2.0.0"
     

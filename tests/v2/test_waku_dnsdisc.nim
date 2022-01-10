@@ -77,20 +77,20 @@ procSuite "Waku DNS Discovery":
       # We have discovered all three nodes
       res.isOk()
       res[].len == 3
-      res[].mapIt(it.peerId).contains(node1.peerInfo.peerId)
-      res[].mapIt(it.peerId).contains(node2.peerInfo.peerId)
-      res[].mapIt(it.peerId).contains(node3.peerInfo.peerId)
+      res[].mapIt(it.peerId).contains(node1.switch.peerInfo.peerId)
+      res[].mapIt(it.peerId).contains(node2.switch.peerInfo.peerId)
+      res[].mapIt(it.peerId).contains(node3.switch.peerInfo.peerId)
     
     # Connect to discovered nodes
     await node4.connectToNodes(res[])
 
     check:
       # We have successfully connected to all discovered nodes
-      node4.peerManager.peers().anyIt(it.peerId == node1.peerInfo.peerId)
-      node4.peerManager.connectedness(node1.peerInfo.peerId) == Connected
-      node4.peerManager.peers().anyIt(it.peerId == node2.peerInfo.peerId)
-      node4.peerManager.connectedness(node2.peerInfo.peerId) == Connected
-      node4.peerManager.peers().anyIt(it.peerId == node3.peerInfo.peerId)
-      node4.peerManager.connectedness(node3.peerInfo.peerId) == Connected
+      node4.peerManager.peers().anyIt(it.peerId == node1.switch.peerInfo.peerId)
+      node4.peerManager.connectedness(node1.switch.peerInfo.peerId) == Connected
+      node4.peerManager.peers().anyIt(it.peerId == node2.switch.peerInfo.peerId)
+      node4.peerManager.connectedness(node2.switch.peerInfo.peerId) == Connected
+      node4.peerManager.peers().anyIt(it.peerId == node3.switch.peerInfo.peerId)
+      node4.peerManager.connectedness(node3.switch.peerInfo.peerId) == Connected
 
     await allFutures([node1.stop(), node2.stop(), node3.stop(), node4.stop()])

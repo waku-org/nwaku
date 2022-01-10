@@ -387,7 +387,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
       echo "Couldn't select a random node to connect to. Check --fleet configuration."
       echo randNode.error()
 
-  let peerInfo = node.peerInfo
+  let peerInfo = node.switch.peerInfo
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
   echo &"Listening on\n {listenStr}"
 

@@ -41,7 +41,7 @@ procSuite "Waku Keepalive":
     node2.mountRelay()
     node2.switch.mount(Ping.new(handler = pingHandler))
 
-    await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
+    await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
     node1.startKeepalive()
 
