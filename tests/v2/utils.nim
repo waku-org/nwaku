@@ -44,8 +44,8 @@ proc subscribeNodes*(nodes: seq[PubSub]) {.async.} =
   for dialer in nodes:
     for node in nodes:
       if dialer.switch.peerInfo.peerId != node.switch.peerInfo.peerId:
-        await dialer.switch.connect(node.peerInfo.peerId, node.peerInfo.addrs)
-        dialer.subscribePeer(node.peerInfo.peerId)
+        await dialer.switch.connect(node.switch.peerInfo.peerId, node.switch.peerInfo.addrs)
+        dialer.subscribePeer(node.switch.peerInfo.peerId)
 
 proc subscribeSparseNodes*(nodes: seq[PubSub], degree: int = 2) {.async.} =
   if nodes.len < degree:
@@ -56,17 +56,17 @@ proc subscribeSparseNodes*(nodes: seq[PubSub], degree: int = 2) {.async.} =
       continue
 
     for node in nodes:
-      if dialer.switch.peerInfo.peerId != node.peerInfo.peerId:
-        await dialer.switch.connect(node.peerInfo.peerId, node.peerInfo.addrs)
-        dialer.subscribePeer(node.peerInfo.peerId)
+      if dialer.switch.peerInfo.peerId != node.switch.peerInfo.peerId:
+        await dialer.switch.connect(node.switch.peerInfo.peerId, node.switch.peerInfo.addrs)
+        dialer.subscribePeer(node.switch.peerInfo.peerId)
 
 proc subscribeRandom*(nodes: seq[PubSub]) {.async.} =
   for dialer in nodes:
     var dialed: seq[PeerID]
     while dialed.len < nodes.len - 1:
       let node = sample(nodes)
-      if node.peerInfo.peerId notin dialed:
-        if dialer.peerInfo.peerId != node.peerInfo.peerId:
-          await dialer.switch.connect(node.peerInfo.peerId, node.peerInfo.addrs)
-          dialer.subscribePeer(node.peerInfo.peerId)
-          dialed.add(node.peerInfo.peerId)
+      if node.switch.peerInfo.peerId notin dialed:
+        if dialer.switch.peerInfo.peerId != node.switch.peerInfo.peerId:
+          await dialer.switch.connect(node.switch.peerInfo.peerId, node.switch.peerInfo.addrs)
+          dialer.subscribePeer(node.switch.peerInfo.peerId)
+          dialed.add(node.switch.peerInfo.peerId)
