@@ -4,7 +4,10 @@ import
   std/tables,
   bearssl,
   libp2p/protocols/protocol,
-  ../../node/peer_manager/peer_manager  
+  ../../node/peer_manager/peer_manager
+
+const
+  MaxChequeSize* = 64*1024 # Used for read buffers. 64kB should be more than enough for swap cheque
 
 type
   # The Swap Mode determines the functionality available in the swap protocol.
