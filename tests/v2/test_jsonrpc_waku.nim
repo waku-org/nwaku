@@ -128,8 +128,10 @@ procSuite "Waku v2 JSON-RPC API":
       node3 = WakuNode.new(nodeKey3, bindIp, Port(60003), some(extIp), some(port))
       pubSubTopic = "polling"
       contentTopic = defaultContentTopic
-      payload = @[byte 9]
-      message = WakuMessage(payload: payload, contentTopic: contentTopic)
+      payload1 = @[byte 9]
+      message1 = WakuMessage(payload: payload1, contentTopic: contentTopic)
+      payload2 = @[byte 8]
+      message2 = WakuMessage(payload: payload2, contentTopic: contentTopic)
 
     await node1.start()
     node1.mountRelay(@[pubSubTopic])
@@ -157,7 +159,7 @@ procSuite "Waku v2 JSON-RPC API":
     await client.connect("127.0.0.1", rpcPort)
 
     # First see if we can retrieve messages published on the default topic (node is already subscribed)
-    await node2.publish(defaultTopic, message)
+    await node2.publish(defaultTopic, message1)
 
     await sleepAsync(2000.millis)
 
@@ -166,7 +168,7 @@ procSuite "Waku v2 JSON-RPC API":
     check:
       messages.len == 1
       messages[0].contentTopic == contentTopic
-      messages[0].payload == payload
+      messages[0].payload == payload1
     
     # Ensure that read messages are cleared from cache
     messages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)  
@@ -184,7 +186,7 @@ procSuite "Waku v2 JSON-RPC API":
       response == true
 
     # Now publish a message on node1 and see if we receive it on node3
-    await node1.publish(pubSubTopic, message)
+    await node1.publish(pubSubTopic, message2)
 
     await sleepAsync(2000.millis)
     
@@ -193,7 +195,7 @@ procSuite "Waku v2 JSON-RPC API":
     check:
       messages.len == 1
       messages[0].contentTopic == contentTopic
-      messages[0].payload == payload
+      messages[0].payload == payload2
     
     # Ensure that read messages are cleared from cache
     messages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)  
