@@ -20,6 +20,7 @@ export waku_lightpush_types
 
 declarePublicGauge waku_lightpush_peers, "number of lightpush peers"
 declarePublicGauge waku_lightpush_errors, "number of lightpush protocol errors", ["type"]
+declarePublicGauge waku_lightpush_messages, "number of lightpush messages received", ["type"]
 
 logScope:
   topics = "wakulightpush"
@@ -124,7 +125,7 @@ proc setPeer*(wlp: WakuLightPush, peer: RemotePeerInfo) =
 method init*(wlp: WakuLightPush) =
   debug "init"
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
-    var message = await conn.readLp(64*1024)
+    var message = await conn.readLp(MaxRpcSize.int)
     var res = PushRPC.init(message)
     if res.isErr:
       error "failed to decode rpc"
@@ -136,6 +137,7 @@ method init*(wlp: WakuLightPush) =
     let value = res.value
     if value.request != PushRequest():
       info "lightpush push request"
+      waku_lightpush_messages.inc(labelValues = ["PushRequest"])
       let
         pubSubTopic = value.request.pubSubTopic
         message = value.request.message
@@ -154,6 +156,7 @@ method init*(wlp: WakuLightPush) =
       response: response).encode().buffer)
       #wlp.requestHandler(value.requestId, value.request)
     if value.response != PushResponse():
+      waku_lightpush_messages.inc(labelValues = ["PushResponse"])
       if value.response.isSuccess:
         info "lightpush message success"
       else:

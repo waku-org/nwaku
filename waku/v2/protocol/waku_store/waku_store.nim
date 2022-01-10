@@ -38,6 +38,7 @@ export
 declarePublicGauge waku_store_messages, "number of historical messages", ["type"]
 declarePublicGauge waku_store_peers, "number of store peers"
 declarePublicGauge waku_store_errors, "number of store protocol errors", ["type"]
+declarePublicGauge waku_store_queries, "number of store queries received"
 
 logScope:
   topics = "wakustore"
@@ -286,16 +287,15 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
     dir = pinfo.direction
     output: (seq[IndexedWakuMessage], PagingInfo, HistoryResponseError) 
 
-  if pageSize == uint64(0): # pageSize being zero indicates that no pagination is required
-    let output = (list, pinfo, HistoryResponseError.NONE)
-    return output
-
   if list.len == 0: # no pagination is needed for an empty list
     output = (list, PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
     return output
   
-  # adjust pageSize
-  if pageSize > MaxPageSize:
+  ## Adjust pageSize:
+  ## - pageSize should not exceed maximum
+  ## - pageSize being zero indicates "no pagination", but we still limit
+  ##   responses to no more than a page of MaxPageSize messages
+  if (pageSize == uint64(0)) or (pageSize > MaxPageSize):
     pageSize = MaxPageSize
 
   # sort the existing messages
@@ -303,7 +303,7 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
     msgList = list # makes a copy of the list
     total = uint64(msgList.len)
   # sorts msgList based on the custom comparison proc indexedWakuMessageComparison
-  msgList.sort(indexedWakuMessageComparison)  
+  msgList.sort(indexedWakuMessageComparison)
   
   # set the cursor of the initial paging request
   var isInitialQuery = false
@@ -413,7 +413,7 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
 proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
 
   proc handler(conn: Connection, proto: string) {.async.} =
-    var message = await conn.readLp(64*1024)
+    var message = await conn.readLp(MaxRpcSize.int)
     var res = HistoryRPC.init(message)
     if res.isErr:
       error "failed to decode rpc"
@@ -422,6 +422,7 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
 
     # TODO Print more info here
     info "received query"
+    waku_store_queries.inc()
 
     let value = res.value
     let response = ws.findMessages(res.value.query)
@@ -467,8 +468,8 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
 
 
 proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgContext,
-                   store: MessageStore = nil, wakuSwap: WakuSwap = nil, persistMessages = true,
-                   capacity = DefaultStoreCapacity): T =
+           store: MessageStore = nil, wakuSwap: WakuSwap = nil, persistMessages = true,
+           capacity = DefaultStoreCapacity): T =
   debug "init"
   var output = WakuStore(rng: rng, peerManager: peerManager, store: store, wakuSwap: wakuSwap, persistMessages: persistMessages)
   output.init(capacity)
@@ -489,7 +490,7 @@ proc handleMessage*(w: WakuStore, topic: string, msg: WakuMessage) {.async.} =
 
   let index = msg.computeIndex()
   w.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: topic))
-  waku_store_messages.inc(labelValues = ["stored"])
+  waku_store_messages.set(w.messages.len.int64, labelValues = ["stored"])
   if w.store.isNil:
     return
 
@@ -524,7 +525,7 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
   await connOpt.get().writeLP(HistoryRPC(requestId: generateRequestId(w.rng),
       query: query).encode().buffer)
 
-  var message = await connOpt.get().readLp(64*1024)
+  var message = await connOpt.get().readLp(MaxRpcSize.int)
   let response = HistoryRPC.init(message)
 
   if response.isErr:
@@ -549,7 +550,7 @@ proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, pe
   await connOpt.get().writeLP(HistoryRPC(requestId: generateRequestId(w.rng),
       query: query).encode().buffer)
   debug "query is sent", query=query
-  var message = await connOpt.get().readLp(64*1024)
+  var message = await connOpt.get().readLp(MaxRpcSize.int)
   let response = HistoryRPC.init(message)
 
   debug "response is received"
@@ -671,9 +672,9 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
           continue
         
       ws.messages.add(indexedWakuMsg)
-      waku_store_messages.inc(labelValues = ["stored"])
-      
       added = added + 1
+    
+    waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
 
     debug "number of duplicate messages found in resume", dismissed=dismissed
     debug "number of messages added via resume", added=added
@@ -733,7 +734,7 @@ proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHand
   await connOpt.get().writeLP(HistoryRPC(requestId: generateRequestId(ws.rng),
       query: query).encode().buffer)
 
-  var message = await connOpt.get().readLp(64*1024)
+  var message = await connOpt.get().readLp(MaxRpcSize.int)
   let response = HistoryRPC.init(message)
 
   if response.isErr:
