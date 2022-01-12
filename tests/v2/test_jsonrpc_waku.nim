@@ -58,7 +58,7 @@ procSuite "Waku v2 JSON-RPC API":
     server.start()
 
     let client = newRpcHttpClient()
-    await client.connect("127.0.0.1", rpcPort)
+    await client.connect("127.0.0.1", rpcPort, false)
 
     let response = await client.get_waku_v2_debug_v1_info()
 
@@ -84,7 +84,7 @@ procSuite "Waku v2 JSON-RPC API":
     server.start()
 
     let client = newRpcHttpClient()
-    await client.connect("127.0.0.1", rpcPort)
+    await client.connect("127.0.0.1", rpcPort, false)
     
     check:
       # At this stage the node is only subscribed to the default topic
@@ -156,7 +156,7 @@ procSuite "Waku v2 JSON-RPC API":
     server.start()
 
     let client = newRpcHttpClient()
-    await client.connect("127.0.0.1", rpcPort)
+    await client.connect("127.0.0.1", rpcPort, false)
 
     # First see if we can retrieve messages published on the default topic (node is already subscribed)
     await node2.publish(defaultTopic, message1)
@@ -230,7 +230,7 @@ procSuite "Waku v2 JSON-RPC API":
     node.mountStore(persistMessages = true)
     
     var listenSwitch = newStandardSwitch(some(key))
-    discard waitFor listenSwitch.start()
+    waitFor listenSwitch.start()
 
     node.wakuStore.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
@@ -254,7 +254,7 @@ procSuite "Waku v2 JSON-RPC API":
       waitFor node.wakuStore.handleMessage(defaultTopic, wakuMsg)
 
     let client = newRpcHttpClient()
-    await client.connect("127.0.0.1", rpcPort)
+    await client.connect("127.0.0.1", rpcPort, false)
 
     let response = await client.get_waku_v2_store_v1_messages(some(defaultTopic), some(@[HistoryContentFilter(contentTopic: defaultContentTopic)]), some(0.float64), some(9.float64), some(StorePagingOptions()))
     check:
@@ -282,7 +282,7 @@ procSuite "Waku v2 JSON-RPC API":
     server.start()
 
     let client = newRpcHttpClient()
-    await client.connect("127.0.0.1", rpcPort)
+    await client.connect("127.0.0.1", rpcPort, false)
 
     check:
       # Light node has not yet subscribed to any filters
@@ -326,7 +326,7 @@ procSuite "Waku v2 JSON-RPC API":
     node.mountFilter()
 
     let client = newRpcHttpClient()
-    await client.connect("127.0.0.1", rpcPort)
+    await client.connect("127.0.0.1", rpcPort, false)
 
     # First ensure subscription exists
 
@@ -419,7 +419,7 @@ procSuite "Waku v2 JSON-RPC API":
     server.start()
 
     let client = newRpcHttpClient()
-    await client.connect("127.0.0.1", rpcPort)
+    await client.connect("127.0.0.1", rpcPort, false)
 
     # Connect to nodes 2 and 3 using the Admin API
     let postRes = await client.post_waku_v2_admin_v1_peers(@[constructMultiaddrStr(peerInfo2),
@@ -479,7 +479,7 @@ procSuite "Waku v2 JSON-RPC API":
     server.start()
 
     let client = newRpcHttpClient()
-    await client.connect("127.0.0.1", rpcPort)
+    await client.connect("127.0.0.1", rpcPort, false)
 
     let response = await client.get_waku_v2_admin_v1_peers()
 
@@ -514,7 +514,7 @@ procSuite "Waku v2 JSON-RPC API":
     server.start()
 
     let client = newRpcHttpClient()
-    await client.connect("127.0.0.1", rpcPort)
+    await client.connect("127.0.0.1", rpcPort, false)
 
     node.mountFilter()
     node.mountSwap()
@@ -595,10 +595,10 @@ procSuite "Waku v2 JSON-RPC API":
     server3.start()
 
     let client1 = newRpcHttpClient()
-    await client1.connect("127.0.0.1", rpcPort1)
+    await client1.connect("127.0.0.1", rpcPort1, false)
 
     let client3 = newRpcHttpClient()
-    await client3.connect("127.0.0.1", rpcPort3)
+    await client3.connect("127.0.0.1", rpcPort3, false)
 
     # Let's get a keypair for node3
 
@@ -685,10 +685,10 @@ procSuite "Waku v2 JSON-RPC API":
     server3.start()
 
     let client1 = newRpcHttpClient()
-    await client1.connect("127.0.0.1", rpcPort1)
+    await client1.connect("127.0.0.1", rpcPort1, false)
 
     let client3 = newRpcHttpClient()
-    await client3.connect("127.0.0.1", rpcPort3)
+    await client3.connect("127.0.0.1", rpcPort3, false)
 
     # Let's get a symkey for node3
 
