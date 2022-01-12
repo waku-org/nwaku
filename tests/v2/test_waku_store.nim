@@ -275,7 +275,7 @@ procSuite "Waku Store":
       key2 = PrivateKey.random(ECDSA, rng[]).get()
 
     var listenSwitch2 = newStandardSwitch(some(key2))
-    discard await listenSwitch2.start()
+    await listenSwitch2.start()
 
     proto2.setPeer(listenSwitch2.peerInfo.toRemotePeerInfo())
 
