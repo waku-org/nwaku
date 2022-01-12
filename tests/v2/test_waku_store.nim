@@ -26,10 +26,10 @@ procSuite "Waku Store":
       msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic("2"))
 
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     var listenSwitch = newStandardSwitch(some(key))
-    discard await listenSwitch.start()
+    await listenSwitch.start()
 
     let
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
@@ -66,10 +66,10 @@ procSuite "Waku Store":
       msg3 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic3)
 
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     var listenSwitch = newStandardSwitch(some(key))
-    discard await listenSwitch.start()
+    await listenSwitch.start()
 
     let
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
@@ -109,10 +109,10 @@ procSuite "Waku Store":
       msg3 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic3)
 
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     var listenSwitch = newStandardSwitch(some(key))
-    discard await listenSwitch.start()
+    await listenSwitch.start()
 
     let
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
@@ -153,10 +153,10 @@ procSuite "Waku Store":
       msg3 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: defaultContentTopic)
 
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     var listenSwitch = newStandardSwitch(some(key))
-    discard await listenSwitch.start()
+    await listenSwitch.start()
 
     let
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
@@ -194,10 +194,10 @@ procSuite "Waku Store":
       msg3 = WakuMessage(payload: @[byte 7, 8, 9,], contentTopic: defaultContentTopic)
 
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     var listenSwitch = newStandardSwitch(some(key))
-    discard await listenSwitch.start()
+    await listenSwitch.start()
 
     let
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
@@ -240,10 +240,10 @@ procSuite "Waku Store":
       msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic("2"))
 
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     var listenSwitch = newStandardSwitch(some(key))
-    discard await listenSwitch.start()
+    await listenSwitch.start()
 
     let
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
@@ -310,10 +310,10 @@ procSuite "Waku Store":
         WakuMessage(payload: @[byte 9],contentTopic: ContentTopic("2"))]
 
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     var listenSwitch = newStandardSwitch(some(key))
-    discard await listenSwitch.start()
+    await listenSwitch.start()
 
     let
       proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
@@ -359,10 +359,10 @@ procSuite "Waku Store":
         WakuMessage(payload: @[byte 9],contentTopic: ContentTopic("2"))]
             
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     var listenSwitch = newStandardSwitch(some(key))
-    discard await listenSwitch.start()
+    await listenSwitch.start()
 
     let proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
 
@@ -406,10 +406,10 @@ procSuite "Waku Store":
         WakuMessage(payload: @[byte 9], contentTopic: ContentTopic("2"))]
 
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     var listenSwitch = newStandardSwitch(some(key))
-    discard await listenSwitch.start()
+    await listenSwitch.start()
 
     let proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
 
@@ -547,11 +547,11 @@ procSuite "Waku Store":
         WakuMessage(payload: @[byte 9],contentTopic: ContentTopic("1"),timestamp: float(9))]
             
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     # to be connected to
     var listenSwitch = newStandardSwitch(some(key))
-    discard await listenSwitch.start()
+    await listenSwitch.start()
 
     let proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
 

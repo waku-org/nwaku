@@ -24,10 +24,10 @@ procSuite "Waku Filter":
       post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
 
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     var listenSwitch = newStandardSwitch(some(key))
-    discard await listenSwitch.start()
+    await listenSwitch.start()
 
     var responseRequestIdFuture = newFuture[string]()
     proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
@@ -69,10 +69,10 @@ procSuite "Waku Filter":
       post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
 
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     var listenSwitch = newStandardSwitch(some(key))
-    discard await listenSwitch.start()
+    await listenSwitch.start()
 
     var responseCompletionFuture = newFuture[bool]()
     proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
@@ -128,7 +128,7 @@ procSuite "Waku Filter":
       contentTopic = ContentTopic("/waku/2/default-content/proto")
 
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     var responseRequestIdFuture = newFuture[string]()
     proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
@@ -155,10 +155,10 @@ procSuite "Waku Filter":
       post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
 
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     var listenSwitch = newStandardSwitch(some(key))
-    discard await listenSwitch.start()
+    await listenSwitch.start()
 
     var responseCompletionFuture = newFuture[bool]()
     proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
@@ -219,10 +219,10 @@ procSuite "Waku Filter":
       post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
 
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     var listenSwitch = newStandardSwitch(some(key))
-    discard await listenSwitch.start()
+    await listenSwitch.start()
 
     var responseCompletionFuture = newFuture[bool]()
     proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
@@ -268,7 +268,7 @@ procSuite "Waku Filter":
     check:
       proto2.failedPeers.len() == 1
     
-    discard dialSwitch.start()
+    dialSwitch.start()
     dialSwitch.mount(proto)
     #Second failure should remove the subscription
     await proto2.handleMessage(defaultTopic, post)
