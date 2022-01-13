@@ -2,6 +2,7 @@
 
 import
   std/[options, sets, tables, os, strutils, sequtils, times],
+  chronicles,
   testutils/unittests, stew/shims/net as stewNet,
   json_rpc/[rpcserver, rpcclient],
   eth/[keys, rlp], eth/common/eth_types,
@@ -66,6 +67,7 @@ procSuite "Waku v2 JSON-RPC API":
       response.listenAddresses == @[$node.switch.peerInfo.addrs[^1] & "/p2p/" & $node.switch.peerInfo.peerId]
 
     await server.stop()
+    await server.closeWait()
     
     waitfor node.stop()
 
@@ -115,6 +117,7 @@ procSuite "Waku v2 JSON-RPC API":
       response == true
 
     await server.stop()
+    await server.closeWait()
     
     waitfor node.stop()
   
@@ -203,6 +206,7 @@ procSuite "Waku v2 JSON-RPC API":
       messages.len == 0
 
     await server.stop()
+    await server.closeWait()
     
     await node1.stop()
     await node2.stop()
@@ -262,6 +266,7 @@ procSuite "Waku v2 JSON-RPC API":
       response.pagingOptions.isSome()
       
     await server.stop()
+    await server.closeWait()
     
     waitfor node.stop()
   
@@ -308,6 +313,7 @@ procSuite "Waku v2 JSON-RPC API":
       response == true
 
     await server.stop()
+    await server.closeWait()
     
     waitfor node.stop()
   
@@ -385,6 +391,7 @@ procSuite "Waku v2 JSON-RPC API":
       response[maxSize - 1].payload == @[byte (maxSize + 1)]
 
     await server.stop()
+    await server.closeWait()
     
     waitfor node.stop()
   
@@ -441,6 +448,7 @@ procSuite "Waku v2 JSON-RPC API":
                    it.multiaddr == constructMultiaddrStr(peerInfo3))
 
     await server.stop()
+    await server.closeWait()
     
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
   
@@ -493,6 +501,7 @@ procSuite "Waku v2 JSON-RPC API":
                      it.multiaddr == constructMultiaddrStr(peerInfo3))
 
     await server.stop()
+    await server.closeWait()
     
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
   
@@ -549,6 +558,7 @@ procSuite "Waku v2 JSON-RPC API":
       (response.filterIt(it.protocol == WakuStoreCodec)[0]).multiaddr == constructMultiaddrStr(storePeer)
 
     await server.stop()
+    await server.closeWait()
     
     waitfor node.stop()
 
@@ -635,7 +645,9 @@ procSuite "Waku v2 JSON-RPC API":
       messages.len == 0
 
     await server1.stop()
+    await server1.closeWait()
     await server3.stop()
+    await server3.closeWait()
     
     await node1.stop()
     await node2.stop()
@@ -724,7 +736,9 @@ procSuite "Waku v2 JSON-RPC API":
       messages.len == 0
 
     await server1.stop()
+    await server1.closeWait()
     await server3.stop()
+    await server3.closeWait()
   
     await node1.stop()
     await node2.stop()
