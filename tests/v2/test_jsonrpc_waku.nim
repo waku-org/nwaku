@@ -65,8 +65,8 @@ procSuite "Waku v2 JSON-RPC API":
     check:
       response.listenAddresses == @[$node.switch.peerInfo.addrs[^1] & "/p2p/" & $node.switch.peerInfo.peerId]
 
-    server.stop()
-    server.close()
+    await server.stop()
+    
     waitfor node.stop()
 
   asyncTest "Relay API: publish and subscribe/unsubscribe": 
@@ -114,8 +114,8 @@ procSuite "Waku v2 JSON-RPC API":
       PubSub(node.wakuRelay).topics.len == 1
       response == true
 
-    server.stop()
-    server.close()
+    await server.stop()
+    
     waitfor node.stop()
   
   asyncTest "Relay API: get latest messages": 
@@ -202,8 +202,8 @@ procSuite "Waku v2 JSON-RPC API":
     check:
       messages.len == 0
 
-    server.stop()
-    server.close()
+    await server.stop()
+    
     await node1.stop()
     await node2.stop()
     await node3.stop()
@@ -261,8 +261,8 @@ procSuite "Waku v2 JSON-RPC API":
       response.messages.len() == 8
       response.pagingOptions.isSome()
       
-    server.stop()
-    server.close()
+    await server.stop()
+    
     waitfor node.stop()
   
   asyncTest "Filter API: subscribe/unsubscribe": 
@@ -307,8 +307,8 @@ procSuite "Waku v2 JSON-RPC API":
       node.filters.len() == 0
       response == true
 
-    server.stop()
-    server.close()
+    await server.stop()
+    
     waitfor node.stop()
   
   asyncTest "Filter API: get latest messages":
@@ -384,8 +384,8 @@ procSuite "Waku v2 JSON-RPC API":
       response[0].payload == @[byte 2]
       response[maxSize - 1].payload == @[byte (maxSize + 1)]
 
-    server.stop()
-    server.close()
+    await server.stop()
+    
     waitfor node.stop()
   
   asyncTest "Admin API: connect to ad-hoc peers":
@@ -440,8 +440,8 @@ procSuite "Waku v2 JSON-RPC API":
       getRes.anyIt(it.protocol == WakuRelayCodec and
                    it.multiaddr == constructMultiaddrStr(peerInfo3))
 
-    server.stop()
-    server.close()
+    await server.stop()
+    
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
   
   asyncTest "Admin API: get managed peer information":
@@ -492,8 +492,8 @@ procSuite "Waku v2 JSON-RPC API":
       response.anyIt(it.protocol == WakuRelayCodec and
                      it.multiaddr == constructMultiaddrStr(peerInfo3))
 
-    server.stop()
-    server.close()
+    await server.stop()
+    
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
   
   asyncTest "Admin API: get unmanaged peer information":
@@ -548,8 +548,8 @@ procSuite "Waku v2 JSON-RPC API":
       # Check store peer
       (response.filterIt(it.protocol == WakuStoreCodec)[0]).multiaddr == constructMultiaddrStr(storePeer)
 
-    server.stop()
-    server.close()
+    await server.stop()
+    
     waitfor node.stop()
 
   asyncTest "Private API: generate asymmetric keys and encrypt/decrypt communication":
@@ -634,10 +634,9 @@ procSuite "Waku v2 JSON-RPC API":
     check:
       messages.len == 0
 
-    server1.stop()
-    server1.close()
-    server3.stop()
-    server3.close()
+    await server1.stop()
+    await server3.stop()
+    
     await node1.stop()
     await node2.stop()
     await node3.stop()
@@ -724,10 +723,9 @@ procSuite "Waku v2 JSON-RPC API":
     check:
       messages.len == 0
 
-    server1.stop()
-    server1.close()
-    server3.stop()
-    server3.close()
+    await server1.stop()
+    await server3.stop()
+  
     await node1.stop()
     await node2.stop()
     await node3.stop()
