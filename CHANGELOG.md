@@ -17,6 +17,7 @@ which is a sequence of string.
 - Increased maximum length for reading from a libp2p input stream to allow largest possible protocol messages, including `HistoryResponse` messages at max size.
 - Significantly improved store node query performance
 - Added GossipSub `MessageIdProvider` for `11/WAKU2-RELAY` messages.
+- Store: timestamps of message reception, used for indexing, now have consistent millisecond resolution.
 
 ## 2021-11-05 v0.6
 
