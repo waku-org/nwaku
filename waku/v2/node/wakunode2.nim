@@ -84,7 +84,6 @@ type
     wakuLightPush*: WakuLightPush
     enr*: enr.Record
     libp2pPing*: Ping
-    libp2pTransportLoops*: seq[Future[void]]
     filters*: Filters
     rng*: ref BrHmacDrbgContext
     wakuDiscv5*: WakuDiscoveryV5
@@ -857,7 +856,7 @@ proc start*(node: WakuNode) {.async.} =
   ##
   ## Status: Implemented.
   
-  node.libp2pTransportLoops = await node.switch.start()
+  await node.switch.start()
   
   # TODO Get this from WakuNode obj
   let peerInfo = node.switch.peerInfo

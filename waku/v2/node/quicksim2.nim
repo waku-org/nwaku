@@ -46,7 +46,7 @@ var nodes: seq[RPCHttpClient]
 for i in 0..<amount:
   var node = newRpcHttpClient()
   nodes.add(node)
-  waitFor nodes[i].connect("localhost", Port(8547+i))
+  waitFor nodes[i].connect("localhost", Port(8547+i), false)
   var res = waitFor nodes[i].post_waku_v2_relay_v1_subscriptions(@[defaultTopic])
 
 os.sleep(2000)
