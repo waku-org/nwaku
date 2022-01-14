@@ -24,10 +24,10 @@ procSuite "Waku Filter":
       post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
 
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     var listenSwitch = newStandardSwitch(some(key))
-    discard await listenSwitch.start()
+    await listenSwitch.start()
 
     var responseRequestIdFuture = newFuture[string]()
     proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
@@ -69,10 +69,10 @@ procSuite "Waku Filter":
       post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
 
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     var listenSwitch = newStandardSwitch(some(key))
-    discard await listenSwitch.start()
+    await listenSwitch.start()
 
     var responseCompletionFuture = newFuture[bool]()
     proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
@@ -128,7 +128,7 @@ procSuite "Waku Filter":
       contentTopic = ContentTopic("/waku/2/default-content/proto")
 
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     var responseRequestIdFuture = newFuture[string]()
     proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
@@ -155,10 +155,10 @@ procSuite "Waku Filter":
       post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
 
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     var listenSwitch = newStandardSwitch(some(key))
-    discard await listenSwitch.start()
+    await listenSwitch.start()
 
     var responseCompletionFuture = newFuture[bool]()
     proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
@@ -213,16 +213,16 @@ procSuite "Waku Filter":
     const defaultTopic = "/waku/2/default-waku/proto"
 
     let
-      key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.new(key)
+      dialKey = PrivateKey.random(ECDSA, rng[]).get()
+      listenKey = PrivateKey.random(ECDSA, rng[]).get()
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
 
-    var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    var dialSwitch = newStandardSwitch(privKey = some(dialKey), addrs = MultiAddress.init("/ip4/127.0.0.1/tcp/65000").tryGet())
+    await dialSwitch.start()
 
-    var listenSwitch = newStandardSwitch(some(key))
-    discard await listenSwitch.start()
+    var listenSwitch = newStandardSwitch(some(listenKey))
+    await listenSwitch.start()
 
     var responseCompletionFuture = newFuture[bool]()
     proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
@@ -258,7 +258,7 @@ procSuite "Waku Filter":
     responseCompletionFuture = newFuture[bool]()
 
     # Stop switch to test unsubscribe
-    discard dialSwitch.stop()
+    await dialSwitch.stop()
 
     await sleepAsync(1.seconds)
     
@@ -268,8 +268,11 @@ procSuite "Waku Filter":
     check:
       proto2.failedPeers.len() == 1
     
-    discard dialSwitch.start()
-    dialSwitch.mount(proto)
+    # Start switch with same key as before
+    var dialSwitch2 = newStandardSwitch(some(dialKey), addrs = MultiAddress.init("/ip4/127.0.0.1/tcp/65000").tryGet())
+    await dialSwitch2.start()
+    dialSwitch2.mount(proto)
+    
     #Second failure should remove the subscription
     await proto2.handleMessage(defaultTopic, post)
     
@@ -280,5 +283,5 @@ procSuite "Waku Filter":
     check:
       proto2.failedPeers.len() == 0
 
-    discard dialSwitch.stop()
-    discard listenSwitch.stop()
+    await dialSwitch2.stop()
+    await listenSwitch.stop()
