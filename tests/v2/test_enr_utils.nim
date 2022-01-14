@@ -44,7 +44,7 @@ procSuite "ENR utils":
     let
       enrIp = ValidIpAddress.init("127.0.0.1")
       enrTcpPort, enrUdpPort = Port(60000)
-      enrKey = PrivateKey.random(Secp256k1, rng[])[]
+      enrKey = wakuenr.crypto.PrivateKey.random(Secp256k1, rng[])[]
       wakuFlags = initWakuFlags(false, true, false, true)
       multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[],
                      MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss")[]]
@@ -65,8 +65,8 @@ procSuite "ENR utils":
     
     # Check Waku ENR fields
     let
-      decodedFlags = record.get(WAKU_ENR_FIELD, seq[byte])
-      decodedAddrs = record.get(MULTIADDR_ENR_FIELD, seq[byte]).toMultiAddresses()
+      decodedFlags = record.get(WAKU_ENR_FIELD, seq[byte])[]
+      decodedAddrs = record.get(MULTIADDR_ENR_FIELD, seq[byte])[].toMultiAddresses()
     check:
       decodedFlags == @[wakuFlags.byte]
       decodedAddrs.contains(MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[])
@@ -77,7 +77,7 @@ procSuite "ENR utils":
     let
       enrIp = ValidIpAddress.init("127.0.0.1")
       enrTcpPort, enrUdpPort = Port(60000)
-      enrKey = PrivateKey.random(Secp256k1, rng[])[]
+      enrKey = wakuenr.crypto.PrivateKey.random(Secp256k1, rng[])[]
       multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss/p2p/16Uiu2HAm4v86W3bmT1BiH6oSPzcsSr31iDQpSN5Qa882BCjjwgrD")[]]
 
     let
@@ -88,7 +88,7 @@ procSuite "ENR utils":
 
     # Check Waku ENR fields
     let
-      decodedAddrs = record.get(MULTIADDR_ENR_FIELD, seq[byte]).toMultiAddresses()
+      decodedAddrs = record.get(MULTIADDR_ENR_FIELD, seq[byte])[].toMultiAddresses()
     
     check decodedAddrs.contains(MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss")[]) # Peer Id has been stripped
 
@@ -121,7 +121,7 @@ procSuite "ENR utils":
     
     # Check Waku ENR fields
     let
-      decodedAddrs = enrRecord.get(MULTIADDR_ENR_FIELD, seq[byte]).toMultiAddresses()
+      decodedAddrs = enrRecord.get(MULTIADDR_ENR_FIELD, seq[byte])[].toMultiAddresses()
     
     for knownMultiaddr in knownMultiaddrs:
       check decodedAddrs.contains(knownMultiaddr)

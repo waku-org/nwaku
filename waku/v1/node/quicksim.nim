@@ -18,9 +18,9 @@ let
   lightNode = newRpcHttpClient()
   lightNode2 = newRpcHttpClient()
 
-waitFor lightNode.connect("localhost", Port(8545))
-waitFor lightNode2.connect("localhost", Port(8546))
-waitFor trafficNode.connect("localhost", Port(8548))
+waitFor lightNode.connect("localhost", Port(8545), false)
+waitFor lightNode2.connect("localhost", Port(8546), false)
+waitFor trafficNode.connect("localhost", Port(8548), false)
 
 proc generateTopics(amount = topicAmount): seq[waku_protocol.Topic] =
   var topic: waku_protocol.Topic

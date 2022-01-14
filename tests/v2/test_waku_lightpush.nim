@@ -25,10 +25,10 @@ procSuite "Waku Light Push":
       post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
 
     var dialSwitch = newStandardSwitch()
-    discard await dialSwitch.start()
+    await dialSwitch.start()
 
     var listenSwitch = newStandardSwitch(some(key))
-    discard await listenSwitch.start()
+    await listenSwitch.start()
 
     var responseRequestIdFuture = newFuture[string]()
     var completionFut = newFuture[bool]()
