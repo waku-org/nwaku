@@ -1,7 +1,7 @@
 library 'status-jenkins-lib@v1.2.18'
 
 pipeline {
-  agent { label getAgentLabel() }
+  agent { label "${getAgentLabel()} && x86_64" }
 
   parameters {
     string(
