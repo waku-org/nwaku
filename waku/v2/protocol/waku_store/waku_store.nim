@@ -7,7 +7,7 @@
 # Group by std, external then internal imports
 import
   # std imports
-  std/[tables, times, sequtils, algorithm, options],
+  std/[tables, times, sequtils, algorithm, options, math],
   # external imports
   bearssl,
   chronicles,
@@ -55,15 +55,18 @@ const
 # TODO Move serialization function to separate file, too noisy
 # TODO Move pagination to separate file, self-contained logic
 
-proc computeIndex*(msg: WakuMessage): Index =
-  ## Takes a WakuMessage and returns its Index
+proc computeIndex*(msg: WakuMessage, receivedTime = getTime().toUnixFloat()): Index =
+  ## Takes a WakuMessage with received timestamp and returns its Index.
+  ## Received timestamp will default to system time if not provided.
   var ctx: sha256
   ctx.init()
   ctx.update(msg.contentTopic.toBytes()) # converts the contentTopic to bytes
   ctx.update(msg.payload)
   let digest = ctx.finish() # computes the hash
   ctx.clear()
-  var index = Index(digest:digest, receiverTime: epochTime(), senderTime: msg.timestamp)
+
+  let receiverTime = receivedTime.round(3) # Ensure timestamp has (only) millisecond resolution
+  var index = Index(digest:digest, receiverTime: receiverTime, senderTime: msg.timestamp)
   return index
 
 proc encode*(index: Index): ProtoBuffer =
@@ -466,7 +469,7 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
 
   proc onData(receiverTime: float64, msg: WakuMessage, pubsubTopic:  string) =
     # TODO index should not be recalculated
-    ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex(), pubsubTopic: pubsubTopic))
+    ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex(receiverTime), pubsubTopic: pubsubTopic))
 
   info "attempting to load messages from persistent storage"
 
