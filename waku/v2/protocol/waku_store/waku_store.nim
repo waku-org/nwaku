@@ -621,12 +621,13 @@ proc queryLoop(w: WakuStore, query: HistoryQuery, candidateList: seq[RemotePeerI
   var futureList: seq[Future[MessagesResult]]
   for peer in candidateList.items:
     futureList.add(w.queryFromWithPaging(query, peer))
-  futureList = await allFinished(futureList) # TODO: is there a proc that returns a Future[seq[T]?
+  await allFutures(futureList) # all(), which returns a Future[seq[T]], has been deprecated
   var messagesList: seq[WakuMessage]
   # all futures have already been awaited, so the following loop runs without actually waiting
   for fut in futureList:
-    let successResult = await fut
-    if successResult.isOk: messagesList.insert(successResult.value)
+    if fut.completed(): # just a sanity check. These futures have been awaited before using allFutures()
+      let successResult = fut.read()
+      if successResult.isOk: messagesList.insert(successResult.value)
   if messagesList.len != 0:
     return ok(messagesList.deduplicate())
   else:
