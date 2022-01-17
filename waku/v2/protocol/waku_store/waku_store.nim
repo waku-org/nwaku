@@ -24,7 +24,6 @@ import
   ../../utils/requests,
   ../waku_swap/waku_swap,
   ./waku_store_types
-  
 
 # export all modules whose types are used in public functions/types
 export 
@@ -624,10 +623,12 @@ proc queryLoop(w: WakuStore, query: HistoryQuery, candidateList: seq[RemotePeerI
   await allFutures(futureList) # all(), which returns a Future[seq[T]], has been deprecated
 
   let messagesList = futureList
-    .filterIt(it.completed()) # just a sanity check. These futures have been awaited before using allFutures()
-    .mapIt(it.read())
-    .filterIt(it.isOk)
-    .mapIt(it.value)
+    .map(proc (fut: Future[MessagesResult]): seq[WakuMessage] =
+      if fut.completed() and fut.read().isOk(): # completed() just as a sanity check. These futures have been awaited before using allFutures()
+        fut.read().value
+      else:
+        @[]
+    )
     .concat()
 
   if messagesList.len != 0:
