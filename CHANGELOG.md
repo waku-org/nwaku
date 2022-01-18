@@ -1,23 +1,46 @@
-##  Next version
+##  2021-01-19 v0.7
 
-This release contains the following:
+Release highlights:
+
+- Support for secure websockets.
+- Ability to remove unreachable clients in a `filter` node.
+- Several fixes to improve `store` performance and decrease query times. Query time for large stores decreased from longer than 8 min to under 100 ms.
+- Fix for a long-standing bug that prevented proper database migration in some deployed Docker containers.
+
+The full list of changes is below.
 
 ### Features
-- Waku v2 node timeout for Filter nodes.
-- Waku v2 node support for secure websockets.
+
+- Support for secure websocket transport
 
 ### Changes
-- The WakuInfo Object field of `listenStr` is deprecated and is now replaced with `listenAddresses`
-which is a sequence of string.
-- Removed cached `peerInfo` on local node. Rely on underlying libp2p switch instead.
+
+- Filter nodes can now remove unreachable clients
+- The WakuInfo `listenStr` is deprecated and replaced with a sequence of `listenAddresses` to accommodate multiple transports
+- Removed cached `peerInfo` on local node. Rely on underlying libp2p switch instead
 - Metrics: added counters for protocol messages
+- Waku v2 node discovery now supports [`31/WAKU2-ENR`](https://rfc.vac.dev/spec/31/)
 
 ### Fixes
+
+- Fixed database migration failure in the Docker image
 - All `HistoryResponse` messages are now auto-paginated to a maximum of 100 messages per response
-- Increased maximum length for reading from a libp2p input stream to allow largest possible protocol messages, including `HistoryResponse` messages at max size.
-- Significantly improved store node query performance
-- Added GossipSub `MessageIdProvider` for `11/WAKU2-RELAY` messages.
-- Store: timestamps of message reception, used for indexing, now have consistent millisecond resolution.
+- Increased maximum length for reading from a libp2p input stream to allow largest possible protocol messages, including `HistoryResponse` messages at max size
+- Significantly improved `store` node query performance
+- Implemented a GossipSub `MessageIdProvider` for `11/WAKU2-RELAY` messages instead of relying on the unstable default
+- Receiver timestamps for message indexing in the `store` now have consistent millisecond resolution
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) | `raw` | `/vac/waku/waku-rln-relay/2.0.0-alpha1` |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta3` |
+| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
 
 ## 2021-11-05 v0.6
 
