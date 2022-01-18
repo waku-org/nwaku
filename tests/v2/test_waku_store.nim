@@ -715,7 +715,7 @@ procSuite "Waku Store":
         messagesResult.isOk
         messagesResult.value.len == 4
 
-    asyncTest "resume history from an empty list of candidate peers":
+    asyncTest "resume history from a list of offline peers":
       var offListenSwitch = newStandardSwitch(some(PrivateKey.random(ECDSA, rng[]).get()))
       var dialSwitch3 = newStandardSwitch()
       await dialSwitch3.start()
@@ -736,9 +736,12 @@ procSuite "Waku Store":
 
       let successResult = await proto3.resume(some(@[offListenSwitch.peerInfo.toRemotePeerInfo(),
                                                      listenSwitch.peerInfo.toRemotePeerInfo(),
-                                                     listenSwitch.peerInfo.toRemotePeerInfo(),
                                                      listenSwitch2.peerInfo.toRemotePeerInfo()]))
       check:
+        # `proto3` is expected to retrieve 14 messages because:
+        # - the store mounted on `listenSwitch` holds 10 messages (`msgList`)
+        # - the store mounted on `listenSwitch2` holds 7 messages (see `msgList2`)
+        # - both stores share 3 messages, resulting in 14 unique messages in total
         proto3.messages.len == 14
         successResult.isOk
         successResult.value == 14
