@@ -79,7 +79,8 @@ proc info*(node: WakuNode): WakuInfo =
 proc resume*(node: WakuNode, peerList: Option[seq[PeerInfo]]) =
   ## Retrieves and persists the history of waku messages published on the default waku pubsub topic since the last time the waku node has been online. 
   ## It requires the waku node to have the store protocol mounted in the full mode (i.e., persisting messages).
-  ## `peerList` indicates the list of peers to query from. The history is fetched from the first available peer in this list. 
+  ## `peerList` indicates the list of peers to query from.
+  ## The history is fetched from all available peers in this list and then consolidated into one deduplicated list.
   ## If no peerList is passed, the history is fetched from one of the known peers. 
   ## It retrieves the history successfully given that the dialed peer has been online during the queried time window.
   ##

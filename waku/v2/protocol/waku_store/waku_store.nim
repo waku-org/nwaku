@@ -24,7 +24,6 @@ import
   ../../utils/requests,
   ../waku_swap/waku_swap,
   ./waku_store_types
-  
 
 # export all modules whose types are used in public functions/types
 export 
@@ -615,14 +614,28 @@ proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: RemotePeerInf
   return ok(messageList)
 
 proc queryLoop(w: WakuStore, query: HistoryQuery, candidateList: seq[RemotePeerInfo]): Future[MessagesResult]  {.async, gcsafe.} = 
-  ## loops through the candidateList in order and sends the query to each until one of the query gets resolved successfully
-  ## returns the retrieved messages, or error if all the requests fail
-  for peer in candidateList.items: 
-    let successResult = await w.queryFromWithPaging(query, peer)
-    if successResult.isOk: return ok(successResult.value)
+  ## loops through the candidateList in order and sends the query to each
+  ## once all responses have been received, the retrieved messages are consolidated into one deduplicated list
+  ## if no messages have been retrieved, the returned future will resolve into a MessagesResult result holding an empty seq.
+  var futureList: seq[Future[MessagesResult]]
+  for peer in candidateList.items:
+    futureList.add(w.queryFromWithPaging(query, peer))
+  await allFutures(futureList) # all(), which returns a Future[seq[T]], has been deprecated
 
-  debug "failed to resolve the query"
-  return err("failed to resolve the query")
+  let messagesList = futureList
+    .map(proc (fut: Future[MessagesResult]): seq[WakuMessage] =
+      if fut.completed() and fut.read().isOk(): # completed() just as a sanity check. These futures have been awaited before using allFutures()
+        fut.read().value
+      else:
+        @[]
+    )
+    .concat()
+
+  if messagesList.len != 0:
+    return ok(messagesList.deduplicate())
+  else:
+    debug "failed to resolve the query"
+    return err("failed to resolve the query")
 
 proc findLastSeen*(list: seq[IndexedWakuMessage]): float = 
   var lastSeenTime = float64(0)
@@ -633,7 +646,7 @@ proc findLastSeen*(list: seq[IndexedWakuMessage]): float =
 
 proc isDuplicate(message: WakuMessage, list: seq[WakuMessage]): bool =
   ## return true if a duplicate message is found, otherwise false
-  # it is defined as a separate proc to be bale to adjust comparison criteria 
+  # it is defined as a separate proc to be able to adjust comparison criteria 
   # e.g., to exclude timestamp or include pubsub topic
   if message in list: return true
   return false
@@ -643,7 +656,9 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
   ## messages are stored in the store node's messages field and in the message db
   ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message 
   ## an offset of 20 second is added to the time window to count for nodes asynchrony
-  ## peerList indicates the list of peers to query from. The history is fetched from the first available peer in this list. Such candidates should be found through a discovery method (to be developed).
+  ## peerList indicates the list of peers to query from.
+  ## The history is fetched from all available peers in this list and then consolidated into one deduplicated list.
+  ## Such candidates should be found through a discovery method (to be developed).
   ## if no peerList is passed, one of the peers in the underlying peer manager unit of the store protocol is picked randomly to fetch the history from. 
   ## The history gets fetched successfully if the dialed peer has been online during the queried time window.
   ## the resume proc returns the number of retrieved messages if no error occurs, otherwise returns the error string
@@ -656,7 +671,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
   let offset: float64 = 200000
   currentTime = currentTime + offset
   lastSeenTime = max(lastSeenTime - offset, 0)
-  debug "the  offline time window is", lastSeenTime=lastSeenTime, currentTime=currentTime
+  debug "the offline time window is", lastSeenTime=lastSeenTime, currentTime=currentTime
 
   let 
     pinfo = PagingInfo(direction:PagingDirection.FORWARD, pageSize: pageSize)
