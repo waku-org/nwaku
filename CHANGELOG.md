@@ -20,6 +20,7 @@ The full list of changes is below.
 - Removed cached `peerInfo` on local node. Rely on underlying libp2p switch instead
 - Metrics: added counters for protocol messages
 - Waku v2 node discovery now supports [`31/WAKU2-ENR`](https://rfc.vac.dev/spec/31/)
+- resuming the history via `resume` now takes the answers of all peers in `peerList` into consideration and consolidates them into one deduplicated list
 
 ### Fixes
 
