@@ -33,6 +33,7 @@ export
   waku_filter,
   waku_lightpush,
   waku_rln_relay_types
+  
 
 when defined(rln):
   import
