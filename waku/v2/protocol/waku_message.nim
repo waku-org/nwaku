@@ -32,10 +32,6 @@ type
     # the proof field indicates that the message is not a spam
     # this field will be used in the rln-relay protocol
     # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec and not yet part of WakuMessage spec
-    # when defined(rln):
-    #   proof*: RateLimitProof
-    # else:
-    #   proof*: seq[byte]
     proof*: RateLimitProof
    
 
@@ -50,12 +46,6 @@ proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
 
   discard ? pb.getField(4, msg.timestamp)
   # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec and not yet part of WakuMessage spec
-  # when defined(rln):
-  #   var proofBytes: seq[byte]
-  #   discard ? pb.getField(21, proofBytes)
-  #   msg.proof = ? RateLimitProof.init(proofBytes)
-  # else:
-  #   discard ? pb.getField(21, msg.proof)
   var proofBytes: seq[byte]
   discard ? pb.getField(21, proofBytes)
   msg.proof = ? RateLimitProof.init(proofBytes)
@@ -69,8 +59,4 @@ proc encode*(message: WakuMessage): ProtoBuffer =
   result.write(2, message.contentTopic)
   result.write(3, message.version)
   result.write(4, message.timestamp)
-  # when defined(rln):
-  #   result.write(21, message.proof.encode())
-  # else:
-  #   result.write(21, message.proof)
   result.write(21, message.proof.encode())
