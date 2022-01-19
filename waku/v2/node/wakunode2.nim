@@ -9,7 +9,7 @@ import
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
   libp2p/protocols/ping,
-  libp2p/protocols/pubsub/[gossipsub, rpc/messages, pubsub],
+  libp2p/protocols/pubsub/[gossipsub, rpc/messages],
   libp2p/nameresolving/dnsresolver,
   libp2p/[builders, multihash],
   libp2p/transports/[transport, tcptransport, wstransport],
@@ -37,6 +37,7 @@ export
 when defined(rln):
   import
     libp2p/protocols/pubsub/rpc/messages,
+    libp2p/protocols/pubsub/pubsub,
     web3,
     ../protocol/waku_rln_relay/[rln, waku_rln_relay_utils]
 
