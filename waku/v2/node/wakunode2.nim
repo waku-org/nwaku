@@ -34,7 +34,6 @@ export
   waku_lightpush,
   waku_rln_relay_types
   
-
 when defined(rln):
   import
     libp2p/protocols/pubsub/rpc/messages,
