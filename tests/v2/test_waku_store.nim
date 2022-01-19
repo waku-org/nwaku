@@ -534,6 +534,8 @@ procSuite "Waku Store":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.new(key)
+      key2 = PrivateKey.random(ECDSA, rng[]).get()
+      # peer2 = PeerInfo.new(key2)
     var
       msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: float(0)),
         WakuMessage(payload: @[byte 1],contentTopic: ContentTopic("1"), timestamp: float(1)),
@@ -545,7 +547,19 @@ procSuite "Waku Store":
         WakuMessage(payload: @[byte 7],contentTopic: ContentTopic("1"), timestamp: float(7)),
         WakuMessage(payload: @[byte 8],contentTopic: ContentTopic("2"), timestamp: float(8)),
         WakuMessage(payload: @[byte 9],contentTopic: ContentTopic("1"),timestamp: float(9))]
-            
+
+      msgList2 = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: float(0)),
+        WakuMessage(payload: @[byte 11],contentTopic: ContentTopic("1"), timestamp: float(1)),
+        WakuMessage(payload: @[byte 12],contentTopic: ContentTopic("2"), timestamp: float(2)),
+        WakuMessage(payload: @[byte 3],contentTopic: ContentTopic("1"), timestamp: float(3)),
+        WakuMessage(payload: @[byte 4],contentTopic: ContentTopic("2"), timestamp: float(4)),
+        WakuMessage(payload: @[byte 5],contentTopic: ContentTopic("1"), timestamp: float(5)),
+        WakuMessage(payload: @[byte 13],contentTopic: ContentTopic("2"), timestamp: float(6)),
+        WakuMessage(payload: @[byte 14],contentTopic: ContentTopic("1"), timestamp: float(7))]
+
+    #--------------------
+    # setup default test store
+    #--------------------
     var dialSwitch = newStandardSwitch()
     await dialSwitch.start()
 
@@ -562,6 +576,28 @@ procSuite "Waku Store":
     for wakuMsg in msgList:
       # the pubsub topic should be DefaultTopic
       await proto.handleMessage(DefaultTopic, wakuMsg)
+
+    #--------------------
+    # setup 2nd test store
+    #--------------------
+    var dialSwitch2 = newStandardSwitch()
+    await dialSwitch2.start()
+
+    # to be connected to
+    var listenSwitch2 = newStandardSwitch(some(key2))
+    await listenSwitch2.start()
+
+    let proto2 = WakuStore.init(PeerManager.new(dialSwitch2), crypto.newRng())
+
+    proto2.setPeer(listenSwitch2.peerInfo.toRemotePeerInfo())
+
+    listenSwitch2.mount(proto2)
+
+    for wakuMsg in msgList2:
+      # the pubsub topic should be DefaultTopic
+      await proto2.handleMessage(DefaultTopic, wakuMsg)
+
+
     
     asyncTest "handle temporal history query with a valid time window":
       var completionFut = newFuture[bool]()
@@ -679,6 +715,16 @@ procSuite "Waku Store":
         messagesResult.isOk
         messagesResult.value.len == 4
 
+    asyncTest "resume history from a list of offline peers":
+      var offListenSwitch = newStandardSwitch(some(PrivateKey.random(ECDSA, rng[]).get()))
+      var dialSwitch3 = newStandardSwitch()
+      await dialSwitch3.start()
+      let proto3 = WakuStore.init(PeerManager.new(dialSwitch3), crypto.newRng())
+      let successResult = await proto3.resume(some(@[offListenSwitch.peerInfo.toRemotePeerInfo()]))
+      check:
+        successResult.isErr
+      await dialSwitch3.stop()
+
     asyncTest "resume history from a list of candidate peers":
 
       var offListenSwitch = newStandardSwitch(some(PrivateKey.random(ECDSA, rng[]).get()))
@@ -690,12 +736,19 @@ procSuite "Waku Store":
 
       let successResult = await proto3.resume(some(@[offListenSwitch.peerInfo.toRemotePeerInfo(),
                                                      listenSwitch.peerInfo.toRemotePeerInfo(),
-                                                     listenSwitch.peerInfo.toRemotePeerInfo()]))
+                                                     listenSwitch2.peerInfo.toRemotePeerInfo()]))
       check:
-        proto3.messages.len == 10
+        # `proto3` is expected to retrieve 14 messages because:
+        # - the store mounted on `listenSwitch` holds 10 messages (`msgList`)
+        # - the store mounted on `listenSwitch2` holds 7 messages (see `msgList2`)
+        # - both stores share 3 messages, resulting in 14 unique messages in total
+        proto3.messages.len == 14
         successResult.isOk
-        successResult.value == 10
-  
+        successResult.value == 14
+
+    await allFutures(dialSwitch.stop(),
+      dialSwitch2.stop())
+
   asyncTest "limit store capacity":
     let
       capacity = 10
