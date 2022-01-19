@@ -13,6 +13,10 @@ import
 when defined(rln):
   import waku_rln_relay/waku_rln_relay_types
 
+from ../protocol/waku_rln_relay/waku_rln_relay_types import RateLimitProof
+from ../protocol/waku_rln_relay/waku_rln_relay_types import init
+from ../protocol/waku_rln_relay/waku_rln_relay_types import encode
+
 const
   MaxWakuMessageSize* = 1024 * 1024 # In bytes. Corresponds to PubSub default
 
@@ -28,10 +32,11 @@ type
     # the proof field indicates that the message is not a spam
     # this field will be used in the rln-relay protocol
     # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec and not yet part of WakuMessage spec
-    when defined(rln):
-      proof*: RateLimitProof
-    else:
-      proof*: seq[byte]
+    # when defined(rln):
+    #   proof*: RateLimitProof
+    # else:
+    #   proof*: seq[byte]
+    proof*: RateLimitProof
    
 
 # Encoding and decoding -------------------------------------------------------
@@ -45,12 +50,15 @@ proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
 
   discard ? pb.getField(4, msg.timestamp)
   # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec and not yet part of WakuMessage spec
-  when defined(rln):
-    var proofBytes: seq[byte]
-    discard ? pb.getField(21, proofBytes)
-    msg.proof = ? RateLimitProof.init(proofBytes)
-  else:
-    discard ? pb.getField(21, msg.proof)
+  # when defined(rln):
+  #   var proofBytes: seq[byte]
+  #   discard ? pb.getField(21, proofBytes)
+  #   msg.proof = ? RateLimitProof.init(proofBytes)
+  # else:
+  #   discard ? pb.getField(21, msg.proof)
+  var proofBytes: seq[byte]
+  discard ? pb.getField(21, proofBytes)
+  msg.proof = ? RateLimitProof.init(proofBytes)
 
   ok(msg)
 
@@ -61,7 +69,8 @@ proc encode*(message: WakuMessage): ProtoBuffer =
   result.write(2, message.contentTopic)
   result.write(3, message.version)
   result.write(4, message.timestamp)
-  when defined(rln):
-    result.write(21, message.proof.encode())
-  else:
-    result.write(21, message.proof)
+  # when defined(rln):
+  #   result.write(21, message.proof.encode())
+  # else:
+  #   result.write(21, message.proof)
+  result.write(21, message.proof.encode())
