@@ -9,7 +9,7 @@ import
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
   libp2p/protocols/ping,
-  libp2p/protocols/pubsub/[gossipsub, rpc/messages],
+  libp2p/protocols/pubsub/[gossipsub, rpc/messages, pubsub],
   libp2p/nameresolving/dnsresolver,
   libp2p/[builders, multihash],
   libp2p/transports/[transport, tcptransport, wstransport],
@@ -463,7 +463,7 @@ when defined(rln):
     ## this procedure is a thin wrapper for the pubsub addValidator method
     ## it sets message validator on the given pubsubTopic, the validator will check that
     ## all the messages published in the pubsubTopic have a valid zero-knowledge proof 
-    proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
+    proc validator(topic: string, message: messages.Message): Future[pubsub.ValidationResult] {.async.} =
       let msg = WakuMessage.init(message.data) 
       if msg.isOk():
         let 
@@ -473,21 +473,21 @@ when defined(rln):
         case validationRes:
           of Valid:
             info "message validity is verified, relaying:", wakumessage=wakumessage
-            return ValidationResult.Accept
+            return pubsub.ValidationResult.Accept
           of Invalid:
             info "message validity could not be verified, discarding:", wakumessage=wakumessage
-            return ValidationResult.Reject
+            return pubsub.ValidationResult.Reject
           of Spam:
             info "A spam message is found! yay! discarding:", wakumessage=wakumessage
-            return ValidationResult.Reject          
+            return pubsub.ValidationResult.Reject          
     # set a validator for the supplied pubsubTopic 
     let pb  = PubSub(node.wakuRelay)
     pb.addValidator(pubsubTopic, validator)
 
   proc mountRlnRelay*(node: WakuNode,
                       ethClientAddrOpt: Option[string] = none(string),
-                      ethAccAddrOpt: Option[Address] = none(Address),
-                      memContractAddOpt:  Option[Address] = none(Address),
+                      ethAccAddrOpt: Option[web3.Address] = none(web3.Address),
+                      memContractAddOpt:  Option[web3.Address] = none(web3.Address),
                       groupOpt: Option[seq[IDCommitment]] = none(seq[IDCommitment]),
                       memKeyPairOpt: Option[MembershipKeyPair] = none(MembershipKeyPair),
                       memIndexOpt: Option[MembershipIndex] = none(MembershipIndex),
@@ -528,8 +528,8 @@ when defined(rln):
     
     var 
       ethClientAddr: string 
-      ethAccAddr: Address
-      memContractAdd: Address
+      ethAccAddr: web3.Address
+      memContractAdd: web3.Address
     if onchainMode:
       ethClientAddr = ethClientAddrOpt.get()
       ethAccAddr = ethAccAddrOpt.get()
