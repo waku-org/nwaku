@@ -1,11 +1,18 @@
 import
   std/[tables],
+  chronos,
   bearssl,
   libp2p/protocols/protocol,
   ../../node/peer_manager/peer_manager,
   ../waku_message
 
 export waku_message
+
+const
+  # We add a 64kB safety buffer for protocol overhead.
+  # 10x-multiplier also for safety: currently we never
+  # push more than 1 message at a time.
+  MaxRpcSize* = 10 * MaxWakuMessageSize + 64*1024
 
 type
   ContentFilter* = object
@@ -45,3 +52,5 @@ type
     peerManager*: PeerManager
     subscribers*: seq[Subscriber]
     pushHandler*: MessagePushHandler
+    failedPeers*: Table[string, chronos.Moment]
+    timeout*: chronos.Duration

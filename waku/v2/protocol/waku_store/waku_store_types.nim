@@ -26,12 +26,15 @@ export
   waku_message,
   pagination
 
-# Constants required for pagination -------------------------------------------
-const MaxPageSize* = uint64(100) # Maximum number of waku messages in each page
-# TODO the DefaultPageSize can be changed, it's current value is random
-const DefaultPageSize* = uint64(20) # A recommended default number of waku messages per page
+const
+  # Constants required for pagination -------------------------------------------
+  MaxPageSize* = uint64(100) # Maximum number of waku messages in each page
+  # TODO the DefaultPageSize can be changed, it's current value is random
+  DefaultPageSize* = uint64(20) # A recommended default number of waku messages per page
 
-const DefaultTopic* = "/waku/2/default-waku/proto"
+  MaxRpcSize* = MaxPageSize * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
+
+  DefaultTopic* = "/waku/2/default-waku/proto"
 
 
 type

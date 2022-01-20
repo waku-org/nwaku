@@ -45,6 +45,9 @@ COPY --from=nim-build /app/build/$MAKE_TARGET /usr/local/bin/
 # If rln enabled: fix for 'Error loading shared library vendor/rln/target/debug/librln.so: No such file or directory'
 # COPY --from=nim-build /app/vendor/rln/target/debug/librln.so vendor/rln/target/debug/librln.so
 
+# Copy migration scripts for DB upgrades
+COPY --from=nim-build /app/waku/v2/node/storage/migration/migrations_scripts/ /app/waku/v2/node/storage/migration/migrations_scripts/
+
 # Symlink the correct wakunode binary
 RUN ln -sv /usr/local/bin/$MAKE_TARGET /usr/bin/wakunode
 
