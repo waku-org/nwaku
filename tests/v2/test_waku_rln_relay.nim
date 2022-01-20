@@ -137,10 +137,11 @@ proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
 
 procSuite "Waku rln relay":
   asyncTest  "contract membership":
+    debug "ethereum client address", ETH_CLIENT
     let contractAddress = await uploadContract(ETH_CLIENT)
     # connect to the eth client
     let web3 = await newWeb3(ETH_CLIENT)
-    debug "web3 connected to", ETH_CLIENT
+    debug "web3 connected to", ETH_CLIENT 
 
     # fetch the list of registered accounts
     let accounts = await web3.provider.eth_accounts()
