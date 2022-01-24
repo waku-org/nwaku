@@ -290,6 +290,7 @@ proc writeAndPrint(c: Chat) {.async.} =
     else:
       # XXX connected state problematic
       if c.started:
+        # TODO add proof inside publish
         c.publish(line)
         # TODO Connect to peer logic?
       else:
@@ -328,13 +329,14 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
       wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
       wsEnabled = conf.websocketSupport,
       wssEnabled = conf.websocketSecureSupport)
-  
+  # TODO check this
   await node.start()
 
   node.mountRelay(conf.topics.split(" "),
                   relayMessages = conf.relay) # Indicates if node is capable to relay messages
   
   node.mountLibp2pPing()
+  #  TODO mount RLN relay when set
   
   let nick = await readNick(transp)
   echo "Welcome, " & nick & "!"
