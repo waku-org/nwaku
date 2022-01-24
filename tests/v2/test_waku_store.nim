@@ -54,6 +54,11 @@ procSuite "Waku Store":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
+
+    # free resources
+    await allFutures(dialSwitch.stop(),
+      listenSwitch.stop())
+
   asyncTest "handle query with multiple content filters":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
@@ -96,6 +101,10 @@ procSuite "Waku Store":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
+
+    # free resources
+    await allFutures(dialSwitch.stop(),
+      listenSwitch.stop())
   
   asyncTest "handle query with pubsub topic filter":
     let
@@ -144,6 +153,10 @@ procSuite "Waku Store":
     check:
       (await completionFut.withTimeout(5.seconds)) == true
 
+    # free resources
+    await allFutures(dialSwitch.stop(),
+      listenSwitch.stop())
+
   asyncTest "handle query with pubsub topic filter with no match":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
@@ -185,6 +198,11 @@ procSuite "Waku Store":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
+
+    # free resources
+    await allFutures(dialSwitch.stop(),
+      listenSwitch.stop())
+
   asyncTest "handle query with pubsub topic filter matching the entire stored messages":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
@@ -228,6 +246,10 @@ procSuite "Waku Store":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
+
+    # free resources
+    await allFutures(dialSwitch.stop(),
+      listenSwitch.stop())
 
   asyncTest "handle query with store and restarts":
     let
@@ -292,6 +314,10 @@ procSuite "Waku Store":
 
     check:
       (await completionFut2.withTimeout(5.seconds)) == true
+    
+    # free resources
+    await allFutures(dialSwitch.stop(),
+      listenSwitch.stop())
 
   asyncTest "handle query with forward pagination":
     let
@@ -342,6 +368,10 @@ procSuite "Waku Store":
     check:
       (await completionFut.withTimeout(5.seconds)) == true
 
+    # free resources
+    await allFutures(dialSwitch.stop(),
+      listenSwitch.stop())
+
   asyncTest "handle query with backward pagination":
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
@@ -388,6 +418,10 @@ procSuite "Waku Store":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
+
+    # free resources
+    await allFutures(dialSwitch.stop(),
+      listenSwitch.stop())
 
   asyncTest "handle queries with no paging info (auto-paginate)":
     let
@@ -438,6 +472,10 @@ procSuite "Waku Store":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
+
+    # free resources
+    await allFutures(dialSwitch.stop(),
+      listenSwitch.stop())
 
   test "Index Protobuf encoder/decoder test":
     let
@@ -678,6 +716,8 @@ procSuite "Waku Store":
         successResult.value == 10
         proto2.messages.len == 10
 
+      await dialSwitch2.stop()
+
     asyncTest "queryFrom":
 
       var completionFut = newFuture[bool]()
@@ -723,7 +763,10 @@ procSuite "Waku Store":
       let successResult = await proto3.resume(some(@[offListenSwitch.peerInfo.toRemotePeerInfo()]))
       check:
         successResult.isErr
-      await dialSwitch3.stop()
+
+      #free resources
+      await allFutures(dialSwitch3.stop(),
+        offListenSwitch.stop())
 
     asyncTest "resume history from a list of candidate peers":
 
@@ -746,8 +789,15 @@ procSuite "Waku Store":
         successResult.isOk
         successResult.value == 14
 
+      #free resources
+      await allFutures(dialSwitch3.stop(),
+        offListenSwitch.stop())
+
+    #free resources
     await allFutures(dialSwitch.stop(),
-      dialSwitch2.stop())
+      dialSwitch2.stop(),
+      listenSwitch.stop())
+
 
   asyncTest "limit store capacity":
     let
