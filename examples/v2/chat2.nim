@@ -469,6 +469,33 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
     let topic = cast[Topic](DefaultTopic)
     node.subscribe(topic, handler)
 
+    when defined(rln): 
+      if conf.rlnRelay:
+        info "WakuRLNRelay is enabled"
+
+        # set up rln relay inputs
+        let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(conf.rlnRelayMemIndex)
+        if memIndexOpt.isNone:
+          error "failed to mount WakuRLNRelay"
+        else:
+          # mount rlnrelay in offline mode (for now)
+          waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = conf.rlnRelayPubsubTopic)
+
+          info "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
+          info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
+
+          # check the correct construction of the tree by comparing the calculated root against the expected root
+          # no error should happen as it is already captured in the unit tests
+          # TODO have added this check to account for unseen corner cases, will remove it later 
+          let 
+            root = node.wakuRlnRelay.rlnInstance.getMerkleRoot.value.toHex() 
+            expectedRoot = STATIC_GROUP_MERKLE_ROOT
+          if root != expectedRoot:
+            error "root mismatch: something went wrong not in Merkle tree construction"
+          debug "the calculated root", root
+          info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic
+
+
   await chat.readWriteLoop()
 
   if conf.keepAlive:
