@@ -704,19 +704,19 @@ procSuite "Waku Store":
 
     asyncTest "resume message history":
       # starts a new node
-      var dialSwitch2 = newStandardSwitch()
-      await dialSwitch2.start()
+      var dialSwitch3 = newStandardSwitch()
+      await dialSwitch3.start()
     
-      let proto2 = WakuStore.init(PeerManager.new(dialSwitch2), crypto.newRng())
-      proto2.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
+      let proto3 = WakuStore.init(PeerManager.new(dialSwitch2), crypto.newRng())
+      proto3.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
-      let successResult = await proto2.resume()
+      let successResult = await proto3.resume()
       check:
         successResult.isOk 
         successResult.value == 10
-        proto2.messages.len == 10
+        proto3.messages.len == 10
 
-      await dialSwitch2.stop()
+      await dialSwitch3.stop()
 
     asyncTest "queryFrom":
 
