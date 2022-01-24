@@ -13,6 +13,9 @@ import
 when defined(rln):
   import waku_rln_relay/waku_rln_relay_types
 
+const
+  MaxWakuMessageSize* = 1024 * 1024 # In bytes. Corresponds to PubSub default
+
 type
   ContentTopic* = string
 

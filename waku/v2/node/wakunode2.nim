@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[options, tables, strutils, sequtils, os],
+  std/[hashes, options, tables, strutils, sequtils, os],
   chronos, chronicles, metrics,
   stew/shims/net as stewNet,
   stew/byteutils,
@@ -9,9 +9,9 @@ import
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
   libp2p/protocols/ping,
-  libp2p/protocols/pubsub/gossipsub,
+  libp2p/protocols/pubsub/[gossipsub, rpc/messages],
   libp2p/nameresolving/dnsresolver,
-  libp2p/builders,
+  libp2p/[builders, multihash],
   libp2p/transports/[transport, tcptransport, wstransport],
   ../protocol/[waku_relay, waku_message],
   ../protocol/waku_store/waku_store,
@@ -19,9 +19,7 @@ import
   ../protocol/waku_filter/waku_filter,
   ../protocol/waku_lightpush/waku_lightpush,
   ../protocol/waku_rln_relay/[waku_rln_relay_types], 
-  ../utils/peers,
-  ../utils/requests,
-  ../utils/wakuswitch,
+  ../utils/[peers, requests, wakuswitch, wakuenr],
   ./storage/migration/migration_types,
   ./peer_manager/peer_manager,
   ./dnsdisc/waku_dnsdisc,
@@ -39,6 +37,7 @@ export
 when defined(rln):
   import
     libp2p/protocols/pubsub/rpc/messages,
+    libp2p/protocols/pubsub/pubsub,
     web3,
     ../protocol/waku_rln_relay/[rln, waku_rln_relay_utils]
 
@@ -55,6 +54,9 @@ const clientId* = "Nimbus Waku v2 node"
 # Default topic
 const defaultTopic = "/waku/2/default-waku/proto"
 
+# Default Waku Filter Timeout
+const WakuFilterTimeout: Duration = 1.days
+
 
 # key and crypto modules different
 type
@@ -68,7 +70,7 @@ type
 
   WakuInfo* = object
     # NOTE One for simplicity, can extend later as needed
-    listenStr*: string
+    listenAddresses*: seq[string]
     #multiaddrStrings*: seq[string]
 
   # NOTE based on Eth2Node in NBC eth2_network.nim
@@ -81,10 +83,8 @@ type
     wakuSwap*: WakuSwap
     wakuRlnRelay*: WakuRLNRelay
     wakuLightPush*: WakuLightPush
-    peerInfo*: PeerInfo
     enr*: enr.Record
     libp2pPing*: Ping
-    libp2pTransportLoops*: seq[Future[void]]
     filters*: Filters
     rng*: ref BrHmacDrbgContext
     wakuDiscv5*: WakuDiscoveryV5
@@ -125,16 +125,28 @@ proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilte
   
   debug "filters modified", filters=filters
 
+proc updateSwitchPeerInfo(node: WakuNode) =
+  ## TODO: remove this when supported upstream
+  ## 
+  ## nim-libp2p does not yet support announcing addrs
+  ## different from bound addrs.
+  ## 
+  ## This is a temporary workaround to replace
+  ## peer info addrs in switch to announced
+  ## addresses.
+  ## 
+  ## WARNING: this should only be called once the switch
+  ## has already been started.
+  
+  if node.announcedAddresses.len > 0:
+    node.switch.peerInfo.addrs = node.announcedAddresses
+
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
-
-template addWsFlag() =
-  MultiAddress.init("/ws").tryGet()
-
-template addWssFlag() =
-  MultiAddress.init("/wss").tryGet()
-
+func wsFlag(wssEnabled: bool): MultiAddress {.raises: [Defect, LPError]} =
+  if wssEnabled: MultiAddress.init("/wss").tryGet()
+  else: MultiAddress.init("/ws").tryGet()
 
 proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
@@ -145,60 +157,72 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     wsEnabled: bool = false,
     wssEnabled: bool = false,
     secureKey: string = "",
-    secureCert: string = ""): T 
-    {.raises: [Defect, LPError, IOError,TLSStreamProtocolError].} =
+    secureCert: string = "",
+    wakuFlags = none(WakuEnrBitfield)
+    ): T 
+    {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
   ## Creates a Waku Node.
   ##
   ## Status: Implemented.
   ##
+
+  ## Initialize addresses
+  let
+    # Bind addresses
+    hostAddress = tcpEndPoint(bindIp, bindPort)
+    wsHostAddress = if wsEnabled or wssEnabled: some(tcpEndPoint(bindIp, wsbindPort) & wsFlag(wssEnabled))
+                    else: none(MultiAddress)
+
+    # External addresses
+    hostExtAddress = if extIp.isNone() or extPort.isNone(): none(MultiAddress)
+                     else: some(tcpEndPoint(extIp.get(), extPort.get()))
+    wsExtAddress = if wsHostAddress.isNone(): none(MultiAddress)
+                   elif hostExtAddress.isNone(): none(MultiAddress)
+                   else: some(tcpEndPoint(extIp.get(), wsBindPort) & wsFlag(wssEnabled))
+
+  var announcedAddresses: seq[MultiAddress]
+  if hostExtAddress.isSome:
+    announcedAddresses.add(hostExtAddress.get())
+  else:
+    announcedAddresses.add(hostAddress) # We always have at least a bind address for the host
+    
+  if wsExtAddress.isSome:
+    announcedAddresses.add(wsExtAddress.get())
+  elif wsHostAddress.isSome:
+    announcedAddresses.add(wsHostAddress.get())
+  
+  ## Initialize peer
   let
     rng = crypto.newRng()
-    hostAddress = tcpEndPoint(bindIp, bindPort)
-    wsHostAddress = if wssEnabled: tcpEndPoint(bindIp, wsbindPort) & addWssFlag
-                    else: tcpEndPoint(bindIp, wsbindPort) & addWsFlag
-    announcedAddresses = if extIp.isNone() or extPort.isNone(): @[]
-                        elif wsEnabled == false and wssEnabled == false: 
-                          @[tcpEndPoint(extIp.get(), extPort.get())]
-                        elif wssEnabled:
-                          @[tcpEndPoint(extIp.get(), extPort.get()),
-                          tcpEndPoint(extIp.get(), wsBindPort) & addWssFlag]
-                        else : @[tcpEndPoint(extIp.get(), extPort.get()),
-                          tcpEndPoint(extIp.get(), wsBindPort) & addWsFlag]
-    peerInfo = PeerInfo.new(nodekey)
     enrIp = if extIp.isSome(): extIp
             else: some(bindIp)
     enrTcpPort = if extPort.isSome(): extPort
                  else: some(bindPort)
-    enr = createEnr(nodeKey, enrIp, enrTcpPort, none(Port))
-    
+    enrMultiaddrs = if wsExtAddress.isSome: @[wsExtAddress.get()] # Only add ws/wss to `multiaddrs` field
+                    elif wsHostAddress.isSome: @[wsHostAddress.get()]
+                    else: @[]
+    enr = initEnr(nodeKey,
+                  enrIp,
+                  enrTcpPort, none(Port),
+                  wakuFlags,
+                  enrMultiaddrs)
   
-  if wsEnabled or wssEnabled:
-    info "Initializing networking", hostAddress, wsHostAddress,
-                                    announcedAddresses
-    peerInfo.addrs.add(wsHostAddress)
-  else : 
-    info "Initializing networking", hostAddress, announcedAddresses
-    
-  peerInfo.addrs.add(hostAddress)
-  for multiaddr in announcedAddresses:
-    peerInfo.addrs.add(multiaddr) 
+  info "Initializing networking", addrs=announcedAddresses
 
   var switch = newWakuSwitch(some(nodekey),
-  hostAddress,
-  wsHostAddress, 
-  transportFlags = {ServerFlags.ReuseAddr},
-  rng = rng, 
-  maxConnections = maxConnections,
-  wsEnabled = wsEnabled,
-  wssEnabled = wssEnabled,
-  secureKeyPath = secureKey,
-  secureCertPath = secureCert)
+    hostAddress,
+    wsHostAddress,
+    transportFlags = {ServerFlags.ReuseAddr},
+    rng = rng, 
+    maxConnections = maxConnections,
+    wssEnabled = wssEnabled,
+    secureKeyPath = secureKey,
+    secureCertPath = secureCert)
   
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
     switch: switch,
-    rng: rng, 
-    peerInfo: peerInfo,
+    rng: rng,
     enr: enr,
     filters: initTable[string, Filter](),
     announcedAddresses: announcedAddresses
@@ -392,13 +416,16 @@ proc info*(node: WakuNode): WakuInfo =
   ## Status: Implemented.
   ##
 
-  # TODO Generalize this for other type of multiaddresses
-  let peerInfo = node.peerInfo
-  let listenStr = $peerInfo.addrs[^1] & "/p2p/" & $peerInfo.peerId
-  let wakuInfo = WakuInfo(listenStr: listenStr)
+  let peerInfo = node.switch.peerInfo
+  
+  var listenStr : seq[string]
+  for address in node.announcedAddresses:
+    var fulladdr = $address & "/p2p/" & $peerInfo.peerId
+    listenStr &= fulladdr
+  let wakuInfo = WakuInfo(listenAddresses: listenStr)
   return wakuInfo
 
-proc mountFilter*(node: WakuNode) {.raises: [Defect, KeyError, LPError]} =
+proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {.raises: [Defect, KeyError, LPError]} =
   info "mounting filter"
   proc filterHandler(requestId: string, msg: MessagePush)
     {.gcsafe, raises: [Defect, KeyError].} =
@@ -408,7 +435,7 @@ proc mountFilter*(node: WakuNode) {.raises: [Defect, KeyError, LPError]} =
       node.filters.notify(message, requestId) # Trigger filter handlers on a light node
       waku_node_messages.inc(labelValues = ["filter"])
 
-  node.wakuFilter = WakuFilter.init(node.peerManager, node.rng, filterHandler)
+  node.wakuFilter = WakuFilter.init(node.peerManager, node.rng, filterHandler, filterTimeout)
   node.switch.mount(node.wakuFilter, protocolMatcher(WakuFilterCodec))
 
 # NOTE: If using the swap protocol, it must be mounted before store. This is
@@ -437,7 +464,7 @@ when defined(rln):
     ## this procedure is a thin wrapper for the pubsub addValidator method
     ## it sets message validator on the given pubsubTopic, the validator will check that
     ## all the messages published in the pubsubTopic have a valid zero-knowledge proof 
-    proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
+    proc validator(topic: string, message: messages.Message): Future[pubsub.ValidationResult] {.async.} =
       let msg = WakuMessage.init(message.data) 
       if msg.isOk():
         let 
@@ -446,21 +473,22 @@ when defined(rln):
           validationRes = node.wakuRlnRelay.validateMessage(wakumessage)
         case validationRes:
           of Valid:
-            return ValidationResult.Accept
+            info "message validity is verified, relaying:", wakumessage=wakumessage
+            return pubsub.ValidationResult.Accept
           of Invalid:
             info "message validity could not be verified, discarding:", wakumessage=wakumessage
-            return ValidationResult.Reject
+            return pubsub.ValidationResult.Reject
           of Spam:
             info "A spam message is found! yay! discarding:", wakumessage=wakumessage
-            return ValidationResult.Reject          
+            return pubsub.ValidationResult.Reject          
     # set a validator for the supplied pubsubTopic 
     let pb  = PubSub(node.wakuRelay)
     pb.addValidator(pubsubTopic, validator)
 
   proc mountRlnRelay*(node: WakuNode,
                       ethClientAddrOpt: Option[string] = none(string),
-                      ethAccAddrOpt: Option[Address] = none(Address),
-                      memContractAddOpt:  Option[Address] = none(Address),
+                      ethAccAddrOpt: Option[web3.Address] = none(web3.Address),
+                      memContractAddOpt:  Option[web3.Address] = none(web3.Address),
                       groupOpt: Option[seq[IDCommitment]] = none(seq[IDCommitment]),
                       memKeyPairOpt: Option[MembershipKeyPair] = none(MembershipKeyPair),
                       memIndexOpt: Option[MembershipIndex] = none(MembershipIndex),
@@ -501,8 +529,8 @@ when defined(rln):
     
     var 
       ethClientAddr: string 
-      ethAccAddr: Address
-      memContractAdd: Address
+      ethAccAddr: web3.Address
+      memContractAdd: web3.Address
     if onchainMode:
       ethClientAddr = ethClientAddrOpt.get()
       ethAccAddr = ethAccAddrOpt.get()
@@ -596,15 +624,22 @@ proc mountRelay*(node: WakuNode,
                  relayMessages = true,
                  triggerSelf = true)
   # @TODO: Better error handling: CatchableError is raised by `waitFor`
-  {.gcsafe, raises: [Defect, InitializationError, LPError, CatchableError].} = 
+  {.gcsafe, raises: [Defect, InitializationError, LPError, CatchableError].} =
+
+  func msgIdProvider(m: messages.Message): seq[byte] =
+    let mh = MultiHash.digest("sha2-256", m.data)
+    if mh.isOk():
+      return mh[].data.buffer
+    else:
+      return ($m.data.hash).toBytes()
 
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
-    # Use default
-    #msgIdProvider = msgIdProvider,
+    msgIdProvider = msgIdProvider,
     triggerSelf = triggerSelf,
     sign = false,
-    verifySignature = false
+    verifySignature = false,
+    maxMessageSize = MaxWakuMessageSize
   )
   
   info "mounting relay", relayMessages=relayMessages
@@ -822,10 +857,10 @@ proc start*(node: WakuNode) {.async.} =
   ##
   ## Status: Implemented.
   
-  node.libp2pTransportLoops = await node.switch.start()
+  await node.switch.start()
   
   # TODO Get this from WakuNode obj
-  let peerInfo = node.peerInfo
+  let peerInfo = node.switch.peerInfo
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
   var listenStr = ""
   for address in node.announcedAddresses:
@@ -835,6 +870,9 @@ proc start*(node: WakuNode) {.async.} =
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
   info "Discoverable ENR ", enr = node.enr.toURI()
+
+  ## Update switch peer info with announced addrs
+  node.updateSwitchPeerInfo()
 
   if not node.wakuRelay.isNil:
     await node.startRelay()
@@ -953,6 +991,11 @@ when isMainModule:
                   some(Port(uint16(conf.tcpPort) + conf.portsShift))
                 else:
                   extTcpPort
+      
+      wakuFlags = initWakuFlags(conf.lightpush,
+                                conf.filter,
+                                conf.store,
+                                conf.relay)
 
       node = WakuNode.new(conf.nodekey,
                         conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
@@ -963,7 +1006,8 @@ when isMainModule:
                         conf.websocketSupport,
                         conf.websocketSecureSupport,
                         conf.websocketSecureKeyPath,
-                        conf.websocketSecureCertPath
+                        conf.websocketSecureCertPath,
+                        some(wakuFlags)
                         )
     
     if conf.discv5Discovery:
@@ -976,10 +1020,7 @@ when isMainModule:
         conf.discv5BootstrapNodes,
         conf.discv5EnrAutoUpdate,
         keys.PrivateKey(conf.nodekey.skkey),
-        initWakuFlags(conf.lightpush,
-                      conf.filter,
-                      conf.store,
-                      conf.relay),
+        wakuFlags,
         [], # Empty enr fields, for now
         node.rng
       )
@@ -1050,7 +1091,7 @@ when isMainModule:
     
     # Filter setup. NOTE Must be mounted after relay
     if (conf.filternode != "") or (conf.filter):
-      mountFilter(node)
+      mountFilter(node, filterTimeout = chronos.seconds(conf.filterTimeout))
 
       if conf.filternode != "":
         setFilterPeer(node, conf.filternode)

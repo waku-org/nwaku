@@ -125,7 +125,7 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc, limit = non
   
   let res = db.database.query(selectQuery, msg)
   if res.isErr:
-    return err("failed")
+    return err(res.error)
 
   ok gotMessages
 

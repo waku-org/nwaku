@@ -2,6 +2,7 @@
 
 import
   std/[options, sets, tables, os, strutils, sequtils, times],
+  chronicles,
   testutils/unittests, stew/shims/net as stewNet,
   json_rpc/[rpcserver, rpcclient],
   eth/[keys, rlp], eth/common/eth_types,
@@ -58,15 +59,16 @@ procSuite "Waku v2 JSON-RPC API":
     server.start()
 
     let client = newRpcHttpClient()
-    await client.connect("127.0.0.1", rpcPort)
+    await client.connect("127.0.0.1", rpcPort, false)
 
     let response = await client.get_waku_v2_debug_v1_info()
 
     check:
-      response.listenStr == $node.peerInfo.addrs[^1] & "/p2p/" & $node.peerInfo.peerId
+      response.listenAddresses == @[$node.switch.peerInfo.addrs[^1] & "/p2p/" & $node.switch.peerInfo.peerId]
 
-    server.stop()
-    server.close()
+    await server.stop()
+    await server.closeWait()
+    
     waitfor node.stop()
 
   asyncTest "Relay API: publish and subscribe/unsubscribe": 
@@ -84,7 +86,7 @@ procSuite "Waku v2 JSON-RPC API":
     server.start()
 
     let client = newRpcHttpClient()
-    await client.connect("127.0.0.1", rpcPort)
+    await client.connect("127.0.0.1", rpcPort, false)
     
     check:
       # At this stage the node is only subscribed to the default topic
@@ -114,8 +116,9 @@ procSuite "Waku v2 JSON-RPC API":
       PubSub(node.wakuRelay).topics.len == 1
       response == true
 
-    server.stop()
-    server.close()
+    await server.stop()
+    await server.closeWait()
+    
     waitfor node.stop()
   
   asyncTest "Relay API: get latest messages": 
@@ -128,8 +131,10 @@ procSuite "Waku v2 JSON-RPC API":
       node3 = WakuNode.new(nodeKey3, bindIp, Port(60003), some(extIp), some(port))
       pubSubTopic = "polling"
       contentTopic = defaultContentTopic
-      payload = @[byte 9]
-      message = WakuMessage(payload: payload, contentTopic: contentTopic)
+      payload1 = @[byte 9]
+      message1 = WakuMessage(payload: payload1, contentTopic: contentTopic)
+      payload2 = @[byte 8]
+      message2 = WakuMessage(payload: payload2, contentTopic: contentTopic)
 
     await node1.start()
     node1.mountRelay(@[pubSubTopic])
@@ -140,8 +145,8 @@ procSuite "Waku v2 JSON-RPC API":
     await node3.start()
     node3.mountRelay(@[pubSubTopic])
 
-    await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
-    await node3.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
+    await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
+    await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
     # RPC server setup
     let
@@ -154,10 +159,10 @@ procSuite "Waku v2 JSON-RPC API":
     server.start()
 
     let client = newRpcHttpClient()
-    await client.connect("127.0.0.1", rpcPort)
+    await client.connect("127.0.0.1", rpcPort, false)
 
     # First see if we can retrieve messages published on the default topic (node is already subscribed)
-    await node2.publish(defaultTopic, message)
+    await node2.publish(defaultTopic, message1)
 
     await sleepAsync(2000.millis)
 
@@ -166,7 +171,7 @@ procSuite "Waku v2 JSON-RPC API":
     check:
       messages.len == 1
       messages[0].contentTopic == contentTopic
-      messages[0].payload == payload
+      messages[0].payload == payload1
     
     # Ensure that read messages are cleared from cache
     messages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)  
@@ -184,7 +189,7 @@ procSuite "Waku v2 JSON-RPC API":
       response == true
 
     # Now publish a message on node1 and see if we receive it on node3
-    await node1.publish(pubSubTopic, message)
+    await node1.publish(pubSubTopic, message2)
 
     await sleepAsync(2000.millis)
     
@@ -193,15 +198,16 @@ procSuite "Waku v2 JSON-RPC API":
     check:
       messages.len == 1
       messages[0].contentTopic == contentTopic
-      messages[0].payload == payload
+      messages[0].payload == payload2
     
     # Ensure that read messages are cleared from cache
     messages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)  
     check:
       messages.len == 0
 
-    server.stop()
-    server.close()
+    await server.stop()
+    await server.closeWait()
+    
     await node1.stop()
     await node2.stop()
     await node3.stop()
@@ -228,7 +234,7 @@ procSuite "Waku v2 JSON-RPC API":
     node.mountStore(persistMessages = true)
     
     var listenSwitch = newStandardSwitch(some(key))
-    discard waitFor listenSwitch.start()
+    waitFor listenSwitch.start()
 
     node.wakuStore.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
@@ -252,15 +258,16 @@ procSuite "Waku v2 JSON-RPC API":
       waitFor node.wakuStore.handleMessage(defaultTopic, wakuMsg)
 
     let client = newRpcHttpClient()
-    await client.connect("127.0.0.1", rpcPort)
+    await client.connect("127.0.0.1", rpcPort, false)
 
     let response = await client.get_waku_v2_store_v1_messages(some(defaultTopic), some(@[HistoryContentFilter(contentTopic: defaultContentTopic)]), some(0.float64), some(9.float64), some(StorePagingOptions()))
     check:
       response.messages.len() == 8
-      response.pagingOptions.isNone
+      response.pagingOptions.isSome()
       
-    server.stop()
-    server.close()
+    await server.stop()
+    await server.closeWait()
+    
     waitfor node.stop()
   
   asyncTest "Filter API: subscribe/unsubscribe": 
@@ -280,7 +287,7 @@ procSuite "Waku v2 JSON-RPC API":
     server.start()
 
     let client = newRpcHttpClient()
-    await client.connect("127.0.0.1", rpcPort)
+    await client.connect("127.0.0.1", rpcPort, false)
 
     check:
       # Light node has not yet subscribed to any filters
@@ -305,8 +312,9 @@ procSuite "Waku v2 JSON-RPC API":
       node.filters.len() == 0
       response == true
 
-    server.stop()
-    server.close()
+    await server.stop()
+    await server.closeWait()
+    
     waitfor node.stop()
   
   asyncTest "Filter API: get latest messages":
@@ -324,7 +332,7 @@ procSuite "Waku v2 JSON-RPC API":
     node.mountFilter()
 
     let client = newRpcHttpClient()
-    await client.connect("127.0.0.1", rpcPort)
+    await client.connect("127.0.0.1", rpcPort, false)
 
     # First ensure subscription exists
 
@@ -382,8 +390,9 @@ procSuite "Waku v2 JSON-RPC API":
       response[0].payload == @[byte 2]
       response[maxSize - 1].payload == @[byte (maxSize + 1)]
 
-    server.stop()
-    server.close()
+    await server.stop()
+    await server.closeWait()
+    
     waitfor node.stop()
   
   asyncTest "Admin API: connect to ad-hoc peers":
@@ -395,11 +404,11 @@ procSuite "Waku v2 JSON-RPC API":
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
-      peerInfo2 = node2.peerInfo
+      peerInfo2 = node2.switch.peerInfo
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"),
         Port(60004))
-      peerInfo3 = node3.peerInfo
+      peerInfo3 = node3.switch.peerInfo
     
     await allFutures([node1.start(), node2.start(), node3.start()])
 
@@ -417,7 +426,7 @@ procSuite "Waku v2 JSON-RPC API":
     server.start()
 
     let client = newRpcHttpClient()
-    await client.connect("127.0.0.1", rpcPort)
+    await client.connect("127.0.0.1", rpcPort, false)
 
     # Connect to nodes 2 and 3 using the Admin API
     let postRes = await client.post_waku_v2_admin_v1_peers(@[constructMultiaddrStr(peerInfo2),
@@ -438,8 +447,9 @@ procSuite "Waku v2 JSON-RPC API":
       getRes.anyIt(it.protocol == WakuRelayCodec and
                    it.multiaddr == constructMultiaddrStr(peerInfo3))
 
-    server.stop()
-    server.close()
+    await server.stop()
+    await server.closeWait()
+    
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
   
   asyncTest "Admin API: get managed peer information":
@@ -451,11 +461,11 @@ procSuite "Waku v2 JSON-RPC API":
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
-      peerInfo2 = node2.peerInfo
+      peerInfo2 = node2.switch.peerInfo
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"),
         Port(60004))
-      peerInfo3 = node3.peerInfo
+      peerInfo3 = node3.switch.peerInfo
     
     await allFutures([node1.start(), node2.start(), node3.start()])
 
@@ -477,7 +487,7 @@ procSuite "Waku v2 JSON-RPC API":
     server.start()
 
     let client = newRpcHttpClient()
-    await client.connect("127.0.0.1", rpcPort)
+    await client.connect("127.0.0.1", rpcPort, false)
 
     let response = await client.get_waku_v2_admin_v1_peers()
 
@@ -490,8 +500,9 @@ procSuite "Waku v2 JSON-RPC API":
       response.anyIt(it.protocol == WakuRelayCodec and
                      it.multiaddr == constructMultiaddrStr(peerInfo3))
 
-    server.stop()
-    server.close()
+    await server.stop()
+    await server.closeWait()
+    
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
   
   asyncTest "Admin API: get unmanaged peer information":
@@ -512,7 +523,7 @@ procSuite "Waku v2 JSON-RPC API":
     server.start()
 
     let client = newRpcHttpClient()
-    await client.connect("127.0.0.1", rpcPort)
+    await client.connect("127.0.0.1", rpcPort, false)
 
     node.mountFilter()
     node.mountSwap()
@@ -546,8 +557,9 @@ procSuite "Waku v2 JSON-RPC API":
       # Check store peer
       (response.filterIt(it.protocol == WakuStoreCodec)[0]).multiaddr == constructMultiaddrStr(storePeer)
 
-    server.stop()
-    server.close()
+    await server.stop()
+    await server.closeWait()
+    
     waitfor node.stop()
 
   asyncTest "Private API: generate asymmetric keys and encrypt/decrypt communication":
@@ -573,8 +585,8 @@ procSuite "Waku v2 JSON-RPC API":
     await node3.start()
     node3.mountRelay(@[pubSubTopic])
 
-    await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
-    await node3.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
+    await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
+    await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
     # Setup two servers so we can see both sides of encrypted communication
     let
@@ -593,10 +605,10 @@ procSuite "Waku v2 JSON-RPC API":
     server3.start()
 
     let client1 = newRpcHttpClient()
-    await client1.connect("127.0.0.1", rpcPort1)
+    await client1.connect("127.0.0.1", rpcPort1, false)
 
     let client3 = newRpcHttpClient()
-    await client3.connect("127.0.0.1", rpcPort3)
+    await client3.connect("127.0.0.1", rpcPort3, false)
 
     # Let's get a keypair for node3
 
@@ -632,10 +644,11 @@ procSuite "Waku v2 JSON-RPC API":
     check:
       messages.len == 0
 
-    server1.stop()
-    server1.close()
-    server3.stop()
-    server3.close()
+    await server1.stop()
+    await server1.closeWait()
+    await server3.stop()
+    await server3.closeWait()
+    
     await node1.stop()
     await node2.stop()
     await node3.stop()
@@ -663,8 +676,8 @@ procSuite "Waku v2 JSON-RPC API":
     await node3.start()
     node3.mountRelay(@[pubSubTopic])
 
-    await node1.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
-    await node3.connectToNodes(@[node2.peerInfo.toRemotePeerInfo()])
+    await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
+    await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
     # Setup two servers so we can see both sides of encrypted communication
     let
@@ -683,10 +696,10 @@ procSuite "Waku v2 JSON-RPC API":
     server3.start()
 
     let client1 = newRpcHttpClient()
-    await client1.connect("127.0.0.1", rpcPort1)
+    await client1.connect("127.0.0.1", rpcPort1, false)
 
     let client3 = newRpcHttpClient()
-    await client3.connect("127.0.0.1", rpcPort3)
+    await client3.connect("127.0.0.1", rpcPort3, false)
 
     # Let's get a symkey for node3
 
@@ -722,10 +735,11 @@ procSuite "Waku v2 JSON-RPC API":
     check:
       messages.len == 0
 
-    server1.stop()
-    server1.close()
-    server3.stop()
-    server3.close()
+    await server1.stop()
+    await server1.closeWait()
+    await server3.stop()
+    await server3.closeWait()
+  
     await node1.stop()
     await node2.stop()
     await node3.stop()

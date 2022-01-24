@@ -7,7 +7,7 @@
 # Group by std, external then internal imports
 import
   # std imports
-  std/[tables, times, sequtils, algorithm, options],
+  std/[tables, times, sequtils, algorithm, options, math],
   # external imports
   bearssl,
   chronicles,
@@ -24,7 +24,6 @@ import
   ../../utils/requests,
   ../waku_swap/waku_swap,
   ./waku_store_types
-  
 
 # export all modules whose types are used in public functions/types
 export 
@@ -38,6 +37,7 @@ export
 declarePublicGauge waku_store_messages, "number of historical messages", ["type"]
 declarePublicGauge waku_store_peers, "number of store peers"
 declarePublicGauge waku_store_errors, "number of store protocol errors", ["type"]
+declarePublicGauge waku_store_queries, "number of store queries received"
 
 logScope:
   topics = "wakustore"
@@ -54,15 +54,18 @@ const
 # TODO Move serialization function to separate file, too noisy
 # TODO Move pagination to separate file, self-contained logic
 
-proc computeIndex*(msg: WakuMessage): Index =
-  ## Takes a WakuMessage and returns its Index
+proc computeIndex*(msg: WakuMessage, receivedTime = getTime().toUnixFloat()): Index =
+  ## Takes a WakuMessage with received timestamp and returns its Index.
+  ## Received timestamp will default to system time if not provided.
   var ctx: sha256
   ctx.init()
   ctx.update(msg.contentTopic.toBytes()) # converts the contentTopic to bytes
   ctx.update(msg.payload)
   let digest = ctx.finish() # computes the hash
   ctx.clear()
-  var index = Index(digest:digest, receiverTime: epochTime(), senderTime: msg.timestamp)
+
+  let receiverTime = receivedTime.round(3) # Ensure timestamp has (only) millisecond resolution
+  var index = Index(digest:digest, receiverTime: receiverTime, senderTime: msg.timestamp)
   return index
 
 proc encode*(index: Index): ProtoBuffer =
@@ -277,8 +280,9 @@ proc findIndex*(msgList: seq[IndexedWakuMessage], index: Index): Option[int] =
       return some(i)
   return none(int)
 
-proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWakuMessage], PagingInfo, HistoryResponseError) =
-  ## takes list, and performs paging based on pinfo 
+proc paginate*(msgList: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWakuMessage], PagingInfo, HistoryResponseError) =
+  ## takes a message list, and performs paging based on pinfo
+  ## the message list must be sorted
   ## returns the page i.e, a sequence of IndexedWakuMessage and the new paging info to be used for the next paging request
   var
     cursor = pinfo.cursor
@@ -286,40 +290,37 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
     dir = pinfo.direction
     output: (seq[IndexedWakuMessage], PagingInfo, HistoryResponseError) 
 
-  if pageSize == uint64(0): # pageSize being zero indicates that no pagination is required
-    let output = (list, pinfo, HistoryResponseError.NONE)
-    return output
-
-  if list.len == 0: # no pagination is needed for an empty list
-    output = (list, PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
+  if msgList.len == 0: # no pagination is needed for an empty list
+    output = (msgList, PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
     return output
   
-  # adjust pageSize
-  if pageSize > MaxPageSize:
+  ## Adjust pageSize:
+  ## - pageSize should not exceed maximum
+  ## - pageSize being zero indicates "no pagination", but we still limit
+  ##   responses to no more than a page of MaxPageSize messages
+  if (pageSize == uint64(0)) or (pageSize > MaxPageSize):
     pageSize = MaxPageSize
 
-  # sort the existing messages
-  var 
-    msgList = list # makes a copy of the list
-    total = uint64(msgList.len)
-  # sorts msgList based on the custom comparison proc indexedWakuMessageComparison
-  msgList.sort(indexedWakuMessageComparison)  
+  let total = uint64(msgList.len)
   
   # set the cursor of the initial paging request
   var isInitialQuery = false
+  var cursorIndex: uint64
   if cursor == Index(): # an empty cursor means it is an initial query
     isInitialQuery = true
     case dir
-      of PagingDirection.FORWARD: 
-        cursor = msgList[0].index # set the cursor to the beginning of the list
-      of PagingDirection.BACKWARD: 
-        cursor = msgList[list.len - 1].index # set the cursor to the end of the list
-    
-  var cursorIndexOption = msgList.findIndex(cursor) 
-  if cursorIndexOption.isNone: # the cursor is not valid
-    output = (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.INVALID_CURSOR)
-    return output
-  var cursorIndex = uint64(cursorIndexOption.get()) 
+      of PagingDirection.FORWARD:
+        cursorIndex = 0 
+        cursor = msgList[cursorIndex].index # set the cursor to the beginning of the list
+      of PagingDirection.BACKWARD:
+        cursorIndex =  total - 1
+        cursor = msgList[cursorIndex].index # set the cursor to the end of the list
+  else:
+    var cursorIndexOption = msgList.findIndex(cursor) 
+    if cursorIndexOption.isNone: # the cursor is not valid
+      output = (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.INVALID_CURSOR)
+      return output
+    cursorIndex = uint64(cursorIndexOption.get()) 
     
   case dir
     of PagingDirection.FORWARD: # forward pagination
@@ -374,46 +375,61 @@ proc paginate*(list: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWa
 
 
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
-  var data : seq[IndexedWakuMessage] = w.messages.allItems()
-
-  # filter based on content filters
-  # an empty list of contentFilters means no content filter is requested
-  if ((query.contentFilters).len != 0):
-    # matchedMessages holds IndexedWakuMessage whose content topics match the queried Content filters
-    var matchedMessages : seq[IndexedWakuMessage] = @[]
-    for filter in query.contentFilters:
-      var matched = w.messages.filterIt(it.msg.contentTopic  == filter.contentTopic)  
-      matchedMessages.add(matched)
-    # remove duplicates 
-    # duplicates may exist if two content filters target the same content topic, then the matched message gets added more than once
-    data = matchedMessages.deduplicate()
-
-  # filter based on pubsub topic
-  # an empty pubsub topic means no pubsub topic filter is requested
-  if ((query.pubsubTopic).len != 0):
-    data = data.filterIt(it.pubsubTopic == query.pubsubTopic)
-
-  # temporal filtering   
-  # check whether the history query contains a time filter
-  if (query.endTime != float64(0) and query.startTime != float64(0)):
-    # for a valid time query, select messages whose sender generated timestamps fall bw the queried start time and end time
-    data = data.filterIt(it.msg.timestamp <= query.endTime and it.msg.timestamp >= query.startTime)
-
+  ## Extract query criteria
+  ## All query criteria are optional
+  let
+    qContentTopics = if (query.contentFilters.len != 0): some(query.contentFilters.mapIt(it.contentTopic))
+                     else: none(seq[ContentTopic])
+    qPubSubTopic = if (query.pubsubTopic != ""): some(query.pubsubTopic)
+                   else: none(string)
+    qStartTime = if query.startTime != float64(0): some(query.startTime)
+                 else: none(float64)
+    qEndTime = if query.endTime != float64(0): some(query.endTime)
+               else: none(float64)
   
-  # perform pagination
-  var (indexedWakuMsgList, updatedPagingInfo, error) = paginate(data, query.pagingInfo)
+  ## Compose filter predicate for message from query criteria
+  proc matchesQuery(indMsg: IndexedWakuMessage): bool =
+    if qPubSubTopic.isSome():
+      # filter on pubsub topic
+      if indMsg.pubsubTopic != qPubSubTopic.get():
+        return false
+    
+    if qStartTime.isSome() and qEndTime.isSome():
+      # temporal filtering
+      # select only messages whose sender generated timestamps fall bw the queried start time and end time
+      if indMsg.msg.timestamp > qEndTime.get() or indMsg.msg.timestamp < qStartTime.get():
+        return false
+    
+    if qContentTopics.isSome():
+      # filter on content
+      if indMsg.msg.contentTopic notin qContentTopics.get():
+        return false
+    
+    return true
 
-  # extract waku messages
-  var wakuMsgList = indexedWakuMsgList.mapIt(it.msg)
+  ## Filter history using predicate and sort on indexedWakuMessageComparison 
+  ## TODO: since MaxPageSize is likely much smaller than w.messages.len,
+  ## we could optimise here by only filtering a portion of w.messages,
+  ## and repeat until we have populated a full page.
+  ## TODO: we can gain a lot by rather sorting on insert. Perhaps use a nim-stew
+  ## sorted set?
+  let filteredMsgs = w.messages.filterIt(it.matchesQuery)
+                               .sorted(indexedWakuMessageComparison)
+  
+  ## Paginate the filtered messages
+  let (indexedWakuMsgList, updatedPagingInfo, error) = paginate(filteredMsgs, query.pagingInfo)
 
-  let historyRes = HistoryResponse(messages: wakuMsgList, pagingInfo: updatedPagingInfo, error: error)
+  ## Extract and return response
+  let
+    wakuMsgList = indexedWakuMsgList.mapIt(it.msg)
+    historyRes = HistoryResponse(messages: wakuMsgList, pagingInfo: updatedPagingInfo, error: error)
+  
   return historyRes
-
 
 proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
 
   proc handler(conn: Connection, proto: string) {.async.} =
-    var message = await conn.readLp(64*1024)
+    var message = await conn.readLp(MaxRpcSize.int)
     var res = HistoryRPC.init(message)
     if res.isErr:
       error "failed to decode rpc"
@@ -422,6 +438,7 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
 
     # TODO Print more info here
     info "received query"
+    waku_store_queries.inc()
 
     let value = res.value
     let response = ws.findMessages(res.value.query)
@@ -451,7 +468,7 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
 
   proc onData(receiverTime: float64, msg: WakuMessage, pubsubTopic:  string) =
     # TODO index should not be recalculated
-    ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex(), pubsubTopic: pubsubTopic))
+    ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex(receiverTime), pubsubTopic: pubsubTopic))
 
   info "attempting to load messages from persistent storage"
 
@@ -459,15 +476,16 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
   if res.isErr:
     warn "failed to load messages from store", err = res.error
     waku_store_errors.inc(labelValues = ["store_load_failure"])
+  else:
+    info "successfully loaded from store"
   
-  info "successfully loaded from store"
   debug "the number of messages in the memory", messageNum=ws.messages.len
   waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
 
 
 proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgContext,
-                   store: MessageStore = nil, wakuSwap: WakuSwap = nil, persistMessages = true,
-                   capacity = DefaultStoreCapacity): T =
+           store: MessageStore = nil, wakuSwap: WakuSwap = nil, persistMessages = true,
+           capacity = DefaultStoreCapacity): T =
   debug "init"
   var output = WakuStore(rng: rng, peerManager: peerManager, store: store, wakuSwap: wakuSwap, persistMessages: persistMessages)
   output.init(capacity)
@@ -488,7 +506,7 @@ proc handleMessage*(w: WakuStore, topic: string, msg: WakuMessage) {.async.} =
 
   let index = msg.computeIndex()
   w.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: topic))
-  waku_store_messages.inc(labelValues = ["stored"])
+  waku_store_messages.set(w.messages.len.int64, labelValues = ["stored"])
   if w.store.isNil:
     return
 
@@ -523,7 +541,7 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
   await connOpt.get().writeLP(HistoryRPC(requestId: generateRequestId(w.rng),
       query: query).encode().buffer)
 
-  var message = await connOpt.get().readLp(64*1024)
+  var message = await connOpt.get().readLp(MaxRpcSize.int)
   let response = HistoryRPC.init(message)
 
   if response.isErr:
@@ -548,7 +566,7 @@ proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, pe
   await connOpt.get().writeLP(HistoryRPC(requestId: generateRequestId(w.rng),
       query: query).encode().buffer)
   debug "query is sent", query=query
-  var message = await connOpt.get().readLp(64*1024)
+  var message = await connOpt.get().readLp(MaxRpcSize.int)
   let response = HistoryRPC.init(message)
 
   debug "response is received"
@@ -596,14 +614,28 @@ proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: RemotePeerInf
   return ok(messageList)
 
 proc queryLoop(w: WakuStore, query: HistoryQuery, candidateList: seq[RemotePeerInfo]): Future[MessagesResult]  {.async, gcsafe.} = 
-  ## loops through the candidateList in order and sends the query to each until one of the query gets resolved successfully
-  ## returns the retrieved messages, or error if all the requests fail
-  for peer in candidateList.items: 
-    let successResult = await w.queryFromWithPaging(query, peer)
-    if successResult.isOk: return ok(successResult.value)
+  ## loops through the candidateList in order and sends the query to each
+  ## once all responses have been received, the retrieved messages are consolidated into one deduplicated list
+  ## if no messages have been retrieved, the returned future will resolve into a MessagesResult result holding an empty seq.
+  var futureList: seq[Future[MessagesResult]]
+  for peer in candidateList.items:
+    futureList.add(w.queryFromWithPaging(query, peer))
+  await allFutures(futureList) # all(), which returns a Future[seq[T]], has been deprecated
 
-  debug "failed to resolve the query"
-  return err("failed to resolve the query")
+  let messagesList = futureList
+    .map(proc (fut: Future[MessagesResult]): seq[WakuMessage] =
+      if fut.completed() and fut.read().isOk(): # completed() just as a sanity check. These futures have been awaited before using allFutures()
+        fut.read().value
+      else:
+        @[]
+    )
+    .concat()
+
+  if messagesList.len != 0:
+    return ok(messagesList.deduplicate())
+  else:
+    debug "failed to resolve the query"
+    return err("failed to resolve the query")
 
 proc findLastSeen*(list: seq[IndexedWakuMessage]): float = 
   var lastSeenTime = float64(0)
@@ -614,7 +646,7 @@ proc findLastSeen*(list: seq[IndexedWakuMessage]): float =
 
 proc isDuplicate(message: WakuMessage, list: seq[WakuMessage]): bool =
   ## return true if a duplicate message is found, otherwise false
-  # it is defined as a separate proc to be bale to adjust comparison criteria 
+  # it is defined as a separate proc to be able to adjust comparison criteria 
   # e.g., to exclude timestamp or include pubsub topic
   if message in list: return true
   return false
@@ -624,7 +656,9 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
   ## messages are stored in the store node's messages field and in the message db
   ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message 
   ## an offset of 20 second is added to the time window to count for nodes asynchrony
-  ## peerList indicates the list of peers to query from. The history is fetched from the first available peer in this list. Such candidates should be found through a discovery method (to be developed).
+  ## peerList indicates the list of peers to query from.
+  ## The history is fetched from all available peers in this list and then consolidated into one deduplicated list.
+  ## Such candidates should be found through a discovery method (to be developed).
   ## if no peerList is passed, one of the peers in the underlying peer manager unit of the store protocol is picked randomly to fetch the history from. 
   ## The history gets fetched successfully if the dialed peer has been online during the queried time window.
   ## the resume proc returns the number of retrieved messages if no error occurs, otherwise returns the error string
@@ -637,7 +671,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
   let offset: float64 = 200000
   currentTime = currentTime + offset
   lastSeenTime = max(lastSeenTime - offset, 0)
-  debug "the  offline time window is", lastSeenTime=lastSeenTime, currentTime=currentTime
+  debug "the offline time window is", lastSeenTime=lastSeenTime, currentTime=currentTime
 
   let 
     pinfo = PagingInfo(direction:PagingDirection.FORWARD, pageSize: pageSize)
@@ -670,9 +704,9 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
           continue
         
       ws.messages.add(indexedWakuMsg)
-      waku_store_messages.inc(labelValues = ["stored"])
-      
       added = added + 1
+    
+    waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
 
     debug "number of duplicate messages found in resume", dismissed=dismissed
     debug "number of messages added via resume", added=added
@@ -732,7 +766,7 @@ proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHand
   await connOpt.get().writeLP(HistoryRPC(requestId: generateRequestId(ws.rng),
       query: query).encode().buffer)
 
-  var message = await connOpt.get().readLp(64*1024)
+  var message = await connOpt.get().readLp(MaxRpcSize.int)
   let response = HistoryRPC.init(message)
 
   if response.isErr:
