@@ -213,9 +213,16 @@ proc publish(c: Chat, line: string) =
       version = 1'u32
       encodedPayload = payload.encode(version, c.node.rng[])
     if encodedPayload.isOk():
-      let message = WakuMessage(payload: encodedPayload.get(),
+      var message = WakuMessage(payload: encodedPayload.get(),
         contentTopic: c.contentTopic, version: version)
-      # TODO add proof appendRLNProof
+      if  not isNil(c.node.wakuRlnRelay):
+        # for future version when we support more than one rln protected content topic, 
+        # we should check the message content topic as well
+        let success = c.node.wakuRlnRelay.appendRLNProof(message, epochTime())
+        if not success:
+          debug "could not append rate limit proof to the message", success=success
+        else:
+          debug "rate limit proof is appended to the message", success=success
       if not c.node.wakuLightPush.isNil():
         # Attempt lightpush
         asyncSpawn c.node.lightpush(DefaultTopic, message, handler)
@@ -225,9 +232,17 @@ proc publish(c: Chat, line: string) =
       warn "Payload encoding failed", error = encodedPayload.error
   else:
     # No payload encoding/encryption from Waku
-    let message = WakuMessage(payload: chat2pb.buffer,
+    var message = WakuMessage(payload: chat2pb.buffer,
       contentTopic: c.contentTopic, version: 0)
-    # TODO add proof appendRLNProof
+    if  not isNil(c.node.wakuRlnRelay):
+      # for future version when we support more than one rln protected content topic, 
+      # we should check the message content topic as well
+      let success = c.node.wakuRlnRelay.appendRLNProof(message, epochTime())
+      if not success:
+        debug "could not append rate limit proof to the message", success=success
+      else:
+        debug "rate limit proof is appended to the message", success=success
+
     if not c.node.wakuLightPush.isNil():
       # Attempt lightpush
       asyncSpawn c.node.lightpush(DefaultTopic, message, handler)
