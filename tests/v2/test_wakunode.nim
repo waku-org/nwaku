@@ -859,15 +859,15 @@ procSuite "WakuNode":
       let time = epochTime()
       #  create some messages with rate limit proofs
       var 
-        wm1 = WakuMessage(payload: "message 1".toBytes())
+        wm1 = WakuMessage(payload: "message 1".toBytes(), contentTopic: contentTopic)
         proofAdded1 = node3.wakuRlnRelay.appendRLNProof(wm1, time)
         # another message in the same epoch as wm1, it will break the messaging rate limit
-        wm2 = WakuMessage(payload: "message2".toBytes())
+        wm2 = WakuMessage(payload: "message2".toBytes(), contentTopic: contentTopic)
         proofAdded2 = node3.wakuRlnRelay.appendRLNProof(wm2, time)
         #  wm3 points to the next epoch 
-        wm3 = WakuMessage(payload: "message 3".toBytes())
+        wm3 = WakuMessage(payload: "message 3".toBytes(), contentTopic: contentTopic)
         proofAdded3 = node3.wakuRlnRelay.appendRLNProof(wm3, time+EPOCH_UNIT_SECONDS)
-        wm4 = WakuMessage(payload: "message4".toBytes())
+        wm4 = WakuMessage(payload: "message4".toBytes(), contentTopic: contentTopic)
 
       #  check proofs are added correctly
       check:
