@@ -27,6 +27,14 @@ import   ../../waku/v2/node/[wakunode2, waku_payload],
          ../../waku/common/utils/nat,
          ./config_chat2
 
+when defined(rln):
+  import
+    libp2p/protocols/pubsub/rpc/messages,
+    libp2p/protocols/pubsub/pubsub,
+    web3,
+    ../../waku/v2/protocol/waku_rln_relay/rln
+  import ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_utils except ContentTopic
+
 const Help = """
   Commands: /[?|help|connect|nick|exit]
   help: Prints this help
