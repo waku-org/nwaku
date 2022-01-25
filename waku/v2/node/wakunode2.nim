@@ -496,7 +496,7 @@ when defined(rln):
                       memIndexOpt: Option[MembershipIndex] = none(MembershipIndex),
                       onchainMode: bool = true,
                       pubsubTopic: string,
-                      contentTopic: waku_message.ContentTopic) {.async.} =
+                      contentTopic: ContentTopic) {.async.} =
     # TODO return a bool value to indicate the success of the call
     # check whether inputs are provided
 
