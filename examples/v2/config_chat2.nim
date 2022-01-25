@@ -241,7 +241,7 @@ type
 
     rlnRelayContentTopic* {.
       desc: "the pubsub topic for which rln-relay gets enabled",
-      defaultValue: "waku/2/huilong/proto"
+      defaultValue: "waku/2/rln-relay/proto"
       name: "rln-relay-content-topic" }: ContentTopic
 
     rlnRelayPubsubTopic* {.
