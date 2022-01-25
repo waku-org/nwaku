@@ -479,7 +479,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
           error "failed to mount WakuRLNRelay"
         else:
           # mount rlnrelay in offline mode (for now)
-          waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = conf.rlnRelayPubsubTopic)
+          waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
 
           info "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
           info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
@@ -493,7 +493,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
           if root != expectedRoot:
             error "root mismatch: something went wrong not in Merkle tree construction"
           debug "the calculated root", root
-          info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic
+          info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
 
 
   await chat.readWriteLoop()
