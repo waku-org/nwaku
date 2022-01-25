@@ -469,7 +469,7 @@ when defined(rln):
       if msg.isOk():
         let wakumessage = msg.value()
         # check the contentTopic
-        if wakumessage.contentTopic != contentTopic:
+        if (wakumessage.contentTopic != "") and (wakumessage.contentTopic != contentTopic):
           info "content topic did not match:", contentTopic=wakumessage.contentTopic
           return pubsub.ValidationResult.Accept
         # validate the message
