@@ -460,7 +460,7 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: boo
   node.switch.mount(node.wakuStore, protocolMatcher(WakuStoreCodec))
     
 when defined(rln):
-  proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string, contentTopic: waku_message.ContentTopic) =
+  proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string, contentTopic: ContentTopic) =
     ## this procedure is a thin wrapper for the pubsub addValidator method
     ## it sets message validator on the given pubsubTopic, the validator will check that
     ## all the messages published in the pubsubTopic have a valid zero-knowledge proof 
@@ -469,7 +469,8 @@ when defined(rln):
       if msg.isOk():
         let wakumessage = msg.value()
         # check the contentTopic
-        if wakumessage.contentTopic != "contentTopic":
+        if wakumessage.contentTopic != contentTopic:
+          info "content topic did not match:", contentTopic=wakumessage.contentTopic
           return pubsub.ValidationResult.Accept
         # validate the message
         let validationRes = node.wakuRlnRelay.validateMessage(wakumessage)
