@@ -156,8 +156,6 @@ test2: | build deps installganache
 	# if we do not kill the process then it would hang there and causes issue in GitHub Actions macos job (the job never finsihes)
 	(([[ $(detected_OS) = macOS ]] && \
 		pkill -f ganache-cli) || true)
-	(([[ $(detected_OS) = Windows ]] && \
-		pkill -f ganache-cli) || true)
 
 scripts2: | build deps wakunode2
 	echo -e $(BUILD_MSG) "build/$@" && \
