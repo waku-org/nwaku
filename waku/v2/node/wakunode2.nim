@@ -460,17 +460,19 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: boo
   node.switch.mount(node.wakuStore, protocolMatcher(WakuStoreCodec))
     
 when defined(rln):
-  proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string) =
+  proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string, contentTopic: waku_message.ContentTopic) =
     ## this procedure is a thin wrapper for the pubsub addValidator method
     ## it sets message validator on the given pubsubTopic, the validator will check that
     ## all the messages published in the pubsubTopic have a valid zero-knowledge proof 
     proc validator(topic: string, message: messages.Message): Future[pubsub.ValidationResult] {.async.} =
       let msg = WakuMessage.init(message.data) 
       if msg.isOk():
-        let 
-          wakumessage = msg.value()
-          # validate the message
-          validationRes = node.wakuRlnRelay.validateMessage(wakumessage)
+        let wakumessage = msg.value()
+        # check the contentTopic
+        if wakumessage.contentTopic != "contentTopic":
+          return pubsub.ValidationResult.Accept
+        # validate the message
+        let validationRes = node.wakuRlnRelay.validateMessage(wakumessage)
         case validationRes:
           of Valid:
             info "message validity is verified, relaying:", wakumessage=wakumessage
@@ -493,7 +495,8 @@ when defined(rln):
                       memKeyPairOpt: Option[MembershipKeyPair] = none(MembershipKeyPair),
                       memIndexOpt: Option[MembershipIndex] = none(MembershipIndex),
                       onchainMode: bool = true,
-                      pubsubTopic: string) {.async.} =
+                      pubsubTopic: string,
+                      contentTopic: waku_message.ContentTopic) {.async.} =
     # TODO return a bool value to indicate the success of the call
     # check whether inputs are provided
 
@@ -573,7 +576,8 @@ when defined(rln):
       ethClientAddress: ethClientAddr,
       ethAccountAddress: ethAccAddr,
       rlnInstance: rln,
-      pubsubTopic: pubsubTopic)
+      pubsubTopic: pubsubTopic,
+      contentTopic: contentTopic)
 
     if onchainMode:
       # register the rln-relay peer to the membership contract
@@ -585,7 +589,7 @@ when defined(rln):
     # adds a topic validator for the supplied pubsub topic at the relay protocol
     # messages published on this pubsub topic will be relayed upon a successful validation, otherwise they will be dropped
     # the topic validator checks for the correct non-spamming proof of the message
-    addRLNRelayValidator(node, pubsubTopic)
+    addRLNRelayValidator(node, pubsubTopic, contentTopic)
     debug "rln relay topic validator is mounted successfully", pubsubTopic=pubsubTopic
 
     node.wakuRlnRelay = rlnPeer
@@ -1055,7 +1059,7 @@ when isMainModule:
           error "failed to mount WakuRLNRelay"
         else:
           # mount rlnrelay in offline mode (for now)
-          waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = conf.rlnRelayPubsubTopic)
+          waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
 
           info "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
           info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
@@ -1069,7 +1073,7 @@ when isMainModule:
           if root != expectedRoot:
             error "root mismatch: something went wrong not in Merkle tree construction"
           debug "the calculated root", root
-          info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic
+          info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
 
     if conf.swap:
       mountSwap(node)
