@@ -617,7 +617,8 @@ procSuite "WakuNode":
                                   memKeyPairOpt = memKeyPairOpt1, 
                                   memIndexOpt= memIndexOpt1, 
                                   onchainMode = false, 
-                                  pubsubTopic = rlnRelayPubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic,
+                                  contentTopic = contentTopic)
       await node1.start() 
 
       # node 2
@@ -628,7 +629,8 @@ procSuite "WakuNode":
                                   memKeyPairOpt = memKeyPairOpt2, 
                                   memIndexOpt= memIndexOpt2, 
                                   onchainMode = false, 
-                                  pubsubTopic = rlnRelayPubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic,
+                                  contentTopic = contentTopic)
       await node2.start()
 
       # node 3
@@ -639,7 +641,8 @@ procSuite "WakuNode":
                                   memKeyPairOpt = memKeyPairOpt3, 
                                   memIndexOpt= memIndexOpt3, 
                                   onchainMode = false, 
-                                  pubsubTopic = rlnRelayPubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic,
+                                  contentTopic = contentTopic)
       await node3.start()
 
       # connect them together
@@ -715,7 +718,8 @@ procSuite "WakuNode":
                                   memKeyPairOpt = memKeyPairOpt1, 
                                   memIndexOpt= memIndexOpt1, 
                                   onchainMode = false, 
-                                  pubsubTopic = rlnRelayPubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic,
+                                  contentTopic = contentTopic)
       await node1.start() 
 
       # node 2
@@ -726,7 +730,8 @@ procSuite "WakuNode":
                                   memKeyPairOpt = memKeyPairOpt2, 
                                   memIndexOpt= memIndexOpt2, 
                                   onchainMode = false, 
-                                  pubsubTopic = rlnRelayPubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic,
+                                  contentTopic = contentTopic)
       await node2.start()
 
       # node 3
@@ -737,7 +742,8 @@ procSuite "WakuNode":
                                   memKeyPairOpt = memKeyPairOpt3, 
                                   memIndexOpt= memIndexOpt3, 
                                   onchainMode = false, 
-                                  pubsubTopic = rlnRelayPubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic,
+                                  contentTopic = contentTopic)
       await node3.start()
 
       # connect them together
@@ -817,7 +823,8 @@ procSuite "WakuNode":
                                   memKeyPairOpt = memKeyPairOpt1, 
                                   memIndexOpt= memIndexOpt1, 
                                   onchainMode = false, 
-                                  pubsubTopic = rlnRelayPubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic,
+                                  contentTopic = contentTopic)
       await node1.start() 
 
       # node 2
@@ -828,7 +835,8 @@ procSuite "WakuNode":
                                   memKeyPairOpt = memKeyPairOpt2, 
                                   memIndexOpt= memIndexOpt2, 
                                   onchainMode = false, 
-                                  pubsubTopic = rlnRelayPubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic,
+                                  contentTopic = contentTopic)
       await node2.start()
 
       # node 3
@@ -839,7 +847,8 @@ procSuite "WakuNode":
                                   memKeyPairOpt = memKeyPairOpt3, 
                                   memIndexOpt= memIndexOpt3, 
                                   onchainMode = false, 
-                                  pubsubTopic = rlnRelayPubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic,
+                                  contentTopic = contentTopic)
       await node3.start()
 
       # connect the nodes together node1 <-> node2 <-> node3
