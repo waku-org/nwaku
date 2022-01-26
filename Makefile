@@ -136,7 +136,8 @@ else
 endif
 
 installganache:
-ifeq ($(RLN), true) 
+ifeq (true, true); # do nothing
+else ifeq ($(RLN), true) 
 	npm install ganache-cli; npx ganache-cli -p	8540	-g	0	-l	3000000000000&
 else  ifeq ($(CI), true)
 	npm install ganache-cli; npx ganache-cli -p	8540	-g	0	-l	3000000000000&
