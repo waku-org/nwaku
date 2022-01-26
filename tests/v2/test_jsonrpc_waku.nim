@@ -474,8 +474,8 @@ procSuite "Waku v2 JSON-RPC API":
     node3.mountRelay()
 
     # Dial nodes 2 and 3 from node1
-    await node1.dialPeer(constructMultiaddrStr(peerInfo2))
-    await node1.dialPeer(constructMultiaddrStr(peerInfo3))
+    await node1.connectToNodes(@[constructMultiaddrStr(peerInfo2)])
+    await node1.connectToNodes(@[constructMultiaddrStr(peerInfo3)])
 
     # RPC server setup
     let
