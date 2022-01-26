@@ -252,7 +252,10 @@ proc subscribe(node: WakuNode, topic: Topic, handler: Option[TopicHandler]) =
       if (not node.wakuStore.isNil):
         await node.wakuStore.handleMessage(topic, msg.value())
 
-      waku_node_messages.inc(labelValues = ["relay", msg.value().contentTopic])
+      # Increase message counter
+      let ctLabel = if msg.value().contentTopic.len > 0: msg.value().contentTopic
+                    else: "none"
+      waku_node_messages.inc(labelValues = ["relay", ctLabel])
 
   let wakuRelay = node.wakuRelay
 
@@ -434,7 +437,11 @@ proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {
     info "push received"
     for message in msg.messages:
       node.filters.notify(message, requestId) # Trigger filter handlers on a light node
-      waku_node_messages.inc(labelValues = ["filter", message.contentTopic])
+      
+      # Increase message counter
+      let ctLabel = if message.contentTopic.len > 0: message.contentTopic
+                    else: "none"
+      waku_node_messages.inc(labelValues = ["filter", ctLabel])
 
   node.wakuFilter = WakuFilter.init(node.peerManager, node.rng, filterHandler, filterTimeout)
   node.switch.mount(node.wakuFilter, protocolMatcher(WakuFilterCodec))
