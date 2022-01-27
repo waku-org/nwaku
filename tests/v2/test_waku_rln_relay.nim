@@ -887,13 +887,13 @@ suite "Waku rln relay":
     # validate messages
     # validateMessage proc checks the validity of the message fields and adds it to the log (if valid)
     let
-      msgValidate1 = wakuRlnRelay.validateMessage(wm1)
+      msgValidate1 = wakuRlnRelay.validateMessage(wm1, some(time))
       # wm2 is published within the same Epoch as wm1 and should be found as spam
-      msgValidate2 = wakuRlnRelay.validateMessage(wm2)
+      msgValidate2 = wakuRlnRelay.validateMessage(wm2, some(time))
       # a valid message should be validated successfully 
-      msgValidate3 = wakuRlnRelay.validateMessage(wm3)
+      msgValidate3 = wakuRlnRelay.validateMessage(wm3, some(time))
       # wm4 has no rln proof and should not be validated
-      msgValidate4 = wakuRlnRelay.validateMessage(wm4)
+      msgValidate4 = wakuRlnRelay.validateMessage(wm4, some(time))
 
     
     check:
