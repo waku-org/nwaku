@@ -215,14 +215,15 @@ proc publish(c: Chat, line: string) =
     if encodedPayload.isOk():
       var message = WakuMessage(payload: encodedPayload.get(),
         contentTopic: c.contentTopic, version: version)
-      if  not isNil(c.node.wakuRlnRelay):
-        # for future version when we support more than one rln protected content topic, 
-        # we should check the message content topic as well
-        let success = c.node.wakuRlnRelay.appendRLNProof(message, epochTime())
-        if not success:
-          debug "could not append rate limit proof to the message", success=success
-        else:
-          debug "rate limit proof is appended to the message", success=success
+      when defined(rln):
+        if  not isNil(c.node.wakuRlnRelay):
+          # for future version when we support more than one rln protected content topic, 
+          # we should check the message content topic as well
+          let success = c.node.wakuRlnRelay.appendRLNProof(message, epochTime())
+          if not success:
+            debug "could not append rate limit proof to the message", success=success
+          else:
+            debug "rate limit proof is appended to the message", success=success
       if not c.node.wakuLightPush.isNil():
         # Attempt lightpush
         asyncSpawn c.node.lightpush(DefaultTopic, message, handler)
@@ -234,14 +235,15 @@ proc publish(c: Chat, line: string) =
     # No payload encoding/encryption from Waku
     var message = WakuMessage(payload: chat2pb.buffer,
       contentTopic: c.contentTopic, version: 0)
-    if  not isNil(c.node.wakuRlnRelay):
-      # for future version when we support more than one rln protected content topic, 
-      # we should check the message content topic as well
-      let success = c.node.wakuRlnRelay.appendRLNProof(message, epochTime())
-      if not success:
-        debug "could not append rate limit proof to the message", success=success
-      else:
-        debug "rate limit proof is appended to the message", success=success
+    when defined(rln):
+      if  not isNil(c.node.wakuRlnRelay):
+        # for future version when we support more than one rln protected content topic, 
+        # we should check the message content topic as well
+        let success = c.node.wakuRlnRelay.appendRLNProof(message, epochTime())
+        if not success:
+          debug "could not append rate limit proof to the message", success=success
+        else:
+          debug "rate limit proof is appended to the message", success=success
 
     if not c.node.wakuLightPush.isNil():
       # Attempt lightpush
