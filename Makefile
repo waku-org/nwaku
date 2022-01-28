@@ -90,7 +90,7 @@ ifeq ($(ONCHAIN_RLN), true)
 NIM_PARAMS := $(NIM_PARAMS) -d:onchain_rln
 else
 ifeq ($(CI), true) 
-ifneq ($(detected_OS), Windows)
+ifeq ($(detected_OS), macOS)
 NIM_PARAMS := $(NIM_PARAMS) -d:onchain_rln
 endif
 endif
@@ -153,7 +153,7 @@ ifeq ($(ONCHAIN_RLN), true)
 	npm install ganache-cli; npx ganache-cli -p	8540	-g	0	-l	3000000000000&
 else
 ifeq ($(CI), true) 
-ifneq ($(detected_OS), Windows)
+ifeq ($(detected_OS), macOS)
 	npm install ganache-cli; npx ganache-cli -p	8540	-g	0	-l	3000000000000&
 endif
 endif
