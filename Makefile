@@ -75,6 +75,16 @@ else  ifeq ($(CI), true)
 NIM_PARAMS := $(NIM_PARAMS) -d:rln 
 endif
 
+# detecting the os
+ifeq ($(OS),Windows_NT) # is Windows_NT on XP, 2000, 7, Vista, 10...
+ detected_OS := Windows
+else ifeq ($(strip $(shell uname)),Darwin)
+ detected_OS := macOS
+else
+ # e.g. Linux
+ detected_OS := $(strip $(shell uname))
+endif
+
 # control compilation of rln tests that require on chain interaction
 ifeq ($(ONCHAIN_RLN), true) 
 NIM_PARAMS := $(NIM_PARAMS) -d:onchain_rln
@@ -137,15 +147,6 @@ example2: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim example2 $(NIM_PARAMS) waku.nims
 
-# detecting the os
-ifeq ($(OS),Windows_NT) # is Windows_NT on XP, 2000, 7, Vista, 10...
- detected_OS := Windows
-else ifeq ($(strip $(shell uname)),Darwin)
- detected_OS := macOS
-else
- # e.g. Linux
- detected_OS := $(strip $(shell uname))
-endif
 
 installganache:
 ifeq ($(ONCHAIN_RLN), true) 
