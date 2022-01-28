@@ -76,9 +76,16 @@ NIM_PARAMS := $(NIM_PARAMS) -d:rln
 endif
 
 # control compilation of rln tests that require on chain interaction
-ifeq ($(ONCHAIN_RLN), true)
+ifeq ($(ONCHAIN_RLN), true) 
+NIM_PARAMS := $(NIM_PARAMS) -d:onchain_rln
+else
+ifeq ($(CI), true) 
+ifneq ($(detected_OS), Windows)
 NIM_PARAMS := $(NIM_PARAMS) -d:onchain_rln
 endif
+endif
+endif
+
 deps: | deps-common nat-libs waku.nims rlnlib
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
@@ -143,6 +150,12 @@ endif
 installganache:
 ifeq ($(ONCHAIN_RLN), true) 
 	npm install ganache-cli; npx ganache-cli -p	8540	-g	0	-l	3000000000000&
+else
+ifeq ($(CI), true) 
+ifneq ($(detected_OS), Windows)
+	npm install ganache-cli; npx ganache-cli -p	8540	-g	0	-l	3000000000000&
+endif
+endif
 endif
 
 rlnlib:
