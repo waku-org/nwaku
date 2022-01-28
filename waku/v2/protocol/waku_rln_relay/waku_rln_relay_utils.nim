@@ -427,18 +427,25 @@ proc compare*(e1, e2: Epoch): int64 =
   return int64(epoch1) - int64(epoch2)
 
 
-proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage): MessageValidationResult =
+proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage, timeOption: Option[float64] = none(float64)): MessageValidationResult =
   ## validate the supplied `msg` based on the waku-rln-relay routing protocol i.e.,
   ## the `msg`'s epoch is within MAX_EPOCH_GAP of the current epoch
   ## the `msg` has valid rate limit proof
   ## the `msg` does not violate the rate limit
+  ## `timeOption` indicates Unix epoch time (fractional part holds sub-seconds) 
+  ## if `timeOption` is supplied, then the current epoch is calculated based on that
 
   
   #  checks if the `msg`'s epoch is far from the current epoch
   # it corresponds to the validation of rln external nullifier
-  let 
+  var epoch: Epoch
+  if timeOption.isSome():
+    epoch = calcEpoch(timeOption.get())
+  else:
     # get current rln epoch
     epoch = getCurrentEpoch()
+
+  let 
     msgEpoch = msg.proof.epoch
     # calculate the gaps
     gap = compare(epoch, msgEpoch)
