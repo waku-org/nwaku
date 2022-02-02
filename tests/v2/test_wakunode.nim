@@ -2,6 +2,7 @@
 
 import
   testutils/unittests,
+  std/sequtils,
   chronicles, chronos, stew/shims/net as stewNet, stew/byteutils, std/os,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
@@ -669,16 +670,16 @@ procSuite "WakuNode":
       let epoch = getCurrentEpoch()
 
       # prepare the proof
-      let rateLimitProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = payload, 
-                                                                memKeys = node1.wakuRlnRelay.membershipKeyPair, 
-                                                                memIndex = node1.wakuRlnRelay.membershipIndex, 
-                                                                epoch = epoch)
-      doAssert(rateLimitProofRes.isOk())
-      let rateLimitProof = rateLimitProofRes.value     
+      # let rateLimitProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = payload, 
+      #                                                           memKeys = node1.wakuRlnRelay.membershipKeyPair, 
+      #                                                           memIndex = node1.wakuRlnRelay.membershipIndex, 
+      #                                                           epoch = epoch)
+      # doAssert(rateLimitProofRes.isOk())
+      # let rateLimitProof = rateLimitProofRes.value     
 
-      let message = WakuMessage(payload: @payload, 
-                                contentTopic: contentTopic,  
-                                proof: rateLimitProof)
+      var message = WakuMessage(payload: @payload, 
+                                contentTopic: contentTopic)
+      doAssert(node1.wakuRlnRelay.appendRLNProof(message, epochTime()))
 
 
       ## node1 publishes a message with a rate limit proof, the message is then relayed to node2 which in turn 
@@ -771,7 +772,10 @@ procSuite "WakuNode":
       let epoch = getCurrentEpoch()
 
       # prepare the proof
-      let rateLimitProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = payload, 
+      let 
+        contentTopicBytes = contentTopic.toBytes
+        input = concat(payload, contentTopicBytes)
+        rateLimitProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = input, 
                                                                 memKeys = node1.wakuRlnRelay.membershipKeyPair, 
                                                                 memIndex = MembershipIndex(4), 
                                                                 epoch = epoch)
