@@ -102,7 +102,7 @@ procSuite "Waku v2 JSON-RPC API":
       response == true
     
     # Publish a message on the default topic
-    response = await client.post_waku_v2_relay_v1_message(defaultTopic, WakuRelayMessage(payload: @[byte 1], contentTopic: some(defaultContentTopic), timestamp: some(epochTime())))
+    response = await client.post_waku_v2_relay_v1_message(defaultTopic, WakuRelayMessage(payload: @[byte 1], contentTopic: some(defaultContentTopic), timestamp: some(int64(epochTime()))))
 
     check:
       # @TODO poll topic to verify message has been published
@@ -260,7 +260,7 @@ procSuite "Waku v2 JSON-RPC API":
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort, false)
 
-    let response = await client.get_waku_v2_store_v1_messages(some(defaultTopic), some(@[HistoryContentFilter(contentTopic: defaultContentTopic)]), some(0.float64), some(9.float64), some(StorePagingOptions()))
+    let response = await client.get_waku_v2_store_v1_messages(some(defaultTopic), some(@[HistoryContentFilter(contentTopic: defaultContentTopic)]), some(0.int64), some(9.int64), some(StorePagingOptions()))
     check:
       response.messages.len() == 8
       response.pagingOptions.isSome()
@@ -573,7 +573,7 @@ procSuite "Waku v2 JSON-RPC API":
       pubSubTopic = "polling"
       contentTopic = defaultContentTopic
       payload = @[byte 9]
-      message = WakuRelayMessage(payload: payload, contentTopic: some(contentTopic), timestamp: some(epochTime()))
+      message = WakuRelayMessage(payload: payload, contentTopic: some(contentTopic), timestamp: some(int64(epochTime())))
       topicCache = newTable[string, seq[WakuMessage]]()
 
     await node1.start()
@@ -664,7 +664,7 @@ procSuite "Waku v2 JSON-RPC API":
       pubSubTopic = "polling"
       contentTopic = defaultContentTopic
       payload = @[byte 9]
-      message = WakuRelayMessage(payload: payload, contentTopic: some(contentTopic), timestamp: some(epochTime()))
+      message = WakuRelayMessage(payload: payload, contentTopic: some(contentTopic), timestamp: some(int64(epochTime())))
       topicCache = newTable[string, seq[WakuMessage]]()
 
     await node1.start()

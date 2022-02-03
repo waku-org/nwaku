@@ -12,7 +12,7 @@ proc createSampleList(s: int): seq[IndexedWakuMessage] =
   var data {.noinit.}: array[32, byte]
   for x in data.mitems: x = 1
   for i in 0..<s:
-    result.add(IndexedWakuMessage(msg: WakuMessage(payload: @[byte i]), index: Index(receiverTime: float64(i), senderTime: float64(i), digest: MDigest[256](data: data)) ))
+    result.add(IndexedWakuMessage(msg: WakuMessage(payload: @[byte i]), index: Index(receiverTime: int64(i), senderTime: int64(i), digest: MDigest[256](data: data)) ))
 
 procSuite "pagination":
   test "Index computation test":
@@ -305,7 +305,7 @@ suite "time-window history query":
     let
       version = 0'u32
       payload = @[byte 0, 1, 2]
-      timestamp = float64(10)
+      timestamp = int64(10)
       msg = WakuMessage(payload: payload, version: version, timestamp: timestamp)
       pb =  msg.encode()
     
@@ -338,4 +338,4 @@ suite "time-window history query":
     let 
       timestampDecoded = msgDecoded.value.timestamp
     check:
-      timestampDecoded == float64(0)
+      timestampDecoded == int64(0)

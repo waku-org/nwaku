@@ -21,7 +21,7 @@ type
     payload*: seq[byte]
     contentTopic*: Option[ContentTopic]
     # sender generated timestamp
-    timestamp*: Option[float64]
+    timestamp*: Option[int64]
 
   WakuPeer* = object
     multiaddr*: string

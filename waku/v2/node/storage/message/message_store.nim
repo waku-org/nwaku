@@ -11,7 +11,7 @@ import
 ## retrieve historical messages
 
 type
-  DataProc* = proc(receiverTimestamp: float64, msg: WakuMessage, pubsubTopic: string) {.closure, raises: [Defect].}
+  DataProc* = proc(receiverTimestamp: int64, msg: WakuMessage, pubsubTopic: string) {.closure, raises: [Defect].}
 
   MessageStoreResult*[T] = Result[T, string]
 
