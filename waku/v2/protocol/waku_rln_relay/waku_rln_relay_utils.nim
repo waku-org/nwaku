@@ -16,7 +16,7 @@ logScope:
 type RLNResult* = Result[RLN[Bn256], string]
 type MerkleNodeResult* = Result[MerkleNode, string]
 type RateLimitProofResult* = Result[RateLimitProof, string]
-type SpamHandler* = proc(wakuMessage: WakuMessage): void {.gcsafe, nimcall, raises: [Defect].}
+type SpamHandler* = proc(wakuMessage: WakuMessage): void {.gcsafe, closure, raises: [Defect].}
 
 # membership contract interface
 contract(MembershipContract):
