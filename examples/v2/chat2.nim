@@ -503,8 +503,8 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
           # mount rlnrelay in offline mode (for now)
           waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
 
-          info "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
-          info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
+          trace "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
+          trace "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
 
           # check the correct construction of the tree by comparing the calculated root against the expected root
           # no error should happen as it is already captured in the unit tests
@@ -514,8 +514,8 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
             expectedRoot = STATIC_GROUP_MERKLE_ROOT
           if root != expectedRoot:
             error "root mismatch: something went wrong not in Merkle tree construction"
-          debug "the calculated root", root
-          info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
+          trace "the calculated root", root
+          trace "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
 
 
   await chat.readWriteLoop()
