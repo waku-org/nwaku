@@ -116,7 +116,7 @@ proc generateSymKey(contentTopic: ContentTopic): SymKey =
   symKey
 
 proc connectToNodes(c: Chat, nodes: seq[string]) {.async.} =
-  echo "Connecting to nodes"
+  echo "Connecting to nodes", nodes
   await c.node.connectToNodes(nodes)
   c.connected = true
 
@@ -371,7 +371,6 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
                   prompt: false,
                   contentTopic: conf.contentTopic,
                   symKey: generateSymKey(conf.contentTopic))
-
   if conf.staticnodes.len > 0:
     await connectToNodes(chat, conf.staticnodes)
   elif conf.dnsDiscovery and conf.dnsDiscoveryUrl != "":
@@ -494,13 +493,21 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
       if conf.rlnRelay:
         info "WakuRLNRelay is enabled"
 
+        proc spamHandler(wakuMessage: WakuMessage) {.gcsafe, nimcall.} =
+          echo "spam handler is called"
+          let
+            pb = Chat2Message.init(wakuMessage.payload)
+            chatLine = if pb.isOk: pb[].toString()
+                       else: string.fromBytes(wakuMessage.payload)
+          echo "A spam message is found and discarded : ", chatLine
+
         # set up rln relay inputs
         let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(conf.rlnRelayMemIndex)
         if memIndexOpt.isNone:
           error "failed to mount WakuRLNRelay"
         else:
           # mount rlnrelay in offline mode (for now)
-          waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
+          waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = some(spamHandler))
 
           info "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
           info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex

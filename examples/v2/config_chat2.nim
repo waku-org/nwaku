@@ -19,7 +19,7 @@ type
 
     logLevel* {.
       desc: "Sets the log level."
-      defaultValue: LogLevel.INFO
+      defaultValue: LogLevel.TRACE
       name: "log-level" }: LogLevel
     
     nodekey* {.
@@ -241,7 +241,7 @@ type
 
     rlnRelayContentTopic* {.
       desc: "the pubsub topic for which rln-relay gets enabled",
-      defaultValue: "waku/2/rln-relay/proto"
+      defaultValue: "/toy-chat/2/huilong/proto"
       name: "rln-relay-content-topic" }: ContentTopic
 
     rlnRelayPubsubTopic* {.

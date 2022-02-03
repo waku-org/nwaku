@@ -16,6 +16,8 @@ logScope:
 type RLNResult* = Result[RLN[Bn256], string]
 type MerkleNodeResult* = Result[MerkleNode, string]
 type RateLimitProofResult* = Result[RateLimitProof, string]
+type SpamHandler* = proc(wakuMessage: WakuMessage): void {.gcsafe, nimcall, raises: [Defect].}
+
 # membership contract interface
 contract(MembershipContract):
   # TODO define a return type of bool for register method to signify a successful registration
@@ -445,16 +447,18 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage, timeOption: Optio
     # get current rln epoch
     epoch = getCurrentEpoch()
 
+  # echo "current epoch", fromEpoch(epoch)
   let 
     msgEpoch = msg.proof.epoch
     # calculate the gaps
     gap = compare(epoch, msgEpoch)
-  
+  # echo "message epoch", fromEpoch(msgEpoch)
   # validate the epoch
   if abs(gap) >= MAX_EPOCH_GAP:
     # message's epoch is too old or too ahead
     # accept messages whose epoch is within +-MAX_EPOCH_GAP from the current epoch
     debug "invalid message: epoch gap exceeds a threshold",gap=gap
+    echo "invalid message: epoch gap exceeds a threshold",gap, string.fromBytes(msg.payload)
     return MessageValidationResult.Invalid
   
   # verify the proof
@@ -464,18 +468,21 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage, timeOption: Optio
   if not rlnPeer.rlnInstance.proofVerify(input, msg.proof):
     # invalid proof
     debug "invalid message: invalid proof"
+    # echo "invalid message: invalid proof", string.fromBytes(msg.payload)
     return MessageValidationResult.Invalid
   
   # check if double messaging has happened
   let hasDup = rlnPeer.hasDuplicate(msg)
   if hasDup.isOk and hasDup.value == true:
     debug "invalid message: message is a spam"
+    # echo "invalid message: message is a spam", string.fromBytes(msg.payload)
     return MessageValidationResult.Spam
 
   # insert the message to the log 
   # the result of `updateLog` is discarded because message insertion is guaranteed by the implementation i.e.,
   # it will never error out
   discard rlnPeer.updateLog(msg)
+  # echo "message is valid", string.fromBytes(msg.payload)
   return MessageValidationResult.Valid
 
 
