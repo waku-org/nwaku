@@ -494,8 +494,8 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
       if conf.rlnRelay:
         info "WakuRLNRelay is enabled"
 
-        proc spamHandler(wakuMessage: WakuMessage) {.gcsafe, nimcall.} =
-          echo "spam handler is called"
+        proc spamHandler(wakuMessage: WakuMessage) {.gcsafe, closure.} =
+          debug "spam handler is called"
           let
             pb = Chat2Message.init(wakuMessage.payload)
             chatLine = if pb.isOk: pb[].toString()
