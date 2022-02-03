@@ -496,10 +496,9 @@ when defined(rln):
             return pubsub.ValidationResult.Reject
           of Spam:
             info "A spam message is found! yay! discarding:", wakumessage=wakumessage, payload=string.fromBytes(wakumessage.payload)
-            echo "A spam message is found! yay! discarding ..."
+            # echo "A spam message is found! yay! discarding ..."
             if spamHandler.isSome():
-              let handler = spamHandler.get()
-              discard handler(wakumessage)
+              (spamHandler.get)(wakumessage)
             return pubsub.ValidationResult.Reject          
     # set a validator for the supplied pubsubTopic 
     let pb  = PubSub(node.wakuRelay)
