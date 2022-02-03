@@ -1099,7 +1099,7 @@ procSuite "WakuNode":
 
     # count the total number of retrieved messages from the database
     var responseCount = 0
-    proc data(receiverTimestamp: float64, msg: WakuMessage, psTopic: string) =
+    proc data(receiverTimestamp: int64, msg: WakuMessage, psTopic: string) =
       responseCount += 1
     # retrieve all the messages in the db
     let res = store.getAll(data)

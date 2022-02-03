@@ -65,8 +65,8 @@ type
     contentFilters*: seq[HistoryContentFilter]
     pubsubTopic*: string
     pagingInfo*: PagingInfo # used for pagination
-    startTime*: float64 # used for time-window query
-    endTime*: float64 # used for time-window query
+    startTime*: int64 # used for time-window query
+    endTime*: int64 # used for time-window query
 
   HistoryResponseError* {.pure.} = enum
     ## HistoryResponseError contains error message to inform  the querying node about the state of its request

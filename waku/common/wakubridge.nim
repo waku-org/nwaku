@@ -91,7 +91,7 @@ func toWakuMessage(env: Envelope): WakuMessage =
   # Translate a Waku v1 envelope to a Waku v2 message
   WakuMessage(payload: env.data,
               contentTopic: toV2ContentTopic(env.topic),
-              timestamp: float64(env.expiry - env.ttl),
+              timestamp: int64(env.expiry - env.ttl),
               version: 1)
 
 proc toWakuV2(bridge: WakuBridge, env: Envelope) {.async.} =

@@ -406,10 +406,11 @@ proc fromEpoch*(epoch: Epoch): uint64 =
   let t = fromBytesLE(uint64, array[32,byte](epoch))
   return t
 
-proc calcEpoch*(t: float64): Epoch = 
-  ## gets time `t` as `flaot64` with subseconds resolution in the fractional part
+proc calcEpoch*(t: int64): Epoch = 
+  ## gets time `t` as `int64` with milliseconds resolution
   ## and returns its corresponding rln `Epoch` value
-  let e = uint64(t/EPOCH_UNIT_SECONDS)
+  ## TODO: check the uint64 cast doesn't induce overflows 
+  let e = uint64(t/(EPOCH_UNIT_SECONDS*1000))
   return toEpoch(e)
 
 proc getCurrentEpoch*(): Epoch =
@@ -427,12 +428,12 @@ proc compare*(e1, e2: Epoch): int64 =
   return int64(epoch1) - int64(epoch2)
 
 
-proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage, timeOption: Option[float64] = none(float64)): MessageValidationResult =
+proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage, timeOption: Option[int64] = none(int64)): MessageValidationResult =
   ## validate the supplied `msg` based on the waku-rln-relay routing protocol i.e.,
   ## the `msg`'s epoch is within MAX_EPOCH_GAP of the current epoch
   ## the `msg` has valid rate limit proof
   ## the `msg` does not violate the rate limit
-  ## `timeOption` indicates Unix epoch time (fractional part holds sub-seconds) 
+  ## `timeOption` indicates Unix epoch time (milliseconds resolution) 
   ## if `timeOption` is supplied, then the current epoch is calculated based on that
 
   
@@ -473,10 +474,10 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage, timeOption: Optio
   return MessageValidationResult.Valid
 
 
-proc appendRLNProof*(rlnPeer: WakuRLNRelay, msg: var WakuMessage, senderEpochTime: float64): bool = 
+proc appendRLNProof*(rlnPeer: WakuRLNRelay, msg: var WakuMessage, senderEpochTime: int64): bool = 
   ## returns true if it can create and append a `RateLimitProof` to the supplied `msg`
   ## returns false otherwise
-  ## `senderEpochTime` indicates the number of seconds passed since Unix epoch. The fractional part holds sub-seconds.
+  ## `senderEpochTime` indicates the number of milliseconds passed since Unix epoch.
   ## The `epoch` field of `RateLimitProof` is derived from the provided `senderEpochTime` (using `calcEpoch()`)
 
   let 

@@ -31,12 +31,12 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] 
   let prepare = db.prepareStmt("""
     CREATE TABLE IF NOT EXISTS """ & TABLE_TITLE & """ (
         id BLOB PRIMARY KEY,
-        receiverTimestamp REAL NOT NULL,
+        receiverTimestamp INTEGER NOT NULL,
         contentTopic BLOB NOT NULL,
         pubsubTopic BLOB NOT NULL,
         payload BLOB,
         version INTEGER NOT NULL,
-        senderTimestamp REAL NOT NULL
+        senderTimestamp INTEGER NOT NULL
     ) WITHOUT ROWID;
     """, NoParams, void)
 
@@ -61,7 +61,7 @@ method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTop
   ## 
   let prepare = db.database.prepareStmt(
     "INSERT INTO " & TABLE_TITLE & " (id, receiverTimestamp, contentTopic, payload, pubsubTopic, version, senderTimestamp) VALUES (?, ?, ?, ?, ?, ?, ?);",
-    (seq[byte], float64, seq[byte], seq[byte], seq[byte], int64, float64),
+    (seq[byte], int64, seq[byte], seq[byte], seq[byte], int64, int64),
     void
   )
 
@@ -111,8 +111,8 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc, limit = non
 
 
       # TODO retrieve the version number
-    onData(receiverTimestamp.float64,
-           WakuMessage(contentTopic: contentTopic, payload: payload , version: uint32(version), timestamp: senderTimestamp.float64), 
+    onData(receiverTimestamp.int64,
+           WakuMessage(contentTopic: contentTopic, payload: payload , version: uint32(version), timestamp: senderTimestamp.int64), 
                        pubsubTopic)
 
   var selectQuery = "SELECT receiverTimestamp, contentTopic, payload, pubsubTopic, version, senderTimestamp " &
