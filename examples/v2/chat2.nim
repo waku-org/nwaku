@@ -198,7 +198,8 @@ proc readNick(transp: StreamTransport): Future[string] {.async.} =
 
 proc publish(c: Chat, line: string) =
   # First create a Chat2Message protobuf with this line of text
-  let chat2pb = Chat2Message(timestamp: getTime().toUnix(),
+  let time = getTime().toUnix()
+  let chat2pb = Chat2Message(timestamp: time,
                              nick: c.nick,
                              payload: line.toBytes()).encode()
 
@@ -219,7 +220,7 @@ proc publish(c: Chat, line: string) =
         if  not isNil(c.node.wakuRlnRelay):
           # for future version when we support more than one rln protected content topic, 
           # we should check the message content topic as well
-          let success = c.node.wakuRlnRelay.appendRLNProof(message, epochTime())
+          let success = c.node.wakuRlnRelay.appendRLNProof(message, float64(time))
           if not success:
             debug "could not append rate limit proof to the message", success=success
           else:
@@ -239,7 +240,7 @@ proc publish(c: Chat, line: string) =
       if  not isNil(c.node.wakuRlnRelay):
         # for future version when we support more than one rln protected content topic, 
         # we should check the message content topic as well
-        let success = c.node.wakuRlnRelay.appendRLNProof(message, epochTime())
+        let success = c.node.wakuRlnRelay.appendRLNProof(message, float64(time))
         if not success:
           debug "could not append rate limit proof to the message", success=success
         else:
