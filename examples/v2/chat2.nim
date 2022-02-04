@@ -225,7 +225,7 @@ proc publish(c: Chat, line: string) =
             debug "could not append rate limit proof to the message", success=success
           else:
             debug "rate limit proof is appended to the message", success=success
-            echo "the attached epoch is ", fromEpoch(message.proof.epoch)
+            echo "--rln epoch: ", fromEpoch(message.proof.epoch)
       if not c.node.wakuLightPush.isNil():
         # Attempt lightpush
         asyncSpawn c.node.lightpush(DefaultTopic, message, handler)
@@ -246,7 +246,7 @@ proc publish(c: Chat, line: string) =
           debug "could not append rate limit proof to the message", success=success
         else:
           debug "rate limit proof is appended to the message", success=success
-          echo "the attached epoch is ", fromEpoch(message.proof.epoch)
+          echo "--rln epoch: ", fromEpoch(message.proof.epoch)
 
     if not c.node.wakuLightPush.isNil():
       # Attempt lightpush
