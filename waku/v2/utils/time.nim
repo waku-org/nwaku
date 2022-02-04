@@ -3,13 +3,13 @@
 {.push raises: [Defect].}
 
 proc getNanosecondTime*(t: float64): int64 = 
-  var tns = t*100000000
+  var tns = int64(t*100000000)
   return tns
 
 proc getMicrosecondTime*(t: float64): int64 = 
-  var tmus = t*1000000
-  return tns
+  var tmus = int64(t*1000000)
+  return tmus
 
 proc getMillisecondTime*(t: float64): int64 = 
-  var tms = t*1000
+  var tms = int64(t*1000)
   return tms
