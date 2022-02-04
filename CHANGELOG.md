@@ -7,8 +7,8 @@ The full list of changes is below.
 
 ### Features
 
-- `mountRlnRelay` now accepts an additional `contentTopic` argument and enables spam-protection over a combination of `pubsubTopic` and `contentTopic` (available under the `rln` compiler flag).
-- Integrates `waku-rln-relay` into `chat2` (available under the`rln` compiler flag)
+- The `waku-rln-relay` now supports spam-protection for a specific combination of `pubsubTopic` and `contentTopic` (available under the `rln` compiler flag).  
+- The `waku-rln-relay` protocol in integrated into `chat2` (available under the`rln` compiler flag)
 
 ### Changes
 
