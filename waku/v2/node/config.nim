@@ -89,7 +89,7 @@ type
 
     rlnRelayContentTopic* {.
       desc: "the pubsub topic for which rln-relay gets enabled",
-      defaultValue: "waku/2/huilong/proto"
+      defaultValue: "/toy-chat/2/huilong/proto"
       name: "rln-relay-content-topic" }: ContentTopic
     
     staticnodes* {.
