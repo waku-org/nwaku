@@ -470,8 +470,9 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: boo
 when defined(rln):
   proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string, contentTopic: ContentTopic) =
     ## this procedure is a thin wrapper for the pubsub addValidator method
-    ## it sets message validator on the given pubsubTopic, the validator will check that
-    ## all the messages published in the pubsubTopic have a valid zero-knowledge proof 
+    ## it sets a validator for the waku messages published on the supplied pubsubTopic and contentTopic 
+    ## if contentTopic is empty, then validation takes place for All the messages published on the given pubsubTopic
+    ## the message validation logic is according to https://rfc.vac.dev/spec/17/
     proc validator(topic: string, message: messages.Message): Future[pubsub.ValidationResult] {.async.} =
       let msg = WakuMessage.init(message.data) 
       if msg.isOk():
