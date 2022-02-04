@@ -27,6 +27,13 @@ import   ../../waku/v2/node/[wakunode2, waku_payload],
          ../../waku/common/utils/nat,
          ./config_chat2
 
+when defined(rln):
+  import
+    libp2p/protocols/pubsub/rpc/messages,
+    libp2p/protocols/pubsub/pubsub,
+    web3,
+    ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils]
+
 const Help = """
   Commands: /[?|help|connect|nick|exit]
   help: Prints this help
@@ -191,7 +198,8 @@ proc readNick(transp: StreamTransport): Future[string] {.async.} =
 
 proc publish(c: Chat, line: string) =
   # First create a Chat2Message protobuf with this line of text
-  let chat2pb = Chat2Message(timestamp: getTime().toUnix(),
+  let time = getTime().toUnix()
+  let chat2pb = Chat2Message(timestamp: time,
                              nick: c.nick,
                              payload: line.toBytes()).encode()
 
@@ -206,8 +214,17 @@ proc publish(c: Chat, line: string) =
       version = 1'u32
       encodedPayload = payload.encode(version, c.node.rng[])
     if encodedPayload.isOk():
-      let message = WakuMessage(payload: encodedPayload.get(),
+      var message = WakuMessage(payload: encodedPayload.get(),
         contentTopic: c.contentTopic, version: version)
+      when defined(rln):
+        if  not isNil(c.node.wakuRlnRelay):
+          # for future version when we support more than one rln protected content topic, 
+          # we should check the message content topic as well
+          let success = c.node.wakuRlnRelay.appendRLNProof(message, float64(time))
+          if not success:
+            debug "could not append rate limit proof to the message", success=success
+          else:
+            debug "rate limit proof is appended to the message", success=success
       if not c.node.wakuLightPush.isNil():
         # Attempt lightpush
         asyncSpawn c.node.lightpush(DefaultTopic, message, handler)
@@ -217,8 +234,18 @@ proc publish(c: Chat, line: string) =
       warn "Payload encoding failed", error = encodedPayload.error
   else:
     # No payload encoding/encryption from Waku
-    let message = WakuMessage(payload: chat2pb.buffer,
+    var message = WakuMessage(payload: chat2pb.buffer,
       contentTopic: c.contentTopic, version: 0)
+    when defined(rln):
+      if  not isNil(c.node.wakuRlnRelay):
+        # for future version when we support more than one rln protected content topic, 
+        # we should check the message content topic as well
+        let success = c.node.wakuRlnRelay.appendRLNProof(message, float64(time))
+        if not success:
+          debug "could not append rate limit proof to the message", success=success
+        else:
+          debug "rate limit proof is appended to the message", success=success
+
     if not c.node.wakuLightPush.isNil():
       # Attempt lightpush
       asyncSpawn c.node.lightpush(DefaultTopic, message, handler)
@@ -326,7 +353,6 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
       wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
       wsEnabled = conf.websocketSupport,
       wssEnabled = conf.websocketSecureSupport)
-  
   await node.start()
 
   node.mountRelay(conf.topics.split(" "),
@@ -464,6 +490,33 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
 
     let topic = cast[Topic](DefaultTopic)
     node.subscribe(topic, handler)
+
+    when defined(rln): 
+      if conf.rlnRelay:
+        info "WakuRLNRelay is enabled"
+
+        # set up rln relay inputs
+        let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(conf.rlnRelayMemIndex)
+        if memIndexOpt.isNone:
+          error "failed to mount WakuRLNRelay"
+        else:
+          # mount rlnrelay in offline mode (for now)
+          waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
+
+          trace "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
+          trace "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
+
+          # check the correct construction of the tree by comparing the calculated root against the expected root
+          # no error should happen as it is already captured in the unit tests
+          # TODO have added this check to account for unseen corner cases, will remove it later 
+          let 
+            root = node.wakuRlnRelay.rlnInstance.getMerkleRoot.value.toHex() 
+            expectedRoot = STATIC_GROUP_MERKLE_ROOT
+          if root != expectedRoot:
+            error "root mismatch: something went wrong not in Merkle tree construction"
+          trace "the calculated root", root
+          trace "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
+
 
   await chat.readWriteLoop()
 

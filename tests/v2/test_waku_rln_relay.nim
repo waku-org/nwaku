@@ -12,6 +12,7 @@ import
   ./test_utils
 
 const RLNRELAY_PUBSUB_TOPIC = "waku/2/rlnrelay/proto"
+const RLNRELAY_CONTENT_TOPIC = "waku/2/rlnrelay/proto"
 
 # POSEIDON_HASHER_CODE holds the bytecode of Poseidon hasher solidity smart contract: 
 # https://github.com/kilic/rlnapp/blob/master/packages/contracts/contracts/crypto/PoseidonHasher.sol 
@@ -250,7 +251,14 @@ procSuite "Waku rln relay":
 
       # start rln-relay
       node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
-      await node.mountRlnRelay(ethClientAddrOpt = some(ETH_CLIENT), ethAccAddrOpt =  some(ethAccountAddress), memContractAddOpt =  some(membershipContractAddress), groupOpt = some(group), memKeyPairOpt = some(keypair.get()),  memIndexOpt = some(index), pubsubTopic = RLNRELAY_PUBSUB_TOPIC)
+      await node.mountRlnRelay(ethClientAddrOpt = some(EthClient), 
+                              ethAccAddrOpt =  some(ethAccountAddress), 
+                              memContractAddOpt =  some(membershipContractAddress), 
+                              groupOpt = some(group), 
+                              memKeyPairOpt = some(keypair.get()),  
+                              memIndexOpt = some(index), 
+                              pubsubTopic = RLNRELAY_PUBSUB_TOPIC,
+                              contentTopic = RLNRELAY_CONTENT_TOPIC)
       let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
       debug "calculated root ", calculatedRoot
 
@@ -286,7 +294,12 @@ procSuite "Waku rln relay":
 
     # -------- mount rln-relay in the off-chain mode
     node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
-    await node.mountRlnRelay(groupOpt = some(groupIDCommitments), memKeyPairOpt = some(groupKeyPairs[index]),  memIndexOpt = some(index), onchainMode = false, pubsubTopic = RLNRELAY_PUBSUB_TOPIC)
+    await node.mountRlnRelay(groupOpt = some(groupIDCommitments),
+                            memKeyPairOpt = some(groupKeyPairs[index]),
+                            memIndexOpt = some(index), 
+                            onchainMode = false, 
+                            pubsubTopic = RLNRELAY_PUBSUB_TOPIC,
+                            contentTopic = RLNRELAY_CONTENT_TOPIC)
     
     # get the root of Merkle tree which is constructed inside the mountRlnRelay proc
     let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
