@@ -5,8 +5,9 @@ import
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   nimcrypto/utils,
-  eth/keys
-
+  eth/keys,
+  ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_types,
+  ../../waku/v2/protocol/waku_message
 type
   Fleet* =  enum
     none
@@ -74,11 +75,6 @@ type
       desc: "Enable relay protocol: true|false",
       defaultValue: true
       name: "relay" }: bool
-    
-    rlnRelay* {.
-      desc: "Enable spam protection through rln-relay: true|false",
-      defaultValue: false
-      name: "rln-relay" }: bool
     
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
@@ -230,6 +226,28 @@ type
       desc: "WebSocket Secure Support."
       defaultValue: false
       name: "websocket-secure-support" }: bool
+
+    ## rln-relay configuration
+  
+    rlnRelay* {.
+      desc: "Enable spam protection through rln-relay: true|false",
+      defaultValue: false
+      name: "rln-relay" }: bool
+    
+    rlnRelayMemIndex* {.
+      desc: "(experimental) the index of node in the rln-relay group: a value between 0-99 inclusive",
+      defaultValue: MembershipIndex(0)
+      name: "rln-relay-membership-index" }: MembershipIndex
+
+    rlnRelayContentTopic* {.
+      desc: "the pubsub topic for which rln-relay gets enabled",
+      defaultValue: "waku/2/rln-relay/proto"
+      name: "rln-relay-content-topic" }: ContentTopic
+
+    rlnRelayPubsubTopic* {.
+      desc: "the pubsub topic for which rln-relay gets enabled",
+      defaultValue: "/waku/2/default-waku/proto"
+      name: "rln-relay-pubsub-topic" }: string
 
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =

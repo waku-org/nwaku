@@ -77,6 +77,9 @@ type WakuRLNRelay* = ref object
   ethAccountPrivateKey*: Option[PrivateKey]
   rlnInstance*: RLN[Bn256]
   pubsubTopic*: string # the pubsub topic for which rln relay is mounted
+  # contentTopic should be of type waku_message.ContentTopic, however, due to recursive module dependency, the underlying type of ContentTopic is used instead
+  # TODO a long-term solution is to place types with recursive dependency inside one file 
+  contentTopic*: string 
   # the log of nullifiers and Shamir shares of the past messages grouped per epoch
   nullifierLog*: Table[Epoch, seq[ProofMetadata]]
 
