@@ -96,6 +96,8 @@ endif
 endif
 endif
 
+NIM_PARAMS += -d:discv5_protocol_id:d5waku
+
 deps: | deps-common nat-libs waku.nims rlnlib
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
