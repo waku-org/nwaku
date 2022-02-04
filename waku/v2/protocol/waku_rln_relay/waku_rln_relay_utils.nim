@@ -443,7 +443,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage, timeOption: Optio
   ## the `msg`'s epoch is within MAX_EPOCH_GAP of the current epoch
   ## the `msg` has valid rate limit proof
   ## the `msg` does not violate the rate limit
-  ## `timeOption` indicates Unix epoch time (milliseconds resolution) 
+  ## `timeOption` indicates Unix epoch time (fractional part holds sub-seconds) 
   ## if `timeOption` is supplied, then the current epoch is calculated based on that
 
   
