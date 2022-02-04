@@ -12,6 +12,7 @@ import
   ../protocol/waku_filter/waku_filter_types,
   ../protocol/waku_store/waku_store_types,
   ../protocol/waku_message,
+  ../utils/time,
   ./wakunode2, 
   ./waku_payload,
   ./jsonrpc/[jsonrpc_types,jsonrpc_utils]

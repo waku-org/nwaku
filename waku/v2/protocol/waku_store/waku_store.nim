@@ -23,6 +23,7 @@ import
   ../../node/storage/message/message_store,
   ../../node/peer_manager/peer_manager,
   ../../utils/requests,
+  ../../utils/time,
   ../waku_swap/waku_swap,
   ./waku_store_types
 
