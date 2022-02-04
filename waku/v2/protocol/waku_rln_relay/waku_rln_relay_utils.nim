@@ -426,18 +426,6 @@ proc compare*(e1, e2: Epoch): int64 =
     epoch2 = fromEpoch(e2)
   return int64(epoch1) - int64(epoch2)
 
-proc getNanosecondTime*(t: float64): int64 = 
-  let tns = t*100000000
-  return tns
-
-proc getMicrosecondTime*(t: float64): int64 = 
-  let tmus = t*1000000
-  return tns
-
-proc getMillisecondTime*(t: float64): int64 = 
-  let tms = t*1000
-  return tms
-
 proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage, timeOption: Option[float64] = none(float64)): MessageValidationResult =
   ## validate the supplied `msg` based on the waku-rln-relay routing protocol i.e.,
   ## the `msg`'s epoch is within MAX_EPOCH_GAP of the current epoch
