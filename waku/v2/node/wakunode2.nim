@@ -477,7 +477,7 @@ when defined(rln):
       if msg.isOk():
         let wakumessage = msg.value()
         # check the contentTopic
-        if (wakumessage.contentTopic != "") and (wakumessage.contentTopic != contentTopic):
+        if (wakumessage.contentTopic != "") and (contentTopic != "") and (wakumessage.contentTopic != contentTopic):
           trace "content topic did not match:", contentTopic=wakumessage.contentTopic, payload=string.fromBytes(wakumessage.payload)
           return pubsub.ValidationResult.Accept
         # validate the message
