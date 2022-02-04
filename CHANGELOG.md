@@ -1,3 +1,22 @@
+##  Next Release
+Release highlights:
+
+- 
+
+The full list of changes is below.
+
+### Features
+
+- `mountRlnRelay` now accepts an additional `contentTopic` argument and enables spam-protection over a combination of `pubsubTopic` and `contentTopic` (available under the `rln` compiler flag).
+- Integrates `waku-rln-relay` into `chat2` (available under the`rln` compiler flag)
+
+### Changes
+
+-  ...
+### Fixes
+
+- ...
+
 ##  2021-01-19 v0.7
 
 Release highlights:
