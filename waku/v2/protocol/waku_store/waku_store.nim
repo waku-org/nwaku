@@ -23,6 +23,7 @@ import
   ../../node/storage/message/message_store,
   ../../node/peer_manager/peer_manager,
   ../../utils/requests,
+  ../../utils/time,
   ../waku_swap/waku_swap,
   ./waku_store_types
 
@@ -55,7 +56,7 @@ const
 # TODO Move serialization function to separate file, too noisy
 # TODO Move pagination to separate file, self-contained logic
 
-proc computeIndex*(msg: WakuMessage, receivedTime = int64(getTime().toUnixFloat()*1000)): Index =
+proc computeIndex*(msg: WakuMessage, receivedTime = getNanosecondTime(getTime().toUnixFloat())): Index =
   ## Takes a WakuMessage with received timestamp and returns its Index.
   ## Received timestamp will default to system time if not provided.
   var ctx: sha256
@@ -669,7 +670,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
   ## The history gets fetched successfully if the dialed peer has been online during the queried time window.
   ## the resume proc returns the number of retrieved messages if no error occurs, otherwise returns the error string
   
-  var currentTime = int64(epochTime()*1000)
+  var currentTime = getNanosecondTime(epochTime())
   var lastSeenTime: int64 = findLastSeen(ws.messages.allItems())
   debug "resume", currentEpochTime=currentTime
   
