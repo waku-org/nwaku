@@ -2,6 +2,7 @@
 
 import
   testutils/unittests,
+  std/sequtils,
   chronicles, chronos, stew/shims/net as stewNet, stew/byteutils, std/os,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
@@ -617,7 +618,8 @@ procSuite "WakuNode":
                                   memKeyPairOpt = memKeyPairOpt1, 
                                   memIndexOpt= memIndexOpt1, 
                                   onchainMode = false, 
-                                  pubsubTopic = rlnRelayPubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic,
+                                  contentTopic = contentTopic)
       await node1.start() 
 
       # node 2
@@ -628,7 +630,8 @@ procSuite "WakuNode":
                                   memKeyPairOpt = memKeyPairOpt2, 
                                   memIndexOpt= memIndexOpt2, 
                                   onchainMode = false, 
-                                  pubsubTopic = rlnRelayPubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic,
+                                  contentTopic = contentTopic)
       await node2.start()
 
       # node 3
@@ -639,7 +642,8 @@ procSuite "WakuNode":
                                   memKeyPairOpt = memKeyPairOpt3, 
                                   memIndexOpt= memIndexOpt3, 
                                   onchainMode = false, 
-                                  pubsubTopic = rlnRelayPubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic,
+                                  contentTopic = contentTopic)
       await node3.start()
 
       # connect them together
@@ -663,19 +667,11 @@ procSuite "WakuNode":
       let payload = "Hello".toBytes()
 
       # prepare the epoch
-      let epoch = getCurrentEpoch()
+      let epoch = getCurrentEpoch()    
 
-      # prepare the proof
-      let rateLimitProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = payload, 
-                                                                memKeys = node1.wakuRlnRelay.membershipKeyPair, 
-                                                                memIndex = node1.wakuRlnRelay.membershipIndex, 
-                                                                epoch = epoch)
-      doAssert(rateLimitProofRes.isOk())
-      let rateLimitProof = rateLimitProofRes.value     
-
-      let message = WakuMessage(payload: @payload, 
-                                contentTopic: contentTopic,  
-                                proof: rateLimitProof)
+      var message = WakuMessage(payload: @payload, 
+                                contentTopic: contentTopic)
+      doAssert(node1.wakuRlnRelay.appendRLNProof(message, epochTime()))
 
 
       ## node1 publishes a message with a rate limit proof, the message is then relayed to node2 which in turn 
@@ -715,7 +711,8 @@ procSuite "WakuNode":
                                   memKeyPairOpt = memKeyPairOpt1, 
                                   memIndexOpt= memIndexOpt1, 
                                   onchainMode = false, 
-                                  pubsubTopic = rlnRelayPubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic,
+                                  contentTopic = contentTopic)
       await node1.start() 
 
       # node 2
@@ -726,7 +723,8 @@ procSuite "WakuNode":
                                   memKeyPairOpt = memKeyPairOpt2, 
                                   memIndexOpt= memIndexOpt2, 
                                   onchainMode = false, 
-                                  pubsubTopic = rlnRelayPubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic,
+                                  contentTopic = contentTopic)
       await node2.start()
 
       # node 3
@@ -737,7 +735,8 @@ procSuite "WakuNode":
                                   memKeyPairOpt = memKeyPairOpt3, 
                                   memIndexOpt= memIndexOpt3, 
                                   onchainMode = false, 
-                                  pubsubTopic = rlnRelayPubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic,
+                                  contentTopic = contentTopic)
       await node3.start()
 
       # connect them together
@@ -765,7 +764,10 @@ procSuite "WakuNode":
       let epoch = getCurrentEpoch()
 
       # prepare the proof
-      let rateLimitProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = payload, 
+      let 
+        contentTopicBytes = contentTopic.toBytes
+        input = concat(payload, contentTopicBytes)
+        rateLimitProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = input, 
                                                                 memKeys = node1.wakuRlnRelay.membershipKeyPair, 
                                                                 memIndex = MembershipIndex(4), 
                                                                 epoch = epoch)
@@ -817,7 +819,8 @@ procSuite "WakuNode":
                                   memKeyPairOpt = memKeyPairOpt1, 
                                   memIndexOpt= memIndexOpt1, 
                                   onchainMode = false, 
-                                  pubsubTopic = rlnRelayPubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic,
+                                  contentTopic = contentTopic)
       await node1.start() 
 
       # node 2
@@ -828,7 +831,8 @@ procSuite "WakuNode":
                                   memKeyPairOpt = memKeyPairOpt2, 
                                   memIndexOpt= memIndexOpt2, 
                                   onchainMode = false, 
-                                  pubsubTopic = rlnRelayPubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic,
+                                  contentTopic = contentTopic)
       await node2.start()
 
       # node 3
@@ -839,7 +843,8 @@ procSuite "WakuNode":
                                   memKeyPairOpt = memKeyPairOpt3, 
                                   memIndexOpt= memIndexOpt3, 
                                   onchainMode = false, 
-                                  pubsubTopic = rlnRelayPubSubTopic)
+                                  pubsubTopic = rlnRelayPubSubTopic,
+                                  contentTopic = contentTopic)
       await node3.start()
 
       # connect the nodes together node1 <-> node2 <-> node3
@@ -850,15 +855,15 @@ procSuite "WakuNode":
       let time = epochTime()
       #  create some messages with rate limit proofs
       var 
-        wm1 = WakuMessage(payload: "message 1".toBytes())
+        wm1 = WakuMessage(payload: "message 1".toBytes(), contentTopic: contentTopic)
         proofAdded1 = node3.wakuRlnRelay.appendRLNProof(wm1, time)
         # another message in the same epoch as wm1, it will break the messaging rate limit
-        wm2 = WakuMessage(payload: "message2".toBytes())
+        wm2 = WakuMessage(payload: "message2".toBytes(), contentTopic: contentTopic)
         proofAdded2 = node3.wakuRlnRelay.appendRLNProof(wm2, time)
         #  wm3 points to the next epoch 
-        wm3 = WakuMessage(payload: "message 3".toBytes())
+        wm3 = WakuMessage(payload: "message 3".toBytes(), contentTopic: contentTopic)
         proofAdded3 = node3.wakuRlnRelay.appendRLNProof(wm3, time+EPOCH_UNIT_SECONDS)
-        wm4 = WakuMessage(payload: "message4".toBytes())
+        wm4 = WakuMessage(payload: "message4".toBytes(), contentTopic: contentTopic)
 
       #  check proofs are added correctly
       check:

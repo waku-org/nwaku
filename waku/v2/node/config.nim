@@ -6,7 +6,8 @@ import
   libp2p/crypto/secp,
   nimcrypto/utils,
   eth/keys,
-  ../protocol/waku_rln_relay/[waku_rln_relay_types]
+  ../protocol/waku_rln_relay/waku_rln_relay_types,
+  ../protocol/waku_message
    
 type
   WakuNodeConf* = object
@@ -83,8 +84,13 @@ type
 
     rlnRelayPubsubTopic* {.
       desc: "the pubsub topic for which rln-relay gets enabled",
-      defaultValue: "waku/2/rlnrelay/proto"
+      defaultValue: "/waku/2/default-waku/proto"
       name: "rln-relay-pubsub-topic" }: string
+
+    rlnRelayContentTopic* {.
+      desc: "the pubsub topic for which rln-relay gets enabled",
+      defaultValue: "/toy-chat/2/huilong/proto"
+      name: "rln-relay-content-topic" }: ContentTopic
     
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
