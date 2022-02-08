@@ -667,15 +667,7 @@ procSuite "WakuNode":
       let payload = "Hello".toBytes()
 
       # prepare the epoch
-      let epoch = getCurrentEpoch()
-
-      # prepare the proof
-      # let rateLimitProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = payload, 
-      #                                                           memKeys = node1.wakuRlnRelay.membershipKeyPair, 
-      #                                                           memIndex = node1.wakuRlnRelay.membershipIndex, 
-      #                                                           epoch = epoch)
-      # doAssert(rateLimitProofRes.isOk())
-      # let rateLimitProof = rateLimitProofRes.value     
+      let epoch = getCurrentEpoch()    
 
       var message = WakuMessage(payload: @payload, 
                                 contentTopic: contentTopic)

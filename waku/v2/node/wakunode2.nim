@@ -470,35 +470,29 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: boo
 when defined(rln):
   proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string, contentTopic: ContentTopic, spamHandler: Option[SpamHandler] = none(SpamHandler)) =
     ## this procedure is a thin wrapper for the pubsub addValidator method
-    ## it sets message validator on the given pubsubTopic, the validator will check that
-    ## all the messages published in the pubsubTopic have a valid zero-knowledge proof 
+    ## it sets a validator for the waku messages published on the supplied pubsubTopic and contentTopic 
+    ## if contentTopic is empty, then validation takes place for All the messages published on the given pubsubTopic
+    ## the message validation logic is according to https://rfc.vac.dev/spec/17/
     proc validator(topic: string, message: messages.Message): Future[pubsub.ValidationResult] {.async.} =
       # echo "rln-relay topic validator is called"
       let msg = WakuMessage.init(message.data) 
       if msg.isOk():
         let wakumessage = msg.value()
-        # echo "message to be validated", string.fromBytes(wakumessage.payload)
         # check the contentTopic
-        if (wakumessage.contentTopic != "") and (wakumessage.contentTopic != contentTopic):
-          info "content topic did not match:", contentTopic=wakumessage.contentTopic, payload=string.fromBytes(wakumessage.payload)
-          # echo "content topic did not match:", wakumessage.contentTopic, string.fromBytes(wakumessage.payload)
+        if (wakumessage.contentTopic != "") and (contentTopic != "") and (wakumessage.contentTopic != contentTopic):
+          trace "content topic did not match:", contentTopic=wakumessage.contentTopic, payload=string.fromBytes(wakumessage.payload)
           return pubsub.ValidationResult.Accept
         # validate the message
         let validationRes = node.wakuRlnRelay.validateMessage(wakumessage)
         case validationRes:
           of Valid:
-            info "message validity is verified, relaying:", wakumessage=wakumessage, payload=string.fromBytes(wakumessage.payload)
-            # echo "message validity is verified, relaying:",  string.fromBytes(wakumessage.payload)
+            trace "message validity is verified, relaying:", wakumessage=wakumessage, payload=string.fromBytes(wakumessage.payload)
             return pubsub.ValidationResult.Accept
           of Invalid:
-            info "message validity could not be verified, discarding:", wakumessage=wakumessage, payload=string.fromBytes(wakumessage.payload)
-            # echo "message validity could not be verified, discarding:",   string.fromBytes(wakumessage.payload)
+            trace "message validity could not be verified, discarding:", wakumessage=wakumessage, payload=string.fromBytes(wakumessage.payload)
             return pubsub.ValidationResult.Reject
           of Spam:
-            info "A spam message is found! yay! discarding:", wakumessage=wakumessage, payload=string.fromBytes(wakumessage.payload)
-            # echo "A spam message is found! yay! discarding ..."
-            if spamHandler.isSome():
-              (spamHandler.get)(wakumessage)
+            trace "A spam message is found! yay! discarding:", wakumessage=wakumessage, payload=string.fromBytes(wakumessage.payload)
             return pubsub.ValidationResult.Reject          
     # set a validator for the supplied pubsubTopic 
     let pb  = PubSub(node.wakuRelay)
