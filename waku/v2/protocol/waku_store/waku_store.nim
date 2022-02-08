@@ -114,12 +114,12 @@ proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
   # read the timestamp
   var receiverTime: zint64
   discard ? pb.getField(2, receiverTime)
-  index.receiverTime = int64(receiverTime)
+  index.receiverTime = Timestamp(receiverTime)
 
   # read the timestamp
   var senderTime: zint64
   discard ? pb.getField(3, senderTime)
-  index.senderTime = int64(senderTime)
+  index.senderTime = Timestamp(senderTime)
 
   return ok(index) 
 
@@ -171,11 +171,11 @@ proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
 
   var startTime: zint64
   discard ? pb.getField(5, startTime)
-  msg.startTime = int64(startTime)
+  msg.startTime = Timestamp(startTime)
 
   var endTime: zint64
   discard ? pb.getField(6, endTime)
-  msg.endTime = int64(endTime)
+  msg.endTime = Timestamp(endTime)
 
 
   return ok(msg)
@@ -389,10 +389,10 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
                      else: none(seq[ContentTopic])
     qPubSubTopic = if (query.pubsubTopic != ""): some(query.pubsubTopic)
                    else: none(string)
-    qStartTime = if query.startTime != int64(0): some(query.startTime)
-                 else: none(int64)
-    qEndTime = if query.endTime != int64(0): some(query.endTime)
-               else: none(int64)
+    qStartTime = if query.startTime != Timestamp(0): some(query.startTime)
+                 else: none(Timestamp)
+    qEndTime = if query.endTime != Timestamp(0): some(query.endTime)
+               else: none(Timestamp)
   
   ## Compose filter predicate for message from query criteria
   proc matchesQuery(indMsg: IndexedWakuMessage): bool =
@@ -473,7 +473,7 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
   if ws.store.isNil:
     return
 
-  proc onData(receiverTime: int64, msg: WakuMessage, pubsubTopic:  string) =
+  proc onData(receiverTime: Timestamp, msg: WakuMessage, pubsubTopic:  string) =
     # TODO index should not be recalculated
     ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex(receiverTime), pubsubTopic: pubsubTopic))
 
@@ -644,8 +644,8 @@ proc queryLoop(w: WakuStore, query: HistoryQuery, candidateList: seq[RemotePeerI
     debug "failed to resolve the query"
     return err("failed to resolve the query")
 
-proc findLastSeen*(list: seq[IndexedWakuMessage]): int64 = 
-  var lastSeenTime = int64(0)
+proc findLastSeen*(list: seq[IndexedWakuMessage]): Timestamp = 
+  var lastSeenTime = Timestamp(0)
   for iwmsg in list.items : 
     if iwmsg.msg.timestamp>lastSeenTime: 
       lastSeenTime = iwmsg.msg.timestamp 
@@ -671,11 +671,11 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
   ## the resume proc returns the number of retrieved messages if no error occurs, otherwise returns the error string
   
   var currentTime = getNanosecondTime(epochTime())
-  var lastSeenTime: int64 = findLastSeen(ws.messages.allItems())
+  var lastSeenTime: Timestamp = findLastSeen(ws.messages.allItems())
   debug "resume", currentEpochTime=currentTime
   
   # adjust the time window with an offset of 20 seconds
-  let offset: int64 = 200000
+  let offset: Timestamp = getNanosecondTime(20.0)
   currentTime = currentTime + offset
   lastSeenTime = max(lastSeenTime - offset, 0)
   debug "the offline time window is", lastSeenTime=lastSeenTime, currentTime=currentTime

@@ -2,14 +2,24 @@
 
 {.push raises: [Defect].}
 
-proc getNanosecondTime*(t: float64): int64 = 
-  var tns = int64(t*100000000)
-  return tns
+import sqlite3_abi
 
-proc getMicrosecondTime*(t: float64): int64 = 
-  var tmus = int64(t*1000000)
-  return tmus
+type Timestamp* = int64 
 
-proc getMillisecondTime*(t: float64): int64 = 
-  var tms = int64(t*1000)
-  return tms
+const TIMESTAMP_TABLE_TYPE* = "INTEGER"
+
+proc getNanosecondTime*[T](timeInSeconds: T): Timestamp = 
+  var ns = Timestamp(timeInSeconds*100000000)
+  return ns
+
+proc getMicrosecondTime*[T](timeInSeconds: T): Timestamp = 
+  var us = Timestamp(timeInSeconds*1000000)
+  return us
+
+proc getMillisecondTime*[T](timeInSeconds: T): Timestamp = 
+  var ms = Timestamp(timeInSeconds*1000)
+  return ms
+
+
+proc column_timestamp*(a1: ptr sqlite3_stmt, iCol: cint): int64 =
+  return sqlite3_column_int64(a1, iCol)

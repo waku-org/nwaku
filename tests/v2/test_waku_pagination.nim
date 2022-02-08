@@ -4,6 +4,7 @@ import
   testutils/unittests, nimcrypto/sha2,
   libp2p/protobuf/minprotobuf,
   ../../waku/v2/protocol/waku_store/waku_store,
+  ../../waku/v2/utils/time,
   ../test_helpers
 
 
@@ -12,7 +13,7 @@ proc createSampleList(s: int): seq[IndexedWakuMessage] =
   var data {.noinit.}: array[32, byte]
   for x in data.mitems: x = 1
   for i in 0..<s:
-    result.add(IndexedWakuMessage(msg: WakuMessage(payload: @[byte i]), index: Index(receiverTime: int64(i), senderTime: int64(i), digest: MDigest[256](data: data)) ))
+    result.add(IndexedWakuMessage(msg: WakuMessage(payload: @[byte i]), index: Index(receiverTime: Timestamp(i), senderTime: Timestamp(i), digest: MDigest[256](data: data)) ))
 
 procSuite "pagination":
   test "Index computation test":
@@ -305,7 +306,7 @@ suite "time-window history query":
     let
       version = 0'u32
       payload = @[byte 0, 1, 2]
-      timestamp = int64(10)
+      timestamp = Timestamp(10)
       msg = WakuMessage(payload: payload, version: version, timestamp: timestamp)
       pb =  msg.encode()
     
@@ -338,4 +339,4 @@ suite "time-window history query":
     let 
       timestampDecoded = msgDecoded.value.timestamp
     check:
-      timestampDecoded == int64(0)
+      timestampDecoded == Timestamp(0)

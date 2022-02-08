@@ -4,11 +4,13 @@
 
 {.push raises: [Defect].}
 
-import nimcrypto/hash
+import
+  ./time, 
+  nimcrypto/hash
 
 type
   Index* = object
     ## This type contains the  description of an Index used in the pagination of WakuMessages
     digest*: MDigest[256]
-    receiverTime*: int64
-    senderTime*: int64 # the time at which the message is generated
+    receiverTime*: Timestamp
+    senderTime*: Timestamp # the time at which the message is generated

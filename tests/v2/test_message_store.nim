@@ -46,7 +46,7 @@ suite "Message Store":
     var msgFlag, psTopicFlag = true
 
     var responseCount = 0
-    proc data(receiverTimestamp: int64, msg: WakuMessage, psTopic: string) {.raises: [Defect].} =
+    proc data(receiverTimestamp: Timestamp, msg: WakuMessage, psTopic: string) {.raises: [Defect].} =
       responseCount += 1
 
       # Note: cannot use `check` within `{.raises: [Defect].}` block:
@@ -137,7 +137,7 @@ suite "Message Store":
 
     for i in 1..capacity:
       let
-        msg = WakuMessage(payload: @[byte i], contentTopic: contentTopic, version: uint32(0), timestamp: i.int64)
+        msg = WakuMessage(payload: @[byte i], contentTopic: contentTopic, version: uint32(0), timestamp: Timestamp(i))
         index = computeIndex(msg)
         output = store.put(index, msg, pubsubTopic)
       
@@ -146,9 +146,9 @@ suite "Message Store":
 
     var
       responseCount = 0
-      lastMessageTimestamp = 0.int64
+      lastMessageTimestamp = Timestamp(0)
 
-    proc data(receiverTimestamp: int64, msg: WakuMessage, psTopic: string) {.raises: [Defect].} =
+    proc data(receiverTimestamp: Timestamp, msg: WakuMessage, psTopic: string) {.raises: [Defect].} =
       responseCount += 1
       lastMessageTimestamp = msg.timestamp
 
@@ -158,7 +158,7 @@ suite "Message Store":
     check:
       resMax.isOk
       responseCount == capacity # We retrieved all items
-      lastMessageTimestamp == capacity.int64 # Returned rows were ordered correctly
+      lastMessageTimestamp == Timestamp(capacity) # Returned rows were ordered correctly
 
     # Now test getAll with a limit smaller than total stored items
     responseCount = 0 # Reset response count
@@ -168,7 +168,7 @@ suite "Message Store":
     check:
       resLimit.isOk
       responseCount == capacity - 2 # We retrieved limited number of items
-      lastMessageTimestamp == capacity.int64 # We retrieved the youngest items in the store, in order
+      lastMessageTimestamp == Timestamp(capacity) # We retrieved the youngest items in the store, in order
     
     # Test zero limit
     responseCount = 0 # Reset response count
@@ -178,4 +178,4 @@ suite "Message Store":
     check:
       resZero.isOk
       responseCount == 0 # No items retrieved
-      lastMessageTimestamp == 0.int64 # No items retrieved
+      lastMessageTimestamp == Timestamp(0) # No items retrieved

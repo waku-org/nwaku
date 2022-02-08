@@ -9,8 +9,9 @@
 {.push raises: [Defect].}
 
 import
-  libp2p/protobuf/minprotobuf
-import libp2p/varint
+  libp2p/protobuf/minprotobuf,
+  libp2p/varint,
+  ../utils/time
 when defined(rln):
   import waku_rln_relay/waku_rln_relay_types
 
@@ -25,7 +26,7 @@ type
     contentTopic*: ContentTopic
     version*: uint32
     # sender generated timestamp
-    timestamp*: int64
+    timestamp*: Timestamp
     # the proof field indicates that the message is not a spam
     # this field will be used in the rln-relay protocol
     # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec and not yet part of WakuMessage spec
@@ -46,7 +47,7 @@ proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
 
   var timestamp: zint64
   discard ? pb.getField(4, timestamp)
-  msg.timestamp = int64(timestamp)
+  msg.timestamp = Timestamp(timestamp)
 
   # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec and not yet part of WakuMessage spec
   when defined(rln):
