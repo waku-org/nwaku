@@ -20,6 +20,5 @@ proc getMillisecondTime*[T](timeInSeconds: T): Timestamp =
   var ms = Timestamp(timeInSeconds*1000)
   return ms
 
-
 proc column_timestamp*(a1: ptr sqlite3_stmt, iCol: cint): int64 =
   return sqlite3_column_int64(a1, iCol)
