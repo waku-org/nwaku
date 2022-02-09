@@ -487,15 +487,22 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage, timeOption: Optio
   return MessageValidationResult.Valid
 
 
+proc toRLNSignal*(wakumessage: WakuMessage): seq[byte] =
+  ## it is a utility proc that prepares the `data` parameter of the proof generation procedure i.e., `proofGen`  that resides in the current module
+  ## it extracts the `contentTopic` and the `payload` of the supplied `wakumessage` and serializes them into a byte sequence
+  let 
+    contentTopicBytes = wakumessage.contentTopic.toBytes
+    output = concat(wakumessage.payload, contentTopicBytes)
+  return output
+  
+
 proc appendRLNProof*(rlnPeer: WakuRLNRelay, msg: var WakuMessage, senderEpochTime: float64): bool = 
   ## returns true if it can create and append a `RateLimitProof` to the supplied `msg`
   ## returns false otherwise
   ## `senderEpochTime` indicates the number of seconds passed since Unix epoch. The fractional part holds sub-seconds.
   ## The `epoch` field of `RateLimitProof` is derived from the provided `senderEpochTime` (using `calcEpoch()`)
 
-  let 
-    contentTopicBytes = msg.contentTopic.toBytes
-    input = concat(msg.payload, contentTopicBytes)
+  let input = msg.toRLNSignal()
   
   var proof: RateLimitProofResult = proofGen(rlnInstance = rlnPeer.rlnInstance, data = input,
                      memKeys = rlnPeer.membershipKeyPair, 
