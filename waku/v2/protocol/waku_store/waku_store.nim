@@ -675,7 +675,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
   debug "resume", currentEpochTime=currentTime
   
   # adjust the time window with an offset of 20 seconds
-  let offset: Timestamp = getNanosecondTime(20.0)
+  let offset: Timestamp = getNanosecondTime(20)
   currentTime = currentTime + offset
   lastSeenTime = max(lastSeenTime - offset, 0)
   debug "the offline time window is", lastSeenTime=lastSeenTime, currentTime=currentTime
