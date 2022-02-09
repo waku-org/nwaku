@@ -19,7 +19,7 @@ type
 
     logLevel* {.
       desc: "Sets the log level."
-      defaultValue: LogLevel.TRACE
+      defaultValue: LogLevel.INFO
       name: "log-level" }: LogLevel
     
     nodekey* {.
