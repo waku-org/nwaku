@@ -116,7 +116,6 @@ proc generateSymKey(contentTopic: ContentTopic): SymKey =
   symKey
 
 proc connectToNodes(c: Chat, nodes: seq[string]) {.async.} =
-  echo "Connecting to nodes", nodes
   await c.node.connectToNodes(nodes)
   c.connected = true
 
@@ -512,8 +511,8 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
           # mount rlnrelay in offline mode (for now)
           waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = some(spamHandler))
 
-          info "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
-          info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
+          debug "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
+          debug "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
 
           # check the correct construction of the tree by comparing the calculated root against the expected root
           # no error should happen as it is already captured in the unit tests
@@ -524,7 +523,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
           if root != expectedRoot:
             error "root mismatch: something went wrong not in Merkle tree construction"
           debug "the calculated root", root
-          info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
+          debug "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
 
 
   await chat.readWriteLoop()
