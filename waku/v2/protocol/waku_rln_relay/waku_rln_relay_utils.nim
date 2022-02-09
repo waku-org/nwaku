@@ -159,6 +159,8 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: Membersh
                                   msg = data)
   var inputBuffer = toBuffer(serializedInputs)
 
+  debug "input buffer ", inputBuffer
+
   # generate the proof
   var proof: Buffer
   let proofIsSuccessful = generate_proof(rlnInstance, addr inputBuffer, addr proof)
