@@ -461,7 +461,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage, timeOption: Optio
   if abs(gap) >= MAX_EPOCH_GAP:
     # message's epoch is too old or too ahead
     # accept messages whose epoch is within +-MAX_EPOCH_GAP from the current epoch
-    debug "invalid message: epoch gap exceeds a threshold",gap=gap, payload=string.fromBytes(msg.payload)
+    trace "invalid message: epoch gap exceeds a threshold",gap=gap, payload=string.fromBytes(msg.payload)
     return MessageValidationResult.Invalid
   
   # verify the proof
@@ -470,13 +470,13 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage, timeOption: Optio
     input = concat(msg.payload, contentTopicBytes)
   if not rlnPeer.rlnInstance.proofVerify(input, msg.proof):
     # invalid proof
-    debug "invalid message: invalid proof", payload=string.fromBytes(msg.payload)
+    trace "invalid message: invalid proof", payload=string.fromBytes(msg.payload)
     return MessageValidationResult.Invalid
   
   # check if double messaging has happened
   let hasDup = rlnPeer.hasDuplicate(msg)
   if hasDup.isOk and hasDup.value == true:
-    debug "invalid message: message is a spam", payload=string.fromBytes(msg.payload)
+    trace "invalid message: message is a spam", payload=string.fromBytes(msg.payload)
     return MessageValidationResult.Spam
 
   # insert the message to the log 
