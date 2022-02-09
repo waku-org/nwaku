@@ -224,7 +224,7 @@ proc publish(c: Chat, line: string) =
           if not success:
             debug "could not append rate limit proof to the message", success=success
           else:
-            debug "rate limit proof is appended to the message", success=success
+            trace "rate limit proof is appended to the message", success=success
             echo "--rln epoch: ", fromEpoch(message.proof.epoch)
       if not c.node.wakuLightPush.isNil():
         # Attempt lightpush
