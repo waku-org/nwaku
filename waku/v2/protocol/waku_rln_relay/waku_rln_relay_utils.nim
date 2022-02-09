@@ -449,19 +449,19 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage, timeOption: Optio
     # get current rln epoch
     epoch = getCurrentEpoch()
 
-  trace "current epoch", currentEpoch=fromEpoch(epoch)
+  debug "current epoch", currentEpoch=fromEpoch(epoch)
   let 
     msgEpoch = msg.proof.epoch
     # calculate the gaps
     gap = compare(epoch, msgEpoch)
 
-  trace "message epoch", msgEpoch=fromEpoch(msgEpoch)
+  debug "message epoch", msgEpoch=fromEpoch(msgEpoch)
 
   # validate the epoch
   if abs(gap) >= MAX_EPOCH_GAP:
     # message's epoch is too old or too ahead
     # accept messages whose epoch is within +-MAX_EPOCH_GAP from the current epoch
-    trace "invalid message: epoch gap exceeds a threshold",gap=gap, payload=string.fromBytes(msg.payload)
+    debug "invalid message: epoch gap exceeds a threshold",gap=gap, payload=string.fromBytes(msg.payload)
     return MessageValidationResult.Invalid
   
   # verify the proof
@@ -470,20 +470,20 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage, timeOption: Optio
     input = concat(msg.payload, contentTopicBytes)
   if not rlnPeer.rlnInstance.proofVerify(input, msg.proof):
     # invalid proof
-    trace "invalid message: invalid proof", payload=string.fromBytes(msg.payload)
+    debug "invalid message: invalid proof", payload=string.fromBytes(msg.payload)
     return MessageValidationResult.Invalid
   
   # check if double messaging has happened
   let hasDup = rlnPeer.hasDuplicate(msg)
   if hasDup.isOk and hasDup.value == true:
-    trace "invalid message: message is a spam", payload=string.fromBytes(msg.payload)
+    debug "invalid message: message is a spam", payload=string.fromBytes(msg.payload)
     return MessageValidationResult.Spam
 
   # insert the message to the log 
   # the result of `updateLog` is discarded because message insertion is guaranteed by the implementation i.e.,
   # it will never error out
   discard rlnPeer.updateLog(msg)
-  trace "message is valid", payload=string.fromBytes(msg.payload)
+  debug "message is valid", payload=string.fromBytes(msg.payload)
   return MessageValidationResult.Valid
 
 
