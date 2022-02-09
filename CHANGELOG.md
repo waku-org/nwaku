@@ -12,8 +12,8 @@ The full list of changes is below.
 
 ### Changes
 
--  Timestamps resolution changed to nanoseconds (type changed from float64 to int64).
--  ...
+- A new type `Timestamp` for all timestamps is introduced (currently an alias for int64).
+- All timestamps now have nanosecond resolution.
 
 ### Fixes
 
