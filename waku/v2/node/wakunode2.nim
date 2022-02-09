@@ -603,7 +603,6 @@ when defined(rln):
     # the topic validator checks for the correct non-spamming proof of the message
     addRLNRelayValidator(node, pubsubTopic, contentTopic, spamHandler)
     debug "rln relay topic validator is mounted successfully", pubsubTopic=pubsubTopic, contentTopic=contentTopic
-    echo "rln relay topic validator is mounted successfully", pubsubTopic, contentTopic
 
     node.wakuRlnRelay = rlnPeer
 
