@@ -54,6 +54,28 @@ procSuite "Sorted store queue":
       let (index, indexedWakuMessage) = i
       check cmp(index, prevLarger) < 0
   
+  test "Can access first item from store queue":
+    let first = testStoreQueue.first()
+    check:
+      first.isOk()
+      first.get().msg.timestamp == 1.0
+    
+    # Error condition
+    let emptyQ = StoreQueueRef.new(capacity)
+    check:
+      emptyQ.first().isErr()
+  
+  test "Can access last item from store queue":
+    let last = testStoreQueue.last()
+    check:
+      last.isOk()
+      last.get().msg.timestamp == 5.0
+    
+    # Error condition
+    let emptyQ = StoreQueueRef.new(capacity)
+    check:
+      emptyQ.last().isErr()
+  
   test "Store queue forward pagination works":
     proc predicate(i: IndexedWakuMessage): bool = true # no filtering
 
@@ -245,11 +267,3 @@ procSuite "Sorted store queue":
       pInfo.cursor.senderTime == 0.0
       err == HistoryResponseError.NONE
       res.len == 0
-
-# ######
-
-# 1. Test that sorted set prev rew does not go beyond capacity when trying to find the start cursor (findFirstAfter, findLastBefore)
-# 2. Test that capacity limit is still respected
-# 3. Test what happens with sender timestamps 0
-# 4. Important to test that after iterator used it does indeed destroy the walker
-# 5. Test messages get sorted on insert (cmp works), and no deduplicated (hash and ==) works

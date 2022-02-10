@@ -43,7 +43,7 @@ type
 
   QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
 
-  QueryFilterMatcher* = proc(indexedWakuMsg: IndexedWakuMessage): bool
+  QueryFilterMatcher* = proc(indexedWakuMsg: IndexedWakuMessage) : bool {.gcsafe, closure.}
 
   IndexedWakuMessage* = object
     # TODO may need to rename this object as it holds both the index and the pubsub topic of a waku message
@@ -102,6 +102,8 @@ type
     ## @ TODO: we don't need to store the Index twice (as key and in the value)
     items: SortedSet[Index, IndexedWakuMessage] # sorted set of stored messages
     capacity: int # Maximum amount of messages to keep
+
+  StoreQueueResult*[T] = Result[T, cstring]
   
   WakuStore* = ref object of LPProtocol
     peerManager*: PeerManager
@@ -277,6 +279,52 @@ proc bwdPage(storeQueue: StoreQueueRef,
 # StoreQueue API #
 ##################
 
+## --- SortedSet accessors ---
+
+iterator fwdIterator*(storeQueue: StoreQueueRef): (Index, IndexedWakuMessage) =
+  ## Forward iterator over the entire store queue
+  var
+    w = SortedSetWalkRef[Index,IndexedWakuMessage].init(storeQueue.items)
+    res = w.first
+  while res.isOk:
+    yield (res.value.key, res.value.data)
+    res = w.next
+  w.destroy
+
+iterator bwdIterator*(storeQueue: StoreQueueRef): (Index, IndexedWakuMessage) =
+  ## Backwards iterator over the entire store queue
+  var
+    w = SortedSetWalkRef[Index,IndexedWakuMessage].init(storeQueue.items)
+    res = w.last
+  while res.isOk:
+    yield (res.value.key, res.value.data)
+    res = w.prev
+  w.destroy
+
+proc first*(storeQueue: StoreQueueRef): StoreQueueResult[IndexedWakuMessage] =
+  var
+    w = SortedSetWalkRef[Index,IndexedWakuMessage].init(storeQueue.items)
+    res = w.first
+  w.destroy
+
+  if res.isOk:
+    return ok(res.value.data)
+  else:
+    return err("Not found")
+
+proc last*(storeQueue: StoreQueueRef): StoreQueueResult[IndexedWakuMessage] =
+  var
+    w = SortedSetWalkRef[Index,IndexedWakuMessage].init(storeQueue.items)
+    res = w.last
+  w.destroy
+
+  if res.isOk:
+    return ok(res.value.data)
+  else:
+    return err("Not found")
+
+## --- Queue API ---
+
 proc new*(T: type StoreQueueRef, capacity: int): T =
   var items = SortedSet[Index, IndexedWakuMessage].init()
 
@@ -295,53 +343,34 @@ proc add*(storeQueue: StoreQueueRef, msg: IndexedWakuMessage) =
     discard storeQueue.items.delete(toDelete.value.key)
     w.destroy # better to destroy walker after a delete operation
   
-  let rc = storeQueue.items.insert(msg.index)
-  if rc.isErr:
+  let res = storeQueue.items.insert(msg.index)
+  if res.isErr:
     # return error result and log in metrics
     echo "ERROR"
   else:
-    rc.value.data = msg
-
-proc len*(storeQueue: StoreQueueRef): int {.noSideEffect.} =
-  storeQueue.items.len
-
-proc `$`*(storeQueue: StoreQueueRef): string =
-  $(storeQueue.items)
-
-iterator fwdIterator*(storeQueue: StoreQueueRef): (Index, IndexedWakuMessage) =
-  ## Forward iterator over the entire store queue
-  var
-    w = SortedSetWalkRef[Index,IndexedWakuMessage].init(storeQueue.items)
-    rc = w.first
-  while rc.isOk:
-    yield (rc.value.key, rc.value.data)
-    rc = w.next
-  w.destroy
-
-iterator bwdIterator*(storeQueue: StoreQueueRef): (Index, IndexedWakuMessage) =
-  ## Backwards iterator over the entire store queue
-  var
-    w = SortedSetWalkRef[Index,IndexedWakuMessage].init(storeQueue.items)
-    rc = w.last
-  while rc.isOk:
-    yield (rc.value.key, rc.value.data)
-    rc = w.prev
-  w.destroy
+    res.value.data = msg
 
 proc getPage*(storeQueue: StoreQueueRef,
               pred: QueryFilterMatcher,
               pagingInfo: PagingInfo):
-             (seq[WakuMessage], PagingInfo, HistoryResponseError) =
+             (seq[WakuMessage], PagingInfo, HistoryResponseError) {.gcsafe.} =
   ## Get a single page of history matching the predicate and
   ## adhering to the pagingInfo parameters
   
   let
     cursorOpt = if pagingInfo.cursor == Index(): none(Index) ## TODO: pagingInfo.cursor should be an Option. We shouldn't rely on empty initialisation to determine if set or not!
                 else: some(pagingInfo.cursor)
-    maxPageSize = min(pagingInfo.pageSize, MaxPageSize)
+    maxPageSize = if pagingInfo.pageSize == 0 or pagingInfo.pageSize > MaxPageSize: MaxPageSize # Used default MaxPageSize for invalid pagingInfos
+                  else: pagingInfo.pageSize
   
   case pagingInfo.direction
     of FORWARD:
       return storeQueue.fwdPage(pred, maxPageSize, cursorOpt)
     of BACKWARD:
       return storeQueue.bwdPage(pred, maxPageSize, cursorOpt)
+
+proc len*(storeQueue: StoreQueueRef): int {.noSideEffect.} =
+  storeQueue.items.len
+
+proc `$`*(storeQueue: StoreQueueRef): string =
+  $(storeQueue.items)
