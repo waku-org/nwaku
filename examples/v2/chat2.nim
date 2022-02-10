@@ -128,6 +128,32 @@ proc showChatPrompt(c: Chat) =
     except IOError:
       discard
 
+proc getChatLine(c: Chat, msg:WakuMessage): Result[string, string]=
+  when PayloadV1:
+      # Use Waku v1 payload encoding/encryption
+      let
+        keyInfo = KeyInfo(kind: Symmetric, symKey: c.symKey)
+        decodedPayload = decodePayload(decoded.get(), keyInfo)
+
+      if decodedPayload.isOK():
+        let
+          pb = Chat2Message.init(decodedPayload.get().payload)
+          chatLine = if pb.isOk: pb[].toString()
+                    else: string.fromBytes(decodedPayload.get().payload)
+        return ok(chatLine)
+      else:
+        debug "Invalid encoded WakuMessage payload",
+          error = decodedPayload.error
+        return err("Invalid encoded WakuMessage payload")
+  else:
+    # No payload encoding/encryption from Waku
+    let
+      pb = Chat2Message.init(msg.payload)
+      chatLine = if pb.isOk: pb[].toString()
+                else: string.fromBytes(msg.payload)
+    return ok(chatline)
+
+
 proc printReceivedMessage(c: Chat, msg: WakuMessage) =
   when PayloadV1:
       # Use Waku v1 payload encoding/encryption
@@ -497,12 +523,12 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
 
         proc spamHandler(wakuMessage: WakuMessage) {.gcsafe, closure.} =
           debug "spam handler is called"
-          let
-            pb = Chat2Message.init(wakuMessage.payload)
-            chatLine = if pb.isOk: pb[].toString()
-                       else: string.fromBytes(wakuMessage.payload)
-          echo "A spam message is found and discarded : ", chatLine
-
+          let chatLineResult = chat.getChatLine(wakuMessage)
+          if chatLineResult.isOk():
+            echo "A spam message is found and discarded : ", chatLineResult.value
+          else:
+            echo "A spam message is found and discarded"
+          
         # set up rln relay inputs
         let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(conf.rlnRelayMemIndex)
         if memIndexOpt.isNone:
