@@ -4,11 +4,11 @@
 
 # Group by std, external then internal imports
 import
+  std/options,
   # external imports
-  std/sequtils,
   bearssl,
   libp2p/protocols/protocol,
-  stew/results,
+  stew/[results, sorted_set],
   # internal imports
   ../../node/storage/message/message_store,
   ../../utils/pagination,
@@ -42,6 +42,8 @@ type
     contentTopic*: ContentTopic
 
   QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
+
+  QueryFilterMatcher* = proc(indexedWakuMsg: IndexedWakuMessage): bool
 
   IndexedWakuMessage* = object
     # TODO may need to rename this object as it holds both the index and the pubsub topic of a waku message
@@ -86,7 +88,7 @@ type
   QueryResult* = Result[uint64, string]
   MessagesResult* = Result[seq[WakuMessage], string]
 
-  StoreQueue* = object
+  StoreQueueRef* = ref object
     ## Bounded repository for indexed messages
     ## 
     ## The store queue will keep messages up to its
@@ -97,14 +99,14 @@ type
     ## for new items.
     ## 
     ## @ TODO: a circular/ring buffer may be a more efficient implementation
-    ## @ TODO: consider adding message hashes for easy duplicate checks
-    items: seq[IndexedWakuMessage] # FIFO queue of stored messages
+    ## @ TODO: we don't need to store the Index twice (as key and in the value)
+    items: SortedSet[Index, IndexedWakuMessage] # sorted set of stored messages
     capacity: int # Maximum amount of messages to keep
   
   WakuStore* = ref object of LPProtocol
     peerManager*: PeerManager
     rng*: ref BrHmacDrbgContext
-    messages*: StoreQueue
+    messages*: StoreQueueRef
     store*: MessageStore
     wakuSwap*: WakuSwap
     persistMessages*: bool
@@ -113,30 +115,233 @@ type
 # StoreQueue helpers #
 ######################
 
-proc initQueue*(capacity: int): StoreQueue =
-  var storeQueue: StoreQueue
-  storeQueue.items = newSeqOfCap[IndexedWakuMessage](capacity)
-  storeQueue.capacity = capacity
-  return storeQueue
+proc ffdToCursor(w: SortedSetWalkRef[Index, IndexedWakuMessage],
+                 startCursor: Index):
+                 SortedSetResult[Index, IndexedWakuMessage] =
+  ## Fast forward `w` to start cursor
+  ## TODO: can probably improve performance here with a binary/tree search
+  
+  var nextItem = w.first
+  
+  ## Fast forward until we reach the startCursor
+  while nextItem.isOk:
+    if nextItem.value.key == startCursor:
+      # Exit ffd loop when we find the start cursor
+      break
 
-proc add*(storeQueue: var StoreQueue, msg: IndexedWakuMessage) {.noSideEffect.} =
+    # Not yet at cursor. Continue advancing
+    nextItem = w.next
+
+  return nextItem
+
+proc rwdToCursor(w: SortedSetWalkRef[Index, IndexedWakuMessage],
+                 startCursor: Index):
+                 SortedSetResult[Index, IndexedWakuMessage] =
+  ## Rewind `w` to start cursor
+  ## TODO: can probably improve performance here with a binary/tree search
+  
+  var prevItem = w.last
+
+  ## Rewind until we reach the startCursor
+  
+  while prevItem.isOk:
+    if prevItem.value.key == startCursor:
+      # Exit rwd loop when we find the start cursor
+      break
+
+    # Not yet at cursor. Continue rewinding.
+    prevItem = w.prev
+  
+  return prevItem
+
+proc fwdPage(storeQueue: StoreQueueRef,
+             pred: QueryFilterMatcher,
+             maxPageSize: uint64,
+             startCursor: Option[Index]):
+            (seq[WakuMessage], PagingInfo, HistoryResponseError) =
+  ## Populate a single page in forward direction
+  ## Start at `startCursor`, or first entry if not defined.
+  ## Page size must not exceed `maxPageSize`
+  ## Each entry must match the `pred`
+  
+  var
+    outSeq: seq[WakuMessage]
+    outPagingInfo: PagingInfo
+    outError: HistoryResponseError
+  
+  var
+    w = SortedSetWalkRef[Index,IndexedWakuMessage].init(storeQueue.items)
+    currentEntry: SortedSetResult[Index, IndexedWakuMessage]
+    lastValidCursor: Index
+  
+  # Find first entry
+  if startCursor.isSome():
+    lastValidCursor = startCursor.get()
+
+    let cursorEntry = w.ffdToCursor(startCursor.get())
+    if cursorEntry.isErr:
+      # Quick exit here if start cursor not found
+      outSeq = @[]
+      outPagingInfo = PagingInfo(pageSize: 0, cursor: startCursor.get(), direction: PagingDirection.FORWARD)
+      outError = HistoryResponseError.INVALID_CURSOR
+      return (outSeq, outPagingInfo, outError)
+    
+    # Advance walker once more
+    currentEntry = w.next
+  else:
+    # Start from the beginning of the queue
+    lastValidCursor = Index() # No valid (only empty) last cursor
+    currentEntry = w.first
+
+  ## This loop walks forward over the queue:
+  ## 1. from the given cursor (or first entry, if not provided)
+  ## 2. adds entries matching the predicate function to output page
+  ## 3. until either the end of the queue or maxPageSize is reached
+  var numberOfItems = 0.uint
+  while currentEntry.isOk and numberOfItems < maxPageSize:
+    if pred(currentEntry.value.data):
+      lastValidCursor = currentEntry.value.key
+      outSeq.add(currentEntry.value.data.msg)
+      numberOfItems += 1
+    currentEntry = w.next
+  w.destroy
+
+  outPagingInfo = PagingInfo(pageSize: outSeq.len.uint,
+                             cursor: lastValidCursor,
+                             direction: PagingDirection.FORWARD)
+
+  outError = HistoryResponseError.NONE
+  
+  return (outSeq, outPagingInfo, outError)
+
+proc bwdPage(storeQueue: StoreQueueRef,
+             pred: QueryFilterMatcher,
+             maxPageSize: uint64,
+             startCursor: Option[Index]):
+            (seq[WakuMessage], PagingInfo, HistoryResponseError) =
+  ## Populate a single page in backward direction
+  ## Start at `startCursor`, or last entry if not defined.
+  ## Page size must not exceed `maxPageSize`
+  ## Each entry must match the `pred`
+  
+  var
+    outSeq: seq[WakuMessage]
+    outPagingInfo: PagingInfo
+    outError: HistoryResponseError
+  
+  var
+    w = SortedSetWalkRef[Index,IndexedWakuMessage].init(storeQueue.items)
+    currentEntry: SortedSetResult[Index, IndexedWakuMessage]
+    lastValidCursor: Index
+  
+  # Find starting entry
+  if startCursor.isSome():
+    lastValidCursor = startCursor.get()
+
+    let cursorEntry = w.rwdToCursor(startCursor.get())
+    if cursorEntry.isErr:
+      # Quick exit here if start cursor not found
+      outSeq = @[]
+      outPagingInfo = PagingInfo(pageSize: 0, cursor: startCursor.get(), direction: PagingDirection.BACKWARD)
+      outError = HistoryResponseError.INVALID_CURSOR
+      return (outSeq, outPagingInfo, outError)
+
+    # Step walker one more step back
+    currentEntry = w.prev
+  else:
+    # Start from the back of the queue
+    lastValidCursor = Index() # No valid (only empty) last cursor
+    currentEntry = w.last
+
+  ## This loop walks backward over the queue:
+  ## 1. from the given cursor (or last entry, if not provided)
+  ## 2. adds entries matching the predicate function to output page
+  ## 3. until either the beginning of the queue or maxPageSize is reached
+  var numberOfItems = 0.uint
+  while currentEntry.isOk and numberOfItems < maxPageSize:
+    if pred(currentEntry.value.data):
+      lastValidCursor = currentEntry.value.key
+      outSeq.add(currentEntry.value.data.msg)
+      numberOfItems += 1
+    currentEntry = w.prev
+  w.destroy
+
+  outPagingInfo = PagingInfo(pageSize: outSeq.len.uint,
+                             cursor: lastValidCursor,
+                             direction: PagingDirection.BACKWARD)
+  outError = HistoryResponseError.NONE
+
+  return (outSeq, outPagingInfo, outError)
+
+##################
+# StoreQueue API #
+##################
+
+proc new*(T: type StoreQueueRef, capacity: int): T =
+  var items = SortedSet[Index, IndexedWakuMessage].init()
+
+  return StoreQueueRef(items: items, capacity: capacity)
+
+proc add*(storeQueue: StoreQueueRef, msg: IndexedWakuMessage) =
   ## Add a message to the queue.
   ## If we're at capacity, we will be removing,
-  ## the oldest item
-
-  if storeQueue.items.len >= storeQueue.capacity:
-    storeQueue.items.delete 0, 0  # Remove first item in queue
+  ## the oldest (first) item
   
-  storeQueue.items.add(msg)
+  # TODO the below delete block can be removed if we convert to circular buffer
+  if storeQueue.items.len >= storeQueue.capacity:
+    var
+      w = SortedSetWalkRef[Index, IndexedWakuMessage].init(storeQueue.items)
+      toDelete = w.first
+    discard storeQueue.items.delete(toDelete.value.key)
+    w.destroy # better to destroy walker after a delete operation
+  
+  let rc = storeQueue.items.insert(msg.index)
+  if rc.isErr:
+    # return error result and log in metrics
+    echo "ERROR"
+  else:
+    rc.value.data = msg
 
-proc len*(storeQueue: StoreQueue): int {.noSideEffect.} =
+proc len*(storeQueue: StoreQueueRef): int {.noSideEffect.} =
   storeQueue.items.len
 
-proc allItems*(storeQueue: StoreQueue): seq[IndexedWakuMessage] =
-  storeQueue.items
+proc `$`*(storeQueue: StoreQueueRef): string =
+  $(storeQueue.items)
 
-template filterIt*(storeQueue: StoreQueue, pred: untyped): untyped =
-  storeQueue.items.filterIt(pred)
+iterator fwdIterator*(storeQueue: StoreQueueRef): (Index, IndexedWakuMessage) =
+  ## Forward iterator over the entire store queue
+  var
+    w = SortedSetWalkRef[Index,IndexedWakuMessage].init(storeQueue.items)
+    rc = w.first
+  while rc.isOk:
+    yield (rc.value.key, rc.value.data)
+    rc = w.next
+  w.destroy
 
-template mapIt*(storeQueue: StoreQueue, op: untyped): untyped =
-  storeQueue.items.mapIt(op)
+iterator bwdIterator*(storeQueue: StoreQueueRef): (Index, IndexedWakuMessage) =
+  ## Backwards iterator over the entire store queue
+  var
+    w = SortedSetWalkRef[Index,IndexedWakuMessage].init(storeQueue.items)
+    rc = w.last
+  while rc.isOk:
+    yield (rc.value.key, rc.value.data)
+    rc = w.prev
+  w.destroy
+
+proc getPage*(storeQueue: StoreQueueRef,
+              pred: QueryFilterMatcher,
+              pagingInfo: PagingInfo):
+             (seq[WakuMessage], PagingInfo, HistoryResponseError) =
+  ## Get a single page of history matching the predicate and
+  ## adhering to the pagingInfo parameters
+  
+  let
+    cursorOpt = if pagingInfo.cursor == Index(): none(Index) ## TODO: pagingInfo.cursor should be an Option. We shouldn't rely on empty initialisation to determine if set or not!
+                else: some(pagingInfo.cursor)
+    maxPageSize = min(pagingInfo.pageSize, MaxPageSize)
+  
+  case pagingInfo.direction
+    of FORWARD:
+      return storeQueue.fwdPage(pred, maxPageSize, cursorOpt)
+    of BACKWARD:
+      return storeQueue.bwdPage(pred, maxPageSize, cursorOpt)
