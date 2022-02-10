@@ -4,7 +4,7 @@
 
 # Group by std, external then internal imports
 import
-  std/options,
+  std/[algorithm, options],
   # external imports
   bearssl,
   libp2p/protocols/protocol,
@@ -273,7 +273,9 @@ proc bwdPage(storeQueue: StoreQueueRef,
                              direction: PagingDirection.BACKWARD)
   outError = HistoryResponseError.NONE
 
-  return (outSeq, outPagingInfo, outError)
+  return (outSeq.reversed(), # Even if paging backwards, each page should be in forward order
+          outPagingInfo,
+          outError)
 
 ##################
 # StoreQueue API #
@@ -368,6 +370,16 @@ proc getPage*(storeQueue: StoreQueueRef,
       return storeQueue.fwdPage(pred, maxPageSize, cursorOpt)
     of BACKWARD:
       return storeQueue.bwdPage(pred, maxPageSize, cursorOpt)
+
+proc getPage*(storeQueue: StoreQueueRef,
+              pagingInfo: PagingInfo):
+             (seq[WakuMessage], PagingInfo, HistoryResponseError) {.gcsafe.} =
+  ## Get a single page of history without filtering.
+  ## Adhere to the pagingInfo parameters
+  
+  proc predicate(i: IndexedWakuMessage): bool = true # no filtering
+
+  return getPage(storeQueue, predicate, pagingInfo)
 
 proc len*(storeQueue: StoreQueueRef): int {.noSideEffect.} =
   storeQueue.items.len

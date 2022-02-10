@@ -127,7 +127,7 @@ procSuite "Sorted store queue":
       pInfo.direction == PagingDirection.BACKWARD
       pInfo.cursor.senderTime == 3.0
       err == HistoryResponseError.NONE
-      res.mapIt(it.timestamp.int) == @[5,4,3]
+      res.mapIt(it.timestamp.int) == @[3,4,5]
 
 
     (res, pInfo, err) = testStoreQueue.getPage(predicate,
@@ -139,7 +139,7 @@ procSuite "Sorted store queue":
       pInfo.direction == PagingDirection.BACKWARD
       pInfo.cursor.senderTime == 1.0
       err == HistoryResponseError.NONE
-      res.mapIt(it.timestamp.int) == @[2,1]
+      res.mapIt(it.timestamp.int) == @[1,2]
     
     (res, pInfo, err) = testStoreQueue.getPage(predicate,
                                                pInfo)
@@ -193,7 +193,7 @@ procSuite "Sorted store queue":
       pInfo.direction == PagingDirection.BACKWARD
       pInfo.cursor.senderTime == 3.0
       err == HistoryResponseError.NONE
-      res.mapIt(it.timestamp.int) == @[5,3]
+      res.mapIt(it.timestamp.int) == @[3,5]
     
     (res, pInfo, err) = testStoreQueue.getPage(onlyOddTimes,
                                                pInfo)
