@@ -134,23 +134,40 @@ You can change this to `wakunode2`, the Waku v2 node like this:
 make docker-image MAKE_TARGET=wakunode2
 docker run --rm -it statusteam/nim-waku:latest --help
 ```
-## Using Websocket and secure Websockets
+## Enabling Websocket
 
-Websocket support is hidden under a feature flag and must be explicitly enabled in order to get Websockets support. The default port is 8000.
+Websocket is currently the only Waku transport supported by browser nodes that uses [js-waku](https://github.com/status-im/js-waku).
+Setting up websocket enables your node to directly serve browser peers.
 
+A valid certificate is necessary to serve browser nodes,
+you can use [`letsencrypt`](https://letsencrypt.org/):
+
+```shell
+sudo letsencrypt -d <your.domain.name>
 ```
-# Run unsecure Websockets (doesn't require a certificate)
-./build/wakunode2 --websocket-support=true 
+
+You will need the `privkey.pem` and `fullchain.pem` files.
+
+To enable secure websocket, pass the generated files to `wakunode2`:
+Note, the default port for websocket is 8000.
+
+```shell
+wakunode2 --websocket-secure-support=true --websocket-secure-key-path="<letsencrypt cert dir>/privkey.pem" --websocket-secure-cert-path="<letsencrypt cert dir>/fullchain.pem"
 ```
 
-Running a secure websocket requires an ssl certificate. We can create a self signed websocket. However, it requires the `openssl` utility. It can be achieved with:
+### Self-signed certificates
 
-```
-mkdir -p ../ssl_dir/
+Self-signed certificates are not recommended for production setups because:
 
-openssl req -x509 -newkey rsa:4096 -keyout ../ssl_dir/key.pem -out ../ssl_dir/cert.pem -sha256 -nodes
+- Browsers do not accept self-signed certificates
+- Browsers do not display an error when rejecting a certificate for websocket.
 
-./build/wakunode2 --websocket-secure-support=true --websocket-secure-key-path="../ssl_dir/key.pem" --websocket-secure-cert-path="../ssl_dir/cert.pem"
+However, they can be used for local testing purposes:
+
+```shell
+mkdir -p ./ssl_dir/
+openssl req -x509 -newkey rsa:4096 -keyout ./ssl_dir/key.pem -out ./ssl_dir/cert.pem -sha256 -nodes
+wakunode2 --websocket-secure-support=true --websocket-secure-key-path="./ssl_dir/key.pem" --websocket-secure-cert-path="./ssl_dir/cert.pem"
 ```
 
 
