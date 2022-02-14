@@ -159,7 +159,8 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     wssEnabled: bool = false,
     secureKey: string = "",
     secureCert: string = "",
-    wakuFlags = none(WakuEnrBitfield)
+    wakuFlags = none(WakuEnrBitfield),
+    dnsResolver: DnsResolver = nil,
     ): T 
     {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
   ## Creates a Waku Node.
@@ -218,7 +219,8 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     maxConnections = maxConnections,
     wssEnabled = wssEnabled,
     secureKeyPath = secureKey,
-    secureCertPath = secureCert)
+    secureCertPath = secureCert,
+    nameResolver = dnsResolver)
   
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
@@ -997,7 +999,15 @@ when isMainModule:
     ## file. Optionally include persistent peer storage.
     ## No protocols are mounted yet.
 
-
+    var dnsResolver: DnsResolver
+    if conf.dnsAddrs:
+      # Support for DNS multiaddrs
+      var nameServers: seq[TransportAddress]
+      for ip in conf.dnsAddrsNameServers:
+        nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
+      
+      dnsResolver = DnsResolver.new(nameServers)
+    
     let 
       ## `udpPort` is only supplied to satisfy underlying APIs but is not
       ## actually a supported transport for libp2p traffic.
@@ -1020,17 +1030,18 @@ when isMainModule:
                                 conf.relay)
 
       node = WakuNode.new(conf.nodekey,
-                        conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
-                        extIp, extPort,
-                        pStorage,
-                        conf.maxConnections.int,
-                        Port(uint16(conf.websocketPort) + conf.portsShift),
-                        conf.websocketSupport,
-                        conf.websocketSecureSupport,
-                        conf.websocketSecureKeyPath,
-                        conf.websocketSecureCertPath,
-                        some(wakuFlags)
-                        )
+                          conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
+                          extIp, extPort,
+                          pStorage,
+                          conf.maxConnections.int,
+                          Port(uint16(conf.websocketPort) + conf.portsShift),
+                          conf.websocketSupport,
+                          conf.websocketSecureSupport,
+                          conf.websocketSecureKeyPath,
+                          conf.websocketSecureCertPath,
+                          some(wakuFlags),
+                          dnsResolver
+                          )
     
     if conf.discv5Discovery:
       let discv5UdpPort = Port(uint16(conf.discv5UdpPort) + conf.portsShift)
