@@ -73,7 +73,8 @@ proc parseRemotePeerInfo*(address: string): RemotePeerInfo {.raises: [Defect, Va
 
   for addrPart in multiAddr.items():
     case addrPart[].protoName()[]
-    of "ip4", "ip6", "dnsaddr", "dns4", "dns6":
+    # All protocols listed here: https://github.com/multiformats/multiaddr/blob/b746a7d014e825221cc3aea6e57a92d78419990f/protocols.csv
+    of "ip4", "ip6", "dns", "dnsaddr", "dns4", "dns6":
       nwPart = addrPart.tryGet()
     of "tcp":
       tcpPart = addrPart.tryGet()

@@ -10,7 +10,7 @@ import
   libp2p/crypto/crypto,
   libp2p/protocols/ping,
   libp2p/protocols/pubsub/[gossipsub, rpc/messages],
-  libp2p/nameresolving/dnsresolver,
+  libp2p/nameresolving/nameresolver,
   libp2p/[builders, multihash],
   libp2p/transports/[transport, tcptransport, wstransport],
   ../protocol/[waku_relay, waku_message],
@@ -160,7 +160,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     secureKey: string = "",
     secureCert: string = "",
     wakuFlags = none(WakuEnrBitfield),
-    dnsResolver: DnsResolver = nil,
+    nameResolver: NameResolver = nil,
     ): T 
     {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
   ## Creates a Waku Node.
@@ -220,7 +220,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     wssEnabled = wssEnabled,
     secureKeyPath = secureKey,
     secureCertPath = secureCert,
-    nameResolver = dnsResolver)
+    nameResolver = nameResolver)
   
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
@@ -928,6 +928,7 @@ when isMainModule:
   import
     confutils,
     system/ansi_c,
+    libp2p/nameresolving/dnsresolver,
     ../../common/utils/nat,
     ./config,
     ./waku_setup,
