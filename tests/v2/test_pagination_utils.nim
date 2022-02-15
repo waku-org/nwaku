@@ -21,7 +21,7 @@ procSuite "Pagination utils":
 
     return hashed
 
-  ## Testvars
+  ## Test vars
   let
     smallIndex1 = Index(digest: hashFromStr("1234"),
                         receiverTime: 0.00,
