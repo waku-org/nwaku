@@ -506,13 +506,6 @@ proc queryLoop(w: WakuStore, query: HistoryQuery, candidateList: seq[RemotePeerI
     debug "failed to resolve the query"
     return err("failed to resolve the query")
 
-proc isDuplicate(message: WakuMessage, list: seq[WakuMessage]): bool =
-  ## return true if a duplicate message is found, otherwise false
-  # it is defined as a separate proc to be able to adjust comparison criteria 
-  # e.g., to exclude timestamp or include pubsub topic
-  if message in list: return true
-  return false
-
 proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[RemotePeerInfo]), pageSize: uint64 = DefaultPageSize): Future[QueryResult] {.async, gcsafe.} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku store node has been online 
   ## messages are stored in the store node's messages field and in the message db
@@ -548,17 +541,16 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
   proc save(msgList: seq[WakuMessage]) =
     debug "save proc is called"
     # exclude index from the comparison criteria
-    # extract current messages 
-    let currentMsgSummary = toSeq(ws.messages.fwdIterator()).mapIt(it[1].msg)
+
     for msg in msgList:
+      let index = msg.computeIndex()
       # check for duplicate messages
       # TODO Should take pubsub topic into account if we are going to support topics rather than the DefaultTopic
-      if isDuplicate(msg,currentMsgSummary): 
+      if ws.messages.contains(index):
         dismissed = dismissed + 1
         continue
 
       # store the new message 
-      let index = msg.computeIndex()
       let indexedWakuMsg = IndexedWakuMessage(msg: msg, index: index, pubsubTopic: DefaultTopic)
       
       # store in db if exists

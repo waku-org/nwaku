@@ -381,6 +381,13 @@ proc getPage*(storeQueue: StoreQueueRef,
 
   return getPage(storeQueue, predicate, pagingInfo)
 
+proc contains*(storeQueue: StoreQueueRef, index: Index): bool =
+  ## Return `true` if the store queue already contains the `index`,
+  ## `false` otherwise
+  let res = storeQueue.items.eq(index)
+
+  return res.isOk()
+
 proc len*(storeQueue: StoreQueueRef): int {.noSideEffect.} =
   storeQueue.items.len
 

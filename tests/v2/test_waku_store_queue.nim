@@ -286,3 +286,11 @@ procSuite "Sorted store queue":
       pInfo.cursor.senderTime == 0.0
       err == HistoryResponseError.NONE
       res.len == 0
+
+  test "Can verify if store queue contains an index":
+    let
+      existingIndex = genIndexedWakuMessage(4).index
+      nonExistingIndex = genIndexedWakuMessage(99).index
+    check:
+      testStoreQueue.contains(existingIndex) == true
+      testStoreQueue.contains(nonExistingIndex) == false
