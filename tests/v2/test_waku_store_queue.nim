@@ -22,7 +22,7 @@ procSuite "Sorted store queue":
   
   var testStoreQueue = StoreQueueRef.new(capacity)
   for i in unsortedSet:
-    testStoreQueue.add(genIndexedWakuMessage(i.int8))
+    discard testStoreQueue.add(genIndexedWakuMessage(i.int8))
   
   test "Store queue can be created with limited capacity":
     var stQ = StoreQueueRef.new(capacity)
@@ -30,13 +30,15 @@ procSuite "Sorted store queue":
       stQ.len == 0 # Empty when initialised
     
     for i in 1..capacity: # Fill up the queue
-      stQ.add(genIndexedWakuMessage(i.int8))
+      check:
+        stQ.add(genIndexedWakuMessage(i.int8)).isOk()
     
     check:
       stQ.len == capacity
     
     # Add one more. Capacity should not be exceeded.
-    stQ.add(genIndexedWakuMessage(capacity.int8 + 1))
+    check:
+      stQ.add(genIndexedWakuMessage(capacity.int8 + 1)).isOk()
     
     check:
       stQ.len == capacity

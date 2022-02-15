@@ -332,7 +332,7 @@ proc new*(T: type StoreQueueRef, capacity: int): T =
 
   return StoreQueueRef(items: items, capacity: capacity)
 
-proc add*(storeQueue: StoreQueueRef, msg: IndexedWakuMessage) =
+proc add*(storeQueue: StoreQueueRef, msg: IndexedWakuMessage): StoreQueueResult[void] =
   ## Add a message to the queue.
   ## If we're at capacity, we will be removing,
   ## the oldest (first) item
@@ -349,9 +349,11 @@ proc add*(storeQueue: StoreQueueRef, msg: IndexedWakuMessage) =
   if res.isErr:
     # This indicates the index already exists in the storeQueue.
     # TODO: could return error result and log in metrics
-    trace "Attempt to add duplicate message to store", msg=msg
+    return error("duplicate")
   else:
     res.value.data = msg
+  
+  return ok()
 
 proc getPage*(storeQueue: StoreQueueRef,
               pred: QueryFilterMatcher,

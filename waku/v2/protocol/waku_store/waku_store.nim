@@ -337,7 +337,7 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
 
   proc onData(receiverTime: float64, msg: WakuMessage, pubsubTopic:  string) =
     # TODO index should not be recalculated
-    ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex(receiverTime), pubsubTopic: pubsubTopic))
+    discard ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex(receiverTime), pubsubTopic: pubsubTopic))
 
   info "attempting to load messages from persistent storage"
 
@@ -374,8 +374,14 @@ proc handleMessage*(w: WakuStore, topic: string, msg: WakuMessage) {.async.} =
   trace "handle message in WakuStore", topic=topic, msg=msg
 
   let index = msg.computeIndex()
-  w.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: topic))
+  let addRes = w.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: topic))
+  
+  if addRes.isErr:
+    trace "Attempt to add message with duplicate index to store", msg=msg, index=index
+    waku_store_errors.inc(labelValues = ["duplicate"])
+  
   waku_store_messages.set(w.messages.len.int64, labelValues = ["stored"])
+  
   if w.store.isNil:
     return
 
@@ -560,8 +566,8 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
           trace "failed to store messages", err = res.error
           waku_store_errors.inc(labelValues = ["store_failure"])
           continue
-        
-      ws.messages.add(indexedWakuMsg)
+      
+      discard ws.messages.add(indexedWakuMsg)
       added = added + 1
     
     waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
