@@ -116,6 +116,7 @@ proc generateSymKey(contentTopic: ContentTopic): SymKey =
   symKey
 
 proc connectToNodes(c: Chat, nodes: seq[string]) {.async.} =
+  echo "Connecting to nodes"
   await c.node.connectToNodes(nodes)
   c.connected = true
 
@@ -250,6 +251,7 @@ proc publish(c: Chat, line: string) =
             debug "could not append rate limit proof to the message", success=success
           else:
             debug "rate limit proof is appended to the message", success=success
+            # TODO move it to log after doogfooding
             echo "--rln epoch: ", fromEpoch(message.proof.epoch)
       if not c.node.wakuLightPush.isNil():
         # Attempt lightpush
