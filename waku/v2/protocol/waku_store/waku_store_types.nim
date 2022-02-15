@@ -347,8 +347,9 @@ proc add*(storeQueue: StoreQueueRef, msg: IndexedWakuMessage) =
   
   let res = storeQueue.items.insert(msg.index)
   if res.isErr:
-    # return error result and log in metrics
-    echo "ERROR"
+    # This indicates the index already exists in the storeQueue.
+    # TODO: could return error result and log in metrics
+    trace "Attempt to add duplicate message to store", msg=msg
   else:
     res.value.data = msg
 
