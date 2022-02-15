@@ -162,7 +162,7 @@ proc fwdPage(storeQueue: StoreQueueRef,
              startCursor: Option[Index]):
             (seq[WakuMessage], PagingInfo, HistoryResponseError) =
   ## Populate a single page in forward direction
-  ## Start at `startCursor`, or first entry if not defined.
+  ## Start at the `startCursor` (exclusive), or first entry (inclusive) if not defined.
   ## Page size must not exceed `maxPageSize`
   ## Each entry must match the `pred`
   
@@ -222,7 +222,7 @@ proc bwdPage(storeQueue: StoreQueueRef,
              startCursor: Option[Index]):
             (seq[WakuMessage], PagingInfo, HistoryResponseError) =
   ## Populate a single page in backward direction
-  ## Start at `startCursor`, or last entry if not defined.
+  ## Start at `startCursor` (exclusive), or last entry (inclusive) if not defined.
   ## Page size must not exceed `maxPageSize`
   ## Each entry must match the `pred`
   

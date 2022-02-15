@@ -548,6 +548,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
   proc save(msgList: seq[WakuMessage]) =
     debug "save proc is called"
     # exclude index from the comparison criteria
+    # extract current messages 
     let currentMsgSummary = toSeq(ws.messages.fwdIterator()).mapIt(it[1].msg)
     for msg in msgList:
       # check for duplicate messages

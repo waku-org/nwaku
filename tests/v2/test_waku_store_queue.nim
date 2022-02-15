@@ -47,12 +47,14 @@ procSuite "Sorted store queue":
     for i in testStoreQueue.fwdIterator:
       let (index, indexedWakuMessage) = i
       check cmp(index, prevSmaller) > 0
+      prevSmaller = index
     
     # Walk backward through the set and verify descending order
     var prevLarger = genIndexedWakuMessage(max(unsortedSet).int8 + 1).index
     for i in testStoreQueue.bwdIterator:
       let (index, indexedWakuMessage) = i
       check cmp(index, prevLarger) < 0
+      prevLarger = index
   
   test "Can access first item from store queue":
     let first = testStoreQueue.first()
@@ -220,6 +222,8 @@ procSuite "Sorted store queue":
   test "Store queue pagination handles invalid cursor":   
     proc predicate(i: IndexedWakuMessage): bool = true # no filtering
 
+    # Invalid cursor in backwards direction
+
     var (res, pInfo, err) = testStoreQueue.getPage(predicate,
                                                    PagingInfo(pageSize: 3,
                                                               cursor: Index(receiverTime: float64(3), senderTime: float64(3), digest: MDigest[256]()),
@@ -229,6 +233,21 @@ procSuite "Sorted store queue":
       # Empty response with error
       pInfo.pageSize == 0
       pInfo.direction == PagingDirection.BACKWARD
+      pInfo.cursor.senderTime == 3.0
+      err == HistoryResponseError.INVALID_CURSOR
+      res.len == 0
+    
+    # Same test, but forward direction
+
+    (res, pInfo, err) = testStoreQueue.getPage(predicate,
+                                               PagingInfo(pageSize: 3,
+                                                          cursor: Index(receiverTime: float64(3), senderTime: float64(3), digest: MDigest[256]()),
+                                                          direction: PagingDirection.FORWARD))
+    
+    check:
+      # Empty response with error
+      pInfo.pageSize == 0
+      pInfo.direction == PagingDirection.FORWARD
       pInfo.cursor.senderTime == 3.0
       err == HistoryResponseError.INVALID_CURSOR
       res.len == 0
