@@ -349,7 +349,7 @@ proc add*(storeQueue: StoreQueueRef, msg: IndexedWakuMessage): StoreQueueResult[
   if res.isErr:
     # This indicates the index already exists in the storeQueue.
     # TODO: could return error result and log in metrics
-    return error("duplicate")
+    return err("duplicate")
   else:
     res.value.data = msg
   
