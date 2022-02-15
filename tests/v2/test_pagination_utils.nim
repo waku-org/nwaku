@@ -32,7 +32,7 @@ procSuite "Pagination utils":
     largeIndex1 = Index(digest: hashFromStr("1234"),
                         receiverTime: 0.00,
                         senderTime: 9000.00) # only senderTime differ from smallIndex
-    largeIndex2 = Index(digest: hashFromStr("12345"), # only digest differs from smallIndex
+    largeIndex2 = Index(digest: hashFromStr("12345"), # only digest differs from smallIndex1
                         receiverTime: 0.00,
                         senderTime: 1000.00)
     eqIndex1 = Index(digest: hashFromStr("0003"),
