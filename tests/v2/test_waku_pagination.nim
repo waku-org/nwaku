@@ -16,10 +16,10 @@ proc createSampleStoreQueue(s: int): StoreQueueRef =
   for x in data.mitems: x = 1
 
   for i in 0..<s:
-    testStoreQueue.add(IndexedWakuMessage(msg: WakuMessage(payload: @[byte i]),
-                                          index: Index(receiverTime: float64(i),
-                                                       senderTime: float64(i),
-                                                       digest: MDigest[256](data: data)) ))
+    discard testStoreQueue.add(IndexedWakuMessage(msg: WakuMessage(payload: @[byte i]),
+                                                  index: Index(receiverTime: float64(i),
+                                                               senderTime: float64(i),
+                                                               digest: MDigest[256](data: data)) ))
   
   return testStoreQueue
 
