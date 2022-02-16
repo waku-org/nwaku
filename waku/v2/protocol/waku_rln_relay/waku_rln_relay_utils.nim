@@ -16,6 +16,8 @@ logScope:
 type RLNResult* = Result[RLN[Bn256], string]
 type MerkleNodeResult* = Result[MerkleNode, string]
 type RateLimitProofResult* = Result[RateLimitProof, string]
+type SpamHandler* = proc(wakuMessage: WakuMessage): void {.gcsafe, closure, raises: [Defect].}
+
 # membership contract interface
 contract(MembershipContract):
   # TODO define a return type of bool for register method to signify a successful registration
@@ -156,6 +158,8 @@ proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte], memKeys: Membersh
                                   epoch = epoch,
                                   msg = data)
   var inputBuffer = toBuffer(serializedInputs)
+
+  debug "input buffer ", inputBuffer
 
   # generate the proof
   var proof: Buffer
@@ -445,16 +449,19 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage, timeOption: Optio
     # get current rln epoch
     epoch = getCurrentEpoch()
 
+  debug "current epoch", currentEpoch=fromEpoch(epoch)
   let 
     msgEpoch = msg.proof.epoch
     # calculate the gaps
     gap = compare(epoch, msgEpoch)
-  
+
+  debug "message epoch", msgEpoch=fromEpoch(msgEpoch)
+
   # validate the epoch
   if abs(gap) >= MAX_EPOCH_GAP:
     # message's epoch is too old or too ahead
     # accept messages whose epoch is within +-MAX_EPOCH_GAP from the current epoch
-    debug "invalid message: epoch gap exceeds a threshold",gap=gap
+    debug "invalid message: epoch gap exceeds a threshold",gap=gap, payload=string.fromBytes(msg.payload)
     return MessageValidationResult.Invalid
   
   # verify the proof
@@ -463,21 +470,31 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage, timeOption: Optio
     input = concat(msg.payload, contentTopicBytes)
   if not rlnPeer.rlnInstance.proofVerify(input, msg.proof):
     # invalid proof
-    debug "invalid message: invalid proof"
+    debug "invalid message: invalid proof", payload=string.fromBytes(msg.payload)
     return MessageValidationResult.Invalid
   
   # check if double messaging has happened
   let hasDup = rlnPeer.hasDuplicate(msg)
   if hasDup.isOk and hasDup.value == true:
-    debug "invalid message: message is a spam"
+    debug "invalid message: message is a spam", payload=string.fromBytes(msg.payload)
     return MessageValidationResult.Spam
 
   # insert the message to the log 
   # the result of `updateLog` is discarded because message insertion is guaranteed by the implementation i.e.,
   # it will never error out
   discard rlnPeer.updateLog(msg)
+  debug "message is valid", payload=string.fromBytes(msg.payload)
   return MessageValidationResult.Valid
 
+
+proc toRLNSignal*(wakumessage: WakuMessage): seq[byte] =
+  ## it is a utility proc that prepares the `data` parameter of the proof generation procedure i.e., `proofGen`  that resides in the current module
+  ## it extracts the `contentTopic` and the `payload` of the supplied `wakumessage` and serializes them into a byte sequence
+  let 
+    contentTopicBytes = wakumessage.contentTopic.toBytes
+    output = concat(wakumessage.payload, contentTopicBytes)
+  return output
+  
 
 proc appendRLNProof*(rlnPeer: WakuRLNRelay, msg: var WakuMessage, senderEpochTime: float64): bool = 
   ## returns true if it can create and append a `RateLimitProof` to the supplied `msg`
@@ -485,9 +502,7 @@ proc appendRLNProof*(rlnPeer: WakuRLNRelay, msg: var WakuMessage, senderEpochTim
   ## `senderEpochTime` indicates the number of seconds passed since Unix epoch. The fractional part holds sub-seconds.
   ## The `epoch` field of `RateLimitProof` is derived from the provided `senderEpochTime` (using `calcEpoch()`)
 
-  let 
-    contentTopicBytes = msg.contentTopic.toBytes
-    input = concat(msg.payload, contentTopicBytes)
+  let input = msg.toRLNSignal()
   
   var proof: RateLimitProofResult = proofGen(rlnInstance = rlnPeer.rlnInstance, data = input,
                      memKeys = rlnPeer.membershipKeyPair, 
