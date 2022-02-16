@@ -45,8 +45,6 @@ proc withWssTransport*(b: SwitchBuilder,
                   tlsCertificate = cert,
                   {TLSFlags.NoVerifyHost, TLSFlags.NoVerifyServerName}))
 
-
-
 proc newWakuSwitch*(
     privKey = none(crypto.PrivateKey),
     address = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet(),
