@@ -966,7 +966,6 @@ procSuite "WakuNode":
         res2 = await completionFut2.withTimeout(10.seconds)
 
       check:
-        res1 or res2 == true # either of the wm1 and wm2 is relayed
         (res1 and res2) == false # either of the wm1 and wm2 is found as spam hence not relayed
         (await completionFut3.withTimeout(10.seconds)) == true
         (await completionFut4.withTimeout(10.seconds)) == false
