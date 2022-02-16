@@ -241,7 +241,7 @@ type
 
     rlnRelayContentTopic* {.
       desc: "the pubsub topic for which rln-relay gets enabled",
-      defaultValue: "/toy-chat/2/Luzhou/proto"
+      defaultValue: "/toy-chat/2/luzhou/proto"
       name: "rln-relay-content-topic" }: ContentTopic
 
     rlnRelayPubsubTopic* {.
