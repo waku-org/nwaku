@@ -12,6 +12,7 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub,
+  libp2p/nameresolving/mockresolver,
   eth/keys,
   ../../waku/v2/node/storage/sqlite,
   ../../waku/v2/node/storage/message/waku_message_store,
@@ -468,6 +469,31 @@ procSuite "WakuNode":
       $(remotePeerInfo.addrs[0][0].tryGet()) == "/ip4/127.0.0.1"
       $(remotePeerInfo.addrs[0][1].tryGet()) == "/tcp/60002"
     
+    # DNS multiaddrs parsing expected cases:
+    let
+      dnsPeer = parseRemotePeerInfo("/dns/localhost/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
+      dnsAddrPeer = parseRemotePeerInfo("/dnsaddr/localhost/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
+      dns4Peer = parseRemotePeerInfo("/dns4/localhost/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
+      dns6Peer = parseRemotePeerInfo("/dns6/localhost/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
+    
+    check:
+      # /dns
+      $(dnsPeer.peerId) == "16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
+      $(dnsPeer.addrs[0][0].tryGet()) == "/dns/localhost"
+      $(dnsPeer.addrs[0][1].tryGet()) == "/tcp/60002"
+      # /dnsaddr
+      $(dnsAddrPeer.peerId) == "16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
+      $(dnsAddrPeer.addrs[0][0].tryGet()) == "/dnsaddr/localhost"
+      $(dnsAddrPeer.addrs[0][1].tryGet()) == "/tcp/60002"
+      # /dns4
+      $(dns4Peer.peerId) == "16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
+      $(dns4Peer.addrs[0][0].tryGet()) == "/dns4/localhost"
+      $(dns4Peer.addrs[0][1].tryGet()) == "/tcp/60002"
+      # /dns6
+      $(dns6Peer.peerId) == "16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
+      $(dns6Peer.addrs[0][0].tryGet()) == "/dns6/localhost"
+      $(dns6Peer.addrs[0][1].tryGet()) == "/tcp/60002"
+    
     # Now test some common corner cases
     expect LPError:
       # gibberish
@@ -493,6 +519,34 @@ procSuite "WakuNode":
       # unsupported transport
       discard parseRemotePeerInfo("/ip4/127.0.0.1/udp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
   
+  asyncTest "resolve and connect to dns multiaddrs":
+    let resolver = MockResolver.new()
+    
+    resolver.ipResponses[("localhost", false)] = @["127.0.0.1"]
+
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000), nameResolver = resolver)
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
+    
+    # Construct DNS multiaddr for node2
+    let
+      node2PeerId = $(node2.switch.peerInfo.peerId)
+      node2Dns4Addr = "/dns4/localhost/tcp/60002/p2p/" & node2PeerId
+    
+    node1.mountRelay()
+    node2.mountRelay()
+        
+    await allFutures([node1.start(), node2.start()])
+
+    await node1.connectToNodes(@[node2Dns4Addr])
+
+    check:
+      node1.switch.connManager.connCount(node2.switch.peerInfo.peerId) == 1
+
+    await allFutures([node1.stop(), node2.stop()])
+
   asyncTest "filtering relayed messages  using topic validators":
     ## test scenario: 
     ## node1 and node3 set node2 as their relay node
@@ -533,7 +587,6 @@ procSuite "WakuNode":
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
     await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
-
 
     var completionFutValidatorAcc = newFuture[bool]()
     var completionFutValidatorRej = newFuture[bool]()
@@ -922,6 +975,7 @@ procSuite "WakuNode":
       await node1.stop()
       await node2.stop()
       await node3.stop()
+  
   asyncTest "Relay protocol is started correctly":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
@@ -1162,7 +1216,7 @@ procSuite "WakuNode":
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
 
     
-asyncTest "Messages are relayed between two websocket nodes":
+  asyncTest "Messages are relayed between two websocket nodes":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
@@ -1207,7 +1261,7 @@ asyncTest "Messages are relayed between two websocket nodes":
     await node2.stop()
 
 
-asyncTest "Messages are relayed between nodes with multiple transports (TCP and Websockets)":
+  asyncTest "Messages are relayed between nodes with multiple transports (TCP and Websockets)":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
@@ -1251,7 +1305,7 @@ asyncTest "Messages are relayed between nodes with multiple transports (TCP and 
     await node1.stop()
     await node2.stop()
 
-asyncTest "Messages relaying fails with non-overlapping transports (TCP or Websockets)":
+  asyncTest "Messages relaying fails with non-overlapping transports (TCP or Websockets)":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
@@ -1299,7 +1353,7 @@ asyncTest "Messages relaying fails with non-overlapping transports (TCP or Webso
     await node1.stop()
     await node2.stop()
 
-asyncTest "Messages are relayed between nodes with multiple transports (TCP and secure Websockets)":
+  asyncTest "Messages are relayed between nodes with multiple transports (TCP and secure Websockets)":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
@@ -1343,7 +1397,7 @@ asyncTest "Messages are relayed between nodes with multiple transports (TCP and 
     await node1.stop()
     await node2.stop()
 
-asyncTest "Messages fails with wrong key path":
+  asyncTest "Messages fails with wrong key path":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
   
@@ -1352,7 +1406,7 @@ asyncTest "Messages fails with wrong key path":
       discard WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         bindPort = Port(60000), wsBindPort = Port(8000), wssEnabled = true, secureKey = "../../waku/v2/node/key_dummy.txt")
 
-asyncTest "Messages are relayed between nodes with multiple transports (websocket and secure Websockets)":
+  asyncTest "Messages are relayed between nodes with multiple transports (websocket and secure Websockets)":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
@@ -1396,36 +1450,36 @@ asyncTest "Messages are relayed between nodes with multiple transports (websocke
     await node1.stop()
     await node2.stop()
   
-asyncTest "Peer info updates with correct announced addresses":
-  let
-    nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-    bindIp = ValidIpAddress.init("0.0.0.0")
-    bindPort = Port(60000)
-    extIp = some(ValidIpAddress.init("127.0.0.1"))
-    extPort = some(Port(60002))
-    node = WakuNode.new(
-      nodeKey,
-      bindIp, bindPort,
-      extIp, extPort)
-     
-  let
-    bindEndpoint = MultiAddress.init(bindIp, tcpProtocol, bindPort)
-    announcedEndpoint = MultiAddress.init(extIp.get(), tcpProtocol, extPort.get())
-
-  check:
-    # Check that underlying peer info contains only bindIp before starting
-    node.switch.peerInfo.addrs.len == 1
-    node.switch.peerInfo.addrs.contains(bindEndpoint)
-    
-    node.announcedAddresses.len == 1
-    node.announcedAddresses.contains(announcedEndpoint)
+  asyncTest "Peer info updates with correct announced addresses":
+    let
+      nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      bindIp = ValidIpAddress.init("0.0.0.0")
+      bindPort = Port(60000)
+      extIp = some(ValidIpAddress.init("127.0.0.1"))
+      extPort = some(Port(60002))
+      node = WakuNode.new(
+        nodeKey,
+        bindIp, bindPort,
+        extIp, extPort)
       
-  await node.start()
+    let
+      bindEndpoint = MultiAddress.init(bindIp, tcpProtocol, bindPort)
+      announcedEndpoint = MultiAddress.init(extIp.get(), tcpProtocol, extPort.get())
 
-  check:
-    # Check that underlying peer info is updated with announced address
-    node.started
-    node.switch.peerInfo.addrs.len == 1
-    node.switch.peerInfo.addrs.contains(announcedEndpoint)
+    check:
+      # Check that underlying peer info contains only bindIp before starting
+      node.switch.peerInfo.addrs.len == 1
+      node.switch.peerInfo.addrs.contains(bindEndpoint)
+      
+      node.announcedAddresses.len == 1
+      node.announcedAddresses.contains(announcedEndpoint)
+        
+    await node.start()
 
-  await node.stop()
+    check:
+      # Check that underlying peer info is updated with announced address
+      node.started
+      node.switch.peerInfo.addrs.len == 1
+      node.switch.peerInfo.addrs.contains(announcedEndpoint)
+
+    await node.stop()
