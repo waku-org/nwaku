@@ -911,12 +911,12 @@ procSuite "WakuNode":
         wm1 = WakuMessage(payload: "message 1".toBytes(), contentTopic: contentTopic)
         proofAdded1 = node3.wakuRlnRelay.appendRLNProof(wm1, time)
         # another message in the same epoch as wm1, it will break the messaging rate limit
-        wm2 = WakuMessage(payload: "message2".toBytes(), contentTopic: contentTopic)
+        wm2 = WakuMessage(payload: "message 2".toBytes(), contentTopic: contentTopic)
         proofAdded2 = node3.wakuRlnRelay.appendRLNProof(wm2, time)
         #  wm3 points to the next epoch 
         wm3 = WakuMessage(payload: "message 3".toBytes(), contentTopic: contentTopic)
         proofAdded3 = node3.wakuRlnRelay.appendRLNProof(wm3, time+EPOCH_UNIT_SECONDS)
-        wm4 = WakuMessage(payload: "message4".toBytes(), contentTopic: contentTopic)
+        wm4 = WakuMessage(payload: "message 4".toBytes(), contentTopic: contentTopic)
 
       #  check proofs are added correctly
       check:
@@ -966,9 +966,7 @@ procSuite "WakuNode":
         res2 = await completionFut2.withTimeout(10.seconds)
 
       check:
-        res1 or res2 == true # either of the wm1 and wm2 is relayed
         (res1 and res2) == false # either of the wm1 and wm2 is found as spam hence not relayed
-        (await completionFut2.withTimeout(10.seconds)) == true
         (await completionFut3.withTimeout(10.seconds)) == true
         (await completionFut4.withTimeout(10.seconds)) == false
       
