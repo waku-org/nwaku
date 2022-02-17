@@ -6,7 +6,7 @@ For ease of explanation, we will refer to them as `Alice`, `Bob`, and `Carol`.
 `Bob` and `Carol` are directly connected to `Alice` so that their message will be routed via `Alice`.
 In this setting, if `Bob` or `Carol` attempts to spam the network by violating the message rate limit then `Alice` will detect their spamming activity, and does not relay the spam messages.
 The message rate is one per epoch.
-At the time of this tutorial, the epoch duration is set to `20` seconds.
+At the time of this tutorial, the epoch duration is set to `10` seconds.
 The current value of the epoch duration can be inspected in the following [constant variable](https://github.com/status-im/nim-waku/blob/21cac6d491a6d995a7a8ba84c85fecc7817b3d8b/waku/v2/protocol/waku_rln_relay/waku_rln_relay_types.nim#L119) hardcoded in the nim-waku codebase.
 
 
@@ -71,8 +71,8 @@ Once you type a chat line and hit enter, you will see a message that indicates t
 The numerical value `164495684` indicates the epoch of the message `Hi!`.
 You will see a different value than `164495684` on your screen. 
 If two messages sent by the same chat2 client happen to have the same RLN epoch value, then one of them will be detected as spam and won't be routed (by Alice in this test setting).
-At the time of this tutorial, the epoch duration is set to `20` seconds.
-Thus, if you send two messages less than `20` seconds apart, they are likely to get the same `RLN epoch` values.
+At the time of this tutorial, the epoch duration is set to `10` seconds.
+Thus, if you send two messages less than `10` seconds apart, they are likely to get the same `RLN epoch` values.
 
 After sending a chat message, you may experience some delay before the next chat prompt appears. 
 The reason is that under the hood a zero-knowledge proof is being generated and attached to your message.
