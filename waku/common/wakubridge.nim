@@ -13,6 +13,7 @@ import
   # Waku v2 imports
   libp2p/crypto/crypto,
   ../v2/utils/namespacing,
+  ../v2/utils/time,
   ../v2/node/wakunode2,
   # Common cli config
   ./config_bridge
@@ -91,7 +92,7 @@ func toWakuMessage(env: Envelope): WakuMessage =
   # Translate a Waku v1 envelope to a Waku v2 message
   WakuMessage(payload: env.data,
               contentTopic: toV2ContentTopic(env.topic),
-              timestamp: float64(env.expiry - env.ttl),
+              timestamp: (getNanosecondTime(env.expiry) - getNanosecondTime(env.ttl)),
               version: 1)
 
 proc toWakuV2(bridge: WakuBridge, env: Envelope) {.async.} =

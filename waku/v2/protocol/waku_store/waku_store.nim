@@ -16,12 +16,14 @@ import
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
+  libp2p/varint,
   metrics,
   stew/[results, byteutils],
   # internal imports
   ../../node/storage/message/message_store,
   ../../node/peer_manager/peer_manager,
   ../../utils/requests,
+  ../../utils/time,
   ../waku_swap/waku_swap,
   ./waku_store_types
 
@@ -54,7 +56,7 @@ const
 # TODO Move serialization function to separate file, too noisy
 # TODO Move pagination to separate file, self-contained logic
 
-proc computeIndex*(msg: WakuMessage, receivedTime = getTime().toUnixFloat()): Index =
+proc computeIndex*(msg: WakuMessage, receivedTime = getNanosecondTime(getTime().toUnixFloat())): Index =
   ## Takes a WakuMessage with received timestamp and returns its Index.
   ## Received timestamp will default to system time if not provided.
   var ctx: sha256
@@ -64,7 +66,7 @@ proc computeIndex*(msg: WakuMessage, receivedTime = getTime().toUnixFloat()): In
   let digest = ctx.finish() # computes the hash
   ctx.clear()
 
-  let receiverTime = receivedTime.round(3) # Ensure timestamp has (only) millisecond resolution
+  let receiverTime = receivedTime
   var index = Index(digest:digest, receiverTime: receiverTime, senderTime: msg.timestamp)
   return index
 
@@ -77,8 +79,8 @@ proc encode*(index: Index): ProtoBuffer =
 
   # encodes index
   output.write(1, index.digest.data)
-  output.write(2, index.receiverTime)
-  output.write(3, index.senderTime)
+  output.write(2, zint64(index.receiverTime))
+  output.write(3, zint64(index.senderTime))
 
   return output
 
@@ -110,14 +112,14 @@ proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
     index.digest.data[count] = b
 
   # read the timestamp
-  var receiverTime: float64
+  var receiverTime: zint64
   discard ? pb.getField(2, receiverTime)
-  index.receiverTime = receiverTime
+  index.receiverTime = Timestamp(receiverTime)
 
   # read the timestamp
-  var senderTime: float64
+  var senderTime: zint64
   discard ? pb.getField(3, senderTime)
-  index.senderTime = senderTime
+  index.senderTime = Timestamp(senderTime)
 
   return ok(index) 
 
@@ -167,8 +169,13 @@ proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
 
   msg.pagingInfo = ? PagingInfo.init(pagingInfoBuffer)
 
-  discard ? pb.getField(5, msg.startTime)
-  discard ? pb.getField(6, msg.endTime)
+  var startTime: zint64
+  discard ? pb.getField(5, startTime)
+  msg.startTime = Timestamp(startTime)
+
+  var endTime: zint64
+  discard ? pb.getField(6, endTime)
+  msg.endTime = Timestamp(endTime)
 
 
   return ok(msg)
@@ -226,8 +233,8 @@ proc encode*(query: HistoryQuery): ProtoBuffer =
 
   output.write(4, query.pagingInfo.encode())
 
-  output.write(5, query.startTime)
-  output.write(6, query.endTime)
+  output.write(5, zint64(query.startTime))
+  output.write(6, zint64(query.endTime))
 
   return output
 
@@ -262,10 +269,10 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse {.gcsafe.}
                      else: none(seq[ContentTopic])
     qPubSubTopic = if (query.pubsubTopic != ""): some(query.pubsubTopic)
                    else: none(string)
-    qStartTime = if query.startTime != float64(0): some(query.startTime)
-                 else: none(float64)
-    qEndTime = if query.endTime != float64(0): some(query.endTime)
-               else: none(float64)
+    qStartTime = if query.startTime != Timestamp(0): some(query.startTime)
+                 else: none(Timestamp)
+    qEndTime = if query.endTime != Timestamp(0): some(query.endTime)
+               else: none(Timestamp)
   
   ## Compose filter predicate for message from query criteria
   proc matchesQuery(indMsg: IndexedWakuMessage): bool =
@@ -335,7 +342,7 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
   if ws.store.isNil:
     return
 
-  proc onData(receiverTime: float64, msg: WakuMessage, pubsubTopic:  string) =
+  proc onData(receiverTime: Timestamp, msg: WakuMessage, pubsubTopic:  string) =
     # TODO index should not be recalculated
     discard ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex(receiverTime), pubsubTopic: pubsubTopic))
 
@@ -524,16 +531,17 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
   ## The history gets fetched successfully if the dialed peer has been online during the queried time window.
   ## the resume proc returns the number of retrieved messages if no error occurs, otherwise returns the error string
   
-  var currentTime = epochTime()
+
+  var currentTime = getNanosecondTime(epochTime())
   debug "resume", currentEpochTime=currentTime
 
   let lastSeenItem = ws.messages.last()
 
   var lastSeenTime = if lastSeenItem.isOk(): lastSeenItem.get().msg.timestamp
-                     else: float64(0)
+                     else: Timestamp(0)
                      
   # adjust the time window with an offset of 20 seconds
-  let offset: float64 = 200000
+  let offset: Timestamp = getNanosecondTime(20)
   currentTime = currentTime + offset
   lastSeenTime = max(lastSeenTime - offset, 0)
   debug "the offline time window is", lastSeenTime=lastSeenTime, currentTime=currentTime

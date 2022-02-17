@@ -4,6 +4,7 @@ import
   std/options,
   stew/results,
   ../../../protocol/waku_message,
+  ../../../utils/time,
   ../../../utils/pagination
 
 ## This module defines a message store interface. Implementations of
@@ -11,7 +12,7 @@ import
 ## retrieve historical messages
 
 type
-  DataProc* = proc(receiverTimestamp: float64, msg: WakuMessage, pubsubTopic: string) {.closure, raises: [Defect].}
+  DataProc* = proc(receiverTimestamp: Timestamp, msg: WakuMessage, pubsubTopic: string) {.closure, raises: [Defect].}
 
   MessageStoreResult*[T] = Result[T, string]
 

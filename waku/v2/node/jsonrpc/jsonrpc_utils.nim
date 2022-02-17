@@ -6,6 +6,7 @@ import
   ../../../v1/node/rpc/hexstrings,
   ../../protocol/waku_store/waku_store_types,
   ../../protocol/waku_message,
+  ../../utils/time,
   ../waku_payload,
   ./jsonrpc_types
 
@@ -41,12 +42,12 @@ proc toStoreResponse*(historyResponse: HistoryResponse): StoreResponse =
 
 proc toWakuMessage*(relayMessage: WakuRelayMessage, version: uint32): WakuMessage =
   const defaultCT = ContentTopic("/waku/2/default-content/proto")
-  var t: float64
+  var t: Timestamp
   if relayMessage.timestamp.isSome: 
     t = relayMessage.timestamp.get 
   else: 
     # incoming WakuRelayMessages with no timestamp will get 0 timestamp
-    t = float64(0)
+    t = Timestamp(0)
   WakuMessage(payload: relayMessage.payload,
               contentTopic: if relayMessage.contentTopic.isSome: relayMessage.contentTopic.get else: defaultCT,
               version: version,
@@ -60,12 +61,12 @@ proc toWakuMessage*(relayMessage: WakuRelayMessage, version: uint32, rng: ref Br
                         dst: pubKey,
                         symkey: symkey)
 
-  var t: float64
+  var t: Timestamp
   if relayMessage.timestamp.isSome: 
     t = relayMessage.timestamp.get 
   else: 
     # incoming WakuRelayMessages with no timestamp will get 0 timestamp
-    t = float64(0)
+    t = Timestamp(0)
 
   WakuMessage(payload: payload.encode(version, rng[]).get(),
               contentTopic: if relayMessage.contentTopic.isSome: relayMessage.contentTopic.get else: defaultCT,
