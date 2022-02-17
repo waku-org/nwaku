@@ -231,7 +231,6 @@ proc encode*(query: HistoryQuery): ProtoBuffer =
 
   return output
 
-
 proc encode*(response: HistoryResponse): ProtoBuffer =
   var output = initProtoBuffer()
 
@@ -253,128 +252,9 @@ proc encode*(rpc: HistoryRPC): ProtoBuffer =
 
   return output
 
-proc indexComparison* (x, y: Index): int =
-  ## compares x and y
-  ## returns 0 if they are equal 
-  ## returns -1 if x < y
-  ## returns 1 if x > y
-  let 
-    timecmp = system.cmp(x.senderTime, y.senderTime)
-    digestcm = system.cmp(x.digest.data, y.digest.data)
-  if timecmp != 0: # timestamp has a higher priority for comparison
-    return timecmp
-  return digestcm
+proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse {.gcsafe.} =
+  ## Query history to return a single page of messages matching the query
 
-proc indexedWakuMessageComparison*(x, y: IndexedWakuMessage): int =
-  ## compares x and y
-  ## returns 0 if they are equal 
-  ## returns -1 if x < y
-  ## returns 1 if x > y
-  return indexComparison(x.index, y.index)
-
-proc findIndex*(msgList: seq[IndexedWakuMessage], index: Index): Option[int] =
-  ## returns the position of an IndexedWakuMessage in msgList whose index value matches the given index
-  ## returns none if no match is found
-  for i, indexedWakuMessage in msgList:
-    if indexedWakuMessage.index == index:
-      return some(i)
-  return none(int)
-
-proc paginate*(msgList: seq[IndexedWakuMessage], pinfo: PagingInfo): (seq[IndexedWakuMessage], PagingInfo, HistoryResponseError) =
-  ## takes a message list, and performs paging based on pinfo
-  ## the message list must be sorted
-  ## returns the page i.e, a sequence of IndexedWakuMessage and the new paging info to be used for the next paging request
-  var
-    cursor = pinfo.cursor
-    pageSize = pinfo.pageSize
-    dir = pinfo.direction
-    output: (seq[IndexedWakuMessage], PagingInfo, HistoryResponseError) 
-
-  if msgList.len == 0: # no pagination is needed for an empty list
-    output = (msgList, PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
-    return output
-  
-  ## Adjust pageSize:
-  ## - pageSize should not exceed maximum
-  ## - pageSize being zero indicates "no pagination", but we still limit
-  ##   responses to no more than a page of MaxPageSize messages
-  if (pageSize == uint64(0)) or (pageSize > MaxPageSize):
-    pageSize = MaxPageSize
-
-  let total = uint64(msgList.len)
-  
-  # set the cursor of the initial paging request
-  var isInitialQuery = false
-  var cursorIndex: uint64
-  if cursor == Index(): # an empty cursor means it is an initial query
-    isInitialQuery = true
-    case dir
-      of PagingDirection.FORWARD:
-        cursorIndex = 0 
-        cursor = msgList[cursorIndex].index # set the cursor to the beginning of the list
-      of PagingDirection.BACKWARD:
-        cursorIndex =  total - 1
-        cursor = msgList[cursorIndex].index # set the cursor to the end of the list
-  else:
-    var cursorIndexOption = msgList.findIndex(cursor) 
-    if cursorIndexOption.isNone: # the cursor is not valid
-      output = (@[], PagingInfo(pageSize: 0, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.INVALID_CURSOR)
-      return output
-    cursorIndex = uint64(cursorIndexOption.get()) 
-    
-  case dir
-    of PagingDirection.FORWARD: # forward pagination
-      # set the index of the first message in the page
-      # exclude the message pointing by the cursor 
-      var startIndex = cursorIndex + 1
-      # for the initial query, include the message pointing by the cursor 
-      if isInitialQuery:  
-        startIndex = cursorIndex
-      
-      # adjust the pageSize based on the total remaining messages
-      pageSize = min(pageSize, total - startIndex)  
-
-      if (pageSize == 0):
-        output = (@[], PagingInfo(pageSize: pageSize, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
-        return output
-      
-      # set the index of the last message in the page
-      var endIndex = startIndex + pageSize - 1 
-
-      # retrieve the messages
-      var retMessages: seq[IndexedWakuMessage]
-      for i in startIndex..endIndex:
-        retMessages.add(msgList[i])
-      output = (retMessages, PagingInfo(pageSize : pageSize, cursor : msgList[endIndex].index, direction : pinfo.direction), HistoryResponseError.NONE)
-      return output
-
-    of PagingDirection.BACKWARD: 
-      # set the index of the last message in the page
-      # exclude the message pointing by the cursor 
-      var endIndex = cursorIndex - 1
-      # for the initial query, include the message pointing by the cursor
-      if isInitialQuery:  
-        endIndex = cursorIndex
-      
-      # adjust the pageSize based on the total remaining messages
-      pageSize = min(pageSize, endIndex + 1) 
-
-      if (pageSize == 0):
-        output =  (@[], PagingInfo(pageSize: pageSize, cursor:pinfo.cursor, direction: pinfo.direction), HistoryResponseError.NONE)
-        return output
-
-      # set the index of the first message in the page
-      var startIndex = endIndex - pageSize + 1
-
-      # retrieve the messages
-      var retMessages: seq[IndexedWakuMessage]
-      for i in startIndex..endIndex:
-        retMessages.add(msgList[i])
-      output = (retMessages, PagingInfo(pageSize : pageSize, cursor : msgList[startIndex].index, direction : pinfo.direction), HistoryResponseError.NONE)
-      return output
-
-
-proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
   ## Extract query criteria
   ## All query criteria are optional
   let
@@ -407,21 +287,10 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse =
     
     return true
 
-  ## Filter history using predicate and sort on indexedWakuMessageComparison 
-  ## TODO: since MaxPageSize is likely much smaller than w.messages.len,
-  ## we could optimise here by only filtering a portion of w.messages,
-  ## and repeat until we have populated a full page.
-  ## TODO: we can gain a lot by rather sorting on insert. Perhaps use a nim-stew
-  ## sorted set?
-  let filteredMsgs = w.messages.filterIt(it.matchesQuery)
-                               .sorted(indexedWakuMessageComparison)
-  
-  ## Paginate the filtered messages
-  let (indexedWakuMsgList, updatedPagingInfo, error) = paginate(filteredMsgs, query.pagingInfo)
-
-  ## Extract and return response
   let
-    wakuMsgList = indexedWakuMsgList.mapIt(it.msg)
+    # Read a page of history matching the query
+    (wakuMsgList, updatedPagingInfo, error) = w.messages.getPage(matchesQuery, query.pagingInfo)
+    # Build response
     historyRes = HistoryResponse(messages: wakuMsgList, pagingInfo: updatedPagingInfo, error: error)
   
   return historyRes
@@ -461,14 +330,14 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
 
   ws.handler = handler
   ws.codec = WakuStoreCodec
-  ws.messages = initQueue(capacity)
+  ws.messages = StoreQueueRef.new(capacity)
 
   if ws.store.isNil:
     return
 
   proc onData(receiverTime: float64, msg: WakuMessage, pubsubTopic:  string) =
     # TODO index should not be recalculated
-    ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex(receiverTime), pubsubTopic: pubsubTopic))
+    discard ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex(receiverTime), pubsubTopic: pubsubTopic))
 
   info "attempting to load messages from persistent storage"
 
@@ -505,8 +374,14 @@ proc handleMessage*(w: WakuStore, topic: string, msg: WakuMessage) {.async.} =
   trace "handle message in WakuStore", topic=topic, msg=msg
 
   let index = msg.computeIndex()
-  w.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: topic))
+  let addRes = w.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: topic))
+  
+  if addRes.isErr:
+    trace "Attempt to add message with duplicate index to store", msg=msg, index=index
+    waku_store_errors.inc(labelValues = ["duplicate"])
+  
   waku_store_messages.set(w.messages.len.int64, labelValues = ["stored"])
+  
   if w.store.isNil:
     return
 
@@ -637,20 +512,6 @@ proc queryLoop(w: WakuStore, query: HistoryQuery, candidateList: seq[RemotePeerI
     debug "failed to resolve the query"
     return err("failed to resolve the query")
 
-proc findLastSeen*(list: seq[IndexedWakuMessage]): float = 
-  var lastSeenTime = float64(0)
-  for iwmsg in list.items : 
-    if iwmsg.msg.timestamp>lastSeenTime: 
-      lastSeenTime = iwmsg.msg.timestamp 
-  return lastSeenTime
-
-proc isDuplicate(message: WakuMessage, list: seq[WakuMessage]): bool =
-  ## return true if a duplicate message is found, otherwise false
-  # it is defined as a separate proc to be able to adjust comparison criteria 
-  # e.g., to exclude timestamp or include pubsub topic
-  if message in list: return true
-  return false
-
 proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[RemotePeerInfo]), pageSize: uint64 = DefaultPageSize): Future[QueryResult] {.async, gcsafe.} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku store node has been online 
   ## messages are stored in the store node's messages field and in the message db
@@ -664,9 +525,13 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
   ## the resume proc returns the number of retrieved messages if no error occurs, otherwise returns the error string
   
   var currentTime = epochTime()
-  var lastSeenTime: float = findLastSeen(ws.messages.allItems())
   debug "resume", currentEpochTime=currentTime
-  
+
+  let lastSeenItem = ws.messages.last()
+
+  var lastSeenTime = if lastSeenItem.isOk(): lastSeenItem.get().msg.timestamp
+                     else: float64(0)
+                     
   # adjust the time window with an offset of 20 seconds
   let offset: float64 = 200000
   currentTime = currentTime + offset
@@ -677,22 +542,21 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
     pinfo = PagingInfo(direction:PagingDirection.FORWARD, pageSize: pageSize)
     rpc = HistoryQuery(pubsubTopic: DefaultTopic, startTime: lastSeenTime, endTime: currentTime, pagingInfo: pinfo)
 
-
   var dismissed: uint = 0
   var added: uint = 0
   proc save(msgList: seq[WakuMessage]) =
     debug "save proc is called"
     # exclude index from the comparison criteria
-    let currentMsgSummary = ws.messages.mapIt(it.msg)
+
     for msg in msgList:
+      let index = msg.computeIndex()
       # check for duplicate messages
       # TODO Should take pubsub topic into account if we are going to support topics rather than the DefaultTopic
-      if isDuplicate(msg,currentMsgSummary): 
+      if ws.messages.contains(index):
         dismissed = dismissed + 1
         continue
 
       # store the new message 
-      let index = msg.computeIndex()
       let indexedWakuMsg = IndexedWakuMessage(msg: msg, index: index, pubsubTopic: DefaultTopic)
       
       # store in db if exists
@@ -702,8 +566,8 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
           trace "failed to store messages", err = res.error
           waku_store_errors.inc(labelValues = ["store_failure"])
           continue
-        
-      ws.messages.add(indexedWakuMsg)
+      
+      discard ws.messages.add(indexedWakuMsg)
       added = added + 1
     
     waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])

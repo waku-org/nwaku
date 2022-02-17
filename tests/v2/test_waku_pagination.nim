@@ -1,18 +1,27 @@
 {.used.}
 import
-  std/[algorithm, options],
+  std/[algorithm, options, sequtils],
   testutils/unittests, nimcrypto/sha2,
   libp2p/protobuf/minprotobuf,
   ../../waku/v2/protocol/waku_store/waku_store,
   ../test_helpers
 
 
-proc createSampleList(s: int): seq[IndexedWakuMessage] =
-  ## takes s as input and outputs a sequence with s amount of IndexedWakuMessage 
+proc createSampleStoreQueue(s: int): StoreQueueRef =
+  ## takes s as input and outputs a StoreQueue with s amount of IndexedWakuMessage 
+  
+  let testStoreQueue = StoreQueueRef.new(s)
+  
   var data {.noinit.}: array[32, byte]
   for x in data.mitems: x = 1
+
   for i in 0..<s:
-    result.add(IndexedWakuMessage(msg: WakuMessage(payload: @[byte i]), index: Index(receiverTime: float64(i), senderTime: float64(i), digest: MDigest[256](data: data)) ))
+    discard testStoreQueue.add(IndexedWakuMessage(msg: WakuMessage(payload: @[byte i]),
+                                                  index: Index(receiverTime: float64(i),
+                                                               senderTime: float64(i),
+                                                               digest: MDigest[256](data: data)) ))
+  
+  return testStoreQueue
 
 procSuite "pagination":
   test "Index computation test":
@@ -36,90 +45,48 @@ procSuite "pagination":
       # the digests of two identical WakuMessages must be the same
       index1.digest == index2.digest
 
-  test "Index comparison, IndexedWakuMessage comparison, and Sorting tests":
-    var data1 {.noinit.}: array[32, byte]
-    for x in data1.mitems: x = 1
-    var data2 {.noinit.}: array[32, byte]
-    for x in data2.mitems: x = 2
-    var data3 {.noinit.}: array[32, byte]
-    for x in data3.mitems: x = 3
-      
-    let
-      index1 = Index(receiverTime: 2, senderTime: 1, digest: MDigest[256](data: data1))
-      index2 = Index(receiverTime: 2, senderTime: 1, digest: MDigest[256](data: data2))
-      index3 = Index(receiverTime: 1, senderTime: 2, digest: MDigest[256](data: data3))
-      iwm1 = IndexedWakuMessage(index: index1)
-      iwm2 = IndexedWakuMessage(index: index2)
-      iwm3 = IndexedWakuMessage(index: index3)
-    
-    check:
-      indexComparison(index1, index1) == 0
-      indexComparison(index1, index2) == -1
-      indexComparison(index2, index1) == 1
-      indexComparison(index1, index3) == -1
-      indexComparison(index3, index1) == 1
-
-    check:
-      indexedWakuMessageComparison(iwm1, iwm1) == 0
-      indexedWakuMessageComparison(iwm1, iwm2) == -1
-      indexedWakuMessageComparison(iwm2, iwm1) == 1
-      indexedWakuMessageComparison(iwm1, iwm3) == -1
-      indexedWakuMessageComparison(iwm3, iwm1) == 1
-    
-    var sortingList = @[iwm3, iwm1, iwm2]
-    sortingList.sort(indexedWakuMessageComparison)
-    check: 
-      sortingList[0] == iwm1
-      sortingList[1] == iwm2
-      sortingList[2] == iwm3
-      
-  
-  test "Find Index test": 
-    let msgList = createSampleList(10)
-    check:
-      msgList.findIndex(msgList[3].index).get() == 3
-      msgList.findIndex(Index()).isNone == true
-
   test "Forward pagination test":
-    var 
-      msgList = createSampleList(10)
-      pagingInfo = PagingInfo(pageSize: 2, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
+    var
+      stQ = createSampleStoreQueue(10)
+      indexList = toSeq(stQ.fwdIterator()).mapIt(it[0]) # Seq copy of the store queue indices for verification
+      msgList = toSeq(stQ.fwdIterator()).mapIt(it[1].msg) # Seq copy of the store queue messages for verification
+      pagingInfo = PagingInfo(pageSize: 2, cursor: indexList[3], direction: PagingDirection.FORWARD)
 
     # test for a normal pagination
-    var (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
+    var (data, newPagingInfo, error) = getPage(stQ, pagingInfo)
     check:
       data.len == 2
       data == msgList[4..5]
-      newPagingInfo.cursor == msgList[5].index
+      newPagingInfo.cursor == indexList[5]
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == pagingInfo.pageSize
       error == HistoryResponseError.NONE
    
    # test for an initial pagination request with an empty cursor
     pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD)
-    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
+    (data, newPagingInfo, error) = getPage(stQ, pagingInfo)
     check:
       data.len == 2
       data == msgList[0..1]
-      newPagingInfo.cursor == msgList[1].index
+      newPagingInfo.cursor == indexList[1]
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 2
       error == HistoryResponseError.NONE
     
     # test for an initial pagination request with an empty cursor to fetch the entire history
     pagingInfo = PagingInfo(pageSize: 13, direction: PagingDirection.FORWARD)
-    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
+    (data, newPagingInfo, error) = getPage(stQ, pagingInfo)
     check:
       data.len == 10
       data == msgList[0..9]
-      newPagingInfo.cursor == msgList[9].index
+      newPagingInfo.cursor == indexList[9]
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 10
       error == HistoryResponseError.NONE
 
     # test for an empty msgList
     pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD)
-    (data, newPagingInfo, error) = paginate(@[], pagingInfo)
+    (data, newPagingInfo, error) = getPage(createSampleStoreQueue(0), pagingInfo)
     check:
       data.len == 0
       newPagingInfo.pageSize == 0
@@ -128,19 +95,19 @@ procSuite "pagination":
       error == HistoryResponseError.NONE
 
     # test for a page size larger than the remaining messages
-    pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
-    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
+    pagingInfo = PagingInfo(pageSize: 10, cursor: indexList[3], direction: PagingDirection.FORWARD)
+    (data, newPagingInfo, error) = getPage(stQ, pagingInfo)
     check:
       data.len == 6
       data == msgList[4..9]
-      newPagingInfo.cursor == msgList[9].index
+      newPagingInfo.cursor == indexList[9]
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 6
       error == HistoryResponseError.NONE
 
     # test for a page size larger than the maximum allowed page size
-    pagingInfo = PagingInfo(pageSize: MaxPageSize+1, cursor: msgList[3].index, direction: PagingDirection.FORWARD)
-    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
+    pagingInfo = PagingInfo(pageSize: MaxPageSize+1, cursor: indexList[3], direction: PagingDirection.FORWARD)
+    (data, newPagingInfo, error) = getPage(stQ, pagingInfo)
     check:
       uint64(data.len) <= MaxPageSize
       newPagingInfo.direction == pagingInfo.direction
@@ -148,18 +115,18 @@ procSuite "pagination":
       error == HistoryResponseError.NONE
   
     # test for a cursor pointing to the end of the message list
-    pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[9].index, direction: PagingDirection.FORWARD)
-    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
+    pagingInfo = PagingInfo(pageSize: 10, cursor: indexList[9], direction: PagingDirection.FORWARD)
+    (data, newPagingInfo, error) = getPage(stQ, pagingInfo)
     check:
       data.len == 0
-      newPagingInfo.cursor == msgList[9].index
+      newPagingInfo.cursor == indexList[9]
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 0
       error == HistoryResponseError.NONE
     
     # test for an invalid cursor 
     pagingInfo = PagingInfo(pageSize: 10, cursor: computeIndex(WakuMessage(payload: @[byte 10])), direction: PagingDirection.FORWARD)
-    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
+    (data, newPagingInfo, error) = getPage(stQ, pagingInfo)
     check:
       data.len == 0
       newPagingInfo.cursor == pagingInfo.cursor
@@ -168,44 +135,46 @@ procSuite "pagination":
       error == HistoryResponseError.INVALID_CURSOR
 
     # test initial paging query over a message list with one message 
-    var singleItemMsgList = msgList[0..0]
+    var singleItemMsgList = createSampleStoreQueue(1)
     pagingInfo = PagingInfo(pageSize: 10, direction: PagingDirection.FORWARD)
-    (data, newPagingInfo, error) = paginate(singleItemMsgList, pagingInfo)
+    (data, newPagingInfo, error) = getPage(singleItemMsgList, pagingInfo)
     check:
       data.len == 1
-      newPagingInfo.cursor == msgList[0].index
+      newPagingInfo.cursor == indexList[0]
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 1
       error == HistoryResponseError.NONE
 
     # test pagination over a message list with one message
-    singleItemMsgList = msgList[0..0]
-    pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[0].index, direction: PagingDirection.FORWARD)
-    (data, newPagingInfo, error) = paginate(singleItemMsgList, pagingInfo)
+    singleItemMsgList = createSampleStoreQueue(1)
+    pagingInfo = PagingInfo(pageSize: 10, cursor: indexList[0], direction: PagingDirection.FORWARD)
+    (data, newPagingInfo, error) = getPage(singleItemMsgList, pagingInfo)
     check:
       data.len == 0
-      newPagingInfo.cursor == msgList[0].index
+      newPagingInfo.cursor == indexList[0]
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 0
       error == HistoryResponseError.NONE
 
   test "Backward pagination test":
     var
-      msgList = createSampleList(10)
-      pagingInfo = PagingInfo(pageSize: 2, cursor: msgList[3].index, direction: PagingDirection.BACKWARD)
+      stQ = createSampleStoreQueue(10)
+      indexList = toSeq(stQ.fwdIterator()).mapIt(it[0]) # Seq copy of the store queue indices for verification
+      msgList = toSeq(stQ.fwdIterator()).mapIt(it[1].msg) # Seq copy of the store queue messages for verification
+      pagingInfo = PagingInfo(pageSize: 2, cursor: indexList[3], direction: PagingDirection.BACKWARD)
 
     # test for a normal pagination
-    var (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
+    var (data, newPagingInfo, error) = getPage(stQ, pagingInfo)
     check:
       data == msgList[1..2]
-      newPagingInfo.cursor == msgList[1].index
+      newPagingInfo.cursor == indexList[1]
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == pagingInfo.pageSize
       error == HistoryResponseError.NONE
 
     # test for an empty msgList
     pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD)
-    (data, newPagingInfo, error) = paginate(@[], pagingInfo)
+    (data, newPagingInfo, error) = getPage(createSampleStoreQueue(0), pagingInfo)
     check:
       data.len == 0
       newPagingInfo.pageSize == 0
@@ -215,40 +184,39 @@ procSuite "pagination":
 
     # test for an initial pagination request with an empty cursor
     pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD)
-    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
+    (data, newPagingInfo, error) = getPage(stQ, pagingInfo)
     check:
       data.len == 2
       data == msgList[8..9]
-      newPagingInfo.cursor == msgList[8].index
+      newPagingInfo.cursor == indexList[8]
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 2
       error == HistoryResponseError.NONE
     
     # test for an initial pagination request with an empty cursor to fetch the entire history
     pagingInfo = PagingInfo(pageSize: 13, direction: PagingDirection.BACKWARD)
-    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
+    (data, newPagingInfo, error) = getPage(stQ, pagingInfo)
     check:
       data.len == 10
       data == msgList[0..9]
-      newPagingInfo.cursor == msgList[0].index
+      newPagingInfo.cursor == indexList[0]
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 10
       error == HistoryResponseError.NONE
 
-
     # test for a page size larger than the remaining messages
-    pagingInfo = PagingInfo(pageSize: 5, cursor: msgList[3].index, direction: PagingDirection.BACKWARD)
-    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
+    pagingInfo = PagingInfo(pageSize: 5, cursor: indexList[3], direction: PagingDirection.BACKWARD)
+    (data, newPagingInfo, error) = getPage(stQ, pagingInfo)
     check:
       data == msgList[0..2]
-      newPagingInfo.cursor == msgList[0].index
+      newPagingInfo.cursor == indexList[0]
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 3
       error == HistoryResponseError.NONE
     
     # test for a page size larger than the Maximum allowed page size
-    pagingInfo = PagingInfo(pageSize: MaxPageSize+1, cursor: msgList[3].index, direction: PagingDirection.BACKWARD)
-    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
+    pagingInfo = PagingInfo(pageSize: MaxPageSize+1, cursor: indexList[3], direction: PagingDirection.BACKWARD)
+    (data, newPagingInfo, error) = getPage(stQ, pagingInfo)
     check:
       uint64(data.len) <= MaxPageSize
       newPagingInfo.direction == pagingInfo.direction
@@ -256,19 +224,19 @@ procSuite "pagination":
       error == HistoryResponseError.NONE
 
     # test for a cursor pointing to the begining of the message list
-    pagingInfo = PagingInfo(pageSize: 5, cursor: msgList[0].index, direction: PagingDirection.BACKWARD)
-    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
+    pagingInfo = PagingInfo(pageSize: 5, cursor: indexList[0], direction: PagingDirection.BACKWARD)
+    (data, newPagingInfo, error) = getPage(stQ, pagingInfo)
 
     check:
       data.len == 0
-      newPagingInfo.cursor == msgList[0].index
+      newPagingInfo.cursor == indexList[0]
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 0
       error == HistoryResponseError.NONE
 
     # test for an invalid cursor 
     pagingInfo = PagingInfo(pageSize: 5, cursor: computeIndex(WakuMessage(payload: @[byte 10])), direction: PagingDirection.BACKWARD)
-    (data, newPagingInfo, error) = paginate(msgList, pagingInfo)
+    (data, newPagingInfo, error) = getPage(stQ, pagingInfo)
     check:
       data.len == 0
       newPagingInfo.cursor == pagingInfo.cursor
@@ -277,23 +245,23 @@ procSuite "pagination":
       error == HistoryResponseError.INVALID_CURSOR
     
     # test initial paging query over a message list with one message
-    var singleItemMsgList = msgList[0..0]
+    var singleItemMsgList = createSampleStoreQueue(1)
     pagingInfo = PagingInfo(pageSize: 10, direction: PagingDirection.BACKWARD)
-    (data, newPagingInfo, error) = paginate(singleItemMsgList, pagingInfo)
+    (data, newPagingInfo, error) = getPage(singleItemMsgList, pagingInfo)
     check:
       data.len == 1
-      newPagingInfo.cursor == msgList[0].index
+      newPagingInfo.cursor == indexList[0]
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 1
       error == HistoryResponseError.NONE
     
     # test paging query over a message list with one message
-    singleItemMsgList = msgList[0..0]
-    pagingInfo = PagingInfo(pageSize: 10, cursor: msgList[0].index, direction: PagingDirection.BACKWARD)
-    (data, newPagingInfo, error) = paginate(singleItemMsgList, pagingInfo)
+    singleItemMsgList = createSampleStoreQueue(1)
+    pagingInfo = PagingInfo(pageSize: 10, cursor: indexList[0], direction: PagingDirection.BACKWARD)
+    (data, newPagingInfo, error) = getPage(singleItemMsgList, pagingInfo)
     check:
       data.len == 0
-      newPagingInfo.cursor == msgList[0].index
+      newPagingInfo.cursor == indexList[0]
       newPagingInfo.direction == pagingInfo.direction
       newPagingInfo.pageSize == 0
       error == HistoryResponseError.NONE
@@ -319,6 +287,7 @@ suite "time-window history query":
       timestampDecoded = msgDecoded.value.timestamp
     check:
       timestampDecoded == timestamp
+
   test "Encode/Decode waku message without timestamp":
     # test the encoding and decoding of a WakuMessage with an empty timestamp field  
 
