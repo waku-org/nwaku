@@ -72,11 +72,10 @@ The numerical value `164495684` indicates the epoch of the message `Hi!`.
 You will see a different value than `164495684` on your screen. 
 If two messages sent by the same chat2 client happen to have the same RLN epoch value, then one of them will be detected as spam and won't be routed (by Alice in this test setting).
 At the time of this tutorial, the epoch duration is set to `10` seconds.
-Thus, if you send two messages less than `10` seconds apart, they are likely to get the same `RLN epoch` values.
+Thus, if you send two messages less than `10` seconds apart, they are likely to get the same `rln epoch` values.
 
 After sending a chat message, you may experience some delay before the next chat prompt appears. 
 The reason is that under the hood a zero-knowledge proof is being generated and attached to your message.
-Be patient!
 
 Once you are done with the test, make sure you close all the chat2 clients by typing `/exit` command.
 ```
