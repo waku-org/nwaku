@@ -15,6 +15,7 @@ The full list of changes is below.
 
 - A new type `Timestamp` for all timestamps is introduced (currently an alias for int64).
 - All timestamps now have nanosecond resolution.
+- `waku-store` version updated to `2.0.0-beta3`
 
 ### Fixes
 
