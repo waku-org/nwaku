@@ -1490,7 +1490,7 @@ procSuite "WakuNode":
       extIp = some(ValidIpAddress.init("127.0.0.1"))
       extPort = some(Port(60002))
       domainName = "example.com"
-      expectedDns4Addr = MultiAddress.init("/dns4" & domainName & "/tcp/" & $bindPort).get()
+      expectedDns4Addr = MultiAddress.init("/dns4/" & domainName & "/tcp/" & $bindPort).get()
       node = WakuNode.new(
         nodeKey,
         bindIp, bindPort,
