@@ -65,7 +65,7 @@ For a better illustration of spam protection, use `Bob` and `Carol` clients for 
 Once you type a chat line and hit enter, you will see a message that indicates the epoch at which the message is sent e.g.,
 ```
 >> Hi!
---RLN epoch: 164495684
+--rln epoch: 164495684
 <Feb 15, 12:27> Bob: Hi!
 ```
 The numerical value `164495684` indicates the epoch of the message `Hi!`.
@@ -100,16 +100,16 @@ Connecting to nodes
 Listening on
  /ip4/75.157.120.249/tcp/60002/p2p/16Uiu2HAmKdCdP89q6CwLc6PeFDJnVR1EmM7fTgtphHiacSNBnuAz
 >> message1
---RLN epoch: 164504929
+--rln epoch: 164504929
 <Feb 16, 14:08> Bob: message1
 >> message2
---RLN epoch: 164504930
+--rln epoch: 164504930
 <Feb 16, 14:08> Bob: message2
 >> message3
---RLN epoch: 164504930
+--rln epoch: 164504930
 <Feb 16, 14:08> Bob: message3
 >> message4
---RLN epoch: 164504973
+--rln epoch: 164504973
 <Feb 16, 14:15> Bob: message4
 >> /exit
 quitting...
