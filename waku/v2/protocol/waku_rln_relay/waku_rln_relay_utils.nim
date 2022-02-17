@@ -430,7 +430,6 @@ proc compare*(e1, e2: Epoch): int64 =
     epoch2 = fromEpoch(e2)
   return int64(epoch1) - int64(epoch2)
 
-
 proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage, timeOption: Option[float64] = none(float64)): MessageValidationResult =
   ## validate the supplied `msg` based on the waku-rln-relay routing protocol i.e.,
   ## the `msg`'s epoch is within MAX_EPOCH_GAP of the current epoch

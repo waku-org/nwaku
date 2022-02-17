@@ -12,6 +12,7 @@ import
   # internal imports
   ../../node/storage/message/message_store,
   ../../utils/pagination,
+  ../../utils/time,
   ../../node/peer_manager/peer_manager,
   ../waku_swap/waku_swap_types,
   ../waku_message
@@ -67,8 +68,8 @@ type
     contentFilters*: seq[HistoryContentFilter]
     pubsubTopic*: string
     pagingInfo*: PagingInfo # used for pagination
-    startTime*: float64 # used for time-window query
-    endTime*: float64 # used for time-window query
+    startTime*: Timestamp # used for time-window query
+    endTime*: Timestamp # used for time-window query
 
   HistoryResponseError* {.pure.} = enum
     ## HistoryResponseError contains error message to inform  the querying node about the state of its request
