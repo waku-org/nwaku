@@ -18,7 +18,7 @@ First, build chat2 with the RLN flag set to true.
 Make chat2 RLN=true
 ```
 
-## Run 3 chat2 clients
+## Create a local network of chat2 clients
 Next, set up the following three chat2 clients in order.
 As `Alice` is going to be the only connection point between `Bob` and `Carol`, you need to set it up first before `Bob` and `Carol`.
 
