@@ -92,7 +92,7 @@ procSuite "Sorted store queue":
       # First page
       pInfo.pageSize == 3
       pInfo.direction == PagingDirection.FORWARD
-      pInfo.cursor.senderTime == 3.0
+      pInfo.cursor.senderTime == Timestamp(3)
       err == HistoryResponseError.NONE
       res.mapIt(it.timestamp.int) == @[1,2,3]
 
@@ -106,7 +106,7 @@ procSuite "Sorted store queue":
       pInfo.direction == PagingDirection.FORWARD
       pInfo.cursor.senderTime == Timestamp(5)
       err == HistoryResponseError.NONE
-      res.mapIt(it.timestamp.int64) == @[4,5]
+      res.mapIt(it.timestamp.int) == @[4,5]
     
     (res, pInfo, err) = testStoreQueue.getPage(predicate,
                                                pInfo)
@@ -132,7 +132,7 @@ procSuite "Sorted store queue":
       pInfo.direction == PagingDirection.BACKWARD
       pInfo.cursor.senderTime == Timestamp(3)
       err == HistoryResponseError.NONE
-      res.mapIt(it.timestamp.int64) == @[3,4,5]
+      res.mapIt(it.timestamp.int) == @[3,4,5]
 
 
     (res, pInfo, err) = testStoreQueue.getPage(predicate,
@@ -144,7 +144,7 @@ procSuite "Sorted store queue":
       pInfo.direction == PagingDirection.BACKWARD
       pInfo.cursor.senderTime == Timestamp(1)
       err == HistoryResponseError.NONE
-      res.mapIt(it.timestamp.int64) == @[1,2]
+      res.mapIt(it.timestamp.int) == @[1,2]
     
     (res, pInfo, err) = testStoreQueue.getPage(predicate,
                                                pInfo)
@@ -173,7 +173,7 @@ procSuite "Sorted store queue":
       pInfo.direction == PagingDirection.FORWARD
       pInfo.cursor.senderTime == Timestamp(4)
       err == HistoryResponseError.NONE
-      res.mapIt(it.timestamp.int64) == @[2,4]
+      res.mapIt(it.timestamp.int) == @[2,4]
     
     (res, pInfo, err) = testStoreQueue.getPage(onlyEvenTimes,
                                                pInfo)
@@ -198,7 +198,7 @@ procSuite "Sorted store queue":
       pInfo.direction == PagingDirection.BACKWARD
       pInfo.cursor.senderTime == Timestamp(3)
       err == HistoryResponseError.NONE
-      res.mapIt(it.timestamp.int64) == @[3,5]
+      res.mapIt(it.timestamp.int) == @[3,5]
     
     (res, pInfo, err) = testStoreQueue.getPage(onlyOddTimes,
                                                pInfo)
@@ -209,7 +209,7 @@ procSuite "Sorted store queue":
       pInfo.direction == PagingDirection.BACKWARD
       pInfo.cursor.senderTime == Timestamp(1)
       err == HistoryResponseError.NONE
-      res.mapIt(it.timestamp.int64) == @[1]
+      res.mapIt(it.timestamp.int) == @[1]
 
     (res, pInfo, err) = testStoreQueue.getPage(onlyOddTimes,
                                                pInfo)

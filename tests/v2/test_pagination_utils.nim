@@ -5,7 +5,7 @@ import
   chronos,
   stew/byteutils,
   libp2p/crypto/crypto,
-  ../../waku/v2/utils/pagination
+  ../../waku/v2/utils/pagination,
   ../../waku/v2/utils/time
 
 procSuite "Pagination utils":
