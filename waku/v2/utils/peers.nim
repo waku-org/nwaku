@@ -69,13 +69,13 @@ proc parseRemotePeerInfo*(address: string): RemotePeerInfo {.raises: [Defect, Va
   let multiAddr = MultiAddress.init(address).tryGet()
 
   var
-
-    ipPart, tcpPart, p2pPart, wsPart, wssPart: MultiAddress
+    nwPart, tcpPart, p2pPart, wsPart, wssPart: MultiAddress
 
   for addrPart in multiAddr.items():
     case addrPart[].protoName()[]
-    of "ip4", "ip6":
-      ipPart = addrPart.tryGet()
+    # All protocols listed here: https://github.com/multiformats/multiaddr/blob/b746a7d014e825221cc3aea6e57a92d78419990f/protocols.csv
+    of "ip4", "ip6", "dns", "dnsaddr", "dns4", "dns6":
+      nwPart = addrPart.tryGet()
     of "tcp":
       tcpPart = addrPart.tryGet()
     of "p2p":
@@ -89,7 +89,7 @@ proc parseRemotePeerInfo*(address: string): RemotePeerInfo {.raises: [Defect, Va
   let
     peerIdStr = p2pPart.toString()[].split("/")[^1] 
 
-    wireAddr = ipPart & tcpPart & wsPart & wssPart
+    wireAddr = nwPart & tcpPart & wsPart & wssPart
   if (not wireAddr.validWireAddr()):
     raise newException(ValueError, "Invalid node multi-address")
 

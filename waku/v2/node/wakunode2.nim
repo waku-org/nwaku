@@ -10,7 +10,7 @@ import
   libp2p/crypto/crypto,
   libp2p/protocols/ping,
   libp2p/protocols/pubsub/[gossipsub, rpc/messages],
-  libp2p/nameresolving/dnsresolver,
+  libp2p/nameresolving/nameresolver,
   libp2p/[builders, multihash],
   libp2p/transports/[transport, tcptransport, wstransport],
   ../protocol/[waku_relay, waku_message],
@@ -159,7 +159,8 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     wssEnabled: bool = false,
     secureKey: string = "",
     secureCert: string = "",
-    wakuFlags = none(WakuEnrBitfield)
+    wakuFlags = none(WakuEnrBitfield),
+    nameResolver: NameResolver = nil,
     ): T 
     {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
   ## Creates a Waku Node.
@@ -218,7 +219,8 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     maxConnections = maxConnections,
     wssEnabled = wssEnabled,
     secureKeyPath = secureKey,
-    secureCertPath = secureCert)
+    secureCertPath = secureCert,
+    nameResolver = nameResolver)
   
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
@@ -468,30 +470,34 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: boo
   node.switch.mount(node.wakuStore, protocolMatcher(WakuStoreCodec))
     
 when defined(rln):
-  proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string, contentTopic: ContentTopic) =
+  proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string, contentTopic: ContentTopic, spamHandler: Option[SpamHandler] = none(SpamHandler)) =
     ## this procedure is a thin wrapper for the pubsub addValidator method
     ## it sets a validator for the waku messages published on the supplied pubsubTopic and contentTopic 
     ## if contentTopic is empty, then validation takes place for All the messages published on the given pubsubTopic
     ## the message validation logic is according to https://rfc.vac.dev/spec/17/
     proc validator(topic: string, message: messages.Message): Future[pubsub.ValidationResult] {.async.} =
+      debug "rln-relay topic validator is called"
       let msg = WakuMessage.init(message.data) 
       if msg.isOk():
         let wakumessage = msg.value()
         # check the contentTopic
         if (wakumessage.contentTopic != "") and (contentTopic != "") and (wakumessage.contentTopic != contentTopic):
-          trace "content topic did not match:", contentTopic=wakumessage.contentTopic, payload=string.fromBytes(wakumessage.payload)
+          debug "content topic did not match:", contentTopic=wakumessage.contentTopic, payload=string.fromBytes(wakumessage.payload)
           return pubsub.ValidationResult.Accept
         # validate the message
         let validationRes = node.wakuRlnRelay.validateMessage(wakumessage)
         case validationRes:
           of Valid:
-            trace "message validity is verified, relaying:", wakumessage=wakumessage, payload=string.fromBytes(wakumessage.payload)
+            debug "message validity is verified, relaying:", wakumessage=wakumessage, payload=string.fromBytes(wakumessage.payload)
             return pubsub.ValidationResult.Accept
           of Invalid:
-            trace "message validity could not be verified, discarding:", wakumessage=wakumessage, payload=string.fromBytes(wakumessage.payload)
+            debug "message validity could not be verified, discarding:", wakumessage=wakumessage, payload=string.fromBytes(wakumessage.payload)
             return pubsub.ValidationResult.Reject
           of Spam:
-            trace "A spam message is found! yay! discarding:", wakumessage=wakumessage, payload=string.fromBytes(wakumessage.payload)
+            debug "A spam message is found! yay! discarding:", wakumessage=wakumessage, payload=string.fromBytes(wakumessage.payload)
+            if spamHandler.isSome:
+               let handler = spamHandler.get
+               handler(wakumessage)
             return pubsub.ValidationResult.Reject          
     # set a validator for the supplied pubsubTopic 
     let pb  = PubSub(node.wakuRelay)
@@ -506,7 +512,8 @@ when defined(rln):
                       memIndexOpt: Option[MembershipIndex] = none(MembershipIndex),
                       onchainMode: bool = true,
                       pubsubTopic: string,
-                      contentTopic: ContentTopic) {.async.} =
+                      contentTopic: ContentTopic,
+                      spamHandler: Option[SpamHandler] = none(SpamHandler)) {.async.} =
     # TODO return a bool value to indicate the success of the call
     # check whether inputs are provided
 
@@ -599,8 +606,8 @@ when defined(rln):
     # adds a topic validator for the supplied pubsub topic at the relay protocol
     # messages published on this pubsub topic will be relayed upon a successful validation, otherwise they will be dropped
     # the topic validator checks for the correct non-spamming proof of the message
-    addRLNRelayValidator(node, pubsubTopic, contentTopic)
-    debug "rln relay topic validator is mounted successfully", pubsubTopic=pubsubTopic
+    addRLNRelayValidator(node, pubsubTopic, contentTopic, spamHandler)
+    debug "rln relay topic validator is mounted successfully", pubsubTopic=pubsubTopic, contentTopic=contentTopic
 
     node.wakuRlnRelay = rlnPeer
 
@@ -926,6 +933,7 @@ when isMainModule:
   import
     confutils,
     system/ansi_c,
+    libp2p/nameresolving/dnsresolver,
     ../../common/utils/nat,
     ./config,
     ./waku_setup,
@@ -997,7 +1005,15 @@ when isMainModule:
     ## file. Optionally include persistent peer storage.
     ## No protocols are mounted yet.
 
-
+    var dnsResolver: DnsResolver
+    if conf.dnsAddrs:
+      # Support for DNS multiaddrs
+      var nameServers: seq[TransportAddress]
+      for ip in conf.dnsAddrsNameServers:
+        nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
+      
+      dnsResolver = DnsResolver.new(nameServers)
+    
     let 
       ## `udpPort` is only supplied to satisfy underlying APIs but is not
       ## actually a supported transport for libp2p traffic.
@@ -1020,17 +1036,18 @@ when isMainModule:
                                 conf.relay)
 
       node = WakuNode.new(conf.nodekey,
-                        conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
-                        extIp, extPort,
-                        pStorage,
-                        conf.maxConnections.int,
-                        Port(uint16(conf.websocketPort) + conf.portsShift),
-                        conf.websocketSupport,
-                        conf.websocketSecureSupport,
-                        conf.websocketSecureKeyPath,
-                        conf.websocketSecureCertPath,
-                        some(wakuFlags)
-                        )
+                          conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
+                          extIp, extPort,
+                          pStorage,
+                          conf.maxConnections.int,
+                          Port(uint16(conf.websocketPort) + conf.portsShift),
+                          conf.websocketSupport,
+                          conf.websocketSecureSupport,
+                          conf.websocketSecureKeyPath,
+                          conf.websocketSecureCertPath,
+                          some(wakuFlags),
+                          dnsResolver
+                          )
     
     if conf.discv5Discovery:
       let discv5UdpPort = Port(uint16(conf.discv5UdpPort) + conf.portsShift)

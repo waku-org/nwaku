@@ -9,6 +9,7 @@ The full list of changes is below.
 
 - The `waku-rln-relay` now supports spam-protection for a specific combination of `pubsubTopic` and `contentTopic` (available under the `rln` compiler flag).  
 - The `waku-rln-relay` protocol in integrated into `chat2` (available under the`rln` compiler flag)
+- Added support for resolving dns-based `multiaddrs`
 
 ### Changes
 

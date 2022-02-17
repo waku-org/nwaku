@@ -129,6 +129,32 @@ proc showChatPrompt(c: Chat) =
     except IOError:
       discard
 
+proc getChatLine(c: Chat, msg:WakuMessage): Result[string, string]=
+  when PayloadV1:
+      # Use Waku v1 payload encoding/encryption
+      let
+        keyInfo = KeyInfo(kind: Symmetric, symKey: c.symKey)
+        decodedPayload = decodePayload(decoded.get(), keyInfo)
+
+      if decodedPayload.isOK():
+        let
+          pb = Chat2Message.init(decodedPayload.get().payload)
+          chatLine = if pb.isOk: pb[].toString()
+                    else: string.fromBytes(decodedPayload.get().payload)
+        return ok(chatLine)
+      else:
+        debug "Invalid encoded WakuMessage payload",
+          error = decodedPayload.error
+        return err("Invalid encoded WakuMessage payload")
+  else:
+    # No payload encoding/encryption from Waku
+    let
+      pb = Chat2Message.init(msg.payload)
+      chatLine = if pb.isOk: pb[].toString()
+                else: string.fromBytes(msg.payload)
+    return ok(chatline)
+
+
 proc printReceivedMessage(c: Chat, msg: WakuMessage) =
   when PayloadV1:
       # Use Waku v1 payload encoding/encryption
@@ -225,6 +251,8 @@ proc publish(c: Chat, line: string) =
             debug "could not append rate limit proof to the message", success=success
           else:
             debug "rate limit proof is appended to the message", success=success
+            # TODO move it to log after doogfooding
+            echo "--rln epoch: ", fromEpoch(message.proof.epoch)
       if not c.node.wakuLightPush.isNil():
         # Attempt lightpush
         asyncSpawn c.node.lightpush(DefaultTopic, message, handler)
@@ -245,6 +273,7 @@ proc publish(c: Chat, line: string) =
           debug "could not append rate limit proof to the message", success=success
         else:
           debug "rate limit proof is appended to the message", success=success
+          echo "--rln epoch: ", fromEpoch(message.proof.epoch)
 
     if not c.node.wakuLightPush.isNil():
       # Attempt lightpush
@@ -372,7 +401,6 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
                   prompt: false,
                   contentTopic: conf.contentTopic,
                   symKey: generateSymKey(conf.contentTopic))
-
   if conf.staticnodes.len > 0:
     await connectToNodes(chat, conf.staticnodes)
   elif conf.dnsDiscovery and conf.dnsDiscoveryUrl != "":
@@ -495,16 +523,24 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
       if conf.rlnRelay:
         info "WakuRLNRelay is enabled"
 
+        proc spamHandler(wakuMessage: WakuMessage) {.gcsafe, closure.} =
+          debug "spam handler is called"
+          let chatLineResult = chat.getChatLine(wakuMessage)
+          if chatLineResult.isOk():
+            echo "A spam message is found and discarded : ", chatLineResult.value
+          else:
+            echo "A spam message is found and discarded"
+          
         # set up rln relay inputs
         let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(conf.rlnRelayMemIndex)
         if memIndexOpt.isNone:
           error "failed to mount WakuRLNRelay"
         else:
           # mount rlnrelay in offline mode (for now)
-          waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
+          waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = some(spamHandler))
 
-          trace "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
-          trace "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
+          debug "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
+          debug "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
 
           # check the correct construction of the tree by comparing the calculated root against the expected root
           # no error should happen as it is already captured in the unit tests
@@ -514,8 +550,8 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
             expectedRoot = STATIC_GROUP_MERKLE_ROOT
           if root != expectedRoot:
             error "root mismatch: something went wrong not in Merkle tree construction"
-          trace "the calculated root", root
-          trace "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
+          debug "the calculated root", root
+          debug "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
 
 
   await chat.readWriteLoop()

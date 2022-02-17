@@ -116,8 +116,8 @@ const
   # the root is created locally, using createMembershipList proc from waku_rln_relay_utils module, and the result is hardcoded in here 
   STATIC_GROUP_MERKLE_ROOT* = "a1877a553eff12e1b21632a0545a916a5c5b8060ad7cc6c69956741134397b2d"  
 
-const EPOCH_UNIT_SECONDS* = float64(2) 
-const MAX_CLOCK_GAP_SECONDS* = 20.0 # the maximum clock difference between peers
+const EPOCH_UNIT_SECONDS* = float64(10)  # the rln-relay epoch length in seconds
+const MAX_CLOCK_GAP_SECONDS* = 20.0 # the maximum clock difference between peers in seconds
 # maximum allowed gap between the epochs of messages' RateLimitProofs 
 const MAX_EPOCH_GAP* = int64(MAX_CLOCK_GAP_SECONDS/EPOCH_UNIT_SECONDS) 
 
