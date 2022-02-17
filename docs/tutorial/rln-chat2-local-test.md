@@ -66,7 +66,7 @@ Once you type a chat line and hit enter, you will see a message that indicates t
 ```
 >> Hi!
 --rln epoch: 164495684
-<Feb 15, 12:27> Bob: Hi!
+<Feb 16, 12:27> Bob: Hi!
 ```
 The numerical value `164495684` indicates the epoch of the message `Hi!`.
 You will see a different value than `164495684` on your screen. 
