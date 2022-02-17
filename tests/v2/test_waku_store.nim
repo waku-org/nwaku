@@ -791,14 +791,14 @@ procSuite "Waku Store":
     let store = WakuStore.init(PeerManager.new(newStandardSwitch()), crypto.newRng(), capacity = capacity)
 
     for i in 1..capacity:
-      await store.handleMessage(pubsubTopic, WakuMessage(payload: @[byte i], contentTopic: contentTopic, timestamp: i.float64))
+      await store.handleMessage(pubsubTopic, WakuMessage(payload: @[byte i], contentTopic: contentTopic, timestamp: Timestamp(i)))
       await sleepAsync(1.millis)  # Sleep a millisecond to ensure messages are stored chronologically
 
     check:
       store.messages.len == capacity # Store is at capacity
     
     # Test that capacity holds
-    await store.handleMessage(pubsubTopic, WakuMessage(payload: @[byte (capacity + 1)], contentTopic: contentTopic, timestamp: (capacity + 1).float64))
+    await store.handleMessage(pubsubTopic, WakuMessage(payload: @[byte (capacity + 1)], contentTopic: contentTopic, timestamp: Timestamp(capacity + 1)))
 
     check:
       store.messages.len == capacity # Store is still at capacity
