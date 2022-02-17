@@ -634,8 +634,6 @@ procSuite "Waku Store":
     for wakuMsg in msgList2:
       # the pubsub topic should be DefaultTopic
       await proto2.handleMessage(DefaultTopic, wakuMsg)
-
-
     
     asyncTest "handle temporal history query with a valid time window":
       var completionFut = newFuture[bool]()
@@ -685,22 +683,6 @@ procSuite "Waku Store":
 
       check:
         (await completionFut.withTimeout(5.seconds)) == true
-
-    test "find last seen message":
-      var
-        msgList = @[IndexedWakuMessage(msg: WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"))),
-          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 1],contentTopic: ContentTopic("1"), timestamp: float(1))),
-          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 2],contentTopic: ContentTopic("2"), timestamp: float(2))),
-          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 3],contentTopic: ContentTopic("1"), timestamp: float(3))),
-          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 4],contentTopic: ContentTopic("2"), timestamp: float(4))),
-          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 5],contentTopic: ContentTopic("1"), timestamp: float(9))),
-          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 6],contentTopic: ContentTopic("2"), timestamp: float(6))),
-          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 7],contentTopic: ContentTopic("1"), timestamp: float(7))),
-          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 8],contentTopic: ContentTopic("2"), timestamp: float(8))),
-          IndexedWakuMessage(msg: WakuMessage(payload: @[byte 9],contentTopic: ContentTopic("1"),timestamp: float(5)))]     
-
-      check:
-        findLastSeen(msgList) == float(9)
 
     asyncTest "resume message history":
       # starts a new node
@@ -808,15 +790,15 @@ procSuite "Waku Store":
     let store = WakuStore.init(PeerManager.new(newStandardSwitch()), crypto.newRng(), capacity = capacity)
 
     for i in 1..capacity:
-      await store.handleMessage(pubsubTopic, WakuMessage(payload: @[byte i], contentTopic: contentTopic))
+      await store.handleMessage(pubsubTopic, WakuMessage(payload: @[byte i], contentTopic: contentTopic, timestamp: i.float64))
       await sleepAsync(1.millis)  # Sleep a millisecond to ensure messages are stored chronologically
 
     check:
       store.messages.len == capacity # Store is at capacity
     
     # Test that capacity holds
-    await store.handleMessage(pubsubTopic, WakuMessage(payload: @[byte (capacity + 1)], contentTopic: contentTopic))
+    await store.handleMessage(pubsubTopic, WakuMessage(payload: @[byte (capacity + 1)], contentTopic: contentTopic, timestamp: (capacity + 1).float64))
 
     check:
       store.messages.len == capacity # Store is still at capacity
-      store.messages.filterIt(it.msg.payload == @[byte (capacity + 1)]).len == 1 # Simple check to verify last added item is stored
+      store.messages.last().get().msg.payload == @[byte (capacity + 1)] # Simple check to verify last added item is stored

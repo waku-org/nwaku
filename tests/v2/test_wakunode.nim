@@ -1149,7 +1149,7 @@ procSuite "WakuNode":
     let index1 = computeIndex(msg1)
     let output1 = store.put(index1, msg1, DefaultTopic)
     check output1.isOk
-    node1.wakuStore.messages.add(IndexedWakuMessage(msg: msg1, index: index1, pubsubTopic: DefaultTopic))
+    discard node1.wakuStore.messages.add(IndexedWakuMessage(msg: msg1, index: index1, pubsubTopic: DefaultTopic))
     
     # now run the resume proc
     await node1.resume()
