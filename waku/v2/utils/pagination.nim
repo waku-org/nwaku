@@ -5,6 +5,7 @@
 {.push raises: [Defect].}
 
 import
+  ./time, 
   nimcrypto/hash,
   stew/byteutils
 
@@ -14,8 +15,8 @@ type
   Index* = object
     ## This type contains the  description of an Index used in the pagination of WakuMessages
     digest*: MDigest[256]
-    receiverTime*: float64
-    senderTime*: float64 # the time at which the message is generated
+    receiverTime*: Timestamp
+    senderTime*: Timestamp # the time at which the message is generated
 
 proc `==`*(x, y: Index): bool =
   ## receiverTime plays no role in index comparison

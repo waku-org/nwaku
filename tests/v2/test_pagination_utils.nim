@@ -5,7 +5,8 @@ import
   chronos,
   stew/byteutils,
   libp2p/crypto/crypto,
-  ../../waku/v2/utils/pagination
+  ../../waku/v2/utils/pagination,
+  ../../waku/v2/utils/time
 
 procSuite "Pagination utils":
 
@@ -24,26 +25,26 @@ procSuite "Pagination utils":
   ## Test vars
   let
     smallIndex1 = Index(digest: hashFromStr("1234"),
-                        receiverTime: 0.00,
-                        senderTime: 1000.00)
+                        receiverTime: getNanosecondTime(0),
+                        senderTime: getNanosecondTime(1000))
     smallIndex2 = Index(digest: hashFromStr("1234567"), # digest is less significant than senderTime
-                        receiverTime: 0.00,
-                        senderTime: 1000.00)
+                        receiverTime: getNanosecondTime(0),
+                        senderTime: getNanosecondTime(1000))
     largeIndex1 = Index(digest: hashFromStr("1234"),
-                        receiverTime: 0.00,
-                        senderTime: 9000.00) # only senderTime differ from smallIndex1
+                        receiverTime: getNanosecondTime(0),
+                        senderTime: getNanosecondTime(9000)) # only senderTime differ from smallIndex1
     largeIndex2 = Index(digest: hashFromStr("12345"), # only digest differs from smallIndex1
-                        receiverTime: 0.00,
-                        senderTime: 1000.00)
+                        receiverTime: getNanosecondTime(0),
+                        senderTime: getNanosecondTime(1000))
     eqIndex1 = Index(digest: hashFromStr("0003"),
-                     receiverTime: 0.00,
-                     senderTime: 54321.00)
+                     receiverTime: getNanosecondTime(0),
+                     senderTime: getNanosecondTime(54321))
     eqIndex2 = Index(digest: hashFromStr("0003"),
-                     receiverTime: 0.00,
-                     senderTime: 54321.00)
+                     receiverTime: getNanosecondTime(0),
+                     senderTime: getNanosecondTime(54321))
     eqIndex3 = Index(digest: hashFromStr("0003"),
-                     receiverTime: 9999.00, # receiverTime difference should have no effect on comparisons
-                     senderTime: 54321.00)
+                     receiverTime: getNanosecondTime(9999), # receiverTime difference should have no effect on comparisons
+                     senderTime: getNanosecondTime(54321))
                       
 
   ## Test suite

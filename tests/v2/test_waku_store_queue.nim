@@ -3,7 +3,8 @@
 import
   std/sequtils,
   testutils/unittests,
-  ../../waku/v2/protocol/waku_store/waku_store_types
+  ../../waku/v2/protocol/waku_store/waku_store_types,
+  ../../waku/v2/utils/time
 
 procSuite "Sorted store queue":
 
@@ -12,8 +13,8 @@ procSuite "Sorted store queue":
     ## Use i to generate an IndexedWakuMessage
     var data {.noinit.}: array[32, byte]
     for x in data.mitems: x = i.byte
-    return IndexedWakuMessage(msg: WakuMessage(payload: @[byte i], timestamp: float64(i)),
-                              index: Index(receiverTime: float64(i), senderTime: float64(i), digest: MDigest[256](data: data)))
+    return IndexedWakuMessage(msg: WakuMessage(payload: @[byte i], timestamp: Timestamp(i)),
+                              index: Index(receiverTime: Timestamp(i), senderTime: Timestamp(i), digest: MDigest[256](data: data)))
 
   # Test variables  
   let
@@ -62,8 +63,8 @@ procSuite "Sorted store queue":
     let first = testStoreQueue.first()
     check:
       first.isOk()
-      first.get().msg.timestamp == 1.0
-    
+      first.get().msg.timestamp == Timestamp(1)
+   
     # Error condition
     let emptyQ = StoreQueueRef.new(capacity)
     check:
@@ -73,7 +74,7 @@ procSuite "Sorted store queue":
     let last = testStoreQueue.last()
     check:
       last.isOk()
-      last.get().msg.timestamp == 5.0
+      last.get().msg.timestamp == Timestamp(5)
     
     # Error condition
     let emptyQ = StoreQueueRef.new(capacity)
@@ -91,7 +92,7 @@ procSuite "Sorted store queue":
       # First page
       pInfo.pageSize == 3
       pInfo.direction == PagingDirection.FORWARD
-      pInfo.cursor.senderTime == 3.0
+      pInfo.cursor.senderTime == Timestamp(3)
       err == HistoryResponseError.NONE
       res.mapIt(it.timestamp.int) == @[1,2,3]
 
@@ -103,7 +104,7 @@ procSuite "Sorted store queue":
       # Second page
       pInfo.pageSize == 2
       pInfo.direction == PagingDirection.FORWARD
-      pInfo.cursor.senderTime == 5.0
+      pInfo.cursor.senderTime == Timestamp(5)
       err == HistoryResponseError.NONE
       res.mapIt(it.timestamp.int) == @[4,5]
     
@@ -114,7 +115,7 @@ procSuite "Sorted store queue":
       # Empty last page
       pInfo.pageSize == 0
       pInfo.direction == PagingDirection.FORWARD
-      pInfo.cursor.senderTime == 5.0
+      pInfo.cursor.senderTime == Timestamp(5)
       err == HistoryResponseError.NONE
       res.len == 0
   
@@ -129,7 +130,7 @@ procSuite "Sorted store queue":
       # First page
       pInfo.pageSize == 3
       pInfo.direction == PagingDirection.BACKWARD
-      pInfo.cursor.senderTime == 3.0
+      pInfo.cursor.senderTime == Timestamp(3)
       err == HistoryResponseError.NONE
       res.mapIt(it.timestamp.int) == @[3,4,5]
 
@@ -141,7 +142,7 @@ procSuite "Sorted store queue":
       # Second page
       pInfo.pageSize == 2
       pInfo.direction == PagingDirection.BACKWARD
-      pInfo.cursor.senderTime == 1.0
+      pInfo.cursor.senderTime == Timestamp(1)
       err == HistoryResponseError.NONE
       res.mapIt(it.timestamp.int) == @[1,2]
     
@@ -152,7 +153,7 @@ procSuite "Sorted store queue":
       # Empty last page
       pInfo.pageSize == 0
       pInfo.direction == PagingDirection.BACKWARD
-      pInfo.cursor.senderTime == 1.0
+      pInfo.cursor.senderTime == Timestamp(1)
       err == HistoryResponseError.NONE
       res.len == 0
   
@@ -170,7 +171,7 @@ procSuite "Sorted store queue":
       # First page
       pInfo.pageSize == 2
       pInfo.direction == PagingDirection.FORWARD
-      pInfo.cursor.senderTime == 4.0
+      pInfo.cursor.senderTime == Timestamp(4)
       err == HistoryResponseError.NONE
       res.mapIt(it.timestamp.int) == @[2,4]
     
@@ -181,7 +182,7 @@ procSuite "Sorted store queue":
       # Empty next page
       pInfo.pageSize == 0
       pInfo.direction == PagingDirection.FORWARD
-      pInfo.cursor.senderTime == 4.0
+      pInfo.cursor.senderTime == Timestamp(4)
       err == HistoryResponseError.NONE
       res.len == 0
 
@@ -195,7 +196,7 @@ procSuite "Sorted store queue":
       # First page
       pInfo.pageSize == 2
       pInfo.direction == PagingDirection.BACKWARD
-      pInfo.cursor.senderTime == 3.0
+      pInfo.cursor.senderTime == Timestamp(3)
       err == HistoryResponseError.NONE
       res.mapIt(it.timestamp.int) == @[3,5]
     
@@ -206,7 +207,7 @@ procSuite "Sorted store queue":
       # Next page
       pInfo.pageSize == 1
       pInfo.direction == PagingDirection.BACKWARD
-      pInfo.cursor.senderTime == 1.0
+      pInfo.cursor.senderTime == Timestamp(1)
       err == HistoryResponseError.NONE
       res.mapIt(it.timestamp.int) == @[1]
 
@@ -217,7 +218,7 @@ procSuite "Sorted store queue":
       # Empty last page
       pInfo.pageSize == 0
       pInfo.direction == PagingDirection.BACKWARD
-      pInfo.cursor.senderTime == 1.0
+      pInfo.cursor.senderTime == Timestamp(1)
       err == HistoryResponseError.NONE
       res.len == 0
 
@@ -228,14 +229,14 @@ procSuite "Sorted store queue":
 
     var (res, pInfo, err) = testStoreQueue.getPage(predicate,
                                                    PagingInfo(pageSize: 3,
-                                                              cursor: Index(receiverTime: float64(3), senderTime: float64(3), digest: MDigest[256]()),
+                                                              cursor: Index(receiverTime: Timestamp(3), senderTime: Timestamp(3), digest: MDigest[256]()),
                                                               direction: PagingDirection.BACKWARD))
     
     check:
       # Empty response with error
       pInfo.pageSize == 0
       pInfo.direction == PagingDirection.BACKWARD
-      pInfo.cursor.senderTime == 3.0
+      pInfo.cursor.senderTime == Timestamp(3)
       err == HistoryResponseError.INVALID_CURSOR
       res.len == 0
     
@@ -243,14 +244,14 @@ procSuite "Sorted store queue":
 
     (res, pInfo, err) = testStoreQueue.getPage(predicate,
                                                PagingInfo(pageSize: 3,
-                                                          cursor: Index(receiverTime: float64(3), senderTime: float64(3), digest: MDigest[256]()),
+                                                          cursor: Index(receiverTime: Timestamp(3), senderTime: Timestamp(3), digest: MDigest[256]()),
                                                           direction: PagingDirection.FORWARD))
     
     check:
       # Empty response with error
       pInfo.pageSize == 0
       pInfo.direction == PagingDirection.FORWARD
-      pInfo.cursor.senderTime == 3.0
+      pInfo.cursor.senderTime == Timestamp(3)
       err == HistoryResponseError.INVALID_CURSOR
       res.len == 0
   
@@ -271,7 +272,7 @@ procSuite "Sorted store queue":
       # Empty response
       pInfo.pageSize == 0
       pInfo.direction == PagingDirection.BACKWARD
-      pInfo.cursor.senderTime == 0.0
+      pInfo.cursor.senderTime == Timestamp(0)
       err == HistoryResponseError.NONE
       res.len == 0
     
@@ -285,7 +286,7 @@ procSuite "Sorted store queue":
       # Empty response
       pInfo.pageSize == 0
       pInfo.direction == PagingDirection.FORWARD
-      pInfo.cursor.senderTime == 0.0
+      pInfo.cursor.senderTime == Timestamp(0)
       err == HistoryResponseError.NONE
       res.len == 0
 

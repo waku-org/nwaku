@@ -12,6 +12,7 @@ import
   ../../waku/v2/protocol/waku_store/waku_store,
   ../../waku/v2/node/storage/message/waku_message_store,
   ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/utils/time,
   ../test_helpers, ./utils
 
 procSuite "Waku Store":
@@ -525,7 +526,7 @@ procSuite "Waku Store":
     let
       index = computeIndex(WakuMessage(payload: @[byte 1], contentTopic: defaultContentTopic))
       pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
-      query = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: defaultContentTopic), HistoryContentFilter(contentTopic: defaultContentTopic)], pagingInfo: pagingInfo, startTime: float64(10), endTime: float64(11))
+      query = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: defaultContentTopic), HistoryContentFilter(contentTopic: defaultContentTopic)], pagingInfo: pagingInfo, startTime: Timestamp(10), endTime: Timestamp(11))
       pb = query.encode()
       decodedQuery = HistoryQuery.init(pb.buffer)
 
@@ -575,25 +576,25 @@ procSuite "Waku Store":
       key2 = PrivateKey.random(ECDSA, rng[]).get()
       # peer2 = PeerInfo.new(key2)
     var
-      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: float(0)),
-        WakuMessage(payload: @[byte 1],contentTopic: ContentTopic("1"), timestamp: float(1)),
-        WakuMessage(payload: @[byte 2],contentTopic: ContentTopic("2"), timestamp: float(2)),
-        WakuMessage(payload: @[byte 3],contentTopic: ContentTopic("1"), timestamp: float(3)),
-        WakuMessage(payload: @[byte 4],contentTopic: ContentTopic("2"), timestamp: float(4)),
-        WakuMessage(payload: @[byte 5],contentTopic: ContentTopic("1"), timestamp: float(5)),
-        WakuMessage(payload: @[byte 6],contentTopic: ContentTopic("2"), timestamp: float(6)),
-        WakuMessage(payload: @[byte 7],contentTopic: ContentTopic("1"), timestamp: float(7)),
-        WakuMessage(payload: @[byte 8],contentTopic: ContentTopic("2"), timestamp: float(8)),
-        WakuMessage(payload: @[byte 9],contentTopic: ContentTopic("1"),timestamp: float(9))]
+      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: Timestamp(0)),
+        WakuMessage(payload: @[byte 1],contentTopic: ContentTopic("1"), timestamp: Timestamp(1)),
+        WakuMessage(payload: @[byte 2],contentTopic: ContentTopic("2"), timestamp: Timestamp(2)),
+        WakuMessage(payload: @[byte 3],contentTopic: ContentTopic("1"), timestamp: Timestamp(3)),
+        WakuMessage(payload: @[byte 4],contentTopic: ContentTopic("2"), timestamp: Timestamp(4)),
+        WakuMessage(payload: @[byte 5],contentTopic: ContentTopic("1"), timestamp: Timestamp(5)),
+        WakuMessage(payload: @[byte 6],contentTopic: ContentTopic("2"), timestamp: Timestamp(6)),
+        WakuMessage(payload: @[byte 7],contentTopic: ContentTopic("1"), timestamp: Timestamp(7)),
+        WakuMessage(payload: @[byte 8],contentTopic: ContentTopic("2"), timestamp: Timestamp(8)),
+        WakuMessage(payload: @[byte 9],contentTopic: ContentTopic("1"),timestamp: Timestamp(9))]
 
-      msgList2 = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: float(0)),
-        WakuMessage(payload: @[byte 11],contentTopic: ContentTopic("1"), timestamp: float(1)),
-        WakuMessage(payload: @[byte 12],contentTopic: ContentTopic("2"), timestamp: float(2)),
-        WakuMessage(payload: @[byte 3],contentTopic: ContentTopic("1"), timestamp: float(3)),
-        WakuMessage(payload: @[byte 4],contentTopic: ContentTopic("2"), timestamp: float(4)),
-        WakuMessage(payload: @[byte 5],contentTopic: ContentTopic("1"), timestamp: float(5)),
-        WakuMessage(payload: @[byte 13],contentTopic: ContentTopic("2"), timestamp: float(6)),
-        WakuMessage(payload: @[byte 14],contentTopic: ContentTopic("1"), timestamp: float(7))]
+      msgList2 = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: Timestamp(0)),
+        WakuMessage(payload: @[byte 11],contentTopic: ContentTopic("1"), timestamp: Timestamp(1)),
+        WakuMessage(payload: @[byte 12],contentTopic: ContentTopic("2"), timestamp: Timestamp(2)),
+        WakuMessage(payload: @[byte 3],contentTopic: ContentTopic("1"), timestamp: Timestamp(3)),
+        WakuMessage(payload: @[byte 4],contentTopic: ContentTopic("2"), timestamp: Timestamp(4)),
+        WakuMessage(payload: @[byte 5],contentTopic: ContentTopic("1"), timestamp: Timestamp(5)),
+        WakuMessage(payload: @[byte 13],contentTopic: ContentTopic("2"), timestamp: Timestamp(6)),
+        WakuMessage(payload: @[byte 14],contentTopic: ContentTopic("1"), timestamp: Timestamp(7))]
 
     #--------------------
     # setup default test store
@@ -641,11 +642,11 @@ procSuite "Waku Store":
       proc handler(response: HistoryResponse) {.gcsafe, closure.} =
         check:
           response.messages.len() == 2
-          response.messages.anyIt(it.timestamp == float(3))
-          response.messages.anyIt(it.timestamp == float(5))
+          response.messages.anyIt(it.timestamp == Timestamp(3))
+          response.messages.anyIt(it.timestamp == Timestamp(5))
         completionFut.complete(true)
 
-      let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: ContentTopic("1"))], startTime: float(2), endTime: float(5))
+      let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: ContentTopic("1"))], startTime: Timestamp(2), endTime: Timestamp(5))
       await proto.query(rpc, handler)
 
       check:
@@ -661,7 +662,7 @@ procSuite "Waku Store":
           response.messages.len() == 0
         completionFut.complete(true)
 
-      let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: ContentTopic("1"))], startTime: float(2), endTime: float(2))
+      let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: ContentTopic("1"))], startTime: Timestamp(2), endTime: Timestamp(2))
       await proto.query(rpc, handler)
 
       check:
@@ -678,7 +679,7 @@ procSuite "Waku Store":
         completionFut.complete(true)
 
       # time window is invalid since start time > end time
-      let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: ContentTopic("1"))], startTime: float(5), endTime: float(2))
+      let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: ContentTopic("1"))], startTime: Timestamp(5), endTime: Timestamp(2))
       await proto.query(rpc, handler)
 
       check:
@@ -709,7 +710,7 @@ procSuite "Waku Store":
           response.messages.len() == 4
         completionFut.complete(true)
 
-      let rpc = HistoryQuery(startTime: float(2), endTime: float(5))
+      let rpc = HistoryQuery(startTime: Timestamp(2), endTime: Timestamp(5))
       let successResult = await proto.queryFrom(rpc, handler, listenSwitch.peerInfo.toRemotePeerInfo())
 
       check:
@@ -719,7 +720,7 @@ procSuite "Waku Store":
 
     asyncTest "queryFromWithPaging with empty pagingInfo":
 
-      let rpc = HistoryQuery(startTime: float(2), endTime: float(5))
+      let rpc = HistoryQuery(startTime: Timestamp(2), endTime: Timestamp(5))
 
       let messagesResult = await proto.queryFromWithPaging(rpc, listenSwitch.peerInfo.toRemotePeerInfo())
 
@@ -729,7 +730,7 @@ procSuite "Waku Store":
 
     asyncTest "queryFromWithPaging with pagination":
       var pinfo = PagingInfo(direction:PagingDirection.FORWARD, pageSize: 1)
-      let rpc = HistoryQuery(startTime: float(2), endTime: float(5), pagingInfo: pinfo)
+      let rpc = HistoryQuery(startTime: Timestamp(2), endTime: Timestamp(5), pagingInfo: pinfo)
 
       let messagesResult = await proto.queryFromWithPaging(rpc, listenSwitch.peerInfo.toRemotePeerInfo())
 
@@ -790,14 +791,14 @@ procSuite "Waku Store":
     let store = WakuStore.init(PeerManager.new(newStandardSwitch()), crypto.newRng(), capacity = capacity)
 
     for i in 1..capacity:
-      await store.handleMessage(pubsubTopic, WakuMessage(payload: @[byte i], contentTopic: contentTopic, timestamp: i.float64))
+      await store.handleMessage(pubsubTopic, WakuMessage(payload: @[byte i], contentTopic: contentTopic, timestamp: Timestamp(i)))
       await sleepAsync(1.millis)  # Sleep a millisecond to ensure messages are stored chronologically
 
     check:
       store.messages.len == capacity # Store is at capacity
     
     # Test that capacity holds
-    await store.handleMessage(pubsubTopic, WakuMessage(payload: @[byte (capacity + 1)], contentTopic: contentTopic, timestamp: (capacity + 1).float64))
+    await store.handleMessage(pubsubTopic, WakuMessage(payload: @[byte (capacity + 1)], contentTopic: contentTopic, timestamp: Timestamp(capacity + 1)))
 
     check:
       store.messages.len == capacity # Store is still at capacity
