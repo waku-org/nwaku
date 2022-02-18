@@ -97,7 +97,7 @@ proc protocolMatcher(codec: string): Matcher =
   proc match(proto: string): bool {.gcsafe.} =
     ## Matches a proto with any postfix to the provided codec.
     ## E.g. if the codec is `/vac/waku/filter/2.0.0` it matches the protos:
-    ## `/vac/waku/filter/2.0.0`, `/vac/waku/filter/2.0.0-beta4`, `/vac/waku/filter/2.0.0-actualnonsense`
+    ## `/vac/waku/filter/2.0.0`, `/vac/waku/filter/2.0.0-beta3`, `/vac/waku/filter/2.0.0-actualnonsense`
     return proto.startsWith(codec)
 
   return match
