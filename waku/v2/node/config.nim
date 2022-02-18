@@ -76,6 +76,11 @@ type
       desc: "DNS name server IPs to query for DNS multiaddrs resolution. Argument may be repeated."
       defaultValue: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")]
       name: "dns-addrs-name-server" }: seq[ValidIpAddress]
+    
+    dns4DomainName* {.
+      desc: "The domain name resolving to the node's public IPv4 address",
+      defaultValue: ""
+      name: "dns4-domain-name" }: string
 
     ## Relay config
     

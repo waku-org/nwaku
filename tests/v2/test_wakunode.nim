@@ -1482,3 +1482,22 @@ procSuite "WakuNode":
       node.switch.peerInfo.addrs.contains(announcedEndpoint)
 
     await node.stop()
+
+  asyncTest "Node can use dns4 in announced addresses":
+    let
+      nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      bindIp = ValidIpAddress.init("0.0.0.0")
+      bindPort = Port(60000)
+      extIp = some(ValidIpAddress.init("127.0.0.1"))
+      extPort = some(Port(60002))
+      domainName = "example.com"
+      expectedDns4Addr = MultiAddress.init("/dns4/" & domainName & "/tcp/" & $(extPort.get())).get()
+      node = WakuNode.new(
+        nodeKey,
+        bindIp, bindPort,
+        extIp, extPort,
+        dns4DomainName = some(domainName))
+    
+    check:
+      node.announcedAddresses.len == 1
+      node.announcedAddresses.contains(expectedDns4Addr)
