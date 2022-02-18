@@ -142,10 +142,19 @@ proc updateSwitchPeerInfo(node: WakuNode) =
   if node.announcedAddresses.len > 0:
     node.switch.peerInfo.addrs = node.announcedAddresses
 
-template tcpEndPoint(address, port): auto =
+template ip4TcpEndPoint(address, port): MultiAddress =
   MultiAddress.init(address, tcpProtocol, port)
 
-func wsFlag(wssEnabled: bool): MultiAddress {.raises: [Defect, LPError]} =
+template dns4Ma(dns4DomainName: string): MultiAddress =
+  MultiAddress.init("/dns4/" & dns4DomainName).tryGet()
+
+template tcpPortMa(port: Port): MultiAddress =
+  MultiAddress.init("/tcp/" & $port).tryGet()
+
+template dns4TcpEndPoint(dns4DomainName: string, port: Port): MultiAddress =
+  dns4Ma(dns4DomainName) & tcpPortMa(port)
+
+template wsFlag(wssEnabled: bool): MultiAddress =
   if wssEnabled: MultiAddress.init("/wss").tryGet()
   else: MultiAddress.init("/ws").tryGet()
 
@@ -161,6 +170,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     secureCert: string = "",
     wakuFlags = none(WakuEnrBitfield),
     nameResolver: NameResolver = nil,
+    dns4DomainName = none(string)
     ): T 
     {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
   ## Creates a Waku Node.
@@ -171,16 +181,28 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   ## Initialize addresses
   let
     # Bind addresses
-    hostAddress = tcpEndPoint(bindIp, bindPort)
-    wsHostAddress = if wsEnabled or wssEnabled: some(tcpEndPoint(bindIp, wsbindPort) & wsFlag(wssEnabled))
+    hostAddress = ip4TcpEndPoint(bindIp, bindPort)
+    wsHostAddress = if wsEnabled or wssEnabled: some(ip4TcpEndPoint(bindIp, wsbindPort) & wsFlag(wssEnabled))
                     else: none(MultiAddress)
 
-    # External addresses
-    hostExtAddress = if extIp.isNone() or extPort.isNone(): none(MultiAddress)
-                     else: some(tcpEndPoint(extIp.get(), extPort.get()))
-    wsExtAddress = if wsHostAddress.isNone(): none(MultiAddress)
-                   elif hostExtAddress.isNone(): none(MultiAddress)
-                   else: some(tcpEndPoint(extIp.get(), wsBindPort) & wsFlag(wssEnabled))
+  # Setup external addresses, if available
+  var
+    hostExtAddress, wsExtAddress = none(MultiAddress)
+  
+  if (dns4DomainName.isSome()):
+    # Use dns4 for externally announced addresses
+    
+    hostExtAddress = some(dns4TcpEndPoint(dns4DomainName.get(), extPort.get()))
+
+    if (wsHostAddress.isSome()):
+      wsExtAddress = some(dns4TcpEndPoint(dns4DomainName.get(), wsBindPort) & wsFlag(wssEnabled))
+  else:
+    # No public domain name, use ext IP if available
+    if extIp.isSome() and extPort.isSome():
+      hostExtAddress = some(ip4TcpEndPoint(extIp.get(), extPort.get()))
+
+      if (wsHostAddress.isSome()):
+        wsExtAddress = some(ip4TcpEndPoint(extIp.get(), wsBindPort) & wsFlag(wssEnabled))
 
   var announcedAddresses: seq[MultiAddress]
   if hostExtAddress.isSome:
@@ -1030,6 +1052,9 @@ when isMainModule:
                 else:
                   extTcpPort
       
+      dns4DomainName = if conf.dns4DomainName != "": some(conf.dns4DomainName)
+                       else: none(string)
+      
       wakuFlags = initWakuFlags(conf.lightpush,
                                 conf.filter,
                                 conf.store,
@@ -1046,7 +1071,8 @@ when isMainModule:
                           conf.websocketSecureKeyPath,
                           conf.websocketSecureCertPath,
                           some(wakuFlags),
-                          dnsResolver
+                          dnsResolver,
+                          dns4DomainName
                           )
     
     if conf.discv5Discovery:
