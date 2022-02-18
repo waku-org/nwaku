@@ -45,7 +45,7 @@ logScope:
   topics = "wakustore"
 
 const
-  WakuStoreCodec* = "/vac/waku/store/2.0.0-beta3"
+  WakuStoreCodec* = "/vac/waku/store/2.0.0-beta4"
   DefaultStoreCapacity* = 50000 # Default maximum of 50k messages stored
 
 # Error types (metric label values)
