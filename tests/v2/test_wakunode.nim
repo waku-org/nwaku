@@ -22,6 +22,7 @@ import
   ../../waku/v2/protocol/waku_lightpush/waku_lightpush,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/peers,
+  ../../waku/v2/utils/time,
   ../../waku/v2/node/wakunode2,
   ../test_helpers
 
@@ -1156,7 +1157,7 @@ procSuite "WakuNode":
 
     # count the total number of retrieved messages from the database
     var responseCount = 0
-    proc data(receiverTimestamp: float64, msg: WakuMessage, psTopic: string) =
+    proc data(receiverTimestamp: Timestamp, msg: WakuMessage, psTopic: string) =
       responseCount += 1
     # retrieve all the messages in the db
     let res = store.getAll(data)

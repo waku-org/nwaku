@@ -13,7 +13,10 @@ The full list of changes is below.
 
 ### Changes
 
--  ...
+- A new type `Timestamp` for all timestamps is introduced (currently an alias for int64).
+- All timestamps now have nanosecond resolution.
+- `waku-store` protocol identifier is updated to `/vac/waku/store/2.0.0-beta4`
+
 ### Fixes
 
 - ...

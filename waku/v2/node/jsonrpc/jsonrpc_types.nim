@@ -4,7 +4,8 @@ import
   std/[options,tables],
   eth/keys,
   ../../protocol/waku_message,
-  ../../utils/pagination
+  ../../utils/pagination,
+  ../../utils/time
 
 type
   StoreResponse* = object
@@ -21,7 +22,7 @@ type
     payload*: seq[byte]
     contentTopic*: Option[ContentTopic]
     # sender generated timestamp
-    timestamp*: Option[float64]
+    timestamp*: Option[Timestamp]
 
   WakuPeer* = object
     multiaddr*: string

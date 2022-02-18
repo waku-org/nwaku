@@ -7,7 +7,8 @@ import
   ./message_store,
   ../sqlite,
   ../../../protocol/waku_message,
-  ../../../utils/pagination
+  ../../../utils/pagination,
+  ../../../utils/time
 
 export sqlite
 
@@ -31,12 +32,12 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] 
   let prepare = db.prepareStmt("""
     CREATE TABLE IF NOT EXISTS """ & TABLE_TITLE & """ (
         id BLOB PRIMARY KEY,
-        receiverTimestamp REAL NOT NULL,
+        receiverTimestamp """ & TIMESTAMP_TABLE_TYPE & """ NOT NULL,
         contentTopic BLOB NOT NULL,
         pubsubTopic BLOB NOT NULL,
         payload BLOB,
         version INTEGER NOT NULL,
-        senderTimestamp REAL NOT NULL
+        senderTimestamp """ & TIMESTAMP_TABLE_TYPE & """  NOT NULL
     ) WITHOUT ROWID;
     """, NoParams, void)
 
@@ -61,7 +62,7 @@ method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTop
   ## 
   let prepare = db.database.prepareStmt(
     "INSERT INTO " & TABLE_TITLE & " (id, receiverTimestamp, contentTopic, payload, pubsubTopic, version, senderTimestamp) VALUES (?, ?, ?, ?, ?, ?, ?);",
-    (seq[byte], float64, seq[byte], seq[byte], seq[byte], int64, float64),
+    (seq[byte], Timestamp, seq[byte], seq[byte], seq[byte], int64, Timestamp),
     void
   )
 
@@ -91,7 +92,7 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc, limit = non
   proc msg(s: ptr sqlite3_stmt) =
     gotMessages = true
     let
-      receiverTimestamp = sqlite3_column_double(s, 0)
+      receiverTimestamp = column_timestamp(s, 0)
 
       topic = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 1))
       topicLength = sqlite3_column_bytes(s,1)
@@ -107,12 +108,12 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc, limit = non
 
       version = sqlite3_column_int64(s, 4)
 
-      senderTimestamp = sqlite3_column_double(s, 5)
+      senderTimestamp = column_timestamp(s, 5)
 
 
       # TODO retrieve the version number
-    onData(receiverTimestamp.float64,
-           WakuMessage(contentTopic: contentTopic, payload: payload , version: uint32(version), timestamp: senderTimestamp.float64), 
+    onData(Timestamp(receiverTimestamp),
+           WakuMessage(contentTopic: contentTopic, payload: payload , version: uint32(version), timestamp: Timestamp(senderTimestamp)), 
                        pubsubTopic)
 
   var selectQuery = "SELECT receiverTimestamp, contentTopic, payload, pubsubTopic, version, senderTimestamp " &
