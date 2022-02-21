@@ -134,6 +134,48 @@ You can change this to `wakunode2`, the Waku v2 node like this:
 make docker-image MAKE_TARGET=wakunode2
 docker run --rm -it statusteam/nim-waku:latest --help
 ```
+
+## Configuring a domain name
+
+It is possible to configure an IPv4 DNS domain name that resolves to the node's public IPv4 address.
+
+```shell
+wakunode2 --dns4-domain-name=mynode.example.com
+```
+
+This allows for the node's publically announced `multiaddrs` to use the `/dns4` scheme.
+In addition, nodes with domain name and [secure websocket configured](#enabling-websocket),
+will generate a discoverable ENR containing the `/wss` multiaddr with `/dns4` domain name.
+This is necessary to verify domain certificates when connecting to this node over secure websocket.
+
+## Using DNS discovery to connect to existing nodes
+
+A node can discover other nodes to connect to using [DNS-based discovery](../../docs/tutorial/dns-disc.md).
+The following command line options are available:
+
+```
+--dns-discovery              Enable DNS Discovery
+--dns-discovery-url          URL for DNS node list in format 'enrtree://<key>@<fqdn>'
+--dns-discovery-name-server  DNS name server IPs to query. Argument may be repeated.
+```
+
+- `--dns-discovery` is used to enable DNS discovery on the node.
+Waku DNS discovery is disabled by default.
+- `--dns-discovery-url` is mandatory if DNS discovery is enabled.
+It contains the URL for the node list.
+The URL must be in the format `enrtree://<key>@<fqdn>` where `<fqdn>` is the fully qualified domain name and `<key>` is the base32 encoding of the compressed 32-byte public key that signed the list at that location.
+- `--dns-discovery-name-server` is optional and contains the IP(s) of the DNS name servers to query.
+If left unspecified, the Cloudflare servers `1.1.1.1` and `1.0.0.1` will be used by default.
+
+A node will attempt connection to all discovered nodes.
+
+This can be used, for example, to connect to one of the existing fleets.
+Current URLs for the published fleet lists:
+- production fleet: `enrtree://ANTL4SLG2COUILKAPE7EF2BYNL2SHSHVCHLRD5J7ZJLN5R3PRJD2Y@prod.waku.nodes.status.im`
+- test fleet: `enrtree://AOFTICU2XWDULNLZGRMQS4RIZPAZEHYMV4FYHAPW563HNRAOERP7C@test.waku.nodes.status.im`
+
+See the [separate tutorial](../../docs/tutorial/dns-disc.md) for a complete guide to DNS discovery.
+
 ## Enabling Websocket
 
 Websocket is currently the only Waku transport supported by browser nodes that uses [js-waku](https://github.com/status-im/js-waku).

@@ -19,6 +19,11 @@ The full list of changes is below.
 
 ### Fixes
 
+### Docs
+
+- Documented how to configure a `dns4` domain name for a node
+- Clarified use of DNS discovery and provided current URLs for discoverable fleet nodes
+
 - ...
 
 ##  2021-01-19 v0.7
