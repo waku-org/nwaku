@@ -39,7 +39,8 @@ pipeline {
     stage('Build') {
       steps { script {
         image = docker.build(
-          "${params.IMAGE_NAME}:${env.GIT_COMMIT.take(6)}",
+          "${params.IMAGE_NAME}:${env.GIT_COMMIT.take(8)}",
+          "--label=commit='${env.GIT_COMMIT.take(8)}' " +
           "--build-arg=MAKE_TARGET='${params.MAKE_TARGET}' " +
           "--build-arg=NIM_PARAMS='${params.NIM_PARAMS}' ."
         )
