@@ -3,7 +3,7 @@
 FROM alpine:3.12 AS nim-build
 
 ARG NIM_PARAMS
-ARG MAKE_TARGET=wakunode
+ARG MAKE_TARGET=wakunode2
 
 # Get build tools and required header files
 RUN apk add --no-cache bash git rust cargo build-base pcre-dev linux-headers
@@ -29,6 +29,7 @@ ARG MAKE_TARGET=wakunode2
 LABEL maintainer="jakub@status.im"
 LABEL source="https://github.com/status-im/nim-waku"
 LABEL description="Wakunode: Waku and Whisper client"
+LABEL commit="unknown"
 
 # DevP2P, LibP2P, and JSON RPC ports
 EXPOSE 30303 60000 8545
