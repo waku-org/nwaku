@@ -154,7 +154,6 @@ proc getChatLine(c: Chat, msg:WakuMessage): Result[string, string]=
                 else: string.fromBytes(msg.payload)
     return ok(chatline)
 
-
 proc printReceivedMessage(c: Chat, msg: WakuMessage) =
   when PayloadV1:
       # Use Waku v1 payload encoding/encryption
@@ -191,30 +190,6 @@ proc printReceivedMessage(c: Chat, msg: WakuMessage) =
     showChatPrompt(c)
     trace "Printing message", topic=DefaultTopic, chatLine,
       contentTopic = msg.contentTopic
-
-proc selectRandomNode(fleetStr: string): SelectResult[string] =
-  randomize()
-  var
-    fleet: string
-    nodes: seq[tuple[key: string, val: JsonNode]]
-    randNode: string
-  try:
-    # Get latest fleet addresses
-    fleet = newHttpClient().getContent("https://fleets.status.im")
-  
-    # Select the JSONObject corresponding to the selected wakuv2 fleet and convert to seq of key-val pairs
-    nodes = toSeq(fleet.parseJson(){"fleets", "wakuv2." & fleetStr, "waku"}.pairs())
-  
-    if nodes.len < 1:
-      return err("Empty fleet nodes list")
-
-    # Select a random node from the selected fleet, convert to string and return
-    randNode = nodes[rand(nodes.len - 1)].val.getStr()
-  
-  except Exception: # @TODO: HttpClient raises generic Exception
-    return err("Failed to select random node")
-  
-  ok(randNode)
 
 proc readNick(transp: StreamTransport): Future[string] {.async.} =
   # Chat prompt
@@ -401,45 +376,52 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
                   prompt: false,
                   contentTopic: conf.contentTopic,
                   symKey: generateSymKey(conf.contentTopic))
+
   if conf.staticnodes.len > 0:
     await connectToNodes(chat, conf.staticnodes)
-  elif conf.dnsDiscovery and conf.dnsDiscoveryUrl != "":
-      # Discover nodes via DNS
-      debug "Discovering nodes using Waku DNS discovery", url=conf.dnsDiscoveryUrl
+  
+  var dnsDiscoveryUrl = none(string)
 
-      var nameServers: seq[TransportAddress]
-      for ip in conf.dnsDiscoveryNameServers:
-        nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
-
-      let dnsResolver = DnsResolver.new(nameServers)
-
-      proc resolver(domain: string): Future[string] {.async, gcsafe.} =
-        trace "resolving", domain=domain
-        let resolved = await dnsResolver.resolveTxt(domain)
-        return resolved[0] # Use only first answer
-      
-      var wakuDnsDiscovery = WakuDnsDiscovery.init(conf.dnsDiscoveryUrl,
-                                                   resolver)
-      if wakuDnsDiscovery.isOk:
-        let discoveredPeers = wakuDnsDiscovery.get().findPeers()
-        if discoveredPeers.isOk:
-          info "Connecting to discovered peers"
-          waitFor chat.node.connectToNodes(discoveredPeers.get())
-      else:
-        warn "Failed to init Waku DNS discovery"
-  elif conf.fleet != Fleet.none:
-    # Connect to at least one random fleet node
-    echo "No static peers configured. Choosing one at random from " & $conf.fleet & " fleet..."
+  if conf.fleet != Fleet.none:
+    # Use DNS discovery to connect to selected fleet
+    echo "No static peers configured. Connecting to " & $conf.fleet & " fleet using DNS discovery..."
     
-    let randNode = selectRandomNode($conf.fleet)
-    
-    if randNode.isOk():
-      echo "Connecting to " & randNode.get()
-
-      await connectToNodes(chat, @[randNode.get()])
+    if conf.fleet == Fleet.test:
+      dnsDiscoveryUrl = some("enrtree://AOFTICU2XWDULNLZGRMQS4RIZPAZEHYMV4FYHAPW563HNRAOERP7C@test.waku.nodes.status.im")
     else:
-      echo "Couldn't select a random node to connect to. Check --fleet configuration."
-      echo randNode.error()
+      # Connect to prod by default
+      dnsDiscoveryUrl = some("enrtree://ANTL4SLG2COUILKAPE7EF2BYNL2SHSHVCHLRD5J7ZJLN5R3PRJD2Y@prod.waku.nodes.status.im")
+
+  elif conf.dnsDiscovery and conf.dnsDiscoveryUrl != "":
+    # No pre-selected fleet. Discover nodes via DNS using user config
+    debug "Discovering nodes using Waku DNS discovery", url=conf.dnsDiscoveryUrl
+    dnsDiscoveryUrl = some(conf.dnsDiscoveryUrl)
+
+  var discoveredNodes: seq[RemotePeerInfo]
+
+  if dnsDiscoveryUrl.isSome:
+    var nameServers: seq[TransportAddress]
+    for ip in conf.dnsDiscoveryNameServers:
+      nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
+
+    let dnsResolver = DnsResolver.new(nameServers)
+
+    proc resolver(domain: string): Future[string] {.async, gcsafe.} =
+      trace "resolving", domain=domain
+      let resolved = await dnsResolver.resolveTxt(domain)
+      return resolved[0] # Use only first answer
+    
+    var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl.get(),
+                                                 resolver)
+    if wakuDnsDiscovery.isOk:
+      let discoveredPeers = wakuDnsDiscovery.get().findPeers()
+      if discoveredPeers.isOk:
+        info "Connecting to discovered peers"
+        discoveredNodes = discoveredPeers.get()
+        echo "Discovered and connecting to " & $discoveredNodes
+        waitFor chat.node.connectToNodes(discoveredNodes)
+    else:
+      warn "Failed to init Waku DNS discovery"
 
   let peerInfo = node.switch.peerInfo
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
@@ -451,26 +433,19 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   if (conf.storenode != "") or (conf.store == true):
     node.mountStore(persistMessages = conf.persistMessages)
 
-    var storenode: Option[string]
+    var storenode: Option[RemotePeerInfo]
 
     if conf.storenode != "":
-      storenode = some(conf.storenode)
-    elif conf.fleet != Fleet.none:
-      echo "Store enabled, but no store nodes configured. Choosing one at random from " & $conf.fleet & " fleet..."
-      
-      let selectNode = selectRandomNode($conf.fleet)
-
-      if selectNode.isOk:
-        storenode = some(selectNode.get())
-      else:
-        echo "Couldn't select a random store node to connect to. Check --fleet configuration."
-        echo selectNode.error()
+      storenode = some(parseRemotePeerInfo(conf.storenode))
+    elif discoveredNodes.len > 0:
+      echo "Store enabled, but no store nodes configured. Choosing one at random from discovered peers"
+      storenode = some(discoveredNodes[0])
       
     if storenode.isSome():
       # We have a viable storenode. Let's query it for historical messages.
-      echo "Connecting to storenode: " & storenode.get()
+      echo "Connecting to storenode: " & $(storenode.get())
 
-      node.wakuStore.setPeer(parseRemotePeerInfo(storenode.get()))
+      node.wakuStore.setPeer(storenode.get())
 
       proc storeHandler(response: HistoryResponse) {.gcsafe.} =
         for msg in response.messages:
