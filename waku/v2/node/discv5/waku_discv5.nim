@@ -1,5 +1,4 @@
 {.push raises: [Defect].}
-
 import
   std/[sequtils, strutils, options],
   chronos, chronicles, metrics,
@@ -75,9 +74,10 @@ proc findRandomPeers*(wakuDiscv5: WakuDiscoveryV5): Future[Result[seq[RemotePeer
   
   ## Query for a random target and collect all discovered nodes
   let discoveredNodes = await wakuDiscv5.protocol.queryRandom()
-  
+
   ## Filter based on our needs
-  let filteredNodes = discoveredNodes.filter(isWakuNode) # Currently only a single predicate
+  # let filteredNodes = discoveredNodes.filter(isWakuNode) # Currently only a single predicate
+  let filteredNodes = discoveredNodes # we do not filter based on ENR in the first waku discv5 beta stage
 
   var discoveredPeers: seq[RemotePeerInfo]
 
@@ -107,7 +107,8 @@ proc new*(T: type WakuDiscoveryV5,
           privateKey: keys.PrivateKey,
           flags: WakuEnrBitfield,
           enrFields: openArray[(string, seq[byte])],
-          rng: ref BrHmacDrbgContext): T =
+          rng: ref BrHmacDrbgContext,
+          discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T =
   
   var bootstrapEnrs: seq[enr.Record]
   for node in bootstrapNodes:
@@ -118,7 +119,7 @@ proc new*(T: type WakuDiscoveryV5,
   ## We always add the waku field as specified
   var enrInitFields = @[(WAKU_ENR_FIELD, @[flags.byte])]
   enrInitFields.add(enrFields)
-  
+
   let protocol = newProtocol(
     privateKey,
     enrIp = extIp, enrTcpPort = extTcpPort, enrUdpPort = extUdpPort, # We use the external IP & ports for ENR
@@ -127,6 +128,7 @@ proc new*(T: type WakuDiscoveryV5,
     bindPort = discv5UdpPort,
     bindIp = bindIP,
     enrAutoUpdate = enrAutoUpdate,
+    config = discv5Config,
     rng = rng)
   
   return WakuDiscoveryV5(protocol: protocol, listening: false)

@@ -847,7 +847,7 @@ proc runDiscv5Loop(node: WakuNode) {.async.} =
     if discoveredPeers.isOk:
       ## Let's attempt to connect to peers we
       ## have not encountered before
-      
+
       trace "Discovered peers", count=discoveredPeers.get().len()
 
       let newPeers = discoveredPeers.get().filterIt(
@@ -908,6 +908,7 @@ proc start*(node: WakuNode) {.async.} =
   ##
   ## Status: Implemented.
   
+  
   await node.switch.start()
   
   # TODO Get this from WakuNode obj
@@ -927,6 +928,7 @@ proc start*(node: WakuNode) {.async.} =
 
   if not node.wakuRelay.isNil:
     await node.startRelay()
+
   
   info "Node started successfully"
   node.started = true
@@ -1076,7 +1078,10 @@ when isMainModule:
                           )
     
     if conf.discv5Discovery:
-      let discv5UdpPort = Port(uint16(conf.discv5UdpPort) + conf.portsShift)
+      let
+        discv5UdpPort = Port(uint16(conf.discv5UdpPort) + conf.portsShift)
+        discoveryConfig = DiscoveryConfig.init(
+          conf.discv5TableIpLimit, conf.discv5BucketIpLimit, conf.discv5BitsPerHop)
 
       node.wakuDiscv5 = WakuDiscoveryV5.new(
         extIP, extTcpPort, some(discv5UdpPort),
@@ -1087,6 +1092,7 @@ when isMainModule:
         keys.PrivateKey(conf.nodekey.skkey),
         wakuFlags,
         [], # Empty enr fields, for now
+        discoveryConfig,
         node.rng
       )
     
@@ -1169,8 +1175,12 @@ when isMainModule:
     ## Resume history, connect to static nodes and start
     ## keep-alive, if configured.
 
-   # Start Waku v2 node
+    # Start Waku v2 node
     waitFor node.start()
+
+    # start discv5 and connect to discovered nodes
+    if not waitFor node.startDiscv5():
+      error "could not start Discovery v5"
   
     # Resume historical messages, this has to be called after the node has been started
     if conf.store and conf.persistMessages:
@@ -1238,6 +1248,8 @@ when isMainModule:
   ##############
   # Node setup #
   ##############
+  
+
 
   debug "1/6 Setting up storage"
 
