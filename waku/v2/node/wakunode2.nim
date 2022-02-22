@@ -908,7 +908,6 @@ proc start*(node: WakuNode) {.async.} =
   ##
   ## Status: Implemented.
   
-  
   await node.switch.start()
   
   # TODO Get this from WakuNode obj
@@ -928,7 +927,6 @@ proc start*(node: WakuNode) {.async.} =
 
   if not node.wakuRelay.isNil:
     await node.startRelay()
-
   
   info "Node started successfully"
   node.started = true
@@ -1249,8 +1247,6 @@ when isMainModule:
   # Node setup #
   ##############
   
-
-
   debug "1/6 Setting up storage"
 
   var
