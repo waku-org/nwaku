@@ -202,7 +202,7 @@ type
     ## Chat2 configuration
     
     fleet* {.
-      desc: "Select the fleet to connect to."
+      desc: "Select the fleet to connect to. This sets the DNS discovery URL to the selected fleet."
       defaultValue: Fleet.prod
       name: "fleet" }: Fleet
 
