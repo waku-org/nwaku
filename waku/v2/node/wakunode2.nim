@@ -847,7 +847,7 @@ proc runDiscv5Loop(node: WakuNode) {.async.} =
     if discoveredPeers.isOk:
       ## Let's attempt to connect to peers we
       ## have not encountered before
-
+      
       trace "Discovered peers", count=discoveredPeers.get().len()
 
       let newPeers = discoveredPeers.get().filterIt(
@@ -1172,7 +1172,7 @@ when isMainModule:
     ## Start a configured node and all mounted protocols.
     ## Resume history, connect to static nodes and start
     ## keep-alive, if configured.
-
+    
     # Start Waku v2 node
     waitFor node.start()
 
@@ -1248,7 +1248,7 @@ when isMainModule:
   ##############
   
   debug "1/6 Setting up storage"
-
+  
   var
     pStorage: WakuPeerStorage
     mStorage: WakuMessageStore

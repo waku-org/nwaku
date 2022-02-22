@@ -75,7 +75,7 @@ proc findRandomPeers*(wakuDiscv5: WakuDiscoveryV5): Future[Result[seq[RemotePeer
   
   ## Query for a random target and collect all discovered nodes
   let discoveredNodes = await wakuDiscv5.protocol.queryRandom()
-
+  
   ## Filter based on our needs
   # let filteredNodes = discoveredNodes.filter(isWakuNode) # Currently only a single predicate
   let filteredNodes = discoveredNodes # we do not filter based on ENR in the first waku discv5 beta stage
@@ -120,7 +120,7 @@ proc new*(T: type WakuDiscoveryV5,
   ## We always add the waku field as specified
   var enrInitFields = @[(WAKU_ENR_FIELD, @[flags.byte])]
   enrInitFields.add(enrFields)
-
+  
   let protocol = newProtocol(
     privateKey,
     enrIp = extIp, enrTcpPort = extTcpPort, enrUdpPort = extUdpPort, # We use the external IP & ports for ENR
