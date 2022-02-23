@@ -46,7 +46,7 @@ proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(3, msg.version)
 
   var timestamp: zint64
-  discard ? pb.getField(4, timestamp)
+  discard ? pb.getField(10, timestamp)
   msg.timestamp = Timestamp(timestamp)
 
   # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec and not yet part of WakuMessage spec
@@ -65,7 +65,7 @@ proc encode*(message: WakuMessage): ProtoBuffer =
   result.write(1, message.payload)
   result.write(2, message.contentTopic)
   result.write(3, message.version)
-  result.write(4, zint64(message.timestamp))
+  result.write(10, zint64(message.timestamp))
   when defined(rln):
     result.write(21, message.proof.encode())
   else:
