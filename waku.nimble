@@ -65,7 +65,7 @@ task test1, "Build & run Waku v1 tests":
 
 ### Waku v2 tasks
 task wakunode2, "Build Waku v2 (experimental) cli node":
-  buildBinary "wakunode2", "waku/v2/node/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "wakunode2", "waku/v2/node/", "-d:chronicles_log_level=TRACE"
 
 task sim2, "Build Waku v2 simulation tools":
   buildBinary "quicksim2", "waku/v2/node/", "-d:chronicles_log_level=DEBUG"
@@ -99,3 +99,4 @@ task chat2bridge, "Build chat2-matterbridge":
   let name = "chat2bridge"
 
   buildBinary name, "examples/v2/matterbridge/", "-d:chronicles_log_level=DEBUG"
+
