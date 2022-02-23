@@ -1177,8 +1177,9 @@ when isMainModule:
     waitFor node.start()
 
     # start discv5 and connect to discovered nodes
-    if not waitFor node.startDiscv5():
-      error "could not start Discovery v5"
+    if conf.discv5Discovery:
+      if not waitFor node.startDiscv5():
+        error "could not start Discovery v5"
   
     # Resume historical messages, this has to be called after the node has been started
     if conf.store and conf.persistMessages:
