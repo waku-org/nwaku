@@ -78,11 +78,11 @@ proc findRandomPeers*(wakuDiscv5: WakuDiscoveryV5): Future[Result[seq[RemotePeer
   
   ## Filter based on our needs
   # let filteredNodes = discoveredNodes.filter(isWakuNode) # Currently only a single predicate
-  let filteredNodes = discoveredNodes # we do not filter based on ENR in the first waku discv5 beta stage
+  # TODO: consider node filtering based on ENR; we do not filter based on ENR in the first waku discv5 beta stage
 
   var discoveredPeers: seq[RemotePeerInfo]
 
-  for node in filteredNodes:
+  for node in discoveredNodes:
     # Convert discovered ENR to RemotePeerInfo and add to discovered nodes
     let res = node.record.toRemotePeerInfo()
 
