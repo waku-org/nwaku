@@ -38,7 +38,7 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] 
         payload BLOB,
         version INTEGER NOT NULL,
         senderTimestamp """ & TIMESTAMP_TABLE_TYPE & """  NOT NULL,
-        CONSTRAINT messageIndex PRIMARY KEY (senderTimestamp, receiverTimestamp, id, pubsubTopic)
+        CONSTRAINT messageIndex PRIMARY KEY (senderTimestamp, id, pubsubTopic)
     ) WITHOUT ROWID;
     """, NoParams, void)
 

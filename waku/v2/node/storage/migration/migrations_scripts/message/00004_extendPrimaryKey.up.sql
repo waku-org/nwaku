@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS Message(
         payload BLOB,
         version INTEGER NOT NULL,
         senderTimestamp INTEGER NOT NULL,
-        CONSTRAINT messageIndex PRIMARY KEY (senderTimestamp, receiverTimestamp, id, pubsubTopic)
+        CONSTRAINT messageIndex PRIMARY KEY (senderTimestamp, id, pubsubTopic)
     ) WITHOUT ROWID;
 
 INSERT INTO Message
