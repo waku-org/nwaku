@@ -97,6 +97,12 @@ procSuite "Pagination utils":
       # sort on receiverTime with no senderTimestamp and unequal digest
       cmp(noSenderTime1, noSenderTime4) < 0
 
+      # sort on receiverTime if no senderTimestamp on only one side
+      cmp(smallIndex1, noSenderTime1) < 0
+      cmp(noSenderTime1, smallIndex1) > 0 # Test symmetry
+      cmp(noSenderTime2, eqIndex3) < 0
+      cmp(eqIndex3, noSenderTime2) > 0 # Test symmetry
+
   asyncTest "Index equality":
     check:
       # Exactly equal

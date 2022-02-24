@@ -33,33 +33,28 @@ proc cmp*(x, y: Index): int =
   ## 
   ## Default sorting order priority is:
   ## 1. senderTimestamp
-  ## 2. receiverTimestamp (a fallback only if senderTimestamp unset and all other fields unequal)
+  ## 2. receiverTimestamp (a fallback only if senderTimestamp unset on either side, and all other fields unequal)
   ## 3. message digest
   ## 4. pubsubTopic
   
+  if x == y:
+    # Quick exit ensures receiver time does not affect index equality
+    return 0
+  
   # Timestamp has a higher priority for comparison
-  let timecmp = cmp(x.senderTime, y.senderTime)
+  var timecmp: int
+  if (x.senderTime == 0 or y.senderTime == 0):
+    # if either side does not have a senderTime set, we fall back to receiverTime comparison
+    timecmp = cmp(x.receiverTime, y.receiverTime)
+  else:
+    timecmp = cmp(x.senderTime, y.senderTime)
+
   if timecmp != 0: 
     return timecmp
 
-  # Continue only when sender timestamps are equal 
-  let
-    digestcmp = cmp(x.digest.data, y.digest.data)
-    pstopiccmp = cmp(x.pubsubTopic, y.pubsubTopic)
-
-  if x.senderTime == 0 and
-     (digestcmp != 0 or pstopiccmp != 0):
-    
-    ## We sort on receiver time only if:
-    ## - senderTime is unset (== 0)
-    ## - message digests and pubsubTopics aren't equal (i.e. receiver time should not affect index equality, which
-    ##   is based only on sender time, pubsubTopic and digest)
-    let receiverTimeCmp = cmp(x.receiverTime, y.receiverTime)
-    
-    if receiverTimeCmp != 0:
-      return receiverTimeCmp
-
+  # Continue only when timestamps are equal 
+  let digestcmp = cmp(x.digest.data, y.digest.data)
   if digestcmp != 0:
     return digestcmp
-
-  return pstopiccmp
+  
+  return cmp(x.pubsubTopic, y.pubsubTopic)
