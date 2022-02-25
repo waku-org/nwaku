@@ -68,7 +68,7 @@ method publish*(w: WakuRelay,
                 pubSubTopic: string,
                 message: seq[byte]
                ): Future[int] {.async.} =
-  debug "publish", pubSubTopic=pubSubTopic, message=message
+  trace "publish", pubSubTopic=pubSubTopic, message=message
 
   return await procCall GossipSub(w).publish(pubSubTopic, message)
 

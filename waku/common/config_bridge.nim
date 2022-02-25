@@ -111,7 +111,7 @@ type
 
     store* {.
       desc: "Flag whether to start store protocol",
-      defaultValue: true
+      defaultValue: false
       name: "store" }: bool
 
     filter* {.
