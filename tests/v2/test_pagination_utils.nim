@@ -50,19 +50,19 @@ procSuite "Pagination utils":
                         senderTime: getNanosecondTime(1000),
                         pubsubTopic: "zzzz")
     noSenderTime1 = Index(digest: hashFromStr("1234"),
-                          receiverTime: getNanosecondTime(1),
+                          receiverTime: getNanosecondTime(1100),
                           senderTime: getNanosecondTime(0),
                           pubsubTopic: "zzzz")
     noSenderTime2 = Index(digest: hashFromStr("1234"),
-                          receiverTime: getNanosecondTime(2),
+                          receiverTime: getNanosecondTime(10000),
                           senderTime: getNanosecondTime(0),
                           pubsubTopic: "zzzz")
     noSenderTime3 = Index(digest: hashFromStr("1234"),
-                          receiverTime: getNanosecondTime(2),
+                          receiverTime: getNanosecondTime(1200),
                           senderTime: getNanosecondTime(0),
                           pubsubTopic: "aaaa")
     noSenderTime4 = Index(digest: hashFromStr("0"), 
-                          receiverTime: getNanosecondTime(2),
+                          receiverTime: getNanosecondTime(1200),
                           senderTime: getNanosecondTime(0),
                           pubsubTopic: "zzzz")
 

@@ -42,13 +42,14 @@ proc cmp*(x, y: Index): int =
     return 0
   
   # Timestamp has a higher priority for comparison
-  var timecmp: int
-  if (x.senderTime == 0 or y.senderTime == 0):
-    # if either side does not have a senderTime set, we fall back to receiverTime comparison
-    timecmp = cmp(x.receiverTime, y.receiverTime)
-  else:
-    timecmp = cmp(x.senderTime, y.senderTime)
+  let
+    # Use receiverTime where senderTime is unset
+    xTimestamp = if x.senderTime == 0: x.receiverTime
+                 else: x.senderTime
+    yTimestamp = if y.senderTime == 0: y.receiverTime
+                 else: y.senderTime
 
+  let timecmp = cmp(xTimestamp, yTimestamp)
   if timecmp != 0: 
     return timecmp
 
