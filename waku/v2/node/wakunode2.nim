@@ -387,7 +387,7 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) {.async, gcsaf
     return
 
   let wakuRelay = node.wakuRelay
-  debug "publish", topic=topic, contentTopic=message.contentTopic
+  trace "publish", topic=topic, contentTopic=message.contentTopic
   var publishingMessage = message
 
   let data = message.encode().buffer
