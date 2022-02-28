@@ -378,13 +378,14 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
                   symKey: generateSymKey(conf.contentTopic))
 
   if conf.staticnodes.len > 0:
+    echo "Connecting to static peers..."
     await connectToNodes(chat, conf.staticnodes)
   
   var dnsDiscoveryUrl = none(string)
 
   if conf.fleet != Fleet.none:
     # Use DNS discovery to connect to selected fleet
-    echo "No static peers configured. Connecting to " & $conf.fleet & " fleet using DNS discovery..."
+    echo "Connecting to " & $conf.fleet & " fleet using DNS discovery..."
     
     if conf.fleet == Fleet.test:
       dnsDiscoveryUrl = some("enrtree://AOFTICU2XWDULNLZGRMQS4RIZPAZEHYMV4FYHAPW563HNRAOERP7C@test.waku.nodes.status.im")
