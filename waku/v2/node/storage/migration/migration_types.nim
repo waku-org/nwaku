@@ -7,7 +7,7 @@ const MESSAGE_STORE_MIGRATION_PATH* = sourceDir / "migrations_scripts/message"
 const PEER_STORE_MIGRATION_PATH* = sourceDir / "migrations_scripts/peer"
 const ALL_STORE_MIGRATION_PATH* = sourceDir / "migrations_scripts"
 
-const USER_VERSION* = 2 # increase this when there is an update in the database schema
+const USER_VERSION* = 4 # increase this when there is an update in the database schema
 
 type MigrationScriptsResult*[T] = Result[T, string]
 type
