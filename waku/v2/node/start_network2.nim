@@ -12,11 +12,14 @@ import
 import strutils except fromHex
 
 const
+  # Scenarios without discv5
+  # defaults ="--log-level:TRACE --metrics-logging --metrics-server --rpc"
+  # # Scenarios using discv5
   defaults ="--log-level:TRACE --metrics-logging --metrics-server --rpc --discv5-discovery --discv5-table-ip-limit=1024 --discv5-bucket-ip-limit=16 --discv5-bits-per-hop=1"
   wakuNodeBin = "build" / "wakunode2"
   metricsDir = "metrics"
   portOffset = 2
-  discv5ExtIpAddr = "127.0.0.1"
+  discv5ExtIpAddr = "127.0.0.1" # Scenarios using discv5
 
 type
   NodeInfo* = object
@@ -25,13 +28,13 @@ type
     address: string
     shift: int
     label: string
-    enrUri: string
+    enrUri: string # Scenarios using discv5
 
   Topology = enum
     Star,
     FullMesh,
-    BootstrapFleet
-  
+    BootstrapFleet # comprising one full-mesh core (fleet) and satellites (full nodes) using the fleet as bootstrap nodes
+   
   WakuNetworkConf* = object
     topology* {.
       desc: "Set the network topology."
@@ -48,8 +51,8 @@ type
       defaultValue: 3
       name: "numFleetNodes" .}: int
 
+
 proc debugPrintEnrURI(enrUri: string) =
-  echo "ENR URI: ", enrUri
   var r: Record
   if not fromURI(r, enrUri):
     echo "could not read ENR URI"
@@ -68,7 +71,7 @@ proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], master = false, lab
     keyPair = crypto.KeyPair(seckey: privKey, pubkey: pubkey)
     peerInfo = PeerInfo.new(privKey)
     port = 60000 + shift
-    discv5Port = 9000 + shift # todo read from config
+    discv5Port = 9000 + shift
     #DefaultAddr = "/ip4/127.0.0.1/tcp/55505"
     address = "/ip4/127.0.0.1/tcp/" & $port
     hostAddress = MultiAddress.init(address).tryGet()
@@ -88,6 +91,7 @@ proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], master = false, lab
     for staticNode in staticNodes:
       result.cmd &= "--staticnode:" & staticNode & " "
 
+  # Scenarios using discv5
   result.cmd &= "--nat:extip:" & discv5ExtIpAddr & " "
   if discv5BootStrapEnrs.len > 0:
     for enr in discv5BootStrapEnrs:
@@ -98,6 +102,10 @@ proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], master = false, lab
   result.master = master
   result.address = listenStr
 
+  # Scenarios using discv5
+  # We have to manually build the ENR which the node ran with the currently build node command will generate,
+  # because we need to know it before the node starts in order to be able to provide it as bootstrap information.
+  # Note: the ENR built here is not exactly the same as we don't integrate the waku2 key in this test scenario.
   let enr = enr.Record.init(1,
     keys.PrivateKey.fromHex(hkey).expect("could not convert priv key from hex"),
     some(stewNet.ValidIpAddress.init(discv5ExtIpAddr)),
@@ -109,24 +117,30 @@ proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], master = false, lab
   info "Node command created.", cmd=result.cmd, address = result.address
 
 
+# # Scenarios without discv5
+# proc starNetwork(amount: int): seq[NodeInfo] =
+#   let masterNode = initNodeCmd(portOffset, master = true, label = "master node")
+#   result.add(masterNode)
+#   for i in 1..<amount:
+#     result.add(initNodeCmd(portOffset + i, @[masterNode.address], label = "full node"))
+
+# Scenarios using discv5
 proc starNetwork(amount: int): seq[NodeInfo] =
   let masterNode = initNodeCmd(portOffset, master = true, label = "master node")
-
-  debugPrintEnrURI(masterNode.enrUri)
-
   let bootstrapEnrList = @[masterNode.enrUri]
   result.add(masterNode)
   for i in 1..<amount:
-    # result.add(initNodeCmd(portOffset + i, @[masterNode.address], label = "full node", discv5BootStrapEnrs = bootstrapEnrList))
     result.add(initNodeCmd(portOffset + i, label = "full node", discv5BootStrapEnrs = bootstrapEnrList)) # no waku bootstrap nodes; get bootstrap waku nodes via discv5
 
-proc bootstrapFleetNetwork(amount: int, numFleetNodes: int): seq[NodeInfo] =
-  debug "amount", amount
-  debug "fleet nodes", numFleetNodes
 
-  var bootstrapEnrList: seq[string] = @[]    # for discv5
-  var bootstrapNodeList: seq[string] = @[]   # for waku relay
-  
+# Scenarios using discv5
+proc bootstrapFleetNetwork(amount: int, numFleetNodes: int): seq[NodeInfo] =
+  debug "number of fleet nodes", numFleetNodes
+  debug "number of satellite nodes", amount
+
+  var bootstrapEnrList: seq[string] = @[]    # bootstrap for discv5
+  var bootstrapNodeList: seq[string] = @[]   # bootstrap for waku relay
+
   for i in 0..<numFleetNodes:
     for fleetNode in result:
       bootstrapEnrList.add(fleetNode.enrUri)
@@ -137,6 +151,7 @@ proc bootstrapFleetNetwork(amount: int, numFleetNodes: int): seq[NodeInfo] =
     result.add(initNodeCmd(portOffset + numFleetNodes + i, label = "full node", discv5BootStrapEnrs = bootstrapEnrList)) # no waku bootstrap nodes; get bootstrap waku nodes via discv5
 
 
+# Scenarios without discv5
 proc fullMeshNetwork(amount: int): seq[NodeInfo] =
   debug "amount", amount
   for i in 0..<amount:
