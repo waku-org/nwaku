@@ -1082,7 +1082,7 @@ when isMainModule:
           conf.discv5TableIpLimit, conf.discv5BucketIpLimit, conf.discv5BitsPerHop)
 
       node.wakuDiscv5 = WakuDiscoveryV5.new(
-        extIP, extTcpPort, some(discv5UdpPort),
+        extIP, extPort, some(discv5UdpPort),
         conf.listenAddress,
         discv5UdpPort,
         conf.discv5BootstrapNodes,
