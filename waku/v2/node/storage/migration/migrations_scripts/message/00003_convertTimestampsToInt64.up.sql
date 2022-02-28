@@ -22,9 +22,8 @@ CREATE TABLE IF NOT EXISTS Message(
         senderTimestamp INTEGER NOT NULL
     ) WITHOUT ROWID;
 
-
 INSERT INTO Message (id, receiverTimestamp, contentTopic, pubsubTopic, payload, version, senderTimestamp)
-    SELECT id, FLOOR(receiverTimestamp*1000000000), contentTopic, pubsubTopic, payload, version, FLOOR(senderTimestamp*1000000000)
+    SELECT id, CAST(receiverTimestamp*1000000000 AS INTEGER), contentTopic, pubsubTopic, payload, version, CAST(senderTimestamp*1000000000 AS INTEGER)
     FROM Message_backup;
 
 DROP TABLE Message_backup;

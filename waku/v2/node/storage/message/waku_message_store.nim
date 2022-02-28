@@ -31,13 +31,14 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] 
 
   let prepare = db.prepareStmt("""
     CREATE TABLE IF NOT EXISTS """ & TABLE_TITLE & """ (
-        id BLOB PRIMARY KEY,
+        id BLOB,
         receiverTimestamp """ & TIMESTAMP_TABLE_TYPE & """ NOT NULL,
         contentTopic BLOB NOT NULL,
         pubsubTopic BLOB NOT NULL,
         payload BLOB,
         version INTEGER NOT NULL,
-        senderTimestamp """ & TIMESTAMP_TABLE_TYPE & """  NOT NULL
+        senderTimestamp """ & TIMESTAMP_TABLE_TYPE & """  NOT NULL,
+        CONSTRAINT messageIndex PRIMARY KEY (senderTimestamp, id, pubsubTopic)
     ) WITHOUT ROWID;
     """, NoParams, void)
 
@@ -133,5 +134,3 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc, limit = non
 proc close*(db: WakuMessageStore) = 
   ## Closes the database.
   db.database.close()
-
-

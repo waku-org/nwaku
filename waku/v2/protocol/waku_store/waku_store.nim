@@ -56,7 +56,9 @@ const
 # TODO Move serialization function to separate file, too noisy
 # TODO Move pagination to separate file, self-contained logic
 
-proc computeIndex*(msg: WakuMessage, receivedTime = getNanosecondTime(getTime().toUnixFloat())): Index =
+proc computeIndex*(msg: WakuMessage,
+                   receivedTime = getNanosecondTime(getTime().toUnixFloat()),
+                   pubsubTopic = DefaultTopic): Index =
   ## Takes a WakuMessage with received timestamp and returns its Index.
   ## Received timestamp will default to system time if not provided.
   var ctx: sha256
@@ -66,8 +68,13 @@ proc computeIndex*(msg: WakuMessage, receivedTime = getNanosecondTime(getTime().
   let digest = ctx.finish() # computes the hash
   ctx.clear()
 
-  let receiverTime = receivedTime
-  var index = Index(digest:digest, receiverTime: receiverTime, senderTime: msg.timestamp)
+  let
+    receiverTime = receivedTime
+    index = Index(digest:digest,
+                  receiverTime: receiverTime, 
+                  senderTime: msg.timestamp,
+                  pubsubTopic: pubsubTopic)
+
   return index
 
 proc encode*(index: Index): ProtoBuffer =
@@ -81,6 +88,7 @@ proc encode*(index: Index): ProtoBuffer =
   output.write(1, index.digest.data)
   output.write(2, zint64(index.receiverTime))
   output.write(3, zint64(index.senderTime))
+  output.write(4, index.pubsubTopic)
 
   return output
 
@@ -120,6 +128,9 @@ proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
   var senderTime: zint64
   discard ? pb.getField(3, senderTime)
   index.senderTime = Timestamp(senderTime)
+
+  # read the pubsubTopic
+  discard ? pb.getField(4, index.pubsubTopic)
 
   return ok(index) 
 
@@ -176,7 +187,6 @@ proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var endTime: zint64
   discard ? pb.getField(6, endTime)
   msg.endTime = Timestamp(endTime)
-
 
   return ok(msg)
 
@@ -344,7 +354,7 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
 
   proc onData(receiverTime: Timestamp, msg: WakuMessage, pubsubTopic:  string) =
     # TODO index should not be recalculated
-    discard ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex(receiverTime), pubsubTopic: pubsubTopic))
+    discard ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex(receiverTime, pubsubTopic), pubsubTopic: pubsubTopic))
 
   info "attempting to load messages from persistent storage"
 
@@ -380,12 +390,13 @@ proc handleMessage*(w: WakuStore, topic: string, msg: WakuMessage) {.async.} =
   # Handle WakuMessage according to store protocol
   trace "handle message in WakuStore", topic=topic, msg=msg
 
-  let index = msg.computeIndex()
+  let index = msg.computeIndex(pubsubTopic = topic)
   let addRes = w.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: topic))
   
   if addRes.isErr:
     trace "Attempt to add message with duplicate index to store", msg=msg, index=index
     waku_store_errors.inc(labelValues = ["duplicate"])
+    return # Do not attempt to store in persistent DB
   
   waku_store_messages.set(w.messages.len.int64, labelValues = ["stored"])
   
@@ -557,7 +568,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
     # exclude index from the comparison criteria
 
     for msg in msgList:
-      let index = msg.computeIndex()
+      let index = msg.computeIndex(pubsubTopic = DefaultTopic)
       # check for duplicate messages
       # TODO Should take pubsub topic into account if we are going to support topics rather than the DefaultTopic
       if ws.messages.contains(index):
