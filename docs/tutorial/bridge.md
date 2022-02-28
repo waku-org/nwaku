@@ -68,7 +68,8 @@ A typical `wakubridge` setup, combining the configuration items above, could loo
 ./build/wakubridge --nodekey-v1:<v1-private-key-as-hex> --nodekey-v2:<v2-private-key-as-hex> --staticnode-v1:<enode-url> --staticnode-v2:<peer-multiaddr>
 ```
 
-By default the `wakubridge` will then begin to bridge all Waku v1 messages routed by `staticnode-v1` to the default Waku v2 pubsub topic (`/waku/2/default-waku/proto`) from `staticnode-v2`.
+By default the `wakubridge` will then begin to bridge all Waku v1 messages routed by `staticnode-v1` to the Waku v2 network defined by the default Waku v2 pubsub topic (`/waku/2/default-waku/proto`) and participated in by `staticnode-v2`.
+Waku v2 messages on the default Waku v2 pubsub topic will similarly be bridged to Waku v1.
 This is the likely configuration for most `wakubridge` setups.
 
 ### Other configuration
