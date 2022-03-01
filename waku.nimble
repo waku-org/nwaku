@@ -99,3 +99,4 @@ task chat2bridge, "Build chat2-matterbridge":
   let name = "chat2bridge"
 
   buildBinary name, "examples/v2/matterbridge/", "-d:chronicles_log_level=DEBUG"
+
