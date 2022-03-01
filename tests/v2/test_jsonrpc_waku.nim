@@ -382,6 +382,8 @@ procSuite "Waku v2 JSON-RPC API":
 
     for wakuMsg in msgList:
       waitFor node.wakuStore.handleMessage(defaultTopic, wakuMsg)
+    
+    await sleepAsync(2000.millis)
 
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort, false)
