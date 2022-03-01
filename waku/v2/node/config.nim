@@ -265,6 +265,24 @@ type
       defaultValue: false
       name: "discv5-enr-auto-update" .}: bool
 
+    discv5TableIpLimit* {.
+      hidden
+      desc: "Maximum amount of nodes with the same IP in discv5 routing tables"
+      defaultValue: 10
+      name: "discv5-table-ip-limit" .}: uint
+
+    discv5BucketIpLimit* {.
+      hidden
+      desc: "Maximum amount of nodes with the same IP in discv5 routing table buckets"
+      defaultValue: 2
+      name: "discv5-bucket-ip-limit" .}: uint
+
+    discv5BitsPerHop* {.
+      hidden
+      desc: "Kademlia's b variable, increase for less hops per lookup"
+      defaultValue: 1
+      name: "discv5-bits-per-hop" .}: int
+
     ## websocket config
     websocketSupport* {.
       desc: "Enable websocket:  true|false",

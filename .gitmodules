@@ -1,8 +1,8 @@
 [submodule "vendor/nim-eth"]
 	path = vendor/nim-eth
-	url = https://github.com/status-im/nim-eth.git
+	url = https://github.com/kaiserd/nim-eth.git
 	ignore = dirty
-	branch = master
+	branch = add-selectable-protocol-id-static
 [submodule "vendor/nim-secp256k1"]
 	path = vendor/nim-secp256k1
 	url = https://github.com/status-im/nim-secp256k1.git
