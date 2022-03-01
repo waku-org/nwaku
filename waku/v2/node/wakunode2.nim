@@ -1076,10 +1076,13 @@ when isMainModule:
                           )
     
     if conf.discv5Discovery:
-      let discv5UdpPort = Port(uint16(conf.discv5UdpPort) + conf.portsShift)
+      let
+        discv5UdpPort = Port(uint16(conf.discv5UdpPort) + conf.portsShift)
+        discoveryConfig = DiscoveryConfig.init(
+          conf.discv5TableIpLimit, conf.discv5BucketIpLimit, conf.discv5BitsPerHop)
 
       node.wakuDiscv5 = WakuDiscoveryV5.new(
-        extIP, extTcpPort, some(discv5UdpPort),
+        extIP, extPort, some(discv5UdpPort),
         conf.listenAddress,
         discv5UdpPort,
         conf.discv5BootstrapNodes,
@@ -1087,7 +1090,8 @@ when isMainModule:
         keys.PrivateKey(conf.nodekey.skkey),
         wakuFlags,
         [], # Empty enr fields, for now
-        node.rng
+        node.rng,
+        discoveryConfig
       )
     
     ok(node)
@@ -1168,9 +1172,14 @@ when isMainModule:
     ## Start a configured node and all mounted protocols.
     ## Resume history, connect to static nodes and start
     ## keep-alive, if configured.
-
-   # Start Waku v2 node
+    
+    # Start Waku v2 node
     waitFor node.start()
+
+    # start discv5 and connect to discovered nodes
+    if conf.discv5Discovery:
+      if not waitFor node.startDiscv5():
+        error "could not start Discovery v5"
   
     # Resume historical messages, this has to be called after the node has been started
     if conf.store and conf.persistMessages:
@@ -1238,9 +1247,9 @@ when isMainModule:
   ##############
   # Node setup #
   ##############
-
+  
   debug "1/6 Setting up storage"
-
+  
   var
     pStorage: WakuPeerStorage
     mStorage: WakuMessageStore

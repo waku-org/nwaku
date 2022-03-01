@@ -96,6 +96,9 @@ endif
 endif
 endif
 
+# use a separate waku discv5 network with `protocol-id="d5waku"`
+NIM_PARAMS := $(NIM_PARAMS) -d:discv5_protocol_id:d5waku
+
 deps: | deps-common nat-libs waku.nims rlnlib
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
