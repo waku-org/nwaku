@@ -212,64 +212,6 @@ procSuite "Waku v2 JSON-RPC API":
     await node1.stop()
     await node2.stop()
     await node3.stop()
-
-  # asyncTest "Store API: retrieve historical messages":      
-  #   waitFor node.start()
-
-  #   node.mountRelay()
-
-  #   # RPC server setup
-  #   let
-  #     rpcPort = Port(8545)
-  #     ta = initTAddress(bindIp, rpcPort)
-  #     server = newRpcHttpServer([ta])
-
-  #   installStoreApiHandlers(node, server)
-  #   server.start()
-
-  #   # WakuStore setup
-  #   let
-  #     key = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
-  #     peer = PeerInfo.new(key)
-    
-  #   node.mountStore(persistMessages = true)
-    
-  #   var listenSwitch = newStandardSwitch(some(key))
-  #   waitFor listenSwitch.start()
-
-  #   node.wakuStore.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
-
-  #   listenSwitch.mount(node.wakuRelay)
-  #   listenSwitch.mount(node.wakuStore)
-
-  #   # Now prime it with some history before tests
-  #   var
-  #     msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: 0),
-  #       WakuMessage(payload: @[byte 1], contentTopic: defaultContentTopic, timestamp: 1),
-  #       WakuMessage(payload: @[byte 2], contentTopic: defaultContentTopic, timestamp: 2),
-  #       WakuMessage(payload: @[byte 3], contentTopic: defaultContentTopic, timestamp: 3),
-  #       WakuMessage(payload: @[byte 4], contentTopic: defaultContentTopic, timestamp: 4),
-  #       WakuMessage(payload: @[byte 5], contentTopic: defaultContentTopic, timestamp: 5),
-  #       WakuMessage(payload: @[byte 6], contentTopic: defaultContentTopic, timestamp: 6),
-  #       WakuMessage(payload: @[byte 7], contentTopic: defaultContentTopic, timestamp: 7),
-  #       WakuMessage(payload: @[byte 8], contentTopic: defaultContentTopic, timestamp: 8), 
-  #       WakuMessage(payload: @[byte 9], contentTopic: ContentTopic("2"), timestamp: 9)]
-
-  #   for wakuMsg in msgList:
-  #     waitFor node.wakuStore.handleMessage(defaultTopic, wakuMsg)
-
-  #   let client = newRpcHttpClient()
-  #   await client.connect("127.0.0.1", rpcPort, false)
-
-  #   let response = await client.get_waku_v2_store_v1_messages(some(defaultTopic), some(@[HistoryContentFilter(contentTopic: defaultContentTopic)]), some(Timestamp(0)), some(Timestamp(9)), some(StorePagingOptions()))
-  #   check:
-  #     response.messages.len() == 8
-  #     response.pagingOptions.isSome()
-      
-  #   await server.stop()
-  #   await server.closeWait()
-    
-  #   waitfor node.stop()
   
   asyncTest "Filter API: subscribe/unsubscribe": 
     waitFor node.start()
@@ -391,6 +333,64 @@ procSuite "Waku v2 JSON-RPC API":
       response[0].payload == @[byte 2]
       response[maxSize - 1].payload == @[byte (maxSize + 1)]
 
+    await server.stop()
+    await server.closeWait()
+    
+    waitfor node.stop()
+
+  asyncTest "Store API: retrieve historical messages":      
+    waitFor node.start()
+
+    node.mountRelay()
+
+    # RPC server setup
+    let
+      rpcPort = Port(8545)
+      ta = initTAddress(bindIp, rpcPort)
+      server = newRpcHttpServer([ta])
+
+    installStoreApiHandlers(node, server)
+    server.start()
+
+    # WakuStore setup
+    let
+      key = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
+      peer = PeerInfo.new(key)
+    
+    node.mountStore(persistMessages = true)
+    
+    var listenSwitch = newStandardSwitch(some(key))
+    waitFor listenSwitch.start()
+
+    node.wakuStore.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
+
+    listenSwitch.mount(node.wakuRelay)
+    listenSwitch.mount(node.wakuStore)
+
+    # Now prime it with some history before tests
+    var
+      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: 0),
+        WakuMessage(payload: @[byte 1], contentTopic: defaultContentTopic, timestamp: 1),
+        WakuMessage(payload: @[byte 2], contentTopic: defaultContentTopic, timestamp: 2),
+        WakuMessage(payload: @[byte 3], contentTopic: defaultContentTopic, timestamp: 3),
+        WakuMessage(payload: @[byte 4], contentTopic: defaultContentTopic, timestamp: 4),
+        WakuMessage(payload: @[byte 5], contentTopic: defaultContentTopic, timestamp: 5),
+        WakuMessage(payload: @[byte 6], contentTopic: defaultContentTopic, timestamp: 6),
+        WakuMessage(payload: @[byte 7], contentTopic: defaultContentTopic, timestamp: 7),
+        WakuMessage(payload: @[byte 8], contentTopic: defaultContentTopic, timestamp: 8), 
+        WakuMessage(payload: @[byte 9], contentTopic: ContentTopic("2"), timestamp: 9)]
+
+    for wakuMsg in msgList:
+      waitFor node.wakuStore.handleMessage(defaultTopic, wakuMsg)
+
+    let client = newRpcHttpClient()
+    await client.connect("127.0.0.1", rpcPort, false)
+
+    let response = await client.get_waku_v2_store_v1_messages(some(defaultTopic), some(@[HistoryContentFilter(contentTopic: defaultContentTopic)]), some(Timestamp(0)), some(Timestamp(9)), some(StorePagingOptions()))
+    check:
+      response.messages.len() == 8
+      response.pagingOptions.isSome()
+      
     await server.stop()
     await server.closeWait()
     
