@@ -669,12 +669,12 @@ proc mountRelay*(node: WakuNode,
   # @TODO: Better error handling: CatchableError is raised by `waitFor`
   {.gcsafe, raises: [Defect, InitializationError, LPError, CatchableError].} =
 
-  func msgIdProvider(m: messages.Message): seq[byte] =
+  proc msgIdProvider(m: messages.Message): Result[MessageID, ValidationResult] =
     let mh = MultiHash.digest("sha2-256", m.data)
     if mh.isOk():
-      return mh[].data.buffer
+      return ok(mh[].data.buffer)
     else:
-      return ($m.data.hash).toBytes()
+      return ok(($m.data.hash).toBytes())
 
   let wakuRelay = WakuRelay.init(
     switch = node.switch,
