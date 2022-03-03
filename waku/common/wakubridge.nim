@@ -12,6 +12,7 @@ import
   ../v1/protocol/waku_protocol,
   # Waku v2 imports
   libp2p/crypto/crypto,
+  libp2p/nameresolving/nameresolver,
   ../v2/utils/namespacing,
   ../v2/utils/time,
   ../v2/node/wakunode2,
@@ -32,6 +33,9 @@ const
   ClientIdV1 = "nim-waku v1 node"
   DefaultTTL = 5'u32
   DeduplQSize = 20  # Maximum number of seen messages to keep in deduplication queue
+  ContentTopicApplication = "waku"
+  ContentTopicAppVersion = "1"
+  
 
 #########
 # Types #
@@ -47,6 +51,18 @@ type
 ###################
 # Helper funtions #
 ###################
+
+# Validity
+
+proc isBridgeable*(msg: WakuMessage): bool =
+  ## Determines if a Waku v2 msg is on a bridgeable content topic
+  
+  let ns = NamespacedTopic.fromString(msg.contentTopic)
+  if ns.isOk():
+    if ns.get().application == ContentTopicApplication and ns.get().version == ContentTopicAppVersion:
+      return true
+  
+  return false
 
 # Deduplication
 
@@ -72,8 +88,8 @@ proc toV2ContentTopic*(v1Topic: waku_protocol.Topic): ContentTopic =
   
   var namespacedTopic = NamespacedTopic()
   
-  namespacedTopic.application = "waku"
-  namespacedTopic.version = "1"
+  namespacedTopic.application = ContentTopicApplication
+  namespacedTopic.version = ContentTopicAppVersion
   namespacedTopic.topicName = "0x" & v1Topic.toHex()
   namespacedTopic.encoding = "rfc26"
 
@@ -149,6 +165,7 @@ proc new*(T: type WakuBridge,
           nodev2Key: crypto.PrivateKey,
           nodev2BindIp: ValidIpAddress, nodev2BindPort: Port,
           nodev2ExtIp = none[ValidIpAddress](), nodev2ExtPort = none[Port](),
+          nameResolver: NameResolver = nil,
           # Bridge configuration
           nodev2PubsubTopic: wakunode2.Topic): T
   {.raises: [Defect,IOError, TLSStreamProtocolError, LPError].} =
@@ -177,7 +194,8 @@ proc new*(T: type WakuBridge,
   let
     nodev2 = WakuNode.new(nodev2Key,
                           nodev2BindIp, nodev2BindPort,
-                          nodev2ExtIp, nodev2ExtPort)
+                          nodev2ExtIp, nodev2ExtPort,
+                          nameResolver = nameResolver)
   
   return WakuBridge(nodev1: nodev1, nodev2: nodev2, nodev2PubsubTopic: nodev2PubsubTopic)
 
@@ -215,7 +233,7 @@ proc start*(bridge: WakuBridge) {.async.} =
   # Handle messages on Waku v2 and bridge to Waku v1
   proc relayHandler(pubsubTopic: string, data: seq[byte]) {.async, gcsafe.} =
     let msg = WakuMessage.init(data)
-    if msg.isOk():
+    if msg.isOk() and msg.get().isBridgeable():
       try:
         trace "Bridging message from V2 to V1", msg=msg.tryGet()
         bridge.toWakuV1(msg.tryGet())
@@ -232,6 +250,7 @@ proc stop*(bridge: WakuBridge) {.async.} =
 when isMainModule:
   import
     eth/p2p/whispernodes,
+    libp2p/nameresolving/dnsresolver,
     ./utils/nat,
     ../v1/node/rpc/wakusim,
     ../v1/node/rpc/waku,
@@ -299,6 +318,16 @@ when isMainModule:
   else:
     bloom = some(fullBloom())
 
+  # DNS resolution
+  var dnsReslvr: DnsResolver
+  if conf.dnsAddrs:
+    # Support for DNS multiaddrs
+    var nameServers: seq[TransportAddress]
+    for ip in conf.dnsAddrsNameServers:
+      nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
+    
+    dnsReslvr = DnsResolver.new(nameServers)
+
   let
     bridge = WakuBridge.new(nodev1Key = conf.nodekeyV1,
                             nodev1Address = nodev1Address,
@@ -309,6 +338,7 @@ when isMainModule:
                             nodev2Key = conf.nodekeyV2,
                             nodev2BindIp = conf.listenAddress, nodev2BindPort = Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
                             nodev2ExtIp = nodev2ExtIp, nodev2ExtPort = nodev2ExtPort,
+                            nameResolver = dnsReslvr,
                             nodev2PubsubTopic = conf.bridgePubsubTopic)
   
   waitFor bridge.start()

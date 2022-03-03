@@ -134,6 +134,16 @@ type
       defaultValue: ""
       name: "filternode" }: string
     
+    dnsAddrs* {.
+      desc: "Enable resolution of `dnsaddr`, `dns4` or `dns6` multiaddrs"
+      defaultValue: true
+      name: "dns-addrs" }: bool
+    
+    dnsAddrsNameServers* {.
+      desc: "DNS name server IPs to query for DNS multiaddrs resolution. Argument may be repeated."
+      defaultValue: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")]
+      name: "dns-addrs-name-server" }: seq[ValidIpAddress]
+    
     ### Bridge options
 
     bridgePubsubTopic* {.
