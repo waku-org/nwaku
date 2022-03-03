@@ -1,30 +1,54 @@
-##  Next Release
+##  2021-03-03 v0.8
+
 Release highlights:
 
-- 
+- Working demonstration and integration of [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) in the Waku v2 `toy-chat` application
+- Beta support for ambient peer discovery using [a version of Discovery v5](https://github.com/vacp2p/rfc/pull/487)
+- A fix for the issue that caused a `store` node to run out of memory after serving a number of historical queries
+- Ability to configure a `dns4` domain name for a node and resolve other dns-based `multiaddrs`
 
 The full list of changes is below.
 
 ### Features
 
-- The `waku-rln-relay` now supports spam-protection for a specific combination of `pubsubTopic` and `contentTopic` (available under the `rln` compiler flag).  
-- The `waku-rln-relay` protocol in integrated into `chat2` (available under the`rln` compiler flag)
+- [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation now supports spam-protection for a specific combination of `pubsubTopic` and `contentTopic` (available under the `rln` compiler flag).  
+- [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) integrated into chat2 `toy-chat` (available under the `rln` compiler flag)
 - Added support for resolving dns-based `multiaddrs`
+- A Waku v2 node can now be configured with a domain name and `dns4` `multiaddr`
+- Support for ambient peer discovery using [`33/WAKU-DISCV5`](https://github.com/vacp2p/rfc/pull/487)
 
 ### Changes
 
-- A new type `Timestamp` for all timestamps is introduced (currently an alias for int64).
-- All timestamps now have nanosecond resolution.
-- `waku-store` protocol identifier is updated to `/vac/waku/store/2.0.0-beta4`
+- Metrics: now monitoring content topics and the sources of new connections
+- Metrics: improved default fleet monitoring dashboard
+- Introduced a `Timestamp` type (currently an alias for int64).
+- All timestamps changed to nanosecond resolution.
+- [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) identifier updated to `/vac/waku/store/2.0.0-beta4`
+- `toy-chat` application now uses DNS discovery to connect to existing fleets
 
 ### Fixes
 
+- Fixed underlying bug that caused occasional failures when reading the certificate for secure websockets
+- Fixed `store` memory usage issues when responding to history queries
+
 ### Docs
 
-- Documented how to configure a `dns4` domain name for a node
-- Clarified use of DNS discovery and provided current URLs for discoverable fleet nodes
+- Documented [use of domain certificates](https://github.com/status-im/nim-waku/tree/2972a5003568848164033da3fe0d7f52a3d54824/waku/v2#enabling-websocket) for secure websockets
+- Documented [how to configure a `dns4` domain name](https://github.com/status-im/nim-waku/tree/2972a5003568848164033da3fe0d7f52a3d54824/waku/v2#using-dns-discovery-to-connect-to-existing-nodes) for a node
+- Clarified [use of DNS discovery](https://github.com/status-im/nim-waku/tree/2972a5003568848164033da3fe0d7f52a3d54824/waku/v2#using-dns-discovery-to-connect-to-existing-nodes) and provided current URLs for discoverable fleet nodes
+- Added [tutorial](https://github.com/status-im/nim-waku/blob/2972a5003568848164033da3fe0d7f52a3d54824/docs/tutorial/rln-chat2-local-test.md) on using [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) with the chat2 `toy-chat` application
+- Added [tutorial](https://github.com/status-im/nim-waku/blob/2972a5003568848164033da3fe0d7f52a3d54824/docs/tutorial/bridge.md) on how to configure and a use a [`15/WAKU-BRIDGE`](https://rfc.vac.dev/spec/15/)
 
-- ...
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
 
 ##  2021-01-19 v0.7
 
