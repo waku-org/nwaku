@@ -9,11 +9,11 @@ type Timestamp* = int64
 const TIMESTAMP_TABLE_TYPE* = "INTEGER"
 
 proc getNanosecondTime*[T](timeInSeconds: T): Timestamp = 
-  var ns = Timestamp(timeInSeconds*100000000)
+  var ns = Timestamp(timeInSeconds*1000_000_000)
   return ns
 
 proc getMicrosecondTime*[T](timeInSeconds: T): Timestamp = 
-  var us = Timestamp(timeInSeconds*1000000)
+  var us = Timestamp(timeInSeconds*1000_000)
   return us
 
 proc getMillisecondTime*[T](timeInSeconds: T): Timestamp = 
