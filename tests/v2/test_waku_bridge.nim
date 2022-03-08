@@ -98,6 +98,19 @@ procSuite "WakuBridge":
     expect ValueError:
       # Content topic name not hex
       discard toV1Topic(ContentTopic("/waku/1/my-content/rfc26"))
+  
+  asyncTest "Verify that WakuMessages are on bridgeable content topics":
+    let
+      validCT = ContentTopic("/waku/1/my-content/rfc26")
+      unnamespacedCT = ContentTopic("just_a_bunch_of_words")
+      invalidAppCT = ContentTopic("/facebook/1/my-content/rfc26")
+      invalidVersionCT = ContentTopic("/waku/2/my-content/rfc26")
+
+    check:
+      WakuMessage(contentTopic: validCT).isBridgeable() == true
+      WakuMessage(contentTopic: unnamespacedCT).isBridgeable() == false
+      WakuMessage(contentTopic: invalidAppCT).isBridgeable() == false
+      WakuMessage(contentTopic: invalidVersionCT).isBridgeable() == false
 
   asyncTest "Messages are bridged between Waku v1 and Waku v2":
     # Setup test
