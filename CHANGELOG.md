@@ -1,3 +1,17 @@
+## Next version
+
+
+### Features
+
+### Changes
+
+- Waku v1 <> v2 bridge now supports DNS `multiaddrs`
+- Waku v1 <> v2 bridge now validates content topics before attempting to bridge a message from Waku v2 to Waku v1
+
+### Fixes
+
+### Docs
+
 ##  2021-03-03 v0.8
 
 Release highlights:
@@ -23,6 +37,7 @@ The full list of changes is below.
 - Metrics: improved default fleet monitoring dashboard
 - Introduced a `Timestamp` type (currently an alias for int64).
 - All timestamps changed to nanosecond resolution.
+- `timestamp` field number in WakuMessage object changed from `4` to `10`
 - [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) identifier updated to `/vac/waku/store/2.0.0-beta4`
 - `toy-chat` application now uses DNS discovery to connect to existing fleets
 
