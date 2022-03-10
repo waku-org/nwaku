@@ -963,7 +963,7 @@ when isMainModule:
   # Setup functions #
   ###################
 
-  # 1/6 Setup storage
+  # 1/7 Setup storage
   proc setupStorage(conf: WakuNodeConf):
     SetupResult[tuple[pStorage: WakuPeerStorage, mStorage: WakuMessageStore]] =
 
@@ -1013,9 +1013,34 @@ when isMainModule:
     
     ok(storeTuple)
 
-  # 2/6 Initialize node
+  # 2/7 Retrieve dynamic bootstrap nodes
+  proc retrieveBootstrapNodes(conf: WakuNodeConf): Result[seq[RemotePeerInfo], cstring] =
+  # DNS discovery
+    if conf.dnsDiscovery and conf.dnsDiscoveryUrl != "":
+      debug "Discovering nodes using Waku DNS discovery", url=conf.dnsDiscoveryUrl
+
+      var nameServers: seq[TransportAddress]
+      for ip in conf.dnsDiscoveryNameServers:
+        nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
+
+      let dnsResolver = DnsResolver.new(nameServers)
+
+      proc resolver(domain: string): Future[string] {.async, gcsafe.} =
+        trace "resolving", domain=domain
+        let resolved = await dnsResolver.resolveTxt(domain)
+        return resolved[0] # Use only first answer
+      
+      var wakuDnsDiscovery = WakuDnsDiscovery.init(conf.dnsDiscoveryUrl,
+                                                   resolver)
+      if wakuDnsDiscovery.isOk:
+        return wakuDnsDiscovery.get().findPeers()
+      else:
+        warn "Failed to init Waku DNS discovery"
+
+  # 3/7 Initialize node
   proc initNode(conf: WakuNodeConf,
-                pStorage: WakuPeerStorage = nil): SetupResult[WakuNode] =
+                pStorage: WakuPeerStorage = nil,
+                dynamicBootstrapNodes: openArray[RemotePeerInfo] = @[]): SetupResult[WakuNode] =
     
     ## Setup a basic Waku v2 node based on a supplied configuration
     ## file. Optionally include persistent peer storage.
@@ -1074,12 +1099,16 @@ when isMainModule:
         discv5UdpPort = Port(uint16(conf.discv5UdpPort) + conf.portsShift)
         discoveryConfig = DiscoveryConfig.init(
           conf.discv5TableIpLimit, conf.discv5BucketIpLimit, conf.discv5BitsPerHop)
+      var discv5BootstrapNodes = conf.discv5BootstrapNodes
+      for n in dynamicBootstrapNodes:
+        if n.enr.isSome():
+          discv5BootstrapNodes.add("enr:" & n.enr.get().toBase64)
 
       node.wakuDiscv5 = WakuDiscoveryV5.new(
         extIP, extPort, some(discv5UdpPort),
         conf.listenAddress,
         discv5UdpPort,
-        conf.discv5BootstrapNodes,
+        discv5BootstrapNodes,
         conf.discv5EnrAutoUpdate,
         keys.PrivateKey(conf.nodekey.skkey),
         wakuFlags,
@@ -1090,7 +1119,7 @@ when isMainModule:
     
     ok(node)
 
-  # 3/6 Mount and initialize configured protocols
+  # 4/7 Mount and initialize configured protocols
   proc setupProtocols(node: var WakuNode,
                       conf: WakuNodeConf,
                       mStorage: WakuMessageStore = nil): SetupResult[bool] =
@@ -1161,8 +1190,9 @@ when isMainModule:
     
     ok(true) # Success
 
-  # 4/6 Start node and mounted protocols
-  proc startNode(node: WakuNode, conf: WakuNodeConf): SetupResult[bool] =
+  # 5/7 Start node and mounted protocols
+  proc startNode(node: WakuNode, conf: WakuNodeConf,
+    dynamicBootstrapNodes: seq[RemotePeerInfo] = @[]): SetupResult[bool] =
     ## Start a configured node and all mounted protocols.
     ## Resume history, connect to static nodes and start
     ## keep-alive, if configured.
@@ -1170,7 +1200,7 @@ when isMainModule:
     # Start Waku v2 node
     waitFor node.start()
 
-    # start discv5 and connect to discovered nodes
+    # Start discv5 and connect to discovered nodes
     if conf.discv5Discovery:
       if not waitFor node.startDiscv5():
         error "could not start Discovery v5"
@@ -1183,38 +1213,16 @@ when isMainModule:
     if conf.staticnodes.len > 0:
       waitFor connectToNodes(node, conf.staticnodes, "static")
     
-    # Connect to discovered nodes
-    if conf.dnsDiscovery and conf.dnsDiscoveryUrl != "":
-      debug "Discovering nodes using Waku DNS discovery", url=conf.dnsDiscoveryUrl
-
-      var nameServers: seq[TransportAddress]
-      for ip in conf.dnsDiscoveryNameServers:
-        nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
-
-      let dnsResolver = DnsResolver.new(nameServers)
-
-      proc resolver(domain: string): Future[string] {.async, gcsafe.} =
-        trace "resolving", domain=domain
-        let resolved = await dnsResolver.resolveTxt(domain)
-        return resolved[0] # Use only first answer
-      
-      var wakuDnsDiscovery = WakuDnsDiscovery.init(conf.dnsDiscoveryUrl,
-                                                   resolver)
-      if wakuDnsDiscovery.isOk:
-        let discoveredPeers = wakuDnsDiscovery.get().findPeers()
-        if discoveredPeers.isOk:
-          info "Connecting to discovered peers"
-          waitFor connectToNodes(node, discoveredPeers.get(), "dnsdisc")
-      else:
-        warn "Failed to init Waku DNS discovery"
-
+    info "Connecting to dynamic bootstrap peers"
+    waitFor connectToNodes(node, dynamicBootstrapNodes, "dynamic bootstrap")
+    
     # Start keepalive, if enabled
     if conf.keepAlive:
       node.startKeepalive()
     
     ok(true) # Success
 
-  # 5/6 Start monitoring tools and external interfaces
+  # 6/7 Start monitoring tools and external interfaces
   proc startExternal(node: WakuNode, conf: WakuNodeConf): SetupResult[bool] =
     ## Start configured external interfaces and monitoring tools
     ## on a Waku v2 node, including the RPC API and metrics
@@ -1242,7 +1250,7 @@ when isMainModule:
   # Node setup #
   ##############
   
-  debug "1/6 Setting up storage"
+  debug "1/7 Setting up storage"
   
   var
     pStorage: WakuPeerStorage
@@ -1251,44 +1259,53 @@ when isMainModule:
   let setupStorageRes = setupStorage(conf)
 
   if setupStorageRes.isErr:
-    error "1/6 Setting up storage failed. Continuing without storage."
+    error "1/7 Setting up storage failed. Continuing without storage."
   else:
     (pStorage, mStorage) = setupStorageRes.get()
 
-  debug "2/6 Initializing node"
+  debug "2/7 Retrieve dynamic boostrap nodes"
+  
+  var dynamicBootstrapNodes: seq[RemotePeerInfo]
+  let dynamicBootstrapNodesRes = retrieveBootstrapNodes(conf)
+  if dynamicBootstrapNodesRes.isErr:
+    error "2/7 Retrieving dynamic boostrap nodes failed. Continuing without dynamic boostrap nodes."
+  else:
+    dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
 
-  let initNodeRes = initNode(conf, pStorage)
+  debug "3/7 Initializing node"
+
+  let initNodeRes = initNode(conf, pStorage, dynamicBootstrapNodes)
 
   if initNodeRes.isErr:
-    error "2/6 Initializing node failed. Quitting."
+    error "3/7 Initializing node failed. Quitting."
     quit(QuitFailure)
   else:
     node = initNodeRes.get()
 
-  debug "3/6 Mounting protocols"
+  debug "4/7 Mounting protocols"
 
   let setupProtocolsRes = setupProtocols(node, conf, mStorage)
 
   if setupProtocolsRes.isErr:
-    error "3/6 Mounting protocols failed. Continuing in current state."
+    error "4/7 Mounting protocols failed. Continuing in current state."
 
-  debug "4/6 Starting node and mounted protocols"
+  debug "5/7 Starting node and mounted protocols"
   
-  let startNodeRes = startNode(node, conf)
+  let startNodeRes = startNode(node, conf, dynamicBootstrapNodes)
 
   if startNodeRes.isErr:
-    error "4/6 Starting node and mounted protocols failed. Continuing in current state."
+    error "5/7 Starting node and mounted protocols failed. Continuing in current state."
 
-  debug "5/6 Starting monitoring and external interfaces"
+  debug "6/7 Starting monitoring and external interfaces"
 
   let startExternalRes = startExternal(node, conf)
 
   if startExternalRes.isErr:
-    error "5/6 Starting monitoring and external interfaces failed. Continuing in current state."
+    error "6/7 Starting monitoring and external interfaces failed. Continuing in current state."
 
-  debug "6/6 Setting up shutdown hooks"
+  debug "7/7 Setting up shutdown hooks"
 
-  # 6/6 Setup graceful shutdown hooks
+  # 7/7 Setup graceful shutdown hooks
   ## Setup shutdown hooks for this process.
   ## Stop node gracefully on shutdown.
   
