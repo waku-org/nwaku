@@ -15,7 +15,7 @@ Start by compiling the `wakubridge` binary.
 ```bash
 # The first `make` invocation will update all Git submodules.
 # You'll run `make update` after each `git pull`, in the future, to keep those submodules up to date.
-make bridge
+make wakubridge
 
 # See available command line options
 ./build/wakubridge --help

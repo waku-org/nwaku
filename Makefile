@@ -30,7 +30,7 @@ LINK_PCRE := 0
 	wakunode2 \
 	example1 \
 	example2 \
-	bridge \
+	wakubridge \
 	test \
 	clean \
 	libwaku.so \
@@ -56,7 +56,7 @@ else # "variables.mk" was included. Business as usual until the end of this file
 all: | v1 v2
 
 v1: | wakunode1 sim1 example1
-v2: | wakunode2 sim2 example2 chat2 bridge chat2bridge
+v2: | wakunode2 sim2 example2 chat2 wakubridge chat2bridge
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
@@ -185,7 +185,7 @@ chat2: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim chat2 $(NIM_PARAMS) waku.nims
 
-bridge: | build deps
+wakubridge: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim bridge $(NIM_PARAMS) waku.nims
 
