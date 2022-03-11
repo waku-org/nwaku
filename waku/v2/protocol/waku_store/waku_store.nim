@@ -271,6 +271,8 @@ proc encode*(rpc: HistoryRPC): ProtoBuffer =
 
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse {.gcsafe.} =
   ## Query history to return a single page of messages matching the query
+  
+  info "Finding messages matching received query", query=query
 
   ## Extract query criteria
   ## All query criteria are optional
@@ -284,22 +286,30 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse {.gcsafe.}
     qEndTime = if query.endTime != Timestamp(0): some(query.endTime)
                else: none(Timestamp)
   
+  trace "Combined query criteria into single predicate", contentTopics=qContentTopics, pubsubTopic=qPubSubTopic, startTime=qStartTime, endTime=qEndTime
+  
   ## Compose filter predicate for message from query criteria
   proc matchesQuery(indMsg: IndexedWakuMessage): bool =
+    trace "Matching indexed message against predicate", msg=indMsg
+
     if qPubSubTopic.isSome():
       # filter on pubsub topic
       if indMsg.pubsubTopic != qPubSubTopic.get():
+        trace "Failed to match pubsub topic", criteria=qPubSubTopic.get(), actual=indMsg.pubsubTopic
         return false
     
     if qStartTime.isSome() and qEndTime.isSome():
       # temporal filtering
       # select only messages whose sender generated timestamps fall bw the queried start time and end time
+      
       if indMsg.msg.timestamp > qEndTime.get() or indMsg.msg.timestamp < qStartTime.get():
+        trace "Failed to match temporal filter", criteriaStart=qStartTime.get(), criteriaEnd=qEndTime.get(), actual=indMsg.msg.timestamp
         return false
     
     if qContentTopics.isSome():
       # filter on content
       if indMsg.msg.contentTopic notin qContentTopics.get():
+        trace "Failed to match content topic", criteria=qContentTopics.get(), actual=indMsg.msg.contentTopic
         return false
     
     return true
@@ -310,6 +320,7 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse {.gcsafe.}
     # Build response
     historyRes = HistoryResponse(messages: wakuMsgList, pagingInfo: updatedPagingInfo, error: error)
   
+  trace "Successfully populated a history response", response=historyRes
   return historyRes
 
 proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
@@ -323,7 +334,7 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
       return
 
     # TODO Print more info here
-    info "received query"
+    info "received query", rpc=res.value
     waku_store_queries.inc()
 
     let value = res.value
