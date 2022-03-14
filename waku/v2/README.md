@@ -37,7 +37,6 @@ Setting up a `wakunode2` on the smallest [digital ocean](https://docs.digitaloce
 * activate swap on the smallest droplet.
 
 
-
 ### Waku v2 Protocol Test Suite
 
 ```bash
