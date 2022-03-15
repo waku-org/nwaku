@@ -41,7 +41,7 @@ when defined(rln):
     web3,
     ../protocol/waku_rln_relay/[rln, waku_rln_relay_utils]
 
-declarePublicCounter waku_node_messages, "number of messages received", ["type", "contentTopic"]
+declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicGauge waku_node_filters, "number of content filter subscriptions"
 declarePublicGauge waku_node_errors, "number of wakunode errors", ["type"]
 declarePublicCounter waku_node_conns_initiated, "number of connections initiated by this node", ["source"]
@@ -276,10 +276,7 @@ proc subscribe(node: WakuNode, topic: Topic, handler: Option[TopicHandler]) =
       if (not node.wakuStore.isNil):
         await node.wakuStore.handleMessage(topic, msg.value())
 
-      # Increase message counter
-      let ctLabel = if msg.value().contentTopic.len > 0: msg.value().contentTopic
-                    else: "none"
-      waku_node_messages.inc(labelValues = ["relay", ctLabel])
+      waku_node_messages.inc(labelValues = ["relay"])
 
   let wakuRelay = node.wakuRelay
 
@@ -462,10 +459,7 @@ proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {
     for message in msg.messages:
       node.filters.notify(message, requestId) # Trigger filter handlers on a light node
       
-      # Increase message counter
-      let ctLabel = if message.contentTopic.len > 0: message.contentTopic
-                    else: "none"
-      waku_node_messages.inc(labelValues = ["filter", ctLabel])
+      waku_node_messages.inc(labelValues = ["filter"])
 
   node.wakuFilter = WakuFilter.init(node.peerManager, node.rng, filterHandler, filterTimeout)
   node.switch.mount(node.wakuFilter, protocolMatcher(WakuFilterCodec))
