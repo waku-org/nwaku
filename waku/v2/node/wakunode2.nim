@@ -1014,7 +1014,7 @@ when isMainModule:
     ok(storeTuple)
 
   # 2/7 Retrieve dynamic bootstrap nodes
-  proc retrieveBootstrapNodes(conf: WakuNodeConf): Result[seq[RemotePeerInfo], cstring] =
+  proc retrieveDynamicBootstrapNodes(conf: WakuNodeConf): Result[seq[RemotePeerInfo], cstring] =
   # DNS discovery
     if conf.dnsDiscovery and conf.dnsDiscoveryUrl != "":
       debug "Discovering nodes using Waku DNS discovery", url=conf.dnsDiscoveryUrl
@@ -1099,16 +1099,22 @@ when isMainModule:
         discv5UdpPort = Port(uint16(conf.discv5UdpPort) + conf.portsShift)
         discoveryConfig = DiscoveryConfig.init(
           conf.discv5TableIpLimit, conf.discv5BucketIpLimit, conf.discv5BitsPerHop)
-      var discv5BootstrapNodes = conf.discv5BootstrapNodes
+
+      # select dynamic bootstrap nodes that have an ENR containing a udp port
+      var discv5BootstrapEnrs: seq[enr.Record]
       for n in dynamicBootstrapNodes:
-        if n.enr.isSome():
-          discv5BootstrapNodes.add("enr:" & n.enr.get().toBase64)
+        if n.enr.isSome() and n.enr.get().toTypedRecord().tryGet().udp.isSome(): # TODO: idiomatic error handling
+          discv5BootstrapEnrs.add(n.enr.get())
+    
+      # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
+      for enrUri in conf.discv5BootstrapNodes:
+        addBootstrapNode(enrUri, discv5BootstrapEnrs)
 
       node.wakuDiscv5 = WakuDiscoveryV5.new(
         extIP, extPort, some(discv5UdpPort),
         conf.listenAddress,
         discv5UdpPort,
-        discv5BootstrapNodes,
+        discv5BootstrapEnrs,
         conf.discv5EnrAutoUpdate,
         keys.PrivateKey(conf.nodekey.skkey),
         wakuFlags,
@@ -1266,7 +1272,7 @@ when isMainModule:
   debug "2/7 Retrieve dynamic bootstrap nodes"
   
   var dynamicBootstrapNodes: seq[RemotePeerInfo]
-  let dynamicBootstrapNodesRes = retrieveBootstrapNodes(conf)
+  let dynamicBootstrapNodesRes = retrieveDynamicBootstrapNodes(conf)
   if dynamicBootstrapNodesRes.isErr:
     error "2/7 Retrieving dynamic bootstrap nodes failed. Continuing without dynamic bootstrap nodes."
   else:
