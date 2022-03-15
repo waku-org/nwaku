@@ -1263,12 +1263,12 @@ when isMainModule:
   else:
     (pStorage, mStorage) = setupStorageRes.get()
 
-  debug "2/7 Retrieve dynamic boostrap nodes"
+  debug "2/7 Retrieve dynamic bootstrap nodes"
   
   var dynamicBootstrapNodes: seq[RemotePeerInfo]
   let dynamicBootstrapNodesRes = retrieveBootstrapNodes(conf)
   if dynamicBootstrapNodesRes.isErr:
-    error "2/7 Retrieving dynamic boostrap nodes failed. Continuing without dynamic boostrap nodes."
+    error "2/7 Retrieving dynamic bootstrap nodes failed. Continuing without dynamic bootstrap nodes."
   else:
     dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
 
