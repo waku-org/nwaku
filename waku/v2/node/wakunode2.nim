@@ -1103,8 +1103,12 @@ when isMainModule:
       # select dynamic bootstrap nodes that have an ENR containing a udp port
       var discv5BootstrapEnrs: seq[enr.Record]
       for n in dynamicBootstrapNodes:
-        if n.enr.isSome() and n.enr.get().toTypedRecord().tryGet().udp.isSome(): # TODO: idiomatic error handling
-          discv5BootstrapEnrs.add(n.enr.get())
+        if n.enr.isSome():
+          let
+            enr = n.enr.get()
+            tenrRes = enr.toTypedRecord()
+          if tenrRes.isOk() and tenrRes.get().udp.isSome():
+            discv5BootstrapEnrs.add(enr)
     
       # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
       for enrUri in conf.discv5BootstrapNodes:
