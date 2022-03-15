@@ -19,7 +19,7 @@ suite "Message Store":
 
       t1 = getNanosecondTime(epochTime())
       t2 = getNanosecondTime(epochTime())
-      t3 = getNanosecondTime(high(float64))
+      t3 = high(int64)
     var msgs = @[
       WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic, version: uint32(0), timestamp: t1),
       WakuMessage(payload: @[byte 1, 2, 3, 4], contentTopic: topic, version: uint32(1), timestamp: t2),
