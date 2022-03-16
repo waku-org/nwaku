@@ -11,9 +11,8 @@
 import
   libp2p/protobuf/minprotobuf,
   libp2p/varint,
-  ../utils/time
-when defined(rln):
-  import waku_rln_relay/waku_rln_relay_types
+  ../utils/time,
+  waku_rln_relay/waku_rln_relay_types
 
 const
   MaxWakuMessageSize* = 1024 * 1024 # In bytes. Corresponds to PubSub default
@@ -30,10 +29,8 @@ type
     # the proof field indicates that the message is not a spam
     # this field will be used in the rln-relay protocol
     # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec and not yet part of WakuMessage spec
-    when defined(rln):
-      proof*: RateLimitProof
-    else:
-      proof*: seq[byte]
+    proof*: RateLimitProof
+    
    
 
 # Encoding and decoding -------------------------------------------------------
@@ -49,14 +46,11 @@ proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(10, timestamp)
   msg.timestamp = Timestamp(timestamp)
 
-  # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec and not yet part of WakuMessage spec
-  when defined(rln):
-    var proofBytes: seq[byte]
-    discard ? pb.getField(21, proofBytes)
-    msg.proof = ? RateLimitProof.init(proofBytes)
-  else:
-    discard ? pb.getField(21, msg.proof)
-
+  # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec
+  var proofBytes: seq[byte]
+  discard ? pb.getField(21, proofBytes)
+  msg.proof = ? RateLimitProof.init(proofBytes)
+  
   ok(msg)
 
 proc encode*(message: WakuMessage): ProtoBuffer =
@@ -66,7 +60,5 @@ proc encode*(message: WakuMessage): ProtoBuffer =
   result.write(2, message.contentTopic)
   result.write(3, message.version)
   result.write(10, zint64(message.timestamp))
-  when defined(rln):
-    result.write(21, message.proof.encode())
-  else:
-    result.write(21, message.proof)
+  result.write(21, message.proof.encode())
+
