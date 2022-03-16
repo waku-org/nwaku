@@ -157,5 +157,5 @@ proc toRemotePeerInfo*(enr: enr.Record): Result[RemotePeerInfo, cstring] =
 proc toRemotePeerInfo*(peerInfo: PeerInfo): RemotePeerInfo =
   RemotePeerInfo.init(peerInfo.peerId,
                       peerInfo.addrs,
-                      none(enr.Record), # TODO
+                      none(enr.Record), # we could generate an ENR from PeerInfo
                       peerInfo.protocols)

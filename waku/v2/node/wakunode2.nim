@@ -1014,7 +1014,7 @@ when isMainModule:
     ok(storeTuple)
 
   # 2/7 Retrieve dynamic bootstrap nodes
-  proc retrieveDynamicBootstrapNodes(conf: WakuNodeConf): Result[seq[RemotePeerInfo], cstring] =
+  proc retrieveDynamicBootstrapNodes(conf: WakuNodeConf): SetupResult[seq[RemotePeerInfo]] =
   # DNS discovery
     if conf.dnsDiscovery and conf.dnsDiscoveryUrl != "":
       debug "Discovering nodes using Waku DNS discovery", url=conf.dnsDiscoveryUrl
@@ -1034,6 +1034,7 @@ when isMainModule:
                                                    resolver)
       if wakuDnsDiscovery.isOk:
         return wakuDnsDiscovery.get().findPeers()
+          .mapErr(proc (e: cstring): string = $e)
       else:
         warn "Failed to init Waku DNS discovery"
 
@@ -1100,14 +1101,15 @@ when isMainModule:
         discoveryConfig = DiscoveryConfig.init(
           conf.discv5TableIpLimit, conf.discv5BucketIpLimit, conf.discv5BitsPerHop)
 
-      # select dynamic bootstrap nodes that have an ENR containing a udp port
+      # select dynamic bootstrap nodes that have an ENR containing a udp port.
+      # Discv5 only supports UDP https://github.com/ethereum/devp2p/blob/master/discv5/discv5-theory.md)
       var discv5BootstrapEnrs: seq[enr.Record]
       for n in dynamicBootstrapNodes:
         if n.enr.isSome():
           let
             enr = n.enr.get()
             tenrRes = enr.toTypedRecord()
-          if tenrRes.isOk() and tenrRes.get().udp.isSome():
+          if tenrRes.isOk() and (tenrRes.get().udp.isSome() or tenrRes.get().udp6.isSome()):
             discv5BootstrapEnrs.add(enr)
     
       # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
