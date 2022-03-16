@@ -52,7 +52,6 @@ Once you type a chat line and hit enter, you will see a message that indicates t
 --rln epoch: 164495684
 <Feb 15, 12:27> Bob: Hi!
 ```
-In the code snippet above, `Bob` is the nickname.
 The numerical value `164495684` indicates the epoch of the message `Hi!`.
 You will see a different value than `164495684` on your screen. 
 If two messages sent by the same chat2 client happen to have the same RLN epoch value, then one of them will be detected as spam by the receiving chat2 clients.
