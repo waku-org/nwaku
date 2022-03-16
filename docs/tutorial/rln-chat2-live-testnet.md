@@ -5,7 +5,7 @@ You will connect your chat2 client to waku2 test fleets.
 Note that test fleets will not filter spam messages, they merely route messages.
 Spam detection takes place at the chat2 users.
 In this setting, you should try to spam the network by violating the message rate limit i.e.,
-sending more that one message per epoch. 
+sending more than one message per epoch. 
 At the time of this tutorial, the epoch duration is set to `10` seconds.
 You can inspect the current epoch value by checking the following [constant variable](https://github.com/status-im/nim-waku/blob/21cac6d491a6d995a7a8ba84c85fecc7817b3d8b/waku/v2/protocol/waku_rln_relay/waku_rln_relay_types.nim#L119) in the nim-waku codebase.
 Your messages will be routed via test fleets and will arrive at other live chat2 clients that are running in rate-limited mode over the same content topic i.e., `/toy-chat/2/luzhou/proto`.
@@ -19,7 +19,7 @@ First, build chat2 with the RLN flag set to true.
 make chat2 RLN=true
 ```
 
-## Setup a chat2 node in rate limited mode
+## Setup a chat2 node in rate-limited mode
 Run the following command to set up your chat2 client. 
 
 ```
@@ -30,7 +30,7 @@ In this command
 - the `rln-relay` flag is set to true to enable RLN-Relay protocol for spam protection.
 - the `rln-relay-membership-index` is used to pick one RLN key out of the 100 available hardcoded RLN keys. 
 You can pass your index using this command `--rln-relay-membership-index: your_index` e.g., `--rln-relay-membership-index:19` .
-Please use the index assigned to you in the dog-fooding coordination phase.
+Please use the index assigned to you in the dogfooding coordination phase.
 If you pick an index at random you may end up using the same key-pair as someone else, hence your messaging rate will be shared with that person(s).
 
 
@@ -38,7 +38,7 @@ Next, choose your nickname:
 ```
 Choose a nickname >> your_nick_name
 ```
-Wait for the  chat prompt `>>` to appear.
+Wait for the chat prompt `>>` to appear.
 Now your chat2 client is ready.
 
 You may set up more than one chat client,
@@ -73,7 +73,7 @@ quitting...
 In the following sample test, two chat2 clients are set up, namely `Alice` and `Bob`.
 `Bob` sends three messages i.e., `message1`, `message2`, and `message3` to the test fleets. 
 Test fleets will route the messages to their connections including `Alice`.
-The two messages `message2` and `message3` have identical RLN epoch value of `164504930`, so, one of them will be detected as a spam message by `Alice`. 
+The two messages `message2` and `message3` have an identical RLN epoch value of `164504930`, so, one of them will be detected as a spam message by `Alice`. 
 You can check this fact by looking at the `Alice` console, where `A spam message is found and discarded : <Feb 16, 14:08> Bob: message3` is presented. 
 
 
@@ -124,4 +124,3 @@ Connecting to storenode: 16Uiu2HAmPLe7Mzm8TsYUubgCAW1aJoeFScxrLj8ppHFivPo97bUZ
 >> /exit
 quitting...
 ```
-
