@@ -46,7 +46,7 @@ proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(10, timestamp)
   msg.timestamp = Timestamp(timestamp)
 
-  # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec and not yet part of WakuMessage spec
+  # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec
   var proofBytes: seq[byte]
   discard ? pb.getField(21, proofBytes)
   msg.proof = ? RateLimitProof.init(proofBytes)
