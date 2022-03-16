@@ -107,7 +107,7 @@ quitting...
 
 Alice
 ```
-./build/chat2 --content-topic:/toy-chat/2/luzhou/proto --ports-shift=1 --fleet:none  --rln-relay:true --rln-relay-membership-index:1
+./build/chat2 --content-topic:/toy-chat/2/luzhou/proto --ports-shift=1 --fleet:test  --rln-relay:true --rln-relay-membership-index:1
 
 Choose a nickname >> Alice
 Welcome, Alice!
