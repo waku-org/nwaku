@@ -17,6 +17,7 @@ type
   RemotePeerInfo* = ref object of RootObj
     peerId*: PeerID
     addrs*: seq[MultiAddress]
+    enr*: Option[enr.Record]
     protocols*: seq[string]
 
 func `$`*(remotePeerInfo: RemotePeerInfo): string =
@@ -26,11 +27,13 @@ proc init*(
   p: typedesc[RemotePeerInfo],
   peerId: PeerID,
   addrs: seq[MultiAddress] = @[],
+  enr: Option[enr.Record] = none(enr.Record),
   protocols: seq[string] = @[]): RemotePeerInfo =
 
   let remotePeerInfo = RemotePeerInfo(
     peerId: peerId,
     addrs: addrs,
+    enr: enr,
     protocols: protocols)
   
   return remotePeerInfo
@@ -38,12 +41,14 @@ proc init*(
 proc init*(p: typedesc[RemotePeerInfo],
            peerId: string,
            addrs: seq[MultiAddress] = @[],
+           enr: Option[enr.Record] = none(enr.Record),
            protocols: seq[string] = @[]): RemotePeerInfo
            {.raises: [Defect, ResultError[cstring], LPError].} =
   
   let remotePeerInfo = RemotePeerInfo(
     peerId: PeerID.init(peerId).tryGet(),
     addrs: addrs,
+    enr: enr,
     protocols: protocols)
 
   return remotePeerInfo
@@ -145,11 +150,12 @@ proc toRemotePeerInfo*(enr: enr.Record): Result[RemotePeerInfo, cstring] =
   if addrs.len == 0:
     return err("enr: no addresses in record")
 
-  return ok(RemotePeerInfo.init(peerId, addrs))
+  return ok(RemotePeerInfo.init(peerId, addrs, some(enr)))
 
 ## Converts the local peerInfo to dialable RemotePeerInfo
 ## Useful for testing or internal connections
 proc toRemotePeerInfo*(peerInfo: PeerInfo): RemotePeerInfo =
   RemotePeerInfo.init(peerInfo.peerId,
                       peerInfo.addrs,
+                      none(enr.Record), # we could generate an ENR from PeerInfo
                       peerInfo.protocols)
