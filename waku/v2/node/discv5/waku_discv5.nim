@@ -45,7 +45,7 @@ proc parseBootstrapAddress(address: TaintedString):
     else:
       return err "Ignoring unrecognized bootstrap address type"
 
-proc addBootstrapNode(bootstrapAddr: string,
+proc addBootstrapNode*(bootstrapAddr: string,
                        bootstrapEnrs: var seq[enr.Record]) =
   # Ignore empty lines or lines starting with #
   if bootstrapAddr.len == 0 or bootstrapAddr[0] == '#':
@@ -103,18 +103,13 @@ proc new*(T: type WakuDiscoveryV5,
           extTcpPort, extUdpPort: Option[Port],
           bindIP: ValidIpAddress,
           discv5UdpPort: Port,
-          bootstrapNodes: seq[string],
+          bootstrapEnrs: seq[enr.Record],
           enrAutoUpdate = false,
           privateKey: keys.PrivateKey,
           flags: WakuEnrBitfield,
           enrFields: openArray[(string, seq[byte])],
           rng: ref BrHmacDrbgContext,
           discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T =
-  
-  var bootstrapEnrs: seq[enr.Record]
-  for node in bootstrapNodes:
-    addBootstrapNode(node, bootstrapEnrs)
-  
   ## TODO: consider loading from a configurable bootstrap file
   
   ## We always add the waku field as specified
@@ -133,6 +128,38 @@ proc new*(T: type WakuDiscoveryV5,
     rng = rng)
   
   return WakuDiscoveryV5(protocol: protocol, listening: false)
+
+# constructor that takes bootstrap Enrs in Enr Uri form
+proc new*(T: type WakuDiscoveryV5,
+          extIp: Option[ValidIpAddress],
+          extTcpPort, extUdpPort: Option[Port],
+          bindIP: ValidIpAddress,
+          discv5UdpPort: Port,
+          bootstrapNodes: seq[string],
+          enrAutoUpdate = false,
+          privateKey: keys.PrivateKey,
+          flags: WakuEnrBitfield,
+          enrFields: openArray[(string, seq[byte])],
+          rng: ref BrHmacDrbgContext,
+          discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T =
+  
+  var bootstrapEnrs: seq[enr.Record]
+  for node in bootstrapNodes:
+    addBootstrapNode(node, bootstrapEnrs)
+  
+  return WakuDiscoveryV5.new(
+        extIP, extTcpPort, extUdpPort,
+        bindIP,
+        discv5UdpPort,
+        bootstrapEnrs,
+        enrAutoUpdate,
+        privateKey,
+        flags,
+        enrFields,
+        rng,
+        discv5Config
+      )
+
 
 proc open*(wakuDiscv5: WakuDiscoveryV5) {.raises: [Defect, CatchableError].} =
   debug "Opening Waku discovery v5 ports"
