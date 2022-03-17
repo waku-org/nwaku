@@ -238,7 +238,7 @@ proc publish(c: Chat, line: string) =
   else:
     # No payload encoding/encryption from Waku
     var message = WakuMessage(payload: chat2pb.buffer,
-      contentTopic: c.contentTopic, version: 0, timestamp: Timestamp(time*1000*1000*1000))
+      contentTopic: c.contentTopic, version: 0, timestamp: getNanosecondTime(time))
     when defined(rln):
       if  not isNil(c.node.wakuRlnRelay):
         # for future version when we support more than one rln protected content topic, 
