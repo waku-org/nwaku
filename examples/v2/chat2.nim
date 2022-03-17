@@ -216,7 +216,7 @@ proc publish(c: Chat, line: string) =
       encodedPayload = payload.encode(version, c.node.rng[])
     if encodedPayload.isOk():
       var message = WakuMessage(payload: encodedPayload.get(),
-        contentTopic: c.contentTopic, version: version, timestamp: Timestamp(time*1000*1000*1000))
+        contentTopic: c.contentTopic, version: version, timestamp: getNanosecondTime(time))
       when defined(rln):
         if  not isNil(c.node.wakuRlnRelay):
           # for future version when we support more than one rln protected content topic, 
