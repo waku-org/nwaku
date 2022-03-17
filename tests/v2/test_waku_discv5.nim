@@ -52,7 +52,7 @@ procSuite "Waku Discovery v5":
         some(extIp), some(nodeTcpPort1), some(nodeUdpPort1),
         bindIp,
         nodeUdpPort1,
-        @[],
+        newSeq[string](),
         false,
         keys.PrivateKey(nodeKey1.skkey),
         flags,
