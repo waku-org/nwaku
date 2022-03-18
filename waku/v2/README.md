@@ -29,6 +29,15 @@ make wakunode2
 #./build/wakunode2 --log-level:debug --discovery:off --fleet:test --log-metrics
 ```
 
+Note: building `wakunode2` requires 2GB of RAM. The build will fail on systems not fulfilling this requirement.
+
+Setting up a `wakunode2` on the smallest [digital ocean](https://docs.digitalocean.com/products/droplets/how-to/) droplet, you can either
+
+* compile on a stronger droplet featuring the same CPU architecture and downgrade after compiling, or
+* activate swap on the smallest droplet, or
+* use Docker.
+
+
 ### Waku v2 Protocol Test Suite
 
 ```bash
