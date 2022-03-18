@@ -13,6 +13,7 @@
 ### Fixes
 
 ### Docs
+Added [tutorial]( ) on communicating with waku2 test fleets via the chat2 `toy-chat` application in spam-protected mode using [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/). 
 
 ##  2021-03-03 v0.8
 
