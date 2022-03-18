@@ -2,6 +2,8 @@
 
 
 ### Features
+- Support for bootstrapping [`33/WAKU-DISCV5`](https://rfc.vac.dev/spec/33) via [DNS discovery](https://rfc.vac.dev/spec/10/#discovery-methods)
+
 
 ### Changes
 
