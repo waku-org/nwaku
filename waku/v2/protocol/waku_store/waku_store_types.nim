@@ -7,6 +7,7 @@ import
   std/[algorithm, options],
   # external imports
   bearssl,
+  chronicles,
   libp2p/protocols/protocol,
   stew/[results, sorted_set],
   # internal imports
@@ -120,6 +121,9 @@ type
 # StoreQueue helpers #
 ######################
 
+logScope:
+  topics = "wakustorequeue"
+
 proc ffdToCursor(w: SortedSetWalkRef[Index, IndexedWakuMessage],
                  startCursor: Index):
                  SortedSetResult[Index, IndexedWakuMessage] =
@@ -127,6 +131,8 @@ proc ffdToCursor(w: SortedSetWalkRef[Index, IndexedWakuMessage],
   ## TODO: can probably improve performance here with a binary/tree search
   
   var nextItem = w.first
+
+  trace "Fast forwarding to start cursor", startCursor=startCursor, firstItem=nextItem
   
   ## Fast forward until we reach the startCursor
   while nextItem.isOk:
@@ -136,6 +142,7 @@ proc ffdToCursor(w: SortedSetWalkRef[Index, IndexedWakuMessage],
 
     # Not yet at cursor. Continue advancing
     nextItem = w.next
+    trace "Continuing ffd to start cursor", nextItem=nextItem
 
   return nextItem
 
@@ -147,6 +154,8 @@ proc rwdToCursor(w: SortedSetWalkRef[Index, IndexedWakuMessage],
   
   var prevItem = w.last
 
+  trace "Rewinding to start cursor", startCursor=startCursor, lastItem=prevItem
+
   ## Rewind until we reach the startCursor
   
   while prevItem.isOk:
@@ -156,6 +165,7 @@ proc rwdToCursor(w: SortedSetWalkRef[Index, IndexedWakuMessage],
 
     # Not yet at cursor. Continue rewinding.
     prevItem = w.prev
+    trace "Continuing rewind to start cursor", prevItem=prevItem
   
   return prevItem
 
@@ -168,6 +178,8 @@ proc fwdPage(storeQueue: StoreQueueRef,
   ## Start at the `startCursor` (exclusive), or first entry (inclusive) if not defined.
   ## Page size must not exceed `maxPageSize`
   ## Each entry must match the `pred`
+  
+  trace "Retrieving fwd page from store queue", len=storeQueue.items.len, maxPageSize=maxPageSize, startCursor=startCursor
   
   var
     outSeq: seq[WakuMessage]
@@ -186,9 +198,11 @@ proc fwdPage(storeQueue: StoreQueueRef,
     let cursorEntry = w.ffdToCursor(startCursor.get())
     if cursorEntry.isErr:
       # Quick exit here if start cursor not found
+      trace "Could not find starting cursor. Returning empty result.", startCursor=startCursor
       outSeq = @[]
       outPagingInfo = PagingInfo(pageSize: 0, cursor: startCursor.get(), direction: PagingDirection.FORWARD)
       outError = HistoryResponseError.INVALID_CURSOR
+      w.destroy
       return (outSeq, outPagingInfo, outError)
     
     # Advance walker once more
@@ -198,13 +212,19 @@ proc fwdPage(storeQueue: StoreQueueRef,
     lastValidCursor = Index() # No valid (only empty) last cursor
     currentEntry = w.first
 
+  trace "Starting fwd page query", currentEntry=currentEntry
+
   ## This loop walks forward over the queue:
   ## 1. from the given cursor (or first entry, if not provided)
   ## 2. adds entries matching the predicate function to output page
   ## 3. until either the end of the queue or maxPageSize is reached
   var numberOfItems = 0.uint
   while currentEntry.isOk and numberOfItems < maxPageSize:
+
+    trace "Continuing fwd page query", currentEntry=currentEntry, numberOfItems=numberOfItems
+    
     if pred(currentEntry.value.data):
+      trace "Current item matches predicate. Adding to output."
       lastValidCursor = currentEntry.value.key
       outSeq.add(currentEntry.value.data.msg)
       numberOfItems += 1
@@ -216,6 +236,8 @@ proc fwdPage(storeQueue: StoreQueueRef,
                              direction: PagingDirection.FORWARD)
 
   outError = HistoryResponseError.NONE
+
+  trace "Successfully retrieved fwd page", len=outSeq.len, pagingInfo=outPagingInfo
   
   return (outSeq, outPagingInfo, outError)
 
@@ -228,6 +250,8 @@ proc bwdPage(storeQueue: StoreQueueRef,
   ## Start at `startCursor` (exclusive), or last entry (inclusive) if not defined.
   ## Page size must not exceed `maxPageSize`
   ## Each entry must match the `pred`
+  
+  trace "Retrieving bwd page from store queue", len=storeQueue.items.len, maxPageSize=maxPageSize, startCursor=startCursor
   
   var
     outSeq: seq[WakuMessage]
@@ -246,9 +270,11 @@ proc bwdPage(storeQueue: StoreQueueRef,
     let cursorEntry = w.rwdToCursor(startCursor.get())
     if cursorEntry.isErr:
       # Quick exit here if start cursor not found
+      trace "Could not find starting cursor. Returning empty result.", startCursor=startCursor
       outSeq = @[]
       outPagingInfo = PagingInfo(pageSize: 0, cursor: startCursor.get(), direction: PagingDirection.BACKWARD)
       outError = HistoryResponseError.INVALID_CURSOR
+      w.destroy
       return (outSeq, outPagingInfo, outError)
 
     # Step walker one more step back
@@ -257,6 +283,8 @@ proc bwdPage(storeQueue: StoreQueueRef,
     # Start from the back of the queue
     lastValidCursor = Index() # No valid (only empty) last cursor
     currentEntry = w.last
+  
+  trace "Starting bwd page query", currentEntry=currentEntry
 
   ## This loop walks backward over the queue:
   ## 1. from the given cursor (or last entry, if not provided)
@@ -264,7 +292,11 @@ proc bwdPage(storeQueue: StoreQueueRef,
   ## 3. until either the beginning of the queue or maxPageSize is reached
   var numberOfItems = 0.uint
   while currentEntry.isOk and numberOfItems < maxPageSize:
+
+    trace "Continuing bwd page query", currentEntry=currentEntry, numberOfItems=numberOfItems
+    
     if pred(currentEntry.value.data):
+      trace "Current item matches predicate. Adding to output."
       lastValidCursor = currentEntry.value.key
       outSeq.add(currentEntry.value.data.msg)
       numberOfItems += 1
@@ -275,6 +307,8 @@ proc bwdPage(storeQueue: StoreQueueRef,
                              cursor: lastValidCursor,
                              direction: PagingDirection.BACKWARD)
   outError = HistoryResponseError.NONE
+
+  trace "Successfully retrieved bwd page", len=outSeq.len, pagingInfo=outPagingInfo
 
   return (outSeq.reversed(), # Even if paging backwards, each page should be in forward order
           outPagingInfo,
@@ -344,6 +378,8 @@ proc add*(storeQueue: StoreQueueRef, msg: IndexedWakuMessage): StoreQueueResult[
   if msg.index.senderTime - msg.index.receiverTime > MaxTimeVariance:
     return err("future_sender_timestamp")
   
+  trace "Adding item to store queue", msg=msg
+
   # TODO the below delete block can be removed if we convert to circular buffer
   if storeQueue.items.len >= storeQueue.capacity:
     var
@@ -362,10 +398,13 @@ proc add*(storeQueue: StoreQueueRef, msg: IndexedWakuMessage): StoreQueueResult[
   if res.isErr:
     # This indicates the index already exists in the storeQueue.
     # TODO: could return error result and log in metrics
+
+    trace "Could not add item to store queue. Index already exists.", index=msg.index
     return err("duplicate")
   else:
     res.value.data = msg
   
+  trace "Successfully added item to store queue.", msg=msg
   return ok()
 
 proc getPage*(storeQueue: StoreQueueRef,
@@ -374,6 +413,8 @@ proc getPage*(storeQueue: StoreQueueRef,
              (seq[WakuMessage], PagingInfo, HistoryResponseError) {.gcsafe.} =
   ## Get a single page of history matching the predicate and
   ## adhering to the pagingInfo parameters
+  
+  trace "getting page from store queue", len=storeQueue.items.len, pagingInfo=pagingInfo
   
   let
     cursorOpt = if pagingInfo.cursor == Index(): none(Index) ## TODO: pagingInfo.cursor should be an Option. We shouldn't rely on empty initialisation to determine if set or not!
