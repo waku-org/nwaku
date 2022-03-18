@@ -200,6 +200,7 @@ proc fwdPage(storeQueue: StoreQueueRef,
       outSeq = @[]
       outPagingInfo = PagingInfo(pageSize: 0, cursor: startCursor.get(), direction: PagingDirection.FORWARD)
       outError = HistoryResponseError.INVALID_CURSOR
+      w.destroy
       return (outSeq, outPagingInfo, outError)
     
     # Advance walker once more
@@ -271,6 +272,7 @@ proc bwdPage(storeQueue: StoreQueueRef,
       outSeq = @[]
       outPagingInfo = PagingInfo(pageSize: 0, cursor: startCursor.get(), direction: PagingDirection.BACKWARD)
       outError = HistoryResponseError.INVALID_CURSOR
+      w.destroy
       return (outSeq, outPagingInfo, outError)
 
     # Step walker one more step back
