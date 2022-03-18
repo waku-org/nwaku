@@ -507,6 +507,8 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
             echo "A spam message is found and discarded : ", chatLineResult.value
           else:
             echo "A spam message is found and discarded"
+          chat.prompt = false
+          showChatPrompt(chat)
           
         # set up rln relay inputs
         let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(conf.rlnRelayMemIndex)
