@@ -611,7 +611,7 @@ proc decrypt*(
   result = ciphertext.data
   ChaChaPoly.decrypt(state.k, state.nonce, tagOut, result, state.ad)
   #TODO: add unpadding
-  trace "decrypt", tagIn = tagIn.shortLog, tagOut = tagOut.shortLog, nonce = state.n
+  trace "decrypt", tagIn = tagIn.shortLog, tagOut = tagOut.shortLog, nonce = state.nonce
   if tagIn != tagOut:
     debug "decrypt failed", result = shortLog(result)
     raise newException(NoiseDecryptTagError, "decrypt tag authentication failed.")
