@@ -587,9 +587,7 @@ proc new*(
 
 
 
-
-
-
+#################################################################
 
 
 # Vanilla ChaChaPoly encryption
@@ -711,10 +709,6 @@ proc randomPayloadV2*(rng: var BrHmacDrbgContext): PayloadV2 =
   result.handshake_message = @[genNoisePublicKey(rng), genNoisePublicKey(rng), genNoisePublicKey(rng)]
   result.transport_message = newSeq[byte](128)
   brHmacDrbgGenerate(rng, result.transport_message)
-  echo result.protocol_id
-  echo result.handshake_message
-  echo result.transport_message
-  echo result.transport_message_auth
 
 
 proc encodeV2*(self: PayloadV2): Option[seq[byte]] =
@@ -774,7 +768,6 @@ proc decodeV2*(payload: seq[byte]): Option[PayloadV2] =
   res.handshake_message = newSeqOfCap[NoisePublicKey](no_of_pks)
 
   for j in 0..<no_of_pks:
-    echo payload[i..(i+pk_len-1)]
     res.handshake_message.add intoNoisePublicKey(payload[i..(i+pk_len-1)])
     i += pk_len
 
