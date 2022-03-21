@@ -696,6 +696,11 @@ type
     transport_message_auth: ChaChaPolyTag
 
 
+proc `==`(p1, p2: PayloadV2): bool =
+  result = (p1.protocol_id == p2.protocol_id) and (p1.handshake_message == p2.handshake_message) and (p1.transport_message == p2.transport_message) and (p1.transport_message_auth == p2.transport_message_auth)
+  
+
+
 proc randomPayloadV2*(rng: var BrHmacDrbgContext): PayloadV2 =
   var protocol_id = newSeq[byte](1)
   brHmacDrbgGenerate(rng, protocol_id)
@@ -759,19 +764,40 @@ proc decodeV2*(payload: seq[byte]): Option[PayloadV2] =
   res.protocol_id = payload[i].uint8
   i+=1
 
+  echo "ID", res.protocol_id
+
   let handshake_message_len = payload[i].uint64
   i+=1
 
+  echo "hmlen", handshake_message_len
+
+
   let pk_len: uint64 = 1 + Curve25519Key.len + ChaChaPolyTag.len
   let no_of_pks = handshake_message_len div pk_len
+
+  echo pk_len, " ", no_of_pks
+
   res.handshake_message = newSeqOfCap[NoisePublicKey](no_of_pks)
 
   for j in 0..<no_of_pks:
-    res.handshake_message[i] = intoNoisePublicKey(payload[i..(i+pk_len)])
+    echo payload[i..(i+pk_len-1)]
+    res.handshake_message.add intoNoisePublicKey(payload[i..(i+pk_len-1)])
     i += pk_len
 
-  let transport_message_len = fromBytesLE(uint64, payload[i..(i+8)])
+  echo "HSM", res.handshake_message
+
+
+  let transport_message_len = fromBytesLE(uint64, payload[i..(i+8-1)])
   i+=8
-  res.transport_message = payload[i..i+transport_message_len]
+  echo "len", transport_message_len
+
+  res.transport_message = payload[i..i+transport_message_len-1]
+  i+=transport_message_len
+
+  echo "tsm", res.transport_message
+
+  res.transport_message_auth = intoChaChaPolyTag(payload[i..i+ChaChaPolyTag.len-1])
+
+  echo "tsmAUTH", res.transport_message_auth
 
   return some(res)

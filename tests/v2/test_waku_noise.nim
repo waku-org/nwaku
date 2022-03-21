@@ -78,5 +78,5 @@ procSuite "Waku Noise":
     let encoded_payload = encodeV2(payload2)
     let decoded_payload = decodeV2(encoded_payload.get())
 
-    check 1==1
+    check payload2 == decoded_payload.get()
 
