@@ -697,7 +697,10 @@ type
 
 
 proc `==`(p1, p2: PayloadV2): bool =
-  result = (p1.protocol_id == p2.protocol_id) and (p1.handshake_message == p2.handshake_message) and (p1.transport_message == p2.transport_message) and (p1.transport_message_auth == p2.transport_message_auth)
+  result =  (p1.protocol_id == p2.protocol_id) and 
+            (p1.handshake_message == p2.handshake_message) and 
+            (p1.transport_message == p2.transport_message) and 
+            (p1.transport_message_auth == p2.transport_message_auth)
   
 
 
@@ -730,7 +733,7 @@ proc encodeV2*(self: PayloadV2): Option[seq[byte]] =
   #RFC: handshake-message-len is 1 byte
   if ser_handshake_message_len > 256:
     debug "Payload malformed: too many public keys contained in the handshake message"
-    return some(newSeqOfCap[byte](0))
+    return none(seq[byte])
 
   let transport_message_len = self.transport_message.len
   #let transport_message_len_len = ceil(log(transport_message_len, 8)).int
@@ -750,8 +753,6 @@ proc encodeV2*(self: PayloadV2): Option[seq[byte]] =
   payload.add self.transport_message
   payload.add self.transport_message_auth
 
-  echo payload
-
   return some(payload)
 
 
@@ -764,18 +765,11 @@ proc decodeV2*(payload: seq[byte]): Option[PayloadV2] =
   res.protocol_id = payload[i].uint8
   i+=1
 
-  echo "ID", res.protocol_id
-
   let handshake_message_len = payload[i].uint64
   i+=1
 
-  echo "hmlen", handshake_message_len
-
-
   let pk_len: uint64 = 1 + Curve25519Key.len + ChaChaPolyTag.len
   let no_of_pks = handshake_message_len div pk_len
-
-  echo pk_len, " ", no_of_pks
 
   res.handshake_message = newSeqOfCap[NoisePublicKey](no_of_pks)
 
@@ -784,20 +778,12 @@ proc decodeV2*(payload: seq[byte]): Option[PayloadV2] =
     res.handshake_message.add intoNoisePublicKey(payload[i..(i+pk_len-1)])
     i += pk_len
 
-  echo "HSM", res.handshake_message
-
-
   let transport_message_len = fromBytesLE(uint64, payload[i..(i+8-1)])
   i+=8
-  echo "len", transport_message_len
 
   res.transport_message = payload[i..i+transport_message_len-1]
   i+=transport_message_len
 
-  echo "tsm", res.transport_message
-
   res.transport_message_auth = intoChaChaPolyTag(payload[i..i+ChaChaPolyTag.len-1])
-
-  echo "tsmAUTH", res.transport_message_auth
 
   return some(res)
