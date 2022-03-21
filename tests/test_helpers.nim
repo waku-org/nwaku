@@ -36,5 +36,5 @@ proc getRng(): ref BrHmacDrbgContext =
       rngVar.rng = crypto.newRng()
     rngVar.rng
 
-template rng*(): ref BrHmacDrbgContext =
+template noiseRng*(): ref BrHmacDrbgContext =
   getRng()
