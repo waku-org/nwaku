@@ -77,7 +77,7 @@ procSuite "Waku Noise":
 
     let payload2 = randomPayloadV2(noiseRng[])
     let encoded_payload = encodeV2(payload2)
-    let decoded_payload = decodeV2(encoded_payload)
+    let decoded_payload = decodeV2(encoded_payload.get())
 
     check 1==1
 
