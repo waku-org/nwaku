@@ -88,6 +88,7 @@ contract(MembershipContract):
   # TODO will add withdraw function after integrating the keyGeneration function (required to compute public keys from secret keys)
   # proc withdraw(secret: Uint256, pubkeyIndex: Uint256, receiver: Address)
   # proc withdrawBatch( secrets: seq[Uint256], pubkeyIndex: seq[Uint256], receiver: seq[Address])
+  proc MemberRegistered(pubkey: Uint256, index: Uint256)
 
 proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
   let web3 = await newWeb3(ethClientAddress)
