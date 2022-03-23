@@ -45,6 +45,7 @@ COPY --from=nim-build /app/build/$MAKE_TARGET /usr/local/bin/
 
 # If rln enabled: fix for 'Error loading shared library vendor/rln/target/debug/librln.so: No such file or directory'
 # It is vital to append * to the optional files, otherwise, COPY will throw an error
+# the librln.so may/may not exist depending on whether the rln compiler flag is part of NIM_PARAMS or not
 COPY --from=nim-build /app/vendor/rln/target/debug/librln.so* vendor/rln/target/debug/librln.so
 
 # Copy migration scripts for DB upgrades
