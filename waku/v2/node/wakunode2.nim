@@ -495,22 +495,36 @@ when defined(rln):
       debug "rln-relay topic validator is called"
       let msg = WakuMessage.init(message.data) 
       if msg.isOk():
-        let wakumessage = msg.value()
+        let 
+          wakumessage = msg.value()
+          payload = string.fromBytes(wakumessage.payload)
+
         # check the contentTopic
         if (wakumessage.contentTopic != "") and (contentTopic != "") and (wakumessage.contentTopic != contentTopic):
-          debug "content topic did not match:", contentTopic=wakumessage.contentTopic, payload=string.fromBytes(wakumessage.payload)
+          debug "content topic did not match:", contentTopic=wakumessage.contentTopic, payload=payload
           return pubsub.ValidationResult.Accept
+
         # validate the message
-        let validationRes = node.wakuRlnRelay.validateMessage(wakumessage)
+        let 
+          validationRes = node.wakuRlnRelay.validateMessage(wakumessage)
+          proof = toHex(wakumessage.proof.proof)
+          epoch = fromEpoch(wakumessage.proof.epoch)
+          root = toHex(wakumessage.proof.merkleRoot)
+          shareX = toHex(wakumessage.proof.shareX)
+          shareY = toHex(wakumessage.proof.shareY)
+          nullifier = toHex(wakumessage.proof.nullifier)
         case validationRes:
           of Valid:
-            debug "message validity is verified, relaying:", wakumessage=wakumessage, payload=string.fromBytes(wakumessage.payload)
+            debug "message validity is verified, relaying:",  contentTopic=wakumessage.contentTopic, epoch=epoch, timestamp=wakumessage.timestamp, payload=payload
+            trace "message validity is verified, relaying:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
             return pubsub.ValidationResult.Accept
           of Invalid:
-            debug "message validity could not be verified, discarding:", wakumessage=wakumessage, payload=string.fromBytes(wakumessage.payload)
+            debug "message validity could not be verified, discarding:", contentTopic=wakumessage.contentTopic, epoch=epoch, timestamp=wakumessage.timestamp, payload=payload
+            trace "message validity could not be verified, discarding:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
             return pubsub.ValidationResult.Reject
           of Spam:
-            debug "A spam message is found! yay! discarding:", wakumessage=wakumessage, payload=string.fromBytes(wakumessage.payload)
+            debug "A spam message is found! yay! discarding:", contentTopic=wakumessage.contentTopic, epoch=epoch, timestamp=wakumessage.timestamp, payload=payload
+            trace "A spam message is found! yay! discarding:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
             if spamHandler.isSome:
                let handler = spamHandler.get
                handler(wakumessage)
