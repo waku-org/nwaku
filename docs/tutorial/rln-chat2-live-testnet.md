@@ -123,3 +123,21 @@ Connecting to storenode: 16Uiu2HAmPLe7Mzm8TsYUubgCAW1aJoeFScxrLj8ppHFivPo97bUZ
 >> /exit
 quitting...
 ```
+
+# Trouble shooting
+
+## compilation error: found possibly newer version of crate
+
+
+If running `make chat2 RLN=true` yields a compile error like this
+
+```
+error[E0460]: found possibly newer version of crate `std` which `sapling_crypto_ce` depends on
+ --> src/circuit/polynomial.rs:1:5
+  |
+1 | use sapling_crypto::bellman::pairing::ff::{Field, PrimeField, PrimeFieldRepr};
+```
+
+run
+
+`make cleanrln` before running `make chat2 RLN=true` again.
