@@ -223,6 +223,11 @@ clean: | clean-common
 ifneq ($(USE_LIBBACKTRACE), 0)
 	+ $(MAKE) -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif
+	cargo clean --manifest-path vendor/rln/Cargo.toml
+
+# clean the rln build (forces recompile of old crates on next build)
+cleanrln:
+	cargo clean --manifest-path vendor/rln/Cargo.toml
 
 endif # "variables.mk" was not included
 
