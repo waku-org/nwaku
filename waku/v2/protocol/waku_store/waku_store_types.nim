@@ -110,8 +110,8 @@ type
   WakuStore* = ref object of LPProtocol
     peerManager*: PeerManager
     rng*: ref BrHmacDrbgContext
-    messages*: StoreQueueRef
-    store*: MessageStore
+    messages*: StoreQueueRef # in-memory message store
+    store*: MessageStore  # sqlite DB handle
     wakuSwap*: WakuSwap
     persistMessages*: bool
 

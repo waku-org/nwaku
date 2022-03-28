@@ -3,11 +3,14 @@
 import
   std/[unittest, options, tables, sets, times, os, strutils],
   chronos,
+  sqlite3_abi,
+  stew/byteutils,
   ../../waku/v2/node/storage/message/waku_message_store,
   ../../waku/v2/node/storage/sqlite,
   ../../waku/v2/protocol/waku_store/waku_store,
   ../../waku/v2/utils/time,
   ./utils
+
 
 suite "Message Store":
   test "set and get works":
@@ -125,57 +128,67 @@ suite "Message Store":
       ver.isErr == false
       ver.value == 10
 
-  test "get works with limit":
-    let 
-      database = SqliteDatabase.init("", inMemory = true)[]
-      store = WakuMessageStore.init(database)[]
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      pubsubTopic =  "/waku/2/default-waku/proto"
-      capacity = 10
-
-    defer: store.close()
-
-    for i in 1..capacity:
+    test "number of messages retrieved by getAll is bounded by storeCapacity":
       let
-        msg = WakuMessage(payload: @[byte i], contentTopic: contentTopic, version: uint32(0), timestamp: Timestamp(i))
-        index = computeIndex(msg)
-        output = store.put(index, msg, pubsubTopic)
-      
-      waitFor sleepAsync(1.millis)  # Ensure stored messages have increasing receiver timestamp
-      check output.isOk
+        database = SqliteDatabase.init("", inMemory = true)[]
+        contentTopic = ContentTopic("/waku/2/default-content/proto")
+        pubsubTopic =  "/waku/2/default-waku/proto"
+        capacity = 10
+        store = WakuMessageStore.init(database, capacity)[]
 
-    var
-      responseCount = 0
-      lastMessageTimestamp = Timestamp(0)
+      defer: store.close()
 
-    proc data(receiverTimestamp: Timestamp, msg: WakuMessage, psTopic: string) {.raises: [Defect].} =
-      responseCount += 1
-      lastMessageTimestamp = msg.timestamp
+      for i in 1..capacity:
+        let
+          msg = WakuMessage(payload: @[byte i], contentTopic: contentTopic, version: uint32(0), timestamp: Timestamp(i))
+          index = computeIndex(msg)
+          output = store.put(index, msg, pubsubTopic)
+        check output.isOk
 
-    # Test limited getAll function when store is at capacity
-    let resMax = store.getAll(data, some(capacity))
-    
-    check:
-      resMax.isOk
-      responseCount == capacity # We retrieved all items
-      lastMessageTimestamp == Timestamp(capacity) # Returned rows were ordered correctly
+      var
+        responseCount = 0
+        lastMessageTimestamp = Timestamp(0)
 
-    # Now test getAll with a limit smaller than total stored items
-    responseCount = 0 # Reset response count
-    lastMessageTimestamp = 0
-    let resLimit = store.getAll(data, some(capacity - 2))
+      proc data(receiverTimestamp: Timestamp, msg: WakuMessage, psTopic: string) {.raises: [Defect].} =
+        responseCount += 1
+        lastMessageTimestamp = msg.timestamp
 
-    check:
-      resLimit.isOk
-      responseCount == capacity - 2 # We retrieved limited number of items
-      lastMessageTimestamp == Timestamp(capacity) # We retrieved the youngest items in the store, in order
-    
-    # Test zero limit
-    responseCount = 0 # Reset response count
-    lastMessageTimestamp = 0
-    let resZero = store.getAll(data, some(0))
+      # Test limited getAll function when store is at capacity
+      let resMax = store.getAll(data)
+   
+      check:
+        resMax.isOk
+        responseCount == capacity # We retrieved all items
+        lastMessageTimestamp == Timestamp(capacity) # Returned rows were ordered correctly # TODO: not representative because the timestamp only has second resolution
 
-    check:
-      resZero.isOk
-      responseCount == 0 # No items retrieved
-      lastMessageTimestamp == Timestamp(0) # No items retrieved
+    test "DB store capacity":
+      let
+        database = SqliteDatabase.init("", inMemory = true)[]
+        contentTopic = ContentTopic("/waku/2/default-content/proto")
+        pubsubTopic =  "/waku/2/default-waku/proto"
+        capacity = 100
+        overload = 65
+        store = WakuMessageStore.init(database, capacity)[]
+
+      defer: store.close()
+
+      for i in 1..capacity+overload:
+        let
+          msg = WakuMessage(payload: ($i).toBytes(), contentTopic: contentTopic, version: uint32(0), timestamp: Timestamp(i))
+          index = computeIndex(msg)
+          output = store.put(index, msg, pubsubTopic)
+        check output.isOk
+
+      # count messages in DB
+      var numMessages: int64
+      proc handler(s: ptr sqlite3_stmt) =
+        numMessages = sqlite3_column_int64(s, 0)
+      let countQuery = "SELECT COUNT(*) FROM message" # the table name is set in a const in waku_message_store
+      discard store.database.query(countQuery, handler)
+
+      check:
+        # expected number of messages is 120 because
+        # (capacity = 100) + (half of the overflow window = 15) + (5 messages added after after the last delete)
+        # the window size changes when changing `const maxStoreOverflow = 1.3 in waku_message_store
+        numMessages == 120 
+
