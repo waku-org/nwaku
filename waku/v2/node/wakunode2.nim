@@ -1018,7 +1018,7 @@ when isMainModule:
       
       if conf.persistMessages:
         # Historical message persistence enable. Set up Message table in storage
-        let res = WakuMessageStore.init(sqliteDatabase)
+        let res = WakuMessageStore.init(sqliteDatabase, conf.storeCapacity)
 
         if res.isErr:
           warn "failed to init WakuMessageStore", err = res.error
