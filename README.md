@@ -54,3 +54,13 @@ make test
 
 Examples can be found in the examples folder. For Waku v2, there is a fully
 featured chat example.
+
+### Bugs, Questions & Features
+
+For an inquiry, or if you would like to propose new features, feel free to [open a general issue](https://github.com/status-im/nim-waku/issues/new/).
+
+For bug reports, please [tag your issue with the `bug` label](https://github.com/status-im/nim-waku/issues/new/).
+
+If you believe the reported issue requires critical attention, please [use the `critical` label](https://github.com/status-im/nim-waku/issues/new?labels=critical,bug) to assist with triaging.
+
+To get help, or participate in the conversation, join the [Vac Discord](https://discord.gg/KNj3ctuZvZ) server.
