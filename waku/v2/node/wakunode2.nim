@@ -893,6 +893,7 @@ proc startDiscv5*(node: WakuNode): Future[bool] {.async.} =
     asyncSpawn node.runDiscv5Loop()
 
     debug "Successfully started discovery v5 service"
+    info "Discv5: discoverable ENR ", enr = node.wakuDiscV5.protocol.localNode.record.toURI()
     return true
 
   return false
@@ -928,7 +929,7 @@ proc start*(node: WakuNode) {.async.} =
                 
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
-  info "Discoverable ENR ", enr = node.enr.toURI()
+  info "DNS: discoverable ENR ", enr = node.enr.toURI()
 
   ## Update switch peer info with announced addrs
   node.updateSwitchPeerInfo()
