@@ -89,6 +89,11 @@ type
       defaultValue: true
       name: "relay" }: bool
     
+    relayPeerExchange* {.
+      desc: "Enable gossipsub peer exchange in relay protocol: true|false",
+      defaultValue: true
+      name: "relay-peer-exchange" }: bool
+    
     rlnRelay* {.
       desc: "Enable spam protection through rln-relay: true|false",
       defaultValue: false

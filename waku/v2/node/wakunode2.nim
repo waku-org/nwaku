@@ -53,7 +53,7 @@ logScope:
 const clientId* = "Nimbus Waku v2 node"
 
 # Default topic
-const defaultTopic = "/waku/2/default-waku/proto"
+const defaultTopic* = "/waku/2/default-waku/proto"
 
 # Default Waku Filter Timeout
 const WakuFilterTimeout: Duration = 1.days
@@ -170,6 +170,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     secureCert: string = "",
     wakuFlags = none(WakuEnrBitfield),
     nameResolver: NameResolver = nil,
+    sendSignedPeerRecord = false,
     dns4DomainName = none(string)
     ): T 
     {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
@@ -242,7 +243,8 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     wssEnabled = wssEnabled,
     secureKeyPath = secureKey,
     secureCertPath = secureCert,
-    nameResolver = nameResolver)
+    nameResolver = nameResolver,
+    sendSignedPeerRecord = sendSignedPeerRecord)
   
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
@@ -673,7 +675,8 @@ proc startRelay*(node: WakuNode) {.async.} =
 proc mountRelay*(node: WakuNode,
                  topics: seq[string] = newSeq[string](),
                  relayMessages = true,
-                 triggerSelf = true)
+                 triggerSelf = true,
+                 peerExchangeHandler = none(RoutingRecordsHandler))
   # @TODO: Better error handling: CatchableError is raised by `waitFor`
   {.gcsafe, raises: [Defect, InitializationError, LPError, CatchableError].} =
 
@@ -698,6 +701,10 @@ proc mountRelay*(node: WakuNode,
   ## The default relay topics is the union of
   ## all configured topics plus the hard-coded defaultTopic(s)
   wakuRelay.defaultTopics = concat(@[defaultTopic], topics)
+
+  ## Add peer exchange handler
+  if peerExchangeHandler.isSome():    
+    wakuRelay.routingRecordsHandler.add(peerExchangeHandler.get())
 
   node.switch.mount(wakuRelay, protocolMatcher(WakuRelayCodec))
 
@@ -1107,6 +1114,7 @@ when isMainModule:
                           conf.websocketSecureCertPath,
                           some(wakuFlags),
                           dnsResolver,
+                          conf.relayPeerExchange, # We send our own signed peer record when peer exchange enabled
                           dns4DomainName
                           )
     
@@ -1147,7 +1155,7 @@ when isMainModule:
     ok(node)
 
   # 4/7 Mount and initialize configured protocols
-  proc setupProtocols(node: var WakuNode,
+  proc setupProtocols(node: WakuNode,
                       conf: WakuNodeConf,
                       mStorage: WakuMessageStore = nil): SetupResult[bool] =
     
@@ -1156,10 +1164,26 @@ when isMainModule:
     ## No protocols are started yet.
     
     # Mount relay on all nodes
+    var peerExchangeHandler = none(RoutingRecordsHandler)
+    if conf.relayPeerExchange:
+      proc handlePeerExchange(peer: PeerId, topic: string,
+                              peers: seq[RoutingRecordsPair]) {.gcsafe, raises: [Defect].} =
+        ## Handle peers received via gossipsub peer exchange
+        # TODO: Only consider peers on pubsub topics we subscribe to
+        let exchangedPeers = peers.filterIt(it.record.isSome()) # only peers with populated records
+                                  .mapIt(toRemotePeerInfo(it.record.get()))
+        
+        debug "connecting to exchanged peers", src=peer, topic=topic, numPeers=exchangedPeers.len
+
+        # asyncSpawn, as we don't want to block here
+        asyncSpawn node.connectToNodes(exchangedPeers, "peer exchange")
+    
+      peerExchangeHandler = some(handlePeerExchange)
+
     mountRelay(node,
-              conf.topics.split(" "),
-              relayMessages = conf.relay, # Indicates if node is capable to relay messages
-              ) 
+               conf.topics.split(" "),
+               relayMessages = conf.relay, # Indicates if node is capable to relay messages
+               peerExchangeHandler = peerExchangeHandler) 
     
     # Keepalive mounted on all nodes
     mountLibp2pPing(node)
