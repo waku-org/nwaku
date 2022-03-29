@@ -1,6 +1,6 @@
 # BUILD IMAGE --------------------------------------------------------
 
-FROM alpine:3.12 AS nim-build
+FROM alpine:3.15 AS nim-build
 
 ARG NIM_PARAMS
 ARG MAKE_TARGET=wakunode2
@@ -22,7 +22,7 @@ RUN make -j$(nproc) $MAKE_TARGET NIM_PARAMS="$NIM_PARAMS"
 
 # ACTUAL IMAGE -------------------------------------------------------
 
-FROM alpine:3.12
+FROM alpine:3.15
 
 ARG MAKE_TARGET=wakunode2
 
