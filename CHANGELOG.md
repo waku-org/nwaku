@@ -9,6 +9,7 @@
 
 - Waku v1 <> v2 bridge now supports DNS `multiaddrs`
 - Waku v1 <> v2 bridge now validates content topics before attempting to bridge a message from Waku v2 to Waku v1
+- Message store now auto deletes messages once over specified `--store-capacity`. This can significantly improve node start-up times.
 
 ### Fixes
 
