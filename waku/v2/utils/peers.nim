@@ -2,7 +2,7 @@
 
 # Collection of utilities related to Waku peers
 import
-  std/[options, strutils],
+  std/[options, sequtils, strutils],
   stew/results,
   stew/shims/net,
   eth/keys,
@@ -11,7 +11,8 @@ import
   libp2p/[errors,
           multiaddress,
           peerid,
-          peerinfo]
+          peerinfo,
+          routing_record]
 
 type
   RemotePeerInfo* = ref object of RootObj
@@ -151,6 +152,12 @@ proc toRemotePeerInfo*(enr: enr.Record): Result[RemotePeerInfo, cstring] =
     return err("enr: no addresses in record")
 
   return ok(RemotePeerInfo.init(peerId, addrs, some(enr)))
+
+## Converts peer records to dialable RemotePeerInfo
+## Useful if signed peer records have been received in an exchange
+proc toRemotePeerInfo*(peerRecord: PeerRecord): RemotePeerInfo =
+  RemotePeerInfo.init(peerRecord.peerId,
+                      peerRecord.addresses.mapIt(it.address))
 
 ## Converts the local peerInfo to dialable RemotePeerInfo
 ## Useful for testing or internal connections
