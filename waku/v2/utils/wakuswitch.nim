@@ -61,6 +61,7 @@ proc newWakuSwitch*(
     maxOut = -1,
     maxConnsPerPeer = MaxConnectionsPerPeer,
     nameResolver: NameResolver = nil,
+    sendSignedPeerRecord = false,
     wssEnabled: bool = false,
     secureKeyPath: string = "",
     secureCertPath: string = ""): Switch
@@ -77,6 +78,8 @@ proc newWakuSwitch*(
       .withNoise()
       .withTcpTransport(transportFlags)
       .withNameResolver(nameResolver)
+      .withSignedPeerRecord(sendSignedPeerRecord)
+
     if privKey.isSome():
       b = b.withPrivateKey(privKey.get())
     if wsAddress.isSome():
