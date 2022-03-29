@@ -21,7 +21,8 @@ import
   ./v2/test_waku_discv5,
   ./v2/test_enr_utils,
   ./v2/test_waku_store_queue,
-  ./v2/test_pagination_utils
+  ./v2/test_pagination_utils,
+  ./v2/test_peer_exchange
 
 when defined(rln):
   import ./v2/test_waku_rln_relay

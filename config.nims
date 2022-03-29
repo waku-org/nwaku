@@ -25,6 +25,10 @@ if defined(windows):
 # use at least -msse2 or -msse3.
 if defined(disableMarchNative):
   switch("passC", "-msse3")
+elif defined(macosx) and defined(arm64):
+  # Apple's Clang can't handle "-march=native" on M1: https://github.com/status-im/nimbus-eth2/issues/2758
+  switch("passC", "-mcpu=apple-m1")
+  switch("passL", "-mcpu=apple-m1")
 else:
   switch("passC", "-march=native")
   if defined(windows):
