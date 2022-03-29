@@ -9,10 +9,11 @@
 
 {.push raises: [Defect].}
 
-import std/[oids, strformat, options, math]
+import std/[oids, strformat, options, math, tables]
 import chronos
 import chronicles
 import bearssl
+import strutils
 import stew/[endians2, byteutils]
 import nimcrypto/[utils, sha2, hmac]
 
@@ -30,16 +31,9 @@ when defined(libp2p_dump):
   import libp2p/debugutils
 
 logScope:
-  topics = "libp2p noise"
+  topics = "nim-waku noise"
 
 const
-  # https://godoc.org/github.com/libp2p/go-libp2p-noise#pkg-constants
-  NoiseCodec* = "/noise"
-
-  PayloadString = "noise-libp2p-static-key:"
-
-  ProtocolXXName = "Noise_XX_25519_ChaChaPoly_SHA256"
-
   # Empty is a special value which indicates k has not yet been initialized.
   EmptyKey = default(ChaChaPolyKey)
   NonceMax = uint64.high - 1 # max is reserved
@@ -55,8 +49,7 @@ type
 
   NoisePublicKey* = object
     flag: uint8
-    pk*: seq[byte]
-    pk_auth: ChaChaPolyTag
+    pk: seq[byte]
 
   ChaChaPolyCiphertext* = object
     data: seq[byte]
@@ -67,7 +60,29 @@ type
     nonce*: ChaChaPolyNonce
     ad*: seq[byte]
 
-  #Noise  
+  #Noise Handshakes
+
+  NoiseTokens* = enum
+    T_e = "e"
+    T_s = "s"
+    T_es = "es"
+    T_ee = "ee"
+    T_se = "se"
+    T_ss = "se"
+    T_psk = "psk"
+    T_none = ""
+
+  MessageDirection* = enum
+    D_r = "->"
+    D_l = "<-"
+    D_none = ""
+
+  HandshakePattern* = object
+    name*: string
+    pre_message_patterns*: seq[(MessageDirection, seq[NoiseTokens])]
+    message_patterns*: seq[(MessageDirection, seq[NoiseTokens])]
+
+  #Noise states
 
   # https://noiseprotocol.org/noise.html#the-cipherstate-object
   CipherState* = object
@@ -82,25 +97,25 @@ type
 
   # https://noiseprotocol.org/noise.html#the-handshakestate-object
   HandshakeState = object
-    ss: SymmetricState
     s: KeyPair
     e: KeyPair
     rs: Curve25519Key
     re: Curve25519Key
+    ss: SymmetricState
+    initiator: bool
+    handshake_pattern: HandshakePattern
+    msg_pattern_idx: uint8
+    psk: seq[byte]
 
   HandshakeResult = object
     cs1: CipherState
     cs2: CipherState
-    remoteP2psecret: seq[byte]
     rs: Curve25519Key
+    h: MDigest[256] #The handshake state for channel binding
 
   NoiseState* = object
     hs: HandshakeState
     hr: HandshakeResult
-
-  IntermediateHS* = object
-    msg*: StreamSeq
-    hsr*: HandshakeResult
 
   Noise* = ref object of Secure
     rng: ref BrHmacDrbgContext
@@ -108,9 +123,6 @@ type
     commonPrologue: seq[byte]
     outgoing: bool
 
-  NoiseConnection* = ref object of SecureConn
-    readCs: CipherState
-    writeCs: CipherState
 
   NoiseError* = object of LPError
   NoiseHandshakeError* = object of NoiseError
@@ -118,19 +130,100 @@ type
   NoiseOversizedPayloadError* = object of NoiseError
   NoiseNonceMaxError* = object of NoiseError # drop connection on purpose
   NoisePublicKeyError* = object of NoiseError
+  NoiseMalformedHandshake* = object of NoiseError
+
+ 
+#Supported Noise Handshake Patterns
+const
+  EmptyMessagePattern = @[(D_none, @[T_none])]
+
+  NoiseHandshakePatterns*  = {
+
+    "K1K1":   HandshakePattern(name: "Noise_K1K1_25519_ChaChaPoly_SHA256",
+                               pre_message_patterns: @[(D_r, @[T_s]),
+                                                       (D_l, @[T_s])],
+                               message_patterns:     @[(D_r, @[T_e]),
+                                                       (D_l, @[T_e, T_ee, T_es]),
+                                                       (D_r, @[T_se])]
+                               ),
+
+    "XK1":    HandshakePattern(name: "Noise_XK1_25519_ChaChaPoly_SHA256",
+                               pre_message_patterns: @[(D_l, @[T_s])], 
+                               message_patterns:     @[(D_r, @[T_e]),
+                                                       (D_l, @[T_e, T_ee, T_es]),
+                                                       (D_r, @[T_s, T_se])]
+                              ),
+
+    "XX":     HandshakePattern(name: "Noise_XX_25519_ChaChaPoly_SHA256",
+                               pre_message_patterns: EmptyMessagePattern, 
+                               message_patterns:     @[(D_r, @[T_e]),
+                                                       (D_l, @[T_e, T_ee, T_s, T_es]),
+                                                       (D_r, @[T_s, T_se])]
+                              ),
+
+    "XXpsk0": HandshakePattern(name: "Noise_XXpsk0_25519_ChaChaPoly_SHA256",
+                               pre_message_patterns: EmptyMessagePattern, 
+                               message_patterns:     @[(D_r, @[T_psk, T_e]),
+                                                       (D_l, @[T_e, T_ee, T_s, T_es]),
+                                                       (D_r, @[T_s, T_se])]
+                              ),
+
+    "test":   HandshakePattern(name: "Noise_XXpsk0_25519_ChaChaPoly_SHA256",
+                               pre_message_patterns: EmptyMessagePattern, 
+                               message_patterns:     @[(D_r, @[T_e, T_s, T_psk]),
+                                                       (D_l, @[T_e, T_ee, T_s, T_es]),
+                                                       (D_r, @[T_s, T_se])]
+                              ),
+    }.toTable()
+
+  PayloadV2ProtocolIDs*  = {
+    "Noise_K1K1_25519_ChaChaPoly_SHA256":   1.uint8,
+    "Noise_XK1_25519_ChaChaPoly_SHA256":    2.uint8,
+    "Noise_XX_25519_ChaChaPoly_SHA256":     3.uint8,
+    "Noise_XXpsk0_25519_ChaChaPoly_SHA256": 4.uint8
+    }.toTable()
+
+
+#Utility for printing Handshake Patterns
+
+proc print*(self: HandshakePattern) 
+   {.raises: [IOError].}=
+  try:
+    if self.name != "":
+      echo self.name, ":"
+    #We iterate over pre message patterns, if any
+    if self.pre_message_patterns != EmptyMessagePattern:
+      for pattern in self.pre_message_patterns:
+          stdout.write "  ", pattern[0]
+          var first = true
+          for token in pattern[1]:
+            if first:
+              stdout.write " ", token
+              first = false        
+            else:
+              stdout.write ", ", token
+          stdout.write "\n"          
+          stdout.flushFile()
+      stdout.write "    ...\n"
+      stdout.flushFile()
+    #We iterate over message patterns
+    for pattern in self.message_patterns:
+      stdout.write "  ", pattern[0]
+      var first = true
+      for token in pattern[1]:
+        if first:
+          stdout.write " ", token
+          first = false        
+        else:
+          stdout.write ", ", token
+      stdout.write "\n"
+      stdout.flushFile()
+  except:
+    echo "HandshakePattern malformed"
 
 # Utility
 
-func shortLog*(conn: NoiseConnection): auto =
-  try:
-    if conn.isNil: "NoiseConnection(nil)"
-    else: &"{shortLog(conn.peerId)}:{conn.oid}"
-  except ValueError as exc:
-    raise newException(Defect, exc.msg)
-
-chronicles.formatIt(NoiseConnection): shortLog(it)
-
-proc genKeyPair(rng: var BrHmacDrbgContext): KeyPair =
+proc genKeyPair*(rng: var BrHmacDrbgContext): KeyPair =
   result.privateKey = Curve25519Key.random(rng)
   result.publicKey = result.privateKey.public()
 
@@ -199,8 +292,8 @@ proc decryptWithAd(state: var CipherState, ad, data: openArray[byte]): seq[byte]
 
 # Symmetricstate
 
-proc init*(_: type[SymmetricState]): SymmetricState =
-  result.h = ProtocolXXName.hashProtocol
+proc init*(_: type[SymmetricState], hs_pattern: HandshakePattern): SymmetricState =
+  result.h = hs_pattern.name.hashProtocol
   result.ck = result.h.data.intoChaChaPolyKey
   result.cs = CipherState(k: EmptyKey)
 
@@ -253,8 +346,15 @@ proc split(ss: var SymmetricState): tuple[cs1, cs2: CipherState] =
   sha256.hkdf(ss.ck, [], [], temp_keys)
   return (CipherState(k: temp_keys[0]), CipherState(k: temp_keys[1]))
 
-proc init*(_: type[HandshakeState]): HandshakeState =
-  result.ss = SymmetricState.init()
+
+# Handshake state
+
+proc init*(_: type[HandshakeState], hs_pattern: HandshakePattern, psk: seq[byte] = @[]): HandshakeState =
+  # set to true only if startHandshake is called over the handshake state
+  result.initiator = false
+  result.handshake_pattern = hs_pattern
+  result.psk = psk
+  result.ss = SymmetricState.init(hs_pattern)
 
 template write_e: untyped =
   trace "noise write e"
@@ -325,269 +425,11 @@ template read_s: untyped =
 
   msg.consume(rsLen)
 
-proc readFrame(sconn: Connection): Future[seq[byte]] {.async.} =
-  var besize {.noinit.}: array[2, byte]
-  await sconn.readExactly(addr besize[0], besize.len)
-  let size = uint16.fromBytesBE(besize).int
-  trace "readFrame", sconn, size
-  if size == 0:
-    return
-
-  var buffer = newSeqUninitialized[byte](size)
-  await sconn.readExactly(addr buffer[0], buffer.len)
-  return buffer
-
-proc writeFrame(sconn: Connection, buf: openArray[byte]): Future[void] =
-  doAssert buf.len <= uint16.high.int
-  var
-    lesize = buf.len.uint16
-    besize = lesize.toBytesBE
-    outbuf = newSeqOfCap[byte](besize.len + buf.len)
-  trace "writeFrame", sconn, size = lesize, data = shortLog(buf)
-  outbuf &= besize
-  outbuf &= buf
-  sconn.write(outbuf)
-
-proc receiveHSMessage(sconn: Connection): Future[seq[byte]] = readFrame(sconn)
-proc sendHSMessage(sconn: Connection, buf: openArray[byte]): Future[void] =
-  writeFrame(sconn, buf)
-
-
-proc HSFirstMessage*(p: Noise): IntermediateHS  =
-  const initiator = true
-
-  var
-    hs = noise.HandshakeState.init()
-
-  var ihs: IntermediateHS
-
-  try:
-
-    hs.ss.mixHash(p.commonPrologue)
-    hs.s = p.staticKeyPair
-
-    # -> e
-    var msg: StreamSeq
-
-    write_e()
-
-    # IK might use this btw!
-    msg.add hs.ss.encryptAndHash([])
-
-    let (cs1, cs2) = hs.ss.split()
-
-    ihs.msg = msg
-    ihs.hsr = HandshakeResult(cs1: cs1, cs2: cs2, remoteP2psecret: @[], rs: hs.rs)
-    return ihs
-
-  except NoiseNonceMaxError as exc:
-      debug "Noise nonce exceeded"
-      return ihs
-  finally:
-    burnMem(hs)
-
-
-proc handshakeXXOutbound(
-    p: Noise, conn: Connection,
-    p2pSecret: seq[byte]): Future[HandshakeResult] {.async.} =
-  const initiator = true
-  var
-    hs = HandshakeState.init()
-
-  try:
-
-    hs.ss.mixHash(p.commonPrologue)
-    hs.s = p.staticKeyPair
-
-    # -> e
-    var msg: StreamSeq
-
-    write_e()
-
-    # IK might use this btw!
-    msg.add hs.ss.encryptAndHash([])
-
-    await conn.sendHSMessage(msg.data)
-
-    # <- e, ee, s, es
-
-    msg.assign(await conn.receiveHSMessage())
-
-    read_e()
-    dh_ee()
-    read_s()
-    dh_es()
-
-    let remoteP2psecret = hs.ss.decryptAndHash(msg.data)
-    msg.clear()
-
-    # -> s, se
-
-    write_s()
-    dh_se()
-
-    # last payload must follow the encrypted way of sending
-    msg.add hs.ss.encryptAndHash(p2pSecret)
-
-    await conn.sendHSMessage(msg.data)
-
-    let (cs1, cs2) = hs.ss.split()
-    return HandshakeResult(cs1: cs1, cs2: cs2, remoteP2psecret: remoteP2psecret, rs: hs.rs)
-  finally:
-    burnMem(hs)
-
-proc handshakeXXInbound(
-    p: Noise, conn: Connection,
-    p2pSecret: seq[byte]): Future[HandshakeResult] {.async.} =
-  const initiator = false
-
-  var
-    hs = HandshakeState.init()
-
-  try:
-    hs.ss.mixHash(p.commonPrologue)
-    hs.s = p.staticKeyPair
-
-    # -> e
-
-    var msg: StreamSeq
-    msg.add(await conn.receiveHSMessage())
-
-    read_e()
-
-    # we might use this early data one day, keeping it here for clarity
-    let earlyData {.used.} = hs.ss.decryptAndHash(msg.data)
-
-    # <- e, ee, s, es
-
-    msg.consume(msg.len)
-
-    write_e()
-    dh_ee()
-    write_s()
-    dh_es()
-
-    msg.add hs.ss.encryptAndHash(p2pSecret)
-
-    await conn.sendHSMessage(msg.data)
-    msg.clear()
-
-    # -> s, se
-
-    msg.add(await conn.receiveHSMessage())
-
-    read_s()
-    dh_se()
-
-    let
-      remoteP2psecret = hs.ss.decryptAndHash(msg.data)
-      (cs1, cs2) = hs.ss.split()
-    return HandshakeResult(cs1: cs1, cs2: cs2, remoteP2psecret: remoteP2psecret, rs: hs.rs)
-  finally:
-    burnMem(hs)
-
-method readMessage*(sconn: NoiseConnection): Future[seq[byte]] {.async.} =
-  while true: # Discard 0-length payloads
-    let frame = await sconn.stream.readFrame()
-    sconn.activity = true
-    if frame.len > ChaChaPolyTag.len:
-      let res = sconn.readCs.decryptWithAd([], frame)
-      if res.len > 0:
-        when defined(libp2p_dump):
-          dumpMessage(sconn, FlowDirection.Incoming, res)
-        return res
-
-    when defined(libp2p_dump):
-      dumpMessage(sconn, FlowDirection.Incoming, [])
-    trace "Received 0-length message", sconn
-
-
-proc encryptFrame(
-    sconn: NoiseConnection,
-    cipherFrame: var openArray[byte],
-    src: openArray[byte])
-    {.raises: [Defect, NoiseNonceMaxError].} =
-  # Frame consists of length + cipher data + tag
-  doAssert src.len <= MaxPlainSize
-  doAssert cipherFrame.len == 2 + src.len + sizeof(ChaChaPolyTag)
-
-  cipherFrame[0..<2] = toBytesBE(uint16(src.len + sizeof(ChaChaPolyTag)))
-  cipherFrame[2..<2 + src.len()] = src
-
-  let tag = encrypt(
-    sconn.writeCs, cipherFrame.toOpenArray(2, 2 + src.len() - 1), [])
-
-  cipherFrame[2 + src.len()..<cipherFrame.len] = tag
-
-method write*(sconn: NoiseConnection, message: seq[byte]): Future[void] =
-  # Fast path: `{.async.}` would introduce a copy of `message`
-  const FramingSize = 2 + sizeof(ChaChaPolyTag)
-
-  let
-    frames = (message.len + MaxPlainSize - 1) div MaxPlainSize
-
-  var
-    cipherFrames = newSeqUninitialized[byte](message.len + frames * FramingSize)
-    left = message.len
-    offset = 0
-    woffset = 0
-
-  while left > 0:
-    let
-      chunkSize = min(MaxPlainSize, left)
-
-    try:
-      encryptFrame(
-        sconn,
-        cipherFrames.toOpenArray(woffset, woffset + chunkSize + FramingSize - 1),
-        message.toOpenArray(offset, offset + chunkSize - 1))
-    except NoiseNonceMaxError as exc:
-      debug "Noise nonce exceeded"
-      let fut = newFuture[void]("noise.write.nonce")
-      fut.fail(exc)
-      return fut
-
-    when defined(libp2p_dump):
-      dumpMessage(
-        sconn, FlowDirection.Outgoing,
-        message.toOpenArray(offset, offset + chunkSize - 1))
-
-    left = left - chunkSize
-    offset += chunkSize
-    woffset += chunkSize + FramingSize
-
-  sconn.activity = true
-
-  # Write all `cipherFrames` in a single write, to avoid interleaving /
-  # sequencing issues
-  sconn.stream.write(cipherFrames)
-
-
-method init*(p: Noise) {.gcsafe.} =
-  procCall Secure(p).init()
-  p.codec = NoiseCodec
-
-proc new*(
-  T: typedesc[Noise],
-  rng: ref BrHmacDrbgContext,
-  outgoing: bool = true,
-  commonPrologue: seq[byte] = @[]): T =
-
-  var noise = Noise(
-    rng: rng,
-    outgoing: outgoing,
-    staticKeyPair: genKeyPair(rng[]),
-    commonPrologue: commonPrologue,
-  )
-
-  noise.init()
-  echo "pubkey:", byteutils.toHex(getBytes(noise.staticKeyPair.publicKey))
-  echo "privkey:", byteutils.toHex(getBytes(noise.staticKeyPair.privateKey))
-  noise
 
 
 
 #################################################################
+
 
 
 # Vanilla ChaChaPoly encryption
@@ -628,8 +470,13 @@ proc randomChaChaPolyCipherState*(rng: var BrHmacDrbgContext): ChaChaPolyCipherS
 # Public keys serializations/encryption
 
 proc `==`(k1, k2: NoisePublicKey): bool =
-  result = (k1.flag == k2.flag) and (k1.pk == k2.pk) and (k1.pk_auth == k2.pk_auth)
+  result = (k1.flag == k2.flag) and (k1.pk == k2.pk)
   
+
+proc keyPairToNoisePublicKey*(keyPair: KeyPair): NoisePublicKey =
+  result.flag = 0
+  result.pk = getBytes(keyPair.publicKey)
+
 
 proc genNoisePublicKey*(rng: var BrHmacDrbgContext): NoisePublicKey =
   let keyPair: KeyPair = genKeyPair(rng)
@@ -639,19 +486,12 @@ proc genNoisePublicKey*(rng: var BrHmacDrbgContext): NoisePublicKey =
 proc serializeNoisePublicKey*(noisePublicKey: NoisePublicKey): seq[byte] =
   result.add noisePublicKey.flag
   result.add noisePublicKey.pk
-  result.add noisePublicKey.pk_auth
 
 #TODO: strip pk_auth if pk not encrypted
 proc intoNoisePublicKey*(serializedNoisePublicKey: seq[byte]): NoisePublicKey =
-  let pk_len = serializedNoisePublicKey.len - 1 - ChaChaPolyTag.len
-  #Only Curve25519 is supported
-  #if pk_len != Curve25519Key.len:
-  #  raise newException(NoisePublicKeyError, "Serialized public key byte length is not correct")
   result.flag = serializedNoisePublicKey[0]
-  result.pk = serializedNoisePublicKey[1..pk_len]
-  result.pk_auth = intoChaChaPolyTag(serializedNoisePublicKey[pk_len+1..pk_len+ChaChaPolyTag.len])
-
-
+  assert result.flag == 0 or result.flag == 1
+  result.pk = serializedNoisePublicKey[1..<serializedNoisePublicKey.len]
 
 # Public keys encryption/decryption
 
@@ -661,7 +501,7 @@ proc encryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePubl
     let enc_pk = encrypt(cs, noisePublicKey.pk)
     result.flag = 1
     result.pk = enc_pk.data
-    result.pk_auth = enc_pk.tag
+    result.pk.add enc_pk.tag
   else:
     result = noisePublicKey
 
@@ -669,7 +509,11 @@ proc encryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePubl
 proc decryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePublicKey): NoisePublicKey
   {.raises: [Defect, NoiseDecryptTagError].} =
   if cs.k != EmptyKey and noisePublicKey.flag == 1:
-    let ciphertext = ChaChaPolyCiphertext(data: noisePublicKey.pk, tag: noisePublicKey.pk_auth)
+    #let ciphertext = ChaChaPolyCiphertext(data: noisePublicKey.pk, tag: noisePublicKey.pk_auth)
+    let pk_len = noisePublicKey.pk.len - ChaChaPolyTag.len
+    let pk = noisePublicKey.pk[0..<pk_len]
+    let pk_auth = intoChaChaPolyTag(noisePublicKey.pk[pk_len..<pk_len+ChaChaPolyTag.len])
+    let ciphertext = ChaChaPolyCiphertext(data: pk, tag: pk_auth) 
     result.pk = decrypt(cs, ciphertext)
     result.flag = 0
   else:
@@ -683,22 +527,20 @@ proc decryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePubl
 
 
 
-
-
 # Payload functions
 type
   PayloadV2* = object
     protocol_id: uint8
     handshake_message: seq[NoisePublicKey]
     transport_message: seq[byte]
-    transport_message_auth: ChaChaPolyTag
+    #transport_message_auth: ChaChaPolyTag
 
 
 proc `==`(p1, p2: PayloadV2): bool =
   result =  (p1.protocol_id == p2.protocol_id) and 
             (p1.handshake_message == p2.handshake_message) and 
-            (p1.transport_message == p2.transport_message) and 
-            (p1.transport_message_auth == p2.transport_message_auth)
+            (p1.transport_message == p2.transport_message) #and 
+            #(p1.transport_message_auth == p2.transport_message_auth)
   
 
 
@@ -736,8 +578,8 @@ proc encodeV2*(self: PayloadV2): Option[seq[byte]] =
                                   1 + #ser_handshake_message_len 
                                   ser_handshake_message_len +        
                                   8 + #transport_message_len
-                                  transport_message_len + #self.transport_message
-                                  self.transport_message_auth.len)
+                                  transport_message_len #+ #self.transport_message
+                                  )#self.transport_message_auth.len)
   
   
   payload.add self.protocol_id.byte
@@ -745,7 +587,7 @@ proc encodeV2*(self: PayloadV2): Option[seq[byte]] =
   payload.add ser_handshake_message
   payload.add toBytesLE(transport_message_len.uint64)
   payload.add self.transport_message
-  payload.add self.transport_message_auth
+  #payload.add self.transport_message_auth
 
   return some(payload)
 
@@ -759,17 +601,31 @@ proc decodeV2*(payload: seq[byte]): Option[PayloadV2] =
   res.protocol_id = payload[i].uint8
   i+=1
 
-  let handshake_message_len = payload[i].uint64
+  var handshake_message_len = payload[i].uint64
   i+=1
 
-  let pk_len: uint64 = 1 + Curve25519Key.len + ChaChaPolyTag.len
-  let no_of_pks = handshake_message_len div pk_len
+  var handshake_message: seq[NoisePublicKey]
 
-  res.handshake_message = newSeqOfCap[NoisePublicKey](no_of_pks)
+  var 
+    flag: byte
+    pk_len: uint64
+    written: uint64 = 0
 
-  for j in 0..<no_of_pks:
-    res.handshake_message.add intoNoisePublicKey(payload[i..(i+pk_len-1)])
-    i += pk_len
+  while written != handshake_message_len:
+    #Note that flag can be used to add support to multiple Elliptic Curve arithmetics..
+    flag = payload[i]
+    if flag == 0:
+      pk_len = 1 + Curve25519Key.len
+      handshake_message.add intoNoisePublicKey(payload[i..<i+pk_len])
+      i += pk_len
+      written += pk_len
+    if flag == 1:
+      pk_len = 1 + Curve25519Key.len + ChaChaPolyTag.len
+      handshake_message.add intoNoisePublicKey(payload[i..<i+pk_len])
+      i += pk_len
+      written += pk_len
+
+  res.handshake_message = handshake_message
 
   let transport_message_len = fromBytesLE(uint64, payload[i..(i+8-1)])
   i+=8
@@ -777,6 +633,206 @@ proc decodeV2*(payload: seq[byte]): Option[PayloadV2] =
   res.transport_message = payload[i..i+transport_message_len-1]
   i+=transport_message_len
 
-  res.transport_message_auth = intoChaChaPolyTag(payload[i..i+ChaChaPolyTag.len-1])
+  #res.transport_message_auth = intoChaChaPolyTag(payload[i..i+ChaChaPolyTag.len-1])
 
   return some(res)
+
+
+
+
+
+
+
+
+
+
+
+##### Handshake procedures
+
+
+
+proc initialize*(hs_pattern: HandshakePattern, staticKey: KeyPair, prologue: seq[byte] = @[]): HandshakeState =
+  var hs = HandshakeState.init(hs_pattern)
+  hs.ss.mixHash(prologue)
+  hs.s = staticKey
+  return hs
+
+
+proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeState, tokens: seq[NoiseTokens], transport_message: seq[byte]): Result[PayloadV2, cstring]
+  {.raises: [Defect, NoiseMalformedHandshake, NoiseNonceMaxError].} =
+
+  #We initialize an empty payload v2, with proper protocol ID (if supported)
+  var p: PayloadV2
+  try:
+    p.protocol_id = PayloadV2ProtocolIDs[hs.handshake_pattern.name]
+  except:
+    raise newException(NoiseMalformedHandshake, "Handshake Pattern not supported")
+    
+  #We process each message pattern token
+  for token in tokens:
+    case token
+    of T_e:
+
+      trace "noise write e"
+
+      #We generate a new ephemeral keypair
+      hs.e = genKeyPair(rng)
+
+      #We update the state
+      hs.ss.mixHash(hs.e.publicKey)
+      # Noise specification: section 9.2
+      # In non-PSK handshakes, the "e" token in a pre-message pattern or message pattern always results 
+      # in a call to MixHash(e.public_key). 
+      # In a PSK handshake, all of these calls are followed by MixKey(e.public_key).
+      if "psk" in hs.handshake_pattern.name:
+        hs.ss.mixKey(hs.e.publicKey)
+
+      #We add the ephemeral public key to the Waku payload
+      p.handshake_message.add keyPairToNoisePublicKey(hs.e)
+
+    of T_s:
+
+      trace "noise write s"
+
+      if hs.s == default(KeyPair):
+        raise newException(NoiseMalformedHandshake, "Static key not set")
+
+      #We update the state
+      let enc_s = hs.ss.encryptAndHash(hs.s.publicKey)
+
+      #We add the static public key to the Waku payload
+      #Note that enc_s = (Enc(s) || tag) if encryption key is set otherwise enc_s = s.
+      #We distinguish these two cases by checking length of encryption
+      if enc_s.len > Curve25519Key.len:
+        p.handshake_message.add NoisePublicKey(flag: 1, pk: enc_s)
+      else:
+        p.handshake_message.add NoisePublicKey(flag: 0, pk: enc_s)
+
+    of T_psk:
+
+      trace "noise psk"
+
+      #Calls MixKeyAndHash(psk)
+      hs.ss.mixKeyAndHash(hs.psk)
+
+    of T_ee:
+
+      trace "noise dh ee"
+
+      if hs.e == default(KeyPair) or hs.re == default(Curve25519Key):
+        raise newException(NoiseMalformedHandshake, "Local or remote ephemeral key not set")
+
+      # Calls MixKey(DH(e, re)).
+      hs.ss.mixKey(dh(hs.e.privateKey, hs.re))
+
+    of T_es:
+
+      trace "noise dh es"
+
+      if hs.e == default(KeyPair) or hs.rs == default(Curve25519Key):
+        raise newException(NoiseMalformedHandshake, "Local or remote ephemeral/static key not set")
+
+
+      # Calls MixKey(DH(e, rs)) if initiator (in this proc we always are the initiator)
+      hs.ss.mixKey(dh(hs.e.privateKey, hs.rs))
+
+    of T_se:
+
+      trace "noise dh se"
+
+      if hs.s == default(KeyPair) or hs.re == default(Curve25519Key):
+        raise newException(NoiseMalformedHandshake, "Local or remote ephemeral/static key not set")
+
+      # Calls MixKey(DH(s, re)) if initiator (in this proc we always are the initiator)
+      hs.ss.mixKey(dh(hs.s.privateKey, hs.re))
+
+    of T_ss:
+
+      trace "noise dh ss"
+
+      if hs.s == default(KeyPair) or hs.rs == default(Curve25519Key):
+        raise newException(NoiseMalformedHandshake, "Local or remote static key not set")
+
+      # Calls MixKey(DH(s, rs)).
+      hs.ss.mixKey(dh(hs.s.privateKey, hs.rs))
+
+    else:
+      raise newException(NoiseMalformedHandshake, "Invalid token in message pattern")
+
+  #We encrypt the transport_message, if any
+  if transport_message.len > 0:
+    p.transport_message.add hs.ss.encryptAndHash(transport_message)
+
+  return ok(p)
+
+
+proc startHandshake*(rng: var BrHmacDrbgContext, hs: var HandshakeState, transport_message: seq[byte] = @[]): Result[PayloadV2, cstring]
+  {.raises: [Defect, NoiseMalformedHandshake, NoiseNonceMaxError].} =
+
+  #We are the initiator of the handshake
+  hs.initiator = true
+  
+  ### PRE-MESSAGE PATTERN
+  
+  #TODO process here pre-message pattern
+
+  ### MESSAGE PATTERN
+
+  #We process the first message pattern
+  hs.msg_pattern_idx = 0
+
+  #We retrieve the relevant handshake information
+  let
+    message_pattern = hs.handshake_pattern.message_patterns[hs.msg_pattern_idx]
+    direction = message_pattern[0]
+    tokens = message_pattern[1]
+
+  #We start a handshake only if the first handshake pattern direction goes from alice to Bob
+  if direction == D_r:
+
+    var p = processMessagePatternTokens(rng, hs, tokens, transport_message)
+
+    #We increase the handshake state message pattern index
+    hs.msg_pattern_idx += 1
+
+    #echo p
+
+    return ok(p.get())
+
+  else:
+    raise newException(NoiseMalformedHandshake, "First handshake message doesn't come from initiator")
+
+
+
+
+#We return a tuple with the optional handshake payload and the payload for continuing the handshake 
+proc continueHandshake*(rng: var BrHmacDrbgContext, hs: var HandshakeState, transport_message: seq[byte] = @[], waku_payload: PayloadV2): Result[(seq[byte], PayloadV2), cstring]
+  {.raises: [Defect, NoiseMalformedHandshake, NoiseNonceMaxError].} =
+
+  #TODO process here pre-message pattern
+  if hs.msg_pattern_idx == 0:
+
+    ### PRE-MESSAGE PATTERN
+    
+  
+
+  ### MESSAGE PATTERN
+
+  #We retrieve the relevant handshake information
+  let
+    message_pattern = hs.handshake_pattern.message_patterns[hs.msg_pattern_idx]
+    direction = message_pattern[0]
+    tokens = message_pattern[1]
+
+  #We start a handshake only if the first handshake pattern direction goes from alice to Bob
+  if direction == D_r:
+
+    var p = processMessagePatternTokens(rng, hs, tokens, transport_message)
+
+    #We increase the handshake state message pattern index
+    hs.msg_pattern_idx += 1
+
+    return ok((@[],p.get()))
+
+  else:
+    raise newException(NoiseMalformedHandshake, "First handshake message doesn't come from initiator")
