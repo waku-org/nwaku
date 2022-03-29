@@ -369,7 +369,7 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
 
   info "attempting to load messages from persistent storage"
 
-  let res = ws.store.getAll(onData, some(capacity))
+  let res = ws.store.getAll(onData)
   if res.isErr:
     warn "failed to load messages from store", err = res.error
     waku_store_errors.inc(labelValues = ["store_load_failure"])

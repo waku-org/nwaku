@@ -4,6 +4,7 @@ import
   std/[options, tables],
   sqlite3_abi,
   stew/[byteutils, results],
+  chronicles,
   ./message_store,
   ../sqlite,
   ../../../protocol/waku_message,
@@ -12,18 +13,59 @@ import
 
 export sqlite
 
+logScope:
+  topics = "wakuMessageStore"
+
 const TABLE_TITLE = "Message"
+const MaxStoreOverflow = 1.3 # has to be > 1.0
 
 # The code in this file is an adaptation of the Sqlite KV Store found in nim-eth.
 # https://github.com/status-im/nim-eth/blob/master/eth/db/kvstore_sqlite3.nim
-#
-# Most of it is a direct copy, the only unique functions being `get` and `put`.
 
 type
+  # WakuMessageStore implements auto deletion as follows:
+  # The sqlite DB will store up to `storeMaxLoad = storeCapacity` * `MaxStoreOverflow` messages, giving an overflow window of (storeCapacity*MaxStoreOverflow - storeCapacity).
+  # In case of an overflow, messages are sorted by `receiverTimestamp` and the oldest ones are deleted. The number of messages that get deleted is (overflow window / 2) = deleteWindow,
+  # bringing the total number of stored messages back to `storeCapacity + (overflow window / 2)`. The rationale for batch deleting is efficiency.
+  # We keep half of the overflow window in addition to `storeCapacity` because we delete the oldest messages with respect to `receiverTimestamp` instead of `senderTimestamp`.
+  # `ReceiverTimestamp` is guaranteed to be set, while senders could omit setting `senderTimestamp`.
+  # However, `receiverTimestamp` can differ from node to node for the same message.
+  # So sorting by `receiverTimestamp` might (slightly) prioritize some actually older messages and we compensate that by keeping half of the overflow window.
   WakuMessageStore* = ref object of MessageStore
     database*: SqliteDatabase
+    numMessages: int
+    storeCapacity: int # represents both the number of messages that are persisted in the sqlite DB (excl. the overflow window explained above), and the number of messages that get loaded via `getAll`.
+    storeMaxLoad: int  # = storeCapacity * MaxStoreOverflow
+    deleteWindow: int  # = (storeCapacity * MaxStoreOverflow - storeCapacity)/2; half of the overflow window, the amount of messages deleted when overflow occurs
  
-proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] =
+proc messageCount(db: SqliteDatabase): MessageStoreResult[int64] =
+  var numMessages: int64
+  proc handler(s: ptr sqlite3_stmt) = 
+    numMessages = sqlite3_column_int64(s, 0)
+  let countQuery = "SELECT COUNT(*) FROM " & TABLE_TITLE
+  let countRes = db.query(countQuery, handler)
+  if countRes.isErr:
+    return err("failed to count number of messages in DB")
+  ok(numMessages)
+
+proc deleteOldest(db: WakuMessageStore): MessageStoreResult[void] =
+  var deleteQuery = "DELETE FROM " & TABLE_TITLE & " " &
+                          "WHERE id NOT IN " &
+                              "(SELECT id FROM " & TABLE_TITLE & " " &
+                                "ORDER BY receiverTimestamp DESC " &
+                                "LIMIT " & $(db.storeCapacity + db.deleteWindow) & ")"
+  let res = db.database.query(deleteQuery, proc(s: ptr sqlite3_stmt) = discard)
+  if res.isErr:
+    return err(res.error)
+  db.numMessages = db.storeCapacity + db.deleteWindow # sqlite3 DELETE does not return the number of deleted rows; Ideally we would subtract the number of actually deleted messages. We could run a separate COUNT.
+
+  when defined(debug):
+    let numMessages = messageCount(db.database).get() # requires another SELECT query, so only run in debug mode
+    debug "Oldest messages deleted from DB due to overflow.", storeCapacity=db.storeCapacity, maxStore=db.storeMaxLoad, deleteWindow=db.deleteWindow, messagesLeft=numMessages
+
+  ok()
+
+proc init*(T: type WakuMessageStore, db: SqliteDatabase, storeCapacity: int = 50000): MessageStoreResult[T] =
   ## Table is the SQL query for creating the messages Table.
   ## It contains:
   ##  - 4-Byte ContentTopic stored as an Integer
@@ -45,11 +87,28 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase): MessageStoreResult[T] 
   if prepare.isErr:
     return err("failed to prepare")
 
-  let res = prepare.value.exec(())
-  if res.isErr:
+  let prepareRes = prepare.value.exec(())
+  if prepareRes.isErr:
     return err("failed to exec")
 
-  ok(WakuMessageStore(database: db))
+  let numMessages = messageCount(db).get()
+  debug "number of messages in sqlite database", messageNum=numMessages
+
+  let storeMaxLoad = int(float(storeCapacity) * MaxStoreOverflow)
+  let deleteWindow = int(float(storeMaxLoad - storeCapacity) / 2)
+  let wms = WakuMessageStore(database: db,
+                      numMessages: int(numMessages),
+                      storeCapacity: storeCapacity,
+                      storeMaxLoad: storeMaxLoad,
+                      deleteWindow: deleteWindow)
+
+  # If the loaded db is already over max load, delete the oldest messages before returning the WakuMessageStore object
+  if wms.numMessages >= wms.storeMaxLoad:
+    let res = wms.deleteOldest()
+    if res.isErr: return err("deleting oldest messages failed")
+
+  ok(wms)
+
 
 method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTopic: string): MessageStoreResult[void] =
   ## Adds a message to the storage.
@@ -74,11 +133,17 @@ method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTop
   if res.isErr:
     return err("failed")
 
+  db.numMessages += 1
+  if db.numMessages >= db.storeMaxLoad:
+    let res = db.deleteOldest()
+    if res.isErr: return err("deleting oldest failed")
+
   ok()
 
-method getAll*(db: WakuMessageStore, onData: message_store.DataProc, limit = none(int)): MessageStoreResult[bool] =
-  ## Retrieves all messages from the storage.
-  ## Optionally limits the number of rows returned.
+
+
+method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageStoreResult[bool] =
+  ## Retrieves `storeCapacity` many  messages from the storage.
   ##
   ## **Example:**
   ##
@@ -120,10 +185,10 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc, limit = non
   var selectQuery = "SELECT receiverTimestamp, contentTopic, payload, pubsubTopic, version, senderTimestamp " &
                     "FROM " & TABLE_TITLE & " " & 
                     "ORDER BY receiverTimestamp ASC"
-  if limit.isSome():
-    # Optional limit applies. This works because SQLITE will perform the time-based ORDER BY before applying the limit.
-    selectQuery &= " LIMIT " & $(limit.get()) &
-                   " OFFSET cast((SELECT count(*)  FROM " & TABLE_TITLE & ") AS INT) - " & $(limit.get()) # offset = total_row_count - limit
+
+  # Apply limit. This works because SQLITE will perform the time-based ORDER BY before applying the limit.
+  selectQuery &= " LIMIT " & $db.storeCapacity &
+                 " OFFSET cast((SELECT count(*)  FROM " & TABLE_TITLE & ") AS INT) - " & $db.storeCapacity # offset = total_row_count - limit
   
   let res = db.database.query(selectQuery, msg)
   if res.isErr:
