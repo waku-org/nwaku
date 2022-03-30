@@ -72,6 +72,7 @@ type
   WakuInfo* = object
     # NOTE One for simplicity, can extend later as needed
     listenAddresses*: seq[string]
+    enrUri*: string
     #multiaddrStrings*: seq[string]
 
   # NOTE based on Eth2Node in NBC eth2_network.nim
@@ -449,7 +450,9 @@ proc info*(node: WakuNode): WakuInfo =
   for address in node.announcedAddresses:
     var fulladdr = $address & "/p2p/" & $peerInfo.peerId
     listenStr &= fulladdr
-  let wakuInfo = WakuInfo(listenAddresses: listenStr)
+  let enrUri = if node.wakuDiscV5 != nil: node.wakuDiscV5.protocol.localNode.record.toUri()
+               else: node.enr.toUri()
+  let wakuInfo = WakuInfo(listenAddresses: listenStr, enrUri: enrUri)
   return wakuInfo
 
 proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {.raises: [Defect, KeyError, LPError]} =
@@ -900,7 +903,7 @@ proc startDiscv5*(node: WakuNode): Future[bool] {.async.} =
     asyncSpawn node.runDiscv5Loop()
 
     debug "Successfully started discovery v5 service"
-    info "Discv5: discoverable ENR ", enr = node.wakuDiscV5.protocol.localNode.record.toURI()
+    info "Discv5: discoverable ENR ", enr = node.wakuDiscV5.protocol.localNode.record.toUri()
     return true
 
   return false
@@ -936,7 +939,7 @@ proc start*(node: WakuNode) {.async.} =
                 
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
-  info "DNS: discoverable ENR ", enr = node.enr.toURI()
+  info "DNS: discoverable ENR ", enr = node.enr.toUri()
 
   ## Update switch peer info with announced addrs
   node.updateSwitchPeerInfo()
