@@ -63,6 +63,11 @@ proc deleteOldest(db: WakuMessageStore): MessageStoreResult[void] =
     let numMessages = messageCount(db.database).get() # requires another SELECT query, so only run in debug mode
     debug "Oldest messages deleted from DB due to overflow.", storeCapacity=db.storeCapacity, maxStore=db.storeMaxLoad, deleteWindow=db.deleteWindow, messagesLeft=numMessages
 
+  # reduce the size of the DB file after the delete operation. See: https://www.sqlite.org/lang_vacuum.html
+  let resVacuum = db.database.query("vacuum", proc(s: ptr sqlite3_stmt) = discard)
+  if resVacuum.isErr:
+    return err("vacuum after delete was not successful: " & resVacuum.error)
+
   ok()
 
 proc init*(T: type WakuMessageStore, db: SqliteDatabase, storeCapacity: int = 50000): MessageStoreResult[T] =
