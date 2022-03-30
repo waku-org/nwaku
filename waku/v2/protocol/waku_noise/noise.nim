@@ -668,6 +668,9 @@ proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeS
   except:
     raise newException(NoiseMalformedHandshake, "Handshake Pattern not supported")
     
+
+  #TODO: Process direction here, and if init direction agree then is a write, otherwise a read
+  
   #We process each message pattern token
   for token in tokens:
     case token
@@ -733,8 +736,11 @@ proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeS
         raise newException(NoiseMalformedHandshake, "Local or remote ephemeral/static key not set")
 
 
-      # Calls MixKey(DH(e, rs)) if initiator (in this proc we always are the initiator)
-      hs.ss.mixKey(dh(hs.e.privateKey, hs.rs))
+      # Calls MixKey(DH(e, rs)) if initiator, MixKey(DH(s, re)) if responder.
+      when hs.initiator:
+        hs.ss.mixKey(dh(hs.e.privateKey, hs.rs))
+      else:
+        hs.ss.mixKey(dh(hs.s.privateKey, hs.re))
 
     of T_se:
 
@@ -743,8 +749,11 @@ proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeS
       if hs.s == default(KeyPair) or hs.re == default(Curve25519Key):
         raise newException(NoiseMalformedHandshake, "Local or remote ephemeral/static key not set")
 
-      # Calls MixKey(DH(s, re)) if initiator (in this proc we always are the initiator)
-      hs.ss.mixKey(dh(hs.s.privateKey, hs.re))
+      # Calls MixKey(DH(s, re)) if initiator, MixKey(DH(e, rs)) if responder.
+      when hs.initiator:
+        hs.ss.mixKey(dh(hs.s.privateKey, hs.re))
+      else:
+        hs.ss.mixKey(dh(hs.e.privateKey, hs.rs))
 
     of T_ss:
 
