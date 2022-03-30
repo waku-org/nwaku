@@ -2,7 +2,9 @@
 
 import
   testutils/unittests,
+  ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_noise/noise,
+  ../../waku/v2/node/waku_payload,
   ../test_helpers,
   std/tables
 
@@ -80,3 +82,42 @@ procSuite "Waku Noise":
 
     check:
       noisePublicKey == dec_pk
+
+  test "Encode/decode PayloadV2 to byte sequence":
+
+    let 
+      payload2 = randomPayloadV2(rng[])
+      encoded_payload = encodeV2(payload2)
+      decoded_payload = decodeV2(encoded_payload.get())
+
+    check: 
+      payload2 == decoded_payload.get()
+
+
+  test "Encode/Decode Waku2 payload (version 2) - ChaChaPoly Keyinfo":
+    # Encoding
+    let
+      version = 2'u32
+      payload = randomPayloadV2(rng[])
+      encodedPayload = encodePayloadV2(payload)
+
+    check encodedPayload.isOk()
+
+    let
+      msg = WakuMessage(payload: encodedPayload.get(), version: version)
+      pb =  msg.encode()
+
+    # Decoding
+    let msgDecoded = WakuMessage.init(pb.buffer)
+    check msgDecoded.isOk()
+
+    let
+      cipherState = randomChaChaPolyCipherState(rng[])
+      keyInfo = KeyInfo(kind: ChaChaPolyEncryption, cs: cipherState)
+      decoded = decodePayloadV2(msgDecoded.get(), keyInfo)
+
+    check:
+      decoded.isOk()
+      decoded.get() == payload
+
+  #TODO: add encrypt payload with ChaChaPoly

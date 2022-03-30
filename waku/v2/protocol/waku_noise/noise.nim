@@ -132,7 +132,6 @@ proc serializeNoisePublicKey*(noisePublicKey: NoisePublicKey): seq[byte] =
   result.add noisePublicKey.flag
   result.add noisePublicKey.pk
 
-#TODO: strip pk_auth if pk not encrypted
 proc intoNoisePublicKey*(serializedNoisePublicKey: seq[byte]): NoisePublicKey =
   result.flag = serializedNoisePublicKey[0]
   assert result.flag == 0 or result.flag == 1
@@ -168,3 +167,112 @@ proc decryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePubl
       debug "Public key is not encrypted."
     debug "Public key is left unchanged"
     result = noisePublicKey
+
+
+
+
+
+# Payload functions
+type
+  PayloadV2* = object
+    protocol_id: uint8
+    handshake_message: seq[NoisePublicKey]
+    transport_message: seq[byte]
+
+
+proc `==`(p1, p2: PayloadV2): bool =
+  result =  (p1.protocol_id == p2.protocol_id) and 
+            (p1.handshake_message == p2.handshake_message) and 
+            (p1.transport_message == p2.transport_message) 
+  
+
+
+proc randomPayloadV2*(rng: var BrHmacDrbgContext): PayloadV2 =
+  var protocol_id = newSeq[byte](1)
+  brHmacDrbgGenerate(rng, protocol_id)
+  result.protocol_id = protocol_id[0].uint8
+  result.handshake_message = @[genNoisePublicKey(rng), genNoisePublicKey(rng), genNoisePublicKey(rng)]
+  result.transport_message = newSeq[byte](128)
+  brHmacDrbgGenerate(rng, result.transport_message)
+
+
+proc encodeV2*(self: PayloadV2): Option[seq[byte]] =
+
+  #We collect public keys contained in the handshake message
+  var
+    ser_handshake_message_len: int = 0
+    ser_handshake_message = newSeqOfCap[byte](256)
+    ser_pk: seq[byte]
+  for pk in self.handshake_message:
+    ser_pk = serializeNoisePublicKey(pk)
+    ser_handshake_message_len +=  ser_pk.len
+    ser_handshake_message.add ser_pk
+
+
+  #RFC: handshake-message-len is 1 byte
+  if ser_handshake_message_len > 256:
+    debug "Payload malformed: too many public keys contained in the handshake message"
+    return none(seq[byte])
+
+  let transport_message_len = self.transport_message.len
+  #let transport_message_len_len = ceil(log(transport_message_len, 8)).int
+
+  var payload = newSeqOfCap[byte](1 + #self.protocol_id.len +              
+                                  1 + #ser_handshake_message_len 
+                                  ser_handshake_message_len +        
+                                  8 + #transport_message_len
+                                  transport_message_len #self.transport_message
+                                  )
+  
+  
+  payload.add self.protocol_id.byte
+  payload.add ser_handshake_message_len.byte
+  payload.add ser_handshake_message
+  payload.add toBytesLE(transport_message_len.uint64)
+  payload.add self.transport_message
+
+  return some(payload)
+
+
+
+#Decode Noise handshake payload
+proc decodeV2*(payload: seq[byte]): Option[PayloadV2] =
+  var res: PayloadV2
+
+  var i: uint64 = 0
+  res.protocol_id = payload[i].uint8
+  i+=1
+
+  var handshake_message_len = payload[i].uint64
+  i+=1
+
+  var handshake_message: seq[NoisePublicKey]
+
+  var 
+    flag: byte
+    pk_len: uint64
+    written: uint64 = 0
+
+  while written != handshake_message_len:
+    #Note that flag can be used to add support to multiple Elliptic Curve arithmetics..
+    flag = payload[i]
+    if flag == 0:
+      pk_len = 1 + Curve25519Key.len
+      handshake_message.add intoNoisePublicKey(payload[i..<i+pk_len])
+      i += pk_len
+      written += pk_len
+    if flag == 1:
+      pk_len = 1 + Curve25519Key.len + ChaChaPolyTag.len
+      handshake_message.add intoNoisePublicKey(payload[i..<i+pk_len])
+      i += pk_len
+      written += pk_len
+
+  res.handshake_message = handshake_message
+
+  let transport_message_len = fromBytesLE(uint64, payload[i..(i+8-1)])
+  i+=8
+
+  res.transport_message = payload[i..i+transport_message_len-1]
+  i+=transport_message_len
+
+  return some(res)

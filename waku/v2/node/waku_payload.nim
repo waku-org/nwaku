@@ -4,7 +4,11 @@ import
   std/options,
   eth/keys,
   ../../whisper/whisper_types,
-  ../protocol/waku_message
+  ../protocol/waku_message,
+  ../protocol/waku_noise/noise
+
+import libp2p/crypto/[chacha20poly1305, curve25519]
+
 
 export whisper_types, keys, options
 
@@ -12,6 +16,7 @@ type
   KeyKind* = enum
     Symmetric
     Asymmetric
+    ChaChaPolyEncryption
     None
 
   KeyInfo* = object
@@ -20,6 +25,8 @@ type
       symKey*: SymKey
     of Asymmetric:
       privKey*: PrivateKey
+    of ChaChaPolyEncryption:
+      cs*: ChaChaPolyCipherState
     of None:
       discard
 
@@ -56,7 +63,7 @@ proc decodePayload*(message: WakuMessage, keyInfo: KeyInfo):
         return ok(decoded.get())
       else:
         return err("Couldn't decrypt using asymmetric key")
-    of None:
+    else:
       discard
   else:
     return err("Unsupported WakuMessage version")
@@ -77,3 +84,29 @@ proc encode*(payload: Payload, version: uint32, rng: var BrHmacDrbgContext):
       return err("Couldn't encode the payload")
   else:
     return err("Unsupported WakuMessage version")
+
+
+proc decodePayloadV2*(message: WakuMessage, keyInfo: KeyInfo):
+    WakuResult[PayloadV2] =
+  case message.version
+  of 2:
+    case keyInfo.kind
+    of ChaChaPolyEncryption:
+      let decoded = decodeV2(message.payload)#, keyInfo.cs)
+      if decoded.isSome():
+        return ok(decoded.get())
+      else:
+        return err("Couldn't decrypt using ChaChaPoly Cipher State")
+    else:
+      discard
+  else:
+    return err("Key info doesn't match v2 payloads")
+
+
+proc encodePayloadV2*(payload: PayloadV2):
+    WakuResult[seq[byte]] =
+  let encoded = encodeV2(payload)
+  if encoded.isSome():
+    return ok(encoded.get())
+  else:
+    return err("Couldn't encode the payload")
