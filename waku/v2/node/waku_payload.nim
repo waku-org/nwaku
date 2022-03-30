@@ -7,7 +7,7 @@ import
   ../protocol/waku_message,
   ../protocol/waku_noise/noise
 
-import libp2p/crypto/[chacha20poly1305, curve25519]
+import libp2p/crypto/[curve25519]
 
 
 export whisper_types, keys, options
