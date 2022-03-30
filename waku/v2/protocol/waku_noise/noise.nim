@@ -5,7 +5,6 @@
 ## Implementation partially inspired by noise-libp2p:
 ## https://github.com/status-im/nim-libp2p/blob/master/libp2p/protocols/secure/noise.nim
 
-
 {.push raises: [Defect].}
 
 import std/[oids, options]
