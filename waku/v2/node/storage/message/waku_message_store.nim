@@ -59,9 +59,10 @@ proc deleteOldest(db: WakuMessageStore): MessageStoreResult[void] =
     return err(res.error)
   db.numMessages = db.storeCapacity + db.deleteWindow # sqlite3 DELETE does not return the number of deleted rows; Ideally we would subtract the number of actually deleted messages. We could run a separate COUNT.
 
+  info "Oldest messages deleted from DB due to overflow.", storeCapacity=db.storeCapacity, maxStore=db.storeMaxLoad, deleteWindow=db.deleteWindow
   when defined(debug):
     let numMessages = messageCount(db.database).get() # requires another SELECT query, so only run in debug mode
-    debug "Oldest messages deleted from DB due to overflow.", storeCapacity=db.storeCapacity, maxStore=db.storeMaxLoad, deleteWindow=db.deleteWindow, messagesLeft=numMessages
+    debug "Number of messages left after delete operation.", messagesLeft=numMessages
 
   # reduce the size of the DB file after the delete operation. See: https://www.sqlite.org/lang_vacuum.html
   let resVacuum = db.database.query("vacuum", proc(s: ptr sqlite3_stmt) = discard)
