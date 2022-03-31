@@ -224,7 +224,7 @@ proc proofVerify*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: RateLim
     proofBytes= serialize(proof, data)
     proofBuffer = proofBytes.toBuffer()
     f = 0.uint32
-  debug "serialized proof", proof=proofBytes.toHex()
+  trace "serialized proof", proof=proofBytes.toHex()
 
   let verifyIsSuccessful = verify(rlnInstance, addr proofBuffer, addr f)
   if not verifyIsSuccessful:

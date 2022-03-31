@@ -99,6 +99,10 @@ endif
 # use a separate waku discv5 network with `protocol-id="d5waku"`
 NIM_PARAMS := $(NIM_PARAMS) -d:discv5_protocol_id:d5waku
 
+# git version for JSON RPC call
+GIT_VERSION := "$(shell git describe --abbrev=6 --always --tags)"
+NIM_PARAMS := $(NIM_PARAMS) -d:git_version:\"$(GIT_VERSION)\"
+
 deps: | deps-common nat-libs waku.nims rlnlib
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
@@ -223,6 +227,11 @@ clean: | clean-common
 ifneq ($(USE_LIBBACKTRACE), 0)
 	+ $(MAKE) -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif
+	cargo clean --manifest-path vendor/rln/Cargo.toml
+
+# clean the rln build (forces recompile of old crates on next build)
+cleanrln:
+	cargo clean --manifest-path vendor/rln/Cargo.toml
 
 endif # "variables.mk" was not included
 
