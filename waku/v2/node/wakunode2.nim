@@ -53,7 +53,7 @@ logScope:
 const clientId* = "Nimbus Waku v2 node"
 
 # Default topic
-const defaultTopic = "/waku/2/default-waku/proto"
+const defaultTopic* = "/waku/2/default-waku/proto"
 
 # Default Waku Filter Timeout
 const WakuFilterTimeout: Duration = 1.days
@@ -72,6 +72,7 @@ type
   WakuInfo* = object
     # NOTE One for simplicity, can extend later as needed
     listenAddresses*: seq[string]
+    enrUri*: string
     #multiaddrStrings*: seq[string]
 
   # NOTE based on Eth2Node in NBC eth2_network.nim
@@ -170,6 +171,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     secureCert: string = "",
     wakuFlags = none(WakuEnrBitfield),
     nameResolver: NameResolver = nil,
+    sendSignedPeerRecord = false,
     dns4DomainName = none(string)
     ): T 
     {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
@@ -242,7 +244,8 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     wssEnabled = wssEnabled,
     secureKeyPath = secureKey,
     secureCertPath = secureCert,
-    nameResolver = nameResolver)
+    nameResolver = nameResolver,
+    sendSignedPeerRecord = sendSignedPeerRecord)
   
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
@@ -447,7 +450,9 @@ proc info*(node: WakuNode): WakuInfo =
   for address in node.announcedAddresses:
     var fulladdr = $address & "/p2p/" & $peerInfo.peerId
     listenStr &= fulladdr
-  let wakuInfo = WakuInfo(listenAddresses: listenStr)
+  let enrUri = if node.wakuDiscV5 != nil: node.wakuDiscV5.protocol.localNode.record.toUri()
+               else: node.enr.toUri()
+  let wakuInfo = WakuInfo(listenAddresses: listenStr, enrUri: enrUri)
   return wakuInfo
 
 proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {.raises: [Defect, KeyError, LPError]} =
@@ -495,22 +500,36 @@ when defined(rln):
       debug "rln-relay topic validator is called"
       let msg = WakuMessage.init(message.data) 
       if msg.isOk():
-        let wakumessage = msg.value()
+        let 
+          wakumessage = msg.value()
+          payload = string.fromBytes(wakumessage.payload)
+
         # check the contentTopic
         if (wakumessage.contentTopic != "") and (contentTopic != "") and (wakumessage.contentTopic != contentTopic):
-          debug "content topic did not match:", contentTopic=wakumessage.contentTopic, payload=string.fromBytes(wakumessage.payload)
+          debug "content topic did not match:", contentTopic=wakumessage.contentTopic, payload=payload
           return pubsub.ValidationResult.Accept
+
         # validate the message
-        let validationRes = node.wakuRlnRelay.validateMessage(wakumessage)
+        let 
+          validationRes = node.wakuRlnRelay.validateMessage(wakumessage)
+          proof = toHex(wakumessage.proof.proof)
+          epoch = fromEpoch(wakumessage.proof.epoch)
+          root = toHex(wakumessage.proof.merkleRoot)
+          shareX = toHex(wakumessage.proof.shareX)
+          shareY = toHex(wakumessage.proof.shareY)
+          nullifier = toHex(wakumessage.proof.nullifier)
         case validationRes:
           of Valid:
-            debug "message validity is verified, relaying:", wakumessage=wakumessage, payload=string.fromBytes(wakumessage.payload)
+            debug "message validity is verified, relaying:",  contentTopic=wakumessage.contentTopic, epoch=epoch, timestamp=wakumessage.timestamp, payload=payload
+            trace "message validity is verified, relaying:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
             return pubsub.ValidationResult.Accept
           of Invalid:
-            debug "message validity could not be verified, discarding:", wakumessage=wakumessage, payload=string.fromBytes(wakumessage.payload)
+            debug "message validity could not be verified, discarding:", contentTopic=wakumessage.contentTopic, epoch=epoch, timestamp=wakumessage.timestamp, payload=payload
+            trace "message validity could not be verified, discarding:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
             return pubsub.ValidationResult.Reject
           of Spam:
-            debug "A spam message is found! yay! discarding:", wakumessage=wakumessage, payload=string.fromBytes(wakumessage.payload)
+            debug "A spam message is found! yay! discarding:", contentTopic=wakumessage.contentTopic, epoch=epoch, timestamp=wakumessage.timestamp, payload=payload
+            trace "A spam message is found! yay! discarding:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
             if spamHandler.isSome:
                let handler = spamHandler.get
                handler(wakumessage)
@@ -659,7 +678,8 @@ proc startRelay*(node: WakuNode) {.async.} =
 proc mountRelay*(node: WakuNode,
                  topics: seq[string] = newSeq[string](),
                  relayMessages = true,
-                 triggerSelf = true)
+                 triggerSelf = true,
+                 peerExchangeHandler = none(RoutingRecordsHandler))
   # @TODO: Better error handling: CatchableError is raised by `waitFor`
   {.gcsafe, raises: [Defect, InitializationError, LPError, CatchableError].} =
 
@@ -684,6 +704,10 @@ proc mountRelay*(node: WakuNode,
   ## The default relay topics is the union of
   ## all configured topics plus the hard-coded defaultTopic(s)
   wakuRelay.defaultTopics = concat(@[defaultTopic], topics)
+
+  ## Add peer exchange handler
+  if peerExchangeHandler.isSome():    
+    wakuRelay.routingRecordsHandler.add(peerExchangeHandler.get())
 
   node.switch.mount(wakuRelay, protocolMatcher(WakuRelayCodec))
 
@@ -879,6 +903,7 @@ proc startDiscv5*(node: WakuNode): Future[bool] {.async.} =
     asyncSpawn node.runDiscv5Loop()
 
     debug "Successfully started discovery v5 service"
+    info "Discv5: discoverable ENR ", enr = node.wakuDiscV5.protocol.localNode.record.toUri()
     return true
 
   return false
@@ -914,7 +939,7 @@ proc start*(node: WakuNode) {.async.} =
                 
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
-  info "Discoverable ENR ", enr = node.enr.toURI()
+  info "DNS: discoverable ENR ", enr = node.enr.toUri()
 
   ## Update switch peer info with announced addrs
   node.updateSwitchPeerInfo()
@@ -1003,7 +1028,7 @@ when isMainModule:
       
       if conf.persistMessages:
         # Historical message persistence enable. Set up Message table in storage
-        let res = WakuMessageStore.init(sqliteDatabase)
+        let res = WakuMessageStore.init(sqliteDatabase, conf.storeCapacity)
 
         if res.isErr:
           warn "failed to init WakuMessageStore", err = res.error
@@ -1092,6 +1117,7 @@ when isMainModule:
                           conf.websocketSecureCertPath,
                           some(wakuFlags),
                           dnsResolver,
+                          conf.relayPeerExchange, # We send our own signed peer record when peer exchange enabled
                           dns4DomainName
                           )
     
@@ -1132,7 +1158,7 @@ when isMainModule:
     ok(node)
 
   # 4/7 Mount and initialize configured protocols
-  proc setupProtocols(node: var WakuNode,
+  proc setupProtocols(node: WakuNode,
                       conf: WakuNodeConf,
                       mStorage: WakuMessageStore = nil): SetupResult[bool] =
     
@@ -1141,10 +1167,26 @@ when isMainModule:
     ## No protocols are started yet.
     
     # Mount relay on all nodes
+    var peerExchangeHandler = none(RoutingRecordsHandler)
+    if conf.relayPeerExchange:
+      proc handlePeerExchange(peer: PeerId, topic: string,
+                              peers: seq[RoutingRecordsPair]) {.gcsafe, raises: [Defect].} =
+        ## Handle peers received via gossipsub peer exchange
+        # TODO: Only consider peers on pubsub topics we subscribe to
+        let exchangedPeers = peers.filterIt(it.record.isSome()) # only peers with populated records
+                                  .mapIt(toRemotePeerInfo(it.record.get()))
+        
+        debug "connecting to exchanged peers", src=peer, topic=topic, numPeers=exchangedPeers.len
+
+        # asyncSpawn, as we don't want to block here
+        asyncSpawn node.connectToNodes(exchangedPeers, "peer exchange")
+    
+      peerExchangeHandler = some(handlePeerExchange)
+
     mountRelay(node,
-              conf.topics.split(" "),
-              relayMessages = conf.relay, # Indicates if node is capable to relay messages
-              ) 
+               conf.topics.split(" "),
+               relayMessages = conf.relay, # Indicates if node is capable to relay messages
+               peerExchangeHandler = peerExchangeHandler) 
     
     # Keepalive mounted on all nodes
     mountLibp2pPing(node)

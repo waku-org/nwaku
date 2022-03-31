@@ -1,4 +1,4 @@
-{.push raises: [Defect, CatchableError].}
+{.push raises: [Defect].}
 
 import
   chronicles,
@@ -7,6 +7,9 @@ import
 
 logScope:
   topics = "debug api"
+
+const 
+  git_version {.strdefine.} = "n/a"
 
 proc installDebugApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
 
@@ -17,3 +20,10 @@ proc installDebugApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
     debug "get_waku_v2_debug_v1_info"
 
     return node.info()
+
+  rpcsrv.rpc("get_waku_v2_debug_v1_version") do() -> string:
+    ## Returns information about WakuNode
+    debug "get_waku_v2_debug_v1_version"
+
+    return git_version
+

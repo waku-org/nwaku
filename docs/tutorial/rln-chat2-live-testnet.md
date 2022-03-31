@@ -1,6 +1,6 @@
-# Building a local network of spam-protected chat2 clients 
+# Communicating with waku2 test fleets using chat2 application in spam-protected mode
 
-This document is a tutorial on how to run chat2 in spam-protected/rate-limited mode on a designated content topic  `/toy-chat/2/luzhou/proto` using the waku-RLN-Relay protocol.
+This document is a tutorial on how to run chat2 in spam-protected/rate-limited mode using the waku-RLN-Relay protocol on a designated content topic  `/toy-chat/2/luzhou/proto`.
 You will connect your chat2 client to waku2 test fleets.
 Note that test fleets will not filter spam messages, they merely route messages.
 Spam detection takes place at the chat2 users end.
@@ -123,3 +123,21 @@ Connecting to storenode: 16Uiu2HAmPLe7Mzm8TsYUubgCAW1aJoeFScxrLj8ppHFivPo97bUZ
 >> /exit
 quitting...
 ```
+
+# Trouble shooting
+
+## compilation error: found possibly newer version of crate
+
+
+If running `make chat2 RLN=true` yields a compile error like this
+
+```
+error[E0460]: found possibly newer version of crate `std` which `sapling_crypto_ce` depends on
+ --> src/circuit/polynomial.rs:1:5
+  |
+1 | use sapling_crypto::bellman::pairing::ff::{Field, PrimeField, PrimeFieldRepr};
+```
+
+run
+
+`make cleanrln` before running `make chat2 RLN=true` again.

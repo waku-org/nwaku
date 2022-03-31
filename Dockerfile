@@ -1,9 +1,10 @@
 # BUILD IMAGE --------------------------------------------------------
 
-FROM alpine:3.12 AS nim-build
+FROM alpine:3.15 AS nim-build
 
 ARG NIM_PARAMS
 ARG MAKE_TARGET=wakunode2
+ARG RLN=true
 
 # Get build tools and required header files
 RUN apk add --no-cache bash git rust cargo build-base pcre-dev linux-headers
@@ -18,11 +19,11 @@ RUN git submodule update --init --recursive
 RUN make -j$(nproc) deps
 
 # Build the final node binary
-RUN make -j$(nproc) $MAKE_TARGET NIM_PARAMS="$NIM_PARAMS"
+RUN make -j$(nproc) $MAKE_TARGET NIM_PARAMS="$NIM_PARAMS" RLN="$RLN"
 
 # ACTUAL IMAGE -------------------------------------------------------
 
-FROM alpine:3.12
+FROM alpine:3.15
 
 ARG MAKE_TARGET=wakunode2
 
@@ -44,7 +45,7 @@ RUN ln -s /usr/lib/libpcre.so /usr/lib/libpcre.so.3
 COPY --from=nim-build /app/build/$MAKE_TARGET /usr/local/bin/
 
 # If rln enabled: fix for 'Error loading shared library vendor/rln/target/debug/librln.so: No such file or directory'
-# COPY --from=nim-build /app/vendor/rln/target/debug/librln.so vendor/rln/target/debug/librln.so
+COPY --from=nim-build /app/vendor/rln/target/debug/librln.so vendor/rln/target/debug/librln.so
 
 # Copy migration scripts for DB upgrades
 COPY --from=nim-build /app/waku/v2/node/storage/migration/migrations_scripts/ /app/waku/v2/node/storage/migration/migrations_scripts/

@@ -104,14 +104,14 @@ proc toV1Topic*(contentTopic: ContentTopic): waku_protocol.Topic {.raises: [Defe
 
 # Message conversion
 
-func toWakuMessage(env: Envelope): WakuMessage =
+func toWakuMessage(env: waku_protocol.Envelope): WakuMessage =
   # Translate a Waku v1 envelope to a Waku v2 message
   WakuMessage(payload: env.data,
               contentTopic: toV2ContentTopic(env.topic),
               timestamp: (getNanosecondTime(env.expiry) - getNanosecondTime(env.ttl)),
               version: 1)
 
-proc toWakuV2(bridge: WakuBridge, env: Envelope) {.async.} =
+proc toWakuV2(bridge: WakuBridge, env: waku_protocol.Envelope) {.async.} =
   let msg = env.toWakuMessage()
 
   if bridge.seen.containsOrAdd(msg.encode().buffer.hash()):
@@ -224,7 +224,7 @@ proc start*(bridge: WakuBridge) {.async.} =
 
   # Bridging
   # Handle messages on Waku v1 and bridge to Waku v2  
-  proc handleEnvReceived(envelope: Envelope) {.gcsafe, raises: [Defect].} =
+  proc handleEnvReceived(envelope: waku_protocol.Envelope) {.gcsafe, raises: [Defect].} =
     trace "Bridging envelope from V1 to V2", envelope=envelope
     asyncSpawn bridge.toWakuV2(envelope)
 

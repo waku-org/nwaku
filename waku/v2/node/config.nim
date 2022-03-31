@@ -89,6 +89,11 @@ type
       defaultValue: true
       name: "relay" }: bool
     
+    relayPeerExchange* {.
+      desc: "Enable gossipsub peer exchange in relay protocol: true|false",
+      defaultValue: true
+      name: "relay-peer-exchange" }: bool
+    
     rlnRelay* {.
       desc: "Enable spam protection through rln-relay: true|false",
       defaultValue: false
@@ -106,7 +111,7 @@ type
 
     rlnRelayContentTopic* {.
       desc: "the pubsub topic for which rln-relay gets enabled",
-      defaultValue: "/toy-chat/2/huilong/proto"
+      defaultValue: "/toy-chat/2/luzhou/proto"
       name: "rln-relay-content-topic" }: ContentTopic
     
     staticnodes* {.
