@@ -13,6 +13,7 @@ suite "Deposit contract":
 
   test "deposits":
     proc test() {.async.} =
+      # web3 client
       let web3 = await newWeb3("ws://127.0.0.1:8540/")
       let accounts = await web3.provider.eth_accounts()
       let gasPrice = int(await web3.provider.eth_gasPrice())
@@ -22,7 +23,7 @@ suite "Deposit contract":
       let contractAddress = receipt.contractAddress.get
       echo "Deployed Deposit contract: ", contractAddress
 
-      var ns = web3.contractSender(DepositContract, contractAddress)
+      var contractObj = web3.contractSender(DepositContract, contractAddress)
 
       let notifFut = newFuture[void]()
       var notificationsReceived = 0
@@ -34,7 +35,7 @@ suite "Deposit contract":
 
       var fut = newFuture[void]()
 
-      let s = await ns.subscribe(DepositEvent, %*{"fromBlock": "0x0"}) do (
+      let s = await contractObj.subscribe(DepositEvent, %*{"fromBlock": "0x0"}) do (
           pubkey: DynamicBytes[0, 48], withdrawalCredentials: DynamicBytes[0, 32], amount: DynamicBytes[0, 8], signature: DynamicBytes[0, 96], merkleTreeIndex: DynamicBytes[0, 8])
           {.raises: [Defect], gcsafe.}:
         try:
@@ -52,10 +53,14 @@ suite "Deposit contract":
       do (err: CatchableError):
         echo "Error from DepositEvent subscription: ", err.msg
 
-      discard await ns.deposit(pk, cr, sig, dataRoot).send(value = 32.u256.ethToWei, gasPrice=gasPrice)
+      discard await contractObj.deposit(pk, cr, sig, dataRoot).send(value = 32.u256.ethToWei, gasPrice=gasPrice)
+    
 
       await fut
-      echo "hash_tree_root: ", await ns.get_deposit_root().call()
+      echo "hash_tree_root: ", await contractObj.get_deposit_root().call()
       await web3.close()
 
     waitFor test()
+  
+  
+  
