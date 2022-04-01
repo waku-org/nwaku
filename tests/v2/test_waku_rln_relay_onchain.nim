@@ -81,7 +81,10 @@ const MEMBERSHIP_CONTRACT_CODE = readFile("tests/v2/membershipContract.txt")
 # 		_withdraw(secret, _pubkeyIndex, receiver);
 # 	}
 
-
+contract(Faucet):
+  proc withdraw(amount: Uint256) # external payable 
+  proc Withdraw(address: Address, amount: Uint256) {.event.}
+  
 contract(MembershipContract):
   proc register(pubkey: Uint256) # external payable
   # proc registerBatch(pubkeys: seq[Uint256]) # external payable
@@ -90,7 +93,7 @@ contract(MembershipContract):
   # proc withdrawBatch( secrets: seq[Uint256], pubkeyIndex: seq[Uint256], receiver: seq[Address])
   proc MemberRegistered(pubkey: Uint256, index: Uint256) {.event.}
 
-proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
+proc uploadContract*(ethClientAddress: string): Future[Address] {.async.} =
   let web3 = await newWeb3(ethClientAddress)
   debug "web3 connected to", ethClientAddress
 
@@ -138,24 +141,79 @@ proc uploadContract(ethClientAddress: string): Future[Address] {.async.} =
   return contractAddress
 
 procSuite "Waku rln relay":
-  asyncTest  "event subscription":
+  # asyncTest  "event subscription":
+  #   debug "ethereum client address", ETH_CLIENT
+  #   let contractAddress = await uploadContract(ETH_CLIENT)
+  #   # connect to the eth client
+  #   let web3 = await newWeb3(ETH_CLIENT)
+  #   debug "web3 connected to", ETH_CLIENT 
+
+  #   # fetch the list of registered accounts
+  #   let accounts = await web3.provider.eth_accounts()
+  #   web3.defaultAccount = accounts[1]
+  #   debug "contract deployer account address ", defaultAccount=web3.defaultAccount 
+
+  #   # prepare a contract sender to interact with it
+  #   var contractObj = web3.contractSender(MembershipContract, contractAddress) # creates a Sender object with a web3 field and contract address of type Address
+
+  #   # let notifFut = newFuture[void]()
+  #   # var notificationsReceived = 0
+  #   var fut = newFuture[void]()
+
+  #   let s = await contractObj.subscribe(MemberRegistered, %*{"fromBlock": "0x0"}) do(
+  #     pubkey: Uint256, index: Uint256){.raises: [Defect], gcsafe.}:
+  #     try:
+  #      echo "onDeposit"
+  #      echo "public key", pubkey
+  #      echo "index", index
+  #      fut.complete()
+  #     except Exception as err:
+  #       # chronos still raises exceptions which inherit directly from Exception
+  #       doAssert false, err.msg
+  #   do (err: CatchableError):
+  #       echo "Error from DepositEvent subscription: ", err.msg
+
+  #   discard await contractObj.register(20.u256).send(value = MembershipFee)
+
+  #   await fut
+  #   await web3.close()
+  
+  asyncTest  "event subscription faucet":
     debug "ethereum client address", ETH_CLIENT
-    let contractAddress = await uploadContract(ETH_CLIENT)
+    # let contractAddress = await uploadContract(ETH_CLIENT)
     # connect to the eth client
     let web3 = await newWeb3(ETH_CLIENT)
     debug "web3 connected to", ETH_CLIENT 
 
     # fetch the list of registered accounts
     let accounts = await web3.provider.eth_accounts()
-    web3.defaultAccount = accounts[1]
-    let add = web3.defaultAccount 
-    debug "contract deployer account address ", add
+    web3.defaultAccount = accounts[2]
+    debug "contract deployer account address ", defaultAccount=web3.defaultAccount 
 
     # prepare a contract sender to interact with it
-    var sender = web3.contractSender(MembershipContract, contractAddress) # creates a Sender object with a web3 field and contract address of type Address
+    var contractObj = web3.contractSender(Faucet, Address("0x51AC2D3E52dE957477dE32dA5892E07C01915d90".hexToByteArray(20))) # creates a Sender object with a web3 field and contract address of type Address
+    echo "create obj done"
 
-   
-    discard await sender.register(20.u256).send(value = MembershipFee)
+    var fut = newFuture[void]()
+
+    let s = await contractObj.subscribe(Withdraw, %*{"fromBlock": "0x0"}) do(
+      address: Address, amount: Uint256){.raises: [Defect], gcsafe.}:
+      try:
+       echo "onDeposit"
+       echo "address", address
+       echo "amount", amount
+       fut.complete()
+      except Exception as err:
+        # chronos still raises exceptions which inherit directly from Exception
+        doAssert false, err.msg
+    do (err: CatchableError):
+        echo "Error from DepositEvent subscription: ", err.msg
+
+    discard await contractObj.withdraw(0.u256).send()
+    echo "tx sent"
+
+    await fut
+    await web3.close()
 
     # const invocationsAfter = 1
     # const invocationsBefore = 0
@@ -187,12 +245,12 @@ procSuite "Waku rln relay":
 
     
 
-    await sleepAsync(6000)
+    # await sleepAsync(6000)
 
     # send takes three parameters, c: ContractCallBase, value = 0.u256, gas = 3000000'u64 gasPrice = 0 
     # should use send proc for the contract functions that update the state of the contract
-    let tx = await sender.register(20.u256).send(value = MembershipFee)
-    debug "The hash of registration tx: ", tx # value is the membership fee
+    # let tx = await contractObj.register(20.u256).send(value = MembershipFee)
+    # debug "The hash of registration tx: ", tx # value is the membership fee
     # await web3.close()
     # debug "disconnected from", ETH_CLIENT
 
