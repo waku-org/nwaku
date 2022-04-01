@@ -1,11 +1,9 @@
-## Nim-LibP2P
-## Copyright (c) 2020 Status Research & Development GmbH
-## Licensed under either of
-##  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
-##  * MIT license ([LICENSE-MIT](LICENSE-MIT))
-## at your option.
-## This file may not be copied, modified, or distributed except according to
-## those terms.
+# Waku Noise Protocols for Waku Payload Encryption
+## See spec for more details:
+## https://github.com/vacp2p/rfc/tree/master/content/docs/rfcs/35
+##
+## Implementation partially inspired by noise-libp2p:
+## https://github.com/status-im/nim-libp2p/blob/master/libp2p/protocols/secure/noise.nim
 
 {.push raises: [Defect].}
 
