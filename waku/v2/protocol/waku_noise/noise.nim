@@ -27,7 +27,7 @@ logScope:
   topics = "nim-waku noise"
 
 const
-  # Empty is a special value which indicates k has not yet been initialized.
+  # EmptyKey is a special value which indicates a ChaChaPolyKey has not yet been initialized.
   EmptyKey = default(ChaChaPolyKey)
 
 type
