@@ -55,8 +55,8 @@ type
 
   # A ChaChaPoly ciphertext (data) + authorization tag (tag)
   ChaChaPolyCiphertext* = object
-    data: seq[byte]
-    tag: ChaChaPolyTag
+    data*: seq[byte]
+    tag*: ChaChaPolyTag
 
   # A ChaChaPoly Cipher State containing key (k), nonce (nonce) and associated data (ad)
   ChaChaPolyCipherState* = object
@@ -67,6 +67,7 @@ type
   # Some useful error types
   NoiseError* = object of LPError
   NoiseHandshakeError* = object of NoiseError
+  NoiseEmptyChaChaPolyInput* = object of NoiseError
   NoiseDecryptTagError* = object of NoiseError
   NoiseNonceMaxError* = object of NoiseError
   NoisePublicKeyError* = object of NoiseError
@@ -85,8 +86,10 @@ proc randomSeqByte*(rng: var BrHmacDrbgContext, size: uint32): seq[byte] =
 
 # Generate random Curve25519 (public, private) key pairs
 proc genKeyPair*(rng: var BrHmacDrbgContext): KeyPair =
-  result.privateKey = EllipticCurveKey.random(rng)
-  result.publicKey = result.privateKey.public()
+  var keyPair: KeyPair
+  keyPair.privateKey = EllipticCurveKey.random(rng)
+  keyPair.publicKey = keyPair.privateKey.public()
+  return keyPair
 
 
 #################################################################
@@ -99,10 +102,17 @@ proc genKeyPair*(rng: var BrHmacDrbgContext): KeyPair =
 proc encrypt*(
     state: ChaChaPolyCipherState,
     plaintext: openArray[byte]): ChaChaPolyCiphertext
-    {.noinit, raises: [Defect].} =
-  #TODO: add padding
+    {.noinit, raises: [Defect, NoiseEmptyChaChaPolyInput].} =
+  #If plaintext is empty, we raise an error
+  if plaintext == @[]:
+    raise newException(NoiseEmptyChaChaPolyInput, "Tried to encrypt empty plaintext")
   var ciphertext: ChaChaPolyCiphertext
+  # Since ChaChaPoly's library "encrypt" primitive directly changes the input plaintext to the ciphertext,
+  # we copy the plaintext into the ciphertext variable and we pass the latter to encrypt
   ciphertext.data.add plaintext
+  #TODO: add padding
+  # ChaChaPoly.encrypt takes as input: the key (k), the nonce (nonce), a data structure for storing the computed authorization tag (tag), 
+  # the plaintext (overwritten to ciphertext) (data), the associated data (ad)
   ChaChaPoly.encrypt(state.k, state.nonce, ciphertext.tag, ciphertext.data, state.ad)
   return ciphertext
 
@@ -112,14 +122,24 @@ proc encrypt*(
 proc decrypt*(
     state: ChaChaPolyCipherState, 
     ciphertext: ChaChaPolyCiphertext): seq[byte]
-    {.raises: [Defect, NoiseDecryptTagError].} =
+    {.raises: [Defect, NoiseEmptyChaChaPolyInput, NoiseDecryptTagError].} =
+  #If plaintext is empty, we raise an error
+  if ciphertext.data == @[]:
+    raise newException(NoiseEmptyChaChaPolyInput, "Tried to decrypt empty ciphertext")
   var
+    # The input authorization tag
     tagIn = ciphertext.tag
+    # The authorization tag computed during decryption
     tagOut: ChaChaPolyTag
+  # Since ChaChaPoly's library "decrypt" primitive directly changes the input ciphertext to the plaintext,
+  # we copy the ciphertext into the plaintext variable and we pass the latter to decrypt
   var plaintext = ciphertext.data
+  # ChaChaPoly.decrypt takes as input: the key (k), the nonce (nonce), a data structure for storing the computed authorization tag (tag), 
+  # the ciphertext (overwritten to plaintext) (data), the associated data (ad)
   ChaChaPoly.decrypt(state.k, state.nonce, tagOut, plaintext, state.ad)
   #TODO: add unpadding
   trace "decrypt", tagIn = tagIn.shortLog, tagOut = tagOut.shortLog, nonce = state.nonce
+  # We check if the authorization tag computed while decrypting is the same as the input tag
   if tagIn != tagOut:
     debug "decrypt failed", plaintext = shortLog(plaintext)
     raise newException(NoiseDecryptTagError, "decrypt tag authentication failed.")
@@ -188,7 +208,7 @@ proc intoNoisePublicKey*(serializedNoisePublicKey: seq[byte]): NoisePublicKey
 
 # Encrypts a Noise public key using a ChaChaPoly Cipher State
 proc encryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePublicKey): NoisePublicKey
-  {.raises: [Defect, NoiseNonceMaxError].} =
+  {.raises: [Defect, NoiseEmptyChaChaPolyInput, NoiseNonceMaxError].} =
   var encryptedNoisePublicKey: NoisePublicKey
   # We proceed with encryption only if 
   # - a key is set in the cipher state 
@@ -207,7 +227,7 @@ proc encryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePubl
 
 # Decrypts a Noise public key using a ChaChaPoly Cipher State
 proc decryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePublicKey): NoisePublicKey
-  {.raises: [Defect, NoiseDecryptTagError].} =
+  {.raises: [Defect, NoiseEmptyChaChaPolyInput, NoiseDecryptTagError].} =
   var decryptedNoisePublicKey: NoisePublicKey
   # We proceed with decryption only if 
   # - a key is set in the cipher state 

@@ -2,6 +2,8 @@
 
 import
   testutils/unittests,
+  std/random,
+  stew/byteutils,
   ../../waku/v2/protocol/waku_noise/noise,
   ../test_helpers
 
@@ -9,17 +11,37 @@ procSuite "Waku Noise":
   
   let rng = rng()
 
-  test "ChaChaPoly Encryption/Decryption":
+  test "ChaChaPoly Encryption/Decryption: random byte sequences":
 
     let cipherState = randomChaChaPolyCipherState(rng[])
 
+    # We encrypt/decrypt random byte sequences
     let
-      plaintext: seq[byte] = randomSeqByte(rng[], 128)
+      plaintext: seq[byte] = randomSeqByte(rng[], 64)
       ciphertext: ChaChaPolyCiphertext = encrypt(cipherState, plaintext)
       decryptedCiphertext: seq[byte] = decrypt(cipherState, ciphertext)
 
     check: 
       plaintext == decryptedCiphertext
+
+  test "ChaChaPoly Encryption/Decryption: random strings":
+
+    let cipherState = randomChaChaPolyCipherState(rng[])
+
+    # We encrypt/decrypt random strings
+    randomize()
+    var plaintext: string
+    for _ in .. rand(64):
+      add(plaintext, char(rand(int('A') .. int('z'))))
+
+    echo plaintext
+
+    let
+      ciphertext: ChaChaPolyCiphertext = encrypt(cipherState, plaintext.toBytes())
+      decryptedCiphertext: seq[byte] = decrypt(cipherState, ciphertext)
+
+    check: 
+      plaintext.toBytes() == decryptedCiphertext
 
   test "Encrypt -> decrypt Noise public keys":
 
