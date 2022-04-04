@@ -20,11 +20,8 @@ import libp2p/utility
 import libp2p/errors
 import libp2p/crypto/[crypto, chacha20poly1305]
 
-when defined(libp2p_dump):
-  import libp2p/debugutils
-
 logScope:
-  topics = "nim-waku noise"
+  topics = "wakunoise"
 
 const
   # EmptyKey is a special value which indicates a ChaChaPolyKey has not yet been initialized.
