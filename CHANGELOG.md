@@ -1,20 +1,57 @@
-## Next version
+## 2021-03-31 v0.9
 
+Release highlights:
+
+- Support for Peer Exchange (PX) when a peer prunes a [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) mesh due to oversubscription. This can significantly increase mesh stability.
+- Improved start-up times through managing the size of the underlying persistent message storage.
+- New websocket connections are no longer blocked due to parsing failures in other connections.
+
+The full list of changes is below.
 
 ### Features
+
 - Support for bootstrapping [`33/WAKU-DISCV5`](https://rfc.vac.dev/spec/33) via [DNS discovery](https://rfc.vac.dev/spec/10/#discovery-methods)
+- Support for GossipSub [Peer Exchange](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#prune-backoff-and-peer-exchange)
 
 
 ### Changes
 
 - Waku v1 <> v2 bridge now supports DNS `multiaddrs`
 - Waku v1 <> v2 bridge now validates content topics before attempting to bridge a message from Waku v2 to Waku v1
-- Message store now auto deletes messages once over specified `--store-capacity`. This can significantly improve node start-up times.
+- Persistent message storage now auto deletes messages once over specified `--store-capacity`. This can significantly improve node start-up times.
+- Renamed Waku v1 <> v2 bridge `make` target and binary to `wakubridge`
+- Increased `store` logging to assist with debugging
+- Increased `rln-relay` logging to assist with debugging
+- Message metrics no longer include the content topic as a dimension to keep Prometheus metric cardinality under control
+- Waku v2 `toy-chat` application now sets the sender timestamp when creating messages
+- The type of the `proof` field of the `WakuMessage` is changed to `RateLimitProof`
+- Added method to the JSON-RPC API that returns the git tag and commit hash of the binary
+- The node's ENR is now included in the JSON-RPC API response when requesting node info
 
 ### Fixes
 
+- Fixed incorrect conversion of seconds to nanosecond timestamps
+- Fixed store queries blocking due to failure in resource clean up
+- Fixed underlying issue where new websocket connections are blocked due to parsing failures in other connections
+- Fixed failure to log the ENR necessary for a discv5 connection to the node
+
 ### Docs
-Added [tutorial]( ) on communicating with waku2 test fleets via the chat2 `toy-chat` application in spam-protected mode using [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/). 
+
+- Added [RAM requirements](https://github.com/status-im/nim-waku/tree/ee96705c7fbe4063b780ac43b7edee2f6c4e351b/waku/v2#wakunode) to `wakunode2` build instructions
+- Added [tutorial](https://github.com/status-im/nim-waku/blob/ee96705c7fbe4063b780ac43b7edee2f6c4e351b/docs/tutorial/rln-chat2-live-testnet.md) on communicating with waku2 test fleets via the chat2 `toy-chat` application in spam-protected mode using [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/).
+- Added a [section on bug reporting](https://github.com/status-im/nim-waku/blob/ee96705c7fbe4063b780ac43b7edee2f6c4e351b/README.md#bugs-questions--features) to `wakunode2` README
+- Fixed broken links in the [JSON-RPC API Tutorial](https://github.com/status-im/nim-waku/blob/5ceef37e15a15c52cbc589f0b366018e81a958ef/docs/tutorial/jsonrpc-api.md)
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
 
 ##  2021-03-03 v0.8
 
