@@ -17,7 +17,7 @@ procSuite "Waku Noise":
     let
       plaintext: seq[byte] = randomSeqByte(rng[], 128)
       ciphertext: ChaChaPolyCiphertext = encrypt(cipherState, plaintext)
-      dec_ciphertext: seq[byte] = decrypt(cipherState, ciphertext)
+      decryptedCiphertext: seq[byte] = decrypt(cipherState, ciphertext)
 
     check: 
-      plaintext == dec_ciphertext
+      plaintext == decryptedCiphertext
