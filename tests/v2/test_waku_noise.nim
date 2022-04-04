@@ -3,8 +3,7 @@
 import
   testutils/unittests,
   ../../waku/v2/protocol/waku_noise/noise,
-  ../test_helpers,
-  std/tables
+  ../test_helpers
 
 procSuite "Waku Noise":
   
@@ -22,17 +21,17 @@ procSuite "Waku Noise":
     check: 
       plaintext == decryptedCiphertext
 
-  test "Encrypt -> decrypt public keys":
+  test "Encrypt -> decrypt Noise public keys":
 
     let noisePublicKey: NoisePublicKey = genNoisePublicKey(rng[])
 
     let 
       cs: ChaChaPolyCipherState = randomChaChaPolyCipherState(rng[])
-      enc_pk: NoisePublicKey = encryptNoisePublicKey(cs, noisePublicKey)
-      dec_pk: NoisePublicKey = decryptNoisePublicKey(cs, enc_pk)
+      encryptedPk: NoisePublicKey = encryptNoisePublicKey(cs, noisePublicKey)
+      decryptedPk: NoisePublicKey = decryptNoisePublicKey(cs, encryptedPk)
 
     check: 
-      noisePublicKey == dec_pk
+      noisePublicKey == decryptedPk
 
   test "Decrypt unencrypted public key":
 
@@ -40,10 +39,10 @@ procSuite "Waku Noise":
 
     let 
       cs: ChaChaPolyCipherState = randomChaChaPolyCipherState(rng[])
-      dec_pk: NoisePublicKey = decryptNoisePublicKey(cs, noisePublicKey)
+      decryptedPk: NoisePublicKey = decryptNoisePublicKey(cs, noisePublicKey)
 
     check:
-      noisePublicKey == dec_pk
+      noisePublicKey == decryptedPk
 
   test "Encrypt -> encrypt public keys":
 
@@ -51,10 +50,10 @@ procSuite "Waku Noise":
 
     let
       cs: ChaChaPolyCipherState = randomChaChaPolyCipherState(rng[])
-      enc_pk: NoisePublicKey = encryptNoisePublicKey(cs, noisePublicKey)
-      enc2_pk: NoisePublicKey = encryptNoisePublicKey(cs, enc_pk)
+      encryptedPk: NoisePublicKey = encryptNoisePublicKey(cs, noisePublicKey)
+      encryptedPk2: NoisePublicKey = encryptNoisePublicKey(cs, encryptedPk)
     
-    check enc_pk == enc2_pk
+    check encryptedPk == encryptedPk2
 
   test "Encrypt -> decrypt -> decrypt public keys":
 
@@ -62,12 +61,12 @@ procSuite "Waku Noise":
 
     let
       cs: ChaChaPolyCipherState = randomChaChaPolyCipherState(rng[])
-      enc_pk: NoisePublicKey = encryptNoisePublicKey(cs, noisePublicKey)
-      dec_pk: NoisePublicKey = decryptNoisePublicKey(cs, enc_pk)
-      dec2_pk: NoisePublicKey = decryptNoisePublicKey(cs, dec_pk)
+      encryptedPk: NoisePublicKey = encryptNoisePublicKey(cs, noisePublicKey)
+      decryptedPk: NoisePublicKey = decryptNoisePublicKey(cs, encryptedPk)
+      decryptedPk2: NoisePublicKey = decryptNoisePublicKey(cs, decryptedPk)
 
     check: 
-      dec_pk == dec2_pk
+      decryptedPk == decryptedPk2
 
   test "Serialize -> deserialize public keys (unencrypted)":
 
@@ -85,10 +84,10 @@ procSuite "Waku Noise":
 
     let 
       cs: ChaChaPolyCipherState = randomChaChaPolyCipherState(rng[])
-      enc_pk: NoisePublicKey = encryptNoisePublicKey(cs, noisePublicKey)
-      serializedNoisePublicKey: seq[byte] = serializeNoisePublicKey(enc_pk)
+      encryptedPk: NoisePublicKey = encryptNoisePublicKey(cs, noisePublicKey)
+      serializedNoisePublicKey: seq[byte] = serializeNoisePublicKey(encryptedPk)
       deserializedNoisePublicKey: NoisePublicKey = intoNoisePublicKey(serializedNoisePublicKey)
-      dec_pk: NoisePublicKey = decryptNoisePublicKey(cs, deserializedNoisePublicKey)
+      decryptedPk: NoisePublicKey = decryptNoisePublicKey(cs, deserializedNoisePublicKey)
 
     check:
-      noisePublicKey == dec_pk
+      noisePublicKey == decryptedPk
