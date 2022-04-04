@@ -36,10 +36,11 @@ const
   NonceMax = uint64.high - 1
 
 type
-  # Default underlying elliptic curve arithmetic (useful to add support to other EC)
+  # Default underlying elliptic curve arithmetic (useful for switching to multiple ECs)
+  # Current default is Curve25519
   EllipticCurveKey = Curve25519Key
 
-  # A EllipticCurveKey (public, private) key pair
+  # An EllipticCurveKey (public, private) key pair
   KeyPair* = object
     privateKey: EllipticCurveKey
     publicKey: EllipticCurveKey

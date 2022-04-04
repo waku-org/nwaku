@@ -53,7 +53,8 @@ procSuite "Waku Noise":
       encryptedPk: NoisePublicKey = encryptNoisePublicKey(cs, noisePublicKey)
       encryptedPk2: NoisePublicKey = encryptNoisePublicKey(cs, encryptedPk)
     
-    check encryptedPk == encryptedPk2
+    check:
+      encryptedPk == encryptedPk2
 
   test "Encrypt -> decrypt -> decrypt public keys":
 
