@@ -183,43 +183,44 @@ procSuite "Waku rln relay":
   #   await fut
   #   await web3.close()
   
-  # asyncTest  "event subscription faucet":
-    # debug "ethereum client address", ETH_CLIENT
-    # # let contractAddress = await uploadContract(ETH_CLIENT)
-    # # connect to the eth client
-    # let web3 = await newWeb3(ETH_CLIENT)
-    # debug "web3 connected to", ETH_CLIENT 
+  asyncTest  "event subscription faucet":
+    if false: 
+      debug "ethereum client address", ETH_CLIENT
+      # let contractAddress = await uploadContract(ETH_CLIENT)
+      # connect to the eth client
+      let web3 = await newWeb3(ETH_CLIENT)
+      debug "web3 connected to", ETH_CLIENT 
 
-    # # fetch the list of registered accounts
-    # let accounts = await web3.provider.eth_accounts()
-    # web3.defaultAccount = accounts[2]
-    # debug "contract deployer account address ", defaultAccount=web3.defaultAccount 
+      # fetch the list of registered accounts
+      let accounts = await web3.provider.eth_accounts()
+      web3.defaultAccount = accounts[2]
+      debug "contract deployer account address ", defaultAccount=web3.defaultAccount 
 
-    # # prepare a contract sender to interact with it
-    # var contractObj = web3.contractSender(Faucet, Address("0x51AC2D3E52dE957477dE32dA5892E07C01915d90".hexToByteArray(20))) # creates a Sender object with a web3 field and contract address of type Address
-    # echo "create obj done"
+      # prepare a contract sender to interact with it
+      var contractObj = web3.contractSender(Faucet, Address("0xbFB1026A6Dc22523CE5BDB4469A9B3Ab8f0efcfC".hexToByteArray(20))) # creates a Sender object with a web3 field and contract address of type Address
+      echo "create obj done"
 
-    # var fut = newFuture[void]()
-    # # int count = 0;
+      var fut = newFuture[void]()
+      # int count = 0;
 
-    # let s = await contractObj.subscribe(Withdraw, %*{"fromBlock": "0x0"}) do(
-    #   address: Address, amount: Uint256){.raises: [Defect], gcsafe.}:
-    #   try:
-    #    echo "onDeposit"
-    #    echo "address", address
-    #    echo "amount", amount
-    #   #  fut.complete()
-    #   except Exception as err:
-    #     # chronos still raises exceptions which inherit directly from Exception
-    #     doAssert false, err.msg
-    # do (err: CatchableError):
-    #     echo "Error from DepositEvent subscription: ", err.msg
+      let s = await contractObj.subscribe(Withdraw, %*{"fromBlock": "0x0"}) do(
+        address: Address, amount: Uint256){.raises: [Defect], gcsafe.}:
+        try:
+          echo "onDeposit"
+          echo "address", address
+          echo "amount", amount
+          #  fut.complete()
+        except Exception as err:
+          # chronos still raises exceptions which inherit directly from Exception
+          doAssert false, err.msg
+      do (err: CatchableError):
+          echo "Error from DepositEvent subscription: ", err.msg
 
-    # discard await contractObj.withdraw(0.u256).send()
-    # echo "tx sent"
+      # discard await contractObj.withdraw(0.u256).send()
+      # echo "tx sent"
 
-    # await fut
-    # await web3.close()
+      await fut
+      await web3.close()
 
   asyncTest  "event subscription RLN":
     debug "ethereum client address", ETH_CLIENT
@@ -234,7 +235,7 @@ procSuite "Waku rln relay":
     debug "contract deployer account address ", defaultAccount=web3.defaultAccount 
 
     # prepare a contract sender to interact with it
-    var contractObj = web3.contractSender(RLNContract, Address("0x61AB4d44FF453b66004Ee5c99Ad8286f91D84D75".hexToByteArray(20))) # creates a Sender object with a web3 field and contract address of type Address
+    var contractObj = web3.contractSender(RLNContract, Address("0xFF333a400d89c4f38E2953F56594a82074363683".hexToByteArray(20))) # creates a Sender object with a web3 field and contract address of type Address
     echo "create obj done"
 
     var fut = newFuture[void]()
@@ -246,15 +247,15 @@ procSuite "Waku rln relay":
        echo "onDeposit"
        echo "pubkey", pubkey
        echo "index", index
-       fut.complete()
+      #  fut.complete()
       except Exception as err:
         # chronos still raises exceptions which inherit directly from Exception
         doAssert false, err.msg
     do (err: CatchableError):
         echo "Error from DepositEvent subscription: ", err.msg
 
-    discard await contractObj.register(5.u256).send()
-    echo "tx sent"
+    # discard await contractObj.register(5.u256).send()
+    # echo "tx sent"
 
     await fut
     await web3.close()
