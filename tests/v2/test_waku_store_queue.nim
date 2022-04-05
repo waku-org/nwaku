@@ -56,7 +56,7 @@ procSuite "Sorted store queue":
   test "Sender time can't be more than MaxTimeVariance in future":
     var stQ = StoreQueueRef.new(capacity)
     let
-      receiverTime = 10*1000*1000*1000
+      receiverTime = getNanoSecondTime(10)
       senderTimeOk = receiverTime + MaxTimeVariance
       senderTimeErr = senderTimeOk + 1
       validMessage = IndexedWakuMessage(msg: WakuMessage(payload: @[byte 1], timestamp: senderTimeOk),

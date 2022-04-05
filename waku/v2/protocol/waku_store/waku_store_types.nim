@@ -36,7 +36,7 @@ const
 
   MaxRpcSize* = MaxPageSize * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
 
-  MaxTimeVariance* = (20*1000*1000*1000).int64 # 20 seconds maximum allowable sender timestamp "drift" into the future
+  MaxTimeVariance* = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift" into the future
 
   DefaultTopic* = "/waku/2/default-waku/proto"
 
