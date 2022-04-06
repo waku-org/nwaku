@@ -48,7 +48,7 @@ type
   # A Noise public key is a public key exchanged during Noise handshakes (no private part)
   # This follows https://rfc.vac.dev/spec/35/#public-keys-serialization
   # pk contains the X coordinate of the public key, if unencrypted (this implies flag = 0)
-  # or the encryption of the X coordinated concatenated with the authorization tag, if encrypted (this implies flag = 1)
+  # or the encryption of the X coordinate concatenated with the authorization tag, if encrypted (this implies flag = 1)
   NoisePublicKey* = object
     flag: uint8
     pk: seq[byte]
@@ -60,9 +60,9 @@ type
 
   # A ChaChaPoly Cipher State containing key (k), nonce (nonce) and associated data (ad)
   ChaChaPolyCipherState* = object
-    k*: ChaChaPolyKey
-    nonce*: ChaChaPolyNonce
-    ad*: seq[byte]
+    k: ChaChaPolyKey
+    nonce: ChaChaPolyNonce
+    ad: seq[byte]
 
   # Some useful error types
   NoiseError* = object of LPError
@@ -79,8 +79,8 @@ type
 # Utilities
 
 # Generates random byte sequences of given size
-proc randomSeqByte*(rng: var BrHmacDrbgContext, size: uint32): seq[byte] =
-  var output = newSeq[byte](size)
+proc randomSeqByte*(rng: var BrHmacDrbgContext, size: int): seq[byte] =
+  var output = newSeq[byte](size.uint32)
   brHmacDrbgGenerate(rng, output)
   return output
 
@@ -103,7 +103,7 @@ proc encrypt*(
     state: ChaChaPolyCipherState,
     plaintext: openArray[byte]): ChaChaPolyCiphertext
     {.noinit, raises: [Defect, NoiseEmptyChaChaPolyInput].} =
-  #If plaintext is empty, we raise an error
+  # If plaintext is empty, we raise an error
   if plaintext == @[]:
     raise newException(NoiseEmptyChaChaPolyInput, "Tried to encrypt empty plaintext")
   var ciphertext: ChaChaPolyCiphertext
@@ -123,7 +123,7 @@ proc decrypt*(
     state: ChaChaPolyCipherState, 
     ciphertext: ChaChaPolyCiphertext): seq[byte]
     {.raises: [Defect, NoiseEmptyChaChaPolyInput, NoiseDecryptTagError].} =
-  #If plaintext is empty, we raise an error
+  # If ciphertext is empty, we raise an error
   if ciphertext.data == @[]:
     raise newException(NoiseEmptyChaChaPolyInput, "Tried to decrypt empty ciphertext")
   var
@@ -163,7 +163,7 @@ proc randomChaChaPolyCipherState*(rng: var BrHmacDrbgContext): ChaChaPolyCipherS
 proc `==`(k1, k2: NoisePublicKey): bool =
   return (k1.flag == k2.flag) and (k1.pk == k2.pk)
   
-# Converts a (public, private) keypair to an unencrypted Noise public key (only public part)
+# Converts a (public, private) Elliptic Curve keypair to an unencrypted Noise public key (only public part)
 proc keyPairToNoisePublicKey*(keyPair: KeyPair): NoisePublicKey =
   var noisePublicKey: NoisePublicKey
   noisePublicKey.flag = 0
@@ -233,10 +233,10 @@ proc decryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePubl
   # - a key is set in the cipher state 
   # - the public key is encrypted
   if cs.k != EmptyKey and noisePublicKey.flag == 1:
-    # Since the pk field would containe an encryption + tag, we retrieve the ciphertext length
+    # Since the pk field would contain an encryption + tag, we retrieve the ciphertext length
     let pkLen = noisePublicKey.pk.len - ChaChaPolyTag.len
     # We isolate the ciphertext and the authorization tag
-    let pk = noisePublicKey.pk[0..<pk_len]
+    let pk = noisePublicKey.pk[0..<pkLen]
     let pkAuth = intoChaChaPolyTag(noisePublicKey.pk[pkLen..<pkLen+ChaChaPolyTag.len])
     # We convert it to a ChaChaPolyCiphertext
     let ciphertext = ChaChaPolyCiphertext(data: pk, tag: pkAuth) 

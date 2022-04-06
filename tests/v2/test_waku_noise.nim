@@ -9,7 +9,10 @@ import
 
 procSuite "Waku Noise":
   
+  # We initialize the RNG in test_helpers
   let rng = rng()
+  # We initialize the RNG in std/random
+  randomize()
 
   test "ChaChaPoly Encryption/Decryption: random byte sequences":
 
@@ -17,7 +20,7 @@ procSuite "Waku Noise":
 
     # We encrypt/decrypt random byte sequences
     let
-      plaintext: seq[byte] = randomSeqByte(rng[], 64)
+      plaintext: seq[byte] = randomSeqByte(rng[], rand(1..128))
       ciphertext: ChaChaPolyCiphertext = encrypt(cipherState, plaintext)
       decryptedCiphertext: seq[byte] = decrypt(cipherState, ciphertext)
 
@@ -29,12 +32,9 @@ procSuite "Waku Noise":
     let cipherState = randomChaChaPolyCipherState(rng[])
 
     # We encrypt/decrypt random strings
-    randomize()
     var plaintext: string
-    for _ in .. rand(64):
+    for _ in 1..rand(1..128):
       add(plaintext, char(rand(int('A') .. int('z'))))
-
-    echo plaintext
 
     let
       ciphertext: ChaChaPolyCiphertext = encrypt(cipherState, plaintext.toBytes())
@@ -43,7 +43,7 @@ procSuite "Waku Noise":
     check: 
       plaintext.toBytes() == decryptedCiphertext
 
-  test "Encrypt -> decrypt Noise public keys":
+  test "Encrypt and decrypt Noise public keys":
 
     let noisePublicKey: NoisePublicKey = genNoisePublicKey(rng[])
 
@@ -66,7 +66,7 @@ procSuite "Waku Noise":
     check:
       noisePublicKey == decryptedPk
 
-  test "Encrypt -> encrypt public keys":
+  test "Encrypt encrypted public key":
 
     let noisePublicKey: NoisePublicKey = genNoisePublicKey(rng[])
 
@@ -78,7 +78,7 @@ procSuite "Waku Noise":
     check:
       encryptedPk == encryptedPk2
 
-  test "Encrypt -> decrypt -> decrypt public keys":
+  test "Encrypt, decrypt and decrypt public key":
 
     let noisePublicKey: NoisePublicKey = genNoisePublicKey(rng[])
 
@@ -91,7 +91,7 @@ procSuite "Waku Noise":
     check: 
       decryptedPk == decryptedPk2
 
-  test "Serialize -> deserialize public keys (unencrypted)":
+  test "Serialize and deserialize unencrypted public key":
 
     let 
       noisePublicKey: NoisePublicKey = genNoisePublicKey(rng[])
@@ -101,7 +101,7 @@ procSuite "Waku Noise":
     check:
       noisePublicKey == deserializedNoisePublicKey
 
-  test "Encrypt -> serialize -> deserialize -> decrypt public keys":
+  test "Encrypt, serialize, deserialize and decrypt public key":
 
     let noisePublicKey: NoisePublicKey = genNoisePublicKey(rng[])
 
