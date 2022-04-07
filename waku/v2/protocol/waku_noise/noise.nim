@@ -281,9 +281,10 @@ proc randomPayloadV2*(rng: var BrHmacDrbgContext): PayloadV2 =
 
 
 # Serializes a PayloadV2 object to a byte sequences according to https://rfc.vac.dev/spec/35/.
-# The results can be passed to the payload field of a WakuMessage https://rfc.vac.dev/spec/14/
-proc serializePayloadV2*(self: PayloadV2): Result[seq[byte], cstring] 
-  {.raises: [Defect, NoiseMalformedHandshake, NoisePublicKeyError].} =
+# The output serialized payload concatenates the input PayloadV2 object fields as
+# payload = ( protocolId || serializedHandshakeMessageLen || serializedHandshakeMessage || transportMessageLen || transportMessage)
+# The output can be then passed to the payload field of a WakuMessage https://rfc.vac.dev/spec/14/
+proc serializePayloadV2*(self: PayloadV2): Result[seq[byte], cstring] =
 
   #We collect public keys contained in the handshake message
   var
@@ -304,14 +305,15 @@ proc serializePayloadV2*(self: PayloadV2): Result[seq[byte], cstring]
     # We add its serialization to the concatenation of all serialized public keys in the handshake message 
     serializedHandshakeMessage.add serializedPk
     # If we are processing more than 256 byte, we return an error
-    if serializedHandshakeMessageLen > 256:
+    if serializedHandshakeMessageLen > uint8.high.int:
       debug "PayloadV2 malformed: too many public keys contained in the handshake message"
-      raise newException(NoiseMalformedHandshake, "Too many public keys in handshake message")
+      return err("Too many public keys in handshake message")
+
 
   # We get the transport message byte length
   let transportMessageLen = self.transportMessage.len
 
-  # The output payload as in https://rfc.vac.dev/spec/35/. We concatenate all the PayloadV2 as 
+  # The output payload as in https://rfc.vac.dev/spec/35/. We concatenate all the PayloadV2 fields as 
   # payload = ( protocolId || serializedHandshakeMessageLen || serializedHandshakeMessage || transportMessageLen || transportMessage)
   # We declare it as a byte sequence of length accordingly to the PayloadV2 information read 
   var payload = newSeqOfCap[byte](1 + # 1 byte for protocol ID             
@@ -335,8 +337,10 @@ proc serializePayloadV2*(self: PayloadV2): Result[seq[byte], cstring]
 
 
 # Deserializes a byte sequence to a PayloadV2 object according to https://rfc.vac.dev/spec/35/.
-proc deserializePayloadV2*(payload: seq[byte]): Result[PayloadV2, cstring] 
-  {.raises: [Defect, NoiseMalformedHandshake, NoisePublicKeyError].} =
+# The input serialized payload concatenates the output PayloadV2 object fields as
+# payload = ( protocolId || serializedHandshakeMessageLen || serializedHandshakeMessage || transportMessageLen || transportMessage)
+proc deserializePayloadV2*(payload: seq[byte]): Result[PayloadV2, cstring]
+  {.raises: [Defect, NoisePublicKeyError].} =
 
   # The output PayloadV2
   var payload2: PayloadV2
@@ -345,19 +349,22 @@ proc deserializePayloadV2*(payload: seq[byte]): Result[PayloadV2, cstring]
   var i: uint64 = 0
 
   # We start reading the Protocol ID
+  # TODO: when the list of supported protocol ID is defined, check if read protocol ID is supported
   payload2.protocolId = payload[i].uint8
-  i+=1
+  i += 1
 
   # We read the Handshake Message lenght (1 byte)
   var handshakeMessageLen = payload[i].uint64
-  if handshakeMessageLen > 256:
+  if handshakeMessageLen > uint8.high.uint64:
     debug "Payload malformed: too many public keys contained in the handshake message"
-    raise newException(NoiseMalformedHandshake, "Too many public keys in handshake message")
-  i+=1
+    #raise newException(NoiseMalformedHandshake, "Too many public keys in handshake message")
+    return err("Too many public keys in handshake message")
+
+  i += 1
 
   # We now read for handshakeMessageLen bytes the buffer and we deserialize each (encrypted/unencrypted) public key read
   var
-    # In handshakeMessage we accumulates the deserialized Noise Public keys read
+    # In handshakeMessage we accumulate the read deserialized Noise Public keys
     handshakeMessage: seq[NoisePublicKey]
     flag: byte
     pkLen: uint64
@@ -380,17 +387,18 @@ proc deserializePayloadV2*(payload: seq[byte]): Result[PayloadV2, cstring]
       i += pkLen
       written += pkLen
     else:
-      raise newException(NoisePublicKeyError, "Invalid flag for Noise public key")
+      return err("Invalid flag for Noise public key")
+
 
   # We save in the output PayloadV2 the read handshake message
   payload2.handshakeMessage = handshakeMessage
 
   # We read the transport message length (8 bytes) and we convert to uint64 in Little Endian
   let transportMessageLen = fromBytesLE(uint64, payload[i..(i+8-1)])
-  i+=8
+  i += 8
 
   # We read the transport message (handshakeMessage bytes) 
   payload2.transportMessage = payload[i..i+transportMessageLen-1]
-  i+=transportMessageLen
+  i += transportMessageLen
 
   return ok(payload2)
