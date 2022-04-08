@@ -25,7 +25,7 @@
 #   ./v2/test_peer_exchange
 
 when defined(rln):
-  # import ./v2/test_waku_rln_relay
+  import ./v2/test_waku_rln_relay
   import ./v2/test_waku_rln_relay_onchain
   # import ./v2/event_listen_test
 
