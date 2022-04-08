@@ -372,7 +372,7 @@ proc encryptWithAd(state: var CipherState, ad, plaintext: openArray[byte]): seq[
   if state.n > NonceMax:
     raise newException(NoiseNonceMaxError, "Noise max nonce value reached")
 
-  trace "encryptWithAd", tag = byteutils.toHex(tag), data = ciphertext, nonce = state.n - 1
+  trace "encryptWithAd", authorizationTag = byteutils.toHex(authorizationTag), ciphertext = ciphertext, nonce = state.n - 1
 
   return ciphertext
 
@@ -575,7 +575,7 @@ proc decrypt*(
   # the ciphertext (overwritten to plaintext) (data), the associated data (ad)
   ChaChaPoly.decrypt(state.k, state.nonce, tagOut, plaintext, state.ad)
   #TODO: add unpadding
-  trace "decrypt", tagIn = tagIn.shortLog, tagOut = tagOut.shortLog, nonce = state.nonce
+  trace "decrypt", tagIn = tagIn, tagOut = tagOut, nonce = state.nonce
   # We check if the authorization tag computed while decrypting is the same as the input tag
   if tagIn != tagOut:
     debug "decrypt failed", plaintext = shortLog(plaintext)
