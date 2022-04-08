@@ -73,7 +73,6 @@ type
     handshakeMessage: seq[NoisePublicKey]
     transportMessage: seq[byte]
 
-
   #Noise Handshakes
 
   NoiseTokens* = enum
@@ -371,6 +370,7 @@ proc init*(_: type[HandshakeState], hs_pattern: HandshakePattern, psk: seq[byte]
   result.handshake_pattern = hs_pattern
   result.psk = psk
   result.ss = SymmetricState.init(hs_pattern)
+
 
 #################################################################
 
