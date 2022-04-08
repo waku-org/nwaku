@@ -158,13 +158,13 @@ procSuite "Waku-rln-relay":
     let s = await contractObj.subscribe(MemberRegistered, %*{"fromBlock": "0x0"}) do(
       pubkey: Uint256, index: Uint256){.raises: [Defect], gcsafe.}:
       try:
-        debug "onDeposit", pubkey=pubkey,index=index 
+        debug "onRegister", pubkey=pubkey,index=index 
         fut.complete()
       except Exception as err:
         # chronos still raises exceptions which inherit directly from Exception
         doAssert false, err.msg
     do (err: CatchableError):
-        echo "Error from DepositEvent subscription: ", err.msg
+        echo "Error from subscription: ", err.msg
 
     
     # create an RLN instance
@@ -175,6 +175,7 @@ procSuite "Waku-rln-relay":
     let membershipKeyPair = membershipKeyGen(rlnInstance.value)
     check: membershipKeyPair.isSome
     let pk = membershipKeyPair.get().idCommitment.toUInt256()
+    debug "membership commitment key", pk=pk
 
     # register a member
     let tx = await contractObj.register(pk).send(value = MembershipFee)
