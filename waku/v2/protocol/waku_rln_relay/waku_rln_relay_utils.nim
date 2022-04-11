@@ -107,6 +107,7 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   var sender = web3.contractSender(MembershipContract, rlnPeer.membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
   let pk = toUInt256(rlnPeer.membershipKeyPair.idCommitment)
   discard await sender.register(pk).send(MembershipFee)
+  debug "pk", pk =pk
   # TODO check the receipt and then return true/false
   await web3.close()
   return true 
