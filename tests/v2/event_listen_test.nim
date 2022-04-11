@@ -3,7 +3,7 @@ import web3
 import chronos, nimcrypto, options, json, stint
 import test_utils
 import ./depositcontract
-from ./test_waku_rln_relay_onchain import uploadContract 
+# from ./test_waku_rln_relay_onchain import uploadContract 
 import
   std/options, sequtils, times,
   testutils/unittests, chronos, chronicles, stint, web3, json,
@@ -13,10 +13,19 @@ import
   ../../waku/v2/node/wakunode2,
   ../test_helpers,
   ./test_utils
-contract(DepositContract):
-  proc deposit(pubkey: DynamicBytes[0, 48], withdrawalCredentials: DynamicBytes[0, 32], signature: DynamicBytes[0, 96], deposit_data_root: FixedBytes[32])
-  proc get_deposit_root(): FixedBytes[32]
-  proc DepositEvent(pubkey: DynamicBytes[0, 48], withdrawalCredentials: DynamicBytes[0, 32], amount: DynamicBytes[0, 8], signature: DynamicBytes[0, 96], merkleTreeIndex: DynamicBytes[0, 8]) {.event.}
+# contract(DepositContract):
+#   proc deposit(pubkey: DynamicBytes[0, 48], withdrawalCredentials: DynamicBytes[0, 32], signature: DynamicBytes[0, 96], deposit_data_root: FixedBytes[32])
+#   proc get_deposit_root(): FixedBytes[32]
+#   proc DepositEvent(pubkey: DynamicBytes[0, 48], withdrawalCredentials: DynamicBytes[0, 32], amount: DynamicBytes[0, 8], signature: DynamicBytes[0, 96], merkleTreeIndex: DynamicBytes[0, 8]) {.event.}
+
+# POSEIDON_HASHER_CODE holds the bytecode of Poseidon hasher solidity smart contract: 
+# https://github.com/kilic/rlnapp/blob/master/packages/contracts/contracts/crypto/PoseidonHasher.sol 
+# the solidity contract is compiled separately and the resultant bytecode is copied here
+const POSEIDON_HASHER_CODE = readFile("tests/v2/poseidonHasher.txt")
+# MEMBERSHIP_CONTRACT_CODE contains the bytecode of the membership solidity smart contract:
+# https://github.com/kilic/rlnapp/blob/master/packages/contracts/contracts/RLN.sol
+# the solidity contract is compiled separately and the resultant bytecode is copied here
+const MEMBERSHIP_CONTRACT_CODE = readFile("tests/v2/membershipContract.txt")
 
 contract(MembershipContract):
   proc register(pubkey: Uint256) # external payable
@@ -26,8 +35,55 @@ contract(MembershipContract):
   # proc withdrawBatch( secrets: seq[Uint256], pubkeyIndex: seq[Uint256], receiver: seq[Address])
   proc MemberRegistered(pubkey: Uint256, index: Uint256) {.event.}
 
-suite "Deposit contract":
+proc uploadContract*(ethClientAddress: string): Future[Address] {.async.} =
+  let web3 = await newWeb3(ethClientAddress)
+  debug "web3 connected to", ethClientAddress
 
+  # fetch the list of registered accounts
+  let accounts = await web3.provider.eth_accounts()
+  web3.defaultAccount = accounts[1]
+  let add =web3.defaultAccount 
+  debug "contract deployer account address ", add
+
+  var balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
+  debug "Initial account balance: ", balance
+
+  # deploy the poseidon hash first
+  let 
+    hasherReceipt = await web3.deployContract(POSEIDON_HASHER_CODE)
+    hasherAddress = hasherReceipt.contractAddress.get
+  debug "hasher address: ", hasherAddress
+  
+
+  # encode membership contract inputs to 32 bytes zero-padded
+  let 
+    membershipFeeEncoded = encode(MembershipFee).data 
+    depthEncoded = encode(MERKLE_TREE_DEPTH.u256).data 
+    hasherAddressEncoded = encode(hasherAddress).data
+    # this is the contract constructor input
+    contractInput = membershipFeeEncoded & depthEncoded & hasherAddressEncoded
+
+
+  debug "encoded membership fee: ", membershipFeeEncoded
+  debug "encoded depth: ", depthEncoded
+  debug "encoded hasher address: ", hasherAddressEncoded
+  debug "encoded contract input:" , contractInput
+
+  # deploy membership contract with its constructor inputs
+  let receipt = await web3.deployContract(MEMBERSHIP_CONTRACT_CODE, contractInput = contractInput)
+  var contractAddress = receipt.contractAddress.get
+  debug "Address of the deployed membership contract: ", contractAddress
+
+  # balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
+  # debug "Account balance after the contract deployment: ", balance
+
+  await web3.close()
+  debug "disconnected from ", ethClientAddress
+
+  return contractAddress
+
+suite "Deposit contract":
+  # echo "hello"
   # test "deposits":
   #   proc test() {.async.} =
   #     # web3 client
@@ -94,9 +150,8 @@ suite "Deposit contract":
 
         # prepare a contract sender to interact with it
         var contractObj = web3.contractSender(MembershipContract, contractAddress) # creates a Sender object with a web3 field and contract address of type Address
+        echo "contractObj is created"
 
-        # let notifFut = newFuture[void]()
-        # var notificationsReceived = 0
         var fut = newFuture[int]()
 
         let s = await contractObj.subscribe(MemberRegistered, %*{"fromBlock": "0x0"}) do(
@@ -112,10 +167,13 @@ suite "Deposit contract":
         do (err: CatchableError):
             echo "Error from DepositEvent subscription: ", err.msg
 
-        discard await contractObj.register(20.u256).send(value = MembershipFee)
+        
 
-        # await fut
-        # await sleepAsync(20000)
+        discard await contractObj.register(20.u256).send(value = MembershipFee)
+        echo "tx sent"
+        
+        discard await fut
+        
         await web3.close()
     waitFor rlntest()
       
