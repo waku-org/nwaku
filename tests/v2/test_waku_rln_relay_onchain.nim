@@ -7,7 +7,7 @@ import
   testutils/unittests, chronos, chronicles, stint, web3, json,
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
-  ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils, waku_rln_relay_types],
+  ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils, waku_rln_relay_types, rln_relay_contract],
   ../../waku/v2/node/wakunode2,
   ../test_helpers,
   ./test_utils
@@ -15,74 +15,7 @@ import
 const RLNRELAY_PUBSUB_TOPIC = "waku/2/rlnrelay/proto"
 const RLNRELAY_CONTENT_TOPIC = "waku/2/rlnrelay/proto"
 
-# POSEIDON_HASHER_CODE holds the bytecode of Poseidon hasher solidity smart contract: 
-# https://github.com/kilic/rlnapp/blob/master/packages/contracts/contracts/crypto/PoseidonHasher.sol 
-# the solidity contract is compiled separately and the resultant bytecode is copied here
-const POSEIDON_HASHER_CODE = readFile("tests/v2/poseidonHasher.txt")
-# MEMBERSHIP_CONTRACT_CODE contains the bytecode of the membership solidity smart contract:
-# https://github.com/kilic/rlnapp/blob/master/packages/contracts/contracts/RLN.sol
-# the solidity contract is compiled separately and the resultant bytecode is copied here
-const MEMBERSHIP_CONTRACT_CODE = readFile("tests/v2/membershipContract.txt")
-
-# the membership contract code in solidity
-# uint256 public immutable MEMBERSHIP_DEPOSIT;
-# 	uint256 public immutable DEPTH;
-# 	uint256 public immutable SET_SIZE;
-# 	uint256 public pubkeyIndex = 0;
-# 	mapping(uint256 => uint256) public members;
-# 	IPoseidonHasher public poseidonHasher;
-#   
-#   events deviate from their original definition in their `indexed` type declaration 
-# 	event MemberRegistered(uint256  pubkey, uint256 index);
-# 	event MemberWithdrawn(uint256 pubkey, uint256 index);
-
-# 	constructor(
-# 		uint256 membershipDeposit,
-# 		uint256 depth,
-# 		address _poseidonHasher
-# 	) public {
-# 		MEMBERSHIP_DEPOSIT = membershipDeposit;
-# 		DEPTH = depth;
-# 		SET_SIZE = 1 << depth;
-# 		poseidonHasher = IPoseidonHasher(_poseidonHasher);
-# 	}
-
-# 	function register(uint256 pubkey) external payable {
-# 		require(pubkeyIndex < SET_SIZE, "RLN, register: set is full");
-# 		require(msg.value == MEMBERSHIP_DEPOSIT, "RLN, register: membership deposit is not satisfied");
-# 		_register(pubkey);
-# 	}
-
-# 	function registerBatch(uint256[] calldata pubkeys) external payable {
-# 		require(pubkeyIndex + pubkeys.length <= SET_SIZE, "RLN, registerBatch: set is full");
-# 		require(msg.value == MEMBERSHIP_DEPOSIT * pubkeys.length, "RLN, registerBatch: membership deposit is not satisfied");
-# 		for (uint256 i = 0; i < pubkeys.length; i++) {
-# 			_register(pubkeys[i]);
-# 		}
-# 	}
-
-# 	function withdrawBatch(
-# 		uint256[] calldata secrets,
-# 		uint256[] calldata pubkeyIndexes,
-# 		address payable[] calldata receivers
-# 	) external {
-# 		uint256 batchSize = secrets.length;
-# 		require(batchSize != 0, "RLN, withdrawBatch: batch size zero");
-# 		require(batchSize == pubkeyIndexes.length, "RLN, withdrawBatch: batch size mismatch pubkey indexes");
-# 		require(batchSize == receivers.length, "RLN, withdrawBatch: batch size mismatch receivers");
-# 		for (uint256 i = 0; i < batchSize; i++) {
-# 			_withdraw(secrets[i], pubkeyIndexes[i], receivers[i]);
-# 		}
-# 	}
-
-# 	function withdraw(
-# 		uint256 secret,
-# 		uint256 _pubkeyIndex,
-# 		address payable receiver
-# 	) external {
-# 		_withdraw(secret, _pubkeyIndex, receiver);
-# 	}
-
+#  contract ABI
 contract(MembershipContract):
   proc register(pubkey: Uint256) # external payable
   # proc registerBatch(pubkeys: seq[Uint256]) # external payable
@@ -90,6 +23,8 @@ contract(MembershipContract):
   # proc withdraw(secret: Uint256, pubkeyIndex: Uint256, receiver: Address)
   # proc withdrawBatch( secrets: seq[Uint256], pubkeyIndex: seq[Uint256], receiver: seq[Address])
   proc MemberRegistered(pubkey: Uint256, index: Uint256) {.event.}
+
+
 
 #  a util function used for testing purposes
 #  it deploys membership contract on Ganache (or any Eth client available on ETH_CLIENT address)
