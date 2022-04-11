@@ -405,8 +405,8 @@ proc handleMessage*(w: WakuStore, topic: string, msg: WakuMessage) {.async.} =
   let addRes = w.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: topic))
   
   if addRes.isErr:
-    trace "Attempt to add message with duplicate index to store", msg=msg, index=index
-    waku_store_errors.inc(labelValues = ["duplicate"])
+    trace "Attempt to add message to store failed", msg=msg, index=index, err=addRes.error()
+    waku_store_errors.inc(labelValues = [$(addRes.error())])
     return # Do not attempt to store in persistent DB
   
   waku_store_messages.set(w.messages.len.int64, labelValues = ["stored"])
