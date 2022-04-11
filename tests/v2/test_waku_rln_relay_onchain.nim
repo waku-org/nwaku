@@ -1,4 +1,5 @@
 
+# contains rln-relay tests that require interaction with Ganache i.e., onchain tests
 {.used.}
 
 import
@@ -30,9 +31,10 @@ const MEMBERSHIP_CONTRACT_CODE = readFile("tests/v2/membershipContract.txt")
 # 	uint256 public pubkeyIndex = 0;
 # 	mapping(uint256 => uint256) public members;
 # 	IPoseidonHasher public poseidonHasher;
-
-# 	event MemberRegistered(uint256 indexed pubkey, uint256 indexed index);
-# 	event MemberWithdrawn(uint256 indexed pubkey, uint256 indexed index);
+#   
+#   events deviate from their original definition in their `indexed` type declaration 
+# 	event MemberRegistered(uint256  pubkey, uint256 index);
+# 	event MemberWithdrawn(uint256 pubkey, uint256 index);
 
 # 	constructor(
 # 		uint256 membershipDeposit,
@@ -89,7 +91,9 @@ contract(MembershipContract):
   # proc withdrawBatch( secrets: seq[Uint256], pubkeyIndex: seq[Uint256], receiver: seq[Address])
   proc MemberRegistered(pubkey: Uint256, index: Uint256) {.event.}
 
-# Only used for testing purposes
+#  a util function used for testing purposes
+#  it deploys membership contract on Ganache (or any Eth client available on ETH_CLIENT address)
+#  must be edited if used for a different contract than membership contract
 proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
   let web3 = await newWeb3(ethClientAddress)
   debug "web3 connected to", ethClientAddress
@@ -103,7 +107,7 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
   var balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
   debug "Initial account balance: ", balance
 
-  # deploy the poseidon hash first
+  # deploy the poseidon hash contract and gets its address
   let 
     hasherReceipt = await web3.deployContract(POSEIDON_HASHER_CODE)
     hasherAddress = hasherReceipt.contractAddress.get
@@ -129,8 +133,8 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
   var contractAddress = receipt.contractAddress.get
   debug "Address of the deployed membership contract: ", contractAddress
 
-  # balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
-  # debug "Account balance after the contract deployment: ", balance
+  balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
+  debug "Account balance after the contract deployment: ", balance
 
   await web3.close()
   debug "disconnected from ", ethClientAddress
@@ -139,6 +143,7 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
 
 procSuite "Waku-rln-relay":
   asyncTest  "event subscription":
+    # preparation ------------------------------
     debug "ethereum client address", ETH_CLIENT
     let contractAddress = await uploadRLNContract(ETH_CLIENT)
     # connect to the eth client
@@ -153,12 +158,22 @@ procSuite "Waku-rln-relay":
     # prepare a contract sender to interact with it
     var contractObj = web3.contractSender(MembershipContract, contractAddress) # creates a Sender object with a web3 field and contract address of type Address
 
-    var fut = newFuture[void]()
+    # create an RLN instance
+    var rlnInstance = createRLNInstance()
+    check: rlnInstance.isOk == true
+    # generate the membership keys
+    let membershipKeyPair = membershipKeyGen(rlnInstance.value)
+    check: membershipKeyPair.isSome
+    let pk = membershipKeyPair.get().idCommitment.toUInt256()
+    debug "membership commitment key", pk=pk
 
-    let s = await contractObj.subscribe(MemberRegistered, %*{"fromBlock": "0x0"}) do(
+    # test ------------------------------
+    var fut = newFuture[void]()
+    let s = await contractObj.subscribe(MemberRegistered, %*{"fromBlock": "0x0", "address":contractAddress}) do(
       pubkey: Uint256, index: Uint256){.raises: [Defect], gcsafe.}:
       try:
         debug "onRegister", pubkey=pubkey,index=index 
+        check pubkey == pk
         fut.complete()
       except Exception as err:
         # chronos still raises exceptions which inherit directly from Exception
@@ -166,27 +181,18 @@ procSuite "Waku-rln-relay":
     do (err: CatchableError):
         echo "Error from subscription: ", err.msg
 
-    
-    # create an RLN instance
-    var rlnInstance = createRLNInstance()
-    check: rlnInstance.isOk == true
-
-    # generate the membership keys
-    let membershipKeyPair = membershipKeyGen(rlnInstance.value)
-    check: membershipKeyPair.isSome
-    let pk = membershipKeyPair.get().idCommitment.toUInt256()
-    debug "membership commitment key", pk=pk
-
     # register a member
     let tx = await contractObj.register(pk).send(value = MembershipFee)
     debug "a member is registered", tx=tx
     
     # wait for the event to be received
     await fut
-    
+
+    # release resources -----------------------
     await web3.close()
   
-  asyncTest  "contract membership":
+  asyncTest  "insert a key to the membership contract":
+    # preparation ------------------------------
     debug "ethereum client address", ETH_CLIENT
     let contractAddress = await uploadRLNContract(ETH_CLIENT)
     # connect to the eth client
@@ -210,13 +216,14 @@ procSuite "Waku-rln-relay":
     # var members: array[2, uint256] = [20.u256, 21.u256]
     # debug "This is the batch registration result ", await sender.registerBatch(members).send(value = (members.len * membershipFee)) # value is the membership fee
 
-    # balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
-    # debug "Balance after registration: ", balance
+    let balance = await web3.provider.eth_getBalance(web3.defaultAccount , "latest")
+    debug "Balance after registration: ", balance
 
     await web3.close()
     debug "disconnected from", ETH_CLIENT
 
   asyncTest "registration procedure":
+    # preparation ------------------------------
     # deploy the contract
     let contractAddress = await uploadRLNContract(ETH_CLIENT)
 
@@ -234,9 +241,9 @@ procSuite "Waku-rln-relay":
 
     # generate the membership keys
     let membershipKeyPair = membershipKeyGen(rlnInstance.value)
-    
     check: membershipKeyPair.isSome
 
+    # test ------------------------------
     # initialize the WakuRLNRelay 
     var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
       membershipIndex: MembershipIndex(0),
@@ -246,9 +253,10 @@ procSuite "Waku-rln-relay":
     
     # register the rln-relay peer to the membership contract
     let is_successful = await rlnPeer.register()
-    check:
-      is_successful
+    check: is_successful
+
   asyncTest "mounting waku rln-relay":
+    # preparation ------------------------------
     let
       nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"),
@@ -297,6 +305,7 @@ procSuite "Waku-rln-relay":
     let expectedRoot = rln.getMerkleRoot().value().toHex
     debug "expected root ", expectedRoot
 
+    # test ------------------------------
     # start rln-relay
     node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
     await node.mountRlnRelay(ethClientAddrOpt = some(EthClient), 
