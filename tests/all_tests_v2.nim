@@ -26,7 +26,7 @@ import
   ./v2/test_waku_noise
 
 when defined(rln):
-  # import ./v2/test_waku_rln_relay
+  import ./v2/test_waku_rln_relay
   when defined(onchain_rln):
     import ./v2/test_waku_rln_relay_onchain
 
