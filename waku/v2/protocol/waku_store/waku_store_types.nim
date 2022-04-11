@@ -36,6 +36,8 @@ const
 
   MaxRpcSize* = MaxPageSize * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
 
+  MaxTimeVariance* = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift" into the future
+
   DefaultTopic* = "/waku/2/default-waku/proto"
 
 
@@ -368,9 +370,13 @@ proc new*(T: type StoreQueueRef, capacity: int): T =
   return StoreQueueRef(items: items, capacity: capacity)
 
 proc add*(storeQueue: StoreQueueRef, msg: IndexedWakuMessage): StoreQueueResult[void] =
-  ## Add a message to the queue.
+  ## Add a message to the queue
   ## If we're at capacity, we will be removing,
   ## the oldest (first) item
+  
+  # Ensure that messages don't "jump" to the front of the queue with future timestamps
+  if msg.index.senderTime - msg.index.receiverTime > MaxTimeVariance:
+    return err("future_sender_timestamp")
   
   trace "Adding item to store queue", msg=msg
 
@@ -378,10 +384,14 @@ proc add*(storeQueue: StoreQueueRef, msg: IndexedWakuMessage): StoreQueueResult[
   if storeQueue.items.len >= storeQueue.capacity:
     var
       w = SortedSetWalkRef[Index, IndexedWakuMessage].init(storeQueue.items)
-      toDelete = w.first
+      firstItem = w.first
 
-    trace "Store queue at capacity. Deleting oldest item.", oldest=toDelete
-    discard storeQueue.items.delete(toDelete.value.key)
+    if cmp(msg.index, firstItem.value.key) < 0:
+      # When at capacity, we won't add if message index is smaller (older) than our oldest item
+      w.destroy # Clean up walker
+      return err("too_old")
+
+    discard storeQueue.items.delete(firstItem.value.key)
     w.destroy # better to destroy walker after a delete operation
   
   let res = storeQueue.items.insert(msg.index)
