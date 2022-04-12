@@ -16,6 +16,8 @@ procSuite "Time utility":
       t1 = Timestamp.low   # = -9223372036854775808
       t2 = Timestamp.high  # =  9223372036854775807
 
+    echo t1
+    
     check:
       t1 + t1 == Timestamp.low
       t2 + t2 == Timestamp.high

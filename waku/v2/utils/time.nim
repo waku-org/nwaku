@@ -9,61 +9,82 @@ type Timestamp* = distinct int64
 
 const TIMESTAMP_TABLE_TYPE* = "INTEGER"
 
+####################################################################
+# Other operators
+
+#TODO: overload % operator for JsonNode
+
+##########################################
+# $ Operator
+##########################################
+proc `$`*(t: Timestamp): string {.borrow.}
+
+####################################################################
 # Timestamp arithmetic
 # Safe from signed under- and over-flows
+
 ##########################################
 # Equality
 ##########################################
-proc `==`*(t1, t2: Timestamp): bool =
-  return t1.int64 == t2.int64
-
-proc `==`*(t1: Timestamp, t2: int): bool =
-  return t1 == Timestamp(t2)
-
-proc `==`*(t1: int, t2: Timestamp): bool =
-  return Timestamp(t1) == t2
-
-proc `==`*(t1: Timestamp, t2: int64): bool =
-  return t1 == Timestamp(t2)
-
-proc `==`*(t1: int64, t2: Timestamp): bool =
-  return Timestamp(t1) == t2
+proc `==`*(t1, t2: Timestamp): bool {.borrow.}
+proc `==`*(t1: Timestamp, t2: int): bool {.borrow.}
+proc `==`*(t1: int, t2: Timestamp): bool {.borrow.}
+proc `==`*(t1: Timestamp, t2: int64): bool {.borrow.}
+proc `==`*(t1: int64, t2: Timestamp): bool {.borrow.}
 
 ##########################################
 # Lower
 ##########################################
-proc `<`*(t1, t2: Timestamp): bool =
-  return t1.int64 < t2.int64
-
-proc `<`*(t1: Timestamp, t2: int): bool =
-  return t1 < Timestamp(t2)
-
-proc `<`*(t1: int, t2: Timestamp): bool =
-  return Timestamp(t1) < t2
-
-proc `<`*(t1: Timestamp, t2: int64): bool =
-  return t1 < Timestamp(t2)
-
-proc `<`*(t1: int64, t2: Timestamp): bool =
-  return Timestamp(t1) < t2
+proc `<`*(t1, t2: Timestamp): bool {.borrow.}
+proc `<`*(t1: Timestamp, t2: int): bool {.borrow.}
+proc `<`*(t1: int, t2: Timestamp): bool {.borrow.}
+proc `<`*(t1: Timestamp, t2: int64): bool {.borrow.}
+proc `<`*(t1: int64, t2: Timestamp): bool {.borrow.}
 
 ##########################################
-# Greater
+# Lower equal
 ##########################################
-proc `>`*(t1, t2: Timestamp): bool =
-  return t1.int64 > t2.int64
+proc `<=`*(t1, t2: Timestamp): bool {.borrow.}
+proc `<=`*(t1: Timestamp, t2: int): bool {.borrow.}
+proc `<=`*(t1: int, t2: Timestamp): bool {.borrow.}
+proc `<=`*(t1: Timestamp, t2: int64): bool {.borrow.}
+proc `<=`*(t1: int64, t2: Timestamp): bool {.borrow.}
 
-proc `>`*(t1: Timestamp, t2: int): bool =
-  return t1 > Timestamp(t2)
+##########################################
+# Maximum
+##########################################
+proc `max`*(t1, t2: Timestamp): Timestamp = 
+  return Timestamp(max(t1.int64,t2.int64))
 
-proc `>`*(t1: int, t2: Timestamp): bool =
-  return Timestamp(t1) > t2
+proc `max`*(t1: Timestamp, t2: int): Timestamp = 
+  return Timestamp(max(t1.int64,t2.int64))
 
-proc `>`*(t1: Timestamp, t2: int64): bool =
-  return t1 > Timestamp(t2)
+proc `max`*(t1: int, t2: Timestamp): Timestamp = 
+  return Timestamp(max(t1.int64,t2.int64))
 
-proc `>`*(t1: int64, t2: Timestamp): bool =
-  return Timestamp(t1) > t2
+proc `max`*(t1: Timestamp, t2: int64): Timestamp = 
+  return Timestamp(max(t1.int64,t2))
+
+proc `max`*(t1: int64, t2: Timestamp): Timestamp = 
+  return Timestamp(max(t1,t2.int64))
+
+##########################################
+# Minimum
+##########################################
+proc `min`*(t1, t2: Timestamp): Timestamp = 
+  return Timestamp(min(t1.int64,t2.int64))
+
+proc `min`*(t1: Timestamp, t2: int): Timestamp =  
+  return Timestamp(min(t1.int64,t2.int64))
+
+proc `min`*(t1: int, t2: Timestamp): Timestamp = 
+  return Timestamp(min(t1.int64,t2.int64))
+
+proc `min`*(t1: Timestamp, t2: int64): Timestamp = 
+  return Timestamp(min(t1.int64,t2))
+
+proc `min`*(t1: int64, t2: Timestamp): Timestamp = 
+  return Timestamp(min(t1,t2.int64))
 
 ##########################################
 # Addition
@@ -89,6 +110,12 @@ proc `+`*(t1: Timestamp, t2: int): Timestamp =
   return t1 + Timestamp(t2)
 
 proc `+`*(t1: int, t2: Timestamp): Timestamp =
+  return Timestamp(t1) + t2
+
+proc `+`*(t1: Timestamp, t2: int64): Timestamp =
+  return t1 + Timestamp(t2)
+
+proc `+`*(t1: int64, t2: Timestamp): Timestamp =
   return Timestamp(t1) + t2
 
 ##########################################
@@ -117,11 +144,23 @@ proc `-`*(t1: Timestamp, t2: int): Timestamp =
 proc `-`*(t1: int, t2: Timestamp): Timestamp =
   return Timestamp(t1) - t2
 
+proc `-`*(t1: Timestamp, t2: int64): Timestamp =
+  return t1 - Timestamp(t2)
+
+proc `-`*(t1: int64, t2: Timestamp): Timestamp =
+  return Timestamp(t1) - t2
+
 ##########################################
 # Sign swap
 ##########################################
+proc `+`*(t: Timestamp): Timestamp =
+  return t
+
 proc `-`*(t: Timestamp): Timestamp =
   return Timestamp(0) - t
+
+####################################################################
+
 
 ##########################################
 # Time conversions (from seconds)
