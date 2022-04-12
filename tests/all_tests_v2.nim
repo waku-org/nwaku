@@ -23,7 +23,8 @@ import
   ./v2/test_waku_store_queue,
   ./v2/test_pagination_utils,
   ./v2/test_peer_exchange,
-  ./v2/test_waku_noise
+  ./v2/test_waku_noise,
+  ./v2/test_time
 
 when defined(rln):
   import ./v2/test_waku_rln_relay
