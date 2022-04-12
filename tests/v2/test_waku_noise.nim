@@ -4,7 +4,9 @@ import
   testutils/unittests,
   std/random,
   stew/byteutils,
+  ../../waku/v2/node/waku_payload,
   ../../waku/v2/protocol/waku_noise/noise,
+  ../../waku/v2/protocol/waku_message,
   ../test_helpers
 
 procSuite "Waku Noise":
@@ -43,7 +45,7 @@ procSuite "Waku Noise":
     check: 
       plaintext.toBytes() == decryptedCiphertext
 
-  test "Encrypt and decrypt Noise public keys":
+  test "Noise public keys: encrypt and decrypt a public key":
 
     let noisePublicKey: NoisePublicKey = genNoisePublicKey(rng[])
 
@@ -55,7 +57,7 @@ procSuite "Waku Noise":
     check: 
       noisePublicKey == decryptedPk
 
-  test "Decrypt unencrypted public key":
+  test "Noise public keys: decrypt an unencrypted public key":
 
     let noisePublicKey: NoisePublicKey = genNoisePublicKey(rng[])
 
@@ -66,7 +68,7 @@ procSuite "Waku Noise":
     check:
       noisePublicKey == decryptedPk
 
-  test "Encrypt encrypted public key":
+  test "Noise public keys: encrypt an encrypted public key":
 
     let noisePublicKey: NoisePublicKey = genNoisePublicKey(rng[])
 
@@ -78,7 +80,7 @@ procSuite "Waku Noise":
     check:
       encryptedPk == encryptedPk2
 
-  test "Encrypt, decrypt and decrypt public key":
+  test "Noise public keys: encrypt, decrypt and decrypt a public key":
 
     let noisePublicKey: NoisePublicKey = genNoisePublicKey(rng[])
 
@@ -91,7 +93,7 @@ procSuite "Waku Noise":
     check: 
       decryptedPk == decryptedPk2
 
-  test "Serialize and deserialize unencrypted public key":
+  test "Noise public keys: serialize and deserialize an unencrypted public key":
 
     let 
       noisePublicKey: NoisePublicKey = genNoisePublicKey(rng[])
@@ -101,7 +103,7 @@ procSuite "Waku Noise":
     check:
       noisePublicKey == deserializedNoisePublicKey
 
-  test "Encrypt, serialize, deserialize and decrypt public key":
+  test "Noise public keys: encrypt, serialize, deserialize and decrypt a public key":
 
     let noisePublicKey: NoisePublicKey = genNoisePublicKey(rng[])
 
@@ -114,3 +116,45 @@ procSuite "Waku Noise":
 
     check:
       noisePublicKey == decryptedPk
+
+
+  test "PayloadV2: serialize/deserialize PayloadV2 to byte sequence":
+
+    let
+      payload2: PayloadV2 = randomPayloadV2(rng[])
+      serializedPayload = serializePayloadV2(payload2)
+
+    check:
+      serializedPayload.isOk()
+
+    let deserializedPayload = deserializePayloadV2(serializedPayload.get())
+
+    check:
+      deserializedPayload.isOk()
+      payload2 == deserializedPayload.get()
+
+
+  test "PayloadV2: Encode/Decode a Waku Message (version 2) to a PayloadV2":
+    
+    # We encode to a WakuMessage a random PayloadV2
+    let
+      payload2 = randomPayloadV2(rng[])
+      msg = encodePayloadV2(payload2)
+
+    check:
+      msg.isOk()
+
+    # We create ProtoBuffer from WakuMessage
+    let pb = msg.get().encode()
+
+    # We decode the WakuMessage from the ProtoBuffer
+    let msgFromPb = WakuMessage.init(pb.buffer)
+    
+    check:
+      msgFromPb.isOk()
+
+    let decoded = decodePayloadV2(msgFromPb.get())
+
+    check:
+      decoded.isOk()
+      payload2 == decoded.get()

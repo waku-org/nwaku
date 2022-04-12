@@ -4,7 +4,8 @@ import
   std/options,
   eth/keys,
   ../../whisper/whisper_types,
-  ../protocol/waku_message
+  ../protocol/waku_message,
+  ../protocol/waku_noise/noise
 
 export whisper_types, keys, options
 
@@ -56,7 +57,7 @@ proc decodePayload*(message: WakuMessage, keyInfo: KeyInfo):
         return ok(decoded.get())
       else:
         return err("Couldn't decrypt using asymmetric key")
-    of None:
+    else:
       discard
   else:
     return err("Unsupported WakuMessage version")
@@ -77,3 +78,36 @@ proc encode*(payload: Payload, version: uint32, rng: var BrHmacDrbgContext):
       return err("Couldn't encode the payload")
   else:
     return err("Unsupported WakuMessage version")
+
+
+# Decodes a WakuMessage to a PayloadV2
+# Currently, this is just a wrapper over deserializePayloadV2 and encryption/decryption is done on top (no KeyInfo)
+proc decodePayloadV2*(message: WakuMessage): WakuResult[PayloadV2] 
+  {.raises: [Defect, NoiseMalformedHandshake, NoisePublicKeyError].} =
+  # We check message version (only 2 is supported in this proc)
+  case message.version
+  of 2:
+    # We attempt to decode the WakuMessage payload
+    let deserializedPayload2 = deserializePayloadV2(message.payload)
+    if deserializedPayload2.isOk():
+      return ok(deserializedPayload2.get())
+    else:
+      return err("Failed to decode WakuMessage")
+  else:
+    return err("Wrong message version while decoding payload")
+
+
+# Encodes a PayloadV2 to a WakuMessage
+# Currently, this is just a wrapper over serializePayloadV2 and encryption/decryption is done on top (no KeyInfo)
+proc encodePayloadV2*(payload2: PayloadV2): WakuResult[WakuMessage] 
+  {.raises: [Defect, NoiseMalformedHandshake, NoisePublicKeyError].} =
+
+  # We attempt to encode the PayloadV2
+  let serializedPayload2 = serializePayloadV2(payload2)
+  if not serializedPayload2.isOk():
+    return err("Failed to encode PayloadV2")
+
+  # If successful, we create and return a WakuMessage 
+  let msg = WakuMessage(payload: serializedPayload2.get(), version: 2)
+  
+  return ok(msg)
