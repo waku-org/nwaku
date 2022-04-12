@@ -6,7 +6,8 @@ import
   testutils/unittests, chronos, chronicles, stint, web3,
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
-  ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils, waku_rln_relay_types],
+  ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils,
+      waku_rln_relay_types],
   ../../waku/v2/node/wakunode2,
   ../test_helpers,
   ./test_utils
@@ -28,34 +29,34 @@ procSuite "Waku rln relay":
     let
       (groupKeys, root) = createMembershipList(100)
     check groupKeys.len == 100
-    let 
+    let
       # convert the keys to MembershipKeyPair structs
       groupKeyPairs = groupKeys.toMembershipKeyPairs()
       # extract the id commitments
       groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
     debug "groupKeyPairs", groupKeyPairs
     debug "groupIDCommitments", groupIDCommitments
-   
-    # index indicates the position of a membership key pair in the static list of group keys i.e., groupKeyPairs 
+
+    # index indicates the position of a membership key pair in the static list of group keys i.e., groupKeyPairs
     # the corresponding key pair will be used to mount rlnRelay on the current node
-    # index also represents the index of the leaf in the Merkle tree that contains node's commitment key 
+    # index also represents the index of the leaf in the Merkle tree that contains node's commitment key
     let index = MembershipIndex(5)
 
     # -------- mount rln-relay in the off-chain mode
     node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
     await node.mountRlnRelay(groupOpt = some(groupIDCommitments),
                             memKeyPairOpt = some(groupKeyPairs[index]),
-                            memIndexOpt = some(index), 
-                            onchainMode = false, 
+                            memIndexOpt = some(index),
+                            onchainMode = false,
                             pubsubTopic = RLNRELAY_PUBSUB_TOPIC,
                             contentTopic = RLNRELAY_CONTENT_TOPIC)
-    
+
     # get the root of Merkle tree which is constructed inside the mountRlnRelay proc
     let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
     debug "calculated root by mountRlnRelay", calculatedRoot
 
     # this part checks whether the Merkle tree is constructed correctly inside the mountRlnRelay proc
-    # this check is done by comparing the tree root resulted from mountRlnRelay i.e., calculatedRoot 
+    # this check is done by comparing the tree root resulted from mountRlnRelay i.e., calculatedRoot
     # against the root which is the expected root
     check calculatedRoot == root
 
@@ -63,33 +64,34 @@ procSuite "Waku rln relay":
 
 suite "Waku rln relay":
   test "key_gen Nim Wrappers":
-    var 
+    var
       merkleDepth: csize_t = 32
       # parameters.key contains the parameters related to the Poseidon hasher
-      # to generate this file, clone this repo https://github.com/kilic/rln 
+      # to generate this file, clone this repo https://github.com/kilic/rln
       # and run the following command in the root directory of the cloned project
       # cargo run --example export_test_keys
       # the file is generated separately and copied here
       parameters = readFile("waku/v2/protocol/waku_rln_relay/parameters.key")
       pbytes = parameters.toBytes()
-      len : csize_t = uint(pbytes.len)
+      len: csize_t = uint(pbytes.len)
       parametersBuffer = Buffer(`ptr`: addr(pbytes[0]), len: len)
     check:
       # check the parameters.key is not empty
       pbytes.len != 0
 
-    var 
+    var
       rlnInstance: RLN[Bn256]
-    let res = new_circuit_from_params(merkleDepth, addr parametersBuffer, addr rlnInstance)
+    let res = new_circuit_from_params(merkleDepth, addr parametersBuffer,
+        addr rlnInstance)
     check:
       # check whether the circuit parameters are generated successfully
       res == true
 
-    # keysBufferPtr will hold the generated key pairs i.e., secret and public keys 
-    var 
-      keysBuffer : Buffer
+    # keysBufferPtr will hold the generated key pairs i.e., secret and public keys
+    var
+      keysBuffer: Buffer
       keysBufferPtr = addr(keysBuffer)
-      done = key_gen(rlnInstance, keysBufferPtr) 
+      done = key_gen(rlnInstance, keysBufferPtr)
     check:
       # check whether the keys are generated successfully
       done == true
@@ -99,8 +101,8 @@ suite "Waku rln relay":
       check:
         # the public and secret keys together are 64 bytes
         generatedKeys.len == 64
-      debug "generated keys: ", generatedKeys 
-    
+      debug "generated keys: ", generatedKeys
+
   test "membership Key Gen":
     # create an RLN instance
     var rlnInstance = createRLNInstance()
@@ -108,15 +110,15 @@ suite "Waku rln relay":
       rlnInstance.isOk == true
 
     var key = membershipKeyGen(rlnInstance.value)
-    var empty : array[32,byte]
+    var empty: array[32, byte]
     check:
       key.isSome
       key.get().idKey.len == 32
       key.get().idCommitment.len == 32
       key.get().idKey != empty
       key.get().idCommitment != empty
-    
-    debug "the generated membership key pair: ", key 
+
+    debug "the generated membership key pair: ", key
 
   test "get_root Nim binding":
     # create an RLN instance which also includes an empty Merkle tree
@@ -125,8 +127,8 @@ suite "Waku rln relay":
       rlnInstance.isOk == true
 
     # read the Merkle Tree root
-    var 
-      root1 {.noinit.} : Buffer = Buffer()
+    var
+      root1 {.noinit.}: Buffer = Buffer()
       rootPtr1 = addr(root1)
       get_root_successful1 = get_root(rlnInstance.value, rootPtr1)
     check:
@@ -134,18 +136,18 @@ suite "Waku rln relay":
       root1.len == 32
 
     # read the Merkle Tree root
-    var 
-      root2 {.noinit.} : Buffer = Buffer()
+    var
+      root2 {.noinit.}: Buffer = Buffer()
       rootPtr2 = addr(root2)
       get_root_successful2 = get_root(rlnInstance.value, rootPtr2)
-    check: 
+    check:
       get_root_successful2
       root2.len == 32
 
-    var rootValue1 = cast[ptr array[32,byte]] (root1.`ptr`)
+    var rootValue1 = cast[ptr array[32, byte]] (root1.`ptr`)
     let rootHex1 = rootValue1[].toHex
 
-    var rootValue2 = cast[ptr array[32,byte]] (root2.`ptr`)
+    var rootValue2 = cast[ptr array[32, byte]] (root2.`ptr`)
     let rootHex2 = rootValue2[].toHex
 
     # the two roots must be identical
@@ -185,14 +187,14 @@ suite "Waku rln relay":
     var member_is_added = update_next_member(rlnInstance.value, pkBufferPtr)
     check:
       member_is_added == true
-    
+
   test "delete_member Nim wrapper":
     # create an RLN instance which also includes an empty Merkle tree
     var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
 
-    # delete the first member 
+    # delete the first member
     var deleted_member_index = MembershipIndex(0)
     let deletion_success = delete_member(rlnInstance.value, deleted_member_index)
     check deletion_success
@@ -207,15 +209,15 @@ suite "Waku rln relay":
     var keypair = rln.membershipKeyGen()
     check keypair.isSome()
     check:
-      rln.insertMember(keypair.get().idCommitment)  
-    
+      rln.insertMember(keypair.get().idCommitment)
+
   test "removeMember rln utils":
     # create an RLN instance which also includes an empty Merkle tree
     var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
     var rln = rlnInstance.value
-    check: 
+    check:
       rln.removeMember(MembershipIndex(0))
 
   test "Merkle tree consistency check between deletion and insertion":
@@ -225,14 +227,14 @@ suite "Waku rln relay":
       rlnInstance.isOk == true
 
     # read the Merkle Tree root
-    var 
-      root1 {.noinit.} : Buffer = Buffer()
+    var
+      root1 {.noinit.}: Buffer = Buffer()
       rootPtr1 = addr(root1)
       get_root_successful1 = get_root(rlnInstance.value, rootPtr1)
     check:
       get_root_successful1
       root1.len == 32
-    
+
     # generate a key pair
     var keypair = membershipKeyGen(rlnInstance.value)
     check: keypair.isSome()
@@ -244,44 +246,44 @@ suite "Waku rln relay":
     check member_is_added
 
     # read the Merkle Tree root after insertion
-    var 
-      root2 {.noinit.} : Buffer = Buffer()
+    var
+      root2 {.noinit.}: Buffer = Buffer()
       rootPtr2 = addr(root2)
       get_root_successful2 = get_root(rlnInstance.value, rootPtr2)
     check:
       get_root_successful2
       root2.len == 32
 
-    # delete the first member 
+    # delete the first member
     var deleted_member_index = MembershipIndex(0)
     let deletion_success = delete_member(rlnInstance.value, deleted_member_index)
     check deletion_success
 
     # read the Merkle Tree root after the deletion
-    var 
-      root3 {.noinit.} : Buffer = Buffer()
+    var
+      root3 {.noinit.}: Buffer = Buffer()
       rootPtr3 = addr(root3)
       get_root_successful3 = get_root(rlnInstance.value, rootPtr3)
     check:
       get_root_successful3
       root3.len == 32
 
-    var rootValue1 = cast[ptr array[32,byte]] (root1.`ptr`)
+    var rootValue1 = cast[ptr array[32, byte]] (root1.`ptr`)
     let rootHex1 = rootValue1[].toHex
     debug "The initial root", rootHex1
 
-    var rootValue2 = cast[ptr array[32,byte]] (root2.`ptr`)
+    var rootValue2 = cast[ptr array[32, byte]] (root2.`ptr`)
     let rootHex2 = rootValue2[].toHex
     debug "The root after insertion", rootHex2
 
-    var rootValue3 = cast[ptr array[32,byte]] (root3.`ptr`)
+    var rootValue3 = cast[ptr array[32, byte]] (root3.`ptr`)
     let rootHex3 = rootValue3[].toHex
     debug "The root after deletion", rootHex3
 
     # the root must change after the insertion
     check: not(rootHex1 == rootHex2)
 
-    ## The initial root of the tree (empty tree) must be identical to 
+    ## The initial root of the tree (empty tree) must be identical to
     ## the root of the tree after one insertion followed by a deletion
     check rootHex1 == rootHex3
   test "Merkle tree consistency check between deletion and insertion using rln utils":
@@ -295,11 +297,11 @@ suite "Waku rln relay":
     var root1 = rln.getMerkleRoot()
     check root1.isOk
     let rootHex1 = root1.value().toHex()
-    
+
     # generate a key pair
     var keypair = rln.membershipKeyGen()
     check keypair.isSome()
-    let member_inserted = rln.insertMember(keypair.get().idCommitment) 
+    let member_inserted = rln.insertMember(keypair.get().idCommitment)
     check member_inserted
 
     # read the Merkle Tree root after insertion
@@ -307,8 +309,8 @@ suite "Waku rln relay":
     check root2.isOk
     let rootHex2 = root2.value().toHex()
 
-  
-    # delete the first member 
+
+    # delete the first member
     var deleted_member_index = MembershipIndex(0)
     let deletion_success = rln.removeMember(deleted_member_index)
     check deletion_success
@@ -326,7 +328,7 @@ suite "Waku rln relay":
     # the root must change after the insertion
     check not(rootHex1 == rootHex2)
 
-    ## The initial root of the tree (empty tree) must be identical to 
+    ## The initial root of the tree (empty tree) must be identical to
     ## the root of the tree after one insertion followed by a deletion
     check rootHex1 == rootHex3
 
@@ -335,24 +337,26 @@ suite "Waku rln relay":
     var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
-    
+
     # prepare the input
-    var 
+    var
       msg = "Hello".toBytes()
       hashInput = appendLength(msg)
-      hashInputBuffer = toBuffer(hashInput) 
+      hashInputBuffer = toBuffer(hashInput)
 
     # prepare other inputs to the hash function
     var outputBuffer: Buffer
-    
-    let hashSuccess = hash(rlnInstance.value, addr hashInputBuffer, addr outputBuffer)
-    check hashSuccess
-    let outputArr = cast[ptr array[32,byte]](outputBuffer.`ptr`)[]
-    check:
-      "efb8ac39dc22eaf377fe85b405b99ba78dbc2f3f32494add4501741df946bd1d" == outputArr.toHex()
 
-    var 
-      hashOutput = cast[ptr array[32,byte]] (outputBuffer.`ptr`)[]
+    let hashSuccess = hash(rlnInstance.value, addr hashInputBuffer,
+        addr outputBuffer)
+    check hashSuccess
+    let outputArr = cast[ptr array[32, byte]](outputBuffer.`ptr`)[]
+    check:
+      "efb8ac39dc22eaf377fe85b405b99ba78dbc2f3f32494add4501741df946bd1d" ==
+          outputArr.toHex()
+
+    var
+      hashOutput = cast[ptr array[32, byte]] (outputBuffer.`ptr`)[]
       hashOutputHex = hashOutput.toHex()
 
     debug "hash output", hashOutputHex
@@ -363,26 +367,27 @@ suite "Waku rln relay":
     check:
       rlnInstance.isOk == true
     let rln = rlnInstance.value
-    
+
     # prepare the input
     let msg = "Hello".toBytes()
 
     let hash = rln.hash(msg)
     check:
-      "efb8ac39dc22eaf377fe85b405b99ba78dbc2f3f32494add4501741df946bd1d" == hash.toHex()
-  
+      "efb8ac39dc22eaf377fe85b405b99ba78dbc2f3f32494add4501741df946bd1d" ==
+          hash.toHex()
+
   test "create a list of membership keys and construct a Merkle tree based on the list":
-    let 
+    let
       groupSize = 100
-      (list, root) = createMembershipList(groupSize) 
+      (list, root) = createMembershipList(groupSize)
 
     debug "created membership key list", list
     debug "the Merkle tree root", root
-    
+
     check:
-      list.len == groupSize  # check the number of keys
+      list.len == groupSize # check the number of keys
       root.len == HASH_HEX_SIZE # check the size of the calculated tree root
-  
+
   test "check correctness of toMembershipKeyPairs and calcMerkleRoot":
     let groupKeys = STATIC_GROUP_KEYS
 
@@ -397,14 +402,14 @@ suite "Waku rln relay":
     debug "groupIDCommitments", groupIDCommitments
     debug "root", root
 
-    check: 
+    check:
       # check that the correct number of key pairs is created
       groupKeyPairs.len == StaticGroupSize
       # compare the calculated root against the correct root
       root == STATIC_GROUP_MERKLE_ROOT
-  
+
   test "RateLimitProof Protobuf encode/init test":
-    var 
+    var
       proof: ZKSNARK
       merkleRoot: MerkleNode
       epoch: Epoch
@@ -412,14 +417,14 @@ suite "Waku rln relay":
       shareY: MerkleNode
       nullifier: Nullifier
     # populate fields with dummy values
-    for x in proof.mitems : x = 1
-    for x in merkleRoot.mitems : x = 2
-    for x in epoch.mitems : x = 3
-    for x in shareX.mitems : x = 4
-    for x in shareY.mitems : x = 5
-    for x in nullifier.mitems : x = 6
-    
-    let 
+    for x in proof.mitems: x = 1
+    for x in merkleRoot.mitems: x = 2
+    for x in epoch.mitems: x = 3
+    for x in shareX.mitems: x = 4
+    for x in shareY.mitems: x = 5
+    for x in nullifier.mitems: x = 6
+
+    let
       rateLimitProof = RateLimitProof(proof: proof,
                           merkleRoot: merkleRoot,
                           epoch: epoch,
@@ -438,13 +443,13 @@ suite "Waku rln relay":
     check rlnInstance.isOk
     var rln = rlnInstance.value
 
-    let 
+    let
       # create a membership key pair
       memKeys = membershipKeyGen(rln).get()
       # peer's index in the Merkle Tree
       index = 5
 
-    # Create a Merkle tree with random members 
+    # Create a Merkle tree with random members
     for i in 0..10:
       var member_is_added: bool = false
       if (i == index):
@@ -457,21 +462,21 @@ suite "Waku rln relay":
       # check the member is added
       check member_is_added
 
-    # prepare the message 
+    # prepare the message
     let messageBytes = "Hello".toBytes()
 
     # prepare the epoch
-    var  epoch : Epoch
-    debug "epoch", epochHex=epoch.toHex()
+    var epoch: Epoch
+    debug "epoch", epochHex = epoch.toHex()
 
     # generate proof
-    let proofRes = rln.proofGen(data = messageBytes, 
+    let proofRes = rln.proofGen(data = messageBytes,
                                 memKeys = memKeys,
                                 memIndex = MembershipIndex(index),
                                 epoch = epoch)
     check proofRes.isOk()
     let proof = proofRes.value
-    
+
     # verify the proof
     let verified = rln.proofVerify(data = messageBytes,
                                     proof = proof)
@@ -483,13 +488,13 @@ suite "Waku rln relay":
       rlnInstance.isOk == true
     var rln = rlnInstance.value
 
-    let 
+    let
       # create a membership key pair
       memKeys = membershipKeyGen(rln).get()
       # peer's index in the Merkle Tree
       index = 5
 
-    # Create a Merkle tree with random members 
+    # Create a Merkle tree with random members
     for i in 0..10:
       var member_is_added: bool = false
       if (i == index):
@@ -502,17 +507,17 @@ suite "Waku rln relay":
       # check the member is added
       check member_is_added
 
-     # prepare the message 
+    # prepare the message
     let messageBytes = "Hello".toBytes()
 
     # prepare the epoch
-    var  epoch : Epoch
-    debug "epoch in bytes", epochHex=epoch.toHex()
+    var epoch: Epoch
+    debug "epoch in bytes", epochHex = epoch.toHex()
 
 
     let badIndex = 4
     # generate proof
-    let proofRes = rln.proofGen(data = messageBytes, 
+    let proofRes = rln.proofGen(data = messageBytes,
                                 memKeys = memKeys,
                                 memIndex = MembershipIndex(badIndex),
                                 epoch = epoch)
@@ -525,25 +530,26 @@ suite "Waku rln relay":
     check verified == false
   test "toEpoch and fromEpoch consistency check":
     # check edge cases
-    let 
+    let
       time = uint64.high
       epoch = time.toEpoch()
       decodedTime = epoch.fromEpoch()
     check time == decodedTime
-    debug "encoded and decode time", time=time, epoch=epoch, decodedTime=decodedTime
-  
+    debug "encoded and decode time", time = time, epoch = epoch,
+        decodedTime = decodedTime
+
   test "Epoch comparison":
     # check edge cases
-    let 
+    let
       time1 = uint64.high
       time2 = uint64.high - 1
       epoch1 = time1.toEpoch()
       epoch2 = time2.toEpoch()
     check compare(epoch1, epoch2) == int64(1)
     check compare(epoch2, epoch1) == int64(-1)
-  
+
   test "updateLog and hasDuplicate tests":
-    let 
+    let
       wakurlnrelay = WakuRLNRelay()
       epoch = getCurrentEpoch()
 
@@ -565,10 +571,13 @@ suite "Waku rln relay":
     for index, x in shareX3.mpairs: shareX3[index] = 3
     let shareY3 = shareX3
 
-    let 
-      wm1 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier1, shareX: shareX1, shareY: shareY1))
-      wm2 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier2, shareX: shareX2, shareY: shareY2))
-      wm3 = WakuMessage(proof: RateLimitProof(epoch: epoch, nullifier: nullifier3, shareX: shareX3, shareY: shareY3))
+    let
+      wm1 = WakuMessage(proof: RateLimitProof(epoch: epoch,
+          nullifier: nullifier1, shareX: shareX1, shareY: shareY1))
+      wm2 = WakuMessage(proof: RateLimitProof(epoch: epoch,
+          nullifier: nullifier2, shareX: shareX2, shareY: shareY2))
+      wm3 = WakuMessage(proof: RateLimitProof(epoch: epoch,
+          nullifier: nullifier3, shareX: shareX3, shareY: shareY3))
 
     # check whether hasDuplicate correctly finds records with the same nullifiers but different secret shares
     # no duplicate for wm1 should be found, since the log is empty
@@ -592,7 +601,7 @@ suite "Waku rln relay":
     #  wm3 has the same nullifier as wm1 but different secret shares, it should be detected as duplicate
     let result3 = wakurlnrelay.hasDuplicate(wm3)
     check:
-      result3.isOk 
+      result3.isOk
       # it is a duplicate
       result3.value == true
 
@@ -608,10 +617,10 @@ suite "Waku rln relay":
       groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
     debug "groupKeyPairs", groupKeyPairs
     debug "groupIDCommitments", groupIDCommitments
-   
-    # index indicates the position of a membership key pair in the static list of group keys i.e., groupKeyPairs 
+
+    # index indicates the position of a membership key pair in the static list of group keys i.e., groupKeyPairs
     # the corresponding key pair will be used to mount rlnRelay on the current node
-    # index also represents the index of the leaf in the Merkle tree that contains node's commitment key 
+    # index also represents the index of the leaf in the Merkle tree that contains node's commitment key
     let index = MembershipIndex(5)
 
     # create an RLN instance
@@ -622,24 +631,25 @@ suite "Waku rln relay":
     # add members
     discard rln.addAll(groupIDCommitments)
 
-    let 
-      wakuRlnRelay = WakuRLNRelay(membershipIndex: index, membershipKeyPair: groupKeyPairs[index], rlnInstance: rln)
+    let
+      wakuRlnRelay = WakuRLNRelay(membershipIndex: index,
+          membershipKeyPair: groupKeyPairs[index], rlnInstance: rln)
 
-    # get the current epoch time 
+    # get the current epoch time
     let time = epochTime()
 
     #  create some messages from the same peer and append rln proof to them, except wm4
-    var 
+    var
       wm1 = WakuMessage(payload: "Valid message".toBytes())
       proofAdded1 = wakuRlnRelay.appendRLNProof(wm1, time)
       # another message in the same epoch as wm1, it will break the messaging rate limit
       wm2 = WakuMessage(payload: "Spam".toBytes())
       proofAdded2 = wakuRlnRelay.appendRLNProof(wm2, time)
-      #  wm3 points to the next epoch 
+      #  wm3 points to the next epoch
       wm3 = WakuMessage(payload: "Valid message".toBytes())
       proofAdded3 = wakuRlnRelay.appendRLNProof(wm3, time+EPOCH_UNIT_SECONDS)
-      wm4 = WakuMessage(payload: "Invalid message".toBytes())      
-      
+      wm4 = WakuMessage(payload: "Invalid message".toBytes())
+
     # checks proofs are added
     check:
       proofAdded1
@@ -652,15 +662,15 @@ suite "Waku rln relay":
       msgValidate1 = wakuRlnRelay.validateMessage(wm1, some(time))
       # wm2 is published within the same Epoch as wm1 and should be found as spam
       msgValidate2 = wakuRlnRelay.validateMessage(wm2, some(time))
-      # a valid message should be validated successfully 
+      # a valid message should be validated successfully
       msgValidate3 = wakuRlnRelay.validateMessage(wm3, some(time))
       # wm4 has no rln proof and should not be validated
       msgValidate4 = wakuRlnRelay.validateMessage(wm4, some(time))
 
-    
+
     check:
       msgValidate1 == MessageValidationResult.Valid
-      msgValidate2 == MessageValidationResult.Spam      
+      msgValidate2 == MessageValidationResult.Spam
       msgValidate3 == MessageValidationResult.Valid
       msgValidate4 == MessageValidationResult.Invalid
 
