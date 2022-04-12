@@ -7,11 +7,10 @@
 
 {.push raises: [Defect].}
 
-import std/[options, tables]
+import std/[options, tables, strutils]
 import chronos
 import chronicles
 import bearssl
-import strutils
 import stew/[results, endians2]
 import nimcrypto/[utils, sha2, hmac]
 
