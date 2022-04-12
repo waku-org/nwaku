@@ -49,7 +49,7 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
 
   # encode membership contract inputs to 32 bytes zero-padded
   let
-    membershipFeeEncoded = encode(MembershipFee).data
+    membershipFeeEncoded = encode(MEMBERSHIP_FEE).data
     depthEncoded = encode(MERKLE_TREE_DEPTH.u256).data
     hasherAddressEncoded = encode(hasherAddress).data
     # this is the contract constructor input
@@ -119,7 +119,7 @@ procSuite "Waku-rln-relay":
       echo "Error from subscription: ", err.msg
 
     # register a member
-    let tx = await contractObj.register(pk).send(value = MembershipFee)
+    let tx = await contractObj.register(pk).send(value = MEMBERSHIP_FEE)
     debug "a member is registered", tx = tx
 
     # wait for the event to be received
@@ -148,11 +148,11 @@ procSuite "Waku-rln-relay":
 
     # send takes three parameters, c: ContractCallBase, value = 0.u256, gas = 3000000'u64 gasPrice = 0
     # should use send proc for the contract functions that update the state of the contract
-    let tx = await sender.register(20.u256).send(value = MembershipFee)
+    let tx = await sender.register(20.u256).send(value = MEMBERSHIP_FEE)
     debug "The hash of registration tx: ", tx # value is the membership fee
 
     # var members: array[2, uint256] = [20.u256, 21.u256]
-    # debug "This is the batch registration result ", await sender.registerBatch(members).send(value = (members.len * membershipFee)) # value is the membership fee
+    # debug "This is the batch registration result ", await sender.registerBatch(members).send(value = (members.len * MEMBERSHIP_FEE)) # value is the membership fee
 
     let balance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
     debug "Balance after registration: ", balance

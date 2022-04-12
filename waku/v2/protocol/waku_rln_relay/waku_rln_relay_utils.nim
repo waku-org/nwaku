@@ -103,13 +103,13 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   ## into the membership contract whose address is in rlnPeer.membershipContractAddress
   let web3 = await newWeb3(rlnPeer.ethClientAddress)
   web3.defaultAccount = rlnPeer.ethAccountAddress
-  # when the private key is set in a web3 instance, the send proc (sender.register(pk).send(MembershipFee))
+  # when the private key is set in a web3 instance, the send proc (sender.register(pk).send(MEMBERSHIP_FEE))
   # does the signing using the provided key
   web3.privateKey = rlnPeer.ethAccountPrivateKey
   var sender = web3.contractSender(MembershipContract,
       rlnPeer.membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
   let pk = toUInt256(rlnPeer.membershipKeyPair.idCommitment)
-  discard await sender.register(pk).send(MembershipFee)
+  discard await sender.register(pk).send(MEMBERSHIP_FEE)
   debug "pk", pk = pk
   # TODO check the receipt and then return true/false
   await web3.close()
