@@ -317,7 +317,8 @@ const
 
 const EPOCH_UNIT_SECONDS* = float64(10) # the rln-relay epoch length in seconds
 const MAX_CLOCK_GAP_SECONDS* = 20.0 # the maximum clock difference between peers in seconds
-                                    # maximum allowed gap between the epochs of messages' RateLimitProofs
+                                    
+# maximum allowed gap between the epochs of messages' RateLimitProofs
 const MAX_EPOCH_GAP* = int64(MAX_CLOCK_GAP_SECONDS/EPOCH_UNIT_SECONDS)
 
 # Protobufs enc and init
