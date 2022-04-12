@@ -7,11 +7,10 @@
 
 {.push raises: [Defect].}
 
-import std/[oids, options, math, tables]
+import std/[oids, options, strutils, tables]
 import chronos
 import chronicles
 import bearssl
-import strutils
 import stew/[results, endians2, byteutils]
 import nimcrypto/[utils, sha2, hmac]
 
@@ -765,7 +764,7 @@ proc serializePayloadV2*(self: PayloadV2): Result[seq[byte], cstring] =
   payload.add self.transportMessage
 
   return ok(payload)
-  
+
 
 # Deserializes a byte sequence to a PayloadV2 object according to https://rfc.vac.dev/spec/35/.
 # The input serialized payload concatenates the output PayloadV2 object fields as
