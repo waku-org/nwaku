@@ -266,7 +266,8 @@ proc print*(self: HandshakePattern)
    {.raises: [IOError, NoiseMalformedHandshake].}=
   try:
     if self.name != "":
-      echo self.name, ":"
+      stdout.write self.name, ":\n"
+      stdout.flushFile()
     #We iterate over pre message patterns, if any
     if self.preMessagePatterns != EmptyPreMessagePattern:
       for pattern in self.pre_messagePatterns:
