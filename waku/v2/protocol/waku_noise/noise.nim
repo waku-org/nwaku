@@ -333,6 +333,17 @@ proc dh(private: EllipticCurveKey, public: EllipticCurveKey): EllipticCurveKey =
 
 # Noise state machine primitives
 
+# Overview :
+# - Alice and Bob process (i.e. read and write, based on their role) each token appearing in a handshake pattern, consisting of pre-message and message patterns;
+# - Both users initialize and update according to processed tokens a Handshake State, a Symmetric State and a Cipher State;
+# - A preshared key psk is processed by calling MixKeyAndHash(psk);
+# - When an ephemeral public key e is read or written, the handshake hash value h is updated by calling mixHash(e); If the handshake expects a psk, MixKey(e) is further called
+# - When an encrypted static public key s or a payload message m is read, it is decrypted with decryptAndHash;
+# - When a static public key s or a payload message is writted, it is encrypted with encryptAndHash;
+# - When any Diffie-Hellman token ee, es, se, ss is read or written, the chaining key ck is updated by calling MixKey on the computed secret;
+# - If all tokens are processed, users compute two new Cipher States by calling Split;
+# - The two Cipher States obtained from Split are used to encrypt/decrypt outbound/inbound messages.
+
 #################################
 # Cipher State Primitives
 #################################
