@@ -2,7 +2,6 @@
 ## See spec for more details:
 ## https://github.com/vacp2p/rfc/tree/master/content/docs/rfcs/35
 ##
-##
 ## Implementation partially inspired by noise-libp2p:
 ## https://github.com/status-im/nim-libp2p/blob/master/libp2p/protocols/secure/noise.nim
 
