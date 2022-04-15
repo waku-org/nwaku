@@ -50,9 +50,9 @@ pipeline {
 //        $class: 'ArbitraryFileCache', excludes: '', includes: '**/*',
 //        path: 'vendor/nimbus-build-system/vendor/Nim/bin',
 //      ]]) 
-//            {
-          sh "make V=${params.VERBOSITY} update"
-//      }
+            {
+        sh "make V=${params.VERBOSITY} update"
+      }
       sh "make V=${params.VERBOSITY} deps"
     } } }
 
