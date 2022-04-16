@@ -43,8 +43,8 @@ pipeline {
   stages {
     stage('Deps') { steps { script {
       /* Avoid checking multiple times. */
-      v1changed = true //versionWasChanged('v1')
-      v2changed = true //versionWasChanged('v2')
+      v1changed = versionWasChanged('v1')
+      v2changed = versionWasChanged('v2')
       /* TODO: Re-add caching of Nim compiler. */
       sh "make V=${params.VERBOSITY} update"
       sh "make V=${params.VERBOSITY} deps"
