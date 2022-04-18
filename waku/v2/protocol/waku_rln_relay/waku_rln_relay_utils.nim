@@ -443,7 +443,7 @@ proc getCurrentEpoch*(): Epoch =
   ## gets the current rln Epoch time
   return calcEpoch(epochTime())
 
-proc compare*(e1, e2: Epoch): int64 =
+proc diff*(e1, e2: Epoch): int64 =
   ## returns the difference between the two rln `Epoch`s `e1` and `e2`
   ## i.e., e1 - e2
 
@@ -476,7 +476,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
   let
     msgEpoch = msg.proof.epoch
     # calculate the gaps
-    gap = compare(epoch, msgEpoch)
+    gap = diff(epoch, msgEpoch)
 
   debug "message epoch", msgEpoch = fromEpoch(msgEpoch)
 

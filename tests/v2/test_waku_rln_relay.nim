@@ -545,8 +545,8 @@ suite "Waku rln relay":
       time2 = uint64.high - 1
       epoch1 = time1.toEpoch()
       epoch2 = time2.toEpoch()
-    check compare(epoch1, epoch2) == int64(1)
-    check compare(epoch2, epoch1) == int64(-1)
+    check diff(epoch1, epoch2) == int64(1)
+    check diff(epoch2, epoch1) == int64(-1)
 
   test "updateLog and hasDuplicate tests":
     let

@@ -170,7 +170,7 @@ procSuite "Waku-rln-relay":
       web3 = await newWeb3(ETH_CLIENT)
       accounts = await web3.provider.eth_accounts()
       # choose one of the existing accounts for the rln-relay peer
-      ethAccountAddress = accounts[9]
+      ethAccountAddress = accounts[0]
     await web3.close()
 
     # create an RLN instance
