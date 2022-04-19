@@ -45,13 +45,8 @@ pipeline {
       /* Avoid checking multiple times. */
       v1changed = versionWasChanged('v1')
       v2changed = versionWasChanged('v2')
-      /* Building Nim compiler takes a while. */
-      cache(maxCacheSize: 250, caches: [[
-        $class: 'ArbitraryFileCache', excludes: '', includes: '**/*',
-        path: 'vendor/nimbus-build-system/vendor/Nim/bin',
-      ]]) {
-        sh "make V=${params.VERBOSITY} update"
-      }
+      /* TODO: Re-add caching of Nim compiler. */
+      sh "make V=${params.VERBOSITY} update"
       sh "make V=${params.VERBOSITY} deps"
     } } }
 
