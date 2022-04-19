@@ -270,7 +270,7 @@ proc print*(self: HandshakePattern)
       stdout.flushFile()
     #We iterate over pre message patterns, if any
     if self.preMessagePatterns != EmptyPreMessagePattern:
-      for pattern in self.pre_messagePatterns:
+      for pattern in self.preMessagePatterns:
           stdout.write "  ", pattern.direction
           var first = true
           for token in pattern.tokens:
