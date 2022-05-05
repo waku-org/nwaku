@@ -1,6 +1,7 @@
 import
   std/strutils,
   confutils, confutils/defs, confutils/std/net,
+  confutils/toml/defs as confTomlDefs,
   chronicles, chronos,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
@@ -8,10 +9,18 @@ import
   eth/keys,
   ../protocol/waku_rln_relay/waku_rln_relay_types,
   ../protocol/waku_message
+
+export
+  confTomlDefs
    
 type
+  PrivateKey = crypto.PrivateKey # confutils does not allow types qualified by a module names anymore
   WakuNodeConf* = object
     ## General node config
+
+    configFile* {.
+      desc: "Loads configuration from a TOML file (cmd-line parameters take precedence)"
+      name: "config-file" }: Option[InputFile]
 
     logLevel* {.
       desc: "Sets the log level."
@@ -21,7 +30,7 @@ type
     nodekey* {.
       desc: "P2P node private key as 64 char hex string.",
       defaultValue: crypto.PrivateKey.random(Secp256k1, keys.newRng()[]).tryGet()
-      name: "nodekey" }: crypto.PrivateKey
+      name: "nodekey" }: PrivateKey # this is crypto.PrivateKey
 
     listenAddress* {.
       defaultValue: defaultListenAddress(config)
@@ -348,3 +357,23 @@ func defaultListenAddress*(conf: WakuNodeConf): ValidIpAddress =
   # TODO: How should we select between IPv4 and IPv6
   # Maybe there should be a config option for this.
   (static ValidIpAddress.init("0.0.0.0"))
+
+
+proc readValue*(r: var TomlReader, val: var crypto.PrivateKey)
+               {.raises: [Defect, IOError, SerializationError].} =
+  val = try: parseCmdArg(crypto.PrivateKey, r.readValue(string))
+        except CatchableError as err:
+          raise newException(SerializationError, err.msg)
+
+proc readValue*(r: var TomlReader, val: var ValidIpAddress)
+               {.raises: [Defect, IOError, SerializationError].} =
+  val = try: parseCmdArg(ValidIpAddress, r.readValue(string))
+        except CatchableError as err:
+          raise newException(SerializationError, err.msg)
+
+proc readValue*(r: var TomlReader, val: var Port)
+               {.raises: [Defect, IOError, SerializationError].} =
+  val = try: parseCmdArg(Port, r.readValue(string))
+        except CatchableError as err:
+          raise newException(SerializationError, err.msg)
+
