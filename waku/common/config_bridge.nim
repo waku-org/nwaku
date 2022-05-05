@@ -9,6 +9,9 @@ type
     prod
     staging
     test
+  
+  PrivateKey = crypto.PrivateKey # confutils does not allow types qualified by module names anymore
+  KeyPair = keys.KeyPair
 
   WakuNodeConf* = object
     logLevel* {.
@@ -86,7 +89,7 @@ type
       desc: "DevP2P node private key as hex",
       # TODO: can the rng be passed in somehow via Load?
       defaultValue: keys.KeyPair.random(keys.newRng()[])
-      name: "nodekey-v1" .}: keys.KeyPair
+      name: "nodekey-v1" .}: KeyPair
 
     wakuV1Pow* {.
       desc: "PoW requirement of Waku v1 node.",
@@ -107,7 +110,7 @@ type
     nodekeyV2* {.
       desc: "P2P node private key as hex"
       defaultValue: crypto.PrivateKey.random(Secp256k1, keys.newRng()[]).tryGet()
-      name: "nodekey-v2" }: crypto.PrivateKey
+      name: "nodekey-v2" }: PrivateKey
 
     store* {.
       desc: "Flag whether to start store protocol",

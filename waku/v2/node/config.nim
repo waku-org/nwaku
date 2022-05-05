@@ -16,7 +16,8 @@ export
   confTomlNet
    
 type
-  PrivateKey = crypto.PrivateKey # confutils does not allow types qualified by a module names anymore
+  PrivateKey = crypto.PrivateKey # confutils does not allow types qualified by module names anymore
+
   WakuNodeConf* = object
     ## General node config
 

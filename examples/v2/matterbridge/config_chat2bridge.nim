@@ -4,6 +4,8 @@ import
   eth/keys
 
 type
+  PrivateKey = crypto.PrivateKey # confutils does not allow types qualified by module names anymore
+
   Chat2MatterbridgeConf* = object
     logLevel* {.
       desc: "Sets the log level"
@@ -74,7 +76,7 @@ type
     nodekey* {.
       desc: "P2P node private key as hex"
       defaultValue: crypto.PrivateKey.random(Secp256k1, newRng()[]).tryGet()
-      name: "nodekey" }: crypto.PrivateKey
+      name: "nodekey" }: PrivateKey
 
     topics* {.
       desc: "Default topics to subscribe to (space separated list)"

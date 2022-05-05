@@ -9,7 +9,8 @@ import
   ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_types,
   ../../waku/v2/protocol/waku_message
 type
-  PrivateKey = crypto.PrivateKey # confutils does not allow types qualified by a module names anymore
+  PrivateKey = crypto.PrivateKey # confutils does not allow types qualified by module names anymore
+
   Fleet* =  enum
     none
     prod
