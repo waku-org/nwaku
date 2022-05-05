@@ -2,6 +2,7 @@ import
   std/strutils,
   confutils, confutils/defs, confutils/std/net,
   confutils/toml/defs as confTomlDefs,
+  confutils/toml/std/net as confTomlNet,
   chronicles, chronos,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
@@ -11,7 +12,8 @@ import
   ../protocol/waku_message
 
 export
-  confTomlDefs
+  confTomlDefs,
+  confTomlNet
    
 type
   PrivateKey = crypto.PrivateKey # confutils does not allow types qualified by a module names anymore
@@ -362,18 +364,6 @@ func defaultListenAddress*(conf: WakuNodeConf): ValidIpAddress =
 proc readValue*(r: var TomlReader, val: var crypto.PrivateKey)
                {.raises: [Defect, IOError, SerializationError].} =
   val = try: parseCmdArg(crypto.PrivateKey, r.readValue(string))
-        except CatchableError as err:
-          raise newException(SerializationError, err.msg)
-
-proc readValue*(r: var TomlReader, val: var ValidIpAddress)
-               {.raises: [Defect, IOError, SerializationError].} =
-  val = try: parseCmdArg(ValidIpAddress, r.readValue(string))
-        except CatchableError as err:
-          raise newException(SerializationError, err.msg)
-
-proc readValue*(r: var TomlReader, val: var Port)
-               {.raises: [Defect, IOError, SerializationError].} =
-  val = try: parseCmdArg(Port, r.readValue(string))
         except CatchableError as err:
           raise newException(SerializationError, err.msg)
 
