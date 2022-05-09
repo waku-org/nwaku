@@ -146,7 +146,7 @@ procSuite "Waku-rln-relay":
     var sender = web3.contractSender(MembershipContract,
         contractAddress) # creates a Sender object with a web3 field and contract address of type Address
 
-    # send takes three parameters, c: ContractCallBase, value = 0.u256, gas = 3000000'u64 gasPrice = 0
+    # send takes the following parameters, c: ContractCallBase, value = 0.u256, gas = 3000000'u64 gasPrice = 0
     # should use send proc for the contract functions that update the state of the contract
     let tx = await sender.register(20.u256).send(value = MEMBERSHIP_FEE)
     debug "The hash of registration tx: ", tx # value is the membership fee
