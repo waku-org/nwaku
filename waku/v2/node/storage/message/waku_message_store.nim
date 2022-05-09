@@ -100,6 +100,12 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase, storeCapacity: int = 50
   let numMessages = messageCount(db).get()
   debug "number of messages in sqlite database", messageNum=numMessages
 
+  # add index on receiverTimestamp
+  let addIndexStmt = "CREATE INDEX IF NOT EXISTS i_rt ON " & TABLE_TITLE & "(receiverTimestamp);"
+  let resIndex = db.query(addIndexStmt, proc(s: ptr sqlite3_stmt) = discard)
+  if resIndex.isErr:
+    return err("Could not establish index on receiverTimestamp: " & resIndex.error)
+
   let storeMaxLoad = int(float(storeCapacity) * MaxStoreOverflow)
   let deleteWindow = int(float(storeMaxLoad - storeCapacity) / 2)
   let wms = WakuMessageStore(database: db,
