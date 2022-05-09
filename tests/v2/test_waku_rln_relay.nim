@@ -531,10 +531,10 @@ suite "Waku rln relay":
   test "toEpoch and fromEpoch consistency check":
     # check edge cases
     let
-      time = uint64.high
-      epoch = time.toEpoch()
-      decodedTime = epoch.fromEpoch()
-    check time == decodedTime
+      e = uint64.high # rln epoch
+      epoch = e.toEpoch()
+      decoded = epoch.fromEpoch()
+    check e == decoded
     debug "encoded and decode time", time = time, epoch = epoch,
         decodedTime = decodedTime
 
@@ -669,7 +669,7 @@ suite "Waku rln relay":
 
 
     check:
-      msgValidate1 == MessageValidationResult.Valid
+      msg_Validate1 == MessageValidationResult.Valid
       msgValidate2 == MessageValidationResult.Spam
       msgValidate3 == MessageValidationResult.Valid
       msgValidate4 == MessageValidationResult.Invalid
