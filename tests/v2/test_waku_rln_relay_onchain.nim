@@ -148,8 +148,8 @@ procSuite "Waku-rln-relay":
 
     # send takes the following parameters, c: ContractCallBase, value = 0.u256, gas = 3000000'u64 gasPrice = 0
     # should use send proc for the contract functions that update the state of the contract
-    let tx = await sender.register(20.u256).send(value = MEMBERSHIP_FEE)
-    debug "The hash of registration tx: ", tx # value is the membership fee
+    let tx = await sender.register(20.u256).send(value = MEMBERSHIP_FEE) # value is the membership fee
+    debug "The hash of registration tx: ", tx 
 
     # var members: array[2, uint256] = [20.u256, 21.u256]
     # debug "This is the batch registration result ", await sender.registerBatch(members).send(value = (members.len * MEMBERSHIP_FEE)) # value is the membership fee
