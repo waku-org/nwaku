@@ -96,10 +96,12 @@ procSuite "Waku-rln-relay":
 
     # create an RLN instance
     var rlnInstance = createRLNInstance()
-    check: rlnInstance.isOk == true
+    check: 
+      rlnInstance.isOk == true
     # generate the membership keys
     let membershipKeyPair = membershipKeyGen(rlnInstance.value)
-    check: membershipKeyPair.isSome
+    check: 
+      membershipKeyPair.isSome
     let pk = membershipKeyPair.get().idCommitment.toUInt256()
     debug "membership commitment key", pk = pk
 
@@ -110,7 +112,8 @@ procSuite "Waku-rln-relay":
       pubkey: Uint256, index: Uint256){.raises: [Defect], gcsafe.}:
       try:
         debug "onRegister", pubkey = pubkey, index = index
-        check pubkey == pk
+        check:
+          pubkey == pk
         fut.complete()
       except Exception as err:
         # chronos still raises exceptions which inherit directly from Exception
@@ -175,11 +178,13 @@ procSuite "Waku-rln-relay":
 
     # create an RLN instance
     var rlnInstance = createRLNInstance()
-    check: rlnInstance.isOk == true
+    check: 
+      rlnInstance.isOk == true
 
     # generate the membership keys
     let membershipKeyPair = membershipKeyGen(rlnInstance.value)
-    check: membershipKeyPair.isSome
+    check: 
+      membershipKeyPair.isSome
 
     # test ------------------------------
     # initialize the WakuRLNRelay
@@ -191,7 +196,8 @@ procSuite "Waku-rln-relay":
 
     # register the rln-relay peer to the membership contract
     let is_successful = await rlnPeer.register()
-    check: is_successful
+    check: 
+      is_successful
 
   asyncTest "mounting waku rln-relay":
     # preparation ------------------------------
@@ -214,7 +220,8 @@ procSuite "Waku-rln-relay":
 
     # create current peer's pk
     var rlnInstance = createRLNInstance()
-    check rlnInstance.isOk == true
+    check:
+      rlnInstance.isOk == true
     var rln = rlnInstance.value
     # generate a key pair
     var keypair = rln.membershipKeyGen()
@@ -257,7 +264,8 @@ procSuite "Waku-rln-relay":
     let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
     debug "calculated root ", calculatedRoot
 
-    check expectedRoot == calculatedRoot
+    check:
+      expectedRoot == calculatedRoot
 
     await node.stop()
 

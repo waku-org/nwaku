@@ -28,7 +28,8 @@ procSuite "Waku rln relay":
     # create a group of 100 membership keys
     let
       (groupKeys, root) = createMembershipList(100)
-    check groupKeys.len == 100
+    check:
+       groupKeys.len == 100
     let
       # convert the keys to MembershipKeyPair structs
       groupKeyPairs = groupKeys.toMembershipKeyPairs()
@@ -58,7 +59,8 @@ procSuite "Waku rln relay":
     # this part checks whether the Merkle tree is constructed correctly inside the mountRlnRelay proc
     # this check is done by comparing the tree root resulted from mountRlnRelay i.e., calculatedRoot
     # against the root which is the expected root
-    check calculatedRoot == root
+    check:
+      calculatedRoot == root
 
     await node.stop()
 
@@ -151,7 +153,8 @@ suite "Waku rln relay":
     let rootHex2 = rootValue2[].toHex
 
     # the two roots must be identical
-    check rootHex1 == rootHex2
+    check:
+      rootHex1 == rootHex2
   test "getMerkleRoot utils":
     # create an RLN instance which also includes an empty Merkle tree
     var rlnInstance = createRLNInstance()
@@ -160,16 +163,19 @@ suite "Waku rln relay":
 
     # read the Merkle Tree root
     var root1 = getMerkleRoot(rlnInstance.value())
-    check root1.isOk
+    check:
+      root1.isOk
     let rootHex1 = root1.value().toHex
 
     # read the Merkle Tree root
     var root2 = getMerkleRoot(rlnInstance.value())
-    check root2.isOk
+    check:
+      root2.isOk
     let rootHex2 = root2.value().toHex
 
     # the two roots must be identical
-    check rootHex1 == rootHex2
+    check:
+      rootHex1 == rootHex2
 
   test "update_next_member Nim Wrapper":
     # create an RLN instance which also includes an empty Merkle tree
@@ -179,7 +185,8 @@ suite "Waku rln relay":
 
     # generate a key pair
     var keypair = membershipKeyGen(rlnInstance.value)
-    check keypair.isSome()
+    check:
+      keypair.isSome()
     var pkBuffer = toBuffer(keypair.get().idCommitment)
     let pkBufferPtr = addr pkBuffer
 
@@ -197,7 +204,8 @@ suite "Waku rln relay":
     # delete the first member
     var deleted_member_index = MembershipIndex(0)
     let deletion_success = delete_member(rlnInstance.value, deleted_member_index)
-    check deletion_success
+    check:
+      deletion_success
 
   test "insertMember rln utils":
     # create an RLN instance which also includes an empty Merkle tree
@@ -207,7 +215,8 @@ suite "Waku rln relay":
     var rln = rlnInstance.value
     # generate a key pair
     var keypair = rln.membershipKeyGen()
-    check keypair.isSome()
+    check:
+      keypair.isSome()
     check:
       rln.insertMember(keypair.get().idCommitment)
 
@@ -243,7 +252,8 @@ suite "Waku rln relay":
 
     # add the member to the tree
     var member_is_added = update_next_member(rlnInstance.value, pkBufferPtr)
-    check member_is_added
+    check:
+      member_is_added
 
     # read the Merkle Tree root after insertion
     var
@@ -257,7 +267,8 @@ suite "Waku rln relay":
     # delete the first member
     var deleted_member_index = MembershipIndex(0)
     let deletion_success = delete_member(rlnInstance.value, deleted_member_index)
-    check deletion_success
+    check:
+      deletion_success
 
     # read the Merkle Tree root after the deletion
     var
@@ -285,7 +296,8 @@ suite "Waku rln relay":
 
     ## The initial root of the tree (empty tree) must be identical to
     ## the root of the tree after one insertion followed by a deletion
-    check rootHex1 == rootHex3
+    check:
+      rootHex1 == rootHex3
   test "Merkle tree consistency check between deletion and insertion using rln utils":
     # create an RLN instance
     var rlnInstance = createRLNInstance()
@@ -295,29 +307,35 @@ suite "Waku rln relay":
 
     # read the Merkle Tree root
     var root1 = rln.getMerkleRoot()
-    check root1.isOk
+    check:
+      root1.isOk
     let rootHex1 = root1.value().toHex()
 
     # generate a key pair
     var keypair = rln.membershipKeyGen()
-    check keypair.isSome()
+    check:
+      keypair.isSome()
     let member_inserted = rln.insertMember(keypair.get().idCommitment)
-    check member_inserted
+    check:
+      member_inserted
 
     # read the Merkle Tree root after insertion
     var root2 = rln.getMerkleRoot()
-    check root2.isOk
+    check:
+      root2.isOk
     let rootHex2 = root2.value().toHex()
 
 
     # delete the first member
     var deleted_member_index = MembershipIndex(0)
     let deletion_success = rln.removeMember(deleted_member_index)
-    check deletion_success
+    check:
+      deletion_success
 
     # read the Merkle Tree root after the deletion
     var root3 = rln.getMerkleRoot()
-    check root3.isOk
+    check:
+      root3.isOk
     let rootHex3 = root3.value().toHex()
 
 
@@ -326,11 +344,13 @@ suite "Waku rln relay":
     debug "The root after deletion", rootHex3
 
     # the root must change after the insertion
-    check not(rootHex1 == rootHex2)
+    check:
+      not(rootHex1 == rootHex2)
 
     ## The initial root of the tree (empty tree) must be identical to
     ## the root of the tree after one insertion followed by a deletion
-    check rootHex1 == rootHex3
+    check:
+      rootHex1 == rootHex3
 
   test "hash Nim Wrappers":
     # create an RLN instance
@@ -349,7 +369,8 @@ suite "Waku rln relay":
 
     let hashSuccess = hash(rlnInstance.value, addr hashInputBuffer,
         addr outputBuffer)
-    check hashSuccess
+    check:
+      hashSuccess
     let outputArr = cast[ptr array[32, byte]](outputBuffer.`ptr`)[]
     check:
       "efb8ac39dc22eaf377fe85b405b99ba78dbc2f3f32494add4501741df946bd1d" ==
@@ -440,7 +461,8 @@ suite "Waku rln relay":
 
   test "test proofVerify and proofGen for a valid proof":
     var rlnInstance = createRLNInstance()
-    check rlnInstance.isOk
+    check:
+      rlnInstance.isOk
     var rln = rlnInstance.value
 
     let
@@ -460,7 +482,8 @@ suite "Waku rln relay":
         let memberKeys = rln.membershipKeyGen()
         member_is_added = rln.insertMember(memberKeys.get().idCommitment)
       # check the member is added
-      check member_is_added
+      check:
+        member_is_added
 
     # prepare the message
     let messageBytes = "Hello".toBytes()
@@ -474,13 +497,15 @@ suite "Waku rln relay":
                                 memKeys = memKeys,
                                 memIndex = MembershipIndex(index),
                                 epoch = epoch)
-    check proofRes.isOk()
+    check:
+      proofRes.isOk()
     let proof = proofRes.value
 
     # verify the proof
     let verified = rln.proofVerify(data = messageBytes,
                                     proof = proof)
-    check verified == true
+    check:
+      verified == true
 
   test "test proofVerify and proofGen for an invalid proof":
     var rlnInstance = createRLNInstance()
@@ -505,7 +530,8 @@ suite "Waku rln relay":
         let memberKeys = rln.membershipKeyGen()
         member_is_added = rln.insertMember(memberKeys.get().idCommitment)
       # check the member is added
-      check member_is_added
+      check:
+        member_is_added
 
     # prepare the message
     let messageBytes = "Hello".toBytes()
@@ -521,20 +547,23 @@ suite "Waku rln relay":
                                 memKeys = memKeys,
                                 memIndex = MembershipIndex(badIndex),
                                 epoch = epoch)
-    check proofRes.isOk()
+    check:
+      proofRes.isOk()
     let proof = proofRes.value
 
     # verify the proof (should not be verified)
     let verified = rln.proofVerify(data = messageBytes,
                                  proof = proof)
-    check verified == false
+    check:
+      verified == false
   test "toEpoch and fromEpoch consistency check":
     # check edge cases
     let
       e = uint64.high # rln epoch
       epoch = e.toEpoch()
       decoded = epoch.fromEpoch()
-    check e == decoded
+    check:
+      e == decoded
     debug "encoded and decode time", time = time, epoch = epoch,
         decodedTime = decodedTime
 
@@ -545,8 +574,9 @@ suite "Waku rln relay":
       time2 = uint64.high - 1
       epoch1 = time1.toEpoch()
       epoch2 = time2.toEpoch()
-    check diff(epoch1, epoch2) == int64(1)
-    check diff(epoch2, epoch1) == int64(-1)
+    check:
+      diff(epoch1, epoch2) == int64(1)
+      diff(epoch2, epoch1) == int64(-1)
 
   test "updateLog and hasDuplicate tests":
     let
