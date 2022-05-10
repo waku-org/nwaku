@@ -669,7 +669,7 @@ suite "Waku rln relay":
 
 
     check:
-      msg_Validate1 == MessageValidationResult.Valid
+      msgValidate1 == MessageValidationResult.Valid
       msgValidate2 == MessageValidationResult.Spam
       msgValidate3 == MessageValidationResult.Valid
       msgValidate4 == MessageValidationResult.Invalid
