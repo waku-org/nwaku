@@ -559,13 +559,13 @@ suite "Waku rln relay":
   test "toEpoch and fromEpoch consistency check":
     # check edge cases
     let
-      e = uint64.high # rln epoch
-      epoch = e.toEpoch()
-      decoded = epoch.fromEpoch()
+      epoch = uint64.high # rln epoch
+      epochBytes = epoch.toEpoch()
+      decodedEpoch = epochBytes.fromEpoch()
     check:
-      e == decoded
-    debug "encoded and decode time", time = time, epoch = epoch,
-        decodedTime = decodedTime
+      epoch == decodedEpoch
+    debug "encoded and decode time", epoch = epoch, epochBytes = epochBytes,
+      decodedEpoch = decodedEpoch
 
   test "Epoch comparison":
     # check edge cases
