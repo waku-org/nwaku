@@ -27,6 +27,8 @@ import
 
 when defined(rln):
   import ./v2/test_waku_rln_relay
+  when defined(onchain_rln):
+    import ./v2/test_waku_rln_relay_onchain
 
 
 # TODO Only enable this once swap module is integrated more nicely as a dependency, i.e. as submodule with CI etc
