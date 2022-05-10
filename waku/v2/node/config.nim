@@ -16,8 +16,6 @@ export
   confTomlNet
    
 type
-  PrivateKey = crypto.PrivateKey # confutils does not allow types qualified by module names anymore
-
   WakuNodeConf* = object
     ## General node config
 
@@ -33,7 +31,7 @@ type
     nodekey* {.
       desc: "P2P node private key as 64 char hex string.",
       defaultValue: crypto.PrivateKey.random(Secp256k1, keys.newRng()[]).tryGet()
-      name: "nodekey" }: PrivateKey # this is crypto.PrivateKey
+      name: "nodekey" }: crypto.PrivateKey
 
     listenAddress* {.
       defaultValue: defaultListenAddress(config)

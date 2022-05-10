@@ -9,8 +9,6 @@ import
   ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_types,
   ../../waku/v2/protocol/waku_message
 type
-  PrivateKey = crypto.PrivateKey # confutils does not allow types qualified by module names anymore
-
   Fleet* =  enum
     none
     prod
@@ -27,7 +25,7 @@ type
     nodekey* {.
       desc: "P2P node private key as 64 char hex string.",
       defaultValue: crypto.PrivateKey.random(Secp256k1, keys.newRng()[]).tryGet()
-      name: "nodekey" }: PrivateKey
+      name: "nodekey" }: crypto.PrivateKey
 
     listenAddress* {.
       defaultValue: defaultListenAddress(config)
