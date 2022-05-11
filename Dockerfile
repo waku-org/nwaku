@@ -2,7 +2,7 @@
 
 FROM alpine:3.15 AS nim-build
 
-ARG NIM_PARAMS
+ARG NIMFLAGS
 ARG MAKE_TARGET=wakunode2
 ARG RLN=true
 
@@ -19,7 +19,7 @@ RUN git submodule update --init --recursive
 RUN make -j$(nproc) deps
 
 # Build the final node binary
-RUN make -j$(nproc) $MAKE_TARGET NIM_PARAMS="$NIM_PARAMS" RLN="$RLN"
+RUN make -j$(nproc) $MAKE_TARGET NIMFLAGS="$NIMFLAGS" RLN="$RLN"
 
 # ACTUAL IMAGE -------------------------------------------------------
 
