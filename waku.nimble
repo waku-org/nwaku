@@ -5,7 +5,6 @@ version       = "0.1.0"
 author        = "Status Research & Development GmbH"
 description   = "Waku, Private P2P Messaging for Resource-Restricted Devices"
 license       = "MIT or Apache License 2.0"
-srcDir        = "src"
 #bin           = @["build/waku"]
 
 ### Dependencies
