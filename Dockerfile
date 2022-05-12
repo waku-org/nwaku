@@ -16,11 +16,10 @@ COPY . .
 RUN git submodule update --init --recursive
 
 # Slowest build step for the sake of caching layers
-RUN make -j$(nproc) deps
+RUN make -j$(nproc) deps RLN="$RLN"
 
 # Build the final node binary
 RUN make -j$(nproc) $MAKE_TARGET NIMFLAGS="$NIMFLAGS" RLN="$RLN"
-
 # ACTUAL IMAGE -------------------------------------------------------
 
 FROM alpine:3.15
@@ -46,6 +45,7 @@ COPY --from=nim-build /app/build/$MAKE_TARGET /usr/local/bin/
 
 # If rln enabled: fix for 'Error loading shared library vendor/rln/target/debug/librln.so: No such file or directory'
 COPY --from=nim-build /app/vendor/rln/target/debug/librln.so vendor/rln/target/debug/librln.so
+COPY --from=nim-build /app/waku/v2/protocol/waku_rln_relay/parameters.key waku/v2/protocol/waku_rln_relay/parameters.key
 
 # Copy migration scripts for DB upgrades
 COPY --from=nim-build /app/waku/v2/node/storage/migration/migrations_scripts/ /app/waku/v2/node/storage/migration/migrations_scripts/
