@@ -7,16 +7,12 @@ import
   ../protocol/waku_message,
   ../protocol/waku_noise/noise
 
-import libp2p/crypto/[curve25519]
-
-
 export whisper_types, keys, options
 
 type
   KeyKind* = enum
     Symmetric
     Asymmetric
-    ChaChaPolyEncryption
     None
 
   KeyInfo* = object
@@ -25,8 +21,6 @@ type
       symKey*: SymKey
     of Asymmetric:
       privKey*: PrivateKey
-    of ChaChaPolyEncryption:
-      cs*: ChaChaPolyCipherState
     of None:
       discard
 
@@ -86,27 +80,34 @@ proc encode*(payload: Payload, version: uint32, rng: var BrHmacDrbgContext):
     return err("Unsupported WakuMessage version")
 
 
-proc decodePayloadV2*(message: WakuMessage, keyInfo: KeyInfo):
-    WakuResult[PayloadV2] =
+# Decodes a WakuMessage to a PayloadV2
+# Currently, this is just a wrapper over deserializePayloadV2 and encryption/decryption is done on top (no KeyInfo)
+proc decodePayloadV2*(message: WakuMessage): WakuResult[PayloadV2] 
+  {.raises: [Defect, NoiseMalformedHandshake, NoisePublicKeyError].} =
+  # We check message version (only 2 is supported in this proc)
   case message.version
   of 2:
-    case keyInfo.kind
-    of ChaChaPolyEncryption:
-      let decoded = decodeV2(message.payload)#, keyInfo.cs)
-      if decoded.isSome():
-        return ok(decoded.get())
-      else:
-        return err("Couldn't decrypt using ChaChaPoly Cipher State")
+    # We attempt to decode the WakuMessage payload
+    let deserializedPayload2 = deserializePayloadV2(message.payload)
+    if deserializedPayload2.isOk():
+      return ok(deserializedPayload2.get())
     else:
-      discard
+      return err("Failed to decode WakuMessage")
   else:
-    return err("Key info doesn't match v2 payloads")
+    return err("Wrong message version while decoding payload")
 
 
-proc encodePayloadV2*(payload: PayloadV2):
-    WakuResult[seq[byte]] =
-  let encoded = encodeV2(payload)
-  if encoded.isSome():
-    return ok(encoded.get())
-  else:
-    return err("Couldn't encode the payload")
+# Encodes a PayloadV2 to a WakuMessage
+# Currently, this is just a wrapper over serializePayloadV2 and encryption/decryption is done on top (no KeyInfo)
+proc encodePayloadV2*(payload2: PayloadV2): WakuResult[WakuMessage] 
+  {.raises: [Defect, NoiseMalformedHandshake, NoisePublicKeyError].} =
+
+  # We attempt to encode the PayloadV2
+  let serializedPayload2 = serializePayloadV2(payload2)
+  if not serializedPayload2.isOk():
+    return err("Failed to encode PayloadV2")
+
+  # If successful, we create and return a WakuMessage 
+  let msg = WakuMessage(payload: serializedPayload2.get(), version: 2)
+  
+  return ok(msg)

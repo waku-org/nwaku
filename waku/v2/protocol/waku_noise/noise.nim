@@ -2,71 +2,88 @@
 ## See spec for more details:
 ## https://github.com/vacp2p/rfc/tree/master/content/docs/rfcs/35
 ##
-## Implementation partially readapted from noise-libp2p:
+## Implementation partially inspired by noise-libp2p:
 ## https://github.com/status-im/nim-libp2p/blob/master/libp2p/protocols/secure/noise.nim
 
 {.push raises: [Defect].}
 
-import std/[oids, options, math, tables]
+import std/[oids, options, strutils, tables]
 import chronos
 import chronicles
 import bearssl
-import strutils
-import stew/[endians2, byteutils]
+import stew/[results, endians2, byteutils]
 import nimcrypto/[utils, sha2, hmac]
 
-import libp2p/stream/[connection, streamseq]
-import libp2p/peerid
-import libp2p/peerinfo
-import libp2p/protobuf/minprotobuf
 import libp2p/utility
 import libp2p/errors
 import libp2p/crypto/[crypto, chacha20poly1305, curve25519, hkdf]
 import libp2p/protocols/secure/secure
 
 
-when defined(libp2p_dump):
-  import libp2p/debugutils
-
 logScope:
-  topics = "nim-waku noise"
+  topics = "wakunoise"
+
+#################################################################
+
+# Constants and data structures
 
 const
-  # Empty is a special value which indicates k has not yet been initialized.
-  EmptyKey = default(ChaChaPolyKey)
-  NonceMax = uint64.high - 1 # max is reserved
-  NoiseSize = 32
-  MaxPlainSize = int(uint16.high - NoiseSize - ChaChaPolyTag.len)
-
+  # EmptyKey represents a non-initialized ChaChaPolyKey
+  EmptyKey* = default(ChaChaPolyKey)
+  # The maximum ChaChaPoly allowed nonce in Noise Handshakes
+  NonceMax = uint64.high - 1
 
 type
-  KeyPair* = object
-    privateKey: Curve25519Key
-    publicKey*: Curve25519Key
 
+  #################################
+  # Elliptic Curve arithemtic
+  #################################
+
+  # Default underlying elliptic curve arithmetic (useful for switching to multiple ECs)
+  # Current default is Curve25519
+  EllipticCurve = Curve25519
+  EllipticCurveKey = Curve25519Key
+
+  # An EllipticCurveKey (public, private) key pair
+  KeyPair* = object
+    privateKey: EllipticCurveKey
+    publicKey: EllipticCurveKey
+
+  #################################
+  # Noise Public Keys
+  #################################
+  
+  # A Noise public key is a public key exchanged during Noise handshakes (no private part)
+  # This follows https://rfc.vac.dev/spec/35/#public-keys-serialization
+  # pk contains the X coordinate of the public key, if unencrypted (this implies flag = 0)
+  # or the encryption of the X coordinate concatenated with the authorization tag, if encrypted (this implies flag = 1)
+  # Note: besides encryption, flag can be used to distinguish among multiple supported Elliptic Curves
   NoisePublicKey* = object
     flag: uint8
     pk: seq[byte]
 
+  #################################
+  # ChaChaPoly Encryption
+  #################################
+
+  # A ChaChaPoly ciphertext (data) + authorization tag (tag)
   ChaChaPolyCiphertext* = object
-    data: seq[byte]
-    tag: ChaChaPolyTag
+    data*: seq[byte]
+    tag*: ChaChaPolyTag
 
+  # A ChaChaPoly Cipher State containing key (k), nonce (nonce) and associated data (ad)
   ChaChaPolyCipherState* = object
-    k*: ChaChaPolyKey
-    nonce*: ChaChaPolyNonce
-    ad*: seq[byte]
+    k: ChaChaPolyKey
+    nonce: ChaChaPolyNonce
+    ad: seq[byte]
 
-  # Waku Payload
+  #################################
+  # Noise handshake patterns
+  #################################
 
-  PayloadV2* = object
-    protocol_id: uint8
-    handshake_message: seq[NoisePublicKey]
-    transport_message: seq[byte]
-
-  #Noise Handshakes
-
-  NoiseTokens* = enum
+  # The Noise tokens appearing in Noise (pre)message patterns 
+  # as in http://www.noiseprotocol.org/noise.html#handshake-pattern-basics
+  NoiseTokens = enum
     T_e = "e"
     T_s = "s"
     T_es = "es"
@@ -75,106 +92,152 @@ type
     T_ss = "se"
     T_psk = "psk"
 
+  # The direction of a (pre)message pattern in canonical form (i.e. Alice-initiated form)
+  # as in http://www.noiseprotocol.org/noise.html#alice-and-bob
   MessageDirection* = enum
     D_r = "->"
     D_l = "<-"
 
+  # The pre message pattern consisting of a message direction and some Noise tokens, if any.
+  # (if non empty, only tokens e and s are allowed: http://www.noiseprotocol.org/noise.html#handshake-pattern-basics)
   PreMessagePattern* = object
     direction: MessageDirection
     tokens: seq[NoiseTokens]
 
+  # The message pattern consisting of a message direction and some Noise tokens
+  # All Noise tokens are allowed
   MessagePattern* = object
     direction: MessageDirection
     tokens: seq[NoiseTokens]
 
+  # The handshake pattern object. It stores the handshake protocol name, the handshake pre message patterns and the handshake message patterns
   HandshakePattern* = object
     name*: string
-    pre_message_patterns*: seq[PreMessagePattern]
-    message_patterns*: seq[MessagePattern]
+    preMessagePatterns*: seq[PreMessagePattern]
+    messagePatterns*: seq[MessagePattern]
 
-  #Noise states
+  #################################
+  # Noise state machine
+  #################################
 
-  # https://noiseprotocol.org/noise.html#the-cipherstate-object
+  # The Cipher State as in https://noiseprotocol.org/noise.html#the-cipherstate-object
+  # Contains an encryption key k and a nonce n (used in Noise as a counter)
   CipherState* = object
     k: ChaChaPolyKey
     n: uint64
 
-  # https://noiseprotocol.org/noise.html#the-symmetricstate-object
+  # The Symmetric State as in https://noiseprotocol.org/noise.html#the-symmetricstate-object
+  # Contains a Cipher State cs, the chaining key ck and the handshake hash value h
   SymmetricState* = object
     cs: CipherState
     ck: ChaChaPolyKey
     h: MDigest[256]
 
-  # https://noiseprotocol.org/noise.html#the-handshakestate-object
+  # The Handshake State as in https://noiseprotocol.org/noise.html#the-handshakestate-object
+  # Contains 
+  #   - the local and remote ephemeral/static keys e,s,re,rs (if any)
+  #   - the initiator flag (true if the user creating the state is the handshake initiator, false otherwise)
+  #   - the handshakePattern (containing the handshake protocol name, and (pre)message patterns)
+  # This object is futher extended from specifications by storing:
+  #   - a message pattern index msgPatternIdx indicating the next handshake message pattern to process
+  #   - the user's preshared psk, if any
   HandshakeState = object
     s: KeyPair
     e: KeyPair
-    rs: Curve25519Key
-    re: Curve25519Key
+    rs: EllipticCurveKey
+    re: EllipticCurveKey
     ss: SymmetricState
     initiator: bool
-    handshake_pattern: HandshakePattern
-    msg_pattern_idx: uint8
+    handshakePattern: HandshakePattern
+    msgPatternIdx: uint8
     psk: seq[byte]
 
+  # While processing messages patterns, users either:
+  # - read (decrypt) a the other party's (encrypted) transport message
+  # - write (encrypt) a message, sent through a PayloadV2
+  # These two intermediate results are stored in the HandshakeStepResult data structure
   HandshakeStepResult* = object
     payload2*: PayloadV2
-    transport_message*: seq[byte]
+    transportMessage*: seq[byte]
 
+  # When a handshake is complete, the HandhshakeResult will contain the two 
+  # Cipher States used to encrypt/decrypt outbound/inbound messages
+  # The recipient static key rs and handshake hash values h are stored as well
   HandshakeResult* = object
-    cs_write: CipherState
-    cs_read: CipherState
+    csWrite: CipherState
+    csRead: CipherState
     rs: Curve25519Key
     h: MDigest[256] #The handshake state, useful for channel binding
 
-  NoiseState* = object
-    hs: HandshakeState
-    hr: HandshakeResult
+  #################################
+  # Waku Payload V2
+  #################################
+
+  # PayloadV2 defines an object for Waku payloads with version 2 as in
+  # https://rfc.vac.dev/spec/35/#public-keys-serialization
+  # It contains a protocol ID field, the handshake message (for Noise handshakes) and 
+  # a transport message (for Noise handshakes and ChaChaPoly encryptions)
+  PayloadV2* = object
+    protocolId: uint8
+    handshakeMessage: seq[NoisePublicKey]
+    transportMessage: seq[byte]
+
+  #################################
+  # Some useful error types
+  #################################
 
   NoiseError* = object of LPError
   NoiseHandshakeError* = object of NoiseError
+  NoiseEmptyChaChaPolyInput* = object of NoiseError
   NoiseDecryptTagError* = object of NoiseError
   NoiseNonceMaxError* = object of NoiseError
   NoisePublicKeyError* = object of NoiseError
   NoiseMalformedHandshake* = object of NoiseError
 
 
-# Supported Noise Handshake Patterns
+#################################
+# Constants (supported protocols)
+#################################
 const
+
+  # The empty pre message patterns
   EmptyPreMessagePattern: seq[PreMessagePattern] = @[]
 
+  # Supported Noise handshake patterns as defined in https://rfc.vac.dev/spec/35/#specification
   NoiseHandshakePatterns*  = {
     "K1K1":   HandshakePattern(name: "Noise_K1K1_25519_ChaChaPoly_SHA256",
-                               pre_message_patterns: @[PreMessagePattern(direction: D_r, tokens: @[T_s]),
-                                                       PreMessagePattern(direction: D_l, tokens: @[T_s])],
-                               message_patterns:     @[   MessagePattern(direction: D_r, tokens: @[T_e]),
-                                                          MessagePattern(direction: D_l, tokens: @[T_e, T_ee, T_es]),
-                                                          MessagePattern(direction: D_r, tokens: @[T_se])]
+                               preMessagePatterns: @[PreMessagePattern(direction: D_r, tokens: @[T_s]),
+                                                     PreMessagePattern(direction: D_l, tokens: @[T_s])],
+                               messagePatterns:    @[   MessagePattern(direction: D_r, tokens: @[T_e]),
+                                                        MessagePattern(direction: D_l, tokens: @[T_e, T_ee, T_es]),
+                                                        MessagePattern(direction: D_r, tokens: @[T_se])]
                                ),
 
     "XK1":    HandshakePattern(name: "Noise_XK1_25519_ChaChaPoly_SHA256",
-                               pre_message_patterns: @[PreMessagePattern(direction: D_l, tokens: @[T_s])], 
-                               message_patterns:     @[   MessagePattern(direction: D_r, tokens: @[T_e]),
-                                                          MessagePattern(direction: D_l, tokens: @[T_e, T_ee, T_es]),
-                                                          MessagePattern(direction: D_r, tokens: @[T_s, T_se])]
+                               preMessagePatterns: @[PreMessagePattern(direction: D_l, tokens: @[T_s])], 
+                               messagePatterns:    @[   MessagePattern(direction: D_r, tokens: @[T_e]),
+                                                        MessagePattern(direction: D_l, tokens: @[T_e, T_ee, T_es]),
+                                                        MessagePattern(direction: D_r, tokens: @[T_s, T_se])]
                               ),
 
     "XX":     HandshakePattern(name: "Noise_XX_25519_ChaChaPoly_SHA256",
-                               pre_message_patterns: EmptyPreMessagePattern, 
-                               message_patterns:     @[MessagePattern(direction: D_r, tokens: @[T_e]),
-                                                       MessagePattern(direction: D_l, tokens: @[T_e, T_ee, T_s, T_es]),
-                                                       MessagePattern(direction: D_r, tokens: @[T_s, T_se])]
+                               preMessagePatterns: EmptyPreMessagePattern, 
+                               messagePatterns:    @[   MessagePattern(direction: D_r, tokens: @[T_e]),
+                                                        MessagePattern(direction: D_l, tokens: @[T_e, T_ee, T_s, T_es]),
+                                                        MessagePattern(direction: D_r, tokens: @[T_s, T_se])]
                               ),
 
     "XXpsk0": HandshakePattern(name: "Noise_XXpsk0_25519_ChaChaPoly_SHA256",
-                               pre_message_patterns: EmptyPreMessagePattern, 
-                               message_patterns:     @[MessagePattern(direction: D_r, tokens: @[T_psk, T_e]),
-                                                       MessagePattern(direction: D_l, tokens: @[T_e, T_ee, T_s, T_es]),
-                                                       MessagePattern(direction: D_r, tokens: @[T_s, T_se])]
+                               preMessagePatterns: EmptyPreMessagePattern, 
+                               messagePatterns:     @[  MessagePattern(direction: D_r, tokens: @[T_psk, T_e]),
+                                                        MessagePattern(direction: D_l, tokens: @[T_e, T_ee, T_s, T_es]),
+                                                        MessagePattern(direction: D_r, tokens: @[T_s, T_se])]
                               )
     }.toTable()
 
 
+  # Supported Protocol ID for PayloadV2 objects
+  # Protocol IDs are defined according to https://rfc.vac.dev/spec/35/#specification
   PayloadV2ProtocolIDs*  = {
 
     "":                                      0.uint8,
@@ -187,17 +250,43 @@ const
     }.toTable()
 
 
-# Utility
+#################################################################
 
-#Printing Handshake Patterns
+#################################
+# Utilities
+#################################
+
+# Generates random byte sequences of given size
+proc randomSeqByte*(rng: var BrHmacDrbgContext, size: int): seq[byte] =
+  var output = newSeq[byte](size.uint32)
+  brHmacDrbgGenerate(rng, output)
+  return output
+
+# Generate random (public, private) Elliptic Curve key pairs
+proc genKeyPair*(rng: var BrHmacDrbgContext): KeyPair =
+  var keyPair: KeyPair
+  keyPair.privateKey = EllipticCurveKey.random(rng)
+  keyPair.publicKey = keyPair.privateKey.public()
+  return keyPair
+
+# Gets private key from a key pair
+proc getPrivateKey*(keypair: KeyPair): EllipticCurveKey =
+  return keypair.privateKey
+
+# Gets public key from a key pair
+proc getPublicKey*(keypair: KeyPair): EllipticCurveKey =
+  return keypair.publicKey
+
+# Prints Handshake Patterns using Noise pattern layout
 proc print*(self: HandshakePattern) 
    {.raises: [IOError, NoiseMalformedHandshake].}=
   try:
     if self.name != "":
-      echo self.name, ":"
+      stdout.write self.name, ":\n"
+      stdout.flushFile()
     #We iterate over pre message patterns, if any
-    if self.pre_message_patterns != EmptyPreMessagePattern:
-      for pattern in self.pre_message_patterns:
+    if self.preMessagePatterns != EmptyPreMessagePattern:
+      for pattern in self.preMessagePatterns:
           stdout.write "  ", pattern.direction
           var first = true
           for token in pattern.tokens:
@@ -211,7 +300,7 @@ proc print*(self: HandshakePattern)
       stdout.write "    ...\n"
       stdout.flushFile()
     #We iterate over message patterns
-    for pattern in self.message_patterns:
+    for pattern in self.messagePatterns:
       stdout.write "  ", pattern.direction
       var first = true
       for token in pattern.tokens:
@@ -225,361 +314,607 @@ proc print*(self: HandshakePattern)
   except:
     raise newException(NoiseMalformedHandshake, "HandshakePattern malformed")
 
+# Hashes a Noise protocol name using SHA256
+proc hashProtocol(protocolName: string): MDigest[256] =
 
-proc genKeyPair*(rng: var BrHmacDrbgContext): KeyPair =
-  result.privateKey = Curve25519Key.random(rng)
-  result.publicKey = result.privateKey.public()
+  # The output hash value
+  var hash: MDigest[256]
 
-proc hashProtocol(name: string): MDigest[256] =
+  # From Noise specification: Section 5.2 
+  # http://www.noiseprotocol.org/noise.html#the-symmetricstate-object
   # If protocol_name is less than or equal to HASHLEN bytes in length,
   # sets h equal to protocol_name with zero bytes appended to make HASHLEN bytes.
   # Otherwise sets h = HASH(protocol_name).
-
-  if name.len <= 32:
-    result.data[0..name.high] = name.toBytes
+  if protocolName.len <= 32:
+    hash.data[0..protocolName.high] = protocolName.toBytes
   else:
-    result = sha256.digest(name)
+    hash = sha256.digest(protocolName)
 
-proc dh(priv: Curve25519Key, pub: Curve25519Key): Curve25519Key =
-  result = pub
-  Curve25519.mul(result, priv)
+  return hash
 
-proc randomSeqByte*(rng: var BrHmacDrbgContext, size: uint32): seq[byte] =
-  result = newSeq[byte](size)
-  brHmacDrbgGenerate(rng, result)
+# Performs a Diffie-Hellman operation between two elliptic curve keys (one private, one public)
+proc dh*(private: EllipticCurveKey, public: EllipticCurveKey): EllipticCurveKey =
+
+  # The output result of the Diffie-Hellman operation
+  var output: EllipticCurveKey
+
+  # Since the EC multiplication writes the result to the input, we copy the input to the output variable 
+  output = public
+  # We execute the DH operation
+  EllipticCurve.mul(output, private)
+
+  return output
+
 
 #################################################################
 
-# Noise Handshake State Machine
+# Noise state machine primitives
 
-# Cipherstate
+# Overview :
+# - Alice and Bob process (i.e. read and write, based on their role) each token appearing in a handshake pattern, consisting of pre-message and message patterns;
+# - Both users initialize and update according to processed tokens a Handshake State, a Symmetric State and a Cipher State;
+# - A preshared key psk is processed by calling MixKeyAndHash(psk);
+# - When an ephemeral public key e is read or written, the handshake hash value h is updated by calling mixHash(e); If the handshake expects a psk, MixKey(e) is further called
+# - When an encrypted static public key s or a payload message m is read, it is decrypted with decryptAndHash;
+# - When a static public key s or a payload message is writted, it is encrypted with encryptAndHash;
+# - When any Diffie-Hellman token ee, es, se, ss is read or written, the chaining key ck is updated by calling MixKey on the computed secret;
+# - If all tokens are processed, users compute two new Cipher States by calling Split;
+# - The two Cipher States obtained from Split are used to encrypt/decrypt outbound/inbound messages.
 
+#################################
+# Cipher State Primitives
+#################################
+
+# Checks if a Cipher State has an encryption key set
 proc hasKey(cs: CipherState): bool =
-  cs.k != EmptyKey
+  return (cs.k != EmptyKey)
 
-proc encrypt(
-    state: var CipherState,
-    data: var openArray[byte],
-    ad: openArray[byte]): ChaChaPolyTag
-    {.noinit, raises: [Defect, NoiseNonceMaxError].} =
+# Encrypts a plaintext using key material in a Noise Cipher State
+# The CipherState is updated increasing the nonce (used as a counter in Noise) by one
+proc encryptWithAd*(state: var CipherState, ad, plaintext: openArray[byte]): seq[byte]
+  {.raises: [Defect, NoiseNonceMaxError].} =
+  
+  # The output is the concatenation of the ciphertext and authorization tag
+  # We define its length accordingly
+  var ciphertext = newSeqOfCap[byte](plaintext.len + sizeof(ChaChaPolyTag))
+  
+  # Since ChaChaPoly encryption primitive overwrites the input with the output,
+  # we copy the plaintext in the output ciphertext variable and we pass it to encryption
+  ciphertext.add(plaintext)
 
+  # The nonce is read from the input CipherState
+  # By Noise specification the nonce is 4 bytes long out of the 12 bytes supported by ChaChaPoly
   var nonce: ChaChaPolyNonce
   nonce[4..<12] = toBytesLE(state.n)
 
-  ChaChaPoly.encrypt(state.k, nonce, result, data, ad)
+  # We perform encryption and we store the authorization tag
+  var authorizationTag: ChaChaPolyTag
+  ChaChaPoly.encrypt(state.k, nonce, authorizationTag, ciphertext, ad)
 
+  # We append the authorization tag to ciphertext
+  ciphertext.add(authorizationTag)
+
+  # We increase the Cipher state nonce
   inc state.n
+  # If the nonce is greater than the maximum allowed nonce, we raise an exception
   if state.n > NonceMax:
     raise newException(NoiseNonceMaxError, "Noise max nonce value reached")
 
-proc encryptWithAd(state: var CipherState, ad, data: openArray[byte]): seq[byte]
-  {.raises: [Defect, NoiseNonceMaxError].} =
-  result = newSeqOfCap[byte](data.len + sizeof(ChaChaPolyTag))
-  result.add(data)
+  trace "encryptWithAd", authorizationTag = byteutils.toHex(authorizationTag), ciphertext = ciphertext, nonce = state.n - 1
 
-  let tag = encrypt(state, result, ad)
+  return ciphertext
 
-  result.add(tag)
-
-  trace "encryptWithAd",
-    tag = byteutils.toHex(tag), data = result.shortLog, nonce = state.n - 1
-
-proc decryptWithAd(state: var CipherState, ad, data: openArray[byte]): seq[byte]
+# Decrypts a ciphertext using key material in a Noise Cipher State
+# The CipherState is updated increasing the nonce (used as a counter in Noise) by one
+proc decryptWithAd*(state: var CipherState, ad, ciphertext: openArray[byte]): seq[byte]
   {.raises: [Defect, NoiseDecryptTagError, NoiseNonceMaxError].} =
+
+  # We read the authorization appendend at the end of a ciphertext
+  let inputAuthorizationTag = ciphertext.toOpenArray(ciphertext.len - ChaChaPolyTag.len, ciphertext.high).intoChaChaPolyTag
+    
   var
-    tagIn = data.toOpenArray(data.len - ChaChaPolyTag.len, data.high).intoChaChaPolyTag
-    tagOut: ChaChaPolyTag
+    authorizationTag: ChaChaPolyTag
     nonce: ChaChaPolyNonce
+
+  # The nonce is read from the input CipherState
+  # By Noise specification the nonce is 8 bytes long out of the 12 bytes supported by ChaChaPoly
   nonce[4..<12] = toBytesLE(state.n)
-  result = data[0..(data.high - ChaChaPolyTag.len)]
-  ChaChaPoly.decrypt(state.k, nonce, tagOut, result, ad)
-  trace "decryptWithAd", tagIn = tagIn.shortLog, tagOut = tagOut.shortLog, nonce = state.n
-  if tagIn != tagOut:
-    debug "decryptWithAd failed", data = shortLog(data)
+
+  # Since ChaChaPoly decryption primitive overwrites the input with the output,
+  # we copy the ciphertext (authorization tag excluded) in the output plaintext variable and we pass it to decryption  
+  var plaintext = ciphertext[0..(ciphertext.high - ChaChaPolyTag.len)]
+  
+  ChaChaPoly.decrypt(state.k, nonce, authorizationTag, plaintext, ad)
+
+  # We check if the input authorization tag matches the decryption authorization tag
+  if inputAuthorizationTag != authorizationTag:
+    debug "decryptWithAd failed", plaintext = plaintext, ciphertext = ciphertext, inputAuthorizationTag = inputAuthorizationTag, authorizationTag = authorizationTag
     raise newException(NoiseDecryptTagError, "decryptWithAd failed tag authentication.")
+  
+  # We increase the Cipher state nonce
   inc state.n
+  # If the nonce is greater than the maximum allowed nonce, we raise an exception
   if state.n > NonceMax:
     raise newException(NoiseNonceMaxError, "Noise max nonce value reached")
 
-# Symmetricstate
+  trace "decryptWithAd", inputAuthorizationTag = inputAuthorizationTag, authorizationTag = authorizationTag, nonce = state.n
+    
+  return plaintext
 
-proc init*(_: type[SymmetricState], hs_pattern: HandshakePattern): SymmetricState =
-  result.h = hs_pattern.name.hashProtocol
-  result.ck = result.h.data.intoChaChaPolyKey
-  result.cs = CipherState(k: EmptyKey)
+# Sets the nonce of a Cipher State
+proc setNonce*(cs: var CipherState, nonce: uint64) =
+  cs.n = nonce
 
-proc mixKey(ss: var SymmetricState, ikm: openArray[byte]) =
-  var
-    temp_keys: array[2, ChaChaPolyKey]
-  sha256.hkdf(ss.ck, ikm, [], temp_keys)
-  ss.ck = temp_keys[0]
-  ss.cs = CipherState(k: temp_keys[1])
-  trace "mixKey", key = ss.cs.k.shortLog
+# Sets the key of a Cipher State
+proc setCipherStateKey*(cs: var CipherState, key: ChaChaPolyKey) =
+  cs.k = key
 
-proc mixHash(ss: var SymmetricState, data: openArray[byte]) =
+# Generates a random Symmetric Cipher State for test purposes
+proc randomCipherState*(rng: var BrHmacDrbgContext, nonce: uint64 = 0): CipherState =
+  var randomCipherState: CipherState
+  brHmacDrbgGenerate(rng, randomCipherState.k)
+  setNonce(randomCipherState, nonce)
+  return randomCipherState
+
+
+# Gets the key of a Cipher State
+proc getKey*(cs: CipherState): ChaChaPolyKey =
+  return cs.k
+
+# Gets the nonce of a Cipher State
+proc getNonce*(cs: CipherState): uint64 =
+  return cs.n
+
+#################################
+# Symmetric State primitives
+#################################
+
+# Initializes a Symmetric State
+proc init*(_: type[SymmetricState], hsPattern: HandshakePattern): SymmetricState =
+  var ss: SymmetricState
+  # We compute the hash of the protocol name
+  ss.h = hsPattern.name.hashProtocol
+  # We initialize the chaining key ck
+  ss.ck = result.h.data.intoChaChaPolyKey
+  # We initialize the Cipher state
+  ss.cs = CipherState(k: EmptyKey)
+  return ss
+
+# MixKey as per Noise specification http://www.noiseprotocol.org/noise.html#the-symmetricstate-object
+# Updates a Symmetric state chaining key and symmetric state
+proc mixKey*(ss: var SymmetricState, inputKeyMaterial: openArray[byte]) =
+  # We derive two keys using HKDF
+  var tempKeys: array[2, ChaChaPolyKey]
+  sha256.hkdf(ss.ck, inputKeyMaterial, [], tempKeys)
+  # We update ck and the Cipher state's key k using the output of HDKF 
+  ss.ck = tempKeys[0]
+  ss.cs = CipherState(k: tempKeys[1])
+  trace "mixKey", ck = ss.ck, k = ss.cs.k
+
+# MixHash as per Noise specification http://www.noiseprotocol.org/noise.html#the-symmetricstate-object
+# Hashes data into a Symmetric State's handshake hash value h
+proc mixHash*(ss: var SymmetricState, data: openArray[byte]) =
+  # We prepare the hash context
   var ctx: sha256
   ctx.init()
+  # We add the previous handshake hash
   ctx.update(ss.h.data)
+  # We append the input data
   ctx.update(data)
+  # We hash and store the result in the Symmetric State's handshake hash value
   ss.h = ctx.finish()
-  trace "mixHash", hash = ss.h.data.shortLog
+  trace "mixHash", hash = ss.h.data
 
-# We might use this for other handshake patterns/tokens
-proc mixKeyAndHash(ss: var SymmetricState, ikm: openArray[byte]) {.used.} =
-  var
-    temp_keys: array[3, ChaChaPolyKey]
-  sha256.hkdf(ss.ck, ikm, [], temp_keys)
-  ss.ck = temp_keys[0]
-  ss.mixHash(temp_keys[1])
-  ss.cs = CipherState(k: temp_keys[2])
+# mixKeyAndHash as per Noise specification http://www.noiseprotocol.org/noise.html#the-symmetricstate-object
+# Combines MixKey and MixHash
+proc mixKeyAndHash*(ss: var SymmetricState, inputKeyMaterial: openArray[byte]) {.used.} =
+  var tempKeys: array[3, ChaChaPolyKey]
+  # Derives 3 keys using HKDF, the chaining key and the input key material
+  sha256.hkdf(ss.ck, inputKeyMaterial, [], tempKeys)
+  # Sets the chaining key
+  ss.ck = tempKeys[0]
+  # Updates the handshake hash value
+  ss.mixHash(tempKeys[1])
+  # Updates the Cipher state's key
+  # Note for later support of 512 bits hash functions: "If HASHLEN is 64, then truncates tempKeys[2] to 32 bytes."
+  ss.cs = CipherState(k: tempKeys[2])
 
-proc encryptAndHash(ss: var SymmetricState, data: openArray[byte]): seq[byte]
+# EncryptAndHash as per Noise specification http://www.noiseprotocol.org/noise.html#the-symmetricstate-object
+# Combines encryptWithAd and mixHash
+proc encryptAndHash*(ss: var SymmetricState, plaintext: openArray[byte]): seq[byte]
   {.raises: [Defect, NoiseNonceMaxError].} =
-  # according to spec if key is empty leave plaintext
+  # The output ciphertext
+  var ciphertext: seq[byte]
+  # If an encryption key is set in the Symmetric state, we proceed with encryption using the handshake hash value as associated data
   if ss.cs.hasKey:
-    result = ss.cs.encryptWithAd(ss.h.data, data)
+    ciphertext = ss.cs.encryptWithAd(ss.h.data, plaintext)
+  # According to specification, if no key is set return the plaintext
   else:
-    result = @data
-  ss.mixHash(result)
+    ciphertext = @plaintext
+  # We call mixHash over the result
+  ss.mixHash(ciphertext)
+  return ciphertext
 
-proc decryptAndHash(ss: var SymmetricState, data: openArray[byte]): seq[byte]
+# DecryptAndHash as per Noise specification http://www.noiseprotocol.org/noise.html#the-symmetricstate-object
+# Combines decryptWithAd and mixHash
+proc decryptAndHash*(ss: var SymmetricState, ciphertext: openArray[byte]): seq[byte]
   {.raises: [Defect, NoiseDecryptTagError, NoiseNonceMaxError].} =
-  # according to spec if key is empty leave plaintext
-  if ss.cs.hasKey and data.len > ChaChaPolyTag.len:
-    result = ss.cs.decryptWithAd(ss.h.data, data)
+  # The output plaintext
+  var plaintext: seq[byte]
+  # If an encryption key is set in the Symmetric state, we proceed with decryption using the handshake hash value as associated data
+  # Note that the ciphertext must contains an authorization tag, so its length should be greater or equal (in case of empty plaintext) the latter
+  if ss.cs.hasKey and ciphertext.len >= ChaChaPolyTag.len:
+    plaintext = ss.cs.decryptWithAd(ss.h.data, ciphertext)
+  # According to specification, if no key is set return the plaintext
   else:
-    result = @data
-  ss.mixHash(data)
+    plaintext = @ciphertext
+  # According to specification, the ciphertext enters mixHash (and not the plaintext)
+  ss.mixHash(ciphertext)
+  return plaintext
 
-proc split(ss: var SymmetricState): tuple[cs1, cs2: CipherState] =
-  var
-    temp_keys: array[2, ChaChaPolyKey]
-  sha256.hkdf(ss.ck, [], [], temp_keys)
-  return (CipherState(k: temp_keys[0]), CipherState(k: temp_keys[1]))
+# Split as per Noise specification http://www.noiseprotocol.org/noise.html#the-symmetricstate-object
+# Once a handshake is complete, returns two Cipher States to encrypt/decrypt outbound/inbound messages
+proc split*(ss: var SymmetricState): tuple[cs1, cs2: CipherState] =
+  # Derives 2 keys using HKDF and the chaining key
+  var tempKeys: array[2, ChaChaPolyKey]
+  sha256.hkdf(ss.ck, [], [], tempKeys)
+  # Returns a tuple of two Cipher States initialized with the derived keys
+  return (CipherState(k: tempKeys[0]), CipherState(k: tempKeys[1]))
 
+# Gets the chaining key field of a Symmetric State
+proc getChainingKey*(ss: SymmetricState): ChaChaPolyKey =
+  return ss.ck
 
-# Handshake state
+# Gets the handshake hash field of a Symmetric State
+proc getHandshakeHash*(ss: SymmetricState): MDigest[256] =
+  return ss.h
 
-proc init*(_: type[HandshakeState], hs_pattern: HandshakePattern): HandshakeState =
-  # set to true only if startHandshake is called over the handshake state
-  result.initiator = false
-  result.handshake_pattern = hs_pattern
-  result.ss = SymmetricState.init(hs_pattern)
+# Gets the Cipher State field of a Symmetric State
+proc getCipherState*(ss: SymmetricState): CipherState =
+  return ss.cs
 
+#################################
+# Handshake State primitives
+#################################
+
+# Initializes a Handshake State
+proc init*(_: type[HandshakeState], hsPattern: HandshakePattern, psk: seq[byte] = @[]): HandshakeState =
+  # The output Handshake State
+  var hs: HandshakeState
+  # By default the Handshake State initiator flag is set to false
+  # Will be set to true when the user associated to the handshake state starts an handshake
+  hs.initiator = false
+  # We copy the information on the handshake pattern for which the state is initialized (protocol name, handshake pattern, psk)
+  hs.handshakePattern = hsPattern
+  hs.psk = psk
+  # We initialize the Symmetric State
+  hs.ss = SymmetricState.init(hsPattern)
+  return hs
 
 #################################################################
 
+#################################
+# ChaChaPoly Symmetric Cipher
+#################################
 
 # ChaChaPoly encryption
+# It takes a Cipher State (with key, nonce, and associated data) and encrypts a plaintext
+# The cipher state in not changed
 proc encrypt*(
     state: ChaChaPolyCipherState,
     plaintext: openArray[byte]): ChaChaPolyCiphertext
-    {.noinit, raises: [Defect].} =
+    {.noinit, raises: [Defect, NoiseEmptyChaChaPolyInput].} =
+  # If plaintext is empty, we raise an error
+  if plaintext == @[]:
+    raise newException(NoiseEmptyChaChaPolyInput, "Tried to encrypt empty plaintext")
+  var ciphertext: ChaChaPolyCiphertext
+  # Since ChaChaPoly's library "encrypt" primitive directly changes the input plaintext to the ciphertext,
+  # we copy the plaintext into the ciphertext variable and we pass the latter to encrypt
+  ciphertext.data.add plaintext
   #TODO: add padding
-  result.data.add plaintext
-  ChaChaPoly.encrypt(state.k, state.nonce, result.tag, result.data, state.ad)
+  # ChaChaPoly.encrypt takes as input: the key (k), the nonce (nonce), a data structure for storing the computed authorization tag (tag), 
+  # the plaintext (overwritten to ciphertext) (data), the associated data (ad)
+  ChaChaPoly.encrypt(state.k, state.nonce, ciphertext.tag, ciphertext.data, state.ad)
+  return ciphertext
 
+# ChaChaPoly decryption
+# It takes a Cipher State (with key, nonce, and associated data) and decrypts a ciphertext
+# The cipher state is not changed
 proc decrypt*(
     state: ChaChaPolyCipherState, 
     ciphertext: ChaChaPolyCiphertext): seq[byte]
-    {.raises: [Defect, NoiseDecryptTagError].} =
+    {.raises: [Defect, NoiseEmptyChaChaPolyInput, NoiseDecryptTagError].} =
+  # If ciphertext is empty, we raise an error
+  if ciphertext.data == @[]:
+    raise newException(NoiseEmptyChaChaPolyInput, "Tried to decrypt empty ciphertext")
   var
+    # The input authorization tag
     tagIn = ciphertext.tag
+    # The authorization tag computed during decryption
     tagOut: ChaChaPolyTag
-  result = ciphertext.data
-  ChaChaPoly.decrypt(state.k, state.nonce, tagOut, result, state.ad)
+  # Since ChaChaPoly's library "decrypt" primitive directly changes the input ciphertext to the plaintext,
+  # we copy the ciphertext into the plaintext variable and we pass the latter to decrypt
+  var plaintext = ciphertext.data
+  # ChaChaPoly.decrypt takes as input: the key (k), the nonce (nonce), a data structure for storing the computed authorization tag (tag), 
+  # the ciphertext (overwritten to plaintext) (data), the associated data (ad)
+  ChaChaPoly.decrypt(state.k, state.nonce, tagOut, plaintext, state.ad)
   #TODO: add unpadding
-  trace "decrypt", tagIn = tagIn.shortLog, tagOut = tagOut.shortLog, nonce = state.nonce
+  trace "decrypt", tagIn = tagIn, tagOut = tagOut, nonce = state.nonce
+  # We check if the authorization tag computed while decrypting is the same as the input tag
   if tagIn != tagOut:
-    debug "decrypt failed", result = shortLog(result)
+    debug "decrypt failed", plaintext = shortLog(plaintext)
     raise newException(NoiseDecryptTagError, "decrypt tag authentication failed.")
+  return plaintext
 
+# Generates a random ChaChaPolyKey for testing encryption/decryption
+proc randomChaChaPolyKey*(rng: var BrHmacDrbgContext): ChaChaPolyKey =
+  var key: ChaChaPolyKey
+  brHmacDrbgGenerate(rng, key)
+  return key
 
+# Generates a random ChaChaPoly Cipher State for testing encryption/decryption
 proc randomChaChaPolyCipherState*(rng: var BrHmacDrbgContext): ChaChaPolyCipherState =
-  brHmacDrbgGenerate(rng, result.k)
-  brHmacDrbgGenerate(rng, result.nonce)
-  result.ad = newSeq[byte](32)
-  brHmacDrbgGenerate(rng, result.ad)
+  var randomCipherState: ChaChaPolyCipherState
+  randomCipherState.k = randomChaChaPolyKey(rng)
+  brHmacDrbgGenerate(rng, randomCipherState.nonce)
+  randomCipherState.ad = newSeq[byte](32)
+  brHmacDrbgGenerate(rng, randomCipherState.ad)
+  return randomCipherState
 
 
 #################################################################
 
+#################################
+# Noise Public keys 
+#################################
 
-# Public keys serializations/encryption
-
+# Checks equality between two Noise public keys
 proc `==`(k1, k2: NoisePublicKey): bool =
-  result = (k1.flag == k2.flag) and (k1.pk == k2.pk)
+  return (k1.flag == k2.flag) and (k1.pk == k2.pk)
   
+# Converts a public Elliptic Curve key to an unencrypted Noise public key
+proc toNoisePublicKey*(publicKey: EllipticCurveKey): NoisePublicKey =
+  var noisePublicKey: NoisePublicKey
+  noisePublicKey.flag = 0
+  noisePublicKey.pk = getBytes(publicKey)
+  return noisePublicKey
 
-proc keyPairToNoisePublicKey*(keyPair: KeyPair): NoisePublicKey =
-  result.flag = 0
-  result.pk = getBytes(keyPair.publicKey)
-
-
+# Generates a random Noise public key
 proc genNoisePublicKey*(rng: var BrHmacDrbgContext): NoisePublicKey =
+  var noisePublicKey: NoisePublicKey
+  # We generate a random key pair
   let keyPair: KeyPair = genKeyPair(rng)
-  result.flag = 0
-  result.pk = getBytes(keyPair.publicKey)
+  # Since it is unencrypted, flag is 0
+  noisePublicKey.flag = 0
+  # We copy the public X coordinate of the key pair to the output Noise public key
+  noisePublicKey.pk = getBytes(keyPair.publicKey)
+  return noisePublicKey
 
+# Converts a Noise public key to a stream of bytes as in 
+# https://rfc.vac.dev/spec/35/#public-keys-serialization
 proc serializeNoisePublicKey*(noisePublicKey: NoisePublicKey): seq[byte] =
-  result.add noisePublicKey.flag
-  result.add noisePublicKey.pk
+  var serializedNoisePublicKey: seq[byte]
+  # Public key is serialized as (flag || pk)
+  # Note that pk contains the X coordinate of the public key if unencrypted
+  # or the encryption concatenated with the authorization tag if encrypted 
+  serializedNoisePublicKey.add noisePublicKey.flag
+  serializedNoisePublicKey.add noisePublicKey.pk
+  return serializedNoisePublicKey
 
-proc intoNoisePublicKey*(serializedNoisePublicKey: seq[byte]): NoisePublicKey =
-  result.flag = serializedNoisePublicKey[0]
-  assert result.flag == 0 or result.flag == 1
-  result.pk = serializedNoisePublicKey[1..<serializedNoisePublicKey.len]
+# Converts a serialized Noise public key to a NoisePublicKey object as in
+# https://rfc.vac.dev/spec/35/#public-keys-serialization
+proc intoNoisePublicKey*(serializedNoisePublicKey: seq[byte]): NoisePublicKey
+  {.raises: [Defect, NoisePublicKeyError].} =
+  var noisePublicKey: NoisePublicKey
+  # We retrieve the encryption flag
+  noisePublicKey.flag = serializedNoisePublicKey[0]
+  # If not 0 or 1 we raise a new exception
+  if not (noisePublicKey.flag == 0 or noisePublicKey.flag == 1):
+    raise newException(NoisePublicKeyError, "Invalid flag in serialized public key")
+  # We set the remaining sequence to the pk value (this may be an encrypted or not encrypted X coordinate)
+  noisePublicKey.pk = serializedNoisePublicKey[1..<serializedNoisePublicKey.len]
+  return noisePublicKey
 
-proc intoNoisePublicKey*(publicKey: Curve25519Key): NoisePublicKey =
-  result.flag = 0
-  result.pk = getBytes(publicKey)
-
-
-# Public keys encryption/decryption
-
+# Encrypts a Noise public key using a ChaChaPoly Cipher State
 proc encryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePublicKey): NoisePublicKey
-  {.raises: [Defect, NoiseNonceMaxError].} =
+  {.raises: [Defect, NoiseEmptyChaChaPolyInput, NoiseNonceMaxError].} =
+  var encryptedNoisePublicKey: NoisePublicKey
+  # We proceed with encryption only if 
+  # - a key is set in the cipher state 
+  # - the public key is unencrypted
   if cs.k != EmptyKey and noisePublicKey.flag == 0:
-    let enc_pk = encrypt(cs, noisePublicKey.pk)
-    result.flag = 1
-    result.pk = enc_pk.data
-    result.pk.add enc_pk.tag
+    let encPk = encrypt(cs, noisePublicKey.pk)
+    # We set the flag to 1, since encrypted
+    encryptedNoisePublicKey.flag = 1
+    # Authorization tag is appendend to the ciphertext
+    encryptedNoisePublicKey.pk = encPk.data
+    encryptedNoisePublicKey.pk.add encPk.tag
+  # Otherwise we return the public key as it is
   else:
-    result = noisePublicKey
+    encryptedNoisePublicKey = noisePublicKey
+  return encryptedNoisePublicKey
 
-
+# Decrypts a Noise public key using a ChaChaPoly Cipher State
 proc decryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePublicKey): NoisePublicKey
-  {.raises: [Defect, NoiseDecryptTagError].} =
+  {.raises: [Defect, NoiseEmptyChaChaPolyInput, NoiseDecryptTagError].} =
+  var decryptedNoisePublicKey: NoisePublicKey
+  # We proceed with decryption only if 
+  # - a key is set in the cipher state 
+  # - the public key is encrypted
   if cs.k != EmptyKey and noisePublicKey.flag == 1:
-    #let ciphertext = ChaChaPolyCiphertext(data: noisePublicKey.pk, tag: noisePublicKey.pk_auth)
-    let pk_len = noisePublicKey.pk.len - ChaChaPolyTag.len
-    let pk = noisePublicKey.pk[0..<pk_len]
-    let pk_auth = intoChaChaPolyTag(noisePublicKey.pk[pk_len..<pk_len+ChaChaPolyTag.len])
-    let ciphertext = ChaChaPolyCiphertext(data: pk, tag: pk_auth) 
-    result.pk = decrypt(cs, ciphertext)
-    result.flag = 0
+    # Since the pk field would contain an encryption + tag, we retrieve the ciphertext length
+    let pkLen = noisePublicKey.pk.len - ChaChaPolyTag.len
+    # We isolate the ciphertext and the authorization tag
+    let pk = noisePublicKey.pk[0..<pkLen]
+    let pkAuth = intoChaChaPolyTag(noisePublicKey.pk[pkLen..<pkLen+ChaChaPolyTag.len])
+    # We convert it to a ChaChaPolyCiphertext
+    let ciphertext = ChaChaPolyCiphertext(data: pk, tag: pkAuth) 
+    # We run decryption and store its value to a non-encrypted Noise public key (flag = 0)
+    decryptedNoisePublicKey.pk = decrypt(cs, ciphertext)
+    decryptedNoisePublicKey.flag = 0
+  # Otherwise we return the public key as it is
   else:
-    if cs.k == EmptyKey:
-      debug "No key in cipher state."
-    if noisePublicKey.flag == 0:
-      debug "Public key is not encrypted."
-    debug "Public key is left unchanged"
-    result = noisePublicKey
-
-
+    decryptedNoisePublicKey = noisePublicKey
+  return decryptedNoisePublicKey
 
 #################################################################
 
+#################################
+# Payload encoding/decoding procedures
+#################################
 
-# Payload V2 functions
-
+# Checks equality between two PayloadsV2 objects
 proc `==`(p1, p2: PayloadV2): bool =
-  result =  (p1.protocol_id == p2.protocol_id) and 
-            (p1.handshake_message == p2.handshake_message) and 
-            (p1.transport_message == p2.transport_message) 
+  return (p1.protocolId == p2.protocolId) and 
+         (p1.handshakeMessage == p2.handshakeMessage) and 
+         (p1.transportMessage == p2.transportMessage) 
   
 
-
+# Generates a random PayloadV2
 proc randomPayloadV2*(rng: var BrHmacDrbgContext): PayloadV2 =
-  var protocol_id = newSeq[byte](1)
-  brHmacDrbgGenerate(rng, protocol_id)
-  result.protocol_id = protocol_id[0].uint8
-  result.handshake_message = @[genNoisePublicKey(rng), genNoisePublicKey(rng), genNoisePublicKey(rng)]
-  result.transport_message = newSeq[byte](128)
-  brHmacDrbgGenerate(rng, result.transport_message)
+  var payload2: PayloadV2
+  # To generate a random protocol id, we generate a random 1-byte long sequence, and we convert the first element to uint8
+  payload2.protocolId = randomSeqByte(rng, 1)[0].uint8
+  # We set the handshake message to three unencrypted random Noise Public Keys
+  payload2.handshakeMessage = @[genNoisePublicKey(rng), genNoisePublicKey(rng), genNoisePublicKey(rng)]
+  # We set the transport message to a random 128-bytes long sequence
+  payload2.transportMessage = randomSeqByte(rng, 128)
+  return payload2
 
 
-proc encodeV2*(self: PayloadV2): Option[seq[byte]] =
+# Serializes a PayloadV2 object to a byte sequences according to https://rfc.vac.dev/spec/35/.
+# The output serialized payload concatenates the input PayloadV2 object fields as
+# payload = ( protocolId || serializedHandshakeMessageLen || serializedHandshakeMessage || transportMessageLen || transportMessage)
+# The output can be then passed to the payload field of a WakuMessage https://rfc.vac.dev/spec/14/
+proc serializePayloadV2*(self: PayloadV2): Result[seq[byte], cstring] =
 
   #We collect public keys contained in the handshake message
   var
-    ser_handshake_message_len: int = 0
-    ser_handshake_message = newSeqOfCap[byte](256)
-    ser_pk: seq[byte]
-  for pk in self.handshake_message:
-    ser_pk = serializeNoisePublicKey(pk)
-    ser_handshake_message_len +=  ser_pk.len
-    ser_handshake_message.add ser_pk
+    # According to https://rfc.vac.dev/spec/35/, the maximum size for the handshake message is 256 bytes, that is 
+    # the handshake message length can be represented with 1 byte only. (its length can be stored in 1 byte)
+    # However, to ease public keys length addition operation, we declare it as int and later cast to uit8
+    serializedHandshakeMessageLen: int = 0
+    # This variables will store the concatenation of the serializations of all public keys in the handshake message
+    serializedHandshakeMessage = newSeqOfCap[byte](256)
+    # A variable to store the currently processed public key serialization
+    serializedPk: seq[byte]
+  # For each public key in the handshake message
+  for pk in self.handshakeMessage:
+    # We serialize the public key
+    serializedPk = serializeNoisePublicKey(pk)
+    # We sum its serialized length to the total
+    serializedHandshakeMessageLen +=  serializedPk.len
+    # We add its serialization to the concatenation of all serialized public keys in the handshake message 
+    serializedHandshakeMessage.add serializedPk
+    # If we are processing more than 256 byte, we return an error
+    if serializedHandshakeMessageLen > uint8.high.int:
+      debug "PayloadV2 malformed: too many public keys contained in the handshake message"
+      return err("Too many public keys in handshake message")
 
 
-  #RFC: handshake-message-len is 1 byte
-  if ser_handshake_message_len > 256:
-    debug "Payload malformed: too many public keys contained in the handshake message"
-    return none(seq[byte])
+  # We get the transport message byte length
+  let transportMessageLen = self.transportMessage.len
 
-  let transport_message_len = self.transport_message.len
-
-  var payload = newSeqOfCap[byte](1 + #self.protocol_id.len +              
-                                  1 + #ser_handshake_message_len 
-                                  ser_handshake_message_len +        
-                                  8 + #transport_message_len
-                                  transport_message_len #self.transport_message
+  # The output payload as in https://rfc.vac.dev/spec/35/. We concatenate all the PayloadV2 fields as 
+  # payload = ( protocolId || serializedHandshakeMessageLen || serializedHandshakeMessage || transportMessageLen || transportMessage)
+  # We declare it as a byte sequence of length accordingly to the PayloadV2 information read 
+  var payload = newSeqOfCap[byte](1 + # 1 byte for protocol ID             
+                                  1 + # 1 byte for length of serializedHandshakeMessage field
+                                  serializedHandshakeMessageLen + # serializedHandshakeMessageLen bytes for serializedHandshakeMessage
+                                  8 + # 8 bytes for transportMessageLen
+                                  transportMessageLen # transportMessageLen bytes for transportMessage
                                   )
   
-  
-  payload.add self.protocol_id.byte
-  payload.add ser_handshake_message_len.byte
-  payload.add ser_handshake_message
-  payload.add toBytesLE(transport_message_len.uint64)
-  payload.add self.transport_message
+  # We concatenate all the data
+  # The protocol ID (1 byte) and handshake message length (1 byte) can be directly casted to byte to allow direct copy to the payload byte sequence
+  payload.add self.protocolId.byte
+  payload.add serializedHandshakeMessageLen.byte
+  payload.add serializedHandshakeMessage
+  # The transport message length is converted from uint64 to bytes in Little-Endian
+  payload.add toBytesLE(transportMessageLen.uint64)
+  payload.add self.transportMessage
 
-  return some(payload)
+  return ok(payload)
 
 
+# Deserializes a byte sequence to a PayloadV2 object according to https://rfc.vac.dev/spec/35/.
+# The input serialized payload concatenates the output PayloadV2 object fields as
+# payload = ( protocolId || serializedHandshakeMessageLen || serializedHandshakeMessage || transportMessageLen || transportMessage)
+proc deserializePayloadV2*(payload: seq[byte]): Result[PayloadV2, cstring]
+  {.raises: [Defect, NoisePublicKeyError].} =
 
-#Decode Noise handshake payload
-proc decodeV2*(payload: seq[byte]): Option[PayloadV2] =
-  var res: PayloadV2
+  # The output PayloadV2
+  var payload2: PayloadV2
 
+  # i is the read input buffer position index
   var i: uint64 = 0
-  res.protocol_id = payload[i].uint8
-  i+=1
 
-  var handshake_message_len = payload[i].uint64
-  i+=1
+  # We start reading the Protocol ID
+  # TODO: when the list of supported protocol ID is defined, check if read protocol ID is supported
+  payload2.protocolId = payload[i].uint8
+  i += 1
 
-  var handshake_message: seq[NoisePublicKey]
+  # We read the Handshake Message lenght (1 byte)
+  var handshakeMessageLen = payload[i].uint64
+  if handshakeMessageLen > uint8.high.uint64:
+    debug "Payload malformed: too many public keys contained in the handshake message"
+    #raise newException(NoiseMalformedHandshake, "Too many public keys in handshake message")
+    return err("Too many public keys in handshake message")
 
-  var 
+  i += 1
+
+  # We now read for handshakeMessageLen bytes the buffer and we deserialize each (encrypted/unencrypted) public key read
+  var
+    # In handshakeMessage we accumulate the read deserialized Noise Public keys
+    handshakeMessage: seq[NoisePublicKey]
     flag: byte
-    pk_len: uint64
+    pkLen: uint64
     written: uint64 = 0
 
-  while written != handshake_message_len:
-    #Note that flag can be used to add support to multiple Elliptic Curve arithmetics..
+  # We read the buffer until handshakeMessageLen are read
+  while written != handshakeMessageLen:
+    # We obtain the current Noise Public key encryption flag
     flag = payload[i]
+    # If the key is unencrypted, we only read the X coordinate of the EC public key and we deserialize into a Noise Public Key
     if flag == 0:
-      pk_len = 1 + Curve25519Key.len
-      handshake_message.add intoNoisePublicKey(payload[i..<i+pk_len])
-      i += pk_len
-      written += pk_len
-    if flag == 1:
-      pk_len = 1 + Curve25519Key.len + ChaChaPolyTag.len
-      handshake_message.add intoNoisePublicKey(payload[i..<i+pk_len])
-      i += pk_len
-      written += pk_len
+      pkLen = 1 + EllipticCurveKey.len
+      handshakeMessage.add intoNoisePublicKey(payload[i..<i+pkLen])
+      i += pkLen
+      written += pkLen
+    # If the key is encrypted, we only read the encrypted X coordinate and the authorization tag, and we deserialize into a Noise Public Key
+    elif flag == 1:
+      pkLen = 1 + EllipticCurveKey.len + ChaChaPolyTag.len
+      handshakeMessage.add intoNoisePublicKey(payload[i..<i+pkLen])
+      i += pkLen
+      written += pkLen
+    else:
+      return err("Invalid flag for Noise public key")
 
-  res.handshake_message = handshake_message
 
-  let transport_message_len = fromBytesLE(uint64, payload[i..(i+8-1)])
-  i+=8
+  # We save in the output PayloadV2 the read handshake message
+  payload2.handshakeMessage = handshakeMessage
 
-  res.transport_message = payload[i..i+transport_message_len-1]
-  i+=transport_message_len
+  # We read the transport message length (8 bytes) and we convert to uint64 in Little Endian
+  let transportMessageLen = fromBytesLE(uint64, payload[i..(i+8-1)])
+  i += 8
 
-  return some(res)
+  # We read the transport message (handshakeMessage bytes) 
+  payload2.transportMessage = payload[i..i+transportMessageLen-1]
+  i += transportMessageLen
 
+  return ok(payload2)
 
 
 #################################################################
 
+# Handshake Processing
 
-##### Handshake Processing (over Waku Payloads V2)
+#################################
+## Utilities
+#################################
 
-## Utility
-
-# Based on a message handshake direction the if the user is or not the initiator, returns a tuple telling if the user
-# should read the handshake message or write it
+# Based on the message handshake direction and if the user is or not the initiator, returns a boolean tuple telling if the user
+# has to read or write the next handshake message
 proc getReadingWritingState(hs: HandshakeState, direction: MessageDirection): (bool, bool) =
 
   var reading, writing : bool
@@ -604,28 +939,30 @@ proc getReadingWritingState(hs: HandshakeState, direction: MessageDirection): (b
   return (reading, writing)
 
 
-## Procedures to process handshake messages
+#################################
+# Handshake messages processing procedures
+#################################
 
-# Processing of pre-message patterns
-proc processPreMessagePatternTokens*(hs: var HandshakeState, in_pre_message_pks: seq[NoisePublicKey] = @[])
+# Processes pre-message patterns
+proc processPreMessagePatternTokens*(hs: var HandshakeState, inPreMessagePKs: seq[NoisePublicKey] = @[])
   {.raises: [Defect, NoiseMalformedHandshake, NoiseHandshakeError, NoisePublicKeyError].} =
 
   var 
     # I make a copy of the pre message pattern so that I can easily delete processed PKs without using iterators/counters
-    pre_message_pks = in_pre_message_pks
+    preMessagePKs = inPreMessagePKs
     # Here we store currently processed input pre message public key
-    curr_pk : NoisePublicKey
+    currPK : NoisePublicKey
 
   #We retrieve the pre-message patterns to process, if any
   # If none, there's nothing to do
-  if hs.handshake_pattern.pre_message_patterns == EmptyPreMessagePattern:
+  if hs.handshakePattern.preMessagePatterns == EmptyPreMessagePattern:
     return
 
   #If there are, we iterate each of those
-  for message_pattern in hs.handshake_pattern.pre_message_patterns:
+  for messagePattern in hs.handshakePattern.preMessagePatterns:
     let
-      direction = message_pattern.direction
-      tokens = message_pattern.tokens
+      direction = messagePattern.direction
+      tokens = messagePattern.tokens
     
     # We get if the user is reading or writing the current pre-message pattern
     var (reading, writing) = getReadingWritingState(hs , direction)
@@ -637,8 +974,8 @@ proc processPreMessagePatternTokens*(hs: var HandshakeState, in_pre_message_pks:
       case token
       of T_e:
 
-        if pre_message_pks.len > 0:
-          curr_pk = pre_message_pks[0]
+        if preMessagePKs.len > 0:
+          currPK = preMessagePKs[0]
         else:
           raise newException(NoiseHandshakeError, "Noise pre-message read e, expected a public key")
 
@@ -646,10 +983,10 @@ proc processPreMessagePatternTokens*(hs: var HandshakeState, in_pre_message_pks:
           trace "noise pre-message read e"
 
           # We check if current key is encrypted or not. We assume pre-message public keys are all unencrypted on the user's end
-          if curr_pk.flag == 0.uint8:
+          if currPK.flag == 0.uint8:
 
             # Sets re and calls MixHash(re.public_key).
-            hs.re = intoCurve25519Key(curr_pk.pk)
+            hs.re = intoCurve25519Key(currPK.pk)
             hs.ss.mixHash(hs.re)
 
           else:
@@ -661,7 +998,7 @@ proc processPreMessagePatternTokens*(hs: var HandshakeState, in_pre_message_pks:
 
           # If writing, it means that the user is sending a public key, 
           # We check that the public part corresponds to the set Keypair and we call MixHash(e.public_key).
-          if hs.e.publicKey == intoCurve25519Key(curr_pk.pk):
+          if hs.e.publicKey == intoCurve25519Key(currPK.pk):
             hs.ss.mixHash(hs.e.publicKey)
           else:
             raise newException(NoisePublicKeyError, "Noise pre-message e key doesn't correspond to locally set e key pair")
@@ -670,16 +1007,16 @@ proc processPreMessagePatternTokens*(hs: var HandshakeState, in_pre_message_pks:
         # In non-PSK handshakes, the "e" token in a pre-message pattern or message pattern always results 
         # in a call to MixHash(e.public_key). 
         # In a PSK handshake, all of these calls are followed by MixKey(e.public_key).
-        if "psk" in hs.handshake_pattern.name:
-          hs.ss.mixKey(curr_pk.pk)
+        if "psk" in hs.handshakePattern.name:
+          hs.ss.mixKey(currPK.pk)
 
         # We delete processed public key 
-        pre_message_pks.delete(0)
+        preMessagePKs.delete(0)
 
       of T_s:
 
-        if pre_message_pks.len > 0:
-          curr_pk = pre_message_pks[0]
+        if preMessagePKs.len > 0:
+          currPK = preMessagePKs[0]
         else:
           raise newException(NoiseHandshakeError, "Noise pre-message read s, expected a public key")
 
@@ -687,10 +1024,10 @@ proc processPreMessagePatternTokens*(hs: var HandshakeState, in_pre_message_pks:
           trace "noise pre-message read s"
 
           # We check if current key is encrypted or not. We assume pre-message public keys are all unencrypted on the user's end
-          if curr_pk.flag == 0.uint8:
+          if currPK.flag == 0.uint8:
 
             # Sets re and calls MixHash(re.public_key).
-            hs.rs = intoCurve25519Key(curr_pk.pk)
+            hs.rs = intoCurve25519Key(currPK.pk)
             hs.ss.mixHash(hs.rs)
 
           else:
@@ -702,7 +1039,7 @@ proc processPreMessagePatternTokens*(hs: var HandshakeState, in_pre_message_pks:
 
           # If writing, it means that the user is sending a public key, 
           # We check that the public part corresponds to the set Keypair and we call MixHash(e.public_key).
-          if hs.s.publicKey == intoCurve25519Key(curr_pk.pk):
+          if hs.s.publicKey == intoCurve25519Key(currPK.pk):
             hs.ss.mixHash(hs.s.publicKey)
           else:
             raise newException(NoisePublicKeyError, "Noise pre-message s key doesn't correspond to locally set s key pair")
@@ -711,43 +1048,42 @@ proc processPreMessagePatternTokens*(hs: var HandshakeState, in_pre_message_pks:
         # In non-PSK handshakes, the "e" token in a pre-message pattern or message pattern always results 
         # in a call to MixHash(e.public_key). 
         # In a PSK handshake, all of these calls are followed by MixKey(e.public_key).
-        if "psk" in hs.handshake_pattern.name:
-          hs.ss.mixKey(curr_pk.pk)
+        if "psk" in hs.handshakePattern.name:
+          hs.ss.mixKey(currPK.pk)
 
         # We delete processed public key 
-        pre_message_pks.delete(0)
+        preMessagePKs.delete(0)
 
       else:
 
         raise newException(NoiseMalformedHandshake, "Invalid Token for pre-message pattern")
 
-
 # This procedure encrypts/decrypts the implicit payload attached at the end of every message pattern
-proc processMessagePatternPayload(hs: var HandshakeState, transport_message: seq[byte]): seq[byte]
+proc processMessagePatternPayload(hs: var HandshakeState, transportMessage: seq[byte]): seq[byte]
   {.raises: [Defect, NoiseDecryptTagError, NoiseNonceMaxError].} =
 
   #We retrieve current message pattern (direction + tokens) to process
-  let direction = hs.handshake_pattern.message_patterns[hs.msg_pattern_idx].direction
+  let direction = hs.handshakePattern.messagePatterns[hs.msgPatternIdx].direction
 
   # We get if the user is reading or writing the input handshake message
   var (reading, writing) = getReadingWritingState(hs, direction)
 
-  #We decrypt the transport_message, if any
+  #We decrypt the transportMessage, if any
   if reading:
-    result = hs.ss.decryptAndHash(transport_message)
+    result = hs.ss.decryptAndHash(transportMessage)
   elif writing:
-    result = hs.ss.encryptAndHash(transport_message)
+    result = hs.ss.encryptAndHash(transportMessage)
 
 
 # We process an input handshake message according to the currend handshake state and we return the next handshake step's handshake message
-proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeState, input_handshake_message: seq[NoisePublicKey] = @[]): Result[seq[NoisePublicKey], cstring]
+proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeState, inputHandshakeMessage: seq[NoisePublicKey] = @[]): Result[seq[NoisePublicKey], cstring]
   {.raises: [Defect, NoiseHandshakeError, NoiseMalformedHandshake, NoisePublicKeyError, NoiseDecryptTagError, NoiseNonceMaxError].} =
 
   #We retrieve current message pattern (direction + tokens) to process
   let
-    message_pattern = hs.handshake_pattern.message_patterns[hs.msg_pattern_idx]
-    direction = message_pattern.direction
-    tokens = message_pattern.tokens
+    messagePattern = hs.handshakePattern.messagePatterns[hs.msgPatternIdx]
+    direction = messagePattern.direction
+    tokens = messagePattern.tokens
     
   # We get if the user is reading or writing the input handshake message
   var (reading, writing) = getReadingWritingState(hs , direction)
@@ -755,14 +1091,14 @@ proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeS
 
   # I make a copy of the handshake message so that I can easily delete processed PKs without using iterators/counters
   # (Possibly) non-empty if reading
-  var in_handshake_message = input_handshake_message
+  var inHandshakeMessage = inputHandshakeMessage
 
   # The party's output public keys
   # (Possibly) non-empty if writing
-  var out_handshake_message: seq[NoisePublicKey] = @[]
+  var outHandshakeMessage: seq[NoisePublicKey] = @[]
 
   # Here, we store the currently processed public key from the handshake message
-  var curr_pk: NoisePublicKey
+  var currPK: NoisePublicKey
 
   #We process each message pattern token
   for token in tokens:
@@ -772,26 +1108,26 @@ proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeS
       if reading:
         trace "noise read e"
 
-        if in_handshake_message.len > 0:
-          curr_pk = in_handshake_message[0]
+        if inHandshakeMessage.len > 0:
+          currPK = inHandshakeMessage[0]
         else:
           raise newException(NoiseHandshakeError, "Noise read e, expected a public key")
 
         # We check if current key is encrypted or not
         # Note: by specification, ephemeral keys should always be unencrypted. But we support encrypted ones
-        if curr_pk.flag == 0.uint8:
+        if currPK.flag == 0.uint8:
 
           # Unencrypted Public Key 
           # Sets re and calls MixHash(re.public_key).
-          hs.re = intoCurve25519Key(curr_pk.pk)
+          hs.re = intoCurve25519Key(currPK.pk)
           hs.ss.mixHash(hs.re)
 
         # The following is out of specification: we call decryptAndHash for encrypted ephemeral keys, similarly as for static keys
-        elif curr_pk.flag == 1.uint8:
+        elif currPK.flag == 1.uint8:
 
           #Encrypted public key
           # Decrypts re, sets re and calls MixHash(re.public_key).
-          hs.re = intoCurve25519Key(hs.ss.decryptAndHash(curr_pk.pk))
+          hs.re = intoCurve25519Key(hs.ss.decryptAndHash(currPK.pk))
 
         else:
           raise newException(NoisePublicKeyError, "Noise read e, incorrect encryption flag for public key")
@@ -800,11 +1136,11 @@ proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeS
         # In non-PSK handshakes, the "e" token in a pre-message pattern or message pattern always results 
         # in a call to MixHash(e.public_key). 
         # In a PSK handshake, all of these calls are followed by MixKey(e.public_key).
-        if "psk" in hs.handshake_pattern.name:
+        if "psk" in hs.handshakePattern.name:
           hs.ss.mixKey(hs.re)
 
         # We delete processed public key
-        in_handshake_message.delete(0)
+        inHandshakeMessage.delete(0)
 
       elif writing:
         trace "noise write e"
@@ -818,41 +1154,41 @@ proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeS
         # In non-PSK handshakes, the "e" token in a pre-message pattern or message pattern always results 
         # in a call to MixHash(e.public_key). 
         # In a PSK handshake, all of these calls are followed by MixKey(e.public_key).
-        if "psk" in hs.handshake_pattern.name:
+        if "psk" in hs.handshakePattern.name:
           hs.ss.mixKey(hs.e.publicKey)
 
         #We add the ephemeral public key to the Waku payload
-        out_handshake_message.add keyPairToNoisePublicKey(hs.e)
+        outHandshakeMessage.add toNoisePublicKey(getPublicKey(hs.e))
 
     of T_s:
 
       if reading:
         trace "noise read s"
 
-        if in_handshake_message.len > 0:
-          curr_pk = in_handshake_message[0]
+        if inHandshakeMessage.len > 0:
+          currPK = inHandshakeMessage[0]
         else:
           raise newException(NoiseHandshakeError, "Noise read s, expected a public key")
 
         # We check if current key is encrypted or not
-        if curr_pk.flag == 0.uint8:
+        if currPK.flag == 0.uint8:
 
           # Unencrypted Public Key 
           # Sets re and calls MixHash(re.public_key).
-          hs.rs = intoCurve25519Key(curr_pk.pk)
+          hs.rs = intoCurve25519Key(currPK.pk)
           hs.ss.mixHash(hs.rs)
 
-        elif curr_pk.flag == 1.uint8:
+        elif currPK.flag == 1.uint8:
 
           # Encrypted public key
           # Decrypts rs, sets rs and calls MixHash(rs.public_key).
-          hs.rs = intoCurve25519Key(hs.ss.decryptAndHash(curr_pk.pk))
+          hs.rs = intoCurve25519Key(hs.ss.decryptAndHash(currPK.pk))
 
         else:
           raise newException(NoisePublicKeyError, "Noise read s, incorrect encryption flag for public key")
  
         # We delete processed public key
-        in_handshake_message.delete(0)
+        inHandshakeMessage.delete(0)
 
 
       elif writing:
@@ -862,15 +1198,15 @@ proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeS
           raise newException(NoiseMalformedHandshake, "Static key not set")
 
         #We update the state
-        let enc_s = hs.ss.encryptAndHash(hs.s.publicKey)
+        let encS = hs.ss.encryptAndHash(hs.s.publicKey)
 
         #We add the static public key to the Waku payload
-        #Note that enc_s = (Enc(s) || tag) if encryption key is set otherwise enc_s = s.
+        #Note that encS = (Enc(s) || tag) if encryption key is set otherwise encS = s.
         #We distinguish these two cases by checking length of encryption
-        if enc_s.len > Curve25519Key.len:
-          out_handshake_message.add NoisePublicKey(flag: 1, pk: enc_s)
+        if encS.len > Curve25519Key.len:
+          outHandshakeMessage.add NoisePublicKey(flag: 1, pk: encS)
         else:
-          out_handshake_message.add NoisePublicKey(flag: 0, pk: enc_s)
+          outHandshakeMessage.add NoisePublicKey(flag: 0, pk: encS)
 
     of T_psk:
 
@@ -929,71 +1265,71 @@ proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeS
       # Calls MixKey(DH(s, rs)).
       hs.ss.mixKey(dh(hs.s.privateKey, hs.rs))
 
-  return ok(out_handshake_message)
+  return ok(outHandshakeMessage)
 
 
 ## Procedures to progress handshakes between users
 
 # Initialization of handshake state
-proc initialize*(hs_pattern: HandshakePattern, staticKey: KeyPair = default(KeyPair), prologue: seq[byte] = @[], psk: seq[byte] = @[], pre_message_pks: seq[NoisePublicKey] = @[], initiator: bool = false): HandshakeState 
+proc initialize*(hsPattern: HandshakePattern, staticKey: KeyPair = default(KeyPair), prologue: seq[byte] = @[], psk: seq[byte] = @[], preMessagePKs: seq[NoisePublicKey] = @[], initiator: bool = false): HandshakeState 
   {.raises: [Defect, NoiseMalformedHandshake, NoiseHandshakeError, NoisePublicKeyError].} =
-  var hs = HandshakeState.init(hs_pattern)
+  var hs = HandshakeState.init(hsPattern)
   hs.ss.mixHash(prologue)
   hs.s = staticKey
   hs.psk = psk
-  hs.msg_pattern_idx = 0
+  hs.msgPatternIdx = 0
   hs.initiator = initiator
-  processPreMessagePatternTokens(hs, pre_message_pks)
+  processPreMessagePatternTokens(hs, preMessagePKs)
   return hs
 
 # Advance 1 step in handshake
-proc stepHandshake*(rng: var BrHmacDrbgContext, hs: var HandshakeState, readPayloadV2: PayloadV2 = default(PayloadV2), transport_message: seq[byte] = @[]): Result[HandshakeStepResult, cstring]
+proc stepHandshake*(rng: var BrHmacDrbgContext, hs: var HandshakeState, readPayloadV2: PayloadV2 = default(PayloadV2), transportMessage: seq[byte] = @[]): Result[HandshakeStepResult, cstring]
   {.raises: [Defect, NoiseHandshakeError, NoiseMalformedHandshake, NoisePublicKeyError, NoiseDecryptTagError, NoiseNonceMaxError].} =
 
   var res: HandshakeStepResult
 
   # If there are no more message patterns left for processing 
   # we return an empty HandshakeStepResult
-  if hs.msg_pattern_idx > uint8(hs.handshake_pattern.message_patterns.len - 1):
+  if hs.msgPatternIdx > uint8(hs.handshakePattern.messagePatterns.len - 1):
     debug "stepHandshake called more times than the number of message patterns present in handshake"
     return ok(res)
 
   ### MESSAGE PATTERN
 
   # We get if the user is reading or writing the input handshake message
-  let direction = hs.handshake_pattern.message_patterns[hs.msg_pattern_idx].direction
+  let direction = hs.handshakePattern.messagePatterns[hs.msgPatternIdx].direction
   var (reading, writing) = getReadingWritingState(hs, direction)
  
   if writing:
     # We write an answer to the handshake step
     # We initialize a payload v2 and we set protocol ID (if supported)
     try:
-      res.payload2.protocol_id = PayloadV2ProtocolIDs[hs.handshake_pattern.name]
+      res.payload2.protocolId = PayloadV2ProtocolIDs[hs.handshakePattern.name]
     except:
       raise newException(NoiseMalformedHandshake, "Handshake Pattern not supported")
 
     # We set the handshake and transport message
-    res.payload2.handshake_message = processMessagePatternTokens(rng, hs).get()
-    res.payload2.transport_message = processMessagePatternPayload(hs, transport_message)
+    res.payload2.handshakeMessage = processMessagePatternTokens(rng, hs).get()
+    res.payload2.transportMessage = processMessagePatternPayload(hs, transportMessage)
 
   elif reading:
     
     # We read an answer to the handshake step
     # We process the read public keys and (eventually decrypt) the read transport message
     let 
-      read_handshake_message = readPayloadV2.handshake_message
-      read_transport_message = readPayloadV2.transport_message
+      readHandshakeMessage = readPayloadV2.handshakeMessage
+      readTransportMessage = readPayloadV2.transportMessage
 
     # Since we only read, nothing meanigful (i.e. public keys) are returned
-    discard processMessagePatternTokens(rng, hs, read_handshake_message)
+    discard processMessagePatternTokens(rng, hs, readHandshakeMessage)
     # We retrieve the (decrypted) received transport message
-    res.transport_message = processMessagePatternPayload(hs, read_transport_message)
+    res.transportMessage = processMessagePatternPayload(hs, readTransportMessage)
 
   else:
     raise newException(NoiseHandshakeError, "Handshake Error: neither writing or reading user")
 
   #We increase the handshake state message pattern index
-  hs.msg_pattern_idx += 1
+  hs.msgPatternIdx += 1
 
   return ok(res)
 
@@ -1008,11 +1344,11 @@ proc finalizeHandshake*(hs: var HandshakeState): HandshakeResult =
   let (cs1, cs2) = hs.ss.split()
 
   if hs.initiator:
-    result.cs_write = cs1
-    result.cs_read = cs2
+    result.csWrite = cs1
+    result.csRead = cs2
   else:
-    result.cs_write = cs2
-    result.cs_read = cs1
+    result.csWrite = cs2
+    result.csRead = cs1
 
   result.rs = hs.rs
   result.h = hs.ss.h
@@ -1028,12 +1364,12 @@ proc finalizeHandshake*(hs: var HandshakeState): HandshakeResult =
 ## or may continue to attempt communications. If EncryptWithAd() or DecryptWithAd() signal an error 
 ## due to nonce exhaustion, then the application must delete the CipherState and terminate the session.
 
-proc writeMessage*(hsr: var HandshakeResult, transport_message: seq[byte]): PayloadV2
+proc writeMessage*(hsr: var HandshakeResult, transportMessage: seq[byte]): PayloadV2
   {.raises: [Defect, NoiseNonceMaxError].} =
 
   # According to 35/WAKU2-NOISE RFC, no Handshake protocol information is sent when exchanging messages
-  result.protocol_id = 0.uint8
-  result.transport_message = encryptWithAd(hsr.cs_write, @[], transport_message)
+  result.protocolId = 0.uint8
+  result.transportMessage = encryptWithAd(hsr.csWrite, @[], transportMessage)
 
 
 proc readMessage*(hsr: var HandshakeResult, readPayload2: PayloadV2): Result[seq[byte], cstring]
@@ -1042,12 +1378,12 @@ proc readMessage*(hsr: var HandshakeResult, readPayload2: PayloadV2): Result[seq
   var res: seq[byte]
 
   # According to 35/WAKU2-NOISE RFC, no Handshake protocol information is sent when exchanging messages
-  if readPayload2.protocol_id == 0.uint8:
+  if readPayload2.protocolId == 0.uint8:
     
     # On application level we decide to discard messages which fail decryption 
     # (this because an attacker may flood the content topic were messages are being exchanged)
     try:
-      res = decryptWithAd(hsr.cs_read, @[], readPayload2.transport_message)
+      res = decryptWithAd(hsr.csRead, @[], readPayload2.transportMessage)
     except NoiseDecryptTagError:
       res = @[]
 
