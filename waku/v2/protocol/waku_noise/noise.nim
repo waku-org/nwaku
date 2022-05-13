@@ -29,7 +29,7 @@ logScope:
 
 const
   # EmptyKey represents a non-initialized ChaChaPolyKey
-  EmptyKey = default(ChaChaPolyKey)
+  EmptyKey* = default(ChaChaPolyKey)
   # The maximum ChaChaPoly allowed nonce in Noise Handshakes
   NonceMax = uint64.high - 1
 
@@ -83,7 +83,7 @@ type
 
   # The Noise tokens appearing in Noise (pre)message patterns 
   # as in http://www.noiseprotocol.org/noise.html#handshake-pattern-basics
-  NoiseTokens* = enum
+  NoiseTokens = enum
     T_e = "e"
     T_s = "s"
     T_es = "es"
@@ -261,6 +261,14 @@ proc genKeyPair*(rng: var BrHmacDrbgContext): KeyPair =
   keyPair.publicKey = keyPair.privateKey.public()
   return keyPair
 
+# Gets private key from a key pair
+proc getPrivateKey*(keypair: KeyPair): EllipticCurveKey =
+  return keypair.privateKey
+
+# Gets public key from a key pair
+proc getPublicKey*(keypair: KeyPair): EllipticCurveKey =
+  return keypair.publicKey
+
 # Prints Handshake Patterns using Noise pattern layout
 proc print*(self: HandshakePattern) 
    {.raises: [IOError, NoiseMalformedHandshake].}=
@@ -317,7 +325,7 @@ proc hashProtocol(protocolName: string): MDigest[256] =
   return hash
 
 # Performs a Diffie-Hellman operation between two elliptic curve keys (one private, one public)
-proc dh(private: EllipticCurveKey, public: EllipticCurveKey): EllipticCurveKey =
+proc dh*(private: EllipticCurveKey, public: EllipticCurveKey): EllipticCurveKey =
 
   # The output result of the Diffie-Hellman operation
   var output: EllipticCurveKey
@@ -328,6 +336,7 @@ proc dh(private: EllipticCurveKey, public: EllipticCurveKey): EllipticCurveKey =
   EllipticCurve.mul(output, private)
 
   return output
+
 
 #################################################################
 
@@ -354,7 +363,7 @@ proc hasKey(cs: CipherState): bool =
 
 # Encrypts a plaintext using key material in a Noise Cipher State
 # The CipherState is updated increasing the nonce (used as a counter in Noise) by one
-proc encryptWithAd(state: var CipherState, ad, plaintext: openArray[byte]): seq[byte]
+proc encryptWithAd*(state: var CipherState, ad, plaintext: openArray[byte]): seq[byte]
   {.raises: [Defect, NoiseNonceMaxError].} =
   
   # The output is the concatenation of the ciphertext and authorization tag
@@ -389,7 +398,7 @@ proc encryptWithAd(state: var CipherState, ad, plaintext: openArray[byte]): seq[
 
 # Decrypts a ciphertext using key material in a Noise Cipher State
 # The CipherState is updated increasing the nonce (used as a counter in Noise) by one
-proc decryptWithAd(state: var CipherState, ad, ciphertext: openArray[byte]): seq[byte]
+proc decryptWithAd*(state: var CipherState, ad, ciphertext: openArray[byte]): seq[byte]
   {.raises: [Defect, NoiseDecryptTagError, NoiseNonceMaxError].} =
 
   # We read the authorization appendend at the end of a ciphertext
@@ -400,7 +409,7 @@ proc decryptWithAd(state: var CipherState, ad, ciphertext: openArray[byte]): seq
     nonce: ChaChaPolyNonce
 
   # The nonce is read from the input CipherState
-  # By Noise specification the nonce is 4 bytes long out of the 12 bytes supported by ChaChaPoly
+  # By Noise specification the nonce is 8 bytes long out of the 12 bytes supported by ChaChaPoly
   nonce[4..<12] = toBytesLE(state.n)
 
   # Since ChaChaPoly decryption primitive overwrites the input with the output,
@@ -411,7 +420,7 @@ proc decryptWithAd(state: var CipherState, ad, ciphertext: openArray[byte]): seq
 
   # We check if the input authorization tag matches the decryption authorization tag
   if inputAuthorizationTag != authorizationTag:
-    debug "decryptWithAd failed", ciphertext = ciphertext
+    debug "decryptWithAd failed", plaintext = plaintext, ciphertext = ciphertext, inputAuthorizationTag = inputAuthorizationTag, authorizationTag = authorizationTag
     raise newException(NoiseDecryptTagError, "decryptWithAd failed tag authentication.")
   
   # We increase the Cipher state nonce
@@ -423,6 +432,30 @@ proc decryptWithAd(state: var CipherState, ad, ciphertext: openArray[byte]): seq
   trace "decryptWithAd", inputAuthorizationTag = inputAuthorizationTag, authorizationTag = authorizationTag, nonce = state.n
     
   return plaintext
+
+# Sets the nonce of a Cipher State
+proc setNonce*(cs: var CipherState, nonce: uint64) =
+  cs.n = nonce
+
+# Sets the key of a Cipher State
+proc setCipherStateKey*(cs: var CipherState, key: ChaChaPolyKey) =
+  cs.k = key
+
+# Generates a random Symmetric Cipher State for test purposes
+proc randomCipherState*(rng: var BrHmacDrbgContext, nonce: uint64 = 0): CipherState =
+  var randomCipherState: CipherState
+  brHmacDrbgGenerate(rng, randomCipherState.k)
+  setNonce(randomCipherState, nonce)
+  return randomCipherState
+
+
+# Gets the key of a Cipher State
+proc getKey*(cs: CipherState): ChaChaPolyKey =
+  return cs.k
+
+# Gets the nonce of a Cipher State
+proc getNonce*(cs: CipherState): uint64 =
+  return cs.n
 
 #################################
 # Symmetric State primitives
@@ -441,10 +474,10 @@ proc init*(_: type[SymmetricState], hsPattern: HandshakePattern): SymmetricState
 
 # MixKey as per Noise specification http://www.noiseprotocol.org/noise.html#the-symmetricstate-object
 # Updates a Symmetric state chaining key and symmetric state
-proc mixKey(ss: var SymmetricState, ikm: ChaChaPolyKey) =
+proc mixKey*(ss: var SymmetricState, inputKeyMaterial: ChaChaPolyKey) =
   # We derive two keys using HKDF
   var tempKeys: array[2, ChaChaPolyKey]
-  sha256.hkdf(ss.ck, ikm, [], tempKeys)
+  sha256.hkdf(ss.ck, inputKeyMaterial, [], tempKeys)
   # We update ck and the Cipher state's key k using the output of HDKF 
   ss.ck = tempKeys[0]
   ss.cs = CipherState(k: tempKeys[1])
@@ -452,7 +485,7 @@ proc mixKey(ss: var SymmetricState, ikm: ChaChaPolyKey) =
 
 # MixHash as per Noise specification http://www.noiseprotocol.org/noise.html#the-symmetricstate-object
 # Hashes data into a Symmetric State's handshake hash value h
-proc mixHash(ss: var SymmetricState, data: openArray[byte]) =
+proc mixHash*(ss: var SymmetricState, data: openArray[byte]) =
   # We prepare the hash context
   var ctx: sha256
   ctx.init()
@@ -466,7 +499,7 @@ proc mixHash(ss: var SymmetricState, data: openArray[byte]) =
 
 # mixKeyAndHash as per Noise specification http://www.noiseprotocol.org/noise.html#the-symmetricstate-object
 # Combines MixKey and MixHash
-proc mixKeyAndHash(ss: var SymmetricState, inputKeyMaterial: openArray[byte]) {.used.} =
+proc mixKeyAndHash*(ss: var SymmetricState, inputKeyMaterial: openArray[byte]) {.used.} =
   var tempKeys: array[3, ChaChaPolyKey]
   # Derives 3 keys using HKDF, the chaining key and the input key material
   sha256.hkdf(ss.ck, inputKeyMaterial, [], tempKeys)
@@ -480,7 +513,7 @@ proc mixKeyAndHash(ss: var SymmetricState, inputKeyMaterial: openArray[byte]) {.
 
 # EncryptAndHash as per Noise specification http://www.noiseprotocol.org/noise.html#the-symmetricstate-object
 # Combines encryptWithAd and mixHash
-proc encryptAndHash(ss: var SymmetricState, plaintext: openArray[byte]): seq[byte]
+proc encryptAndHash*(ss: var SymmetricState, plaintext: openArray[byte]): seq[byte]
   {.raises: [Defect, NoiseNonceMaxError].} =
   # The output ciphertext
   var ciphertext: seq[byte]
@@ -496,7 +529,7 @@ proc encryptAndHash(ss: var SymmetricState, plaintext: openArray[byte]): seq[byt
 
 # DecryptAndHash as per Noise specification http://www.noiseprotocol.org/noise.html#the-symmetricstate-object
 # Combines decryptWithAd and mixHash
-proc decryptAndHash(ss: var SymmetricState, ciphertext: openArray[byte]): seq[byte]
+proc decryptAndHash*(ss: var SymmetricState, ciphertext: openArray[byte]): seq[byte]
   {.raises: [Defect, NoiseDecryptTagError, NoiseNonceMaxError].} =
   # The output plaintext
   var plaintext: seq[byte]
@@ -513,12 +546,24 @@ proc decryptAndHash(ss: var SymmetricState, ciphertext: openArray[byte]): seq[by
 
 # Split as per Noise specification http://www.noiseprotocol.org/noise.html#the-symmetricstate-object
 # Once a handshake is complete, returns two Cipher States to encrypt/decrypt outbound/inbound messages
-proc split(ss: var SymmetricState): tuple[cs1, cs2: CipherState] =
+proc split*(ss: var SymmetricState): tuple[cs1, cs2: CipherState] =
   # Derives 2 keys using HKDF and the chaining key
   var tempKeys: array[2, ChaChaPolyKey]
   sha256.hkdf(ss.ck, [], [], tempKeys)
   # Returns a tuple of two Cipher States initialized with the derived keys
   return (CipherState(k: tempKeys[0]), CipherState(k: tempKeys[1]))
+
+# Gets the chaining key field of a Symmetric State
+proc getChainingKey*(ss: SymmetricState): ChaChaPolyKey =
+  return ss.ck
+
+# Gets the handshake hash field of a Symmetric State
+proc getHandshakeHash*(ss: SymmetricState): MDigest[256] =
+  return ss.h
+
+# Gets the Cipher State field of a Symmetric State
+proc getCipherState*(ss: SymmetricState): CipherState =
+  return ss.cs
 
 #################################
 # Handshake State primitives
@@ -593,10 +638,16 @@ proc decrypt*(
     raise newException(NoiseDecryptTagError, "decrypt tag authentication failed.")
   return plaintext
 
+# Generates a random ChaChaPolyKey for testing encryption/decryption
+proc randomChaChaPolyKey*(rng: var BrHmacDrbgContext): ChaChaPolyKey =
+  var key: ChaChaPolyKey
+  brHmacDrbgGenerate(rng, key)
+  return key
+
 # Generates a random ChaChaPoly Cipher State for testing encryption/decryption
 proc randomChaChaPolyCipherState*(rng: var BrHmacDrbgContext): ChaChaPolyCipherState =
   var randomCipherState: ChaChaPolyCipherState
-  brHmacDrbgGenerate(rng, randomCipherState.k)
+  randomCipherState.k = randomChaChaPolyKey(rng)
   brHmacDrbgGenerate(rng, randomCipherState.nonce)
   randomCipherState.ad = newSeq[byte](32)
   brHmacDrbgGenerate(rng, randomCipherState.ad)
