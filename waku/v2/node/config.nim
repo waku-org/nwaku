@@ -91,7 +91,7 @@ type
     
     relayPeerExchange* {.
       desc: "Enable gossipsub peer exchange in relay protocol: true|false",
-      defaultValue: true
+      defaultValue: false
       name: "relay-peer-exchange" }: bool
     
     rlnRelay* {.
