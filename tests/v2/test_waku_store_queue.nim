@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/sequtils,
+  std/[sequtils, strutils],
   testutils/unittests,
   ../../waku/v2/protocol/waku_store/waku_store_types,
   ../../waku/v2/utils/time
@@ -40,9 +40,40 @@ procSuite "Sorted store queue":
     # Add one more. Capacity should not be exceeded.
     check:
       stQ.add(genIndexedWakuMessage(capacity.int8 + 1)).isOk()
+      stQ.len == capacity
+    
+    # Attempt to add message with older value than oldest in queue should fail
+    let
+      oldestTimestamp = stQ.first().get().index.senderTime
+      addRes = stQ.add(genIndexedWakuMessage(oldestTimestamp.int8 - 1))
     
     check:
+      oldestTimestamp == 2
+      addRes.isErr()
+      ($(addRes.error())).contains("too_old")
       stQ.len == capacity
+  
+  test "Sender time can't be more than MaxTimeVariance in future":
+    var stQ = StoreQueueRef.new(capacity)
+    let
+      receiverTime = getNanoSecondTime(10)
+      senderTimeOk = receiverTime + MaxTimeVariance
+      senderTimeErr = senderTimeOk + 1
+      validMessage = IndexedWakuMessage(msg: WakuMessage(payload: @[byte 1], timestamp: senderTimeOk),
+                                        index: Index(receiverTime: receiverTime, senderTime: senderTimeOk))
+      invalidMessage = IndexedWakuMessage(msg: WakuMessage(payload: @[byte 1], timestamp: senderTimeErr),
+                                          index: Index(receiverTime: receiverTime, senderTime: senderTimeErr))
+    
+    # Invalid case
+    let invalidRes = stQ.add(invalidMessage)
+    check:
+      invalidRes.isErr()
+      ($(invalidRes.error())).contains("future_sender_timestamp")
+    
+    # Valid case
+    let validRes = stQ.add(validMessage)
+    check:
+      validRes.isOk()
   
   test "Store queue sort-on-insert works":    
     # Walk forward through the set and verify ascending order
