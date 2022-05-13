@@ -1,64 +1,7 @@
-# Build and run
+# Running nwaku
 
-Nwaku can be built and run on Linux and macOS.
+Nwaku binaries can be built and run on Linux and macOS.
 Windows support is experimental.
-
-## Installing dependencies
-
-Cloning and building nwaku requires the usual developer tools,
-such as a C compiler, Make, Bash and Git.
-
-### Linux
-
-On common Linux distributions the dependencies can be installed with
-
-```sh
-# Debian and Ubuntu
-sudo apt-get install build-essential git
-
-# Fedora
-dnf install @development-tools
-
-# Archlinux, using an AUR manager
-yourAURmanager -S base-devel
-```
-
-### macOS
-
-Assuming you use [Homebrew](https://brew.sh/) to manage packages
-
-```sh
-brew install cmake
-```
-
-## Building nwaku
-
-### 1. Clone the nwaku repository
-
-```sh
-git clone https://github.com/status-im/nwaku
-cd nwaku
-```
-
-### 2. Make the `wakunode2` target
-
-```sh
-# The first `make` invocation will update all Git submodules.
-# You'll run `make update` after each `git pull`, in the future, to keep those submodules up to date.
-make wakunode2
-```
-
-This will create a `wakunode2` binary in the `./build/` directory.
-
-> **Note:** Building `wakunode2` requires 2GB of RAM.
-The build will fail on systems not fulfilling this requirement. 
-
-> Setting up a `wakunode2` on the smallest [digital ocean](https://docs.digitalocean.com/products/droplets/how-to/) droplet, you can either
-> * compile on a stronger droplet featuring the same CPU architecture and downgrade after compiling, or
-> * activate swap on the smallest droplet, or
-> * use Docker.
-
-## Running nwaku
 
 ```sh
 # Run with default configuration
@@ -68,7 +11,7 @@ The build will fail on systems not fulfilling this requirement.
 ./build/wakunode2 --help
 ```
 
-### Default configuration
+## Default configuration
 
 By default a nwaku node will:
 - generate a new private key and libp2p identities after every restart.
@@ -88,7 +31,7 @@ Consult the [configuration guide](./configure.md) on how to configure your nwaku
 Some typical non-default configurations are explained below.
 For more advanced configuration, see the [configuration guide](./configure.md).
 
-### Finding your listening address(es)
+## Finding your listening address(es)
 
 Find the log entry beginning with `Listening on`.
 It should be printed at INFO level when you start your node,
@@ -112,7 +55,7 @@ and websocket address
 /ip4/0.0.0.0/tcp/8000/ws/p2p/16Uiu2HAkzjwwgEAXfeGNMKFPSpc6vGBRqCdTLG5q3Gmk2v4pQw7H
 ```
 
-### Typical configuration (relay node)
+## Typical configuration (relay node)
 
 The typical configuration for a nwaku node is to run the `relay` protocol,
 subscribed to the default pubsub topic `/waku/2/default-waku/proto`,
@@ -120,7 +63,7 @@ and connecting to one or more existing peers.
 We assume below that running nodes also participate in Discovery v5
 to continually discover and connect to random peers for a more robust mesh.
 
-#### Connecting to known peer(s)
+### Connecting to known peer(s)
 
 A typical run configuration for a nwaku node is to connect to existing peers with known listening addresses using the `--staticnode` option.
 The `--staticnode` option can be repeated for each peer you want to connect to on startup.
@@ -130,46 +73,54 @@ and therefore know the listening addresses of all peers.
 As an example, consider a nwaku node that connects to two known peers
 on the same local host (with IP `0.0.0.0`)
 with TCP ports `60002` and `60003`,
-and peer IDs `16Uiu2HAkzjwwgEAXfeGNMKFPSpc6vGBRqCdTLG5q3Gmk2v4pQw7H` and `16Uiu2HAmFBA7LGtwY5WVVikdmXVo3cKLqkmvVtuDu63fe8safeQJ` respectively:
+and peer IDs `16Uiu2HAkzjwwgEAXfeGNMKFPSpc6vGBRqCdTLG5q3Gmk2v4pQw7H` and `16Uiu2HAmFBA7LGtwY5WVVikdmXVo3cKLqkmvVtuDu63fe8safeQJ` respectively.
+The Discovery v5 routing table can similarly be bootstrapped using a static ENR.
+We include an example below.
 
 ```sh
 ./build/wakunode2 \
   --ports-shift:1 \
   --staticnode:/ip4/0.0.0.0/tcp/60002/p2p/16Uiu2HAkzjwwgEAXfeGNMKFPSpc6vGBRqCdTLG5q3Gmk2v4pQw7H \
-  --staticnode:/ip4/0.0.0.0/tcp/60003/p2p/16Uiu2HAmFBA7LGtwY5WVVikdmXVo3cKLqkmvVtuDu63fe8safeQJ
+  --staticnode:/ip4/0.0.0.0/tcp/60003/p2p/16Uiu2HAmFBA7LGtwY5WVVikdmXVo3cKLqkmvVtuDu63fe8safeQJ \
+  --discv5-discovery:true \
+  --discv5-bootstrap-node:enr:-JK4QM2ylZVUhVPqXrqhWWi38V46bF2XZXPSHh_D7f2PmUHbIw-4DidCBnBnm-IbxtjXOFbdMMgpHUv4dYVH6TgnkucBgmlkgnY0gmowhCJ6_HaJc2VjcDI1NmsxoQM06FsT6EJ57mzR_wiLu2Bz1dER2nUFSCpaFzCccQtnhYN0Y3CCdl-DdWRwgiMohXdha3UyDw
 ```
 
 > **Tip:** `--ports-shift` shifts all configured ports forward by the configured amount.
 This is another useful option when running several nwaku instances on a single machine
 and would like to avoid port clashes without manually configuring each port.
 
-#### Connecting to the `wakuv2.prod` network
+### Connecting to the `wakuv2.prod` network
 
 *See [this explainer](https://github.com/status-im/nwaku/blob/6ebe26ad0587d56a87a879d89b7328f67f048911/docs/contributors/waku-fleets.md) on the different networks and Waku v2 fleets.*
 
 You can use DNS discovery to bootstrap connection to the existing production network.
+Discovery v5 will attempt to extract the ENRs of the discovered nodes as bootstrap entries to the routing table.
 
 ```sh
 ./build/wakunode2 \
   --ports-shift:1 \
   --dns-discovery:true \
-  --dns-discovery-url:enrtree://ANTL4SLG2COUILKAPE7EF2BYNL2SHSHVCHLRD5J7ZJLN5R3PRJD2Y@prod.waku.nodes.status.im
+  --dns-discovery-url:enrtree://ANTL4SLG2COUILKAPE7EF2BYNL2SHSHVCHLRD5J7ZJLN5R3PRJD2Y@prod.waku.nodes.status.im \
+  --discv5-discovery:true
 ```
 
-#### Connecting to the `wakuv2.test` network
+### Connecting to the `wakuv2.test` network
 
 *See [this explainer](https://github.com/status-im/nwaku/blob/6ebe26ad0587d56a87a879d89b7328f67f048911/docs/contributors/waku-fleets.md) on the different networks and Waku v2 fleets.*
 
 You can use DNS discovery to bootstrap connection to the existing test network.
+Discovery v5 will attempt to extract the ENRs of the discovered nodes as bootstrap entries to the routing table.
 
 ```sh
 ./build/wakunode2 \
   --ports-shift:1 \
   --dns-discovery:true \
-  --dns-discovery-url:enrtree://AOFTICU2XWDULNLZGRMQS4RIZPAZEHYMV4FYHAPW563HNRAOERP7C@test.waku.nodes.status.im
+  --dns-discovery-url:enrtree://AOFTICU2XWDULNLZGRMQS4RIZPAZEHYMV4FYHAPW563HNRAOERP7C@test.waku.nodes.status.im \
+  --discv5-discovery:true
 ```
 
-### Typical configuration (relay and store service node)
+## Typical configuration (relay and store service node)
 
 Often nwaku nodes choose to also store historical messages
 from where it can be queried by other peers who may have been temporarily offline.

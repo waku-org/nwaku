@@ -22,7 +22,7 @@ and use existing tools for monitoring and maintaining a running node.
 
 ## Helpful resources
 
-TODO
+<!-- TODO -->
 
 ## Getting in touch or reporting an issue
 
