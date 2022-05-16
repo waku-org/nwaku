@@ -324,7 +324,7 @@ proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHa
       waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
 
   # Register handler for filter, whether remote subscription succeeded or not
-  node.filters[id] = Filter(contentFilters: request.contentFilters, handler: handler)
+  node.filters[id] = Filter(contentFilters: request.contentFilters, handler: handler, pubSubTopic: request.pubSubTopic)
   waku_node_filters.set(node.filters.len.int64)
 
 proc unsubscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) =
@@ -457,12 +457,16 @@ proc info*(node: WakuNode): WakuInfo =
 proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {.raises: [Defect, KeyError, LPError]} =
   info "mounting filter"
   proc filterHandler(requestId: string, msg: MessagePush)
-    {.gcsafe, raises: [Defect, KeyError].} =
+    {.async, gcsafe, raises: [Defect, KeyError].} =
     
     info "push received"
     for message in msg.messages:
       node.filters.notify(message, requestId) # Trigger filter handlers on a light node
-      
+
+      if not node.wakuStore.isNil and (requestId in node.filters):
+        let pubSubTopic = node.filters[requestId].pubSubTopic
+        await node.wakuStore.handleMessage(pubSubTopic, message)
+
       waku_node_messages.inc(labelValues = ["filter"])
 
   node.wakuFilter = WakuFilter.init(node.peerManager, node.rng, filterHandler, filterTimeout)

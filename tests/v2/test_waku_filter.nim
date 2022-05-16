@@ -30,7 +30,7 @@ procSuite "Waku Filter":
     await listenSwitch.start()
 
     var responseRequestIdFuture = newFuture[string]()
-    proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
+    proc handle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
       check:
         msg.messages.len() == 1
         msg.messages[0] == post
@@ -43,7 +43,7 @@ procSuite "Waku Filter":
     dialSwitch.mount(proto)
     proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
-    proc emptyHandle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
+    proc emptyHandle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
       discard
 
     let proto2 = WakuFilter.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle)
@@ -75,7 +75,7 @@ procSuite "Waku Filter":
     await listenSwitch.start()
 
     var responseCompletionFuture = newFuture[bool]()
-    proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
+    proc handle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
       check:
         msg.messages.len() == 1
         msg.messages[0] == post
@@ -88,7 +88,7 @@ procSuite "Waku Filter":
     dialSwitch.mount(proto)
     proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
-    proc emptyHandle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
+    proc emptyHandle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
       discard
 
     let proto2 = WakuFilter.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle)
@@ -131,7 +131,7 @@ procSuite "Waku Filter":
     await dialSwitch.start()
 
     var responseRequestIdFuture = newFuture[string]()
-    proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
+    proc handle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
       discard
 
     let
@@ -161,7 +161,7 @@ procSuite "Waku Filter":
     await listenSwitch.start()
 
     var responseCompletionFuture = newFuture[bool]()
-    proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
+    proc handle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
       check:
         msg.messages.len() == 1
         msg.messages[0] == post
@@ -174,7 +174,7 @@ procSuite "Waku Filter":
     dialSwitch.mount(proto)
     proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
-    proc emptyHandle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
+    proc emptyHandle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
       discard
 
     let proto2 = WakuFilter.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle, 1.seconds)
@@ -225,7 +225,7 @@ procSuite "Waku Filter":
     await listenSwitch.start()
 
     var responseCompletionFuture = newFuture[bool]()
-    proc handle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
+    proc handle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
       check:
         msg.messages.len() == 1
         msg.messages[0] == post
@@ -238,7 +238,7 @@ procSuite "Waku Filter":
     dialSwitch.mount(proto)
     proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
-    proc emptyHandle(requestId: string, msg: MessagePush) {.gcsafe, closure.} =
+    proc emptyHandle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
       discard
 
     let proto2 = WakuFilter.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle, 2.seconds)

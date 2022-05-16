@@ -15,6 +15,8 @@ const
   MaxRpcSize* = 10 * MaxWakuMessageSize + 64*1024
 
 type
+  PubSubTopic* = string
+
   ContentFilter* = object
     contentTopic*: ContentTopic
 
@@ -22,6 +24,7 @@ type
 
   Filter* = object
     contentFilters*: seq[ContentFilter]
+    pubSubTopic*: PubSubTopic
     handler*: ContentFilterHandler
 
   # @TODO MAYBE MORE INFO?
@@ -29,7 +32,7 @@ type
 
   FilterRequest* = object
     contentFilters*: seq[ContentFilter]
-    pubSubTopic*: string
+    pubSubTopic*: PubSubTopic
     subscribe*: bool
 
   MessagePush* = object
@@ -45,7 +48,7 @@ type
     requestId*: string
     filter*: FilterRequest # @TODO MAKE THIS A SEQUENCE AGAIN?
 
-  MessagePushHandler* = proc(requestId: string, msg: MessagePush) {.gcsafe, closure.}
+  MessagePushHandler* = proc(requestId: string, msg: MessagePush): Future[void] {.gcsafe, closure.}
 
   WakuFilter* = ref object of LPProtocol
     rng*: ref BrHmacDrbgContext
