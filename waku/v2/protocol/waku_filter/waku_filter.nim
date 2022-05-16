@@ -179,7 +179,7 @@ method init*(wf: WakuFilter) =
     let value = res.value
     if value.push != MessagePush():
       waku_filter_messages.inc(labelValues = ["MessagePush"])
-      wf.pushHandler(value.requestId, value.push)
+      await wf.pushHandler(value.requestId, value.push)
     if value.request != FilterRequest():
       waku_filter_messages.inc(labelValues = ["FilterRequest"])
       if value.request.subscribe:
