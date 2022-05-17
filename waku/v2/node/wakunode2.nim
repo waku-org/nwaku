@@ -1306,6 +1306,12 @@ when isMainModule:
     quit 1 # if we don't leave here, the initialization of conf does not work in the success case
   {.pop.}
 
+  # if called with --version, print the version and quit
+  if conf.version:
+    const git_version {.strdefine.} = "n/a"
+    echo "version / git commit hash: ", git_version
+    quit(QuitSuccess)
+  
   var
     node: WakuNode  # This is the node we're going to setup using the conf
 
