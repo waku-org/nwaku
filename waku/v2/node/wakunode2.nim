@@ -972,7 +972,7 @@ when isMainModule:
   ## 6. Setup graceful shutdown hooks
 
   import
-    confutils,
+    confutils, toml_serialization,
     system/ansi_c,
     libp2p/nameresolving/dnsresolver,
     ../../common/utils/nat,
@@ -1293,10 +1293,19 @@ when isMainModule:
         Port(conf.metricsServerPort + conf.portsShift))
     
     ok(true) # Success
-  
-  let
-    conf = WakuNodeConf.load()
-  
+
+  {.push warning[ProveInit]: off.}
+  let conf = try:
+    WakuNodeConf.load(
+      secondarySources = proc (conf: WakuNodeConf, sources: auto) =
+        if conf.configFile.isSome:
+          sources.addConfigFile(Toml, conf.configFile.get)
+    )
+  except CatchableError as err:
+    error "Failure while loading the configuration: \n", err_msg=err.msg
+    quit 1 # if we don't leave here, the initialization of conf does not work in the success case
+  {.pop.}
+
   var
     node: WakuNode  # This is the node we're going to setup using the conf
 

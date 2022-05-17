@@ -140,3 +140,6 @@
 	url = https://github.com/ba0f3/dnsclient.nim.git
 	ignore = untracked
 	branch = master
+[submodule "vendor/nim-toml-serialization"]
+	path = vendor/nim-toml-serialization
+	url = https://github.com/status-im/nim-toml-serialization.git
