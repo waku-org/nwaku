@@ -1,6 +1,8 @@
 import
   std/strutils,
   confutils, confutils/defs, confutils/std/net,
+  confutils/toml/defs as confTomlDefs,
+  confutils/toml/std/net as confTomlNet,
   chronicles, chronos,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
@@ -8,10 +10,18 @@ import
   eth/keys,
   ../protocol/waku_rln_relay/waku_rln_relay_types,
   ../protocol/waku_message
+
+export
+  confTomlDefs,
+  confTomlNet
    
 type
   WakuNodeConf* = object
     ## General node config
+
+    configFile* {.
+      desc: "Loads configuration from a TOML file (cmd-line parameters take precedence)"
+      name: "config-file" }: Option[InputFile]
 
     logLevel* {.
       desc: "Sets the log level."
@@ -348,3 +358,11 @@ func defaultListenAddress*(conf: WakuNodeConf): ValidIpAddress =
   # TODO: How should we select between IPv4 and IPv6
   # Maybe there should be a config option for this.
   (static ValidIpAddress.init("0.0.0.0"))
+
+
+proc readValue*(r: var TomlReader, val: var crypto.PrivateKey)
+               {.raises: [Defect, IOError, SerializationError].} =
+  val = try: parseCmdArg(crypto.PrivateKey, r.readValue(string))
+        except CatchableError as err:
+          raise newException(SerializationError, err.msg)
+
