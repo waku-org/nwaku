@@ -12,7 +12,7 @@ BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 
 # -d:insecure - Necessary to enable Prometheus HTTP endpoint for metrics
 # -d:chronicles_colors:none - Necessary to disable colors in logs for Docker
-DOCKER_IMAGE_NIM_PARAMS ?= -d:chronicles_colors:none -d:insecure
+DOCKER_IMAGE_NIMFLAGS ?= -d:chronicles_colors:none -d:insecure
 
 EXCLUDED_NIM_PACKAGES := vendor/nim-dnsdisc/vendor
 
@@ -215,7 +215,7 @@ docker-image: DOCKER_IMAGE_NAME ?= statusteam/nim-waku:$(DOCKER_IMAGE_TAG)
 docker-image:
 	docker build \
 		--build-arg="MAKE_TARGET=$(MAKE_TARGET)" \
-		--build-arg="NIM_PARAMS=$(DOCKER_IMAGE_NIM_PARAMS)" \
+		--build-arg="NIMFLAGS=$(DOCKER_IMAGE_NIMFLAGS)" \
 		--tag $(DOCKER_IMAGE_NAME) .
 
 docker-push:
