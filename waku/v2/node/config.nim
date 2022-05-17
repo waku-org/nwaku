@@ -27,6 +27,11 @@ type
       desc: "Sets the log level."
       defaultValue: LogLevel.INFO
       name: "log-level" }: LogLevel
+
+    version* {.
+      desc: "prints the version"
+      defaultValue: false
+      name: "version" }: bool
     
     nodekey* {.
       desc: "P2P node private key as 64 char hex string.",
