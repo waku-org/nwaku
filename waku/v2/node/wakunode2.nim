@@ -193,7 +193,6 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   
   if (dns4DomainName.isSome()):
     # Use dns4 for externally announced addresses
-    
     hostExtAddress = some(dns4TcpEndPoint(dns4DomainName.get(), extPort.get()))
 
     if (wsHostAddress.isSome()):
@@ -1089,16 +1088,17 @@ when isMainModule:
                                                 clientId,
                                                 Port(uint16(conf.tcpPort) + conf.portsShift),
                                                 Port(uint16(udpPort) + conf.portsShift))
+
+      dns4DomainName = if conf.dns4DomainName != "": some(conf.dns4DomainName)
+                       else: none(string)
+
       ## @TODO: the NAT setup assumes a manual port mapping configuration if extIp config is set. This probably
       ## implies adding manual config item for extPort as well. The following heuristic assumes that, in absence of manual
       ## config, the external port is the same as the bind port.
-      extPort = if extIp.isSome() and extTcpPort.isNone():
+      extPort = if (extIp.isSome() or dns4DomainName.isSome()) and extTcpPort.isNone():
                   some(Port(uint16(conf.tcpPort) + conf.portsShift))
                 else:
                   extTcpPort
-      
-      dns4DomainName = if conf.dns4DomainName != "": some(conf.dns4DomainName)
-                       else: none(string)
       
       wakuFlags = initWakuFlags(conf.lightpush,
                                 conf.filter,
