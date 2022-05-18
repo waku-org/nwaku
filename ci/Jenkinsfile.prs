@@ -5,9 +5,9 @@ pipeline {
 
   parameters {
     string(
-      name: 'NIM_PARAMS',
+      name: 'NIMFLAGS',
       description: 'Flags for Nim compilation.',
-      defaultValue: params.NIM_PARAMS ?: '-d:disableMarchNative -d:insecure --parallelBuild:6'
+      defaultValue: params.NIMFLAGS ?: '-d:disableMarchNative -d:insecure --parallelBuild:6'
     )
     string(
       name: 'LOG_LEVEL',

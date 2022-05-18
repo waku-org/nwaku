@@ -193,7 +193,6 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   
   if (dns4DomainName.isSome()):
     # Use dns4 for externally announced addresses
-    
     hostExtAddress = some(dns4TcpEndPoint(dns4DomainName.get(), extPort.get()))
 
     if (wsHostAddress.isSome()):
@@ -972,7 +971,7 @@ when isMainModule:
   ## 6. Setup graceful shutdown hooks
 
   import
-    confutils,
+    confutils, toml_serialization,
     system/ansi_c,
     libp2p/nameresolving/dnsresolver,
     ../../common/utils/nat,
@@ -1089,16 +1088,17 @@ when isMainModule:
                                                 clientId,
                                                 Port(uint16(conf.tcpPort) + conf.portsShift),
                                                 Port(uint16(udpPort) + conf.portsShift))
+
+      dns4DomainName = if conf.dns4DomainName != "": some(conf.dns4DomainName)
+                       else: none(string)
+
       ## @TODO: the NAT setup assumes a manual port mapping configuration if extIp config is set. This probably
       ## implies adding manual config item for extPort as well. The following heuristic assumes that, in absence of manual
       ## config, the external port is the same as the bind port.
-      extPort = if extIp.isSome() and extTcpPort.isNone():
+      extPort = if (extIp.isSome() or dns4DomainName.isSome()) and extTcpPort.isNone():
                   some(Port(uint16(conf.tcpPort) + conf.portsShift))
                 else:
                   extTcpPort
-      
-      dns4DomainName = if conf.dns4DomainName != "": some(conf.dns4DomainName)
-                       else: none(string)
       
       wakuFlags = initWakuFlags(conf.lightpush,
                                 conf.filter,
@@ -1293,9 +1293,24 @@ when isMainModule:
         Port(conf.metricsServerPort + conf.portsShift))
     
     ok(true) # Success
-  
-  let
-    conf = WakuNodeConf.load()
+
+  {.push warning[ProveInit]: off.}
+  let conf = try:
+    WakuNodeConf.load(
+      secondarySources = proc (conf: WakuNodeConf, sources: auto) =
+        if conf.configFile.isSome:
+          sources.addConfigFile(Toml, conf.configFile.get)
+    )
+  except CatchableError as err:
+    error "Failure while loading the configuration: \n", err_msg=err.msg
+    quit 1 # if we don't leave here, the initialization of conf does not work in the success case
+  {.pop.}
+
+  # if called with --version, print the version and quit
+  if conf.version:
+    const git_version {.strdefine.} = "n/a"
+    echo "version / git commit hash: ", git_version
+    quit(QuitSuccess)
   
   var
     node: WakuNode  # This is the node we're going to setup using the conf

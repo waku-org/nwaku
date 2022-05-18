@@ -24,7 +24,7 @@ Key part is the definition of four `parameters`:
 * `MAKE_TARGET` - Which `Makefile` target is built.
 * `IMAGE_TAG` - Tag of the Docker image to push.
 * `IMAGE_NAME` - Name of the Docker image to push.
-* `NIM_PARAMS` - Nim compilation parameters.
+* `NIMFLAGS` - Nim compilation parameters.
 
 The use of `?:` [Elvis operator](http://groovy-lang.org/operators.html#_elvis_operator) plays a key role in allowing parameters to be changed for each defined job in Jenkins without it being overridden by the `Jenkinsfile` defaults after every job run.
 ```groovy
