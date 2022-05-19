@@ -76,7 +76,61 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
   return contractAddress
 
 procSuite "Waku-rln-relay":
-  asyncTest "event subscription":
+  # asyncTest "event subscription":
+  #   # preparation ------------------------------
+  #   debug "ethereum client address", ETH_CLIENT
+  #   let contractAddress = await uploadRLNContract(ETH_CLIENT)
+  #   # connect to the eth client
+  #   let web3 = await newWeb3(ETH_CLIENT)
+  #   debug "web3 connected to", ETH_CLIENT
+
+  #   # fetch the list of registered accounts
+  #   let accounts = await web3.provider.eth_accounts()
+  #   web3.defaultAccount = accounts[1]
+  #   debug "contract deployer account address ",
+  #       defaultAccount = web3.defaultAccount
+
+  #   # prepare a contract sender to interact with it
+  #   var contractObj = web3.contractSender(MembershipContract,
+  #       contractAddress) # creates a Sender object with a web3 field and contract address of type Address
+
+  #   # create an RLN instance
+  #   var rlnInstance = createRLNInstance()
+  #   check: 
+  #     rlnInstance.isOk == true
+  #   # generate the membership keys
+  #   let membershipKeyPair = membershipKeyGen(rlnInstance.value)
+  #   check: 
+  #     membershipKeyPair.isSome
+  #   let pk = membershipKeyPair.get().idCommitment.toUInt256()
+  #   debug "membership commitment key", pk = pk
+
+  #   # test ------------------------------
+  #   var fut = newFuture[void]()
+  #   let s = await contractObj.subscribe(MemberRegistered, %*{"fromBlock": "0x0",
+  #       "address": contractAddress}) do(
+  #     pubkey: Uint256, index: Uint256){.raises: [Defect], gcsafe.}:
+  #     try:
+  #       debug "onRegister", pubkey = pubkey, index = index
+  #       check:
+  #         pubkey == pk
+  #       fut.complete()
+  #     except Exception as err:
+  #       # chronos still raises exceptions which inherit directly from Exception
+  #       doAssert false, err.msg
+  #   do (err: CatchableError):
+  #     echo "Error from subscription: ", err.msg
+
+  #   # register a member
+  #   let tx = await contractObj.register(pk).send(value = MEMBERSHIP_FEE)
+  #   debug "a member is registered", tx = tx
+
+  #   # wait for the event to be received
+  #   await fut
+
+  #   # release resources -----------------------
+  #   await web3.close()
+  asyncTest "event subscription with proc":
     # preparation ------------------------------
     debug "ethereum client address", ETH_CLIENT
     let contractAddress = await uploadRLNContract(ETH_CLIENT)
@@ -84,7 +138,7 @@ procSuite "Waku-rln-relay":
     let web3 = await newWeb3(ETH_CLIENT)
     debug "web3 connected to", ETH_CLIENT
 
-    # fetch the list of registered accounts
+    # # fetch the list of registered accounts
     let accounts = await web3.provider.eth_accounts()
     web3.defaultAccount = accounts[1]
     debug "contract deployer account address ",
@@ -105,167 +159,270 @@ procSuite "Waku-rln-relay":
     let pk = membershipKeyPair.get().idCommitment.toUInt256()
     debug "membership commitment key", pk = pk
 
+    let membershipKeyPair2 = membershipKeyGen(rlnInstance.value)
+    check: 
+      membershipKeyPair2.isSome
+    let pk2 = membershipKeyPair2.get().idCommitment.toUInt256()
+    debug "membership commitment key", pk2 = pk2
+
+
     # test ------------------------------
     var fut = newFuture[void]()
-    let s = await contractObj.subscribe(MemberRegistered, %*{"fromBlock": "0x0",
-        "address": contractAddress}) do(
-      pubkey: Uint256, index: Uint256){.raises: [Defect], gcsafe.}:
-      try:
-        debug "onRegister", pubkey = pubkey, index = index
-        check:
-          pubkey == pk
+    var fut2 = newFuture[void]()
+    proc registerationHandler(pubkey: Uint256, index: Uint256) =
+      debug "onRegister", pubkey = pubkey, index = index
+      if pubkey == pk:
         fut.complete()
-      except Exception as err:
-        # chronos still raises exceptions which inherit directly from Exception
-        doAssert false, err.msg
-    do (err: CatchableError):
-      echo "Error from subscription: ", err.msg
+      if pubkey == pk2:
+        fut2.complete()
+
+    # initialize the WakuRLNRelay
+    var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
+      membershipIndex: MembershipIndex(0),
+      ethClientAddress: ETH_CLIENT,
+      ethAccountAddress: accounts[0],
+      membershipContractAddress: contractAddress)
+
+    await rlnPeer.groupManagement(registerationHandler)
+    # let s = await contractObj.subscribe(MemberRegistered, %*{"fromBlock": "0x0",
+    #     "address": contractAddress}) do(
+    #   pubkey: Uint256, index: Uint256){.raises: [Defect], gcsafe.}:
+    #   try:
+        
+    #   except Exception as err:
+    #     # chronos still raises exceptions which inherit directly from Exception
+    #     doAssert false, err.msg
+    # do (err: CatchableError):
+    #   echo "Error from subscription: ", err.msg
 
     # register a member
     let tx = await contractObj.register(pk).send(value = MEMBERSHIP_FEE)
     debug "a member is registered", tx = tx
 
+    let tx2 = await contractObj.register(pk2).send(value = MEMBERSHIP_FEE)
+    debug "a member is registered", tx2 = tx2
+
+    
+
     # wait for the event to be received
     await fut
+    await fut2
 
     # release resources -----------------------
     await web3.close()
+  # asyncTest "insert a key to the membership contract":
+  #   # preparation ------------------------------
+  #   debug "ethereum client address", ETH_CLIENT
+  #   let contractAddress = await uploadRLNContract(ETH_CLIENT)
+  #   # connect to the eth client
+  #   let web3 = await newWeb3(ETH_CLIENT)
+  #   debug "web3 connected to", ETH_CLIENT
 
-  asyncTest "insert a key to the membership contract":
-    # preparation ------------------------------
-    debug "ethereum client address", ETH_CLIENT
-    let contractAddress = await uploadRLNContract(ETH_CLIENT)
-    # connect to the eth client
-    let web3 = await newWeb3(ETH_CLIENT)
-    debug "web3 connected to", ETH_CLIENT
+  #   # fetch the list of registered accounts
+  #   let accounts = await web3.provider.eth_accounts()
+  #   web3.defaultAccount = accounts[1]
+  #   let add = web3.defaultAccount
+  #   debug "contract deployer account address ", add
 
-    # fetch the list of registered accounts
-    let accounts = await web3.provider.eth_accounts()
-    web3.defaultAccount = accounts[1]
-    let add = web3.defaultAccount
-    debug "contract deployer account address ", add
+  #   # prepare a contract sender to interact with it
+  #   var sender = web3.contractSender(MembershipContract,
+  #       contractAddress) # creates a Sender object with a web3 field and contract address of type Address
 
-    # prepare a contract sender to interact with it
-    var sender = web3.contractSender(MembershipContract,
-        contractAddress) # creates a Sender object with a web3 field and contract address of type Address
+  #   # send takes the following parameters, c: ContractCallBase, value = 0.u256, gas = 3000000'u64 gasPrice = 0
+  #   # should use send proc for the contract functions that update the state of the contract
+  #   let tx = await sender.register(20.u256).send(value = MEMBERSHIP_FEE) # value is the membership fee
+  #   debug "The hash of registration tx: ", tx 
 
-    # send takes the following parameters, c: ContractCallBase, value = 0.u256, gas = 3000000'u64 gasPrice = 0
-    # should use send proc for the contract functions that update the state of the contract
-    let tx = await sender.register(20.u256).send(value = MEMBERSHIP_FEE) # value is the membership fee
-    debug "The hash of registration tx: ", tx 
+  #   # var members: array[2, uint256] = [20.u256, 21.u256]
+  #   # debug "This is the batch registration result ", await sender.registerBatch(members).send(value = (members.len * MEMBERSHIP_FEE)) # value is the membership fee
 
-    # var members: array[2, uint256] = [20.u256, 21.u256]
-    # debug "This is the batch registration result ", await sender.registerBatch(members).send(value = (members.len * MEMBERSHIP_FEE)) # value is the membership fee
+  #   let balance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
+  #   debug "Balance after registration: ", balance
 
-    let balance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
-    debug "Balance after registration: ", balance
+  #   await web3.close()
+  #   debug "disconnected from", ETH_CLIENT
 
-    await web3.close()
-    debug "disconnected from", ETH_CLIENT
+  # asyncTest "registration procedure":
+  #   # preparation ------------------------------
+  #   # deploy the contract
+  #   let contractAddress = await uploadRLNContract(ETH_CLIENT)
 
-  asyncTest "registration procedure":
-    # preparation ------------------------------
-    # deploy the contract
-    let contractAddress = await uploadRLNContract(ETH_CLIENT)
+  #   # prepare rln-relay peer inputs
+  #   let
+  #     web3 = await newWeb3(ETH_CLIENT)
+  #     accounts = await web3.provider.eth_accounts()
+  #     # choose one of the existing accounts for the rln-relay peer
+  #     ethAccountAddress = accounts[0]
+  #   await web3.close()
 
-    # prepare rln-relay peer inputs
-    let
-      web3 = await newWeb3(ETH_CLIENT)
-      accounts = await web3.provider.eth_accounts()
-      # choose one of the existing accounts for the rln-relay peer
-      ethAccountAddress = accounts[0]
-    await web3.close()
+  #   # create an RLN instance
+  #   var rlnInstance = createRLNInstance()
+  #   check: 
+  #     rlnInstance.isOk == true
 
-    # create an RLN instance
-    var rlnInstance = createRLNInstance()
-    check: 
-      rlnInstance.isOk == true
+  #   # generate the membership keys
+  #   let membershipKeyPair = membershipKeyGen(rlnInstance.value)
+  #   check: 
+  #     membershipKeyPair.isSome
 
-    # generate the membership keys
-    let membershipKeyPair = membershipKeyGen(rlnInstance.value)
-    check: 
-      membershipKeyPair.isSome
+  #   # test ------------------------------
+  #   # initialize the WakuRLNRelay
+  #   var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
+  #     membershipIndex: MembershipIndex(0),
+  #     ethClientAddress: ETH_CLIENT,
+  #     ethAccountAddress: ethAccountAddress,
+  #     membershipContractAddress: contractAddress)
 
-    # test ------------------------------
-    # initialize the WakuRLNRelay
-    var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
-      membershipIndex: MembershipIndex(0),
-      ethClientAddress: ETH_CLIENT,
-      ethAccountAddress: ethAccountAddress,
-      membershipContractAddress: contractAddress)
+  #   # register the rln-relay peer to the membership contract
+  #   let is_successful = await rlnPeer.register()
+  #   check: 
+  #     is_successful
 
-    # register the rln-relay peer to the membership contract
-    let is_successful = await rlnPeer.register()
-    check: 
-      is_successful
+  # asyncTest "mounting waku rln-relay":
+  #   # preparation ------------------------------
+  #   let
+  #     nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+  #     node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"),
+  #       Port(60000))
+  #   await node.start()
 
-  asyncTest "mounting waku rln-relay":
-    # preparation ------------------------------
-    let
-      nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"),
-        Port(60000))
-    await node.start()
+  #   # deploy the contract
+  #   let membershipContractAddress = await uploadRLNContract(ETH_CLIENT)
 
-    # deploy the contract
-    let membershipContractAddress = await uploadRLNContract(ETH_CLIENT)
+  #   # prepare rln-relay inputs
+  #   let
+  #     web3 = await newWeb3(ETH_CLIENT)
+  #     accounts = await web3.provider.eth_accounts()
+  #     # choose one of the existing account for the rln-relay peer
+  #     ethAccountAddress = accounts[0]
+  #   await web3.close()
 
-    # prepare rln-relay inputs
-    let
-      web3 = await newWeb3(ETH_CLIENT)
-      accounts = await web3.provider.eth_accounts()
-      # choose one of the existing account for the rln-relay peer
-      ethAccountAddress = accounts[9]
-    await web3.close()
+  #   # create current peer's pk
+  #   var rlnInstance = createRLNInstance()
+  #   check:
+  #     rlnInstance.isOk == true
+  #   var rln = rlnInstance.value
+  #   # generate a key pair
+  #   var keypair = rln.membershipKeyGen()
+  #   doAssert(keypair.isSome())
 
-    # create current peer's pk
-    var rlnInstance = createRLNInstance()
-    check:
-      rlnInstance.isOk == true
-    var rln = rlnInstance.value
-    # generate a key pair
-    var keypair = rln.membershipKeyGen()
-    doAssert(keypair.isSome())
+  #   # current peer index in the Merkle tree
+  #   let index = uint(5)
 
-    # current peer index in the Merkle tree
-    let index = uint(5)
+  #   # Create a group of 10 members
+  #   var group = newSeq[IDCommitment]()
+  #   for i in 0..10:
+  #     var member_is_added: bool = false
+  #     if (uint(i) == index):
+  #       #  insert the current peer's pk
+  #       group.add(keypair.get().idCommitment)
+  #       member_is_added = rln.insertMember(keypair.get().idCommitment)
+  #       doAssert(member_is_added)
+  #       debug "member key", key = keypair.get().idCommitment.toHex
+  #     else:
+  #       var memberKeypair = rln.membershipKeyGen()
+  #       doAssert(memberKeypair.isSome())
+  #       group.add(memberKeypair.get().idCommitment)
+  #       member_is_added = rln.insertMember(memberKeypair.get().idCommitment)
+  #       doAssert(member_is_added)
+  #       debug "member key", key = memberKeypair.get().idCommitment.toHex
+  #   let expectedRoot = rln.getMerkleRoot().value().toHex
+  #   debug "expected root ", expectedRoot
 
-    # Create a group of 10 members
-    var group = newSeq[IDCommitment]()
-    for i in 0..10:
-      var member_is_added: bool = false
-      if (uint(i) == index):
-        #  insert the current peer's pk
-        group.add(keypair.get().idCommitment)
-        member_is_added = rln.insertMember(keypair.get().idCommitment)
-        doAssert(member_is_added)
-        debug "member key", key = keypair.get().idCommitment.toHex
-      else:
-        var memberKeypair = rln.membershipKeyGen()
-        doAssert(memberKeypair.isSome())
-        group.add(memberKeypair.get().idCommitment)
-        member_is_added = rln.insertMember(memberKeypair.get().idCommitment)
-        doAssert(member_is_added)
-        debug "member key", key = memberKeypair.get().idCommitment.toHex
-    let expectedRoot = rln.getMerkleRoot().value().toHex
-    debug "expected root ", expectedRoot
+  #   # test ------------------------------
+  #   # start rln-relay
+  #   node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
+  #   await node.mountRlnRelay(ethClientAddrOpt = some(EthClient),
+  #                           ethAccAddrOpt = some(ethAccountAddress),
+  #                           memContractAddOpt = some(membershipContractAddress),
+  #                           groupOpt = some(group),
+  #                           memKeyPairOpt = some(keypair.get()),
+  #                           memIndexOpt = some(index),
+  #                           pubsubTopic = RLNRELAY_PUBSUB_TOPIC,
+  #                           contentTopic = RLNRELAY_CONTENT_TOPIC)
+  #   let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
+  #   debug "calculated root ", calculatedRoot
 
-    # test ------------------------------
-    # start rln-relay
-    node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
-    await node.mountRlnRelay(ethClientAddrOpt = some(EthClient),
-                            ethAccAddrOpt = some(ethAccountAddress),
-                            memContractAddOpt = some(membershipContractAddress),
-                            groupOpt = some(group),
-                            memKeyPairOpt = some(keypair.get()),
-                            memIndexOpt = some(index),
-                            pubsubTopic = RLNRELAY_PUBSUB_TOPIC,
-                            contentTopic = RLNRELAY_CONTENT_TOPIC)
-    let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
-    debug "calculated root ", calculatedRoot
+  #   check:
+  #     expectedRoot == calculatedRoot
 
-    check:
-      expectedRoot == calculatedRoot
+  #   await node.stop()
+  # # asyncTest "mounting waku rln-relay in dynamic mode":
+  # #   # preparation ------------------------------
+  # #   let
+  # #     nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+  # #     node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"),
+  # #       Port(60000))
+  # #   await node.start()
 
-    await node.stop()
+  # #   # deploy the contract
+  # #   let membershipContractAddress = await uploadRLNContract(ETH_CLIENT)
+
+  # #   # prepare rln-relay inputs
+  # #   let
+  # #     web3 = await newWeb3(ETH_CLIENT)
+  # #     accounts = await web3.provider.eth_accounts()
+  # #     # choose one of the existing account for the rln-relay peer
+  # #     ethAccountAddress = accounts[0]
+  # #   await web3.close()
+
+  # #   # create current peer's pk
+  # #   var rlnInstance = createRLNInstance()
+  # #   check:
+  # #     rlnInstance.isOk == true
+  # #   var rln = rlnInstance.value
+  # #   # generate a key pair
+  # #   var keypair = rln.membershipKeyGen()
+  # #   doAssert(keypair.isSome())
+  # #   let pk = keypair.get().idCommitment.toUInt256()
+  # #   debug "membership commitment key", pk = pk
+    
+  # #   # # current peer index in the Merkle tree
+  # #   # let index = uint(5)
+
+  # #   # # Create a group of 10 members
+  # #   # var group = newSeq[IDCommitment]()
+  # #   # for i in 0..10:
+  # #   #   var member_is_added: bool = false
+  # #   #   if (uint(i) == index):
+  # #   #     #  insert the current peer's pk
+  # #   #     group.add(keypair.get().idCommitment)
+  # #   #     member_is_added = rln.insertMember(keypair.get().idCommitment)
+  # #   #     doAssert(member_is_added)
+  # #   #     debug "member key", key = keypair.get().idCommitment.toHex
+  # #   #   else:
+  # #   #     var memberKeypair = rln.membershipKeyGen()
+  # #   #     doAssert(memberKeypair.isSome())
+  # #   #     group.add(memberKeypair.get().idCommitment)
+  # #   #     member_is_added = rln.insertMember(memberKeypair.get().idCommitment)
+  # #   #     doAssert(member_is_added)
+  # #   #     debug "member key", key = memberKeypair.get().idCommitment.toHex
+  # #   # let expectedRoot = rln.getMerkleRoot().value().toHex
+  # #   # debug "expected root ", expectedRoot
+
+  # #   # test ------------------------------
+  # #   # start rln-relay
+  # #   node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
+  # #   await node.mountRlnRelay(ethClientAddrOpt = some(EthClient),
+  # #                           ethAccAddrOpt = some(ethAccountAddress),
+  # #                           memContractAddOpt = some(membershipContractAddress),
+  # #                           # groupOpt = some(group),
+  # #                           memKeyPairOpt = some(keypair.get()),
+  # #                           memIndexOpt = some(index),
+  # #                           pubsubTopic = RLNRELAY_PUBSUB_TOPIC,
+  # #                           contentTopic = RLNRELAY_CONTENT_TOPIC)
+  # #   # let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
+  # #   # debug "calculated root ", calculatedRoot
+
+  # #   # check:
+  # #   #   expectedRoot == calculatedRoot
+
+  # #   # send a tx to the contract to register a few member
+  # #   # register a member
+  # #   let tx = await contractObj.register(pk).send(value = MEMBERSHIP_FEE)
+  # #   debug "a member is registered", tx = tx
+  # #   # check the merkle tree updates
+
+  # #   await node.stop()
+  
 
