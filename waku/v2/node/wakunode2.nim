@@ -1011,7 +1011,7 @@ when isMainModule:
       else:
         sqliteDatabase = dbRes.value
 
-    if not sqliteDatabase.isNil:
+    if not sqliteDatabase.isNil and (conf.persistPeers or conf.persistMessages):
       # Database initialized. Let's set it up
       sqliteDatabase.runMigrations(conf) # First migrate what we have
 
