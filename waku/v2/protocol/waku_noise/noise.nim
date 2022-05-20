@@ -164,7 +164,7 @@ type
   # Cipher States used to encrypt/decrypt outbound/inbound messages
   # The recipient static key rs and handshake hash values h are stored to address some possible future applications (channel-binding, session management, etc.).
   # However, are not required by Noise specifications and are thus optional
-  HandshakeResult = object
+  HandshakeResult* = object
     csWrite: CipherState
     csRead: CipherState
     # Optional fields:
