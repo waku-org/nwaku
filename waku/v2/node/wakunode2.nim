@@ -633,11 +633,18 @@ when defined(rln):
 
     if onchainMode:
       # register the rln-relay peer to the membership contract
-      let is_successful = await rlnPeer.register()
+      let isSuccessful = await rlnPeer.register()
       # check whether registration is done
-      doAssert(is_successful)
+      doAssert(isSuccessful)
       debug "peer is successfully registered into the membership contract"
 
+      proc handler(pubkey: Uint256, index: Uint256) =
+        debug "a new key is added", pubkey=pubkey
+        # assuming all the members arrive in order
+        let isSuccessful = rlnPeer.rlnInstance.insertMember(pubkey.toIDCommitment())
+        doAssert(isSuccessful)
+
+      asyncSpawn rlnPeer.handleGroupUpdates(handler)
     # adds a topic validator for the supplied pubsub topic at the relay protocol
     # messages published on this pubsub topic will be relayed upon a successful validation, otherwise they will be dropped
     # the topic validator checks for the correct non-spamming proof of the message
