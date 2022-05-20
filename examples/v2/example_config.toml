@@ -1,0 +1,11 @@
+relay=true
+store=true
+filter=true
+db-path="./dbs/db1"
+rpc-admin=true
+persist-peers=true
+keep-alive=true
+persist-messages=true
+lightpush=true
+nodekey="f157b19b13e9ee818acfc9d3d7eec6b81f70c0a978dec19def261172acbe26e6"
+ports-shift=1

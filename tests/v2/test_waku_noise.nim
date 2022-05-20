@@ -8,7 +8,10 @@ import
   ../../waku/v2/node/waku_payload,
   ../../waku/v2/protocol/waku_noise/noise,
   ../../waku/v2/protocol/waku_message,
-  ../test_helpers
+  ../test_helpers,
+  libp2p/crypto/chacha20poly1305,
+  stew/endians2
+
 
 procSuite "Waku Noise":
   
@@ -206,6 +209,76 @@ procSuite "Waku Noise":
       getNonce(cipherState) == nonce + 1 
       plaintext == decrypted
 
+    # If a Cipher State has no key set, encryptWithAd should return the plaintext without increasing the nonce
+    setCipherStateKey(cipherState, EmptyKey)
+    nonce = getNonce(cipherState)
+
+    plaintext = randomSeqByte(rng[], rand(1..128))
+    ciphertext = encryptWithAd(cipherState, ad, plaintext)
+
+    check:
+      ciphertext == plaintext
+      getNonce(cipherState) == nonce
+
+    # If a Cipher State has no key set, decryptWithAd should return the ciphertext without increasing the nonce
+    setCipherStateKey(cipherState, EmptyKey)
+    nonce = getNonce(cipherState)
+
+    # Note that we set ciphertext minimum length to 16 to not trigger checks on authentication tag length
+    ciphertext = randomSeqByte(rng[], rand(16..128))
+    plaintext = decryptWithAd(cipherState, ad, ciphertext)
+
+    check:
+      ciphertext == plaintext
+      getNonce(cipherState) == nonce
+
+    # A Cipher State cannot have a nonce greater or equal 2^64-1
+    # Note that NonceMax is uint64.high - 1 = 2^64-1-1 and that nonce is increased after each encryption and decryption operation
+    
+    # We generate a test Cipher State with nonce set to MaxNonce
+    cipherState = randomCipherState(rng[])
+    setNonce(cipherState, NonceMax)
+    plaintext = randomSeqByte(rng[], rand(1..128))
+
+    # We test if encryption fails with a NoiseNonceMaxError error. Any subsequent encryption call over the Cipher State should fail similarly and leave the nonce unchanged
+    for _ in [1..5]:
+      expect NoiseNonceMaxError:
+        ciphertext = encryptWithAd(cipherState, ad, plaintext)
+      
+      check:
+        getNonce(cipherState) == NonceMax + 1
+      
+    # We generate a test Cipher State
+    # Since nonce is increased after decryption as well, we need to generate a proper ciphertext in order to test MaxNonceError error handling
+    # We cannot call encryptWithAd to encrypt a plaintext using a nonce equal MaxNonce, since this will trigger a MaxNonceError.
+    # To perform such test, we then need to encrypt a test plaintext using directly ChaChaPoly primitive
+    cipherState = randomCipherState(rng[])
+    setNonce(cipherState, NonceMax)
+    plaintext = randomSeqByte(rng[], rand(1..128))
+    
+    # We perform encryption using the Cipher State key, NonceMax and ad
+    # By Noise specification the nonce is 8 bytes long out of the 12 bytes supported by ChaChaPoly, thus we copy the Little endian conversion of the nonce to a ChaChaPolyNonce
+    var
+      encNonce: ChaChaPolyNonce
+      authorizationTag: ChaChaPolyTag
+    encNonce[4..<12] = toBytesLE(NonceMax)
+    ChaChaPoly.encrypt(getKey(cipherState), encNonce, authorizationTag, plaintext, ad)
+
+    # The output ciphertext is stored in the plaintext variable after ChaChaPoly.encrypt is called: we copy it along with the authorization tag.
+    ciphertext = @[]
+    ciphertext.add(plaintext)
+    ciphertext.add(authorizationTag)
+
+    # At this point ciphertext is a proper encryption of the original plaintext obtained with nonce equal to NonceMax
+    # We can now test if decryption fails with a NoiseNonceMaxError error. Any subsequent decryption call over the Cipher State should fail similarly and leave the nonce unchanged
+    # Note that decryptWithAd doesn't fail in decrypting the ciphertext (otherwise a NoiseDecryptTagError would have been triggered)
+    for _ in [1..5]:
+      expect NoiseNonceMaxError:
+        plaintext = decryptWithAd(cipherState, ad, ciphertext)
+  
+      check:
+        getNonce(cipherState) == NonceMax + 1
+  
   test "Noise State Machine: Symmetric State primitives":
 
     # We select one supported handshake pattern and we initialize a symmetric state
@@ -221,6 +294,10 @@ procSuite "Waku Noise":
       cs = getCipherState(symmetricState)
       ck = getChainingKey(symmetricState)
       h = getHandshakeHash(symmetricState)
+
+    # When a Symmetric state is initialized, handshake hash and chaining key are (byte-wise) equal
+    check:
+      h.data.intoChaChaPolyKey == ck
 
     ########################################
     # mixHash
@@ -335,7 +412,6 @@ procSuite "Waku Noise":
       getNonce(cs1) == 0.uint64
       getNonce(cs2) == 0.uint64
       getKey(cs1) != getKey(cs2)
-
 
   test "Noise XX Handhshake and message encryption (extended test)":
 
