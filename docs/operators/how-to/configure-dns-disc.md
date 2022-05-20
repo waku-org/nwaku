@@ -1,5 +1,8 @@
 # Use DNS discovery to connect to existing nodes
 
+> **Note:** This page describes using DNS to discover other peers
+and is unrelated to the [domain name configuration](./configure-domain.md) for your nwaku node.
+
 A node can discover other nodes to connect to using [DNS-based discovery](../../tutorial/dns-disc.md).
 The following command line options are available:
 

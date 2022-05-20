@@ -1,5 +1,9 @@
 # Configure a domain name
 
+> **Note:** This page describes configuring a domain name that resolves to your node's IP
+and is unrelated to [DNS discovery](./configure-dns-disc.md),
+by which a node may discover the listening addresses of other peers using DNS.
+
 It is possible to configure an IPv4 DNS domain name that resolves to the node's public IPv4 address.
 
 ```shell

@@ -25,9 +25,9 @@ See the following example, using the peer at `/dns4/node-01.ac-cn-hongkong-c.wak
   --storenode:/dns4/node-01.ac-cn-hongkong-c.wakuv2.test.statusim.net/tcp/30303/p2p/16Uiu2HAkvWiyFsgRhuJEb9JfjYxEkoHLgnUQmr1N5mKWnYjxYRVm
 ```
 
-You can now send queries to retrieve historical messages
-from the configured store service node
-using the [Waku v2 JSON RPC API](https://rfc.vac.dev/spec/16/).
+Your node can now send queries to retrieve historical messages
+from the configured store service node.
+One way to trigger such queries is asking your node for historical messages using the [Waku v2 JSON RPC API](https://rfc.vac.dev/spec/16/).
 
 ## Configuring a store service node
 
