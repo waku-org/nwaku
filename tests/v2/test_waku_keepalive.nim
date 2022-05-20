@@ -48,4 +48,5 @@ procSuite "Waku Keepalive":
     check:
       (await completionFut.withTimeout(5.seconds)) == true
 
-    await allFutures([node1.stop(), node2.stop()])
+    await node2.stop()
+    await node1.stop()

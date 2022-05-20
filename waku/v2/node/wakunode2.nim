@@ -705,7 +705,8 @@ proc mountRelay*(node: WakuNode,
   wakuRelay.defaultTopics = concat(@[defaultTopic], topics)
 
   ## Add peer exchange handler
-  if peerExchangeHandler.isSome():    
+  if peerExchangeHandler.isSome():
+    wakuRelay.parameters.enablePX = true # Feature flag for peer exchange in nim-libp2p
     wakuRelay.routingRecordsHandler.add(peerExchangeHandler.get())
 
   node.switch.mount(wakuRelay, protocolMatcher(WakuRelayCodec))
