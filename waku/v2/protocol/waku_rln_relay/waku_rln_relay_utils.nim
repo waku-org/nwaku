@@ -585,4 +585,4 @@ proc subscribeToGroupEvents(ethClientUri: string, contractAddress: Address, bloc
 
 proc handleGroupUpdates*(rlnPeer: WakuRLNRelay, handler: RegistrationEventHandler) {.async, gcsafe.} =
   # mounts the supplied handler for the registration events emitting from the membership contract
-  asyncSpawn subscribeToGroupEvents(ethClientUri = rlnPeer.ethClientAddress, contractAddress = rlnPeer.membershipContractAddress, handler = handler)
+  await subscribeToGroupEvents(ethClientUri = rlnPeer.ethClientAddress, contractAddress = rlnPeer.membershipContractAddress, handler = handler) 
