@@ -148,25 +148,34 @@ procSuite "Waku-rln-relay":
     var contractObj = web3.contractSender(MembershipContract,
         contractAddress) # creates a Sender object with a web3 field and contract address of type Address
 
+    # test ------------------------------
     # create an RLN instance
     var rlnInstance = createRLNInstance()
     check: 
       rlnInstance.isOk == true
-    # generate the membership keys
-    let membershipKeyPair = membershipKeyGen(rlnInstance.value)
+    var rln = rlnInstance.value
+
+    let keyPair = rln.membershipKeyGen()
     check: 
-      membershipKeyPair.isSome
-    let pk = membershipKeyPair.get().getIdCommitment()
+      keyPair.isSome
+    let pk = keyPair.get().getIdCommitment()
     debug "membership commitment key", pk = pk
 
-    let membershipKeyPair2 = membershipKeyGen(rlnInstance.value)
+    # initialize the WakuRLNRelay
+    var rlnPeer = WakuRLNRelay(membershipKeyPair: keyPair.get(),
+      membershipIndex: MembershipIndex(0),
+      ethClientAddress: ETH_CLIENT,
+      ethAccountAddress: accounts[0],
+      membershipContractAddress: contractAddress,
+      rlnInstance: rln)
+
+    # generate the membership keys
+    let keyPair2 = rln.membershipKeyGen()
     check: 
-      membershipKeyPair2.isSome
-    let pk2 = membershipKeyPair2.get().getIdCommitment()
+      keyPair2.isSome
+    let pk2 = keyPair2.get().getIdCommitment()
     debug "membership commitment key", pk2 = pk2
 
-
-    # test ------------------------------
     var events = [newFuture[void](), newFuture[void]()]
     proc handler(pubkey: Uint256, index: Uint256) =
       debug "handler is called", pubkey = pubkey, index = index
@@ -174,14 +183,10 @@ procSuite "Waku-rln-relay":
         events[0].complete()
       if pubkey == pk2:
         events[1].complete()
-
-    # initialize the WakuRLNRelay
-    var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
-      membershipIndex: MembershipIndex(0),
-      ethClientAddress: ETH_CLIENT,
-      ethAccountAddress: accounts[0],
-      membershipContractAddress: contractAddress)
-
+      let isSuccessful = rlnPeer.rlnInstance.insertMember(pubkey.toIDCommitment())
+      check:
+        isSuccessful
+    
     await rlnPeer.handleGroupUpdates(handler)
 
     # register a member
