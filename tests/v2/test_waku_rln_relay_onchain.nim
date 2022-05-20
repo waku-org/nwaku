@@ -167,14 +167,13 @@ procSuite "Waku-rln-relay":
 
 
     # test ------------------------------
-    var fut = newFuture[void]()
-    var fut2 = newFuture[void]()
-    proc registerationHandler(pubkey: Uint256, index: Uint256) =
-      debug "onRegister", pubkey = pubkey, index = index
+    var events = [newFuture[void](), newFuture[void]()]
+    proc handler(pubkey: Uint256, index: Uint256) =
+      debug "handler is called", pubkey = pubkey, index = index
       if pubkey == pk:
-        fut.complete()
+        events[0].complete()
       if pubkey == pk2:
-        fut2.complete()
+        events[1].complete()
 
     # initialize the WakuRLNRelay
     var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
@@ -183,7 +182,7 @@ procSuite "Waku-rln-relay":
       ethAccountAddress: accounts[0],
       membershipContractAddress: contractAddress)
 
-    await rlnPeer.groupManagement(registerationHandler)
+    await rlnPeer.handleGroupUpdates(handler)
 
     # register a member
     let tx = await contractObj.register(pk).send(value = MEMBERSHIP_FEE)
@@ -192,12 +191,12 @@ procSuite "Waku-rln-relay":
     let tx2 = await contractObj.register(pk2).send(value = MEMBERSHIP_FEE)
     debug "a member is registered", tx2 = tx2
 
-    # wait for the event to be received
-    await fut
-    await fut2
+    # wait for all the events to be received
+    await all(events)
 
     # release resources -----------------------
     await web3.close()
+
   asyncTest "insert a key to the membership contract":
     # preparation ------------------------------
     debug "ethereum client address", ETH_CLIENT
