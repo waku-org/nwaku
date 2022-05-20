@@ -159,7 +159,7 @@ type
   HandshakeResult = object
     csInbound: CipherState
     csOutbound: CipherState
-    # Optional fields
+    # Optional fields:
     rs: EllipticCurveKey
     h: MDigest[256]
 
@@ -501,7 +501,7 @@ proc init*(_: type[SymmetricState], hsPattern: HandshakePattern): SymmetricState
   # We initialize the chaining key ck
   ss.ck = ss.h.data.intoChaChaPolyKey
   # We initialize the Cipher state
-  ss.cs = CipherState(k: EmptyKey, n: 0.uint64)
+  ss.cs = CipherState(k: EmptyKey)
   return ss
 
 # MixKey as per Noise specification http://www.noiseprotocol.org/noise.html#the-symmetricstate-object
@@ -512,7 +512,7 @@ proc mixKey*(ss: var SymmetricState, inputKeyMaterial: ChaChaPolyKey) =
   sha256.hkdf(ss.ck, inputKeyMaterial, [], tempKeys)
   # We update ck and the Cipher state's key k using the output of HDKF 
   ss.ck = tempKeys[0]
-  ss.cs = CipherState(k: tempKeys[1], n: 0.uint64)
+  ss.cs = CipherState(k: tempKeys[1])
   trace "mixKey", ck = ss.ck, k = ss.cs.k
 
 # MixHash as per Noise specification http://www.noiseprotocol.org/noise.html#the-symmetricstate-object
@@ -541,7 +541,7 @@ proc mixKeyAndHash*(ss: var SymmetricState, inputKeyMaterial: openArray[byte]) {
   ss.mixHash(tempKeys[1])
   # Updates the Cipher state's key
   # Note for later support of 512 bits hash functions: "If HASHLEN is 64, then truncates tempKeys[2] to 32 bytes."
-  ss.cs = CipherState(k: tempKeys[2], n: 0.uint64)
+  ss.cs = CipherState(k: tempKeys[2])
 
 # EncryptAndHash as per Noise specification http://www.noiseprotocol.org/noise.html#the-symmetricstate-object
 # Combines encryptWithAd and mixHash
@@ -574,7 +574,7 @@ proc split*(ss: var SymmetricState): tuple[cs1, cs2: CipherState] =
   var tempKeys: array[2, ChaChaPolyKey]
   sha256.hkdf(ss.ck, [], [], tempKeys)
   # Returns a tuple of two Cipher States initialized with the derived keys
-  return (CipherState(k: tempKeys[0], n: 0.uint64), CipherState(k: tempKeys[1], n: 0.uint64))
+  return (CipherState(k: tempKeys[0]), CipherState(k: tempKeys[1]))
 
 # Gets the chaining key field of a Symmetric State
 proc getChainingKey*(ss: SymmetricState): ChaChaPolyKey =
