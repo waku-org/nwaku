@@ -704,18 +704,21 @@ suite "Waku rln relay":
       msgValidate3 == MessageValidationResult.Valid
       msgValidate4 == MessageValidationResult.Invalid
   test "toIDCommitment and toUInt256":
-    # create current peer's pk
+    # create an instance of rln
     var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
-    var rln = rlnInstance.value
-    # generate a key pair
-    var keypair = rln.membershipKeyGen()
-    doAssert(keypair.isSome())
-
-    let idC = keypair.get().idCommitment
-    let idCEncoded = keypair.get().idCommitment.toUInt256()
-    let idCDecoded = toIDCommitment(idCEncoded)
-
+    
+    # create a key pair
+    var keypair = rlnInstance.value.membershipKeyGen()
     check:
-      idCDecoded == idC
+      keypair.isSome()
+
+    # convert the idCommitment to UInt256
+    let idCUInt = keypair.get().idCommitment.toUInt256()
+    # convert the UInt256 back to ICommitment
+    let idCommitment = toIDCommitment(idCUInt)
+
+    # check that the conversion has not distorted the original value
+    check:
+      keypair.get().idCommitment == idCommitment
