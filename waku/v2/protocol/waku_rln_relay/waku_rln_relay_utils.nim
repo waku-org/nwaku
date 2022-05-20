@@ -556,24 +556,33 @@ proc addAll*(rlnInstance: RLN[Bn256], list: seq[IDCommitment]): bool =
       return false
   return true
 
-type RegistrationHandler  = proc(pubkey: Uint256, index: Uint256): void {.gcsafe, closure, raises: [Defect].}
+# the types of inputs to this handler matches the MemberRegistered event/proc defined in the MembershipContract interface
+type RegistrationEventHandler  = proc(pubkey: Uint256, index: Uint256): void {.gcsafe, closure, raises: [Defect].}
 
-proc subscribeForGroupEvents(ethClientUri: string, contractAddress: Address, registerationHandler: RegistrationHandler, blockNumber: string = "0x0") {.async, gcsafe.} = 
+
+proc subscribeToGroupEvents(ethClientUri: string, contractAddress: Address, blockNumber: string = "0x0", handler: RegistrationEventHandler) {.async, gcsafe.} = 
+  ## connects to the eth client whose URI is supplied as `ethClientUri`
+  ## subscribes to the `MemberRegistered` event emitted from the `MembershipContract` which is available on the supplied `contractAddress`
+  ## it collects all the events starting from the given `blockNumber`
+  ## for every received event, it calls the `handler`
+  
+  # connect to the eth client
   let web3 = await newWeb3(ETH_CLIENT)
   # prepare a contract sender to interact with it
   var contractObj = web3.contractSender(MembershipContract, contractAddress) 
-  # subscribe
+
+  # subscribe to the MemberRegistered events
+  # TODO can do similarly for deletion events, though it is not yet supported
   discard await contractObj.subscribe(MemberRegistered, %*{"fromBlock": blockNumber, "address": contractAddress}) do(pubkey: Uint256, index: Uint256){.raises: [Defect], gcsafe.}:
     try:
       debug "onRegister", pubkey = pubkey, index = index
-      registerationHandler(pubkey, index)
+      handler(pubkey, index)
     except Exception as err:
       # chronos still raises exceptions which inherit directly from Exception
       doAssert false, err.msg
   do (err: CatchableError):
     echo "Error from subscription: ", err.msg
 
-proc groupManagement*(rlnPeer: WakuRLNRelay, registerationHandler: RegistrationHandler) {.async, gcsafe.} =
-  # proc registerationHandler(pubkey: Uint256, index: Uint256) =
-  #   echo "someone registered", pubkey, index
-  await subscribeForGroupEvents(ethClientUri= rlnPeer.ethClientAddress, contractAddress= rlnPeer.membershipContractAddress, registerationHandler= registerationHandler)
+proc handleGroupUpdates*(rlnPeer: WakuRLNRelay, handler: RegistrationEventHandler) {.async, gcsafe.} =
+  # mounts the supplied handler for the registration events emitting from the membership contract
+  await subscribeToGroupEvents(ethClientUri = rlnPeer.ethClientAddress, contractAddress = rlnPeer.membershipContractAddress, handler = handler)
