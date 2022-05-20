@@ -169,7 +169,7 @@ procSuite "Waku-rln-relay":
       membershipContractAddress: contractAddress,
       rlnInstance: rln)
 
-    # generate the membership keys
+    # generate another membership key pair
     let keyPair2 = rln.membershipKeyGen()
     check: 
       keyPair2.isSome
@@ -187,16 +187,18 @@ procSuite "Waku-rln-relay":
       check:
         isSuccessful
     
+    # mount the handler for listening to the contract events
     await rlnPeer.handleGroupUpdates(handler)
 
-    # register a member
+    # register a member to the contract
     let tx = await contractObj.register(pk).send(value = MEMBERSHIP_FEE)
     debug "a member is registered", tx = tx
 
+    # register another member to the contract
     let tx2 = await contractObj.register(pk2).send(value = MEMBERSHIP_FEE)
     debug "a member is registered", tx2 = tx2
 
-    # wait for all the events to be received
+    # wait for all the events to be received by the rlnPeer
     await all(events)
 
     # release resources -----------------------
