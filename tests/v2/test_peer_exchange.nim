@@ -26,8 +26,12 @@ procSuite "Peer Exchange":
       node3 = WakuNode.new(nodeKey3, bindIp, Port(60003), sendSignedPeerRecord = true)
     
     var
-      peerExchangeHandler: RoutingRecordsHandler
+      peerExchangeHandler, emptyHandler: RoutingRecordsHandler
       completionFut = newFuture[bool]()
+    
+    proc ignorePeerExchange(peer: PeerId, topic: string,
+                            peers: seq[RoutingRecordsPair]) {.gcsafe, raises: [Defect].} =
+      discard
     
     proc handlePeerExchange(peer: PeerId, topic: string,
                             peers: seq[RoutingRecordsPair]) {.gcsafe, raises: [Defect].} =
@@ -44,9 +48,10 @@ procSuite "Peer Exchange":
         completionFut.complete(true)
 
     peerExchangeHandler = handlePeerExchange
+    emptyHandler = ignorePeerExchange
 
-    node1.mountRelay()
-    node2.mountRelay()
+    node1.mountRelay(peerExchangeHandler = some(emptyHandler))
+    node2.mountRelay(peerExchangeHandler = some(emptyHandler))
     node3.mountRelay(peerExchangeHandler = some(peerExchangeHandler))
 
     # Ensure that node1 prunes all peers after the first connection
