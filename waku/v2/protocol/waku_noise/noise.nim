@@ -286,7 +286,7 @@ proc print*(self: HandshakePattern)
     if self.name != "":
       stdout.write self.name, ":\n"
       stdout.flushFile()
-    #We iterate over pre message patterns, if any
+    # We iterate over pre message patterns, if any
     if self.preMessagePatterns != EmptyPreMessage:
       for pattern in self.preMessagePatterns:
           stdout.write "  ", pattern.direction
@@ -301,7 +301,7 @@ proc print*(self: HandshakePattern)
           stdout.flushFile()
       stdout.write "    ...\n"
       stdout.flushFile()
-    #We iterate over message patterns
+    # We iterate over message patterns
     for pattern in self.messagePatterns:
       stdout.write "  ", pattern.direction
       var first = true
@@ -346,30 +346,6 @@ proc dh*(private: EllipticCurveKey, public: EllipticCurveKey): EllipticCurveKey 
   EllipticCurve.mul(output, private)
 
   return output
-
-# Checks if a pre-message is valid according to Noise specifications 
-# http://www.noiseprotocol.org/noise.html#handshake-patterns
-proc isValid(msg: seq[PreMessagePattern]): bool =
-
-  var isValid: bool = true
-
-  # Non-empty pre-messages can only have patterns "e", "s", "e,s" in each direction
-  let allowedPatterns: seq[PreMessagePattern] = @[ PreMessagePattern(direction: D_r, tokens: @[T_s]),
-                                                   PreMessagePattern(direction: D_r, tokens: @[T_e]),
-                                                   PreMessagePattern(direction: D_r, tokens: @[T_e, T_s]),
-                                                   PreMessagePattern(direction: D_l, tokens: @[T_s]),
-                                                   PreMessagePattern(direction: D_l, tokens: @[T_e]),
-                                                   PreMessagePattern(direction: D_l, tokens: @[T_e, T_s])
-                                                 ]
-
-  # We check if pre message patterns are allowed
-  for pattern in msg:
-    if not (pattern in allowedPatterns):
-      isValid = false
-      break
-
-  return isValid
-
 
 #################################################################
 
@@ -657,7 +633,7 @@ proc encrypt*(
   # Since ChaChaPoly's library "encrypt" primitive directly changes the input plaintext to the ciphertext,
   # we copy the plaintext into the ciphertext variable and we pass the latter to encrypt
   ciphertext.data.add plaintext
-  #TODO: add padding
+  # TODO: add padding
   # ChaChaPoly.encrypt takes as input: the key (k), the nonce (nonce), a data structure for storing the computed authorization tag (tag), 
   # the plaintext (overwritten to ciphertext) (data), the associated data (ad)
   ChaChaPoly.encrypt(state.k, state.nonce, ciphertext.tag, ciphertext.data, state.ad)
@@ -684,7 +660,7 @@ proc decrypt*(
   # ChaChaPoly.decrypt takes as input: the key (k), the nonce (nonce), a data structure for storing the computed authorization tag (tag), 
   # the ciphertext (overwritten to plaintext) (data), the associated data (ad)
   ChaChaPoly.decrypt(state.k, state.nonce, tagOut, plaintext, state.ad)
-  #TODO: add unpadding
+  # TODO: add unpadding
   trace "decrypt", tagIn = tagIn, tagOut = tagOut, nonce = state.nonce
   # We check if the authorization tag computed while decrypting is the same as the input tag
   if tagIn != tagOut:
@@ -834,7 +810,7 @@ proc randomPayloadV2*(rng: var BrHmacDrbgContext): PayloadV2 =
 # The output can be then passed to the payload field of a WakuMessage https://rfc.vac.dev/spec/14/
 proc serializePayloadV2*(self: PayloadV2): Result[seq[byte], cstring] =
 
-  #We collect public keys contained in the handshake message
+  # We collect public keys contained in the handshake message
   var
     # According to https://rfc.vac.dev/spec/35/, the maximum size for the handshake message is 256 bytes, that is 
     # the handshake message length can be represented with 1 byte only. (its length can be stored in 1 byte)
@@ -904,7 +880,6 @@ proc deserializePayloadV2*(payload: seq[byte]): Result[PayloadV2, cstring]
   var handshakeMessageLen = payload[i].uint64
   if handshakeMessageLen > uint8.high.uint64:
     debug "Payload malformed: too many public keys contained in the handshake message"
-    #raise newException(NoiseMalformedHandshake, "Too many public keys in handshake message")
     return err("Too many public keys in handshake message")
 
   i += 1
@@ -966,24 +941,46 @@ proc getReadingWritingState(hs: HandshakeState, direction: MessageDirection): (b
   var reading, writing : bool
 
   if hs.initiator and direction == D_r:
-    #I'm Alice and direction is ->
+    # I'm Alice and direction is ->
     reading = false
     writing = true
   elif hs.initiator and direction == D_l:
-    #I'm Alice and direction is <-
+    # I'm Alice and direction is <-
     reading = true
     writing = false
   elif not hs.initiator and direction == D_r:
-    #I'm Bob and direction is ->
+    # I'm Bob and direction is ->
     reading = true
     writing = false
   elif not hs.initiator and direction == D_l:
-    #I'm Bob and direction is <-
+    # I'm Bob and direction is <-
     reading = false
     writing = true
 
   return (reading, writing)
 
+# Checks if a pre-message is valid according to Noise specifications 
+# http://www.noiseprotocol.org/noise.html#handshake-patterns
+proc isValid(msg: seq[PreMessagePattern]): bool =
+
+  var isValid: bool = true
+
+  # Non-empty pre-messages can only have patterns "e", "s", "e,s" in each direction
+  let allowedPatterns: seq[PreMessagePattern] = @[ PreMessagePattern(direction: D_r, tokens: @[T_s]),
+                                                   PreMessagePattern(direction: D_r, tokens: @[T_e]),
+                                                   PreMessagePattern(direction: D_r, tokens: @[T_e, T_s]),
+                                                   PreMessagePattern(direction: D_l, tokens: @[T_s]),
+                                                   PreMessagePattern(direction: D_l, tokens: @[T_e]),
+                                                   PreMessagePattern(direction: D_l, tokens: @[T_e, T_s])
+                                                 ]
+
+  # We check if pre message patterns are allowed
+  for pattern in msg:
+    if not (pattern in allowedPatterns):
+      isValid = false
+      break
+
+  return isValid
 
 #################################
 # Handshake messages processing procedures
@@ -994,9 +991,9 @@ proc processPreMessagePatternTokens*(hs: var HandshakeState, inPreMessagePKs: se
   {.raises: [Defect, NoiseMalformedHandshake, NoiseHandshakeError, NoisePublicKeyError].} =
 
   var 
-    # I make a copy of the pre message pattern so that I can easily delete processed PKs without using iterators/counters
+    # I make a copy of the input pre-message public keys, so that I can easily delete processed ones without using iterators/counters
     preMessagePKs = inPreMessagePKs
-    # Here we store currently processed input pre message public key
+    # Here we store currently processed pre message public key
     currPK : NoisePublicKey
 
   # We retrieve the pre-message patterns to process, if any
@@ -1004,11 +1001,11 @@ proc processPreMessagePatternTokens*(hs: var HandshakeState, inPreMessagePKs: se
   if hs.handshakePattern.preMessagePatterns == EmptyPreMessage:
     return
 
-  # We check that pre-message is valid according to Noise specifications
+  # If not empty, we check that pre-message is valid according to Noise specifications
   if isValid(hs.handshakePattern.preMessagePatterns) == false:
     raise newException(NoiseMalformedHandshake, "Invalid pre-message in handshake")
 
-  # If there are, we iterate each of those
+  # We iterate over each pattern contained in the pre-message
   for messagePattern in hs.handshakePattern.preMessagePatterns:
     let
       direction = messagePattern.direction
@@ -1017,22 +1014,24 @@ proc processPreMessagePatternTokens*(hs: var HandshakeState, inPreMessagePKs: se
     # We get if the user is reading or writing the current pre-message pattern
     var (reading, writing) = getReadingWritingState(hs , direction)
     
-  
-    # Now the user is reading should be the only option right now
-    #We process each message pattern token
+    # We process each message pattern token
     for token in tokens:
+
+      # We process the pattern token
       case token
       of T_e:
 
+        # We expect an ephemeral key, so we attempt to read it (next PK to process will always be at index 0 of preMessagePKs)
         if preMessagePKs.len > 0:
           currPK = preMessagePKs[0]
         else:
           raise newException(NoiseHandshakeError, "Noise pre-message read e, expected a public key")
 
+        # If user is reading the "e" token
         if reading:
           trace "noise pre-message read e"
 
-          # We check if current key is encrypted or not. We assume pre-message public keys are all unencrypted on the user's end
+          # We check if current key is encrypted or not. We assume pre-message public keys are all unencrypted on users' end
           if currPK.flag == 0.uint8:
 
             # Sets re and calls MixHash(re.public_key).
@@ -1042,12 +1041,13 @@ proc processPreMessagePatternTokens*(hs: var HandshakeState, inPreMessagePKs: se
           else:
             raise newException(NoisePublicKeyError, "Noise read e, incorrect encryption flag for pre-message public key")
    
+        # If user is writing the "e" token
         elif writing:
    
           trace "noise pre-message write e"
 
-          # If writing, it means that the user is sending a public key, 
-          # We check that the public part corresponds to the set Keypair and we call MixHash(e.public_key).
+          # When writing, the user is sending a public key, 
+          # We check that the public part corresponds to the set local key and we call MixHash(e.public_key).
           if hs.e.publicKey == intoCurve25519Key(currPK.pk):
             hs.ss.mixHash(hs.e.publicKey)
           else:
@@ -1065,15 +1065,17 @@ proc processPreMessagePatternTokens*(hs: var HandshakeState, inPreMessagePKs: se
 
       of T_s:
 
+        # We expect a static key, so we attempt to read it (next PK to process will always be at index of preMessagePKs)
         if preMessagePKs.len > 0:
           currPK = preMessagePKs[0]
         else:
           raise newException(NoiseHandshakeError, "Noise pre-message read s, expected a public key")
 
+        # If user is reading the "s" token
         if reading:
           trace "noise pre-message read s"
 
-          # We check if current key is encrypted or not. We assume pre-message public keys are all unencrypted on the user's end
+          # We check if current key is encrypted or not. We assume pre-message public keys are all unencrypted on users' end
           if currPK.flag == 0.uint8:
 
             # Sets re and calls MixHash(re.public_key).
@@ -1082,13 +1084,14 @@ proc processPreMessagePatternTokens*(hs: var HandshakeState, inPreMessagePKs: se
 
           else:
             raise newException(NoisePublicKeyError, "Noise read s, incorrect encryption flag for pre-message public key")
-   
+
+        # If user is writing the "s" token
         elif writing:
    
           trace "noise pre-message write s"
 
           # If writing, it means that the user is sending a public key, 
-          # We check that the public part corresponds to the set Keypair and we call MixHash(e.public_key).
+          # We check that the public part corresponds to the set local key and we call MixHash(s.public_key).
           if hs.s.publicKey == intoCurve25519Key(currPK.pk):
             hs.ss.mixHash(hs.s.publicKey)
           else:
@@ -1112,24 +1115,27 @@ proc processPreMessagePatternTokens*(hs: var HandshakeState, inPreMessagePKs: se
 proc processMessagePatternPayload(hs: var HandshakeState, transportMessage: seq[byte]): seq[byte]
   {.raises: [Defect, NoiseDecryptTagError, NoiseNonceMaxError].} =
 
-  #We retrieve current message pattern (direction + tokens) to process
+  var payload: seq[byte]
+
+  # We retrieve current message pattern (direction + tokens) to process
   let direction = hs.handshakePattern.messagePatterns[hs.msgPatternIdx].direction
 
   # We get if the user is reading or writing the input handshake message
   var (reading, writing) = getReadingWritingState(hs, direction)
 
-  #We decrypt the transportMessage, if any
+  # We decrypt the transportMessage, if any
   if reading:
-    result = hs.ss.decryptAndHash(transportMessage)
+    payload = hs.ss.decryptAndHash(transportMessage)
   elif writing:
-    result = hs.ss.encryptAndHash(transportMessage)
+    payload = hs.ss.encryptAndHash(transportMessage)
 
+  return payload
 
-# We process an input handshake message according to the currend handshake state and we return the next handshake step's handshake message
+# We process an input handshake message according to current handshake state and we return the next handshake step's handshake message
 proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeState, inputHandshakeMessage: seq[NoisePublicKey] = @[]): Result[seq[NoisePublicKey], cstring]
   {.raises: [Defect, NoiseHandshakeError, NoiseMalformedHandshake, NoisePublicKeyError, NoiseDecryptTagError, NoiseNonceMaxError].} =
 
-  #We retrieve current message pattern (direction + tokens) to process
+  # We retrieve current message pattern (direction + tokens) to process
   let
     messagePattern = hs.handshakePattern.messagePatterns[hs.msgPatternIdx]
     direction = messagePattern.direction
@@ -1137,7 +1143,6 @@ proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeS
     
   # We get if the user is reading or writing the input handshake message
   var (reading, writing) = getReadingWritingState(hs , direction)
-  
 
   # I make a copy of the handshake message so that I can easily delete processed PKs without using iterators/counters
   # (Possibly) non-empty if reading
@@ -1147,24 +1152,27 @@ proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeS
   # (Possibly) non-empty if writing
   var outHandshakeMessage: seq[NoisePublicKey] = @[]
 
-  # Here, we store the currently processed public key from the handshake message
+  # In currPK we store the currently processed public key from the handshake message
   var currPK: NoisePublicKey
 
-  #We process each message pattern token
+  # We process each message pattern token
   for token in tokens:
+    
     case token
     of T_e:
 
+      # If user is reading the "s" token
       if reading:
         trace "noise read e"
 
+        # We expect an ephemeral key, so we attempt to read it (next PK to process will always be at index 0 of preMessagePKs)
         if inHandshakeMessage.len > 0:
           currPK = inHandshakeMessage[0]
         else:
           raise newException(NoiseHandshakeError, "Noise read e, expected a public key")
 
         # We check if current key is encrypted or not
-        # Note: by specification, ephemeral keys should always be unencrypted. But we support encrypted ones
+        # Note: by specification, ephemeral keys should always be unencrypted. But we support encrypted ones.
         if currPK.flag == 0.uint8:
 
           # Unencrypted Public Key 
@@ -1172,10 +1180,10 @@ proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeS
           hs.re = intoCurve25519Key(currPK.pk)
           hs.ss.mixHash(hs.re)
 
-        # The following is out of specification: we call decryptAndHash for encrypted ephemeral keys, similarly as for static keys
+        # The following is out of specification: we call decryptAndHash for encrypted ephemeral keys, similarly as happens for (encrypted) static keys
         elif currPK.flag == 1.uint8:
 
-          #Encrypted public key
+          # Encrypted public key
           # Decrypts re, sets re and calls MixHash(re.public_key).
           hs.re = intoCurve25519Key(hs.ss.decryptAndHash(currPK.pk))
 
@@ -1192,14 +1200,16 @@ proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeS
         # We delete processed public key
         inHandshakeMessage.delete(0)
 
+      # If user is writing the "e" token
       elif writing:
         trace "noise write e"
 
-        #We generate a new ephemeral keypair
+        # We generate a new ephemeral keypair
         hs.e = genKeyPair(rng)
 
-        #We update the state
+        # We update the state
         hs.ss.mixHash(hs.e.publicKey)
+
         # Noise specification: section 9.2
         # In non-PSK handshakes, the "e" token in a pre-message pattern or message pattern always results 
         # in a call to MixHash(e.public_key). 
@@ -1207,14 +1217,16 @@ proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeS
         if "psk" in hs.handshakePattern.name:
           hs.ss.mixKey(hs.e.publicKey)
 
-        #We add the ephemeral public key to the Waku payload
+        # We add the ephemeral public key to the Waku payload
         outHandshakeMessage.add toNoisePublicKey(getPublicKey(hs.e))
 
     of T_s:
 
+      # If user is reading the "s" token
       if reading:
         trace "noise read s"
 
+        # We expect a static key, so we attempt to read it (next PK to process will always be at index 0 of preMessagePKs)
         if inHandshakeMessage.len > 0:
           currPK = inHandshakeMessage[0]
         else:
@@ -1240,19 +1252,22 @@ proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeS
         # We delete processed public key
         inHandshakeMessage.delete(0)
 
-
+      # If user is writing the "s" token
       elif writing:
+
         trace "noise write s"
 
+        # If the local static key is not set (the handshake state was not properly initialized), we raise an error
         if hs.s == default(KeyPair):
-          raise newException(NoiseMalformedHandshake, "Static key not set")
+          raise newException(NoisePublicKeyError, "Static key not set")
 
-        #We update the state
+        # We encrypt the public part of the static key in case a key is set in the Cipher State
+        # That is, encS may either be an encrypted or unencrypted static key.
         let encS = hs.ss.encryptAndHash(hs.s.publicKey)
 
-        #We add the static public key to the Waku payload
-        #Note that encS = (Enc(s) || tag) if encryption key is set otherwise encS = s.
-        #We distinguish these two cases by checking length of encryption
+        # We add the (encrypted) static public key to the Waku payload
+        # Note that encS = (Enc(s) || tag) if encryption key is set, otherwise encS = s.
+        # We distinguish these two cases by checking length of encryption and we set the proper encryption flag
         if encS.len > Curve25519Key.len:
           outHandshakeMessage.add NoisePublicKey(flag: 1, pk: encS)
         else:
@@ -1260,42 +1275,51 @@ proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeS
 
     of T_psk:
 
+      # If user is reading the "psk" token
+
       trace "noise psk"
 
-      #Calls MixKeyAndHash(psk)
+      # Calls MixKeyAndHash(psk)
       hs.ss.mixKeyAndHash(hs.psk)
 
     of T_ee:
 
+      # If user is reading the "ee" token
+
       trace "noise dh ee"
 
+      # If local and/or remote ephemeral keys are not set, we raise an error
       if hs.e == default(KeyPair) or hs.re == default(Curve25519Key):
-        raise newException(NoiseMalformedHandshake, "Local or remote ephemeral key not set")
+        raise newException(NoisePublicKeyError, "Local or remote ephemeral key not set")
 
       # Calls MixKey(DH(e, re)).
       hs.ss.mixKey(dh(hs.e.privateKey, hs.re))
 
     of T_es:
 
+      # If user is reading the "es" token
+
       trace "noise dh es"
 
-      # We check keys are correctly set and we then
-      # call MixKey(DH(e, rs)) if initiator, MixKey(DH(s, re)) if responder.
+      # We check if keys are correctly set.
+      # If both present, we call MixKey(DH(e, rs)) if initiator, MixKey(DH(s, re)) if responder.
       if hs.initiator:
         if hs.e == default(KeyPair) or hs.rs == default(Curve25519Key):
-          raise newException(NoiseMalformedHandshake, "Local or remote ephemeral/static key not set")
+          raise newException(NoisePublicKeyError, "Local or remote ephemeral/static key not set")
         hs.ss.mixKey(dh(hs.e.privateKey, hs.rs))
       else:
         if hs.re == default(Curve25519Key) or hs.s == default(KeyPair):
-          raise newException(NoiseMalformedHandshake, "Local or remote ephemeral/static key not set")
+          raise newException(NoisePublicKeyError, "Local or remote ephemeral/static key not set")
         hs.ss.mixKey(dh(hs.s.privateKey, hs.re))
 
     of T_se:
 
+      # If user is reading the "se" token
+
       trace "noise dh se"
 
-      # We check keys are correctly set and we then
-      # call MixKey(DH(s, re)) if initiator, MixKey(DH(e, rs)) if responder.
+      # We check if keys are correctly set.
+      # If both present, call MixKey(DH(s, re)) if initiator, MixKey(DH(e, rs)) if responder.
       if hs.initiator:
         if hs.s == default(KeyPair) or hs.re == default(Curve25519Key):
           raise newException(NoiseMalformedHandshake, "Local or remote ephemeral/static key not set")
@@ -1307,8 +1331,11 @@ proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeS
 
     of T_ss:
 
+      # If user is reading the "ss" token
+
       trace "noise dh ss"
 
+      # If local and/or remote static keys are not set, we raise an error
       if hs.s == default(KeyPair) or hs.rs == default(Curve25519Key):
         raise newException(NoiseMalformedHandshake, "Local or remote static key not set")
 
@@ -1317,10 +1344,11 @@ proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeS
 
   return ok(outHandshakeMessage)
 
-
+#################################
 ## Procedures to progress handshakes between users
+#################################
 
-# Initialization of handshake state
+# Initializes a Handshake State
 proc initialize*(hsPattern: HandshakePattern, staticKey: KeyPair = default(KeyPair), prologue: seq[byte] = @[], psk: seq[byte] = @[], preMessagePKs: seq[NoisePublicKey] = @[], initiator: bool = false): HandshakeState 
   {.raises: [Defect, NoiseMalformedHandshake, NoiseHandshakeError, NoisePublicKeyError].} =
   var hs = HandshakeState.init(hsPattern)
@@ -1329,82 +1357,90 @@ proc initialize*(hsPattern: HandshakePattern, staticKey: KeyPair = default(KeyPa
   hs.psk = psk
   hs.msgPatternIdx = 0
   hs.initiator = initiator
+  # We process any eventual handshake pre-message pattern by processing pre-message public keys
   processPreMessagePatternTokens(hs, preMessagePKs)
   return hs
 
-# Advance 1 step in handshake
+# Advances 1 step in handshake
 proc stepHandshake*(rng: var BrHmacDrbgContext, hs: var HandshakeState, readPayloadV2: PayloadV2 = default(PayloadV2), transportMessage: seq[byte] = @[]): Result[HandshakeStepResult, cstring]
   {.raises: [Defect, NoiseHandshakeError, NoiseMalformedHandshake, NoisePublicKeyError, NoiseDecryptTagError, NoiseNonceMaxError].} =
 
-  var res: HandshakeStepResult
+  var hsStepResult: HandshakeStepResult
 
   # If there are no more message patterns left for processing 
   # we return an empty HandshakeStepResult
   if hs.msgPatternIdx > uint8(hs.handshakePattern.messagePatterns.len - 1):
     debug "stepHandshake called more times than the number of message patterns present in handshake"
-    return ok(res)
+    return ok(hsStepResult)
 
-  ### MESSAGE PATTERN
+  # We process the next handshake message pattern
 
   # We get if the user is reading or writing the input handshake message
   let direction = hs.handshakePattern.messagePatterns[hs.msgPatternIdx].direction
   var (reading, writing) = getReadingWritingState(hs, direction)
- 
+
+  # If we write an answer at this handshake step 
   if writing:
-    # We write an answer to the handshake step
-    # We initialize a payload v2 and we set protocol ID (if supported)
+    # We initialize a payload v2 and we set proper protocol ID (if supported)
     try:
-      res.payload2.protocolId = PayloadV2ProtocolIDs[hs.handshakePattern.name]
+      hsStepResult.payload2.protocolId = PayloadV2ProtocolIDs[hs.handshakePattern.name]
     except:
       raise newException(NoiseMalformedHandshake, "Handshake Pattern not supported")
 
     # We set the handshake and transport message
-    res.payload2.handshakeMessage = processMessagePatternTokens(rng, hs).get()
-    res.payload2.transportMessage = processMessagePatternPayload(hs, transportMessage)
+    hsStepResult.payload2.handshakeMessage = processMessagePatternTokens(rng, hs).get()
+    hsStepResult.payload2.transportMessage = processMessagePatternPayload(hs, transportMessage)
 
+  # If we read an answer during this handshake step
   elif reading:
-    
-    # We read an answer to the handshake step
     # We process the read public keys and (eventually decrypt) the read transport message
     let 
       readHandshakeMessage = readPayloadV2.handshakeMessage
       readTransportMessage = readPayloadV2.transportMessage
 
-    # Since we only read, nothing meanigful (i.e. public keys) are returned
+    # Since we only read, nothing meanigful (i.e. public keys) is returned
     discard processMessagePatternTokens(rng, hs, readHandshakeMessage)
-    # We retrieve the (decrypted) received transport message
-    res.transportMessage = processMessagePatternPayload(hs, readTransportMessage)
+    # We retrieve and store the (decrypted) received transport message
+    hsStepResult.transportMessage = processMessagePatternPayload(hs, readTransportMessage)
 
   else:
     raise newException(NoiseHandshakeError, "Handshake Error: neither writing or reading user")
 
-  #We increase the handshake state message pattern index
+  # We increase the handshake state message pattern index to progress to next step
   hs.msgPatternIdx += 1
 
-  return ok(res)
+  return ok(hsStepResult)
 
-
+# Finalizes the handshake by calling Split and assigning the proper Cipher States to users
 proc finalizeHandshake*(hs: var HandshakeState): HandshakeResult =
+
+  var hsResult: HandshakeResult
 
   ## Noise specification, Section 5:
   ## Processing the final handshake message returns two CipherState objects, 
   ## the first for encrypting transport messages from initiator to responder, 
   ## and the second for messages in the other direction.
 
+  # We call Split()
   let (cs1, cs2) = hs.ss.split()
 
+  # We assign the proper Cipher States
   if hs.initiator:
-    result.csOutbound = cs1
-    result.csInbound = cs2
+    hsResult.csOutbound = cs1
+    hsResult.csInbound = cs2
   else:
-    result.csOutbound = cs2
-    result.csInbound = cs1
+    hsResult.csOutbound = cs2
+    hsResult.csInbound = cs1
 
-  result.rs = hs.rs
-  result.h = hs.ss.h
+  # We store the optional fields rs and h
+  hsResult.rs = hs.rs
+  hsResult.h = hs.ss.h
 
+  return hsResult
 
+#################################
 # After-handshake procedures 
+#################################
 
 ## Noise specification, Section 5:
 ## Transport messages are then encrypted and decrypted by calling EncryptWithAd() 
@@ -1414,27 +1450,38 @@ proc finalizeHandshake*(hs: var HandshakeState): HandshakeResult =
 ## or may continue to attempt communications. If EncryptWithAd() or DecryptWithAd() signal an error 
 ## due to nonce exhaustion, then the application must delete the CipherState and terminate the session.
 
+# Writes an encrypted message using the proper Cipher State
 proc writeMessage*(hsr: var HandshakeResult, transportMessage: seq[byte]): PayloadV2
   {.raises: [Defect, NoiseNonceMaxError].} =
 
+  var payload2: PayloadV2
+
   # According to 35/WAKU2-NOISE RFC, no Handshake protocol information is sent when exchanging messages
-  result.protocolId = 0.uint8
-  result.transportMessage = encryptWithAd(hsr.csOutbound, @[], transportMessage)
+  # This correspond to setting protocol-id to 0
+  payload2.protocolId = 0.uint8
+  # Encryption is done with zero-length associated data as per specification
+  payload2.transportMessage = encryptWithAd(hsr.csOutbound, @[], transportMessage)
 
+  return payload2
 
+# Reads an encrypted message using the proper Cipher State
+# Associated data ad for encryption is optional, since the latter is out of scope for Noise
 proc readMessage*(hsr: var HandshakeResult, readPayload2: PayloadV2): Result[seq[byte], cstring]
   {.raises: [Defect, NoiseDecryptTagError, NoiseNonceMaxError].} =
 
-  var res: seq[byte]
+  # The output decrypted message
+  var message: seq[byte]
 
   # According to 35/WAKU2-NOISE RFC, no Handshake protocol information is sent when exchanging messages
   if readPayload2.protocolId == 0.uint8:
     
-    # On application level we decide to discard messages which fail decryption 
-    # (this because an attacker may flood the content topic were messages are being exchanged)
+    # On application level we decide to discard messages which fail decryption, without raising an error
+    # (this because an attacker may flood the content topic on which messages are exchanged)
     try:
-      res = decryptWithAd(hsr.csInbound, @[], readPayload2.transportMessage)
+      # Decryption is done with zero-length associated data as per specification
+      message = decryptWithAd(hsr.csInbound, @[], readPayload2.transportMessage)
     except NoiseDecryptTagError:
-      res = @[]
+      debug "A read message failed decryption. Returning empty message as plaintext."
+      message = @[]
 
-  return ok(res)
+  return ok(message)
