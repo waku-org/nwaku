@@ -165,8 +165,8 @@ type
   # The recipient static key rs and handshake hash values h are stored to address some possible future applications (channel-binding, session management, etc.).
   # However, are not required by Noise specifications and are thus optional
   HandshakeResult* = object
-    csWrite: CipherState
-    csRead: CipherState
+    csOutbound: CipherState
+    csInbound: CipherState
     # Optional fields:
     rs: EllipticCurveKey
     h: MDigest[256]
@@ -203,7 +203,7 @@ type
 const
 
   # The empty pre message patterns
-  EmptyPreMessagePattern: seq[PreMessagePattern] = @[]
+  EmptyPreMessage: seq[PreMessagePattern] = @[]
 
   # Supported Noise handshake patterns as defined in https://rfc.vac.dev/spec/35/#specification
   NoiseHandshakePatterns*  = {
@@ -223,14 +223,14 @@ const
                               ),
 
     "XX":     HandshakePattern(name: "Noise_XX_25519_ChaChaPoly_SHA256",
-                               preMessagePatterns: EmptyPreMessagePattern, 
+                               preMessagePatterns: EmptyPreMessage, 
                                messagePatterns:    @[   MessagePattern(direction: D_r, tokens: @[T_e]),
                                                         MessagePattern(direction: D_l, tokens: @[T_e, T_ee, T_s, T_es]),
                                                         MessagePattern(direction: D_r, tokens: @[T_s, T_se])]
                               ),
 
     "XXpsk0": HandshakePattern(name: "Noise_XXpsk0_25519_ChaChaPoly_SHA256",
-                               preMessagePatterns: EmptyPreMessagePattern, 
+                               preMessagePatterns: EmptyPreMessage, 
                                messagePatterns:     @[  MessagePattern(direction: D_r, tokens: @[T_psk, T_e]),
                                                         MessagePattern(direction: D_l, tokens: @[T_e, T_ee, T_s, T_es]),
                                                         MessagePattern(direction: D_r, tokens: @[T_s, T_se])]
@@ -287,7 +287,7 @@ proc print*(self: HandshakePattern)
       stdout.write self.name, ":\n"
       stdout.flushFile()
     #We iterate over pre message patterns, if any
-    if self.preMessagePatterns != EmptyPreMessagePattern:
+    if self.preMessagePatterns != EmptyPreMessage:
       for pattern in self.preMessagePatterns:
           stdout.write "  ", pattern.direction
           var first = true
@@ -346,6 +346,29 @@ proc dh*(private: EllipticCurveKey, public: EllipticCurveKey): EllipticCurveKey 
   EllipticCurve.mul(output, private)
 
   return output
+
+# Checks if a pre-message is valid according to Noise specifications 
+# http://www.noiseprotocol.org/noise.html#handshake-patterns
+proc isValid(msg: seq[PreMessagePattern]): bool =
+
+  var isValid: bool = true
+
+  # Non-empty pre-messages can only have patterns "e", "s", "e,s" in each direction
+  let allowedPatterns: seq[PreMessagePattern] = @[ PreMessagePattern(direction: D_r, tokens: @[T_s]),
+                                                   PreMessagePattern(direction: D_r, tokens: @[T_e]),
+                                                   PreMessagePattern(direction: D_r, tokens: @[T_e, T_s]),
+                                                   PreMessagePattern(direction: D_l, tokens: @[T_s]),
+                                                   PreMessagePattern(direction: D_l, tokens: @[T_e]),
+                                                   PreMessagePattern(direction: D_l, tokens: @[T_e, T_s])
+                                                 ]
+
+  # We check if pre message patterns are allowed
+  for pattern in msg:
+    if not (pattern in allowedPatterns):
+      isValid = false
+      break
+
+  return isValid
 
 
 #################################################################
@@ -976,12 +999,16 @@ proc processPreMessagePatternTokens*(hs: var HandshakeState, inPreMessagePKs: se
     # Here we store currently processed input pre message public key
     currPK : NoisePublicKey
 
-  #We retrieve the pre-message patterns to process, if any
+  # We retrieve the pre-message patterns to process, if any
   # If none, there's nothing to do
-  if hs.handshakePattern.preMessagePatterns == EmptyPreMessagePattern:
+  if hs.handshakePattern.preMessagePatterns == EmptyPreMessage:
     return
 
-  #If there are, we iterate each of those
+  # We check that pre-message is valid according to Noise specifications
+  if isValid(hs.handshakePattern.preMessagePatterns) == false:
+    raise newException(NoiseMalformedHandshake, "Invalid pre-message in handshake")
+
+  # If there are, we iterate each of those
   for messagePattern in hs.handshakePattern.preMessagePatterns:
     let
       direction = messagePattern.direction
@@ -1367,11 +1394,11 @@ proc finalizeHandshake*(hs: var HandshakeState): HandshakeResult =
   let (cs1, cs2) = hs.ss.split()
 
   if hs.initiator:
-    result.csWrite = cs1
-    result.csRead = cs2
+    result.csOutbound = cs1
+    result.csInbound = cs2
   else:
-    result.csWrite = cs2
-    result.csRead = cs1
+    result.csOutbound = cs2
+    result.csInbound = cs1
 
   result.rs = hs.rs
   result.h = hs.ss.h
@@ -1392,7 +1419,7 @@ proc writeMessage*(hsr: var HandshakeResult, transportMessage: seq[byte]): Paylo
 
   # According to 35/WAKU2-NOISE RFC, no Handshake protocol information is sent when exchanging messages
   result.protocolId = 0.uint8
-  result.transportMessage = encryptWithAd(hsr.csWrite, @[], transportMessage)
+  result.transportMessage = encryptWithAd(hsr.csOutbound, @[], transportMessage)
 
 
 proc readMessage*(hsr: var HandshakeResult, readPayload2: PayloadV2): Result[seq[byte], cstring]
@@ -1406,7 +1433,7 @@ proc readMessage*(hsr: var HandshakeResult, readPayload2: PayloadV2): Result[seq
     # On application level we decide to discard messages which fail decryption 
     # (this because an attacker may flood the content topic were messages are being exchanged)
     try:
-      res = decryptWithAd(hsr.csRead, @[], readPayload2.transportMessage)
+      res = decryptWithAd(hsr.csInbound, @[], readPayload2.transportMessage)
     except NoiseDecryptTagError:
       res = @[]
 
