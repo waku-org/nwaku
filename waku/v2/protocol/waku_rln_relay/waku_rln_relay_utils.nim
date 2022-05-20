@@ -97,8 +97,12 @@ proc membershipKeyGen*(ctxPtr: RLN[Bn256]): Option[MembershipKeyPair] =
 
   return some(keypair)
 
-proc toUInt256(idCommitment: IDCommitment): UInt256 =
+proc toUInt256*(idCommitment: IDCommitment): UInt256 =
   let pk = cast[UInt256](idCommitment)
+  return pk
+
+proc toIDCommitment*(idCommitment: UInt256): IDCommitment =
+  let pk = cast[IDCommitment](idCommitment)
   return pk
 
 proc getIdCommitment*(membershipKeyPair: MembershipKeyPair): UInt256 =
