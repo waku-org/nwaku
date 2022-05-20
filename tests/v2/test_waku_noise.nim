@@ -242,19 +242,13 @@ procSuite "Waku Noise":
     plaintext = randomSeqByte(rng[], rand(1..128))
 
     # We test if encryption fails with a NoiseNonceMaxError error. Any subsequent encryption call over the Cipher State should fail similarly and leave the nonce unchanged
-    var handled: bool 
-
     for _ in [1..5]:
-      handled = false
-      try:
+      expect NoiseNonceMaxError:
         ciphertext = encryptWithAd(cipherState, ad, plaintext)
-      except NoiseNonceMaxError:
-        handled = true
-
+      
       check:
         getNonce(cipherState) == NonceMax + 1
-        handled == true
-
+      
     # We generate a test Cipher State
     # Since nonce is increased after decryption as well, we need to generate a proper ciphertext in order to test MaxNonceError error handling
     # We cannot call encryptWithAd to encrypt a plaintext using a nonce equal MaxNonce, since this will trigger a MaxNonceError.
@@ -280,16 +274,12 @@ procSuite "Waku Noise":
     # We can now test if decryption fails with a NoiseNonceMaxError error. Any subsequent decryption call over the Cipher State should fail similarly and leave the nonce unchanged
     # Note that decryptWithAd doesn't fail in decrypting the ciphertext (otherwise a NoiseDecryptTagError would have been triggered)
     for _ in [1..5]:
-      handled = false
-      try:
+      expect NoiseNonceMaxError:
         plaintext = decryptWithAd(cipherState, ad, ciphertext)
-      except NoiseNonceMaxError:
-        handled = true
-
+  
       check:
         getNonce(cipherState) == NonceMax + 1
-        handled == true
-
+  
   test "Noise State Machine: Symmetric State primitives":
 
     # We select one supported handshake pattern and we initialize a symmetric state
