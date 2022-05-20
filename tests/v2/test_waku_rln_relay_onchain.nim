@@ -102,7 +102,7 @@ procSuite "Waku-rln-relay":
     let membershipKeyPair = membershipKeyGen(rlnInstance.value)
     check: 
       membershipKeyPair.isSome
-    let pk = membershipKeyPair.get().idCommitment.toUInt256()
+    let pk =  membershipKeyPair.get().getIdCommitment()
     debug "membership commitment key", pk = pk
 
     # test ------------------------------
@@ -130,7 +130,7 @@ procSuite "Waku-rln-relay":
 
     # release resources -----------------------
     await web3.close()
-  asyncTest "event subscription with proc":
+  asyncTest "dynamic group management":
     # preparation ------------------------------
     debug "ethereum client address", ETH_CLIENT
     let contractAddress = await uploadRLNContract(ETH_CLIENT)
@@ -138,7 +138,7 @@ procSuite "Waku-rln-relay":
     let web3 = await newWeb3(ETH_CLIENT)
     debug "web3 connected to", ETH_CLIENT
 
-    # # fetch the list of registered accounts
+    # fetch the list of registered accounts
     let accounts = await web3.provider.eth_accounts()
     web3.defaultAccount = accounts[1]
     debug "contract deployer account address ",
@@ -156,13 +156,13 @@ procSuite "Waku-rln-relay":
     let membershipKeyPair = membershipKeyGen(rlnInstance.value)
     check: 
       membershipKeyPair.isSome
-    let pk = membershipKeyPair.get().idCommitment.toUInt256()
+    let pk = membershipKeyPair.get().getIdCommitment()
     debug "membership commitment key", pk = pk
 
     let membershipKeyPair2 = membershipKeyGen(rlnInstance.value)
     check: 
       membershipKeyPair2.isSome
-    let pk2 = membershipKeyPair2.get().idCommitment.toUInt256()
+    let pk2 = membershipKeyPair2.get().getIdCommitment()
     debug "membership commitment key", pk2 = pk2
 
 
@@ -191,8 +191,6 @@ procSuite "Waku-rln-relay":
 
     let tx2 = await contractObj.register(pk2).send(value = MEMBERSHIP_FEE)
     debug "a member is registered", tx2 = tx2
-
-    
 
     # wait for the event to be received
     await fut
@@ -364,7 +362,7 @@ procSuite "Waku-rln-relay":
   #   # generate a key pair
   #   var keypair = rln.membershipKeyGen()
   #   doAssert(keypair.isSome())
-  #   let pk = keypair.get().idCommitment.toUInt256()
+  #   let pk = keypair.get().getIdCommitment()
   #   debug "membership commitment key", pk = pk
     
   #   # # current peer index in the Merkle tree

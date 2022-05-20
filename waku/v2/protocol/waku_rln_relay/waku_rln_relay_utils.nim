@@ -97,8 +97,12 @@ proc membershipKeyGen*(ctxPtr: RLN[Bn256]): Option[MembershipKeyPair] =
 
   return some(keypair)
 
-proc toUInt256*(idCommitment: IDCommitment): UInt256 =
+proc toUInt256(idCommitment: IDCommitment): UInt256 =
   let pk = cast[UInt256](idCommitment)
+  return pk
+
+proc getIdCommitment*(membershipKeyPair: MembershipKeyPair): UInt256 =
+  let pk = membershipKeyPair.idCommitment.toUInt256()
   return pk
 
 proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
@@ -111,7 +115,7 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   web3.privateKey = rlnPeer.ethAccountPrivateKey
   var sender = web3.contractSender(MembershipContract,
       rlnPeer.membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
-  let pk = toUInt256(rlnPeer.membershipKeyPair.idCommitment)
+  let pk = rlnPeer.membershipKeyPair.getIdCommitment()
   discard await sender.register(pk).send(MEMBERSHIP_FEE)
   debug "pk", pk = pk
   # TODO check the receipt and then return true/false
