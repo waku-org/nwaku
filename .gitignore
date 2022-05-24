@@ -34,3 +34,6 @@ rln
 package-lock.json
 node_modules/
 /.update.timestamp
+
+# Ignore Jetbrains IDE files
+.idea/
