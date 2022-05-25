@@ -12,6 +12,7 @@ The full list of changes is below.
 
 - Support for bootstrapping [`33/WAKU-DISCV5`](https://rfc.vac.dev/spec/33) via [DNS discovery](https://rfc.vac.dev/spec/10/#discovery-methods)
 - Support for GossipSub [Peer Exchange](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#prune-backoff-and-peer-exchange)
+- Support for TOML config files via `--config-file=<path/to/config.toml>`
 
 
 ### Changes
