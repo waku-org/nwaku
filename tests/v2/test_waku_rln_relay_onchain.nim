@@ -155,6 +155,7 @@ procSuite "Waku-rln-relay":
       rlnInstance.isOk == true
     var rln = rlnInstance.value
 
+    # create rln membership key pair 
     let keyPair = rln.membershipKeyGen()
     check: 
       keyPair.isSome
