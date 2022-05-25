@@ -102,7 +102,7 @@ procSuite "Waku-rln-relay":
     let membershipKeyPair = membershipKeyGen(rlnInstance.value)
     check: 
       membershipKeyPair.isSome
-    let pk =  membershipKeyPair.get().getIdCommitment()
+    let pk =  membershipKeyPair.get().idCommitment.toUInt256()
     debug "membership commitment key", pk = pk
 
     # test ------------------------------
@@ -159,7 +159,7 @@ procSuite "Waku-rln-relay":
     let keyPair = rln.membershipKeyGen()
     check: 
       keyPair.isSome
-    let pk = keyPair.get().getIdCommitment()
+    let pk = keyPair.get().idCommitment.toUInt256()
     debug "membership commitment key", pk = pk
 
     # initialize the WakuRLNRelay
@@ -174,7 +174,7 @@ procSuite "Waku-rln-relay":
     let keyPair2 = rln.membershipKeyGen()
     check: 
       keyPair2.isSome
-    let pk2 = keyPair2.get().getIdCommitment()
+    let pk2 = keyPair2.get().idCommitment.toUInt256()
     debug "membership commitment key", pk2 = pk2
 
     var events = [newFuture[void](), newFuture[void]()]
