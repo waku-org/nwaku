@@ -583,7 +583,6 @@ proc subscribeToGroupEvents(ethClientUri: string, contractAddress: Address, bloc
       debug "onRegister", pubkey = pubkey, index = index
       handler(pubkey, index)
     except Exception as err:
-      # chronos still raises exceptions which inherit directly from Exception
       doAssert false, err.msg
   do (err: CatchableError):
     echo "Error from subscription: ", err.msg
