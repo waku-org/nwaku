@@ -12,7 +12,7 @@ import std/[oids, options, strutils, tables]
 import chronos
 import chronicles
 import bearssl
-import stew/[results, endians2]
+import stew/[results, byteutils, endians2]
 import nimcrypto/[utils, sha2, hmac]
 
 import libp2p/utility
