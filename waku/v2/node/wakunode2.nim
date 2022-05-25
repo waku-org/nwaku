@@ -581,7 +581,7 @@ when defined(rln):
     if memIndexOpt.isNone():
       error "failed to mount rln relay:  membership index is not provided"
       return
-    
+    debug "rln-relay input validation passed"
     var 
       ethClientAddr: string 
       ethAccAddr: web3.Address
@@ -590,14 +590,13 @@ when defined(rln):
       ethClientAddr = ethClientAddrOpt.get()
       ethAccAddr = ethAccAddrOpt.get()
       memContractAdd = memContractAddOpt.get()
-
-    let 
-      group = groupOpt.get()
+    
+    let
       memKeyPair = memKeyPairOpt.get()
       memIndex = memIndexOpt.get()
 
     # check the peer's index and the inclusion of user's identity commitment in the group
-    doAssert((memKeyPair.idCommitment)  == group[int(memIndex)])
+    # doAssert((memKeyPair.idCommitment)  == group[int(memIndex)])
 
     # create an RLN instance
     var rlnInstance = createRLNInstance()
@@ -607,19 +606,20 @@ when defined(rln):
     # generate the membership keys if none is provided
     # in a happy path, this condition never gets through for a static group of users
     # the node should pass its keys i.e., memKeyPairOpt to the function
-    if not memKeyPairOpt.isSome:
-      let membershipKeyPair = rln.membershipKeyGen()
-      # check whether keys are generated
-      doAssert(membershipKeyPair.isSome())
-      debug "the membership key for the rln relay is generated", idKey=membershipKeyPair.get().idKey.toHex, idCommitment=membershipKeyPair.get().idCommitment.toHex
-
-
-    # add members to the Merkle tree
-    for index in 0..group.len-1:
-      let member = group[index]
-      let member_is_added = rln.insertMember(member)
-      doAssert(member_is_added)
+    # if not memKeyPairOpt.isSome:
+    #   let membershipKeyPair = rln.membershipKeyGen()
+    #   # check whether keys are generated
+    #   doAssert(membershipKeyPair.isSome())
+    #   debug "the membership key for the rln relay is generated", idKey=membershipKeyPair.get().idKey.toHex, idCommitment=membershipKeyPair.get().idCommitment.toHex
     
+    var group: seq[IDCommitment]
+    if groupOpt.isSome(): 
+      group = groupOpt.get()
+      # add members to the Merkle tree
+      for index in 0..group.len-1:
+        let member = group[index]
+        let member_is_added = rln.insertMember(member)
+        doAssert(member_is_added)
 
     # create the WakuRLNRelay
     var rlnPeer = WakuRLNRelay(membershipKeyPair: memKeyPair,
@@ -641,10 +641,13 @@ when defined(rln):
       proc handler(pubkey: Uint256, index: Uint256) =
         debug "a new key is added", pubkey=pubkey
         # assuming all the members arrive in order
-        let isSuccessful = rlnPeer.rlnInstance.insertMember(pubkey.toIDCommitment())
+        let pk = pubkey.toIDCommitment()
+        let isSuccessful = rlnPeer.rlnInstance.insertMember(pk)
+        debug "received pk", pk=pk.toHex, index =index
         doAssert(isSuccessful)
 
       asyncSpawn rlnPeer.handleGroupUpdates(handler)
+      debug "dynamic group management is started"
     # adds a topic validator for the supplied pubsub topic at the relay protocol
     # messages published on this pubsub topic will be relayed upon a successful validation, otherwise they will be dropped
     # the topic validator checks for the correct non-spamming proof of the message

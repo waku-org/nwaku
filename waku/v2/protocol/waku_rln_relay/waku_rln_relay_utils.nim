@@ -123,6 +123,7 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   discard await sender.register(pk).send(MEMBERSHIP_FEE)
   debug "pk", pk = pk
   # TODO check the receipt and then return true/false
+  # TODO check the index of the registered pk and return it
   await web3.close()
   return true
 
