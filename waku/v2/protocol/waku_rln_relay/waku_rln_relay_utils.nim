@@ -23,6 +23,7 @@ type SpamHandler* = proc(wakuMessage: WakuMessage): void {.gcsafe, closure,
 contract(MembershipContract):
   proc register(pubkey: Uint256) # external payable
   proc MemberRegistered(pubkey: Uint256, index: Uint256) {.event.}
+  # TODO the followings are to be supported
   # proc registerBatch(pubkeys: seq[Uint256]) # external payable
   # proc withdraw(secret: Uint256, pubkeyIndex: Uint256, receiver: Address)
   # proc withdrawBatch( secrets: seq[Uint256], pubkeyIndex: seq[Uint256], receiver: seq[Address])
