@@ -540,8 +540,59 @@ when defined(rln):
     # set a validator for the supplied pubsubTopic 
     let pb  = PubSub(node.wakuRelay)
     pb.addValidator(pubsubTopic, validator)
+    
+  proc mountRlnRelayStatic*(node: WakuNode,
+                      group: seq[IDCommitment],
+                      memKeyPair: MembershipKeyPair,
+                      memIndex: MembershipIndex,
+                      pubsubTopic: string,
+                      contentTopic: ContentTopic,
+                      spamHandler: Option[SpamHandler] = none(SpamHandler)) {.async.} =
+    # TODO return a bool value to indicate the success of the call
+    # check whether inputs are provided
 
-  proc mountRlnRelay*(node: WakuNode,
+    # relay protocol is the prerequisite of rln-relay
+    if node.wakuRelay.isNil:
+      error "Failed to mount WakuRLNRelay. Relay protocol is not mounted."
+      return
+    # check whether the pubsub topic is supported at the relay level
+    if pubsubTopic notin node.wakuRelay.defaultTopics:
+      error "Failed to mount WakuRLNRelay. The relay protocol does not support the configured pubsub topic.", pubsubTopic=pubsubTopic
+      return
+
+    debug "rln-relay input validation passed"
+
+    # check the peer's index and the inclusion of user's identity commitment in the group
+    doAssert((memKeyPair.idCommitment)  == group[int(memIndex)])
+
+    # create an RLN instance
+    var rlnInstance = createRLNInstance()
+    doAssert(rlnInstance.isOk)
+    var rln = rlnInstance.value
+
+    # add members to the Merkle tree
+    for index in 0..group.len-1:
+      let member = group[index]
+      let member_is_added = rln.insertMember(member)
+      doAssert(member_is_added)
+
+    # create the WakuRLNRelay
+    var rlnPeer = WakuRLNRelay(membershipKeyPair: memKeyPair,
+      membershipIndex: memIndex,
+      rlnInstance: rln, 
+      pubsubTopic: pubsubTopic,
+      contentTopic: contentTopic)
+
+    # adds a topic validator for the supplied pubsub topic at the relay protocol
+    # messages published on this pubsub topic will be relayed upon a successful validation, otherwise they will be dropped
+    # the topic validator checks for the correct non-spamming proof of the message
+    node.addRLNRelayValidator(pubsubTopic, contentTopic, spamHandler)
+    debug "rln relay topic validator is mounted successfully", pubsubTopic=pubsubTopic, contentTopic=contentTopic
+
+    node.wakuRlnRelay = rlnPeer
+
+
+  proc mountRlnRelayDynamic*(node: WakuNode,
                       ethClientAddrOpt: Option[string] = none(string),
                       ethAccAddrOpt: Option[web3.Address] = none(web3.Address),
                       memContractAddOpt:  Option[web3.Address] = none(web3.Address),
