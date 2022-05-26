@@ -540,7 +540,7 @@ when defined(rln):
     # set a validator for the supplied pubsubTopic 
     let pb  = PubSub(node.wakuRelay)
     pb.addValidator(pubsubTopic, validator)
-    
+
   proc mountRlnRelayStatic*(node: WakuNode,
                       group: seq[IDCommitment],
                       memKeyPair: MembershipKeyPair,
@@ -593,19 +593,16 @@ when defined(rln):
 
 
   proc mountRlnRelayDynamic*(node: WakuNode,
-                      ethClientAddrOpt: Option[string] = none(string),
-                      ethAccAddrOpt: Option[web3.Address] = none(web3.Address),
-                      memContractAddOpt:  Option[web3.Address] = none(web3.Address),
-                      groupOpt: Option[seq[IDCommitment]] = none(seq[IDCommitment]),
-                      memKeyPairOpt: Option[MembershipKeyPair] = none(MembershipKeyPair),
-                      memIndexOpt: Option[MembershipIndex] = none(MembershipIndex),
-                      onchainMode: bool = true,
+                      ethClientAddr: string = "",
+                      ethAccAddr: web3.Address,
+                      memContractAddr:  web3.Address,
+                      memKeyPair: MembershipKeyPair,
+                      memIndex: MembershipIndex,
                       pubsubTopic: string,
                       contentTopic: ContentTopic,
                       spamHandler: Option[SpamHandler] = none(SpamHandler)) {.async.} =
+    debug "mountRlnRelayDynamic"
     # TODO return a bool value to indicate the success of the call
-    # check whether inputs are provided
-
     # relay protocol is the prerequisite of rln-relay
     if node.wakuRelay.isNil:
       error "Failed to mount WakuRLNRelay. Relay protocol is not mounted."
@@ -614,94 +611,40 @@ when defined(rln):
     if pubsubTopic notin node.wakuRelay.defaultTopics:
       error "Failed to mount WakuRLNRelay. The relay protocol does not support the configured pubsub topic.", pubsubTopic=pubsubTopic
       return
-    if onchainMode:
-      if memContractAddOpt.isNone():
-        error "failed to mount rln relay: membership contract address is not provided"
-        return
-      if ethClientAddrOpt.isNone():
-        error "failed to mount rln relay: Ethereum client address is not provided"
-        return
-      if ethAccAddrOpt.isNone():
-        error "failed to mount rln relay: Ethereum account address is not provided"
-        return
-    else:
-      if groupOpt.isNone():
-        error "failed to mount rln relay:  group information is not provided"
-        return
-
-    if memKeyPairOpt.isNone():
-      error "failed to mount rln relay: membership key of the node is not provided"
-      return
-    if memIndexOpt.isNone():
-      error "failed to mount rln relay:  membership index is not provided"
-      return
     debug "rln-relay input validation passed"
-    var 
-      ethClientAddr: string 
-      ethAccAddr: web3.Address
-      memContractAdd: web3.Address
-    if onchainMode:
-      ethClientAddr = ethClientAddrOpt.get()
-      ethAccAddr = ethAccAddrOpt.get()
-      memContractAdd = memContractAddOpt.get()
-    
-    let
-      memKeyPair = memKeyPairOpt.get()
-      memIndex = memIndexOpt.get()
-
-    # check the peer's index and the inclusion of user's identity commitment in the group
-    # doAssert((memKeyPair.idCommitment)  == group[int(memIndex)])
 
     # create an RLN instance
     var rlnInstance = createRLNInstance()
     doAssert(rlnInstance.isOk)
     var rln = rlnInstance.value
 
-    # generate the membership keys if none is provided
-    # in a happy path, this condition never gets through for a static group of users
-    # the node should pass its keys i.e., memKeyPairOpt to the function
-    # if not memKeyPairOpt.isSome:
-    #   let membershipKeyPair = rln.membershipKeyGen()
-    #   # check whether keys are generated
-    #   doAssert(membershipKeyPair.isSome())
-    #   debug "the membership key for the rln relay is generated", idKey=membershipKeyPair.get().idKey.toHex, idCommitment=membershipKeyPair.get().idCommitment.toHex
-    
-    var group: seq[IDCommitment]
-    if groupOpt.isSome(): 
-      group = groupOpt.get()
-      # add members to the Merkle tree
-      for index in 0..group.len-1:
-        let member = group[index]
-        let member_is_added = rln.insertMember(member)
-        doAssert(member_is_added)
-
     # create the WakuRLNRelay
     var rlnPeer = WakuRLNRelay(membershipKeyPair: memKeyPair,
       membershipIndex: memIndex,
-      membershipContractAddress: memContractAdd,
+      membershipContractAddress: memContractAddr,
       ethClientAddress: ethClientAddr,
       ethAccountAddress: ethAccAddr,
       rlnInstance: rln,
       pubsubTopic: pubsubTopic,
       contentTopic: contentTopic)
 
-    if onchainMode:
-      # register the rln-relay peer to the membership contract
-      let isSuccessful = await rlnPeer.register()
-      # check whether registration is done
+    
+    # register the rln-relay peer to the membership contract
+    # let isSuccessful = await rlnPeer.register()
+    # check whether registration is done
+    # doAssert(isSuccessful)
+    # debug "peer is successfully registered into the membership contract"
+
+    proc handler(pubkey: Uint256, index: Uint256) =
+      debug "a new key is added", pubkey=pubkey
+      # assuming all the members arrive in order
+      let pk = pubkey.toIDCommitment()
+      let isSuccessful = rlnPeer.rlnInstance.insertMember(pk)
+      debug "received pk", pk=pk.toHex, index =index
       doAssert(isSuccessful)
-      debug "peer is successfully registered into the membership contract"
 
-      proc handler(pubkey: Uint256, index: Uint256) =
-        debug "a new key is added", pubkey=pubkey
-        # assuming all the members arrive in order
-        let pk = pubkey.toIDCommitment()
-        let isSuccessful = rlnPeer.rlnInstance.insertMember(pk)
-        debug "received pk", pk=pk.toHex, index =index
-        doAssert(isSuccessful)
-
-      asyncSpawn rlnPeer.handleGroupUpdates(handler)
-      debug "dynamic group management is started"
+    asyncSpawn rlnPeer.handleGroupUpdates(handler)
+    debug "dynamic group management is started"
     # adds a topic validator for the supplied pubsub topic at the relay protocol
     # messages published on this pubsub topic will be relayed upon a successful validation, otherwise they will be dropped
     # the topic validator checks for the correct non-spamming proof of the message
@@ -1262,12 +1205,12 @@ when isMainModule:
         info "WakuRLNRelay is enabled"
 
         # set up rln relay inputs
-        let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(conf.rlnRelayMemIndex)
+        let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelayStaticSetUp(conf.rlnRelayMemIndex)
         if memIndexOpt.isNone:
           error "failed to mount WakuRLNRelay"
         else:
           # mount rlnrelay in offline mode (for now)
-          waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
+          waitFor node.mountRlnRelayStatic(group = groupOpt.get(), memKeyPair = memKeyPairOpt.get(), memIndex= memIndexOpt.get(), pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
 
           info "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
           info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex

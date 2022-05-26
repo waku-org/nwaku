@@ -347,7 +347,7 @@ proc createMembershipList*(n: int): (seq[(string, string)], string) {.raises: [
   let root = rln.getMerkleRoot().value.toHex
   return (output, root)
 
-proc rlnRelaySetUp*(rlnRelayMemIndex: MembershipIndex): (Option[seq[
+proc rlnRelayStaticSetUp*(rlnRelayMemIndex: MembershipIndex): (Option[seq[
     IDCommitment]], Option[MembershipKeyPair], Option[
     MembershipIndex]) {.raises: [Defect, ValueError].} =
   let
