@@ -193,7 +193,6 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
   
   if (dns4DomainName.isSome()):
     # Use dns4 for externally announced addresses
-    
     hostExtAddress = some(dns4TcpEndPoint(dns4DomainName.get(), extPort.get()))
 
     if (wsHostAddress.isSome()):
@@ -325,7 +324,7 @@ proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHa
       waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
 
   # Register handler for filter, whether remote subscription succeeded or not
-  node.filters[id] = Filter(contentFilters: request.contentFilters, handler: handler)
+  node.filters[id] = Filter(contentFilters: request.contentFilters, handler: handler, pubSubTopic: request.pubSubTopic)
   waku_node_filters.set(node.filters.len.int64)
 
 proc unsubscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) =
@@ -458,12 +457,16 @@ proc info*(node: WakuNode): WakuInfo =
 proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {.raises: [Defect, KeyError, LPError]} =
   info "mounting filter"
   proc filterHandler(requestId: string, msg: MessagePush)
-    {.gcsafe, raises: [Defect, KeyError].} =
+    {.async, gcsafe, raises: [Defect, KeyError].} =
     
     info "push received"
     for message in msg.messages:
       node.filters.notify(message, requestId) # Trigger filter handlers on a light node
-      
+
+      if not node.wakuStore.isNil and (requestId in node.filters):
+        let pubSubTopic = node.filters[requestId].pubSubTopic
+        await node.wakuStore.handleMessage(pubSubTopic, message)
+
       waku_node_messages.inc(labelValues = ["filter"])
 
   node.wakuFilter = WakuFilter.init(node.peerManager, node.rng, filterHandler, filterTimeout)
@@ -716,7 +719,8 @@ proc mountRelay*(node: WakuNode,
   wakuRelay.defaultTopics = concat(@[defaultTopic], topics)
 
   ## Add peer exchange handler
-  if peerExchangeHandler.isSome():    
+  if peerExchangeHandler.isSome():
+    wakuRelay.parameters.enablePX = true # Feature flag for peer exchange in nim-libp2p
     wakuRelay.routingRecordsHandler.add(peerExchangeHandler.get())
 
   node.switch.mount(wakuRelay, protocolMatcher(WakuRelayCodec))
@@ -982,7 +986,7 @@ when isMainModule:
   ## 6. Setup graceful shutdown hooks
 
   import
-    confutils,
+    confutils, toml_serialization,
     system/ansi_c,
     libp2p/nameresolving/dnsresolver,
     ../../common/utils/nat,
@@ -1022,7 +1026,7 @@ when isMainModule:
       else:
         sqliteDatabase = dbRes.value
 
-    if not sqliteDatabase.isNil:
+    if not sqliteDatabase.isNil and (conf.persistPeers or conf.persistMessages):
       # Database initialized. Let's set it up
       sqliteDatabase.runMigrations(conf) # First migrate what we have
 
@@ -1099,16 +1103,17 @@ when isMainModule:
                                                 clientId,
                                                 Port(uint16(conf.tcpPort) + conf.portsShift),
                                                 Port(uint16(udpPort) + conf.portsShift))
+
+      dns4DomainName = if conf.dns4DomainName != "": some(conf.dns4DomainName)
+                       else: none(string)
+
       ## @TODO: the NAT setup assumes a manual port mapping configuration if extIp config is set. This probably
       ## implies adding manual config item for extPort as well. The following heuristic assumes that, in absence of manual
       ## config, the external port is the same as the bind port.
-      extPort = if extIp.isSome() and extTcpPort.isNone():
+      extPort = if (extIp.isSome() or dns4DomainName.isSome()) and extTcpPort.isNone():
                   some(Port(uint16(conf.tcpPort) + conf.portsShift))
                 else:
                   extTcpPort
-      
-      dns4DomainName = if conf.dns4DomainName != "": some(conf.dns4DomainName)
-                       else: none(string)
       
       wakuFlags = initWakuFlags(conf.lightpush,
                                 conf.filter,
@@ -1303,9 +1308,24 @@ when isMainModule:
         Port(conf.metricsServerPort + conf.portsShift))
     
     ok(true) # Success
-  
-  let
-    conf = WakuNodeConf.load()
+
+  {.push warning[ProveInit]: off.}
+  let conf = try:
+    WakuNodeConf.load(
+      secondarySources = proc (conf: WakuNodeConf, sources: auto) =
+        if conf.configFile.isSome:
+          sources.addConfigFile(Toml, conf.configFile.get)
+    )
+  except CatchableError as err:
+    error "Failure while loading the configuration: \n", err_msg=err.msg
+    quit 1 # if we don't leave here, the initialization of conf does not work in the success case
+  {.pop.}
+
+  # if called with --version, print the version and quit
+  if conf.version:
+    const git_version {.strdefine.} = "n/a"
+    echo "version / git commit hash: ", git_version
+    quit(QuitSuccess)
   
   var
     node: WakuNode  # This is the node we're going to setup using the conf
