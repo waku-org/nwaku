@@ -37,6 +37,7 @@ type
     storeCapacity: int # represents both the number of messages that are persisted in the sqlite DB (excl. the overflow window explained above), and the number of messages that get loaded via `getAll`.
     storeMaxLoad: int  # = storeCapacity * MaxStoreOverflow
     deleteWindow: int  # = (storeCapacity * MaxStoreOverflow - storeCapacity)/2; half of the overflow window, the amount of messages deleted when overflow occurs
+    insertStmt: SqliteStmt[(seq[byte], Timestamp, seq[byte], seq[byte], seq[byte], int64, Timestamp), void]
  
 proc messageCount(db: SqliteDatabase): MessageStoreResult[int64] =
   var numMessages: int64
@@ -77,25 +78,32 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase, storeCapacity: int = 50
   ##  - 4-Byte ContentTopic stored as an Integer
   ##  - Payload stored as a blob
 
-  let prepare = db.prepareStmt("""
-    CREATE TABLE IF NOT EXISTS """ & TABLE_TITLE & """ (
-        id BLOB,
-        receiverTimestamp """ & TIMESTAMP_TABLE_TYPE & """ NOT NULL,
-        contentTopic BLOB NOT NULL,
-        pubsubTopic BLOB NOT NULL,
-        payload BLOB,
-        version INTEGER NOT NULL,
-        senderTimestamp """ & TIMESTAMP_TABLE_TYPE & """  NOT NULL,
-        CONSTRAINT messageIndex PRIMARY KEY (senderTimestamp, id, pubsubTopic)
-    ) WITHOUT ROWID;
-    """, NoParams, void)
+  let
+    createStmt = db.prepareStmt("""
+      CREATE TABLE IF NOT EXISTS """ & TABLE_TITLE & """ (
+          id BLOB,
+          receiverTimestamp """ & TIMESTAMP_TABLE_TYPE & """ NOT NULL,
+          contentTopic BLOB NOT NULL,
+          pubsubTopic BLOB NOT NULL,
+          payload BLOB,
+          version INTEGER NOT NULL,
+          senderTimestamp """ & TIMESTAMP_TABLE_TYPE & """  NOT NULL,
+          CONSTRAINT messageIndex PRIMARY KEY (senderTimestamp, id, pubsubTopic)
+      ) WITHOUT ROWID;
+      """, NoParams, void).expect("this is a valid statement")
+    
+    insertStmt = db.prepareStmt(
+      "INSERT INTO " & TABLE_TITLE & " (id, receiverTimestamp, contentTopic, payload, pubsubTopic, version, senderTimestamp) VALUES (?, ?, ?, ?, ?, ?, ?);",
+      (seq[byte], Timestamp, seq[byte], seq[byte], seq[byte], int64, Timestamp),
+      void
+    ).expect("this is a valid statement")
 
-  if prepare.isErr:
-    return err("failed to prepare")
-
-  let prepareRes = prepare.value.exec(())
+  let prepareRes = createStmt.exec(())
   if prepareRes.isErr:
     return err("failed to exec")
+
+  # We dispose of this prepared statement here, as we never use it again
+  createStmt.dispose()
 
   let numMessages = messageCount(db).get()
   debug "number of messages in sqlite database", messageNum=numMessages
@@ -112,7 +120,8 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase, storeCapacity: int = 50
                       numMessages: int(numMessages),
                       storeCapacity: storeCapacity,
                       storeMaxLoad: storeMaxLoad,
-                      deleteWindow: deleteWindow)
+                      deleteWindow: deleteWindow,
+                      insertStmt: insertStmt)
 
   # If the loaded db is already over max load, delete the oldest messages before returning the WakuMessageStore object
   if wms.numMessages >= wms.storeMaxLoad:
@@ -131,17 +140,9 @@ method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTop
   ##   let res = db.put(message)
   ##   if res.isErr:
   ##     echo "error"
-  ## 
-  let prepare = db.database.prepareStmt(
-    "INSERT INTO " & TABLE_TITLE & " (id, receiverTimestamp, contentTopic, payload, pubsubTopic, version, senderTimestamp) VALUES (?, ?, ?, ?, ?, ?, ?);",
-    (seq[byte], Timestamp, seq[byte], seq[byte], seq[byte], int64, Timestamp),
-    void
-  )
+  ##
 
-  if prepare.isErr:
-    return err("failed to prepare")
-
-  let res = prepare.value.exec((@(cursor.digest.data), cursor.receiverTime, message.contentTopic.toBytes(), message.payload, pubsubTopic.toBytes(), int64(message.version), message.timestamp))
+  let res = db.insertStmt.exec((@(cursor.digest.data), cursor.receiverTime, message.contentTopic.toBytes(), message.payload, pubsubTopic.toBytes(), int64(message.version), message.timestamp))
   if res.isErr:
     return err("failed")
 
@@ -151,8 +152,6 @@ method put*(db: WakuMessageStore, cursor: Index, message: WakuMessage, pubsubTop
     if res.isErr: return err("deleting oldest failed")
 
   ok()
-
-
 
 method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageStoreResult[bool] =
   ## Retrieves `storeCapacity` many  messages from the storage.
@@ -210,4 +209,5 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageSto
 
 proc close*(db: WakuMessageStore) = 
   ## Closes the database.
+  db.insertStmt.dispose()
   db.database.close()
