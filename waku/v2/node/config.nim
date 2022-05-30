@@ -8,6 +8,7 @@ import
   libp2p/crypto/secp,
   nimcrypto/utils,
   eth/keys,
+  web3,
   ../protocol/waku_rln_relay/waku_rln_relay_types,
   ../protocol/waku_message
 
@@ -134,6 +135,16 @@ type
       defaultValue: false
       name: "rln-relay-dynamic" }: bool
 
+    rlnRelayEthPrivateKey* {.
+      desc: "Ethereum testnet private key (DO NOT input an Ethereum private key with actual fund)",
+      defaultValue: PrivateKey()
+      name: "eth-private-key"}: PrivateKey
+  
+    rlnRelayEthAccount* {.
+      desc: "Ethereum testnet account address",
+      defaultValue: Address()
+      name: "eth-account-address" }: Address
+    
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
       name: "staticnode" }: seq[string]
