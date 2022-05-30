@@ -703,4 +703,22 @@ suite "Waku rln relay":
       msgValidate2 == MessageValidationResult.Spam
       msgValidate3 == MessageValidationResult.Valid
       msgValidate4 == MessageValidationResult.Invalid
+  test "toIDCommitment and toUInt256":
+    # create an instance of rln
+    var rlnInstance = createRLNInstance()
+    check:
+      rlnInstance.isOk == true
+    
+    # create a key pair
+    var keypair = rlnInstance.value.membershipKeyGen()
+    check:
+      keypair.isSome()
 
+    # convert the idCommitment to UInt256
+    let idCUInt = keypair.get().idCommitment.toUInt256()
+    # convert the UInt256 back to ICommitment
+    let idCommitment = toIDCommitment(idCUInt)
+
+    # check that the conversion has not distorted the original value
+    check:
+      keypair.get().idCommitment == idCommitment
