@@ -129,6 +129,11 @@ type
       defaultValue: "/toy-chat/2/luzhou/proto"
       name: "rln-relay-content-topic" }: ContentTopic
     
+    rlnRelayDynamic* {.
+      desc: "Enable  waku-rln-relay with on-chain dynamic group management: true|false",
+      defaultValue: false
+      name: "rln-relay-dynamic" }: bool
+
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
       name: "staticnode" }: seq[string]
