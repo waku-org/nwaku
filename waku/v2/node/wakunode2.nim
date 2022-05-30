@@ -1228,8 +1228,12 @@ when isMainModule:
         else:
           info " setting up waku-rln-relay in off-chain mode... "
           
-          # TODO read node's Eth private key 
-          # TODO set up and rlnpeer node
+          # read node's Eth private key 
+          let 
+            ethPrivateKey = conf.rlnRelayEthPrivateKey
+            ethAccountAddr = conf.rlnRelayEthAccount
+          
+          # set up and rlnpeer node
           # TODO create an rln-relay id key and commitment key and register the commitment key to the contract
           # TODO waitFor node.mountRlnRelayDynamic()
 
