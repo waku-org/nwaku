@@ -547,7 +547,7 @@ when defined(rln):
                       memIndex: MembershipIndex,
                       pubsubTopic: string,
                       contentTopic: ContentTopic,
-                      spamHandler: Option[SpamHandler] = none(SpamHandler)) {.async.} =
+                      spamHandler: Option[SpamHandler] = none(SpamHandler)) =
     # TODO return a bool value to indicate the success of the call
     # check whether inputs are provided
 
@@ -1202,29 +1202,36 @@ when isMainModule:
     
     when defined(rln): 
       if conf.rlnRelay:
-        info "WakuRLNRelay is enabled"
+        if not conf.rlnRelayDynamic:
+          info " setting up waku-rln-relay in on-chain mode... "
+          # set up rln relay inputs
+          let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelayStaticSetUp(conf.rlnRelayMemIndex)
+          if memIndexOpt.isNone:
+            error "failed to mount WakuRLNRelay"
+          else:
+            # mount rlnrelay in off-chain mode with a static group of users
+            node.mountRlnRelayStatic(group = groupOpt.get(), memKeyPair = memKeyPairOpt.get(), memIndex= memIndexOpt.get(), pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
 
-        # set up rln relay inputs
-        let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelayStaticSetUp(conf.rlnRelayMemIndex)
-        if memIndexOpt.isNone:
-          error "failed to mount WakuRLNRelay"
+            info "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
+            info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
+
+            # check the correct construction of the tree by comparing the calculated root against the expected root
+            # no error should happen as it is already captured in the unit tests
+            # TODO have added this check to account for unseen corner cases, will remove it later 
+            let 
+              root = node.wakuRlnRelay.rlnInstance.getMerkleRoot.value.toHex() 
+              expectedRoot = STATIC_GROUP_MERKLE_ROOT
+            if root != expectedRoot:
+              error "root mismatch: something went wrong not in Merkle tree construction"
+            debug "the calculated root", root
+            info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
         else:
-          # mount rlnrelay in offline mode (for now)
-          waitFor node.mountRlnRelayStatic(group = groupOpt.get(), memKeyPair = memKeyPairOpt.get(), memIndex= memIndexOpt.get(), pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
-
-          info "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
-          info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
-
-          # check the correct construction of the tree by comparing the calculated root against the expected root
-          # no error should happen as it is already captured in the unit tests
-          # TODO have added this check to account for unseen corner cases, will remove it later 
-          let 
-            root = node.wakuRlnRelay.rlnInstance.getMerkleRoot.value.toHex() 
-            expectedRoot = STATIC_GROUP_MERKLE_ROOT
-          if root != expectedRoot:
-            error "root mismatch: something went wrong not in Merkle tree construction"
-          debug "the calculated root", root
-          info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
+          info " setting up waku-rln-relay in off-chain mode... "
+          
+          # TODO read node's Eth private key 
+          # TODO set up and rlnpeer node
+          # TODO create an rln-relay id key and commitment key and register the commitment key to the contract
+          # TODO waitFor node.mountRlnRelayDynamic()
 
     if conf.swap:
       mountSwap(node)
