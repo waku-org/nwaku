@@ -3,7 +3,7 @@
 import
   std/sequtils, tables, times,
   chronicles, options, chronos, stint,
-  web3,
+  web3, json,
   stew/results,
   stew/[byteutils, arrayops, endians2],
   rln,
@@ -21,8 +21,12 @@ type SpamHandler* = proc(wakuMessage: WakuMessage): void {.gcsafe, closure,
 
 # membership contract interface
 contract(MembershipContract):
-  # TODO define a return type of bool for register method to signify a successful registration
   proc register(pubkey: Uint256) # external payable
+  proc MemberRegistered(pubkey: Uint256, index: Uint256) {.event.}
+  # TODO the followings are to be supported
+  # proc registerBatch(pubkeys: seq[Uint256]) # external payable
+  # proc withdraw(secret: Uint256, pubkeyIndex: Uint256, receiver: Address)
+  # proc withdrawBatch( secrets: seq[Uint256], pubkeyIndex: seq[Uint256], receiver: seq[Address])
 
 proc createRLNInstance*(d: int = MERKLE_TREE_DEPTH): RLNResult
   {.raises: [Defect, IOError].} =
@@ -98,6 +102,10 @@ proc toUInt256*(idCommitment: IDCommitment): UInt256 =
   let pk = cast[UInt256](idCommitment)
   return pk
 
+proc toIDCommitment*(idCommitment: UInt256): IDCommitment =
+  let pk = cast[IDCommitment](idCommitment)
+  return pk
+
 proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   ## registers the public key of the rlnPeer which is rlnPeer.membershipKeyPair.publicKey
   ## into the membership contract whose address is in rlnPeer.membershipContractAddress
@@ -108,7 +116,7 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   web3.privateKey = rlnPeer.ethAccountPrivateKey
   var sender = web3.contractSender(MembershipContract,
       rlnPeer.membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
-  let pk = toUInt256(rlnPeer.membershipKeyPair.idCommitment)
+  let pk = rlnPeer.membershipKeyPair.idCommitment.toUInt256()
   discard await sender.register(pk).send(MEMBERSHIP_FEE)
   debug "pk", pk = pk
   # TODO check the receipt and then return true/false
@@ -548,3 +556,33 @@ proc addAll*(rlnInstance: RLN[Bn256], list: seq[IDCommitment]): bool =
     if not member_is_added:
       return false
   return true
+
+# the types of inputs to this handler matches the MemberRegistered event/proc defined in the MembershipContract interface
+type RegistrationEventHandler  = proc(pubkey: Uint256, index: Uint256): void {.gcsafe, closure, raises: [Defect].}
+
+
+proc subscribeToGroupEvents(ethClientUri: string, contractAddress: Address, blockNumber: string = "0x0", handler: RegistrationEventHandler) {.async, gcsafe.} = 
+  ## connects to the eth client whose URI is supplied as `ethClientUri`
+  ## subscribes to the `MemberRegistered` event emitted from the `MembershipContract` which is available on the supplied `contractAddress`
+  ## it collects all the events starting from the given `blockNumber`
+  ## for every received event, it calls the `handler`
+  
+  # connect to the eth client
+  let web3 = await newWeb3(ETH_CLIENT)
+  # prepare a contract sender to interact with it
+  var contractObj = web3.contractSender(MembershipContract, contractAddress) 
+
+  # subscribe to the MemberRegistered events
+  # TODO can do similarly for deletion events, though it is not yet supported
+  discard await contractObj.subscribe(MemberRegistered, %*{"fromBlock": blockNumber, "address": contractAddress}) do(pubkey: Uint256, index: Uint256){.raises: [Defect], gcsafe.}:
+    try:
+      debug "onRegister", pubkey = pubkey, index = index
+      handler(pubkey, index)
+    except Exception as err:
+      doAssert false, err.msg
+  do (err: CatchableError):
+    echo "Error from subscription: ", err.msg
+
+proc handleGroupUpdates*(rlnPeer: WakuRLNRelay, handler: RegistrationEventHandler) {.async, gcsafe.} =
+  # mounts the supplied handler for the registration events emitting from the membership contract
+  await subscribeToGroupEvents(ethClientUri = rlnPeer.ethClientAddress, contractAddress = rlnPeer.membershipContractAddress, handler = handler) 
