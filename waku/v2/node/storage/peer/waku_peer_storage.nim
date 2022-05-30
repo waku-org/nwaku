@@ -61,6 +61,7 @@ proc encode*(storedInfo: StoredInfo): PeerStorageResult[ProtoBuffer] =
 ##########################
 
 proc new*(T: type WakuPeerStorage, db: SqliteDatabase): PeerStorageResult[T] =
+  
   ## Create the "Peer" table
   ## It contains:
   ##  - peer id as primary key, stored as a blob
@@ -77,12 +78,6 @@ proc new*(T: type WakuPeerStorage, db: SqliteDatabase): PeerStorageResult[T] =
       ) WITHOUT ROWID;
       """, NoParams, void).expect("this is a valid statement")
 
-    replaceStmt = db.prepareStmt(
-      "REPLACE INTO Peer (peerId, storedInfo, connectedness, disconnectTime) VALUES (?, ?, ?, ?);",
-      (seq[byte], seq[byte], int32, int64),
-      void
-    ).expect("this is a valid statement")
-
   let res = createStmt.exec(())
   if res.isErr:
     return err("failed to exec")
@@ -90,6 +85,16 @@ proc new*(T: type WakuPeerStorage, db: SqliteDatabase): PeerStorageResult[T] =
   # We dispose of this prepared statement here, as we never use it again
   createStmt.dispose()
 
+  ## Reusable prepared statements
+  let
+    replaceStmt = db.prepareStmt(
+      "REPLACE INTO Peer (peerId, storedInfo, connectedness, disconnectTime) VALUES (?, ?, ?, ?);",
+      (seq[byte], seq[byte], int32, int64),
+      void
+    ).expect("this is a valid statement")
+
+  ## General initialization
+  
   ok(WakuPeerStorage(database: db,
                      replaceStmt: replaceStmt))
 

@@ -73,11 +73,8 @@ proc deleteOldest(db: WakuMessageStore): MessageStoreResult[void] =
   ok()
 
 proc init*(T: type WakuMessageStore, db: SqliteDatabase, storeCapacity: int = 50000): MessageStoreResult[T] =
-  ## Table is the SQL query for creating the messages Table.
-  ## It contains:
-  ##  - 4-Byte ContentTopic stored as an Integer
-  ##  - Payload stored as a blob
-
+  
+  ## Table Creation
   let
     createStmt = db.prepareStmt("""
       CREATE TABLE IF NOT EXISTS """ & TABLE_TITLE & """ (
@@ -92,12 +89,6 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase, storeCapacity: int = 50
       ) WITHOUT ROWID;
       """, NoParams, void).expect("this is a valid statement")
     
-    insertStmt = db.prepareStmt(
-      "INSERT INTO " & TABLE_TITLE & " (id, receiverTimestamp, contentTopic, payload, pubsubTopic, version, senderTimestamp) VALUES (?, ?, ?, ?, ?, ?, ?);",
-      (seq[byte], Timestamp, seq[byte], seq[byte], seq[byte], int64, Timestamp),
-      void
-    ).expect("this is a valid statement")
-
   let prepareRes = createStmt.exec(())
   if prepareRes.isErr:
     return err("failed to exec")
@@ -105,17 +96,30 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase, storeCapacity: int = 50
   # We dispose of this prepared statement here, as we never use it again
   createStmt.dispose()
 
+  ## Reusable prepared statements
+  let
+    insertStmt = db.prepareStmt(
+      "INSERT INTO " & TABLE_TITLE & " (id, receiverTimestamp, contentTopic, payload, pubsubTopic, version, senderTimestamp) VALUES (?, ?, ?, ?, ?, ?, ?);",
+      (seq[byte], Timestamp, seq[byte], seq[byte], seq[byte], int64, Timestamp),
+      void
+    ).expect("this is a valid statement")
+
+  ## General initialization
+
   let numMessages = messageCount(db).get()
   debug "number of messages in sqlite database", messageNum=numMessages
 
   # add index on receiverTimestamp
-  let addIndexStmt = "CREATE INDEX IF NOT EXISTS i_rt ON " & TABLE_TITLE & "(receiverTimestamp);"
-  let resIndex = db.query(addIndexStmt, proc(s: ptr sqlite3_stmt) = discard)
+  let
+    addIndexStmt = "CREATE INDEX IF NOT EXISTS i_rt ON " & TABLE_TITLE & "(receiverTimestamp);"
+    resIndex = db.query(addIndexStmt, proc(s: ptr sqlite3_stmt) = discard)
   if resIndex.isErr:
     return err("Could not establish index on receiverTimestamp: " & resIndex.error)
 
-  let storeMaxLoad = int(float(storeCapacity) * MaxStoreOverflow)
-  let deleteWindow = int(float(storeMaxLoad - storeCapacity) / 2)
+  let
+    storeMaxLoad = int(float(storeCapacity) * MaxStoreOverflow)
+    deleteWindow = int(float(storeMaxLoad - storeCapacity) / 2)
+  
   let wms = WakuMessageStore(database: db,
                       numMessages: int(numMessages),
                       storeCapacity: storeCapacity,
