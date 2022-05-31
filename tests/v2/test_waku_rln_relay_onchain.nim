@@ -102,7 +102,7 @@ procSuite "Waku-rln-relay":
     let membershipKeyPair = membershipKeyGen(rlnInstance.value)
     check: 
       membershipKeyPair.isSome
-    let pk = membershipKeyPair.get().idCommitment.toUInt256()
+    let pk =  membershipKeyPair.get().idCommitment.toUInt256()
     debug "membership commitment key", pk = pk
 
     # test ------------------------------
@@ -127,6 +127,80 @@ procSuite "Waku-rln-relay":
 
     # wait for the event to be received
     await fut
+
+    # release resources -----------------------
+    await web3.close()
+  asyncTest "dynamic group management":
+    # preparation ------------------------------
+    debug "ethereum client address", ETH_CLIENT
+    let contractAddress = await uploadRLNContract(ETH_CLIENT)
+    # connect to the eth client
+    let web3 = await newWeb3(ETH_CLIENT)
+    debug "web3 connected to", ETH_CLIENT
+
+    # fetch the list of registered accounts
+    let accounts = await web3.provider.eth_accounts()
+    web3.defaultAccount = accounts[1]
+    debug "contract deployer account address ",
+        defaultAccount = web3.defaultAccount
+
+    # prepare a contract sender to interact with it
+    var contractObj = web3.contractSender(MembershipContract,
+        contractAddress) # creates a Sender object with a web3 field and contract address of type Address
+
+    # test ------------------------------
+    # create an RLN instance
+    var rlnInstance = createRLNInstance()
+    check: 
+      rlnInstance.isOk == true
+    var rln = rlnInstance.value
+
+    # create rln membership key pair 
+    let keyPair = rln.membershipKeyGen()
+    check: 
+      keyPair.isSome
+    let pk = keyPair.get().idCommitment.toUInt256()
+    debug "membership commitment key", pk = pk
+
+    # initialize the WakuRLNRelay
+    var rlnPeer = WakuRLNRelay(membershipKeyPair: keyPair.get(),
+      membershipIndex: MembershipIndex(0),
+      ethClientAddress: ETH_CLIENT,
+      ethAccountAddress: accounts[0],
+      membershipContractAddress: contractAddress,
+      rlnInstance: rln)
+
+    # generate another membership key pair
+    let keyPair2 = rln.membershipKeyGen()
+    check: 
+      keyPair2.isSome
+    let pk2 = keyPair2.get().idCommitment.toUInt256()
+    debug "membership commitment key", pk2 = pk2
+
+    var events = [newFuture[void](), newFuture[void]()]
+    proc handler(pubkey: Uint256, index: Uint256) =
+      debug "handler is called", pubkey = pubkey, index = index
+      if pubkey == pk:
+        events[0].complete()
+      if pubkey == pk2:
+        events[1].complete()
+      let isSuccessful = rlnPeer.rlnInstance.insertMember(pubkey.toIDCommitment())
+      check:
+        isSuccessful
+    
+    # mount the handler for listening to the contract events
+    await rlnPeer.handleGroupUpdates(handler)
+
+    # register a member to the contract
+    let tx = await contractObj.register(pk).send(value = MEMBERSHIP_FEE)
+    debug "a member is registered", tx = tx
+
+    # register another member to the contract
+    let tx2 = await contractObj.register(pk2).send(value = MEMBERSHIP_FEE)
+    debug "a member is registered", tx2 = tx2
+
+    # wait for all the events to be received by the rlnPeer
+    await all(events)
 
     # release resources -----------------------
     await web3.close()
@@ -215,7 +289,7 @@ procSuite "Waku-rln-relay":
       web3 = await newWeb3(ETH_CLIENT)
       accounts = await web3.provider.eth_accounts()
       # choose one of the existing account for the rln-relay peer
-      ethAccountAddress = accounts[9]
+      ethAccountAddress = accounts[0]
     await web3.close()
 
     # create current peer's pk
@@ -268,4 +342,3 @@ procSuite "Waku-rln-relay":
       expectedRoot == calculatedRoot
 
     await node.stop()
-
