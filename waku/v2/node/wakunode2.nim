@@ -873,7 +873,7 @@ proc runDiscv5Loop(node: WakuNode) {.async.} =
       trace "Discovered peers", count=discoveredPeers.get().len()
 
       let newPeers = discoveredPeers.get().filterIt(
-        not node.switch.peerStore.addressBook.contains(it.peerId))
+        not node.switch.peerStore[AddressBook].contains(it.peerId))
 
       if newPeers.len > 0:
         debug "Connecting to newly discovered peers", count=newPeers.len()

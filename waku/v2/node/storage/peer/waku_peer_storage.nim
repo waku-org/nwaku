@@ -33,8 +33,8 @@ proc init*(T: type StoredInfo, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getRepeatedField(3, protoSeq)
   discard ? pb.getField(4, storedInfo.publicKey)
   
-  storedInfo.addrs = toHashSet(multiaddrSeq)  
-  storedInfo.protos = toHashSet(protoSeq)
+  storedInfo.addrs = multiaddrSeq
+  storedInfo.protos = protoSeq
 
   ok(storedInfo)
 
