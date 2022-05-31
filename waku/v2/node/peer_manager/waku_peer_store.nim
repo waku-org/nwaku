@@ -37,9 +37,18 @@ type
     publicKey*: PublicKey
 
 proc new*(T: type WakuPeerStore): WakuPeerStore =
-  var p: WakuPeerStore
-  new(p)
-  return p
+  let
+    addressBook = AddressBook(book: initTable[PeerID, seq[MultiAddress]]())
+    protoBook = ProtoBook(book: initTable[PeerID, seq[string]]())
+    keyBook = KeyBook(book: initTable[PeerID, PublicKey]())
+    connectionBook = ConnectionBook(book: initTable[PeerID, Connectedness]())
+    disconnectBook = DisconnectBook(book: initTable[PeerID, int64]())
+  
+  T(addressBook: addressBook,
+    protoBook: protoBook,
+    keyBook: keyBook,
+    connectionBook: connectionBook,
+    disconnectBook: disconnectBook)  
 
 #####################
 # Utility functions #
