@@ -32,8 +32,11 @@ type
 template dispose(db: Sqlite) =
   discard sqlite3_close(db)
 
-template dispose(db: RawStmtPtr) =
-  discard sqlite3_finalize(db)
+template dispose(rawStmt: RawStmtPtr) =
+  discard sqlite3_finalize(rawStmt)
+
+template dispose*(sqliteStmt: SqliteStmt) =
+  discard sqlite3_finalize(RawStmtPtr sqliteStmt)
 
 proc release[T](x: var AutoDisposed[T]): T =
   result = x.val
@@ -192,6 +195,7 @@ proc query*(db: SqliteDatabase, query: string, onData: DataProc): DatabaseResult
     # release implicit transaction
     discard sqlite3_reset(s) # same return information as step
     discard sqlite3_clear_bindings(s) # no errors possible
+    discard sqlite3_finalize(s) # NB: dispose of the prepared query statement and free associated memory
 
 proc prepareStmt*(
   db: SqliteDatabase,

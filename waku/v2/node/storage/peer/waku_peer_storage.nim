@@ -14,6 +14,7 @@ export sqlite
 type
   WakuPeerStorage* = ref object of PeerStorage
     database*: SqliteDatabase
+    replaceStmt: SqliteStmt[(seq[byte], seq[byte], int32, int64), void]
 
 ##########################
 # Protobuf Serialisation #
@@ -60,29 +61,42 @@ proc encode*(storedInfo: StoredInfo): PeerStorageResult[ProtoBuffer] =
 ##########################
 
 proc new*(T: type WakuPeerStorage, db: SqliteDatabase): PeerStorageResult[T] =
+  
   ## Create the "Peer" table
   ## It contains:
   ##  - peer id as primary key, stored as a blob
   ##  - stored info (serialised protobuf), stored as a blob
   ##  - last known enumerated connectedness state, stored as an integer
   ##  - disconnect time in epoch seconds, if applicable
-  let prepare = db.prepareStmt("""
-    CREATE TABLE IF NOT EXISTS Peer (
-        peerId BLOB PRIMARY KEY,
-        storedInfo BLOB,
-        connectedness INTEGER,
-        disconnectTime INTEGER
-    ) WITHOUT ROWID;
-    """, NoParams, void)
+  let
+    createStmt = db.prepareStmt("""
+      CREATE TABLE IF NOT EXISTS Peer (
+          peerId BLOB PRIMARY KEY,
+          storedInfo BLOB,
+          connectedness INTEGER,
+          disconnectTime INTEGER
+      ) WITHOUT ROWID;
+      """, NoParams, void).expect("this is a valid statement")
 
-  if prepare.isErr:
-    return err("failed to prepare")
-
-  let res = prepare.value.exec(())
+  let res = createStmt.exec(())
   if res.isErr:
     return err("failed to exec")
 
-  ok(WakuPeerStorage(database: db))
+  # We dispose of this prepared statement here, as we never use it again
+  createStmt.dispose()
+
+  ## Reusable prepared statements
+  let
+    replaceStmt = db.prepareStmt(
+      "REPLACE INTO Peer (peerId, storedInfo, connectedness, disconnectTime) VALUES (?, ?, ?, ?);",
+      (seq[byte], seq[byte], int32, int64),
+      void
+    ).expect("this is a valid statement")
+
+  ## General initialization
+  
+  ok(WakuPeerStorage(database: db,
+                     replaceStmt: replaceStmt))
 
 
 method put*(db: WakuPeerStorage,
@@ -92,21 +106,12 @@ method put*(db: WakuPeerStorage,
             disconnectTime: int64): PeerStorageResult[void] =
 
   ## Adds a peer to storage or replaces existing entry if it already exists
-  let prepare = db.database.prepareStmt(
-    "REPLACE INTO Peer (peerId, storedInfo, connectedness, disconnectTime) VALUES (?, ?, ?, ?);",
-    (seq[byte], seq[byte], int32, int64),
-    void
-  )
-
-  if prepare.isErr:
-    return err("failed to prepare")
-
   let encoded = storedInfo.encode()
 
   if encoded.isErr:
     return err("failed to encode: " & encoded.error())
 
-  let res = prepare.value.exec((peerId.data, encoded.get().buffer, int32(ord(connectedness)), disconnectTime))
+  let res = db.replaceStmt.exec((peerId.data, encoded.get().buffer, int32(ord(connectedness)), disconnectTime))
   if res.isErr:
     return err("failed")
 
@@ -147,4 +152,5 @@ method getAll*(db: WakuPeerStorage, onData: peer_storage.DataProc): PeerStorageR
 
 proc close*(db: WakuPeerStorage) = 
   ## Closes the database.
+  db.replaceStmt.dispose()
   db.database.close()
