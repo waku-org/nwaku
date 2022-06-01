@@ -63,7 +63,7 @@ proc dialPeer(pm: PeerManager, peerId: PeerID,
       debug "Dialing remote peer timed out"
       waku_peers_dials.inc(labelValues = ["timeout"])
 
-      pm.peerStore.connectionBook.set(peerId, CannotConnect)
+      pm.peerStore.connectionBook[peerId] = CannotConnect
       if not pm.storage.isNil:
         pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), CannotConnect)
       
@@ -73,7 +73,7 @@ proc dialPeer(pm: PeerManager, peerId: PeerID,
     debug "Dialing remote peer failed", msg = e.msg
     waku_peers_dials.inc(labelValues = ["failed"])
     
-    pm.peerStore.connectionBook.set(peerId, CannotConnect)
+    pm.peerStore.connectionBook[peerId] = CannotConnect
     if not pm.storage.isNil:
       pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), CannotConnect)
     
@@ -89,11 +89,11 @@ proc loadFromStorage(pm: PeerManager) =
       # Do not manage self
       return
 
-    pm.peerStore.addressBook.set(peerId, storedInfo.addrs)
-    pm.peerStore.protoBook.set(peerId, storedInfo.protos)
-    pm.peerStore.keyBook.set(peerId, storedInfo.publicKey)
-    pm.peerStore.connectionBook.set(peerId, NotConnected)  # Reset connectedness state
-    pm.peerStore.disconnectBook.set(peerId, disconnectTime)
+    pm.peerStore.addressBook[peerId] = storedInfo.addrs
+    pm.peerStore.protoBook[peerId] = storedInfo.protos
+    pm.peerStore.keyBook[peerId] = storedInfo.publicKey
+    pm.peerStore.connectionBook[peerId] = NotConnected  # Reset connectedness state
+    pm.peerStore.disconnectBook[peerId] = disconnectTime
   
   let res = pm.storage.getAll(onData)
   if res.isErr:
@@ -109,12 +109,12 @@ proc loadFromStorage(pm: PeerManager) =
 proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async.} =
   case event.kind
   of ConnEventKind.Connected:
-    pm.peerStore.connectionBook.set(peerId, Connected)
+    pm.peerStore.connectionBook[peerId] = Connected
     if not pm.storage.isNil:
       pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), Connected)
     return
   of ConnEventKind.Disconnected:
-    pm.peerStore.connectionBook.set(peerId, CanConnect)
+    pm.peerStore.connectionBook[peerId] = CanConnect
     if not pm.storage.isNil:
       pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), CanConnect, getTime().toUnix)
     return
@@ -167,7 +167,7 @@ proc connectedness*(pm: PeerManager, peerId: PeerID): Connectedness =
     # Peer is not managed, therefore not connected
     return NotConnected
   else:
-    pm.peerStore.connectionBook.get(peerId)
+    pm.peerStore.connectionBook[peerId]
 
 proc hasPeer*(pm: PeerManager, peerId: PeerID, proto: string): bool =
   # Returns `true` if peer is included in manager for the specified protocol
@@ -199,7 +199,7 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string) =
   var publicKey: PublicKey
   discard remotePeerInfo.peerId.extractPublicKey(publicKey)
 
-  pm.peerStore.keyBook.set(remotePeerInfo.peerId, publicKey)
+  pm.peerStore.keyBook[remotePeerInfo.peerId] = publicKey
 
   # ...associated protocols
   pm.peerStore.protoBook.add(remotePeerInfo.peerId, proto)
@@ -231,13 +231,13 @@ proc reconnectPeers*(pm: PeerManager,
   
   for storedInfo in pm.peers(protocolMatcher):
     # Check if peer is reachable.
-    if pm.peerStore.connectionBook.get(storedInfo.peerId) == CannotConnect:
+    if pm.peerStore.connectionBook[storedInfo.peerId] == CannotConnect:
       debug "Not reconnecting to unreachable peer", peerId=storedInfo.peerId
       continue
     
     # Respect optional backoff period where applicable.
     let
-      disconnectTime = Moment.init(pm.peerStore.disconnectBook.get(storedInfo.peerId), Second)  # Convert 
+      disconnectTime = Moment.init(pm.peerStore.disconnectBook[storedInfo.peerId], Second)  # Convert 
       currentTime = Moment.init(getTime().toUnix, Second) # Current time comparable to persisted value
       backoffTime = disconnectTime + backoff - currentTime # Consider time elapsed since last disconnect
     
@@ -284,7 +284,7 @@ proc dialPeer*(pm: PeerManager, peerId: PeerID, proto: string, dialTimeout = def
     # Do not attempt to dial self
     return none(Connection)
 
-  let addrs = toSeq(pm.switch.peerStore.addressBook.get(peerId))
+  let addrs = pm.switch.peerStore[AddressBook][peerId]
   if addrs.len == 0:
     return none(Connection)
 
