@@ -1226,16 +1226,14 @@ when isMainModule:
             debug "the calculated root", root
             info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
         else:
-          info " setting up waku-rln-relay in off-chain mode... "
+          info " setting up waku-rln-relay in on-chain mode... "
           
           # read node's Eth private key 
           let 
             ethPrivateKey = conf.rlnRelayEthPrivateKey
             ethAccountAddr = conf.rlnRelayEthAccount
-          
-          # set up and rlnpeer node
-          # TODO create an rln-relay id key and commitment key and register the commitment key to the contract
-          # TODO waitFor node.mountRlnRelayDynamic()
+          # TODO memContractAddr should be passed in here 
+          waitFor node.mountRlnRelayDynamic(ethClientAddr = ETH_CLIENT, ethAccAddr = ethAccountAddr, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
 
     if conf.swap:
       mountSwap(node)
