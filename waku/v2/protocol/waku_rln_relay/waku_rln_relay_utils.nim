@@ -4,6 +4,7 @@ import
   std/sequtils, tables, times,
   chronicles, options, chronos, stint,
   web3, json,
+  eth/keys,
   stew/results,
   stew/[byteutils, arrayops, endians2],
   rln,
@@ -64,6 +65,7 @@ proc createRLNInstance*(d: int = MERKLE_TREE_DEPTH): RLNResult
     return err("error in parameters generation")
   return ok(rlnInstance)
 
+  
 proc membershipKeyGen*(ctxPtr: RLN[Bn256]): Option[MembershipKeyPair] =
   ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract
 
@@ -126,6 +128,28 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   # TODO check the index of the registered pk and return it
   await web3.close()
   return true
+
+# # proc newWakuRlnRelay() WakuRLNRelay = 
+# #   var rlnRes: RLN[Bn256] = createRLNInstance()    
+# #   var rlnNode = WakuRLNRelay(rlnInstance: rlnRes.value)
+# #   return rlnNode
+
+# proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethClientAddress: string, ethAccountPrivateKey: PrivateKey, membershipContractAddress: Address): Future[bool] {.async.} =
+#   ## registers the public key of the rlnPeer which is rlnPeer.membershipKeyPair.publicKey
+#   ## into the membership contract whose address is in rlnPeer.membershipContractAddress
+#   let web3 = await newWeb3(ethClientAddress)
+#   web3.defaultAccount = ethAccountAddress
+#   # when the private key is set in a web3 instance, the send proc (sender.register(pk).send(MEMBERSHIP_FEE))
+#   # does the signing using the provided key
+#   web3.privateKey = ethAccountPrivateKey
+#   var sender = web3.contractSender(MembershipContract, membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
+#   let pk = idComm.toUInt256()
+#   discard await sender.register(pk).send(MEMBERSHIP_FEE)
+#   debug "pk", pk = pk
+#   # TODO check the receipt and then return true/false
+#   # TODO check the index of the registered pk and return it
+#   await web3.close()
+#   return true
 
 proc appendLength*(input: openArray[byte]): seq[byte] =
   ## returns length prefixed version of the input
