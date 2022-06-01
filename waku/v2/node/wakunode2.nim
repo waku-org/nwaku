@@ -1234,6 +1234,8 @@ when isMainModule:
             ethAccountAddr = conf.rlnRelayEthAccount
           # TODO memContractAddr should be passed in here 
           waitFor node.mountRlnRelayDynamic(ethClientAddr = ETH_CLIENT, ethAccAddr = ethAccountAddr, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
+          # TODO write a test to see if the dynamic mode works on a waku node properly
+          # TODO also test if config types make sense and can be supplied by the user, run a waku node for this
 
     if conf.swap:
       mountSwap(node)
