@@ -1,0 +1,35 @@
+openapi: 3.1.0
+info:
+  title: Waku REST API - Debug
+  version: 1.0.0
+
+paths:
+  /debug/v1/info:
+    get:
+      summary: Get node info
+      description: Retrieve information about a Waku v2 node.
+      tags:
+        - Debug
+      responses:
+        '200':
+          description: Information about a Waku v2 node.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WakuInfo'
+        '5XX':
+          description: Unexpected error.
+
+components:
+  schemas:
+    WakuInfo:
+      type: object
+      properties:
+        listenAddresses:
+          type: array
+          items:
+            type: string
+        enrUri:
+          type: string
+      required:
+        - listenAddresses
