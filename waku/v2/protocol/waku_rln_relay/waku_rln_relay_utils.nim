@@ -107,26 +107,36 @@ proc toIDCommitment*(idCommitment: UInt256): IDCommitment =
   let pk = cast[IDCommitment](idCommitment)
   return pk
 
-proc getIdCommitment*(membershipKeyPair: MembershipKeyPair): UInt256 =
-  let pk = membershipKeyPair.idCommitment.toUInt256()
-  return pk
+# proc getIdCommitment*(membershipKeyPair: MembershipKeyPair): UInt256 =
+#   let pk = membershipKeyPair.idCommitment.toUInt256()
+#   return pk
 
-proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
-  ## registers the public key of the rlnPeer which is rlnPeer.membershipKeyPair.publicKey
-  ## into the membership contract whose address is in rlnPeer.membershipContractAddress
-  let web3 = await newWeb3(rlnPeer.ethClientAddress)
-  web3.defaultAccount = rlnPeer.ethAccountAddress
+proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethClientAddress: string, ethAccountPrivateKey: PrivateKey, membershipContractAddress: Address): Future[bool] {.async.} =
+  ## registers the idComm  into the membership contract whose address is in rlnPeer.membershipContractAddress
+  let web3 = await newWeb3(ethClientAddress)
+  web3.defaultAccount = ethAccountAddress
   # when the private key is set in a web3 instance, the send proc (sender.register(pk).send(MEMBERSHIP_FEE))
   # does the signing using the provided key
-  web3.privateKey = rlnPeer.ethAccountPrivateKey
-  var sender = web3.contractSender(MembershipContract,
-      rlnPeer.membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
-  let pk = rlnPeer.membershipKeyPair.getIdCommitment()
-  discard await sender.register(pk).send(MEMBERSHIP_FEE)
+  # web3.privateKey = some(ethAccountPrivateKey)
+  var sender = web3.contractSender(MembershipContract, membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
+  let pk = idComm.toUInt256()
+  let txHash = await sender.register(pk).send(MEMBERSHIP_FEE)
+  let rec = await web3.getMinedTransactionReceipt(txHash)
+  # take the logobject.data part string, and convert it to byte array, then take the two 256 bytes to extract event inputs and then use them as the index
+  let log = rec.logs[0].data
+  debug "first log entry", entry0 = log 
   debug "pk", pk = pk
   # TODO check the receipt and then return true/false
   # TODO check the index of the registered pk and return it
   await web3.close()
+  return true
+
+proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
+  ## registers the public key of the rlnPeer which is rlnPeer.membershipKeyPair.publicKey
+  ## into the membership contract whose address is in rlnPeer.membershipContractAddress
+  let pk = rlnPeer.membershipKeyPair.idCommitment
+  discard await register(idComm = pk, ethAccountAddress = rlnPeer.ethAccountAddress, ethClientAddress = rlnPeer.ethClientAddress, ethAccountPrivateKey = rlnPeer.ethAccountPrivateKey, membershipContractAddress = rlnPeer.membershipContractAddress )
+  
   return true
 
 # # proc newWakuRlnRelay() WakuRLNRelay = 
@@ -134,22 +144,7 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
 # #   var rlnNode = WakuRLNRelay(rlnInstance: rlnRes.value)
 # #   return rlnNode
 
-# proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethClientAddress: string, ethAccountPrivateKey: PrivateKey, membershipContractAddress: Address): Future[bool] {.async.} =
-#   ## registers the public key of the rlnPeer which is rlnPeer.membershipKeyPair.publicKey
-#   ## into the membership contract whose address is in rlnPeer.membershipContractAddress
-#   let web3 = await newWeb3(ethClientAddress)
-#   web3.defaultAccount = ethAccountAddress
-#   # when the private key is set in a web3 instance, the send proc (sender.register(pk).send(MEMBERSHIP_FEE))
-#   # does the signing using the provided key
-#   web3.privateKey = ethAccountPrivateKey
-#   var sender = web3.contractSender(MembershipContract, membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
-#   let pk = idComm.toUInt256()
-#   discard await sender.register(pk).send(MEMBERSHIP_FEE)
-#   debug "pk", pk = pk
-#   # TODO check the receipt and then return true/false
-#   # TODO check the index of the registered pk and return it
-#   await web3.close()
-#   return true
+
 
 proc appendLength*(input: openArray[byte]): seq[byte] =
   ## returns length prefixed version of the input
