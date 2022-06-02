@@ -547,7 +547,7 @@ when defined(rln):
                       memIndex: MembershipIndex,
                       pubsubTopic: string,
                       contentTopic: ContentTopic,
-                      spamHandler: Option[SpamHandler] = none(SpamHandler)) =
+                      spamHandler: Option[SpamHandler] = none(SpamHandler)) {.raises: [Defect, IOError].}=
     # TODO return a bool value to indicate the success of the call
     # check whether inputs are provided
 
@@ -596,8 +596,8 @@ when defined(rln):
                       ethClientAddr: string = "",
                       ethAccAddr: web3.Address,
                       memContractAddr:  web3.Address,
-                      memKeyPair: MembershipKeyPair,
-                      memIndex: MembershipIndex,
+                      memKeyPair: Option[MembershipKeyPair],
+                      memIndex: Option[MembershipIndex],
                       pubsubTopic: string,
                       contentTopic: ContentTopic,
                       spamHandler: Option[SpamHandler] = none(SpamHandler)) {.async.} =
@@ -618,9 +618,27 @@ when defined(rln):
     doAssert(rlnInstance.isOk)
     var rln = rlnInstance.value
 
+    # prepare rln membership key pair
+    var 
+      keyPair: MembershipKeyPair
+      rlnIndex: MembershipIndex
+    if memKeyPair.isNone: # if non provided, create one and register to the contract
+      let keyPairOpt = rln.membershipKeyGen()
+      doAssert(keyPairOpt.isSome)
+      keyPair = keyPairOpt.get()
+      # register the rln-relay peer to the membership contract
+      # let isSuccessful = await  register()
+      # check whether registration is done
+      # doAssert(isSuccessful)
+      # register1()
+      debug "peer is successfully registered into the membership contract"
+    else:
+      keyPair = memKeyPair.get()
+      rlnIndex = memIndex.get()
+
     # create the WakuRLNRelay
-    var rlnPeer = WakuRLNRelay(membershipKeyPair: memKeyPair,
-      membershipIndex: memIndex,
+    var rlnPeer = WakuRLNRelay(membershipKeyPair: keyPair,
+      membershipIndex: rlnIndex,
       membershipContractAddress: memContractAddr,
       ethClientAddress: ethClientAddr,
       ethAccountAddress: ethAccAddr,
@@ -628,12 +646,6 @@ when defined(rln):
       pubsubTopic: pubsubTopic,
       contentTopic: contentTopic)
 
-    
-    # register the rln-relay peer to the membership contract
-    # let isSuccessful = await rlnPeer.register()
-    # check whether registration is done
-    # doAssert(isSuccessful)
-    # debug "peer is successfully registered into the membership contract"
 
     proc handler(pubkey: Uint256, index: Uint256) =
       debug "a new key is added", pubkey=pubkey
@@ -1232,8 +1244,11 @@ when isMainModule:
           let 
             ethPrivateKey = conf.rlnRelayEthPrivateKey
             ethAccountAddr = conf.rlnRelayEthAccount
-          # TODO memContractAddr should be passed in here 
-          waitFor node.mountRlnRelayDynamic(ethClientAddr = ETH_CLIENT, ethAccAddr = ethAccountAddr, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
+            ethClientAddr = conf.rlnRelayEthClientAddress
+            ethMemContractAddress = conf.rlnRelayEthMemContractAddress
+            rlnRelayId = conf.rlnRelayIdKey
+            rlnRelayIdCommitmentKey = cong.rlnRelayIdCommitmentKey
+          waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, ethAccAddr = ethAccountAddr, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
           # TODO write a test to see if the dynamic mode works on a waku node properly
           # TODO also test if config types make sense and can be supplied by the user, run a waku node for this
 
