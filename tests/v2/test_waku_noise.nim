@@ -419,10 +419,10 @@ procSuite "Waku Noise":
 
     # We initialize Alice's and Bob's Handshake State
     let aliceStaticKey = genKeyPair(rng[])
-    var aliceHS = initialize(hsPattern, staticKey = aliceStaticKey, initiator = true)
+    var aliceHS = initialize(hsPattern = hsPattern, staticKey = aliceStaticKey, initiator = true)
 
     let bobStaticKey = genKeyPair(rng[])
-    var bobHS = initialize(hsPattern, staticKey = bobStaticKey)
+    var bobHS = initialize(hsPattern = hsPattern, staticKey = bobStaticKey)
     
     var 
       sentTransportMessage: seq[byte]
@@ -482,12 +482,24 @@ procSuite "Waku Noise":
 
     # Note that for this handshake pattern, no more message patterns are left for processing 
     # Another call to stepHandshake would return an empty HandshakeStepResult
-    # We test that extra calls to stepHandshake do not affect handshake finalization
-    bobStep = stepHandshake(rng[], bobHS, transportMessage = sentTransportMessage).get()
-    aliceStep = stepHandshake(rng[], aliceHS, readPayloadV2 = bobStep.payload2).get()
-    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
-    bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep.payload2).get()
+    # We test that extra calls to stepHandshake do not affect parties' handshake states
+    # and that the intermediate HandshakeStepResult are empty
+    let prevAliceHS = aliceHS
+    let prevBobHS = bobHS
+    
+    let bobStep1 = stepHandshake(rng[], bobHS, transportMessage = sentTransportMessage).get()
+    let aliceStep1 = stepHandshake(rng[], aliceHS, readPayloadV2 = bobStep1.payload2).get()
+    let aliceStep2 = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+    let bobStep2 = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep2.payload2).get()
    
+    check:
+      aliceStep1 == default(HandshakeStepResult)
+      aliceStep2 == default(HandshakeStepResult)
+      bobStep1 == default(HandshakeStepResult)
+      bobStep2 == default(HandshakeStepResult)
+      aliceHS == prevAliceHS 
+      bobHS == prevBobHS 
+
     #########################
     # After Handshake
     #########################
@@ -531,10 +543,10 @@ procSuite "Waku Noise":
     
     # We initialize Alice's and Bob's Handshake State
     let aliceStaticKey = genKeyPair(rng[])
-    var aliceHS = initialize(hsPattern, staticKey = aliceStaticKey, psk = psk, initiator = true)
+    var aliceHS = initialize(hsPattern = hsPattern, staticKey = aliceStaticKey, psk = psk, initiator = true)
 
     let bobStaticKey = genKeyPair(rng[])
-    var bobHS = initialize(hsPattern, staticKey = bobStaticKey, psk = psk)
+    var bobHS = initialize(hsPattern = hsPattern, staticKey = bobStaticKey, psk = psk)
     
     var 
       sentTransportMessage: seq[byte]
@@ -643,8 +655,8 @@ procSuite "Waku Noise":
     # So we define accordingly the sequence of the pre-message public keys
     let preMessagePKs: seq[NoisePublicKey] = @[toNoisePublicKey(getPublicKey(aliceStaticKey)), toNoisePublicKey(getPublicKey(bobStaticKey))]
 
-    var aliceHS = initialize(hsPattern, staticKey = aliceStaticKey, preMessagePKs = preMessagePKs, initiator = true)
-    var bobHS = initialize(hsPattern, staticKey = bobStaticKey, preMessagePKs = preMessagePKs)
+    var aliceHS = initialize(hsPattern = hsPattern, staticKey = aliceStaticKey, preMessagePKs = preMessagePKs, initiator = true)
+    var bobHS = initialize(hsPattern = hsPattern, staticKey = bobStaticKey, preMessagePKs = preMessagePKs)
     
     var 
       sentTransportMessage: seq[byte]
@@ -753,8 +765,8 @@ procSuite "Waku Noise":
     # So we define accordingly the sequence of the pre-message public keys
     let preMessagePKs: seq[NoisePublicKey] = @[toNoisePublicKey(getPublicKey(bobStaticKey))]
 
-    var aliceHS = initialize(hsPattern, staticKey = aliceStaticKey, preMessagePKs = preMessagePKs, initiator = true)
-    var bobHS = initialize(hsPattern, staticKey = bobStaticKey, preMessagePKs = preMessagePKs)
+    var aliceHS = initialize(hsPattern = hsPattern, staticKey = aliceStaticKey, preMessagePKs = preMessagePKs, initiator = true)
+    var bobHS = initialize(hsPattern = hsPattern, staticKey = bobStaticKey, preMessagePKs = preMessagePKs)
     
     var 
       sentTransportMessage: seq[byte]

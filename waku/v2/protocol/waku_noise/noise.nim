@@ -153,7 +153,7 @@ type
     psk: seq[byte]
 
   # While processing messages patterns, users either:
-  # - read (decrypt) a the other party's (encrypted) transport message
+  # - read (decrypt) the other party's (encrypted) transport message
   # - write (encrypt) a message, sent through a PayloadV2
   # These two intermediate results are stored in the HandshakeStepResult data structure
   HandshakeStepResult* = object
@@ -1349,10 +1349,11 @@ proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeS
 #################################
 
 # Initializes a Handshake State
-proc initialize*(hsPattern: HandshakePattern, staticKey: KeyPair = default(KeyPair), prologue: seq[byte] = @[], psk: seq[byte] = @[], preMessagePKs: seq[NoisePublicKey] = @[], initiator: bool = false): HandshakeState 
+proc initialize*(hsPattern: HandshakePattern, ephemeralKey: KeyPair = default(KeyPair), staticKey: KeyPair = default(KeyPair), prologue: seq[byte] = @[], psk: seq[byte] = @[], preMessagePKs: seq[NoisePublicKey] = @[], initiator: bool = false): HandshakeState 
   {.raises: [Defect, NoiseMalformedHandshake, NoiseHandshakeError, NoisePublicKeyError].} =
   var hs = HandshakeState.init(hsPattern)
   hs.ss.mixHash(prologue)
+  hs.e = ephemeralKey
   hs.s = staticKey
   hs.psk = psk
   hs.msgPatternIdx = 0
@@ -1362,6 +1363,9 @@ proc initialize*(hsPattern: HandshakePattern, staticKey: KeyPair = default(KeyPa
   return hs
 
 # Advances 1 step in handshake
+# Each user in a handshake alternates writing and reading of handshake messages.
+# If the user is writing the handshake message, the transport message (if not empty) has to be passed to transportMessage and readPayloadV2 can be left to its default value
+# It the user is reading the handshake message, the read payload v2 has to be passed to readPayloadV2 and the transportMessage can be left to its default values. 
 proc stepHandshake*(rng: var BrHmacDrbgContext, hs: var HandshakeState, readPayloadV2: PayloadV2 = default(PayloadV2), transportMessage: seq[byte] = @[]): Result[HandshakeStepResult, cstring]
   {.raises: [Defect, NoiseHandshakeError, NoiseMalformedHandshake, NoisePublicKeyError, NoiseDecryptTagError, NoiseNonceMaxError].} =
 
