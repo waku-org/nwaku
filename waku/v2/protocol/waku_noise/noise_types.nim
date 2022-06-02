@@ -150,7 +150,7 @@ type
     psk*: seq[byte]
 
   # While processing messages patterns, users either:
-  # - read (decrypt) a the other party's (encrypted) transport message
+  # - read (decrypt) the other party's (encrypted) transport message
   # - write (encrypt) a message, sent through a PayloadV2
   # These two intermediate results are stored in the HandshakeStepResult data structure
   HandshakeStepResult* = object
