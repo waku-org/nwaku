@@ -134,16 +134,33 @@ type
       desc: "Enable  waku-rln-relay with on-chain dynamic group management: true|false",
       defaultValue: false
       name: "rln-relay-dynamic" }: bool
+  
+    rlnRelayIdKey* {.
+      desc: "Rln relay identity secret key", 
+      defaultValue: ""
+      name: "rln-relay-id" }: string
+    
+    rlnRelayIdCommitmentKey* {.
+      desc: "Rln relay identity commitment key", 
+      defaultValue: ""
+      name: "rln-relay-id-commitment" }: string
 
     rlnRelayEthPrivateKey* {.
-      desc: "Ethereum testnet private key (DO NOT input an Ethereum private key with actual fund)",
-      defaultValue: PrivateKey()
-      name: "eth-private-key"}: PrivateKey
+      desc: "Ethereum testnet private key (DO NOT input an Ethereum private key with actual fund)", 
+      name: "eth-private-key"}: keys.PrivateKey
   
     rlnRelayEthAccount* {.
-      desc: "Ethereum testnet account address",
-      defaultValue: Address()
+      desc: "Ethereum testnet account address", 
       name: "eth-account-address" }: Address
+    
+    rlnRelayEthClientAddress* {.
+      desc: "Ethereum testnet client address",
+      defaultValue: "ws://localhost:8540/"
+      name: "eth-client-address" }: string
+    
+    rlnRelayEthMemContractAddress* {.
+      desc: "Address of membership contract on an Ethereum testnet", 
+      name: "eth-mem-contract-address" }: Address
     
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
