@@ -636,9 +636,9 @@ when defined(rln):
 
     if onchainMode:
       # register the rln-relay peer to the membership contract
-      let is_successful = await rlnPeer.register()
+      let isSuccessful = await rlnPeer.register()
       # check whether registration is done
-      doAssert(is_successful)
+      doAssert(isSuccessful)
       debug "peer is successfully registered into the membership contract"
 
     # adds a topic validator for the supplied pubsub topic at the relay protocol
@@ -873,7 +873,7 @@ proc runDiscv5Loop(node: WakuNode) {.async.} =
       trace "Discovered peers", count=discoveredPeers.get().len()
 
       let newPeers = discoveredPeers.get().filterIt(
-        not node.switch.peerStore.addressBook.contains(it.peerId))
+        not node.switch.peerStore[AddressBook].contains(it.peerId))
 
       if newPeers.len > 0:
         debug "Connecting to newly discovered peers", count=newPeers.len()

@@ -19,7 +19,7 @@ suite "Peer Storage":
       peerKey = crypto.PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.new(peerKey, @[peerLoc])
       peerProto = "/waku/2/default-waku/codec"
-      stored = StoredInfo(peerId: peer.peerId, addrs: toHashSet([peerLoc]), protos: toHashSet([peerProto]), publicKey: peerKey.getPublicKey().tryGet())
+      stored = StoredInfo(peerId: peer.peerId, addrs: @[peerLoc], protos: @[peerProto], publicKey: peerKey.getPublicKey().tryGet())
       conn = Connectedness.CanConnect
       disconn = 999999
        
