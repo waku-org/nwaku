@@ -394,7 +394,7 @@ procSuite "Waku-rln-relay":
     await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
                             ethAccAddr = ethAccountAddress,
                             memContractAddr = contractAddress, 
-                            memKeyPair = some(keyPair1),
+                            memKeyPair = keyPair1,
                             memIndex = some(MembershipIndex(0)),
                             pubsubTopic = RLNRELAY_PUBSUB_TOPIC,
                             contentTopic = RLNRELAY_CONTENT_TOPIC)
