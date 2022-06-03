@@ -500,7 +500,7 @@ when defined(rln):
     ## if contentTopic is empty, then validation takes place for All the messages published on the given pubsubTopic
     ## the message validation logic is according to https://rfc.vac.dev/spec/17/
     proc validator(topic: string, message: messages.Message): Future[pubsub.ValidationResult] {.async.} =
-      debug "rln-relay topic validator is called"
+      trace "rln-relay topic validator is called"
       let msg = WakuMessage.init(message.data) 
       if msg.isOk():
         let 
@@ -509,7 +509,7 @@ when defined(rln):
 
         # check the contentTopic
         if (wakumessage.contentTopic != "") and (contentTopic != "") and (wakumessage.contentTopic != contentTopic):
-          debug "content topic did not match:", contentTopic=wakumessage.contentTopic, payload=payload
+          trace "content topic did not match:", contentTopic=wakumessage.contentTopic, payload=payload
           return pubsub.ValidationResult.Accept
 
         # validate the message
@@ -1044,8 +1044,9 @@ when isMainModule:
 
   # 2/7 Retrieve dynamic bootstrap nodes
   proc retrieveDynamicBootstrapNodes(conf: WakuNodeConf): SetupResult[seq[RemotePeerInfo]] =
-  # DNS discovery
+    
     if conf.dnsDiscovery and conf.dnsDiscoveryUrl != "":
+      # DNS discovery
       debug "Discovering nodes using Waku DNS discovery", url=conf.dnsDiscoveryUrl
 
       var nameServers: seq[TransportAddress]
@@ -1066,6 +1067,8 @@ when isMainModule:
           .mapErr(proc (e: cstring): string = $e)
       else:
         warn "Failed to init Waku DNS discovery"
+    
+    ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default
 
   # 3/7 Initialize node
   proc initNode(conf: WakuNodeConf,
