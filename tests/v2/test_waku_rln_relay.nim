@@ -45,7 +45,7 @@ procSuite "Waku rln relay":
 
     # -------- mount rln-relay in the off-chain mode
     node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
-    await node.mountRlnRelayStatic(group = groupIDCommitments,
+    node.mountRlnRelayStatic(group = groupIDCommitments,
                             memKeyPair = groupKeyPairs[index],
                             memIndex = index,
                             pubsubTopic = RLNRELAY_PUBSUB_TOPIC,

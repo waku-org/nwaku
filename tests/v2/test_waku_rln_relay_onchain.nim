@@ -327,7 +327,7 @@ procSuite "Waku-rln-relay":
     # test ------------------------------
     # start rln-relay
     node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
-    await node.mountRlnRelayStatic(group = group,
+    node.mountRlnRelayStatic(group = group,
                             memKeyPair = keypair.get(),
                             memIndex = index,
                             pubsubTopic = RLNRELAY_PUBSUB_TOPIC,
