@@ -209,7 +209,6 @@ procSuite "Waku Noise":
       getNonce(cipherState) == nonce + 1 
       plaintext == decrypted
 
-
     # If a Cipher State has no key set, encryptWithAd should return the plaintext without increasing the nonce
     setCipherStateKey(cipherState, EmptyKey)
     nonce = getNonce(cipherState)
@@ -321,7 +320,7 @@ procSuite "Waku Noise":
     ########################################
 
     # We generate random input key material and we execute mixKey
-    var inputKeyMaterial = randomChaChaPolyKey(rng[])
+    var inputKeyMaterial = randomSeqByte(rng[], rand(1..128))
     mixKey(symmetricState, inputKeyMaterial)
 
     # mixKey changes the Symmetric State's chaining key and encryption key of the embedded Cipher State 
@@ -342,7 +341,7 @@ procSuite "Waku Noise":
     ########################################
 
     # We generate random input key material and we execute mixKeyAndHash
-    inputKeyMaterial = randomChaChaPolyKey(rng[])
+    inputKeyMaterial = randomSeqByte(rng[], rand(1..128))
     mixKeyAndHash(symmetricState, inputKeyMaterial)
 
     # mixKeyAndHash executes a mixKey and a mixHash using the input key material
@@ -413,3 +412,450 @@ procSuite "Waku Noise":
       getNonce(cs1) == 0.uint64
       getNonce(cs2) == 0.uint64
       getKey(cs1) != getKey(cs2)
+
+  test "Noise XX Handhshake and message encryption (extended test)":
+
+    let hsPattern = NoiseHandshakePatterns["XX"]
+
+    # We initialize Alice's and Bob's Handshake State
+    let aliceStaticKey = genKeyPair(rng[])
+    var aliceHS = initialize(hsPattern = hsPattern, staticKey = aliceStaticKey, initiator = true)
+
+    let bobStaticKey = genKeyPair(rng[])
+    var bobHS = initialize(hsPattern = hsPattern, staticKey = bobStaticKey)
+    
+    var 
+      sentTransportMessage: seq[byte]
+      aliceStep, bobStep: HandshakeStepResult 
+    
+    # Here the handshake starts
+    # Write and read calls alternate between Alice and Bob: the handhshake progresses by alternatively calling stepHandshake for each user
+
+    ###############
+    # 1st step
+    ###############
+
+    # We generate a random transport message
+    sentTransportMessage = randomSeqByte(rng[], 32)
+
+    # By being the handshake initiator, Alice writes a Waku2 payload v2 containing her handshake message 
+    # and the (encrypted) transport message
+    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+
+    # Bob reads Alice's payloads, and returns the (decrypted) transport message Alice sent to him
+    bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep.payload2).get()
+    
+    check:
+      bobStep.transportMessage == sentTransportMessage
+
+    ###############
+    # 2nd step
+    ###############
+    
+    # We generate a random transport message
+    sentTransportMessage = randomSeqByte(rng[], 32)
+
+    # At this step, Bob writes and returns a payload
+    bobStep = stepHandshake(rng[], bobHS, transportMessage = sentTransportMessage).get()
+
+    # While Alice reads and returns the (decrypted) transport message
+    aliceStep = stepHandshake(rng[], aliceHS, readPayloadV2 = bobStep.payload2).get()
+    
+    check: 
+      aliceStep.transportMessage == sentTransportMessage
+
+    ###############
+    # 3rd step
+    ###############
+
+    # We generate a random transport message
+    sentTransportMessage = randomSeqByte(rng[], 32) 
+
+    # Similarly as in first step, Alice writes a Waku2 payload containing the handshake message and the (encrypted) transport message
+    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+
+    # Bob reads Alice's payloads, and returns the (decrypted) transport message Alice sent to him
+    bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep.payload2).get()
+    
+    check: 
+      bobStep.transportMessage == sentTransportMessage
+
+    # Note that for this handshake pattern, no more message patterns are left for processing 
+    # Another call to stepHandshake would return an empty HandshakeStepResult
+    # We test that extra calls to stepHandshake do not affect parties' handshake states
+    # and that the intermediate HandshakeStepResult are empty
+    let prevAliceHS = aliceHS
+    let prevBobHS = bobHS
+    
+    let bobStep1 = stepHandshake(rng[], bobHS, transportMessage = sentTransportMessage).get()
+    let aliceStep1 = stepHandshake(rng[], aliceHS, readPayloadV2 = bobStep1.payload2).get()
+    let aliceStep2 = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+    let bobStep2 = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep2.payload2).get()
+   
+    check:
+      aliceStep1 == default(HandshakeStepResult)
+      aliceStep2 == default(HandshakeStepResult)
+      bobStep1 == default(HandshakeStepResult)
+      bobStep2 == default(HandshakeStepResult)
+      aliceHS == prevAliceHS 
+      bobHS == prevBobHS 
+
+    #########################
+    # After Handshake
+    #########################
+
+    # We finalize the handshake to retrieve the Inbound/Outbound symmetric states
+    var aliceHSResult, bobHSResult: HandshakeResult
+
+    aliceHSResult = finalizeHandshake(aliceHS)
+    bobHSResult = finalizeHandshake(bobHS)
+
+    # We test read/write of random messages exchanged between Alice and Bob
+    var 
+      payload2: PayloadV2
+      message: seq[byte]
+      readMessage: seq[byte]
+
+    for _ in 0..10:
+
+      # Alice writes to Bob
+      message = randomSeqByte(rng[], 32)
+      payload2 = writeMessage(aliceHSResult, message)
+      readMessage = readMessage(bobHSResult, payload2).get()
+      
+      check: 
+        message == readMessage
+      
+      # Bob writes to Alice
+      message = randomSeqByte(rng[], 32)
+      payload2 = writeMessage(bobHSResult, message)
+      readMessage = readMessage(aliceHSResult, payload2).get()
+      
+      check:
+        message == readMessage
+
+  test "Noise XXpsk0 Handhshake and message encryption (short test)":
+
+    let hsPattern = NoiseHandshakePatterns["XXpsk0"]
+
+    # We generate a random psk
+    let psk = randomSeqByte(rng[], 32)
+    
+    # We initialize Alice's and Bob's Handshake State
+    let aliceStaticKey = genKeyPair(rng[])
+    var aliceHS = initialize(hsPattern = hsPattern, staticKey = aliceStaticKey, psk = psk, initiator = true)
+
+    let bobStaticKey = genKeyPair(rng[])
+    var bobHS = initialize(hsPattern = hsPattern, staticKey = bobStaticKey, psk = psk)
+    
+    var 
+      sentTransportMessage: seq[byte]
+      aliceStep, bobStep: HandshakeStepResult 
+    
+    # Here the handshake starts
+    # Write and read calls alternate between Alice and Bob: the handhshake progresses by alternatively calling stepHandshake for each user
+
+    ###############
+    # 1st step
+    ###############
+
+    # We generate a random transport message
+    sentTransportMessage = randomSeqByte(rng[], 32)
+    
+    # By being the handshake initiator, Alice writes a Waku2 payload v2 containing her handshake message 
+    # and the (encrypted) transport message
+    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+
+    # Bob reads Alice's payloads, and returns the (decrypted) transport message Alice sent to him
+    bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep.payload2).get()
+    
+    check:
+      bobStep.transportMessage == sentTransportMessage
+
+    ###############
+    # 2nd step
+    ###############
+
+    # We generate a random transport message
+    sentTransportMessage = randomSeqByte(rng[], 32)
+
+    # At this step, Bob writes and returns a payload
+    bobStep = stepHandshake(rng[], bobHS, transportMessage = sentTransportMessage).get()
+
+    # While Alice reads and returns the (decrypted) transport message
+    aliceStep = stepHandshake(rng[], aliceHS, readPayloadV2 = bobStep.payload2).get()
+    
+    check: 
+      aliceStep.transportMessage == sentTransportMessage
+
+    ###############
+    # 3rd step
+    ###############
+
+    # We generate a random transport message
+    sentTransportMessage = randomSeqByte(rng[], 32)
+
+    # Similarly as in first step, Alice writes a Waku2 payload containing the handshake message and the (encrypted) transport message
+    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+
+    # Bob reads Alice's payloads, and returns the (decrypted) transportMessage alice sent to him
+    bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep.payload2).get()
+    
+    check:
+      bobStep.transportMessage == sentTransportMessage
+
+    # Note that for this handshake pattern, no more message patterns are left for processing 
+   
+    #########################
+    # After Handshake
+    #########################
+
+    # We finalize the handshake to retrieve the Inbound/Outbound Symmetric States
+    var aliceHSResult, bobHSResult: HandshakeResult
+
+    aliceHSResult = finalizeHandshake(aliceHS)
+    bobHSResult = finalizeHandshake(bobHS)
+
+    # We test read/write of random messages exchanged between Alice and Bob
+    var 
+      payload2: PayloadV2
+      message: seq[byte]
+      readMessage: seq[byte]
+
+    for _ in 0..10:
+
+      # Alice writes to Bob
+      message = randomSeqByte(rng[], 32)
+      payload2 = writeMessage(aliceHSResult, message)
+      readMessage = readMessage(bobHSResult, payload2).get()
+      
+      check: 
+        message == readMessage
+      
+      # Bob writes to Alice
+      message = randomSeqByte(rng[], 32)
+      payload2 = writeMessage(bobHSResult, message)
+      readMessage = readMessage(aliceHSResult, payload2).get()
+      
+      check:
+        message == readMessage
+
+  test "Noise K1K1 Handhshake and message encryption (short test)":
+
+    let hsPattern = NoiseHandshakePatterns["K1K1"]
+
+    # We initialize Alice's and Bob's Handshake State
+    let aliceStaticKey = genKeyPair(rng[])
+    let bobStaticKey = genKeyPair(rng[])
+
+    # This handshake has the following pre-message pattern:
+    # -> s
+    # <- s
+    #   ...
+    # So we define accordingly the sequence of the pre-message public keys
+    let preMessagePKs: seq[NoisePublicKey] = @[toNoisePublicKey(getPublicKey(aliceStaticKey)), toNoisePublicKey(getPublicKey(bobStaticKey))]
+
+    var aliceHS = initialize(hsPattern = hsPattern, staticKey = aliceStaticKey, preMessagePKs = preMessagePKs, initiator = true)
+    var bobHS = initialize(hsPattern = hsPattern, staticKey = bobStaticKey, preMessagePKs = preMessagePKs)
+    
+    var 
+      sentTransportMessage: seq[byte]
+      aliceStep, bobStep: HandshakeStepResult 
+    
+    # Here the handshake starts
+    # Write and read calls alternate between Alice and Bob: the handhshake progresses by alternatively calling stepHandshake for each user
+
+    ###############
+    # 1st step
+    ###############
+
+    # We generate a random transport message  
+    sentTransportMessage = randomSeqByte(rng[], 32)
+
+    # By being the handshake initiator, Alice writes a Waku2 payload v2 containing her handshake message 
+    # and the (encrypted) transport message
+    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+
+    # Bob reads Alice's payloads, and returns the (decrypted) transport message Alice sent to him
+    bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep.payload2).get()
+    
+    check:
+      bobStep.transportMessage == sentTransportMessage
+
+    ###############
+    # 2nd step
+    ###############
+
+    # We generate a random transport message
+    sentTransportMessage = randomSeqByte(rng[], 32)
+ 
+    # At this step, Bob writes and returns a payload
+    bobStep = stepHandshake(rng[], bobHS, transportMessage = sentTransportMessage).get()
+
+    # While Alice reads and returns the (decrypted) transport message
+    aliceStep = stepHandshake(rng[], aliceHS, readPayloadV2 = bobStep.payload2).get()
+    
+    check:
+      aliceStep.transportMessage == sentTransportMessage
+
+    ###############
+    # 3rd step
+    ###############
+
+    # We generate a random transport message
+    sentTransportMessage = randomSeqByte(rng[], 32)
+
+    # Similarly as in first step, Alice writes a Waku2 payload containing the handshake_message and the (encrypted) transportMessage
+    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+
+    # Bob reads Alice's payloads, and returns the (decrypted) transportMessage alice sent to him
+    bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep.payload2).get()
+    
+    check:
+      bobStep.transportMessage == sentTransportMessage
+
+    # Note that for this handshake pattern, no more message patterns are left for processing 
+    
+    #########################
+    # After Handshake
+    #########################
+
+    # We finalize the handshake to retrieve the Inbound/Outbound Symmetric States
+    var aliceHSResult, bobHSResult: HandshakeResult
+
+    aliceHSResult = finalizeHandshake(aliceHS)
+    bobHSResult = finalizeHandshake(bobHS)
+
+    # We test read/write of random messages between Alice and Bob
+    var 
+      payload2: PayloadV2
+      message: seq[byte]
+      readMessage: seq[byte]
+
+    for _ in 0..10:
+
+      # Alice writes to Bob
+      message = randomSeqByte(rng[], 32)
+      payload2 = writeMessage(aliceHSResult, message)
+      readMessage = readMessage(bobHSResult, payload2).get()
+      
+      check: 
+        message == readMessage
+      
+      # Bob writes to Alice
+      message = randomSeqByte(rng[], 32)
+      payload2 = writeMessage(bobHSResult, message)
+      readMessage = readMessage(aliceHSResult, payload2).get()
+      
+      check:
+        message == readMessage
+
+
+  test "Noise XK1 Handhshake and message encryption (short test)":
+
+    let hsPattern = NoiseHandshakePatterns["XK1"]
+
+    # We initialize Alice's and Bob's Handshake State
+    let aliceStaticKey = genKeyPair(rng[])
+    let bobStaticKey = genKeyPair(rng[])
+
+    # This handshake has the following pre-message pattern:
+    # <- s
+    #   ...
+    # So we define accordingly the sequence of the pre-message public keys
+    let preMessagePKs: seq[NoisePublicKey] = @[toNoisePublicKey(getPublicKey(bobStaticKey))]
+
+    var aliceHS = initialize(hsPattern = hsPattern, staticKey = aliceStaticKey, preMessagePKs = preMessagePKs, initiator = true)
+    var bobHS = initialize(hsPattern = hsPattern, staticKey = bobStaticKey, preMessagePKs = preMessagePKs)
+    
+    var 
+      sentTransportMessage: seq[byte]
+      aliceStep, bobStep: HandshakeStepResult 
+    
+    # Here the handshake starts
+    # Write and read calls alternate between Alice and Bob: the handhshake progresses by alternatively calling stepHandshake for each user
+
+    ###############
+    # 1st step
+    ###############
+
+    # We generate a random transport message
+    sentTransportMessage = randomSeqByte(rng[], 32)
+
+    # By being the handshake initiator, Alice writes a Waku2 payload v2 containing her handshake message 
+    # and the (encrypted) transport message
+    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+
+    # Bob reads Alice's payloads, and returns the (decrypted) transport message Alice sent to him
+    bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep.payload2).get()
+    
+    check:
+      bobStep.transportMessage == sentTransportMessage
+
+    ###############
+    # 2nd step
+    ###############
+
+    # We generate a random transport message
+    sentTransportMessage = randomSeqByte(rng[], 32)
+
+    # At this step, Bob writes and returns a payload
+    bobStep = stepHandshake(rng[], bobHS, transportMessage = sentTransportMessage).get()
+
+    # While Alice reads and returns the (decrypted) transport message
+    aliceStep = stepHandshake(rng[], aliceHS, readPayloadV2 = bobStep.payload2).get()
+    
+    check:
+      aliceStep.transportMessage == sentTransportMessage
+
+    ###############
+    # 3rd step
+    ###############
+
+    # We generate a random transport message
+    sentTransportMessage = randomSeqByte(rng[], 32)
+
+    # Similarly as in first step, Alice writes a Waku2 payload containing the handshake message and the (encrypted) transport message
+    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+
+    # Bob reads Alice's payloads, and returns the (decrypted) transport message Alice sent to him
+    bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep.payload2).get()
+    
+    check:
+      bobStep.transportMessage == sentTransportMessage
+
+    # Note that for this handshake pattern, no more message patterns are left for processing 
+        
+    #########################
+    # After Handshake
+    #########################
+
+    # We finalize the handshake to retrieve the Inbound/Outbound Symmetric States
+    var aliceHSResult, bobHSResult: HandshakeResult
+
+    aliceHSResult = finalizeHandshake(aliceHS)
+    bobHSResult = finalizeHandshake(bobHS)
+
+    # We test read/write of random messages exchanged between Alice and Bob
+    var 
+      payload2: PayloadV2
+      message: seq[byte]
+      readMessage: seq[byte]
+
+    for _ in 0..10:
+
+      # Alice writes to Bob
+      message = randomSeqByte(rng[], 32)
+      payload2 = writeMessage(aliceHSResult, message)
+      readMessage = readMessage(bobHSResult, payload2).get()
+      
+      check: 
+        message == readMessage
+      
+      # Bob writes to Alice
+      message = randomSeqByte(rng[], 32)
+      payload2 = writeMessage(bobHSResult, message)
+      readMessage = readMessage(aliceHSResult, payload2).get()
+      
+      check:
+        message == readMessage
