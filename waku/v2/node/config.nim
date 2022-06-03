@@ -147,11 +147,11 @@ type
 
     rlnRelayEthPrivateKey* {.
       desc: "Ethereum testnet private key (DO NOT input an Ethereum private key with actual fund)", 
-      name: "eth-private-key"}: keys.PrivateKey
+      name: "eth-private-key"}: string
   
     rlnRelayEthAccount* {.
       desc: "Ethereum testnet account address", 
-      name: "eth-account-address" }: Address
+      name: "eth-account-address" }: string
     
     rlnRelayEthClientAddress* {.
       desc: "Ethereum testnet client address",
@@ -160,7 +160,7 @@ type
     
     rlnRelayEthMemContractAddress* {.
       desc: "Address of membership contract on an Ethereum testnet", 
-      name: "eth-mem-contract-address" }: Address
+      name: "eth-mem-contract-address" }: string
     
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."

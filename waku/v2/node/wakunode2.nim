@@ -1243,9 +1243,9 @@ when isMainModule:
           # read node's Eth private key 
           let 
             ethPrivateKey = conf.rlnRelayEthPrivateKey
-            ethAccountAddr = conf.rlnRelayEthAccount
+            ethAccountAddr = Address(conf.rlnRelayEthAccount.hexToBytes())
             ethClientAddr = conf.rlnRelayEthClientAddress
-            ethMemContractAddress = conf.rlnRelayEthMemContractAddress
+            ethMemContractAddress = Address(conf.rlnRelayEthMemContractAddress.hexToBytes())
             rlnRelayId = conf.rlnRelayIdKey
             rlnRelayIdCommitmentKey = cong.rlnRelayIdCommitmentKey
           waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, ethAccAddr = ethAccountAddr, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
