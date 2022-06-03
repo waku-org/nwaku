@@ -280,17 +280,6 @@ procSuite "Waku-rln-relay":
         Port(60000))
     await node.start()
 
-    # deploy the contract
-    # let membershipContractAddress = await uploadRLNContract(ETH_CLIENT)
-
-    # prepare rln-relay inputs
-    # let
-    #   web3 = await newWeb3(ETH_CLIENT)
-    #   accounts = await web3.provider.eth_accounts()
-    #   # choose one of the existing account for the rln-relay peer
-    #   ethAccountAddress = accounts[0]
-    # await web3.close()
-
     # create current peer's pk
     var rlnInstance = createRLNInstance()
     check:
