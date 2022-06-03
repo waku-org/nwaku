@@ -343,17 +343,17 @@ procSuite "Waku-rln-relay":
     let
       web3 = await newWeb3(ETH_CLIENT)
       accounts = await web3.provider.eth_accounts()
-      # choose one of the existing account for the rln-relay peer
+      # choose one of the existing accounts for the rln-relay peer
       ethAccountAddress = accounts[0]
     web3.defaultAccount = accounts[0]
 
-    # create current peer's pk
+    # create an rln instance
     var rlnInstance = createRLNInstance()
     check:
       rlnInstance.isOk == true
     var rln = rlnInstance.value
 
-
+    # create two rln key pairs
     let 
       keyPair1 = rln.membershipKeyGen()
       keyPair2 = rln.membershipKeyGen()
@@ -366,27 +366,27 @@ procSuite "Waku-rln-relay":
     debug "member key1", key = keyPair1.get().idCommitment.toHex
     debug "member key2", key = keyPair2.get().idCommitment.toHex
 
-    # add members to the Merkle tree
+    # add the rln keys to the Merkle tree
     let
       member_is_added1 = rln.insertMember(keyPair1.get().idCommitment)
       member_is_added2 = rln.insertMember(keyPair2.get().idCommitment)
     doAssert(member_is_added1)
     doAssert(member_is_added2)
     
+    #  get the Merkle root
     let expectedRoot = rln.getMerkleRoot().value().toHex
     
     # prepare a contract sender to interact with it
     var contractObj = web3.contractSender(MembershipContract,
       contractAddress) # creates a Sender object with a web3 field and contract address of type Address
 
-
     # register the members to the contract
-    let tx1 = await contractObj.register(pk1).send(value = MEMBERSHIP_FEE)
-    debug "a member is registered", tx1 = tx1
+    let tx1Hash = await contractObj.register(pk1).send(value = MEMBERSHIP_FEE)
+    debug "a member is registered", tx1 = tx1Hash
 
     # register another member to the contract
-    let tx2 = await contractObj.register(pk2).send(value = MEMBERSHIP_FEE)
-    debug "a member is registered", tx2 = tx2
+    let tx2Hash = await contractObj.register(pk2).send(value = MEMBERSHIP_FEE)
+    debug "a member is registered", tx2 = tx2Hash
 
     # test ------------------------------
     # start rln-relay
@@ -394,18 +394,15 @@ procSuite "Waku-rln-relay":
     await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
                             ethAccAddr = ethAccountAddress,
                             memContractAddr = contractAddress, 
-                            memKeyPair = keyPair1,
+                            memKeyPair = some(keyPair1),
                             memIndex = some(MembershipIndex(0)),
                             pubsubTopic = RLNRELAY_PUBSUB_TOPIC,
                             contentTopic = RLNRELAY_CONTENT_TOPIC)
     
-    
-    
-
     await sleepAsync(2000) # wait for the event to reach the group handler
 
     # rln pks are inserted into the rln peer's Merkle tree and the resulting root
-    # is expected to be the same as the calculatedRoot (the one calculated outside of mountRlnRelay)
+    # is expected to be the same as the calculatedRoot i.e., the one calculated outside of the mountRlnRelayDynamic proc
     let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
     debug "calculated root ", calculatedRoot=calculatedRoot
     debug "expected root ", expectedRoot=expectedRoot
