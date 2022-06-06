@@ -101,11 +101,13 @@ proc membershipKeyGen*(ctxPtr: RLN[Bn256]): Option[MembershipKeyPair] =
   return some(keypair)
 
 proc toUInt256*(idCommitment: IDCommitment): UInt256 =
-  let pk = cast[UInt256](idCommitment)
+  let pk = UInt256.fromBytesBE(idCommitment)
+  # let pk = cast[UInt256](idCommitment)
   return pk
 
-proc toIDCommitment*(idCommitment: UInt256): IDCommitment =
-  let pk = cast[IDCommitment](idCommitment)
+proc toIDCommitment*(idCommitmentUint: UInt256): IDCommitment =
+  let pk = IDCommitment(idCommitmentUint.toBytesBE())
+  # let pk = cast[IDCommitment](idCommitment)
   return pk
 
 # proc getIdCommitment*(membershipKeyPair: MembershipKeyPair): UInt256 =
@@ -116,19 +118,47 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethClientAddres
   ## registers the idComm  into the membership contract whose address is in rlnPeer.membershipContractAddress
   let web3 = await newWeb3(ethClientAddress)
   web3.defaultAccount = ethAccountAddress
+  debug "id commitment", idComm=idComm
+  debug "id commitment hex", idComm=idComm.toHex()
   # when the private key is set in a web3 instance, the send proc (sender.register(pk).send(MEMBERSHIP_FEE))
   # does the signing using the provided key
   # web3.privateKey = some(ethAccountPrivateKey)
   var sender = web3.contractSender(MembershipContract, membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
   let pk = idComm.toUInt256()
+  debug "pk before uint", pk=pk
+  let pkcomm = pk.toIDCommitment()
+  # debug "pk comm", pkComm=pkcomm
+  # debug "pk comm hex", pkComm=pkcomm.toHex()
+  # # debug "tx pk uint", pkUint=pk
+  # debug "tx pk hex", pkHex=pk.toHex()
+  # let pkHex = pk.toHex() 
+  # debug "tx pk bytes back", pkbytes=pkHex.hexToSeqByte()
+
+  # debug "tx pk hex back", pkHex=pkHex.hexToSeqByte().toHex()
   let txHash = await sender.register(pk).send(MEMBERSHIP_FEE)
   let rec = await web3.getMinedTransactionReceipt(txHash)
   # take the logobject.data part string, and convert it to byte array, then take the two 256 bytes to extract event inputs and then use them as the index
+  # TODO walk through all the topics to find a match
   let firstTopic = rec.logs[0].topics[0]
   let topic = firstTopic.hexToSeqByte()
-  debug "tx topic", topic=topic
-  # debug "first log entry", pk = cast[UInt256](topic[64..^1])
-  # debug "second log entry", pk = cast[UInt256](topic[64..^1])
+  debug "tx topic", topic=firstTopic
+  let arguments = rec.logs[0].data
+  debug "tx log data", arguments=arguments
+  # debug "tx log data bytes", arguments=arguments.hexToSeqByte()
+  let argumentsBytes = arguments.hexToSeqByte()
+  var indexArg: array[32, byte]
+  var pkArg: array[32, byte]
+  discard pkArg.copyFrom(argumentsBytes[0..31])
+  debug "pkArg", pkArg=pkArg
+  let pkUint = UInt256.fromBytesBE(pkArg)
+  let pkCommret = pkUint.toIDCommitment()
+  debug "pkArg uint", pkUint=pkUint
+  debug "pk comm", pkComm=pkCommret
+  discard indexArg.copyFrom(argumentsBytes[32..^1])
+  # let gotIdComm = (IDCommitment(pkArg).toUInt256()).toIDCommitment()
+
+  # debug "first log entry", pk = gotIdComm.toHex()
+  # debug "second log entry", index = indexArg
   # debug "pk", pk = pk
   # TODO check the receipt and then return true/false
   # TODO check the index of the registered pk and return it
