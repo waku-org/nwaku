@@ -118,50 +118,37 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethClientAddres
   ## registers the idComm  into the membership contract whose address is in rlnPeer.membershipContractAddress
   let web3 = await newWeb3(ethClientAddress)
   web3.defaultAccount = ethAccountAddress
-  debug "id commitment", idComm=idComm
-  debug "id commitment hex", idComm=idComm.toHex()
+  
   # when the private key is set in a web3 instance, the send proc (sender.register(pk).send(MEMBERSHIP_FEE))
   # does the signing using the provided key
   # web3.privateKey = some(ethAccountPrivateKey)
   var sender = web3.contractSender(MembershipContract, membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
+
+  debug "registering an id commitment", idComm=idComm
   let pk = idComm.toUInt256()
-  debug "pk before uint", pk=pk
-  let pkcomm = pk.toIDCommitment()
-  # debug "pk comm", pkComm=pkcomm
-  # debug "pk comm hex", pkComm=pkcomm.toHex()
-  # # debug "tx pk uint", pkUint=pk
-  # debug "tx pk hex", pkHex=pk.toHex()
-  # let pkHex = pk.toHex() 
-  # debug "tx pk bytes back", pkbytes=pkHex.hexToSeqByte()
-
-  # debug "tx pk hex back", pkHex=pkHex.hexToSeqByte().toHex()
   let txHash = await sender.register(pk).send(MEMBERSHIP_FEE)
-  let rec = await web3.getMinedTransactionReceipt(txHash)
-  # take the logobject.data part string, and convert it to byte array, then take the two 256 bytes to extract event inputs and then use them as the index
-  # TODO walk through all the topics to find a match
-  let firstTopic = rec.logs[0].topics[0]
-  let topic = firstTopic.hexToSeqByte()
-  debug "tx topic", topic=firstTopic
-  let arguments = rec.logs[0].data
-  debug "tx log data", arguments=arguments
-  # debug "tx log data bytes", arguments=arguments.hexToSeqByte()
-  let argumentsBytes = arguments.hexToSeqByte()
-  var indexArg: array[32, byte]
-  var pkArg: array[32, byte]
-  discard pkArg.copyFrom(argumentsBytes[0..31])
-  debug "pkArg", pkArg=pkArg
-  let pkUint = UInt256.fromBytesBE(pkArg)
-  let pkCommret = pkUint.toIDCommitment()
-  debug "pkArg uint", pkUint=pkUint
-  debug "pk comm", pkComm=pkCommret
-  discard indexArg.copyFrom(argumentsBytes[32..^1])
-  # let gotIdComm = (IDCommitment(pkArg).toUInt256()).toIDCommitment()
+  let tsReceipt = await web3.getMinedTransactionReceipt(txHash)
+  
+  # the receipt topic holds the hash of signature of the raised events
+  let firstTopic = tsReceipt.logs[0].topics[0]
+  # the hash of the signature of MemberRegistered(uint256,uint256) event is equal to the following hex value
+  if firstTopic[0..65] != "0x5a92c2530f207992057b9c3e544108ffce3beda4a63719f316967c49bf6159d2":
+    return false
 
-  # debug "first log entry", pk = gotIdComm.toHex()
-  # debug "second log entry", index = indexArg
-  # debug "pk", pk = pk
-  # TODO check the receipt and then return true/false
-  # TODO check the index of the registered pk and return it
+  # the arguments of the raised event i.e., MemberRegistered are encoded inside the data field
+  # data = pk encoded as 256 bits || index encoded as 256 bits
+  let arguments = tsReceipt.logs[0].data
+  debug "tx log data", arguments=arguments
+  let argumentsBytes = arguments.hexToSeqByte()
+  let eventIdCommUint = UInt256.fromBytesBE(argumentsBytes[0..31])
+  let eventIndex =  UInt256.fromBytesBE(argumentsBytes[32..^1])
+  let eventIdComm = eventIdCommUint.toIDCommitment()
+  debug "the identity commitment key extracted from tx log", eventIdComm=eventIdComm
+  debug "the index of registered identity commitment key", eventIndex=eventIndex
+
+  if eventIdComm != idComm:
+    return false
+
   await web3.close()
   return true
 
@@ -173,10 +160,6 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   
   return true
 
-# # proc newWakuRlnRelay() WakuRLNRelay = 
-# #   var rlnRes: RLN[Bn256] = createRLNInstance()    
-# #   var rlnNode = WakuRLNRelay(rlnInstance: rlnRes.value)
-# #   return rlnNode
 
 
 
