@@ -1245,7 +1245,7 @@ when isMainModule:
             ethPrivateKey = conf.rlnRelayEthPrivateKey
             ethAccountAddr = Address(conf.rlnRelayEthAccount.hexToBytes())
             ethClientAddr = conf.rlnRelayEthClientAddress
-            ethMemContractAddress = Address(conf.rlnRelayEthMemContractAddress.hexToBytes())
+            ethMemContractAddress = Address(conf.rlnRelayEthMemContractAddress.hexToSeqByte())
             rlnRelayId = conf.rlnRelayIdKey
             rlnRelayIdCommitmentKey = cong.rlnRelayIdCommitmentKey
           waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, ethAccAddr = ethAccountAddr, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
