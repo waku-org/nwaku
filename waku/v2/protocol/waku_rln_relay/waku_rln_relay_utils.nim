@@ -7,7 +7,7 @@ import
   eth/keys,
   stew/results,
   stew/[byteutils, arrayops, endians2],
-  rln,
+  rln, 
   waku_rln_relay_types,
   ../waku_message
 
@@ -124,9 +124,12 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethClientAddres
   let txHash = await sender.register(pk).send(MEMBERSHIP_FEE)
   let rec = await web3.getMinedTransactionReceipt(txHash)
   # take the logobject.data part string, and convert it to byte array, then take the two 256 bytes to extract event inputs and then use them as the index
-  let log = rec.logs[0].data
-  debug "first log entry", entry0 = log 
-  debug "pk", pk = pk
+  let firstTopic = rec.logs[0].topics[0]
+  let topic = firstTopic.hexToSeqByte()
+  debug "tx topic", topic=topic
+  # debug "first log entry", pk = cast[UInt256](topic[64..^1])
+  # debug "second log entry", pk = cast[UInt256](topic[64..^1])
+  # debug "pk", pk = pk
   # TODO check the receipt and then return true/false
   # TODO check the index of the registered pk and return it
   await web3.close()
