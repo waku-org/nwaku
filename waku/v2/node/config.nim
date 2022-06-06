@@ -144,17 +144,13 @@ type
       desc: "Rln relay identity commitment key", 
       defaultValue: ""
       name: "rln-relay-id-commitment" }: string
-
-    rlnRelayEthPrivateKey* {.
-      desc: "Ethereum testnet private key (DO NOT input an Ethereum private key with actual fund)", 
-      name: "eth-private-key"}: string
   
     rlnRelayEthAccount* {.
       desc: "Ethereum testnet account address", 
       name: "eth-account-address" }: string
     
     rlnRelayEthClientAddress* {.
-      desc: "Ethereum testnet client address",
+      desc: "Ethereum testnet client address e.g., ws://localhost:8540/",
       defaultValue: "ws://localhost:8540/"
       name: "eth-client-address" }: string
     

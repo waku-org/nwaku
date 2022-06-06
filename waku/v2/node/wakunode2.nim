@@ -1240,17 +1240,14 @@ when isMainModule:
         else:
           info " setting up waku-rln-relay in on-chain mode... "
           
-          # read node's Eth private key 
+          # read related inputs to run rln-relay in on-chain mode
           let 
-            ethPrivateKey = conf.rlnRelayEthPrivateKey
             ethAccountAddr = Address(conf.rlnRelayEthAccount.hexToBytes())
             ethClientAddr = conf.rlnRelayEthClientAddress
             ethMemContractAddress = Address(conf.rlnRelayEthMemContractAddress.hexToSeqByte())
             rlnRelayId = conf.rlnRelayIdKey
             rlnRelayIdCommitmentKey = cong.rlnRelayIdCommitmentKey
           waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, ethAccAddr = ethAccountAddr, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
-          # TODO write a test to see if the dynamic mode works on a waku node properly
-          # TODO also test if config types make sense and can be supplied by the user, run a waku node for this
 
     if conf.swap:
       mountSwap(node)
