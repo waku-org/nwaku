@@ -272,7 +272,7 @@ procSuite "Waku-rln-relay":
     check: 
       is_successful
 
-  asyncTest "mounting waku rln-relay: check the Merkle tree calculation":
+  asyncTest "mounting waku rln-relay: check correct Merkle tree construction in the static/off-chain group management":
     # preparation ------------------------------
     let
       nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
@@ -329,7 +329,7 @@ procSuite "Waku-rln-relay":
 
     await node.stop()
   
-  asyncTest "mounting waku rln-relay: check dynamic group management":
+  asyncTest "mounting waku rln-relay: check correct Merkle tree construction in the dynamic/onchain group management":
     # preparation ------------------------------
     let
       nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
