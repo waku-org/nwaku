@@ -110,11 +110,12 @@ proc toIDCommitment*(idCommitmentUint: UInt256): IDCommitment =
   # let pk = cast[IDCommitment](idCommitment)
   return pk
 
-# proc getIdCommitment*(membershipKeyPair: MembershipKeyPair): UInt256 =
-#   let pk = membershipKeyPair.idCommitment.toUInt256()
-#   return pk
+proc toMembershipIndex(v: UInt256): MembershipIndex =
+  let result: MembershipIndex = cast[MembershipIndex](v)
+  return result
 
-proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethClientAddress: string, ethAccountPrivateKey: PrivateKey, membershipContractAddress: Address): Future[bool] {.async.} =
+proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethClientAddress: string, membershipContractAddress: Address): Future[Result[MembershipIndex, string]] {.async.} =
+  # TODO may need to also get eth Account Private Key as PrivateKey
   ## registers the idComm  into the membership contract whose address is in rlnPeer.membershipContractAddress
   let web3 = await newWeb3(ethClientAddress)
   web3.defaultAccount = ethAccountAddress
@@ -133,7 +134,7 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethClientAddres
   let firstTopic = tsReceipt.logs[0].topics[0]
   # the hash of the signature of MemberRegistered(uint256,uint256) event is equal to the following hex value
   if firstTopic[0..65] != "0x5a92c2530f207992057b9c3e544108ffce3beda4a63719f316967c49bf6159d2":
-    return false
+    return err("invalid event signature hash")
 
   # the arguments of the raised event i.e., MemberRegistered are encoded inside the data field
   # data = pk encoded as 256 bits || index encoded as 256 bits
@@ -147,21 +148,20 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethClientAddres
   debug "the index of registered identity commitment key", eventIndex=eventIndex
 
   if eventIdComm != idComm:
-    return false
+    return err("invalid id commitment key")
 
+  
   await web3.close()
-  return true
+  # return ok(toMembershipIndex(eventIndex))
+  return ok(toMembershipIndex(eventIndex))
 
 proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   ## registers the public key of the rlnPeer which is rlnPeer.membershipKeyPair.publicKey
   ## into the membership contract whose address is in rlnPeer.membershipContractAddress
   let pk = rlnPeer.membershipKeyPair.idCommitment
-  discard await register(idComm = pk, ethAccountAddress = rlnPeer.ethAccountAddress, ethClientAddress = rlnPeer.ethClientAddress, ethAccountPrivateKey = rlnPeer.ethAccountPrivateKey, membershipContractAddress = rlnPeer.membershipContractAddress )
+  discard await register(idComm = pk, ethAccountAddress = rlnPeer.ethAccountAddress, ethClientAddress = rlnPeer.ethClientAddress, membershipContractAddress = rlnPeer.membershipContractAddress )
   
   return true
-
-
-
 
 proc appendLength*(input: openArray[byte]): seq[byte] =
   ## returns length prefixed version of the input
