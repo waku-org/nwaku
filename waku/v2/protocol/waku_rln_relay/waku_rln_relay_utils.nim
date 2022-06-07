@@ -152,7 +152,6 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethClientAddres
 
   
   await web3.close()
-  # return ok(toMembershipIndex(eventIndex))
   return ok(toMembershipIndex(eventIndex))
 
 proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
