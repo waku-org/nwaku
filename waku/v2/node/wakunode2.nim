@@ -549,8 +549,9 @@ when defined(rln):
                       contentTopic: ContentTopic,
                       spamHandler: Option[SpamHandler] = none(SpamHandler)) {.raises: [Defect, IOError].}=
     # TODO return a bool value to indicate the success of the call
-    # check whether inputs are provided
 
+    debug "mounting rln-relay in off-chain/static mode"
+    # check whether inputs are provided
     # relay protocol is the prerequisite of rln-relay
     if node.wakuRelay.isNil:
       error "Failed to mount WakuRLNRelay. Relay protocol is not mounted."
@@ -601,7 +602,7 @@ when defined(rln):
                       pubsubTopic: string,
                       contentTopic: ContentTopic,
                       spamHandler: Option[SpamHandler] = none(SpamHandler)) {.async.} =
-    debug "mountRlnRelayDynamic"
+    debug "mounting rln-relay in on-chain/dynamic mode"
     # TODO return a bool value to indicate the success of the call
     # relay protocol is the prerequisite of rln-relay
     if node.wakuRelay.isNil:
@@ -623,14 +624,15 @@ when defined(rln):
       keyPair: MembershipKeyPair
       rlnIndex: MembershipIndex
     if memKeyPair.isNone: # if non provided, create one and register to the contract
+      trace "no rln-relay key is provided, generating one"
       let keyPairOpt = rln.membershipKeyGen()
       doAssert(keyPairOpt.isSome)
       keyPair = keyPairOpt.get()
       # register the rln-relay peer to the membership contract
-      # let isSuccessful = await  register()
+      let regIndexRes = await  register(idComm = keyPair.idCommitment, ethAccountAddress = ethAccAddr, ethClientAddress = ethClientAddr, membershipContractAddress = memContractAddr)
       # check whether registration is done
-      # doAssert(isSuccessful)
-      # register1()
+      doAssert(regIndexRes.isOk())
+      rlnIndex = regIndexRes.value
       debug "peer is successfully registered into the membership contract"
     else:
       keyPair = memKeyPair.get()
