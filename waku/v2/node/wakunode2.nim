@@ -779,7 +779,7 @@ proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
     await sleepAsync(keepalive)
 
 proc startKeepalive*(node: WakuNode) =
-  let defaultKeepalive = 5.minutes # 50% of the default chronosstream timeout duration
+  let defaultKeepalive = 2.minutes # 20% of the default chronosstream timeout duration
 
   info "starting keepalive", keepalive=defaultKeepalive
 
