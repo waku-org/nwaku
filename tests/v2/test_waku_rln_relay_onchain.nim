@@ -415,7 +415,7 @@ procSuite "Waku-rln-relay":
     await web3.close()
     await node.stop()
 
-  asyncTest "mounting waku rln-relay: check correct registration in dynamic/on-chain mode":
+  asyncTest "mounting waku rln-relay: check correct registration of peers without rln-relay credentials in dynamic/on-chain mode":
     # deploy the contract
     let contractAddress = await uploadRLNContract(ETH_CLIENT)
 
@@ -423,7 +423,7 @@ procSuite "Waku-rln-relay":
     let
       web3 = await newWeb3(ETH_CLIENT)
       accounts = await web3.provider.eth_accounts()
-      # choose one of the existing accounts for the rln-relay peer
+      # choose two of the existing accounts for the rln-relay peers
       ethAccountAddress1 = accounts[0]
       ethAccountAddress2 = accounts[1]
     await web3.close()
@@ -439,7 +439,7 @@ procSuite "Waku-rln-relay":
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60001))
     await node2.start()
 
-    # start rln-relay on the first node
+    # start rln-relay on the first node, leave rln-relay credentials empty
     node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
     await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
                             ethAccAddr = ethAccountAddress1,
@@ -451,7 +451,7 @@ procSuite "Waku-rln-relay":
     
 
 
-    # start rln-relay on the second node
+    # start rln-relay on the second node, leave rln-relay credentials empty
     node2.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
     await node2.mountRlnRelayDynamic(ethClientAddr = EthClient,
                             ethAccAddr = ethAccountAddress2,
@@ -461,7 +461,9 @@ procSuite "Waku-rln-relay":
                             pubsubTopic = RLNRELAY_PUBSUB_TOPIC,
                             contentTopic = RLNRELAY_CONTENT_TOPIC)
 
-    
+    # the two nodes should be registered into the contract 
+    # since nodes are spun up sequentially
+    # the first node has index 0 whereas the second node gets index 1
     check:
       node.wakuRlnRelay.membershipIndex == MembershipIndex(0)
       node2.wakuRlnRelay.membershipIndex == MembershipIndex(1)
