@@ -1246,7 +1246,7 @@ when isMainModule:
         else:
           info " setting up waku-rln-relay in on-chain mode... "
           
-          # read related inputs to run rln-relay in on-chain mode
+          # read related inputs to run rln-relay in on-chain mode and do type conversion when needed
           let 
             ethAccountAddr = web3.fromHex(web3.Address, conf.rlnRelayEthAccount)
             ethClientAddr = conf.rlnRelayEthClientAddress
@@ -1254,6 +1254,7 @@ when isMainModule:
             rlnRelayId = conf.rlnRelayIdKey
             rlnRelayIdCommitmentKey = conf.rlnRelayIdCommitmentKey
             rlnRelayIndex = conf.rlnRelayMemIndex
+          #  check if the peer has provided its rln credentials
           if rlnRelayIdCommitmentKey != "" and rlnRelayId != "":
             # type conversation from hex strings to MembershipKeyPair
             let keyPair = @[(rlnRelayId, rlnRelayIdCommitmentKey)]
@@ -1261,7 +1262,8 @@ when isMainModule:
             # mount the rln relay protocol in the on-chain/dynamic mode
             waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, memKeyPair = some(memKeyPair), memIndex = some(rlnRelayIndex), ethAccAddr = ethAccountAddr, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
           else:
-             # mount the rln relay protocol in the on-chain/dynamic mode
+            # no rln credential is provided
+            # mount the rln relay protocol in the on-chain/dynamic mode
             waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, ethAccAddr = ethAccountAddr, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
 
     if conf.swap:
