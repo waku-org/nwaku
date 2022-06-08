@@ -107,6 +107,11 @@ proc loadFromStorage(pm: PeerManager) =
 ##################   
 
 proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async.} =
+  if not pm.peerStore.addressBook.contains(peerId):
+    ## We only consider connection events if we
+    ## already track some addresses for this peer
+    return
+
   case event.kind
   of ConnEventKind.Connected:
     pm.peerStore.connectionBook[peerId] = Connected
