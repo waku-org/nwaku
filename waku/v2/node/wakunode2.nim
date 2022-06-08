@@ -1067,7 +1067,8 @@ when isMainModule:
           .mapErr(proc (e: cstring): string = $e)
       else:
         warn "Failed to init Waku DNS discovery"
-    
+
+    debug "No method for retrieving dynamic bootstrap nodes specified."
     ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default
 
   # 3/7 Initialize node
@@ -1345,7 +1346,7 @@ when isMainModule:
   var dynamicBootstrapNodes: seq[RemotePeerInfo]
   let dynamicBootstrapNodesRes = retrieveDynamicBootstrapNodes(conf)
   if dynamicBootstrapNodesRes.isErr:
-    error "2/7 Retrieving dynamic bootstrap nodes failed. Continuing without dynamic bootstrap nodes."
+    warn "2/7 Retrieving dynamic bootstrap nodes failed. Continuing without dynamic bootstrap nodes."
   else:
     dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
 
