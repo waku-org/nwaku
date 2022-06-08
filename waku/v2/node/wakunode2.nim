@@ -1250,7 +1250,16 @@ when isMainModule:
             ethMemContractAddress = web3.fromHex(web3.Address, conf.rlnRelayEthMemContractAddress)
             rlnRelayId = conf.rlnRelayIdKey
             rlnRelayIdCommitmentKey = conf.rlnRelayIdCommitmentKey
-          waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, ethAccAddr = ethAccountAddr, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
+            rlnRelayIndex = conf.rlnRelayMemIndex
+          if rlnRelayIdCommitmentKey != "" and rlnRelayId != "":
+            # type conversation from hex strings to MembershipKeyPair
+            let keyPair = @[(rlnRelayId, rlnRelayIdCommitmentKey)]
+            let memKeyPair = keyPair.toMembershipKeyPairs()[0]
+            # mount the rln relay protocol in the on-chain/dynamic mode
+            waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, memKeyPair = some(memKeyPair), memIndex = some(rlnRelayIndex), ethAccAddr = ethAccountAddr, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
+          else:
+             # mount the rln relay protocol in the on-chain/dynamic mode
+            waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, ethAccAddr = ethAccountAddr, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
 
     if conf.swap:
       mountSwap(node)
