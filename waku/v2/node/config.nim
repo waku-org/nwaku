@@ -181,7 +181,7 @@ type
 
     swap* {.
       desc: "Enable swap protocol: true|false",
-      defaultValue: true
+      defaultValue: false
       name: "swap" }: bool
     
     ## Lightpush config
