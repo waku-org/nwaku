@@ -172,7 +172,8 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     wakuFlags = none(WakuEnrBitfield),
     nameResolver: NameResolver = nil,
     sendSignedPeerRecord = false,
-    dns4DomainName = none(string)
+    dns4DomainName = none(string),
+    discv5UdpPort = none[Port]()
     ): T 
     {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
   ## Creates a Waku Node.
@@ -228,7 +229,8 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
                     else: @[]
     enr = initEnr(nodeKey,
                   enrIp,
-                  enrTcpPort, none(Port),
+                  enrTcpPort,
+                  discv5UdpPort,
                   wakuFlags,
                   enrMultiaddrs)
   
@@ -1099,6 +1101,9 @@ when isMainModule:
 
       dns4DomainName = if conf.dns4DomainName != "": some(conf.dns4DomainName)
                        else: none(string)
+      
+      discv5UdpPort = if conf.discv5Discovery: some(Port(uint16(conf.discv5UdpPort) + conf.portsShift))
+                      else: none(Port)
 
       ## @TODO: the NAT setup assumes a manual port mapping configuration if extIp config is set. This probably
       ## implies adding manual config item for extPort as well. The following heuristic assumes that, in absence of manual
@@ -1126,12 +1131,12 @@ when isMainModule:
                           some(wakuFlags),
                           dnsResolver,
                           conf.relayPeerExchange, # We send our own signed peer record when peer exchange enabled
-                          dns4DomainName
+                          dns4DomainName,
+                          discv5UdpPort
                           )
     
     if conf.discv5Discovery:
       let
-        discv5UdpPort = Port(uint16(conf.discv5UdpPort) + conf.portsShift)
         discoveryConfig = DiscoveryConfig.init(
           conf.discv5TableIpLimit, conf.discv5BucketIpLimit, conf.discv5BitsPerHop)
 
@@ -1151,9 +1156,9 @@ when isMainModule:
         addBootstrapNode(enrUri, discv5BootstrapEnrs)
 
       node.wakuDiscv5 = WakuDiscoveryV5.new(
-        extIP, extPort, some(discv5UdpPort),
+        extIP, extPort, discv5UdpPort,
         conf.listenAddress,
-        discv5UdpPort,
+        discv5UdpPort.get(),
         discv5BootstrapEnrs,
         conf.discv5EnrAutoUpdate,
         keys.PrivateKey(conf.nodekey.skkey),
