@@ -6,6 +6,7 @@ import
   stew/shims/net as stewNet,
   stew/byteutils,
   eth/keys,
+  nimcrypto,
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
   libp2p/protocols/ping,
@@ -38,7 +39,7 @@ when defined(rln):
   import
     libp2p/protocols/pubsub/rpc/messages,
     libp2p/protocols/pubsub/pubsub,
-    web3,
+    web3, web3/ethtypes,
     ../protocol/waku_rln_relay/[rln, waku_rln_relay_utils]
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
@@ -1244,11 +1245,11 @@ when isMainModule:
           
           # read related inputs to run rln-relay in on-chain mode
           let 
-            ethAccountAddr = ethtypes.Address(conf.rlnRelayEthAccount.hexToBytes())
+            ethAccountAddr = web3.fromHex(web3.Address, conf.rlnRelayEthAccount)
             ethClientAddr = conf.rlnRelayEthClientAddress
-            ethMemContractAddress = ethtypes.Address(conf.rlnRelayEthMemContractAddress.hexToSeqByte())
+            ethMemContractAddress = web3.fromHex(web3.Address, conf.rlnRelayEthMemContractAddress)
             rlnRelayId = conf.rlnRelayIdKey
-            rlnRelayIdCommitmentKey = cong.rlnRelayIdCommitmentKey
+            rlnRelayIdCommitmentKey = conf.rlnRelayIdCommitmentKey
           waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, ethAccAddr = ethAccountAddr, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
 
     if conf.swap:
