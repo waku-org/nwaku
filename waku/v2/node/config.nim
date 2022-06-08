@@ -136,12 +136,12 @@ type
       name: "rln-relay-dynamic" }: bool
   
     rlnRelayIdKey* {.
-      desc: "Rln relay identity secret key", 
+      desc: "Rln relay identity secret key as a Hex string", 
       defaultValue: ""
       name: "rln-relay-id" }: string
     
     rlnRelayIdCommitmentKey* {.
-      desc: "Rln relay identity commitment key", 
+      desc: "Rln relay identity commitment key as a Hex string", 
       defaultValue: ""
       name: "rln-relay-id-commitment" }: string
   
