@@ -619,7 +619,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
     # if no peerList is set then query from one of the peers stored in the peer manager 
     let peerOpt = ws.peerManager.selectPeer(WakuStoreCodec)
     if peerOpt.isNone():
-      error "no suitable remote peers"
+      warn "no suitable remote peers"
       waku_store_errors.inc(labelValues = [dialFailure])
       return err("no suitable remote peers")
 
