@@ -516,7 +516,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
           error "failed to mount WakuRLNRelay"
         else:
           # mount rlnrelay in offline mode (for now)
-          node.mountRlnRelayStatic(group = groupOpt.get(), memKeyPair = memKeyPair.get(), memIndex = memIndex.get(), pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = some(spamHandler))
+          node.mountRlnRelayStatic(group = groupOpt.get(), memKeyPair = memKeyPairOpt.get(), memIndex = memIndexOpt.get(), pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = some(spamHandler))
 
           debug "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
           debug "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
