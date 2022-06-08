@@ -1244,9 +1244,9 @@ when isMainModule:
           
           # read related inputs to run rln-relay in on-chain mode
           let 
-            ethAccountAddr = Address(conf.rlnRelayEthAccount.hexToBytes())
+            ethAccountAddr = ethtypes.Address(conf.rlnRelayEthAccount.hexToBytes())
             ethClientAddr = conf.rlnRelayEthClientAddress
-            ethMemContractAddress = Address(conf.rlnRelayEthMemContractAddress.hexToSeqByte())
+            ethMemContractAddress = ethtypes.Address(conf.rlnRelayEthMemContractAddress.hexToSeqByte())
             rlnRelayId = conf.rlnRelayIdKey
             rlnRelayIdCommitmentKey = cong.rlnRelayIdCommitmentKey
           waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, ethAccAddr = ethAccountAddr, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
