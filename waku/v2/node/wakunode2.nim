@@ -598,8 +598,8 @@ when defined(rln):
                       ethClientAddr: string = "",
                       ethAccAddr: web3.Address,
                       memContractAddr:  web3.Address,
-                      memKeyPair: Option[MembershipKeyPair],
-                      memIndex: Option[MembershipIndex],
+                      memKeyPair: Option[MembershipKeyPair] = none(MembershipKeyPair),
+                      memIndex: Option[MembershipIndex] = none(MembershipIndex),
                       pubsubTopic: string,
                       contentTopic: ContentTopic,
                       spamHandler: Option[SpamHandler] = none(SpamHandler)) {.async.} =
