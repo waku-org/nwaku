@@ -161,7 +161,7 @@ template wsFlag(wssEnabled: bool): MultiAddress =
 
 proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
-    extIp = none[ValidIpAddress](), extPort = none[Port](),
+    extIp = none(ValidIpAddress), extPort = none(Port),
     peerStorage: PeerStorage = nil,
     maxConnections = builders.MaxConnections,
     wsBindPort: Port = (Port)8000,
@@ -173,7 +173,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     nameResolver: NameResolver = nil,
     sendSignedPeerRecord = false,
     dns4DomainName = none(string),
-    discv5UdpPort = none[Port]()
+    discv5UdpPort = none(Port)
     ): T 
     {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
   ## Creates a Waku Node.
