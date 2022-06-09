@@ -102,12 +102,10 @@ proc membershipKeyGen*(ctxPtr: RLN[Bn256]): Option[MembershipKeyPair] =
 
 proc toUInt256*(idCommitment: IDCommitment): UInt256 =
   let pk = UInt256.fromBytesBE(idCommitment)
-  # let pk = cast[UInt256](idCommitment)
   return pk
 
 proc toIDCommitment*(idCommitmentUint: UInt256): IDCommitment =
   let pk = IDCommitment(idCommitmentUint.toBytesBE())
-  # let pk = cast[IDCommitment](idCommitment)
   return pk
 
 proc toMembershipIndex(v: UInt256): MembershipIndex =
@@ -126,9 +124,10 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethClientAddres
   var sender = web3.contractSender(MembershipContract, membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
 
   debug "registering an id commitment", idComm=idComm
-  let pk = idComm.toUInt256()
-  let txHash = await sender.register(pk).send(MEMBERSHIP_FEE)
-  let tsReceipt = await web3.getMinedTransactionReceipt(txHash)
+  let 
+    pk = idComm.toUInt256()
+    txHash = await sender.register(pk).send(MEMBERSHIP_FEE)
+    tsReceipt = await web3.getMinedTransactionReceipt(txHash)
   
   # the receipt topic holds the hash of signature of the raised events
   let firstTopic = tsReceipt.logs[0].topics[0]
@@ -140,10 +139,11 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethClientAddres
   # data = pk encoded as 256 bits || index encoded as 256 bits
   let arguments = tsReceipt.logs[0].data
   debug "tx log data", arguments=arguments
-  let argumentsBytes = arguments.hexToSeqByte()
-  let eventIdCommUint = UInt256.fromBytesBE(argumentsBytes[0..31])
-  let eventIndex =  UInt256.fromBytesBE(argumentsBytes[32..^1])
-  let eventIdComm = eventIdCommUint.toIDCommitment()
+  let 
+    argumentsBytes = arguments.hexToSeqByte()
+    eventIdCommUint = UInt256.fromBytesBE(argumentsBytes[0..31])
+    eventIndex =  UInt256.fromBytesBE(argumentsBytes[32..^1])
+    eventIdComm = eventIdCommUint.toIDCommitment()
   debug "the identity commitment key extracted from tx log", eventIdComm=eventIdComm
   debug "the index of registered identity commitment key", eventIndex=eventIndex
 
