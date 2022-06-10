@@ -162,7 +162,7 @@ template wsFlag(wssEnabled: bool): MultiAddress =
 
 proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     bindIp: ValidIpAddress, bindPort: Port,
-    extIp = none[ValidIpAddress](), extPort = none[Port](),
+    extIp = none(ValidIpAddress), extPort = none(Port),
     peerStorage: PeerStorage = nil,
     maxConnections = builders.MaxConnections,
     wsBindPort: Port = (Port)8000,
@@ -173,7 +173,8 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     wakuFlags = none(WakuEnrBitfield),
     nameResolver: NameResolver = nil,
     sendSignedPeerRecord = false,
-    dns4DomainName = none(string)
+    dns4DomainName = none(string),
+    discv5UdpPort = none(Port)
     ): T 
     {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
   ## Creates a Waku Node.
@@ -229,7 +230,8 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
                     else: @[]
     enr = initEnr(nodeKey,
                   enrIp,
-                  enrTcpPort, none(Port),
+                  enrTcpPort,
+                  discv5UdpPort,
                   wakuFlags,
                   enrMultiaddrs)
   
@@ -1086,7 +1088,8 @@ when isMainModule:
           .mapErr(proc (e: cstring): string = $e)
       else:
         warn "Failed to init Waku DNS discovery"
-    
+
+    debug "No method for retrieving dynamic bootstrap nodes specified."
     ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default
 
   # 3/7 Initialize node
@@ -1118,6 +1121,9 @@ when isMainModule:
 
       dns4DomainName = if conf.dns4DomainName != "": some(conf.dns4DomainName)
                        else: none(string)
+      
+      discv5UdpPort = if conf.discv5Discovery: some(Port(uint16(conf.discv5UdpPort) + conf.portsShift))
+                      else: none(Port)
 
       ## @TODO: the NAT setup assumes a manual port mapping configuration if extIp config is set. This probably
       ## implies adding manual config item for extPort as well. The following heuristic assumes that, in absence of manual
@@ -1145,12 +1151,12 @@ when isMainModule:
                           some(wakuFlags),
                           dnsResolver,
                           conf.relayPeerExchange, # We send our own signed peer record when peer exchange enabled
-                          dns4DomainName
+                          dns4DomainName,
+                          discv5UdpPort
                           )
     
     if conf.discv5Discovery:
       let
-        discv5UdpPort = Port(uint16(conf.discv5UdpPort) + conf.portsShift)
         discoveryConfig = DiscoveryConfig.init(
           conf.discv5TableIpLimit, conf.discv5BucketIpLimit, conf.discv5BitsPerHop)
 
@@ -1170,9 +1176,9 @@ when isMainModule:
         addBootstrapNode(enrUri, discv5BootstrapEnrs)
 
       node.wakuDiscv5 = WakuDiscoveryV5.new(
-        extIP, extPort, some(discv5UdpPort),
+        extIP, extPort, discv5UdpPort,
         conf.listenAddress,
-        discv5UdpPort,
+        discv5UdpPort.get(),
         discv5BootstrapEnrs,
         conf.discv5EnrAutoUpdate,
         keys.PrivateKey(conf.nodekey.skkey),
@@ -1386,7 +1392,7 @@ when isMainModule:
   var dynamicBootstrapNodes: seq[RemotePeerInfo]
   let dynamicBootstrapNodesRes = retrieveDynamicBootstrapNodes(conf)
   if dynamicBootstrapNodesRes.isErr:
-    error "2/7 Retrieving dynamic bootstrap nodes failed. Continuing without dynamic bootstrap nodes."
+    warn "2/7 Retrieving dynamic bootstrap nodes failed. Continuing without dynamic bootstrap nodes."
   else:
     dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
 
