@@ -636,7 +636,7 @@ when defined(rln):
       # check whether registration is done
       doAssert(regIndexRes.isOk())
       rlnIndex = regIndexRes.value
-      debug "peer is successfully registered into the membership contract"
+      debug "peer is successfully registered into the membership contract", rlnIndex=rlnIndex, idComm=keyPair.idCommitment.toHex(), idKey=keyPair.idKey.toHex()
     else:
       keyPair = memKeyPair.get()
       rlnIndex = memIndex.get()
