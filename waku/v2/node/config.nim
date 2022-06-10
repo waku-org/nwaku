@@ -147,6 +147,7 @@ type
   
     rlnRelayEthAccount* {.
       desc: "Ethereum testnet account address", 
+      defaultValue: ""
       name: "eth-account-address" }: string
     
     rlnRelayEthClientAddress* {.
@@ -156,6 +157,7 @@ type
     
     rlnRelayEthMemContractAddress* {.
       desc: "Address of membership contract on an Ethereum testnet", 
+      defaultValue: ""
       name: "eth-mem-contract-address" }: string
     
     staticnodes* {.
