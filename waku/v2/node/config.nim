@@ -160,6 +160,16 @@ type
       defaultValue: 50000
       name: "store-capacity" }: int
     
+    sqliteStore* {.
+      desc: "Enable sqlite-only store: true|false",
+      defaultValue: false
+      name: "sqlite-store" }: bool
+
+    sqliteRetentionTime* {.
+      desc: "time the sqlite-only store keeps messages (in seconds)",
+      defaultValue: 30.days.seconds
+      name: "sqlite-retention-time" }: int64 # TODO: Duration
+
     ## Filter config
 
     filter* {.
