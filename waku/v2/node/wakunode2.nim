@@ -483,15 +483,15 @@ proc mountSwap*(node: WakuNode, swapConfig: SwapConfig = SwapConfig.init()) {.ra
   # NYI - Do we need this?
   #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
 
-proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: bool = false, capacity = DefaultStoreCapacity) {.raises: [Defect, LPError].} =
+proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: bool = false, capacity = DefaultStoreCapacity, isSqliteOnly = false) {.raises: [Defect, LPError].} =
   info "mounting store"
 
   if node.wakuSwap.isNil:
     debug "mounting store without swap"
-    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, persistMessages=persistMessages, capacity=capacity)
+    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, persistMessages=persistMessages, capacity=capacity, isSqliteOnly=isSqliteOnly)
   else:
     debug "mounting store with swap"
-    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, node.wakuSwap, persistMessages=persistMessages, capacity=capacity)
+    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, node.wakuSwap, persistMessages=persistMessages, capacity=capacity, isSqliteOnly=isSqliteOnly)
 
   node.switch.mount(node.wakuStore, protocolMatcher(WakuStoreCodec))
     
@@ -1034,7 +1034,7 @@ when isMainModule:
       
       if conf.persistMessages:
         # Historical message persistence enable. Set up Message table in storage
-        let res = WakuMessageStore.init(sqliteDatabase, conf.storeCapacity)
+        let res = WakuMessageStore.init(sqliteDatabase, conf.storeCapacity, conf.sqliteStore, conf.sqliteRetentionTime)
 
         if res.isErr:
           warn "failed to init WakuMessageStore", err = res.error
@@ -1237,7 +1237,7 @@ when isMainModule:
 
     # Store setup
     if (conf.storenode != "") or (conf.store):
-      mountStore(node, mStorage, conf.persistMessages, conf.storeCapacity)
+      mountStore(node, mStorage, conf.persistMessages, conf.storeCapacity, conf.sqliteStore)
 
       if conf.storenode != "":
         setStorePeer(node, conf.storenode)
