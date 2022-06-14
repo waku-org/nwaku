@@ -1,4 +1,58 @@
-## 2021-03-31 v0.9
+## 2022-06-15 v0.10
+
+Release highlights:
+- Support for key exchange using Noise handshakes.
+- Support for a SQLite-only historical message `store`. This allows for cheaper, longer-term historical message storage on disk rather than in memory.
+- Several fixes for native WebSockets, including slow or hanging connections and connections dropping unexpectedly due to timeouts.
+- A fix for a memory leak in nodes running a local SQLite database.
+
+### Features
+
+- Support for [`35/WAKU2-NOISE`](https://rfc.vac.dev/spec/35/) handshakes as key exchange protocols.
+- Support for TOML config files via `--config-file=<path/to/config.toml>`.
+- Support for `--version` command. This prints the current tagged version (or compiled commit hash, if not on a version).
+- Support for running `store` protocol from a `filter` client, storing only the filtered messages.
+- Start of an HTTP REST API implementation.
+- Support for a memory-efficient SQLite-only `store` configuration.
+
+### Changes
+
+- Added index on `receiverTimestamp` in the SQLite `store` to improve query performance.
+- GossipSub [Peer Exchange](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#prune-backoff-and-peer-exchange) is now disabled by default. This is a more secure option.
+- Progress towards dynamic group management for the [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation.
+- Nodes with `--keep-alive` enabled now sends more regular pings to keep connections more reliably alive.
+- Disabled `swap` protocol by default.
+- Reduced unnecessary and confusing logging, especially during startup.
+- Added discv5 UDP port to the node's main discoverable ENR.
+
+### Fixes
+
+- The in-memory `store` now checks the validity of message timestamps before storing.
+- Fixed underlying bug that caused connection leaks in the HTTP client.
+- Fixed Docker image compilation to use the correct external variable for compile-time flags (`NIMFLAGS` instead of `NIM_PARAMS`).
+- Fixed issue where `--dns4-domain-name` caused an unhandled exception if no external port was available.
+- Avoids unnecessarily calling DB migration if a `--db-path` is set but nothing is persisted in the DB. This led to a misleading warning log.
+- Fixed underlying issues that caused WebSocket connections to hang.
+- Fixed underlying issue that caused WebSocket connections to time out after 10 mins.
+- Fixed memory leak in nodes that implements a SQLite database.
+
+### Docs
+
+- Added [tutorial](https://github.com/status-im/nwaku/blob/16dd267bd9d25ff24c64fc5c92a20eb0d322217c/docs/operators/how-to/configure-key.md) on how to generate and configure a node key.
+- Added first [guide](https://github.com/status-im/nwaku/tree/16dd267bd9d25ff24c64fc5c92a20eb0d322217c/docs/operators) for nwaku operators.
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
+
+## 2022-03-31 v0.9
 
 Release highlights:
 
@@ -12,8 +66,6 @@ The full list of changes is below.
 
 - Support for bootstrapping [`33/WAKU-DISCV5`](https://rfc.vac.dev/spec/33) via [DNS discovery](https://rfc.vac.dev/spec/10/#discovery-methods)
 - Support for GossipSub [Peer Exchange](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#prune-backoff-and-peer-exchange)
-- Support for TOML config files via `--config-file=<path/to/config.toml>`
-
 
 ### Changes
 
@@ -54,7 +106,7 @@ This release supports the following [libp2p protocols](https://docs.libp2p.io/co
 
 The Waku v1 implementation is stable but not under active development.
 
-##  2021-03-03 v0.8
+##  2022-03-03 v0.8
 
 Release highlights:
 
@@ -107,7 +159,7 @@ This release supports the following [libp2p protocols](https://docs.libp2p.io/co
 
 The Waku v1 implementation is stable but not under active development.
 
-##  2021-01-19 v0.7
+##  2022-01-19 v0.7
 
 Release highlights:
 
