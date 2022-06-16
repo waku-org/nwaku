@@ -6,7 +6,8 @@ import
   web3,
   eth/keys,
   libp2p/protobuf/minprotobuf,
-  stew/arrayops
+  stew/arrayops,
+  ../../utils/protobuf
 
 ## Bn256 and RLN are Nim wrappers for the data types used in
 ## the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
@@ -355,11 +356,13 @@ proc init*(T: type RateLimitProof, buffer: seq[byte]): ProtoResult[T] =
 proc encode*(nsp: RateLimitProof): ProtoBuffer =
   var output = initProtoBuffer()
 
-  output.write(1, nsp.proof)
-  output.write(2, nsp.merkleRoot)
-  output.write(3, nsp.epoch)
-  output.write(4, nsp.shareX)
-  output.write(5, nsp.shareY)
-  output.write(6, nsp.nullifier)
+  output.write3(1, nsp.proof)
+  output.write3(2, nsp.merkleRoot)
+  output.write3(3, nsp.epoch)
+  output.write3(4, nsp.shareX)
+  output.write3(5, nsp.shareY)
+  output.write3(6, nsp.nullifier)
+
+  output.finish3()
 
   return output
