@@ -42,6 +42,7 @@ import
   libp2p/stream/connection,
   ../../node/peer_manager/peer_manager,
   ./waku_swap_types,
+  ../../utils/protobuf,
   ../../waku/v2/protocol/waku_swap/waku_swap_contracts
 
 export waku_swap_types
@@ -68,17 +69,21 @@ const
 proc encode*(handshake: Handshake): ProtoBuffer =
   var output = initProtoBuffer()
 
-  output.write(1, handshake.beneficiary)
+  output.write3(1, handshake.beneficiary)
+
+  output.finish3()
 
   return output
 
 proc encode*(cheque: Cheque): ProtoBuffer =
   var output = initProtoBuffer()
 
-  output.write(1, cheque.beneficiary)
-  output.write(2, cheque.date)
-  output.write(3, cheque.amount)
-  output.write(4, cheque.signature)
+  output.write3(1, cheque.beneficiary)
+  output.write3(2, cheque.date)
+  output.write3(3, cheque.amount)
+  output.write3(4, cheque.signature)
+
+  output.finish3()
 
   return output
 
