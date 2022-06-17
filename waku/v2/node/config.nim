@@ -8,6 +8,7 @@ import
   libp2p/crypto/secp,
   nimcrypto/utils,
   eth/keys,
+  web3,
   ../protocol/waku_rln_relay/waku_rln_relay_types,
   ../protocol/waku_message
 
@@ -128,6 +129,36 @@ type
       desc: "the pubsub topic for which rln-relay gets enabled",
       defaultValue: "/toy-chat/2/luzhou/proto"
       name: "rln-relay-content-topic" }: ContentTopic
+    
+    rlnRelayDynamic* {.
+      desc: "Enable  waku-rln-relay with on-chain dynamic group management: true|false",
+      defaultValue: false
+      name: "rln-relay-dynamic" }: bool
+  
+    rlnRelayIdKey* {.
+      desc: "Rln relay identity secret key as a Hex string", 
+      defaultValue: ""
+      name: "rln-relay-id" }: string
+    
+    rlnRelayIdCommitmentKey* {.
+      desc: "Rln relay identity commitment key as a Hex string", 
+      defaultValue: ""
+      name: "rln-relay-id-commitment" }: string
+  
+    rlnRelayEthAccount* {.
+      desc: "Ethereum testnet account address", 
+      defaultValue: ""
+      name: "eth-account-address" }: string
+    
+    rlnRelayEthClientAddress* {.
+      desc: "Ethereum testnet client address e.g., ws://localhost:8540/",
+      defaultValue: "ws://localhost:8540/"
+      name: "eth-client-address" }: string
+    
+    rlnRelayEthMemContractAddress* {.
+      desc: "Address of membership contract on an Ethereum testnet", 
+      defaultValue: ""
+      name: "eth-mem-contract-address" }: string
     
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."

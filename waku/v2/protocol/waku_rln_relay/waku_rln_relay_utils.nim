@@ -4,9 +4,10 @@ import
   std/sequtils, tables, times,
   chronicles, options, chronos, stint,
   web3, json,
+  eth/keys,
   stew/results,
   stew/[byteutils, arrayops, endians2],
-  rln,
+  rln, 
   waku_rln_relay_types,
   ../waku_message
 
@@ -65,6 +66,7 @@ proc createRLNInstance*(d: int = MERKLE_TREE_DEPTH): RLNResult
     return err("error in parameters generation")
   return ok(rlnInstance)
 
+  
 proc membershipKeyGen*(ctxPtr: RLN[Bn256]): Option[MembershipKeyPair] =
   ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract
 
@@ -99,28 +101,65 @@ proc membershipKeyGen*(ctxPtr: RLN[Bn256]): Option[MembershipKeyPair] =
   return some(keypair)
 
 proc toUInt256*(idCommitment: IDCommitment): UInt256 =
-  let pk = cast[UInt256](idCommitment)
+  let pk = UInt256.fromBytesBE(idCommitment)
   return pk
 
-proc toIDCommitment*(idCommitment: UInt256): IDCommitment =
-  let pk = cast[IDCommitment](idCommitment)
+proc toIDCommitment*(idCommitmentUint: UInt256): IDCommitment =
+  let pk = IDCommitment(idCommitmentUint.toBytesBE())
   return pk
+
+proc toMembershipIndex(v: UInt256): MembershipIndex =
+  let result: MembershipIndex = cast[MembershipIndex](v)
+  return result
+
+proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethClientAddress: string, membershipContractAddress: Address): Future[Result[MembershipIndex, string]] {.async.} =
+  # TODO may need to also get eth Account Private Key as PrivateKey
+  ## registers the idComm  into the membership contract whose address is in rlnPeer.membershipContractAddress
+  let web3 = await newWeb3(ethClientAddress)
+  web3.defaultAccount = ethAccountAddress
+  
+  # when the private key is set in a web3 instance, the send proc (sender.register(pk).send(MEMBERSHIP_FEE))
+  # does the signing using the provided key
+  # web3.privateKey = some(ethAccountPrivateKey)
+  var sender = web3.contractSender(MembershipContract, membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
+
+  debug "registering an id commitment", idComm=idComm
+  let 
+    pk = idComm.toUInt256()
+    txHash = await sender.register(pk).send(MEMBERSHIP_FEE)
+    tsReceipt = await web3.getMinedTransactionReceipt(txHash)
+  
+  # the receipt topic holds the hash of signature of the raised events
+  let firstTopic = tsReceipt.logs[0].topics[0]
+  # the hash of the signature of MemberRegistered(uint256,uint256) event is equal to the following hex value
+  if firstTopic[0..65] != "0x5a92c2530f207992057b9c3e544108ffce3beda4a63719f316967c49bf6159d2":
+    return err("invalid event signature hash")
+
+  # the arguments of the raised event i.e., MemberRegistered are encoded inside the data field
+  # data = pk encoded as 256 bits || index encoded as 256 bits
+  let arguments = tsReceipt.logs[0].data
+  debug "tx log data", arguments=arguments
+  let 
+    argumentsBytes = arguments.hexToSeqByte()
+    eventIdCommUint = UInt256.fromBytesBE(argumentsBytes[0..31])
+    eventIndex =  UInt256.fromBytesBE(argumentsBytes[32..^1])
+    eventIdComm = eventIdCommUint.toIDCommitment()
+  debug "the identity commitment key extracted from tx log", eventIdComm=eventIdComm
+  debug "the index of registered identity commitment key", eventIndex=eventIndex
+
+  if eventIdComm != idComm:
+    return err("invalid id commitment key")
+
+  
+  await web3.close()
+  return ok(toMembershipIndex(eventIndex))
 
 proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   ## registers the public key of the rlnPeer which is rlnPeer.membershipKeyPair.publicKey
   ## into the membership contract whose address is in rlnPeer.membershipContractAddress
-  let web3 = await newWeb3(rlnPeer.ethClientAddress)
-  web3.defaultAccount = rlnPeer.ethAccountAddress
-  # when the private key is set in a web3 instance, the send proc (sender.register(pk).send(MEMBERSHIP_FEE))
-  # does the signing using the provided key
-  web3.privateKey = rlnPeer.ethAccountPrivateKey
-  var sender = web3.contractSender(MembershipContract,
-      rlnPeer.membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
-  let pk = rlnPeer.membershipKeyPair.idCommitment.toUInt256()
-  discard await sender.register(pk).send(MEMBERSHIP_FEE)
-  debug "pk", pk = pk
-  # TODO check the receipt and then return true/false
-  await web3.close()
+  let pk = rlnPeer.membershipKeyPair.idCommitment
+  discard await register(idComm = pk, ethAccountAddress = rlnPeer.ethAccountAddress, ethClientAddress = rlnPeer.ethClientAddress, membershipContractAddress = rlnPeer.membershipContractAddress )
+  
   return true
 
 proc appendLength*(input: openArray[byte]): seq[byte] =
@@ -343,7 +382,7 @@ proc createMembershipList*(n: int): (seq[(string, string)], string) {.raises: [
   let root = rln.getMerkleRoot().value.toHex
   return (output, root)
 
-proc rlnRelaySetUp*(rlnRelayMemIndex: MembershipIndex): (Option[seq[
+proc rlnRelayStaticSetUp*(rlnRelayMemIndex: MembershipIndex): (Option[seq[
     IDCommitment]], Option[MembershipKeyPair], Option[
     MembershipIndex]) {.raises: [Defect, ValueError].} =
   let
@@ -579,6 +618,7 @@ proc subscribeToGroupEvents(ethClientUri: string, contractAddress: Address, bloc
       debug "onRegister", pubkey = pubkey, index = index
       handler(pubkey, index)
     except Exception as err:
+      # chronos still raises exceptions which inherit directly from Exception
       doAssert false, err.msg
   do (err: CatchableError):
     echo "Error from subscription: ", err.msg
