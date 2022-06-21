@@ -22,6 +22,7 @@ import
   # internal imports
   ../../node/storage/message/message_store,
   ../../node/peer_manager/peer_manager,
+  ../../utils/protobuf,
   ../../utils/requests,
   ../../utils/time,
   ../waku_swap/waku_swap,
@@ -98,10 +99,12 @@ proc encode*(index: Index): ProtoBuffer =
   var output = initProtoBuffer()
 
   # encodes index
-  output.write(1, index.digest.data)
-  output.write(2, zint64(index.receiverTime))
-  output.write(3, zint64(index.senderTime))
-  output.write(4, index.pubsubTopic)
+  output.write3(1, index.digest.data)
+  output.write3(2, zint64(index.receiverTime))
+  output.write3(3, zint64(index.senderTime))
+  output.write3(4, index.pubsubTopic)
+
+  output.finish3()
 
   return output
 
@@ -113,9 +116,11 @@ proc encode*(pinfo: PagingInfo): ProtoBuffer =
   var output = initProtoBuffer()
 
   # encodes pinfo
-  output.write(1, pinfo.pageSize)
-  output.write(2, pinfo.cursor.encode())
-  output.write(3, uint32(ord(pinfo.direction)))
+  output.write3(1, pinfo.pageSize)
+  output.write3(2, pinfo.cursor.encode())
+  output.write3(3, uint32(ord(pinfo.direction)))
+
+  output.finish3()
 
   return output
 
@@ -243,21 +248,24 @@ proc init*(T: type HistoryRPC, buffer: seq[byte]): ProtoResult[T] =
 
 proc encode*(filter: HistoryContentFilter): ProtoBuffer =
   var output = initProtoBuffer()
-  output.write(1, filter.contentTopic)
+  output.write3(1, filter.contentTopic)
+  output.finish3()
   return output
 
 proc encode*(query: HistoryQuery): ProtoBuffer =
   var output = initProtoBuffer()
   
-  output.write(2, query.pubsubTopic)
+  output.write3(2, query.pubsubTopic)
 
   for filter in query.contentFilters:
-    output.write(3, filter.encode())
+    output.write3(3, filter.encode())
 
-  output.write(4, query.pagingInfo.encode())
+  output.write3(4, query.pagingInfo.encode())
 
-  output.write(5, zint64(query.startTime))
-  output.write(6, zint64(query.endTime))
+  output.write3(5, zint64(query.startTime))
+  output.write3(6, zint64(query.endTime))
+
+  output.finish3()
 
   return output
 
@@ -265,20 +273,24 @@ proc encode*(response: HistoryResponse): ProtoBuffer =
   var output = initProtoBuffer()
 
   for msg in response.messages:
-    output.write(2, msg.encode())
+    output.write3(2, msg.encode())
 
-  output.write(3, response.pagingInfo.encode())
+  output.write3(3, response.pagingInfo.encode())
 
-  output.write(4, uint32(ord(response.error)))
+  output.write3(4, uint32(ord(response.error)))
+
+  output.finish3()
 
   return output
 
 proc encode*(rpc: HistoryRPC): ProtoBuffer =
   var output = initProtoBuffer()
 
-  output.write(1, rpc.requestId)
-  output.write(2, rpc.query.encode())
-  output.write(3, rpc.response.encode())
+  output.write3(1, rpc.requestId)
+  output.write3(2, rpc.query.encode())
+  output.write3(3, rpc.response.encode())
+
+  output.finish3()
 
   return output
 
