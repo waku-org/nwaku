@@ -13,6 +13,7 @@ import
   libp2p/crypto/crypto,
   waku_lightpush_types,
   ../../utils/requests,
+  ../../utils/protobuf,
   ../../node/peer_manager/peer_manager,
   ../waku_relay
 
@@ -37,8 +38,10 @@ const
 proc encode*(rpc: PushRequest): ProtoBuffer =
   var output = initProtoBuffer()
 
-  output.write(1, rpc.pubSubTopic)
-  output.write(2, rpc.message.encode())
+  output.write3(1, rpc.pubSubTopic)
+  output.write3(2, rpc.message.encode())
+
+  output.finish3()
 
   return output
 
@@ -60,8 +63,10 @@ proc init*(T: type PushRequest, buffer: seq[byte]): ProtoResult[T] =
 proc encode*(rpc: PushResponse): ProtoBuffer =
   var output = initProtoBuffer()
 
-  output.write(1, uint64(rpc.isSuccess))
-  output.write(2, rpc.info)
+  output.write3(1, uint64(rpc.isSuccess))
+  output.write3(2, rpc.info)
+
+  output.finish3()
 
   return output
 
@@ -82,9 +87,11 @@ proc init*(T: type PushResponse, buffer: seq[byte]): ProtoResult[T] =
 proc encode*(rpc: PushRPC): ProtoBuffer =
   var output = initProtoBuffer()
 
-  output.write(1, rpc.requestId)
-  output.write(2, rpc.request.encode())
-  output.write(3, rpc.response.encode())
+  output.write3(1, rpc.requestId)
+  output.write3(2, rpc.request.encode())
+  output.write3(3, rpc.response.encode())
+
+  output.finish3()
 
   return output
 
