@@ -1,10 +1,13 @@
+{.used.}
+
 import std/typetraits
 import chronicles,
   unittest2,
   stew/[results, byteutils],
   json_serialization
 import 
-  ../../waku/v2/node/rest/[serdes, debug_api]
+  ../../waku/v2/node/rest/serdes,
+  ../../waku/v2/node/rest/debug/api_types
 
 
 # TODO: Decouple this test suite from the `debug_api` module by defining
