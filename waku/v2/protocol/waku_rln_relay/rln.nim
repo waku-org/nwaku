@@ -29,36 +29,54 @@ type Auth* = object
   index*: uint
   
 #------------------------------ Merkle Tree operations -----------------------------------------
-
 proc update_next_member*(ctx: RLN[Bn256],
                         input_buffer: ptr Buffer): bool {.importc: "update_next_member".}
+## input_buffer points to the id commitment byte seq
 
 proc delete_member*(ctx: RLN[Bn256], index: uint): bool {.importc: "delete_member".}
+## index is the position of the id commitment key to be deleted from the tree
+
 
 proc get_root*(ctx: RLN[Bn256], output_buffer: ptr Buffer): bool {.importc: "get_root".}
+## get_root populates the passed pointer output_buffer with the current tree root
+## the passed buffer len must match the Merkle tree root size (which depends on the underlying lib)
 
 #----------------------------------------------------------------------------------------------
 #-------------------------------- zkSNARKs operations -----------------------------------------
-
 proc key_gen*(ctx: RLN[Bn256], keypair_buffer: ptr Buffer): bool {.importc: "key_gen".}
+## generates id key and id commitment key serialized inside keypair_buffer as | id_key <32 bytes>| id_commitment_key <32 bytes> |
+
 
 proc generate_proof*(ctx: RLN[Bn256],
                     input_buffer: ptr Buffer,
                     output_buffer: ptr Buffer): bool {.importc: "generate_proof".}
 ## input_buffer serialized as  [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
 ## output_buffer holds the proof data and should be parsed as |proof<256>|root<32>|epoch<32>|share_x<32>|share_y<32>|nullifier<32>|
-## sizes are in bytes
+## integers wrapped in <> indicate value sizes in bytes
+
 proc verify*(ctx: RLN[Bn256],
             proof_buffer: ptr Buffer,
             result_ptr: ptr uint32): bool {.importc: "verify".}
 ## proof_buffer [ proof<256>| root<32>| epoch<32>| share_x<32>| share_y<32>| nullifier<32> | signal_len<8> | signal<var> ]
+
+
+
 #----------------------------------------------------------------------------------------------
 #-------------------------------- Common procedures -------------------------------------------
-
+# creates an instance of rln object as defined by the underlying lib
+# merkle_depth represent the depth of the Merkle tree
+# parameters_buffer holds prover and verifier keys
+# ctx holds the final created rln object
 proc new_circuit_from_params*(merkle_depth: uint,
                               parameters_buffer: ptr Buffer,
                               ctx: ptr RLN[Bn256]): bool {.importc: "new_circuit_from_params".}
-                              
+
+
+# as explained in https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L135, it hashes (sha256) the plain text supplied in inputs_buffer and then maps it to a field element
+# this proc is used to map arbitrary signals to field element for the sake of proof generation
+# inputs_buffer holds the hash input as a byte seq 
+# the hash output is generated and populated inside output_buffer 
+# the length of the output_buffer should match the output of the hash function 
 proc hash*(ctx: RLN[Bn256],
           inputs_buffer: ptr Buffer,
           output_buffer: ptr Buffer): bool {.importc: "signal_to_field".}
