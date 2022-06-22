@@ -63,7 +63,7 @@ proc verify*(ctx: RLN[Bn256],
 
 #----------------------------------------------------------------------------------------------
 #-------------------------------- Common procedures -------------------------------------------
-# creates an instance of rln object as defined by the underlying lib
+# creates an instance of rln object as defined by the rln lib https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L48
 # merkle_depth represent the depth of the Merkle tree
 # parameters_buffer holds prover and verifier keys
 # ctx holds the final created rln object
