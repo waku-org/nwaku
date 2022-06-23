@@ -3,11 +3,11 @@
 {.used.}
 
 import
-  std/options, sequtils, times,
+  std/options,
   testutils/unittests, chronos, chronicles, stint, web3, json,
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
-  ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils,
+  ../../waku/v2/protocol/waku_rln_relay/[waku_rln_relay_utils,
       waku_rln_relay_types, rln_relay_contract],
   ../../waku/v2/node/wakunode2,
   ../test_helpers,
