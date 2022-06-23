@@ -70,3 +70,12 @@ proc encodeIntoJsonBytes*(value: auto): SerdesResult[seq[byte]] =
     return err("unable to serialize data")
 
   ok(encoded)
+
+
+#### helpers
+
+proc encodeString*(value: string): RestResult[string] =
+  ok(value)
+
+proc decodeString*(t: typedesc[string], value: string): RestResult[string] =
+  ok(value)

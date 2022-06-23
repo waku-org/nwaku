@@ -13,10 +13,11 @@ import
 
 proc getRouter(allowedOrigin: Option[string]): RestRouter =
   # TODO: Review this `validate` method. Check in nim-presto what is this used for.
-  proc validate(key: string, value: string): int =
+  proc validate(pattern: string, value: string): int =
     ## This is rough validation procedure which should be simple and fast,
     ## because it will be used for query routing.
-    1
+    if pattern.startsWith("{") and pattern.endsWith("}"): 0
+    else: 1
 
   RestRouter.init(validate, allowedOrigin = allowedOrigin)
 
