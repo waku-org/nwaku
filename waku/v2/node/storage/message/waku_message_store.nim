@@ -273,7 +273,8 @@ proc adjustDbPageSize(dbPageSize: uint64, matchCount: uint64, returnPageSize: ui
   var ret =
     if matchCount < 2: dbPageSize * returnPageSize
     else: dbPageSize * (returnPageSize div matchCount)
-  if ret >= maxDbPageSize: ret = maxDbPageSize
+  if ret >= maxDbPageSize:
+    ret = maxDbPageSize
   trace "dbPageSize adjusted to: ",  ret
   ret
 
