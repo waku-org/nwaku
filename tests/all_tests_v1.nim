@@ -1,4 +1,6 @@
 import
+  # Waku - Whisper common whisper_types test
+  ./whisper/test_shh,
   # Waku v1 tests
   ./v1/test_waku_connect,
   ./v1/test_waku_config,
