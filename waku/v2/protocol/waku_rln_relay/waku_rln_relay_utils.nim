@@ -14,6 +14,7 @@ import
   rln, 
   waku_rln_relay_types,
   ../../node/[wakunode2_types,config],
+  ../../../../../examples/v2/config_chat2,
   ../waku_message
 
   
@@ -809,7 +810,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   node.wakuRlnRelay = rlnPeer
 
 
-proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, ValueError, IOError, CatchableError].} =
+proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler]) {.raises: [Defect, ValueError, IOError, CatchableError].} =
   if not conf.rlnRelayDynamic:
     info " setting up waku-rln-relay in on-chain mode... "
     # set up rln relay inputs
@@ -818,7 +819,7 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, Value
       error "failed to mount WakuRLNRelay"
     else:
       # mount rlnrelay in off-chain mode with a static group of users
-      node.mountRlnRelayStatic(group = groupOpt.get(), memKeyPair = memKeyPairOpt.get(), memIndex= memIndexOpt.get(), pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
+      node.mountRlnRelayStatic(group = groupOpt.get(), memKeyPair = memKeyPairOpt.get(), memIndex= memIndexOpt.get(), pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler)
 
       info "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
       info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
@@ -850,7 +851,7 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, Value
       let keyPair = @[(rlnRelayId, rlnRelayIdCommitmentKey)]
       let memKeyPair = keyPair.toMembershipKeyPairs()[0]
       # mount the rln relay protocol in the on-chain/dynamic mode
-      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, memKeyPair = some(memKeyPair), memIndex = some(rlnRelayIndex), ethAccAddr = ethAccountAddr, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
+      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, memKeyPair = some(memKeyPair), memIndex = some(rlnRelayIndex), ethAccAddr = ethAccountAddr, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler)
     else:
       # no rln credential is provided
       # mount the rln relay protocol in the on-chain/dynamic mode
