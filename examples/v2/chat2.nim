@@ -6,7 +6,7 @@ when not(compileOption("threads")):
 
 {.push raises: [Defect].}
 
-import std/[tables, strformat, strutils, times, httpclient, json, sequtils, random, options]
+import std/[tables, strformat, strutils, times, json, options]
 import confutils, chronicles, chronos, stew/shims/net as stewNet,
        eth/keys, bearssl, stew/[byteutils, endians2, results],
        nimcrypto/pbkdf2
@@ -31,8 +31,7 @@ when defined(rln):
   import
     libp2p/protocols/pubsub/rpc/messages,
     libp2p/protocols/pubsub/pubsub,
-    web3,
-    ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils]
+    ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_utils
 
 const Help = """
   Commands: /[?|help|connect|nick|exit]
