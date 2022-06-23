@@ -267,8 +267,13 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageSto
   ok gotMessages
 
 proc adjustDbPageSize(dbPageSize: uint64, matchCount: uint64, returnPageSize: uint64): uint64 {.inline.} =
-  var ret = if matchCount < 2: dbPageSize * returnPageSize
+  const maxDbPageSize: uint64 = 20000 # the maximum DB page size is limited to prevent excessive use of memory in case of very sparse or non-matching filters. TODO: dynamic, adjust to available memory
+  if dbPageSize >= maxDbPageSize: 
+    return maxDbPageSize
+  var ret =
+    if matchCount < 2: dbPageSize * returnPageSize
     else: dbPageSize * (returnPageSize div matchCount)
+  ret = min(ret, maxDbPageSize)
   trace "dbPageSize adjusted to: ",  ret
   ret
 
