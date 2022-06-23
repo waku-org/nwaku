@@ -248,7 +248,37 @@ type
       desc: "the pubsub topic for which rln-relay gets enabled",
       defaultValue: "/waku/2/default-waku/proto"
       name: "rln-relay-pubsub-topic" }: string
-
+      
+    rlnRelayDynamic* {.
+      desc: "Enable  waku-rln-relay with on-chain dynamic group management: true|false",
+      defaultValue: false
+      name: "rln-relay-dynamic" }: bool
+  
+    rlnRelayIdKey* {.
+      desc: "Rln relay identity secret key as a Hex string", 
+      defaultValue: ""
+      name: "rln-relay-id" }: string
+    
+    rlnRelayIdCommitmentKey* {.
+      desc: "Rln relay identity commitment key as a Hex string", 
+      defaultValue: ""
+      name: "rln-relay-id-commitment" }: string
+  
+    rlnRelayEthAccount* {.
+      desc: "Ethereum testnet account address", 
+      defaultValue: ""
+      name: "eth-account-address" }: string
+    
+    rlnRelayEthClientAddress* {.
+      desc: "Ethereum testnet client address e.g., ws://localhost:8540/",
+      defaultValue: "ws://localhost:8540/"
+      name: "eth-client-address" }: string
+    
+    rlnRelayEthMemContractAddress* {.
+      desc: "Address of membership contract on an Ethereum testnet", 
+      defaultValue: ""
+      name: "eth-mem-contract-address" }: string
+    
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =
   try:
