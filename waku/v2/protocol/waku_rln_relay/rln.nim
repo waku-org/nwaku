@@ -36,6 +36,7 @@ proc update_next_member*(ctx: RLN[Bn256],
 
 proc delete_member*(ctx: RLN[Bn256], index: uint): bool {.importc: "delete_member".}
 ## index is the position of the id commitment key to be deleted from the tree
+## the deleted id commitment key is replaced with a zero leaf
 ## the return bool value indicates the success or failure of the operation
 
 proc get_root*(ctx: RLN[Bn256], output_buffer: ptr Buffer): bool {.importc: "get_root".}
@@ -47,6 +48,7 @@ proc get_root*(ctx: RLN[Bn256], output_buffer: ptr Buffer): bool {.importc: "get
 #-------------------------------- zkSNARKs operations -----------------------------------------
 proc key_gen*(ctx: RLN[Bn256], keypair_buffer: ptr Buffer): bool {.importc: "key_gen".}
 ## generates id key and id commitment key serialized inside keypair_buffer as | id_key <32 bytes>| id_commitment_key <32 bytes> |
+## id commitment is the poseidon hash of the id key
 ## the return bool value indicates the success or failure of the operation
 
 proc generate_proof*(ctx: RLN[Bn256],
@@ -61,7 +63,8 @@ proc verify*(ctx: RLN[Bn256],
             proof_buffer: ptr Buffer,
             result_ptr: ptr uint32): bool {.importc: "verify".}
 ## proof_buffer [ proof<256>| root<32>| epoch<32>| share_x<32>| share_y<32>| nullifier<32> | signal_len<8> | signal<var> ]
-## the return bool value indicates the success or failure of the verification
+## the return bool value indicates the success or failure of the call to the verify function
+## the verification of the zk proof  is available in result_ptr, where 0 indicates success and 1 is failure
 
 
 #----------------------------------------------------------------------------------------------
