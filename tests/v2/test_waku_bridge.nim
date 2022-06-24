@@ -214,7 +214,7 @@ procSuite "WakuBridge":
 
     # Then
     check:
-      v1Bridge.nodev1.peerPool.connectedNodes.len() == 2
+      v1Bridge.nodev1.peerPool.connectedNodes.len() == targetV1Peers
 
     # When
     let connected = v1Bridge.nodev1.peerPool.connectedNodes
@@ -231,7 +231,7 @@ procSuite "WakuBridge":
 
     # Then
     check:
-      v1Bridge.nodev1.peerPool.connectedNodes.len() == 2
+      v1Bridge.nodev1.peerPool.connectedNodes.len() == targetV1Peers
 
     # Cleanup
     v1Bridge.nodev1.resetMessageQueue()
