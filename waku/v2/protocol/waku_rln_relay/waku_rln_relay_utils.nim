@@ -125,6 +125,7 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethClientAddres
   ## registers the idComm  into the membership contract whose address is in rlnPeer.membershipContractAddress
   let web3 = await newWeb3(ethClientAddress)
   web3.defaultAccount = ethAccountAddress
+  # web3.privateKey = some(keys.PrivateKey(SkSecretKey.fromHex("0x111111").value))
   
   # when the private key is set in a web3 instance, the send proc (sender.register(pk).send(MEMBERSHIP_FEE))
   # does the signing using the provided key
@@ -675,6 +676,7 @@ proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string, contentTopic: Co
           debug "A spam message is found! yay! discarding:", contentTopic=wakumessage.contentTopic, epoch=epoch, timestamp=wakumessage.timestamp, payload=payload
           trace "A spam message is found! yay! discarding:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
           if spamHandler.isSome:
+              echo "spam handler should be called"
               let handler = spamHandler.get
               handler(wakumessage)
           return pubsub.ValidationResult.Reject          
@@ -811,6 +813,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
 
 
 proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler]) {.raises: [Defect, ValueError, IOError, CatchableError].} =
+  echo spamHandler.isSome
   if not conf.rlnRelayDynamic:
     info " setting up waku-rln-relay in on-chain mode... "
     # set up rln relay inputs
