@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/strutils,
+  std/[sequtils, strutils, tables],
   testutils/unittests,
   chronicles, chronos, stew/shims/net as stewNet, stew/[byteutils, objects],
   libp2p/crypto/crypto,
@@ -37,7 +37,7 @@ procSuite "WakuBridge":
     nodev2Key = crypto.PrivateKey.random(Secp256k1, rng[])[]
     bridge = WakuBridge.new(
         nodev1Key= nodev1Key,
-        nodev1Address = localAddress(30303),
+        nodev1Address = localAddress(30302),
         powRequirement = 0.002,
         rng = rng,
         nodev2Key = nodev2Key,
@@ -183,3 +183,60 @@ procSuite "WakuBridge":
     bridge.nodeV1.resetMessageQueue()
     v1Node.resetMessageQueue()
     waitFor allFutures([bridge.stop(), v2Node.stop()])
+  
+  asyncTest "Bridge manages its v1 connections":
+    # Given
+    let
+      # Waku v1 node
+      v1NodePool = @[setupTestNode(rng, Waku),
+                     setupTestNode(rng, Waku),
+                     setupTestNode(rng, Waku)]
+      targetV1Peers = v1NodePool.len() - 1
+
+      # Bridge
+      v1Bridge = WakuBridge.new(
+          nodev1Key= nodev1Key,
+          nodev1Address = localAddress(30303),
+          powRequirement = 0.002,
+          rng = rng,
+          nodev2Key = nodev2Key,
+          nodev2BindIp = ValidIpAddress.init("0.0.0.0"), nodev2BindPort= Port(60000),
+          nodev2PubsubTopic = DefaultBridgeTopic,
+          v1Pool = v1NodePool.mapIt(newNode(it.toEnode())),
+          targetV1Peers = targetV1Peers)
+    
+    for node in v1NodePool:
+      node.startListening()
+    
+    # When
+    waitFor v1Bridge.start()
+    await sleepAsync(2000.millis) # Give peers some time to connect
+
+    # Then
+    check:
+      v1Bridge.nodev1.peerPool.connectedNodes.len() == targetV1Peers
+
+    # When
+    let connected = v1Bridge.nodev1.peerPool.connectedNodes
+    for peer in connected.values():
+      waitFor peer.disconnect(SubprotocolReason)
+
+    # Then
+    check:
+      v1Bridge.nodev1.peerPool.connectedNodes.len() == 0
+
+    # When
+    discard v1Bridge.maintenanceLoop() # Forces one more run of the maintenance loop
+    await sleepAsync(2000.millis) # Give peers some time to connect
+
+    # Then
+    check:
+      v1Bridge.nodev1.peerPool.connectedNodes.len() == targetV1Peers
+
+    # Cleanup
+    v1Bridge.nodev1.resetMessageQueue()
+
+    for node in v1NodePool:
+      node.resetMessageQueue()
+
+    waitFor v1Bridge.stop()
