@@ -126,6 +126,8 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethAccountPrivK
   web3.defaultAccount = ethAccountAddress
   # set the account private key
   web3.privateKey = some(ethAccountPrivKey)
+  #  set the gas price twice the suggested price in order for the fast mining
+  let gasPrice = int(await web3.provider.eth_gasPrice()) * 2
   
   # when the private key is set in a web3 instance, the send proc (sender.register(pk).send(MEMBERSHIP_FEE))
   # does the signing using the provided key
@@ -135,7 +137,7 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethAccountPrivK
   debug "registering an id commitment", idComm=idComm
   let 
     pk = idComm.toUInt256()
-    txHash = await sender.register(pk).send(MEMBERSHIP_FEE)
+    txHash = await sender.register(pk).send(value = MEMBERSHIP_FEE, gasPrice = gasPrice)
     tsReceipt = await web3.getMinedTransactionReceipt(txHash)
   
   # the receipt topic holds the hash of signature of the raised events
@@ -167,7 +169,7 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   ## registers the public key of the rlnPeer which is rlnPeer.membershipKeyPair.publicKey
   ## into the membership contract whose address is in rlnPeer.membershipContractAddress
   let pk = rlnPeer.membershipKeyPair.idCommitment
-  discard await register(idComm = pk, ethAccountAddress = rlnPeer.ethAccountAddress, ethClientAddress = rlnPeer.ethClientAddress, membershipContractAddress = rlnPeer.membershipContractAddress )
+  discard await register(idComm = pk, ethAccountAddress = rlnPeer.ethAccountAddress, ethAccountPrivKey = rlnPeer.ethAccountPrivateKey, ethClientAddress = rlnPeer.ethClientAddress, membershipContractAddress = rlnPeer.membershipContractAddress )
   
   return true
 
@@ -739,6 +741,7 @@ proc mountRlnRelayStatic*(node: WakuNode,
 proc mountRlnRelayDynamic*(node: WakuNode,
                     ethClientAddr: string = "",
                     ethAccAddr: web3.Address,
+                    ethAccountPrivKey: keys.PrivateKey,
                     memContractAddr:  web3.Address,
                     memKeyPair: Option[MembershipKeyPair] = none(MembershipKeyPair),
                     memIndex: Option[MembershipIndex] = none(MembershipIndex),
@@ -772,7 +775,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
     doAssert(keyPairOpt.isSome)
     keyPair = keyPairOpt.get()
     # register the rln-relay peer to the membership contract
-    let regIndexRes = await  register(idComm = keyPair.idCommitment, ethAccountAddress = ethAccAddr, ethClientAddress = ethClientAddr, membershipContractAddress = memContractAddr)
+    let regIndexRes = await  register(idComm = keyPair.idCommitment, ethAccountAddress = ethAccAddr, ethAccountPrivKey = ethAccountPrivKey, ethClientAddress = ethClientAddr, membershipContractAddress = memContractAddr)
     # check whether registration is done
     doAssert(regIndexRes.isOk())
     rlnIndex = regIndexRes.value
@@ -841,6 +844,7 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, Value
     # read related inputs to run rln-relay in on-chain mode and do type conversion when needed
     let 
       ethAccountAddr = web3.fromHex(web3.Address, conf.rlnRelayEthAccount)
+      ethAccountPrivKey = keys.PrivateKey(SkSecretKey.fromHex(conf.rlnRelayEthAccountPrivKey).value)
       ethClientAddr = conf.rlnRelayEthClientAddress
       ethMemContractAddress = web3.fromHex(web3.Address, conf.rlnRelayEthMemContractAddress)
       rlnRelayId = conf.rlnRelayIdKey
@@ -852,9 +856,9 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, Value
       let keyPair = @[(rlnRelayId, rlnRelayIdCommitmentKey)]
       let memKeyPair = keyPair.toMembershipKeyPairs()[0]
       # mount the rln relay protocol in the on-chain/dynamic mode
-      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, memKeyPair = some(memKeyPair), memIndex = some(rlnRelayIndex), ethAccAddr = ethAccountAddr, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
+      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, memKeyPair = some(memKeyPair), memIndex = some(rlnRelayIndex), ethAccAddr = ethAccountAddr, ethAccountPrivKey = ethAccountPrivKey, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
     else:
       # no rln credential is provided
       # mount the rln relay protocol in the on-chain/dynamic mode
-      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, ethAccAddr = ethAccountAddr, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
+      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, ethAccAddr = ethAccountAddr, ethAccountPrivKey = ethAccountPrivKey, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
 
