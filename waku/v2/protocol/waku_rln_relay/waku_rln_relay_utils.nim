@@ -119,11 +119,13 @@ proc toMembershipIndex(v: UInt256): MembershipIndex =
   let result: MembershipIndex = cast[MembershipIndex](v)
   return result
 
-proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethClientAddress: string, membershipContractAddress: Address): Future[Result[MembershipIndex, string]] {.async.} =
+proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethAccountPrivKey: keys.PrivateKey, ethClientAddress: string, membershipContractAddress: Address): Future[Result[MembershipIndex, string]] {.async.} =
   # TODO may need to also get eth Account Private Key as PrivateKey
   ## registers the idComm  into the membership contract whose address is in rlnPeer.membershipContractAddress
   let web3 = await newWeb3(ethClientAddress)
   web3.defaultAccount = ethAccountAddress
+  # set the account private key
+  web3.privateKey = some(ethAccountPrivKey)
   
   # when the private key is set in a web3 instance, the send proc (sender.register(pk).send(MEMBERSHIP_FEE))
   # does the signing using the provided key
