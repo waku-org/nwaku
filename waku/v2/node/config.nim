@@ -149,6 +149,11 @@ type
       desc: "Ethereum testnet account address", 
       defaultValue: ""
       name: "eth-account-address" }: string
+
+    rlnRelayEthAccountPrivKey* {.
+      desc: "Ethereum testnet account private key",
+      defaultValue: ""
+      name: "eth-account-privatekey" }: string
     
     rlnRelayEthClientAddress* {.
       desc: "Ethereum testnet client address e.g., ws://localhost:8540/",
