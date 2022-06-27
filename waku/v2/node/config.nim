@@ -146,12 +146,12 @@ type
       name: "rln-relay-id-commitment" }: string
   
     rlnRelayEthAccount* {.
-      desc: "Ethereum testnet account address", 
+      desc: "Account address for Ethereum testnet Goerli", 
       defaultValue: ""
       name: "eth-account-address" }: string
 
     rlnRelayEthAccountPrivKey* {.
-      desc: "Ethereum testnet account private key",
+      desc: "Account private key for Ethereum testnet Goerli",
       defaultValue: ""
       name: "eth-account-privatekey" }: string
     
