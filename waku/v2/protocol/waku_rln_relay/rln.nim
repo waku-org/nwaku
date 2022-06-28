@@ -23,10 +23,6 @@ elif defined(MacOsX):
 type Buffer* = object
   `ptr`*: ptr uint8
   len*: uint
-
-type Auth* = object
-  secret_buffer*: ptr Buffer
-  index*: uint
   
 #------------------------------ Merkle Tree operations -----------------------------------------
 proc update_next_member*(ctx: RLN[Bn256],
