@@ -64,7 +64,7 @@ proc verify*(ctx: RLN[Bn256],
             result_ptr: ptr uint32): bool {.importc: "verify".}
 ## proof_buffer [ proof<256>| root<32>| epoch<32>| share_x<32>| share_y<32>| nullifier<32> | signal_len<8> | signal<var> ]
 ## the return bool value indicates the success or failure of the call to the verify function
-## the verification of the zk proof  is available in result_ptr, where 0 indicates success and 1 is failure
+## the result of the verification of the zk proof is stored in the value pointed by result_ptr, where 0 indicates success and 1 is failure
 
 
 #----------------------------------------------------------------------------------------------
