@@ -43,12 +43,7 @@ suite "REST API - Relay":
 
     let restPort = Port(8546)
     let restAddress = ValidIpAddress.init("0.0.0.0")
-    let restServer = RestServerRef.init(
-      restAddress,
-      restPort,
-      none(string),
-      none(RestServerConf)
-    )
+    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
     let topicCache = TopicCache.init()
 
@@ -93,12 +88,7 @@ suite "REST API - Relay":
 
     let restPort = Port(8546)
     let restAddress = ValidIpAddress.init("0.0.0.0")
-    let restServer = RestServerRef.init(
-      restAddress,
-      restPort,
-      none(string),
-      none(RestServerConf)
-    )
+    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
     let topicCache = TopicCache.init()
     topicCache.subscribe("pubsub-topic-1")
@@ -146,12 +136,7 @@ suite "REST API - Relay":
 
     let restPort = Port(8546)
     let restAddress = ValidIpAddress.init("0.0.0.0")
-    let restServer = RestServerRef.init(
-      restAddress,
-      restPort,
-      none(string),
-      none(RestServerConf)
-    )
+    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
     let pubSubTopic = "/waku/2/default-waku/proto"
     let messages =  @[
@@ -203,12 +188,7 @@ suite "REST API - Relay":
     # RPC server setup
     let restPort = Port(8546)
     let restAddress = ValidIpAddress.init("0.0.0.0")
-    let restServer = RestServerRef.init(
-      restAddress,
-      restPort,
-      none(string),
-      none(RestServerConf)
-    )
+    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
     let topicCache = TopicCache.init()
 

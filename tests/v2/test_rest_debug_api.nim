@@ -32,12 +32,7 @@ suite "REST API - Debug":
 
     let restPort = Port(8546)
     let restAddress = ValidIpAddress.init("0.0.0.0")
-    let restServer = RestServerRef.init(
-      restAddress,
-      restPort,
-      none(string),
-      none(RestServerConf)
-    )
+    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
     installDebugApiHandlers(restServer.router, node)
     restServer.start()
