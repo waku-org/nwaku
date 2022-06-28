@@ -91,3 +91,8 @@ proc resume*(node: WakuNode, peerList: Option[seq[PeerInfo]]) =
 ## JSON RPC
 
 TODO To specify
+
+
+## REST API
+
+[Here](./rest-api.md) you can find more details on the Node HTTP REST API.
