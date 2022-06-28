@@ -816,7 +816,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   node.wakuRlnRelay = rlnPeer
 
 
-proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler]) {.raises: [Defect, ValueError, IOError, CatchableError].} =
+proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler] = none(SpamHandler)) {.raises: [Defect, ValueError, IOError, CatchableError].} =
   if not conf.rlnRelayDynamic:
     info " setting up waku-rln-relay in on-chain mode... "
     # set up rln relay inputs
