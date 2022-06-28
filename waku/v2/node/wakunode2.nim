@@ -21,7 +21,6 @@ import
   ../protocol/waku_lightpush/waku_lightpush,
   ../protocol/waku_rln_relay/[waku_rln_relay_types], 
   ../utils/[peers, requests, wakuswitch, wakuenr],
-  ./storage/migration/migration_types,
   ./peer_manager/peer_manager,
   ./dnsdisc/waku_dnsdisc,
   ./discv5/waku_discv5,
