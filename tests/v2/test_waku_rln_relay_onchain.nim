@@ -285,12 +285,14 @@ procSuite "Waku-rln-relay":
     check: 
       membershipKeyPair.isSome
 
+    let (ethPrivKey, ethacc) = await createEthAccount()
     # test ------------------------------
     # initialize the WakuRLNRelay
     var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
       membershipIndex: MembershipIndex(0),
       ethClientAddress: ETH_CLIENT,
-      ethAccountAddress: ethAccountAddress,
+      ethAccountPrivateKey: ethPrivKey,
+      ethAccountAddress: ethacc,
       membershipContractAddress: contractAddress)
 
     # register the rln-relay peer to the membership contract
