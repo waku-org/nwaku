@@ -323,7 +323,6 @@ when isMainModule:
     ../v1/node/rpc/wakusim,
     ../v1/node/rpc/waku,
     ../v1/node/rpc/key_storage,
-    ../v1/node/waku_helpers,
     ../v2/node/jsonrpc/[debug_api,
                         filter_api,
                         relay_api,

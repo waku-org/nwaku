@@ -3,8 +3,7 @@
 import
   testutils/unittests,
   ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/node/waku_payload,
-  ../test_helpers
+  ../../waku/v2/node/waku_payload
 
 procSuite "Waku Payload":
   let rng = newRng()

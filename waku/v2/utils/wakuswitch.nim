@@ -1,13 +1,11 @@
 # Waku Switch utils.
 {.push raises: [TLSStreamProtocolError, IOError, Defect].}
 import
-  std/[options, sequtils, strutils],
+  std/options,
   chronos, chronicles,
-  stew/byteutils,
   eth/keys,
   libp2p/crypto/crypto,
   libp2p/protocols/pubsub/gossipsub,
-  libp2p/nameresolving/dnsresolver,
   libp2p/nameresolving/nameresolver,
   libp2p/builders,
   libp2p/transports/[transport, tcptransport, wstransport]

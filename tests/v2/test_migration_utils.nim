@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[unittest, tables, strutils, os, sequtils],
+  std/[unittest, tables, strutils, os],
   chronicles,
   stew/results,
   ../../waku/v2/node/storage/migration/migration_utils
