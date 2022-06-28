@@ -151,7 +151,7 @@ type
       name: "eth-account-address" }: string
 
     rlnRelayEthAccountPrivKey* {.
-      desc: "Account private key for  Goerli",
+      desc: "Account private key for the Ethereum testnet Goerli",
       defaultValue: ""
       name: "eth-account-privatekey" }: string
     
