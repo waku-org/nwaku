@@ -630,8 +630,6 @@ proc subscribeToGroupEvents(ethClientUri: string, ethAccountAddress: Address, co
   discard await contractObj.subscribe(MemberRegistered, %*{"fromBlock": blockNumber, "address": contractAddress}) do(pubkey: Uint256, index: Uint256){.raises: [Defect], gcsafe.}:
     try:
       debug "onRegister", pubkey = pubkey, index = index
-      echo "onRegister",  pubkey,  index
-
       handler(pubkey, index)
     except Exception as err:
       # chronos still raises exceptions which inherit directly from Exception
