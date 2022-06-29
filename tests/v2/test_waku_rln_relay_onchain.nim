@@ -285,7 +285,9 @@ procSuite "Waku-rln-relay":
     check: 
       membershipKeyPair.isSome
 
+    # create an Ethereum private key and the corresponding account 
     let (ethPrivKey, ethacc) = await createEthAccount()
+
     # test ------------------------------
     # initialize the WakuRLNRelay
     var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
@@ -419,11 +421,13 @@ procSuite "Waku-rln-relay":
     let tx2Hash = await contractObj.register(pk2).send(value = MEMBERSHIP_FEE)
     debug "a member is registered", tx2 = tx2Hash
 
+     # create an Ethereum private key and the corresponding account 
+    let (ethPrivKey, ethacc) = await createEthAccount()
+
+
     # test ------------------------------
     # start rln-relay
     node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
-
-    let (ethPrivKey, ethacc) = await createEthAccount()
     await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
                             ethAccAddr = ethacc,
                             ethAccountPrivKey = ethPrivKey,
@@ -472,9 +476,11 @@ procSuite "Waku-rln-relay":
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60001))
     await node2.start()
 
+     # create an Ethereum private key and the corresponding account 
+    let (ethPrivKey, ethacc) = await createEthAccount()
+
     # start rln-relay on the first node, leave rln-relay credentials empty
     node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
-    let (ethPrivKey, ethacc) = await createEthAccount()
     await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
                             ethAccAddr = ethacc,
                             ethAccountPrivKey = ethPrivKey,
