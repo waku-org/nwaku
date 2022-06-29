@@ -137,9 +137,9 @@
 	branch = main
 [submodule "vendor/dnsclient.nim"]
 	path = vendor/dnsclient.nim
-	url = https://github.com/ba0f3/dnsclient.nim.git
+	url = https://github.com/jm-clius/dnsclient.nim.git
 	ignore = untracked
-	branch = master
+	branch = fix/txt-strings
 [submodule "vendor/nim-toml-serialization"]
 	path = vendor/nim-toml-serialization
 	url = https://github.com/status-im/nim-toml-serialization.git
