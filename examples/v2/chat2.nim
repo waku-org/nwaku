@@ -508,8 +508,11 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
             echo "A spam message is found and discarded"
           chat.prompt = false
           showChatPrompt(chat)
-        
+        echo "rln-relay preparation is in progress ..."
         node.mountRlnRelay(conf, some(spamHandler))
+        echo "your membership index is: ", node.wakuRlnRelay.membershipIndex
+        echo "your rln identity key is: ", node.wakuRlnRelay.membershipKeyPair.idKey.toHex()
+        echo "your rln identity commitment key is: ", node.wakuRlnRelay.membershipKeyPair.idCommitment.toHex()
 
   await chat.readWriteLoop()
 
