@@ -612,16 +612,19 @@ proc addAll*(rlnInstance: RLN[Bn256], list: seq[IDCommitment]): bool =
 type RegistrationEventHandler  = proc(pubkey: Uint256, index: Uint256): void {.gcsafe, closure, raises: [Defect].}
 
 
-proc subscribeToGroupEvents(ethClientUri: string, contractAddress: Address, blockNumber: string = "0x0", handler: RegistrationEventHandler) {.async, gcsafe.} = 
+proc subscribeToGroupEvents(ethClientUri: string, ethAccountAddress: Address, contractAddress: Address, blockNumber: string = "0x0", handler: RegistrationEventHandler) {.async, gcsafe.} = 
   ## connects to the eth client whose URI is supplied as `ethClientUri`
   ## subscribes to the `MemberRegistered` event emitted from the `MembershipContract` which is available on the supplied `contractAddress`
   ## it collects all the events starting from the given `blockNumber`
   ## for every received event, it calls the `handler`
   
   # connect to the eth client
-  let web3 = await newWeb3(ETH_CLIENT)
+  let web3 = await newWeb3(ethClientUri)
   # prepare a contract sender to interact with it
   var contractObj = web3.contractSender(MembershipContract, contractAddress) 
+  web3.defaultAccount = ethAccountAddress 
+  #  set the gas price twice the suggested price in order for the fast mining
+  # let gasPrice = int(await web3.provider.eth_gasPrice()) * 2
 
   # subscribe to the MemberRegistered events
   # TODO can do similarly for deletion events, though it is not yet supported
@@ -637,7 +640,7 @@ proc subscribeToGroupEvents(ethClientUri: string, contractAddress: Address, bloc
 
 proc handleGroupUpdates*(rlnPeer: WakuRLNRelay, handler: RegistrationEventHandler) {.async, gcsafe.} =
   # mounts the supplied handler for the registration events emitting from the membership contract
-  await subscribeToGroupEvents(ethClientUri = rlnPeer.ethClientAddress, contractAddress = rlnPeer.membershipContractAddress, handler = handler) 
+  await subscribeToGroupEvents(ethClientUri = rlnPeer.ethClientAddress, ethAccountAddress = rlnPeer.ethAccountAddress, contractAddress = rlnPeer.membershipContractAddress, handler = handler) 
 
 proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string, contentTopic: ContentTopic, spamHandler: Option[SpamHandler] = none(SpamHandler)) =
   ## this procedure is a thin wrapper for the pubsub addValidator method
@@ -792,6 +795,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
     membershipContractAddress: memContractAddr,
     ethClientAddress: ethClientAddr,
     ethAccountAddress: ethAccAddr,
+    ethAccountPrivateKey: ethAccountPrivKey,
     rlnInstance: rln,
     pubsubTopic: pubsubTopic,
     contentTopic: contentTopic)
