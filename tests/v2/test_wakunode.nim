@@ -2,7 +2,6 @@
 
 import
   testutils/unittests,
-  std/sequtils,
   chronicles, chronos, stew/shims/net as stewNet, stew/byteutils, std/os,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
@@ -23,10 +22,10 @@ import
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/peers,
   ../../waku/v2/utils/time,
-  ../../waku/v2/node/wakunode2,
-  ../test_helpers
+  ../../waku/v2/node/wakunode2
 
 when defined(rln):
+  import std/sequtils
   import 
     ../../waku/v2/protocol/waku_rln_relay/[waku_rln_relay_utils, waku_rln_relay_types]
   from times import epochTime
