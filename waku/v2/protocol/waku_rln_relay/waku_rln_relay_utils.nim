@@ -682,7 +682,6 @@ proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string, contentTopic: Co
           debug "A spam message is found! yay! discarding:", contentTopic=wakumessage.contentTopic, epoch=epoch, timestamp=wakumessage.timestamp, payload=payload
           trace "A spam message is found! yay! discarding:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
           if spamHandler.isSome:
-            echo "spam handler should be called"
             let handler = spamHandler.get
             handler(wakumessage)
           return pubsub.ValidationResult.Reject          
