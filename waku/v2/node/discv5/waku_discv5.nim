@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[sequtils, strutils, options],
+  std/[strutils, options],
   chronos, chronicles, metrics,
   eth/keys,
   eth/p2p/discoveryv5/[enr, node, protocol],

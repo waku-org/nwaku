@@ -7,7 +7,7 @@
 # Group by std, external then internal imports
 import
   # std imports
-  std/[tables, times, sequtils, algorithm, options, math],
+  std/[tables, times, sequtils, options, math],
   # external imports
   bearssl,
   chronicles,
