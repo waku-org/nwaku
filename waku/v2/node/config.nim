@@ -8,7 +8,6 @@ import
   libp2p/crypto/secp,
   nimcrypto/utils,
   eth/keys,
-  web3,
   ../protocol/waku_rln_relay/waku_rln_relay_types,
   ../protocol/waku_message
 
