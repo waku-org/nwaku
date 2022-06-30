@@ -3,14 +3,13 @@
 
 import
   std/options, sequtils, times,
-  testutils/unittests, chronos, chronicles, stint, web3,
+  testutils/unittests, chronos, chronicles, stint,
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
   ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils,
       waku_rln_relay_types],
   ../../waku/v2/node/wakunode2,
-  ../test_helpers,
-  ./test_utils
+  ../test_helpers
 
 const RLNRELAY_PUBSUB_TOPIC = "waku/2/rlnrelay/proto"
 const RLNRELAY_CONTENT_TOPIC = "waku/2/rlnrelay/proto"

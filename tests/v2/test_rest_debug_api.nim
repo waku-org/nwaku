@@ -1,12 +1,15 @@
+{.used.}
+
 import
   stew/shims/net,
   chronicles,
   testutils/unittests,
-  presto,
+  presto, 
   libp2p/crypto/crypto
 import
   ../../waku/v2/node/wakunode2,
-  ../../waku/v2/node/rest/[server, client, debug_api]
+  ../../waku/v2/node/rest/[server, client, utils],
+  ../../waku/v2/node/rest/debug/debug_api
 
 
 proc testWakuNode(): WakuNode = 
@@ -45,7 +48,9 @@ suite "REST API - Debug":
 
     # Then
     check:
-      response.listenAddresses == @[$node.switch.peerInfo.addrs[^1] & "/p2p/" & $node.switch.peerInfo.peerId]
+      response.status == 200
+      response.contentType == $MIMETYPE_JSON
+      response.data.listenAddresses == @[$node.switch.peerInfo.addrs[^1] & "/p2p/" & $node.switch.peerInfo.peerId]
 
     await restServer.stop()
     await restServer.closeWait()

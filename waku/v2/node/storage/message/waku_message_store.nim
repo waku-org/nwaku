@@ -100,11 +100,6 @@ proc deleteOldest(db: WakuMessageStore): MessageStoreResult[void] =
     let numMessages = messageCount(db.database).get() # requires another SELECT query, so only run in debug mode
     debug "Number of messages left after delete operation.", messagesLeft=numMessages
 
-  # reduce the size of the DB file after the delete operation. See: https://www.sqlite.org/lang_vacuum.html
-  let resVacuum = db.database.query("vacuum", proc(s: ptr sqlite3_stmt) = discard)
-  if resVacuum.isErr:
-    return err("vacuum after delete was not successful: " & resVacuum.error)
-
   ok()
 
 proc init*(T: type WakuMessageStore, db: SqliteDatabase, storeCapacity: int = 50000, isSqliteOnly = false, retentionTime = chronos.days(30).seconds): MessageStoreResult[T] =
@@ -267,8 +262,13 @@ method getAll*(db: WakuMessageStore, onData: message_store.DataProc): MessageSto
   ok gotMessages
 
 proc adjustDbPageSize(dbPageSize: uint64, matchCount: uint64, returnPageSize: uint64): uint64 {.inline.} =
-  var ret = if matchCount < 2: dbPageSize * returnPageSize
+  const maxDbPageSize: uint64 = 20000 # the maximum DB page size is limited to prevent excessive use of memory in case of very sparse or non-matching filters. TODO: dynamic, adjust to available memory
+  if dbPageSize >= maxDbPageSize: 
+    return maxDbPageSize
+  var ret =
+    if matchCount < 2: dbPageSize * returnPageSize
     else: dbPageSize * (returnPageSize div matchCount)
+  ret = min(ret, maxDbPageSize)
   trace "dbPageSize adjusted to: ",  ret
   ret
 
