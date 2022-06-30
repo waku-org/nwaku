@@ -358,7 +358,7 @@ suite "Waku rln relay":
       hashSuccess
     let outputArr = cast[ptr array[32, byte]](outputBuffer.`ptr`)[]
     check:
-      "efb8ac39dc22eaf377fe85b405b99ba78dbc2f3f32494add4501741df946bd1d" ==
+      "4c6ea217404bd5f10e243bac29dc4f1ec36bf4a41caba7b4c8075c54abb3321e" ==
           outputArr.toHex()
 
     var
@@ -379,7 +379,7 @@ suite "Waku rln relay":
 
     let hash = rln.hash(msg)
     check:
-      "efb8ac39dc22eaf377fe85b405b99ba78dbc2f3f32494add4501741df946bd1d" ==
+      "4c6ea217404bd5f10e243bac29dc4f1ec36bf4a41caba7b4c8075c54abb3321e" ==
           hash.toHex()
 
   test "create a list of membership keys and construct a Merkle tree based on the list":
