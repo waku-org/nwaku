@@ -6,7 +6,7 @@ import
   os,
   waku_rln_relay_types
 
-const libPath = "vendor/rln/target/debug/"
+const libPath = "vendor/zerokit/target/debug/"
 when defined(Windows):
   const libName* = libPath / "rln.dll"
 elif defined(Linux):
@@ -17,50 +17,100 @@ elif defined(MacOsX):
 # all the following procedures are Nim wrappers for the functions defined in libName
 {.push dynlib: libName, raises: [Defect].}
 
-
 ## Buffer struct is taken from
 # https://github.com/celo-org/celo-threshold-bls-rs/blob/master/crates/threshold-bls-ffi/src/ffi.rs
 type Buffer* = object
   `ptr`*: ptr uint8
   len*: uint
 
-type Auth* = object
-  secret_buffer*: ptr Buffer
-  index*: uint
-  
 #------------------------------ Merkle Tree operations -----------------------------------------
+proc update_next_member*(ctx: ptr RLN, input_buffer: ptr Buffer): bool {.importc: "set_next_leaf".}
+## adds an element in the merkle tree to the next available position
+## input_buffer points to the id commitment byte seq
+## the return bool value indicates the success or failure of the operation
 
-proc update_next_member*(ctx: RLN[Bn256],
-                        input_buffer: ptr Buffer): bool {.importc: "update_next_member".}
+proc delete_member*(ctx: ptr RLN, index: uint): bool {.importc: "delete_leaf".}
+## index is the position of the id commitment key to be deleted from the tree
+## the deleted id commitment key is replaced with a zero leaf
+## the return bool value indicates the success or failure of the operation
 
-proc delete_member*(ctx: RLN[Bn256], index: uint): bool {.importc: "delete_member".}
+proc get_root*(ctx: ptr RLN, output_buffer: ptr Buffer): bool {.importc: "get_root".}
+## get_root populates the passed pointer output_buffer with the current tree root
+## the output_buffer holds the Merkle tree root of size 32 bytes
+## the return bool value indicates the success or failure of the operation
 
-proc get_root*(ctx: RLN[Bn256], output_buffer: ptr Buffer): bool {.importc: "get_root".}
+proc get_merkle_proof*(ctx: ptr RLN, index: uint, output_buffer: ptr Buffer): bool {.importc: "get_proof".}
+## populates the passed pointer output_buffer with the merkle proof for the leaf at position index in the tree stored by ctx
+## the output_buffer holds a serialized Merkle proof (vector of 32 bytes nodes)
+## the return bool value indicates the success or failure of the operation
+
+proc set_leaf*(ctx: ptr RLN, index: uint, input_buffer: ptr Buffer): bool {.importc: "set_leaf".}
+## sets the leaf at position index in the tree stored by ctx to the value passed by input_buffer
+## the input_buffer holds a serialized leaf of 32 bytes
+## the return bool value indicates the success or failure of the operation
+
+proc set_leaves*(ctx: ptr RLN, input_buffer: ptr Buffer): bool {.importc: "set_leaves".}
+## sets multiple leaves in the tree stored by ctx to the value passed by input_buffer
+## the input_buffer holds a serialized vector of leaves (32 bytes each)
+## leaves are set one after each other starting from index 0
+## the return bool value indicates the success or failure of the operation
+
+proc reset_tree*(ctx: ptr RLN, tree_height: uint): bool {.importc: "set_tree".}
+## resets the tree stored by ctx to the the empty tree (all leaves set to 0) of height tree_height
+## the return bool value indicates the success or failure of the operation
 
 #----------------------------------------------------------------------------------------------
+
 #-------------------------------- zkSNARKs operations -----------------------------------------
+proc key_gen*(ctx: ptr RLN, output_buffer: ptr Buffer): bool {.importc: "key_gen".}
+## generates id key and id commitment key serialized inside keypair_buffer as | id_key <32 bytes>| id_commitment_key <32 bytes> |
+## id commitment is the poseidon hash of the id key
+## the return bool value indicates the success or failure of the operation
 
-proc key_gen*(ctx: RLN[Bn256], keypair_buffer: ptr Buffer): bool {.importc: "key_gen".}
+proc generate_proof*(ctx: ptr RLN,
+                         input_buffer: ptr Buffer,
+                         output_buffer: ptr Buffer): bool {.importc: "generate_rln_proof".}
+## input_buffer has to be serialized as [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+## output_buffer holds the proof data and should be parsed as [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+## integers wrapped in <> indicate value sizes in bytes
+## the return bool value indicates the success or failure of the operation
+ 
+proc verify*(ctx: ptr RLN,
+                       proof_buffer: ptr Buffer,
+                       proof_is_valid_ptr: ptr bool): bool {.importc: "verify_rln_proof".}
+## proof_buffer has to be serialized as [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
+## the return bool value indicates the success or failure of the call to the verify function
+## the verification of the zk proof  is available in result_ptr, where 0 indicates success and 1 is failure
 
-proc generate_proof*(ctx: RLN[Bn256],
-                    input_buffer: ptr Buffer,
-                    output_buffer: ptr Buffer): bool {.importc: "generate_proof".}
-## input_buffer serialized as  [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
-## output_buffer holds the proof data and should be parsed as |proof<256>|root<32>|epoch<32>|share_x<32>|share_y<32>|nullifier<32>|
-## sizes are in bytes
-proc verify*(ctx: RLN[Bn256],
-            proof_buffer: ptr Buffer,
-            result_ptr: ptr uint32): bool {.importc: "verify".}
-## proof_buffer [ proof<256>| root<32>| epoch<32>| share_x<32>| share_y<32>| nullifier<32> | signal_len<8> | signal<var> ]
+proc zk_prove*(ctx: ptr RLN,
+            input_buffer: ptr Buffer,
+            output_buffer: ptr Buffer): bool {.importc: "prove".}
+## input_buffer serialized as  input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
+## output_buffer holds the proof data and should be parsed as [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+## integers wrapped in <> indicate value sizes in bytes
+## the return bool value indicates the success or failure of the operation
+
+
+
+proc zk_verify*(ctx: ptr RLN,
+             proof_buffer: ptr Buffer,
+             proof_is_valid_ptr: ptr bool): bool {.importc: "verify".}
+
 #----------------------------------------------------------------------------------------------
+
 #-------------------------------- Common procedures -------------------------------------------
+proc new_circuit*(tree_height: uint, input_buffer: ptr Buffer, ctx: ptr (ptr RLN)): bool {.importc: "new".}
+## creates an instance of rln object as defined by the zerokit RLN lib
+## merkle_depth represent the depth of the Merkle tree
+## input_buffer contains a serialization of the path where the circuit resources can be found (.r1cs, .wasm, .zkey and optionally the verification_key.json)
+## ctx holds the final created rln object
+## the return bool value indicates the success or failure of the operation
 
-proc new_circuit_from_params*(merkle_depth: uint,
-                              parameters_buffer: ptr Buffer,
-                              ctx: ptr RLN[Bn256]): bool {.importc: "new_circuit_from_params".}
-                              
-proc hash*(ctx: RLN[Bn256],
-          inputs_buffer: ptr Buffer,
-          output_buffer: ptr Buffer): bool {.importc: "signal_to_field".}
-
-{.pop.}
+proc hash*(ctx: ptr RLN,
+           input_buffer: ptr Buffer,
+           output_buffer: ptr Buffer): bool {.importc: "hash".}
+## it hashes (sha256) the plain text supplied in inputs_buffer and then maps it to a field element
+## this proc is used to map arbitrary signals to field element for the sake of proof generation
+## inputs_buffer holds the hash input as a byte seq 
+## the hash output is generated and populated inside output_buffer 
+## the output_buffer contains 32 bytes hash output 

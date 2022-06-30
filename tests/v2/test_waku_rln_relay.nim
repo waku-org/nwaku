@@ -15,7 +15,9 @@ import
 const RLNRELAY_PUBSUB_TOPIC = "waku/2/rlnrelay/proto"
 const RLNRELAY_CONTENT_TOPIC = "waku/2/rlnrelay/proto"
 
+
 procSuite "Waku rln relay":
+
   asyncTest "mount waku-rln-relay in the off-chain mode":
     let
       nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
@@ -66,33 +68,17 @@ procSuite "Waku rln relay":
 suite "Waku rln relay":
   test "key_gen Nim Wrappers":
     var
-      merkleDepth: csize_t = 32
-      # parameters.key contains the parameters related to the Poseidon hasher
-      # to generate this file, clone this repo https://github.com/kilic/rln
-      # and run the following command in the root directory of the cloned project
-      # cargo run --example export_test_keys
-      # the file is generated separately and copied here
-      parameters = readFile("waku/v2/protocol/waku_rln_relay/parameters.key")
-      pbytes = parameters.toBytes()
-      len: csize_t = uint(pbytes.len)
-      parametersBuffer = Buffer(`ptr`: addr(pbytes[0]), len: len)
-    check:
-      # check the parameters.key is not empty
-      pbytes.len != 0
+      merkleDepth: csize_t = 20
 
-    var
-      rlnInstance: RLN[Bn256]
-    let res = new_circuit_from_params(merkleDepth, addr parametersBuffer,
-        addr rlnInstance)
+    var rlnInstance = createRLNInstance()
     check:
-      # check whether the circuit parameters are generated successfully
-      res == true
+      rlnInstance.isOk == true
 
     # keysBufferPtr will hold the generated key pairs i.e., secret and public keys
     var
       keysBuffer: Buffer
       keysBufferPtr = addr(keysBuffer)
-      done = key_gen(rlnInstance, keysBufferPtr)
+      done = key_gen(rlnInstance.value(), keysBufferPtr)
     check:
       # check whether the keys are generated successfully
       done == true
@@ -436,6 +422,8 @@ suite "Waku rln relay":
       shareX: MerkleNode
       shareY: MerkleNode
       nullifier: Nullifier
+      rlnIdentifier: RlnIdentifier
+
     # populate fields with dummy values
     for x in proof.mitems: x = 1
     for x in merkleRoot.mitems: x = 2
@@ -443,6 +431,7 @@ suite "Waku rln relay":
     for x in shareX.mitems: x = 4
     for x in shareY.mitems: x = 5
     for x in nullifier.mitems: x = 6
+    for x in rlnIdentifier.mitems: x = 7
 
     let
       rateLimitProof = RateLimitProof(proof: proof,
@@ -450,7 +439,8 @@ suite "Waku rln relay":
                           epoch: epoch,
                           shareX: shareX,
                           shareY: shareY,
-                          nullifier: nullifier)
+                          nullifier: nullifier,
+                          rlnIdentifier: rlnIdentifier)
       protobuf = rateLimitProof.encode()
       decodednsp = RateLimitProof.init(protobuf.buffer)
 

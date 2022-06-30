@@ -10,10 +10,8 @@ import
   ../../utils/protobuf
 
 ## Bn256 and RLN are Nim wrappers for the data types used in
-## the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
-type Bn256* = pointer
-type RLN*[E] = pointer
-
+#type RLN* = pointer
+type RLN* {.incompleteStruct.} = object
 
 type
   # identity key as defined in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
@@ -24,8 +22,9 @@ type
 
 type
   MerkleNode* = array[32, byte] # Each node of the Merkle tee is a Poseidon hash which is a 32 byte value
+  RlnIdentifier* = array[32, byte]
   Nullifier* = array[32, byte]
-  ZKSNARK* = array[256, byte]
+  ZKSNARK* = array[128, byte]
   Epoch* = array[32, byte]
 
 # Custom data types defined for waku rln relay -------------------------
@@ -55,6 +54,8 @@ type RateLimitProof* = object
   ## nullifier enables linking two messages published during the same epoch
   ## see details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Nullifiers
   nullifier*: Nullifier
+  ## Application specific RLN Identifier
+  rlnIdentifier*: RlnIdentifier
 
 type MembershipIndex* = uint
 
@@ -76,7 +77,7 @@ type WakuRLNRelay* = ref object
   # TODO may need to erase this ethAccountPrivateKey when is not used
   # TODO may need to make ethAccountPrivateKey mandatory
   ethAccountPrivateKey*: PrivateKey
-  rlnInstance*: RLN[Bn256]
+  rlnInstance*: ptr RLN
   pubsubTopic*: string # the pubsub topic for which rln relay is mounted
                        # contentTopic should be of type waku_message.ContentTopic, however, due to recursive module dependency, the underlying type of ContentTopic is used instead
                        # TODO a long-term solution is to place types with recursive dependency inside one file
@@ -98,6 +99,9 @@ const
   ETH_CLIENT* = "ws://localhost:8540/"
 
 const
+  # The relative folder where the circuit, proving and verification key for RLN can be found
+  # Note that resources has to be compiled with respect to the above MERKLE_TREE_DEPTH
+  RLN_RESOURCE_FOLDER* = "vendor/zerokit/rln/resources/tree_height_" & $MERKLE_TREE_DEPTH & "/"
   # the size of poseidon hash output in bits
   HASH_BIT_SIZE* = 256
   # the size of poseidon hash output as the number hex digits
@@ -351,6 +355,10 @@ proc init*(T: type RateLimitProof, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(6, nullifier)
   discard nsp.nullifier.copyFrom(nullifier)
 
+  var rlnIdentifier: seq[byte]
+  discard ? pb.getField(7, rlnIdentifier)
+  discard nsp.rlnIdentifier.copyFrom(rlnIdentifier)
+
   return ok(nsp)
 
 proc encode*(nsp: RateLimitProof): ProtoBuffer =
@@ -362,6 +370,7 @@ proc encode*(nsp: RateLimitProof): ProtoBuffer =
   output.write3(4, nsp.shareX)
   output.write3(5, nsp.shareY)
   output.write3(6, nsp.nullifier)
+  output.write3(7, nsp.rlnIdentifier)
 
   output.finish3()
 

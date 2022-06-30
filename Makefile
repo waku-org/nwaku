@@ -168,9 +168,9 @@ endif
 
 rlnlib:
 ifeq ($(RLN), true)
-	cargo build --manifest-path vendor/rln/Cargo.toml
+	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml
 else  ifeq ($(CI), true)
-	cargo build --manifest-path vendor/rln/Cargo.toml
+	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml
 endif
 
 test2: | build deps installganache
@@ -227,11 +227,11 @@ clean: | clean-common
 ifneq ($(USE_LIBBACKTRACE), 0)
 	+ $(MAKE) -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif
-	cargo clean --manifest-path vendor/rln/Cargo.toml
+	cargo clean --manifest-path vendor/zerokit/rln/Cargo.toml
 
 # clean the rln build (forces recompile of old crates on next build)
 cleanrln:
-	cargo clean --manifest-path vendor/rln/Cargo.toml
+	cargo clean --manifest-path vendor/zerokit/rln/Cargo.toml
 
 endif # "variables.mk" was not included
 
