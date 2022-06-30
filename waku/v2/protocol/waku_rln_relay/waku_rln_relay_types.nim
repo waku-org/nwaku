@@ -91,7 +91,7 @@ type MessageValidationResult* {.pure.} = enum
 # TODO may be able to make these constants private and put them inside the waku_rln_relay_utils
 const
   MEMBERSHIP_FEE* = 1000000000000000.u256
-  #  the current implementation of the rln lib only supports a circuit for Merkle tree with depth 32
+  #  the current implementation of the rln lib supports a circuit for Merkle tree with depth 20
   MERKLE_TREE_DEPTH* = 20
   # TODO the ETH_CLIENT should be an input to the rln-relay, though hardcoded for now
   # the current address is the address of ganache-cli when run locally
