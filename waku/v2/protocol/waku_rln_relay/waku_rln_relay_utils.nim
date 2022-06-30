@@ -213,15 +213,16 @@ proc proofGen*(rlnInstance: ptr RLN, data: openArray[byte],
   let proofBytes: array[320, byte] = proofValue[]
   debug "proof content", proofHex = proofValue[].toHex
 
-  ## parse the proof as [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+  ## parse the proof as [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
+
   let
     proofOffset = 128
-    shareYOffset = proofOffset + 32
-    nullifierOffset = shareYOffset + 32
-    rootOffset = nullifierOffset + 32
+    rootOffset = proofOffset + 32
     epochOffset = rootOffset + 32
     shareXOffset = epochOffset + 32
-    rlnIdentifierOffset = shareXOffset + 32
+    shareYOffset = shareXOffset + 32
+    nullifierOffset = shareYOffset + 32
+    rlnIdentifierOffset = nullifierOffset + 32
 
   var
     zkproof: ZKSNARK
@@ -231,12 +232,12 @@ proc proofGen*(rlnInstance: ptr RLN, data: openArray[byte],
     rlnIdentifier: RlnIdentifier
 
   discard zkproof.copyFrom(proofBytes[0..proofOffset-1])
-  discard shareY.copyFrom(proofBytes[proofOffset..shareYOffset-1])
-  discard nullifier.copyFrom(proofBytes[shareYOffset..nullifierOffset-1])
-  discard proofRoot.copyFrom(proofBytes[nullifierOffset..rootOffset-1])
+  discard proofRoot.copyFrom(proofBytes[proofOffset..rootOffset-1])
   discard epoch.copyFrom(proofBytes[rootOffset..epochOffset-1])
   discard shareX.copyFrom(proofBytes[epochOffset..shareXOffset-1])
-  discard rlnIdentifier.copyFrom(proofBytes[shareXOffset..rlnIdentifierOffset-1])
+  discard shareY.copyFrom(proofBytes[shareXOffset..shareYOffset-1])
+  discard nullifier.copyFrom(proofBytes[shareYOffset..nullifierOffset-1])
+  discard rlnIdentifier.copyFrom(proofBytes[nullifierOffset..rlnIdentifierOffset-1])
   
   let output = RateLimitProof(proof: zkproof,
                               merkleRoot: proofRoot,
@@ -251,14 +252,14 @@ proc proofGen*(rlnInstance: ptr RLN, data: openArray[byte],
 proc serialize(proof: RateLimitProof, data: openArray[byte]): seq[byte] =
   ## a private proc to convert RateLimitProof and data to a byte seq
   ## this conversion is used in the proof verification proc
-  ## [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
+  ## [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
   let lenPrefMsg = appendLength(@data)
   var proofBytes = concat(@(proof.proof),
-                          @(proof.shareY),
-                          @(proof.nullifier),
                           @(proof.merkleRoot),
                           @(proof.epoch),
                           @(proof.shareX),
+                          @(proof.shareY),
+                          @(proof.nullifier),
                           @(proof.rlnIdentifier),
                           lenPrefMsg)
 
@@ -408,7 +409,7 @@ proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): Result[bool, string
     return ok(false)
   try:
     if rlnPeer.nullifierLog[msg.proof.epoch].contains(proofMD):
-      # there is an identical record, ignore rhe mag
+      # there is an identical record, ignore the msg
       return ok(false)
 
     # check for a message with the same nullifier but different secret shares

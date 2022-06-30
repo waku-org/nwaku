@@ -9,8 +9,7 @@ import
   stew/arrayops,
   ../../utils/protobuf
 
-## Bn256 and RLN are Nim wrappers for the data types used in
-#type RLN* = pointer
+## RLN is a Nim wrapper for the data types used in zerokit RLN
 type RLN* {.incompleteStruct.} = object
 
 type
@@ -18,7 +17,6 @@ type
   IDKey* = array[32, byte]
   # hash of identity key as defined ed in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
   IDCommitment* = array[32, byte]
-
 
 type
   MerkleNode* = array[32, byte] # Each node of the Merkle tee is a Poseidon hash which is a 32 byte value
