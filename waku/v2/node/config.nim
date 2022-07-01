@@ -145,9 +145,14 @@ type
       name: "rln-relay-id-commitment" }: string
   
     rlnRelayEthAccount* {.
-      desc: "Ethereum testnet account address", 
+      desc: "Account address for the Ethereum testnet Goerli", 
       defaultValue: ""
       name: "eth-account-address" }: string
+
+    rlnRelayEthAccountPrivKey* {.
+      desc: "Account private key for the Ethereum testnet Goerli",
+      defaultValue: ""
+      name: "eth-account-privatekey" }: string
     
     rlnRelayEthClientAddress* {.
       desc: "Ethereum testnet client address e.g., ws://localhost:8540/",
