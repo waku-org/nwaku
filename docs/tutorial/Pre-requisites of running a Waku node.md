@@ -23,7 +23,7 @@ If you already have an Ethereum account with sufficent ethers on Goerli testnet 
 7. Click on Show/hide test networks
 8. Enable “Show Test Networks
     
-    ![](https://i.imgur.com/ztiyKsB.jpg)
+    ![](https://i.imgur.com/02x7iSX.jpg)
     
     ![](https://i.imgur.com/UFsoRHR.jpg)
 
@@ -38,7 +38,7 @@ If you already have an Ethereum account with sufficent ethers on Goerli testnet 
 
 12. Now to export your private key for the account, if needed, please click on the three dots beside the account.
     
-    ![](https://i.imgur.com/GjwoDPE.jpg)
+    ![](https://i.imgur.com/9BlBmhT.jpg)
 
 13. Click on Account Details
 14. Click on Export Private Key
@@ -66,8 +66,7 @@ Obtain Goerli Ethers from faucet
      [https://goerli-faucet.pk910.de/](https://goerli-faucet.pk910.de/)
 6. Enter your Eth account address, accept Captcha and start mining
     
-    ![](https://i.imgur.com/TCy2BQv.jpg)
-
+    ![](https://i.imgur.com/IvHNsei.jpg)
 
 7. You can see the estimated Goerli ETH mined per hour. Each session is restricted to a few hours.
     
@@ -77,7 +76,7 @@ Obtain Goerli Ethers from faucet
 9. Alternatively, stop the mining when mined enough goerli ether.
 10. Do not forget to claim your goerli ether.
     
-    ![](https://i.imgur.com/1s7qQU8.jpg)
+    ![](https://i.imgur.com/cGCSexB.jpg)
     
     
 Setting up a hosted node on Goerli Testnet using Infura
