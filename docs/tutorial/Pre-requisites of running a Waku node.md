@@ -1,9 +1,3 @@
-Pre-requisites of running a Waku node
-===
-
-## Table of Contents
-
-[TOC]
 
 ## Creating Goerli Ethereum Account and obtaining its private key
 
