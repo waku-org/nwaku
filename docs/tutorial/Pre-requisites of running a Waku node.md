@@ -15,8 +15,8 @@ If you already have an Ethereum account with sufficent ethers on Goerli testnet 
     
     ![](https://i.imgur.com/gk3TWUd.jpg)
 
-5. You can use the same account for different networks.
-6. You can switch to a test network by clicking on the drop down menu like so:
+5. You can use the same account for different networks. For Waku we need to connect to the Goerli test network.
+6. You can switch to a test network by clicking on the drop down menu. Select Goerli test network for Waku:
 
     ![](https://i.imgur.com/kbuup6y.jpg)
 
