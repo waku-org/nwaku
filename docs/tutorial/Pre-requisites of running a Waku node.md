@@ -1,4 +1,4 @@
-
+If you already have an Ethereum account with sufficent ethers on Goerli testnet then you can skip the first two sections.
 ## Creating Goerli Ethereum Account and obtaining its private key
 
 
