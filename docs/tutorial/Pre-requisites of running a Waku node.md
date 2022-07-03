@@ -1,7 +1,3 @@
----
-title: 'Pre-requisites of running a Waku node'
----
-
 Pre-requisites of running a Waku node
 ===
 
