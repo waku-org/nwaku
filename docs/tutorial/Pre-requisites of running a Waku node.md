@@ -1,3 +1,8 @@
+In this tutotial you will learn how to:
+1. Creating Goerli Ethereum Account and obtaining its private key.
+2. Obtain Goerli Ethers from faucet.
+3. Setting up a hosted node on Goerli Testnet using Infura.
+
 If you already have an Ethereum account with sufficent ethers on Goerli testnet then you can skip the first two sections.
 ## Creating Goerli Ethereum Account and obtaining its private key
 
@@ -81,6 +86,8 @@ Obtain Goerli Ethers from faucet
     
 Setting up a hosted node on Goerli Testnet using Infura
 ---
+
+(Note: Infura provides a simple straight-forward way of setting up endpoints for interaction with the Ethereum chain and the Waku RLN smart contract without having to run a dedicated Ethereum node. Setting up infura is not mandatory. Operators concerned with the centralized aspect introduced by infura can setup their own node.)
 
 1. Sign up to infura if you do not have an account already. [https://infura.io/register](https://infura.io/register)
     
