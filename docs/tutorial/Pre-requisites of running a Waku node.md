@@ -96,11 +96,11 @@ Setting up a hosted node on Goerli Testnet using Infura
 
 4. Select Gorli network in Endpoints
     
-    ![](https://i.imgur.com/93Sk8cK.jpg)
+    ![](https://i.imgur.com/RgmH7C1.png)
 
 5. You can find the endpoints for the hosted node using https and wss. The wss endpoint is the relevant one for connecting the waku node to the RLN contract on Goerli network. Like follows:
     
-    ![](https://i.imgur.com/NEuHBE7.jpg)
+    ![](https://i.imgur.com/xqbOcOH.png)
 
 6. You can change security settings or view usage options as required in the dashboard
 7. Congratulations, you are now ready to use the Infura node
