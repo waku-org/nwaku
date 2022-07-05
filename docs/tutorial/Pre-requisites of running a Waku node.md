@@ -2,12 +2,12 @@ If you already have an Ethereum account with sufficent ethers on Goerli testnet 
 ## Creating Goerli Ethereum Account and obtaining its private key
 
 
-1. Download and install Metamask [https://metamask.io/download/](https://metamask.io/download/)
-2. Create a new wallet and save your secret recovery key
+1. Download and install Metamask. [https://metamask.io/download/](https://metamask.io/download/)
+2. Create a new wallet and save your secret recovery key.
     
     ![](https://i.imgur.com/HEOI0kp.jpg)
 
-3. Login to Metamask
+3. Login to Metamask.
     
     ![](https://i.imgur.com/zFduIV8.jpg)
 
@@ -20,18 +20,18 @@ If you already have an Ethereum account with sufficent ethers on Goerli testnet 
 
     ![](https://i.imgur.com/kbuup6y.jpg)
 
-7. Click on Show/hide test networks
-8. Enable “Show Test Networks
+7. Click on Show/hide test networks.
+8. Enable “Show Test Networks".
     
     ![](https://i.imgur.com/02x7iSX.jpg)
     
     ![](https://i.imgur.com/UFsoRHR.jpg)
 
-9. Close the settings and now you should see the test networks in the drop down on the top right
+9. Close the settings and now you should see the test networks in the drop down on the top right.
     
     ![](https://i.imgur.com/leSYt4z.jpg)
 
-10. Switch to Goerli Test Network
+10. Switch to Goerli Test Network.
 11. You can see that the same account can be used with different networks. But note that the ETH balance on different networks are different and are different tokens.
     
     ![](https://i.imgur.com/Y7YkuEe.jpg)
@@ -40,12 +40,12 @@ If you already have an Ethereum account with sufficent ethers on Goerli testnet 
     
     ![](https://i.imgur.com/9BlBmhT.jpg)
 
-13. Click on Account Details
-14. Click on Export Private Key
+13. Click on Account Details.
+14. Click on Export Private Key.
     
     ![](https://i.imgur.com/7g6SyuX.jpg)
 
-15. Enter your Metamask password when prompted
+15. Enter your Metamask password when prompted.
     
     ![](https://i.imgur.com/VOojHY5.jpg)
 
@@ -54,17 +54,17 @@ If you already have an Ethereum account with sufficent ethers on Goerli testnet 
 Obtain Goerli Ethers from faucet
 ---
 
-1. Ethers on Goerli test networks can be obtained from different faucets
-2. Some of the faucets are as follows
+1. Ethers on Goerli test networks can be obtained from different faucets.
+2. Some of the faucets are as follows:
     1. [https://goerlifaucet.com/](https://goerlifaucet.com/)
     2. [https://goerli-faucet.slock.it/](https://goerli-faucet.slock.it/)
     3. [https://goerli-faucet.pk910.de/](https://goerli-faucet.pk910.de/)
-    (NOTE: We have not tested the security of these faucets so please feel free to do your own research or obtain Gorli ethers from other faucets if needed)
-3. Please follow the instructions on the webpages of these faucets
-4. A lot of faucets limit the Goerli ETH to 0.05 ETH/day
-5. To obtain more eth, you can do some POW mining. One of those POW faucet is
+    (NOTE: We have not tested the security of these faucets so please feel free to do your own research or obtain Gorli ethers from other faucets if needed.)
+3. Please follow the instructions on the webpages of these faucets.
+4. A lot of faucets limit the Goerli ETH to 0.05 ETH/day.
+5. To obtain more eth, you can do some POW mining. One of those POW faucet is:
      [https://goerli-faucet.pk910.de/](https://goerli-faucet.pk910.de/)
-6. Enter your Eth account address, accept Captcha and start mining
+6. Enter your Eth account address, accept Captcha and start mining.
     
     ![](https://i.imgur.com/IvHNsei.jpg)
 
@@ -72,7 +72,7 @@ Obtain Goerli Ethers from faucet
     
     ![](https://i.imgur.com/qTWwyNr.jpg)
 
-8. When you exceed the hour limit of the session, then the mining will be stopped
+8. When you exceed the hour limit of the session, then the mining will be stopped.
 9. Alternatively, stop the mining when mined enough goerli ether.
 10. Do not forget to claim your goerli ether.
     
@@ -86,7 +86,7 @@ Setting up a hosted node on Goerli Testnet using Infura
     
     ![](https://i.imgur.com/SyLaG6s.jpg)
 
-2. After registering and verifying the account, create a new project using Ethereum and give it a name
+2. After registering and verifying the account, create a new project using Ethereum and give it a name.
     
     ![](https://i.imgur.com/fJbNqwd.jpg)
 
@@ -94,7 +94,7 @@ Setting up a hosted node on Goerli Testnet using Infura
     
     ![](https://i.imgur.com/PfGmq4i.jpg)
 
-4. Select Gorli network in Endpoints
+ß4. Select Gorli network in Endpoints.
     
     ![](https://i.imgur.com/RgmH7C1.png)
 
@@ -102,5 +102,5 @@ Setting up a hosted node on Goerli Testnet using Infura
     
     ![](https://i.imgur.com/xqbOcOH.png)
 
-6. You can change security settings or view usage options as required in the dashboard
-7. Congratulations, you are now ready to use the Infura node
+6. You can change security settings or view usage options as required in the dashboard.
+7. Congratulations, you are now ready to use the Infura node.
