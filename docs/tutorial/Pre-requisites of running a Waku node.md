@@ -98,7 +98,7 @@ Setting up a hosted node on Goerli Testnet using Infura
     
     ![](https://i.imgur.com/93Sk8cK.jpg)
 
-5. You can find the endpoints for the hosted node using https and wss. The wss endpoint is the relevant one for connecting the waku node to the RLN contract on Goerli netowrk. Like follows:
+5. You can find the endpoints for the hosted node using https and wss. The wss endpoint is the relevant one for connecting the waku node to the RLN contract on Goerli network. Like follows:
     
     ![](https://i.imgur.com/NEuHBE7.jpg)
 
