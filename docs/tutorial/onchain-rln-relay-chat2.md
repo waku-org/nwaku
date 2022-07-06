@@ -4,9 +4,22 @@ You will need 1) an Ethereum account with sufficient ethers on Goerli testnet as
 We have  also dedicated a few sections at the end of this tutorial on how to get those.
 
 
-In this tutorial, we will test the on-chain waku-rln-relay.
-The `on-chain` refers to the fact the rln membership group management is now moderated through a contract deployed on Ethereum Goerli testnet.
+In this tutorial, we will test the on-chain mode of waku-rln-relay.
+The `on-chain` refers to the fact the rln membership group management is now moderated through a contract deployed on the Ethereum Goerli testnet.
+As such, your chat2 client, upon start, creates your rln credentials i.e., an identity key and an identity commitment key and 
+registers you to the rln membership group by sending a transaction to the contract.
+This transaction will consume some fund in your Ethereum Goerli account. 
+Once registered, the registered credentials will get displayed on your console.
+You may copy it to use in the future execution of chat2.
+Furthermore, your chat2 client constantly listens to the contract and keeps itself updated with the latest state of the group.
+This allows dynamic group size where the size can grow up to 2^20 members.
 
+In this tuturial, we will provide you with two different test scenarios which are explained next. 
+In the first you will connect your chat2 client to the waku test fleets as your first hop. Test fleets will filter spam messages whereas
+in the second one you connect two chat2 clients together,
+
+# Connect to Waku test fleets
+# Test locally 
 You will run a chat2 client with waku-rln-relay mounted in on-chain mode and on a certain content topic `/toy-chat/2/luzhou/proto`.
 Being mounted in on-chain mode means that your rln credentials i.e., identity commitment will be registered to the rln membership group contract deployed on the Ethereum Goerli testnet. 
 In the background, your chat2 client is constantly listening to the contract and keeps itself updated with the latest state of the group.
