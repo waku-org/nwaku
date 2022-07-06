@@ -71,30 +71,35 @@ proc generate_proof*(ctx: ptr RLN,
                          input_buffer: ptr Buffer,
                          output_buffer: ptr Buffer): bool {.importc: "generate_rln_proof".}
 ## input_buffer has to be serialized as [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
-## output_buffer holds the proof data and should be parsed as [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
+## output_buffer holds the proof data and should be parsed as [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
 ## integers wrapped in <> indicate value sizes in bytes
 ## the return bool value indicates the success or failure of the operation
  
 proc verify*(ctx: ptr RLN,
                        proof_buffer: ptr Buffer,
                        proof_is_valid_ptr: ptr bool): bool {.importc: "verify_rln_proof".}
-## proof_buffer has to be serialized as [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
+## proof_buffer has to be serialized as [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
 ## the return bool value indicates the success or failure of the call to the verify function
-## the verification of the zk proof  is available in result_ptr, where 0 indicates success and 1 is failure
+## the verification of the zk proof is available in proof_is_valid_ptr, where a value of true indicates success and false a failure
 
 proc zk_prove*(ctx: ptr RLN,
             input_buffer: ptr Buffer,
             output_buffer: ptr Buffer): bool {.importc: "prove".}
-## input_buffer serialized as  input_data is [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
-## output_buffer holds the proof data and should be parsed as [ proof<128> | share_y<32> | nullifier<32> | root<32> | epoch<32> | share_x<32> | rln_identifier<32> ]
-## integers wrapped in <> indicate value sizes in bytes
+## Computes the zkSNARK proof and stores it in output_buffer for input values stored in input_buffer
+## input_buffer is serialized as input_data as [ id_key<32> | path_elements<Vec<32>> | identity_path_index<Vec<1>> | x<32> | epoch<32> | rln_identifier<32> ]
+## output_buffer holds the proof data and should be parsed as [ proof<128> ]
+## path_elements and indentity_path elements serialize a merkle proof for id_key and are vectors of elements of 32 and 1 bytes, respectively (not. Vec<>).
+## x is the x coordinate of the Shamir's secret share for which the proof is computed
+## epoch is the input epoch (equivalently, the nullifier)
 ## the return bool value indicates the success or failure of the operation
-
-
 
 proc zk_verify*(ctx: ptr RLN,
              proof_buffer: ptr Buffer,
              proof_is_valid_ptr: ptr bool): bool {.importc: "verify".}
+## Verifies the zkSNARK proof passed in proof_buffer
+## input_buffer is serialized as input_data as [ proof<128> ]
+## the verification of the zk proof is available in proof_is_valid_ptr, where a value of true indicates success and false a failure
+## the return bool value indicates the success or failure of the operation
 
 #----------------------------------------------------------------------------------------------
 
