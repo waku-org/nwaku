@@ -1,5 +1,5 @@
 In this tutotial you will learn how to:
-1. Creating Goerli Ethereum Account and obtaining its private key.
+1. Create Goerli Ethereum Account and obtain its private key.
 2. Obtain Goerli Ethers from faucet.
 3. Setting up a hosted node on Goerli Testnet using Infura.
 
