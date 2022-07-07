@@ -3,7 +3,7 @@ In this tutotial you will learn how to:
 2. Obtain Goerli Ethers from faucet.
 3. Setting up a hosted node on Goerli Testnet using Infura.
 
-If you already have an Ethereum account with sufficent ethers on Goerli testnet then you can skip the first two sections.
+If you already have an Ethereum account with sufficient ethers on the Goerli testnet then you can skip the first two sections.
 ## Creating Goerli Ethereum Account and obtaining its private key
 
 
