@@ -250,7 +250,7 @@ type
       name: "rln-relay-pubsub-topic" }: string
       
     rlnRelayDynamic* {.
-      desc: "Enable  waku-rln-relay with on-chain dynamic group management: true|false",
+      desc: "Enable waku-rln-relay with on-chain dynamic group management: true|false",
       defaultValue: false
       name: "rln-relay-dynamic" }: bool
   
