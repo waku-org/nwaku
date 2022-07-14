@@ -508,29 +508,11 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
             echo "A spam message is found and discarded"
           chat.prompt = false
           showChatPrompt(chat)
-          
-        # set up rln relay inputs
-        let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelayStaticSetUp(conf.rlnRelayMemIndex)
-        if memIndexOpt.isNone:
-          error "failed to mount WakuRLNRelay"
-        else:
-          # mount rlnrelay in offline mode (for now)
-          node.mountRlnRelayStatic(group = groupOpt.get(), memKeyPair = memKeyPairOpt.get(), memIndex = memIndexOpt.get(), pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = some(spamHandler))
-
-          debug "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
-          debug "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
-
-          # check the correct construction of the tree by comparing the calculated root against the expected root
-          # no error should happen as it is already captured in the unit tests
-          # TODO have added this check to account for unseen corner cases, will remove it later 
-          let 
-            root = node.wakuRlnRelay.rlnInstance.getMerkleRoot.value.toHex() 
-            expectedRoot = STATIC_GROUP_MERKLE_ROOT
-          if root != expectedRoot:
-            error "root mismatch: something went wrong not in Merkle tree construction"
-          debug "the calculated root", root
-          debug "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
-
+        echo "rln-relay preparation is in progress ..."
+        node.mountRlnRelay(conf, some(spamHandler))
+        echo "your membership index is: ", node.wakuRlnRelay.membershipIndex
+        echo "your rln identity key is: ", node.wakuRlnRelay.membershipKeyPair.idKey.toHex()
+        echo "your rln identity commitment key is: ", node.wakuRlnRelay.membershipKeyPair.idCommitment.toHex()
 
   await chat.readWriteLoop()
 
