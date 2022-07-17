@@ -791,7 +791,11 @@ when isMainModule:
     ../../common/utils/nat,
     ./config,
     ./waku_setup,
+<<<<<<< HEAD
     ./wakunode2_setup_rest,
+=======
+    ./wakunode2_setup_metrics,
+>>>>>>> 37a9c0c1 (refactor(wakunode2): Split wankunode2 metrics setup to its own file)
     ./storage/message/waku_message_store,
     ./storage/peer/waku_peer_storage
   
