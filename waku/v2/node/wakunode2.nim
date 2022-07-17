@@ -791,6 +791,7 @@ when isMainModule:
     ../../common/utils/nat,
     ./config,
     ./waku_setup,
+    ./wakunode2_setup_rpc,
     ./storage/message/waku_message_store,
     ./storage/peer/waku_peer_storage
   
@@ -1082,7 +1083,7 @@ when isMainModule:
     ## monitoring ports.
     
     if conf.rpc:
-      startRpc(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift), conf)
+      startRpcServer(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift), conf)
 
     if conf.metricsLogging:
       startMetricsLog()
