@@ -791,6 +791,7 @@ when isMainModule:
     ../../common/utils/nat,
     ./config,
     ./waku_setup,
+    ./wakunode2_setup_metrics,
     ./storage/message/waku_message_store,
     ./storage/peer/waku_peer_storage
   
