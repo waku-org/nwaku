@@ -9,7 +9,10 @@ For more context, see https://trunkbaseddevelopment.com/branch-for-release/
 ### Before release
 
 1. Ensure all issues under the corresponding release [milestone](https://github.com/status-im/nwaku/milestones) has been closed or, after consultation, deferred to a next release.
-2. [Update submodules](./git-submodules.md).
+- Check if all submodules are up to date.
+  > **IMPORTANT:** Updating submodules requires a PR (and very often several "fixes" to maintain compatibility with the changes in submodules). That PR process must be done and merged a couple of days before the release.
+  > In the case of submodules update has a low effort and/or risk for the release, follow the ["Update submodules"](./git-submodules.md) instructions.
+  > If the effort of the risk is too high, evaluate the possibility of either postponing the submodules upgrade for the subsequent release or delaying the current release until the submodules upgrade changes are included in the release candidate.
 
 ### Performing the release
 
