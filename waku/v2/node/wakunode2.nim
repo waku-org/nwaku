@@ -794,6 +794,7 @@ when isMainModule:
     ./wakunode2_setup_rest,
     ./wakunode2_setup_metrics,
     ./wakunode2_setup_rpc,
+    ./wakunode2_setup_sql_migrations,
     ./storage/message/waku_message_store,
     ./storage/peer/waku_peer_storage
   
