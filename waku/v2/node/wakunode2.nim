@@ -790,7 +790,7 @@ when isMainModule:
     libp2p/nameresolving/dnsresolver,
     ../../common/utils/nat,
     ./config,
-    ./waku_setup,
+    ./wakunode2_setup,
     ./wakunode2_setup_rest,
     ./wakunode2_setup_metrics,
     ./wakunode2_setup_rpc,
