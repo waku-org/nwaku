@@ -790,8 +790,11 @@ when isMainModule:
     libp2p/nameresolving/dnsresolver,
     ../../common/utils/nat,
     ./config,
-    ./waku_setup,
+    ./wakunode2_setup,
     ./wakunode2_setup_rest,
+    ./wakunode2_setup_metrics,
+    ./wakunode2_setup_rpc,
+    ./wakunode2_setup_sql_migrations,
     ./storage/message/waku_message_store,
     ./storage/peer/waku_peer_storage
   
@@ -1083,7 +1086,7 @@ when isMainModule:
     ## monitoring ports.
     
     if conf.rpc:
-      startRpc(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift), conf)
+      startRpcServer(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift), conf)
     
     if conf.rest:
       startRestServer(node, conf.restAddress, Port(conf.restPort + conf.portsShift), conf)
