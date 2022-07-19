@@ -6,6 +6,7 @@ import
   stew/shims/net as stewNet,
   stew/byteutils,
   eth/keys,
+  nimcrypto,
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
   libp2p/protocols/ping,
@@ -20,10 +21,10 @@ import
   ../protocol/waku_lightpush/waku_lightpush,
   ../protocol/waku_rln_relay/[waku_rln_relay_types], 
   ../utils/[peers, requests, wakuswitch, wakuenr],
-  ./storage/migration/migration_types,
   ./peer_manager/peer_manager,
   ./dnsdisc/waku_dnsdisc,
-  ./discv5/waku_discv5
+  ./discv5/waku_discv5,
+  wakunode2_types
 
 export
   builders,
@@ -32,14 +33,11 @@ export
   waku_swap,
   waku_filter,
   waku_lightpush,
-  waku_rln_relay_types
+  waku_rln_relay_types,
+  wakunode2_types
 
 when defined(rln):
-  import
-    libp2p/protocols/pubsub/rpc/messages,
-    libp2p/protocols/pubsub/pubsub,
-    web3,
-    ../protocol/waku_rln_relay/[rln, waku_rln_relay_utils]
+  import ../protocol/waku_rln_relay/waku_rln_relay_utils
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicGauge waku_node_filters, "number of content filter subscriptions"
@@ -57,41 +55,6 @@ const defaultTopic* = "/waku/2/default-waku/proto"
 
 # Default Waku Filter Timeout
 const WakuFilterTimeout: Duration = 1.days
-
-
-# key and crypto modules different
-type
-  KeyPair* = crypto.KeyPair
-  PublicKey* = crypto.PublicKey
-  PrivateKey* = crypto.PrivateKey
-
-  # XXX: Weird type, should probably be using pubsub Topic object name?
-  Topic* = string
-  Message* = seq[byte]
-
-  WakuInfo* = object
-    # NOTE One for simplicity, can extend later as needed
-    listenAddresses*: seq[string]
-    enrUri*: string
-    #multiaddrStrings*: seq[string]
-
-  # NOTE based on Eth2Node in NBC eth2_network.nim
-  WakuNode* = ref object of RootObj
-    peerManager*: PeerManager
-    switch*: Switch
-    wakuRelay*: WakuRelay
-    wakuStore*: WakuStore
-    wakuFilter*: WakuFilter
-    wakuSwap*: WakuSwap
-    wakuRlnRelay*: WakuRLNRelay
-    wakuLightPush*: WakuLightPush
-    enr*: enr.Record
-    libp2pPing*: Ping
-    filters*: Filters
-    rng*: ref BrHmacDrbgContext
-    wakuDiscv5*: WakuDiscoveryV5
-    announcedAddresses* : seq[MultiAddress]
-    started*: bool # Indicates that node has started listening
 
 proc protocolMatcher(codec: string): Matcher =
   ## Returns a protocol matcher function for the provided codec
@@ -483,173 +446,17 @@ proc mountSwap*(node: WakuNode, swapConfig: SwapConfig = SwapConfig.init()) {.ra
   # NYI - Do we need this?
   #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
 
-proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: bool = false, capacity = DefaultStoreCapacity) {.raises: [Defect, LPError].} =
+proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: bool = false, capacity = DefaultStoreCapacity, isSqliteOnly = false) {.raises: [Defect, LPError].} =
   info "mounting store"
 
   if node.wakuSwap.isNil:
     debug "mounting store without swap"
-    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, persistMessages=persistMessages, capacity=capacity)
+    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, persistMessages=persistMessages, capacity=capacity, isSqliteOnly=isSqliteOnly)
   else:
     debug "mounting store with swap"
-    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, node.wakuSwap, persistMessages=persistMessages, capacity=capacity)
+    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, node.wakuSwap, persistMessages=persistMessages, capacity=capacity, isSqliteOnly=isSqliteOnly)
 
   node.switch.mount(node.wakuStore, protocolMatcher(WakuStoreCodec))
-    
-when defined(rln):
-  proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string, contentTopic: ContentTopic, spamHandler: Option[SpamHandler] = none(SpamHandler)) =
-    ## this procedure is a thin wrapper for the pubsub addValidator method
-    ## it sets a validator for the waku messages published on the supplied pubsubTopic and contentTopic 
-    ## if contentTopic is empty, then validation takes place for All the messages published on the given pubsubTopic
-    ## the message validation logic is according to https://rfc.vac.dev/spec/17/
-    proc validator(topic: string, message: messages.Message): Future[pubsub.ValidationResult] {.async.} =
-      trace "rln-relay topic validator is called"
-      let msg = WakuMessage.init(message.data) 
-      if msg.isOk():
-        let 
-          wakumessage = msg.value()
-          payload = string.fromBytes(wakumessage.payload)
-
-        # check the contentTopic
-        if (wakumessage.contentTopic != "") and (contentTopic != "") and (wakumessage.contentTopic != contentTopic):
-          trace "content topic did not match:", contentTopic=wakumessage.contentTopic, payload=payload
-          return pubsub.ValidationResult.Accept
-
-        # validate the message
-        let 
-          validationRes = node.wakuRlnRelay.validateMessage(wakumessage)
-          proof = toHex(wakumessage.proof.proof)
-          epoch = fromEpoch(wakumessage.proof.epoch)
-          root = toHex(wakumessage.proof.merkleRoot)
-          shareX = toHex(wakumessage.proof.shareX)
-          shareY = toHex(wakumessage.proof.shareY)
-          nullifier = toHex(wakumessage.proof.nullifier)
-        case validationRes:
-          of Valid:
-            debug "message validity is verified, relaying:",  contentTopic=wakumessage.contentTopic, epoch=epoch, timestamp=wakumessage.timestamp, payload=payload
-            trace "message validity is verified, relaying:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
-            return pubsub.ValidationResult.Accept
-          of Invalid:
-            debug "message validity could not be verified, discarding:", contentTopic=wakumessage.contentTopic, epoch=epoch, timestamp=wakumessage.timestamp, payload=payload
-            trace "message validity could not be verified, discarding:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
-            return pubsub.ValidationResult.Reject
-          of Spam:
-            debug "A spam message is found! yay! discarding:", contentTopic=wakumessage.contentTopic, epoch=epoch, timestamp=wakumessage.timestamp, payload=payload
-            trace "A spam message is found! yay! discarding:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
-            if spamHandler.isSome:
-               let handler = spamHandler.get
-               handler(wakumessage)
-            return pubsub.ValidationResult.Reject          
-    # set a validator for the supplied pubsubTopic 
-    let pb  = PubSub(node.wakuRelay)
-    pb.addValidator(pubsubTopic, validator)
-
-  proc mountRlnRelay*(node: WakuNode,
-                      ethClientAddrOpt: Option[string] = none(string),
-                      ethAccAddrOpt: Option[web3.Address] = none(web3.Address),
-                      memContractAddOpt:  Option[web3.Address] = none(web3.Address),
-                      groupOpt: Option[seq[IDCommitment]] = none(seq[IDCommitment]),
-                      memKeyPairOpt: Option[MembershipKeyPair] = none(MembershipKeyPair),
-                      memIndexOpt: Option[MembershipIndex] = none(MembershipIndex),
-                      onchainMode: bool = true,
-                      pubsubTopic: string,
-                      contentTopic: ContentTopic,
-                      spamHandler: Option[SpamHandler] = none(SpamHandler)) {.async.} =
-    # TODO return a bool value to indicate the success of the call
-    # check whether inputs are provided
-
-    # relay protocol is the prerequisite of rln-relay
-    if node.wakuRelay.isNil:
-      error "Failed to mount WakuRLNRelay. Relay protocol is not mounted."
-      return
-    # check whether the pubsub topic is supported at the relay level
-    if pubsubTopic notin node.wakuRelay.defaultTopics:
-      error "Failed to mount WakuRLNRelay. The relay protocol does not support the configured pubsub topic.", pubsubTopic=pubsubTopic
-      return
-    if onchainMode:
-      if memContractAddOpt.isNone():
-        error "failed to mount rln relay: membership contract address is not provided"
-        return
-      if ethClientAddrOpt.isNone():
-        error "failed to mount rln relay: Ethereum client address is not provided"
-        return
-      if ethAccAddrOpt.isNone():
-        error "failed to mount rln relay: Ethereum account address is not provided"
-        return
-    else:
-      if groupOpt.isNone():
-        error "failed to mount rln relay:  group information is not provided"
-        return
-
-    if memKeyPairOpt.isNone():
-      error "failed to mount rln relay: membership key of the node is not provided"
-      return
-    if memIndexOpt.isNone():
-      error "failed to mount rln relay:  membership index is not provided"
-      return
-    
-    var 
-      ethClientAddr: string 
-      ethAccAddr: web3.Address
-      memContractAdd: web3.Address
-    if onchainMode:
-      ethClientAddr = ethClientAddrOpt.get()
-      ethAccAddr = ethAccAddrOpt.get()
-      memContractAdd = memContractAddOpt.get()
-
-    let 
-      group = groupOpt.get()
-      memKeyPair = memKeyPairOpt.get()
-      memIndex = memIndexOpt.get()
-
-    # check the peer's index and the inclusion of user's identity commitment in the group
-    doAssert((memKeyPair.idCommitment)  == group[int(memIndex)])
-
-    # create an RLN instance
-    var rlnInstance = createRLNInstance()
-    doAssert(rlnInstance.isOk)
-    var rln = rlnInstance.value
-
-    # generate the membership keys if none is provided
-    # in a happy path, this condition never gets through for a static group of users
-    # the node should pass its keys i.e., memKeyPairOpt to the function
-    if not memKeyPairOpt.isSome:
-      let membershipKeyPair = rln.membershipKeyGen()
-      # check whether keys are generated
-      doAssert(membershipKeyPair.isSome())
-      debug "the membership key for the rln relay is generated", idKey=membershipKeyPair.get().idKey.toHex, idCommitment=membershipKeyPair.get().idCommitment.toHex
-
-
-    # add members to the Merkle tree
-    for index in 0..group.len-1:
-      let member = group[index]
-      let member_is_added = rln.insertMember(member)
-      doAssert(member_is_added)
-    
-
-    # create the WakuRLNRelay
-    var rlnPeer = WakuRLNRelay(membershipKeyPair: memKeyPair,
-      membershipIndex: memIndex,
-      membershipContractAddress: memContractAdd,
-      ethClientAddress: ethClientAddr,
-      ethAccountAddress: ethAccAddr,
-      rlnInstance: rln,
-      pubsubTopic: pubsubTopic,
-      contentTopic: contentTopic)
-
-    if onchainMode:
-      # register the rln-relay peer to the membership contract
-      let isSuccessful = await rlnPeer.register()
-      # check whether registration is done
-      doAssert(isSuccessful)
-      debug "peer is successfully registered into the membership contract"
-
-    # adds a topic validator for the supplied pubsub topic at the relay protocol
-    # messages published on this pubsub topic will be relayed upon a successful validation, otherwise they will be dropped
-    # the topic validator checks for the correct non-spamming proof of the message
-    addRLNRelayValidator(node, pubsubTopic, contentTopic, spamHandler)
-    debug "rln relay topic validator is mounted successfully", pubsubTopic=pubsubTopic, contentTopic=contentTopic
-
-    node.wakuRlnRelay = rlnPeer
 
 
 proc startRelay*(node: WakuNode) {.async.} =
@@ -983,7 +790,11 @@ when isMainModule:
     libp2p/nameresolving/dnsresolver,
     ../../common/utils/nat,
     ./config,
-    ./waku_setup,
+    ./wakunode2_setup,
+    ./wakunode2_setup_rest,
+    ./wakunode2_setup_metrics,
+    ./wakunode2_setup_rpc,
+    ./wakunode2_setup_sql_migrations,
     ./storage/message/waku_message_store,
     ./storage/peer/waku_peer_storage
   
@@ -1034,7 +845,7 @@ when isMainModule:
       
       if conf.persistMessages:
         # Historical message persistence enable. Set up Message table in storage
-        let res = WakuMessageStore.init(sqliteDatabase, conf.storeCapacity)
+        let res = WakuMessageStore.init(sqliteDatabase, conf.storeCapacity, conf.sqliteStore, conf.sqliteRetentionTime)
 
         if res.isErr:
           warn "failed to init WakuMessageStore", err = res.error
@@ -1207,37 +1018,15 @@ when isMainModule:
     
     when defined(rln): 
       if conf.rlnRelay:
-        info "WakuRLNRelay is enabled"
-
-        # set up rln relay inputs
-        let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(conf.rlnRelayMemIndex)
-        if memIndexOpt.isNone:
-          error "failed to mount WakuRLNRelay"
-        else:
-          # mount rlnrelay in offline mode (for now)
-          waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
-
-          info "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
-          info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
-
-          # check the correct construction of the tree by comparing the calculated root against the expected root
-          # no error should happen as it is already captured in the unit tests
-          # TODO have added this check to account for unseen corner cases, will remove it later 
-          let 
-            root = node.wakuRlnRelay.rlnInstance.getMerkleRoot.value.toHex() 
-            expectedRoot = STATIC_GROUP_MERKLE_ROOT
-          if root != expectedRoot:
-            error "root mismatch: something went wrong not in Merkle tree construction"
-          debug "the calculated root", root
-          info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
-
+        node.mountRlnRelay(conf)
+    
     if conf.swap:
       mountSwap(node)
       # TODO Set swap peer, for now should be same as store peer
 
     # Store setup
     if (conf.storenode != "") or (conf.store):
-      mountStore(node, mStorage, conf.persistMessages, conf.storeCapacity)
+      mountStore(node, mStorage, conf.persistMessages, conf.storeCapacity, conf.sqliteStore)
 
       if conf.storenode != "":
         setStorePeer(node, conf.storenode)
@@ -1293,11 +1082,14 @@ when isMainModule:
   # 6/7 Start monitoring tools and external interfaces
   proc startExternal(node: WakuNode, conf: WakuNodeConf): SetupResult[bool] =
     ## Start configured external interfaces and monitoring tools
-    ## on a Waku v2 node, including the RPC API and metrics
+    ## on a Waku v2 node, including the RPC API, REST API and metrics
     ## monitoring ports.
     
     if conf.rpc:
-      startRpc(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift), conf)
+      startRpcServer(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift), conf)
+    
+    if conf.rest:
+      startRestServer(node, conf.restAddress, Port(conf.restPort + conf.portsShift), conf)
 
     if conf.metricsLogging:
       startMetricsLog()

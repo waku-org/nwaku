@@ -6,7 +6,8 @@ import
   web3,
   eth/keys,
   libp2p/protobuf/minprotobuf,
-  stew/arrayops
+  stew/arrayops,
+  ../../utils/protobuf
 
 ## Bn256 and RLN are Nim wrappers for the data types used in
 ## the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
@@ -74,7 +75,7 @@ type WakuRLNRelay* = ref object
   # this field is required for signing transactions
   # TODO may need to erase this ethAccountPrivateKey when is not used
   # TODO may need to make ethAccountPrivateKey mandatory
-  ethAccountPrivateKey*: Option[PrivateKey]
+  ethAccountPrivateKey*: PrivateKey
   rlnInstance*: RLN[Bn256]
   pubsubTopic*: string # the pubsub topic for which rln relay is mounted
                        # contentTopic should be of type waku_message.ContentTopic, however, due to recursive module dependency, the underlying type of ContentTopic is used instead
@@ -89,8 +90,8 @@ type MessageValidationResult* {.pure.} = enum
 # inputs of the membership contract constructor
 # TODO may be able to make these constants private and put them inside the waku_rln_relay_utils
 const
-  MEMBERSHIP_FEE* = 5.u256
-  #  the current implementation of the rln lib only supports a circuit for Merkle tree with depth 32
+  MEMBERSHIP_FEE* = 1000000000000000.u256
+  #  the current implementation of the rln lib supports a circuit for Merkle tree with depth 20
   MERKLE_TREE_DEPTH* = 20
   # TODO the ETH_CLIENT should be an input to the rln-relay, though hardcoded for now
   # the current address is the address of ganache-cli when run locally
@@ -355,11 +356,13 @@ proc init*(T: type RateLimitProof, buffer: seq[byte]): ProtoResult[T] =
 proc encode*(nsp: RateLimitProof): ProtoBuffer =
   var output = initProtoBuffer()
 
-  output.write(1, nsp.proof)
-  output.write(2, nsp.merkleRoot)
-  output.write(3, nsp.epoch)
-  output.write(4, nsp.shareX)
-  output.write(5, nsp.shareY)
-  output.write(6, nsp.nullifier)
+  output.write3(1, nsp.proof)
+  output.write3(2, nsp.merkleRoot)
+  output.write3(3, nsp.epoch)
+  output.write3(4, nsp.shareX)
+  output.write3(5, nsp.shareY)
+  output.write3(6, nsp.nullifier)
+
+  output.finish3()
 
   return output

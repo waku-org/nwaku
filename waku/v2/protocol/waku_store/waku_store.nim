@@ -7,7 +7,7 @@
 # Group by std, external then internal imports
 import
   # std imports
-  std/[tables, times, sequtils, algorithm, options, math],
+  std/[tables, times, sequtils, options, math],
   # external imports
   bearssl,
   chronicles,
@@ -22,6 +22,7 @@ import
   # internal imports
   ../../node/storage/message/message_store,
   ../../node/peer_manager/peer_manager,
+  ../../utils/protobuf,
   ../../utils/requests,
   ../../utils/time,
   ../waku_swap/waku_swap,
@@ -34,7 +35,8 @@ export
   bearssl,
   minprotobuf,
   peer_manager,
-  waku_store_types
+  waku_store_types,
+  message_store
 
 declarePublicGauge waku_store_messages, "number of historical messages", ["type"]
 declarePublicGauge waku_store_peers, "number of store peers"
@@ -55,6 +57,18 @@ const
 
 # TODO Move serialization function to separate file, too noisy
 # TODO Move pagination to separate file, self-contained logic
+
+type
+  WakuStore* = ref object of LPProtocol
+    peerManager*: PeerManager
+    rng*: ref BrHmacDrbgContext
+    messages*: StoreQueueRef # in-memory message store
+    store*: MessageStore  # sqlite DB handle
+    wakuSwap*: WakuSwap
+    persistMessages*: bool
+    #TODO: WakuMessageStore currenly also holds isSqliteOnly; put it in single place.
+    isSqliteOnly: bool # if true, don't use in memory-store and answer history queries from the sqlite DB
+
 
 proc computeIndex*(msg: WakuMessage,
                    receivedTime = getNanosecondTime(getTime().toUnixFloat()),
@@ -85,10 +99,12 @@ proc encode*(index: Index): ProtoBuffer =
   var output = initProtoBuffer()
 
   # encodes index
-  output.write(1, index.digest.data)
-  output.write(2, zint64(index.receiverTime))
-  output.write(3, zint64(index.senderTime))
-  output.write(4, index.pubsubTopic)
+  output.write3(1, index.digest.data)
+  output.write3(2, zint64(index.receiverTime))
+  output.write3(3, zint64(index.senderTime))
+  output.write3(4, index.pubsubTopic)
+
+  output.finish3()
 
   return output
 
@@ -100,9 +116,11 @@ proc encode*(pinfo: PagingInfo): ProtoBuffer =
   var output = initProtoBuffer()
 
   # encodes pinfo
-  output.write(1, pinfo.pageSize)
-  output.write(2, pinfo.cursor.encode())
-  output.write(3, uint32(ord(pinfo.direction)))
+  output.write3(1, pinfo.pageSize)
+  output.write3(2, pinfo.cursor.encode())
+  output.write3(3, uint32(ord(pinfo.direction)))
+
+  output.finish3()
 
   return output
 
@@ -230,21 +248,24 @@ proc init*(T: type HistoryRPC, buffer: seq[byte]): ProtoResult[T] =
 
 proc encode*(filter: HistoryContentFilter): ProtoBuffer =
   var output = initProtoBuffer()
-  output.write(1, filter.contentTopic)
+  output.write3(1, filter.contentTopic)
+  output.finish3()
   return output
 
 proc encode*(query: HistoryQuery): ProtoBuffer =
   var output = initProtoBuffer()
   
-  output.write(2, query.pubsubTopic)
+  output.write3(2, query.pubsubTopic)
 
   for filter in query.contentFilters:
-    output.write(3, filter.encode())
+    output.write3(3, filter.encode())
 
-  output.write(4, query.pagingInfo.encode())
+  output.write3(4, query.pagingInfo.encode())
 
-  output.write(5, zint64(query.startTime))
-  output.write(6, zint64(query.endTime))
+  output.write3(5, zint64(query.startTime))
+  output.write3(6, zint64(query.endTime))
+
+  output.finish3()
 
   return output
 
@@ -252,20 +273,24 @@ proc encode*(response: HistoryResponse): ProtoBuffer =
   var output = initProtoBuffer()
 
   for msg in response.messages:
-    output.write(2, msg.encode())
+    output.write3(2, msg.encode())
 
-  output.write(3, response.pagingInfo.encode())
+  output.write3(3, response.pagingInfo.encode())
 
-  output.write(4, uint32(ord(response.error)))
+  output.write3(4, uint32(ord(response.error)))
+
+  output.finish3()
 
   return output
 
 proc encode*(rpc: HistoryRPC): ProtoBuffer =
   var output = initProtoBuffer()
 
-  output.write(1, rpc.requestId)
-  output.write(2, rpc.query.encode())
-  output.write(3, rpc.response.encode())
+  output.write3(1, rpc.requestId)
+  output.write3(2, rpc.query.encode())
+  output.write3(3, rpc.response.encode())
+
+  output.finish3()
 
   return output
 
@@ -316,7 +341,10 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse {.gcsafe.}
 
   let
     # Read a page of history matching the query
-    (wakuMsgList, updatedPagingInfo, error) = w.messages.getPage(matchesQuery, query.pagingInfo)
+    (wakuMsgList, updatedPagingInfo, error) =
+      if w.isSqliteOnly:  w.store.getPage(matchesQuery, query.pagingInfo).expect("should return a valid result set") # TODO: error handling
+      else: w.messages.getPage(matchesQuery, query.pagingInfo)
+
     # Build response
     historyRes = HistoryResponse(messages: wakuMsgList, pagingInfo: updatedPagingInfo, error: error)
   
@@ -363,6 +391,10 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
   if ws.store.isNil:
     return
 
+  if ws.isSqliteOnly:
+    info "SQLite-only store initialized. Messages are *not* loaded into memory."
+    return
+
   proc onData(receiverTime: Timestamp, msg: WakuMessage, pubsubTopic:  string) =
     # TODO index should not be recalculated
     discard ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex(receiverTime, pubsubTopic), pubsubTopic: pubsubTopic))
@@ -382,9 +414,9 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
 
 proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgContext,
            store: MessageStore = nil, wakuSwap: WakuSwap = nil, persistMessages = true,
-           capacity = DefaultStoreCapacity): T =
+           capacity = DefaultStoreCapacity, isSqliteOnly = false): T =
   debug "init"
-  var output = WakuStore(rng: rng, peerManager: peerManager, store: store, wakuSwap: wakuSwap, persistMessages: persistMessages)
+  var output = WakuStore(rng: rng, peerManager: peerManager, store: store, wakuSwap: wakuSwap, persistMessages: persistMessages, isSqliteOnly: isSqliteOnly)
   output.init(capacity)
   return output
 
@@ -398,18 +430,21 @@ proc handleMessage*(w: WakuStore, topic: string, msg: WakuMessage) {.async.} =
     # Store is mounted but new messages should not be stored
     return
 
-  # Handle WakuMessage according to store protocol
-  trace "handle message in WakuStore", topic=topic, msg=msg
-
   let index = msg.computeIndex(pubsubTopic = topic)
-  let addRes = w.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: topic))
+
+  # add message to in-memory store
+  if not w.isSqliteOnly:
+    # Handle WakuMessage according to store protocol
+    trace "handle message in WakuStore", topic=topic, msg=msg
+
+    let addRes = w.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: topic))
   
-  if addRes.isErr:
-    trace "Attempt to add message to store failed", msg=msg, index=index, err=addRes.error()
-    waku_store_errors.inc(labelValues = [$(addRes.error())])
-    return # Do not attempt to store in persistent DB
+    if addRes.isErr:
+      trace "Attempt to add message to store failed", msg=msg, index=index, err=addRes.error()
+      waku_store_errors.inc(labelValues = [$(addRes.error())])
+      return # Do not attempt to store in persistent DB
   
-  waku_store_messages.set(w.messages.len.int64, labelValues = ["stored"])
+    waku_store_messages.set(w.messages.len.int64, labelValues = ["stored"])
   
   if w.store.isNil:
     return

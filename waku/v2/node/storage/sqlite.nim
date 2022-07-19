@@ -172,8 +172,53 @@ proc exec*[P](s: SqliteStmt[P, void], params: P): DatabaseResult[void] =
 
   res
 
+template readResult(s: RawStmtPtr, column: cint, T: type): auto =
+  when T is Option:
+    if sqlite3_column_type(s, column) == SQLITE_NULL:
+      none(typeof(default(T).get()))
+    else:
+      some(readSimpleResult(s, column, typeof(default(T).get())))
+  else:
+    readSimpleResult(s, column, T)
+
+template readResult(s: RawStmtPtr, T: type): auto =
+  when T is tuple:
+    var res: T
+    var i = cint 0
+    for field in fields(res):
+      field = readResult(s, i, typeof(field))
+      inc i
+    res
+  else:
+    readResult(s, 0.cint, T)
+
 type 
-  DataProc* = proc(s: ptr sqlite3_stmt) {.closure.}
+  DataProc* = proc(s: ptr sqlite3_stmt) {.closure.} # the nim-eth definition is different; one more indirection
+
+proc exec*[Params, Res](s: SqliteStmt[Params, Res],
+                        params: Params,
+                        onData: DataProc): DatabaseResult[bool] =
+  let s = RawStmtPtr s
+  bindParams(s, params)
+
+  try:
+    var gotResults = false
+    while true:
+      let v = sqlite3_step(s)
+      case v
+      of SQLITE_ROW:
+        onData(s)
+        gotResults = true
+      of SQLITE_DONE:
+        break
+      else:
+        return err($sqlite3_errstr(v))
+    return ok gotResults
+  finally:
+    # release implicit transaction
+    discard sqlite3_reset(s) # same return information as step
+    discard sqlite3_clear_bindings(s) # no errors possible
+
 
 proc query*(db: SqliteDatabase, query: string, onData: DataProc): DatabaseResult[bool] =
   var s = prepare(db.env, query): discard

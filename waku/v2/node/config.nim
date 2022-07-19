@@ -129,6 +129,41 @@ type
       defaultValue: "/toy-chat/2/luzhou/proto"
       name: "rln-relay-content-topic" }: ContentTopic
     
+    rlnRelayDynamic* {.
+      desc: "Enable  waku-rln-relay with on-chain dynamic group management: true|false",
+      defaultValue: false
+      name: "rln-relay-dynamic" }: bool
+  
+    rlnRelayIdKey* {.
+      desc: "Rln relay identity secret key as a Hex string", 
+      defaultValue: ""
+      name: "rln-relay-id" }: string
+    
+    rlnRelayIdCommitmentKey* {.
+      desc: "Rln relay identity commitment key as a Hex string", 
+      defaultValue: ""
+      name: "rln-relay-id-commitment" }: string
+  
+    rlnRelayEthAccount* {.
+      desc: "Account address for the Ethereum testnet Goerli", 
+      defaultValue: ""
+      name: "eth-account-address" }: string
+
+    rlnRelayEthAccountPrivKey* {.
+      desc: "Account private key for the Ethereum testnet Goerli",
+      defaultValue: ""
+      name: "eth-account-privatekey" }: string
+    
+    rlnRelayEthClientAddress* {.
+      desc: "Ethereum testnet client address e.g., ws://localhost:8540/",
+      defaultValue: "ws://localhost:8540/"
+      name: "eth-client-address" }: string
+    
+    rlnRelayEthMemContractAddress* {.
+      desc: "Address of membership contract on an Ethereum testnet", 
+      defaultValue: ""
+      name: "eth-mem-contract-address" }: string
+    
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
       name: "staticnode" }: seq[string]
@@ -160,6 +195,16 @@ type
       defaultValue: 50000
       name: "store-capacity" }: int
     
+    sqliteStore* {.
+      desc: "Enable sqlite-only store: true|false",
+      defaultValue: false
+      name: "sqlite-store" }: bool
+
+    sqliteRetentionTime* {.
+      desc: "time the sqlite-only store keeps messages (in seconds)",
+      defaultValue: 30.days.seconds
+      name: "sqlite-retention-time" }: int64 # TODO: Duration
+
     ## Filter config
 
     filter* {.
@@ -222,6 +267,38 @@ type
       desc: "Enable access to JSON-RPC Private API: true|false",
       defaultValue: false
       name: "rpc-private" }: bool
+
+    ## REST HTTP config
+
+    rest* {.
+      desc: "Enable Waku REST HTTP server: true|false",
+      defaultValue: false
+      name: "rest" }: bool
+
+    restAddress* {.
+      desc: "Listening address of the REST HTTP server.",
+      defaultValue: ValidIpAddress.init("127.0.0.1")
+      name: "rest-address" }: ValidIpAddress
+
+    restPort* {.
+      desc: "Listening port of the REST HTTP server.",
+      defaultValue: 8645
+      name: "rest-port" }: uint16
+
+    restRelayCacheCapaciy* {.
+      desc: "Capacity of the Relay REST API message cache.",
+      defaultValue: 30
+      name: "rest-relay-cache-capacity" }: uint32
+
+    restAdmin* {.
+      desc: "Enable access to REST HTTP Admin API: true|false",
+      defaultValue: false
+      name: "rest-admin" }: bool
+    
+    restPrivate* {.
+      desc: "Enable access to REST HTTP Private API: true|false",
+      defaultValue: false
+      name: "rest-private" }: bool
     
     ## Metrics config
 

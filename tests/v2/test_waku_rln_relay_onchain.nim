@@ -3,11 +3,12 @@
 {.used.}
 
 import
-  std/options, sequtils, times,
+  std/options,
   testutils/unittests, chronos, chronicles, stint, web3, json,
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
-  ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils,
+  eth/keys,
+  ../../waku/v2/protocol/waku_rln_relay/[waku_rln_relay_utils,
       waku_rln_relay_types, rln_relay_contract],
   ../../waku/v2/node/wakunode2,
   ../test_helpers,
@@ -74,6 +75,31 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
   debug "disconnected from ", ethClientAddress
 
   return contractAddress
+
+
+proc createEthAccount(): Future[(keys.PrivateKey, Address)] {.async.} =
+  let theRNG = keys.newRng()
+
+  let web3 = await newWeb3(ETH_CLIENT)
+  let accounts = await web3.provider.eth_accounts()
+  let gasPrice = int(await web3.provider.eth_gasPrice())
+  web3.defaultAccount = accounts[0]
+
+  let pk = keys.PrivateKey.random(theRNG[])
+  let acc = Address(toCanonicalAddress(pk.toPublicKey()))
+
+  var tx: EthSend
+  tx.source = accounts[0]
+  tx.value = some(ethToWei(10.u256))
+  tx.to = some(acc)
+  tx.gasPrice = some(gasPrice)
+
+  # Send 10 eth to acc
+  discard await web3.send(tx)
+  var balance = await web3.provider.eth_getBalance(acc, "latest")
+  assert(balance == ethToWei(10.u256))
+
+  return (pk, acc)
 
 procSuite "Waku-rln-relay":
   asyncTest "event subscription":
@@ -155,7 +181,6 @@ procSuite "Waku-rln-relay":
       rlnInstance.isOk == true
     var rln = rlnInstance.value
 
-    # create rln membership key pair 
     let keyPair = rln.membershipKeyGen()
     check: 
       keyPair.isSome
@@ -260,12 +285,16 @@ procSuite "Waku-rln-relay":
     check: 
       membershipKeyPair.isSome
 
+    # create an Ethereum private key and the corresponding account 
+    let (ethPrivKey, ethacc) = await createEthAccount()
+
     # test ------------------------------
     # initialize the WakuRLNRelay
     var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
       membershipIndex: MembershipIndex(0),
       ethClientAddress: ETH_CLIENT,
-      ethAccountAddress: ethAccountAddress,
+      ethAccountPrivateKey: ethPrivKey,
+      ethAccountAddress: ethacc,
       membershipContractAddress: contractAddress)
 
     # register the rln-relay peer to the membership contract
@@ -273,24 +302,14 @@ procSuite "Waku-rln-relay":
     check: 
       is_successful
 
-  asyncTest "mounting waku rln-relay":
+
+  asyncTest "mounting waku rln-relay: check correct Merkle tree construction in the static/off-chain group management":
     # preparation ------------------------------
     let
       nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"),
         Port(60000))
     await node.start()
-
-    # deploy the contract
-    let membershipContractAddress = await uploadRLNContract(ETH_CLIENT)
-
-    # prepare rln-relay inputs
-    let
-      web3 = await newWeb3(ETH_CLIENT)
-      accounts = await web3.provider.eth_accounts()
-      # choose one of the existing account for the rln-relay peer
-      ethAccountAddress = accounts[0]
-    await web3.close()
 
     # create current peer's pk
     var rlnInstance = createRLNInstance()
@@ -321,18 +340,16 @@ procSuite "Waku-rln-relay":
         member_is_added = rln.insertMember(memberKeypair.get().idCommitment)
         doAssert(member_is_added)
         debug "member key", key = memberKeypair.get().idCommitment.toHex
+
     let expectedRoot = rln.getMerkleRoot().value().toHex
     debug "expected root ", expectedRoot
 
     # test ------------------------------
     # start rln-relay
     node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
-    await node.mountRlnRelay(ethClientAddrOpt = some(EthClient),
-                            ethAccAddrOpt = some(ethAccountAddress),
-                            memContractAddOpt = some(membershipContractAddress),
-                            groupOpt = some(group),
-                            memKeyPairOpt = some(keypair.get()),
-                            memIndexOpt = some(index),
+    node.mountRlnRelayStatic(group = group,
+                            memKeyPair = keypair.get(),
+                            memIndex = index,
                             pubsubTopic = RLNRELAY_PUBSUB_TOPIC,
                             contentTopic = RLNRELAY_CONTENT_TOPIC)
     let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
@@ -342,3 +359,156 @@ procSuite "Waku-rln-relay":
       expectedRoot == calculatedRoot
 
     await node.stop()
+  
+  asyncTest "mounting waku rln-relay: check correct Merkle tree construction in the dynamic/onchain group management":
+    # preparation ------------------------------
+    let
+      nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(60000))
+    await node.start()
+
+    # deploy the contract
+    let contractAddress = await uploadRLNContract(ETH_CLIENT)
+
+    # prepare rln-relay inputs
+    let
+      web3 = await newWeb3(ETH_CLIENT)
+      accounts = await web3.provider.eth_accounts()
+      # choose one of the existing accounts for the rln-relay peer
+      ethAccountAddress = accounts[0]
+    web3.defaultAccount = accounts[0]
+    
+  
+
+    # create an rln instance
+    var rlnInstance = createRLNInstance()
+    check:
+      rlnInstance.isOk == true
+    var rln = rlnInstance.value
+
+    # create two rln key pairs
+    let 
+      keyPair1 = rln.membershipKeyGen()
+      keyPair2 = rln.membershipKeyGen()
+    check: 
+      keyPair1.isSome
+      keyPair2.isSome
+    let 
+      pk1 = keyPair1.get().idCommitment.toUInt256() 
+      pk2 = keyPair2.get().idCommitment.toUInt256() 
+    debug "member key1", key = keyPair1.get().idCommitment.toHex
+    debug "member key2", key = keyPair2.get().idCommitment.toHex
+
+    # add the rln keys to the Merkle tree
+    let
+      member_is_added1 = rln.insertMember(keyPair1.get().idCommitment)
+      member_is_added2 = rln.insertMember(keyPair2.get().idCommitment)
+    doAssert(member_is_added1)
+    doAssert(member_is_added2)
+    
+    #  get the Merkle root
+    let expectedRoot = rln.getMerkleRoot().value().toHex
+    
+    # prepare a contract sender to interact with it
+    var contractObj = web3.contractSender(MembershipContract,
+      contractAddress) # creates a Sender object with a web3 field and contract address of type Address
+
+    # register the members to the contract
+    let tx1Hash = await contractObj.register(pk1).send(value = MEMBERSHIP_FEE)
+    debug "a member is registered", tx1 = tx1Hash
+
+    # register another member to the contract
+    let tx2Hash = await contractObj.register(pk2).send(value = MEMBERSHIP_FEE)
+    debug "a member is registered", tx2 = tx2Hash
+
+     # create an Ethereum private key and the corresponding account 
+    let (ethPrivKey, ethacc) = await createEthAccount()
+
+
+    # test ------------------------------
+    # start rln-relay
+    node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
+    await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
+                            ethAccAddr = ethacc,
+                            ethAccountPrivKey = ethPrivKey,
+                            memContractAddr = contractAddress, 
+                            memKeyPair = keyPair1,
+                            memIndex = some(MembershipIndex(0)),
+                            pubsubTopic = RLNRELAY_PUBSUB_TOPIC,
+                            contentTopic = RLNRELAY_CONTENT_TOPIC)
+    
+    await sleepAsync(2000) # wait for the event to reach the group handler
+
+    # rln pks are inserted into the rln peer's Merkle tree and the resulting root
+    # is expected to be the same as the calculatedRoot i.e., the one calculated outside of the mountRlnRelayDynamic proc
+    let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
+    debug "calculated root ", calculatedRoot=calculatedRoot
+    debug "expected root ", expectedRoot=expectedRoot
+
+    check:
+      expectedRoot == calculatedRoot  
+
+
+    await web3.close()
+    await node.stop()
+
+  asyncTest "mounting waku rln-relay: check correct registration of peers without rln-relay credentials in dynamic/on-chain mode":
+    # deploy the contract
+    let contractAddress = await uploadRLNContract(ETH_CLIENT)
+
+    # prepare rln-relay inputs
+    let
+      web3 = await newWeb3(ETH_CLIENT)
+      accounts = await web3.provider.eth_accounts()
+      # choose two of the existing accounts for the rln-relay peers
+      ethAccountAddress1 = accounts[0]
+      ethAccountAddress2 = accounts[1]
+    await web3.close()
+
+    # prepare two nodes
+    let
+      nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(60000))
+    await node.start()
+
+    let
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60001))
+    await node2.start()
+
+     # create an Ethereum private key and the corresponding account 
+    let (ethPrivKey, ethacc) = await createEthAccount()
+
+    # start rln-relay on the first node, leave rln-relay credentials empty
+    node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
+    await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
+                            ethAccAddr = ethacc,
+                            ethAccountPrivKey = ethPrivKey,
+                            memContractAddr = contractAddress, 
+                            memKeyPair = none(MembershipKeyPair),
+                            memIndex = none(MembershipIndex),
+                            pubsubTopic = RLNRELAY_PUBSUB_TOPIC,
+                            contentTopic = RLNRELAY_CONTENT_TOPIC)
+    
+
+
+    # start rln-relay on the second node, leave rln-relay credentials empty
+    node2.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
+    await node2.mountRlnRelayDynamic(ethClientAddr = EthClient,
+                            ethAccAddr = ethacc,
+                            ethAccountPrivKey = ethPrivKey,
+                            memContractAddr = contractAddress, 
+                            memKeyPair = none(MembershipKeyPair),
+                            memIndex = none(MembershipIndex),
+                            pubsubTopic = RLNRELAY_PUBSUB_TOPIC,
+                            contentTopic = RLNRELAY_CONTENT_TOPIC)
+
+    # the two nodes should be registered into the contract 
+    # since nodes are spun up sequentially
+    # the first node has index 0 whereas the second node gets index 1
+    check:
+      node.wakuRlnRelay.membershipIndex == MembershipIndex(0)
+      node2.wakuRlnRelay.membershipIndex == MembershipIndex(1)
+
+    await node.stop()
+    await node2.stop()

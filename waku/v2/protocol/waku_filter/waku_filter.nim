@@ -13,6 +13,7 @@ import
   libp2p/crypto/crypto,
   waku_filter_types,
   ../../utils/requests,
+  ../../utils/protobuf,
   ../../node/peer_manager/peer_manager
 
 # NOTE This is just a start, the design of this protocol isn't done yet. It
@@ -77,18 +78,23 @@ proc unsubscribeFilters(subscribers: var seq[Subscriber], request: FilterRequest
 proc encode*(filter: ContentFilter): ProtoBuffer =
   var output = initProtoBuffer()
 
-  output.write(1, filter.contentTopic)
+  output.write3(1, filter.contentTopic)
+
+  output.finish3()
+
   return output
 
 proc encode*(rpc: FilterRequest): ProtoBuffer =
   var output = initProtoBuffer()
   
-  output.write(1, uint64(rpc.subscribe))
+  output.write3(1, uint64(rpc.subscribe))
 
-  output.write(2, rpc.pubSubTopic)
+  output.write3(2, rpc.pubSubTopic)
 
   for filter in rpc.contentFilters:
-    output.write(3, filter.encode())
+    output.write3(3, filter.encode())
+
+  output.finish3()
 
   return output
 
@@ -122,7 +128,9 @@ proc encode*(push: MessagePush): ProtoBuffer =
   var output = initProtoBuffer()
 
   for push in push.messages:
-    output.write(1, push.encode())
+    output.write3(1, push.encode())
+
+  output.finish3()
 
   return output
 
@@ -159,9 +167,11 @@ proc init*(T: type FilterRPC, buffer: seq[byte]): ProtoResult[T] =
 proc encode*(rpc: FilterRPC): ProtoBuffer =
   var output = initProtoBuffer()
 
-  output.write(1, rpc.requestId)
-  output.write(2, rpc.request.encode())
-  output.write(3, rpc.push.encode())
+  output.write3(1, rpc.requestId)
+  output.write3(2, rpc.request.encode())
+  output.write3(3, rpc.push.encode())
+
+  output.finish3()
 
   return output
 
