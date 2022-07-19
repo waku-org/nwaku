@@ -8,11 +8,12 @@ For more context, see https://trunkbaseddevelopment.com/branch-for-release/
 
 ### Before release
 
-1. Ensure all issues under the corresponding release [milestone](https://github.com/status-im/nwaku/milestones) has been closed or, after consultation, deferred to a next release.
-- Check if all submodules are up to date.
+Ensure all items in this list are ticked:
+- [ ] All issues under the corresponding release [milestone](https://github.com/status-im/nwaku/milestones) has been closed or, after consultation, deferred to a next release.
+- [ ] All submodules are up to date.
   > **IMPORTANT:** Updating submodules requires a PR (and very often several "fixes" to maintain compatibility with the changes in submodules). That PR process must be done and merged a couple of days before the release.
-  > In the case of submodules update has a low effort and/or risk for the release, follow the ["Update submodules"](./git-submodules.md) instructions.
-  > If the effort of the risk is too high, evaluate the possibility of either postponing the submodules upgrade for the subsequent release or delaying the current release until the submodules upgrade changes are included in the release candidate.
+  > In case the submodules update has a low effort and/or risk for the release, follow the ["Update submodules"](./git-submodules.md) instructions.
+  > If the effort or risk is too high, consider postponing the submodules upgrade for the subsequent release or delaying the current release until the submodules updates are included in the release candidate.
 
 ### Performing the release
 
@@ -57,6 +58,10 @@ git push origin v0.1
 1. Announce the release on Twitter, Discord and other channels.
 2. Deploy the release:
    - Inform clients
+   > **NOTE:** known clients are currently using some version of js-waku, go-waku, nwaku or waku-rs.
+   > Clients are reachable via the corresponding channels on the Vac Discord server.
+   > It should be enough to inform clients on the `#nwaku` and `#announce` channels on Discord.
+   > Informal conversations with specific repo maintainers are often part of this process.
    - Deploy release to the `wakuv2.prod` fleet from [Jenkins](https://ci.status.im/job/nim-waku/job/deploy-v2-prod/).
    - Ensure that nodes successfully start up and monitor health using [Grafana](https://grafana.infra.status.im/d/qrp_ZCTGz/nim-waku-v2?orgId=1) and [Kibana](https://kibana.infra.status.im/goto/a7728e70-eb26-11ec-81d1-210eb3022c76).
    - If necessary, revert by deploying the previous release. Download logs and open a bug report issue.
