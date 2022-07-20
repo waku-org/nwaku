@@ -1,4 +1,5 @@
 import
+  bearssl/rand,
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
   libp2p/protocols/ping,
@@ -41,7 +42,7 @@ type
     enr*: enr.Record
     libp2pPing*: Ping
     filters*: Filters
-    rng*: ref BrHmacDrbgContext
+    rng*: ref rand.HmacDrbgContext
     wakuDiscv5*: WakuDiscoveryV5
     announcedAddresses* : seq[MultiAddress]
     started*: bool # Indicates that node has started listening

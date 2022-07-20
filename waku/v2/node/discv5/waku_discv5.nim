@@ -108,13 +108,14 @@ proc new*(T: type WakuDiscoveryV5,
           privateKey: keys.PrivateKey,
           flags: WakuEnrBitfield,
           enrFields: openArray[(string, seq[byte])],
-          rng: ref BrHmacDrbgContext,
           discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T =
   ## TODO: consider loading from a configurable bootstrap file
   
   ## We always add the waku field as specified
   var enrInitFields = @[(WAKU_ENR_FIELD, @[flags.byte])]
   enrInitFields.add(enrFields)
+
+  let rng = keys.newRng() # TODO: Consolidate rngs. This creates a different rng type ref (bearssl/decls) than what we cache on the WakuNode (bearssl/rand)
   
   let protocol = newProtocol(
     privateKey,
@@ -140,7 +141,6 @@ proc new*(T: type WakuDiscoveryV5,
           privateKey: keys.PrivateKey,
           flags: WakuEnrBitfield,
           enrFields: openArray[(string, seq[byte])],
-          rng: ref BrHmacDrbgContext,
           discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T =
   
   var bootstrapEnrs: seq[enr.Record]
@@ -156,7 +156,6 @@ proc new*(T: type WakuDiscoveryV5,
         privateKey,
         flags,
         enrFields,
-        rng,
         discv5Config
       )
 

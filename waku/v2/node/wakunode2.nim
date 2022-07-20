@@ -981,7 +981,6 @@ when isMainModule:
         keys.PrivateKey(conf.nodekey.skkey),
         wakuFlags,
         [], # Empty enr fields, for now
-        node.rng,
         discoveryConfig
       )
     
