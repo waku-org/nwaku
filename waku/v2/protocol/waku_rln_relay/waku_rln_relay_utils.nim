@@ -886,7 +886,6 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, Value
 
       # This will read the entire file into the string entireFile
       let entireRlnIndexFile = readFile("rlnIndex.txt")
-      # echo entireRlnIndexFile  # prints the entire file
 
       let jsonObjectRlnIndex = parseJson(entireRlnIndexFile)
       let deserializedRlnIndex = to(jsonObjectRlnIndex, MembershipIndex)
