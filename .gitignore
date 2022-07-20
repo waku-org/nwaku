@@ -37,3 +37,7 @@ node_modules/
 
 # Ignore Jetbrains IDE files
 .idea/
+cats.txt
+keyPair
+keyPair.txt
+rlnIndex.txt

@@ -11,10 +11,13 @@ import
   libp2p/protocols/pubsub/pubsub,
   stew/results,
   stew/[byteutils, arrayops, endians2],
-  rln, 
+  rln,
+  std/streams, 
   waku_rln_relay_types,
   ../../node/[wakunode2_types,config],
-  ../waku_message
+  ../waku_message,
+  json,
+  std/os
 
   
 
@@ -784,8 +787,17 @@ proc mountRlnRelayDynamic*(node: WakuNode,
     rlnIndex = regIndexRes.value
     debug "peer is successfully registered into the membership contract"
   else:
+    info "Peer is already registered to the membership contract"
     keyPair = memKeyPair.get()
     rlnIndex = memIndex.get()
+
+  #Write KeyPair
+  let kp = %keyPair
+  writeFile("keyPair.txt", pretty(kp))
+
+  #Write rlnIndex
+  let ri = %rlnIndex
+  writeFile("rlnIndex.txt", pretty(ri))
 
   # create the WakuRLNRelay
   var rlnPeer = WakuRLNRelay(membershipKeyPair: keyPair,
@@ -818,7 +830,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   node.wakuRlnRelay = rlnPeer
 
 
-proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, ValueError, IOError, CatchableError].} =
+proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
   if not conf.rlnRelayDynamic:
     info " setting up waku-rln-relay in on-chain mode... "
     # set up rln relay inputs
@@ -861,8 +873,31 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, Value
       let memKeyPair = keyPair.toMembershipKeyPairs()[0]
       # mount the rln relay protocol in the on-chain/dynamic mode
       waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, memKeyPair = some(memKeyPair), memIndex = some(rlnRelayIndex), ethAccAddr = ethAccountAddr, ethAccountPrivKey = ethAccountPrivKey, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
+    elif fileExists("keyPair.txt") and fileExists("rlnIndex.txt"):
+      info "keyPair and rlnIndex files exist"
+      # This will read the entire file into the string entireFile
+      let entireKeyPairFile = readFile("keyPair.txt")
+      # echo entireKeyPairFile  # prints the entire file
+
+      let jsonObjectKeyPair = parseJson(entireKeyPairFile)
+      let deserializedKeyPair = to(jsonObjectKeyPair, MembershipKeyPair)
+
+      info "Deserialized key pair"
+      echo deserializedKeyPair # prints the deserialized key pair
+
+      # This will read the entire file into the string entireFile
+      let entireRlnIndexFile = readFile("rlnIndex.txt")
+      # echo entireRlnIndexFile  # prints the entire file
+
+      let jsonObjectRlnIndex = parseJson(entireRlnIndexFile)
+      let deserializedRlnIndex = to(jsonObjectRlnIndex, MembershipIndex)
+
+      info "Deserialized rln index"
+      echo deserializedRlnIndex # prints the deserialized key pairs
+      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, memKeyPair = some(deserializedKeyPair), memIndex = some(deserializedRlnIndex), ethAccAddr = ethAccountAddr, ethAccountPrivKey = ethAccountPrivKey, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
     else:
       # no rln credential is provided
       # mount the rln relay protocol in the on-chain/dynamic mode
+      info("no rln credential is provided") 
       waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, ethAccAddr = ethAccountAddr, ethAccountPrivKey = ethAccountPrivKey, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
 
