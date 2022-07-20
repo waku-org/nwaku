@@ -210,9 +210,10 @@ proc publish(c: Chat, line: string) =
   when PayloadV1:
     # Use Waku v1 payload encoding/encryption
     let
+      rng = keys.newRng()
       payload = Payload(payload: chat2pb.buffer, symKey: some(c.symKey))
       version = 1'u32
-      encodedPayload = payload.encode(version, c.node.rng[])
+      encodedPayload = payload.encode(version, rng[])
     if encodedPayload.isOk():
       var message = WakuMessage(payload: encodedPayload.get(),
         contentTopic: c.contentTopic, version: version, timestamp: getNanosecondTime(time))
@@ -342,7 +343,7 @@ proc readInput(wfd: AsyncFD) {.thread, raises: [Defect, CatchableError].} =
     discard waitFor transp.write(line & "\r\n")
 
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
-proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
+proc processInput(rfd: AsyncFD) {.async.} =
   let transp = fromPipe(rfd)
 
   let
@@ -522,7 +523,6 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
   runForever()
 
 proc main() {.async.} =
-  let rng = crypto.newRng() # Singe random number source for the whole application
   let (rfd, wfd) = createAsyncPipe()
   if rfd == asyncInvalidPipe or wfd == asyncInvalidPipe:
     raise newException(ValueError, "Could not initialize pipe!")
@@ -530,7 +530,7 @@ proc main() {.async.} =
   var thread: Thread[AsyncFD]
   thread.createThread(readInput, wfd)
 
-  await processInput(rfd, rng)
+  await processInput(rfd)
 
 when isMainModule: # isMainModule = true when the module is compiled as the main file
   waitFor(main())

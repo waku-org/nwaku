@@ -1,7 +1,7 @@
 import
   std/[tables],
   chronos,
-  bearssl,
+  bearssl/rand,
   libp2p/protocols/protocol,
   ../../node/peer_manager/peer_manager,
   ../waku_message
@@ -51,7 +51,7 @@ type
   MessagePushHandler* = proc(requestId: string, msg: MessagePush): Future[void] {.gcsafe, closure.}
 
   WakuFilter* = ref object of LPProtocol
-    rng*: ref BrHmacDrbgContext
+    rng*: ref rand.HmacDrbgContext
     peerManager*: PeerManager
     subscribers*: seq[Subscriber]
     pushHandler*: MessagePushHandler

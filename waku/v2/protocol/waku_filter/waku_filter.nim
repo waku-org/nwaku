@@ -2,7 +2,7 @@
 
 import
   std/[tables, sequtils, options],
-  bearssl,
+  bearssl/rand,
   chronos, chronicles, metrics, stew/results,
   libp2p/protocols/pubsub/pubsubpeer,
   libp2p/protocols/pubsub/floodsub,
@@ -202,8 +202,7 @@ method init*(wf: WakuFilter) =
   wf.handler = handle
   wf.codec = WakuFilterCodec
 
-proc init*(T: type WakuFilter, peerManager: PeerManager, rng: ref BrHmacDrbgContext, handler: MessagePushHandler,timeout: Duration = WakuFilterTimeout): T =
-  let rng = crypto.newRng()
+proc init*(T: type WakuFilter, peerManager: PeerManager, rng: ref rand.HmacDrbgContext, handler: MessagePushHandler,timeout: Duration = WakuFilterTimeout): T =
   var wf = WakuFilter(rng: rng,
                       peerManager: peerManager, 
                       pushHandler: handler,

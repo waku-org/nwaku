@@ -2,9 +2,9 @@
 
 {.push raises: [Defect].}
 
-import bearssl, stew/byteutils
+import bearssl/rand, stew/byteutils
 
-proc generateRequestId*(rng: ref BrHmacDrbgContext): string =
+proc generateRequestId*(rng: ref HmacDrbgContext): string =
   var bytes: array[10, byte]
-  brHmacDrbgGenerate(rng[], bytes)
+  hmacDrbgGenerate(rng[], bytes)
   return toHex(bytes)

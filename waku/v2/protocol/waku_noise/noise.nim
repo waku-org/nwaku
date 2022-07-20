@@ -10,7 +10,7 @@
 import std/[oids, options, strutils, tables]
 import chronos
 import chronicles
-import bearssl
+import bearssl/rand
 import stew/[results, endians2, byteutils]
 import nimcrypto/[utils, sha2, hmac]
 
@@ -259,13 +259,13 @@ const
 #################################
 
 # Generates random byte sequences of given size
-proc randomSeqByte*(rng: var BrHmacDrbgContext, size: int): seq[byte] =
+proc randomSeqByte*(rng: var HmacDrbgContext, size: int): seq[byte] =
   var output = newSeq[byte](size.uint32)
-  brHmacDrbgGenerate(rng, output)
+  hmacDrbgGenerate(rng, output)
   return output
 
 # Generate random (public, private) Elliptic Curve key pairs
-proc genKeyPair*(rng: var BrHmacDrbgContext): KeyPair =
+proc genKeyPair*(rng: var HmacDrbgContext): KeyPair =
   var keyPair: KeyPair
   keyPair.privateKey = EllipticCurveKey.random(rng)
   keyPair.publicKey = keyPair.privateKey.public()
@@ -481,9 +481,9 @@ proc setCipherStateKey*(cs: var CipherState, key: ChaChaPolyKey) =
   cs.k = key
 
 # Generates a random Symmetric Cipher State for test purposes
-proc randomCipherState*(rng: var BrHmacDrbgContext, nonce: uint64 = 0): CipherState =
+proc randomCipherState*(rng: var HmacDrbgContext, nonce: uint64 = 0): CipherState =
   var randomCipherState: CipherState
-  brHmacDrbgGenerate(rng, randomCipherState.k)
+  hmacDrbgGenerate(rng, randomCipherState.k)
   setNonce(randomCipherState, nonce)
   return randomCipherState
 
@@ -669,18 +669,18 @@ proc decrypt*(
   return plaintext
 
 # Generates a random ChaChaPolyKey for testing encryption/decryption
-proc randomChaChaPolyKey*(rng: var BrHmacDrbgContext): ChaChaPolyKey =
+proc randomChaChaPolyKey*(rng: var HmacDrbgContext): ChaChaPolyKey =
   var key: ChaChaPolyKey
-  brHmacDrbgGenerate(rng, key)
+  hmacDrbgGenerate(rng, key)
   return key
 
 # Generates a random ChaChaPoly Cipher State for testing encryption/decryption
-proc randomChaChaPolyCipherState*(rng: var BrHmacDrbgContext): ChaChaPolyCipherState =
+proc randomChaChaPolyCipherState*(rng: var HmacDrbgContext): ChaChaPolyCipherState =
   var randomCipherState: ChaChaPolyCipherState
   randomCipherState.k = randomChaChaPolyKey(rng)
-  brHmacDrbgGenerate(rng, randomCipherState.nonce)
+  hmacDrbgGenerate(rng, randomCipherState.nonce)
   randomCipherState.ad = newSeq[byte](32)
-  brHmacDrbgGenerate(rng, randomCipherState.ad)
+  hmacDrbgGenerate(rng, randomCipherState.ad)
   return randomCipherState
 
 
@@ -702,7 +702,7 @@ proc toNoisePublicKey*(publicKey: EllipticCurveKey): NoisePublicKey =
   return noisePublicKey
 
 # Generates a random Noise public key
-proc genNoisePublicKey*(rng: var BrHmacDrbgContext): NoisePublicKey =
+proc genNoisePublicKey*(rng: var HmacDrbgContext): NoisePublicKey =
   var noisePublicKey: NoisePublicKey
   # We generate a random key pair
   let keyPair: KeyPair = genKeyPair(rng)
@@ -793,7 +793,7 @@ proc `==`(p1, p2: PayloadV2): bool =
   
 
 # Generates a random PayloadV2
-proc randomPayloadV2*(rng: var BrHmacDrbgContext): PayloadV2 =
+proc randomPayloadV2*(rng: var HmacDrbgContext): PayloadV2 =
   var payload2: PayloadV2
   # To generate a random protocol id, we generate a random 1-byte long sequence, and we convert the first element to uint8
   payload2.protocolId = randomSeqByte(rng, 1)[0].uint8
@@ -1132,7 +1132,7 @@ proc processMessagePatternPayload(hs: var HandshakeState, transportMessage: seq[
   return payload
 
 # We process an input handshake message according to current handshake state and we return the next handshake step's handshake message
-proc processMessagePatternTokens*(rng: var BrHmacDrbgContext, hs: var HandshakeState, inputHandshakeMessage: seq[NoisePublicKey] = @[]): Result[seq[NoisePublicKey], cstring]
+proc processMessagePatternTokens*(rng: var HmacDrbgContext, hs: var HandshakeState, inputHandshakeMessage: seq[NoisePublicKey] = @[]): Result[seq[NoisePublicKey], cstring]
   {.raises: [Defect, NoiseHandshakeError, NoiseMalformedHandshake, NoisePublicKeyError, NoiseDecryptTagError, NoiseNonceMaxError].} =
 
   # We retrieve current message pattern (direction + tokens) to process
@@ -1366,7 +1366,7 @@ proc initialize*(hsPattern: HandshakePattern, ephemeralKey: KeyPair = default(Ke
 # Each user in a handshake alternates writing and reading of handshake messages.
 # If the user is writing the handshake message, the transport message (if not empty) has to be passed to transportMessage and readPayloadV2 can be left to its default value
 # It the user is reading the handshake message, the read payload v2 has to be passed to readPayloadV2 and the transportMessage can be left to its default values. 
-proc stepHandshake*(rng: var BrHmacDrbgContext, hs: var HandshakeState, readPayloadV2: PayloadV2 = default(PayloadV2), transportMessage: seq[byte] = @[]): Result[HandshakeStepResult, cstring]
+proc stepHandshake*(rng: var HmacDrbgContext, hs: var HandshakeState, readPayloadV2: PayloadV2 = default(PayloadV2), transportMessage: seq[byte] = @[]): Result[HandshakeStepResult, cstring]
   {.raises: [Defect, NoiseHandshakeError, NoiseMalformedHandshake, NoisePublicKeyError, NoiseDecryptTagError, NoiseNonceMaxError].} =
 
   var hsStepResult: HandshakeStepResult

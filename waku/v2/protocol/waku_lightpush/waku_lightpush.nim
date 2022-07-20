@@ -2,7 +2,7 @@
 
 import
   std/[tables, options],
-  bearssl,
+  bearssl/rand,
   chronos, chronicles, metrics, stew/results,
   libp2p/protocols/pubsub/pubsubpeer,
   libp2p/protocols/pubsub/floodsub,
@@ -114,9 +114,8 @@ proc init*(T: type PushRPC, buffer: seq[byte]): ProtoResult[T] =
   return ok(rpc)
 
 # Protocol -------------------------------------------------------
-proc init*(T: type WakuLightPush, peerManager: PeerManager, rng: ref BrHmacDrbgContext, handler: PushRequestHandler, relay: WakuRelay = nil): T =
+proc init*(T: type WakuLightPush, peerManager: PeerManager, rng: ref rand.HmacDrbgContext, handler: PushRequestHandler, relay: WakuRelay = nil): T =
   debug "init"
-  let rng = crypto.newRng()
   var wl = WakuLightPush(rng: rng,
                         peerManager: peerManager, 
                         requestHandler: handler, 

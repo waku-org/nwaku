@@ -9,7 +9,7 @@ import
   # std imports
   std/[tables, times, sequtils, options, math],
   # external imports
-  bearssl,
+  bearssl/rand,
   chronicles,
   chronos, 
   libp2p/crypto/crypto,
@@ -32,7 +32,7 @@ import
 export 
   options,
   chronos,
-  bearssl,
+  rand,
   minprotobuf,
   peer_manager,
   waku_store_types,
@@ -61,7 +61,7 @@ const
 type
   WakuStore* = ref object of LPProtocol
     peerManager*: PeerManager
-    rng*: ref BrHmacDrbgContext
+    rng*: ref rand.HmacDrbgContext
     messages*: StoreQueueRef # in-memory message store
     store*: MessageStore  # sqlite DB handle
     wakuSwap*: WakuSwap
@@ -412,7 +412,7 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
   waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
 
 
-proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgContext,
+proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref rand.HmacDrbgContext,
            store: MessageStore = nil, wakuSwap: WakuSwap = nil, persistMessages = true,
            capacity = DefaultStoreCapacity, isSqliteOnly = false): T =
   debug "init"

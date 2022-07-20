@@ -1,6 +1,6 @@
 import
   std/[tables],
-  bearssl,
+  bearssl/rand,
   libp2p/protocols/protocol,
   ../../node/peer_manager/peer_manager,
   ../waku_message,
@@ -30,7 +30,7 @@ type
   PushRequestHandler* = proc(requestId: string, msg: PushRequest) {.gcsafe, closure.}
 
   WakuLightPush* = ref object of LPProtocol
-    rng*: ref BrHmacDrbgContext
+    rng*: ref rand.HmacDrbgContext
     peerManager*: PeerManager
     requestHandler*: PushRequestHandler
     relayReference*: WakuRelay

@@ -3,6 +3,7 @@
 import
   std/[tables,sequtils],
   chronicles,
+  eth/keys,
   json_rpc/rpcserver,
   nimcrypto/sysrand,
   ../wakunode2,
@@ -17,7 +18,8 @@ logScope:
 
 const futTimeout* = 5.seconds # Max time to wait for futures
 
-proc installPrivateApiHandlers*(node: WakuNode, rpcsrv: RpcServer, rng: ref BrHmacDrbgContext, topicCache: TopicCache) =
+proc installPrivateApiHandlers*(node: WakuNode, rpcsrv: RpcServer, topicCache: TopicCache) =
+  let rng = keys.newRng() # TODO: Consolidate rngs. This creates a different rng type ref (bearssl/decls) than what we cache on the WakuNode (bearssl/rand)
 
   ## Private API version 1 definitions
 

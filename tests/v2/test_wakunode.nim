@@ -36,7 +36,7 @@ const KEY_PATH = sourceDir / "resources/test_key.pem"
 const CERT_PATH = sourceDir / "resources/test_cert.pem"
 
 procSuite "WakuNode":
-  let rng = keys.newRng()
+  let rng = crypto.newRng()
  
   asyncTest "Message published with content filter is retrievable":
     let

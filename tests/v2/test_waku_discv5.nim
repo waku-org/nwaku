@@ -56,8 +56,7 @@ procSuite "Waku Discovery v5":
         false,
         keys.PrivateKey(nodeKey1.skkey),
         flags,
-        [], # Empty enr fields, for now
-        node1.rng
+        [] # Empty enr fields, for now
       )
     
     node2.wakuDiscv5 = WakuDiscoveryV5.new(
@@ -68,8 +67,7 @@ procSuite "Waku Discovery v5":
         false,
         keys.PrivateKey(nodeKey2.skkey),
         flags,
-        [], # Empty enr fields, for now
-        node2.rng
+        [] # Empty enr fields, for now
       )
     
     node3.wakuDiscv5 = WakuDiscoveryV5.new(
@@ -80,8 +78,7 @@ procSuite "Waku Discovery v5":
         false,
         keys.PrivateKey(nodeKey3.skkey),
         flags,
-        [], # Empty enr fields, for now
-        node3.rng
+        [] # Empty enr fields, for now
       )
 
     node1.mountRelay()
