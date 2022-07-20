@@ -1210,7 +1210,7 @@ when isMainModule:
       waitFor node.stop()
       quit(QuitSuccess)
     
-    c_signal(SIGTERM, handleSigterm)
+    c_signal(ansi_c.SIGTERM, handleSigterm)
   
   debug "Node setup complete"
 
