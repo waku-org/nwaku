@@ -898,6 +898,6 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, Value
     else:
       # no rln credential is provided
       # mount the rln relay protocol in the on-chain/dynamic mode
-      info("no rln credential is provided") 
+      info "no rln credential is provided"
       waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, ethAccAddr = ethAccountAddr, ethAccountPrivKey = ethAccountPrivKey, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
 
