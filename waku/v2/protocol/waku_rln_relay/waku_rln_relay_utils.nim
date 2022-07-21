@@ -799,6 +799,9 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   let ri = %rlnIndex
   writeFile("rlnIndex.txt", pretty(ri))
 
+  #Since the files are stored as a raw text file, it is highly susceptible to theft.
+  #The files needs some encryption to resolve this.
+
   # create the WakuRLNRelay
   var rlnPeer = WakuRLNRelay(membershipKeyPair: keyPair,
     membershipIndex: rlnIndex,
@@ -875,6 +878,9 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, Value
       waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, memKeyPair = some(memKeyPair), memIndex = some(rlnRelayIndex), ethAccAddr = ethAccountAddr, ethAccountPrivKey = ethAccountPrivKey, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
     elif fileExists("keyPair.txt") and fileExists("rlnIndex.txt"):
       info "keyPair and rlnIndex files exist"
+      #With regards to printing the keys, it is purely for debugging purposes so that the user becomes explicitly aware of the current keys in use when nwaku is started.
+      #Note that this is only until the RLN contract being used is the one deployed on Goerli testnet.
+      #These prints need to omitted once RLN contract is deployed on Ethereum mainnet and using valuable funds for staking.
       
       let entireKeyPairFile = readFile("keyPair.txt")
 
