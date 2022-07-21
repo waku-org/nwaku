@@ -89,8 +89,8 @@ type MessageValidationResult* {.pure.} = enum
 
 #RLN membership key and index files path
 const
-  KEYPAIR_FILEPATH = "keyPair.txt"
-  RLN_INDEX_FILEPATH = "rlnIndex.txt"
+  KEYPAIR_FILEPATH* = "keyPair.txt"
+  RLN_INDEX_FILEPATH* = "rlnIndex.txt"
 
 # inputs of the membership contract constructor
 # TODO may be able to make these constants private and put them inside the waku_rln_relay_utils
