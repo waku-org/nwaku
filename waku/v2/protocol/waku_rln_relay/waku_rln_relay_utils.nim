@@ -792,12 +792,10 @@ proc mountRlnRelayDynamic*(node: WakuNode,
     rlnIndex = memIndex.get()
 
   #Write KeyPair
-  let kp = %keyPair
-  writeFile("keyPair.txt", pretty(kp))
+  writeFile("keyPair.txt", pretty(%keyPair))
 
   #Write rlnIndex
-  let ri = %rlnIndex
-  writeFile("rlnIndex.txt", pretty(ri))
+  writeFile("rlnIndex.txt", pretty(%rlnIndex))
 
   #Since the files are stored as a raw text file, it is highly susceptible to theft.
   #The files needs some encryption to resolve this.
@@ -888,7 +886,6 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, Value
       let deserializedKeyPair = to(jsonObjectKeyPair, MembershipKeyPair)
 
       info "Deserialized key pair", keyPair=deserializedKeyPair
-      echo deserializedKeyPair 
 
       
       let entireRlnIndexFile = readFile("rlnIndex.txt")
@@ -897,7 +894,6 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, Value
       let deserializedRlnIndex = to(jsonObjectRlnIndex, MembershipIndex)
 
       info "Deserialized rln index", rlnIndex=deserializedRlnIndex
-      echo deserializedRlnIndex 
       waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, memKeyPair = some(deserializedKeyPair), memIndex = some(deserializedRlnIndex), ethAccAddr = ethAccountAddr, ethAccountPrivKey = ethAccountPrivKey, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
     else:
       # no rln credential is provided
