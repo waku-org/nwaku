@@ -792,10 +792,10 @@ proc mountRlnRelayDynamic*(node: WakuNode,
     rlnIndex = memIndex.get()
 
   #Write KeyPair
-  writeFile("keyPair.txt", pretty(%keyPair))
+  writeFile(KEYPAIR_FILEPATH, pretty(%keyPair))
 
   #Write rlnIndex
-  writeFile("rlnIndex.txt", pretty(%rlnIndex))
+  writeFile(RLN_INDEX_FILEPATH, pretty(%rlnIndex))
 
   #Since the files are stored as a raw text file, it is highly susceptible to theft.
   #The files needs some encryption to resolve this.
@@ -829,7 +829,6 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   debug "rln relay topic validator is mounted successfully", pubsubTopic=pubsubTopic, contentTopic=contentTopic
 
   node.wakuRlnRelay = rlnPeer
-
 
 proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
   if not conf.rlnRelayDynamic:
@@ -880,7 +879,7 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, Value
       #Note that this is only until the RLN contract being used is the one deployed on Goerli testnet.
       #These prints need to omitted once RLN contract is deployed on Ethereum mainnet and using valuable funds for staking.
       
-      let entireKeyPairFile = readFile("keyPair.txt")
+      let entireKeyPairFile = readFile(KEYPAIR_FILEPATH)
 
       let jsonObjectKeyPair = parseJson(entireKeyPairFile)
       let deserializedKeyPair = to(jsonObjectKeyPair, MembershipKeyPair)
@@ -888,7 +887,7 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, Value
       info "Deserialized key pair", keyPair=deserializedKeyPair
 
       
-      let entireRlnIndexFile = readFile("rlnIndex.txt")
+      let entireRlnIndexFile = readFile(RLN_INDEX_FILEPATH)
 
       let jsonObjectRlnIndex = parseJson(entireRlnIndexFile)
       let deserializedRlnIndex = to(jsonObjectRlnIndex, MembershipIndex)
