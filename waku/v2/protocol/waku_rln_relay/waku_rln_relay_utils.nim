@@ -875,14 +875,14 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, Value
       waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, memKeyPair = some(memKeyPair), memIndex = some(rlnRelayIndex), ethAccAddr = ethAccountAddr, ethAccountPrivKey = ethAccountPrivKey, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
     elif fileExists("keyPair.txt") and fileExists("rlnIndex.txt"):
       info "keyPair and rlnIndex files exist"
-      # This will read the entire file into the string entireFile
+      
       let entireKeyPairFile = readFile("keyPair.txt")
 
       let jsonObjectKeyPair = parseJson(entireKeyPairFile)
       let deserializedKeyPair = to(jsonObjectKeyPair, MembershipKeyPair)
 
-      info "Deserialized key pair"
-      echo deserializedKeyPair # prints the deserialized key pair
+      info "Deserialized key pair", keyPair=deserializedKeyPair
+      echo deserializedKeyPair 
 
       # This will read the entire file into the string entireFile
       let entireRlnIndexFile = readFile("rlnIndex.txt")
@@ -890,8 +890,8 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, Value
       let jsonObjectRlnIndex = parseJson(entireRlnIndexFile)
       let deserializedRlnIndex = to(jsonObjectRlnIndex, MembershipIndex)
 
-      info "Deserialized rln index"
-      echo deserializedRlnIndex # prints the deserialized key pairs
+      info "Deserialized rln index", rlnIndex=deserializedRlnIndex
+      echo deserializedRlnIndex 
       waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, memKeyPair = some(deserializedKeyPair), memIndex = some(deserializedRlnIndex), ethAccAddr = ethAccountAddr, ethAccountPrivKey = ethAccountPrivKey, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
     else:
       # no rln credential is provided
