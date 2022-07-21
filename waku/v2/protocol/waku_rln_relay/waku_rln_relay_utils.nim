@@ -894,10 +894,14 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, Value
       let deserializedRlnIndex = to(jsonObjectRlnIndex, MembershipIndex)
 
       info "Deserialized rln index", rlnIndex=deserializedRlnIndex
-      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, memKeyPair = some(deserializedKeyPair), memIndex = some(deserializedRlnIndex), ethAccAddr = ethAccountAddr, ethAccountPrivKey = ethAccountPrivKey, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
+      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr,
+                   memKeyPair = some(deserializedKeyPair), memIndex = some(deserializedRlnIndex), ethAccAddr = ethAccountAddr,
+                    ethAccountPrivKey = ethAccountPrivKey, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
     else:
       # no rln credential is provided
       # mount the rln relay protocol in the on-chain/dynamic mode
       info "no rln credential is provided"
-      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, ethAccAddr = ethAccountAddr, ethAccountPrivKey = ethAccountPrivKey, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
+      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr,
+                   ethAccAddr = ethAccountAddr, ethAccountPrivKey = ethAccountPrivKey, pubsubTopic = conf.rlnRelayPubsubTopic,
+                    contentTopic = conf.rlnRelayContentTopic)
 
