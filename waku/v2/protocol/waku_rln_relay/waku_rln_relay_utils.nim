@@ -884,7 +884,7 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, Value
       info "Deserialized key pair", keyPair=deserializedKeyPair
       echo deserializedKeyPair 
 
-      # This will read the entire file into the string entireFile
+      
       let entireRlnIndexFile = readFile("rlnIndex.txt")
 
       let jsonObjectRlnIndex = parseJson(entireRlnIndexFile)
