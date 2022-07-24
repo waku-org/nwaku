@@ -840,7 +840,6 @@ proc readPersistentRlnCredentials*() : RlnMembershipCredentials {.raises: [Defec
 
   let jsonObject = parseJson(entireRlnCredentialsFile)
   let deserializedRlnCredentials = to(jsonObject, RlnMembershipCredentials)
-
   info "Deserialized Rln credentials", rlnCredentials=deserializedRlnCredentials
   result = deserializedRlnCredentials
 
