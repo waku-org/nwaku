@@ -11,7 +11,7 @@ import
   libp2p/switch,
   eth/keys,
   ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_store/waku_store,
+  ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_swap/waku_swap,
   ../../waku/v2/node/wakunode2,
   ../../waku/v2/utils/peers,

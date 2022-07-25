@@ -2,9 +2,16 @@
 
 import
   std/[sequtils, strutils],
+  stew/results,
   testutils/unittests,
-  ../../waku/v2/protocol/waku_store/waku_store_types,
-  ../../waku/v2/utils/time
+  nimcrypto/hash
+import
+  ../../waku/v2/node/storage/message/waku_store_queue,
+  ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/utils/time,
+  ../../waku/v2/utils/pagination
+
 
 procSuite "Sorted store queue":
 

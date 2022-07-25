@@ -2,16 +2,18 @@
 
 import 
   std/[options, tables, times],
-  sqlite3_abi,
   stew/[byteutils, results],
-  chronicles,
   chronos,
-  ./message_store,
-  ../sqlite,
+  chronicles,
+  sqlite3_abi
+import
   ../../../protocol/waku_message,
-  ../../../protocol/waku_store/waku_store,
+  ../../../protocol/waku_store,
   ../../../utils/pagination,
-  ../../../utils/time
+  ../../../utils/time,
+  ../sqlite,
+  ./message_store,
+  ./waku_store_queue
 
 export sqlite
 
