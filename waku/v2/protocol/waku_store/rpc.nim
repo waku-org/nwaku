@@ -1,0 +1,35 @@
+{.push raises: [Defect].}
+
+import
+  nimcrypto/hash
+import
+  ../waku_message,
+  ../../utils/pagination,
+  ../../utils/time
+
+
+type
+  HistoryContentFilter* = object
+    contentTopic*: ContentTopic
+
+  HistoryQuery* = object
+    contentFilters*: seq[HistoryContentFilter]
+    pubsubTopic*: string
+    pagingInfo*: PagingInfo # used for pagination
+    startTime*: Timestamp # used for time-window query
+    endTime*: Timestamp # used for time-window query
+
+  HistoryResponseError* {.pure.} = enum
+    ## HistoryResponseError contains error message to inform  the querying node about the state of its request
+    NONE = uint32(0)
+    INVALID_CURSOR = uint32(1)
+
+  HistoryResponse* = object
+    messages*: seq[WakuMessage]
+    pagingInfo*: PagingInfo # used for pagination
+    error*: HistoryResponseError
+
+  HistoryRPC* = object
+    requestId*: string
+    query*: HistoryQuery
+    response*: HistoryResponse

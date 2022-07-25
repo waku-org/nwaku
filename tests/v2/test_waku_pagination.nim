@@ -1,10 +1,16 @@
 {.used.}
+
 import
   std/[options, sequtils],
-  testutils/unittests, nimcrypto/sha2,
-  libp2p/protobuf/minprotobuf,
-  ../../waku/v2/protocol/waku_store/waku_store,
-  ../../waku/v2/utils/time
+  testutils/unittests, 
+  nimcrypto/sha2,
+  libp2p/protobuf/minprotobuf
+import
+  ../../waku/v2/node/storage/message/waku_store_queue,
+  ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/utils/time,
+  ../../waku/v2/utils/pagination
 
 
 proc createSampleStoreQueue(s: int): StoreQueueRef =
