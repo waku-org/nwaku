@@ -1,94 +1,41 @@
-## Types for waku_store protocol.
-
 {.push raises: [Defect].}
 
-# Group by std, external then internal imports
 import
-  std/[algorithm, options],
-  # external imports
-  bearssl,
-  chronicles,
-  libp2p/protocols/protocol,
+  std/[options, algorithm],
   stew/[results, sorted_set],
-  # internal imports
-  ../../utils/pagination,
-  ../../utils/time,
-  ../../node/peer_manager/peer_manager,
-  ../waku_swap/waku_swap_types,
-  ../waku_message
+  chronicles
+import
+  ../../../protocol/waku_message,
+  ../../../protocol/waku_store/rpc,
+  ../../../utils/pagination,
+  ../../../utils/time,
+  ./message_store
 
-# export all modules whose types are used in public functions/types
-export 
-  bearssl,
-  results,
-  peer_manager,
-  waku_swap_types,
-  waku_message,
-  pagination
+
+# TODO: Remove after resolving nwaku #1026
+export
+  message_store
+  
+
+logScope:
+  topics = "message_store.storequeue"
+
 
 const
-  # Constants required for pagination -------------------------------------------
-  MaxPageSize* = uint64(100) # Maximum number of waku messages in each page
-  # TODO the DefaultPageSize can be changed, it's current value is random
-  DefaultPageSize* = uint64(20) # A recommended default number of waku messages per page
-
-  MaxRpcSize* = MaxPageSize * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
-
-  MaxTimeVariance* = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift" into the future
-
-  DefaultTopic* = "/waku/2/default-waku/proto"
+  MaxPageSize = uint64(100) # Maximum number of waku messages in each page
+  
+  MaxTimeVariance = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift" into the future
 
 
 type
-  HistoryContentFilter* = object
-    contentTopic*: ContentTopic
-
   QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
 
-  QueryFilterMatcher* = proc(indexedWakuMsg: IndexedWakuMessage) : bool {.gcsafe, closure.}
-
-  IndexedWakuMessage* = object
-    # TODO may need to rename this object as it holds both the index and the pubsub topic of a waku message
-    ## This type is used to encapsulate a WakuMessage and its Index
-    msg*: WakuMessage
-    index*: Index
-    pubsubTopic*: string
-
-  PagingDirection* {.pure.} = enum
-    ## PagingDirection determines the direction of pagination
-    BACKWARD = uint32(0)
-    FORWARD = uint32(1)
-
-  PagingInfo* = object
-    ## This type holds the information needed for the pagination
-    pageSize*: uint64
-    cursor*: Index
-    direction*: PagingDirection
-
-  HistoryResponseError* {.pure.} = enum
-    ## HistoryResponseError contains error message to inform  the querying node about the state of its request
-    NONE = uint32(0)
-    INVALID_CURSOR = uint32(1)
-
-  HistoryQuery* = object
-    contentFilters*: seq[HistoryContentFilter]
-    pubsubTopic*: string
-    pagingInfo*: PagingInfo # used for pagination
-    startTime*: Timestamp # used for time-window query
-    endTime*: Timestamp # used for time-window query
-
-  HistoryResponse* = object
-    messages*: seq[WakuMessage]
-    pagingInfo*: PagingInfo # used for pagination
-    error*: HistoryResponseError
-
-  HistoryRPC* = object
-    requestId*: string
-    query*: HistoryQuery
-    response*: HistoryResponse
-
   QueryResult* = Result[uint64, string]
+
   MessagesResult* = Result[seq[WakuMessage], string]
+
+type
+  StoreQueueResult*[T] = Result[T, cstring]
 
   StoreQueueRef* = ref object
     ## Bounded repository for indexed messages
@@ -105,15 +52,8 @@ type
     items: SortedSet[Index, IndexedWakuMessage] # sorted set of stored messages
     capacity: int # Maximum amount of messages to keep
 
-  StoreQueueResult*[T] = Result[T, cstring]
-  
 
-######################
-# StoreQueue helpers #
-######################
-
-logScope:
-  topics = "wakustorequeue"
+### Helpers 
 
 proc ffdToCursor(w: SortedSetWalkRef[Index, IndexedWakuMessage],
                  startCursor: Index):
@@ -305,10 +245,8 @@ proc bwdPage(storeQueue: StoreQueueRef,
           outPagingInfo,
           outError)
 
-##################
-# StoreQueue API #
-##################
 
+#### API
 ## --- SortedSet accessors ---
 
 iterator fwdIterator*(storeQueue: StoreQueueRef): (Index, IndexedWakuMessage) =

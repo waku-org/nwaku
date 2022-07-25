@@ -1,16 +1,13 @@
-# Group by std, external then internal imports
 import
-  # std imports
-  std/ [os, strutils, times, options], #options as what # TODO: Huh? Redefinition?
-  # external imports
+  std/[os, strutils, times, options], #options as what # TODO: Huh? Redefinition?
   chronicles, 
   eth/common as eth_common, 
   eth/keys,
   json_rpc/[rpcclient, rpcserver],
-  libp2p/protobuf/minprotobuf,
-  # internal imports
+  libp2p/protobuf/minprotobuf
+import
   ../protocol/waku_filter/waku_filter_types,
-  ../protocol/waku_store/waku_store_types,
+  ../protocol/waku_store,
   ../protocol/waku_message,
   ../utils/time,
   ./wakunode2, 
