@@ -1,7 +1,13 @@
-This document is a tutorial on how to run chat2 in spam-protected/rate-limited mode using the waku-RLN-Relay protocol on a designated content topic  `/toy-chat/2/luzhou/proto`.
+#  Spam-protected chat2 application with on-chain group management
 
-You will need 1) an Ethereum account with sufficient ethers on Goerli testnet as well as 2) a hosted node on Goerli testnet to be able to run the tests. 
-We have  also dedicated a few sections at the end of this tutorial on how to get those.
+This document is a tutorial on how to run chat2 application over a spam-protected content topic  i.e., `/toy-chat/2/luzhou/proto` using the WAKU-RLN-Relay protocol.
+This tutorial differs from its preceding i.e., []() and []() in the group management part. 
+Unlike prior ones, the group management is dynamic and is moderated via a smart contract that is deployed on the Ethereum testnet Goerli.
+
+
+In this tutorial, you will need 1) an Ethereum account with at least  ethers on Goerli testnet  2) a hosted node on Goerli testnet. 
+If you are not famillar with either of these two, there are some dedicated section at the end of this tutorial explaining
+ how to obtain those.
 
 
 In this tutorial, we will test the on-chain mode of waku-rln-relay.
