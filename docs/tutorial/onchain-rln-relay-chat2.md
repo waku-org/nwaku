@@ -166,15 +166,15 @@ Then, the execution command will look like (inspect the last three config option
 In this section, a sample test of running two chat clients is provided.
 Note that the values used for `eth-account-address`, `eth-account-privatekey`, and `eth-client-address` in the following code snippets are junk and not valid.
 
-`Alice` and `Bob` the two chat clients are connected to the test fleets.
-`Alice` sends 4 messages namely, `message1`, `message2`, `message3`, and `message4`.
+The two chat clients namely `Alice` and `Bob` are connected to the test fleets.
+`Alice` sends 4 messages i.e., `message1`, `message2`, `message3`, and `message4`.
 However, only three of them reach `Bob`. 
-This is because the two messages `message2` and `message3` have identical RLN epoch values, so, one of them get discarded by the test fleets as a spam message. 
+This is because the two messages `message2` and `message3` have identical RLN epoch values, so, one of them gets discarded by the test fleets as a spam message. 
 The test fleets do not relay `message3` further, hence `Bob` never receives it.
-You can check this fact by looking at the `Bob` console, where `message3` is missing. 
+You can check this fact by looking at `Bob`'s console, where `message3` is missing. 
 
 
-Alice
+**Alice**
 ``` 
 ./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x5DE1Fb10345Ef1647629Df30e6C397297Da09A1d  --eth-account-address:0x1234567890123456789012345678901234567890 --eth-account-privatekey:0x1234567890123456789012345678901234567890123456789012345678901234  --eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012  --ports-shift=1 
 
@@ -186,9 +186,6 @@ Listening on
  /ip4/75.157.120.249/tcp/60001/p2p/16Uiu2HAmH7XbkcdbA1CCs91r93HuwZHSdXppCNvJTDVvgGhuxyuG
 Store enabled, but no store nodes configured. Choosing one at random from discovered peers
 Connecting to storenode: 16Uiu2HAkvWiyFsgRhuJEb9JfjYxEkoHLgnUQmr1N5mKWnYjxYRVm
-<Jul 26, 12:26> Alice: message3message3
-<Jul 26, 12:26> Alice: message2
-<Jul 26, 12:26> Alice: message1
 <Jul 26, 10:41> Bob: hi
 <Jul 26, 10:41> Bob: hi
 <Jun 29, 16:21> Alice: spam1
@@ -218,7 +215,7 @@ your rln identity commitment key is: bd093cbf14fb933d53f596c33f98b3df83b7e9f7a19
 >> 
 ```
 
-Bob
+**Bob**
 ``` 
 ./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x5DE1Fb10345Ef1647629Df30e6C397297Da09A1d  --eth-account-address:0x1234567890123456789012345678901234567890 --eth-account-privatekey:0x1234567890123456789012345678901234567890123456789012345678901234  --eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012  --ports-shift=2 
 
