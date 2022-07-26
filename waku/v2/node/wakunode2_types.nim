@@ -6,11 +6,16 @@ import
   ../protocol/waku_store/waku_store,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter/waku_filter,
-  ../protocol/waku_lightpush/waku_lightpush,
-  ../protocol/waku_rln_relay/waku_rln_relay_types, 
+  ../protocol/waku_lightpush/waku_lightpush, 
   ./peer_manager/peer_manager,
   ./discv5/waku_discv5
   
+## TODO: properly address these import once zerokit rln is merged
+when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
+  import ../protocol/waku_rln_relay/waku_rln_relay_types
+
+when defined(rlnzerokit):
+  import ../protocol/waku_rln_relay/rlnzerokit/waku_rln_relay_types
 
 # key and crypto modules different
 type

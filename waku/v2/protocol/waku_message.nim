@@ -12,8 +12,15 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/varint,
   ../utils/protobuf,
-  ../utils/time,
-  waku_rln_relay/waku_rln_relay_types
+  ../utils/time
+
+## TODO: properly address these import once zerokit rln is merged
+when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
+  import waku_rln_relay/waku_rln_relay_types
+
+when defined(rlnzerokit):
+  import waku_rln_relay/rlnzerokit/waku_rln_relay_types
+
 
 const
   MaxWakuMessageSize* = 1024 * 1024 # In bytes. Corresponds to PubSub default

@@ -8,8 +8,14 @@ import
   libp2p/crypto/secp,
   nimcrypto/utils,
   eth/keys,
-  ../protocol/waku_rln_relay/waku_rln_relay_types,
   ../protocol/waku_message
+
+## TODO: properly address these import once zerokit rln is merged
+when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
+  import ../protocol/waku_rln_relay/waku_rln_relay_types
+
+when defined(rlnzerokit):
+  import ../protocol/waku_rln_relay/rlnzerokit/waku_rln_relay_types
 
 export
   confTomlDefs,
