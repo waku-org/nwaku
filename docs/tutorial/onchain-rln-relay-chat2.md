@@ -7,7 +7,7 @@ The onchain group management gives the benefit of dynamic group size where the s
 
 ## Prerequisites 
 In this tutorial, you will need 1) an Ethereum account with at least `0.001` ethers on Goerli testnet  2) a hosted node on Goerli testnet. 
-In case you are not familliar with either of these two steps, there are some dedicated sections at the end of this tutorial explaining how to obtain those.
+In case you are not familliar with either of these two steps, you may use the following tutorial on the [prerequisites of running onchain spam-protected chat2](./pre-requisites-of-running-onchain-spam-protected-chat2.md).
 Note that the required `0.001` ethers corresponds to the registration fee, 
 however, you still need to have more fund in your account to cover the cost of the transaction gas fee.
 
@@ -25,16 +25,6 @@ If you choose to not to reuse the same credentials, then for each execution, a n
 In this test,  you will connect your chat2 client to the waku test fleets as the first hop. 
 Test fleets are already running waku-rln-relay over the same pubsub topic and content topic as your chat2 client i.e., default pubsub topic `/waku/2/default-waku/proto` and the content topic of `/toy-chat/2/luzhou/proto`. 
 As such, test fleets will filter spam messages published on this specific combination of topics, and do not route them.
-
-<!-- 
-You need to run chat2 clients with waku-rln-relay mounted in on-chain mode and on the content topic of `/toy-chat/2/luzhou/proto`.
-Being mounted in on-chain mode means that your rln credentials i.e., identity commitment will be registered to the rln membership group contract deployed on the Ethereum Goerli testnet. 
-In the background, your chat2 client is constantly listening to the contract and keeps itself updated with the latest state of the group. -->
-
-<!-- You will connect your chat2 client to waku2 test fleets.
-Test fleet nodes route your messages as well as filter spam messages.
-In specific, they run waku-rln-relay on the `/toy-chat/2/luzhou/proto` content topic which is the content topic used in this tutorial for the chat application. -->
-
 
 ## Build chat2
 First, build chat2 with the RLN flag set to true.
