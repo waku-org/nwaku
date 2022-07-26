@@ -6,7 +6,7 @@ import
   os,
   waku_rln_relay_types
 
-const libPath = "vendor/zerokit/target/debug/"
+const libPath = "vendor/zerokit/target/release/"
 when defined(Windows):
   const libName* = libPath / "rln.dll"
 elif defined(Linux):
