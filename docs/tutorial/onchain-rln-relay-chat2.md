@@ -51,8 +51,8 @@ In this command
 - the `--rln-relay-dynamic` flag is set to `true`  to enable the on-chain mode of  Waku-RLN-Relay protocol with dynamic group management.
 - the `--eth-mem-contract-address` option gets the address of the membership contract.
   The current address of the contract is `0x5DE1Fb10345Ef1647629Df30e6C397297Da09A1d`.
-  You may check the state of the contract on [Goerli testnet](https://goerli.etherscan.io/address/0x5DE1Fb10345Ef1647629Df30e6C397297Da09A1d).
-- the `eth-account-address` option is for your account address on Goerli testnet.
+  You may check the state of the contract on the [Goerli testnet](https://goerli.etherscan.io/address/0x5DE1Fb10345Ef1647629Df30e6C397297Da09A1d).
+- the `eth-account-address` option is for your account address on the Goerli testnet.
   It is a  hex string of size 40 (not sensitive to the `0x` prefix). 
 - the `eth-account-privatekey` option is for your account private key on the Goerli testnet. 
   It is made up of 64 hex characters (not sensitive to the `0x` prefix).
@@ -69,9 +69,9 @@ Please use the index assigned to you in the dogfooding coordination phase.
 If you pick an index at random you may end up using the same key pair as someone else, hence your messaging rate will be shared with that person(s).
  -->
 
-Next, choose your nickname:
+Once you run the command, you are asked to choose your nickname:
 ```
-Choose a nickname >> your_nick_name
+Choose a nickname >> Alice
 ```
 
 then you will see a couple of other messages related to setting up the connections of your chat app,
@@ -103,7 +103,7 @@ Next, you see the following message:
 ```
 rln-relay preparation is in progress ...
 ```
-At this phase, your rln credentials are getting created and a transaction is sent to the contract.
+At this phase, your rln credentials are getting created and a transaction is being sent to the contract.
 It will take some time for the transaction to be finalized.
 Once finalized, the registered  rln identity key, the rln identity commitment key, and the index of the registered credentials will be displayed as below.
 The rln identity key is not shown in the figure (replaced by a string of `x`s) for the security reason. 
@@ -136,7 +136,7 @@ The reason is that under the hood a zero-knowledge proof is being generated and 
 
 Try to spam the network by violating the message rate limit i.e.,
 sending more than one message per epoch. 
-Your messages will be routed via test fleets that are running in rate-limited mode over the same content topic i.e., `/toy-chat/2/luzhou/proto`.
+Your messages will be routed via test fleets that are running in spam-protected mode over the same content topic i.e., `/toy-chat/2/luzhou/proto` as your chat client.
 Your samp activity will be detected by them and your message will not reach the rest of the chat clients.
 You can check this by running a second chat user and verifying that spam messages are filtered at the test fleets and not displayed. 
 A sample test scenario is illustrated in the [Sample test output section](#sample-test-output).
@@ -156,19 +156,23 @@ your membership index is: 63
 your rln identity key is: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 your rln identity commitment key is: 6c6598126ba10d1b70100893b76d7f8d7343eeb8f5ecfd48371b421c5aa6f012
 ```
-Then, the execution command will look like:
+Then, the execution command will look like (inspect the last three config options):
 ```
 ./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x5DE1Fb10345Ef1647629Df30e6C397297Da09A1d  --eth-account-address:your_eth_account --eth-account-privatekey:your_eth_private_key  --eth-client-address:your_goerli_node  --ports-shift=1  --rln-relay-membership-index:63 --rln-relay-id:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --rln-relay-id-commitment:6c6598126ba10d1b70100893b76d7f8d7343eeb8f5ecfd48371b421c5aa6f012
 
 ```
 
 # Sample test output
-Below, is a sample test of running two chat clients.
+In this section, a sample test of running two chat clients is provided.
 Note that the values used for `eth-account-address`, `eth-account-privatekey`, and `eth-client-address` in the following code snippets are junk and not valid.
-In the following sample test, `Alice` sends 4 messages namely, `message1`, `message2`, `message3`, and `message4` though only three of them arrive at the `Bob` side. 
-The two messages `message2` and `message3` have identical RLN epoch values, so, one of them will be discarded by the test fleets as a spam message. 
-You can check this fact by looking at the `Bob` console, where `message3` is missing. 
+
+`Alice` and `Bob` the two chat clients are connected to the test fleets.
+`Alice` sends 4 messages namely, `message1`, `message2`, `message3`, and `message4`.
+However, only three of them reach `Bob`. 
+This is because the two messages `message2` and `message3` have identical RLN epoch values, so, one of them get discarded by the test fleets as a spam message. 
 The test fleets do not relay `message3` further, hence `Bob` never receives it.
+You can check this fact by looking at the `Bob` console, where `message3` is missing. 
+
 
 Alice
 ``` 
