@@ -2,8 +2,8 @@
 
 This document is a tutorial on how to run the chat2 application in the spam-protected mode using the Waku-RLN-Relay protocol and with dynamic/on-chain group management.
 In the on-chain/dynamic group management, the state of the group members i.e., their identity commitment keys is moderated via a membership smart contract deployed on the Goerli network which is one of the Ethereum testnets.
-Members can be dynamically added to the group and the group size can grow up to to 2^20 members.
-This in contract to the prior test scenarios in which the rln group was static and the set of members' keys were hardcoded and fixed.
+Members can be dynamically added to the group and the group size can grow up to 2^20 members.
+This is in contrast to the prior test scenarios in which the rln group was static and the set of members' keys was hardcoded and fixed.
 
 
 ## Prerequisites 
@@ -47,7 +47,7 @@ Run the following command to set up your chat2 client.
 In this command
 - the `--fleet:test` indicates that the chat2 app gets connected to the test fleets.
 - the `toy-chat/2/luzhou/proto` passed to the `content-topic` option indicates the content topic on which the chat2 application is going to run.
-- the `rln-relay` flag is set to `true` to enable Waku-RLN-Relay protocol for spam protection.
+- the `rln-relay` flag is set to `true` to enable the Waku-RLN-Relay protocol for spam protection.
 - the `--rln-relay-dynamic` flag is set to `true`  to enable the on-chain mode of  Waku-RLN-Relay protocol with dynamic group management.
 - the `--eth-mem-contract-address` option gets the address of the membership contract.
   The current address of the contract is `0x5DE1Fb10345Ef1647629Df30e6C397297Da09A1d`.
@@ -105,9 +105,9 @@ rln-relay preparation is in progress ...
 ```
 At this phase, your rln credentials are getting created and a transaction is being sent to the contract.
 It will take some time for the transaction to be finalized.
-Once finalized, the registered  rln identity key, the rln identity commitment key, and the index of the registered credentials will be displayed as below.
-The rln identity key is not shown in the figure (replaced by a string of `x`s) for the security reason. 
-But, you will see your own rln identity key.
+Once finalized, the registered rln identity key, the rln identity commitment key, and the index of the registered credentials will be displayed as given below.
+The rln identity key is not shown in the figure (replaced by a string of `x`s) for security reasons. 
+But, you will see your rln identity key.
 
 ```
 your membership index is: 63
@@ -156,7 +156,7 @@ your membership index is: 63
 your rln identity key is: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 your rln identity commitment key is: 6c6598126ba10d1b70100893b76d7f8d7343eeb8f5ecfd48371b421c5aa6f012
 ```
-Then, the execution command will look like (inspect the last three config options):
+Then, the execution command will look like this (inspect the last three config options):
 ```
 ./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x5DE1Fb10345Ef1647629Df30e6C397297Da09A1d  --eth-account-address:your_eth_account --eth-account-privatekey:your_eth_private_key  --eth-client-address:your_goerli_node  --ports-shift=1  --rln-relay-membership-index:63 --rln-relay-id:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --rln-relay-id-commitment:6c6598126ba10d1b70100893b76d7f8d7343eeb8f5ecfd48371b421c5aa6f012
 
