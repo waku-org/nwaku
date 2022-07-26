@@ -829,13 +829,13 @@ proc mountRlnRelayDynamic*(node: WakuNode,
 
   node.wakuRlnRelay = rlnPeer
 
-proc readPersistentRlnCredentials*() : RlnMembershipCredentials {.raises: [Defect, OSError, IOError, Exception].} =
+proc readPersistentRlnCredentials*(path: string) : RlnMembershipCredentials {.raises: [Defect, OSError, IOError, Exception].} =
   info "keyPair and rlnIndex exist"
   # With regards to printing the keys, it is purely for debugging purposes so that the user becomes explicitly aware of the current keys in use when nwaku is started.
   # Note that this is only until the RLN contract being used is the one deployed on Goerli testnet.
   # These prints need to omitted once RLN contract is deployed on Ethereum mainnet and using valuable funds for staking.
       
-  let entireRlnCredentialsFile = readFile(RLN_CREDENTIALS_FILEPATH)
+  let entireRlnCredentialsFile = readFile(path)
 
   let jsonObject = parseJson(entireRlnCredentialsFile)
   let deserializedRlnCredentials = to(jsonObject, RlnMembershipCredentials)
@@ -887,7 +887,7 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, Value
       # mount the rln relay protocol in the on-chain/dynamic mode
       waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, memKeyPair = some(memKeyPair), memIndex = some(rlnRelayIndex), ethAccAddr = ethAccountAddr, ethAccountPrivKey = ethAccountPrivKey, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
     elif fileExists(RLN_CREDENTIALS_FILEPATH):
-      var credentials = readPersistentRlnCredentials()
+      var credentials = readPersistentRlnCredentials(RLN_CREDENTIALS_FILEPATH)
       waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr,
                 memKeyPair = some(credentials.membershipKeyPair), memIndex = some(credentials.rlnIndex), ethAccAddr = ethAccountAddr,
                 ethAccountPrivKey = ethAccountPrivKey, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)

@@ -91,7 +91,7 @@ type WakuRLNRelay* = ref object
 type MessageValidationResult* {.pure.} = enum
   Valid, Invalid, Spam
 
-#RLN membership key and index files path
+# RLN membership key and index files path
 const
   RLN_CREDENTIALS_FILEPATH* = "rlnCredentials.txt"
 
