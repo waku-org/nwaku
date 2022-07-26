@@ -789,7 +789,6 @@ procSuite "WakuNode":
       await node1.publish(rlnRelayPubSubTopic, message)
       await sleepAsync(2000.millis)
 
-      ## Current circom takes more time to load the circuit..
       check:
         (await completionFut.withTimeout(10.seconds)) == true
 
@@ -892,7 +891,6 @@ procSuite "WakuNode":
       await node1.publish(rlnRelayPubSubTopic, message)
       await sleepAsync(2000.millis)
 
-      ## Current circom takes more time to load the circuit...
       check:
         # the relayHandler of node3 never gets called
         (await completionFut.withTimeout(10.seconds)) == false
