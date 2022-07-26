@@ -168,9 +168,9 @@ endif
 
 rlnlib:
 ifeq ($(RLN), true)
-	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml
+	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
 else  ifeq ($(CI), true)
-	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml
+	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
 endif
 
 test2: | build deps installganache
