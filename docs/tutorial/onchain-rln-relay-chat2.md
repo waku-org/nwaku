@@ -27,6 +27,7 @@ In this test,  you will connect your chat2 client to the waku test fleets as the
 Test fleets are already running Waku-RLN-Relay over the same pubsub topic and content topic as your chat2 client i.e., default pubsub topic `/waku/2/default-waku/proto` and the content topic of `/toy-chat/2/luzhou/proto`. 
 As such, test fleets will filter spam messages published on this specific combination of topics, and do not route them.
 
+ ![](./imgs/rln-relay-chat2-overview.png)
 # Set up
 ## Build chat2
 First, build chat2 with the RLN flag set to true.
