@@ -7,7 +7,7 @@ This is in contrast to the prior test scenarios in which the rln group was stati
 
 
 ## Prerequisites 
-In this tutorial, you will need 1) an Ethereum account with at least `0.001` ethers on the Goerli testnet and 2) a hosted node on the Goerli testnet. 
+In this tutorial, you will need 1) an account with at least `0.001` ethers on the Goerli testnet and 2) a hosted node on the Goerli testnet. 
 In case you are not familiar with either of these two steps, you may use the following tutorial on the [prerequisites of running on-chain spam-protected chat2](./pre-requisites-of-running-on-chain-spam-protected-chat2.md).
 Note that the required `0.001` ethers correspond to the registration fee, 
 however, you still need to have more funds in your account to cover the cost of the transaction gas fee.
