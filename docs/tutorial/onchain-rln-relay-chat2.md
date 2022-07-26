@@ -19,9 +19,9 @@ At a high level,  when a chat2 client is spun up with Waku-RLN-Relay mounted in 
 registers them to the membership contract by sending a transaction.
 This transaction will consume some funds from the supplied Goerli account. 
 Once the transaction is mined and the registration is successful, the registered credentials will get displayed on the console.
-Under the hood, the chat2 client constantly listens to the membership contract and keeps itself updated with the latest state of the group.
-Note that you may copy the displayed rln credentials and reuse them for the future execution of chat2.
+You may copy the displayed rln credentials and reuse them for the future execution of chat2.
 If you choose not to reuse the same credentials, then for each execution, a new registration takes place and more funds get deducted from your Goerli account.
+Under the hood, the chat2 client constantly listens to the membership contract and keeps itself updated with the latest state of the group.
 
 In this test,  you will connect your chat2 client to the waku test fleets as the first hop. 
 Test fleets are already running Waku-RLN-Relay over the same pubsub topic and content topic as your chat2 client i.e., default pubsub topic `/waku/2/default-waku/proto` and the content topic of `/toy-chat/2/luzhou/proto`. 
