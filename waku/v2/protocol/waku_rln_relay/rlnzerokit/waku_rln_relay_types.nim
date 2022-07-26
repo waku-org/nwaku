@@ -1,4 +1,4 @@
-when defined(rln):
+when defined(rlnzerokit):
   {.push raises: [Defect].}
 
   import
@@ -8,13 +8,10 @@ when defined(rln):
     eth/keys,
     libp2p/protobuf/minprotobuf,
     stew/arrayops,
-    ../../utils/protobuf
+    ../../../utils/protobuf    #TODO: remove the extra ../ once zerokit is fully merged
 
-  ## Bn256 and RLN are Nim wrappers for the data types used in
-  ## the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
-  type Bn256* = pointer
-  type RLN*[E] = pointer
-
+  ## RLN is a Nim wrapper for the data types used in zerokit RLN
+  type RLN* {.incompleteStruct.} = object
 
   type
     # identity key as defined in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
@@ -22,11 +19,11 @@ when defined(rln):
     # hash of identity key as defined ed in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
     IDCommitment* = array[32, byte]
 
-
   type
     MerkleNode* = array[32, byte] # Each node of the Merkle tee is a Poseidon hash which is a 32 byte value
+    RlnIdentifier* = array[32, byte]
     Nullifier* = array[32, byte]
-    ZKSNARK* = array[256, byte]
+    ZKSNARK* = array[128, byte]
     Epoch* = array[32, byte]
 
   # Custom data types defined for waku rln relay -------------------------
@@ -56,6 +53,8 @@ when defined(rln):
     ## nullifier enables linking two messages published during the same epoch
     ## see details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Nullifiers
     nullifier*: Nullifier
+    ## Application specific RLN Identifier
+    rlnIdentifier*: RlnIdentifier
 
   type MembershipIndex* = uint
 
@@ -77,7 +76,7 @@ when defined(rln):
     # TODO may need to erase this ethAccountPrivateKey when is not used
     # TODO may need to make ethAccountPrivateKey mandatory
     ethAccountPrivateKey*: PrivateKey
-    rlnInstance*: RLN[Bn256]
+    rlnInstance*: ptr RLN
     pubsubTopic*: string # the pubsub topic for which rln relay is mounted
                          # contentTopic should be of type waku_message.ContentTopic, however, due to recursive module dependency, the underlying type of ContentTopic is used instead
                          # TODO a long-term solution is to place types with recursive dependency inside one file
@@ -91,14 +90,17 @@ when defined(rln):
   # inputs of the membership contract constructor
   # TODO may be able to make these constants private and put them inside the waku_rln_relay_utils
   const
-    MEMBERSHIP_FEE* = 1000000000000000.u256
-    #  the current implementation of the rln lib supports a circuit for Merkle tree with depth 20
+    MEMBERSHIP_FEE* = 5.u256
+    #  the current implementation of the rln lib only supports a circuit for Merkle tree with depth 32
     MERKLE_TREE_DEPTH* = 20
     # TODO the ETH_CLIENT should be an input to the rln-relay, though hardcoded for now
     # the current address is the address of ganache-cli when run locally
     ETH_CLIENT* = "ws://localhost:8540/"
 
   const
+    # The relative folder where the circuit, proving and verification key for RLN can be found
+    # Note that resources has to be compiled with respect to the above MERKLE_TREE_DEPTH
+    RLN_RESOURCE_FOLDER* = "vendor/zerokit/rln/resources/tree_height_" & $MERKLE_TREE_DEPTH & "/"
     # the size of poseidon hash output in bits
     HASH_BIT_SIZE* = 256
     # the size of poseidon hash output as the number hex digits
@@ -315,7 +317,7 @@ when defined(rln):
     # STATIC_GROUP_MERKLE_ROOT is the root of the Merkle tree constructed from the STATIC_GROUP_KEYS above
     # only identity commitments are used for the Merkle tree construction
     # the root is created locally, using createMembershipList proc from waku_rln_relay_utils module, and the result is hardcoded in here
-    STATIC_GROUP_MERKLE_ROOT* = "a1877a553eff12e1b21632a0545a916a5c5b8060ad7cc6c69956741134397b2d"
+    STATIC_GROUP_MERKLE_ROOT* = "2af1e8ca39f5b1c3b097d37c2281da47b5a9b5cdde0525fe51dd929c27cb5400"
 
   const EPOCH_UNIT_SECONDS* = float64(10) # the rln-relay epoch length in seconds
   const MAX_CLOCK_GAP_SECONDS* = 20.0 # the maximum clock difference between peers in seconds
@@ -352,6 +354,10 @@ when defined(rln):
     discard ? pb.getField(6, nullifier)
     discard nsp.nullifier.copyFrom(nullifier)
 
+    var rlnIdentifier: seq[byte]
+    discard ? pb.getField(7, rlnIdentifier)
+    discard nsp.rlnIdentifier.copyFrom(rlnIdentifier)
+
     return ok(nsp)
 
   proc encode*(nsp: RateLimitProof): ProtoBuffer =
@@ -363,6 +369,7 @@ when defined(rln):
     output.write3(4, nsp.shareX)
     output.write3(5, nsp.shareY)
     output.write3(6, nsp.nullifier)
+    output.write3(7, nsp.rlnIdentifier)
 
     output.finish3()
 

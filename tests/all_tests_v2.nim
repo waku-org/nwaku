@@ -36,6 +36,10 @@ when defined(rln):
   when defined(onchain_rln):
     import ./v2/test_waku_rln_relay_onchain
 
+when defined(rlnzerokit):
+  import ./v2/test_waku_rln_relay_zerokit
+  when defined(onchain_rln):
+    import ./v2/test_waku_rln_relay_onchain_zerokit
 
 # TODO Only enable this once swap module is integrated more nicely as a dependency, i.e. as submodule with CI etc
 # For PoC execute it manually and run separate module here: https://github.com/vacp2p/swap-contracts-module
