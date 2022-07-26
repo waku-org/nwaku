@@ -7,6 +7,7 @@ import
   testutils/unittests, chronos, chronicles, stint, web3, json,
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
+  eth/keys,
   ../../waku/v2/protocol/waku_rln_relay/[waku_rln_relay_utils,
       waku_rln_relay_types, rln_relay_contract],
   ../../waku/v2/node/wakunode2,
@@ -74,6 +75,31 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
   debug "disconnected from ", ethClientAddress
 
   return contractAddress
+
+
+proc createEthAccount(): Future[(keys.PrivateKey, Address)] {.async.} =
+  let theRNG = keys.newRng()
+
+  let web3 = await newWeb3(ETH_CLIENT)
+  let accounts = await web3.provider.eth_accounts()
+  let gasPrice = int(await web3.provider.eth_gasPrice())
+  web3.defaultAccount = accounts[0]
+
+  let pk = keys.PrivateKey.random(theRNG[])
+  let acc = Address(toCanonicalAddress(pk.toPublicKey()))
+
+  var tx: EthSend
+  tx.source = accounts[0]
+  tx.value = some(ethToWei(10.u256))
+  tx.to = some(acc)
+  tx.gasPrice = some(gasPrice)
+
+  # Send 10 eth to acc
+  discard await web3.send(tx)
+  var balance = await web3.provider.eth_getBalance(acc, "latest")
+  assert(balance == ethToWei(10.u256))
+
+  return (pk, acc)
 
 procSuite "Waku-rln-relay":
   asyncTest "event subscription":
@@ -259,12 +285,16 @@ procSuite "Waku-rln-relay":
     check: 
       membershipKeyPair.isSome
 
+    # create an Ethereum private key and the corresponding account 
+    let (ethPrivKey, ethacc) = await createEthAccount()
+
     # test ------------------------------
     # initialize the WakuRLNRelay
     var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
       membershipIndex: MembershipIndex(0),
       ethClientAddress: ETH_CLIENT,
-      ethAccountAddress: ethAccountAddress,
+      ethAccountPrivateKey: ethPrivKey,
+      ethAccountAddress: ethacc,
       membershipContractAddress: contractAddress)
 
     # register the rln-relay peer to the membership contract
@@ -347,6 +377,8 @@ procSuite "Waku-rln-relay":
       # choose one of the existing accounts for the rln-relay peer
       ethAccountAddress = accounts[0]
     web3.defaultAccount = accounts[0]
+    
+  
 
     # create an rln instance
     var rlnInstance = createRLNInstance()
@@ -389,11 +421,16 @@ procSuite "Waku-rln-relay":
     let tx2Hash = await contractObj.register(pk2).send(value = MEMBERSHIP_FEE)
     debug "a member is registered", tx2 = tx2Hash
 
+     # create an Ethereum private key and the corresponding account 
+    let (ethPrivKey, ethacc) = await createEthAccount()
+
+
     # test ------------------------------
     # start rln-relay
     node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
     await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
-                            ethAccAddr = ethAccountAddress,
+                            ethAccAddr = ethacc,
+                            ethAccountPrivKey = ethPrivKey,
                             memContractAddr = contractAddress, 
                             memKeyPair = keyPair1,
                             memIndex = some(MembershipIndex(0)),
@@ -439,10 +476,14 @@ procSuite "Waku-rln-relay":
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60001))
     await node2.start()
 
+     # create an Ethereum private key and the corresponding account 
+    let (ethPrivKey, ethacc) = await createEthAccount()
+
     # start rln-relay on the first node, leave rln-relay credentials empty
     node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
     await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
-                            ethAccAddr = ethAccountAddress1,
+                            ethAccAddr = ethacc,
+                            ethAccountPrivKey = ethPrivKey,
                             memContractAddr = contractAddress, 
                             memKeyPair = none(MembershipKeyPair),
                             memIndex = none(MembershipIndex),
@@ -454,7 +495,8 @@ procSuite "Waku-rln-relay":
     # start rln-relay on the second node, leave rln-relay credentials empty
     node2.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
     await node2.mountRlnRelayDynamic(ethClientAddr = EthClient,
-                            ethAccAddr = ethAccountAddress2,
+                            ethAccAddr = ethacc,
+                            ethAccountPrivKey = ethPrivKey,
                             memContractAddr = contractAddress, 
                             memKeyPair = none(MembershipKeyPair),
                             memIndex = none(MembershipIndex),

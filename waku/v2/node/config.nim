@@ -145,9 +145,14 @@ type
       name: "rln-relay-id-commitment" }: string
   
     rlnRelayEthAccount* {.
-      desc: "Ethereum testnet account address", 
+      desc: "Account address for the Ethereum testnet Goerli", 
       defaultValue: ""
       name: "eth-account-address" }: string
+
+    rlnRelayEthAccountPrivKey* {.
+      desc: "Account private key for the Ethereum testnet Goerli",
+      defaultValue: ""
+      name: "eth-account-privatekey" }: string
     
     rlnRelayEthClientAddress* {.
       desc: "Ethereum testnet client address e.g., ws://localhost:8540/",
@@ -262,6 +267,38 @@ type
       desc: "Enable access to JSON-RPC Private API: true|false",
       defaultValue: false
       name: "rpc-private" }: bool
+
+    ## REST HTTP config
+
+    rest* {.
+      desc: "Enable Waku REST HTTP server: true|false",
+      defaultValue: false
+      name: "rest" }: bool
+
+    restAddress* {.
+      desc: "Listening address of the REST HTTP server.",
+      defaultValue: ValidIpAddress.init("127.0.0.1")
+      name: "rest-address" }: ValidIpAddress
+
+    restPort* {.
+      desc: "Listening port of the REST HTTP server.",
+      defaultValue: 8645
+      name: "rest-port" }: uint16
+
+    restRelayCacheCapaciy* {.
+      desc: "Capacity of the Relay REST API message cache.",
+      defaultValue: 30
+      name: "rest-relay-cache-capacity" }: uint32
+
+    restAdmin* {.
+      desc: "Enable access to REST HTTP Admin API: true|false",
+      defaultValue: false
+      name: "rest-admin" }: bool
+    
+    restPrivate* {.
+      desc: "Enable access to REST HTTP Private API: true|false",
+      defaultValue: false
+      name: "rest-private" }: bool
     
     ## Metrics config
 

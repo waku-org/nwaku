@@ -33,7 +33,12 @@ pipeline {
     string(
       name: 'NIMFLAGS',
       description: 'Flags for Nim compilation.',
-      defaultValue: params.NIMFLAGS ?: '-d:disableMarchNative -d:chronicles_colors:none -d:insecure',
+      defaultValue: params.NIMFLAGS ?: [
+        '--colors:off',
+        '-d:disableMarchNative',
+        '-d:chronicles_colors:none',
+        '-d:insecure',
+      ].join(' ')
     )
   }
 
