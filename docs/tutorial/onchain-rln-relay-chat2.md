@@ -38,7 +38,7 @@ make chat2 RLN=true
 Run the following command to set up your chat2 client. 
 
 ```
-./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fE33D2947e8EaD304969849E64f2a6  --eth-account-address:your_eth_account --eth-account-privatekey:your_eth_private_key  --eth-client-address:your_goerli_node  --ports-shift=1  
+./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fE33D2947e8EaD304969849E64f2a6  --eth-account-address:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --eth-account-privatekey:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  --eth-client-address:xxxx  --ports-shift=1  
 
 ```
 
@@ -51,13 +51,13 @@ In this command
   The current address of the contract is `0x4252105670fE33D2947e8EaD304969849E64f2a6`.
   You may check the state of the contract on [Goerli testnet](https://goerli.etherscan.io/address/0x5DE1Fb10345Ef1647629Df30e6C397297Da09A1d).
 - the `eth-account-address` option is for your account address on Goerli testnet.
-  You need to replace `your_eth_account` with your actual account address.
   It is a  hex string of size 40 (not sensitive to the `0x` prefix). 
-- the `eth-account-privatekey` option is for your account private key on Goerli testnet. 
-  You need to replace `your_eth_private_key` with the private key of your account on the Goerli testnet. 
+- the `eth-account-privatekey` option is for your account private key on the Goerli testnet. 
   It is made up of 64 hex characters (not sensitive to the `0x` prefix).
 - the `eth-client-address` should be assigned with the address of the hosted node on the Goerli testnet. 
-  You need to replace the `your_goerli_node` with the actual node's address.
+  You need to replace the `xxxx` with the actual node's address.
+
+For the last three config options i.e., `eth-account-address`, `eth-account-privatekey`, and `eth-client-address`,  if you do not know how to obtain those, you may use the following tutorial on the [prerequisites of running on-chain spam-protected chat2](./pre-requisites-of-running-on-chain-spam-protected-chat2.md).
 
 You may set up more than one chat client,
 just make sure that you increment the `--ports-shift` value for each new client you set up e.g., `--ports-shift=2`.
@@ -104,7 +104,7 @@ rln-relay preparation is in progress ...
 At this phase, your rln credentials are getting created and a transaction is sent to the contract.
 It will take some time for the transaction to be finalized.
 Once finalized, the registered  rln identity key, the rln identity commitment key, and the index of the registered credentials will be displayed as below.
-In the snippet below, the rln identity key is not shown (replaced by a string of `x`s) for the security reason. 
+The rln identity key is not shown in the figure (replaced by a string of `x`s) for the security reason. 
 But, you will see your own rln identity key.
 
 ```
@@ -136,8 +136,8 @@ Try to spam the network by violating the message rate limit i.e.,
 sending more than one message per epoch. 
 Your messages will be routed via test fleets that are running in rate-limited mode over the same content topic i.e., `/toy-chat/2/luzhou/proto`.
 Your samp activity will be detected by them and your message will not reach the rest of the chat clients.
-You can check this by running a second chat user and verifying that spam messages are filtered at the test fleets and won't be displayed. 
-A sample test scenario is illustrated next.
+You can check this by running a second chat user and verifying that spam messages are filtered at the test fleets and not displayed. 
+A sample test scenario is illustrated in the [Sample test output section](#sample-test-output).
 
 Once you are done with the test, make sure you close all the chat2 clients by typing the `/exit` command.
 ```
@@ -147,24 +147,22 @@ quitting...
 
 ## How to reuse rln credentials
 
-You may reuse your rln credentials as indicated below.
-When running the chat2 client, amend the following options:
-
+You may resue your old rln credentials using `rln-relay-membership-index`, `rln-relay-id` and `rln-relay-id-commitment` options. 
+For instance, if the previously generated credentials are
 ```
---rln-relay-membership-index:63 --rln-relay-id:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --rln-relay-id-commitment:6c6598126ba10d1b70100893b76d7f8d7343eeb8f5ecfd48371b421c5aa6f012
+your membership index is: 63
+your rln identity key is: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+your rln identity commitment key is: 6c6598126ba10d1b70100893b76d7f8d7343eeb8f5ecfd48371b421c5aa6f012
 ```
-
-Thus the execution command will look like:
+Then, the execution command will look like:
 ```
 ./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fE33D2947e8EaD304969849E64f2a6  --eth-account-address:your_eth_account --eth-account-privatekey:your_eth_private_key  --eth-client-address:your_goerli_node  --ports-shift=1  --rln-relay-membership-index:63 --rln-relay-id:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --rln-relay-id-commitment:6c6598126ba10d1b70100893b76d7f8d7343eeb8f5ecfd48371b421c5aa6f012
 
 ```
-./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fE33D2947e8EaD304969849E64f2a6  --eth-account-address:your_eth_account --eth-account-privatekey:your_eth_private_key  --eth-client-address:your_goerli_node  --ports-shift=1  --rln-relay-membership-index:66 --rln-relay-id:dc308718989380f9b76823351fe8ea05c34898178bb9d2400b086a590e37621b --rln-relay-id-commitment:bd093cbf14fb933d53f596c33f98b3df83b7e9f7a1906cf4355fac712077cb28
-
 
 # Sample test output
 Below, is a sample test of running two chat clients.
-Note that the values used for `eth-account-address`, `eth-account-privatekey`, and `eth-client-address` in the following snippets are junk and not valid.
+Note that the values used for `eth-account-address`, `eth-account-privatekey`, and `eth-client-address` in the following code snippets are junk and not valid.
 In the following sample test, `Alice` sends 4 messages namely, `message1`, `message2`, `message3`, and `message4` though only three of them arrive at the `Bob` side. 
 The two messages `message2` and `message3` have identical RLN epoch values, so, one of them will be discarded by the test fleets as a spam message. 
 You can check this fact by looking at the `Bob` console, where `message3` is missing. 
@@ -197,7 +195,7 @@ Connecting to storenode: 16Uiu2HAkvWiyFsgRhuJEb9JfjYxEkoHLgnUQmr1N5mKWnYjxYRVm
 <Jun 29, 16:15> h: hi
 rln-relay preparation is in progress ...
 your membership index is: 66
-your rln identity key is: yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+your rln identity key is: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 your rln identity commitment key is: bd093cbf14fb933d53f596c33f98b3df83b7e9f7a1906cf4355fac712077cb28
 >> message1
 --rln epoch: 165886591
@@ -228,7 +226,7 @@ Store enabled, but no store nodes configured. Choosing one at random from discov
 Connecting to storenode: 16Uiu2HAkvWiyFsgRhuJEb9JfjYxEkoHLgnUQmr1N5mKWnYjxYRVm
 rln-relay preparation is in progress ...
 your membership index is: 65
-your rln identity key is: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+your rln identity key is: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 your rln identity commitment key is: d4961a7681521730bc7f9ade185c632b94b70624b2e87e21a97c07b83353f306
 >> <Jul 26, 13:05> Alice: message1
 >> <Jul 26, 13:05> Alice: message2
