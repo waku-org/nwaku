@@ -1,6 +1,6 @@
 #  Spam-protected chat2 application with on-chain group management
 
-This document is a tutorial on how to run the chat2 application in the spam-protected mode using the WAKU-RLN-Relay protocol and with dynamic/on-chain group management.
+This document is a tutorial on how to run the chat2 application in the spam-protected mode using the Waku-RLN-Relay protocol and with dynamic/on-chain group management.
 In the on-chain/dynamic group management, the state of the group members i.e., their identity commitment keys is moderated via a membership smart contract deployed on the Goerli network which is one of the Ethereum testnets.
 Members can be dynamically added to the group and the group size can grow up to to 2^20 members.
 This in contract to the prior test scenarios in which the rln group was static and the set of members' keys were hardcoded and fixed.
@@ -15,7 +15,7 @@ however, you still need to have more funds in your account to cover the cost of 
 
 
 ## Overview
-At a high level,  when a chat2 client is spun up with waku-rln-relay mounted in on-chain mode, it creates rln credentials i.e., an identity key and an identity commitment key and 
+At a high level,  when a chat2 client is spun up with Waku-RLN-Relay mounted in on-chain mode, it creates rln credentials i.e., an identity key and an identity commitment key and 
 registers them to the membership contract by sending a transaction.
 This transaction will consume some funds from the supplied Goerli account. 
 Once the transaction is mined and the registration is successful, the registered credentials will get displayed on the console.
@@ -24,7 +24,7 @@ Note that you may copy the displayed rln credentials and reuse them for the futu
 If you choose not to reuse the same credentials, then for each execution, a new registration takes place and more funds get deducted from your Goerli account.
 
 In this test,  you will connect your chat2 client to the waku test fleets as the first hop. 
-Test fleets are already running waku-rln-relay over the same pubsub topic and content topic as your chat2 client i.e., default pubsub topic `/waku/2/default-waku/proto` and the content topic of `/toy-chat/2/luzhou/proto`. 
+Test fleets are already running Waku-RLN-Relay over the same pubsub topic and content topic as your chat2 client i.e., default pubsub topic `/waku/2/default-waku/proto` and the content topic of `/toy-chat/2/luzhou/proto`. 
 As such, test fleets will filter spam messages published on this specific combination of topics, and do not route them.
 
 # Set up
@@ -45,9 +45,9 @@ Run the following command to set up your chat2 client.
 ```
 
 In this command
-- the `--fleet`:`test` indicates that the chat2 app gets connected to the test fleets.
-- the `--content-topic`:`/toy-chat/2/luzhou/proto` indicates the content topic the chat2 application is being run.
-- the `rln-relay` flag is set to true to enable RLN-Relay protocol for spam protection.
+- the `--fleet:test` indicates that the chat2 app gets connected to the test fleets.
+- the `toy-chat/2/luzhou/proto` passed to `content-topic` option indicates the content topic on which the chat2 application is going to run.
+- the `rln-relay` flag is set to `true` to enable Waku-RLN-Relay protocol for spam protection.
 - the `--rln-relay-dynamic` flag is set to run the rln-relay protocol in on-chain mode with dynamic group management.
 - the `--eth-mem-contract-address` command option gets the address of the membership contract.
   The current address of the contract is `0x4252105670fE33D2947e8EaD304969849E64f2a6`.
