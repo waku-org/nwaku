@@ -136,8 +136,8 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethClientAddres
   debug "tx log data", arguments=arguments
   let 
     argumentsBytes = arguments.hexToSeqByte()
-    eventIdCommUint = UInt256.fromBytesLE(argumentsBytes[0..31])
-    eventIndex =  UInt256.fromBytesLE(argumentsBytes[32..^1])
+    eventIdCommUint = UInt256.fromBytesBE(argumentsBytes[0..31])
+    eventIndex =  UInt256.fromBytesBE(argumentsBytes[32..^1])
     eventIdComm = eventIdCommUint.toIDCommitment()
   debug "the identity commitment key extracted from tx log", eventIdComm=eventIdComm
   debug "the index of registered identity commitment key", eventIndex=eventIndex
