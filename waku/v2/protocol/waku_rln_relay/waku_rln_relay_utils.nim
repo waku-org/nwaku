@@ -794,11 +794,11 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   var
     rlnMembershipCredentials = RlnMembershipCredentials(membershipKeyPair: keyPair, rlnIndex: rlnIndex)
 
-  #Write RLN credentials
-  writeFile(RLN_CREDENTIALS_FILEPATH, pretty(%rlnMembershipCredentials))
+  # Since the files are stored as a raw text file, it is highly susceptible to theft.
+  # The files needs some encryption to resolve this.
 
-  #Since the files are stored as a raw text file, it is highly susceptible to theft.
-  #The files needs some encryption to resolve this.
+  # Write RLN credentials
+  writeFile(RLN_CREDENTIALS_FILEPATH, pretty(%rlnMembershipCredentials))
 
   # create the WakuRLNRelay
   var rlnPeer = WakuRLNRelay(membershipKeyPair: keyPair,
@@ -832,9 +832,9 @@ proc mountRlnRelayDynamic*(node: WakuNode,
 
 proc readPersistentRlnCredentials*() : RlnMembershipCredentials {.raises: [Defect, OSError, IOError, Exception].} =
   info "keyPair and rlnIndex exist"
-  #With regards to printing the keys, it is purely for debugging purposes so that the user becomes explicitly aware of the current keys in use when nwaku is started.
-  #Note that this is only until the RLN contract being used is the one deployed on Goerli testnet.
-  #These prints need to omitted once RLN contract is deployed on Ethereum mainnet and using valuable funds for staking.
+  # With regards to printing the keys, it is purely for debugging purposes so that the user becomes explicitly aware of the current keys in use when nwaku is started.
+  # Note that this is only until the RLN contract being used is the one deployed on Goerli testnet.
+  # These prints need to omitted once RLN contract is deployed on Ethereum mainnet and using valuable funds for staking.
       
   let entireRlnCredentialsFile = readFile(RLN_CREDENTIALS_FILEPATH)
 

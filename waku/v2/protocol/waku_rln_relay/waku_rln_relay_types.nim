@@ -93,8 +93,6 @@ type MessageValidationResult* {.pure.} = enum
 
 #RLN membership key and index files path
 const
-  KEYPAIR_FILEPATH* = "keyPair.txt"
-  RLN_INDEX_FILEPATH* = "rlnIndex.txt"
   RLN_CREDENTIALS_FILEPATH* = "rlnCredentials.txt"
 
 # inputs of the membership contract constructor
