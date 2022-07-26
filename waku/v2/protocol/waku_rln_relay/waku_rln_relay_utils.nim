@@ -2,6 +2,8 @@
 
 import
   std/sequtils, tables, times,
+  std/streams,
+  std/os,
   chronicles, options, chronos, stint,
   confutils,
   web3, json,
@@ -11,13 +13,10 @@ import
   libp2p/protocols/pubsub/pubsub,
   stew/results,
   stew/[byteutils, arrayops, endians2],
-  rln,
-  std/streams, 
+  rln, 
   waku_rln_relay_types,
   ../../node/[wakunode2_types,config],
-  ../waku_message,
-  json,
-  std/os
+  ../waku_message
 
   
 
