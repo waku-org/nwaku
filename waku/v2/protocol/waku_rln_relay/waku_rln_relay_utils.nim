@@ -786,7 +786,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
     rlnIndex = regIndexRes.value
     debug "peer is successfully registered into the membership contract"
   else:
-    info "Peer is already registered to the membership contract"
+    debug "Peer is already registered to the membership contract"
     keyPair = memKeyPair.get()
     rlnIndex = memIndex.get()
 
@@ -830,7 +830,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   node.wakuRlnRelay = rlnPeer
 
 proc readPersistentRlnCredentials*(path: string) : RlnMembershipCredentials {.raises: [Defect, OSError, IOError, Exception].} =
-  info "keyPair and rlnIndex exist"
+  info "Rln credentials exist in file"
   # With regards to printing the keys, it is purely for debugging purposes so that the user becomes explicitly aware of the current keys in use when nwaku is started.
   # Note that this is only until the RLN contract being used is the one deployed on Goerli testnet.
   # These prints need to omitted once RLN contract is deployed on Ethereum mainnet and using valuable funds for staking.
@@ -840,7 +840,7 @@ proc readPersistentRlnCredentials*(path: string) : RlnMembershipCredentials {.ra
   let jsonObject = parseJson(entireRlnCredentialsFile)
   let deserializedRlnCredentials = to(jsonObject, RlnMembershipCredentials)
   
-  info "Deserialized Rln credentials", rlnCredentials=deserializedRlnCredentials
+  debug "Deserialized Rln credentials", rlnCredentials=deserializedRlnCredentials
   result = deserializedRlnCredentials
 
 proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
