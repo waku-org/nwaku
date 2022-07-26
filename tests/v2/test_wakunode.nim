@@ -791,7 +791,7 @@ procSuite "WakuNode":
 
       ## Current circom takes more time to load the circuit..
       check:
-        (await completionFut.withTimeout(200.seconds)) == true
+        (await completionFut.withTimeout(10.seconds)) == true
 
       await node1.stop()
       await node2.stop()
@@ -895,7 +895,7 @@ procSuite "WakuNode":
       ## Current circom takes more time to load the circuit...
       check:
         # the relayHandler of node3 never gets called
-        (await completionFut.withTimeout(200.seconds)) == false
+        (await completionFut.withTimeout(10.seconds)) == false
 
       await node1.stop()
       await node2.stop()
