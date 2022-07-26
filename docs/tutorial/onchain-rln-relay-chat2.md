@@ -15,7 +15,7 @@ however, you still need to have more funds in your account to cover the cost of 
 
 
 ## Overview
-At a high level,  when a chat2 client is spun up with Waku-RLN-Relay mounted in on-chain mode, it creates rln credentials i.e., an identity key and an identity commitment key and 
+Figure 1. provides on overview of the test we are going to explain in this tutorial. At a high level,  when a chat2 client is spun up with Waku-RLN-Relay mounted in on-chain mode, it creates rln credentials i.e., an identity key and an identity commitment key and 
 registers them to the membership contract by sending a transaction.
 This transaction will consume some funds from the supplied Goerli account. 
 Once the transaction is mined and the registration is successful, the registered credentials will get displayed on the console.
@@ -28,6 +28,8 @@ Test fleets are already running Waku-RLN-Relay over the same pubsub topic and co
 As such, test fleets will filter spam messages published on this specific combination of topics, and do not route them.
 
  ![](./imgs/rln-relay-chat2-overview.png)
+ **Figure 1.**
+
 # Set up
 ## Build chat2
 First, build chat2 with the RLN flag set to true.
