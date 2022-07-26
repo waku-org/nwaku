@@ -1,8 +1,9 @@
 #  Spam-protected chat2 application with on-chain group management
 
-This document is a tutorial on how to run the chat2 application over a spam-protected content topic i.e., `/toy-chat/2/luzhou/proto` using the WAKU-RLN-Relay protocol in the on-chain mode.
-Unlike prior released tutorials, the group management in the on-chain mode is dynamic and is moderated via a membership smart contract that is deployed on the Ethereum testnet of Goerli.
-The on-chain group management gives the benefit of dynamic group size where the size can grow up to 2^20 members.
+This document is a tutorial on how to run the chat2 application in the spam-protected mode using the WAKU-RLN-Relay protocol and with dynamic/on-chain group management.
+In the on-chain/dynamic group management, the state of the group members i.e., their identity commitment keys is moderated via a membership smart contract deployed on the Ethereum testnet of Goerli.
+Members can be dynamically added to the group and the group size can grow up to to 2^20 members.
+This in contract to the prior test scenarios in which the rln group was static and the set of members' keys were hardcoded and fixed.
 
 
 ## Prerequisites 
