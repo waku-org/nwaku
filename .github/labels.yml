@@ -36,9 +36,9 @@
   color: B60205
 - name: infra
   description: Infra, devops, CI and related tasks
+  color: 277196
 
 # Waku Product labels
-  color: 277196
 - name: rqt:platforms
   description: Requirement coming from a platform
   color: A51BB5
