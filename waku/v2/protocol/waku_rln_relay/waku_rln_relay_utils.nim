@@ -745,7 +745,7 @@ proc mountRlnRelayStatic*(node: WakuNode,
 proc mountRlnRelayDynamic*(node: WakuNode,
                     ethClientAddr: string = "",
                     ethAccAddr: web3.Address,
-                    ethAccountPrivKey: keys.PrivateKey,
+                    ethAccountPrivKey: Option[keys.PrivateKey],
                     memContractAddr:  web3.Address,
                     memKeyPair: Option[MembershipKeyPair] = none(MembershipKeyPair),
                     memIndex: Option[MembershipIndex] = none(MembershipIndex),
@@ -773,17 +773,20 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   var 
     keyPair: MembershipKeyPair
     rlnIndex: MembershipIndex
-  if memKeyPair.isNone: # if non provided, create one and register to the contract
-    trace "no rln-relay key is provided, generating one"
-    let keyPairOpt = rln.membershipKeyGen()
-    doAssert(keyPairOpt.isSome)
-    keyPair = keyPairOpt.get()
-    # register the rln-relay peer to the membership contract
-    let regIndexRes = await  register(idComm = keyPair.idCommitment, ethAccountAddress = ethAccAddr, ethAccountPrivKey = ethAccountPrivKey, ethClientAddress = ethClientAddr, membershipContractAddress = memContractAddr)
-    # check whether registration is done
-    doAssert(regIndexRes.isOk())
-    rlnIndex = regIndexRes.value
-    debug "peer is successfully registered into the membership contract"
+  if memKeyPair.isNone: 
+    if ethAccountPrivKey.isSome: # if non provided, create one and register to the contract
+      trace "no rln-relay key is provided, generating one"
+      let keyPairOpt = rln.membershipKeyGen()
+      doAssert(keyPairOpt.isSome)
+      keyPair = keyPairOpt.get()
+      # register the rln-relay peer to the membership contract
+      let regIndexRes = await  register(idComm = keyPair.idCommitment, ethAccountAddress = ethAccAddr, ethAccountPrivKey = ethAccountPrivKey.get(), ethClientAddress = ethClientAddr, membershipContractAddress = memContractAddr)
+      # check whether registration is done
+      doAssert(regIndexRes.isOk())
+      rlnIndex = regIndexRes.value
+      debug "peer is successfully registered into the membership contract"
+    else:
+      debug "running waku-rln-relay in relay-only mode"
   else:
     keyPair = memKeyPair.get()
     rlnIndex = memIndex.get()
@@ -849,12 +852,14 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: O
     # read related inputs to run rln-relay in on-chain mode and do type conversion when needed
     let 
       ethAccountAddr = web3.fromHex(web3.Address, conf.rlnRelayEthAccount)
-      ethAccountPrivKey = keys.PrivateKey(SkSecretKey.fromHex(conf.rlnRelayEthAccountPrivKey).value)
       ethClientAddr = conf.rlnRelayEthClientAddress
       ethMemContractAddress = web3.fromHex(web3.Address, conf.rlnRelayEthMemContractAddress)
       rlnRelayId = conf.rlnRelayIdKey
       rlnRelayIdCommitmentKey = conf.rlnRelayIdCommitmentKey
       rlnRelayIndex = conf.rlnRelayMemIndex
+    var ethAccountPrivKey = none(keys.PrivateKey)
+    if conf.rlnRelayEthAccountPrivKey != ""
+      ethAccountPrivKey = some(keys.PrivateKey(SkSecretKey.fromHex(conf.rlnRelayEthAccountPrivKey).value))
     #  check if the peer has provided its rln credentials
     if rlnRelayIdCommitmentKey != "" and rlnRelayId != "":
       # type conversation from hex strings to MembershipKeyPair
