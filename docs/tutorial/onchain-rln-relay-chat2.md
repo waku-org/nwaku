@@ -67,11 +67,6 @@ For the last three config options i.e., `eth-account-address`, `eth-account-priv
 You may set up more than one chat client,
 just make sure that you increment the `--ports-shift` value for each new client you set up e.g., `--ports-shift=2`.
 
-<!-- You can pass your index using this command `--rln-relay-membership-index: your_index` e.g., `--rln-relay-membership-index:19` .
-Please use the index assigned to you in the dogfooding coordination phase.
-If you pick an index at random you may end up using the same key pair as someone else, hence your messaging rate will be shared with that person(s).
- -->
-
 Once you run the command, you are asked to choose your nickname:
 ```
 Choose a nickname >> Alice
