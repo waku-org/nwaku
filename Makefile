@@ -176,9 +176,9 @@ endif
 
 rlnlib:
 ifeq ($(RLN), true)
-	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
+	cargo build --manifest-path vendor/rln/Cargo.toml
 else  ifeq ($(CI), true)
-	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
+	cargo build --manifest-path vendor/rln/Cargo.toml
 endif
 
 
@@ -249,7 +249,7 @@ endif
 
 # clean the rln build (forces recompile of old crates on next build)
 cleanrln:
-	cargo clean --manifest-path vendor/zerokit/rln/Cargo.toml
+	cargo clean --manifest-path vendor/rln/Cargo.toml
 
 # clean the rln build (forces recompile of old crates on next build)
 cleanrlnzerokit:
