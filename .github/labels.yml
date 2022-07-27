@@ -45,7 +45,7 @@
 
 # Tracks primarily within Secure Messaging or Waku Product project
 - name: track:rln
-  description: RLN Track - (Secure Messaging/Applied ZK), relay and applications
+  description: RLN Track (Secure Messaging/Applied ZK), e.g. relay and applications
   color: C89BC6
 - name: track:anonymity
   description: Anonymity track (Secure Messaging)
