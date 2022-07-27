@@ -1,0 +1,22 @@
+name: Add new issues and PRs to Vac Research project board
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [opened]
+
+jobs:
+  add-to-project:
+    name: Add issue to project
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/add-to-project@v0.3.0
+        with:
+          # You can target a repository in a different organization
+          # to the issue
+          project-url: https://github.com/orgs/vacp2p/projects/6
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+          # NOTE Currently all issues are added, might want to limit this
+          #labeled: bug, needs-triage
+          #label-operator: OR
