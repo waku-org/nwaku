@@ -15,20 +15,23 @@ however, you still need to have more funds in your account to cover the cost of 
 
 
 ## Overview
-Figure 1. provides on overview of the test we are going to explain in this tutorial. At a high level,  when a chat2 client is spun up with Waku-RLN-Relay mounted in on-chain mode, it creates rln credentials i.e., an identity key and an identity commitment key and 
-registers them to the membership contract by sending a transaction.
-This transaction will consume some funds from the supplied Goerli account. 
-Once the transaction is mined and the registration is successful, the registered credentials will get displayed on the console.
-You may copy the displayed rln credentials and reuse them for the future execution of chat2.
+Figure 1 provides an overview of the interaction of the chat2 clients with the test fleets and the membership contract. 
+At a high level,  when a chat2 client is spun up with Waku-RLN-Relay mounted in on-chain mode, it creates rln credentials (i.e., an identity key and an identity commitment key) and 
+sends a transaction to the membership contract to register the corresponding membership identity commitment key.
+This transaction will also transfer `0.001` Ethers to the contract as membership fee.
+This amount plus the transaction fee will be deducted from the supplied Goerli account. 
+Once the transaction is mined and the registration is successful, the registered credentials will get displayed on the console of your chat2 client.
+You may copy the displayed rln credentials and reuse them for the future execution of the chat2 application.
+Proper instructions in this regard is provided in the following [section](#how-to-reuse-rln-credentials).
 If you choose not to reuse the same credentials, then for each execution, a new registration takes place and more funds get deducted from your Goerli account.
 Under the hood, the chat2 client constantly listens to the membership contract and keeps itself updated with the latest state of the group.
 
-In this test,  you will connect your chat2 client to the waku test fleets as the first hop. 
-Test fleets are already running Waku-RLN-Relay over the same pubsub topic and content topic as your chat2 client i.e., default pubsub topic `/waku/2/default-waku/proto` and the content topic of `/toy-chat/2/luzhou/proto`. 
-As such, test fleets will filter spam messages published on this specific combination of topics, and do not route them.
+In the following test setting, the chat2 clients are to be connected to the Waku test fleets as their first hop. 
+The test fleets will act as routers and are also set to run Waku-RLN-Relay over the same pubsub topic and content topic as chat2 clients i.e., the default pubsub topic of `/waku/2/default-waku/proto` and the content topic of `/toy-chat/2/luzhou/proto`. 
+Spam messages published on the said combination of topics will be caught by the test fleet nodes and will not be routed.
 
  ![](./imgs/rln-relay-chat2-overview.png)
- **Figure 1.**
+ Figure 1.
 
 # Set up
 ## Build chat2
