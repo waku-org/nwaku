@@ -170,7 +170,7 @@ proc register*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
   ## registers the public key of the rlnPeer which is rlnPeer.membershipKeyPair.publicKey
   ## into the membership contract whose address is in rlnPeer.membershipContractAddress
   let pk = rlnPeer.membershipKeyPair.idCommitment
-  discard await register(idComm = pk, ethAccountAddress = rlnPeer.ethAccountAddress, ethAccountPrivKey = rlnPeer.ethAccountPrivateKey, ethClientAddress = rlnPeer.ethClientAddress, membershipContractAddress = rlnPeer.membershipContractAddress )
+  discard await register(idComm = pk, ethAccountAddress = rlnPeer.ethAccountAddress, ethAccountPrivKey = rlnPeer.ethAccountPrivateKey.get(), ethClientAddress = rlnPeer.ethClientAddress, membershipContractAddress = rlnPeer.membershipContractAddress )
   
   return true
 
@@ -745,7 +745,7 @@ proc mountRlnRelayStatic*(node: WakuNode,
 proc mountRlnRelayDynamic*(node: WakuNode,
                     ethClientAddr: string = "",
                     ethAccAddr: web3.Address,
-                    ethAccountPrivKey: keys.PrivateKey,
+                    ethAccountPrivKeyOpt: Option[keys.PrivateKey],
                     memContractAddr:  web3.Address,
                     memKeyPair: Option[MembershipKeyPair] = none(MembershipKeyPair),
                     memIndex: Option[MembershipIndex] = none(MembershipIndex),
@@ -773,17 +773,20 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   var 
     keyPair: MembershipKeyPair
     rlnIndex: MembershipIndex
-  if memKeyPair.isNone: # if non provided, create one and register to the contract
-    trace "no rln-relay key is provided, generating one"
-    let keyPairOpt = rln.membershipKeyGen()
-    doAssert(keyPairOpt.isSome)
-    keyPair = keyPairOpt.get()
-    # register the rln-relay peer to the membership contract
-    let regIndexRes = await  register(idComm = keyPair.idCommitment, ethAccountAddress = ethAccAddr, ethAccountPrivKey = ethAccountPrivKey, ethClientAddress = ethClientAddr, membershipContractAddress = memContractAddr)
-    # check whether registration is done
-    doAssert(regIndexRes.isOk())
-    rlnIndex = regIndexRes.value
-    debug "peer is successfully registered into the membership contract"
+  if memKeyPair.isNone: 
+    if ethAccountPrivKeyOpt.isSome: # if no rln credentials provided, and an ethereum private key is supplied, then create rln credentials and register to the membership contract
+      trace "no rln-relay key is provided, generating one"
+      let keyPairOpt = rln.membershipKeyGen()
+      doAssert(keyPairOpt.isSome)
+      keyPair = keyPairOpt.get()
+      # register the rln-relay peer to the membership contract
+      let regIndexRes = await  register(idComm = keyPair.idCommitment, ethAccountAddress = ethAccAddr, ethAccountPrivKey = ethAccountPrivKeyOpt.get(), ethClientAddress = ethClientAddr, membershipContractAddress = memContractAddr)
+      # check whether registration is done
+      doAssert(regIndexRes.isOk())
+      rlnIndex = regIndexRes.value
+      debug "peer is successfully registered into the membership contract"
+    else: # if no eth private key is available, skip registration
+      debug "running waku-rln-relay in relay-only mode"
   else:
     keyPair = memKeyPair.get()
     rlnIndex = memIndex.get()
@@ -794,7 +797,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
     membershipContractAddress: memContractAddr,
     ethClientAddress: ethClientAddr,
     ethAccountAddress: ethAccAddr,
-    ethAccountPrivateKey: ethAccountPrivKey,
+    ethAccountPrivateKey: ethAccountPrivKeyOpt,
     rlnInstance: rln,
     pubsubTopic: pubsubTopic,
     contentTopic: contentTopic)
@@ -849,21 +852,23 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: O
     # read related inputs to run rln-relay in on-chain mode and do type conversion when needed
     let 
       ethAccountAddr = web3.fromHex(web3.Address, conf.rlnRelayEthAccount)
-      ethAccountPrivKey = keys.PrivateKey(SkSecretKey.fromHex(conf.rlnRelayEthAccountPrivKey).value)
       ethClientAddr = conf.rlnRelayEthClientAddress
       ethMemContractAddress = web3.fromHex(web3.Address, conf.rlnRelayEthMemContractAddress)
       rlnRelayId = conf.rlnRelayIdKey
       rlnRelayIdCommitmentKey = conf.rlnRelayIdCommitmentKey
       rlnRelayIndex = conf.rlnRelayMemIndex
+    var ethAccountPrivKeyOpt = none(keys.PrivateKey)
+    if conf.rlnRelayEthAccountPrivKey != "":
+      ethAccountPrivKeyOpt = some(keys.PrivateKey(SkSecretKey.fromHex(conf.rlnRelayEthAccountPrivKey).value))
     #  check if the peer has provided its rln credentials
     if rlnRelayIdCommitmentKey != "" and rlnRelayId != "":
       # type conversation from hex strings to MembershipKeyPair
       let keyPair = @[(rlnRelayId, rlnRelayIdCommitmentKey)]
       let memKeyPair = keyPair.toMembershipKeyPairs()[0]
       # mount the rln relay protocol in the on-chain/dynamic mode
-      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, memKeyPair = some(memKeyPair), memIndex = some(rlnRelayIndex), ethAccAddr = ethAccountAddr,  ethAccountPrivKey = ethAccountPrivKey, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler)
+      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, memKeyPair = some(memKeyPair), memIndex = some(rlnRelayIndex), ethAccAddr = ethAccountAddr,  ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler)
     else:
       # no rln credential is provided
       # mount the rln relay protocol in the on-chain/dynamic mode
-      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, ethAccAddr = ethAccountAddr, ethAccountPrivKey = ethAccountPrivKey, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler)
+      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, ethAccAddr = ethAccountAddr, ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler)
 
