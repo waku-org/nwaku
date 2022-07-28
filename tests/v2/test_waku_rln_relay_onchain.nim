@@ -293,7 +293,7 @@ procSuite "Waku-rln-relay":
     var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
       membershipIndex: MembershipIndex(0),
       ethClientAddress: ETH_CLIENT,
-      ethAccountPrivateKey: ethPrivKey,
+      ethAccountPrivateKey: some(ethPrivKey),
       ethAccountAddress: ethacc,
       membershipContractAddress: contractAddress)
 
@@ -430,7 +430,7 @@ procSuite "Waku-rln-relay":
     node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
     await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
                             ethAccAddr = ethacc,
-                            ethAccountPrivKey = ethPrivKey,
+                            ethAccountPrivKeyOpt = some(ethPrivKey),
                             memContractAddr = contractAddress, 
                             memKeyPair = keyPair1,
                             memIndex = some(MembershipIndex(0)),
@@ -483,7 +483,7 @@ procSuite "Waku-rln-relay":
     node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
     await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
                             ethAccAddr = ethacc,
-                            ethAccountPrivKey = ethPrivKey,
+                            ethAccountPrivKeyOpt = some(ethPrivKey),
                             memContractAddr = contractAddress, 
                             memKeyPair = none(MembershipKeyPair),
                             memIndex = none(MembershipIndex),
@@ -496,7 +496,7 @@ procSuite "Waku-rln-relay":
     node2.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
     await node2.mountRlnRelayDynamic(ethClientAddr = EthClient,
                             ethAccAddr = ethacc,
-                            ethAccountPrivKey = ethPrivKey,
+                            ethAccountPrivKeyOpt = some(ethPrivKey),
                             memContractAddr = contractAddress, 
                             memKeyPair = none(MembershipKeyPair),
                             memIndex = none(MembershipIndex),
