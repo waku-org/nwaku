@@ -774,7 +774,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
     keyPair: MembershipKeyPair
     rlnIndex: MembershipIndex
   if memKeyPair.isNone: 
-    if ethAccountPrivKeyOpt.isSome: # if non provided, create one and register to the contract
+    if ethAccountPrivKeyOpt.isSome: # if no rln credentials provided, and an ethereum private key is supplied, then create rln credentials and register to the membership contract
       trace "no rln-relay key is provided, generating one"
       let keyPairOpt = rln.membershipKeyGen()
       doAssert(keyPairOpt.isSome)
@@ -785,7 +785,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
       doAssert(regIndexRes.isOk())
       rlnIndex = regIndexRes.value
       debug "peer is successfully registered into the membership contract"
-    else:
+    else: # if no eth private key is available, skip registration
       debug "running waku-rln-relay in relay-only mode"
   else:
     keyPair = memKeyPair.get()
