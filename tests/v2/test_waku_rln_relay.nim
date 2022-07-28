@@ -739,12 +739,9 @@ suite "Waku rln relay":
 
     debug "the generated membership key pair: ", key
 
-    var 
-      k: MembershipKeyPair
-      index: MembershipIndex
-
-    index = MembershipIndex(1)
-    k = key.get()
+    let
+      k = key.get()
+      index =  MembershipIndex(1)
 
     var rlnMembershipCredentials = RlnMembershipCredentials(membershipKeyPair: k, rlnIndex: index)
 
