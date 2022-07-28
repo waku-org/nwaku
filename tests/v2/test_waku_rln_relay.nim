@@ -757,5 +757,6 @@ suite "Waku rln relay":
 
     check:
       credentials.membershipKeyPair == k
+      credentials.membershipIndex == index
     
 
