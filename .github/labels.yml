@@ -1,0 +1,93 @@
+# Official labels
+- name: bug
+  description: Something isn't working
+  color: d73a4a
+- name: documentation
+  description: Improvements or additions to documentation
+  color: 0075ca
+- name: duplicate
+  description: This issue or pull request already exists
+  color: cfd3d7
+- name: enhancement
+  description: New feature or request
+  color: a2eeef
+- name: good first issue
+  description: Good for newcomers
+  color: 7057ff
+- name: help wanted
+  description: Extra attention is needed
+  color: 008672
+- name: invalid
+  description: This doesn't seem right
+  color: e4e669
+- name: question
+  description: Further information is requested
+  color: d876e3
+- name: wontfix
+  description: This will not be worked on
+  color: ffffff
+
+# Generally useful labels
+- name: blocked
+  description: This issue is blocked by some other work
+  color: e0af74
+- name: critical
+  description: This issue needs critical attention
+  color: B60205
+- name: infra
+  description: Infra, devops, CI and related tasks
+  color: 277196
+
+# Waku Product labels
+- name: rqt:platforms
+  description: Requirement coming from a platform
+  color: A51BB5
+
+# Tracks primarily within Secure Messaging or Waku Product project
+- name: track:rln
+  description: RLN Track (Secure Messaging/Applied ZK), e.g. relay and applications
+  color: C89BC6
+- name: track:anonymity
+  description: Anonymity track (Secure Messaging)
+  color: 06B6C8
+- name: track:operator-outreach
+  description: Operator outreach track (Secure Messaging/Waku Product)
+  color: B888AB
+- name: track:ft-store
+  description: FT-Store track (Secure Messaging)
+  color: F5FD62
+- name: track:discovery
+  description: Discovery track (Secure Messaging/Waku Product)
+  color: 6BEB61
+- name: track:protocol-incentivization
+  description: Protocol Incentivization track (Secure Messaging), e.g. service credentials
+  color: 0037E3
+- name: track:restricted-run
+  description: Restricted run track (Secure Messaging/Waku Product), e.g. filter, WebRTC
+  color: D91C35
+- name: track:conversational-security
+  description: Conversational security track (Secure Messaging)
+  color: CC6B00
+- name: track:nwaku-productionization
+  description: nwaku productionization track (Waku Product)
+  color: 9DEA79
+- name: track:nwaku-maintenance
+  description: nwaku maintenance track (Waku Product)
+  color: 40F9F0
+- name: track:network-testing
+  description: Network testing track (Secure Messaging/Waku Product)
+  color: bfd4f2
+- name: track:platform-outreach
+  description: Platform outreach track (Waku Product)
+  color: 06B6C8
+- name: track:sdks
+  description: SDKS track (Waku Product), including bindings
+  color: 34D557
+- name: track:go-waku-productionization
+  description: go-waku productionization track (Waku Product)
+  color: 9DEA79
+
+# Tracks within RAD project
+- name: track:waku-specs
+  description: Waku specs track (RAD)
+  color: 1d76db
