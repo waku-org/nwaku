@@ -741,7 +741,9 @@ proc mountRlnRelayStatic*(node: WakuNode,
 
   node.wakuRlnRelay = rlnPeer
 
-
+proc writePersistentRlnCredentials*(path: string, credentials: RlnMembershipCredentials) {.raises: [Defect, OSError, IOError, Exception].} =    
+  # Write RLN credentials
+  writeFile(RLN_CREDENTIALS_FILEPATH, pretty(%credentials))
 
 proc mountRlnRelayDynamic*(node: WakuNode,
                     ethClientAddr: string = "",
@@ -796,8 +798,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   # Since the files are stored as a raw text file, it is highly susceptible to theft.
   # The files needs some encryption to resolve this.
 
-  # Write RLN credentials
-  writeFile(RLN_CREDENTIALS_FILEPATH, pretty(%rlnMembershipCredentials))
+  writePersistentRlnCredentials(RLN_CREDENTIALS_FILEPATH, rlnMembershipCredentials)
 
   # create the WakuRLNRelay
   var rlnPeer = WakuRLNRelay(membershipKeyPair: keyPair,
