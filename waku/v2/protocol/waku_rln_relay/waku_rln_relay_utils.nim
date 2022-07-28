@@ -16,6 +16,7 @@ import
   rln, 
   waku_rln_relay_types,
   ../../node/[wakunode2_types,config],
+  ../../../../../examples/v2/config_chat2,
   ../waku_message
 
   
@@ -683,8 +684,8 @@ proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string, contentTopic: Co
           debug "A spam message is found! yay! discarding:", contentTopic=wakumessage.contentTopic, epoch=epoch, timestamp=wakumessage.timestamp, payload=payload
           trace "A spam message is found! yay! discarding:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
           if spamHandler.isSome:
-              let handler = spamHandler.get
-              handler(wakumessage)
+            let handler = spamHandler.get
+            handler(wakumessage)
           return pubsub.ValidationResult.Reject          
   # set a validator for the supplied pubsubTopic 
   let pb  = PubSub(node.wakuRelay)
@@ -844,7 +845,7 @@ proc readPersistentRlnCredentials*(path: string) : RlnMembershipCredentials {.ra
   debug "Deserialized Rln credentials", rlnCredentials=deserializedRlnCredentials
   result = deserializedRlnCredentials
 
-proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
+proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler] = none(SpamHandler)) {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
   if not conf.rlnRelayDynamic:
     info " setting up waku-rln-relay in on-chain mode... "
     # set up rln relay inputs
@@ -853,7 +854,7 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, Value
       error "failed to mount WakuRLNRelay"
     else:
       # mount rlnrelay in off-chain mode with a static group of users
-      node.mountRlnRelayStatic(group = groupOpt.get(), memKeyPair = memKeyPairOpt.get(), memIndex= memIndexOpt.get(), pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic)
+      node.mountRlnRelayStatic(group = groupOpt.get(), memKeyPair = memKeyPairOpt.get(), memIndex= memIndexOpt.get(), pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler)
 
       info "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
       info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
@@ -899,4 +900,3 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf) {.raises: [Defect, Value
       waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr,
                    ethAccAddr = ethAccountAddr, ethAccountPrivKey = ethAccountPrivKey, pubsubTopic = conf.rlnRelayPubsubTopic,
                     contentTopic = conf.rlnRelayContentTopic)
-

@@ -790,7 +790,11 @@ when isMainModule:
     libp2p/nameresolving/dnsresolver,
     ../../common/utils/nat,
     ./config,
-    ./waku_setup,
+    ./wakunode2_setup,
+    ./wakunode2_setup_rest,
+    ./wakunode2_setup_metrics,
+    ./wakunode2_setup_rpc,
+    ./wakunode2_setup_sql_migrations,
     ./storage/message/waku_message_store,
     ./storage/peer/waku_peer_storage
   
@@ -1078,11 +1082,14 @@ when isMainModule:
   # 6/7 Start monitoring tools and external interfaces
   proc startExternal(node: WakuNode, conf: WakuNodeConf): SetupResult[bool] =
     ## Start configured external interfaces and monitoring tools
-    ## on a Waku v2 node, including the RPC API and metrics
+    ## on a Waku v2 node, including the RPC API, REST API and metrics
     ## monitoring ports.
     
     if conf.rpc:
-      startRpc(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift), conf)
+      startRpcServer(node, conf.rpcAddress, Port(conf.rpcPort + conf.portsShift), conf)
+    
+    if conf.rest:
+      startRestServer(node, conf.restAddress, Port(conf.restPort + conf.portsShift), conf)
 
     if conf.metricsLogging:
       startMetricsLog()
