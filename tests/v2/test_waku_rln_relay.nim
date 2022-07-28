@@ -748,7 +748,7 @@ suite "Waku rln relay":
     let path = "testPath.txt"
 
     # Write RLN credentials
-    writeFile(path, pretty(%rlnMembershipCredentials))
+    writePersistentRlnCredentials(path, rlnMembershipCredentials)
 
     var credentials = readPersistentRlnCredentials(path)
 
