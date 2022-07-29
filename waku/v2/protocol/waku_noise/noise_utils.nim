@@ -41,18 +41,18 @@ proc randomSeqByte*(rng: var BrHmacDrbgContext, size: int): seq[byte] =
 #################################
 
 # Generate random (public, private) Elliptic Curve key pairs
-proc genKeyPair*(rng: var BrHmacDrbgContext): ECKeyPair =
-  var keyPair: ECKeyPair
+proc genKeyPair*(rng: var BrHmacDrbgContext): KeyPair =
+  var keyPair: KeyPair
   keyPair.privateKey = EllipticCurveKey.random(rng)
   keyPair.publicKey = keyPair.privateKey.public()
   return keyPair
 
 # Gets private key from a key pair
-proc getPrivateKey*(keypair: ECKeyPair): EllipticCurveKey =
+proc getPrivateKey*(keypair: KeyPair): EllipticCurveKey =
   return keypair.privateKey
 
 # Gets public key from a key pair
-proc getPublicKey*(keypair: ECKeyPair): EllipticCurveKey =
+proc getPublicKey*(keypair: KeyPair): EllipticCurveKey =
   return keypair.publicKey
 
 # Prints Handshake Patterns using Noise pattern layout
@@ -165,7 +165,7 @@ proc toNoisePublicKey*(publicKey: EllipticCurveKey): NoisePublicKey =
 proc genNoisePublicKey*(rng: var BrHmacDrbgContext): NoisePublicKey =
   var noisePublicKey: NoisePublicKey
   # We generate a random key pair
-  let keyPair: ECKeyPair = genKeyPair(rng)
+  let keyPair: KeyPair = genKeyPair(rng)
   # Since it is unencrypted, flag is 0
   noisePublicKey.flag = 0
   # We copy the public X coordinate of the key pair to the output Noise public key

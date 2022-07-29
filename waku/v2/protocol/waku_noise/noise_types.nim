@@ -42,7 +42,7 @@ type
   EllipticCurveKey* = Curve25519Key
 
   # An EllipticCurveKey (public, private) key pair
-  ECKeyPair* = object
+  KeyPair* = object
     privateKey*: EllipticCurveKey
     publicKey*: EllipticCurveKey
 
@@ -139,8 +139,8 @@ type
   #   - a message pattern index msgPatternIdx indicating the next handshake message pattern to process
   #   - the user's preshared psk, if any
   HandshakeState* = object
-    s*: ECKeyPair
-    e*: ECKeyPair
+    s*: KeyPair
+    e*: KeyPair
     rs*: EllipticCurveKey
     re*: EllipticCurveKey
     ss*: SymmetricState
