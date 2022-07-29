@@ -3,12 +3,12 @@
 This document is a tutorial on how to run the chat2 application in the spam-protected mode using the Waku-RLN-Relay protocol and with dynamic/on-chain group management.
 In the on-chain/dynamic group management, the state of the group members i.e., their identity commitment keys is moderated via a membership smart contract deployed on the Goerli network which is one of the Ethereum testnets.
 Members can be dynamically added to the group and the group size can grow up to 2^20 members.
-This is in contrast to the prior test scenarios in which the rln group was static and the set of members' keys was hardcoded and fixed.
+This  differs from the prior test scenarios in which the RLN group was static and the set of members' keys was hardcoded and fixed.
 
 
 ## Prerequisites 
-In this tutorial, you will need 1) an account with at least `0.001` ethers on the Goerli testnet and 2) a hosted node on the Goerli testnet. 
-In case you are not familiar with either of these two steps, you may use the following tutorial on the [prerequisites of running on-chain spam-protected chat2](./pre-requisites-of-running-on-chain-spam-protected-chat2.md).
+To complete this tutorial, you will need 1) an account with at least `0.001` ethers on the Goerli testnet and 2) a hosted node on the Goerli testnet. 
+In case you are not familiar with either of these two steps, you may follow the following tutorial to fulfill the [prerequisites of running on-chain spam-protected chat2](./pre-requisites-of-running-on-chain-spam-protected-chat2.md).
 Note that the required `0.001` ethers correspond to the registration fee, 
 however, you still need to have more funds in your account to cover the cost of the transaction gas fee.
 
@@ -16,14 +16,14 @@ however, you still need to have more funds in your account to cover the cost of 
 
 ## Overview
 Figure 1 provides an overview of the interaction of the chat2 clients with the test fleets and the membership contract. 
-At a high level,  when a chat2 client is spun up with Waku-RLN-Relay mounted in on-chain mode, it creates rln credentials (i.e., an identity key and an identity commitment key) and 
+At a high level,  when a chat2 client is run with Waku-RLN-Relay mounted in on-chain mode, it creates RLN credential (i.e., an identity key and an identity commitment key) and 
 sends a transaction to the membership contract to register the corresponding membership identity commitment key.
 This transaction will also transfer `0.001` Ethers to the contract as membership fee.
 This amount plus the transaction fee will be deducted from the supplied Goerli account. 
-Once the transaction is mined and the registration is successful, the registered credentials will get displayed on the console of your chat2 client.
-You may copy the displayed rln credentials and reuse them for the future execution of the chat2 application.
-Proper instructions in this regard is provided in the following [section](#how-to-reuse-rln-credentials).
-If you choose not to reuse the same credentials, then for each execution, a new registration takes place and more funds get deducted from your Goerli account.
+Once the transaction is mined and the registration is successful, the registered credential will get displayed on the console of your chat2 client.
+You may copy the displayed RLN credential and reuse them for the future execution of the chat2 application.
+Proper instructions in this regard is provided in the following [section](#how-to-reuse-rln-credential).
+If you choose not to reuse the same credential, then for each execution, a new registration will take place and more funds will get deducted from your Goerli account.
 Under the hood, the chat2 client constantly listens to the membership contract and keeps itself updated with the latest state of the group.
 
 In the following test setting, the chat2 clients are to be connected to the Waku test fleets as their first hop. 
@@ -31,7 +31,7 @@ The test fleets will act as routers and are also set to run Waku-RLN-Relay over 
 Spam messages published on the said combination of topics will be caught by the test fleet nodes and will not be routed.
 Note that spam protection does not rely on the presence of the test fleets.
 In fact, all the chat2 clients are also capable of catching and dropping spam messages if they receive any.
-You can test it by connecting two chat2 clients directly to each others and see they can spot each others' spam activities.
+You can test it by connecting two chat2 clients (running Waku-RLN-Relay) directly to each others and see they can spot each others' spam activities.
 
  ![](./imgs/rln-relay-chat2-overview.png)
  Figure 1.
@@ -62,7 +62,7 @@ In this command
   The current address of the contract is `0x5DE1Fb10345Ef1647629Df30e6C397297Da09A1d`.
   You may check the state of the contract on the [Goerli testnet](https://goerli.etherscan.io/address/0x5DE1Fb10345Ef1647629Df30e6C397297Da09A1d).
 - the `eth-account-address` option is for your account address on the Goerli testnet.
-  It is a  hex string of size 40 (not sensitive to the `0x` prefix). 
+  It is a hex string of length 40 (not sensitive to the `0x` prefix). 
 - the `eth-account-privatekey` option is for your account private key on the Goerli testnet. 
   It is made up of 64 hex characters (not sensitive to the `0x` prefix).
 - the `eth-client-address` should be assigned with the address of the hosted node on the Goerli testnet. 
@@ -107,16 +107,16 @@ Next, you see the following message:
 ```
 rln-relay preparation is in progress ...
 ```
-At this phase, your rln credentials are getting created and a transaction is being sent to the contract.
+At this phase, your RLN credential are getting created and a transaction is being sent to the membership smart contract.
 It will take some time for the transaction to be finalized.
-Once finalized, the registered rln identity key, the rln identity commitment key, and the index of the registered credentials will be displayed as given below.
-The rln identity key is not shown in the figure (replaced by a string of `x`s) for security reasons. 
-But, you will see your rln identity key.
+Once finalized, the registered RLN identity key, the RLN identity commitment key, and the index of the registered credential will be displayed as given below.
+The RLN identity key is not shown in the figure (replaced by a string of `x`s) for security reasons. 
+But, you will see your RLN identity key.
 
 ```
 your membership index is: 63
-your rln identity key is: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-your rln identity commitment key is: 6c6598126ba10d1b70100893b76d7f8d7343eeb8f5ecfd48371b421c5aa6f012
+your RLN identity key is: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+your RLN identity commitment key is: 6c6598126ba10d1b70100893b76d7f8d7343eeb8f5ecfd48371b421c5aa6f012
 ```
 
 Finally, the chat prompt `>>` will appear which means your chat2 client is ready.
@@ -141,8 +141,8 @@ The reason is that under the hood a zero-knowledge proof is being generated and 
 Try to spam the network by violating the message rate limit i.e.,
 sending more than one message per epoch. 
 Your messages will be routed via test fleets that are running in spam-protected mode over the same content topic i.e., `/toy-chat/2/luzhou/proto` as your chat client.
-Your samp activity will be detected by them and your message will not reach the rest of the chat clients.
-You can check this by running a second chat user and verifying that spam messages are filtered at the test fleets and not displayed. 
+Your spam activity will be detected by them and your message will not reach the rest of the chat clients.
+You can check this by running a second chat user and verifying that spam messages are not displayed as they are filtered by the test fleets.
 A sample test scenario is illustrated in the [Sample test output section](#sample-test-output).
 
 Once you are done with the test, make sure you close all the chat2 clients by typing the `/exit` command.
@@ -151,10 +151,10 @@ Once you are done with the test, make sure you close all the chat2 clients by ty
 quitting...
 ```
 
-## How to reuse rln credentials
+## How to reuse RLN credential
 
-You may resue your old rln credentials using `rln-relay-membership-index`, `rln-relay-id` and `rln-relay-id-commitment` options. 
-For instance, if the previously generated credentials are
+You may resue your old RLN credential using `rln-relay-membership-index`, `rln-relay-id` and `rln-relay-id-commitment` options. 
+For instance, if the previously generated credential are
 ```
 your membership index is: 63
 your rln identity key is: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
