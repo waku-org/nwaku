@@ -77,7 +77,7 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     # this field is required for signing transactions
     # TODO may need to erase this ethAccountPrivateKey when is not used
     # TODO may need to make ethAccountPrivateKey mandatory
-    ethAccountPrivateKey*: PrivateKey
+    ethAccountPrivateKey*: Option[PrivateKey]
     rlnInstance*: RLN[Bn256]
     pubsubTopic*: string # the pubsub topic for which rln relay is mounted
                          # contentTopic should be of type waku_message.ContentTopic, however, due to recursive module dependency, the underlying type of ContentTopic is used instead
