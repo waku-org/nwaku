@@ -6,7 +6,7 @@ when not(compileOption("threads")):
 
 {.push raises: [Defect].}
 
-import std/[tables, strformat, strutils, times, httpclient, json, sequtils, random, options]
+import std/[tables, strformat, strutils, times, json, options]
 import confutils, chronicles, chronos, stew/shims/net as stewNet,
        eth/keys, bearssl, stew/[byteutils, endians2, results],
        nimcrypto/pbkdf2
@@ -31,8 +31,7 @@ when defined(rln):
   import
     libp2p/protocols/pubsub/rpc/messages,
     libp2p/protocols/pubsub/pubsub,
-    web3,
-    ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils]
+    ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_utils
 
 const Help = """
   Commands: /[?|help|connect|nick|exit]
@@ -509,29 +508,11 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
             echo "A spam message is found and discarded"
           chat.prompt = false
           showChatPrompt(chat)
-          
-        # set up rln relay inputs
-        let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelaySetUp(conf.rlnRelayMemIndex)
-        if memIndexOpt.isNone:
-          error "failed to mount WakuRLNRelay"
-        else:
-          # mount rlnrelay in offline mode (for now)
-          waitFor node.mountRlnRelay(groupOpt = groupOpt, memKeyPairOpt = memKeyPairOpt, memIndexOpt= memIndexOpt, onchainMode = false, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = some(spamHandler))
-
-          debug "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
-          debug "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
-
-          # check the correct construction of the tree by comparing the calculated root against the expected root
-          # no error should happen as it is already captured in the unit tests
-          # TODO have added this check to account for unseen corner cases, will remove it later 
-          let 
-            root = node.wakuRlnRelay.rlnInstance.getMerkleRoot.value.toHex() 
-            expectedRoot = STATIC_GROUP_MERKLE_ROOT
-          if root != expectedRoot:
-            error "root mismatch: something went wrong not in Merkle tree construction"
-          debug "the calculated root", root
-          debug "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
-
+        echo "rln-relay preparation is in progress ..."
+        node.mountRlnRelay(conf, some(spamHandler))
+        echo "your membership index is: ", node.wakuRlnRelay.membershipIndex
+        echo "your rln identity key is: ", node.wakuRlnRelay.membershipKeyPair.idKey.toHex()
+        echo "your rln identity commitment key is: ", node.wakuRlnRelay.membershipKeyPair.idCommitment.toHex()
 
   await chat.readWriteLoop()
 

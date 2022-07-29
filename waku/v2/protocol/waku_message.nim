@@ -11,6 +11,7 @@
 import
   libp2p/protobuf/minprotobuf,
   libp2p/varint,
+  ../utils/protobuf,
   ../utils/time,
   waku_rln_relay/waku_rln_relay_types
 
@@ -56,9 +57,11 @@ proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
 proc encode*(message: WakuMessage): ProtoBuffer =
   result = initProtoBuffer()
 
-  result.write(1, message.payload)
-  result.write(2, message.contentTopic)
-  result.write(3, message.version)
-  result.write(10, zint64(message.timestamp))
-  result.write(21, message.proof.encode())
+  result.write3(1, message.payload)
+  result.write3(2, message.contentTopic)
+  result.write3(3, message.version)
+  result.write3(10, zint64(message.timestamp))
+  result.write3(21, message.proof.encode())
+  
+  result.finish3()
 

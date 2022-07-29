@@ -3,14 +3,13 @@
 
 import
   std/options, sequtils, times,
-  testutils/unittests, chronos, chronicles, stint, web3,
+  testutils/unittests, chronos, chronicles, stint,
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
   ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils,
       waku_rln_relay_types],
   ../../waku/v2/node/wakunode2,
-  ../test_helpers,
-  ./test_utils
+  ../test_helpers
 
 const RLNRELAY_PUBSUB_TOPIC = "waku/2/rlnrelay/proto"
 const RLNRELAY_CONTENT_TOPIC = "waku/2/rlnrelay/proto"
@@ -45,10 +44,9 @@ procSuite "Waku rln relay":
 
     # -------- mount rln-relay in the off-chain mode
     node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
-    await node.mountRlnRelay(groupOpt = some(groupIDCommitments),
-                            memKeyPairOpt = some(groupKeyPairs[index]),
-                            memIndexOpt = some(index),
-                            onchainMode = false,
+    node.mountRlnRelayStatic(group = groupIDCommitments,
+                            memKeyPair = groupKeyPairs[index],
+                            memIndex = index,
                             pubsubTopic = RLNRELAY_PUBSUB_TOPIC,
                             contentTopic = RLNRELAY_CONTENT_TOPIC)
 
@@ -703,4 +701,22 @@ suite "Waku rln relay":
       msgValidate2 == MessageValidationResult.Spam
       msgValidate3 == MessageValidationResult.Valid
       msgValidate4 == MessageValidationResult.Invalid
+  test "toIDCommitment and toUInt256":
+    # create an instance of rln
+    var rlnInstance = createRLNInstance()
+    check:
+      rlnInstance.isOk == true
+    
+    # create a key pair
+    var keypair = rlnInstance.value.membershipKeyGen()
+    check:
+      keypair.isSome()
 
+    # convert the idCommitment to UInt256
+    let idCUInt = keypair.get().idCommitment.toUInt256()
+    # convert the UInt256 back to ICommitment
+    let idCommitment = toIDCommitment(idCUInt)
+
+    # check that the conversion has not distorted the original value
+    check:
+      keypair.get().idCommitment == idCommitment

@@ -33,7 +33,9 @@ procSuite "Waku Store":
     await listenSwitch.start()
 
     let
-      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
+      database = SqliteDatabase.init("", inMemory = true)[]
+      store = WakuMessageStore.init(database)[]
+      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
       rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: topic)])
 
     proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
@@ -78,7 +80,9 @@ procSuite "Waku Store":
     await listenSwitch.start()
 
     let
-      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
+      database = SqliteDatabase.init("", inMemory = true)[]
+      store = WakuMessageStore.init(database)[]
+      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
       rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: topic1), HistoryContentFilter(contentTopic: topic3)])
 
     proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
@@ -125,7 +129,9 @@ procSuite "Waku Store":
     await listenSwitch.start()
 
     let
-      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
+      database = SqliteDatabase.init("", inMemory = true)[]
+      store = WakuMessageStore.init(database)[]
+      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
       pubsubtopic1 = "queried topic"
       pubsubtopic2 = "non queried topic"
       # this query targets: pubsubtopic1 AND (contentTopic1 OR contentTopic3)    
@@ -173,7 +179,9 @@ procSuite "Waku Store":
     await listenSwitch.start()
 
     let
-      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
+      database = SqliteDatabase.init("", inMemory = true)[]
+      store = WakuMessageStore.init(database)[]
+      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
       pubsubtopic1 = "queried topic"
       pubsubtopic2 = "non queried topic"
       # this query targets: pubsubtopic1  
@@ -219,7 +227,9 @@ procSuite "Waku Store":
     await listenSwitch.start()
 
     let
-      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
+      database = SqliteDatabase.init("", inMemory = true)[]
+      store = WakuMessageStore.init(database)[]
+      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
       pubsubtopic = "queried topic"
       # this query targets: pubsubtopic 
       rpc = HistoryQuery(pubsubTopic: pubsubtopic)
@@ -343,7 +353,9 @@ procSuite "Waku Store":
     await listenSwitch.start()
 
     let
-      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
+      database = SqliteDatabase.init("", inMemory = true)[]
+      store = WakuMessageStore.init(database)[]
+      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
       rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: defaultContentTopic)], pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD) )
       
     proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
@@ -395,7 +407,10 @@ procSuite "Waku Store":
     var listenSwitch = newStandardSwitch(some(key))
     await listenSwitch.start()
 
-    let proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
+    let
+      database = SqliteDatabase.init("", inMemory = true)[]
+      store = WakuMessageStore.init(database)[]
+      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
 
     proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
@@ -446,7 +461,10 @@ procSuite "Waku Store":
     var listenSwitch = newStandardSwitch(some(key))
     await listenSwitch.start()
 
-    let proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
+    let
+      database = SqliteDatabase.init("", inMemory = true)[]
+      store = WakuMessageStore.init(database)[]
+      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
 
     proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
@@ -606,7 +624,10 @@ procSuite "Waku Store":
     var listenSwitch = newStandardSwitch(some(key))
     await listenSwitch.start()
 
-    let proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng())
+    let
+      database = SqliteDatabase.init("", inMemory = true)[]
+      store = WakuMessageStore.init(database)[]
+      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
 
     proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
@@ -626,7 +647,10 @@ procSuite "Waku Store":
     var listenSwitch2 = newStandardSwitch(some(key2))
     await listenSwitch2.start()
 
-    let proto2 = WakuStore.init(PeerManager.new(dialSwitch2), crypto.newRng())
+    let
+      database2 = SqliteDatabase.init("", inMemory = true)[]
+      store2 = WakuMessageStore.init(database2)[]
+      proto2 = WakuStore.init(PeerManager.new(dialSwitch2), crypto.newRng(), store2)
 
     proto2.setPeer(listenSwitch2.peerInfo.toRemotePeerInfo())
 
@@ -689,13 +713,17 @@ procSuite "Waku Store":
       # starts a new node
       var dialSwitch3 = newStandardSwitch()
       await dialSwitch3.start()
-    
-      let proto3 = WakuStore.init(PeerManager.new(dialSwitch2), crypto.newRng())
+
+      let
+        database3 = SqliteDatabase.init("", inMemory = true)[]
+        store3 = WakuMessageStore.init(database3)[]
+        proto3 = WakuStore.init(PeerManager.new(dialSwitch3), crypto.newRng(), store3)
+
       proto3.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
 
       let successResult = await proto3.resume()
       check:
-        successResult.isOk 
+        successResult.isOk
         successResult.value == 10
         proto3.messages.len == 10
 
@@ -758,7 +786,11 @@ procSuite "Waku Store":
       # starts a new node
       var dialSwitch3 = newStandardSwitch()
       await dialSwitch3.start()
-      let proto3 = WakuStore.init(PeerManager.new(dialSwitch3), crypto.newRng())
+
+      let
+        database3 = SqliteDatabase.init("", inMemory = true)[]
+        store3 = WakuMessageStore.init(database3)[]
+        proto3 = WakuStore.init(PeerManager.new(dialSwitch3), crypto.newRng(), store3)
 
       let successResult = await proto3.resume(some(@[offListenSwitch.peerInfo.toRemotePeerInfo(),
                                                      listenSwitch.peerInfo.toRemotePeerInfo(),
@@ -796,7 +828,7 @@ procSuite "Waku Store":
 
     check:
       store.messages.len == capacity # Store is at capacity
-    
+
     # Test that capacity holds
     await store.handleMessage(pubsubTopic, WakuMessage(payload: @[byte (capacity + 1)], contentTopic: contentTopic, timestamp: Timestamp(capacity + 1)))
 
