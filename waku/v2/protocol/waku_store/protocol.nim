@@ -38,14 +38,14 @@ logScope:
 
 const
   # Constants required for pagination -------------------------------------------
-  MaxPageSize* = uint64(100) # Maximum number of waku messages in each page
+  MaxPageSize* = StoreMaxPageSize
   
   # TODO the DefaultPageSize can be changed, it's current value is random
   DefaultPageSize* = uint64(20) # A recommended default number of waku messages per page
 
-  MaxRpcSize* = MaxPageSize * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
+  MaxRpcSize* = StoreMaxPageSize * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
 
-  MaxTimeVariance* = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift" into the future
+  MaxTimeVariance* = StoreMaxTimeVariance
 
   DefaultTopic* = "/waku/2/default-waku/proto"
 
@@ -60,6 +60,8 @@ const
   decodeRpcFailure = "decode_rpc_failure"
 
 type
+  WakuStoreResult*[T] = Result[T, string]
+
   WakuStore* = ref object of LPProtocol
     peerManager*: PeerManager
     rng*: ref BrHmacDrbgContext
@@ -275,7 +277,10 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
   handler(response.value.response)
 
-proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, peer: RemotePeerInfo): Future[QueryResult] {.async, gcsafe.} =
+
+## 21/WAKU2-FAULT-TOLERANT-STORE
+
+proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, peer: RemotePeerInfo): Future[WakuStoreResult[uint64]] {.async, gcsafe.} =
   ## sends the query to the given peer
   ## returns the number of retrieved messages if no error occurs, otherwise returns the error string
   # TODO dialPeer add it to the list of known peers, while it does not cause any issue but might be unnecessary
@@ -304,7 +309,7 @@ proc queryFrom*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc, pe
   handler(response.value.response)
   return ok(response.value.response.messages.len.uint64)
 
-proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: RemotePeerInfo): Future[MessagesResult] {.async, gcsafe.} =
+proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: RemotePeerInfo): Future[WakuStoreResult[seq[WakuMessage]]] {.async, gcsafe.} =
   ## a thin wrapper for queryFrom
   ## sends the query to the given peer
   ## when the query has a valid pagingInfo, it retrieves the historical messages in pages
@@ -336,17 +341,17 @@ proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: RemotePeerInf
 
   return ok(messageList)
 
-proc queryLoop(w: WakuStore, query: HistoryQuery, candidateList: seq[RemotePeerInfo]): Future[MessagesResult]  {.async, gcsafe.} = 
+proc queryLoop(w: WakuStore, query: HistoryQuery, candidateList: seq[RemotePeerInfo]): Future[WakuStoreResult[seq[WakuMessage]]]  {.async, gcsafe.} = 
   ## loops through the candidateList in order and sends the query to each
   ## once all responses have been received, the retrieved messages are consolidated into one deduplicated list
   ## if no messages have been retrieved, the returned future will resolve into a MessagesResult result holding an empty seq.
-  var futureList: seq[Future[MessagesResult]]
+  var futureList: seq[Future[WakuStoreResult[seq[WakuMessage]]]]
   for peer in candidateList.items:
     futureList.add(w.queryFromWithPaging(query, peer))
   await allFutures(futureList) # all(), which returns a Future[seq[T]], has been deprecated
 
   let messagesList = futureList
-    .map(proc (fut: Future[MessagesResult]): seq[WakuMessage] =
+    .map(proc (fut: Future[WakuStoreResult[seq[WakuMessage]]]): seq[WakuMessage] =
       if fut.completed() and fut.read().isOk(): # completed() just as a sanity check. These futures have been awaited before using allFutures()
         fut.read().value
       else:
@@ -360,7 +365,7 @@ proc queryLoop(w: WakuStore, query: HistoryQuery, candidateList: seq[RemotePeerI
     debug "failed to resolve the query"
     return err("failed to resolve the query")
 
-proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[RemotePeerInfo]), pageSize: uint64 = DefaultPageSize): Future[QueryResult] {.async, gcsafe.} =
+proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[RemotePeerInfo]), pageSize: uint64 = DefaultPageSize): Future[WakuStoreResult[uint64]] {.async, gcsafe.} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku store node has been online 
   ## messages are stored in the store node's messages field and in the message db
   ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message 
@@ -457,6 +462,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
     save(successResult.value)
     return ok(added)
 
+
 # NOTE: Experimental, maybe incorporate as part of query call
 proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
   # @TODO We need to be more stratigic about which peers we dial. Right now we just set one on the service.
@@ -501,7 +507,6 @@ proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHand
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
 
   handler(response.value.response)
-
 
 
 # TODO: Remove the following deprecated method
