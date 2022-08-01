@@ -23,6 +23,22 @@ procSuite "Waku Noise":
   # We initialize the RNG in std/random
   randomize()
 
+  test "PKCS#7 Padding/Unpadding":
+
+    # We test padding for different message lengths
+    let maxMessageLength = 3*PaddingBlockSize
+    for messageLen in 0..maxMessageLength:
+        
+      let
+        message = randomSeqByte(rng[], messageLen)
+        padded = pkcs7_pad(message, PaddingBlockSize)
+        unpadded = pkcs7_unpad(padded, PaddingBlockSize)
+
+      check:
+        padded.len != 0
+        padded.len mod PaddingBlockSize == 0
+        message == unpadded
+
   test "ChaChaPoly Encryption/Decryption: random byte sequences":
 
     let cipherState = randomChaChaPolyCipherState(rng[])
