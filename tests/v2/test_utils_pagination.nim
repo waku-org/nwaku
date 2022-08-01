@@ -1,26 +1,39 @@
 {.used.}
 
 import
-  testutils/unittests,
-  chronos,
+  std/times,
   stew/byteutils,
-  libp2p/crypto/crypto,
-  ../../waku/v2/utils/pagination,
-  ../../waku/v2/utils/time
+  testutils/unittests,
+  nimcrypto
+import
+  ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/utils/time,
+  ../../waku/v2/utils/pagination
 
-procSuite "Pagination utils":
 
-  ## Helpers
-  proc hashFromStr(input: string): MDigest[256] =
-    var ctx: sha256
-    
-    ctx.init()
-    ctx.update(input.toBytes()) # converts the input to bytes
-    
-    let hashed = ctx.finish() # computes the hash
-    ctx.clear()
+const 
+  DEFAULT_PUBSUB_TOPIC = "/waku/2/default-waku/proto"
+  DEFAULT_CONTENT_TOPIC = ContentTopic("/waku/2/default-content/proto")
 
-    return hashed
+
+## Helpers
+
+proc getTestTimestamp(offset=0): Timestamp =
+  let now = getNanosecondTime(epochTime() + float(offset))
+  Timestamp(now)
+
+proc hashFromStr(input: string): MDigest[256] =
+  var ctx: sha256
+  
+  ctx.init()
+  ctx.update(input.toBytes())
+  let hashed = ctx.finish()
+  ctx.clear()
+
+  return hashed
+
+
+suite "Pagination - Index":
 
   ## Test vars
   let
@@ -66,62 +79,109 @@ procSuite "Pagination utils":
                           senderTime: getNanosecondTime(0),
                           pubsubTopic: "zzzz")
 
-  ## Test suite
-  asyncTest "Index comparison":
+  test "Index comparison":
+    # Index comparison with senderTime diff
     check:
-      # Index comparison with senderTime diff
       cmp(smallIndex1, largeIndex1) < 0
       cmp(smallIndex2, largeIndex1) < 0
 
-      # Index comparison with digest diff
+    # Index comparison with digest diff
+    check:
       cmp(smallIndex1, smallIndex2) < 0
       cmp(smallIndex1, largeIndex2) < 0
       cmp(smallIndex2, largeIndex2) > 0
       cmp(largeIndex1, largeIndex2) > 0
 
-      # Index comparison when equal
+    # Index comparison when equal
+    check:
       cmp(eqIndex1, eqIndex2) == 0
 
-      # pubsubTopic difference
+    # pubsubTopic difference
+    check:
       cmp(smallIndex1, diffPsTopic) < 0
 
-      # receiverTime diff plays no role when senderTime set
+    # receiverTime diff plays no role when senderTime set
+    check:
       cmp(eqIndex1, eqIndex3) == 0
 
-      # receiverTime diff plays no role when digest/pubsubTopic equal
+    # receiverTime diff plays no role when digest/pubsubTopic equal
+    check:
       cmp(noSenderTime1, noSenderTime2) == 0
 
-      # sort on receiverTime with no senderTimestamp and unequal pubsubTopic
+    # sort on receiverTime with no senderTimestamp and unequal pubsubTopic
+    check:
       cmp(noSenderTime1, noSenderTime3) < 0
 
-      # sort on receiverTime with no senderTimestamp and unequal digest
+    # sort on receiverTime with no senderTimestamp and unequal digest
+    check:
       cmp(noSenderTime1, noSenderTime4) < 0
 
-      # sort on receiverTime if no senderTimestamp on only one side
+    # sort on receiverTime if no senderTimestamp on only one side
+    check:
       cmp(smallIndex1, noSenderTime1) < 0
       cmp(noSenderTime1, smallIndex1) > 0 # Test symmetry
       cmp(noSenderTime2, eqIndex3) < 0
       cmp(eqIndex3, noSenderTime2) > 0 # Test symmetry
 
-  asyncTest "Index equality":
+  test "Index equality":
+    # Exactly equal
     check:
-      # Exactly equal
       eqIndex1 == eqIndex2
 
-      # Receiver time plays no role, even without sender time
+    # Receiver time plays no role, even without sender time
+    check:
       eqIndex1 == eqIndex3
       noSenderTime1 == noSenderTime2  # only receiver time differs, indices are equal
       noSenderTime1 != noSenderTime3  # pubsubTopics differ
       noSenderTime1 != noSenderTime4  # digests differ
 
-      # Unequal sender time
+    # Unequal sender time
+    check:
       smallIndex1 != largeIndex1
 
-      # Unequal digest
+    # Unequal digest
+    check:
       smallIndex1 != smallIndex2
 
-      # Unequal hash and digest
+    # Unequal hash and digest
+    check:
       smallIndex1 != eqIndex1
 
-      # Unequal pubsubTopic
+    # Unequal pubsubTopic
+    check:
       smallIndex1 != diffPsTopic
+
+  test "Index computation should not be empty":
+    ## Given
+    let ts = getTestTimestamp()
+    let wm = WakuMessage(payload: @[byte 1, 2, 3], timestamp: ts)
+
+    ## When
+    let ts2 = getTestTimestamp() + 10
+    let index = Index.compute(wm, ts2, DEFAULT_CONTENT_TOPIC)
+
+    ## Then
+    check:
+      index.digest.data.len != 0
+      index.digest.data.len == 32 # sha2 output length in bytes
+      index.receiverTime == ts2 # the receiver timestamp should be a non-zero value
+      index.senderTime == ts
+      index.pubsubTopic == DEFAULT_CONTENT_TOPIC
+
+  test "Index digest of two identical messsage should be the same":
+    ## Given
+    let topic = ContentTopic("test-content-topic")
+    let
+      wm1 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic)
+      wm2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic)
+
+    ## When
+    let ts = getTestTimestamp()
+    let
+      index1 = Index.compute(wm1, ts, DEFAULT_PUBSUB_TOPIC)
+      index2 = Index.compute(wm2, ts, DEFAULT_PUBSUB_TOPIC)
+
+    ## Then
+    check:
+      index1.digest == index2.digest
+      
