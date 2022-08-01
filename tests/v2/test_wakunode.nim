@@ -22,14 +22,18 @@ import
   ../../waku/v2/protocol/waku_lightpush,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/peers,
+  ../../waku/v2/utils/pagination,
   ../../waku/v2/utils/time,
   ../../waku/v2/node/wakunode2
+
+
+from std/times import epochTime
+
 
 when defined(rln):
   import std/sequtils
   import 
     ../../waku/v2/protocol/waku_rln_relay/[waku_rln_relay_utils, waku_rln_relay_types]
-  from times import epochTime
   
 const RLNRELAY_PUBSUB_TOPIC = "waku/2/rlnrelay/proto"
 template sourceDir: string = currentSourcePath.parentDir()
@@ -1197,29 +1201,25 @@ procSuite "WakuNode":
 
 
     # populate db with msg1 to be a duplicate
-    let index1 = computeIndex(msg1)
+    let index1 = Index.compute(msg1, getNanosecondTime(epochTime()), DefaultTopic)
     let output1 = store.put(index1, msg1, DefaultTopic)
     check output1.isOk
-    discard node1.wakuStore.messages.add(IndexedWakuMessage(msg: msg1, index: index1, pubsubTopic: DefaultTopic))
+    discard node1.wakuStore.messages.put(index1, msg1, DefaultTopic)
 
     # now run the resume proc
     await node1.resume()
 
     # count the total number of retrieved messages from the database
-    var responseCount = 0
-    proc data(receiverTimestamp: Timestamp, msg: WakuMessage, psTopic: string) =
-      responseCount += 1
-    # retrieve all the messages in the db
-    let res = store.getAll(data)
+    let res = store.getAllMessages()
     check:
-      res.isErr == false
+      res.isOk()
 
     check:
       # if the duplicates are discarded properly, then the total number of messages after resume should be 2
       # check no duplicates is in the messages field
       node1.wakuStore.messages.len == 2
       # check no duplicates is in the db
-      responseCount == 2
+      res.value.len == 2
 
     await node1.stop()
     await node2.stop()

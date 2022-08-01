@@ -20,7 +20,7 @@ type
   Sqlite = ptr sqlite3
 
   NoParams* = tuple
-  RawStmtPtr = ptr sqlite3_stmt
+  RawStmtPtr* = ptr sqlite3_stmt
   SqliteStmt*[Params; Result] = distinct RawStmtPtr
 
   AutoDisposed[T: ptr|ref] = object
@@ -267,18 +267,19 @@ proc getUserVersion*(database: SqliteDatabase): DatabaseResult[int64] =
   ok(version)
 
 
-proc setUserVersion*(database: SqliteDatabase, version: int64): DatabaseResult[bool] = 
+proc setUserVersion*(database: SqliteDatabase, version: int64): DatabaseResult[void] = 
   ## sets  the value of the user-version integer at offset 60 in the database header. 
   ## some context borrowed from https://www.sqlite.org/pragma.html#pragma_user_version
   ## The user-version is an integer that is available to applications to use however they want. 
   ## SQLite makes no use of the user-version itself
-  proc handler(s: ptr sqlite3_stmt) = 
-    discard
+  proc handler(s: ptr sqlite3_stmt) = discard
+
   let query = "PRAGMA user_version=" & $version & ";"
   let res = database.query(query, handler)
-  if res.isErr:
+  if res.isErr():
       return err("failed to set user_version")
-  ok(true)
+
+  ok()
 
 
 proc migrate*(db: SqliteDatabase, path: string, targetVersion: int64 = migration_utils.USER_VERSION): DatabaseResult[bool] = 

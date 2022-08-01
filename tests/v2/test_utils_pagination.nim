@@ -12,8 +12,8 @@ import
 
 
 const 
-  DEFAULT_PUBSUB_TOPIC = "/waku/2/default-waku/proto"
-  DEFAULT_CONTENT_TOPIC = ContentTopic("/waku/2/default-content/proto")
+  DefaultPubsubTopic = "/waku/2/default-waku/proto"
+  DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
 
 
 ## Helpers
@@ -158,7 +158,7 @@ suite "Pagination - Index":
 
     ## When
     let ts2 = getTestTimestamp() + 10
-    let index = Index.compute(wm, ts2, DEFAULT_CONTENT_TOPIC)
+    let index = Index.compute(wm, ts2, DefaultContentTopic)
 
     ## Then
     check:
@@ -166,7 +166,7 @@ suite "Pagination - Index":
       index.digest.data.len == 32 # sha2 output length in bytes
       index.receiverTime == ts2 # the receiver timestamp should be a non-zero value
       index.senderTime == ts
-      index.pubsubTopic == DEFAULT_CONTENT_TOPIC
+      index.pubsubTopic == DefaultContentTopic
 
   test "Index digest of two identical messsage should be the same":
     ## Given
@@ -178,8 +178,8 @@ suite "Pagination - Index":
     ## When
     let ts = getTestTimestamp()
     let
-      index1 = Index.compute(wm1, ts, DEFAULT_PUBSUB_TOPIC)
-      index2 = Index.compute(wm2, ts, DEFAULT_PUBSUB_TOPIC)
+      index1 = Index.compute(wm1, ts, DefaultPubsubTopic)
+      index2 = Index.compute(wm2, ts, DefaultPubsubTopic)
 
     ## Then
     check:
