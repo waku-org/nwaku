@@ -2,14 +2,16 @@
 
 import
   std/[sequtils, tables],
-  chronicles,
-  chronos,
   testutils/unittests,
   stew/shims/net,
   stew/[base32, results],
+  chronicles,
+  chronos,
   libp2p/crypto/crypto,
   eth/keys,
-  discovery/dnsdisc/builder,
+  discovery/dnsdisc/builder
+import
+  ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/dnsdisc/waku_dnsdisc,
   ../../waku/v2/node/wakunode2,
   ../test_helpers
