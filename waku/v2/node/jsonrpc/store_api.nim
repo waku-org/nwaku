@@ -3,10 +3,14 @@
 import
   std/options,
   chronicles,
-  json_rpc/rpcserver,
+  json_rpc/rpcserver
+import
   ../wakunode2,
+  ../../protocol/waku_store,
   ../../utils/time,
-  ./jsonrpc_types, ./jsonrpc_utils
+  ../../utils/pagination,
+  ./jsonrpc_types, 
+  ./jsonrpc_utils
 
 export jsonrpc_types
 

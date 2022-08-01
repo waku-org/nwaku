@@ -1,42 +1,31 @@
 ## Waku Store protocol for historical messaging support.
 ## See spec for more details:
 ## https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-store.md
-
 {.push raises: [Defect].}
 
-# Group by std, external then internal imports
 import
-  # std imports
   std/[tables, times, sequtils, options, math],
-  # external imports
-  bearssl,
+  stew/[results, byteutils],
   chronicles,
   chronos, 
+  bearssl,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
-  libp2p/varint,
-  metrics,
-  stew/[results, byteutils],
-  # internal imports
+  metrics
+import
   ../../node/storage/message/message_store,
+  ../../node/storage/message/waku_store_queue,
   ../../node/peer_manager/peer_manager,
-  ../../utils/protobuf,
-  ../../utils/requests,
   ../../utils/time,
+  ../../utils/pagination,
+  ../../utils/requests,
+  ../waku_message,
   ../waku_swap/waku_swap,
-  ./waku_store_types
+  ./rpc,
+  ./rpc_codec
 
-# export all modules whose types are used in public functions/types
-export 
-  options,
-  chronos,
-  bearssl,
-  minprotobuf,
-  peer_manager,
-  waku_store_types,
-  message_store
 
 declarePublicGauge waku_store_messages, "number of historical messages", ["type"]
 declarePublicGauge waku_store_peers, "number of store peers"
@@ -46,17 +35,29 @@ declarePublicGauge waku_store_queries, "number of store queries received"
 logScope:
   topics = "wakustore"
 
+
+const
+  # Constants required for pagination -------------------------------------------
+  MaxPageSize* = uint64(100) # Maximum number of waku messages in each page
+  
+  # TODO the DefaultPageSize can be changed, it's current value is random
+  DefaultPageSize* = uint64(20) # A recommended default number of waku messages per page
+
+  MaxRpcSize* = MaxPageSize * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
+
+  MaxTimeVariance* = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift" into the future
+
+  DefaultTopic* = "/waku/2/default-waku/proto"
+
+
 const
   WakuStoreCodec* = "/vac/waku/store/2.0.0-beta4"
-  DefaultStoreCapacity* = 50000 # Default maximum of 50k messages stored
+  DefaultStoreCapacity* = 50_000 # Default maximum of 50k messages stored
 
 # Error types (metric label values)
 const
   dialFailure = "dial_failure"
   decodeRpcFailure = "decode_rpc_failure"
-
-# TODO Move serialization function to separate file, too noisy
-# TODO Move pagination to separate file, self-contained logic
 
 type
   WakuStore* = ref object of LPProtocol
@@ -69,230 +70,6 @@ type
     #TODO: WakuMessageStore currenly also holds isSqliteOnly; put it in single place.
     isSqliteOnly: bool # if true, don't use in memory-store and answer history queries from the sqlite DB
 
-
-proc computeIndex*(msg: WakuMessage,
-                   receivedTime = getNanosecondTime(getTime().toUnixFloat()),
-                   pubsubTopic = DefaultTopic): Index =
-  ## Takes a WakuMessage with received timestamp and returns its Index.
-  ## Received timestamp will default to system time if not provided.
-  var ctx: sha256
-  ctx.init()
-  ctx.update(msg.contentTopic.toBytes()) # converts the contentTopic to bytes
-  ctx.update(msg.payload)
-  let digest = ctx.finish() # computes the hash
-  ctx.clear()
-
-  let
-    receiverTime = receivedTime
-    index = Index(digest:digest,
-                  receiverTime: receiverTime, 
-                  senderTime: msg.timestamp,
-                  pubsubTopic: pubsubTopic)
-
-  return index
-
-proc encode*(index: Index): ProtoBuffer =
-  ## encodes an Index object into a ProtoBuffer
-  ## returns the resultant ProtoBuffer
-
-  # intiate a ProtoBuffer
-  var output = initProtoBuffer()
-
-  # encodes index
-  output.write3(1, index.digest.data)
-  output.write3(2, zint64(index.receiverTime))
-  output.write3(3, zint64(index.senderTime))
-  output.write3(4, index.pubsubTopic)
-
-  output.finish3()
-
-  return output
-
-proc encode*(pinfo: PagingInfo): ProtoBuffer =
-  ## encodes a PagingInfo object into a ProtoBuffer
-  ## returns the resultant ProtoBuffer
-
-  # intiate a ProtoBuffer
-  var output = initProtoBuffer()
-
-  # encodes pinfo
-  output.write3(1, pinfo.pageSize)
-  output.write3(2, pinfo.cursor.encode())
-  output.write3(3, uint32(ord(pinfo.direction)))
-
-  output.finish3()
-
-  return output
-
-proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
-  ## creates and returns an Index object out of buffer
-  var index = Index()
-  let pb = initProtoBuffer(buffer)
-
-  var data: seq[byte]
-  discard ? pb.getField(1, data)
-
-  # create digest from data
-  index.digest = MDigest[256]()
-  for count, b in data:
-    index.digest.data[count] = b
-
-  # read the timestamp
-  var receiverTime: zint64
-  discard ? pb.getField(2, receiverTime)
-  index.receiverTime = Timestamp(receiverTime)
-
-  # read the timestamp
-  var senderTime: zint64
-  discard ? pb.getField(3, senderTime)
-  index.senderTime = Timestamp(senderTime)
-
-  # read the pubsubTopic
-  discard ? pb.getField(4, index.pubsubTopic)
-
-  return ok(index) 
-
-proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
-  ## creates and returns a PagingInfo object out of buffer
-  var pagingInfo = PagingInfo()
-  let pb = initProtoBuffer(buffer)
-
-  var pageSize: uint64
-  discard ? pb.getField(1, pageSize)
-  pagingInfo.pageSize = pageSize
-
-
-  var cursorBuffer: seq[byte]
-  discard ? pb.getField(2, cursorBuffer)
-  pagingInfo.cursor = ? Index.init(cursorBuffer)
-
-  var direction: uint32
-  discard ? pb.getField(3, direction)
-  pagingInfo.direction = PagingDirection(direction)
-
-  return ok(pagingInfo) 
-
-proc init*(T: type HistoryContentFilter, buffer: seq[byte]): ProtoResult[T] =
-  let pb = initProtoBuffer(buffer)
-
-  # ContentTopic corresponds to the contentTopic field of waku message (not to be confused with pubsub topic)
-  var contentTopic: ContentTopic
-  discard ? pb.getField(1, contentTopic)
-
-  ok(HistoryContentFilter(contentTopic: contentTopic))
-
-proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
-  var msg = HistoryQuery()
-  let pb = initProtoBuffer(buffer)
-
-  discard ? pb.getField(2, msg.pubsubTopic)
-
-  var buffs: seq[seq[byte]]
-  discard ? pb.getRepeatedField(3, buffs)
-  
-  for buf in buffs:
-    msg.contentFilters.add(? HistoryContentFilter.init(buf))
-
-  var pagingInfoBuffer: seq[byte]
-  discard ? pb.getField(4, pagingInfoBuffer)
-
-  msg.pagingInfo = ? PagingInfo.init(pagingInfoBuffer)
-
-  var startTime: zint64
-  discard ? pb.getField(5, startTime)
-  msg.startTime = Timestamp(startTime)
-
-  var endTime: zint64
-  discard ? pb.getField(6, endTime)
-  msg.endTime = Timestamp(endTime)
-
-  return ok(msg)
-
-proc init*(T: type HistoryResponse, buffer: seq[byte]): ProtoResult[T] =
-  var msg = HistoryResponse()
-  let pb = initProtoBuffer(buffer)
-
-  var messages: seq[seq[byte]]
-  discard ? pb.getRepeatedField(2, messages)
-
-  for buf in messages:
-    msg.messages.add(? WakuMessage.init(buf))
-
-  var pagingInfoBuffer: seq[byte]
-  discard ? pb.getField(3, pagingInfoBuffer)
-  msg.pagingInfo= ? PagingInfo.init(pagingInfoBuffer)
-
-  var error: uint32
-  discard ? pb.getField(4, error)
-  msg.error = HistoryResponseError(error)
-
-  return ok(msg)
-
-proc init*(T: type HistoryRPC, buffer: seq[byte]): ProtoResult[T] =
-  var rpc = HistoryRPC()
-  let pb = initProtoBuffer(buffer)
-
-  discard ? pb.getField(1, rpc.requestId)
-
-  var queryBuffer: seq[byte]
-  discard ? pb.getField(2, queryBuffer)
-
-  rpc.query = ? HistoryQuery.init(queryBuffer)
-
-  var responseBuffer: seq[byte]
-  discard ? pb.getField(3, responseBuffer)
-
-  rpc.response = ? HistoryResponse.init(responseBuffer)
-
-  return ok(rpc)
-
-proc encode*(filter: HistoryContentFilter): ProtoBuffer =
-  var output = initProtoBuffer()
-  output.write3(1, filter.contentTopic)
-  output.finish3()
-  return output
-
-proc encode*(query: HistoryQuery): ProtoBuffer =
-  var output = initProtoBuffer()
-  
-  output.write3(2, query.pubsubTopic)
-
-  for filter in query.contentFilters:
-    output.write3(3, filter.encode())
-
-  output.write3(4, query.pagingInfo.encode())
-
-  output.write3(5, zint64(query.startTime))
-  output.write3(6, zint64(query.endTime))
-
-  output.finish3()
-
-  return output
-
-proc encode*(response: HistoryResponse): ProtoBuffer =
-  var output = initProtoBuffer()
-
-  for msg in response.messages:
-    output.write3(2, msg.encode())
-
-  output.write3(3, response.pagingInfo.encode())
-
-  output.write3(4, uint32(ord(response.error)))
-
-  output.finish3()
-
-  return output
-
-proc encode*(rpc: HistoryRPC): ProtoBuffer =
-  var output = initProtoBuffer()
-
-  output.write3(1, rpc.requestId)
-  output.write3(2, rpc.query.encode())
-  output.write3(3, rpc.response.encode())
-
-  output.finish3()
-
-  return output
 
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse {.gcsafe.} =
   ## Query history to return a single page of messages matching the query
@@ -397,7 +174,11 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
 
   proc onData(receiverTime: Timestamp, msg: WakuMessage, pubsubTopic:  string) =
     # TODO index should not be recalculated
-    discard ws.messages.add(IndexedWakuMessage(msg: msg, index: msg.computeIndex(receiverTime, pubsubTopic), pubsubTopic: pubsubTopic))
+    discard ws.messages.add(IndexedWakuMessage(
+              msg: msg, 
+              index: Index.compute(msg, receiverTime, pubsubTopic), 
+              pubsubTopic: pubsubTopic
+            ))
 
   info "attempting to load messages from persistent storage"
 
@@ -410,7 +191,6 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
   
   debug "the number of messages in the memory", messageNum=ws.messages.len
   waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
-
 
 proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgContext,
            store: MessageStore = nil, wakuSwap: WakuSwap = nil, persistMessages = true,
@@ -430,7 +210,11 @@ proc handleMessage*(w: WakuStore, topic: string, msg: WakuMessage) {.async.} =
     # Store is mounted but new messages should not be stored
     return
 
-  let index = msg.computeIndex(pubsubTopic = topic)
+  let index = Index.compute(
+    msg,
+    receivedTime = getNanosecondTime(getTime().toUnixFloat()),
+    pubsubTopic = topic
+  )
 
   # add message to in-memory store
   if not w.isSqliteOnly:
@@ -614,7 +398,12 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
     # exclude index from the comparison criteria
 
     for msg in msgList:
-      let index = msg.computeIndex(pubsubTopic = DefaultTopic)
+      let index = Index.compute(
+        msg,
+        receivedTime = getNanosecondTime(getTime().toUnixFloat()),
+        pubsubTopic = DefaultTopic
+      )
+
       # check for duplicate messages
       # TODO Should take pubsub topic into account if we are going to support topics rather than the DefaultTopic
       if ws.messages.contains(index):
@@ -712,3 +501,11 @@ proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHand
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
 
   handler(response.value.response)
+
+
+
+# TODO: Remove the following deprecated method
+proc computeIndex*(msg: WakuMessage,
+                   receivedTime = getNanosecondTime(getTime().toUnixFloat()),
+                   pubsubTopic = DefaultTopic): Index {.deprecated: "Use Index.compute() instead".}=
+  Index.compute(msg, receivedTime, pubsubTopic)
