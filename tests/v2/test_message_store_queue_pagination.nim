@@ -14,8 +14,8 @@ import
 
 
 const 
-  DEFAULT_PUBSUB_TOPIC = "/waku/2/default-waku/proto"
-  DEFAULT_CONTENT_TOPIC = ContentTopic("/waku/2/default-content/proto")
+  DefaultPubsubTopic = "/waku/2/default-waku/proto"
+  DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
 
 
 proc getTestStoreQueue(numMessages: int): StoreQueueRef =
@@ -40,7 +40,6 @@ proc getTestStoreQueue(numMessages: int): StoreQueueRef =
 proc getTestTimestamp(): Timestamp =
   let now = getNanosecondTime(epochTime())
   Timestamp(now)
-
 
 suite "Queue store - pagination":
   test "Forward pagination test":
@@ -123,7 +122,7 @@ suite "Queue store - pagination":
       error == HistoryResponseError.NONE
     
     # test for an invalid cursor 
-    let index = Index.compute(WakuMessage(payload: @[byte 10]), getTestTimestamp(), DEFAULT_PUBSUB_TOPIC)
+    let index = Index.compute(WakuMessage(payload: @[byte 10]), getTestTimestamp(), DefaultPubsubTopic)
     pagingInfo = PagingInfo(pageSize: 10, cursor: index, direction: PagingDirection.FORWARD)
     (data, newPagingInfo, error) = getPage(stQ, pagingInfo)
     check:
@@ -234,7 +233,7 @@ suite "Queue store - pagination":
       error == HistoryResponseError.NONE
 
     # test for an invalid cursor 
-    let index = Index.compute(WakuMessage(payload: @[byte 10]), getTestTimestamp(), DEFAULT_PUBSUB_TOPIC)
+    let index = Index.compute(WakuMessage(payload: @[byte 10]), getTestTimestamp(), DefaultPubsubTopic)
     pagingInfo = PagingInfo(pageSize: 5, cursor: index, direction: PagingDirection.BACKWARD)
     (data, newPagingInfo, error) = getPage(stQ, pagingInfo)
     check:

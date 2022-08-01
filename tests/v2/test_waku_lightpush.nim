@@ -15,8 +15,8 @@ import
 
 
 const 
-  DEFAULT_PUBSUB_TOPIC = "/waku/2/default-waku/proto"
-  DEFAULT_CONTENT_TOPIC = ContentTopic("/waku/2/default-content/proto")
+  DefaultPubsubTopic = "/waku/2/default-waku/proto"
+  DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
 
 
 # TODO: Extend lightpush protocol test coverage
@@ -69,8 +69,8 @@ procSuite "Waku Lightpush":
 
     ## Given
     let
-      msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: DEFAULT_CONTENT_TOPIC)
-      rpc = PushRequest(message: msg, pubSubTopic: DEFAULT_PUBSUB_TOPIC)
+      msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: DefaultContentTopic)
+      rpc = PushRequest(message: msg, pubSubTopic: DefaultPubsubTopic)
 
     ## When
     let res = await proto.request(rpc)

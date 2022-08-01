@@ -12,16 +12,19 @@ import
   ./message_store
 
 
-# TODO: Remove after resolving nwaku #1026
-export
-  message_store
-  
-
 logScope:
   topics = "message_store.storequeue"
 
+type 
+  IndexedWakuMessage* = object
+    # TODO may need to rename this object as it holds both the index and the pubsub topic of a waku message
+    ## This type is used to encapsulate a WakuMessage and its Index
+    msg*: WakuMessage
+    index*: Index
+    pubsubTopic*: string
+    
+  QueryFilterMatcher* = proc(indexedWakuMsg: IndexedWakuMessage) : bool {.gcsafe, closure.}
 
-type QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
 
 type
   StoreQueueRef* = ref object of MessageStore
@@ -298,16 +301,8 @@ proc last*(storeQueue: StoreQueueRef): MessageStoreResult[IndexedWakuMessage] =
 
   return ok(res.value.data)
 
+
 ## --- Queue API ---
-
-method getMostRecentMessageTimestamp*(store: StoreQueueRef): MessageStoreResult[Timestamp] =
-  let message = ?store.last()
-  ok(message.index.receiverTime)
-
-method getOldestMessageTimestamp*(store: StoreQueueRef): MessageStoreResult[Timestamp] =
-  let message = ?store.first()
-  ok(message.index.receiverTime)
-
 
 proc add*(store: StoreQueueRef, msg: IndexedWakuMessage): MessageStoreResult[void] =
   ## Add a message to the queue

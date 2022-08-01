@@ -5,7 +5,7 @@
 
 import
   std/[tables, times, sequtils, options, math],
-  stew/[results, byteutils],
+  stew/results,
   chronicles,
   chronos, 
   bearssl,
@@ -35,29 +35,29 @@ declarePublicGauge waku_store_queries, "number of store queries received"
 logScope:
   topics = "wakustore"
 
+const 
+  WakuStoreCodec* = "/vac/waku/store/2.0.0-beta4"
 
-const
+  DefaultTopic* = "/waku/2/default-waku/proto"
+
   # Constants required for pagination -------------------------------------------
   MaxPageSize* = StoreMaxPageSize
   
   # TODO the DefaultPageSize can be changed, it's current value is random
   DefaultPageSize* = uint64(20) # A recommended default number of waku messages per page
 
-  MaxRpcSize* = StoreMaxPageSize * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
-
   MaxTimeVariance* = StoreMaxTimeVariance
 
-  DefaultTopic* = "/waku/2/default-waku/proto"
 
+const MaxRpcSize = StoreMaxPageSize * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
 
-const
-  WakuStoreCodec* = "/vac/waku/store/2.0.0-beta4"
-  DefaultStoreCapacity* = 50_000 # Default maximum of 50k messages stored
 
 # Error types (metric label values)
 const
   dialFailure = "dial_failure"
   decodeRpcFailure = "decode_rpc_failure"
+  peerNotFoundFailure = "peer_not_found_failure"
+
 
 type
   WakuStoreResult*[T] = Result[T, string]
@@ -85,52 +85,51 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse {.gcsafe.}
                      else: none(seq[ContentTopic])
     qPubSubTopic = if (query.pubsubTopic != ""): some(query.pubsubTopic)
                    else: none(string)
+    qCursor = if query.pagingInfo.cursor != Index(): some(query.pagingInfo.cursor)
+              else: none(Index)
     qStartTime = if query.startTime != Timestamp(0): some(query.startTime)
                  else: none(Timestamp)
     qEndTime = if query.endTime != Timestamp(0): some(query.endTime)
                else: none(Timestamp)
+    qMaxPageSize = query.pagingInfo.pageSize
+    qAscendingOrder = query.pagingInfo.direction == PagingDirection.FORWARD
   
-  trace "Combined query criteria into single predicate", contentTopics=qContentTopics, pubsubTopic=qPubSubTopic, startTime=qStartTime, endTime=qEndTime
+  let queryRes = block:
+    if w.isSqliteOnly: 
+      w.store.getMessagesByHistoryQuery(
+        contentTopic = qContentTopics,
+        pubsubTopic = qPubSubTopic,
+        cursor = qCursor,
+        startTime = qStartTime,
+        endTime = qEndTime,
+        maxPageSize = qMaxPageSize,
+        ascendingOrder = qAscendingOrder
+      )
+    else:
+      w.messages.getMessagesByHistoryQuery(
+        contentTopic = qContentTopics,
+        pubsubTopic = qPubSubTopic,
+        cursor = qCursor,
+        startTime = qStartTime,
+        endTime = qEndTime,
+        maxPageSize = qMaxPageSize,
+        ascendingOrder = qAscendingOrder
+      )
   
-  ## Compose filter predicate for message from query criteria
-  proc matchesQuery(indMsg: IndexedWakuMessage): bool =
-    trace "Matching indexed message against predicate", msg=indMsg
+# Build response
+  # TODO: Handle errors
+  if queryRes.isErr():
+    return HistoryResponse(messages: @[], pagingInfo: PagingInfo(), error: HistoryResponseError.INVALID_CURSOR)
 
-    if qPubSubTopic.isSome():
-      # filter on pubsub topic
-      if indMsg.pubsubTopic != qPubSubTopic.get():
-        trace "Failed to match pubsub topic", criteria=qPubSubTopic.get(), actual=indMsg.pubsubTopic
-        return false
-    
-    if qStartTime.isSome() and qEndTime.isSome():
-      # temporal filtering
-      # select only messages whose sender generated timestamps fall bw the queried start time and end time
-      
-      if indMsg.msg.timestamp > qEndTime.get() or indMsg.msg.timestamp < qStartTime.get():
-        trace "Failed to match temporal filter", criteriaStart=qStartTime.get(), criteriaEnd=qEndTime.get(), actual=indMsg.msg.timestamp
-        return false
-    
-    if qContentTopics.isSome():
-      # filter on content
-      if indMsg.msg.contentTopic notin qContentTopics.get():
-        trace "Failed to match content topic", criteria=qContentTopics.get(), actual=indMsg.msg.contentTopic
-        return false
-    
-    return true
-
-  let
-    # Read a page of history matching the query
-    (wakuMsgList, updatedPagingInfo, error) =
-      if w.isSqliteOnly:  w.store.getPage(matchesQuery, query.pagingInfo).expect("should return a valid result set") # TODO: error handling
-      else: w.messages.getPage(matchesQuery, query.pagingInfo)
-
-    # Build response
-    historyRes = HistoryResponse(messages: wakuMsgList, pagingInfo: updatedPagingInfo, error: error)
+  let (messages, updatedPagingInfo) = queryRes.get()
   
-  trace "Successfully populated a history response", response=historyRes
-  return historyRes
+  HistoryResponse(
+    messages: messages, 
+    pagingInfo: updatedPagingInfo.get(PagingInfo()),
+    error: HistoryResponseError.NONE
+  )
 
-proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
+proc init*(ws: WakuStore, capacity = StoreDefaultCapacity) =
 
   proc handler(conn: Connection, proto: string) {.async.} =
     var message = await conn.readLp(MaxRpcSize.int)
@@ -174,29 +173,25 @@ proc init*(ws: WakuStore, capacity = DefaultStoreCapacity) =
     info "SQLite-only store initialized. Messages are *not* loaded into memory."
     return
 
-  proc onData(receiverTime: Timestamp, msg: WakuMessage, pubsubTopic:  string) =
-    # TODO index should not be recalculated
-    discard ws.messages.add(IndexedWakuMessage(
-              msg: msg, 
-              index: Index.compute(msg, receiverTime, pubsubTopic), 
-              pubsubTopic: pubsubTopic
-            ))
-
+ # Load all messages from sqliteStore into queueStore
   info "attempting to load messages from persistent storage"
 
-  let res = ws.store.getAll(onData)
-  if res.isErr:
-    warn "failed to load messages from store", err = res.error
-    waku_store_errors.inc(labelValues = ["store_load_failure"])
-  else:
-    info "successfully loaded from store"
-  
+  let res = ws.store.getAllMessages()
+  if res.isOk():
+    for (receiverTime, msg, pubsubTopic) in res.value:
+      let index = Index.compute(msg, receiverTime, pubsubTopic)
+      discard ws.messages.put(index, msg, pubsubTopic)
+
+    info "successfully loaded messages from the persistent store"
+  else: 
+    warn "failed to load messages from the persistent store", err = res.error()
+
   debug "the number of messages in the memory", messageNum=ws.messages.len
   waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
 
 proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgContext,
            store: MessageStore = nil, wakuSwap: WakuSwap = nil, persistMessages = true,
-           capacity = DefaultStoreCapacity, isSqliteOnly = false): T =
+           capacity = StoreDefaultCapacity, isSqliteOnly = false): T =
   debug "init"
   var output = WakuStore(rng: rng, peerManager: peerManager, store: store, wakuSwap: wakuSwap, persistMessages: persistMessages, isSqliteOnly: isSqliteOnly)
   output.init(capacity)
@@ -240,6 +235,10 @@ proc handleMessage*(w: WakuStore, topic: string, msg: WakuMessage) {.async.} =
     trace "failed to store messages", err = res.error
     waku_store_errors.inc(labelValues = ["store_failure"])
 
+
+# TODO: Remove after converting the query method into a non-callback method
+type QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
+
 proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
   # @TODO We need to be more stratigic about which peers we dial. Right now we just set one on the service.
   # Ideally depending on the query and our set  of peers we take a subset of ideal peers.
@@ -252,7 +251,7 @@ proc query*(w: WakuStore, query: HistoryQuery, handler: QueryHandlerFunc) {.asyn
 
   if peerOpt.isNone():
     error "no suitable remote peers"
-    waku_store_errors.inc(labelValues = [dialFailure])
+    waku_store_errors.inc(labelValues = [peerNotFoundFailure])
     return
 
   let connOpt = await w.peerManager.dialPeer(peerOpt.get(), WakuStoreCodec)
@@ -449,7 +448,7 @@ proc resume*(ws: WakuStore, peerList: Option[seq[RemotePeerInfo]] = none(seq[Rem
     let peerOpt = ws.peerManager.selectPeer(WakuStoreCodec)
     if peerOpt.isNone():
       warn "no suitable remote peers"
-      waku_store_errors.inc(labelValues = [dialFailure])
+      waku_store_errors.inc(labelValues = [peerNotFoundFailure])
       return err("no suitable remote peers")
 
     debug "a peer is selected from peer manager"
@@ -476,7 +475,7 @@ proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHand
 
   if peerOpt.isNone():
     error "no suitable remote peers"
-    waku_store_errors.inc(labelValues = [dialFailure])
+    waku_store_errors.inc(labelValues = [peerNotFoundFailure])
     return
 
   let connOpt = await ws.peerManager.dialPeer(peerOpt.get(), WakuStoreCodec)
@@ -507,10 +506,3 @@ proc queryWithAccounting*(ws: WakuStore, query: HistoryQuery, handler: QueryHand
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
 
   handler(response.value.response)
-
-
-# TODO: Remove the following deprecated method
-proc computeIndex*(msg: WakuMessage,
-                   receivedTime = getNanosecondTime(getTime().toUnixFloat()),
-                   pubsubTopic = DefaultTopic): Index {.deprecated: "Use Index.compute() instead".}=
-  Index.compute(msg, receivedTime, pubsubTopic)
