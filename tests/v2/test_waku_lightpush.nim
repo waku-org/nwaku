@@ -1,76 +1,85 @@
 {.used.}
 
 import
-  std/[options, tables, sets],
-  testutils/unittests, chronos, chronicles,
+  std/options,
+  testutils/unittests, 
+  chronicles,
+  chronos, 
   libp2p/switch,
-  libp2p/protobuf/minprotobuf,
-  libp2p/stream/[bufferstream, connection],
-  libp2p/crypto/crypto,
-  libp2p/multistream,
+  libp2p/crypto/crypto
+import
   ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/protocol/waku_lightpush/waku_lightpush,
-  ../test_helpers, ./utils
+  ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/protocol/waku_lightpush,
+  ../test_helpers
 
-procSuite "Waku Light Push":
 
-  # NOTE See test_wakunode for light push request success
+const 
+  DEFAULT_PUBSUB_TOPIC = "/waku/2/default-waku/proto"
+  DEFAULT_CONTENT_TOPIC = ContentTopic("/waku/2/default-content/proto")
+
+
+# TODO: Extend lightpush protocol test coverage
+procSuite "Waku Lightpush":
+
+  asyncTest "handle light push request success":
+    # TODO: Move here the test case at test_wakunode: light push request success
+    discard
+
   asyncTest "handle light push request fail":
-    const defaultTopic = "/waku/2/default-waku/proto"
-
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.new(key)
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
-
-    var dialSwitch = newStandardSwitch()
-    await dialSwitch.start()
-
-    var listenSwitch = newStandardSwitch(some(key))
+      listenSwitch = newStandardSwitch(some(key))
     await listenSwitch.start()
 
-    var responseRequestIdFuture = newFuture[string]()
-    var completionFut = newFuture[bool]()
+    let dialSwitch = newStandardSwitch()
+    await dialSwitch.start()
 
-    proc handle(requestId: string, msg: PushRequest) {.gcsafe, closure.} =
+
+    proc requestHandler(requestId: string, msg: PushRequest) {.gcsafe, closure.} =
       # TODO Success return here
       debug "handle push req"
       check:
         1 == 0
-      responseRequestIdFuture.complete(requestId)
 
     # FIXME Unclear how we want to use subscriptions, if at all
     let
-      proto = WakuLightPush.init(PeerManager.new(dialSwitch), crypto.newRng(), handle)
-      wm = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
-      rpc = PushRequest(pubSubTopic: defaultTopic, message: wm)
+      peerManager = PeerManager.new(dialSwitch)
+      rng = crypto.newRng()
+      proto = WakuLightPush.init(peerManager, rng, requestHandler)
 
-    dialSwitch.mount(proto)
     proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
+    dialSwitch.mount(proto)
 
 
     # TODO Can possibly get rid of this if it isn't dynamic
-    proc requestHandle(requestId: string, msg: PushRequest) {.gcsafe, closure.} =
+    proc requestHandler2(requestId: string, msg: PushRequest) {.gcsafe, closure.} =
       debug "push request handler"
       # TODO: Also relay message
       # TODO: Here we want to send back response with is_success true
       discard
 
     let
-      proto2 = WakuLightPush.init(PeerManager.new(listenSwitch), crypto.newRng(), requestHandle)
+      peerManager2 = PeerManager.new(listenSwitch)
+      rng2 = crypto.newRng() 
+      proto2 = WakuLightPush.init(peerManager2, rng2, requestHandler2)
 
     listenSwitch.mount(proto2)
 
-    proc handler(response: PushResponse) {.gcsafe, closure.} =
-      debug "push response handler, expecting false"
-      check:
-        response.isSuccess == false
-      debug "Additional info", info=response.info
-      completionFut.complete(true)
 
-    await proto.request(rpc, handler)
-    await sleepAsync(2.seconds)
+    ## Given
+    let
+      msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: DEFAULT_CONTENT_TOPIC)
+      rpc = PushRequest(message: msg, pubSubTopic: DEFAULT_PUBSUB_TOPIC)
 
+    ## When
+    let res = await proto.request(rpc)
+
+    ## Then
+    check res.isOk()
+    let response = res.get()
     check:
-      (await completionFut.withTimeout(5.seconds)) == true
+      not response.isSuccess
+
+    ## Cleanup
+    await allFutures(listenSwitch.stop(), dialSwitch.stop())
