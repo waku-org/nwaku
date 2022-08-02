@@ -1,677 +1,603 @@
 {.used.}
 
 import
-  std/[options, tables, sets, sequtils],
+  std/[options, tables, sets, sequtils, times],
+  stew/byteutils,
+  testutils/unittests, 
   chronos, 
   chronicles,
-  testutils/unittests, 
   libp2p/switch,
-  libp2p/protobuf/minprotobuf,
-  libp2p/stream/[bufferstream, connection],
-  libp2p/crypto/crypto,
-  libp2p/protocols/pubsub/rpc/message
+  libp2p/crypto/crypto
 import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
-  ../../waku/v2/node/storage/message/waku_message_store,
   ../../waku/v2/node/storage/message/waku_store_queue,
+  ../../waku/v2/node/storage/message/waku_message_store,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/pagination,
   ../../waku/v2/utils/time,
-  ../test_helpers, 
-  ./utils
+  ../test_helpers 
 
-procSuite "Waku Store":
-  const defaultContentTopic = ContentTopic("1")
+
+const 
+  DefaultPubsubTopic = "/waku/2/default-waku/proto"
+  DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
+
+
+proc newTestDatabase(): SqliteDatabase =
+  SqliteDatabase.init("", inMemory = true).tryGet()
+
+proc fakeWakuMessage(
+  payload = "TEST-PAYLOAD",
+  contentTopic = DefaultContentTopic, 
+  ts = getNanosecondTime(epochTime())
+): WakuMessage = 
+  WakuMessage(
+    payload: toBytes(payload),
+    contentTopic: contentTopic,
+    version: 1,
+    timestamp: ts
+  )
+
+proc newTestSwitch(key=none(PrivateKey), address=none(MultiAddress)): Switch =
+  let peerKey = key.get(PrivateKey.random(ECDSA, rng[]).get())
+  let peerAddr = address.get(MultiAddress.init("/ip4/127.0.0.1/tcp/0").get()) 
+  return newStandardSwitch(some(peerKey), addrs=peerAddr)
+
+
+proc newTestWakuStore(switch: Switch): WakuStore =
+  let
+    peerManager = PeerManager.new(switch)
+    rng = crypto.newRng()
+    database = newTestDatabase()
+    store = WakuMessageStore.init(database).tryGet()
+    proto = WakuStore.init(peerManager, rng, store)
+
+  switch.mount(proto)
+
+  return proto
+
+
+suite "Waku Store":
   
   asyncTest "handle query":
+    ## Setup
+    let 
+      serverSwitch = newTestSwitch()
+      clientSwitch = newTestSwitch()
+    
+    await allFutures(serverSwitch.start(), clientSwitch.start())
+      
+    let 
+      serverProto = newTestWakuStore(serverSwitch)
+      clientProto = newTestWakuStore(clientSwitch)
+
+    clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
+
+
+    ## Given
+    let topic = ContentTopic("1")
     let
-      key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.new(key)
-      topic = defaultContentTopic
-      msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic)
-      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic("2"))
+      msg1 = fakeWakuMessage(contentTopic=topic)
+      msg2 = fakeWakuMessage()
 
-    var dialSwitch = newStandardSwitch()
-    await dialSwitch.start()
+    await serverProto.handleMessage("foo", msg1)
+    await serverProto.handleMessage("foo", msg2)
 
-    var listenSwitch = newStandardSwitch(some(key))
-    await listenSwitch.start()
+    ## When
+    let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: topic)])
+    let resQuery = await clientProto.query(rpc)
 
-    let
-      database = SqliteDatabase.init("", inMemory = true)[]
-      store = WakuMessageStore.init(database)[]
-      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
-      rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: topic)])
-
-    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
-
-    listenSwitch.mount(proto)
-
-    await proto.handleMessage("foo", msg)
-    await proto.handleMessage("foo", msg2)
-
-    var completionFut = newFuture[bool]()
-
-    proc handler(response: HistoryResponse) {.gcsafe, closure.} =
-      check:
-        response.messages.len() == 1
-        response.messages[0] == msg
-      completionFut.complete(true)
-
-    await proto.query(rpc, handler)
-
+    ## Then
     check:
-      (await completionFut.withTimeout(5.seconds)) == true
+      resQuery.isOk()
 
-    # free resources
-    await allFutures(dialSwitch.stop(),
-      listenSwitch.stop())
+    let response = resQuery.tryGet() 
+    check:
+      response.messages.len == 1
+      response.messages[0] == msg1
+
+    ## Cleanup
+    await allFutures(serverSwitch.stop(), clientSwitch.stop())
 
   asyncTest "handle query with multiple content filters":
+    ## Setup
+    let 
+      serverSwitch = newTestSwitch()
+      clientSwitch = newTestSwitch()
+    
+    await allFutures(serverSwitch.start(), clientSwitch.start())
+      
+    let 
+      serverProto = newTestWakuStore(serverSwitch)
+      clientProto = newTestWakuStore(clientSwitch)
+
+    clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
+
+    ## Given
     let
-      key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.new(key)
-      topic1 = defaultContentTopic
+      topic1 = ContentTopic("1")
       topic2 = ContentTopic("2")
       topic3 = ContentTopic("3")
-      msg1 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic1)
-      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic2)
-      msg3 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic3)
-
-    var dialSwitch = newStandardSwitch()
-    await dialSwitch.start()
-
-    var listenSwitch = newStandardSwitch(some(key))
-    await listenSwitch.start()
 
     let
-      database = SqliteDatabase.init("", inMemory = true)[]
-      store = WakuMessageStore.init(database)[]
-      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
-      rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: topic1), HistoryContentFilter(contentTopic: topic3)])
+      msg1 = fakeWakuMessage(contentTopic=topic1)
+      msg2 = fakeWakuMessage(contentTopic=topic2)
+      msg3 = fakeWakuMessage(contentTopic=topic3)
 
-    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
+    await serverProto.handleMessage("foo", msg1)
+    await serverProto.handleMessage("foo", msg2)
+    await serverProto.handleMessage("foo", msg3)
+    
+    ## When
+    let rpc = HistoryQuery(contentFilters: @[
+      HistoryContentFilter(contentTopic: topic1), 
+      HistoryContentFilter(contentTopic: topic3)
+    ])
+    let resQuery = await clientProto.query(rpc)
 
-    listenSwitch.mount(proto)
-
-    await proto.handleMessage("foo", msg1)
-    await proto.handleMessage("foo", msg2)
-    await proto.handleMessage("foo", msg3)
-
-    var completionFut = newFuture[bool]()
-
-    proc handler(response: HistoryResponse) {.gcsafe, closure.} =
-      check:
-        response.messages.len() == 2
-        response.messages.anyIt(it == msg1)
-        response.messages.anyIt(it == msg3)
-      completionFut.complete(true)
-
-    await proto.query(rpc, handler)
-
+    ## Then
     check:
-      (await completionFut.withTimeout(5.seconds)) == true
+      resQuery.isOk()
 
-    # free resources
-    await allFutures(dialSwitch.stop(),
-      listenSwitch.stop())
+    let response = resQuery.tryGet() 
+    check:
+      response.messages.len() == 2
+      response.messages.anyIt(it == msg1)
+      response.messages.anyIt(it == msg3)
+
+    ## Cleanup
+    await allFutures(clientSwitch.stop(), serverSwitch.stop())
   
   asyncTest "handle query with pubsub topic filter":
+    ## Setup
+    let 
+      serverSwitch = newTestSwitch()
+      clientSwitch = newTestSwitch()
+    
+    await allFutures(serverSwitch.start(), clientSwitch.start())
+      
+    let 
+      serverProto = newTestWakuStore(serverSwitch)
+      clientProto = newTestWakuStore(clientSwitch)
+
+    clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
+
+    ## Given
     let
-      key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.new(key)
-      contentTopic1 = defaultContentTopic
+      pubsubTopic1 = "queried-topic"
+      pubsubTopic2 = "non-queried-topic"
+    
+    let
+      contentTopic1 = ContentTopic("1")
       contentTopic2 = ContentTopic("2")
       contentTopic3 = ContentTopic("3")
-      msg1 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic1)
-      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic2)
-      msg3 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic3)
-
-    var dialSwitch = newStandardSwitch()
-    await dialSwitch.start()
-
-    var listenSwitch = newStandardSwitch(some(key))
-    await listenSwitch.start()
 
     let
-      database = SqliteDatabase.init("", inMemory = true)[]
-      store = WakuMessageStore.init(database)[]
-      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
-      pubsubtopic1 = "queried topic"
-      pubsubtopic2 = "non queried topic"
-      # this query targets: pubsubtopic1 AND (contentTopic1 OR contentTopic3)    
-      rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic1), HistoryContentFilter(contentTopic: contentTopic3)], pubsubTopic: pubsubTopic1)
+      msg1 = fakeWakuMessage(contentTopic=contentTopic1)
+      msg2 = fakeWakuMessage(contentTopic=contentTopic2)
+      msg3 = fakeWakuMessage(contentTopic=contentTopic3)
 
-    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
-
-    listenSwitch.mount(proto)
-
-    # publish messages
-    await proto.handleMessage(pubsubtopic1, msg1)
-    await proto.handleMessage(pubsubtopic2, msg2)
-    await proto.handleMessage(pubsubtopic2, msg3)
-
-    var completionFut = newFuture[bool]()
-
-    proc handler(response: HistoryResponse) {.gcsafe, closure.} =
-      check:
-        response.messages.len() == 1
-        # msg1 is the only match for the query predicate pubsubtopic1 AND (contentTopic1 OR contentTopic3) 
-        response.messages.anyIt(it == msg1)
-      completionFut.complete(true)
-
-    await proto.query(rpc, handler)
-
-    check:
-      (await completionFut.withTimeout(5.seconds)) == true
-
-    # free resources
-    await allFutures(dialSwitch.stop(),
-      listenSwitch.stop())
-
-  asyncTest "handle query with pubsub topic filter with no match":
-    let
-      key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.new(key)
-      msg1 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: defaultContentTopic)
-      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: defaultContentTopic)
-      msg3 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: defaultContentTopic)
-
-    var dialSwitch = newStandardSwitch()
-    await dialSwitch.start()
-
-    var listenSwitch = newStandardSwitch(some(key))
-    await listenSwitch.start()
-
-    let
-      database = SqliteDatabase.init("", inMemory = true)[]
-      store = WakuMessageStore.init(database)[]
-      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
-      pubsubtopic1 = "queried topic"
-      pubsubtopic2 = "non queried topic"
-      # this query targets: pubsubtopic1  
-      rpc = HistoryQuery(pubsubTopic: pubsubTopic1)
-
-    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
-
-    listenSwitch.mount(proto)
-
-    # publish messages
-    await proto.handleMessage(pubsubtopic2, msg1)
-    await proto.handleMessage(pubsubtopic2, msg2)
-    await proto.handleMessage(pubsubtopic2, msg3)
-
-    var completionFut = newFuture[bool]()
-
-    proc handler(response: HistoryResponse) {.gcsafe, closure.} =
-      check:
-        response.messages.len() == 0
-      completionFut.complete(true)
-
-    await proto.query(rpc, handler)
-
-    check:
-      (await completionFut.withTimeout(5.seconds)) == true
-
-    # free resources
-    await allFutures(dialSwitch.stop(),
-      listenSwitch.stop())
-
-  asyncTest "handle query with pubsub topic filter matching the entire stored messages":
-    let
-      key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.new(key)
-      msg1 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: defaultContentTopic)
-      msg2 = WakuMessage(payload: @[byte 4, 5, 6], contentTopic: defaultContentTopic)
-      msg3 = WakuMessage(payload: @[byte 7, 8, 9,], contentTopic: defaultContentTopic)
-
-    var dialSwitch = newStandardSwitch()
-    await dialSwitch.start()
-
-    var listenSwitch = newStandardSwitch(some(key))
-    await listenSwitch.start()
-
-    let
-      database = SqliteDatabase.init("", inMemory = true)[]
-      store = WakuMessageStore.init(database)[]
-      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
-      pubsubtopic = "queried topic"
-      # this query targets: pubsubtopic 
-      rpc = HistoryQuery(pubsubTopic: pubsubtopic)
-
-    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
-
-    listenSwitch.mount(proto)
-
-    # publish messages
-    await proto.handleMessage(pubsubtopic, msg1)
-    await proto.handleMessage(pubsubtopic, msg2)
-    await proto.handleMessage(pubsubtopic, msg3)
-
-    var completionFut = newFuture[bool]()
-
-    proc handler(response: HistoryResponse) {.gcsafe, closure.} =
-      check:
-        response.messages.len() == 3
-        response.messages.anyIt(it == msg1)
-        response.messages.anyIt(it == msg2)
-        response.messages.anyIt(it == msg3)
-      completionFut.complete(true)
-
-    await proto.query(rpc, handler)
-
-    check:
-      (await completionFut.withTimeout(5.seconds)) == true
-
-    # free resources
-    await allFutures(dialSwitch.stop(),
-      listenSwitch.stop())
-
-  asyncTest "handle query with store and restarts":
-    let
-      key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.new(key)
-      topic = defaultContentTopic
-      database = SqliteDatabase.init("", inMemory = true)[]
-      store = WakuMessageStore.init(database)[]
-      msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic)
-      msg2 = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: ContentTopic("2"))
-
-    var dialSwitch = newStandardSwitch()
-    await dialSwitch.start()
-
-    var listenSwitch = newStandardSwitch(some(key))
-    await listenSwitch.start()
-
-    let
-      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
-      rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: topic)])
-
-    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
-
-    listenSwitch.mount(proto)
-
-    await proto.handleMessage("foo", msg)
-    await sleepAsync(1.millis)  # Sleep a millisecond to ensure messages are stored chronologically
-    await proto.handleMessage("foo", msg2)
-
-    var completionFut = newFuture[bool]()
-
-    proc handler(response: HistoryResponse) {.gcsafe, closure.} =
-      check:
-        response.messages.len() == 1
-        response.messages[0] == msg
-      completionFut.complete(true)
-
-    await proto.query(rpc, handler)
-
-    check:
-      (await completionFut.withTimeout(5.seconds)) == true
-
-    let 
-      proto2 = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
-      key2 = PrivateKey.random(ECDSA, rng[]).get()
-
-    var listenSwitch2 = newStandardSwitch(some(key2))
-    await listenSwitch2.start()
-
-    proto2.setPeer(listenSwitch2.peerInfo.toRemotePeerInfo())
-
-    listenSwitch2.mount(proto2)
-
-    var completionFut2 = newFuture[bool]()
-    proc handler2(response: HistoryResponse) {.gcsafe, closure.} =
-      check:
-        response.messages.len() == 1
-        response.messages[0] == msg
-      completionFut2.complete(true)
-
-    await proto2.query(rpc, handler2)
-
-    check:
-      (await completionFut2.withTimeout(5.seconds)) == true
+    await serverProto.handleMessage(pubsubtopic1, msg1)
+    await serverProto.handleMessage(pubsubtopic2, msg2)
+    await serverProto.handleMessage(pubsubtopic2, msg3)
     
-    # free resources
-    await allFutures(dialSwitch.stop(),
-      listenSwitch.stop())
+    ## When
+    # this query targets: pubsubtopic1 AND (contentTopic1 OR contentTopic3)    
+    let rpc = HistoryQuery(
+      contentFilters: @[HistoryContentFilter(contentTopic: contentTopic1), 
+                        HistoryContentFilter(contentTopic: contentTopic3)], 
+      pubsubTopic: pubsubTopic1
+    )
+    let resQuery = await clientProto.query(rpc)
+
+    ## Then
+    check:
+      resQuery.isOk()
+
+    let response = resQuery.tryGet() 
+    check:
+      response.messages.len() == 1
+      response.messages.anyIt(it == msg1)
+
+    ## Cleanup
+    await allFutures(clientSwitch.stop(), serverSwitch.stop())
+
+  asyncTest "handle query with pubsub topic filter - no match":
+    ## Setup
+    let 
+      serverSwitch = newTestSwitch()
+      clientSwitch = newTestSwitch()
+    
+    await allFutures(serverSwitch.start(), clientSwitch.start())
+      
+    let 
+      serverProto = newTestWakuStore(serverSwitch)
+      clientProto = newTestWakuStore(clientSwitch)
+
+    clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
+
+    ## Given
+    let
+      pubsubtopic1 = "queried-topic"
+      pubsubtopic2 = "non-queried-topic"
+
+    let
+      msg1 = fakeWakuMessage()
+      msg2 = fakeWakuMessage()
+      msg3 = fakeWakuMessage()
+
+    await serverProto.handleMessage(pubsubtopic2, msg1)
+    await serverProto.handleMessage(pubsubtopic2, msg2)
+    await serverProto.handleMessage(pubsubtopic2, msg3)
+
+    ## When
+    let rpc = HistoryQuery(pubsubTopic: pubsubTopic1)
+    let res = await clientProto.query(rpc)
+
+    ## Then
+    check:
+      res.isOk()
+
+    let response = res.tryGet()
+    check:
+      response.messages.len() == 0
+
+    ## Cleanup
+    await allFutures(clientSwitch.stop(), serverSwitch.stop())
+
+  asyncTest "handle query with pubsub topic filter - match the entire stored messages":
+    ## Setup
+    let 
+      serverSwitch = newTestSwitch()
+      clientSwitch = newTestSwitch()
+    
+    await allFutures(serverSwitch.start(), clientSwitch.start())
+      
+    let 
+      serverProto = newTestWakuStore(serverSwitch)
+      clientProto = newTestWakuStore(clientSwitch)
+
+    clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
+
+    ## Given
+    let pubsubTopic = "queried-topic"
+    
+    let
+      msg1 = fakeWakuMessage(payload="TEST-1")
+      msg2 = fakeWakuMessage(payload="TEST-2")
+      msg3 = fakeWakuMessage(payload="TEST-3")
+
+    await serverProto.handleMessage(pubsubTopic, msg1)
+    await serverProto.handleMessage(pubsubTopic, msg2)
+    await serverProto.handleMessage(pubsubTopic, msg3)
+    
+    ## When
+    let rpc = HistoryQuery(pubsubTopic: pubsubTopic)
+    let res = await clientProto.query(rpc)
+
+    ## Then
+    check:
+      res.isOk()
+
+    let response = res.tryGet()
+    check:
+      response.messages.len() == 3
+      response.messages.anyIt(it == msg1)
+      response.messages.anyIt(it == msg2)
+      response.messages.anyIt(it == msg3)
+
+    ## Cleanup
+    await allFutures(clientSwitch.stop(), serverSwitch.stop())
 
   asyncTest "handle query with forward pagination":
-    let
-      key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.new(key)
-    var
-      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
-        WakuMessage(payload: @[byte 1],contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 2],contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 3],contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 4],contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 5],contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 6],contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 7],contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 8],contentTopic: defaultContentTopic), 
-        WakuMessage(payload: @[byte 9],contentTopic: ContentTopic("2"))]
-
-    var dialSwitch = newStandardSwitch()
-    await dialSwitch.start()
-
-    var listenSwitch = newStandardSwitch(some(key))
-    await listenSwitch.start()
-
-    let
-      database = SqliteDatabase.init("", inMemory = true)[]
-      store = WakuMessageStore.init(database)[]
-      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
-      rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: defaultContentTopic)], pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD) )
+    ## Setup
+    let 
+      serverSwitch = newTestSwitch()
+      clientSwitch = newTestSwitch()
+    
+    await allFutures(serverSwitch.start(), clientSwitch.start())
       
-    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
+    let 
+      serverProto = newTestWakuStore(serverSwitch)
+      clientProto = newTestWakuStore(clientSwitch)
 
-    listenSwitch.mount(proto)
+    clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
 
-    for wakuMsg in msgList:
-      await proto.handleMessage("foo", wakuMsg)
-      await sleepAsync(1.millis)  # Sleep a millisecond to ensure messages are stored chronologically
+    ## Given
+    let msgList = @[
+        WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
+        WakuMessage(payload: @[byte 1], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 2], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 3], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 4], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 5], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 6], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 7], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 8], contentTopic: DefaultContentTopic), 
+        WakuMessage(payload: @[byte 9], contentTopic: ContentTopic("2"))
+      ]
 
-    var completionFut = newFuture[bool]()
+    for msg in msgList:
+      await serverProto.handleMessage("foo", msg)
 
-    proc handler(response: HistoryResponse) {.gcsafe, closure.} =
-      check:
-        response.messages.len() == 2
-        response.pagingInfo.pageSize == 2 
-        response.pagingInfo.direction == PagingDirection.FORWARD
-        response.pagingInfo.cursor != Index()
-      completionFut.complete(true)
+    ## When
+    let rpc = HistoryQuery(
+      contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)],
+      pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD) 
+    )
+    let res = await clientProto.query(rpc)
 
-    await proto.query(rpc, handler)
-
+    ## Then
     check:
-      (await completionFut.withTimeout(5.seconds)) == true
+      res.isOk()
 
-    # free resources
-    await allFutures(dialSwitch.stop(),
-      listenSwitch.stop())
+    let response = res.tryGet()
+    check:
+      response.messages.len() == 2
+      response.pagingInfo.pageSize == 2 
+      response.pagingInfo.direction == PagingDirection.FORWARD
+      response.pagingInfo.cursor != Index()
+
+    ## Cleanup
+    await allFutures(clientSwitch.stop(), serverSwitch.stop())
 
   asyncTest "handle query with backward pagination":
+    ## Setup
+    let 
+      serverSwitch = newTestSwitch()
+      clientSwitch = newTestSwitch()
+    
+    await allFutures(serverSwitch.start(), clientSwitch.start())
+      
+    let 
+      serverProto = newTestWakuStore(serverSwitch)
+      clientProto = newTestWakuStore(clientSwitch)
+
+    clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
+
+    ## Given
+    let msgList = @[
+        WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
+        WakuMessage(payload: @[byte 1], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 2], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 3], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 4], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 5], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 6], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 7], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 8], contentTopic: DefaultContentTopic), 
+        WakuMessage(payload: @[byte 9], contentTopic: ContentTopic("2"))
+      ]
+
+    for msg in msgList:
+      await serverProto.handleMessage("foo", msg)
+
+    ## When
+    let rpc = HistoryQuery(
+      contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)],
+      pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD) 
+    )
+    let res = await clientProto.query(rpc)
+
+    ## Then
+    check:
+      res.isOk()
+
+    let response = res.tryGet()
+    check:
+      response.messages.len() == 2
+      response.pagingInfo.pageSize == 2 
+      response.pagingInfo.direction == PagingDirection.BACKWARD
+      response.pagingInfo.cursor != Index()
+
+    ## Cleanup
+    await allFutures(clientSwitch.stop(), serverSwitch.stop())
+
+  asyncTest "handle query with no paging info - auto-pagination":
+    ## Setup
+    let 
+      serverSwitch = newTestSwitch()
+      clientSwitch = newTestSwitch()
+    
+    await allFutures(serverSwitch.start(), clientSwitch.start())
+      
+    let 
+      serverProto = newTestWakuStore(serverSwitch)
+      clientProto = newTestWakuStore(clientSwitch)
+
+    clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
+
+    ## Given
+    let msgList = @[
+        WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
+        WakuMessage(payload: @[byte 1], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 2], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 3], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 4], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 5], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 6], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 7], contentTopic: DefaultContentTopic),
+        WakuMessage(payload: @[byte 8], contentTopic: DefaultContentTopic), 
+        WakuMessage(payload: @[byte 9], contentTopic: ContentTopic("2"))
+      ]
+
+    for msg in msgList:
+      await serverProto.handleMessage("foo", msg)
+
+    ## When
+    let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)])
+    let res = await clientProto.query(rpc)
+
+    ## Then
+    check:
+      res.isOk()
+
+    let response = res.tryGet()
+    check:
+      ## No pagination specified. Response will be auto-paginated with
+      ## up to MaxPageSize messages per page.
+      response.messages.len() == 8
+      response.pagingInfo.pageSize == 8
+      response.pagingInfo.direction == PagingDirection.BACKWARD
+      response.pagingInfo.cursor != Index()
+
+    ## Cleanup
+    await allFutures(clientSwitch.stop(), serverSwitch.stop())
+
+
+# TODO: Review this test suite test cases
+procSuite "Waku Store - fault tolerant store":
+
+  proc newTestWakuStore(peer=none(RemotePeerInfo)): Future[(Switch, Switch, WakuStore)] {.async.} =
     let
       key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.new(key)
-    var
-      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
-        WakuMessage(payload: @[byte 1],contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 2],contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 3],contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 4],contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 5],contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 6],contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 7],contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 8],contentTopic: defaultContentTopic), 
-        WakuMessage(payload: @[byte 9],contentTopic: ContentTopic("2"))]
-            
-    var dialSwitch = newStandardSwitch()
-    await dialSwitch.start()
-
-    var listenSwitch = newStandardSwitch(some(key))
+      listenSwitch = newStandardSwitch(some(key))
     await listenSwitch.start()
 
+    let dialSwitch = newStandardSwitch()
+    await dialSwitch.start()
+    
     let
-      database = SqliteDatabase.init("", inMemory = true)[]
-      store = WakuMessageStore.init(database)[]
-      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
+      peerManager = PeerManager.new(dialsWitch)
+      rng = crypto.newRng()
+      database = newTestDatabase()
+      store = WakuMessageStore.init(database).tryGet()
+      proto = WakuStore.init(peerManager, rng, store)
 
-    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
+    let storePeer = peer.get(listenSwitch.peerInfo.toRemotePeerInfo())
+    proto.setPeer(storePeer)
 
     listenSwitch.mount(proto)
 
-    for wakuMsg in msgList:
-      await proto.handleMessage("foo", wakuMsg)
-      await sleepAsync(1.millis)  # Sleep a millisecond to ensure messages are stored chronologically
-    var completionFut = newFuture[bool]()
+    return (listenSwitch, dialSwitch, proto)
 
-    proc handler(response: HistoryResponse) {.gcsafe, closure.} =
-      check:
-        response.messages.len() == 2
-        response.pagingInfo.pageSize == 2 
-        response.pagingInfo.direction == PagingDirection.BACKWARD
-        response.pagingInfo.cursor != Index()
-      completionFut.complete(true)
-
-    let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: defaultContentTopic)], pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD) )
-    await proto.query(rpc, handler)
-
-    check:
-      (await completionFut.withTimeout(5.seconds)) == true
-
-    # free resources
-    await allFutures(dialSwitch.stop(),
-      listenSwitch.stop())
-
-  asyncTest "handle queries with no paging info (auto-paginate)":
-    let
-      key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.new(key)
-    var
-      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
-        WakuMessage(payload: @[byte 1], contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 2], contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 3], contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 4], contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 5], contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 6], contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 7], contentTopic: defaultContentTopic),
-        WakuMessage(payload: @[byte 8], contentTopic: defaultContentTopic), 
-        WakuMessage(payload: @[byte 9], contentTopic: ContentTopic("2"))]
-
-    var dialSwitch = newStandardSwitch()
-    await dialSwitch.start()
-
-    var listenSwitch = newStandardSwitch(some(key))
-    await listenSwitch.start()
-
-    let
-      database = SqliteDatabase.init("", inMemory = true)[]
-      store = WakuMessageStore.init(database)[]
-      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
-
-    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
-
-    listenSwitch.mount(proto)
-
-    for wakuMsg in msgList:
-      await proto.handleMessage("foo", wakuMsg)
-      await sleepAsync(1.millis)  # Sleep a millisecond to ensure messages are stored chronologically
-    var completionFut = newFuture[bool]()
-
-    proc handler(response: HistoryResponse) {.gcsafe, closure.} =
-      check:
-        ## No pagination specified. Response will be auto-paginated with
-        ## up to MaxPageSize messages per page.
-        response.messages.len() == 8
-        response.pagingInfo.pageSize == 8
-        response.pagingInfo.direction == PagingDirection.BACKWARD
-        response.pagingInfo.cursor != Index()
-      completionFut.complete(true)
-
-    let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: defaultContentTopic)] )
-
-    await proto.query(rpc, handler)
-
-    check:
-      (await completionFut.withTimeout(5.seconds)) == true
-
-    # free resources
-    await allFutures(dialSwitch.stop(),
-      listenSwitch.stop())
 
   asyncTest "temporal history queries":
-    let
-      key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.new(key)
-      key2 = PrivateKey.random(ECDSA, rng[]).get()
-      # peer2 = PeerInfo.new(key2)
-    var
-      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: Timestamp(0)),
-        WakuMessage(payload: @[byte 1],contentTopic: ContentTopic("1"), timestamp: Timestamp(1)),
-        WakuMessage(payload: @[byte 2],contentTopic: ContentTopic("2"), timestamp: Timestamp(2)),
-        WakuMessage(payload: @[byte 3],contentTopic: ContentTopic("1"), timestamp: Timestamp(3)),
-        WakuMessage(payload: @[byte 4],contentTopic: ContentTopic("2"), timestamp: Timestamp(4)),
-        WakuMessage(payload: @[byte 5],contentTopic: ContentTopic("1"), timestamp: Timestamp(5)),
-        WakuMessage(payload: @[byte 6],contentTopic: ContentTopic("2"), timestamp: Timestamp(6)),
-        WakuMessage(payload: @[byte 7],contentTopic: ContentTopic("1"), timestamp: Timestamp(7)),
-        WakuMessage(payload: @[byte 8],contentTopic: ContentTopic("2"), timestamp: Timestamp(8)),
-        WakuMessage(payload: @[byte 9],contentTopic: ContentTopic("1"),timestamp: Timestamp(9))]
+    ## Setup
+    let (listenSwitch, dialSwitch, proto) = await newTestWakuStore()
+    let msgList = @[
+      WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: Timestamp(0)),
+      WakuMessage(payload: @[byte 1], contentTopic: ContentTopic("1"), timestamp: Timestamp(1)),
+      WakuMessage(payload: @[byte 2], contentTopic: ContentTopic("2"), timestamp: Timestamp(2)),
+      WakuMessage(payload: @[byte 3], contentTopic: ContentTopic("1"), timestamp: Timestamp(3)),
+      WakuMessage(payload: @[byte 4], contentTopic: ContentTopic("2"), timestamp: Timestamp(4)),
+      WakuMessage(payload: @[byte 5], contentTopic: ContentTopic("1"), timestamp: Timestamp(5)),
+      WakuMessage(payload: @[byte 6], contentTopic: ContentTopic("2"), timestamp: Timestamp(6)),
+      WakuMessage(payload: @[byte 7], contentTopic: ContentTopic("1"), timestamp: Timestamp(7)),
+      WakuMessage(payload: @[byte 8], contentTopic: ContentTopic("2"), timestamp: Timestamp(8)),
+      WakuMessage(payload: @[byte 9], contentTopic: ContentTopic("1"), timestamp: Timestamp(9))
+    ]
 
-      msgList2 = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: Timestamp(0)),
-        WakuMessage(payload: @[byte 11],contentTopic: ContentTopic("1"), timestamp: Timestamp(1)),
-        WakuMessage(payload: @[byte 12],contentTopic: ContentTopic("2"), timestamp: Timestamp(2)),
-        WakuMessage(payload: @[byte 3],contentTopic: ContentTopic("1"), timestamp: Timestamp(3)),
-        WakuMessage(payload: @[byte 4],contentTopic: ContentTopic("2"), timestamp: Timestamp(4)),
-        WakuMessage(payload: @[byte 5],contentTopic: ContentTopic("1"), timestamp: Timestamp(5)),
-        WakuMessage(payload: @[byte 13],contentTopic: ContentTopic("2"), timestamp: Timestamp(6)),
-        WakuMessage(payload: @[byte 14],contentTopic: ContentTopic("1"), timestamp: Timestamp(7))]
+    for msg in msgList:
+      await proto.handleMessage(DEFAULT_PUBSUB_TOPIC, msg)
 
-    #--------------------
-    # setup default test store
-    #--------------------
-    var dialSwitch = newStandardSwitch()
-    await dialSwitch.start()
+    let (listenSwitch2, dialSwitch2, proto2) = await newTestWakuStore()
+    let msgList2 = @[
+      WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: Timestamp(0)),
+      WakuMessage(payload: @[byte 11], contentTopic: ContentTopic("1"), timestamp: Timestamp(1)),
+      WakuMessage(payload: @[byte 12], contentTopic: ContentTopic("2"), timestamp: Timestamp(2)),
+      WakuMessage(payload: @[byte 3], contentTopic: ContentTopic("1"), timestamp: Timestamp(3)),
+      WakuMessage(payload: @[byte 4], contentTopic: ContentTopic("2"), timestamp: Timestamp(4)),
+      WakuMessage(payload: @[byte 5], contentTopic: ContentTopic("1"), timestamp: Timestamp(5)),
+      WakuMessage(payload: @[byte 13], contentTopic: ContentTopic("2"), timestamp: Timestamp(6)),
+      WakuMessage(payload: @[byte 14], contentTopic: ContentTopic("1"), timestamp: Timestamp(7))
+    ]
 
-    # to be connected to
-    var listenSwitch = newStandardSwitch(some(key))
-    await listenSwitch.start()
+    for msg in msgList2:
+      await proto2.handleMessage(DEFAULT_PUBSUB_TOPIC, msg)
 
-    let
-      database = SqliteDatabase.init("", inMemory = true)[]
-      store = WakuMessageStore.init(database)[]
-      proto = WakuStore.init(PeerManager.new(dialSwitch), crypto.newRng(), store)
-
-    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
-
-    listenSwitch.mount(proto)
-
-    for wakuMsg in msgList:
-      # the pubsub topic should be DefaultTopic
-      await proto.handleMessage(DefaultTopic, wakuMsg)
-
-    #--------------------
-    # setup 2nd test store
-    #--------------------
-    var dialSwitch2 = newStandardSwitch()
-    await dialSwitch2.start()
-
-    # to be connected to
-    var listenSwitch2 = newStandardSwitch(some(key2))
-    await listenSwitch2.start()
-
-    let
-      database2 = SqliteDatabase.init("", inMemory = true)[]
-      store2 = WakuMessageStore.init(database2)[]
-      proto2 = WakuStore.init(PeerManager.new(dialSwitch2), crypto.newRng(), store2)
-
-    proto2.setPeer(listenSwitch2.peerInfo.toRemotePeerInfo())
-
-    listenSwitch2.mount(proto2)
-
-    for wakuMsg in msgList2:
-      # the pubsub topic should be DefaultTopic
-      await proto2.handleMessage(DefaultTopic, wakuMsg)
     
     asyncTest "handle temporal history query with a valid time window":
-      var completionFut = newFuture[bool]()
+      ## Given
+      let rpc = HistoryQuery(
+        contentFilters: @[HistoryContentFilter(contentTopic: ContentTopic("1"))], 
+        startTime: Timestamp(2), 
+        endTime: Timestamp(5)
+      )
+      
+      ## When
+      let res = await proto.query(rpc)
 
-      proc handler(response: HistoryResponse) {.gcsafe, closure.} =
-        check:
-          response.messages.len() == 2
-          response.messages.anyIt(it.timestamp == Timestamp(3))
-          response.messages.anyIt(it.timestamp == Timestamp(5))
-        completionFut.complete(true)
+      ## Then
+      check res.isOk()
 
-      let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: ContentTopic("1"))], startTime: Timestamp(2), endTime: Timestamp(5))
-      await proto.query(rpc, handler)
-
+      let response = res.tryGet()
       check:
-        (await completionFut.withTimeout(5.seconds)) == true
-
+        response.messages.len() == 2
+        response.messages.anyIt(it.timestamp == Timestamp(3))
+        response.messages.anyIt(it.timestamp == Timestamp(5))
+      
     asyncTest "handle temporal history query with a zero-size time window":
       # a zero-size window results in an empty list of history messages
-      var completionFut = newFuture[bool]()
+      ## Given
+      let rpc = HistoryQuery(
+        contentFilters: @[HistoryContentFilter(contentTopic: ContentTopic("1"))], 
+        startTime: Timestamp(2), 
+        endTime: Timestamp(2)
+      )
 
-      proc handler(response: HistoryResponse) {.gcsafe, closure.} =
-        check:
-          # a zero-size window results in an empty list of history messages
-          response.messages.len() == 0
-        completionFut.complete(true)
+      ## When
+      let res = await proto.query(rpc)
 
-      let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: ContentTopic("1"))], startTime: Timestamp(2), endTime: Timestamp(2))
-      await proto.query(rpc, handler)
+      ## Then
+      check res.isOk()
 
+      let response = res.tryGet()
       check:
-        (await completionFut.withTimeout(5.seconds)) == true
+        response.messages.len == 0
 
     asyncTest "handle temporal history query with an invalid time window":
-      # a history query with an invalid time range results in an empty list of history messages
-      var completionFut = newFuture[bool]()
+      # A history query with an invalid time range results in an empty list of history messages
+      ## Given
+      let rpc = HistoryQuery(
+        contentFilters: @[HistoryContentFilter(contentTopic: ContentTopic("1"))], 
+        startTime: Timestamp(5), 
+        endTime: Timestamp(2)
+      )
 
-      proc handler(response: HistoryResponse) {.gcsafe, closure.} =
-        check:
-          # a history query with an invalid time range results in an empty list of history messages
-          response.messages.len() == 0
-        completionFut.complete(true)
+      ## When
+      let res = await proto.query(rpc)
 
-      # time window is invalid since start time > end time
-      let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: ContentTopic("1"))], startTime: Timestamp(5), endTime: Timestamp(2))
-      await proto.query(rpc, handler)
+      ## Then
+      check res.isOk()
 
+      let response = res.tryGet()
       check:
-        (await completionFut.withTimeout(5.seconds)) == true
+        response.messages.len == 0
 
     asyncTest "resume message history":
-      # starts a new node
-      var dialSwitch3 = newStandardSwitch()
-      await dialSwitch3.start()
+      ## Given
+      # Start a new node
+      let (listenSwitch3, dialSwitch3, proto3) = await newTestWakuStore(peer=some(listenSwitch.peerInfo.toRemotePeerInfo()))
 
-      let
-        database3 = SqliteDatabase.init("", inMemory = true)[]
-        store3 = WakuMessageStore.init(database3)[]
-        proto3 = WakuStore.init(PeerManager.new(dialSwitch3), crypto.newRng(), store3)
-
-      proto3.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
-
+      ## When
       let successResult = await proto3.resume()
+
+      ## Then
       check:
-        successResult.isOk
+        successResult.isOk()
         successResult.value == 10
         proto3.messages.len == 10
 
-      await dialSwitch3.stop()
+      ## Cleanup 
+      await allFutures(dialSwitch3.stop(), listenSwitch3.stop())
 
-    asyncTest "queryFrom":
-
-      var completionFut = newFuture[bool]()
-
-      proc handler(response: HistoryResponse) {.gcsafe, closure.} =
-        check:
-          response.messages.len() == 4
-        completionFut.complete(true)
-
-      let rpc = HistoryQuery(startTime: Timestamp(2), endTime: Timestamp(5))
-      let successResult = await proto.queryFrom(rpc, handler, listenSwitch.peerInfo.toRemotePeerInfo())
-
-      check:
-        (await completionFut.withTimeout(5.seconds)) == true
-        successResult.isOk
-        successResult.value == 4
-
-    asyncTest "queryFromWithPaging with empty pagingInfo":
-
+    asyncTest "queryFromWithPaging - no pagingInfo":
+      ## Given
       let rpc = HistoryQuery(startTime: Timestamp(2), endTime: Timestamp(5))
 
-      let messagesResult = await proto.queryFromWithPaging(rpc, listenSwitch.peerInfo.toRemotePeerInfo())
+      ## When
+      let res = await proto.queryFromWithPaging(rpc, listenSwitch.peerInfo.toRemotePeerInfo())
 
+      ## Then
+      check res.isOk()
+      
+      let response = res.tryGet()
       check:
-        messagesResult.isOk
-        messagesResult.value.len == 4
+        response.len == 4
 
-    asyncTest "queryFromWithPaging with pagination":
+    asyncTest "queryFromWithPaging - with pagination":
       var pinfo = PagingInfo(direction:PagingDirection.FORWARD, pageSize: 1)
       let rpc = HistoryQuery(startTime: Timestamp(2), endTime: Timestamp(5), pagingInfo: pinfo)
 
@@ -696,57 +622,32 @@ procSuite "Waku Store":
 
     asyncTest "resume history from a list of candidate peers":
 
-      var offListenSwitch = newStandardSwitch(some(PrivateKey.random(ECDSA, rng[]).get()))
+      let offListenSwitch = newStandardSwitch(some(PrivateKey.random(ECDSA, rng[]).get()))
+      let (listenSwitch3, dialSwitch3, proto3) = await newTestWakuStore()
 
-      # starts a new node
-      var dialSwitch3 = newStandardSwitch()
-      await dialSwitch3.start()
+      ## When
+      let res = await proto3.resume(some(@[
+        offListenSwitch.peerInfo.toRemotePeerInfo(),
+        listenSwitch.peerInfo.toRemotePeerInfo(),
+        listenSwitch2.peerInfo.toRemotePeerInfo()
+      ]))
 
-      let
-        database3 = SqliteDatabase.init("", inMemory = true)[]
-        store3 = WakuMessageStore.init(database3)[]
-        proto3 = WakuStore.init(PeerManager.new(dialSwitch3), crypto.newRng(), store3)
+      ## Then
+      # `proto3` is expected to retrieve 14 messages because:
+      # - the store mounted on `listenSwitch` holds 10 messages (`msgList`)
+      # - the store mounted on `listenSwitch2` holds 7 messages (see `msgList2`)
+      # - both stores share 3 messages, resulting in 14 unique messages in total
+      check res.isOk()
 
-      let successResult = await proto3.resume(some(@[offListenSwitch.peerInfo.toRemotePeerInfo(),
-                                                     listenSwitch.peerInfo.toRemotePeerInfo(),
-                                                     listenSwitch2.peerInfo.toRemotePeerInfo()]))
+      let response = res.tryGet()
       check:
-        # `proto3` is expected to retrieve 14 messages because:
-        # - the store mounted on `listenSwitch` holds 10 messages (`msgList`)
-        # - the store mounted on `listenSwitch2` holds 7 messages (see `msgList2`)
-        # - both stores share 3 messages, resulting in 14 unique messages in total
+        response == 14
+      
+      check:
         proto3.messages.len == 14
-        successResult.isOk
-        successResult.value == 14
 
-      #free resources
-      await allFutures(dialSwitch3.stop(),
-        offListenSwitch.stop())
+      ## Cleanup
+      await allFutures(listenSwitch3.stop(), dialSwitch3.stop(), offListenSwitch.stop())
 
-    #free resources
-    await allFutures(dialSwitch.stop(),
-      dialSwitch2.stop(),
-      listenSwitch.stop())
-
-
-  asyncTest "limit store capacity":
-    let
-      capacity = 10
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      pubsubTopic = "/waku/2/default-waku/proto"
-
-    let store = WakuStore.init(PeerManager.new(newStandardSwitch()), crypto.newRng(), capacity = capacity)
-
-    for i in 1..capacity:
-      await store.handleMessage(pubsubTopic, WakuMessage(payload: @[byte i], contentTopic: contentTopic, timestamp: Timestamp(i)))
-      await sleepAsync(1.millis)  # Sleep a millisecond to ensure messages are stored chronologically
-
-    check:
-      store.messages.len == capacity # Store is at capacity
-
-    # Test that capacity holds
-    await store.handleMessage(pubsubTopic, WakuMessage(payload: @[byte (capacity + 1)], contentTopic: contentTopic, timestamp: Timestamp(capacity + 1)))
-
-    check:
-      store.messages.len == capacity # Store is still at capacity
-      store.messages.last().get().msg.payload == @[byte (capacity + 1)] # Simple check to verify last added item is stored
+    ## Cleanup
+    await allFutures(dialSwitch.stop(), dialSwitch2.stop(), listenSwitch.stop(), listenSwitch2.stop())
