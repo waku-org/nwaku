@@ -2,18 +2,24 @@
 
 import
   std/[options, tables, sets, sequtils],
-  testutils/unittests, chronos, chronicles,
+  chronos, 
+  chronicles,
+  testutils/unittests, 
   libp2p/switch,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/[bufferstream, connection],
   libp2p/crypto/crypto,
-  libp2p/protocols/pubsub/rpc/message,
+  libp2p/protocols/pubsub/rpc/message
+import
   ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_store/waku_store,
+  ../../waku/v2/protocol/waku_store,
   ../../waku/v2/node/storage/message/waku_message_store,
+  ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/utils/pagination,
   ../../waku/v2/utils/time,
-  ../test_helpers, ./utils
+  ../test_helpers, 
+  ./utils
 
 procSuite "Waku Store":
   const defaultContentTopic = ContentTopic("1")
