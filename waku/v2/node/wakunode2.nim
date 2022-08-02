@@ -13,18 +13,21 @@ import
   libp2p/protocols/pubsub/[gossipsub, rpc/messages],
   libp2p/nameresolving/nameresolver,
   libp2p/[builders, multihash],
-  libp2p/transports/[transport, tcptransport, wstransport],
+  libp2p/transports/[transport, tcptransport, wstransport]
+import
+  ../node/storage/message/waku_store_queue,
   ../protocol/[waku_relay, waku_message],
-  ../protocol/waku_store/waku_store,
+  ../protocol/waku_store,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter/waku_filter,
   ../protocol/waku_lightpush/waku_lightpush,
   ../protocol/waku_rln_relay/[waku_rln_relay_types], 
   ../utils/[peers, requests, wakuswitch, wakuenr],
   ./peer_manager/peer_manager,
+  ./storage/message/message_store,
   ./dnsdisc/waku_dnsdisc,
   ./discv5/waku_discv5,
-  wakunode2_types
+  ./wakunode2_types
 
 export
   builders,

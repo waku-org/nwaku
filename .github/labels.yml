@@ -37,6 +37,9 @@
 - name: infra
   description: Infra, devops, CI and related tasks
   color: 277196
+- name: milestone
+  description: Milestone issue with a subset of issues within a specific track
+  color: 1CC0B0
 
 # Waku Product labels
 - name: rqt:platforms

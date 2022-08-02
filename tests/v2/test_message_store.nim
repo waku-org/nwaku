@@ -6,9 +6,12 @@ import
   sqlite3_abi,
   stew/byteutils,
   ../../waku/v2/node/storage/message/waku_message_store,
+  ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/node/storage/sqlite,
-  ../../waku/v2/protocol/waku_store/waku_store,
+  ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/protocol/waku_store,
   ../../waku/v2/utils/time,
+  ../../waku/v2/utils/pagination,
   ./utils
 
 
