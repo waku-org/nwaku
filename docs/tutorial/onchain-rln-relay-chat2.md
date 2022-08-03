@@ -49,7 +49,7 @@ make chat2 RLN=true
 Run the following command to set up your chat2 client. 
 
 ```
-./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x5DE1Fb10345Ef1647629Df30e6C397297Da09A1d  --eth-account-address:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --eth-account-privatekey:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  --eth-client-address:xxxx  --ports-shift=1  
+./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6  --eth-account-address:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --eth-account-privatekey:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  --eth-client-address:xxxx  --ports-shift=1  
 
 ```
 
@@ -59,8 +59,8 @@ In this command
 - the `rln-relay` flag is set to `true` to enable the Waku-RLN-Relay protocol for spam protection.
 - the `--rln-relay-dynamic` flag is set to `true`  to enable the on-chain mode of  Waku-RLN-Relay protocol with dynamic group management.
 - the `--eth-mem-contract-address` option gets the address of the membership contract.
-  The current address of the contract is `0x5DE1Fb10345Ef1647629Df30e6C397297Da09A1d`.
-  You may check the state of the contract on the [Goerli testnet](https://goerli.etherscan.io/address/0x5DE1Fb10345Ef1647629Df30e6C397297Da09A1d).
+  The current address of the contract is `0x4252105670fe33d2947e8ead304969849e64f2a6`.
+  You may check the state of the contract on the [Goerli testnet](https://goerli.etherscan.io/address/0x4252105670fe33d2947e8ead304969849e64f2a6).
 - the `eth-account-address` option is for your account address on the Goerli testnet.
   It is a hex string of length 40 (not sensitive to the `0x` prefix). 
 - the `eth-account-privatekey` option is for your account private key on the Goerli testnet. 
@@ -162,7 +162,7 @@ your rln identity commitment key is: 6c6598126ba10d1b70100893b76d7f8d7343eeb8f5e
 ```
 Then, the execution command will look like this (inspect the last three config options):
 ```
-./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x5DE1Fb10345Ef1647629Df30e6C397297Da09A1d  --eth-account-address:your_eth_account --eth-account-privatekey:your_eth_private_key  --eth-client-address:your_goerli_node  --ports-shift=1  --rln-relay-membership-index:63 --rln-relay-id:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --rln-relay-id-commitment:6c6598126ba10d1b70100893b76d7f8d7343eeb8f5ecfd48371b421c5aa6f012
+./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6  --eth-account-address:your_eth_account --eth-account-privatekey:your_eth_private_key  --eth-client-address:your_goerli_node  --ports-shift=1  --rln-relay-membership-index:63 --rln-relay-id:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --rln-relay-id-commitment:6c6598126ba10d1b70100893b76d7f8d7343eeb8f5ecfd48371b421c5aa6f012
 
 ```
 
@@ -180,7 +180,7 @@ You can check this fact by looking at `Bob`'s console, where `message3` is missi
 
 **Alice**
 ``` 
-./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x5DE1Fb10345Ef1647629Df30e6C397297Da09A1d  --eth-account-address:0x1234567890123456789012345678901234567890 --eth-account-privatekey:0x1234567890123456789012345678901234567890123456789012345678901234  --eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012  --ports-shift=1 
+./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6  --eth-account-address:0x1234567890123456789012345678901234567890 --eth-account-privatekey:0x1234567890123456789012345678901234567890123456789012345678901234  --eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012  --ports-shift=1 
 
 Choose a nickname >> Alice
 Welcome, Alice!
@@ -221,7 +221,7 @@ your rln identity commitment key is: bd093cbf14fb933d53f596c33f98b3df83b7e9f7a19
 
 **Bob**
 ``` 
-./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x5DE1Fb10345Ef1647629Df30e6C397297Da09A1d  --eth-account-address:0x1234567890123456789012345678901234567890 --eth-account-privatekey:0x1234567890123456789012345678901234567890123456789012345678901234  --eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012  --ports-shift=2 
+./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6  --eth-account-address:0x1234567890123456789012345678901234567890 --eth-account-privatekey:0x1234567890123456789012345678901234567890123456789012345678901234  --eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012  --ports-shift=2 
 
 Choose a nickname >> Bob
 Welcome, Bob!
