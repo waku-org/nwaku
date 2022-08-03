@@ -2,6 +2,7 @@
 
 import
   std/[unittest, options, tables, sets, times, os, strutils],
+  chronicles,
   chronos,
   sqlite3_abi,
   stew/byteutils,
