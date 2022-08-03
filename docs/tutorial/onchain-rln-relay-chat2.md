@@ -153,7 +153,7 @@ quitting...
 
 ## How to reuse RLN credential
 
-You may resue your old RLN credential using `rln-relay-membership-index`, `rln-relay-id` and `rln-relay-id-commitment` options. 
+You may reuse your old RLN credential using `rln-relay-membership-index`, `rln-relay-id` and `rln-relay-id-commitment` options. 
 For instance, if the previously generated credential are
 ```
 your membership index is: 63
