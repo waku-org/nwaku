@@ -5,7 +5,8 @@ import
   eth/keys,
   ../../whisper/whisper_types,
   ../protocol/waku_message,
-  ../protocol/waku_noise/noise
+  ../protocol/waku_noise/noise_types,
+  ../protocol/waku_noise/noise_utils
 
 export whisper_types, keys, options
 
