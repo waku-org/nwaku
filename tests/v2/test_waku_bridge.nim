@@ -16,7 +16,7 @@ import
   ../../waku/common/wakubridge,
   ../../waku/v1/protocol/waku_protocol,
   ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_store/waku_store,
+  ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_filter/waku_filter,
   ../../waku/v2/node/[wakunode2, waku_payload],
   ../../waku/v2/utils/peers,

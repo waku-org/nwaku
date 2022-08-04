@@ -3,7 +3,7 @@ import
   libp2p/crypto/crypto,
   libp2p/protocols/ping,
   ../protocol/waku_relay,
-  ../protocol/waku_store/waku_store,
+  ../protocol/waku_store,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter/waku_filter,
   ../protocol/waku_lightpush/waku_lightpush,
