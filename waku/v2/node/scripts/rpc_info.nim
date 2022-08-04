@@ -9,7 +9,7 @@ import
   ../waku_payload,
   ../jsonrpc/jsonrpc_types,
   ../../protocol/waku_filter/waku_filter_types,
-  ../../protocol/waku_store/waku_store_types,
+  ../../protocol/waku_store,
   ../../../v1/node/rpc/hexstrings
 
 from strutils import rsplit

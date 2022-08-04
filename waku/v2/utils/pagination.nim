@@ -1,23 +1,44 @@
 ## Contains types and utilities for pagination.
-##
-## Used by both message store and store protocol.
-
 {.push raises: [Defect].}
 
 import
-  ./time, 
-  nimcrypto/hash,
-  stew/byteutils
+  stew/byteutils,
+  nimcrypto
+import
+  ../protocol/waku_message,
+  ./time
 
-export hash
 
-type
-  Index* = object
-    ## This type contains the  description of an Index used in the pagination of WakuMessages
-    digest*: MDigest[256] # calculated over payload and content topic
-    receiverTime*: Timestamp
-    senderTime*: Timestamp # the time at which the message is generated
-    pubsubTopic*: string
+type Index* = object
+  ## This type contains the  description of an Index used in the pagination of WakuMessages
+  digest*: MDigest[256] # calculated over payload and content topic
+  receiverTime*: Timestamp
+  senderTime*: Timestamp # the time at which the message is generated
+  pubsubTopic*: string
+
+
+proc compute*(T: type Index, msg: WakuMessage, receivedTime: Timestamp, pubsubTopic: string): T =
+  ## Takes a WakuMessage with received timestamp and returns its Index.
+  ## Received timestamp will default to system time if not provided.
+
+  let
+    contentTopic = toBytes(msg.contentTopic)
+    payload = msg.payload
+    senderTime = msg.timestamp
+
+  var ctx: sha256
+  ctx.init()
+  ctx.update(contentTopic)
+  ctx.update(payload)
+  let digest = ctx.finish() # computes the hash
+  ctx.clear()
+
+  Index(
+    digest:digest,
+    receiverTime: receivedTime, 
+    senderTime: senderTime,
+    pubsubTopic: pubsubTopic
+  )
 
 proc `==`*(x, y: Index): bool =
   ## receiverTime plays no role in index equality
@@ -59,3 +80,16 @@ proc cmp*(x, y: Index): int =
     return digestcmp
   
   return cmp(x.pubsubTopic, y.pubsubTopic)
+
+
+type
+  PagingDirection* {.pure.} = enum
+    ## PagingDirection determines the direction of pagination
+    BACKWARD = uint32(0)
+    FORWARD = uint32(1)
+
+  PagingInfo* = object
+    ## This type holds the information needed for the pagination
+    pageSize*: uint64
+    cursor*: Index
+    direction*: PagingDirection

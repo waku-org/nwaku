@@ -5,11 +5,18 @@ import
   ./v2/test_wakunode,
   ./v2/test_waku_store,
   ./v2/test_waku_filter,
-  ./v2/test_waku_pagination,
   ./v2/test_waku_payload,
   ./v2/test_waku_swap,
+  ./v2/test_utils_pagination,
+  ./v2/test_message_store_queue_pagination,
   ./v2/test_message_store,
   ./v2/test_jsonrpc_waku,
+  ./v2/test_rest_serdes,
+  ./v2/test_rest_debug_api_serdes,
+  ./v2/test_rest_debug_api,
+  ./v2/test_rest_relay_api_serdes,
+  ./v2/test_rest_relay_api_topic_cache,
+  ./v2/test_rest_relay_api,
   ./v2/test_peer_manager,
   ./v2/test_web3, # TODO  remove it when rln-relay tests get finalized
   ./v2/test_waku_bridge,
@@ -21,7 +28,6 @@ import
   ./v2/test_waku_discv5,
   ./v2/test_enr_utils,
   ./v2/test_waku_store_queue,
-  ./v2/test_pagination_utils,
   ./v2/test_peer_exchange,
   ./v2/test_waku_noise
 

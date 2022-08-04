@@ -18,9 +18,9 @@ type
     # Connected: actively connected to peer.
     Connected
   
-  ConnectionBook* = object of PeerBook[Connectedness]
+  ConnectionBook* = ref object of PeerBook[Connectedness]
 
-  DisconnectBook* = object of PeerBook[int64] # Keeps track of when peers were disconnected in Unix timestamps
+  DisconnectBook* = ref object of PeerBook[int64] # Keeps track of when peers were disconnected in Unix timestamps
 
   WakuPeerStore* = ref object
     addressBook*: AddressBook
@@ -32,14 +32,38 @@ type
   StoredInfo* = object
     # Collates stored info about a peer
     peerId*: PeerID
-    addrs*: HashSet[MultiAddress]
-    protos*: HashSet[string]
+    addrs*: seq[MultiAddress]
+    protos*: seq[string]
     publicKey*: PublicKey
 
 proc new*(T: type WakuPeerStore): WakuPeerStore =
-  var p: WakuPeerStore
-  new(p)
-  return p
+  let
+    addressBook = AddressBook(book: initTable[PeerID, seq[MultiAddress]]())
+    protoBook = ProtoBook(book: initTable[PeerID, seq[string]]())
+    keyBook = KeyBook(book: initTable[PeerID, PublicKey]())
+    connectionBook = ConnectionBook(book: initTable[PeerID, Connectedness]())
+    disconnectBook = DisconnectBook(book: initTable[PeerID, int64]())
+  
+  T(addressBook: addressBook,
+    protoBook: protoBook,
+    keyBook: keyBook,
+    connectionBook: connectionBook,
+    disconnectBook: disconnectBook)  
+
+#####################
+# Utility functions #
+#####################
+
+proc add*[T](peerBook: SeqPeerBook[T],
+             peerId: PeerId,
+             entry: T) =
+  ## Add entry to a given peer. If the peer is not known,
+  ## it will be set with the provided entry.
+  
+  peerBook.book.mgetOrPut(peerId,
+                          newSeq[T]()).add(entry)
+  
+  # TODO: Notify clients?
 
 ##################  
 # Peer Store API #
@@ -51,9 +75,9 @@ proc get*(peerStore: WakuPeerStore,
   
   StoredInfo(
     peerId: peerId,
-    addrs: peerStore.addressBook.get(peerId),
-    protos: peerStore.protoBook.get(peerId),
-    publicKey: peerStore.keyBook.get(peerId)
+    addrs: peerStore.addressBook[peerId],
+    protos: peerStore.protoBook[peerId],
+    publicKey: peerStore.keyBook[peerId]
   )
 
 proc peers*(peerStore: WakuPeerStore): seq[StoredInfo] =

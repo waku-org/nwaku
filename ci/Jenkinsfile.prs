@@ -7,7 +7,12 @@ pipeline {
     string(
       name: 'NIMFLAGS',
       description: 'Flags for Nim compilation.',
-      defaultValue: params.NIMFLAGS ?: '-d:disableMarchNative -d:insecure --parallelBuild:6'
+      defaultValue: params.NIMFLAGS ?: [
+        '--colors:off',
+        '-d:insecure',
+        '-d:disableMarchNative',
+        '--parallelBuild:6',
+      ].join(' ')
     )
     string(
       name: 'LOG_LEVEL',
@@ -28,7 +33,9 @@ pipeline {
 
   options {
     timestamps()
-    /* manage how many builds we keep */
+    /* Prevent Jenkins jobs from running forever */
+    timeout(time: 30, unit: 'MINUTES')
+    /* Limit builds retained. */
     buildDiscarder(logRotator(
       numToKeepStr: '3',
       daysToKeepStr: '30',

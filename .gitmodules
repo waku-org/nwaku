@@ -143,3 +143,8 @@
 [submodule "vendor/nim-toml-serialization"]
 	path = vendor/nim-toml-serialization
 	url = https://github.com/status-im/nim-toml-serialization.git
+[submodule "vendor/nim-presto"]
+	path = vendor/nim-presto
+	url = https://github.com/status-im/nim-presto.git
+	ignore = untracked
+	branch = master

@@ -505,12 +505,12 @@ procSuite "Waku Noise":
     # and that the intermediate HandshakeStepResult are empty
     let prevAliceHS = aliceHS
     let prevBobHS = bobHS
-
+    
     let bobStep1 = stepHandshake(rng[], bobHS, transportMessage = sentTransportMessage).get()
     let aliceStep1 = stepHandshake(rng[], aliceHS, readPayloadV2 = bobStep1.payload2).get()
     let aliceStep2 = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
     let bobStep2 = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep2.payload2).get()
- 
+   
     check:
       aliceStep1 == default(HandshakeStepResult)
       aliceStep2 == default(HandshakeStepResult)
@@ -518,7 +518,7 @@ procSuite "Waku Noise":
       bobStep2 == default(HandshakeStepResult)
       aliceHS == prevAliceHS 
       bobHS == prevBobHS 
-   
+
     #########################
     # After Handshake
     #########################

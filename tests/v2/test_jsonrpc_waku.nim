@@ -21,12 +21,11 @@ import
                               admin_api,
                               private_api],
   ../../waku/v2/protocol/waku_relay,
-  ../../waku/v2/protocol/waku_store/[waku_store, waku_store_types],
+  ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_swap/waku_swap,
   ../../waku/v2/protocol/waku_filter/waku_filter,
   ../../waku/v2/utils/peers,
-  ../../waku/v2/utils/time,
-  ../test_helpers
+  ../../waku/v2/utils/time
 
 template sourceDir*: string = currentSourcePath.rsplit(DirSep, 1)[0]
 const sigPath = sourceDir / ParDir / ParDir / "waku" / "v2" / "node" / "jsonrpc" / "jsonrpc_callsigs.nim"
