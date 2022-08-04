@@ -75,6 +75,14 @@ else  ifeq ($(CI), true)
 NIM_PARAMS := $(NIM_PARAMS) -d:rln 
 endif
 
+# control rln code compilation
+ifeq ($(RLNZEROKIT), true)
+NIM_PARAMS := $(NIM_PARAMS) -d:rlnzerokit
+#To avoid redefinition conflicts, we disable rln zerokit default compilation in CI
+#else ifeq ($(CI), true)
+#NIM_PARAMS := $(NIM_PARAMS) -d:rlnzerokit 
+endif
+
 # detecting the os
 ifeq ($(OS),Windows_NT) # is Windows_NT on XP, 2000, 7, Vista, 10...
  detected_OS := Windows
@@ -103,7 +111,7 @@ NIM_PARAMS := $(NIM_PARAMS) -d:discv5_protocol_id:d5waku
 GIT_VERSION := "$(shell git describe --abbrev=6 --always --tags)"
 NIM_PARAMS := $(NIM_PARAMS) -d:git_version:\"$(GIT_VERSION)\"
 
-deps: | deps-common nat-libs waku.nims rlnlib
+deps: | deps-common nat-libs waku.nims rlnlib rlnzerokitlib
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
 endif
@@ -173,6 +181,15 @@ else  ifeq ($(CI), true)
 	cargo build --manifest-path vendor/rln/Cargo.toml
 endif
 
+
+rlnzerokitlib:
+ifeq ($(RLNZEROKIT), true)
+	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
+#To avoid redefinition conflicts, we disable rln zerokit default compilation in CI
+#else  ifeq ($(CI), true)
+#	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
+endif
+
 test2: | build deps installganache
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test2 $(NIM_PARAMS) waku.nims
@@ -228,10 +245,15 @@ ifneq ($(USE_LIBBACKTRACE), 0)
 	+ $(MAKE) -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif
 	cargo clean --manifest-path vendor/rln/Cargo.toml
+	cargo clean --manifest-path vendor/zerokit/rln/Cargo.toml
 
 # clean the rln build (forces recompile of old crates on next build)
 cleanrln:
 	cargo clean --manifest-path vendor/rln/Cargo.toml
+
+# clean the rln build (forces recompile of old crates on next build)
+cleanrlnzerokit:
+	cargo clean --manifest-path vendor/zerokit/rln/Cargo.toml
 
 endif # "variables.mk" was not included
 
