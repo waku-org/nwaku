@@ -37,3 +37,5 @@ node_modules/
 
 # Ignore Jetbrains IDE files
 .idea/
+rlnCredentials.txt
+testPath.txt
