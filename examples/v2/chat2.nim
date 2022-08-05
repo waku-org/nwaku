@@ -21,9 +21,11 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                protocols/secure/secio,   # define the protocol of secure input / output, allows encrypted communication that uses public keys to validate signed messages instead of a certificate authority like in TLS
                nameresolving/dnsresolver,# define DNS resolution
                muxers/muxer]             # define an interface for stream multiplexing, allowing peers to offer many protocols over a single connection
-import   ../../waku/v2/node/[wakunode2, waku_payload],
-         ../../waku/v2/node/dnsdisc/waku_dnsdisc,
+import   ../../waku/v2/protocol/waku_message,
+         ../../waku/v2/protocol/waku_lightpush,
          ../../waku/v2/protocol/waku_store,
+         ../../waku/v2/node/[wakunode2, waku_payload],
+         ../../waku/v2/node/dnsdisc/waku_dnsdisc,
          ../../waku/v2/utils/[peers,time],
          ../../waku/common/utils/nat,
          ./config_chat2
