@@ -9,11 +9,15 @@ import
   stew/arrayops,
   ../../utils/protobuf
 
-## Bn256 and RLN are Nim wrappers for the data types used in
-## the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
-type Bn256* = pointer
-type RLN*[E] = pointer
+when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
+  ## Bn256 and RLN are Nim wrappers for the data types used in
+  ## the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
+  type Bn256* = pointer
+  type RLN*[E] = pointer
 
+when defined(rlnzerokit):
+  ## RLN is a Nim wrapper for the data types used in zerokit RLN
+  type RLN* {.incompleteStruct.} = object
 
 type
   # identity key as defined in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
@@ -21,12 +25,18 @@ type
   # hash of identity key as defined ed in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
   IDCommitment* = array[32, byte]
 
-
 type
   MerkleNode* = array[32, byte] # Each node of the Merkle tee is a Poseidon hash which is a 32 byte value
   Nullifier* = array[32, byte]
-  ZKSNARK* = array[256, byte]
   Epoch* = array[32, byte]
+
+when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
+  type
+    ZKSNARK* = array[256, byte]
+when defined(rlnzerokit):
+  type 
+    ZKSNARK* = array[128, byte]
+    RlnIdentifier* = array[32, byte]
 
 # Custom data types defined for waku rln relay -------------------------
 type MembershipKeyPair* = object
@@ -38,55 +48,100 @@ type MembershipKeyPair* = object
   # more details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
   idCommitment*: IDCommitment
 
+when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
+  type RateLimitProof* = object
+    ## RateLimitProof holds the public inputs to rln circuit as
+    ## defined in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Public-Inputs
+    ## the `proof` field carries the actual zkSNARK proof
+    proof*: ZKSNARK
+    ## the root of Merkle tree used for the generation of the `proof`
+    merkleRoot*: MerkleNode
+    ## the epoch used for the generation of the `proof`
+    epoch*: Epoch
+    ## shareX and shareY are shares of user's identity key
+    ## these shares are created using Shamir secret sharing scheme
+    ## see details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Linear-Equation-amp-SSS
+    shareX*: MerkleNode
+    shareY*: MerkleNode
+    ## nullifier enables linking two messages published during the same epoch
+    ## see details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Nullifiers
+    nullifier*: Nullifier
+
+when defined(rlnzerokit):
+  type RateLimitProof* = object
+    ## RateLimitProof holds the public inputs to rln circuit as
+    ## defined in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Public-Inputs
+    ## the `proof` field carries the actual zkSNARK proof
+    proof*: ZKSNARK
+    ## the root of Merkle tree used for the generation of the `proof`
+    merkleRoot*: MerkleNode
+    ## the epoch used for the generation of the `proof`
+    epoch*: Epoch
+    ## shareX and shareY are shares of user's identity key
+    ## these shares are created using Shamir secret sharing scheme
+    ## see details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Linear-Equation-amp-SSS
+    shareX*: MerkleNode
+    shareY*: MerkleNode
+    ## nullifier enables linking two messages published during the same epoch
+    ## see details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Nullifiers
+    nullifier*: Nullifier
+    ## Application specific RLN Identifier
+    rlnIdentifier*: RlnIdentifier
+
 type MembershipIndex* = uint
 
 type RlnMembershipCredentials* = object
   membershipKeyPair*: MembershipKeyPair
   rlnIndex*: MembershipIndex
 
-type RateLimitProof* = object
-  ## RateLimitProof holds the public inputs to rln circuit as
-  ## defined in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Public-Inputs
-  ## the `proof` field carries the actual zkSNARK proof
-  proof*: ZKSNARK
-  ## the root of Merkle tree used for the generation of the `proof`
-  merkleRoot*: MerkleNode
-  ## the epoch used for the generation of the `proof`
-  epoch*: Epoch
-  ## shareX and shareY are shares of user's identity key
-  ## these shares are created using Shamir secret sharing scheme
-  ## see details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Linear-Equation-amp-SSS
-  shareX*: MerkleNode
-  shareY*: MerkleNode
-  ## nullifier enables linking two messages published during the same epoch
-  ## see details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Nullifiers
-  nullifier*: Nullifier
-
 type ProofMetadata* = object
   nullifier*: Nullifier
   shareX*: MerkleNode
   shareY*: MerkleNode
 
-type WakuRLNRelay* = ref object
-  membershipKeyPair*: MembershipKeyPair
-  # membershipIndex denotes the index of a leaf in the Merkle tree
-  # that contains the pk of the current peer
-  # this index is used to retrieve the peer's authentication path
-  membershipIndex*: MembershipIndex
-  membershipContractAddress*: Address
-  ethClientAddress*: string
-  ethAccountAddress*: Address
-  # this field is required for signing transactions
-  # TODO may need to erase this ethAccountPrivateKey when is not used
-  # TODO may need to make ethAccountPrivateKey mandatory
-  ethAccountPrivateKey*: Option[PrivateKey]
-  rlnInstance*: RLN[Bn256]
-  pubsubTopic*: string # the pubsub topic for which rln relay is mounted
-                       # contentTopic should be of type waku_message.ContentTopic, however, due to recursive module dependency, the underlying type of ContentTopic is used instead
-                       # TODO a long-term solution is to place types with recursive dependency inside one file
-  contentTopic*: string
-  # the log of nullifiers and Shamir shares of the past messages grouped per epoch
-  nullifierLog*: Table[Epoch, seq[ProofMetadata]]
+when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
+  type WakuRLNRelay* = ref object
+    membershipKeyPair*: MembershipKeyPair
+    # membershipIndex denotes the index of a leaf in the Merkle tree
+    # that contains the pk of the current peer
+    # this index is used to retrieve the peer's authentication path
+    membershipIndex*: MembershipIndex
+    membershipContractAddress*: Address
+    ethClientAddress*: string
+    ethAccountAddress*: Address
+    # this field is required for signing transactions
+    # TODO may need to erase this ethAccountPrivateKey when is not used
+    # TODO may need to make ethAccountPrivateKey mandatory
+    ethAccountPrivateKey*: Option[PrivateKey]
+    rlnInstance*: RLN[Bn256]
+    pubsubTopic*: string # the pubsub topic for which rln relay is mounted
+                         # contentTopic should be of type waku_message.ContentTopic, however, due to recursive module dependency, the underlying type of ContentTopic is used instead
+                         # TODO a long-term solution is to place types with recursive dependency inside one file
+    contentTopic*: string
+    # the log of nullifiers and Shamir shares of the past messages grouped per epoch
+    nullifierLog*: Table[Epoch, seq[ProofMetadata]]
+
+when defined(rlnzerokit):
+  type WakuRLNRelay* = ref object
+    membershipKeyPair*: MembershipKeyPair
+    # membershipIndex denotes the index of a leaf in the Merkle tree
+    # that contains the pk of the current peer
+    # this index is used to retrieve the peer's authentication path
+    membershipIndex*: MembershipIndex
+    membershipContractAddress*: Address
+    ethClientAddress*: string
+    ethAccountAddress*: Address
+    # this field is required for signing transactions
+    # TODO may need to erase this ethAccountPrivateKey when is not used
+    # TODO may need to make ethAccountPrivateKey mandatory
+    ethAccountPrivateKey*: Option[PrivateKey]
+    rlnInstance*: ptr RLN
+    pubsubTopic*: string # the pubsub topic for which rln relay is mounted
+                         # contentTopic should be of type waku_message.ContentTopic, however, due to recursive module dependency, the underlying type of ContentTopic is used instead
+                         # TODO a long-term solution is to place types with recursive dependency inside one file
+    contentTopic*: string
+    # the log of nullifiers and Shamir shares of the past messages grouped per epoch
+    nullifierLog*: Table[Epoch, seq[ProofMetadata]]
 
 type MessageValidationResult* {.pure.} = enum
   Valid, Invalid, Spam
@@ -94,7 +149,7 @@ type MessageValidationResult* {.pure.} = enum
 # RLN membership key and index files path
 const
   RLN_CREDENTIALS_FILEPATH* = "rlnCredentials.txt"
-
+  
 # inputs of the membership contract constructor
 # TODO may be able to make these constants private and put them inside the waku_rln_relay_utils
 const
@@ -111,6 +166,12 @@ const
   # the size of poseidon hash output as the number hex digits
   HASH_HEX_SIZE* = int(HASH_BIT_SIZE/4)
 
+when defined(rlnzerokit):
+  const
+    # The relative folder where the circuit, proving and verification key for RLN can be found
+    # Note that resources has to be compiled with respect to the above MERKLE_TREE_DEPTH
+    RLN_RESOURCE_FOLDER* = "vendor/zerokit/rln/resources/tree_height_" & $MERKLE_TREE_DEPTH & "/"
+  
 # temporary variables to test waku-rln-relay performance in the static group mode
 const
   STATIC_GROUP_SIZE* = 100
@@ -319,10 +380,20 @@ const
       "d1ce3aea6cfb7be132d17e8d76fcbe4b7e34cef3979b4b905acfeff2f6d19724",
       "be47b76297791f535f4b56f973a19f07ec22d4eede2a41ff23c696089938bb21")]
 
-  # STATIC_GROUP_MERKLE_ROOT is the root of the Merkle tree constructed from the STATIC_GROUP_KEYS above
-  # only identity commitments are used for the Merkle tree construction
-  # the root is created locally, using createMembershipList proc from waku_rln_relay_utils module, and the result is hardcoded in here
-  STATIC_GROUP_MERKLE_ROOT* = "a1877a553eff12e1b21632a0545a916a5c5b8060ad7cc6c69956741134397b2d"
+
+when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
+  const
+    # STATIC_GROUP_MERKLE_ROOT is the root of the Merkle tree constructed from the STATIC_GROUP_KEYS above
+    # only identity commitments are used for the Merkle tree construction
+    # the root is created locally, using createMembershipList proc from waku_rln_relay_utils module, and the result is hardcoded in here
+    STATIC_GROUP_MERKLE_ROOT* = "a1877a553eff12e1b21632a0545a916a5c5b8060ad7cc6c69956741134397b2d"
+
+when defined(rlnzerokit):
+  const
+    # STATIC_GROUP_MERKLE_ROOT is the root of the Merkle tree constructed from the STATIC_GROUP_KEYS above
+    # only identity commitments are used for the Merkle tree construction
+    # the root is created locally, using createMembershipList proc from waku_rln_relay_utils module, and the result is hardcoded in here
+    STATIC_GROUP_MERKLE_ROOT* = "9abaf9fda6af9b8237185bfd85b6e56a99ec60c3661e4c8a67f3f6c691603a2d"
 
 const EPOCH_UNIT_SECONDS* = float64(10) # the rln-relay epoch length in seconds
 const MAX_CLOCK_GAP_SECONDS* = 20.0 # the maximum clock difference between peers in seconds
@@ -359,6 +430,11 @@ proc init*(T: type RateLimitProof, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(6, nullifier)
   discard nsp.nullifier.copyFrom(nullifier)
 
+  when defined(rlnzerokit):
+    var rlnIdentifier: seq[byte]
+    discard ? pb.getField(7, rlnIdentifier)
+    discard nsp.rlnIdentifier.copyFrom(rlnIdentifier)
+
   return ok(nsp)
 
 proc encode*(nsp: RateLimitProof): ProtoBuffer =
@@ -370,6 +446,9 @@ proc encode*(nsp: RateLimitProof): ProtoBuffer =
   output.write3(4, nsp.shareX)
   output.write3(5, nsp.shareY)
   output.write3(6, nsp.nullifier)
+
+  when defined(rlnzerokit):
+    output.write3(7, nsp.rlnIdentifier)
 
   output.finish3()
 
