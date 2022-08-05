@@ -90,6 +90,10 @@ when defined(rlnzerokit):
 
 type MembershipIndex* = uint
 
+type RlnMembershipCredentials* = object
+  membershipKeyPair*: MembershipKeyPair
+  rlnIndex*: MembershipIndex
+
 type ProofMetadata* = object
   nullifier*: Nullifier
   shareX*: MerkleNode
