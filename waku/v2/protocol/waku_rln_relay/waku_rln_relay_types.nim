@@ -146,6 +146,10 @@ when defined(rlnzerokit):
 type MessageValidationResult* {.pure.} = enum
   Valid, Invalid, Spam
 
+# RLN membership key and index files path
+const
+  RLN_CREDENTIALS_FILEPATH* = "rlnCredentials.txt"
+  
 # inputs of the membership contract constructor
 # TODO may be able to make these constants private and put them inside the waku_rln_relay_utils
 const
