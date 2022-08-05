@@ -32,7 +32,6 @@ import
 export
   builders,
   waku_relay, waku_message,
-  waku_store,
   waku_swap,
   waku_filter,
   waku_rln_relay_types,

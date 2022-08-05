@@ -11,10 +11,12 @@ import
   libp2p/stream/[bufferstream, connection],
   libp2p/crypto/crypto,
   libp2p/protocols/pubsub/pubsub,
-  libp2p/protocols/pubsub/rpc/message,
-  ../../waku/v2/node/wakunode2,
+  libp2p/protocols/pubsub/rpc/message
+import
+  ../../waku/v2/protocol/waku_store,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/storage/peer/waku_peer_storage,
+  ../../waku/v2/node/wakunode2,
   ../test_helpers
 
 procSuite "Peer Manager":
