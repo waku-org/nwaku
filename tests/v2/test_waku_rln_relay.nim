@@ -64,45 +64,72 @@ procSuite "Waku rln relay":
     await node.stop()
 
 suite "Waku rln relay":
-  test "key_gen Nim Wrappers":
-    var
-      merkleDepth: csize_t = 32
-      # parameters.key contains the parameters related to the Poseidon hasher
-      # to generate this file, clone this repo https://github.com/kilic/rln
-      # and run the following command in the root directory of the cloned project
-      # cargo run --example export_test_keys
-      # the file is generated separately and copied here
-      parameters = readFile("waku/v2/protocol/waku_rln_relay/parameters.key")
-      pbytes = parameters.toBytes()
-      len: csize_t = uint(pbytes.len)
-      parametersBuffer = Buffer(`ptr`: addr(pbytes[0]), len: len)
-    check:
-      # check the parameters.key is not empty
-      pbytes.len != 0
 
-    var
-      rlnInstance: RLN[Bn256]
-    let res = new_circuit_from_params(merkleDepth, addr parametersBuffer,
-        addr rlnInstance)
-    check:
-      # check whether the circuit parameters are generated successfully
-      res == true
-
-    # keysBufferPtr will hold the generated key pairs i.e., secret and public keys
-    var
-      keysBuffer: Buffer
-      keysBufferPtr = addr(keysBuffer)
-      done = key_gen(rlnInstance, keysBufferPtr)
-    check:
-      # check whether the keys are generated successfully
-      done == true
-
-    if done:
-      var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
+  when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):  
+    test "key_gen Nim Wrappers":
+      var
+        merkleDepth: csize_t = 32
+        # parameters.key contains the parameters related to the Poseidon hasher
+        # to generate this file, clone this repo https://github.com/kilic/rln
+        # and run the following command in the root directory of the cloned project
+        # cargo run --example export_test_keys
+        # the file is generated separately and copied here
+        parameters = readFile("waku/v2/protocol/waku_rln_relay/parameters.key")
+        pbytes = parameters.toBytes()
+        len: csize_t = uint(pbytes.len)
+        parametersBuffer = Buffer(`ptr`: addr(pbytes[0]), len: len)
       check:
-        # the public and secret keys together are 64 bytes
-        generatedKeys.len == 64
-      debug "generated keys: ", generatedKeys
+        # check the parameters.key is not empty
+        pbytes.len != 0
+
+      var
+        rlnInstance: RLN[Bn256]
+      let res = new_circuit_from_params(merkleDepth, addr parametersBuffer,
+          addr rlnInstance)
+      check:
+        # check whether the circuit parameters are generated successfully
+        res == true
+
+      # keysBufferPtr will hold the generated key pairs i.e., secret and public keys
+      var
+        keysBuffer: Buffer
+        keysBufferPtr = addr(keysBuffer)
+        done = key_gen(rlnInstance, keysBufferPtr)
+      check:
+        # check whether the keys are generated successfully
+        done == true
+
+      if done:
+        var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
+        check:
+          # the public and secret keys together are 64 bytes
+          generatedKeys.len == 64
+        debug "generated keys: ", generatedKeys
+
+    when defined(rlnzerokit):
+      test "key_gen Nim Wrappers":
+        var
+          merkleDepth: csize_t = 20
+
+        var rlnInstance = createRLNInstance()
+        check:
+          rlnInstance.isOk == true
+
+        # keysBufferPtr will hold the generated key pairs i.e., secret and public keys
+        var
+          keysBuffer: Buffer
+          keysBufferPtr = addr(keysBuffer)
+          done = key_gen(rlnInstance.value(), keysBufferPtr)
+        check:
+          # check whether the keys are generated successfully
+          done == true
+
+        if done:
+          var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
+          check:
+            # the public and secret keys together are 64 bytes
+            generatedKeys.len == 64
+          debug "generated keys: ", generatedKeys
 
   test "membership Key Gen":
     # create an RLN instance
@@ -371,8 +398,14 @@ suite "Waku rln relay":
     check:
       hashSuccess
     let outputArr = cast[ptr array[32, byte]](outputBuffer.`ptr`)[]
-    check:
-      "efb8ac39dc22eaf377fe85b405b99ba78dbc2f3f32494add4501741df946bd1d" ==
+    
+    when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
+      check:
+        "efb8ac39dc22eaf377fe85b405b99ba78dbc2f3f32494add4501741df946bd1d" ==
+          outputArr.toHex()
+    when defined(rlnzerokit):
+      check:
+        "4c6ea217404bd5f10e243bac29dc4f1ec36bf4a41caba7b4c8075c54abb3321e" ==
           outputArr.toHex()
 
     var
@@ -392,8 +425,14 @@ suite "Waku rln relay":
     let msg = "Hello".toBytes()
 
     let hash = rln.hash(msg)
-    check:
-      "efb8ac39dc22eaf377fe85b405b99ba78dbc2f3f32494add4501741df946bd1d" ==
+
+    when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
+      check:
+        "efb8ac39dc22eaf377fe85b405b99ba78dbc2f3f32494add4501741df946bd1d" ==
+          hash.toHex()
+    when defined(rlnzerokit):
+      check:
+        "4c6ea217404bd5f10e243bac29dc4f1ec36bf4a41caba7b4c8075c54abb3321e" ==
           hash.toHex()
 
   test "create a list of membership keys and construct a Merkle tree based on the list":
@@ -428,35 +467,71 @@ suite "Waku rln relay":
       # compare the calculated root against the correct root
       root == STATIC_GROUP_MERKLE_ROOT
 
-  test "RateLimitProof Protobuf encode/init test":
-    var
-      proof: ZKSNARK
-      merkleRoot: MerkleNode
-      epoch: Epoch
-      shareX: MerkleNode
-      shareY: MerkleNode
-      nullifier: Nullifier
-    # populate fields with dummy values
-    for x in proof.mitems: x = 1
-    for x in merkleRoot.mitems: x = 2
-    for x in epoch.mitems: x = 3
-    for x in shareX.mitems: x = 4
-    for x in shareY.mitems: x = 5
-    for x in nullifier.mitems: x = 6
+  when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
+    test "RateLimitProof Protobuf encode/init test":
+      var
+        proof: ZKSNARK
+        merkleRoot: MerkleNode
+        epoch: Epoch
+        shareX: MerkleNode
+        shareY: MerkleNode
+        nullifier: Nullifier
+      # populate fields with dummy values
+      for x in proof.mitems: x = 1
+      for x in merkleRoot.mitems: x = 2
+      for x in epoch.mitems: x = 3
+      for x in shareX.mitems: x = 4
+      for x in shareY.mitems: x = 5
+      for x in nullifier.mitems: x = 6
 
-    let
-      rateLimitProof = RateLimitProof(proof: proof,
-                          merkleRoot: merkleRoot,
-                          epoch: epoch,
-                          shareX: shareX,
-                          shareY: shareY,
-                          nullifier: nullifier)
-      protobuf = rateLimitProof.encode()
-      decodednsp = RateLimitProof.init(protobuf.buffer)
+      let
+        rateLimitProof = RateLimitProof(proof: proof,
+                            merkleRoot: merkleRoot,
+                            epoch: epoch,
+                            shareX: shareX,
+                            shareY: shareY,
+                            nullifier: nullifier)
+        protobuf = rateLimitProof.encode()
+        decodednsp = RateLimitProof.init(protobuf.buffer)
 
-    check:
-      decodednsp.isErr == false
-      decodednsp.value == rateLimitProof
+      check:
+        decodednsp.isErr == false
+        decodednsp.value == rateLimitProof
+
+  when defined(rlnzerokit):
+    test "RateLimitProof Protobuf encode/init test":
+      var
+        proof: ZKSNARK
+        merkleRoot: MerkleNode
+        epoch: Epoch
+        shareX: MerkleNode
+        shareY: MerkleNode
+        nullifier: Nullifier
+        rlnIdentifier: RlnIdentifier
+
+      # populate fields with dummy values
+      for x in proof.mitems: x = 1
+      for x in merkleRoot.mitems: x = 2
+      for x in epoch.mitems: x = 3
+      for x in shareX.mitems: x = 4
+      for x in shareY.mitems: x = 5
+      for x in nullifier.mitems: x = 6
+      for x in rlnIdentifier.mitems: x = 7
+
+      let
+        rateLimitProof = RateLimitProof(proof: proof,
+                            merkleRoot: merkleRoot,
+                            epoch: epoch,
+                            shareX: shareX,
+                            shareY: shareY,
+                            nullifier: nullifier,
+                            rlnIdentifier: rlnIdentifier)
+        protobuf = rateLimitProof.encode()
+        decodednsp = RateLimitProof.init(protobuf.buffer)
+
+      check:
+        decodednsp.isErr == false
+        decodednsp.value == rateLimitProof
 
   test "test proofVerify and proofGen for a valid proof":
     var rlnInstance = createRLNInstance()
@@ -600,6 +675,7 @@ suite "Waku rln relay":
     for index, x in shareX3.mpairs: shareX3[index] = 3
     let shareY3 = shareX3
 
+    ## TODO: when zerokit rln is integrated, RateLimitProof should be initialized passing a rlnIdentifier too (now implicitely set to 0)
     let
       wm1 = WakuMessage(proof: RateLimitProof(epoch: epoch,
           nullifier: nullifier1, shareX: shareX1, shareY: shareY1))
@@ -679,6 +755,8 @@ suite "Waku rln relay":
       proofAdded3 = wakuRlnRelay.appendRLNProof(wm3, time+EPOCH_UNIT_SECONDS)
       wm4 = WakuMessage(payload: "Invalid message".toBytes())
 
+    echo wm1.proof
+
     # checks proofs are added
     check:
       proofAdded1
@@ -702,6 +780,7 @@ suite "Waku rln relay":
       msgValidate2 == MessageValidationResult.Spam
       msgValidate3 == MessageValidationResult.Valid
       msgValidate4 == MessageValidationResult.Invalid
+
   test "toIDCommitment and toUInt256":
     # create an instance of rln
     var rlnInstance = createRLNInstance()

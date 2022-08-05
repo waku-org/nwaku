@@ -31,7 +31,7 @@ import
   ./v2/test_peer_exchange,
   ./v2/test_waku_noise
 
-when defined(rln):
+when defined(rln) or defined(rlnzerokit):
   import ./v2/test_waku_rln_relay
   when defined(onchain_rln):
     import ./v2/test_waku_rln_relay_onchain
