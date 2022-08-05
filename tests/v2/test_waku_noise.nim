@@ -26,7 +26,7 @@ procSuite "Waku Noise":
   test "PKCS#7 Padding/Unpadding":
 
     # We test padding for different message lengths
-    let maxMessageLength = 3*PaddingBlockSize
+    let maxMessageLength = 3 * PaddingBlockSize
     for messageLen in 0..maxMessageLength:
         
       let

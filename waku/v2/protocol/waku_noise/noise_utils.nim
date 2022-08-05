@@ -47,7 +47,7 @@ proc pkcs7_pad*(payload: seq[byte], paddingSize: int): seq[byte] =
   else:
     padding = newSeqWith(paddingSize, paddingSize.byte)
 
-  let padded = concat(payload,padding)
+  let padded = concat(payload, padding)
 
   return padded
 
