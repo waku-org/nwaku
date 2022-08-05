@@ -6,6 +6,7 @@ import
   testutils/unittests, chronos, chronicles, stint,
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
+  json,
   ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils,
       waku_rln_relay_types],
   ../../waku/v2/node/wakunode2,
@@ -720,3 +721,39 @@ suite "Waku rln relay":
     # check that the conversion has not distorted the original value
     check:
       keypair.get().idCommitment == idCommitment
+
+  test "Read Persistent RLN credentials":
+    # create an RLN instance
+    var rlnInstance = createRLNInstance()
+    check:
+      rlnInstance.isOk == true
+
+    var key = membershipKeyGen(rlnInstance.value)
+    var empty: array[32, byte]
+    check:
+      key.isSome
+      key.get().idKey.len == 32
+      key.get().idCommitment.len == 32
+      key.get().idKey != empty
+      key.get().idCommitment != empty
+
+    debug "the generated membership key pair: ", key
+
+    let
+      k = key.get()
+      index =  MembershipIndex(1)
+
+    var rlnMembershipCredentials = RlnMembershipCredentials(membershipKeyPair: k, rlnIndex: index)
+
+    let path = "testPath.txt"
+
+    # Write RLN credentials
+    writeFile(path, pretty(%rlnMembershipCredentials))
+
+    var credentials = readPersistentRlnCredentials(path)
+
+    check:
+      credentials.membershipKeyPair == k
+      credentials.rlnIndex == index
+    
+

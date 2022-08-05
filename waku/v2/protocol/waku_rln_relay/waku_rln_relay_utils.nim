@@ -2,6 +2,8 @@
 
 import
   std/sequtils, tables, times,
+  std/streams,
+  std/os,
   chronicles, options, chronos, stint,
   confutils,
   web3, json,
@@ -741,7 +743,6 @@ proc mountRlnRelayStatic*(node: WakuNode,
   node.wakuRlnRelay = rlnPeer
 
 
-
 proc mountRlnRelayDynamic*(node: WakuNode,
                     ethClientAddr: string = "",
                     ethAccAddr: web3.Address,
@@ -788,8 +789,18 @@ proc mountRlnRelayDynamic*(node: WakuNode,
     else: # if no eth private key is available, skip registration
       debug "running waku-rln-relay in relay-only mode"
   else:
+    debug "Peer is already registered to the membership contract"
     keyPair = memKeyPair.get()
     rlnIndex = memIndex.get()
+
+  var
+    rlnMembershipCredentials = RlnMembershipCredentials(membershipKeyPair: keyPair, rlnIndex: rlnIndex)
+
+  # Since the files are stored as a raw text file, it is highly susceptible to theft.
+  # The files needs some encryption to resolve this.
+
+  # Write RLN credentials
+  writeFile(RLN_CREDENTIALS_FILEPATH, pretty(%rlnMembershipCredentials))
 
   # create the WakuRLNRelay
   var rlnPeer = WakuRLNRelay(membershipKeyPair: keyPair,
@@ -821,8 +832,21 @@ proc mountRlnRelayDynamic*(node: WakuNode,
 
   node.wakuRlnRelay = rlnPeer
 
+proc readPersistentRlnCredentials*(path: string) : RlnMembershipCredentials {.raises: [Defect, OSError, IOError, Exception].} =
+  info "Rln credentials exist in file"
+  # With regards to printing the keys, it is purely for debugging purposes so that the user becomes explicitly aware of the current keys in use when nwaku is started.
+  # Note that this is only until the RLN contract being used is the one deployed on Goerli testnet.
+  # These prints need to omitted once RLN contract is deployed on Ethereum mainnet and using valuable funds for staking.
+      
+  let entireRlnCredentialsFile = readFile(path)
 
-proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler] = none(SpamHandler)) {.raises: [Defect, ValueError, IOError, CatchableError].} =
+  let jsonObject = parseJson(entireRlnCredentialsFile)
+  let deserializedRlnCredentials = to(jsonObject, RlnMembershipCredentials)
+  
+  debug "Deserialized Rln credentials", rlnCredentials=deserializedRlnCredentials
+  result = deserializedRlnCredentials
+
+proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler] = none(SpamHandler)) {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
   if not conf.rlnRelayDynamic:
     info " setting up waku-rln-relay in on-chain mode... "
     # set up rln relay inputs
@@ -866,9 +890,18 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: O
       let keyPair = @[(rlnRelayId, rlnRelayIdCommitmentKey)]
       let memKeyPair = keyPair.toMembershipKeyPairs()[0]
       # mount the rln relay protocol in the on-chain/dynamic mode
-      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, memKeyPair = some(memKeyPair), memIndex = some(rlnRelayIndex), ethAccAddr = ethAccountAddr,  ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler)
+      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr,
+                memKeyPair = some(memKeyPair), memIndex = some(rlnRelayIndex), ethAccAddr = ethAccountAddr,
+                ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler)
+    elif fileExists(RLN_CREDENTIALS_FILEPATH):
+      var credentials = readPersistentRlnCredentials(RLN_CREDENTIALS_FILEPATH)
+      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr,
+                memKeyPair = some(credentials.membershipKeyPair), memIndex = some(credentials.rlnIndex), ethAccAddr = ethAccountAddr,
+                ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler)
     else:
       # no rln credential is provided
       # mount the rln relay protocol in the on-chain/dynamic mode
-      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr, ethAccAddr = ethAccountAddr, ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler)
-
+      info "no rln credential is provided"
+      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr,
+                ethAccAddr = ethAccountAddr, ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, pubsubTopic = conf.rlnRelayPubsubTopic,
+                contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler)

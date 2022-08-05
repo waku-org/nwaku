@@ -38,6 +38,12 @@ type MembershipKeyPair* = object
   # more details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
   idCommitment*: IDCommitment
 
+type MembershipIndex* = uint
+
+type RlnMembershipCredentials* = object
+  membershipKeyPair*: MembershipKeyPair
+  rlnIndex*: MembershipIndex
+
 type RateLimitProof* = object
   ## RateLimitProof holds the public inputs to rln circuit as
   ## defined in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Public-Inputs
@@ -55,8 +61,6 @@ type RateLimitProof* = object
   ## nullifier enables linking two messages published during the same epoch
   ## see details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Nullifiers
   nullifier*: Nullifier
-
-type MembershipIndex* = uint
 
 type ProofMetadata* = object
   nullifier*: Nullifier
@@ -86,6 +90,10 @@ type WakuRLNRelay* = ref object
 
 type MessageValidationResult* {.pure.} = enum
   Valid, Invalid, Spam
+
+# RLN membership key and index files path
+const
+  RLN_CREDENTIALS_FILEPATH* = "rlnCredentials.txt"
 
 # inputs of the membership contract constructor
 # TODO may be able to make these constants private and put them inside the waku_rln_relay_utils
