@@ -148,3 +148,7 @@
 	url = https://github.com/status-im/nim-presto.git
 	ignore = untracked
 	branch = master
+[submodule "vendor/zerokit"]
+	path = vendor/zerokit
+	url = https://github.com/vacp2p/zerokit.git
+	branch = master
