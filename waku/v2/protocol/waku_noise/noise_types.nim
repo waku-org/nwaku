@@ -250,4 +250,4 @@ const
 
 # Other constants
 const
-  PaddingBlockSize* = 248
+  NoisePaddingBlockSize* = 248

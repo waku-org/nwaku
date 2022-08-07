@@ -26,17 +26,17 @@ procSuite "Waku Noise":
   test "PKCS#7 Padding/Unpadding":
 
     # We test padding for different message lengths
-    let maxMessageLength = 3 * PaddingBlockSize
+    let maxMessageLength = 3 * NoisePaddingBlockSize
     for messageLen in 0..maxMessageLength:
         
       let
         message = randomSeqByte(rng[], messageLen)
-        padded = pkcs7_pad(message, PaddingBlockSize)
-        unpadded = pkcs7_unpad(padded, PaddingBlockSize)
+        padded = pkcs7_pad(message, NoisePaddingBlockSize)
+        unpadded = pkcs7_unpad(padded, NoisePaddingBlockSize)
 
       check:
         padded.len != 0
-        padded.len mod PaddingBlockSize == 0
+        padded.len mod NoisePaddingBlockSize == 0
         message == unpadded
 
   test "ChaChaPoly Encryption/Decryption: random byte sequences":

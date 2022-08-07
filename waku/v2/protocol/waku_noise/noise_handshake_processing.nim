@@ -221,9 +221,9 @@ proc processMessagePatternPayload(hs: var HandshakeState, transportMessage: seq[
   # We decrypt the transportMessage, if any
   if reading:
     payload = hs.ss.decryptAndHash(transportMessage)
-    payload = pkcs7_unpad(payload, PaddingBlockSize)
+    payload = pkcs7_unpad(payload, NoisePaddingBlockSize)
   elif writing:
-    payload = pkcs7_pad(transportMessage, PaddingBlockSize)
+    payload = pkcs7_pad(transportMessage, NoisePaddingBlockSize)
     payload = hs.ss.encryptAndHash(payload)
 
   return payload
@@ -561,7 +561,7 @@ proc writeMessage*(hsr: var HandshakeResult, transportMessage: seq[byte]): Paylo
   # This correspond to setting protocol-id to 0
   payload2.protocolId = 0.uint8
   # We pad the transport message
-  let paddedTransportMessage = pkcs7_pad(transportMessage, PaddingBlockSize)
+  let paddedTransportMessage = pkcs7_pad(transportMessage, NoisePaddingBlockSize)
   # Encryption is done with zero-length associated data as per specification
   payload2.transportMessage = encryptWithAd(hsr.csOutbound, @[], paddedTransportMessage)
 
@@ -584,7 +584,7 @@ proc readMessage*(hsr: var HandshakeResult, readPayload2: PayloadV2): Result[seq
       # Decryption is done with zero-length associated data as per specification
       let paddedMessage = decryptWithAd(hsr.csInbound, @[], readPayload2.transportMessage)
       # We unpdad the decrypted message
-      message = pkcs7_unpad(paddedMessage, PaddingBlockSize)
+      message = pkcs7_unpad(paddedMessage, NoisePaddingBlockSize)
     except NoiseDecryptTagError:
       debug "A read message failed decryption. Returning empty message as plaintext."
       message = @[]
