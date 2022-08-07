@@ -247,3 +247,7 @@ const
     "ChaChaPoly":                           30.uint8
 
     }.toTable()
+
+# Other constants
+const
+  NoisePaddingBlockSize* = 248
