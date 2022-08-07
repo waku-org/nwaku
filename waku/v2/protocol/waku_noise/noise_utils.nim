@@ -5,7 +5,7 @@
 
 {.push raises: [Defect].}
 
-import std/[oids, options, strutils, tables]
+import std/[oids, options, strutils, tables, sequtils]
 import chronos
 import chronicles
 import bearssl
@@ -33,6 +33,29 @@ proc randomSeqByte*(rng: var BrHmacDrbgContext, size: int): seq[byte] =
   brHmacDrbgGenerate(rng, output)
   return output
 
+# Pads a payload according to PKCS#7 as per RFC 5652 https://datatracker.ietf.org/doc/html/rfc5652#section-6.3
+proc pkcs7_pad*(payload: seq[byte], paddingSize: int): seq[byte] =
+  
+  assert(paddingSize<256)
+
+  let k = paddingSize - (payload.len mod paddingSize)
+  
+  var padding: seq[byte]
+
+  if k != 0:
+    padding = newSeqWith(k, k.byte)
+  else:
+    padding = newSeqWith(paddingSize, paddingSize.byte)
+
+  let padded = concat(payload, padding)
+
+  return padded
+
+# Unpads a payload according to PKCS#7 as per RFC 5652 https://datatracker.ietf.org/doc/html/rfc5652#section-6.3
+proc pkcs7_unpad*(payload: seq[byte], paddingSize: int): seq[byte] =
+  let k = payload[payload.high]
+  let unpadded = payload[0..payload.high-k.int]
+  return unpadded
 
 #################################################################
 
