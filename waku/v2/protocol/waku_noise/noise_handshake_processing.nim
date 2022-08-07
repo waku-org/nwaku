@@ -221,8 +221,10 @@ proc processMessagePatternPayload(hs: var HandshakeState, transportMessage: seq[
   # We decrypt the transportMessage, if any
   if reading:
     payload = hs.ss.decryptAndHash(transportMessage)
+    payload = pkcs7_unpad(payload, NoisePaddingBlockSize)
   elif writing:
-    payload = hs.ss.encryptAndHash(transportMessage)
+    payload = pkcs7_pad(transportMessage, NoisePaddingBlockSize)
+    payload = hs.ss.encryptAndHash(payload)
 
   return payload
 
@@ -558,8 +560,10 @@ proc writeMessage*(hsr: var HandshakeResult, transportMessage: seq[byte]): Paylo
   # According to 35/WAKU2-NOISE RFC, no Handshake protocol information is sent when exchanging messages
   # This correspond to setting protocol-id to 0
   payload2.protocolId = 0.uint8
+  # We pad the transport message
+  let paddedTransportMessage = pkcs7_pad(transportMessage, NoisePaddingBlockSize)
   # Encryption is done with zero-length associated data as per specification
-  payload2.transportMessage = encryptWithAd(hsr.csOutbound, @[], transportMessage)
+  payload2.transportMessage = encryptWithAd(hsr.csOutbound, @[], paddedTransportMessage)
 
   return payload2
 
@@ -578,7 +582,9 @@ proc readMessage*(hsr: var HandshakeResult, readPayload2: PayloadV2): Result[seq
     # (this because an attacker may flood the content topic on which messages are exchanged)
     try:
       # Decryption is done with zero-length associated data as per specification
-      message = decryptWithAd(hsr.csInbound, @[], readPayload2.transportMessage)
+      let paddedMessage = decryptWithAd(hsr.csInbound, @[], readPayload2.transportMessage)
+      # We unpdad the decrypted message
+      message = pkcs7_unpad(paddedMessage, NoisePaddingBlockSize)
     except NoiseDecryptTagError:
       debug "A read message failed decryption. Returning empty message as plaintext."
       message = @[]
