@@ -71,16 +71,16 @@ endif
 # control rln code compilation
 ifeq ($(RLN), true)
 NIM_PARAMS := $(NIM_PARAMS) -d:rln
-else  ifeq ($(CI), true)
-NIM_PARAMS := $(NIM_PARAMS) -d:rln 
+#To avoid redefinition conflicts, we disable rln zerokit default compilation in CI
+#else  ifeq ($(CI), true)
+#NIM_PARAMS := $(NIM_PARAMS) -d:rln 
 endif
 
 # control rln code compilation
 ifeq ($(RLNZEROKIT), true)
 NIM_PARAMS := $(NIM_PARAMS) -d:rlnzerokit
-#To avoid redefinition conflicts, we disable rln zerokit default compilation in CI
-#else ifeq ($(CI), true)
-#NIM_PARAMS := $(NIM_PARAMS) -d:rlnzerokit 
+else ifeq ($(CI), true)
+NIM_PARAMS := $(NIM_PARAMS) -d:rlnzerokit 
 endif
 
 # detecting the os
@@ -177,17 +177,17 @@ endif
 rlnlib:
 ifeq ($(RLN), true)
 	cargo build --manifest-path vendor/rln/Cargo.toml
-else  ifeq ($(CI), true)
-	cargo build --manifest-path vendor/rln/Cargo.toml
+#To avoid redefinition conflicts, we disable rln zerokit default compilation in CI
+#else  ifeq ($(CI), true)
+#	cargo build --manifest-path vendor/rln/Cargo.toml
 endif
 
 
 rlnzerokitlib:
 ifeq ($(RLNZEROKIT), true)
 	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
-#To avoid redefinition conflicts, we disable rln zerokit default compilation in CI
-#else  ifeq ($(CI), true)
-#	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
+else  ifeq ($(CI), true)
+	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
 endif
 
 test2: | build deps installganache
