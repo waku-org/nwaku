@@ -3,11 +3,13 @@ import
   # TODO: enable this when it is altered into a proper waku relay test
   # ./v2/test_waku,
   ./v2/test_wakunode,
+  ./v2/test_waku_store_rpc_codec,
   ./v2/test_waku_store,
   ./v2/test_waku_filter,
   ./v2/test_waku_payload,
   ./v2/test_waku_swap,
   ./v2/test_utils_pagination,
+  ./v2/test_message_store_queue,
   ./v2/test_message_store_queue_pagination,
   ./v2/test_message_store,
   ./v2/test_jsonrpc_waku,
@@ -27,7 +29,6 @@ import
   ./v2/test_waku_dnsdisc,
   ./v2/test_waku_discv5,
   ./v2/test_enr_utils,
-  ./v2/test_waku_store_queue,
   ./v2/test_peer_exchange,
   ./v2/test_waku_noise
 
