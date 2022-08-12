@@ -18,7 +18,7 @@ import
   ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/protocol/[waku_relay, waku_message],
   ../../waku/v2/protocol/waku_store,
-  ../../waku/v2/protocol/waku_filter/waku_filter,
+  ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_lightpush,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/peers,
