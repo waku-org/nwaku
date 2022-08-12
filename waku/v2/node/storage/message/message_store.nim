@@ -9,7 +9,6 @@ import
   chronos
 import
   ../../../protocol/waku_message,
-  ../../../protocol/waku_store/rpc,
   ../../../utils/time,
   ../../../utils/pagination
 
@@ -31,41 +30,14 @@ type
 
   MessageStore* = ref object of RootObj
 
-# TODO: Deprecate the following type
-type DataProc* = proc(receiverTimestamp: Timestamp, msg: WakuMessage, pubsubTopic: string) {.closure, raises: [Defect].}
-
-
-# TODO: Remove after resolving nwaku #1026. Move it back to waku_store_queue.nim
-type 
-  IndexedWakuMessage* = object
-    # TODO may need to rename this object as it holds both the index and the pubsub topic of a waku message
-    ## This type is used to encapsulate a WakuMessage and its Index
-    msg*: WakuMessage
-    index*: Index
-    pubsubTopic*: string
-    
-  QueryFilterMatcher* = proc(indexedWakuMsg: IndexedWakuMessage) : bool {.gcsafe, closure.}
-
 
 # MessageStore interface
-method getMostRecentMessageTimestamp*(db: MessageStore): MessageStoreResult[Timestamp] {.base.} = discard
+method put*(ms: MessageStore, cursor: Index, message: WakuMessage, pubsubTopic: string): MessageStoreResult[void] {.base.} = discard
 
-method getOldestMessageTimestamp*(db: MessageStore): MessageStoreResult[Timestamp] {.base.} = discard
-
-method put*(db: MessageStore, cursor: Index, message: WakuMessage, pubsubTopic: string): MessageStoreResult[void] {.base.} = discard
-
-
-# TODO: Deprecate the following methods after after #1026
-method getAll*(db: MessageStore, onData: DataProc): MessageStoreResult[bool] {.base.} = discard
-method getPage*(db: MessageStore, pred: QueryFilterMatcher, pagingInfo: PagingInfo): MessageStoreResult[(seq[WakuMessage], PagingInfo, HistoryResponseError)] {.base.} = discard
-method getPage*(db: MessageStore, pagingInfo: PagingInfo): MessageStoreResult[(seq[WakuMessage], PagingInfo, HistoryResponseError)] {.base.} = discard
-
-
-# TODO: Move to sqlite store
-method getAllMessages(db: MessageStore): MessageStoreResult[seq[MessageStoreRow]] {.base.} = discard
+method getAllMessages*(ms: MessageStore): MessageStoreResult[seq[MessageStoreRow]] {.base.} = discard
 
 method getMessagesByHistoryQuery*(
-  db: MessageStore,
+  ms: MessageStore,
   contentTopic = none(seq[ContentTopic]),
   pubsubTopic = none(string),
   cursor = none(Index),

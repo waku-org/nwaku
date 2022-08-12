@@ -448,7 +448,7 @@ proc mountSwap*(node: WakuNode, swapConfig: SwapConfig = SwapConfig.init()) {.ra
   # NYI - Do we need this?
   #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
 
-proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: bool = false, capacity = DefaultStoreCapacity, isSqliteOnly = false) {.raises: [Defect, LPError].} =
+proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: bool = false, capacity = StoreDefaultCapacity, isSqliteOnly = false) {.raises: [Defect, LPError].} =
   info "mounting store"
 
   if node.wakuSwap.isNil:
