@@ -1,3 +1,52 @@
+## 2022-08-15 v0.11
+
+Release highlights:
+- Major improvements in the performance of historical message queries to longer-term, sqlite-only message stores.
+- Introduction of an HTTP REST API with basic functionality
+- On-chain RLN group management. This was also integrated into an [example spam-protected chat application](https://github.com/status-im/nwaku/blob/4f93510fc9a938954dd85593f8dc4135a1c367de/docs/tutorial/onchain-rln-relay-chat2.md).
+
+The full list of changes is below.
+
+### Features
+
+- Support for on-chain group membership management in the [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation.
+- Integrated HTTP REST API for external access to some `wakunode2` functionality:
+  - Debug REST API exposes debug information about a `wakunode2`.
+  - Relay REST API allows basic pub/sub functionality according to [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/).
+- [`35/WAKU2-NOISE`](https://rfc.vac.dev/spec/35/) implementation now adds padding to ChaChaPoly encryptions to increase security and reduce metadata leakage.
+
+### Changes
+
+- Significantly improved the SQLite-only historical message `store` query performance.
+- Refactored several protocol implementations to improve maintainability and readability.
+- Major code reorganization for the [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) implementation to improve maintainability. This will also make the `store` extensible to support multiple implementations.
+- Disabled compiler log colors when running in a CI environment. 
+- Refactored [`35/WAKU2-NOISE`](https://rfc.vac.dev/spec/35/) implementation into smaller submodules.
+- [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) implementation can now optionally be compiled with [Zerokit RLN](https://github.com/vacp2p/zerokit/tree/64f508363946b15ac6c52f8b59d8a739a33313ec/rln). Previously only [Kilic's RLN](https://github.com/kilic/rln/tree/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43) was supported.
+
+### Fixes
+
+- Fixed wire encoding of protocol buffers to use proto3.
+- Fixed Waku v1 <> Waku v2 bridge losing connection to statically configured v1 nodes.
+- Fixed underlying issue causing DNS discovery to fail for records containing multiple strings.
+
+### Docs
+
+- Updated [release process](https://github.com/status-im/nwaku/blob/4f93510fc9a938954dd85593f8dc4135a1c367de/docs/contributors/release-process.md) documentation.
+- Added [tutorial](https://github.com/status-im/nwaku/blob/4f93510fc9a938954dd85593f8dc4135a1c367de/docs/tutorial/onchain-rln-relay-chat2.md) on how to run a spam-protected chat2 application with on-chain group management.
+
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
+
 ## 2022-06-15 v0.10
 
 Release highlights:
