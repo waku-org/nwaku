@@ -19,7 +19,7 @@ import
   ../protocol/[waku_relay, waku_message],
   ../protocol/waku_store,
   ../protocol/waku_swap/waku_swap,
-  ../protocol/waku_filter/waku_filter,
+  ../protocol/waku_filter,
   ../protocol/waku_lightpush,
   ../protocol/waku_rln_relay/[waku_rln_relay_types], 
   ../utils/[peers, requests, wakuswitch, wakuenr],
@@ -66,30 +66,6 @@ proc protocolMatcher(codec: string): Matcher =
     return proto.startsWith(codec)
 
   return match
-
-proc removeContentFilters(filters: var Filters, contentFilters: seq[ContentFilter]) {.gcsafe.} =
-  # Flatten all unsubscribe topics into single seq
-  let unsubscribeTopics = contentFilters.mapIt(it.contentTopic)
-  
-  debug "unsubscribing", unsubscribeTopics=unsubscribeTopics
-
-  var rIdToRemove: seq[string] = @[]
-  for rId, f in filters.mpairs:
-    # Iterate filter entries to remove matching content topics
-  
-    # make sure we delete the content filter
-    # if no more topics are left
-    f.contentFilters.keepIf(proc (cf: auto): bool = cf.contentTopic notin unsubscribeTopics)
-
-    if f.contentFilters.len == 0:
-      rIdToRemove.add(rId)
-
-  # make sure we delete the filter entry
-  # if no more content filters left
-  for rId in rIdToRemove:
-    filters.del(rId)
-  
-  debug "filters modified", filters=filters
 
 proc updateSwitchPeerInfo(node: WakuNode) =
   ## TODO: remove this when supported upstream
@@ -217,7 +193,7 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
     switch: switch,
     rng: rng,
     enr: enr,
-    filters: initTable[string, Filter](),
+    filters: Filters.init(),
     announcedAddresses: announcedAddresses
   )
 
@@ -279,18 +255,20 @@ proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHa
   var id = generateRequestId(node.rng)
 
   if node.wakuFilter.isNil == false:
-    let idOpt = await node.wakuFilter.subscribe(request)
+    let
+      pubsubTopic = request.pubsubTopic
+      contentTopics = request.contentFilters.mapIt(it.contentTopic)
+    let resSubscription = await node.wakuFilter.subscribe(pubsubTopic, contentTopics)
 
-    if idOpt.isSome():
-      # Subscribed successfully.
-      id = idOpt.get()
+    if resSubscription.isOk():
+      id = resSubscription.get()
     else:
       # Failed to subscribe
       error "remote subscription to filter failed", filter = request
       waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
 
   # Register handler for filter, whether remote subscription succeeded or not
-  node.filters[id] = Filter(contentFilters: request.contentFilters, handler: handler, pubSubTopic: request.pubSubTopic)
+  node.filters.addContentFilters(id, request.pubSubTopic, request.contentFilters, handler)
   waku_node_filters.set(node.filters.len.int64)
 
 proc unsubscribe*(node: WakuNode, topic: Topic, handler: TopicHandler) =
@@ -333,7 +311,10 @@ proc unsubscribe*(node: WakuNode, request: FilterRequest) {.async, gcsafe.} =
   
   info "unsubscribe content", filter=request
   
-  await node.wakuFilter.unsubscribe(request)
+  let 
+    pubsubTopic = request.pubsubTopic
+    contentTopics = request.contentFilters.mapIt(it.contentTopic)
+  discard await node.wakuFilter.unsubscribe(pubsubTopic, contentTopics)
   node.filters.removeContentFilters(request.contentFilters)
 
   waku_node_filters.set(node.filters.len.int64)
@@ -420,10 +401,9 @@ proc info*(node: WakuNode): WakuInfo =
   let wakuInfo = WakuInfo(listenAddresses: listenStr, enrUri: enrUri)
   return wakuInfo
 
-proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {.raises: [Defect, KeyError, LPError]} =
+proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {.raises: [Defect, LPError]} =
   info "mounting filter"
-  proc filterHandler(requestId: string, msg: MessagePush)
-    {.async, gcsafe, raises: [Defect, KeyError].} =
+  proc filterHandler(requestId: string, msg: MessagePush) {.async, gcsafe.} =
     
     info "push received"
     for message in msg.messages:

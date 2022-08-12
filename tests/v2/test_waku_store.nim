@@ -490,7 +490,7 @@ procSuite "Waku Store - fault tolerant store":
     ]
 
     for msg in msgList:
-      await proto.handleMessage(DEFAULT_PUBSUB_TOPIC, msg)
+      await proto.handleMessage(DefaultPubsubTopic, msg)
 
     let (listenSwitch2, dialSwitch2, proto2) = await newTestWakuStore()
     let msgList2 = @[
@@ -505,7 +505,7 @@ procSuite "Waku Store - fault tolerant store":
     ]
 
     for msg in msgList2:
-      await proto2.handleMessage(DEFAULT_PUBSUB_TOPIC, msg)
+      await proto2.handleMessage(DefaultPubsubTopic, msg)
 
     
     asyncTest "handle temporal history query with a valid time window":
