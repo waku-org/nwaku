@@ -1053,7 +1053,7 @@ proc readPersistentRlnCredentials*(path: string) : RlnMembershipCredentials {.ra
 
 proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler] = none(SpamHandler)) {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
   if not conf.rlnRelayDynamic:
-    info " setting up waku-rln-relay in on-chain mode... "
+    info " setting up waku-rln-relay in off-chain mode... "
     # set up rln relay inputs
     let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelayStaticSetUp(conf.rlnRelayMemIndex)
     if memIndexOpt.isNone:
