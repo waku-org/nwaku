@@ -87,7 +87,7 @@ Listening on
 Store enabled, but no store nodes configured. Choosing one at random from discovered peers
 Connecting to storenode: 16Uiu2HAkvWiyFsgRhuJEb9JfjYxEkoHLgnUQmr1N5mKWnYjxYRVm
 ```
-You will also see some historical messages being fetched, again the content may be different on your end:
+You will  also see some historical messages being fetched, again the content may be different on your end:
 
 ```
 <Jul 26, 10:41> Bob: hi
