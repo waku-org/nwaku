@@ -755,8 +755,6 @@ suite "Waku rln relay":
       proofAdded3 = wakuRlnRelay.appendRLNProof(wm3, time+EPOCH_UNIT_SECONDS)
       wm4 = WakuMessage(payload: "Invalid message".toBytes())
 
-    echo wm1.proof
-
     # checks proofs are added
     check:
       proofAdded1
