@@ -64,7 +64,7 @@ Obtain Goerli Ethers from faucet
     1. [https://goerlifaucet.com/](https://goerlifaucet.com/)
     2. [https://goerli-faucet.slock.it/](https://goerli-faucet.slock.it/)
     3. [https://goerli-faucet.pk910.de/](https://goerli-faucet.pk910.de/)
-    (NOTE: We have not tested the security of these faucets so please feel free to do your own research or obtain Gorli ethers from other faucets if needed.)
+    (NOTE: We have not tested the security of these faucets so please feel free to do your own research or obtain Goerli ethers from other faucets if needed.)
 3. Please follow the instructions on the webpages of these faucets.
 4. A lot of faucets limit the Goerli ETH to 0.05 ETH/day.
 5. To obtain more eth, you can do some POW mining. One of those POW faucet is:
@@ -99,9 +99,9 @@ Setting up a hosted node on Goerli Testnet using Infura
 
 3. After creating the project, you will be presented with a dashboard like follows. Note that your Project Id and secret will be different.
     
-    ![](https://i.imgur.com/PfGmq4i.jpg)
+   ![](imgs/infura-dashboard-mainnet.png)
 
-ß4. Select Gorli network in Endpoints.
+4. Select Goerli network in Endpoints.
     
     ![](https://i.imgur.com/RgmH7C1.png)
 
