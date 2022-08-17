@@ -4,9 +4,11 @@ import
   std/[options, sequtils, sets],
   chronicles,
   json_rpc/rpcserver,
-  libp2p/[peerinfo, switch],
-  ../wakunode2,
+  libp2p/[peerinfo, switch]
+import
+  ../../protocol/waku_store,
   ../peer_manager/peer_manager,
+  ../wakunode2,
   ./jsonrpc_types
 
 export jsonrpc_types
