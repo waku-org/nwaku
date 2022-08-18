@@ -1,9 +1,9 @@
-#  Spam-protected chat2 application with on-chain group management
+# Spam-protected chat2 application with on-chain group management
 
 This document is a tutorial on how to run the chat2 application in the spam-protected mode using the Waku-RLN-Relay protocol and with dynamic/on-chain group management.
 In the on-chain/dynamic group management, the state of the group members i.e., their identity commitment keys is moderated via a membership smart contract deployed on the Goerli network which is one of the Ethereum testnets.
 Members can be dynamically added to the group and the group size can grow up to 2^20 members.
-This  differs from the prior test scenarios in which the RLN group was static and the set of members' keys was hardcoded and fixed.
+This differs from the prior test scenarios in which the RLN group was static and the set of members' keys was hardcoded and fixed.
 
 
 ## Prerequisites 
@@ -16,7 +16,7 @@ however, you still need to have more funds in your account to cover the cost of 
 
 ## Overview
 Figure 1 provides an overview of the interaction of the chat2 clients with the test fleets and the membership contract. 
-At a high level,  when a chat2 client is run with Waku-RLN-Relay mounted in on-chain mode, it creates RLN credential (i.e., an identity key and an identity commitment key) and 
+At a high level, when a chat2 client is run with Waku-RLN-Relay mounted in on-chain mode, it creates RLN credential (i.e., an identity key and an identity commitment key) and 
 sends a transaction to the membership contract to register the corresponding membership identity commitment key.
 This transaction will also transfer `0.001` Ethers to the contract as membership fee.
 This amount plus the transaction fee will be deducted from the supplied Goerli account. 
@@ -49,26 +49,25 @@ make chat2 RLN=true
 Run the following command to set up your chat2 client. 
 
 ```
-./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6  --eth-account-address:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --eth-account-privatekey:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  --eth-client-address:xxxx  --ports-shift=1  
-
+./build/chat2 --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --eth-account-address:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --eth-account-privatekey:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --eth-client-address:xxxx --ports-shift=1 
 ```
 
 In this command
 - the `--fleet:test` indicates that the chat2 app gets connected to the test fleets.
 - the `toy-chat/2/luzhou/proto` passed to the `content-topic` option indicates the content topic on which the chat2 application is going to run.
 - the `rln-relay` flag is set to `true` to enable the Waku-RLN-Relay protocol for spam protection.
-- the `--rln-relay-dynamic` flag is set to `true`  to enable the on-chain mode of  Waku-RLN-Relay protocol with dynamic group management.
+- the `--rln-relay-dynamic` flag is set to `true` to enable the on-chain mode of Waku-RLN-Relay protocol with dynamic group management.
 - the `--eth-mem-contract-address` option gets the address of the membership contract.
-  The current address of the contract is `0x4252105670fe33d2947e8ead304969849e64f2a6`.
-  You may check the state of the contract on the [Goerli testnet](https://goerli.etherscan.io/address/0x4252105670fe33d2947e8ead304969849e64f2a6).
+ The current address of the contract is `0x4252105670fe33d2947e8ead304969849e64f2a6`.
+ You may check the state of the contract on the [Goerli testnet](https://goerli.etherscan.io/address/0x4252105670fe33d2947e8ead304969849e64f2a6).
 - the `eth-account-address` option is for your account address on the Goerli testnet.
-  It is a hex string of length 40 (not sensitive to the `0x` prefix). 
+ It is a hex string of length 40 (not sensitive to the `0x` prefix). 
 - the `eth-account-privatekey` option is for your account private key on the Goerli testnet. 
-  It is made up of 64 hex characters (not sensitive to the `0x` prefix).
-- the `eth-client-address` should be assigned with the address of the hosted node on the Goerli testnet. 
-  You need to replace the `xxxx` with the actual node's address.
+ It is made up of 64 hex characters (not sensitive to the `0x` prefix).
+- the `eth-client-address` is the websocket address of the hosted node on the Goerli testnet. 
+ You need to replace the `xxxx` with the actual node's address.
 
-For the last three config options i.e., `eth-account-address`, `eth-account-privatekey`, and `eth-client-address`,  if you do not know how to obtain those, you may use the following tutorial on the [prerequisites of running on-chain spam-protected chat2](./pre-requisites-of-running-on-chain-spam-protected-chat2.md).
+For the last three config options i.e., `eth-account-address`, `eth-account-privatekey`, and `eth-client-address`, if you do not know how to obtain those, you may use the following tutorial on the [prerequisites of running on-chain spam-protected chat2](./pre-requisites-of-running-on-chain-spam-protected-chat2.md).
 
 You may set up more than one chat client,
 just make sure that you increment the `--ports-shift` value for each new client you set up e.g., `--ports-shift=2`.
@@ -88,7 +87,7 @@ Listening on
 Store enabled, but no store nodes configured. Choosing one at random from discovered peers
 Connecting to storenode: 16Uiu2HAkvWiyFsgRhuJEb9JfjYxEkoHLgnUQmr1N5mKWnYjxYRVm
 ```
-You will also see some historical messages  being fetched, again the content may be different on your end:
+You will  also see some historical messages being fetched, again the content may be different on your end:
 
 ```
 <Jul 26, 10:41> Bob: hi
@@ -114,7 +113,7 @@ The RLN identity key is not shown in the figure (replaced by a string of `x`s) f
 But, you will see your RLN identity key.
 
 ```
-your membership index is: 63
+your membership index is: xx
 your RLN identity key is: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 your RLN identity commitment key is: 6c6598126ba10d1b70100893b76d7f8d7343eeb8f5ecfd48371b421c5aa6f012
 ```
@@ -156,13 +155,13 @@ quitting...
 You may reuse your old RLN credential using `rln-relay-membership-index`, `rln-relay-id` and `rln-relay-id-commitment` options. 
 For instance, if the previously generated credential are
 ```
-your membership index is: 63
+your membership index is: xx
 your rln identity key is: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 your rln identity commitment key is: 6c6598126ba10d1b70100893b76d7f8d7343eeb8f5ecfd48371b421c5aa6f012
 ```
 Then, the execution command will look like this (inspect the last three config options):
 ```
-./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6  --eth-account-address:your_eth_account --eth-account-privatekey:your_eth_private_key  --eth-client-address:your_goerli_node  --ports-shift=1  --rln-relay-membership-index:63 --rln-relay-id:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --rln-relay-id-commitment:6c6598126ba10d1b70100893b76d7f8d7343eeb8f5ecfd48371b421c5aa6f012
+./build/chat2 --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --eth-account-address:your_eth_account --eth-account-privatekey:your_eth_private_key --eth-client-address:your_goerli_node --ports-shift=1 --rln-relay-membership-index:63 --rln-relay-id:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --rln-relay-id-commitment:6c6598126ba10d1b70100893b76d7f8d7343eeb8f5ecfd48371b421c5aa6f012
 
 ```
 
@@ -180,7 +179,7 @@ You can check this fact by looking at `Bob`'s console, where `message3` is missi
 
 **Alice**
 ``` 
-./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6  --eth-account-address:0x1234567890123456789012345678901234567890 --eth-account-privatekey:0x1234567890123456789012345678901234567890123456789012345678901234  --eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012  --ports-shift=1 
+./build/chat2 --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --eth-account-address:0x1234567890123456789012345678901234567890 --eth-account-privatekey:0x1234567890123456789012345678901234567890123456789012345678901234 --eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012 --ports-shift=1 
 
 Choose a nickname >> Alice
 Welcome, Alice!
@@ -201,7 +200,7 @@ Connecting to storenode: 16Uiu2HAkvWiyFsgRhuJEb9JfjYxEkoHLgnUQmr1N5mKWnYjxYRVm
 <Jun 29, 16:15> b: hi
 <Jun 29, 16:15> h: hi
 rln-relay preparation is in progress ...
-your membership index is: 66
+your membership index is: xx
 your rln identity key is: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 your rln identity commitment key is: bd093cbf14fb933d53f596c33f98b3df83b7e9f7a1906cf4355fac712077cb28
 >> message1
@@ -221,7 +220,7 @@ your rln identity commitment key is: bd093cbf14fb933d53f596c33f98b3df83b7e9f7a19
 
 **Bob**
 ``` 
-./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6  --eth-account-address:0x1234567890123456789012345678901234567890 --eth-account-privatekey:0x1234567890123456789012345678901234567890123456789012345678901234  --eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012  --ports-shift=2 
+./build/chat2 --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --eth-account-address:0x1234567890123456789012345678901234567890 --eth-account-privatekey:0x1234567890123456789012345678901234567890123456789012345678901234 --eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012 --ports-shift=2 
 
 Choose a nickname >> Bob
 Welcome, Bob!
@@ -232,7 +231,7 @@ Listening on
 Store enabled, but no store nodes configured. Choosing one at random from discovered peers
 Connecting to storenode: 16Uiu2HAkvWiyFsgRhuJEb9JfjYxEkoHLgnUQmr1N5mKWnYjxYRVm
 rln-relay preparation is in progress ...
-your membership index is: 65
+your membership index is: xx
 your rln identity key is: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 your rln identity commitment key is: d4961a7681521730bc7f9ade185c632b94b70624b2e87e21a97c07b83353f306
 >> <Jul 26, 13:05> Alice: message1
