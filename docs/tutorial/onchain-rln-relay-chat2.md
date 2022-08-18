@@ -22,7 +22,7 @@ This transaction will also transfer `0.001` Ethers to the contract as membership
 This amount plus the transaction fee will be deducted from the supplied Goerli account. 
 Once the transaction is mined and the registration is successful, the registered credential will get displayed on the console of your chat2 client.
 You may copy the displayed RLN credential and reuse them for the future execution of the chat2 application.
-Proper instructions in this regard is provided in the following [section](#how-to-reuse-rln-credential).
+Proper instructions in this regard is provided in the following [section](#how-to-persist-and-reuse-rln-credential).
 If you choose not to reuse the same credential, then for each execution, a new registration will take place and more funds will get deducted from your Goerli account.
 Under the hood, the chat2 client constantly listens to the membership contract and keeps itself updated with the latest state of the group.
 
@@ -150,19 +150,15 @@ Once you are done with the test, make sure you close all the chat2 clients by ty
 quitting...
 ```
 
-## How to reuse RLN credential
+## How to persist and reuse RLN credential
 
-You may reuse your old RLN credential using `rln-relay-membership-index`, `rln-relay-id` and `rln-relay-id-commitment` options. 
-For instance, if the previously generated credential are
-```
-your membership index is: xx
-your rln identity key is: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-your rln identity commitment key is: 6c6598126ba10d1b70100893b76d7f8d7343eeb8f5ecfd48371b421c5aa6f012
-```
-Then, the execution command will look like this (inspect the last three config options):
-```
-./build/chat2 --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --eth-account-address:your_eth_account --eth-account-privatekey:your_eth_private_key --eth-client-address:your_goerli_node --ports-shift=1 --rln-relay-membership-index:63 --rln-relay-id:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --rln-relay-id-commitment:6c6598126ba10d1b70100893b76d7f8d7343eeb8f5ecfd48371b421c5aa6f012
+You may pass the `rln-relay-cred-path` config option to specify a path for 1) persisting RLN credential 2) retrieving persisted RLN credential.  
+RLN credential is persisted in the `rlnCredentials.txt` file under the specified path.
+If this file does not already exist under the supplied path, then a new credential is generated and persisted in the `rlnCredentials.txt` file.
+Otherwise, the chat client does not generate new credential, instead uses the persisted RLN credential. 
 
+```
+./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6  --eth-account-address:your_eth_account --eth-account-privatekey:your_eth_private_key  --eth-client-address:your_goerli_node  --ports-shift=1  --rln-relay-cred-path:./
 ```
 
 # Sample test output
