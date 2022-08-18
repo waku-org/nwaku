@@ -114,6 +114,11 @@ type
       defaultValue: false
       name: "rln-relay" }: bool
     
+    rlnRelayCredPath* {.
+      desc: "The path for peristing rln-relay credential",
+      defaultValue: ""
+      name: "rln-relay-cred-path" }: string
+
     rlnRelayMemIndex* {.
       desc: "(experimental) the index of node in the rln-relay group: a value between 0-99 inclusive",
       defaultValue: MembershipIndex(0)
