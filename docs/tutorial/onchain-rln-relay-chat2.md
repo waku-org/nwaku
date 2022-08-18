@@ -152,7 +152,7 @@ quitting...
 
 ## How to persist and reuse RLN credential
 
-You may pass the `rln-relay-cred-path` config option to specify a path for 1) persisting RLN credential 2) retrieveing persisted RLN credential.  
+You may pass the `rln-relay-cred-path` config option to specify a path for 1) persisting RLN credential 2) retrieving persisted RLN credential.  
 RLN credential is persisted in the `rlnCredentials.txt` file under the specified path.
 If this file does not already exist under the supplied path, then a new credential is generated and persisted in the `rlnCredentials.txt` file.
 Otherwise, the chat client does not generate new credential, instead uses the persisted RLN credential. 
