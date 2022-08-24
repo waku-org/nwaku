@@ -1071,8 +1071,9 @@ when isMainModule:
     if conf.staticnodes.len > 0:
       waitFor connectToNodes(node, conf.staticnodes, "static")
     
-    info "Connecting to dynamic bootstrap peers"
-    waitFor connectToNodes(node, dynamicBootstrapNodes, "dynamic bootstrap")
+    if dynamicBootstrapNodes.len > 0:
+      info "Connecting to dynamic bootstrap peers"
+      waitFor connectToNodes(node, dynamicBootstrapNodes, "dynamic bootstrap")
     
     # Start keepalive, if enabled
     if conf.keepAlive:
