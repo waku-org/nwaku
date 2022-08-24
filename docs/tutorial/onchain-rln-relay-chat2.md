@@ -106,9 +106,14 @@ Next, you see the following message:
 ```
 rln-relay preparation is in progress ...
 ```
-At this phase, your RLN credential are getting created and a transaction is being sent to the membership smart contract.
+At this phase, your RLN credential is being created and a transaction is being sent to the membership smart contract.
 It will take some time for the transaction to be finalized.
-Once finalized, the registered RLN identity key, the RLN identity commitment key, and the index of the registered credential will be displayed as given below.
+Once finalized, a link to the transaction on Goerli network will be shown like below.
+You will see the actual transaction hash instead of `0xxxx`.
+```
+You are registered to the rln membership contract, find details of your registration transaction in https://goerli.etherscan.io/tx/0xxxx 
+```
+Also, the registered RLN identity key, the RLN identity commitment key, and the index of the registered credential will be displayed as given below.
 The RLN identity key is not shown in the figure (replaced by a string of `x`s) for security reasons. 
 But, you will see your RLN identity key.
 
@@ -142,6 +147,10 @@ sending more than one message per epoch.
 Your messages will be routed via test fleets that are running in spam-protected mode over the same content topic i.e., `/toy-chat/2/luzhou/proto` as your chat client.
 Your spam activity will be detected by them and your message will not reach the rest of the chat clients.
 You can check this by running a second chat user and verifying that spam messages are not displayed as they are filtered by the test fleets.
+Furthermore, the chat client will prompt you with the following warning message indicating that the message rate is being violated:
+```
+⚠️ message rate violation! you are spamming the network!
+```
 A sample test scenario is illustrated in the [Sample test output section](#sample-test-output).
 
 Once you are done with the test, make sure you close all the chat2 clients by typing the `/exit` command.
@@ -196,6 +205,7 @@ Connecting to storenode: 16Uiu2HAkvWiyFsgRhuJEb9JfjYxEkoHLgnUQmr1N5mKWnYjxYRVm
 <Jun 29, 16:15> b: hi
 <Jun 29, 16:15> h: hi
 rln-relay preparation is in progress ...
+You are registered to the rln membership contract, find details of your registration transaction in https://goerli.etherscan.io/tx/0xxxx 
 your membership index is: xx
 your rln identity key is: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 your rln identity commitment key is: bd093cbf14fb933d53f596c33f98b3df83b7e9f7a1906cf4355fac712077cb28
@@ -206,7 +216,7 @@ your rln identity commitment key is: bd093cbf14fb933d53f596c33f98b3df83b7e9f7a19
 --rln epoch: 165886592
 <Jul 26, 13:05> Alice: message2
 >> message3
---rln epoch: 165886592
+--rln epoch: 165886592 ⚠️ message rate violation! you are spamming the network!
 <Jul 26, 13:05> Alice: message3
 >> message4
 --rln epoch: 165886593
@@ -227,6 +237,7 @@ Listening on
 Store enabled, but no store nodes configured. Choosing one at random from discovered peers
 Connecting to storenode: 16Uiu2HAkvWiyFsgRhuJEb9JfjYxEkoHLgnUQmr1N5mKWnYjxYRVm
 rln-relay preparation is in progress ...
+You are registered to the rln membership contract, find details of your registration transaction in https://goerli.etherscan.io/tx/0xxxx 
 your membership index is: xx
 your rln identity key is: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 your rln identity commitment key is: d4961a7681521730bc7f9ade185c632b94b70624b2e87e21a97c07b83353f306
