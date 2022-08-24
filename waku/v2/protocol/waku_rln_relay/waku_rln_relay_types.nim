@@ -120,6 +120,7 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     contentTopic*: string
     # the log of nullifiers and Shamir shares of the past messages grouped per epoch
     nullifierLog*: Table[Epoch, seq[ProofMetadata]]
+    lastEpoch*: Epoch # the epoch of the last published rln message
 
 when defined(rlnzerokit):
   type WakuRLNRelay* = ref object

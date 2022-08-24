@@ -229,7 +229,13 @@ proc publish(c: Chat, line: string) =
           else:
             debug "rate limit proof is appended to the message", success=success
             # TODO move it to log after doogfooding
-            echo "--rln epoch: ", fromEpoch(message.proof.epoch)
+            let msgEpoch = fromEpoch(message.proof.epoch)
+            if fromEpoch(c.node.wakuRlnRelay.lastEpoch) == fromEpoch(message.proof.epoch):
+              echo "--rln epoch: ", msgEpoch, " ⚠️ message rate violation! you are spamming the network!"
+            else:
+              echo "--rln epoch: ", msgEpoch
+            # update the last epoch
+            c.node.wakuRlnRelay.lastEpoch = message.proof.epoch
       if not c.node.wakuLightPush.isNil():
         # Attempt lightpush
         asyncSpawn c.node.lightpush(DefaultTopic, message, handler)
@@ -250,7 +256,14 @@ proc publish(c: Chat, line: string) =
           debug "could not append rate limit proof to the message", success=success
         else:
           debug "rate limit proof is appended to the message", success=success
-          echo "--rln epoch: ", fromEpoch(message.proof.epoch)
+          # TODO move it to log after doogfooding
+          let msgEpoch = fromEpoch(message.proof.epoch)
+          if fromEpoch(c.node.wakuRlnRelay.lastEpoch) == msgEpoch:
+            echo "--rln epoch: ", msgEpoch, " ⚠️ message rate violation! you are spamming the network!"
+          else:
+            echo "--rln epoch: ", msgEpoch
+          # update the last epoch
+          c.node.wakuRlnRelay.lastEpoch = message.proof.epoch
 
     if not c.node.wakuLightPush.isNil():
       # Attempt lightpush
@@ -511,8 +524,11 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
             echo "A spam message is found and discarded"
           chat.prompt = false
           showChatPrompt(chat)
+        proc registrationHandler(txHash: string) {.gcsafe, closure.} =
+          echo "You are registered to the rln membership contract, find details of your registration transaction in https://goerli.etherscan.io/tx/0x", txHash
+       
         echo "rln-relay preparation is in progress ..."
-        node.mountRlnRelay(conf, some(spamHandler))
+        node.mountRlnRelay(conf = conf, spamHandler = some(spamHandler), registrationHandler = some(registrationHandler))
         echo "your membership index is: ", node.wakuRlnRelay.membershipIndex
         echo "your rln identity key is: ", node.wakuRlnRelay.membershipKeyPair.idKey.toHex()
         echo "your rln identity commitment key is: ", node.wakuRlnRelay.membershipKeyPair.idCommitment.toHex()
