@@ -1,13 +1,13 @@
 # Spam-protected chat2 application with on-chain group management
 
 This document is a tutorial on how to run the chat2 application in the spam-protected mode using the Waku-RLN-Relay protocol and with dynamic/on-chain group management.
-In the on-chain/dynamic group management, the state of the group members i.e., their identity commitment keys is moderated via a membership smart contract deployed on the Goerli network which is one of the Ethereum testnets.
+In the on-chain/dynamic group management, the state of the group members i.e., their identity commitment keys is moderated via a membership smart contract deployed on the Goerli network which is one of the Ethereum test-nets.
 Members can be dynamically added to the group and the group size can grow up to 2^20 members.
 This differs from the prior test scenarios in which the RLN group was static and the set of members' keys was hardcoded and fixed.
 
 
 ## Prerequisites 
-To complete this tutorial, you will need 1) an account with at least `0.001` ethers on the Goerli testnet and 2) a hosted node on the Goerli testnet. 
+To complete this tutorial, you will need 1) an account with at least `0.001` ethers on the Goerli test net and 2) a hosted node on the Goerli testnet. 
 In case you are not familiar with either of these two steps, you may follow the following tutorial to fulfill the [prerequisites of running on-chain spam-protected chat2](./pre-requisites-of-running-on-chain-spam-protected-chat2.md).
 Note that the required `0.001` ethers correspond to the registration fee, 
 however, you still need to have more funds in your account to cover the cost of the transaction gas fee.
@@ -16,9 +16,9 @@ however, you still need to have more funds in your account to cover the cost of 
 
 ## Overview
 Figure 1 provides an overview of the interaction of the chat2 clients with the test fleets and the membership contract. 
-At a high level, when a chat2 client is run with Waku-RLN-Relay mounted in on-chain mode, it creates RLN credential (i.e., an identity key and an identity commitment key) and 
+At a high level, when a chat2 client is run with Waku-RLN-Relay mounted in on-chain mode, it creates an RLN credential (i.e., an identity key and an identity commitment key) and 
 sends a transaction to the membership contract to register the corresponding membership identity commitment key.
-This transaction will also transfer `0.001` Ethers to the contract as membership fee.
+This transaction will also transfer `0.001` Ethers to the contract as a membership fee.
 This amount plus the transaction fee will be deducted from the supplied Goerli account. 
 Once the transaction is mined and the registration is successful, the registered credential will get displayed on the console of your chat2 client.
 You may copy the displayed RLN credential and reuse them for the future execution of the chat2 application.
@@ -31,7 +31,7 @@ The test fleets will act as routers and are also set to run Waku-RLN-Relay over 
 Spam messages published on the said combination of topics will be caught by the test fleet nodes and will not be routed.
 Note that spam protection does not rely on the presence of the test fleets.
 In fact, all the chat2 clients are also capable of catching and dropping spam messages if they receive any.
-You can test it by connecting two chat2 clients (running Waku-RLN-Relay) directly to each others and see they can spot each others' spam activities.
+You can test it by connecting two chat2 clients (running Waku-RLN-Relay) directly to each other and see if they can spot each other's spam activities.
 
  ![](./imgs/rln-relay-chat2-overview.png)
  Figure 1.
@@ -64,7 +64,7 @@ In this command
  It is a hex string of length 40 (not sensitive to the `0x` prefix). 
 - the `eth-account-privatekey` option is for your account private key on the Goerli testnet. 
  It is made up of 64 hex characters (not sensitive to the `0x` prefix).
-- the `eth-client-address` is the websocket address of the hosted node on the Goerli testnet. 
+- the `eth-client-address` is the WebSocket address of the hosted node on the Goerli testnet. 
  You need to replace the `xxxx` with the actual node's address.
 
 For the last three config options i.e., `eth-account-address`, `eth-account-privatekey`, and `eth-client-address`, if you do not know how to obtain those, you may use the following tutorial on the [prerequisites of running on-chain spam-protected chat2](./pre-requisites-of-running-on-chain-spam-protected-chat2.md).
@@ -108,11 +108,11 @@ rln-relay preparation is in progress ...
 ```
 At this phase, your RLN credential is being created and a transaction is being sent to the membership smart contract.
 It will take some time for the transaction to be finalized.
-Once finalized, a link to the transaction on Goerli network will be shown like below.
-You will see the actual transaction hash instead of `0xxxx`.
+Once finalized, a link to the transaction on the Goerli network will be shown i.e., 
 ```
 You are registered to the rln membership contract, find details of your registration transaction in https://goerli.etherscan.io/tx/0xxxx 
 ```
+Note that you will see the actual transaction hash instead of `0xxxx`.
 Also, the registered RLN identity key, the RLN identity commitment key, and the index of the registered credential will be displayed as given below.
 The RLN identity key is not shown in the figure (replaced by a string of `x`s) for security reasons. 
 But, you will see your RLN identity key.
@@ -161,10 +161,10 @@ quitting...
 
 ## How to persist and reuse RLN credential
 
-You may pass the `rln-relay-cred-path` config option to specify a path for 1) persisting RLN credential 2) retrieving persisted RLN credential.  
+You may pass the `rln-relay-cred-path` config option to specify a path for 1) persisting RLN credentials and 2) retrieving persisted RLN credentials.  
 RLN credential is persisted in the `rlnCredentials.txt` file under the specified path.
 If this file does not already exist under the supplied path, then a new credential is generated and persisted in the `rlnCredentials.txt` file.
-Otherwise, the chat client does not generate new credential, instead uses the persisted RLN credential. 
+Otherwise, the chat client does not generate a new credential but instead uses the persisted RLN credential. 
 
 ```
 ./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6  --eth-account-address:your_eth_account --eth-account-privatekey:your_eth_private_key  --eth-client-address:your_goerli_node  --ports-shift=1  --rln-relay-cred-path:./
