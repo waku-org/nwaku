@@ -114,7 +114,7 @@ You are registered to the rln membership contract, find details of your registra
 ```
 Note that you will see the actual transaction hash instead of `0xxxx`.
 Also, the registered RLN identity key, the RLN identity commitment key, and the index of the registered credential will be displayed as given below.
-The RLN identity key is not shown in the figure (replaced by a string of `x`s) for security reasons. 
+Note that in the figure, the RLN identity key is not shown for security reasons (replaced by a string of `x`s).
 But, you will see your RLN identity key.
 
 ```
@@ -164,7 +164,7 @@ quitting...
 You may pass the `rln-relay-cred-path` config option to specify a path for 1) persisting RLN credentials and 2) retrieving persisted RLN credentials.  
 RLN credential is persisted in the `rlnCredentials.txt` file under the specified path.
 If this file does not already exist under the supplied path, then a new credential is generated and persisted in the `rlnCredentials.txt` file.
-Otherwise, the chat client does not generate a new credential but instead uses the persisted RLN credential. 
+Otherwise, the chat client does not generate a new credential and will use, instead, the persisted RLN credential.
 
 ```
 ./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --eth-mem-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6  --eth-account-address:your_eth_account --eth-account-privatekey:your_eth_private_key  --eth-client-address:your_goerli_node  --ports-shift=1  --rln-relay-cred-path:./
