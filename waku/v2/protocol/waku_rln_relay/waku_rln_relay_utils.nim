@@ -193,7 +193,12 @@ proc toMembershipIndex(v: UInt256): MembershipIndex =
 proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethAccountPrivKey: keys.PrivateKey, ethClientAddress: string, membershipContractAddress: Address, registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): Future[Result[MembershipIndex, string]] {.async.} =
   # TODO may need to also get eth Account Private Key as PrivateKey
   ## registers the idComm  into the membership contract whose address is in rlnPeer.membershipContractAddress
-  let web3 = await newWeb3(ethClientAddress)
+  var web3: Web3
+  try: 
+    web3 = await newWeb3(ethClientAddress)
+  except:
+    return err("could not connect to the Ethereum client")
+
   web3.defaultAccount = ethAccountAddress
   # set the account private key
   web3.privateKey = some(ethAccountPrivKey)
@@ -239,13 +244,14 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethAccountPrivK
     handler(toHex(txHash))
   return ok(toMembershipIndex(eventIndex))
 
-proc register*(rlnPeer: WakuRLNRelay, registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): Future[bool] {.async.} =
+proc register*(rlnPeer: WakuRLNRelay, registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): Future[Result[bool, string]] {.async.} =
   ## registers the public key of the rlnPeer which is rlnPeer.membershipKeyPair.publicKey
   ## into the membership contract whose address is in rlnPeer.membershipContractAddress
   let pk = rlnPeer.membershipKeyPair.idCommitment
-  discard await register(idComm = pk, ethAccountAddress = rlnPeer.ethAccountAddress, ethAccountPrivKey = rlnPeer.ethAccountPrivateKey.get(), ethClientAddress = rlnPeer.ethClientAddress, membershipContractAddress = rlnPeer.membershipContractAddress, registrationHandler = registrationHandler)
-  
-  return true
+  let result = await register(idComm = pk, ethAccountAddress = rlnPeer.ethAccountAddress, ethAccountPrivKey = rlnPeer.ethAccountPrivateKey.get(), ethClientAddress = rlnPeer.ethClientAddress, membershipContractAddress = rlnPeer.membershipContractAddress, registrationHandler = registrationHandler)
+  if result.isErr:
+    return err(result.error())
+  return ok(result.get())
 
 proc appendLength*(input: openArray[byte]): seq[byte] =
   ## returns length prefixed version of the input
@@ -992,7 +998,9 @@ proc mountRlnRelayDynamic*(node: WakuNode,
       # register the rln-relay peer to the membership contract
       let regIndexRes = await  register(idComm = keyPair.idCommitment, ethAccountAddress = ethAccAddr, ethAccountPrivKey = ethAccountPrivKeyOpt.get(), ethClientAddress = ethClientAddr, membershipContractAddress = memContractAddr, registrationHandler = registrationHandler)
       # check whether registration is done
-      doAssert(regIndexRes.isOk())
+      if regIndexRes.isErr():
+        debug "membership registration failed"
+        return
       rlnIndex = regIndexRes.value
       debug "peer is successfully registered into the membership contract"
     else: # if no eth private key is available, skip registration
