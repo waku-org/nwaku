@@ -528,10 +528,13 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
           echo "You are registered to the rln membership contract, find details of your registration transaction in https://goerli.etherscan.io/tx/0x", txHash
        
         echo "rln-relay preparation is in progress ..."
-        node.mountRlnRelay(conf = conf, spamHandler = some(spamHandler), registrationHandler = some(registrationHandler))
-        echo "your membership index is: ", node.wakuRlnRelay.membershipIndex
-        echo "your rln identity key is: ", node.wakuRlnRelay.membershipKeyPair.idKey.toHex()
-        echo "your rln identity commitment key is: ", node.wakuRlnRelay.membershipKeyPair.idCommitment.toHex()
+        let res = node.mountRlnRelay(conf = conf, spamHandler = some(spamHandler), registrationHandler = some(registrationHandler))
+        if res.isErr:
+          echo "failed to mount rln-relay: " & res.error()
+        else:
+          echo "your membership index is: ", node.wakuRlnRelay.membershipIndex
+          echo "your rln identity key is: ", node.wakuRlnRelay.membershipKeyPair.idKey.toHex()
+          echo "your rln identity commitment key is: ", node.wakuRlnRelay.membershipKeyPair.idCommitment.toHex()
 
   await chat.readWriteLoop()
 
