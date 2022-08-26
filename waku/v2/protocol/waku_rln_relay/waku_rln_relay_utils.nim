@@ -250,14 +250,14 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethAccountPrivK
     handler(toHex(txHash))
   return ok(toMembershipIndex(eventIndex))
 
-proc register*(rlnPeer: WakuRLNRelay, registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): Future[bool] {.async.} =
+proc register*(rlnPeer: WakuRLNRelay, registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): Future[Result[bool, string]] {.async.} =
   ## registers the public key of the rlnPeer which is rlnPeer.membershipKeyPair.publicKey
   ## into the membership contract whose address is in rlnPeer.membershipContractAddress
   let pk = rlnPeer.membershipKeyPair.idCommitment
-  let result = await register(idComm = pk, ethAccountAddress = rlnPeer.ethAccountAddress, ethAccountPrivKey = rlnPeer.ethAccountPrivateKey.get(), ethClientAddress = rlnPeer.ethClientAddress, membershipContractAddress = rlnPeer.membershipContractAddress, registrationHandler = registrationHandler)
-  if result.isErr:
-    return false
-  return true
+  let regResult = await register(idComm = pk, ethAccountAddress = rlnPeer.ethAccountAddress, ethAccountPrivKey = rlnPeer.ethAccountPrivateKey.get(), ethClientAddress = rlnPeer.ethClientAddress, membershipContractAddress = rlnPeer.membershipContractAddress, registrationHandler = registrationHandler)
+  if regResult.isErr:
+    return err(regResult.error())
+  return ok(true)
 
 proc appendLength*(input: openArray[byte]): seq[byte] =
   ## returns length prefixed version of the input
