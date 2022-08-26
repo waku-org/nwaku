@@ -218,7 +218,7 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethAccountPrivK
   try: # send the registration transaction and check if any error occurs
     txHash = await sender.register(pk).send(value = MEMBERSHIP_FEE, gasPrice = gasPrice)
   except ValueError as e:
-    return err("something went wrong with the registration transaction: " & e.msg)
+    return err("registration transaction failed: " & e.msg)
 
   let tsReceipt = await web3.getMinedTransactionReceipt(txHash)
   
@@ -1113,7 +1113,7 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: O
                 memKeyPair = some(credentials.membershipKeyPair), memIndex = some(credentials.rlnIndex), ethAccAddr = ethAccountAddr,
                 ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler, registrationHandler = registrationHandler)
         if res.isErr:
-          return err("rln-relay could not be mounted: " & res.error())
+          return err("dynamic rln-relay could not be mounted: " & res.error())
       else: # there is no credential file available in the supplied path
         # mount the rln-relay protocol leaving rln-relay credentials arguments unassigned 
         # this infroms mountRlnRelayDynamic proc that new credentials should be generated and registered to the membership contract
@@ -1122,7 +1122,7 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: O
                   ethAccAddr = ethAccountAddr, ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, pubsubTopic = conf.rlnRelayPubsubTopic,
                   contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler, registrationHandler = registrationHandler)  
         if res.isErr:
-          return err("rln-relay could not be mounted: " & res.error())
+          return err("dynamic rln-relay could not be mounted: " & res.error())
         # Persist generated credentials
         var rlnMembershipCredentials = 
             RlnMembershipCredentials(membershipKeyPair: node.wakuRlnRelay.membershipKeyPair, rlnIndex: node.wakuRlnRelay.membershipIndex)
@@ -1138,5 +1138,5 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: O
                 ethAccAddr = ethAccountAddr, ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, pubsubTopic = conf.rlnRelayPubsubTopic,
                 contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler, registrationHandler = registrationHandler)
       if res.isErr:
-        return err("rln-relay could not be mounted: " & res.error())
+        return err("dynamic rln-relay could not be mounted: " & res.error())
       return ok(true)
