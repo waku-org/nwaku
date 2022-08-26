@@ -48,7 +48,7 @@ proc insertOrReplace(ps: PeerStorage,
 proc dialPeer(pm: PeerManager, peerId: PeerID, 
               addrs: seq[MultiAddress], proto: string,
               dialTimeout = defaultDialTimeout): Future[Option[Connection]] {.async.} =
-  info "Dialing peer from manager", wireAddr = addrs[0], peerId = peerId
+  info "Dialing peer from manager", wireAddr = addrs, peerId = peerId
 
   # Dial Peer
   let dialFut = pm.switch.dial(peerId, addrs, proto)
@@ -290,7 +290,5 @@ proc dialPeer*(pm: PeerManager, peerId: PeerID, proto: string, dialTimeout = def
     return none(Connection)
 
   let addrs = pm.switch.peerStore[AddressBook][peerId]
-  if addrs.len == 0:
-    return none(Connection)
 
   return await pm.dialPeer(peerId, addrs, proto, dialTimeout)
