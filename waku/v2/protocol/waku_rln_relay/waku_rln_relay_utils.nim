@@ -244,7 +244,7 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethAccountPrivK
     return err("invalid id commitment key")
 
   await web3.close()
-  
+
   if registrationHandler.isSome():
     let handler = registrationHandler.get
     handler(toHex(txHash))
