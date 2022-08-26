@@ -2,286 +2,316 @@
 
 import
   std/[options, tables, sets],
-  testutils/unittests, chronos, chronicles,
+  testutils/unittests,
+  chronos, 
+  chronicles,
   libp2p/switch,
-  libp2p/protobuf/minprotobuf,
-  libp2p/stream/[bufferstream, connection],
   libp2p/crypto/crypto,
-  libp2p/multistream,
+  libp2p/multistream
+import
   ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/protocol/waku_filter/waku_filter,
-  ../test_helpers, ./utils
+  ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/protocol/waku_filter,
+  ../test_helpers, 
+  ./utils
 
+
+const 
+  DefaultPubsubTopic = "/waku/2/default-waku/proto"
+  DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
+
+const dummyHandler = proc(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} = discard
+
+proc newTestSwitch(key=none(PrivateKey), address=none(MultiAddress)): Switch =
+  let peerKey = key.get(PrivateKey.random(ECDSA, rng[]).get())
+  let peerAddr = address.get(MultiAddress.init("/ip4/127.0.0.1/tcp/0").get()) 
+  return newStandardSwitch(some(peerKey), addrs=peerAddr)
+
+
+# TODO: Extend test coverage
 procSuite "Waku Filter":
 
-  asyncTest "handle filter":
-    const defaultTopic = "/waku/2/default-waku/proto"
+  asyncTest "should forward messages to client after subscribed":
+    ## Setup
+    let rng = crypto.newRng()
+    let 
+      clientSwitch = newTestSwitch()
+      serverSwitch = newTestSwitch()
+
+    await allFutures(serverSwitch.start(), clientSwitch.start())
+
+    ## Given
+    # Server
+    let
+      serverPeerManager = PeerManager.new(serverSwitch) 
+      serverProto = WakuFilter.init(serverPeerManager, rng, dummyHandler)
+    serverSwitch.mount(serverProto)
+
+    # Client
+    let handlerFuture = newFuture[(string, MessagePush)]()
+    proc handler(requestId: string, push: MessagePush) {.async, gcsafe, closure.} =
+      handlerFuture.complete((requestId, push))
 
     let
-      key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.new(key)
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
+      clientPeerManager = PeerManager.new(clientSwitch)
+      clientProto = WakuFilter.init(clientPeerManager, rng, handler)
+    clientSwitch.mount(clientProto)
 
-    var dialSwitch = newStandardSwitch()
-    await dialSwitch.start()
+    clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
 
-    var listenSwitch = newStandardSwitch(some(key))
-    await listenSwitch.start()
+    ## When
+    let resSubscription = await clientProto.subscribe(DefaultPubsubTopic, @[DefaultContentTopic])
+    require resSubscription.isOk()
 
-    var responseRequestIdFuture = newFuture[string]()
-    proc handle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
-      check:
-        msg.messages.len() == 1
-        msg.messages[0] == post
-      responseRequestIdFuture.complete(requestId)
+    await sleepAsync(5.milliseconds)
 
-    let
-      proto = WakuFilter.init(PeerManager.new(dialSwitch), crypto.newRng(), handle)
-      rpc = FilterRequest(contentFilters: @[ContentFilter(contentTopic: contentTopic)], pubSubTopic: defaultTopic, subscribe: true)
+    let message = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: DefaultContentTopic)
+    await serverProto.handleMessage(DefaultPubsubTopic, message)
 
-    dialSwitch.mount(proto)
-    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
-
-    proc emptyHandle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
-      discard
-
-    let proto2 = WakuFilter.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle)
-
-    listenSwitch.mount(proto2)
-
-    let id = (await proto.subscribe(rpc)).get()
-
-    await sleepAsync(2.seconds)
-
-    await proto2.handleMessage(defaultTopic, post)
+    ## Then
+    let subscriptionRequestId = resSubscription.get()
+    let (requestId, push) = await handlerFuture
 
     check:
-      (await responseRequestIdFuture) == id
-  
-  asyncTest "Can subscribe and unsubscribe from content filter":
-    const defaultTopic = "/waku/2/default-waku/proto"
+        requestId == subscriptionRequestId
+        push.messages == @[message]
+
+    ## Cleanup
+    await allFutures(clientSwitch.stop(), serverSwitch.stop())
+
+  asyncTest "should not forward messages to client after unsuscribed":
+    ## Setup
+    let rng = crypto.newRng()
+    let 
+      clientSwitch = newTestSwitch()
+      serverSwitch = newTestSwitch()
+
+    await allFutures(serverSwitch.start(), clientSwitch.start())
+
+    ## Given
+    # Server
+    let
+      serverPeerManager = PeerManager.new(serverSwitch) 
+      serverProto = WakuFilter.init(serverPeerManager, rng, dummyHandler)
+    serverSwitch.mount(serverProto)
+
+    # Client
+    var handlerFuture = newFuture[void]()
+    proc handler(requestId: string, push: MessagePush) {.async, gcsafe, closure.} =
+      handlerFuture.complete()
 
     let
-      key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.new(key)
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
+      clientPeerManager = PeerManager.new(clientSwitch)
+      clientProto = WakuFilter.init(clientPeerManager, rng, handler)
+    clientSwitch.mount(clientProto)
 
-    var dialSwitch = newStandardSwitch()
-    await dialSwitch.start()
+    clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
 
-    var listenSwitch = newStandardSwitch(some(key))
-    await listenSwitch.start()
+    ## Given
+    let message = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: DefaultContentTopic)
 
-    var responseCompletionFuture = newFuture[bool]()
-    proc handle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
-      check:
-        msg.messages.len() == 1
-        msg.messages[0] == post
-      responseCompletionFuture.complete(true)
+    let resSubscription = await clientProto.subscribe(DefaultPubsubTopic, @[DefaultContentTopic])
+    require resSubscription.isOk()
 
-    let
-      proto = WakuFilter.init(PeerManager.new(dialSwitch), crypto.newRng(), handle)
-      rpc = FilterRequest(contentFilters: @[ContentFilter(contentTopic: contentTopic)], pubSubTopic: defaultTopic, subscribe: true)
+    await sleepAsync(5.milliseconds)
 
-    dialSwitch.mount(proto)
-    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
+    await serverProto.handleMessage(DefaultPubsubTopic, message)
+    let handlerWasCalledAfterSubscription = await handlerFuture.withTimeout(1.seconds)
+    require handlerWasCalledAfterSubscription
 
-    proc emptyHandle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
-      discard
-
-    let proto2 = WakuFilter.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle)
-
-    listenSwitch.mount(proto2)
-
-    let id = (await proto.subscribe(rpc)).get()
-
-    await sleepAsync(2.seconds)
-
-    await proto2.handleMessage(defaultTopic, post)
-
-    check:
-      # Check that subscription works as expected
-      (await responseCompletionFuture.withTimeout(3.seconds)) == true
-    
     # Reset to test unsubscribe
-    responseCompletionFuture = newFuture[bool]()
+    handlerFuture = newFuture[void]()
 
-    let
-      rpcU = FilterRequest(contentFilters: @[ContentFilter(contentTopic: contentTopic)], pubSubTopic: defaultTopic, subscribe: false)
+    let resUnsubscription = await clientProto.unsubscribe(DefaultPubsubTopic, @[DefaultContentTopic])
+    require resUnsubscription.isOk()
 
-    await proto.unsubscribe(rpcU)
+    await sleepAsync(5.milliseconds)
 
-    await sleepAsync(2.seconds)
+    await serverProto.handleMessage(DefaultPubsubTopic, message)
 
-    await proto2.handleMessage(defaultTopic, post)
-
+    ## Then
+    let handlerWasCalledAfterUnsubscription = await handlerFuture.withTimeout(1.seconds)
     check:
-      # Check that unsubscribe works as expected
-      (await responseCompletionFuture.withTimeout(5.seconds)) == false
+      not handlerWasCalledAfterUnsubscription
+      
+    ## Cleanup
+    await allFutures(clientSwitch.stop(), serverSwitch.stop())
   
-  asyncTest "handle filter subscribe failures":
-    const defaultTopic = "/waku/2/default-waku/proto"
+  asyncTest "subscription should fail if no filter peer is provided":
+    ## Setup
+    let clientSwitch = newTestSwitch()
+    await clientSwitch.start()
 
-    let
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
+    ## Given
+    let clientProto = WakuFilter.init(PeerManager.new(clientSwitch), crypto.newRng(), dummyHandler)
+    clientSwitch.mount(clientProto)
 
-    var dialSwitch = newStandardSwitch()
-    await dialSwitch.start()
+    ## When
+    let resSubscription = await clientProto.subscribe(DefaultPubsubTopic, @[DefaultContentTopic])
 
-    var responseRequestIdFuture = newFuture[string]()
-    proc handle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
-      discard
-
-    let
-      proto = WakuFilter.init(PeerManager.new(dialSwitch), crypto.newRng(), handle)
-      rpc = FilterRequest(contentFilters: @[ContentFilter(contentTopic: contentTopic)], pubSubTopic: defaultTopic, subscribe: true)
-
-    dialSwitch.mount(proto)
-
-    let idOpt = (await proto.subscribe(rpc))
-
+    ## Then
     check:
-      idOpt.isNone
+      resSubscription.isErr()
+      resSubscription.error() == "peer_not_found_failure"
 
-  asyncTest "Handle failed clients":
-    const defaultTopic = "/waku/2/default-waku/proto"
+  asyncTest "peer subscription should be dropped if connection fails for second time after the timeout has elapsed":
+    ## Setup
+    let rng = crypto.newRng()
+    let 
+      clientSwitch = newTestSwitch()
+      serverSwitch = newTestSwitch()
+
+    await allFutures(serverSwitch.start(), clientSwitch.start())
+
+    ## Given
+    # Server
+    let
+      serverPeerManager = PeerManager.new(serverSwitch) 
+      serverProto = WakuFilter.init(serverPeerManager, rng, dummyHandler, timeout=1.seconds)
+    serverSwitch.mount(serverProto)
+
+    # Client
+    var handlerFuture = newFuture[void]()
+    proc handler(requestId: string, push: MessagePush) {.async, gcsafe, closure.} =
+      handlerFuture.complete()
 
     let
-      key = PrivateKey.random(ECDSA, rng[]).get()
-      peer = PeerInfo.new(key)
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
+      clientPeerManager = PeerManager.new(clientSwitch)
+      clientProto = WakuFilter.init(clientPeerManager, rng, handler)
+    clientSwitch.mount(clientProto)
 
-    var dialSwitch = newStandardSwitch()
-    await dialSwitch.start()
+    clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
 
-    var listenSwitch = newStandardSwitch(some(key))
-    await listenSwitch.start()
+    ## When
+    let resSubscription = await clientProto.subscribe(DefaultPubsubTopic, @[DefaultContentTopic])
+    check resSubscription.isOk()
 
-    var responseCompletionFuture = newFuture[bool]()
-    proc handle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
-      check:
-        msg.messages.len() == 1
-        msg.messages[0] == post
-      responseCompletionFuture.complete(true)
+    await sleepAsync(5.milliseconds)
 
-    let
-      proto = WakuFilter.init(PeerManager.new(dialSwitch), crypto.newRng(), handle)
-      rpc = FilterRequest(contentFilters: @[ContentFilter(contentTopic: contentTopic)], pubSubTopic: defaultTopic, subscribe: true)
+    let message = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: DefaultContentTopic)
 
-    dialSwitch.mount(proto)
-    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
+    await serverProto.handleMessage(DefaultPubsubTopic, message)
+    let handlerShouldHaveBeenCalled = await handlerFuture.withTimeout(1.seconds)
+    require handlerShouldHaveBeenCalled
 
-    proc emptyHandle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
-      discard
+    # Stop client node to test timeout unsubscription
+    await clientSwitch.stop()
 
-    let proto2 = WakuFilter.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle, 1.seconds)
-
-    listenSwitch.mount(proto2)
-
-    let id = (await proto.subscribe(rpc)).get()
-
-    await sleepAsync(2.seconds)
-
-    await proto2.handleMessage(defaultTopic, post)
-
-    check:
-      # Check that subscription works as expected
-      (await responseCompletionFuture.withTimeout(3.seconds)) == true
+    await sleepAsync(5.milliseconds)
     
-    # Stop switch to test unsubscribe
-    discard dialSwitch.stop()
-
-    await sleepAsync(2.seconds)
+    # First failure should not remove the subscription
+    await serverProto.handleMessage(DefaultPubsubTopic, message)
+    let 
+      subscriptionsBeforeTimeout = serverProto.subscriptions.len()
+      failedPeersBeforeTimeout = serverProto.failedPeers.len()
     
-    #First failure should not remove the subscription
-    await proto2.handleMessage(defaultTopic, post)
-
-    await sleepAsync(2000.millis)
-    check:
-      proto2.subscribers.len() == 1
-    
-    #Second failure should remove the subscription
-    await proto2.handleMessage(defaultTopic, post)
-    
-    check:
-      proto2.subscribers.len() == 0
-  
-  asyncTest "Handles failed clients coming back up":
-    const defaultTopic = "/waku/2/default-waku/proto"
-
-    let
-      dialKey = PrivateKey.random(ECDSA, rng[]).get()
-      listenKey = PrivateKey.random(ECDSA, rng[]).get()
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      post = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: contentTopic)
-
-    var dialSwitch = newStandardSwitch(privKey = some(dialKey), addrs = MultiAddress.init("/ip4/127.0.0.1/tcp/65000").tryGet())
-    await dialSwitch.start()
-
-    var listenSwitch = newStandardSwitch(some(listenKey))
-    await listenSwitch.start()
-
-    var responseCompletionFuture = newFuture[bool]()
-    proc handle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
-      check:
-        msg.messages.len() == 1
-        msg.messages[0] == post
-      responseCompletionFuture.complete(true)
-
-    let
-      proto = WakuFilter.init(PeerManager.new(dialSwitch), crypto.newRng(), handle)
-      rpc = FilterRequest(contentFilters: @[ContentFilter(contentTopic: contentTopic)], pubSubTopic: defaultTopic, subscribe: true)
-
-    dialSwitch.mount(proto)
-    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
-
-    proc emptyHandle(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} =
-      discard
-
-    let proto2 = WakuFilter.init(PeerManager.new(listenSwitch), crypto.newRng(), emptyHandle, 2.seconds)
-
-    listenSwitch.mount(proto2)
-
-    let id = (await proto.subscribe(rpc)).get()
-
-    await sleepAsync(2.seconds)
-
-    await proto2.handleMessage(defaultTopic, post)
-
-    check:
-      # Check that subscription works as expected
-      (await responseCompletionFuture.withTimeout(3.seconds)) == true
-    
-    responseCompletionFuture = newFuture[bool]()
-
-    # Stop switch to test unsubscribe
-    await dialSwitch.stop()
-
+    # Wait for peer connection failure timeout to elapse
     await sleepAsync(1.seconds)
     
-    #First failure should add to failure list
-    await proto2.handleMessage(defaultTopic, post)
-
-    check:
-      proto2.failedPeers.len() == 1
-    
-    # Start switch with same key as before
-    var dialSwitch2 = newStandardSwitch(some(dialKey), addrs = MultiAddress.init("/ip4/127.0.0.1/tcp/65000").tryGet())
-    await dialSwitch2.start()
-    dialSwitch2.mount(proto)
-    
     #Second failure should remove the subscription
-    await proto2.handleMessage(defaultTopic, post)
+    await serverProto.handleMessage(DefaultPubsubTopic, message)
+    let 
+      subscriptionsAfterTimeout = serverProto.subscriptions.len()
+      failedPeersAfterTimeout = serverProto.failedPeers.len()
     
+    ## Then
     check:
-      # Check that subscription works as expected
-      (await responseCompletionFuture.withTimeout(3.seconds)) == true
+      subscriptionsBeforeTimeout == 1
+      failedPeersBeforeTimeout == 1
+      subscriptionsAfterTimeout == 0
+      failedPeersAfterTimeout == 0
   
-    check:
-      proto2.failedPeers.len() == 0
+    ## Cleanup
+    await serverSwitch.stop()
+  
+  asyncTest "peer subscription should not be dropped if connection recovers before timeout elapses":
+    ## Setup
+    let 
+      clientKey = PrivateKey.random(ECDSA, rng[]).get()
+      clientAddress = MultiAddress.init("/ip4/127.0.0.1/tcp/65000").get()
 
-    await dialSwitch2.stop()
-    await listenSwitch.stop()
+    let rng = crypto.newRng()
+    let 
+      clientSwitch = newTestSwitch(some(clientKey), some(clientAddress))
+      serverSwitch = newTestSwitch()
+
+    await allFutures(serverSwitch.start(), clientSwitch.start())
+
+    ## Given
+    # Server
+    let
+      serverPeerManager = PeerManager.new(serverSwitch) 
+      serverProto = WakuFilter.init(serverPeerManager, rng, dummyHandler, timeout=2.seconds)
+    serverSwitch.mount(serverProto)
+
+    # Client
+    var handlerFuture = newFuture[void]()
+    proc handler(requestId: string, push: MessagePush) {.async, gcsafe, closure.} =
+      handlerFuture.complete()
+
+    let
+      clientPeerManager = PeerManager.new(clientSwitch)
+      clientProto = WakuFilter.init(clientPeerManager, rng, handler)
+    clientSwitch.mount(clientProto)
+
+    clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
+
+    ## When
+    let message = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: DefaultContentTopic)
+
+    let resSubscription = await clientProto.subscribe(DefaultPubsubTopic, @[DefaultContentTopic])
+    check resSubscription.isOk()
+
+    await sleepAsync(5.milliseconds)
+
+    await serverProto.handleMessage(DefaultPubsubTopic, message)
+    handlerFuture = newFuture[void]()
+      
+    let
+      subscriptionsBeforeFailure = serverProto.subscriptions.len()
+      failedPeersBeforeFailure = serverProto.failedPeers.len()
+
+    # Stop switch to test unsubscribe
+    await clientSwitch.stop()
+
+    await sleepAsync(5.milliseconds)
+    
+    # First failure should add to failure list
+    await serverProto.handleMessage(DefaultPubsubTopic, message)
+    handlerFuture = newFuture[void]()
+
+    let 
+      subscriptionsAfterFailure = serverProto.subscriptions.len()
+      failedPeersAfterFailure = serverProto.failedPeers.len()
+    
+    await sleepAsync(250.milliseconds)
+
+    # Start switch with same key as before
+    var clientSwitch2 = newTestSwitch(some(clientKey), some(clientAddress))
+    await clientSwitch2.start()
+    clientSwitch2.mount(clientProto)
+    
+    # If push succeeds after failure, the peer should removed from failed peers list
+    await serverProto.handleMessage(DefaultPubsubTopic, message)
+    let handlerShouldHaveBeenCalled = await handlerFuture.withTimeout(1.seconds)
+    
+    let 
+      subscriptionsAfterSuccessfulConnection = serverProto.subscriptions.len()
+      failedPeersAfterSuccessfulConnection = serverProto.failedPeers.len()
+
+    ## Then
+    check:
+      handlerShouldHaveBeenCalled
+
+    check:
+      subscriptionsBeforeFailure == 1
+      subscriptionsAfterFailure == 1
+      subscriptionsAfterSuccessfulConnection == 1
+
+    check:
+      failedPeersBeforeFailure == 0
+      failedPeersAfterFailure == 1
+      failedPeersAfterSuccessfulConnection == 0
+
+    ## Cleanup
+    await allFutures(clientSwitch2.stop(), serverSwitch.stop())
