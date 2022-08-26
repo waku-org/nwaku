@@ -857,7 +857,7 @@ proc subscribeToGroupEvents(ethClientUri: string, ethAccountAddress: Address, co
       # chronos still raises exceptions which inherit directly from Exception
       doAssert false, err.msg
   do (err: CatchableError):
-    echo "Error from subscription: ", err.msg     
+    echo "Error from subscription: ", err.msg   
 
 proc handleGroupUpdates*(rlnPeer: WakuRLNRelay, handler: RegistrationEventHandler) {.async, gcsafe.} =
   # mounts the supplied handler for the registration events emitting from the membership contract
