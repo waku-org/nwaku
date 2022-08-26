@@ -194,10 +194,8 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethAccountPrivK
   # TODO may need to also get eth Account Private Key as PrivateKey
   ## registers the idComm  into the membership contract whose address is in rlnPeer.membershipContractAddress
   
-  # let web3 = await newWeb3(ethClientAddress)
-
   var web3: Web3
-  try: 
+  try: # check if the Ethereum client is reachable
     web3 = await newWeb3(ethClientAddress)
   except:
     return err("could not connect to the Ethereum client")
@@ -217,7 +215,7 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethAccountPrivK
   let pk = idComm.toUInt256()
 
   var txHash: TxHash
-  try:
+  try: # send the registration transaction and check if any error occurs
     txHash = await sender.register(pk).send(value = MEMBERSHIP_FEE, gasPrice = gasPrice)
   except ValueError as e:
     return err("something went wrong with the registration transaction: " & e.msg)
@@ -242,7 +240,8 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethAccountPrivK
   debug "the identity commitment key extracted from tx log", eventIdComm=eventIdComm
   debug "the index of registered identity commitment key", eventIndex=eventIndex
 
-  doAssert(eventIdComm == idComm)
+  if eventIdComm != idComm:
+    return err("invalid id commitment key")
 
   await web3.close()
   
@@ -858,9 +857,7 @@ proc subscribeToGroupEvents(ethClientUri: string, ethAccountAddress: Address, co
       # chronos still raises exceptions which inherit directly from Exception
       doAssert false, err.msg
   do (err: CatchableError):
-    echo "Error from subscription: ", err.msg
-
-  # discard web3.close()      
+    echo "Error from subscription: ", err.msg     
 
 proc handleGroupUpdates*(rlnPeer: WakuRLNRelay, handler: RegistrationEventHandler) {.async, gcsafe.} =
   # mounts the supplied handler for the registration events emitting from the membership contract
@@ -927,11 +924,11 @@ proc mountRlnRelayStatic*(node: WakuNode,
   # check whether inputs are provided
   # relay protocol is the prerequisite of rln-relay
   if node.wakuRelay.isNil:
-    error "Failed to mount WakuRLNRelay. Relay protocol is not mounted."
+    error "The WakuRelay protocol is not mounted."
     return
   # check whether the pubsub topic is supported at the relay level
   if pubsubTopic notin node.wakuRelay.defaultTopics:
-    error "Failed to mount WakuRLNRelay. The relay protocol does not support the configured pubsub topic.", pubsubTopic=pubsubTopic
+    error "The relay protocol does not support the configured pubsub topic.", pubsubTopic=pubsubTopic
     return
 
   debug "rln-relay input validation passed"
@@ -981,29 +978,18 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   # TODO return a bool value to indicate the success of the call
   # relay protocol is the prerequisite of rln-relay
   if node.wakuRelay.isNil:
-    error "Failed to mount WakuRLNRelay. Relay protocol is not mounted."
-    return err("Failed to mount WakuRLNRelay. Relay protocol is not mounted.")
+    error "The WakuRelay protocol is not mounted."
+    return err("The WakuRelay protocol is not mounted.")
   # check whether the pubsub topic is supported at the relay level
   if pubsubTopic notin node.wakuRelay.defaultTopics:
-    error "Failed to mount WakuRLNRelay. The relay protocol does not support the configured pubsub topic.", pubsubTopic=pubsubTopic
-    return err("Failed to mount WakuRLNRelay. The relay protocol does not support the configured pubsub topic.")
+    error "The Wakurelay protocol does not support the configured pubsub topic.", pubsubTopic=pubsubTopic
+    return err("The WakuRelay protocol does not support the configured pubsub topic.")
   debug "rln-relay input validation passed"
 
   # create an RLN instance
   var rlnInstance = createRLNInstance()
   doAssert(rlnInstance.isOk)
   var rln = rlnInstance.value
-
-  # create a web3 instance to manage onchain interactions with Eth client
-  # var web3: Web3
-  # try: 
-  #   web3 = await newWeb3(ethClientAddr)
-  # except:
-  #   return err("could not connect to the Ethereum client")
-  # web3.defaultAccount = ethClientAddr
-  # # set the account private key
-  # web3.privateKey = ethAccountPrivKeyOpt
-
 
   # prepare rln membership key pair
   var 
