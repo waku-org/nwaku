@@ -45,12 +45,12 @@ proc startMetricsLog*() =
       # TODO: libp2p_pubsub_peers is not public, so we need to make this either
       # public in libp2p or do our own peer counting after all.
 
-      var totalErrors = parseCollectorIntoF64(waku_node_errors)
-      var totalConnections = parseCollectorIntoF64(waku_node_conns_initiated)
+      let totalErrors = parseCollectorIntoF64(waku_node_errors)
+      let totalConnections = parseCollectorIntoF64(waku_node_conns_initiated)
 
       # track cumulative, and then max.
-      var freshErrorCount = max(totalErrors - cumulativeErrors, 0)
-      var freshConnCount = max(totalConnections - cumulativeConns, 0)
+      let freshErrorCount = max(totalErrors - cumulativeErrors, 0)
+      let freshConnCount = max(totalConnections - cumulativeConns, 0)
       
       cumulativeErrors = totalErrors
       cumulativeConns = totalConnections
