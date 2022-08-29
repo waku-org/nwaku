@@ -24,24 +24,44 @@ proc startMetricsServer*(serverIp: ValidIpAddress, serverPort: Port) =
 
     info "Metrics HTTP server started", serverIp, serverPort
 
+proc parseCollectorIntoF64(collector: Collector): float64 = 
+  var total = 0.float64
+  for key in collector.metrics.keys():
+    try:
+      total = total + collector.value(key)
+    except KeyError:
+      discard
+  return total
 
 proc startMetricsLog*() =
   # https://github.com/nim-lang/Nim/issues/17369
   var logMetrics: proc(udata: pointer) {.gcsafe, raises: [Defect].}
 
+  var cumulativeErrors = 0.float64
+  var cumulativeConns = 0.float64
+
   logMetrics = proc(udata: pointer) =
     {.gcsafe.}:
       # TODO: libp2p_pubsub_peers is not public, so we need to make this either
       # public in libp2p or do our own peer counting after all.
-      var totalMessages = 0.float64
-      for key in waku_node_messages.metrics.keys():
-        try:
-          totalMessages = totalMessages + waku_node_messages.value(key)
-        except KeyError:
-          discard
 
-    info "Node metrics", totalMessages
-    discard setTimer(Moment.fromNow(2.seconds), logMetrics)
+      var totalErrors = parseCollectorIntoF64(waku_node_errors)
+      var totalConnections = parseCollectorIntoF64(waku_node_conns_initiated)
+
+      # track cumulative, and then max.
+      var freshErrorCount = max(totalErrors - cumulativeErrors, 0)
+      var freshConnCount = max(totalConnections - cumulativeConns, 0)
+      
+      cumulativeErrors = totalErrors
+      cumulativeConns = totalConnections
+      info "Total connections initiated", count = freshConnCount
+      info "Total Messages", count = parseCollectorIntoF64(waku_node_messages)
+      info "Total SWAP peers", count = parseCollectorIntoF64(waku_swap_peers_count)
+      info "Total FILTER peers", count = parseCollectorIntoF64(waku_filter_peers)
+      info "Total errors", count = freshErrorCount
+      info "Total subscribed topics", count = parseCollectorIntoF64(waku_filter_subscribers)
+
+    discard setTimer(Moment.fromNow(30.seconds), logMetrics)
   
-  discard setTimer(Moment.fromNow(2.seconds), logMetrics)
+  discard setTimer(Moment.fromNow(30.seconds), logMetrics)
   
