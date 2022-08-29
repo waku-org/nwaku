@@ -8,7 +8,8 @@ import
   metrics,
   metrics/chronos_httpserver,
   ./config,
-  ./wakunode2
+  ./wakunode2,
+  ../protocol/waku_filter
 
 logScope:
   topics = "wakunode.setup.metrics"
