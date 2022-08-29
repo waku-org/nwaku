@@ -7,9 +7,12 @@ import
   json_serialization,
   json_serialization/std/options,
   presto/[route, client, common]
-import ".."/[serdes, utils]
-import ../../wakunode2
-import "."/[api_types, topic_cache]
+import 
+  ../../wakunode2,
+  ../serdes,
+  ../utils,
+  ./api_types, 
+  ./topic_cache
 
 logScope: topics = "rest_api_relay"
 
@@ -130,9 +133,11 @@ proc installRelayPostMessagesV1Handler*(router: var RestRouter, node: WakuNode) 
     if reqResult.isErr():
       return RestApiResponse.badRequest()
 
-    let message: RelayPostMessagesRequest = reqResult.get()
+    let resMessage = reqResult.value.toWakuMessage(version = 0)
+    if resMessage.isErr():
+      return RestApiResponse.badRequest()
 
-    if not (waitFor node.publish(pubSubTopic, message.toWakuMessage(version = 0)).withTimeout(futTimeout)):
+    if not (waitFor node.publish(pubSubTopic, resMessage.value).withTimeout(futTimeout)):
       error "Failed to publish message to topic", topic=pubSubTopic 
       return RestApiResponse.internalServerError()
 

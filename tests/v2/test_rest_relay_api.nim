@@ -11,7 +11,7 @@ import
   libp2p/protocols/pubsub/pubsub
 import
   ../../waku/v2/node/wakunode2,
-  ../../waku/v2/node/rest/[server, client, utils],
+  ../../waku/v2/node/rest/[server, client, base64, utils],
   ../../waku/v2/node/rest/relay/[api_types, relay_api, topic_cache]
 
 
@@ -164,8 +164,8 @@ suite "REST API - Relay":
       response.contentType == $MIMETYPE_JSON
       response.data.len == 3
       response.data.all do (msg: RelayWakuMessage) -> bool: 
-        msg.payload == "TEST-1" and
-        string(msg.contentTopic.get()) == "content-topic-x" and
+        msg.payload == Base64String.encode("TEST-1") and
+        msg.contentTopic.get().string == "content-topic-x" and
         msg.version.get() == Natural(1) and
         msg.timestamp.get() == int64(2022)
 
@@ -211,7 +211,7 @@ suite "REST API - Relay":
     discard await client.relayPostSubscriptionsV1(newTopics)
     
     let response = await client.relayPostMessagesV1(defaultTopic, RelayWakuMessage(
-      payload: "TEST-PAYLOAD", 
+      payload: Base64String.encode("TEST-PAYLOAD"), 
       contentTopic: some(ContentTopicString(defaultContentTopic)), 
       timestamp: some(int64(2022))
     ))
