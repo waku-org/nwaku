@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
-import std/typetraits
 import 
+  std/typetraits,
   stew/results,
   chronicles,
   serialization,

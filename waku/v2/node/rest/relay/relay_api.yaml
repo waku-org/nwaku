@@ -118,6 +118,7 @@ components:
       properties:
         payload:
           type: string
+          format: byte
         contentTopic:
           $ref: '#/components/schemas/ContentTopic'
         version:
