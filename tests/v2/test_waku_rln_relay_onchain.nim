@@ -300,7 +300,7 @@ procSuite "Waku-rln-relay":
     # register the rln-relay peer to the membership contract
     let is_successful = await rlnPeer.register()
     check: 
-      is_successful
+      is_successful.isOk
 
 
   asyncTest "mounting waku rln-relay: check correct Merkle tree construction in the static/off-chain group management":
@@ -428,7 +428,7 @@ procSuite "Waku-rln-relay":
     # test ------------------------------
     # start rln-relay
     node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
-    await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
+    discard await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
                             ethAccAddr = ethacc,
                             ethAccountPrivKeyOpt = some(ethPrivKey),
                             memContractAddr = contractAddress, 
@@ -481,7 +481,7 @@ procSuite "Waku-rln-relay":
 
     # start rln-relay on the first node, leave rln-relay credentials empty
     node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
-    await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
+    discard await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
                             ethAccAddr = ethacc,
                             ethAccountPrivKeyOpt = some(ethPrivKey),
                             memContractAddr = contractAddress, 
@@ -494,7 +494,7 @@ procSuite "Waku-rln-relay":
 
     # start rln-relay on the second node, leave rln-relay credentials empty
     node2.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
-    await node2.mountRlnRelayDynamic(ethClientAddr = EthClient,
+    discard await node2.mountRlnRelayDynamic(ethClientAddr = EthClient,
                             ethAccAddr = ethacc,
                             ethAccountPrivKeyOpt = some(ethPrivKey),
                             memContractAddr = contractAddress, 
