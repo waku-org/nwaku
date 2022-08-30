@@ -290,7 +290,7 @@ type
       defaultValue: 8645
       name: "rest-port" }: uint16
 
-    restRelayCacheCapaciy* {.
+    restRelayCacheCapacity* {.
       desc: "Capacity of the Relay REST API message cache.",
       defaultValue: 30
       name: "rest-relay-cache-capacity" }: uint32
