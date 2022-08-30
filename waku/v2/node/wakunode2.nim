@@ -998,7 +998,9 @@ when isMainModule:
     
     when defined(rln): 
       if conf.rlnRelay:
-        node.mountRlnRelay(conf)
+        let res = node.mountRlnRelay(conf)
+        if res.isErr():
+          debug "could not mount WakuRlnRelay"
     
     if conf.swap:
       mountSwap(node)

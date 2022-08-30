@@ -193,7 +193,13 @@ proc toMembershipIndex(v: UInt256): MembershipIndex =
 proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethAccountPrivKey: keys.PrivateKey, ethClientAddress: string, membershipContractAddress: Address, registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): Future[Result[MembershipIndex, string]] {.async.} =
   # TODO may need to also get eth Account Private Key as PrivateKey
   ## registers the idComm  into the membership contract whose address is in rlnPeer.membershipContractAddress
-  let web3 = await newWeb3(ethClientAddress)
+  
+  var web3: Web3
+  try: # check if the Ethereum client is reachable
+    web3 = await newWeb3(ethClientAddress)
+  except:
+    return err("could not connect to the Ethereum client")
+
   web3.defaultAccount = ethAccountAddress
   # set the account private key
   web3.privateKey = some(ethAccountPrivKey)
@@ -206,10 +212,15 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethAccountPrivK
   var sender = web3.contractSender(MembershipContract, membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
 
   debug "registering an id commitment", idComm=idComm
-  let 
-    pk = idComm.toUInt256()
+  let pk = idComm.toUInt256()
+
+  var txHash: TxHash
+  try: # send the registration transaction and check if any error occurs
     txHash = await sender.register(pk).send(value = MEMBERSHIP_FEE, gasPrice = gasPrice)
-    tsReceipt = await web3.getMinedTransactionReceipt(txHash)
+  except ValueError as e:
+    return err("registration transaction failed: " & e.msg)
+
+  let tsReceipt = await web3.getMinedTransactionReceipt(txHash)
   
   # the receipt topic holds the hash of signature of the raised events
   let firstTopic = tsReceipt.logs[0].topics[0]
@@ -232,20 +243,21 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethAccountPrivK
   if eventIdComm != idComm:
     return err("invalid id commitment key")
 
-  
   await web3.close()
+
   if registrationHandler.isSome():
     let handler = registrationHandler.get
     handler(toHex(txHash))
   return ok(toMembershipIndex(eventIndex))
 
-proc register*(rlnPeer: WakuRLNRelay, registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): Future[bool] {.async.} =
+proc register*(rlnPeer: WakuRLNRelay, registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): Future[Result[bool, string]] {.async.} =
   ## registers the public key of the rlnPeer which is rlnPeer.membershipKeyPair.publicKey
   ## into the membership contract whose address is in rlnPeer.membershipContractAddress
   let pk = rlnPeer.membershipKeyPair.idCommitment
-  discard await register(idComm = pk, ethAccountAddress = rlnPeer.ethAccountAddress, ethAccountPrivKey = rlnPeer.ethAccountPrivateKey.get(), ethClientAddress = rlnPeer.ethClientAddress, membershipContractAddress = rlnPeer.membershipContractAddress, registrationHandler = registrationHandler)
-  
-  return true
+  let regResult = await register(idComm = pk, ethAccountAddress = rlnPeer.ethAccountAddress, ethAccountPrivKey = rlnPeer.ethAccountPrivateKey.get(), ethClientAddress = rlnPeer.ethClientAddress, membershipContractAddress = rlnPeer.membershipContractAddress, registrationHandler = registrationHandler)
+  if regResult.isErr:
+    return err(regResult.error())
+  return ok(true)
 
 proc appendLength*(input: openArray[byte]): seq[byte] =
   ## returns length prefixed version of the input
@@ -845,7 +857,7 @@ proc subscribeToGroupEvents(ethClientUri: string, ethAccountAddress: Address, co
       # chronos still raises exceptions which inherit directly from Exception
       doAssert false, err.msg
   do (err: CatchableError):
-    echo "Error from subscription: ", err.msg
+    echo "Error from subscription: ", err.msg   
 
 proc handleGroupUpdates*(rlnPeer: WakuRLNRelay, handler: RegistrationEventHandler) {.async, gcsafe.} =
   # mounts the supplied handler for the registration events emitting from the membership contract
@@ -912,11 +924,11 @@ proc mountRlnRelayStatic*(node: WakuNode,
   # check whether inputs are provided
   # relay protocol is the prerequisite of rln-relay
   if node.wakuRelay.isNil:
-    error "Failed to mount WakuRLNRelay. Relay protocol is not mounted."
+    error "WakuRelay protocol is not mounted."
     return
   # check whether the pubsub topic is supported at the relay level
   if pubsubTopic notin node.wakuRelay.defaultTopics:
-    error "Failed to mount WakuRLNRelay. The relay protocol does not support the configured pubsub topic.", pubsubTopic=pubsubTopic
+    error "The relay protocol does not support the configured pubsub topic.", pubsubTopic=pubsubTopic
     return
 
   debug "rln-relay input validation passed"
@@ -961,17 +973,17 @@ proc mountRlnRelayDynamic*(node: WakuNode,
                     pubsubTopic: string,
                     contentTopic: ContentTopic,
                     spamHandler: Option[SpamHandler] = none(SpamHandler),
-                    registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)) {.async.} =
+                    registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)) : Future[Result[bool, string]] {.async.} =
   debug "mounting rln-relay in on-chain/dynamic mode"
   # TODO return a bool value to indicate the success of the call
   # relay protocol is the prerequisite of rln-relay
   if node.wakuRelay.isNil:
-    error "Failed to mount WakuRLNRelay. Relay protocol is not mounted."
-    return
+    error "WakuRelay protocol is not mounted."
+    return err("WakuRelay protocol is not mounted.")
   # check whether the pubsub topic is supported at the relay level
   if pubsubTopic notin node.wakuRelay.defaultTopics:
-    error "Failed to mount WakuRLNRelay. The relay protocol does not support the configured pubsub topic.", pubsubTopic=pubsubTopic
-    return
+    error "Wakurelay protocol does not support the configured pubsub topic.", pubsubTopic=pubsubTopic
+    return err("WakuRelay protocol does not support the configured pubsub topic.")
   debug "rln-relay input validation passed"
 
   # create an RLN instance
@@ -983,8 +995,8 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   var 
     keyPair: MembershipKeyPair
     rlnIndex: MembershipIndex
-  if memKeyPair.isNone: 
-    if ethAccountPrivKeyOpt.isSome: # if no rln credentials provided, and an ethereum private key is supplied, then create rln credentials and register to the membership contract
+  if memKeyPair.isNone: # no rln credentials provided
+    if ethAccountPrivKeyOpt.isSome: # if an ethereum private key is supplied, then create rln credentials and register to the membership contract
       trace "no rln-relay key is provided, generating one"
       let keyPairOpt = rln.membershipKeyGen()
       doAssert(keyPairOpt.isSome)
@@ -992,7 +1004,9 @@ proc mountRlnRelayDynamic*(node: WakuNode,
       # register the rln-relay peer to the membership contract
       let regIndexRes = await  register(idComm = keyPair.idCommitment, ethAccountAddress = ethAccAddr, ethAccountPrivKey = ethAccountPrivKeyOpt.get(), ethClientAddress = ethClientAddr, membershipContractAddress = memContractAddr, registrationHandler = registrationHandler)
       # check whether registration is done
-      doAssert(regIndexRes.isOk())
+      if regIndexRes.isErr():
+        debug "membership registration failed", err=regIndexRes.error()
+        return err("membership registration failed: " & regIndexRes.error())
       rlnIndex = regIndexRes.value
       debug "peer is successfully registered into the membership contract"
     else: # if no eth private key is available, skip registration
@@ -1031,6 +1045,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   debug "rln relay topic validator is mounted successfully", pubsubTopic=pubsubTopic, contentTopic=contentTopic
 
   node.wakuRlnRelay = rlnPeer
+  return ok(true)
 
 proc readPersistentRlnCredentials*(path: string) : RlnMembershipCredentials {.raises: [Defect, OSError, IOError, Exception].} =
   info "Rln credentials exist in file"
@@ -1046,7 +1061,7 @@ proc readPersistentRlnCredentials*(path: string) : RlnMembershipCredentials {.ra
   debug "Deserialized Rln credentials", rlnCredentials=deserializedRlnCredentials
   result = deserializedRlnCredentials
 
-proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler] = none(SpamHandler), registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)) {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
+proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler] = none(SpamHandler), registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): Result[bool, string] {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
   if not conf.rlnRelayDynamic:
     info " setting up waku-rln-relay in off-chain mode... "
     # set up rln relay inputs
@@ -1070,6 +1085,7 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: O
         error "root mismatch: something went wrong not in Merkle tree construction"
       debug "the calculated root", root
       info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
+      return ok(true)
   else: # mount the rln relay protocol in the on-chain/dynamic mode
     info " setting up waku-rln-relay in on-chain mode... "
     
@@ -1093,16 +1109,20 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: O
         # retrieve rln-relay credential
         var credentials = readPersistentRlnCredentials(rlnRelayCredPath)
         # mount rln-relay with the provided rln-relay credential
-        waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr,
+        let res =  waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr,
                 memKeyPair = some(credentials.membershipKeyPair), memIndex = some(credentials.rlnIndex), ethAccAddr = ethAccountAddr,
                 ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler, registrationHandler = registrationHandler)
+        if res.isErr:
+          return err("dynamic rln-relay could not be mounted: " & res.error())
       else: # there is no credential file available in the supplied path
         # mount the rln-relay protocol leaving rln-relay credentials arguments unassigned 
         # this infroms mountRlnRelayDynamic proc that new credentials should be generated and registered to the membership contract
         info "no rln credential is provided"
-        waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr,
+        let res = waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr,
                   ethAccAddr = ethAccountAddr, ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, pubsubTopic = conf.rlnRelayPubsubTopic,
                   contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler, registrationHandler = registrationHandler)  
+        if res.isErr:
+          return err("dynamic rln-relay could not be mounted: " & res.error())
         # Persist generated credentials
         var rlnMembershipCredentials = 
             RlnMembershipCredentials(membershipKeyPair: node.wakuRlnRelay.membershipKeyPair, rlnIndex: node.wakuRlnRelay.membershipIndex)
@@ -1114,6 +1134,9 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: O
       # do not persist or use a persisted rln-relay credential
       # a new credential will be generated during the mount process but will not be persisted
       info "no need to persist or use a persisted rln-relay credential"
-      waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr,
+      let res = waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr,
                 ethAccAddr = ethAccountAddr, ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, pubsubTopic = conf.rlnRelayPubsubTopic,
                 contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler, registrationHandler = registrationHandler)
+      if res.isErr:
+        return err("dynamic rln-relay could not be mounted: " & res.error())
+      return ok(true)
