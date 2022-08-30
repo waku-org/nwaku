@@ -9,8 +9,7 @@ import
   ./wakunode2,
   ./rest/server,
   ./rest/debug/debug_api,
-  ./rest/relay/[relay_api, 
-                topic_cache]
+  ./rest/relay/[relay_api, topic_cache]
 
 
 logScope:
@@ -30,9 +29,7 @@ proc startRestServer*(node: WakuNode, address: ValidIpAddress, port: Port, conf:
 
   ## Relay REST API
   if conf.relay:
-    # TODO: Simplify topic cache object initialization
-    let relayCacheConfig = TopicCacheConfig(capacity: int(conf.restRelayCacheCapaciy))
-    let relayCache = TopicCache.init(conf=relayCacheConfig)
+    let relayCache = TopicCache.init(capacity=conf.restRelayCacheCapacity)
     installRelayApiHandlers(server.router, node, relayCache)
 
   server.start()
