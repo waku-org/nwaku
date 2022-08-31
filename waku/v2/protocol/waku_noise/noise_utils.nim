@@ -57,6 +57,12 @@ proc pkcs7_unpad*(payload: seq[byte], paddingSize: int): seq[byte] =
   let unpadded = payload[0..payload.high-k.int]
   return unpadded
 
+# Simple utility that checks if the given variable is "default", 
+# Therefore, it has not been initialized
+proc isDefault*[T](value: T): bool = 
+  {.inline.}
+  value == default(T)
+
 #################################################################
 
 #################################
@@ -407,9 +413,3 @@ proc deserializePayloadV2*(payload: seq[byte]): Result[PayloadV2, cstring]
   i += transportMessageLen
 
   return ok(payload2)
-
-# Simple utility that checks if the given variable is "default", 
-# Therefore, it has not been initialized
-proc isDefault*[T](defaultyVar: T): bool = 
-  {.inline.}
-  defaultyVar == default(T)
