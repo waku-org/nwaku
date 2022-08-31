@@ -355,7 +355,7 @@ proc processMessagePatternTokens(rng: var BrHmacDrbgContext, hs: var HandshakeSt
         trace "noise write s"
 
         # If the local static key is not set (the handshake state was not properly initialized), we raise an error
-        if exists(hs.s):
+        if isDefault(hs.s):
           raise newException(NoisePublicKeyError, "Static key not set")
 
         # We encrypt the public part of the static key in case a key is set in the Cipher State
@@ -386,7 +386,7 @@ proc processMessagePatternTokens(rng: var BrHmacDrbgContext, hs: var HandshakeSt
       trace "noise dh ee"
 
       # If local and/or remote ephemeral keys are not set, we raise an error
-      if exists(hs.e) or exists(hs.re):
+      if isDefault(hs.e) or isDefault(hs.re):
         raise newException(NoisePublicKeyError, "Local or remote ephemeral key not set")
 
       # Calls MixKey(DH(e, re)).
@@ -401,11 +401,11 @@ proc processMessagePatternTokens(rng: var BrHmacDrbgContext, hs: var HandshakeSt
       # We check if keys are correctly set.
       # If both present, we call MixKey(DH(e, rs)) if initiator, MixKey(DH(s, re)) if responder.
       if hs.initiator:
-        if exists(hs.e) or exists(hs.rs):
+        if isDefault(hs.e) or isDefault(hs.rs):
           raise newException(NoisePublicKeyError, "Local or remote ephemeral/static key not set")
         hs.ss.mixKey(dh(hs.e.privateKey, hs.rs))
       else:
-        if exists(hs.re) or exists(hs.s):
+        if isDefault(hs.re) or isDefault(hs.s):
           raise newException(NoisePublicKeyError, "Local or remote ephemeral/static key not set")
         hs.ss.mixKey(dh(hs.s.privateKey, hs.re))
 
@@ -418,11 +418,11 @@ proc processMessagePatternTokens(rng: var BrHmacDrbgContext, hs: var HandshakeSt
       # We check if keys are correctly set.
       # If both present, call MixKey(DH(s, re)) if initiator, MixKey(DH(e, rs)) if responder.
       if hs.initiator:
-        if exists(hs.s) or exists(hs.re):
+        if isDefault(hs.s) or isDefault(hs.re):
           raise newException(NoiseMalformedHandshake, "Local or remote ephemeral/static key not set")
         hs.ss.mixKey(dh(hs.s.privateKey, hs.re))
       else:
-        if exists(hs.rs) or exists(hs.e):
+        if isDefault(hs.rs) or isDefault(hs.e):
           raise newException(NoiseMalformedHandshake, "Local or remote ephemeral/static key not set")
         hs.ss.mixKey(dh(hs.e.privateKey, hs.rs))
 
@@ -433,7 +433,7 @@ proc processMessagePatternTokens(rng: var BrHmacDrbgContext, hs: var HandshakeSt
       trace "noise dh ss"
 
       # If local and/or remote static keys are not set, we raise an error
-      if exists(hs.s) or exists(hs.rs):
+      if isDefault(hs.s) or isDefault(hs.rs):
         raise newException(NoiseMalformedHandshake, "Local or remote static key not set")
 
       # Calls MixKey(DH(s, rs)).
