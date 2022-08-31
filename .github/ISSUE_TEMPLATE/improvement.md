@@ -7,11 +7,11 @@ labels: track:maintenance
 assignees: ''
 
 ---
-# Background
+### Background
 A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]; There is a spelling error in [...]; It's difficult to read the code in module [...]
 
-# Details
+### Details
 A clear and concise description of what you want to happen.
 
-# Acceptance criteria
+### Acceptance criteria
 A list of tasks that need to be done for the issue to be considered resolved.
