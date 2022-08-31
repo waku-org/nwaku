@@ -136,7 +136,7 @@ proc bindParam*(s: RawStmtPtr, n: int, val: auto): cint =
   elif val is int32:
     sqlite3_bind_int(s, n.cint, val)
   elif val is uint32:
-    sqlite3_bind_int(s, int(n).cint, int(val).cint)
+    sqlite3_bind_int64(s, n.cint, val)
   elif val is int64:
     sqlite3_bind_int64(s, n.cint, val)
   elif val is float64:
