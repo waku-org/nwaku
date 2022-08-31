@@ -407,3 +407,8 @@ proc deserializePayloadV2*(payload: seq[byte]): Result[PayloadV2, cstring]
   i += transportMessageLen
 
   return ok(payload2)
+
+# Simple utility that checks if the given keypair is "default", 
+# Therefore, it has not been initialized
+proc exists*[T](keypair: T): bool = 
+  result = keypair == default(T)
