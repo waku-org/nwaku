@@ -1,4 +1,4 @@
-{.push raises: [Defec].}
+{.push raises: [Defect].}
 
 import
   ../waku_message
