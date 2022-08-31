@@ -8,7 +8,7 @@ import
   ../wakunode2,
   ../waku_payload,
   ../jsonrpc/jsonrpc_types,
-  ../../protocol/waku_filter/waku_filter_types,
+  ../../protocol/waku_filter,
   ../../protocol/waku_store,
   ../../../v1/node/rpc/hexstrings
 

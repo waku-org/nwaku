@@ -3,7 +3,10 @@
 import
   std/[tables,sequtils],
   chronicles,
-  json_rpc/rpcserver,
+  json_rpc/rpcserver
+import
+  ../../protocol/waku_message,
+  ../../protocol/waku_filter,
   ../wakunode2,
   ./jsonrpc_types
 

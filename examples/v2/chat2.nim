@@ -23,10 +23,11 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                muxers/muxer]             # define an interface for stream multiplexing, allowing peers to offer many protocols over a single connection
 import   ../../waku/v2/protocol/waku_message,
          ../../waku/v2/protocol/waku_lightpush,
+         ../../waku/v2/protocol/waku_filter, 
          ../../waku/v2/protocol/waku_store,
          ../../waku/v2/node/[wakunode2, waku_payload],
          ../../waku/v2/node/dnsdisc/waku_dnsdisc,
-         ../../waku/v2/utils/[peers,time],
+         ../../waku/v2/utils/[peers, time],
          ../../waku/common/utils/nat,
          ./config_chat2
 
@@ -527,11 +528,14 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
         proc registrationHandler(txHash: string) {.gcsafe, closure.} =
           echo "You are registered to the rln membership contract, find details of your registration transaction in https://goerli.etherscan.io/tx/0x", txHash
        
-        echo "rln-relay preparation is in progress ..."
-        node.mountRlnRelay(conf = conf, spamHandler = some(spamHandler), registrationHandler = some(registrationHandler))
-        echo "your membership index is: ", node.wakuRlnRelay.membershipIndex
-        echo "your rln identity key is: ", node.wakuRlnRelay.membershipKeyPair.idKey.toHex()
-        echo "your rln identity commitment key is: ", node.wakuRlnRelay.membershipKeyPair.idCommitment.toHex()
+        echo "rln-relay preparation is in progress..."
+        let res = node.mountRlnRelay(conf = conf, spamHandler = some(spamHandler), registrationHandler = some(registrationHandler))
+        if res.isErr:
+          echo "failed to mount rln-relay: " & res.error()
+        else:
+          echo "your membership index is: ", node.wakuRlnRelay.membershipIndex
+          echo "your rln identity key is: ", node.wakuRlnRelay.membershipKeyPair.idKey.toHex()
+          echo "your rln identity commitment key is: ", node.wakuRlnRelay.membershipKeyPair.idCommitment.toHex()
 
   await chat.readWriteLoop()
 

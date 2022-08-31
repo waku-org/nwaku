@@ -6,7 +6,9 @@ import
   json_rpc/rpcserver,
   libp2p/[peerinfo, switch]
 import
+  ../../protocol/waku_message,
   ../../protocol/waku_store,
+  ../../protocol/waku_filter,
   ../peer_manager/peer_manager,
   ../wakunode2,
   ./jsonrpc_types

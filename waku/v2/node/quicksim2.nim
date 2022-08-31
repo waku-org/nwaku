@@ -6,7 +6,7 @@ import
   json_rpc/[rpcclient, rpcserver],
   libp2p/protobuf/minprotobuf
 import
-  ../protocol/waku_filter/waku_filter_types,
+  ../protocol/waku_filter,
   ../protocol/waku_store,
   ../protocol/waku_message,
   ../utils/time,

@@ -1,24 +1,25 @@
-{.push raises: [ Defect ].}
+{.push raises: [Defect].}
 
 import
   std/[sets, strformat],
-  stew/byteutils,
   chronicles,
   json_serialization,
   json_serialization/std/options,
   presto/[route, client, common]
-import ".."/serdes
-import ../../wakunode2
+import 
+  ../../../protocol/waku_message,
+  ../serdes,
+  ../base64
 
 
 #### Types
 
 type
-    PubSubTopicString* = distinct string
-    ContentTopicString* = distinct string
+  PubSubTopicString* = distinct string
+  ContentTopicString* = distinct string
 
 type RelayWakuMessage* = object
-      payload*: string
+      payload*: Base64String
       contentTopic*: Option[ContentTopicString]
       version*: Option[Natural]
       timestamp*: Option[int64]
@@ -37,22 +38,28 @@ type
 
 proc toRelayWakuMessage*(msg: WakuMessage): RelayWakuMessage =
   RelayWakuMessage(
-    payload: string.fromBytes(msg.payload),
+    payload: base64.encode(Base64String, msg.payload),
     contentTopic: some(ContentTopicString(msg.contentTopic)),
     version: some(Natural(msg.version)),
     timestamp: some(msg.timestamp)
   )
 
-proc toWakuMessage*(msg: RelayWakuMessage, version = 0): WakuMessage =
+proc toWakuMessage*(msg: RelayWakuMessage, version = 0): Result[WakuMessage, cstring] =
   const defaultContentTopic = ContentTopicString("/waku/2/default-content/proto")
-  WakuMessage(
-    payload: msg.payload.toBytes(),
-    contentTopic: ContentTopic(msg.contentTopic.get(defaultContentTopic)),
-    version: uint32(msg.version.get(version)),
-    timestamp: msg.timestamp.get(0)
-  )
+  let 
+    payload = ?msg.payload.decode()
+    contentTopic = ContentTopic(msg.contentTopic.get(defaultContentTopic))
+    version = uint32(msg.version.get(version))
+    timestamp = msg.timestamp.get(0)
+
+  ok(WakuMessage(payload: payload, contentTopic: contentTopic, version: version, timestamp: timestamp))
+
 
 #### Serialization and deserialization
+
+proc writeValue*(writer: var JsonWriter[RestJson], value: Base64String)
+  {.raises: [IOError, Defect].} =
+  writer.writeValue(string(value))
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: PubSubTopicString)
   {.raises: [IOError, Defect].} =
@@ -74,6 +81,10 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: RelayWakuMessage)
     writer.writeField("timestamp", value.timestamp)
   writer.endRecord()
 
+proc readValue*(reader: var JsonReader[RestJson], value: var Base64String)
+  {.raises: [SerializationError, IOError, Defect].} =
+  value = Base64String(reader.readValue(string))
+
 proc readValue*(reader: var JsonReader[RestJson], value: var PubSubTopicString)
   {.raises: [SerializationError, IOError, Defect].} =
   value = PubSubTopicString(reader.readValue(string))
@@ -85,7 +96,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var ContentTopicString)
 proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
   {.raises: [SerializationError, IOError, Defect].} =
   var
-    payload = none(string)
+    payload = none(Base64String)
     contentTopic = none(ContentTopicString)
     version = none(Natural)
     timestamp = none(int64)
@@ -100,7 +111,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
 
     case fieldName
     of "payload":
-      payload = some(reader.readValue(string))
+      payload = some(reader.readValue(Base64String))
     of "contentTopic":
       contentTopic = some(reader.readValue(ContentTopicString))
     of "version":
