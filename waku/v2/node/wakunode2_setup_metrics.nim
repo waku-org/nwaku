@@ -9,7 +9,9 @@ import
   metrics/chronos_httpserver,
   ./config,
   ./wakunode2,
-  ../protocol/waku_filter
+  ../protocol/waku_filter,
+  ../protocol/waku_store,
+  ../protocol/waku_lightpush
 
 logScope:
   topics = "wakunode.setup.metrics"
@@ -56,11 +58,13 @@ proc startMetricsLog*() =
       cumulativeErrors = totalErrors
       cumulativeConns = totalConnections
       info "Total connections initiated", count = freshConnCount
-      info "Total Messages", count = parseCollectorIntoF64(waku_node_messages)
-      info "Total SWAP peers", count = parseCollectorIntoF64(waku_swap_peers_count)
-      info "Total FILTER peers", count = parseCollectorIntoF64(waku_filter_peers)
+      info "Total messages", count = parseCollectorIntoF64(waku_node_messages)
+      info "Total swap peers", count = parseCollectorIntoF64(waku_swap_peers_count)
+      info "Total filter peers", count = parseCollectorIntoF64(waku_filter_peers)
+      info "Total store peers", count = parseCollectorIntoF64(waku_store_peers)
+      info "Total lightpush peers", count = parseCollectorIntoF64(waku_lightpush_peers)
       info "Total errors", count = freshErrorCount
-      info "Total subscribed topics", count = parseCollectorIntoF64(waku_filter_subscribers)
+      info "Total active filter subscriptions", count = parseCollectorIntoF64(waku_filter_subscribers)
 
     discard setTimer(Moment.fromNow(30.seconds), logMetrics)
   
