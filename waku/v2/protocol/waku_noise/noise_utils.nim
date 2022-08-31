@@ -411,4 +411,5 @@ proc deserializePayloadV2*(payload: seq[byte]): Result[PayloadV2, cstring]
 # Simple utility that checks if the given variable is "default", 
 # Therefore, it has not been initialized
 proc isDefault*[T](defaultyVar: T): bool = 
-  result = defaultyVar == default(T)
+  {.inline.}
+  defaultyVar == default(T)
