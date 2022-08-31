@@ -59,8 +59,7 @@ proc pkcs7_unpad*(payload: seq[byte], paddingSize: int): seq[byte] =
 
 # Simple utility that checks if the given variable is "default", 
 # Therefore, it has not been initialized
-proc isDefault*[T](value: T): bool = 
-  {.inline.}
+proc isDefault*[T](value: T): bool {.inline.} = 
   value == default(T)
 
 #################################################################
