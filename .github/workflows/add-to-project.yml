@@ -1,4 +1,4 @@
-name: Add new issues and PRs to Vac Research project board
+name: Add new issues and PRs to Vac and Waku project boards
 
 on:
   issues:
