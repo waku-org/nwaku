@@ -408,7 +408,7 @@ proc deserializePayloadV2*(payload: seq[byte]): Result[PayloadV2, cstring]
 
   return ok(payload2)
 
-# Simple utility that checks if the given keypair is "default", 
+# Simple utility that checks if the given variable is "default", 
 # Therefore, it has not been initialized
-proc exists*[T](keypair: T): bool = 
-  result = keypair == default(T)
+proc exists*[T](defaultyVar: T): bool = 
+  result = defaultyVar == default(T)
