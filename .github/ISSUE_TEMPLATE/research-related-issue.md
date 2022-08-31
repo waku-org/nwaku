@@ -7,14 +7,13 @@ assignees: ''
 
 ---
 
-# Problem
+### Problem
 
-# Acceptance criteria
+### Acceptance criteria
 
-# Details
+### Details
 
-# Possible Solutions
+### Possible Solutions
 
-# Research track
-
+### Research track
 Indicate the Vac research track that this issue relates to. Please also add the relevant track as a label.
