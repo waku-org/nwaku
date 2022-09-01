@@ -5,7 +5,7 @@
 
 {.push raises: [Defect].}
 
-import std/[oids, options, strutils, tables, sequtils]
+import std/[base64, oids, options, strutils, tables, sequtils]
 import chronos
 import chronicles
 import bearssl
@@ -13,7 +13,7 @@ import stew/[results, endians2, byteutils]
 import nimcrypto/[utils, sha2, hmac]
 
 import libp2p/errors
-import libp2p/crypto/[chacha20poly1305, curve25519]
+import libp2p/crypto/[chacha20poly1305, curve25519, hkdf]
 
 import ./noise_types
 import ./noise
@@ -137,6 +137,70 @@ proc hashProtocol*(protocolName: string): MDigest[256] =
     hash = sha256.digest(protocolName)
 
   return hash
+
+# Commits a public key pk for randomness r as H(pk || s)
+proc commitPublicKey*(publicKey: EllipticCurveKey, r: seq[byte]): MDigest[256] =
+
+  var hashInput: seq[byte]
+  hashInput.add getBytes(publicKey)
+  hashInput.add r
+
+  # The output hash value
+  var hash: MDigest[256]
+  hash = sha256.digest(hashInput)
+
+  return hash
+
+proc seqToDigest256*(sequence: seq[byte]): MDigest[256] =
+  var digest: MDigest[256]
+  for i in 0..<digest.data.len:
+    digest.data[i] = sequence[i]
+  return digest
+
+proc digestToSeq*[T](digest: MDigest[T]): seq[byte] =
+  var sequence: seq[byte]
+  for i in 0..<digest.data.len:
+    sequence.add digest.data[i]
+  return sequence
+
+# Serializes input parameters to a base64 string for exposure through QR code (used by WakuPairing)
+proc toQr*(applicationName: string, applicationVersion: string, shardId: string, ephemeralKey: EllipticCurveKey, committedStaticKey: MDigest[256]): string =
+
+  var qr: string
+  qr.add encode(applicationName) & ":"
+  qr.add encode(applicationVersion) & ":"
+  qr.add encode(shardId) & ":"
+  qr.add encode(ephemeralKey) & ":"
+  qr.add encode(committedStaticKey.data)
+
+  return qr
+
+# Deserializes input string in base64 to the corresponding (applicationName, applicationVersion, shardId, ephemeralKey, committedStaticKey)
+proc fromQr*(qr: string): (string, string, string, EllipticCurveKey, MDigest[256]) {.raises: [Defect, ValueError].} =
+
+  let values = qr.split(":")
+
+  assert(values.len == 5)
+
+  let applicationName: string = decode(values[0])
+  let applicationVersion: string = decode(values[1])
+  let shardId: string = decode(values[2])
+
+  let decodedEphemeralKey = decode(values[3]).toBytes  
+  var ephemeralKey: EllipticCurveKey 
+  for i in 0..<ephemeralKey.len:
+    ephemeralKey[i] = decodedEphemeralKey[i]
+
+  let committedStaticKey = seqToDigest256(decode(values[4]).toBytes)
+ 
+  return (applicationName, applicationVersion, shardId, ephemeralKey, committedStaticKey)
+
+proc genAuthcode*(hs: HandshakeState): string =
+  var output: array[1, array[8, byte]]
+  sha256.hkdf(hs.ss.h.data, [], [], output)
+  let code = cast[uint64](output[0]) mod 100_000_000
+  return $code
+
 
 # Performs a Diffie-Hellman operation between two elliptic curve keys (one private, one public)
 proc dh*(private: EllipticCurveKey, public: EllipticCurveKey): EllipticCurveKey =
