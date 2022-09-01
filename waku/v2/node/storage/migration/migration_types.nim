@@ -9,7 +9,7 @@ const ALL_STORE_MIGRATION_PATH* = sourceDir / "migrations_scripts"
 
 const USER_VERSION* = 4 # increase this when there is an update in the database schema
 
-type MigrationScriptsResult*[T] = Result[T, string]
+type MigrationScriptsResult*[T] = Result[T, cstring]
 type
   MigrationScripts* = ref object of RootObj
     migrationUp*:OrderedTable[string, string]

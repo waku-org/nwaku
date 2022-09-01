@@ -72,7 +72,7 @@ type
 #####################
 
 type
-  SelectResult*[T] = Result[T, string]
+  SelectResult*[T] = Result[T, cstring]
 
   Chat2Message* = object
     timestamp*: int64
@@ -132,7 +132,7 @@ proc showChatPrompt(c: Chat) =
     except IOError:
       discard
 
-proc getChatLine(c: Chat, msg:WakuMessage): Result[string, string]=
+proc getChatLine(c: Chat, msg:WakuMessage): Result[string, cstring]=
   when PayloadV1:
       # Use Waku v1 payload encoding/encryption
       let

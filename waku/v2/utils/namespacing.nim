@@ -15,7 +15,7 @@ type
     topicName*: string
     encoding*: string
   
-  NamespacingResult*[T] = Result[T, string]
+  NamespacingResult*[T] = Result[T, cstring]
 
 proc fromString*(T: type NamespacedTopic, topic: string): NamespacingResult[NamespacedTopic] =
   ## Splits a namespaced topic string into its constituent parts.

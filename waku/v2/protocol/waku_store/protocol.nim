@@ -61,7 +61,7 @@ const
 
 
 type
-  WakuStoreResult*[T] = Result[T, string]
+  WakuStoreResult*[T] = Result[T, cstring]
 
   WakuStore* = ref object of LPProtocol
     peerManager*: PeerManager

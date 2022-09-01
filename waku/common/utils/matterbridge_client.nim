@@ -12,7 +12,7 @@ const
   health* = "/api/health"
 
 type
-  MatterbridgeResult[T] = Result[T, string]
+  MatterbridgeResult[T] = Result[T, cstring]
 
   MatterbridgeClient* = ref object of RootObj
     hostClient*: HttpClient

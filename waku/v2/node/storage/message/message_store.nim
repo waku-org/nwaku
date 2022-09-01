@@ -22,7 +22,7 @@ const
 
 
 type
-  MessageStoreResult*[T] = Result[T, string]
+  MessageStoreResult*[T] = Result[T, cstring]
   
   MessageStorePage* = (seq[WakuMessage], Option[PagingInfo])
 

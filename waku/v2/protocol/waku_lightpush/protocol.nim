@@ -43,7 +43,7 @@ type
 
   PushRequestHandler* = proc(requestId: string, msg: PushRequest) {.gcsafe, closure.}
 
-  WakuLightPushResult*[T] = Result[T, string]
+  WakuLightPushResult*[T] = Result[T, cstring]
 
   WakuLightPush* = ref object of LPProtocol
     rng*: ref BrHmacDrbgContext

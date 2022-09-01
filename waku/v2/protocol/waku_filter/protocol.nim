@@ -71,7 +71,7 @@ proc removeSubscription(subscriptions: var seq[Subscription], peer: PeerId, unsu
 type
   MessagePushHandler* = proc(requestId: string, msg: MessagePush): Future[void] {.gcsafe, closure.}
 
-  WakuFilterResult*[T] = Result[T, string]  
+  WakuFilterResult*[T] = Result[T, cstring]  
 
   WakuFilter* = ref object of LPProtocol
     rng*: ref BrHmacDrbgContext
@@ -220,7 +220,7 @@ proc handleMessage*(wf: WakuFilter, pubsubTopic: string, msg: WakuMessage) {.asy
 
     let res = await wf.sendFilterRpcToPeer(rpc, sub.peer)
     if res.isErr():
-      waku_filter_errors.inc(labelValues = [res.error()])
+      waku_filter_errors.inc(labelValues = [$res.error()])
       failedSubscriptions.add(sub)
       continue
       
@@ -246,7 +246,7 @@ proc subscribe(wf: WakuFilter, pubsubTopic: string, contentTopics: seq[ContentTo
 
   let res = await wf.sendFilterRpcToRemotePeer(rpc, peer)
   if res.isErr():
-    waku_filter_errors.inc(labelValues = [res.error()])
+    waku_filter_errors.inc(labelValues = [$res.error()])
     return err(res.error())
     
   return ok(id)
@@ -273,7 +273,7 @@ proc unsubscribe(wf: WakuFilter, pubsubTopic: string, contentTopics: seq[Content
 
   let res = await wf.sendFilterRpcToRemotePeer(rpc, peer)
   if res.isErr():
-    waku_filter_errors.inc(labelValues = [res.error()])
+    waku_filter_errors.inc(labelValues = [$res.error()])
     return err(res.error())
 
   return ok()

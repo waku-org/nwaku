@@ -46,7 +46,7 @@ proc getScripts*(migrationPath: string): MigrationScriptsResult[MigrationScripts
     return err("failed to load the migration scripts") 
 
 
-proc filterScripts*(migrationScripts: MigrationScripts, s: int64, e: int64 ): Result[seq[string], string] = 
+proc filterScripts*(migrationScripts: MigrationScripts, s: int64, e: int64 ): Result[seq[string], cstring] = 
   ## returns migration scripts whose version fall between s and e (e is inclusive)
   var scripts: seq[string]
   try:

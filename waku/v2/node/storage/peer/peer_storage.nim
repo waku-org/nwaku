@@ -10,7 +10,7 @@ import
 type
   PeerStorage* = ref object of RootObj
   
-  PeerStorageResult*[T] = Result[T, string]
+  PeerStorageResult*[T] = Result[T, cstring]
 
   DataProc* = proc(peerId: PeerID, storedInfo: StoredInfo,
                    connectedness: Connectedness, disconnectTime: int64) {.closure, raises: [Defect].}

@@ -2,4 +2,4 @@
 
 import stew/results
 
-type SetupResult*[T] = Result[T, string]
+type SetupResult*[T] = Result[T, cstring]
