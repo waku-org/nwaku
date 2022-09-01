@@ -339,33 +339,52 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) {.async, gcsaf
 
   discard await wakuRelay.publish(topic, data)
 
-proc lightpush*(node: WakuNode, topic: Topic, message: WakuMessage, handler: PushResponseHandler) {.async, gcsafe.} =
+proc lightpush*(node: WakuNode, topic: Topic, message: WakuMessage): Future[WakuLightpushResult[PushResponse]] {.async, gcsafe.} =
   ## Pushes a `WakuMessage` to a node which relays it further on PubSub topic.
-  ## Returns whether relaying was successful or not in `handler`.
+  ## Returns whether relaying was successful or not.
   ## `WakuMessage` should contain a `contentTopic` field for light node
-  ## functionality. This field may be also be omitted.
-  ##
-  ## Status: Implemented.
-
+  ## functionality.
   debug "Publishing with lightpush", topic=topic, contentTopic=message.contentTopic
 
   let rpc = PushRequest(pubSubTopic: topic, message: message)
-  await node.wakuLightPush.request(rpc, handler)
+  return await node.wakuLightPush.request(rpc)
 
-proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe.} =
-  ## Queries known nodes for historical messages. Triggers the handler whenever a response is received.
-  ## QueryHandlerFunc is a method that takes a HistoryResponse.
-  ##
-  ## Status: Implemented.
+proc lightpush*(node: WakuNode, topic: Topic, message: WakuMessage, handler: PushResponseHandler) {.async, gcsafe,
+  deprecated: "Use the no-callback version of this method".} =
+  ## Pushes a `WakuMessage` to a node which relays it further on PubSub topic.
+  ## Returns whether relaying was successful or not in `handler`.
+  ## `WakuMessage` should contain a `contentTopic` field for light node
+  ## functionality.
 
-  # TODO Once waku swap is less experimental, this can simplified
+  let rpc = PushRequest(pubSubTopic: topic, message: message)
+  let res = await node.wakuLightPush.request(rpc)
+  if res.isOk():
+    handler(res.value)
+  else:
+    error "Message lightpush failed", error=res.error()
+
+proc query*(node: WakuNode, query: HistoryQuery): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe.} = 
+  ## Queries known nodes for historical messages
+
+  # TODO: Once waku swap is less experimental, this can simplified
   if node.wakuSwap.isNil:
     debug "Using default query"
-    await node.wakuStore.query(query, handler)
+    return await node.wakuStore.query(query)
   else:
-    debug "Using SWAPAccounting query"
-    # TODO wakuSwap now part of wakuStore object
-    await node.wakuStore.queryWithAccounting(query, handler)
+    debug "Using SWAP accounting query"
+    # TODO: wakuSwap now part of wakuStore object
+    return await node.wakuStore.queryWithAccounting(query)
+
+proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe, 
+  deprecated: "Use the no-callback version of this method".} =
+  ## Queries known nodes for historical messages. Triggers the handler whenever a response is received.
+  ## QueryHandlerFunc is a method that takes a HistoryResponse.
+
+  let res = await node.query(query)
+  if res.isOk():
+    handler(res.value)
+  else:
+    error "History query failed", error=res.error()
 
 proc resume*(node: WakuNode, peerList: Option[seq[RemotePeerInfo]] = none(seq[RemotePeerInfo])) {.async, gcsafe.} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku node has been online 
