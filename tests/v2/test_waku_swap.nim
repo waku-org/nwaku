@@ -1,9 +1,12 @@
 {.used.}
 
 import
-  std/[options, tables, sets],
+  std/[options, tables, sets, times],
+  stew/byteutils,
+  stew/shims/net as stewNet, 
   testutils/unittests,
-  chronos, chronicles, stew/shims/net as stewNet, stew/byteutils,
+  chronos, 
+  chronicles, 
   libp2p/switch,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/[bufferstream, connection],
@@ -17,7 +20,31 @@ import
   ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/node/wakunode2,
   ../../waku/v2/utils/peers,
-  ../test_helpers, ./utils
+  ../../waku/v2/utils/time,
+  ../test_helpers, 
+  ./utils
+
+
+const 
+  DefaultPubsubTopic = "/waku/2/default-waku/proto"
+  DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
+
+
+proc now(): Timestamp = 
+  getNanosecondTime(getTime().toUnixFloat())
+
+proc fakeWakuMessage(
+  payload = "TEST-PAYLOAD",
+  contentTopic = DefaultContentTopic, 
+  ts = now()
+): WakuMessage = 
+  WakuMessage(
+    payload: toBytes(payload),
+    contentTopic: contentTopic,
+    version: 1,
+    timestamp: ts
+  )
+
 
 procSuite "Waku SWAP Accounting":
   test "Handshake Encode/Decode":
@@ -50,98 +77,91 @@ procSuite "Waku SWAP Accounting":
   # With current logic state isn't updated because of bad cheque
   # Consider moving this test to e2e test, and/or move swap module to be on by default
   asyncTest "Update accounting state after store operations":
+    ## Setup
     let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60001))
-    
-    let
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
-
-    var completionFut = newFuture[bool]()
+      serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60000))
 
     # Start nodes and mount protocols
-    await node1.start()
-    await node1.mountSwap()
-    await node1.mountStore(store=StoreQueueRef.new())
-    await node2.start()
-    await node2.mountSwap()
-    await node2.mountStore(store=StoreQueueRef.new())
+    await allFutures(client.start(), server.start())
+    await server.mountSwap()
+    await server.mountStore(store=StoreQueueRef.new())
+    await client.mountSwap()
+    await client.mountStore()
 
-    node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
+    client.wakuStore.setPeer(server.peerInfo.toRemotePeerInfo())
+    client.wakuSwap.setPeer(server.peerInfo.toRemotePeerInfo())
+    server.wakuSwap.setPeer(client.peerInfo.toRemotePeerInfo())
+    
+    ## Given
+    let message = fakeWakuMessage()
 
-    await sleepAsync(500.millis)
+    server.wakuStore.handleMessage(DefaultPubsubTopic, message)
 
-    node1.wakuStore.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
-    node1.wakuSwap.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
-    node2.wakuSwap.setPeer(node1.switch.peerInfo.toRemotePeerInfo())
+    ## When
+    let queryRes = await client.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)]))
 
-    proc storeHandler(response: HistoryResponse) {.gcsafe, closure.} =
-      debug "storeHandler hit"
-      check:
-        response.messages[0] == message
-      completionFut.complete(true)
+    ## Then
+    check queryRes.isOk()
 
-    await node1.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic)]), storeHandler)
+    let response = queryRes.get()
+    check:
+      response.messages == @[message]
 
     check:
-      (await completionFut.withTimeout(5.seconds)) == true
-      # Accounting table updated with credit and debit, respectively
-      node1.wakuSwap.accounting[node2.switch.peerInfo.peerId] == 1
-      node2.wakuSwap.accounting[node1.switch.peerInfo.peerId] == -1
-    await node1.stop()
-    await node2.stop()
+      client.wakuSwap.accounting[server.peerInfo.peerId] == 1
+      server.wakuSwap.accounting[client.peerInfo.peerId] == -1
+    
+    ## Cleanup
+    await allFutures(client.stop(), server.stop())
 
-  # TODO Add cheque here
+
   # This test will only Be checked if in Mock mode
+  # TODO: Add cheque here
   asyncTest "Update accounting state after sending cheque":
+    ## Setup
     let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60001))
-
-    let
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
-
-    var futures = [newFuture[bool](), newFuture[bool]()]
-
+      serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60000))
+    
     # Define the waku swap Config for this test
     let swapConfig = SwapConfig(mode: SwapMode.Mock, paymentThreshold: 1, disconnectThreshold: -1)
 
     # Start nodes and mount protocols
-    await node1.start()
-    await node1.mountSwap(swapConfig)
-    await node1.mountStore(store=StoreQueueRef.new())
-    await node2.start()
-    await node2.mountSwap(swapConfig)
-    await node2.mountStore(store=StoreQueueRef.new())
+    await allFutures(client.start(), server.start())
+    await server.mountSwap(swapConfig)
+    await server.mountStore(store=StoreQueueRef.new())
+    await client.mountSwap(swapConfig)
+    await client.mountStore()
 
-    node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
+    client.wakuStore.setPeer(server.peerInfo.toRemotePeerInfo())
+    client.wakuSwap.setPeer(server.peerInfo.toRemotePeerInfo())
+    server.wakuSwap.setPeer(client.peerInfo.toRemotePeerInfo())
+    
+    ## Given
+    let message = fakeWakuMessage()
 
-    await sleepAsync(500.millis)
+    server.wakuStore.handleMessage(DefaultPubsubTopic, message)
 
-    node1.wakuStore.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
-    node1.wakuSwap.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
-    node2.wakuSwap.setPeer(node1.switch.peerInfo.toRemotePeerInfo())
+    ## When
+    # TODO: Handshakes - for now we assume implicit, e2e still works for PoC
+    let res1 = await client.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)]))
+    let res2 = await client.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)]))
 
-    proc handler1(response: HistoryResponse) {.gcsafe, closure.} =
-      futures[0].complete(true)
-    proc handler2(response: HistoryResponse) {.gcsafe, closure.} =
-      futures[1].complete(true)
-
-    # TODO Handshakes - for now we assume implicit, e2e still works for PoC
-    await node1.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic)]), handler1)
-    await node1.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic)]), handler2)
+    ## Then
+    check:
+      res1.isOk()
+      res2.isOk()
 
     check:
-      (await allFutures(futures).withTimeout(5.seconds)) == true
       # Accounting table updated with credit and debit, respectively
       # After sending a cheque the balance is partially adjusted
-      node1.wakuSwap.accounting[node2.switch.peerInfo.peerId] == 1
-      node2.wakuSwap.accounting[node1.switch.peerInfo.peerId] == -1
-    await node1.stop()
-    await node2.stop()
+      client.wakuSwap.accounting[server.peerInfo.peerId] == 1
+      server.wakuSwap.accounting[client.peerInfo.peerId] == -1
+
+    ## Cleanup
+    await allFutures(client.stop(), server.stop())
