@@ -590,26 +590,32 @@ proc connectToNode(n: WakuNode, remotePeer: RemotePeerInfo, source = "api") {.as
     error "Failed to connect to peer", wireAddr = remotePeer.addrs[0], peerId = remotePeer.peerId
     waku_node_errors.inc(labelValues = ["conn_init_failure"])
 
+proc setStorePeer*(n: WakuNode, peer: RemotePeerInfo) =
+  n.wakuStore.setPeer(peer)
+
 proc setStorePeer*(n: WakuNode, address: string) {.raises: [Defect, ValueError, LPError].} =
   info "Set store peer", address = address
 
-  let remotePeer = parseRemotePeerInfo(address)
+  let peer = parseRemotePeerInfo(address)
+  n.setStorePeer(peer)
 
-  n.wakuStore.setPeer(remotePeer)
+proc setFilterPeer*(n: WakuNode, peer: RemotePeerInfo) =
+  n.wakuFilter.setPeer(peer)
 
 proc setFilterPeer*(n: WakuNode, address: string) {.raises: [Defect, ValueError, LPError].} =
   info "Set filter peer", address = address
 
-  let remotePeer = parseRemotePeerInfo(address)
+  let peer = parseRemotePeerInfo(address)
+  n.setFilterPeer(peer)
 
-  n.wakuFilter.setPeer(remotePeer)
+proc setLightPushPeer*(n: WakuNode, peer: RemotePeerInfo) =
+  n.wakuLightPush.setPeer(peer)
 
 proc setLightPushPeer*(n: WakuNode, address: string) {.raises: [Defect, ValueError, LPError].} =
   info "Set lightpush peer", address = address
 
-  let remotePeer = parseRemotePeerInfo(address)
-
-  n.wakuLightPush.setPeer(remotePeer)
+  let peer = parseRemotePeerInfo(address)
+  n.wakuLightPush.setPeer(peer)
 
 proc connectToNodes*(n: WakuNode, nodes: seq[string], source = "api") {.async.} =
   ## `source` indicates source of node addrs (static config, api call, discovery, etc)
