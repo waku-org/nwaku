@@ -44,7 +44,7 @@ procSuite "Waku DNS Discovery":
                          @[enr1, enr2, enr3], # ENR entries
                          @[]).get()           # No link entries
 
-    let treeKeys = keys.KeyPair.random(rng[])
+    let treeKeys = keys.KeyPair.random(keys.newRng()[])
 
     # Sign tree
     check:

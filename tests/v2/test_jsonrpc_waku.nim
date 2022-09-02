@@ -598,8 +598,8 @@ procSuite "Waku v2 JSON-RPC API":
       server3 = newRpcHttpServer([ta3])
     
     # Let's connect to nodes 1 and 3 via the API
-    installPrivateApiHandlers(node1, server1, rng, newTable[string, seq[WakuMessage]]())
-    installPrivateApiHandlers(node3, server3, rng, topicCache)
+    installPrivateApiHandlers(node1, server1, newTable[string, seq[WakuMessage]]())
+    installPrivateApiHandlers(node3, server3, topicCache)
     installRelayApiHandlers(node3, server3, topicCache)
     server1.start()
     server3.start()
@@ -689,8 +689,8 @@ procSuite "Waku v2 JSON-RPC API":
       server3 = newRpcHttpServer([ta3])
     
     # Let's connect to nodes 1 and 3 via the API
-    installPrivateApiHandlers(node1, server1, rng, newTable[string, seq[WakuMessage]]())
-    installPrivateApiHandlers(node3, server3, rng, topicCache)
+    installPrivateApiHandlers(node1, server1, newTable[string, seq[WakuMessage]]())
+    installPrivateApiHandlers(node3, server3, topicCache)
     installRelayApiHandlers(node3, server3, topicCache)
     server1.start()
     server3.start()
