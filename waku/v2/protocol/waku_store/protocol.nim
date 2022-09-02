@@ -273,31 +273,7 @@ proc query*(w: WakuStore, req: HistoryQuery): Future[WakuStoreResult[HistoryResp
   return await w.query(req, peerOpt.get())
 
 
-proc query*(w: WakuStore, req: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe,
-  deprecated: "Use the no-callback version of this method".} =
-
-  let response = await w.query(req)
-  if response.isErr():
-    error "history query failed", error=response.error()
-    return
-
-  handler(response.get())
-
-
 ## 21/WAKU2-FAULT-TOLERANT-STORE
-
-proc queryFrom*(w: WakuStore, req: HistoryQuery, handler: QueryHandlerFunc, peer: RemotePeerInfo): Future[WakuStoreResult[uint64]] {.async, gcsafe,
-  deprecated: "Use the query() no-callback procedure instead".} =
-  ## Sends the query to the given peer. Returns the number of retrieved messages if no error occurs, otherwise returns the error string
-  # TODO: dialPeer add it to the list of known peers, while it does not cause any issue but might be unnecessary
-  let res = await w.query(req, peer)
-  if res.isErr():
-    return err(res.error())
-  
-  let response = res.get()
-
-  handler(response)
-  return ok(response.messages.len.uint64)
 
 proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: RemotePeerInfo): Future[WakuStoreResult[seq[WakuMessage]]] {.async, gcsafe.} =
   ## A thin wrapper for query. Sends the query to the given peer. when the  query has a valid pagingInfo, 
@@ -475,18 +451,3 @@ proc queryWithAccounting*(ws: WakuStore, req: HistoryQuery): Future[WakuStoreRes
   ws.wakuSwap.debit(peerOpt.get().peerId, response.messages.len)
 
   return ok(response)
-
-proc queryWithAccounting*(ws: WakuStore, req: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe,
-  deprecated: "Use the no-callback procedure instead".} =
-  # TODO: We need to be more stratigic about which peers we dial. Right now we just set one on the service.
-  # Ideally depending on the query and our set  of peers we take a subset of ideal peers.
-  # This will require us to check for various factors such as:
-  #  - which topics they track
-  #  - latency?
-  #  - default store peer?
-  let response = await ws.queryWithAccounting(req)
-  if response.isErr():
-    error "history query failed", error=response.error()
-    return
-  
-  handler(response.get())
