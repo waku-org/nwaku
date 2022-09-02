@@ -100,7 +100,7 @@ proc decodePayloadV2*(message: WakuMessage): WakuResult[PayloadV2]
 
 # Encodes a PayloadV2 to a WakuMessage
 # Currently, this is just a wrapper over serializePayloadV2 and encryption/decryption is done on top (no KeyInfo)
-proc encodePayloadV2*(payload2: PayloadV2): WakuResult[WakuMessage] 
+proc encodePayloadV2*(payload2: PayloadV2, contentTopic: ContentTopic = default(ContentTopic)): WakuResult[WakuMessage] 
   {.raises: [Defect, NoiseMalformedHandshake, NoisePublicKeyError].} =
 
   # We attempt to encode the PayloadV2
@@ -109,6 +109,6 @@ proc encodePayloadV2*(payload2: PayloadV2): WakuResult[WakuMessage]
     return err("Failed to encode PayloadV2")
 
   # If successful, we create and return a WakuMessage 
-  let msg = WakuMessage(payload: serializedPayload2.get(), version: 2)
+  let msg = WakuMessage(payload: serializedPayload2.get(), version: 2, contentTopic: contentTopic)
   
   return ok(msg)
