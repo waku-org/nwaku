@@ -146,11 +146,3 @@ proc request*(wl: WakuLightPush, req: PushRequest): Future[WakuLightPushResult[P
     return err(dialFailure)
 
   return await wl.request(req, peerOpt.get())
-
-proc request*(wl: WakuLightPush, req: PushRequest, handler: PushResponseHandler) {.async, gcsafe,
-  deprecated: "Use the no-callback request() procedure".} =
-  let res = await wl.request(req)
-  if res.isErr():
-    return
-  
-  handler(res.get())
