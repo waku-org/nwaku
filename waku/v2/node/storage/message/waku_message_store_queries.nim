@@ -76,7 +76,7 @@ proc createTable*(db: SqliteDatabase): DatabaseResult[void] {.inline.} =
 ## Create index
 
 template createIndexQuery(table: string): SqlQueryStr = 
-  "CREATE INDEX IF NOT EXISTS i_rt ON " & table & " (receiverTimestamp);"
+  "CREATE INDEX IF NOT EXISTS i_msg ON " & table & " (contentTopic, pubsubTopic, senderTimestamp, id);"
 
 proc createIndex*(db: SqliteDatabase): DatabaseResult[void] {.inline.} =
   let query = createIndexQuery(DbTable)
