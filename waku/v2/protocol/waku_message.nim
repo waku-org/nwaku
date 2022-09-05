@@ -31,6 +31,14 @@ type
     # this field will be used in the rln-relay protocol
     # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec and not yet part of WakuMessage spec
     proof*: RateLimitProof
+    # The ephemeral field indicates if the message should
+    # be stored. bools and uints are 
+    # equivalent in serialization of the protobuf
+    ephemeral*: bool
+    # The storeTTL field indicates for how long a given message
+    # should be considered "valid", after which it may still
+    # be fetched, but should not be used in any business logic
+    storeTTL*: Timestamp
     
    
 
@@ -51,7 +59,19 @@ proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
   var proofBytes: seq[byte]
   discard ? pb.getField(21, proofBytes)
   msg.proof = ? RateLimitProof.init(proofBytes)
-  
+
+  # Behaviour of ephemeral with storeTTL to be defined,
+  # If a message is marked ephemeral, it should not have a storeTTL.
+  # If a message is not marked ephemeral, it should have a storeTTL.
+  # How would we handle messages that should be stored permanently?
+  var ephemeral: uint
+  discard ? pb.getField(31, ephemeral)
+  msg.ephemeral = uintToBool(ephemeral)
+
+  var storeTTL: zint64
+  discard ? pb.getField(32, storeTTL)
+  msg.storeTTL = Timestamp(storeTTL)
+
   ok(msg)
 
 proc encode*(message: WakuMessage): ProtoBuffer =
@@ -62,6 +82,8 @@ proc encode*(message: WakuMessage): ProtoBuffer =
   result.write3(3, message.version)
   result.write3(10, zint64(message.timestamp))
   result.write3(21, message.proof.encode())
+  result.write3(31, boolToUint(message.ephemeral))
+  result.write3(32, zint64(message.storeTTL))
   
   result.finish3()
 

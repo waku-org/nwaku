@@ -30,13 +30,17 @@ proc newTestDatabase(): SqliteDatabase =
 proc fakeWakuMessage(
   payload = "TEST-PAYLOAD",
   contentTopic = DefaultContentTopic, 
-  ts = getNanosecondTime(epochTime())
+  ts = getNanosecondTime(epochTime()),
+  ephemeral = false,
+  storeTTL = getNanosecondTime(60*5) # 5 minutes
 ): WakuMessage = 
   WakuMessage(
     payload: toBytes(payload),
     contentTopic: contentTopic,
     version: 1,
-    timestamp: ts
+    timestamp: ts,
+    ephemeral: ephemeral,
+    storeTTL: storeTTL
   )
 
 proc newTestSwitch(key=none(PrivateKey), address=none(MultiAddress)): Switch =
@@ -445,6 +449,49 @@ suite "Waku Store":
 
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitch.stop())
+
+  asyncTest "handle ephemeral messages":
+    ## Setup
+    let 
+      serverSwitch = newTestSwitch()
+      clientSwitch = newTestSwitch()
+    
+    await allFutures(serverSwitch.start(), clientSwitch.start())
+      
+    let 
+      serverProto = newTestWakuStore(serverSwitch)
+      clientProto = newTestWakuStore(clientSwitch)
+
+    clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
+
+    ## Send 5 ephemeral messages. A message is stateful by default.
+    let msgList = @[
+        fakeWakuMessage(ephemeral = true),
+        fakeWakuMessage(ephemeral = true),
+        fakeWakuMessage(ephemeral = true),
+        fakeWakuMessage(ephemeral = true),
+        fakeWakuMessage(ephemeral = true),
+      ]
+
+    for msg in msgList:
+      await serverProto.handleMessage("foo", msg)
+
+    ## Query the RPC for all messages in store. Since we are testing the behaviour of the store handler,
+    ## making the rpc should be OK.
+    let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)])
+    let resQuery = await clientProto.query(rpc)
+
+    ## Then
+    check:
+      resQuery.isOk()
+
+    # Make sure that the response has no messages
+    let response = resQuery.tryGet() 
+    check:
+      response.messages.len == 0
+
+    ## Cleanup
+    await allFutures(serverSwitch.stop(), clientSwitch.stop())
 
 
 # TODO: Review this test suite test cases
