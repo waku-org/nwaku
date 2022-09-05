@@ -47,10 +47,9 @@ procSuite "Waku Noise Sessions":
     let applicationName = "waku-noise-sessions"
     let applicationVersion = "0.1"
     let shardId = "10"
+    let qrMessageNametag = randomSeqByte(rng[], MessageNametagLength)
 
     # Out-of-band Communication
-
-    # TODO: add messageNametag
 
     # Bob prepares the QR and sends it out-of-band to Alice
     let qr = toQr(applicationName, applicationVersion, shardId, getPublicKey(bobEphemeralKey), bobCommittedStaticKey)
@@ -92,6 +91,7 @@ procSuite "Waku Noise Sessions":
       wakuMsg: WakuResult[WakuMessage]
       pb: ProtoBuffer
       readPayloadV2: PayloadV2
+      aliceMessageNametag, bobMessageNametag: MessageNametag
     
     # Write and read calls alternate between Alice and Bob: the handhshake progresses by alternatively calling stepHandshake for each user
 
@@ -101,12 +101,16 @@ procSuite "Waku Noise Sessions":
     # -> eA, eAeB   {H(sA||s)}   [authcode]
     ###############
 
+    # The messageNametag for the first handshake message is randomly generated and exchanged out-of-band 
+    # and corresponds to qrMessageNametag
+
     # We set the transport message to be H(sA||s)
     sentTransportMessage = digestToSeq(aliceCommittedStaticKey)
 
     # By being the handshake initiator, Alice writes a Waku2 payload v2 containing her handshake message 
     # and the (encrypted) transport message
-    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+    # The message is sent with a messageNametag equal to the one received through the QR code
+    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage, messageNametag = qrMessageNametag).get()
 
     ###############################################
     # We prepare a Waku message from Alice's payload2
@@ -134,7 +138,8 @@ procSuite "Waku Noise Sessions":
     ###############################################
 
     # Bob reads Alice's payloads, and returns the (decrypted) transport message Alice sent to him
-    bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = readPayloadV2).get()
+    # Note that Bob verifies if the received payloadv2 has the expected messageNametag set
+    bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = readPayloadV2, messageNametag = qrMessageNametag).get()
     
     check:
       bobStep.transportMessage == sentTransportMessage
@@ -153,11 +158,16 @@ procSuite "Waku Noise Sessions":
     # <- sB, eAsB    {r}
     ###############
 
+    # Alice and Bob update their local next messageNametag using the available handshake information
+    # During the handshake, messageNametag = HKDF(h), where h is the handshake hash value at the end of the last processed message
+    aliceMessageNametag = toMessageNametag(aliceHS)
+    bobMessageNametag = toMessageNametag(bobHS)
+
     # We set as a transport message the commitment randomness r
     sentTransportMessage = r
 
     # At this step, Bob writes and returns a payload
-    bobStep = stepHandshake(rng[], bobHS, transportMessage = sentTransportMessage).get()
+    bobStep = stepHandshake(rng[], bobHS, transportMessage = sentTransportMessage, messageNametag = bobMessageNametag).get()
 
     ###############################################
     # We prepare a Waku message from Bob's payload2
@@ -185,7 +195,7 @@ procSuite "Waku Noise Sessions":
     ###############################################
 
     # While Alice reads and returns the (decrypted) transport message
-    aliceStep = stepHandshake(rng[], aliceHS, readPayloadV2 = readPayloadV2).get()
+    aliceStep = stepHandshake(rng[], aliceHS, readPayloadV2 = readPayloadV2, messageNametag = aliceMessageNametag).get()
     
     check:
       aliceStep.transportMessage == sentTransportMessage
@@ -202,11 +212,15 @@ procSuite "Waku Noise Sessions":
     # -> sA, sAeB, sAsB  {s}
     ###############
 
+    # Alice and Bob update their local next messageNametag using the available handshake information
+    aliceMessageNametag = toMessageNametag(aliceHS)
+    bobMessageNametag = toMessageNametag(bobHS)
+
     # We set as a transport message the commitment randomness r
     sentTransportMessage = s
 
     # Similarly as in first step, Alice writes a Waku2 payload containing the handshake message and the (encrypted) transport message
-    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage, messageNametag = aliceMessageNametag).get()
 
     ###############################################
     # We prepare a Waku message from Bob's payload2
@@ -234,7 +248,7 @@ procSuite "Waku Noise Sessions":
     ###############################################
 
     # Bob reads Alice's payloads, and returns the (decrypted) transport message Alice sent to him
-    bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = readPayloadV2).get()
+    bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = readPayloadV2, messageNametag = bobMessageNametag).get()
     
     check:
       bobStep.transportMessage == sentTransportMessage
@@ -261,20 +275,20 @@ procSuite "Waku Noise Sessions":
       message: seq[byte]
       readMessage: seq[byte]
 
-    for _ in 0..10:
+    for i in 0..10:
 
       # Alice writes to Bob
       message = randomSeqByte(rng[], 32)
-      payload2 = writeMessage(aliceHSResult, message)
-      readMessage = readMessage(bobHSResult, payload2).get()
+      payload2 = writeMessage(aliceHSResult, message, messageNametag = aliceHSResult.nametagsOutbound.buffer[i])
+      readMessage = readMessage(bobHSResult, payload2, messageNametag = bobHSResult.nametagsInbound.buffer[i]).get()
       
       check: 
         message == readMessage
       
       # Bob writes to Alice
       message = randomSeqByte(rng[], 32)
-      payload2 = writeMessage(bobHSResult, message)
-      readMessage = readMessage(aliceHSResult, payload2).get()
+      payload2 = writeMessage(bobHSResult, message, messageNametag = bobHSResult.nametagsOutbound.buffer[i])
+      readMessage = readMessage(aliceHSResult, payload2, messageNametag = aliceHSResult.nametagsInbound.buffer[i]).get()
       
       check:
         message == readMessage

@@ -29,6 +29,14 @@ const
   EmptyKey* = default(ChaChaPolyKey)
   # The maximum ChaChaPoly allowed nonce in Noise Handshakes
   NonceMax* = uint64.high - 1
+  # The padding blocksize of  a transport message
+  NoisePaddingBlockSize* = 248
+  # The default length of a message nametag 
+  MessageNametagLength* = 16
+  # The default length of the secret to generate Inbound/Outbound nametags buffer 
+  MessageNametagSecretLength* = 32
+  # The default size of an Inbound/outbound MessageNametagBuffer
+  MessageNametugBufferSize* = 50
 
 type
 
@@ -165,6 +173,8 @@ type
     csOutbound*: CipherState
     csInbound*: CipherState
     # Optional fields:
+    nametagsInbound*: MessageNametagBuffer
+    nametagsOutbound*: MessageNametagBuffer
     rs*: EllipticCurveKey
     h*: MDigest[256]
 
@@ -174,9 +184,17 @@ type
 
   # PayloadV2 defines an object for Waku payloads with version 2 as in
   # https://rfc.vac.dev/spec/35/#public-keys-serialization
-  # It contains a protocol ID field, the handshake message (for Noise handshakes) and 
+  # It contains a message nametag, protocol ID field, the handshake message (for Noise handshakes) and 
   # a transport message (for Noise handshakes and ChaChaPoly encryptions)
+  MessageNametag* = array[MessageNametagLength, byte]
+
+  MessageNametagBuffer* = object
+    buffer*: seq[MessageNametag]
+    counter*: uint64
+    secret*: array[MessageNametagSecretLength, byte]
+
   PayloadV2* = object
+    messageNametag*: MessageNametag
     protocolId*: uint8
     handshakeMessage*: seq[NoisePublicKey]
     transportMessage*: seq[byte]
@@ -192,6 +210,7 @@ type
   NoiseNonceMaxError* = object of NoiseError
   NoisePublicKeyError* = object of NoiseError
   NoiseMalformedHandshake* = object of NoiseError
+  NoiseMessageNametagError* = object of NoiseError
 
 
 #################################
@@ -255,8 +274,4 @@ const
     "Noise_WakuPairing_25519_ChaChaPoly_SHA256": 14.uint8,
     "ChaChaPoly":                                30.uint8
 
-    }.toTable()
-
-# Other constants
-const
-  NoisePaddingBlockSize* = 248
+    }.toTable()  

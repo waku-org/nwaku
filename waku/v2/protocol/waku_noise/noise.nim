@@ -230,24 +230,29 @@ proc mixKeyAndHash*(ss: var SymmetricState, inputKeyMaterial: openArray[byte]) {
 
 # EncryptAndHash as per Noise specification http://www.noiseprotocol.org/noise.html#the-symmetricstate-object
 # Combines encryptWithAd and mixHash
-proc encryptAndHash*(ss: var SymmetricState, plaintext: openArray[byte]): seq[byte]
+# Note that by setting extraAd, it is possible to pass extra additional data that will be concatenated to the ad specified by Noise (can be used to authenticate messageNametag)
+proc encryptAndHash*(ss: var SymmetricState, plaintext: openArray[byte], extraAd: openArray[byte] = []): seq[byte]
   {.raises: [Defect, NoiseNonceMaxError].} =
   # The output ciphertext
   var ciphertext: seq[byte]
+  # The additional data
+  let ad = @(ss.h.data) & @(extraAd)
   # Note that if an encryption key is not set yet in the Cipher state, ciphertext will be equal to plaintex
-  ciphertext = ss.cs.encryptWithAd(ss.h.data, plaintext)
+  ciphertext = ss.cs.encryptWithAd(ad, plaintext)
   # We call mixHash over the result
   ss.mixHash(ciphertext)
   return ciphertext
 
 # DecryptAndHash as per Noise specification http://www.noiseprotocol.org/noise.html#the-symmetricstate-object
 # Combines decryptWithAd and mixHash
-proc decryptAndHash*(ss: var SymmetricState, ciphertext: openArray[byte]): seq[byte]
+proc decryptAndHash*(ss: var SymmetricState, ciphertext: openArray[byte], extraAd: openArray[byte] = []): seq[byte]
   {.raises: [Defect, NoiseDecryptTagError, NoiseNonceMaxError].} =
   # The output plaintext
   var plaintext: seq[byte]
+  # The additional data
+  let ad = @(ss.h.data) & @(extraAd)
   # Note that if an encryption key is not set yet in the Cipher state, plaintext will be equal to ciphertext
-  plaintext = ss.cs.decryptWithAd(ss.h.data, ciphertext)
+  plaintext = ss.cs.decryptWithAd(ad, ciphertext)
   # According to specification, the ciphertext enters mixHash (and not the plaintext)
   ss.mixHash(ciphertext)
   return plaintext

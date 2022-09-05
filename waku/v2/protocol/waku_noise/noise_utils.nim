@@ -57,6 +57,76 @@ proc pkcs7_unpad*(payload: seq[byte], paddingSize: int): seq[byte] =
   let unpadded = payload[0..payload.high-k.int]
   return unpadded
 
+proc seqToDigest256*(sequence: seq[byte]): MDigest[256] =
+  var digest: MDigest[256]
+  for i in 0..<digest.data.len:
+    digest.data[i] = sequence[i]
+  return digest
+
+proc digestToSeq*[T](digest: MDigest[T]): seq[byte] =
+  var sequence: seq[byte]
+  for i in 0..<digest.data.len:
+    sequence.add digest.data[i]
+  return sequence
+
+# Serializes input parameters to a base64 string for exposure through QR code (used by WakuPairing)
+proc toQr*(applicationName: string, applicationVersion: string, shardId: string, ephemeralKey: EllipticCurveKey, committedStaticKey: MDigest[256]): string =
+
+  var qr: string
+  qr.add encode(applicationName) & ":"
+  qr.add encode(applicationVersion) & ":"
+  qr.add encode(shardId) & ":"
+  qr.add encode(ephemeralKey) & ":"
+  qr.add encode(committedStaticKey.data)
+
+  return qr
+
+# Deserializes input string in base64 to the corresponding (applicationName, applicationVersion, shardId, ephemeralKey, committedStaticKey)
+proc fromQr*(qr: string): (string, string, string, EllipticCurveKey, MDigest[256]) {.raises: [Defect, ValueError].} =
+
+  let values = qr.split(":")
+
+  assert(values.len == 5)
+
+  let applicationName: string = decode(values[0])
+  let applicationVersion: string = decode(values[1])
+  let shardId: string = decode(values[2])
+
+  let decodedEphemeralKey = decode(values[3]).toBytes  
+  var ephemeralKey: EllipticCurveKey 
+  for i in 0..<ephemeralKey.len:
+    ephemeralKey[i] = decodedEphemeralKey[i]
+
+  let committedStaticKey = seqToDigest256(decode(values[4]).toBytes)
+ 
+  return (applicationName, applicationVersion, shardId, ephemeralKey, committedStaticKey)
+
+# Converts a sequence or array (arbitrary size) to a MessageNametag
+proc toMessageNametag*(input: openArray[byte]): MessageNametag =
+  var byte_seq: seq[byte] = @input
+
+  # We set its length to the default message nametag length (will be truncated or 0-padded)
+  byte_seq.setLen(MessageNametagLength)
+  
+  # We copy it to a MessageNametag
+  var messageNametag: MessageNametag
+  for i in 0..<MessageNametagLength:
+    messageNametag[i] = byte_seq[i]
+  
+  return messageNametag
+
+# Uses the cryptographic information stored in the input handshake state to generate a random message nametag
+# In current implementation the messageNametag = HKDF(handshake hash value), but other derivation mechanisms can be implemented
+proc toMessageNametag*(hs: HandshakeState): MessageNametag =
+  var output: array[1, array[MessageNametagLength, byte]]
+  sha256.hkdf(hs.ss.h.data, [], [], output)
+  return output[0]
+
+proc genMessageNametagSecrets*(hs: HandshakeState): (array[MessageNametagSecretLength, byte], array[MessageNametagSecretLength, byte]) =
+  var output: array[2, array[MessageNametagSecretLength, byte]]
+  sha256.hkdf(hs.ss.h.data, [], [], output)
+  return (output[0], output[1])
+
 # Simple utility that checks if the given variable is "default", 
 # Therefore, it has not been initialized
 proc isDefault*[T](value: T): bool = 
@@ -151,56 +221,21 @@ proc commitPublicKey*(publicKey: EllipticCurveKey, r: seq[byte]): MDigest[256] =
 
   return hash
 
-proc seqToDigest256*(sequence: seq[byte]): MDigest[256] =
-  var digest: MDigest[256]
-  for i in 0..<digest.data.len:
-    digest.data[i] = sequence[i]
-  return digest
-
-proc digestToSeq*[T](digest: MDigest[T]): seq[byte] =
-  var sequence: seq[byte]
-  for i in 0..<digest.data.len:
-    sequence.add digest.data[i]
-  return sequence
-
-# Serializes input parameters to a base64 string for exposure through QR code (used by WakuPairing)
-proc toQr*(applicationName: string, applicationVersion: string, shardId: string, ephemeralKey: EllipticCurveKey, committedStaticKey: MDigest[256]): string =
-
-  var qr: string
-  qr.add encode(applicationName) & ":"
-  qr.add encode(applicationVersion) & ":"
-  qr.add encode(shardId) & ":"
-  qr.add encode(ephemeralKey) & ":"
-  qr.add encode(committedStaticKey.data)
-
-  return qr
-
-# Deserializes input string in base64 to the corresponding (applicationName, applicationVersion, shardId, ephemeralKey, committedStaticKey)
-proc fromQr*(qr: string): (string, string, string, EllipticCurveKey, MDigest[256]) {.raises: [Defect, ValueError].} =
-
-  let values = qr.split(":")
-
-  assert(values.len == 5)
-
-  let applicationName: string = decode(values[0])
-  let applicationVersion: string = decode(values[1])
-  let shardId: string = decode(values[2])
-
-  let decodedEphemeralKey = decode(values[3]).toBytes  
-  var ephemeralKey: EllipticCurveKey 
-  for i in 0..<ephemeralKey.len:
-    ephemeralKey[i] = decodedEphemeralKey[i]
-
-  let committedStaticKey = seqToDigest256(decode(values[4]).toBytes)
- 
-  return (applicationName, applicationVersion, shardId, ephemeralKey, committedStaticKey)
-
 proc genAuthcode*(hs: HandshakeState): string =
   var output: array[1, array[8, byte]]
   sha256.hkdf(hs.ss.h.data, [], [], output)
   let code = cast[uint64](output[0]) mod 100_000_000
   return $code
 
+proc fillNametagsBuffer*(mntb: var MessageNametagBuffer) =
+  
+  # We warn users if no secret is set
+  if mntb.secret == default(array[MessageNametagSecretLength, byte]):
+    debug "The message nametags buffer has a default secret set"
+
+  while (mntb.buffer.len <= MessageNametugBufferSize):
+    mntb.buffer.add toMessageNametag(sha256.digest(@(mntb.secret) & @(toBytesLE(mntb.counter))).data)
+    mntb.counter += 1
 
 # Performs a Diffie-Hellman operation between two elliptic curve keys (one private, one public)
 proc dh*(private: EllipticCurveKey, public: EllipticCurveKey): EllipticCurveKey =
@@ -339,7 +374,8 @@ proc decryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePubl
 
 # Checks equality between two PayloadsV2 objects
 proc `==`*(p1, p2: PayloadV2): bool =
-  return (p1.protocolId == p2.protocolId) and 
+  return (p1.messageNametag == p2.messageNametag) and 
+         (p1.protocolId == p2.protocolId) and 
          (p1.handshakeMessage == p2.handshakeMessage) and 
          (p1.transportMessage == p2.transportMessage) 
   
@@ -347,6 +383,10 @@ proc `==`*(p1, p2: PayloadV2): bool =
 # Generates a random PayloadV2
 proc randomPayloadV2*(rng: var BrHmacDrbgContext): PayloadV2 =
   var payload2: PayloadV2
+  # We set a random messageNametag
+  let randMessageNametag = randomSeqByte(rng, MessageNametagLength)
+  for i in 0..<MessageNametagLength:
+    payload2.messageNametag[i] = randMessageNametag[i]
   # To generate a random protocol id, we generate a random 1-byte long sequence, and we convert the first element to uint8
   payload2.protocolId = randomSeqByte(rng, 1)[0].uint8
   # We set the handshake message to three unencrypted random Noise Public Keys
@@ -385,14 +425,14 @@ proc serializePayloadV2*(self: PayloadV2): Result[seq[byte], cstring] =
       debug "PayloadV2 malformed: too many public keys contained in the handshake message"
       return err("Too many public keys in handshake message")
 
-
   # We get the transport message byte length
   let transportMessageLen = self.transportMessage.len
 
   # The output payload as in https://rfc.vac.dev/spec/35/. We concatenate all the PayloadV2 fields as 
   # payload = ( protocolId || serializedHandshakeMessageLen || serializedHandshakeMessage || transportMessageLen || transportMessage)
   # We declare it as a byte sequence of length accordingly to the PayloadV2 information read 
-  var payload = newSeqOfCap[byte](1 + # 1 byte for protocol ID             
+  var payload = newSeqOfCap[byte](MessageNametagLength + #MessageNametagLength bytes for messageNametag
+                                  1 + # 1 byte for protocol ID             
                                   1 + # 1 byte for length of serializedHandshakeMessage field
                                   serializedHandshakeMessageLen + # serializedHandshakeMessageLen bytes for serializedHandshakeMessage
                                   8 + # 8 bytes for transportMessageLen
@@ -401,6 +441,7 @@ proc serializePayloadV2*(self: PayloadV2): Result[seq[byte], cstring] =
   
   # We concatenate all the data
   # The protocol ID (1 byte) and handshake message length (1 byte) can be directly casted to byte to allow direct copy to the payload byte sequence
+  payload.add @(self.messageNametag)
   payload.add self.protocolId.byte
   payload.add serializedHandshakeMessageLen.byte
   payload.add serializedHandshakeMessage
@@ -413,7 +454,7 @@ proc serializePayloadV2*(self: PayloadV2): Result[seq[byte], cstring] =
 
 # Deserializes a byte sequence to a PayloadV2 object according to https://rfc.vac.dev/spec/35/.
 # The input serialized payload concatenates the output PayloadV2 object fields as
-# payload = ( protocolId || serializedHandshakeMessageLen || serializedHandshakeMessage || transportMessageLen || transportMessage)
+# payload = ( messageNametag || protocolId || serializedHandshakeMessageLen || serializedHandshakeMessage || transportMessageLen || transportMessage)
 proc deserializePayloadV2*(payload: seq[byte]): Result[PayloadV2, cstring]
   {.raises: [Defect, NoisePublicKeyError].} =
 
@@ -423,7 +464,12 @@ proc deserializePayloadV2*(payload: seq[byte]): Result[PayloadV2, cstring]
   # i is the read input buffer position index
   var i: uint64 = 0
 
-  # We start reading the Protocol ID
+  # We start by reading the messageNametag
+  for j in 0..<MessageNametagLength:
+    payload2.messageNametag[j] = payload[i+j.uint64]
+  i += MessageNametagLength
+
+  # We read the Protocol ID
   # TODO: when the list of supported protocol ID is defined, check if read protocol ID is supported
   payload2.protocolId = payload[i].uint8
   i += 1
