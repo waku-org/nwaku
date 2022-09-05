@@ -456,7 +456,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
       storenode = some(parseRemotePeerInfo(conf.storenode))
     elif discoveredNodes.len > 0:
       echo "Store enabled, but no store nodes configured. Choosing one at random from discovered peers"
-      storenode = some(discoveredNodes[rand(0..len(discoveredNodes))])
+      storenode = some(discoveredNodes[rand(0..len(discoveredNodes) - 1)])
       
     if storenode.isSome():
       # We have a viable storenode. Let's query it for historical messages.
