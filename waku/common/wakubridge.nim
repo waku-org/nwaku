@@ -284,7 +284,7 @@ proc start*(bridge: WakuBridge) {.async.} =
   
   # Always mount relay for bridge.
   # `triggerSelf` is false on a `bridge` to avoid duplicates
-  bridge.nodev2.mountRelay(triggerSelf = false)
+  await bridge.nodev2.mountRelay(triggerSelf = false)
 
   # Bridging
   # Handle messages on Waku v1 and bridge to Waku v2  
@@ -424,13 +424,13 @@ when isMainModule:
   # Now load rest of config
 
   # Mount configured Waku v2 protocols
-  mountLibp2pPing(bridge.nodev2)
+  waitFor mountLibp2pPing(bridge.nodev2)
   
   if conf.store:
-    mountStore(bridge.nodev2, persistMessages = false)  # Bridge does not persist messages
+    waitFor mountStore(bridge.nodev2, persistMessages = false)  # Bridge does not persist messages
 
   if conf.filter:
-    mountFilter(bridge.nodev2)
+    waitFor mountFilter(bridge.nodev2)
 
   if conf.staticnodesV2.len > 0:
     waitFor connectToNodes(bridge.nodev2, conf.staticnodesV2)

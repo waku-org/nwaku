@@ -376,10 +376,10 @@ proc processInput(rfd: AsyncFD) {.async.} =
       wssEnabled = conf.websocketSecureSupport)
   await node.start()
 
-  node.mountRelay(conf.topics.split(" "),
-                  relayMessages = conf.relay) # Indicates if node is capable to relay messages
+  if conf.relay:
+    await node.mountRelay(conf.topics.split(" "))
   
-  node.mountLibp2pPing()
+  await node.mountLibp2pPing()
   
   let nick = await readNick(transp)
   echo "Welcome, " & nick & "!"
@@ -446,10 +446,10 @@ proc processInput(rfd: AsyncFD) {.async.} =
   echo &"Listening on\n {listenStr}"
 
   if conf.swap:
-    node.mountSwap()
+    await node.mountSwap()
 
   if (conf.storenode != "") or (conf.store == true):
-    node.mountStore(persistMessages = conf.persistMessages)
+    await node.mountStore(persistMessages = conf.persistMessages)
 
     var storenode: Option[RemotePeerInfo]
 
@@ -478,12 +478,12 @@ proc processInput(rfd: AsyncFD) {.async.} =
   
   # NOTE Must be mounted after relay
   if conf.lightpushnode != "":
-    mountLightPush(node)
+    await mountLightPush(node)
 
     node.wakuLightPush.setPeer(parseRemotePeerInfo(conf.lightpushnode))
 
   if conf.filternode != "":
-    node.mountFilter()
+    await node.mountFilter()
 
     node.wakuFilter.setPeer(parseRemotePeerInfo(conf.filternode))
 

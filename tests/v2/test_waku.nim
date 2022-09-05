@@ -85,7 +85,7 @@ procSuite "FloodSub":
       )
 
     for node in nodes:
-      node.mountRelay()
+      await node.mountRelay()
 
     await subscribeNodes(nodes)
 

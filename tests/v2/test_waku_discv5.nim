@@ -81,9 +81,9 @@ procSuite "Waku Discovery v5":
         [] # Empty enr fields, for now
       )
 
-    node1.mountRelay()
-    node2.mountRelay()
-    node3.mountRelay()
+    await node1.mountRelay()
+    await node2.mountRelay()
+    await node3.mountRelay()
 
     await allFutures([node1.start(), node2.start(), node3.start()])
 
