@@ -534,21 +534,22 @@ procSuite "Waku Noise":
       payload2: PayloadV2
       message: seq[byte]
       readMessage: seq[byte]
+      defaultMessageNametagBuffer: MessageNametagBuffer
 
     for _ in 0..10:
 
       # Alice writes to Bob
       message = randomSeqByte(rng[], 32)
-      payload2 = writeMessage(aliceHSResult, message)
-      readMessage = readMessage(bobHSResult, payload2).get()
+      payload2 = writeMessage(aliceHSResult, message, defaultMessageNametagBuffer)
+      readMessage = readMessage(bobHSResult, payload2, defaultMessageNametagBuffer).get()
       
       check: 
         message == readMessage
       
       # Bob writes to Alice
       message = randomSeqByte(rng[], 32)
-      payload2 = writeMessage(bobHSResult, message)
-      readMessage = readMessage(aliceHSResult, payload2).get()
+      payload2 = writeMessage(bobHSResult, message, defaultMessageNametagBuffer)
+      readMessage = readMessage(aliceHSResult, payload2, defaultMessageNametagBuffer).get()
       
       check:
         message == readMessage
@@ -640,21 +641,22 @@ procSuite "Waku Noise":
       payload2: PayloadV2
       message: seq[byte]
       readMessage: seq[byte]
+      defaultMessageNametagBuffer: MessageNametagBuffer
 
     for _ in 0..10:
 
       # Alice writes to Bob
       message = randomSeqByte(rng[], 32)
-      payload2 = writeMessage(aliceHSResult, message)
-      readMessage = readMessage(bobHSResult, payload2).get()
+      payload2 = writeMessage(aliceHSResult, message, defaultMessageNametagBuffer)
+      readMessage = readMessage(bobHSResult, payload2, defaultMessageNametagBuffer).get()
       
       check: 
         message == readMessage
       
       # Bob writes to Alice
       message = randomSeqByte(rng[], 32)
-      payload2 = writeMessage(bobHSResult, message)
-      readMessage = readMessage(aliceHSResult, payload2).get()
+      payload2 = writeMessage(bobHSResult, message, defaultMessageNametagBuffer)
+      readMessage = readMessage(aliceHSResult, payload2, defaultMessageNametagBuffer).get()
       
       check:
         message == readMessage
@@ -750,21 +752,22 @@ procSuite "Waku Noise":
       payload2: PayloadV2
       message: seq[byte]
       readMessage: seq[byte]
+      defaultMessageNametagBuffer: MessageNametagBuffer
 
     for _ in 0..10:
 
       # Alice writes to Bob
       message = randomSeqByte(rng[], 32)
-      payload2 = writeMessage(aliceHSResult, message)
-      readMessage = readMessage(bobHSResult, payload2).get()
+      payload2 = writeMessage(aliceHSResult, message, defaultMessageNametagBuffer)
+      readMessage = readMessage(bobHSResult, payload2, defaultMessageNametagBuffer).get()
       
       check: 
         message == readMessage
       
       # Bob writes to Alice
       message = randomSeqByte(rng[], 32)
-      payload2 = writeMessage(bobHSResult, message)
-      readMessage = readMessage(aliceHSResult, payload2).get()
+      payload2 = writeMessage(bobHSResult, message, defaultMessageNametagBuffer)
+      readMessage = readMessage(aliceHSResult, payload2, defaultMessageNametagBuffer).get()
       
       check:
         message == readMessage
@@ -860,21 +863,22 @@ procSuite "Waku Noise":
       payload2: PayloadV2
       message: seq[byte]
       readMessage: seq[byte]
+      defaultMessageNametagBuffer: MessageNametagBuffer
 
     for _ in 0..10:
 
       # Alice writes to Bob
       message = randomSeqByte(rng[], 32)
-      payload2 = writeMessage(aliceHSResult, message)
-      readMessage = readMessage(bobHSResult, payload2).get()
+      payload2 = writeMessage(aliceHSResult, message, defaultMessageNametagBuffer)
+      readMessage = readMessage(bobHSResult, payload2, defaultMessageNametagBuffer).get()
       
       check: 
         message == readMessage
       
       # Bob writes to Alice
       message = randomSeqByte(rng[], 32)
-      payload2 = writeMessage(bobHSResult, message)
-      readMessage = readMessage(aliceHSResult, payload2).get()
+      payload2 = writeMessage(bobHSResult, message, defaultMessageNametagBuffer)
+      readMessage = readMessage(aliceHSResult, payload2, defaultMessageNametagBuffer).get()
       
       check:
         message == readMessage

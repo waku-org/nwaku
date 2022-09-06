@@ -540,18 +540,18 @@ proc finalizeHandshake*(hs: var HandshakeState): HandshakeResult =
     hsResult.csOutbound = cs1
     hsResult.csInbound = cs2
     # and nametags secrets
-    hsResult.nametagsInbound.secret = nms1
-    hsResult.nametagsOutbound.secret = nms2
+    hsResult.nametagsInbound.secret = some(nms1)
+    hsResult.nametagsOutbound.secret = some(nms2)
   else:
     hsResult.csOutbound = cs2
     hsResult.csInbound = cs1
     # and nametags secrets
-    hsResult.nametagsInbound.secret = nms2
-    hsResult.nametagsOutbound.secret = nms1
+    hsResult.nametagsInbound.secret = some(nms2)
+    hsResult.nametagsOutbound.secret = some(nms1)
 
   # We initialize the message nametags inbound/outbound buffers
-  hsResult.nametagsInbound.fillNametagsBuffer
-  hsResult.nametagsOutbound.fillNametagsBuffer
+  hsResult.nametagsInbound.initNametagsBuffer
+  hsResult.nametagsOutbound.initNametagsBuffer
 
   # We store the optional fields rs and h
   hsResult.rs = hs.rs
@@ -572,13 +572,13 @@ proc finalizeHandshake*(hs: var HandshakeState): HandshakeResult =
 ## due to nonce exhaustion, then the application must delete the CipherState and terminate the session.
 
 # Writes an encrypted message using the proper Cipher State
-proc writeMessage*(hsr: var HandshakeResult, transportMessage: seq[byte], messageNametag: openArray[byte] = []): PayloadV2
+proc writeMessage*(hsr: var HandshakeResult, transportMessage: seq[byte], outboundMessageNametagBuffer: var MessageNametagBuffer): PayloadV2
   {.raises: [Defect, NoiseNonceMaxError].} =
 
   var payload2: PayloadV2
 
-  # We set the message nametag. We ensure only the first MessageNametagLength bytes are set
-  payload2.messageNametag = toMessageNametag(messageNametag)
+  # We set the message nametag using the input buffer
+  payload2.messageNametag = pop(outboundMessageNametagBuffer)
 
   # According to 35/WAKU2-NOISE RFC, no Handshake protocol information is sent when exchanging messages
   # This correspond to setting protocol-id to 0
@@ -592,15 +592,16 @@ proc writeMessage*(hsr: var HandshakeResult, transportMessage: seq[byte], messag
 
 # Reads an encrypted message using the proper Cipher State
 # Decryption is attempted only if the input PayloadV2 has a messageNametag equal to the one expected
-proc readMessage*(hsr: var HandshakeResult, readPayload2: PayloadV2, messageNametag: openArray[byte] = []): Result[seq[byte], cstring]
-  {.raises: [Defect, NoiseDecryptTagError, NoiseMessageNametagError, NoiseNonceMaxError].} =
+proc readMessage*(hsr: var HandshakeResult, readPayload2: PayloadV2, inboundMessageNametagBuffer: var MessageNametagBuffer): Result[seq[byte], cstring]
+  {.raises: [Defect, NoiseDecryptTagError, NoiseMessageNametagError, NoiseNonceMaxError, NoiseSomeMessagesWereLost].} =
 
   # The output decrypted message
   var message: seq[byte]
 
-  # If the message nametag does not correspond to the nametag set in the received readPayload2, we skip decryption, and we raise an error
-  if readPayload2.messageNametag != toMessageNametag(messageNametag):
-    raise newException(NoiseMessageNametagError, "The message nametag of the read payloadv2 doesn't match the expected nametag")
+  # If the message nametag does not correspond to the nametag expected in the inbound message nametag buffer
+  # an error is raised (to be handled externally, i.e. re-request lost messages, discard, etc.)
+  let nametagIsOk = checkNametag(readPayload2.messageNametag, inboundMessageNametagBuffer).isOk
+  assert(nametagIsOk)
 
   # At this point the messageNametag matches the expected nametag. 
   # According to 35/WAKU2-NOISE RFC, no Handshake protocol information is sent when exchanging messages
@@ -612,6 +613,8 @@ proc readMessage*(hsr: var HandshakeResult, readPayload2: PayloadV2, messageName
       let paddedMessage = decryptWithAd(hsr.csInbound, ad = @(readPayload2.messageNametag), ciphertext = readPayload2.transportMessage)
       # We unpdad the decrypted message
       message = pkcs7_unpad(paddedMessage, NoisePaddingBlockSize)
+      # The message successfully decrypted, we can delete the first element of the inbound Message Nametag Buffer
+      delete(inboundMessageNametagBuffer, 1)
     except NoiseDecryptTagError:
       debug "A read message failed decryption. Returning empty message as plaintext."
       message = @[]

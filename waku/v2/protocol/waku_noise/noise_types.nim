@@ -36,7 +36,7 @@ const
   # The default length of the secret to generate Inbound/Outbound nametags buffer 
   MessageNametagSecretLength* = 32
   # The default size of an Inbound/outbound MessageNametagBuffer
-  MessageNametugBufferSize* = 50
+  MessageNametagBufferSize* = 50
 
 type
 
@@ -189,9 +189,9 @@ type
   MessageNametag* = array[MessageNametagLength, byte]
 
   MessageNametagBuffer* = object
-    buffer*: seq[MessageNametag]
+    buffer*: array[MessageNametagBufferSize, MessageNametag]
     counter*: uint64
-    secret*: array[MessageNametagSecretLength, byte]
+    secret*: Option[array[MessageNametagSecretLength, byte]]
 
   PayloadV2* = object
     messageNametag*: MessageNametag
@@ -211,7 +211,7 @@ type
   NoisePublicKeyError* = object of NoiseError
   NoiseMalformedHandshake* = object of NoiseError
   NoiseMessageNametagError* = object of NoiseError
-
+  NoiseSomeMessagesWereLost* = object of NoiseError
 
 #################################
 # Constants (supported protocols)

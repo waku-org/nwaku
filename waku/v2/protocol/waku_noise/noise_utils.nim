@@ -5,7 +5,7 @@
 
 {.push raises: [Defect].}
 
-import std/[base64, oids, options, strutils, tables, sequtils]
+import std/[algorithm, base64, oids, options, strutils, tables, sequtils]
 import chronos
 import chronicles
 import bearssl
@@ -227,15 +227,65 @@ proc genAuthcode*(hs: HandshakeState): string =
   let code = cast[uint64](output[0]) mod 100_000_000
   return $code
 
-proc fillNametagsBuffer*(mntb: var MessageNametagBuffer) =
+proc initNametagsBuffer*(mntb: var MessageNametagBuffer) =
   
-  # We warn users if no secret is set
-  if mntb.secret == default(array[MessageNametagSecretLength, byte]):
-    debug "The message nametags buffer has a default secret set"
+  # We default the counter and buffer fields
+  mntb.counter = 0
+  mntb.buffer = default(array[MessageNametagBufferSize, MessageNametag])
 
-  while (mntb.buffer.len <= MessageNametugBufferSize):
-    mntb.buffer.add toMessageNametag(sha256.digest(@(mntb.secret) & @(toBytesLE(mntb.counter))).data)
-    mntb.counter += 1
+  if mntb.secret.isSome:  
+    for i in 0..<mntb.buffer.len:
+      mntb.buffer[i] = toMessageNametag(sha256.digest(@(mntb.secret.get()) & @(toBytesLE(mntb.counter))).data)
+      mntb.counter += 1
+  else:
+    # We warn users if no secret is set
+    debug "The message nametags buffer has not a secret set"
+
+# Deletes the first n elements in buffer and appends n new ones
+proc delete*(mntb: var MessageNametagBuffer, n: int) =
+
+  if n <= 0:
+    return
+
+  # We ensure n is at most MessageNametagBufferSize (the buffer will be fully replaced)
+  let n = min(n, MessageNametagBufferSize)
+
+  # We update the last n values in the array if a secret is set
+  # Note that if the input MessageNametagBuffer is set to default, nothing is done here
+  if mntb.secret.isSome:
+
+    # We rotate left the array by n   
+    mntb.buffer.rotateLeft(n)
+
+    for i in 0..<n:
+      mntb.buffer[mntb.buffer.len-n+i] = toMessageNametag(sha256.digest(@(mntb.secret.get()) & @(toBytesLE(mntb.counter))).data)
+      mntb.counter += 1
+
+  else:
+    # We warn users that no secret is set
+    debug "The message nametags buffer has no secret set"
+
+
+# Checks if the input messageNametag is contained in the input MessageNametagBuffer
+proc checkNametag*(messageNametag: MessageNametag, mntb: var MessageNametagBuffer): Result[bool, cstring] 
+   {.raises: [Defect, NoiseMessageNametagError, NoiseSomeMessagesWereLost].} =
+  
+  let index = mntb.buffer.find(messageNametag)
+
+  if index == -1:
+    raise newException(NoiseMessageNametagError, "Message nametag not found in buffer")
+  elif index > 0:
+    raise newException(NoiseSomeMessagesWereLost, "Message nametag is present in buffer but is not the next expected nametag. One or more messages were probably lost")
+
+  # index is 0, hence the read message tag is the next expected one
+  return ok(true)
+
+# Deletes the first n elements in buffer and appends n new ones
+proc pop*(mntb: var MessageNametagBuffer): MessageNametag =
+  # Note that if the input MessageNametagBuffer is set to default, an all 0 messageNametag is returned
+  let messageNametag = mntb.buffer[0]
+  delete(mntb, 1)
+  return messageNametag
 
 # Performs a Diffie-Hellman operation between two elliptic curve keys (one private, one public)
 proc dh*(private: EllipticCurveKey, public: EllipticCurveKey): EllipticCurveKey =

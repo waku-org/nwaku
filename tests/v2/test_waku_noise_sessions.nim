@@ -275,20 +275,48 @@ procSuite "Waku Noise Sessions":
       message: seq[byte]
       readMessage: seq[byte]
 
-    for i in 0..10:
+    # We test message exchange
+    # Note that we exchange more than the number of messages contained in the nametag buffer to test if they are filled correctly as the communication proceeds
+    for i in 0 .. 10 * MessageNametagBufferSize:
 
       # Alice writes to Bob
       message = randomSeqByte(rng[], 32)
-      payload2 = writeMessage(aliceHSResult, message, messageNametag = aliceHSResult.nametagsOutbound.buffer[i])
-      readMessage = readMessage(bobHSResult, payload2, messageNametag = bobHSResult.nametagsInbound.buffer[i]).get()
+      payload2 = writeMessage(aliceHSResult, message, outboundMessageNametagBuffer = aliceHSResult.nametagsOutbound)
+      readMessage = readMessage(bobHSResult, payload2, inboundMessageNametagBuffer = bobHSResult.nametagsInbound).get()
       
       check: 
         message == readMessage
       
       # Bob writes to Alice
       message = randomSeqByte(rng[], 32)
-      payload2 = writeMessage(bobHSResult, message, messageNametag = bobHSResult.nametagsOutbound.buffer[i])
-      readMessage = readMessage(aliceHSResult, payload2, messageNametag = aliceHSResult.nametagsInbound.buffer[i]).get()
+      payload2 = writeMessage(bobHSResult, message, outboundMessageNametagBuffer = bobHSResult.nametagsOutbound)
+      readMessage = readMessage(aliceHSResult, payload2, inboundMessageNametagBuffer = aliceHSResult.nametagsInbound).get()
       
       check:
         message == readMessage
+
+    # We test how nametag buffers help in detecting lost messages
+    # Alice writes two messages to Bob, but only the second is received
+    message = randomSeqByte(rng[], 32)
+    payload2 = writeMessage(aliceHSResult, message, outboundMessageNametagBuffer = aliceHSResult.nametagsOutbound)
+    message = randomSeqByte(rng[], 32)
+    payload2 = writeMessage(aliceHSResult, message, outboundMessageNametagBuffer = aliceHSResult.nametagsOutbound)
+    expect NoiseSomeMessagesWereLost:
+      readMessage = readMessage(bobHSResult, payload2, inboundMessageNametagBuffer = bobHSResult.nametagsInbound).get()
+
+    # We adjust bob nametag buffer for next test (i.e. the missed message is correctly recovered)
+    delete(bobHSResult.nametagsInbound, 2)
+    message = randomSeqByte(rng[], 32)
+    payload2 = writeMessage(bobHSResult, message, outboundMessageNametagBuffer = bobHSResult.nametagsOutbound)
+    readMessage = readMessage(aliceHSResult, payload2, inboundMessageNametagBuffer = aliceHSResult.nametagsInbound).get()
+    
+    check:
+        message == readMessage
+
+    # We test if a missing nametag is correctly detected
+    message = randomSeqByte(rng[], 32)
+    payload2 = writeMessage(aliceHSResult, message, outboundMessageNametagBuffer = aliceHSResult.nametagsOutbound)
+    delete(bobHSResult.nametagsInbound, 1)
+    expect NoiseMessageNametagError:
+      readMessage = readMessage(bobHSResult, payload2, inboundMessageNametagBuffer = bobHSResult.nametagsInbound).get()
+
