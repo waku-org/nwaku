@@ -6,7 +6,7 @@ when not(compileOption("threads")):
 
 {.push raises: [Defect].}
 
-import std/[tables, strformat, strutils, times, json, options]
+import std/[tables, strformat, strutils, times, json, options, random]
 import confutils, chronicles, chronos, stew/shims/net as stewNet,
        eth/keys, bearssl, stew/[byteutils, endians2, results],
        nimcrypto/pbkdf2
@@ -456,7 +456,7 @@ proc processInput(rfd: AsyncFD, rng: ref BrHmacDrbgContext) {.async.} =
       storenode = some(parseRemotePeerInfo(conf.storenode))
     elif discoveredNodes.len > 0:
       echo "Store enabled, but no store nodes configured. Choosing one at random from discovered peers"
-      storenode = some(discoveredNodes[0])
+      storenode = some(discoveredNodes[rand(0..len(discoveredNodes) - 1)])
       
     if storenode.isSome():
       # We have a viable storenode. Let's query it for historical messages.
