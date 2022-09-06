@@ -11,6 +11,7 @@ import
   # Waku v2 imports
   libp2p/crypto/crypto,
   libp2p/errors,
+  ../../../waku/v2/protocol/waku_message,
   ../../../waku/v2/node/wakunode2,
   # Chat 2 imports
   ../chat2,

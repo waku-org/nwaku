@@ -8,6 +8,7 @@ import
   chronos, 
   libp2p/crypto/crypto,
   libp2p/switch,
+  ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_lightpush,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/peers,

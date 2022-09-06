@@ -31,7 +31,6 @@ import
   ./wakunode2_types
 
 export
-  waku_message,
   waku_rln_relay_types,
   wakunode2_types
 
