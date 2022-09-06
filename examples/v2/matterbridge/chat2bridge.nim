@@ -263,13 +263,13 @@ when isMainModule:
 
   # Now load rest of config
   # Mount configured Waku v2 protocols
-  mountLibp2pPing(bridge.nodev2)
+  waitFor mountLibp2pPing(bridge.nodev2)
 
   if conf.store:
-    mountStore(bridge.nodev2)
+    waitFor mountStore(bridge.nodev2)
 
   if conf.filter:
-    mountFilter(bridge.nodev2)
+    waitFor mountFilter(bridge.nodev2)
 
   if conf.staticnodes.len > 0:
     waitFor connectToNodes(bridge.nodev2, conf.staticnodes)
