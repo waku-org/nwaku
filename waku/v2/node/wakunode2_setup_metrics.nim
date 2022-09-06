@@ -11,7 +11,8 @@ import
   ./wakunode2,
   ../protocol/waku_filter,
   ../protocol/waku_store,
-  ../protocol/waku_lightpush
+  ../protocol/waku_lightpush,
+  ../protocol/waku_swap/waku_swap
 
 logScope:
   topics = "wakunode.setup.metrics"
