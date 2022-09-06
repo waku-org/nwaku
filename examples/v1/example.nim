@@ -33,6 +33,8 @@ proc run(config: WakuNodeConf, rng: ref HmacDrbgContext) =
     nil, # Database, not required for Waku
     clientId, # Client id string
     addAllCapabilities = false, # Disable default all RLPx capabilities
+    bindUdpPort = address.udpPort, # Assume same as external
+    bindTcpPort = address.tcpPort, # Assume same as external
     rng = rng)
 
   node.addCapability Waku # Enable only the Waku protocol.
@@ -57,7 +59,7 @@ proc run(config: WakuNodeConf, rng: ref HmacDrbgContext) =
   # connection occurs, which is why we use a callback to exit on errors instead of
   # using `await`.
   # TODO: This looks a bit awkward and the API should perhaps be altered here.
-  let connectedFut = node.connectToNetwork(@[],
+  let connectedFut = node.connectToNetwork(
     true, # Enable listening
     false # Disable discovery (only discovery v4 is currently supported)
     )

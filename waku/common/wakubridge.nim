@@ -233,7 +233,7 @@ proc new*(T: type WakuBridge,
   var
     nodev1 = newEthereumNode(keys = nodev1Key, address = nodev1Address,
                              networkId = NetworkId(1), chain = nil, clientId = ClientIdV1,
-                             addAllCapabilities = false, rng = rng)
+                             addAllCapabilities = false, bindUdpPort = nodev1Address.udpPort, bindTcpPort = nodev1Address.tcpPort, rng = rng)
   
   nodev1.addCapability Waku # Always enable Waku protocol
 
@@ -268,7 +268,7 @@ proc start*(bridge: WakuBridge) {.async.} =
 
   debug "Start listening on Waku v1"
   # Start listening on Waku v1 node
-  let connectedFut = bridge.nodev1.connectToNetwork(@[],
+  let connectedFut = bridge.nodev1.connectToNetwork(
     true, # Always enable listening
     false # Disable discovery (only discovery v4 is currently supported)
     )
@@ -317,9 +317,9 @@ proc stop*(bridge: WakuBridge) {.async.} =
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
   import
-    eth/p2p/whispernodes,
     libp2p/nameresolving/dnsresolver,
     ./utils/nat,
+    ../whisper/whispernodes,
     ../v1/node/rpc/wakusim,
     ../v1/node/rpc/waku,
     ../v1/node/rpc/key_storage,

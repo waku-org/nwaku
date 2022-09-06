@@ -12,11 +12,16 @@ proc localAddress*(port: int): Address =
                    ip: parseIpAddress("127.0.0.1"))
 
 proc setupTestNode*(
-    rng: ref BrHmacDrbgContext,
+    rng: ref HmacDrbgContext,
     capabilities: varargs[ProtocolInfo, `protocolInfo`]): EthereumNode =
-  let keys1 = keys.KeyPair.random(rng[])
-  result = newEthereumNode(keys1, localAddress(nextPort), NetworkId(1), nil,
-                           addAllCapabilities = false, rng = rng)
+  let
+    keys1 = keys.KeyPair.random(rng[])
+    address = localAddress(nextPort)
+  result = newEthereumNode(keys1, address, NetworkId(1), nil,
+                           addAllCapabilities = false,
+                           bindUdpPort = address.udpPort, # Assume same as external
+                           bindTcpPort = address.tcpPort, # Assume same as external
+                           rng = rng)
   nextPort.inc
   for capability in capabilities:
     result.addCapability capability
