@@ -5,7 +5,6 @@ import
   chronicles, chronos, stew/shims/net as stewNet, stew/byteutils, std/os,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
-  libp2p/peerid,
   libp2p/multiaddress,
   libp2p/switch,
   libp2p/protocols/pubsub/rpc/messages,
@@ -518,70 +517,6 @@ procSuite "WakuNode":
       (await completionFut.withTimeout(5.seconds)) == true
     await node1.stop()
     await node2.stop()
-
-  asyncTest "Peer info parses correctly":
-    ## This is such an important utility function for wakunode2
-    ## that it deserves its own test :)
-    
-    # First test the `happy path` expected case
-    let
-      addrStr = "/ip4/127.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
-      remotePeerInfo = parseRemotePeerInfo(addrStr)
-    
-    check:
-      $(remotePeerInfo.peerId) == "16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
-      $(remotePeerInfo.addrs[0][0].tryGet()) == "/ip4/127.0.0.1"
-      $(remotePeerInfo.addrs[0][1].tryGet()) == "/tcp/60002"
-    
-    # DNS multiaddrs parsing expected cases:
-    let
-      dnsPeer = parseRemotePeerInfo("/dns/localhost/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
-      dnsAddrPeer = parseRemotePeerInfo("/dnsaddr/localhost/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
-      dns4Peer = parseRemotePeerInfo("/dns4/localhost/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
-      dns6Peer = parseRemotePeerInfo("/dns6/localhost/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
-
-    check:
-      # /dns
-      $(dnsPeer.peerId) == "16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
-      $(dnsPeer.addrs[0][0].tryGet()) == "/dns/localhost"
-      $(dnsPeer.addrs[0][1].tryGet()) == "/tcp/60002"
-      # /dnsaddr
-      $(dnsAddrPeer.peerId) == "16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
-      $(dnsAddrPeer.addrs[0][0].tryGet()) == "/dnsaddr/localhost"
-      $(dnsAddrPeer.addrs[0][1].tryGet()) == "/tcp/60002"
-      # /dns4
-      $(dns4Peer.peerId) == "16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
-      $(dns4Peer.addrs[0][0].tryGet()) == "/dns4/localhost"
-      $(dns4Peer.addrs[0][1].tryGet()) == "/tcp/60002"
-      # /dns6
-      $(dns6Peer.peerId) == "16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
-      $(dns6Peer.addrs[0][0].tryGet()) == "/dns6/localhost"
-      $(dns6Peer.addrs[0][1].tryGet()) == "/tcp/60002"
-
-    # Now test some common corner cases
-    expect LPError:
-      # gibberish
-      discard parseRemotePeerInfo("/p2p/$UCH GIBBER!SH")
-
-    expect LPError:
-      # leading whitespace
-      discard parseRemotePeerInfo(" /ip4/127.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
-
-    expect LPError:
-      # trailing whitespace
-      discard parseRemotePeerInfo("/ip4/127.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc ")
-
-    expect LPError:
-      # invalid IP address
-      discard parseRemotePeerInfo("/ip4/127.0.0.0.1/tcp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
-
-    expect LPError:
-      # no PeerID
-      discard parseRemotePeerInfo("/ip4/127.0.0.1/tcp/60002")
-
-    expect ValueError:
-      # unsupported transport
-      discard parseRemotePeerInfo("/ip4/127.0.0.1/udp/60002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc")
 
   asyncTest "resolve and connect to dns multiaddrs":
     let resolver = MockResolver.new()
