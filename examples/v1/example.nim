@@ -10,7 +10,7 @@ import
 
 const clientId = "Waku example v1"
 
-proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext) =
+proc run(config: WakuNodeConf, rng: ref HmacDrbgContext) =
   # Set up the address according to NAT information.
   let (ipExt, tcpPortExt, udpPortExt) = setupNat(config.nat, clientId,
     Port(config.tcpPort + config.portsShift),

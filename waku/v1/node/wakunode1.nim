@@ -13,7 +13,7 @@ import
 
 const clientId = "Nimbus waku node"
 
-proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext)
+proc run(config: WakuNodeConf, rng: ref HmacDrbgContext)
       {.raises: [Defect, ValueError, RpcBindError, CatchableError, Exception]} =
   ## `udpPort` is only supplied to satisfy underlying APIs but is not
   ## actually a supported transport.

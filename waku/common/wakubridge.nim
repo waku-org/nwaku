@@ -49,7 +49,7 @@ type
     nodev2*: WakuNode
     nodev2PubsubTopic: wakunode2.Topic # Pubsub topic to bridge to/from
     seen: seq[hashes.Hash] # FIFO queue of seen WakuMessages. Used for deduplication.
-    rng: ref BrHmacDrbgContext
+    rng: ref HmacDrbgContext
     v1Pool: seq[Node] # Pool of v1 nodes for possible connections
     targetV1Peers: int # Target number of v1 peers to maintain
     started: bool # Indicates that bridge is running
@@ -215,7 +215,7 @@ proc new*(T: type WakuBridge,
           nodev1Key: keys.KeyPair,
           nodev1Address: Address,
           powRequirement = 0.002,
-          rng: ref BrHmacDrbgContext,
+          rng: ref HmacDrbgContext,
           topicInterest = none(seq[waku_protocol.Topic]),
           bloom = some(fullBloom()),
           # NodeV2 initialisation
