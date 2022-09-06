@@ -8,6 +8,7 @@ import
   ./v2/test_waku_filter,
   ./v2/test_waku_payload,
   ./v2/test_waku_swap,
+  ./v2/test_utils_peers,
   ./v2/test_utils_pagination,
   ./v2/test_message_cache,
   ./v2/test_message_store_queue,
