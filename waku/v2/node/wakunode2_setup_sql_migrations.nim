@@ -1,11 +1,11 @@
 {.push raises: [Defect].}
 
 import
+  stew/results,
   chronicles,
   ./storage/sqlite,
   ./storage/migration/migration_types,
-  ./config,
-  ./wakunode2
+  ./config
 
 logScope:
   topics = "wakunode.setup.migrations"
@@ -23,7 +23,7 @@ proc runMigrations*(sqliteDatabase: SqliteDatabase, conf: WakuNodeConf) =
 
   info "running migration ...", migrationPath=migrationPath
   let migrationResult = sqliteDatabase.migrate(migrationPath)
-  if migrationResult.isErr:
-    warn "migration failed", error=migrationResult.error
+  if migrationResult.isErr():
+    warn "migration failed", error=migrationResult.error()
   else:
     info "migration is done"
