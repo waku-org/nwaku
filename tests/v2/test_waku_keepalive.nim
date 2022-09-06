@@ -39,7 +39,10 @@ procSuite "Waku Keepalive":
 
     await node2.start()
     await node2.mountRelay()
-    node2.switch.mount(Ping.new(handler = pingHandler))
+    
+    let pingProto = Ping.new(handler = pingHandler)
+    await pingProto.start()
+    node2.switch.mount(pingProto)
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
