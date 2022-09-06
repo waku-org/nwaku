@@ -14,6 +14,7 @@ import
   libp2p/protocols/pubsub/rpc/message
 import
   ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/protocol/waku_relay,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_swap/waku_swap,
