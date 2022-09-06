@@ -18,6 +18,7 @@ import
   libp2p/nameresolving/nameresolver,
   ../v2/utils/namespacing,
   ../v2/utils/time,
+  ../v2/protocol/waku_message,
   ../v2/node/wakunode2,
   # Common cli config
   ./config_bridge

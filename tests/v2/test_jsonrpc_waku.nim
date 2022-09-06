@@ -20,6 +20,7 @@ import
                               filter_api,
                               admin_api,
                               private_api],
+  ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_relay,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_swap/waku_swap,
