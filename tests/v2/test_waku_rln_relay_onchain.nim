@@ -346,7 +346,7 @@ procSuite "Waku-rln-relay":
 
     # test ------------------------------
     # start rln-relay
-    node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
+    await node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
     node.mountRlnRelayStatic(group = group,
                             memKeyPair = keypair.get(),
                             memIndex = index,
@@ -427,7 +427,7 @@ procSuite "Waku-rln-relay":
 
     # test ------------------------------
     # start rln-relay
-    node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
+    await node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
     discard await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
                             ethAccAddr = ethacc,
                             ethAccountPrivKeyOpt = some(ethPrivKey),
@@ -480,7 +480,7 @@ procSuite "Waku-rln-relay":
     let (ethPrivKey, ethacc) = await createEthAccount()
 
     # start rln-relay on the first node, leave rln-relay credentials empty
-    node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
+    await node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
     discard await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
                             ethAccAddr = ethacc,
                             ethAccountPrivKeyOpt = some(ethPrivKey),
@@ -493,7 +493,7 @@ procSuite "Waku-rln-relay":
 
 
     # start rln-relay on the second node, leave rln-relay credentials empty
-    node2.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
+    await node2.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
     discard await node2.mountRlnRelayDynamic(ethClientAddr = EthClient,
                             ethAccAddr = ethacc,
                             ethAccountPrivKeyOpt = some(ethPrivKey),

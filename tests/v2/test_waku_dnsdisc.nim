@@ -34,9 +34,9 @@ procSuite "Waku DNS Discovery":
       node3 = WakuNode.new(nodeKey3, bindIp, Port(60003))
       enr3 = node3.enr
     
-    node1.mountRelay()
-    node2.mountRelay()
-    node3.mountRelay()
+    await node1.mountRelay()
+    await node2.mountRelay()
+    await node3.mountRelay()
     await allFutures([node1.start(), node2.start(), node3.start()])
     
     # Build and sign tree
@@ -44,7 +44,7 @@ procSuite "Waku DNS Discovery":
                          @[enr1, enr2, enr3], # ENR entries
                          @[]).get()           # No link entries
 
-    let treeKeys = keys.KeyPair.random(rng[])
+    let treeKeys = keys.KeyPair.random(keys.newRng()[])
 
     # Sign tree
     check:
@@ -68,7 +68,7 @@ procSuite "Waku DNS Discovery":
       nodeKey4 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node4 = WakuNode.new(nodeKey4, bindIp, Port(60004))
     
-    node4.mountRelay()
+    await node4.mountRelay()
     await node4.start()
     
     var wakuDnsDisc = WakuDnsDiscovery.init(location, resolver).get()

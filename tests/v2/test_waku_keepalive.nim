@@ -34,12 +34,15 @@ procSuite "Waku Keepalive":
       completionFut.complete(true)
 
     await node1.start()
-    node1.mountRelay()
-    node1.mountLibp2pPing()
+    await node1.mountRelay()
+    await node1.mountLibp2pPing()
 
     await node2.start()
-    node2.mountRelay()
-    node2.switch.mount(Ping.new(handler = pingHandler))
+    await node2.mountRelay()
+    
+    let pingProto = Ping.new(handler = pingHandler)
+    await pingProto.start()
+    node2.switch.mount(pingProto)
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 

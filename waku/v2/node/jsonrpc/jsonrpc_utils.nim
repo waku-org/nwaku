@@ -54,7 +54,7 @@ proc toWakuMessage*(relayMessage: WakuRelayMessage, version: uint32): WakuMessag
               version: version,
               timestamp: t) 
 
-proc toWakuMessage*(relayMessage: WakuRelayMessage, version: uint32, rng: ref BrHmacDrbgContext, symkey: Option[SymKey], pubKey: Option[keys.PublicKey]): WakuMessage =
+proc toWakuMessage*(relayMessage: WakuRelayMessage, version: uint32, rng: ref HmacDrbgContext, symkey: Option[SymKey], pubKey: Option[keys.PublicKey]): WakuMessage =
   # @TODO global definition for default content topic
   const defaultCT = ContentTopic("/waku/2/default-content/proto")
 

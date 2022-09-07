@@ -34,7 +34,7 @@ const KEY_PATH = sourceDir / "resources/test_key.pem"
 const CERT_PATH = sourceDir / "resources/test_cert.pem"
 
 procSuite "WakuNode":
-  let rng = keys.newRng()
+  let rng = crypto.newRng()
  
   asyncTest "Message published with content filter is retrievable":
     let
@@ -67,7 +67,7 @@ procSuite "WakuNode":
 
     await node.start()
 
-    node.mountRelay()
+    await node.mountRelay()
 
     # Subscribe our node to the pubSubTopic where all chat data go onto.
     node.subscribe(pubSubTopic, relayHandler)
@@ -119,11 +119,11 @@ procSuite "WakuNode":
 
     await allFutures([node1.start(), node2.start()])
 
-    node1.mountRelay()
-    node2.mountRelay()
+    await node1.mountRelay()
+    await node2.mountRelay()
 
-    node1.mountFilter()
-    node2.mountFilter()
+    await node1.mountFilter()
+    await node2.mountFilter()
 
     # Subscribe our node to the pubSubTopic where all chat data go onto.
     node1.subscribe(pubSubTopic, relayHandler)
@@ -166,12 +166,12 @@ procSuite "WakuNode":
       otherFR = FilterRequest(contentFilters: @[ContentFilter(contentTopic: otherContentTopic)], subscribe: true)
 
     await node1.start()
-    node1.mountRelay()
-    node1.mountFilter()
+    await node1.mountRelay()
+    await node1.mountFilter()
 
     await node2.start()
-    node2.mountRelay()
-    node2.mountFilter()
+    await node2.mountRelay()
+    await node2.mountFilter()
     node2.wakuFilter.setPeer(node1.switch.peerInfo.toRemotePeerInfo())
 
     var defaultComplete = newFuture[bool]()
@@ -237,12 +237,11 @@ procSuite "WakuNode":
       filterRequest = FilterRequest(contentFilters: @[ContentFilter(contentTopic: contentTopic)], subscribe: true)
 
     await node1.start()
-    node1.mountRelay()
-    node1.mountFilter()
+    await node1.mountRelay()
+    await node1.mountFilter()
 
     await node2.start()
-    node2.mountRelay(relayMessages=false) # Do not start WakuRelay or subscribe to any topics
-    node2.mountFilter()
+    await node2.mountFilter()
     node2.wakuFilter.setPeer(node1.switch.peerInfo.toRemotePeerInfo())
 
     check:
@@ -286,9 +285,9 @@ procSuite "WakuNode":
     var completionFut = newFuture[bool]()
 
     await node1.start()
-    node1.mountStore(persistMessages = true)
+    await node1.mountStore(persistMessages = true)
     await node2.start()
-    node2.mountStore(persistMessages = true)
+    await node2.mountStore(persistMessages = true)
 
     await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
 
@@ -322,9 +321,9 @@ procSuite "WakuNode":
     var completionFut = newFuture[bool]()
 
     await node1.start()
-    node1.mountFilter()
+    await node1.mountFilter()
     await node2.start()
-    node2.mountFilter()
+    await node2.mountFilter()
 
     node1.wakuFilter.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
 
@@ -363,12 +362,12 @@ procSuite "WakuNode":
       storeComplFut = newFuture[bool]()
 
     await node1.start()
-    node1.mountStore(persistMessages = true)
-    node1.mountFilter()
+    await node1.mountStore(persistMessages = true)
+    await node1.mountFilter()
 
     await node2.start()
-    node2.mountStore(persistMessages = true)
-    node2.mountFilter()
+    await node2.mountStore(persistMessages = true)
+    await node2.mountFilter()
 
     node2.wakuFilter.setPeer(node1.switch.peerInfo.toRemotePeerInfo())
     node1.wakuStore.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
@@ -422,13 +421,13 @@ procSuite "WakuNode":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[pubSubTopic])
 
     await node3.start()
-    node3.mountRelay(@[pubSubTopic])
+    await node3.mountRelay(@[pubSubTopic])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
     await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -472,13 +471,13 @@ procSuite "WakuNode":
     # Setup node 1 with stable codec "/vac/waku/relay/2.0.0"
 
     await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[pubSubTopic])
     node1.wakuRelay.codec = "/vac/waku/relay/2.0.0"
 
     # Setup node 2 with beta codec "/vac/waku/relay/2.0.0-beta2"
 
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[pubSubTopic])
     node2.wakuRelay.codec = "/vac/waku/relay/2.0.0-beta2"
 
     check:
@@ -528,8 +527,8 @@ procSuite "WakuNode":
       node2PeerId = $(node2.switch.peerInfo.peerId)
       node2Dns4Addr = "/dns4/localhost/tcp/60002/p2p/" & node2PeerId
 
-    node1.mountRelay()
-    node2.mountRelay()
+    await node1.mountRelay()
+    await node2.mountRelay()
 
     await allFutures([node1.start(), node2.start()])
 
@@ -570,13 +569,13 @@ procSuite "WakuNode":
 
     # start all the nodes
     await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[pubSubTopic])
 
     await node3.start()
-    node3.mountRelay(@[pubSubTopic])
+    await node3.mountRelay(@[pubSubTopic])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
     await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -648,7 +647,7 @@ procSuite "WakuNode":
 
     await node1.start()
 
-    node1.mountRelay()
+    await node1.mountRelay()
 
     check:
       GossipSub(node1.wakuRelay).heartbeatFut.isNil == false
@@ -660,7 +659,7 @@ procSuite "WakuNode":
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
 
-    node2.mountRelay()
+    await node2.mountRelay()
 
     check:
       # Relay has not yet started as node has not yet started
@@ -692,17 +691,16 @@ procSuite "WakuNode":
 
     # Light node, only lightpush
     await node1.start()
-    node1.mountRelay(relayMessages=false) # Mount WakuRelay, but do not start or subscribe to any topics
-    node1.mountLightPush()
+    await node1.mountLightPush()
 
     # Intermediate node
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
-    node2.mountLightPush()
+    await node2.mountRelay(@[pubSubTopic])
+    await node2.mountLightPush()
 
     # Receiving node
     await node3.start()
-    node3.mountRelay(@[pubSubTopic])
+    await node3.mountRelay(@[pubSubTopic])
 
     discard await node1.peerManager.dialPeer(node2.switch.peerInfo.toRemotePeerInfo(), WakuLightPushCodec)
     await sleepAsync(5.seconds)
@@ -757,9 +755,9 @@ procSuite "WakuNode":
       message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
 
     await node1.start()
-    node1.mountStore(persistMessages = true)
+    await node1.mountStore(persistMessages = true)
     await node2.start()
-    node2.mountStore(persistMessages = true)
+    await node2.mountStore(persistMessages = true)
 
     await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
 
@@ -797,9 +795,9 @@ procSuite "WakuNode":
     var completionFut = newFuture[bool]()
 
     await node1.start()
-    node1.mountStore(persistMessages = true, store = store)
+    await node1.mountStore(persistMessages = true, store = store)
     await node2.start()
-    node2.mountStore(persistMessages = true)
+    await node2.mountStore(persistMessages = true)
 
     await node2.wakuStore.handleMessage(DefaultTopic, msg1)
     await node2.wakuStore.handleMessage(DefaultTopic, msg2)
@@ -852,15 +850,15 @@ procSuite "WakuNode":
 
     # Node with connection limit set to 1
     await node1.start()
-    node1.mountRelay()
+    await node1.mountRelay()
 
     # Remote node 1
     await node2.start()
-    node2.mountRelay()
+    await node2.mountRelay()
 
     # Remote node 2
     await node3.start()
-    node3.mountRelay()
+    await node3.mountRelay()
 
     discard await node1.peerManager.dialPeer(node2.switch.peerInfo.toRemotePeerInfo(), WakuRelayCodec)
     await sleepAsync(3.seconds)
@@ -888,10 +886,10 @@ procSuite "WakuNode":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[pubSubTopic])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
@@ -933,10 +931,10 @@ procSuite "WakuNode":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[pubSubTopic])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
@@ -977,10 +975,10 @@ procSuite "WakuNode":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[pubSubTopic])
 
     #delete websocket peer address
     # TODO: a better way to find the index - this is too brittle
@@ -1025,10 +1023,10 @@ procSuite "WakuNode":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[pubSubTopic])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
@@ -1078,10 +1076,10 @@ procSuite "WakuNode":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[pubSubTopic])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 

@@ -342,7 +342,7 @@ proc queueMessage(node: EthereumNode, msg: Message): bool =
 
 proc postMessage*(node: EthereumNode, pubKey = none[PublicKey](),
                   symKey = none[SymKey](), src = none[PrivateKey](),
-                  ttl: uint32, topic: Topic, payload: seq[byte],
+                  ttl: uint32, topic: whisper_types.Topic, payload: seq[byte],
                   padding = none[seq[byte]](), powTime = 1'f,
                   powTarget = defaultMinPow,
                   targetPeer = none[NodeId]()): bool =

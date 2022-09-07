@@ -72,7 +72,7 @@ type
     maxMsgSize*: uint32
     confirmationsEnabled*: bool
     rateLimits*: Option[RateLimits]
-    topics*: Option[seq[Topic]]
+    topics*: Option[seq[whisper_types.Topic]]
 
   Accounting* = ref object
     sent*: uint
@@ -84,7 +84,7 @@ type
     bloom*: Bloom
     isLightNode*: bool
     trusted*: bool
-    topics*: Option[seq[Topic]]
+    topics*: Option[seq[whisper_types.Topic]]
     received: HashSet[Hash]
     accounting*: Accounting
 
@@ -112,7 +112,7 @@ type
     lightNode*: Option[bool]
     confirmationsEnabled*: Option[bool]
     rateLimits*: Option[RateLimits]
-    topicInterest*: Option[seq[Topic]]
+    topicInterest*: Option[seq[whisper_types.Topic]]
 
   KeyKind* = enum
     powRequirementKey,
@@ -191,7 +191,7 @@ proc read*(rlp: var Rlp, T: typedesc[StatusOptions]):
     of rateLimitsKey:
       result.rateLimits = some(rlp.read(RateLimits))
     of topicInterestKey:
-      result.topicInterest = some(rlp.read(seq[Topic]))
+      result.topicInterest = some(rlp.read(seq[whisper_types.Topic]))
 
 proc allowed*(msg: Message, config: WakuConfig): bool =
   # Check max msg size, already happens in RLPx but there is a specific waku
@@ -235,7 +235,7 @@ proc initProtocolState*(network: WakuNetwork, node: EthereumNode) {.gcsafe.} =
   network.config.confirmationsEnabled = false
   network.config.rateLimits = none(RateLimits)
   network.config.maxMsgSize = defaultMaxMsgSize
-  network.config.topics = none(seq[Topic])
+  network.config.topics = none(seq[whisper_types.Topic])
   asyncSpawn node.run(network)
 
 p2pProtocol Waku(version = wakuVersion,
@@ -349,7 +349,7 @@ p2pProtocol Waku(version = wakuVersion,
       peer.state.topics = options.topicInterest
     elif options.bloomFilter.isSome():
       peer.state.bloom = options.bloomFilter.get()
-      peer.state.topics = none(seq[Topic])
+      peer.state.topics = none(seq[whisper_types.Topic])
 
     if options.powRequirement.isSome():
       peer.state.powRequirement = options.powRequirement.get()
@@ -498,7 +498,7 @@ proc queueMessage(node: EthereumNode, msg: Message): bool =
 # Public EthereumNode calls ----------------------------------------------------
 
 proc postEncoded*(node: EthereumNode, ttl: uint32,
-                  topic: Topic, encodedPayload: seq[byte],
+                  topic: whisper_types.Topic, encodedPayload: seq[byte],
                   powTime = 1'f,
                   powTarget = defaultMinPow,
                   targetPeer = none[NodeId]()): bool =
@@ -548,7 +548,7 @@ proc postEncoded*(node: EthereumNode, ttl: uint32,
 
 proc postMessage*(node: EthereumNode, pubKey = none[PublicKey](),
                   symKey = none[SymKey](), src = none[PrivateKey](),
-                  ttl: uint32, topic: Topic, payload: seq[byte],
+                  ttl: uint32, topic: whisper_types.Topic, payload: seq[byte],
                   padding = none[seq[byte]](), powTime = 1'f,
                   powTarget = defaultMinPow,
                   targetPeer = none[NodeId]()): bool =
@@ -614,7 +614,7 @@ proc setBloomFilter*(node: EthereumNode, bloom: Bloom) {.async.} =
   # NOTE: do we need a tolerance of old bloom filter for some time?
   node.protocolState(Waku).config.bloom = some(bloom)
   # reset topics
-  node.protocolState(Waku).config.topics = none(seq[Topic])
+  node.protocolState(Waku).config.topics = none(seq[whisper_types.Topic])
 
   var futures: seq[Future[void]] = @[]
   let list = StatusOptions(bloomFilter: some(bloom))
@@ -624,7 +624,7 @@ proc setBloomFilter*(node: EthereumNode, bloom: Bloom) {.async.} =
   # Exceptions from sendMsg will not be raised
   await allFutures(futures)
 
-proc setTopicInterest*(node: EthereumNode, topics: seq[Topic]):
+proc setTopicInterest*(node: EthereumNode, topics: seq[whisper_types.Topic]):
     Future[bool] {.async.} =
   if topics.len > topicInterestMax:
     return false

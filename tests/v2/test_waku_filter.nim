@@ -45,6 +45,7 @@ procSuite "Waku Filter":
     let
       serverPeerManager = PeerManager.new(serverSwitch) 
       serverProto = WakuFilter.init(serverPeerManager, rng, dummyHandler)
+    await serverProto.start()
     serverSwitch.mount(serverProto)
 
     # Client
@@ -55,6 +56,7 @@ procSuite "Waku Filter":
     let
       clientPeerManager = PeerManager.new(clientSwitch)
       clientProto = WakuFilter.init(clientPeerManager, rng, handler)
+    await clientProto.start()
     clientSwitch.mount(clientProto)
 
     clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
@@ -93,6 +95,7 @@ procSuite "Waku Filter":
     let
       serverPeerManager = PeerManager.new(serverSwitch) 
       serverProto = WakuFilter.init(serverPeerManager, rng, dummyHandler)
+    await serverProto.start()
     serverSwitch.mount(serverProto)
 
     # Client
@@ -103,6 +106,7 @@ procSuite "Waku Filter":
     let
       clientPeerManager = PeerManager.new(clientSwitch)
       clientProto = WakuFilter.init(clientPeerManager, rng, handler)
+    await clientProto.start()
     clientSwitch.mount(clientProto)
 
     clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
@@ -144,6 +148,7 @@ procSuite "Waku Filter":
 
     ## Given
     let clientProto = WakuFilter.init(PeerManager.new(clientSwitch), crypto.newRng(), dummyHandler)
+    await clientProto.start()
     clientSwitch.mount(clientProto)
 
     ## When
@@ -168,6 +173,7 @@ procSuite "Waku Filter":
     let
       serverPeerManager = PeerManager.new(serverSwitch) 
       serverProto = WakuFilter.init(serverPeerManager, rng, dummyHandler, timeout=1.seconds)
+    await serverProto.start()
     serverSwitch.mount(serverProto)
 
     # Client
@@ -178,6 +184,7 @@ procSuite "Waku Filter":
     let
       clientPeerManager = PeerManager.new(clientSwitch)
       clientProto = WakuFilter.init(clientPeerManager, rng, handler)
+    await clientProto.start()
     clientSwitch.mount(clientProto)
 
     clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
@@ -242,6 +249,7 @@ procSuite "Waku Filter":
     let
       serverPeerManager = PeerManager.new(serverSwitch) 
       serverProto = WakuFilter.init(serverPeerManager, rng, dummyHandler, timeout=2.seconds)
+    await serverProto.start()
     serverSwitch.mount(serverProto)
 
     # Client
@@ -252,6 +260,7 @@ procSuite "Waku Filter":
     let
       clientPeerManager = PeerManager.new(clientSwitch)
       clientProto = WakuFilter.init(clientPeerManager, rng, handler)
+    await clientProto.start()
     clientSwitch.mount(clientProto)
 
     clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
@@ -289,6 +298,7 @@ procSuite "Waku Filter":
     # Start switch with same key as before
     var clientSwitch2 = newTestSwitch(some(clientKey), some(clientAddress))
     await clientSwitch2.start()
+    await clientProto.start()
     clientSwitch2.mount(clientProto)
     
     # If push succeeds after failure, the peer should removed from failed peers list

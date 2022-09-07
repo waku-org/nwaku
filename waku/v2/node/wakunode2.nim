@@ -419,7 +419,7 @@ proc info*(node: WakuNode): WakuInfo =
   let wakuInfo = WakuInfo(listenAddresses: listenStr, enrUri: enrUri)
   return wakuInfo
 
-proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {.raises: [Defect, LPError]} =
+proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {.async, raises: [Defect, LPError]} =
   info "mounting filter"
   proc filterHandler(requestId: string, msg: MessagePush) {.async, gcsafe.} =
     
@@ -434,18 +434,26 @@ proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {
       waku_node_messages.inc(labelValues = ["filter"])
 
   node.wakuFilter = WakuFilter.init(node.peerManager, node.rng, filterHandler, filterTimeout)
+  if node.started:
+    # Node has started already. Let's start filter too.
+    await node.wakuFilter.start()
+
   node.switch.mount(node.wakuFilter, protocolMatcher(WakuFilterCodec))
+
 
 # NOTE: If using the swap protocol, it must be mounted before store. This is
 # because store is using a reference to the swap protocol.
-proc mountSwap*(node: WakuNode, swapConfig: SwapConfig = SwapConfig.init()) {.raises: [Defect, LPError].} =
+proc mountSwap*(node: WakuNode, swapConfig: SwapConfig = SwapConfig.init()) {.async, raises: [Defect, LPError].} =
   info "mounting swap", mode = $swapConfig.mode
-  node.wakuSwap = WakuSwap.init(node.peerManager, node.rng, swapConfig)
-  node.switch.mount(node.wakuSwap, protocolMatcher(WakuSwapCodec))
-  # NYI - Do we need this?
-  #node.subscriptions.subscribe(WakuSwapCodec, node.wakuSwap.subscription())
 
-proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: bool = false, capacity = StoreDefaultCapacity, isSqliteOnly = false) {.raises: [Defect, LPError].} =
+  node.wakuSwap = WakuSwap.init(node.peerManager, node.rng, swapConfig)
+  if node.started:
+    # Node has started already. Let's start swap too.
+    await node.wakuSwap.start()
+
+  node.switch.mount(node.wakuSwap, protocolMatcher(WakuSwapCodec))
+
+proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: bool = false, capacity = StoreDefaultCapacity, isSqliteOnly = false) {.async, raises: [Defect, LPError].} =
   info "mounting store"
 
   if node.wakuSwap.isNil:
@@ -454,6 +462,10 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: boo
   else:
     debug "mounting store with swap"
     node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, node.wakuSwap, persistMessages=persistMessages, capacity=capacity, isSqliteOnly=isSqliteOnly)
+  
+  if node.started:
+    # Node has started already. Let's start store too.
+    await node.wakuStore.start()
 
   node.switch.mount(node.wakuStore, protocolMatcher(WakuStoreCodec))
 
@@ -488,11 +500,10 @@ proc startRelay*(node: WakuNode) {.async.} =
 
 proc mountRelay*(node: WakuNode,
                  topics: seq[string] = newSeq[string](),
-                 relayMessages = true,
                  triggerSelf = true,
                  peerExchangeHandler = none(RoutingRecordsHandler))
   # @TODO: Better error handling: CatchableError is raised by `waitFor`
-  {.gcsafe, raises: [Defect, InitializationError, LPError, CatchableError].} =
+  {.async, gcsafe, raises: [Defect, InitializationError, LPError, CatchableError].} =
 
   proc msgIdProvider(m: messages.Message): Result[MessageID, ValidationResult] =
     let mh = MultiHash.digest("sha2-256", m.data)
@@ -510,7 +521,7 @@ proc mountRelay*(node: WakuNode,
     maxMessageSize = MaxWakuMessageSize
   )
   
-  info "mounting relay", relayMessages=relayMessages
+  info "mounting relay"
 
   ## The default relay topics is the union of
   ## all configured topics plus the hard-coded defaultTopic(s)
@@ -521,24 +532,16 @@ proc mountRelay*(node: WakuNode,
     wakuRelay.parameters.enablePX = true # Feature flag for peer exchange in nim-libp2p
     wakuRelay.routingRecordsHandler.add(peerExchangeHandler.get())
 
-  node.switch.mount(wakuRelay, protocolMatcher(WakuRelayCodec))
+  node.wakuRelay = wakuRelay
+  if node.started:
+    # Node has started already. Let's start relay too.
+    await node.startRelay()
 
-  if relayMessages:
-    ## Some nodes may choose not to have the capability to relay messages (e.g. "light" nodes).
-    ## All nodes, however, currently require WakuRelay, regardless of desired capabilities.
-    ## This is to allow protocol stream negotation with relay-capable nodes to succeed.
-    ## Here we mount relay on the switch only, but do not proceed to subscribe to any pubsub
-    ## topics. We also never start the relay protocol. node.wakuRelay remains nil.
-    ## @TODO: in future, this WakuRelay dependency will be removed completely  
-    node.wakuRelay = wakuRelay
+  node.switch.mount(wakuRelay, protocolMatcher(WakuRelayCodec))    
         
   info "relay mounted successfully"
 
-  if node.started:
-    # Node has started already. Let's start relay too.
-    waitFor node.startRelay()
-
-proc mountLightPush*(node: WakuNode) {.raises: [Defect, LPError].} =
+proc mountLightPush*(node: WakuNode) {.async, raises: [Defect, LPError].} =
   info "mounting light push"
 
   if node.wakuRelay.isNil:
@@ -548,9 +551,13 @@ proc mountLightPush*(node: WakuNode) {.raises: [Defect, LPError].} =
     debug "mounting lightpush with relay"
     node.wakuLightPush = WakuLightPush.init(node.peerManager, node.rng, nil, node.wakuRelay)
   
+  if node.started:
+    # Node has started already. Let's start lightpush too.
+    await node.wakuLightPush.start()
+
   node.switch.mount(node.wakuLightPush, protocolMatcher(WakuLightPushCodec))
 
-proc mountLibp2pPing*(node: WakuNode) {.raises: [Defect, LPError].} =
+proc mountLibp2pPing*(node: WakuNode) {.async, raises: [Defect, LPError].} =
   info "mounting libp2p ping protocol"
 
   try:
@@ -559,7 +566,11 @@ proc mountLibp2pPing*(node: WakuNode) {.raises: [Defect, LPError].} =
     # This is necessary as `Ping.new*` does not have explicit `raises` requirement
     # @TODO: remove exception handling once explicit `raises` in ping module
     raise newException(LPError, "Failed to initialize ping protocol")
-
+  
+  if node.started:
+    # Node has started already. Let's start ping too.
+    await node.libp2pPing.start()
+  
   node.switch.mount(node.libp2pPing)
 
 proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
@@ -745,8 +756,6 @@ proc start*(node: WakuNode) {.async.} =
   ##
   ## Status: Implemented.
   
-  await node.switch.start()
-  
   # TODO Get this from WakuNode obj
   let peerInfo = node.switch.peerInfo
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
@@ -762,11 +771,24 @@ proc start*(node: WakuNode) {.async.} =
   ## Update switch peer info with announced addrs
   node.updateSwitchPeerInfo()
 
+  # Start mounted protocols. For now we start each one explicitly
   if not node.wakuRelay.isNil:
     await node.startRelay()
+  if not node.wakuStore.isNil:
+    await node.wakuStore.start()
+  if not node.wakuFilter.isNil:
+    await node.wakuFilter.start()
+  if not node.wakuLightPush.isNil:
+    await node.wakuLightPush.start()
+  if not node.wakuSwap.isNil:
+    await node.wakuSwap.start()
+  if not node.libp2pPing.isNil:
+    await node.libp2pPing.start()
+  
+  await node.switch.start()
+  node.started = true
   
   info "Node started successfully"
-  node.started = true
 
 proc stop*(node: WakuNode) {.async.} =
   if not node.wakuRelay.isNil:
@@ -1013,13 +1035,13 @@ when isMainModule:
     
       peerExchangeHandler = some(handlePeerExchange)
 
-    mountRelay(node,
-               conf.topics.split(" "),
-               relayMessages = conf.relay, # Indicates if node is capable to relay messages
-               peerExchangeHandler = peerExchangeHandler) 
+    if conf.relay:
+      waitFor mountRelay(node,
+                        conf.topics.split(" "),
+                        peerExchangeHandler = peerExchangeHandler) 
     
     # Keepalive mounted on all nodes
-    mountLibp2pPing(node)
+    waitFor mountLibp2pPing(node)
     
     when defined(rln): 
       if conf.rlnRelay:
@@ -1028,26 +1050,26 @@ when isMainModule:
           debug "could not mount WakuRlnRelay"
     
     if conf.swap:
-      mountSwap(node)
+      waitFor mountSwap(node)
       # TODO Set swap peer, for now should be same as store peer
 
     # Store setup
     if (conf.storenode != "") or (conf.store):
-      mountStore(node, mStorage, conf.persistMessages, conf.storeCapacity, conf.sqliteStore)
+      waitFor mountStore(node, mStorage, conf.persistMessages, conf.storeCapacity, conf.sqliteStore)
 
       if conf.storenode != "":
         setStorePeer(node, conf.storenode)
 
     # NOTE Must be mounted after relay
     if (conf.lightpushnode != "") or (conf.lightpush):
-      mountLightPush(node)
+      waitFor mountLightPush(node)
 
       if conf.lightpushnode != "":
         setLightPushPeer(node, conf.lightpushnode)
     
     # Filter setup. NOTE Must be mounted after relay
     if (conf.filternode != "") or (conf.filter):
-      mountFilter(node, filterTimeout = chronos.seconds(conf.filterTimeout))
+      waitFor mountFilter(node, filterTimeout = chronos.seconds(conf.filterTimeout))
 
       if conf.filternode != "":
         setFilterPeer(node, conf.filternode)
@@ -1210,7 +1232,7 @@ when isMainModule:
       waitFor node.stop()
       quit(QuitSuccess)
     
-    c_signal(SIGTERM, handleSigterm)
+    c_signal(ansi_c.SIGTERM, handleSigterm)
   
   debug "Node setup complete"
 
