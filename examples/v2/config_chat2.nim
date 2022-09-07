@@ -6,8 +6,8 @@ import
   libp2p/crypto/secp,
   nimcrypto/utils,
   eth/keys,
-  ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_types,
   ../../waku/v2/protocol/waku_message
+
 type
   Fleet* =  enum
     none
@@ -241,8 +241,8 @@ type
    
     rlnRelayMemIndex* {.
       desc: "(experimental) the index of node in the rln-relay group: a value between 0-99 inclusive",
-      defaultValue: MembershipIndex(0)
-      name: "rln-relay-membership-index" }: MembershipIndex
+      defaultValue: 0
+      name: "rln-relay-membership-index" }: uint
 
     rlnRelayContentTopic* {.
       desc: "the pubsub topic for which rln-relay gets enabled",
