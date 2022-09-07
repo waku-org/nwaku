@@ -5,15 +5,15 @@ import
   metrics, metrics/chronicles_support, metrics/chronos_httpserver,
   stew/shims/net as stewNet,
   eth/[keys, p2p], eth/common/utils,
-  eth/p2p/[discovery, enode, peer_pool, bootnodes, whispernodes],
-  ../../whisper/whisper_protocol,
+  eth/p2p/[discovery, enode, peer_pool, bootnodes],
+  ../../whisper/[whispernodes, whisper_protocol],
   ../protocol/[waku_protocol, waku_bridge],
   ../../common/utils/nat,
   ./rpc/[waku, wakusim, key_storage], ./waku_helpers, ./config
 
 const clientId = "Nimbus waku node"
 
-proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext)
+proc run(config: WakuNodeConf, rng: ref HmacDrbgContext)
       {.raises: [Defect, ValueError, RpcBindError, CatchableError, Exception]} =
   ## `udpPort` is only supplied to satisfy underlying APIs but is not
   ## actually a supported transport.
@@ -32,10 +32,15 @@ proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext)
                 Address(ip: ipExt.get(),
                   tcpPort: Port(config.tcpPort + config.portsShift),
                   udpPort: Port(udpPort + config.portsShift))
+    bootnodes = if config.bootnodes.len > 0: setBootNodes(config.bootnodes)
+                elif config.fleet == prod: setBootNodes(StatusBootNodes)
+                elif config.fleet == staging: setBootNodes(StatusBootNodesStaging)
+                elif config.fleet == test : setBootNodes(StatusBootNodesTest)
+                else: @[]
 
   # Set-up node
   var node = newEthereumNode(config.nodekey, address, NetworkId(1), nil, clientId,
-    addAllCapabilities = false, rng = rng)
+    addAllCapabilities = false, bootstrapNodes = bootnodes, bindUdpPort = address.udpPort, bindTcpPort = address.tcpPort, rng = rng)
   if not config.bootnodeOnly:
     node.addCapability Waku # Always enable Waku protocol
     var topicInterest: Option[seq[waku_protocol.Topic]]
@@ -57,14 +62,7 @@ proc run(config: WakuNodeConf, rng: ref BrHmacDrbgContext)
     if config.whisperBridge:
       node.shareMessageQueue()
 
-  # TODO: Status fleet bootnodes are discv5? That will not work.
-  let bootnodes = if config.bootnodes.len > 0: setBootNodes(config.bootnodes)
-                  elif config.fleet == prod: setBootNodes(StatusBootNodes)
-                  elif config.fleet == staging: setBootNodes(StatusBootNodesStaging)
-                  elif config.fleet == test : setBootNodes(StatusBootNodesTest)
-                  else: @[]
-
-  let connectedFut = node.connectToNetwork(bootnodes, not config.noListen,
+  let connectedFut = node.connectToNetwork(not config.noListen,
     config.discovery)
   connectedFut.callback = proc(data: pointer) {.gcsafe.} =
     {.gcsafe.}:

@@ -49,6 +49,7 @@ procSuite "Waku Lightpush":
       proto = WakuLightPush.init(peerManager, rng, requestHandler)
 
     proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
+    waitFor proto.start()
     dialSwitch.mount(proto)
 
 
@@ -63,7 +64,7 @@ procSuite "Waku Lightpush":
       peerManager2 = PeerManager.new(listenSwitch)
       rng2 = crypto.newRng() 
       proto2 = WakuLightPush.init(peerManager2, rng2, requestHandler2)
-
+    waitFor proto2.start()
     listenSwitch.mount(proto2)
 
 

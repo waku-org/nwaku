@@ -62,11 +62,11 @@ procSuite "Waku SWAP Accounting":
 
     # Start nodes and mount protocols
     await node1.start()
-    node1.mountSwap()
-    node1.mountStore(persistMessages = true)
+    await node1.mountSwap()
+    await node1.mountStore(persistMessages = true)
     await node2.start()
-    node2.mountSwap()
-    node2.mountStore(persistMessages = true)
+    await node2.mountSwap()
+    await node2.mountStore(persistMessages = true)
 
     await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
 
@@ -112,11 +112,11 @@ procSuite "Waku SWAP Accounting":
 
     # Start nodes and mount protocols
     await node1.start()
-    node1.mountSwap(swapConfig)
-    node1.mountStore(persistMessages = true)
+    await node1.mountSwap(swapConfig)
+    await node1.mountStore(persistMessages = true)
     await node2.start()
-    node2.mountSwap(swapConfig)
-    node2.mountStore(persistMessages = true)
+    await node2.mountSwap(swapConfig)
+    await node2.mountStore(persistMessages = true)
 
     await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
 

@@ -47,7 +47,7 @@ procSuite "Waku v2 JSON-RPC API":
   asyncTest "Debug API: get node info": 
     waitFor node.start()
 
-    node.mountRelay()
+    await node.mountRelay()
 
     # RPC server setup
     let
@@ -74,7 +74,7 @@ procSuite "Waku v2 JSON-RPC API":
   asyncTest "Relay API: publish and subscribe/unsubscribe": 
     waitFor node.start()
 
-    node.mountRelay()
+    await node.mountRelay()
 
     # RPC server setup
     let
@@ -137,13 +137,13 @@ procSuite "Waku v2 JSON-RPC API":
       message2 = WakuMessage(payload: payload2, contentTopic: contentTopic)
 
     await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[pubSubTopic])
 
     await node3.start()
-    node3.mountRelay(@[pubSubTopic])
+    await node3.mountRelay(@[pubSubTopic])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
     await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -215,7 +215,7 @@ procSuite "Waku v2 JSON-RPC API":
   asyncTest "Store API: retrieve historical messages":      
     waitFor node.start()
 
-    node.mountRelay()
+    await node.mountRelay()
 
     # RPC server setup
     let
@@ -231,7 +231,7 @@ procSuite "Waku v2 JSON-RPC API":
       key = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.new(key)
     
-    node.mountStore(persistMessages = true)
+    await node.mountStore(persistMessages = true)
     
     var listenSwitch = newStandardSwitch(some(key))
     waitFor listenSwitch.start()
@@ -273,9 +273,9 @@ procSuite "Waku v2 JSON-RPC API":
   asyncTest "Filter API: subscribe/unsubscribe": 
     waitFor node.start()
 
-    node.mountRelay()
+    await node.mountRelay()
 
-    node.mountFilter()
+    await node.mountFilter()
 
     # RPC server setup
     let
@@ -329,7 +329,7 @@ procSuite "Waku v2 JSON-RPC API":
     installFilterApiHandlers(node, server, newTable[ContentTopic, seq[WakuMessage]]())
     server.start()
     
-    node.mountFilter()
+    await node.mountFilter()
 
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort, false)
@@ -412,9 +412,9 @@ procSuite "Waku v2 JSON-RPC API":
     
     await allFutures([node1.start(), node2.start(), node3.start()])
 
-    node1.mountRelay()
-    node2.mountRelay()
-    node3.mountRelay()
+    await node1.mountRelay()
+    await node2.mountRelay()
+    await node3.mountRelay()
 
     # RPC server setup
     let
@@ -469,9 +469,9 @@ procSuite "Waku v2 JSON-RPC API":
     
     await allFutures([node1.start(), node2.start(), node3.start()])
 
-    node1.mountRelay()
-    node2.mountRelay()
-    node3.mountRelay()
+    await node1.mountRelay()
+    await node2.mountRelay()
+    await node3.mountRelay()
 
     # Dial nodes 2 and 3 from node1
     await node1.connectToNodes(@[constructMultiaddrStr(peerInfo2)])
@@ -525,9 +525,9 @@ procSuite "Waku v2 JSON-RPC API":
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort, false)
 
-    node.mountFilter()
-    node.mountSwap()
-    node.mountStore(persistMessages = true)
+    await node.mountFilter()
+    await node.mountSwap()
+    await node.mountStore(persistMessages = true)
 
     # Create and set some peers
     let
@@ -577,13 +577,13 @@ procSuite "Waku v2 JSON-RPC API":
       topicCache = newTable[string, seq[WakuMessage]]()
 
     await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[pubSubTopic])
 
     await node3.start()
-    node3.mountRelay(@[pubSubTopic])
+    await node3.mountRelay(@[pubSubTopic])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
     await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -598,8 +598,8 @@ procSuite "Waku v2 JSON-RPC API":
       server3 = newRpcHttpServer([ta3])
     
     # Let's connect to nodes 1 and 3 via the API
-    installPrivateApiHandlers(node1, server1, rng, newTable[string, seq[WakuMessage]]())
-    installPrivateApiHandlers(node3, server3, rng, topicCache)
+    installPrivateApiHandlers(node1, server1, newTable[string, seq[WakuMessage]]())
+    installPrivateApiHandlers(node3, server3, topicCache)
     installRelayApiHandlers(node3, server3, topicCache)
     server1.start()
     server3.start()
@@ -668,13 +668,13 @@ procSuite "Waku v2 JSON-RPC API":
       topicCache = newTable[string, seq[WakuMessage]]()
 
     await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[pubSubTopic])
 
     await node3.start()
-    node3.mountRelay(@[pubSubTopic])
+    await node3.mountRelay(@[pubSubTopic])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
     await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -689,8 +689,8 @@ procSuite "Waku v2 JSON-RPC API":
       server3 = newRpcHttpServer([ta3])
     
     # Let's connect to nodes 1 and 3 via the API
-    installPrivateApiHandlers(node1, server1, rng, newTable[string, seq[WakuMessage]]())
-    installPrivateApiHandlers(node3, server3, rng, topicCache)
+    installPrivateApiHandlers(node1, server1, newTable[string, seq[WakuMessage]]())
+    installPrivateApiHandlers(node3, server3, topicCache)
     installRelayApiHandlers(node3, server3, topicCache)
     server1.start()
     server3.start()

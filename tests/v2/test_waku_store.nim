@@ -53,6 +53,7 @@ proc newTestWakuStore(switch: Switch): WakuStore =
     store = WakuMessageStore.init(database).tryGet()
     proto = WakuStore.init(peerManager, rng, store)
 
+  waitFor proto.start()
   switch.mount(proto)
 
   return proto
@@ -468,6 +469,7 @@ procSuite "Waku Store - fault tolerant store":
     let storePeer = peer.get(listenSwitch.peerInfo.toRemotePeerInfo())
     proto.setPeer(storePeer)
 
+    await proto.start()
     listenSwitch.mount(proto)
 
     return (listenSwitch, dialSwitch, proto)

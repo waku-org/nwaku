@@ -108,7 +108,7 @@ proc new*(T: type WakuDiscoveryV5,
           privateKey: keys.PrivateKey,
           flags: WakuEnrBitfield,
           enrFields: openArray[(string, seq[byte])],
-          rng: ref BrHmacDrbgContext,
+          rng: ref HmacDrbgContext,
           discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T =
   ## TODO: consider loading from a configurable bootstrap file
   
@@ -140,7 +140,7 @@ proc new*(T: type WakuDiscoveryV5,
           privateKey: keys.PrivateKey,
           flags: WakuEnrBitfield,
           enrFields: openArray[(string, seq[byte])],
-          rng: ref BrHmacDrbgContext,
+          rng: ref HmacDrbgContext,
           discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T =
   
   var bootstrapEnrs: seq[enr.Record]
