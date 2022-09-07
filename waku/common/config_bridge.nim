@@ -106,7 +106,7 @@ type
 
     nodekeyV2* {.
       desc: "P2P node private key as hex"
-      defaultValue: crypto.PrivateKey.random(Secp256k1, keys.newRng()[]).tryGet()
+      defaultValue: crypto.PrivateKey.random(Secp256k1, crypto.newRng()[]).tryGet()
       name: "nodekey-v2" }: crypto.PrivateKey
 
     store* {.

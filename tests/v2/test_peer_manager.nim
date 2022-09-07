@@ -34,8 +34,8 @@ procSuite "Peer Manager":
     
     await allFutures([node1.start(), node2.start()])
 
-    node1.mountRelay()
-    node2.mountRelay()
+    await node1.mountRelay()
+    await node2.mountRelay()
 
     # Dial node2 from node1
     let conn = (await node1.peerManager.dialPeer(peerInfo2.toRemotePeerInfo(), WakuRelayCodec)).get()
@@ -68,8 +68,8 @@ procSuite "Peer Manager":
     await node1.start()
     # Purposefully don't start node2
 
-    node1.mountRelay()
-    node2.mountRelay()
+    await node1.mountRelay()
+    await node2.mountRelay()
 
     # Dial node2 from node1
     let connOpt = await node1.peerManager.dialPeer(peerInfo2.toRemotePeerInfo(), WakuRelayCodec, 2.seconds)
@@ -100,9 +100,9 @@ procSuite "Peer Manager":
     
     await node.start()
 
-    node.mountFilter()
-    node.mountSwap()
-    node.mountStore(persistMessages = true)
+    await node.mountFilter()
+    await node.mountSwap()
+    await node.mountStore(persistMessages = true)
 
     node.wakuFilter.setPeer(filterPeer.toRemotePeerInfo())
     node.wakuSwap.setPeer(swapPeer.toRemotePeerInfo())
@@ -136,8 +136,8 @@ procSuite "Peer Manager":
     
     await node1.start()
 
-    node1.mountRelay()
-    node2.mountRelay()
+    await node1.mountRelay()
+    await node2.mountRelay()
 
     # Test default connectedness for new peers
     node1.peerManager.addPeer(peerInfo2.toRemotePeerInfo(), WakuRelayCodec)
@@ -182,8 +182,8 @@ procSuite "Peer Manager":
     await node1.start()
     await node2.start()
 
-    node1.mountRelay()
-    node2.mountRelay()
+    await node1.mountRelay()
+    await node2.mountRelay()
 
     discard await node1.peerManager.dialPeer(peerInfo2.toRemotePeerInfo(), WakuRelayCodec, 2.seconds)
     check:
@@ -205,7 +205,7 @@ procSuite "Peer Manager":
       node3.peerManager.peers().anyIt(it.peerId == peerInfo2.peerId)
       node3.peerManager.connectedness(peerInfo2.peerId) == NotConnected
 
-    node3.mountRelay()  # This should trigger a reconnect
+    await node3.mountRelay()  # This should trigger a reconnect
     
     check:
       # Reconnected to node2 after "restart"
@@ -232,9 +232,9 @@ asyncTest "Peer manager support multiple protocol IDs when reconnecting to peers
     await node1.start()
     await node2.start()
 
-    node1.mountRelay()
+    await node1.mountRelay()
     node1.wakuRelay.codec = betaCodec
-    node2.mountRelay()
+    await node2.mountRelay()
     node2.wakuRelay.codec = betaCodec
 
     discard await node1.peerManager.dialPeer(peerInfo2.toRemotePeerInfo(), node2.wakuRelay.codec, 2.seconds)
@@ -251,7 +251,7 @@ asyncTest "Peer manager support multiple protocol IDs when reconnecting to peers
       node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"),
         Port(60004), peerStorage = storage)
     
-    node3.mountRelay()
+    await node3.mountRelay()
     node3.wakuRelay.codec = stableCodec
     check:
       # Node 2 and 3 have differing codecs

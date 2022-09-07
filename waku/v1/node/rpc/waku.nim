@@ -10,7 +10,7 @@ from stew/byteutils import hexToSeqByte, hexToByteArray
 # Blatant copy of Whisper RPC but for the Waku protocol
 
 proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer,
-    rng: ref BrHmacDrbgContext) =
+    rng: ref HmacDrbgContext) =
 
   rpcsrv.rpc("waku_version") do() -> string:
     ## Returns string of the current Waku protocol version.

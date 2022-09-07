@@ -8,7 +8,7 @@
 import std/[oids, options, strutils, tables, sequtils]
 import chronos
 import chronicles
-import bearssl
+import bearssl/rand
 import stew/[results, endians2, byteutils]
 import nimcrypto/[utils, sha2, hmac]
 
@@ -28,9 +28,9 @@ logScope:
 #################################
 
 # Generates random byte sequences of given size
-proc randomSeqByte*(rng: var BrHmacDrbgContext, size: int): seq[byte] =
+proc randomSeqByte*(rng: var HmacDrbgContext, size: int): seq[byte] =
   var output = newSeq[byte](size.uint32)
-  brHmacDrbgGenerate(rng, output)
+  hmacDrbgGenerate(rng, output)
   return output
 
 # Pads a payload according to PKCS#7 as per RFC 5652 https://datatracker.ietf.org/doc/html/rfc5652#section-6.3
@@ -69,7 +69,7 @@ proc isDefault*[T](value: T): bool =
 #################################
 
 # Generate random (public, private) Elliptic Curve key pairs
-proc genKeyPair*(rng: var BrHmacDrbgContext): KeyPair =
+proc genKeyPair*(rng: var HmacDrbgContext): KeyPair =
   var keyPair: KeyPair
   keyPair.privateKey = EllipticCurveKey.random(rng)
   keyPair.publicKey = keyPair.privateKey.public()
@@ -158,18 +158,18 @@ proc dh*(private: EllipticCurveKey, public: EllipticCurveKey): EllipticCurveKey 
 #################################
 
 # Generates a random ChaChaPolyKey for testing encryption/decryption
-proc randomChaChaPolyKey*(rng: var BrHmacDrbgContext): ChaChaPolyKey =
+proc randomChaChaPolyKey*(rng: var HmacDrbgContext): ChaChaPolyKey =
   var key: ChaChaPolyKey
-  brHmacDrbgGenerate(rng, key)
+  hmacDrbgGenerate(rng, key)
   return key
 
 # Generates a random ChaChaPoly Cipher State for testing encryption/decryption
-proc randomChaChaPolyCipherState*(rng: var BrHmacDrbgContext): ChaChaPolyCipherState =
+proc randomChaChaPolyCipherState*(rng: var HmacDrbgContext): ChaChaPolyCipherState =
   var randomCipherState: ChaChaPolyCipherState
   randomCipherState.k = randomChaChaPolyKey(rng)
-  brHmacDrbgGenerate(rng, randomCipherState.nonce)
+  hmacDrbgGenerate(rng, randomCipherState.nonce)
   randomCipherState.ad = newSeq[byte](32)
-  brHmacDrbgGenerate(rng, randomCipherState.ad)
+  hmacDrbgGenerate(rng, randomCipherState.ad)
   return randomCipherState
 
 #################################################################
@@ -190,7 +190,7 @@ proc toNoisePublicKey*(publicKey: EllipticCurveKey): NoisePublicKey =
   return noisePublicKey
 
 # Generates a random Noise public key
-proc genNoisePublicKey*(rng: var BrHmacDrbgContext): NoisePublicKey =
+proc genNoisePublicKey*(rng: var HmacDrbgContext): NoisePublicKey =
   var noisePublicKey: NoisePublicKey
   # We generate a random key pair
   let keyPair: KeyPair = genKeyPair(rng)
@@ -281,7 +281,7 @@ proc `==`*(p1, p2: PayloadV2): bool =
   
 
 # Generates a random PayloadV2
-proc randomPayloadV2*(rng: var BrHmacDrbgContext): PayloadV2 =
+proc randomPayloadV2*(rng: var HmacDrbgContext): PayloadV2 =
   var payload2: PayloadV2
   # To generate a random protocol id, we generate a random 1-byte long sequence, and we convert the first element to uint8
   payload2.protocolId = randomSeqByte(rng, 1)[0].uint8

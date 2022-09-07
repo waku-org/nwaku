@@ -7,7 +7,7 @@
 import std/[oids, options, strutils, tables]
 import chronos
 import chronicles
-import bearssl
+import bearssl/rand
 import stew/[results, endians2]
 import nimcrypto/[utils, sha2, hmac]
 
@@ -229,7 +229,7 @@ proc processMessagePatternPayload(hs: var HandshakeState, transportMessage: seq[
   return payload
 
 # We process an input handshake message according to current handshake state and we return the next handshake step's handshake message
-proc processMessagePatternTokens(rng: var BrHmacDrbgContext, hs: var HandshakeState, inputHandshakeMessage: seq[NoisePublicKey] = @[]): Result[seq[NoisePublicKey], cstring]
+proc processMessagePatternTokens(rng: var rand.HmacDrbgContext, hs: var HandshakeState, inputHandshakeMessage: seq[NoisePublicKey] = @[]): Result[seq[NoisePublicKey], cstring]
   {.raises: [Defect, NoiseHandshakeError, NoiseMalformedHandshake, NoisePublicKeyError, NoiseDecryptTagError, NoiseNonceMaxError].} =
 
   # We retrieve current message pattern (direction + tokens) to process
@@ -463,7 +463,7 @@ proc initialize*(hsPattern: HandshakePattern, ephemeralKey: KeyPair = default(Ke
 # Each user in a handshake alternates writing and reading of handshake messages.
 # If the user is writing the handshake message, the transport message (if not empty) has to be passed to transportMessage and readPayloadV2 can be left to its default value
 # It the user is reading the handshake message, the read payload v2 has to be passed to readPayloadV2 and the transportMessage can be left to its default values. 
-proc stepHandshake*(rng: var BrHmacDrbgContext, hs: var HandshakeState, readPayloadV2: PayloadV2 = default(PayloadV2), transportMessage: seq[byte] = @[]): Result[HandshakeStepResult, cstring]
+proc stepHandshake*(rng: var rand.HmacDrbgContext, hs: var HandshakeState, readPayloadV2: PayloadV2 = default(PayloadV2), transportMessage: seq[byte] = @[]): Result[HandshakeStepResult, cstring]
   {.raises: [Defect, NoiseHandshakeError, NoiseMalformedHandshake, NoisePublicKeyError, NoiseDecryptTagError, NoiseNonceMaxError].} =
 
   var hsStepResult: HandshakeStepResult

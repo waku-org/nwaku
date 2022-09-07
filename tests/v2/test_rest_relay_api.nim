@@ -39,7 +39,7 @@ suite "REST API - Relay":
     # Given
     let node = testWakuNode()
     await node.start()
-    node.mountRelay()
+    await node.mountRelay()
 
     let restPort = Port(8546)
     let restAddress = ValidIpAddress.init("0.0.0.0")
@@ -84,7 +84,7 @@ suite "REST API - Relay":
     # Given
     let node = testWakuNode()
     await node.start()
-    node.mountRelay()
+    await node.mountRelay()
 
     let restPort = Port(8546)
     let restAddress = ValidIpAddress.init("0.0.0.0")
@@ -132,7 +132,7 @@ suite "REST API - Relay":
     # Given
     let node = testWakuNode()
     await node.start()
-    node.mountRelay()
+    await node.mountRelay()
 
     let restPort = Port(8546)
     let restAddress = ValidIpAddress.init("0.0.0.0")
@@ -183,7 +183,7 @@ suite "REST API - Relay":
     # Given
     let node = testWakuNode()
     await node.start()
-    node.mountRelay()
+    await node.mountRelay()
 
     # RPC server setup
     let restPort = Port(8546)

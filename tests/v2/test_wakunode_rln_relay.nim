@@ -47,7 +47,7 @@ procSuite "WakuNode - RLN relay":
 
     # set up three nodes
     # node1
-    node1.mountRelay(@[rlnRelayPubSubTopic])
+    await node1.mountRelay(@[rlnRelayPubSubTopic])
     let (groupOpt1, memKeyPairOpt1, memIndexOpt1) = rlnRelayStaticSetUp(1) # set up rln relay inputs
     # mount rlnrelay in off-chain mode
     node1.mountRlnRelayStatic(group = groupOpt1.get(),
@@ -58,7 +58,7 @@ procSuite "WakuNode - RLN relay":
     await node1.start()
 
     # node 2
-    node2.mountRelay(@[rlnRelayPubSubTopic])
+    await node2.mountRelay(@[rlnRelayPubSubTopic])
     let (groupOpt2, memKeyPairOpt2, memIndexOpt2) = rlnRelayStaticSetUp(2) # set up rln relay inputs
     # mount rlnrelay in off-chain mode
     node2.mountRlnRelayStatic(group = groupOpt2.get(),
@@ -69,7 +69,7 @@ procSuite "WakuNode - RLN relay":
     await node2.start()
 
     # node 3
-    node3.mountRelay(@[rlnRelayPubSubTopic])
+    await node3.mountRelay(@[rlnRelayPubSubTopic])
     let (groupOpt3, memKeyPairOpt3, memIndexOpt3) = rlnRelayStaticSetUp(3) # set up rln relay inputs
     # mount rlnrelay in off-chain mode
     node3.mountRlnRelayStatic(group = groupOpt3.get(),
@@ -133,7 +133,7 @@ procSuite "WakuNode - RLN relay":
 
     # set up three nodes
     # node1
-    node1.mountRelay(@[rlnRelayPubSubTopic])
+    await node1.mountRelay(@[rlnRelayPubSubTopic])
     let (groupOpt1, memKeyPairOpt1, memIndexOpt1) = rlnRelayStaticSetUp(1) # set up rln relay inputs
     # mount rlnrelay in off-chain mode
     node1.mountRlnRelayStatic(group = groupOpt1.get(),
@@ -144,7 +144,7 @@ procSuite "WakuNode - RLN relay":
     await node1.start()
 
     # node 2
-    node2.mountRelay(@[rlnRelayPubSubTopic])
+    await node2.mountRelay(@[rlnRelayPubSubTopic])
     let (groupOpt2, memKeyPairOpt2, memIndexOpt2) = rlnRelayStaticSetUp(2) # set up rln relay inputs
     # mount rlnrelay in off-chain mode
     node2.mountRlnRelayStatic(group = groupOpt2.get(),
@@ -155,7 +155,7 @@ procSuite "WakuNode - RLN relay":
     await node2.start()
 
     # node 3
-    node3.mountRelay(@[rlnRelayPubSubTopic])
+    await node3.mountRelay(@[rlnRelayPubSubTopic])
     let (groupOpt3, memKeyPairOpt3, memIndexOpt3) = rlnRelayStaticSetUp(3) # set up rln relay inputs
     # mount rlnrelay in off-chain mode
     node3.mountRlnRelayStatic(group = groupOpt3.get(),
@@ -237,7 +237,7 @@ procSuite "WakuNode - RLN relay":
 
     # set up three nodes
     # node1
-    node1.mountRelay(@[rlnRelayPubSubTopic])
+    await node1.mountRelay(@[rlnRelayPubSubTopic])
     let (groupOpt1, memKeyPairOpt1, memIndexOpt1) = rlnRelayStaticSetUp(1) # set up rln relay inputs
     # mount rlnrelay in off-chain mode
     node1.mountRlnRelayStatic(group = groupOpt1.get(),
@@ -248,7 +248,7 @@ procSuite "WakuNode - RLN relay":
     await node1.start()
 
     # node 2
-    node2.mountRelay(@[rlnRelayPubSubTopic])
+    await node2.mountRelay(@[rlnRelayPubSubTopic])
     let (groupOpt2, memKeyPairOpt2, memIndexOpt2) = rlnRelayStaticSetUp(2) # set up rln relay inputs
     # mount rlnrelay in off-chain mode
     node2.mountRlnRelayStatic(group = groupOpt2.get(),
@@ -259,7 +259,7 @@ procSuite "WakuNode - RLN relay":
     await node2.start()
 
     # node 3
-    node3.mountRelay(@[rlnRelayPubSubTopic])
+    await node3.mountRelay(@[rlnRelayPubSubTopic])
     let (groupOpt3, memKeyPairOpt3, memIndexOpt3) = rlnRelayStaticSetUp(3) # set up rln relay inputs
     # mount rlnrelay in off-chain mode
     node3.mountRlnRelayStatic(group = groupOpt3.get(),

@@ -49,7 +49,7 @@ type
     nodev2*: WakuNode
     nodev2PubsubTopic: wakunode2.Topic # Pubsub topic to bridge to/from
     seen: seq[hashes.Hash] # FIFO queue of seen WakuMessages. Used for deduplication.
-    rng: ref BrHmacDrbgContext
+    rng: ref HmacDrbgContext
     v1Pool: seq[Node] # Pool of v1 nodes for possible connections
     targetV1Peers: int # Target number of v1 peers to maintain
     started: bool # Indicates that bridge is running
@@ -215,7 +215,7 @@ proc new*(T: type WakuBridge,
           nodev1Key: keys.KeyPair,
           nodev1Address: Address,
           powRequirement = 0.002,
-          rng: ref BrHmacDrbgContext,
+          rng: ref HmacDrbgContext,
           topicInterest = none(seq[waku_protocol.Topic]),
           bloom = some(fullBloom()),
           # NodeV2 initialisation
@@ -233,7 +233,7 @@ proc new*(T: type WakuBridge,
   var
     nodev1 = newEthereumNode(keys = nodev1Key, address = nodev1Address,
                              networkId = NetworkId(1), chain = nil, clientId = ClientIdV1,
-                             addAllCapabilities = false, rng = rng)
+                             addAllCapabilities = false, bindUdpPort = nodev1Address.udpPort, bindTcpPort = nodev1Address.tcpPort, rng = rng)
   
   nodev1.addCapability Waku # Always enable Waku protocol
 
@@ -268,7 +268,7 @@ proc start*(bridge: WakuBridge) {.async.} =
 
   debug "Start listening on Waku v1"
   # Start listening on Waku v1 node
-  let connectedFut = bridge.nodev1.connectToNetwork(@[],
+  let connectedFut = bridge.nodev1.connectToNetwork(
     true, # Always enable listening
     false # Disable discovery (only discovery v4 is currently supported)
     )
@@ -284,7 +284,7 @@ proc start*(bridge: WakuBridge) {.async.} =
   
   # Always mount relay for bridge.
   # `triggerSelf` is false on a `bridge` to avoid duplicates
-  bridge.nodev2.mountRelay(triggerSelf = false)
+  await bridge.nodev2.mountRelay(triggerSelf = false)
 
   # Bridging
   # Handle messages on Waku v1 and bridge to Waku v2  
@@ -317,9 +317,9 @@ proc stop*(bridge: WakuBridge) {.async.} =
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
   import
-    eth/p2p/whispernodes,
     libp2p/nameresolving/dnsresolver,
     ./utils/nat,
+    ../whisper/whispernodes,
     ../v1/node/rpc/wakusim,
     ../v1/node/rpc/waku,
     ../v1/node/rpc/key_storage,
@@ -424,13 +424,13 @@ when isMainModule:
   # Now load rest of config
 
   # Mount configured Waku v2 protocols
-  mountLibp2pPing(bridge.nodev2)
+  waitFor mountLibp2pPing(bridge.nodev2)
   
   if conf.store:
-    mountStore(bridge.nodev2, persistMessages = false)  # Bridge does not persist messages
+    waitFor mountStore(bridge.nodev2, persistMessages = false)  # Bridge does not persist messages
 
   if conf.filter:
-    mountFilter(bridge.nodev2)
+    waitFor mountFilter(bridge.nodev2)
 
   if conf.staticnodesV2.len > 0:
     waitFor connectToNodes(bridge.nodev2, conf.staticnodesV2)

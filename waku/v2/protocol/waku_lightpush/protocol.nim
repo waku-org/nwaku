@@ -6,7 +6,7 @@ import
   chronicles,
   chronos,
   metrics,
-  bearssl,
+  bearssl/rand,
   libp2p/crypto/crypto
 
 import
@@ -46,7 +46,7 @@ type
   WakuLightPushResult*[T] = Result[T, string]
 
   WakuLightPush* = ref object of LPProtocol
-    rng*: ref BrHmacDrbgContext
+    rng*: ref rand.HmacDrbgContext
     peerManager*: PeerManager
     requestHandler*: PushRequestHandler
     relayReference*: WakuRelay
@@ -98,7 +98,7 @@ proc init*(wl: WakuLightPush) =
   wl.handler = handle
   wl.codec = WakuLightPushCodec
 
-proc init*(T: type WakuLightPush, peerManager: PeerManager, rng: ref BrHmacDrbgContext, handler: PushRequestHandler, relay: WakuRelay = nil): T =
+proc init*(T: type WakuLightPush, peerManager: PeerManager, rng: ref rand.HmacDrbgContext, handler: PushRequestHandler, relay: WakuRelay = nil): T =
   debug "init"
   let rng = crypto.newRng()
   let wl = WakuLightPush(rng: rng,

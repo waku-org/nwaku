@@ -34,7 +34,7 @@
 
 import
   std/[tables, options, json],
-  bearssl,
+  bearssl/rand,
   chronos, chronicles, metrics, stew/results,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
@@ -285,7 +285,7 @@ proc init*(wakuSwap: WakuSwap) =
   wakuswap.applyPolicy = applyPolicy
 
 # TODO Expression return?
-proc init*(T: type WakuSwap, peerManager: PeerManager, rng: ref BrHmacDrbgContext, swapConfig: SwapConfig): T =
+proc init*(T: type WakuSwap, peerManager: PeerManager, rng: ref rand.HmacDrbgContext, swapConfig: SwapConfig): T =
   info "wakuSwap init 2"
   let 
     accounting = initTable[PeerId, int]()

@@ -31,10 +31,11 @@ procSuite "WakuBridge":
 
   let
     rng = keys.newRng()
+    cryptoRng = crypto.newRng()
 
     # Bridge
     nodev1Key = keys.KeyPair.random(rng[])
-    nodev2Key = crypto.PrivateKey.random(Secp256k1, rng[])[]
+    nodev2Key = crypto.PrivateKey.random(Secp256k1, cryptoRng[])[]
     bridge = WakuBridge.new(
         nodev1Key= nodev1Key,
         nodev1Address = localAddress(30302),
@@ -48,7 +49,7 @@ procSuite "WakuBridge":
     v1Node = setupTestNode(rng, Waku)
 
     # Waku v2 node
-    v2NodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+    v2NodeKey = crypto.PrivateKey.random(Secp256k1, cryptoRng[])[]
     v2Node = WakuNode.new(v2NodeKey, ValidIpAddress.init("0.0.0.0"), Port(60002))
 
     contentTopic = ContentTopic("/waku/1/0x1a2b3c4d/rfc26")
@@ -118,7 +119,7 @@ procSuite "WakuBridge":
     waitFor bridge.start()
 
     waitFor v2Node.start()
-    v2Node.mountRelay(@[DefaultBridgeTopic], triggerSelf = false)
+    await v2Node.mountRelay(@[DefaultBridgeTopic], triggerSelf = false)
 
     discard waitFor v1Node.rlpxConnect(newNode(bridge.nodev1.toENode()))
     waitFor v2Node.connectToNodes(@[bridge.nodev2.switch.peerInfo.toRemotePeerInfo()])
