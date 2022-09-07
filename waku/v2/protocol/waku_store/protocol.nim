@@ -212,23 +212,23 @@ proc handleMessage*(w: WakuStore, topic: string, msg: WakuMessage) {.async.} =
 
   # Add message to in-memory store
   if not w.isSqliteOnly:
-    # Handle WakuMessage according to store protocol
     trace "handle message in WakuStore", topic=topic, msg=msg
 
     let addRes = w.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: topic))
     if addRes.isErr():
-      trace "Attempt to add message to store failed", msg=msg, index=index, err=addRes.error()
+      debug "Attempt to add message to store failed", msg=msg, index=index, err=addRes.error()
       waku_store_errors.inc(labelValues = [$(addRes.error())])
       return
   
     waku_store_messages.set(w.messages.len.int64, labelValues = ["stored"])
   
+  # Add messages to persistent store, if present
   if w.store.isNil:
     return
 
   let res = w.store.put(index, msg, topic)
   if res.isErr():
-    trace "failed to store messages", err=res.error()
+    debug "failed to store messages", err=res.error()
     waku_store_errors.inc(labelValues = [storeFailure])
 
 
