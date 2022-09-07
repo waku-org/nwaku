@@ -1065,7 +1065,7 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: O
   if not conf.rlnRelayDynamic:
     info " setting up waku-rln-relay in off-chain mode... "
     # set up rln relay inputs
-    let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelayStaticSetUp(conf.rlnRelayMemIndex)
+    let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelayStaticSetUp(MembershipIndex(conf.rlnRelayMemIndex))
     if memIndexOpt.isNone:
       error "failed to mount WakuRLNRelay"
     else:
