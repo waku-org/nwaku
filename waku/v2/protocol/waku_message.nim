@@ -13,7 +13,8 @@ import
   libp2p/varint,
   ../utils/protobuf,
   ../utils/time,
-  waku_rln_relay/waku_rln_relay_types
+  waku_rln_relay/waku_rln_relay_types,
+  std/options
 
 const
   MaxWakuMessageSize* = 1024 * 1024 # In bytes. Corresponds to PubSub default
@@ -31,20 +32,20 @@ type
     # this field will be used in the rln-relay protocol
     # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec and not yet part of WakuMessage spec
     proof*: RateLimitProof
-    # The ephemeral field indicates if the message should
-    # be stored. bools and uints are 
-    # equivalent in serialization of the protobuf
-    ephemeral*: bool
-    # The storeTTL field indicates for how long a given message
-    # should be considered "valid", after which it may still
-    # be fetched, but should not be used in any business logic
-    storeTTL*: Timestamp
+    # The ttl field indicates the time-to-live of the message
+    # It is a unix timestamp in nanoseconds
+    # There are three cases:
+    # 1. ttl = undefined, which means that the message is valid forever (for backwards compat)
+    # 2. ttl = 0, which means that the message is ephemeral
+    # 3. ttl > now() + T, which means that the message is valid till ttl
+    ttl*: Option[Timestamp]
+
     
    
 
 # Encoding and decoding -------------------------------------------------------
 proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
-  var msg = WakuMessage()
+  var msg = WakuMessage(ttl: none(Timestamp))
   let pb = initProtoBuffer(buffer)
 
   discard ? pb.getField(1, msg.payload)
@@ -60,19 +61,14 @@ proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getField(21, proofBytes)
   msg.proof = ? RateLimitProof.init(proofBytes)
 
-  # Behaviour of ephemeral with storeTTL to be defined,
-  # If a message is marked ephemeral, it should not have a storeTTL.
-  # If a message is not marked ephemeral, it should have a storeTTL.
-  # How would we handle messages that should be stored permanently?
-  var ephemeral: uint
-  discard ? pb.getField(31, ephemeral)
-  msg.ephemeral = uintToBool(ephemeral)
-
-  var storeTTL: zint64
-  discard ? pb.getField(32, storeTTL)
-  msg.storeTTL = Timestamp(storeTTL)
+  var ttl: zint64
+  if ? pb.getField(31, ttl):
+    msg.ttl = some(Timestamp(ttl))
 
   ok(msg)
+
+proc encode*(timestamp: Timestamp): zint64 =
+  zint64(timestamp)
 
 proc encode*(message: WakuMessage): ProtoBuffer =
   result = initProtoBuffer()
@@ -80,10 +76,12 @@ proc encode*(message: WakuMessage): ProtoBuffer =
   result.write3(1, message.payload)
   result.write3(2, message.contentTopic)
   result.write3(3, message.version)
-  result.write3(10, zint64(message.timestamp))
+  result.write3(10, message.timestamp.encode())
   result.write3(21, message.proof.encode())
-  result.write3(31, boolToUint(message.ephemeral))
-  result.write3(32, zint64(message.storeTTL))
+
+  if message.ttl.isSome():
+    result.write3(31, message.ttl.get().encode())
+
   
   result.finish3()
 

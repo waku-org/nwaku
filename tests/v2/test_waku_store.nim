@@ -31,16 +31,14 @@ proc fakeWakuMessage(
   payload = "TEST-PAYLOAD",
   contentTopic = DefaultContentTopic, 
   ts = getNanosecondTime(epochTime()),
-  ephemeral = false,
-  storeTTL = getNanosecondTime(60*5) # 5 minutes
+  ttl = none(Timestamp),
 ): WakuMessage = 
   WakuMessage(
     payload: toBytes(payload),
     contentTopic: contentTopic,
     version: 1,
     timestamp: ts,
-    ephemeral: ephemeral,
-    storeTTL: storeTTL
+    ttl: ttl,
   )
 
 proc newTestSwitch(key=none(PrivateKey), address=none(MultiAddress)): Switch =
@@ -466,11 +464,11 @@ suite "Waku Store":
 
     ## Send 5 ephemeral messages. A message is stateful by default.
     let msgList = @[
-        fakeWakuMessage(ephemeral = true),
-        fakeWakuMessage(ephemeral = true),
-        fakeWakuMessage(ephemeral = true),
-        fakeWakuMessage(ephemeral = true),
-        fakeWakuMessage(ephemeral = true),
+        fakeWakuMessage(ttl = some(Timestamp(0))),
+        fakeWakuMessage(ttl = some(Timestamp(0))),
+        fakeWakuMessage(ttl = some(Timestamp(0))),
+        fakeWakuMessage(ttl = some(Timestamp(0))),
+        fakeWakuMessage(ttl = some(Timestamp(0))),
       ]
 
     for msg in msgList:
