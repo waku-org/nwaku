@@ -415,8 +415,7 @@ proc info*(node: WakuNode): WakuInfo =
   for address in node.announcedAddresses:
     var fulladdr = $address & "/p2p/" & $peerInfo.peerId
     listenStr &= fulladdr
-  let enrUri = if node.wakuDiscV5 != nil: node.wakuDiscV5.protocol.localNode.record.toUri()
-               else: node.enr.toUri()
+  let enrUri = node.enr.toUri()
   let wakuInfo = WakuInfo(listenAddresses: listenStr, enrUri: enrUri)
   return wakuInfo
 
