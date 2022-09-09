@@ -156,6 +156,8 @@ method getMessagesByHistoryQuery*(
 
   ok((messages, some(pagingInfo)))
 
+method getMessagesCount*(s: SqliteStore): int64 =
+  int64(s.numMessages)
 
 proc close*(s: SqliteStore) = 
   ## Close the database connection
