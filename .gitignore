@@ -39,6 +39,12 @@ node_modules/
 .idea/
 rlnCredentials.txt
 testPath.txt
+<<<<<<< HEAD
+
+# Nimbus Build System
+nimbus-build-system.paths
+=======
+>>>>>>> d2713745 (Revert "feat(store): replace ephemeral with ttl model")
 
 # Nimbus Build System
 nimbus-build-system.paths

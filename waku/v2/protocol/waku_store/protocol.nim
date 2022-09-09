@@ -204,19 +204,13 @@ proc handleMessage*(w: WakuStore, topic: string, msg: WakuMessage) {.async.} =
     # Store is mounted but new messages should not be stored
     return
 
-  if msg.ttl.isSome():
-    let ttl = msg.ttl.get()
-    if ttl == 0:
-      # The message is ephemeral, should not be stored
-      return
-    # else:
-      # The message is ephemeral, but should be stored for a limited time
-      # TODO: Add check here for ttl validity
+  if msg.ephemeral:
+    # The message is ephemeral, should not be stored
+    return
 
-  let receivedTime = getNanosecondTime(getTime().toUnixFloat())
   let index = Index.compute(
     msg,
-    receivedTime = receivedTime,
+    receivedTime = getNanosecondTime(getTime().toUnixFloat()),
     pubsubTopic = topic
   )
 
@@ -240,9 +234,7 @@ proc handleMessage*(w: WakuStore, topic: string, msg: WakuMessage) {.async.} =
   if res.isErr():
     debug "failed to store messages", err=res.error()
     waku_store_errors.inc(labelValues = [storeFailure])
-  # elif shouldCleanupMessage:
-    # TODO: set timer to delete message from store
-    
+
 
 # TODO: Remove after converting the query method into a non-callback method
 type QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
