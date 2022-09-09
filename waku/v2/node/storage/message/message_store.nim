@@ -45,3 +45,5 @@ method getMessagesByHistoryQuery*(
   maxPageSize = StoreMaxPageSize,
   ascendingOrder = true
 ): MessageStoreResult[MessageStorePage] {.base.} = discard
+
+method getMessagesCount*(ms: MessageStore): int64 {.base.} = discard
