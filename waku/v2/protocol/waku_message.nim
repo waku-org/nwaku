@@ -35,10 +35,6 @@ type
     # be stored. bools and uints are 
     # equivalent in serialization of the protobuf
     ephemeral*: bool
-    # The storeTTL field indicates for how long a given message
-    # should be considered "valid", after which it may still
-    # be fetched, but should not be used in any business logic
-    storeTTL*: Timestamp
     
    
 
