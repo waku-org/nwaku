@@ -44,7 +44,7 @@ type
 
 # Encoding and decoding -------------------------------------------------------
 proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
-  var msg = WakuMessage()
+  var msg = WakuMessage(ephemeral: false)
   let pb = initProtoBuffer(buffer)
 
   discard ? pb.getField(1, msg.payload)
@@ -65,12 +65,8 @@ proc init*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
   # If a message is not marked ephemeral, it should have a storeTTL.
   # How would we handle messages that should be stored permanently?
   var ephemeral: uint
-  discard ? pb.getField(31, ephemeral)
-  msg.ephemeral = uintToBool(ephemeral)
-
-  var storeTTL: zint64
-  discard ? pb.getField(32, storeTTL)
-  msg.storeTTL = Timestamp(storeTTL)
+  if ? pb.getField(31, ephemeral):
+    msg.ephemeral = bool(ephemeral)
 
   ok(msg)
 
@@ -82,8 +78,6 @@ proc encode*(message: WakuMessage): ProtoBuffer =
   result.write3(3, message.version)
   result.write3(10, zint64(message.timestamp))
   result.write3(21, message.proof.encode())
-  result.write3(31, boolToUint(message.ephemeral))
-  result.write3(32, zint64(message.storeTTL))
-  
+  result.write3(31, uint64(message.ephemeral))
   result.finish3()
 

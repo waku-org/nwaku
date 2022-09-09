@@ -32,7 +32,6 @@ proc fakeWakuMessage(
   contentTopic = DefaultContentTopic, 
   ts = getNanosecondTime(epochTime()),
   ephemeral = false,
-  storeTTL = getNanosecondTime(60*5) # 5 minutes
 ): WakuMessage = 
   WakuMessage(
     payload: toBytes(payload),
@@ -40,7 +39,6 @@ proc fakeWakuMessage(
     version: 1,
     timestamp: ts,
     ephemeral: ephemeral,
-    storeTTL: storeTTL
   )
 
 proc newTestSwitch(key=none(PrivateKey), address=none(MultiAddress)): Switch =
