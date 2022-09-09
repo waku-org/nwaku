@@ -36,7 +36,7 @@ Lastly, add the ssh key to your DigitalOcean account -
 doctl compute ssh-key create nwaku-key --public-key=$DROPLET_SSH_PUBLIC_KEY
 ```
 
-## 2. Select the region closest to you
+## 3. Select the region closest to you
 
 Run the following command to get the list of available
 regions -
@@ -71,7 +71,7 @@ export DROPLET_REGION=nyc1
 
 Note that it is *optional* to choose the datacenter closest to you. This is merely done for operational efficiency.
 
-## 3. Select the OS distribution
+## 4. Select the OS distribution
 
 Run the following command to get the list of distributions -
 
@@ -102,7 +102,7 @@ For example, if you chose Debian 11 x64 -
 export DROPLET_IMAGE=debian-11-x64
 ```
 
-## 4. Select the size of the Droplet
+## 5. Select the size of the Droplet
 
 Run the following command to get the list of Droplet sizes for the previously selected region -
 
@@ -138,7 +138,7 @@ For example, `s-1vcpu-2gb` is more than capable to handle the protocols we menti
 export DROPLET_SIZE=s-1vcpu-2gb
 ```
 
-## 5. Create the Droplet
+## 6. Create the Droplet
 
 Run the following command to create the droplet -
 
@@ -152,11 +152,11 @@ For example, to create a droplet named `nwaku` -
 export DROPLET_ID=$(doctl compute droplet create --region=$DROPLET_REGION --image=$DROPLET_IMAGE --size=$DROPLET_SIZE --enable-monitoring --format=ID --wait nwaku | sed -n2p)
 ```
 
-## 6. Create a Domain and attach it to the droplet
+## 7. Create a Domain and attach it to the droplet
 
 Follow this [guide](https://docs.digitalocean.com/products/networking/dns/how-to/add-domains/) to create a domain, and add it to the droplet appropriately.
 
-## 7. SSH into the Droplet
+## 8. SSH into the Droplet
 
 You can get the following details in the email that DigitalOcean sends upon successful creation of the Droplet -
 
@@ -180,7 +180,7 @@ export IP=0.0.0.0
 ssh -i $DROPLET_SSH_KEY_PATH $USERNAME@$IP
 ```
 
-## 8. Build nwaku
+## 9. Build nwaku
 
 To build `nwaku`, follow this [guide](./how-to/build.md)
 
@@ -198,7 +198,7 @@ Run the following script to copy over the wakunode2 binary (from the host machin
 scp -i $DROPLET_SSH_KEY_PATH ./wakunode2 $USERNAME@$IP:~/wakunode2
 ```
 
-## 9. Run nwaku
+## 10. Run nwaku
 
 Run the following command to run `nwaku` -
 
