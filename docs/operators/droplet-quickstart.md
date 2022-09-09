@@ -143,13 +143,15 @@ export DROPLET_SIZE=s-1vcpu-2gb
 Run the following command to create the droplet -
 
 ```bash
-export DROPLET_ID=$(doctl compute droplet create --region=$DROPLET_REGION --image=$DROPLET_IMAGE --size=$DROPLET_SIZE --enable-monitoring --format=ID --wait <your-droplet-name> | sed -n2p)
+export DROPLET_NAME=<your-droplet-name>
+export DROPLET_ID=$(doctl compute droplet create --region=$DROPLET_REGION --image=$DROPLET_IMAGE --size=$DROPLET_SIZE --enable-monitoring --format=ID --wait $DROPLET_NAME | sed -n '2 p')
 ```
 
 For example, to create a droplet named `nwaku` -
 
 ```bash
-export DROPLET_ID=$(doctl compute droplet create --region=$DROPLET_REGION --image=$DROPLET_IMAGE --size=$DROPLET_SIZE --enable-monitoring --format=ID --wait nwaku | sed -n2p)
+export DROPLET_NAME=nwaku
+export DROPLET_ID=$(doctl compute droplet create --region=$DROPLET_REGION --image=$DROPLET_IMAGE --size=$DROPLET_SIZE --enable-monitoring --format=ID --wait $DROPLET_NAME | sed -n '2 p')
 ```
 
 ## 7. Create a Domain and attach it to the droplet
@@ -167,9 +169,9 @@ You can get the following details in the email that DigitalOcean sends upon succ
 Since the public key we previously generated was automatically added to the authorized_keys list, we can run the following command to ssh into the Droplet -
 
 ```bash
-export USERNAME=<username from email>
-export IP=<public ipv4 address from email>
-ssh -i $DROPLET_SSH_KEY_PATH $USERNAME@$IP
+export DROPLET_USERNAME=<username from email>
+export DROPLET_IP=<public ipv4 address from email>
+ssh -i $DROPLET_SSH_KEY_PATH $DROPLET_USERNAME@$DROPLET_IP
 ```
 
 For example, if the username was `root`, and the ipv4 address was `0.0.0.0`,
@@ -177,8 +179,10 @@ For example, if the username was `root`, and the ipv4 address was `0.0.0.0`,
 ```bash
 export USERNAME=root
 export IP=0.0.0.0
-ssh -i $DROPLET_SSH_KEY_PATH $USERNAME@$IP
+ssh -i $DROPLET_SSH_KEY_PATH $DROPLET_USERNAME@$DROPLET_IP
 ```
+
+Enter the password received in the email.
 
 ## 9. Build nwaku
 
@@ -205,12 +209,13 @@ Run the following command to run `nwaku` -
 *Note the path to the wakunode2 binary*
 
 ```bash
+export DOMAIN_NAME=<your-domain-name>
 ./build/wakunode2 \
   --store:true \
   --storenode:/dns4/node-01.ac-cn-hongkong-c.wakuv2.test.statusim.net/tcp/30303/p2p/16Uiu2HAkvWiyFsgRhuJEb9JfjYxEkoHLgnUQmr1N5mKWnYjxYRVm \
   --dns-discovery \
   --dns-discovery-url:enrtree://AOFTICU2XWDULNLZGRMQS4RIZPAZEHYMV4FYHAPW563HNRAOERP7C@test.waku.nodes.status.im
-  --dns4-domain-name=<the-domain-name>
+  --dns4-domain-name=$DOMAIN_NAME
   --discv5-discovery:true &
 ```
 
