@@ -8,6 +8,19 @@ DigitalOcean Droplet. We enable the following protocols -
 3. DNS Discovery
 4. Discv5
 
+A Droplet is a simple virtual machine that runs in DigitalOcean's datacenters.
+
+Note that Droplets do cost money, the size described in the guide costs approximately $12 a month. 
+
+The guide makes heavy use of the `doctl` cli to make it as UI agnostic as possible. 
+There are similar steps to accomplish the same through DigitalOcean's cloud console, accessible [here](https://cloud.digitalocean.com/)
+
+## Prerequisites
+
+1. A DigitalOcean account. Upon signing up, you have $100 worth of credits to use.
+
+
+
 ## 1. Get the `doctl` binary
 
 Follow this [guide](https://docs.digitalocean.com/reference/doctl/how-to/install/) to install,
