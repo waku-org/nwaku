@@ -4,7 +4,7 @@ import
   chronicles,
   chronos,
   metrics,
-  bearssl,
+  bearssl/rand,
   libp2p/protocols/protocol,
   libp2p/crypto/crypto
 import
@@ -74,7 +74,7 @@ type
   WakuFilterResult*[T] = Result[T, string]  
 
   WakuFilter* = ref object of LPProtocol
-    rng*: ref BrHmacDrbgContext
+    rng*: ref rand.HmacDrbgContext
     peerManager*: PeerManager
     pushHandler*: MessagePushHandler
     subscriptions*: seq[Subscription]
@@ -134,7 +134,7 @@ proc init(wf: WakuFilter) =
 
 proc init*(T: type WakuFilter, 
            peerManager: PeerManager, 
-           rng: ref BrHmacDrbgContext, 
+           rng: ref rand.HmacDrbgContext, 
            handler: MessagePushHandler,
            timeout: Duration = WakuFilterTimeout): T =
   let wf = WakuFilter(rng: rng,

@@ -186,7 +186,7 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
   
   # Always mount relay for bridge
   # `triggerSelf` is false on a `bridge` to avoid duplicates
-  cmb.nodev2.mountRelay(triggerSelf = false)
+  await cmb.nodev2.mountRelay(triggerSelf = false)
 
   # Bridging
   # Handle messages on Waku v2 and bridge to Matterbridge
@@ -263,13 +263,13 @@ when isMainModule:
 
   # Now load rest of config
   # Mount configured Waku v2 protocols
-  mountLibp2pPing(bridge.nodev2)
+  waitFor mountLibp2pPing(bridge.nodev2)
 
   if conf.store:
-    mountStore(bridge.nodev2)
+    waitFor mountStore(bridge.nodev2)
 
   if conf.filter:
-    mountFilter(bridge.nodev2)
+    waitFor mountFilter(bridge.nodev2)
 
   if conf.staticnodes.len > 0:
     waitFor connectToNodes(bridge.nodev2, conf.staticnodes)

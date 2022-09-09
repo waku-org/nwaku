@@ -65,7 +65,7 @@ proc decodePayload*(message: WakuMessage, keyInfo: KeyInfo):
 
 # TODO: same story as for `decodedPayload`, but then regarding the `Payload`
 # object.
-proc encode*(payload: Payload, version: uint32, rng: var BrHmacDrbgContext):
+proc encode*(payload: Payload, version: uint32, rng: var HmacDrbgContext):
     WakuResult[seq[byte]] =
   case version
   of 0:

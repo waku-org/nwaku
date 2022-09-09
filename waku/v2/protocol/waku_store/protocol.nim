@@ -8,7 +8,7 @@ import
   stew/results,
   chronicles,
   chronos, 
-  bearssl,
+  bearssl/rand,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
@@ -65,7 +65,7 @@ type
 
   WakuStore* = ref object of LPProtocol
     peerManager*: PeerManager
-    rng*: ref BrHmacDrbgContext
+    rng*: ref rand.HmacDrbgContext
     messages*: StoreQueueRef # in-memory message store
     store*: MessageStore  # sqlite DB handle
     wakuSwap*: WakuSwap
@@ -186,7 +186,7 @@ proc init*(ws: WakuStore, capacity = StoreDefaultCapacity) =
   debug "the number of messages in the memory", messageNum=ws.messages.len
   waku_store_messages.set(ws.messages.len.int64, labelValues = ["stored"])
 
-proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref BrHmacDrbgContext,
+proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref rand.HmacDrbgContext,
            store: MessageStore = nil, wakuSwap: WakuSwap = nil, persistMessages = true,
            capacity = StoreDefaultCapacity, isSqliteOnly = false): T =
   let ws = WakuStore(rng: rng, peerManager: peerManager, store: store, wakuSwap: wakuSwap, persistMessages: persistMessages, isSqliteOnly: isSqliteOnly)
@@ -212,23 +212,23 @@ proc handleMessage*(w: WakuStore, topic: string, msg: WakuMessage) {.async.} =
 
   # Add message to in-memory store
   if not w.isSqliteOnly:
-    # Handle WakuMessage according to store protocol
     trace "handle message in WakuStore", topic=topic, msg=msg
 
     let addRes = w.messages.add(IndexedWakuMessage(msg: msg, index: index, pubsubTopic: topic))
     if addRes.isErr():
-      trace "Attempt to add message to store failed", msg=msg, index=index, err=addRes.error()
+      debug "Attempt to add message to store failed", msg=msg, index=index, err=addRes.error()
       waku_store_errors.inc(labelValues = [$(addRes.error())])
       return
   
     waku_store_messages.set(w.messages.len.int64, labelValues = ["stored"])
   
+  # Add messages to persistent store, if present
   if w.store.isNil:
     return
 
   let res = w.store.put(index, msg, topic)
   if res.isErr():
-    trace "failed to store messages", err=res.error()
+    debug "failed to store messages", err=res.error()
     waku_store_errors.inc(labelValues = [storeFailure])
 
 

@@ -14,14 +14,14 @@ const sigPath = sourceDir / ParDir / ParDir / "waku" / "v1" / "node" / "rpc" / "
 createRpcSigs(RpcSocketClient, sigPath)
 
 proc setupNode(capabilities: varargs[ProtocolInfo, `protocolInfo`],
-    rng: ref BrHmacDrbgContext, ): EthereumNode =
+    rng: ref HmacDrbgContext, ): EthereumNode =
   let
     keypair = KeyPair.random(rng[])
     srvAddress = Address(ip: parseIpAddress("0.0.0.0"), tcpPort: Port(30303),
       udpPort: Port(30303))
 
   result = newEthereumNode(keypair, srvAddress, NetworkId(1), nil, "waku test rpc",
-    addAllCapabilities = false, rng = rng)
+    addAllCapabilities = false, bindUdpPort = srvAddress.udpPort, bindTcpPort = srvAddress.tcpPort, rng = rng)
   for capability in capabilities:
     result.addCapability capability
 

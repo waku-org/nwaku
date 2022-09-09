@@ -36,7 +36,7 @@ proc installRelayPostSubscriptionsV1Handler*(router: var RestRouter, node: WakuN
     if contentBody.isNone():
       return RestApiResponse.badRequest()
     
-    let reqBodyContentType = MediaType.init(contentBody.get().contentType)
+    let reqBodyContentType = MediaType.init($contentBody.get().contentType)
     if reqBodyContentType != MIMETYPE_JSON:
       return RestApiResponse.badRequest()
 
@@ -67,7 +67,7 @@ proc installRelayDeleteSubscriptionsV1Handler*(router: var RestRouter, node: Wak
     if contentBody.isNone():
       return RestApiResponse.badRequest()
     
-    let reqBodyContentType = MediaType.init(contentBody.get().contentType)
+    let reqBodyContentType = MediaType.init($contentBody.get().contentType)
     if reqBodyContentType != MIMETYPE_JSON:
       return RestApiResponse.badRequest()
 
@@ -124,7 +124,7 @@ proc installRelayPostMessagesV1Handler*(router: var RestRouter, node: WakuNode) 
     if contentBody.isNone():
       return RestApiResponse.badRequest()
     
-    let reqBodyContentType = MediaType.init(contentBody.get().contentType)
+    let reqBodyContentType = MediaType.init($contentBody.get().contentType)
     if reqBodyContentType != MIMETYPE_JSON:
       return RestApiResponse.badRequest()
 

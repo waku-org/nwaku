@@ -36,7 +36,7 @@ proc startRpcServer*(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port, conf:
     if conf.rpcPrivate:
       # Private API access allows WakuRelay functionality that 
       # is backwards compatible with Waku v1.
-      installPrivateApiHandlers(node, rpcServer, node.rng, topicCache)
+      installPrivateApiHandlers(node, rpcServer, topicCache)
   
   if conf.filter:
     let messageCache = newTable[ContentTopic, seq[WakuMessage]]()

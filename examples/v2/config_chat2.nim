@@ -24,7 +24,7 @@ type
     
     nodekey* {.
       desc: "P2P node private key as 64 char hex string.",
-      defaultValue: crypto.PrivateKey.random(Secp256k1, keys.newRng()[]).tryGet()
+      defaultValue: crypto.PrivateKey.random(Secp256k1, crypto.newRng()[]).tryGet()
       name: "nodekey" }: crypto.PrivateKey
 
     listenAddress* {.

@@ -3,9 +3,11 @@ import
   # TODO: enable this when it is altered into a proper waku relay test
   # ./v2/test_waku,
   ./v2/test_wakunode,
+  ./v2/test_wakunode_lightpush,
   ./v2/test_waku_store_rpc_codec,
   ./v2/test_waku_store,
   ./v2/test_waku_filter,
+  ./v2/test_wakunode_filter,
   ./v2/test_waku_payload,
   ./v2/test_waku_swap,
   ./v2/test_utils_peers,
@@ -35,7 +37,9 @@ import
   ./v2/test_waku_noise
 
 when defined(rln) or defined(rlnzerokit):
-  import ./v2/test_waku_rln_relay
+  import 
+    ./v2/test_waku_rln_relay,
+    ./v2/test_wakunode_rln_relay
   when defined(onchain_rln):
     import ./v2/test_waku_rln_relay_onchain
 

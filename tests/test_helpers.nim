@@ -1,5 +1,5 @@
 import
-  chronos, bearssl,
+  chronos, bearssl/rand,
   eth/[keys, p2p]
 
 import libp2p/crypto/crypto
@@ -12,22 +12,27 @@ proc localAddress*(port: int): Address =
                    ip: parseIpAddress("127.0.0.1"))
 
 proc setupTestNode*(
-    rng: ref BrHmacDrbgContext,
+    rng: ref HmacDrbgContext,
     capabilities: varargs[ProtocolInfo, `protocolInfo`]): EthereumNode =
-  let keys1 = keys.KeyPair.random(rng[])
-  result = newEthereumNode(keys1, localAddress(nextPort), NetworkId(1), nil,
-                           addAllCapabilities = false, rng = rng)
+  let
+    keys1 = keys.KeyPair.random(rng[])
+    address = localAddress(nextPort)
+  result = newEthereumNode(keys1, address, NetworkId(1), nil,
+                           addAllCapabilities = false,
+                           bindUdpPort = address.udpPort, # Assume same as external
+                           bindTcpPort = address.tcpPort, # Assume same as external
+                           rng = rng)
   nextPort.inc
   for capability in capabilities:
     result.addCapability capability
 
 # Copied from here: https://github.com/status-im/nim-libp2p/blob/d522537b19a532bc4af94fcd146f779c1f23bad0/tests/helpers.nim#L28
 type RngWrap = object
-  rng: ref BrHmacDrbgContext
+  rng: ref rand.HmacDrbgContext
 
 var rngVar: RngWrap
 
-proc getRng(): ref BrHmacDrbgContext =
+proc getRng(): ref rand.HmacDrbgContext =
   # TODO if `rngVar` is a threadvar like it should be, there are random and
   #      spurious compile failures on mac - this is not gcsafe but for the
   #      purpose of the tests, it's ok as long as we only use a single thread
@@ -36,5 +41,5 @@ proc getRng(): ref BrHmacDrbgContext =
       rngVar.rng = crypto.newRng()
     rngVar.rng
 
-template rng*(): ref BrHmacDrbgContext =
+template rng*(): ref rand.HmacDrbgContext =
   getRng()

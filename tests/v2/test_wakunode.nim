@@ -18,7 +18,6 @@ import
   ../../waku/v2/protocol/[waku_relay, waku_message],
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_filter,
-  ../../waku/v2/protocol/waku_lightpush,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/peers,
   ../../waku/v2/utils/pagination,
@@ -29,255 +28,13 @@ import
 from std/times import epochTime
 
 
-when defined(rln):
-  import std/sequtils
-  import 
-    ../../waku/v2/protocol/waku_rln_relay/[waku_rln_relay_utils, waku_rln_relay_types]
-  
-const RLNRELAY_PUBSUB_TOPIC = "waku/2/rlnrelay/proto"
 template sourceDir: string = currentSourcePath.parentDir()
 const KEY_PATH = sourceDir / "resources/test_key.pem"
 const CERT_PATH = sourceDir / "resources/test_cert.pem"
 
 procSuite "WakuNode":
-  let rng = keys.newRng()
+  let rng = crypto.newRng()
  
-  asyncTest "Message published with content filter is retrievable":
-    let
-      nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"),
-        Port(60000))
-      pubSubTopic = "chat"
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      filterRequest = FilterRequest(pubSubTopic: pubSubTopic, contentFilters: @[ContentFilter(contentTopic: contentTopic)], subscribe: true)
-      message = WakuMessage(payload: "hello world".toBytes(),
-        contentTopic: contentTopic)
-
-    # This could/should become a more fixed handler (at least default) that
-    # would be enforced on WakuNode level.
-    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.init(data)
-      if msg.isOk():
-        check:
-          topic == "chat"
-        node.filters.notify(msg.value(), topic)
-
-    var completionFut = newFuture[bool]()
-
-    # This would be the actual application handler
-    proc contentHandler(msg: WakuMessage) {.gcsafe, closure.} =
-      let message = string.fromBytes(msg.payload)
-      check:
-        message == "hello world"
-      completionFut.complete(true)
-
-    await node.start()
-
-    node.mountRelay()
-
-    # Subscribe our node to the pubSubTopic where all chat data go onto.
-    node.subscribe(pubSubTopic, relayHandler)
-
-    # Subscribe a contentFilter to trigger a specific application handler when
-    # WakuMessages with that content are received
-    await node.subscribe(filterRequest, contentHandler)
-
-    await sleepAsync(2000.millis)
-
-    await node.publish(pubSubTopic, message)
-
-    check:
-      (await completionFut.withTimeout(5.seconds)) == true
-
-    await node.stop()
-
-  asyncTest "Content filtered publishing over network":
-    let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        Port(60000))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
-        Port(60002))
-      pubSubTopic = "chat"
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      filterRequest = FilterRequest(pubSubTopic: pubSubTopic, contentFilters: @[ContentFilter(contentTopic: contentTopic)], subscribe: true)
-      message = WakuMessage(payload: "hello world".toBytes(),
-        contentTopic: contentTopic)
-
-    var completionFut = newFuture[bool]()
-
-    # This could/should become a more fixed handler (at least default) that
-    # would be enforced on WakuNode level.
-    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.init(data)
-      if msg.isOk():
-        check:
-          topic == "chat"
-        node1.filters.notify(msg.value(), topic)
-
-    # This would be the actual application handler
-    proc contentHandler(msg: WakuMessage) {.gcsafe, closure.} =
-      let message = string.fromBytes(msg.payload)
-      check:
-        message == "hello world"
-      completionFut.complete(true)
-
-    await allFutures([node1.start(), node2.start()])
-
-    node1.mountRelay()
-    node2.mountRelay()
-
-    node1.mountFilter()
-    node2.mountFilter()
-
-    # Subscribe our node to the pubSubTopic where all chat data go onto.
-    node1.subscribe(pubSubTopic, relayHandler)
-    # Subscribe a contentFilter to trigger a specific application handler when
-    # WakuMessages with that content are received
-    node1.wakuFilter.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
-    await node1.subscribe(filterRequest, contentHandler)
-    await sleepAsync(2000.millis)
-
-    # Connect peers by dialing from node2 to node1
-    let conn = await node2.switch.dial(node1.switch.peerInfo.peerId, node1.switch.peerInfo.addrs, WakuRelayCodec)
-
-    # We need to sleep to allow the subscription to go through
-    info "Going to sleep to allow subscribe to go through"
-    await sleepAsync(2000.millis)
-
-    info "Waking up and publishing"
-    await node2.publish(pubSubTopic, message)
-
-    check:
-      (await completionFut.withTimeout(5.seconds)) == true
-    await node1.stop() 
-    await node2.stop()
-  
-  asyncTest "Can receive filtered messages published on both default and other topics":
-    let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
-      defaultTopic = "/waku/2/default-waku/proto"
-      otherTopic = "/non/waku/formatted"
-      defaultContentTopic = "defaultCT"
-      otherContentTopic = "otherCT"
-      defaultPayload = @[byte 1]
-      otherPayload = @[byte 9]
-      defaultMessage = WakuMessage(payload: defaultPayload, contentTopic: defaultContentTopic)
-      otherMessage = WakuMessage(payload: otherPayload, contentTopic: otherContentTopic)
-      defaultFR = FilterRequest(contentFilters: @[ContentFilter(contentTopic: defaultContentTopic)], subscribe: true)
-      otherFR = FilterRequest(contentFilters: @[ContentFilter(contentTopic: otherContentTopic)], subscribe: true)
-
-    await node1.start()
-    node1.mountRelay()
-    node1.mountFilter()
-
-    await node2.start()
-    node2.mountRelay()
-    node2.mountFilter()
-    node2.wakuFilter.setPeer(node1.switch.peerInfo.toRemotePeerInfo())
-
-    var defaultComplete = newFuture[bool]()
-    var otherComplete = newFuture[bool]()
-
-    # Subscribe nodes 1 and 2 to otherTopic
-    proc emptyHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      # Do not notify filters or subscriptions here. This should be default behaviour for all topics
-      discard
-    
-    node1.subscribe(otherTopic, emptyHandler)
-    node2.subscribe(otherTopic, emptyHandler)
-
-    await sleepAsync(2000.millis)
-
-    proc defaultHandler(msg: WakuMessage) {.gcsafe, closure.} =
-      check:
-        msg.payload == defaultPayload
-        msg.contentTopic == defaultContentTopic
-      defaultComplete.complete(true)
-    
-    proc otherHandler(msg: WakuMessage) {.gcsafe, closure.} =
-      check:
-        msg.payload == otherPayload
-        msg.contentTopic == otherContentTopic
-      otherComplete.complete(true)
-
-    # Subscribe a contentFilter to trigger a specific application handler when
-    # WakuMessages with that content are received
-    await node2.subscribe(defaultFR, defaultHandler)
-
-    await sleepAsync(2000.millis)
-
-    # Let's check that content filtering works on the default topic
-    await node1.publish(defaultTopic, defaultMessage)
-
-    check:
-      (await defaultComplete.withTimeout(5.seconds)) == true
-
-    # Now check that content filtering works on other topics
-    await node2.subscribe(otherFR, otherHandler)
-
-    await sleepAsync(2000.millis)
-
-    await node1.publish(otherTopic,otherMessage)
-    
-    check:
-      (await otherComplete.withTimeout(5.seconds)) == true
-
-    await node1.stop()
-    await node2.stop()
-  
-  asyncTest "Filter protocol works on node without relay capability":
-    let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
-      defaultTopic = "/waku/2/default-waku/proto"
-      contentTopic = "defaultCT"
-      payload = @[byte 1]
-      message = WakuMessage(payload: payload, contentTopic: contentTopic)
-      filterRequest = FilterRequest(contentFilters: @[ContentFilter(contentTopic: contentTopic)], subscribe: true)
-
-    await node1.start()
-    node1.mountRelay()
-    node1.mountFilter()
-
-    await node2.start()
-    node2.mountRelay(relayMessages=false) # Do not start WakuRelay or subscribe to any topics
-    node2.mountFilter()
-    node2.wakuFilter.setPeer(node1.switch.peerInfo.toRemotePeerInfo())
-
-    check:
-      node1.wakuRelay.isNil == false # Node1 is a full node
-      node2.wakuRelay.isNil == true # Node 2 is a light node
-
-    var completeFut = newFuture[bool]()
-
-    proc filterHandler(msg: WakuMessage) {.gcsafe, closure.} =
-      check:
-        msg.payload == payload
-        msg.contentTopic == contentTopic
-      completeFut.complete(true)
-
-    # Subscribe a contentFilter to trigger a specific application handler when
-    # WakuMessages with that content are received
-    await node2.subscribe(filterRequest, filterHandler)
-
-    await sleepAsync(2000.millis)
-
-    # Let's check that content filtering works on the default topic
-    await node1.publish(defaultTopic, message)
-
-    check:
-      (await completeFut.withTimeout(5.seconds)) == true
-
-    await node1.stop()
-    await node2.stop()
-
   asyncTest "Store protocol returns expected message":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
@@ -292,9 +49,9 @@ procSuite "WakuNode":
     var completionFut = newFuture[bool]()
 
     await node1.start()
-    node1.mountStore(persistMessages = true)
+    await node1.mountStore(persistMessages = true)
     await node2.start()
-    node2.mountStore(persistMessages = true)
+    await node2.mountStore(persistMessages = true)
 
     await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
 
@@ -308,44 +65,6 @@ procSuite "WakuNode":
       completionFut.complete(true)
 
     await node1.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic)]), storeHandler)
-
-    check:
-      (await completionFut.withTimeout(5.seconds)) == true
-    await node1.stop()
-    await node2.stop()
-
-  asyncTest "Filter protocol returns expected message":
-    let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        Port(60000))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
-        Port(60002))
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
-
-    var completionFut = newFuture[bool]()
-
-    await node1.start()
-    node1.mountFilter()
-    await node2.start()
-    node2.mountFilter()
-
-    node1.wakuFilter.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
-
-    proc handler(msg: WakuMessage) {.gcsafe, closure.} =
-      check:
-        msg == message
-      completionFut.complete(true)
-
-    await node1.subscribe(FilterRequest(pubSubTopic: "/waku/2/default-waku/proto", contentFilters: @[ContentFilter(contentTopic: contentTopic)], subscribe: true), handler)
-
-    await sleepAsync(2000.millis)
-
-    await node2.wakuFilter.handleMessage("/waku/2/default-waku/proto", message)
-
-    await sleepAsync(2000.millis)
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
@@ -369,12 +88,12 @@ procSuite "WakuNode":
       storeComplFut = newFuture[bool]()
 
     await node1.start()
-    node1.mountStore(persistMessages = true)
-    node1.mountFilter()
+    await node1.mountStore(persistMessages = true)
+    await node1.mountFilter()
 
     await node2.start()
-    node2.mountStore(persistMessages = true)
-    node2.mountFilter()
+    await node2.mountStore(persistMessages = true)
+    await node2.mountFilter()
 
     node2.wakuFilter.setPeer(node1.switch.peerInfo.toRemotePeerInfo())
     node1.wakuStore.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
@@ -428,13 +147,13 @@ procSuite "WakuNode":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[pubSubTopic])
 
     await node3.start()
-    node3.mountRelay(@[pubSubTopic])
+    await node3.mountRelay(@[pubSubTopic])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
     await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -478,13 +197,13 @@ procSuite "WakuNode":
     # Setup node 1 with stable codec "/vac/waku/relay/2.0.0"
 
     await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[pubSubTopic])
     node1.wakuRelay.codec = "/vac/waku/relay/2.0.0"
 
     # Setup node 2 with beta codec "/vac/waku/relay/2.0.0-beta2"
 
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[pubSubTopic])
     node2.wakuRelay.codec = "/vac/waku/relay/2.0.0-beta2"
 
     check:
@@ -534,8 +253,8 @@ procSuite "WakuNode":
       node2PeerId = $(node2.switch.peerInfo.peerId)
       node2Dns4Addr = "/dns4/localhost/tcp/60002/p2p/" & node2PeerId
 
-    node1.mountRelay()
-    node2.mountRelay()
+    await node1.mountRelay()
+    await node2.mountRelay()
 
     await allFutures([node1.start(), node2.start()])
 
@@ -576,13 +295,13 @@ procSuite "WakuNode":
 
     # start all the nodes
     await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[pubSubTopic])
 
     await node3.start()
-    node3.mountRelay(@[pubSubTopic])
+    await node3.mountRelay(@[pubSubTopic])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
     await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -643,327 +362,7 @@ procSuite "WakuNode":
     await node1.stop()
     await node2.stop()
     await node3.stop()
-
-  when defined(rln):
-    asyncTest "testing rln-relay with valid proof":
-
-      let
-        # publisher node
-        nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-        node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
-        # Relay node
-        nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-        node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
-        # Subscriber
-        nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-        node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
-
-        rlnRelayPubSubTopic = RLNRELAY_PUBSUB_TOPIC
-        contentTopic = ContentTopic("/waku/2/default-content/proto")
-
-      # set up three nodes
-      # node1
-      node1.mountRelay(@[rlnRelayPubSubTopic])
-      let (groupOpt1, memKeyPairOpt1, memIndexOpt1) = rlnRelayStaticSetUp(1) # set up rln relay inputs
-      # mount rlnrelay in off-chain mode
-      node1.mountRlnRelayStatic(group = groupOpt1.get(),
-                                  memKeyPair = memKeyPairOpt1.get(),
-                                  memIndex = memIndexOpt1.get(), 
-                                  pubsubTopic = rlnRelayPubSubTopic,
-                                  contentTopic = contentTopic)
-      await node1.start()
-
-      # node 2
-      node2.mountRelay(@[rlnRelayPubSubTopic])
-      let (groupOpt2, memKeyPairOpt2, memIndexOpt2) = rlnRelayStaticSetUp(2) # set up rln relay inputs
-      # mount rlnrelay in off-chain mode
-      node2.mountRlnRelayStatic(group = groupOpt2.get(),
-                                  memKeyPair = memKeyPairOpt2.get(),
-                                  memIndex = memIndexOpt2.get(),
-                                  pubsubTopic = rlnRelayPubSubTopic,
-                                  contentTopic = contentTopic)
-      await node2.start()
-
-      # node 3
-      node3.mountRelay(@[rlnRelayPubSubTopic])
-      let (groupOpt3, memKeyPairOpt3, memIndexOpt3) = rlnRelayStaticSetUp(3) # set up rln relay inputs
-      # mount rlnrelay in off-chain mode
-      node3.mountRlnRelayStatic(group = groupOpt3.get(),
-                                  memKeyPair = memKeyPairOpt3.get(),
-                                  memIndex = memIndexOpt3.get(),
-                                  pubsubTopic = rlnRelayPubSubTopic,
-                                  contentTopic = contentTopic)
-      await node3.start()
-
-      # connect them together
-      await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
-      await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
-
-      var completionFut = newFuture[bool]()
-      proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-        let msg = WakuMessage.init(data)
-        if msg.isOk():
-          let val = msg.value()
-          debug "The received topic:", topic
-          if topic == rlnRelayPubSubTopic:
-            completionFut.complete(true)
-
-      # mount the relay handler
-      node3.subscribe(rlnRelayPubSubTopic, relayHandler)
-      await sleepAsync(2000.millis)
-
-      # prepare the message payload
-      let payload = "Hello".toBytes()
-
-      # prepare the epoch
-      let epoch = getCurrentEpoch()
-
-      var message = WakuMessage(payload: @payload,
-                                contentTopic: contentTopic)
-      doAssert(node1.wakuRlnRelay.appendRLNProof(message, epochTime()))
-
-
-      ## node1 publishes a message with a rate limit proof, the message is then relayed to node2 which in turn
-      ## verifies the rate limit proof of the message and relays the message to node3
-      ## verification at node2 occurs inside a topic validator which is installed as part of the waku-rln-relay mount proc
-      await node1.publish(rlnRelayPubSubTopic, message)
-      await sleepAsync(2000.millis)
-
-
-      check:
-        (await completionFut.withTimeout(10.seconds)) == true
-
-      await node1.stop()
-      await node2.stop()
-      await node3.stop()
-    asyncTest "testing rln-relay with invalid proof":
-      let
-        # publisher node
-        nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-        node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
-        # Relay node
-        nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-        node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
-        # Subscriber
-        nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-        node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
-
-        rlnRelayPubSubTopic = RLNRELAY_PUBSUB_TOPIC
-        contentTopic = ContentTopic("/waku/2/default-content/proto")
-
-      # set up three nodes
-      # node1
-      node1.mountRelay(@[rlnRelayPubSubTopic])
-      let (groupOpt1, memKeyPairOpt1, memIndexOpt1) = rlnRelayStaticSetUp(1) # set up rln relay inputs
-      # mount rlnrelay in off-chain mode
-      node1.mountRlnRelayStatic(group = groupOpt1.get(),
-                                  memKeyPair = memKeyPairOpt1.get(),
-                                  memIndex = memIndexOpt1.get(),
-                                  pubsubTopic = rlnRelayPubSubTopic,
-                                  contentTopic = contentTopic)
-      await node1.start()
-
-      # node 2
-      node2.mountRelay(@[rlnRelayPubSubTopic])
-      let (groupOpt2, memKeyPairOpt2, memIndexOpt2) = rlnRelayStaticSetUp(2) # set up rln relay inputs
-      # mount rlnrelay in off-chain mode
-      node2.mountRlnRelayStatic(group = groupOpt2.get(),
-                                  memKeyPair = memKeyPairOpt2.get(),
-                                  memIndex = memIndexOpt2.get(),
-                                  pubsubTopic = rlnRelayPubSubTopic,
-                                  contentTopic = contentTopic)
-      await node2.start()
-
-      # node 3
-      node3.mountRelay(@[rlnRelayPubSubTopic])
-      let (groupOpt3, memKeyPairOpt3, memIndexOpt3) = rlnRelayStaticSetUp(3) # set up rln relay inputs
-      # mount rlnrelay in off-chain mode
-      node3.mountRlnRelayStatic(group = groupOpt3.get(),
-                                  memKeyPair = memKeyPairOpt3.get(),
-                                  memIndex= memIndexOpt3.get(),
-                                  pubsubTopic = rlnRelayPubSubTopic,
-                                  contentTopic = contentTopic)
-      await node3.start()
-
-      # connect them together
-      await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
-      await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
-
-      # define a custom relay handler
-      var completionFut = newFuture[bool]()
-      proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-        let msg = WakuMessage.init(data)
-        if msg.isOk():
-          let val = msg.value()
-          debug "The received topic:", topic
-          if topic == rlnRelayPubSubTopic:
-            completionFut.complete(true)
-
-      # mount the relay handler
-      node3.subscribe(rlnRelayPubSubTopic, relayHandler)
-      await sleepAsync(2000.millis)
-
-      # prepare the message payload
-      let payload = "Hello".toBytes()
-
-      # prepare the epoch
-      let epoch = getCurrentEpoch()
-
-      # prepare the proof
-      let
-        contentTopicBytes = contentTopic.toBytes
-        input = concat(payload, contentTopicBytes)
-        rateLimitProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = input,
-                                                                memKeys = node1.wakuRlnRelay.membershipKeyPair,
-                                                                memIndex = MembershipIndex(4),
-                                                                epoch = epoch)
-      doAssert(rateLimitProofRes.isOk())
-      let rateLimitProof = rateLimitProofRes.value
-
-      let message = WakuMessage(payload: @payload,
-                                contentTopic: contentTopic,
-                                proof: rateLimitProof)
-
-
-      ## node1 publishes a message with an invalid rln proof, the message is then relayed to node2 which in turn
-      ## attempts to verify the rate limit proof and fails hence does not relay the message to node3, thus the relayHandler of node3
-      ## never gets called
-      ## verification at node2 occurs inside a topic validator which is installed as part of the waku-rln-relay mount proc
-      await node1.publish(rlnRelayPubSubTopic, message)
-      await sleepAsync(2000.millis)
-
-      check:
-        # the relayHandler of node3 never gets called
-        (await completionFut.withTimeout(10.seconds)) == false
-
-      await node1.stop()
-      await node2.stop()
-      await node3.stop()
-
-    asyncTest "testing rln-relay double-signaling detection":
-
-      let
-        # publisher node
-        nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-        node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
-        # Relay node
-        nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-        node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
-        # Subscriber
-        nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-        node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
-
-        rlnRelayPubSubTopic = RLNRELAY_PUBSUB_TOPIC
-        contentTopic = ContentTopic("/waku/2/default-content/proto")
-
-      # set up three nodes
-      # node1
-      node1.mountRelay(@[rlnRelayPubSubTopic])
-      let (groupOpt1, memKeyPairOpt1, memIndexOpt1) = rlnRelayStaticSetUp(1) # set up rln relay inputs
-      # mount rlnrelay in off-chain mode
-      node1.mountRlnRelayStatic(group = groupOpt1.get(),
-                                  memKeyPair = memKeyPairOpt1.get(),
-                                  memIndex = memIndexOpt1.get(),
-                                  pubsubTopic = rlnRelayPubSubTopic,
-                                  contentTopic = contentTopic)
-      await node1.start()
-
-      # node 2
-      node2.mountRelay(@[rlnRelayPubSubTopic])
-      let (groupOpt2, memKeyPairOpt2, memIndexOpt2) = rlnRelayStaticSetUp(2) # set up rln relay inputs
-      # mount rlnrelay in off-chain mode
-      node2.mountRlnRelayStatic(group = groupOpt2.get(),
-                                  memKeyPair = memKeyPairOpt2.get(),
-                                  memIndex = memIndexOpt2.get(),
-                                  pubsubTopic = rlnRelayPubSubTopic,
-                                  contentTopic = contentTopic)
-      await node2.start()
-
-      # node 3
-      node3.mountRelay(@[rlnRelayPubSubTopic])
-      let (groupOpt3, memKeyPairOpt3, memIndexOpt3) = rlnRelayStaticSetUp(3) # set up rln relay inputs
-      # mount rlnrelay in off-chain mode
-      node3.mountRlnRelayStatic(group = groupOpt3.get(),
-                                  memKeyPair = memKeyPairOpt3.get(),
-                                  memIndex = memIndexOpt3.get(), 
-                                  pubsubTopic = rlnRelayPubSubTopic,
-                                  contentTopic = contentTopic)
-      await node3.start()
-
-      # connect the nodes together node1 <-> node2 <-> node3
-      await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
-      await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
-
-      # get the current epoch time
-      let time = epochTime()
-      #  create some messages with rate limit proofs
-      var
-        wm1 = WakuMessage(payload: "message 1".toBytes(), contentTopic: contentTopic)
-        proofAdded1 = node3.wakuRlnRelay.appendRLNProof(wm1, time)
-        # another message in the same epoch as wm1, it will break the messaging rate limit
-        wm2 = WakuMessage(payload: "message 2".toBytes(), contentTopic: contentTopic)
-        proofAdded2 = node3.wakuRlnRelay.appendRLNProof(wm2, time)
-        #  wm3 points to the next epoch
-        wm3 = WakuMessage(payload: "message 3".toBytes(), contentTopic: contentTopic)
-        proofAdded3 = node3.wakuRlnRelay.appendRLNProof(wm3, time+EPOCH_UNIT_SECONDS)
-        wm4 = WakuMessage(payload: "message 4".toBytes(), contentTopic: contentTopic)
-
-      #  check proofs are added correctly
-      check:
-        proofAdded1
-        proofAdded2
-        proofAdded3
-
-      #  relay handler for node3
-      var completionFut1 = newFuture[bool]()
-      var completionFut2 = newFuture[bool]()
-      var completionFut3 = newFuture[bool]()
-      var completionFut4 = newFuture[bool]()
-      proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-        let msg = WakuMessage.init(data)
-        if msg.isOk():
-          let wm = msg.value()
-          debug "The received topic:", topic
-          if topic == rlnRelayPubSubTopic:
-            if wm == wm1:
-              completionFut1.complete(true)
-            if wm == wm2:
-              completionFut2.complete(true)
-            if wm == wm3:
-              completionFut3.complete(true)
-            if wm == wm4:
-              completionFut4.complete(true)
-
-
-      # mount the relay handler for node3
-      node3.subscribe(rlnRelayPubSubTopic, relayHandler)
-      await sleepAsync(2000.millis)
-
-      ## node1 publishes and relays 4 messages to node2
-      ## verification at node2 occurs inside a topic validator which is installed as part of the waku-rln-relay mount proc
-      ## node2 relays either of wm1 or wm2 to node3, depending on which message arrives at node2 first
-      ## node2 should detect either of wm1 or wm2 as spam and not relay it
-      ## node2 should relay wm3 to node3
-      ## node2 should not relay wm4 because it has no valid rln proof
-      await node1.publish(rlnRelayPubSubTopic, wm1)
-      await node1.publish(rlnRelayPubSubTopic, wm2)
-      await node1.publish(rlnRelayPubSubTopic, wm3)
-      await node1.publish(rlnRelayPubSubTopic, wm4)
-      await sleepAsync(2000.millis)
-
-      let
-        res1 = await completionFut1.withTimeout(10.seconds)
-        res2 = await completionFut2.withTimeout(10.seconds)
-
-      check:
-        (res1 and res2) == false # either of the wm1 and wm2 is found as spam hence not relayed
-        (await completionFut3.withTimeout(10.seconds)) == true
-        (await completionFut4.withTimeout(10.seconds)) == false
-
-      await node1.stop()
-      await node2.stop()
-      await node3.stop()
-
+  
   asyncTest "Relay protocol is started correctly":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
@@ -974,7 +373,7 @@ procSuite "WakuNode":
 
     await node1.start()
 
-    node1.mountRelay()
+    await node1.mountRelay()
 
     check:
       GossipSub(node1.wakuRelay).heartbeatFut.isNil == false
@@ -986,7 +385,7 @@ procSuite "WakuNode":
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60002))
 
-    node2.mountRelay()
+    await node2.mountRelay()
 
     check:
       # Relay has not yet started as node has not yet started
@@ -1000,77 +399,6 @@ procSuite "WakuNode":
 
     await allFutures([node1.stop(), node2.stop()])
 
-  asyncTest "Lightpush message return success":
-    let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        Port(60010))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
-        Port(60012))
-      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"),
-        Port(60013))
-      pubSubTopic = "test"
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      payload = "hello world".toBytes()
-      message = WakuMessage(payload: payload, contentTopic: contentTopic)
-
-    # Light node, only lightpush
-    await node1.start()
-    node1.mountRelay(relayMessages=false) # Mount WakuRelay, but do not start or subscribe to any topics
-    node1.mountLightPush()
-
-    # Intermediate node
-    await node2.start()
-    node2.mountRelay(@[pubSubTopic])
-    node2.mountLightPush()
-
-    # Receiving node
-    await node3.start()
-    node3.mountRelay(@[pubSubTopic])
-
-    discard await node1.peerManager.dialPeer(node2.switch.peerInfo.toRemotePeerInfo(), WakuLightPushCodec)
-    await sleepAsync(5.seconds)
-    await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
-
-    var completionFutLightPush = newFuture[bool]()
-    var completionFutRelay = newFuture[bool]()
-    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.init(data)
-      if msg.isOk():
-        let val = msg.value()
-        check:
-          topic == pubSubTopic
-          val.contentTopic == contentTopic
-          val.payload == payload
-      completionFutRelay.complete(true)
-
-    node3.subscribe(pubSubTopic, relayHandler)
-    await sleepAsync(2000.millis)
-
-    proc handler(response: PushResponse) {.gcsafe, closure.} =
-      debug "push response handler, expecting true"
-      check:
-        response.isSuccess == true
-      completionFutLightPush.complete(true)
-
-    # Publishing with lightpush
-    await node1.lightpush(pubSubTopic, message, handler)
-    await sleepAsync(2000.millis)
-
-    check:
-      (await completionFutRelay.withTimeout(5.seconds)) == true
-      (await completionFutLightPush.withTimeout(5.seconds)) == true
-
-    await allFutures([node1.stop(), node2.stop(), node3.stop()])
-
-  #   check:
-  #     (await completionFutRelay.withTimeout(5.seconds)) == true
-  #     (await completionFutLightPush.withTimeout(5.seconds)) == true
-  #   await node1.stop()
-  #   await node2.stop()
-  #   await node3.stop()
   asyncTest "Resume proc fetches the history":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
@@ -1083,9 +411,9 @@ procSuite "WakuNode":
       message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
 
     await node1.start()
-    node1.mountStore(persistMessages = true)
+    await node1.mountStore(persistMessages = true)
     await node2.start()
-    node2.mountStore(persistMessages = true)
+    await node2.mountStore(persistMessages = true)
 
     await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
 
@@ -1123,9 +451,9 @@ procSuite "WakuNode":
     var completionFut = newFuture[bool]()
 
     await node1.start()
-    node1.mountStore(persistMessages = true, store = store)
+    await node1.mountStore(persistMessages = true, store = store)
     await node2.start()
-    node2.mountStore(persistMessages = true)
+    await node2.mountStore(persistMessages = true)
 
     await node2.wakuStore.handleMessage(DefaultTopic, msg1)
     await node2.wakuStore.handleMessage(DefaultTopic, msg2)
@@ -1178,15 +506,15 @@ procSuite "WakuNode":
 
     # Node with connection limit set to 1
     await node1.start()
-    node1.mountRelay()
+    await node1.mountRelay()
 
     # Remote node 1
     await node2.start()
-    node2.mountRelay()
+    await node2.mountRelay()
 
     # Remote node 2
     await node3.start()
-    node3.mountRelay()
+    await node3.mountRelay()
 
     discard await node1.peerManager.dialPeer(node2.switch.peerInfo.toRemotePeerInfo(), WakuRelayCodec)
     await sleepAsync(3.seconds)
@@ -1214,10 +542,10 @@ procSuite "WakuNode":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[pubSubTopic])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
@@ -1259,10 +587,10 @@ procSuite "WakuNode":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[pubSubTopic])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
@@ -1303,10 +631,10 @@ procSuite "WakuNode":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[pubSubTopic])
 
     #delete websocket peer address
     # TODO: a better way to find the index - this is too brittle
@@ -1351,10 +679,10 @@ procSuite "WakuNode":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[pubSubTopic])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
@@ -1404,10 +732,10 @@ procSuite "WakuNode":
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[pubSubTopic])
 
     await node2.start()
-    node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[pubSubTopic])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 

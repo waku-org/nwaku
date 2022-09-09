@@ -52,9 +52,9 @@ procSuite "Peer Exchange":
     peerExchangeHandler = handlePeerExchange
     emptyHandler = ignorePeerExchange
 
-    node1.mountRelay(peerExchangeHandler = some(emptyHandler))
-    node2.mountRelay(peerExchangeHandler = some(emptyHandler))
-    node3.mountRelay(peerExchangeHandler = some(peerExchangeHandler))
+    await node1.mountRelay(peerExchangeHandler = some(emptyHandler))
+    await node2.mountRelay(peerExchangeHandler = some(emptyHandler))
+    await node3.mountRelay(peerExchangeHandler = some(peerExchangeHandler))
 
     # Ensure that node1 prunes all peers after the first connection
     node1.wakuRelay.parameters.dHigh = 1

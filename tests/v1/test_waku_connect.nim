@@ -44,11 +44,11 @@ procSuite "Waku connections":
       n3 = setupTestNode(rng, Waku)
       n4 = setupTestNode(rng, Waku)
 
-    var topics: seq[Topic]
+    var topics: seq[waku_protocol.Topic]
     n1.protocolState(Waku).config.topics = some(topics)
     n2.protocolState(Waku).config.topics = some(topics)
-    n3.protocolState(Waku).config.topics = none(seq[Topic])
-    n4.protocolState(Waku).config.topics = none(seq[Topic])
+    n3.protocolState(Waku).config.topics = none(seq[waku_protocol.Topic])
+    n4.protocolState(Waku).config.topics = none(seq[waku_protocol.Topic])
 
     n1.startListening()
     n3.startListening()
@@ -499,7 +499,7 @@ procSuite "Waku connections":
     let bloomFilterUpdatedCondition = proc(): bool =
       for peer in wakuNode.peerPool.peers:
         return peer.state(Waku).bloom == bloom and
-          peer.state(Waku).topics == none(seq[Topic])
+          peer.state(Waku).topics == none(seq[waku_protocol.Topic])
 
     let bloomFilterUpdated =
       await eventually(conditionTimeoutMs, bloomFilterUpdatedCondition)

@@ -28,7 +28,7 @@ suite "REST API - Debug":
     # Given
     let node = testWakuNode()
     await node.start()
-    node.mountRelay()
+    await node.mountRelay()
 
     let restPort = Port(8546)
     let restAddress = ValidIpAddress.init("0.0.0.0")

@@ -2,7 +2,7 @@
 
 import
   std/tables,
-  bearssl,
+  bearssl/rand,
   libp2p/protocols/protocol,
   ../../node/peer_manager/peer_manager
 
@@ -44,7 +44,7 @@ type
 
   WakuSwap* = ref object of LPProtocol
     peerManager*: PeerManager
-    rng*: ref BrHmacDrbgContext
+    rng*: ref rand.HmacDrbgContext
     text*: string
     accounting*: Table[PeerId, int]
     credit*: CreditHandler
