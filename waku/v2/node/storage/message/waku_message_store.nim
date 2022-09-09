@@ -88,15 +88,19 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase,
   
   ## Database initialization
 
-  # Create table (if not exists)
+  # Create table, if doesn't exist
   let resCreate = createTable(db)
   if resCreate.isErr():
-    return err("an error occurred while creating the table: " & resCreate.error())
+    return err("failed to create table: " & resCreate.error())
 
-  # Create index on receiverTimestamp (if not exists)
-  let resIndex = createIndex(db)
-  if resIndex.isErr():
-    return err("Could not establish index on receiverTimestamp: " & resIndex.error())
+  # Create indices, if don't exist
+  let resRtIndex = createOldestMessageTimestampIndex(db)
+  if resRtIndex.isErr():
+    return err("failed to create i_rt index: " & resRtIndex.error())
+  
+  let resMsgIndex = createHistoryQueryIndex(db)
+  if resMsgIndex.isErr():
+    return err("failed to create i_msg index: " & resMsgIndex.error())
 
   ## General initialization
 
@@ -149,7 +153,6 @@ proc init*(T: type WakuMessageStore, db: SqliteDatabase,
     wms.oldestReceiverTimestamp = selectOldestReceiverTimestamp(db).expect("query for oldest timestamp should work")
     # Update message count after deleting messages
     wms.numMessages = int(getMessageCount(db).expect("query for oldest timestamp should work"))
-
 
   ok(wms)
 
