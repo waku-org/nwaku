@@ -18,9 +18,3 @@ proc finish3*(proto: var ProtoBuffer) =
 
 proc `==`*(a: zint64, b: zint64): bool =
   int64(a) == int64(b)
-
-proc uintToBool*(value: uint64): bool =
-  value != 0
-
-proc boolToUint*(value: bool): uint =
-  if value: 1 else: 0
