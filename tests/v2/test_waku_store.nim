@@ -11,9 +11,10 @@ import
 import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/node/storage/sqlite,
   ../../waku/v2/node/storage/message/message_store,
   ../../waku/v2/node/storage/message/waku_store_queue,
-  ../../waku/v2/node/storage/message/waku_message_store,
+  ../../waku/v2/node/storage/message/sqlite_store,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/pagination,
   ../../waku/v2/utils/time,
@@ -53,7 +54,7 @@ proc newTestWakuStore(switch: Switch): WakuStore =
     peerManager = PeerManager.new(switch)
     rng = crypto.newRng()
     database = newTestDatabase()
-    store = WakuMessageStore.init(database).tryGet()
+    store = SqliteStore.init(database).tryGet()
     proto = WakuStore.init(peerManager, rng, store)
 
   waitFor proto.start()
@@ -499,7 +500,7 @@ procSuite "Waku Store - fault tolerant store":
       peerManager = PeerManager.new(dialsWitch)
       rng = crypto.newRng()
       database = newTestDatabase()
-      store = WakuMessageStore.init(database).tryGet()
+      store = SqliteStore.init(database).tryGet()
       proto = WakuStore.init(peerManager, rng, store)
 
     let storePeer = peer.get(listenSwitch.peerInfo.toRemotePeerInfo())

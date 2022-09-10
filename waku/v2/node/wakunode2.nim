@@ -822,7 +822,7 @@ when isMainModule:
     ./wakunode2_setup_metrics,
     ./wakunode2_setup_rpc,
     ./wakunode2_setup_sql_migrations,
-    ./storage/message/waku_message_store,
+    ./storage/message/sqlite_store,
     ./storage/peer/waku_peer_storage
   
   logScope:
@@ -834,7 +834,7 @@ when isMainModule:
 
   # 1/7 Setup storage
   proc setupStorage(conf: WakuNodeConf):
-    SetupResult[tuple[pStorage: WakuPeerStorage, mStorage: WakuMessageStore]] =
+    SetupResult[tuple[pStorage: WakuPeerStorage, mStorage: SqliteStore]] =
 
     ## Setup a SQLite Database for a wakunode based on a supplied
     ## configuration file and perform all necessary migration.
@@ -844,7 +844,7 @@ when isMainModule:
     
     var
       sqliteDatabase: SqliteDatabase
-      storeTuple: tuple[pStorage: WakuPeerStorage, mStorage: WakuMessageStore]
+      storeTuple: tuple[pStorage: WakuPeerStorage, mStorage: SqliteStore]
 
     # Setup DB
     if conf.dbPath != "":
@@ -872,10 +872,11 @@ when isMainModule:
       
       if conf.persistMessages:
         # Historical message persistence enable. Set up Message table in storage
-        let res = WakuMessageStore.init(sqliteDatabase, conf.storeCapacity, conf.sqliteStore, conf.sqliteRetentionTime)
-
-        if res.isErr:
-          warn "failed to init WakuMessageStore", err = res.error
+        let retentionPolicy = if conf.sqliteStore: TimeRetentionPolicy.init(conf.sqliteRetentionTime)
+                              else: CapacityRetentionPolicy.init(conf.storeCapacity) 
+        let res = SqliteStore.init(sqliteDatabase, retentionPolicy=some(retentionPolicy))
+        if res.isErr():
+          warn "failed to init SqliteStore", err = res.error
           waku_node_errors.inc(labelValues = ["init_store_failure"])
         else:
           storeTuple.mStorage = res.value
@@ -1012,7 +1013,7 @@ when isMainModule:
   # 4/7 Mount and initialize configured protocols
   proc setupProtocols(node: WakuNode,
                       conf: WakuNodeConf,
-                      mStorage: WakuMessageStore = nil): SetupResult[bool] =
+                      mStorage: SqliteStore = nil): SetupResult[bool] =
     
     ## Setup configured protocols on an existing Waku v2 node.
     ## Optionally include persistent message storage.
@@ -1159,7 +1160,7 @@ when isMainModule:
   
   var
     pStorage: WakuPeerStorage
-    mStorage: WakuMessageStore
+    mStorage: SqliteStore
   
   let setupStorageRes = setupStorage(conf)
 
