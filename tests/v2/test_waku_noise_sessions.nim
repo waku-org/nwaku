@@ -107,6 +107,10 @@ procSuite "Waku Noise Sessions":
     # We set the transport message to be H(sA||s)
     sentTransportMessage = digestToSeq(aliceCommittedStaticKey)
 
+    # We ensure that digestToSeq and its inverse seqToDigest256 are correct
+    check:
+      seqToDigest256(sentTransportMessage) == aliceCommittedStaticKey
+
     # By being the handshake initiator, Alice writes a Waku2 payload v2 containing her handshake message 
     # and the (encrypted) transport message
     # The message is sent with a messageNametag equal to the one received through the QR code
@@ -201,7 +205,7 @@ procSuite "Waku Noise Sessions":
       aliceStep.transportMessage == sentTransportMessage
 
     # Alice further checks if Bob's commitment opens to Bob's static key she just received
-    let expectedBobCommittedStaticKey = commitPublicKey(aliceHS.rs, r)
+    let expectedBobCommittedStaticKey = commitPublicKey(aliceHS.rs, aliceStep.transportMessage)
 
     check:
       expectedBobCommittedStaticKey == bobCommittedStaticKey
@@ -216,7 +220,7 @@ procSuite "Waku Noise Sessions":
     aliceMessageNametag = toMessageNametag(aliceHS)
     bobMessageNametag = toMessageNametag(bobHS)
 
-    # We set as a transport message the commitment randomness r
+    # We set as a transport message the commitment randomness s
     sentTransportMessage = s
 
     # Similarly as in first step, Alice writes a Waku2 payload containing the handshake message and the (encrypted) transport message
@@ -254,7 +258,7 @@ procSuite "Waku Noise Sessions":
       bobStep.transportMessage == sentTransportMessage
 
     # Bob further checks if Alice's commitment opens to Alice's static key he just received
-    let expectedAliceCommittedStaticKey = commitPublicKey(bobHS.rs, s)
+    let expectedAliceCommittedStaticKey = commitPublicKey(bobHS.rs, bobStep.transportMessage)
 
     check:
       expectedAliceCommittedStaticKey == aliceCommittedStaticKey

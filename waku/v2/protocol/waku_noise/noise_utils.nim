@@ -221,12 +221,14 @@ proc commitPublicKey*(publicKey: EllipticCurveKey, r: seq[byte]): MDigest[256] =
 
   return hash
 
+# Generates an 8 decimal digits authorization code using HKDF and the handshake state
 proc genAuthcode*(hs: HandshakeState): string =
   var output: array[1, array[8, byte]]
   sha256.hkdf(hs.ss.h.data, [], [], output)
   let code = cast[uint64](output[0]) mod 100_000_000
   return $code
 
+# Initializes the empty Message nametag buffer. The n-th nametag is equal to HKDF( secret || n )
 proc initNametagsBuffer*(mntb: var MessageNametagBuffer) =
   
   # We default the counter and buffer fields

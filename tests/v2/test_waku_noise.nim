@@ -13,6 +13,7 @@ import
   ../../waku/v2/protocol/waku_message,
   ../test_helpers,
   libp2p/crypto/chacha20poly1305,
+  libp2p/protobuf/minprotobuf,
   stew/endians2
 
 
