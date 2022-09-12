@@ -3,7 +3,7 @@
 
 import
   stew/byteutils,
-  nimcrypto
+  nimcrypto/sha2
 import
   ../protocol/waku_message,
   ./time
@@ -11,33 +11,33 @@ import
 
 type Index* = object
   ## This type contains the  description of an Index used in the pagination of WakuMessages
-  digest*: MDigest[256] # calculated over payload and content topic
-  receiverTime*: Timestamp
-  senderTime*: Timestamp # the time at which the message is generated
   pubsubTopic*: string
+  senderTime*: Timestamp # the time at which the message is generated
+  receiverTime*: Timestamp
+  digest*: MDigest[256] # calculated over payload and content topic
 
+proc computeDigest*(msg: WakuMessage): MDigest[256] =
+  var ctx: sha256
+  ctx.init()
+  defer: ctx.clear()
+
+  ctx.update(msg.contentTopic.toBytes())
+  ctx.update(msg.payload)
+
+  # Computes the hash
+  return ctx.finish()
 
 proc compute*(T: type Index, msg: WakuMessage, receivedTime: Timestamp, pubsubTopic: string): T =
   ## Takes a WakuMessage with received timestamp and returns its Index.
-  ## Received timestamp will default to system time if not provided.
-
   let
-    contentTopic = toBytes(msg.contentTopic)
-    payload = msg.payload
+    digest = computeDigest(msg)
     senderTime = msg.timestamp
 
-  var ctx: sha256
-  ctx.init()
-  ctx.update(contentTopic)
-  ctx.update(payload)
-  let digest = ctx.finish() # computes the hash
-  ctx.clear()
-
   Index(
-    digest:digest,
-    receiverTime: receivedTime, 
+    pubsubTopic: pubsubTopic,
     senderTime: senderTime,
-    pubsubTopic: pubsubTopic
+    receiverTime: receivedTime, 
+    digest: digest
   )
 
 proc `==`*(x, y: Index): bool =
