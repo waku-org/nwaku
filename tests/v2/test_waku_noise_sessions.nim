@@ -23,6 +23,8 @@ procSuite "Waku Noise Sessions":
   # We initialize the RNG in std/random
   randomize()
 
+  # This test implements the Device pairing and Secure Transfers with Noise 
+  # detailed in the 43/WAKU2-DEVICE-PAIRING RFC https://rfc.vac.dev/spec/43/
   test "Noise Waku Pairing Handhshake and Secure transfer":
 
     #########################
