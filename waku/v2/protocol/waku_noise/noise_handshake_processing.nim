@@ -207,7 +207,8 @@ proc processPreMessagePatternTokens(hs: var HandshakeState, inPreMessagePKs: seq
         raise newException(NoiseMalformedHandshake, "Invalid Token for pre-message pattern")
 
 # This procedure encrypts/decrypts the implicit payload attached at the end of every message pattern
-proc processMessagePatternPayload(hs: var HandshakeState, transportMessage: seq[byte]): seq[byte]
+# An optional extraAd to pass extra additional data in encryption/decryption can be set (useful to authenticate messageNametag)
+proc processMessagePatternPayload(hs: var HandshakeState, transportMessage: seq[byte], extraAd: openArray[byte] = []): seq[byte]
   {.raises: [Defect, NoiseDecryptTagError, NoiseNonceMaxError].} =
 
   var payload: seq[byte]
@@ -220,11 +221,11 @@ proc processMessagePatternPayload(hs: var HandshakeState, transportMessage: seq[
 
   # We decrypt the transportMessage, if any
   if reading:
-    payload = hs.ss.decryptAndHash(transportMessage)
+    payload = hs.ss.decryptAndHash(transportMessage, extraAd)
     payload = pkcs7_unpad(payload, NoisePaddingBlockSize)
   elif writing:
     payload = pkcs7_pad(transportMessage, NoisePaddingBlockSize)
-    payload = hs.ss.encryptAndHash(payload)
+    payload = hs.ss.encryptAndHash(payload, extraAd)
 
   return payload
 
@@ -461,10 +462,10 @@ proc initialize*(hsPattern: HandshakePattern, ephemeralKey: KeyPair = default(Ke
 
 # Advances 1 step in handshake
 # Each user in a handshake alternates writing and reading of handshake messages.
-# If the user is writing the handshake message, the transport message (if not empty) has to be passed to transportMessage and readPayloadV2 can be left to its default value
-# It the user is reading the handshake message, the read payload v2 has to be passed to readPayloadV2 and the transportMessage can be left to its default values. 
-proc stepHandshake*(rng: var rand.HmacDrbgContext, hs: var HandshakeState, readPayloadV2: PayloadV2 = default(PayloadV2), transportMessage: seq[byte] = @[]): Result[HandshakeStepResult, cstring]
-  {.raises: [Defect, NoiseHandshakeError, NoiseMalformedHandshake, NoisePublicKeyError, NoiseDecryptTagError, NoiseNonceMaxError].} =
+# If the user is writing the handshake message, the transport message (if not empty) and eventually a non-empty message nametag has to be passed to transportMessage and messageNametag and readPayloadV2 can be left to its default value
+# It the user is reading the handshake message, the read payload v2 has to be passed to readPayloadV2 and the transportMessage can be left to its default values. Decryption is skipped if the payloadv2 read doesn't have a message nametag equal to messageNametag (empty input nametags are converted to all-0 MessageNametagLength bytes arrays)
+proc stepHandshake*(rng: var rand.HmacDrbgContext, hs: var HandshakeState, readPayloadV2: PayloadV2 = default(PayloadV2), transportMessage: seq[byte] = @[], messageNametag: openArray[byte] = []): Result[HandshakeStepResult, cstring]
+  {.raises: [Defect, NoiseHandshakeError, NoiseMessageNametagError, NoiseMalformedHandshake, NoisePublicKeyError, NoiseDecryptTagError, NoiseNonceMaxError].} =
 
   var hsStepResult: HandshakeStepResult
 
@@ -488,21 +489,27 @@ proc stepHandshake*(rng: var rand.HmacDrbgContext, hs: var HandshakeState, readP
     except:
       raise newException(NoiseMalformedHandshake, "Handshake Pattern not supported")
 
-    # We set the handshake and transport message
+    # We set the messageNametag and the handshake and transport messages
+    hsStepResult.payload2.messageNametag = toMessageNametag(messageNametag)
     hsStepResult.payload2.handshakeMessage = processMessagePatternTokens(rng, hs).get()
-    hsStepResult.payload2.transportMessage = processMessagePatternPayload(hs, transportMessage)
+    # We write the payload by passing the messageNametag as extra additional data
+    hsStepResult.payload2.transportMessage = processMessagePatternPayload(hs, transportMessage, extraAd = hsStepResult.payload2.messageNametag)
 
   # If we read an answer during this handshake step
   elif reading:
+    # If the read message nametag doesn't match the expected input one we raise an error
+    if readPayloadV2.messageNametag != toMessageNametag(messageNametag):
+      raise newException(NoiseMessageNametagError, "The message nametag of the read message doesn't match the expected one")
+
     # We process the read public keys and (eventually decrypt) the read transport message
-    let 
+    let
       readHandshakeMessage = readPayloadV2.handshakeMessage
       readTransportMessage = readPayloadV2.transportMessage
 
     # Since we only read, nothing meanigful (i.e. public keys) is returned
     discard processMessagePatternTokens(rng, hs, readHandshakeMessage)
-    # We retrieve and store the (decrypted) received transport message
-    hsStepResult.transportMessage = processMessagePatternPayload(hs, readTransportMessage)
+    # We retrieve and store the (decrypted) received transport message by passing the messageNametag as extra additional data
+    hsStepResult.transportMessage = processMessagePatternPayload(hs, readTransportMessage, extraAd = readPayloadV2.messageNametag)
 
   else:
     raise newException(NoiseHandshakeError, "Handshake Error: neither writing or reading user")
@@ -525,13 +532,26 @@ proc finalizeHandshake*(hs: var HandshakeState): HandshakeResult =
   # We call Split()
   let (cs1, cs2) = hs.ss.split()
 
+  # Optional: We derive a secret for the nametag derivation
+  let (nms1, nms2) = genMessageNametagSecrets(hs)
+
   # We assign the proper Cipher States
   if hs.initiator:
     hsResult.csOutbound = cs1
     hsResult.csInbound = cs2
+    # and nametags secrets
+    hsResult.nametagsInbound.secret = some(nms1)
+    hsResult.nametagsOutbound.secret = some(nms2)
   else:
     hsResult.csOutbound = cs2
     hsResult.csInbound = cs1
+    # and nametags secrets
+    hsResult.nametagsInbound.secret = some(nms2)
+    hsResult.nametagsOutbound.secret = some(nms1)
+
+  # We initialize the message nametags inbound/outbound buffers
+  hsResult.nametagsInbound.initNametagsBuffer
+  hsResult.nametagsOutbound.initNametagsBuffer
 
   # We store the optional fields rs and h
   hsResult.rs = hs.rs
@@ -552,10 +572,13 @@ proc finalizeHandshake*(hs: var HandshakeState): HandshakeResult =
 ## due to nonce exhaustion, then the application must delete the CipherState and terminate the session.
 
 # Writes an encrypted message using the proper Cipher State
-proc writeMessage*(hsr: var HandshakeResult, transportMessage: seq[byte]): PayloadV2
+proc writeMessage*(hsr: var HandshakeResult, transportMessage: seq[byte], outboundMessageNametagBuffer: var MessageNametagBuffer): PayloadV2
   {.raises: [Defect, NoiseNonceMaxError].} =
 
   var payload2: PayloadV2
+
+  # We set the message nametag using the input buffer
+  payload2.messageNametag = pop(outboundMessageNametagBuffer)
 
   # According to 35/WAKU2-NOISE RFC, no Handshake protocol information is sent when exchanging messages
   # This correspond to setting protocol-id to 0
@@ -563,28 +586,35 @@ proc writeMessage*(hsr: var HandshakeResult, transportMessage: seq[byte]): Paylo
   # We pad the transport message
   let paddedTransportMessage = pkcs7_pad(transportMessage, NoisePaddingBlockSize)
   # Encryption is done with zero-length associated data as per specification
-  payload2.transportMessage = encryptWithAd(hsr.csOutbound, @[], paddedTransportMessage)
+  payload2.transportMessage = encryptWithAd(hsr.csOutbound, ad = @(payload2.messageNametag), plaintext = paddedTransportMessage)
 
   return payload2
 
 # Reads an encrypted message using the proper Cipher State
-# Associated data ad for encryption is optional, since the latter is out of scope for Noise
-proc readMessage*(hsr: var HandshakeResult, readPayload2: PayloadV2): Result[seq[byte], cstring]
-  {.raises: [Defect, NoiseDecryptTagError, NoiseNonceMaxError].} =
+# Decryption is attempted only if the input PayloadV2 has a messageNametag equal to the one expected
+proc readMessage*(hsr: var HandshakeResult, readPayload2: PayloadV2, inboundMessageNametagBuffer: var MessageNametagBuffer): Result[seq[byte], cstring]
+  {.raises: [Defect, NoiseDecryptTagError, NoiseMessageNametagError, NoiseNonceMaxError, NoiseSomeMessagesWereLost].} =
 
   # The output decrypted message
   var message: seq[byte]
 
+  # If the message nametag does not correspond to the nametag expected in the inbound message nametag buffer
+  # an error is raised (to be handled externally, i.e. re-request lost messages, discard, etc.)
+  let nametagIsOk = checkNametag(readPayload2.messageNametag, inboundMessageNametagBuffer).isOk
+  assert(nametagIsOk)
+
+  # At this point the messageNametag matches the expected nametag. 
   # According to 35/WAKU2-NOISE RFC, no Handshake protocol information is sent when exchanging messages
-  if readPayload2.protocolId == 0.uint8:
+  if readPayload2.protocolId == 0.uint8: 
     
     # On application level we decide to discard messages which fail decryption, without raising an error
-    # (this because an attacker may flood the content topic on which messages are exchanged)
     try:
-      # Decryption is done with zero-length associated data as per specification
-      let paddedMessage = decryptWithAd(hsr.csInbound, @[], readPayload2.transportMessage)
+      # Decryption is done with messageNametag as associated data
+      let paddedMessage = decryptWithAd(hsr.csInbound, ad = @(readPayload2.messageNametag), ciphertext = readPayload2.transportMessage)
       # We unpdad the decrypted message
       message = pkcs7_unpad(paddedMessage, NoisePaddingBlockSize)
+      # The message successfully decrypted, we can delete the first element of the inbound Message Nametag Buffer
+      delete(inboundMessageNametagBuffer, 1)
     except NoiseDecryptTagError:
       debug "A read message failed decryption. Returning empty message as plaintext."
       message = @[]

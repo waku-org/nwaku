@@ -35,7 +35,8 @@ import
   ./v2/test_waku_discv5,
   ./v2/test_enr_utils,
   ./v2/test_peer_exchange,
-  ./v2/test_waku_noise
+  ./v2/test_waku_noise,
+  ./v2/test_waku_noise_sessions
 
 when defined(rln) or defined(rlnzerokit):
   import 
