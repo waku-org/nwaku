@@ -46,7 +46,7 @@ export DROPLET_SSH_PUBLIC_KEY=$(cat "$DROPLET_SSH_KEY_PATH".pub)
 
 Lastly, add the ssh key to your DigitalOcean account -
 ```bash
-doctl compute ssh-key create nwaku-key --public-key=$DROPLET_SSH_PUBLIC_KEY
+doctl compute ssh-key create nwaku-key --public-key="$DROPLET_SSH_PUBLIC_KEY"
 ```
 
 ## 3. Select the region closest to you
