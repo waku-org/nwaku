@@ -39,3 +39,6 @@ node_modules/
 .idea/
 rlnCredentials.txt
 testPath.txt
+
+# Nimbus Build System
+nimbus-build-system.paths
