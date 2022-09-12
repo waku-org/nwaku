@@ -159,7 +159,7 @@ const
   MERKLE_TREE_DEPTH* = 20
   # TODO the ETH_CLIENT should be an input to the rln-relay, though hardcoded for now
   # the current address is the address of ganache-cli when run locally
-  ETH_CLIENT* = "ws://localhost:8540/"
+  ETH_CLIENT* = "ws://127.0.0.1:8540"
 
 const
   # the size of poseidon hash output in bits
