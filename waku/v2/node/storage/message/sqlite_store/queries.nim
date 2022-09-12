@@ -5,10 +5,10 @@ import
   stew/[results, byteutils],
   sqlite3_abi
 import
-  ../sqlite, 
-  ../../../protocol/waku_message,
-  ../../../utils/pagination,
-  ../../../utils/time
+  ../../sqlite, 
+  ../../../../protocol/waku_message,
+  ../../../../utils/pagination,
+  ../../../../utils/time
 
 
 const DbTable = "Message"
@@ -123,7 +123,7 @@ proc getMessageCount*(db: SqliteDatabase): DatabaseResult[int64] =
   ok(count)
 
 
-## Get oldest receiver timestamp
+## Get oldest message receiver timestamp
 
 proc selectOldestMessageTimestampQuery(table: string): SqlQueryStr =
   "SELECT MIN(receiverTimestamp) FROM " & table
@@ -140,6 +140,22 @@ proc selectOldestReceiverTimestamp*(db: SqliteDatabase): DatabaseResult[Timestam
 
   ok(timestamp)
 
+## Get newest message receiver timestamp
+
+proc selectNewestMessageTimestampQuery(table: string): SqlQueryStr =
+  "SELECT MAX(receiverTimestamp) FROM " & table
+
+proc selectNewestReceiverTimestamp*(db: SqliteDatabase): DatabaseResult[Timestamp] {.inline.}=
+  var timestamp: Timestamp
+  proc queryRowCallback(s: ptr sqlite3_stmt) =
+    timestamp = queryRowReceiverTimestampCallback(s, 0)
+
+  let query = selectNewestMessageTimestampQuery(DbTable)
+  let res = db.query(query, queryRowCallback)
+  if res.isErr():
+    return err("failed to get the newest receiver timestamp from the database")
+
+  ok(timestamp)
 
 ## Delete messages older than timestamp
 
@@ -154,7 +170,7 @@ proc deleteMessagesOlderThanTimestamp*(db: SqliteDatabase, ts: int64): DatabaseR
 
 ## Delete oldest messages not within limit
 
-proc deleteOldestMessagesNotWithinLimitQuery*(table: string, limit: int): SqlQueryStr =
+proc deleteOldestMessagesNotWithinLimitQuery(table: string, limit: int): SqlQueryStr =
   "DELETE FROM " & table & " WHERE id NOT IN (" &
   " SELECT id FROM " & table & 
   " ORDER BY receiverTimestamp DESC" &
