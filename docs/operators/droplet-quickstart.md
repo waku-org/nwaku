@@ -26,6 +26,8 @@ There are similar steps to accomplish the same through DigitalOcean's cloud cons
 Follow this [guide](https://docs.digitalocean.com/reference/doctl/how-to/install/) to install,
 and configure the `doctl` cli, which will help with setting up the Droplet.
 
+> Note: It is not required to set up the droplet that is mentioned in the `doctl` cli guide
+
 ## 2. Set up SSH credentials
 
 Run the following command -
@@ -155,6 +157,8 @@ export DROPLET_SIZE=s-1vcpu-2gb
 
 Run the following command to create the droplet -
 
+> Note: Droplet names must be valid hostnames, i.e they must only contain alphanumeric characters and hyphens (-)
+
 ```bash
 export DROPLET_NAME=<your-droplet-name>
 export DROPLET_ID=$(doctl compute droplet create --region=$DROPLET_REGION --image=$DROPLET_IMAGE --size=$DROPLET_SIZE --enable-monitoring --format=ID --wait $DROPLET_NAME | sed -n '2 p')
@@ -167,7 +171,7 @@ export DROPLET_NAME=nwaku
 export DROPLET_ID=$(doctl compute droplet create --region=$DROPLET_REGION --image=$DROPLET_IMAGE --size=$DROPLET_SIZE --enable-monitoring --format=ID --wait $DROPLET_NAME | sed -n '2 p')
 ```
 
-## 7. Create a Domain and attach it to the droplet
+## 7. Create a Domain and attach it to the droplet (OPTIONAL)
 
 Follow this [guide](https://docs.digitalocean.com/products/networking/dns/how-to/add-domains/) to create a domain, and add it to the droplet appropriately.
 
@@ -215,26 +219,87 @@ Run the following script to copy over the wakunode2 binary (from the host machin
 scp -i $DROPLET_SSH_KEY_PATH ./build/wakunode2 $DROPLET_USERNAME@$DROPLET_IP:~/wakunode2
 ```
 
+## 10. Set up a terminal multiplexer of choice
+
+You may decide to use either `screen` or `tmux` to be able to reattach to the process
+after closing the ssh connection.
+
+Installation instructions for -
+1. [screen](https://linuxhint.com/screen-linux/)
+2. [tmux](https://linuxhint.com/install-tmux-ubuntu/)
+
 ## 10. Run nwaku
+
+First, start the `screen` or `tmux` session by following the instructions of the terminal multiplexer chosen previously -
+1. [screen](https://linuxize.com/post/how-to-use-linux-screen/#starting-linux-screen)
+2. [tmux](https://linuxize.com/post/getting-started-with-tmux/#starting-your-first-tmux-session)
 
 Run the following command to run `nwaku` -
 
 *Note the path to the wakunode2 binary*
 
-```bash
-export DOMAIN_NAME=<your-domain-name>
-./build/wakunode2 \
-  --store:true \
-  --storenode:/dns4/node-01.ac-cn-hongkong-c.wakuv2.test.statusim.net/tcp/30303/p2p/16Uiu2HAkvWiyFsgRhuJEb9JfjYxEkoHLgnUQmr1N5mKWnYjxYRVm \
-  --dns-discovery \
-  --dns-discovery-url:enrtree://AOFTICU2XWDULNLZGRMQS4RIZPAZEHYMV4FYHAPW563HNRAOERP7C@test.waku.nodes.status.im
-  --dns4-domain-name=$DOMAIN_NAME
-  --discv5-discovery:true &
-```
+a. Add the parent directory of the wakunode2 binary to your environment: 
+
+  If you built it locally and copied it via scp -
+
+  ```bash
+  export WAKUNODE_DIR="$pwd"
+  ```
+
+  OR
+
+  If you compiled it on the Droplet -
+
+  ```bash
+  export WAKUNODE_DIR="$pwd"/build
+  ```
+
+b. Choose the fleet you wish to connect your node to:
+  - waku prod: enrtree://ANTL4SLG2COUILKAPE7EF2BYNL2SHSHVCHLRD5J7ZJLN5R3PRJD2Y@prod.waku.nodes.status.im
+  - waku test: enrtree://AOFTICU2XWDULNLZGRMQS4RIZPAZEHYMV4FYHAPW563HNRAOERP7C@test.waku.nodes.status.im
+
+  ```bash
+  export WAKU_FLEET=<fleet>
+  ```
+
+
+c. Run `nwaku`:
+
+  If you set up a domain previously -
+
+  ```bash
+  export DOMAIN_NAME=<your-domain-name>
+  $WAKUNODE_DIR/wakunode2 \
+    --store:true \
+    --persist-messages \
+    --dns-discovery \
+    --dns-discovery-url:"$WAKU_FLEET"
+    --dns4-domain-name="$DOMAIN_NAME"
+    --discv5-discovery:true
+  ```
+
+  OR
+
+  If you did not set up a domain -
+
+  ```bash
+  $WAKUNODE_DIR/wakunode2 \
+    --store:true \
+    --persist-messages \
+    --dns-discovery \
+    --dns-discovery-url:"$WAKU_FLEET"
+    --discv5-discovery:true
+  ```
 
 You now have nwaku running! You can verify this by observing the logs. The logs should show that the node completed 7 steps of setup, and is actively discovering other nodes.
 
-You may close the ssh connection now.
+You may now detach from stdout, by following instructions according to the terminal multiplexer chosen previously - 
+1. [screen](https://linuxize.com/post/how-to-use-linux-screen/#detach-from-linux-screen-session)
+2. [tmux](https://linuxize.com/post/getting-started-with-tmux/#starting-your-first-tmux-session)
+
+To re-attach and observe the logs at a later date, follow these instructions -
+1. [screen](https://linuxize.com/post/how-to-use-linux-screen/#reattach-to-a-linux-screen)
+2. [tmux](https://linuxize.com/post/getting-started-with-tmux/#re-attaching-to-tmux-session)
 
 For alternative configurations, refer to this [guide](./how-to/configure.md)
 
