@@ -11,6 +11,7 @@ import
 import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/node/storage/message/message_store,
   ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/node/storage/message/waku_message_store,
   ../../waku/v2/node/peer_manager/peer_manager,
@@ -53,6 +54,17 @@ proc newTestWakuStore(switch: Switch): WakuStore =
     rng = crypto.newRng()
     database = newTestDatabase()
     store = WakuMessageStore.init(database).tryGet()
+    proto = WakuStore.init(peerManager, rng, store)
+
+  waitFor proto.start()
+  switch.mount(proto)
+
+  return proto
+
+proc newTestWakuStore(switch: Switch, store: MessageStore): WakuStore =
+  let
+    peerManager = PeerManager.new(switch)
+    rng = crypto.newRng()
     proto = WakuStore.init(peerManager, rng, store)
 
   waitFor proto.start()
@@ -450,46 +462,25 @@ suite "Waku Store":
 
   asyncTest "handle ephemeral messages":
     ## Setup
-    let 
-      serverSwitch = newTestSwitch()
-      clientSwitch = newTestSwitch()
-    
-    await allFutures(serverSwitch.start(), clientSwitch.start())
-      
-    let 
-      serverProto = newTestWakuStore(serverSwitch)
-      clientProto = newTestWakuStore(clientSwitch)
-
-    clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
-
-    ## Send 5 ephemeral messages. A message is stateful by default.
-    let msgList = @[
-        fakeWakuMessage(ephemeral = true),
-        fakeWakuMessage(ephemeral = true),
-        fakeWakuMessage(ephemeral = true),
-        fakeWakuMessage(ephemeral = true),
-        fakeWakuMessage(ephemeral = true),
-      ]
+    let store = StoreQueueRef.new(10)
+    let switch = newTestSwitch()
+    let proto = newTestWakuStore(switch, store)
+    let msgList = @[ 
+      fakeWakuMessage(ephemeral = false, payload = "1"),
+      fakeWakuMessage(ephemeral = true, payload = "2"),
+      fakeWakuMessage(ephemeral = true, payload = "3"),
+      fakeWakuMessage(ephemeral = true, payload = "4"),
+      fakeWakuMessage(ephemeral = false, payload = "5"),
+    ]
 
     for msg in msgList:
-      await serverProto.handleMessage("foo", msg)
+      await proto.handleMessage(DefaultPubsubTopic, msg)
 
-    ## Query the RPC for all messages in store. Since we are testing the behaviour of the store handler,
-    ## making the rpc should be OK.
-    let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)])
-    let resQuery = await clientProto.query(rpc)
-
-    ## Then
-    check:
-      resQuery.isOk()
-
-    # Make sure that the response has no messages
-    let response = resQuery.tryGet() 
-    check:
-      response.messages.len == 0
+    check: 
+      store.len == 2
 
     ## Cleanup
-    await allFutures(serverSwitch.stop(), clientSwitch.stop())
+    await switch.stop()
 
 
 # TODO: Review this test suite test cases
