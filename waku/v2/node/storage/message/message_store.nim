@@ -15,7 +15,6 @@ import
 
 const 
   StoreDefaultCapacity* = 25_000
-  StoreMaxOverflow* = 1.3
   StoreDefaultRetentionTime* = chronos.days(30).seconds
   StoreMaxPageSize* = 100.uint64
   StoreMaxTimeVariance* = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift" into the future
