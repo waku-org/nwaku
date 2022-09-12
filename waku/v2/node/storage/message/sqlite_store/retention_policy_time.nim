@@ -40,6 +40,6 @@ method execute*(p: TimeRetentionPolicy, db: SqliteDatabase): RetentionPolicyResu
 
   let res = db.deleteMessagesOlderThanTimestamp(ts=retentionTimestamp)
   if res.isErr(): 
-    return err("failed to delete oldes messages: " & res.error())
+    return err("failed to delete oldest messages: " & res.error())
   
   ok()
