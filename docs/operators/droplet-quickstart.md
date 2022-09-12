@@ -212,7 +212,7 @@ OR
 Run the following script to copy over the wakunode2 binary (from the host machine) -
 
 ```bash
-scp -i $DROPLET_SSH_KEY_PATH ./wakunode2 $USERNAME@$IP:~/wakunode2
+scp -i $DROPLET_SSH_KEY_PATH ./build/wakunode2 $DROPLET_USERNAME@$DROPLET_IP:~/wakunode2
 ```
 
 ## 10. Run nwaku
