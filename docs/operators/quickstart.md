@@ -4,6 +4,8 @@ This guide explains how to build and run a nwaku node
 for the most common use cases.
 For a more advanced configuration see our [configuration guides](./how-to/configure.md)
 
+To quickly set up a nwaku node on DigitalOcean, refer to this [guide](./droplet-quickstart.md)
+
 ## 1. Build
 
 [Build the nwaku node](./how-to/build.md)
