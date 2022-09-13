@@ -204,6 +204,10 @@ proc handleMessage*(w: WakuStore, topic: string, msg: WakuMessage) {.async.} =
     # Store is mounted but new messages should not be stored
     return
 
+  if msg.ephemeral:
+    # The message is ephemeral, should not be stored
+    return
+
   let index = Index.compute(
     msg,
     receivedTime = getNanosecondTime(getTime().toUnixFloat()),
