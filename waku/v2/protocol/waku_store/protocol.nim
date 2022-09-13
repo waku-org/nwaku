@@ -70,7 +70,7 @@ type
     store*: MessageStore  # sqlite DB handle
     wakuSwap*: WakuSwap
     persistMessages*: bool
-    #TODO: WakuMessageStore currenly also holds isSqliteOnly; put it in single place.
+    #TODO: SqliteStore currenly also holds isSqliteOnly; put it in single place.
     isSqliteOnly: bool # if true, don't use in memory-store and answer history queries from the sqlite DB
 
 

@@ -46,7 +46,7 @@ type SqliteStore* = ref object of MessageStore
     retentionPolicy: Option[MessageRetentionPolicy]
     insertStmt: SqliteStmt[InsertMessageParams, void]
  
-proc init*(T: type SqliteStore, db: SqliteDatabase, retentionPolicy: Option[MessageRetentionPolicy]): MessageStoreResult[T] =
+proc init*(T: type SqliteStore, db: SqliteDatabase, retentionPolicy=none(MessageRetentionPolicy)): MessageStoreResult[T] =
   
   # Database initialization
   let resInit = init(db)
