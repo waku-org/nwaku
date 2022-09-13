@@ -425,3 +425,6 @@ method getMessagesByHistoryQuery*(
     return ok((messages, none(PagingInfo)))
   
   ok((messages, some(pagingInfo)))
+
+method getMessagesCount*(storeQueue: StoreQueueRef): int64 =
+  int64(storeQueue.len())
