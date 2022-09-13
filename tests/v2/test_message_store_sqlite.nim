@@ -7,7 +7,7 @@ import
   chronicles,
   sqlite3_abi
 import
-  ../../waku/v2/node/storage/message/waku_message_store,
+  ../../waku/v2/node/storage/message/sqlite_store,
   ../../waku/v2/node/storage/sqlite,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/utils/time,
@@ -43,12 +43,13 @@ suite "SQLite message store - init store":
   test "init store":
     ## Given
     const storeCapacity = 20
-    const retentionTime = days(20).seconds
 
     let database = newTestDatabase()
     
     ## When
-    let resStore = WakuMessageStore.init(database, capacity=storeCapacity, retentionTime=retentionTime)
+    let 
+      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
+      resStore = SqliteStore.init(database, retentionPolicy=some(retentionPolicy))
 
     ## Then
     check:
@@ -78,7 +79,7 @@ suite "SQLite message store - insert messages":
 
     let 
       database = newTestDatabase()
-      store = WakuMessageStore.init(database).tryGet()
+      store = SqliteStore.init(database).tryGet()
 
     let message = fakeWakuMessage(contentTopic=contentTopic)
     let messageIndex = Index.compute(message, getNanosecondTime(epochTime()), DefaultPubsubTopic)
@@ -108,7 +109,8 @@ suite "SQLite message store - insert messages":
 
     let 
       database = newTestDatabase()
-      store = WakuMessageStore.init(database, capacity=storeCapacity).tryGet()
+      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
+      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
 
     let messages = @[
       fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
@@ -146,7 +148,7 @@ suite "Message Store":
     ## Given
     let 
       database = newTestDatabase()
-      store = WakuMessageStore.init(database).get()
+      store = SqliteStore.init(database).get()
       topic = DefaultContentTopic
       pubsubTopic = DefaultPubsubTopic
 
@@ -229,7 +231,7 @@ suite "Message Store":
     ## Given
     let 
       database = newTestDatabase()
-      store = WakuMessageStore.init(database).get()
+      store = SqliteStore.init(database).get()
 
     ## When
     let resSetVersion = database.setUserVersion(5)
@@ -250,7 +252,7 @@ suite "Message Store":
   test "migration":
     let 
       database = SqliteDatabase.init("", inMemory = true)[]
-      store = WakuMessageStore.init(database)[]
+      store = SqliteStore.init(database)[]
     defer: store.close()
 
     template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
@@ -267,11 +269,14 @@ suite "Message Store":
 
   test "number of messages retrieved by getAll is bounded by storeCapacity":
     let
-      database = SqliteDatabase.init("", inMemory = true)[]
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       pubsubTopic =  "/waku/2/default-waku/proto"
       capacity = 10
-      store = WakuMessageStore.init(database, capacity)[]
+
+    let
+      database = SqliteDatabase.init("", inMemory = true)[]
+      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=capacity)
+      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
 
 
     for i in 1..capacity:
@@ -299,13 +304,15 @@ suite "Message Store":
 
   test "DB store capacity":
     let
-      database = SqliteDatabase.init("", inMemory = true)[]
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       pubsubTopic =  "/waku/2/default-waku/proto"
       capacity = 100
       overload = 65
-      store = WakuMessageStore.init(database, capacity)[]
 
+    let
+      database = SqliteDatabase.init("", inMemory = true)[]
+      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=capacity)
+      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
     defer: store.close()
 
     for i in 1..capacity+overload:
@@ -319,11 +326,11 @@ suite "Message Store":
     var numMessages: int64
     proc handler(s: ptr sqlite3_stmt) =
       numMessages = sqlite3_column_int64(s, 0)
-    let countQuery = "SELECT COUNT(*) FROM message" # the table name is set in a const in waku_message_store
+    let countQuery = "SELECT COUNT(*) FROM message" # the table name is set in a const in sqlite_store
     discard database.query(countQuery, handler)
 
     check:
       # expected number of messages is 120 because
       # (capacity = 100) + (half of the overflow window = 15) + (5 messages added after after the last delete)
-      # the window size changes when changing `const maxStoreOverflow = 1.3 in waku_message_store
+      # the window size changes when changing `const maxStoreOverflow = 1.3 in sqlite_store
       numMessages == 120 
