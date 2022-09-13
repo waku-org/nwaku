@@ -11,6 +11,7 @@ import
 import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/node/storage/message/message_store,
   ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/node/storage/message/waku_message_store,
   ../../waku/v2/node/peer_manager/peer_manager,
@@ -30,13 +31,15 @@ proc newTestDatabase(): SqliteDatabase =
 proc fakeWakuMessage(
   payload = "TEST-PAYLOAD",
   contentTopic = DefaultContentTopic, 
-  ts = getNanosecondTime(epochTime())
+  ts = getNanosecondTime(epochTime()),
+  ephemeral = false,
 ): WakuMessage = 
   WakuMessage(
     payload: toBytes(payload),
     contentTopic: contentTopic,
     version: 1,
-    timestamp: ts
+    timestamp: ts,
+    ephemeral: ephemeral,
   )
 
 proc newTestSwitch(key=none(PrivateKey), address=none(MultiAddress)): Switch =
@@ -51,6 +54,17 @@ proc newTestWakuStore(switch: Switch): WakuStore =
     rng = crypto.newRng()
     database = newTestDatabase()
     store = WakuMessageStore.init(database).tryGet()
+    proto = WakuStore.init(peerManager, rng, store)
+
+  waitFor proto.start()
+  switch.mount(proto)
+
+  return proto
+
+proc newTestWakuStore(switch: Switch, store: MessageStore): WakuStore =
+  let
+    peerManager = PeerManager.new(switch)
+    rng = crypto.newRng()
     proto = WakuStore.init(peerManager, rng, store)
 
   waitFor proto.start()
@@ -445,6 +459,28 @@ suite "Waku Store":
 
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitch.stop())
+
+  asyncTest "handle ephemeral messages":
+    ## Setup
+    let store = StoreQueueRef.new(10)
+    let switch = newTestSwitch()
+    let proto = newTestWakuStore(switch, store)
+    let msgList = @[ 
+      fakeWakuMessage(ephemeral = false, payload = "1"),
+      fakeWakuMessage(ephemeral = true, payload = "2"),
+      fakeWakuMessage(ephemeral = true, payload = "3"),
+      fakeWakuMessage(ephemeral = true, payload = "4"),
+      fakeWakuMessage(ephemeral = false, payload = "5"),
+    ]
+
+    for msg in msgList:
+      await proto.handleMessage(DefaultPubsubTopic, msg)
+
+    check: 
+      store.len == 2
+
+    ## Cleanup
+    await switch.stop()
 
 
 # TODO: Review this test suite test cases
