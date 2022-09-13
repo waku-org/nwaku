@@ -16,7 +16,7 @@ import
   eth/keys
 import
   ../../waku/v2/node/storage/sqlite,
-  ../../waku/v2/node/storage/message/waku_message_store,
+  ../../waku/v2/node/storage/message/sqlite_store,
   ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/protocol/[waku_relay, waku_message],
   ../../waku/v2/protocol/waku_store,
@@ -176,7 +176,7 @@ procSuite "WakuNode - Store":
     # setup sqlite database for node1
     let
       database = SqliteDatabase.init("", inMemory = true)[]
-      store = WakuMessageStore.init(database)[]
+      store = SqliteStore.init(database).tryGet()
 
     await node1.start()
     await node1.mountStore(persistMessages = true, store = store)

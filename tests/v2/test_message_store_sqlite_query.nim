@@ -6,7 +6,7 @@ import
   unittest2,
   chronos,
   chronicles,
-  ../../waku/v2/node/storage/message/waku_message_store,
+  ../../waku/v2/node/storage/message/sqlite_store,
   ../../waku/v2/node/storage/sqlite,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/utils/time,
@@ -44,7 +44,8 @@ suite "message store - history query":
 
     let 
       database = newTestDatabase()
-      store = WakuMessageStore.init(database, capacity=storeCapacity).tryGet()
+      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
+      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
 
     let messages = @[
       fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
@@ -95,7 +96,8 @@ suite "message store - history query":
 
     let 
       database = newTestDatabase()
-      store = WakuMessageStore.init(database, capacity=storeCapacity).tryGet()
+      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
+      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
 
     let messages = @[
       fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
@@ -148,7 +150,8 @@ suite "message store - history query":
 
     let 
       database = newTestDatabase()
-      store = WakuMessageStore.init(database, capacity=storeCapacity).tryGet()
+      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
+      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
 
     let messages = @[
       fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
@@ -200,7 +203,8 @@ suite "message store - history query":
 
     let 
       database = newTestDatabase()
-      store = WakuMessageStore.init(database, capacity=storeCapacity).tryGet()
+      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
+      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
 
     let messages1 = @[
       fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
@@ -257,7 +261,8 @@ suite "message store - history query":
 
     let 
       database = newTestDatabase()
-      store = WakuMessageStore.init(database, capacity=storeCapacity).tryGet()
+      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
+      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
 
     let messages = @[
       fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
@@ -311,7 +316,8 @@ suite "message store - history query":
 
     let 
       database = newTestDatabase()
-      store = WakuMessageStore.init(database, capacity=storeCapacity).tryGet()
+      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
+      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
 
     let messages = @[
       fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
@@ -366,7 +372,8 @@ suite "message store - history query":
 
     let 
       database = newTestDatabase()
-      store = WakuMessageStore.init(database, capacity=storeCapacity).tryGet()
+      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
+      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
 
     let messages1 = @[
       fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
@@ -425,7 +432,8 @@ suite "message store - history query":
 
     let 
       database = newTestDatabase()
-      store = WakuMessageStore.init(database, capacity=storeCapacity).tryGet()
+      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
+      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
 
     let messages = @[
       fakeWakuMessage("MSG-01", contentTopic=DefaultContentTopic, ts=getNanosecondTime(epochTime()) + 2),
@@ -468,7 +476,8 @@ suite "message store - history query":
 
     let 
       database = newTestDatabase()
-      store = WakuMessageStore.init(database, capacity=storeCapacity).tryGet()
+      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
+      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
 
     let messages = @[
       fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=timeOrigin + 00),
@@ -519,7 +528,8 @@ suite "message store - history query":
 
     let 
       database = newTestDatabase()
-      store = WakuMessageStore.init(database, capacity=storeCapacity).tryGet()
+      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
+      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
 
     let messages = @[
       fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=timeOrigin + 00),
@@ -563,7 +573,8 @@ suite "message store - history query":
 
     let 
       database = newTestDatabase()
-      store = WakuMessageStore.init(database, capacity=storeCapacity).tryGet()
+      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
+      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
 
     let messages = @[
       fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=timeOrigin + 00),
@@ -611,7 +622,8 @@ suite "message store - history query":
 
     let 
       database = newTestDatabase()
-      store = WakuMessageStore.init(database, capacity=storeCapacity).tryGet()
+      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
+      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
 
     let messages = @[
       fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=timeOrigin + 00),
