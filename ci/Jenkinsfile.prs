@@ -108,7 +108,7 @@ def getAgentLabel() {
         return params.AGENT_LABEL
     }
     def tokens = env.JOB_NAME.split('/')
-    for (platform in ['linux', 'macos', 'windows']) {
+    for (platform in ['linux', 'macos']) {
       if (tokens.contains(platform)) { return platform }
     }
     throw new Exception('No agent provided or found in job path!')
