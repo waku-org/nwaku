@@ -7,6 +7,7 @@ import
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
   json,
+  ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils,
       waku_rln_relay_types],
   ../../waku/v2/node/wakunode2,

@@ -5,6 +5,7 @@ import
   chronicles,
   json_rpc/rpcserver,
   libp2p/protocols/pubsub/pubsub,
+  ../../protocol/waku_message,
   ../wakunode2,
   ./jsonrpc_types,
   ./jsonrpc_utils

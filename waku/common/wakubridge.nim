@@ -6,6 +6,8 @@ import
   metrics, metrics/chronos_httpserver,
   stew/byteutils,
   stew/shims/net as stewNet, json_rpc/rpcserver,
+  libp2p/errors,
+  libp2p/peerstore,
   # Waku v1 imports
   eth/[keys, p2p], eth/common/utils,
   eth/p2p/[enode, peer_pool],
@@ -16,6 +18,7 @@ import
   libp2p/nameresolving/nameresolver,
   ../v2/utils/namespacing,
   ../v2/utils/time,
+  ../v2/protocol/waku_message,
   ../v2/node/wakunode2,
   # Common cli config
   ./config_bridge

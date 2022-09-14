@@ -8,7 +8,6 @@ import
   libp2p/crypto/secp,
   nimcrypto/utils,
   eth/keys,
-  ../protocol/waku_rln_relay/waku_rln_relay_types,
   ../protocol/waku_message
 
 export
@@ -121,8 +120,8 @@ type
 
     rlnRelayMemIndex* {.
       desc: "(experimental) the index of node in the rln-relay group: a value between 0-99 inclusive",
-      defaultValue: MembershipIndex(0)
-      name: "rln-relay-membership-index" }: MembershipIndex
+      defaultValue: 0
+      name: "rln-relay-membership-index" }: uint
 
     rlnRelayPubsubTopic* {.
       desc: "the pubsub topic for which rln-relay gets enabled",

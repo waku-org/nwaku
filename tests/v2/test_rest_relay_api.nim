@@ -10,6 +10,7 @@ import
   libp2p/crypto/crypto,
   libp2p/protocols/pubsub/pubsub
 import
+  ../../waku/v2/protocol/waku_message,
   ../../waku/v2/node/wakunode2,
   ../../waku/v2/node/rest/[server, client, base64, utils],
   ../../waku/v2/node/rest/relay/[api_types, relay_api, topic_cache]

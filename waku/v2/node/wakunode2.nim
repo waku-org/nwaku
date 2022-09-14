@@ -20,7 +20,7 @@ import
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter,
   ../protocol/waku_lightpush,
-  ../protocol/waku_rln_relay/[waku_rln_relay_types], 
+  ../protocol/waku_rln_relay/waku_rln_relay_types, 
   ../utils/[peers, requests, wakuenr],
   ./peer_manager/peer_manager,
   ./storage/message/waku_store_queue,
@@ -31,10 +31,6 @@ import
   ./wakunode2_types
 
 export
-  builders,
-  waku_relay, waku_message,
-  waku_swap,
-  waku_rln_relay_types,
   wakunode2_types
 
 when defined(rln):
