@@ -20,7 +20,8 @@ import
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter,
   ../protocol/waku_lightpush,
-  ../protocol/waku_rln_relay/waku_rln_relay_types, 
+  ../protocol/waku_rln_relay/waku_rln_relay_types,
+  ../protocol/waku_peer_exchange,
   ../utils/[peers, requests, wakuenr],
   ./peer_manager/peer_manager,
   ./storage/message/waku_store_queue,
@@ -566,6 +567,20 @@ proc mountLightPush*(node: WakuNode) {.async, raises: [Defect, LPError].} =
 
   node.switch.mount(node.wakuLightPush, protocolMatcher(WakuLightPushCodec))
 
+proc mountWakuPeerExchange*(node: WakuNode) {.async, raises: [Defect, LPError].} =
+  info "mounting waku peer exchange"
+
+  var discv5Opt: Option[WakuDiscoveryV5]
+  if not node.wakuDiscV5.isNil():
+    discv5Opt = some(node.wakuDiscV5)
+  node.wakuPeerExchange = WakuPeerExchange.init(node.peerManager, discv5Opt)
+
+  if node.started:
+    # Node has started already. Let's start Waku peer exchange too.
+    await node.wakuPeerExchange.start()
+
+  node.switch.mount(node.wakuPeerExchange, protocolMatcher(WakuPeerExchangeCodec))
+
 proc mountLibp2pPing*(node: WakuNode) {.async, raises: [Defect, LPError].} =
   info "mounting libp2p ping protocol"
 
@@ -655,6 +670,13 @@ proc setLightPushPeer*(n: WakuNode, address: string) {.raises: [Defect, ValueErr
 
   let peer = parseRemotePeerInfo(address)
   n.wakuLightPush.setPeer(peer)
+
+proc setPeerExchangePeer*(n: WakuNode, address: string) {.raises: [Defect, ValueError, LPError].} =
+  info "Set peer exchange peer", address = address
+
+  let remotePeer = parseRemotePeerInfo(address)
+
+  n.wakuPeerExchange.setPeer(remotePeer)
 
 proc connectToNodes*(n: WakuNode, nodes: seq[string], source = "api") {.async.} =
   ## `source` indicates source of node addrs (static config, api call, discovery, etc)
@@ -937,6 +959,14 @@ when isMainModule:
       else:
         warn "Failed to init Waku DNS discovery"
 
+    # TODO: the peer exchange "requester" should be started here.
+    # for now, the requester cannot be started separately, so the whole
+    # waku px protocol is mounted in the mount protocols section
+    # if conf.pxnode != "":
+    #   # waku peer exchage
+    #   debug "Discovering nodes via Waku Peer Exchange"
+    #   ....
+
     debug "No method for retrieving dynamic bootstrap nodes specified."
     ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default
 
@@ -1103,6 +1133,13 @@ when isMainModule:
       if conf.filternode != "":
         setFilterPeer(node, conf.filternode)
     
+    # waku peer exchange setup
+    if (conf.pxNode != "") or (conf.wakuPeerExchange):
+      waitFor mountWakuPeerExchange(node)
+
+      if conf.pxNode != "":
+        setPeerExchangePeer(node, conf.pxNode)
+
     ok(true) # Success
 
   # 5/7 Start node and mounted protocols
@@ -1131,7 +1168,12 @@ when isMainModule:
     if dynamicBootstrapNodes.len > 0:
       info "Connecting to dynamic bootstrap peers"
       waitFor connectToNodes(node, dynamicBootstrapNodes, "dynamic bootstrap")
-    
+
+    # retrieve and connect to peer exchange peers
+    if conf.pxNode != "":
+      info "Retrieving peer info via peer exchange protocol"
+      discard waitFor node.wakuPeerExchange.request(6) # todo: relay mesh degree paramter
+
     # Start keepalive, if enabled
     if conf.keepAlive:
       node.startKeepalive()
