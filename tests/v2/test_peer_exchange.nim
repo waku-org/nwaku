@@ -6,6 +6,7 @@ import
   testutils/unittests,
   chronicles,
   chronos,
+  libp2p/peerid,
   libp2p/crypto/crypto,
   libp2p/protocols/pubsub/gossipsub
 import

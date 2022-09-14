@@ -14,8 +14,10 @@ import
   libp2p/protocols/pubsub/rpc/message
 import
   ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/protocol/waku_relay,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_filter,
+  ../../waku/v2/protocol/waku_swap/waku_swap,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/storage/peer/waku_peer_storage,
   ../../waku/v2/node/wakunode2,

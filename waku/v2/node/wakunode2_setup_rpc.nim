@@ -7,6 +7,7 @@ import
   json_rpc/rpcserver
 import
   ./config,
+  ../protocol/waku_message,
   ./wakunode2,
   ./jsonrpc/[admin_api,
              debug_api,

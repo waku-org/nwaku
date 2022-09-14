@@ -9,6 +9,8 @@ import
   ../../protocol/waku_message,
   ../../protocol/waku_store,
   ../../protocol/waku_filter,
+  ../../protocol/waku_relay,
+  ../../protocol/waku_swap/waku_swap,
   ../peer_manager/peer_manager,
   ../wakunode2,
   ./jsonrpc_types

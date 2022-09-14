@@ -5,6 +5,8 @@ import
   chronicles,
   testutils/unittests,
   presto, 
+  libp2p/peerid,
+  libp2p/multiaddress,
   libp2p/crypto/crypto
 import
   ../../waku/v2/node/wakunode2,
