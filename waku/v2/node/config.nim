@@ -68,6 +68,11 @@ type
       desc: "The database path for peristent storage",
       defaultValue: ""
       name: "db-path" }: string
+
+    dbVacuum* {.
+      desc: "Enable database vacuuming at start: true|false",
+      defaultValue: false
+      name: "db-vacuum" }: bool
     
     persistPeers* {.
       desc: "Enable peer persistence: true|false",
