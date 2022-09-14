@@ -31,8 +31,8 @@ declarePublicGauge waku_store_messages, "number of historical messages", ["type"
 declarePublicGauge waku_store_peers, "number of store peers"
 declarePublicGauge waku_store_errors, "number of store protocol errors", ["type"]
 declarePublicGauge waku_store_queries, "number of store queries received"
-declarePublicHistogram waku_store_insert_time, "time spent storing a message (ms)"
-declarePublicHistogram waku_store_query_time, "time spent processing a history query (ms)"
+declarePublicHistogram waku_store_insert_duration_seconds, "message insertion duration"
+declarePublicHistogram waku_store_query_duration_seconds, "history query duration"
 
 logScope:
   topics = "wakustore"
@@ -120,8 +120,8 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse {.gcsafe.}
         ascendingOrder = qAscendingOrder
       )
 
-  let queryTime = getTime().toUnixFloat() - queryStartTime
-  waku_store_query_time.observe(getMillisecondTime(queryTime))
+  let queryDuration = getTime().toUnixFloat() - queryStartTime
+  waku_store_query_duration_seconds.observe(queryDuration)
 
 
   # Build response
@@ -268,8 +268,8 @@ proc handleMessage*(w: WakuStore, pubsubTopic: string, msg: WakuMessage) {.async
         waku_store_errors.inc(labelValues = [insertFailure])
         return
 
-  let insertTime = getTime().toUnixFloat() - insertStartTime
-  waku_store_insert_time.observe(getMillisecondTime(insertTime))
+  let insertDuration = getTime().toUnixFloat() - insertStartTime
+  waku_store_insert_duration_seconds.observe(insertDuration)
 
 
 # TODO: Remove after converting the query method into a non-callback method
