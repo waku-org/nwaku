@@ -818,6 +818,7 @@ when isMainModule:
     ./wakunode2_setup_metrics,
     ./wakunode2_setup_rpc,
     ./wakunode2_setup_sql_migrations,
+    ./storage/sqlite,
     ./storage/message/sqlite_store,
     ./storage/peer/waku_peer_storage
   
@@ -853,6 +854,26 @@ when isMainModule:
         sqliteDatabase = dbRes.value
 
     if not sqliteDatabase.isNil and (conf.persistPeers or conf.persistMessages):
+      
+      ## Database vacuuming
+      # TODO: Wrap and move this logic to the appropriate module
+      let 
+        pageSize = ?sqliteDatabase.getPageSize()
+        pageCount = ?sqliteDatabase.getPageCount()
+        freelistCount = ?sqliteDatabase.getFreelistCount()
+
+      debug "sqlite database page stats", pageSize=pageSize, pages=pageCount, freePages=freelistCount
+
+      # TODO: Run vacuuming conditionally based on database page stats
+      if conf.dbVacuum and (pageCount > 0 and freelistCount > 0):
+        debug "starting sqlite database vacuuming"
+
+        let resVacuum = sqliteDatabase.vacuum()
+        if resVacuum.isErr():
+          return err("failed to execute vacuum: " & resVacuum.error())
+
+        debug "finished sqlite database vacuuming"
+
       # Database initialized. Let's set it up
       sqliteDatabase.runMigrations(conf) # First migrate what we have
 
@@ -876,7 +897,7 @@ when isMainModule:
           waku_node_errors.inc(labelValues = ["init_store_failure"])
         else:
           storeTuple.mStorage = res.value
-    
+ 
     ok(storeTuple)
 
   # 2/7 Retrieve dynamic bootstrap nodes
