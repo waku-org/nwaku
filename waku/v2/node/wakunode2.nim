@@ -43,7 +43,6 @@ when defined(rln):
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicGauge waku_node_filters, "number of content filter subscriptions"
 declarePublicGauge waku_node_errors, "number of wakunode errors", ["type"]
-declarePublicCounter waku_node_conns_initiated, "number of connections initiated by this node", ["source"]
 
 logScope:
   topics = "wakunode"
@@ -628,22 +627,6 @@ proc startKeepalive*(node: WakuNode) =
 
   asyncSpawn node.keepaliveLoop(defaultKeepalive)
 
-## Helpers
-proc connectToNode(n: WakuNode, remotePeer: RemotePeerInfo, source = "api") {.async.} =
-  ## `source` indicates source of node addrs (static config, api call, discovery, etc)
-  info "Connecting to node", remotePeer = remotePeer, source = source
-  
-  # NOTE This is dialing on WakuRelay protocol specifically
-  info "Attempting dial", wireAddr = remotePeer.addrs[0], peerId = remotePeer.peerId
-  let connOpt = await n.peerManager.dialPeer(remotePeer, WakuRelayCodec)
-  
-  if connOpt.isSome():
-    info "Successfully connected to peer", wireAddr = remotePeer.addrs[0], peerId = remotePeer.peerId
-    waku_node_conns_initiated.inc(labelValues = [source])
-  else:
-    error "Failed to connect to peer", wireAddr = remotePeer.addrs[0], peerId = remotePeer.peerId
-    waku_node_errors.inc(labelValues = ["conn_init_failure"])
-
 proc setStorePeer*(n: WakuNode, peer: RemotePeerInfo) =
   n.wakuStore.setPeer(peer)
 
@@ -678,35 +661,11 @@ proc setPeerExchangePeer*(n: WakuNode, address: string) {.raises: [Defect, Value
 
   n.wakuPeerExchange.setPeer(remotePeer)
 
-proc connectToNodes*(n: WakuNode, nodes: seq[string], source = "api") {.async.} =
+proc connectToNodes*(n: WakuNode, nodes: seq[RemotePeerInfo] | seq[string], source = "api") {.async.} =
   ## `source` indicates source of node addrs (static config, api call, discovery, etc)
-  info "connectToNodes", len = nodes.len
-  
-  for nodeId in nodes:
-    await connectToNode(n, parseRemotePeerInfo(nodeId), source)
+  # NOTE This is dialing on WakuRelay protocol specifically
+  await connectToNodes(n.peerManager, nodes, WakuRelayCodec, source)
 
-  # The issue seems to be around peers not being fully connected when
-  # trying to subscribe. So what we do is sleep to guarantee nodes are
-  # fully connected.
-  #
-  # This issue was known to Dmitiry on nim-libp2p and may be resolvable
-  # later.
-  await sleepAsync(5.seconds)
-
-proc connectToNodes*(n: WakuNode, nodes: seq[RemotePeerInfo], source = "api") {.async.} =
-  ## `source` indicates source of node addrs (static config, api call, discovery, etc)
-  info "connectToNodes", len = nodes.len
-  
-  for remotePeerInfo in nodes:
-    await connectToNode(n, remotePeerInfo, source)
-
-  # The issue seems to be around peers not being fully connected when
-  # trying to subscribe. So what we do is sleep to guarantee nodes are
-  # fully connected.
-  #
-  # This issue was known to Dmitiry on nim-libp2p and may be resolvable
-  # later.
-  await sleepAsync(5.seconds)
 
 proc runDiscv5Loop(node: WakuNode) {.async.} =
   ## Continuously add newly discovered nodes

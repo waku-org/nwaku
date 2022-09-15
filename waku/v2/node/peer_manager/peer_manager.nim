@@ -11,6 +11,7 @@ import
 export waku_peer_store, peer_storage, peers
 
 declareCounter waku_peers_dials, "Number of peer dials", ["outcome"]
+declarePublicCounter waku_node_conns_initiated, "Number of connections initiated", ["source"]
 declarePublicGauge waku_peers_errors, "Number of peer manager errors", ["type"]
 
 logScope:
@@ -292,3 +293,48 @@ proc dialPeer*(pm: PeerManager, peerId: PeerID, proto: string, dialTimeout = def
   let addrs = pm.switch.peerStore[AddressBook][peerId]
 
   return await pm.dialPeer(peerId, addrs, proto, dialTimeout)
+
+proc connectToNode(pm: PeerManager, remotePeer: RemotePeerInfo, proto: string, source = "api") {.async.} =
+  ## `source` indicates source of node addrs (static config, api call, discovery, etc)
+  info "Connecting to node", remotePeer = remotePeer, source = source
+  
+  info "Attempting dial", wireAddr = remotePeer.addrs[0], peerId = remotePeer.peerId
+  let connOpt = await pm.dialPeer(remotePeer, proto)
+  
+  if connOpt.isSome():
+    info "Successfully connected to peer", wireAddr = remotePeer.addrs[0], peerId = remotePeer.peerId
+    waku_node_conns_initiated.inc(labelValues = [source])
+  else:
+    error "Failed to connect to peer", wireAddr = remotePeer.addrs[0], peerId = remotePeer.peerId
+    waku_peers_errors.inc(labelValues = ["conn_init_failure"])
+
+proc connectToNodes*(pm: PeerManager, nodes: seq[string], proto: string, source = "api") {.async.} =
+  ## `source` indicates source of node addrs (static config, api call, discovery, etc)
+  info "connectToNodes", len = nodes.len
+  
+  for nodeId in nodes:
+    await connectToNode(pm, parseRemotePeerInfo(nodeId), proto ,source)
+
+  # The issue seems to be around peers not being fully connected when
+  # trying to subscribe. So what we do is sleep to guarantee nodes are
+  # fully connected.
+  #
+  # This issue was known to Dmitiry on nim-libp2p and may be resolvable
+  # later.
+  await sleepAsync(chronos.seconds(5))
+
+proc connectToNodes*(pm: PeerManager, nodes: seq[RemotePeerInfo], proto: string, source = "api") {.async.} =
+  ## `source` indicates source of node addrs (static config, api call, discovery, etc)
+  info "connectToNodes", len = nodes.len
+  
+  for remotePeerInfo in nodes:
+    await connectToNode(pm, remotePeerInfo, proto, source)
+
+  # The issue seems to be around peers not being fully connected when
+  # trying to subscribe. So what we do is sleep to guarantee nodes are
+  # fully connected.
+  #
+  # This issue was known to Dmitiry on nim-libp2p and may be resolvable
+  # later.
+  await sleepAsync(chronos.seconds(5))
+

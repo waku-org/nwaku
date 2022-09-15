@@ -12,6 +12,7 @@ import
   ../../node/discv5/waku_discv5,
   ../../utils/requests,
   ../waku_message,
+  ../waku_relay,
   ./rpc,
   ./rpc_codec
 
@@ -46,7 +47,7 @@ type
   #   DecodeRpcFailure
   #   PxFailure
   #   PeerNotFoundFailure
-
+  
   WakuPeerExchangeResult*[T] = Result[T, string] # TODO use WakuPeerExchangeError as the error type
 
   WakuPeerExchange* = ref object of LPProtocol
@@ -153,9 +154,20 @@ proc init(px: WakuPeerExchange) =
       # todo: error handling
       trace "peer exchange response received"
       var record: enr.Record
+      var remotePeerInfoList: seq[RemotePeerInfo]
       for pi in rpc.response.peerInfos:
         discard enr.fromBytes(record, pi.enr)
-        px.peerManager.addPeer(record.toRemotePeerInfo().get(), "/vac/waku/relay/2.0.0")
+        # todo: only add new peers
+        remotePeerInfoList.add(record.toRemotePeerInfo().get)
+        # px.peerManager.addPeer(remotePeerInfo, "/vac/waku/relay/2.0.0")
+
+      let newPeers = remotePeerInfoList.filterIt(
+        not px.peerManager.switch.peerStore[AddressBook].contains(it.peerId))
+
+      if newPeers.len > 0:
+        debug "Connecting to newly discovered peers", count=newPeers.len()
+        await px.peerManager.connectToNodes(newPeers, WakuRelayCodec, source = "peer exchange")
+
 
   px.handler = handler
   px.codec = WakuPeerExchangeCodec
