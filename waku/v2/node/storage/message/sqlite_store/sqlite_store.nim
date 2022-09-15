@@ -158,3 +158,16 @@ method getMessagesByHistoryQuery*(
 
 method getMessagesCount*(s: SqliteStore): MessageStoreResult[int64] =
   s.db.getMessageCount()
+
+method getOldestMessageTimestamp*(s: SqliteStore): MessageStoreResult[Timestamp] =
+  s.db.selectOldestReceiverTimestamp()
+
+method getNewestMessageTimestamp*(s: SqliteStore): MessageStoreResult[Timestamp] =
+  s.db.selectnewestReceiverTimestamp()
+
+
+method deleteMessagesOlderThanTimestamp*(s: SqliteStore, ts: Timestamp): MessageStoreResult[void] =
+  s.db.deleteMessagesOlderThanTimestamp(ts)
+
+method deleteOldestMessagesNotWithinLimit*(s: SqliteStore, limit: int): MessageStoreResult[void] =
+  s.db.deleteOldestMessagesNotWithinLimit(limit)
