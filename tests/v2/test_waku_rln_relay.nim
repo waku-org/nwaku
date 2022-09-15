@@ -631,6 +631,71 @@ suite "Waku rln relay":
                                  proof = proof)
     check:
       verified == false
+
+  test "invalidate messages with a valid, but stale root":
+    var rlnInstance = createRLNInstance()
+    check:
+      rlnInstance.isOk == true
+    var rln = rlnInstance.value
+
+    let
+      # create a membership key pair
+      memKeys = membershipKeyGen(rln).get()
+      # peer's index in the Merkle Tree
+      index = 5
+
+    # Create a Merkle tree with random members
+    for i in 0..10:
+      var member_is_added: bool = false
+      if (i == index):
+        # insert the current peer's pk
+        member_is_added = rln.insertMember(memKeys.idCommitment)
+      else:
+        # create a new key pair
+        let memberKeys = rln.membershipKeyGen()
+        member_is_added = rln.insertMember(memberKeys.get().idCommitment)
+      # check the member is added
+      check:
+        member_is_added
+
+    # prepare the message
+    let messageBytes = "Hello".toBytes()
+
+    # prepare the epoch
+    var epoch: Epoch
+    debug "epoch in bytes", epochHex = epoch.toHex()
+
+    # generate proof
+    let validProofRes = rln.proofGen(data = messageBytes,
+                                memKeys = memKeys,
+                                memIndex = MembershipIndex(index),
+                                epoch = epoch)
+    check:
+      validProofRes.isOk()
+    let validProof = validProofRes.value
+
+    # verify the proof (should be verified)
+    let verified = rln.proofVerify(data = messageBytes,
+                                   proof = validProof)
+    check:
+      verified == true
+
+    # Progress the local tree by removing a member
+    discard rln.removeMember(MembershipIndex(0))
+
+    # Ensure the local tree root has changed
+    check:
+      rln.getMerkleRoot().value() != validProof.merkleRoot
+
+    warn "current, invalid", current=rln.getMerkleRoot().value().toHex, invalid=validProof.merkleRoot.toHex
+
+    # Try to send a message constructed with an older root
+    let olderRootVerified = rln.proofVerify(data = messageBytes,
+                                            proof = validProof)
+
+    check:
+      olderRootVerified == false
+
   test "toEpoch and fromEpoch consistency check":
     # check edge cases
     let

@@ -386,8 +386,28 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
 
     return proofBytes
 
-  proc proofVerify*(rlnInstance: RLN[Bn256], data: openArray[byte],
-    proof: RateLimitProof): bool =
+  proc getMerkleRoot*(rlnInstance: RLN[Bn256]): MerkleNodeResult =
+    # read the Merkle Tree root after insertion
+    var
+      root {.noinit.}: Buffer = Buffer()
+      rootPtr = addr(root)
+      get_root_successful = get_root(rlnInstance, rootPtr)
+    if (not get_root_successful): return err("could not get the root")
+    if (not (root.len == 32)): return err("wrong output size")
+
+    var rootValue = cast[ptr MerkleNode] (root.`ptr`)[]
+    return ok(rootValue)
+
+  proc validateVerifiedProof*(rlnInstance: RLN[Bn256], proof: RateLimitProof): bool =
+    # Validate against the local merkle tree
+    let localTreeRoot = rlnInstance.getMerkleRoot().value()
+    if localTreeRoot == proof.merkleRoot:
+      return true
+    else:
+      warn "Local tree root does not match the root sent by peer", localTreeRoot=localTreeRoot, messageRoot=proof.merkleRoot
+      return false
+
+  proc proofVerify*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: RateLimitProof): bool =
     var
       proofBytes = serialize(proof, data)
       proofBuffer = proofBytes.toBuffer()
@@ -399,9 +419,11 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
       # something went wrong in verification
       return false
     # f = 0 means the proof is verified
-    if f == 0:
-      return true
-    return false
+    if f != 0:
+      return false
+
+    # Compare merkle tree roots for a valid proof
+    return validateVerifiedProof(rlnInstance, proof)
 
   proc insertMember*(rlnInstance: RLN[Bn256], idComm: IDCommitment): bool =
     var pkBuffer = toBuffer(idComm)
@@ -415,17 +437,7 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     let deletion_success = delete_member(rlnInstance, index)
     return deletion_success
 
-  proc getMerkleRoot*(rlnInstance: RLN[Bn256]): MerkleNodeResult =
-    # read the Merkle Tree root after insertion
-    var
-      root {.noinit.}: Buffer = Buffer()
-      rootPtr = addr(root)
-      get_root_successful = get_root(rlnInstance, rootPtr)
-    if (not get_root_successful): return err("could not get the root")
-    if (not (root.len == 32)): return err("wrong output size")
 
-    var rootValue = cast[ptr MerkleNode] (root.`ptr`)[]
-    return ok(rootValue)
 
 when defined(rlnzerokit):
   proc proofGen*(rlnInstance: ptr RLN, data: openArray[byte],
@@ -504,18 +516,33 @@ when defined(rlnzerokit):
 
     return proofBytes
 
+  proc validateVerifiedProof*(rlnInstance: ptr RLN, proof: RateLimitProof): bool =
+    # Validate against the local merkle tree
+    let localTreeRoot = rln.getMerkleRoot().value()
+    if localTreeRoot == proof.merkleRoot:
+      return true
+    else:
+      warn "Local tree root does not match the root sent by peer", localTreeRoot=localTreeRoot, messageRoot=proof.merkleRoot
+      return false
+
   proc proofVerify*(rlnInstance: ptr RLN, data: openArray[byte], proof: RateLimitProof): bool =
     var
       proofBytes = serialize(proof, data)
       proofBuffer = proofBytes.toBuffer()
-      proof_is_valid: bool
+      validProof: bool
     trace "serialized proof", proof = proofBytes.toHex()
 
-    let verifyIsSuccessful = verify(rlnInstance, addr proofBuffer, addr proof_is_valid)
+    let verifyIsSuccessful = verify(rlnInstance, addr proofBuffer, addr validProof)
     if not verifyIsSuccessful:
       # something went wrong in verification call
+      warn "could not verify validity of the message", proof=proof
       return false
-    return proof_is_valid
+
+    if not validProof:
+      return false
+
+    # Compare merkle tree roots for a valid proof
+    return validateVerifiedProof(rlnInstance, proof)
 
   proc insertMember*(rlnInstance: ptr RLN, idComm: IDCommitment): bool =
     var pkBuffer = toBuffer(idComm)
