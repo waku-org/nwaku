@@ -6,11 +6,9 @@ import
   chronicles,
   chronos
 import
-  ../../../../utils/time,
-  ../../sqlite,
-  ../message_store,
-  ../sqlite_store/queries,
-  ./retention_policy
+  ../../../utils/time,
+  ./message_store,
+  ./message_retention_policy
 
 logScope:
   topics = "message_store.sqlite_store.retention_policy.time"
@@ -26,10 +24,10 @@ proc init*(T: type TimeRetentionPolicy, retentionTime=StoreDefaultRetentionTime)
   )
 
 
-method execute*(p: TimeRetentionPolicy, db: SqliteDatabase): RetentionPolicyResult[void] =
+method execute*(p: TimeRetentionPolicy, store: MessageStore): RetentionPolicyResult[void] =
   ## Delete messages that exceed the retention time by 10% and more (batch delete for efficiency)
   
-  let oldestReceiverTimestamp = ?db.selectOldestReceiverTimestamp().mapErr(proc(err: string): string = "failed to get oldest message timestamp: " & err)
+  let oldestReceiverTimestamp = ?store.getOldestMessageTimestamp().mapErr(proc(err: string): string = "failed to get oldest message timestamp: " & err)
 
   let now = getNanosecondTime(getTime().toUnixFloat()) 
   let retentionTimestamp = now - p.retentionTime.nanoseconds
@@ -38,7 +36,7 @@ method execute*(p: TimeRetentionPolicy, db: SqliteDatabase): RetentionPolicyResu
   if thresholdTimestamp <= oldestReceiverTimestamp: 
     return ok()
 
-  let res = db.deleteMessagesOlderThanTimestamp(ts=retentionTimestamp)
+  let res = store.deleteMessagesOlderThanTimestamp(ts=retentionTimestamp)
   if res.isErr(): 
     return err("failed to delete oldest messages: " & res.error())
   

@@ -4,10 +4,8 @@ import
   stew/results,
   chronicles
 import
-  ../../sqlite,
-  ../message_store,
-  ./queries,
-  ./retention_policy
+  ./message_store,
+  ./message_retention_policy
 
 logScope:
   topics = "message_store.sqlite_store.retention_policy.capacity"
@@ -57,13 +55,13 @@ proc init*(T: type CapacityRetentionPolicy, capacity=StoreDefaultCapacity): T =
     deleteWindow: deleteWindow
   )
 
-method execute*(p: CapacityRetentionPolicy, db: SqliteDatabase): RetentionPolicyResult[void] =
-  let numMessages = ?db.getMessageCount().mapErr(proc(err: string): string = "failed to get messages count: " & err)
+method execute*(p: CapacityRetentionPolicy, store: MessageStore): RetentionPolicyResult[void] =
+  let numMessages = ?store.getMessagesCount().mapErr(proc(err: string): string = "failed to get messages count: " & err)
 
   if numMessages < p.totalCapacity:
     return ok()
 
-  let res = db.deleteOldestMessagesNotWithinLimit(limit=p.capacity + p.deleteWindow)
+  let res = store.deleteOldestMessagesNotWithinLimit(limit=p.capacity + p.deleteWindow)
   if res.isErr(): 
     return err("deleting oldest messages failed: " & res.error())
 
