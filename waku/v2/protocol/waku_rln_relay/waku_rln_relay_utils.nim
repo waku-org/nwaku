@@ -1119,9 +1119,9 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: O
         expectedRoot = STATIC_GROUP_MERKLE_ROOT
       
       if rootRes.isErr():
-        return err(root.getError())
+        return err(rootRes.error())
       
-      let root = rootRes.value()
+      let root = rootRes.value().toHex
 
       if root != expectedRoot:
         error "root mismatch: something went wrong not in Merkle tree construction"
