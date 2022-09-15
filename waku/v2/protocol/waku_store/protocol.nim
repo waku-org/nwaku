@@ -76,6 +76,14 @@ type
     isSqliteOnly: bool # if true, don't use in memory-store and answer history queries from the sqlite DB
 
 
+proc reportMessagesCountMetric(store: MessageStore) = 
+  let resCount = store.getMessagesCount()
+  if resCount.isErr():
+    return
+
+  waku_store_messages.set(resCount.value, labelValues = ["stored"])
+
+
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse {.gcsafe.} =
   ## Query history to return a single page of messages matching the query
   
@@ -180,8 +188,11 @@ proc init*(ws: WakuStore, capacity = StoreDefaultCapacity) =
       return
 
     info "SQLite-only store initialized. Messages are *not* loaded into memory."
-    waku_store_messages.set(ws.store.getMessagesCount(), labelValues = ["stored"])
-    
+
+    let numMessages = ws.store.getMessagesCount()
+    if numMessages.isOk():
+      debug "number of messages in persistent store", messageNum=numMessages.value
+      waku_store_messages.set(numMessages.value, labelValues = ["stored"])
 
   # TODO: Move this logic, together with the insert message logic
   #       into a "dual-store" message store implementation.
@@ -201,7 +212,10 @@ proc init*(ws: WakuStore, capacity = StoreDefaultCapacity) =
     else: 
       warn "failed to load messages from the persistent store", err = res.error()
 
-    waku_store_messages.set(ws.messages.getMessagesCount(), labelValues = ["stored"])
+    let numMessages = ws.messages.getMessagesCount()
+    if numMessages.isOk():
+      debug "number of messages in in-memory store", messageNum=numMessages.value
+      waku_store_messages.set(numMessages.value, labelValues = ["stored"])
 
 
 proc init*(T: type WakuStore, peerManager: PeerManager, rng: ref rand.HmacDrbgContext,
@@ -244,7 +258,7 @@ proc handleMessage*(w: WakuStore, pubsubTopic: string, msg: WakuMessage) {.async
         debug "failed to insert message to persistent store", index=index, err=resPutStore.error()
         waku_store_errors.inc(labelValues = [insertFailure])
 
-      waku_store_messages.set(w.store.getMessagesCount(), labelValues = ["stored"])
+      reportMessagesCountMetric(w.store)
 
     # TODO: Move this logic, together with the load from persistent store on init
     #       into a "dual-store" message store implementation.
@@ -256,7 +270,7 @@ proc handleMessage*(w: WakuStore, pubsubTopic: string, msg: WakuMessage) {.async
         waku_store_errors.inc(labelValues = [insertFailure])
         return
 
-      waku_store_messages.set(w.messages.getMessagesCount(), labelValues = ["stored"])
+      reportMessagesCountMetric(w.messages)
 
       # Add messages to persistent store, if present
       if w.store.isNil():
@@ -482,9 +496,9 @@ proc resume*(w: WakuStore,
 
   debug "resume finished successfully", addedMessages=added, dimissedMessages=dismissed
   
-  let messagesCount = if w.isSqliteOnly: w.store.getMessagesCount()
-                      else: w.messages.getMessagesCount()
-  waku_store_messages.set(messagesCount, labelValues = ["stored"])
+  let store: MessageStore = if w.isSqliteOnly: w.store
+                            else: w.messages
+  reportMessagesCountMetric(store)
 
   return ok(added)
 
