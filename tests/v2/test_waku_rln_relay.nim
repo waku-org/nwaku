@@ -579,8 +579,14 @@ suite "Waku rln relay":
     # verify the proof
     let verified = rln.proofVerify(data = messageBytes,
                                     proof = proof)
+
+    # Ensure the proof verification did not error out
+
     check:
-      verified == true
+      verified.isOk()
+
+    check:
+      verified.value() == true
 
   test "test proofVerify and proofGen for an invalid proof":
     var rlnInstance = createRLNInstance()
@@ -628,9 +634,11 @@ suite "Waku rln relay":
 
     # verify the proof (should not be verified)
     let verified = rln.proofVerify(data = messageBytes,
-                                 proof = proof)
+                                  proof = proof)
     check:
-      verified == false
+      verified.isOk()
+    check:
+      verified.value() == false
 
   test "invalidate messages with a valid, but stale root":
     var rlnInstance = createRLNInstance()
@@ -646,17 +654,17 @@ suite "Waku rln relay":
 
     # Create a Merkle tree with random members
     for i in 0..10:
-      var member_is_added: bool = false
+      var memberIsAdded: bool = false
       if (i == index):
         # insert the current peer's pk
-        member_is_added = rln.insertMember(memKeys.idCommitment)
+        memberIsAdded = rln.insertMember(memKeys.idCommitment)
       else:
         # create a new key pair
         let memberKeys = rln.membershipKeyGen()
-        member_is_added = rln.insertMember(memberKeys.get().idCommitment)
+        memberIsAdded = rln.insertMember(memberKeys.get().idCommitment)
       # check the member is added
       check:
-        member_is_added
+        memberIsAdded
 
     # prepare the message
     let messageBytes = "Hello".toBytes()
@@ -667,34 +675,42 @@ suite "Waku rln relay":
 
     # generate proof
     let validProofRes = rln.proofGen(data = messageBytes,
-                                memKeys = memKeys,
-                                memIndex = MembershipIndex(index),
-                                epoch = epoch)
+                                    memKeys = memKeys,
+                                    memIndex = MembershipIndex(index),
+                                    epoch = epoch)
     check:
       validProofRes.isOk()
     let validProof = validProofRes.value
 
     # verify the proof (should be verified)
     let verified = rln.proofVerify(data = messageBytes,
-                                   proof = validProof)
+                                  proof = validProof)
+
     check:
-      verified == true
+      verified.isOk()
+    check:
+      verified.value() == true
 
     # Progress the local tree by removing a member
     discard rln.removeMember(MembershipIndex(0))
 
     # Ensure the local tree root has changed
-    check:
-      rln.getMerkleRoot().value() != validProof.merkleRoot
+    let currentMerkleRoot = rln.getMerkleRoot()
 
-    warn "current, invalid", current=rln.getMerkleRoot().value().toHex, invalid=validProof.merkleRoot.toHex
+    check:
+      currentMerkleRoot.isOk()
+
+    check:
+      currentMerkleRoot.value() != validProof.merkleRoot
 
     # Try to send a message constructed with an older root
     let olderRootVerified = rln.proofVerify(data = messageBytes,
                                             proof = validProof)
 
     check:
-      olderRootVerified == false
+      olderRootVerified.isOk()
+    check:
+      olderRootVerified.value() == false
 
   test "toEpoch and fromEpoch consistency check":
     # check edge cases
