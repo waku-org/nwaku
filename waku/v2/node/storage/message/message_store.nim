@@ -46,4 +46,16 @@ method getMessagesByHistoryQuery*(
   ascendingOrder = true
 ): MessageStoreResult[MessageStorePage] {.base.} = discard
 
+
+# Store manipulation
+
 method getMessagesCount*(ms: MessageStore): MessageStoreResult[int64] {.base.} = discard
+
+method getOldestMessageTimestamp*(ms: MessageStore): MessageStoreResult[Timestamp] {.base.} = discard
+
+method getNewestMessageTimestamp*(ms: MessageStore): MessageStoreResult[Timestamp]  {.base.} = discard
+
+
+method deleteMessagesOlderThanTimestamp*(ms: MessageStore, ts: Timestamp): MessageStoreResult[void] {.base.} = discard
+
+method deleteOldestMessagesNotWithinLimit*(ms: MessageStore, limit: int): MessageStoreResult[void] {.base.} = discard

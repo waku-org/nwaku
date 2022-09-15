@@ -430,3 +430,17 @@ method getMessagesByHistoryQuery*(
 method getMessagesCount*(s: StoreQueueRef): MessageStoreResult[int64] =
   ok(int64(s.len()))
 
+method getOldestMessageTimestamp*(s: StoreQueueRef): MessageStoreResult[Timestamp] =
+  s.first().map(proc(msg: IndexedWakuMessage): Timestamp = msg.index.receiverTime)
+
+method getNewestMessageTimestamp*(s: StoreQueueRef): MessageStoreResult[Timestamp] =
+  s.last().map(proc(msg: IndexedWakuMessage): Timestamp = msg.index.receiverTime)
+
+
+method deleteMessagesOlderThanTimestamp*(s: StoreQueueRef, ts: Timestamp): MessageStoreResult[void] =
+  # TODO: Implement this message_store method
+  err("interface method not implemented")
+
+method deleteOldestMessagesNotWithinLimit*(s: StoreQueueRef, limit: int): MessageStoreResult[void] =
+  # TODO: Implement this message_store method
+  err("interface method not implemented")
