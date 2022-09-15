@@ -42,7 +42,6 @@ proc init(db: SqliteDatabase): MessageStoreResult[void] =
 
 type SqliteStore* = ref object of MessageStore
     db: SqliteDatabase
-    numMessages: int
     retentionPolicy: Option[MessageRetentionPolicy]
     insertStmt: SqliteStmt[InsertMessageParams, void]
  
@@ -54,13 +53,9 @@ proc init*(T: type SqliteStore, db: SqliteDatabase, retentionPolicy=none(Message
     return err(resInit.error())
 
   # General initialization
-  let numMessages = getMessageCount(db).expect("get message count should succeed")
-  debug "number of messages in sqlite database", messageNum=numMessages
-
   let insertStmt = db.prepareInsertMessageStmt()
   let s = SqliteStore(
       db: db,
-      numMessages: int(numMessages),
       retentionPolicy: retentionPolicy,
       insertStmt: insertStmt,
     )
@@ -71,6 +66,15 @@ proc init*(T: type SqliteStore, db: SqliteDatabase, retentionPolicy=none(Message
       return err("failed to execute the retention policy: " & res.error())
 
   ok(s)
+
+proc close*(s: SqliteStore) = 
+  ## Close the database connection
+  
+  # Dispose statements
+  s.insertStmt.dispose()
+
+  # Close connection
+  s.db.close()
 
 
 method put*(s: SqliteStore, cursor: Index, message: WakuMessage, pubsubTopic: string): MessageStoreResult[void] =
@@ -92,15 +96,10 @@ method put*(s: SqliteStore, cursor: Index, message: WakuMessage, pubsubTopic: st
   if res.isErr():
     return err("message insert failed: " & res.error())
 
-  s.numMessages += 1
-  
   if s.retentionPolicy.isSome():
     let res = s.retentionPolicy.get().execute(s.db)
     if res.isErr():
       return err("failed to execute the retention policy: " & res.error())
-
-    # Update message count after executing the retention policy
-    s.numMessages =  int(s.db.getMessageCount().expect("get message count should succeed"))
 
   ok()
 
@@ -156,14 +155,6 @@ method getMessagesByHistoryQuery*(
 
   ok((messages, some(pagingInfo)))
 
-method getMessagesCount*(s: SqliteStore): int64 =
-  int64(s.numMessages)
 
-proc close*(s: SqliteStore) = 
-  ## Close the database connection
-  
-  # Dispose statements
-  s.insertStmt.dispose()
-
-  # Close connection
-  s.db.close()
+method getMessagesCount*(s: SqliteStore): MessageStoreResult[int64] =
+  s.db.getMessageCount()
