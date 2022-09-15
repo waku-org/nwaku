@@ -1115,8 +1115,14 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: O
       # no error should happen as it is already captured in the unit tests
       # TODO have added this check to account for unseen corner cases, will remove it later 
       let 
-        root = node.wakuRlnRelay.rlnInstance.getMerkleRoot.value.toHex() 
+        rootRes = node.wakuRlnRelay.rlnInstance.getMerkleRoot()
         expectedRoot = STATIC_GROUP_MERKLE_ROOT
+      
+      if rootRes.isErr():
+        return err(root.getError())
+      
+      let root = rootRes.value()
+
       if root != expectedRoot:
         error "root mismatch: something went wrong not in Merkle tree construction"
       debug "the calculated root", root
