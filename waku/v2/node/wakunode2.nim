@@ -767,6 +767,10 @@ proc start*(node: WakuNode) {.async.} =
   ## Update switch peer info with announced addrs
   node.updateSwitchPeerInfo()
 
+  # Perform relay-specific startup tasks TODO: this should be rethought
+  if not node.wakuRelay.isNil:
+    await node.startRelay()
+
   await node.switch.start()
   node.started = true
   
