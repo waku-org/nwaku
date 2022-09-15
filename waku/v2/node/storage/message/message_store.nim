@@ -46,4 +46,4 @@ method getMessagesByHistoryQuery*(
   ascendingOrder = true
 ): MessageStoreResult[MessageStorePage] {.base.} = discard
 
-method getMessagesCount*(ms: MessageStore): int64 {.base.} = discard
+method getMessagesCount*(ms: MessageStore): MessageStoreResult[int64] {.base.} = discard
