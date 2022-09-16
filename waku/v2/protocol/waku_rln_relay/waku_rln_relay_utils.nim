@@ -391,9 +391,11 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     var
       root {.noinit.}: Buffer = Buffer()
       rootPtr = addr(root)
-      getRootSuccessful = get_root(rlnInstance, rootPtr)
-    if (not getRootSuccessful): return err("could not get the root")
-    if (not (root.len == 32)): return err("wrong output size")
+      getRootSuccessful = getRoot(rlnInstance, rootPtr)
+    if not getRootSuccessful: 
+      return err("could not get the root")
+    if not root.len == 32:
+      return err("wrong output size")
 
     var rootValue = cast[ptr MerkleNode] (root.`ptr`)[]
     return ok(rootValue)
@@ -580,9 +582,11 @@ when defined(rlnzerokit):
     var
       root {.noinit.}: Buffer = Buffer()
       rootPtr = addr(root)
-      getRootSuccessful = get_root(rlnInstance, rootPtr)
-    if (not getRootSuccessful): return err("could not get the root")
-    if (not (root.len == 32)): return err("wrong output size")
+      getRootSuccessful = getRoot(rlnInstance, rootPtr)
+    if not getRootSuccessful: 
+      return err("could not get the root")
+    if not root.len == 32:
+      return err("wrong output size")
 
     var rootValue = cast[ptr MerkleNode] (root.`ptr`)[]
     return ok(rootValue)
