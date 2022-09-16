@@ -13,10 +13,7 @@ import
   ../../../../utils/time,
   ../../sqlite,
   ../message_store,
-  ./queries,
-  ./retention_policy,
-  ./retention_policy_capacity,
-  ./retention_policy_time
+  ./queries
 
 logScope:
   topics = "message_store.sqlite"
@@ -42,10 +39,9 @@ proc init(db: SqliteDatabase): MessageStoreResult[void] =
 
 type SqliteStore* = ref object of MessageStore
     db: SqliteDatabase
-    retentionPolicy: Option[MessageRetentionPolicy]
     insertStmt: SqliteStmt[InsertMessageParams, void]
- 
-proc init*(T: type SqliteStore, db: SqliteDatabase, retentionPolicy=none(MessageRetentionPolicy)): MessageStoreResult[T] =
+
+proc init*(T: type SqliteStore, db: SqliteDatabase): MessageStoreResult[T] =
   
   # Database initialization
   let resInit = init(db)
@@ -54,18 +50,7 @@ proc init*(T: type SqliteStore, db: SqliteDatabase, retentionPolicy=none(Message
 
   # General initialization
   let insertStmt = db.prepareInsertMessageStmt()
-  let s = SqliteStore(
-      db: db,
-      retentionPolicy: retentionPolicy,
-      insertStmt: insertStmt,
-    )
-
-  if retentionPolicy.isSome():
-    let res = retentionPolicy.get().execute(db)
-    if res.isErr():
-      return err("failed to execute the retention policy: " & res.error())
-
-  ok(s)
+  ok(SqliteStore(db: db, insertStmt: insertStmt))
 
 proc close*(s: SqliteStore) = 
   ## Close the database connection
@@ -95,11 +80,6 @@ method put*(s: SqliteStore, cursor: Index, message: WakuMessage, pubsubTopic: st
   ))
   if res.isErr():
     return err("message insert failed: " & res.error())
-
-  if s.retentionPolicy.isSome():
-    let res = s.retentionPolicy.get().execute(s.db)
-    if res.isErr():
-      return err("failed to execute the retention policy: " & res.error())
 
   ok()
 
