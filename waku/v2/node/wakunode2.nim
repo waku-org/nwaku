@@ -909,7 +909,7 @@ when isMainModule:
         trace "resolving", domain=domain
         let resolved = await dnsResolver.resolveTxt(domain)
         return resolved[0] # Use only first answer
-      
+
       var wakuDnsDiscovery = WakuDnsDiscovery.init(conf.dnsDiscoveryUrl,
                                                    resolver)
       if wakuDnsDiscovery.isOk:
@@ -917,14 +917,6 @@ when isMainModule:
           .mapErr(proc (e: cstring): string = $e)
       else:
         warn "Failed to init Waku DNS discovery"
-
-    # TODO: the peer exchange "requester" should be started here.
-    # for now, the requester cannot be started separately, so the whole
-    # waku px protocol is mounted in the mount protocols section
-    # if conf.pxnode != "":
-    #   # waku peer exchage
-    #   debug "Discovering nodes via Waku Peer Exchange"
-    #   ....
 
     debug "No method for retrieving dynamic bootstrap nodes specified."
     ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default
