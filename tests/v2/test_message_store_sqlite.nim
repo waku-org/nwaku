@@ -8,6 +8,8 @@ import
   sqlite3_abi
 import
   ../../waku/v2/node/storage/message/sqlite_store,
+  ../../waku/v2/node/storage/message/message_retention_policy,
+  ../../waku/v2/node/storage/message/message_retention_policy_capacity,
   ../../waku/v2/node/storage/sqlite,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/utils/time,
@@ -42,14 +44,10 @@ proc fakeWakuMessage(
 suite "SQLite message store - init store":
   test "init store":
     ## Given
-    const storeCapacity = 20
-
     let database = newTestDatabase()
     
     ## When
-    let 
-      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
-      resStore = SqliteStore.init(database, retentionPolicy=some(retentionPolicy))
+    let resStore = SqliteStore.init(database)
 
     ## Then
     check:
@@ -109,8 +107,8 @@ suite "SQLite message store - insert messages":
 
     let 
       database = newTestDatabase()
+      store = SqliteStore.init(database).tryGet()
       retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
-      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
 
     let messages = @[
       fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
@@ -126,8 +124,8 @@ suite "SQLite message store - insert messages":
     ## When
     for msg in messages:
       let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      let resPut = store.put(index, msg, DefaultPubsubTopic)
-      require(resPut.isOk())
+      require store.put(index, msg, DefaultPubsubTopic).isOk()
+      require retentionPolicy.execute(store).isOk()
 
     ## Then
     let storedMsg = store.getAllMessages().tryGet()
@@ -274,22 +272,21 @@ suite "Message Store":
       capacity = 10
 
     let
-      database = SqliteDatabase.init("", inMemory = true)[]
+      database = newTestDatabase()
+      store = SqliteStore.init(database).tryGet()
       retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=capacity)
-      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
 
 
     for i in 1..capacity:
       let
         msg = WakuMessage(payload: @[byte i], contentTopic: contentTopic, version: uint32(0), timestamp: Timestamp(i))
         index = Index.compute(msg, getTestTimestamp(), DefaultPubsubTopic)
-        output = store.put(index, msg, pubsubTopic)
-      check output.isOk
-
+      require store.put(index, msg, pubsubTopic).isOk()
+      require retentionPolicy.execute(store).isOk()
+      
+    ## Then
     # Test limited getAll function when store is at capacity
     let resMax = store.getAllMessages()
-
-    ## THen
     check:
       resMax.isOk()
     
@@ -311,16 +308,15 @@ suite "Message Store":
 
     let
       database = SqliteDatabase.init("", inMemory = true)[]
+      store = SqliteStore.init(database).tryGet()
       retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=capacity)
-      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
-    defer: store.close()
 
     for i in 1..capacity+overload:
       let
         msg = WakuMessage(payload: ($i).toBytes(), contentTopic: contentTopic, version: uint32(0), timestamp: Timestamp(i))
         index = Index.compute(msg, getTestTimestamp(), DefaultPubsubTopic)
-        output = store.put(index, msg, pubsubTopic)
-      check output.isOk
+      require store.put(index, msg, pubsubTopic).isOk()
+      require retentionPolicy.execute(store).isOk()
 
     # count messages in DB
     var numMessages: int64
@@ -334,3 +330,6 @@ suite "Message Store":
       # (capacity = 100) + (half of the overflow window = 15) + (5 messages added after after the last delete)
       # the window size changes when changing `const maxStoreOverflow = 1.3 in sqlite_store
       numMessages == 120 
+
+    ## Teardown
+    store.close()

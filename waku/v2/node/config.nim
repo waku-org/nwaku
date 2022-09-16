@@ -209,6 +209,7 @@ type
       defaultValue: false
       name: "sqlite-store" }: bool
 
+    ## TODO: Rename this command-line option to `storeRetentionTime`
     sqliteRetentionTime* {.
       desc: "time the sqlite-only store keeps messages (in seconds)",
       defaultValue: 30.days.seconds
