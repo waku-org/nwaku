@@ -39,13 +39,11 @@ suite "message store - history query":
 
   test "single content topic":
     ## Given
-    const storeCapacity = 20
     const contentTopic = "test-content-topic"
 
     let 
       database = newTestDatabase()
-      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
-      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
+      store = SqliteStore.init(database).tryGet()
 
     let messages = @[
       fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
@@ -62,8 +60,7 @@ suite "message store - history query":
 
     for msg in messages:
       let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      let resPut = store.put(index, msg, DefaultPubsubTopic)
-      require(resPut.isOk())
+      require store.put(index, msg, DefaultPubsubTopic).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -91,13 +88,11 @@ suite "message store - history query":
   
   test "single content topic and descending order":
     ## Given
-    const storeCapacity = 20
     const contentTopic = "test-content-topic"
 
     let 
       database = newTestDatabase()
-      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
-      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
+      store = SqliteStore.init(database).tryGet()
 
     let messages = @[
       fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
@@ -114,8 +109,7 @@ suite "message store - history query":
 
     for msg in messages:
       let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      let resPut = store.put(index, msg, DefaultPubsubTopic)
-      require(resPut.isOk())
+      require store.put(index, msg, DefaultPubsubTopic).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -143,15 +137,13 @@ suite "message store - history query":
 
   test "multiple content topic":
     ## Given
-    const storeCapacity = 20
     const contentTopic1 = "test-content-topic-1"
     const contentTopic2 = "test-content-topic-2"
     const contentTopic3 = "test-content-topic-3"
 
     let 
       database = newTestDatabase()
-      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
-      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
+      store = SqliteStore.init(database).tryGet()
 
     let messages = @[
       fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
@@ -168,8 +160,7 @@ suite "message store - history query":
 
     for msg in messages:
       let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      let resPut = store.put(index, msg, DefaultPubsubTopic)
-      require(resPut.isOk())
+      require store.put(index, msg, DefaultPubsubTopic).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -197,14 +188,12 @@ suite "message store - history query":
   
   test "content topic and pubsub topic":
     ## Given
-    const storeCapacity = 20
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
 
     let 
       database = newTestDatabase()
-      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
-      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
+      store = SqliteStore.init(database).tryGet()
 
     let messages1 = @[
       fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
@@ -215,8 +204,8 @@ suite "message store - history query":
     ]
     for msg in messages1:
       let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      let resPut = store.put(index, msg, DefaultPubsubTopic)
-      require(resPut.isOk())
+      require store.put(index, msg, DefaultPubsubTopic).isOk()
+      
 
     let messages2 = @[
       fakeWakuMessage("MSG-03", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 4),
@@ -226,9 +215,8 @@ suite "message store - history query":
     ]
     for msg in messages2:
       let index = Index.compute(msg, msg.timestamp, pubsubTopic)
-      let resPut = store.put(index, msg, pubsubTopic)
-      require(resPut.isOk())
-    
+      require store.put(index, msg, pubsubTopic).isOk()
+     
     ## When
     let res = store.getMessagesByHistoryQuery(
       contentTopic=some(@[contentTopic]),
@@ -256,13 +244,11 @@ suite "message store - history query":
 
   test "content topic and cursor":
     ## Given
-    const storeCapacity = 20
     const contentTopic = "test-content-topic"
 
     let 
       database = newTestDatabase()
-      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
-      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
+      store = SqliteStore.init(database).tryGet()
 
     let messages = @[
       fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
@@ -279,8 +265,7 @@ suite "message store - history query":
 
     for msg in messages:
       let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      let resPut = store.put(index, msg, DefaultPubsubTopic)
-      require(resPut.isOk())
+      require store.put(index, msg, DefaultPubsubTopic).isOk()
 
     let cursor = Index.compute(messages[4], messages[4].timestamp, DefaultPubsubTopic)
     
@@ -311,13 +296,11 @@ suite "message store - history query":
 
   test "content topic, cursor and descending order":
     ## Given
-    const storeCapacity = 20
     const contentTopic = "test-content-topic"
 
     let 
       database = newTestDatabase()
-      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
-      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
+      store = SqliteStore.init(database).tryGet()
 
     let messages = @[
       fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
@@ -334,8 +317,7 @@ suite "message store - history query":
 
     for msg in messages:
       let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      let resPut = store.put(index, msg, DefaultPubsubTopic)
-      require(resPut.isOk())
+      require store.put(index, msg, DefaultPubsubTopic).isOk()
 
     let cursor = Index.compute(messages[6], messages[6].timestamp, DefaultPubsubTopic)
     
@@ -366,14 +348,12 @@ suite "message store - history query":
 
   test "content topic, pubsub topic and cursor":
     ## Given
-    const storeCapacity = 20
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
 
     let 
       database = newTestDatabase()
-      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
-      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
+      store = SqliteStore.init(database).tryGet()
 
     let messages1 = @[
       fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
@@ -384,8 +364,7 @@ suite "message store - history query":
     ]
     for msg in messages1:
       let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      let resPut = store.put(index, msg, DefaultPubsubTopic)
-      require(resPut.isOk())
+      require store.put(index, msg, DefaultPubsubTopic).isOk()
 
     let messages2 = @[
       fakeWakuMessage("MSG-04", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 5),
@@ -394,8 +373,7 @@ suite "message store - history query":
     ]
     for msg in messages2:
       let index = Index.compute(msg, msg.timestamp, pubsubTopic)
-      let resPut = store.put(index, msg, pubsubTopic)
-      require(resPut.isOk())
+      require store.put(index, msg, pubsubTopic).isOk()
 
     let cursor = Index.compute(messages2[0], messages2[0].timestamp, DefaultPubsubTopic)
     
@@ -427,13 +405,11 @@ suite "message store - history query":
 
   test "single content topic - no results":
     ## Given
-    const storeCapacity = 10
     const contentTopic = "test-content-topic"
 
     let 
       database = newTestDatabase()
-      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
-      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
+      store = SqliteStore.init(database).tryGet()
 
     let messages = @[
       fakeWakuMessage("MSG-01", contentTopic=DefaultContentTopic, ts=getNanosecondTime(epochTime()) + 2),
@@ -445,8 +421,7 @@ suite "message store - history query":
 
     for msg in messages:
       let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      let resPut = store.put(index, msg, DefaultPubsubTopic)
-      require(resPut.isOk())
+      require store.put(index, msg, DefaultPubsubTopic).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -469,15 +444,12 @@ suite "message store - history query":
   
   test "single content topic and valid time range":
     ## Given
-    let 
-      storeCapacity = 10
-      contentTopic = "test-content-topic"
-      timeOrigin = getNanosecondTime(epochTime())
+    const contentTopic = "test-content-topic"
+    let timeOrigin = getNanosecondTime(epochTime())
 
     let 
       database = newTestDatabase()
-      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
-      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
+      store = SqliteStore.init(database).tryGet()
 
     let messages = @[
       fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=timeOrigin + 00),
@@ -491,8 +463,7 @@ suite "message store - history query":
 
     for msg in messages:
       let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      let resPut = store.put(index, msg, DefaultPubsubTopic)
-      require(resPut.isOk())
+      require store.put(index, msg, DefaultPubsubTopic).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -521,15 +492,12 @@ suite "message store - history query":
   
   test "single content topic and invalid time range - no results":
     ## Given
-    let 
-      storeCapacity = 10
-      contentTopic = "test-content-topic"
-      timeOrigin = getNanosecondTime(epochTime())
+    const contentTopic = "test-content-topic"
+    let timeOrigin = getNanosecondTime(epochTime())
 
     let 
       database = newTestDatabase()
-      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
-      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
+      store = SqliteStore.init(database).tryGet()
 
     let messages = @[
       fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=timeOrigin + 00),
@@ -541,8 +509,7 @@ suite "message store - history query":
 
     for msg in messages:
       let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      let resPut = store.put(index, msg, DefaultPubsubTopic)
-      require(resPut.isOk())
+      require store.put(index, msg, DefaultPubsubTopic).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -566,15 +533,12 @@ suite "message store - history query":
   
   test "single content topic and only time range start":
     ## Given
-    let 
-      storeCapacity = 10
-      contentTopic = "test-content-topic"
-      timeOrigin = getNanosecondTime(epochTime())
+    const contentTopic = "test-content-topic"
+    let timeOrigin = getNanosecondTime(epochTime())
 
     let 
       database = newTestDatabase()
-      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
-      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
+      store = SqliteStore.init(database).tryGet()
 
     let messages = @[
       fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=timeOrigin + 00),
@@ -587,8 +551,7 @@ suite "message store - history query":
 
     for msg in messages:
       let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      let resPut = store.put(index, msg, DefaultPubsubTopic)
-      require(resPut.isOk())
+      require store.put(index, msg, DefaultPubsubTopic).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -615,15 +578,12 @@ suite "message store - history query":
   
   test "single content topic, cursor and only time range start":
     ## Given
-    let 
-      storeCapacity = 10
-      contentTopic = "test-content-topic"
-      timeOrigin = getNanosecondTime(epochTime())
+    const contentTopic = "test-content-topic"
+    let timeOrigin = getNanosecondTime(epochTime())
 
     let 
       database = newTestDatabase()
-      retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
-      store = SqliteStore.init(database, retentionPolicy=some(retentionPolicy)).tryGet()
+      store = SqliteStore.init(database).tryGet()
 
     let messages = @[
       fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=timeOrigin + 00),
@@ -637,8 +597,7 @@ suite "message store - history query":
 
     for msg in messages:
       let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      let resPut = store.put(index, msg, DefaultPubsubTopic)
-      require(resPut.isOk())
+      require store.put(index, msg, DefaultPubsubTopic).isOk()
 
     let cursor = Index.compute(messages[3], messages[3].timestamp, DefaultPubsubTopic)
 
