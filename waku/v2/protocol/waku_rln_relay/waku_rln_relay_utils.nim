@@ -1138,7 +1138,7 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: O
       
       let root = rootRes.value()
 
-      if root != expectedRoot:
+      if root.toHex != expectedRoot:
         error "root mismatch: something went wrong not in Merkle tree construction"
       debug "the calculated root", root
       info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
