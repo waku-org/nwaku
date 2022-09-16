@@ -30,10 +30,9 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
 when defined(rlnzerokit):
   type RLNResult* = Result[ptr RLN, string]
 
-
-type MerkleNodeResult* = Result[MerkleNode, string]
-type BoolResult* = Result[bool, string]
-type RateLimitProofResult* = Result[RateLimitProof, string]
+type RlnRelayResult*[T] = Result[T, string]
+type MerkleNodeResult* = RlnRelayResult[MerkleNode]
+type RateLimitProofResult* = RlnRelayResult[RateLimitProof]
 type SpamHandler* = proc(wakuMessage: WakuMessage): void {.gcsafe, closure, raises: [Defect].}
 type RegistrationHandler* = proc(txHash: string): void {.gcsafe, closure, raises: [Defect].}
 
@@ -251,7 +250,7 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethAccountPrivK
     handler(toHex(txHash))
   return ok(toMembershipIndex(eventIndex))
 
-proc register*(rlnPeer: WakuRLNRelay, registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): Future[BoolResult] {.async.} =
+proc register*(rlnPeer: WakuRLNRelay, registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): Future[RlnRelayResult[bool]] {.async.} =
   ## registers the public key of the rlnPeer which is rlnPeer.membershipKeyPair.publicKey
   ## into the membership contract whose address is in rlnPeer.membershipContractAddress
   let pk = rlnPeer.membershipKeyPair.idCommitment
@@ -399,7 +398,7 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     var rootValue = cast[ptr MerkleNode] (root.`ptr`)[]
     return ok(rootValue)
 
-  proc validateRoot*(rlnInstance: RLN[Bn256], proof: RateLimitProof): BoolResult =
+  proc validateRoot*(rlnInstance: RLN[Bn256], proof: RateLimitProof): RlnRelayResult[bool] =
     # Validate against the local merkle tree
     let localTreeRoot = rlnInstance.getMerkleRoot()
     if not localTreeRoot.isOk():
@@ -410,7 +409,7 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
       trace "Local tree root does not match the root sent by peer", localTreeRoot=localTreeRoot, messageRoot=proof.merkleRoot
       return ok(false)
 
-  proc proofVerify*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: RateLimitProof): BoolResult =
+  proc proofVerify*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: RateLimitProof): RlnRelayResult[bool] =
     var
       proofBytes = serialize(proof, data)
       proofBuffer = proofBytes.toBuffer()
@@ -526,7 +525,7 @@ when defined(rlnzerokit):
 
     return proofBytes
 
-  proc validateRoot*(rlnInstance: ptr RLN, proof: RateLimitProof): BoolResult =
+  proc validateRoot*(rlnInstance: ptr RLN, proof: RateLimitProof): RlnRelayResult[bool] =
     # Validate against the local merkle tree
     let localTreeRoot = rlnInstance.getMerkleRoot()
     if not localTreeRoot.isOk():
@@ -537,7 +536,7 @@ when defined(rlnzerokit):
       trace "Local tree root does not match the root sent by peer", localTreeRoot=localTreeRoot, messageRoot=proof.merkleRoot
       return ok(false)
 
-  proc proofVerify*(rlnInstance: ptr RLN, data: openArray[byte], proof: RateLimitProof): BoolResult =
+  proc proofVerify*(rlnInstance: ptr RLN, data: openArray[byte], proof: RateLimitProof): RlnRelayResult[bool] =
     var
       proofBytes = serialize(proof, data)
       proofBuffer = proofBytes.toBuffer()
@@ -680,7 +679,7 @@ proc rlnRelayStaticSetUp*(rlnRelayMemIndex: MembershipIndex): (Option[seq[
 
   return (groupOpt, memKeyPairOpt, memIndexOpt)
 
-proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): BoolResult =
+proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): RlnRelayResult[bool] =
   ## returns true if there is another message in the  `nullifierLog` of the `rlnPeer` with the same
   ## epoch and nullifier as `msg`'s epoch and nullifier but different Shamir secret shares
   ## otherwise, returns false
@@ -713,7 +712,7 @@ proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): BoolResult =
   except KeyError as e:
     return err("the epoch was not found")
 
-proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): BoolResult =
+proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): RlnRelayResult[bool] =
   ## extracts  the `ProofMetadata` of the supplied messages `msg` and
   ## saves it in the `nullifierLog` of the `rlnPeer`
 
@@ -1024,7 +1023,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
                     pubsubTopic: string,
                     contentTopic: ContentTopic,
                     spamHandler: Option[SpamHandler] = none(SpamHandler),
-                    registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)) : Future[BoolResult] {.async.} =
+                    registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)) : Future[RlnRelayResult[bool]] {.async.} =
   debug "mounting rln-relay in on-chain/dynamic mode"
   # TODO return a bool value to indicate the success of the call
   # relay protocol is the prerequisite of rln-relay
@@ -1112,7 +1111,7 @@ proc readPersistentRlnCredentials*(path: string) : RlnMembershipCredentials {.ra
   debug "Deserialized Rln credentials", rlnCredentials=deserializedRlnCredentials
   result = deserializedRlnCredentials
 
-proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler] = none(SpamHandler), registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): BoolResult {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
+proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler] = none(SpamHandler), registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
   if not conf.rlnRelayDynamic:
     info " setting up waku-rln-relay in off-chain mode... "
     # set up rln relay inputs
