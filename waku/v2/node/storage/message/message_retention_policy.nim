@@ -3,12 +3,11 @@
 import
   stew/results
 import
-  ../../sqlite
-
+  ./message_store
 
 type RetentionPolicyResult*[T] = Result[T, string]
 
 type MessageRetentionPolicy* = ref object of RootObj
 
 
-method execute*(p: MessageRetentionPolicy, db: SqliteDatabase): RetentionPolicyResult[void] {.base.} = discard
+method execute*(p: MessageRetentionPolicy, store: MessageStore): RetentionPolicyResult[void] {.base.} = discard

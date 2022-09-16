@@ -25,6 +25,9 @@ import
   ./peer_manager/peer_manager,
   ./storage/message/waku_store_queue,
   ./storage/message/message_store,
+  ./storage/message/message_retention_policy,
+  ./storage/message/message_retention_policy_capacity,
+  ./storage/message/message_retention_policy_time,
   ./dnsdisc/waku_dnsdisc,
   ./discv5/waku_discv5,
   ./wakuswitch,
@@ -449,15 +452,25 @@ proc mountSwap*(node: WakuNode, swapConfig: SwapConfig = SwapConfig.init()) {.as
 
   node.switch.mount(node.wakuSwap, protocolMatcher(WakuSwapCodec))
 
-proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: bool = false, capacity = StoreDefaultCapacity, isSqliteOnly = false) {.async, raises: [Defect, LPError].} =
-  info "mounting store"
-
-  if node.wakuSwap.isNil:
-    debug "mounting store without swap"
-    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, persistMessages=persistMessages, capacity=capacity, isSqliteOnly=isSqliteOnly)
+proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: bool = false, capacity = StoreDefaultCapacity, retentionTime = StoreDefaultRetentionTime, isSqliteOnly = false) {.async, raises: [Defect, LPError].} =
+  if node.wakuSwap.isNil():
+    info "mounting waku store protocol (no waku swap)"
   else:
-    debug "mounting store with swap"
-    node.wakuStore = WakuStore.init(node.peerManager, node.rng, store, node.wakuSwap, persistMessages=persistMessages, capacity=capacity, isSqliteOnly=isSqliteOnly)
+    info "mounting waku store protocol with waku swap support"
+
+  let retentionPolicy = if isSqliteOnly: TimeRetentionPolicy.init(retentionTime)
+                        else: CapacityRetentionPolicy.init(capacity)
+
+  node.wakuStore = WakuStore.init(
+    node.peerManager, 
+    node.rng, 
+    store, 
+    wakuSwap=node.wakuSwap, 
+    persistMessages=persistMessages, 
+    capacity=capacity, 
+    isSqliteOnly=isSqliteOnly, 
+    retentionPolicy=some(retentionPolicy)
+  )
   
   if node.started:
     # Node has started already. Let's start store too.
@@ -889,9 +902,7 @@ when isMainModule:
       
       if conf.persistMessages:
         # Historical message persistence enable. Set up Message table in storage
-        let retentionPolicy = if conf.sqliteStore: TimeRetentionPolicy.init(conf.sqliteRetentionTime)
-                              else: CapacityRetentionPolicy.init(conf.storeCapacity) 
-        let res = SqliteStore.init(sqliteDatabase, retentionPolicy=some(retentionPolicy))
+        let res = SqliteStore.init(sqliteDatabase)
         if res.isErr():
           warn "failed to init SqliteStore", err = res.error
           waku_node_errors.inc(labelValues = ["init_store_failure"])
@@ -1073,7 +1084,7 @@ when isMainModule:
 
     # Store setup
     if (conf.storenode != "") or (conf.store):
-      waitFor mountStore(node, mStorage, conf.persistMessages, conf.storeCapacity, conf.sqliteStore)
+      waitFor mountStore(node, mStorage, conf.persistMessages, conf.storeCapacity, conf.sqliteRetentionTime, conf.sqliteStore)
 
       if conf.storenode != "":
         setStorePeer(node, conf.storenode)
