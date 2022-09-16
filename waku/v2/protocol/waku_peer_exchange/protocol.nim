@@ -1,5 +1,5 @@
 import
-  std/[options, sets, tables, sequtils],
+  std/[options, sets, tables, sequtils, random],
   stew/results,
   chronicles,
   chronos,
@@ -18,9 +18,10 @@ import
 
 
 declarePublicGauge waku_px_peers, "number of peers (in the node's peerManager) supporting the peer exchange protocol"
-declarePublicGauge waku_px_peers_received, "number of px peer ENRs received"
-declarePublicGauge waku_px_peers_sent, "number of px peer ENRs sent to requesters"
-declarePublicGauge waku_px_peers_cached, "number of px peers ENRs cached"
+declarePublicGauge waku_px_peers_received_total, "number of ENRs received via peer exchange"
+declarePublicGauge waku_px_peers_received_unknown, "number of previously unknown ENRs received via peer exchange"
+declarePublicGauge waku_px_peers_sent, "number of ENRs sent to peer exchange requesters"
+declarePublicGauge waku_px_peers_cached, "number of peer exchange peer ENRs cached"
 declarePublicGauge waku_px_errors, "number of peer exchange errors", ["type"]
 
 logScope:
@@ -31,6 +32,8 @@ const
   # We add a 64kB safety buffer for protocol overhead.
   # 10x-multiplier also for safety
   MaxRpcSize* = 10 * MaxWakuMessageSize + 64 * 1024 # TODO what is the expected size of a PX message? As currently specified, it can contain an arbitary number of ENRs...
+  MaxCacheSize = 1000
+  CacheCleanWindow = 200
 
   WakuPeerExchangeCodec* = "/vac/waku/peer-exchange/2.0.0-alpha1"
 
@@ -40,21 +43,16 @@ const
   dialFailure = "dial_failure"
   peerNotFoundFailure = "peer_not_found_failure"
   decodeRpcFailure = "decode_rpc_failure"
+  retrievePeersDiscv5Error= "retrieve_peers_discv5_failure"
   pxFailure = "px_failure"
 
 type
-  # WakuPeerExchangeError* {.pure.} = enum
-  #   DecodeRpcFailure
-  #   PxFailure
-  #   PeerNotFoundFailure
-  
-  WakuPeerExchangeResult*[T] = Result[T, string] # TODO use WakuPeerExchangeError as the error type
+  WakuPeerExchangeResult*[T] = Result[T, string]
 
   WakuPeerExchange* = ref object of LPProtocol
     peerManager*: PeerManager
     wakuDiscv5: Option[WakuDiscoveryV5]
-    peerCache: Option[seq[enr.Record]] # todo: implement cache satisfying https://rfc.vac.dev/spec/34/
-    # timeout*: chronos.Duration
+    enrCache: seq[enr.Record] # todo: next step: ring buffer; future: implement cache satisfying https://rfc.vac.dev/spec/34/
 
 proc sendPeerExchangeRpcToPeer(wpx: WakuPeerExchange, rpc: PeerExchangeRpc, peer: RemotePeerInfo | PeerId): Future[WakuPeerExchangeResult[void]] {.async, gcsafe.}=
   let connOpt = await wpx.peerManager.dialPeer(peer, WakuPeerExchangeCodec)
@@ -119,17 +117,54 @@ proc respond*(wpx: WakuPeerExchange, enrs: seq[enr.Record]): Future[WakuPeerExch
 
   return await wpx.respond(enrs, peerOpt.get())
 
-proc getEnrsDiscv5(px: WakuPeerExchange, numPeers: uint64): Future[seq[enr.Record]] {.async, gcsafe.} =
+proc getEnrsDiscv5(px: WakuPeerExchange, numPeers: uint64): Future[WakuPeerExchangeResult[seq[enr.Record]]] {.async, gcsafe.} =
+  ## retrieves a set of randomly selected peer's ENRs (not using the cache)
   if px.wakuDiscv5.isNone():
     debug "discv5 not enabled: peer exchange peers cannot be retrieved via discv5"
-    return @[] # Make this a result and return a proper err
+    return err(retrievePeersDiscv5Error)
   var enrs: seq[enr.Record]
   let discoveredPeers = await px.wakuDiscv5.get().findRandomPeers()
   if discoveredPeers.isOk:
     for dp in discoveredPeers.get():
       if dp.enr.isSome():
         enrs.add(dp.enr.get())
-  return enrs
+  return ok(enrs)
+
+proc cleanCache(px: WakuPeerExchange) {.gcsafe.} =
+  px.enrCache.delete(0, CacheCleanWindow-1)
+
+proc runPeerExchangeDiscv5Loop*(px: WakuPeerExchange) {.async, gcsafe.} =
+  ## Runs a discv5 loop adding new peers to the px peer cache
+  if px.wakuDiscv5.isNone():
+    warn "Trying to run discovery v5 (for PX) while it's disabled"
+    return
+
+  info "Starting peer exchange discovery v5 loop"
+
+  while px.wakuDiscv5.get().listening:
+    trace "Running px discv5 discovery loop"
+    let discoveredPeers = await px.wakuDiscv5.get().findRandomPeers()
+    info "Discovered px peers via discv5", count=discoveredPeers.get().len()
+    if discoveredPeers.isOk:
+      for dp in discoveredPeers.get():
+        if dp.enr.isSome() and not px.enrCache.contains(dp.enr.get()):
+          px.enrCache.add(dp.enr.get())
+
+    if px.enrCache.len() >= MaxCacheSize:
+      px.cleanCache()
+
+    ## This loop "competes" with the loop in wakunode2
+    ## For the purpose of collecting px peers, 30 sec intervals should be enough
+    await sleepAsync(30.seconds)
+
+proc getEnrsFromCache(px: WakuPeerExchange, numPeers: uint64): seq[enr.Record] {.gcsafe.} =
+  randomize()
+  if px.enrCache.len() == 0:
+    debug "peer exchange ENR cache is empty"
+    return @[]
+  for i in 0..<min(numPeers, px.enrCache.len().uint64()):
+    let ri = rand(0..<px.enrCache.len())
+    result.add(px.enrCache[ri])
 
 proc init(px: WakuPeerExchange) =
 
@@ -146,8 +181,11 @@ proc init(px: WakuPeerExchange) =
     # handle peer exchange request
     if rpc.request != PeerExchangeRequest():
       trace "peer exchange request received"
-      let enrs = await px.getEnrsDiscv5(rpc.request.numPeers)
+      let enrs = px.getEnrsFromCache(rpc.request.numPeers)
+      # let enrRes = await px.getEnrsDiscv5(3)
+      # let enrs = enrRes.get()
       discard await px.respond(enrs, conn.peerId)
+      waku_px_peers_sent.inc(enrs.len().int64())
 
     # handle peer exchange response
     if rpc.response != PeerExchangeResponse():
@@ -155,33 +193,21 @@ proc init(px: WakuPeerExchange) =
       trace "peer exchange response received"
       var record: enr.Record
       var remotePeerInfoList: seq[RemotePeerInfo]
+      waku_px_peers_received_total.inc(rpc.response.peerInfos.len().int64())
       for pi in rpc.response.peerInfos:
         discard enr.fromBytes(record, pi.enr)
-        # todo: only add new peers
         remotePeerInfoList.add(record.toRemotePeerInfo().get)
-        # px.peerManager.addPeer(remotePeerInfo, "/vac/waku/relay/2.0.0")
 
       let newPeers = remotePeerInfoList.filterIt(
-        not px.peerManager.switch.peerStore[AddressBook].contains(it.peerId))
+        not px.peerManager.switch.isConnected(it.peerId))
 
-      if newPeers.len > 0:
+      if newPeers.len() > 0:
+        waku_px_peers_received_unknown.inc(newPeers.len().int64())
         debug "Connecting to newly discovered peers", count=newPeers.len()
         await px.peerManager.connectToNodes(newPeers, WakuRelayCodec, source = "peer exchange")
 
-
   px.handler = handler
   px.codec = WakuPeerExchangeCodec
-
-  # # get nodes via discV5
-  # # todo/discuss: we could start another discv5 loop here that manages and updates the cache.
-  # # This would "compete" with the discv5 loop in wakunode2, which gets relay peers for the node itself
-  # # Problem: Especially if there are not enough nodes in the network,
-  # # retrieved nodes might already be in one of the peer sets managed by relay.
-  # # We need to check that these peers are unused.
-  # # If we cache these peers, we also have to check in the relay discv5 loop that retrieved peers are not yet in the PX cache.
-  # # We could also ignore this, because for large networks, such collisions should be pacceptable (discuss)
-  # if px.wakuDiscv5.isSome():
-  #   trace "retrieving PX peers via discV5"
 
 proc init*(T: type WakuPeerExchange,
             peerManager: PeerManager,
