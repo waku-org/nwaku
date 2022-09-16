@@ -584,8 +584,6 @@ suite "Waku rln relay":
 
     check:
       verified.isOk()
-
-    check:
       verified.value() == true
 
   test "test proofVerify and proofGen for an invalid proof":
@@ -637,7 +635,6 @@ suite "Waku rln relay":
                                   proof = proof)
     check:
       verified.isOk()
-    check:
       verified.value() == false
 
   test "invalidate messages with a valid, but stale root":
@@ -688,7 +685,6 @@ suite "Waku rln relay":
 
     check:
       verified.isOk()
-    check:
       verified.value() == true
 
     # Progress the local tree by removing a member
@@ -699,8 +695,6 @@ suite "Waku rln relay":
 
     check:
       currentMerkleRoot.isOk()
-
-    check:
       currentMerkleRoot.value() != validProof.merkleRoot
 
     # Try to send a message constructed with an older root
@@ -709,7 +703,6 @@ suite "Waku rln relay":
 
     check:
       olderRootVerified.isOk()
-    check:
       olderRootVerified.value() == false
 
   test "toEpoch and fromEpoch consistency check":
