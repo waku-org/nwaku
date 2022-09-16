@@ -633,14 +633,19 @@ suite "Waku rln relay":
     # verify the proof (should not be verified)
     let verified = rln.proofVerify(data = messageBytes,
                                   proof = proof)
-    check:
+
+    require:
       verified.isOk()
+    check:
       verified.value() == false
 
   test "invalidate messages with a valid, but stale root":
+    # Setup: 
+    # This step consists of creating the rln instance,
+    # Inserting members, and creating a valid proof with the merkle root
     var rlnInstance = createRLNInstance()
-    check:
-      rlnInstance.isOk == true
+    require:
+      rlnInstance.isOk() == true
     var rln = rlnInstance.value
 
     let
@@ -663,6 +668,8 @@ suite "Waku rln relay":
       check:
         memberIsAdded
 
+    # Given: 
+    # This step includes constructing a valid message with the latest merkle root
     # prepare the message
     let messageBytes = "Hello".toBytes()
 
@@ -675,7 +682,7 @@ suite "Waku rln relay":
                                     memKeys = memKeys,
                                     memIndex = MembershipIndex(index),
                                     epoch = epoch)
-    check:
+    require:
       validProofRes.isOk()
     let validProof = validProofRes.value
 
@@ -683,26 +690,36 @@ suite "Waku rln relay":
     let verified = rln.proofVerify(data = messageBytes,
                                   proof = validProof)
 
-    check:
+    require:
       verified.isOk()
       verified.value() == true
 
+    # When: 
+    # This test depends on the local merkle tree root being different than a
+    # new message with an older/different root
+    # This can be simulated by removing a member, which changes the root of the tree
+    # Which is equivalent to a member being removed upon listening to the events emitted by the contract
     # Progress the local tree by removing a member
     discard rln.removeMember(MembershipIndex(0))
 
     # Ensure the local tree root has changed
     let currentMerkleRoot = rln.getMerkleRoot()
 
-    check:
+    require:
       currentMerkleRoot.isOk()
       currentMerkleRoot.value() != validProof.merkleRoot
 
+    # Then: 
+    # we try to verify a proof against this new merkle tree,
+    # which should return false
     # Try to send a message constructed with an older root
     let olderRootVerified = rln.proofVerify(data = messageBytes,
                                             proof = validProof)
 
-    check:
+    require:
       olderRootVerified.isOk()
+
+    check:
       olderRootVerified.value() == false
 
   test "toEpoch and fromEpoch consistency check":
