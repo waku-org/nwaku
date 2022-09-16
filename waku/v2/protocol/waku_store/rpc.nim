@@ -23,6 +23,7 @@ type
     ## HistoryResponseError contains error message to inform  the querying node about the state of its request
     NONE = uint32(0)
     INVALID_CURSOR = uint32(1)
+    SERVICE_UNAVAILABLE = uint32(503)
 
   HistoryResponse* = object
     messages*: seq[WakuMessage]

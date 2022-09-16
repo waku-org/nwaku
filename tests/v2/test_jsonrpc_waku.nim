@@ -11,8 +11,10 @@ import
   libp2p/stream/[bufferstream, connection],
   libp2p/crypto/crypto,
   libp2p/protocols/pubsub/pubsub,
-  libp2p/protocols/pubsub/rpc/message,
+  libp2p/protocols/pubsub/rpc/message
+import
   ../../waku/v1/node/rpc/hexstrings,
+  ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/node/wakunode2,
   ../../waku/v2/node/jsonrpc/[store_api,
                               relay_api,
@@ -232,7 +234,7 @@ procSuite "Waku v2 JSON-RPC API":
       key = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.new(key)
     
-    await node.mountStore(persistMessages = true)
+    await node.mountStore(store=StoreQueueRef.new())
     
     var listenSwitch = newStandardSwitch(some(key))
     waitFor listenSwitch.start()
@@ -528,7 +530,7 @@ procSuite "Waku v2 JSON-RPC API":
 
     await node.mountFilter()
     await node.mountSwap()
-    await node.mountStore(persistMessages = true)
+    await node.mountStore(store=StoreQueueRef.new())
 
     # Create and set some peers
     let

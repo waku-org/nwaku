@@ -395,11 +395,15 @@ proc resume*(node: WakuNode, peerList: Option[seq[RemotePeerInfo]] = none(seq[Re
   ## peerList indicates the list of peers to query from. The history is fetched from the first available peer in this list. Such candidates should be found through a discovery method (to be developed).
   ## if no peerList is passed, one of the peers in the underlying peer manager unit of the store protocol is picked randomly to fetch the history from. 
   ## The history gets fetched successfully if the dialed peer has been online during the queried time window.
+  if node.wakuStore.isNil():
+    return
+
+  let retrievedMessages = await node.wakuStore.resume(peerList)
+  if retrievedMessages.isErr():
+    error "failed to resume store", error=retrievedMessages.error
+    return
   
-  if not node.wakuStore.isNil:
-    let retrievedMessages = await node.wakuStore.resume(peerList)
-    if retrievedMessages.isOk:
-      info "the number of retrieved messages since the last online time: ", number=retrievedMessages.value
+  info "the number of retrieved messages since the last online time: ", number=retrievedMessages.value
 
 # TODO Extend with more relevant info: topics, peers, memory usage, online time, etc
 proc info*(node: WakuNode): WakuInfo =
@@ -452,24 +456,18 @@ proc mountSwap*(node: WakuNode, swapConfig: SwapConfig = SwapConfig.init()) {.as
 
   node.switch.mount(node.wakuSwap, protocolMatcher(WakuSwapCodec))
 
-proc mountStore*(node: WakuNode, store: MessageStore = nil, persistMessages: bool = false, capacity = StoreDefaultCapacity, retentionTime = StoreDefaultRetentionTime, isSqliteOnly = false) {.async, raises: [Defect, LPError].} =
+proc mountStore*(node: WakuNode, store: MessageStore = nil, capacity = StoreDefaultCapacity, retentionPolicy=none(MessageRetentionPolicy) ) {.async, raises: [Defect, LPError].} =
   if node.wakuSwap.isNil():
     info "mounting waku store protocol (no waku swap)"
   else:
     info "mounting waku store protocol with waku swap support"
-
-  let retentionPolicy = if isSqliteOnly: TimeRetentionPolicy.init(retentionTime)
-                        else: CapacityRetentionPolicy.init(capacity)
 
   node.wakuStore = WakuStore.init(
     node.peerManager, 
     node.rng, 
     store, 
     wakuSwap=node.wakuSwap, 
-    persistMessages=persistMessages, 
-    capacity=capacity, 
-    isSqliteOnly=isSqliteOnly, 
-    retentionPolicy=some(retentionPolicy)
+    retentionPolicy=retentionPolicy
   )
   
   if node.started:
@@ -832,6 +830,8 @@ when isMainModule:
     ./wakunode2_setup_rpc,
     ./wakunode2_setup_sql_migrations,
     ./storage/sqlite,
+    ./storage/message/message_store,
+    ./storage/message/dual_message_store,
     ./storage/message/sqlite_store,
     ./storage/peer/waku_peer_storage
   
@@ -844,7 +844,7 @@ when isMainModule:
 
   # 1/7 Setup storage
   proc setupStorage(conf: WakuNodeConf):
-    SetupResult[tuple[pStorage: WakuPeerStorage, mStorage: SqliteStore]] =
+    SetupResult[tuple[pStorage: WakuPeerStorage, mStorage: MessageStore]] =
 
     ## Setup a SQLite Database for a wakunode based on a supplied
     ## configuration file and perform all necessary migration.
@@ -854,20 +854,20 @@ when isMainModule:
     
     var
       sqliteDatabase: SqliteDatabase
-      storeTuple: tuple[pStorage: WakuPeerStorage, mStorage: SqliteStore]
+      storeTuple: tuple[pStorage: WakuPeerStorage, mStorage: MessageStore]
 
-    # Setup DB
+    # Setup database connection
     if conf.dbPath != "":
       let dbRes = SqliteDatabase.init(conf.dbPath)
-      if dbRes.isErr:
-        warn "failed to init database", err = dbRes.error
+      if dbRes.isErr():
+        warn "failed to init database connection", err = dbRes.error
         waku_node_errors.inc(labelValues = ["init_db_failure"])
-        return err("failed to init database")
+        return err("failed to init database connection")
       else:
         sqliteDatabase = dbRes.value
 
-    if not sqliteDatabase.isNil and (conf.persistPeers or conf.persistMessages):
-      
+
+    if not sqliteDatabase.isNil():
       ## Database vacuuming
       # TODO: Wrap and move this logic to the appropriate module
       let 
@@ -887,28 +887,33 @@ when isMainModule:
 
         debug "finished sqlite database vacuuming"
 
-      # Database initialized. Let's set it up
-      sqliteDatabase.runMigrations(conf) # First migrate what we have
+      sqliteDatabase.runMigrations(conf) 
 
-      if conf.persistPeers:
-        # Peer persistence enable. Set up Peer table in storage
-        let res = WakuPeerStorage.new(sqliteDatabase)
 
-        if res.isErr:
-          warn "failed to init new WakuPeerStorage", err = res.error
-          waku_node_errors.inc(labelValues = ["init_store_failure"])
-        else:
-          storeTuple.pStorage = res.value
-      
-      if conf.persistMessages:
-        # Historical message persistence enable. Set up Message table in storage
+    if conf.persistPeers:
+      let res = WakuPeerStorage.new(sqliteDatabase)
+      if res.isErr():
+        warn "failed to init peer store", err = res.error
+        waku_node_errors.inc(labelValues = ["init_store_failure"])
+      else:
+        storeTuple.pStorage = res.value
+
+    if conf.persistMessages:
+      if conf.sqliteStore: 
         let res = SqliteStore.init(sqliteDatabase)
         if res.isErr():
-          warn "failed to init SqliteStore", err = res.error
+          warn "failed to init message store", err = res.error
           waku_node_errors.inc(labelValues = ["init_store_failure"])
         else:
           storeTuple.mStorage = res.value
- 
+      else: 
+        let res = DualMessageStore.init(sqliteDatabase, conf.storeCapacity)
+        if res.isErr():
+          warn "failed to init message store", err = res.error
+          waku_node_errors.inc(labelValues = ["init_store_failure"])
+        else:
+          storeTuple.mStorage = res.value
+
     ok(storeTuple)
 
   # 2/7 Retrieve dynamic bootstrap nodes
@@ -1039,10 +1044,7 @@ when isMainModule:
     ok(node)
 
   # 4/7 Mount and initialize configured protocols
-  proc setupProtocols(node: WakuNode,
-                      conf: WakuNodeConf,
-                      mStorage: SqliteStore = nil): SetupResult[bool] =
-    
+  proc setupProtocols(node: WakuNode, conf: WakuNodeConf, mStorage: MessageStore): SetupResult[bool] =
     ## Setup configured protocols on an existing Waku v2 node.
     ## Optionally include persistent message storage.
     ## No protocols are started yet.
@@ -1084,7 +1086,9 @@ when isMainModule:
 
     # Store setup
     if (conf.storenode != "") or (conf.store):
-      waitFor mountStore(node, mStorage, conf.persistMessages, conf.storeCapacity, conf.sqliteRetentionTime, conf.sqliteStore)
+      let retentionPolicy = if conf.sqliteStore: TimeRetentionPolicy.init(conf.sqliteRetentionTime)
+                            else: CapacityRetentionPolicy.init(conf.storeCapacity)
+      waitFor mountStore(node, mStorage, retentionPolicy=some(retentionPolicy))
 
       if conf.storenode != "":
         setStorePeer(node, conf.storenode)
@@ -1188,7 +1192,7 @@ when isMainModule:
   
   var
     pStorage: WakuPeerStorage
-    mStorage: SqliteStore
+    mStorage: MessageStore
   
   let setupStorageRes = setupStorage(conf)
 

@@ -9,10 +9,12 @@ import
   libp2p/stream/[bufferstream, connection],
   libp2p/crypto/[crypto, secp],
   libp2p/switch,
-  eth/keys,
+  eth/keys
+import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_swap/waku_swap,
+  ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/node/wakunode2,
   ../../waku/v2/utils/peers,
   ../test_helpers, ./utils
@@ -50,11 +52,11 @@ procSuite "Waku SWAP Accounting":
   asyncTest "Update accounting state after store operations":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        Port(60000))
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
-        Port(60001))
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60001))
+    
+    let
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
 
@@ -63,14 +65,14 @@ procSuite "Waku SWAP Accounting":
     # Start nodes and mount protocols
     await node1.start()
     await node1.mountSwap()
-    await node1.mountStore(persistMessages = true)
+    await node1.mountStore(store=StoreQueueRef.new())
     await node2.start()
     await node2.mountSwap()
-    await node2.mountStore(persistMessages = true)
+    await node2.mountStore(store=StoreQueueRef.new())
 
     await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
 
-    await sleepAsync(2000.millis)
+    await sleepAsync(500.millis)
 
     node1.wakuStore.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
     node1.wakuSwap.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
@@ -97,11 +99,11 @@ procSuite "Waku SWAP Accounting":
   asyncTest "Update accounting state after sending cheque":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        Port(60000))
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
-        Port(60001))
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60001))
+
+    let
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
 
@@ -113,14 +115,14 @@ procSuite "Waku SWAP Accounting":
     # Start nodes and mount protocols
     await node1.start()
     await node1.mountSwap(swapConfig)
-    await node1.mountStore(persistMessages = true)
+    await node1.mountStore(store=StoreQueueRef.new())
     await node2.start()
     await node2.mountSwap(swapConfig)
-    await node2.mountStore(persistMessages = true)
+    await node2.mountStore(store=StoreQueueRef.new())
 
     await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
 
-    await sleepAsync(2000.millis)
+    await sleepAsync(500.millis)
 
     node1.wakuStore.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
     node1.wakuSwap.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
