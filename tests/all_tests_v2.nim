@@ -10,6 +10,7 @@ import
   ./v2/test_wakunode_store,
   ./v2/test_waku_filter,
   ./v2/test_wakunode_filter,
+  ./v2/test_waku_peer_exchange,
   ./v2/test_waku_payload,
   ./v2/test_waku_swap,
   ./v2/test_utils_peers,
