@@ -89,6 +89,3 @@ proc init*(T: type PeerExchangeRpc, buffer: seq[byte]): ProtoResult[T] =
 
   return ok(rpc)
 
-
-
-

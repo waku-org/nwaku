@@ -37,7 +37,6 @@ const
 
   WakuPeerExchangeCodec* = "/vac/waku/peer-exchange/2.0.0-alpha1"
 
-# TODO: use WakuPeerExchangeError type (enum)
 # Error types (metric label values)
 const
   dialFailure = "dial_failure"
@@ -54,7 +53,7 @@ type
     wakuDiscv5: Option[WakuDiscoveryV5]
     enrCache: seq[enr.Record] # todo: next step: ring buffer; future: implement cache satisfying https://rfc.vac.dev/spec/34/
 
-proc sendPeerExchangeRpcToPeer(wpx: WakuPeerExchange, rpc: PeerExchangeRpc, peer: RemotePeerInfo | PeerId): Future[WakuPeerExchangeResult[void]] {.async, gcsafe.}=
+proc sendPeerExchangeRpcToPeer(wpx: WakuPeerExchange, rpc: PeerExchangeRpc, peer: RemotePeerInfo | PeerId): Future[WakuPeerExchangeResult[void]] {.async, gcsafe.} =
   let connOpt = await wpx.peerManager.dialPeer(peer, WakuPeerExchangeCodec)
   if connOpt.isNone():
     return err(dialFailure)
@@ -88,7 +87,6 @@ proc request*(wpx: WakuPeerExchange, numPeers: uint64): Future[WakuPeerExchangeR
   return await wpx.request(numPeers, peerOpt.get())
 
 proc respond(wpx: WakuPeerExchange, enrs: seq[enr.Record], peer: RemotePeerInfo | PeerId): Future[WakuPeerExchangeResult[void]] {.async, gcsafe.} =
-
   var peerInfos: seq[PeerExchangePeerInfo] = @[]
   for e in enrs:
     let pi = PeerExchangePeerInfo(
@@ -116,19 +114,6 @@ proc respond*(wpx: WakuPeerExchange, enrs: seq[enr.Record]): Future[WakuPeerExch
     return err(peerNotFoundFailure)
 
   return await wpx.respond(enrs, peerOpt.get())
-
-proc getEnrsDiscv5(px: WakuPeerExchange, numPeers: uint64): Future[WakuPeerExchangeResult[seq[enr.Record]]] {.async, gcsafe.} =
-  ## retrieves a set of randomly selected peer's ENRs (not using the cache)
-  if px.wakuDiscv5.isNone():
-    debug "discv5 not enabled: peer exchange peers cannot be retrieved via discv5"
-    return err(retrievePeersDiscv5Error)
-  var enrs: seq[enr.Record]
-  let discoveredPeers = await px.wakuDiscv5.get().findRandomPeers()
-  if discoveredPeers.isOk:
-    for dp in discoveredPeers.get():
-      if dp.enr.isSome():
-        enrs.add(dp.enr.get())
-  return ok(enrs)
 
 proc cleanCache(px: WakuPeerExchange) {.gcsafe.} =
   px.enrCache.delete(0, CacheCleanWindow-1)
@@ -182,8 +167,6 @@ proc init(px: WakuPeerExchange) =
     if rpc.request != PeerExchangeRequest():
       trace "peer exchange request received"
       let enrs = px.getEnrsFromCache(rpc.request.numPeers)
-      # let enrRes = await px.getEnrsDiscv5(3)
-      # let enrs = enrRes.get()
       discard await px.respond(enrs, conn.peerId)
       waku_px_peers_sent.inc(enrs.len().int64())
 

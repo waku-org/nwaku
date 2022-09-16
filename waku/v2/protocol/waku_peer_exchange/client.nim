@@ -7,4 +7,3 @@ import
   ../waku_message,
   ./rpc
 
-
