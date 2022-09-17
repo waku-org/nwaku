@@ -520,7 +520,7 @@ when defined(rlnzerokit):
 
   proc validateRoot*(rlnInstance: ptr RLN, proof: MerkleNode): RlnRelayResult[bool] =
     # Validate against the local merkle tree
-    let localTreeRoot = rlnInstance.getMerkleRoot()
+    let localTreeRoot = rln.getMerkleRoot()
     if not localTreeRoot.isOk():
       return err(localTreeRoot.error())
     if localTreeRoot.value() == merkleRoot:
