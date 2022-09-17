@@ -800,7 +800,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
       return MessageValidationResult.Invalid
 
   if not merkleRootIsValidRes.value():
-      debug "invalid message: received root does not match local root", received=msg.proof.merkleRoot, local=rlnInstance.getMerkleRoot().value()
+      debug "invalid message: received root does not match local root", payload = string.fromBytes(msg.payload)
       return MessageValidationResult.Invalid
 
   let proofVerificationRes = rlnPeer.rlnInstance.proofVerify(input, msg.proof)
