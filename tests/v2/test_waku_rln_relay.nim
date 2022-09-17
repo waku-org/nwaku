@@ -686,9 +686,8 @@ suite "Waku rln relay":
       validProofRes.isOk()
     let validProof = validProofRes.value
 
-    # verify the proof (should be verified)
-    let verified = rln.proofVerify(data = messageBytes,
-                                  proof = validProof)
+    # validate the root (should be true)
+    let verified = rln.validateRoot(validProof.merkleRoot)
 
     require:
       verified.isOk()
@@ -713,8 +712,7 @@ suite "Waku rln relay":
     # we try to verify a proof against this new merkle tree,
     # which should return false
     # Try to send a message constructed with an older root
-    let olderRootVerified = rln.proofVerify(data = messageBytes,
-                                            proof = validProof)
+    let olderRootVerified = rln.validateRoot(validProof.merkleRoot)
 
     require:
       olderRootVerified.isOk()

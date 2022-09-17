@@ -400,15 +400,14 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     var rootValue = cast[ptr MerkleNode] (root.`ptr`)[]
     return ok(rootValue)
 
-  proc validateRoot*(rlnInstance: RLN[Bn256], proof: RateLimitProof): RlnRelayResult[bool] =
+  proc validateRoot*(rlnInstance: RLN[Bn256], merkleRoot: MerkleNode): RlnRelayResult[bool] =
     # Validate against the local merkle tree
     let localTreeRoot = rlnInstance.getMerkleRoot()
     if not localTreeRoot.isOk():
       return err(localTreeRoot.error())
-    if localTreeRoot.value() == proof.merkleRoot:
+    if localTreeRoot.value() == merkleRoot:
       return ok(true)
     else:
-      trace "Local tree root does not match the root sent by peer", localTreeRoot=localTreeRoot, messageRoot=proof.merkleRoot
       return ok(false)
 
   proc proofVerify*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: RateLimitProof): RlnRelayResult[bool] =
@@ -417,14 +416,6 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
       proofBuffer = proofBytes.toBuffer()
       f = 0.uint32
     trace "serialized proof", proof = proofBytes.toHex()
-
-    let rootIsValid = validateRoot(rlnInstance, proof)
-
-    if rootIsValid.isErr():
-      return err(rootIsValid.error())
-
-    if not rootIsValid.value():
-      return ok(false)
 
     let verifyIsSuccessful = verify(rlnInstance, addr proofBuffer, addr f)
     if not verifyIsSuccessful:
@@ -527,15 +518,14 @@ when defined(rlnzerokit):
 
     return proofBytes
 
-  proc validateRoot*(rlnInstance: ptr RLN, proof: RateLimitProof): RlnRelayResult[bool] =
+  proc validateRoot*(rlnInstance: ptr RLN, proof: MerkleNode): RlnRelayResult[bool] =
     # Validate against the local merkle tree
     let localTreeRoot = rlnInstance.getMerkleRoot()
     if not localTreeRoot.isOk():
-      return err(localTreeRoot.err)
-    if localTreeRoot.value() == proof.merkleRoot:
+      return err(localTreeRoot.error())
+    if localTreeRoot.value() == merkleRoot:
       return ok(true)
     else:
-      trace "Local tree root does not match the root sent by peer", localTreeRoot=localTreeRoot, messageRoot=proof.merkleRoot
       return ok(false)
 
   proc proofVerify*(rlnInstance: ptr RLN, data: openArray[byte], proof: RateLimitProof): RlnRelayResult[bool] =
@@ -544,15 +534,6 @@ when defined(rlnzerokit):
       proofBuffer = proofBytes.toBuffer()
       validProof: bool
     trace "serialized proof", proof = proofBytes.toHex()
-
-    # Compare merkle tree roots for a valid proof
-    let rootIsValid = validateRoot(rlnInstance, proof)
-
-    if rootIsValid.isErr():
-      return err(rootIsValid.error())
-
-    if not rootIsValid.value():
-      return ok(false)
 
     let verifyIsSuccessful = verify(rlnInstance, addr proofBuffer, addr validProof)
     if not verifyIsSuccessful:
@@ -811,7 +792,18 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
   let
     contentTopicBytes = msg.contentTopic.toBytes
     input = concat(msg.payload, contentTopicBytes)
-    proofVerificationRes = rlnPeer.rlnInstance.proofVerify(input, msg.proof)
+  
+  let merkleRootIsValidRes = rlnPeer.rlnInstance.validateRoot(msg.proof.merkleRoot)
+
+  if merkleRootIsValidRes.isErr():
+      debug "invalid message: could not compute root"
+      return MessageValidationResult.Invalid
+
+  if not merkleRootIsValidRes.value():
+      debug "invalid message: received root does not match local root", received=msg.proof.merkleRoot, local=rlnInstance.getMerkleRoot().value()
+      return MessageValidationResult.Invalid
+
+  let proofVerificationRes = rlnPeer.rlnInstance.proofVerify(input, msg.proof)
 
   if proofVerificationRes.isErr():
     return MessageValidationResult.Invalid
