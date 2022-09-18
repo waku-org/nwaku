@@ -35,7 +35,8 @@ import
   ./wakunode2_types
 
 export
-  wakunode2_types
+  wakunode2_types,
+  peer_manager
 
 when defined(rln):
   import ../protocol/waku_rln_relay/waku_rln_relay_utils
