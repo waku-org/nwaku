@@ -151,7 +151,7 @@ proc getEnrsFromCache(px: WakuPeerExchange, numPeers: uint64): seq[enr.Record] {
     let ri = rand(0..<px.enrCache.len())
     result.add(px.enrCache[ri])
 
-proc init(px: WakuPeerExchange) =
+proc initProtocolHandler*(px: WakuPeerExchange) =
 
   proc handler(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     let message = await conn.readLp(MaxRpcSize.int)
@@ -200,7 +200,7 @@ proc init*(T: type WakuPeerExchange,
     peerManager: peerManager,
     wakuDiscv5: wakuDiscv5
   )
-  px.init()
+  px.initProtocolHandler()
   return px
 
 proc setPeer*(wpx: WakuPeerExchange, peer: RemotePeerInfo) =
