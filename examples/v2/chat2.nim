@@ -27,6 +27,7 @@ import   ../../waku/v2/protocol/waku_message,
          ../../waku/v2/protocol/waku_store,
          ../../waku/v2/node/[wakunode2, waku_payload],
          ../../waku/v2/node/dnsdisc/waku_dnsdisc,
+         ../../waku/v2/node/peer_manager/peer_manager,
          ../../waku/v2/utils/[peers, time],
          ../../waku/common/utils/nat,
          ./config_chat2

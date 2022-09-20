@@ -20,6 +20,7 @@ import
   ../v2/utils/time,
   ../v2/protocol/waku_message,
   ../v2/node/wakunode2,
+  ../v2/node/peer_manager/peer_manager,
   # Common cli config
   ./config_bridge
 

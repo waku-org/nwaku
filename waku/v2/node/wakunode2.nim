@@ -35,8 +35,7 @@ import
   ./wakunode2_types
 
 export
-  wakunode2_types,
-  peer_manager
+  wakunode2_types
 
 when defined(rln):
   import ../protocol/waku_rln_relay/waku_rln_relay_utils
@@ -1086,11 +1085,11 @@ when isMainModule:
         setFilterPeer(node, conf.filternode)
     
     # waku peer exchange setup
-    if (conf.pxNode != "") or (conf.wakuPeerExchange):
+    if (conf.peerExchangeNode != "") or (conf.peerExchange):
       waitFor mountWakuPeerExchange(node)
 
-      if conf.pxNode != "":
-        setPeerExchangePeer(node, conf.pxNode)
+      if conf.peerExchangeNode != "":
+        setPeerExchangePeer(node, conf.peerExchangeNode)
 
     ok(true) # Success
 
@@ -1122,9 +1121,10 @@ when isMainModule:
       waitFor connectToNodes(node, dynamicBootstrapNodes, "dynamic bootstrap")
 
     # retrieve and connect to peer exchange peers
-    if conf.pxNode != "":
+    if conf.peerExchangeNode != "":
       info "Retrieving peer info via peer exchange protocol"
-      discard waitFor node.wakuPeerExchange.request(6) # todo: relay mesh degree paramter
+      let desiredOutDegree = node.wakuRelay.parameters.d.uint64()
+      discard waitFor node.wakuPeerExchange.request(desiredOutDegree)
 
     # Start keepalive, if enabled
     if conf.keepAlive:
