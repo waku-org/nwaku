@@ -449,7 +449,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
     await node.mountSwap()
 
   if (conf.storenode != "") or (conf.store == true):
-    await node.mountStore(persistMessages = conf.persistMessages)
+    await node.mountStore()
 
     var storenode: Option[RemotePeerInfo]
 
