@@ -390,6 +390,17 @@ type
       defaultValue: 1
       name: "discv5-bits-per-hop" .}: int
 
+    ## waku peer exchange config
+    peerExchange* {.
+      desc: "Enable waku peer exchange protocol (responder side): true|false",
+      defaultValue: false
+      name: "peer-exchange" }: bool
+
+    peerExchangeNode* {.
+      desc: "Peer multiaddr to send peer exchange requests to. (enables peer exchange protocol requester side)",
+      defaultValue: ""
+      name: "peer-exchange-node" }: string
+
     ## websocket config
     websocketSupport* {.
       desc: "Enable websocket:  true|false",

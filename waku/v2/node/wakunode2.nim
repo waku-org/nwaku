@@ -20,7 +20,8 @@ import
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter,
   ../protocol/waku_lightpush,
-  ../protocol/waku_rln_relay/waku_rln_relay_types, 
+  ../protocol/waku_rln_relay/waku_rln_relay_types,
+  ../protocol/waku_peer_exchange,
   ../utils/[peers, requests, wakuenr],
   ./peer_manager/peer_manager,
   ./storage/message/waku_store_queue,
@@ -42,7 +43,6 @@ when defined(rln):
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicGauge waku_node_filters, "number of content filter subscriptions"
 declarePublicGauge waku_node_errors, "number of wakunode errors", ["type"]
-declarePublicCounter waku_node_conns_initiated, "number of connections initiated by this node", ["source"]
 
 logScope:
   topics = "wakunode"
@@ -564,6 +564,20 @@ proc mountLightPush*(node: WakuNode) {.async, raises: [Defect, LPError].} =
 
   node.switch.mount(node.wakuLightPush, protocolMatcher(WakuLightPushCodec))
 
+proc mountWakuPeerExchange*(node: WakuNode) {.async, raises: [Defect, LPError].} =
+  info "mounting waku peer exchange"
+
+  var discv5Opt: Option[WakuDiscoveryV5]
+  if not node.wakuDiscV5.isNil():
+    discv5Opt = some(node.wakuDiscV5)
+  node.wakuPeerExchange = WakuPeerExchange.init(node.peerManager, discv5Opt)
+
+  if node.started:
+    # Node has started already. Let's start Waku peer exchange too.
+    await node.wakuPeerExchange.start()
+
+  node.switch.mount(node.wakuPeerExchange, protocolMatcher(WakuPeerExchangeCodec))
+
 proc mountLibp2pPing*(node: WakuNode) {.async, raises: [Defect, LPError].} =
   info "mounting libp2p ping protocol"
 
@@ -611,22 +625,6 @@ proc startKeepalive*(node: WakuNode) =
 
   asyncSpawn node.keepaliveLoop(defaultKeepalive)
 
-## Helpers
-proc connectToNode(n: WakuNode, remotePeer: RemotePeerInfo, source = "api") {.async.} =
-  ## `source` indicates source of node addrs (static config, api call, discovery, etc)
-  info "Connecting to node", remotePeer = remotePeer, source = source
-  
-  # NOTE This is dialing on WakuRelay protocol specifically
-  info "Attempting dial", wireAddr = remotePeer.addrs[0], peerId = remotePeer.peerId
-  let connOpt = await n.peerManager.dialPeer(remotePeer, WakuRelayCodec)
-  
-  if connOpt.isSome():
-    info "Successfully connected to peer", wireAddr = remotePeer.addrs[0], peerId = remotePeer.peerId
-    waku_node_conns_initiated.inc(labelValues = [source])
-  else:
-    error "Failed to connect to peer", wireAddr = remotePeer.addrs[0], peerId = remotePeer.peerId
-    waku_node_errors.inc(labelValues = ["conn_init_failure"])
-
 proc setStorePeer*(n: WakuNode, peer: RemotePeerInfo) =
   n.wakuStore.setPeer(peer)
 
@@ -654,35 +652,18 @@ proc setLightPushPeer*(n: WakuNode, address: string) {.raises: [Defect, ValueErr
   let peer = parseRemotePeerInfo(address)
   n.wakuLightPush.setPeer(peer)
 
-proc connectToNodes*(n: WakuNode, nodes: seq[string], source = "api") {.async.} =
+proc setPeerExchangePeer*(n: WakuNode, address: string) {.raises: [Defect, ValueError, LPError].} =
+  info "Set peer exchange peer", address = address
+
+  let remotePeer = parseRemotePeerInfo(address)
+
+  n.wakuPeerExchange.setPeer(remotePeer)
+
+proc connectToNodes*(n: WakuNode, nodes: seq[RemotePeerInfo] | seq[string], source = "api") {.async.} =
   ## `source` indicates source of node addrs (static config, api call, discovery, etc)
-  info "connectToNodes", len = nodes.len
-  
-  for nodeId in nodes:
-    await connectToNode(n, parseRemotePeerInfo(nodeId), source)
+  # NOTE This is dialing on WakuRelay protocol specifically
+  await connectToNodes(n.peerManager, nodes, WakuRelayCodec, source)
 
-  # The issue seems to be around peers not being fully connected when
-  # trying to subscribe. So what we do is sleep to guarantee nodes are
-  # fully connected.
-  #
-  # This issue was known to Dmitiry on nim-libp2p and may be resolvable
-  # later.
-  await sleepAsync(5.seconds)
-
-proc connectToNodes*(n: WakuNode, nodes: seq[RemotePeerInfo], source = "api") {.async.} =
-  ## `source` indicates source of node addrs (static config, api call, discovery, etc)
-  info "connectToNodes", len = nodes.len
-  
-  for remotePeerInfo in nodes:
-    await connectToNode(n, remotePeerInfo, source)
-
-  # The issue seems to be around peers not being fully connected when
-  # trying to subscribe. So what we do is sleep to guarantee nodes are
-  # fully connected.
-  #
-  # This issue was known to Dmitiry on nim-libp2p and may be resolvable
-  # later.
-  await sleepAsync(5.seconds)
 
 proc runDiscv5Loop(node: WakuNode) {.async.} =
   ## Continuously add newly discovered nodes
@@ -933,7 +914,7 @@ when isMainModule:
         trace "resolving", domain=domain
         let resolved = await dnsResolver.resolveTxt(domain)
         return resolved[0] # Use only first answer
-      
+
       var wakuDnsDiscovery = WakuDnsDiscovery.init(conf.dnsDiscoveryUrl,
                                                    resolver)
       if wakuDnsDiscovery.isOk:
@@ -1107,6 +1088,13 @@ when isMainModule:
       if conf.filternode != "":
         setFilterPeer(node, conf.filternode)
     
+    # waku peer exchange setup
+    if (conf.peerExchangeNode != "") or (conf.peerExchange):
+      waitFor mountWakuPeerExchange(node)
+
+      if conf.peerExchangeNode != "":
+        setPeerExchangePeer(node, conf.peerExchangeNode)
+
     ok(true) # Success
 
   # 5/7 Start node and mounted protocols
@@ -1135,7 +1123,13 @@ when isMainModule:
     if dynamicBootstrapNodes.len > 0:
       info "Connecting to dynamic bootstrap peers"
       waitFor connectToNodes(node, dynamicBootstrapNodes, "dynamic bootstrap")
-    
+
+    # retrieve and connect to peer exchange peers
+    if conf.peerExchangeNode != "":
+      info "Retrieving peer info via peer exchange protocol"
+      let desiredOutDegree = node.wakuRelay.parameters.d.uint64()
+      discard waitFor node.wakuPeerExchange.request(desiredOutDegree)
+
     # Start keepalive, if enabled
     if conf.keepAlive:
       node.startKeepalive()
