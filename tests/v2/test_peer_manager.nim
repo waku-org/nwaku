@@ -104,7 +104,7 @@ procSuite "Peer Manager":
 
     await node.mountFilter()
     await node.mountSwap()
-    await node.mountStore(persistMessages = true)
+    await node.mountStore()
 
     node.wakuFilter.setPeer(filterPeer.toRemotePeerInfo())
     node.wakuSwap.setPeer(swapPeer.toRemotePeerInfo())
