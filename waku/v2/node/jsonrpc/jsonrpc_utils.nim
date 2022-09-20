@@ -4,10 +4,9 @@ import
   std/[options, json],
   eth/keys,
   ../../../v1/node/rpc/hexstrings,
-  ../../protocol/waku_store,
   ../../protocol/waku_message,
+  ../../protocol/waku_store,
   ../../utils/time,
-  ../../utils/pagination,
   ../waku_payload,
   ./jsonrpc_types
 

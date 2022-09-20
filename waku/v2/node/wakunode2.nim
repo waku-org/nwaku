@@ -25,7 +25,6 @@ import
   ../utils/[peers, requests, wakuenr],
   ./peer_manager/peer_manager,
   ./storage/message/waku_store_queue,
-  ./storage/message/message_store,
   ./storage/message/message_retention_policy,
   ./storage/message/message_retention_policy_capacity,
   ./storage/message/message_retention_policy_time,
@@ -819,7 +818,6 @@ when isMainModule:
     ./wakunode2_setup_rpc,
     ./wakunode2_setup_sql_migrations,
     ./storage/sqlite,
-    ./storage/message/message_store,
     ./storage/message/dual_message_store,
     ./storage/message/sqlite_store,
     ./storage/peer/waku_peer_storage

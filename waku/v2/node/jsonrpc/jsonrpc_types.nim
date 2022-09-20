@@ -4,7 +4,7 @@ import
   std/[options,tables],
   eth/keys,
   ../../protocol/waku_message,
-  ../../utils/pagination,
+  ../../protocol/waku_store/pagination,
   ../../utils/time
 
 type
