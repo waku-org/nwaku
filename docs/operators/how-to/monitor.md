@@ -14,14 +14,16 @@ For example, on a DebianOS distribution you could run
 
 ```bash
 wget https://github.com/prometheus/prometheus/releases/download/v2.38.0/prometheus-2.38.0.linux-amd64.tar.gz
-tar xvfz prometheus-*.tar.gz
+tar xvfz prometheus-2.38.0.linux-amd64.tar.gz
 ```
 
 For more advanced installations,
 Prometheus has a handy [Getting Started](https://prometheus.io/docs/prometheus/latest/getting_started/) page to guide you through the process.
 There are also many third party guides on installing Prometheus for specific distributions,
 such as [this old but still relevant one](https://www.digitalocean.com/community/tutorials/how-to-install-prometheus-on-ubuntu-16-04) from DigitalOcean.
-Bear in mind that we'll be creating our own `prometheus.yml` configuration file later on when you encounter this in the guides.
+We also suggest running Prometheus as a service,
+as explained by [this guide](https://www.devopsschool.com/blog/how-to-run-prometheus-server-as-a-service/).
+Bear in mind that we'll be creating our own `prometheus.yml` configuration file later on when you encounter this in any of the guides.
 
 ### Installing Grafana
 
