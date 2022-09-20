@@ -15,7 +15,7 @@ type
   StorePagingOptions* = object
     ## This type holds some options for pagination
     pageSize*: uint64
-    cursor*: Option[Index]
+    cursor*: Option[PagingIndex]
     forward*: bool
 
   WakuRelayMessage* = object

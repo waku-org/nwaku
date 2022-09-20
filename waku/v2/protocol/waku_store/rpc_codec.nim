@@ -15,7 +15,7 @@ import
 const MaxRpcSize* = MaxPageSize * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
 
 
-proc encode*(index: Index): ProtoBuffer =
+proc encode*(index: PagingIndex): ProtoBuffer =
   ## Encode an Index object into a ProtoBuffer
   ## returns the resultant ProtoBuffer
 
@@ -28,9 +28,9 @@ proc encode*(index: Index): ProtoBuffer =
 
   return output
 
-proc init*(T: type Index, buffer: seq[byte]): ProtoResult[T] =
+proc init*(T: type PagingIndex, buffer: seq[byte]): ProtoResult[T] =
   ## creates and returns an Index object out of buffer
-  var index = Index()
+  var index = PagingIndex()
   let pb = initProtoBuffer(buffer)
 
   var data: seq[byte]
@@ -80,7 +80,7 @@ proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
 
   var cursorBuffer: seq[byte]
   discard ?pb.getField(2, cursorBuffer)
-  pagingInfo.cursor = ?Index.init(cursorBuffer)
+  pagingInfo.cursor = ?PagingIndex.init(cursorBuffer)
 
   var direction: uint32
   discard ?pb.getField(3, direction)

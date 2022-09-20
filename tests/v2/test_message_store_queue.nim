@@ -399,7 +399,7 @@ procSuite "Sorted store queue":
 
     proc predicate(i: IndexedWakuMessage): bool = true # no filtering
 
-    let cursor = Index(receiverTime: Timestamp(3), senderTime: Timestamp(3), digest: MDigest[256]())
+    let cursor = PagingIndex(receiverTime: Timestamp(3), senderTime: Timestamp(3), digest: MDigest[256]())
     let pagingInfo = PagingInfo(pageSize: 3, cursor: cursor, direction: PagingDirection.FORWARD)
 
     ## When
@@ -423,7 +423,7 @@ procSuite "Sorted store queue":
 
     proc predicate(i: IndexedWakuMessage): bool = true # no filtering
 
-    let cursor = Index(receiverTime: Timestamp(3), senderTime: Timestamp(3), digest: MDigest[256]())
+    let cursor = PagingIndex(receiverTime: Timestamp(3), senderTime: Timestamp(3), digest: MDigest[256]())
     let pagingInfo = PagingInfo(pageSize: 3, cursor: cursor, direction: PagingDirection.BACKWARD)
 
     ## When
