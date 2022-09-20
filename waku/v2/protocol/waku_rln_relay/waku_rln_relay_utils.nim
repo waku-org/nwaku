@@ -788,22 +788,21 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
         payload = string.fromBytes(msg.payload)
     return MessageValidationResult.Invalid
 
-  # verify the proof
-  let
-    contentTopicBytes = msg.contentTopic.toBytes
-    input = concat(msg.payload, contentTopicBytes)
-  
   let merkleRootIsValidRes = rlnPeer.rlnInstance.validateRoot(msg.proof.merkleRoot)
 
   if merkleRootIsValidRes.isErr():
-      debug "invalid message: could not compute root"
+      debug "invalid message: could not validate the root"
       return MessageValidationResult.Invalid
 
   if not merkleRootIsValidRes.value():
       debug "invalid message: received root does not match local root", payload = string.fromBytes(msg.payload)
       return MessageValidationResult.Invalid
 
-  let proofVerificationRes = rlnPeer.rlnInstance.proofVerify(input, msg.proof)
+  # verify the proof
+  let
+    contentTopicBytes = msg.contentTopic.toBytes
+    input = concat(msg.payload, contentTopicBytes)
+    proofVerificationRes = rlnPeer.rlnInstance.proofVerify(input, msg.proof)
 
   if proofVerificationRes.isErr():
     return MessageValidationResult.Invalid
