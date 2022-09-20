@@ -17,6 +17,9 @@ logScope:
   topics = "message_store.storequeue"
 
 
+const StoreQueueDefaultMaxCapacity* = 25_000
+
+
 type 
   IndexedWakuMessage* = object
     # TODO may need to rename this object as it holds both the index and the pubsub topic of a waku message
@@ -239,7 +242,7 @@ proc bwdPage(storeQueue: StoreQueueRef,
 
 #### API
 
-proc new*(T: type StoreQueueRef, capacity: int = StoreDefaultCapacity): T =
+proc new*(T: type StoreQueueRef, capacity: int = StoreQueueDefaultMaxCapacity): T =
   var items = SortedSet[Index, IndexedWakuMessage].init()
   return StoreQueueRef(items: items, capacity: capacity)
 
@@ -356,8 +359,8 @@ proc getPage*(storeQueue: StoreQueueRef,
   let
     cursorOpt = if pagingInfo.cursor == Index(): none(Index) ## TODO: pagingInfo.cursor should be an Option. We shouldn't rely on empty initialisation to determine if set or not!
                 else: some(pagingInfo.cursor)
-    maxPageSize = if pagingInfo.pageSize <= 0: StoreMaxPageSize 
-                  else: min(pagingInfo.pageSize, StoreMaxPageSize)
+    maxPageSize = if pagingInfo.pageSize <= 0: MaxPageSize 
+                  else: min(pagingInfo.pageSize, MaxPageSize)
   
   case pagingInfo.direction
     of PagingDirection.FORWARD:
@@ -383,7 +386,7 @@ method getMessagesByHistoryQuery*(
   cursor = none(Index),
   startTime = none(Timestamp),
   endTime = none(Timestamp),
-  maxPageSize = StoreMaxPageSize,
+  maxPageSize = MaxPageSize,
   ascendingOrder = true
 ): MessageStoreResult[MessageStorePage] =
 

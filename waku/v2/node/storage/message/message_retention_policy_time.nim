@@ -14,6 +14,9 @@ logScope:
   topics = "message_store.sqlite_store.retention_policy.time"
 
 
+const StoreDefaultRetentionTime*: int64 = 30.days.seconds
+
+
 type TimeRetentionPolicy* = ref object of MessageRetentionPolicy
       retentionTime: chronos.Duration
 

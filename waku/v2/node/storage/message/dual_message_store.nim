@@ -22,7 +22,7 @@ type DualMessageStore* = ref object of MessageStore
     persistent: SqliteStore
 
 
-proc init*(T: type DualMessageStore, db: SqliteDatabase, capacity=StoreDefaultCapacity): MessageStoreResult[T] = 
+proc init*(T: type DualMessageStore, db: SqliteDatabase, capacity: int): MessageStoreResult[T] = 
   let 
     inmemory = StoreQueueRef.new(capacity)
     persistent = ?SqliteStore.init(db)
@@ -60,7 +60,7 @@ method getMessagesByHistoryQuery*(
   cursor = none(Index),
   startTime = none(Timestamp),
   endTime = none(Timestamp),
-  maxPageSize = StoreMaxPageSize,
+  maxPageSize = MaxPageSize,
   ascendingOrder = true
 ): MessageStoreResult[MessageStorePage] =
   s.inmemory.getMessagesByHistoryQuery(contentTopic, pubsubTopic, cursor, startTime, endTime, maxPageSize, ascendingOrder)
