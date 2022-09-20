@@ -26,6 +26,9 @@ const
   DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
 
 
+proc now(): Timestamp =
+  getNanosecondTime(getTime().toUnixFloat())
+
 proc newTestDatabase(): SqliteDatabase =
   SqliteDatabase.init("", inMemory = true).tryGet()
 
@@ -48,21 +51,11 @@ proc newTestSwitch(key=none(PrivateKey), address=none(MultiAddress)): Switch =
   let peerAddr = address.get(MultiAddress.init("/ip4/127.0.0.1/tcp/0").get()) 
   return newStandardSwitch(some(peerKey), addrs=peerAddr)
 
+proc newTestStore(): MessageStore =
+  let database = newTestDatabase()
+  SqliteStore.init(database).tryGet()
 
-proc newTestWakuStore(switch: Switch): WakuStore =
-  let
-    peerManager = PeerManager.new(switch)
-    rng = crypto.newRng()
-    database = newTestDatabase()
-    store = SqliteStore.init(database).tryGet()
-    proto = WakuStore.init(peerManager, rng, store)
-
-  waitFor proto.start()
-  switch.mount(proto)
-
-  return proto
-
-proc newTestWakuStore(switch: Switch, store: MessageStore): WakuStore =
+proc newTestWakuStore(switch: Switch, store=newTestStore()): WakuStore =
   let
     peerManager = PeerManager.new(switch)
     rng = crypto.newRng()
@@ -73,8 +66,7 @@ proc newTestWakuStore(switch: Switch, store: MessageStore): WakuStore =
 
   return proto
 
-
-suite "Waku Store":
+suite "Waku Store - history query":
   
   asyncTest "handle query":
     ## Setup
@@ -335,7 +327,7 @@ suite "Waku Store":
       ]
 
     for msg in msgList:
-      serverProto.handleMessage("foo", msg)
+      require serverProto.store.put(DefaultPubsubTopic, msg).isOk()
 
     ## When
     let rpc = HistoryQuery(
@@ -387,7 +379,7 @@ suite "Waku Store":
       ]
 
     for msg in msgList:
-      serverProto.handleMessage("foo", msg)
+      require serverProto.store.put(DefaultPubsubTopic, msg).isOk()
 
     ## When
     let rpc = HistoryQuery(
@@ -439,7 +431,7 @@ suite "Waku Store":
       ]
 
     for msg in msgList:
-      serverProto.handleMessage("foo", msg)
+      require serverProto.store.put(DefaultPubsubTopic, msg).isOk()
 
     ## When
     let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)])
@@ -461,11 +453,35 @@ suite "Waku Store":
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitch.stop())
 
-  asyncTest "handle ephemeral messages":
+suite "Waku Store - message handling":
+
+  asyncTest "it should store a valid and non-ephemeral message":
+    ## Setup
+    let store = StoreQueueRef.new(5)
+    let switch = newTestSwitch()
+    let proto = newTestWakuStore(switch, store)
+
+    ## Given
+    let validSenderTime = now()
+    let message = fakeWakuMessage(ephemeral=false, ts=validSenderTime)
+    
+    ## When
+    proto.handleMessage(DefaultPubSubTopic, message)
+    
+    ## Then
+    check:
+      store.getMessagesCount().tryGet() == 1
+
+    ## Cleanup
+    await switch.stop()
+
+  asyncTest "it should not store an ephemeral message":
     ## Setup
     let store = StoreQueueRef.new(10)
     let switch = newTestSwitch()
     let proto = newTestWakuStore(switch, store)
+    
+    ## Given
     let msgList = @[ 
       fakeWakuMessage(ephemeral = false, payload = "1"),
       fakeWakuMessage(ephemeral = true, payload = "2"),
@@ -474,11 +490,79 @@ suite "Waku Store":
       fakeWakuMessage(ephemeral = false, payload = "5"),
     ]
 
+    ## When
     for msg in msgList:
       proto.handleMessage(DefaultPubsubTopic, msg)
 
+    ## Then
     check: 
       store.len == 2
+
+    ## Cleanup
+    await switch.stop()
+
+  asyncTest "it should store a message with no sender timestamp":
+    ## Setup
+    let store = StoreQueueRef.new(5)
+    let switch = newTestSwitch()
+    let proto = newTestWakuStore(switch, store)
+
+    ## Given
+    let invalidSenderTime = 0
+    let message = fakeWakuMessage(ts=invalidSenderTime)
+    
+    ## When
+    proto.handleMessage(DefaultPubSubTopic, message)
+    
+    ## Then
+    check:
+      store.getMessagesCount().tryGet() == 1
+
+    ## Cleanup
+    await switch.stop()
+
+  asyncTest "it should not store a message with a sender time variance greater than max time variance (future)":
+    ## Setup
+    let store = StoreQueueRef.new(5)
+    let switch = newTestSwitch()
+    let proto = newTestWakuStore(switch, store)
+
+    ## Given
+    let
+      now = getNanoSecondTime(getTime().toUnixFloat())
+      invalidSenderTime = now + MaxMessageTimestampVariance + 1
+    
+    let message = fakeWakuMessage(ts=invalidSenderTime)
+    
+    ## When
+    proto.handleMessage(DefaultPubSubTopic, message)
+    
+    ## Then
+    check:
+      store.getMessagesCount().tryGet() == 0
+    
+    ## Cleanup
+    await switch.stop()
+  
+  asyncTest "it should not store a message with a sender time variance greater than max time variance (past)":
+    ## Setup
+    let store = StoreQueueRef.new(5)
+    let switch = newTestSwitch()
+    let proto = newTestWakuStore(switch, store)
+
+    ## Given
+    let
+      now = getNanoSecondTime(getTime().toUnixFloat())
+      invalidSenderTime = now - MaxMessageTimestampVariance - 1
+    
+    let message = fakeWakuMessage(ts=invalidSenderTime)
+    
+    ## When
+    proto.handleMessage(DefaultPubSubTopic, message)
+    
+    ## Then
+    check:
+      store.getMessagesCount().tryGet() == 0
 
     ## Cleanup
     await switch.stop()
@@ -529,7 +613,7 @@ procSuite "Waku Store - fault tolerant store":
     ]
 
     for msg in msgList:
-      proto.handleMessage(DefaultPubsubTopic, msg)
+      require proto.store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
     let (listenSwitch2, dialSwitch2, proto2) = await newTestWakuStore()
     let msgList2 = @[
@@ -544,7 +628,7 @@ procSuite "Waku Store - fault tolerant store":
     ]
 
     for msg in msgList2:
-      proto2.handleMessage(DefaultPubsubTopic, msg)
+      require proto2.store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
     
     asyncTest "handle temporal history query with a valid time window":

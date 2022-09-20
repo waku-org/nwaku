@@ -59,8 +59,7 @@ suite "message store - history query":
     ]
 
     for msg in messages:
-      let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      require store.put(index, msg, DefaultPubsubTopic).isOk()
+      require store.put(DefaultPubsubTopic, msg).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -108,8 +107,7 @@ suite "message store - history query":
     ]
 
     for msg in messages:
-      let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      require store.put(index, msg, DefaultPubsubTopic).isOk()
+      require store.put(DefaultPubsubTopic, msg).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -159,8 +157,7 @@ suite "message store - history query":
     ]
 
     for msg in messages:
-      let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      require store.put(index, msg, DefaultPubsubTopic).isOk()
+      require store.put(DefaultPubsubTopic, msg).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -203,8 +200,7 @@ suite "message store - history query":
       fakeWakuMessage("MSG-02", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 3),
     ]
     for msg in messages1:
-      let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      require store.put(index, msg, DefaultPubsubTopic).isOk()
+      require store.put(DefaultPubsubTopic, msg).isOk()
       
 
     let messages2 = @[
@@ -214,8 +210,7 @@ suite "message store - history query":
       fakeWakuMessage("MSG-06", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 7),
     ]
     for msg in messages2:
-      let index = Index.compute(msg, msg.timestamp, pubsubTopic)
-      require store.put(index, msg, pubsubTopic).isOk()
+      require store.put(pubsubTopic, msg).isOk()
      
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -264,8 +259,7 @@ suite "message store - history query":
     ]
 
     for msg in messages:
-      let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      require store.put(index, msg, DefaultPubsubTopic).isOk()
+      require store.put(DefaultPubsubTopic, msg).isOk()
 
     let cursor = Index.compute(messages[4], messages[4].timestamp, DefaultPubsubTopic)
     
@@ -316,8 +310,7 @@ suite "message store - history query":
     ]
 
     for msg in messages:
-      let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      require store.put(index, msg, DefaultPubsubTopic).isOk()
+      require store.put(DefaultPubsubTopic, msg).isOk()
 
     let cursor = Index.compute(messages[6], messages[6].timestamp, DefaultPubsubTopic)
     
@@ -363,8 +356,7 @@ suite "message store - history query":
       fakeWakuMessage("MSG-03", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 4),
     ]
     for msg in messages1:
-      let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      require store.put(index, msg, DefaultPubsubTopic).isOk()
+      require store.put(DefaultPubsubTopic, msg).isOk()
 
     let messages2 = @[
       fakeWakuMessage("MSG-04", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 5),
@@ -372,8 +364,7 @@ suite "message store - history query":
       fakeWakuMessage("MSG-06", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 7),
     ]
     for msg in messages2:
-      let index = Index.compute(msg, msg.timestamp, pubsubTopic)
-      require store.put(index, msg, pubsubTopic).isOk()
+      require store.put(pubsubTopic, msg).isOk()
 
     let cursor = Index.compute(messages2[0], messages2[0].timestamp, DefaultPubsubTopic)
     
@@ -420,8 +411,7 @@ suite "message store - history query":
     ]
 
     for msg in messages:
-      let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      require store.put(index, msg, DefaultPubsubTopic).isOk()
+      require store.put(DefaultPubsubTopic, msg).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -462,8 +452,8 @@ suite "message store - history query":
     ]
 
     for msg in messages:
-      let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      require store.put(index, msg, DefaultPubsubTopic).isOk()
+      let digest = computeDigest(msg)
+      require store.put(DefaultPubsubTopic, msg, digest, msg.timestamp).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -474,6 +464,7 @@ suite "message store - history query":
       ascendingOrder=true
     )
 
+    ## Then
     check:
       res.isOk()
 
@@ -508,8 +499,8 @@ suite "message store - history query":
     ]
 
     for msg in messages:
-      let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      require store.put(index, msg, DefaultPubsubTopic).isOk()
+      let digest = computeDigest(msg)
+      require store.put(DefaultPubsubTopic, msg, digest, msg.timestamp).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -550,8 +541,8 @@ suite "message store - history query":
     ]
 
     for msg in messages:
-      let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      require store.put(index, msg, DefaultPubsubTopic).isOk()
+      let digest = computeDigest(msg)
+      require store.put(DefaultPubsubTopic, msg, digest, msg.timestamp).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -596,8 +587,8 @@ suite "message store - history query":
     ]
 
     for msg in messages:
-      let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      require store.put(index, msg, DefaultPubsubTopic).isOk()
+      let digest = computeDigest(msg)
+      require store.put(DefaultPubsubTopic, msg, digest, msg.timestamp).isOk()
 
     let cursor = Index.compute(messages[3], messages[3].timestamp, DefaultPubsubTopic)
 

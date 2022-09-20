@@ -73,7 +73,7 @@ procSuite "WakuNode - Store":
 
     ## Given
     let message = fakeWakuMessage()
-    server.wakuStore.handleMessage(DefaultPubsubTopic, message)
+    require server.wakuStore.store.put(DefaultPubsubTopic, message).isOk()
 
     ## When
     let req = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)])
@@ -162,7 +162,7 @@ procSuite "WakuNode - Store":
 
     ## Given
     let message = fakeWakuMessage()
-    server.wakuStore.handleMessage(DefaultPubsubTopic, message)
+    require server.wakuStore.store.put(DefaultPubsubTopic, message).isOk()
 
     ## When
     await client.resume()
@@ -196,13 +196,15 @@ procSuite "WakuNode - Store":
       msg2 = fakeWakuMessage(payload="hello world2", ts=(timeOrigin + getNanoSecondTime(2)))
       msg3 = fakeWakuMessage(payload="hello world3", ts=(timeOrigin + getNanoSecondTime(3)))
 
-    server.wakuStore.handleMessage(DefaultTopic, msg1)
-    server.wakuStore.handleMessage(DefaultTopic, msg2)
+    require server.wakuStore.store.put(DefaultTopic, msg1).isOk()
+    require server.wakuStore.store.put(DefaultTopic, msg2).isOk()
 
     # Insert the same message in both node's store
-    let index3 = Index.compute(msg3, getNanosecondTime(getTime().toUnixFloat() + 10.float), DefaultTopic)
-    require server.wakuStore.store.put(index3, msg3, DefaultTopic).isOk()
-    require client.wakuStore.store.put(index3, msg3, DefaultTopic).isOk()
+    let 
+      receivedTime3 = getNanosecondTime(getTime().toUnixFloat() + 10.float)
+      digest3 = computeDigest(msg3)
+    require server.wakuStore.store.put(DefaultTopic, msg3, digest3, receivedTime3).isOk()
+    require client.wakuStore.store.put(DefaultTopic, msg3, digest3, receivedTime3).isOk()
 
     ## When
     await client.resume()

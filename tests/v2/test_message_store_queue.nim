@@ -88,34 +88,6 @@ procSuite "Sorted store queue":
     check:
       store.len == capacity
 
-  test "Sender time can't be more than MaxTimeVariance in future":
-    ## Given
-    let capacity = 5
-    let store = StoreQueueRef.new(capacity)
-    let
-      receiverTime = getNanoSecondTime(10)
-      senderTimeOk = receiverTime + StoreMaxTimeVariance
-      senderTimeErr = senderTimeOk + 1
-    
-    let invalidMessage = IndexedWakuMessage(
-      msg: WakuMessage(
-        payload: @[byte 1], 
-        timestamp: senderTimeErr
-      ),
-      index: Index(
-        receiverTime: receiverTime, 
-        senderTime: senderTimeErr
-      )
-    )
-    
-    ## When
-    let addRes = store.add(invalidMessage)
-    
-    ## Then
-    check:
-      addRes.isErr()
-      addRes.error() == "future_sender_timestamp"
-    
   test "Store queue sort-on-insert works":    
     ## Given
     let

@@ -3,10 +3,9 @@
 {.push raises: [Defect].}
 
 import 
-  std/[options, tables, sequtils, algorithm],
+  std/[options, tables, sequtils, algorithm, times],
   stew/[byteutils, results],
-  chronicles,
-  chronos
+  chronicles
 import
   ../../../../protocol/waku_message,
   ../../../../utils/pagination,
@@ -62,16 +61,12 @@ proc close*(s: SqliteStore) =
   s.db.close()
 
 
-method put*(s: SqliteStore, cursor: Index, message: WakuMessage, pubsubTopic: string): MessageStoreResult[void] =
+method put*(s: SqliteStore, pubsubTopic: string, message: WakuMessage, digest: MessageDigest, receivedTime: Timestamp): MessageStoreResult[void] =
   ## Inserts a message into the store
 
-  # Ensure that messages don't "jump" to the front with future timestamps
-  if cursor.senderTime - cursor.receiverTime > StoreMaxTimeVariance:
-    return err("future_sender_timestamp")
-
   let res = s.insertStmt.exec((
-    @(cursor.digest.data),         # id
-    cursor.receiverTime,           # receiverTimestamp
+    @(digest.data),                # id
+    receivedTime,                  # receiverTimestamp
     toBytes(message.contentTopic), # contentTopic 
     message.payload,               # payload
     toBytes(pubsubTopic),          # pubsubTopic 
@@ -82,6 +77,10 @@ method put*(s: SqliteStore, cursor: Index, message: WakuMessage, pubsubTopic: st
     return err("message insert failed: " & res.error())
 
   ok()
+
+method put*(s: SqliteStore, pubsubTopic: string, message: WakuMessage): MessageStoreResult[void] =
+  ## Inserts a message into the store
+  procCall MessageStore(s).put(pubsubTopic, message)
 
 
 method getAllMessages*(s: SqliteStore):  MessageStoreResult[seq[MessageStoreRow]] =
