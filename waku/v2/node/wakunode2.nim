@@ -759,20 +759,10 @@ proc start*(node: WakuNode) {.async.} =
   ## Update switch peer info with announced addrs
   node.updateSwitchPeerInfo()
 
-  # Start mounted protocols. For now we start each one explicitly
+  # Perform relay-specific startup tasks TODO: this should be rethought
   if not node.wakuRelay.isNil:
     await node.startRelay()
-  if not node.wakuStore.isNil:
-    await node.wakuStore.start()
-  if not node.wakuFilter.isNil:
-    await node.wakuFilter.start()
-  if not node.wakuLightPush.isNil:
-    await node.wakuLightPush.start()
-  if not node.wakuSwap.isNil:
-    await node.wakuSwap.start()
-  if not node.libp2pPing.isNil:
-    await node.libp2pPing.start()
-  
+
   await node.switch.start()
   node.started = true
   
