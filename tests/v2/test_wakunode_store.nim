@@ -12,13 +12,13 @@ import
   libp2p/switch,
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
-  libp2p/protocols/pubsub/gossipsub,
-  eth/keys
+  libp2p/protocols/pubsub/gossipsub
 import
   ../../waku/v2/node/storage/sqlite,
+  ../../waku/v2/node/storage/message/message_store,
   ../../waku/v2/node/storage/message/sqlite_store,
   ../../waku/v2/node/storage/message/waku_store_queue,
-  ../../waku/v2/protocol/[waku_relay, waku_message],
+  ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/node/peer_manager/peer_manager,
@@ -27,29 +27,32 @@ import
   ../../waku/v2/utils/time,
   ../../waku/v2/node/wakunode2
 
-from std/times import epochTime
+from std/times import getTime, toUnixFloat
+
+proc newTestMessageStore(): MessageStore =
+  let database = SqliteDatabase.init("", inMemory = true)[]
+  SqliteStore.init(database).tryGet()
 
 
 procSuite "WakuNode - Store":
-  let rng = keys.newRng()
+  let rng = crypto.newRng()
  
   asyncTest "Store protocol returns expected message":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        Port(60000))
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
-        Port(60002))
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
+    let
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
 
     var completionFut = newFuture[bool]()
 
     await node1.start()
-    await node1.mountStore(persistMessages = true)
+    await node1.mountStore(store=newTestMessageStore())
     await node2.start()
-    await node2.mountStore(persistMessages = true)
+    await node2.mountStore(store=newTestMessageStore())
 
     await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
 
@@ -88,11 +91,11 @@ procSuite "WakuNode - Store":
       storeComplFut = newFuture[bool]()
 
     await node1.start()
-    await node1.mountStore(persistMessages = true)
+    await node1.mountStore(store=newTestMessageStore())
     await node1.mountFilter()
 
     await node2.start()
-    await node2.mountStore(persistMessages = true)
+    await node2.mountStore(store=newTestMessageStore())
     await node2.mountFilter()
 
     node2.wakuFilter.setPeer(node1.switch.peerInfo.toRemotePeerInfo())
@@ -142,9 +145,9 @@ procSuite "WakuNode - Store":
       message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
 
     await node1.start()
-    await node1.mountStore(persistMessages = true)
+    await node1.mountStore(store=newTestMessageStore())
     await node2.start()
-    await node2.mountStore(persistMessages = true)
+    await node2.mountStore(store=StoreQueueRef.new())
 
     await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
 
@@ -156,61 +159,44 @@ procSuite "WakuNode - Store":
 
     check:
       # message is correctly stored
-      node1.wakuStore.messages.len == 1
+      node1.wakuStore.store.getMessagesCount().tryGet() == 1
 
     await node1.stop()
     await node2.stop()
 
   asyncTest "Resume proc discards duplicate messages":
+    let timeOrigin = getNanosecondTime(getTime().toUnixFloat())
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
+      client = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      server = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
 
     let 
       contentTopic = ContentTopic("/waku/2/default-content/proto")
-      msg1 = WakuMessage(payload: "hello world1".toBytes(), contentTopic: contentTopic, timestamp: 1)
-      msg2 = WakuMessage(payload: "hello world2".toBytes(), contentTopic: contentTopic, timestamp: 2)
+      msg1 = WakuMessage(payload: "hello world1".toBytes(), contentTopic: contentTopic, timestamp: timeOrigin + 1)
+      msg2 = WakuMessage(payload: "hello world2".toBytes(), contentTopic: contentTopic, timestamp: timeOrigin + 2)
+      msg3 = WakuMessage(payload: "hello world3".toBytes(), contentTopic: contentTopic, timestamp: timeOrigin + 3)
 
-    # setup sqlite database for node1
-    let
-      database = SqliteDatabase.init("", inMemory = true)[]
-      store = SqliteStore.init(database).tryGet()
+    await allFutures(client.start(), server.start())
+    await client.mountStore(store=StoreQueueRef.new())
+    await server.mountStore(store=StoreQueueRef.new())
 
-    await node1.start()
-    await node1.mountStore(persistMessages = true, store = store)
-    await node2.start()
-    await node2.mountStore(persistMessages = true)
+    await server.wakuStore.handleMessage(DefaultTopic, msg1)
+    await server.wakuStore.handleMessage(DefaultTopic, msg2)
 
-    await node2.wakuStore.handleMessage(DefaultTopic, msg1)
-    await node2.wakuStore.handleMessage(DefaultTopic, msg2)
+    client.wakuStore.setPeer(server.switch.peerInfo.toRemotePeerInfo())
 
-    await sleepAsync(500.millis)
-
-    node1.wakuStore.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
-
-
-    # populate db with msg1 to be a duplicate
-    let index1 = Index.compute(msg1, getNanosecondTime(epochTime()), DefaultTopic)
-    let output1 = store.put(index1, msg1, DefaultTopic)
-    check output1.isOk
-    discard node1.wakuStore.messages.put(index1, msg1, DefaultTopic)
+    # Insert the same message in both node's store
+    let index3 = Index.compute(msg3, getNanosecondTime(getTime().toUnixFloat() + 10.float), DefaultTopic)
+    require server.wakuStore.store.put(index3, msg3, DefaultTopic).isOk()
+    require client.wakuStore.store.put(index3, msg3, DefaultTopic).isOk()
 
     # now run the resume proc
-    await node1.resume()
-
-    # count the total number of retrieved messages from the database
-    let res = store.getAllMessages()
-    check:
-      res.isOk()
+    await client.resume()
 
     check:
-      # if the duplicates are discarded properly, then the total number of messages after resume should be 2
-      # check no duplicates is in the messages field
-      node1.wakuStore.messages.len == 2
-      # check no duplicates is in the db
-      res.value.len == 2
+      # If the duplicates are discarded properly, then the total number of messages after resume should be 3
+      client.wakuStore.store.getMessagesCount().tryGet() == 3
 
-    await node1.stop()
-    await node2.stop()
+    await allFutures(client.stop(), server.stop())

@@ -58,6 +58,7 @@ const MaxRpcSize = StoreMaxPageSize * MaxWakuMessageSize + 64*1024 # We add a 64
 # Error types (metric label values)
 const
   insertFailure = "insert_failure"
+  retPolicyFailure = "retpolicy_failure"
   dialFailure = "dial_failure"
   decodeRpcFailure = "decode_rpc_failure"
   peerNotFoundFailure = "peer_not_found_failure"
@@ -69,17 +70,28 @@ type
   WakuStore* = ref object of LPProtocol
     peerManager*: PeerManager
     rng*: ref rand.HmacDrbgContext
-    messages*: StoreQueueRef # in-memory message store
-    store*: MessageStore  # sqlite DB handle
+    store*: MessageStore
     wakuSwap*: WakuSwap
-    persistMessages*: bool
-    #TODO: SqliteStore currenly also holds isSqliteOnly; put it in single place.
-    isSqliteOnly: bool # if true, don't use in memory-store and answer history queries from the sqlite DB
     retentionPolicy: Option[MessageRetentionPolicy]
 
 
-proc reportMessagesCountMetric(store: MessageStore) = 
-  let resCount = store.getMessagesCount()
+proc executeMessageRetentionPolicy*(w: WakuStore): WakuStoreResult[void] =
+  if w.retentionPolicy.isNone():
+    return ok()
+
+  let policy = w.retentionPolicy.get()
+
+  if w.store.isNil():
+    return err("no message store provided (nil)")
+
+  policy.execute(w.store)
+
+
+proc reportStoredMessagesMetric*(w: WakuStore) = 
+  if w.store.isNil():
+    return
+
+  let resCount = w.store.getMessagesCount()
   if resCount.isErr():
     return
 
@@ -104,23 +116,10 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse {.gcsafe.}
     qMaxPageSize = query.pagingInfo.pageSize
     qAscendingOrder = query.pagingInfo.direction == PagingDirection.FORWARD
 
-  let queryStartTime = getTime().toUnixFloat()
 
-  let queryRes = block:
-    # TODO: Move this logic, together with the insert message logic and load messages on boot
-    #       into a "dual-store" message store implementation.
-    if w.isSqliteOnly: 
-      w.store.getMessagesByHistoryQuery(
-        contentTopic = qContentTopics,
-        pubsubTopic = qPubSubTopic,
-        cursor = qCursor,
-        startTime = qStartTime,
-        endTime = qEndTime,
-        maxPageSize = qMaxPageSize,
-        ascendingOrder = qAscendingOrder
-      )
-    else:
-      w.messages.getMessagesByHistoryQuery(
+  let queryStartTime = getTime().toUnixFloat()
+  
+  let queryRes = w.store.getMessagesByHistoryQuery(
         contentTopic = qContentTopics,
         pubsubTopic = qPubSubTopic,
         cursor = qCursor,
@@ -147,8 +146,8 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse {.gcsafe.}
     error: HistoryResponseError.NONE
   )
 
-proc init*(ws: WakuStore, capacity = StoreDefaultCapacity) =
-
+proc initProtocolHandler*(ws: WakuStore) =
+  
   proc handler(conn: Connection, proto: string) {.async.} =
     let buf = await conn.readLp(MaxRpcSize.int)
 
@@ -163,7 +162,9 @@ proc init*(ws: WakuStore, capacity = StoreDefaultCapacity) =
     info "received history query", peerId=conn.peerId, requestId=req.requestId, query=req.query
     waku_store_queries.inc()
 
-    let resp = ws.findMessages(req.query)
+    let resp = if not ws.store.isNil(): ws.findMessages(req.query)
+               # TODO: Improve error reporting
+               else: HistoryResponse(error: HistoryResponseError.SERVICE_UNAVAILABLE)
 
     if not ws.wakuSwap.isNil():
       info "handle store swap", peerId=conn.peerId, requestId=req.requestId, text=ws.wakuSwap.text
@@ -181,89 +182,44 @@ proc init*(ws: WakuStore, capacity = StoreDefaultCapacity) =
 
   ws.handler = handler
   ws.codec = WakuStoreCodec
-  ws.messages = StoreQueueRef.new(capacity)
-
-  if ws.isSqliteOnly:
-    if ws.store.isNil():
-      warn "store not provided (nil)"
-      return
-
-    # Execute retention policy on initialization
-    if not ws.retentionPolicy.isNone():
-      let policy = ws.retentionPolicy.get()
-      let resRetPolicy = policy.execute(ws.store)
-      if resRetPolicy.isErr():
-        warn "an error occurred while applying the retention policy at init", error=resRetPolicy.error()
-
-    info "SQLite-only store initialized. Messages are *not* loaded into memory."
-
-    let numMessages = ws.store.getMessagesCount()
-    if numMessages.isOk():
-      debug "number of messages in persistent store", messageNum=numMessages.value
-      waku_store_messages.set(numMessages.value, labelValues = ["stored"])
-
-  # TODO: Move this logic, together with the insert message logic
-  #       into a "dual-store" message store implementation.
-  else: 
-    if ws.store.isNil():
-      return
-
-    # Execute retention policy before loading any messages into in-memory store
-    if not ws.retentionPolicy.isNone():
-      let policy = ws.retentionPolicy.get()
-      let resRetPolicy = policy.execute(ws.store)
-      if resRetPolicy.isErr():
-        warn "an error occurred while applying the retention policy at init", error=resRetPolicy.error()
-
-    info "loading messages from persistent storage"
-
-    let res = ws.store.getAllMessages()
-    if res.isOk():
-      for (receiverTime, msg, pubsubTopic) in res.value:
-        let index = Index.compute(msg, receiverTime, pubsubTopic)
-        discard ws.messages.put(index, msg, pubsubTopic)
-
-      info "successfully loaded messages from the persistent store"
-    else: 
-      warn "failed to load messages from the persistent store", err = res.error()
-
-    let numMessages = ws.messages.getMessagesCount()
-    if numMessages.isOk():
-      debug "number of messages in in-memory store", messageNum=numMessages.value
-      waku_store_messages.set(numMessages.value, labelValues = ["stored"])
-
 
 proc init*(T: type WakuStore, 
            peerManager: PeerManager, 
            rng: ref rand.HmacDrbgContext,
-           store: MessageStore = nil, 
+           store: MessageStore, 
            wakuSwap: WakuSwap = nil, 
-           persistMessages = true,
-           capacity = StoreDefaultCapacity, 
-           isSqliteOnly = false,
            retentionPolicy=none(MessageRetentionPolicy)): T =
   let ws = WakuStore(
     rng: rng, 
     peerManager: peerManager, 
     store: store, 
     wakuSwap: wakuSwap, 
-    persistMessages: persistMessages, 
-    isSqliteOnly: isSqliteOnly,
     retentionPolicy: retentionPolicy
   )
-  ws.init(capacity)
+  ws.initProtocolHandler()
+
+  # TODO: Move to wakunode
+  # Execute retention policy on initialization
+  let retPolicyRes = ws.executeMessageRetentionPolicy()
+  if retPolicyRes.isErr():
+    warn "an error occurred while applying the retention policy at init", error=retPolicyRes.error
+
+  ws.reportStoredMessagesMetric()
+
   return ws
 
-
-# TODO: This should probably be an add function and append the peer to an array
-proc setPeer*(ws: WakuStore, peer: RemotePeerInfo) =
-  ws.peerManager.addPeer(peer, WakuStoreCodec)
-  waku_store_peers.inc()
+proc init*(T: type WakuStore, 
+           peerManager: PeerManager, 
+           rng: ref rand.HmacDrbgContext,
+           wakuSwap: WakuSwap = nil, 
+           retentionPolicy=none(MessageRetentionPolicy)): T =
+  let store = StoreQueueRef.new(StoreDefaultCapacity)
+  WakuStore.init(peerManager, rng, store, wakuSwap, retentionPolicy)
 
 
 proc handleMessage*(w: WakuStore, pubsubTopic: string, msg: WakuMessage) {.async.} =
-  if not w.persistMessages:
-    # Store is mounted but new messages should not be stored
+  if w.store.isNil():
+    # Messages should not be stored
     return
 
   if msg.ephemeral:
@@ -277,61 +233,31 @@ proc handleMessage*(w: WakuStore, pubsubTopic: string, msg: WakuMessage) {.async
 
   trace "handling message", topic=pubsubTopic, index=index
 
-  block:
-    if w.isSqliteOnly:
-      # Add messages to persistent store, if present
-      if w.store.isNil():
-        return
+  # Add messages to persistent store, if present
+  let putStoreRes = w.store.put(index, msg, pubsubTopic)
+  if putStoreRes.isErr():
+    debug "failed to insert message to persistent store", index=index, err=putStoreRes.error
+    waku_store_errors.inc(labelValues = [insertFailure])
+    return
 
-      let resPutStore = w.store.put(index, msg, pubsubTopic)
-      if resPutStore.isErr():
-        debug "failed to insert message to persistent store", index=index, err=resPutStore.error()
-        waku_store_errors.inc(labelValues = [insertFailure])
-        return
-
-      # Execute the retention policy after insertion
-      if not w.retentionPolicy.isNone():
-        let policy = w.retentionPolicy.get()
-        let resRetPolicy = policy.execute(w.store)
-        if resRetPolicy.isErr():
-          debug "message retention policy failure", error=resRetPolicy.error()
-          waku_store_errors.inc(labelValues = [insertFailure])
-
-      reportMessagesCountMetric(w.store)
-
-    # TODO: Move this logic, together with the load from persistent store on init
-    #       into a "dual-store" message store implementation.
-    else:
-      # Add message to in-memory store
-      let resPutInmemory = w.messages.put(index, msg, pubsubTopic)
-      if resPutInmemory.isErr():
-        debug "failed to insert message to in-memory store", index=index, err=resPutInmemory.error()
-        waku_store_errors.inc(labelValues = [insertFailure])
-        return
-
-      reportMessagesCountMetric(w.messages)
-
-      # Add messages to persistent store, if present
-      if w.store.isNil():
-        return
-        
-      let resPutStore = w.store.put(index, msg, pubsubTopic)
-      if resPutStore.isErr():
-        debug "failed to insert message to persistent store", index=index, err=resPutStore.error()
-        waku_store_errors.inc(labelValues = [insertFailure])
-        return
-
-      # Execute the retention policy after insertion
-      if not w.retentionPolicy.isNone():
-        let policy = w.retentionPolicy.get()
-        let resRetPolicy = policy.execute(w.store)
-        if resRetPolicy.isErr():
-          debug "message retention policy failure", error=resRetPolicy.error()
-          waku_store_errors.inc(labelValues = [insertFailure])
+  # Execute the retention policy after insertion
+  let retPolicyRes = w.executeMessageRetentionPolicy()
+  if retPolicyRes.isErr():
+    debug "message retention policy failure", error=retPolicyRes.error
+    waku_store_errors.inc(labelValues = [retPolicyFailure])
+  
+  w.reportStoredMessagesMetric()
 
   let insertDuration = getTime().toUnixFloat() - insertStartTime
   waku_store_insert_duration_seconds.observe(insertDuration)
 
+
+## CLIENT
+
+# TODO: This should probably be an add function and append the peer to an array
+proc setPeer*(ws: WakuStore, peer: RemotePeerInfo) =
+  ws.peerManager.addPeer(peer, WakuStoreCodec)
+  waku_store_peers.inc()
 
 # TODO: Remove after converting the query method into a non-callback method
 type QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
@@ -376,6 +302,8 @@ proc query*(w: WakuStore, req: HistoryQuery): Future[WakuStoreResult[HistoryResp
 
 ## 21/WAKU2-FAULT-TOLERANT-STORE
 
+const StoreResumeTimeWindowOffset: Timestamp = getNanosecondTime(20)  ## Adjust the time window with an offset of 20 seconds
+
 proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: RemotePeerInfo): Future[WakuStoreResult[seq[WakuMessage]]] {.async, gcsafe.} =
   ## A thin wrapper for query. Sends the query to the given peer. when the  query has a valid pagingInfo, 
   ## it retrieves the historical messages in pages.
@@ -390,7 +318,7 @@ proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: RemotePeerInf
   while true:
     let res = await w.query(req, peer)
     if res.isErr(): 
-      return err(res.error())
+      return err(res.error)
 
     let response = res.get()
 
@@ -446,29 +374,27 @@ proc resume*(w: WakuStore,
   ## the resume proc returns the number of retrieved messages if no error occurs, otherwise returns the error string
   
   # If store has not been provided, don't even try
-  if w.isSqliteOnly and w.store.isNil():
-    return err("store not provided")
+  if w.store.isNil():
+    return err("store not provided (nil)")
 
+  # NOTE: Original implementation is based on the message's sender timestamp. At the moment
+  #       of writing, the sqlite store implementation returns the last message's receiver 
+  #       timestamp.
+  #  lastSeenTime = lastSeenItem.get().msg.timestamp
+  let 
+    lastSeenTime = w.store.getNewestMessageTimestamp().get(Timestamp(0))
+    now = getNanosecondTime(getTime().toUnixFloat())
 
-  var lastSeenTime = Timestamp(0)
-  var currentTime = getNanosecondTime(epochTime())
+  debug "resuming with offline time window", lastSeenTime=lastSeenTime, currentTime=now
 
-  let lastSeenItem = w.messages.last()
-  if lastSeenItem.isOk():
-    lastSeenTime = lastSeenItem.get().msg.timestamp
-
-  # adjust the time window with an offset of 20 seconds
-  let offset: Timestamp = getNanosecondTime(20)
-  currentTime = currentTime + offset
-  lastSeenTime = max(lastSeenTime - offset, 0)
-
-  debug "the offline time window is", lastSeenTime=lastSeenTime, currentTime=currentTime
-
+  let
+    queryEndTime = now + StoreResumeTimeWindowOffset
+    queryStartTime = max(lastSeenTime - StoreResumeTimeWindowOffset, 0)
 
   let req = HistoryQuery(
     pubsubTopic: pubsubTopic, 
-    startTime: lastSeenTime, 
-    endTime: currentTime, 
+    startTime: queryStartTime, 
+    endTime: queryEndTime,
     pagingInfo: PagingInfo(
       direction:PagingDirection.FORWARD, 
       pageSize: pageSize
@@ -498,70 +424,26 @@ proc resume*(w: WakuStore,
 
 
   # Save the retrieved messages in the store
-  var dismissed: uint = 0
   var added: uint = 0
-  
   for msg in res.get():
     let now = getNanosecondTime(getTime().toUnixFloat())
     let index = Index.compute(msg, receivedTime=now, pubsubTopic=pubsubTopic)
 
-    if w.isSqliteOnly:
-      # Add messages to persistent store
-      let resPutStore = w.store.put(index, msg, pubsubTopic)
-      if resPutStore.isErr():
-        debug "failed to insert message to persistent store", index=index, err=resPutStore.error()
-        waku_store_errors.inc(labelValues = [insertFailure])
-        continue
-      
-      # Execute the retention policy after insertion
-      if not w.retentionPolicy.isNone():
-        let policy = w.retentionPolicy.get()
-        let resRetPolicy = policy.execute(w.store)
-        if resRetPolicy.isErr():
-          debug "message retention policy failure", error=resRetPolicy.error()
-          waku_store_errors.inc(labelValues = [insertFailure])
+    let putStoreRes = w.store.put(index, msg, pubsubTopic)
+    if putStoreRes.isErr():
+      continue
 
-    # TODO: Move this logic, together with the load from persistent store on init
-    #       into a "dual-store" message store implementation.
-    else:
-      # check for duplicate messages
-      # TODO: Should take pubsub topic into account if we are going to support topics rather than the DefaultTopic
-      if w.messages.contains(index):
-        dismissed.inc()
-        continue
-
-      # Add message to in-memory store
-      let resPutInmemory = w.messages.put(index, msg, pubsubTopic)
-      if resPutInmemory.isErr():
-        debug "failed to insert message to in-memory store", index=index, err=resPutInmemory.error()
-        waku_store_errors.inc(labelValues = [insertFailure])
-        continue
-
-      if w.store.isNil():
-        continue
-
-      # Add messages to persistent store
-      let resPutStore = w.store.put(index, msg, pubsubTopic)
-      if resPutStore.isErr():
-        debug "failed to insert message to persistent store", index=index, err=resPutStore.error()
-        waku_store_errors.inc(labelValues = [insertFailure])
-        continue
-      
-      # Execute the retention policy after insertion
-      if not w.retentionPolicy.isNone():
-        let policy = w.retentionPolicy.get()
-        let resRetPolicy = policy.execute(w.store)
-        if resRetPolicy.isErr():
-          debug "message retention policy failure", error=resRetPolicy.error()
-          waku_store_errors.inc(labelValues = [insertFailure])
-    
     added.inc()
 
-  debug "resume finished successfully", addedMessages=added, dimissedMessages=dismissed
+  debug "resume finished successfully", retrievedMessages=res.get().len, addedMessages=added
+
+  # Execute the retention policy after insertion
+  let retPolicyRes = w.executeMessageRetentionPolicy()
+  if retPolicyRes.isErr():
+    debug "message retention policy failure", error=retPolicyRes.error
+    waku_store_errors.inc(labelValues = [retPolicyFailure])
   
-  let store: MessageStore = if w.isSqliteOnly: w.store
-                            else: w.messages
-  reportMessagesCountMetric(store)
+  w.reportStoredMessagesMetric()
 
   return ok(added)
 
@@ -578,7 +460,7 @@ proc queryWithAccounting*(ws: WakuStore, req: HistoryQuery): Future[WakuStoreRes
 
   let res = await ws.query(req, peerOpt.get())
   if res.isErr():
-    return err(res.error())
+    return err(res.error)
 
   let response = res.get()
 

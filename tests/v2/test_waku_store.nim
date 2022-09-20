@@ -617,7 +617,7 @@ procSuite "Waku Store - fault tolerant store":
       check:
         successResult.isOk()
         successResult.value == 10
-        proto3.messages.len == 10
+        proto3.store.getMessagesCount().tryGet() == 10
 
       ## Cleanup 
       await allFutures(dialSwitch3.stop(), listenSwitch3.stop())
@@ -681,9 +681,7 @@ procSuite "Waku Store - fault tolerant store":
       let response = res.tryGet()
       check:
         response == 14
-      
-      check:
-        proto3.messages.len == 14
+        proto3.store.getMessagesCount().tryGet() == 14
 
       ## Cleanup
       await allFutures(listenSwitch3.stop(), dialSwitch3.stop(), offListenSwitch.stop())
