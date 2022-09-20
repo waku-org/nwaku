@@ -30,9 +30,9 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
 when defined(rlnzerokit):
   type RLNResult* = Result[ptr RLN, string]
 
-
-type MerkleNodeResult* = Result[MerkleNode, string]
-type RateLimitProofResult* = Result[RateLimitProof, string]
+type RlnRelayResult*[T] = Result[T, string]
+type MerkleNodeResult* = RlnRelayResult[MerkleNode]
+type RateLimitProofResult* = RlnRelayResult[RateLimitProof]
 type SpamHandler* = proc(wakuMessage: WakuMessage): void {.gcsafe, closure, raises: [Defect].}
 type RegistrationHandler* = proc(txHash: string): void {.gcsafe, closure, raises: [Defect].}
 
@@ -250,7 +250,7 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethAccountPrivK
     handler(toHex(txHash))
   return ok(toMembershipIndex(eventIndex))
 
-proc register*(rlnPeer: WakuRLNRelay, registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): Future[Result[bool, string]] {.async.} =
+proc register*(rlnPeer: WakuRLNRelay, registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): Future[RlnRelayResult[bool]] {.async.} =
   ## registers the public key of the rlnPeer which is rlnPeer.membershipKeyPair.publicKey
   ## into the membership contract whose address is in rlnPeer.membershipContractAddress
   let pk = rlnPeer.membershipKeyPair.idCommitment
@@ -386,8 +386,31 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
 
     return proofBytes
 
-  proc proofVerify*(rlnInstance: RLN[Bn256], data: openArray[byte],
-    proof: RateLimitProof): bool =
+  proc getMerkleRoot*(rlnInstance: RLN[Bn256]): MerkleNodeResult =
+    # read the Merkle Tree root after insertion
+    var
+      root {.noinit.}: Buffer = Buffer()
+      rootPtr = addr(root)
+      getRootSuccessful = getRoot(rlnInstance, rootPtr)
+    if not getRootSuccessful: 
+      return err("could not get the root")
+    if not root.len == 32:
+      return err("wrong output size")
+
+    var rootValue = cast[ptr MerkleNode] (root.`ptr`)[]
+    return ok(rootValue)
+
+  proc validateRoot*(rlnInstance: RLN[Bn256], merkleRoot: MerkleNode): RlnRelayResult[bool] =
+    # Validate against the local merkle tree
+    let localTreeRoot = rlnInstance.getMerkleRoot()
+    if not localTreeRoot.isOk():
+      return err(localTreeRoot.error())
+    if localTreeRoot.value() == merkleRoot:
+      return ok(true)
+    else:
+      return ok(false)
+
+  proc proofVerify*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: RateLimitProof): RlnRelayResult[bool] =
     var
       proofBytes = serialize(proof, data)
       proofBuffer = proofBytes.toBuffer()
@@ -397,11 +420,12 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     let verifyIsSuccessful = verify(rlnInstance, addr proofBuffer, addr f)
     if not verifyIsSuccessful:
       # something went wrong in verification
-      return false
+      return err("could not verify proof")
     # f = 0 means the proof is verified
-    if f == 0:
-      return true
-    return false
+    if f != 0:
+      return ok(false)
+
+    return ok(true)
 
   proc insertMember*(rlnInstance: RLN[Bn256], idComm: IDCommitment): bool =
     var pkBuffer = toBuffer(idComm)
@@ -415,17 +439,7 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     let deletion_success = delete_member(rlnInstance, index)
     return deletion_success
 
-  proc getMerkleRoot*(rlnInstance: RLN[Bn256]): MerkleNodeResult =
-    # read the Merkle Tree root after insertion
-    var
-      root {.noinit.}: Buffer = Buffer()
-      rootPtr = addr(root)
-      get_root_successful = get_root(rlnInstance, rootPtr)
-    if (not get_root_successful): return err("could not get the root")
-    if (not (root.len == 32)): return err("wrong output size")
 
-    var rootValue = cast[ptr MerkleNode] (root.`ptr`)[]
-    return ok(rootValue)
 
 when defined(rlnzerokit):
   proc proofGen*(rlnInstance: ptr RLN, data: openArray[byte],
@@ -504,18 +518,33 @@ when defined(rlnzerokit):
 
     return proofBytes
 
-  proc proofVerify*(rlnInstance: ptr RLN, data: openArray[byte], proof: RateLimitProof): bool =
+  proc validateRoot*(rlnInstance: ptr RLN, proof: MerkleNode): RlnRelayResult[bool] =
+    # Validate against the local merkle tree
+    let localTreeRoot = rln.getMerkleRoot()
+    if not localTreeRoot.isOk():
+      return err(localTreeRoot.error())
+    if localTreeRoot.value() == merkleRoot:
+      return ok(true)
+    else:
+      return ok(false)
+
+  proc proofVerify*(rlnInstance: ptr RLN, data: openArray[byte], proof: RateLimitProof): RlnRelayResult[bool] =
     var
       proofBytes = serialize(proof, data)
       proofBuffer = proofBytes.toBuffer()
-      proof_is_valid: bool
+      validProof: bool
     trace "serialized proof", proof = proofBytes.toHex()
 
-    let verifyIsSuccessful = verify(rlnInstance, addr proofBuffer, addr proof_is_valid)
+    let verifyIsSuccessful = verify(rlnInstance, addr proofBuffer, addr validProof)
     if not verifyIsSuccessful:
       # something went wrong in verification call
-      return false
-    return proof_is_valid
+      warn "could not verify validity of the proof", proof=proof
+      return err("could not verify the proof")
+
+    if not validProof:
+      return ok(false)
+
+    return ok(true)
 
   proc insertMember*(rlnInstance: ptr RLN, idComm: IDCommitment): bool =
     var pkBuffer = toBuffer(idComm)
@@ -534,9 +563,11 @@ when defined(rlnzerokit):
     var
       root {.noinit.}: Buffer = Buffer()
       rootPtr = addr(root)
-      get_root_successful = get_root(rlnInstance, rootPtr)
-    if (not get_root_successful): return err("could not get the root")
-    if (not (root.len == 32)): return err("wrong output size")
+      getRootSuccessful = getRoot(rlnInstance, rootPtr)
+    if not getRootSuccessful: 
+      return err("could not get the root")
+    if not root.len == 32:
+      return err("wrong output size")
 
     var rootValue = cast[ptr MerkleNode] (root.`ptr`)[]
     return ok(rootValue)
@@ -633,7 +664,7 @@ proc rlnRelayStaticSetUp*(rlnRelayMemIndex: MembershipIndex): (Option[seq[
 
   return (groupOpt, memKeyPairOpt, memIndexOpt)
 
-proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): Result[bool, string] =
+proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): RlnRelayResult[bool] =
   ## returns true if there is another message in the  `nullifierLog` of the `rlnPeer` with the same
   ## epoch and nullifier as `msg`'s epoch and nullifier but different Shamir secret shares
   ## otherwise, returns false
@@ -666,7 +697,7 @@ proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): Result[bool, string
   except KeyError as e:
     return err("the epoch was not found")
 
-proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): Result[bool, string] =
+proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): RlnRelayResult[bool] =
   ## extracts  the `ProofMetadata` of the supplied messages `msg` and
   ## saves it in the `nullifierLog` of the `rlnPeer`
 
@@ -757,11 +788,25 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
         payload = string.fromBytes(msg.payload)
     return MessageValidationResult.Invalid
 
+  let merkleRootIsValidRes = rlnPeer.rlnInstance.validateRoot(msg.proof.merkleRoot)
+
+  if merkleRootIsValidRes.isErr():
+      debug "invalid message: could not validate the root"
+      return MessageValidationResult.Invalid
+
+  if not merkleRootIsValidRes.value():
+      debug "invalid message: received root does not match local root", payload = string.fromBytes(msg.payload)
+      return MessageValidationResult.Invalid
+
   # verify the proof
   let
     contentTopicBytes = msg.contentTopic.toBytes
     input = concat(msg.payload, contentTopicBytes)
-  if not rlnPeer.rlnInstance.proofVerify(input, msg.proof):
+    proofVerificationRes = rlnPeer.rlnInstance.proofVerify(input, msg.proof)
+
+  if proofVerificationRes.isErr():
+    return MessageValidationResult.Invalid
+  if not proofVerificationRes.value():
     # invalid proof
     debug "invalid message: invalid proof", payload = string.fromBytes(msg.payload)
     return MessageValidationResult.Invalid
@@ -973,7 +1018,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
                     pubsubTopic: string,
                     contentTopic: ContentTopic,
                     spamHandler: Option[SpamHandler] = none(SpamHandler),
-                    registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)) : Future[Result[bool, string]] {.async.} =
+                    registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)) : Future[RlnRelayResult[bool]] {.async.} =
   debug "mounting rln-relay in on-chain/dynamic mode"
   # TODO return a bool value to indicate the success of the call
   # relay protocol is the prerequisite of rln-relay
@@ -1061,7 +1106,7 @@ proc readPersistentRlnCredentials*(path: string) : RlnMembershipCredentials {.ra
   debug "Deserialized Rln credentials", rlnCredentials=deserializedRlnCredentials
   result = deserializedRlnCredentials
 
-proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler] = none(SpamHandler), registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): Result[bool, string] {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
+proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler] = none(SpamHandler), registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
   if not conf.rlnRelayDynamic:
     info " setting up waku-rln-relay in off-chain mode... "
     # set up rln relay inputs
@@ -1079,9 +1124,15 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: O
       # no error should happen as it is already captured in the unit tests
       # TODO have added this check to account for unseen corner cases, will remove it later 
       let 
-        root = node.wakuRlnRelay.rlnInstance.getMerkleRoot.value.toHex() 
+        rootRes = node.wakuRlnRelay.rlnInstance.getMerkleRoot()
         expectedRoot = STATIC_GROUP_MERKLE_ROOT
-      if root != expectedRoot:
+      
+      if rootRes.isErr():
+        return err(rootRes.error())
+      
+      let root = rootRes.value()
+
+      if root.toHex != expectedRoot:
         error "root mismatch: something went wrong not in Merkle tree construction"
       debug "the calculated root", root
       info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
