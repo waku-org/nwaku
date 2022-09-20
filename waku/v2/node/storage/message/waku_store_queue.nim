@@ -11,9 +11,11 @@ import
   ../../../utils/time,
   ./message_store
 
+export pagination
 
 logScope:
   topics = "message_store.storequeue"
+
 
 type 
   IndexedWakuMessage* = object

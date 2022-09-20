@@ -431,7 +431,7 @@ when isMainModule:
   waitFor mountLibp2pPing(bridge.nodev2)
   
   if conf.store:
-    waitFor mountStore(bridge.nodev2, persistMessages = false)  # Bridge does not persist messages
+    waitFor mountStore(bridge.nodev2)  # Bridge does not persist messages
 
   if conf.filter:
     waitFor mountFilter(bridge.nodev2)
