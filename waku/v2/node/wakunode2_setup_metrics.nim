@@ -9,10 +9,12 @@ import
   metrics/chronos_httpserver,
   ./config,
   ./wakunode2,
+  ./peer_manager/peer_manager,
   ../protocol/waku_filter,
   ../protocol/waku_store,
   ../protocol/waku_lightpush,
-  ../protocol/waku_swap/waku_swap
+  ../protocol/waku_swap/waku_swap,
+  ../protocol/waku_peer_exchange
 
 logScope:
   topics = "wakunode.setup.metrics"
@@ -64,6 +66,7 @@ proc startMetricsLog*() =
       info "Total filter peers", count = parseCollectorIntoF64(waku_filter_peers)
       info "Total store peers", count = parseCollectorIntoF64(waku_store_peers)
       info "Total lightpush peers", count = parseCollectorIntoF64(waku_lightpush_peers)
+      info "Total peer exchange peers", count = parseCollectorIntoF64(waku_px_peers)
       info "Total errors", count = freshErrorCount
       info "Total active filter subscriptions", count = parseCollectorIntoF64(waku_filter_subscribers)
 

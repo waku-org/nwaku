@@ -8,6 +8,7 @@ import
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter,
   ../protocol/waku_lightpush,
+  ../protocol/waku_peer_exchange,
   ../protocol/waku_rln_relay/waku_rln_relay_types, 
   ./peer_manager/peer_manager,
   ./discv5/waku_discv5
@@ -39,6 +40,7 @@ type
     wakuSwap*: WakuSwap
     wakuRlnRelay*: WakuRLNRelay
     wakuLightPush*: WakuLightPush
+    wakuPeerExchange*: WakuPeerExchange
     enr*: enr.Record
     libp2pPing*: Ping
     filters*: Filters
