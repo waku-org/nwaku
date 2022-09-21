@@ -280,7 +280,7 @@ type
       name: "eth-account-privatekey" }: string
     
     rlnRelayEthClientAddress* {.
-      desc: "Ethereum testnet client address e.g., ws://localhost:8540/",
+      desc: "Ethereum testnet client WebSocket address e.g., ws://localhost:8540/",
       defaultValue: "ws://localhost:8540/"
       name: "eth-client-address" }: string
     
