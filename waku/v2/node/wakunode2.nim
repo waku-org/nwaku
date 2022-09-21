@@ -211,15 +211,20 @@ proc subscribe(node: WakuNode, topic: Topic, handler: Option[TopicHandler]) =
     trace "Hit default handler", topic=topic, data=data
 
     let msg = WakuMessage.init(data)
-    if msg.isOk():
-      # Notify mounted protocols of new message
-      if (not node.wakuFilter.isNil):
-        await node.wakuFilter.handleMessage(topic, msg.value())
-      
-      if (not node.wakuStore.isNil):
-        await node.wakuStore.handleMessage(topic, msg.value())
+    if msg.isErr():
+      # TODO: Add metric to track waku message decode errors
+      return
 
-      waku_node_messages.inc(labelValues = ["relay"])
+
+    # Notify mounted protocols of new message
+    if not node.wakuFilter.isNil():
+      await node.wakuFilter.handleMessage(topic, msg.value)
+    
+    if not node.wakuStore.isNil():
+      node.wakuStore.handleMessage(topic, msg.value)
+
+    waku_node_messages.inc(labelValues = ["relay"])
+
 
   let wakuRelay = node.wakuRelay
 
@@ -432,7 +437,7 @@ proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {
 
       if not node.wakuStore.isNil and (requestId in node.filters):
         let pubSubTopic = node.filters[requestId].pubSubTopic
-        await node.wakuStore.handleMessage(pubSubTopic, message)
+        node.wakuStore.handleMessage(pubSubTopic, message)
 
       waku_node_messages.inc(labelValues = ["filter"])
 
@@ -456,7 +461,37 @@ proc mountSwap*(node: WakuNode, swapConfig: SwapConfig = SwapConfig.init()) {.as
 
   node.switch.mount(node.wakuSwap, protocolMatcher(WakuSwapCodec))
 
-proc mountStore*(node: WakuNode, store: MessageStore = nil, capacity = StoreDefaultCapacity, retentionPolicy=none(MessageRetentionPolicy) ) {.async, raises: [Defect, LPError].} =
+
+const MessageStoreDefaultRetentionPolicyInterval = 30.minutes
+
+proc executeMessageRetentionPolicy(node: WakuNode) =
+  if node.wakuStore.isNil():
+    return
+
+  if node.wakuStore.store.isNil():
+    return
+
+  debug "executing message retention policy"
+
+  node.wakuStore.executeMessageRetentionPolicy()
+  node.wakuStore.reportStoredMessagesMetric()
+
+proc startMessageRetentionPolicyPeriodicTask(node: WakuNode, interval: Duration) =
+  if node.wakuStore.isNil():
+    return
+
+  if node.wakuStore.store.isNil():
+    return
+
+  # https://github.com/nim-lang/Nim/issues/17369
+  var executeRetentionPolicy: proc(udata: pointer) {.gcsafe, raises: [Defect].}
+  executeRetentionPolicy = proc(udata: pointer) {.gcsafe.} = 
+    executeMessageRetentionPolicy(node)
+    discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)
+  
+  discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)
+
+proc mountStore*(node: WakuNode, store: MessageStore = nil, retentionPolicy=none(MessageRetentionPolicy) ) {.async, raises: [Defect, LPError].} =
   if node.wakuSwap.isNil():
     info "mounting waku store protocol (no waku swap)"
   else:
@@ -469,7 +504,7 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, capacity = StoreDefa
     wakuSwap=node.wakuSwap, 
     retentionPolicy=retentionPolicy
   )
-  
+
   if node.started:
     # Node has started already. Let's start store too.
     await node.wakuStore.start()
@@ -1060,6 +1095,9 @@ when isMainModule:
       let retentionPolicy = if conf.sqliteStore: TimeRetentionPolicy.init(conf.sqliteRetentionTime)
                             else: CapacityRetentionPolicy.init(conf.storeCapacity)
       waitFor mountStore(node, mStorage, retentionPolicy=some(retentionPolicy))
+
+      executeMessageRetentionPolicy(node)
+      startMessageRetentionPolicyPeriodicTask(node, interval=MessageStoreDefaultRetentionPolicyInterval)
 
       if conf.storenode != "":
         setStorePeer(node, conf.storenode)
