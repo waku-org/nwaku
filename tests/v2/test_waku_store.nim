@@ -97,8 +97,8 @@ suite "Waku Store":
       msg1 = fakeWakuMessage(contentTopic=topic)
       msg2 = fakeWakuMessage()
 
-    await serverProto.handleMessage("foo", msg1)
-    await serverProto.handleMessage("foo", msg2)
+    serverProto.handleMessage("foo", msg1)
+    serverProto.handleMessage("foo", msg2)
 
     ## When
     let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: topic)])
@@ -141,9 +141,9 @@ suite "Waku Store":
       msg2 = fakeWakuMessage(contentTopic=topic2)
       msg3 = fakeWakuMessage(contentTopic=topic3)
 
-    await serverProto.handleMessage("foo", msg1)
-    await serverProto.handleMessage("foo", msg2)
-    await serverProto.handleMessage("foo", msg3)
+    serverProto.handleMessage("foo", msg1)
+    serverProto.handleMessage("foo", msg2)
+    serverProto.handleMessage("foo", msg3)
     
     ## When
     let rpc = HistoryQuery(contentFilters: @[
@@ -194,9 +194,9 @@ suite "Waku Store":
       msg2 = fakeWakuMessage(contentTopic=contentTopic2)
       msg3 = fakeWakuMessage(contentTopic=contentTopic3)
 
-    await serverProto.handleMessage(pubsubtopic1, msg1)
-    await serverProto.handleMessage(pubsubtopic2, msg2)
-    await serverProto.handleMessage(pubsubtopic2, msg3)
+    serverProto.handleMessage(pubsubtopic1, msg1)
+    serverProto.handleMessage(pubsubtopic2, msg2)
+    serverProto.handleMessage(pubsubtopic2, msg3)
     
     ## When
     # this query targets: pubsubtopic1 AND (contentTopic1 OR contentTopic3)    
@@ -243,9 +243,9 @@ suite "Waku Store":
       msg2 = fakeWakuMessage()
       msg3 = fakeWakuMessage()
 
-    await serverProto.handleMessage(pubsubtopic2, msg1)
-    await serverProto.handleMessage(pubsubtopic2, msg2)
-    await serverProto.handleMessage(pubsubtopic2, msg3)
+    serverProto.handleMessage(pubsubtopic2, msg1)
+    serverProto.handleMessage(pubsubtopic2, msg2)
+    serverProto.handleMessage(pubsubtopic2, msg3)
 
     ## When
     let rpc = HistoryQuery(pubsubTopic: pubsubTopic1)
@@ -284,9 +284,9 @@ suite "Waku Store":
       msg2 = fakeWakuMessage(payload="TEST-2")
       msg3 = fakeWakuMessage(payload="TEST-3")
 
-    await serverProto.handleMessage(pubsubTopic, msg1)
-    await serverProto.handleMessage(pubsubTopic, msg2)
-    await serverProto.handleMessage(pubsubTopic, msg3)
+    serverProto.handleMessage(pubsubTopic, msg1)
+    serverProto.handleMessage(pubsubTopic, msg2)
+    serverProto.handleMessage(pubsubTopic, msg3)
     
     ## When
     let rpc = HistoryQuery(pubsubTopic: pubsubTopic)
@@ -335,7 +335,7 @@ suite "Waku Store":
       ]
 
     for msg in msgList:
-      await serverProto.handleMessage("foo", msg)
+      serverProto.handleMessage("foo", msg)
 
     ## When
     let rpc = HistoryQuery(
@@ -387,7 +387,7 @@ suite "Waku Store":
       ]
 
     for msg in msgList:
-      await serverProto.handleMessage("foo", msg)
+      serverProto.handleMessage("foo", msg)
 
     ## When
     let rpc = HistoryQuery(
@@ -439,7 +439,7 @@ suite "Waku Store":
       ]
 
     for msg in msgList:
-      await serverProto.handleMessage("foo", msg)
+      serverProto.handleMessage("foo", msg)
 
     ## When
     let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)])
@@ -475,7 +475,7 @@ suite "Waku Store":
     ]
 
     for msg in msgList:
-      await proto.handleMessage(DefaultPubsubTopic, msg)
+      proto.handleMessage(DefaultPubsubTopic, msg)
 
     check: 
       store.len == 2
@@ -529,7 +529,7 @@ procSuite "Waku Store - fault tolerant store":
     ]
 
     for msg in msgList:
-      await proto.handleMessage(DefaultPubsubTopic, msg)
+      proto.handleMessage(DefaultPubsubTopic, msg)
 
     let (listenSwitch2, dialSwitch2, proto2) = await newTestWakuStore()
     let msgList2 = @[
@@ -544,7 +544,7 @@ procSuite "Waku Store - fault tolerant store":
     ]
 
     for msg in msgList2:
-      await proto2.handleMessage(DefaultPubsubTopic, msg)
+      proto2.handleMessage(DefaultPubsubTopic, msg)
 
     
     asyncTest "handle temporal history query with a valid time window":

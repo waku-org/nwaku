@@ -54,7 +54,7 @@ procSuite "WakuNode - Store":
     await node2.start()
     await node2.mountStore(store=newTestMessageStore())
 
-    await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
+    node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
 
     await sleepAsync(500.millis)
 
@@ -149,7 +149,7 @@ procSuite "WakuNode - Store":
     await node2.start()
     await node2.mountStore(store=StoreQueueRef.new())
 
-    await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
+    node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
 
     await sleepAsync(500.millis)
 
@@ -182,8 +182,8 @@ procSuite "WakuNode - Store":
     await client.mountStore(store=StoreQueueRef.new())
     await server.mountStore(store=StoreQueueRef.new())
 
-    await server.wakuStore.handleMessage(DefaultTopic, msg1)
-    await server.wakuStore.handleMessage(DefaultTopic, msg2)
+    server.wakuStore.handleMessage(DefaultTopic, msg1)
+    server.wakuStore.handleMessage(DefaultTopic, msg2)
 
     client.wakuStore.setPeer(server.switch.peerInfo.toRemotePeerInfo())
 

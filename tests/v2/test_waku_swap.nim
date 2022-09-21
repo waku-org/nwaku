@@ -70,7 +70,7 @@ procSuite "Waku SWAP Accounting":
     await node2.mountSwap()
     await node2.mountStore(store=StoreQueueRef.new())
 
-    await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
+    node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
 
     await sleepAsync(500.millis)
 
@@ -120,7 +120,7 @@ procSuite "Waku SWAP Accounting":
     await node2.mountSwap(swapConfig)
     await node2.mountStore(store=StoreQueueRef.new())
 
-    await node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
+    node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
 
     await sleepAsync(500.millis)
 

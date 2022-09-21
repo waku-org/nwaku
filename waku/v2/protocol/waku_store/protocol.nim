@@ -75,16 +75,19 @@ type
     retentionPolicy: Option[MessageRetentionPolicy]
 
 
-proc executeMessageRetentionPolicy*(w: WakuStore): WakuStoreResult[void] =
+proc executeMessageRetentionPolicy*(w: WakuStore) =
   if w.retentionPolicy.isNone():
-    return ok()
+    return
+
+  if w.store.isNil():
+    return
 
   let policy = w.retentionPolicy.get()
 
-  if w.store.isNil():
-    return err("no message store provided (nil)")
-
-  policy.execute(w.store)
+  let retPolicyRes = policy.execute(w.store)
+  if retPolicyRes.isErr():
+      waku_store_errors.inc(labelValues = [retPolicyFailure])
+      debug "failed execution of retention policy", error=retPolicyRes.error
 
 
 proc reportStoredMessagesMetric*(w: WakuStore) = 
@@ -198,14 +201,6 @@ proc init*(T: type WakuStore,
   )
   ws.initProtocolHandler()
 
-  # TODO: Move to wakunode
-  # Execute retention policy on initialization
-  let retPolicyRes = ws.executeMessageRetentionPolicy()
-  if retPolicyRes.isErr():
-    warn "an error occurred while applying the retention policy at init", error=retPolicyRes.error
-
-  ws.reportStoredMessagesMetric()
-
   return ws
 
 proc init*(T: type WakuStore, 
@@ -217,7 +212,7 @@ proc init*(T: type WakuStore,
   WakuStore.init(peerManager, rng, store, wakuSwap, retentionPolicy)
 
 
-proc handleMessage*(w: WakuStore, pubsubTopic: string, msg: WakuMessage) {.async.} =
+proc handleMessage*(w: WakuStore, pubsubTopic: string, msg: WakuMessage) =
   if w.store.isNil():
     # Messages should not be stored
     return
@@ -239,14 +234,6 @@ proc handleMessage*(w: WakuStore, pubsubTopic: string, msg: WakuMessage) {.async
     debug "failed to insert message to persistent store", index=index, err=putStoreRes.error
     waku_store_errors.inc(labelValues = [insertFailure])
     return
-
-  # Execute the retention policy after insertion
-  let retPolicyRes = w.executeMessageRetentionPolicy()
-  if retPolicyRes.isErr():
-    debug "message retention policy failure", error=retPolicyRes.error
-    waku_store_errors.inc(labelValues = [retPolicyFailure])
-  
-  w.reportStoredMessagesMetric()
 
   let insertDuration = getTime().toUnixFloat() - insertStartTime
   waku_store_insert_duration_seconds.observe(insertDuration)
@@ -434,16 +421,6 @@ proc resume*(w: WakuStore,
       continue
 
     added.inc()
-
-  debug "resume finished successfully", retrievedMessages=res.get().len, addedMessages=added
-
-  # Execute the retention policy after insertion
-  let retPolicyRes = w.executeMessageRetentionPolicy()
-  if retPolicyRes.isErr():
-    debug "message retention policy failure", error=retPolicyRes.error
-    waku_store_errors.inc(labelValues = [retPolicyFailure])
-  
-  w.reportStoredMessagesMetric()
 
   return ok(added)
 
