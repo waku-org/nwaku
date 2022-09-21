@@ -246,9 +246,6 @@ proc setPeer*(ws: WakuStore, peer: RemotePeerInfo) =
   ws.peerManager.addPeer(peer, WakuStoreCodec)
   waku_store_peers.inc()
 
-# TODO: Remove after converting the query method into a non-callback method
-type QueryHandlerFunc* = proc(response: HistoryResponse) {.gcsafe, closure.}
-
 proc query(w: WakuStore, req: HistoryQuery, peer: RemotePeerInfo): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe.} =
   let connOpt = await w.peerManager.dialPeer(peer, WakuStoreCodec)
   if connOpt.isNone():

@@ -241,7 +241,7 @@ proc publish(c: Chat, line: string) =
             c.node.wakuRlnRelay.lastEpoch = message.proof.epoch
       if not c.node.wakuLightPush.isNil():
         # Attempt lightpush
-        asyncSpawn c.node.lightpush(DefaultTopic, message, handler)
+        asyncSpawn c.node.lightpush2(DefaultTopic, message)
       else:
         asyncSpawn c.node.publish(DefaultTopic, message, handler)
     else:
@@ -270,7 +270,7 @@ proc publish(c: Chat, line: string) =
 
     if not c.node.wakuLightPush.isNil():
       # Attempt lightpush
-      asyncSpawn c.node.lightpush(DefaultTopic, message, handler)
+      asyncSpawn c.node.lightpush2(DefaultTopic, message)
     else:
       asyncSpawn c.node.publish(DefaultTopic, message)
 
@@ -475,7 +475,9 @@ proc processInput(rfd: AsyncFD) {.async.} =
           echo &"{chatLine}"
         info "Hit store handler"
 
-      await node.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: chat.contentTopic)]), storeHandler)
+      let queryRes = await node.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: chat.contentTopic)]))
+      if queryRes.isOk():
+        storeHandler(queryRes.value)
   
   # NOTE Must be mounted after relay
   if conf.lightpushnode != "":
