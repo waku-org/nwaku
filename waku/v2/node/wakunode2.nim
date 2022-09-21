@@ -198,6 +198,9 @@ proc new*(T: type WakuNode, nodeKey: crypto.PrivateKey,
 
   return wakuNode
 
+proc peerInfo*(node: WakuNode): PeerInfo = 
+  node.switch.peerInfo
+
 proc subscribe(node: WakuNode, topic: Topic, handler: Option[TopicHandler]) =
   if node.wakuRelay.isNil:
     error "Invalid API call to `subscribe`. WakuRelay not mounted."
@@ -354,19 +357,8 @@ proc lightpush*(node: WakuNode, topic: Topic, message: WakuMessage): Future[Waku
   let rpc = PushRequest(pubSubTopic: topic, message: message)
   return await node.wakuLightPush.request(rpc)
 
-proc lightpush*(node: WakuNode, topic: Topic, message: WakuMessage, handler: PushResponseHandler) {.async, gcsafe,
-  deprecated: "Use the no-callback version of this method".} =
-  ## Pushes a `WakuMessage` to a node which relays it further on PubSub topic.
-  ## Returns whether relaying was successful or not in `handler`.
-  ## `WakuMessage` should contain a `contentTopic` field for light node
-  ## functionality.
-
-  let rpc = PushRequest(pubSubTopic: topic, message: message)
-  let res = await node.wakuLightPush.request(rpc)
-  if res.isOk():
-    handler(res.value)
-  else:
-    error "Message lightpush failed", error=res.error()
+proc lightpush2*(node: WakuNode, topic: Topic, message: WakuMessage) {.async, gcsafe.} =
+  discard await node.lightpush(topic, message)
 
 proc query*(node: WakuNode, query: HistoryQuery): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe.} = 
   ## Queries known nodes for historical messages
@@ -379,17 +371,6 @@ proc query*(node: WakuNode, query: HistoryQuery): Future[WakuStoreResult[History
     debug "Using SWAP accounting query"
     # TODO: wakuSwap now part of wakuStore object
     return await node.wakuStore.queryWithAccounting(query)
-
-proc query*(node: WakuNode, query: HistoryQuery, handler: QueryHandlerFunc) {.async, gcsafe, 
-  deprecated: "Use the no-callback version of this method".} =
-  ## Queries known nodes for historical messages. Triggers the handler whenever a response is received.
-  ## QueryHandlerFunc is a method that takes a HistoryResponse.
-
-  let res = await node.query(query)
-  if res.isOk():
-    handler(res.value)
-  else:
-    error "History query failed", error=res.error()
 
 proc resume*(node: WakuNode, peerList: Option[seq[RemotePeerInfo]] = none(seq[RemotePeerInfo])) {.async, gcsafe.} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku node has been online 
