@@ -970,18 +970,18 @@ proc mountRlnRelayStatic*(node: WakuNode,
   doAssert(rlnInstance.isOk)
   var rln = rlnInstance.value
 
-  # add members to the Merkle tree
-  for index in 0..group.len-1:
-    let member = group[index]
-    let member_is_added = rln.insertMember(member)
-    doAssert(member_is_added)
-
   # create the WakuRLNRelay
   var rlnPeer = WakuRLNRelay(membershipKeyPair: memKeyPair,
     membershipIndex: memIndex,
     rlnInstance: rln, 
     pubsubTopic: pubsubTopic,
     contentTopic: contentTopic)
+
+    # add members to the Merkle tree
+  for index in 0..group.len-1:
+    let member = group[index]
+    let memberAdded = rlnPeer.insertMember(member)
+    doAssert(memberAdded.isOk())
 
   # adds a topic validator for the supplied pubsub topic at the relay protocol
   # messages published on this pubsub topic will be relayed upon a successful validation, otherwise they will be dropped
@@ -1063,7 +1063,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
     let pk = pubkey.toIDCommitment()
     let isSuccessful = rlnPeer.insertMember(pk)
     debug "received pk", pk=pk.toHex, index =index
-    doAssert(isSuccessful)
+    doAssert(isSuccessful.isOk())
 
   asyncSpawn rlnPeer.handleGroupUpdates(handler)
   debug "dynamic group management is started"
