@@ -9,6 +9,12 @@ import
   ./time
 
 
+const
+  MaxPageSize*: uint64 = 100
+  
+  DefaultPageSize*: uint64 = 20 # A recommended default number of waku messages per page
+
+
 type Index* = object
   ## This type contains the  description of an Index used in the pagination of WakuMessages
   pubsubTopic*: string

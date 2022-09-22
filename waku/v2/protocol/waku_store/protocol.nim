@@ -4,7 +4,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[tables, times, sequtils, options, math],
+  std/[tables, times, sequtils, options],
   stew/results,
   chronicles,
   chronos, 
@@ -38,21 +38,13 @@ declarePublicHistogram waku_store_query_duration_seconds, "history query duratio
 logScope:
   topics = "wakustore"
 
+
 const 
   WakuStoreCodec* = "/vac/waku/store/2.0.0-beta4"
 
   DefaultTopic* = "/waku/2/default-waku/proto"
 
-  # Constants required for pagination -------------------------------------------
-  MaxPageSize* = StoreMaxPageSize
-  
-  # TODO the DefaultPageSize can be changed, it's current value is random
-  DefaultPageSize* = uint64(20) # A recommended default number of waku messages per page
-
-  MaxTimeVariance* = StoreMaxTimeVariance
-
-
-const MaxRpcSize = StoreMaxPageSize * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
+  MaxMessageTimestampVariance* = Timestamp(20.seconds.nanoseconds) # 20 seconds maximum allowable sender timestamp "drift"
 
 
 # Error types (metric label values)
@@ -208,7 +200,7 @@ proc init*(T: type WakuStore,
            rng: ref rand.HmacDrbgContext,
            wakuSwap: WakuSwap = nil, 
            retentionPolicy=none(MessageRetentionPolicy)): T =
-  let store = StoreQueueRef.new(StoreDefaultCapacity)
+  let store = StoreQueueRef.new()
   WakuStore.init(peerManager, rng, store, wakuSwap, retentionPolicy)
 
 

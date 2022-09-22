@@ -6,6 +6,7 @@ import
   testutils/unittests,
   nimcrypto/hash
 import
+  ../../waku/v2/node/storage/message/message_store,
   ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
@@ -93,7 +94,7 @@ procSuite "Sorted store queue":
     let store = StoreQueueRef.new(capacity)
     let
       receiverTime = getNanoSecondTime(10)
-      senderTimeOk = receiverTime + MaxTimeVariance
+      senderTimeOk = receiverTime + StoreMaxTimeVariance
       senderTimeErr = senderTimeOk + 1
     
     let invalidMessage = IndexedWakuMessage(

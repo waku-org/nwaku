@@ -96,11 +96,11 @@ method getMessagesByHistoryQuery*(
   cursor = none(Index),
   startTime = none(Timestamp),
   endTime = none(Timestamp),
-  maxPageSize = StoreMaxPageSize,
+  maxPageSize = MaxPageSize,
   ascendingOrder = true
 ): MessageStoreResult[MessageStorePage] =
-  let pageSizeLimit = if maxPageSize <= 0: StoreMaxPageSize
-                      else: min(maxPageSize, StoreMaxPageSize)
+  let pageSizeLimit = if maxPageSize <= 0: MaxPageSize
+                      else: min(maxPageSize, MaxPageSize)
 
   let rows = ?s.db.selectMessagesByHistoryQueryWithLimit(
     contentTopic, 

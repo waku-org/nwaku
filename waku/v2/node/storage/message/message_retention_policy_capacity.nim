@@ -11,6 +11,8 @@ logScope:
   topics = "message_store.sqlite_store.retention_policy.capacity"
 
 
+const StoreDefaultCapacity*: int = 25_000
+
 const StoreMaxOverflow = 1.3
 
 type 
