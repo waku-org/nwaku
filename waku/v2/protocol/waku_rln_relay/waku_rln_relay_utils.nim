@@ -1061,7 +1061,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
     debug "a new key is added", pubkey=pubkey
     # assuming all the members arrive in order
     let pk = pubkey.toIDCommitment()
-    let isSuccessful = rlnPeer.rlnInstance.insertMember(pk)
+    let isSuccessful = rlnPeer.insertMember(pk)
     debug "received pk", pk=pk.toHex, index =index
     doAssert(isSuccessful)
 
