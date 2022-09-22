@@ -29,172 +29,185 @@ import
 
 from std/times import getTime, toUnixFloat
 
+
+const 
+  DefaultPubsubTopic = "/waku/2/default-waku/proto"
+  DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
+
+proc now(): Timestamp = 
+  getNanosecondTime(getTime().toUnixFloat())
+
 proc newTestMessageStore(): MessageStore =
   let database = SqliteDatabase.init("", inMemory = true)[]
   SqliteStore.init(database).tryGet()
+
+proc fakeWakuMessage(
+  payload = "TEST-PAYLOAD",
+  contentTopic = DefaultContentTopic, 
+  ts = now()
+): WakuMessage = 
+  WakuMessage(
+    payload: toBytes(payload),
+    contentTopic: contentTopic,
+    version: 1,
+    timestamp: ts
+  )
 
 
 procSuite "WakuNode - Store":
   let rng = crypto.newRng()
  
   asyncTest "Store protocol returns expected message":
+    ## Setup
     let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
-    let
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
+      serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60000))
 
-    var completionFut = newFuture[bool]()
+    await allFutures(client.start(), server.start())
+    await server.mountStore(store=newTestMessageStore())
+    await client.mountStore()
 
-    await node1.start()
-    await node1.mountStore(store=newTestMessageStore())
-    await node2.start()
-    await node2.mountStore(store=newTestMessageStore())
+    client.wakuStore.setPeer(server.peerInfo.toRemotePeerInfo())
 
-    node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
+    ## Given
+    let message = fakeWakuMessage()
+    server.wakuStore.handleMessage(DefaultPubsubTopic, message)
 
-    await sleepAsync(500.millis)
+    ## When
+    let req = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)])
+    let queryRes = await client.query(req)
+    
+    ## Then
+    check queryRes.isOk()
 
-    node1.wakuStore.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
-
-    proc storeHandler(response: HistoryResponse) {.gcsafe, closure.} =
-      check:
-        response.messages[0] == message
-      completionFut.complete(true)
-
-    await node1.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic)]), storeHandler)
-
+    let response = queryRes.get()
     check:
-      (await completionFut.withTimeout(5.seconds)) == true
-    await node1.stop()
-    await node2.stop()
+      response.messages == @[message]
+
+    # Cleanup
+    await allFutures(client.stop(), server.stop())
 
   asyncTest "Store protocol returns expected message when relay is disabled and filter enabled":
-    # See nwaku issue #937: 'Store: ability to decouple store from relay'
-
+    ## See nwaku issue #937: 'Store: ability to decouple store from relay'
+    ## Setup
     let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      filterSourceKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      filterSource = WakuNode.new(filterSourceKey, ValidIpAddress.init("0.0.0.0"), Port(60004))
+      serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60000))
 
-    let 
-      pubSubTopic = "/waku/2/default-waku/proto"
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
+    await allFutures(client.start(), server.start(), filterSource.start())
 
-    let
-      filterComplFut = newFuture[bool]()
-      storeComplFut = newFuture[bool]()
+    await filterSource.mountFilter()
+    await server.mountStore(store=newTestMessageStore())
+    await server.mountFilter()
+    await client.mountStore()
 
-    await node1.start()
-    await node1.mountStore(store=newTestMessageStore())
-    await node1.mountFilter()
+    server.wakuFilter.setPeer(filterSource.peerInfo.toRemotePeerInfo())
+    client.wakuStore.setPeer(server.peerInfo.toRemotePeerInfo())
 
-    await node2.start()
-    await node2.mountStore(store=newTestMessageStore())
-    await node2.mountFilter()
+    ## Given
+    let message = fakeWakuMessage()
 
-    node2.wakuFilter.setPeer(node1.switch.peerInfo.toRemotePeerInfo())
-    node1.wakuStore.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
-
+    ## Then
+    let filterFut = newFuture[bool]()
     proc filterReqHandler(msg: WakuMessage) {.gcsafe, closure.} =
       check:
         msg == message
-      filterComplFut.complete(true)
+      filterFut.complete(true)
 
-    await node2.subscribe(FilterRequest(pubSubTopic: pubSubTopic, contentFilters: @[ContentFilter(contentTopic: contentTopic)], subscribe: true), filterReqHandler)
+    let filterReq = FilterRequest(pubSubTopic: DefaultPubsubTopic, contentFilters: @[ContentFilter(contentTopic: DefaultContentTopic)], subscribe: true)
+    await server.subscribe(filterReq, filterReqHandler)
 
-    await sleepAsync(500.millis)
+    await sleepAsync(100.millis)
 
-    # Send filter push message to node2
-    await node1.wakuFilter.handleMessage(pubSubTopic, message)
+    # Send filter push message to server from source node
+    await filterSource.wakuFilter.handleMessage(DefaultPubsubTopic, message)
 
-    await sleepAsync(500.millis)
+    # Wait for the server filter to receive the push message
+    require (await filterFut.withTimeout(5.seconds))
 
-    # Wait for the node2 filter to receive the push message
+    let res = await client.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)]))
+
+    ## Then
+    check res.isOk()
+
+    let response = res.get()
     check:
-      (await filterComplFut.withTimeout(5.seconds)) == true
+      response.messages.len == 1
+      response.messages[0] == message
 
-    proc node1StoreQueryRespHandler(response: HistoryResponse) {.gcsafe, closure.} =
-      check:
-        response.messages.len == 1
-        response.messages[0] == message
-      storeComplFut.complete(true)
+    ## Cleanup
+    await allFutures(client.stop(), server.stop(), filterSource.stop())
 
-    await node1.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: contentTopic)]), node1StoreQueryRespHandler)
-
-    check:
-      (await storeComplFut.withTimeout(5.seconds)) == true
-
-    await node1.stop()
-    await node2.stop()
 
   asyncTest "Resume proc fetches the history":
+    ## Setup
     let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
-    
-    let
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      message = WakuMessage(payload: "hello world".toBytes(), contentTopic: contentTopic)
-
-    await node1.start()
-    await node1.mountStore(store=newTestMessageStore())
-    await node2.start()
-    await node2.mountStore(store=StoreQueueRef.new())
-
-    node2.wakuStore.handleMessage("/waku/2/default-waku/proto", message)
-
-    await sleepAsync(500.millis)
-
-    node1.wakuStore.setPeer(node2.switch.peerInfo.toRemotePeerInfo())
-
-    await node1.resume()
-
-    check:
-      # message is correctly stored
-      node1.wakuStore.store.getMessagesCount().tryGet() == 1
-
-    await node1.stop()
-    await node2.stop()
-
-  asyncTest "Resume proc discards duplicate messages":
-    let timeOrigin = getNanosecondTime(getTime().toUnixFloat())
-    let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      client = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      server = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
-
-    let 
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      msg1 = WakuMessage(payload: "hello world1".toBytes(), contentTopic: contentTopic, timestamp: timeOrigin + 1)
-      msg2 = WakuMessage(payload: "hello world2".toBytes(), contentTopic: contentTopic, timestamp: timeOrigin + 2)
-      msg3 = WakuMessage(payload: "hello world3".toBytes(), contentTopic: contentTopic, timestamp: timeOrigin + 3)
+      serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60000))
 
     await allFutures(client.start(), server.start())
+
+    await server.mountStore(store=newTestMessageStore())
+    await client.mountStore(store=StoreQueueRef.new())
+
+    client.wakuStore.setPeer(server.peerInfo.toRemotePeerInfo())
+
+    ## Given
+    let message = fakeWakuMessage()
+    server.wakuStore.handleMessage(DefaultPubsubTopic, message)
+
+    ## When
+    await client.resume()
+
+    # Then
+    check:
+      client.wakuStore.store.getMessagesCount().tryGet() == 1
+
+    ## Cleanup
+    await allFutures(client.stop(), server.stop())
+
+
+  asyncTest "Resume proc discards duplicate messages":
+    ## Setup
+    let
+      serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60000))
+
+    await allFutures(server.start(), client.start())
     await client.mountStore(store=StoreQueueRef.new())
     await server.mountStore(store=StoreQueueRef.new())
 
+    client.wakuStore.setPeer(server.peerInfo.toRemotePeerInfo())
+
+    ## Given
+    let timeOrigin = now()
+    let 
+      msg1 = fakeWakuMessage(payload="hello world1", ts=(timeOrigin + getNanoSecondTime(1)))
+      msg2 = fakeWakuMessage(payload="hello world2", ts=(timeOrigin + getNanoSecondTime(2)))
+      msg3 = fakeWakuMessage(payload="hello world3", ts=(timeOrigin + getNanoSecondTime(3)))
+
     server.wakuStore.handleMessage(DefaultTopic, msg1)
     server.wakuStore.handleMessage(DefaultTopic, msg2)
-
-    client.wakuStore.setPeer(server.switch.peerInfo.toRemotePeerInfo())
 
     # Insert the same message in both node's store
     let index3 = Index.compute(msg3, getNanosecondTime(getTime().toUnixFloat() + 10.float), DefaultTopic)
     require server.wakuStore.store.put(index3, msg3, DefaultTopic).isOk()
     require client.wakuStore.store.put(index3, msg3, DefaultTopic).isOk()
 
-    # now run the resume proc
+    ## When
     await client.resume()
 
+    ## Then
     check:
       # If the duplicates are discarded properly, then the total number of messages after resume should be 3
       client.wakuStore.store.getMessagesCount().tryGet() == 3
