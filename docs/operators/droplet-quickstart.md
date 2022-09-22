@@ -255,8 +255,8 @@ a. Add the parent directory of the wakunode2 binary to your environment:
   ```
 
 b. Choose the fleet you wish to connect your node to:
-  - waku prod: enrtree://ANTL4SLG2COUILKAPE7EF2BYNL2SHSHVCHLRD5J7ZJLN5R3PRJD2Y@prod.waku.nodes.status.im
-  - waku test: enrtree://AOFTICU2XWDULNLZGRMQS4RIZPAZEHYMV4FYHAPW563HNRAOERP7C@test.waku.nodes.status.im
+  - waku prod: enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@prod.waku.nodes.status.im
+  - waku test: enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@test.waku.nodes.status.im
 
   ```bash
   export WAKU_FLEET=<fleet>
