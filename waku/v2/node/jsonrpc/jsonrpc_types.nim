@@ -24,6 +24,13 @@ type
     # sender generated timestamp
     timestamp*: Option[Timestamp]
 
+  SerializedWakuMessage* = object
+    payload*: string
+    contentTopic*: Option[ContentTopic]
+    # sender generated timestamp
+    timestamp*: Option[Timestamp]
+    ephemeral*: Option[bool]
+
   WakuPeer* = object
     multiaddr*: string
     protocol*: string

@@ -2,6 +2,7 @@
 
 import
   std/[options, json],
+  stew/byteutils,
   eth/keys,
   ../../../v1/node/rpc/hexstrings,
   ../../protocol/waku_store,
@@ -87,3 +88,10 @@ proc toWakuRelayMessage*(message: WakuMessage, symkey: Option[SymKey], privateKe
                    contentTopic: some(message.contentTopic),
                    timestamp: some(message.timestamp))
 
+proc serialize*(message: WakuMessage): WakuMessage =
+  return WakuMessage(
+    payload: toHex(message.payload),
+    contentTopic: message.contentTopic,
+    timestamp: message.timestamp,
+    ephemeral: message.ephemeral,
+  )

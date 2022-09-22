@@ -8,7 +8,10 @@ import
   ../../protocol/waku_message,
   ../wakunode2,
   ./jsonrpc_types,
-  ./jsonrpc_utils
+  ./jsonrpc_utils,
+  # Since the json rpc module will be deprecated in favor of the rest api,
+  # we are not creating custom serializers/deserializers for the json rpc api
+  ../rest/serdes
 
 export jsonrpc_types
 
@@ -66,7 +69,7 @@ proc installRelayApiHandlers*(node: WakuNode, rpcsrv: RpcServer, topicCache: Top
       # Failed to publish message to topic
       raise newException(ValueError, "Failed to publish to topic " & topic)
 
-  rpcsrv.rpc("get_waku_v2_relay_v1_messages") do(topic: string) -> seq[WakuMessage]:
+  rpcsrv.rpc("get_waku_v2_relay_v1_messages") do(topic: string) -> seq[SerializedWakuMessage]:
     ## Returns all WakuMessages received on a PubSub topic since the
     ## last time this method was called
     ## @TODO ability to specify a return message limit
@@ -76,7 +79,7 @@ proc installRelayApiHandlers*(node: WakuNode, rpcsrv: RpcServer, topicCache: Top
       let msgs = topicCache[topic]
       # Clear cache before next call
       topicCache[topic] = @[]
-      return msgs
+      return msgs.mapIt(it.serialize())
     else:
       # Not subscribed to this topic
       raise newException(ValueError, "Not subscribed to topic: " & topic)
