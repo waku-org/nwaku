@@ -88,10 +88,10 @@ proc toWakuRelayMessage*(message: WakuMessage, symkey: Option[SymKey], privateKe
                    contentTopic: some(message.contentTopic),
                    timestamp: some(message.timestamp))
 
-proc serialize*(message: WakuMessage): WakuMessage =
-  return WakuMessage(
+proc serialize*(message: WakuMessage): SerializedWakuMessage =
+  return SerializedWakuMessage(
     payload: toHex(message.payload),
-    contentTopic: message.contentTopic,
-    timestamp: message.timestamp,
-    ephemeral: message.ephemeral,
+    contentTopic: some(message.contentTopic),
+    timestamp: some(message.timestamp),
+    ephemeral: some(message.ephemeral),
   )
