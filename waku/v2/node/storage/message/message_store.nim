@@ -13,11 +13,8 @@ import
   ../../../utils/pagination
 
 
-const 
-  StoreDefaultCapacity* = 25_000
-  StoreDefaultRetentionTime* = chronos.days(30).seconds
-  StoreMaxPageSize* = 100.uint64
-  StoreMaxTimeVariance* = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift" into the future
+# TODO: Remove this constant after moving time variance checks to waku store protocol
+const StoreMaxTimeVariance* = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift" into the future
 
 
 type
@@ -42,7 +39,7 @@ method getMessagesByHistoryQuery*(
   cursor = none(Index),
   startTime = none(Timestamp),
   endTime = none(Timestamp),
-  maxPageSize = StoreMaxPageSize,
+  maxPageSize = MaxPageSize,
   ascendingOrder = true
 ): MessageStoreResult[MessageStorePage] {.base.} = discard
 
