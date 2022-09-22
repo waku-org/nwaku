@@ -12,6 +12,9 @@ import
   ./rpc
 
 
+const MaxRpcSize* = MaxPageSize * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
+
+
 proc encode*(index: Index): ProtoBuffer =
   ## Encode an Index object into a ProtoBuffer
   ## returns the resultant ProtoBuffer
