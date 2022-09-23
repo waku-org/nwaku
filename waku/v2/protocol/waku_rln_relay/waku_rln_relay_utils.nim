@@ -543,7 +543,9 @@ when defined(rlnzerokit):
     var rootValue = cast[ptr MerkleNode] (root.`ptr`)[]
     return ok(rootValue)
 
+
 proc updateValidRootQueue*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): void =
+  # updates the valid merkle root queue with the latest root, and pops the oldest one
   if wakuRlnRelay.validMerkleRoots.len() == AcceptableRootWindowSize:
     # Delete oldest element in deque (index 0)
     wakuRlnRelay.validMerkleRoots.popFirst()
@@ -551,6 +553,8 @@ proc updateValidRootQueue*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): void =
   wakuRlnRelay.validMerkleRoots.addLast(root)
 
 proc insertMember*(wakuRlnRelay: WakuRLNRelay, idComm: IDCommitment): RlnRelayResult[void] =
+  # inserts a new id commitment into the local merkle tree, and adds the changed root to the 
+  # queue of valid roots
   let actionSucceeded = wakuRlnRelay.rlnInstance.insertMember(idComm)
   if not actionSucceeded:
     return err("could not insert id commitment into the merkle tree")
@@ -561,6 +565,8 @@ proc insertMember*(wakuRlnRelay: WakuRLNRelay, idComm: IDCommitment): RlnRelayRe
   
 
 proc removeMember*(wakuRlnRelay: WakuRLNRelay, index: MembershipIndex): RlnRelayResult[void] =
+  # removes a commitment from the local merkle tree at `index`, and adds the changed root to the
+  # queue of valid roots
   let actionSucceeded = wakuRlnRelay.rlnInstance.removeMember(index)
   if not actionSucceeded:
     return err("could not remove id commitment from the merkle tree")
