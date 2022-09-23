@@ -544,7 +544,7 @@ when defined(rlnzerokit):
     return ok(rootValue)
 
 proc updateValidRootQueue*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): void =
-  if wakuRlnRelay.validMerkleRoots.len() >= AcceptableRootWindowSize:
+  if wakuRlnRelay.validMerkleRoots.len() == AcceptableRootWindowSize:
     # Delete oldest element in deque (index 0)
     wakuRlnRelay.validMerkleRoots.popFirst()
   # Push next root into the queue
@@ -790,7 +790,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
     return MessageValidationResult.Invalid
 
   if not rlnPeer.validateRoot(msg.proof.merkleRoot):
-    warn "invalid message: provided root does not belong to acceptable window of roots", provided=msg.proof.merkleRoot, validRoots=rlnPeer.validMerkleRoots
+    debug "invalid message: provided root does not belong to acceptable window of roots", provided=msg.proof.merkleRoot, validRoots=rlnPeer.validMerkleRoots
     return MessageValidationResult.Invalid
 
   # verify the proof

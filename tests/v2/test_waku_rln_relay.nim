@@ -641,8 +641,11 @@ suite "Waku rln relay":
 
   test "validate roots which are part of the acceptable window":
     # Setup: 
-    # This step consists of creating the rln instance and relay,
+    # This step consists of creating the rln instance and waku-rln-relay,
     # Inserting members, and creating a valid proof with the merkle root
+
+    require:
+      AcceptableRootWindowSize < 10
     
     # create an RLN instance
     var rlnInstance = createRLNInstance()
@@ -712,7 +715,7 @@ suite "Waku rln relay":
         currentMerkleRoot.value() != validProof.merkleRoot
 
     # Then: 
-    # we try to verify a proof against this window,
+    # we try to verify a root against this window,
     # which should return true
     let olderRootVerified = rlnRelay.validateRoot(validProof.merkleRoot)
 
@@ -721,7 +724,7 @@ suite "Waku rln relay":
 
   test "invalidate roots which are not part of the acceptable window":
     # Setup: 
-    # This step consists of creating the rln instance and relay,
+    # This step consists of creating the rln instance and waku-rln-relay,
     # Inserting members, and creating a valid proof with the merkle root
     
     # create an RLN instance
