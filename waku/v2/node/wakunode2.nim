@@ -760,7 +760,10 @@ proc start*(node: WakuNode) {.async.} =
   ##
   ## Status: Implemented.
   
-  # TODO Get this from WakuNode obj
+  ## NB: careful when moving this. We need to start the switch with the bind address
+  ## BEFORE updating with announced addresses for the sake of identify.
+  await node.switch.start()
+  
   let peerInfo = node.switch.peerInfo
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
   var listenStr = ""
@@ -772,14 +775,13 @@ proc start*(node: WakuNode) {.async.} =
   info "Listening on", full = listenStr
   info "DNS: discoverable ENR ", enr = node.enr.toUri()
 
-  ## Update switch peer info with announced addrs
-  node.updateSwitchPeerInfo()
-
   # Perform relay-specific startup tasks TODO: this should be rethought
   if not node.wakuRelay.isNil:
     await node.startRelay()
+  
+  ## Update switch peer info with announced addrs
+  node.updateSwitchPeerInfo()
 
-  await node.switch.start()
   node.started = true
   
   info "Node started successfully"
