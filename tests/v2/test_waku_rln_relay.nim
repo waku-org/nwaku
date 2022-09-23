@@ -698,11 +698,11 @@ suite "Waku rln relay":
 
     # When: 
     # This test depends on the local merkle tree root being part of a
-    # acceptable set of roots, which is denoted by ACCEPTABLE_ROOT_WINDOW_SIZE
+    # acceptable set of roots, which is denoted by AcceptableRootWindowSize
     # The following action is equivalent to a member being removed upon listening to the events emitted by the contract
 
     # Progress the local tree by removing members
-    for i in 0..ACCEPTABLE_ROOT_WINDOW_SIZE - 2:
+    for i in 0..AcceptableRootWindowSize - 2:
       discard rlnRelay.removeMember(MembershipIndex(i))
       # Ensure the local tree root has changed
       let currentMerkleRoot = rlnRelay.rlnInstance.getMerkleRoot()
@@ -778,11 +778,11 @@ suite "Waku rln relay":
 
     # When: 
     # This test depends on the local merkle tree root being part of a
-    # acceptable set of roots, which is denoted by ACCEPTABLE_ROOT_WINDOW_SIZE
+    # acceptable set of roots, which is denoted by AcceptableRootWindowSize
     # The following action is equivalent to a member being removed upon listening to the events emitted by the contract
 
     # Progress the local tree by removing members
-    for i in 0..ACCEPTABLE_ROOT_WINDOW_SIZE:
+    for i in 0..AcceptableRootWindowSize:
       discard rlnRelay.removeMember(MembershipIndex(i))
       # Ensure the local tree root has changed
       let currentMerkleRoot = rlnRelay.rlnInstance.getMerkleRoot()

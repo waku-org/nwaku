@@ -9,7 +9,7 @@ import
   stew/arrayops,
   ../../utils/protobuf
 
-const ACCEPTABLE_ROOT_WINDOW_SIZE* = 5
+const AcceptableRootWindowSize* = 5
 
 when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
   ## Bn256 and RLN are Nim wrappers for the data types used in
