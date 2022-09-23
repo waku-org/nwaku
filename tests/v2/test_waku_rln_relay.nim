@@ -912,7 +912,9 @@ suite "Waku rln relay":
           membershipKeyPair: groupKeyPairs[index], rlnInstance: rln)
 
     # add members
-    discard wakuRlnRelay.addAll(groupIDCommitments)
+    let commitmentAddRes =  wakuRlnRelay.addAll(groupIDCommitments)
+    require:
+      commitmentAddRes.isOk()
 
     # get the current epoch time
     let time = epochTime()
