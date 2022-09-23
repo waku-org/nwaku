@@ -546,9 +546,11 @@ when defined(rlnzerokit):
 
 proc updateValidRootQueue*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): void =
   # updates the valid merkle root queue with the latest root, and pops the oldest one
-  if wakuRlnRelay.validMerkleRoots.len() == AcceptableRootWindowSize:
-    # Delete oldest element in deque (index 0)
-    wakuRlnRelay.validMerkleRoots.popFirst()
+  let overflowCount = wakuRlnRelay.validMerkleRoots.len() - AcceptableRootWindowSize
+  if overflowCount >= 0:
+    # Delete the oldest n elements in the deque (index 0..n)
+    for i in 0..overflowCount:
+      wakuRlnRelay.validMerkleRoots.popFirst() 
   # Push next root into the queue
   wakuRlnRelay.validMerkleRoots.addLast(root)
 
