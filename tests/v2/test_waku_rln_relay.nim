@@ -727,6 +727,9 @@ suite "Waku rln relay":
     # This step consists of creating the rln instance and waku-rln-relay,
     # Inserting members, and creating a valid proof with the merkle root
     
+    require:
+      AcceptableRootWindowSize < 10
+    
     # create an RLN instance
     var rlnInstance = createRLNInstance()
     require:
