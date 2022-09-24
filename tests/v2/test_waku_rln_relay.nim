@@ -643,10 +643,6 @@ suite "Waku rln relay":
     # Setup: 
     # This step consists of creating the rln instance and waku-rln-relay,
     # Inserting members, and creating a valid proof with the merkle root
-
-    require:
-      AcceptableRootWindowSize < 10
-    
     # create an RLN instance
     var rlnInstance = createRLNInstance()
     require:
@@ -661,8 +657,10 @@ suite "Waku rln relay":
       # peer's index in the Merkle Tree. 
       index = 5
 
+    let membershipCount = AcceptableRootWindowSize + 5
+
     # Create a Merkle tree with random members
-    for i in 0..10:
+    for i in 0..membershipCount:
       var memberIsAdded: RlnRelayResult[void]
       if (i == index):
         # insert the current peer's pk
@@ -744,8 +742,10 @@ suite "Waku rln relay":
       # peer's index in the Merkle Tree. 
       index = 6
 
+    let membershipCount = AcceptableRootWindowSize + 5 
+
     # Create a Merkle tree with random members
-    for i in 0..10:
+    for i in 0..membershipCount:
       var memberIsAdded: RlnRelayResult[void]
       if (i == index):
         # insert the current peer's pk
