@@ -545,18 +545,18 @@ when defined(rlnzerokit):
 
 
 proc updateValidRootQueue*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): void =
-  # updates the valid merkle root queue with the latest root, and pops the oldest one
+  ## updates the valid merkle root queue with the latest root, and pops the oldest one
   let overflowCount = wakuRlnRelay.validMerkleRoots.len() - AcceptableRootWindowSize
   if overflowCount >= 0:
-    # Delete the oldest n elements in the deque (index 0..n)
+    # Delete the oldest `overflowCount` elements in the deque (index 0..`overflowCount`)
     for i in 0..overflowCount:
       wakuRlnRelay.validMerkleRoots.popFirst() 
-  # Push next root into the queue
+  # Push the next root into the queue
   wakuRlnRelay.validMerkleRoots.addLast(root)
 
 proc insertMember*(wakuRlnRelay: WakuRLNRelay, idComm: IDCommitment): RlnRelayResult[void] =
-  # inserts a new id commitment into the local merkle tree, and adds the changed root to the 
-  # queue of valid roots
+  ## inserts a new id commitment into the local merkle tree, and adds the changed root to the 
+  ## queue of valid roots
   let actionSucceeded = wakuRlnRelay.rlnInstance.insertMember(idComm)
   if not actionSucceeded:
     return err("could not insert id commitment into the merkle tree")
@@ -567,8 +567,8 @@ proc insertMember*(wakuRlnRelay: WakuRLNRelay, idComm: IDCommitment): RlnRelayRe
   
 
 proc removeMember*(wakuRlnRelay: WakuRLNRelay, index: MembershipIndex): RlnRelayResult[void] =
-  # removes a commitment from the local merkle tree at `index`, and adds the changed root to the
-  # queue of valid roots
+  ## removes a commitment from the local merkle tree at `index`, and adds the changed root to the
+  ## queue of valid roots
   let actionSucceeded = wakuRlnRelay.rlnInstance.removeMember(index)
   if not actionSucceeded:
     return err("could not remove id commitment from the merkle tree")
@@ -578,7 +578,7 @@ proc removeMember*(wakuRlnRelay: WakuRLNRelay, index: MembershipIndex): RlnRelay
   return ok()
 
 proc validateRoot*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): bool =
-  # Validate against the window of roots stored in wakuRlnRelay.validMerkleRoots
+  ## Validate against the window of roots stored in wakuRlnRelay.validMerkleRoots
   return root in wakuRlnRelay.validMerkleRoots
 
 proc toMembershipKeyPairs*(groupKeys: seq[(string, string)]): seq[
