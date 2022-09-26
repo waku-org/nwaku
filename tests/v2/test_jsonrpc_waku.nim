@@ -14,6 +14,7 @@ import
   libp2p/protocols/pubsub/rpc/message
 import
   ../../waku/v1/node/rpc/hexstrings,
+  ../../waku/v2/node/storage/message/message_store,
   ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/node/wakunode2,
   ../../waku/v2/node/jsonrpc/[store_api,
@@ -258,7 +259,7 @@ procSuite "Waku v2 JSON-RPC API":
         WakuMessage(payload: @[byte 9], contentTopic: ContentTopic("2"), timestamp: 9)]
 
     for wakuMsg in msgList:
-      node.wakuStore.handleMessage(defaultTopic, wakuMsg)
+      require node.wakuStore.store.put(defaultTopic, wakuMsg).isOk()
 
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort, false)
