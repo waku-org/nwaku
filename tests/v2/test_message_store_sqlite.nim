@@ -25,13 +25,16 @@ const
 proc newTestDatabase(): SqliteDatabase =
   SqliteDatabase.init("", inMemory = true).tryGet()
 
+proc now(): Timestamp =
+  getNanosecondTime(getTime().toUnixFloat())
+
 proc getTestTimestamp(offset=0): Timestamp = 
-  Timestamp(getNanosecondTime(epochTime()))
+  Timestamp(getNanosecondTime(getTime().toUnixFloat() + offset.float))
 
 proc fakeWakuMessage(
   payload = "TEST-PAYLOAD",
   contentTopic = DefaultContentTopic, 
-  ts = getNanosecondTime(epochTime())
+  ts = now()
 ): WakuMessage = 
   WakuMessage(
     payload: toBytes(payload),
@@ -80,10 +83,9 @@ suite "SQLite message store - insert messages":
       store = SqliteStore.init(database).tryGet()
 
     let message = fakeWakuMessage(contentTopic=contentTopic)
-    let messageIndex = Index.compute(message, getNanosecondTime(epochTime()), DefaultPubsubTopic)
 
     ## When
-    let resPut = store.put(messageIndex, message, DefaultPubsubTopic)
+    let resPut = store.put(DefaultPubsubTopic, message)
 
     ## Then
     check:
@@ -123,8 +125,7 @@ suite "SQLite message store - insert messages":
 
     ## When
     for msg in messages:
-      let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      require store.put(index, msg, DefaultPubsubTopic).isOk()
+      require store.put(DefaultPubsubTopic, msg).isOk()
       require retentionPolicy.execute(store).isOk()
 
     ## Then
@@ -147,25 +148,24 @@ suite "Message Store":
     let 
       database = newTestDatabase()
       store = SqliteStore.init(database).get()
-      topic = DefaultContentTopic
-      pubsubTopic = DefaultPubsubTopic
 
+    let
       t1 = getTestTimestamp(0)
       t2 = getTestTimestamp(1)
       t3 = high(int64)
 
     var msgs = @[
-      WakuMessage(payload: @[byte 1, 2, 3], contentTopic: topic, version: uint32(0), timestamp: t1),
-      WakuMessage(payload: @[byte 1, 2, 3, 4], contentTopic: topic, version: uint32(1), timestamp: t2),
+      WakuMessage(payload: @[byte 1, 2, 3], contentTopic: DefaultContentTopic, version: uint32(0), timestamp: t1),
+      WakuMessage(payload: @[byte 1, 2, 3, 4], contentTopic: DefaultContentTopic, version: uint32(1), timestamp: t2),
       # high(uint32) is the largest value that fits in uint32, this is to make sure there is no overflow in the storage
-      WakuMessage(payload: @[byte 1, 2, 3, 4, 5], contentTopic: topic, version: high(uint32), timestamp: t3),
+      WakuMessage(payload: @[byte 1, 2, 3, 4, 5], contentTopic: DefaultContentTopic, version: high(uint32), timestamp: t3),
     ]
 
     var indexes: seq[Index] = @[]
     for msg in msgs:
-      var index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      let resPut = store.put(index, msg, pubsubTopic)
-      require resPut.isOk
+      require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
+
+      let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
       indexes.add(index)
 
     ## When
@@ -186,7 +186,10 @@ suite "Message Store":
     # flags for receiver timestamp
     var rt1Flag, rt2Flag, rt3Flag: bool = false
 
-    for (receiverTimestamp, msg, psTopic) in result:
+    for (receiverTimestamp, msg, pubsubTopic) in result:
+      check:
+        pubsubTopic == DefaultPubsubTopic
+
       # check correct retrieval of receiver timestamps
       if receiverTimestamp == indexes[0].receiverTime: rt1Flag = true
       if receiverTimestamp == indexes[1].receiverTime: rt2Flag = true
@@ -204,9 +207,6 @@ suite "Message Store":
       if msg.timestamp == t1: t1Flag = true
       if msg.timestamp == t2: t2Flag = true
       if msg.timestamp == t3: t3Flag = true
-
-      check:
-        psTopic == pubSubTopic
     
     check:
       # check version
@@ -278,10 +278,8 @@ suite "Message Store":
 
 
     for i in 1..capacity:
-      let
-        msg = WakuMessage(payload: @[byte i], contentTopic: contentTopic, version: uint32(0), timestamp: Timestamp(i))
-        index = Index.compute(msg, getTestTimestamp(), DefaultPubsubTopic)
-      require store.put(index, msg, pubsubTopic).isOk()
+      let msg = WakuMessage(payload: @[byte i], contentTopic: contentTopic, version: uint32(0), timestamp: Timestamp(i))
+      require store.put(pubsubTopic, msg).isOk()
       require retentionPolicy.execute(store).isOk()
       
     ## Then
@@ -312,19 +310,12 @@ suite "Message Store":
       retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=capacity)
 
     for i in 1..capacity+overload:
-      let
-        msg = WakuMessage(payload: ($i).toBytes(), contentTopic: contentTopic, version: uint32(0), timestamp: Timestamp(i))
-        index = Index.compute(msg, getTestTimestamp(), DefaultPubsubTopic)
-      require store.put(index, msg, pubsubTopic).isOk()
+      let msg = WakuMessage(payload: ($i).toBytes(), contentTopic: contentTopic, version: uint32(0), timestamp: Timestamp(i))
+      require store.put(pubsubTopic, msg).isOk()
       require retentionPolicy.execute(store).isOk()
 
     # count messages in DB
-    var numMessages: int64
-    proc handler(s: ptr sqlite3_stmt) =
-      numMessages = sqlite3_column_int64(s, 0)
-    let countQuery = "SELECT COUNT(*) FROM message" # the table name is set in a const in sqlite_store
-    discard database.query(countQuery, handler)
-
+    let numMessages = store.getMessagesCount().tryGet()
     check:
       # expected number of messages is 120 because
       # (capacity = 100) + (half of the overflow window = 15) + (5 messages added after after the last delete)

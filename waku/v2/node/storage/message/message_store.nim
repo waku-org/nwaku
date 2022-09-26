@@ -4,17 +4,12 @@
 {.push raises: [Defect].}
 
 import
-  std/options,
-  stew/results,
-  chronos
+  std/[options, times],
+  stew/results
 import
   ../../../protocol/waku_message,
   ../../../utils/time,
   ../../../utils/pagination
-
-
-# TODO: Remove this constant after moving time variance checks to waku store protocol
-const StoreMaxTimeVariance* = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift" into the future
 
 
 type
@@ -28,7 +23,15 @@ type
 
 
 # MessageStore interface
-method put*(ms: MessageStore, cursor: Index, message: WakuMessage, pubsubTopic: string): MessageStoreResult[void] {.base.} = discard
+method put*(ms: MessageStore, pubsubTopic: string, message: WakuMessage, digest: MessageDigest, receivedTime: Timestamp): MessageStoreResult[void] {.base.} = discard
+
+method put*(ms: MessageStore, pubsubTopic: string, message: WakuMessage): MessageStoreResult[void] =
+  let
+    digest = computeDigest(message) 
+    receivedTime = getNanosecondTime(getTime().toUnixFloat()) 
+  
+  ms.put(pubsubTopic, message, digest, receivedTime)
+
 
 method getAllMessages*(ms: MessageStore): MessageStoreResult[seq[MessageStoreRow]] {.base.} = discard
 

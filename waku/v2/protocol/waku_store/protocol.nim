@@ -49,6 +49,7 @@ const
 
 # Error types (metric label values)
 const
+  invalidMessage = "invalid_message"
   insertFailure = "insert_failure"
   retPolicyFailure = "retpolicy_failure"
   dialFailure = "dial_failure"
@@ -204,6 +205,17 @@ proc init*(T: type WakuStore,
   WakuStore.init(peerManager, rng, store, wakuSwap, retentionPolicy)
 
 
+proc isValidMessage(msg: WakuMessage): bool =
+  if msg.timestamp == 0:
+    return true
+
+  let 
+    now = getNanosecondTime(getTime().toUnixFloat())
+    lowerBound = now - MaxMessageTimestampVariance
+    upperBound = now + MaxMessageTimestampVariance
+
+  return lowerBound <= msg.timestamp and msg.timestamp <= upperBound
+
 proc handleMessage*(w: WakuStore, pubsubTopic: string, msg: WakuMessage) =
   if w.store.isNil():
     # Messages should not be stored
@@ -213,19 +225,26 @@ proc handleMessage*(w: WakuStore, pubsubTopic: string, msg: WakuMessage) =
     # The message is ephemeral, should not be stored
     return
   
-  let insertStartTime = getTime().toUnixFloat()
-    
-  let now = getNanosecondTime(getTime().toUnixFloat())
-  let index = Index.compute(msg, receivedTime=now, pubsubTopic=pubsubTopic)
-
-  trace "handling message", topic=pubsubTopic, index=index
-
-  # Add messages to persistent store, if present
-  let putStoreRes = w.store.put(index, msg, pubsubTopic)
-  if putStoreRes.isErr():
-    debug "failed to insert message to persistent store", index=index, err=putStoreRes.error
-    waku_store_errors.inc(labelValues = [insertFailure])
+  if not isValidMessage(msg):
+    waku_store_errors.inc(labelValues = [invalidMessage])
     return
+
+
+  let insertStartTime = getTime().toUnixFloat()
+  
+  block:
+    let
+      msgDigest = computeDigest(msg) 
+      msgReceivedTime = if msg.timestamp > 0: msg.timestamp
+                        else: getNanosecondTime(getTime().toUnixFloat()) 
+
+    trace "handling message", pubsubTopic=pubsubTopic, contentTopic=msg.contentTopic, timestamp=msg.timestamp, digest=msgDigest
+
+    let putStoreRes = w.store.put(pubsubTopic, msg, msgDigest, msgReceivedTime)
+    if putStoreRes.isErr():
+      debug "failed to insert message into the store", err=putStoreRes.error
+      waku_store_errors.inc(labelValues = [insertFailure])
+      return
 
   let insertDuration = getTime().toUnixFloat() - insertStartTime
   waku_store_insert_duration_seconds.observe(insertDuration)
@@ -402,10 +421,7 @@ proc resume*(w: WakuStore,
   # Save the retrieved messages in the store
   var added: uint = 0
   for msg in res.get():
-    let now = getNanosecondTime(getTime().toUnixFloat())
-    let index = Index.compute(msg, receivedTime=now, pubsubTopic=pubsubTopic)
-
-    let putStoreRes = w.store.put(index, msg, pubsubTopic)
+    let putStoreRes = w.store.put(pubsubTopic, msg)
     if putStoreRes.isErr():
       continue
 

@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/options,
+  std/[options, times],
   stew/results,
   chronicles
 import
@@ -34,8 +34,8 @@ proc init*(T: type DualMessageStore, db: SqliteDatabase, capacity: int): Message
     warn "failed to load messages from the persistent store", err = res.error
   else: 
     for (receiverTime, msg, pubsubTopic) in res.value:
-      let index = Index.compute(msg, receiverTime, pubsubTopic)
-      discard inmemory.put(index, msg, pubsubTopic)
+      let digest = computeDigest(msg)
+      discard inmemory.put(pubsubTopic, msg, digest, receiverTime)
 
     info "successfully loaded messages from the persistent store"
 
@@ -43,10 +43,13 @@ proc init*(T: type DualMessageStore, db: SqliteDatabase, capacity: int): Message
   return ok(DualMessageStore(inmemory: inmemory, persistent: persistent))
 
 
-method put*(s: DualMessageStore, index: Index, message: WakuMessage, pubsubTopic: string): MessageStoreResult[void] =
-  ?s.inmemory.put(index, message, pubsubTopic)
-  ?s.persistent.put(index, message, pubsubTopic)
+method put*(s: DualMessageStore, pubsubTopic: string, message: WakuMessage, digest: MessageDigest, receivedTime: Timestamp): MessageStoreResult[void] =
+  ?s.inmemory.put(pubsubTopic, message, digest, receivedTime)
+  ?s.persistent.put(pubsubTopic, message, digest, receivedTime)
   ok()
+
+method put*(s: DualMessageStore, pubsubTopic: string, message: WakuMessage): MessageStoreResult[void] =
+  procCall MessageStore(s).put(pubsubTopic, message)
 
 
 method getAllMessages*(s: DualMessageStore): MessageStoreResult[seq[MessageStoreRow]] =
