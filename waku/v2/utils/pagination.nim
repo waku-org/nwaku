@@ -8,6 +8,7 @@ import
   ../protocol/waku_message,
   ./time
 
+type MessageDigest* = MDigest[256]
 
 const
   MaxPageSize*: uint64 = 100
@@ -20,9 +21,9 @@ type Index* = object
   pubsubTopic*: string
   senderTime*: Timestamp # the time at which the message is generated
   receiverTime*: Timestamp
-  digest*: MDigest[256] # calculated over payload and content topic
+  digest*: MessageDigest # calculated over payload and content topic
 
-proc computeDigest*(msg: WakuMessage): MDigest[256] =
+proc computeDigest*(msg: WakuMessage): MessageDigest =
   var ctx: sha256
   ctx.init()
   defer: ctx.clear()

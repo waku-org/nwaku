@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[options, algorithm],
+  std/[options, algorithm, times],
   stew/[results, sorted_set],
   chronicles
 import
@@ -313,16 +313,9 @@ proc add*(store: StoreQueueRef, msg: IndexedWakuMessage): MessageStoreResult[voi
   ## Add a message to the queue
   ## 
   ## If we're at capacity, we will be removing, the oldest (first) item
-  trace "adding item to store queue", msg=msg
-
-  # Ensure that messages don't "jump" to the front of the queue with future timestamps
-  if msg.index.senderTime - msg.index.receiverTime > StoreMaxTimeVariance:
-    return err("future_sender_timestamp")
-
   if store.contains(msg.index):
     trace "could not add item to store queue. Index already exists", index=msg.index
     return err("duplicate")
-
 
   # TODO: the below delete block can be removed if we convert to circular buffer
   if store.items.len >= store.capacity:
@@ -342,9 +335,14 @@ proc add*(store: StoreQueueRef, msg: IndexedWakuMessage): MessageStoreResult[voi
 
   return ok()
 
-method put*(store: StoreQueueRef, cursor: Index, message: WakuMessage, pubsubTopic: string): MessageStoreResult[void] =
-  let message = IndexedWakuMessage(msg: message, index: cursor, pubsubTopic: pubsubTopic)
+
+method put*(store: StoreQueueRef, pubsubTopic: string, message: WakuMessage, digest: MessageDigest, receivedTime: Timestamp): MessageStoreResult[void] =
+  let index = Index(pubsubTopic: pubsubTopic, senderTime: message.timestamp, receiverTime: receivedTime, digest: digest)
+  let message = IndexedWakuMessage(msg: message, index: index, pubsubTopic: pubsubTopic)
   store.add(message)
+
+method put*(store: StoreQueueRef, pubsubTopic: string, message: WakuMessage): MessageStoreResult[void] =
+  procCall MessageStore(store).put(pubsubTopic, message)
 
 
 proc getPage*(storeQueue: StoreQueueRef,
