@@ -13,6 +13,7 @@ import
   stew/[byteutils, arrayops, endians2],
   rln, 
   waku_rln_relay_types,
+  waku_rln_relay_metrics,
   ../../node/[wakunode2_types,config],
   ../../../../../examples/v2/config_chat2,
   ../waku_message
@@ -321,8 +322,9 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
 
     # generate the proof
     var proof: Buffer
-    let proofIsSuccessful = generate_proof(rlnInstance, addr inputBuffer, addr proof)
-    # check whether the generate_proof call is done successfully
+    waku_rln_proof_generation_time.time:
+      let proofIsSuccessful = generateProof(rlnInstance, addr inputBuffer, addr proof)
+    # check whether the generateProof call is done successfully
     if not proofIsSuccessful:
       return err("could not generate the proof")
 
@@ -771,6 +773,8 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
   ## `timeOption` indicates Unix epoch time (fractional part holds sub-seconds)
   ## if `timeOption` is supplied, then the current epoch is calculated based on that
 
+  # track message count for metrics
+  waku_rln_messages.inc()
 
   #  checks if the `msg`'s epoch is far from the current epoch
   # it corresponds to the validation of rln external nullifier
@@ -795,29 +799,39 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
     # accept messages whose epoch is within +-MAX_EPOCH_GAP from the current epoch
     debug "invalid message: epoch gap exceeds a threshold", gap = gap,
         payload = string.fromBytes(msg.payload)
+    waku_rln_invalid_messages.inc(labelValues=["invalid_epoch"])
     return MessageValidationResult.Invalid
 
   if not rlnPeer.validateRoot(msg.proof.merkleRoot):
     debug "invalid message: provided root does not belong to acceptable window of roots", provided=msg.proof.merkleRoot, validRoots=rlnPeer.validMerkleRoots
+    waku_rln_invalid_messages.inc(labelValues=["invalid_root"])
     return MessageValidationResult.Invalid
 
   # verify the proof
   let
     contentTopicBytes = msg.contentTopic.toBytes
     input = concat(msg.payload, contentTopicBytes)
-    proofVerificationRes = rlnPeer.rlnInstance.proofVerify(input, msg.proof)
+
+  waku_rln_proof_verification.inc()
+  waku_rln_proof_verification_time.time:
+    let proofVerificationRes = rlnPeer.rlnInstance.proofVerify(input, msg.proof)
 
   if proofVerificationRes.isErr():
+    waku_rln_errors.inc(labelValues=["proof_verification"])
     return MessageValidationResult.Invalid
   if not proofVerificationRes.value():
     # invalid proof
     debug "invalid message: invalid proof", payload = string.fromBytes(msg.payload)
+    waku_rln_invalid_messages.inc(labelValues=["invalid_proof"])
     return MessageValidationResult.Invalid
 
   # check if double messaging has happened
   let hasDup = rlnPeer.hasDuplicate(msg)
-  if hasDup.isOk and hasDup.value == true:
-    debug "invalid message: message is a spam", payload = string.fromBytes(msg.payload)
+  if hasDup.isErr():
+    waku_rln_errors.inc(labelValues=["duplicate_check"])
+  elif hasDup.value == true:
+    debug "invalid message: message is spam", payload = string.fromBytes(msg.payload)
+    waku_rln_spam_messages.inc()
     return MessageValidationResult.Spam
 
   # insert the message to the log
@@ -825,6 +839,10 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
   # it will never error out
   discard rlnPeer.updateLog(msg)
   debug "message is valid", payload = string.fromBytes(msg.payload)
+  let rootLabel = $rlnPeer.validMerkleRoots.find(msg.proof.merkleRoot)
+  waku_rln_valid_messages.inc(labelValues=[
+    rootLabel
+  ])
   return MessageValidationResult.Valid
 
 
@@ -1098,7 +1116,7 @@ proc readPersistentRlnCredentials*(path: string) : RlnMembershipCredentials {.ra
   debug "Deserialized Rln credentials", rlnCredentials=deserializedRlnCredentials
   result = deserializedRlnCredentials
 
-proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler] = none(SpamHandler), registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
+proc _mountRlnRelay(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler] = none(SpamHandler), registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
   if not conf.rlnRelayDynamic:
     info " setting up waku-rln-relay in off-chain mode... "
     # set up rln relay inputs
@@ -1183,3 +1201,13 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: O
       if res.isErr:
         return err("dynamic rln-relay could not be mounted: " & res.error())
       return ok(true)
+
+
+proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler] = none(SpamHandler), registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
+  waku_rln_relay_mounting_time.time:
+    return _mountRlnRelay(
+      node,
+      conf,
+      spamHandler,
+      registrationHandler
+    )
