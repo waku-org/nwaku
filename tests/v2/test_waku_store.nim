@@ -345,7 +345,7 @@ suite "Waku Store - history query":
       response.messages.len() == 2
       response.pagingInfo.pageSize == 2 
       response.pagingInfo.direction == PagingDirection.FORWARD
-      response.pagingInfo.cursor != Index()
+      response.pagingInfo.cursor != PagingIndex()
 
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitch.stop())
@@ -397,7 +397,7 @@ suite "Waku Store - history query":
       response.messages.len() == 2
       response.pagingInfo.pageSize == 2 
       response.pagingInfo.direction == PagingDirection.BACKWARD
-      response.pagingInfo.cursor != Index()
+      response.pagingInfo.cursor != PagingIndex()
 
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitch.stop())
@@ -448,7 +448,7 @@ suite "Waku Store - history query":
       response.messages.len() == 8
       response.pagingInfo.pageSize == 8
       response.pagingInfo.direction == PagingDirection.BACKWARD
-      response.pagingInfo.cursor != Index()
+      response.pagingInfo.cursor != PagingIndex()
 
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitch.stop())

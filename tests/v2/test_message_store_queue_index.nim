@@ -8,7 +8,7 @@ import
 import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/utils/time,
-  ../../waku/v2/utils/pagination
+  ../../waku/v2/node/storage/message/queue_store/index
 
 
 const 
