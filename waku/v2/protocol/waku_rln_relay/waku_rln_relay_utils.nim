@@ -1205,9 +1205,11 @@ proc mount(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[Spa
 
 proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler] = none(SpamHandler), registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
   waku_rln_relay_mounting_time.time:
-    return mount(
+    let res = mount(
       node,
       conf,
       spamHandler,
       registrationHandler
     )
+  
+  return res
