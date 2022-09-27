@@ -161,11 +161,11 @@ suite "Message Store":
       WakuMessage(payload: @[byte 1, 2, 3, 4, 5], contentTopic: DefaultContentTopic, version: high(uint32), timestamp: t3),
     ]
 
-    var indexes: seq[Index] = @[]
+    var indexes: seq[PagingIndex] = @[]
     for msg in msgs:
       require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-      let index = Index.compute(msg, msg.timestamp, DefaultPubsubTopic)
+      let index = PagingIndex.compute(msg, msg.timestamp, DefaultPubsubTopic)
       indexes.add(index)
 
     ## When

@@ -227,7 +227,7 @@ proc contentTopicWhereClause(contentTopic: Option[seq[ContentTopic]]): Option[st
   contentTopicWhere &= ")"
   some(contentTopicWhere)
 
-proc cursorWhereClause(cursor: Option[Index], ascending=true): Option[string] =
+proc cursorWhereClause(cursor: Option[PagingIndex], ascending=true): Option[string] =
   if cursor.isNone():
     return none(string)
 
@@ -292,7 +292,7 @@ proc prepareSelectMessagesWithlimitStmt(db: SqliteDatabase, stmt: string): Datab
 proc execSelectMessagesWithLimitStmt(s: SqliteStmt, 
                           contentTopic: Option[seq[ContentTopic]], 
                           pubsubTopic: Option[string],
-                          cursor: Option[Index],  
+                          cursor: Option[PagingIndex],  
                           startTime: Option[Timestamp],
                           endTime: Option[Timestamp],
                           onRowCallback: DataProc): DatabaseResult[void] =
@@ -353,7 +353,7 @@ proc execSelectMessagesWithLimitStmt(s: SqliteStmt,
 proc selectMessagesByHistoryQueryWithLimit*(db: SqliteDatabase, 
                                             contentTopic: Option[seq[ContentTopic]], 
                                             pubsubTopic: Option[string],
-                                            cursor: Option[Index],  
+                                            cursor: Option[PagingIndex],  
                                             startTime: Option[Timestamp],
                                             endTime: Option[Timestamp],
                                             limit: uint64, 

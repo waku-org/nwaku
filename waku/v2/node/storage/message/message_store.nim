@@ -39,7 +39,7 @@ method getMessagesByHistoryQuery*(
   ms: MessageStore,
   contentTopic = none(seq[ContentTopic]),
   pubsubTopic = none(string),
-  cursor = none(Index),
+  cursor = none(PagingIndex),
   startTime = none(Timestamp),
   endTime = none(Timestamp),
   maxPageSize = DefaultPageSize,
