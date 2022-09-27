@@ -545,7 +545,7 @@ when defined(rlnzerokit):
 
 
 proc updateValidRootQueue*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): void =
-  ## updates the valid merkle root queue with the latest root, and pops the oldest one
+  ## updates the valid Merkle root queue with the latest root and pops the oldest one when the capacity of `AcceptableRootWindowSize` is reached 
   let overflowCount = wakuRlnRelay.validMerkleRoots.len() - AcceptableRootWindowSize
   if overflowCount >= 0:
     # Delete the oldest `overflowCount` elements in the deque (index 0..`overflowCount`)
