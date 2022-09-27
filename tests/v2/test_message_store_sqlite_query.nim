@@ -19,13 +19,19 @@ const
   DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
 
 
+proc now(): Timestamp =
+  getNanosecondTime(getTime().toUnixFloat())
+
+proc ts(offset=0, origin=now()): Timestamp =
+  origin + getNanosecondTime(offset)
+
 proc newTestDatabase(): SqliteDatabase =
   SqliteDatabase.init("", inMemory = true).tryGet()
 
 proc fakeWakuMessage(
   payload = "TEST-PAYLOAD",
   contentTopic = DefaultContentTopic, 
-  ts = getNanosecondTime(epochTime())
+  ts = now()
 ): WakuMessage = 
   WakuMessage(
     payload: toBytes(payload),
@@ -46,20 +52,20 @@ suite "message store - history query":
       store = SqliteStore.init(database).tryGet()
 
     let messages = @[
-      fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
-      fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 1),
+      fakeWakuMessage(ts=ts(0)),
+      fakeWakuMessage(ts=ts(1)),
 
-      fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 2),
-      fakeWakuMessage("MSG-02", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 3),
+      fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=ts(2)),
+      fakeWakuMessage("MSG-02", contentTopic=contentTopic, ts=ts(3)),
 
-      fakeWakuMessage("MSG-03", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 4),
-      fakeWakuMessage("MSG-04", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 5),
-      fakeWakuMessage("MSG-05", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 6),
-      fakeWakuMessage("MSG-06", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 7),
+      fakeWakuMessage("MSG-03", contentTopic=contentTopic, ts=ts(4)),
+      fakeWakuMessage("MSG-04", contentTopic=contentTopic, ts=ts(5)),
+      fakeWakuMessage("MSG-05", contentTopic=contentTopic, ts=ts(6)),
+      fakeWakuMessage("MSG-06", contentTopic=contentTopic, ts=ts(7)),
     ]
 
     for msg in messages:
-      require store.put(DefaultPubsubTopic, msg).isOk()
+      require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -94,20 +100,20 @@ suite "message store - history query":
       store = SqliteStore.init(database).tryGet()
 
     let messages = @[
-      fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
-      fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 1),
+      fakeWakuMessage(ts=ts(0)),
+      fakeWakuMessage(ts=ts(1)),
 
-      fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 2),
-      fakeWakuMessage("MSG-02", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 3),
-      fakeWakuMessage("MSG-03", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 4),
-      fakeWakuMessage("MSG-04", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 5),
+      fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=ts(2)),
+      fakeWakuMessage("MSG-02", contentTopic=contentTopic, ts=ts(3)),
+      fakeWakuMessage("MSG-03", contentTopic=contentTopic, ts=ts(4)),
+      fakeWakuMessage("MSG-04", contentTopic=contentTopic, ts=ts(5)),
       
-      fakeWakuMessage("MSG-05", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 6),
-      fakeWakuMessage("MSG-06", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 7),
+      fakeWakuMessage("MSG-05", contentTopic=contentTopic, ts=ts(6)),
+      fakeWakuMessage("MSG-06", contentTopic=contentTopic, ts=ts(7)),
     ]
 
     for msg in messages:
-      require store.put(DefaultPubsubTopic, msg).isOk()
+      require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -144,20 +150,20 @@ suite "message store - history query":
       store = SqliteStore.init(database).tryGet()
 
     let messages = @[
-      fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
-      fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 1),
+      fakeWakuMessage(ts=ts(0)),
+      fakeWakuMessage(ts=ts(1)),
 
-      fakeWakuMessage("MSG-01", contentTopic=contentTopic1, ts=getNanosecondTime(epochTime()) + 2),
-      fakeWakuMessage("MSG-02", contentTopic=contentTopic2, ts=getNanosecondTime(epochTime()) + 3),
+      fakeWakuMessage("MSG-01", contentTopic=contentTopic1, ts=ts(2)),
+      fakeWakuMessage("MSG-02", contentTopic=contentTopic2, ts=ts(3)),
 
-      fakeWakuMessage("MSG-03", contentTopic=contentTopic3, ts=getNanosecondTime(epochTime()) + 4),
-      fakeWakuMessage("MSG-04", contentTopic=contentTopic1, ts=getNanosecondTime(epochTime()) + 5),
-      fakeWakuMessage("MSG-05", contentTopic=contentTopic2, ts=getNanosecondTime(epochTime()) + 6),
-      fakeWakuMessage("MSG-06", contentTopic=contentTopic3, ts=getNanosecondTime(epochTime()) + 7),
+      fakeWakuMessage("MSG-03", contentTopic=contentTopic3, ts=ts(4)),
+      fakeWakuMessage("MSG-04", contentTopic=contentTopic1, ts=ts(5)),
+      fakeWakuMessage("MSG-05", contentTopic=contentTopic2, ts=ts(6)),
+      fakeWakuMessage("MSG-06", contentTopic=contentTopic3, ts=ts(7)),
     ]
 
     for msg in messages:
-      require store.put(DefaultPubsubTopic, msg).isOk()
+      require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -193,24 +199,24 @@ suite "message store - history query":
       store = SqliteStore.init(database).tryGet()
 
     let messages1 = @[
-      fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
-      fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 1),
+      fakeWakuMessage(ts=ts(0)),
+      fakeWakuMessage(ts=ts(1)),
 
-      fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 2),
-      fakeWakuMessage("MSG-02", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 3),
+      fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=ts(2)),
+      fakeWakuMessage("MSG-02", contentTopic=contentTopic, ts=ts(3)),
     ]
     for msg in messages1:
-      require store.put(DefaultPubsubTopic, msg).isOk()
+      require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
       
 
     let messages2 = @[
-      fakeWakuMessage("MSG-03", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 4),
-      fakeWakuMessage("MSG-04", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 5),
-      fakeWakuMessage("MSG-05", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 6),
-      fakeWakuMessage("MSG-06", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 7),
+      fakeWakuMessage("MSG-03", contentTopic=contentTopic, ts=ts(4)),
+      fakeWakuMessage("MSG-04", contentTopic=contentTopic, ts=ts(5)),
+      fakeWakuMessage("MSG-05", contentTopic=contentTopic, ts=ts(6)),
+      fakeWakuMessage("MSG-06", contentTopic=contentTopic, ts=ts(7)),
     ]
     for msg in messages2:
-      require store.put(pubsubTopic, msg).isOk()
+      require store.put(pubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
      
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -246,20 +252,20 @@ suite "message store - history query":
       store = SqliteStore.init(database).tryGet()
 
     let messages = @[
-      fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
-      fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 1),
+      fakeWakuMessage(ts=ts(0)),
+      fakeWakuMessage(ts=ts(1)),
 
-      fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 2),
-      fakeWakuMessage("MSG-02", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 3),
+      fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=ts(2)),
+      fakeWakuMessage("MSG-02", contentTopic=contentTopic, ts=ts(3)),
 
-      fakeWakuMessage("MSG-03", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 4),
-      fakeWakuMessage("MSG-04", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 5),
-      fakeWakuMessage("MSG-05", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 6),
-      fakeWakuMessage("MSG-06", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 7),
+      fakeWakuMessage("MSG-03", contentTopic=contentTopic, ts=ts(4)),
+      fakeWakuMessage("MSG-04", contentTopic=contentTopic, ts=ts(5)),
+      fakeWakuMessage("MSG-05", contentTopic=contentTopic, ts=ts(6)),
+      fakeWakuMessage("MSG-06", contentTopic=contentTopic, ts=ts(7)),
     ]
 
     for msg in messages:
-      require store.put(DefaultPubsubTopic, msg).isOk()
+      require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
     let cursor = Index.compute(messages[4], messages[4].timestamp, DefaultPubsubTopic)
     
@@ -297,20 +303,20 @@ suite "message store - history query":
       store = SqliteStore.init(database).tryGet()
 
     let messages = @[
-      fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
-      fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 1),
+      fakeWakuMessage(ts=ts(0)),
+      fakeWakuMessage(ts=ts(1)),
 
-      fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 2),
-      fakeWakuMessage("MSG-02", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 3),
-      fakeWakuMessage("MSG-03", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 4),
-      fakeWakuMessage("MSG-04", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 5),
+      fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=ts(2)),
+      fakeWakuMessage("MSG-02", contentTopic=contentTopic, ts=ts(3)),
+      fakeWakuMessage("MSG-03", contentTopic=contentTopic, ts=ts(4)),
+      fakeWakuMessage("MSG-04", contentTopic=contentTopic, ts=ts(5)),
 
-      fakeWakuMessage("MSG-05", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 6),
-      fakeWakuMessage("MSG-06", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 7),
+      fakeWakuMessage("MSG-05", contentTopic=contentTopic, ts=ts(6)),
+      fakeWakuMessage("MSG-06", contentTopic=contentTopic, ts=ts(7)),
     ]
 
     for msg in messages:
-      require store.put(DefaultPubsubTopic, msg).isOk()
+      require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
     let cursor = Index.compute(messages[6], messages[6].timestamp, DefaultPubsubTopic)
     
@@ -349,22 +355,22 @@ suite "message store - history query":
       store = SqliteStore.init(database).tryGet()
 
     let messages1 = @[
-      fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
-      fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 1),
-      fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 2),
-      fakeWakuMessage("MSG-02", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 3),
-      fakeWakuMessage("MSG-03", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 4),
+      fakeWakuMessage(ts=ts(0)),
+      fakeWakuMessage(ts=ts(1)),
+      fakeWakuMessage("MSG-01", contentTopic=contentTopic, ts=ts(2)),
+      fakeWakuMessage("MSG-02", contentTopic=contentTopic, ts=ts(3)),
+      fakeWakuMessage("MSG-03", contentTopic=contentTopic, ts=ts(4)),
     ]
     for msg in messages1:
-      require store.put(DefaultPubsubTopic, msg).isOk()
+      require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
     let messages2 = @[
-      fakeWakuMessage("MSG-04", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 5),
-      fakeWakuMessage("MSG-05", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 6),
-      fakeWakuMessage("MSG-06", contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 7),
+      fakeWakuMessage("MSG-04", contentTopic=contentTopic, ts=ts(5)),
+      fakeWakuMessage("MSG-05", contentTopic=contentTopic, ts=ts(6)),
+      fakeWakuMessage("MSG-06", contentTopic=contentTopic, ts=ts(7)),
     ]
     for msg in messages2:
-      require store.put(pubsubTopic, msg).isOk()
+      require store.put(pubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
     let cursor = Index.compute(messages2[0], messages2[0].timestamp, DefaultPubsubTopic)
     
@@ -403,15 +409,15 @@ suite "message store - history query":
       store = SqliteStore.init(database).tryGet()
 
     let messages = @[
-      fakeWakuMessage("MSG-01", contentTopic=DefaultContentTopic, ts=getNanosecondTime(epochTime()) + 2),
-      fakeWakuMessage("MSG-02", contentTopic=DefaultContentTopic, ts=getNanosecondTime(epochTime()) + 3),
-      fakeWakuMessage("MSG-03", contentTopic=DefaultContentTopic, ts=getNanosecondTime(epochTime()) + 4),
-      fakeWakuMessage("MSG-04", contentTopic=DefaultContentTopic, ts=getNanosecondTime(epochTime()) + 5),
-      fakeWakuMessage("MSG-05", contentTopic=DefaultContentTopic, ts=getNanosecondTime(epochTime()) + 6),
+      fakeWakuMessage("MSG-01", contentTopic=DefaultContentTopic, ts=ts(2)),
+      fakeWakuMessage("MSG-02", contentTopic=DefaultContentTopic, ts=ts(3)),
+      fakeWakuMessage("MSG-03", contentTopic=DefaultContentTopic, ts=ts(4)),
+      fakeWakuMessage("MSG-04", contentTopic=DefaultContentTopic, ts=ts(5)),
+      fakeWakuMessage("MSG-05", contentTopic=DefaultContentTopic, ts=ts(6)),
     ]
 
     for msg in messages:
-      require store.put(DefaultPubsubTopic, msg).isOk()
+      require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -428,6 +434,68 @@ suite "message store - history query":
     check:
       filteredMessages.len == 0
       pagingInfo.isNone()
+    
+    ## Teardown
+    store.close()
+
+  test "content topic and page size":
+    ## Given
+    let pageSize: uint64 = 50
+    let 
+      database = newTestDatabase()
+      store = SqliteStore.init(database).tryGet()
+
+    for t in 0..<70:
+      let msg = fakeWakuMessage("MSG-" & $t, DefaultContentTopic, ts=ts(t))
+      require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
+    
+    ## When
+    let res = store.getMessagesByHistoryQuery(
+      contentTopic=some(@[DefaultContentTopic]),
+      maxPageSize=pageSize,
+      ascendingOrder=true
+    )
+
+    ## Then
+    check:
+      res.isOk()
+
+    let (filteredMessages, pagingInfo) = res.tryGet()
+    check:
+      filteredMessages.len == 50
+      pagingInfo.isSome()
+      pagingInfo.get().pageSize == 50
+    
+    ## Teardown
+    store.close()
+  
+  test "content topic and page size - not enough messages stored":
+    ## Given
+    let pageSize: uint64 = 50
+    let 
+      database = newTestDatabase()
+      store = SqliteStore.init(database).tryGet()
+
+    for t in 0..<40:
+      let msg = fakeWakuMessage("MSG-" & $t, DefaultContentTopic, ts=ts(t))
+      require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
+    
+    ## When
+    let res = store.getMessagesByHistoryQuery(
+      contentTopic=some(@[DefaultContentTopic]),
+      maxPageSize=pageSize,
+      ascendingOrder=true
+    )
+
+    ## Then
+    check:
+      res.isOk()
+
+    let (filteredMessages, pagingInfo) = res.tryGet()
+    check:
+      filteredMessages.len == 40
+      pagingInfo.isSome()
+      pagingInfo.get().pageSize == 40
     
     ## Teardown
     store.close()

@@ -109,7 +109,8 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse {.gcsafe.}
                  else: none(Timestamp)
     qEndTime = if query.endTime != Timestamp(0): some(query.endTime)
                else: none(Timestamp)
-    qMaxPageSize = query.pagingInfo.pageSize
+    qMaxPageSize = if query.pagingInfo.pageSize <= 0: DefaultPageSize
+                   else: min(query.pagingInfo.pageSize, MaxPageSize)
     qAscendingOrder = query.pagingInfo.direction == PagingDirection.FORWARD
 
 

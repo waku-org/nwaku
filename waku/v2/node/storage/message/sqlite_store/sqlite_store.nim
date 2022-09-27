@@ -66,12 +66,12 @@ method put*(s: SqliteStore, pubsubTopic: string, message: WakuMessage, digest: M
 
   let res = s.insertStmt.exec((
     @(digest.data),                # id
-    receivedTime,                  # receiverTimestamp
-    toBytes(message.contentTopic), # contentTopic 
+    receivedTime,                  # storedAt
+    toBytes(message.contentTopic), # contentTopic
     message.payload,               # payload
-    toBytes(pubsubTopic),          # pubsubTopic 
+    toBytes(pubsubTopic),          # pubsubTopic
     int64(message.version),        # version
-    message.timestamp              # senderTimestamp 
+    message.timestamp              # senderTimestamp
   ))
   if res.isErr():
     return err("message insert failed: " & res.error())
@@ -95,11 +95,9 @@ method getMessagesByHistoryQuery*(
   cursor = none(Index),
   startTime = none(Timestamp),
   endTime = none(Timestamp),
-  maxPageSize = MaxPageSize,
+  maxPageSize = DefaultPageSize,
   ascendingOrder = true
 ): MessageStoreResult[MessageStorePage] =
-  let pageSizeLimit = if maxPageSize <= 0: MaxPageSize
-                      else: min(maxPageSize, MaxPageSize)
 
   let rows = ?s.db.selectMessagesByHistoryQueryWithLimit(
     contentTopic, 
@@ -107,7 +105,7 @@ method getMessagesByHistoryQuery*(
     cursor,
     startTime,
     endTime,
-    limit=pageSizeLimit,
+    limit=maxPageSize,
     ascending=ascendingOrder
   )
 
@@ -118,8 +116,8 @@ method getMessagesByHistoryQuery*(
 
   # TODO: Return the message hash from the DB, to avoid recomputing the hash of the last message
   # Compute last message index
-  let (message, receivedTimestamp, pubsubTopic) = rows[^1]
-  let lastIndex = Index.compute(message, receivedTimestamp, pubsubTopic)
+  let (message, storedAt, pubsubTopic) = rows[^1]
+  let lastIndex = Index.compute(message, storedAt, pubsubTopic)
 
   let pagingInfo = PagingInfo(
     pageSize: uint64(messages.len),

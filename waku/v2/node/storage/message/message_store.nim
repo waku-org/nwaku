@@ -42,7 +42,7 @@ method getMessagesByHistoryQuery*(
   cursor = none(Index),
   startTime = none(Timestamp),
   endTime = none(Timestamp),
-  maxPageSize = MaxPageSize,
+  maxPageSize = DefaultPageSize,
   ascendingOrder = true
 ): MessageStoreResult[MessageStorePage] {.base.} = discard
 
