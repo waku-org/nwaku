@@ -357,8 +357,7 @@ proc getPage*(storeQueue: StoreQueueRef,
   let
     cursorOpt = if pagingInfo.cursor == Index(): none(Index) ## TODO: pagingInfo.cursor should be an Option. We shouldn't rely on empty initialisation to determine if set or not!
                 else: some(pagingInfo.cursor)
-    maxPageSize = if pagingInfo.pageSize <= 0: MaxPageSize 
-                  else: min(pagingInfo.pageSize, MaxPageSize)
+    maxPageSize = pagingInfo.pageSize
   
   case pagingInfo.direction
     of PagingDirection.FORWARD:
@@ -384,7 +383,7 @@ method getMessagesByHistoryQuery*(
   cursor = none(Index),
   startTime = none(Timestamp),
   endTime = none(Timestamp),
-  maxPageSize = MaxPageSize,
+  maxPageSize = DefaultPageSize,
   ascendingOrder = true
 ): MessageStoreResult[MessageStorePage] =
 
