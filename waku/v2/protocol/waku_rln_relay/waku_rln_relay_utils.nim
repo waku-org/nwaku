@@ -1120,7 +1120,7 @@ proc mount(node: WakuNode,
            conf: WakuNodeConf|Chat2Conf,
            spamHandler: Option[SpamHandler] = none(SpamHandler),
            registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)
-          ): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError].} =
+          ): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError, OSError].} =
   if not conf.rlnRelayDynamic:
     info " setting up waku-rln-relay in off-chain mode... "
     # set up rln relay inputs
@@ -1211,7 +1211,7 @@ proc mountRlnRelay*(node: WakuNode,
                     conf: WakuNodeConf|Chat2Conf,
                     spamHandler: Option[SpamHandler] = none(SpamHandler),
                     registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)
-                   ): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError].} =
+                   ): RlnRelayResult[bool] {.raises: [Defect, OSError, ValueError, IOError].} =
   waku_rln_relay_mounting_time.time:
     let res = mount(
       node,
