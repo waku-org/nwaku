@@ -267,7 +267,7 @@ suite "message store - history query":
     for msg in messages:
       require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-    let cursor = Index.compute(messages[4], messages[4].timestamp, DefaultPubsubTopic)
+    let cursor = PagingIndex.compute(messages[4], messages[4].timestamp, DefaultPubsubTopic)
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -318,7 +318,7 @@ suite "message store - history query":
     for msg in messages:
       require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-    let cursor = Index.compute(messages[6], messages[6].timestamp, DefaultPubsubTopic)
+    let cursor = PagingIndex.compute(messages[6], messages[6].timestamp, DefaultPubsubTopic)
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -372,7 +372,7 @@ suite "message store - history query":
     for msg in messages2:
       require store.put(pubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-    let cursor = Index.compute(messages2[0], messages2[0].timestamp, DefaultPubsubTopic)
+    let cursor = PagingIndex.compute(messages2[0], messages2[0].timestamp, DefaultPubsubTopic)
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -658,7 +658,7 @@ suite "message store - history query":
       let digest = computeDigest(msg)
       require store.put(DefaultPubsubTopic, msg, digest, msg.timestamp).isOk()
 
-    let cursor = Index.compute(messages[3], messages[3].timestamp, DefaultPubsubTopic)
+    let cursor = PagingIndex.compute(messages[3], messages[3].timestamp, DefaultPubsubTopic)
 
     ## When
     let res = store.getMessagesByHistoryQuery(

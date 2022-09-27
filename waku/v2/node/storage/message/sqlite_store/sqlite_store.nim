@@ -92,7 +92,7 @@ method getMessagesByHistoryQuery*(
   s: SqliteStore,
   contentTopic = none(seq[ContentTopic]),
   pubsubTopic = none(string),
-  cursor = none(Index),
+  cursor = none(PagingIndex),
   startTime = none(Timestamp),
   endTime = none(Timestamp),
   maxPageSize = DefaultPageSize,
@@ -117,7 +117,7 @@ method getMessagesByHistoryQuery*(
   # TODO: Return the message hash from the DB, to avoid recomputing the hash of the last message
   # Compute last message index
   let (message, storedAt, pubsubTopic) = rows[^1]
-  let lastIndex = Index.compute(message, storedAt, pubsubTopic)
+  let lastIndex = PagingIndex.compute(message, storedAt, pubsubTopic)
 
   let pagingInfo = PagingInfo(
     pageSize: uint64(messages.len),

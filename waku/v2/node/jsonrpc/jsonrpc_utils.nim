@@ -29,7 +29,7 @@ proc `%`*(value: WakuMessage): JsonNode =
 
 proc toPagingInfo*(pagingOptions: StorePagingOptions): PagingInfo =
   PagingInfo(pageSize: pagingOptions.pageSize,
-             cursor: if pagingOptions.cursor.isSome: pagingOptions.cursor.get else: Index(),
+             cursor: if pagingOptions.cursor.isSome: pagingOptions.cursor.get else: PagingIndex(),
              direction: if pagingOptions.forward: PagingDirection.FORWARD else: PagingDirection.BACKWARD)
 
 proc toPagingOptions*(pagingInfo: PagingInfo): StorePagingOptions =

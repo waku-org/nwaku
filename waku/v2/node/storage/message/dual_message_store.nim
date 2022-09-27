@@ -60,7 +60,7 @@ method getMessagesByHistoryQuery*(
   s: DualMessageStore,
   contentTopic = none(seq[ContentTopic]),
   pubsubTopic = none(string),
-  cursor = none(Index),
+  cursor = none(PagingIndex),
   startTime = none(Timestamp),
   endTime = none(Timestamp),
   maxPageSize = MaxPageSize,
