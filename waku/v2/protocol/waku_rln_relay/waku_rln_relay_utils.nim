@@ -1116,7 +1116,11 @@ proc readPersistentRlnCredentials*(path: string) : RlnMembershipCredentials {.ra
   debug "Deserialized Rln credentials", rlnCredentials=deserializedRlnCredentials
   result = deserializedRlnCredentials
 
-proc mount(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler] = none(SpamHandler), registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
+proc mount(node: WakuNode,
+           conf: WakuNodeConf|Chat2Conf,
+           spamHandler: Option[SpamHandler] = none(SpamHandler),
+           registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)
+          ): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError].} =
   if not conf.rlnRelayDynamic:
     info " setting up waku-rln-relay in off-chain mode... "
     # set up rln relay inputs
@@ -1203,7 +1207,11 @@ proc mount(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[Spa
       return ok(true)
 
 
-proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler] = none(SpamHandler), registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
+proc mountRlnRelay*(node: WakuNode,
+                    conf: WakuNodeConf|Chat2Conf,
+                    spamHandler: Option[SpamHandler] = none(SpamHandler),
+                    registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)
+                   ): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError].} =
   waku_rln_relay_mounting_time.time:
     let res = mount(
       node,
