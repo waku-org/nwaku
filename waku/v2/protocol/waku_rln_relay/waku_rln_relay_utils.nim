@@ -1,9 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/sequtils, tables, times,
-  std/streams,
-  std/os,
+  std/[sequtils, tables, times, streams, os, deques],
   chronicles, options, chronos, stint,
   confutils,
   web3, json,
@@ -24,13 +22,6 @@ import
 logScope:
   topics = "wakurlnrelayutils"
 
-when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
-  type RLNResult* = Result[RLN[Bn256], string]
-
-when defined(rlnzerokit):
-  type RLNResult* = Result[ptr RLN, string]
-
-type RlnRelayResult*[T] = Result[T, string]
 type MerkleNodeResult* = RlnRelayResult[MerkleNode]
 type RateLimitProofResult* = RlnRelayResult[RateLimitProof]
 type SpamHandler* = proc(wakuMessage: WakuMessage): void {.gcsafe, closure, raises: [Defect].}
@@ -400,16 +391,6 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     var rootValue = cast[ptr MerkleNode] (root.`ptr`)[]
     return ok(rootValue)
 
-  proc validateRoot*(rlnInstance: RLN[Bn256], merkleRoot: MerkleNode): RlnRelayResult[bool] =
-    # Validate against the local merkle tree
-    let localTreeRoot = rlnInstance.getMerkleRoot()
-    if not localTreeRoot.isOk():
-      return err(localTreeRoot.error())
-    if localTreeRoot.value() == merkleRoot:
-      return ok(true)
-    else:
-      return ok(false)
-
   proc proofVerify*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: RateLimitProof): RlnRelayResult[bool] =
     var
       proofBytes = serialize(proof, data)
@@ -518,16 +499,6 @@ when defined(rlnzerokit):
 
     return proofBytes
 
-  proc validateRoot*(rlnInstance: ptr RLN, proof: MerkleNode): RlnRelayResult[bool] =
-    # Validate against the local merkle tree
-    let localTreeRoot = rln.getMerkleRoot()
-    if not localTreeRoot.isOk():
-      return err(localTreeRoot.error())
-    if localTreeRoot.value() == merkleRoot:
-      return ok(true)
-    else:
-      return ok(false)
-
   proc proofVerify*(rlnInstance: ptr RLN, data: openArray[byte], proof: RateLimitProof): RlnRelayResult[bool] =
     var
       proofBytes = serialize(proof, data)
@@ -571,6 +542,44 @@ when defined(rlnzerokit):
 
     var rootValue = cast[ptr MerkleNode] (root.`ptr`)[]
     return ok(rootValue)
+
+
+proc updateValidRootQueue*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): void =
+  ## updates the valid Merkle root queue with the latest root and pops the oldest one when the capacity of `AcceptableRootWindowSize` is reached 
+  let overflowCount = wakuRlnRelay.validMerkleRoots.len() - AcceptableRootWindowSize
+  if overflowCount >= 0:
+    # Delete the oldest `overflowCount` elements in the deque (index 0..`overflowCount`)
+    for i in 0..overflowCount:
+      wakuRlnRelay.validMerkleRoots.popFirst() 
+  # Push the next root into the queue
+  wakuRlnRelay.validMerkleRoots.addLast(root)
+
+proc insertMember*(wakuRlnRelay: WakuRLNRelay, idComm: IDCommitment): RlnRelayResult[void] =
+  ## inserts a new id commitment into the local merkle tree, and adds the changed root to the 
+  ## queue of valid roots
+  let actionSucceeded = wakuRlnRelay.rlnInstance.insertMember(idComm)
+  if not actionSucceeded:
+    return err("could not insert id commitment into the merkle tree")
+
+  let rootAfterUpdate = ?wakuRlnRelay.rlnInstance.getMerkleRoot()
+  wakuRlnRelay.updateValidRootQueue(rootAfterUpdate)
+  return ok()
+  
+
+proc removeMember*(wakuRlnRelay: WakuRLNRelay, index: MembershipIndex): RlnRelayResult[void] =
+  ## removes a commitment from the local merkle tree at `index`, and adds the changed root to the
+  ## queue of valid roots
+  let actionSucceeded = wakuRlnRelay.rlnInstance.removeMember(index)
+  if not actionSucceeded:
+    return err("could not remove id commitment from the merkle tree")
+
+  let rootAfterUpdate = ?wakuRlnRelay.rlnInstance.getMerkleRoot()
+  wakuRlnRelay.updateValidRootQueue(rootAfterUpdate)
+  return ok()
+
+proc validateRoot*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): bool =
+  ## Validate against the window of roots stored in wakuRlnRelay.validMerkleRoots
+  return root in wakuRlnRelay.validMerkleRoots
 
 proc toMembershipKeyPairs*(groupKeys: seq[(string, string)]): seq[
     MembershipKeyPair] {.raises: [Defect, ValueError].} =
@@ -788,15 +797,9 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
         payload = string.fromBytes(msg.payload)
     return MessageValidationResult.Invalid
 
-  let merkleRootIsValidRes = rlnPeer.rlnInstance.validateRoot(msg.proof.merkleRoot)
-
-  if merkleRootIsValidRes.isErr():
-      debug "invalid message: could not validate the root"
-      return MessageValidationResult.Invalid
-
-  if not merkleRootIsValidRes.value():
-      debug "invalid message: received root does not match local root", payload = string.fromBytes(msg.payload)
-      return MessageValidationResult.Invalid
+  if not rlnPeer.validateRoot(msg.proof.merkleRoot):
+    debug "invalid message: provided root does not belong to acceptable window of roots", provided=msg.proof.merkleRoot, validRoots=rlnPeer.validMerkleRoots
+    return MessageValidationResult.Invalid
 
   # verify the proof
   let
@@ -854,25 +857,14 @@ proc appendRLNProof*(rlnPeer: WakuRLNRelay, msg: var WakuMessage,
   msg.proof = proof.value
   return true
 
-when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
-  proc addAll*(rlnInstance: RLN[Bn256], list: seq[IDCommitment]): bool =
-    # add members to the Merkle tree of the  `rlnInstance`
-    for i in 0..list.len-1:
-      let member = list[i]
-      let member_is_added = rlnInstance.insertMember(member)
-      if not member_is_added:
-        return false
-    return true
-
-when defined(rlnzerokit):
-  proc addAll*(rlnInstance: ptr RLN, list: seq[IDCommitment]): bool =
-    # add members to the Merkle tree of the  `rlnInstance`
-    for i in 0..list.len-1:
-      let member = list[i]
-      let member_is_added = rlnInstance.insertMember(member)
-      if not member_is_added:
-        return false
-    return true
+proc addAll*(wakuRlnRelay: WakuRLNRelay, list: seq[IDCommitment]): RlnRelayResult[void] =
+  # add members to the Merkle tree of the  `rlnInstance`
+  for i in 0..list.len-1:
+    let member = list[i]
+    let memberAdded = wakuRlnRelay.insertMember(member)
+    if not memberAdded.isOk():
+      return err(memberAdded.error())
+  return ok()
 
 # the types of inputs to this handler matches the MemberRegistered event/proc defined in the MembershipContract interface
 type RegistrationEventHandler  = proc(pubkey: Uint256, index: Uint256): void {.gcsafe, closure, raises: [Defect].}
@@ -986,18 +978,18 @@ proc mountRlnRelayStatic*(node: WakuNode,
   doAssert(rlnInstance.isOk)
   var rln = rlnInstance.value
 
-  # add members to the Merkle tree
-  for index in 0..group.len-1:
-    let member = group[index]
-    let member_is_added = rln.insertMember(member)
-    doAssert(member_is_added)
-
   # create the WakuRLNRelay
   var rlnPeer = WakuRLNRelay(membershipKeyPair: memKeyPair,
     membershipIndex: memIndex,
     rlnInstance: rln, 
     pubsubTopic: pubsubTopic,
     contentTopic: contentTopic)
+
+    # add members to the Merkle tree
+  for index in 0..group.len-1:
+    let member = group[index]
+    let memberAdded = rlnPeer.insertMember(member)
+    doAssert(memberAdded.isOk())
 
   # adds a topic validator for the supplied pubsub topic at the relay protocol
   # messages published on this pubsub topic will be relayed upon a successful validation, otherwise they will be dropped
@@ -1077,9 +1069,9 @@ proc mountRlnRelayDynamic*(node: WakuNode,
     debug "a new key is added", pubkey=pubkey
     # assuming all the members arrive in order
     let pk = pubkey.toIDCommitment()
-    let isSuccessful = rlnPeer.rlnInstance.insertMember(pk)
+    let isSuccessful = rlnPeer.insertMember(pk)
     debug "received pk", pk=pk.toHex, index =index
-    doAssert(isSuccessful)
+    doAssert(isSuccessful.isOk())
 
   asyncSpawn rlnPeer.handleGroupUpdates(handler)
   debug "dynamic group management is started"

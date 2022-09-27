@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/tables,
+  std/[tables, deques],
   options, chronos, stint,
   web3,
   eth/keys,
@@ -9,23 +9,27 @@ import
   stew/arrayops,
   ../../utils/protobuf
 
+const AcceptableRootWindowSize* = 5
+
 when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
   ## Bn256 and RLN are Nim wrappers for the data types used in
   ## the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
   type Bn256* = pointer
   type RLN*[E] = pointer
+  type RLNResult* = Result[RLN[Bn256], string]
 
 when defined(rlnzerokit):
   ## RLN is a Nim wrapper for the data types used in zerokit RLN
   type RLN* {.incompleteStruct.} = object
+  type RLNResult* = Result[ptr RLN, string]
+
+type RlnRelayResult*[T] = Result[T, string]
 
 type
   # identity key as defined in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
   IDKey* = array[32, byte]
   # hash of identity key as defined ed in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
   IDCommitment* = array[32, byte]
-
-type
   MerkleNode* = array[32, byte] # Each node of the Merkle tee is a Poseidon hash which is a 32 byte value
   Nullifier* = array[32, byte]
   Epoch* = array[32, byte]
@@ -121,6 +125,7 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     # the log of nullifiers and Shamir shares of the past messages grouped per epoch
     nullifierLog*: Table[Epoch, seq[ProofMetadata]]
     lastEpoch*: Epoch # the epoch of the last published rln message
+    validMerkleRoots*: Deque[MerkleNode] # An array of valid merkle roots, which are updated in a FIFO fashion
 
 when defined(rlnzerokit):
   type WakuRLNRelay* = ref object
@@ -143,6 +148,8 @@ when defined(rlnzerokit):
     contentTopic*: string
     # the log of nullifiers and Shamir shares of the past messages grouped per epoch
     nullifierLog*: Table[Epoch, seq[ProofMetadata]]
+    validMerkleRoots*: Deque[MerkleNode] # An array of valid merkle roots, which are updated in a FIFO fashion
+
 
 type MessageValidationResult* {.pure.} = enum
   Valid, Invalid, Spam
