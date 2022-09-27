@@ -1102,7 +1102,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   node.wakuRlnRelay = rlnPeer
   return ok(true)
 
-proc readPersistentRlnCredentials*(path: string) : RlnMembershipCredentials {.raises: [Defect, OSError, IOError, Exception].} =
+proc readPersistentRlnCredentials*(path: string) : RlnMembershipCredentials {.raises: [Defect, OSError, IOError].} =
   info "Rln credentials exist in file"
   # With regards to printing the keys, it is purely for debugging purposes so that the user becomes explicitly aware of the current keys in use when nwaku is started.
   # Note that this is only until the RLN contract being used is the one deployed on Goerli testnet.
