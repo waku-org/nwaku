@@ -52,4 +52,4 @@ jobs:
         run: make LOG_LEVEL=TRACE ONCHAIN_RLN=true RLNZEROKIT=true v2
 
       - name: Run V2 Tests with zerokit enabled
-        run: make ONCHAIN_RLN=true RLNZEROKIT=truetest2
+        run: make ONCHAIN_RLN=true RLNZEROKIT=true test2
