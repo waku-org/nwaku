@@ -2,7 +2,7 @@
 {.used.}
 
 import
-  std/options, sequtils, times,
+  std/options, sequtils, times, deques,
   testutils/unittests, chronos, chronicles, stint,
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
@@ -639,34 +639,39 @@ suite "Waku rln relay":
     check:
       verified.value() == false
 
-  test "invalidate messages with a valid, but stale root":
+  test "validate roots which are part of the acceptable window":
     # Setup: 
-    # This step consists of creating the rln instance,
+    # This step consists of creating the rln instance and waku-rln-relay,
     # Inserting members, and creating a valid proof with the merkle root
+    # create an RLN instance
     var rlnInstance = createRLNInstance()
     require:
-      rlnInstance.isOk() == true
+      rlnInstance.isOk()
     var rln = rlnInstance.value
+
+    let rlnRelay = WakuRLNRelay(rlnInstance:rln)
 
     let
       # create a membership key pair
-      memKeys = membershipKeyGen(rln).get()
-      # peer's index in the Merkle Tree
+      memKeys = membershipKeyGen(rlnRelay.rlnInstance).get()
+      # peer's index in the Merkle Tree. 
       index = 5
 
+    let membershipCount = AcceptableRootWindowSize + 5
+
     # Create a Merkle tree with random members
-    for i in 0..10:
-      var memberIsAdded: bool = false
+    for i in 0..membershipCount:
+      var memberIsAdded: RlnRelayResult[void]
       if (i == index):
         # insert the current peer's pk
-        memberIsAdded = rln.insertMember(memKeys.idCommitment)
+        memberIsAdded = rlnRelay.insertMember(memKeys.idCommitment)
       else:
         # create a new key pair
-        let memberKeys = rln.membershipKeyGen()
-        memberIsAdded = rln.insertMember(memberKeys.get().idCommitment)
-      # check the member is added
-      check:
-        memberIsAdded
+        let memberKeys = rlnRelay.rlnInstance.membershipKeyGen()
+        memberIsAdded = rlnRelay.insertMember(memberKeys.get().idCommitment)
+      # require that the member is added
+      require:
+        memberIsAdded.isOk()
 
     # Given: 
     # This step includes constructing a valid message with the latest merkle root
@@ -678,7 +683,7 @@ suite "Waku rln relay":
     debug "epoch in bytes", epochHex = epoch.toHex()
 
     # generate proof
-    let validProofRes = rln.proofGen(data = messageBytes,
+    let validProofRes = rlnRelay.rlnInstance.proofGen(data = messageBytes,
                                     memKeys = memKeys,
                                     memIndex = MembershipIndex(index),
                                     epoch = epoch)
@@ -687,38 +692,117 @@ suite "Waku rln relay":
     let validProof = validProofRes.value
 
     # validate the root (should be true)
-    let verified = rln.validateRoot(validProof.merkleRoot)
+    let verified = rlnRelay.validateRoot(validProof.merkleRoot)
 
     require:
-      verified.isOk()
-      verified.value() == true
+      verified == true
 
     # When: 
-    # This test depends on the local merkle tree root being different than a
-    # new message with an older/different root
-    # This can be simulated by removing a member, which changes the root of the tree
-    # Which is equivalent to a member being removed upon listening to the events emitted by the contract
-    # Progress the local tree by removing a member
-    discard rln.removeMember(MembershipIndex(0))
+    # This test depends on the local merkle tree root being part of a
+    # acceptable set of roots, which is denoted by AcceptableRootWindowSize
+    # The following action is equivalent to a member being removed upon listening to the events emitted by the contract
 
-    # Ensure the local tree root has changed
-    let currentMerkleRoot = rln.getMerkleRoot()
+    # Progress the local tree by removing members
+    for i in 0..AcceptableRootWindowSize - 2:
+      discard rlnRelay.removeMember(MembershipIndex(i))
+      # Ensure the local tree root has changed
+      let currentMerkleRoot = rlnRelay.rlnInstance.getMerkleRoot()
 
-    require:
-      currentMerkleRoot.isOk()
-      currentMerkleRoot.value() != validProof.merkleRoot
+      require:
+        currentMerkleRoot.isOk()
+        currentMerkleRoot.value() != validProof.merkleRoot
 
     # Then: 
-    # we try to verify a proof against this new merkle tree,
-    # which should return false
-    # Try to send a message constructed with an older root
-    let olderRootVerified = rln.validateRoot(validProof.merkleRoot)
-
-    require:
-      olderRootVerified.isOk()
+    # we try to verify a root against this window,
+    # which should return true
+    let olderRootVerified = rlnRelay.validateRoot(validProof.merkleRoot)
 
     check:
-      olderRootVerified.value() == false
+      olderRootVerified == true
+
+  test "invalidate roots which are not part of the acceptable window":
+    # Setup: 
+    # This step consists of creating the rln instance and waku-rln-relay,
+    # Inserting members, and creating a valid proof with the merkle root
+    
+    require:
+      AcceptableRootWindowSize < 10
+    
+    # create an RLN instance
+    var rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
+    var rln = rlnInstance.value
+
+    let rlnRelay = WakuRLNRelay(rlnInstance:rln)
+
+    let
+      # create a membership key pair
+      memKeys = membershipKeyGen(rlnRelay.rlnInstance).get()
+      # peer's index in the Merkle Tree. 
+      index = 6
+
+    let membershipCount = AcceptableRootWindowSize + 5 
+
+    # Create a Merkle tree with random members
+    for i in 0..membershipCount:
+      var memberIsAdded: RlnRelayResult[void]
+      if (i == index):
+        # insert the current peer's pk
+        memberIsAdded = rlnRelay.insertMember(memKeys.idCommitment)
+      else:
+        # create a new key pair
+        let memberKeys = rlnRelay.rlnInstance.membershipKeyGen()
+        memberIsAdded = rlnRelay.insertMember(memberKeys.get().idCommitment)
+      # require that the member is added
+      require:
+        memberIsAdded.isOk()
+
+    # Given: 
+    # This step includes constructing a valid message with the latest merkle root
+    # prepare the message
+    let messageBytes = "Hello".toBytes()
+
+    # prepare the epoch
+    var epoch: Epoch
+    debug "epoch in bytes", epochHex = epoch.toHex()
+
+    # generate proof
+    let validProofRes = rlnRelay.rlnInstance.proofGen(data = messageBytes,
+                                    memKeys = memKeys,
+                                    memIndex = MembershipIndex(index),
+                                    epoch = epoch)
+    require:
+      validProofRes.isOk()
+    let validProof = validProofRes.value
+
+    # validate the root (should be true)
+    let verified = rlnRelay.validateRoot(validProof.merkleRoot)
+
+    require:
+      verified == true
+
+    # When: 
+    # This test depends on the local merkle tree root being part of a
+    # acceptable set of roots, which is denoted by AcceptableRootWindowSize
+    # The following action is equivalent to a member being removed upon listening to the events emitted by the contract
+
+    # Progress the local tree by removing members
+    for i in 0..AcceptableRootWindowSize:
+      discard rlnRelay.removeMember(MembershipIndex(i))
+      # Ensure the local tree root has changed
+      let currentMerkleRoot = rlnRelay.rlnInstance.getMerkleRoot()
+      require:
+        currentMerkleRoot.isOk()
+        currentMerkleRoot.value() != validProof.merkleRoot
+
+    # Then: 
+    # we try to verify a proof against this window,
+    # which should return false
+    let olderRootVerified = rlnRelay.validateRoot(validProof.merkleRoot)
+
+    check:
+      olderRootVerified == false
 
   test "toEpoch and fromEpoch consistency check":
     # check edge cases
@@ -823,12 +907,14 @@ suite "Waku rln relay":
     doAssert(rlnInstance.isOk)
     var rln = rlnInstance.value
 
-    # add members
-    discard rln.addAll(groupIDCommitments)
-
     let
       wakuRlnRelay = WakuRLNRelay(membershipIndex: index,
           membershipKeyPair: groupKeyPairs[index], rlnInstance: rln)
+
+    # add members
+    let commitmentAddRes =  wakuRlnRelay.addAll(groupIDCommitments)
+    require:
+      commitmentAddRes.isOk()
 
     # get the current epoch time
     let time = epochTime()
