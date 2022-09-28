@@ -322,7 +322,7 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
 
     # generate the proof
     var proof: Buffer
-    waku_rln_proof_generation_time.time:
+    waku_rln_proof_generation_seconds.granularTime:
       let proofIsSuccessful = generateProof(rlnInstance, addr inputBuffer, addr proof)
     # check whether the generateProof call is done successfully
     if not proofIsSuccessful:
@@ -813,7 +813,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
     input = concat(msg.payload, contentTopicBytes)
 
   waku_rln_proof_verification.inc()
-  waku_rln_proof_verification_time.time:
+  waku_rln_proof_verification_seconds.granularTime:
     let proofVerificationRes = rlnPeer.rlnInstance.proofVerify(input, msg.proof)
 
   if proofVerificationRes.isErr():
@@ -1212,7 +1212,7 @@ proc mountRlnRelay*(node: WakuNode,
                     spamHandler: Option[SpamHandler] = none(SpamHandler),
                     registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)
                    ): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
-  waku_rln_relay_mounting_time.time:
+  waku_rln_relay_mounting_seconds.granularTime:
     let res = mount(
       node,
       conf,

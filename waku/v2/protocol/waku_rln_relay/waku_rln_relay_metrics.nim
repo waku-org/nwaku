@@ -12,6 +12,14 @@ declarePublicCounter(waku_rln_errors, "number of errors detected while operating
 declarePublicCounter(waku_rln_proof_verification, "number of times the rln proofs are verified")
 
 # Timing metrics
-declarePublicHistogram(waku_rln_proof_verification_time, "time taken to verify a proof")
-declarePublicGauge(waku_rln_relay_mounting_time, "time taken to mount the waku rln relay")
-declarePublicHistogram(waku_rln_proof_generation_time, "time taken to generate a proof")
+declarePublicHistogram(waku_rln_proof_verification_seconds, "time taken to verify a proof")
+declarePublicGauge(waku_rln_relay_mounting_seconds, "time taken to mount the waku rln relay")
+declarePublicHistogram(waku_rln_proof_generation_seconds, "time taken to generate a proof")
+
+template granularTime*(collector: Summary | Histogram | Gauge, body: untyped) =
+  when defined(metrics):
+    let start = getTime().toUnixFloat()
+    body
+    collector.observe(getTime().toUnixFloat() - start)
+  else:
+    body
