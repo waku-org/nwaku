@@ -4,8 +4,8 @@ import
   nimcrypto/hash
 import
   ../waku_message,
-  ../../utils/pagination,
-  ../../utils/time
+  ../../utils/time,
+  ./pagination
 
 
 type

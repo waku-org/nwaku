@@ -7,9 +7,9 @@ import
   std/[options, times],
   stew/results
 import
-  ../../../protocol/waku_message,
-  ../../../utils/time,
-  ../../../utils/pagination
+  ../waku_message,
+  ./pagination,
+  ../../utils/time
 
 
 type

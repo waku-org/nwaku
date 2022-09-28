@@ -6,12 +6,10 @@ import
   testutils/unittests,
   nimcrypto/hash
 import
-  ../../waku/v2/node/storage/message/message_store,
   ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
-  ../../waku/v2/utils/time,
-  ../../waku/v2/utils/pagination
+  ../../waku/v2/utils/time
 
 
 # Helper functions

@@ -7,7 +7,7 @@ import
 import
   ../../sqlite, 
   ../../../../protocol/waku_message,
-  ../../../../utils/pagination,
+  ../../../../protocol/waku_store/pagination,
   ../../../../utils/time
 
 

@@ -15,17 +15,17 @@ import
   libp2p/stream/connection,
   metrics
 import
-  ../../node/storage/message/message_store,
   ../../node/storage/message/message_retention_policy,
   ../../node/storage/message/waku_store_queue,
   ../../node/peer_manager/peer_manager,
   ../../utils/time,
-  ../../utils/pagination,
   ../../utils/requests,
   ../waku_message,
   ../waku_swap/waku_swap,
   ./rpc,
-  ./rpc_codec
+  ./rpc_codec,
+  ./pagination,
+  ./message_store
 
 
 declarePublicGauge waku_store_messages, "number of historical messages", ["type"]

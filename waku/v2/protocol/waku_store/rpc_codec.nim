@@ -7,9 +7,9 @@ import
 import
   ../waku_message,
   ../../utils/protobuf,
-  ../../utils/pagination,
   ../../utils/time,
-  ./rpc
+  ./rpc,
+  ./pagination
 
 
 const MaxRpcSize* = MaxPageSize * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead

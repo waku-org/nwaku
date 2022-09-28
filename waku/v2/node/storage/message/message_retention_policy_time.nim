@@ -6,8 +6,8 @@ import
   chronicles,
   chronos
 import
+  ../../../protocol/waku_store/message_store,
   ../../../utils/time,
-  ./message_store,
   ./message_retention_policy
 
 logScope:

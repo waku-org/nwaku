@@ -6,10 +6,10 @@ import
   chronicles
 import
   ../../../protocol/waku_message,
-  ../../../utils/pagination,
+  ../../../protocol/waku_store/pagination,
+  ../../../protocol/waku_store/message_store,
   ../../../utils/time,
   ../sqlite,
-  ./message_store,
   ./waku_store_queue,
   ./sqlite_store
 
