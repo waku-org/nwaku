@@ -1,5 +1,6 @@
 import
-    metrics
+    metrics,
+    std/times
 
 export metrics
 
