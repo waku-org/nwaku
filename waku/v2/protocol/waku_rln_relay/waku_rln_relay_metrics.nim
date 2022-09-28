@@ -1,6 +1,6 @@
 import
-    metrics,
-    std/times
+  metrics,
+  std/times
 
 export metrics
 
@@ -22,7 +22,7 @@ declarePublicHistogram(waku_rln_membership_insertion_seconds, "time taken to ins
 declarePublicHistogram(waku_rln_membership_credentials_import_seconds, "time taken to import membership credentials")
 
 template granularTime*(collector: Summary | Histogram, body: untyped) =
-  when defined(metrics):
+  when defined(metrics) and defined(times):
     let start = getTime().toUnixFloat()
     body
     collector.observe(getTime().toUnixFloat() - start)
