@@ -46,7 +46,7 @@ proc toBuffer*(x: openArray[byte]): Buffer =
 
 when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
 
-  proc createRLNInstance*(d: int = MERKLE_TREE_DEPTH): RLNResult
+  proc createRLNInstanceLocal(d: int = MERKLE_TREE_DEPTH): RLNResult
     {.raises: [Defect, IOError].} =
 
     ## generates an instance of RLN
@@ -118,7 +118,7 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     return some(keypair)
 
 when defined(rlnzerokit):
-  proc createRLNInstance*(d: int = MERKLE_TREE_DEPTH): RLNResult
+  proc createRLNInstanceLocal(d: int = MERKLE_TREE_DEPTH): RLNResult
     {.raises: [Defect, IOError].} =
 
     ## generates an instance of RLN
@@ -169,6 +169,12 @@ when defined(rlnzerokit):
       keypair = MembershipKeyPair(idKey: secret, idCommitment: public)
 
     return some(keypair)
+
+proc createRLNInstance*(d: int = MERKLE_TREE_DEPTH): RLNResult {.raises: [Defect, IOError].} =
+  ## Wraps the rln instance creation for metrics
+  waku_rln_instance_creation_seconds.granularTime:
+    let res = createRLNInstanceLocal(d)
+  return res
 
 proc toUInt256*(idCommitment: IDCommitment): UInt256 =
   let pk = UInt256.fromBytesBE(idCommitment)
@@ -559,12 +565,13 @@ proc updateValidRootQueue*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): void =
 proc insertMember*(wakuRlnRelay: WakuRLNRelay, idComm: IDCommitment): RlnRelayResult[void] =
   ## inserts a new id commitment into the local merkle tree, and adds the changed root to the 
   ## queue of valid roots
-  let actionSucceeded = wakuRlnRelay.rlnInstance.insertMember(idComm)
-  if not actionSucceeded:
-    return err("could not insert id commitment into the merkle tree")
+  waku_rln_membership_insertion_seconds.granularTime:
+    let actionSucceeded = wakuRlnRelay.rlnInstance.insertMember(idComm)
+    if not actionSucceeded:
+      return err("could not insert id commitment into the merkle tree")
 
-  let rootAfterUpdate = ?wakuRlnRelay.rlnInstance.getMerkleRoot()
-  wakuRlnRelay.updateValidRootQueue(rootAfterUpdate)
+    let rootAfterUpdate = ?wakuRlnRelay.rlnInstance.getMerkleRoot()
+    wakuRlnRelay.updateValidRootQueue(rootAfterUpdate)
   return ok()
   
 
@@ -1057,7 +1064,8 @@ proc mountRlnRelayDynamic*(node: WakuNode,
       doAssert(keyPairOpt.isSome)
       keyPair = keyPairOpt.get()
       # register the rln-relay peer to the membership contract
-      let regIndexRes = await  register(idComm = keyPair.idCommitment, ethAccountAddress = ethAccAddr, ethAccountPrivKey = ethAccountPrivKeyOpt.get(), ethClientAddress = ethClientAddr, membershipContractAddress = memContractAddr, registrationHandler = registrationHandler)
+      waku_rln_registration_seconds.granularTime:
+        let regIndexRes = await register(idComm = keyPair.idCommitment, ethAccountAddress = ethAccAddr, ethAccountPrivKey = ethAccountPrivKeyOpt.get(), ethClientAddress = ethClientAddr, membershipContractAddress = memContractAddr, registrationHandler = registrationHandler)
       # check whether registration is done
       if regIndexRes.isErr():
         debug "membership registration failed", err=regIndexRes.error()
@@ -1107,14 +1115,14 @@ proc readPersistentRlnCredentials*(path: string) : RlnMembershipCredentials {.ra
   # With regards to printing the keys, it is purely for debugging purposes so that the user becomes explicitly aware of the current keys in use when nwaku is started.
   # Note that this is only until the RLN contract being used is the one deployed on Goerli testnet.
   # These prints need to omitted once RLN contract is deployed on Ethereum mainnet and using valuable funds for staking.
-      
-  let entireRlnCredentialsFile = readFile(path)
+  waku_rln_membership_credentials_import_seconds.granularTime:
+    let entireRlnCredentialsFile = readFile(path)
 
-  let jsonObject = parseJson(entireRlnCredentialsFile)
-  let deserializedRlnCredentials = to(jsonObject, RlnMembershipCredentials)
-  
+    let jsonObject = parseJson(entireRlnCredentialsFile)
+    let deserializedRlnCredentials = to(jsonObject, RlnMembershipCredentials)
+    
   debug "Deserialized Rln credentials", rlnCredentials=deserializedRlnCredentials
-  result = deserializedRlnCredentials
+  return deserializedRlnCredentials
 
 proc mount(node: WakuNode,
            conf: WakuNodeConf|Chat2Conf,
