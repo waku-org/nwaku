@@ -80,8 +80,8 @@ Please report any broken panels via our Discord channels or by [creating an issu
 ### 4. [Jenkins](https://ci.status.im/job/nim-waku/) for deployment
 
 The [`nim-waku` jobs](https://ci.status.im/job/nim-waku/) on Jenkins are configured to deploy `nim-waku` builds to the fleets.
-1. [`deploy-v2-test`](https://ci.status.im/job/nim-waku/job/deploy-v2-test/) is triggered automatically after every commit to the `nim-waku` `master` branch.
-2. [`deploy-v2-prod`](https://ci.status.im/job/nim-waku/job/deploy-v2-prod/) must be triggered manually. Usually this job is only built after a tagged release in `nim-waku`.
+1. [`deploy-wakuv2-test`](https://ci.status.im/job/nim-waku/job/deploy-wakuv2-test/) is triggered automatically after every commit to the `nim-waku` `master` branch.
+2. [`deploy-wakuv2-prod`](https://ci.status.im/job/nim-waku/job/deploy-wakuv2-prod/) must be triggered manually. Usually this job is only built after a tagged release in `nim-waku`.
 
 Each job can be manually triggered using the _"Build with Parameters"_ option.
 Options under _"Configure"_ include the build triggers, build target and branches to build.
@@ -99,8 +99,8 @@ See [Continuous Integration docs](https://github.com/status-im/nim-waku/blob/mas
  6. [`infra-docs` repo](https://github.com/status-im/infra-docs)
  7. [`infra-nim-waku` repo](https://github.com/status-im/infra-nim-waku)
  8. [Jenkins jobs for `nim-waku`](https://ci.status.im/job/nim-waku/)
- 9. [Jenkins deploy-v2-prod manual trigger](https://ci.status.im/job/nim-waku/job/deploy-v2-prod/build)
- 10. [Jenkins deploy-v2-test manual trigger](https://ci.status.im/job/nim-waku/job/deploy-v2-test/build)
+ 9. [Jenkins deploy-wakuv2-prod manual trigger](https://ci.status.im/job/nim-waku/job/deploy-wakuv2-prod/build)
+ 10. [Jenkins deploy-wakuv2-test manual trigger](https://ci.status.im/job/nim-waku/job/deploy-wakuv2-test/build)
  11. [Kibana logs for `prod`](https://kibana.infra.status.im/goto/87fde8e4bba7246ce3780a0c8344f4f0)
  12. [Kibana logs for `test`](https://kibana.infra.status.im/goto/fc23759670fd08e9d32e81bb4e58733d)
  13. [Status fleets](https://fleets.status.im/)

@@ -23,7 +23,7 @@ pipeline {
     string(
       name: 'IMAGE_TAG',
       description: 'Name of Docker tag to push. Optional Parameter.',
-      defaultValue: params.IMAGE_TAG ?: 'deploy-v2-test',
+      defaultValue: params.IMAGE_TAG ?: 'deploy-wakuv2-test',
     )
     string(
       name: 'IMAGE_NAME',

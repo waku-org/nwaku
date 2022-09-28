@@ -11,9 +11,9 @@ https://ci.status.im/job/nim-waku/
 It currently consists four jobs:
 
 * [manual](https://ci.status.im/job/nim-waku/job/manual/) - For manually executing builds using parameters.
-* [deploy-v1-test](https://ci.status.im/job/nim-waku/job/deploy-v1-test/) - Builds every new commit in `master` and deploys to `wakuv1.test` fleet.
-* [deploy-v2-test](https://ci.status.im/job/nim-waku/job/deploy-v2-test/) - Builds every new commit in `master` and deploys to `wakuv2.test` fleet.
-* [deploy-v2-prod](https://ci.status.im/job/nim-waku/job/deploy-v2-prod/) - Currently has no automatic trigger, and deploys to `wakuv2.prod` fleet.
+* [deploy-wakuv1-test](https://ci.status.im/job/nim-waku/job/deploy-wakuv1-test/) - Builds every new commit in `master` and deploys to `wakuv1.test` fleet.
+* [deploy-wakuv2-test](https://ci.status.im/job/nim-waku/job/deploy-wakuv2-test/) - Builds every new commit in `master` and deploys to `wakuv2.test` fleet.
+* [deploy-wakuv2-prod](https://ci.status.im/job/nim-waku/job/deploy-wakuv2-prod/) - Currently has no automatic trigger, and deploys to `wakuv2.prod` fleet.
 
 # Configuration
 
@@ -28,5 +28,5 @@ Key part is the definition of four `parameters`:
 
 The use of `?:` [Elvis operator](http://groovy-lang.org/operators.html#_elvis_operator) plays a key role in allowing parameters to be changed for each defined job in Jenkins without it being overridden by the `Jenkinsfile` defaults after every job run.
 ```groovy
-defaultValue: params.IMAGE_TAG ?: 'deploy-v2-test',
+defaultValue: params.IMAGE_TAG ?: 'deploy-wakuv2-test',
 ```
