@@ -62,7 +62,7 @@ git push origin v0.1
    > Clients are reachable via the corresponding channels on the Vac Discord server.
    > It should be enough to inform clients on the `#nwaku` and `#announce` channels on Discord.
    > Informal conversations with specific repo maintainers are often part of this process.
-   - Deploy release to the `wakuv2.prod` fleet from [Jenkins](https://ci.status.im/job/nim-waku/job/deploy-v2-prod/).
+   - Deploy release to the `wakuv2.prod` fleet from [Jenkins](https://ci.status.im/job/nim-waku/job/deploy-wakuv2-prod/).
    - Ensure that nodes successfully start up and monitor health using [Grafana](https://grafana.infra.status.im/d/qrp_ZCTGz/nim-waku-v2?orgId=1) and [Kibana](https://kibana.infra.status.im/goto/a7728e70-eb26-11ec-81d1-210eb3022c76).
    - If necessary, revert by deploying the previous release. Download logs and open a bug report issue.
-3. Deploy release image to [Dockerhub](https://hub.docker.com/layers/statusteam/nim-waku/a5f8b9/images/sha256-88691a8f82bd6a4242fa99053a65b7fc4762b23a2b4e879d0f8b578c798a0e09?context=explore) by triggering [the same Jenkins job](https://ci.status.im/job/nim-waku/job/deploy-v2-prod/) as before, but with the `IMAGE_TAG` set to the release tag (e.g. `v0.10`).
+3. Deploy release image to [Dockerhub](https://hub.docker.com/layers/statusteam/nim-waku/a5f8b9/images/sha256-88691a8f82bd6a4242fa99053a65b7fc4762b23a2b4e879d0f8b578c798a0e09?context=explore) by triggering [the same Jenkins job](https://ci.status.im/job/nim-waku/job/deploy-wakuv2-prod/) as before, but with the `IMAGE_TAG` set to the release tag (e.g. `v0.10`).

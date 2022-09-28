@@ -23,7 +23,7 @@ pipeline {
     string(
       name: 'IMAGE_TAG',
       description: 'Name of Docker tag to push. Optional Parameter.',
-      defaultValue: params.IMAGE_TAG ?: 'deploy-v2-test',
+      defaultValue: params.IMAGE_TAG ?: 'deploy-wakuv2-test',
     )
     string(
       name: 'IMAGE_NAME',
@@ -71,13 +71,20 @@ pipeline {
           variable: 'DISCORD_WEBHOOK'
         ),
       ]) {
+        def repo = [
+          url: 'https://github.com/status-im/nwaku',
+          branch: GIT_BRANCH.minus("origin/"),
+          commit: GIT_COMMIT.take(8),
+          prev: (env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: env.GIT_PREVIOUS_COMMIT ?: 'master').take(8),
+        ]
         discordSend(
           title: "${env.JOB_NAME}#${env.BUILD_NUMBER}",
           description: """
             Nim-Waku deployment successful!
-            Image: [`${IMAGE_NAME}:${IMAGE_TAG}`](https://hub.docker.com/r/${IMAGE_NAME}/tags?page=1&name=${IMAGE_TAG})
-            Branch: [`${GIT_BRANCH.minus("origin/")}`](https://github.com/status-im/nwaku/commits/${GIT_BRANCH.minus("origin/")})
-            Commit: [`${GIT_COMMIT.take(8)}`](https://github.com/status-im/nwaku/commit/${GIT_COMMIT.take(8)})
+            Image: [`${IMAGE_NAME}:${IMAGE_TAG}`](https://hub.docker.com/r/${IMAGE_NAME}/tags?name=${IMAGE_TAG})
+            Branch: [`${repo.branch}`](${repo.url}/commits/${repo.branch})
+            Commit: [`${repo.commit}`](${repo.url}/commit/${repo.commit})
+            Diff: [`${repo.prev}...${repo.commit}`](${repo.url}/compare/${repo.prev}...${repo.commit})
           """,
           link: env.BUILD_URL,
           result: currentBuild.currentResult,
