@@ -14,7 +14,6 @@ import
   libp2p/protocols/pubsub/rpc/message
 import
   ../../waku/v1/node/rpc/hexstrings,
-  ../../waku/v2/node/storage/message/message_store,
   ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/node/wakunode2,
   ../../waku/v2/node/jsonrpc/[store_api,

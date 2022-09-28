@@ -8,7 +8,6 @@ import
   ../wakunode2,
   ../../protocol/waku_store,
   ../../utils/time,
-  ../../utils/pagination,
   ./jsonrpc_types, 
   ./jsonrpc_utils
 

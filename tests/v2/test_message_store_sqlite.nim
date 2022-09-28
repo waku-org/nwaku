@@ -12,8 +12,8 @@ import
   ../../waku/v2/node/storage/message/message_retention_policy_capacity,
   ../../waku/v2/node/storage/sqlite,
   ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/protocol/waku_store/pagination,
   ../../waku/v2/utils/time,
-  ../../waku/v2/utils/pagination,
   ./utils
 
 

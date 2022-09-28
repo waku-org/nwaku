@@ -7,9 +7,9 @@ import
 import
   ../../../../protocol/waku_message,
   ../../../../protocol/waku_store/rpc,
-  ../../../../utils/pagination,
+  ../../../../protocol/waku_store/pagination,
+  ../../../../protocol/waku_store/message_store,
   ../../../../utils/time,
-  ../message_store,
   ./index
 
 

@@ -5,8 +5,8 @@ import
   stew/byteutils,
   nimcrypto/sha2
 import
-  ../protocol/waku_message,
-  ./time
+  ../waku_message,
+  ../../utils/time
 
 const
   MaxPageSize*: uint64 = 100

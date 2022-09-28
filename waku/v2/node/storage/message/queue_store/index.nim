@@ -5,8 +5,8 @@ import
   nimcrypto/sha2
 import
   ../../../../protocol/waku_message,
-  ../../../../utils/time,
-  ../../../../utils/pagination
+  ../../../../protocol/waku_store/pagination,
+  ../../../../utils/time
 
 
 type Index* = object
