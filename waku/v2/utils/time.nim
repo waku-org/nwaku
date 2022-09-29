@@ -1,6 +1,9 @@
 ## Contains types and utilities for timestamps.
 {.push raises: [Defect].}
 
+import 
+  metrics,
+  std/times
 
 type Timestamp* = int64 
 
@@ -15,3 +18,11 @@ proc getMicrosecondTime*[T](timeInSeconds: T): Timestamp =
 proc getMillisecondTime*[T](timeInSeconds: T): Timestamp = 
   var ms = Timestamp(timeInSeconds.int64 * 1000.int64)
   return ms
+
+template nanosecondTime*(collector: Summary | Histogram, body: untyped) =
+  when defined(metrics) and defined(times):
+    let start = getTime().toUnixFloat()
+    body
+    collector.observe(getTime().toUnixFloat() - start)
+  else:
+    body
