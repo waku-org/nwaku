@@ -15,7 +15,9 @@ import
   libp2p/protocols/pubsub/pubsub,
   eth/keys
 import
-  ../../waku/v2/protocol/waku_rln_relay/[waku_rln_relay_utils, waku_rln_relay_types],
+  ../../waku/v2/protocol/waku_rln_relay/[waku_rln_relay_utils,
+        waku_rln_relay_types,
+        waku_rln_relay_constants],
   ../../waku/v2/protocol/[waku_relay, waku_message],
   ../../waku/v2/utils/peers,
   ../../waku/v2/node/wakunode2
@@ -24,7 +26,7 @@ from std/times import epochTime
 
 
   
-const RLNRELAY_PUBSUB_TOPIC = "waku/2/rlnrelay/proto"
+const RlnRelayPubsubTopic = "waku/2/rlnrelay/proto"
 
 procSuite "WakuNode - RLN relay":
   let rng = keys.newRng()
@@ -42,7 +44,7 @@ procSuite "WakuNode - RLN relay":
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
 
-      rlnRelayPubSubTopic = RLNRELAY_PUBSUB_TOPIC
+      rlnRelayPubSubTopic = RlnRelayPubsubTopic
       contentTopic = ContentTopic("/waku/2/default-content/proto")
 
     # set up three nodes
@@ -128,7 +130,7 @@ procSuite "WakuNode - RLN relay":
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
 
-      rlnRelayPubSubTopic = RLNRELAY_PUBSUB_TOPIC
+      rlnRelayPubSubTopic = RlnRelayPubsubTopic
       contentTopic = ContentTopic("/waku/2/default-content/proto")
 
     # set up three nodes
@@ -232,7 +234,7 @@ procSuite "WakuNode - RLN relay":
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60003))
 
-      rlnRelayPubSubTopic = RLNRELAY_PUBSUB_TOPIC
+      rlnRelayPubSubTopic = RlnRelayPubsubTopic
       contentTopic = ContentTopic("/waku/2/default-content/proto")
 
     # set up three nodes
@@ -284,7 +286,7 @@ procSuite "WakuNode - RLN relay":
       proofAdded2 = node3.wakuRlnRelay.appendRLNProof(wm2, time)
       #  wm3 points to the next epoch
       wm3 = WakuMessage(payload: "message 3".toBytes(), contentTopic: contentTopic)
-      proofAdded3 = node3.wakuRlnRelay.appendRLNProof(wm3, time+EPOCH_UNIT_SECONDS)
+      proofAdded3 = node3.wakuRlnRelay.appendRLNProof(wm3, time+EpochUnitSeconds)
       wm4 = WakuMessage(payload: "message 4".toBytes(), contentTopic: contentTopic)
 
     #  check proofs are added correctly
