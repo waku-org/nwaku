@@ -172,7 +172,7 @@ when defined(rlnzerokit):
 
 proc createRLNInstance*(d: int = MERKLE_TREE_DEPTH): RLNResult {.raises: [Defect, IOError].} =
   ## Wraps the rln instance creation for metrics
-  waku_rln_instance_creation_seconds.granularTime:
+  waku_rln_instance_creation_duration_seconds.granularTime:
     let res = createRLNInstanceLocal(d)
   return res
 
@@ -328,7 +328,7 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
 
     # generate the proof
     var proof: Buffer
-    waku_rln_proof_generation_seconds.granularTime:
+    waku_rln_proof_generation_duration_seconds.granularTime:
       let proofIsSuccessful = generateProof(rlnInstance, addr inputBuffer, addr proof)
     # check whether the generateProof call is done successfully
     if not proofIsSuccessful:
@@ -565,7 +565,7 @@ proc updateValidRootQueue*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): void =
 proc insertMember*(wakuRlnRelay: WakuRLNRelay, idComm: IDCommitment): RlnRelayResult[void] =
   ## inserts a new id commitment into the local merkle tree, and adds the changed root to the 
   ## queue of valid roots
-  waku_rln_membership_insertion_seconds.granularTime:
+  waku_rln_membership_insertion_duration_seconds.granularTime:
     let actionSucceeded = wakuRlnRelay.rlnInstance.insertMember(idComm)
     if not actionSucceeded:
       return err("could not insert id commitment into the merkle tree")
@@ -781,7 +781,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
   ## if `timeOption` is supplied, then the current epoch is calculated based on that
 
   # track message count for metrics
-  waku_rln_messages.inc()
+  waku_rln_messages_total.inc()
 
   #  checks if the `msg`'s epoch is far from the current epoch
   # it corresponds to the validation of rln external nullifier
@@ -806,12 +806,12 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
     # accept messages whose epoch is within +-MAX_EPOCH_GAP from the current epoch
     debug "invalid message: epoch gap exceeds a threshold", gap = gap,
         payload = string.fromBytes(msg.payload)
-    waku_rln_invalid_messages.inc(labelValues=["invalid_epoch"])
+    waku_rln_invalid_messages_total.inc(labelValues=["invalid_epoch"])
     return MessageValidationResult.Invalid
 
   if not rlnPeer.validateRoot(msg.proof.merkleRoot):
     debug "invalid message: provided root does not belong to acceptable window of roots", provided=msg.proof.merkleRoot, validRoots=rlnPeer.validMerkleRoots
-    waku_rln_invalid_messages.inc(labelValues=["invalid_root"])
+    waku_rln_invalid_messages_total.inc(labelValues=["invalid_root"])
     return MessageValidationResult.Invalid
 
   # verify the proof
@@ -819,26 +819,26 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
     contentTopicBytes = msg.contentTopic.toBytes
     input = concat(msg.payload, contentTopicBytes)
 
-  waku_rln_proof_verification.inc()
-  waku_rln_proof_verification_seconds.granularTime:
+  waku_rln_proof_verification_total.inc()
+  waku_rln_proof_verification_duration_seconds.granularTime:
     let proofVerificationRes = rlnPeer.rlnInstance.proofVerify(input, msg.proof)
 
   if proofVerificationRes.isErr():
-    waku_rln_errors.inc(labelValues=["proof_verification"])
+    waku_rln_errors_total.inc(labelValues=["proof_verification"])
     return MessageValidationResult.Invalid
   if not proofVerificationRes.value():
     # invalid proof
     debug "invalid message: invalid proof", payload = string.fromBytes(msg.payload)
-    waku_rln_invalid_messages.inc(labelValues=["invalid_proof"])
+    waku_rln_invalid_messages_total.inc(labelValues=["invalid_proof"])
     return MessageValidationResult.Invalid
 
   # check if double messaging has happened
   let hasDup = rlnPeer.hasDuplicate(msg)
   if hasDup.isErr():
-    waku_rln_errors.inc(labelValues=["duplicate_check"])
+    waku_rln_errors_total.inc(labelValues=["duplicate_check"])
   elif hasDup.value == true:
     debug "invalid message: message is spam", payload = string.fromBytes(msg.payload)
-    waku_rln_spam_messages.inc()
+    waku_rln_spam_messages_total.inc()
     return MessageValidationResult.Spam
 
   # insert the message to the log
@@ -847,7 +847,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
   discard rlnPeer.updateLog(msg)
   debug "message is valid", payload = string.fromBytes(msg.payload)
   let rootLabel = $rlnPeer.validMerkleRoots.find(msg.proof.merkleRoot)
-  waku_rln_valid_messages.inc(labelValues=[
+  waku_rln_valid_messages_total.inc(labelValues=[
     rootLabel
   ])
   return MessageValidationResult.Valid
@@ -1064,7 +1064,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
       doAssert(keyPairOpt.isSome)
       keyPair = keyPairOpt.get()
       # register the rln-relay peer to the membership contract
-      waku_rln_registration_seconds.granularTime:
+      waku_rln_registration_duration_seconds.granularTime:
         let regIndexRes = await register(idComm = keyPair.idCommitment, ethAccountAddress = ethAccAddr, ethAccountPrivKey = ethAccountPrivKeyOpt.get(), ethClientAddress = ethClientAddr, membershipContractAddress = memContractAddr, registrationHandler = registrationHandler)
       # check whether registration is done
       if regIndexRes.isErr():
@@ -1115,7 +1115,7 @@ proc readPersistentRlnCredentials*(path: string) : RlnMembershipCredentials {.ra
   # With regards to printing the keys, it is purely for debugging purposes so that the user becomes explicitly aware of the current keys in use when nwaku is started.
   # Note that this is only until the RLN contract being used is the one deployed on Goerli testnet.
   # These prints need to omitted once RLN contract is deployed on Ethereum mainnet and using valuable funds for staking.
-  waku_rln_membership_credentials_import_seconds.granularTime:
+  waku_rln_membership_credentials_import_duration_seconds.granularTime:
     let entireRlnCredentialsFile = readFile(path)
 
     let jsonObject = parseJson(entireRlnCredentialsFile)
@@ -1220,7 +1220,7 @@ proc mountRlnRelay*(node: WakuNode,
                     spamHandler: Option[SpamHandler] = none(SpamHandler),
                     registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)
                    ): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
-  waku_rln_relay_mounting_seconds.granularTime:
+  waku_rln_relay_mounting_duration_seconds.granularTime:
     let res = mount(
       node,
       conf,
