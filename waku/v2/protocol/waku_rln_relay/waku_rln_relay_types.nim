@@ -9,7 +9,12 @@ import
   stew/arrayops,
   ../../utils/protobuf
 
+# Caution: DO NOT set this to a high value. It will cause the metrics server to overload
+#          in extraordinary circumstances.
 const AcceptableRootWindowSize* = 5
+# It does not make sense for the AcceptableRootWindowSize to be much greater than
+# a value which is greater than the max_epoch_size
+doAssert(AcceptableRootWindowSize < 10, "AcceptableRootWindowSize is too large")
 
 when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
   ## Bn256 and RLN are Nim wrappers for the data types used in
