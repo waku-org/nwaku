@@ -7,13 +7,14 @@ import
 import
   ../../sqlite, 
   ../../../../protocol/waku_message,
-  ../../../../protocol/waku_store/pagination,
   ../../../../utils/time
 
 
 const DbTable = "Message"
 
 type SqlQueryStr = string
+
+type DbCursor* = (Timestamp, seq[byte], string)
 
 
 ### SQLite column helper methods
@@ -227,7 +228,7 @@ proc contentTopicWhereClause(contentTopic: Option[seq[ContentTopic]]): Option[st
   contentTopicWhere &= ")"
   some(contentTopicWhere)
 
-proc cursorWhereClause(cursor: Option[PagingIndex], ascending=true): Option[string] =
+proc cursorWhereClause(cursor: Option[DbCursor], ascending=true): Option[string] =
   if cursor.isNone():
     return none(string)
 
@@ -292,7 +293,7 @@ proc prepareSelectMessagesWithlimitStmt(db: SqliteDatabase, stmt: string): Datab
 proc execSelectMessagesWithLimitStmt(s: SqliteStmt, 
                           contentTopic: Option[seq[ContentTopic]], 
                           pubsubTopic: Option[string],
-                          cursor: Option[PagingIndex],  
+                          cursor: Option[DbCursor],  
                           startTime: Option[Timestamp],
                           endTime: Option[Timestamp],
                           onRowCallback: DataProc): DatabaseResult[void] =
@@ -302,21 +303,16 @@ proc execSelectMessagesWithLimitStmt(s: SqliteStmt,
   var paramIndex = 1
   if contentTopic.isSome():
     for topic in contentTopic.get():
-      let topicBlob = toBytes(topic)
-      checkErr bindParam(s, paramIndex, topicBlob)
+      checkErr bindParam(s, paramIndex, topic.toBytes())
       paramIndex += 1
 
-  if cursor.isSome():  # cursor = senderTimestamp, id, pubsubTopic
-    let senderTimestamp = cursor.get().senderTime
-    checkErr bindParam(s, paramIndex, senderTimestamp)
+  if cursor.isSome():  # cursor = storedAt, id, pubsubTopic
+    let (storedAt, id, pubsubTopic) = cursor.get()
+    checkErr bindParam(s, paramIndex, storedAt)
     paramIndex += 1
-
-    let id = @(cursor.get().digest.data)
     checkErr bindParam(s, paramIndex, id)
     paramIndex += 1
-
-    let pubsubTopic = toBytes(cursor.get().pubsubTopic)
-    checkErr bindParam(s, paramIndex, pubsubTopic)
+    checkErr bindParam(s, paramIndex, pubsubTopic.toBytes())
     paramIndex += 1
 
   if pubsubTopic.isSome():
@@ -353,7 +349,7 @@ proc execSelectMessagesWithLimitStmt(s: SqliteStmt,
 proc selectMessagesByHistoryQueryWithLimit*(db: SqliteDatabase, 
                                             contentTopic: Option[seq[ContentTopic]], 
                                             pubsubTopic: Option[string],
-                                            cursor: Option[PagingIndex],  
+                                            cursor: Option[DbCursor],  
                                             startTime: Option[Timestamp],
                                             endTime: Option[Timestamp],
                                             limit: uint64, 

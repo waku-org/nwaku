@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS message(
   CONSTRAINT messageIndex PRIMARY KEY (storedAt, id, pubsubTopic)
 ) WITHOUT ROWID;
 
-INSERT INTO message(pubsubTopic, contentTopic, payload, version, timestamp, id, storedAt)
+INSERT OR IGNORE INTO message(pubsubTopic, contentTopic, payload, version, timestamp, id, storedAt)
   SELECT pubsubTopic, contentTopic, payload, version, senderTimestamp, id, storedAt
   FROM message_backup;
 
