@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[options, algorithm, times],
+  std/[options, times],
   stew/[results, sorted_set],
   chronicles
 import
@@ -30,7 +30,7 @@ type
     
   QueryFilterMatcher = proc(indexedWakuMsg: IndexedWakuMessage) : bool {.gcsafe, closure.}
 
-  StoreQueueGetPageResult = Result[(seq[WakuMessage], PagingInfo), HistoryResponseError]
+  StoreQueueGetPageResult = Result[seq[MessageStoreRow], HistoryResponseError]
 
 type
   StoreQueueRef* = ref object of MessageStore
@@ -108,21 +108,15 @@ proc getPage(storeQueue: StoreQueueRef,
   
   trace "Retrieving page from store queue", len=storeQueue.items.len, maxPageSize=maxPageSize, startCursor=startCursor, forward=forward
   
-  var
-    outSeq: seq[WakuMessage]
-    outPagingInfo: PagingInfo
+  var outSeq: seq[MessageStoreRow]
   
   var w = SortedSetWalkRef[Index,IndexedWakuMessage].init(storeQueue.items)
   defer: w.destroy()
-    
-  var
-    currentEntry: SortedSetResult[Index, IndexedWakuMessage]
-    lastValidCursor: Index
+
+  var currentEntry: SortedSetResult[Index, IndexedWakuMessage]
   
   # Find starting entry
   if startCursor.isSome():
-    lastValidCursor = startCursor.get()
-
     let cursorEntry = if forward: w.ffdToCursor(startCursor.get())
                       else: w.rwdToCursor(startCursor.get())
     if cursorEntry.isErr():
@@ -135,7 +129,6 @@ proc getPage(storeQueue: StoreQueueRef,
                    else: w.prev()
   else:
     # Start from the beginning of the queue
-    lastValidCursor = Index() # No valid (only empty) last cursor
     currentEntry = if forward: w.first()
                    else: w.last()
 
@@ -150,25 +143,20 @@ proc getPage(storeQueue: StoreQueueRef,
     trace "Continuing page query", currentEntry=currentEntry, numberOfItems=numberOfItems
     
     if pred(currentEntry.value.data):
-      lastValidCursor = currentEntry.value.key
-      outSeq.add(currentEntry.value.data.msg)
+      let 
+        key = currentEntry.value.key
+        data = currentEntry.value.data
+      
       numberOfItems += 1
+
+      outSeq.add((key.pubsubTopic, data.msg, @(key.digest.data), key.receiverTime))
 
     currentEntry = if forward: w.next()
                    else: w.prev()
 
   trace "Successfully retrieved page", len=outSeq.len
-
-  outPagingInfo = PagingInfo(pageSize: outSeq.len.uint,
-                             cursor: lastValidCursor.toPagingIndex(),
-                             direction: if forward: PagingDirection.FORWARD
-                                        else: PagingDirection.BACKWARD)
-
-  # Even if paging backwards, each page should be in forward order
-  if not forward:
-      outSeq.reverse() 
   
-  return ok((outSeq, outPagingInfo))
+  return ok(outSeq)
 
 
 #### API
@@ -310,7 +298,7 @@ method getMessagesByHistoryQuery*(
   endTime = none(Timestamp),
   maxPageSize = DefaultPageSize,
   ascendingOrder = true
-): MessageStoreResult[MessageStorePage] =
+): MessageStoreResult[seq[MessageStoreRow]] =
 
   proc matchesQuery(indMsg: IndexedWakuMessage): bool =
     trace "Matching indexed message against predicate", msg=indMsg
@@ -347,11 +335,7 @@ method getMessagesByHistoryQuery*(
   if getPageRes.isErr():
     return err("invalid cursor")
 
-  let (messages, pagingInfo) = getPageRes.value
-  if messages.len == 0:
-    return ok((messages, none(PagingInfo)))
-  
-  ok((messages, some(pagingInfo)))
+  ok(getPageRes.value)
 
 
 method getMessagesCount*(s: StoreQueueRef): MessageStoreResult[int64] =

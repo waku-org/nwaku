@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[sequtils, strutils],
+  std/[sequtils, strutils, algorithm],
   stew/results,
   testutils/unittests
 import
@@ -167,105 +167,7 @@ procSuite "Sorted store queue":
     check:
       lastRes.isErr()
       lastRes.error() == "Not found"
-  
-  test "forward pagination":
-    ## Given
-    let
-      capacity = 5
-      unsortedSet = [5,1,3,2,4]
-    let store = getPrepopulatedTestStore(unsortedSet, capacity)
-    
-    proc predicate(i: IndexedWakuMessage): bool = true # no filtering
 
-    let pagingInfo = PagingInfo(pageSize: 3, direction: PagingDirection.FORWARD)
-
-    ## When
-    let pageRes1 = store.getPage(predicate, pagingInfo)
-    require pageRes1.isOk()
-    let pageRes2 = store.getPage(predicate, pageRes1.value[1])
-    require pageRes2.isOk()
-    let pageRes3 = store.getPage(predicate, pageRes2.value[1])
-    
-    ## Then
-    # First page
-    check pageRes1.isOk()
-
-    var (res, pInfo) = pageRes1.get()
-    check:
-      pInfo.pageSize == 3
-      pInfo.direction == PagingDirection.FORWARD
-      pInfo.cursor.senderTime == Timestamp(3)
-      res.mapIt(it.timestamp.int) == @[1,2,3]
-
-    # Second page
-    check pageRes2.isOk()
-
-    (res, pInfo) = pageRes2.get()
-    check:
-      pInfo.pageSize == 2
-      pInfo.direction == PagingDirection.FORWARD
-      pInfo.cursor.senderTime == Timestamp(5)
-      res.mapIt(it.timestamp.int) == @[4,5]
-
-    # Empty last page
-    check pageRes3.isOk()
-
-    (res, pInfo) = pageRes3.get()
-    check:
-      pInfo.pageSize == 0
-      pInfo.direction == PagingDirection.FORWARD
-      pInfo.cursor.senderTime == Timestamp(5)
-      res.len == 0
-  
-  test "backward pagination":   
-    ## Given
-    let
-      capacity = 5
-      unsortedSet = [5,1,3,2,4]
-    let store = getPrepopulatedTestStore(unsortedSet, capacity)
-
-    proc predicate(i: IndexedWakuMessage): bool = true # no filtering
-    
-    let pagingInfo = PagingInfo(pageSize: 3, direction: PagingDirection.BACKWARD)
-
-    ## When
-    let pageRes1 = store.getPage(predicate, pagingInfo)
-    require pageRes1.isOk()
-    let pageRes2 = store.getPage(predicate, pageRes1.value[1])
-    require pageRes2.isOk()
-    let pageRes3 = store.getPage(predicate, pageRes2.value[1])
-
-    ## Then
-    # First page
-    check pageRes1.isOk()
-
-    var (res, pInfo) = pageRes1.get()
-    check:
-      pInfo.pageSize == 3
-      pInfo.direction == PagingDirection.BACKWARD
-      pInfo.cursor.senderTime == Timestamp(3)
-      res.mapIt(it.timestamp.int) == @[3,4,5]
-
-    # Second page
-    check pageRes2.isOk()
-
-    (res, pInfo) = pageRes2.get()
-    check:
-      pInfo.pageSize == 2
-      pInfo.direction == PagingDirection.BACKWARD
-      pInfo.cursor.senderTime == Timestamp(1)
-      res.mapIt(it.timestamp.int) == @[1,2]
-    
-    # Empty last page
-    check pageRes3.isOk()
-
-    (res, pInfo) = pageRes3.get()
-    check:
-      pInfo.pageSize == 0
-      pInfo.direction == PagingDirection.BACKWARD
-      pInfo.cursor.senderTime == Timestamp(1)
-      res.len == 0
-  
   test "Store queue pagination works with predicate - fwd direction":
     ## Given
     let
@@ -277,30 +179,15 @@ procSuite "Sorted store queue":
 
     ## When
     let pageRes1 = store.getPage(onlyEvenTimes, PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD))
-    require pageRes1.isOk()
-    let pageRes2 = store.getPage(onlyEvenTimes, pageRes1.value[1])
     
     ## Then
     # First page
     check pageRes1.isOk()
 
-    var (res, pInfo) = pageRes1.get()
+    var res = pageRes1.get().mapIt(it[1])
     check:
-      pInfo.pageSize == 2
-      pInfo.direction == PagingDirection.FORWARD
-      pInfo.cursor.senderTime == Timestamp(4)
       res.mapIt(it.timestamp.int) == @[2,4]
     
-
-    # Empty next page
-    check pageRes2.isOk()
-
-    (res, pInfo) = pageRes2.get()
-    check:
-      pInfo.pageSize == 0
-      pInfo.direction == PagingDirection.FORWARD
-      pInfo.cursor.senderTime == Timestamp(4)
-      res.len == 0
 
   test "Store queue pagination works with predicate - bwd direction":
     ## Given
@@ -313,42 +200,15 @@ procSuite "Sorted store queue":
 
     ## When
     let pageRes1 = store.getPage(onlyOddTimes, PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD))
-    require pageRes1.isOk()
-    let pageRes2 = store.getPage(onlyOddTimes, pageRes1.value[1])
-    require pageRes2.isOk()
-    let pageRes3 = store.getPage(onlyOddTimes, pageRes2.value[1])
     
     ## Then
     # First page
     check pageRes1.isOk()
 
-    var (res, pInfo) = pageRes1.get()
+    var res = pageRes1.get().mapIt(it[1])
     check:
-      pInfo.pageSize == 2
-      pInfo.direction == PagingDirection.BACKWARD
-      pInfo.cursor.senderTime == Timestamp(3)
-      res.mapIt(it.timestamp.int) == @[3,5]
+      res.mapIt(it.timestamp.int) == @[3,5].reversed
     
-    # Next page
-    check pageRes2.isOk()
-
-    (res, pInfo) = pageRes2.get()
-    check:
-      pInfo.pageSize == 1
-      pInfo.direction == PagingDirection.BACKWARD
-      pInfo.cursor.senderTime == Timestamp(1)
-      res.mapIt(it.timestamp.int) == @[1]
-
-    # Empty last page
-    check pageRes3.isOk()
-
-    (res, pInfo) = pageRes3.get()
-    check:
-      pInfo.pageSize == 0
-      pInfo.direction == PagingDirection.BACKWARD
-      pInfo.cursor.senderTime == Timestamp(1)
-      res.len == 0
-
   test "handle pagination on empty store - fwd direction":
     ## Given
     let capacity = 5
@@ -366,11 +226,8 @@ procSuite "Sorted store queue":
     # Empty response
     check pageRes.isOk()
 
-    let (res, pInfo) = pageRes.get()
+    var res = pageRes.get()
     check:
-      pInfo.pageSize == 0
-      pInfo.direction == PagingDirection.FORWARD
-      pInfo.cursor.senderTime == Timestamp(0)
       res.len == 0
 
   test "handle pagination on empty store - bwd direction":
@@ -390,12 +247,8 @@ procSuite "Sorted store queue":
     # Empty response
     check pageRes.isOk()
 
-    let (res, pInfo) = pageRes.get()
+    let res = pageRes.get()
     check:
-      # Empty response
-      pInfo.pageSize == 0
-      pInfo.direction == PagingDirection.BACKWARD
-      pInfo.cursor.senderTime == Timestamp(0)
       res.len == 0
     
   test "handle invalid cursor - fwd direction":   

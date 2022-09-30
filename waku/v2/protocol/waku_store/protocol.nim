@@ -4,7 +4,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[tables, times, sequtils, options],
+  std/[tables, times, sequtils, options, algorithm],
   stew/results,
   chronicles,
   chronos, 
@@ -122,7 +122,7 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse {.gcsafe.}
         cursor = qCursor,
         startTime = qStartTime,
         endTime = qEndTime,
-        maxPageSize = qMaxPageSize,
+        maxPageSize = qMaxPageSize + 1,
         ascendingOrder = qAscendingOrder
       )
 
@@ -135,11 +135,46 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse {.gcsafe.}
   if queryRes.isErr():
     return HistoryResponse(messages: @[], pagingInfo: PagingInfo(), error: HistoryResponseError.INVALID_CURSOR)
 
-  let (messages, updatedPagingInfo) = queryRes.get()
+  let rows = queryRes.get()
   
+  if rows.len <= 0:
+    return HistoryResponse(messages: @[], error: HistoryResponseError.NONE)
+  
+  var messages = if rows.len <= int(qMaxPageSize): rows.mapIt(it[1])
+                 else: rows[0..^2].mapIt(it[1])
+  var pagingInfo = none(PagingInfo)
+
+  # The retrieved messages list should always be in chronological order
+  if not qAscendingOrder:
+    messages.reverse()
+
+  
+  if rows.len > int(qMaxPageSize):
+    # Build last message cursor
+    let (pubsubTopic, message, digest, storeTimestamp) = rows[^1]
+
+    # TODO: Improve coherence of MessageDigest type
+    var messageDigest: array[32, byte]
+    for i in 0..<min(digest.len, 32):
+      messageDigest[i] = digest[i]
+
+    let pagingIndex = PagingIndex(
+      pubsubTopic: pubsubTopic, 
+      senderTime: message.timestamp,
+      receiverTime: storeTimestamp,
+      digest: MessageDigest(data: messageDigest)
+    )
+
+    pagingInfo = some(PagingInfo(
+      pageSize: uint64(messages.len),
+      cursor: pagingIndex,
+      direction: if qAscendingOrder: PagingDirection.FORWARD
+                else: PagingDirection.BACKWARD
+    ))
+
   HistoryResponse(
     messages: messages, 
-    pagingInfo: updatedPagingInfo.get(PagingInfo()),
+    pagingInfo: pagingInfo.get(PagingInfo()),
     error: HistoryResponseError.NONE
   )
 
