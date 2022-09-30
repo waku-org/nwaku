@@ -155,23 +155,24 @@ type
   
     rlnRelayEthAccount* {.
       desc: "Account address for the Ethereum testnet Goerli", 
+      # NOTE: This can be derived from the private key, but kept for future use
       defaultValue: ""
-      name: "eth-account-address" }: string
+      name: "rln-relay-eth-account-address" }: string
 
     rlnRelayEthAccountPrivKey* {.
       desc: "Account private key for the Ethereum testnet Goerli",
       defaultValue: ""
-      name: "eth-account-privatekey" }: string
+      name: "rln-relay-eth-account-privatekey" }: string
     
     rlnRelayEthClientAddress* {.
       desc: "WebSocket address of an Ethereum testnet client e.g., ws://localhost:8540/",
       defaultValue: "ws://localhost:8540/"
-      name: "eth-client-address" }: string
+      name: "rln-relay-eth-client-address" }: string
     
     rlnRelayEthMemContractAddress* {.
       desc: "Address of membership contract on an Ethereum testnet", 
       defaultValue: ""
-      name: "eth-mem-contract-address" }: string
+      name: "rln-relay-eth-membership-contract-address" }: string
     
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."

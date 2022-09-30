@@ -270,24 +270,25 @@ type
       name: "rln-relay-id-commitment" }: string
   
     rlnRelayEthAccount* {.
-      desc: "Ethereum account address for an Ethereum testnet", 
+      desc: "Ethereum account address for an Ethereum testnet",
+      # NOTE: This can be derived from the private key, but kept for future use
       defaultValue: ""
-      name: "eth-account-address" }: string
+      name: "rln-relay-eth-account-address" }: string
     
     rlnRelayEthAccountPrivKey* {.
       desc: "Account private key for an Ethereum testnet",
       defaultValue: ""
-      name: "eth-account-privatekey" }: string
+      name: "rln-relay-eth-account-privatekey" }: string
     
     rlnRelayEthClientAddress* {.
       desc: "WebSocket address of an Ethereum testnet client e.g., ws://localhost:8540/",
       defaultValue: "ws://localhost:8540/"
-      name: "eth-client-address" }: string
+      name: "rln-relay-eth-client-address" }: string
     
     rlnRelayEthMemContractAddress* {.
       desc: "Address of membership contract on an Ethereum testnet", 
       defaultValue: ""
-      name: "eth-mem-contract-address" }: string
+      name: "rln-relay-eth-membership-contract-address" }: string
     
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =
