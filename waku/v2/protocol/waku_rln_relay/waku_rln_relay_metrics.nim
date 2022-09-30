@@ -24,10 +24,10 @@ declarePublicCounter(waku_rln_errors_total, "number of errors detected while ope
 declarePublicCounter(waku_rln_proof_verification_total, "number of times the rln proofs are verified")
 
 # Timing metrics
-declarePublicHistogram(waku_rln_proof_verification_duration_seconds, "time taken to verify a proof")
-declarePublicHistogram(waku_rln_relay_mounting_duration_seconds, "time taken to mount the waku rln relay")
-declarePublicHistogram(waku_rln_proof_generation_duration_seconds, "time taken to generate a proof")
-declarePublicHistogram(waku_rln_registration_duration_seconds, "time taken to register to a rln membership set")
-declarePublicHistogram(waku_rln_instance_creation_duration_seconds, "time taken to create an rln instance")
-declarePublicHistogram(waku_rln_membership_insertion_duration_seconds, "time taken to insert a new member into the local merkle tree")
-declarePublicHistogram(waku_rln_membership_credentials_import_duration_seconds, "time taken to import membership credentials")
+declarePublicGauge(waku_rln_proof_verification_duration_seconds, "time taken to verify a proof")
+declarePublicGauge(waku_rln_relay_mounting_duration_seconds, "time taken to mount the waku rln relay")
+declarePublicGauge(waku_rln_proof_generation_duration_seconds, "time taken to generate a proof")
+declarePublicGauge(waku_rln_registration_duration_seconds, "time taken to register to a rln membership set")
+declarePublicGauge(waku_rln_instance_creation_duration_seconds, "time taken to create an rln instance")
+declarePublicGauge(waku_rln_membership_insertion_duration_seconds, "time taken to insert a new member into the local merkle tree")
+declarePublicGauge(waku_rln_membership_credentials_import_duration_seconds, "time taken to import membership credentials")

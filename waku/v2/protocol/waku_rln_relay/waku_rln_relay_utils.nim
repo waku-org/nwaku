@@ -567,11 +567,11 @@ proc insertMember*(wakuRlnRelay: WakuRLNRelay, idComm: IDCommitment): RlnRelayRe
   ## queue of valid roots
   waku_rln_membership_insertion_duration_seconds.nanosecondTime:
     let actionSucceeded = wakuRlnRelay.rlnInstance.insertMember(idComm)
-    if not actionSucceeded:
-      return err("could not insert id commitment into the merkle tree")
+  if not actionSucceeded:
+    return err("could not insert id commitment into the merkle tree")
 
-    let rootAfterUpdate = ?wakuRlnRelay.rlnInstance.getMerkleRoot()
-    wakuRlnRelay.updateValidRootQueue(rootAfterUpdate)
+  let rootAfterUpdate = ?wakuRlnRelay.rlnInstance.getMerkleRoot()
+  wakuRlnRelay.updateValidRootQueue(rootAfterUpdate)
   return ok()
   
 
