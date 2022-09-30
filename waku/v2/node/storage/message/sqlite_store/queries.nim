@@ -57,14 +57,14 @@ proc queryRowPubsubTopicCallback(s: ptr sqlite3_stmt, pubsubTopicCol: cint): str
 
 proc createTableQuery(table: string): SqlQueryStr = 
   "CREATE TABLE IF NOT EXISTS " & table & " (" &
-  " id BLOB," &
-  " storedAt INTEGER NOT NULL," &
-  " contentTopic BLOB NOT NULL," &
   " pubsubTopic BLOB NOT NULL," &
+  " contentTopic BLOB NOT NULL," &
   " payload BLOB," &
   " version INTEGER NOT NULL," &
-  " senderTimestamp INTEGER NOT NULL," &
-  " CONSTRAINT messageIndex PRIMARY KEY (senderTimestamp, id, pubsubTopic)" &
+  " timestamp INTEGER NOT NULL," &
+  " id BLOB," &
+  " storedAt INTEGER NOT NULL," &
+  " CONSTRAINT messageIndex PRIMARY KEY (storedAt, id, pubsubTopic)" &
   ") WITHOUT ROWID;"
 
 proc createTable*(db: SqliteDatabase): DatabaseResult[void] =
@@ -97,7 +97,7 @@ proc createHistoryQueryIndex*(db: SqliteDatabase): DatabaseResult[void] =
 type InsertMessageParams* = (seq[byte], Timestamp, seq[byte], seq[byte], seq[byte], int64, Timestamp)
 
 proc insertMessageQuery(table: string): SqlQueryStr =
-  "INSERT INTO " & table & "(id, storedAt, contentTopic, payload, pubsubTopic, version, senderTimestamp)" &
+  "INSERT INTO " & table & "(id, storedAt, contentTopic, payload, pubsubTopic, version, timestamp)" &
   " VALUES (?, ?, ?, ?, ?, ?, ?);"
   
 proc prepareInsertMessageStmt*(db: SqliteDatabase): SqliteStmt[InsertMessageParams, void] =
@@ -187,7 +187,7 @@ proc deleteOldestMessagesNotWithinLimit*(db: SqliteDatabase, limit: int): Databa
 ## Select all messages
 
 proc selectAllMessagesQuery(table: string): SqlQueryStr =
-  "SELECT storedAt, contentTopic, payload, pubsubTopic, version, senderTimestamp" &
+  "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp" &
   " FROM " & table &
   " ORDER BY storedAt ASC"
 
@@ -273,13 +273,13 @@ proc selectMessagesWithLimitQuery(table: string, where: Option[string], limit: u
 
   var query: string
 
-  query = "SELECT storedAt, contentTopic, payload, pubsubTopic, version, senderTimestamp"
+  query = "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp"
   query &= " FROM " & table
   
   if where.isSome():
     query &= " WHERE " & where.get()
   
-  query &= " ORDER BY storedAt " & order 
+  query &= " ORDER BY storedAt " & order & ", id " & order & ", pubsubTopic " & order
   query &= " LIMIT " & $limit & ";"
 
   query
