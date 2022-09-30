@@ -12,12 +12,13 @@ import
   stew/results,
   stew/[byteutils, arrayops, endians2],
   rln, 
+  waku_rln_relay_constants,
   waku_rln_relay_types,
+  waku_rln_relay_metrics,
+  ../../utils/time,
   ../../node/[wakunode2_types,config],
   ../../../../../examples/v2/config_chat2,
   ../waku_message
-
-  
 
 logScope:
   topics = "wakurlnrelayutils"
@@ -45,7 +46,7 @@ proc toBuffer*(x: openArray[byte]): Buffer =
 
 when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
 
-  proc createRLNInstance*(d: int = MERKLE_TREE_DEPTH): RLNResult
+  proc createRLNInstanceLocal(d: int = MerkleTreeDepth): RLNResult
     {.raises: [Defect, IOError].} =
 
     ## generates an instance of RLN
@@ -117,7 +118,7 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     return some(keypair)
 
 when defined(rlnzerokit):
-  proc createRLNInstance*(d: int = MERKLE_TREE_DEPTH): RLNResult
+  proc createRLNInstanceLocal(d: int = MerkleTreeDepth): RLNResult
     {.raises: [Defect, IOError].} =
 
     ## generates an instance of RLN
@@ -126,7 +127,7 @@ when defined(rlnzerokit):
     var
       rlnInstance: ptr RLN
       merkleDepth: csize_t = uint(d)
-      resourcesPathBuffer = RLN_RESOURCE_FOLDER.toOpenArrayByte(0, RLN_RESOURCE_FOLDER.high).toBuffer()
+      resourcesPathBuffer = RlnResourceFolder.toOpenArrayByte(0, RlnResourceFolder.high).toBuffer()
 
     # create an instance of RLN
     let res = new_circuit(merkleDepth, addr resourcesPathBuffer, addr rlnInstance)
@@ -169,6 +170,12 @@ when defined(rlnzerokit):
 
     return some(keypair)
 
+proc createRLNInstance*(d: int = MerkleTreeDepth): RLNResult {.raises: [Defect, IOError].} =
+  ## Wraps the rln instance creation for metrics
+  waku_rln_instance_creation_duration_seconds.nanosecondTime:
+    let res = createRLNInstanceLocal(d)
+  return res
+
 proc toUInt256*(idCommitment: IDCommitment): UInt256 =
   let pk = UInt256.fromBytesBE(idCommitment)
   return pk
@@ -197,7 +204,7 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethAccountPrivK
   #  set the gas price twice the suggested price in order for the fast mining
   let gasPrice = int(await web3.provider.eth_gasPrice()) * 2
   
-  # when the private key is set in a web3 instance, the send proc (sender.register(pk).send(MEMBERSHIP_FEE))
+  # when the private key is set in a web3 instance, the send proc (sender.register(pk).send(MembershipFee))
   # does the signing using the provided key
   # web3.privateKey = some(ethAccountPrivateKey)
   var sender = web3.contractSender(MembershipContract, membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
@@ -207,7 +214,7 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethAccountPrivK
 
   var txHash: TxHash
   try: # send the registration transaction and check if any error occurs
-    txHash = await sender.register(pk).send(value = MEMBERSHIP_FEE, gasPrice = gasPrice)
+    txHash = await sender.register(pk).send(value = MembershipFee, gasPrice = gasPrice)
   except ValueError as e:
     return err("registration transaction failed: " & e.msg)
 
@@ -321,8 +328,9 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
 
     # generate the proof
     var proof: Buffer
-    let proofIsSuccessful = generate_proof(rlnInstance, addr inputBuffer, addr proof)
-    # check whether the generate_proof call is done successfully
+    waku_rln_proof_generation_duration_seconds.nanosecondTime:
+      let proofIsSuccessful = generateProof(rlnInstance, addr inputBuffer, addr proof)
+    # check whether the generateProof call is done successfully
     if not proofIsSuccessful:
       return err("could not generate the proof")
 
@@ -557,7 +565,8 @@ proc updateValidRootQueue*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): void =
 proc insertMember*(wakuRlnRelay: WakuRLNRelay, idComm: IDCommitment): RlnRelayResult[void] =
   ## inserts a new id commitment into the local merkle tree, and adds the changed root to the 
   ## queue of valid roots
-  let actionSucceeded = wakuRlnRelay.rlnInstance.insertMember(idComm)
+  waku_rln_membership_insertion_duration_seconds.nanosecondTime:
+    let actionSucceeded = wakuRlnRelay.rlnInstance.insertMember(idComm)
   if not actionSucceeded:
     return err("could not insert id commitment into the merkle tree")
 
@@ -649,8 +658,8 @@ proc rlnRelayStaticSetUp*(rlnRelayMemIndex: MembershipIndex): (Option[seq[
     MembershipIndex]) {.raises: [Defect, ValueError].} =
   let
     # static group
-    groupKeys = STATIC_GROUP_KEYS
-    groupSize = STATIC_GROUP_SIZE
+    groupKeys = StaticGroupKeys
+    groupSize = StaticGroupSize
 
   debug "rln-relay membership index", rlnRelayMemIndex
 
@@ -745,7 +754,7 @@ proc fromEpoch*(epoch: Epoch): uint64 =
 proc calcEpoch*(t: float64): Epoch =
   ## gets time `t` as `flaot64` with subseconds resolution in the fractional part
   ## and returns its corresponding rln `Epoch` value
-  let e = uint64(t/EPOCH_UNIT_SECONDS)
+  let e = uint64(t/EpochUnitSeconds)
   return toEpoch(e)
 
 proc getCurrentEpoch*(): Epoch =
@@ -765,12 +774,14 @@ proc diff*(e1, e2: Epoch): int64 =
 proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
     timeOption: Option[float64] = none(float64)): MessageValidationResult =
   ## validate the supplied `msg` based on the waku-rln-relay routing protocol i.e.,
-  ## the `msg`'s epoch is within MAX_EPOCH_GAP of the current epoch
+  ## the `msg`'s epoch is within MaxEpochGap of the current epoch
   ## the `msg` has valid rate limit proof
   ## the `msg` does not violate the rate limit
   ## `timeOption` indicates Unix epoch time (fractional part holds sub-seconds)
   ## if `timeOption` is supplied, then the current epoch is calculated based on that
 
+  # track message count for metrics
+  waku_rln_messages_total.inc()
 
   #  checks if the `msg`'s epoch is far from the current epoch
   # it corresponds to the validation of rln external nullifier
@@ -790,34 +801,44 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
   debug "message epoch", msgEpoch = fromEpoch(msgEpoch)
 
   # validate the epoch
-  if abs(gap) >= MAX_EPOCH_GAP:
+  if abs(gap) >= MaxEpochGap:
     # message's epoch is too old or too ahead
-    # accept messages whose epoch is within +-MAX_EPOCH_GAP from the current epoch
+    # accept messages whose epoch is within +-MaxEpochGap from the current epoch
     debug "invalid message: epoch gap exceeds a threshold", gap = gap,
         payload = string.fromBytes(msg.payload)
+    waku_rln_invalid_messages_total.inc(labelValues=["invalid_epoch"])
     return MessageValidationResult.Invalid
 
   if not rlnPeer.validateRoot(msg.proof.merkleRoot):
     debug "invalid message: provided root does not belong to acceptable window of roots", provided=msg.proof.merkleRoot, validRoots=rlnPeer.validMerkleRoots
+    waku_rln_invalid_messages_total.inc(labelValues=["invalid_root"])
     return MessageValidationResult.Invalid
 
   # verify the proof
   let
     contentTopicBytes = msg.contentTopic.toBytes
     input = concat(msg.payload, contentTopicBytes)
-    proofVerificationRes = rlnPeer.rlnInstance.proofVerify(input, msg.proof)
+
+  waku_rln_proof_verification_total.inc()
+  waku_rln_proof_verification_duration_seconds.nanosecondTime:
+    let proofVerificationRes = rlnPeer.rlnInstance.proofVerify(input, msg.proof)
 
   if proofVerificationRes.isErr():
+    waku_rln_errors_total.inc(labelValues=["proof_verification"])
     return MessageValidationResult.Invalid
   if not proofVerificationRes.value():
     # invalid proof
     debug "invalid message: invalid proof", payload = string.fromBytes(msg.payload)
+    waku_rln_invalid_messages_total.inc(labelValues=["invalid_proof"])
     return MessageValidationResult.Invalid
 
   # check if double messaging has happened
   let hasDup = rlnPeer.hasDuplicate(msg)
-  if hasDup.isOk and hasDup.value == true:
-    debug "invalid message: message is a spam", payload = string.fromBytes(msg.payload)
+  if hasDup.isErr():
+    waku_rln_errors_total.inc(labelValues=["duplicate_check"])
+  elif hasDup.value == true:
+    debug "invalid message: message is spam", payload = string.fromBytes(msg.payload)
+    waku_rln_spam_messages_total.inc()
     return MessageValidationResult.Spam
 
   # insert the message to the log
@@ -825,6 +846,8 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
   # it will never error out
   discard rlnPeer.updateLog(msg)
   debug "message is valid", payload = string.fromBytes(msg.payload)
+  let rootIndex = rlnPeer.validMerkleRoots.find(msg.proof.merkleRoot)
+  waku_rln_valid_messages_total.observe(rootIndex.toFloat())
   return MessageValidationResult.Valid
 
 
@@ -1039,7 +1062,8 @@ proc mountRlnRelayDynamic*(node: WakuNode,
       doAssert(keyPairOpt.isSome)
       keyPair = keyPairOpt.get()
       # register the rln-relay peer to the membership contract
-      let regIndexRes = await  register(idComm = keyPair.idCommitment, ethAccountAddress = ethAccAddr, ethAccountPrivKey = ethAccountPrivKeyOpt.get(), ethClientAddress = ethClientAddr, membershipContractAddress = memContractAddr, registrationHandler = registrationHandler)
+      waku_rln_registration_duration_seconds.nanosecondTime:
+        let regIndexRes = await register(idComm = keyPair.idCommitment, ethAccountAddress = ethAccAddr, ethAccountPrivKey = ethAccountPrivKeyOpt.get(), ethClientAddress = ethClientAddr, membershipContractAddress = memContractAddr, registrationHandler = registrationHandler)
       # check whether registration is done
       if regIndexRes.isErr():
         debug "membership registration failed", err=regIndexRes.error()
@@ -1089,16 +1113,20 @@ proc readPersistentRlnCredentials*(path: string) : RlnMembershipCredentials {.ra
   # With regards to printing the keys, it is purely for debugging purposes so that the user becomes explicitly aware of the current keys in use when nwaku is started.
   # Note that this is only until the RLN contract being used is the one deployed on Goerli testnet.
   # These prints need to omitted once RLN contract is deployed on Ethereum mainnet and using valuable funds for staking.
-      
-  let entireRlnCredentialsFile = readFile(path)
+  waku_rln_membership_credentials_import_duration_seconds.nanosecondTime:
+    let entireRlnCredentialsFile = readFile(path)
 
-  let jsonObject = parseJson(entireRlnCredentialsFile)
-  let deserializedRlnCredentials = to(jsonObject, RlnMembershipCredentials)
-  
+    let jsonObject = parseJson(entireRlnCredentialsFile)
+    let deserializedRlnCredentials = to(jsonObject, RlnMembershipCredentials)
+    
   debug "Deserialized Rln credentials", rlnCredentials=deserializedRlnCredentials
-  result = deserializedRlnCredentials
+  return deserializedRlnCredentials
 
-proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: Option[SpamHandler] = none(SpamHandler), registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
+proc mount(node: WakuNode,
+           conf: WakuNodeConf|Chat2Conf,
+           spamHandler: Option[SpamHandler] = none(SpamHandler),
+           registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)
+          ): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
   if not conf.rlnRelayDynamic:
     info " setting up waku-rln-relay in off-chain mode... "
     # set up rln relay inputs
@@ -1117,7 +1145,7 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: O
       # TODO have added this check to account for unseen corner cases, will remove it later 
       let 
         rootRes = node.wakuRlnRelay.rlnInstance.getMerkleRoot()
-        expectedRoot = STATIC_GROUP_MERKLE_ROOT
+        expectedRoot = StaticGroupMerkleRoot
       
       if rootRes.isErr():
         return err(rootRes.error())
@@ -1145,7 +1173,7 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: O
     # if the path does not contain any credential file, then a new set is generated and pesisted in the same path
     # if there is a credential file, then no new credentials are generated, instead the content of the file is read and used to mount rln-relay 
     if conf.rlnRelayCredPath != "": 
-      let rlnRelayCredPath = joinPath(conf.rlnRelayCredPath, RLN_CREDENTIALS_FILENAME)
+      let rlnRelayCredPath = joinPath(conf.rlnRelayCredPath, RlnCredentialsFilename)
       debug "rln-relay credential path", rlnRelayCredPath=rlnRelayCredPath
       # check if there is an rln-relay credential file in the supplied path
       if fileExists(rlnRelayCredPath): 
@@ -1183,3 +1211,19 @@ proc mountRlnRelay*(node: WakuNode, conf: WakuNodeConf|Chat2Conf, spamHandler: O
       if res.isErr:
         return err("dynamic rln-relay could not be mounted: " & res.error())
       return ok(true)
+
+
+proc mountRlnRelay*(node: WakuNode,
+                    conf: WakuNodeConf|Chat2Conf,
+                    spamHandler: Option[SpamHandler] = none(SpamHandler),
+                    registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)
+                   ): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
+  waku_rln_relay_mounting_duration_seconds.nanosecondTime:
+    let res = mount(
+      node,
+      conf,
+      spamHandler,
+      registrationHandler
+    )
+  
+  return res

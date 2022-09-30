@@ -8,13 +8,16 @@ import
   libp2p/crypto/crypto,
   json,
   ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_rln_relay/[rln, waku_rln_relay_utils,
-      waku_rln_relay_types],
+  ../../waku/v2/protocol/waku_rln_relay/[rln, 
+      waku_rln_relay_utils,
+      waku_rln_relay_types,
+      waku_rln_relay_constants,
+      waku_rln_relay_metrics],
   ../../waku/v2/node/wakunode2,
   ../test_helpers
 
-const RLNRELAY_PUBSUB_TOPIC = "waku/2/rlnrelay/proto"
-const RLNRELAY_CONTENT_TOPIC = "waku/2/rlnrelay/proto"
+const RlnRelayPubsubTopic = "waku/2/rlnrelay/proto"
+const RlnRelayContentTopic = "waku/2/rlnrelay/proto"
 
 procSuite "Waku rln relay":
   asyncTest "mount waku-rln-relay in the off-chain mode":
@@ -45,12 +48,12 @@ procSuite "Waku rln relay":
     let index = MembershipIndex(5)
 
     # -------- mount rln-relay in the off-chain mode
-    await node.mountRelay(@[RLNRELAY_PUBSUB_TOPIC])
+    await node.mountRelay(@[RlnRelayPubsubTopic])
     node.mountRlnRelayStatic(group = groupIDCommitments,
                             memKeyPair = groupKeyPairs[index],
                             memIndex = index,
-                            pubsubTopic = RLNRELAY_PUBSUB_TOPIC,
-                            contentTopic = RLNRELAY_CONTENT_TOPIC)
+                            pubsubTopic = RlnRelayPubsubTopic,
+                            contentTopic = RlnRelayContentTopic)
 
     # get the root of Merkle tree which is constructed inside the mountRlnRelay proc
     let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
@@ -446,10 +449,10 @@ suite "Waku rln relay":
 
     check:
       list.len == groupSize # check the number of keys
-      root.len == HASH_HEX_SIZE # check the size of the calculated tree root
+      root.len == HashHexSize # check the size of the calculated tree root
 
   test "check correctness of toMembershipKeyPairs and calcMerkleRoot":
-    let groupKeys = STATIC_GROUP_KEYS
+    let groupKeys = StaticGroupKeys
 
     # create a set of MembershipKeyPair objects from groupKeys
     let groupKeyPairs = groupKeys.toMembershipKeyPairs()
@@ -466,7 +469,7 @@ suite "Waku rln relay":
       # check that the correct number of key pairs is created
       groupKeyPairs.len == StaticGroupSize
       # compare the calculated root against the correct root
-      root == STATIC_GROUP_MERKLE_ROOT
+      root == StaticGroupMerkleRoot
 
   when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     test "RateLimitProof Protobuf encode/init test":
@@ -928,7 +931,7 @@ suite "Waku rln relay":
       proofAdded2 = wakuRlnRelay.appendRLNProof(wm2, time)
       #  wm3 points to the next epoch
       wm3 = WakuMessage(payload: "Valid message".toBytes())
-      proofAdded3 = wakuRlnRelay.appendRLNProof(wm3, time+EPOCH_UNIT_SECONDS)
+      proofAdded3 = wakuRlnRelay.appendRLNProof(wm3, time+EpochUnitSeconds)
       wm4 = WakuMessage(payload: "Invalid message".toBytes())
 
     # checks proofs are added
@@ -1008,5 +1011,10 @@ suite "Waku rln relay":
     check:
       credentials.membershipKeyPair == k
       credentials.rlnIndex == index
-    
+  
+  test "histogram static bucket generation":
+    let buckets = generateBucketsForHistogram(10)
 
+    check:
+      buckets.len == 5
+      buckets == [2.0, 4.0, 6.0, 8.0, 10.0]
