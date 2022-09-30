@@ -2,8 +2,8 @@
 {.push raises: [Defect].}
 
 import 
-  metrics,
-  std/times
+  std/times,
+  metrics
 
 type Timestamp* = int64 
 
