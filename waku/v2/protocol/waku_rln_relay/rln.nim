@@ -141,7 +141,14 @@ when defined(rlnzerokit):
 
   #-------------------------------- zkSNARKs operations -----------------------------------------
   proc key_gen*(ctx: ptr RLN, output_buffer: ptr Buffer): bool {.importc: "key_gen".}
-  ## generates id key and id commitment key serialized inside keypair_buffer as | id_key <32 bytes>| id_commitment_key <32 bytes> |
+  ## generates id key and id commitment key serialized inside output_buffer as | id_key <32 bytes>| id_commitment_key <32 bytes> |
+  ## id commitment is the poseidon hash of the id key
+  ## the return bool value indicates the success or failure of the operation
+
+  proc seeded_key_gen*(ctx: ptr RLN, input_buffer: ptr Buffer, output_buffer: ptr Buffer): bool {.importc: "seeded_key_gen".}
+  ## generates id key and id commitment key serialized inside output_buffer as | id_key <32 bytes>| id_commitment_key <32 bytes> | using ChaCha20
+  ## seeded with an arbitrary long seed serialized in input_buffer
+  ## The input seed provided by the user is hashed using Keccak256 before being passed to ChaCha20 as seed.
   ## id commitment is the poseidon hash of the id key
   ## the return bool value indicates the success or failure of the operation
 
