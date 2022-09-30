@@ -17,7 +17,7 @@ import
   ../test_helpers
 
 const RlnRelayPubsubTopic = "waku/2/rlnrelay/proto"
-const RlnRelauContentTopic = "waku/2/rlnrelay/proto"
+const RlnRelayContentTopic = "waku/2/rlnrelay/proto"
 
 procSuite "Waku rln relay":
   asyncTest "mount waku-rln-relay in the off-chain mode":
@@ -53,7 +53,7 @@ procSuite "Waku rln relay":
                             memKeyPair = groupKeyPairs[index],
                             memIndex = index,
                             pubsubTopic = RlnRelayPubsubTopic,
-                            contentTopic = RlnRelauContentTopic)
+                            contentTopic = RlnRelayContentTopic)
 
     # get the root of Merkle tree which is constructed inside the mountRlnRelay proc
     let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex

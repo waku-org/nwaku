@@ -43,7 +43,7 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
 
   # deploy the poseidon hash contract and gets its address
   let
-    hasherReceipt = await web3.deployContract(PosiedonHasherCode)
+    hasherReceipt = await web3.deployContract(PoseidonHasherCode)
     hasherAddress = hasherReceipt.contractAddress.get
   debug "hasher address: ", hasherAddress
 
