@@ -19,6 +19,10 @@ logScope:
 
 
 proc init(db: SqliteDatabase): MessageStoreResult[void] =
+  ## Misconfiguration can lead to nil DB
+  if db.isNil():
+    return err("db not initialized")
+
   # Create table, if doesn't exist
   let resCreate = createTable(db)
   if resCreate.isErr():
