@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, tables, sets, times, strutils, sequtils],
+  std/[options, tables, sets, times, strutils, sequtils, algorithm],
   stew/byteutils,
   unittest2,
   chronos,
@@ -78,15 +78,12 @@ suite "message store - history query":
     check:
       res.isOk()
 
-    let (filteredMessages, pagingInfo) = res.tryGet()
+    let filteredMessages = res.tryGet().mapIt(it[1])
     check:
       filteredMessages.len == 2
       filteredMessages.all do (msg: WakuMessage) -> bool:
         msg.contentTopic == contentTopic
       filteredMessages == messages[2..3]
-
-    check:
-      pagingInfo.isSome()
     
     ## Teardown
     store.close()
@@ -126,15 +123,12 @@ suite "message store - history query":
     check:
       res.isOk()
 
-    let (filteredMessages, pagingInfo) = res.tryGet()
+    let filteredMessages = res.tryGet().mapIt(it[1])
     check:
       filteredMessages.len == 2
       filteredMessages.all do (msg: WakuMessage) -> bool:
         msg.contentTopic == contentTopic
-      filteredMessages == messages[6..7]
-
-    check:
-      pagingInfo.isSome()
+      filteredMessages == messages[6..7].reversed
     
     ## Teardown
     store.close()
@@ -176,16 +170,13 @@ suite "message store - history query":
     check:
       res.isOk()
 
-    let (filteredMessages, pagingInfo) = res.tryGet()
+    let filteredMessages = res.tryGet().mapIt(it[1])
     check:
       filteredMessages.len == 2
       filteredMessages.all do (msg: WakuMessage) -> bool:
         msg.contentTopic in @[contentTopic1, contentTopic2]
       filteredMessages == messages[2..3]
 
-    check:
-      pagingInfo.isSome()
-    
     ## Teardown
     store.close()
   
@@ -230,16 +221,13 @@ suite "message store - history query":
     check:
       res.isOk()
 
-    let (filteredMessages, pagingInfo) = res.tryGet()
+    let filteredMessages = res.tryGet().mapIt(it[1])
     check:
       filteredMessages.len == 2
       filteredMessages.all do (msg: WakuMessage) -> bool:
         msg.contentTopic == contentTopic
       filteredMessages == messages2[0..1]
 
-    check:
-      pagingInfo.isSome()
-    
     ## Teardown
     store.close()
 
@@ -281,16 +269,13 @@ suite "message store - history query":
     check:
       res.isOk()
 
-    let (filteredMessages, pagingInfo) = res.tryGet()
+    let filteredMessages = res.tryGet().mapIt(it[1])
     check:
       filteredMessages.len == 2
       filteredMessages.all do (msg: WakuMessage) -> bool:
         msg.contentTopic == contentTopic
       filteredMessages == messages[5..6]
 
-    check:
-      pagingInfo.isSome()
-    
     ## Teardown
     store.close()
 
@@ -332,16 +317,13 @@ suite "message store - history query":
     check:
       res.isOk()
 
-    let (filteredMessages, pagingInfo) = res.tryGet()
+    let filteredMessages = res.tryGet().mapIt(it[1])
     check:
       filteredMessages.len == 2
       filteredMessages.all do (msg: WakuMessage) -> bool:
         msg.contentTopic == contentTopic
-      filteredMessages == messages[4..5]
+      filteredMessages == messages[4..5].reversed
 
-    check:
-      pagingInfo.isSome()
-    
     ## Teardown
     store.close()
 
@@ -387,15 +369,12 @@ suite "message store - history query":
     check:
       res.isOk()
 
-    let (filteredMessages, pagingInfo) = res.tryGet()
+    let filteredMessages = res.tryGet().mapIt(it[1])
     check:
       filteredMessages.len == 2
       filteredMessages.all do (msg: WakuMessage) -> bool:
         msg.contentTopic == contentTopic
       filteredMessages == messages2[0..1]
-
-    check:
-      pagingInfo.isSome()
     
     ## Teardown
     store.close()
@@ -430,10 +409,9 @@ suite "message store - history query":
     check:
       res.isOk()
 
-    let (filteredMessages, pagingInfo) = res.tryGet()
+    let filteredMessages = res.tryGet().mapIt(it[1])
     check:
       filteredMessages.len == 0
-      pagingInfo.isNone()
     
     ## Teardown
     store.close()
@@ -460,11 +438,9 @@ suite "message store - history query":
     check:
       res.isOk()
 
-    let (filteredMessages, pagingInfo) = res.tryGet()
+    let filteredMessages = res.tryGet().mapIt(it[1])
     check:
       filteredMessages.len == 50
-      pagingInfo.isSome()
-      pagingInfo.get().pageSize == 50
     
     ## Teardown
     store.close()
@@ -491,11 +467,9 @@ suite "message store - history query":
     check:
       res.isOk()
 
-    let (filteredMessages, pagingInfo) = res.tryGet()
+    let filteredMessages = res.tryGet().mapIt(it[1])
     check:
       filteredMessages.len == 40
-      pagingInfo.isSome()
-      pagingInfo.get().pageSize == 40
     
     ## Teardown
     store.close()
@@ -520,8 +494,7 @@ suite "message store - history query":
     ]
 
     for msg in messages:
-      let digest = computeDigest(msg)
-      require store.put(DefaultPubsubTopic, msg, digest, msg.timestamp).isOk()
+      require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -536,16 +509,13 @@ suite "message store - history query":
     check:
       res.isOk()
 
-    let (filteredMessages, pagingInfo) = res.tryGet()
+    let filteredMessages = res.tryGet().mapIt(it[1])
     check:
       filteredMessages.len == 2
       filteredMessages.all do (msg: WakuMessage) -> bool:
         msg.contentTopic == contentTopic
       filteredMessages == messages[1..2]
 
-    check:
-      pagingInfo.isSome()
-    
     ## Teardown
     store.close()
   
@@ -567,8 +537,7 @@ suite "message store - history query":
     ]
 
     for msg in messages:
-      let digest = computeDigest(msg)
-      require store.put(DefaultPubsubTopic, msg, digest, msg.timestamp).isOk()
+      require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -582,10 +551,9 @@ suite "message store - history query":
     check:
       res.isOk()
 
-    let (filteredMessages, pagingInfo) = res.tryGet()
+    let filteredMessages = res.tryGet().mapIt(it[1])
     check:
       filteredMessages.len == 0
-      pagingInfo.isNone()
     
     ## Teardown
     store.close()
@@ -609,8 +577,7 @@ suite "message store - history query":
     ]
 
     for msg in messages:
-      let digest = computeDigest(msg)
-      require store.put(DefaultPubsubTopic, msg, digest, msg.timestamp).isOk()
+      require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -622,15 +589,12 @@ suite "message store - history query":
     check:
       res.isOk()
 
-    let (filteredMessages, pagingInfo) = res.tryGet()
+    let filteredMessages = res.tryGet().mapIt(it[1])
     check:
       filteredMessages.len == 3
       filteredMessages.all do (msg: WakuMessage) -> bool:
         msg.contentTopic == contentTopic
-      filteredMessages == messages[2..4]
-
-    check:
-      pagingInfo.isSome()
+      filteredMessages == messages[2..4].reversed
     
     ## Teardown
     store.close()
@@ -655,8 +619,7 @@ suite "message store - history query":
     ]
 
     for msg in messages:
-      let digest = computeDigest(msg)
-      require store.put(DefaultPubsubTopic, msg, digest, msg.timestamp).isOk()
+      require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
     let cursor = PagingIndex.compute(messages[3], messages[3].timestamp, DefaultPubsubTopic)
 
@@ -672,15 +635,12 @@ suite "message store - history query":
     check:
       res.isOk()
 
-    let (filteredMessages, pagingInfo) = res.tryGet()
+    let filteredMessages = res.tryGet().mapIt(it[1])
     check:
       filteredMessages.len == 1
       filteredMessages.all do (msg: WakuMessage) -> bool:
         msg.contentTopic == contentTopic
       filteredMessages == @[messages[^1]]
 
-    check:
-      pagingInfo.isSome()
-    
     ## Teardown
     store.close()
