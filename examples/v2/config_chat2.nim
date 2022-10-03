@@ -239,7 +239,7 @@ type
       defaultValue: ""
       name: "rln-relay-cred-path" }: string
    
-    rlnRelayMemIndex* {.
+    rlnRelayMembershipIndex* {.
       desc: "(experimental) the index of node in the rln-relay group: a value between 0-99 inclusive",
       defaultValue: 0
       name: "rln-relay-membership-index" }: uint
@@ -262,12 +262,12 @@ type
     rlnRelayIdKey* {.
       desc: "Rln relay identity secret key as a Hex string", 
       defaultValue: ""
-      name: "rln-relay-id" }: string
+      name: "rln-relay-id-key" }: string
     
     rlnRelayIdCommitmentKey* {.
       desc: "Rln relay identity commitment key as a Hex string", 
       defaultValue: ""
-      name: "rln-relay-id-commitment" }: string
+      name: "rln-relay-id-commitment-key" }: string
   
     rlnRelayEthAccountAddress* {.
       desc: "Ethereum account address for an Ethereum testnet",
