@@ -15,9 +15,7 @@ import
 type
   MessageStoreResult*[T] = Result[T, string]
   
-  MessageStorePage* = (seq[WakuMessage], Option[PagingInfo])
-
-  MessageStoreRow* = (Timestamp, WakuMessage, string)
+  MessageStoreRow* = (string, WakuMessage, seq[byte], Timestamp)
 
   MessageStore* = ref object of RootObj
 
@@ -44,7 +42,7 @@ method getMessagesByHistoryQuery*(
   endTime = none(Timestamp),
   maxPageSize = DefaultPageSize,
   ascendingOrder = true
-): MessageStoreResult[MessageStorePage] {.base.} = discard
+): MessageStoreResult[seq[MessageStoreRow]] {.base.} = discard
 
 
 # Store manipulation
