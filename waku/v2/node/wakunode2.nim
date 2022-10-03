@@ -36,7 +36,7 @@ import
 export
   wakunode2_types
 
-when defined(rln):
+when defined(rln) or defined(rlnzerokit):
   import ../protocol/waku_rln_relay/waku_rln_relay_utils
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
@@ -1061,7 +1061,7 @@ when isMainModule:
     # Keepalive mounted on all nodes
     waitFor mountLibp2pPing(node)
     
-    when defined(rln): 
+    when defined(rln) or defined(rlnzerokit): 
       if conf.rlnRelay:
         let res = node.mountRlnRelay(conf)
         if res.isErr():
