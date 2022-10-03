@@ -181,9 +181,9 @@ endif
 rlnzerokitlib:
 ifeq ($(RLN), true)
 	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
-#To avoid redefinition conflicts, we disable rln zerokit default compilation in CI
-#else  ifeq ($(CI), true)
-#	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
+# Enable zerokit rln in CI
+else  ifeq ($(CI), true)
+	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
 endif
 
 test2: | build deps installganache
