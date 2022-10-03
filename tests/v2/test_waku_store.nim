@@ -444,9 +444,7 @@ suite "Waku Store - history query":
       ## No pagination specified. Response will be auto-paginated with
       ## up to MaxPageSize messages per page.
       response.messages.len() == 8
-      response.pagingInfo.pageSize == 8
-      response.pagingInfo.direction == PagingDirection.BACKWARD
-      response.pagingInfo.cursor != PagingIndex()
+      response.pagingInfo == PagingInfo()
 
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitch.stop())

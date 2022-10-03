@@ -33,9 +33,8 @@ proc init*(T: type DualMessageStore, db: SqliteDatabase, capacity: int): Message
   if res.isErr():
     warn "failed to load messages from the persistent store", err = res.error
   else: 
-    for (receiverTime, msg, pubsubTopic) in res.value:
-      let digest = computeDigest(msg)
-      discard inmemory.put(pubsubTopic, msg, digest, receiverTime)
+    for (pubsubTopic, msg, _, storeTimestamp) in res.value:
+      discard inmemory.put(pubsubTopic, msg, computeDigest(msg), storeTimestamp)
 
     info "successfully loaded messages from the persistent store"
 
@@ -65,7 +64,7 @@ method getMessagesByHistoryQuery*(
   endTime = none(Timestamp),
   maxPageSize = MaxPageSize,
   ascendingOrder = true
-): MessageStoreResult[MessageStorePage] =
+): MessageStoreResult[seq[MessageStoreRow]] =
   s.inmemory.getMessagesByHistoryQuery(contentTopic, pubsubTopic, cursor, startTime, endTime, maxPageSize, ascendingOrder)
 
 
