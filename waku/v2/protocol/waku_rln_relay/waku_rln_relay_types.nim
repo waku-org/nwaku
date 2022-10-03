@@ -32,6 +32,7 @@ type
   MerkleNode* = array[32, byte] # Each node of the Merkle tee is a Poseidon hash which is a 32 byte value
   Nullifier* = array[32, byte]
   Epoch* = array[32, byte]
+  RlnIdentifier* = array[32, byte]
 
 when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
   type
@@ -39,7 +40,7 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
 when defined(rlnzerokit):
   type 
     ZKSNARK* = array[128, byte]
-    RlnIdentifier* = array[32, byte]
+  
 
 # Custom data types defined for waku rln relay -------------------------
 type MembershipKeyPair* = object
@@ -69,6 +70,8 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     ## nullifier enables linking two messages published during the same epoch
     ## see details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Nullifiers
     nullifier*: Nullifier
+    ## Application specific RLN Identifier
+    rlnIdentifier*: RlnIdentifier
 
 when defined(rlnzerokit):
   type RateLimitProof* = object
@@ -182,11 +185,10 @@ proc init*(T: type RateLimitProof, buffer: seq[byte]): ProtoResult[T] =
   var nullifier: seq[byte]
   discard ? pb.getField(6, nullifier)
   discard nsp.nullifier.copyFrom(nullifier)
-
-  when defined(rlnzerokit):
-    var rlnIdentifier: seq[byte]
-    discard ? pb.getField(7, rlnIdentifier)
-    discard nsp.rlnIdentifier.copyFrom(rlnIdentifier)
+  
+  var rlnIdentifier: seq[byte]
+  discard ? pb.getField(7, rlnIdentifier)
+  discard nsp.rlnIdentifier.copyFrom(rlnIdentifier)
 
   return ok(nsp)
 
@@ -199,9 +201,7 @@ proc encode*(nsp: RateLimitProof): ProtoBuffer =
   output.write3(4, nsp.shareX)
   output.write3(5, nsp.shareY)
   output.write3(6, nsp.nullifier)
-
-  when defined(rlnzerokit):
-    output.write3(7, nsp.rlnIdentifier)
+  output.write3(7, nsp.rlnIdentifier)
 
   output.finish3()
 
