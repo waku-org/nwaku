@@ -1166,8 +1166,8 @@ proc mount(node: WakuNode,
       ethClientAddr = conf.rlnRelayEthClientAddress
       ethMemContractAddress = web3.fromHex(web3.Address, conf.rlnRelayEthContractAddress)
     var ethAccountPrivKeyOpt = none(keys.PrivateKey)
-    if conf.rlnRelayEthAccountPrivKey != "":
-      ethAccountPrivKeyOpt = some(keys.PrivateKey(SkSecretKey.fromHex(conf.rlnRelayEthAccountPrivKey).value))
+    if conf.rlnRelayEthAccountPrivateKey != "":
+      ethAccountPrivKeyOpt = some(keys.PrivateKey(SkSecretKey.fromHex(conf.rlnRelayEthAccountPrivateKey).value))
       
     # if the rlnRelayCredPath config option is non-empty, then rln-relay credentials should be persisted
     # if the path does not contain any credential file, then a new set is generated and pesisted in the same path

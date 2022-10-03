@@ -157,12 +157,12 @@ type
       desc: "Account address for the Ethereum testnet Goerli", 
       # NOTE: This can be derived from the private key, but kept for future use
       defaultValue: ""
-      name: "rln-relay-eth-account-address" }: string
+      name: "rln-relay-eth-account" }: string
 
-    rlnRelayEthAccountPrivKey* {.
+    rlnRelayEthAccountPrivateKey* {.
       desc: "Account private key for the Ethereum testnet Goerli",
       defaultValue: ""
-      name: "rln-relay-eth-account-privatekey" }: string
+      name: "rln-relay-eth-account-private-key" }: string
     
     rlnRelayEthClientAddress* {.
       desc: "WebSocket address of an Ethereum testnet client e.g., ws://localhost:8540/",
