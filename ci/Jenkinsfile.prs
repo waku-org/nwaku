@@ -1,4 +1,4 @@
-library 'status-jenkins-lib@v1.2.18'
+library 'status-jenkins-lib@v1.6.0'
 
 pipeline {
   agent { label "${getAgentLabel()} && x86_64" }
@@ -53,19 +53,23 @@ pipeline {
       v1changed = versionWasChanged('v1')
       v2changed = versionWasChanged('v2')
       /* TODO: Re-add caching of Nim compiler. */
-      sh "make V=${params.VERBOSITY} update"
-      sh "make V=${params.VERBOSITY} deps"
+      nix.shell("make V=${params.VERBOSITY} update", pure: false)
+      nix.shell("make V=${params.VERBOSITY} deps", pure: false)
     } } }
 
     stage('Binaries') {
       parallel {
         stage('V1') { 
           when { expression { v1changed } }
-          steps { sh "make V=${params.VERBOSITY} v1" }
+          steps { script {
+            nix.shell("make V=${params.VERBOSITY} v1")
+          } }
         }
         stage('V2') {
           when { expression { v2changed } }
-          steps { sh "make V=${params.VERBOSITY} v2" }
+          steps { script {
+            nix.shell("make V=${params.VERBOSITY} v2")
+          } }
         }
       }
     }
@@ -74,11 +78,15 @@ pipeline {
       parallel {
         stage('V1') {
           when { expression { v1changed } }
-          steps { sh "make V=${params.VERBOSITY} test1" }
+          steps { script {
+            nix.shell("make V=${params.VERBOSITY} test1")
+          } }
         }
         stage('V2') {
           when { expression { v2changed } }
-          steps { sh "make V=${params.VERBOSITY} test2" }
+          steps { script {
+            nix.shell("make V=${params.VERBOSITY} test2")
+          } }
         }
       }
     }
