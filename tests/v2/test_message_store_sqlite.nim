@@ -4,8 +4,7 @@ import
   std/[unittest, options, tables, sets, times, strutils, sequtils, os],
   stew/byteutils,
   chronos,
-  chronicles,
-  sqlite3_abi
+  chronicles
 import
   ../../waku/v2/node/storage/message/sqlite_store,
   ../../waku/v2/node/storage/message/message_retention_policy,
@@ -95,7 +94,7 @@ suite "SQLite message store - insert messages":
     check:
       storedMsg.len == 1
       storedMsg.all do (item: auto) -> bool:
-        let (_, msg, pubsubTopic) = item
+        let (pubsubTopic, msg, digest, storeTimestamp) = item
         msg.contentTopic == contentTopic and
         pubsubTopic == DefaultPubsubTopic
     
@@ -133,7 +132,7 @@ suite "SQLite message store - insert messages":
     check:
       storedMsg.len == storeCapacity
       storedMsg.all do (item: auto) -> bool:
-        let (_, msg, pubsubTopic) = item
+        let (pubsubTopic, msg, digest, storeTimestamp) = item
         msg.contentTopic == contentTopic and
         pubsubTopic == DefaultPubsubTopic
 
@@ -186,7 +185,7 @@ suite "Message Store":
     # flags for receiver timestamp
     var rt1Flag, rt2Flag, rt3Flag: bool = false
 
-    for (receiverTimestamp, msg, pubsubTopic) in result:
+    for (pubsubTopic, msg, digest, receiverTimestamp) in result:
       check:
         pubsubTopic == DefaultPubsubTopic
 
