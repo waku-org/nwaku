@@ -269,11 +269,11 @@ type
       defaultValue: ""
       name: "rln-relay-id-commitment" }: string
   
-    rlnRelayEthAccount* {.
+    rlnRelayEthAccountAddress* {.
       desc: "Ethereum account address for an Ethereum testnet",
       # NOTE: This can be derived from the private key, but kept for future use
       defaultValue: ""
-      name: "rln-relay-eth-account" }: string
+      name: "rln-relay-eth-account-address" }: string
     
     rlnRelayEthAccountPrivateKey* {.
       desc: "Account private key for an Ethereum testnet",

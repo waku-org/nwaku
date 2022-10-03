@@ -1162,7 +1162,7 @@ proc mount(node: WakuNode,
     
     # read related inputs to run rln-relay in on-chain mode and do type conversion when needed
     let 
-      ethAccountAddr = web3.fromHex(web3.Address, conf.rlnRelayEthAccount)
+      ethAccountAddr = web3.fromHex(web3.Address, conf.rlnRelayEthAccountAddress)
       ethClientAddr = conf.rlnRelayEthClientAddress
       ethMemContractAddress = web3.fromHex(web3.Address, conf.rlnRelayEthContractAddress)
     var ethAccountPrivKeyOpt = none(keys.PrivateKey)
