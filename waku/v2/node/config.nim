@@ -169,10 +169,10 @@ type
       defaultValue: "ws://localhost:8540/"
       name: "rln-relay-eth-client-address" }: string
     
-    rlnRelayEthMemContractAddress* {.
+    rlnRelayEthContractAddress* {.
       desc: "Address of membership contract on an Ethereum testnet", 
       defaultValue: ""
-      name: "rln-relay-eth-membership-contract-address" }: string
+      name: "rln-relay-eth-contract-address" }: string
     
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."

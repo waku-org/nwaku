@@ -1164,7 +1164,7 @@ proc mount(node: WakuNode,
     let 
       ethAccountAddr = web3.fromHex(web3.Address, conf.rlnRelayEthAccount)
       ethClientAddr = conf.rlnRelayEthClientAddress
-      ethMemContractAddress = web3.fromHex(web3.Address, conf.rlnRelayEthMemContractAddress)
+      ethMemContractAddress = web3.fromHex(web3.Address, conf.rlnRelayEthContractAddress)
     var ethAccountPrivKeyOpt = none(keys.PrivateKey)
     if conf.rlnRelayEthAccountPrivKey != "":
       ethAccountPrivKeyOpt = some(keys.PrivateKey(SkSecretKey.fromHex(conf.rlnRelayEthAccountPrivKey).value))

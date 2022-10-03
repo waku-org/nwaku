@@ -285,10 +285,10 @@ type
       defaultValue: "ws://localhost:8540/"
       name: "rln-relay-eth-client-address" }: string
     
-    rlnRelayEthMemContractAddress* {.
+    rlnRelayEthContractAddress* {.
       desc: "Address of membership contract on an Ethereum testnet", 
       defaultValue: ""
-      name: "rln-relay-eth-membership-contract-address" }: string
+      name: "rln-relay-eth-contract-address" }: string
     
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =
