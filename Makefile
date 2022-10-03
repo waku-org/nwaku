@@ -173,8 +173,9 @@ endif
 rlnlib:
 ifeq ($(RLNKILIC), true)
 	cargo build --manifest-path vendor/rln/Cargo.toml
-else  ifeq ($(CI), true)
-	cargo build --manifest-path vendor/rln/Cargo.toml
+# Avoid compiling the non-default implementation of RLN in CI
+# else  ifeq ($(CI), true)
+# 	cargo build --manifest-path vendor/rln/Cargo.toml
 endif
 
 
