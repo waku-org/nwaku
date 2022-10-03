@@ -30,6 +30,7 @@ type
     
   QueryFilterMatcher = proc(indexedWakuMsg: IndexedWakuMessage) : bool {.gcsafe, closure.}
 
+  StoreQueueGetPageResult = Result[(seq[WakuMessage], PagingInfo), HistoryResponseError]
 
 type
   StoreQueueRef* = ref object of MessageStore
@@ -95,97 +96,26 @@ proc rwdToCursor(w: SortedSetWalkRef[Index, IndexedWakuMessage],
   
   return prevItem
 
-proc fwdPage(storeQueue: StoreQueueRef,
+proc getPage(storeQueue: StoreQueueRef,
              pred: QueryFilterMatcher,
              maxPageSize: uint64,
-             startCursor: Option[Index]):
-            (seq[WakuMessage], PagingInfo, HistoryResponseError) =
+             forward: bool,
+             startCursor: Option[Index]): StoreQueueGetPageResult =
   ## Populate a single page in forward direction
   ## Start at the `startCursor` (exclusive), or first entry (inclusive) if not defined.
   ## Page size must not exceed `maxPageSize`
   ## Each entry must match the `pred`
   
-  trace "Retrieving fwd page from store queue", len=storeQueue.items.len, maxPageSize=maxPageSize, startCursor=startCursor
+  trace "Retrieving page from store queue", len=storeQueue.items.len, maxPageSize=maxPageSize, startCursor=startCursor, forward=forward
   
   var
     outSeq: seq[WakuMessage]
     outPagingInfo: PagingInfo
-    outError: HistoryResponseError
   
-  var
-    w = SortedSetWalkRef[Index,IndexedWakuMessage].init(storeQueue.items)
-    currentEntry: SortedSetResult[Index, IndexedWakuMessage]
-    lastValidCursor: Index
-  
-  # Find first entry
-  if startCursor.isSome():
-    lastValidCursor = startCursor.get()
-
-    let cursorEntry = w.ffdToCursor(startCursor.get())
-    if cursorEntry.isErr:
-      # Quick exit here if start cursor not found
-      trace "Could not find starting cursor. Returning empty result.", startCursor=startCursor
-      outSeq = @[]
-      outPagingInfo = PagingInfo(pageSize: 0, cursor: startCursor.get().toPagingIndex(), direction: PagingDirection.FORWARD)
-      outError = HistoryResponseError.INVALID_CURSOR
-      w.destroy
-      return (outSeq, outPagingInfo, outError)
+  var w = SortedSetWalkRef[Index,IndexedWakuMessage].init(storeQueue.items)
+  defer: w.destroy()
     
-    # Advance walker once more
-    currentEntry = w.next
-  else:
-    # Start from the beginning of the queue
-    lastValidCursor = Index() # No valid (only empty) last cursor
-    currentEntry = w.first
-
-  trace "Starting fwd page query", currentEntry=currentEntry
-
-  ## This loop walks forward over the queue:
-  ## 1. from the given cursor (or first entry, if not provided)
-  ## 2. adds entries matching the predicate function to output page
-  ## 3. until either the end of the queue or maxPageSize is reached
-  var numberOfItems = 0.uint
-  while currentEntry.isOk and numberOfItems < maxPageSize:
-
-    trace "Continuing fwd page query", currentEntry=currentEntry, numberOfItems=numberOfItems
-    
-    if pred(currentEntry.value.data):
-      trace "Current item matches predicate. Adding to output."
-      lastValidCursor = currentEntry.value.key
-      outSeq.add(currentEntry.value.data.msg)
-      numberOfItems += 1
-    currentEntry = w.next
-  w.destroy
-
-  outPagingInfo = PagingInfo(pageSize: outSeq.len.uint,
-                             cursor: lastValidCursor.toPagingIndex(),
-                             direction: PagingDirection.FORWARD)
-
-  outError = HistoryResponseError.NONE
-
-  trace "Successfully retrieved fwd page", len=outSeq.len, pagingInfo=outPagingInfo
-  
-  return (outSeq, outPagingInfo, outError)
-
-proc bwdPage(storeQueue: StoreQueueRef,
-             pred: QueryFilterMatcher,
-             maxPageSize: uint64,
-             startCursor: Option[Index]):
-            (seq[WakuMessage], PagingInfo, HistoryResponseError) =
-  ## Populate a single page in backward direction
-  ## Start at `startCursor` (exclusive), or last entry (inclusive) if not defined.
-  ## Page size must not exceed `maxPageSize`
-  ## Each entry must match the `pred`
-  
-  trace "Retrieving bwd page from store queue", len=storeQueue.items.len, maxPageSize=maxPageSize, startCursor=startCursor
-  
   var
-    outSeq: seq[WakuMessage]
-    outPagingInfo: PagingInfo
-    outError: HistoryResponseError
-  
-  var
-    w = SortedSetWalkRef[Index,IndexedWakuMessage].init(storeQueue.items)
     currentEntry: SortedSetResult[Index, IndexedWakuMessage]
     lastValidCursor: Index
   
@@ -193,51 +123,52 @@ proc bwdPage(storeQueue: StoreQueueRef,
   if startCursor.isSome():
     lastValidCursor = startCursor.get()
 
-    let cursorEntry = w.rwdToCursor(startCursor.get())
+    let cursorEntry = if forward: w.ffdToCursor(startCursor.get())
+                      else: w.rwdToCursor(startCursor.get())
     if cursorEntry.isErr():
       # Quick exit here if start cursor not found
-      trace "Could not find starting cursor. Returning empty result.", startCursor=startCursor
-      outSeq = @[]
-      outPagingInfo = PagingInfo(pageSize: 0, cursor: startCursor.get().toPagingIndex(), direction: PagingDirection.BACKWARD)
-      outError = HistoryResponseError.INVALID_CURSOR
-      w.destroy
-      return (outSeq, outPagingInfo, outError)
-
-    # Step walker one more step back
-    currentEntry = w.prev
+      trace "Starting cursor not found", startCursor=startCursor.get()
+      return err(HistoryResponseError.INVALID_CURSOR)
+    
+    # Advance walker once more
+    currentEntry = if forward: w.next()
+                   else: w.prev()
   else:
-    # Start from the back of the queue
+    # Start from the beginning of the queue
     lastValidCursor = Index() # No valid (only empty) last cursor
-    currentEntry = w.last
-  
-  trace "Starting bwd page query", currentEntry=currentEntry
+    currentEntry = if forward: w.first()
+                   else: w.last()
 
-  ## This loop walks backward over the queue:
-  ## 1. from the given cursor (or last entry, if not provided)
+  trace "Starting page query", currentEntry=currentEntry
+
+  ## This loop walks forward over the queue:
+  ## 1. from the given cursor (or first/last entry, if not provided)
   ## 2. adds entries matching the predicate function to output page
-  ## 3. until either the beginning of the queue or maxPageSize is reached
+  ## 3. until either the end of the queue or maxPageSize is reached
   var numberOfItems = 0.uint
   while currentEntry.isOk() and numberOfItems < maxPageSize:
-    trace "Continuing bwd page query", currentEntry=currentEntry, numberOfItems=numberOfItems
-
+    trace "Continuing page query", currentEntry=currentEntry, numberOfItems=numberOfItems
+    
     if pred(currentEntry.value.data):
-      trace "Current item matches predicate. Adding to output."
       lastValidCursor = currentEntry.value.key
       outSeq.add(currentEntry.value.data.msg)
       numberOfItems += 1
-    currentEntry = w.prev
-  w.destroy
+
+    currentEntry = if forward: w.next()
+                   else: w.prev()
+
+  trace "Successfully retrieved page", len=outSeq.len
 
   outPagingInfo = PagingInfo(pageSize: outSeq.len.uint,
                              cursor: lastValidCursor.toPagingIndex(),
-                             direction: PagingDirection.BACKWARD)
-  outError = HistoryResponseError.NONE
+                             direction: if forward: PagingDirection.FORWARD
+                                        else: PagingDirection.BACKWARD)
 
-  trace "Successfully retrieved bwd page", len=outSeq.len, pagingInfo=outPagingInfo
-
-  return (outSeq.reversed(), # Even if paging backwards, each page should be in forward order
-          outPagingInfo,
-          outError)
+  # Even if paging backwards, each page should be in forward order
+  if not forward:
+      outSeq.reverse() 
+  
+  return ok((outSeq, outPagingInfo))
 
 
 #### API
@@ -347,8 +278,7 @@ method put*(store: StoreQueueRef, pubsubTopic: string, message: WakuMessage): Me
 
 proc getPage*(storeQueue: StoreQueueRef,
               pred: QueryFilterMatcher,
-              pagingInfo: PagingInfo):
-             (seq[WakuMessage], PagingInfo, HistoryResponseError) {.gcsafe.} =
+              pagingInfo: PagingInfo): StoreQueueGetPageResult {.gcsafe.} =
   ## Get a single page of history matching the predicate and
   ## adhering to the pagingInfo parameters
   
@@ -359,15 +289,10 @@ proc getPage*(storeQueue: StoreQueueRef,
                 else: some(pagingInfo.cursor.toIndex())
     maxPageSize = pagingInfo.pageSize
 
-  case pagingInfo.direction
-    of PagingDirection.FORWARD:
-      return storeQueue.fwdPage(pred, maxPageSize, cursorOpt)
-    of PagingDirection.BACKWARD:
-      return storeQueue.bwdPage(pred, maxPageSize, cursorOpt)
+  let forward = pagingInfo.direction == PagingDirection.FORWARD
+  return storeQueue.getPage(pred, maxPageSize, forward, cursorOpt)
 
-proc getPage*(storeQueue: StoreQueueRef,
-              pagingInfo: PagingInfo):
-             (seq[WakuMessage], PagingInfo, HistoryResponseError) {.gcsafe.} =
+proc getPage*(storeQueue: StoreQueueRef, pagingInfo: PagingInfo): StoreQueueGetPageResult {.gcsafe.} =
   ## Get a single page of history without filtering.
   ## Adhere to the pagingInfo parameters
   
@@ -418,11 +343,11 @@ method getMessagesByHistoryQuery*(
     direction: if ascendingOrder: PagingDirection.FORWARD
                else: PagingDirection.BACKWARD
   )
-  let (messages, pagingInfo, error) = store.getPage(matchesQuery, queryPagingInfo)
-
-  if error == HistoryResponseError.INVALID_CURSOR:
+  let getPageRes = store.getPage(matchesQuery, queryPagingInfo)
+  if getPageRes.isErr():
     return err("invalid cursor")
 
+  let (messages, pagingInfo) = getPageRes.value
   if messages.len == 0:
     return ok((messages, none(PagingInfo)))
   

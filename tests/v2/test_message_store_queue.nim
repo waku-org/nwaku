@@ -3,8 +3,7 @@
 import
   std/[sequtils, strutils],
   stew/results,
-  testutils/unittests,
-  nimcrypto/hash
+  testutils/unittests
 import
   ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/protocol/waku_message,
@@ -24,7 +23,7 @@ proc genIndexedWakuMessage(i: int8): IndexedWakuMessage =
     cursor = Index(
       receiverTime: Timestamp(i), 
       senderTime: Timestamp(i), 
-      digest: MDigest[256](data: data),
+      digest: MessageDigest(data: data),
       pubsubTopic: "test-pubsub-topic"
     )
 
@@ -182,35 +181,40 @@ procSuite "Sorted store queue":
 
     ## When
     let pageRes1 = store.getPage(predicate, pagingInfo)
-    let pageRes2 = store.getPage(predicate, pageRes1[1])
-    let pageRes3 = store.getPage(predicate, pageRes2[1])
+    require pageRes1.isOk()
+    let pageRes2 = store.getPage(predicate, pageRes1.value[1])
+    require pageRes2.isOk()
+    let pageRes3 = store.getPage(predicate, pageRes2.value[1])
     
     ## Then
     # First page
-    var (res, pInfo, err) = pageRes1
+    check pageRes1.isOk()
+
+    var (res, pInfo) = pageRes1.get()
     check:
       pInfo.pageSize == 3
       pInfo.direction == PagingDirection.FORWARD
       pInfo.cursor.senderTime == Timestamp(3)
-      err == HistoryResponseError.NONE
       res.mapIt(it.timestamp.int) == @[1,2,3]
 
     # Second page
-    (res, pInfo, err) = pageRes2
+    check pageRes2.isOk()
+
+    (res, pInfo) = pageRes2.get()
     check:
       pInfo.pageSize == 2
       pInfo.direction == PagingDirection.FORWARD
       pInfo.cursor.senderTime == Timestamp(5)
-      err == HistoryResponseError.NONE
       res.mapIt(it.timestamp.int) == @[4,5]
 
     # Empty last page
-    (res, pInfo, err) = pageRes3
+    check pageRes3.isOk()
+
+    (res, pInfo) = pageRes3.get()
     check:
       pInfo.pageSize == 0
       pInfo.direction == PagingDirection.FORWARD
       pInfo.cursor.senderTime == Timestamp(5)
-      err == HistoryResponseError.NONE
       res.len == 0
   
   test "backward pagination":   
@@ -226,35 +230,40 @@ procSuite "Sorted store queue":
 
     ## When
     let pageRes1 = store.getPage(predicate, pagingInfo)
-    let pageRes2 = store.getPage(predicate, pageRes1[1])
-    let pageRes3 = store.getPage(predicate, pageRes2[1])
+    require pageRes1.isOk()
+    let pageRes2 = store.getPage(predicate, pageRes1.value[1])
+    require pageRes2.isOk()
+    let pageRes3 = store.getPage(predicate, pageRes2.value[1])
 
     ## Then
     # First page
-    var (res, pInfo, err) = pageRes1
+    check pageRes1.isOk()
+
+    var (res, pInfo) = pageRes1.get()
     check:
       pInfo.pageSize == 3
       pInfo.direction == PagingDirection.BACKWARD
       pInfo.cursor.senderTime == Timestamp(3)
-      err == HistoryResponseError.NONE
       res.mapIt(it.timestamp.int) == @[3,4,5]
 
     # Second page
-    (res, pInfo, err) = pageRes2
+    check pageRes2.isOk()
+
+    (res, pInfo) = pageRes2.get()
     check:
       pInfo.pageSize == 2
       pInfo.direction == PagingDirection.BACKWARD
       pInfo.cursor.senderTime == Timestamp(1)
-      err == HistoryResponseError.NONE
       res.mapIt(it.timestamp.int) == @[1,2]
     
     # Empty last page
-    (res, pInfo, err) = pageRes3
+    check pageRes3.isOk()
+
+    (res, pInfo) = pageRes3.get()
     check:
       pInfo.pageSize == 0
       pInfo.direction == PagingDirection.BACKWARD
       pInfo.cursor.senderTime == Timestamp(1)
-      err == HistoryResponseError.NONE
       res.len == 0
   
   test "Store queue pagination works with predicate - fwd direction":
@@ -267,27 +276,30 @@ procSuite "Sorted store queue":
     proc onlyEvenTimes(i: IndexedWakuMessage): bool = i.msg.timestamp.int64 mod 2 == 0
 
     ## When
-    let resPage1 = store.getPage(onlyEvenTimes, PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD))
-    let resPage2 = store.getPage(onlyEvenTimes, resPage1[1])
+    let pageRes1 = store.getPage(onlyEvenTimes, PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD))
+    require pageRes1.isOk()
+    let pageRes2 = store.getPage(onlyEvenTimes, pageRes1.value[1])
     
     ## Then
     # First page
-    var (res, pInfo, err) = resPage1
+    check pageRes1.isOk()
+
+    var (res, pInfo) = pageRes1.get()
     check:
       pInfo.pageSize == 2
       pInfo.direction == PagingDirection.FORWARD
       pInfo.cursor.senderTime == Timestamp(4)
-      err == HistoryResponseError.NONE
       res.mapIt(it.timestamp.int) == @[2,4]
     
-    (res, pInfo, err) = resPage2
 
     # Empty next page
+    check pageRes2.isOk()
+
+    (res, pInfo) = pageRes2.get()
     check:
       pInfo.pageSize == 0
       pInfo.direction == PagingDirection.FORWARD
       pInfo.cursor.senderTime == Timestamp(4)
-      err == HistoryResponseError.NONE
       res.len == 0
 
   test "Store queue pagination works with predicate - bwd direction":
@@ -300,42 +312,47 @@ procSuite "Sorted store queue":
     proc onlyOddTimes(i: IndexedWakuMessage): bool = i.msg.timestamp.int64 mod 2 != 0
 
     ## When
-    let resPage1 = store.getPage(onlyOddTimes, PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD))
-    let resPage2 = store.getPage(onlyOddTimes, resPage1[1])
-    let resPage3 = store.getPage(onlyOddTimes, resPage2[1])
+    let pageRes1 = store.getPage(onlyOddTimes, PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD))
+    require pageRes1.isOk()
+    let pageRes2 = store.getPage(onlyOddTimes, pageRes1.value[1])
+    require pageRes2.isOk()
+    let pageRes3 = store.getPage(onlyOddTimes, pageRes2.value[1])
     
     ## Then
     # First page
-    var (res, pInfo, err) = resPage1
+    check pageRes1.isOk()
+
+    var (res, pInfo) = pageRes1.get()
     check:
       pInfo.pageSize == 2
       pInfo.direction == PagingDirection.BACKWARD
       pInfo.cursor.senderTime == Timestamp(3)
-      err == HistoryResponseError.NONE
       res.mapIt(it.timestamp.int) == @[3,5]
     
     # Next page
-    (res, pInfo, err) = resPage2
+    check pageRes2.isOk()
+
+    (res, pInfo) = pageRes2.get()
     check:
       pInfo.pageSize == 1
       pInfo.direction == PagingDirection.BACKWARD
       pInfo.cursor.senderTime == Timestamp(1)
-      err == HistoryResponseError.NONE
       res.mapIt(it.timestamp.int) == @[1]
 
     # Empty last page
-    (res, pInfo, err) = resPage3
+    check pageRes3.isOk()
+
+    (res, pInfo) = pageRes3.get()
     check:
       pInfo.pageSize == 0
       pInfo.direction == PagingDirection.BACKWARD
       pInfo.cursor.senderTime == Timestamp(1)
-      err == HistoryResponseError.NONE
       res.len == 0
 
   test "handle pagination on empty store - fwd direction":
     ## Given
     let capacity = 5
-    var store = StoreQueueRef.new(capacity)
+    let store = StoreQueueRef.new(capacity)
     
     proc predicate(i: IndexedWakuMessage): bool = true # no filtering
 
@@ -343,51 +360,44 @@ procSuite "Sorted store queue":
 
     ## When
     # Get page from empty queue in fwd dir
-    let (res, pInfo, err) = store.getPage(predicate, pagingInfo)
+    let pageRes = store.getPage(predicate, pagingInfo)
 
     ## Then
     # Empty response
+    check pageRes.isOk()
+
+    let (res, pInfo) = pageRes.get()
     check:
       pInfo.pageSize == 0
       pInfo.direction == PagingDirection.FORWARD
       pInfo.cursor.senderTime == Timestamp(0)
-      err == HistoryResponseError.NONE
       res.len == 0
 
   test "handle pagination on empty store - bwd direction":
+    ## Given 
     let capacity = 5
-    var store = StoreQueueRef.new(capacity)
+    let store = StoreQueueRef.new(capacity)
     
     proc predicate(i: IndexedWakuMessage): bool = true # no filtering
-
-    # Get page from empty queue in bwd dir
-
-    var (res, pInfo, err) = store.getPage(predicate,
-                                        PagingInfo(pageSize: 3,
-                                                   direction: PagingDirection.BACKWARD))
     
+    let pagingInfo = PagingInfo(pageSize: 3, direction: PagingDirection.BACKWARD)
+
+    ## When
+    # Get page from empty queue in bwd dir
+    let pageRes = store.getPage(predicate, pagingInfo)
+
+    ## Then
+    # Empty response
+    check pageRes.isOk()
+
+    let (res, pInfo) = pageRes.get()
     check:
       # Empty response
       pInfo.pageSize == 0
       pInfo.direction == PagingDirection.BACKWARD
       pInfo.cursor.senderTime == Timestamp(0)
-      err == HistoryResponseError.NONE
       res.len == 0
     
-    # Get page from empty queue in fwd dir
-    
-    (res, pInfo, err) = store.getPage(predicate,
-                                    PagingInfo(pageSize: 3,
-                                               direction: PagingDirection.FORWARD))
-
-    check:
-      # Empty response
-      pInfo.pageSize == 0
-      pInfo.direction == PagingDirection.FORWARD
-      pInfo.cursor.senderTime == Timestamp(0)
-      err == HistoryResponseError.NONE
-      res.len == 0
-
   test "handle invalid cursor - fwd direction":   
     ## Given
     let
@@ -397,20 +407,16 @@ procSuite "Sorted store queue":
 
     proc predicate(i: IndexedWakuMessage): bool = true # no filtering
 
-    let cursor = PagingIndex(receiverTime: Timestamp(3), senderTime: Timestamp(3), digest: MDigest[256]())
+    let cursor = PagingIndex(receiverTime: Timestamp(3), senderTime: Timestamp(3), digest: MessageDigest())
     let pagingInfo = PagingInfo(pageSize: 3, cursor: cursor, direction: PagingDirection.FORWARD)
 
     ## When
-    let (res, pInfo, err) = store.getPage(predicate, pagingInfo)
-    
+    let pageRes = store.getPage(predicate, pagingInfo)
+
     ## Then
-    # Empty response with error
     check:
-      res.len == 0
-      pInfo.pageSize == 0
-      pInfo.direction == PagingDirection.FORWARD
-      pInfo.cursor.senderTime == Timestamp(3)
-      err == HistoryResponseError.INVALID_CURSOR
+      pageRes.isErr()
+      pageRes.error == HistoryResponseError.INVALID_CURSOR
 
   test "handle invalid cursor - bwd direction":   
     ## Given
@@ -421,21 +427,18 @@ procSuite "Sorted store queue":
 
     proc predicate(i: IndexedWakuMessage): bool = true # no filtering
 
-    let cursor = PagingIndex(receiverTime: Timestamp(3), senderTime: Timestamp(3), digest: MDigest[256]())
+    let cursor = PagingIndex(receiverTime: Timestamp(3), senderTime: Timestamp(3), digest: MessageDigest())
     let pagingInfo = PagingInfo(pageSize: 3, cursor: cursor, direction: PagingDirection.BACKWARD)
 
     ## When
-    let (res, pInfo, err) = store.getPage(predicate, pagingInfo)
+    let pageRes = store.getPage(predicate, pagingInfo)
 
     ## Then
     # Empty response with error
     check:
-      res.len == 0
-      pInfo.pageSize == 0
-      pInfo.direction == PagingDirection.BACKWARD
-      pInfo.cursor.senderTime == Timestamp(3)
-      err == HistoryResponseError.INVALID_CURSOR
-    
+      pageRes.isErr()
+      pageRes.error == HistoryResponseError.INVALID_CURSOR
+
   test "verify if store queue contains an index":
     ## Given
     let
