@@ -147,6 +147,7 @@ when defined(rlnzerokit):
     contentTopic*: string
     # the log of nullifiers and Shamir shares of the past messages grouped per epoch
     nullifierLog*: Table[Epoch, seq[ProofMetadata]]
+    lastEpoch*: Epoch # the epoch of the last published rln message
     validMerkleRoots*: Deque[MerkleNode] # An array of valid merkle roots, which are updated in a FIFO fashion
 
 
