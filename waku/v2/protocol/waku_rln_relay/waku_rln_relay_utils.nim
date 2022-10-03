@@ -653,7 +653,7 @@ proc createMembershipList*(n: int): (seq[(string, string)], string) {.raises: [
   let root = rln.getMerkleRoot().value.toHex
   return (output, root)
 
-proc rlnRelayStaticSetUp*(rlnRelayMemIndex: MembershipIndex): (Option[seq[
+proc rlnRelayStaticSetUp*(rlnRelayMembershipIndex: MembershipIndex): (Option[seq[
     IDCommitment]], Option[MembershipKeyPair], Option[
     MembershipIndex]) {.raises: [Defect, ValueError].} =
   let
@@ -661,10 +661,10 @@ proc rlnRelayStaticSetUp*(rlnRelayMemIndex: MembershipIndex): (Option[seq[
     groupKeys = StaticGroupKeys
     groupSize = StaticGroupSize
 
-  debug "rln-relay membership index", rlnRelayMemIndex
+  debug "rln-relay membership index", rlnRelayMembershipIndex
 
   # validate the user-supplied membership index
-  if rlnRelayMemIndex < MembershipIndex(0) or rlnRelayMemIndex >=
+  if rlnRelayMembershipIndex < MembershipIndex(0) or rlnRelayMembershipIndex >=
       MembershipIndex(groupSize):
     error "wrong membership index"
     return(none(seq[IDCommitment]), none(MembershipKeyPair), none(MembershipIndex))
@@ -677,8 +677,8 @@ proc rlnRelayStaticSetUp*(rlnRelayMemIndex: MembershipIndex): (Option[seq[
     groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
     groupOpt = some(groupIDCommitments)
     # user selected membership key pair
-    memKeyPairOpt = some(groupKeyPairs[rlnRelayMemIndex])
-    memIndexOpt = some(rlnRelayMemIndex)
+    memKeyPairOpt = some(groupKeyPairs[rlnRelayMembershipIndex])
+    memIndexOpt = some(rlnRelayMembershipIndex)
 
   return (groupOpt, memKeyPairOpt, memIndexOpt)
 
@@ -1130,7 +1130,7 @@ proc mount(node: WakuNode,
   if not conf.rlnRelayDynamic:
     info " setting up waku-rln-relay in off-chain mode... "
     # set up rln relay inputs
-    let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelayStaticSetUp(MembershipIndex(conf.rlnRelayMemIndex))
+    let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelayStaticSetUp(MembershipIndex(conf.rlnRelayMembershipIndex))
     if memIndexOpt.isNone:
       error "failed to mount WakuRLNRelay"
     else:
@@ -1162,12 +1162,12 @@ proc mount(node: WakuNode,
     
     # read related inputs to run rln-relay in on-chain mode and do type conversion when needed
     let 
-      ethAccountAddr = web3.fromHex(web3.Address, conf.rlnRelayEthAccount)
+      ethAccountAddr = web3.fromHex(web3.Address, conf.rlnRelayEthAccountAddress)
       ethClientAddr = conf.rlnRelayEthClientAddress
-      ethMemContractAddress = web3.fromHex(web3.Address, conf.rlnRelayEthMemContractAddress)
+      ethMemContractAddress = web3.fromHex(web3.Address, conf.rlnRelayEthContractAddress)
     var ethAccountPrivKeyOpt = none(keys.PrivateKey)
-    if conf.rlnRelayEthAccountPrivKey != "":
-      ethAccountPrivKeyOpt = some(keys.PrivateKey(SkSecretKey.fromHex(conf.rlnRelayEthAccountPrivKey).value))
+    if conf.rlnRelayEthAccountPrivateKey != "":
+      ethAccountPrivKeyOpt = some(keys.PrivateKey(SkSecretKey.fromHex(conf.rlnRelayEthAccountPrivateKey).value))
       
     # if the rlnRelayCredPath config option is non-empty, then rln-relay credentials should be persisted
     # if the path does not contain any credential file, then a new set is generated and pesisted in the same path
