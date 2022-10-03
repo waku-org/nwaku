@@ -1158,7 +1158,7 @@ proc mount(node: WakuNode,
       info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
       return ok(true)
   else: # mount the rln relay protocol in the on-chain/dynamic mode
-    info " setting up waku-rln-relay in on-chain mode... "
+    echo " setting up waku-rln-relay in on-chain mode... "
     
     # read related inputs to run rln-relay in on-chain mode and do type conversion when needed
     let 
@@ -1174,7 +1174,7 @@ proc mount(node: WakuNode,
     # if there is a credential file, then no new credentials are generated, instead the content of the file is read and used to mount rln-relay 
     if conf.rlnRelayCredPath != "": 
       let rlnRelayCredPath = joinPath(conf.rlnRelayCredPath, RlnCredentialsFilename)
-      debug "rln-relay credential path", rlnRelayCredPath=rlnRelayCredPath
+      debug "rln-relay credential path", rlnRelayCredPath
       # check if there is an rln-relay credential file in the supplied path
       if fileExists(rlnRelayCredPath): 
         # retrieve rln-relay credential
@@ -1185,6 +1185,7 @@ proc mount(node: WakuNode,
                 ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler, registrationHandler = registrationHandler)
         if res.isErr:
           return err("dynamic rln-relay could not be mounted: " & res.error())
+ 
       else: # there is no credential file available in the supplied path
         # mount the rln-relay protocol leaving rln-relay credentials arguments unassigned 
         # this infroms mountRlnRelayDynamic proc that new credentials should be generated and registered to the membership contract
@@ -1210,7 +1211,8 @@ proc mount(node: WakuNode,
                 contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler, registrationHandler = registrationHandler)
       if res.isErr:
         return err("dynamic rln-relay could not be mounted: " & res.error())
-      return ok(true)
+    
+    return ok(true)
 
 
 proc mountRlnRelay*(node: WakuNode,
