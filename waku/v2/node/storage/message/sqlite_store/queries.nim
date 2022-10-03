@@ -7,13 +7,14 @@ import
 import
   ../../sqlite, 
   ../../../../protocol/waku_message,
-  ../../../../protocol/waku_store/pagination,
   ../../../../utils/time
 
 
 const DbTable = "Message"
 
 type SqlQueryStr = string
+
+type DbCursor* = (Timestamp, seq[byte], string)
 
 
 ### SQLite column helper methods
@@ -57,14 +58,14 @@ proc queryRowPubsubTopicCallback(s: ptr sqlite3_stmt, pubsubTopicCol: cint): str
 
 proc createTableQuery(table: string): SqlQueryStr = 
   "CREATE TABLE IF NOT EXISTS " & table & " (" &
-  " id BLOB," &
-  " storedAt INTEGER NOT NULL," &
-  " contentTopic BLOB NOT NULL," &
   " pubsubTopic BLOB NOT NULL," &
+  " contentTopic BLOB NOT NULL," &
   " payload BLOB," &
   " version INTEGER NOT NULL," &
-  " senderTimestamp INTEGER NOT NULL," &
-  " CONSTRAINT messageIndex PRIMARY KEY (senderTimestamp, id, pubsubTopic)" &
+  " timestamp INTEGER NOT NULL," &
+  " id BLOB," &
+  " storedAt INTEGER NOT NULL," &
+  " CONSTRAINT messageIndex PRIMARY KEY (storedAt, id, pubsubTopic)" &
   ") WITHOUT ROWID;"
 
 proc createTable*(db: SqliteDatabase): DatabaseResult[void] =
@@ -97,7 +98,7 @@ proc createHistoryQueryIndex*(db: SqliteDatabase): DatabaseResult[void] =
 type InsertMessageParams* = (seq[byte], Timestamp, seq[byte], seq[byte], seq[byte], int64, Timestamp)
 
 proc insertMessageQuery(table: string): SqlQueryStr =
-  "INSERT INTO " & table & "(id, storedAt, contentTopic, payload, pubsubTopic, version, senderTimestamp)" &
+  "INSERT INTO " & table & "(id, storedAt, contentTopic, payload, pubsubTopic, version, timestamp)" &
   " VALUES (?, ?, ?, ?, ?, ?, ?);"
   
 proc prepareInsertMessageStmt*(db: SqliteDatabase): SqliteStmt[InsertMessageParams, void] =
@@ -187,7 +188,7 @@ proc deleteOldestMessagesNotWithinLimit*(db: SqliteDatabase, limit: int): Databa
 ## Select all messages
 
 proc selectAllMessagesQuery(table: string): SqlQueryStr =
-  "SELECT storedAt, contentTopic, payload, pubsubTopic, version, senderTimestamp" &
+  "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp" &
   " FROM " & table &
   " ORDER BY storedAt ASC"
 
@@ -227,7 +228,7 @@ proc contentTopicWhereClause(contentTopic: Option[seq[ContentTopic]]): Option[st
   contentTopicWhere &= ")"
   some(contentTopicWhere)
 
-proc cursorWhereClause(cursor: Option[PagingIndex], ascending=true): Option[string] =
+proc cursorWhereClause(cursor: Option[DbCursor], ascending=true): Option[string] =
   if cursor.isNone():
     return none(string)
 
@@ -273,13 +274,13 @@ proc selectMessagesWithLimitQuery(table: string, where: Option[string], limit: u
 
   var query: string
 
-  query = "SELECT storedAt, contentTopic, payload, pubsubTopic, version, senderTimestamp"
+  query = "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp"
   query &= " FROM " & table
   
   if where.isSome():
     query &= " WHERE " & where.get()
   
-  query &= " ORDER BY storedAt " & order 
+  query &= " ORDER BY storedAt " & order & ", id " & order & ", pubsubTopic " & order
   query &= " LIMIT " & $limit & ";"
 
   query
@@ -292,7 +293,7 @@ proc prepareSelectMessagesWithlimitStmt(db: SqliteDatabase, stmt: string): Datab
 proc execSelectMessagesWithLimitStmt(s: SqliteStmt, 
                           contentTopic: Option[seq[ContentTopic]], 
                           pubsubTopic: Option[string],
-                          cursor: Option[PagingIndex],  
+                          cursor: Option[DbCursor],  
                           startTime: Option[Timestamp],
                           endTime: Option[Timestamp],
                           onRowCallback: DataProc): DatabaseResult[void] =
@@ -302,21 +303,16 @@ proc execSelectMessagesWithLimitStmt(s: SqliteStmt,
   var paramIndex = 1
   if contentTopic.isSome():
     for topic in contentTopic.get():
-      let topicBlob = toBytes(topic)
-      checkErr bindParam(s, paramIndex, topicBlob)
+      checkErr bindParam(s, paramIndex, topic.toBytes())
       paramIndex += 1
 
-  if cursor.isSome():  # cursor = senderTimestamp, id, pubsubTopic
-    let senderTimestamp = cursor.get().senderTime
-    checkErr bindParam(s, paramIndex, senderTimestamp)
+  if cursor.isSome():  # cursor = storedAt, id, pubsubTopic
+    let (storedAt, id, pubsubTopic) = cursor.get()
+    checkErr bindParam(s, paramIndex, storedAt)
     paramIndex += 1
-
-    let id = @(cursor.get().digest.data)
     checkErr bindParam(s, paramIndex, id)
     paramIndex += 1
-
-    let pubsubTopic = toBytes(cursor.get().pubsubTopic)
-    checkErr bindParam(s, paramIndex, pubsubTopic)
+    checkErr bindParam(s, paramIndex, pubsubTopic.toBytes())
     paramIndex += 1
 
   if pubsubTopic.isSome():
@@ -353,7 +349,7 @@ proc execSelectMessagesWithLimitStmt(s: SqliteStmt,
 proc selectMessagesByHistoryQueryWithLimit*(db: SqliteDatabase, 
                                             contentTopic: Option[seq[ContentTopic]], 
                                             pubsubTopic: Option[string],
-                                            cursor: Option[PagingIndex],  
+                                            cursor: Option[DbCursor],  
                                             startTime: Option[Timestamp],
                                             endTime: Option[Timestamp],
                                             limit: uint64, 

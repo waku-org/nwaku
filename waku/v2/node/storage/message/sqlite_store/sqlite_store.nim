@@ -98,6 +98,7 @@ method getMessagesByHistoryQuery*(
   maxPageSize = DefaultPageSize,
   ascendingOrder = true
 ): MessageStoreResult[MessageStorePage] =
+  let cursor = cursor.map(proc(c: PagingIndex): DbCursor = (c.receiverTime, @(c.digest.data), c.pubsubTopic))
 
   let rows = ?s.db.selectMessagesByHistoryQueryWithLimit(
     contentTopic, 
