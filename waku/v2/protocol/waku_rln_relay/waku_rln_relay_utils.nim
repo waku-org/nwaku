@@ -17,7 +17,7 @@ import
   waku_rln_relay_metrics,
   ../../utils/time,
   ../../node/[wakunode2_types,config],
-  ../../../../../examples/v2/config_chat2,
+  ../../../../../apps/chat2/config_chat2,
   ../waku_message
 
 logScope:
