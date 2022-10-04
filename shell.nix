@@ -16,5 +16,5 @@ pkgs.mkShell {
     libiconv
     pkgs.darwin.apple_sdk.frameworks.Security
     clang
-  ]
+  ];
 }
