@@ -1,6 +1,8 @@
 name: ci
 
-on:  
+on:
+  commit:
+  pull_request:
   workflow_dispatch:
 
 env:
