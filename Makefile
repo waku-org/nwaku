@@ -7,6 +7,8 @@
 
 SHELL := bash # the shell used internally by Make
 
+CC ?= gcc
+
 # used inside the included makefiles
 BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 
