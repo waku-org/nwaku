@@ -76,8 +76,8 @@ task test2, "Build & run Waku v2 tests":
 
 
 task sim2, "Build Waku v2 simulation tools":
-  buildBinary "quicksim2", "waku/v2/node/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "start_network2", "waku/v2/node/", "-d:chronicles_log_level=TRACE"
+  buildBinary "quicksim2", "tools/simulation/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "start_network2", "tools/simulation/", "-d:chronicles_log_level=TRACE"
 
 task example2, "Build Waku v2 example":
   let name = "basic2"
