@@ -3,7 +3,7 @@
   sha256 = "sha256:1k5nvn2yzw370cqsfh62lncsgydq2qkbjrx34cprzf0k6b93v7ch";
 }) {} }:
 
-pkgs.mkShell {
+clangStdenv.mkDerivation {
   name = "nim-waku-build-shell";
 
   # Versions dependent on nixpkgs commit. Update manually.
@@ -11,8 +11,7 @@ pkgs.mkShell {
     git   # 2.37.3
     which # 2.21
     rustc # 1.63.0
-    llvmPackages_latest.llvm # TODO: use fixed package version
-    llvmPackages_latest.bintools
-    llvmPackages_latest.lld
+    clang
+    llvmPackages.libClang
   ] ++ lib.optionals stdenv.isDarwin [ libiconv ];
 }
