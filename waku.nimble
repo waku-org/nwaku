@@ -84,11 +84,11 @@ task example2, "Build Waku v2 example":
   buildBinary name, "examples/v2/", "-d:chronicles_log_level=DEBUG"
 
 task scripts2, "Build Waku v2 scripts":
-  buildBinary "rpc_publish", "waku/v2/node/scripts/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "rpc_subscribe", "waku/v2/node/scripts/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "rpc_subscribe_filter", "waku/v2/node/scripts/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "rpc_query", "waku/v2/node/scripts/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "rpc_info", "waku/v2/node/scripts/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "rpc_publish", "tools/scripts/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "rpc_subscribe", "tools/scripts/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "rpc_subscribe_filter", "tools/scripts/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "rpc_query", "tools/scripts/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "rpc_info", "tools/scripts/", "-d:chronicles_log_level=DEBUG"
 
 task chat2, "Build example Waku v2 chat usage":
   # NOTE For debugging, set debug level. For chat usage we want minimal log
