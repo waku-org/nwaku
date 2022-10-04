@@ -12,6 +12,6 @@ pkgs.mkShell {
     which # 2.21
     rustc # 1.63.0
     clang
-    llvmPackages.libClang
+    libClang
   ] ++ lib.optionals stdenv.isDarwin [ libiconv ];
 }
