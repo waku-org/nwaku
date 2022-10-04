@@ -26,12 +26,14 @@ type
       name: "storenode" }: string
 
 proc main(): Future[int] {.async.} =
+  result = 0
 
   let conf: WakuCanaryConf = WakuCanaryConf.load()
 
   # TODO: handle store node
   let peer: RemotePeerInfo = parseRemotePeerInfo(conf.staticnode)
 
+  # TODO: allow only one flag staticnode|storenode
   echo(conf.staticnode)
   echo(conf.storenode)
 
@@ -43,15 +45,21 @@ proc main(): Future[int] {.async.} =
 
   await node.start()
 
-  await node.mountLibp2pPing()
+  # TODO: Make timeout configurable
+  await node.connectToNodes(@[peer])
 
-  for i in 1..10:
-    echo "attempt: " & $i
-    await node.connectToNodes(@[peer])
-    os.sleep(2000)
-  
-  # TODO:
-  return 1
+  let lp2pPeerStore = node.switch.peerStore
+  let conStatus = node.peerManager.peerStore.connectionBook[peer.peerId]
 
-echo waitFor main()
+  if conStatus in [Connected, CanConnect]:
+    echo "connected ok to " & $peer.peerId
+    # TODO: handle if no protocols exist
+    let protocols = lp2pPeerStore[ProtoBook][peer.peerId]
+    for protocol in protocols:
+      echo protocol
+  elif conStatus == CannotConnect:
+    echo "could not connect to " & $peer.peerId
+    result = 1
 
+let status = waitFor main()
+quit status
