@@ -886,20 +886,25 @@ when isMainModule:
         storeTuple.pStorage = res.value
 
     if conf.persistMessages:
-      if conf.sqliteStore: 
+      if conf.sqliteStore:
+        debug "setting up sqlite-only store"
         let res = SqliteStore.init(sqliteDatabase)
         if res.isErr():
           warn "failed to init message store", err = res.error
           waku_node_errors.inc(labelValues = ["init_store_failure"])
         else:
           storeTuple.mStorage = res.value
-      else: 
+      elif not sqliteDatabase.isNil():
+        debug "setting up dual message store"
         let res = DualMessageStore.init(sqliteDatabase, conf.storeCapacity)
         if res.isErr():
           warn "failed to init message store", err = res.error
           waku_node_errors.inc(labelValues = ["init_store_failure"])
         else:
           storeTuple.mStorage = res.value
+      else:
+        debug "setting up in-memory store"
+        storeTuple.mStorage = StoreQueueRef.new(conf.storeCapacity)
 
     ok(storeTuple)
 
