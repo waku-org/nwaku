@@ -4,7 +4,7 @@ on:
   pull_request:
 
 env:
-  NWAKU_VERSION: "v0.9"
+  NWAKU_VERSION: "v0.11"
 
 jobs:
   node:
