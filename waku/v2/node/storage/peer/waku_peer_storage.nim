@@ -61,6 +61,9 @@ proc encode*(storedInfo: StoredInfo): PeerStorageResult[ProtoBuffer] =
 ##########################
 
 proc new*(T: type WakuPeerStorage, db: SqliteDatabase): PeerStorageResult[T] =
+  ## Misconfiguration can lead to nil DB
+  if db.isNil():
+    return err("db not initialized")
   
   ## Create the "Peer" table
   ## It contains:

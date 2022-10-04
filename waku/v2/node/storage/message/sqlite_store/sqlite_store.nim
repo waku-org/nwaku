@@ -19,6 +19,10 @@ logScope:
 
 
 proc init(db: SqliteDatabase): MessageStoreResult[void] =
+  ## Misconfiguration can lead to nil DB
+  if db.isNil():
+    return err("db not initialized")
+
   # Create table, if doesn't exist
   let resCreate = createTable(db)
   if resCreate.isErr():
@@ -74,7 +78,7 @@ method put*(s: SqliteStore, pubsubTopic: string, message: WakuMessage, digest: M
     message.timestamp              # senderTimestamp
   ))
   if res.isErr():
-    return err("message insert failed: " & res.error())
+    return err("message insert failed: " & res.error)
 
   ok()
 
@@ -97,9 +101,10 @@ method getMessagesByHistoryQuery*(
   endTime = none(Timestamp),
   maxPageSize = DefaultPageSize,
   ascendingOrder = true
-): MessageStoreResult[MessageStorePage] =
+): MessageStoreResult[seq[MessageStoreRow]] =
+  let cursor = cursor.map(proc(c: PagingIndex): DbCursor = (c.receiverTime, @(c.digest.data), c.pubsubTopic))
 
-  let rows = ?s.db.selectMessagesByHistoryQueryWithLimit(
+  return s.db.selectMessagesByHistoryQueryWithLimit(
     contentTopic, 
     pubsubTopic, 
     cursor,
@@ -108,29 +113,6 @@ method getMessagesByHistoryQuery*(
     limit=maxPageSize,
     ascending=ascendingOrder
   )
-
-  if rows.len <= 0:
-    return ok((@[], none(PagingInfo)))
-
-  var messages = rows.mapIt(it[0])
-
-  # TODO: Return the message hash from the DB, to avoid recomputing the hash of the last message
-  # Compute last message index
-  let (message, storedAt, pubsubTopic) = rows[^1]
-  let lastIndex = PagingIndex.compute(message, storedAt, pubsubTopic)
-
-  let pagingInfo = PagingInfo(
-    pageSize: uint64(messages.len),
-    cursor: lastIndex,
-    direction: if ascendingOrder: PagingDirection.FORWARD
-               else: PagingDirection.BACKWARD
-  )
-
-  # The retrieved messages list should always be in chronological order
-  if not ascendingOrder:
-    messages.reverse()
-
-  ok((messages, some(pagingInfo)))
 
 
 method getMessagesCount*(s: SqliteStore): MessageStoreResult[int64] =

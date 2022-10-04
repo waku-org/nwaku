@@ -4,8 +4,7 @@ import
   std/[unittest, options, tables, sets, times, strutils, sequtils, os],
   stew/byteutils,
   chronos,
-  chronicles,
-  sqlite3_abi
+  chronicles
 import
   ../../waku/v2/node/storage/message/sqlite_store,
   ../../waku/v2/node/storage/message/message_retention_policy,
@@ -28,8 +27,8 @@ proc newTestDatabase(): SqliteDatabase =
 proc now(): Timestamp =
   getNanosecondTime(getTime().toUnixFloat())
 
-proc getTestTimestamp(offset=0): Timestamp = 
-  Timestamp(getNanosecondTime(getTime().toUnixFloat() + offset.float))
+proc ts(offset=0, origin=now()): Timestamp = 
+  origin + getNanosecondTime(offset)
 
 proc fakeWakuMessage(
   payload = "TEST-PAYLOAD",
@@ -95,7 +94,7 @@ suite "SQLite message store - insert messages":
     check:
       storedMsg.len == 1
       storedMsg.all do (item: auto) -> bool:
-        let (_, msg, pubsubTopic) = item
+        let (pubsubTopic, msg, digest, storeTimestamp) = item
         msg.contentTopic == contentTopic and
         pubsubTopic == DefaultPubsubTopic
     
@@ -113,19 +112,19 @@ suite "SQLite message store - insert messages":
       retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=storeCapacity)
 
     let messages = @[
-      fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 0),
-      fakeWakuMessage(ts=getNanosecondTime(epochTime()) + 1),
+      fakeWakuMessage(ts=ts(0)),
+      fakeWakuMessage(ts=ts(1)),
 
-      fakeWakuMessage(contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 2),
-      fakeWakuMessage(contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 3),
-      fakeWakuMessage(contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 4),
-      fakeWakuMessage(contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 5),
-      fakeWakuMessage(contentTopic=contentTopic, ts=getNanosecondTime(epochTime()) + 6)
+      fakeWakuMessage(contentTopic=contentTopic, ts=ts(2)),
+      fakeWakuMessage(contentTopic=contentTopic, ts=ts(3)),
+      fakeWakuMessage(contentTopic=contentTopic, ts=ts(4)),
+      fakeWakuMessage(contentTopic=contentTopic, ts=ts(5)),
+      fakeWakuMessage(contentTopic=contentTopic, ts=ts(6))
     ]
 
     ## When
     for msg in messages:
-      require store.put(DefaultPubsubTopic, msg).isOk()
+      require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
       require retentionPolicy.execute(store).isOk()
 
     ## Then
@@ -133,7 +132,7 @@ suite "SQLite message store - insert messages":
     check:
       storedMsg.len == storeCapacity
       storedMsg.all do (item: auto) -> bool:
-        let (_, msg, pubsubTopic) = item
+        let (pubsubTopic, msg, digest, storeTimestamp) = item
         msg.contentTopic == contentTopic and
         pubsubTopic == DefaultPubsubTopic
 
@@ -150,8 +149,8 @@ suite "Message Store":
       store = SqliteStore.init(database).get()
 
     let
-      t1 = getTestTimestamp(0)
-      t2 = getTestTimestamp(1)
+      t1 = ts(0)
+      t2 = ts(1)
       t3 = high(int64)
 
     var msgs = @[
@@ -186,7 +185,7 @@ suite "Message Store":
     # flags for receiver timestamp
     var rt1Flag, rt2Flag, rt3Flag: bool = false
 
-    for (receiverTimestamp, msg, pubsubTopic) in result:
+    for (pubsubTopic, msg, digest, receiverTimestamp) in result:
       check:
         pubsubTopic == DefaultPubsubTopic
 
@@ -265,21 +264,18 @@ suite "Message Store":
       ver.isErr == false
       ver.value == 10
 
+  # TODO: Move this test case to retention policy test suite
   test "number of messages retrieved by getAll is bounded by storeCapacity":
-    let
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-      pubsubTopic =  "/waku/2/default-waku/proto"
-      capacity = 10
+    let capacity = 10
 
     let
       database = newTestDatabase()
       store = SqliteStore.init(database).tryGet()
       retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=capacity)
 
-
     for i in 1..capacity:
-      let msg = WakuMessage(payload: @[byte i], contentTopic: contentTopic, version: uint32(0), timestamp: Timestamp(i))
-      require store.put(pubsubTopic, msg).isOk()
+      let msg = WakuMessage(payload: @[byte i], contentTopic: DefaultContentTopic, version: 0, timestamp: Timestamp(i))
+      require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
       require retentionPolicy.execute(store).isOk()
       
     ## Then
@@ -297,6 +293,7 @@ suite "Message Store":
     ## Cleanup
     store.close()
 
+  # TODO: Move this test case to retention policy test suite
   test "DB store capacity":
     let
       contentTopic = ContentTopic("/waku/2/default-content/proto")
