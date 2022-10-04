@@ -1,0 +1,26 @@
+name: ci
+
+on:  
+  workflow_dispatch:
+
+env:
+  NWAKU_VERSION: "v0.11"
+
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Get nwaku
+        shell: bash
+        run: |
+          mkdir -p nwaku/build
+          cd nwaku
+          wget "https://github.com/status-im/nwaku/releases/download/${NWAKU_VERSION}/nim-waku-ubuntu-latest.tar.gz"
+          tar xavf nim-waku-ubuntu-latest.tar.gz
+      - name: Ensure wakunode2 is ready
+        shell: bash
+        run: |
+          uname -a
+          cd nwaku/build
+          ./wakunode2 --help
