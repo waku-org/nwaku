@@ -6,13 +6,14 @@
 
 pkgs.mkShell {
   name = "nim-waku-build-shell";
-  stdenv = pkgs.clangStdenv;
 
   # Versions dependent on nixpkgs commit. Update manually.
   buildInputs = with pkgs; [
     git   # 2.37.3
     which # 2.21
     rustc # 1.63.0
-    clang
-  ] ++ lib.optionals stdenv.isDarwin [ libiconv ];
+  ] ++ lib.optionals stdenv.isDarwin [ 
+    libiconv
+    binutils
+  ];
 }
