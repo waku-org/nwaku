@@ -11,5 +11,8 @@ pkgs.mkShell {
     git   # 2.37.3
     which # 2.21
     rustc # 1.63.0
+    llvmPackages_latest.llvm # TODO: use fixed package version
+    llvmPackages_latest.bintools
+    llvmPackages_latest.lld
   ] ++ lib.optionals stdenv.isDarwin [ libiconv ];
 }
