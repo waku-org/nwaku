@@ -16,7 +16,7 @@ jobs:
         run: |
           mkdir -p nwaku/build
           cd nwaku
-          wget "https://github.com/status-im/nwaku/releases/download/${{ NWAKU_VERSION }}/nim-waku-ubuntu-latest.tar.gz"
+          wget "https://github.com/status-im/nwaku/releases/download/${NWAKU_VERSION}/nim-waku-ubuntu-latest.tar.gz"
           tar xavf nim-waku-ubuntu-latest.tar.gz
       - name: Run wakunode2 with no options
         shell: bash
