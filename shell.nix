@@ -14,5 +14,6 @@ pkgs.mkShell {
     rustc # 1.63.0
   ] ++ lib.optionals stdenv.isDarwin [ 
     libiconv
+    pkgs.darwin.apple_sdk.frameworks.Security
   ];
 }
