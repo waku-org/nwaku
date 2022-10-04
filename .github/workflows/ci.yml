@@ -1,12 +1,15 @@
 name: ci
 
 on:
+  pull_request:
+  
   workflow_dispatch:
     inputs:
       version:
         description: 'nwaku version to run'
         required: true 
         type: string
+        default: "v0.11"
 
 jobs:
   node:
