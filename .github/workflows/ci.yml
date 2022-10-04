@@ -1,7 +1,6 @@
 name: ci
 
-on:
-  pull_request:
+on:  
   workflow_dispatch:
 
 env:
@@ -24,4 +23,5 @@ jobs:
         run: |
           uname -a
           cd nwaku/build
-          ./wakunode2
+          timeout 30s ./wakunode2
+      
