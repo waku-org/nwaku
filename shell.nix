@@ -15,5 +15,8 @@ pkgs.mkShell {
   ] ++ lib.optionals stdenv.isDarwin [ 
     libiconv
     pkgs.darwin.apple_sdk.frameworks.Security
+    clang
+  ] ++ lib.optionals stdenv.isLinux [
+    gcc
   ];
 }
