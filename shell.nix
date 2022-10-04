@@ -3,7 +3,7 @@
   sha256 = "sha256:1k5nvn2yzw370cqsfh62lncsgydq2qkbjrx34cprzf0k6b93v7ch";
 }) {} }:
 
-clangStdenv.mkDerivation {
+pkgs.mkShell {
   name = "nim-waku-build-shell";
 
   # Versions dependent on nixpkgs commit. Update manually.
