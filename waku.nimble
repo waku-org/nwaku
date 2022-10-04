@@ -92,7 +92,7 @@ task chat2, "Build example Waku v2 chat usage":
   buildBinary name, "examples/v2/", "-d:chronicles_log_level=DEBUG -d:chronicles_sinks=textlines[file] -d:ssl"
 
 task bridge, "Build Waku v1 - v2 bridge":
-  buildBinary "wakubridge", "waku/common/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "wakubridge", "apps/wakubridge/", "-d:chronicles_log_level=DEBUG"
 
 task chat2bridge, "Build chat2-matterbridge":
   let name = "chat2bridge"
