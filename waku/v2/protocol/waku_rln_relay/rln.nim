@@ -14,13 +14,10 @@ when defined(rlnzerokit):
 when defined(Windows):
   const libName* = libPath / "rln.dll"
 elif defined(Linux):
-  const libName* = libPath / "librln.so"
+  ## For Linux (and Alpine) we load the statically compiled RLN lib
+  const libName* = libPath / "librln.a"
 elif defined(MacOsX):
-  const libName* = libPath / "librln.dylib"
-
-# all the following procedures are Nim wrappers for the functions defined in libName
-{.push dynlib: libName, raises: [Defect].}
-
+  const libName* = libPath / "librln.a"
 
 ## Buffer struct is taken from
 # https://github.com/celo-org/celo-threshold-bls-rs/blob/master/crates/threshold-bls-ffi/src/ffi.rs

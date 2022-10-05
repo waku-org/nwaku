@@ -3,6 +3,16 @@ if defined(release):
 else:
   switch("nimcache", "nimcache/debug/$projectName")
 
+when defined(rlnzerokit):
+  const libName* =
+    when defined(windows):
+      "vendor/zerokit/target/release/rln.dll"
+    elif defined(macosx):
+      "vendor/zerokit/target/release/librln.a"
+    elif defined(linux):
+      "vendor/zerokit/target/release/librln.a"
+  switch("passL", libName)
+
 if defined(windows):
   # disable timestamps in Windows PE headers - https://wiki.debian.org/ReproducibleBuilds/TimestampsInPEBinaries
   switch("passL", "-Wl,--no-insert-timestamp")
