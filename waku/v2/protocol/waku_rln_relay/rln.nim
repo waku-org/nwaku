@@ -141,7 +141,14 @@ when defined(rlnzerokit):
 
   #-------------------------------- zkSNARKs operations -----------------------------------------
   proc key_gen*(ctx: ptr RLN, output_buffer: ptr Buffer): bool {.importc: "key_gen".}
-  ## generates id key and id commitment key serialized inside keypair_buffer as | id_key <32 bytes>| id_commitment_key <32 bytes> |
+  ## generates id key and id commitment key serialized inside output_buffer as | id_key <32 bytes>| id_commitment_key <32 bytes> |
+  ## id commitment is the poseidon hash of the id key
+  ## the return bool value indicates the success or failure of the operation
+
+  proc seeded_key_gen*(ctx: ptr RLN, input_buffer: ptr Buffer, output_buffer: ptr Buffer): bool {.importc: "seeded_key_gen".}
+  ## generates id key and id commitment key serialized inside output_buffer as | id_key <32 bytes>| id_commitment_key <32 bytes> | using ChaCha20
+  ## seeded with an arbitrary long seed serialized in input_buffer
+  ## The input seed provided by the user is hashed using Keccak256 before being passed to ChaCha20 as seed.
   ## id commitment is the poseidon hash of the id key
   ## the return bool value indicates the success or failure of the operation
 
@@ -184,8 +191,17 @@ when defined(rlnzerokit):
   #-------------------------------- Common procedures -------------------------------------------
   proc new_circuit*(tree_height: uint, input_buffer: ptr Buffer, ctx: ptr (ptr RLN)): bool {.importc: "new".}
   ## creates an instance of rln object as defined by the zerokit RLN lib
-  ## merkle_depth represent the depth of the Merkle tree
+  ## tree_height represent the depth of the Merkle tree
   ## input_buffer contains a serialization of the path where the circuit resources can be found (.r1cs, .wasm, .zkey and optionally the verification_key.json)
+  ## ctx holds the final created rln object
+  ## the return bool value indicates the success or failure of the operation
+
+  proc new_circuit_from_data*(tree_height: uint, circom_buffer: ptr Buffer, zkey_buffer: ptr Buffer, vk_buffer: ptr Buffer, ctx: ptr (ptr RLN)): bool {.importc: "new_with_params".}
+  ## creates an instance of rln object as defined by the zerokit RLN lib by passing the required inputs as byte arrays
+  ## tree_height represent the depth of the Merkle tree
+  ## circom_buffer contains the bytes read from the Circom .wasm circuit
+  ## zkey_buffer contains the bytes read from the .zkey proving key
+  ## vk_buffer contains the bytes read from the verification_key.json
   ## ctx holds the final created rln object
   ## the return bool value indicates the success or failure of the operation
 
