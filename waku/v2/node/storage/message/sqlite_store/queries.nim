@@ -7,13 +7,14 @@ import
 import
   ../../sqlite, 
   ../../../../protocol/waku_message,
-  ../../../../utils/pagination,
   ../../../../utils/time
 
 
 const DbTable = "Message"
 
 type SqlQueryStr = string
+
+type DbCursor* = (Timestamp, seq[byte], string)
 
 
 ### SQLite column helper methods
@@ -37,9 +38,9 @@ proc queryRowWakuMessageCallback(s: ptr sqlite3_stmt, contentTopicCol, payloadCo
     timestamp: Timestamp(senderTimestamp)
   ) 
 
-proc queryRowReceiverTimestampCallback(s: ptr sqlite3_stmt, receiverTimestampCol: cint): Timestamp =
-  let receiverTimestamp = sqlite3_column_int64(s, receiverTimestampCol)
-  Timestamp(receiverTimestamp)
+proc queryRowReceiverTimestampCallback(s: ptr sqlite3_stmt, storedAtCol: cint): Timestamp =
+  let storedAt = sqlite3_column_int64(s, storedAtCol)
+  Timestamp(storedAt)
 
 proc queryRowPubsubTopicCallback(s: ptr sqlite3_stmt, pubsubTopicCol: cint): string =
   let
@@ -49,6 +50,13 @@ proc queryRowPubsubTopicCallback(s: ptr sqlite3_stmt, pubsubTopicCol: cint): str
 
   pubsubTopic
 
+proc queryRowDigestCallback(s: ptr sqlite3_stmt, digestCol: cint): seq[byte] =
+  let
+    digestPointer = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, digestCol))
+    digestLength = sqlite3_column_bytes(s, 3)
+    digest = @(toOpenArray(digestPointer, 0, digestLength-1))
+
+  digest
 
 
 ### SQLite queries
@@ -57,14 +65,14 @@ proc queryRowPubsubTopicCallback(s: ptr sqlite3_stmt, pubsubTopicCol: cint): str
 
 proc createTableQuery(table: string): SqlQueryStr = 
   "CREATE TABLE IF NOT EXISTS " & table & " (" &
-  " id BLOB," &
-  " receiverTimestamp INTEGER NOT NULL," &
-  " contentTopic BLOB NOT NULL," &
   " pubsubTopic BLOB NOT NULL," &
+  " contentTopic BLOB NOT NULL," &
   " payload BLOB," &
   " version INTEGER NOT NULL," &
-  " senderTimestamp INTEGER NOT NULL," &
-  " CONSTRAINT messageIndex PRIMARY KEY (senderTimestamp, id, pubsubTopic)" &
+  " timestamp INTEGER NOT NULL," &
+  " id BLOB," &
+  " storedAt INTEGER NOT NULL," &
+  " CONSTRAINT messageIndex PRIMARY KEY (storedAt, id, pubsubTopic)" &
   ") WITHOUT ROWID;"
 
 proc createTable*(db: SqliteDatabase): DatabaseResult[void] =
@@ -76,7 +84,7 @@ proc createTable*(db: SqliteDatabase): DatabaseResult[void] =
 ## Create indices
 
 proc createOldestMessageTimestampIndexQuery(table: string): SqlQueryStr = 
-  "CREATE INDEX IF NOT EXISTS i_rt ON " & table & " (receiverTimestamp);"
+  "CREATE INDEX IF NOT EXISTS i_ts ON " & table & " (storedAt);"
 
 proc createOldestMessageTimestampIndex*(db: SqliteDatabase): DatabaseResult[void] =
   let query = createOldestMessageTimestampIndexQuery(DbTable)
@@ -85,7 +93,7 @@ proc createOldestMessageTimestampIndex*(db: SqliteDatabase): DatabaseResult[void
 
 
 proc createHistoryQueryIndexQuery(table: string): SqlQueryStr = 
-  "CREATE INDEX IF NOT EXISTS i_msg ON " & table & " (contentTopic, pubsubTopic, senderTimestamp, id);"
+  "CREATE INDEX IF NOT EXISTS i_query ON " & table & " (contentTopic, pubsubTopic, storedAt, id);"
 
 proc createHistoryQueryIndex*(db: SqliteDatabase): DatabaseResult[void] =
   let query = createHistoryQueryIndexQuery(DbTable)
@@ -97,7 +105,7 @@ proc createHistoryQueryIndex*(db: SqliteDatabase): DatabaseResult[void] =
 type InsertMessageParams* = (seq[byte], Timestamp, seq[byte], seq[byte], seq[byte], int64, Timestamp)
 
 proc insertMessageQuery(table: string): SqlQueryStr =
-  "INSERT INTO " & table & "(id, receiverTimestamp, contentTopic, payload, pubsubTopic, version, senderTimestamp)" &
+  "INSERT INTO " & table & "(id, storedAt, contentTopic, payload, pubsubTopic, version, timestamp)" &
   " VALUES (?, ?, ?, ?, ?, ?, ?);"
   
 proc prepareInsertMessageStmt*(db: SqliteDatabase): SqliteStmt[InsertMessageParams, void] =
@@ -126,7 +134,7 @@ proc getMessageCount*(db: SqliteDatabase): DatabaseResult[int64] =
 ## Get oldest message receiver timestamp
 
 proc selectOldestMessageTimestampQuery(table: string): SqlQueryStr =
-  "SELECT MIN(receiverTimestamp) FROM " & table
+  "SELECT MIN(storedAt) FROM " & table
 
 proc selectOldestReceiverTimestamp*(db: SqliteDatabase): DatabaseResult[Timestamp] {.inline.}=
   var timestamp: Timestamp
@@ -143,7 +151,7 @@ proc selectOldestReceiverTimestamp*(db: SqliteDatabase): DatabaseResult[Timestam
 ## Get newest message receiver timestamp
 
 proc selectNewestMessageTimestampQuery(table: string): SqlQueryStr =
-  "SELECT MAX(receiverTimestamp) FROM " & table
+  "SELECT MAX(storedAt) FROM " & table
 
 proc selectNewestReceiverTimestamp*(db: SqliteDatabase): DatabaseResult[Timestamp] {.inline.}=
   var timestamp: Timestamp
@@ -160,7 +168,7 @@ proc selectNewestReceiverTimestamp*(db: SqliteDatabase): DatabaseResult[Timestam
 ## Delete messages older than timestamp
 
 proc deleteMessagesOlderThanTimestampQuery(table: string, ts: Timestamp): SqlQueryStr =
-  "DELETE FROM " & table & " WHERE receiverTimestamp < " & $ts
+  "DELETE FROM " & table & " WHERE storedAt < " & $ts
 
 proc deleteMessagesOlderThanTimestamp*(db: SqliteDatabase, ts: int64): DatabaseResult[void] =
   let query = deleteMessagesOlderThanTimestampQuery(DbTable, ts)
@@ -173,7 +181,7 @@ proc deleteMessagesOlderThanTimestamp*(db: SqliteDatabase, ts: int64): DatabaseR
 proc deleteOldestMessagesNotWithinLimitQuery(table: string, limit: int): SqlQueryStr =
   "DELETE FROM " & table & " WHERE id NOT IN (" &
   " SELECT id FROM " & table & 
-  " ORDER BY receiverTimestamp DESC" &
+  " ORDER BY storedAt DESC" &
   " LIMIT " & $limit &
   ");"
 
@@ -187,20 +195,21 @@ proc deleteOldestMessagesNotWithinLimit*(db: SqliteDatabase, limit: int): Databa
 ## Select all messages
 
 proc selectAllMessagesQuery(table: string): SqlQueryStr =
-  "SELECT receiverTimestamp, contentTopic, payload, pubsubTopic, version, senderTimestamp" &
+  "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id" &
   " FROM " & table &
-  " ORDER BY receiverTimestamp ASC"
+  " ORDER BY storedAt ASC"
 
-proc selectAllMessages*(db: SqliteDatabase): DatabaseResult[seq[(Timestamp, WakuMessage, string)]] =
+proc selectAllMessages*(db: SqliteDatabase): DatabaseResult[seq[(string, WakuMessage, seq[byte], Timestamp)]] =
   ## Retrieve all messages from the store.
-  var rows: seq[(Timestamp, WakuMessage, string)]
+  var rows: seq[(string, WakuMessage, seq[byte], Timestamp)]
   proc queryRowCallback(s: ptr sqlite3_stmt) =
     let
-      receiverTimestamp = queryRowReceiverTimestampCallback(s, receiverTimestampCol=0)
-      wakuMessage = queryRowWakuMessageCallback(s, contentTopicCol=1, payloadCol=2, versionCol=4, senderTimestampCol=5)
       pubsubTopic = queryRowPubsubTopicCallback(s, pubsubTopicCol=3)
+      wakuMessage = queryRowWakuMessageCallback(s, contentTopicCol=1, payloadCol=2, versionCol=4, senderTimestampCol=5)
+      digest = queryRowDigestCallback(s, digestCol=6)
+      storedAt = queryRowReceiverTimestampCallback(s, storedAtCol=0)
 
-    rows.add((receiverTimestamp, wakuMessage, pubsubTopic))
+    rows.add((pubsubTopic, wakuMessage, digest, storedAt))
 
   let query = selectAllMessagesQuery(DbTable)
   let res = db.query(query, queryRowCallback)
@@ -227,12 +236,12 @@ proc contentTopicWhereClause(contentTopic: Option[seq[ContentTopic]]): Option[st
   contentTopicWhere &= ")"
   some(contentTopicWhere)
 
-proc cursorWhereClause(cursor: Option[Index], ascending=true): Option[string] =
+proc cursorWhereClause(cursor: Option[DbCursor], ascending=true): Option[string] =
   if cursor.isNone():
     return none(string)
 
   let comp = if ascending: ">" else: "<"
-  let whereClause = "(senderTimestamp, id, pubsubTopic) " & comp & " (?, ?, ?)"
+  let whereClause = "(storedAt, id, pubsubTopic) " & comp & " (?, ?, ?)"
   some(whereClause)
 
 proc pubsubWhereClause(pubsubTopic: Option[string]): Option[string] =
@@ -247,11 +256,11 @@ proc timeRangeWhereClause(startTime: Option[Timestamp], endTime: Option[Timestam
 
   var where = "("
   if startTime.isSome():
-    where &= "senderTimestamp >= (?)"
+    where &= "storedAt >= (?)"
   if startTime.isSome() and endTime.isSome():
     where &= " AND "
   if endTime.isSome():
-    where &= "senderTimestamp <= (?)"
+    where &= "storedAt <= (?)"
   where &= ")"
   some(where)
 
@@ -273,13 +282,13 @@ proc selectMessagesWithLimitQuery(table: string, where: Option[string], limit: u
 
   var query: string
 
-  query = "SELECT receiverTimestamp, contentTopic, payload, pubsubTopic, version, senderTimestamp"
+  query = "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id"
   query &= " FROM " & table
   
   if where.isSome():
     query &= " WHERE " & where.get()
   
-  query &= " ORDER BY senderTimestamp " & order & ", id " & order & ", pubsubTopic " & order & ", receiverTimestamp " & order 
+  query &= " ORDER BY storedAt " & order & ", id " & order & ", pubsubTopic " & order
   query &= " LIMIT " & $limit & ";"
 
   query
@@ -292,7 +301,7 @@ proc prepareSelectMessagesWithlimitStmt(db: SqliteDatabase, stmt: string): Datab
 proc execSelectMessagesWithLimitStmt(s: SqliteStmt, 
                           contentTopic: Option[seq[ContentTopic]], 
                           pubsubTopic: Option[string],
-                          cursor: Option[Index],  
+                          cursor: Option[DbCursor],  
                           startTime: Option[Timestamp],
                           endTime: Option[Timestamp],
                           onRowCallback: DataProc): DatabaseResult[void] =
@@ -302,21 +311,16 @@ proc execSelectMessagesWithLimitStmt(s: SqliteStmt,
   var paramIndex = 1
   if contentTopic.isSome():
     for topic in contentTopic.get():
-      let topicBlob = toBytes(topic)
-      checkErr bindParam(s, paramIndex, topicBlob)
+      checkErr bindParam(s, paramIndex, topic.toBytes())
       paramIndex += 1
 
-  if cursor.isSome():  # cursor = senderTimestamp, id, pubsubTopic
-    let senderTimestamp = cursor.get().senderTime
-    checkErr bindParam(s, paramIndex, senderTimestamp)
+  if cursor.isSome():  # cursor = storedAt, id, pubsubTopic
+    let (storedAt, id, pubsubTopic) = cursor.get()
+    checkErr bindParam(s, paramIndex, storedAt)
     paramIndex += 1
-
-    let id = @(cursor.get().digest.data)
     checkErr bindParam(s, paramIndex, id)
     paramIndex += 1
-
-    let pubsubTopic = toBytes(cursor.get().pubsubTopic)
-    checkErr bindParam(s, paramIndex, pubsubTopic)
+    checkErr bindParam(s, paramIndex, pubsubTopic.toBytes())
     paramIndex += 1
 
   if pubsubTopic.isSome():
@@ -353,21 +357,22 @@ proc execSelectMessagesWithLimitStmt(s: SqliteStmt,
 proc selectMessagesByHistoryQueryWithLimit*(db: SqliteDatabase, 
                                             contentTopic: Option[seq[ContentTopic]], 
                                             pubsubTopic: Option[string],
-                                            cursor: Option[Index],  
+                                            cursor: Option[DbCursor],  
                                             startTime: Option[Timestamp],
                                             endTime: Option[Timestamp],
                                             limit: uint64, 
-                                            ascending: bool): DatabaseResult[seq[(WakuMessage, Timestamp, string)]] =
+                                            ascending: bool): DatabaseResult[seq[(string, WakuMessage, seq[byte], Timestamp)]] =
   
    
-  var messages: seq[(WakuMessage, Timestamp, string)] = @[]
+  var messages: seq[(string, WakuMessage, seq[byte], Timestamp)] = @[]
   proc queryRowCallback(s: ptr sqlite3_stmt) =
     let 
-      receiverTimestamp = queryRowReceiverTimestampCallback(s, receiverTimestampCol=0)
-      message = queryRowWakuMessageCallback(s, contentTopicCol=1, payloadCol=2, versionCol=4, senderTimestampCol=5)
       pubsubTopic = queryRowPubsubTopicCallback(s, pubsubTopicCol=3)
+      message = queryRowWakuMessageCallback(s, contentTopicCol=1, payloadCol=2, versionCol=4, senderTimestampCol=5)
+      digest = queryRowDigestCallback(s, digestCol=6)
+      storedAt = queryRowReceiverTimestampCallback(s, storedAtCol=0)
 
-    messages.add((message, receiverTimestamp, pubsubTopic))
+    messages.add((pubsubTopic, message, digest, storedAt))
 
   let query = block:
     let

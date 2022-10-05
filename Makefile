@@ -70,17 +70,13 @@ endif
 
 # control rln code compilation
 ifeq ($(RLN), true)
-NIM_PARAMS := $(NIM_PARAMS) -d:rln
-else  ifeq ($(CI), true)
-NIM_PARAMS := $(NIM_PARAMS) -d:rln 
+NIM_PARAMS := $(NIM_PARAMS) -d:rlnzerokit
+else ifeq ($(CI), true)
+NIM_PARAMS := $(NIM_PARAMS) -d:rlnzerokit 
 endif
 
-# control rln code compilation
-ifeq ($(RLNZEROKIT), true)
-NIM_PARAMS := $(NIM_PARAMS) -d:rlnzerokit
-#To avoid redefinition conflicts, we disable rln zerokit default compilation in CI
-#else ifeq ($(CI), true)
-#NIM_PARAMS := $(NIM_PARAMS) -d:rlnzerokit 
+ifeq ($(RLNKILIC), true)
+NIM_PARAMS := $(NIM_PARAMS) -d:rln
 endif
 
 # detecting the os
@@ -108,7 +104,7 @@ endif
 NIM_PARAMS := $(NIM_PARAMS) -d:discv5_protocol_id:d5waku
 
 # git version for JSON RPC call
-GIT_VERSION := "$(shell git describe --abbrev=6 --always --tags)"
+GIT_VERSION ?= $(shell git describe --abbrev=6 --always --tags)
 NIM_PARAMS := $(NIM_PARAMS) -d:git_version:\"$(GIT_VERSION)\"
 
 deps: | deps-common nat-libs waku.nims rlnlib rlnzerokitlib
@@ -175,19 +171,20 @@ endif
 endif
 
 rlnlib:
-ifeq ($(RLN), true)
+ifeq ($(RLNKILIC), true)
 	cargo build --manifest-path vendor/rln/Cargo.toml
-else  ifeq ($(CI), true)
-	cargo build --manifest-path vendor/rln/Cargo.toml
+# Avoid compiling the non-default implementation of RLN in CI
+# else  ifeq ($(CI), true)
+# 	cargo build --manifest-path vendor/rln/Cargo.toml
 endif
 
 
 rlnzerokitlib:
-ifeq ($(RLNZEROKIT), true)
+ifeq ($(RLN), true)
 	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
-#To avoid redefinition conflicts, we disable rln zerokit default compilation in CI
-#else  ifeq ($(CI), true)
-#	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
+# Enable zerokit rln in CI
+else  ifeq ($(CI), true)
+	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
 endif
 
 test2: | build deps installganache

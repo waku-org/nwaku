@@ -9,7 +9,6 @@ import
 import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
-  ../../waku/v2/utils/pagination,
   ../../waku/v2/utils/time
 
 const 
@@ -32,13 +31,13 @@ proc fakeWakuMessage(
 
 procSuite "Waku Store - RPC codec":
   
-  test "Index protobuf codec":
+  test "PagingIndex protobuf codec":
     ## Given
-    let index = Index.compute(fakeWakuMessage(), receivedTime=getNanosecondTime(epochTime()), pubsubTopic=DefaultPubsubTopic)
+    let index = PagingIndex.compute(fakeWakuMessage(), receivedTime=getNanosecondTime(epochTime()), pubsubTopic=DefaultPubsubTopic)
 
     ## When
     let encodedIndex = index.encode()
-    let decodedIndexRes = Index.init(encodedIndex.buffer)
+    let decodedIndexRes = PagingIndex.init(encodedIndex.buffer)
 
     ## Then
     check:
@@ -49,12 +48,12 @@ procSuite "Waku Store - RPC codec":
       # The fields of decodedIndex must be the same as the original index
       decodedIndex == index
 
-  test "Index protobuf codec - empty index":
+  test "PagingIndex protobuf codec - empty index":
     ## Given
-    let emptyIndex = Index()
+    let emptyIndex = PagingIndex()
     
     let encodedIndex = emptyIndex.encode()
-    let decodedIndexRes = Index.init(encodedIndex.buffer)
+    let decodedIndexRes = PagingIndex.init(encodedIndex.buffer)
 
     ## Then
     check:
@@ -62,13 +61,13 @@ procSuite "Waku Store - RPC codec":
     
     let decodedIndex = decodedIndexRes.tryGet()
     check:
-      # Check the correctness of init and encode for an empty Index
+      # Check the correctness of init and encode for an empty PagingIndex
       decodedIndex == emptyIndex
 
   test "PagingInfo protobuf codec":
     ## Given
     let
-      index = Index.compute(fakeWakuMessage(), receivedTime=getNanosecondTime(epochTime()), pubsubTopic=DefaultPubsubTopic)
+      index = PagingIndex.compute(fakeWakuMessage(), receivedTime=getNanosecondTime(epochTime()), pubsubTopic=DefaultPubsubTopic)
       pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.FORWARD)
       
     ## When
@@ -103,7 +102,7 @@ procSuite "Waku Store - RPC codec":
   test "HistoryQuery protobuf codec":
     ## Given
     let
-      index = Index.compute(fakeWakuMessage(), receivedTime=getNanosecondTime(epochTime()), pubsubTopic=DefaultPubsubTopic)
+      index = PagingIndex.compute(fakeWakuMessage(), receivedTime=getNanosecondTime(epochTime()), pubsubTopic=DefaultPubsubTopic)
       pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
       query = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic), HistoryContentFilter(contentTopic: DefaultContentTopic)], pagingInfo: pagingInfo, startTime: Timestamp(10), endTime: Timestamp(11))
     
@@ -139,7 +138,7 @@ procSuite "Waku Store - RPC codec":
     ## Given
     let
       message = fakeWakuMessage()
-      index = Index.compute(message, receivedTime=getNanosecondTime(epochTime()), pubsubTopic=DefaultPubsubTopic)
+      index = PagingIndex.compute(message, receivedTime=getNanosecondTime(epochTime()), pubsubTopic=DefaultPubsubTopic)
       pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
       res = HistoryResponse(messages: @[message], pagingInfo:pagingInfo, error: HistoryResponseError.INVALID_CURSOR)
     

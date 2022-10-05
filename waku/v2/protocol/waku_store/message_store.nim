@@ -7,17 +7,15 @@ import
   std/[options, times],
   stew/results
 import
-  ../../../protocol/waku_message,
-  ../../../utils/time,
-  ../../../utils/pagination
+  ../waku_message,
+  ./pagination,
+  ../../utils/time
 
 
 type
   MessageStoreResult*[T] = Result[T, string]
   
-  MessageStorePage* = (seq[WakuMessage], Option[PagingInfo])
-
-  MessageStoreRow* = (Timestamp, WakuMessage, string)
+  MessageStoreRow* = (string, WakuMessage, seq[byte], Timestamp)
 
   MessageStore* = ref object of RootObj
 
@@ -39,12 +37,12 @@ method getMessagesByHistoryQuery*(
   ms: MessageStore,
   contentTopic = none(seq[ContentTopic]),
   pubsubTopic = none(string),
-  cursor = none(Index),
+  cursor = none(PagingIndex),
   startTime = none(Timestamp),
   endTime = none(Timestamp),
-  maxPageSize = MaxPageSize,
+  maxPageSize = DefaultPageSize,
   ascendingOrder = true
-): MessageStoreResult[MessageStorePage] {.base.} = discard
+): MessageStoreResult[seq[MessageStoreRow]] {.base.} = discard
 
 
 # Store manipulation

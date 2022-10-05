@@ -25,7 +25,6 @@ import
   ../utils/[peers, requests, wakuenr],
   ./peer_manager/peer_manager,
   ./storage/message/waku_store_queue,
-  ./storage/message/message_store,
   ./storage/message/message_retention_policy,
   ./storage/message/message_retention_policy_capacity,
   ./storage/message/message_retention_policy_time,
@@ -37,7 +36,7 @@ import
 export
   wakunode2_types
 
-when defined(rln):
+when defined(rln) or defined(rlnzerokit):
   import ../protocol/waku_rln_relay/waku_rln_relay_utils
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
@@ -819,7 +818,6 @@ when isMainModule:
     ./wakunode2_setup_rpc,
     ./wakunode2_setup_sql_migrations,
     ./storage/sqlite,
-    ./storage/message/message_store,
     ./storage/message/dual_message_store,
     ./storage/message/sqlite_store,
     ./storage/peer/waku_peer_storage
@@ -888,20 +886,25 @@ when isMainModule:
         storeTuple.pStorage = res.value
 
     if conf.persistMessages:
-      if conf.sqliteStore: 
+      if conf.sqliteStore:
+        debug "setting up sqlite-only store"
         let res = SqliteStore.init(sqliteDatabase)
         if res.isErr():
           warn "failed to init message store", err = res.error
           waku_node_errors.inc(labelValues = ["init_store_failure"])
         else:
           storeTuple.mStorage = res.value
-      else: 
+      elif not sqliteDatabase.isNil():
+        debug "setting up dual message store"
         let res = DualMessageStore.init(sqliteDatabase, conf.storeCapacity)
         if res.isErr():
           warn "failed to init message store", err = res.error
           waku_node_errors.inc(labelValues = ["init_store_failure"])
         else:
           storeTuple.mStorage = res.value
+      else:
+        debug "setting up in-memory store"
+        storeTuple.mStorage = StoreQueueRef.new(conf.storeCapacity)
 
     ok(storeTuple)
 
@@ -1063,7 +1066,7 @@ when isMainModule:
     # Keepalive mounted on all nodes
     waitFor mountLibp2pPing(node)
     
-    when defined(rln): 
+    when defined(rln) or defined(rlnzerokit): 
       if conf.rlnRelay:
         let res = node.mountRlnRelay(conf)
         if res.isErr():

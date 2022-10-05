@@ -12,11 +12,9 @@ import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/node/storage/sqlite,
-  ../../waku/v2/node/storage/message/message_store,
   ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/node/storage/message/sqlite_store,
   ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/utils/pagination,
   ../../waku/v2/utils/time,
   ../test_helpers 
 
@@ -345,7 +343,7 @@ suite "Waku Store - history query":
       response.messages.len() == 2
       response.pagingInfo.pageSize == 2 
       response.pagingInfo.direction == PagingDirection.FORWARD
-      response.pagingInfo.cursor != Index()
+      response.pagingInfo.cursor != PagingIndex()
 
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitch.stop())
@@ -397,7 +395,7 @@ suite "Waku Store - history query":
       response.messages.len() == 2
       response.pagingInfo.pageSize == 2 
       response.pagingInfo.direction == PagingDirection.BACKWARD
-      response.pagingInfo.cursor != Index()
+      response.pagingInfo.cursor != PagingIndex()
 
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitch.stop())
@@ -446,9 +444,7 @@ suite "Waku Store - history query":
       ## No pagination specified. Response will be auto-paginated with
       ## up to MaxPageSize messages per page.
       response.messages.len() == 8
-      response.pagingInfo.pageSize == 8
-      response.pagingInfo.direction == PagingDirection.BACKWARD
-      response.pagingInfo.cursor != Index()
+      response.pagingInfo == PagingInfo()
 
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitch.stop())

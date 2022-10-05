@@ -5,10 +5,9 @@ import
   stew/byteutils,
   eth/keys,
   ../../../v1/node/rpc/hexstrings,
-  ../../protocol/waku_store,
   ../../protocol/waku_message,
+  ../../protocol/waku_store,
   ../../utils/time,
-  ../../utils/pagination,
   ../waku_payload,
   ./jsonrpc_types
 
@@ -30,7 +29,7 @@ proc `%`*(value: WakuMessage): JsonNode =
 
 proc toPagingInfo*(pagingOptions: StorePagingOptions): PagingInfo =
   PagingInfo(pageSize: pagingOptions.pageSize,
-             cursor: if pagingOptions.cursor.isSome: pagingOptions.cursor.get else: Index(),
+             cursor: if pagingOptions.cursor.isSome: pagingOptions.cursor.get else: PagingIndex(),
              direction: if pagingOptions.forward: PagingDirection.FORWARD else: PagingDirection.BACKWARD)
 
 proc toPagingOptions*(pagingInfo: PagingInfo): StorePagingOptions =

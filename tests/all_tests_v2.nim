@@ -6,9 +6,9 @@ import
   ./v2/test_wakunode_relay,
   ./v2/test_wakunode_lightpush,
   # Waku Store
-  ./v2/test_utils_pagination,
-  ./v2/test_message_store_queue,
+  ./v2/test_message_store_queue_index,
   ./v2/test_message_store_queue_pagination,
+  ./v2/test_message_store_queue,
   ./v2/test_message_store_sqlite_query,
   ./v2/test_message_store_sqlite,
   ./v2/test_waku_store_rpc_codec,

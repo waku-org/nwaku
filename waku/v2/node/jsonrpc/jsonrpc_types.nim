@@ -4,7 +4,7 @@ import
   std/[options,tables],
   eth/keys,
   ../../protocol/waku_message,
-  ../../utils/pagination,
+  ../../protocol/waku_store/pagination,
   ../../utils/time
 
 type
@@ -15,7 +15,7 @@ type
   StorePagingOptions* = object
     ## This type holds some options for pagination
     pageSize*: uint64
-    cursor*: Option[Index]
+    cursor*: Option[PagingIndex]
     forward*: bool
 
   WakuRelayMessage* = object

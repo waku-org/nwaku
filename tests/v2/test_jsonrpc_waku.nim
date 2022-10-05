@@ -14,7 +14,6 @@ import
   libp2p/protocols/pubsub/rpc/message
 import
   ../../waku/v1/node/rpc/hexstrings,
-  ../../waku/v2/node/storage/message/message_store,
   ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/node/wakunode2,
   ../../waku/v2/node/jsonrpc/[store_api,
@@ -267,7 +266,7 @@ procSuite "Waku v2 JSON-RPC API":
     let response = await client.get_waku_v2_store_v1_messages(some(defaultTopic), some(@[HistoryContentFilter(contentTopic: defaultContentTopic)]), some(Timestamp(0)), some(Timestamp(9)), some(StorePagingOptions()))
     check:
       response.messages.len() == 8
-      response.pagingOptions.isSome()
+      response.pagingOptions.isNone()
       
     await server.stop()
     await server.closeWait()
