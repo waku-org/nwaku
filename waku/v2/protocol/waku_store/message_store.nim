@@ -26,7 +26,8 @@ method put*(ms: MessageStore, pubsubTopic: string, message: WakuMessage, digest:
 method put*(ms: MessageStore, pubsubTopic: string, message: WakuMessage): MessageStoreResult[void] =
   let
     digest = computeDigest(message) 
-    receivedTime = getNanosecondTime(getTime().toUnixFloat()) 
+    receivedTime = if message.timestamp > 0: message.timestamp
+                      else: getNanosecondTime(getTime().toUnixFloat()) 
   
   ms.put(pubsubTopic, message, digest, receivedTime)
 
