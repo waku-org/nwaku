@@ -3,7 +3,6 @@
   sha256 = "sha256:1k5nvn2yzw370cqsfh62lncsgydq2qkbjrx34cprzf0k6b93v7ch";
 }) {} }:
 
-
 pkgs.mkShell {
   name = "nim-waku-build-shell";
 
@@ -14,7 +13,6 @@ pkgs.mkShell {
     rustc # 1.63.0
   ] ++ lib.optionals stdenv.isDarwin [ 
     libiconv
-    pkgs.darwin.apple_sdk.frameworks.Security
-    clang
+    darwin.apple_sdk.frameworks.Security
   ];
 }
