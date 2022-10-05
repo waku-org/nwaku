@@ -25,7 +25,7 @@ COPY . .
 RUN git submodule update --init --recursive
 
 # Slowest build step for the sake of caching layers
-RUN make -j$(nproc) deps
+RUN make -j$(nproc) deps RLN="$RLN"
 
 # Build the final node binary
 RUN make -j$(nproc) $MAKE_TARGET NIMFLAGS="$NIMFLAGS" RLN="$RLN"
