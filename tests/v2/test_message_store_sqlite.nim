@@ -246,24 +246,6 @@ suite "Message Store":
     ## Cleanup
     store.close()
   
-  test "migration":
-    let 
-      database = SqliteDatabase.init("", inMemory = true)[]
-      store = SqliteStore.init(database)[]
-    defer: store.close()
-
-    template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
-    let migrationPath = sourceDir
-
-    let res = database.migrate(migrationPath, 10)
-    check:
-      res.isErr == false
-
-    let ver = database.getUserVersion()
-    check:
-      ver.isErr == false
-      ver.value == 10
-
   # TODO: Move this test case to retention policy test suite
   test "number of messages retrieved by getAll is bounded by storeCapacity":
     let capacity = 10

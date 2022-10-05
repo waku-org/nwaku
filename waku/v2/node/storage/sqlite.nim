@@ -1,11 +1,11 @@
 {.push raises: [Defect].}
 
 import 
-  os,
-  sqlite3_abi,
-  chronicles,
+  std/os,
   stew/results,
-  migration/migration_utils
+  chronicles,
+  sqlite3_abi
+  
 # The code in this file is an adaptation of the Sqlite KV Store found in nim-eth.
 # https://github.com/status-im/nim-eth/blob/master/eth/db/kvstore_sqlite3.nim
 #
@@ -323,9 +323,11 @@ proc getUserVersion*(database: SqliteDatabase): DatabaseResult[int64] =
   var version: int64
   proc handler(s: ptr sqlite3_stmt) = 
     version = sqlite3_column_int64(s, 0)
+
   let res = database.query("PRAGMA user_version;", handler)
-  if res.isErr:
+  if res.isErr():
       return err("failed to get user_version")
+
   ok(version)
 
 
@@ -334,73 +336,10 @@ proc setUserVersion*(database: SqliteDatabase, version: int64): DatabaseResult[v
   ## some context borrowed from https://www.sqlite.org/pragma.html#pragma_user_version
   ## The user-version is an integer that is available to applications to use however they want. 
   ## SQLite makes no use of the user-version itself
-  proc handler(s: ptr sqlite3_stmt) = discard
-
   let query = "PRAGMA user_version=" & $version & ";"
-  let res = database.query(query, handler)
+  let res = database.query(query, NoopRowHandler)
   if res.isErr():
       return err("failed to set user_version")
 
   ok()
 
-
-proc migrate*(db: SqliteDatabase, path: string, targetVersion: int64 = migration_utils.USER_VERSION): DatabaseResult[bool] = 
-  ## compares the user_version of the db with the targetVersion 
-  ## runs migration scripts if the user_version is outdated (does not support down migration)
-  ## path points to the directory holding the migrations scripts
-  ## once the db is updated, it sets the user_version to the tragetVersion
-  
-  # read database version
-  let userVersion = db.getUserVersion()
-  debug "current db user_version", userVersion=userVersion
-  if userVersion.value == targetVersion:
-    # already up to date
-    info "database is up to date"
-    ok(true)
-  
-  else:
-    info "database user_version outdated. migrating.", userVersion=userVersion, targetVersion=targetVersion
-    # TODO check for the down migrations i.e., userVersion.value > tragetVersion
-    # fetch migration scripts
-    let migrationScriptsRes = getScripts(path)
-    if migrationScriptsRes.isErr:
-      return err("failed to load migration scripts")
-    let migrationScripts = migrationScriptsRes.value
-  
-    # filter scripts based on their versions
-    let scriptsRes = migrationScripts.filterScripts(userVersion.value, targetVersion)
-    if scriptsRes.isErr:
-      return err("failed to filter migration scripts")
-    
-    let scripts = scriptsRes.value
-    if (scripts.len == 0):
-      return err("no suitable migration scripts")
-    
-    debug "scripts to be run", scripts=scripts
-    
-    
-    proc handler(s: ptr sqlite3_stmt) = 
-      discard
-    
-    # run the scripts
-    for script in scripts:
-      debug "script", script=script
-      # a script may contain multiple queries
-      let queries = script.splitScript()
-      # TODO queries of the same script should be executed in an atomic manner
-      for query in queries:
-        let res = db.query(query, handler)
-        if res.isErr:
-          debug "failed to run the query", query=query
-          return err("failed to run the script")
-        else:
-          debug "query is executed", query=query
-
-    
-    # bump the user version
-    let res = db.setUserVersion(targetVersion)
-    if res.isErr:
-      return err("failed to set the new user_version")
-
-    debug "user_version is set to", targetVersion=targetVersion
-    ok(true)
