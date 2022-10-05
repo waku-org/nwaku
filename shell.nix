@@ -11,5 +11,8 @@ pkgs.mkShell {
     git   # 2.37.3
     which # 2.21
     rustc # 1.63.0
-  ] ++ lib.optionals stdenv.isDarwin [ libiconv ];
+  ] ++ lib.optionals stdenv.isDarwin [ 
+    libiconv
+    darwin.apple_sdk.frameworks.Security
+  ];
 }
