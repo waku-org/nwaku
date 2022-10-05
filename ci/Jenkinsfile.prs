@@ -133,7 +133,7 @@ def versionWasChanged(version) {
     script: "git diff --name-only origin/${env.CHANGE_TARGET}",
     returnStdout: true
   )
-  if (changes =~ "(?m)^(Makefile|waku.nimble|config.nims|vendor|ci).*") {
+  if (changes =~ "(?m)^(Makefile|waku.nimble|config.nims|vendor|ci|shell.nix).*") {
     return true
   }
   if (changes =~ "(?m)^(waku|tests|examples)/(${version}|common)/.*") {
