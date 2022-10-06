@@ -4,6 +4,7 @@ FROM alpine:3.16 AS nim-build
 
 ARG NIMFLAGS
 ARG MAKE_TARGET=wakunode2
+ARG RLN=true
 
 # Get build tools and required header files
 RUN apk add --no-cache bash git cargo build-base pcre-dev linux-headers
@@ -24,10 +25,10 @@ COPY . .
 RUN git submodule update --init --recursive
 
 # Slowest build step for the sake of caching layers
-RUN make -j$(nproc) deps
+RUN make -j$(nproc) deps RLN="$RLN"
 
 # Build the final node binary
-RUN make -j$(nproc) $MAKE_TARGET NIMFLAGS="$NIMFLAGS"
+RUN make -j$(nproc) $MAKE_TARGET NIMFLAGS="$NIMFLAGS" RLN="$RLN"
 
 # ACTUAL IMAGE -------------------------------------------------------
 
@@ -51,6 +52,10 @@ RUN ln -s /usr/lib/libpcre.so /usr/lib/libpcre.so.3
 
 # Copy to separate location to accomodate different MAKE_TARGET values
 COPY --from=nim-build /app/build/$MAKE_TARGET /usr/local/bin/
+
+# If rln enabled: fix for 'Error loading shared library vendor/rln/target/debug/librln.so: No such file or directory'
+COPY --from=nim-build /app/vendor/zerokit/target/release/librln.so vendor/zerokit/target/release/librln.so
+COPY --from=nim-build /app/vendor/zerokit/rln/resources/ vendor/zerokit/rln/resources/
 
 # Copy migration scripts for DB upgrades
 COPY --from=nim-build /app/waku/v2/node/storage/migration/migrations_scripts/ /app/waku/v2/node/storage/migration/migrations_scripts/
