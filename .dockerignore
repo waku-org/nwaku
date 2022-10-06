@@ -1,7 +1,11 @@
-/README.md
-/Dockerfile
-/.*ignore
-/LICENSE*
-/tests
-/metrics
+README.md
+Dockerfile
+.*ignore
+LICENSE*
+build
+ci
+docs
+examples
+metrics
+tests
 **/vendor/*
