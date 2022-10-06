@@ -1,3 +1,72 @@
+## 2022-10-06 v0.12.0
+
+Release highlights:
+- The performance and stability of the message `store` has improved dramatically. Query durations, even for long-term stores, have improved by more than a factor of 10.
+- Support for Waku Peer Exchange - a discovery method for resource-restricted nodes.
+- Messages can now be marked as "ephemeral" to prevent them from being stored.
+- [Zerokit](https://github.com/vacp2p/zerokit) is now the default implementation for spam-protected `relay` with RLN.
+
+The full list of changes is below.
+
+### Features
+
+- Default support for [Zerokit](https://github.com/vacp2p/zerokit) version of [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation.
+- Added Filter REST API OpenAPI specification.
+- Added POC implementation for [43/WAKU2-DEVICE-PAIRING](https://rfc.vac.dev/spec/43/).
+- [14/WAKU2-MESSAGE](https://rfc.vac.dev/spec/14/) can now be marked as `ephemeral` to prevent them from being stored.
+- Support for [34/WAKU2-PEER-EXCHANGE](https://rfc.vac.dev/spec/34/).
+
+### Changes
+
+- [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation now handles on-chain transaction errors.
+- [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation now validates the Merkle tree root against a window of acceptable roots.
+- Added metrics for [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation.
+- Continued refactoring of several protocol implementations to improve maintainability and readability.
+- Cleaned up nwaku imports and dependencies.
+- Refactored and organised nwaku unit tests.
+- Nwaku now periodically logs node metrics by default.
+- Further improvements to the `store` implementation:
+  - Better logging and query traceability.
+  - More useful metrics to measure query and insertion time.
+  - Reworked indexing for faster inserts and queries.
+  - Reworked data model to use a simple, single timestamp for indexing, ordering and querying.
+  - Improved retention policy management with periodic execution.
+  - Run sqlite database vacuum at node start.
+  - Improved logging when migrating the database to a newer version.
+- `relay` no longer auto-mounted on all nwaku nodes.
+- The most complete node ENR now included in response to API requests for node `info()`.
+- Updated Grafana dashboards included with nwaku.
+- Github CI test execution now skipped for doc-only changes.
+
+### Fixes
+
+- Fixed nwaku unnecessary sleep when no dynamic bootstrap nodes retrieved.
+- Fixed [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) not working from browser-based clients due to nwaku peer manager failing to reuse existing connection.
+- Waku Message payload now correctly encoded as base64 in the Relay REST API.
+- Fixed handling of bindParam(uint32) in sqlite.
+- `chat2` application now correctly selects a random store node on startup.
+- Fixed macos builds failing due to an unsupported dependency.
+- Fixed nwaku not reconnecting to previously discovered nodes after losing connection.
+- Fixed nwaku failing to start switch transports with external IP configuration.
+- Fixed SIGSEGV crash when attempting to start nwaku store without `db-path` configuration.
+
+### Docs
+
+- Improved [RLN testnet tutorial](https://github.com/status-im/nwaku/blob/14abdef79677ddc828ff396ece321e05cedfca17/docs/tutorial/onchain-rln-relay-chat2.md) 
+- Added [tutorial](https://github.com/status-im/nwaku/blob/14abdef79677ddc828ff396ece321e05cedfca17/docs/operators/droplet-quickstart.md) on running nwaku from a DigitalOcean droplet.
+- Added [guide](https://github.com/status-im/nwaku/blob/14abdef79677ddc828ff396ece321e05cedfca17/docs/operators/how-to/monitor.md) on how to monitor nwaku using Prometheus and Grafana.
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
+
 ## 2022-08-15 v0.11
 
 Release highlights:
