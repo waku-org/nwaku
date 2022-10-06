@@ -1,6 +1,6 @@
 # BUILD IMAGE --------------------------------------------------------
 
-FROM alpine:3.16 AS nim-build
+FROM alpine:edge AS nim-build
 
 ARG NIMFLAGS
 ARG MAKE_TARGET=wakunode2
@@ -8,15 +8,6 @@ ARG RLN=true
 
 # Get build tools and required header files
 RUN apk add --no-cache bash git cargo build-base pcre-dev linux-headers
-
-# Install newer rust than 1.62 as required by ethers-core.
-ENV PKG=rust-1.64.0-x86_64-unknown-linux-musl
-RUN wget -q https://static.rust-lang.org/dist/$PKG.tar.gz \
- && tar xf $PKG.tar.gz \
- && cd $PKG \
- && ./install.sh --components=rustc,cargo,rust-std-x86_64-unknown-linux-musl \
- && cd - \
- && rm -r $PKG $PKG.tar.gz
 
 WORKDIR /app
 COPY . .
