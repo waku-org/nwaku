@@ -39,12 +39,16 @@ export
 when defined(rln) or defined(rlnzerokit):
   import ../protocol/waku_rln_relay/waku_rln_relay_utils
 
+declarePublicGauge waku_version, "Waku version info (in git describe format)", ["version"]
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicGauge waku_node_filters, "number of content filter subscriptions"
 declarePublicGauge waku_node_errors, "number of wakunode errors", ["type"]
 
 logScope:
   topics = "wakunode"
+
+# Git version in git describe format (defined compile time)
+const git_version* {.strdefine.} = "n/a"
 
 # Default clientId
 const clientId* = "Nimbus Waku v2 node"
@@ -759,6 +763,8 @@ proc start*(node: WakuNode) {.async.} =
   ##
   ## Status: Implemented.
   
+  waku_version.set(1, labelValues=[git_version])
+  
   ## NB: careful when moving this. We need to start the switch with the bind address
   ## BEFORE updating with announced addresses for the sake of identify.
   await node.switch.start()
@@ -1185,7 +1191,6 @@ when isMainModule:
 
   # if called with --version, print the version and quit
   if conf.version:
-    const git_version {.strdefine.} = "n/a"
     echo "version / git commit hash: ", git_version
     quit(QuitSuccess)
   

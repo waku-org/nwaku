@@ -8,9 +8,6 @@ import
 logScope:
   topics = "debug api"
 
-const 
-  git_version {.strdefine.} = "n/a"
-
 proc installDebugApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
 
   ## Debug API version 1 definitions
