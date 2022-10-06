@@ -14,7 +14,7 @@ import
   ../../waku/v2/utils/peers
 
 # protocols and their tag
-const protocolsTable = {
+const ProtocolsTable = {
   "store": "/vac/waku/store/",
   "static": "/vac/waku/relay/",
   "lightpush": "/vac/waku/lightpush/",
@@ -35,7 +35,7 @@ type
       name: "timeout" }: chronos.Duration
 
     protocols* {.
-      desc: "Protocol required to be supported (can be used multiple times)"
+      desc: "Protocol required to be supported: store,static,lightpush,filter (can be used multiple times)"
       name: "protocol" }: seq[string]
 
 proc parseCmdArg*(T: type chronos.Duration, p: TaintedString): T =
@@ -56,7 +56,7 @@ proc areProtocolsSupported(
 
   for nodeProtocol in nodeProtocols:
     for rawProtocol in rawProtocols:
-      let protocolTag = protocolsTable[rawProtocol]
+      let protocolTag = ProtocolsTable[rawProtocol]
       if nodeProtocol.startsWith(protocolTag):
         info "Supported protocol ok:", expected=protocolTag, supported=nodeProtocol
         numOfSupportedProt += 1
@@ -72,10 +72,8 @@ proc main(): Future[int] {.async.} =
 
   # ensure input protocols are valid
   for p in conf.protocols:
-    if p notin protocolsTable: 
-      # TODO: this raises SIGBUS: Illegal storage access
-      #error "invalid protocol:", protocol=p, valid=toSeq(protocolsTable.keys())
-      error "invalid protocol:", protocol=p, valid=protocolsTable
+    if p notin ProtocolsTable: 
+      error "invalid protocol:", protocol=p, valid=ProtocolsTable
       raise newException(ConfigurationError, "Invalid cli flag values: " & p)
 
   info "Cli flags:",
