@@ -44,7 +44,7 @@ const
 
   DefaultTopic* = "/waku/2/default-waku/proto"
 
-  MaxMessageTimestampVariance* = Timestamp(20.seconds.nanoseconds) # 20 seconds maximum allowable sender timestamp "drift"
+  MaxMessageTimestampVariance* = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift"
 
 
 # Error types (metric label values)
