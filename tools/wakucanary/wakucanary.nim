@@ -1,5 +1,5 @@
 import
-  std/strutils,
+  std/[strutils, sequtils, tables],
   confutils,
   chronos,
   stew/shims/net
@@ -13,29 +13,30 @@ import
   ../../waku/v2/node/waku_payload,
   ../../waku/v2/utils/peers
 
-# protocol each node shall support
-const store_prot = "/vac/waku/store/"
-const static_prot = "/vac/waku/relay/"
-const lightpush_prot = "/vac/waku/lightpush/"
-const filter_prot = "/vac/waku/filter/"
+# protocols and their tag
+const protocolsTable = {
+  "store": "/vac/waku/store/",
+  "static": "/vac/waku/relay/",
+  "lightpush": "/vac/waku/lightpush/",
+  "filter": "/vac/waku/lightpush/",
+}.toTable
 
 # cli flags
 type
   WakuCanaryConf* = object
-    staticnode* {.
-      desc: "Multiaddress of a static node to attemp to dial",
+    address* {.
+      desc: "Multiaddress of the peer node to attemp to dial",
       defaultValue: "",
-      name: "staticnode" }: string
-
-    storenode* {.
-      desc: "Multiaddress of a store node to attemp to dial",
-      defaultValue: "",
-      name: "storenode" }: string
+      name: "address" }: string
 
     timeout* {.
       desc: "Timeout to consider that the connection failed",
       defaultValue: chronos.seconds(10),
       name: "timeout" }: chronos.Duration
+
+    protocols* {.
+      desc: "Protocol required to be supported (can be used multiple times)"
+      name: "protocol" }: seq[string]
 
 proc parseCmdArg*(T: type chronos.Duration, p: TaintedString): T =
   try:
@@ -46,62 +47,50 @@ proc parseCmdArg*(T: type chronos.Duration, p: TaintedString): T =
 proc completeCmdArg*(T: type chronos.Duration, val: TaintedString): seq[string] =
   return @[]
 
-proc validate_storenode(protocols: seq[string]): int = 
-  for prot in protocols:
-    if prot.startsWith(store_prot):
-      info "Store protocol is supported", expected=store_prot, supported=prot
-      return 0
+# checks if rawProtocols (skipping version) are supported in nodeProtocols
+proc areProtocolsSupported(
+    rawProtocols: seq[string],
+    nodeProtocols: seq[string]): bool =
 
-  error "Store protocol is not supported", expected=store_prot, supported=protocols
-  return 1
+  var numOfSupportedProt: int = 0
 
-  # TODO: Extra checks, i.e. try to query the node
-  #[
-  setStorePeer(node, conf.storenode)
-  const DefaultPubsubTopic = "/waku/2/default-waku/proto"
-  const contentTopic = "/toy-chat/2/huilong/proto"
+  for nodeProtocol in nodeProtocols:
+    for rawProtocol in rawProtocols:
+      let protocolTag = protocolsTable[rawProtocol]
+      if nodeProtocol.startsWith(protocolTag):
+        info "Supported protocol ok:", expected=protocolTag, supported=nodeProtocol
+        numOfSupportedProt += 1
+        break
 
-  # TODO: send a message before? or aassume that at least there is one?
-  let queryRes = await node.query(
-    HistoryQuery(
-      contentFilters: @[HistoryContentFilter(
-        contentTopic: contentTopic
-        )]))
-  echo queryRes
-  echo queryRes.isOk()
-  echo queryRes.value
-  return 0
-  ]#
+  if numOfSupportedProt == rawProtocols.len:
+    return true
 
-proc validate_staticnode(protocols: seq[string]): int = 
-  for prot in protocols:
-    if prot.startsWith(static_prot):
-      info "Static protocol is supported", expected=static_prot, supported=prot
-      return 0
-  error "Static protocol is not supported", expected=static_prot, supported=protocols
-
-proc validate_lightpushnode(protocols: seq[string]): int = 
-  echo "todo"
-  return 1
-
-proc validate_filternode(protocols: seq[string]): int =
-  echo "todo:"
-  return 1
+  return false
 
 proc main(): Future[int] {.async.} =
   let conf: WakuCanaryConf = WakuCanaryConf.load()
-  info "Cli flags", cli=conf
 
-  if conf.staticnode != "" and conf.storenode != "":
-    error "only one flag staticnode/storenode can be used"
-    return 1
+  # ensure input protocols are valid
+  for p in conf.protocols:
+    if p notin protocolsTable: 
+      # TODO: this raises SIGBUS: Illegal storage access
+      #error "invalid protocol:", protocol=p, valid=toSeq(protocolsTable.keys())
+      error "invalid protocol:", protocol=p, valid=protocolsTable
+      raise newException(ConfigurationError, "Invalid cli flag values: " & p)
+
+  info "Cli flags:",
+    address=conf.address,
+    timeout=conf.timeout,
+    protocols=conf.protocols
 
   let
-    nodeMulti = if conf.staticnode != "": conf.staticnode else: conf.storenode
-    peer: RemotePeerInfo = parseRemotePeerInfo(nodeMulti)
+    peer: RemotePeerInfo = parseRemotePeerInfo(conf.address)
     rng = crypto.newRng()
     nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-    node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(60000))
+    node = WakuNode.new(
+      nodeKey,
+      ValidIpAddress.init("0.0.0.0"),
+      Port(60000))
 
   await node.start()
 
@@ -113,15 +102,19 @@ proc main(): Future[int] {.async.} =
   let conStatus = node.peerManager.peerStore.connectionBook[peer.peerId]
 
   if conStatus in [Connected, CanConnect]:
-    let protocols = lp2pPeerStore[ProtoBook][peer.peerId]
-    if conf.storenode != "":
-      return validate_storenode(protocols)
-    elif conf.staticnode != "":
-      return validate_staticnode(protocols)        
+    let nodeProtocols = lp2pPeerStore[ProtoBook][peer.peerId]
+    if not areProtocolsSupported(conf.protocols, nodeProtocols):
+      error "Not all protocols are supported:", expected=conf.protocols, supported=nodeProtocols
+      return 1
   elif conStatus == CannotConnect:
     error "Could not connect", peerId = peer.peerId
     return 1
   return 0
 
-let status = waitFor main()
-quit status
+when isMainModule:
+  let status = waitFor main()
+  if status == 0:
+    info "The node is reachable and supports all specified protocols"
+  else:
+    error "The node has some problems (see logs)"
+  quit status
