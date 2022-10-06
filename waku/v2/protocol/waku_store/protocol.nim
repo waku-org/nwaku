@@ -459,6 +459,7 @@ proc resume*(w: WakuStore,
   for msg in res.get():
     let putStoreRes = w.store.put(pubsubTopic, msg)
     if putStoreRes.isErr():
+      warn "failed to insert resumed message into store", error=putStoreRes.error
       continue
 
     added.inc()
