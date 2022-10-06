@@ -810,9 +810,9 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
     return MessageValidationResult.Invalid
 
   ## TODO: FIXME
-  # if not rlnPeer.validateRoot(msg.proof.merkleRoot):
-  #   debug "invalid message: provided root does not belong to acceptable window of roots", provided=msg.proof.merkleRoot, validRoots=rlnPeer.validMerkleRoots
-  #   waku_rln_invalid_messages_total.inc(labelValues=["invalid_root"])
+  if not rlnPeer.validateRoot(msg.proof.merkleRoot):
+    debug "invalid message: provided root does not belong to acceptable window of roots", provided=msg.proof.merkleRoot, validRoots=rlnPeer.validMerkleRoots
+    waku_rln_invalid_messages_total.inc(labelValues=["invalid_root"])
   #   return MessageValidationResult.Invalid
 
   # verify the proof
