@@ -1,22 +1,14 @@
 # BUILD IMAGE --------------------------------------------------------
 
-FROM alpine:3.16 AS nim-build
+FROM rust:1.64.0-slim-bullseye AS nim-build
 
 ARG NIMFLAGS
 ARG MAKE_TARGET=wakunode2
 ARG RLN=true
 
 # Get build tools and required header files
-RUN apk add --no-cache bash git cargo build-base pcre-dev linux-headers
-
-# Install newer rust than 1.62 as required by ethers-core.
-ENV PKG=rust-1.64.0-x86_64-unknown-linux-musl
-RUN wget -q https://static.rust-lang.org/dist/$PKG.tar.gz \
- && tar xf $PKG.tar.gz \
- && cd $PKG \
- && ./install.sh --components=rustc,cargo,rust-std-x86_64-unknown-linux-musl \
- && cd - \
- && rm -r $PKG $PKG.tar.gz
+RUN apt-get update
+RUN apt-get install -y bash git build-essential libpcre3-dev
 
 WORKDIR /app
 COPY . .
@@ -32,7 +24,7 @@ RUN make -j$(nproc) $MAKE_TARGET NIMFLAGS="$NIMFLAGS" RLN="$RLN"
 
 # ACTUAL IMAGE -------------------------------------------------------
 
-FROM alpine:3.16
+FROM debian:bullseye-slim
 
 ARG MAKE_TARGET=wakunode2
 
@@ -45,7 +37,9 @@ LABEL commit="unknown"
 EXPOSE 30303 60000 8545
 
 # Referenced in the binary
-RUN apk add --no-cache libgcc pcre-dev
+RUN apt-get update \
+ && apt-get install -y libpcre3-dev \
+ && rm -rf /var/cache/apt/archives /var/lib/apt/lists/*
 
 # Fix for 'Error loading shared library libpcre.so.3: No such file or directory'
 RUN ln -s /usr/lib/libpcre.so /usr/lib/libpcre.so.3
