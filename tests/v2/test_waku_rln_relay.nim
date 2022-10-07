@@ -633,9 +633,10 @@ suite "Waku rln relay":
       proofRes.isOk()
     let proof = proofRes.value
 
-    # verify the proof (should not be verified)
+    # verify the proof (should not be verified) against the internal RLN tree root
     let verified = rln.proofVerify(data = messageBytes,
-                                  proof = proof)
+                                  proof = proof,
+                                  validRoots = @[rln.getMerkleRoot().value()])
 
     require:
       verified.isOk()
