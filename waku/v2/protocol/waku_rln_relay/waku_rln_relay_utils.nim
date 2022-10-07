@@ -41,7 +41,8 @@ proc toBuffer*(x: openArray[byte]): Buffer =
   ## converts the input to a Buffer object
   ## the Buffer object is used to communicate data with the rln lib
   var temp = @x
-  let output = Buffer(`ptr`: addr(temp[0]), len: uint(temp.len))
+  let baseAddr = cast[pointer](x)
+  let output = Buffer(`ptr`: cast[ptr uint8](baseAddr), len: uint(temp.len))
   return output
 
 when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
