@@ -162,7 +162,7 @@ when defined(rlnzerokit):
    
   proc verify*(ctx: ptr RLN,
                          proof_buffer: ptr Buffer,
-                         proof_is_valid_ptr: ptr bool): bool {.importc: "verify_rln_proof".}
+                         proof_is_valid_ptr: ptr bool): bool {.importc: "verify".}
   ## proof_buffer has to be serialized as [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
   ## the return bool value indicates the success or failure of the call to the verify function
   ## the verification of the zk proof is available in proof_is_valid_ptr, where a value of true indicates success and false a failure
