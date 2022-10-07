@@ -2,7 +2,8 @@ import
   std/[strutils, sequtils, tables],
   confutils,
   chronos,
-  stew/shims/net
+  stew/shims/net,
+  chronicles/topics_registry
 import
   libp2p/protocols/ping,
   libp2p/crypto/[crypto, secp]
@@ -16,9 +17,9 @@ import
 # protocols and their tag
 const ProtocolsTable = {
   "store": "/vac/waku/store/",
-  "static": "/vac/waku/relay/",
+  "relay": "/vac/waku/relay/",
   "lightpush": "/vac/waku/lightpush/",
-  "filter": "/vac/waku/lightpush/",
+  "filter": "/vac/waku/filter/",
 }.toTable
 
 # cli flags
@@ -27,16 +28,26 @@ type
     address* {.
       desc: "Multiaddress of the peer node to attemp to dial",
       defaultValue: "",
-      name: "address" }: string
+      name: "address",
+      abbr: "a" }: string
 
     timeout* {.
       desc: "Timeout to consider that the connection failed",
       defaultValue: chronos.seconds(10),
-      name: "timeout" }: chronos.Duration
+      name: "timeout",
+      abbr: "t" }: chronos.Duration
 
     protocols* {.
-      desc: "Protocol required to be supported: store,static,lightpush,filter (can be used multiple times)"
-      name: "protocol" }: seq[string]
+      desc: "Protocol required to be supported: store,relay,lightpush,filter (can be used multiple times)",
+      name: "protocol",
+      abbr: "p" }: seq[string]
+
+    logLevel* {.
+      desc: "Sets the log level",
+      defaultValue: LogLevel.DEBUG,
+      name: "log-level",
+      abbr: "l" .}: LogLevel
+
 
 proc parseCmdArg*(T: type chronos.Duration, p: TaintedString): T =
   try:
@@ -58,7 +69,7 @@ proc areProtocolsSupported(
     for rawProtocol in rawProtocols:
       let protocolTag = ProtocolsTable[rawProtocol]
       if nodeProtocol.startsWith(protocolTag):
-        info "Supported protocol ok:", expected=protocolTag, supported=nodeProtocol
+        info "Supported protocol ok", expected=protocolTag, supported=nodeProtocol
         numOfSupportedProt += 1
         break
 
@@ -70,16 +81,20 @@ proc areProtocolsSupported(
 proc main(): Future[int] {.async.} =
   let conf: WakuCanaryConf = WakuCanaryConf.load()
 
+  if conf.logLevel != LogLevel.NONE:
+    setLogLevel(conf.logLevel)
+
   # ensure input protocols are valid
   for p in conf.protocols:
     if p notin ProtocolsTable: 
-      error "invalid protocol:", protocol=p, valid=ProtocolsTable
-      raise newException(ConfigurationError, "Invalid cli flag values: " & p)
+      error "invalid protocol", protocol=p, valid=ProtocolsTable
+      raise newException(ConfigurationError, "Invalid cli flag values" & p)
 
-  info "Cli flags:",
+  info "Cli flags",
     address=conf.address,
     timeout=conf.timeout,
-    protocols=conf.protocols
+    protocols=conf.protocols,
+    logLevel=conf.logLevel
 
   let
     peer: RemotePeerInfo = parseRemotePeerInfo(conf.address)
@@ -102,7 +117,7 @@ proc main(): Future[int] {.async.} =
   if conStatus in [Connected, CanConnect]:
     let nodeProtocols = lp2pPeerStore[ProtoBook][peer.peerId]
     if not areProtocolsSupported(conf.protocols, nodeProtocols):
-      error "Not all protocols are supported:", expected=conf.protocols, supported=nodeProtocols
+      error "Not all protocols are supported", expected=conf.protocols, supported=nodeProtocols
       return 1
   elif conStatus == CannotConnect:
     error "Could not connect", peerId = peer.peerId

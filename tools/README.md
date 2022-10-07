@@ -3,12 +3,17 @@
 Attempts to dial a peer and asserts it supports a given set of protocols.
 
 ```console
+Usage:
+
+wakucanary [OPTIONS]...
+
 The following options are available:
 
- --address       Multiaddress of the peer node to attemp to dial.
- --timeout       Timeout to consider that the connection failed [=chronos.seconds(10)].
- --protocol      Protocol required to be supported: store,static,lightpush,filter (can be used
-                 multiple times).
+ -a, --address        Multiaddress of the peer node to attemp to dial.
+ -t, --timeout        Timeout to consider that the connection failed [=chronos.seconds(10)].
+ -p, --protocol       Protocol required to be supported: store,relay,lightpush,filter (can be used
+                      multiple times).
+ -l, --log-level      Sets the log level [=LogLevel.DEBUG].
 ```
 
 The tool can be built as:
