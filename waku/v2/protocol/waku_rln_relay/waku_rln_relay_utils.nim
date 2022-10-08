@@ -41,7 +41,8 @@ proc toBuffer*(x: openArray[byte]): Buffer =
   ## converts the input to a Buffer object
   ## the Buffer object is used to communicate data with the rln lib
   var temp = @x
-  let output = Buffer(`ptr`: addr(temp[0]), len: uint(temp.len))
+  let baseAddr = cast[pointer](x)
+  let output = Buffer(`ptr`: cast[ptr uint8](baseAddr), len: uint(temp.len))
   return output
 
 when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
@@ -507,14 +508,26 @@ when defined(rlnzerokit):
 
     return proofBytes
 
-  proc proofVerify*(rlnInstance: ptr RLN, data: openArray[byte], proof: RateLimitProof): RlnRelayResult[bool] =
+  # Serializes a sequence of MerkleNodes
+  proc serialize(roots: seq[MerkleNode]): seq[byte] =
+    var rootsBytes: seq[byte] = @[]
+    for root in roots:
+      rootsBytes = concat(rootsBytes, @root)
+    return rootsBytes
+
+  # validRoots should contain a sequence of roots in the acceptable windows.
+  # As default, it is set to an empty sequence of roots. This implies that the validity check for the proof's root is skipped
+  proc proofVerify*(rlnInstance: ptr RLN, data: openArray[byte], proof: RateLimitProof, validRoots: seq[MerkleNode] = @[]): RlnRelayResult[bool] =
     var
       proofBytes = serialize(proof, data)
       proofBuffer = proofBytes.toBuffer()
       validProof: bool
+      rootsBytes = serialize(validRoots)
+      rootsBuffer = rootsBytes.toBuffer()
+
     trace "serialized proof", proof = proofBytes.toHex()
 
-    let verifyIsSuccessful = verify(rlnInstance, addr proofBuffer, addr validProof)
+    let verifyIsSuccessful = verify_with_roots(rlnInstance, addr proofBuffer, addr rootsBuffer, addr validProof)
     if not verifyIsSuccessful:
       # something went wrong in verification call
       warn "could not verify validity of the proof", proof=proof
