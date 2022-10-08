@@ -929,9 +929,10 @@ proc subscribeToGroupEvents(ethClientUri: string, ethAccountAddress: Address, co
       handler(pubkey, index)
     except Exception as err:
       # chronos still raises exceptions which inherit directly from Exception
+      error "Error handling new member registration: ", err=err.msg
       doAssert false, err.msg
   do (err: CatchableError):
-    echo "Error from subscription: ", err.msg   
+    error "Error from subscription: ", err=err.msg
 
 proc handleGroupUpdates*(rlnPeer: WakuRLNRelay, handler: RegistrationEventHandler) {.async, gcsafe.} =
   # mounts the supplied handler for the registration events emitting from the membership contract
@@ -1109,6 +1110,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
     let pk = pubkey.toIDCommitment()
     let isSuccessful = rlnPeer.insertMember(pk)
     debug "received pk", pk=pk.toHex, index =index
+    debug "acceptable window", validRoots=rlnPeer.validMerkleRoots
     doAssert(isSuccessful.isOk())
 
   asyncSpawn rlnPeer.handleGroupUpdates(handler)
@@ -1172,8 +1174,9 @@ proc mount(node: WakuNode,
       info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
       return ok(true)
   else: # mount the rln relay protocol in the on-chain/dynamic mode
-    echo " setting up waku-rln-relay in on-chain mode... "
+    echo "setting up waku-rln-relay in on-chain mode... "
     
+    debug "on-chain parameters", contractAddress=conf.rlnRelayEthContractAddress
     # read related inputs to run rln-relay in on-chain mode and do type conversion when needed
     let 
       ethAccountAddr = web3.fromHex(web3.Address, conf.rlnRelayEthAccountAddress)
