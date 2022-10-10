@@ -906,24 +906,9 @@ proc addAll*(wakuRlnRelay: WakuRLNRelay, list: seq[IDCommitment]): RlnRelayResul
 # the types of inputs to this handler matches the MemberRegistered event/proc defined in the MembershipContract interface
 type RegistrationEventHandler  = proc(pubkey: Uint256, index: Uint256): void {.gcsafe, closure, raises: [Defect].}
 
-
-proc subscribeToGroupEvents(ethClientUri: string, ethAccountAddress: Address, contractAddress: Address, blockNumber: string = "0x0", handler: RegistrationEventHandler) {.async, gcsafe.} = 
-  ## connects to the eth client whose URI is supplied as `ethClientUri`
-  ## subscribes to the `MemberRegistered` event emitted from the `MembershipContract` which is available on the supplied `contractAddress`
-  ## it collects all the events starting from the given `blockNumber`
-  ## for every received event, it calls the `handler`
-  
-  # connect to the eth client
-  let web3 = await newWeb3(ethClientUri)
-  # prepare a contract sender to interact with it
-  var contractObj = web3.contractSender(MembershipContract, contractAddress) 
-  web3.defaultAccount = ethAccountAddress 
-  #  set the gas price twice the suggested price in order for the fast mining
-  # let gasPrice = int(await web3.provider.eth_gasPrice()) * 2
-
-  # subscribe to the MemberRegistered events
-  # TODO can do similarly for deletion events, though it is not yet supported
-  discard await contractObj.subscribe(MemberRegistered, %*{"fromBlock": blockNumber, "address": contractAddress}) do(pubkey: Uint256, index: Uint256){.raises: [Defect], gcsafe.}:
+proc subscribeToMemberRegistrations(web3: Web3, contractAddress: Address, handler: RegistrationEventHandler): Future[Subscription] {.async, gcsafe} =
+  var contractObj = web3.contractSender(MembershipContract, contractAddress)
+  return await contractObj.subscribe(MemberRegistered, %*{"fromBlock": "0x0", "address": contractAddress}) do(pubkey: Uint256, index: Uint256){.raises: [Defect], gcsafe.}:
     try:
       debug "onRegister", pubkey = pubkey, index = index
       handler(pubkey, index)
@@ -933,6 +918,32 @@ proc subscribeToGroupEvents(ethClientUri: string, ethAccountAddress: Address, co
       doAssert false, err.msg
   do (err: CatchableError):
     error "Error from subscription: ", err=err.msg
+
+proc subscribeToGroupEvents(ethClientUri: string, ethAccountAddress: Address, contractAddress: Address, blockNumber: string = "0x0", handler: RegistrationEventHandler) {.async, gcsafe.} = 
+  ## connects to the eth client whose URI is supplied as `ethClientUri`
+  ## subscribes to the `MemberRegistered` event emitted from the `MembershipContract` which is available on the supplied `contractAddress`
+  ## it collects all the events starting from the given `blockNumber`
+  ## for every received event, it calls the `handler`
+  let web3 = await newWeb3(ethClientUri)
+  var latestBlock = "0x0"
+  let newHeadCallback = proc (blockheader: BlockHeader) {.gcsafe.} =
+    latestBlock = blockheader.number
+    debug "block received", blockNumber = latestBlock
+  let newHeadErrorHandler = proc (err: CatchableError) {.gcsafe.} =
+    error "Error from subscription: ", err=err.msg
+  discard await web3.subscribeForBlockHeaders(newHeadCallback, newHeadErrorHandler)
+
+  proc startSubscription(web3: Web3) {.async, gcsafe.} =
+    # subscribe to the MemberRegistered events
+    # TODO can do similarly for deletion events, though it is not yet supported
+    discard await subscribeToMemberRegistrations(web3, contractAddress, handler)
+  
+  await startSubscription(web3)
+  web3.onDisconnect = proc() =
+    debug "connection to ethereum node dropped", lastBlock = latestBlock
+
+
+  
 
 proc handleGroupUpdates*(rlnPeer: WakuRLNRelay, handler: RegistrationEventHandler) {.async, gcsafe.} =
   # mounts the supplied handler for the registration events emitting from the membership contract
