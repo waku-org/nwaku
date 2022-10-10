@@ -178,11 +178,11 @@ proc createRLNInstance*(d: int = MerkleTreeDepth): RLNResult {.raises: [Defect, 
   return res
 
 proc toUInt256*(idCommitment: IDCommitment): UInt256 =
-  let pk = UInt256.fromBytesBE(idCommitment)
+  let pk = UInt256.fromBytesLE(idCommitment)
   return pk
 
 proc toIDCommitment*(idCommitmentUint: UInt256): IDCommitment =
-  let pk = IDCommitment(idCommitmentUint.toBytesBE())
+  let pk = IDCommitment(idCommitmentUint.toBytesLE())
   return pk
 
 proc toMembershipIndex(v: UInt256): MembershipIndex =
@@ -233,6 +233,7 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Address, ethAccountPrivK
   debug "tx log data", arguments=arguments
   let 
     argumentsBytes = arguments.hexToSeqByte()
+    # In TX log data, uints are encoded in big endian
     eventIdCommUint = UInt256.fromBytesBE(argumentsBytes[0..31])
     eventIndex =  UInt256.fromBytesBE(argumentsBytes[32..^1])
     eventIdComm = eventIdCommUint.toIDCommitment()
