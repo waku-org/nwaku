@@ -925,7 +925,7 @@ proc subscribeToGroupEvents(ethClientUri: string, ethAccountAddress: Address, co
   ## it collects all the events starting from the given `blockNumber`
   ## for every received event, it calls the `handler`
   let web3 = await newWeb3(ethClientUri)
-  var latestBlock = "0x0"
+  var latestBlock: Quantity
   let newHeadCallback = proc (blockheader: BlockHeader) {.gcsafe.} =
     latestBlock = blockheader.number
     debug "block received", blockNumber = latestBlock
