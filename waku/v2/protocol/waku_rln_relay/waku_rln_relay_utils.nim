@@ -906,9 +906,9 @@ proc addAll*(wakuRlnRelay: WakuRLNRelay, list: seq[IDCommitment]): RlnRelayResul
 # the types of inputs to this handler matches the MemberRegistered event/proc defined in the MembershipContract interface
 type RegistrationEventHandler  = proc(pubkey: Uint256, index: Uint256): void {.gcsafe, closure, raises: [Defect].}
 
-proc subscribeToMemberRegistrations(web3: Web3, contractAddress: Address, handler: RegistrationEventHandler): Future[Subscription] {.async, gcsafe} =
+proc subscribeToMemberRegistrations(web3: Web3, contractAddress: Address, handler: RegistrationEventHandler, fromBlock: string = "0x0"): Future[Subscription] {.async, gcsafe} =
   var contractObj = web3.contractSender(MembershipContract, contractAddress)
-  return await contractObj.subscribe(MemberRegistered, %*{"fromBlock": "0x0", "address": contractAddress}) do(pubkey: Uint256, index: Uint256){.raises: [Defect], gcsafe.}:
+  return await contractObj.subscribe(MemberRegistered, %*{"fromBlock": fromBlock, "address": contractAddress}) do(pubkey: Uint256, index: Uint256){.raises: [Defect], gcsafe.}:
     try:
       debug "onRegister", pubkey = pubkey, index = index
       handler(pubkey, index)
@@ -936,7 +936,7 @@ proc subscribeToGroupEvents(ethClientUri: string, ethAccountAddress: Address, co
   proc startSubscription(web3: Web3) {.async, gcsafe.} =
     # subscribe to the MemberRegistered events
     # TODO can do similarly for deletion events, though it is not yet supported
-    discard await subscribeToMemberRegistrations(web3, contractAddress, handler)
+    discard await subscribeToMemberRegistrations(web3, contractAddress, handler, blockNumber)
   
   await startSubscription(web3)
   web3.onDisconnect = proc() =
