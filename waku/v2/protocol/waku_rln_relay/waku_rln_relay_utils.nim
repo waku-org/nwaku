@@ -824,8 +824,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
 
   ## TODO: FIXME after resolving this issue https://github.com/status-im/nwaku/issues/1247
   if not rlnPeer.validateRoot(msg.proof.merkleRoot):
-    debug "invalid message: provided root does not belong to acceptable window of roots", provided=msg.proof.merkleRoot, validRoots=rlnPeer.validMerkleRoots
-    waku_rln_invalid_messages_total.inc(labelValues=["invalid_root"])
+    debug "invalid message: provided root does not belong to acceptable window of roots", provided=msg.proof.merkleRoot, validRoots=rlnPeer.validMerkleRoots.mapIt("0x" & (it.toHex))    waku_rln_invalid_messages_total.inc(labelValues=["invalid_root"])
   #   return MessageValidationResult.Invalid
 
   # verify the proof
@@ -1121,7 +1120,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
     let pk = pubkey.toIDCommitment()
     let isSuccessful = rlnPeer.insertMember(pk)
     debug "received pk", pk=pk.toHex, index =index
-    debug "acceptable window", validRoots=rlnPeer.validMerkleRoots
+    debug "acceptable window", validRoots=rlnPeer.validMerkleRoots.mapIt("0x" & (it.toHex))
     doAssert(isSuccessful.isOk())
 
   asyncSpawn rlnPeer.handleGroupUpdates(handler)
