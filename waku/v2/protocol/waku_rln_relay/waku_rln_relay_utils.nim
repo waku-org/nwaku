@@ -815,7 +815,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
   debug "message epoch", msgEpoch = fromEpoch(msgEpoch)
 
   # validate the epoch
-  if abs(gap) >= MaxEpochGap:
+  if abs(gap) > MaxEpochGap:
     # message's epoch is too old or too ahead
     # accept messages whose epoch is within +-MaxEpochGap from the current epoch
     debug "invalid message: epoch gap exceeds a threshold", gap = gap,
