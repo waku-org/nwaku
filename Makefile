@@ -158,6 +158,11 @@ example2: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim example2 $(NIM_PARAMS) waku.nims
 
+# Waku tooling targets
+wakucanary: | build deps
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim wakucanary $(NIM_PARAMS) waku.nims
+
 
 installganache:
 ifeq ($(ONCHAIN_RLN), true) 
