@@ -185,6 +185,13 @@ proc toIDCommitment*(idCommitmentUint: UInt256): IDCommitment =
   let pk = IDCommitment(idCommitmentUint.toBytesLE())
   return pk
 
+proc inHex*(value: IDKey or IDCommitment or MerkleNode or Nullifier or Epoch or RlnIdentifier): string = 
+  var valueHex = (UInt256.fromBytesLE(value)).toHex
+  # We pad leading zeroes
+  while valueHex.len < 32*2:
+    valueHex = "0" & valueHex
+  return valueHex
+
 proc toMembershipIndex(v: UInt256): MembershipIndex =
   let result: MembershipIndex = cast[MembershipIndex](v)
   return result
@@ -613,8 +620,8 @@ proc toMembershipKeyPairs*(groupKeys: seq[(string, string)]): seq[
 
   for i in 0..groupKeys.len-1:
     let
-      idKey = groupKeys[i][0].hexToByteArray(32)
-      idCommitment = groupKeys[i][1].hexToByteArray(32)
+      idKey = hexToUint[32*8](groupKeys[i][0]).toBytesLE()
+      idCommitment =  hexToUint[32*8](groupKeys[i][1]).toBytesLE()
     groupKeyPairs.add(MembershipKeyPair(idKey: idKey,
         idCommitment: idCommitment))
   return groupKeyPairs
@@ -633,7 +640,7 @@ proc calcMerkleRoot*(list: seq[IDCommitment]): string {.raises: [Defect, IOError
     member_is_added = rln.insertMember(list[i])
     doAssert(member_is_added)
 
-  let root = rln.getMerkleRoot().value().toHex
+  let root = rln.getMerkleRoot().value().inHex
   return root
 
 proc createMembershipList*(n: int): (seq[(string, string)], string) {.raises: [
@@ -655,7 +662,7 @@ proc createMembershipList*(n: int): (seq[(string, string)], string) {.raises: [
     let keypair = rln.membershipKeyGen()
     doAssert(keypair.isSome())
 
-    let keyTuple = (keypair.get().idKey.toHex, keypair.get().idCommitment.toHex)
+    let keyTuple = (keypair.get().idKey.inHex, keypair.get().idCommitment.inHex)
     output.add(keyTuple)
 
     # insert the key to the Merkle tree
@@ -664,7 +671,7 @@ proc createMembershipList*(n: int): (seq[(string, string)], string) {.raises: [
       return (@[], "")
 
 
-  let root = rln.getMerkleRoot().value.toHex
+  let root = rln.getMerkleRoot().value().inHex
   return (output, root)
 
 proc rlnRelayStaticSetUp*(rlnRelayMembershipIndex: MembershipIndex): (Option[seq[
@@ -825,7 +832,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
 
   ## TODO: FIXME after resolving this issue https://github.com/status-im/nwaku/issues/1247
   if not rlnPeer.validateRoot(msg.proof.merkleRoot):
-    debug "invalid message: provided root does not belong to acceptable window of roots", provided=msg.proof.merkleRoot, validRoots=rlnPeer.validMerkleRoots.mapIt("0x" & (it.toHex))
+    debug "invalid message: provided root does not belong to acceptable window of roots", provided=msg.proof.merkleRoot, validRoots=rlnPeer.validMerkleRoots.mapIt(it.inHex)
     waku_rln_invalid_messages_total.inc(labelValues=["invalid_root"])
   #   return MessageValidationResult.Invalid
 
@@ -974,10 +981,10 @@ proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string, contentTopic: Co
         validationRes = node.wakuRlnRelay.validateMessage(wakumessage)
         proof = toHex(wakumessage.proof.proof)
         epoch = fromEpoch(wakumessage.proof.epoch)
-        root = toHex(wakumessage.proof.merkleRoot)
-        shareX = toHex(wakumessage.proof.shareX)
-        shareY = toHex(wakumessage.proof.shareY)
-        nullifier = toHex(wakumessage.proof.nullifier)
+        root = inHex(wakumessage.proof.merkleRoot)
+        shareX = inHex(wakumessage.proof.shareX)
+        shareY = inHex(wakumessage.proof.shareY)
+        nullifier = inHex(wakumessage.proof.nullifier)
       case validationRes:
         of Valid:
           debug "message validity is verified, relaying:",  contentTopic=wakumessage.contentTopic, epoch=epoch, timestamp=wakumessage.timestamp, payload=payload
@@ -1121,8 +1128,8 @@ proc mountRlnRelayDynamic*(node: WakuNode,
     # assuming all the members arrive in order
     let pk = pubkey.toIDCommitment()
     let isSuccessful = rlnPeer.insertMember(pk)
-    debug "received pk", pk=pk.toHex, index=index
-    debug "acceptable window", validRoots=rlnPeer.validMerkleRoots.mapIt("0x" & (it.toHex))
+    debug "received pk", pk=pk.inHex, index=index
+    debug "acceptable window", validRoots=rlnPeer.validMerkleRoots.mapIt(it.inHex)
     doAssert(isSuccessful.isOk())
 
   asyncSpawn rlnPeer.handleGroupUpdates(handler)
@@ -1165,8 +1172,8 @@ proc mount(node: WakuNode,
       # mount rlnrelay in off-chain mode with a static group of users
       node.mountRlnRelayStatic(group = groupOpt.get(), memKeyPair = memKeyPairOpt.get(), memIndex= memIndexOpt.get(), pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler)
 
-      info "membership id key", idkey=memKeyPairOpt.get().idKey.toHex
-      info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.toHex
+      info "membership id key", idkey=memKeyPairOpt.get().idKey.inHex
+      info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.inHex
 
       # check the correct construction of the tree by comparing the calculated root against the expected root
       # no error should happen as it is already captured in the unit tests
@@ -1180,7 +1187,7 @@ proc mount(node: WakuNode,
       
       let root = rootRes.value()
 
-      if root.toHex != expectedRoot:
+      if root.inHex != expectedRoot:
         error "root mismatch: something went wrong not in Merkle tree construction"
       debug "the calculated root", root
       info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
