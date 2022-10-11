@@ -9,7 +9,7 @@ wakucanary [OPTIONS]...
 
 The following options are available:
 
- -a, --address        Multiaddress of the peer node to attemp to dial.
+ -a, --address        Multiaddress of the peer node to attempt to dial.
  -t, --timeout        Timeout to consider that the connection failed [=chronos.seconds(10)].
  -p, --protocol       Protocol required to be supported: store,relay,lightpush,filter (can be used
                       multiple times).

@@ -26,7 +26,7 @@ const ProtocolsTable = {
 type
   WakuCanaryConf* = object
     address* {.
-      desc: "Multiaddress of the peer node to attemp to dial",
+      desc: "Multiaddress of the peer node to attempt to dial",
       defaultValue: "",
       name: "address",
       abbr: "a" }: string
