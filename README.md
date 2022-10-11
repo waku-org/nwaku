@@ -55,6 +55,10 @@ make test
 Examples can be found in the examples folder. For Waku v2, there is a fully
 featured chat example.
 
+### Tools
+
+Different tools and their corresponding how-to guides can be found in the `tools` folder.
+
 ### Bugs, Questions & Features
 
 For an inquiry, or if you would like to propose new features, feel free to [open a general issue](https://github.com/status-im/nim-waku/issues/new/).

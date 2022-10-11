@@ -99,3 +99,7 @@ task chat2bridge, "Build chat2-matterbridge":
 
   buildBinary name, "examples/v2/matterbridge/", "-d:chronicles_log_level=DEBUG"
 
+### Waku Tooling
+task wakucanary, "Build waku-canary tool":
+  let name = "wakucanary"
+  buildBinary name, "tools/wakucanary/", "-d:chronicles_log_level=DEBUG -d:chronicles_runtime_filtering:on"
