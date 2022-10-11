@@ -408,7 +408,7 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     var rootValue = cast[ptr MerkleNode] (root.`ptr`)[]
     return ok(rootValue)
 
-  proc proofVerify*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: RateLimitProof): RlnRelayResult[bool] =
+  proc proofVerify*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: RateLimitProof, validRoots: seq[MerkleNode] = @[]): RlnRelayResult[bool] =
     var
       proofBytes = serialize(proof, data)
       proofBuffer = proofBytes.toBuffer()
