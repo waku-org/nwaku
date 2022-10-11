@@ -377,6 +377,10 @@ proc processInput(rfd: AsyncFD) {.async.} =
       wssEnabled = conf.websocketSecureSupport)
   await node.start()
 
+  if conf.rlnRelayEthAccountPrivateKey == "" and conf.rlnRelayCredPath == "":
+    raise newException(ConfigurationError,
+    "Either rln-relay-eth-private-key or rln-relay-cred-path MUST be passed")
+
   if conf.relay:
     await node.mountRelay(conf.topics.split(" "))
   
@@ -531,7 +535,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
           showChatPrompt(chat)
         proc registrationHandler(txHash: string) {.gcsafe, closure.} =
           echo "You are registered to the rln membership contract, find details of your registration transaction in https://goerli.etherscan.io/tx/0x", txHash
-       
+        
         echo "rln-relay preparation is in progress..."
         let res = node.mountRlnRelay(conf = conf, spamHandler = some(spamHandler), registrationHandler = some(registrationHandler))
         if res.isErr:
@@ -555,11 +559,19 @@ proc main() {.async.} =
 
   var thread: Thread[AsyncFD]
   thread.createThread(readInput, wfd)
+  try:
+    await processInput(rfd)
+  # Handle only ConfigurationError for now
+  # TODO: Throw other errors from the mounting procedure
+  except ConfigurationError as e:
+    raise e
 
-  await processInput(rfd)
 
 when isMainModule: # isMainModule = true when the module is compiled as the main file
-  waitFor(main())
+  try:
+    waitFor(main())
+  except CatchableError as e:
+    raise e
 
 ## Dump of things that can be improved:
 ##
