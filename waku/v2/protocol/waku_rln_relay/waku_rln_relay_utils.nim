@@ -218,7 +218,7 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Option[Address], ethAcco
   # web3.privateKey = some(ethAccountPrivateKey)
   var sender = web3.contractSender(MembershipContract, membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
 
-  debug "registering an id commitment", idComm=idComm
+  debug "registering an id commitment", idComm=idComm.inHex
   let pk = idComm.toUInt256()
 
   var txHash: TxHash
@@ -245,7 +245,7 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Option[Address], ethAcco
     eventIdCommUint = UInt256.fromBytesBE(argumentsBytes[0..31])
     eventIndex =  UInt256.fromBytesBE(argumentsBytes[32..^1])
     eventIdComm = eventIdCommUint.toIDCommitment()
-  debug "the identity commitment key extracted from tx log", eventIdComm=eventIdComm
+  debug "the identity commitment key extracted from tx log", eventIdComm=eventIdComm.inHex
   debug "the index of registered identity commitment key", eventIndex=eventIndex
 
   if eventIdComm != idComm:
