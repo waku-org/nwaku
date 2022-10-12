@@ -77,6 +77,9 @@ pipeline {
           commit: GIT_COMMIT.take(8),
           prev: (env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: env.GIT_PREVIOUS_COMMIT ?: 'master').take(8),
         ]
+        wrap([$class: 'BuildUser']) {
+          BUILD_USER_ID = env.BUILD_USER_ID
+        }
         discordSend(
           title: "${env.JOB_NAME}#${env.BUILD_NUMBER}",
           description: """
@@ -85,6 +88,7 @@ pipeline {
             Branch: [`${repo.branch}`](${repo.url}/commits/${repo.branch})
             Commit: [`${repo.commit}`](${repo.url}/commit/${repo.commit})
             Diff: [`${repo.prev}...${repo.commit}`](${repo.url}/compare/${repo.prev}...${repo.commit})
+            By: [`${BUILD_USER_ID}`](${repo.url}/commits?author=${BUILD_USER_ID})
           """,
           link: env.BUILD_URL,
           result: currentBuild.currentResult,
