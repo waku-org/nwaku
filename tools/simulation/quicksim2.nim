@@ -6,19 +6,19 @@ import
   json_rpc/[rpcclient, rpcserver],
   libp2p/protobuf/minprotobuf
 import
-  ../protocol/waku_filter,
-  ../protocol/waku_store,
-  ../protocol/waku_message,
-  ../utils/time,
-  ./wakunode2, 
-  ./waku_payload,
-  ./jsonrpc/[jsonrpc_types,jsonrpc_utils]
+  ../../waku/v2/protocol/waku_filter,
+  ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/utils/time,
+  ../../waku/v2/node/wakunode2, 
+  ../../waku/v2/node/waku_payload,
+  ../../waku/v2/node/jsonrpc/[jsonrpc_types,jsonrpc_utils]
   
 
 from strutils import rsplit
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 
-const sigWakuPath = sourceDir / "jsonrpc" / "jsonrpc_callsigs.nim"
+const sigWakuPath = sourceDir / ".." / ".." / "waku" / "v2" / "node" / "jsonrpc" / "jsonrpc_callsigs.nim"
 createRpcSigs(RpcHttpClient, sigWakuPath)
 
 const defaultTopic = "/waku/2/default-waku/proto"

@@ -5,8 +5,9 @@ import
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   nimcrypto/utils,
-  eth/keys,
-  ../../waku/v2/protocol/waku_message
+  eth/keys
+import
+  ../../../waku/v2/protocol/waku_message
 
 type
   Fleet* =  enum

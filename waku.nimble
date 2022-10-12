@@ -64,40 +64,44 @@ task test1, "Build & run Waku v1 tests":
 
 ### Waku v2 tasks
 task wakunode2, "Build Waku v2 (experimental) cli node":
-  buildBinary "wakunode2", "waku/v2/node/", "-d:chronicles_log_level=DEBUG"
+  let name = "wakunode2"
+  buildBinary name, "waku/v2/node/", "-d:chronicles_log_level=DEBUG"
+
+task bridge, "Build Waku v1 - v2 bridge":
+  let name = "wakubridge"
+  buildBinary name, "apps/wakubridge/", "-d:chronicles_log_level=DEBUG"
+
+task test2, "Build & run Waku v2 tests":
+  test "all_tests_v2"
+
 
 task sim2, "Build Waku v2 simulation tools":
-  buildBinary "quicksim2", "waku/v2/node/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "start_network2", "waku/v2/node/", "-d:chronicles_log_level=TRACE"
+  buildBinary "quicksim2", "tools/simulation/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "start_network2", "tools/simulation/", "-d:chronicles_log_level=TRACE"
 
 task example2, "Build Waku v2 example":
   let name = "basic2"
   buildBinary name, "examples/v2/", "-d:chronicles_log_level=DEBUG"
 
-task test2, "Build & run Waku v2 tests":
-  test "all_tests_v2"
-
 task scripts2, "Build Waku v2 scripts":
-  buildBinary "rpc_publish", "waku/v2/node/scripts/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "rpc_subscribe", "waku/v2/node/scripts/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "rpc_subscribe_filter", "waku/v2/node/scripts/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "rpc_query", "waku/v2/node/scripts/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "rpc_info", "waku/v2/node/scripts/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "rpc_publish", "tools/scripts/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "rpc_subscribe", "tools/scripts/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "rpc_subscribe_filter", "tools/scripts/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "rpc_query", "tools/scripts/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "rpc_info", "tools/scripts/", "-d:chronicles_log_level=DEBUG"
 
 task chat2, "Build example Waku v2 chat usage":
-  let name = "chat2"
   # NOTE For debugging, set debug level. For chat usage we want minimal log
   # output to STDOUT. Can be fixed by redirecting logs to file (e.g.)
   #buildBinary name, "examples/v2/", "-d:chronicles_log_level=WARN"
-  buildBinary name, "examples/v2/", "-d:chronicles_log_level=DEBUG -d:chronicles_sinks=textlines[file] -d:ssl"
 
-task bridge, "Build Waku v1 - v2 bridge":
-  buildBinary "wakubridge", "waku/common/", "-d:chronicles_log_level=DEBUG"
+  let name = "chat2"
+  buildBinary name, "apps/chat2/", "-d:chronicles_log_level=DEBUG -d:chronicles_sinks=textlines[file] -d:ssl"
 
-task chat2bridge, "Build chat2-matterbridge":
+task chat2bridge, "Build chat2bridge":
   let name = "chat2bridge"
+  buildBinary name, "apps/chat2bridge/", "-d:chronicles_log_level=DEBUG"
 
-  buildBinary name, "examples/v2/matterbridge/", "-d:chronicles_log_level=DEBUG"
 
 ### Waku Tooling
 task wakucanary, "Build waku-canary tool":

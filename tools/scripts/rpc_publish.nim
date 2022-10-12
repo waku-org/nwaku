@@ -4,13 +4,14 @@ import
   libp2p/protobuf/minprotobuf,
   eth/common as eth_common, eth/keys,
   system,
-  options,
-  ../wakunode2,
-  ../waku_payload,
-  ../jsonrpc/jsonrpc_types,
-  ../../protocol/waku_filter,
-  ../../protocol/waku_store,
-  ../../../v1/node/rpc/hexstrings
+  options
+import
+  ../../waku/v2/node/wakunode2,
+  ../../waku/v2/node/waku_payload,
+  ../../waku/v2/node/jsonrpc/jsonrpc_types,
+  ../../waku/v2/protocol/waku_filter,
+  ../../waku/v2/protocol/waku_store,
+  ../../waku/v1/node/rpc/hexstrings
 
 from strutils import rsplit
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]

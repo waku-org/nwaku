@@ -7,14 +7,14 @@ import
   stew/[byteutils, endians2],
   stew/shims/net as stewNet, json_rpc/rpcserver,
   # Matterbridge client imports
-  ../../../waku/common/utils/matterbridge_client,
+  ../../waku/common/utils/matterbridge_client,
   # Waku v2 imports
   libp2p/crypto/crypto,
   libp2p/errors,
   ../../../waku/v2/protocol/waku_message,
   ../../../waku/v2/node/wakunode2,
   # Chat 2 imports
-  ../chat2,
+  ../chat2/chat2,
   # Common cli config
   ./config_chat2bridge
 
