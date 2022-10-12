@@ -542,8 +542,8 @@ proc processInput(rfd: AsyncFD) {.async.} =
           echo "failed to mount rln-relay: " & res.error()
         else:
           echo "your membership index is: ", node.wakuRlnRelay.membershipIndex
-          echo "your rln identity key is: ", node.wakuRlnRelay.membershipKeyPair.idKey.toHex()
-          echo "your rln identity commitment key is: ", node.wakuRlnRelay.membershipKeyPair.idCommitment.toHex()
+          echo "your rln identity key is: ", node.wakuRlnRelay.membershipKeyPair.idKey.inHex()
+          echo "your rln identity commitment key is: ", node.wakuRlnRelay.membershipKeyPair.idCommitment.inHex()
 
   await chat.readWriteLoop()
 
