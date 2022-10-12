@@ -334,16 +334,16 @@ procSuite "Waku-rln-relay":
         group.add(keypair.get().idCommitment)
         member_is_added = rln.insertMember(keypair.get().idCommitment)
         doAssert(member_is_added)
-        debug "member key", key = keypair.get().idCommitment.toHex
+        debug "member key", key = keypair.get().idCommitment.inHex
       else:
         var memberKeypair = rln.membershipKeyGen()
         doAssert(memberKeypair.isSome())
         group.add(memberKeypair.get().idCommitment)
         member_is_added = rln.insertMember(memberKeypair.get().idCommitment)
         doAssert(member_is_added)
-        debug "member key", key = memberKeypair.get().idCommitment.toHex
+        debug "member key", key = memberKeypair.get().idCommitment.inHex
 
-    let expectedRoot = rln.getMerkleRoot().value().toHex
+    let expectedRoot = rln.getMerkleRoot().value().inHex
     debug "expected root ", expectedRoot
 
     # test ------------------------------
@@ -354,7 +354,7 @@ procSuite "Waku-rln-relay":
                             memIndex = index,
                             pubsubTopic = RlnRelayPubsubTopic,
                             contentTopic = RlnRelayContentTopic)
-    let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
+    let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().inHex
     debug "calculated root ", calculatedRoot
 
     check:
@@ -398,8 +398,8 @@ procSuite "Waku-rln-relay":
     let 
       pk1 = keyPair1.get().idCommitment.toUInt256() 
       pk2 = keyPair2.get().idCommitment.toUInt256() 
-    debug "member key1", key = keyPair1.get().idCommitment.toHex
-    debug "member key2", key = keyPair2.get().idCommitment.toHex
+    debug "member key1", key = keyPair1.get().idCommitment.inHex
+    debug "member key2", key = keyPair2.get().idCommitment.inHex
 
     # add the rln keys to the Merkle tree
     let
@@ -409,7 +409,7 @@ procSuite "Waku-rln-relay":
     doAssert(member_is_added2)
     
     #  get the Merkle root
-    let expectedRoot = rln.getMerkleRoot().value().toHex
+    let expectedRoot = rln.getMerkleRoot().value().inHex
     
     # prepare a contract sender to interact with it
     var contractObj = web3.contractSender(MembershipContract,
@@ -443,7 +443,7 @@ procSuite "Waku-rln-relay":
 
     # rln pks are inserted into the rln peer's Merkle tree and the resulting root
     # is expected to be the same as the calculatedRoot i.e., the one calculated outside of the mountRlnRelayDynamic proc
-    let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
+    let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().inHex
     debug "calculated root ", calculatedRoot=calculatedRoot
     debug "expected root ", expectedRoot=expectedRoot
 

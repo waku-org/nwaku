@@ -56,7 +56,7 @@ procSuite "Waku rln relay":
                             contentTopic = RlnRelayContentTopic)
 
     # get the root of Merkle tree which is constructed inside the mountRlnRelay proc
-    let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().toHex
+    let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().inHex
     debug "calculated root by mountRlnRelay", calculatedRoot
 
     # this part checks whether the Merkle tree is constructed correctly inside the mountRlnRelay proc
@@ -177,10 +177,10 @@ suite "Waku rln relay":
       root2.len == 32
 
     var rootValue1 = cast[ptr array[32, byte]] (root1.`ptr`)
-    let rootHex1 = rootValue1[].toHex
+    let rootHex1 = rootValue1[].inHex
 
     var rootValue2 = cast[ptr array[32, byte]] (root2.`ptr`)
-    let rootHex2 = rootValue2[].toHex
+    let rootHex2 = rootValue2[].inHex
 
     # the two roots must be identical
     check:
@@ -195,13 +195,13 @@ suite "Waku rln relay":
     var root1 = getMerkleRoot(rlnInstance.value())
     check:
       root1.isOk
-    let rootHex1 = root1.value().toHex
+    let rootHex1 = root1.value().inHex
 
     # read the Merkle Tree root
     var root2 = getMerkleRoot(rlnInstance.value())
     check:
       root2.isOk
-    let rootHex2 = root2.value().toHex
+    let rootHex2 = root2.value().inHex
 
     # the two roots must be identical
     check:
@@ -310,15 +310,15 @@ suite "Waku rln relay":
       root3.len == 32
 
     var rootValue1 = cast[ptr array[32, byte]] (root1.`ptr`)
-    let rootHex1 = rootValue1[].toHex
+    let rootHex1 = rootValue1[].inHex
     debug "The initial root", rootHex1
 
     var rootValue2 = cast[ptr array[32, byte]] (root2.`ptr`)
-    let rootHex2 = rootValue2[].toHex
+    let rootHex2 = rootValue2[].inHex
     debug "The root after insertion", rootHex2
 
     var rootValue3 = cast[ptr array[32, byte]] (root3.`ptr`)
-    let rootHex3 = rootValue3[].toHex
+    let rootHex3 = rootValue3[].inHex
     debug "The root after deletion", rootHex3
 
     # the root must change after the insertion
@@ -339,7 +339,7 @@ suite "Waku rln relay":
     var root1 = rln.getMerkleRoot()
     check:
       root1.isOk
-    let rootHex1 = root1.value().toHex()
+    let rootHex1 = root1.value().inHex()
 
     # generate a key pair
     var keypair = rln.membershipKeyGen()
@@ -353,7 +353,7 @@ suite "Waku rln relay":
     var root2 = rln.getMerkleRoot()
     check:
       root2.isOk
-    let rootHex2 = root2.value().toHex()
+    let rootHex2 = root2.value().inHex()
 
 
     # delete the first member
@@ -366,7 +366,7 @@ suite "Waku rln relay":
     var root3 = rln.getMerkleRoot()
     check:
       root3.isOk
-    let rootHex3 = root3.value().toHex()
+    let rootHex3 = root3.value().inHex()
 
 
     debug "The initial root", rootHex1
@@ -405,12 +405,12 @@ suite "Waku rln relay":
     
     when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
       check:
-        "efb8ac39dc22eaf377fe85b405b99ba78dbc2f3f32494add4501741df946bd1d" ==
-          outputArr.toHex()
+        "1dbd46f91d740145dd4a49323f2fbc8da79bb905b485fe77f3ea22dc39acb8ef" ==
+          outputArr.inHex()
     when defined(rlnzerokit):
       check:
-        "4c6ea217404bd5f10e243bac29dc4f1ec36bf4a41caba7b4c8075c54abb3321e" ==
-          outputArr.toHex()
+        "1e32b3ab545c07c8b4a7ab1ca4f46bc31e4fdc29ac3b240ef1d54b4017a26e4c" ==
+          outputArr.inHex()
 
     var
       hashOutput = cast[ptr array[32, byte]] (outputBuffer.`ptr`)[]
@@ -432,12 +432,12 @@ suite "Waku rln relay":
 
     when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
       check:
-        "efb8ac39dc22eaf377fe85b405b99ba78dbc2f3f32494add4501741df946bd1d" ==
-          hash.toHex()
+        "1dbd46f91d740145dd4a49323f2fbc8da79bb905b485fe77f3ea22dc39acb8ef" ==
+          hash.inHex()
     when defined(rlnzerokit):
       check:
-        "4c6ea217404bd5f10e243bac29dc4f1ec36bf4a41caba7b4c8075c54abb3321e" ==
-          hash.toHex()
+        "1e32b3ab545c07c8b4a7ab1ca4f46bc31e4fdc29ac3b240ef1d54b4017a26e4c" ==
+          hash.inHex()
 
   test "create a list of membership keys and construct a Merkle tree based on the list":
     let
@@ -568,7 +568,7 @@ suite "Waku rln relay":
 
     # prepare the epoch
     var epoch: Epoch
-    debug "epoch", epochHex = epoch.toHex()
+    debug "epoch", epochHex = epoch.inHex()
 
     # generate proof
     let proofRes = rln.proofGen(data = messageBytes,
@@ -620,7 +620,7 @@ suite "Waku rln relay":
 
     # prepare the epoch
     var epoch: Epoch
-    debug "epoch in bytes", epochHex = epoch.toHex()
+    debug "epoch in bytes", epochHex = epoch.inHex()
 
 
     let badIndex = 4
@@ -684,7 +684,7 @@ suite "Waku rln relay":
 
     # prepare the epoch
     var epoch: Epoch
-    debug "epoch in bytes", epochHex = epoch.toHex()
+    debug "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
     let validProofRes = rlnRelay.rlnInstance.proofGen(data = messageBytes,
@@ -769,7 +769,7 @@ suite "Waku rln relay":
 
     # prepare the epoch
     var epoch: Epoch
-    debug "epoch in bytes", epochHex = epoch.toHex()
+    debug "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
     let validProofRes = rlnRelay.rlnInstance.proofGen(data = messageBytes,
