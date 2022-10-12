@@ -12,14 +12,13 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
   eth/p2p,
-  eth/keys,
-  ../../waku/common/wakubridge,
+  eth/keys
+import
   ../../waku/v1/protocol/waku_protocol,
   ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_store,
-  ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/node/[wakunode2, waku_payload],
   ../../waku/v2/utils/peers,
+  ../../apps/wakubridge/wakubridge,
   ../test_helpers
 
 procSuite "WakuBridge":
@@ -139,12 +138,12 @@ procSuite "WakuBridge":
 
     v2Node.subscribe(DefaultBridgeTopic, relayHandler)
 
-    await sleepAsync(2000.millis)
+    await sleepAsync(250.millis)
 
     # Test bridging from V2 to V1
     await v2Node.publish(DefaultBridgeTopic, message)
 
-    await sleepAsync(2000.millis)
+    await sleepAsync(250.millis)
 
     check:
       # v1Node received message published by v2Node
@@ -173,7 +172,7 @@ procSuite "WakuBridge":
 
     await v2Node.publish(DefaultBridgeTopic, message)
 
-    await sleepAsync(2000.millis)
+    await sleepAsync(250.millis)
 
     check:
       # v1Node did not receive duplicate of previous message
@@ -211,7 +210,7 @@ procSuite "WakuBridge":
     
     # When
     waitFor v1Bridge.start()
-    await sleepAsync(2000.millis) # Give peers some time to connect
+    await sleepAsync(250.millis) # Give peers some time to connect
 
     # Then
     check:
@@ -228,7 +227,7 @@ procSuite "WakuBridge":
 
     # When
     discard v1Bridge.maintenanceLoop() # Forces one more run of the maintenance loop
-    await sleepAsync(2000.millis) # Give peers some time to connect
+    await sleepAsync(250.millis) # Give peers some time to connect
 
     # Then
     check:

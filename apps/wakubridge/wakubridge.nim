@@ -12,15 +12,15 @@ import
   eth/[keys, p2p], eth/common/utils,
   eth/p2p/[enode, peer_pool],
   eth/p2p/discoveryv5/random2,
-  ../v1/protocol/waku_protocol,
+  ../../waku/v1/protocol/waku_protocol,
   # Waku v2 imports
   libp2p/crypto/crypto,
   libp2p/nameresolving/nameresolver,
-  ../v2/utils/namespacing,
-  ../v2/utils/time,
-  ../v2/protocol/waku_message,
-  ../v2/node/wakunode2,
-  ../v2/node/peer_manager/peer_manager,
+  ../../waku/v2/utils/namespacing,
+  ../../waku/v2/utils/time,
+  ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/node/wakunode2,
+  ../../waku/v2/node/peer_manager/peer_manager,
   # Common cli config
   ./config_bridge
 
@@ -322,15 +322,15 @@ proc stop*(bridge: WakuBridge) {.async.} =
 when isMainModule:
   import
     libp2p/nameresolving/dnsresolver,
-    ./utils/nat,
-    ../whisper/whispernodes,
-    ../v1/node/rpc/wakusim,
-    ../v1/node/rpc/waku,
-    ../v1/node/rpc/key_storage,
-    ../v2/node/jsonrpc/[debug_api,
-                        filter_api,
-                        relay_api,
-                        store_api]
+    ../../waku/common/utils/nat,
+    ../../waku/whisper/whispernodes,
+    ../../waku/v1/node/rpc/wakusim,
+    ../../waku/v1/node/rpc/waku,
+    ../../waku/v1/node/rpc/key_storage,
+    ../../waku/v2/node/jsonrpc/[debug_api,
+                                filter_api,
+                                relay_api,
+                                store_api]
 
   proc startV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: WakuNodeConf) =
     installDebugApiHandlers(node, rpcServer)
