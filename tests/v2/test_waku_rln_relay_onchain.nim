@@ -193,7 +193,7 @@ procSuite "Waku-rln-relay":
     var rlnPeer = WakuRLNRelay(membershipKeyPair: keyPair.get(),
       membershipIndex: MembershipIndex(0),
       ethClientAddress: EthClient,
-      ethAccountAddress: accounts[0],
+      ethAccountAddress: some(accounts[0]),
       membershipContractAddress: contractAddress,
       rlnInstance: rln)
 
@@ -296,7 +296,7 @@ procSuite "Waku-rln-relay":
       membershipIndex: MembershipIndex(0),
       ethClientAddress: EthClient,
       ethAccountPrivateKey: some(ethPrivKey),
-      ethAccountAddress: ethacc,
+      ethAccountAddress: some(ethacc),
       membershipContractAddress: contractAddress)
 
     # register the rln-relay peer to the membership contract
@@ -431,7 +431,7 @@ procSuite "Waku-rln-relay":
     # start rln-relay
     await node.mountRelay(@[RlnRelayPubsubTopic])
     discard await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
-                            ethAccAddr = ethacc,
+                            ethAccountAddress = some(ethacc),
                             ethAccountPrivKeyOpt = some(ethPrivKey),
                             memContractAddr = contractAddress, 
                             memKeyPair = keyPair1,
@@ -484,7 +484,7 @@ procSuite "Waku-rln-relay":
     # start rln-relay on the first node, leave rln-relay credentials empty
     await node.mountRelay(@[RlnRelayPubsubTopic])
     discard await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
-                            ethAccAddr = ethacc,
+                            ethAccountAddress = some(ethacc),
                             ethAccountPrivKeyOpt = some(ethPrivKey),
                             memContractAddr = contractAddress, 
                             memKeyPair = none(MembershipKeyPair),
@@ -497,7 +497,7 @@ procSuite "Waku-rln-relay":
     # start rln-relay on the second node, leave rln-relay credentials empty
     await node2.mountRelay(@[RlnRelayPubsubTopic])
     discard await node2.mountRlnRelayDynamic(ethClientAddr = EthClient,
-                            ethAccAddr = ethacc,
+                            ethAccountAddress = some(ethacc),
                             ethAccountPrivKeyOpt = some(ethPrivKey),
                             memContractAddr = contractAddress, 
                             memKeyPair = none(MembershipKeyPair),

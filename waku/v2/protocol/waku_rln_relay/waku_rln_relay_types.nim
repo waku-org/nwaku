@@ -92,7 +92,7 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     membershipIndex*: MembershipIndex
     membershipContractAddress*: Address
     ethClientAddress*: string
-    ethAccountAddress*: Address
+    ethAccountAddress*: Option[Address]
     # this field is required for signing transactions
     # TODO may need to erase this ethAccountPrivateKey when is not used
     # TODO may need to make ethAccountPrivateKey mandatory
@@ -116,7 +116,7 @@ when defined(rlnzerokit):
     membershipIndex*: MembershipIndex
     membershipContractAddress*: Address
     ethClientAddress*: string
-    ethAccountAddress*: Address
+    ethAccountAddress*: Option[Address]
     # this field is required for signing transactions
     # TODO may need to erase this ethAccountPrivateKey when is not used
     # TODO may need to make ethAccountPrivateKey mandatory

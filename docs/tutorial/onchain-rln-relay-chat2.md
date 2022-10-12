@@ -40,7 +40,7 @@ You can test it by connecting two chat2 clients (running Waku-RLN-Relay) directl
 ## Build chat2
 First, build chat2 with the RLN flag set to true.
 
-```
+```bash
 make chat2 RLN=true
 ```
 
@@ -48,7 +48,7 @@ make chat2 RLN=true
 
 Run the following command to set up your chat2 client. 
 
-```
+```bash
 ./build/chat2 --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --rln-relay-eth-account-address:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --rln-relay-eth-account-private-key:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --rln-relay-eth-client-address:xxxx --ports-shift=1 
 ```
 
@@ -166,8 +166,16 @@ RLN credential is persisted in the `rlnCredentials.txt` file under the specified
 If this file does not already exist under the supplied path, then a new credential is generated and persisted in the `rlnCredentials.txt` file.
 Otherwise, the chat client does not generate a new credential and will use, instead, the persisted RLN credential.
 
-```
+```bash
 ./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6  --rln-relay-eth-account-address:your_eth_account --rln-relay-eth-account-private-key:your_eth_private_key  --rln-relay-eth-client-address:your_goerli_node  --ports-shift=1  --rln-relay-cred-path:./
+```
+
+Note: If you are reusing credentials, you can omit the `rln-relay-eth-account-address` and `rln-relay-eth-account-private-key` flags
+
+Therefore, the command to start chat2 would be -
+
+```bash
+./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --rln-relay-eth-client-address:your_goerli_node  --ports-shift=1  --rln-relay-cred-path:./
 ```
 
 # Sample test output
@@ -183,9 +191,11 @@ You can check this fact by looking at `Bob`'s console, where `message3` is missi
 
 
 **Alice**
-``` 
+```bash
 ./build/chat2 --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --rln-relay-eth-account-address:0x1234567890123456789012345678901234567890 --rln-relay-eth-account-private-key:0x1234567890123456789012345678901234567890123456789012345678901234 --rln-relay-eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012 --ports-shift=1 
+```
 
+```
 Choose a nickname >> Alice
 Welcome, Alice!
 Connecting to test fleet using DNS discovery...
@@ -225,9 +235,11 @@ your rln identity commitment key is: bd093cbf14fb933d53f596c33f98b3df83b7e9f7a19
 ```
 
 **Bob**
-``` 
+```bash
 ./build/chat2 --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --rln-relay-eth-account-address:0x1234567890123456789012345678901234567890 --rln-relay-eth-account-private-key:0x1234567890123456789012345678901234567890123456789012345678901234 --rln-relay-eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012 --ports-shift=2 
+```
 
+```
 Choose a nickname >> Bob
 Welcome, Bob!
 Connecting to test fleet using DNS discovery...
