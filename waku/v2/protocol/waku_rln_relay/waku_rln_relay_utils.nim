@@ -188,7 +188,7 @@ proc toIDCommitment*(idCommitmentUint: UInt256): IDCommitment =
 proc inHex*(value: IDKey or IDCommitment or MerkleNode or Nullifier or Epoch or RlnIdentifier): string = 
   var valueHex = (UInt256.fromBytesLE(value)).toHex
   # We pad leading zeroes
-  while valueHex.len < 32*2:
+  while valueHex.len < value.len * 2:
     valueHex = "0" & valueHex
   return valueHex
 
@@ -621,8 +621,8 @@ proc toMembershipKeyPairs*(groupKeys: seq[(string, string)]): seq[
 
   for i in 0..groupKeys.len-1:
     let
-      idKey = hexToUint[32*8](groupKeys[i][0]).toBytesLE()
-      idCommitment =  hexToUint[32*8](groupKeys[i][1]).toBytesLE()
+      idKey = hexToUint[IDKey.len*8](groupKeys[i][0]).toBytesLE()
+      idCommitment =  hexToUint[IDCommitment.len*8](groupKeys[i][1]).toBytesLE()
     groupKeyPairs.add(MembershipKeyPair(idKey: idKey,
         idCommitment: idCommitment))
   return groupKeyPairs
