@@ -14,7 +14,9 @@ import
   ../protocol/waku_store,
   ../protocol/waku_lightpush,
   ../protocol/waku_swap/waku_swap,
-  ../protocol/waku_peer_exchange
+  ../protocol/waku_peer_exchange,
+  ../protocol/waku_rln_relay/waku_rln_relay_metrics,
+  ../utils/collector
 
 logScope:
   topics = "wakunode.setup.metrics"
@@ -30,14 +32,7 @@ proc startMetricsServer*(serverIp: ValidIpAddress, serverPort: Port) =
 
     info "Metrics HTTP server started", serverIp, serverPort
 
-proc parseCollectorIntoF64(collector: Collector): float64 = 
-  var total = 0.float64
-  for key in collector.metrics.keys():
-    try:
-      total = total + collector.value(key)
-    except KeyError:
-      discard
-  return total
+
 
 proc startMetricsLog*() =
   # https://github.com/nim-lang/Nim/issues/17369
@@ -73,4 +68,8 @@ proc startMetricsLog*() =
     discard setTimer(Moment.fromNow(30.seconds), logMetrics)
   
   discard setTimer(Moment.fromNow(30.seconds), logMetrics)
+
+  # Start protocol specific metrics logging
+  when defined(rln) or defined(rlnzerokit):
+    startRlnMetricsLog()
   
