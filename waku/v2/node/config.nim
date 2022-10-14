@@ -251,6 +251,11 @@ type
       desc: "Peer multiaddr to request lightpush of published messages.",
       defaultValue: ""
       name: "lightpushnode" }: string
+
+    dandelion* {.
+      desc: "Enable dandelion stem relaying: true|false",
+      defaultValue: false
+      name: "dandelion" }: bool
     
     ## JSON-RPC config
 
