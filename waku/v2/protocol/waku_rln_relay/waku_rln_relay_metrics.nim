@@ -49,7 +49,7 @@ template parseAndAccumulate(collector: Collector, cumulativeValue: float64): flo
   cumulativeValue = total
   freshCount
 
-proc startRlnMetricsLog*() =
+proc logRlnMetrics*() =
   var logMetrics: proc(udata: pointer) {.gcsafe, raises: [Defect].}
 
   var cumulativeErrors = 0.float64
@@ -85,5 +85,5 @@ proc startRlnMetricsLog*() =
 
     discard setTimer(Moment.fromNow(LogPeriod.seconds), logMetrics)
   
-  discard setTimer(Moment.fromNow(LogPeriod.seconds), logMetrics)
+  logRlnMetrics()
   

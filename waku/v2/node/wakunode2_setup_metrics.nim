@@ -71,5 +71,5 @@ proc startMetricsLog*() =
 
   # Start protocol specific metrics logging
   when defined(rln) or defined(rlnzerokit):
-    startRlnMetricsLog()
+    logRlnMetrics()
   
