@@ -567,7 +567,7 @@ proc mountRelay*(node: WakuNode,
         
   info "relay mounted successfully"
 
-proc mountLightPush*(node: WakuNode) {.async, raises: [Defect, LPError].} =
+proc mountLightPush*(node: WakuNode, dandelion: bool = false) {.async, raises: [Defect, LPError].} =
   info "mounting light push"
 
   if node.wakuRelay.isNil:
@@ -575,7 +575,9 @@ proc mountLightPush*(node: WakuNode) {.async, raises: [Defect, LPError].} =
     node.wakuLightPush = WakuLightPush.init(node.peerManager, node.rng, nil)
   else:
     debug "mounting lightpush with relay"
-    node.wakuLightPush = WakuLightPush.init(node.peerManager, node.rng, nil, node.wakuRelay)
+    if dandelion:
+      debug "activate lightpush dandelion relay"
+    node.wakuLightPush = WakuLightPush.init(node.peerManager, node.rng, nil, node.wakuRelay, dandelion)
   
   if node.started:
     # Node has started already. Let's start lightpush too.
@@ -1095,8 +1097,8 @@ when isMainModule:
         setStorePeer(node, conf.storenode)
 
     # NOTE Must be mounted after relay
-    if (conf.lightpushnode != "") or (conf.lightpush):
-      waitFor mountLightPush(node)
+    if (conf.lightpushnode != "") or (conf.lightpush) or (conf.dandelion):
+      waitFor mountLightPush(node, conf.dandelion)
 
       if conf.lightpushnode != "":
         setLightPushPeer(node, conf.lightpushnode)
