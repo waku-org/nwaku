@@ -10,7 +10,8 @@ import
 
 export metrics
 
-const LogPeriod = 15
+# Log period is measured in seconds
+const LogPeriod = 15.seconds
 
 logScope:
   topics = "waku-rln-relay.metrics"
@@ -44,12 +45,14 @@ declarePublicGauge(waku_rln_membership_insertion_duration_seconds, "time taken t
 declarePublicGauge(waku_rln_membership_credentials_import_duration_seconds, "time taken to import membership credentials")
 
 template parseAndAccumulate(collector: Collector, cumulativeValue: float64): float64 =
+  ## This template is used to get metrics in a window 
+  ## according to a cumulative value passed in
   let total = parseCollectorIntoF64(collector)
-  let freshCount = max(total - cumulativeValue, 0)
+  let freshCount = total - cumulativeValue
   cumulativeValue = total
   freshCount
 
-proc logRlnMetrics*() =
+proc getRlnMetricsLogger*(): proc(udata: pointer)  =
   var logMetrics: proc(udata: pointer) {.gcsafe, raises: [Defect].}
 
   var cumulativeErrors = 0.float64
@@ -83,7 +86,6 @@ proc logRlnMetrics*() =
       info "Total errors", count = freshErrorCount
       info "Total proofs verified", count = freshProofCount
 
-    discard setTimer(Moment.fromNow(LogPeriod.seconds), logMetrics)
-  
-  logRlnMetrics()
+    discard setTimer(Moment.fromNow(LogPeriod), logMetrics)
+  return logMetrics
   

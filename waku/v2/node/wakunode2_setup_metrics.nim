@@ -49,9 +49,9 @@ proc startMetricsLog*() =
       let totalErrors = parseCollectorIntoF64(waku_node_errors)
       let totalConnections = parseCollectorIntoF64(waku_node_conns_initiated)
 
-      # track cumulative, and then max.
-      let freshErrorCount = max(totalErrors - cumulativeErrors, 0)
-      let freshConnCount = max(totalConnections - cumulativeConns, 0)
+      # track cumulative values
+      let freshErrorCount = totalErrors - cumulativeErrors
+      let freshConnCount = totalConnections - cumulativeConns
       
       cumulativeErrors = totalErrors
       cumulativeConns = totalConnections
@@ -71,5 +71,6 @@ proc startMetricsLog*() =
 
   # Start protocol specific metrics logging
   when defined(rln) or defined(rlnzerokit):
-    logRlnMetrics()
+    let logRlnMetrics = getRlnMetricsLogger()
+    logRlnMetrics(nil)
   
