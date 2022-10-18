@@ -15,7 +15,7 @@ import
 import
   ../../waku/v1/node/rpc/hexstrings,
   ../../waku/v2/node/storage/message/waku_store_queue,
-  ../../waku/v2/node/wakunode2,
+  ../../waku/v2/node/waku_node,
   ../../waku/v2/node/jsonrpc/[store_api,
                               relay_api,
                               debug_api,
@@ -231,7 +231,7 @@ procSuite "Waku v2 JSON-RPC API":
 
     # WakuStore setup
     let
-      key = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
+      key = crypto.PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.new(key)
     
     await node.mountStore(store=StoreQueueRef.new())
@@ -536,13 +536,13 @@ procSuite "Waku v2 JSON-RPC API":
     let
       locationAddr = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet()
 
-      filterKey = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
+      filterKey = crypto.PrivateKey.random(ECDSA, rng[]).get()
       filterPeer = PeerInfo.new(filterKey, @[locationAddr])
 
-      swapKey = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
+      swapKey = crypto.PrivateKey.random(ECDSA, rng[]).get()
       swapPeer = PeerInfo.new(swapKey, @[locationAddr])
 
-      storeKey = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
+      storeKey = crypto.PrivateKey.random(ECDSA, rng[]).get()
       storePeer = PeerInfo.new(storeKey, @[locationAddr])
 
     node.wakuFilter.setPeer(filterPeer.toRemotePeerInfo())

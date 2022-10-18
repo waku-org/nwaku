@@ -16,8 +16,9 @@ import
   waku_rln_relay_types,
   waku_rln_relay_metrics,
   ../../utils/time,
-  ../../node/[wakunode2_types,config],
-  ../../../../../apps/chat2/config_chat2,
+  ../../node/waku_node, 
+  ../../node/config,  ## TODO: Decouple the protocol code from the app configuration
+  ../../../../../apps/chat2/config_chat2,  ## TODO: Decouple the protocol code from the app configuration
   ../waku_message
 
 logScope:
