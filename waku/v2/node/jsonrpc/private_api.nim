@@ -6,7 +6,7 @@ import
   eth/keys,
   json_rpc/rpcserver,
   nimcrypto/sysrand,
-  ../wakunode2,
+  ../waku_node,
   ../waku_payload,
   ./jsonrpc_types,
   ./jsonrpc_utils

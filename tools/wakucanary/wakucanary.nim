@@ -10,7 +10,7 @@ import
 import
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/peers,
-  ../../waku/v2/node/wakunode2,
+  ../../waku/v2/node/waku_node,
   ../../waku/v2/node/waku_payload,
   ../../waku/v2/utils/peers
 

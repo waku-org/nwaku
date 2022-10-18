@@ -3,7 +3,7 @@
 import
   chronicles,
   json_rpc/rpcserver,
-  ../wakunode2
+  ../waku_node
 
 logScope:
   topics = "debug api"

@@ -10,7 +10,7 @@ import
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/utils/time,
-  ../../waku/v2/node/wakunode2, 
+  ../../waku/v2/node/waku_node, 
   ../../waku/v2/node/waku_payload,
   ../../waku/v2/node/jsonrpc/[jsonrpc_types,jsonrpc_utils]
   

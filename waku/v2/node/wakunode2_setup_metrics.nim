@@ -8,7 +8,7 @@ import
   metrics,
   metrics/chronos_httpserver,
   ./config,
-  ./wakunode2,
+  ./waku_node,
   ./peer_manager/peer_manager,
   ../protocol/waku_filter,
   ../protocol/waku_store,

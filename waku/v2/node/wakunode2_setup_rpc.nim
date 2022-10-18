@@ -8,7 +8,7 @@ import
 import
   ./config,
   ../protocol/waku_message,
-  ./wakunode2,
+  ./waku_node,
   ./jsonrpc/[admin_api,
              debug_api,
              filter_api,
