@@ -6,7 +6,7 @@ import
   eth/keys,
   eth/p2p/discoveryv5/[enr, node, protocol],
   stew/results,
-  ../config,
+  ../../../../apps/wakunode2/config,  ## TODO: Remove dependency on wakunode2 config module
   ../../utils/[peers, wakuenr]
 
 export protocol, wakuenr

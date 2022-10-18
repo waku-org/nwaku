@@ -6,17 +6,21 @@ import
   chronicles,
   chronos,
   metrics,
-  metrics/chronos_httpserver,
-  ./config,
-  ./waku_node,
-  ./peer_manager/peer_manager,
-  ../protocol/waku_filter,
-  ../protocol/waku_store,
-  ../protocol/waku_lightpush,
-  ../protocol/waku_swap/waku_swap,
-  ../protocol/waku_peer_exchange,
-  ../protocol/waku_rln_relay/waku_rln_relay_metrics,
-  ../utils/collector
+  metrics/chronos_httpserver
+import
+  ../../waku/v2/protocol/waku_filter,
+  ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/protocol/waku_lightpush,
+  ../../waku/v2/protocol/waku_swap/waku_swap,
+  ../../waku/v2/protocol/waku_peer_exchange,
+  ../../waku/v2/utils/collector,
+  ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/node/waku_node,
+  ./config
+
+when defined(rln) or defined(rlnzerokit):
+  import ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_metrics
+
 
 logScope:
   topics = "wakunode.setup.metrics"
