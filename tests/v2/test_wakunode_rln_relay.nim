@@ -20,7 +20,7 @@ import
         waku_rln_relay_constants],
   ../../waku/v2/protocol/[waku_relay, waku_message],
   ../../waku/v2/utils/peers,
-  ../../waku/v2/node/wakunode2
+  ../../waku/v2/node/waku_node
 
 from std/times import epochTime
 

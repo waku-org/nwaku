@@ -20,7 +20,7 @@ import
   ../../waku/v2/protocol/waku_swap/waku_swap,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/storage/peer/waku_peer_storage,
-  ../../waku/v2/node/wakunode2,
+  ../../waku/v2/node/waku_node,
   ../test_helpers
 
 procSuite "Peer Manager":
@@ -89,15 +89,15 @@ procSuite "Peer Manager":
         Port(60000))
       # Create filter peer
       filterLoc = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet()
-      filterKey = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
+      filterKey = crypto.PrivateKey.random(ECDSA, rng[]).get()
       filterPeer = PeerInfo.new(filterKey, @[filterLoc])
       # Create swap peer
       swapLoc = MultiAddress.init("/ip4/127.0.0.2/tcp/2").tryGet()
-      swapKey = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
+      swapKey = crypto.PrivateKey.random(ECDSA, rng[]).get()
       swapPeer = PeerInfo.new(swapKey, @[swapLoc])
       # Create store peer
       storeLoc = MultiAddress.init("/ip4/127.0.0.3/tcp/4").tryGet()
-      storeKey = wakunode2.PrivateKey.random(ECDSA, rng[]).get()
+      storeKey = crypto.PrivateKey.random(ECDSA, rng[]).get()
       storePeer = PeerInfo.new(storeKey, @[storeLoc])
     
     await node.start()

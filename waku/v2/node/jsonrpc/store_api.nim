@@ -5,7 +5,7 @@ import
   chronicles,
   json_rpc/rpcserver
 import
-  ../wakunode2,
+  ../waku_node,
   ../../protocol/waku_store,
   ../../utils/time,
   ./jsonrpc_types, 

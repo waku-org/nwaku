@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[options, times],
+  std/options,
   stew/results,
   chronicles
 import

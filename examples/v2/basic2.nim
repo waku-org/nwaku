@@ -8,7 +8,7 @@ import
   libp2p/crypto/[crypto,secp],
   eth/keys,
   json_rpc/[rpcclient, rpcserver],
-  ../../waku/v2/node/[config, wakunode2],
+  ../../waku/v2/node/[config, waku_node],
   ../../waku/common/utils/nat,
   ../../waku/v2/protocol/waku_message
 

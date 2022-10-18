@@ -19,7 +19,7 @@ import
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/peers,
-  ../../waku/v2/node/wakunode2
+  ../../waku/v2/node/waku_node
 
 
 procSuite "WakuNode - Filter":

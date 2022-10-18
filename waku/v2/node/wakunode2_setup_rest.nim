@@ -6,7 +6,7 @@ import
   presto
 import
   ./config,
-  ./wakunode2,
+  ./waku_node,
   ./rest/server,
   ./rest/debug/debug_api,
   ./rest/relay/[relay_api, topic_cache]

@@ -6,7 +6,7 @@ import
   json_rpc/rpcserver,
   libp2p/protocols/pubsub/pubsub,
   ../../protocol/waku_message,
-  ../wakunode2,
+  ../waku_node,
   ./jsonrpc_types,
   ./jsonrpc_utils
 

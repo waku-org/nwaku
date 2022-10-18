@@ -9,7 +9,7 @@ import
   libp2p/multiaddress,
   libp2p/crypto/crypto
 import
-  ../../waku/v2/node/wakunode2,
+  ../../waku/v2/node/waku_node,
   ../../waku/v2/node/rest/[server, client, utils],
   ../../waku/v2/node/rest/debug/debug_api
 
