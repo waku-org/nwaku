@@ -5,11 +5,11 @@ import
   chronicles,
   presto
 import
-  ./config,
-  ./waku_node,
-  ./rest/server,
-  ./rest/debug/debug_api,
-  ./rest/relay/[relay_api, topic_cache]
+  ../../waku/v2/node/waku_node,
+  ../../waku/v2/node/rest/server,
+  ../../waku/v2/node/rest/debug/debug_api,
+  ../../waku/v2/node/rest/relay/[relay_api, topic_cache],
+  ./config
 
 
 logScope:
