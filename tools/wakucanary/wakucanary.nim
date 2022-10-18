@@ -6,7 +6,9 @@ import
   chronicles/topics_registry
 import
   libp2p/protocols/ping,
-  libp2p/crypto/[crypto, secp]
+  libp2p/crypto/[crypto, secp],
+  libp2p/nameresolving/nameresolver,
+  libp2p/nameresolving/dnsresolver
 import
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/peers,
@@ -81,6 +83,13 @@ proc areProtocolsSupported(
 proc main(): Future[int] {.async.} =
   let conf: WakuCanaryConf = WakuCanaryConf.load()
 
+  # create dns resolver
+  let
+    nameServers = @[
+      initTAddress(ValidIpAddress.init("1.1.1.1"), Port(53)),
+      initTAddress(ValidIpAddress.init("1.0.0.1"), Port(53))]
+    resolver: DnsResolver = DnsResolver.new(nameServers)
+
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
 
@@ -103,7 +112,8 @@ proc main(): Future[int] {.async.} =
     node = WakuNode.new(
       nodeKey,
       ValidIpAddress.init("0.0.0.0"),
-      Port(60000))
+      Port(60000),
+      nameResolver = resolver)
 
   await node.start()
 
