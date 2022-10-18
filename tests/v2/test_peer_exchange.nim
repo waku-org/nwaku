@@ -10,7 +10,7 @@ import
   libp2p/crypto/crypto,
   libp2p/protocols/pubsub/gossipsub
 import
-  ../../waku/v2/node/wakunode2,
+  ../../waku/v2/node/waku_node,
   ../../waku/v2/utils/peers,
   ../test_helpers
 

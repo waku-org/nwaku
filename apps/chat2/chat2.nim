@@ -26,7 +26,7 @@ import
   ../../waku/v2/protocol/waku_lightpush,
   ../../waku/v2/protocol/waku_filter, 
   ../../waku/v2/protocol/waku_store,
-  ../../waku/v2/node/[wakunode2, waku_payload],
+  ../../waku/v2/node/[waku_node, waku_payload],
   ../../waku/v2/node/dnsdisc/waku_dnsdisc,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/[peers, time],
@@ -67,7 +67,7 @@ type Chat = ref object
 
 type
   PrivateKey* = crypto.PrivateKey
-  Topic* = wakunode2.Topic
+  Topic* = waku_node.Topic
 
 #####################
 ## chat2 protobufs ##

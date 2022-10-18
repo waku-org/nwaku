@@ -12,7 +12,7 @@ import
       waku_rln_relay_constants,
       waku_rln_relay_types, 
       rln_relay_contract],
-  ../../waku/v2/node/wakunode2,
+  ../../waku/v2/node/waku_node,
   ../test_helpers,
   ./test_utils
 

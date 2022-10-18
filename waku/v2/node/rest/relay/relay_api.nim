@@ -8,7 +8,7 @@ import
   json_serialization/std/options,
   presto/[route, client, common]
 import 
-  ../../wakunode2,
+  ../../waku_node,
   ../serdes,
   ../utils,
   ./api_types, 
