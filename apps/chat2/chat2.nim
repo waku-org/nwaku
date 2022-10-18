@@ -363,10 +363,15 @@ proc readInput(wfd: AsyncFD) {.thread, raises: [Defect, CatchableError].} =
 
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 proc processInput(rfd: AsyncFD) {.async.} =
-  let transp = fromPipe(rfd)
+  let
+    transp = fromPipe(rfd)
+    conf = Chat2Conf.load()
+  
+  # set log level
+  if conf.logLevel != LogLevel.NONE:
+    setLogLevel(conf.logLevel)
 
   let
-    conf = Chat2Conf.load()
     (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
       Port(uint16(conf.tcpPort) + conf.portsShift),
       Port(uint16(conf.udpPort) + conf.portsShift))
