@@ -6,16 +6,16 @@ import
   chronicles,
   json_rpc/rpcserver
 import
-  ./config,
-  ../protocol/waku_message,
-  ./waku_node,
-  ./jsonrpc/[admin_api,
-             debug_api,
-             filter_api,
-             relay_api,
-             store_api,
-             private_api,
-             debug_api]
+  ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/node/waku_node,
+  ../../waku/v2/node/jsonrpc/[admin_api,
+                              debug_api,
+                              filter_api,
+                              relay_api,
+                              store_api,
+                              private_api,
+                              debug_api],
+  ./config
 
 logScope:
   topics = "wakunode.setup.rpc"
