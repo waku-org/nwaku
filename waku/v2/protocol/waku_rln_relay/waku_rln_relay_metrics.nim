@@ -44,14 +44,6 @@ declarePublicGauge(waku_rln_instance_creation_duration_seconds, "time taken to c
 declarePublicGauge(waku_rln_membership_insertion_duration_seconds, "time taken to insert a new member into the local merkle tree")
 declarePublicGauge(waku_rln_membership_credentials_import_duration_seconds, "time taken to import membership credentials")
 
-template parseAndAccumulate(collector: Collector, cumulativeValue: float64): float64 =
-  ## This template is used to get metrics in a window 
-  ## according to a cumulative value passed in
-  let total = parseCollectorIntoF64(collector)
-  let freshCount = total - cumulativeValue
-  cumulativeValue = total
-  freshCount
-
 proc getRlnMetricsLogger*(): proc(udata: pointer)  =
   var logMetrics: proc(udata: pointer) {.gcsafe, raises: [Defect].}
 
