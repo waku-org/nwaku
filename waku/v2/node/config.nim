@@ -1,14 +1,15 @@
 import
   std/strutils,
-  confutils, confutils/defs, confutils/std/net,
+  confutils, 
+  confutils/defs, 
+  confutils/std/net,
   confutils/toml/defs as confTomlDefs,
   confutils/toml/std/net as confTomlNet,
-  chronicles, chronos,
+  chronicles, 
+  chronos,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
-  nimcrypto/utils,
-  eth/keys,
-  ../protocol/waku_message
+  nimcrypto/utils
 
 export
   confTomlDefs,
@@ -34,11 +35,11 @@ type
     
     nodekey* {.
       desc: "P2P node private key as 64 char hex string.",
-      defaultValue: crypto.PrivateKey.random(Secp256k1, crypto.newRng()[]).tryGet()
-      name: "nodekey" }: crypto.PrivateKey
+      defaultValue: defaultPrivateKey()
+      name: "nodekey" }: PrivateKey
 
     listenAddress* {.
-      defaultValue: defaultListenAddress(config)
+      defaultValue: defaultListenAddress()
       desc: "Listening address for LibP2P (and Discovery v5, if enabled) traffic."
       name: "listen-address"}: ValidIpAddress
 
@@ -136,7 +137,7 @@ type
     rlnRelayContentTopic* {.
       desc: "the pubsub topic for which rln-relay gets enabled",
       defaultValue: "/toy-chat/2/luzhou/proto"
-      name: "rln-relay-content-topic" }: ContentTopic
+      name: "rln-relay-content-topic" }: string
     
     rlnRelayDynamic* {.
       desc: "Enable  waku-rln-relay with on-chain dynamic group management: true|false",
@@ -458,11 +459,13 @@ proc parseCmdArg*(T: type Port, p: TaintedString): T =
 proc completeCmdArg*(T: type Port, val: TaintedString): seq[string] =
   return @[]
 
-func defaultListenAddress*(conf: WakuNodeConf): ValidIpAddress =
+proc defaultListenAddress*(): ValidIpAddress =
   # TODO: How should we select between IPv4 and IPv6
   # Maybe there should be a config option for this.
   (static ValidIpAddress.init("0.0.0.0"))
 
+proc defaultPrivateKey*(): PrivateKey =
+  crypto.PrivateKey.random(Secp256k1, crypto.newRng()[]).value
 
 proc readValue*(r: var TomlReader, val: var crypto.PrivateKey)
                {.raises: [Defect, IOError, SerializationError].} =
