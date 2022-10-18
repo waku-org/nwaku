@@ -37,3 +37,10 @@ $ ./build/wakucanary --address=/ip4/8.210.222.231/tcp/1000/p2p/16Uiu2HAm4v86W3bm
 $ echo $?
 1
 ```
+
+Note that a domain name can also be used.
+```console
+$ ./build/wakucanary --address=/dns4/node-01.do-ams3.status.test.statusim.net/tcp/30303/p2p/16Uiu2HAkukebeXjTQ9QDBeNDWuGfbaSg79wkkhK4vPocLgR6QFDf --protocol=store --protocol=filter
+$ echo $?
+0
+```
