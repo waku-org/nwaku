@@ -10,9 +10,6 @@ import
 
 export metrics
 
-# Log period is measured in seconds
-const LogPeriod = 15.seconds
-
 logScope:
   topics = "waku-rln-relay.metrics"
 
@@ -44,8 +41,8 @@ declarePublicGauge(waku_rln_instance_creation_duration_seconds, "time taken to c
 declarePublicGauge(waku_rln_membership_insertion_duration_seconds, "time taken to insert a new member into the local merkle tree")
 declarePublicGauge(waku_rln_membership_credentials_import_duration_seconds, "time taken to import membership credentials")
 
-proc getRlnMetricsLogger*(): proc(udata: pointer)  =
-  var logMetrics: proc(udata: pointer) {.gcsafe, raises: [Defect].}
+proc getRlnMetricsLogger*(): proc()  =
+  var logMetrics: proc() {.gcsafe, raises: [Defect].}
 
   var cumulativeErrors = 0.float64
   var cumulativeMessages = 0.float64
@@ -54,7 +51,7 @@ proc getRlnMetricsLogger*(): proc(udata: pointer)  =
   var cumulativeValidMessages = 0.float64
   var cumulativeProofs = 0.float64
 
-  logMetrics = proc(udata: pointer) =
+  logMetrics = proc() =
     {.gcsafe.}:
 
       let freshErrorCount = parseAndAccumulate(waku_rln_errors_total,
@@ -77,7 +74,5 @@ proc getRlnMetricsLogger*(): proc(udata: pointer)  =
       info "Total valid messages", count = freshValidMsgCount
       info "Total errors", count = freshErrorCount
       info "Total proofs verified", count = freshProofCount
-
-    discard setTimer(Moment.fromNow(LogPeriod), logMetrics)
   return logMetrics
   

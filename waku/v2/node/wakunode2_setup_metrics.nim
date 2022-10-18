@@ -41,6 +41,9 @@ proc startMetricsLog*() =
   var cumulativeErrors = 0.float64
   var cumulativeConns = 0.float64
 
+  when defined(rln) or defined(rlnzerokit):
+    let logRlnMetrics = getRlnMetricsLogger()
+
   logMetrics = proc(udata: pointer) =
     {.gcsafe.}:
       # TODO: libp2p_pubsub_peers is not public, so we need to make this either
@@ -60,12 +63,12 @@ proc startMetricsLog*() =
       info "Total errors", count = freshErrorCount
       info "Total active filter subscriptions", count = parseCollectorIntoF64(waku_filter_subscribers)
 
+      # Start protocol specific metrics logging
+      when defined(rln) or defined(rlnzerokit):
+        logRlnMetrics()
+
     discard setTimer(Moment.fromNow(30.seconds), logMetrics)
   
   discard setTimer(Moment.fromNow(30.seconds), logMetrics)
 
-  # Start protocol specific metrics logging
-  when defined(rln) or defined(rlnzerokit):
-    let logRlnMetrics = getRlnMetricsLogger()
-    logRlnMetrics(nil)
   
