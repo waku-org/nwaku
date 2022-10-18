@@ -1,8 +1,17 @@
+{.push raises: [Defect].}
+
 import
+  chronicles,
+  chronos,
   metrics,
-  waku_rln_relay_constants
+  metrics/chronos_httpserver,
+  waku_rln_relay_constants,
+  ../../utils/collector
 
 export metrics
+
+logScope:
+  topics = "waku-rln-relay.metrics"
 
 func generateBucketsForHistogram*(length: int): seq[float64] =
   ## Generate a custom set of 5 buckets for a given length
@@ -31,3 +40,39 @@ declarePublicGauge(waku_rln_registration_duration_seconds, "time taken to regist
 declarePublicGauge(waku_rln_instance_creation_duration_seconds, "time taken to create an rln instance")
 declarePublicGauge(waku_rln_membership_insertion_duration_seconds, "time taken to insert a new member into the local merkle tree")
 declarePublicGauge(waku_rln_membership_credentials_import_duration_seconds, "time taken to import membership credentials")
+
+proc getRlnMetricsLogger*(): proc()  =
+  var logMetrics: proc() {.gcsafe, raises: [Defect].}
+
+  var cumulativeErrors = 0.float64
+  var cumulativeMessages = 0.float64
+  var cumulativeSpamMessages = 0.float64
+  var cumulativeInvalidMessages = 0.float64
+  var cumulativeValidMessages = 0.float64
+  var cumulativeProofs = 0.float64
+
+  logMetrics = proc() =
+    {.gcsafe.}:
+
+      let freshErrorCount = parseAndAccumulate(waku_rln_errors_total,
+                                               cumulativeErrors)
+      let freshMsgCount = parseAndAccumulate(waku_rln_messages_total,
+                                             cumulativeMessages)
+      let freshSpamCount = parseAndAccumulate(waku_rln_spam_messages_total,
+                                              cumulativeSpamMessages)
+      let freshInvalidMsgCount = parseAndAccumulate(waku_rln_invalid_messages_total,
+                                                    cumulativeInvalidMessages)
+      let freshValidMsgCount = parseAndAccumulate(waku_rln_valid_messages_total,
+                                                  cumulativeValidMessages)
+      let freshProofCount = parseAndAccumulate(waku_rln_proof_verification_total,
+                                               cumulativeProofs)
+
+      
+      info "Total messages", count = freshMsgCount
+      info "Total spam messages", count = freshSpamCount
+      info "Total invalid messages", count = freshInvalidMsgCount
+      info "Total valid messages", count = freshValidMsgCount
+      info "Total errors", count = freshErrorCount
+      info "Total proofs verified", count = freshProofCount
+  return logMetrics
+  
