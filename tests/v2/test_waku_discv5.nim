@@ -12,7 +12,7 @@ import
   eth/p2p/discoveryv5/enr,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/node/discv5/waku_discv5,
-  ../../waku/v2/node/wakunode2,
+  ../../waku/v2/node/waku_node,
   ../test_helpers
 
 procSuite "Waku Discovery v5":

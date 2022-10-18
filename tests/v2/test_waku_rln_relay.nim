@@ -13,7 +13,7 @@ import
       waku_rln_relay_types,
       waku_rln_relay_constants,
       waku_rln_relay_metrics],
-  ../../waku/v2/node/wakunode2,
+  ../../waku/v2/node/waku_node,
   ../test_helpers
 
 const RlnRelayPubsubTopic = "waku/2/rlnrelay/proto"
