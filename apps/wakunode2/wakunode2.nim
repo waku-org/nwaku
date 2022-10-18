@@ -2,29 +2,54 @@
 
 import
   std/[options, tables, strutils, sequtils, os],
-  chronos, chronicles, metrics,
   stew/shims/net as stewNet,
+  chronicles, 
+  chronos,
+  metrics,
+  confutils, 
+  toml_serialization,
+  system/ansi_c,
   eth/keys,
   eth/p2p/discoveryv5/enr,
+  libp2p/[builders, multihash],
   libp2p/crypto/crypto,
   libp2p/protocols/ping,
   libp2p/protocols/pubsub/[gossipsub, rpc/messages],
-  libp2p/[builders, multihash],
-  libp2p/transports/[transport, wstransport]
+  libp2p/transports/[transport, wstransport],
+  libp2p/nameresolving/dnsresolver
 import
-  ../protocol/waku_store,
-  ../protocol/waku_filter,
-  ../protocol/waku_rln_relay/waku_rln_relay_types,
-  ../protocol/waku_peer_exchange,
-  ../utils/[peers, wakuenr],
-  ./peer_manager/peer_manager,
-  ./storage/message/waku_store_queue,
-  ./storage/message/message_retention_policy_capacity,
-  ./storage/message/message_retention_policy_time,
-  ./dnsdisc/waku_dnsdisc,
-  ./discv5/waku_discv5,
-  ./wakuswitch,
-  ./waku_node
+  ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/protocol/waku_filter,
+  ../../waku/v2/protocol/waku_peer_exchange,
+  ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/node/dnsdisc/waku_dnsdisc,
+  ../../waku/v2/node/discv5/waku_discv5,
+  ../../waku/v2/node/storage/sqlite,
+  ../../waku/v2/node/storage/peer/waku_peer_storage,
+  ../../waku/v2/node/storage/message/waku_store_queue,
+  ../../waku/v2/node/storage/message/dual_message_store,
+  ../../waku/v2/node/storage/message/sqlite_store,
+  ../../waku/v2/node/storage/message/message_retention_policy_capacity,
+  ../../waku/v2/node/storage/message/message_retention_policy_time,
+  ../../waku/v2/node/wakuswitch,
+  ../../waku/v2/node/waku_node,
+  ../../waku/v2/utils/peers,
+  ../../waku/v2/utils/wakuenr,
+  ../../waku/common/utils/nat,
+  ./wakunode2_setup_rest,
+  ./wakunode2_setup_metrics,
+  ./wakunode2_setup_rpc,
+  ./wakunode2_setup_sql_migrations,
+  ./config
+
+when defined(rln) or defined(rlnzerokit):
+  import
+    ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_types,
+    ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_utils
+
+
+logScope:
+  topics = "wakunode.setup"
 
 
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
@@ -36,33 +61,12 @@ when isMainModule:
   ## 4. Start node and mounted protocols
   ## 5. Start monitoring tools and external interfaces
   ## 6. Setup graceful shutdown hooks
-
-  import
-    confutils, toml_serialization,
-    system/ansi_c,
-    libp2p/nameresolving/dnsresolver,
-    ../../common/utils/nat,
-    ./config,
-    ./wakunode2_setup,
-    ./wakunode2_setup_rest,
-    ./wakunode2_setup_metrics,
-    ./wakunode2_setup_rpc,
-    ./wakunode2_setup_sql_migrations,
-    ./storage/sqlite,
-    ./storage/message/dual_message_store,
-    ./storage/message/sqlite_store,
-    ./storage/peer/waku_peer_storage
-
-  when defined(rln) or defined(rlnzerokit):
-    import ../protocol/waku_rln_relay/waku_rln_relay_utils
- 
-  
-  logScope:
-    topics = "wakunode.setup"
   
   ###################
   # Setup functions #
   ###################
+
+  type SetupResult[T] = Result[T, string]
 
   # 1/7 Setup storage
   proc setupStorage(conf: WakuNodeConf):
