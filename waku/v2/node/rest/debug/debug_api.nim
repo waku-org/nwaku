@@ -8,7 +8,7 @@ import
   presto/[route, client]
 import "."/api_types
 import ".."/[serdes, utils]
-import ../../wakunode2
+import ../../waku_node
 
 logScope: topics = "rest_api_debug"
 

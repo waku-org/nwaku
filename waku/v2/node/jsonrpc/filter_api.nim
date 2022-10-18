@@ -7,7 +7,7 @@ import
 import
   ../../protocol/waku_message,
   ../../protocol/waku_filter,
-  ../wakunode2,
+  ../waku_node,
   ./jsonrpc_types
 
 export jsonrpc_types

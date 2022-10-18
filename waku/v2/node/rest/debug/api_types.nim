@@ -5,7 +5,7 @@ import
   json_serialization,
   json_serialization/std/options
 import ".."/serdes 
-import ../../wakunode2
+import ../../waku_node
 
 #### Types
 

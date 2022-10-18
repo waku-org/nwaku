@@ -12,7 +12,7 @@ import
   libp2p/crypto/crypto,
   libp2p/errors,
   ../../../waku/v2/protocol/waku_message,
-  ../../../waku/v2/node/wakunode2,
+  ../../../waku/v2/node/waku_node,
   # Chat 2 imports
   ../chat2/chat2,
   # Common cli config
