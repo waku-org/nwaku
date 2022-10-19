@@ -33,11 +33,9 @@ import
   ../../waku/v2/node/storage/message/message_retention_policy_time,
   ../../waku/v2/node/wakuswitch,
   ../../waku/v2/node/waku_node,
-  ../../waku/v2/utils/peers,
-  ../../waku/v2/utils/wakuenr,
+  ../../waku/v2/utils/[peers, wakuenr, metrics_logging],
   ../../waku/common/utils/nat,
   ./wakunode2_setup_rest,
-  ./wakunode2_setup_metrics,
   ./wakunode2_setup_rpc,
   ./wakunode2_setup_sql_migrations,
   ./config
