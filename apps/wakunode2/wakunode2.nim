@@ -426,6 +426,10 @@ when isMainModule:
   if conf.version:
     echo "version / git commit hash: ", git_version
     quit(QuitSuccess)
+
+  # set log level
+  if conf.logLevel != LogLevel.NONE:
+    setLogLevel(conf.logLevel)
   
   var
     node: WakuNode  # This is the node we're going to setup using the conf
