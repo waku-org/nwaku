@@ -41,7 +41,7 @@ declarePublicGauge(waku_rln_instance_creation_duration_seconds, "time taken to c
 declarePublicGauge(waku_rln_membership_insertion_duration_seconds, "time taken to insert a new member into the local merkle tree")
 declarePublicGauge(waku_rln_membership_credentials_import_duration_seconds, "time taken to import membership credentials")
 
-proc getRlnMetricsLogger*(): proc()  =
+proc getRlnMetricsLogger*(): proc() =
   var logMetrics: proc() {.gcsafe, raises: [Defect].}
 
   var cumulativeErrors = 0.float64
@@ -51,7 +51,7 @@ proc getRlnMetricsLogger*(): proc()  =
   var cumulativeValidMessages = 0.float64
   var cumulativeProofs = 0.float64
 
-  logMetrics = proc() =
+  logMetrics = proc() {.gcsafe, raises: [Defect].} =
     {.gcsafe.}:
 
       let freshErrorCount = parseAndAccumulate(waku_rln_errors_total,
