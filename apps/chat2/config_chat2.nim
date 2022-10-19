@@ -165,7 +165,7 @@ type
 
     metricsServer* {.
       desc: "Enable the metrics server: true|false"
-      defaultValue: false
+      defaultValue: true
       name: "metrics-server" }: bool
 
     metricsServerAddress* {.
@@ -180,7 +180,7 @@ type
 
     metricsLogging* {.
       desc: "Enable metrics logging: true|false"
-      defaultValue: false
+      defaultValue: true
       name: "metrics-logging" }: bool
     
     ## DNS discovery config
