@@ -29,9 +29,8 @@ import
   ../../waku/v2/node/[waku_node, waku_payload],
   ../../waku/v2/node/dnsdisc/waku_dnsdisc,
   ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/utils/[peers, time],
+  ../../waku/v2/utils/[peers, time, metrics_logging],
   ../../waku/common/utils/nat,
-  ../wakunode2/wakunode2_setup_metrics
   ./config_chat2
 
 when defined(rln) or defined(rlnzerokit):
