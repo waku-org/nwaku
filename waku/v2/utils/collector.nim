@@ -1,9 +1,9 @@
 {.push raises: [Defect].}
 
 import
-    metrics
+  metrics
 
-proc parseCollectorIntoF64*(collector: Collector): float64 {.raises: [Defect] } = 
+proc parseCollectorIntoF64(collector: Collector): float64 {.gcsafe, raises: [Defect] } = 
   {.gcsafe.}:
     var total = 0.float64
     for key in collector.metrics.keys():
@@ -21,3 +21,9 @@ template parseAndAccumulate*(collector: Collector, cumulativeValue: float64): fl
     let freshCount = total - cumulativeValue
     cumulativeValue = total
     freshCount
+
+template collectorAsF64*(collector: Collector): float64 =
+  ## This template is used to get metrics from 0
+  {.gcsafe.}:
+    let total = parseCollectorIntoF64(collector)
+    total
