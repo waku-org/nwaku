@@ -2,9 +2,10 @@
 
 import
   stew/results,
-  chronicles,
-  ./storage/sqlite,
-  ./storage/migration,
+  chronicles
+import
+  ../../waku/v2/node/storage/sqlite,
+  ../../waku/v2/node/storage/migration,
   ./config
 
 logScope:
