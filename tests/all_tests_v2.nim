@@ -13,6 +13,7 @@ import
   ./v2/test_message_store_sqlite,
   ./v2/test_waku_store_rpc_codec,
   ./v2/test_waku_store,
+  ./v2/test_waku_store_client,
   # TODO: Re-enable store resume test cases (#1282)
   # ./v2/test_waku_store_resume,
   ./v2/test_wakunode_store,
