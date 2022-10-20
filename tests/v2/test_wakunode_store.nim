@@ -23,33 +23,13 @@ import
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/peers,
   ../../waku/v2/utils/time,
-  ../../waku/v2/node/waku_node
+  ../../waku/v2/node/waku_node,
+  ./testlib/common
 
-from std/times import getTime, toUnixFloat
-
-
-const 
-  DefaultPubsubTopic = "/waku/2/default-waku/proto"
-  DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
-
-proc now(): Timestamp = 
-  getNanosecondTime(getTime().toUnixFloat())
 
 proc newTestMessageStore(): MessageStore =
   let database = SqliteDatabase.init("", inMemory = true)[]
   SqliteStore.init(database).tryGet()
-
-proc fakeWakuMessage(
-  payload = "TEST-PAYLOAD",
-  contentTopic = DefaultContentTopic, 
-  ts = now()
-): WakuMessage = 
-  WakuMessage(
-    payload: toBytes(payload),
-    contentTopic: contentTopic,
-    version: 1,
-    timestamp: ts
-  )
 
 
 procSuite "WakuNode - Store":
@@ -199,7 +179,7 @@ procSuite "WakuNode - Store":
 
     # Insert the same message in both node's store
     let 
-      receivedTime3 = getNanosecondTime(getTime().toUnixFloat() + 10.float)
+      receivedTime3 = now() + getNanosecondTime(10)
       digest3 = computeDigest(msg3)
     require server.wakuStore.store.put(DefaultTopic, msg3, digest3, receivedTime3).isOk()
     require client.wakuStore.store.put(DefaultTopic, msg3, digest3, receivedTime3).isOk()

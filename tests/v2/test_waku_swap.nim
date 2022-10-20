@@ -22,28 +22,8 @@ import
   ../../waku/v2/utils/peers,
   ../../waku/v2/utils/time,
   ../test_helpers, 
-  ./utils
-
-
-const 
-  DefaultPubsubTopic = "/waku/2/default-waku/proto"
-  DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
-
-
-proc now(): Timestamp = 
-  getNanosecondTime(getTime().toUnixFloat())
-
-proc fakeWakuMessage(
-  payload = "TEST-PAYLOAD",
-  contentTopic = DefaultContentTopic, 
-  ts = now()
-): WakuMessage = 
-  WakuMessage(
-    payload: toBytes(payload),
-    contentTopic: contentTopic,
-    version: 1,
-    timestamp: ts
-  )
+  ./utils,
+  ./testlib/common
 
 
 procSuite "Waku SWAP Accounting":

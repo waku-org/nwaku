@@ -9,24 +9,8 @@ import
 import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
-  ../../waku/v2/utils/time
-
-const 
-  DefaultPubsubTopic = "/waku/2/default-waku/proto"
-  DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
-
-
-proc fakeWakuMessage(
-  payload = "TEST-PAYLOAD",
-  contentTopic = DefaultContentTopic, 
-  ts = getNanosecondTime(epochTime())
-): WakuMessage = 
-  WakuMessage(
-    payload: toBytes(payload),
-    contentTopic: contentTopic,
-    version: 1,
-    timestamp: ts
-  )
+  ../../waku/v2/utils/time,
+  ./testlib/common
 
 
 procSuite "Waku Store - RPC codec":
