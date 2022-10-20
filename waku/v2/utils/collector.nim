@@ -24,6 +24,7 @@ template parseAndAccumulate*(collector: Collector, cumulativeValue: float64): fl
 
 template collectorAsF64*(collector: Collector): float64 =
   ## This template is used to get metrics from 0
+  ## Serves as a wrapper for parseCollectorIntoF64 which is gcsafe
   {.gcsafe.}:
     let total = parseCollectorIntoF64(collector)
     total
