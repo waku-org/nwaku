@@ -165,7 +165,7 @@ type
 
     metricsServer* {.
       desc: "Enable the metrics server: true|false"
-      defaultValue: true
+      defaultValue: false
       name: "metrics-server" }: bool
 
     metricsServerAddress* {.
