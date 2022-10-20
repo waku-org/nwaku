@@ -150,8 +150,10 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse {.gcsafe.}
 
   
   if rows.len > int(qMaxPageSize):
-    # Build last message cursor
-    let (pubsubTopic, message, digest, storeTimestamp) = rows[^1]
+    ## Build last message cursor
+    ## The cursor is built from the last message INCLUDED in the response
+    ## (i.e. the second last message in the rows list)
+    let (pubsubTopic, message, digest, storeTimestamp) = rows[^2]
 
     # TODO: Improve coherence of MessageDigest type
     var messageDigest: array[32, byte]

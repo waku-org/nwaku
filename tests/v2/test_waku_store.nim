@@ -332,39 +332,56 @@ procSuite "Waku Store - history query":
     clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
 
     ## Given
+    let currentTime = getNanosecondTime(getTime().toUnixFloat())
     let msgList = @[
-        WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
-        WakuMessage(payload: @[byte 1], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 2], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 3], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 4], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 5], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 6], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 7], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 8], contentTopic: DefaultContentTopic), 
-        WakuMessage(payload: @[byte 9], contentTopic: ContentTopic("2"))
+        WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: currentTime - 9),
+        WakuMessage(payload: @[byte 1], contentTopic: DefaultContentTopic, timestamp: currentTime - 8),
+        WakuMessage(payload: @[byte 2], contentTopic: DefaultContentTopic, timestamp: currentTime - 7),
+        WakuMessage(payload: @[byte 3], contentTopic: DefaultContentTopic, timestamp: currentTime - 6),
+        WakuMessage(payload: @[byte 4], contentTopic: DefaultContentTopic, timestamp: currentTime - 5),
+        WakuMessage(payload: @[byte 5], contentTopic: DefaultContentTopic, timestamp: currentTime - 4),
+        WakuMessage(payload: @[byte 6], contentTopic: DefaultContentTopic, timestamp: currentTime - 3),
+        WakuMessage(payload: @[byte 7], contentTopic: DefaultContentTopic, timestamp: currentTime - 2),
+        WakuMessage(payload: @[byte 8], contentTopic: DefaultContentTopic, timestamp: currentTime - 1), 
+        WakuMessage(payload: @[byte 9], contentTopic: ContentTopic("2"), timestamp: currentTime)
       ]
 
     for msg in msgList:
       require serverProto.store.put(DefaultPubsubTopic, msg).isOk()
 
     ## When
-    let rpc = HistoryQuery(
-      contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)],
-      pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD) 
-    )
-    let res = await clientProto.query(rpc)
+    var rpc = HistoryQuery(
+        contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)],
+        pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD) 
+      )
+    var res = await clientProto.query(rpc)
+    require res.isOk()
+
+    var
+      response = res.tryGet()
+      totalMessages = response.messages.len()
+      totalQueries = 1
+
+    while response.pagingInfo.cursor != PagingIndex():
+      require:
+        totalQueries <= 4 # Sanity check here and guarantee that the test will not run forever
+        response.messages.len() == 2
+        response.pagingInfo.pageSize == 2
+        response.pagingInfo.direction == PagingDirection.FORWARD
+
+      rpc.pagingInfo = response.pagingInfo
+      
+      # Continue querying
+      res = await clientProto.query(rpc)
+      require res.isOk()
+      response = res.tryGet()
+      totalMessages += response.messages.len()
+      totalQueries += 1
 
     ## Then
     check:
-      res.isOk()
-
-    let response = res.tryGet()
-    check:
-      response.messages.len() == 2
-      response.pagingInfo.pageSize == 2 
-      response.pagingInfo.direction == PagingDirection.FORWARD
-      response.pagingInfo.cursor != PagingIndex()
+      totalQueries == 4 # 4 queries of pageSize 2
+      totalMessages == 8 # 8 messages in total
 
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitch.stop())
@@ -384,39 +401,56 @@ procSuite "Waku Store - history query":
     clientProto.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
 
     ## Given
+    let currentTime = getNanosecondTime(getTime().toUnixFloat())
     let msgList = @[
-        WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
-        WakuMessage(payload: @[byte 1], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 2], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 3], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 4], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 5], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 6], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 7], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 8], contentTopic: DefaultContentTopic), 
-        WakuMessage(payload: @[byte 9], contentTopic: ContentTopic("2"))
+        WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: currentTime - 9),
+        WakuMessage(payload: @[byte 1], contentTopic: DefaultContentTopic, timestamp: currentTime - 8),
+        WakuMessage(payload: @[byte 2], contentTopic: DefaultContentTopic, timestamp: currentTime - 7),
+        WakuMessage(payload: @[byte 3], contentTopic: DefaultContentTopic, timestamp: currentTime - 6),
+        WakuMessage(payload: @[byte 4], contentTopic: DefaultContentTopic, timestamp: currentTime - 5),
+        WakuMessage(payload: @[byte 5], contentTopic: DefaultContentTopic, timestamp: currentTime - 4),
+        WakuMessage(payload: @[byte 6], contentTopic: DefaultContentTopic, timestamp: currentTime - 3),
+        WakuMessage(payload: @[byte 7], contentTopic: DefaultContentTopic, timestamp: currentTime - 2),
+        WakuMessage(payload: @[byte 8], contentTopic: DefaultContentTopic, timestamp: currentTime - 1), 
+        WakuMessage(payload: @[byte 9], contentTopic: ContentTopic("2"), timestamp: currentTime)
       ]
 
     for msg in msgList:
       require serverProto.store.put(DefaultPubsubTopic, msg).isOk()
 
     ## When
-    let rpc = HistoryQuery(
-      contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)],
-      pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD) 
-    )
-    let res = await clientProto.query(rpc)
+    var rpc = HistoryQuery(
+        contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)],
+        pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD) 
+      )
+    var res = await clientProto.query(rpc)
+    require res.isOk()
+    
+    var
+      response = res.tryGet()
+      totalMessages = response.messages.len()
+      totalQueries = 1
+
+    while response.pagingInfo.cursor != PagingIndex():
+      require:
+        totalQueries <= 4 # Sanity check here and guarantee that the test will not run forever
+        response.messages.len() == 2
+        response.pagingInfo.pageSize == 2
+        response.pagingInfo.direction == PagingDirection.BACKWARD
+
+      rpc.pagingInfo = response.pagingInfo
+      
+      # Continue querying
+      res = await clientProto.query(rpc)
+      require res.isOk()
+      response = res.tryGet()
+      totalMessages += response.messages.len()
+      totalQueries += 1
 
     ## Then
     check:
-      res.isOk()
-
-    let response = res.tryGet()
-    check:
-      response.messages.len() == 2
-      response.pagingInfo.pageSize == 2 
-      response.pagingInfo.direction == PagingDirection.BACKWARD
-      response.pagingInfo.cursor != PagingIndex()
+      totalQueries == 4 # 4 queries of pageSize 2
+      totalMessages == 8 # 8 messages in total
 
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitch.stop())
