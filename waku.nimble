@@ -65,11 +65,11 @@ task test1, "Build & run Waku v1 tests":
 ### Waku v2 tasks
 task wakunode2, "Build Waku v2 (experimental) cli node":
   let name = "wakunode2"
-  buildBinary name, "apps/wakunode2/", "-d:chronicles_log_level=DEBUG"
+  buildBinary name, "apps/wakunode2/", "-d:chronicles_log_level=TRACE"
 
 task bridge, "Build Waku v1 - v2 bridge":
   let name = "wakubridge"
-  buildBinary name, "apps/wakubridge/", "-d:chronicles_log_level=DEBUG"
+  buildBinary name, "apps/wakubridge/", "-d:chronicles_log_level=TRACE"
 
 task test2, "Build & run Waku v2 tests":
   test "all_tests_v2"
@@ -96,14 +96,14 @@ task chat2, "Build example Waku v2 chat usage":
   #buildBinary name, "examples/v2/", "-d:chronicles_log_level=WARN"
 
   let name = "chat2"
-  buildBinary name, "apps/chat2/", "-d:chronicles_log_level=DEBUG -d:chronicles_sinks=textlines[file] -d:ssl"
+  buildBinary name, "apps/chat2/", "-d:chronicles_log_level=TRACE -d:chronicles_sinks=textlines[file] -d:ssl"
 
 task chat2bridge, "Build chat2bridge":
   let name = "chat2bridge"
-  buildBinary name, "apps/chat2bridge/", "-d:chronicles_log_level=DEBUG"
+  buildBinary name, "apps/chat2bridge/", "-d:chronicles_log_level=TRACE"
 
 
 ### Waku Tooling
 task wakucanary, "Build waku-canary tool":
   let name = "wakucanary"
-  buildBinary name, "tools/wakucanary/", "-d:chronicles_log_level=DEBUG -d:chronicles_runtime_filtering:on"
+  buildBinary name, "tools/wakucanary/", "-d:chronicles_log_level=TRACE"

@@ -103,6 +103,9 @@ endif
 # use a separate waku discv5 network with `protocol-id="d5waku"`
 NIM_PARAMS := $(NIM_PARAMS) -d:discv5_protocol_id:d5waku
 
+# enable runtime log-level filtering (see setLogLevel)
+NIM_PARAMS := $(NIM_PARAMS) -d:chronicles_runtime_filtering:on
+
 # git version for JSON RPC call
 GIT_VERSION ?= $(shell git describe --abbrev=6 --always --tags)
 NIM_PARAMS := $(NIM_PARAMS) -d:git_version:\"$(GIT_VERSION)\"
