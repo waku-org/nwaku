@@ -14,8 +14,8 @@ import
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_peer_exchange,
   ../utils/collector,
-  ../node/peer_manager/peer_manager,
-  ../node/waku_node
+  ./peer_manager/peer_manager,
+  ./waku_node
 
 when defined(rln) or defined(rlnzerokit):
   import ../protocol/waku_rln_relay/waku_rln_relay_metrics
@@ -75,5 +75,3 @@ proc startMetricsLog*() =
     discard setTimer(Moment.fromNow(LogInterval), logMetrics)
   
   discard setTimer(Moment.fromNow(LogInterval), logMetrics)
-
-  
