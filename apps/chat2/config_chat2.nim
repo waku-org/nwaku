@@ -180,7 +180,7 @@ type
 
     metricsLogging* {.
       desc: "Enable metrics logging: true|false"
-      defaultValue: false
+      defaultValue: true
       name: "metrics-logging" }: bool
     
     ## DNS discovery config
