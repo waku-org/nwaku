@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, sequtils, times, algorithm],
+  std/[options, sequtils, algorithm],
   testutils/unittests, 
   nimcrypto/sha2,
   libp2p/protobuf/minprotobuf
@@ -9,12 +9,8 @@ import
   ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/utils/time
-
-
-const 
-  DefaultPubsubTopic = "/waku/2/default-waku/proto"
-  DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
+  ../../waku/v2/utils/time,
+  ./testlib/common
 
 
 proc getTestStoreQueue(numMessages: int): StoreQueueRef =
@@ -35,12 +31,6 @@ proc getTestStoreQueue(numMessages: int): StoreQueueRef =
     discard testStoreQueue.add(msg)
   
   return testStoreQueue
-
-proc now(): Timestamp = 
-  getNanosecondTime(getTime().toUnixFloat())
-
-proc ts(offset=0, origin=now()): Timestamp =
-  origin + getNanosecondTime(offset)
 
 
 suite "Queue store - pagination":

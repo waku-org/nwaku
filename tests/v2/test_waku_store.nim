@@ -1,12 +1,11 @@
 {.used.}
 
 import
-  std/[options, tables, sets, sequtils, times],
+  std/[options, tables, sets, sequtils],
   stew/byteutils,
   testutils/unittests, 
   chronos, 
   chronicles,
-  libp2p/switch,
   libp2p/crypto/crypto
 import
   ../../waku/v2/protocol/waku_message,
@@ -17,38 +16,12 @@ import
   ../../waku/v2/node/storage/message/sqlite_store,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/time,
-  ../test_helpers 
+  ./testlib/common,
+  ./testlib/switch
 
-
-const 
-  DefaultPubsubTopic = "/waku/2/default-waku/proto"
-  DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
-
-
-proc now(): Timestamp =
-  getNanosecondTime(getTime().toUnixFloat())
 
 proc newTestDatabase(): SqliteDatabase =
   SqliteDatabase.init("", inMemory = true).tryGet()
-
-proc fakeWakuMessage(
-  payload = "TEST-PAYLOAD",
-  contentTopic = DefaultContentTopic, 
-  ts = getNanosecondTime(epochTime()),
-  ephemeral = false,
-): WakuMessage = 
-  WakuMessage(
-    payload: toBytes(payload),
-    contentTopic: contentTopic,
-    version: 1,
-    timestamp: ts,
-    ephemeral: ephemeral,
-  )
-
-proc newTestSwitch(key=none(PrivateKey), address=none(MultiAddress)): Switch =
-  let peerKey = key.get(PrivateKey.random(ECDSA, rng[]).get())
-  let peerAddr = address.get(MultiAddress.init("/ip4/127.0.0.1/tcp/0").get()) 
-  return newStandardSwitch(some(peerKey), addrs=peerAddr)
 
 proc newTestMessageStore(): MessageStore =
   let database = newTestDatabase()
@@ -340,7 +313,7 @@ procSuite "Waku Store - history query":
     client.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
 
     ## Given
-    let currentTime = getNanosecondTime(getTime().toUnixFloat())
+    let currentTime = now()
     let msgList = @[
         WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: currentTime - 9),
         WakuMessage(payload: @[byte 1], contentTopic: DefaultContentTopic, timestamp: currentTime - 8),
@@ -409,7 +382,7 @@ procSuite "Waku Store - history query":
     client.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
 
     ## Given
-    let currentTime = getNanosecondTime(getTime().toUnixFloat())
+    let currentTime = now()
     let msgList = @[
         WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: currentTime - 9),
         WakuMessage(payload: @[byte 1], contentTopic: DefaultContentTopic, timestamp: currentTime - 8),
@@ -695,7 +668,7 @@ suite "Waku Store - message handling":
 
     ## Given
     let
-      now = getNanoSecondTime(getTime().toUnixFloat())
+      now = now()
       invalidSenderTime = now + MaxMessageTimestampVariance + 1
     
     let message = fakeWakuMessage(ts=invalidSenderTime)
@@ -718,7 +691,7 @@ suite "Waku Store - message handling":
 
     ## Given
     let
-      now = getNanoSecondTime(getTime().toUnixFloat())
+      now = now()
       invalidSenderTime = now - MaxMessageTimestampVariance - 1
     
     let message = fakeWakuMessage(ts=invalidSenderTime)

@@ -1,44 +1,22 @@
 {.used.}
 
 import
-  std/[options, tables, sets, times, strutils, sequtils, algorithm],
-  stew/byteutils,
+  std/[options, tables, sets, strutils, sequtils, algorithm],
   unittest2,
   chronos,
-  chronicles,
+  chronicles
+import
   ../../waku/v2/node/storage/message/sqlite_store,
   ../../waku/v2/node/storage/sqlite,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store/pagination,
   ../../waku/v2/utils/time,
-  ./utils
+  ./utils,
+  ./testlib/common
 
-
-const 
-  DefaultPubsubTopic = "/waku/2/default-waku/proto"
-  DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
-
-
-proc now(): Timestamp =
-  getNanosecondTime(getTime().toUnixFloat())
-
-proc ts(offset=0, origin=now()): Timestamp =
-  origin + getNanosecondTime(offset)
 
 proc newTestDatabase(): SqliteDatabase =
   SqliteDatabase.init("", inMemory = true).tryGet()
-
-proc fakeWakuMessage(
-  payload = "TEST-PAYLOAD",
-  contentTopic = DefaultContentTopic, 
-  ts = now()
-): WakuMessage = 
-  WakuMessage(
-    payload: toBytes(payload),
-    contentTopic: contentTopic,
-    version: 1,
-    timestamp: ts
-  )
 
 
 suite "message store - history query":
@@ -477,7 +455,7 @@ suite "message store - history query":
   test "single content topic and valid time range":
     ## Given
     const contentTopic = "test-content-topic"
-    let timeOrigin = getNanosecondTime(epochTime())
+    let timeOrigin = now()
 
     let 
       database = newTestDatabase()
@@ -522,7 +500,7 @@ suite "message store - history query":
   test "single content topic and invalid time range - no results":
     ## Given
     const contentTopic = "test-content-topic"
-    let timeOrigin = getNanosecondTime(epochTime())
+    let timeOrigin = now()
 
     let 
       database = newTestDatabase()
@@ -561,7 +539,7 @@ suite "message store - history query":
   test "single content topic and only time range start":
     ## Given
     const contentTopic = "test-content-topic"
-    let timeOrigin = getNanosecondTime(epochTime())
+    let timeOrigin = now()
 
     let 
       database = newTestDatabase()
@@ -602,7 +580,7 @@ suite "message store - history query":
   test "single content topic, cursor and only time range start":
     ## Given
     const contentTopic = "test-content-topic"
-    let timeOrigin = getNanosecondTime(epochTime())
+    let timeOrigin = now()
 
     let 
       database = newTestDatabase()

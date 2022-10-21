@@ -5,7 +5,6 @@ import
   testutils/unittests,
   chronos, 
   chronicles,
-  libp2p/switch,
   libp2p/crypto/crypto,
   libp2p/multistream
 import
@@ -13,19 +12,12 @@ import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_filter,
   ../test_helpers, 
-  ./utils
+  ./utils,
+  ./testlib/common,
+  ./testlib/switch
 
-
-const 
-  DefaultPubsubTopic = "/waku/2/default-waku/proto"
-  DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
 
 const dummyHandler = proc(requestId: string, msg: MessagePush) {.async, gcsafe, closure.} = discard
-
-proc newTestSwitch(key=none(PrivateKey), address=none(MultiAddress)): Switch =
-  let peerKey = key.get(PrivateKey.random(ECDSA, rng[]).get())
-  let peerAddr = address.get(MultiAddress.init("/ip4/127.0.0.1/tcp/0").get()) 
-  return newStandardSwitch(some(peerKey), addrs=peerAddr)
 
 
 # TODO: Extend test coverage

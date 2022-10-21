@@ -11,12 +11,8 @@ import
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_lightpush,
-  ../test_helpers
-
-
-const 
-  DefaultPubsubTopic = "/waku/2/default-waku/proto"
-  DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
+  ../test_helpers,
+  ./testlib/common
 
 
 # TODO: Extend lightpush protocol test coverage
