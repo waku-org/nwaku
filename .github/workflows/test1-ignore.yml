@@ -1,0 +1,37 @@
+name: test1
+
+on:
+  pull_request:
+    paths:
+      - 'waku/v2/**'
+      - 'tests/all_tests_v2.nim'
+      - 'tests/v2/**'
+
+      - 'ci/**'
+      - 'metrics/**'
+      - 'docs/**'
+      - '**.md'
+  push:
+    branches:
+      - master
+    paths:
+      - 'ci/**'
+      - 'metrics/**'
+      - 'docs/**'
+      - '**.md'
+
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
+
+    name: ${{ github.workflow }}-${{ matrix.platform }}
+    steps:
+      - run: 'echo "No test required"'

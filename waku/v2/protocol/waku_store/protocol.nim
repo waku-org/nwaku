@@ -25,15 +25,9 @@ import
   ./rpc,
   ./rpc_codec,
   ./pagination,
-  ./message_store
+  ./message_store,
+  ./protocol_metrics
 
-
-declarePublicGauge waku_store_messages, "number of historical messages", ["type"]
-declarePublicGauge waku_store_peers, "number of store peers"
-declarePublicGauge waku_store_errors, "number of store protocol errors", ["type"]
-declarePublicGauge waku_store_queries, "number of store queries received"
-declarePublicHistogram waku_store_insert_duration_seconds, "message insertion duration"
-declarePublicHistogram waku_store_query_duration_seconds, "history query duration"
 
 logScope:
   topics = "wakustore"
@@ -45,16 +39,6 @@ const
   DefaultTopic* = "/waku/2/default-waku/proto"
 
   MaxMessageTimestampVariance* = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift"
-
-
-# Error types (metric label values)
-const
-  invalidMessage = "invalid_message"
-  insertFailure = "insert_failure"
-  retPolicyFailure = "retpolicy_failure"
-  dialFailure = "dial_failure"
-  decodeRpcFailure = "decode_rpc_failure"
-  peerNotFoundFailure = "peer_not_found_failure"
 
 
 type
@@ -291,11 +275,13 @@ proc handleMessage*(w: WakuStore, pubsubTopic: string, msg: WakuMessage) =
 ## CLIENT
 
 # TODO: This should probably be an add function and append the peer to an array
-proc setPeer*(ws: WakuStore, peer: RemotePeerInfo) =
+proc setPeer*(ws: WakuStore, peer: RemotePeerInfo) {.
+  deprecated: "use waku_store/client methods instead".} =
   ws.peerManager.addPeer(peer, WakuStoreCodec)
   waku_store_peers.inc()
 
-proc query(w: WakuStore, req: HistoryQuery, peer: RemotePeerInfo): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe.} =
+proc query(w: WakuStore, req: HistoryQuery, peer: RemotePeerInfo): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe,
+  deprecated: "use waku_store/client methods instead".} =
   let connOpt = await w.peerManager.dialPeer(peer, WakuStoreCodec)
   if connOpt.isNone():
     waku_store_errors.inc(labelValues = [dialFailure])
@@ -316,7 +302,8 @@ proc query(w: WakuStore, req: HistoryQuery, peer: RemotePeerInfo): Future[WakuSt
   waku_store_messages.set(response.value.response.messages.len.int64, labelValues = ["retrieved"])
   return ok(response.value.response)
 
-proc query*(w: WakuStore, req: HistoryQuery): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe.} =
+proc query*(w: WakuStore, req: HistoryQuery): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe,
+  deprecated: "use waku_store/client methods instead".} =
   # TODO: We need to be more stratigic about which peers we dial. Right now we just set one on the service.
   # Ideally depending on the query and our set  of peers we take a subset of ideal peers.
   # This will require us to check for various factors such as:
@@ -337,7 +324,8 @@ proc query*(w: WakuStore, req: HistoryQuery): Future[WakuStoreResult[HistoryResp
 
 const StoreResumeTimeWindowOffset: Timestamp = getNanosecondTime(20)  ## Adjust the time window with an offset of 20 seconds
 
-proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: RemotePeerInfo): Future[WakuStoreResult[seq[WakuMessage]]] {.async, gcsafe.} =
+proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: RemotePeerInfo): Future[WakuStoreResult[seq[WakuMessage]]] {.async, gcsafe,
+  deprecated: "use waku_store/client methods instead".} =
   ## A thin wrapper for query. Sends the query to the given peer. when the  query has a valid pagingInfo, 
   ## it retrieves the historical messages in pages.
   ## Returns all the fetched messages, if error occurs, returns an error string
@@ -366,7 +354,8 @@ proc queryFromWithPaging*(w: WakuStore, query: HistoryQuery, peer: RemotePeerInf
 
   return ok(messageList)
 
-proc queryLoop(w: WakuStore, req: HistoryQuery, candidateList: seq[RemotePeerInfo]): Future[WakuStoreResult[seq[WakuMessage]]]  {.async, gcsafe.} = 
+proc queryLoop(w: WakuStore, req: HistoryQuery, candidateList: seq[RemotePeerInfo]): Future[WakuStoreResult[seq[WakuMessage]]]  {.async, gcsafe,
+  deprecated: "use waku_store/client methods instead".} =
   ## Loops through the peers candidate list in order and sends the query to each
   ##
   ## Once all responses have been received, the retrieved messages are consolidated into one deduplicated list.
@@ -394,7 +383,8 @@ proc queryLoop(w: WakuStore, req: HistoryQuery, candidateList: seq[RemotePeerInf
 proc resume*(w: WakuStore, 
              peerList: Option[seq[RemotePeerInfo]] = none(seq[RemotePeerInfo]), 
              pageSize: uint64 = DefaultPageSize,
-             pubsubTopic = DefaultTopic): Future[WakuStoreResult[uint64]] {.async, gcsafe.} =
+             pubsubTopic = DefaultTopic): Future[WakuStoreResult[uint64]] {.async, gcsafe,
+  deprecated: "use waku_store/client methods instead".} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku store node has been online 
   ## messages are stored in the store node's messages field and in the message db
   ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message 
@@ -472,7 +462,8 @@ proc resume*(w: WakuStore,
 ## EXPERIMENTAL
 
 # NOTE: Experimental, maybe incorporate as part of query call
-proc queryWithAccounting*(ws: WakuStore, req: HistoryQuery): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe.} =
+proc queryWithAccounting*(ws: WakuStore, req: HistoryQuery): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe,
+  deprecated: "use waku_store/client methods instead".} =
   let peerOpt = ws.peerManager.selectPeer(WakuStoreCodec)
   if peerOpt.isNone():
     error "no suitable remote peers"
