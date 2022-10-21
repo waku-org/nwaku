@@ -40,7 +40,6 @@ type
     KdfNotSupported       = "kf: KDF algorithm is not supported"
     CipherNotSupported    = "kf: `cipher` parameter is not supported"
     IncorrectMac          = "kf: `mac` verification failed"
-    IncorrectPrivateKey   = "kf: incorrect private key"
     ScryptBadParam        = "kf: bad scrypt's parameters"
     OsError               = "kf: OS specific error"
     JsonError             = "kf: JSON encoder/decoder error"
@@ -86,9 +85,6 @@ type
   DKey = array[DKLen, byte]
   KfResult*[T] = Result[T, KeyFileError]
 
-proc mapErrTo[T, E](r: Result[T, E], v: static KeyFileError): KfResult[T] =
-  r.mapErr(proc (e: E): KeyFileError = v)
-
 const
   SupportedHashes = [
     "sha224", "sha256", "sha384", "sha512",
@@ -101,6 +97,13 @@ const
     HashKECCAK224, HashKECCAK256, HashKECCAK384, HashKECCAK512,
     HashSHA3_224, HashSHA3_256, HashSHA3_384, HashSHA3_512
   ]
+
+  # When true, the keyfile json will contain "version" and "id" fields, respectively. Default to false.
+  VersionInKeyfile: bool = false
+  IdInKeyfile: bool = false
+
+proc mapErrTo[T, E](r: Result[T, E], v: static KeyFileError): KfResult[T] =
+  r.mapErr(proc (e: E): KeyFileError = v)
 
 proc `$`(k: KdfKind): string =
   case k
@@ -337,7 +340,7 @@ proc createKeyFileJson*(secret: openArray[byte],
 
   let params = ? kdfParams(kdfkind, toHex(salt, true), workfactor)
 
-  ok(%*
+  let json = %*
     {
       "crypto": {
         "cipher": $cryptkind,
@@ -349,10 +352,16 @@ proc createKeyFileJson*(secret: openArray[byte],
         "kdfparams": params,
         "mac": toHex(mac.data, true),
       },
-      "id": $u,
-      "version": version
     }
-  )
+
+  if IdInKeyfile:
+    json.add("id", %($u))
+  if VersionInKeyfile:
+    json.add("version", %version)
+
+  echo json
+
+  ok(json)
 
 proc decodeCrypto(n: JsonNode): KfResult[Crypto] =
   var crypto = n.getOrDefault("crypto")
