@@ -9,7 +9,7 @@ import
   metrics/chronos_httpserver
 import
   ../protocol/waku_filter,
-  ../protocol/waku_store,
+  ../protocol/waku_store/protocol_metrics,
   ../protocol/waku_lightpush,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_peer_exchange,
