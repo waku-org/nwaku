@@ -1,6 +1,6 @@
 # The nwaku guide for operators
 
-*If you're eager to get started, check out our [quickstart guide](./quickstart.md).*
+*If you're eager to get started, check out our [quickstart guide](./quickstart.md) for typical configurations or [step-by-step overview](./overview.md) for newcomers.*
 
 Nwaku is a client implementation in Nim of the [Waku v2 family of protocols](https://rfc.vac.dev/spec/10/) for peer-to-peer communication.
 The protocols are designed to be secure, privacy-preserving, censorship-resistant and able to run in resource restricted environments.
