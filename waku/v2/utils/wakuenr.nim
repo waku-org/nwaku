@@ -11,7 +11,8 @@ import
   libp2p/[multiaddress, multicodec],
   libp2p/crypto/crypto,
   stew/[endians2, results],
-  stew/shims/net
+  stew/shims/net,
+  std/bitops
 
 export enr, crypto, multiaddress, net
 
@@ -23,7 +24,15 @@ type
   ## 8-bit flag field to indicate Waku capabilities.
   ## Only the 4 LSBs are currently defined according
   ## to RFC31 (https://rfc.vac.dev/spec/31/).
-  WakuEnrBitfield* = uint8 
+  WakuEnrBitfield* = uint8
+
+  ## See: https://rfc.vac.dev/spec/31/#waku2-enr-key
+  ## each enum numbers maps to a bit (where 0 is the LSB)
+  Capabilities* = enum
+    Relay = 0,
+    Store = 1,
+    Filter = 2,
+    Lightpush = 3,
 
 func toFieldPair(multiaddrs: seq[MultiAddress]): FieldPair =
   ## Converts a seq of multiaddrs to a `multiaddrs` ENR
@@ -151,3 +160,16 @@ func initEnr*(privateKey: crypto.PrivateKey,
                           wakuEnrFields).expect("Record within size limits")
   
   return enr
+
+proc supportsCapability*(r: Record, capability: Capabilities): bool = 
+  let enrCapabilities = r.get(WAKU_ENR_FIELD, seq[byte])[]
+  # TODO: not nice but seq[uint8] does not work
+  #let enrCapabilities = r.get(WAKU_ENR_FIELD, seq[uint8])[]
+
+  # TODO: Check this, cast[uint8](enrCapabilities) does not work
+  #echo "enrCapabilities: ", enrCapabilities
+  #echo "cast[uint8](capability)", cast[uint8](capability), "cast[uint8](enrCapabilities)", cast[uint8](enrCapabilities)
+  #return testBit(cast[uint8](enrCapabilities), cast[uint8](capability))
+
+  # TODO:
+  return true

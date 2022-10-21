@@ -125,3 +125,5 @@ procSuite "ENR utils":
     
     for knownMultiaddr in knownMultiaddrs:
       check decodedAddrs.contains(knownMultiaddr)
+
+# TODO: Add new test for supportsCapability()
