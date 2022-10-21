@@ -8,22 +8,22 @@ import
   metrics,
   metrics/chronos_httpserver
 import
-  ../../waku/v2/protocol/waku_filter,
-  ../../waku/v2/protocol/waku_store/protocol_metrics,
-  ../../waku/v2/protocol/waku_lightpush,
-  ../../waku/v2/protocol/waku_swap/waku_swap,
-  ../../waku/v2/protocol/waku_peer_exchange,
-  ../../waku/v2/utils/collector,
-  ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/node/waku_node,
-  ./config
+  ../protocol/waku_filter,
+  ../protocol/waku_store/protocol_metrics,
+  ../protocol/waku_lightpush,
+  ../protocol/waku_swap/waku_swap,
+  ../protocol/waku_peer_exchange,
+  ../utils/collector,
+  ./peer_manager/peer_manager,
+  ./waku_node
 
 when defined(rln) or defined(rlnzerokit):
-  import ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_metrics
+  import ../protocol/waku_rln_relay/waku_rln_relay_metrics
 
+const LogInterval = 30.seconds
 
 logScope:
-  topics = "wakunode.setup.metrics"
+  topics = "waku.metrics"
 
 
 proc startMetricsServer*(serverIp: ValidIpAddress, serverPort: Port) =
@@ -36,11 +36,12 @@ proc startMetricsServer*(serverIp: ValidIpAddress, serverPort: Port) =
 
     info "Metrics HTTP server started", serverIp, serverPort
 
-
+type
+  # https://github.com/nim-lang/Nim/issues/17369
+  MetricsLogger = proc(udata: pointer) {.gcsafe, raises: [Defect].}
 
 proc startMetricsLog*() =
-  # https://github.com/nim-lang/Nim/issues/17369
-  var logMetrics: proc(udata: pointer) {.gcsafe, raises: [Defect].}
+  var logMetrics: MetricsLogger
 
   var cumulativeErrors = 0.float64
   var cumulativeConns = 0.float64
@@ -56,23 +57,21 @@ proc startMetricsLog*() =
       # track cumulative values
       let freshErrorCount = parseAndAccumulate(waku_node_errors, cumulativeErrors)
       let freshConnCount = parseAndAccumulate(waku_node_conns_initiated, cumulativeConns)
-      
+
       info "Total connections initiated", count = freshConnCount
-      info "Total messages", count = parseCollectorIntoF64(waku_node_messages)
-      info "Total swap peers", count = parseCollectorIntoF64(waku_swap_peers_count)
-      info "Total filter peers", count = parseCollectorIntoF64(waku_filter_peers)
-      info "Total store peers", count = parseCollectorIntoF64(waku_store_peers)
-      info "Total lightpush peers", count = parseCollectorIntoF64(waku_lightpush_peers)
-      info "Total peer exchange peers", count = parseCollectorIntoF64(waku_px_peers)
+      info "Total messages", count = collectorAsF64(waku_node_messages)
+      info "Total swap peers", count = collectorAsF64(waku_swap_peers_count)
+      info "Total filter peers", count = collectorAsF64(waku_filter_peers)
+      info "Total store peers", count = collectorAsF64(waku_store_peers)
+      info "Total lightpush peers", count = collectorAsF64(waku_lightpush_peers)
+      info "Total peer exchange peers", count = collectorAsF64(waku_px_peers)
       info "Total errors", count = freshErrorCount
-      info "Total active filter subscriptions", count = parseCollectorIntoF64(waku_filter_subscribers)
+      info "Total active filter subscriptions", count = collectorAsF64(waku_filter_subscribers)
 
       # Start protocol specific metrics logging
       when defined(rln) or defined(rlnzerokit):
         logRlnMetrics()
 
-    discard setTimer(Moment.fromNow(30.seconds), logMetrics)
+    discard setTimer(Moment.fromNow(LogInterval), logMetrics)
   
-  discard setTimer(Moment.fromNow(30.seconds), logMetrics)
-
-  
+  discard setTimer(Moment.fromNow(LogInterval), logMetrics)
