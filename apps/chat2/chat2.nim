@@ -26,7 +26,7 @@ import
   ../../waku/v2/protocol/waku_lightpush,
   ../../waku/v2/protocol/waku_filter, 
   ../../waku/v2/protocol/waku_store,
-  ../../waku/v2/node/[waku_node, waku_payload],
+  ../../waku/v2/node/[waku_node, waku_payload, waku_metrics],
   ../../waku/v2/node/dnsdisc/waku_dnsdisc,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/[peers, time],
@@ -550,6 +550,14 @@ proc processInput(rfd: AsyncFD) {.async.} =
           echo "your membership index is: ", node.wakuRlnRelay.membershipIndex
           echo "your rln identity key is: ", node.wakuRlnRelay.membershipKeyPair.idKey.inHex()
           echo "your rln identity commitment key is: ", node.wakuRlnRelay.membershipKeyPair.idCommitment.inHex()
+
+  if conf.metricsLogging:
+    startMetricsLog()
+
+  if conf.metricsServer:
+    startMetricsServer(conf.metricsServerAddress,
+                       Port(conf.metricsServerPort + conf.portsShift))
+    
 
   await chat.readWriteLoop()
 
