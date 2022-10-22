@@ -480,7 +480,6 @@ proc loadKeyFile*(pathname: string,
   var data: JsonNode
   var decodedKeyfile: KfResult[seq[byte]]
   var skipDecryptSuccesses = skip
-  echo "skip ", skipDecryptSuccesses
 
   for keyfile in lines(pathname):
     try:
