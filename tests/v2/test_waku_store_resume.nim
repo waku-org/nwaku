@@ -1,12 +1,10 @@
 {.used.}
 
 import
-  std/[options, tables, sets, times],
-  stew/byteutils,
+  std/[options, tables, sets],
   testutils/unittests, 
   chronos, 
   chronicles,
-  libp2p/switch,
   libp2p/crypto/crypto
 import
   ../../waku/v2/protocol/waku_message,
@@ -14,54 +12,24 @@ import
   ../../waku/v2/node/storage/sqlite,
   ../../waku/v2/node/storage/message/sqlite_store,
   ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/utils/time,
-  ../test_helpers 
+  ./testlib/common,
+  ./testlib/switch
 
-
-const 
-  DefaultPubsubTopic = "/waku/2/default-waku/proto"
-  DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
-
-
-proc now(): Timestamp =
-  getNanosecondTime(getTime().toUnixFloat())
-
-proc ts(offset=0, origin=now()): Timestamp =
-  origin + getNanosecondTime(offset)
 
 proc newTestDatabase(): SqliteDatabase =
   SqliteDatabase.init("", inMemory = true).tryGet()
-
-proc fakeWakuMessage(
-  payload = toBytes("TEST-PAYLOAD"),
-  contentTopic = DefaultContentTopic, 
-  ts = now(),
-  ephemeral = false,
-): WakuMessage = 
-  WakuMessage(
-    payload: payload,
-    contentTopic: contentTopic,
-    version: 1,
-    timestamp: ts,
-    ephemeral: ephemeral,
-  )
-
-proc newTestSwitch(key=none(PrivateKey), address=none(MultiAddress)): Switch =
-  let peerKey = key.get(PrivateKey.random(ECDSA, rng[]).get())
-  let peerAddr = address.get(MultiAddress.init("/ip4/127.0.0.1/tcp/0").get()) 
-  return newStandardSwitch(some(peerKey), addrs=peerAddr)
 
 proc newTestMessageStore(): MessageStore =
   let database = newTestDatabase()
   SqliteStore.init(database).tryGet()
 
-proc newTestWakuStore(switch: Switch, store=newTestMessageStore()): WakuStore =
+proc newTestWakuStore(switch: Switch, store=newTestMessageStore()): Future[WakuStore] {.async.} =
   let
     peerManager = PeerManager.new(switch)
     rng = crypto.newRng()
     proto = WakuStore.init(peerManager, rng, store)
 
-  waitFor proto.start()
+  await proto.start()
   switch.mount(proto)
 
   return proto
@@ -71,7 +39,6 @@ procSuite "Waku Store - resume store":
   ## Fixtures
   let storeA = block:
       let store = newTestMessageStore()
-      
       let msgList = @[
         fakeWakuMessage(payload= @[byte 0], contentTopic=ContentTopic("2"), ts=ts(0)),
         fakeWakuMessage(payload= @[byte 1], contentTopic=ContentTopic("1"), ts=ts(1)),
@@ -118,8 +85,8 @@ procSuite "Waku Store - resume store":
     await allFutures(serverSwitch.start(), clientSwitch.start())
 
     let 
-      _ = newTestWakuStore(serverSwitch, store=storeA)
-      client = newTestWakuStore(clientSwitch)
+      server = await newTestWakuStore(serverSwitch, store=storeA)
+      client = await newTestWakuStore(clientSwitch)
 
     client.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
 
@@ -146,7 +113,7 @@ procSuite "Waku Store - resume store":
     
     await clientSwitch.start()
 
-    let client = newTestWakuStore(clientSwitch)
+    let client = await newTestWakuStore(clientSwitch)
 
     ## Given
     let peers = @[offlineSwitch.peerInfo.toRemotePeerInfo()]
@@ -171,9 +138,9 @@ procSuite "Waku Store - resume store":
     await allFutures(serverASwitch.start(), serverBSwitch.start(), clientSwitch.start())
 
     let 
-      serverA = newTestWakuStore(serverASwitch, store=storeA)
-      serverB = newTestWakuStore(serverBSwitch, store=storeB)
-      client = newTestWakuStore(clientSwitch)
+      serverA = await newTestWakuStore(serverASwitch, store=storeA)
+      serverB = await newTestWakuStore(serverBSwitch, store=storeB)
+      client = await newTestWakuStore(clientSwitch)
 
     ## Given
     let peers = @[

@@ -22,11 +22,11 @@ type DbCursor* = (Timestamp, seq[byte], string)
 proc queryRowWakuMessageCallback(s: ptr sqlite3_stmt, contentTopicCol, payloadCol, versionCol, senderTimestampCol: cint): WakuMessage =
   let 
     topic = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, contentTopicCol))
-    topicLength = sqlite3_column_bytes(s, 1)
+    topicLength = sqlite3_column_bytes(s, contentTopicCol)
     contentTopic = string.fromBytes(@(toOpenArray(topic, 0, topicLength-1)))
   let
     p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, payloadCol))
-    length = sqlite3_column_bytes(s, 2)
+    length = sqlite3_column_bytes(s, payloadCol)
     payload = @(toOpenArray(p, 0, length-1))
   let version = sqlite3_column_int64(s, versionCol)
   let senderTimestamp = sqlite3_column_int64(s, senderTimestampCol)
@@ -45,7 +45,7 @@ proc queryRowReceiverTimestampCallback(s: ptr sqlite3_stmt, storedAtCol: cint): 
 proc queryRowPubsubTopicCallback(s: ptr sqlite3_stmt, pubsubTopicCol: cint): string =
   let
     pubsubTopicPointer = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, pubsubTopicCol))
-    pubsubTopicLength = sqlite3_column_bytes(s, 3)
+    pubsubTopicLength = sqlite3_column_bytes(s, pubsubTopicCol)
     pubsubTopic = string.fromBytes(@(toOpenArray(pubsubTopicPointer, 0, pubsubTopicLength-1)))
 
   pubsubTopic
@@ -53,7 +53,7 @@ proc queryRowPubsubTopicCallback(s: ptr sqlite3_stmt, pubsubTopicCol: cint): str
 proc queryRowDigestCallback(s: ptr sqlite3_stmt, digestCol: cint): seq[byte] =
   let
     digestPointer = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, digestCol))
-    digestLength = sqlite3_column_bytes(s, 3)
+    digestLength = sqlite3_column_bytes(s, digestCol)
     digest = @(toOpenArray(digestPointer, 0, digestLength-1))
 
   digest
