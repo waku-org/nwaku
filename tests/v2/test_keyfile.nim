@@ -13,13 +13,22 @@ suite "KeyFile test suite":
 
   let rng = newRng()
 
-  test "Create/Save/Load test":
-    var secret = randomSeqByte(rng[], 100)
-    let jobject = createKeyFileJson(secret, "randompassword")[]
+  test "Create/Save/Load keyfile test":
+
+    let password = "randompassword"
+    let filepath = "./test.keyfile"
+
+    var secret = randomSeqByte(rng[], 300)
+    let keyfile = createKeyFileJson(secret, password)
 
     check:
-      saveKeyFile("test.keyfile", jobject).isOk()
-    var decodedSecret = loadKeyFile("test.keyfile", "randompassword")[]
+      keyfile.isOk()
+      saveKeyFile(filepath, keyfile.get()).isOk()
+
+    var decodedSecret = loadKeyFile("test.keyfile", password)
+
     check:
-      secret == decodedSecret
-    removeFile("test.keyfile")
+      decodedSecret.isOk()
+      secret == decodedSecret.get()
+
+    removeFile(filepath)

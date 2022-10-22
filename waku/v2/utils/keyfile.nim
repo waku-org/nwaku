@@ -1,5 +1,7 @@
-# This implementation is taken from nim-eth keyfile module https://github.com/status-im/nim-eth/blob/master/eth/keyfile
-# and adapted to create keyfiles for arbitrary-long byte data (rather than fixed-size private keys)
+# This implementation is originally taken from nim-eth keyfile module https://github.com/status-im/nim-eth/blob/master/eth/keyfile and adapted to 
+# - create keyfiles for arbitrary-long input byte data (rather than fixed-size private keys)
+# - allow storage of multiple keyfiles (encrypted with different passwords) in same file (the secret of the first keyfile successfully decrypted is returned or none)
+# - enable/disable at compilation time the keyfile id and version fields
 
 {.push raises: [Defect].}
 
@@ -24,25 +26,25 @@ const
 
 type
   KeyFileError* = enum
-    RandomError           = "kf: Random generator error"
-    UuidError             = "kf: UUID generator error"
-    BufferOverrun         = "kf: Supplied buffer is too small"
-    IncorrectDKLen        = "kf: `dklen` parameter is 0 or more then MaxDKLen"
-    MalformedError        = "kf: JSON has incorrect structure"
-    NotImplemented        = "kf: Feature is not implemented"
-    NotSupported          = "kf: Feature is not supported"
-    EmptyMac              = "kf: `mac` parameter is zero length or not in hexadecimal form"
-    EmptyCiphertext       = "kf: `ciphertext` parameter is zero length or not in hexadecimal format"
-    EmptySalt             = "kf: `salt` parameter is zero length or not in hexadecimal format"
-    EmptyIV               = "kf: `cipherparams.iv` parameter is zero length or not in hexadecimal format"
-    IncorrectIV           = "kf: Size of IV vector is not equal to cipher block size"
-    PrfNotSupported       = "kf: PRF algorithm for PBKDF2 is not supported"
-    KdfNotSupported       = "kf: KDF algorithm is not supported"
-    CipherNotSupported    = "kf: `cipher` parameter is not supported"
-    IncorrectMac          = "kf: `mac` verification failed"
-    ScryptBadParam        = "kf: bad scrypt's parameters"
-    OsError               = "kf: OS specific error"
-    JsonError             = "kf: JSON encoder/decoder error"
+    RandomError           = "keyfile error: Random generator error"
+    UuidError             = "keyfile error: UUID generator error"
+    BufferOverrun         = "keyfile error: Supplied buffer is too small"
+    IncorrectDKLen        = "keyfile error: `dklen` parameter is 0 or more then MaxDKLen"
+    MalformedError        = "keyfile error: JSON has incorrect structure"
+    NotImplemented        = "keyfile error: Feature is not implemented"
+    NotSupported          = "keyfile error: Feature is not supported"
+    EmptyMac              = "keyfile error: `mac` parameter is zero length or not in hexadecimal form"
+    EmptyCiphertext       = "keyfile error: `ciphertext` parameter is zero length or not in hexadecimal format"
+    EmptySalt             = "keyfile error: `salt` parameter is zero length or not in hexadecimal format"
+    EmptyIV               = "keyfile error: `cipherparams.iv` parameter is zero length or not in hexadecimal format"
+    IncorrectIV           = "keyfile error: Size of IV vector is not equal to cipher block size"
+    PrfNotSupported       = "keyfile error: PRF algorithm for PBKDF2 is not supported"
+    KdfNotSupported       = "keyfile error: KDF algorithm is not supported"
+    CipherNotSupported    = "keyfile error: `cipher` parameter is not supported"
+    IncorrectMac          = "keyfile error: `mac` verification failed"
+    ScryptBadParam        = "keyfile error: bad scrypt's parameters"
+    OsError               = "keyfile error: OS specific error"
+    JsonError             = "keyfile error: JSON encoder/decoder error"
 
   KdfKind* = enum
     PBKDF2,             ## PBKDF2
@@ -304,11 +306,11 @@ proc createKeyFileJson*(secret: openArray[byte],
                         workfactor: int = 0): KfResult[JsonNode] =
   ## Create JSON object with keyfile structure.
   ##
-  ## ``seckey`` - private key, which will be stored
+  ## ``secret`` - secret data, which will be stored
   ## ``password`` - encryption password
   ## ``outjson`` - result JSON object
   ## ``version`` - version of keyfile format (default is 3)
-  ## ``cryptkind`` - algorithm for private key encryption
+  ## ``cryptkind`` - algorithm for encryption
   ## (default is AES128-CTR)
   ## ``kdfkind`` - algorithm for key deriviation function (default is PBKDF2)
   ## ``workfactor`` - Key deriviation function work factor, 0 is to use
@@ -358,8 +360,6 @@ proc createKeyFileJson*(secret: openArray[byte],
     json.add("id", %($u))
   if VersionInKeyfile:
     json.add("version", %version)
-
-  echo json
 
   ok(json)
 
@@ -446,7 +446,7 @@ func decryptSecret(crypto: Crypto, dkey: DKey): KfResult[seq[byte]] =
 
 proc decodeKeyFileJson*(j: JsonNode,
                         password: string): KfResult[seq[byte]] =
-  ## Decode private key into ``seckey`` from keyfile json object ``j`` using
+  ## Decode secret from keyfile json object ``j`` using
   ## password string ``password``.
   let res = decodeCrypto(j)
   if res.isErr:
@@ -473,28 +473,37 @@ proc decodeKeyFileJson*(j: JsonNode,
     result = decryptSecret(crypto, dkey)
 
 proc loadKeyFile*(pathname: string,
-                  password: string): KfResult[seq[byte]] =
-  ## Load and decode private key ``seckey`` from file with pathname
+                  password: string): KfResult[seq[byte]] {.raises: [Defect, IOError].} =
+  ## Load and decode data from file with pathname
   ## ``pathname``, using password string ``password``.
   var data: JsonNode
-  try:
-    data = json.parseFile(pathname)
-  except JsonParsingError:
-    return err(JsonError)
-  except Exception: # json raises Exception
-    return err(OsError)
+  var decodedKeyfile: KfResult[seq[byte]]
 
-  decodeKeyFileJson(data, password)
+  for keyfile in lines(pathname):
+    try:
+      data = json.parseJson(keyfile)
+    except JsonParsingError:
+      return err(JsonError)
+    except Exception: # json raises Exception
+      return err(OsError)
 
+    decodedKeyfile = decodeKeyFileJson(data, password)
+    if decodedKeyfile.isOk():
+      break
+
+  return decodedKeyfile
+
+# Note that the keyfile is open in Append mode so that multiple credentials can be stored in same file
 proc saveKeyFile*(pathname: string,
                   jobject: JsonNode): KfResult[void] =
   ## Save JSON object ``jobject`` to file with pathname ``pathname``.
   var
     f: File
-  if not f.open(pathname, fmWrite):
+  if not f.open(pathname, fmAppend):
     return err(OsError)
   try:
     f.write($jobject)
+    f.write("\n")
     ok()
   except CatchableError:
     err(OsError)
