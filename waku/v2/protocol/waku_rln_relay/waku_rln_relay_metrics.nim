@@ -41,8 +41,11 @@ declarePublicGauge(waku_rln_instance_creation_duration_seconds, "time taken to c
 declarePublicGauge(waku_rln_membership_insertion_duration_seconds, "time taken to insert a new member into the local merkle tree")
 declarePublicGauge(waku_rln_membership_credentials_import_duration_seconds, "time taken to import membership credentials")
 
-proc getRlnMetricsLogger*(): proc()  =
-  var logMetrics: proc() {.gcsafe, raises: [Defect].}
+type
+  RLNMetricsLogger = proc() {.gcsafe, raises: [Defect].}
+
+proc getRlnMetricsLogger*(): RLNMetricsLogger =
+  var logMetrics: RLNMetricsLogger
 
   var cumulativeErrors = 0.float64
   var cumulativeMessages = 0.float64

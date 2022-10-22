@@ -8,12 +8,8 @@ import
 import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/utils/time,
-  ../../waku/v2/node/storage/message/queue_store/index
-
-
-const 
-  DefaultPubsubTopic = "/waku/2/default-waku/proto"
-  DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
+  ../../waku/v2/node/storage/message/queue_store/index,
+  ./testlib/common
 
 
 ## Helpers

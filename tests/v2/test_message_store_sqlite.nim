@@ -13,34 +13,12 @@ import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store/pagination,
   ../../waku/v2/utils/time,
-  ./utils
-
-
-const 
-  DefaultPubsubTopic = "/waku/2/default-waku/proto"
-  DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
+  ./utils,
+  ./testlib/common
 
 
 proc newTestDatabase(): SqliteDatabase =
   SqliteDatabase.init("", inMemory = true).tryGet()
-
-proc now(): Timestamp =
-  getNanosecondTime(getTime().toUnixFloat())
-
-proc ts(offset=0, origin=now()): Timestamp = 
-  origin + getNanosecondTime(offset)
-
-proc fakeWakuMessage(
-  payload = "TEST-PAYLOAD",
-  contentTopic = DefaultContentTopic, 
-  ts = now()
-): WakuMessage = 
-  WakuMessage(
-    payload: toBytes(payload),
-    contentTopic: contentTopic,
-    version: 1,
-    timestamp: ts
-  )
 
 
 suite "SQLite message store - init store":
