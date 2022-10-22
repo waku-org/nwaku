@@ -1,6 +1,6 @@
 # This implementation is originally taken from nim-eth keyfile module https://github.com/status-im/nim-eth/blob/master/eth/keyfile and adapted to 
 # - create keyfiles for arbitrary-long input byte data (rather than fixed-size private keys)
-# - allow storage of multiple keyfiles (encrypted with different passwords) in same file (the secret of the first keyfile successfully decrypted is returned or none)
+# - allow storage of multiple keyfiles (encrypted with different passwords) in same file and iteration among successful decryptions
 # - enable/disable at compilation time the keyfile id and version fields
 
 {.push raises: [Defect].}
@@ -473,11 +473,14 @@ proc decodeKeyFileJson*(j: JsonNode,
     result = decryptSecret(crypto, dkey)
 
 proc loadKeyFile*(pathname: string,
-                  password: string): KfResult[seq[byte]] {.raises: [Defect, IOError].} =
+                  password: string, skip: int32 = 0): KfResult[seq[byte]] {.raises: [Defect, IOError].} =
   ## Load and decode data from file with pathname
   ## ``pathname``, using password string ``password``.
+  ## If skip is non-zero, the first skip successful decryptions are skipped
   var data: JsonNode
   var decodedKeyfile: KfResult[seq[byte]]
+  var skipDecryptSuccesses = skip
+  echo "skip ", skipDecryptSuccesses
 
   for keyfile in lines(pathname):
     try:
@@ -489,7 +492,10 @@ proc loadKeyFile*(pathname: string,
 
     decodedKeyfile = decodeKeyFileJson(data, password)
     if decodedKeyfile.isOk():
-      break
+      if skipDecryptSuccesses <= 0:
+        break
+      else:
+        skipDecryptSuccesses -= 1
 
   return decodedKeyfile
 
