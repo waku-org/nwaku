@@ -290,6 +290,11 @@ type
       desc: "Address of membership contract on an Ethereum testnet", 
       defaultValue: ""
       name: "rln-relay-eth-contract-address" }: string
+
+    rlnRelayCredentialsPassword* {.
+      desc: "Password for encrypting RLN credentials", 
+      defaultValue: ""
+      name: "rln-relay-cred-password" }: string
     
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =
