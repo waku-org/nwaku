@@ -99,6 +99,14 @@ func initWakuFlags*(lightpush, filter, store, relay: bool): WakuEnrBitfield =
   if store: v.setBit(1)
   if relay: v.setBit(0)
 
+  # TODO: With the changes in this PR, this can be refactored? Using the enum?
+  # Perhaps refactor to:
+    # WaKuEnr.initEnr(..., capabilities=[Store, Lightpush])
+    # WaKuEnr.initEnr(..., capabilities=[Store, Lightpush, Relay, Filter])
+
+  # Safer also since we dont inject WakuEnrBitfield, and we let this package
+  # handle the bits according to the capabilities
+
   return v.WakuEnrBitfield
 
 func toMultiAddresses*(multiaddrsField: seq[byte]): seq[MultiAddress] =
@@ -163,13 +171,4 @@ func initEnr*(privateKey: crypto.PrivateKey,
 
 proc supportsCapability*(r: Record, capability: Capabilities): bool = 
   let enrCapabilities = r.get(WAKU_ENR_FIELD, seq[byte])[]
-  # TODO: not nice but seq[uint8] does not work
-  #let enrCapabilities = r.get(WAKU_ENR_FIELD, seq[uint8])[]
-
-  # TODO: Check this, cast[uint8](enrCapabilities) does not work
-  #echo "enrCapabilities: ", enrCapabilities
-  #echo "cast[uint8](capability)", cast[uint8](capability), "cast[uint8](enrCapabilities)", cast[uint8](enrCapabilities)
-  #return testBit(cast[uint8](enrCapabilities), cast[uint8](capability))
-
-  # TODO:
-  return true
+  return testBit(enrCapabilities[0], capability.ord)

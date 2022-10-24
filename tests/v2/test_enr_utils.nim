@@ -2,7 +2,7 @@
 
 import
   testutils/unittests,
-  std/options,
+  std/[options,sequtils],
   stew/byteutils,
   chronos,
   ../../waku/v2/utils/wakuenr,
@@ -126,4 +126,57 @@ procSuite "ENR utils":
     for knownMultiaddr in knownMultiaddrs:
       check decodedAddrs.contains(knownMultiaddr)
 
-# TODO: Add new test for supportsCapability()
+  asyncTest "Supports capabilities encoded in the ENR":
+    let
+      enrIp = ValidIpAddress.init("127.0.0.1")
+      enrTcpPort, enrUdpPort = Port(60000)
+      enrKey = wakuenr.crypto.PrivateKey.random(Secp256k1, rng[])[]
+      multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[]]
+      
+      # TODO: ugly, refactor
+      records = @[initWakuFlags(false, false, false, false),
+                  initWakuFlags(false, false, false, true),
+                  initWakuFlags(false, false, true, false),
+                  initWakuFlags(false, false, true, true),
+                  initWakuFlags(false, true, false, false),
+                  initWakuFlags(false, true, false, true),
+                  initWakuFlags(false, true, true, false),
+                  initWakuFlags(false, true, true, true),
+                  initWakuFlags(true, false, false, false),
+                  initWakuFlags(true, false, false, true),
+                  initWakuFlags(true, false, true, false),
+                  initWakuFlags(true, false, true, true),
+                  initWakuFlags(true, true, false, false),
+                  initWakuFlags(true, true, false, true),
+                  initWakuFlags(true, true, true, false),
+                  initWakuFlags(true, true, true, true)]
+                  .mapIt(initEnr(enrKey,
+                                 some(enrIp),
+                                 some(enrTcpPort),
+                                 some(enrUdpPort),
+                                 some(it),
+                                 multiaddrs))
+
+      # pitty the wakuFlags arguments can't be unwrapped
+      # same order:         lightpush | filter| store | relay
+      # TODO: Refactor after changing initWakuFlags. ask team
+      expectedCapabilities = @[[false, false, false, false],
+                               [false, false, false, true],
+                               [false, false, true, false],
+                               [false, false, true, true],
+                               [false, true, false, false],
+                               [false, true, false, true],
+                               [false, true, true, false],
+                               [false, true, true, true],
+                               [true, false, false, false],
+                               [true, false, false, true],
+                               [true, false, true, false],
+                               [true, false, true, true],
+                               [true, true, false, false],
+                               [true, true, false, true],
+                               [true, true, true, false],
+                               [true, true, true, true]]
+    
+    for i, record in records:
+      for j, capability in @[Lightpush, Filter, Store, Relay]:
+        check expectedCapabilities[i][j] == record.supportsCapability(capability)
