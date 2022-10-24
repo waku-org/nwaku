@@ -5,78 +5,119 @@ import
   testutils/unittests, 
   chronicles,
   chronos, 
-  libp2p/switch,
   libp2p/crypto/crypto
 import
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_lightpush,
-  ../test_helpers,
-  ./testlib/common
+  ../../waku/v2/protocol/waku_lightpush/client,
+  ./testlib/common,
+  ./testlib/switch
 
 
-# TODO: Extend lightpush protocol test coverage
-procSuite "Waku Lightpush":
+proc newTestWakuLightpushNode(switch: Switch, handler: PushMessageHandler): Future[WakuLightPush] {.async.} =
+  let
+    peerManager = PeerManager.new(switch)
+    rng = crypto.newRng()
+    proto = WakuLightPush.new(peerManager, rng, handler)
 
-  asyncTest "handle light push request success":
-    # TODO: Move here the test case at test_wakunode: light push request success
-    discard
+  await proto.start()
+  switch.mount(proto)
 
-  asyncTest "handle light push request fail":
-    let
-      key = PrivateKey.random(ECDSA, rng[]).get()
-      listenSwitch = newStandardSwitch(some(key))
-    await listenSwitch.start()
+  return proto
 
-    let dialSwitch = newStandardSwitch()
-    await dialSwitch.start()
-
-
-    proc requestHandler(requestId: string, msg: PushRequest) {.gcsafe, closure.} =
-      # TODO Success return here
-      debug "handle push req"
-      check:
-        1 == 0
-
-    # FIXME Unclear how we want to use subscriptions, if at all
-    let
-      peerManager = PeerManager.new(dialSwitch)
-      rng = crypto.newRng()
-      proto = WakuLightPush.init(peerManager, rng, requestHandler)
-
-    proto.setPeer(listenSwitch.peerInfo.toRemotePeerInfo())
-    waitFor proto.start()
-    dialSwitch.mount(proto)
+proc newTestWakuLightpushClient(switch: Switch): WakuLightPushClient =
+  let
+    peerManager = PeerManager.new(switch)
+    rng = crypto.newRng()
+  WakuLightPushClient.new(peerManager, rng)
 
 
-    # TODO Can possibly get rid of this if it isn't dynamic
-    proc requestHandler2(requestId: string, msg: PushRequest) {.gcsafe, closure.} =
-      debug "push request handler"
-      # TODO: Also relay message
-      # TODO: Here we want to send back response with is_success true
-      discard
+suite "Waku Lightpush":
 
-    let
-      peerManager2 = PeerManager.new(listenSwitch)
-      rng2 = crypto.newRng() 
-      proto2 = WakuLightPush.init(peerManager2, rng2, requestHandler2)
-    waitFor proto2.start()
-    listenSwitch.mount(proto2)
+  asyncTest "push message to pubsub topic is successful":
+    ## Setup
+    let 
+      serverSwitch = newTestSwitch()
+      clientSwitch = newTestSwitch()
 
+    await allFutures(serverSwitch.start(), clientSwitch.start())
 
     ## Given
+    let handlerFuture = newFuture[(string, WakuMessage)]()
+    let handler = proc(peer: PeerId, pubsubTopic: string, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} = 
+        handlerFuture.complete((pubsubTopic, message))
+        return ok()
+
     let
-      msg = WakuMessage(payload: @[byte 1, 2, 3], contentTopic: DefaultContentTopic)
-      rpc = PushRequest(message: msg, pubSubTopic: DefaultPubsubTopic)
+      server = await newTestWakuLightpushNode(serverSwitch, handler)
+      client = newTestWakuLightpushClient(clientSwitch)
+
+    let serverPeerId = serverSwitch.peerInfo.toRemotePeerInfo()
+
+    let
+      topic = DefaultPubsubTopic
+      message = fakeWakuMessage()
 
     ## When
-    let res = await proto.request(rpc)
+    let rpc = PushRequest(pubSubTopic: topic, message: message)
+    let requestRes = await client.request(rpc, serverPeerId)
+
+    require await handlerFuture.withTimeout(100.millis)
 
     ## Then
-    check res.isOk()
-    let response = res.get()
     check:
-      not response.isSuccess
+      requestRes.isOk()
+      handlerFuture.finished()
+
+    let (handledMessagePubsubTopic, handledMessage) = handlerFuture.read()
+    check:
+      handledMessagePubsubTopic == topic
+      handledMessage == message
 
     ## Cleanup
-    await allFutures(listenSwitch.stop(), dialSwitch.stop())
+    await allFutures(clientSwitch.stop(), serverSwitch.stop())
+
+  asyncTest "push message to pubsub topic should fail":
+    ## Setup
+    let 
+      serverSwitch = newTestSwitch()
+      clientSwitch = newTestSwitch()
+
+    await allFutures(serverSwitch.start(), clientSwitch.start())
+
+    ## Given
+    let error = "test_failure"
+    
+    let handlerFuture = newFuture[void]()
+    let handler = proc(peer: PeerId, pubsubTopic: string, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} = 
+        handlerFuture.complete()
+        return err(error)
+
+    let
+      server = await newTestWakuLightpushNode(serverSwitch, handler)
+      client = newTestWakuLightpushClient(clientSwitch)
+
+    let serverPeerId = serverSwitch.peerInfo.toRemotePeerInfo()
+
+    let
+      topic = DefaultPubsubTopic
+      message = fakeWakuMessage()
+
+    ## When
+    let rpc = PushRequest(pubSubTopic: topic, message: message)
+    let requestRes = await client.request(rpc, serverPeerId)
+
+    require await handlerFuture.withTimeout(100.millis)
+
+    ## Then
+    check:
+      requestRes.isErr()
+      handlerFuture.finished()
+
+    let requestError = requestRes.error
+    check:
+      requestError == error
+  
+    ## Cleanup
+    await allFutures(clientSwitch.stop(), serverSwitch.stop())
