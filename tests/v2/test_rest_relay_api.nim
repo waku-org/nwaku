@@ -13,7 +13,9 @@ import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/rest/[server, client, base64, utils],
-  ../../waku/v2/node/rest/relay/[api_types, relay_api, topic_cache]
+  ../../waku/v2/node/rest/relay/[api_types, relay_api, topic_cache],
+  ../../waku/v2/utils/time,
+  ./testlib/common
 
 
 proc testWakuNode(): WakuNode = 
@@ -25,14 +27,6 @@ proc testWakuNode(): WakuNode =
     port = Port(9000)
 
   WakuNode.new(privkey, bindIp, port, some(extIp), some(port))
-
-proc fakeWakuMessage(payload = toBytes("TEST"), contentTopic = "test"): WakuMessage = 
-  WakuMessage(
-    payload: payload,
-    contentTopic: contentTopic,
-    version: 1,
-    timestamp: 2022
-  )
 
 
 suite "REST API - Relay":
@@ -167,8 +161,8 @@ suite "REST API - Relay":
       response.data.all do (msg: RelayWakuMessage) -> bool: 
         msg.payload == Base64String.encode("TEST-1") and
         msg.contentTopic.get().string == "content-topic-x" and
-        msg.version.get() == Natural(1) and
-        msg.timestamp.get() == int64(2022)
+        msg.version.get() == 2 and
+        msg.timestamp.get() != Timestamp(0)
 
 
     check:

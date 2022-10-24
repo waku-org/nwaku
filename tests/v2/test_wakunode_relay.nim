@@ -16,7 +16,7 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub
 import
-  ../../waku/v2/protocol/[waku_relay, waku_message],
+  ../../waku/v2/protocol/waku_message,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/peers,
   ../../waku/v2/node/waku_node
