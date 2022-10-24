@@ -2,7 +2,7 @@
 {.used.}
 
 import
-  std/[options,os], sequtils, times, deques,
+  std/[options, os, sequtils, times, deques],
   testutils/unittests, chronos, chronicles, stint,
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
@@ -1006,19 +1006,25 @@ suite "Waku rln relay":
     let filepath = "./testRLNCredentials.txt"
     let password = "%m0um0ucoW%"
 
-    # Write RLN credentials
-    check:
-      writeRlnCredentials(filepath, rlnMembershipCredentials, password).isOk()
+    try:
+      # Write RLN credentials
+      check:
+        writeRlnCredentials(filepath, rlnMembershipCredentials, password).isOk()
 
-    var credentials = readRlnCredentials(filepath, password)
+      let readCredentialsResult = readRlnCredentials(filepath, password)
+      check:
+        readCredentialsResult.isOk()
 
-    check:
-      credentials.isSome()
-      credentials.get().membershipKeyPair == k
-      credentials.get().rlnIndex == index
+      let credentials = readCredentialsResult.get()
 
-    removeFile(filepath)
-  
+      check:
+        credentials.isSome()
+        credentials.get().membershipKeyPair == k
+        credentials.get().rlnIndex == index
+
+    finally:
+      removeFile(filepath)
+
   test "histogram static bucket generation":
     let buckets = generateBucketsForHistogram(10)
 

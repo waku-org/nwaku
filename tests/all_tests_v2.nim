@@ -45,7 +45,7 @@ import
   ./v2/test_waku_noise,
   ./v2/test_waku_noise_sessions,
   # Utils
-  ./v2/test_keyfile
+  ./v2/test_utils_keyfile
 
 when defined(rln) or defined(rlnzerokit):
   import 

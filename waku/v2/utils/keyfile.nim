@@ -110,34 +110,32 @@ proc mapErrTo[T, E](r: Result[T, E], v: static KeyFileError): KfResult[T] =
 proc `$`(k: KdfKind): string =
   case k
     of SCRYPT:
-      result = "scrypt"
+      return "scrypt"
     else:
-      result = "pbkdf2"
+      return "pbkdf2"
 
 proc `$`(k: CryptKind): string =
   case k
     of AES128CTR:
-      result = "aes-128-ctr"
+      return "aes-128-ctr"
     else:
-      result = "aes-128-ctr"
+      return "aes-128-ctr"
 
 proc getPrfHash(prf: string): HashKind =
-  result = HashNoSupport
   let p = prf.toLowerAscii()
   if p.startsWith("hmac-"):
     var hash = p[5..^1]
     var res = SupportedHashes.find(hash)
     if res >= 0:
-      result = SupportedHashesKinds[res]
-    else:
-      result = HashNoSupport
+      return SupportedHashesKinds[res]
+  return HashNoSupport
 
 proc getCipher(c: string): CryptKind =
   var cl = c.toLowerAscii()
   if cl == "aes-128-ctr":
-    result = AES128CTR
+    return AES128CTR
   else:
-    result = CipherNoSupport
+    return CipherNoSupport
 
 proc deriveKey(password: string,
                salt: string,
@@ -151,50 +149,62 @@ proc deriveKey(password: string,
     of HashSHA2_224:
       var ctx: HMAC[sha224]
       discard ctx.pbkdf2(password, salt, c, output)
+      ctx.clear()
       ok(output)
     of HashSHA2_256:
       var ctx: HMAC[sha256]
       discard ctx.pbkdf2(password, salt, c, output)
+      ctx.clear()
       ok(output)
     of HashSHA2_384:
       var ctx: HMAC[sha384]
       discard ctx.pbkdf2(password, salt, c, output)
+      ctx.clear()
       ok(output)
     of HashSHA2_512:
       var ctx: HMAC[sha512]
       discard ctx.pbkdf2(password, salt, c, output)
+      ctx.clear()
       ok(output)
     of HashKECCAK224:
       var ctx: HMAC[keccak224]
       discard ctx.pbkdf2(password, salt, c, output)
+      ctx.clear()
       ok(output)
     of HashKECCAK256:
       var ctx: HMAC[keccak256]
       discard ctx.pbkdf2(password, salt, c, output)
+      ctx.clear()
       ok(output)
     of HashKECCAK384:
       var ctx: HMAC[keccak384]
       discard ctx.pbkdf2(password, salt, c, output)
+      ctx.clear()
       ok(output)
     of HashKECCAK512:
       var ctx: HMAC[keccak512]
       discard ctx.pbkdf2(password, salt, c, output)
+      ctx.clear()
       ok(output)
     of HashSHA3_224:
       var ctx: HMAC[sha3_224]
       discard ctx.pbkdf2(password, salt, c, output)
+      ctx.clear()
       ok(output)
     of HashSHA3_256:
       var ctx: HMAC[sha3_256]
       discard ctx.pbkdf2(password, salt, c, output)
+      ctx.clear()
       ok(output)
     of HashSHA3_384:
       var ctx: HMAC[sha3_384]
       discard ctx.pbkdf2(password, salt, c, output)
+      ctx.clear()
       ok(output)
     of HashSHA3_512:
       var ctx: HMAC[sha3_512]
       discard ctx.pbkdf2(password, salt, c, output)
+      ctx.clear()
       ok(output)
     else:
       err(PrfNotSupported)
@@ -216,7 +226,7 @@ proc deriveKey(password: string, salt: string,
   if scrypt(password, salt, wf, r, p, output) == 0:
     return err(ScryptBadParam)
 
-  result = ok(output)
+  return ok(output)
 
 proc encryptData(secret: openArray[byte],
                 cryptkind: CryptKind,
@@ -276,27 +286,30 @@ proc kdfParams(kdfkind: KdfKind, salt: string, workfactor: int): KfResult[JsonNo
 proc decodeHex(m: string): seq[byte] =
   if len(m) > 0:
     try:
-      result = utils.fromHex(m)
+      return utils.fromHex(m)
     except CatchableError:
-      result = newSeq[byte]()
+      return newSeq[byte]()
   else:
-    result = newSeq[byte]()
+    return newSeq[byte]()
 
 proc decodeSalt(m: string): string =
   var sarr: seq[byte]
   if len(m) > 0:
     try:
       sarr = utils.fromHex(m)
-      result = newString(len(sarr))
-      copyMem(addr result[0], addr sarr[0], len(sarr))
+      var output = newString(len(sarr))
+      copyMem(addr output[0], addr sarr[0], len(sarr))
+      return output
     except CatchableError:
-      result = ""
+      return ""
   else:
-    result = ""
+    return ""
 
 proc compareMac(m1: openArray[byte], m2: openArray[byte]): bool =
   if len(m1) == len(m2) and len(m1) > 0:
-    result = equalMem(unsafeAddr m1[0], unsafeAddr m2[0], len(m1))
+    return equalMem(unsafeAddr m1[0], unsafeAddr m2[0], len(m1))
+  else:
+    return false
 
 proc createKeyFileJson*(secret: openArray[byte],
                         password: string,
@@ -397,7 +410,7 @@ proc decodeCrypto(n: JsonNode): KfResult[Crypto] =
   if isNil(c.kdfParams):
     return err(MalformedError)
 
-  result = ok(c)
+  return ok(c)
 
 proc decodePbkdf2Params(params: JsonNode): KfResult[Pbkdf2Params] =
   var p: Pbkdf2Params
@@ -413,7 +426,8 @@ proc decodePbkdf2Params(params: JsonNode): KfResult[Pbkdf2Params] =
     return err(PrfNotSupported)
   if p.dklen == 0 or p.dklen > MaxDKLen:
     return err(IncorrectDKLen)
-  result = ok(p)
+    
+  return ok(p)
 
 proc decodeScryptParams(params: JsonNode): KfResult[ScryptParams] =
   var p: ScryptParams
@@ -429,7 +443,7 @@ proc decodeScryptParams(params: JsonNode): KfResult[ScryptParams] =
   if p.dklen == 0 or p.dklen > MaxDKLen:
     return err(IncorrectDKLen)
 
-  result = ok(p)
+  return ok(p)
 
 func decryptSecret(crypto: Crypto, dkey: DKey): KfResult[seq[byte]] =
   var ctx: keccak256
@@ -437,6 +451,7 @@ func decryptSecret(crypto: Crypto, dkey: DKey): KfResult[seq[byte]] =
   ctx.update(toOpenArray(dkey, 16, 31))
   ctx.update(crypto.cipher.text)
   var mac = ctx.finish()
+  ctx.clear()
   if not compareMac(mac.data, crypto.mac):
     return err(IncorrectMac)
 
@@ -461,7 +476,7 @@ proc decodeKeyFileJson*(j: JsonNode,
 
     let params = res.get()
     let dkey = ? deriveKey(password, params.salt, PBKDF2, params.prf, params.c)
-    result = decryptSecret(crypto, dkey)
+    return decryptSecret(crypto, dkey)
 
   of SCRYPT:
     let res = decodeScryptParams(crypto.kdfParams)
@@ -470,7 +485,7 @@ proc decodeKeyFileJson*(j: JsonNode,
 
     let params = res.get()
     let dkey = ? deriveKey(password, params.salt, params.n, params.r, params.p)
-    result = decryptSecret(crypto, dkey)
+    return decryptSecret(crypto, dkey)
 
 proc loadKeyFile*(pathname: string,
                   password: string, skip: int32 = 0): KfResult[seq[byte]] {.raises: [Defect, IOError].} =
