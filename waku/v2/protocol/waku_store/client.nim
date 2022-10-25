@@ -49,7 +49,7 @@ proc query*(w: WakuStoreClient, req: HistoryQuery, peer: RemotePeerInfo): Future
   let rpc = HistoryRPC(requestId: generateRequestId(w.rng), query: req)
   await connection.writeLP(rpc.encode().buffer)
 
-  var message = await connOpt.get().readLp(MaxRpcSize.int)
+  var message = await connection.readLp(MaxRpcSize.int)
   let response = HistoryRPC.init(message)
 
   if response.isErr():
@@ -114,6 +114,7 @@ proc queryLoop*(w: WakuStoreClient, req: HistoryQuery, peers: seq[RemotePeerInfo
 
 proc setPeer*(ws: WakuStoreClient, peer: RemotePeerInfo) =
   ws.peerManager.addPeer(peer, WakuStoreCodec)
+  waku_store_peers.inc()
 
 proc query*(w: WakuStoreClient, req: HistoryQuery): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe.} =
   # TODO: We need to be more stratigic about which peers we dial. Right now we just set one on the service.
