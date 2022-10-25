@@ -169,6 +169,14 @@ func initEnr*(privateKey: crypto.PrivateKey,
   
   return enr
 
+# TODO: use isWakuNode?
 proc supportsCapability*(r: Record, capability: Capabilities): bool = 
+  # TODO: error handling, this is not safe
   let enrCapabilities = r.get(WAKU_ENR_FIELD, seq[byte])[]
   return testBit(enrCapabilities[0], capability.ord)
+
+# TODO: Add tests for this
+proc supportedCapabilites*(r: Record): seq[Capabilities] =
+  # TODO: Error handling
+  let enrCapabilities = r.get(WAKU_ENR_FIELD, seq[byte])[]
+  return toSeq(Capabilities.low..Capabilities.high).filterIt(r.supportsCapability(it))
