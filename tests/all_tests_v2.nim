@@ -4,7 +4,6 @@ import
   # ./v2/test_waku,
   ./v2/test_wakunode,
   ./v2/test_wakunode_relay,
-  ./v2/test_wakunode_lightpush,
   # Waku Store
   ./v2/test_message_store_queue_index,
   ./v2/test_message_store_queue_pagination,
@@ -17,6 +16,9 @@ import
   # TODO: Re-enable store resume test cases (#1282)
   # ./v2/test_waku_store_resume,
   ./v2/test_wakunode_store,
+  # Waku LightPush
+  ./v2/test_waku_lightpush,
+  ./v2/test_wakunode_lightpush,
   # Waku Filter
   ./v2/test_waku_filter,
   ./v2/test_wakunode_filter,

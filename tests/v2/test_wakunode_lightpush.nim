@@ -59,7 +59,7 @@ procSuite "WakuNode - Lightpush":
     ## When
     let lightpushRes = await lightNode.lightpush(DefaultPubsubTopic, message)
 
-    require (await completionFutRelay.withTimeout(5.seconds)) == true
+    require await completionFutRelay.withTimeout(5.seconds)
     
     ## Then
     check lightpushRes.isOk()
