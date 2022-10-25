@@ -1003,27 +1003,25 @@ suite "Waku rln relay":
 
     var rlnMembershipCredentials = RlnMembershipCredentials(membershipKeyPair: k, rlnIndex: index)
 
-    let filepath = "./testRLNCredentials.txt"
     let password = "%m0um0ucoW%"
 
-    try:
-      # Write RLN credentials
-      check:
-        writeRlnCredentials(filepath, rlnMembershipCredentials, password).isOk()
+    let filepath = "./testRLNCredentials.txt"
+    defer: removeFile(filepath)
 
-      let readCredentialsResult = readRlnCredentials(filepath, password)
-      check:
-        readCredentialsResult.isOk()
+    # Write RLN credentials
+    check:
+      writeRlnCredentials(filepath, rlnMembershipCredentials, password).isOk()
 
-      let credentials = readCredentialsResult.get()
+    let readCredentialsResult = readRlnCredentials(filepath, password)
+    check:
+      readCredentialsResult.isOk()
 
-      check:
-        credentials.isSome()
-        credentials.get().membershipKeyPair == k
-        credentials.get().rlnIndex == index
+    let credentials = readCredentialsResult.get()
 
-    finally:
-      removeFile(filepath)
+    check:
+      credentials.isSome()
+      credentials.get().membershipKeyPair == k
+      credentials.get().rlnIndex == index
 
   test "histogram static bucket generation":
     let buckets = generateBucketsForHistogram(10)
