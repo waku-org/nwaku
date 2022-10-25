@@ -913,7 +913,7 @@ proc addAll*(wakuRlnRelay: WakuRLNRelay, list: seq[IDCommitment]): RlnRelayResul
       return err(memberAdded.error())
   return ok()
 
-type GroupUpdateHandler = proc(pubkey: Uint256, index: Uint256): RlnRelayResult[void] {.gcsafe, raises: [Defect].}
+type GroupUpdateHandler* = proc(pubkey: Uint256, index: Uint256): RlnRelayResult[void] {.gcsafe, raises: [Defect].}
 
 proc generateGroupUpdateHandler(rlnPeer: WakuRLNRelay): GroupUpdateHandler =
   # assuming all the members arrive in order
@@ -950,7 +950,7 @@ proc subscribeToMemberRegistrations(web3: Web3,
     debug "onRegister", pubkey = pubkey, index = index
     let groupUpdateRes = handler(pubkey, index)
     if groupUpdateRes.isErr():
-      error "Error handling new member registration: ", err=groupUpdateRes.error()
+      error "Error handling new member registration", err=groupUpdateRes.error()
 
   let onError = proc (err: CatchableError) =
     error "Error in subscription", err=err.msg
@@ -960,7 +960,7 @@ proc subscribeToMemberRegistrations(web3: Web3,
                                      onMemberRegistered,
                                      onError)
 
-proc subscribeToGroupEvents(ethClientUri: string,
+proc subscribeToGroupEvents*(ethClientUri: string,
                             ethAccountAddress: Option[Address] = none(Address),
                             contractAddress: Address,
                             blockNumber: string = "0x0",
