@@ -10,13 +10,32 @@ import
 logScope:
   topics = "networkmonitor_metrics"
 
-# TODO: remove dummy test
-declarePublicHistogram networkmonitor_example, "my test"
+# Metric ideas:
+# histogram with latency
+# number of peers hosted behind each ip
 
-# TODO: add metrics
-# discovered nodes with Relay, Store, Filter, Lightpush capabilities
-# full enrs
-# ips (useful for location)
+# On top of our custom metrics, the following are reused from nim-eth
+#routing_table_nodes{state=""}
+#routing_table_nodes{state="seen"}
+#discovery_message_requests_outgoing_total{response=""}
+#discovery_message_requests_outgoing_total{response="no_response"}
+
+declarePublicGauge peer_type_as_per_enr,
+    "Number of peers supporting each capability according the the ENR",
+    labels = ["capability"]
+
+declarePublicGauge peer_type_as_per_protocol,
+    "Number of peers supporting each capability according to the protocol (requiere successful connection) ",
+    labels = ["capability"]
+
+declarePublicGauge discovered_peers_list,
+    "Discovered peers in the waku network and its information",
+    labels = ["enr",
+              "ip",
+              "capabilities",]
+              #"citiy",
+              #"country",
+              #"last_seen"]
 
 proc startMetricsServer*(serverIp: ValidIpAddress, serverPort: Port) =
     info "Starting metrics HTTP server", serverIp, serverPort

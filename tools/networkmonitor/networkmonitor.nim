@@ -2,8 +2,7 @@
 import
   confutils,
   sequtils,
-  std/sugar,
-  std/tables,
+  std/[sugar,tables,strutils],
   chronicles,
   chronicles/topics_registry,
   chronos,
@@ -23,6 +22,12 @@ import
 
 logScope:
   topics = "networkmonitor"
+
+# TODO: Move to utils
+proc flatten*[T](a: seq[seq[T]]): seq[T] =
+  result = @[]
+  for subseq in a:
+    result &= subseq
 
 proc main() {.async.} = 
   let conf: NetworkMonitorConf = NetworkMonitorConf.load()
@@ -54,7 +59,7 @@ proc main() {.async.} =
 
 
                         
-  # TODO: use other discovery mechanisms
+  # TODO: use other discovery mechanisms: i.e. dns
   
   # waku prod bootstrap nodes
   const bootstrapNodes = @[
@@ -83,30 +88,38 @@ proc main() {.async.} =
   #await node.mountRelay()
   #await allFutures([node.start()])
 
-  # TODO remove thi. Note that now it doesnt work with it
+  # TODO remove this. Note that now it doesnt work with it
   await allFutures([node.startDiscv5()]) 
   let d = node.wakuDiscv5.protocol
   while true:
     # we dont care about the result, everything is updated inside the routingTable
     discard await d.queryRandom()
-
-    for bucket in d.routingTable.buckets:
-      for node in bucket.nodes:
-        #echo "id", node.id
-        #echo "pubkey", node.pubkey
-        #echo "address", node.address
-        #echo "seen", node.seen
-        #echo "pairs", node.record
-        for capability in @[Relay, Store, Filter, Lightpush]:
-          if node.record.supportsCapability(capability):
-            echo "node:", node.address, " supports ", capability
-            # TODO: add to prometheus metrics
+    # perhaps use it here to update the number of times it was discovered
     
-    let totalNodes = d.routingTable.buckets.foldl(a + b.nodes.len, 0)
-    let seenNodes = d.routingTable.buckets.foldl(a + b.nodes.filterIt(it.seen == true).len, 0)
+    # nodes are nested into bucket, flat it
+    let flatNodes = d.routingTable.buckets.mapIt(it.nodes).flatten()
 
+    for capability in @[Relay, Store, Filter, Lightpush]:
+      let nOfNodesWithCapability = flatNodes.countIt(it.record.supportsCapability(capability))
+      # TODO: use debug instead
+      echo "nOfNodes: ", nOfNodesWithCapability, " supporting: ", $capability
+      peer_type_as_per_enr.set(int64(nOfNodesWithCapability), labelValues = [$capability])
+    
+    # use flat nodes instead
+    let totalNodes = flatNodes.len
+    let seenNodes = flatNodes.countIt(it.seen)
+
+    # TODO use isWakuNode?
+    for node in flatNodes: discovered_peers_list.set(int64(0),
+                           labelValues = [node.record.toURI(), #enr
+                                          $node.record.toTypedRecord().get().ip.get(), # TODO: Error handling. or what happens?
+                                          node.record.supportedCapabilites().join(",")]) 
+    # TODO: Some debug prints
     echo "total nodes: ", totalNodes
     echo "seen nodes: ", seenNodes
+
+    # TODO: connect to nodes to know the protocols they support
+    # store connection time
 
     # TODO: we dont run ipMajorityLoop
     # TODO: we dont run revalidateLoop to not empty the routing table
