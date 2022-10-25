@@ -361,21 +361,16 @@ proc publish*(node: WakuNode, topic: Topic, message: WakuMessage) {.async, gcsaf
   ## Publish a `WakuMessage` to a PubSub topic. `WakuMessage` should contain a
   ## `contentTopic` field for light node functionality. This field may be also
   ## be omitted.
-  ##
-  ## Status: Implemented.
     
-  if node.wakuRelay.isNil:
+  if node.wakuRelay.isNil():
     error "Invalid API call to `publish`. WakuRelay not mounted. Try `lightpush` instead."
-    # @TODO improved error handling
+    # TODO: Improve error handling
     return
 
-  let wakuRelay = node.wakuRelay
   trace "publish", topic=topic, contentTopic=message.contentTopic
-  var publishingMessage = message
 
   let data = message.encode().buffer
-
-  discard await wakuRelay.publish(topic, data)
+  discard await node.wakuRelay.publish(topic, data)
 
 proc lightpush*(node: WakuNode, topic: Topic, message: WakuMessage): Future[WakuLightpushResult[PushResponse]] {.async, gcsafe.} =
   ## Pushes a `WakuMessage` to a node which relays it further on PubSub topic.
@@ -421,7 +416,7 @@ proc resume*(node: WakuNode, peerList: Option[seq[RemotePeerInfo]] = none(seq[Re
   
   info "the number of retrieved messages since the last online time: ", number=retrievedMessages.value
 
-# TODO Extend with more relevant info: topics, peers, memory usage, online time, etc
+# TODO: Extend with more relevant info: topics, peers, memory usage, online time, etc
 proc info*(node: WakuNode): WakuInfo =
   ## Returns information about the Node, such as what multiaddress it can be reached at.
   ##
@@ -594,16 +589,23 @@ proc mountRelay*(node: WakuNode,
         
   info "relay mounted successfully"
 
-proc mountLightPush*(node: WakuNode) {.async, raises: [Defect, LPError].} =
+proc mountLightPush*(node: WakuNode) {.async.} =
   info "mounting light push"
 
-  if node.wakuRelay.isNil:
-    debug "mounting lightpush without relay"
-    node.wakuLightPush = WakuLightPush.init(node.peerManager, node.rng, nil)
+  var pushHandler: PushMessageHandler
+  if node.wakuRelay.isNil():
+    debug "mounting lightpush without relay (nil)"
+    # TODO: Remove after using waku lightpush client
+    pushHandler = proc(peer: PeerId, pubsubTopic: string, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} = 
+      return err("no waku relay found")
   else:
-    debug "mounting lightpush with relay"
-    node.wakuLightPush = WakuLightPush.init(node.peerManager, node.rng, nil, node.wakuRelay)
-  
+    pushHandler = proc(peer: PeerId, pubsubTopic: string, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} = 
+      discard await node.wakuRelay.publish(pubsubTopic, message.encode().buffer)
+      return ok()
+
+  debug "mounting lightpush with relay"
+  node.wakuLightPush = WakuLightPush.new(node.peerManager, node.rng, pushHandler)
+
   if node.started:
     # Node has started already. Let's start lightpush too.
     await node.wakuLightPush.start()
