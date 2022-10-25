@@ -6,116 +6,86 @@ import
   chronicles,
   chronos,
   metrics,
-  bearssl/rand,
-  libp2p/crypto/crypto
-
+  bearssl/rand
 import
   ../waku_message,
   ../waku_relay,
   ../../node/peer_manager/peer_manager,
   ../../utils/requests,
   ./rpc,
-  ./rpc_codec
+  ./rpc_codec,
+  ./protocol_metrics
 
 
 logScope:
   topics = "wakulightpush"
 
-declarePublicGauge waku_lightpush_peers, "number of lightpush peers"
-declarePublicGauge waku_lightpush_errors, "number of lightpush protocol errors", ["type"]
-declarePublicGauge waku_lightpush_messages, "number of lightpush messages received", ["type"]
 
-
-const
-  WakuLightPushCodec* = "/vac/waku/lightpush/2.0.0-beta1"
-
-const
-  MaxRpcSize* = MaxWakuMessageSize + 64 * 1024 # We add a 64kB safety buffer for protocol overhead
-
-# Error types (metric label values)
-const
-  dialFailure = "dial_failure"
-  decodeRpcFailure = "decode_rpc_failure"
+const WakuLightPushCodec* = "/vac/waku/lightpush/2.0.0-beta1"
 
 
 type
-  PushResponseHandler* = proc(response: PushResponse) {.gcsafe, closure.}
-
-  PushRequestHandler* = proc(requestId: string, msg: PushRequest) {.gcsafe, closure.}
-
   WakuLightPushResult*[T] = Result[T, string]
+  
+  PushMessageHandler* = proc(peer: PeerId, pubsubTopic: string, message: WakuMessage): Future[WakuLightPushResult[void]] {.gcsafe, closure.}
 
   WakuLightPush* = ref object of LPProtocol
     rng*: ref rand.HmacDrbgContext
     peerManager*: PeerManager
-    requestHandler*: PushRequestHandler
-    relayReference*: WakuRelay
+    pushHandler*: PushMessageHandler
 
-
-proc init*(wl: WakuLightPush) =
-
+proc initProtocolHandler*(wl: WakuLightPush) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
-    let message = await conn.readLp(MaxRpcSize.int)
-    let res = PushRPC.init(message)
-    if res.isErr():
+    let buffer = await conn.readLp(MaxRpcSize.int)
+    let reqDecodeRes = PushRPC.init(buffer)
+    if reqDecodeRes.isErr():
       error "failed to decode rpc"
       waku_lightpush_errors.inc(labelValues = [decodeRpcFailure])
       return
 
-    let rpc = res.get()
+    let req = reqDecodeRes.get()
+    if req.request == PushRequest():
+      error "invalid lightpush rpc received", error=emptyRequestBodyFailure
+      waku_lightpush_errors.inc(labelValues = [emptyRequestBodyFailure])
+      return
 
-    if rpc.request != PushRequest():
-      info "lightpush push request"
-      waku_lightpush_messages.inc(labelValues = ["PushRequest"])
+    waku_lightpush_messages.inc(labelValues = ["PushRequest"])
+    let
+      pubSubTopic = req.request.pubSubTopic
+      message = req.request.message
+    debug "push request", peerId=conn.peerId, requestId=req.requestId, pubsubTopic=pubsubTopic
 
-      let
-        pubSubTopic = rpc.request.pubSubTopic
-        message = rpc.request.message
-      debug "PushRequest", pubSubTopic=pubSubTopic, msg=message
+    var response: PushResponse
+    let handleRes = await wl.pushHandler(conn.peerId, pubsubTopic, message)
+    if handleRes.isOk():
+      response = PushResponse(is_success: true, info: "OK")
+    else:
+      response = PushResponse(is_success: false, info: handleRes.error)
+      waku_lightpush_errors.inc(labelValues = [messagePushFailure])
+      error "pushed message handling failed", error=handleRes.error
 
-      var response: PushResponse
-      if not wl.relayReference.isNil():
-        let data = message.encode().buffer
-
-        # Assumimng success, should probably be extended to check for network, peers, etc
-        discard wl.relayReference.publish(pubSubTopic, data)
-        response = PushResponse(is_success: true, info: "Totally.")
-      else:
-        debug "No relay protocol present, unsuccesssful push"
-        response = PushResponse(is_success: false, info: "No relay protocol")
-        
-      
-      let rpc = PushRPC(requestId: rpc.requestId, response: response)
-      await conn.writeLp(rpc.encode().buffer)
-
-    if rpc.response != PushResponse():
-      waku_lightpush_messages.inc(labelValues = ["PushResponse"])
-      if rpc.response.isSuccess:
-        info "lightpush message success"
-      else:
-        info "lightpush message failure", info=rpc.response.info
+    let rpc = PushRPC(requestId: req.requestId, response: response)
+    await conn.writeLp(rpc.encode().buffer)
 
   wl.handler = handle
   wl.codec = WakuLightPushCodec
 
-proc init*(T: type WakuLightPush, peerManager: PeerManager, rng: ref rand.HmacDrbgContext, handler: PushRequestHandler, relay: WakuRelay = nil): T =
-  debug "init"
-  let rng = crypto.newRng()
-  let wl = WakuLightPush(rng: rng,
-                         peerManager: peerManager, 
-                         requestHandler: handler, 
-                         relayReference: relay)
-  wl.init()
-  
+proc new*(T: type WakuLightPush, 
+          peerManager: PeerManager, 
+          rng: ref rand.HmacDrbgContext,
+          pushHandler: PushMessageHandler): T = 
+  let wl = WakuLightPush(rng: rng, peerManager: peerManager, pushHandler: pushHandler)
+  wl.initProtocolHandler()
   return wl
 
 
-proc setPeer*(wlp: WakuLightPush, peer: RemotePeerInfo) =
+proc setPeer*(wlp: WakuLightPush, peer: RemotePeerInfo) {.
+  deprecated: "Use 'WakuLightPushClient.setPeer()' instead" .} = 
   wlp.peerManager.addPeer(peer, WakuLightPushCodec)
   waku_lightpush_peers.inc()
 
-
-proc request(wl: WakuLightPush, req: PushRequest, peer: RemotePeerInfo): Future[WakuLightPushResult[PushResponse]] {.async, gcsafe.} = 
+proc request(wl: WakuLightPush, req: PushRequest, peer: RemotePeerInfo): Future[WakuLightPushResult[PushResponse]] {.async, gcsafe,
+  deprecated: "Use 'WakuLightPushClient.request()' instead" .} = 
   let connOpt = await wl.peerManager.dialPeer(peer, WakuLightPushCodec)
   if connOpt.isNone():
     waku_lightpush_errors.inc(labelValues = [dialFailure])
@@ -139,7 +109,8 @@ proc request(wl: WakuLightPush, req: PushRequest, peer: RemotePeerInfo): Future[
 
   return ok(rpcRes.response)
 
-proc request*(wl: WakuLightPush, req: PushRequest): Future[WakuLightPushResult[PushResponse]] {.async, gcsafe.} =
+proc request*(wl: WakuLightPush, req: PushRequest): Future[WakuLightPushResult[PushResponse]] {.async, gcsafe,
+  deprecated: "Use 'WakuLightPushClient.request()' instead" .} = 
   let peerOpt = wl.peerManager.selectPeer(WakuLightPushCodec)
   if peerOpt.isNone():
     waku_lightpush_errors.inc(labelValues = [dialFailure])
