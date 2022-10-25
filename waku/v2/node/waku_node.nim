@@ -21,11 +21,13 @@ import
   ../protocol/waku_store/client,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter,
+  ../protocol/waku_filter/client,
   ../protocol/waku_lightpush,
   ../protocol/waku_lightpush/client,
   ../protocol/waku_rln_relay/waku_rln_relay_types,
   ../protocol/waku_peer_exchange,
-  ../utils/[peers, requests, wakuenr],
+  ../utils/peers, 
+  ../utils/wakuenr,
   ./peer_manager/peer_manager,
   ./storage/message/waku_store_queue,
   ./storage/message/message_retention_policy,
@@ -37,15 +39,15 @@ import
 
 declarePublicGauge waku_version, "Waku version info (in git describe format)", ["version"]
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
-declarePublicGauge waku_node_filters, "number of content filter subscriptions"
 declarePublicGauge waku_node_errors, "number of wakunode errors", ["type"]
 declarePublicGauge waku_lightpush_peers, "number of lightpush peers"
+declarePublicGauge waku_filter_peers, "number of filter peers"
 declarePublicGauge waku_store_peers, "number of store peers"
 declarePublicGauge waku_px_peers, "number of peers (in the node's peerManager) supporting the peer exchange protocol"
 
-
 logScope:
   topics = "wakunode"
+
 
 # Git version in git describe format (defined compile time)
 const git_version* {.strdefine.} = "n/a"
@@ -53,8 +55,10 @@ const git_version* {.strdefine.} = "n/a"
 # Default clientId
 const clientId* = "Nimbus Waku v2 node"
 
-# Default topic
-const defaultTopic* = "/waku/2/default-waku/proto"
+# TODO: Unify pubusub topic type and default value
+type PubsubTopic* = string
+
+const defaultTopic*: PubsubTopic = "/waku/2/default-waku/proto"
 
 # Default Waku Filter Timeout
 const WakuFilterTimeout: Duration = 1.days
@@ -63,7 +67,6 @@ const WakuFilterTimeout: Duration = 1.days
 # key and crypto modules different
 type
   # XXX: Weird type, should probably be using pubsub PubsubTopic object name?
-  PubsubTopic* = string
   Message* = seq[byte]
 
   WakuInfo* = object
@@ -80,6 +83,7 @@ type
     wakuStore*: WakuStore
     wakuStoreClient*: WakuStoreClient
     wakuFilter*: WakuFilter
+    wakuFilterClient*: WakuFilterClient
     wakuSwap*: WakuSwap
     wakuRlnRelay*: WakuRLNRelay
     wakuLightPush*: WakuLightPush
@@ -87,7 +91,6 @@ type
     wakuPeerExchange*: WakuPeerExchange
     enr*: enr.Record
     libp2pPing*: Ping
-    filters*: Filters
     rng*: ref rand.HmacDrbgContext
     wakuDiscv5*: WakuDiscoveryV5
     announcedAddresses* : seq[MultiAddress]
@@ -217,7 +220,6 @@ proc new*(T: type WakuNode,
     switch: switch,
     rng: rng,
     enr: enr,
-    filters: Filters.init(),
     announcedAddresses: announcedAddresses
   )
 
@@ -410,80 +412,123 @@ proc mountRelay*(node: WakuNode,
 ## Waku filter
 
 proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {.async, raises: [Defect, LPError]} =
-  info "mounting filter"
-  proc filterHandler(requestId: string, msg: MessagePush) {.async, gcsafe.} =
-    
-    info "push received"
-    for message in msg.messages:
-      node.filters.notify(message, requestId) # Trigger filter handlers on a light node
+  info "mounting filter protocol"
+  node.wakuFilter = WakuFilter.new(node.peerManager, node.rng, filterTimeout)
 
-      if not node.wakuStore.isNil and (requestId in node.filters):
-        let pubSubTopic = node.filters[requestId].pubSubTopic
-        node.wakuStore.handleMessage(pubSubTopic, message)
-
-      waku_node_messages.inc(labelValues = ["filter"])
-
-  node.wakuFilter = WakuFilter.init(node.peerManager, node.rng, filterHandler, filterTimeout)
   if node.started:
-    # Node has started already. Let's start filter too.
     await node.wakuFilter.start()
 
   node.switch.mount(node.wakuFilter, protocolMatcher(WakuFilterCodec))
 
-proc setFilterPeer*(node: WakuNode, peer: RemotePeerInfo|string) {.raises: [Defect, ValueError, LPError].} =
+proc filterHandleMessage*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMessage) {.async.}=
   if node.wakuFilter.isNil():
-    error "could not set peer, waku filter is nil"
+    error "cannot handle filter message", error="waku filter is nil"
     return
 
-  info "Set filter peer", peer=peer
+  await node.wakuFilter.handleMessage(pubsubTopic, message)
+
+
+proc mountFilterClient*(node: WakuNode) {.async, raises: [Defect, LPError].} =
+  info "mounting filter client"
+
+  node.wakuFilterClient = WakuFilterClient.new(node.peerManager, node.rng)
+  if node.started:
+    # Node has started already. Let's start filter too.
+    await node.wakuFilterClient.start()
+
+  node.switch.mount(node.wakuFilterClient, protocolMatcher(WakuFilterCodec))
+
+proc filterSubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: ContentTopic|seq[ContentTopic], 
+                handler: FilterPushHandler, peer: RemotePeerInfo|string) {.async, gcsafe, raises: [Defect, ValueError].} =
+  ## Registers for messages that match a specific filter. Triggers the handler whenever a message is received.
+  if node.wakuFilterClient.isNil():
+    error "cannot register filter subscription to topic", error="waku filter client is nil"
+    return
+  
+  let remotePeer = when peer is string: parseRemotePeerInfo(peer) 
+                   else: peer
+
+  info "registering filter subscription to content", pubsubTopic=pubsubTopic, contentTopics=contentTopics, peer=remotePeer
+
+  # Add handler wrapper to store the message when pushed, when relay is disabled and filter enabled
+  # TODO: Move this logic to wakunode2 app
+  let handlerWrapper: FilterPushHandler = proc(pubsubTopic: string, message: WakuMessage) {.raises: [Exception].} =
+      if node.wakuRelay.isNil() and not node.wakuStore.isNil():
+        node.wakuStore.handleMessage(pubSubTopic, message)
+
+      handler(pubsubTopic, message)
+
+  let subRes = await node.wakuFilterClient.subscribe(pubsubTopic, contentTopics, handlerWrapper, peer=remotePeer)
+  if subRes.isOk():
+    info "subscribed to topic", pubsubTopic=pubsubTopic, contentTopics=contentTopics
+  else:
+    error "failed filter subscription", error=subRes.error
+    waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
+
+proc filterUnsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: ContentTopic|seq[ContentTopic],
+                  peer: RemotePeerInfo|string) {.async, gcsafe, raises: [Defect, ValueError].} =
+  ## Unsubscribe from a content filter.
+  if node.wakuFilterClient.isNil():
+    error "cannot unregister filter subscription to content", error="waku filter client is nil"
+    return
+
+  let remotePeer = when peer is string: parseRemotePeerInfo(peer) 
+                   else: peer
+  
+  info "deregistering filter subscription to content", pubsubTopic=pubsubTopic, contentTopics=contentTopics, peer=remotePeer
+  
+  let unsubRes = await node.wakuFilterClient.unsubscribe(pubsubTopic, contentTopics, peer=remotePeer)
+  if unsubRes.isOk():
+    info "unsubscribed from topic", pubsubTopic=pubsubTopic, contentTopics=contentTopics
+  else:
+    error "failed filter unsubscription", error=unsubRes.error
+    waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
+
+
+# TODO: Move to application module (e.g., wakunode2.nim)
+proc setFilterPeer*(node: WakuNode, peer: RemotePeerInfo|string) {.raises: [Defect, ValueError, LPError],
+  deprecated: "Use the explicit destination peer procedures".} =
+  if node.wakuFilterClient.isNil():
+    error "could not set peer, waku filter client is nil"
+    return
+
+  info "seting filter client peer", peer=peer
 
   let remotePeer = when peer is string: parseRemotePeerInfo(peer)
                    else: peer
-  node.wakuFilter.setPeer(remotePeer)
+  node.peerManager.addPeer(remotePeer, WakuFilterCodec)
 
-proc subscribe*(node: WakuNode, request: FilterRequest, handler: ContentFilterHandler) {.async, gcsafe.} =
+  waku_filter_peers.inc()
+
+# TODO: Move to application module (e.g., wakunode2.nim)
+proc subscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: ContentTopic|seq[ContentTopic], handler: FilterPushHandler) {.async, gcsafe,
+  deprecated: "Use the explicit destination peer procedure. Use 'node.filterSubscribe()' instead.".} =
   ## Registers for messages that match a specific filter. Triggers the handler whenever a message is received.
-  ## FilterHandler is a method that takes a MessagePush.
+  if node.wakuFilterClient.isNil():
+    error "cannot register filter subscription to topic", error="waku filter client is nil"
+    return
   
-  # Sanity check for well-formed subscribe FilterRequest
-  doAssert(request.subscribe, "invalid subscribe request")
+  let peerOpt = node.peerManager.selectPeer(WakuFilterCodec)
+  if peerOpt.isNone():
+    error "cannot register filter subscription to topic", error="no suitable remote peers"
+    return
   
-  info "subscribe content", filter=request
+  await node.filterSubscribe(pubsubTopic, contentTopics, handler, peer=peerOpt.get())
 
-  var id = generateRequestId(node.rng)
-
-  if not node.wakuFilter.isNil():
-    let
-      pubsubTopic = request.pubsubTopic
-      contentTopics = request.contentFilters.mapIt(it.contentTopic)
-
-    let resSubscription = await node.wakuFilter.subscribe(pubsubTopic, contentTopics)
-    if resSubscription.isOk():
-      id = resSubscription.get()
-    else:
-      # Failed to subscribe
-      error "remote subscription to filter failed", filter = request
-      waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
-
-  # Register handler for filter, whether remote subscription succeeded or not
-  node.filters.addContentFilters(id, request.pubSubTopic, request.contentFilters, handler)
-  waku_node_filters.set(node.filters.len.int64)
-
-proc unsubscribe*(node: WakuNode, request: FilterRequest) {.async, gcsafe.} =
+# TODO: Move to application module (e.g., wakunode2.nim)
+proc unsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: ContentTopic|seq[ContentTopic]) {.async, gcsafe,
+  deprecated: "Use the explicit destination peer procedure. Use 'node.filterUnsusbscribe()' instead.".} =
   ## Unsubscribe from a content filter.
+  if node.wakuFilterClient.isNil():
+    error "cannot unregister filter subscription to content", error="waku filter client is nil"
+    return
   
-  # Sanity check for well-formed unsubscribe FilterRequest
-  doAssert(request.subscribe == false, "invalid unsubscribe request")
-  
-  info "unsubscribe content", filter=request
-  
-  let 
-    pubsubTopic = request.pubsubTopic
-    contentTopics = request.contentFilters.mapIt(it.contentTopic)
-  discard await node.wakuFilter.unsubscribe(pubsubTopic, contentTopics)
-  node.filters.removeContentFilters(request.contentFilters)
+  let peerOpt = node.peerManager.selectPeer(WakuFilterCodec)
+  if peerOpt.isNone():
+    error "cannot register filter subscription to topic", error="no suitable remote peers"
+    return
 
-  waku_node_filters.set(node.filters.len.int64)
+  await node.filterUnsubscribe(pubsubTopic, contentTopics, peer=peerOpt.get())
 
 
 ## Waku swap
@@ -502,11 +547,6 @@ proc mountSwap*(node: WakuNode, swapConfig: SwapConfig = SwapConfig.init()) {.as
 
 
 ## Waku store
-
-proc mountStoreClient*(node: WakuNode, store: MessageStore = nil) =
-  info "mounting store client"
-
-  node.wakuStoreClient = WakuStoreClient.new(node.peerManager, node.rng, store)
 
 const MessageStoreDefaultRetentionPolicyInterval* = 30.minutes
 
@@ -556,6 +596,12 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, retentionPolicy=none
     await node.wakuStore.start()
 
   node.switch.mount(node.wakuStore, protocolMatcher(WakuStoreCodec))
+
+
+proc mountStoreClient*(node: WakuNode, store: MessageStore = nil) =
+  info "mounting store client"
+
+  node.wakuStoreClient = WakuStoreClient.new(node.peerManager, node.rng, store)
 
 proc query*(node: WakuNode, query: HistoryQuery, peer: RemotePeerInfo): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe.} =
   ## Queries known nodes for historical messages
@@ -626,12 +672,6 @@ proc resume*(node: WakuNode, peerList: Option[seq[RemotePeerInfo]] = none(seq[Re
 
 ## Waku lightpush
 
-proc mountLightPushClient*(node: WakuNode) =
-  info "mounting light push client"
-
-  node.wakuLightpushClient = WakuLightPushClient.new(node.peerManager, node.rng)
-
-
 proc mountLightPush*(node: WakuNode) {.async.} =
   info "mounting light push"
 
@@ -653,6 +693,12 @@ proc mountLightPush*(node: WakuNode) {.async.} =
     await node.wakuLightPush.start()
 
   node.switch.mount(node.wakuLightPush, protocolMatcher(WakuLightPushCodec))
+
+
+proc mountLightPushClient*(node: WakuNode) =
+  info "mounting light push client"
+
+  node.wakuLightpushClient = WakuLightPushClient.new(node.peerManager, node.rng)
 
 proc lightpushPublish*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMessage, peer: RemotePeerInfo): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
   ## Pushes a `WakuMessage` to a node which relays it further on PubSub topic.
