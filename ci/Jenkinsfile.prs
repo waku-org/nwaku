@@ -53,8 +53,8 @@ pipeline {
       v1changed = versionWasChanged('v1')
       v2changed = versionWasChanged('v2')
       /* TODO: Re-add caching of Nim compiler. */
-      nix.shell("make V=${params.VERBOSITY} update", pure: false)
-      nix.shell("make V=${params.VERBOSITY} deps", pure: false)
+      nix.shell("make ${params.MAKEFLAGS} V=${params.VERBOSITY} update", pure: false)
+      nix.shell("make ${params.MAKEFLAGS} V=${params.VERBOSITY} deps", pure: false)
     } } }
 
     stage('Binaries') {
@@ -62,13 +62,13 @@ pipeline {
         stage('V1') { 
           when { expression { v1changed } }
           steps { script {
-            nix.shell("make V=${params.VERBOSITY} v1")
+            nix.shell("make ${params.MAKEFLAGS} NIMFLAGS=\"${params.NIMFLAGS}\" V=${params.VERBOSITY} v1")
           } }
         }
         stage('V2') {
           when { expression { v2changed } }
           steps { script {
-            nix.shell("make V=${params.VERBOSITY} v2")
+            nix.shell("make ${params.MAKEFLAGS} NIMFLAGS=\"${params.NIMFLAGS}\" V=${params.VERBOSITY} v2")
           } }
         }
       }
@@ -79,13 +79,13 @@ pipeline {
         stage('V1') {
           when { expression { v1changed } }
           steps { script {
-            nix.shell("make V=${params.VERBOSITY} test1")
+            nix.shell("make ${params.MAKEFLAGS} NIMFLAGS=\"${params.NIMFLAGS}\" V=${params.VERBOSITY} test1")
           } }
         }
         stage('V2') {
           when { expression { v2changed } }
           steps { script {
-            nix.shell("make V=${params.VERBOSITY} test2")
+            nix.shell("make ${params.MAKEFLAGS} NIMFLAGS=\"${params.NIMFLAGS}\" V=${params.VERBOSITY} test2")
           } }
         }
       }
