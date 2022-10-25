@@ -1,44 +1,46 @@
 # Quickstart: running a nwaku node
 
-This guide explains how to build and run a nwaku node
-for the most common use cases.
-For a more advanced configuration see our [configuration guides](./how-to/configure.md)
+This guide helps you run a nwaku node with typical configuration.
+It connects your node to the `wakuv2.prod` fleet for bootstrapping
+and enables discovery v5 for continuous peer discovery.
+Only [`relay`](https://rfc.vac.dev/spec/11/) protocol is enabled.
+For a more comprehensive overview,
+see our [step-by-step guide](./overview.md).
 
-To quickly set up a nwaku node on DigitalOcean, refer to this [guide](./droplet-quickstart.md)
+## Option 1: run nwaku binary
 
-## 1. Build
-
-[Build the nwaku node](./how-to/build.md)
-or download a precompiled binary from our [releases page](https://github.com/status-im/nwaku/releases).
-Docker images are published to [statusteam/nim-waku](https://hub.docker.com/r/statusteam/nim-waku/tags) on DockerHub.
-
-<!-- TODO: more advanced explanation on finding and using docker images -->
-
-## 2. Run
-
-[Run the nwaku node](./how-to/run.md) using a default or common configuration
-or [configure](./how-to/configure.md) the node for more advanced use cases.
-
-[Connect](./how-to/connect.md) the nwaku node to other peers to start communicating.
-
-## 3. Interact
-
-A running nwaku node can be interacted with using the [Waku v2 JSON RPC API](https://rfc.vac.dev/spec/16/).
-
-> **Note:** Private and Admin API functionality are disabled by default.
-To configure a nwaku node with these enabled,
-use the `--rpc-admin:true` and `--rpc-private:true` CLI options.
+*Prerequisites are the usual developer tools,
+such as a C compiler, Make, Bash and Git.*
 
 ```bash
-curl -d '{"jsonrpc":"2.0","method":"get_waku_v2_debug_v1_info","params":[],"id":1}' -H 'Content-Type: application/json' localhost:8546 -s | jq
+git clone --recurse-submodules https://github.com/status-im/nwaku
+cd nwaku
+make wakunode2
+./build/wakunode2 \
+  --dns-discovery:true \
+  --dns-discovery-url:enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@prod.waku.nodes.status.im \
+  --discv5-discovery \
+  --nat=extip:[yourpublicip] # or, if you are behind a nat: --nat=any
 ```
 
+## Option 2: run nwaku in a Docker container
 
-Or using the [Waku v2 HTTP REST API](../api/v2/rest-api.md):
-
-> **Note:** REST API functionality is in ALPHA and therefore it is disabled by default. To configure a nwaku node with this enabled, use the `--rest:true` CLI option.
-
+*Prerequisite is a [Docker installation](./docker-quickstart.md#prerequisites).*
 
 ```bash
-curl http://localhost:8546/debug/v1/info -s | jq
+docker run -i -t -p 60000:60000 -p 9000:9000/udp \
+  statusteam/nim-waku:v0.12.0 \ # or, the image:tag of your choice
+    --dns-discovery:true \
+    --dns-discovery-url:enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@prod.waku.nodes.status.im \
+    --discv5-discovery \
+    --nat:extip:[yourpublicip] # or, if you are behind a nat: --nat=any
+```
+
+## Tips and tricks
+
+To find the public IP of your host,
+you can use
+
+```bash
+dig TXT +short o-o.myaddr.l.google.com @ns1.google.com | awk -F'"' '{ print $2}'
 ```

@@ -7,35 +7,14 @@ import
   chronicles, 
   chronos, 
   libp2p/crypto/crypto,
-  libp2p/switch,
+  libp2p/switch
+import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_lightpush,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/peers,
-  ../../waku/v2/utils/time,
-  ../../waku/v2/node/waku_node
-
-from std/times import getTime, toUnixFloat
-
-
-const 
-  DefaultPubsubTopic = "/waku/2/default-waku/proto"
-  DefaultContentTopic = ContentTopic("/waku/2/default-content/proto")
-
-proc now(): Timestamp = 
-  getNanosecondTime(getTime().toUnixFloat())
-
-proc fakeWakuMessage(
-  payload = "TEST-PAYLOAD",
-  contentTopic = DefaultContentTopic, 
-  ts = now()
-): WakuMessage = 
-  WakuMessage(
-    payload: toBytes(payload),
-    contentTopic: contentTopic,
-    version: 1,
-    timestamp: ts
-  )
+  ../../waku/v2/node/waku_node,
+  ./testlib/common
 
 
 procSuite "WakuNode - Lightpush":
