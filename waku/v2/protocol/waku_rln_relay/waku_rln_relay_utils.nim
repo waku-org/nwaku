@@ -940,15 +940,25 @@ proc generateGroupUpdateHandler(rlnPeer: WakuRLNRelay): GroupUpdateHandler =
       return ok()
   return handler
 
-proc subscribeToMemberRegistrations(web3: Web3, contractAddress: Address, fromBlock: string = "0x0", handler: GroupUpdateHandler): Future[Subscription] {.async, gcsafe.} =
+proc subscribeToMemberRegistrations(web3: Web3, 
+                                    contractAddress: Address,
+                                    fromBlock: string = "0x0",
+                                    handler: GroupUpdateHandler): Future[Subscription] {.async, gcsafe.} =
   var contractObj = web3.contractSender(MembershipContract, contractAddress)
-  return await contractObj.subscribe(MemberRegistered, %*{"fromBlock": fromBlock, "address": contractAddress}) do(pubkey: Uint256, index: Uint256){.gcsafe.}:
-      debug "onRegister", pubkey = pubkey, index = index
-      let groupUpdateRes = handler(pubkey, index)
-      if groupUpdateRes.isErr():
-        error "Error handling new member registration: ", err=groupUpdateRes.error()
-  do (err: CatchableError):
-    error "Error from subscription: ", err=err.msg
+
+  let onMemberRegistered = proc (pubkey: Uint256, index: Uint256) {.gcsafe.} =
+    debug "onRegister", pubkey = pubkey, index = index
+    let groupUpdateRes = handler(pubkey, index)
+    if groupUpdateRes.isErr():
+      error "Error handling new member registration: ", err=groupUpdateRes.error()
+
+  let onError = proc (err: CatchableError) =
+    error "Error in subscription", err=err.msg
+
+  return await contractObj.subscribe(MemberRegistered,
+                                     %*{"fromBlock": fromBlock, "address": contractAddress},
+                                     onMemberRegistered,
+                                     onError)
 
 proc subscribeToGroupEvents(ethClientUri: string,
                             ethAccountAddress: Option[Address] = none(Address),
