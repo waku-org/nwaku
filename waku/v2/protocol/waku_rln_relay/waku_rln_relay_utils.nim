@@ -194,8 +194,8 @@ proc inHex*(value: IDKey or IDCommitment or MerkleNode or Nullifier or Epoch or 
   return valueHex
 
 proc toMembershipIndex(v: UInt256): MembershipIndex =
-  let result: MembershipIndex = cast[MembershipIndex](v)
-  return result
+  let membershipIndex: MembershipIndex = cast[MembershipIndex](v)
+  return membershipIndex
 
 proc register*(idComm: IDCommitment, ethAccountAddress: Option[Address], ethAccountPrivKey: keys.PrivateKey, ethClientAddress: string, membershipContractAddress: Address, registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): Future[Result[MembershipIndex, string]] {.async.} =
   # TODO may need to also get eth Account Private Key as PrivateKey
@@ -913,23 +913,48 @@ proc addAll*(wakuRlnRelay: WakuRLNRelay, list: seq[IDCommitment]): RlnRelayResul
       return err(memberAdded.error())
   return ok()
 
-# the types of inputs to this handler matches the MemberRegistered event/proc defined in the MembershipContract interface
-type RegistrationEventHandler  = proc(pubkey: Uint256, index: Uint256): void {.gcsafe, closure, raises: [Defect].}
+type GroupUpdateHandler = proc(pubkey: Uint256, index: Uint256): RlnRelayResult[void] {.gcsafe, raises: [Defect].}
 
-proc subscribeToMemberRegistrations(web3: Web3, contractAddress: Address, handler: RegistrationEventHandler, fromBlock: string = "0x0"): Future[Subscription] {.async, gcsafe} =
-  var contractObj = web3.contractSender(MembershipContract, contractAddress)
-  return await contractObj.subscribe(MemberRegistered, %*{"fromBlock": fromBlock, "address": contractAddress}) do(pubkey: Uint256, index: Uint256){.raises: [Defect], gcsafe.}:
+proc generateGroupUpdateHandler(rlnPeer: WakuRLNRelay): GroupUpdateHandler =
+  # assuming all the members arrive in order
+  # TODO: check the index and the pubkey depending on
+  # the group update operation
+  var handler: GroupUpdateHandler
+  handler = proc(pubkey: Uint256, index: Uint256): RlnRelayResult[void] {.raises: [Defect].} =
+    var pk: IDCommitment
     try:
+      pk = pubkey.toIDCommitment()
+    except:
+      return err("invalid pubkey")
+    var isSuccessful: RlnRelayResult[void]
+    try:
+      isSuccessful = rlnPeer.insertMember(pk)
+    except:
+      return err("failed to insert member")
+    if isSuccessful.isErr():
+      return err("failed to add a new member to the Merkle tree")
+    else:
+      debug "new member added to the Merkle tree", pubkey=pubkey, index=index
+      debug "acceptable window", validRoots=rlnPeer.validMerkleRoots.mapIt(it.inHex)
+      rlnPeer.lastSeenMembershipIndex = index.toMembershipIndex()
+      return ok()
+  return handler
+
+proc subscribeToMemberRegistrations(web3: Web3, contractAddress: Address, fromBlock: string = "0x0", handler: GroupUpdateHandler): Future[Subscription] {.async, gcsafe.} =
+  var contractObj = web3.contractSender(MembershipContract, contractAddress)
+  return await contractObj.subscribe(MemberRegistered, %*{"fromBlock": fromBlock, "address": contractAddress}) do(pubkey: Uint256, index: Uint256){.gcsafe.}:
       debug "onRegister", pubkey = pubkey, index = index
-      handler(pubkey, index)
-    except Exception as err:
-      # chronos still raises exceptions which inherit directly from Exception
-      error "Error handling new member registration: ", err=err.msg
-      doAssert false, err.msg
+      let groupUpdateRes = handler(pubkey, index)
+      if groupUpdateRes.isErr():
+        error "Error handling new member registration: ", err=groupUpdateRes.error()
   do (err: CatchableError):
     error "Error from subscription: ", err=err.msg
 
-proc subscribeToGroupEvents(ethClientUri: string, ethAccountAddress: Option[Address] = none(Address), contractAddress: Address, blockNumber: string = "0x0", handler: RegistrationEventHandler) {.async, gcsafe.} = 
+proc subscribeToGroupEvents(ethClientUri: string,
+                            ethAccountAddress: Option[Address] = none(Address),
+                            contractAddress: Address,
+                            blockNumber: string = "0x0",
+                            handler: GroupUpdateHandler) {.async, gcsafe.} = 
   ## connects to the eth client whose URI is supplied as `ethClientUri`
   ## subscribes to the `MemberRegistered` event emitted from the `MembershipContract` which is available on the supplied `contractAddress`
   ## it collects all the events starting from the given `blockNumber`
@@ -945,20 +970,25 @@ proc subscribeToGroupEvents(ethClientUri: string, ethAccountAddress: Option[Addr
 
   proc startSubscription(web3: Web3) {.async, gcsafe.} =
     # subscribe to the MemberRegistered events
-    # TODO can do similarly for deletion events, though it is not yet supported
-    discard await subscribeToMemberRegistrations(web3, contractAddress, handler, blockNumber)
+    # TODO: can do similarly for deletion events, though it is not yet supported
+    # TODO: add block number for reconnection logic
+    discard await subscribeToMemberRegistrations(web3 = web3,
+                                                 contractAddress = contractAddress,
+                                                 handler = handler)
   
   await startSubscription(web3)
   web3.onDisconnect = proc() =
     debug "connection to ethereum node dropped", lastBlock = latestBlock
 
 
-  
-
-proc handleGroupUpdates*(rlnPeer: WakuRLNRelay, handler: RegistrationEventHandler) {.async, gcsafe.} =
+proc handleGroupUpdates*(rlnPeer: WakuRLNRelay) {.async, gcsafe.} =
   # mounts the supplied handler for the registration events emitting from the membership contract
-  await subscribeToGroupEvents(ethClientUri = rlnPeer.ethClientAddress, ethAccountAddress = rlnPeer.ethAccountAddress, contractAddress = rlnPeer.membershipContractAddress, handler = handler) 
-
+  let handler = generateGroupUpdateHandler(rlnPeer)
+  await subscribeToGroupEvents(ethClientUri = rlnPeer.ethClientAddress,
+                               ethAccountAddress = rlnPeer.ethAccountAddress,
+                               contractAddress = rlnPeer.membershipContractAddress,
+                               handler = handler)
+  
 
 proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string, contentTopic: ContentTopic, spamHandler: Option[SpamHandler] = none(SpamHandler)) =
   ## this procedure is a thin wrapper for the pubsub addValidator method
@@ -1056,8 +1086,7 @@ proc mountRlnRelayStatic*(node: WakuNode,
   node.addRLNRelayValidator(pubsubTopic, contentTopic, spamHandler)
   debug "rln relay topic validator is mounted successfully", pubsubTopic=pubsubTopic, contentTopic=contentTopic
 
-  node.wakuRlnRelay = rlnPeer
-
+  node.wakuRlnRelay = rlnPeer    
 
 proc mountRlnRelayDynamic*(node: WakuNode,
                     ethClientAddr: string = "",
@@ -1124,17 +1153,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
     pubsubTopic: pubsubTopic,
     contentTopic: contentTopic)
 
-
-  proc handler(pubkey: Uint256, index: Uint256) =
-    debug "a new key is added", pubkey=pubkey
-    # assuming all the members arrive in order
-    let pk = pubkey.toIDCommitment()
-    let isSuccessful = rlnPeer.insertMember(pk)
-    debug "received pk", pk=pk.inHex, index=index
-    debug "acceptable window", validRoots=rlnPeer.validMerkleRoots.mapIt(it.inHex)
-    doAssert(isSuccessful.isOk())
-
-  asyncSpawn rlnPeer.handleGroupUpdates(handler)
+  asyncSpawn rlnPeer.handleGroupUpdates()
   debug "dynamic group management is started"
   # adds a topic validator for the supplied pubsub topic at the relay protocol
   # messages published on this pubsub topic will be relayed upon a successful validation, otherwise they will be dropped
