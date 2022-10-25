@@ -1,5 +1,6 @@
 import
-  std/times
+  std/times,
+  stew/byteutils
 import
   ../../../waku/v2/protocol/waku_message,
   ../../../waku/v2/utils/time
