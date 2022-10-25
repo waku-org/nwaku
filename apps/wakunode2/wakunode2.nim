@@ -363,6 +363,8 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf, mStorage: MessageStore):
     except:
       return err("failed to mount waku peer-exchange protocol: " & getCurrentExceptionMsg())
 
+    asyncSpawn runPeerExchangeDiscv5Loop(node.wakuPeerExchange)
+
     if conf.peerExchangeNode != "":
       try:
         setPeerExchangePeer(node, conf.peerExchangeNode)
