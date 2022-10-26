@@ -15,4 +15,8 @@ pkgs.mkShell {
     libiconv
     darwin.apple_sdk.frameworks.Security
   ];
+
+  LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
+    pkgs.pcre
+  ];
 }
