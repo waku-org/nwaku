@@ -28,14 +28,16 @@ declarePublicGauge peer_type_as_per_protocol,
     "Number of peers supporting each capability according to the protocol (requiere successful connection) ",
     labels = ["capability"]
 
+# hackish way for exponse strings, not performant at all
 declarePublicGauge discovered_peers_list,
     "Discovered peers in the waku network and its information",
     labels = ["enr",
               "ip",
-              "capabilities",]
+              "capabilities",
+              "discovered_timestamp",
               #"citiy",
               #"country",
-              #"last_seen"]
+              ]
 
 proc startMetricsServer*(serverIp: ValidIpAddress, serverPort: Port) =
     info "Starting metrics HTTP server", serverIp, serverPort

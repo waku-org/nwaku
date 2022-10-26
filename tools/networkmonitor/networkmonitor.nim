@@ -2,7 +2,7 @@
 import
   confutils,
   sequtils,
-  std/[sugar,tables,strutils],
+  std/[sugar,tables,strutils,times],
   chronicles,
   chronicles/topics_registry,
   chronos,
@@ -85,16 +85,26 @@ proc main() {.async.} =
       [], # Empty enr fields, for now
       node.rng
     )
-  #await node.mountRelay()
-  #await allFutures([node.start()])
 
-  # TODO remove this. Note that now it doesnt work with it
-  await allFutures([node.startDiscv5()]) 
   let d = node.wakuDiscv5.protocol
+  d.open()
+
   while true:
-    # we dont care about the result, everything is updated inside the routingTable
-    discard await d.queryRandom()
-    # perhaps use it here to update the number of times it was discovered
+    # discover new random nodes
+    let discoveredNodes = await d.queryRandom()
+
+    for node in discoveredNodes:
+      let typedRecord = node.record.toTypedRecord()
+      if not typedRecord.isOk():
+        if not typedRecord.get().ip.isSome():
+          #TODO warn
+          continue
+      let currentTime = $getTime()
+      discovered_peers_list.set(int64(0),
+                           labelValues = [node.record.toURI(),
+                                          $typedRecord.get().ip.get().join("."),
+                                          node.record.getCapabilities().join(","),
+                                          currentTime]) 
     
     # nodes are nested into bucket, flat it
     let flatNodes = d.routingTable.buckets.mapIt(it.nodes).flatten()
@@ -109,11 +119,7 @@ proc main() {.async.} =
     let totalNodes = flatNodes.len
     let seenNodes = flatNodes.countIt(it.seen)
 
-    # TODO use isWakuNode?
-    for node in flatNodes: discovered_peers_list.set(int64(0),
-                           labelValues = [node.record.toURI(), #enr
-                                          $node.record.toTypedRecord().get().ip.get(), # TODO: Error handling. or what happens?
-                                          node.record.getCapabilites().join(",")]) 
+
     # TODO: Some debug prints
     echo "total nodes: ", totalNodes
     echo "seen nodes: ", seenNodes
@@ -126,7 +132,7 @@ proc main() {.async.} =
     # TODO: connect to nodes to see the protocol they actually support
 
     # TODO: flag for how aggresive
-    await sleepAsync(5000)
+    await sleepAsync(1000*30)
 
 when isMainModule:
   waitFor main()
