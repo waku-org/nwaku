@@ -16,33 +16,50 @@ suite "KeyFile test suite":
 
   test "Create/Save/Load single keyfile":
 
+    # The password we use to encrypt our secret
     let password = "randompassword"
 
+    # The filepath were the keyfile will be stored
     let filepath = "./test.keyfile"
     defer: removeFile(filepath)
 
+    # The secret
     var secret = randomSeqByte(rng[], 300)
+
+    # We create a keyfile encrypting the secret with password
     let keyfile = createKeyFileJson(secret, password)
 
     check:
       keyfile.isOk()
+      # We save to disk the keyfile
       saveKeyFile(filepath, keyfile.get()).isOk()
 
-    var decodedSecret = loadKeyFile("test.keyfile", password)
+    # We load from the file all the decrypted keyfiles encrypted under password
+    var decodedKeyfiles = loadKeyFile(filepath, password)
 
     check:
-      decodedSecret.isOk()
+      decodedKeyfiles.isOk()
+      # Since only one secret was stored in file, we expect only one keyfile being decrypted
+      decodedKeyfiles.get().len == 1
+
+    # We check if the decrypted secret is the same as the original secret
+    let decodedSecret = decodedKeyfiles.get()[0]
+
+    check:
       secret == decodedSecret.get()
 
   test "Create/Save/Load multiple keyfiles in same file":
 
+    # We set different passwords for different keyfiles that will be stored in same file
     let password1 = "password1"
-    let password2 = "password2"
+    let password2 = ""
     let password3 = "password3"
     var keyfile: KfResult[JsonNode] 
 
     let filepath = "./test.keyfile"
     defer: removeFile(filepath)
+
+    # We generate 6 different secrets and we encrypt them using 3 different passwords, and we store the obtained keystore
 
     let secret1 = randomSeqByte(rng[], 300)
     keyfile = createKeyFileJson(secret1, password1)
@@ -76,45 +93,43 @@ suite "KeyFile test suite":
       keyfile.isOk()
       saveKeyFile(filepath, keyfile.get()).isOk()
 
-    # We encrypt secret5 with password1
+    # We encrypt secret6 with password1
     let secret6 = randomSeqByte(rng[], 300)
     keyfile = createKeyFileJson(secret6, password1)
     check:
       keyfile.isOk()
       saveKeyFile(filepath, keyfile.get()).isOk()
 
-    # Now there are 5 keyfiles stored in filepath encrypted with 3 different passwords
-    # We decode with the respective passwords
+    # Now there are 6 keyfiles stored in filepath encrypted with 3 different passwords
+    # We decrypt the keyfiles using the respective passwords and we check that the number of 
+    # successful decryptions corresponds to the number of secrets encrypted under that password
 
-    var decodedSecret1 = loadKeyFile("test.keyfile", password1)
+    var decodedKeyfilesPassword1 = loadKeyFile(filepath, password1)
     check:
-      decodedSecret1.isOk()
-      secret1 == decodedSecret1.get()
+      decodedKeyfilesPassword1.isOk()
+      decodedKeyfilesPassword1.get().len == 3
+    var decodedSecretsPassword1 = decodedKeyfilesPassword1.get()
 
-    var decodedSecret2 = loadKeyFile("test.keyfile", password2)
+    var decodedKeyfilesPassword2 = loadKeyFile(filepath, password2)
     check:
-      decodedSecret2.isOk()
-      secret2 == decodedSecret2.get()
+      decodedKeyfilesPassword2.isOk()
+      decodedKeyfilesPassword2.get().len == 1
+    var decodedSecretsPassword2 = decodedKeyfilesPassword2.get()
 
-    var decodedSecret3 = loadKeyFile("test.keyfile", password3)
+    var decodedKeyfilesPassword3 = loadKeyFile(filepath, password3)
     check:
-      decodedSecret3.isOk()
-      secret3 == decodedSecret3.get()
+      decodedKeyfilesPassword3.isOk()
+      decodedKeyfilesPassword3.get().len == 2
+    var decodedSecretsPassword3 = decodedKeyfilesPassword3.get()
     
-    # Since we have 2 keyfiles encrypted with same password3, to obtain the secret we skip the first successful decryption, i.e. the keyfile for secret3
-    var decodedSecret4 = loadKeyFile("test.keyfile", password3, skip = 1)
+    # We check if the corresponding secrets are correct
     check:
-      decodedSecret4.isOk()
-      secret4 == decodedSecret4.get()
-
-    # Since we have 3 keyfiles encrypted with same password1, to obtain the secret we skip the first successful decryption, i.e. the keyfile for secret1
-    var decodedSecret5 = loadKeyFile("test.keyfile", password1, skip = 1)
-    check:
-      decodedSecret5.isOk()
-      secret5 == decodedSecret5.get()
-
-    # Since we have 3 keyfiles encrypted with same password1, to obtain the secret we skip the first 2 successful decryptions, i.e. the keyfile for secret1 and secret5
-    var decodedSecret6 = loadKeyFile("test.keyfile", password1, skip = 2)
-    check:
-      decodedSecret6.isOk()
-      secret6 == decodedSecret6.get()
+      # Secrets encrypted with password 1
+      secret1 == decodedSecretsPassword1[0].get()
+      secret5 == decodedSecretsPassword1[1].get()
+      secret6 == decodedSecretsPassword1[2].get()
+      # Secrets encrypted with password 2
+      secret2 == decodedSecretsPassword2[0].get()
+      # Secrets encrypted with password 3
+      secret3 == decodedSecretsPassword3[0].get()
+      secret4 == decodedSecretsPassword3[1].get()

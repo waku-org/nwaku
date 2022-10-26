@@ -488,13 +488,13 @@ proc decodeKeyFileJson*(j: JsonNode,
     return decryptSecret(crypto, dkey)
 
 proc loadKeyFile*(pathname: string,
-                  password: string, skip: int32 = 0): KfResult[seq[byte]] {.raises: [Defect, IOError].} =
+                  password: string, index: int32 = 0): KfResult[seq[KfResult[seq[byte]]]] {.raises: [Defect, IOError].} =
   ## Load and decode data from file with pathname
   ## ``pathname``, using password string ``password``.
-  ## If skip is non-zero, the first skip successful decryptions are skipped
+  ## The index successful decryptions is returned
   var data: JsonNode
   var decodedKeyfile: KfResult[seq[byte]]
-  var skipDecryptSuccesses = skip
+  var successfullyDecodedKeyfiles: seq[KfResult[seq[byte]]]
 
   for keyfile in lines(pathname):
     try:
@@ -506,12 +506,9 @@ proc loadKeyFile*(pathname: string,
 
     decodedKeyfile = decodeKeyFileJson(data, password)
     if decodedKeyfile.isOk():
-      if skipDecryptSuccesses <= 0:
-        break
-      else:
-        skipDecryptSuccesses -= 1
+      successfullyDecodedKeyfiles.add decodedKeyfile
 
-  return decodedKeyfile
+  return ok(successfullyDecodedKeyfiles)
 
 # Note that the keyfile is open in Append mode so that multiple credentials can be stored in same file
 proc saveKeyFile*(pathname: string,

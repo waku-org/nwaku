@@ -1146,7 +1146,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   node.wakuRlnRelay = rlnPeer
   return ok(true)
 
-proc writeRlnCredentials*(path: string, credentials: RlnMembershipCredentials, password: string) : RlnRelayResult[void] =
+proc writeRlnCredentials*(path: string, credentials: RlnMembershipCredentials, password: string): RlnRelayResult[void] =
   info "Storing RLN credentials"
   var jsonString: string
   jsonString.toUgly(%credentials)
@@ -1157,7 +1157,9 @@ proc writeRlnCredentials*(path: string, credentials: RlnMembershipCredentials, p
     return err("Error while saving keyfile for RLN credentials")
   return ok()
 
-proc readRlnCredentials*(path: string, password: string) : RlnRelayResult[Option[RlnMembershipCredentials]] {.raises: [Defect, IOError, Exception].} =
+# Attempts decryptions of all keyfiles with the provided password. 
+# If one or more credentials are successfully decrypted, the max(min(index,number_decrypted),0)-th is returned.
+proc readRlnCredentials*(path: string, password: string, index: int = 0): RlnRelayResult[Option[RlnMembershipCredentials]] {.raises: [Defect, IOError, Exception].} =
   info "Reading RLN credentials"
   # With regards to printing the keys, it is purely for debugging purposes so that the user becomes explicitly aware of the current keys in use when nwaku is started.
   # Note that this is only until the RLN contract being used is the one deployed on Goerli testnet.
@@ -1165,15 +1167,20 @@ proc readRlnCredentials*(path: string, password: string) : RlnRelayResult[Option
   waku_rln_membership_credentials_import_duration_seconds.nanosecondTime:
 
     try:
-      var loadedRlnCredentialsFile = loadKeyFile(path, password)
+      var decodedKeyfiles = loadKeyFile(path, password)
   
-      if loadedRlnCredentialsFile.isOk():
-        let jsonObject = parseJson(string.fromBytes(loadedRlnCredentialsFile.get()))
+      if decodedKeyfiles.isOk():
+        var decodedRlnCredentials = decodedKeyfiles.get()
+        debug "Successfully decrypted keyfiles for the provided password", numberKeyfilesDecrypted=decodedRlnCredentials.len
+        # We should return the index-th decrypted credential, but we ensure to not overflow
+        let credentialIndex = max(min(index, decodedRlnCredentials.len - 1), 0)
+        debug "Picking credential with (adjusted) index", inputIndex=index, adjustedIndex=credentialIndex
+        let jsonObject = parseJson(string.fromBytes(decodedRlnCredentials[credentialIndex].get()))
         let deserializedRlnCredentials = to(jsonObject, RlnMembershipCredentials)   
         debug "Deserialized RLN credentials", rlnCredentials=deserializedRlnCredentials
         return ok(some(deserializedRlnCredentials))
       else:
-        debug "Unable to decrypt RLN credentials with provided password. ", error=loadedRlnCredentialsFile.error
+        debug "Unable to decrypt RLN credentials with provided password. ", error=decodedKeyfiles.error
         return ok(none(RlnMembershipCredentials))
 
     except IOError:
