@@ -1159,7 +1159,7 @@ proc writeRlnCredentials*(path: string, credentials: RlnMembershipCredentials, p
 
 # Attempts decryptions of all keyfiles with the provided password. 
 # If one or more credentials are successfully decrypted, the max(min(index,number_decrypted),0)-th is returned.
-proc readRlnCredentials*(path: string, password: string, index: int = 0): RlnRelayResult[Option[RlnMembershipCredentials]] {.raises: [Defect, IOError, Exception].} =
+proc readRlnCredentials*(path: string, password: string, index: int = 0): RlnRelayResult[Option[RlnMembershipCredentials]] {.raises: [Defect, IOError, OSError].} =
   info "Reading RLN credentials"
   # With regards to printing the keys, it is purely for debugging purposes so that the user becomes explicitly aware of the current keys in use when nwaku is started.
   # Note that this is only until the RLN contract being used is the one deployed on Goerli testnet.
@@ -1182,9 +1182,8 @@ proc readRlnCredentials*(path: string, password: string, index: int = 0): RlnRel
       else:
         debug "Unable to decrypt RLN credentials with provided password. ", error=decodedKeyfiles.error
         return ok(none(RlnMembershipCredentials))
-
-    except IOError:
-      return err("IOError while loading keyfile for RLN credentials at " & path)
+    except:
+      return err("Error while loading keyfile for RLN credentials at " & path)
 
 
 proc mount(node: WakuNode,
