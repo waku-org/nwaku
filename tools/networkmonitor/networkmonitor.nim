@@ -113,7 +113,7 @@ proc main() {.async.} =
     for node in flatNodes: discovered_peers_list.set(int64(0),
                            labelValues = [node.record.toURI(), #enr
                                           $node.record.toTypedRecord().get().ip.get(), # TODO: Error handling. or what happens?
-                                          node.record.supportedCapabilites().join(",")]) 
+                                          node.record.getCapabilites().join(",")]) 
     # TODO: Some debug prints
     echo "total nodes: ", totalNodes
     echo "seen nodes: ", seenNodes
