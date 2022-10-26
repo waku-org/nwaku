@@ -1,12 +1,13 @@
 import
-  std/strutils,
+  std/[strutils, nre],
+  stew/results,
+  chronicles, 
+  chronos,
   confutils, 
   confutils/defs, 
   confutils/std/net,
   confutils/toml/defs as confTomlDefs,
   confutils/toml/std/net as confTomlNet,
-  chronicles, 
-  chronos,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   nimcrypto/utils
@@ -14,6 +15,9 @@ import
 export
   confTomlDefs,
   confTomlNet
+
+
+type ConfResult*[T] = Result[T, string]
    
 type
   WakuNodeConf* = object
@@ -63,25 +67,32 @@ type
       defaultValue: 50
       name: "max-connections" }: uint16
     
-    ## Persistence config
+    peerPersistence* {.
+      desc: "Enable peer persistence.",
+      defaultValue: false,
+      name: "peer-persistence" }: bool
     
-    dbPath* {.
-      desc: "The database path for peristent storage",
-      defaultValue: ""
-      name: "db-path" }: string
-
-    dbVacuum* {.
-      desc: "Enable database vacuuming at start: true|false",
-      defaultValue: false
-      name: "db-vacuum" }: bool
-    
+    # TODO: Deprecated. Remove in next release
     persistPeers* {.
-      desc: "Enable peer persistence: true|false",
-      defaultValue: false
+      desc: "DEPRECATED: Use '--peer-persistence' instead.",
+      defaultValue: false,
       name: "persist-peers" }: bool
     
+    # TODO: Deprecated. Remove in next release
+    dbPath* {.
+      desc: "DEPRECATED: Use '--store-message-db-url' instead",
+      defaultValue: "",
+      name: "db-path" }: string
+    
+    # TODO: Deprecated. Remove in next release
+    dbVacuum* {.
+      desc: "DEPRECATED: Use '--store-message-db-vacuum' instead",
+      defaultValue: false,
+      name: "db-vacuum" }: bool
+    
+    # TODO: Deprecated. Remove in next release
     persistMessages* {.
-      desc: "Enable message persistence: true|false",
+      desc: "DEPRECATED: Use '--store' instead",
       defaultValue: false
       name: "persist-messages" }: bool
     
@@ -154,9 +165,9 @@ type
       defaultValue: ""
       name: "rln-relay-id-commitment-key" }: string
   
+    # NOTE: This can be derived from the private key, but kept for future use
     rlnRelayEthAccountAddress* {.
       desc: "Account address for the Ethereum testnet Goerli", 
-      # NOTE: This can be derived from the private key, but kept for future use
       defaultValue: ""
       name: "rln-relay-eth-account-address" }: string
 
@@ -189,34 +200,62 @@ type
       defaultValue: "/waku/2/default-waku/proto"
       name: "topics" .}: string
 
-    ## Store config
+    ## Store and message store config
 
     store* {.
-      desc: "Enable store protocol: true|false",
+      desc: "Enable/disable waku store protocol",
       defaultValue: true
       name: "store" }: bool
 
+    storeMessageRetentionPolicy* {.
+      desc: "Message store retention policy. Time retention policy: 'time:<seconds>'. Capacity retention policy: 'capacity:<count>'",
+      defaultValue: "time:" & $2.days.seconds,
+      name: "store-message-retention-policy" }: string
+
+    storeMessageDbUrl* {.
+      desc: "The database connection URL for peristent storage.",
+      defaultValue: "sqlite://store.sqlite3",
+      name: "store-message-db-url" }: string
+
+    storeMessageDbVacuum* {.
+      desc: "Enable database vacuuming at start. Only supported by SQLite database engine.",
+      defaultValue: false,
+      name: "store-message-db-vacuum" }: bool
+
+    storeMessageDbMigration* {.
+      desc: "Enable database migration at start.",
+      defaultValue: true,
+      name: "store-message-db-migration" }: bool
+
+    storeResumePeer* {.
+      desc: "Peer multiaddress to resume the message store at boot.",
+      defaultValue: "",
+      name: "store-resume-peer" }: string
+
+    # TODO: Deprecated. Remove in next release
     storenode* {.
-      desc: "Peer multiaddr to query for storage.",
+      desc: "DEPRECATED: Use '--store-resume-peer' instead.",
       defaultValue: ""
       name: "storenode" }: string
     
+    # TODO: Deprecated. Remove in next release
     storeCapacity* {.
-      desc: "Maximum number of messages to keep in store.",
+      desc: "DEPRECATED: Use '--store-message-retention-policy=capacity:<count>' instead",
       defaultValue: 50000
       name: "store-capacity" }: int
     
+    # TODO: Deprecated. Remove in next release
     sqliteStore* {.
-      desc: "Enable sqlite-only store: true|false",
+      desc: "DEPRECATED: SQLite is the default message store implementation.",
       defaultValue: false
       name: "sqlite-store" }: bool
 
-    ## TODO: Rename this command-line option to `storeRetentionTime`
+    # TODO: Deprecated. Remove in next release
     sqliteRetentionTime* {.
-      desc: "time the sqlite-only store keeps messages (in seconds)",
+      desc: "DEPRECATED: Use '--store-message-retention-policy=time:<seconds>' instead",
       defaultValue: 30.days.seconds
-      name: "sqlite-retention-time" }: int64 # TODO: Duration
-
+      name: "sqlite-retention-time" }: int64
+    
     ## Filter config
 
     filter* {.
@@ -473,3 +512,26 @@ proc readValue*(r: var TomlReader, val: var crypto.PrivateKey)
         except CatchableError as err:
           raise newException(SerializationError, err.msg)
 
+
+## Configuration validation
+
+let DbUrlRegex = re"^[\w\+]+:\/\/[\w\/\\\.\:\@]+$"
+
+proc validateDbUrl*(val: string): ConfResult[string] =
+  let val = val.strip()
+
+  if val == "" or val.match(DbUrlRegex).isSome():
+    return ok(val)
+  else:
+    return err("invalid 'db url' option format: " & val)
+
+
+let StoreMessageRetentionPolicyRegex = re"^\w+:\w$"
+
+proc validateStoreMessageRetentionPolicy*(val: string): ConfResult[string] =
+  let val = val.strip()
+
+  if val == "" or val.match(StoreMessageRetentionPolicyRegex).isSome():
+    return ok(val)
+  else:
+    return err("invalid 'store message retention policy' option format: " & val)
