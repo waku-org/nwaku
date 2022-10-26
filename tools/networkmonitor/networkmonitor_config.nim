@@ -1,5 +1,8 @@
+# TODO fix imports
 import
   confutils,
+  strutils,
+  chronos,
   stew/shims/net,
   chronicles,
   chronicles/topics_registry
@@ -11,6 +14,12 @@ type
       defaultValue: LogLevel.DEBUG,
       name: "log-level",
       abbr: "l" .}: LogLevel
+
+    timeout* {.
+      desc: "Timeout to consider that the connection failed",
+      defaultValue: chronos.seconds(10),
+      name: "timeout",
+      abbr: "t" }: chronos.Duration
 
     ## Metrics config
     metricsServer* {.
@@ -35,4 +44,13 @@ proc parseCmdArg*(T: type ValidIpAddress, p: TaintedString): T =
     raise newException(ConfigurationError, "Invalid IP address")
 
 proc completeCmdArg*(T: type ValidIpAddress, val: TaintedString): seq[string] =
+  return @[]
+
+proc parseCmdArg*(T: type chronos.Duration, p: TaintedString): T =
+  try:
+      result = chronos.seconds(parseInt(p))
+  except CatchableError as e:
+    raise newException(ConfigurationError, "Invalid timeout value")
+
+proc completeCmdArg*(T: type chronos.Duration, val: TaintedString): seq[string] =
   return @[]

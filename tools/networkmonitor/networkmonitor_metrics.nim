@@ -25,8 +25,8 @@ declarePublicGauge peer_type_as_per_enr,
     labels = ["capability"]
 
 declarePublicGauge peer_type_as_per_protocol,
-    "Number of peers supporting each capability according to the protocol (requiere successful connection) ",
-    labels = ["capability"]
+    "Number of peers supporting each protocol, after a successful connection) ",
+    labels = ["protocols"]
 
 # hackish way for exponse strings, not performant at all
 declarePublicGauge discovered_peers_list,
@@ -35,6 +35,17 @@ declarePublicGauge discovered_peers_list,
               "ip",
               "capabilities",
               "discovered_timestamp",
+              #"citiy",
+              #"country",
+              ]
+
+# hackish way for exponse strings, not performant at all
+declarePublicGauge connected_peers_list,
+    "Peers that we successfully connected to and its information",
+    labels = ["enr",
+              "ip",
+              "capabilities",
+              "connected_timestamp",
               #"citiy",
               #"country",
               ]
