@@ -6,7 +6,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[strutils, json, sequtils],
+  std/[os, strutils, json, sequtils],
   nimcrypto/[bcmode, hmac, rijndael, pbkdf2, sha2, sysrand, utils, keccak, scrypt],
   stew/results,
   eth/keys,
@@ -538,6 +538,8 @@ proc saveKeyFile*(pathname: string,
   if not f.open(pathname, fmAppend):
     return err(OsError)
   try:
+    # To avoid other users/attackers to be able to read keyfiles, we make the make the file readable/writable only by the running user
+    setFilePermissions(pathname, {fpUserWrite, fpUserRead})
     f.write($jobject)
     f.write("\n")
     ok()
