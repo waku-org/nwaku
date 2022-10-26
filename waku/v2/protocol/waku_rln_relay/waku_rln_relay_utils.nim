@@ -1167,7 +1167,7 @@ proc readRlnCredentials*(path: string, password: string, index: int = 0): RlnRel
   waku_rln_membership_credentials_import_duration_seconds.nanosecondTime:
 
     try:
-      var decodedKeyfiles = loadKeyFile(path, password)
+      var decodedKeyfiles = loadKeyFiles(path, password)
   
       if decodedKeyfiles.isOk():
         var decodedRlnCredentials = decodedKeyfiles.get()

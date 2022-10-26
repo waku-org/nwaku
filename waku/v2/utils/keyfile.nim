@@ -121,6 +121,7 @@ proc `$`(k: CryptKind): string =
     else:
       return "aes-128-ctr"
 
+# Parses the prf name to HashKind
 proc getPrfHash(prf: string): HashKind =
   let p = prf.toLowerAscii()
   if p.startsWith("hmac-"):
@@ -130,6 +131,7 @@ proc getPrfHash(prf: string): HashKind =
       return SupportedHashesKinds[res]
   return HashNoSupport
 
+# Parses the cipher name to CryptoKind
 proc getCipher(c: string): CryptKind =
   var cl = c.toLowerAscii()
   if cl == "aes-128-ctr":
@@ -137,6 +139,7 @@ proc getCipher(c: string): CryptKind =
   else:
     return CipherNoSupport
 
+# Key derivation routine for PBKDF2
 proc deriveKey(password: string,
                salt: string,
                kdfkind: KdfKind,
@@ -211,6 +214,7 @@ proc deriveKey(password: string,
   else:
     err(NotImplemented)
 
+# Scrypt wrapper
 func scrypt[T, M](password: openArray[T], salt: openArray[M],
                    N, r, p: int, output: var openArray[byte]): int =
   let (xyvLen, bLen) = scryptCalc(N, r, p)
@@ -218,6 +222,7 @@ func scrypt[T, M](password: openArray[T], salt: openArray[M],
   var b = newSeq[byte](bLen)
   scrypt(password, salt, N, r, p, xyv, b, output)
 
+# Key derivation routine for Scrypt
 proc deriveKey(password: string, salt: string,
                workFactor, r, p: int): KfResult[DKey] =
 
@@ -228,6 +233,7 @@ proc deriveKey(password: string, salt: string,
 
   return ok(output)
 
+# Encryption routine
 proc encryptData(secret: openArray[byte],
                 cryptkind: CryptKind,
                 key: openArray[byte],
@@ -242,6 +248,7 @@ proc encryptData(secret: openArray[byte],
   else:
     err(NotImplemented)
 
+# Decryption routine
 proc decryptData(ciphertext: openArray[byte],
                 cryptkind: CryptKind,
                 key: openArray[byte],
@@ -258,6 +265,7 @@ proc decryptData(ciphertext: openArray[byte],
   else:
     err(NotImplemented)
 
+# Encodes KDF parameters in JSON
 proc kdfParams(kdfkind: KdfKind, salt: string, workfactor: int): KfResult[JsonNode] =
   if kdfkind == SCRYPT:
     let wf = if workfactor == 0: ScryptWorkFactor else: workfactor
@@ -283,6 +291,7 @@ proc kdfParams(kdfkind: KdfKind, salt: string, workfactor: int): KfResult[JsonNo
   else:
     err(NotImplemented)
 
+# Decodes hex strings to byte sequences
 proc decodeHex(m: string): seq[byte] =
   if len(m) > 0:
     try:
@@ -292,6 +301,7 @@ proc decodeHex(m: string): seq[byte] =
   else:
     return newSeq[byte]()
 
+# Parses the salt from hex string to byte string
 proc decodeSalt(m: string): string =
   var sarr: seq[byte]
   if len(m) > 0:
@@ -305,12 +315,15 @@ proc decodeSalt(m: string): string =
   else:
     return ""
 
+# Compares the message authentication code
 proc compareMac(m1: openArray[byte], m2: openArray[byte]): bool =
   if len(m1) == len(m2) and len(m1) > 0:
     return equalMem(unsafeAddr m1[0], unsafeAddr m2[0], len(m1))
   else:
     return false
 
+# Creates a keyfile for secret encrypted with password according to the other parameters
+# Returns keyfile in JSON according to Web3 Secure storage format (here, differently than standard, version and id are optional)
 proc createKeyFileJson*(secret: openArray[byte],
                         password: string,
                         version: int = 3,
@@ -376,6 +389,7 @@ proc createKeyFileJson*(secret: openArray[byte],
 
   ok(json)
 
+# Parses Cipher JSON information
 proc decodeCrypto(n: JsonNode): KfResult[Crypto] =
   var crypto = n.getOrDefault("crypto")
   if isNil(crypto):
@@ -412,6 +426,7 @@ proc decodeCrypto(n: JsonNode): KfResult[Crypto] =
 
   return ok(c)
 
+# Parses PNKDF2 JSON parameters
 proc decodePbkdf2Params(params: JsonNode): KfResult[Pbkdf2Params] =
   var p: Pbkdf2Params
   p.salt = decodeSalt(params.getOrDefault("salt").getStr())
@@ -429,6 +444,7 @@ proc decodePbkdf2Params(params: JsonNode): KfResult[Pbkdf2Params] =
     
   return ok(p)
 
+# Parses JSON Scrypt parameters
 proc decodeScryptParams(params: JsonNode): KfResult[ScryptParams] =
   var p: ScryptParams
   p.salt = decodeSalt(params.getOrDefault("salt").getStr())
@@ -445,6 +461,7 @@ proc decodeScryptParams(params: JsonNode): KfResult[ScryptParams] =
 
   return ok(p)
 
+# Decrypts data
 func decryptSecret(crypto: Crypto, dkey: DKey): KfResult[seq[byte]] =
   var ctx: keccak256
   ctx.init()
@@ -459,6 +476,7 @@ func decryptSecret(crypto: Crypto, dkey: DKey): KfResult[seq[byte]] =
   
   ok(plaintext)
 
+# Parse JSON keyfile and decrypts its content using password
 proc decodeKeyFileJson*(j: JsonNode,
                         password: string): KfResult[seq[byte]] =
   ## Decode secret from keyfile json object ``j`` using
@@ -487,8 +505,9 @@ proc decodeKeyFileJson*(j: JsonNode,
     let dkey = ? deriveKey(password, params.salt, params.n, params.r, params.p)
     return decryptSecret(crypto, dkey)
 
-proc loadKeyFile*(pathname: string,
-                  password: string, index: int32 = 0): KfResult[seq[KfResult[seq[byte]]]] {.raises: [Defect, IOError].} =
+# Loads the file at pathname, decrypts and returns all keyfiles encrypted under password
+proc loadKeyFiles*(pathname: string,
+                   password: string): KfResult[seq[KfResult[seq[byte]]]] {.raises: [Defect, IOError].} =
   ## Load and decode data from file with pathname
   ## ``pathname``, using password string ``password``.
   ## The index successful decryptions is returned

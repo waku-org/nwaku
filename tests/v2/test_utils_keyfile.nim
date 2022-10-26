@@ -35,7 +35,7 @@ suite "KeyFile test suite":
       saveKeyFile(filepath, keyfile.get()).isOk()
 
     # We load from the file all the decrypted keyfiles encrypted under password
-    var decodedKeyfiles = loadKeyFile(filepath, password)
+    var decodedKeyfiles = loadKeyFiles(filepath, password)
 
     check:
       decodedKeyfiles.isOk()
@@ -104,19 +104,19 @@ suite "KeyFile test suite":
     # We decrypt the keyfiles using the respective passwords and we check that the number of 
     # successful decryptions corresponds to the number of secrets encrypted under that password
 
-    var decodedKeyfilesPassword1 = loadKeyFile(filepath, password1)
+    var decodedKeyfilesPassword1 = loadKeyFiles(filepath, password1)
     check:
       decodedKeyfilesPassword1.isOk()
       decodedKeyfilesPassword1.get().len == 3
     var decodedSecretsPassword1 = decodedKeyfilesPassword1.get()
 
-    var decodedKeyfilesPassword2 = loadKeyFile(filepath, password2)
+    var decodedKeyfilesPassword2 = loadKeyFiles(filepath, password2)
     check:
       decodedKeyfilesPassword2.isOk()
       decodedKeyfilesPassword2.get().len == 1
     var decodedSecretsPassword2 = decodedKeyfilesPassword2.get()
 
-    var decodedKeyfilesPassword3 = loadKeyFile(filepath, password3)
+    var decodedKeyfilesPassword3 = loadKeyFiles(filepath, password3)
     check:
       decodedKeyfilesPassword3.isOk()
       decodedKeyfilesPassword3.get().len == 2
