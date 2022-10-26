@@ -369,7 +369,7 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf, mStorage: MessageStore):
       try:
         setPeerExchangePeer(node, conf.peerExchangeNode)
       except:
-        return err("failed to set node waku lightpush peer: " & getCurrentExceptionMsg())
+        return err("failed to set node waku peer-exchange peer: " & getCurrentExceptionMsg())
 
   return ok()
 
