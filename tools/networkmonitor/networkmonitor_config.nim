@@ -21,6 +21,18 @@ type
       name: "timeout",
       abbr: "t" }: chronos.Duration
 
+    bootstrapNodes* {.
+      desc: "Bootstrap ENR node. Argument may be repeated.",
+      defaultValue: @[""],
+      name: "bootstrap-node",
+      abbr: "b" }: seq[string]
+
+    refreshInterval* {.
+      desc: "How often new peers are discovered and connected to (in minutes)",
+      defaultValue: 10,
+      name: "refresh-interval",
+      abbr: "r" }: int
+
     ## Metrics config
     metricsServer* {.
       desc: "Enable the metrics server: true|false"
