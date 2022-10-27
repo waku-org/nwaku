@@ -29,8 +29,8 @@ proc runBackground() {.async.} =
   await node.mountRelay()
 
   # Subscribe to a topic
-  let topic = cast[Topic]("foobar")
-  proc handler(topic: Topic, data: seq[byte]) {.async, gcsafe.} =
+  let topic = cast[PubsubTopic]("foobar")
+  proc handler(topic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
     let message = WakuMessage.init(data).value
     let payload = cast[string](message.payload)
     info "Hit subscribe handler", topic=topic, payload=payload, contentTopic=message.contentTopic
