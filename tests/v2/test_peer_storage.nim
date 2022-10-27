@@ -2,16 +2,17 @@
 
 import
   std/[unittest, sets],
-  libp2p/crypto/crypto,
-  ../test_helpers,
+  libp2p/crypto/crypto
+import
   ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/node/storage/peer/waku_peer_storage
+  ../../waku/v2/node/storage/peer/waku_peer_storage,
+  ../test_helpers
 
 suite "Peer Storage":
 
   test "Store, replace and retrieve from persistent peer storage":
     let 
-      database = SqliteDatabase.init("", inMemory = true)[]
+      database = SqliteDatabase.new(":memory:").tryGet()
       storage = WakuPeerStorage.new(database)[]
 
       # Test Peer

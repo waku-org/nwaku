@@ -16,7 +16,7 @@ import
 
 
 proc newTestDatabase(): SqliteDatabase =
-  SqliteDatabase.init("", inMemory = true).tryGet()
+  SqliteDatabase.new(":memory:").tryGet()
 
 
 suite "message store - history query":
