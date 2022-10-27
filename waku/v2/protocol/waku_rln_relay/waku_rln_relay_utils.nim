@@ -926,11 +926,7 @@ proc generateGroupUpdateHandler(rlnPeer: WakuRLNRelay): GroupUpdateHandler =
       pk = pubkey.toIDCommitment()
     except:
       return err("invalid pubkey")
-    var isSuccessful: RlnRelayResult[void]
-    try:
-      isSuccessful = rlnPeer.insertMember(pk)
-    except:
-      return err("failed to insert member")
+    let isSuccessful = rlnPeer.insertMember(pk)
     if isSuccessful.isErr():
       return err("failed to add a new member to the Merkle tree")
     else:
