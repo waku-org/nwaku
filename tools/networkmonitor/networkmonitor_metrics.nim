@@ -38,8 +38,8 @@ declarePublicGauge discovered_peers_list,
               "ip",
               "capabilities",
               "discovered_timestamp",
-              #"citiy",
-              #"country",
+              "country",
+              "citiy",
               ]
 
 # hackish way for exponse strings, not performant at all
@@ -50,8 +50,8 @@ declarePublicGauge connected_peers_list,
               "capabilities",
               "connected_timestamp",
               "user_agent",
-              #"citiy",
-              #"country",
+              "country",
+              "citiy",
               ]
 
 proc startMetricsServer*(serverIp: ValidIpAddress, serverPort: Port) =

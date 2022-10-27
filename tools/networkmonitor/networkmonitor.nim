@@ -1,6 +1,6 @@
 import
   confutils,
-  std/[tables,strutils,times,sequtils],
+  std/[tables,strutils,times,sequtils,httpclient],
   chronicles,
   chronicles/topics_registry,
   chronos,
@@ -24,7 +24,7 @@ import
 logScope:
   topics = "networkmonitor"
 
-proc setDiscoveredPeersMetrics(discoveredNodes: seq[Node]) =
+proc setDiscoveredPeersMetrics(discoveredNodes: seq[Node], client: HttpClient) {.async.} =
   for discNode in discoveredNodes:
     let typedRecord = discNode.record.toTypedRecord()
     if not typedRecord.isOk():
@@ -34,11 +34,28 @@ proc setDiscoveredPeersMetrics(discoveredNodes: seq[Node]) =
       warn "ip field is not set", record=typedRecord.get()
       continue
     let currentTime = $getTime()
+
+    # get more info the peers from its ip address
+    let ip = $typedRecord.get().ip.get().join(".")
+    let location = await ipToLocation(ip, client)
+    if not location.isOk():
+      warn "could not get location", ip=ip
+      continue
+
+    # set metrics
     discovered_peers_list.set(int64(0),
                            labelValues = [discNode.record.toURI(),
-                                          $typedRecord.get().ip.get().join("."),
+                                          ip,
                                           discNode.record.getCapabilities().join(","),
-                                          currentTime]) 
+                                          currentTime,
+                                          location.get().country,
+                                          location.get().city])
+    debug "discovered peer", enr=discNode.record.toURI(),
+                             ip=ip,
+                             capabilities=discNode.record.getCapabilities().join(","),
+                             time=currentTime,
+                             country=location.get().country,
+                             city=location.get().city
 
 proc setDiscoveredPeersCapabilities(routingTableNodes: seq[Node]) =
   for capability in @[Relay, Store, Filter, Lightpush]:
@@ -48,7 +65,8 @@ proc setDiscoveredPeersCapabilities(routingTableNodes: seq[Node]) =
 
 proc setConnectedPeersMetrics(routingTableNodes: seq[Node],
                               node: WakuNode,
-                              timeout: chronos.Duration) {.async.} =
+                              timeout: chronos.Duration,
+                              client: HttpClient) {.async.} =
   var allProtocols: seq[seq[string]] = @[]
   var allAgentStrings: seq[string] = @[]
   for discNode in routingTableNodes:
@@ -83,18 +101,29 @@ proc setConnectedPeersMetrics(routingTableNodes: seq[Node],
     # store available user-agents in the network
     allAgentStrings &= nodeUserAgent
 
+    # get more info the peers from its ip address
+    let ip = $typedRecord.get().ip.get().join(".")
+    let location = await ipToLocation(ip, client)
+    if not location.isOk():
+      warn "could not get location", ip=ip
+      continue
+
     # update metrics with node info
     let currentTime = $getTime()
     connected_peers_list.set(int64(0),
                            labelValues = [discNode.record.toURI(),
-                                          $typedRecord.get().ip.get().join("."),
+                                          ip,
                                           nodeProtocols.join(","),
                                           currentTime,
-                                          nodeUserAgent])
+                                          nodeUserAgent,
+                                          location.get().country,
+                                          location.get().city])
     debug "connected to peer", enr=discNode.record.toURI(),
-                               ip=typedRecord.get().ip.get().join("."),
+                               ip=ip,
                                protocols=nodeProtocols.join(","),
-                               userAgent=nodeUserAgent
+                               userAgent=nodeUserAgent,
+                               country=location.get().country,
+                               city=location.get().city
    
   # inform the total connections that we did in this round
   let nOfOkConnections = allProtocols.len()
@@ -127,6 +156,8 @@ proc main() {.async.} =
     startMetricsServer(
       conf.metricsServerAddress,
       Port(conf.metricsServerPort))
+
+  let client = newHttpClient()
 
   let
     rng = keys.newRng()
@@ -172,7 +203,7 @@ proc main() {.async.} =
     let flatNodes = d.routingTable.buckets.mapIt(it.nodes).flatten()
     
     # populate metrics related to discovered nodes
-    setDiscoveredPeersMetrics(discoveredNodes)
+    await setDiscoveredPeersMetrics(discoveredNodes, client)
 
     # populate metrics related to capabilities as advertised by the ENR (see waku field)
     setDiscoveredPeersCapabilities(flatNodes)
@@ -180,7 +211,7 @@ proc main() {.async.} =
     # tries to connect to all newly discovered nodes
     # and populates metrics related to peers we could connect
     # note random discovered nodes can be already known
-    await setConnectedPeersMetrics(discoveredNodes, node, conf.timeout)
+    await setConnectedPeersMetrics(discoveredNodes, node, conf.timeout, client)
 
     let totalNodes = flatNodes.len
     let seenNodes = flatNodes.countIt(it.seen)
