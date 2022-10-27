@@ -18,7 +18,7 @@ import
 
 
 proc newTestDatabase(): SqliteDatabase =
-  SqliteDatabase.init("", inMemory = true).tryGet()
+  SqliteDatabase.new(":memory:").tryGet()
 
 
 suite "SQLite message store - init store":
@@ -262,7 +262,7 @@ suite "Message Store":
       overload = 65
 
     let
-      database = SqliteDatabase.init("", inMemory = true)[]
+      database = newTestDatabase()
       store = SqliteStore.init(database).tryGet()
       retentionPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(capacity=capacity)
 
