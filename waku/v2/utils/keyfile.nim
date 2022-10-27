@@ -44,6 +44,7 @@ type
     IncorrectMac          = "keyfile error: `mac` verification failed"
     ScryptBadParam        = "keyfile error: bad scrypt's parameters"
     OsError               = "keyfile error: OS specific error"
+    IoError               = "keyfile error: IO specific error"
     JsonError             = "keyfile error: JSON encoder/decoder error"
     KeyfileDoesNotExist   = "keyfile error: file does not exist"
 
@@ -508,7 +509,7 @@ proc decodeKeyFileJson*(j: JsonNode,
 
 # Loads the file at pathname, decrypts and returns all keyfiles encrypted under password
 proc loadKeyFiles*(pathname: string,
-                   password: string): KfResult[seq[KfResult[seq[byte]]]] {.raises: [Defect, IOError].} =
+                   password: string): KfResult[seq[KfResult[seq[byte]]]] =
   ## Load and decode data from file with pathname
   ## ``pathname``, using password string ``password``.
   ## The index successful decryptions is returned
@@ -520,25 +521,33 @@ proc loadKeyFiles*(pathname: string,
     return err(KeyfileDoesNotExist)
 
   # Note that lines strips the ending newline, if present
-  for keyfile in lines(pathname):
+  try:
+    for keyfile in lines(pathname):
 
-    # We skip empty lines
-    if keyfile.len == 0:
-      continue
-    # We skip all lines that doesn't seem to define a json
-    if keyfile[0] != '{' or keyfile[^1] != '}':
-      continue
+      # We skip empty lines
+      if keyfile.len == 0:
+        continue
+      # We skip all lines that doesn't seem to define a json
+      if keyfile[0] != '{' or keyfile[^1] != '}':
+        continue
 
-    try:
-      data = json.parseJson(keyfile)
-    except JsonParsingError:
-      return err(JsonError)
-    except Exception: # json raises Exception
-      return err(OsError)
+      try:
+        data = json.parseJson(keyfile)
+      except JsonParsingError:
+        return err(JsonError)
+      except ValueError:
+        return err(JsonError)
+      except OSError:
+        return err(OsError)
+      except Exception: #parseJson raises Exception
+        return err(OsError)
 
-    decodedKeyfile = decodeKeyFileJson(data, password)
-    if decodedKeyfile.isOk():
-      successfullyDecodedKeyfiles.add decodedKeyfile
+      decodedKeyfile = decodeKeyFileJson(data, password)
+      if decodedKeyfile.isOk():
+        successfullyDecodedKeyfiles.add decodedKeyfile
+
+  except IOError:
+    return err(IoError)
 
   return ok(successfullyDecodedKeyfiles)
 
