@@ -1,5 +1,4 @@
 import
-  confutils,
   std/tables,
   chronicles,
   chronicles/topics_registry,

@@ -1,10 +1,9 @@
 import
   confutils,
-  std/[sugar,tables,strutils,times,sequtils],
+  std/[tables,strutils,times,sequtils],
   chronicles,
   chronicles/topics_registry,
   chronos,
-  stew/byteutils,
   stew/shims/net,
   metrics,
   metrics/chronos_httpserver,
@@ -13,7 +12,6 @@ import
   eth/p2p/discoveryv5/enr
 
 import
-  ../../waku/v2/protocol/waku_message,
   ../../waku/v2/node/discv5/waku_discv5,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/wakunode2,
@@ -179,11 +177,10 @@ proc main() {.async.} =
     # populate metrics related to capabilities as advertised by the ENR (see waku field)
     setDiscoveredPeersCapabilities(flatNodes)
 
-    # TODO: as this can't scale with thousands of peers,
-    # we would need to connect to just newly discovered nodes.
-    # tries to connect to all peers in the routing table
-    # populate metrics related to peers we could connect
-    await setConnectedPeersMetrics(flatNodes, node, conf.timeout)
+    # tries to connect to all newly discovered nodes
+    # and populates metrics related to peers we could connect
+    # note random discovered nodes can be already known
+    await setConnectedPeersMetrics(discoveredNodes, node, conf.timeout)
 
     let totalNodes = flatNodes.len
     let seenNodes = flatNodes.countIt(it.seen)
