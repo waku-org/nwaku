@@ -9,6 +9,9 @@ import
   ./rpc
 
 
+const MaxRpcSize* = MaxWakuMessageSize + 64 * 1024 # We add a 64kB safety buffer for protocol overhead
+
+
 proc encode*(rpc: PushRequest): ProtoBuffer =
   var output = initProtoBuffer()
   output.write3(1, rpc.pubSubTopic)
