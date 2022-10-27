@@ -45,6 +45,7 @@ type
     ScryptBadParam        = "keyfile error: bad scrypt's parameters"
     OsError               = "keyfile error: OS specific error"
     JsonError             = "keyfile error: JSON encoder/decoder error"
+    KeyfileDoesNotExist   = "keyfile error: file does not exist"
 
   KdfKind* = enum
     PBKDF2,             ## PBKDF2
@@ -234,17 +235,17 @@ proc deriveKey(password: string, salt: string,
   return ok(output)
 
 # Encryption routine
-proc encryptData(secret: openArray[byte],
+proc encryptData(plaintext: openArray[byte],
                 cryptkind: CryptKind,
                 key: openArray[byte],
                 iv: openArray[byte]): KfResult[seq[byte]] =
   if cryptkind == AES128CTR:
-    var crypttext = newSeqWith(secret.len, 0.byte) 
+    var ciphertext = newSeqWith(plaintext.len, 0.byte) 
     var ctx: CTR[aes128]
     ctx.init(toOpenArray(key, 0, 15), iv)
-    ctx.encrypt(secret, crypttext)
+    ctx.encrypt(plaintext, ciphertext)
     ctx.clear()
-    ok(crypttext)
+    ok(ciphertext)
   else:
     err(NotImplemented)
 
@@ -292,7 +293,7 @@ proc kdfParams(kdfkind: KdfKind, salt: string, workfactor: int): KfResult[JsonNo
     err(NotImplemented)
 
 # Decodes hex strings to byte sequences
-proc decodeHex(m: string): seq[byte] =
+proc decodeHex*(m: string): seq[byte] =
   if len(m) > 0:
     try:
       return utils.fromHex(m)
@@ -515,7 +516,19 @@ proc loadKeyFiles*(pathname: string,
   var decodedKeyfile: KfResult[seq[byte]]
   var successfullyDecodedKeyfiles: seq[KfResult[seq[byte]]]
 
+  if fileExists(pathname) == false:
+    return err(KeyfileDoesNotExist)
+
+  # Note that lines strips the ending newline, if present
   for keyfile in lines(pathname):
+
+    # We skip empty lines
+    if keyfile.len == 0:
+      continue
+    # We skip all lines that doesn't seem to define a json
+    if keyfile[0] != '{' or keyfile[^1] != '}':
+      continue
+
     try:
       data = json.parseJson(keyfile)
     except JsonParsingError:
@@ -538,9 +551,10 @@ proc saveKeyFile*(pathname: string,
   if not f.open(pathname, fmAppend):
     return err(OsError)
   try:
-    # To avoid other users/attackers to be able to read keyfiles, we make the make the file readable/writable only by the running user
+    # To avoid other users/attackers to be able to read keyfiles, we make the file readable/writable only by the running user
     setFilePermissions(pathname, {fpUserWrite, fpUserRead})
     f.write($jobject)
+    # We store a keyfile per line
     f.write("\n")
     ok()
   except CatchableError:
