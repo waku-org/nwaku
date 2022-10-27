@@ -76,7 +76,7 @@ proc setupDatabaseConnection(dbUrl: string): SetupResult[Option[SqliteDatabase]]
       return err("unknown database engine")
 
   if connRes.isErr():
-    return err("failed to init database connection:" & connRes.error)
+    return err("failed to init database connection: " & connRes.error)
   
   ok(some(connRes.value))
 
