@@ -2,6 +2,7 @@
 
 import
   std/[json, os],
+  stew/byteutils,
   testutils/unittests, chronos,
   eth/keys
 import
@@ -50,9 +51,9 @@ suite "KeyFile test suite":
   test "Create/Save/Load multiple keyfiles in same file":
 
     # We set different passwords for different keyfiles that will be stored in same file
-    let password1 = decodeHex(string.fromBytes(randomSeqByte(rng[], 20)))
+    let password1 = string.fromBytes(randomSeqByte(rng[], 20))
     let password2 = ""
-    let password3 = decodeHex(string.fromBytes(randomSeqByte(rng[], 20)))
+    let password3 = string.fromBytes(randomSeqByte(rng[], 20))
     var keyfile: KfResult[JsonNode] 
 
     let filepath = "./test.keyfile"
