@@ -185,8 +185,8 @@ proc setupMessageStorage(dbUrl: string, vacuum: bool, migrate: bool): SetupResul
       ?performSqliteVacuum(db.get())
 
   # Database migration
-  if db.isSome() and migrate:
-    ?performDbMigration(db.get(), migrationPath=MessageStoreMigrationPath)
+    if migrate:
+      ?performDbMigration(db.get(), migrationPath=MessageStoreMigrationPath)
 
   # TODO: Extract capacity from `messageRetentionPolicy`
   return setupMessagesStore(db, storeCapacity=high(int))
