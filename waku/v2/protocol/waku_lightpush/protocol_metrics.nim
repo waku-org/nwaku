@@ -3,7 +3,6 @@
 import metrics
 
 
-declarePublicGauge waku_lightpush_peers, "number of lightpush peers"
 declarePublicGauge waku_lightpush_errors, "number of lightpush protocol errors", ["type"]
 declarePublicGauge waku_lightpush_messages, "number of lightpush messages received", ["type"]
 
