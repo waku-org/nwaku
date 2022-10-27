@@ -31,7 +31,7 @@ proc newTestWakuStore(switch: Switch, store=newTestMessageStore()): Future[WakuS
   let
     peerManager = PeerManager.new(switch)
     rng = crypto.newRng()
-    proto = WakuStore.init(peerManager, rng, store)
+    proto = WakuStore.new(peerManager, rng, store)
 
   await proto.start()
   switch.mount(proto)
@@ -80,9 +80,6 @@ procSuite "Waku Store - history query":
       server = await newTestWakuStore(serverSwitch)
       client = newTestWakuStoreClient(clientSwitch)
 
-    client.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
-
-
     ## Given
     let topic = ContentTopic("1")
     let
@@ -92,9 +89,11 @@ procSuite "Waku Store - history query":
     server.handleMessage("foo", msg1)
     server.handleMessage("foo", msg2)
 
+    let serverPeerInfo =serverSwitch.peerInfo.toRemotePeerInfo()
+
     ## When
     let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: topic)])
-    let resQuery = await client.query(rpc)
+    let resQuery = await client.query(rpc, peer=serverPeerInfo)
 
     ## Then
     check:
@@ -120,8 +119,6 @@ procSuite "Waku Store - history query":
       server = await newTestWakuStore(serverSwitch)
       client = newTestWakuStoreClient(clientSwitch)
 
-    client.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
-
     ## Given
     let
       topic1 = ContentTopic("1")
@@ -137,12 +134,14 @@ procSuite "Waku Store - history query":
     server.handleMessage("foo", msg2)
     server.handleMessage("foo", msg3)
     
+    let serverPeerInfo =serverSwitch.peerInfo.toRemotePeerInfo()
+
     ## When
     let rpc = HistoryQuery(contentFilters: @[
       HistoryContentFilter(contentTopic: topic1),
       HistoryContentFilter(contentTopic: topic3)
     ])
-    let resQuery = await client.query(rpc)
+    let resQuery = await client.query(rpc, peer=serverPeerInfo)
 
     ## Then
     check:
@@ -169,8 +168,6 @@ procSuite "Waku Store - history query":
       server = await newTestWakuStore(serverSwitch)
       client = newTestWakuStoreClient(clientSwitch)
 
-    client.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
-
     ## Given
     let
       pubsubTopic1 = "queried-topic"
@@ -190,6 +187,8 @@ procSuite "Waku Store - history query":
     server.handleMessage(pubsubtopic2, msg2)
     server.handleMessage(pubsubtopic2, msg3)
     
+    let serverPeerInfo =serverSwitch.peerInfo.toRemotePeerInfo()
+
     ## When
     # this query targets: pubsubtopic1 AND (contentTopic1 OR contentTopic3)    
     let rpc = HistoryQuery(
@@ -197,7 +196,7 @@ procSuite "Waku Store - history query":
                         HistoryContentFilter(contentTopic: contentTopic3)], 
       pubsubTopic: pubsubTopic1
     )
-    let resQuery = await client.query(rpc)
+    let resQuery = await client.query(rpc, peer=serverPeerInfo)
 
     ## Then
     check:
@@ -223,8 +222,6 @@ procSuite "Waku Store - history query":
       server = await newTestWakuStore(serverSwitch)
       client = newTestWakuStoreClient(clientSwitch)
 
-    client.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
-
     ## Given
     let
       pubsubtopic1 = "queried-topic"
@@ -239,9 +236,11 @@ procSuite "Waku Store - history query":
     server.handleMessage(pubsubtopic2, msg2)
     server.handleMessage(pubsubtopic2, msg3)
 
+    let serverPeerInfo =serverSwitch.peerInfo.toRemotePeerInfo()
+
     ## When
     let rpc = HistoryQuery(pubsubTopic: pubsubTopic1)
-    let res = await client.query(rpc)
+    let res = await client.query(rpc, peer=serverPeerInfo)
 
     ## Then
     check:
@@ -266,8 +265,6 @@ procSuite "Waku Store - history query":
       server = await newTestWakuStore(serverSwitch)
       client = newTestWakuStoreClient(clientSwitch)
 
-    client.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
-
     ## Given
     let pubsubTopic = "queried-topic"
     
@@ -280,9 +277,11 @@ procSuite "Waku Store - history query":
     server.handleMessage(pubsubTopic, msg2)
     server.handleMessage(pubsubTopic, msg3)
     
+    let serverPeerInfo =serverSwitch.peerInfo.toRemotePeerInfo()
+    
     ## When
     let rpc = HistoryQuery(pubsubTopic: pubsubTopic)
-    let res = await client.query(rpc)
+    let res = await client.query(rpc, peer=serverPeerInfo)
 
     ## Then
     check:
@@ -310,8 +309,6 @@ procSuite "Waku Store - history query":
       server = await newTestWakuStore(serverSwitch)
       client = newTestWakuStoreClient(clientSwitch)
 
-    client.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
-
     ## Given
     let currentTime = now()
     let msgList = @[
@@ -329,13 +326,15 @@ procSuite "Waku Store - history query":
 
     for msg in msgList:
       require server.store.put(DefaultPubsubTopic, msg).isOk()
+    
+    let serverPeerInfo =serverSwitch.peerInfo.toRemotePeerInfo()
 
     ## When
     var rpc = HistoryQuery(
       contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)],
       pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD) 
     )
-    var res = await client.query(rpc)
+    var res = await client.query(rpc, peer=serverPeerInfo)
     require res.isOk()
 
     var
@@ -353,7 +352,7 @@ procSuite "Waku Store - history query":
       rpc.pagingInfo = response.pagingInfo
       
       # Continue querying
-      res = await client.query(rpc)
+      res = await client.query(rpc, peer=serverPeerInfo)
       require res.isOk()
       response = res.tryGet()
       totalMessages += response.messages.len()
@@ -379,8 +378,6 @@ procSuite "Waku Store - history query":
       server = await newTestWakuStore(serverSwitch)
       client = newTestWakuStoreClient(clientSwitch)
 
-    client.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
-
     ## Given
     let currentTime = now()
     let msgList = @[
@@ -399,12 +396,14 @@ procSuite "Waku Store - history query":
     for msg in msgList:
       require server.store.put(DefaultPubsubTopic, msg).isOk()
 
+    let serverPeerInfo =serverSwitch.peerInfo.toRemotePeerInfo()
+
     ## When
     var rpc = HistoryQuery(
       contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)],
       pagingInfo: PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD) 
     )
-    var res = await client.query(rpc)
+    var res = await client.query(rpc, peer=serverPeerInfo)
     require res.isOk()
 
     var
@@ -422,7 +421,7 @@ procSuite "Waku Store - history query":
       rpc.pagingInfo = response.pagingInfo
       
       # Continue querying
-      res = await client.query(rpc)
+      res = await client.query(rpc, peer=serverPeerInfo)
       require res.isOk()
       response = res.tryGet()
       totalMessages += response.messages.len()
@@ -448,8 +447,6 @@ procSuite "Waku Store - history query":
       server = await newTestWakuStore(serverSwitch)
       client = newTestWakuStoreClient(clientSwitch)
 
-    client.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
-
     ## Given
     let msgList = @[
         WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
@@ -467,9 +464,11 @@ procSuite "Waku Store - history query":
     for msg in msgList:
       require server.store.put(DefaultPubsubTopic, msg).isOk()
 
+    let serverPeerInfo =serverSwitch.peerInfo.toRemotePeerInfo()
+
     ## When
     let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)])
-    let res = await client.query(rpc)
+    let res = await client.query(rpc, peer=serverPeerInfo)
 
     ## Then
     check:
@@ -497,8 +496,6 @@ procSuite "Waku Store - history query":
       server = newTestWakuStore(serverSwitch, store=storeA)
       client = newTestWakuStoreClient(clientSwitch)
 
-    client.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
-
     ## Given
     let rpc = HistoryQuery(
       contentFilters: @[HistoryContentFilter(contentTopic: ContentTopic("1"))], 
@@ -506,8 +503,10 @@ procSuite "Waku Store - history query":
       endTime: Timestamp(5)
     )
     
+    let serverPeerInfo =serverSwitch.peerInfo.toRemotePeerInfo()
+
     ## When
-    let res = await client.query(rpc)
+    let res = await client.query(rpc, peer=serverPeerInfo)
 
     ## Then
     check res.isOk()
@@ -534,8 +533,6 @@ procSuite "Waku Store - history query":
       server = await newTestWakuStore(serverSwitch, store=storeA)
       client = newTestWakuStoreClient(clientSwitch)
 
-    client.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
-
     ## Given
     let rpc = HistoryQuery(
       contentFilters: @[HistoryContentFilter(contentTopic: ContentTopic("1"))], 
@@ -543,8 +540,10 @@ procSuite "Waku Store - history query":
       endTime: Timestamp(2)
     )
 
+    let serverPeerInfo =serverSwitch.peerInfo.toRemotePeerInfo()
+
     ## When
-    let res = await client.query(rpc)
+    let res = await client.query(rpc, peer=serverPeerInfo)
 
     ## Then
     check res.isOk()
@@ -569,8 +568,6 @@ procSuite "Waku Store - history query":
       server = await newTestWakuStore(serverSwitch, store=storeA)
       client = newTestWakuStoreClient(clientSwitch)
 
-    client.setPeer(serverSwitch.peerInfo.toRemotePeerInfo())
-
     ## Given
     let rpc = HistoryQuery(
       contentFilters: @[HistoryContentFilter(contentTopic: ContentTopic("1"))], 
@@ -578,8 +575,10 @@ procSuite "Waku Store - history query":
       endTime: Timestamp(2)
     )
 
+    let serverPeerInfo =serverSwitch.peerInfo.toRemotePeerInfo()
+
     ## When
-    let res = await client.query(rpc)
+    let res = await client.query(rpc, peer=serverPeerInfo)
 
     ## Then
     check res.isOk()
@@ -592,7 +591,7 @@ procSuite "Waku Store - history query":
     await allFutures(clientSwitch.stop(), serverSwitch.stop())
 
 
-suite "Waku Store - message handling":
+suite "Message Store - message handling":
 
   asyncTest "it should store a valid and non-ephemeral message":
     ## Setup

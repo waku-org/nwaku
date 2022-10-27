@@ -474,7 +474,8 @@ proc processInput(rfd: AsyncFD) {.async.} =
       # We have a viable storenode. Let's query it for historical messages.
       echo "Connecting to storenode: " & $(storenode.get())
 
-      node.wakuStore.setPeer(storenode.get())
+      node.mountStoreClient()
+      node.setStorePeer(storenode.get())
 
       proc storeHandler(response: HistoryResponse) {.gcsafe.} =
         for msg in response.messages:
