@@ -135,12 +135,13 @@ suite "KeyFile test suite":
 
 
 # The following tests are originally from the nim-eth keyfile tests module https://github.com/status-im/nim-eth/blob/master/tests/keyfile/test_keyfile.nim
-# and are slightly adapted to test our customized version of the utils/keyfile module
+# and are slightly adapted to test backwards compatibility with nim-eth implementation of our customized version of the utils/keyfile module
 # Note: the original nim-eth "Create/Save/Load test" is redefined and expanded above in "KeyFile test suite"
 suite "KeyFile test suite (adapted from nim-eth keyfile tests)":
 
   let rng = newRng()
 
+  # Testvectors originally from https://github.com/status-im/nim-eth/blob/fef47331c37ee8abb8608037222658737ff498a6/tests/keyfile/test_keyfile.nim#L22-L168
   let TestVectors = [
     %*{
       "keyfile": {
@@ -289,90 +290,47 @@ suite "KeyFile test suite (adapted from nim-eth keyfile tests)":
     }
   ]
 
-  test "KeyStoreTests/basic_tests.json test1":
-    var expectkey = decodeHex(TestVectors[0].getOrDefault("priv").getStr())
-    let seckey =
-      decodeKeyFileJson(TestVectors[0].getOrDefault("keyfile"),
-                        TestVectors[0].getOrDefault("password").getStr())
-    check:
-      seckey.isOk()
-      seckey.get() == expectkey
+  test "Testing nim-eth test vectors":
 
-  test "KeyStoreTests/basic_tests.json python_generated_test_with_odd_iv":
-    var expectkey = decodeHex(TestVectors[1].getOrDefault("priv").getStr())
-    let seckey =
-      decodeKeyFileJson(TestVectors[1].getOrDefault("keyfile"),
-                        TestVectors[1].getOrDefault("password").getStr())
-    check:
-      seckey.isOk()
-      seckey.get() == expectkey
+    var secret: KfResult[seq[byte]]
+    var expectedSecret: seq[byte]
 
-  test "KeyStoreTests/basic_tests.json evilnonce":
-    var expectkey = decodeHex(TestVectors[2].getOrDefault("priv").getStr())
-    let seckey = decodeKeyFileJson(TestVectors[2].getOrDefault("keyfile"),
-                      TestVectors[2].getOrDefault("password").getStr())
-    check:
-      seckey.isOk()
-      seckey.get() == expectkey
-  
-  test "KeyStoreTests/basic_tests.json evilnonce with wrong password":
-    let seckey =
-      decodeKeyFileJson(TestVectors[2].getOrDefault("keyfile"),
-                        "wrongpassword")
-    check:
-      seckey.isErr()
-      seckey.error == KeyFileError.IncorrectMac
+    for i in 0..TestVectors.len:
 
-  test "KeyStoreTests/basic_tests.json test2":
-    var expectkey = decodeHex(TestVectors[3].getOrDefault("priv").getStr())
-    let seckey =
-      decodeKeyFileJson(TestVectors[3].getOrDefault("keyfile"),
-                        TestVectors[3].getOrDefault("password").getStr())
-    check:
-      seckey.isOk()
-      seckey.get() == expectkey
+      # Decryption with correct password
+      expectedSecret = decodeHex(TestVectors[i].getOrDefault("priv").getStr())
+      secret =
+        decodeKeyFileJson(TestVectors[i].getOrDefault("keyfile"),
+                          TestVectors[i].getOrDefault("password").getStr())
+      check:
+        secret.isOk()
+        secret.get() == expectedSecret
 
-  test "KeyStoreTests/basic_tests.json mycrypto":
-    var expectkey = decodeHex(TestVectors[4].getOrDefault("priv").getStr())
-    let seckey =
-      decodeKeyFileJson(TestVectors[4].getOrDefault("keyfile"),
-                        TestVectors[4].getOrDefault("password").getStr())
-    check:
-      seckey.isOk()
-      seckey.get() == expectkey
+      # Decryption with wrong password  
+      secret = decodeKeyFileJson(TestVectors[i].getOrDefault("keyfile"), "wrongpassword")
 
-  test "eth-key/conftest.py":
-    var expectkey = decodeHex(TestVectors[5].getOrDefault("priv").getStr())
-    let seckey =
-      decodeKeyFileJson(TestVectors[5].getOrDefault("keyfile"),
-                        TestVectors[5].getOrDefault("password").getStr())
-    check:
-      seckey.isOk()
-      seckey.get() == expectkey
+      check:
+        secret.isErr()
+        secret.error == KeyFileError.IncorrectMac
 
-  test "eth-key/conftest.py with wrong password":
-    let seckey =
-      decodeKeyFileJson(TestVectors[5].getOrDefault("keyfile"),
-                        "wrongpassword")
-    check:
-      seckey.isErr()
-      seckey.error == KeyFileError.IncorrectMac
-
-  test "Scrypt roundtrip":
+  test "Scrypt keyfiles":
     let
-      expectkey = randomSeqByte(rng[], 300)
-      jobject = createKeyFileJson(expectkey, "miawmiawcat", 3, AES128CTR, SCRYPT)
+      expectedSecret = randomSeqByte(rng[], 300)
+      password = "miawmiawcat"
+
+      # By default keyfiles are created using PBKDF2. Here we test keyfiles created using scrypt
+      jsonKeyfile = createKeyFileJson(expectedSecret, password, 3, AES128CTR, SCRYPT)
 
     check:
-      jobject.isOk()
+      jsonKeyfile.isOk()
 
-    let seckey = decodeKeyFileJson(jobject.get(), "miawmiawcat")
+    let secret = decodeKeyFileJson(jsonKeyfile.get(), password)
 
     check:
-     seckey.isOk()
-     seckey.get() == expectkey
+     secret.isOk()
+     secret.get() == expectedSecret
 
-  test "Load non-existent pathname test":
+  test "Load non-existent keyfile test":
 
     check:
       loadKeyFiles("nonexistant.keyfile", "password").error ==
