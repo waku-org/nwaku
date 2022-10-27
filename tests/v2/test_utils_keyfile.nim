@@ -50,9 +50,9 @@ suite "KeyFile test suite":
   test "Create/Save/Load multiple keyfiles in same file":
 
     # We set different passwords for different keyfiles that will be stored in same file
-    let password1 = "password1"
+    let password1 = decodeHex(string.fromBytes(randomSeqByte(rng[], 20)))
     let password2 = ""
-    let password3 = "password3"
+    let password3 = decodeHex(string.fromBytes(randomSeqByte(rng[], 20)))
     var keyfile: KfResult[JsonNode] 
 
     let filepath = "./test.keyfile"
@@ -295,7 +295,7 @@ suite "KeyFile test suite (adapted from nim-eth keyfile tests)":
     var secret: KfResult[seq[byte]]
     var expectedSecret: seq[byte]
 
-    for i in 0..TestVectors.len:
+    for i in 0..<TestVectors.len:
 
       # Decryption with correct password
       expectedSecret = decodeHex(TestVectors[i].getOrDefault("priv").getStr())
