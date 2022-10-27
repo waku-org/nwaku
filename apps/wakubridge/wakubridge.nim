@@ -51,7 +51,7 @@ type
   WakuBridge* = ref object of RootObj
     nodev1*: EthereumNode
     nodev2*: WakuNode
-    nodev2PubsubTopic: waku_node.Topic # Pubsub topic to bridge to/from
+    nodev2PubsubTopic: waku_node.PubsubTopic # Pubsub topic to bridge to/from
     seen: seq[hashes.Hash] # FIFO queue of seen WakuMessages. Used for deduplication.
     rng: ref HmacDrbgContext
     v1Pool: seq[Node] # Pool of v1 nodes for possible connections
@@ -228,7 +228,7 @@ proc new*(T: type WakuBridge,
           nodev2ExtIp = none[ValidIpAddress](), nodev2ExtPort = none[Port](),
           nameResolver: NameResolver = nil,
           # Bridge configuration
-          nodev2PubsubTopic: waku_node.Topic,
+          nodev2PubsubTopic: waku_node.PubsubTopic,
           v1Pool: seq[Node] = @[],
           targetV1Peers = 0): T
   {.raises: [Defect,IOError, TLSStreamProtocolError, LPError].} =
