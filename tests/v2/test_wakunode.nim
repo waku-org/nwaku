@@ -170,8 +170,10 @@ procSuite "WakuNode":
 
     check:
       # Check that underlying peer info contains only bindIp before starting
-      node.switch.peerInfo.addrs.len == 1
-      node.switch.peerInfo.addrs.contains(bindEndpoint)
+      node.switch.peerInfo.listenAddrs.len == 1
+      node.switch.peerInfo.listenAddrs.contains(bindEndpoint)
+      # Underlying peer info has not updated addrs before starting
+      node.switch.peerInfo.addrs.len == 0
 
       node.announcedAddresses.len == 1
       node.announcedAddresses.contains(announcedEndpoint)
@@ -179,8 +181,11 @@ procSuite "WakuNode":
     await node.start()
 
     check:
-      # Check that underlying peer info is updated with announced address
       node.started
+      # Underlying peer info listenAddrs has not changed
+      node.switch.peerInfo.listenAddrs.len == 1
+      node.switch.peerInfo.listenAddrs.contains(bindEndpoint)
+      # Check that underlying peer info is updated with announced address
       node.switch.peerInfo.addrs.len == 1
       node.switch.peerInfo.addrs.contains(announcedEndpoint)
 
