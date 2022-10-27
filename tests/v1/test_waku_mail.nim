@@ -46,7 +46,7 @@ procSuite "Waku Mail Client":
 
     # Simple mailserver part
     let peer = simpleServer.peerPool.connectedNodes[clientNode]
-    var f = peer.nextMsg(Waku.p2pRequest)
+    var f: Future[Waku.p2pRequest] = peer.nextMsg(Waku.p2pRequest)
     require await f.withTimeout(transmissionTimeout)
     let response = f.read()
     let decoded = decode(response.envelope.data, symKey = some(symKey))
