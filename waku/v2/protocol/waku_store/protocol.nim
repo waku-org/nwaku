@@ -366,11 +366,15 @@ proc queryLoop(w: WakuStore, req: HistoryQuery, candidateList: seq[RemotePeerInf
 
   let messagesList = queriesList
     .map(proc (fut: Future[WakuStoreResult[seq[WakuMessage]]]): seq[WakuMessage] =
-      # These futures have been awaited before using allFutures(). Call completed() just as a sanity check. 
-      if not fut.completed() or fut.read().isErr(): 
-        return @[]
+      try:
+        # fut.read() can raise a CatchableError
+        # These futures have been awaited before using allFutures(). Call completed() just as a sanity check.
+        if not fut.completed() or fut.read().isErr(): 
+          return @[]
 
-      fut.read().value
+        fut.read().value
+      except CatchableError:
+        return @[]
     )
     .concat()
     .deduplicate()
