@@ -67,7 +67,7 @@ type Chat = ref object
 
 type
   PrivateKey* = crypto.PrivateKey
-  Topic* = waku_node.Topic
+  Topic* = waku_node.PubsubTopic
 
 #####################
 ## chat2 protobufs ##
