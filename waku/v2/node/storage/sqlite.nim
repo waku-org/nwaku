@@ -64,30 +64,20 @@ type DataProc* = proc(s: RawStmtPtr) {.closure.} # the nim-eth definition is dif
 const NoopRowHandler* = proc(s: RawStmtPtr) {.closure.} = discard
 
 
-proc init*(
-    T: type SqliteDatabase,
-    basePath: string,
-    name: string = "store",
-    readOnly = false,
-    inMemory = false): DatabaseResult[T] =
+proc new*(T: type SqliteDatabase, path: string, readOnly=false): DatabaseResult[T] =
   var env: AutoDisposed[ptr sqlite3]
   defer: disposeIfUnreleased(env)
 
-  let
-    name =
-      if inMemory: ":memory:"
-      else: basepath / name & ".sqlite3"
-    flags =
-      if readOnly: SQLITE_OPEN_READONLY
-      else: SQLITE_OPEN_READWRITE or SQLITE_OPEN_CREATE
+  let flags = if readOnly: SQLITE_OPEN_READONLY
+              else: SQLITE_OPEN_READWRITE or SQLITE_OPEN_CREATE
 
-  if not inMemory:
+  if path != ":memory:":
     try:
-      createDir(basePath)
+      createDir(parentDir(path))
     except OSError, IOError:
-      return err("`sqlite: cannot create database directory")
+      return err("sqlite: cannot create database directory")
 
-  checkErr sqlite3_open_v2(name, addr env.val, flags.cint, nil)
+  checkErr sqlite3_open_v2(path, addr env.val, flags.cint, nil)
 
   template prepare(q: string, cleanup: untyped): ptr sqlite3_stmt =
     var s: ptr sqlite3_stmt
@@ -126,9 +116,18 @@ proc init*(
   checkWalPragmaResult(journalModePragma)
   checkExec(journalModePragma)
 
-  ok(SqliteDatabase(
-    env: env.release
-  ))
+  ok(SqliteDatabase(env: env.release))
+
+proc init*(
+    T: type SqliteDatabase,
+    basePath: string,
+    name: string = "store",
+    readOnly = false,
+    inMemory = false): DatabaseResult[T] {.deprecated: "use `SqliteDatabase.new()` instead".} =
+  let path = if inMemory: ":memory:"
+             else: basePath / name & ".sqlite3"
+  SqliteDatabase.new(path, readOnly)
+
 
 template prepare*(env: Sqlite, q: string, cleanup: untyped): ptr sqlite3_stmt =
   var s: ptr sqlite3_stmt
