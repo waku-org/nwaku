@@ -51,7 +51,8 @@ proc setDiscoveredPeersCapabilities(routingTableNodes: seq[Node]) =
 proc setConnectedPeersMetrics(routingTableNodes: seq[Node],
                               node: WakuNode,
                               timeout: chronos.Duration) {.async.} =
-  var protocolCount: seq[seq[string]] = @[]
+  var allProtocols: seq[seq[string]] = @[]
+  var allAgentStrings: seq[string] = @[]
   for discNode in routingTableNodes:
     # ensure record is correct
     let typedRecord = discNode.record.toTypedRecord()
@@ -75,8 +76,14 @@ proc setConnectedPeersMetrics(routingTableNodes: seq[Node],
     let lp2pPeerStore = node.switch.peerStore
     let nodeProtocols = lp2pPeerStore[ProtoBook][peer.get().peerId]
 
+    # after connection, get user-agent
+    let nodeUserAgent = lp2pPeerStore[AgentBook][peer.get().peerId]
+
     # store avaiable protocols in the network
-    protocolCount &= nodeProtocols
+    allProtocols &= nodeProtocols
+
+    # store available user-agents in the network
+    allAgentStrings &= nodeUserAgent
 
     # update metrics with node info
     let currentTime = $getTime()
@@ -84,21 +91,29 @@ proc setConnectedPeersMetrics(routingTableNodes: seq[Node],
                            labelValues = [discNode.record.toURI(),
                                           $typedRecord.get().ip.get().join("."),
                                           nodeProtocols.join(","),
-                                          currentTime])
+                                          currentTime,
+                                          nodeUserAgent])
     debug "connected to peer", enr=discNode.record.toURI(),
                                ip=typedRecord.get().ip.get().join("."),
-                               protocols=nodeProtocols.join(",")
+                               protocols=nodeProtocols.join(","),
+                               userAgent=nodeUserAgent
    
   # inform the total connections that we did in this round
-  let nOfOkConnections = protocolCount.len()
+  let nOfOkConnections = allProtocols.len()
   info "number of successful connections", amount=nOfOkConnections
 
   # update count on each protocol
-  let allProtocols = protocolCount.flatten()
-  for protocol in allProtocols.deduplicate():
-    let countOfProtocols = allProtocols.count(protocol)
+  let allProtocolsFlat = allProtocols.flatten()
+  for protocol in allProtocolsFlat.deduplicate():
+    let countOfProtocols = allProtocolsFlat.count(protocol)
     peer_type_as_per_protocol.set(int64(countOfProtocols), labelValues = [protocol])
     info "supported protocols in the network", protocol=protocol, count=countOfProtocols
+
+  # update count on each user-agent
+  for userAgent in allAgentStrings.deduplicate():
+    let countOfUserAgent = allAgentStrings.count(userAgent)
+    peer_user_agents.set(int64(countOfUserAgent), labelValues = [userAgent])
+    info "user agents participating in the network", userAgent=userAgent, count=countOfUserAgent
 
 proc main() {.async.} = 
   let conf: NetworkMonitorConf = NetworkMonitorConf.load()

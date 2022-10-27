@@ -91,6 +91,8 @@ The following metrics are available:
 * peer_type_as_per_protocol: Number of peers supporting each protocol, after a successful connection)
 * discovered_peers_list: List of discovered peers with extra information on each of them
 * connected_peers_list: List of peers that we connected to with extra information on each one
+* peer_user_agents: List of useragents found in the network and their count
+
+Other relevant metrics reused from `nim-eth`:
 * routing_table_nodes: Inherited from nim-eth, number of nodes in the routing table
 * discovery_message_requests_outgoing_total: Inherited from nim-eth, number of outging discovery requests, useful to know if the node is actiely looking for new peers
-* TODO: client diversity:

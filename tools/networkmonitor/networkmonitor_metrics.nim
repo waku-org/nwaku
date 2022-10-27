@@ -28,6 +28,10 @@ declarePublicGauge peer_type_as_per_protocol,
     "Number of peers supporting each protocol, after a successful connection) ",
     labels = ["protocols"]
 
+declarePublicGauge peer_user_agents,
+    "Number of peers with each user agent",
+    labels = ["user_agent"]
+
 # hackish way for exponse strings, not performant at all
 declarePublicGauge discovered_peers_list,
     "Discovered peers in the waku network and its information",
@@ -46,6 +50,7 @@ declarePublicGauge connected_peers_list,
               "ip",
               "capabilities",
               "connected_timestamp",
+              "user_agent",
               #"citiy",
               #"country",
               ]
