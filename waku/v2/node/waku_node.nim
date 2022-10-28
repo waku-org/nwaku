@@ -41,6 +41,7 @@ declarePublicGauge waku_node_filters, "number of content filter subscriptions"
 declarePublicGauge waku_node_errors, "number of wakunode errors", ["type"]
 declarePublicGauge waku_lightpush_peers, "number of lightpush peers"
 declarePublicGauge waku_store_peers, "number of store peers"
+declarePublicGauge waku_px_peers, "number of peers (in the node's peerManager) supporting the peer exchange protocol"
 
 
 logScope:
@@ -697,20 +698,21 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMe
 
 ## Waku peer-exchange
 
-proc mountWakuPeerExchange*(node: WakuNode) {.async, raises: [Defect, LPError].} =
+proc mountPeerExchange*(node: WakuNode) {.async, raises: [Defect, LPError].} =
   info "mounting waku peer exchange"
 
   var discv5Opt: Option[WakuDiscoveryV5]
   if not node.wakuDiscV5.isNil():
     discv5Opt = some(node.wakuDiscV5)
-  node.wakuPeerExchange = WakuPeerExchange.init(node.peerManager, discv5Opt)
+
+  node.wakuPeerExchange = WakuPeerExchange.new(node.peerManager, discv5Opt)
 
   if node.started:
-    # Node has started already. Let's start Waku peer exchange too.
     await node.wakuPeerExchange.start()
 
   node.switch.mount(node.wakuPeerExchange, protocolMatcher(WakuPeerExchangeCodec))
 
+# TODO: Move to application module (e.g., wakunode2.nim)
 proc setPeerExchangePeer*(node: WakuNode, peer: RemotePeerInfo|string) {.raises: [Defect, ValueError, LPError].} =
   if node.wakuPeerExchange.isNil():
     error "could not set peer, waku peer-exchange is nil"
@@ -720,7 +722,8 @@ proc setPeerExchangePeer*(node: WakuNode, peer: RemotePeerInfo|string) {.raises:
 
   let remotePeer = when peer is string: parseRemotePeerInfo(peer)
                    else: peer
-  node.wakuPeerExchange.setPeer(remotePeer)
+  node.peerManager.addPeer(remotePeer, WakuPeerExchangeCodec)
+  waku_px_peers.inc()
 
 
 ## Other protocols

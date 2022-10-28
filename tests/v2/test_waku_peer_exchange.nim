@@ -124,14 +124,14 @@ procSuite "Waku Peer Exchange":
     await allFutures([node1.startDiscv5(), node2.startDiscv5()])
 
     # Mount peer exchange
-    await node1.mountWakuPeerExchange()
-    await node3.mountWakuPeerExchange()
+    await node1.mountPeerExchange()
+    await node3.mountPeerExchange()
 
     await sleepAsync(3000.millis) # Give the algorithm some time to work its magic
 
     asyncSpawn node1.wakuPeerExchange.runPeerExchangeDiscv5Loop()
 
-    node3.wakuPeerExchange.setPeer(node1.switch.peerInfo.toRemotePeerInfo())
+    node3.setPeerExchangePeer(node1.peerInfo.toRemotePeerInfo())
 
     ## When
     discard waitFor node3.wakuPeerExchange.request(1)
