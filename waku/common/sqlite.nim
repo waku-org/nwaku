@@ -118,16 +118,6 @@ proc new*(T: type SqliteDatabase, path: string, readOnly=false): DatabaseResult[
 
   ok(SqliteDatabase(env: env.release))
 
-proc init*(
-    T: type SqliteDatabase,
-    basePath: string,
-    name: string = "store",
-    readOnly = false,
-    inMemory = false): DatabaseResult[T] {.deprecated: "use `SqliteDatabase.new()` instead".} =
-  let path = if inMemory: ":memory:"
-             else: basePath / name & ".sqlite3"
-  SqliteDatabase.new(path, readOnly)
-
 
 template prepare*(env: Sqlite, q: string, cleanup: untyped): ptr sqlite3_stmt =
   var s: ptr sqlite3_stmt

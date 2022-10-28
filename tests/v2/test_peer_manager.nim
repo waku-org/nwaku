@@ -1,11 +1,13 @@
 {.used.}
 
 import
-  std/[options, sets, tables, sequtils],
+  std/[options, tables, sequtils],
+  stew/shims/net as stewNet,
   chronicles,
-  testutils/unittests, stew/shims/net as stewNet,
+  testutils/unittests,
   json_rpc/[rpcserver, rpcclient],
-  eth/[keys, rlp], eth/common/eth_types,
+  eth/keys,
+  eth/common/eth_types,
   libp2p/[builders, switch, multiaddress],
   libp2p/protobuf/minprotobuf,
   libp2p/stream/[bufferstream, connection],
@@ -13,14 +15,15 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/rpc/message
 import
+  ../../waku/common/sqlite,
+  ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/node/storage/peer/waku_peer_storage,
+  ../../waku/v2/node/waku_node,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_relay,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_swap/waku_swap,
-  ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/node/storage/peer/waku_peer_storage,
-  ../../waku/v2/node/waku_node,
   ../test_helpers
 
 procSuite "Peer Manager":
@@ -172,7 +175,7 @@ procSuite "Peer Manager":
 
   asyncTest "Peer manager can use persistent storage and survive restarts":
     let
-      database = SqliteDatabase.init("1", inMemory = true)[]
+      database = SqliteDatabase.new(":memory:")[]
       storage = WakuPeerStorage.new(database)[]
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
@@ -220,7 +223,7 @@ procSuite "Peer Manager":
 
   asyncTest "Peer manager support multiple protocol IDs when reconnecting to peers":
     let
-      database = SqliteDatabase.init("2", inMemory = true)[]
+      database = SqliteDatabase.new(":memory:")[]
       storage = WakuPeerStorage.new(database)[]
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),

@@ -1,25 +1,25 @@
 {.used.}
 
 import
-  std/[options, tables, sets],
+  std/[options, tables],
   testutils/unittests, 
   chronos, 
   chronicles,
   libp2p/crypto/crypto
 import
+  ../../waku/common/sqlite,
+  ../../waku/v2/node/storage/message/sqlite_store,
+  ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_store/client,
   ../../waku/v2/protocol/waku_store/protocol_metrics,
-  ../../waku/v2/node/storage/sqlite,
-  ../../waku/v2/node/storage/message/sqlite_store,
-  ../../waku/v2/node/peer_manager/peer_manager,
   ./testlib/common,
   ./testlib/switch
 
 
 proc newTestDatabase(): SqliteDatabase =
-  SqliteDatabase.init("", inMemory = true).tryGet()
+  SqliteDatabase.new(":memory:").tryGet()
 
 proc newTestStore(): MessageStore =
   let database = newTestDatabase()
