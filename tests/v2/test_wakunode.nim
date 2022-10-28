@@ -209,39 +209,3 @@ procSuite "WakuNode":
     check:
       node.announcedAddresses.len == 1
       node.announcedAddresses.contains(expectedDns4Addr)
-
-   
-  asyncTest "Agent string is set and advertised correctly":
-    let
-      # custom agent string
-      expectedAgentString1 = "node1-agent-string"
-
-      # bump when updating nim-libp2p
-      expectedAgentString2 = "nim-libp2p/0.0.1"
-    let
-      # node with custom agent string
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60000),
-                           agentString = some(expectedAgentString1))
-
-      # node with default agent string from libp2p
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60002))
-
-    await node1.start()
-    await node1.mountRelay()
-
-    await node2.start()
-    await node2.mountRelay()
-
-    await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
-    await node2.connectToNodes(@[node1.switch.peerInfo.toRemotePeerInfo()])
-
-    let node1Agent = node2.switch.peerStore[AgentBook][node1.switch.peerInfo.toRemotePeerInfo().peerId]
-    let node2Agent = node1.switch.peerStore[AgentBook][node2.switch.peerInfo.toRemotePeerInfo().peerId]
-
-    check:
-      node1Agent == expectedAgentString1
-      node2Agent == expectedAgentString2
-
-    await allFutures(node1.stop(), node2.stop())
