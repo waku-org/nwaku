@@ -18,13 +18,14 @@ import
   libp2p/transports/[transport, wstransport],
   libp2p/nameresolving/dnsresolver
 import
+  ../../waku/common/sqlite,
+  ../../waku/common/utils/nat,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_peer_exchange,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/dnsdisc/waku_dnsdisc,
   ../../waku/v2/node/discv5/waku_discv5,
-  ../../waku/v2/node/storage/sqlite,
   ../../waku/v2/node/storage/migration,
   ../../waku/v2/node/storage/peer/waku_peer_storage,
   ../../waku/v2/node/storage/message/waku_store_queue,
@@ -37,7 +38,6 @@ import
   ../../waku/v2/node/waku_metrics,
   ../../waku/v2/utils/peers,
   ../../waku/v2/utils/wakuenr,
-  ../../waku/common/utils/nat,
   ./wakunode2_setup_rest,
   ./wakunode2_setup_rpc,
   ./config

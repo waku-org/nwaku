@@ -1,16 +1,14 @@
 {.used.}
 
 import
-  std/[options, tables, sets, strutils, sequtils, algorithm],
+  std/[options, sequtils, algorithm],
   unittest2,
-  chronos,
-  chronicles
+  chronos
 import
+  ../../waku/common/sqlite,
   ../../waku/v2/node/storage/message/sqlite_store,
-  ../../waku/v2/node/storage/sqlite,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store/pagination,
-  ../../waku/v2/utils/time,
   ./utils,
   ./testlib/common
 
