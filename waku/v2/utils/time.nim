@@ -34,6 +34,6 @@ template nanosecondTime*(collector: Gauge, body: untyped) =
   when defined(metrics):
     let start = nowInUnixFloat()
     body
-    collector.set(nowInUnixFloat() - start)
+    metrics.set(collector, nowInUnixFloat() - start)
   else:
     body

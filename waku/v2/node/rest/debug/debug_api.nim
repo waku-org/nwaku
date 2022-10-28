@@ -33,8 +33,8 @@ proc installDebugApiHandlers*(router: var RestRouter, node: WakuNode) =
 
 #### Client
 
-proc decodeBytes*(t: typedesc[DebugWakuInfo], data: openArray[byte], contentType: string): RestResult[DebugWakuInfo] =
-  if MediaType.init(contentType) != MIMETYPE_JSON:
+proc decodeBytes*(t: typedesc[DebugWakuInfo], data: openArray[byte], contentType: Opt[ContentTypeData]): RestResult[DebugWakuInfo] =
+  if MediaType.init($contentType) != MIMETYPE_JSON:
     error "Unsupported respose contentType value", contentType = contentType
     return err("Unsupported response contentType")
   
