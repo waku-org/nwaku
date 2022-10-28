@@ -5,7 +5,7 @@ import
   stew/[results, byteutils],
   sqlite3_abi
 import
-  ../../sqlite, 
+  ../../../../../common/sqlite, 
   ../../../../protocol/waku_message,
   ../../../../utils/time
 

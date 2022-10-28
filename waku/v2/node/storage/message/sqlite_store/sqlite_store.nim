@@ -3,15 +3,15 @@
 {.push raises: [Defect].}
 
 import 
-  std/[options, tables, sequtils, algorithm, times],
+  std/[options, tables],
   stew/[byteutils, results],
   chronicles
 import
+  ../../../../../common/sqlite,
   ../../../../protocol/waku_message,
   ../../../../protocol/waku_store/pagination,
   ../../../../protocol/waku_store/message_store,
   ../../../../utils/time,
-  ../../sqlite,
   ./queries
 
 logScope:
