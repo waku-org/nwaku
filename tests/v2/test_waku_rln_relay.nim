@@ -2,7 +2,7 @@
 {.used.}
 
 import
-  std/options, sequtils, times, deques,
+  std/[options, os, sequtils, times, deques],
   testutils/unittests, chronos, chronicles, stint,
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
@@ -980,7 +980,7 @@ suite "Waku rln relay":
     check:
       keypair.get().idCommitment == idCommitment
 
-  test "Read Persistent RLN credentials":
+  test "Read/Write RLN credentials":
     # create an RLN instance
     var rlnInstance = createRLNInstance()
     check:
@@ -1003,17 +1003,26 @@ suite "Waku rln relay":
 
     var rlnMembershipCredentials = RlnMembershipCredentials(membershipKeyPair: k, rlnIndex: index)
 
-    let path = "testPath.txt"
+    let password = "%m0um0ucoW%"
+
+    let filepath = "./testRLNCredentials.txt"
+    defer: removeFile(filepath)
 
     # Write RLN credentials
-    writeFile(path, pretty(%rlnMembershipCredentials))
+    check:
+      writeRlnCredentials(filepath, rlnMembershipCredentials, password).isOk()
 
-    var credentials = readPersistentRlnCredentials(path)
+    let readCredentialsResult = readRlnCredentials(filepath, password)
+    check:
+      readCredentialsResult.isOk()
+
+    let credentials = readCredentialsResult.get()
 
     check:
-      credentials.membershipKeyPair == k
-      credentials.rlnIndex == index
-  
+      credentials.isSome()
+      credentials.get().membershipKeyPair == k
+      credentials.get().rlnIndex == index
+
   test "histogram static bucket generation":
     let buckets = generateBucketsForHistogram(10)
 
