@@ -1,7 +1,5 @@
 import
   # Waku v2 tests
-  # TODO: enable this when it is altered into a proper waku relay test
-  # ./v2/test_waku,
   ./v2/test_wakunode,
   ./v2/test_wakunode_relay,
   # Waku Store
