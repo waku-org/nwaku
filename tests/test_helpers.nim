@@ -17,7 +17,7 @@ proc setupTestNode*(
   let
     keys1 = keys.KeyPair.random(rng[])
     address = localAddress(nextPort)
-  result = newEthereumNode(keys1, address, NetworkId(1), nil,
+  result = newEthereumNode(keys1, address, NetworkId(1),
                            addAllCapabilities = false,
                            bindUdpPort = address.udpPort, # Assume same as external
                            bindTcpPort = address.tcpPort, # Assume same as external

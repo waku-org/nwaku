@@ -1,5 +1,9 @@
 # Waku Switch utils.
-{.push raises: [TLSStreamProtocolError, IOError, Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
+
 import
   std/options,
   chronos, chronicles,
@@ -14,9 +18,10 @@ proc withWsTransport*(b: SwitchBuilder): SwitchBuilder =
   b.withTransport(proc(upgr: Upgrade): Transport = WsTransport.new(upgr))
 
 proc getSecureKey(path : string): TLSPrivateKey
-  {.raises: [Defect,TLSStreamProtocolError, IOError].} =
+  {.raises: [Defect, IOError].} =
+
   trace "Key path is.", path=path
-  var stringkey: string = readFile(path)
+  let stringkey: string = readFile(path)
   try:
     let key = TLSPrivateKey.init(stringkey)
     return key
@@ -24,9 +29,10 @@ proc getSecureKey(path : string): TLSPrivateKey
     debug "exception raised from getSecureKey", msg=exc.msg
 
 proc getSecureCert(path : string): TLSCertificate
-  {.raises: [Defect,TLSStreamProtocolError, IOError].} =
+  {.raises: [Defect, IOError].} =
+
   trace "Certificate path is.", path=path
-  var stringCert: string = readFile(path)
+  let stringCert: string = readFile(path)
   try:
     let cert  = TLSCertificate.init(stringCert)
     return cert
@@ -35,7 +41,9 @@ proc getSecureCert(path : string): TLSCertificate
 
 proc withWssTransport*(b: SwitchBuilder,
                         secureKeyPath: string,
-                        secureCertPath: string): SwitchBuilder =
+                        secureCertPath: string): SwitchBuilder
+  {.raises: [Defect, IOError].} =
+  
   let key : TLSPrivateKey =  getSecureKey(secureKeyPath)
   let cert : TLSCertificate = getSecureCert(secureCertPath)
   b.withTransport(proc(upgr: Upgrade): Transport = WsTransport.new(upgr,
@@ -63,7 +71,7 @@ proc newWakuSwitch*(
     wssEnabled: bool = false,
     secureKeyPath: string = "",
     secureCertPath: string = ""): Switch
-    {.raises: [Defect,TLSStreamProtocolError,IOError, LPError].} =
+    {.raises: [Defect, IOError, LPError].} =
 
     var b = SwitchBuilder
       .new()
