@@ -8,20 +8,20 @@ import
   chronicles,
   libp2p/crypto/crypto
 import
-  ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_store,
-  ../../waku/v2/protocol/waku_store/client,
-  ../../waku/v2/node/storage/sqlite,
+  ../../waku/common/sqlite,
   ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/node/storage/message/sqlite_store,
   ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/protocol/waku_store/client,
   ../../waku/v2/utils/time,
   ./testlib/common,
   ./testlib/switch
 
 
 proc newTestDatabase(): SqliteDatabase =
-  SqliteDatabase.init("", inMemory = true).tryGet()
+  SqliteDatabase.new(":memory:").tryGet()
 
 proc newTestMessageStore(): MessageStore =
   let database = newTestDatabase()
