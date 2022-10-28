@@ -72,30 +72,6 @@ type
       defaultValue: false,
       name: "peer-persistence" }: bool
     
-    # TODO: Deprecated. Remove in next release
-    persistPeers* {.
-      desc: "DEPRECATED: Use '--peer-persistence' instead.",
-      defaultValue: false,
-      name: "persist-peers" }: bool
-    
-    # TODO: Deprecated. Remove in next release
-    dbPath* {.
-      desc: "DEPRECATED: Use '--store-message-db-url' instead",
-      defaultValue: "",
-      name: "db-path" }: string
-    
-    # TODO: Deprecated. Remove in next release
-    dbVacuum* {.
-      desc: "DEPRECATED: Use '--store-message-db-vacuum' instead",
-      defaultValue: false,
-      name: "db-vacuum" }: bool
-    
-    # TODO: Deprecated. Remove in next release
-    persistMessages* {.
-      desc: "DEPRECATED: Use '--store' instead",
-      defaultValue: false
-      name: "persist-messages" }: bool
-    
     ## DNS addrs config
     
     dnsAddrs* {.
@@ -204,8 +180,13 @@ type
 
     store* {.
       desc: "Enable/disable waku store protocol",
-      defaultValue: true
+      defaultValue: true,
       name: "store" }: bool
+
+    storenode* {.
+      desc: "Peer multiaddress to query for storage",
+      defaultValue: "",
+      name: "storenode" }: string
 
     storeMessageRetentionPolicy* {.
       desc: "Message store retention policy. Time retention policy: 'time:<seconds>'. Capacity retention policy: 'capacity:<count>'",
@@ -231,30 +212,6 @@ type
       desc: "Peer multiaddress to resume the message store at boot.",
       defaultValue: "",
       name: "store-resume-peer" }: string
-
-    # TODO: Deprecated. Remove in next release
-    storenode* {.
-      desc: "DEPRECATED: Use '--store-resume-peer' instead.",
-      defaultValue: ""
-      name: "storenode" }: string
-    
-    # TODO: Deprecated. Remove in next release
-    storeCapacity* {.
-      desc: "DEPRECATED: Use '--store-message-retention-policy=capacity:<count>' instead",
-      defaultValue: 50000
-      name: "store-capacity" }: int
-    
-    # TODO: Deprecated. Remove in next release
-    sqliteStore* {.
-      desc: "DEPRECATED: SQLite is the default message store implementation.",
-      defaultValue: false
-      name: "sqlite-store" }: bool
-
-    # TODO: Deprecated. Remove in next release
-    sqliteRetentionTime* {.
-      desc: "DEPRECATED: Use '--store-message-retention-policy=time:<seconds>' instead",
-      defaultValue: 30.days.seconds
-      name: "sqlite-retention-time" }: int64
     
     ## Filter config
 
