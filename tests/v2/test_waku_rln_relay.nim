@@ -6,7 +6,8 @@ import
   testutils/unittests, chronos, chronicles, stint,
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
-  json,
+  json
+import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_rln_relay/[rln, 
       waku_rln_relay_utils,

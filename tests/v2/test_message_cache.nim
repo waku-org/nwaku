@@ -6,16 +6,10 @@ import
   chronicles
 import
   ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/node/message_cache
+  ../../waku/v2/node/message_cache,
+  ./testlib/common
 
 
-proc fakeWakuMessage(payload = toBytes("TEST"), contentTopic = "test"): WakuMessage = 
-  WakuMessage(
-    payload: payload,
-    contentTopic: contentTopic,
-    version: 1,
-    timestamp: 2022
-  )
 
 type PubsubTopicString = string
 
