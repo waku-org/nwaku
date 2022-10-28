@@ -35,7 +35,7 @@ procSuite "WakuNode - Lightpush":
     await destNode.mountRelay(@[DefaultPubsubTopic])
     await bridgeNode.mountRelay(@[DefaultPubsubTopic])
     await bridgeNode.mountLightPush()
-    await lightNode.mountLightPush()
+    lightNode.mountLightPushClient()
     
     discard await lightNode.peerManager.dialPeer(bridgeNode.peerInfo.toRemotePeerInfo(), WakuLightPushCodec)
     await sleepAsync(100.milliseconds)
@@ -57,16 +57,10 @@ procSuite "WakuNode - Lightpush":
     await sleepAsync(100.millis)
 
     ## When
-    let lightpushRes = await lightNode.lightpush(DefaultPubsubTopic, message)
+    await lightNode.lightpushPublish(DefaultPubsubTopic, message)
 
-    require await completionFutRelay.withTimeout(5.seconds)
-    
     ## Then
-    check lightpushRes.isOk()
-      
-    let response = lightpushRes.get()
-    check:
-      response.isSuccess == true
+    check await completionFutRelay.withTimeout(5.seconds)
 
     ## Cleanup
     await allFutures(lightNode.stop(), bridgeNode.stop(), destNode.stop())
