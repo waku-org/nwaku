@@ -16,6 +16,7 @@ import
   waku_rln_relay_types,
   waku_rln_relay_metrics,
   ../../utils/time,
+  ../../utils/keyfile,
   ../../node/waku_node, 
   ../../../../../apps/wakunode2/config,  ## TODO: Decouple the protocol code from the app configuration
   ../../../../../apps/chat2/config_chat2,  ## TODO: Decouple the protocol code from the app configuration
@@ -1145,19 +1146,45 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   node.wakuRlnRelay = rlnPeer
   return ok(true)
 
-proc readPersistentRlnCredentials*(path: string) : RlnMembershipCredentials {.raises: [Defect, OSError, IOError, Exception].} =
-  info "Rln credentials exist in file"
+proc writeRlnCredentials*(path: string, credentials: RlnMembershipCredentials, password: string): RlnRelayResult[void] =
+  info "Storing RLN credentials"
+  var jsonString: string
+  jsonString.toUgly(%credentials)
+  let keyfile = createKeyFileJson(toBytes(jsonString), password)
+  if keyfile.isErr():
+    return err("Error while creating keyfile for RLN credentials")
+  if saveKeyFile(path, keyfile.get()).isErr():
+    return err("Error while saving keyfile for RLN credentials")
+  return ok()
+
+# Attempts decryptions of all keyfiles with the provided password. 
+# If one or more credentials are successfully decrypted, the max(min(index,number_decrypted),0)-th is returned.
+proc readRlnCredentials*(path: string, password: string, index: int = 0): RlnRelayResult[Option[RlnMembershipCredentials]] =
+  info "Reading RLN credentials"
   # With regards to printing the keys, it is purely for debugging purposes so that the user becomes explicitly aware of the current keys in use when nwaku is started.
   # Note that this is only until the RLN contract being used is the one deployed on Goerli testnet.
   # These prints need to omitted once RLN contract is deployed on Ethereum mainnet and using valuable funds for staking.
   waku_rln_membership_credentials_import_duration_seconds.nanosecondTime:
-    let entireRlnCredentialsFile = readFile(path)
 
-    let jsonObject = parseJson(entireRlnCredentialsFile)
-    let deserializedRlnCredentials = to(jsonObject, RlnMembershipCredentials)
-    
-  debug "Deserialized Rln credentials", rlnCredentials=deserializedRlnCredentials
-  return deserializedRlnCredentials
+    try:
+      var decodedKeyfiles = loadKeyFiles(path, password)
+  
+      if decodedKeyfiles.isOk():
+        var decodedRlnCredentials = decodedKeyfiles.get()
+        debug "Successfully decrypted keyfiles for the provided password", numberKeyfilesDecrypted=decodedRlnCredentials.len
+        # We should return the index-th decrypted credential, but we ensure to not overflow
+        let credentialIndex = max(min(index, decodedRlnCredentials.len - 1), 0)
+        debug "Picking credential with (adjusted) index", inputIndex=index, adjustedIndex=credentialIndex
+        let jsonObject = parseJson(string.fromBytes(decodedRlnCredentials[credentialIndex].get()))
+        let deserializedRlnCredentials = to(jsonObject, RlnMembershipCredentials)   
+        debug "Deserialized RLN credentials", rlnCredentials=deserializedRlnCredentials
+        return ok(some(deserializedRlnCredentials))
+      else:
+        debug "Unable to decrypt RLN credentials with provided password. ", error=decodedKeyfiles.error
+        return ok(none(RlnMembershipCredentials))
+    except:
+      return err("Error while loading keyfile for RLN credentials at " & path)
+
 
 proc mount(node: WakuNode,
            conf: WakuNodeConf|Chat2Conf,
@@ -1217,13 +1244,23 @@ proc mount(node: WakuNode,
     # if the path does not contain any credential file, then a new set is generated and pesisted in the same path
     # if there is a credential file, then no new credentials are generated, instead the content of the file is read and used to mount rln-relay 
     if conf.rlnRelayCredPath != "": 
+      
       let rlnRelayCredPath = joinPath(conf.rlnRelayCredPath, RlnCredentialsFilename)
       debug "rln-relay credential path", rlnRelayCredPath
+      
       # check if there is an rln-relay credential file in the supplied path
-      if fileExists(rlnRelayCredPath): 
+      if fileExists(rlnRelayCredPath):
+        
+        info "A RLN credential file exists in provided path", path=rlnRelayCredPath
+        
         # retrieve rln-relay credential
-        credentials = some(readPersistentRlnCredentials(rlnRelayCredPath))
- 
+        let readCredentialsRes = readRlnCredentials(rlnRelayCredPath, conf.rlnRelayCredentialsPassword)
+        
+        if readCredentialsRes.isErr():
+            return err("RLN credentials cannot be read: " & readCredentialsRes.error())
+
+        credentials = readCredentialsRes.get()
+
       else: # there is no credential file available in the supplied path
         # mount the rln-relay protocol leaving rln-relay credentials arguments unassigned 
         # this infroms mountRlnRelayDynamic proc that new credentials should be generated and registered to the membership contract
@@ -1256,8 +1293,8 @@ proc mount(node: WakuNode,
         # persist rln credential
         credentials = some(RlnMembershipCredentials(rlnIndex: node.wakuRlnRelay.membershipIndex, 
                                                     membershipKeyPair: node.wakuRlnRelay.membershipKeyPair))
-        writeFile(rlnRelayCredPath, pretty(%credentials.get()))
-
+        if writeRlnCredentials(rlnRelayCredPath, credentials.get(), conf.rlnRelayCredentialsPassword).isErr():
+          return err("error in storing rln credentials")
 
     else:
       # do not persist or use a persisted rln-relay credential

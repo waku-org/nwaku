@@ -45,7 +45,9 @@ import
   ./v2/test_enr_utils,
   ./v2/test_peer_exchange,
   ./v2/test_waku_noise,
-  ./v2/test_waku_noise_sessions
+  ./v2/test_waku_noise_sessions,
+  # Utils
+  ./v2/test_utils_keyfile
 
 when defined(rln) or defined(rlnzerokit):
   import 

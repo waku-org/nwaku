@@ -161,7 +161,12 @@ type
       desc: "Address of membership contract on an Ethereum testnet", 
       defaultValue: ""
       name: "rln-relay-eth-contract-address" }: string
-    
+
+    rlnRelayCredentialsPassword* {.
+      desc: "Password for encrypting RLN credentials", 
+      defaultValue: ""
+      name: "rln-relay-cred-password" }: string
+        
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
       name: "staticnode" }: seq[string]
