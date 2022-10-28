@@ -151,4 +151,5 @@
 [submodule "vendor/zerokit"]
 	path = vendor/zerokit
 	url = https://github.com/vacp2p/zerokit.git
+	ignore = dirty
 	branch = master

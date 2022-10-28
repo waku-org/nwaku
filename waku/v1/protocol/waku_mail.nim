@@ -62,7 +62,7 @@ proc requestMail*(node: EthereumNode, peerId: NodeId, request: MailRequest,
   traceAsyncErrors peer.get().p2pRequest(env)
 
   # Wait for the Request Complete packet
-  var f = peer.get().nextMsg(Waku.p2pRequestComplete)
+  var f: Future[Waku.p2pRequestComplete] = peer.get().nextMsg(Waku.p2pRequestComplete)
   if await f.withTimeout(requestCompleteTimeout):
     let response = f.read()
     # TODO: I guess the idea is to check requestId (Hash) also?

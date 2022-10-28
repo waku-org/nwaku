@@ -6,7 +6,7 @@ import
   stew/shims/net,
   chronicles,
   testutils/unittests,
-  presto,
+  presto, presto/client as presto_client,
   libp2p/crypto/crypto,
   libp2p/protocols/pubsub/pubsub
 import
@@ -59,7 +59,7 @@ suite "REST API - Relay":
     # Then
     check:
       response.status == 200
-      response.contentType == $MIMETYPE_TEXT
+      $response.contentType == $MIMETYPE_TEXT
       response.data == "OK"
 
     check:
@@ -109,7 +109,7 @@ suite "REST API - Relay":
     # Then
     check:
       response.status == 200
-      response.contentType == $MIMETYPE_TEXT
+      $response.contentType == $MIMETYPE_TEXT
       response.data == "OK"
 
     check:
@@ -156,7 +156,7 @@ suite "REST API - Relay":
     # Then
     check:
       response.status == 200
-      response.contentType == $MIMETYPE_JSON
+      $response.contentType == $MIMETYPE_JSON
       response.data.len == 3
       response.data.all do (msg: RelayWakuMessage) -> bool: 
         msg.payload == Base64String.encode("TEST-1") and
@@ -214,7 +214,7 @@ suite "REST API - Relay":
     # Then
     check:
       response.status == 200
-      response.contentType == $MIMETYPE_TEXT
+      $response.contentType == $MIMETYPE_TEXT
       response.data == "OK"
 
     # TODO: Check for the message to be published to the topic

@@ -236,7 +236,7 @@ proc new*(T: type WakuBridge,
   # Setup Waku v1 node
   var
     nodev1 = newEthereumNode(keys = nodev1Key, address = nodev1Address,
-                             networkId = NetworkId(1), chain = nil, clientId = ClientIdV1,
+                             networkId = NetworkId(1), clientId = ClientIdV1,
                              addAllCapabilities = false, bindUdpPort = nodev1Address.udpPort, bindTcpPort = nodev1Address.tcpPort, rng = rng)
   
   nodev1.addCapability Waku # Always enable Waku protocol

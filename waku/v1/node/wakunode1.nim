@@ -39,7 +39,7 @@ proc run(config: WakuNodeConf, rng: ref HmacDrbgContext)
                 else: @[]
 
   # Set-up node
-  var node = newEthereumNode(config.nodekey, address, NetworkId(1), nil, clientId,
+  var node = newEthereumNode(config.nodekey, address, NetworkId(1), clientId,
     addAllCapabilities = false, bootstrapNodes = bootnodes, bindUdpPort = address.udpPort, bindTcpPort = address.tcpPort, rng = rng)
   if not config.bootnodeOnly:
     node.addCapability Waku # Always enable Waku protocol

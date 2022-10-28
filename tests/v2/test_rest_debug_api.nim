@@ -4,8 +4,8 @@ import
   stew/shims/net,
   chronicles,
   testutils/unittests,
-  presto, 
-  libp2p/peerid,
+  presto, presto/client as presto_client,
+  libp2p/peerinfo,
   libp2p/multiaddress,
   libp2p/crypto/crypto
 import
@@ -46,7 +46,7 @@ suite "REST API - Debug":
     # Then
     check:
       response.status == 200
-      response.contentType == $MIMETYPE_JSON
+      $response.contentType == $MIMETYPE_JSON
       response.data.listenAddresses == @[$node.switch.peerInfo.addrs[^1] & "/p2p/" & $node.switch.peerInfo.peerId]
 
     await restServer.stop()
