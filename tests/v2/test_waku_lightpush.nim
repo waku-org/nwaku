@@ -60,8 +60,7 @@ suite "Waku Lightpush":
       message = fakeWakuMessage()
 
     ## When
-    let rpc = PushRequest(pubSubTopic: topic, message: message)
-    let requestRes = await client.request(rpc, serverPeerId)
+    let requestRes = await client.publish(topic, message, peer=serverPeerId)
 
     require await handlerFuture.withTimeout(100.millis)
 
@@ -105,8 +104,7 @@ suite "Waku Lightpush":
       message = fakeWakuMessage()
 
     ## When
-    let rpc = PushRequest(pubSubTopic: topic, message: message)
-    let requestRes = await client.request(rpc, serverPeerId)
+    let requestRes = await client.publish(topic, message, peer=serverPeerId)
 
     require await handlerFuture.withTimeout(100.millis)
 

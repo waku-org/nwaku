@@ -283,7 +283,8 @@ proc initNode(conf: WakuNodeConf,
                         dnsResolver,
                         conf.relayPeerExchange, # We send our own signed peer record when peer exchange enabled
                         dns4DomainName,
-                        discv5UdpPort
+                        discv5UdpPort,
+                        some(conf.agentString)
                         )
   except:
     return err("failed to create waku node instance: " & getCurrentExceptionMsg())
@@ -399,17 +400,18 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
         return err("failed to set node waku store peer: " & getCurrentExceptionMsg())
 
   # NOTE Must be mounted after relay
-  if (conf.lightpushnode != "") or (conf.lightpush):
+  if conf.lightpush:
     try:
       await mountLightPush(node)
     except:
       return err("failed to mount waku lightpush protocol: " & getCurrentExceptionMsg())
 
-    if conf.lightpushnode != "":
-      try:
-        setLightPushPeer(node, conf.lightpushnode)
-      except:
-        return err("failed to set node waku lightpush peer: " & getCurrentExceptionMsg())
+  if conf.lightpushnode != "":
+    try:
+      mountLightPushClient(node)
+      setLightPushPeer(node, conf.lightpushnode)
+    except:
+      return err("failed to set node waku lightpush peer: " & getCurrentExceptionMsg())
   
   # Filter setup. NOTE Must be mounted after relay
   if (conf.filternode != "") or (conf.filter):

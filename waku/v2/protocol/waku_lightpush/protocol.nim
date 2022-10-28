@@ -8,10 +8,8 @@ import
   metrics,
   bearssl/rand
 import
-  ../waku_message,
-  ../waku_relay,
   ../../node/peer_manager/peer_manager,
-  ../../utils/requests,
+  ../waku_message,
   ./rpc,
   ./rpc_codec,
   ./protocol_metrics
@@ -77,43 +75,3 @@ proc new*(T: type WakuLightPush,
   let wl = WakuLightPush(rng: rng, peerManager: peerManager, pushHandler: pushHandler)
   wl.initProtocolHandler()
   return wl
-
-
-proc setPeer*(wlp: WakuLightPush, peer: RemotePeerInfo) {.
-  deprecated: "Use 'WakuLightPushClient.setPeer()' instead" .} = 
-  wlp.peerManager.addPeer(peer, WakuLightPushCodec)
-  waku_lightpush_peers.inc()
-
-proc request(wl: WakuLightPush, req: PushRequest, peer: RemotePeerInfo): Future[WakuLightPushResult[PushResponse]] {.async, gcsafe,
-  deprecated: "Use 'WakuLightPushClient.request()' instead" .} = 
-  let connOpt = await wl.peerManager.dialPeer(peer, WakuLightPushCodec)
-  if connOpt.isNone():
-    waku_lightpush_errors.inc(labelValues = [dialFailure])
-    return err(dialFailure)
-
-  let connection = connOpt.get()
-
-  let rpc = PushRPC(requestId: generateRequestId(wl.rng), request: req)
-  await connection.writeLP(rpc.encode().buffer)
-
-  var message = await connection.readLp(MaxRpcSize.int)
-  let res = PushRPC.init(message)
-
-  if res.isErr():
-    waku_lightpush_errors.inc(labelValues = [decodeRpcFailure])
-    return err(decodeRpcFailure)
-
-  let rpcRes = res.get()
-  if rpcRes.response == PushResponse():
-    return err("empty response body")
-
-  return ok(rpcRes.response)
-
-proc request*(wl: WakuLightPush, req: PushRequest): Future[WakuLightPushResult[PushResponse]] {.async, gcsafe,
-  deprecated: "Use 'WakuLightPushClient.request()' instead" .} = 
-  let peerOpt = wl.peerManager.selectPeer(WakuLightPushCodec)
-  if peerOpt.isNone():
-    waku_lightpush_errors.inc(labelValues = [dialFailure])
-    return err(dialFailure)
-
-  return await wl.request(req, peerOpt.get())
