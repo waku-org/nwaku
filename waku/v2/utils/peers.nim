@@ -163,6 +163,6 @@ proc toRemotePeerInfo*(peerRecord: PeerRecord): RemotePeerInfo =
 ## Useful for testing or internal connections
 proc toRemotePeerInfo*(peerInfo: PeerInfo): RemotePeerInfo =
   RemotePeerInfo.init(peerInfo.peerId,
-                      peerInfo.addrs,
+                      peerInfo.listenAddrs,
                       none(enr.Record), # we could generate an ENR from PeerInfo
                       peerInfo.protocols)

@@ -96,22 +96,6 @@ proc protocolMatcher(codec: string): Matcher =
 
   return match
 
-proc updateSwitchPeerInfo(node: WakuNode) =
-  ## TODO: remove this when supported upstream
-  ## 
-  ## nim-libp2p does not yet support announcing addrs
-  ## different from bound addrs.
-  ## 
-  ## This is a temporary workaround to replace
-  ## peer info addrs in switch to announced
-  ## addresses.
-  ## 
-  ## WARNING: this should only be called once the switch
-  ## has already been started.
-  
-  if node.announcedAddresses.len > 0:
-    node.switch.peerInfo.addrs = node.announcedAddresses
-
 template ip4TcpEndPoint(address, port): MultiAddress =
   MultiAddress.init(address, tcpProtocol, port)
 
@@ -807,10 +791,6 @@ proc start*(node: WakuNode) {.async.} =
   
   waku_version.set(1, labelValues=[git_version])
   
-  ## NB: careful when moving this. We need to start the switch with the bind address
-  ## BEFORE updating with announced addresses for the sake of identify.
-  await node.switch.start()
-  
   let peerInfo = node.switch.peerInfo
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
   var listenStr = ""
@@ -826,8 +806,15 @@ proc start*(node: WakuNode) {.async.} =
   if not node.wakuRelay.isNil():
     await node.startRelay()
   
-  ## Update switch peer info with announced addrs
-  node.updateSwitchPeerInfo()
+  ## The switch uses this mapper to update peer info addrs
+  ## with announced addrs after start
+  let addressMapper =
+    proc (listenAddrs: seq[MultiAddress]): Future[seq[MultiAddress]] {.async.} =
+      return node.announcedAddresses
+  node.switch.peerInfo.addressMappers.add(addressMapper)
+
+  ## The switch will update addresses after start using the addressMapper
+  await node.switch.start()
 
   node.started = true
   

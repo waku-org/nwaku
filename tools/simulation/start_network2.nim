@@ -78,11 +78,11 @@ proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], master = false, lab
 
   info "Address", address
   # TODO: Need to port shift
-  peerInfo.addrs.add(hostAddress)
+  peerInfo.listenAddrs.add(hostAddress)
   let id = $peerInfo.peerId
 
-  info "PeerInfo", id = id, addrs = peerInfo.addrs
-  let listenStr = $peerInfo.addrs[0] & "/p2p/" & id
+  info "PeerInfo", id = id, addrs = peerInfo.listenAddrs
+  let listenStr = $peerInfo.listenAddrs[0] & "/p2p/" & id
 
   result.cmd = wakuNodeBin & " " & defaults & " "
   result.cmd &= "--nodekey:" & hkey & " "

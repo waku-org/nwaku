@@ -318,7 +318,7 @@ procSuite "WakuNode - Relay":
 
     #delete websocket peer address
     # TODO: a better way to find the index - this is too brittle
-    node2.switch.peerInfo.addrs.delete(0)
+    node2.switch.peerInfo.listenAddrs.delete(0)
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 

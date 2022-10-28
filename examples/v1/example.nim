@@ -30,7 +30,6 @@ proc run(config: WakuNodeConf, rng: ref HmacDrbgContext) =
   var node = newEthereumNode(config.nodekey, # Node identifier
     address, # Address reachable for incoming requests
     NetworkId(1), # Network Id, only applicable for ETH protocol
-    nil, # Database, not required for Waku
     clientId, # Client id string
     addAllCapabilities = false, # Disable default all RLPx capabilities
     bindUdpPort = address.udpPort, # Assume same as external
