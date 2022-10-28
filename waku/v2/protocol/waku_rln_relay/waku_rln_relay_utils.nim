@@ -1155,19 +1155,16 @@ proc readPersistentRlnCredentials*(path: string) : RlnRelayResult[RlnMembershipC
     try:
       entireRlnCredentialsFile = readFile(path)
     except Exception as err:
-      error "Error while reading the rln credentials file", err=err.msg
       return err("Error while reading the rln credentials file: " & err.msg)
     var jsonObject: JsonNode
     try:
       let jsonObject = parseJson(entireRlnCredentialsFile)
     except Exception as err:
-      error "Error while parsing the rln credentials file", err=err.msg
       return err("Error while parsing the rln credentials file: " & err.msg)
     var rlnCredentials: RlnMembershipCredentials
     try:
       rlnCredentials = jsonObject.to(RlnMembershipCredentials)
     except Exception as err:
-      error "Error while converting the rln credentials file to RlnMembershipCredentials object", err=err.msg
       return err("Error while converting the rln credentials file to RlnMembershipCredentials object: " & err.msg)
     
   debug "Deserialized Rln credentials", rlnCredentials=rlnCredentials
@@ -1238,6 +1235,7 @@ proc mount(node: WakuNode,
         # retrieve rln-relay credential
         let credentialsRes = readPersistentRlnCredentials(rlnRelayCredPath)
         if credentialsRes.isErr():
+          error "failed to read rln-relay credentials", err=credentialsRes.error()
           return err(credentialsRes.error())
         credentials = some(credentialsRes.get())
  
