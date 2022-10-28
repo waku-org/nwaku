@@ -49,7 +49,7 @@ make chat2 RLN=true
 Run the following command to set up your chat2 client. 
 
 ```bash
-./build/chat2 --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --rln-relay-eth-account-address:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --rln-relay-eth-account-private-key:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --rln-relay-eth-client-address:xxxx --ports-shift=1 
+./build/chat2 --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --rln-relay-eth-account-private-key:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --rln-relay-eth-client-address:xxxx --ports-shift=1 
 ```
 
 In this command
@@ -60,14 +60,12 @@ In this command
 - the `--rln-relay-eth-contract-address` option gets the address of the membership contract.
  The current address of the contract is `0x4252105670fe33d2947e8ead304969849e64f2a6`.
  You may check the state of the contract on the [Goerli testnet](https://goerli.etherscan.io/address/0x4252105670fe33d2947e8ead304969849e64f2a6).
-- the `rln-relay-eth-account-address` option is for your account address on the Goerli testnet.
- It is a hex string of length 40 (not sensitive to the `0x` prefix). 
 - the `rln-relay-eth-account-private-key` option is for your account private key on the Goerli testnet. 
  It is made up of 64 hex characters (not sensitive to the `0x` prefix).
 - the `rln-relay-eth-client-address` is the WebSocket address of the hosted node on the Goerli testnet. 
  You need to replace the `xxxx` with the actual node's address.
 
-For the last three config options i.e., `rln-relay-eth-account-address`, `rln-relay-eth-account-private-key`, and `rln-relay-eth-client-address`, if you do not know how to obtain those, you may use the following tutorial on the [prerequisites of running on-chain spam-protected chat2](./pre-requisites-of-running-on-chain-spam-protected-chat2.md).
+For the last two config options i.e., `rln-relay-eth-account-private-key` and `rln-relay-eth-client-address`, if you do not know how to obtain those, you may use the following tutorial on the [prerequisites of running on-chain spam-protected chat2](./pre-requisites-of-running-on-chain-spam-protected-chat2.md).
 
 You may set up more than one chat client,
 just make sure that you increment the `--ports-shift` value for each new client you set up e.g., `--ports-shift=2`.
@@ -167,10 +165,10 @@ If this file does not already exist under the supplied path, then a new credenti
 Otherwise, the chat client does not generate a new credential and will use, instead, the persisted RLN credential.
 
 ```bash
-./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6  --rln-relay-eth-account-address:your_eth_account --rln-relay-eth-account-private-key:your_eth_private_key  --rln-relay-eth-client-address:your_goerli_node  --ports-shift=1  --rln-relay-cred-path:./
+./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6  --rln-relay-eth-account-private-key:your_eth_private_key  --rln-relay-eth-client-address:your_goerli_node  --ports-shift=1  --rln-relay-cred-path:./
 ```
 
-Note: If you are reusing credentials, you can omit the `rln-relay-eth-account-address` and `rln-relay-eth-account-private-key` flags
+Note: If you are reusing credentials, you can omit the `rln-relay-eth-account-private-key` flag.
 
 Therefore, the command to start chat2 would be -
 
@@ -180,7 +178,7 @@ Therefore, the command to start chat2 would be -
 
 # Sample test output
 In this section, a sample test of running two chat clients is provided.
-Note that the values used for `rln-relay-eth-account-address`, `rln-relay-eth-account-private-key`, and `rln-relay-eth-client-address` in the following code snippets are junk and not valid.
+Note that the values used for  `rln-relay-eth-account-private-key` and `rln-relay-eth-client-address` in the following code snippets are junk and not valid.
 
 The two chat clients namely `Alice` and `Bob` are connected to the test fleets.
 `Alice` sends 4 messages i.e., `message1`, `message2`, `message3`, and `message4`.
@@ -192,7 +190,7 @@ You can check this fact by looking at `Bob`'s console, where `message3` is missi
 
 **Alice**
 ```bash
-./build/chat2 --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --rln-relay-eth-account-address:0x1234567890123456789012345678901234567890 --rln-relay-eth-account-private-key:0x1234567890123456789012345678901234567890123456789012345678901234 --rln-relay-eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012 --ports-shift=1 
+./build/chat2 --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --rln-relay-eth-account-private-key:0x1234567890123456789012345678901234567890123456789012345678901234 --rln-relay-eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012 --ports-shift=1 
 ```
 
 ```
@@ -236,7 +234,7 @@ your rln identity commitment key is: bd093cbf14fb933d53f596c33f98b3df83b7e9f7a19
 
 **Bob**
 ```bash
-./build/chat2 --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --rln-relay-eth-account-address:0x1234567890123456789012345678901234567890 --rln-relay-eth-account-private-key:0x1234567890123456789012345678901234567890123456789012345678901234 --rln-relay-eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012 --ports-shift=2 
+./build/chat2 --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --rln-relay-eth-account-private-key:0x1234567890123456789012345678901234567890123456789012345678901234 --rln-relay-eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012 --ports-shift=2 
 ```
 
 ```
