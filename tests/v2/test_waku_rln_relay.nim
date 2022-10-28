@@ -1008,7 +1008,12 @@ suite "Waku rln relay":
     # Write RLN credentials
     writeFile(path, pretty(%rlnMembershipCredentials))
 
-    var credentials = readPersistentRlnCredentials(path)
+    let credentialsRes = readPersistentRlnCredentials(path)
+
+    require:
+      credentialsRes.isOk()
+
+    let credentials = credentialsRes.get()
 
     check:
       credentials.membershipKeyPair == k
