@@ -28,7 +28,7 @@ import
 
 
 proc newTestMessageStore(): MessageStore =
-  let database = SqliteDatabase.init("", inMemory = true)[]
+  let database = SqliteDatabase.new(":memory:").tryGet()
   SqliteStore.init(database).tryGet()
 
 
