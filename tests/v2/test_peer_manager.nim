@@ -104,11 +104,12 @@ procSuite "Peer Manager":
 
     await node.mountFilter()
     await node.mountSwap()
-    await node.mountStore()
+    node.mountStoreClient()
 
     node.wakuFilter.setPeer(filterPeer.toRemotePeerInfo())
     node.wakuSwap.setPeer(swapPeer.toRemotePeerInfo())
-    node.wakuStore.setPeer(storePeer.toRemotePeerInfo())
+    
+    node.setStorePeer(storePeer.toRemotePeerInfo())
 
     # Check peers were successfully added to peer manager
     check:
@@ -217,7 +218,7 @@ procSuite "Peer Manager":
     
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
 
-asyncTest "Peer manager support multiple protocol IDs when reconnecting to peers":
+  asyncTest "Peer manager support multiple protocol IDs when reconnecting to peers":
     let
       database = SqliteDatabase.init("2", inMemory = true)[]
       storage = WakuPeerStorage.new(database)[]

@@ -18,6 +18,7 @@ import
 import
   ../protocol/[waku_relay, waku_message],
   ../protocol/waku_store,
+  ../protocol/waku_store/client,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter,
   ../protocol/waku_lightpush,
@@ -39,6 +40,7 @@ declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicGauge waku_node_filters, "number of content filter subscriptions"
 declarePublicGauge waku_node_errors, "number of wakunode errors", ["type"]
 declarePublicGauge waku_lightpush_peers, "number of lightpush peers"
+declarePublicGauge waku_store_peers, "number of store peers"
 
 
 logScope:
@@ -75,6 +77,7 @@ type
     switch*: Switch
     wakuRelay*: WakuRelay
     wakuStore*: WakuStore
+    wakuStoreClient*: WakuStoreClient
     wakuFilter*: WakuFilter
     wakuSwap*: WakuSwap
     wakuRlnRelay*: WakuRLNRelay
@@ -499,6 +502,11 @@ proc mountSwap*(node: WakuNode, swapConfig: SwapConfig = SwapConfig.init()) {.as
 
 ## Waku store
 
+proc mountStoreClient*(node: WakuNode, store: MessageStore = nil) =
+  info "mounting store client"
+
+  node.wakuStoreClient = WakuStoreClient.new(node.peerManager, node.rng, store)
+
 const MessageStoreDefaultRetentionPolicyInterval* = 30.minutes
 
 proc executeMessageRetentionPolicy*(node: WakuNode) =
@@ -534,7 +542,7 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, retentionPolicy=none
   else:
     info "mounting waku store protocol with waku swap support"
 
-  node.wakuStore = WakuStore.init(
+  node.wakuStore = WakuStore.new(
     node.peerManager, 
     node.rng, 
     store, 
@@ -548,29 +556,53 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, retentionPolicy=none
 
   node.switch.mount(node.wakuStore, protocolMatcher(WakuStoreCodec))
 
-proc setStorePeer*(node: WakuNode, peer: RemotePeerInfo|string) {.raises: [Defect, ValueError, LPError].} =
-  if node.wakuStore.isNil():
-    error "could not set peer, waku store is nil"
+proc query*(node: WakuNode, query: HistoryQuery, peer: RemotePeerInfo): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe.} =
+  ## Queries known nodes for historical messages
+  if node.wakuStoreClient.isNil():
+    return err("waku store client is nil")
+
+  let queryRes = await node.wakuStoreClient.query(query, peer)
+  if queryRes.isErr():
+    return err(queryRes.error)
+  
+  let response = queryRes.get()
+  
+  if not node.wakuSwap.isNil():
+    # Perform accounting operation
+    node.wakuSwap.debit(peer.peerId, response.messages.len)
+
+  return ok(response)
+
+
+# TODO: Move to application module (e.g., wakunode2.nim)
+proc setStorePeer*(node: WakuNode, peer: RemotePeerInfo|string) {.raises: [Defect, ValueError, LPError],
+  deprecated: "Use 'node.query()' with peer destination instead".} =
+  if node.wakuStoreClient.isNil():
+    error "could not set peer, waku store client is nil"
     return
 
-  info "Set store peer", peer=peer
+  info "set store peer", peer=peer
 
   let remotePeer = when peer is string: parseRemotePeerInfo(peer)
                    else: peer
-  node.wakuStore.setPeer(remotePeer)
+  node.peerManager.addPeer(remotePeer, WakuStoreCodec)
+  waku_store_peers.inc()
 
-proc query*(node: WakuNode, query: HistoryQuery): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe.} = 
+# TODO: Move to application module (e.g., wakunode2.nim)
+proc query*(node: WakuNode, query: HistoryQuery): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe,
+  deprecated: "Use 'node.query()' with peer destination instead".} =
   ## Queries known nodes for historical messages
+  if node.wakuStoreClient.isNil():
+    return err("waku store client is nil")
 
-  # TODO: Once waku swap is less experimental, this can simplified
-  if node.wakuSwap.isNil():
-    debug "Using default query"
-    return await node.wakuStore.query(query)
-  else:
-    debug "Using SWAP accounting query"
-    # TODO: wakuSwap now part of wakuStore object
-    return await node.wakuStore.queryWithAccounting(query)
+  let peerOpt = node.peerManager.selectPeer(WakuStoreCodec)
+  if peerOpt.isNone():
+    error "no suitable remote peers"
+    return err("peer_not_found_failure")
 
+  return await node.query(query, peerOpt.get())
+
+# TODO: Move to application module (e.g., wakunode2.nim)
 proc resume*(node: WakuNode, peerList: Option[seq[RemotePeerInfo]] = none(seq[RemotePeerInfo])) {.async, gcsafe.} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku node has been online 
   ## for resume to work properly the waku node must have the store protocol mounted in the full mode (i.e., persisting messages)
@@ -580,10 +612,10 @@ proc resume*(node: WakuNode, peerList: Option[seq[RemotePeerInfo]] = none(seq[Re
   ## peerList indicates the list of peers to query from. The history is fetched from the first available peer in this list. Such candidates should be found through a discovery method (to be developed).
   ## if no peerList is passed, one of the peers in the underlying peer manager unit of the store protocol is picked randomly to fetch the history from. 
   ## The history gets fetched successfully if the dialed peer has been online during the queried time window.
-  if node.wakuStore.isNil():
+  if node.wakuStoreClient.isNil():
     return
 
-  let retrievedMessages = await node.wakuStore.resume(peerList)
+  let retrievedMessages = await node.wakuStoreClient.resume(peerList)
   if retrievedMessages.isErr():
     error "failed to resume store", error=retrievedMessages.error
     return

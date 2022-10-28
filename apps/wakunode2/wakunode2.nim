@@ -393,11 +393,15 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       executeMessageRetentionPolicy(node)
       startMessageRetentionPolicyPeriodicTask(node, interval=MessageStoreDefaultRetentionPolicyInterval)
 
-    if conf.storenode != "":
-      try:
-        setStorePeer(node, conf.storenode)
-      except:
-        return err("failed to set node waku store peer: " & getCurrentExceptionMsg())
+  if conf.storenode != "":
+    try:
+      # TODO: Use option instead of nil in store client
+      let mStorage = if mStore.isNone(): nil
+                     else: mStore.get()
+      mountStoreClient(node, store=mStorage)
+      setStorePeer(node, conf.storenode)
+    except:
+      return err("failed to set node waku store peer: " & getCurrentExceptionMsg())
 
   # NOTE Must be mounted after relay
   if conf.lightpush:

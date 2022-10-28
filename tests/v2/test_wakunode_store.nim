@@ -46,16 +46,17 @@ procSuite "WakuNode - Store":
     await allFutures(client.start(), server.start())
     await server.mountStore(store=newTestMessageStore())
     await client.mountStore()
-
-    client.wakuStore.setPeer(server.peerInfo.toRemotePeerInfo())
+    client.mountStoreClient()
 
     ## Given
     let message = fakeWakuMessage()
     require server.wakuStore.store.put(DefaultPubsubTopic, message).isOk()
 
+    let serverPeer = server.peerInfo.toRemotePeerInfo()
+
     ## When
     let req = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)])
-    let queryRes = await client.query(req)
+    let queryRes = await client.query(req, peer=serverPeer)
     
     ## Then
     check queryRes.isOk()
@@ -84,13 +85,13 @@ procSuite "WakuNode - Store":
     await server.mountStore(store=newTestMessageStore())
     await server.mountFilter()
     await client.mountStore()
+    client.mountStoreClient()
 
     server.wakuFilter.setPeer(filterSource.peerInfo.toRemotePeerInfo())
-    client.wakuStore.setPeer(server.peerInfo.toRemotePeerInfo())
 
     ## Given
     let message = fakeWakuMessage()
-
+    let serverPeer = server.peerInfo.toRemotePeerInfo()
     ## Then
     let filterFut = newFuture[bool]()
     proc filterReqHandler(msg: WakuMessage) {.gcsafe, closure.} =
@@ -109,7 +110,7 @@ procSuite "WakuNode - Store":
     # Wait for the server filter to receive the push message
     require (await filterFut.withTimeout(5.seconds))
 
-    let res = await client.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)]))
+    let res = await client.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)]), peer=serverPeer)
 
     ## Then
     check res.isOk()
@@ -134,16 +135,19 @@ procSuite "WakuNode - Store":
     await allFutures(client.start(), server.start())
 
     await server.mountStore(store=newTestMessageStore())
-    await client.mountStore(store=StoreQueueRef.new())
-
-    client.wakuStore.setPeer(server.peerInfo.toRemotePeerInfo())
+    
+    let clientStore = StoreQueueRef.new()
+    await client.mountStore(store=clientStore)
+    client.mountStoreClient(store=clientStore)
 
     ## Given
     let message = fakeWakuMessage()
     require server.wakuStore.store.put(DefaultPubsubTopic, message).isOk()
 
+    let serverPeer = server.peerInfo.toRemotePeerInfo()
+
     ## When
-    await client.resume()
+    await client.resume(some(@[serverPeer]))
 
     # Then
     check:
@@ -162,10 +166,11 @@ procSuite "WakuNode - Store":
       client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60000))
 
     await allFutures(server.start(), client.start())
-    await client.mountStore(store=StoreQueueRef.new())
     await server.mountStore(store=StoreQueueRef.new())
-
-    client.wakuStore.setPeer(server.peerInfo.toRemotePeerInfo())
+    
+    let clientStore = StoreQueueRef.new()
+    await client.mountStore(store=clientStore)
+    client.mountStoreClient(store=clientStore)
 
     ## Given
     let timeOrigin = now()
@@ -184,8 +189,10 @@ procSuite "WakuNode - Store":
     require server.wakuStore.store.put(DefaultTopic, msg3, digest3, receivedTime3).isOk()
     require client.wakuStore.store.put(DefaultTopic, msg3, digest3, receivedTime3).isOk()
 
+    let serverPeer = server.peerInfo.toRemotePeerInfo()
+
     ## When
-    await client.resume()
+    await client.resume(some(@[serverPeer]))
 
     ## Then
     check:
