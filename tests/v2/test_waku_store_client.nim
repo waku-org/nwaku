@@ -25,11 +25,11 @@ proc newTestStore(): MessageStore =
   let database = newTestDatabase()
   SqliteStore.init(database).tryGet()
 
-proc newTestWakuStore(switch: Switch, store=newTestStore()): Future[WakuStore] {.async.} =
+proc newTestWakuStoreNode(switch: Switch, store=newTestStore()): Future[WakuStore] {.async.} =
   let
     peerManager = PeerManager.new(switch)
     rng = crypto.newRng()
-    proto = WakuStore.init(peerManager, rng, store)
+    proto = WakuStore.new(peerManager, rng, store)
 
   await proto.start()
   switch.mount(proto)
@@ -78,7 +78,7 @@ procSuite "Waku Store Client":
     await allFutures(serverSwitch.start(), clientSwitch.start())
       
     let
-      server = await newTestWakuStore(serverSwitch, store=testStore)
+      server = await newTestWakuStoreNode(serverSwitch, store=testStore)
       client = newTestWakuStoreClient(clientSwitch)
 
     ## Given
@@ -114,7 +114,7 @@ procSuite "Waku Store Client":
     await allFutures(serverSwitch.start(), clientSwitch.start())
       
     let
-      server = await newTestWakuStore(serverSwitch, store=testStore)
+      server = await newTestWakuStoreNode(serverSwitch, store=testStore)
       client = newTestWakuStoreClient(clientSwitch)
 
     ## Given
@@ -148,8 +148,8 @@ procSuite "Waku Store Client":
     await allFutures(serverSwitchA.start(), serverSwitchB.start(), clientSwitch.start())
       
     let
-      serverA = await newTestWakuStore(serverSwitchA, store=testStore)
-      serverB = await newTestWakuStore(serverSwitchB, store=testStore)
+      serverA = await newTestWakuStoreNode(serverSwitchA, store=testStore)
+      serverB = await newTestWakuStoreNode(serverSwitchB, store=testStore)
       client = newTestWakuStoreClient(clientSwitch)
 
     ## Given
@@ -175,70 +175,3 @@ procSuite "Waku Store Client":
 
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitchA.stop(), serverSwitchB.stop())
-
-  asyncTest "single query with no pre-configured store peer should fail":
-    ## Setup
-    let 
-      serverSwitch = newTestSwitch()
-      clientSwitch = newTestSwitch()
-    
-    await allFutures(serverSwitch.start(), clientSwitch.start())
-      
-    let
-      server = await newTestWakuStore(serverSwitch, store=testStore)
-      client = newTestWakuStoreClient(clientSwitch)
-
-    ## Given
-    let rpc = HistoryQuery(
-      contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)],
-      pagingInfo: PagingInfo(pageSize: 8)
-    )
-
-    ## When
-    let res = await client.query(rpc)
-
-    ## Then
-    check:
-      res.isErr()
-      res.error == peerNotFoundFailure
-
-    ## Cleanup
-    await allFutures(clientSwitch.stop(), serverSwitch.stop())
-
-  asyncTest "single query to pre-configured store peer":
-    ## Setup
-    let 
-      serverSwitch = newTestSwitch()
-      clientSwitch = newTestSwitch()
-    
-    await allFutures(serverSwitch.start(), clientSwitch.start())
-      
-    let
-      server = await newTestWakuStore(serverSwitch, store=testStore)
-      client = newTestWakuStoreClient(clientSwitch)
-
-    ## Given
-    let peer = serverSwitch.peerInfo.toRemotePeerInfo()
-    let rpc = HistoryQuery(
-      contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)],
-      pagingInfo: PagingInfo(pageSize: 8)
-    )
-
-    ## When
-    client.setPeer(peer)
-
-    let res = await client.query(rpc)
-
-    ## Then
-    check:
-      res.isOk()
-
-    let response = res.tryGet()
-    check:
-      ## No pagination specified. Response will be auto-paginated with
-      ## up to MaxPageSize messages per page.
-      response.messages.len() == 8
-      response.pagingInfo != PagingInfo()
-
-    ## Cleanup
-    await allFutures(clientSwitch.stop(), serverSwitch.stop())

@@ -4,7 +4,6 @@ import metrics
 
 
 declarePublicGauge waku_store_messages, "number of historical messages", ["type"]
-declarePublicGauge waku_store_peers, "number of store peers"
 declarePublicGauge waku_store_errors, "number of store protocol errors", ["type"]
 declarePublicGauge waku_store_queries, "number of store queries received"
 declarePublicHistogram waku_store_insert_duration_seconds, "message insertion duration"
