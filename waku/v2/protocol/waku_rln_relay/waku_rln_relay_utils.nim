@@ -916,9 +916,9 @@ proc addAll*(wakuRlnRelay: WakuRLNRelay, list: seq[IDCommitment]): RlnRelayResul
 type GroupUpdateHandler* = proc(pubkey: Uint256, index: Uint256): RlnRelayResult[void] {.gcsafe, raises: [Defect].}
 
 proc generateGroupUpdateHandler(rlnPeer: WakuRLNRelay): GroupUpdateHandler =
-  # assuming all the members arrive in order
-  # TODO: check the index and the pubkey depending on
-  # the group update operation
+  ## assuming all the members arrive in order
+  ## TODO: check the index and the pubkey depending on
+  ## the group update operation
   var handler: GroupUpdateHandler
   handler = proc(pubkey: Uint256, index: Uint256): RlnRelayResult[void] {.raises: [Defect].} =
     var pk: IDCommitment
@@ -932,7 +932,10 @@ proc generateGroupUpdateHandler(rlnPeer: WakuRLNRelay): GroupUpdateHandler =
     else:
       debug "new member added to the Merkle tree", pubkey=pubkey, index=index
       debug "acceptable window", validRoots=rlnPeer.validMerkleRoots.mapIt(it.inHex)
-      rlnPeer.lastSeenMembershipIndex = index.toMembershipIndex()
+      let membershipIndex = index.toMembershipIndex()
+      if rlnPeer.lastSeenMembershipIndex != membershipIndex + 1:
+        warn "membership index gap, may have lost connection", gap = membershipIndex - rlnPeer.lastSeenMembershipIndex
+      rlnPeer.lastSeenMembershipIndex = membershipIndex
       return ok()
   return handler
 
@@ -940,6 +943,11 @@ proc subscribeToMemberRegistrations(web3: Web3,
                                     contractAddress: Address,
                                     fromBlock: string = "0x0",
                                     handler: GroupUpdateHandler): Future[Subscription] {.async, gcsafe.} =
+  ## subscribes to member registrations, on a given membership group contract
+  ## `fromBlock` indicates the block number from which the subscription starts
+  ## `handler` is a callback that is called when a new member is registered
+  ## the callback is called with the pubkey and the index of the new member
+  ## TODO: need a similar proc for member deletions
   var contractObj = web3.contractSender(MembershipContract, contractAddress)
 
   let onMemberRegistered = proc (pubkey: Uint256, index: Uint256) {.gcsafe.} =
@@ -988,7 +996,8 @@ proc subscribeToGroupEvents*(ethClientUri: string,
 
 
 proc handleGroupUpdates*(rlnPeer: WakuRLNRelay) {.async, gcsafe.} =
-  # mounts the supplied handler for the registration events emitting from the membership contract
+  ## generates the groupUpdateHandler which is called when a new member is registered,
+  ## and has the WakuRLNRelay instance as a closure
   let handler = generateGroupUpdateHandler(rlnPeer)
   await subscribeToGroupEvents(ethClientUri = rlnPeer.ethClientAddress,
                                ethAccountAddress = rlnPeer.ethAccountAddress,
