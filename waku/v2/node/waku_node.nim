@@ -18,9 +18,11 @@ import
 import
   ../protocol/[waku_relay, waku_message],
   ../protocol/waku_store,
+  ../protocol/waku_store/client,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter,
   ../protocol/waku_lightpush,
+  ../protocol/waku_lightpush/client,
   ../protocol/waku_rln_relay/waku_rln_relay_types,
   ../protocol/waku_peer_exchange,
   ../utils/[peers, requests, wakuenr],
@@ -37,6 +39,9 @@ declarePublicGauge waku_version, "Waku version info (in git describe format)", [
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicGauge waku_node_filters, "number of content filter subscriptions"
 declarePublicGauge waku_node_errors, "number of wakunode errors", ["type"]
+declarePublicGauge waku_lightpush_peers, "number of lightpush peers"
+declarePublicGauge waku_store_peers, "number of store peers"
+
 
 logScope:
   topics = "wakunode"
@@ -72,10 +77,12 @@ type
     switch*: Switch
     wakuRelay*: WakuRelay
     wakuStore*: WakuStore
+    wakuStoreClient*: WakuStoreClient
     wakuFilter*: WakuFilter
     wakuSwap*: WakuSwap
     wakuRlnRelay*: WakuRLNRelay
     wakuLightPush*: WakuLightPush
+    wakuLightpushClient*: WakuLightPushClient
     wakuPeerExchange*: WakuPeerExchange
     enr*: enr.Record
     libp2pPing*: Ping
@@ -129,7 +136,9 @@ proc new*(T: type WakuNode,
           nameResolver: NameResolver = nil,
           sendSignedPeerRecord = false,
           dns4DomainName = none(string),
-          discv5UdpPort = none(Port)): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
+          discv5UdpPort = none(Port),
+          agentString = none(string), # defaults to nim-libp2p version
+          ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
   ## Creates a Waku Node instance.
 
   ## Initialize addresses
@@ -198,7 +207,8 @@ proc new*(T: type WakuNode,
     secureKeyPath = secureKey,
     secureCertPath = secureCert,
     nameResolver = nameResolver,
-    sendSignedPeerRecord = sendSignedPeerRecord
+    sendSignedPeerRecord = sendSignedPeerRecord,
+    agentString = agentString
   )
   
   let wakuNode = WakuNode(
@@ -492,6 +502,11 @@ proc mountSwap*(node: WakuNode, swapConfig: SwapConfig = SwapConfig.init()) {.as
 
 ## Waku store
 
+proc mountStoreClient*(node: WakuNode, store: MessageStore = nil) =
+  info "mounting store client"
+
+  node.wakuStoreClient = WakuStoreClient.new(node.peerManager, node.rng, store)
+
 const MessageStoreDefaultRetentionPolicyInterval* = 30.minutes
 
 proc executeMessageRetentionPolicy*(node: WakuNode) =
@@ -527,7 +542,7 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, retentionPolicy=none
   else:
     info "mounting waku store protocol with waku swap support"
 
-  node.wakuStore = WakuStore.init(
+  node.wakuStore = WakuStore.new(
     node.peerManager, 
     node.rng, 
     store, 
@@ -541,29 +556,53 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, retentionPolicy=none
 
   node.switch.mount(node.wakuStore, protocolMatcher(WakuStoreCodec))
 
-proc setStorePeer*(node: WakuNode, peer: RemotePeerInfo|string) {.raises: [Defect, ValueError, LPError].} =
-  if node.wakuStore.isNil():
-    error "could not set peer, waku store is nil"
+proc query*(node: WakuNode, query: HistoryQuery, peer: RemotePeerInfo): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe.} =
+  ## Queries known nodes for historical messages
+  if node.wakuStoreClient.isNil():
+    return err("waku store client is nil")
+
+  let queryRes = await node.wakuStoreClient.query(query, peer)
+  if queryRes.isErr():
+    return err(queryRes.error)
+  
+  let response = queryRes.get()
+  
+  if not node.wakuSwap.isNil():
+    # Perform accounting operation
+    node.wakuSwap.debit(peer.peerId, response.messages.len)
+
+  return ok(response)
+
+
+# TODO: Move to application module (e.g., wakunode2.nim)
+proc setStorePeer*(node: WakuNode, peer: RemotePeerInfo|string) {.raises: [Defect, ValueError, LPError],
+  deprecated: "Use 'node.query()' with peer destination instead".} =
+  if node.wakuStoreClient.isNil():
+    error "could not set peer, waku store client is nil"
     return
 
-  info "Set store peer", peer=peer
+  info "set store peer", peer=peer
 
   let remotePeer = when peer is string: parseRemotePeerInfo(peer)
                    else: peer
-  node.wakuStore.setPeer(remotePeer)
+  node.peerManager.addPeer(remotePeer, WakuStoreCodec)
+  waku_store_peers.inc()
 
-proc query*(node: WakuNode, query: HistoryQuery): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe.} = 
+# TODO: Move to application module (e.g., wakunode2.nim)
+proc query*(node: WakuNode, query: HistoryQuery): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe,
+  deprecated: "Use 'node.query()' with peer destination instead".} =
   ## Queries known nodes for historical messages
+  if node.wakuStoreClient.isNil():
+    return err("waku store client is nil")
 
-  # TODO: Once waku swap is less experimental, this can simplified
-  if node.wakuSwap.isNil():
-    debug "Using default query"
-    return await node.wakuStore.query(query)
-  else:
-    debug "Using SWAP accounting query"
-    # TODO: wakuSwap now part of wakuStore object
-    return await node.wakuStore.queryWithAccounting(query)
+  let peerOpt = node.peerManager.selectPeer(WakuStoreCodec)
+  if peerOpt.isNone():
+    error "no suitable remote peers"
+    return err("peer_not_found_failure")
 
+  return await node.query(query, peerOpt.get())
+
+# TODO: Move to application module (e.g., wakunode2.nim)
 proc resume*(node: WakuNode, peerList: Option[seq[RemotePeerInfo]] = none(seq[RemotePeerInfo])) {.async, gcsafe.} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku node has been online 
   ## for resume to work properly the waku node must have the store protocol mounted in the full mode (i.e., persisting messages)
@@ -573,10 +612,10 @@ proc resume*(node: WakuNode, peerList: Option[seq[RemotePeerInfo]] = none(seq[Re
   ## peerList indicates the list of peers to query from. The history is fetched from the first available peer in this list. Such candidates should be found through a discovery method (to be developed).
   ## if no peerList is passed, one of the peers in the underlying peer manager unit of the store protocol is picked randomly to fetch the history from. 
   ## The history gets fetched successfully if the dialed peer has been online during the queried time window.
-  if node.wakuStore.isNil():
+  if node.wakuStoreClient.isNil():
     return
 
-  let retrievedMessages = await node.wakuStore.resume(peerList)
+  let retrievedMessages = await node.wakuStoreClient.resume(peerList)
   if retrievedMessages.isErr():
     error "failed to resume store", error=retrievedMessages.error
     return
@@ -586,13 +625,18 @@ proc resume*(node: WakuNode, peerList: Option[seq[RemotePeerInfo]] = none(seq[Re
 
 ## Waku lightpush
 
+proc mountLightPushClient*(node: WakuNode) =
+  info "mounting light push client"
+
+  node.wakuLightpushClient = WakuLightPushClient.new(node.peerManager, node.rng)
+
+
 proc mountLightPush*(node: WakuNode) {.async.} =
   info "mounting light push"
 
   var pushHandler: PushMessageHandler
   if node.wakuRelay.isNil():
     debug "mounting lightpush without relay (nil)"
-    # TODO: Remove after using waku lightpush client
     pushHandler = proc(peer: PeerId, pubsubTopic: string, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} = 
       return err("no waku relay found")
   else:
@@ -609,29 +653,46 @@ proc mountLightPush*(node: WakuNode) {.async.} =
 
   node.switch.mount(node.wakuLightPush, protocolMatcher(WakuLightPushCodec))
 
-proc setLightPushPeer*(node: WakuNode, peer: RemotePeerInfo|string) {.raises: [Defect, ValueError, LPError].} =
-  if node.wakuLightPush.isNil():
-    error "could not set peer, waku lightpush is nil"
-    return
-
-  info "Set lightpush peer", peer=peer
-
-  let remotePeer = when peer is string: parseRemotePeerInfo(peer)
-                   else: peer
-  node.wakuLightPush.setPeer(remotePeer)
-
-proc lightpush*(node: WakuNode, topic: PubsubTopic, message: WakuMessage): Future[WakuLightpushResult[PushResponse]] {.async, gcsafe.} =
+proc lightpushPublish*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMessage, peer: RemotePeerInfo): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
   ## Pushes a `WakuMessage` to a node which relays it further on PubSub topic.
   ## Returns whether relaying was successful or not.
   ## `WakuMessage` should contain a `contentTopic` field for light node
   ## functionality.
-  debug "Publishing with lightpush", topic=topic, contentTopic=message.contentTopic
+  if node.wakuLightpushClient.isNil():
+    return err("waku lightpush client is nil")
 
-  let rpc = PushRequest(pubSubTopic: topic, message: message)
-  return await node.wakuLightPush.request(rpc)
+  debug "publishing message with lightpush", pubsubTopic=pubsubTopic, contentTopic=message.contentTopic, peer=peer
 
-proc lightpush2*(node: WakuNode, topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
-  discard await node.lightpush(topic, message)
+  return await node.wakuLightpushClient.publish(pubsubTopic, message, peer)
+
+
+# TODO: Move to application module (e.g., wakunode2.nim)
+proc setLightPushPeer*(node: WakuNode, peer: RemotePeerInfo|string) {.raises: [Defect, ValueError, LPError],
+  deprecated: "Use 'node.lightpushPublish()' instead".} =
+  debug "seting lightpush client peer", peer=peer
+
+  let remotePeer = when peer is string: parseRemotePeerInfo(peer)
+                   else: peer
+  node.peerManager.addPeer(remotePeer, WakuLightPushCodec)
+  waku_lightpush_peers.inc()
+
+# TODO: Move to application module (e.g., wakunode2.nim)
+proc lightpushPublish*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMessage): Future[void] {.async, gcsafe,
+  deprecated: "Use 'node.lightpushPublish()' instead".} =
+  if node.wakuLightpushClient.isNil():
+    error "failed to publish message", error="waku lightpush client is nil"
+    return
+  
+  let peerOpt = node.peerManager.selectPeer(WakuLightPushCodec)
+  if peerOpt.isNone():
+    error "failed to publish message", error="no suitable remote peers"
+    return
+
+  let publishRes = await node.lightpushPublish(pubsubTopic, message, peer=peerOpt.get())
+  if publishRes.isOk():
+    return
+
+  error "failed to publish message", error=publishRes.error
 
 
 ## Waku peer-exchange

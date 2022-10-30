@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, tables, sets, times],
+  std/[options, tables, sets],
   stew/byteutils,
   stew/shims/net as stewNet, 
   testutils/unittests,
@@ -20,7 +20,6 @@ import
   ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/utils/peers,
-  ../../waku/v2/utils/time,
   ../test_helpers, 
   ./utils,
   ./testlib/common
@@ -53,35 +52,40 @@ procSuite "Waku SWAP Accounting":
       decodedCheque.isErr == false
       decodedCheque.get() == cheque
 
-  # TODO To do this reliably we need access to contract node
+  # TODO: To do this reliably we need access to contract node
   # With current logic state isn't updated because of bad cheque
   # Consider moving this test to e2e test, and/or move swap module to be on by default
   asyncTest "Update accounting state after store operations":
     ## Setup
     let
       serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60102))
       clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60000))
+      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60100))
 
-    # Start nodes and mount protocols
     await allFutures(client.start(), server.start())
+
     await server.mountSwap()
     await server.mountStore(store=StoreQueueRef.new())
     await client.mountSwap()
     await client.mountStore()
+    client.mountStoreClient()
 
-    client.wakuStore.setPeer(server.peerInfo.toRemotePeerInfo())
     client.wakuSwap.setPeer(server.peerInfo.toRemotePeerInfo())
     server.wakuSwap.setPeer(client.peerInfo.toRemotePeerInfo())
     
+    client.setStorePeer(server.peerInfo.toRemotePeerInfo())
+    server.setStorePeer(client.peerInfo.toRemotePeerInfo())
+
     ## Given
     let message = fakeWakuMessage()
+    require server.wakuStore.store.put(DefaultPubsubTopic, message).isOk()
 
-    server.wakuStore.handleMessage(DefaultPubsubTopic, message)
+    let serverPeer = server.peerInfo.toRemotePeerInfo()
+    let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)])
 
     ## When
-    let queryRes = await client.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)]))
+    let queryRes = await client.query(rpc, peer=serverPeer)
 
     ## Then
     check queryRes.isOk()
@@ -104,9 +108,9 @@ procSuite "Waku SWAP Accounting":
     ## Setup
     let
       serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60202))
       clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60000))
+      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60200))
     
     # Define the waku swap Config for this test
     let swapConfig = SwapConfig(mode: SwapMode.Mock, paymentThreshold: 1, disconnectThreshold: -1)
@@ -117,26 +121,31 @@ procSuite "Waku SWAP Accounting":
     await server.mountStore(store=StoreQueueRef.new())
     await client.mountSwap(swapConfig)
     await client.mountStore()
+    client.mountStoreClient()
 
-    client.wakuStore.setPeer(server.peerInfo.toRemotePeerInfo())
     client.wakuSwap.setPeer(server.peerInfo.toRemotePeerInfo())
     server.wakuSwap.setPeer(client.peerInfo.toRemotePeerInfo())
+
+    client.setStorePeer(server.peerInfo.toRemotePeerInfo())
+    server.setStorePeer(client.peerInfo.toRemotePeerInfo())
     
     ## Given
     let message = fakeWakuMessage()
-
-    server.wakuStore.handleMessage(DefaultPubsubTopic, message)
+    require server.wakuStore.store.put(DefaultPubsubTopic, message).isOk()
+    
+    let serverPeer = server.peerInfo.toRemotePeerInfo()
+    let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)])
 
     ## When
     # TODO: Handshakes - for now we assume implicit, e2e still works for PoC
-    let res1 = await client.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)]))
-    let res2 = await client.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)]))
+    let res1 = await client.query(rpc, peer=serverPeer)
+    let res2 = await client.query(rpc, peer=serverPeer)
 
-    ## Then
-    check:
+    require:
       res1.isOk()
       res2.isOk()
 
+    ## Then
     check:
       # Accounting table updated with credit and debit, respectively
       # After sending a cheque the balance is partially adjusted

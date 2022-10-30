@@ -34,9 +34,8 @@ type WakuStoreClient* = ref object
 proc new*(T: type WakuStoreClient,
           peerManager: PeerManager,
           rng: ref rand.HmacDrbgContext,
-          store: MessageStore,
-          wakuSwap: WakuSwap = nil): T = 
-  WakuStoreClient(peerManager: peerManager, rng: rng, store: store, wakuSwap: wakuSwap)
+          store: MessageStore): T = 
+  WakuStoreClient(peerManager: peerManager, rng: rng, store: store)
 
 
 proc query*(w: WakuStoreClient, req: HistoryQuery, peer: RemotePeerInfo): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe.} =
@@ -112,30 +111,6 @@ proc queryLoop*(w: WakuStoreClient, req: HistoryQuery, peers: seq[RemotePeerInfo
     .deduplicate()
 
   return ok(messagesList)
-
-
-### Set store peer and query for messages
-
-proc setPeer*(ws: WakuStoreClient, peer: RemotePeerInfo) =
-  ws.peerManager.addPeer(peer, WakuStoreCodec)
-  waku_store_peers.inc()
-
-proc query*(w: WakuStoreClient, req: HistoryQuery): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe.} =
-  # TODO: We need to be more stratigic about which peers we dial. Right now we just set one on the service.
-  # Ideally depending on the query and our set  of peers we take a subset of ideal peers.
-  # This will require us to check for various factors such as:
-  #  - which topics they track
-  #  - latency?
-  #  - default store peer?
-
-  let peerOpt = w.peerManager.selectPeer(WakuStoreCodec)
-  if peerOpt.isNone():
-    error "no suitable remote peers"
-    waku_store_errors.inc(labelValues = [peerNotFoundFailure])
-    return err(peerNotFoundFailure)
-
-  return await w.query(req, peerOpt.get())
-
 
 ## Resume store
 
@@ -216,28 +191,3 @@ proc resume*(w: WakuStoreClient,
     added.inc()
 
   return ok(added)
-
-
-## EXPERIMENTAL
-
-# NOTE: Experimental, maybe incorporate as part of query call
-proc queryWithAccounting*(w: WakuStoreClient, req: HistoryQuery): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe.} =
-  if w.wakuSwap.isNil():
-    return err("waku swap not fount (nil)")
-
-  let peerOpt = w.peerManager.selectPeer(WakuStoreCodec)
-  if peerOpt.isNone():
-    error "no suitable remote peers"
-    waku_store_errors.inc(labelValues = [peerNotFoundFailure])
-    return err(peerNotFoundFailure)
-
-  let queryRes = await w.query(req, peerOpt.get())
-  if queryRes.isErr():
-    return err(queryRes.error)
-
-  let response = queryRes.get()
-
-  # Perform accounting operation. Assumes wakuSwap protocol is mounted
-  w.wakuSwap.debit(peerOpt.get().peerId, response.messages.len)
-
-  return ok(response)

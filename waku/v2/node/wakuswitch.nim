@@ -70,7 +70,9 @@ proc newWakuSwitch*(
     sendSignedPeerRecord = false,
     wssEnabled: bool = false,
     secureKeyPath: string = "",
-    secureCertPath: string = ""): Switch
+    secureCertPath: string = "",
+    agentString = none(string), # defaults to nim-libp2p version
+    ): Switch
     {.raises: [Defect, IOError, LPError].} =
 
     var b = SwitchBuilder
@@ -86,6 +88,8 @@ proc newWakuSwitch*(
       .withNameResolver(nameResolver)
       .withSignedPeerRecord(sendSignedPeerRecord)
 
+    if agentString.isSome():
+      b = b.withAgentVersion(agentString.get())
     if privKey.isSome():
       b = b.withPrivateKey(privKey.get())
     if wsAddress.isSome():
