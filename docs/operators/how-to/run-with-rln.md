@@ -1,4 +1,4 @@
-# Quickstart: Running a nwaku node with Rate Limiting Enabled (waku-rln-relay)
+# How to run spam prevention on your nwaku node (RLN)
 
 This guide explains how to run a nwaku node with RLN (Rate Limiting Nullifier) enabled.
 
@@ -10,7 +10,10 @@ to [this](https://rfc.vac.dev/spec/17/) RFC.
 
 Registering to the membership group has been left out for brevity.
 If you would like to register to the membership group and send messages with RLN,
-refer to the [on-chain chat2 tutorial](../tutorial/onchain-rln-relay-chat2.md)
+refer to the [on-chain chat2 tutorial](../tutorial/onchain-rln-relay-chat2.md).
+
+This guide specifically allows a node to participate in RLN testnet 2. 
+You may alter the rln-specific arguments as required.
 
 ## Prerequisites
 
@@ -37,6 +40,7 @@ Follow [Step 10](./droplet-quickstart.md#10-run-nwaku) of the [droplet quickstar
 
 ```bash
 export GOERLI_WS_NODE_ADDRESS=<WS RPC URL to a Goerli Node>
+export RLN_RELAY_CONTRACT_ADDRESS="0x4252105670fe33d2947e8ead304969849e64f2a6" # Replace this with any compatible implementation
 $WAKUNODE_DIR/wakunode2 \
 --store:true \
 --persist-messages \
@@ -45,7 +49,7 @@ $WAKUNODE_DIR/wakunode2 \
 --discv5-discovery:true \
 --rln-relay:true \
 --rln-relay-dynamic:true \
---rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 \
+--rln-relay-eth-contract-address:"$RLN_RELAY_CONTRACT_ADDRESS" \
 --rln-relay-eth-client-address:"$GOERLI_WS_NODE_ADDRESS"
 ```
 
