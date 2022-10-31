@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[sequtils, tables, times, streams, os, deques, bitops],
+  std/[sequtils, tables, times, os, deques],
   chronicles, options, chronos, stint,
   confutils,
   web3, json,
