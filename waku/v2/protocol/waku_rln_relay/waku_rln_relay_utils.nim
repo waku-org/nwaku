@@ -785,8 +785,8 @@ proc getCurrentEpoch*(): Epoch =
   ## gets the current rln Epoch time
   return calcEpoch(epochTime())
 
-proc diff*(e1, e2: Epoch): uint64 =
-  ## returns the difference between the two rln `Epoch`s `e1` and `e2`
+proc absDiff*(e1, e2: Epoch): uint64 =
+  ## returns the absolute difference between the two rln `Epoch`s `e1` and `e2`
   ## i.e., e1 - e2
 
   # convert epochs to their corresponding unsigned numerical values
@@ -826,7 +826,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
   let
     msgEpoch = msg.proof.epoch
     # calculate the gaps
-    gap = diff(epoch, msgEpoch)
+    gap = absDiff(epoch, msgEpoch)
 
   debug "message epoch", msgEpoch = fromEpoch(msgEpoch)
 
