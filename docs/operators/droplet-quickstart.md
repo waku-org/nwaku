@@ -273,8 +273,8 @@ c. Run `nwaku`:
     --store:true \
     --persist-messages \
     --dns-discovery \
-    --dns-discovery-url:"$WAKU_FLEET"
-    --dns4-domain-name="$DOMAIN_NAME"
+    --dns-discovery-url:"$WAKU_FLEET" \
+    --dns4-domain-name:"$DOMAIN_NAME" \
     --discv5-discovery:true
   ```
 
@@ -287,7 +287,7 @@ c. Run `nwaku`:
     --store:true \
     --persist-messages \
     --dns-discovery \
-    --dns-discovery-url:"$WAKU_FLEET"
+    --dns-discovery-url:"$WAKU_FLEET" \
     --discv5-discovery:true
   ```
 
