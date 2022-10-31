@@ -785,20 +785,20 @@ proc getCurrentEpoch*(): Epoch =
   ## gets the current rln Epoch time
   return calcEpoch(epochTime())
 
-proc safeIntCast(x: uint64): int64 =
-  if x < uint64(int64.high): return int64(x)
-  else: return -int64(bitnot(x)) - 1
-
-proc diff*(e1, e2: Epoch): int64 =
+proc diff*(e1, e2: Epoch): uint64 =
   ## returns the difference between the two rln `Epoch`s `e1` and `e2`
   ## i.e., e1 - e2
 
-  # convert epochs to their corresponding unsigned numerical values,
-  # then safely cast them to signed int64
+  # convert epochs to their corresponding unsigned numerical values
   let
-    epoch1 = safeIntCast(fromEpoch(e1))
-    epoch2 = safeIntCast(fromEpoch(e2))
-  return epoch1 - epoch2
+    epoch1 = fromEpoch(e1)
+    epoch2 = fromEpoch(e2)
+  
+  # Manually perform an `abs` calculation
+  if epoch1 > epoch2:
+    return epoch1 - epoch2
+  else:
+    return epoch2 - epoch1
 
 
 proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
@@ -831,7 +831,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
   debug "message epoch", msgEpoch = fromEpoch(msgEpoch)
 
   # validate the epoch
-  if abs(gap) > MaxEpochGap:
+  if gap > MaxEpochGap:
     # message's epoch is too old or too ahead
     # accept messages whose epoch is within +-MaxEpochGap from the current epoch
     debug "invalid message: epoch gap exceeds a threshold", gap = gap,
