@@ -793,7 +793,10 @@ proc diff*(e1, e2: Epoch): int64 =
   let
     epoch1 = fromEpoch(e1)
     epoch2 = fromEpoch(e2)
-  return int64(epoch1) - int64(epoch2)
+  # Cannot use `abs` here because it is not available for `uint64`
+  if epoch1 > epoch2: return int64(epoch1 - epoch2)
+  else: return int64(epoch2 - epoch1) * -1
+
 
 proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
     timeOption: Option[float64] = none(float64)): MessageValidationResult =
