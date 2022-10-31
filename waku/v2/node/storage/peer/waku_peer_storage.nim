@@ -2,12 +2,13 @@
 
 import
   std/sets, 
-  sqlite3_abi,
-  libp2p/protobuf/minprotobuf,
   stew/results,
-  ./peer_storage,
-  ../sqlite,
-  ../../peer_manager/waku_peer_store
+  sqlite3_abi,
+  libp2p/protobuf/minprotobuf
+import
+  ../../../../common/sqlite,
+  ../../peer_manager/waku_peer_store,
+  ./peer_storage
 
 export sqlite
 

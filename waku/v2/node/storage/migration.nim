@@ -3,7 +3,7 @@ import
   stew/results,
   chronicles
 import
-  ./sqlite,
+  ../../../common/sqlite,
   ./migration/migration_types,
   ./migration/migration_utils
 

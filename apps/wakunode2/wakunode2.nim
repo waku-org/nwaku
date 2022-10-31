@@ -18,13 +18,14 @@ import
   libp2p/transports/[transport, wstransport],
   libp2p/nameresolving/dnsresolver
 import
+  ../../waku/common/sqlite,
+  ../../waku/common/utils/nat,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_peer_exchange,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/dnsdisc/waku_dnsdisc,
   ../../waku/v2/node/discv5/waku_discv5,
-  ../../waku/v2/node/storage/sqlite,
   ../../waku/v2/node/storage/migration,
   ../../waku/v2/node/storage/peer/waku_peer_storage,
   ../../waku/v2/node/storage/message/waku_store_queue,
@@ -37,7 +38,6 @@ import
   ../../waku/v2/node/waku_metrics,
   ../../waku/v2/utils/peers,
   ../../waku/v2/utils/wakuenr,
-  ../../waku/common/utils/nat,
   ./wakunode2_setup_rest,
   ./wakunode2_setup_rpc,
   ./config
@@ -283,7 +283,8 @@ proc initNode(conf: WakuNodeConf,
                         dnsResolver,
                         conf.relayPeerExchange, # We send our own signed peer record when peer exchange enabled
                         dns4DomainName,
-                        discv5UdpPort
+                        discv5UdpPort,
+                        some(conf.agentString)
                         )
   except:
     return err("failed to create waku node instance: " & getCurrentExceptionMsg())
@@ -392,24 +393,29 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       executeMessageRetentionPolicy(node)
       startMessageRetentionPolicyPeriodicTask(node, interval=MessageStoreDefaultRetentionPolicyInterval)
 
-    if conf.storenode != "":
-      try:
-        setStorePeer(node, conf.storenode)
-      except:
-        return err("failed to set node waku store peer: " & getCurrentExceptionMsg())
+  if conf.storenode != "":
+    try:
+      # TODO: Use option instead of nil in store client
+      let mStorage = if mStore.isNone(): nil
+                     else: mStore.get()
+      mountStoreClient(node, store=mStorage)
+      setStorePeer(node, conf.storenode)
+    except:
+      return err("failed to set node waku store peer: " & getCurrentExceptionMsg())
 
   # NOTE Must be mounted after relay
-  if (conf.lightpushnode != "") or (conf.lightpush):
+  if conf.lightpush:
     try:
       await mountLightPush(node)
     except:
       return err("failed to mount waku lightpush protocol: " & getCurrentExceptionMsg())
 
-    if conf.lightpushnode != "":
-      try:
-        setLightPushPeer(node, conf.lightpushnode)
-      except:
-        return err("failed to set node waku lightpush peer: " & getCurrentExceptionMsg())
+  if conf.lightpushnode != "":
+    try:
+      mountLightPushClient(node)
+      setLightPushPeer(node, conf.lightpushnode)
+    except:
+      return err("failed to set node waku lightpush peer: " & getCurrentExceptionMsg())
   
   # Filter setup. NOTE Must be mounted after relay
   if (conf.filternode != "") or (conf.filter):

@@ -242,7 +242,7 @@ proc publish(c: Chat, line: string) =
             c.node.wakuRlnRelay.lastEpoch = message.proof.epoch
       if not c.node.wakuLightPush.isNil():
         # Attempt lightpush
-        asyncSpawn c.node.lightpush2(DefaultTopic, message)
+        asyncSpawn c.node.lightpushPublish(DefaultTopic, message)
       else:
         asyncSpawn c.node.publish(DefaultTopic, message, handler)
     else:
@@ -271,7 +271,7 @@ proc publish(c: Chat, line: string) =
 
     if not c.node.wakuLightPush.isNil():
       # Attempt lightpush
-      asyncSpawn c.node.lightpush2(DefaultTopic, message)
+      asyncSpawn c.node.lightpushPublish(DefaultTopic, message)
     else:
       asyncSpawn c.node.publish(DefaultTopic, message)
 
@@ -474,7 +474,8 @@ proc processInput(rfd: AsyncFD) {.async.} =
       # We have a viable storenode. Let's query it for historical messages.
       echo "Connecting to storenode: " & $(storenode.get())
 
-      node.wakuStore.setPeer(storenode.get())
+      node.mountStoreClient()
+      node.setStorePeer(storenode.get())
 
       proc storeHandler(response: HistoryResponse) {.gcsafe.} =
         for msg in response.messages:
@@ -493,7 +494,8 @@ proc processInput(rfd: AsyncFD) {.async.} =
   if conf.lightpushnode != "":
     await mountLightPush(node)
 
-    node.wakuLightPush.setPeer(parseRemotePeerInfo(conf.lightpushnode))
+    node.mountLightPushClient()
+    node.setLightPushPeer(conf.lightpushnode)
 
   if conf.filternode != "":
     await node.mountFilter()

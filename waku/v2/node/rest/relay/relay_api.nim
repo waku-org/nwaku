@@ -163,8 +163,8 @@ proc encodeBytes*(value: seq[PubSubTopicString],
   return ok(encoded)
 
 proc decodeBytes*(t: typedesc[string], value: openarray[byte],
-                  contentType: string): RestResult[string] =
-  if MediaType.init(contentType) != MIMETYPE_TEXT:
+                  contentType: Opt[ContentTypeData]): RestResult[string] =
+  if MediaType.init($contentType) != MIMETYPE_TEXT:
     error "Unsupported contentType value", contentType = contentType
     return err("Unsupported contentType")
   
@@ -181,8 +181,8 @@ proc relayPostSubscriptionsV1*(body: RelayPostSubscriptionsRequest): RestRespons
 proc relayDeleteSubscriptionsV1*(body: RelayDeleteSubscriptionsRequest): RestResponse[string] {.rest, endpoint: "/relay/v1/subscriptions", meth: HttpMethod.MethodDelete.}
 
 
-proc decodeBytes*(t: typedesc[RelayGetMessagesResponse], data: openArray[byte], contentType: string): RestResult[RelayGetMessagesResponse] =
-  if MediaType.init(contentType) != MIMETYPE_JSON:
+proc decodeBytes*(t: typedesc[RelayGetMessagesResponse], data: openArray[byte], contentType: Opt[ContentTypeData]): RestResult[RelayGetMessagesResponse] =
+  if MediaType.init($contentType) != MIMETYPE_JSON:
     error "Unsupported respose contentType value", contentType = contentType
     return err("Unsupported response contentType")
   

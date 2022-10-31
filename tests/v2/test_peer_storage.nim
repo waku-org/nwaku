@@ -4,6 +4,7 @@ import
   std/[unittest, sets],
   libp2p/crypto/crypto
 import
+  ../../waku/common/sqlite,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/storage/peer/waku_peer_storage,
   ../test_helpers
