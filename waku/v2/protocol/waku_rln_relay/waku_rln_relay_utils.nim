@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[sequtils, tables, times, streams, os, deques],
+  std/[sequtils, tables, times, streams, os, deques, bitops],
   chronicles, options, chronos, stint,
   confutils,
   web3, json,
@@ -785,17 +785,20 @@ proc getCurrentEpoch*(): Epoch =
   ## gets the current rln Epoch time
   return calcEpoch(epochTime())
 
+proc safeIntCast(x: uint64): int64 =
+  if x < uint64(int64.high): return int64(x)
+  else: return -int64(bitnot(x)) - 1
+
 proc diff*(e1, e2: Epoch): int64 =
   ## returns the difference between the two rln `Epoch`s `e1` and `e2`
   ## i.e., e1 - e2
 
-  # convert epochs to their corresponding unsigned numerical values
+  # convert epochs to their corresponding unsigned numerical values,
+  # then safely cast them to signed int64
   let
-    epoch1 = fromEpoch(e1)
-    epoch2 = fromEpoch(e2)
-  # Cannot use `abs` here because it is not available for `uint64`
-  if epoch1 > epoch2: return int64(epoch1 - epoch2)
-  else: return int64(epoch2 - epoch1) * -1
+    epoch1 = safeIntCast(fromEpoch(e1))
+    epoch2 = safeIntCast(fromEpoch(e2))
+  return epoch1 - epoch2
 
 
 proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
