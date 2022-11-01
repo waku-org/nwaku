@@ -1,5 +1,7 @@
 import
-  std/tables,
+  std/[json,tables,sequtils],
+  presto/[route, server],
+  chronos,
   chronicles,
   chronicles/topics_registry,
   metrics,
@@ -31,28 +33,30 @@ declarePublicGauge peer_user_agents,
     "Number of peers with each user agent",
     labels = ["user_agent"]
 
-# hackish way for exponse strings, not performant at all
-declarePublicGauge discovered_peers_list,
-    "Discovered peers in the waku network and its information",
-    labels = ["enr",
-              "ip",
-              "capabilities",
-              "discovered_timestamp",
-              "country",
-              "citiy",
-              ]
+type
+  CustomPeerInfo* = object
+    # populated after discovery
+    lastTimeDiscovered*: string
+    peerId*: string
+    enr*: string
+    ip*: string
+    enrCapabilities*: seq[string]
+    country*: string
+    city*: string
 
-# hackish way for exponse strings, not performant at all
-declarePublicGauge connected_peers_list,
-    "Peers that we successfully connected to and its information",
-    labels = ["enr",
-              "ip",
-              "capabilities",
-              "connected_timestamp",
-              "user_agent",
-              "country",
-              "citiy",
-              ]
+    # only after ok connection
+    lastTimeConnected*: string
+    supportedProtocols*: seq[string]
+    userAgent*: string
+
+  CustomPeersTable* = Table[string, CustomPeerInfo]
+  CustomPeersTableRef* = ref CustomPeersTable
+
+# GET /allpeersinfo
+proc installHandler*(router: var RestRouter, allPeers: CustomPeersTableRef) =
+  router.api(MethodGet, "/allpeersinfo") do () -> RestApiResponse:
+    let values = toSeq(allPeers.keys()).mapIt(allPeers[it])
+    return RestApiResponse.response($(%values), contentType="application/json")
 
 proc startMetricsServer*(serverIp: ValidIpAddress, serverPort: Port) =
     info "Starting metrics HTTP server", serverIp, serverPort

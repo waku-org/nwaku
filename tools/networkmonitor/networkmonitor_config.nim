@@ -33,7 +33,7 @@ type
       name: "refresh-interval",
       abbr: "r" }: int
 
-    ## Metrics config
+    ## Prometheus metrics config
     metricsServer* {.
       desc: "Enable the metrics server: true|false"
       defaultValue: true
@@ -48,6 +48,17 @@ type
       desc: "Listening HTTP port of the metrics server."
       defaultValue: 8008
       name: "metrics-server-port" }: uint16
+
+    ## Custom metrics rest server
+    metricsRestAddress* {.
+      desc: "Listening address of the metrics rest server.",
+      defaultValue: "127.0.0.1",
+      name: "metrics-rest-address" }: string
+    metricsRestPort* {.
+      desc: "Listening HTTP port of the metrics rest server.",
+      defaultValue: 8009,
+      name: "metrics-rest-port" }: uint16
+    
 
 proc parseCmdArg*(T: type ValidIpAddress, p: TaintedString): T =
   try:
