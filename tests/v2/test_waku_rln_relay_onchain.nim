@@ -288,7 +288,7 @@ procSuite "Waku-rln-relay":
       rlnInstance.isOk()
 
     # generate the membership keys
-    let membershipKeyPairRes = membershipKeyGen(rlnInstance.value)
+    let membershipKeyPairRes = membershipKeyGen(rlnInstance.get())
     require: 
       membershipKeyPairRes.isOk()
     let membershipKeyPair = membershipKeyPairRes.get()

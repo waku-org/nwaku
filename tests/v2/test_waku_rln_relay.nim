@@ -127,14 +127,14 @@ suite "Waku rln relay":
           merkleDepth: csize_t = 20
 
         let rlnInstance = createRLNInstance()
-        check:
-          rlnInstance.isOk == true
+        require:
+          rlnInstance.isOk()
 
         # keysBufferPtr will hold the generated key pairs i.e., secret and public keys
         var
           keysBuffer: Buffer
           keysBufferPtr = addr(keysBuffer)
-          done = key_gen(rlnInstance.value(), keysBufferPtr)
+          done = key_gen(rlnInstance.get(), keysBufferPtr)
         check:
           # check whether the keys are generated successfully
           done == true
@@ -166,7 +166,7 @@ suite "Waku rln relay":
 
     debug "the generated membership key pair: ", keyPair
 
-  test "get_root Nim binding":
+  test "getRoot Nim binding":
     # create an RLN instance which also includes an empty Merkle tree
     let rlnInstance = createRLNInstance()
     require:
@@ -176,18 +176,18 @@ suite "Waku rln relay":
     var
       root1 {.noinit.}: Buffer = Buffer()
       rootPtr1 = addr(root1)
-      get_root_successful1 = get_root(rlnInstance.value, rootPtr1)
+      getRootSuccessful1 = getRoot(rlnInstance.get(), rootPtr1)
     check:
-      get_root_successful1
+      getRootSuccessful1
       root1.len == 32
 
     # read the Merkle Tree root
     var
       root2 {.noinit.}: Buffer = Buffer()
       rootPtr2 = addr(root2)
-      get_root_successful2 = get_root(rlnInstance.value, rootPtr2)
+      getRootSuccessful2 = getRoot(rlnInstance.get(), rootPtr2)
     check:
-      get_root_successful2
+      getRootSuccessful2
       root2.len == 32
 
     var rootValue1 = cast[ptr array[32, byte]] (root1.`ptr`)
@@ -204,17 +204,18 @@ suite "Waku rln relay":
     let rlnInstance = createRLNInstance()
     require:
       rlnInstance.isOk()
+    let rln = rlnInstance.get()
 
     # read the Merkle Tree root
-    var root1 = getMerkleRoot(rlnInstance.value())
-    check:
-      root1.isOk
+    var root1 = getMerkleRoot(rln)
+    require:
+      root1.isOk()
     let rootHex1 = root1.value().inHex
 
     # read the Merkle Tree root
-    var root2 = getMerkleRoot(rlnInstance.value())
-    check:
-      root2.isOk
+    var root2 = getMerkleRoot(rln)
+    require:
+      root2.isOk()
     let rootHex2 = root2.value().inHex
 
     # the two roots must be identical
@@ -249,7 +250,7 @@ suite "Waku rln relay":
 
     # delete the first member
     let deletedMemberIndex = MembershipIndex(0)
-    let deletionSuccess = deleteMember(rlnInstance.value, deletedMemberIndex)
+    let deletionSuccess = deleteMember(rlnInstance.get(), deletedMemberIndex)
     check:
       deletionSuccess
 
@@ -271,7 +272,7 @@ suite "Waku rln relay":
     let rlnInstance = createRLNInstance()
     require:
       rlnInstance.isOk()
-    var rln = rlnInstance.value
+    let rln = rlnInstance.get()
     check:
       rln.removeMember(MembershipIndex(0))
 
@@ -421,7 +422,7 @@ suite "Waku rln relay":
     # prepare other inputs to the hash function
     var outputBuffer: Buffer
 
-    let hashSuccess = hash(rlnInstance.value, addr hashInputBuffer,
+    let hashSuccess = hash(rlnInstance.get(), addr hashInputBuffer,
         addr outputBuffer)
     check:
       hashSuccess
@@ -447,7 +448,7 @@ suite "Waku rln relay":
     let rlnInstance = createRLNInstance()
     require:
       rlnInstance.isOk()
-    let rln = rlnInstance.value
+    let rln = rlnInstance.get()
 
     # prepare the input
     let msg = "Hello".toBytes()
@@ -931,8 +932,8 @@ suite "Waku rln relay":
     # check whether hasDuplicate correctly finds records with the same nullifiers but different secret shares
     # no duplicate for wm1 should be found, since the log is empty
     let result1 = wakurlnrelay.hasDuplicate(wm1)
-    check:
-      result1.isOk
+    require:
+      result1.isOk()
       # no duplicate is found
       result1.value == false
     #  add it to the log
@@ -940,8 +941,8 @@ suite "Waku rln relay":
 
     # # no duplicate for wm2 should be found, its nullifier differs from wm1
     let result2 = wakurlnrelay.hasDuplicate(wm2)
-    check:
-      result2.isOk
+    require:
+      result2.isOk()
       # no duplicate is found
       result2.value == false
     #  add it to the log
@@ -950,7 +951,7 @@ suite "Waku rln relay":
     #  wm3 has the same nullifier as wm1 but different secret shares, it should be detected as duplicate
     let result3 = wakurlnrelay.hasDuplicate(wm3)
     check:
-      result3.isOk
+      result3.isOk()
       # it is a duplicate
       result3.value == true
 
@@ -983,8 +984,9 @@ suite "Waku rln relay":
 
     # create an RLN instance
     let rlnInstance = createRLNInstance()
-    doAssert(rlnInstance.isOk)
-    var rln = rlnInstance.value
+    require:
+      rlnInstance.isOk()
+    let rln = rlnInstance.get()
 
     let
       wakuRlnRelay = WakuRLNRelay(membershipIndex: index,
@@ -1064,7 +1066,7 @@ suite "Waku rln relay":
     require:
       rlnInstance.isOk()
 
-    let keyPairRes = membershipKeyGen(rlnInstance.value)
+    let keyPairRes = membershipKeyGen(rlnInstance.get())
     require:
       keyPairRes.isOk()
 
@@ -1089,7 +1091,7 @@ suite "Waku rln relay":
     defer: removeFile(filepath)
 
     # Write RLN credentials
-    check:
+    require:
       writeRlnCredentials(filepath, rlnMembershipCredentials, password).isOk()
 
     let readCredentialsResult = readRlnCredentials(filepath, password)
