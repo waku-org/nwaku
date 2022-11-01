@@ -106,6 +106,7 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     nullifierLog*: Table[Epoch, seq[ProofMetadata]]
     lastEpoch*: Epoch # the epoch of the last published rln message
     validMerkleRoots*: Deque[MerkleNode] # An array of valid merkle roots, which are updated in a FIFO fashion
+    lastSeenMembershipIndex*: MembershipIndex # the last seen membership index
 
 when defined(rlnzerokit):
   type WakuRLNRelay* = ref object
@@ -130,6 +131,7 @@ when defined(rlnzerokit):
     nullifierLog*: Table[Epoch, seq[ProofMetadata]]
     lastEpoch*: Epoch # the epoch of the last published rln message
     validMerkleRoots*: Deque[MerkleNode] # An array of valid merkle roots, which are updated in a FIFO fashion
+    lastSeenMembershipIndex*: MembershipIndex # the last seen membership index
 
 
 type MessageValidationResult* {.pure.} = enum

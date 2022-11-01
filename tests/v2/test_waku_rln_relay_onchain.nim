@@ -205,7 +205,7 @@ procSuite "Waku-rln-relay":
     debug "membership commitment key", pk2 = pk2
 
     var events = [newFuture[void](), newFuture[void]()]
-    proc handler(pubkey: Uint256, index: Uint256) =
+    proc handler(pubkey: Uint256, index: Uint256): RlnRelayResult[void] =
       debug "handler is called", pubkey = pubkey, index = index
       if pubkey == pk:
         events[0].complete()
@@ -214,9 +214,14 @@ procSuite "Waku-rln-relay":
       let isSuccessful = rlnPeer.rlnInstance.insertMember(pubkey.toIDCommitment())
       check:
         isSuccessful
+      return ok()
     
     # mount the handler for listening to the contract events
-    await rlnPeer.handleGroupUpdates(handler)
+    await subscribeToGroupEvents(ethClientUri = EthClient,
+                                 ethAccountAddress = some(accounts[0]),
+                                 contractAddress = contractAddress,
+                                 blockNumber = "0x0",
+                                 handler = handler)
 
     # register a member to the contract
     let tx = await contractObj.register(pk).send(value = MembershipFee)
