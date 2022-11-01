@@ -820,7 +820,7 @@ suite "Waku rln relay":
     debug "encoded and decode time", epoch = epoch, epochBytes = epochBytes,
       decodedEpoch = decodedEpoch
 
-  test "Epoch comparison":
+  test "Epoch comparison, epoch1 > epoch2":
     # check edge cases
     let
       time1 = uint64.high
@@ -828,8 +828,8 @@ suite "Waku rln relay":
       epoch1 = time1.toEpoch()
       epoch2 = time2.toEpoch()
     check:
-      diff(epoch1, epoch2) == int64(1)
-      diff(epoch2, epoch1) == int64(-1)
+      absDiff(epoch1, epoch2) == uint64(1)
+      absDiff(epoch2, epoch1) == uint64(1)
 
   test "updateLog and hasDuplicate tests":
     let
