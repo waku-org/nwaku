@@ -458,4 +458,4 @@ const EpochUnitSeconds* = float64(10) # the rln-relay epoch length in seconds
 const MaxClockGapSeconds* = 20.0 # the maximum clock difference between peers in seconds
                                     
 # maximum allowed gap between the epochs of messages' RateLimitProofs
-const MaxEpochGap* = int64(MaxClockGapSeconds/EpochUnitSeconds)
+const MaxEpochGap* = uint64(MaxClockGapSeconds/EpochUnitSeconds)
