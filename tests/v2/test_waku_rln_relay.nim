@@ -126,7 +126,7 @@ suite "Waku rln relay":
         var
           merkleDepth: csize_t = 20
 
-        var rlnInstance = createRLNInstance()
+        let rlnInstance = createRLNInstance()
         check:
           rlnInstance.isOk == true
 
@@ -168,9 +168,9 @@ suite "Waku rln relay":
 
   test "get_root Nim binding":
     # create an RLN instance which also includes an empty Merkle tree
-    var rlnInstance = createRLNInstance()
-    check:
-      rlnInstance.isOk == true
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
 
     # read the Merkle Tree root
     var
@@ -201,9 +201,9 @@ suite "Waku rln relay":
       rootHex1 == rootHex2
   test "getMerkleRoot utils":
     # create an RLN instance which also includes an empty Merkle tree
-    var rlnInstance = createRLNInstance()
-    check:
-      rlnInstance.isOk == true
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
 
     # read the Merkle Tree root
     var root1 = getMerkleRoot(rlnInstance.value())
@@ -268,9 +268,9 @@ suite "Waku rln relay":
 
   test "removeMember rln utils":
     # create an RLN instance which also includes an empty Merkle tree
-    var rlnInstance = createRLNInstance()
-    check:
-      rlnInstance.isOk == true
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
     var rln = rlnInstance.value
     check:
       rln.removeMember(MembershipIndex(0))
@@ -354,7 +354,7 @@ suite "Waku rln relay":
   test "Merkle tree consistency check between deletion and insertion using rln utils":
     # create an RLN instance
     let rlnInstance = createRLNInstance()
-    check:
+    require:
       rlnInstance.isOk()
 
     let rln = rlnInstance.get()
@@ -408,9 +408,9 @@ suite "Waku rln relay":
 
   test "hash Nim Wrappers":
     # create an RLN instance
-    var rlnInstance = createRLNInstance()
-    check:
-      rlnInstance.isOk == true
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
 
     # prepare the input
     var
@@ -444,9 +444,9 @@ suite "Waku rln relay":
 
   test "hash utils":
     # create an RLN instance
-    var rlnInstance = createRLNInstance()
-    check:
-      rlnInstance.isOk == true
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
     let rln = rlnInstance.value
 
     # prepare the input
@@ -577,7 +577,7 @@ suite "Waku rln relay":
 
   test "test proofVerify and proofGen for a valid proof":
     let rlnInstance = createRLNInstance()
-    check:
+    require:
       rlnInstance.isOk()
     let rln = rlnInstance.get()
 
@@ -636,7 +636,7 @@ suite "Waku rln relay":
 
   test "test proofVerify and proofGen for an invalid proof":
     let rlnInstance = createRLNInstance()
-    check:
+    require:
       rlnInstance.isOk()
     let rln = rlnInstance.get()
 
@@ -982,7 +982,7 @@ suite "Waku rln relay":
     let index = MembershipIndex(5)
 
     # create an RLN instance
-    var rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstance()
     doAssert(rlnInstance.isOk)
     var rln = rlnInstance.value
 

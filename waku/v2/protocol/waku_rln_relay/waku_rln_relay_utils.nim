@@ -1402,7 +1402,7 @@ proc mountRlnRelay*(node: WakuNode,
                     registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)
                    ): Future[RlnRelayResult[void]] {.async.} =
   waku_rln_relay_mounting_duration_seconds.nanosecondTime: 
-    let res = waitFor mount(
+    let res = await mount(
       node,
       conf,
       spamHandler,
