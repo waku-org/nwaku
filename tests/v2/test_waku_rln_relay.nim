@@ -31,13 +31,21 @@ procSuite "Waku rln relay":
     # preparing inputs to mount rln-relay
 
     # create a group of 100 membership keys
-    let
-      (groupKeys, root) = createMembershipList(100)
+    let memListRes = createMembershipList(100)
+    require:
+      memListRes.isOk()
+
+    let (groupKeys, root) = memListRes.get()
     check:
-       groupKeys.len == 100
+      groupKeys.len == 100
     let
       # convert the keys to MembershipKeyPair structs
-      groupKeyPairs = groupKeys.toMembershipKeyPairs()
+      groupKeyPairsRes = groupKeys.toMembershipKeyPairs()
+    require:
+      groupKeyPairsRes.isOk()
+    
+    let 
+      groupKeyPairs = groupKeyPairsRes.get()
       # extract the id commitments
       groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
     debug "groupKeyPairs", groupKeyPairs
@@ -50,11 +58,13 @@ procSuite "Waku rln relay":
 
     # -------- mount rln-relay in the off-chain mode
     await node.mountRelay(@[RlnRelayPubsubTopic])
-    node.mountRlnRelayStatic(group = groupIDCommitments,
+    let mountRes = node.mountRlnRelayStatic(group = groupIDCommitments,
                             memKeyPair = groupKeyPairs[index],
                             memIndex = index,
                             pubsubTopic = RlnRelayPubsubTopic,
                             contentTopic = RlnRelayContentTopic)
+    require:
+      mountRes.isOk()
 
     # get the root of Merkle tree which is constructed inside the mountRlnRelay proc
     let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().inHex
@@ -136,22 +146,25 @@ suite "Waku rln relay":
             generatedKeys.len == 64
           debug "generated keys: ", generatedKeys
 
-  test "membership Key Gen":
+  test "membership Key Generation":
     # create an RLN instance
-    var rlnInstance = createRLNInstance()
-    check:
-      rlnInstance.isOk == true
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
 
-    var key = membershipKeyGen(rlnInstance.value)
+    let keyPairRes = membershipKeyGen(rlnInstance.get())
+    require:
+      keyPairRes.isOk()
+
+    let keyPair = keyPairRes.get()
     var empty: array[32, byte]
     check:
-      key.isSome
-      key.get().idKey.len == 32
-      key.get().idCommitment.len == 32
-      key.get().idKey != empty
-      key.get().idCommitment != empty
+      keyPair.idKey.len == 32
+      keyPair.idCommitment.len == 32
+      keyPair.idKey != empty
+      keyPair.idCommitment != empty
 
-    debug "the generated membership key pair: ", key
+    debug "the generated membership key pair: ", keyPair
 
   test "get_root Nim binding":
     # create an RLN instance which also includes an empty Merkle tree
@@ -210,46 +223,48 @@ suite "Waku rln relay":
 
   test "update_next_member Nim Wrapper":
     # create an RLN instance which also includes an empty Merkle tree
-    var rlnInstance = createRLNInstance()
-    check:
-      rlnInstance.isOk == true
-
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
+    let rln = rlnInstance.get()
     # generate a key pair
-    var keypair = membershipKeyGen(rlnInstance.value)
-    check:
-      keypair.isSome()
-    var pkBuffer = toBuffer(keypair.get().idCommitment)
+    let keyPairRes = membershipKeyGen(rln)
+    require:
+      keypairRes.isOk()
+    
+    let keyPair = keyPairRes.get()
+    var pkBuffer = toBuffer(keyPair.idCommitment)
     let pkBufferPtr = addr pkBuffer
 
     # add the member to the tree
-    var member_is_added = update_next_member(rlnInstance.value, pkBufferPtr)
+    let memberAdded = updateNextMember(rln, pkBufferPtr)
     check:
-      member_is_added == true
+      memberAdded
 
   test "delete_member Nim wrapper":
     # create an RLN instance which also includes an empty Merkle tree
-    var rlnInstance = createRLNInstance()
-    check:
-      rlnInstance.isOk == true
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
 
     # delete the first member
-    var deleted_member_index = MembershipIndex(0)
-    let deletion_success = delete_member(rlnInstance.value, deleted_member_index)
+    let deletedMemberIndex = MembershipIndex(0)
+    let deletionSuccess = deleteMember(rlnInstance.value, deletedMemberIndex)
     check:
-      deletion_success
+      deletionSuccess
 
   test "insertMember rln utils":
     # create an RLN instance which also includes an empty Merkle tree
-    var rlnInstance = createRLNInstance()
-    check:
-      rlnInstance.isOk == true
-    var rln = rlnInstance.value
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
+    let rln = rlnInstance.get()
     # generate a key pair
-    var keypair = rln.membershipKeyGen()
+    let keyPairRes = rln.membershipKeyGen()
+    require:
+      keypairRes.isOk()
     check:
-      keypair.isSome()
-    check:
-      rln.insertMember(keypair.get().idCommitment)
+      rln.insertMember(keyPairRes.get().idCommitment)
 
   test "removeMember rln utils":
     # create an RLN instance which also includes an empty Merkle tree
@@ -262,111 +277,119 @@ suite "Waku rln relay":
 
   test "Merkle tree consistency check between deletion and insertion":
     # create an RLN instance
-    var rlnInstance = createRLNInstance()
-    check:
-      rlnInstance.isOk == true
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
+
+    let rln = rlnInstance.get()
 
     # read the Merkle Tree root
     var
       root1 {.noinit.}: Buffer = Buffer()
       rootPtr1 = addr(root1)
-      get_root_successful1 = get_root(rlnInstance.value, rootPtr1)
-    check:
-      get_root_successful1
+      getRootSuccessful1 = getRoot(rln, rootPtr1)
+    require:
+      getRootSuccessful1
       root1.len == 32
 
     # generate a key pair
-    var keypair = membershipKeyGen(rlnInstance.value)
-    check: keypair.isSome()
-    var pkBuffer = toBuffer(keypair.get().idCommitment)
+    let keyPairRes = membershipKeyGen(rln)
+    require:
+      keypairRes.isOk()
+    
+    let keyPair = keyPairRes.get()
+    var pkBuffer = toBuffer(keyPair.idCommitment)
     let pkBufferPtr = addr pkBuffer
 
     # add the member to the tree
-    var member_is_added = update_next_member(rlnInstance.value, pkBufferPtr)
-    check:
-      member_is_added
+    let memberAdded = updateNextMember(rln, pkBufferPtr)
+    require:
+      memberAdded
 
     # read the Merkle Tree root after insertion
     var
       root2 {.noinit.}: Buffer = Buffer()
       rootPtr2 = addr(root2)
-      get_root_successful2 = get_root(rlnInstance.value, rootPtr2)
-    check:
-      get_root_successful2
+      getRootSuccessful = getRoot(rln, rootPtr2)
+    require:
+      getRootSuccessful
       root2.len == 32
 
     # delete the first member
-    var deleted_member_index = MembershipIndex(0)
-    let deletion_success = delete_member(rlnInstance.value, deleted_member_index)
-    check:
-      deletion_success
+    let deletedMemberIndex = MembershipIndex(0)
+    let deletionSuccess = deleteMember(rln, deletedMemberIndex)
+    require:
+      deletionSuccess
 
     # read the Merkle Tree root after the deletion
     var
       root3 {.noinit.}: Buffer = Buffer()
       rootPtr3 = addr(root3)
-      get_root_successful3 = get_root(rlnInstance.value, rootPtr3)
-    check:
-      get_root_successful3
+      getRootSuccessful3 = getRoot(rln, rootPtr3)
+    require:
+      getRootSuccessful3
       root3.len == 32
 
-    var rootValue1 = cast[ptr array[32, byte]] (root1.`ptr`)
+    let rootValue1 = cast[ptr array[32, byte]] (root1.`ptr`)
     let rootHex1 = rootValue1[].inHex
     debug "The initial root", rootHex1
 
-    var rootValue2 = cast[ptr array[32, byte]] (root2.`ptr`)
+    let rootValue2 = cast[ptr array[32, byte]] (root2.`ptr`)
     let rootHex2 = rootValue2[].inHex
     debug "The root after insertion", rootHex2
 
-    var rootValue3 = cast[ptr array[32, byte]] (root3.`ptr`)
+    let rootValue3 = cast[ptr array[32, byte]] (root3.`ptr`)
     let rootHex3 = rootValue3[].inHex
     debug "The root after deletion", rootHex3
 
     # the root must change after the insertion
-    check: not(rootHex1 == rootHex2)
+    check: 
+      not(rootHex1 == rootHex2)
 
     ## The initial root of the tree (empty tree) must be identical to
     ## the root of the tree after one insertion followed by a deletion
     check:
       rootHex1 == rootHex3
+
   test "Merkle tree consistency check between deletion and insertion using rln utils":
     # create an RLN instance
-    var rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstance()
     check:
-      rlnInstance.isOk == true
-    var rln = rlnInstance.value()
+      rlnInstance.isOk()
+
+    let rln = rlnInstance.get()
 
     # read the Merkle Tree root
-    var root1 = rln.getMerkleRoot()
-    check:
-      root1.isOk
+    let root1 = rln.getMerkleRoot()
+    require:
+      root1.isOk()
     let rootHex1 = root1.value().inHex()
 
     # generate a key pair
-    var keypair = rln.membershipKeyGen()
-    check:
-      keypair.isSome()
-    let member_inserted = rln.insertMember(keypair.get().idCommitment)
-    check:
-      member_inserted
+    let keyPairRes = rln.membershipKeyGen()
+    require:
+      keyPairRes.isOk()
+    let memberInserted = rln.insertMember(keypairRes.get().idCommitment)
+    require:
+      memberInserted
 
     # read the Merkle Tree root after insertion
-    var root2 = rln.getMerkleRoot()
-    check:
-      root2.isOk
+    let root2 = rln.getMerkleRoot()
+    require:
+      root2.isOk()
     let rootHex2 = root2.value().inHex()
 
 
     # delete the first member
-    var deleted_member_index = MembershipIndex(0)
-    let deletion_success = rln.removeMember(deleted_member_index)
-    check:
-      deletion_success
+    let deletedMemberIndex = MembershipIndex(0)
+    let deletionSuccess = rln.removeMember(deletedMemberIndex)
+    require:
+      deletionSuccess
 
     # read the Merkle Tree root after the deletion
-    var root3 = rln.getMerkleRoot()
-    check:
-      root3.isOk
+    let root3 = rln.getMerkleRoot()
+    require:
+      root3.isOk()
     let rootHex3 = root3.value().inHex()
 
 
@@ -443,7 +466,12 @@ suite "Waku rln relay":
   test "create a list of membership keys and construct a Merkle tree based on the list":
     let
       groupSize = 100
-      (list, root) = createMembershipList(groupSize)
+      memListRes = createMembershipList(groupSize)
+
+    require:
+      memListRes.isOk()
+
+    let (list, root) = memListRes.get()
 
     debug "created membership key list", list
     debug "the Merkle tree root", root
@@ -456,11 +484,20 @@ suite "Waku rln relay":
     let groupKeys = StaticGroupKeys
 
     # create a set of MembershipKeyPair objects from groupKeys
-    let groupKeyPairs = groupKeys.toMembershipKeyPairs()
+    let groupKeyPairsRes = groupKeys.toMembershipKeyPairs()
+    require:
+      groupKeyPairsRes.isOk()
+    
+    let groupKeyPairs = groupKeyPairsRes.get()
     # extract the id commitments
     let groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
     # calculate the Merkle tree root out of the extracted id commitments
-    let root = calcMerkleRoot(groupIDCommitments)
+    let rootRes = calcMerkleRoot(groupIDCommitments)
+
+    require:
+      rootRes.isOk()
+
+    let root = rootRes.get()
 
     debug "groupKeyPairs", groupKeyPairs
     debug "groupIDCommitments", groupIDCommitments
@@ -539,30 +576,37 @@ suite "Waku rln relay":
         decodednsp.value == rateLimitProof
 
   test "test proofVerify and proofGen for a valid proof":
-    var rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstance()
     check:
-      rlnInstance.isOk
-    var rln = rlnInstance.value
+      rlnInstance.isOk()
+    let rln = rlnInstance.get()
 
     let
-      # create a membership key pair
-      memKeys = membershipKeyGen(rln).get()
       # peer's index in the Merkle Tree
       index = 5
+      # create a membership key pair
+      memKeysRes = membershipKeyGen(rln)
+
+    require:
+      memKeysRes.isOk()
+    
+    let memKeys = memKeysRes.get()
 
     # Create a Merkle tree with random members
     for i in 0..10:
-      var member_is_added: bool = false
+      var memberAdded: bool = false
       if (i == index):
         # insert the current peer's pk
-        member_is_added = rln.insertMember(memKeys.idCommitment)
+        memberAdded = rln.insertMember(memKeys.idCommitment)
       else:
         # create a new key pair
-        let memberKeys = rln.membershipKeyGen()
-        member_is_added = rln.insertMember(memberKeys.get().idCommitment)
+        let memberKeysRes = rln.membershipKeyGen()
+        require:
+          memberKeysRes.isOk()
+        memberAdded = rln.insertMember(memberKeysRes.get().idCommitment)
       # check the member is added
-      check:
-        member_is_added
+      require:
+        memberAdded
 
     # prepare the message
     let messageBytes = "Hello".toBytes()
@@ -591,30 +635,37 @@ suite "Waku rln relay":
       verified.value() == true
 
   test "test proofVerify and proofGen for an invalid proof":
-    var rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstance()
     check:
-      rlnInstance.isOk == true
-    var rln = rlnInstance.value
+      rlnInstance.isOk()
+    let rln = rlnInstance.get()
 
     let
-      # create a membership key pair
-      memKeys = membershipKeyGen(rln).get()
       # peer's index in the Merkle Tree
       index = 5
+      # create a membership key pair
+      memKeysRes = membershipKeyGen(rln)
+
+    require:
+      memKeysRes.isOk()
+
+    let memKeys = memKeysRes.get()
 
     # Create a Merkle tree with random members
     for i in 0..10:
-      var member_is_added: bool = false
+      var memberAdded: bool = false
       if (i == index):
         # insert the current peer's pk
-        member_is_added = rln.insertMember(memKeys.idCommitment)
+        memberAdded = rln.insertMember(memKeys.idCommitment)
       else:
         # create a new key pair
-        let memberKeys = rln.membershipKeyGen()
-        member_is_added = rln.insertMember(memberKeys.get().idCommitment)
+        let memberKeysRes = rln.membershipKeyGen()
+        require:
+          memberKeysRes.isOk()
+        memberAdded = rln.insertMember(memberKeysRes.get().idCommitment)
       # check the member is added
-      check:
-        member_is_added
+      require:
+        memberAdded
 
     # prepare the message
     let messageBytes = "Hello".toBytes()
@@ -649,18 +700,23 @@ suite "Waku rln relay":
     # This step consists of creating the rln instance and waku-rln-relay,
     # Inserting members, and creating a valid proof with the merkle root
     # create an RLN instance
-    var rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstance()
     require:
       rlnInstance.isOk()
-    var rln = rlnInstance.value
+    let rln = rlnInstance.get()
 
     let rlnRelay = WakuRLNRelay(rlnInstance:rln)
 
     let
-      # create a membership key pair
-      memKeys = membershipKeyGen(rlnRelay.rlnInstance).get()
       # peer's index in the Merkle Tree. 
       index = 5
+      # create a membership key pair
+      memKeysRes = membershipKeyGen(rlnRelay.rlnInstance)
+
+    require:
+      memKeysRes.isOk()
+    
+    let memKeys = memKeysRes.get()
 
     let membershipCount = AcceptableRootWindowSize + 5
 
@@ -672,8 +728,10 @@ suite "Waku rln relay":
         memberIsAdded = rlnRelay.insertMember(memKeys.idCommitment)
       else:
         # create a new key pair
-        let memberKeys = rlnRelay.rlnInstance.membershipKeyGen()
-        memberIsAdded = rlnRelay.insertMember(memberKeys.get().idCommitment)
+        let memberKeysRes = rlnRelay.rlnInstance.membershipKeyGen()
+        require:
+          memberKeysRes.isOk()
+        memberIsAdded = rlnRelay.insertMember(memberKeysRes.get().idCommitment)
       # require that the member is added
       require:
         memberIsAdded.isOk()
@@ -734,18 +792,23 @@ suite "Waku rln relay":
       AcceptableRootWindowSize < 10
     
     # create an RLN instance
-    var rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstance()
     require:
       rlnInstance.isOk()
-    var rln = rlnInstance.value
+    let rln = rlnInstance.get()
 
     let rlnRelay = WakuRLNRelay(rlnInstance:rln)
 
     let
-      # create a membership key pair
-      memKeys = membershipKeyGen(rlnRelay.rlnInstance).get()
       # peer's index in the Merkle Tree. 
       index = 6
+      # create a membership key pair
+      memKeysRes = membershipKeyGen(rlnRelay.rlnInstance)
+
+    require:
+      memKeysRes.isOk()
+
+    let memKeys = memKeysRes.get()
 
     let membershipCount = AcceptableRootWindowSize + 5 
 
@@ -757,8 +820,10 @@ suite "Waku rln relay":
         memberIsAdded = rlnRelay.insertMember(memKeys.idCommitment)
       else:
         # create a new key pair
-        let memberKeys = rlnRelay.rlnInstance.membershipKeyGen()
-        memberIsAdded = rlnRelay.insertMember(memberKeys.get().idCommitment)
+        let memberKeysRes = rlnRelay.rlnInstance.membershipKeyGen()
+        require:
+          memberKeysRes.isOk()
+        memberIsAdded = rlnRelay.insertMember(memberKeysRes.get().idCommitment)
       # require that the member is added
       require:
         memberIsAdded.isOk()
@@ -893,12 +958,21 @@ suite "Waku rln relay":
     # setup a wakurlnrelay peer with a static group----------
 
     # create a group of 100 membership keys
-    let
-      (groupKeys, root) = createMembershipList(100)
+    let memListRes = createMembershipList(100)
+    
+    require:
+      memListRes.isOk()
+    let 
+      (groupKeys, _) = memListRes.get()
       # convert the keys to MembershipKeyPair structs
-      groupKeyPairs = groupKeys.toMembershipKeyPairs()
-      # extract the id commitments
-      groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
+      groupKeyPairsRes = groupKeys.toMembershipKeyPairs()
+
+    require:
+      groupKeyPairsRes.isOk()
+
+    let groupKeyPairs = groupKeyPairsRes.get()
+    # extract the id commitments
+    let groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
     debug "groupKeyPairs", groupKeyPairs
     debug "groupIDCommitments", groupIDCommitments
 
@@ -962,46 +1036,52 @@ suite "Waku rln relay":
 
   test "toIDCommitment and toUInt256":
     # create an instance of rln
-    var rlnInstance = createRLNInstance()
-    check:
-      rlnInstance.isOk == true
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
+
+    let rln = rlnInstance.get()
     
     # create a key pair
-    var keypair = rlnInstance.value.membershipKeyGen()
-    check:
-      keypair.isSome()
+    let keyPairRes = rln.membershipKeyGen()
+    require:
+      keyPairRes.isOk()
+
+    let keyPair = keyPairRes.get()
 
     # convert the idCommitment to UInt256
-    let idCUInt = keypair.get().idCommitment.toUInt256()
+    let idCUInt = keypair.idCommitment.toUInt256()
     # convert the UInt256 back to ICommitment
     let idCommitment = toIDCommitment(idCUInt)
 
     # check that the conversion has not distorted the original value
     check:
-      keypair.get().idCommitment == idCommitment
+      keypair.idCommitment == idCommitment
 
   test "Read/Write RLN credentials":
     # create an RLN instance
-    var rlnInstance = createRLNInstance()
-    check:
-      rlnInstance.isOk == true
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
 
-    var key = membershipKeyGen(rlnInstance.value)
+    let keyPairRes = membershipKeyGen(rlnInstance.value)
+    require:
+      keyPairRes.isOk()
+
+    let keyPair = keyPairRes.get()
     var empty: array[32, byte]
     check:
-      key.isSome
-      key.get().idKey.len == 32
-      key.get().idCommitment.len == 32
-      key.get().idKey != empty
-      key.get().idCommitment != empty
+      keyPair.idKey.len == 32
+      keyPair.idCommitment.len == 32
+      keyPair.idKey != empty
+      keyPair.idCommitment != empty
 
-    debug "the generated membership key pair: ", key
+    debug "the generated membership key pair: ", keyPair
 
-    let
-      k = key.get()
-      index =  MembershipIndex(1)
+    let index =  MembershipIndex(1)
 
-    var rlnMembershipCredentials = RlnMembershipCredentials(membershipKeyPair: k, rlnIndex: index)
+    let rlnMembershipCredentials = RlnMembershipCredentials(membershipKeyPair: keyPair, 
+                                                            rlnIndex: index)
 
     let password = "%m0um0ucoW%"
 
@@ -1020,7 +1100,7 @@ suite "Waku rln relay":
 
     check:
       credentials.isSome()
-      credentials.get().membershipKeyPair == k
+      credentials.get().membershipKeyPair == keyPair
       credentials.get().rlnIndex == index
 
   test "histogram static bucket generation":
