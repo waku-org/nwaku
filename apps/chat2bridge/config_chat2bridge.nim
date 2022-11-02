@@ -129,33 +129,33 @@ type
       defaultValue: "/toy-chat/2/huilong/proto"
       name: "content-topic" }: string
 
-proc parseCmdArg*(T: type keys.KeyPair, p: TaintedString): T =
+proc parseCmdArg*(T: type keys.KeyPair, p: string): T =
   try:
     let privkey = keys.PrivateKey.fromHex(string(p)).tryGet()
     result = privkey.toKeyPair()
   except CatchableError:
     raise newException(ConfigurationError, "Invalid private key")
 
-proc completeCmdArg*(T: type keys.KeyPair, val: TaintedString): seq[string] =
+proc completeCmdArg*(T: type keys.KeyPair, val: string): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =
+proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
   let key = SkPrivateKey.init(p)
   if key.isOk():
     crypto.PrivateKey(scheme: Secp256k1, skkey: key.get())
   else:
     raise newException(ConfigurationError, "Invalid private key")
 
-proc completeCmdArg*(T: type crypto.PrivateKey, val: TaintedString): seq[string] =
+proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type ValidIpAddress, p: TaintedString): T =
+proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
   try:
     result = ValidIpAddress.init(p)
   except CatchableError:
     raise newException(ConfigurationError, "Invalid IP address")
 
-proc completeCmdArg*(T: type ValidIpAddress, val: TaintedString): seq[string] =
+proc completeCmdArg*(T: type ValidIpAddress, val: string): seq[string] =
   return @[]
 
 func defaultListenAddress*(conf: Chat2MatterbridgeConf): ValidIpAddress =

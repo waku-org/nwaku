@@ -21,7 +21,7 @@ type NodeTaskJsonResult = Result[JsonNode, string]
 const taskPrelude = "npx hardhat --network localhost "
 const cmdPrelude = "cd ../swap-contracts-module; " & taskPrelude
 
-# proc execNodeTask(taskStr: string): tuple[output: TaintedString, exitCode: int] =
+# proc execNodeTask(taskStr: string): tuple[output: string, exitCode: int] =
 #   let cmdString = $cmdPrelude & $taskStr
 #   debug "execNodeTask", cmdString
 #   return osproc.execCmdEx(cmdString)

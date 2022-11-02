@@ -51,13 +51,13 @@ type
       abbr: "l" .}: LogLevel
 
 
-proc parseCmdArg*(T: type chronos.Duration, p: TaintedString): T =
+proc parseCmdArg*(T: type chronos.Duration, p: string): T =
   try:
       result = chronos.seconds(parseInt(p))
   except CatchableError as e:
     raise newException(ConfigurationError, "Invalid timeout value")
 
-proc completeCmdArg*(T: type chronos.Duration, val: TaintedString): seq[string] =
+proc completeCmdArg*(T: type chronos.Duration, val: string): seq[string] =
   return @[]
 
 # checks if rawProtocols (skipping version) are supported in nodeProtocols

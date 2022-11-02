@@ -26,7 +26,7 @@ type
 # Helper functions #
 ####################
 
-proc parseBootstrapAddress(address: TaintedString):
+proc parseBootstrapAddress(address: string):
     Result[enr.Record, cstring] =
   logScope:
     address = string(address)
