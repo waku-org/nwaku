@@ -8,7 +8,7 @@ license       = "MIT or Apache License 2.0"
 #bin           = @["build/waku"]
 
 ### Dependencies
-requires "nim >= 1.2.0",
+requires "nim >= 1.6.0",
   "chronicles",
   "confutils",
   "chronos",
@@ -21,7 +21,8 @@ requires "nim >= 1.2.0",
   "metrics",
   "libp2p", # Only for Waku v2
   "web3",
-  "presto"
+  "presto",
+  "regex"
 
 ### Helper functions
 proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
