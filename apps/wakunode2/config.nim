@@ -4,8 +4,8 @@ import
   chronicles, 
   chronos,
   regex,
-  confutils, 
-  confutils/defs, 
+  confutils,
+  confutils/defs,
   confutils/std/net,
   confutils/toml/defs as confTomlDefs,
   confutils/toml/std/net as confTomlNet,
@@ -440,9 +440,8 @@ type
 proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
   try:
     let key = SkPrivateKey.init(utils.fromHex(p)).tryGet()
-    # XXX: Here at the moment
-    result = crypto.PrivateKey(scheme: Secp256k1, skkey: key)
-  except CatchableError as e:
+    crypto.PrivateKey(scheme: Secp256k1, skkey: key)
+  except CatchableError:
     raise newException(ConfigurationError, "Invalid private key")
 
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
@@ -450,7 +449,7 @@ proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
 
 proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
   try:
-    result = ValidIpAddress.init(p)
+    ValidIpAddress.init(p)
   except CatchableError as e:
     raise newException(ConfigurationError, "Invalid IP address")
 
@@ -459,7 +458,7 @@ proc completeCmdArg*(T: type ValidIpAddress, val: string): seq[string] =
 
 proc parseCmdArg*(T: type Port, p: string): T =
   try:
-    result = Port(parseInt(p))
+    Port(parseInt(p))
   except CatchableError as e:
     raise newException(ConfigurationError, "Invalid Port number")
 
@@ -474,11 +473,6 @@ proc defaultListenAddress*(): ValidIpAddress =
 proc defaultPrivateKey*(): PrivateKey =
   crypto.PrivateKey.random(Secp256k1, crypto.newRng()[]).value
 
-proc readValue*(r: var TomlReader, val: var crypto.PrivateKey) {.raises: [SerializationError].} =
-  val = try: parseCmdArg(crypto.PrivateKey, r.readValue(string))
-        except CatchableError as err:
-          raise newException(SerializationError, err.msg)
-
 
 ## Configuration validation
 
@@ -488,9 +482,9 @@ proc validateDbUrl*(val: string): ConfResult[string] =
   let val = val.strip()
 
   if val == "" or val.match(DbUrlRegex):
-    return ok(val)
+    ok(val)
   else:
-    return err("invalid 'db url' option format: " & val)
+    err("invalid 'db url' option format: " & val)
 
 
 let StoreMessageRetentionPolicyRegex = re"^\w+:\w+$"
@@ -499,6 +493,32 @@ proc validateStoreMessageRetentionPolicy*(val: string): ConfResult[string] =
   let val = val.strip()
 
   if val == "" or val.match(StoreMessageRetentionPolicyRegex):
-    return ok(val)
+    ok(val)
   else:
-    return err("invalid 'store message retention policy' option format: " & val)
+    err("invalid 'store message retention policy' option format: " & val)
+
+
+## Load
+
+proc readValue*(r: var TomlReader, value: var crypto.PrivateKey) {.raises: [SerializationError].} =
+  try: 
+    value = parseCmdArg(crypto.PrivateKey, r.readValue(string))
+  except CatchableError:
+    raise newException(SerializationError, getCurrentExceptionMsg())
+
+
+{.push warning[ProveInit]: off.}
+
+proc load*(T: type WakuNodeConf, version=""): ConfResult[T] =
+  try:
+    let conf = WakuNodeConf.load(
+      version=version,
+      secondarySources = proc (conf: WakuNodeConf, sources: auto) =
+        if conf.configFile.isSome():
+          sources.addConfigFile(Toml, conf.configFile.get())
+    )
+    ok(conf)
+  except CatchableError:
+    err(getCurrentExceptionMsg())
+
+{.pop.}
