@@ -10,36 +10,25 @@ import
 import
   ../waku_message,
   ../../node/peer_manager/peer_manager,
-  ../../utils/requests,
   ./rpc,
-  ./rpc_codec
+  ./rpc_codec,
+  ./protocol_metrics
 
-
-declarePublicGauge waku_filter_peers, "number of filter peers"
-declarePublicGauge waku_filter_subscribers, "number of light node filter subscribers"
-declarePublicGauge waku_filter_errors, "number of filter protocol errors", ["type"]
-declarePublicGauge waku_filter_messages, "number of filter messages received", ["type"]
 
 logScope:
   topics = "wakufilter"
 
 
 const
-  # We add a 64kB safety buffer for protocol overhead.
-  # 10x-multiplier also for safety: currently we never
-  # push more than 1 message at a time.
-  MaxRpcSize* = 10 * MaxWakuMessageSize + 64 * 1024
-
   WakuFilterCodec* = "/vac/waku/filter/2.0.0-beta1"
+
   WakuFilterTimeout: Duration = 2.hours
 
 
-# Error types (metric label values)
-const
-  dialFailure = "dial_failure"
-  decodeRpcFailure = "decode_rpc_failure"
-  peerNotFoundFailure = "peer_not_found_failure"
+type WakuFilterResult*[T] = Result[T, string]  
 
+
+## Subscription manager
 
 type Subscription = object
   requestId: string
@@ -68,108 +57,86 @@ proc removeSubscription(subscriptions: var seq[Subscription], peer: PeerId, unsu
   subscriptions.keepItIf(it.contentTopics.len > 0)
 
 
+## Protocol
+
 type
   MessagePushHandler* = proc(requestId: string, msg: MessagePush): Future[void] {.gcsafe, closure.}
-
-  WakuFilterResult*[T] = Result[T, string]  
 
   WakuFilter* = ref object of LPProtocol
     rng*: ref rand.HmacDrbgContext
     peerManager*: PeerManager
-    pushHandler*: MessagePushHandler
     subscriptions*: seq[Subscription]
     failedPeers*: Table[string, chronos.Moment]
     timeout*: chronos.Duration
 
-proc init(wf: WakuFilter) =
+proc handleFilterRequest(wf: WakuFilter, peerId: PeerId, rpc: FilterRPC) =
+  let 
+    requestId = rpc.requestId
+    subscribe = rpc.request.subscribe
+    pubsubTopic =  rpc.request.pubsubTopic
+    contentTopics = rpc.request.contentFilters.mapIt(it.contentTopic)
 
-  proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
-    let message = await conn.readLp(MaxRpcSize.int)
+  if subscribe:
+    info "added filter subscritpiton", peerId=peerId, pubsubTopic=pubsubTopic, contentTopics=contentTopics
+    wf.subscriptions.addSubscription(peerId, requestId, pubsubTopic, contentTopics)
+  else:
+    info "removed filter subscritpiton", peerId=peerId, contentTopics=contentTopics
+    wf.subscriptions.removeSubscription(peerId, contentTopics)
 
-    let res = FilterRPC.init(message)
-    if res.isErr():
+  waku_filter_subscribers.set(wf.subscriptions.len.int64)
+
+
+proc initProtocolHandler(wf: WakuFilter) =
+  proc handler(conn: Connection, proto: string) {.async, gcsafe, closure.} =
+    let buffer = await conn.readLp(MaxRpcSize.int)
+
+    let decodeRpcRes = FilterRPC.init(buffer)
+    if decodeRpcRes.isErr():
       waku_filter_errors.inc(labelValues = [decodeRpcFailure])
       return
 
     trace "filter message received"
     
-    let rpc = res.get()
+    let rpc = decodeRpcRes.get()
 
     ## Filter request
-    # We are receiving a subscription/unsubscription request
-    if rpc.request != FilterRequest():
-      waku_filter_messages.inc(labelValues = ["FilterRequest"])
+    # Subscription/unsubscription request
+    if rpc.request == FilterRequest():
+      waku_filter_errors.inc(labelValues = [emptyFilterRequestFailure])
+      # TODO: Manage the empty filter request message error. Perform any action?
+      return
 
-      let 
-        requestId = rpc.requestId
-        subscribe = rpc.request.subscribe
-        pubsubTopic =  rpc.request.pubsubTopic
-        contentTopics = rpc.request.contentFilters.mapIt(it.contentTopic)
-
-      if subscribe:
-        info "added filter subscritpiton", peerId=conn.peerId, pubsubTopic=pubsubTopic, contentTopics=contentTopics
-        wf.subscriptions.addSubscription(conn.peerId, requestId, pubsubTopic, contentTopics)
-      else:
-        info "removed filter subscritpiton", peerId=conn.peerId, contentTopics=contentTopics
-        wf.subscriptions.removeSubscription(conn.peerId, contentTopics)
-
-      waku_filter_subscribers.set(wf.subscriptions.len.int64)
-      
+    waku_filter_messages.inc(labelValues = ["FilterRequest"])
+    wf.handleFilterRequest(conn.peerId, rpc) 
     
-    ## Push message
-    # We are receiving a messages from the peer that we subscribed to
-    if rpc.push != MessagePush():
-      waku_filter_messages.inc(labelValues = ["MessagePush"])
-      
-      let
-        requestId = rpc.requestId 
-        push = rpc.push
-
-      info "received filter message push", peerId=conn.peerId
-      await wf.pushHandler(requestId, push)
-
-
-  wf.handler = handle
+  wf.handler = handler
   wf.codec = WakuFilterCodec
+
+proc new*(T: type WakuFilter, 
+           peerManager: PeerManager, 
+           rng: ref rand.HmacDrbgContext, 
+           timeout: Duration = WakuFilterTimeout): T =
+  let wf = WakuFilter(rng: rng,
+                      peerManager: peerManager, 
+                      timeout: timeout)
+  wf.initProtocolHandler()
+  return wf
 
 proc init*(T: type WakuFilter, 
            peerManager: PeerManager, 
            rng: ref rand.HmacDrbgContext, 
-           handler: MessagePushHandler,
-           timeout: Duration = WakuFilterTimeout): T =
-  let wf = WakuFilter(rng: rng,
-                      peerManager: peerManager, 
-                      pushHandler: handler,
-                      timeout: timeout)
-  wf.init()
-  return wf
+           timeout: Duration = WakuFilterTimeout): T {.
+  deprecated: "WakuFilter.new()' instead".} =
+  WakuFilter.new(peerManager, rng, timeout)
 
 
-proc setPeer*(wf: WakuFilter, peer: RemotePeerInfo) =
-  wf.peerManager.addPeer(peer, WakuFilterCodec)
-  waku_filter_peers.inc()
-  
-
-proc sendFilterRpcToPeer(wf: WakuFilter, rpc: FilterRPC, peer: PeerId): Future[WakuFilterResult[void]] {.async, gcsafe.}=
+proc sendFilterRpc(wf: WakuFilter, rpc: FilterRPC, peer: PeerId|RemotePeerInfo): Future[WakuFilterResult[void]] {.async, gcsafe.}=
   let connOpt = await wf.peerManager.dialPeer(peer, WakuFilterCodec)
   if connOpt.isNone():
     return err(dialFailure)
-
   let connection = connOpt.get()
 
   await connection.writeLP(rpc.encode().buffer)
-
-  return ok()
-
-proc sendFilterRpcToRemotePeer(wf: WakuFilter, rpc: FilterRPC, peer: RemotePeerInfo): Future[WakuFilterResult[void]] {.async, gcsafe.}=
-  let connOpt = await wf.peerManager.dialPeer(peer, WakuFilterCodec)
-  if connOpt.isNone():
-    return err(dialFailure)
-
-  let connection = connOpt.get()
-
-  await connection.writeLP(rpc.encode().buffer)
-
   return ok()
 
 
@@ -199,6 +166,9 @@ proc handleClientError(wf: WakuFilter, subs: seq[Subscription]) {.raises: [Defec
 
 
 proc handleMessage*(wf: WakuFilter, pubsubTopic: string, msg: WakuMessage) {.async.} =
+  
+  trace "handling message", pubsubTopic, contentTopic=msg.contentTopic, subscriptions=wf.subscriptions.len
+
   if wf.subscriptions.len <= 0:
     return
 
@@ -218,70 +188,14 @@ proc handleMessage*(wf: WakuFilter, pubsubTopic: string, msg: WakuMessage) {.asy
       push: MessagePush(messages: @[msg])
     )
 
-    let res = await wf.sendFilterRpcToPeer(rpc, sub.peer)
+    let res = await wf.sendFilterRpc(rpc, sub.peer)
     if res.isErr():
       waku_filter_errors.inc(labelValues = [res.error()])
       failedSubscriptions.add(sub)
       continue
-      
+
     connectedSubscriptions.add(sub)
 
   wf.removePeerFromFailedPeersTable(connectedSubscriptions)
 
   wf.handleClientError(failedSubscriptions)
-
-
-### Send subscription/unsubscription
-
-proc subscribe(wf: WakuFilter, pubsubTopic: string, contentTopics: seq[ContentTopic], peer: RemotePeerInfo): Future[WakuFilterResult[string]] {.async, gcsafe.} =
-  let id = generateRequestId(wf.rng)
-  let rpc = FilterRPC(
-    requestId: id,
-    request: FilterRequest(
-      subscribe: true,
-      pubSubTopic: pubsubTopic,
-      contentFilters: contentTopics.mapIt(ContentFilter(contentTopic: it))
-    )
-  )
-
-  let res = await wf.sendFilterRpcToRemotePeer(rpc, peer)
-  if res.isErr():
-    waku_filter_errors.inc(labelValues = [res.error()])
-    return err(res.error())
-    
-  return ok(id)
-
-proc subscribe*(wf: WakuFilter, pubsubTopic: string, contentTopics: seq[ContentTopic]): Future[WakuFilterResult[string]] {.async, gcsafe.} =
-  let peerOpt = wf.peerManager.selectPeer(WakuFilterCodec)
-  if peerOpt.isNone():
-    waku_filter_errors.inc(labelValues = [peerNotFoundFailure])
-    return err(peerNotFoundFailure)
-
-  return await wf.subscribe(pubsubTopic, contentTopics, peerOpt.get())
-
-
-proc unsubscribe(wf: WakuFilter, pubsubTopic: string, contentTopics: seq[ContentTopic], peer: RemotePeerInfo): Future[WakuFilterResult[void]] {.async, gcsafe.} =
-  let id = generateRequestId(wf.rng)
-  let rpc = FilterRPC(
-    requestId: id, 
-    request: FilterRequest(
-      subscribe: false,
-      pubSubTopic: pubsubTopic,
-      contentFilters: contentTopics.mapIt(ContentFilter(contentTopic: it))
-    )
-  )
-
-  let res = await wf.sendFilterRpcToRemotePeer(rpc, peer)
-  if res.isErr():
-    waku_filter_errors.inc(labelValues = [res.error()])
-    return err(res.error())
-
-  return ok()
-
-proc unsubscribe*(wf: WakuFilter, pubsubTopic: string, contentTopics: seq[ContentTopic]): Future[WakuFilterResult[void]] {.async, gcsafe.} =
-  let peerOpt = wf.peerManager.selectPeer(WakuFilterCodec)
-  if peerOpt.isNone():
-    waku_filter_errors.inc(labelValues = [peerNotFoundFailure])
-    return err(peerNotFoundFailure)
-
-  return await wf.unsubscribe(pubsubTopic, contentTopics, peerOpt.get())
