@@ -1,8 +1,9 @@
 import
-  std/[strutils, nre],
+  std/strutils,
   stew/results,
   chronicles, 
   chronos,
+  regex,
   confutils, 
   confutils/defs, 
   confutils/std/net,
@@ -473,8 +474,7 @@ proc defaultListenAddress*(): ValidIpAddress =
 proc defaultPrivateKey*(): PrivateKey =
   crypto.PrivateKey.random(Secp256k1, crypto.newRng()[]).value
 
-proc readValue*(r: var TomlReader, val: var crypto.PrivateKey)
-               {.raises: [Defect, IOError, SerializationError].} =
+proc readValue*(r: var TomlReader, val: var crypto.PrivateKey) {.raises: [SerializationError].} =
   val = try: parseCmdArg(crypto.PrivateKey, r.readValue(string))
         except CatchableError as err:
           raise newException(SerializationError, err.msg)
@@ -487,7 +487,7 @@ let DbUrlRegex = re"^[\w\+]+:\/\/[\w\/\\\.\:\@]+$"
 proc validateDbUrl*(val: string): ConfResult[string] =
   let val = val.strip()
 
-  if val == "" or val.match(DbUrlRegex).isSome():
+  if val == "" or val.match(DbUrlRegex):
     return ok(val)
   else:
     return err("invalid 'db url' option format: " & val)
@@ -498,7 +498,7 @@ let StoreMessageRetentionPolicyRegex = re"^\w+:\w$"
 proc validateStoreMessageRetentionPolicy*(val: string): ConfResult[string] =
   let val = val.strip()
 
-  if val == "" or val.match(StoreMessageRetentionPolicyRegex).isSome():
+  if val == "" or val.match(StoreMessageRetentionPolicyRegex):
     return ok(val)
   else:
     return err("invalid 'store message retention policy' option format: " & val)
