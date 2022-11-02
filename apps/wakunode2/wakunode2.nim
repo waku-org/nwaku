@@ -418,17 +418,18 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       return err("failed to set node waku lightpush peer: " & getCurrentExceptionMsg())
   
   # Filter setup. NOTE Must be mounted after relay
-  if (conf.filternode != "") or (conf.filter):
+  if conf.filter:
     try:
       await mountFilter(node, filterTimeout = chronos.seconds(conf.filterTimeout))
     except:
       return err("failed to mount waku filter protocol: " & getCurrentExceptionMsg())
 
-    if conf.filternode != "":
-      try:
-        setFilterPeer(node, conf.filternode)
-      except:
-        return err("failed to set node waku filter peer: " & getCurrentExceptionMsg())
+  if conf.filternode != "":
+    try:
+      await mountFilterClient(node)
+      setFilterPeer(node, conf.filternode)
+    except:
+      return err("failed to set node waku filter peer: " & getCurrentExceptionMsg())
   
   # waku peer exchange setup
   if (conf.peerExchangeNode != "") or (conf.peerExchange):

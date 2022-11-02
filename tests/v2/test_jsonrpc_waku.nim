@@ -5,7 +5,7 @@ import
   chronicles,
   testutils/unittests, stew/shims/net as stewNet,
   json_rpc/[rpcserver, rpcclient],
-  eth/[keys, rlp], eth/common/eth_types,
+  eth/keys, eth/common/eth_types,
   libp2p/[builders, switch, multiaddress],
   libp2p/protobuf/minprotobuf,
   libp2p/stream/[bufferstream, connection],
@@ -27,6 +27,7 @@ import
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_swap/waku_swap,
   ../../waku/v2/protocol/waku_filter,
+  ../../waku/v2/protocol/waku_filter/client,
   ../../waku/v2/utils/peers,
   ../../waku/v2/utils/time,
   ./testlib/common
@@ -51,7 +52,7 @@ procSuite "Waku v2 JSON-RPC API":
 
     # RPC server setup
     let
-      rpcPort = Port(8545)
+      rpcPort = Port(8546)
       ta = initTAddress(bindIp, rpcPort)
       server = newRpcHttpServer([ta])
 
@@ -78,7 +79,7 @@ procSuite "Waku v2 JSON-RPC API":
 
     # RPC server setup
     let
-      rpcPort = Port(8545)
+      rpcPort = Port(8547)
       ta = initTAddress(bindIp, rpcPort)
       server = newRpcHttpServer([ta])
 
@@ -150,7 +151,7 @@ procSuite "Waku v2 JSON-RPC API":
 
     # RPC server setup
     let
-      rpcPort = Port(8545)
+      rpcPort = Port(8548)
       ta = initTAddress(bindIp, rpcPort)
       server = newRpcHttpServer([ta])
     
@@ -164,7 +165,7 @@ procSuite "Waku v2 JSON-RPC API":
     # First see if we can retrieve messages published on the default topic (node is already subscribed)
     await node2.publish(DefaultPubsubTopic, message1)
 
-    await sleepAsync(2000.millis)
+    await sleepAsync(100.millis)
 
     var messages = await client.get_waku_v2_relay_v1_messages(DefaultPubsubTopic)
 
@@ -182,7 +183,7 @@ procSuite "Waku v2 JSON-RPC API":
 
     var response = await client.post_waku_v2_relay_v1_subscriptions(@[pubSubTopic])
 
-    await sleepAsync(2000.millis)
+    await sleepAsync(100.millis)
 
     check:
       # Node is now subscribed to pubSubTopic
@@ -191,7 +192,7 @@ procSuite "Waku v2 JSON-RPC API":
     # Now publish a message on node1 and see if we receive it on node3
     await node1.publish(pubSubTopic, message2)
 
-    await sleepAsync(2000.millis)
+    await sleepAsync(100.millis)
     
     messages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)
 
@@ -219,7 +220,7 @@ procSuite "Waku v2 JSON-RPC API":
 
     # RPC server setup
     let
-      rpcPort = Port(8545)
+      rpcPort = Port(8549)
       ta = initTAddress(bindIp, rpcPort)
       server = newRpcHttpServer([ta])
 
@@ -273,19 +274,26 @@ procSuite "Waku v2 JSON-RPC API":
     await node.stop()
   
   asyncTest "Filter API: subscribe/unsubscribe": 
-    await node.start()
+    let 
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.new(nodeKey1, bindIp, Port(60390))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.new(nodeKey2, bindIp, Port(60392))
 
-    await node.mountRelay()
+    await allFutures(node1.start(), node2.start())
 
-    await node.mountFilter()
+    await node1.mountFilter()
+    await node2.mountFilterClient()
+    
+    node2.setFilterPeer(node1.peerInfo.toRemotePeerInfo())
 
     # RPC server setup
     let
-      rpcPort = Port(8545)
+      rpcPort = Port(8550)
       ta = initTAddress(bindIp, rpcPort)
       server = newRpcHttpServer([ta])
 
-    installFilterApiHandlers(node, server, newTable[ContentTopic, seq[WakuMessage]]())
+    installFilterApiHandlers(node2, server, newTable[ContentTopic, seq[WakuMessage]]())
     server.start()
 
     let client = newRpcHttpClient()
@@ -293,109 +301,31 @@ procSuite "Waku v2 JSON-RPC API":
 
     check:
       # Light node has not yet subscribed to any filters
-      node.filters.len() == 0
+      node2.wakuFilterClient.getSubscriptionsCount() == 0
 
-    let contentFilters = @[ContentFilter(contentTopic: DefaultContentTopic),
-                           ContentFilter(contentTopic: ContentTopic("2")),
-                           ContentFilter(contentTopic: ContentTopic("3")),
-                           ContentFilter(contentTopic: ContentTopic("4")),
-                           ]
-    var response = await client.post_waku_v2_filter_v1_subscription(contentFilters = contentFilters, topic = some(DefaultPubsubTopic))
-    
+    let contentFilters = @[
+      ContentFilter(contentTopic: DefaultContentTopic),
+      ContentFilter(contentTopic: ContentTopic("2")),
+      ContentFilter(contentTopic: ContentTopic("3")),
+      ContentFilter(contentTopic: ContentTopic("4")),
+    ]
+    var response = await client.post_waku_v2_filter_v1_subscription(contentFilters=contentFilters, topic=some(DefaultPubsubTopic))
     check:
-      # Light node has successfully subscribed to a single filter
-      node.filters.len() == 1
       response == true
+      # Light node has successfully subscribed to 4 content topics
+      node2.wakuFilterClient.getSubscriptionsCount() == 4
 
-    response = await client.delete_waku_v2_filter_v1_subscription(contentFilters = contentFilters, topic = some(DefaultPubsubTopic))
-    
+    response = await client.delete_waku_v2_filter_v1_subscription(contentFilters=contentFilters, topic=some(DefaultPubsubTopic))
     check:
+      response ==  true
       # Light node has successfully unsubscribed from all filters
-      node.filters.len() == 0
-      response == true
+      node2.wakuFilterClient.getSubscriptionsCount() == 0
 
+    ## Cleanup
     await server.stop()
     await server.closeWait()
     
-    await node.stop()
-  
-  asyncTest "Filter API: get latest messages":
-    await node.start()
-
-    # RPC server setup
-    let
-      rpcPort = Port(8545)
-      ta = initTAddress(bindIp, rpcPort)
-      server = newRpcHttpServer([ta])
-
-    installFilterApiHandlers(node, server, newTable[ContentTopic, seq[WakuMessage]]())
-    server.start()
-    
-    await node.mountFilter()
-
-    let client = newRpcHttpClient()
-    await client.connect("127.0.0.1", rpcPort, false)
-
-    # First ensure subscription exists
-
-    let sub = await client.post_waku_v2_filter_v1_subscription(contentFilters = @[ContentFilter(contentTopic: DefaultContentTopic)], topic = some(DefaultPubsubTopic))
-    check:
-      sub
-
-    # Now prime the node with some messages before tests
-    var
-      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2")),
-        WakuMessage(payload: @[byte 1], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 2], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 3], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 4], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 5], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 6], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 7], contentTopic: DefaultContentTopic),
-        WakuMessage(payload: @[byte 8], contentTopic: DefaultContentTopic), 
-        WakuMessage(payload: @[byte 9], contentTopic: ContentTopic("2"))]
-
-    let
-      filters = node.filters
-      requestId = toSeq(Table(filters).keys)[0]
-
-    for wakuMsg in msgList:
-      filters.notify(wakuMsg, requestId)
-
-    var response = await client.get_waku_v2_filter_v1_messages(DefaultContentTopic)
-    check:
-      response.len() == 8
-      response.allIt(it.contentTopic == DefaultContentTopic)
-
-    # No new messages
-    response = await client.get_waku_v2_filter_v1_messages(DefaultContentTopic)
-
-    check:
-      response.len() == 0
-    
-    # Now ensure that no more than the preset max messages can be cached
-
-    let maxSize = filter_api.maxCache
-
-    for x in 1..(maxSize + 1):
-      # Try to cache 1 more than maximum allowed
-      filters.notify(WakuMessage(payload: @[byte x], contentTopic: DefaultContentTopic), requestId)
-    
-    await sleepAsync(2000.millis)
-
-    response = await client.get_waku_v2_filter_v1_messages(DefaultContentTopic)
-    check:
-      # Max messages has not been exceeded
-      response.len == maxSize
-      response.allIt(it.contentTopic == DefaultContentTopic)
-      # Check that oldest item has been removed
-      response[0].payload == @[byte 2]
-      response[maxSize - 1].payload == @[byte (maxSize + 1)]
-
-    await server.stop()
-    await server.closeWait()
-    
-    await node.stop()
+    await allFutures(node1.stop(), node2.stop())
   
   asyncTest "Admin API: connect to ad-hoc peers":
     # Create a couple of nodes
@@ -417,7 +347,7 @@ procSuite "Waku v2 JSON-RPC API":
 
     # RPC server setup
     let
-      rpcPort = Port(8545)
+      rpcPort = Port(8551)
       ta = initTAddress(bindIp, rpcPort)
       server = newRpcHttpServer([ta])
 
@@ -458,10 +388,10 @@ procSuite "Waku v2 JSON-RPC API":
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60220))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60222))
-      peerInfo2 = node2.switch.peerInfo
+      peerInfo2 = node2.peerInfo
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60224))
-      peerInfo3 = node3.switch.peerInfo
+      peerInfo3 = node3.peerInfo
     
     await allFutures([node1.start(), node2.start(), node3.start()])
 
@@ -475,7 +405,7 @@ procSuite "Waku v2 JSON-RPC API":
 
     # RPC server setup
     let
-      rpcPort = Port(8545)
+      rpcPort = Port(8552)
       ta = initTAddress(bindIp, rpcPort)
       server = newRpcHttpServer([ta])
 
@@ -510,7 +440,7 @@ procSuite "Waku v2 JSON-RPC API":
 
     # RPC server setup
     let
-      rpcPort = Port(8545)
+      rpcPort = Port(8553)
       ta = initTAddress(bindIp, rpcPort)
       server = newRpcHttpServer([ta])
 
@@ -521,6 +451,7 @@ procSuite "Waku v2 JSON-RPC API":
     await client.connect("127.0.0.1", rpcPort, false)
 
     await node.mountFilter()
+    await node.mountFilterClient()
     await node.mountSwap()
     let store = StoreQueueRef.new()
     await node.mountStore(store=store)
@@ -539,13 +470,13 @@ procSuite "Waku v2 JSON-RPC API":
       storeKey = crypto.PrivateKey.random(ECDSA, rng[]).get()
       storePeer = PeerInfo.new(storeKey, @[locationAddr])
 
-    node.wakuFilter.setPeer(filterPeer.toRemotePeerInfo())
     node.wakuSwap.setPeer(swapPeer.toRemotePeerInfo())
-    
     node.setStorePeer(storePeer.toRemotePeerInfo())
+    node.setFilterPeer(filterPeer.toRemotePeerInfo())
 
     let response = await client.get_waku_v2_admin_v1_peers()
 
+    ## Then
     check:
       response.len == 3
       # Check filter peer
@@ -555,6 +486,7 @@ procSuite "Waku v2 JSON-RPC API":
       # Check store peer
       (response.filterIt(it.protocol == WakuStoreCodec)[0]).multiaddr == constructMultiaddrStr(storePeer)
 
+    ## Cleanup
     await server.stop()
     await server.closeWait()
     
@@ -588,10 +520,10 @@ procSuite "Waku v2 JSON-RPC API":
 
     # Setup two servers so we can see both sides of encrypted communication
     let
-      rpcPort1 = Port(8545)
+      rpcPort1 = Port(8554)
       ta1 = initTAddress(bindIp, rpcPort1)
       server1 = newRpcHttpServer([ta1])
-      rpcPort3 = Port(8546)
+      rpcPort3 = Port(8555)
       ta3 = initTAddress(bindIp, rpcPort3)
       server3 = newRpcHttpServer([ta3])
     
@@ -616,7 +548,7 @@ procSuite "Waku v2 JSON-RPC API":
 
     let sub = await client3.post_waku_v2_relay_v1_subscriptions(@[pubSubTopic])
 
-    await sleepAsync(2000.millis)
+    await sleepAsync(100.millis)
 
     check:
       # node3 is now subscribed to pubSubTopic
@@ -627,7 +559,7 @@ procSuite "Waku v2 JSON-RPC API":
     check:
       posted
 
-    await sleepAsync(2000.millis)
+    await sleepAsync(100.millis)
 
     # Let's see if we can receive, and decrypt, this message on node3    
     var messages = await client3.get_waku_v2_private_v1_asymmetric_messages(pubSubTopic, privateKey = (%keypair.seckey).getStr())
@@ -679,10 +611,10 @@ procSuite "Waku v2 JSON-RPC API":
 
     # Setup two servers so we can see both sides of encrypted communication
     let
-      rpcPort1 = Port(8545)
+      rpcPort1 = Port(8556)
       ta1 = initTAddress(bindIp, rpcPort1)
       server1 = newRpcHttpServer([ta1])
-      rpcPort3 = Port(8546)
+      rpcPort3 = Port(8557)
       ta3 = initTAddress(bindIp, rpcPort3)
       server3 = newRpcHttpServer([ta3])
     
@@ -707,7 +639,7 @@ procSuite "Waku v2 JSON-RPC API":
 
     let sub = await client3.post_waku_v2_relay_v1_subscriptions(@[pubSubTopic])
 
-    await sleepAsync(2000.millis)
+    await sleepAsync(100.millis)
 
     check:
       # node3 is now subscribed to pubSubTopic
@@ -718,7 +650,7 @@ procSuite "Waku v2 JSON-RPC API":
     check:
       posted
 
-    await sleepAsync(2000.millis)
+    await sleepAsync(100.millis)
 
     # Let's see if we can receive, and decrypt, this message on node3    
     var messages = await client3.get_waku_v2_private_v1_symmetric_messages(pubSubTopic, symkey = (%symkey).getStr())
