@@ -13,7 +13,7 @@ import
 
 
 logScope:
-  topics = "wakunode.setup.rest"
+  topics = "wakunode rest"
 
 
 proc startRestServer*(node: WakuNode, address: ValidIpAddress, port: Port, conf: WakuNodeConf) = 

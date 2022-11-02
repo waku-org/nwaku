@@ -1,18 +1,27 @@
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
+
 
 import
   std/[options, sets, sequtils, times],
-  chronos, chronicles, metrics,
-  libp2p/multistream,
-  ./waku_peer_store,
-  ../storage/peer/peer_storage,
-  ../../utils/peers
+  chronos, 
+  chronicles, 
+  metrics,
+  libp2p/multistream
+import
+  ../../utils/peers,
+  ./peer_store/peer_storage,
+  ./waku_peer_store
 
 export waku_peer_store, peer_storage, peers
+
 
 declareCounter waku_peers_dials, "Number of peer dials", ["outcome"]
 declarePublicCounter waku_node_conns_initiated, "Number of connections initiated", ["source"]
 declarePublicGauge waku_peers_errors, "Number of peer manager errors", ["type"]
+
 
 logScope:
   topics = "waku node peer_manager"
@@ -24,7 +33,7 @@ type
     storage: PeerStorage
 
 let
-  defaultDialTimeout = chronos.minutes(1) # @TODO should this be made configurable?
+  defaultDialTimeout = chronos.minutes(1) # TODO: should this be made configurable?
 
 ####################
 # Helper functions #
@@ -60,7 +69,7 @@ proc dialPeer(pm: PeerManager, peerId: PeerID,
       waku_peers_dials.inc(labelValues = ["successful"])
       return some(dialFut.read())
     else:
-      # @TODO any redial attempts?
+      # TODO: any redial attempts?
       debug "Dialing remote peer timed out"
       waku_peers_dials.inc(labelValues = ["timeout"])
 
@@ -70,7 +79,7 @@ proc dialPeer(pm: PeerManager, peerId: PeerID,
       
       return none(Connection)
   except CatchableError as e:
-    # @TODO any redial attempts?
+    # TODO: any redial attempts?
     debug "Dialing remote peer failed", msg = e.msg
     waku_peers_dials.inc(labelValues = ["failed"])
     
@@ -162,8 +171,8 @@ proc peers*(pm: PeerManager, protocolMatcher: Matcher): seq[StoredInfo] =
 
 proc connectedness*(pm: PeerManager, peerId: PeerID): Connectedness =
   # Return the connection state of the given, managed peer
-  # @TODO the PeerManager should keep and update local connectedness state for peers, redial on disconnect, etc.
-  # @TODO richer return than just bool, e.g. add enum "CanConnect", "CannotConnect", etc. based on recent connection attempts
+  # TODO: the PeerManager should keep and update local connectedness state for peers, redial on disconnect, etc.
+  # TODO: richer return than just bool, e.g. add enum "CanConnect", "CannotConnect", etc. based on recent connection attempts
 
   let storedInfo = pm.peerStore.get(peerId)
 
@@ -217,7 +226,7 @@ proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
   let peers = pm.peers.filterIt(it.protos.contains(proto))
 
   if peers.len >= 1:
-     # @TODO proper heuristic here that compares peer scores and selects "best" one. For now the first peer for the given protocol is returned
+     # TODO: proper heuristic here that compares peer scores and selects "best" one. For now the first peer for the given protocol is returned
     let peerStored = peers[0]
 
     return some(peerStored.toRemotePeerInfo())
@@ -267,7 +276,7 @@ proc reconnectPeers*(pm: PeerManager,
 
 proc dialPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string, dialTimeout = defaultDialTimeout): Future[Option[Connection]] {.async.} =
   # Dial a given peer and add it to the list of known peers
-  # @TODO check peer validity and score before continuing. Limit number of peers to be managed.
+  # TODO: check peer validity and score before continuing. Limit number of peers to be managed.
   
   # First add dialed peer info to peer store, if it does not exist yet...
   if not pm.hasPeer(remotePeerInfo.peerId, proto):
@@ -282,7 +291,7 @@ proc dialPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string, d
 
 proc dialPeer*(pm: PeerManager, peerId: PeerID, proto: string, dialTimeout = defaultDialTimeout): Future[Option[Connection]] {.async.} =
   # Dial an existing peer by looking up it's existing addrs in the switch's peerStore
-  # @TODO check peer validity and score before continuing. Limit number of peers to be managed.
+  # TODO: check peer validity and score before continuing. Limit number of peers to be managed.
    
   if peerId == pm.switch.peerInfo.peerId:
     # Do not attempt to dial self

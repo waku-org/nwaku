@@ -1,8 +1,13 @@
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
+
 
 import
-  stew/results,
-  ../../peer_manager/waku_peer_store
+  stew/results
+import
+  ../waku_peer_store
 
 ## This module defines a peer storage interface. Implementations of
 ## PeerStorage are used to store and retrieve peers
