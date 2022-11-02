@@ -493,7 +493,7 @@ proc validateDbUrl*(val: string): ConfResult[string] =
     return err("invalid 'db url' option format: " & val)
 
 
-let StoreMessageRetentionPolicyRegex = re"^\w+:\w$"
+let StoreMessageRetentionPolicyRegex = re"^\w+:\w+$"
 
 proc validateStoreMessageRetentionPolicy*(val: string): ConfResult[string] =
   let val = val.strip()
