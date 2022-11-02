@@ -297,7 +297,7 @@ type
       name: "rln-relay-cred-password" }: string
     
 # NOTE: Keys are different in nim-libp2p
-proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =
+proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
   try:
     let key = SkPrivateKey.init(utils.fromHex(p)).tryGet()
     # XXX: Here at the moment
@@ -305,25 +305,25 @@ proc parseCmdArg*(T: type crypto.PrivateKey, p: TaintedString): T =
   except CatchableError as e:
     raise newException(ConfigurationError, "Invalid private key")
 
-proc completeCmdArg*(T: type crypto.PrivateKey, val: TaintedString): seq[string] =
+proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type ValidIpAddress, p: TaintedString): T =
+proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
   try:
     result = ValidIpAddress.init(p)
   except CatchableError as e:
     raise newException(ConfigurationError, "Invalid IP address")
 
-proc completeCmdArg*(T: type ValidIpAddress, val: TaintedString): seq[string] =
+proc completeCmdArg*(T: type ValidIpAddress, val: string): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type Port, p: TaintedString): T =
+proc parseCmdArg*(T: type Port, p: string): T =
   try:
     result = Port(parseInt(p))
   except CatchableError as e:
     raise newException(ConfigurationError, "Invalid Port number")
 
-proc completeCmdArg*(T: type Port, val: TaintedString): seq[string] =
+proc completeCmdArg*(T: type Port, val: string): seq[string] =
   return @[]
 
 func defaultListenAddress*(conf: Chat2Conf): ValidIpAddress =
