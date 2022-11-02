@@ -8,11 +8,11 @@ import
   stew/[results, sorted_set],
   chronicles
 import
-  ../../../../protocol/waku_message,
-  ../../../../protocol/waku_store/rpc,
-  ../../../../protocol/waku_store/pagination,
-  ../../../../protocol/waku_store/message_store,
-  ../../../../utils/time,
+  ../../../protocol/waku_message,
+  ../../../protocol/waku_store/rpc,
+  ../../../protocol/waku_store/pagination,
+  ../../../protocol/waku_store/message_store,
+  ../../../utils/time,
   ./index
 
 
