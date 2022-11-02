@@ -36,7 +36,7 @@ import
   ./v2/test_waku_bridge,
   ./v2/test_peer_storage,
   ./v2/test_waku_keepalive,
-  ./v2/test_migration_utils,
+  ./v2/test_sqlite_migrations,
   ./v2/test_namespacing_utils,
   ./v2/test_waku_dnsdisc,
   ./v2/test_waku_discv5,
