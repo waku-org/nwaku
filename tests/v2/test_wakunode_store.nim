@@ -39,9 +39,9 @@ procSuite "WakuNode - Store":
     ## Setup
     let
       serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60432))
       clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60000))
+      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60430))
 
     await allFutures(client.start(), server.start())
     await server.mountStore(store=newTestMessageStore())
@@ -73,34 +73,31 @@ procSuite "WakuNode - Store":
     ## Setup
     let
       filterSourceKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      filterSource = WakuNode.new(filterSourceKey, ValidIpAddress.init("0.0.0.0"), Port(60004))
+      filterSource = WakuNode.new(filterSourceKey, ValidIpAddress.init("0.0.0.0"), Port(60404))
       serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60402))
       clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60000))
+      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60400))
 
     await allFutures(client.start(), server.start(), filterSource.start())
 
     await filterSource.mountFilter()
     await server.mountStore(store=newTestMessageStore())
-    await server.mountFilter()
-    await client.mountStore()
+    await server.mountFilterClient()
     client.mountStoreClient()
-
-    server.wakuFilter.setPeer(filterSource.peerInfo.toRemotePeerInfo())
 
     ## Given
     let message = fakeWakuMessage()
-    let serverPeer = server.peerInfo.toRemotePeerInfo()
-    ## Then
-    let filterFut = newFuture[bool]()
-    proc filterReqHandler(msg: WakuMessage) {.gcsafe, closure.} =
-      check:
-        msg == message
-      filterFut.complete(true)
+    let 
+      serverPeer = server.peerInfo.toRemotePeerInfo()
+      filterSourcePeer = filterSource.peerInfo.toRemotePeerInfo()
 
-    let filterReq = FilterRequest(pubSubTopic: DefaultPubsubTopic, contentFilters: @[ContentFilter(contentTopic: DefaultContentTopic)], subscribe: true)
-    await server.subscribe(filterReq, filterReqHandler)
+    ## Then
+    let filterFut = newFuture[(PubsubTopic, WakuMessage)]()
+    proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.gcsafe, closure.} =
+      filterFut.complete((pubsubTopic, msg))
+
+    await server.filterSubscribe(DefaultPubsubTopic, DefaultContentTopic, filterHandler, peer=filterSourcePeer)
 
     await sleepAsync(100.millis)
 
@@ -108,7 +105,7 @@ procSuite "WakuNode - Store":
     await filterSource.wakuFilter.handleMessage(DefaultPubsubTopic, message)
 
     # Wait for the server filter to receive the push message
-    require (await filterFut.withTimeout(5.seconds))
+    require await filterFut.withTimeout(5.seconds)
 
     let res = await client.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)]), peer=serverPeer)
 
@@ -120,6 +117,11 @@ procSuite "WakuNode - Store":
       response.messages.len == 1
       response.messages[0] == message
 
+    let (handledPubsubTopic, handledMsg) = filterFut.read()
+    check:
+      handledPubsubTopic == DefaultPubsubTopic
+      handledMsg == message
+
     ## Cleanup
     await allFutures(client.stop(), server.stop(), filterSource.stop())
 
@@ -128,9 +130,9 @@ procSuite "WakuNode - Store":
     ## Setup
     let
       serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60412))
       clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60000))
+      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60410))
 
     await allFutures(client.start(), server.start())
 
@@ -161,9 +163,9 @@ procSuite "WakuNode - Store":
     ## Setup
     let
       serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60002))
+      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60422))
       clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60000))
+      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60420))
 
     await allFutures(server.start(), client.start())
     await server.mountStore(store=StoreQueueRef.new())
