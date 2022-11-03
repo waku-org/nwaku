@@ -19,7 +19,7 @@ import
 
 
 logScope:
-  topics = "wakufilter.client"
+  topics = "waku filter client"
 
 
 const Defaultstring = "/waku/2/default-waku/proto"

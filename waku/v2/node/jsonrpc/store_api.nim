@@ -15,7 +15,7 @@ import
 export jsonrpc_types
 
 logScope:
-  topics = "store api"
+  topics = "waku node jsonrpc store_api"
 
 proc installStoreApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
   const futTimeout = 5.seconds

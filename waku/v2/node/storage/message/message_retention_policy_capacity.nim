@@ -8,7 +8,7 @@ import
   ./message_retention_policy
 
 logScope:
-  topics = "message_store.sqlite_store.retention_policy.capacity"
+  topics = "waku node message_store retention_policy"
 
 
 const StoreDefaultCapacity*: int = 25_000

@@ -6,7 +6,7 @@ import
   ../waku_node
 
 logScope:
-  topics = "debug api"
+  topics = "waku node jsonrpc debug_api"
 
 proc installDebugApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
 

@@ -23,7 +23,7 @@ import
   ../waku_message
 
 logScope:
-  topics = "wakurlnrelayutils"
+  topics = "waku rln_relay"
 
 type MerkleNodeResult* = RlnRelayResult[MerkleNode]
 type RateLimitProofResult* = RlnRelayResult[RateLimitProof]

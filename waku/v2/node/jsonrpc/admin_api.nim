@@ -17,7 +17,7 @@ import
 export jsonrpc_types
 
 logScope:
-  topics = "admin api"
+  topics = "waku node jsonrpc admin_api"
 
 const futTimeout* = 30.seconds # Max time to wait for futures
 

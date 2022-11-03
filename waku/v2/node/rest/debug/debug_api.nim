@@ -10,7 +10,8 @@ import "."/api_types
 import ".."/[serdes, utils]
 import ../../waku_node
 
-logScope: topics = "rest_api_debug"
+logScope:
+  topics = "waku node rest debug_api"
 
 
 ####  Server request handlers

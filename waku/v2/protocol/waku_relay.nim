@@ -8,14 +8,15 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables, sets],
-  chronos, chronicles, metrics,
-  libp2p/protocols/pubsub/[pubsub, gossipsub],
-  libp2p/protocols/pubsub/rpc/messages,
+  chronos,
+  chronicles, 
+  metrics,
+  libp2p/protocols/pubsub/pubsub,
+  libp2p/protocols/pubsub/gossipsub,
   libp2p/stream/connection
 
 logScope:
-    topics = "wakurelay"
+  topics = "waku relay"
 
 const
   WakuRelayCodec* = "/vac/waku/relay/2.0.0"

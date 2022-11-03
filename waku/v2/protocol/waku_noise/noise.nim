@@ -23,7 +23,7 @@ import libp2p/protocols/secure/secure
 import ./noise_types
 
 logScope:
-  topics = "wakunoise"
+  topics = "waku noise"
 
 #################################################################
 

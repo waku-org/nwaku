@@ -10,7 +10,7 @@ import
   chronicles, stew/results
 
 logScope:
-  topics = "wakuswapcontracts"
+  topics = "waku swap"
 
 # TODO Richer error types than string, overkill for now...
 type NodeTaskJsonResult = Result[JsonNode, string]

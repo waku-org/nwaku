@@ -13,7 +13,7 @@ import
 export jsonrpc_types
 
 logScope:
-  topics = "relay api"
+  topics = "waku node jsonrpc relay_api"
 
 const futTimeout* = 5.seconds # Max time to wait for futures
 const maxCache* = 30 # Max number of messages cached per topic @TODO make this configurable
