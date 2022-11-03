@@ -14,7 +14,7 @@ import
 export jsonrpc_types
 
 logScope:
-  topics = "wakunode.rpc.filter"
+  topics = "waku node jsonrpc filter_api"
 
 
 const DefaultPubsubTopic: PubsubTopic = "/waku/2/default-waku/proto"

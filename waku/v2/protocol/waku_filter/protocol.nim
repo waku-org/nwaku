@@ -16,7 +16,7 @@ import
 
 
 logScope:
-  topics = "wakufilter"
+  topics = "waku filter"
 
 
 const

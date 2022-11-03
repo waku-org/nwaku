@@ -19,7 +19,7 @@ import ./noise
 import ./noise_utils
 
 logScope:
-  topics = "wakunoise"
+  topics = "waku noise"
 
 #################################################################
 

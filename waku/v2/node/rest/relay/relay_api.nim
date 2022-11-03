@@ -14,7 +14,8 @@ import
   ./api_types, 
   ./topic_cache
 
-logScope: topics = "rest_api_relay"
+logScope: 
+  topics = "waku node rest relay_api"
 
 
 ##### Topic cache

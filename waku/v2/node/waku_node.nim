@@ -46,7 +46,7 @@ declarePublicGauge waku_store_peers, "number of store peers"
 declarePublicGauge waku_px_peers, "number of peers (in the node's peerManager) supporting the peer exchange protocol"
 
 logScope:
-  topics = "wakunode"
+  topics = "waku node"
 
 
 # Git version in git describe format (defined compile time)
