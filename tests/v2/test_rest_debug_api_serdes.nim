@@ -1,9 +1,9 @@
 {.used.}
 
-import std/typetraits
-import chronicles,
-  unittest2,
-  stew/[results, byteutils],
+import
+  stew/results, 
+  stew/byteutils,
+  testutils/unittests,
   json_serialization
 import 
   ../../waku/v2/node/rest/serdes,

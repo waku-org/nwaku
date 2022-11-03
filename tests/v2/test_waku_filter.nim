@@ -1,10 +1,9 @@
 {.used.}
 
 import
-  std/[options, tables, sets],
+  std/[options, tables],
   testutils/unittests,
   chronos, 
-  chronicles,
   libp2p/crypto/crypto
 import
   ../../waku/v2/node/peer_manager/peer_manager,

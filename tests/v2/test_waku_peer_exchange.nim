@@ -1,14 +1,13 @@
 {.used.}
 
 import
-  std/[options, tables, sets],
+  std/options,
   testutils/unittests,
   chronos,
   chronicles,
   stew/shims/net,
   libp2p/switch,
   libp2p/crypto/crypto,
-  libp2p/multistream,
   eth/keys,
   eth/p2p/discoveryv5/enr
 import
@@ -16,7 +15,6 @@ import
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/discv5/waku_discv5,
   ../../waku/v2/protocol/waku_peer_exchange,
-  ../../waku/v2/protocol/waku_relay,
   ../test_helpers,
   ./utils
 

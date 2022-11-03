@@ -1,10 +1,9 @@
 {.used.}
 
 import
-  std/[options, tables],
+  std/options,
   testutils/unittests, 
   chronos, 
-  chronicles,
   libp2p/crypto/crypto
 import
   ../../waku/common/sqlite,
@@ -13,7 +12,6 @@ import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_store/client,
-  ../../waku/v2/protocol/waku_store/protocol_metrics,
   ./testlib/common,
   ./testlib/switch
 

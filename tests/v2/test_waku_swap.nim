@@ -1,8 +1,7 @@
 {.used.}
 
 import
-  std/[options, tables, sets],
-  stew/byteutils,
+  std/tables,
   stew/shims/net as stewNet, 
   testutils/unittests,
   chronos, 
@@ -14,7 +13,6 @@ import
   libp2p/switch,
   eth/keys
 import
-  ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_swap/waku_swap,
   ../../waku/v2/node/storage/message/waku_store_queue,

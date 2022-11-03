@@ -10,7 +10,6 @@ import
 import
   ../../node/peer_manager/peer_manager,
   ../../node/discv5/waku_discv5,
-  ../../utils/requests,
   ../waku_message,
   ../waku_relay,
   ./rpc,

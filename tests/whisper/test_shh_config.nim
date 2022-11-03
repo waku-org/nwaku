@@ -10,7 +10,7 @@
 {.used.}
 
 import
-  std/[sequtils, options, unittest, times],
+  std/[sequtils, unittest, times],
   ../../waku/whisper/whisper_protocol as whisper
 
 suite "Whisper envelope validation":

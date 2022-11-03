@@ -10,9 +10,8 @@ import chronos
 import chronicles
 import bearssl/rand
 import stew/[results, endians2, byteutils]
-import nimcrypto/[utils, sha2, hmac]
+import nimcrypto/[sha2, hmac]
 
-import libp2p/errors
 import libp2p/crypto/[chacha20poly1305, curve25519, hkdf]
 
 import ./noise_types

@@ -8,15 +8,15 @@
 
 {.push raises: [Defect].}
 
-import std/[oids, options, strutils, tables]
+import std/[options, strutils]
+import stew/byteutils
 import chronos
 import chronicles
 import bearssl/rand
-import stew/[results, byteutils, endians2]
-import nimcrypto/[utils, sha2, hmac]
+import stew/endians2
+import nimcrypto/[sha2, hmac]
 
 import libp2p/utility
-import libp2p/errors
 import libp2p/crypto/[crypto, chacha20poly1305, hkdf]
 import libp2p/protocols/secure/secure
 
