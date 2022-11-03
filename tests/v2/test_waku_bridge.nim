@@ -41,7 +41,7 @@ procSuite "WakuBridge":
         powRequirement = 0.002,
         rng = rng,
         nodev2Key = nodev2Key,
-        nodev2BindIp = ValidIpAddress.init("0.0.0.0"), nodev2BindPort= Port(60000),
+        nodev2BindIp = ValidIpAddress.init("0.0.0.0"), nodev2BindPort= Port(62200),
         nodev2PubsubTopic = DefaultBridgeTopic)
     
     # Waku v1 node
@@ -49,7 +49,7 @@ procSuite "WakuBridge":
 
     # Waku v2 node
     v2NodeKey = crypto.PrivateKey.random(Secp256k1, cryptoRng[])[]
-    v2Node = WakuNode.new(v2NodeKey, ValidIpAddress.init("0.0.0.0"), Port(60002))
+    v2Node = WakuNode.new(v2NodeKey, ValidIpAddress.init("0.0.0.0"), Port(62202))
 
     contentTopic = ContentTopic("/waku/1/0x1a2b3c4d/rfc26")
     topic = [byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]
@@ -200,7 +200,7 @@ procSuite "WakuBridge":
           powRequirement = 0.002,
           rng = rng,
           nodev2Key = nodev2Key,
-          nodev2BindIp = ValidIpAddress.init("0.0.0.0"), nodev2BindPort= Port(60000),
+          nodev2BindIp = ValidIpAddress.init("0.0.0.0"), nodev2BindPort= Port(62207),
           nodev2PubsubTopic = DefaultBridgeTopic,
           v1Pool = v1NodePool.mapIt(newNode(it.toEnode())),
           targetV1Peers = targetV1Peers)

@@ -22,11 +22,11 @@ procSuite "Peer Exchange":
     let
       bindIp = ValidIpAddress.init("0.0.0.0")
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, bindIp, Port(60000))
+      node1 = WakuNode.new(nodeKey1, bindIp, Port(61100))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, bindIp, Port(60002), sendSignedPeerRecord = true)
+      node2 = WakuNode.new(nodeKey2, bindIp, Port(61102), sendSignedPeerRecord = true)
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node3 = WakuNode.new(nodeKey3, bindIp, Port(60003), sendSignedPeerRecord = true)
+      node3 = WakuNode.new(nodeKey3, bindIp, Port(61103), sendSignedPeerRecord = true)
     
     var
       peerExchangeHandler, emptyHandler: RoutingRecordsHandler
