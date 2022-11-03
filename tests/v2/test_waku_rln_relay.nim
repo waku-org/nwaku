@@ -24,8 +24,7 @@ procSuite "Waku rln relay":
   asyncTest "mount waku-rln-relay in the off-chain mode":
     let
       nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"),
-        Port(60000))
+      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(60200))
     await node.start()
 
     # preparing inputs to mount rln-relay

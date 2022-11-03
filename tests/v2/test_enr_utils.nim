@@ -43,7 +43,7 @@ procSuite "ENR utils":
     # Tests RFC31 encoding "happy path"
     let
       enrIp = ValidIpAddress.init("127.0.0.1")
-      enrTcpPort, enrUdpPort = Port(60000)
+      enrTcpPort, enrUdpPort = Port(61101)
       enrKey = wakuenr.crypto.PrivateKey.random(Secp256k1, rng[])[]
       wakuFlags = initWakuFlags(false, true, false, true)
       multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[],
@@ -76,7 +76,7 @@ procSuite "ENR utils":
     # Tests that peerId is stripped of multiaddrs as per RFC31
     let
       enrIp = ValidIpAddress.init("127.0.0.1")
-      enrTcpPort, enrUdpPort = Port(60000)
+      enrTcpPort, enrUdpPort = Port(61102)
       enrKey = wakuenr.crypto.PrivateKey.random(Secp256k1, rng[])[]
       multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss/p2p/16Uiu2HAm4v86W3bmT1BiH6oSPzcsSr31iDQpSN5Qa882BCjjwgrD")[]]
 
