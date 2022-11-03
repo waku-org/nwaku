@@ -26,7 +26,7 @@ type
 # MessageStore interface
 method put*(ms: MessageStore, pubsubTopic: string, message: WakuMessage, digest: MessageDigest, receivedTime: Timestamp): MessageStoreResult[void] {.base.} = discard
 
-method put*(ms: MessageStore, pubsubTopic: string, message: WakuMessage): MessageStoreResult[void] =
+method put*(ms: MessageStore, pubsubTopic: string, message: WakuMessage): MessageStoreResult[void] {.base.} =
   let
     digest = computeDigest(message) 
     receivedTime = if message.timestamp > 0: message.timestamp
