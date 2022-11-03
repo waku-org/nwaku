@@ -6,8 +6,6 @@ import
   chronicles, 
   chronos,
   metrics,
-  confutils, 
-  toml_serialization,
   system/ansi_c,
   eth/keys,
   eth/p2p/discoveryv5/enr,
@@ -546,22 +544,14 @@ when isMainModule:
   ## 5. Start monitoring tools and external interfaces
   ## 6. Setup graceful shutdown hooks
   
-  {.push warning[ProveInit]: off.}
-  let conf = try:
-    WakuNodeConf.load(
-      secondarySources = proc (conf: WakuNodeConf, sources: auto) =
-        if conf.configFile.isSome:
-          sources.addConfigFile(Toml, conf.configFile.get)
-    )
-  except CatchableError:
-    error "Failure while loading the configuration: \n", error=getCurrentExceptionMsg()
-    quit(QuitFailure) # if we don't leave here, the initialization of conf does not work in the success case
-  {.pop.}
+  const versionString = "version / git commit hash: " & git_version
 
-  # if called with --version, print the version and quit
-  if conf.version:
-    echo "version / git commit hash: ", git_version
-    quit(QuitSuccess)
+  let confRes = WakuNodeConf.load(version=versionString)
+  if confRes.isErr():
+    error "failure while loading the configuration", error=confRes.error
+    quit(QuitFailure)
+
+  let conf = confRes.get()
 
   # set log level
   if conf.logLevel != LogLevel.NONE:
