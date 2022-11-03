@@ -53,6 +53,7 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     ## generates an instance of RLN
     ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
     ## d indicates the depth of Merkle tree
+    ## Returns an error if the instance creation fails
     var
       rlnInstance: RLN[Bn256]
       merkleDepth: csize_t = uint(d)
@@ -92,6 +93,7 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     
   proc membershipKeyGen*(ctxPtr: RLN[Bn256]): RlnRelayResult[MembershipKeyPair] =
     ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract
+    ## Returns an error if the key generation fails
 
     # keysBufferPtr will hold the generated key pairs i.e., secret and public keys
     var
@@ -126,6 +128,7 @@ when defined(rlnzerokit):
     ## generates an instance of RLN
     ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
     ## d indicates the depth of Merkle tree
+    ## Returns an error if the instance creation fails
     var
       rlnInstance: ptr RLN
       merkleDepth: csize_t = uint(d)
@@ -142,6 +145,7 @@ when defined(rlnzerokit):
     
   proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[MembershipKeyPair] =
     ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract
+    ## Returns an error if the key generation fails
 
     # keysBufferPtr will hold the generated key pairs i.e., secret and public keys
     var
@@ -172,6 +176,7 @@ when defined(rlnzerokit):
 
 proc createRLNInstance*(d: int = MerkleTreeDepth): RLNResult =
   ## Wraps the rln instance creation for metrics
+  ## Returns an error if the instance creation fails
   var res: RLNResult
   waku_rln_instance_creation_duration_seconds.nanosecondTime:
     res = createRLNInstanceLocal(d)
@@ -410,6 +415,8 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     return ok(rootValue)
 
   proc proofVerify*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: RateLimitProof, validRoots: seq[MerkleNode] = @[]): RlnRelayResult[bool] =
+    ## verifies the proof, returns an error if the proof verification fails
+    ## returns true if the proof is valid
     var
       proofBytes = serialize(proof, data)
       proofBuffer = proofBytes.toBuffer()
@@ -526,7 +533,12 @@ when defined(rlnzerokit):
 
   # validRoots should contain a sequence of roots in the acceptable windows.
   # As default, it is set to an empty sequence of roots. This implies that the validity check for the proof's root is skipped
-  proc proofVerify*(rlnInstance: ptr RLN, data: openArray[byte], proof: RateLimitProof, validRoots: seq[MerkleNode] = @[]): RlnRelayResult[bool] =
+  proc proofVerify*(rlnInstance: ptr RLN, 
+                    data: openArray[byte], 
+                    proof: RateLimitProof, 
+                    validRoots: seq[MerkleNode] = @[]): RlnRelayResult[bool] =
+    ## verifies the proof, returns an error if the proof verification fails
+    ## returns true if the proof is valid
     var
       proofBytes = serialize(proof, data)
       proofBuffer = proofBytes.toBuffer()
@@ -587,6 +599,7 @@ proc updateValidRootQueue*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): void =
 proc insertMember*(wakuRlnRelay: WakuRLNRelay, idComm: IDCommitment): RlnRelayResult[void] =
   ## inserts a new id commitment into the local merkle tree, and adds the changed root to the 
   ## queue of valid roots
+  ## Returns an error if the insertion fails
   waku_rln_membership_insertion_duration_seconds.nanosecondTime:
     let actionSucceeded = wakuRlnRelay.rlnInstance.insertMember(idComm)
   if not actionSucceeded:
@@ -600,6 +613,8 @@ proc insertMember*(wakuRlnRelay: WakuRLNRelay, idComm: IDCommitment): RlnRelayRe
 proc removeMember*(wakuRlnRelay: WakuRLNRelay, index: MembershipIndex): RlnRelayResult[void] =
   ## removes a commitment from the local merkle tree at `index`, and adds the changed root to the
   ## queue of valid roots
+  ## Returns an error if the removal fails
+
   let actionSucceeded = wakuRlnRelay.rlnInstance.removeMember(index)
   if not actionSucceeded:
     return err("could not remove id commitment from the merkle tree")
@@ -616,6 +631,7 @@ proc toMembershipKeyPairs*(groupKeys: seq[(string, string)]): RlnRelayResult[seq
     MembershipKeyPair]] =
   ## groupKeys is  sequence of membership key tuples in the form of (identity key, identity commitment) all in the hexadecimal format
   ## the toMembershipKeyPairs proc populates a sequence of MembershipKeyPairs using the supplied groupKeys
+  ## Returns an error if the conversion fails
 
   var groupKeyPairs = newSeq[MembershipKeyPair]()
 
@@ -634,6 +650,7 @@ proc toMembershipKeyPairs*(groupKeys: seq[(string, string)]): RlnRelayResult[seq
 proc calcMerkleRoot*(list: seq[IDCommitment]): RlnRelayResult[string] =
   ## returns the root of the Merkle tree that is computed from the supplied list
   ## the root is in hexadecimal format
+  ## Returns an error if the computation fails
 
   let rlnInstance = createRLNInstance()
   if rlnInstance.isErr():
@@ -655,6 +672,7 @@ proc createMembershipList*(n: int): RlnRelayResult[(
   ## createMembershipList produces a sequence of membership key pairs in the form of (identity key, id commitment keys) in the hexadecimal format
   ## this proc also returns the root of a Merkle tree constructed out of the identity commitment keys of the generated list
   ## the output of this proc is used to initialize a static group keys (to test waku-rln-relay in the off-chain mode)
+  ## Returns an error if it cannot create the membership list
 
   # initialize a Merkle tree
   let rlnInstance = createRLNInstance()
@@ -685,6 +703,10 @@ proc createMembershipList*(n: int): RlnRelayResult[(
 proc rlnRelayStaticSetUp*(rlnRelayMembershipIndex: MembershipIndex): RlnRelayResult[(Option[seq[
     IDCommitment]], Option[MembershipKeyPair], Option[
     MembershipIndex])] =
+  ## rlnRelayStaticSetUp is a proc that is used to initialize the static group keys and the static membership index
+  ## this proc is used to test waku-rln-relay in the off-chain mode
+  ## it returns the static group keys, the static membership key pair, and the static membership index
+  ## Returns an error if it cannot initialize the static group keys and the static membership index
   let
     # static group
     groupKeys = StaticGroupKeys
@@ -722,7 +744,7 @@ proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): RlnRelayResult[bool
   ## returns true if there is another message in the  `nullifierLog` of the `rlnPeer` with the same
   ## epoch and nullifier as `msg`'s epoch and nullifier but different Shamir secret shares
   ## otherwise, returns false
-  ## emits an error string if `KeyError` occurs (never happens, it is just to avoid raising unnecessary `KeyError` exception )
+  ## Returns an error if it cannot check for duplicates
 
   # extract the proof metadata of the supplied `msg`
   let proofMD = ProofMetadata(nullifier: msg.proof.nullifier,
@@ -754,6 +776,7 @@ proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): RlnRelayResult[bool
 proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): RlnRelayResult[bool] =
   ## extracts  the `ProofMetadata` of the supplied messages `msg` and
   ## saves it in the `nullifierLog` of the `rlnPeer`
+  ## Returns an error if it cannot update the log
 
   let proofMD = ProofMetadata(nullifier: msg.proof.nullifier,
       shareX: msg.proof.shareX, shareY: msg.proof.shareY)
@@ -925,6 +948,7 @@ proc appendRLNProof*(rlnPeer: WakuRLNRelay, msg: var WakuMessage,
 
 proc addAll*(wakuRlnRelay: WakuRLNRelay, list: seq[IDCommitment]): RlnRelayResult[void] =
   # add members to the Merkle tree of the  `rlnInstance`
+  ## Returns an error if it cannot add any member to the Merkle tree
   for i in 0..list.len-1:
     let member = list[i]
     let memberAdded = wakuRlnRelay.insertMember(member)
@@ -1082,7 +1106,7 @@ proc mountRlnRelayStatic*(node: WakuNode,
                     pubsubTopic: string,
                     contentTopic: ContentTopic,
                     spamHandler: Option[SpamHandler] = none(SpamHandler)): RlnRelayResult[void] =
-  # TODO return a bool value to indicate the success of the call
+  # Returns RlnRelayResult[void] to indicate the success of the call
 
   debug "mounting rln-relay in off-chain/static mode"
   # check whether inputs are provided
@@ -1211,7 +1235,10 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   node.wakuRlnRelay = rlnPeer
   return ok()
 
-proc writeRlnCredentials*(path: string, credentials: RlnMembershipCredentials, password: string): RlnRelayResult[void] =
+proc writeRlnCredentials*(path: string, 
+                          credentials: RlnMembershipCredentials, 
+                          password: string): RlnRelayResult[void] =
+  # Returns RlnRelayResult[void], which indicates the success of the call
   info "Storing RLN credentials"
   var jsonString: string
   jsonString.toUgly(%credentials)
@@ -1224,7 +1251,10 @@ proc writeRlnCredentials*(path: string, credentials: RlnMembershipCredentials, p
 
 # Attempts decryptions of all keyfiles with the provided password. 
 # If one or more credentials are successfully decrypted, the max(min(index,number_decrypted),0)-th is returned.
-proc readRlnCredentials*(path: string, password: string, index: int = 0): RlnRelayResult[Option[RlnMembershipCredentials]] =
+proc readRlnCredentials*(path: string, 
+                         password: string, 
+                         index: int = 0): RlnRelayResult[Option[RlnMembershipCredentials]] =
+  # Returns RlnRelayResult[Option[RlnMembershipCredentials]], which indicates the success of the call
   info "Reading RLN credentials"
   # With regards to printing the keys, it is purely for debugging purposes so that the user becomes explicitly aware of the current keys in use when nwaku is started.
   # Note that this is only until the RLN contract being used is the one deployed on Goerli testnet.
@@ -1256,6 +1286,7 @@ proc mount(node: WakuNode,
            spamHandler: Option[SpamHandler] = none(SpamHandler),
            registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)
           ): Future[RlnRelayResult[void]] {.async.} =
+  # Returns RlnRelayResult[void], which indicates the success of the call
   if not conf.rlnRelayDynamic:
     info " setting up waku-rln-relay in off-chain mode... "
     # set up rln relay inputs
@@ -1401,6 +1432,9 @@ proc mountRlnRelay*(node: WakuNode,
                     spamHandler: Option[SpamHandler] = none(SpamHandler),
                     registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)
                    ): Future[RlnRelayResult[void]] {.async.} =
+  ## Mounts the rln-relay protocol on the node.
+  ## The rln-relay protocol can be mounted in two modes: on-chain and off-chain.
+  ## Returns an error if the rln-relay protocol could not be mounted.
   waku_rln_relay_mounting_duration_seconds.nanosecondTime: 
     let res = await mount(
       node,
