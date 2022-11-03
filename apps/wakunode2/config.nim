@@ -12,10 +12,15 @@ import
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   nimcrypto/utils
+import
+  ../../waku/common/confutils/envvar/defs as confEnvvarDefs,
+  ../../waku/common/confutils/envvar/std/net as confEnvvarNet
 
 export
   confTomlDefs,
-  confTomlNet
+  confTomlNet,
+  confEnvvarDefs,
+  confEnvvarNet
 
 
 type ConfResult*[T] = Result[T, string]
@@ -506,6 +511,12 @@ proc readValue*(r: var TomlReader, value: var crypto.PrivateKey) {.raises: [Seri
   except CatchableError:
     raise newException(SerializationError, getCurrentExceptionMsg())
 
+proc readValue*(r: var EnvvarReader, value: var crypto.PrivateKey) {.raises: [SerializationError].} =
+  try: 
+    value = parseCmdArg(crypto.PrivateKey, r.readValue(string))
+  except CatchableError:
+    raise newException(SerializationError, getCurrentExceptionMsg())
+
 
 {.push warning[ProveInit]: off.}
 
@@ -514,6 +525,8 @@ proc load*(T: type WakuNodeConf, version=""): ConfResult[T] =
     let conf = WakuNodeConf.load(
       version=version,
       secondarySources = proc (conf: WakuNodeConf, sources: auto) =
+        sources.addConfigFile(Envvar, InputFile("wakunode2"))
+
         if conf.configFile.isSome():
           sources.addConfigFile(Toml, conf.configFile.get())
     )

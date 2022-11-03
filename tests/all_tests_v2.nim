@@ -1,4 +1,10 @@
 import
+  # Waku common tests
+  ./v2/test_envvar_serialization,
+  ./v2/test_confutils_envvar,
+  ./v2/test_sqlite_migrations
+
+import
   # Waku v2 tests
   ./v2/test_wakunode,
   ./v2/test_wakunode_relay,
@@ -36,7 +42,6 @@ import
   ./v2/test_waku_bridge,
   ./v2/test_peer_storage,
   ./v2/test_waku_keepalive,
-  ./v2/test_sqlite_migrations,
   ./v2/test_namespacing_utils,
   ./v2/test_waku_dnsdisc,
   ./v2/test_waku_discv5,
