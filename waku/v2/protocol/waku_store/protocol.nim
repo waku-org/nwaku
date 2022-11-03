@@ -29,7 +29,7 @@ import
 
 
 logScope:
-  topics = "wakustore"
+  topics = "waku store"
 
 
 const 

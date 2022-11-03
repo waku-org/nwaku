@@ -11,7 +11,7 @@ import
   ./message_retention_policy
 
 logScope:
-  topics = "message_store.sqlite_store.retention_policy.time"
+  topics = "waku node message_store retention_policy"
 
 
 const StoreDefaultRetentionTime*: int64 = 30.days.seconds

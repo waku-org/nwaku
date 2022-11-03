@@ -15,7 +15,7 @@ declarePublicGauge waku_discv5_discovered, "number of nodes discovered"
 declarePublicGauge waku_discv5_errors, "number of waku discv5 errors", ["type"]
 
 logScope:
-  topics = "wakudiscv5"
+  topics = "waku discv5"
 
 type
   WakuDiscoveryV5* = ref object

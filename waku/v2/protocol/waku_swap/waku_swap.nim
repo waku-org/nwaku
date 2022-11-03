@@ -55,7 +55,7 @@ declarePublicGauge waku_swap_messages, "number of swap messages received", ["typ
 declarePublicHistogram waku_peer_swap_account_balance, "Swap Account Balance for waku peers, aggregated into buckets based on threshold limits", buckets = swapAccountBalanceBuckets
 
 logScope:
-  topics = "wakuswap"
+  topics = "waku swap"
 
 const WakuSwapCodec* = "/vac/waku/swap/2.0.0-beta1"
 

@@ -18,7 +18,7 @@ import
 
 
 logScope:
-  topics = "wakulightpush.client"
+  topics = "waku lightpush client"
 
 
 type WakuLightPushClient* = ref object

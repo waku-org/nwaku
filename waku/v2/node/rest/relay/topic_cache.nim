@@ -9,7 +9,8 @@ import
   ../../../protocol/waku_message,
   ../../message_cache
 
-logScope: topics = "rest_api_relay_topiccache"
+logScope: 
+  topics = "waku node rest relay_api"
 
 export message_cache
 

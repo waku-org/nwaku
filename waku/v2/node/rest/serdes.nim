@@ -9,7 +9,8 @@ import
   json_serialization/std/[options, net, sets],
   presto/common
 
-logScope: topics = "rest_api_serdes"
+logScope: 
+  topics = "waku node rest"
 
 Json.createFlavor RestJson
 

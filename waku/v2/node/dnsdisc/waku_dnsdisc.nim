@@ -26,7 +26,7 @@ declarePublicGauge waku_dnsdisc_discovered, "number of nodes discovered"
 declarePublicGauge waku_dnsdisc_errors, "number of waku dnsdisc errors", ["type"]
 
 logScope:
-  topics = "wakudnsdisc"
+  topics = "waku dnsdisc"
 
 type
   WakuDnsDiscovery* = object

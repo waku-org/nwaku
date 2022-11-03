@@ -24,7 +24,7 @@ declarePublicGauge waku_px_peers_cached, "number of peer exchange peer ENRs cach
 declarePublicGauge waku_px_errors, "number of peer exchange errors", ["type"]
 
 logScope:
-  topics = "wakupx"
+  topics = "waku peer_exchange"
 
 
 const
