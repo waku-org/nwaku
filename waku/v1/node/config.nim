@@ -144,21 +144,21 @@ type
     of genNodekey:
       discard
 
-proc parseCmdArg*(T: type KeyPair, p: TaintedString): T =
+proc parseCmdArg*(T: type KeyPair, p: string): T =
   try:
     let privkey = PrivateKey.fromHex(string(p)).tryGet()
     result = privkey.toKeyPair()
   except CatchableError:
     raise newException(ConfigurationError, "Invalid private key")
 
-proc completeCmdArg*(T: type KeyPair, val: TaintedString): seq[string] =
+proc completeCmdArg*(T: type KeyPair, val: string): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type IpAddress, p: TaintedString): T =
+proc parseCmdArg*(T: type IpAddress, p: string): T =
   try:
     result = parseIpAddress(p)
   except CatchableError:
     raise newException(ConfigurationError, "Invalid IP address")
 
-proc completeCmdArg*(T: type IpAddress, val: TaintedString): seq[string] =
+proc completeCmdArg*(T: type IpAddress, val: string): seq[string] =
   return @[]

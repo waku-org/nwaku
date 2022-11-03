@@ -326,9 +326,7 @@ proc writeAndPrint(c: Chat) {.async.} =
       if not c.node.wakuFilter.isNil():
         echo "unsubscribing from content filters..."
       
-        await c.node.unsubscribe(
-          FilterRequest(contentFilters: @[ContentFilter(contentTopic: c.contentTopic)], pubSubTopic: DefaultTopic, subscribe: false)
-        )
+        await c.node.unsubscribe(pubsubTopic=DefaultTopic, contentTopics=c.contentTopic)
       
       echo "quitting..."
 
@@ -499,18 +497,16 @@ proc processInput(rfd: AsyncFD) {.async.} =
 
   if conf.filternode != "":
     await node.mountFilter()
+    await node.mountFilterClient()
 
-    node.wakuFilter.setPeer(parseRemotePeerInfo(conf.filternode))
+    node.setFilterPeer(parseRemotePeerInfo(conf.filternode))
 
-    proc filterHandler(msg: WakuMessage) {.gcsafe.} =
+    proc filterHandler(pubsubTopic: string, msg: WakuMessage) {.gcsafe.} =
       trace "Hit filter handler", contentTopic=msg.contentTopic
 
       chat.printReceivedMessage(msg)
 
-    await node.subscribe(
-      FilterRequest(contentFilters: @[ContentFilter(contentTopic: chat.contentTopic)], pubSubTopic: DefaultTopic, subscribe: true),
-      filterHandler
-    )
+    await node.subscribe(pubsubTopic=DefaultTopic, contentTopics=chat.contentTopic, filterHandler)
 
   # Subscribe to a topic, if relay is mounted
   if conf.relay:

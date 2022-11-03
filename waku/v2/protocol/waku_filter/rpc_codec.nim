@@ -9,6 +9,11 @@ import
   ./rpc
 
 
+# Multiply by 10 for safety. Currently we never push more than 1 message at a time
+# We add a 64kB safety buffer for protocol overhead.
+const MaxRpcSize* = 10 * MaxWakuMessageSize + 64 * 1024
+
+
 proc encode*(filter: ContentFilter): ProtoBuffer =
   var output = initProtoBuffer()
   output.write3(1, filter.contentTopic)

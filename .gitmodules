@@ -153,3 +153,13 @@
 	url = https://github.com/vacp2p/zerokit.git
 	ignore = dirty
 	branch = master
+[submodule "vendor/nim-regex"]
+	path = vendor/nim-regex
+	url = https://github.com/nitely/nim-regex.git
+	ignore = untracked
+	branch = master
+[submodule "vendor/nim-unicodedb"]
+	path = vendor/nim-unicodedb
+	url = https://github.com/nitely/nim-unicodedb.git
+	ignore = untracked
+	branch = master

@@ -16,7 +16,7 @@ import
 # Node operations happens asynchronously
 proc runBackground() {.async.} =
   let
-    conf = WakuNodeConf.load()
+    conf = WakuNodeConf.load().tryGet()
     (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
       Port(uint16(conf.tcpPort) + conf.portsShift),
       # This is actually a UDP port but we're only supplying this value
