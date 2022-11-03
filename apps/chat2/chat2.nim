@@ -4,7 +4,10 @@
 when not(compileOption("threads")):
   {.fatal: "Please, compile this program with the --threads:on option!".}
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import std/[tables, strformat, strutils, times, json, options, random]
 import confutils, chronicles, chronos, stew/shims/net as stewNet,
