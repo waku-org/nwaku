@@ -1,11 +1,12 @@
-{.push raises: [Defect].}
+{.push raises: [].}
 
-import tables, stew/results, strutils, os
+import 
+  std/[tables, os, strutils],
+  stew/results
 
-template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
-const MessageStoreMigrationPath* = sourceDir / "migrations_scripts/message"
-const PeerStoreMigrationPath* = sourceDir / "migrations_scripts/peer"
-const AllStoreMigrationPath* = sourceDir / "migrations_scripts"
+template projectRoot: string = currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / ".." / ".." / ".."
+const MessageStoreMigrationPath* = projectRoot / "migrations" / "message_store"
+const PeerStoreMigrationPath* = projectRoot / "migrations" / "peer_store"
 
 type MigrationScriptsResult*[T] = Result[T, string]
 type
