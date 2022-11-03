@@ -15,7 +15,7 @@ declarePublicCounter waku_node_conns_initiated, "Number of connections initiated
 declarePublicGauge waku_peers_errors, "Number of peer manager errors", ["type"]
 
 logScope:
-  topics = "wakupeers"
+  topics = "waku node peer_manager"
 
 type
   PeerManager* = ref object of RootObj
@@ -130,15 +130,13 @@ proc new*(T: type PeerManager, switch: Switch, storage: PeerStorage = nil): Peer
                        peerStore: WakuPeerStore.new(),
                        storage: storage)
   
-  debug "creating new PeerManager"
-
   proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(pm, peerId, event)
   
   pm.switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
   pm.switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
 
-  if not storage.isNil:
+  if not storage.isNil():
     debug "found persistent peer storage"
     pm.loadFromStorage() # Load previously managed peers.
   else:

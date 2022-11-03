@@ -22,7 +22,7 @@ when defined(rln) or defined(rlnzerokit):
 const LogInterval = 30.seconds
 
 logScope:
-  topics = "waku.metrics"
+  topics = "waku node metrics"
 
 
 proc startMetricsServer*(serverIp: ValidIpAddress, serverPort: Port) =

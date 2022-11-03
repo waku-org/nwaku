@@ -22,7 +22,7 @@ import
 
 
 logScope:
-  topics = "wakustore.client"
+  topics = "waku store client"
 
 
 type WakuStoreClient* = ref object

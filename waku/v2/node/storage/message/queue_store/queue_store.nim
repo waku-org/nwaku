@@ -14,7 +14,7 @@ import
 
 
 logScope:
-  topics = "message_store.storequeue"
+  topics = "waku node message_store storequeue"
 
 
 const StoreQueueDefaultMaxCapacity* = 25_000
