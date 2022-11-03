@@ -25,13 +25,13 @@ procSuite "Waku DNS Discovery":
     let
       bindIp = ValidIpAddress.init("0.0.0.0")
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, bindIp, Port(60000))
+      node1 = WakuNode.new(nodeKey1, bindIp, Port(63500))
       enr1 = node1.enr
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, bindIp, Port(60002))
+      node2 = WakuNode.new(nodeKey2, bindIp, Port(63502))
       enr2 = node2.enr
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node3 = WakuNode.new(nodeKey3, bindIp, Port(60003))
+      node3 = WakuNode.new(nodeKey3, bindIp, Port(63503))
       enr3 = node3.enr
     
     await node1.mountRelay()
@@ -66,7 +66,7 @@ procSuite "Waku DNS Discovery":
 
     let
       nodeKey4 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node4 = WakuNode.new(nodeKey4, bindIp, Port(60004))
+      node4 = WakuNode.new(nodeKey4, bindIp, Port(63504))
     
     await node4.mountRelay()
     await node4.start()

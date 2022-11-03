@@ -74,17 +74,17 @@ procSuite "Waku Peer Exchange":
       extIp = ValidIpAddress.init("127.0.0.1")
 
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      nodeTcpPort1 = Port(60000)
+      nodeTcpPort1 = Port(64010)
       nodeUdpPort1 = Port(9000)
       node1 = WakuNode.new(nodeKey1, bindIp, nodeTcpPort1)
 
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      nodeTcpPort2 = Port(60002)
+      nodeTcpPort2 = Port(64012)
       nodeUdpPort2 = Port(9002)
       node2 = WakuNode.new(nodeKey2, bindIp, nodeTcpPort2)
 
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      nodeTcpPort3 = Port(60004)
+      nodeTcpPort3 = Port(64014)
       nodeUdpPort3 = Port(9004)
       node3 = WakuNode.new(nodeKey3, bindIp, nodeTcpPort3)
 

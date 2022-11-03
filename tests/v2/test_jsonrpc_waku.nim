@@ -495,11 +495,11 @@ procSuite "Waku v2 JSON-RPC API":
   asyncTest "Private API: generate asymmetric keys and encrypt/decrypt communication":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, bindIp, Port(60000))
+      node1 = WakuNode.new(nodeKey1, bindIp, Port(62001))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, bindIp, Port(60002))
+      node2 = WakuNode.new(nodeKey2, bindIp, Port(62002))
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node3 = WakuNode.new(nodeKey3, bindIp, Port(60003), some(extIp), some(port))
+      node3 = WakuNode.new(nodeKey3, bindIp, Port(62003), some(extIp), some(port))
       pubSubTopic = "polling"
       contentTopic = DefaultContentTopic
       payload = @[byte 9]
@@ -586,11 +586,11 @@ procSuite "Waku v2 JSON-RPC API":
   asyncTest "Private API: generate symmetric keys and encrypt/decrypt communication":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, bindIp, Port(60000))
+      node1 = WakuNode.new(nodeKey1, bindIp, Port(62100))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, bindIp, Port(60002))
+      node2 = WakuNode.new(nodeKey2, bindIp, Port(62102))
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node3 = WakuNode.new(nodeKey3, bindIp, Port(60003), some(extIp), some(port))
+      node3 = WakuNode.new(nodeKey3, bindIp, Port(62103), some(extIp), some(port))
       pubSubTopic = "polling"
       contentTopic = DefaultContentTopic
       payload = @[byte 9]
