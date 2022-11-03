@@ -15,7 +15,7 @@ import
   ./queries
 
 logScope:
-  topics = "message_store.sqlite"
+  topics = "waku node message_store sqlite"
 
 
 proc init(db: SqliteDatabase): MessageStoreResult[void] =

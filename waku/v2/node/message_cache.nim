@@ -9,7 +9,8 @@ import
 import
   ../protocol/waku_message
 
-logScope: topics = "message_cache"
+logScope: 
+  topics = "waku node message_cache"
 
 const DefaultMessageCacheCapacity*: uint = 30 # Max number of messages cached per topic @TODO make this configurable
 

@@ -18,7 +18,7 @@ import libp2p/errors
 import libp2p/crypto/[crypto, chacha20poly1305, curve25519]
 
 logScope:
-  topics = "wakunoise"
+  topics = "waku noise"
 
 #################################################################
 
