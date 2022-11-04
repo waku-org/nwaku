@@ -119,18 +119,19 @@ procSuite "Waku-rln-relay":
         defaultAccount = web3.defaultAccount
 
     # prepare a contract sender to interact with it
-    var contractObj = web3.contractSender(MembershipContract,
+    let contractObj = web3.contractSender(MembershipContract,
         contractAddress) # creates a Sender object with a web3 field and contract address of type Address
 
     # create an RLN instance
-    var rlnInstance = createRLNInstance()
-    check: 
-      rlnInstance.isOk == true
+    let rlnInstance = createRLNInstance()
+    require: 
+      rlnInstance.isOk() 
     # generate the membership keys
-    let membershipKeyPair = membershipKeyGen(rlnInstance.value)
-    check: 
-      membershipKeyPair.isSome
-    let pk =  membershipKeyPair.get().idCommitment.toUInt256()
+    let membershipKeyPairRes = membershipKeyGen(rlnInstance.get())
+    require: 
+      membershipKeyPairRes.isOk()
+    let membershipKeyPair = membershipKeyPairRes.get()
+    let pk =  membershipKeyPair.idCommitment.toUInt256()
     debug "membership commitment key", pk = pk
 
     # test ------------------------------
@@ -173,24 +174,25 @@ procSuite "Waku-rln-relay":
         defaultAccount = web3.defaultAccount
 
     # prepare a contract sender to interact with it
-    var contractObj = web3.contractSender(MembershipContract,
+    let contractObj = web3.contractSender(MembershipContract,
         contractAddress) # creates a Sender object with a web3 field and contract address of type Address
 
     # test ------------------------------
     # create an RLN instance
-    var rlnInstance = createRLNInstance()
-    check: 
-      rlnInstance.isOk == true
-    var rln = rlnInstance.value
+    let rlnInstance = createRLNInstance()
+    require: 
+      rlnInstance.isOk()
+    let rln = rlnInstance.get()
 
-    let keyPair = rln.membershipKeyGen()
-    check: 
-      keyPair.isSome
-    let pk = keyPair.get().idCommitment.toUInt256()
+    let keyPairRes = rln.membershipKeyGen()
+    require: 
+      keyPairRes.isOk()
+    let keypair = keyPairRes.get()
+    let pk = keyPair.idCommitment.toUInt256()
     debug "membership commitment key", pk = pk
 
     # initialize the WakuRLNRelay
-    var rlnPeer = WakuRLNRelay(membershipKeyPair: keyPair.get(),
+    let rlnPeer = WakuRLNRelay(membershipKeyPair: keyPair,
       membershipIndex: MembershipIndex(0),
       ethClientAddress: EthClient,
       ethAccountAddress: some(accounts[0]),
@@ -198,10 +200,11 @@ procSuite "Waku-rln-relay":
       rlnInstance: rln)
 
     # generate another membership key pair
-    let keyPair2 = rln.membershipKeyGen()
-    check: 
-      keyPair2.isSome
-    let pk2 = keyPair2.get().idCommitment.toUInt256()
+    let keyPair2Res = rln.membershipKeyGen()
+    require: 
+      keyPair2Res.isOk()
+    let keyPair2 = keyPair2Res.get()
+    let pk2 = keyPair2.idCommitment.toUInt256()
     debug "membership commitment key", pk2 = pk2
 
     var events = [newFuture[void](), newFuture[void]()]
@@ -252,7 +255,7 @@ procSuite "Waku-rln-relay":
     debug "contract deployer account address ", add
 
     # prepare a contract sender to interact with it
-    var sender = web3.contractSender(MembershipContract,
+    let sender = web3.contractSender(MembershipContract,
         contractAddress) # creates a Sender object with a web3 field and contract address of type Address
 
     # send takes the following parameters, c: ContractCallBase, value = 0.u256, gas = 3000000'u64 gasPrice = 0
@@ -277,27 +280,25 @@ procSuite "Waku-rln-relay":
     # prepare rln-relay peer inputs
     let
       web3 = await newWeb3(EthClient)
-      accounts = await web3.provider.eth_accounts()
-      # choose one of the existing accounts for the rln-relay peer
-      ethAccountAddress = accounts[0]
     await web3.close()
 
     # create an RLN instance
-    var rlnInstance = createRLNInstance()
-    check: 
-      rlnInstance.isOk == true
+    let rlnInstance = createRLNInstance()
+    require: 
+      rlnInstance.isOk()
 
     # generate the membership keys
-    let membershipKeyPair = membershipKeyGen(rlnInstance.value)
-    check: 
-      membershipKeyPair.isSome
+    let membershipKeyPairRes = membershipKeyGen(rlnInstance.get())
+    require: 
+      membershipKeyPairRes.isOk()
+    let membershipKeyPair = membershipKeyPairRes.get()
 
     # create an Ethereum private key and the corresponding account 
     let (ethPrivKey, ethacc) = await createEthAccount()
 
     # test ------------------------------
     # initialize the WakuRLNRelay
-    var rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair.get(),
+    let rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair,
       membershipIndex: MembershipIndex(0),
       ethClientAddress: EthClient,
       ethAccountPrivateKey: some(ethPrivKey),
@@ -305,9 +306,9 @@ procSuite "Waku-rln-relay":
       membershipContractAddress: contractAddress)
 
     # register the rln-relay peer to the membership contract
-    let is_successful = await rlnPeer.register()
+    let isSuccessful = await rlnPeer.register()
     check: 
-      is_successful.isOk
+      isSuccessful.isOk()
 
 
   asyncTest "mounting waku rln-relay: check correct Merkle tree construction in the static/off-chain group management":
@@ -318,34 +319,39 @@ procSuite "Waku-rln-relay":
     await node.start()
 
     # create current peer's pk
-    var rlnInstance = createRLNInstance()
-    check:
-      rlnInstance.isOk == true
-    var rln = rlnInstance.value
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
+    let rln = rlnInstance.get()
     # generate a key pair
-    var keypair = rln.membershipKeyGen()
-    doAssert(keypair.isSome())
+    let keyPairRes = rln.membershipKeyGen()
+    require:
+      keyPairRes.isOk()
 
+    let keyPair = keyPairRes.get()
     # current peer index in the Merkle tree
     let index = uint(5)
 
     # Create a group of 10 members
     var group = newSeq[IDCommitment]()
     for i in 0..10:
-      var member_is_added: bool = false
+      var memberAdded: bool = false
       if (uint(i) == index):
         #  insert the current peer's pk
-        group.add(keypair.get().idCommitment)
-        member_is_added = rln.insertMember(keypair.get().idCommitment)
-        doAssert(member_is_added)
-        debug "member key", key = keypair.get().idCommitment.inHex
+        group.add(keyPair.idCommitment)
+        memberAdded = rln.insertMember(keyPair.idCommitment)
+        doAssert(memberAdded)
+        debug "member key", key = keyPair.idCommitment.inHex
       else:
-        var memberKeypair = rln.membershipKeyGen()
-        doAssert(memberKeypair.isSome())
-        group.add(memberKeypair.get().idCommitment)
-        member_is_added = rln.insertMember(memberKeypair.get().idCommitment)
-        doAssert(member_is_added)
-        debug "member key", key = memberKeypair.get().idCommitment.inHex
+        let memberKeyPairRes = rln.membershipKeyGen()
+        require:
+          memberKeyPairRes.isOk()
+        let memberKeyPair = memberKeyPairRes.get()
+        group.add(memberKeyPair.idCommitment)
+        let memberAdded = rln.insertMember(memberKeyPair.idCommitment)
+        require:
+          memberAdded
+        debug "member key", key = memberKeyPair.idCommitment.inHex
 
     let expectedRoot = rln.getMerkleRoot().value().inHex
     debug "expected root ", expectedRoot
@@ -353,11 +359,15 @@ procSuite "Waku-rln-relay":
     # test ------------------------------
     # start rln-relay
     await node.mountRelay(@[RlnRelayPubsubTopic])
-    node.mountRlnRelayStatic(group = group,
-                            memKeyPair = keypair.get(),
+    let mountRes = node.mountRlnRelayStatic(group = group,
+                            memKeyPair = keyPair,
                             memIndex = index,
                             pubsubTopic = RlnRelayPubsubTopic,
                             contentTopic = RlnRelayContentTopic)
+    
+    require:
+      mountRes.isOk()
+
     let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().inHex
     debug "calculated root ", calculatedRoot
 
@@ -387,36 +397,41 @@ procSuite "Waku-rln-relay":
   
 
     # create an rln instance
-    var rlnInstance = createRLNInstance()
-    check:
-      rlnInstance.isOk == true
-    var rln = rlnInstance.value
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
+    let rln = rlnInstance.get()
 
     # create two rln key pairs
     let 
-      keyPair1 = rln.membershipKeyGen()
-      keyPair2 = rln.membershipKeyGen()
-    check: 
-      keyPair1.isSome
-      keyPair2.isSome
-    let 
-      pk1 = keyPair1.get().idCommitment.toUInt256() 
-      pk2 = keyPair2.get().idCommitment.toUInt256() 
-    debug "member key1", key = keyPair1.get().idCommitment.inHex
-    debug "member key2", key = keyPair2.get().idCommitment.inHex
+      keyPair1Res = rln.membershipKeyGen()
+      keyPair2Res = rln.membershipKeyGen()
+    require: 
+      keyPair1Res.isOk()
+      keyPair2Res.isOk()
+
+    let
+      keyPair1 = keyPair1Res.get()
+      keyPair2 = keyPair2Res.get()
+      pk1 = keyPair1.idCommitment.toUInt256() 
+      pk2 = keyPair2.idCommitment.toUInt256() 
+    debug "member key1", key = keyPair1.idCommitment.inHex
+    debug "member key2", key = keyPair2.idCommitment.inHex
 
     # add the rln keys to the Merkle tree
     let
-      member_is_added1 = rln.insertMember(keyPair1.get().idCommitment)
-      member_is_added2 = rln.insertMember(keyPair2.get().idCommitment)
-    doAssert(member_is_added1)
-    doAssert(member_is_added2)
+      memberIsAdded1 = rln.insertMember(keyPair1.idCommitment)
+      memberIsAdded2 = rln.insertMember(keyPair2.idCommitment)
+    
+    require:
+      memberIsAdded1
+      memberIsAdded2
     
     #  get the Merkle root
     let expectedRoot = rln.getMerkleRoot().value().inHex
     
     # prepare a contract sender to interact with it
-    var contractObj = web3.contractSender(MembershipContract,
+    let contractObj = web3.contractSender(MembershipContract,
       contractAddress) # creates a Sender object with a web3 field and contract address of type Address
 
     # register the members to the contract
@@ -438,7 +453,7 @@ procSuite "Waku-rln-relay":
                             ethAccountAddress = some(ethacc),
                             ethAccountPrivKeyOpt = some(ethPrivKey),
                             memContractAddr = contractAddress, 
-                            memKeyPair = keyPair1,
+                            memKeyPair = some(keyPair1),
                             memIndex = some(MembershipIndex(0)),
                             pubsubTopic = RlnRelayPubsubTopic,
                             contentTopic = RlnRelayContentTopic)

@@ -49,12 +49,11 @@ proc toBuffer*(x: openArray[byte]): Buffer =
 
 when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
 
-  proc createRLNInstanceLocal(d: int = MerkleTreeDepth): RLNResult
-    {.raises: [Defect, IOError].} =
-
+  proc createRLNInstanceLocal(d: int = MerkleTreeDepth): RLNResult =
     ## generates an instance of RLN
     ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
     ## d indicates the depth of Merkle tree
+    ## Returns an error if the instance creation fails
     var
       rlnInstance: RLN[Bn256]
       merkleDepth: csize_t = uint(d)
@@ -67,7 +66,12 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
       ## to generate parameters for a different tree depth, change the tree size in the following line of rln library
       ## https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/examples/export_test_keys/main.rs#L4
       ## and then proceed as explained above
+      parameters: string
+    try:
       parameters = readFile("waku/v2/protocol/waku_rln_relay/parameters.key")
+    except Exception as err:
+      return err("failed to read the parameters file: " & err.msg)
+    var
       pbytes = parameters.toBytes()
       len: csize_t = uint(pbytes.len)
       parametersBuffer = Buffer(`ptr`: addr(pbytes[0]), len: len)
@@ -87,8 +91,9 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     return ok(rlnInstance)
 
     
-  proc membershipKeyGen*(ctxPtr: RLN[Bn256]): Option[MembershipKeyPair] =
+  proc membershipKeyGen*(ctxPtr: RLN[Bn256]): RlnRelayResult[MembershipKeyPair] =
     ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract
+    ## Returns an error if the key generation fails
 
     # keysBufferPtr will hold the generated key pairs i.e., secret and public keys
     var
@@ -98,14 +103,12 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
 
     # check whether the keys are generated successfully
     if(done == false):
-      debug "error in key generation"
-      return none(MembershipKeyPair)
+      return err("error in key generation")
 
     var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
     # the public and secret keys together are 64 bytes
     if (generatedKeys.len != 64):
-      debug "the generated keys are invalid"
-      return none(MembershipKeyPair)
+      return err("generated keys are of invalid length")
 
     # TODO define a separate proc to decode the generated keys to the secret and public components
     var
@@ -118,15 +121,14 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
       keypair = MembershipKeyPair(idKey: secret, idCommitment: public)
 
 
-    return some(keypair)
+    return ok(keypair)
 
 when defined(rlnzerokit):
-  proc createRLNInstanceLocal(d: int = MerkleTreeDepth): RLNResult
-    {.raises: [Defect, IOError].} =
-
+  proc createRLNInstanceLocal(d: int = MerkleTreeDepth): RLNResult =
     ## generates an instance of RLN
     ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
     ## d indicates the depth of Merkle tree
+    ## Returns an error if the instance creation fails
     var
       rlnInstance: ptr RLN
       merkleDepth: csize_t = uint(d)
@@ -141,8 +143,9 @@ when defined(rlnzerokit):
     return ok(rlnInstance)
 
     
-  proc membershipKeyGen*(ctxPtr: ptr RLN): Option[MembershipKeyPair] =
+  proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[MembershipKeyPair] =
     ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract
+    ## Returns an error if the key generation fails
 
     # keysBufferPtr will hold the generated key pairs i.e., secret and public keys
     var
@@ -152,14 +155,12 @@ when defined(rlnzerokit):
 
     # check whether the keys are generated successfully
     if(done == false):
-      debug "error in key generation"
-      return none(MembershipKeyPair)
+      return err("error in key generation")
 
     var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
     # the public and secret keys together are 64 bytes
     if (generatedKeys.len != 64):
-      debug "the generated keys are invalid"
-      return none(MembershipKeyPair)
+      return err("generated keys are of invalid length")
 
     # TODO define a separate proc to decode the generated keys to the secret and public components
     var
@@ -171,12 +172,14 @@ when defined(rlnzerokit):
     var
       keypair = MembershipKeyPair(idKey: secret, idCommitment: public)
 
-    return some(keypair)
+    return ok(keypair)
 
-proc createRLNInstance*(d: int = MerkleTreeDepth): RLNResult {.raises: [Defect, IOError].} =
+proc createRLNInstance*(d: int = MerkleTreeDepth): RLNResult =
   ## Wraps the rln instance creation for metrics
+  ## Returns an error if the instance creation fails
+  var res: RLNResult
   waku_rln_instance_creation_duration_seconds.nanosecondTime:
-    let res = createRLNInstanceLocal(d)
+    res = createRLNInstanceLocal(d)
   return res
 
 proc toUInt256*(idCommitment: IDCommitment): UInt256 =
@@ -412,6 +415,8 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     return ok(rootValue)
 
   proc proofVerify*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: RateLimitProof, validRoots: seq[MerkleNode] = @[]): RlnRelayResult[bool] =
+    ## verifies the proof, returns an error if the proof verification fails
+    ## returns true if the proof is valid
     var
       proofBytes = serialize(proof, data)
       proofBuffer = proofBytes.toBuffer()
@@ -528,7 +533,12 @@ when defined(rlnzerokit):
 
   # validRoots should contain a sequence of roots in the acceptable windows.
   # As default, it is set to an empty sequence of roots. This implies that the validity check for the proof's root is skipped
-  proc proofVerify*(rlnInstance: ptr RLN, data: openArray[byte], proof: RateLimitProof, validRoots: seq[MerkleNode] = @[]): RlnRelayResult[bool] =
+  proc proofVerify*(rlnInstance: ptr RLN, 
+                    data: openArray[byte], 
+                    proof: RateLimitProof, 
+                    validRoots: seq[MerkleNode] = @[]): RlnRelayResult[bool] =
+    ## verifies the proof, returns an error if the proof verification fails
+    ## returns true if the proof is valid
     var
       proofBytes = serialize(proof, data)
       proofBuffer = proofBytes.toBuffer()
@@ -589,6 +599,7 @@ proc updateValidRootQueue*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): void =
 proc insertMember*(wakuRlnRelay: WakuRLNRelay, idComm: IDCommitment): RlnRelayResult[void] =
   ## inserts a new id commitment into the local merkle tree, and adds the changed root to the 
   ## queue of valid roots
+  ## Returns an error if the insertion fails
   waku_rln_membership_insertion_duration_seconds.nanosecondTime:
     let actionSucceeded = wakuRlnRelay.rlnInstance.insertMember(idComm)
   if not actionSucceeded:
@@ -602,6 +613,8 @@ proc insertMember*(wakuRlnRelay: WakuRLNRelay, idComm: IDCommitment): RlnRelayRe
 proc removeMember*(wakuRlnRelay: WakuRLNRelay, index: MembershipIndex): RlnRelayResult[void] =
   ## removes a commitment from the local merkle tree at `index`, and adds the changed root to the
   ## queue of valid roots
+  ## Returns an error if the removal fails
+
   let actionSucceeded = wakuRlnRelay.rlnInstance.removeMember(index)
   if not actionSucceeded:
     return err("could not remove id commitment from the merkle tree")
@@ -614,28 +627,35 @@ proc validateRoot*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): bool =
   ## Validate against the window of roots stored in wakuRlnRelay.validMerkleRoots
   return root in wakuRlnRelay.validMerkleRoots
 
-proc toMembershipKeyPairs*(groupKeys: seq[(string, string)]): seq[
-    MembershipKeyPair] {.raises: [Defect, ValueError].} =
+proc toMembershipKeyPairs*(groupKeys: seq[(string, string)]): RlnRelayResult[seq[
+    MembershipKeyPair]] =
   ## groupKeys is  sequence of membership key tuples in the form of (identity key, identity commitment) all in the hexadecimal format
   ## the toMembershipKeyPairs proc populates a sequence of MembershipKeyPairs using the supplied groupKeys
+  ## Returns an error if the conversion fails
 
   var groupKeyPairs = newSeq[MembershipKeyPair]()
 
   for i in 0..groupKeys.len-1:
-    let
-      idKey = hexToUint[IDKey.len*8](groupKeys[i][0]).toBytesLE()
-      idCommitment =  hexToUint[IDCommitment.len*8](groupKeys[i][1]).toBytesLE()
-    groupKeyPairs.add(MembershipKeyPair(idKey: idKey,
-        idCommitment: idCommitment))
-  return groupKeyPairs
+    try:
+      let
+        idKey = hexToUint[IDKey.len*8](groupKeys[i][0]).toBytesLE()
+        idCommitment = hexToUint[IDCommitment.len*8](groupKeys[i][1]).toBytesLE()
+      groupKeyPairs.add(MembershipKeyPair(idKey: idKey,
+          idCommitment: idCommitment))
+    except ValueError as err:
+      warn "could not convert the group key to bytes", err = err.msg
+      return err("could not convert the group key to bytes: " & err.msg)
+  return ok(groupKeyPairs)
 
-proc calcMerkleRoot*(list: seq[IDCommitment]): string {.raises: [Defect, IOError].} =
+proc calcMerkleRoot*(list: seq[IDCommitment]): RlnRelayResult[string] =
   ## returns the root of the Merkle tree that is computed from the supplied list
   ## the root is in hexadecimal format
+  ## Returns an error if the computation fails
 
-  var rlnInstance = createRLNInstance()
-  doAssert(rlnInstance.isOk)
-  var rln = rlnInstance.value
+  let rlnInstance = createRLNInstance()
+  if rlnInstance.isErr():
+    return err("could not create rln instance: " & rlnInstance.error())
+  let rln = rlnInstance.get()
 
   # create a Merkle tree
   for i in 0..list.len-1:
@@ -644,42 +664,49 @@ proc calcMerkleRoot*(list: seq[IDCommitment]): string {.raises: [Defect, IOError
     doAssert(member_is_added)
 
   let root = rln.getMerkleRoot().value().inHex
-  return root
+  return ok(root)
 
-proc createMembershipList*(n: int): (seq[(string, string)], string) {.raises: [
-    Defect, IOError].} =
+proc createMembershipList*(n: int): RlnRelayResult[(
+    seq[(string, string)], string
+  )] =
   ## createMembershipList produces a sequence of membership key pairs in the form of (identity key, id commitment keys) in the hexadecimal format
   ## this proc also returns the root of a Merkle tree constructed out of the identity commitment keys of the generated list
   ## the output of this proc is used to initialize a static group keys (to test waku-rln-relay in the off-chain mode)
+  ## Returns an error if it cannot create the membership list
 
   # initialize a Merkle tree
-  var rlnInstance = createRLNInstance()
-  if not rlnInstance.isOk:
-    return (@[], "")
-  var rln = rlnInstance.value
+  let rlnInstance = createRLNInstance()
+  if rlnInstance.isErr():
+    return err("could not create rln instance: " & rlnInstance.error())
+  let rln = rlnInstance.get()
 
   var output = newSeq[(string, string)]()
   for i in 0..n-1:
 
     # generate a key pair
-    let keypair = rln.membershipKeyGen()
-    doAssert(keypair.isSome())
-
-    let keyTuple = (keypair.get().idKey.inHex, keypair.get().idCommitment.inHex)
+    let keypairRes = rln.membershipKeyGen()
+    if keypairRes.isErr():
+      return err("could not generate a key pair: " & keypairRes.error())
+    let keypair = keypairRes.get()
+    let keyTuple = (keypair.idKey.inHex, keypair.idCommitment.inHex)
     output.add(keyTuple)
 
     # insert the key to the Merkle tree
-    let inserted = rln.insertMember(keypair.get().idCommitment)
+    let inserted = rln.insertMember(keypair.idCommitment)
     if not inserted:
-      return (@[], "")
+      return err("could not insert the key into the Merkle tree")
 
 
   let root = rln.getMerkleRoot().value().inHex
-  return (output, root)
+  return ok((output, root))
 
-proc rlnRelayStaticSetUp*(rlnRelayMembershipIndex: MembershipIndex): (Option[seq[
+proc rlnRelayStaticSetUp*(rlnRelayMembershipIndex: MembershipIndex): RlnRelayResult[(Option[seq[
     IDCommitment]], Option[MembershipKeyPair], Option[
-    MembershipIndex]) {.raises: [Defect, ValueError].} =
+    MembershipIndex])] =
+  ## rlnRelayStaticSetUp is a proc that is used to initialize the static group keys and the static membership index
+  ## this proc is used to test waku-rln-relay in the off-chain mode
+  ## it returns the static group keys, the static membership key pair, and the static membership index
+  ## Returns an error if it cannot initialize the static group keys and the static membership index
   let
     # static group
     groupKeys = StaticGroupKeys
@@ -691,12 +718,19 @@ proc rlnRelayStaticSetUp*(rlnRelayMembershipIndex: MembershipIndex): (Option[seq
   if rlnRelayMembershipIndex < MembershipIndex(0) or rlnRelayMembershipIndex >=
       MembershipIndex(groupSize):
     error "wrong membership index"
-    return(none(seq[IDCommitment]), none(MembershipKeyPair), none(MembershipIndex))
+    return ok((none(seq[IDCommitment]), none(MembershipKeyPair), none(MembershipIndex)))
 
   # prepare the outputs from the static group keys
   let
     # create a sequence of MembershipKeyPairs from the group keys (group keys are in string format)
-    groupKeyPairs = groupKeys.toMembershipKeyPairs()
+    groupKeyPairsRes = groupKeys.toMembershipKeyPairs()
+
+  if groupKeyPairsRes.isErr():
+    return err("could not convert the group keys to MembershipKeyPairs: " &
+        groupKeyPairsRes.error())
+
+  let
+    groupKeyPairs = groupKeyPairsRes.get()
     # extract id commitment keys
     groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
     groupOpt = some(groupIDCommitments)
@@ -704,13 +738,13 @@ proc rlnRelayStaticSetUp*(rlnRelayMembershipIndex: MembershipIndex): (Option[seq
     memKeyPairOpt = some(groupKeyPairs[rlnRelayMembershipIndex])
     memIndexOpt = some(rlnRelayMembershipIndex)
 
-  return (groupOpt, memKeyPairOpt, memIndexOpt)
+  return ok((groupOpt, memKeyPairOpt, memIndexOpt))
 
 proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): RlnRelayResult[bool] =
   ## returns true if there is another message in the  `nullifierLog` of the `rlnPeer` with the same
   ## epoch and nullifier as `msg`'s epoch and nullifier but different Shamir secret shares
   ## otherwise, returns false
-  ## emits an error string if `KeyError` occurs (never happens, it is just to avoid raising unnecessary `KeyError` exception )
+  ## Returns an error if it cannot check for duplicates
 
   # extract the proof metadata of the supplied `msg`
   let proofMD = ProofMetadata(nullifier: msg.proof.nullifier,
@@ -742,6 +776,7 @@ proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): RlnRelayResult[bool
 proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): RlnRelayResult[bool] =
   ## extracts  the `ProofMetadata` of the supplied messages `msg` and
   ## saves it in the `nullifierLog` of the `rlnPeer`
+  ## Returns an error if it cannot update the log
 
   let proofMD = ProofMetadata(nullifier: msg.proof.nullifier,
       shareX: msg.proof.shareX, shareY: msg.proof.shareY)
@@ -913,6 +948,7 @@ proc appendRLNProof*(rlnPeer: WakuRLNRelay, msg: var WakuMessage,
 
 proc addAll*(wakuRlnRelay: WakuRLNRelay, list: seq[IDCommitment]): RlnRelayResult[void] =
   # add members to the Merkle tree of the  `rlnInstance`
+  ## Returns an error if it cannot add any member to the Merkle tree
   for i in 0..list.len-1:
     let member = list[i]
     let memberAdded = wakuRlnRelay.insertMember(member)
@@ -920,14 +956,14 @@ proc addAll*(wakuRlnRelay: WakuRLNRelay, list: seq[IDCommitment]): RlnRelayResul
       return err(memberAdded.error())
   return ok()
 
-type GroupUpdateHandler* = proc(pubkey: Uint256, index: Uint256): RlnRelayResult[void] {.gcsafe, raises: [Defect].}
+type GroupUpdateHandler* = proc(pubkey: Uint256, index: Uint256): RlnRelayResult[void] {.gcsafe.}
 
 proc generateGroupUpdateHandler(rlnPeer: WakuRLNRelay): GroupUpdateHandler =
   ## assuming all the members arrive in order
   ## TODO: check the index and the pubkey depending on
   ## the group update operation
   var handler: GroupUpdateHandler
-  handler = proc(pubkey: Uint256, index: Uint256): RlnRelayResult[void] {.raises: [Defect].} =
+  handler = proc(pubkey: Uint256, index: Uint256): RlnRelayResult[void] =
     var pk: IDCommitment
     try:
       pk = pubkey.toIDCommitment()
@@ -959,7 +995,11 @@ proc subscribeToMemberRegistrations(web3: Web3,
 
   let onMemberRegistered = proc (pubkey: Uint256, index: Uint256) {.gcsafe.} =
     debug "onRegister", pubkey = pubkey, index = index
-    let groupUpdateRes = handler(pubkey, index)
+    var groupUpdateRes: RlnRelayResult[void]
+    try:
+      groupUpdateRes = handler(pubkey, index)
+    except Exception as err:
+      error "failed to handle group update", err = err.msg
     if groupUpdateRes.isErr():
       error "Error handling new member registration", err=groupUpdateRes.error()
 
@@ -1065,32 +1105,32 @@ proc mountRlnRelayStatic*(node: WakuNode,
                     memIndex: MembershipIndex,
                     pubsubTopic: string,
                     contentTopic: ContentTopic,
-                    spamHandler: Option[SpamHandler] = none(SpamHandler)) {.raises: [Defect, IOError].}=
-  # TODO return a bool value to indicate the success of the call
+                    spamHandler: Option[SpamHandler] = none(SpamHandler)): RlnRelayResult[void] =
+  # Returns RlnRelayResult[void] to indicate the success of the call
 
   debug "mounting rln-relay in off-chain/static mode"
   # check whether inputs are provided
   # relay protocol is the prerequisite of rln-relay
-  if node.wakuRelay.isNil:
-    error "WakuRelay protocol is not mounted."
-    return
+  if node.wakuRelay.isNil():
+    return err("WakuRelay protocol is not mounted")
   # check whether the pubsub topic is supported at the relay level
   if pubsubTopic notin node.wakuRelay.defaultTopics:
-    error "The relay protocol does not support the configured pubsub topic.", pubsubTopic=pubsubTopic
-    return
+    return err("The relay protocol does not support the configured pubsub topic")
 
   debug "rln-relay input validation passed"
 
   # check the peer's index and the inclusion of user's identity commitment in the group
-  doAssert((memKeyPair.idCommitment)  == group[int(memIndex)])
+  if not memKeyPair.idCommitment  == group[int(memIndex)]:
+    return err("The peer's index is not consistent with the group")
 
   # create an RLN instance
-  var rlnInstance = createRLNInstance()
-  doAssert(rlnInstance.isOk)
-  var rln = rlnInstance.value
+  let rlnInstance = createRLNInstance()
+  if rlnInstance.isErr():
+    return err("RLN instance creation failed")
+  let rln = rlnInstance.get()
 
   # create the WakuRLNRelay
-  var rlnPeer = WakuRLNRelay(membershipKeyPair: memKeyPair,
+  let rlnPeer = WakuRLNRelay(membershipKeyPair: memKeyPair,
     membershipIndex: memIndex,
     rlnInstance: rln, 
     pubsubTopic: pubsubTopic,
@@ -1100,7 +1140,8 @@ proc mountRlnRelayStatic*(node: WakuNode,
   for index in 0..group.len-1:
     let member = group[index]
     let memberAdded = rlnPeer.insertMember(member)
-    doAssert(memberAdded.isOk())
+    if memberAdded.isErr():
+      return err("member addition to the Merkle tree failed: " & memberAdded.error())
 
   # adds a topic validator for the supplied pubsub topic at the relay protocol
   # messages published on this pubsub topic will be relayed upon a successful validation, otherwise they will be dropped
@@ -1108,7 +1149,8 @@ proc mountRlnRelayStatic*(node: WakuNode,
   node.addRLNRelayValidator(pubsubTopic, contentTopic, spamHandler)
   debug "rln relay topic validator is mounted successfully", pubsubTopic=pubsubTopic, contentTopic=contentTopic
 
-  node.wakuRlnRelay = rlnPeer    
+  node.wakuRlnRelay = rlnPeer
+  return ok()  
 
 proc mountRlnRelayDynamic*(node: WakuNode,
                     ethClientAddr: string = "",
@@ -1120,23 +1162,23 @@ proc mountRlnRelayDynamic*(node: WakuNode,
                     pubsubTopic: string,
                     contentTopic: ContentTopic,
                     spamHandler: Option[SpamHandler] = none(SpamHandler),
-                    registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)) : Future[RlnRelayResult[bool]] {.async.} =
+                    registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)) : Future[RlnRelayResult[void]] {.async.} =
   debug "mounting rln-relay in on-chain/dynamic mode"
   # TODO return a bool value to indicate the success of the call
   # relay protocol is the prerequisite of rln-relay
   if node.wakuRelay.isNil:
-    error "WakuRelay protocol is not mounted."
     return err("WakuRelay protocol is not mounted.")
   # check whether the pubsub topic is supported at the relay level
   if pubsubTopic notin node.wakuRelay.defaultTopics:
-    error "Wakurelay protocol does not support the configured pubsub topic.", pubsubTopic=pubsubTopic
     return err("WakuRelay protocol does not support the configured pubsub topic.")
   debug "rln-relay input validation passed"
 
   # create an RLN instance
-  var rlnInstance = createRLNInstance()
-  doAssert(rlnInstance.isOk)
-  var rln = rlnInstance.value
+  let rlnInstance = createRLNInstance()
+
+  if rlnInstance.isErr():
+    return err("RLN instance creation failed.")
+  let rln = rlnInstance.get()
 
   # prepare rln membership key pair
   var 
@@ -1145,12 +1187,19 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   if memKeyPair.isNone: # no rln credentials provided
     if ethAccountPrivKeyOpt.isSome: # if an ethereum private key is supplied, then create rln credentials and register to the membership contract
       trace "no rln-relay key is provided, generating one"
-      let keyPairOpt = rln.membershipKeyGen()
-      doAssert(keyPairOpt.isSome)
-      keyPair = keyPairOpt.get()
+      let keyPairRes = rln.membershipKeyGen()
+      if keyPairRes.isErr():
+        error "failed to generate rln-relay key pair"
+        return err("failed to generate rln-relay key pair: " & keyPairRes.error())
+      keyPair = keyPairRes.value()
       # register the rln-relay peer to the membership contract
       waku_rln_registration_duration_seconds.nanosecondTime:
-        let regIndexRes = await register(idComm = keyPair.idCommitment, ethAccountAddress = ethAccountAddress, ethAccountPrivKey = ethAccountPrivKeyOpt.get(), ethClientAddress = ethClientAddr, membershipContractAddress = memContractAddr, registrationHandler = registrationHandler)
+        let regIndexRes = await register(idComm = keyPair.idCommitment, 
+                                         ethAccountAddress = ethAccountAddress, 
+                                         ethAccountPrivKey = ethAccountPrivKeyOpt.get(), 
+                                         ethClientAddress = ethClientAddr, 
+                                         membershipContractAddress = memContractAddr, 
+                                         registrationHandler = registrationHandler)
       # check whether registration is done
       if regIndexRes.isErr():
         debug "membership registration failed", err=regIndexRes.error()
@@ -1184,9 +1233,12 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   debug "rln relay topic validator is mounted successfully", pubsubTopic=pubsubTopic, contentTopic=contentTopic
 
   node.wakuRlnRelay = rlnPeer
-  return ok(true)
+  return ok()
 
-proc writeRlnCredentials*(path: string, credentials: RlnMembershipCredentials, password: string): RlnRelayResult[void] =
+proc writeRlnCredentials*(path: string, 
+                          credentials: RlnMembershipCredentials, 
+                          password: string): RlnRelayResult[void] =
+  # Returns RlnRelayResult[void], which indicates the success of the call
   info "Storing RLN credentials"
   var jsonString: string
   jsonString.toUgly(%credentials)
@@ -1199,7 +1251,10 @@ proc writeRlnCredentials*(path: string, credentials: RlnMembershipCredentials, p
 
 # Attempts decryptions of all keyfiles with the provided password. 
 # If one or more credentials are successfully decrypted, the max(min(index,number_decrypted),0)-th is returned.
-proc readRlnCredentials*(path: string, password: string, index: int = 0): RlnRelayResult[Option[RlnMembershipCredentials]] =
+proc readRlnCredentials*(path: string, 
+                         password: string, 
+                         index: int = 0): RlnRelayResult[Option[RlnMembershipCredentials]] =
+  # Returns RlnRelayResult[Option[RlnMembershipCredentials]], which indicates the success of the call
   info "Reading RLN credentials"
   # With regards to printing the keys, it is purely for debugging purposes so that the user becomes explicitly aware of the current keys in use when nwaku is started.
   # Note that this is only until the RLN contract being used is the one deployed on Goerli testnet.
@@ -1230,16 +1285,29 @@ proc mount(node: WakuNode,
            conf: WakuNodeConf|Chat2Conf,
            spamHandler: Option[SpamHandler] = none(SpamHandler),
            registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)
-          ): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
+          ): Future[RlnRelayResult[void]] {.async.} =
+  # Returns RlnRelayResult[void], which indicates the success of the call
   if not conf.rlnRelayDynamic:
     info " setting up waku-rln-relay in off-chain mode... "
     # set up rln relay inputs
-    let (groupOpt, memKeyPairOpt, memIndexOpt) = rlnRelayStaticSetUp(MembershipIndex(conf.rlnRelayMembershipIndex))
+    let staticSetupRes = rlnRelayStaticSetUp(MembershipIndex(conf.rlnRelayMembershipIndex))
+    if staticSetupRes.isErr():
+      return err("rln relay static setup failed: " & staticSetupRes.error())
+    let (groupOpt, memKeyPairOpt, memIndexOpt) = staticSetupRes.get()
     if memIndexOpt.isNone:
       error "failed to mount WakuRLNRelay"
+      return err("failed to mount WakuRLNRelay")
     else:
       # mount rlnrelay in off-chain mode with a static group of users
-      node.mountRlnRelayStatic(group = groupOpt.get(), memKeyPair = memKeyPairOpt.get(), memIndex= memIndexOpt.get(), pubsubTopic = conf.rlnRelayPubsubTopic, contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler)
+      let mountRes = node.mountRlnRelayStatic(group = groupOpt.get(), 
+                               memKeyPair = memKeyPairOpt.get(),
+                               memIndex= memIndexOpt.get(), 
+                               pubsubTopic = conf.rlnRelayPubsubTopic,
+                               contentTopic = conf.rlnRelayContentTopic, 
+                               spamHandler = spamHandler)
+
+      if mountRes.isErr():
+        return err("Failed to mount WakuRLNRelay: " & mountRes.error())
 
       info "membership id key", idkey=memKeyPairOpt.get().idKey.inHex
       info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.inHex
@@ -1260,7 +1328,7 @@ proc mount(node: WakuNode,
         error "root mismatch: something went wrong not in Merkle tree construction"
       debug "the calculated root", root
       info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
-      return ok(true)
+      return ok()
   else: # mount the rln relay protocol in the on-chain/dynamic mode
     debug "setting up waku-rln-relay in on-chain mode... "
     
@@ -1268,17 +1336,27 @@ proc mount(node: WakuNode,
     # read related inputs to run rln-relay in on-chain mode and do type conversion when needed
     let 
       ethClientAddr = conf.rlnRelayEthClientAddress
+
+    var ethMemContractAddress: web3.Address
+    try:
       ethMemContractAddress = web3.fromHex(web3.Address, conf.rlnRelayEthContractAddress)
+    except ValueError as err:
+      return err("invalid eth contract address: " & err.msg)
     var ethAccountPrivKeyOpt = none(keys.PrivateKey)
     var ethAccountAddressOpt = none(Address)
     var credentials = none(RlnMembershipCredentials)
-    var res: RlnRelayResult[bool]
+    var res: RlnRelayResult[void]
 
     if conf.rlnRelayEthAccountPrivateKey != "":
       ethAccountPrivKeyOpt = some(keys.PrivateKey(SkSecretKey.fromHex(conf.rlnRelayEthAccountPrivateKey).value))
     
     if conf.rlnRelayEthAccountAddress != "":
-      ethAccountAddressOpt = some(web3.fromHex(web3.Address, conf.rlnRelayEthAccountAddress))
+      var ethAccountAddress: web3.Address
+      try:
+        ethAccountAddress = web3.fromHex(web3.Address, conf.rlnRelayEthAccountAddress)
+      except ValueError as err:
+        return err("invalid eth account address: " & err.msg)
+      ethAccountAddressOpt = some(ethAccountAddress)
     
     # if the rlnRelayCredPath config option is non-empty, then rln-relay credentials should be persisted
     # if the path does not contain any credential file, then a new set is generated and pesisted in the same path
@@ -1308,7 +1386,7 @@ proc mount(node: WakuNode,
         
       if credentials.isSome():
         # mount rln-relay in on-chain mode, with credentials that were read or generated
-        res = waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, 
+        res = await node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, 
                                                 ethClientAddr = ethClientAddr,
                                                 ethAccountAddress = ethAccountAddressOpt, 
                                                 ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, 
@@ -1320,7 +1398,7 @@ proc mount(node: WakuNode,
                                                 memIndex = some(credentials.get().rlnIndex))  
       else:
         # mount rln-relay in on-chain mode, with the provided private key 
-        res = waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, 
+        res = await node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, 
                                                 ethClientAddr = ethClientAddr,
                                                 ethAccountAddress = ethAccountAddressOpt, 
                                                 ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, 
@@ -1340,26 +1418,28 @@ proc mount(node: WakuNode,
       # do not persist or use a persisted rln-relay credential
       # a new credential will be generated during the mount process but will not be persisted
       info "no need to persist or use a persisted rln-relay credential"
-      res = waitFor node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr,
+      res = await node.mountRlnRelayDynamic(memContractAddr = ethMemContractAddress, ethClientAddr = ethClientAddr,
                 ethAccountAddress = ethAccountAddressOpt, ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, pubsubTopic = conf.rlnRelayPubsubTopic,
                 contentTopic = conf.rlnRelayContentTopic, spamHandler = spamHandler, registrationHandler = registrationHandler)
       
     if res.isErr():
-        return err("dynamic rln-relay could not be mounted: " & res.error())
-    return ok(res.value())
+      return err("dynamic rln-relay could not be mounted: " & res.error())
+    return ok()
 
 
 proc mountRlnRelay*(node: WakuNode,
                     conf: WakuNodeConf|Chat2Conf,
                     spamHandler: Option[SpamHandler] = none(SpamHandler),
                     registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)
-                   ): RlnRelayResult[bool] {.raises: [Defect, ValueError, IOError, CatchableError, Exception].} =
-  waku_rln_relay_mounting_duration_seconds.nanosecondTime:
-    let res = mount(
+                   ): Future[RlnRelayResult[void]] {.async.} =
+  ## Mounts the rln-relay protocol on the node.
+  ## The rln-relay protocol can be mounted in two modes: on-chain and off-chain.
+  ## Returns an error if the rln-relay protocol could not be mounted.
+  waku_rln_relay_mounting_duration_seconds.nanosecondTime: 
+    let res = await mount(
       node,
       conf,
       spamHandler,
       registrationHandler
     )
-  
   return res
