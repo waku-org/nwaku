@@ -1,6 +1,5 @@
 import
-  std/[json,httpclient]
-import
+  std/[json,httpclient],
   chronicles,
   chronicles/topics_registry,
   chronos,

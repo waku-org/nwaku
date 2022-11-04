@@ -1,11 +1,12 @@
 import
   std/[json,tables,sequtils],
-  presto/[route, server],
-  chronos,
   chronicles,
   chronicles/topics_registry,
+  chronos,
   metrics,
   metrics/chronos_httpserver,
+  presto/route,
+  presto/server,
   stew/shims/net
 
 logScope:

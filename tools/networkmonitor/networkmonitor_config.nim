@@ -1,11 +1,10 @@
-# TODO fix imports
 import
-  confutils,
-  strutils,
-  chronos,
-  stew/shims/net,
+  std/strutils,
   chronicles,
-  chronicles/topics_registry
+  chronicles/topics_registry,
+  chronos,
+  confutils,
+  stew/shims/net
 
 type
   NetworkMonitorConf* = object

@@ -1,16 +1,16 @@
 import
-  confutils,
   std/[tables,strutils,times,sequtils,httpclient],
   chronicles,
   chronicles/topics_registry,
   chronos,
-  stew/shims/net,
-  presto/[route, server],
+  confutils,
+  eth/keys,
+  eth/p2p/discoveryv5/enr,
+  libp2p/crypto/crypto,
   metrics,
   metrics/chronos_httpserver,
-  libp2p/crypto/crypto,
-  eth/keys,
-  eth/p2p/discoveryv5/enr
+  presto/[route, server],
+  stew/shims/net
 
 import
   ../../waku/v2/node/discv5/waku_discv5,
