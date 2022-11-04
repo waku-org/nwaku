@@ -1,7 +1,6 @@
 {.push raises: [Defect].}
 
 import
-  stew/byteutils,
   chronicles,
   json_serialization,
   json_serialization/std/options,

@@ -1,18 +1,23 @@
 {.used.}
 
 import
-  std/[options, tables, sets],
-  testutils/unittests, chronos, chronicles,
+  std/options,
   stew/shims/net as stewNet,
+  testutils/unittests, 
+  chronos, 
+  chronicles,
   libp2p/switch,
   libp2p/protobuf/minprotobuf,
   libp2p/protocols/ping,
-  libp2p/stream/[bufferstream, connection],
-  libp2p/crypto/crypto,
-  libp2p/multistream,
+  libp2p/stream/bufferstream, 
+  libp2p/stream/connection,
+  libp2p/crypto/crypto
+import
   ../../waku/v2/node/waku_node,
   ../../waku/v2/utils/peers,
-  ../test_helpers, ./utils
+  ../test_helpers, 
+  ./utils
+
 
 procSuite "Waku Keepalive":
 

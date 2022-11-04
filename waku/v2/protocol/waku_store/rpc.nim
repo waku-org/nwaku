@@ -1,10 +1,8 @@
 {.push raises: [Defect].}
 
 import
-  nimcrypto/hash
-import
-  ../waku_message,
   ../../utils/time,
+  ../waku_message,
   ./pagination
 
 

@@ -1,13 +1,14 @@
 {.used.}
 
 import
-  std/[unittest, sets],
+  testutils/unittests,
   libp2p/crypto/crypto
 import
   ../../waku/common/sqlite,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/peer_manager/peer_store/waku_peer_storage,
   ../test_helpers
+
 
 suite "Peer Storage":
 

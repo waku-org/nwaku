@@ -1,9 +1,7 @@
 {.used.}
 
 import
-  std/options,
   testutils/unittests, 
-  chronicles,
   chronos, 
   libp2p/crypto/crypto
 import

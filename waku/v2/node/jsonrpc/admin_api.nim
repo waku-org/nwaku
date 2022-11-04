@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[options, sequtils, sets],
+  std/sequtils,
   chronicles,
   json_rpc/rpcserver,
   libp2p/[peerinfo, switch]

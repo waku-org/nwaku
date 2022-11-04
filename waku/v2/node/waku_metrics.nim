@@ -8,16 +8,14 @@ import
   metrics/chronos_httpserver
 import
   ../protocol/waku_filter/protocol_metrics as filter_metrics,
-  ../protocol/waku_store/protocol_metrics as store_metrics,
-  ../protocol/waku_lightpush/protocol_metrics as lightpush_metrics,
   ../protocol/waku_swap/waku_swap,
-  ../protocol/waku_peer_exchange,
   ../utils/collector,
   ./peer_manager/peer_manager,
   ./waku_node
 
 when defined(rln) or defined(rlnzerokit):
   import ../protocol/waku_rln_relay/waku_rln_relay_metrics
+
 
 const LogInterval = 30.seconds
 

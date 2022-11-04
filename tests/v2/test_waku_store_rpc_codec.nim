@@ -2,12 +2,9 @@
 
 import
   std/[options, times],
-  stew/byteutils,
-  testutils/unittests, 
-  chronos, 
-  chronicles
+  testutils/unittests,
+  chronos
 import
-  ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/utils/time,
   ./testlib/common

@@ -3,10 +3,13 @@
 import 
   std/typetraits,
   stew/results,
+  stew/byteutils,
   chronicles,
   serialization,
   json_serialization,
-  json_serialization/std/[options, net, sets],
+  json_serialization/std/options,
+  json_serialization/std/net,
+  json_serialization/std/sets,
   presto/common
 
 logScope: 

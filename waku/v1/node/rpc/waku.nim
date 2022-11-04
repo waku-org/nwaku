@@ -1,6 +1,6 @@
 import
   json_rpc/rpcserver, tables, options, sequtils,
-  eth/[common, rlp, keys, p2p],
+  eth/[common, keys, p2p],
   nimcrypto/[sysrand, hmac, sha2, pbkdf2],
   rpc_types, hexstrings, key_storage,
   ../../protocol/waku_protocol

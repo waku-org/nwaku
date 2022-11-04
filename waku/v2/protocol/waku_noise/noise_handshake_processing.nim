@@ -4,14 +4,12 @@
 
 {.push raises: [Defect].}
 
-import std/[oids, options, strutils, tables]
+import std/[options, strutils, tables]
 import chronos
 import chronicles
 import bearssl/rand
-import stew/[results, endians2]
-import nimcrypto/[utils, sha2, hmac]
+import stew/results
 
-import libp2p/errors
 import libp2p/crypto/[chacha20poly1305, curve25519]
 
 import ./noise_types

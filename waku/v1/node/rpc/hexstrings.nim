@@ -25,7 +25,7 @@
 ]#
 
 import
-  stint, stew/byteutils, eth/[keys, rlp], eth/common/eth_types,
+  stint, stew/byteutils, eth/keys, eth/common/eth_types,
   ../../protocol/waku_protocol
 
 type

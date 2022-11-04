@@ -3,10 +3,10 @@
 import
   std/sequtils,
   stew/byteutils,
-  stew/shims/net as stewNet, 
+  stew/shims/net as stewNet,
   testutils/unittests,
-  chronicles, 
-  chronos, 
+  chronicles,
+  chronos,
   libp2p/crypto/crypto,
   libp2p/peerid,
   libp2p/multiaddress,
@@ -15,12 +15,12 @@ import
   libp2p/protocols/pubsub/pubsub,
   eth/keys
 import
-  ../../waku/v2/protocol/waku_rln_relay/[waku_rln_relay_utils,
-        waku_rln_relay_types,
-        waku_rln_relay_constants],
-  ../../waku/v2/protocol/[waku_relay, waku_message],
-  ../../waku/v2/utils/peers,
-  ../../waku/v2/node/waku_node
+  ../../waku/v2/node/waku_node,
+  ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_utils,
+  ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_types,
+  ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_constants,
+  ../../waku/v2/utils/peers
 
 from std/times import epochTime
 

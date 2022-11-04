@@ -1,14 +1,16 @@
 {.push raises: [Defect].}
 
 import
-  std/[tables, deques],
-  options, chronos, stint,
+  std/[options, tables, deques],
+  stew/arrayops,
+  chronos, 
+  stint,
   web3,
   eth/keys,
-  libp2p/protobuf/minprotobuf,
-  stew/arrayops,
-  waku_rln_relay_constants,
+  libp2p/protobuf/minprotobuf
+import
   ../../utils/protobuf
+
 
 type RlnRelayResult*[T] = Result[T, string]
 
