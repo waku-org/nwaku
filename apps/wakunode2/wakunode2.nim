@@ -363,7 +363,7 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
   when defined(rln) or defined(rlnzerokit): 
     if conf.rlnRelay:
       try: 
-        let res = node.mountRlnRelay(conf)
+        let res = await node.mountRlnRelay(conf)
         if res.isErr():
           return err("failed to mount waku RLN relay protocol: " & res.error)
       except:

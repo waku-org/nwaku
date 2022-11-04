@@ -10,19 +10,19 @@ import
   waku_rln_relay_constants,
   ../../utils/protobuf
 
+type RlnRelayResult*[T] = Result[T, string]
+
 when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
   ## Bn256 and RLN are Nim wrappers for the data types used in
   ## the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
   type Bn256* = pointer
   type RLN*[E] = pointer
-  type RLNResult* = Result[RLN[Bn256], string]
+  type RLNResult* = RlnRelayResult[RLN[Bn256]]
 
 when defined(rlnzerokit):
   ## RLN is a Nim wrapper for the data types used in zerokit RLN
   type RLN* {.incompleteStruct.} = object
-  type RLNResult* = Result[ptr RLN, string]
-
-type RlnRelayResult*[T] = Result[T, string]
+  type RLNResult* = RlnRelayResult[ptr RLN]
 
 type
   # identity key as defined in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
