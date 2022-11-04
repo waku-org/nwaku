@@ -18,7 +18,7 @@ import
   ./config
 
 logScope:
-  topics = "wakunode.setup.rpc"
+  topics = "wakunode jsonrpc"
 
 
 proc startRpcServer*(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port, conf: WakuNodeConf)

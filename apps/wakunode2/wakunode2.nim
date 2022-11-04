@@ -22,10 +22,11 @@ import
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_peer_exchange,
   ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/node/peer_manager/peer_store/waku_peer_storage,
+  ../../waku/v2/node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
   ../../waku/v2/node/dnsdisc/waku_dnsdisc,
   ../../waku/v2/node/discv5/waku_discv5,
   ../../waku/v2/node/storage/migration,
-  ../../waku/v2/node/storage/peer/waku_peer_storage,
   ../../waku/v2/node/storage/message/waku_store_queue,
   ../../waku/v2/node/storage/message/sqlite_store,
   ../../waku/v2/node/storage/message/message_retention_policy,
@@ -114,7 +115,7 @@ const PeerPersistenceDbUrl = "sqlite://peers.db"
 proc setupPeerStorage(): SetupResult[Option[WakuPeerStorage]] =
   let db = ?setupDatabaseConnection(PeerPersistenceDbUrl)
   
-  ?performDbMigration(db.get(), migrationPath=MessageStoreMigrationPath)
+  ?peer_store_sqlite_migrations.migrate(db.get())
 
   let res = WakuPeerStorage.new(db.get())
   if res.isErr():

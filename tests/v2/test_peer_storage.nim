@@ -6,7 +6,7 @@ import
 import
   ../../waku/common/sqlite,
   ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/node/storage/peer/waku_peer_storage,
+  ../../waku/v2/node/peer_manager/peer_store/waku_peer_storage,
   ../test_helpers
 
 suite "Peer Storage":
