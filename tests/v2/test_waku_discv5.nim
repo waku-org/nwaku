@@ -101,7 +101,7 @@ procSuite "Waku Discovery v5":
     # Let's see if we can deliver a message end-to-end
     # var completionFut = newFuture[bool]()
     # proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-    #   let msg = WakuMessage.init(data)
+    #   let msg = WakuMessage.decode(data)
     #   if msg.isOk():
     #     let val = msg.value()
     #     check:

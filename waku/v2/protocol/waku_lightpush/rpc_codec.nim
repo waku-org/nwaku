@@ -7,8 +7,8 @@ else:
 import
   libp2p/protobuf/minprotobuf
 import
-  ../waku_message,
   ../../utils/protobuf,
+  ../waku_message,
   ./rpc
 
 
@@ -16,16 +16,16 @@ const MaxRpcSize* = MaxWakuMessageSize + 64 * 1024 # We add a 64kB safety buffer
 
 
 proc encode*(rpc: PushRequest): ProtoBuffer =
-  var output = initProtoBuffer()
-  output.write3(1, rpc.pubSubTopic)
-  output.write3(2, rpc.message.encode())
-  output.finish3()
+  var pb = initProtoBuffer()
 
-  return output
+  pb.write3(1, rpc.pubSubTopic)
+  pb.write3(2, rpc.message.encode())
+  pb.finish3()
 
-proc init*(T: type PushRequest, buffer: seq[byte]): ProtoResult[T] =
+  pb
+
+proc decode*(T: type PushRequest, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
-
   var rpc = PushRequest()
 
   var pubSubTopic: string
@@ -34,22 +34,22 @@ proc init*(T: type PushRequest, buffer: seq[byte]): ProtoResult[T] =
 
   var buf: seq[byte]
   discard ?pb.getField(2, buf)
-  rpc.message = ?WakuMessage.init(buf)
+  rpc.message = ?WakuMessage.decode(buf)
 
-  return ok(rpc)
+  ok(rpc)
 
 
 proc encode*(rpc: PushResponse): ProtoBuffer =
-  var output = initProtoBuffer()
-  output.write3(1, uint64(rpc.isSuccess))
-  output.write3(2, rpc.info)
-  output.finish3()
+  var pb = initProtoBuffer()
 
-  return output
+  pb.write3(1, uint64(rpc.isSuccess))
+  pb.write3(2, rpc.info)
+  pb.finish3()
 
-proc init*(T: type PushResponse, buffer: seq[byte]): ProtoResult[T] =
+  pb
+
+proc decode*(T: type PushResponse, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
-
   var rpc = PushResponse(isSuccess: false, info: "")
 
   var isSuccess: uint64
@@ -60,21 +60,21 @@ proc init*(T: type PushResponse, buffer: seq[byte]): ProtoResult[T] =
   discard ?pb.getField(2, info)
   rpc.info = info
 
-  return ok(rpc)
+  ok(rpc)
 
 
 proc encode*(rpc: PushRPC): ProtoBuffer =
-  var output = initProtoBuffer()
-  output.write3(1, rpc.requestId)
-  output.write3(2, rpc.request.encode())
-  output.write3(3, rpc.response.encode())
-  output.finish3()
+  var pb = initProtoBuffer()
+  
+  pb.write3(1, rpc.requestId)
+  pb.write3(2, rpc.request.encode())
+  pb.write3(3, rpc.response.encode())
+  pb.finish3()
 
-  return output
+  pb
 
-proc init*(T: type PushRPC, buffer: seq[byte]): ProtoResult[T] =
+proc decode*(T: type PushRPC, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
-
   var rpc = PushRPC()
 
   var requestId: string
@@ -83,10 +83,10 @@ proc init*(T: type PushRPC, buffer: seq[byte]): ProtoResult[T] =
 
   var requestBuffer: seq[byte]
   discard ?pb.getField(2, requestBuffer)
-  rpc.request = ?PushRequest.init(requestBuffer)
+  rpc.request = ?PushRequest.decode(requestBuffer)
 
   var pushBuffer: seq[byte]
   discard ?pb.getField(3, pushBuffer)
-  rpc.response = ?PushResponse.init(pushBuffer)
+  rpc.response = ?PushResponse.decode(pushBuffer)
 
-  return ok(rpc)
+  ok(rpc)

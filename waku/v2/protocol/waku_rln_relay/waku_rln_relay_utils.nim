@@ -1062,7 +1062,7 @@ proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string, contentTopic: Co
   ## the message validation logic is according to https://rfc.vac.dev/spec/17/
   proc validator(topic: string, message: messages.Message): Future[pubsub.ValidationResult] {.async.} =
     trace "rln-relay topic validator is called"
-    let msg = WakuMessage.init(message.data) 
+    let msg = WakuMessage.decode(message.data) 
     if msg.isOk():
       let 
         wakumessage = msg.value()
