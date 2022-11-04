@@ -81,16 +81,9 @@ task sim2, "Build Waku v2 simulation tools":
   buildBinary "start_network2", "tools/simulation/", "-d:chronicles_log_level=TRACE"
 
 task example2, "Build Waku v2 example":
-  let name = "basic2"
-  buildBinary name, "examples/v2/", "-d:chronicles_log_level=DEBUG"
-
-task publisher, "Build Waku v2 publisher example":
-  let name = "publisher"
-  buildBinary name, "examples/v2/publisher/", "-d:chronicles_log_level=DEBUG"
-
-task subscriber, "Build Waku v2 subscriber example":
-  let name = "subscriber"
-  buildBinary name, "examples/v2/subscriber/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "basic2", "examples/v2/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "publisher", "examples/v2/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "subscriber", "examples/v2/", "-d:chronicles_log_level=DEBUG"
 
 task scripts2, "Build Waku v2 scripts":
   buildBinary "rpc_publish", "tools/scripts/", "-d:chronicles_log_level=DEBUG"

@@ -13,14 +13,15 @@ Within `examples/v2` you can find a `publisher` and a `subscriber`. The first on
 * Note that both services wait for some time until a given minimum amount of connections are reached. This is to ensure messages are gossiped.
 
 **Compile:**
+
+Make all examples.
 ```console
-make publisher
-make subscriber
+make example2
 ```
 
 **Run:**
 
-Wait until the subscriber is ready
+Wait until the subscriber is ready.
 ```console
 ./build/subscriber
 ```

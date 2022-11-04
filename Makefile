@@ -140,14 +140,6 @@ example1: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim example1 $(NIM_PARAMS) waku.nims
 
-publisher: | build deps
-	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim publisher $(NIM_PARAMS) waku.nims
-
-subscriber: | build deps
-	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim subscriber $(NIM_PARAMS) waku.nims
-
 test1: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test1 $(NIM_PARAMS) waku.nims
