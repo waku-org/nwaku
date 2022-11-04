@@ -49,7 +49,7 @@ COPY --from=nim-build /app/vendor/zerokit/target/release/librln.so vendor/zeroki
 COPY --from=nim-build /app/vendor/zerokit/rln/resources/ vendor/zerokit/rln/resources/
 
 # Copy migration scripts for DB upgrades
-COPY --from=nim-build /app/waku/v2/node/storage/migration/migrations_scripts/ /app/waku/v2/node/storage/migration/migrations_scripts/
+COPY --from=nim-build /app/migrations/ /app/migrations/
 
 # Symlink the correct wakunode binary
 RUN ln -sv /usr/local/bin/$MAKE_TARGET /usr/bin/wakunode
