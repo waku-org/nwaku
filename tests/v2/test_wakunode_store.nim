@@ -14,8 +14,8 @@ import
   libp2p/protocols/pubsub/gossipsub
 import
   ../../waku/common/sqlite,
-  ../../waku/v2/node/storage/message/sqlite_store,
-  ../../waku/v2/node/storage/message/waku_store_queue,
+  ../../waku/v2/node/message_store/sqlite_store,
+  ../../waku/v2/node/message_store/waku_store_queue,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_filter,

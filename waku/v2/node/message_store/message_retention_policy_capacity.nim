@@ -7,7 +7,7 @@ import
   stew/results,
   chronicles
 import
-  ../../../protocol/waku_store/message_store,
+  ../../protocol/waku_store/message_store,
   ./message_retention_policy
 
 logScope:
