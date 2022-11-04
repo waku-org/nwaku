@@ -1,3 +1,8 @@
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
+  
 import
   std/[json,httpclient],
   chronicles,
@@ -14,9 +19,10 @@ type
     isp*: string
 
 proc flatten*[T](a: seq[seq[T]]): seq[T] =
-  result = @[]
+  var aFlat = newSeq[T](0)
   for subseq in a:
-    result &= subseq
+    aFlat &= subseq
+  return aFlat
 
 # using an external api retrieves some data associated with the ip
 # TODO: use a cache

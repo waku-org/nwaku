@@ -1,3 +1,8 @@
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
+
 import
   std/[tables,strutils,times,sequtils,httpclient],
   chronicles,
@@ -32,6 +37,7 @@ proc setDiscoveredPeersCapabilities(
     info "capabilities as per ENR waku flag", capability=capability, amount=nOfNodesWithCapability
     peer_type_as_per_enr.set(int64(nOfNodesWithCapability), labelValues = [$capability])
 
+# TODO: Split in discover, connect, populate ips
 proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
                               node: WakuNode,
                               timeout: chronos.Duration,
@@ -132,7 +138,43 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
     peer_user_agents.set(int64(countOfUserAgent), labelValues = [userAgent])
     info "user agents participating in the network", userAgent=userAgent, count=countOfUserAgent
 
-proc main() {.async.} = 
+
+# TODO: Split in discovery, connections, and ip2location
+# crawls the network discovering peers and trying to connect to them
+# metrics are processed and exposed
+proc crawlNetwork(node: WakuNode,
+                  conf: NetworkMonitorConf,
+                  client: HttpClient,
+                  allPeersRef: CustomPeersTableRef) {.async.} = 
+
+  let crawlInterval = conf.refreshInterval * 1000 * 60
+  while true:
+    # discover new random nodes
+    let discoveredNodes = await node.wakuDiscv5.protocol.queryRandom()
+
+    # nodes are nested into bucket, flat it
+    let flatNodes = node.wakuDiscv5.protocol.routingTable.buckets.mapIt(it.nodes).flatten()
+
+    # populate metrics related to capabilities as advertised by the ENR (see waku field)
+    setDiscoveredPeersCapabilities(flatNodes)
+
+    # tries to connect to all newly discovered nodes
+    # and populates metrics related to peers we could connect
+    # note random discovered nodes can be already known
+    await setConnectedPeersMetrics(discoveredNodes, node, conf.timeout, client, allPeersRef)
+
+    let totalNodes = flatNodes.len
+    let seenNodes = flatNodes.countIt(it.seen)
+
+    info "discovered nodes: ", total=totalNodes, seen=seenNodes
+
+    # Notes:
+    # we dont run ipMajorityLoop
+    # we dont run revalidateLoop
+
+    await sleepAsync(crawlInterval)
+
+proc main() = 
   let conf: NetworkMonitorConf = NetworkMonitorConf.load()
 
   info "cli flags", conf=conf
@@ -200,31 +242,9 @@ proc main() {.async.} =
   let restServer = sres.get()
   restServer.start()
 
-  while true:
-    # discover new random nodes
-    let discoveredNodes = await d.queryRandom()
-
-    # nodes are nested into bucket, flat it
-    let flatNodes = d.routingTable.buckets.mapIt(it.nodes).flatten()
-
-    # populate metrics related to capabilities as advertised by the ENR (see waku field)
-    setDiscoveredPeersCapabilities(flatNodes)
-
-    # tries to connect to all newly discovered nodes
-    # and populates metrics related to peers we could connect
-    # note random discovered nodes can be already known
-    await setConnectedPeersMetrics(discoveredNodes, node, conf.timeout, client, allPeersRef)
-
-    let totalNodes = flatNodes.len
-    let seenNodes = flatNodes.countIt(it.seen)
-
-    info "discovered nodes: ", total=totalNodes, seen=seenNodes
-
-    # Notes:
-    # we dont run ipMajorityLoop
-    # we dont run revalidateLoop
-
-    await sleepAsync(conf.refreshInterval * 1000 * 60)
+  # spawn the routine that crawls the network
+  asyncSpawn crawlNetwork(node, conf, client, allPeersRef)
 
 when isMainModule:
-  waitFor main()
+  main()
+  runForever()
