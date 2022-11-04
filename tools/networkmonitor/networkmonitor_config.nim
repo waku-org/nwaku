@@ -1,8 +1,3 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
-  
 import
   std/strutils,
   chronicles,
@@ -64,20 +59,20 @@ type
       name: "metrics-rest-port" }: uint16
     
 
-proc parseCmdArg*(T: type ValidIpAddress, p: TaintedString): T =
+proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
   try:
     result = ValidIpAddress.init(p)
   except CatchableError as e:
     raise newException(ConfigurationError, "Invalid IP address")
 
-proc completeCmdArg*(T: type ValidIpAddress, val: TaintedString): seq[string] =
+proc completeCmdArg*(T: type ValidIpAddress, val: string): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type chronos.Duration, p: TaintedString): T =
+proc parseCmdArg*(T: type chronos.Duration, p: string): T =
   try:
-      result = chronos.seconds(parseInt(p))
+    result = chronos.seconds(parseInt(p))
   except CatchableError as e:
     raise newException(ConfigurationError, "Invalid timeout value")
 
-proc completeCmdArg*(T: type chronos.Duration, val: TaintedString): seq[string] =
+proc completeCmdArg*(T: type chronos.Duration, val: string): seq[string] =
   return @[]

@@ -144,10 +144,10 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
 # metrics are processed and exposed
 proc crawlNetwork(node: WakuNode,
                   conf: NetworkMonitorConf,
-                  client: HttpClient,
                   allPeersRef: CustomPeersTableRef) {.async.} = 
 
   let crawlInterval = conf.refreshInterval * 1000 * 60
+  let client = newHttpClient()
   while true:
     # discover new random nodes
     let discoveredNodes = await node.wakuDiscv5.protocol.queryRandom()
@@ -174,77 +174,79 @@ proc crawlNetwork(node: WakuNode,
 
     await sleepAsync(crawlInterval)
 
-proc main() = 
-  let conf: NetworkMonitorConf = NetworkMonitorConf.load()
+proc initAndStartNode(conf: NetworkMonitorConf): Result[WakuNode, string] = 
+  let
+    # some hardcoded parameters
+    rng = keys.newRng()
+    nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+    nodeTcpPort = Port(60000)
+    nodeUdpPort = Port(9000)
+    flags = initWakuFlags(lightpush = false, filter = false, store = false, relay = true)
+  
+  try:
+    let
+      bindIp = ValidIpAddress.init("0.0.0.0")
+      extIp = ValidIpAddress.init("127.0.0.1")
+      node = WakuNode.new(nodeKey, bindIp, nodeTcpPort)
 
+    # mount discv5
+    node.wakuDiscv5 = WakuDiscoveryV5.new(
+        some(extIp), some(nodeTcpPort), some(nodeUdpPort),
+        bindIp, nodeUdpPort, conf.bootstrapNodes, false,
+        keys.PrivateKey(nodeKey.skkey), flags, [], node.rng)
+
+    node.wakuDiscv5.protocol.open()
+    return ok(node)
+  except:
+    error("could not start node")
+
+proc startRestApiServer(conf: NetworkMonitorConf,
+                        allPeersRef: CustomPeersTableRef): Result[void, string] =
+  try:
+    let serverAddress = initTAddress(conf.metricsRestAddress & ":" & $conf.metricsRestPort)
+    proc validate(pattern: string, value: string): int =
+      if pattern.startsWith("{") and pattern.endsWith("}"): 0
+      else: 1
+    var router = RestRouter.init(validate)
+    router.installHandler(allPeersRef)
+    var sres = RestServerRef.new(router, serverAddress)
+    let restServer = sres.get()
+    restServer.start()
+  except:
+    error("could not start rest api server")
+  ok()
+
+when isMainModule:
+  # known issue: confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
+  {.pop.}
+  let conf = NetworkMonitorConf.load()
   info "cli flags", conf=conf
-
-  # TODO: Run sanity checks on cli flags, i.e. bootstrap nodes
 
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
 
+  # list of peers that we have discovered/connected
+  var allPeersRef = CustomPeersTableRef()
+
+  # start metrics server
   if conf.metricsServer:
     startMetricsServer(
       conf.metricsServerAddress,
       Port(conf.metricsServerPort))
 
-  let client = newHttpClient()
+  # start rest server for custom metrics
+  let res = startRestApiServer(conf, allPeersRef)
+  if res.isErr:
+    error "could not start rest api server", err=res.error
 
-  let
-    rng = keys.newRng()
-    bindIp = ValidIpAddress.init("0.0.0.0")
-    extIp = ValidIpAddress.init("127.0.0.1")
-    nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-    nodeTcpPort1 = Port(60000)
-    nodeUdpPort1 = Port(9000)
-    node = WakuNode.new(
-      nodeKey1,
-      bindIp,
-      nodeTcpPort1)
-    
-    # TODO: Propose refactor removing initWakuFlags
-    flags = initWakuFlags(lightpush = false,
-                          filter = false,
-                          store = false,
-                          relay = true)
-
-  # TODO: use other discovery mechanisms: i.e. dns
-  
-  # mount discv5
-  node.wakuDiscv5 = WakuDiscoveryV5.new(
-      some(extIp), some(nodeTcpPort1), some(nodeUdpPort1),
-      bindIp,
-      nodeUdpPort1,
-      conf.bootstrapNodes,
-      false,
-      keys.PrivateKey(nodeKey1.skkey),
-      flags,
-      [],
-      node.rng
-    )
-
-  let d = node.wakuDiscv5.protocol
-  d.open()
-
-  # list of peers that we have discovered/connected
-  var allPeersRef = CustomPeersTableRef()
-
-  let serverAddress = initTAddress(conf.metricsRestAddress & ":" & $conf.metricsRestPort)
-  proc validate(pattern: string, value: string): int =
-    if pattern.startsWith("{") and pattern.endsWith("}"): 0
-    else: 1
-  var router = RestRouter.init(validate)
-  router.installHandler(allPeersRef)
-
-  # rest server for custom metrics
-  var sres = RestServerRef.new(router, serverAddress)
-  let restServer = sres.get()
-  restServer.start()
+  # start waku node
+  let node = initAndStartNode(conf)
+  if node.isErr:
+    error "could not start node"
+    quit 1
 
   # spawn the routine that crawls the network
-  asyncSpawn crawlNetwork(node, conf, client, allPeersRef)
-
-when isMainModule:
-  main()
+  # TODO: split into 3 routines (discovery, connections, ip2location)
+  asyncSpawn crawlNetwork(node.get(), conf, allPeersRef)
+  
   runForever()

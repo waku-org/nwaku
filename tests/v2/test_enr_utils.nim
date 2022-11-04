@@ -1,10 +1,10 @@
 {.used.}
 
 import
-  testutils/unittests,
   std/[options,sequtils],
-  stew/byteutils,
   chronos,
+  stew/byteutils,
+  testutils/unittests,
   ../../waku/v2/utils/wakuenr,
   ../test_helpers
 
