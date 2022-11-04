@@ -5,6 +5,7 @@ import
   std/[os,options],
   confutils, chronicles, chronos,
   stew/shims/net as stewNet,
+  stew/byteutils,
   libp2p/crypto/[crypto,secp],
   eth/keys,
   json_rpc/[rpcclient, rpcserver],
@@ -29,7 +30,7 @@ proc runBackground() {.async.} =
   await node.mountRelay()
 
   # Subscribe to a topic
-  let topic = cast[PubsubTopic]("foobar")
+  let topic = PubsubTopic("foobar")
   proc handler(topic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
     let message = WakuMessage.init(data).value
     let payload = cast[string](message.payload)
@@ -37,7 +38,7 @@ proc runBackground() {.async.} =
   node.subscribe(topic, handler)
 
   # Publish to a topic
-  let payload = cast[seq[byte]]("hello world")
+  let payload = toBytes("hello world")
   let message = WakuMessage(payload: payload, contentTopic: ContentTopic("/waku/2/default-content/proto"))
   await node.publish(topic, message)
 

@@ -81,8 +81,9 @@ task sim2, "Build Waku v2 simulation tools":
   buildBinary "start_network2", "tools/simulation/", "-d:chronicles_log_level=TRACE"
 
 task example2, "Build Waku v2 example":
-  let name = "basic2"
-  buildBinary name, "examples/v2/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "basic2", "examples/v2/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "publisher", "examples/v2/", "-d:chronicles_log_level=DEBUG"
+  buildBinary "subscriber", "examples/v2/", "-d:chronicles_log_level=DEBUG"
 
 task scripts2, "Build Waku v2 scripts":
   buildBinary "rpc_publish", "tools/scripts/", "-d:chronicles_log_level=DEBUG"
@@ -102,7 +103,6 @@ task chat2, "Build example Waku v2 chat usage":
 task chat2bridge, "Build chat2bridge":
   let name = "chat2bridge"
   buildBinary name, "apps/chat2bridge/", "-d:chronicles_log_level=TRACE"
-
 
 ### Waku Tooling
 task wakucanary, "Build waku-canary tool":
