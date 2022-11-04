@@ -9,8 +9,8 @@ import
   chronicles,
   chronos
 import
-  ../../../protocol/waku_store/message_store,
-  ../../../utils/time,
+  ../../protocol/waku_store/message_store,
+  ../../utils/time,
   ./message_retention_policy
 
 logScope:

@@ -28,12 +28,12 @@ import
   ../../waku/v2/node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
   ../../waku/v2/node/dnsdisc/waku_dnsdisc,
   ../../waku/v2/node/discv5/waku_discv5,
-  ../../waku/v2/node/storage/migration,
-  ../../waku/v2/node/storage/message/waku_store_queue,
-  ../../waku/v2/node/storage/message/sqlite_store,
-  ../../waku/v2/node/storage/message/message_retention_policy,
-  ../../waku/v2/node/storage/message/message_retention_policy_capacity,
-  ../../waku/v2/node/storage/message/message_retention_policy_time,
+  ../../waku/v2/node/message_store/sqlite_store/migrations as message_store_sqlite_migrations,
+  ../../waku/v2/node/message_store/waku_store_queue,
+  ../../waku/v2/node/message_store/sqlite_store,
+  ../../waku/v2/node/message_store/message_retention_policy,
+  ../../waku/v2/node/message_store/message_retention_policy_capacity,
+  ../../waku/v2/node/message_store/message_retention_policy_time,
   ../../waku/v2/node/wakuswitch, 
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/waku_metrics,
@@ -103,15 +103,6 @@ proc performSqliteVacuum(db: SqliteDatabase): SetupResult[void] =
     return err("failed to execute vacuum: " & resVacuum.error)
 
   debug "finished sqlite database vacuuming"
-
-proc performDbMigration(db: SqliteDatabase, migrationPath: string): SetupResult[void] =
-  ## Run migration scripts on persistent storage
-  debug "starting sqlite database migration"
-  let migrationRes = db.migrate(migrationPath)
-  if migrationRes.isErr():
-    return err("failed to execute migration scripts: " & migrationRes.error)
-
-  debug "finished sqlite database migration"
 
 
 const PeerPersistenceDbUrl = "sqlite://peers.db"
@@ -189,7 +180,7 @@ proc setupMessageStorage(dbUrl: string, vacuum: bool, migrate: bool): SetupResul
 
   # Database migration
     if migrate:
-      ?performDbMigration(db.get(), migrationPath=MessageStoreMigrationPath)
+      ?message_store_sqlite_migrations.migrate(db.get())
 
   # TODO: Extract capacity from `messageRetentionPolicy`
   return setupMessagesStore(db, storeCapacity=high(int))

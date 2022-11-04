@@ -18,8 +18,8 @@ import
   libp2p/stream/connection,
   metrics
 import
-  ../../node/storage/message/message_retention_policy,
-  ../../node/storage/message/waku_store_queue,
+  ../../node/message_store/message_retention_policy,
+  ../../node/message_store/waku_store_queue,
   ../../node/peer_manager/peer_manager,
   ../../utils/time,
   ../waku_message,

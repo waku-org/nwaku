@@ -6,9 +6,9 @@ import
   chronos
 import
   ../../waku/common/sqlite,
-  ../../waku/v2/node/storage/message/sqlite_store,
-  ../../waku/v2/node/storage/message/message_retention_policy,
-  ../../waku/v2/node/storage/message/message_retention_policy_capacity,
+  ../../waku/v2/node/message_store/sqlite_store,
+  ../../waku/v2/node/message_store/message_retention_policy,
+  ../../waku/v2/node/message_store/message_retention_policy_capacity,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store/pagination,
   ../../waku/v2/utils/time,

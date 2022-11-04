@@ -7,7 +7,7 @@ import
   libp2p/crypto/crypto
 import
   ../../waku/common/sqlite,
-  ../../waku/v2/node/storage/message/sqlite_store,
+  ../../waku/v2/node/message_store/sqlite_store,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
