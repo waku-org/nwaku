@@ -15,7 +15,7 @@ import
 import
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_swap/waku_swap,
-  ../../waku/v2/node/storage/message/waku_store_queue,
+  ../../waku/v2/node/message_store/waku_store_queue,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/utils/peers,
   ../test_helpers, 
