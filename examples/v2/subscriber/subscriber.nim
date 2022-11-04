@@ -1,10 +1,11 @@
 import
-  confutils,
-  std/[tables,sequtils],
+  std/[tables, sequtils],
+  stew/byteutils,
+  stew/shims/net,
   chronicles,
   chronicles/topics_registry,
   chronos,
-  stew/shims/net,
+  confutils,
   libp2p/crypto/crypto,
   eth/keys,
   eth/p2p/discoveryv5/enr
@@ -12,9 +13,9 @@ import
 import
   ../../../waku/v2/node/discv5/waku_discv5,
   ../../../waku/v2/node/peer_manager/peer_manager,
-  ../../../waku/v2/utils/wakuenr,
   ../../../waku/v2/node/waku_node,
-  ../../../waku/v2/protocol/waku_message
+  ../../../waku/v2/protocol/waku_message,
+  ../../../waku/v2/utils/wakuenr
 
 # An accesible bootstrap node. See wakuv2.prod fleets.status.im
 const bootstrapNodes = @["enr:-Nm4QOdTOKZJKTUUZ4O_W932CXIET-M9NamewDnL78P5u9DOGnZlK0JFZ4k0inkfe6iY-0JAaJVovZXc575VV3njeiABgmlkgnY0gmlwhAjS3ueKbXVsdGlhZGRyc7g6ADg2MW5vZGUtMDEuYWMtY24taG9uZ2tvbmctYy53YWt1djIucHJvZC5zdGF0dXNpbS5uZXQGH0DeA4lzZWNwMjU2azGhAo0C-VvfgHiXrxZi3umDiooXMGY9FvYj5_d1Q4EeS7eyg3RjcIJ2X4N1ZHCCIyiFd2FrdTIP"]
@@ -35,9 +36,16 @@ proc setupAndSubscribe() {.async.} =
 
     # assumes behind a firewall, so not care about being discoverable
     node.wakuDiscv5 = WakuDiscoveryV5.new(
-        none(ValidIpAddress), none(Port), none(Port),
-        ip, Port(discv5Port), bootstrapNodes, false,
-        keys.PrivateKey(nodeKey.skkey), flags, [], node.rng)
+        extIp= none(ValidIpAddress),
+        extTcpPort = none(Port),
+        extUdpPort = none(Port),
+        bindIP = ip,
+        discv5UdpPort = Port(discv5Port),
+        bootstrapNodes = bootstrapNodes,
+        privateKey = keys.PrivateKey(nodeKey.skkey),
+        flags = flags,
+        enrFields = [],
+        rng = node.rng)
 
     await node.start()
     await node.mountRelay()
@@ -56,18 +64,21 @@ proc setupAndSubscribe() {.async.} =
 
     # Make sure it matches the publisher. Use default value
     # see spec: https://rfc.vac.dev/spec/23/
-    let pubSubTopic = cast[PubsubTopic]("/waku/2/default-waku/proto")
+    let pubSubTopic = PubsubTopic("/waku/2/default-waku/proto")
 
     # any content topic can be chosen. make sure it matches the publisher
-    let contentTopic = ContentTopic("/waku/2/pubsub-exampe/proto")
+    let contentTopic = ContentTopic("/examples/1/pubsub-example/proto")
 
-    proc handler(topic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
+    proc handler(pubsubTopic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
       let message = WakuMessage.init(data).value
-      let payload = cast[string](message.payload)
+      let payloadStr = string.fromBytes(message.payload)
       if message.contentTopic == contentTopic:
-        notice "message received", payload=payload, topic=topic, contentTopic=message.contentTopic, timestamp=message.timestamp
+        notice "message received", payload=payloadStr,
+                                   pubsubTopic=pubsubTopic,
+                                   contentTopic=message.contentTopic,
+                                   timestamp=message.timestamp
     node.subscribe(pubSubTopic, handler)
 
-discard setupAndSubscribe()
+asyncSpawn setupAndSubscribe()
 
 runForever()

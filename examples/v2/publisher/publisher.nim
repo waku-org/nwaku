@@ -1,10 +1,11 @@
 import
-  confutils,
   std/[tables,times,sequtils],
+  stew/byteutils,
+  stew/shims/net,
   chronicles,
   chronicles/topics_registry,
   chronos,
-  stew/shims/net,
+  confutils,
   libp2p/crypto/crypto,
   eth/keys,
   eth/p2p/discoveryv5/enr
@@ -12,10 +13,10 @@ import
 import
   ../../../waku/v2/node/discv5/waku_discv5,
   ../../../waku/v2/node/peer_manager/peer_manager,
-  ../../../waku/v2/utils/wakuenr,
   ../../../waku/v2/node/waku_node,
   ../../../waku/v2/protocol/waku_message,
-  ../../../waku/v2/utils/time
+  ../../../waku/v2/utils/time,
+  ../../../waku/v2/utils/wakuenr
 
 proc now*(): Timestamp =
   getNanosecondTime(getTime().toUnixFloat())
@@ -39,9 +40,16 @@ proc setupAndPublish() {.async.} =
     
     # assumes behind a firewall, so not care about being discoverable
     node.wakuDiscv5 = WakuDiscoveryV5.new(
-        none(ValidIpAddress), none(Port), none(Port),
-        ip, Port(discv5Port), bootstrapNodes, false,
-        keys.PrivateKey(nodeKey.skkey), flags, [], node.rng)
+        extIp= none(ValidIpAddress),
+        extTcpPort = none(Port),
+        extUdpPort = none(Port),
+        bindIP = ip,
+        discv5UdpPort = Port(discv5Port),
+        bootstrapNodes = bootstrapNodes,
+        privateKey = keys.PrivateKey(nodeKey.skkey),
+        flags = flags,
+        enrFields = [],
+        rng = node.rng)
 
     await node.start()
     await node.mountRelay()
@@ -60,15 +68,15 @@ proc setupAndPublish() {.async.} =
 
     # Make sure it matches the publisher. Use default value
     # see spec: https://rfc.vac.dev/spec/23/
-    let pubSubTopic = cast[PubsubTopic]("/waku/2/default-waku/proto")
+    let pubSubTopic = PubsubTopic("/waku/2/default-waku/proto")
 
     # any content topic can be chosen
-    let contentTopic = ContentTopic("/waku/2/pubsub-exampe/proto")
+    let contentTopic = ContentTopic("/examples/1/pubsub-example/proto")
 
     notice "publisher service started"
     while true:
       let text = "hi there i'm a publisher"
-      let message = WakuMessage(payload: cast[seq[byte]](text), # content of the message
+      let message = WakuMessage(payload: toBytes(text), # content of the message
                                 contentTopic: contentTopic,     # content topic to publish to
                                 ephemeral: true,                # tell store nodes to not store it
                                 timestamp: now())               # current timestamp
@@ -76,5 +84,5 @@ proc setupAndPublish() {.async.} =
       notice "published message", text = text, timestamp = message.timestamp, psTopic = pubSubTopic, contentTopic = contentTopic
       await sleepAsync(5000)
 
-discard setupAndPublish()
+asyncSpawn setupAndPublish()
 runForever()
