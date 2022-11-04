@@ -1,11 +1,9 @@
 {.used.}
 
 import
-  std/[options, tables, sets, sequtils],
-  stew/byteutils,
+  std/[options, sequtils],
   testutils/unittests, 
   chronos, 
-  chronicles,
   libp2p/crypto/crypto
 import
   ../../waku/common/sqlite,

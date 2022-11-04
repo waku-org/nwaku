@@ -1,7 +1,10 @@
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
-  std/[options, sequtils, sets],
+  std/sequtils,
   chronicles,
   json_rpc/rpcserver,
   libp2p/[peerinfo, switch]

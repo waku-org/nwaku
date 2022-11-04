@@ -1,11 +1,14 @@
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
   confutils, chronos, json_rpc/rpcserver, 
   metrics, metrics/chronicles_support, metrics/chronos_httpserver,
   stew/shims/net as stewNet,
-  eth/[keys, p2p], eth/common/utils,
-  eth/p2p/[discovery, enode, peer_pool, bootnodes],
+  eth/[keys, p2p],
+  eth/p2p/[enode, peer_pool],
   ../../whisper/[whispernodes, whisper_protocol],
   ../protocol/[waku_protocol, waku_bridge],
   ../../common/utils/nat,

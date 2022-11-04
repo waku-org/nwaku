@@ -2,19 +2,22 @@
 {.used.}
 
 import
-  std/[options, os, sequtils, times, deques],
-  testutils/unittests, chronos, chronicles, stint,
-  stew/byteutils, stew/shims/net as stewNet,
-  libp2p/crypto/crypto,
-  json
+  std/[options, os, sequtils, times],
+  stew/byteutils, 
+  stew/shims/net as stewNet,
+  testutils/unittests, 
+  chronos, 
+  chronicles, 
+  stint,
+  libp2p/crypto/crypto
 import
-  ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_rln_relay/[rln, 
-      waku_rln_relay_utils,
-      waku_rln_relay_types,
-      waku_rln_relay_constants,
-      waku_rln_relay_metrics],
   ../../waku/v2/node/waku_node,
+  ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/protocol/waku_rln_relay/rln, 
+  ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_utils,
+  ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_types,
+  ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_constants,
+  ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_metrics,
   ../test_helpers
 
 const RlnRelayPubsubTopic = "waku/2/rlnrelay/proto"

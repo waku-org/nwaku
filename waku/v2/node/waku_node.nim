@@ -1,4 +1,7 @@
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
   std/[hashes, options, tables, strutils, sequtils, os],
@@ -11,19 +14,23 @@ import
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
   libp2p/protocols/ping,
-  libp2p/protocols/pubsub/[gossipsub, rpc/messages],
+  libp2p/protocols/pubsub/gossipsub,
+  libp2p/protocols/pubsub/rpc/messages,
   libp2p/nameresolving/nameresolver,
-  libp2p/[builders, multihash],
-  libp2p/transports/[transport, tcptransport, wstransport]
+  libp2p/builders,
+  libp2p/multihash,
+  libp2p/transports/tcptransport,
+  libp2p/transports/wstransport
 import
-  ../protocol/[waku_relay, waku_message],
+  ../protocol/waku_message,
+  ../protocol/waku_relay,
   ../protocol/waku_store,
-  ../protocol/waku_store/client,
+  ../protocol/waku_store/client as store_client,
   ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter,
-  ../protocol/waku_filter/client,
+  ../protocol/waku_filter/client as filter_client,
   ../protocol/waku_lightpush,
-  ../protocol/waku_lightpush/client,
+  ../protocol/waku_lightpush/client as lightpush_client,
   ../protocol/waku_rln_relay/waku_rln_relay_types,
   ../protocol/waku_peer_exchange,
   ../utils/peers, 

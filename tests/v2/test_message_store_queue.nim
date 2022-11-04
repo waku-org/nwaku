@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[sequtils, strutils, algorithm],
+  std/[sequtils, algorithm],
   stew/results,
   testutils/unittests
 import

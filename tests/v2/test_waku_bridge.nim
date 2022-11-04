@@ -2,8 +2,10 @@
 
 import
   std/[sequtils, strutils, tables],
+  stew/byteutils, 
+  stew/shims/net as stewNet, 
   testutils/unittests,
-  chronicles, chronos, stew/shims/net as stewNet, stew/[byteutils, objects],
+  chronos, 
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/peerid,

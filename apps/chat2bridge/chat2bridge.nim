@@ -1,10 +1,13 @@
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
   std/[tables, times, strutils, hashes, sequtils],
   chronos, confutils, chronicles, chronicles/topics_registry, chronos/streams/tlsstream,
   metrics, metrics/chronos_httpserver,
-  stew/[byteutils, endians2],
+  stew/byteutils,
   stew/shims/net as stewNet, json_rpc/rpcserver,
   # Matterbridge client imports
   ../../waku/common/utils/matterbridge_client,

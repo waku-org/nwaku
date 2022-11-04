@@ -1,4 +1,7 @@
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
   std/[options, tables, strutils, sequtils, os],
@@ -9,18 +12,17 @@ import
   system/ansi_c,
   eth/keys,
   eth/p2p/discoveryv5/enr,
-  libp2p/[builders, multihash],
+  libp2p/builders,
+  libp2p/multihash,
   libp2p/crypto/crypto,
   libp2p/protocols/ping,
-  libp2p/protocols/pubsub/[gossipsub, rpc/messages],
-  libp2p/transports/[transport, wstransport],
+  libp2p/protocols/pubsub/gossipsub,
+  libp2p/protocols/pubsub/rpc/messages,
+  libp2p/transports/wstransport,
   libp2p/nameresolving/dnsresolver
 import
   ../../waku/common/sqlite,
   ../../waku/common/utils/nat,
-  ../../waku/v2/protocol/waku_store,
-  ../../waku/v2/protocol/waku_filter,
-  ../../waku/v2/protocol/waku_peer_exchange,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/peer_manager/peer_store/waku_peer_storage,
   ../../waku/v2/node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
@@ -35,6 +37,8 @@ import
   ../../waku/v2/node/wakuswitch, 
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/waku_metrics,
+  ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/protocol/waku_peer_exchange,
   ../../waku/v2/utils/peers,
   ../../waku/v2/utils/wakuenr,
   ./wakunode2_setup_rest,

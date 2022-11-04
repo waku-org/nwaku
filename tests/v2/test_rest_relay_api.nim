@@ -4,7 +4,6 @@ import
   std/sequtils,
   stew/byteutils,
   stew/shims/net,
-  chronicles,
   testutils/unittests,
   presto, presto/client as presto_client,
   libp2p/crypto/crypto,

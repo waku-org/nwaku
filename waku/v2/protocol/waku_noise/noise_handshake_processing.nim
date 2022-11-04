@@ -2,16 +2,17 @@
 ## See spec for more details:
 ## https://github.com/vacp2p/rfc/tree/master/content/docs/rfcs/35
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
-import std/[oids, options, strutils, tables]
+import std/[options, strutils, tables]
 import chronos
 import chronicles
 import bearssl/rand
-import stew/[results, endians2]
-import nimcrypto/[utils, sha2, hmac]
+import stew/results
 
-import libp2p/errors
 import libp2p/crypto/[chacha20poly1305, curve25519]
 
 import ./noise_types

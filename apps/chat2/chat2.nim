@@ -4,11 +4,14 @@
 when not(compileOption("threads")):
   {.fatal: "Please, compile this program with the --threads:on option!".}
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import std/[tables, strformat, strutils, times, json, options, random]
 import confutils, chronicles, chronos, stew/shims/net as stewNet,
-       eth/keys, bearssl, stew/[byteutils, endians2, results],
+       eth/keys, bearssl, stew/[byteutils, results],
        nimcrypto/pbkdf2
 import libp2p/[switch,                   # manage transports, a single entry point for dialing and listening
                crypto/crypto,            # cryptographic functions
@@ -17,10 +20,8 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                peerinfo,                 # manage the information of a peer, such as peer ID and public / private key
                peerid,                   # Implement how peers interact
                protobuf/minprotobuf,     # message serialisation/deserialisation from and to protobufs
-               protocols/protocol,       # define the protocol base type
                protocols/secure/secio,   # define the protocol of secure input / output, allows encrypted communication that uses public keys to validate signed messages instead of a certificate authority like in TLS
-               nameresolving/dnsresolver,# define DNS resolution
-               muxers/muxer]             # define an interface for stream multiplexing, allowing peers to offer many protocols over a single connection
+               nameresolving/dnsresolver]# define DNS resolution
 import   
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_lightpush,

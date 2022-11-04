@@ -1,7 +1,9 @@
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
-  stew/byteutils,
   chronicles,
   json_serialization,
   json_serialization/std/options,

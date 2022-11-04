@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, sequtils, algorithm],
+  std/[sequtils, algorithm],
   testutils/unittests, 
   nimcrypto/sha2,
   libp2p/protobuf/minprotobuf

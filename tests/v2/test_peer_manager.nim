@@ -1,11 +1,11 @@
 {.used.}
 
 import
-  std/[options, tables, sequtils],
+  std/[options, sequtils],
   stew/shims/net as stewNet,
-  chronicles,
   testutils/unittests,
-  json_rpc/[rpcserver, rpcclient],
+  json_rpc/rpcserver,
+  json_rpc/rpcclient,
   eth/keys,
   eth/common/eth_types,
   libp2p/[builders, switch, multiaddress],

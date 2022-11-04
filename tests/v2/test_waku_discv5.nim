@@ -1,15 +1,14 @@
 {.used.}
 
 import
-  std/tables,
-  chronicles,
   chronos,
   testutils/unittests,
   stew/byteutils,
   stew/shims/net,
   libp2p/crypto/crypto,
   eth/keys,
-  eth/p2p/discoveryv5/enr,
+  eth/p2p/discoveryv5/enr
+import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/node/discv5/waku_discv5,
   ../../waku/v2/node/waku_node,

@@ -1,20 +1,17 @@
 {.used.}
 
 import
-  testutils/unittests,
-  std/random,
-  std/strutils,
-  std/tables,
+  std/[random,tables],
   stew/byteutils,
+  testutils/unittests,
+  libp2p/protobuf/minprotobuf
+import
   ../../waku/v2/node/waku_payload,
   ../../waku/v2/protocol/waku_noise/noise_types,
   ../../waku/v2/protocol/waku_noise/noise_utils,
-  ../../waku/v2/protocol/waku_noise/noise,
   ../../waku/v2/protocol/waku_noise/noise_handshake_processing,
   ../../waku/v2/protocol/waku_message,
-  libp2p/protobuf/minprotobuf,
-  ../test_helpers,
-  stew/endians2
+  ../test_helpers
 
 procSuite "Waku Noise Sessions":
   

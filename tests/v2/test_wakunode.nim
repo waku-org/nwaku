@@ -1,8 +1,11 @@
 {.used.}
 
 import
+  stew/byteutils,
+  stew/shims/net as stewNet,
   testutils/unittests,
-  chronicles, chronos, stew/shims/net as stewNet, stew/byteutils, std/os,
+  chronicles, 
+  chronos, 
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/multiaddress,
@@ -10,11 +13,13 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub,
-  libp2p/nameresolving/mockresolver,
-  ../../waku/v2/protocol/[waku_relay, waku_message],
+  libp2p/nameresolving/mockresolver
+import
+  ../../waku/v2/node/waku_node,
   ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/utils/peers,
-  ../../waku/v2/node/waku_node
+  ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/protocol/waku_relay,
+  ../../waku/v2/utils/peers
 
 
 procSuite "WakuNode":

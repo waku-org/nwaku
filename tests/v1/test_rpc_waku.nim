@@ -3,7 +3,7 @@
 import
   std/[options, os, strutils],
   testutils/unittests, stew/byteutils, json_rpc/[rpcserver, rpcclient],
-  eth/common as eth_common, eth/[rlp, keys, p2p],
+  eth/common as eth_common, eth/[keys, p2p],
   ../../waku/v1/protocol/waku_protocol,
   ../../waku/v1/node/rpc/[hexstrings, rpc_types, waku, key_storage]
 
