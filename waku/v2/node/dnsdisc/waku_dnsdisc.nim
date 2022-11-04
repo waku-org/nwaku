@@ -1,4 +1,7 @@
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 ## A set of utilities to integrate EIP-1459 DNS-based discovery
 ## for Waku v2 nodes.
