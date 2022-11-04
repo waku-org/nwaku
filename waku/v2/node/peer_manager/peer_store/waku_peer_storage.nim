@@ -1,4 +1,8 @@
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
+  
 
 import
   std/sets, 
@@ -7,7 +11,7 @@ import
   libp2p/protobuf/minprotobuf
 import
   ../../../../common/sqlite,
-  ../../peer_manager/waku_peer_store,
+  ../waku_peer_store,
   ./peer_storage
 
 export sqlite
