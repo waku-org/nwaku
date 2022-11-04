@@ -8,10 +8,7 @@
 #            MIT license (LICENSE-MIT)
 #
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [Defect].}
 
 import
   eth/p2p,

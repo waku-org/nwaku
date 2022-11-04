@@ -29,10 +29,7 @@
 ## However, they only make real sense after ``connectToNetwork`` was started. As
 ## else there will be no peers to send and receive messages from.
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [Defect].}
 
 import
   std/[options, tables, times],

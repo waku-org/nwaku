@@ -21,10 +21,7 @@
 ## Things like settlement is for future work.
 ##
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [Defect].}
 
 # TODO Generally clean up errors here, a lot of Exceptions, Defects and KeyErros
 #

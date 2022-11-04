@@ -6,10 +6,7 @@
 ## For payload content and encryption, see waku/v2/node/waku_payload.nim
 
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [Defect].}
 
 import
   libp2p/protobuf/minprotobuf,

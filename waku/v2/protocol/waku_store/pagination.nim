@@ -1,8 +1,5 @@
 ## Contains types and utilities for pagination.
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [Defect].}
 
 import
   stew/byteutils,

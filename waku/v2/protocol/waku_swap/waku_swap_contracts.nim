@@ -3,10 +3,7 @@
 # Assumes swap-contracts-module node is running.
 #
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [Defect].}
 
 import
   std/[osproc, strutils, json],

@@ -1,10 +1,7 @@
 ## This module defines a message store interface. Implementations of
 ## MessageStore are used by the `WakuStore` protocol to store and 
 ## retrieve historical messages
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [Defect].}
 
 import
   std/[options, times],
