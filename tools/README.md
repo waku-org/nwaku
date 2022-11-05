@@ -3,6 +3,7 @@
 Attempts to dial a peer and asserts it supports a given set of protocols.
 
 ```console
+./build/wakucanary --help
 Usage:
 
 wakucanary [OPTIONS]...
@@ -14,6 +15,7 @@ The following options are available:
  -p, --protocol       Protocol required to be supported: store,relay,lightpush,filter (can be used
                       multiple times).
  -l, --log-level      Sets the log level [=LogLevel.DEBUG].
+ -np, --node-port      Listening port for waku node [=60000].
 ```
 
 The tool can be built as:
