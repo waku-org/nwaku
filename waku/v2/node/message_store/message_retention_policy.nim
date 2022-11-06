@@ -6,7 +6,7 @@ else:
 import
   stew/results
 import
-  ../../../protocol/waku_store/message_store
+  ../../protocol/waku_store/message_store
 
 type RetentionPolicyResult*[T] = Result[T, string]
 

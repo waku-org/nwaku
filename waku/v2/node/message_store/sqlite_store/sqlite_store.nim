@@ -10,11 +10,11 @@ import
   stew/[byteutils, results],
   chronicles
 import
-  ../../../../../common/sqlite,
-  ../../../../protocol/waku_message,
-  ../../../../protocol/waku_store/pagination,
-  ../../../../protocol/waku_store/message_store,
-  ../../../../utils/time,
+  ../../../../common/sqlite,
+  ../../../protocol/waku_message,
+  ../../../protocol/waku_store/pagination,
+  ../../../protocol/waku_store/message_store,
+  ../../../utils/time,
   ./queries
 
 logScope:

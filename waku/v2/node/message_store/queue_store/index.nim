@@ -7,9 +7,9 @@ import
   stew/byteutils,
   nimcrypto/sha2
 import
-  ../../../../protocol/waku_message,
-  ../../../../protocol/waku_store/pagination,
-  ../../../../utils/time
+  ../../../protocol/waku_message,
+  ../../../protocol/waku_store/pagination,
+  ../../../utils/time
 
 
 type Index* = object

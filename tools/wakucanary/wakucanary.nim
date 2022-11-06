@@ -50,6 +50,12 @@ type
       name: "log-level",
       abbr: "l" .}: LogLevel
 
+    nodePort* {.
+      desc: "Listening port for waku node",
+      defaultValue: 60000,
+      name: "node-port",
+      abbr: "np" }: uint16
+
 
 proc parseCmdArg*(T: type chronos.Duration, p: string): T =
   try:
@@ -112,7 +118,7 @@ proc main(): Future[int] {.async.} =
     node = WakuNode.new(
       nodeKey,
       ValidIpAddress.init("0.0.0.0"),
-      Port(60000),
+      Port(conf.nodePort),
       nameResolver = resolver)
 
   await node.start()

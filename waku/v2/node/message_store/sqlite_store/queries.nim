@@ -8,9 +8,9 @@ import
   stew/[results, byteutils],
   sqlite3_abi
 import
-  ../../../../../common/sqlite, 
-  ../../../../protocol/waku_message,
-  ../../../../utils/time
+  ../../../../common/sqlite, 
+  ../../../protocol/waku_message,
+  ../../../utils/time
 
 
 const DbTable = "Message"
