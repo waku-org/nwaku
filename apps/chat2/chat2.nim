@@ -484,7 +484,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
           echo &"{chatLine}"
         info "Hit store handler"
 
-      let queryRes = await node.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: chat.contentTopic)]))
+      let queryRes = await node.query(HistoryQuery(contentTopics: @[chat.contentTopic]))
       if queryRes.isOk():
         storeHandler(queryRes.value)
   

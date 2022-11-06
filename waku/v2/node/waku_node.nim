@@ -611,7 +611,7 @@ proc query*(node: WakuNode, query: HistoryQuery, peer: RemotePeerInfo): Future[W
 
   let queryRes = await node.wakuStoreClient.query(query, peer)
   if queryRes.isErr():
-    return err(queryRes.error)
+    return err($queryRes.error)
   
   let response = queryRes.get()
   

@@ -16,9 +16,8 @@ import
   ../../utils/time,
   ../waku_message,
   ../waku_swap/waku_swap,
-  ./protocol,
   ./protocol_metrics,
-  ./pagination,
+  ./common,
   ./rpc,
   ./rpc_codec,
   ./message_store
@@ -26,6 +25,10 @@ import
 
 logScope:
   topics = "waku store client"
+
+
+const 
+  DefaultPageSize*: uint64 = 20 # A recommended default number of waku messages per page
 
 
 type WakuStoreClient* = ref object
@@ -40,28 +43,45 @@ proc new*(T: type WakuStoreClient,
           store: MessageStore): T = 
   WakuStoreClient(peerManager: peerManager, rng: rng, store: store)
 
+proc sendHistoryQueryRPC(w: WakuStoreClient, req: HistoryQuery, peer: RemotePeerInfo): Future[HistoryResult] {.async, gcsafe.} =
 
-proc query*(w: WakuStoreClient, req: HistoryQuery, peer: RemotePeerInfo): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe.} =
   let connOpt = await w.peerManager.dialPeer(peer, WakuStoreCodec)
   if connOpt.isNone():
     waku_store_errors.inc(labelValues = [dialFailure])
-    return err(dialFailure)
+    return err(HistoryError(kind: HistoryErrorKind.PEER_DIAL_FAILURE, address: $peer))
+  
   let connection = connOpt.get()
 
-  let rpc = HistoryRPC(requestId: generateRequestId(w.rng), query: req)
-  await connection.writeLP(rpc.encode().buffer)
 
-  var message = await connection.readLp(MaxRpcSize.int)
-  let response = HistoryRPC.decode(message)
+  let reqRpc = HistoryRPC(requestId: generateRequestId(w.rng), query: req.toRPC())
+  await connection.writeLP(reqRpc.encode().buffer)
 
-  if response.isErr():
-    error "failed to decode response"
+
+  let buf = await connection.readLp(MaxRpcSize.int)
+  let respDecodeRes = HistoryRPC.decode(buf)
+  if respDecodeRes.isErr():
     waku_store_errors.inc(labelValues = [decodeRpcFailure])
-    return err(decodeRpcFailure)
+    return err(HistoryError(kind: HistoryErrorKind.BAD_RESPONSE, cause: decodeRpcFailure))
 
-  return ok(response.value.response)
+  let respRpc = respDecodeRes.get()
 
-proc queryWithPaging*(w: WakuStoreClient, query: HistoryQuery, peer: RemotePeerInfo): Future[WakuStoreResult[seq[WakuMessage]]] {.async, gcsafe.} =
+
+  # Disabled ,for now, since the default response is a possible case (no messages, pagesize = 0, error = NONE(0))
+  # TODO: Rework the RPC protocol to differentiate the default value from an empty value (e.g., status = 200 (OK))
+  #        and rework the protobuf parsing to return Option[T] when empty values are received
+  # if respRpc.response == default(HistoryResponseRPC):
+  #   waku_store_errors.inc(labelValues = [emptyRpcResponseFailure])
+  #   return err(HistoryError(kind: HistoryErrorKind.BAD_RESPONSE, cause: emptyRpcResponseFailure))
+
+  let resp = respRpc.response
+
+  return resp.toAPI()
+
+
+proc query*(w: WakuStoreClient, req: HistoryQuery, peer: RemotePeerInfo): Future[HistoryResult] {.async, gcsafe.} =
+  return await w.sendHistoryQueryRPC(req, peer)
+
+proc queryAll*(w: WakuStoreClient, query: HistoryQuery, peer: RemotePeerInfo): Future[WakuStoreResult[seq[WakuMessage]]] {.async, gcsafe.} =
   ## A thin wrapper for query. Sends the query to the given peer. when the  query has a valid pagingInfo, 
   ## it retrieves the historical messages in pages.
   ## Returns all the fetched messages, if error occurs, returns an error string
@@ -72,29 +92,34 @@ proc queryWithPaging*(w: WakuStoreClient, query: HistoryQuery, peer: RemotePeerI
   var messageList: seq[WakuMessage] = @[]
 
   while true:
-    let res = await w.query(req, peer)
-    if res.isErr(): 
-      return err(res.error)
+    let queryRes = await w.query(req, peer)
+    if queryRes.isErr(): 
+      return err($queryRes.error)
 
-    let response = res.get()
+    let response = queryRes.get()
 
     messageList.add(response.messages)
 
     # Check whether it is the last page
-    if response.pagingInfo == PagingInfo():
+    if response.cursor.isNone():
       break
 
     # Update paging cursor
-    req.pagingInfo.cursor = response.pagingInfo.cursor
+    req.cursor = response.cursor
 
   return ok(messageList)
 
-proc queryLoop*(w: WakuStoreClient, req: HistoryQuery, peers: seq[RemotePeerInfo]): Future[WakuStoreResult[seq[WakuMessage]]]  {.async, gcsafe.} = 
+
+## Resume store
+
+const StoreResumeTimeWindowOffset: Timestamp = getNanosecondTime(20)  ## Adjust the time window with an offset of 20 seconds
+
+proc queryLoop(w: WakuStoreClient, req: HistoryQuery, peers: seq[RemotePeerInfo]): Future[WakuStoreResult[seq[WakuMessage]]]  {.async, gcsafe.} = 
   ## Loops through the peers candidate list in order and sends the query to each
   ##
   ## Once all responses have been received, the retrieved messages are consolidated into one deduplicated list.
   ## if no messages have been retrieved, the returned future will resolve into a result holding an empty seq.
-  let queryFuturesList = peers.mapIt(w.queryWithPaging(req, it))
+  let queryFuturesList = peers.mapIt(w.queryAll(req, it))
 
   await allFutures(queryFuturesList)
 
@@ -114,10 +139,6 @@ proc queryLoop*(w: WakuStoreClient, req: HistoryQuery, peers: seq[RemotePeerInfo
     .deduplicate()
 
   return ok(messagesList)
-
-## Resume store
-
-const StoreResumeTimeWindowOffset: Timestamp = getNanosecondTime(20)  ## Adjust the time window with an offset of 20 seconds
 
 proc resume*(w: WakuStoreClient, 
              peerList = none(seq[RemotePeerInfo]), 
@@ -153,13 +174,11 @@ proc resume*(w: WakuStoreClient,
     queryStartTime = max(lastSeenTime - StoreResumeTimeWindowOffset, 0)
 
   let req = HistoryQuery(
-    pubsubTopic: pubsubTopic, 
-    startTime: queryStartTime, 
-    endTime: queryEndTime,
-    pagingInfo: PagingInfo(
-      direction:PagingDirection.FORWARD, 
-      pageSize: uint64(pageSize)
-    )
+    pubsubTopic: some(pubsubTopic),
+    startTime: some(queryStartTime), 
+    endTime: some(queryEndTime),
+    pageSize: uint64(pageSize),
+    ascending: true
   )
 
   var res: WakuStoreResult[seq[WakuMessage]]
@@ -177,7 +196,7 @@ proc resume*(w: WakuStoreClient,
       return err("no suitable remote peers")
 
     debug "a peer is selected from peer manager"
-    res = await w.queryWithPaging(req, peerOpt.get())
+    res = await w.queryAll(req, peerOpt.get())
 
   if res.isErr(): 
     debug "failed to resume the history"
