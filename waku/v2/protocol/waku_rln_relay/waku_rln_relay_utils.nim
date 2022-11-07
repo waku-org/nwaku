@@ -1053,7 +1053,7 @@ proc handleGroupUpdates*(rlnPeer: WakuRLNRelay) {.async, gcsafe.} =
                                handler = handler)
   
 
-proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: string, contentTopic: ContentTopic, spamHandler: Option[SpamHandler] = none(SpamHandler)) =
+proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopic: ContentTopic, spamHandler: Option[SpamHandler] = none(SpamHandler)) =
   ## this procedure is a thin wrapper for the pubsub addValidator method
   ## it sets a validator for the waku messages published on the supplied pubsubTopic and contentTopic 
   ## if contentTopic is empty, then validation takes place for All the messages published on the given pubsubTopic
@@ -1104,7 +1104,7 @@ proc mountRlnRelayStatic*(node: WakuNode,
                     group: seq[IDCommitment],
                     memKeyPair: MembershipKeyPair,
                     memIndex: MembershipIndex,
-                    pubsubTopic: string,
+                    pubsubTopic: PubsubTopic,
                     contentTopic: ContentTopic,
                     spamHandler: Option[SpamHandler] = none(SpamHandler)): RlnRelayResult[void] =
   # Returns RlnRelayResult[void] to indicate the success of the call
@@ -1160,7 +1160,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
                     memContractAddr:  web3.Address,
                     memKeyPair: Option[MembershipKeyPair] = none(MembershipKeyPair),
                     memIndex: Option[MembershipIndex] = none(MembershipIndex),
-                    pubsubTopic: string,
+                    pubsubTopic: PubsubTopic,
                     contentTopic: ContentTopic,
                     spamHandler: Option[SpamHandler] = none(SpamHandler),
                     registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)) : Future[RlnRelayResult[void]] {.async.} =

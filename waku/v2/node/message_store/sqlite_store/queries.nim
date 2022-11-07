@@ -17,7 +17,7 @@ const DbTable = "Message"
 
 type SqlQueryStr = string
 
-type DbCursor* = (Timestamp, seq[byte], string)
+type DbCursor* = (Timestamp, seq[byte], PubsubTopic)
 
 
 ### SQLite column helper methods
@@ -45,7 +45,7 @@ proc queryRowReceiverTimestampCallback(s: ptr sqlite3_stmt, storedAtCol: cint): 
   let storedAt = sqlite3_column_int64(s, storedAtCol)
   Timestamp(storedAt)
 
-proc queryRowPubsubTopicCallback(s: ptr sqlite3_stmt, pubsubTopicCol: cint): string =
+proc queryRowPubsubTopicCallback(s: ptr sqlite3_stmt, pubsubTopicCol: cint): PubsubTopic =
   let
     pubsubTopicPointer = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, pubsubTopicCol))
     pubsubTopicLength = sqlite3_column_bytes(s, pubsubTopicCol)
@@ -113,7 +113,7 @@ proc insertMessageQuery(table: string): SqlQueryStr =
   
 proc prepareInsertMessageStmt*(db: SqliteDatabase): SqliteStmt[InsertMessageParams, void] =
   let query = insertMessageQuery(DbTable)
-  db.prepareStmt( query, InsertMessageParams, void).expect("this is a valid statement")
+  db.prepareStmt(query, InsertMessageParams, void).expect("this is a valid statement")
 
 
 ## Count table messages
@@ -202,9 +202,9 @@ proc selectAllMessagesQuery(table: string): SqlQueryStr =
   " FROM " & table &
   " ORDER BY storedAt ASC"
 
-proc selectAllMessages*(db: SqliteDatabase): DatabaseResult[seq[(string, WakuMessage, seq[byte], Timestamp)]] =
+proc selectAllMessages*(db: SqliteDatabase): DatabaseResult[seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]] =
   ## Retrieve all messages from the store.
-  var rows: seq[(string, WakuMessage, seq[byte], Timestamp)]
+  var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]
   proc queryRowCallback(s: ptr sqlite3_stmt) =
     let
       pubsubTopic = queryRowPubsubTopicCallback(s, pubsubTopicCol=3)
@@ -247,7 +247,7 @@ proc cursorWhereClause(cursor: Option[DbCursor], ascending=true): Option[string]
   let whereClause = "(storedAt, id, pubsubTopic) " & comp & " (?, ?, ?)"
   some(whereClause)
 
-proc pubsubWhereClause(pubsubTopic: Option[string]): Option[string] =
+proc pubsubWhereClause(pubsubTopic: Option[PubsubTopic]): Option[string] =
   if pubsubTopic.isNone():
     return none(string)
 
@@ -303,7 +303,7 @@ proc prepareSelectMessagesWithlimitStmt(db: SqliteDatabase, stmt: string): Datab
 
 proc execSelectMessagesWithLimitStmt(s: SqliteStmt, 
                           contentTopic: Option[seq[ContentTopic]], 
-                          pubsubTopic: Option[string],
+                          pubsubTopic: Option[PubsubTopic],
                           cursor: Option[DbCursor],  
                           startTime: Option[Timestamp],
                           endTime: Option[Timestamp],
@@ -359,15 +359,15 @@ proc execSelectMessagesWithLimitStmt(s: SqliteStmt,
 
 proc selectMessagesByHistoryQueryWithLimit*(db: SqliteDatabase, 
                                             contentTopic: Option[seq[ContentTopic]], 
-                                            pubsubTopic: Option[string],
+                                            pubsubTopic: Option[PubsubTopic],
                                             cursor: Option[DbCursor],  
                                             startTime: Option[Timestamp],
                                             endTime: Option[Timestamp],
                                             limit: uint64, 
-                                            ascending: bool): DatabaseResult[seq[(string, WakuMessage, seq[byte], Timestamp)]] =
+                                            ascending: bool): DatabaseResult[seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]] =
   
    
-  var messages: seq[(string, WakuMessage, seq[byte], Timestamp)] = @[]
+  var messages: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)] = @[]
   proc queryRowCallback(s: ptr sqlite3_stmt) =
     let 
       pubsubTopic = queryRowPubsubTopicCallback(s, pubsubTopicCol=3)

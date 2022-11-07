@@ -56,7 +56,7 @@ suite "Waku Filter":
     let serverAddr = serverSwitch.peerInfo.toRemotePeerInfo()
     
     let pushHandlerFuture = newFuture[(string, WakuMessage)]()
-    proc pushHandler(pubsubTopic: string, message: WakuMessage) {.gcsafe, closure.} =
+    proc pushHandler(pubsubTopic: PubsubTopic, message: WakuMessage) {.gcsafe, closure.} =
       pushHandlerFuture.complete((pubsubTopic, message))
 
     let 
@@ -99,7 +99,7 @@ suite "Waku Filter":
     let serverAddr = serverSwitch.peerInfo.toRemotePeerInfo()
 
     var pushHandlerFuture = newFuture[void]()
-    proc pushHandler(pubsubTopic: string, message: WakuMessage) {.gcsafe, closure.} =
+    proc pushHandler(pubsubTopic: PubsubTopic, message: WakuMessage) {.gcsafe, closure.} =
       pushHandlerFuture.complete()
 
     let 
@@ -151,7 +151,7 @@ suite "Waku Filter":
     let serverAddr = serverSwitch.peerInfo.toRemotePeerInfo()
 
     var pushHandlerFuture = newFuture[void]()
-    proc pushHandler(pubsubTopic: string, message: WakuMessage) {.gcsafe, closure.} =
+    proc pushHandler(pubsubTopic: PubsubTopic, message: WakuMessage) {.gcsafe, closure.} =
       pushHandlerFuture.complete()
 
     let 
@@ -216,7 +216,7 @@ suite "Waku Filter":
     let serverAddr = serverSwitch.peerInfo.toRemotePeerInfo()
 
     var pushHandlerFuture = newFuture[void]()
-    proc pushHandler(pubsubTopic: string, message: WakuMessage) {.gcsafe, closure.} =
+    proc pushHandler(pubsubTopic: PubsubTopic, message: WakuMessage) {.gcsafe, closure.} =
       pushHandlerFuture.complete()
 
     let 

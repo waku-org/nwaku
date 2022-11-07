@@ -19,7 +19,7 @@ type Index* = object
   receiverTime*: Timestamp
   digest*: MessageDigest # calculated over payload and content topic
 
-proc compute*(T: type Index, msg: WakuMessage, receivedTime: Timestamp, pubsubTopic: string): T =
+proc compute*(T: type Index, msg: WakuMessage, receivedTime: Timestamp, pubsubTopic: PubsubTopic): T =
   ## Takes a WakuMessage with received timestamp and returns its Index.
   let
     digest = computeDigest(msg)

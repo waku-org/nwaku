@@ -122,7 +122,7 @@ const StoreResumeTimeWindowOffset: Timestamp = getNanosecondTime(20)  ## Adjust 
 proc resume*(w: WakuStoreClient, 
              peerList = none(seq[RemotePeerInfo]), 
              pageSize = DefaultPageSize,
-             pubsubTopic = DefaultTopic): Future[WakuStoreResult[uint64]] {.async, gcsafe.} =
+             pubsubTopic = DefaultPubsubTopic): Future[WakuStoreResult[uint64]] {.async, gcsafe.} =
   ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku store node has been online 
   ## messages are stored in the store node's messages field and in the message db
   ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message 
