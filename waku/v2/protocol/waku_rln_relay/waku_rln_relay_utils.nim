@@ -558,18 +558,23 @@ when defined(rlnzerokit):
                       index: MembershipIndex,
                       idComms: seq[IDCommitment]): bool =
     ## Insert multiple members atomically
+    ## returns true if the insertion is successful
+    ## returns false if the insertion fails
 
     # convert seq[IDCommitment] to seq[byte]
-    let len = toBytes(uint64(idComms.len), Endianness.littleEndian)
     var idCommsBytes: seq[byte] = @[]
+
+    # serialize the idComms, with its length prefixed
+    let len = toBytes(uint64(idComms.len), Endianness.littleEndian)
     idCommsBytes.add(len)
+
     for idComm in idComms:
       idCommsBytes = concat(idCommsBytes, @idComm)
     
     var idCommsBuffer = idCommsBytes.toBuffer()
     let idCommsBufferPtr = addr idCommsBuffer
     # add the member to the tree
-    let membersAdded = set_leaves_from(rlnInstance, index, idCommsBufferPtr)
+    let membersAdded = setLeavesFrom(rlnInstance, index, idCommsBufferPtr)
     return membersAdded
 
   proc removeMember*(rlnInstance: ptr RLN, index: MembershipIndex): bool =
