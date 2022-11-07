@@ -1021,7 +1021,8 @@ proc subscribeToGroupEvents*(ethClientUri: string,
   ## for every received event, it calls the `handler`
   let web3 = await newWeb3(ethClientUri)
   let contract = web3.contractSender(MembershipContract, contractAddress)
-  let historicalEvents = await contract.getJsonLogs(MemberRegistered, fromBlock=some(0.uint64.blockId()))
+  let historicalEvents = await contract.getJsonLogs(MemberRegistered,
+                                                    fromBlock=some(0.uint64.blockId()))
   var blockTable = Table[string, seq[MembershipTuple]]()
   for log in historicalEvents:
     # batch according to log.blockNumber
@@ -1044,20 +1045,25 @@ proc subscribeToGroupEvents*(ethClientUri: string,
     if res.isErr():
       error "failed to update the Merkle tree", error=res.error()
 
+  # We don't need the block table after this point
+  discard blockTable
+
   var latestBlock: Quantity
   let handleLog = proc(blockHeader: BlockHeader) {.async, gcsafe.} = 
     try:
       let membershipRegistrationLogs = await contract.getJsonLogs(MemberRegistered,
                                                           blockHash = some(blockheader.hash))
+      var members: seq[MembershipTuple]
       for log in membershipRegistrationLogs:
         let parsedEventRes = parse(MemberRegistered, log)
         if parsedEventRes.isErr():
-          error "failed to parse the MemberRegistered event", error=parsedEventRes.error()
-          continue
+          fatal "failed to parse the MemberRegistered event", error=parsedEventRes.error()
+          return
         let parsedEvent = parsedEventRes.get()
-        let res = handler(@[parsedEvent])
-        if res.isErr():
-          error "failed to update the Merkle tree", error=res.error()
+        members.add(parsedEvent)
+      let res = handler(members)
+      if res.isErr():
+        error "failed to update the Merkle tree", error=res.error()
     except:
       warn "failed to get logs"
       return
