@@ -1002,7 +1002,7 @@ proc generateGroupUpdateHandler(rlnPeer: WakuRLNRelay): GroupUpdateHandler =
   handler = proc(members: seq[MembershipTuple]): RlnRelayResult[void] =
     let startingIndex = members[0].index
     debug "starting index", startingIndex = startingIndex, members = members.mapIt(it.idComm.inHex)
-    let isSuccessful = rlnPeer.insertMembers(startingIndex), members.mapIt(it.idComm))
+    let isSuccessful = rlnPeer.insertMembers(startingIndex, members.mapIt(it.idComm))
     if isSuccessful.isErr():
       return err("failed to add a new member to the Merkle tree")
     else:
