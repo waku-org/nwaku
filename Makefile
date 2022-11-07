@@ -215,12 +215,8 @@ endif
 # control compilation of rln tests that require on chain interaction
 ifeq ($(ONCHAIN_RLN), true) 
 NIM_PARAMS := $(NIM_PARAMS) -d:onchain_rln
-else
-ifeq ($(CI), true) 
-ifeq ($(detected_OS), macOS)
+else ifeq ($(CI), true) 
 NIM_PARAMS := $(NIM_PARAMS) -d:onchain_rln
-endif
-endif
 endif
 
 rlnlib:
