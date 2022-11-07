@@ -542,7 +542,21 @@ proc processInput(rfd: AsyncFD) {.async.} =
           echo "You are registered to the rln membership contract, find details of your registration transaction in https://goerli.etherscan.io/tx/0x", txHash
         
         echo "rln-relay preparation is in progress..."
-        let res = await node.mountRlnRelay(conf = conf, spamHandler = some(spamHandler), registrationHandler = some(registrationHandler))
+        
+        let rlnConf = WakuRlnConfig(
+          rlnRelayDynamic: conf.rlnRelayDynamic,
+          rlnRelayPubsubTopic: conf.rlnRelayPubsubTopic,
+          rlnRelayContentTopic: conf.rlnRelayContentTopic,
+          rlnRelayMembershipIndex: conf.rlnRelayMembershipIndex,
+          rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
+          rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
+          rlnRelayEthAccountPrivateKey: conf.rlnRelayEthAccountPrivateKey,
+          rlnRelayEthAccountAddress: conf.rlnRelayEthAccountAddress,
+          rlnRelayCredPath: conf.rlnRelayCredPath,
+          rlnRelayCredentialsPassword: conf.rlnRelayCredentialsPassword
+        )
+
+        let res = await node.mountRlnRelay(conf=rlnConf, spamHandler = some(spamHandler), registrationHandler = some(registrationHandler))
         if res.isErr():
           echo "failed to mount rln-relay: " & res.error()
         else:
