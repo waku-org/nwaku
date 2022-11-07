@@ -18,7 +18,7 @@ procSuite "Waku Store - RPC codec":
 
     ## When
     let encodedIndex = index.encode()
-    let decodedIndexRes = PagingIndex.init(encodedIndex.buffer)
+    let decodedIndexRes = PagingIndex.decode(encodedIndex.buffer)
 
     ## Then
     check:
@@ -34,7 +34,7 @@ procSuite "Waku Store - RPC codec":
     let emptyIndex = PagingIndex()
     
     let encodedIndex = emptyIndex.encode()
-    let decodedIndexRes = PagingIndex.init(encodedIndex.buffer)
+    let decodedIndexRes = PagingIndex.decode(encodedIndex.buffer)
 
     ## Then
     check:
@@ -53,7 +53,7 @@ procSuite "Waku Store - RPC codec":
       
     ## When
     let pb = pagingInfo.encode()
-    let decodedPagingInfo = PagingInfo.init(pb.buffer)
+    let decodedPagingInfo = PagingInfo.decode(pb.buffer)
 
     ## Then
     check:
@@ -69,8 +69,8 @@ procSuite "Waku Store - RPC codec":
     let emptyPagingInfo = PagingInfo()
       
     ## When
-    let epb = emptyPagingInfo.encode()
-    let decodedEmptyPagingInfo = PagingInfo.init(epb.buffer)
+    let pb = emptyPagingInfo.encode()
+    let decodedEmptyPagingInfo = PagingInfo.decode(pb.buffer)
 
     ## Then
     check:
@@ -89,7 +89,7 @@ procSuite "Waku Store - RPC codec":
     
     ## When
     let pb = query.encode()
-    let decodedQuery = HistoryQuery.init(pb.buffer)
+    let decodedQuery = HistoryQuery.decode(pb.buffer)
 
     ## Then
     check:
@@ -104,8 +104,8 @@ procSuite "Waku Store - RPC codec":
     let emptyQuery = HistoryQuery()
 
     ## When
-    let epb = emptyQuery.encode()
-    let decodedEmptyQuery = HistoryQuery.init(epb.buffer)
+    let pb = emptyQuery.encode()
+    let decodedEmptyQuery = HistoryQuery.decode(pb.buffer)
 
     ## Then
     check:
@@ -125,7 +125,7 @@ procSuite "Waku Store - RPC codec":
     
     ## When
     let pb = res.encode()
-    let decodedRes = HistoryResponse.init(pb.buffer)
+    let decodedRes = HistoryResponse.decode(pb.buffer)
 
     ## Then
     check:
@@ -140,8 +140,8 @@ procSuite "Waku Store - RPC codec":
     let emptyRes = HistoryResponse()
     
     ## When
-    let epb = emptyRes.encode()
-    let decodedEmptyRes = HistoryResponse.init(epb.buffer)
+    let pb = emptyRes.encode()
+    let decodedEmptyRes = HistoryResponse.decode(pb.buffer)
 
     ## Then
     check:

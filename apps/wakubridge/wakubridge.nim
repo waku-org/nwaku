@@ -54,7 +54,7 @@ type
   WakuBridge* = ref object of RootObj
     nodev1*: EthereumNode
     nodev2*: WakuNode
-    nodev2PubsubTopic: waku_node.PubsubTopic # Pubsub topic to bridge to/from
+    nodev2PubsubTopic: waku_message.PubsubTopic # Pubsub topic to bridge to/from
     seen: seq[hashes.Hash] # FIFO queue of seen WakuMessages. Used for deduplication.
     rng: ref HmacDrbgContext
     v1Pool: seq[Node] # Pool of v1 nodes for possible connections
@@ -231,7 +231,7 @@ proc new*(T: type WakuBridge,
           nodev2ExtIp = none[ValidIpAddress](), nodev2ExtPort = none[Port](),
           nameResolver: NameResolver = nil,
           # Bridge configuration
-          nodev2PubsubTopic: waku_node.PubsubTopic,
+          nodev2PubsubTopic: waku_message.PubsubTopic,
           v1Pool: seq[Node] = @[],
           targetV1Peers = 0): T
   {.raises: [Defect,IOError, TLSStreamProtocolError, LPError].} =
@@ -303,7 +303,7 @@ proc start*(bridge: WakuBridge) {.async.} =
 
   # Handle messages on Waku v2 and bridge to Waku v1
   proc relayHandler(pubsubTopic: string, data: seq[byte]) {.async, gcsafe.} =
-    let msg = WakuMessage.init(data)
+    let msg = WakuMessage.decode(data)
     if msg.isOk() and msg.get().isBridgeable():
       try:
         trace "Bridging message from V2 to V1", msg=msg.tryGet()

@@ -107,7 +107,7 @@ procSuite "WakuNode - RLN relay":
 
     var completionFut = newFuture[bool]()
     proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.init(data)
+      let msg = WakuMessage.decode(data)
       if msg.isOk():
         debug "The received topic:", topic
         if topic == rlnRelayPubSubTopic:
@@ -212,7 +212,7 @@ procSuite "WakuNode - RLN relay":
     # define a custom relay handler
     var completionFut = newFuture[bool]()
     proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.init(data)
+      let msg = WakuMessage.decode(data)
       if msg.isOk():
         debug "The received topic:", topic
         if topic == rlnRelayPubSubTopic:
@@ -361,7 +361,7 @@ procSuite "WakuNode - RLN relay":
     var completionFut3 = newFuture[bool]()
     var completionFut4 = newFuture[bool]()
     proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.init(data)
+      let msg = WakuMessage.decode(data)
       if msg.isOk():
         let wm = msg.value()
         debug "The received topic:", topic

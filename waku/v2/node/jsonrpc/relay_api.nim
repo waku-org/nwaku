@@ -25,7 +25,7 @@ proc installRelayApiHandlers*(node: WakuNode, rpcsrv: RpcServer, topicCache: Top
   
   proc topicHandler(topic: string, data: seq[byte]) {.async, raises: [Defect].} =
     trace "Topic handler triggered", topic=topic
-    let msg = WakuMessage.init(data)
+    let msg = WakuMessage.decode(data)
     if msg.isOk():
       # Add message to current cache
       trace "WakuMessage received", msg=msg, topic=topic
