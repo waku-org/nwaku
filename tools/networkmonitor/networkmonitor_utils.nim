@@ -26,6 +26,7 @@ proc flatten*[T](a: seq[seq[T]]): seq[T] =
 
 # using an external api retrieves some data associated with the ip
 # TODO: use a cache
+# TODO: use nim-presto's HTTP asynchronous client
 proc ipToLocation*(ip: string,
                    client: Httpclient):
                    Future[Result[NodeLocation, string]] {.async.} =
@@ -48,5 +49,5 @@ proc ipToLocation*(ip: string,
       isp:     jsonContent["isp"].getStr()
     ))
   except:
-    error "failed to get location for IP", ip=ip, excep=getCurrentException().msg
-    return err("could not get location for IP: " & ip)
+    error "failed to get the location for IP", ip=ip, error=getCurrentExceptionMsg()
+    return err("failed to get the location for IP '" & ip & "':" & getCurrentExceptionMsg())

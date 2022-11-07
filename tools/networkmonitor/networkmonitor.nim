@@ -219,7 +219,12 @@ proc startRestApiServer(conf: NetworkMonitorConf,
 when isMainModule:
   # known issue: confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
   {.pop.}
-  let conf = NetworkMonitorConf.load()
+  let confRes = NetworkMonitorConf.loadConfig()
+  if confRes.isErr():
+    error "could not load cli variables", err=confRes.error
+    quit(1)
+
+  let conf = confRes.get()
   info "cli flags", conf=conf
 
   if conf.logLevel != LogLevel.NONE:
@@ -230,9 +235,10 @@ when isMainModule:
 
   # start metrics server
   if conf.metricsServer:
-    startMetricsServer(
-      conf.metricsServerAddress,
-      Port(conf.metricsServerPort))
+    let res = startMetricsServer(conf.metricsServerAddress, Port(conf.metricsServerPort))
+    if res.isErr:
+      error "could not start metrics server", err=res.error
+      quit(1)
 
   # start rest server for custom metrics
   let res = startRestApiServer(conf, allPeersRef)

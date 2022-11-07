@@ -8,18 +8,16 @@ import
   chronicles,
   chronicles/topics_registry,
   chronos,
+  json_serialization,
   metrics,
   metrics/chronos_httpserver,
   presto/route,
   presto/server,
+  stew/results,
   stew/shims/net
 
 logScope:
   topics = "networkmonitor_metrics"
-
-# Metric ideas:
-# histogram with latency
-# number of peers hosted behind each ip
 
 # On top of our custom metrics, the following are reused from nim-eth
 #routing_table_nodes{state=""}
@@ -55,21 +53,21 @@ type
     supportedProtocols*: seq[string]
     userAgent*: string
 
-  CustomPeersTable* = Table[string, CustomPeerInfo]
-  CustomPeersTableRef* = ref CustomPeersTable
+  CustomPeersTableRef* = TableRef[string, CustomPeerInfo]
 
 # GET /allpeersinfo
 proc installHandler*(router: var RestRouter, allPeers: CustomPeersTableRef) =
   router.api(MethodGet, "/allpeersinfo") do () -> RestApiResponse:
-    let values = toSeq(allPeers.keys()).mapIt(allPeers[it])
-    return RestApiResponse.response($(%values), contentType="application/json")
+    let values = toSeq(allPeers.values())
+    return RestApiResponse.response(values.toJson(), contentType="application/json")
 
-proc startMetricsServer*(serverIp: ValidIpAddress, serverPort: Port) =
+proc startMetricsServer*(serverIp: ValidIpAddress, serverPort: Port): Result[void, string] =
     info "Starting metrics HTTP server", serverIp, serverPort
     
     try:
       startMetricsHttpServer($serverIp, serverPort)
     except Exception as e:
-      raiseAssert("Exception while starting metrics HTTP server: " & e.msg)
+      error("Failed to start metrics HTTP server", serverIp=serverIp, serverPort=serverPort, msg=e.msg)
 
     info "Metrics HTTP server started", serverIp, serverPort
+    ok()

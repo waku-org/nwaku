@@ -4,6 +4,7 @@ import
   chronicles/topics_registry,
   chronos,
   confutils,
+  stew/results,
   stew/shims/net
 
 type
@@ -72,7 +73,14 @@ proc parseCmdArg*(T: type chronos.Duration, p: string): T =
   try:
     result = chronos.seconds(parseInt(p))
   except CatchableError as e:
-    raise newException(ConfigurationError, "Invalid timeout value")
+    raise newException(ConfigurationError, "Invalid duration value")
 
 proc completeCmdArg*(T: type chronos.Duration, val: string): seq[string] =
   return @[]
+
+proc loadConfig*(T: type NetworkMonitorConf): Result[T, string] =
+  try:
+    let conf = NetworkMonitorConf.load()
+    ok(conf)
+  except CatchableError:
+    err(getCurrentExceptionMsg())
