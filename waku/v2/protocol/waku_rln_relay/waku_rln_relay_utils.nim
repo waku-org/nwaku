@@ -582,6 +582,7 @@ when defined(rlnzerokit):
     
     var idCommsBuffer = idCommsBytes.toBuffer()
     let idCommsBufferPtr = addr idCommsBuffer
+    debug "inserting members", idComms = idCommsBytes.toHex(), index = index
 
     # add the member to the tree
     let membersAdded = set_leaves_from(rlnInstance, index, idCommsBufferPtr)
@@ -1001,7 +1002,7 @@ proc generateGroupUpdateHandler(rlnPeer: WakuRLNRelay): GroupUpdateHandler =
   handler = proc(members: seq[MembershipTuple]): RlnRelayResult[void] =
     let startingIndex = members[0].index
     debug "starting index", startingIndex = startingIndex, members = members.mapIt(it.idComm.inHex)
-    let isSuccessful = rlnPeer.insertMembers(rlnPeer.lastSeenMembershipIndex, members.mapIt(it.idComm))
+    let isSuccessful = rlnPeer.insertMembers(startingIndex), members.mapIt(it.idComm))
     if isSuccessful.isErr():
       return err("failed to add a new member to the Merkle tree")
     else:

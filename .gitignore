@@ -42,3 +42,8 @@ testPath.txt
 
 # Nimbus Build System
 nimbus-build-system.paths
+
+# sqlite db
+store.sqlite3
+store.sqlite3-shm
+store.sqlite3-wal
