@@ -70,7 +70,7 @@ proc setupAndSubscribe() {.async.} =
     let contentTopic = ContentTopic("/examples/1/pubsub-example/proto")
 
     proc handler(pubsubTopic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
-      let message = WakuMessage.init(data).value
+      let message = WakuMessage.decode(data).value
       let payloadStr = string.fromBytes(message.payload)
       if message.contentTopic == contentTopic:
         notice "message received", payload=payloadStr,

@@ -89,7 +89,7 @@ procSuite "WakuNode - Relay":
 
     var completionFut = newFuture[bool]()
     proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.init(data)
+      let msg = WakuMessage.decode(data)
       if msg.isOk():
         let val = msg.value()
         check:
@@ -158,7 +158,7 @@ procSuite "WakuNode - Relay":
       ## the validator that only allows messages with contentTopic1 to be relayed
       check:
         topic == pubSubTopic
-      let msg = WakuMessage.init(message.data)
+      let msg = WakuMessage.decode(message.data)
       if msg.isOk():
         # only relay messages with contentTopic1
         if msg.value().contentTopic  == contentTopic1:
@@ -175,7 +175,7 @@ procSuite "WakuNode - Relay":
     var completionFut = newFuture[bool]()
     proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
       debug "relayed pubsub topic:", topic
-      let msg = WakuMessage.init(data)
+      let msg = WakuMessage.decode(data)
       if msg.isOk():
         let val = msg.value()
         check:
@@ -228,7 +228,7 @@ procSuite "WakuNode - Relay":
 
     var completionFut = newFuture[bool]()
     proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.init(data)
+      let msg = WakuMessage.decode(data)
       if msg.isOk():
         let val = msg.value()
         check:
@@ -272,7 +272,7 @@ procSuite "WakuNode - Relay":
 
     var completionFut = newFuture[bool]()
     proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.init(data)
+      let msg = WakuMessage.decode(data)
       if msg.isOk():
         let val = msg.value()
         check:
@@ -320,7 +320,7 @@ procSuite "WakuNode - Relay":
 
     var completionFut = newFuture[bool]()
     proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.init(data)
+      let msg = WakuMessage.decode(data)
       if msg.isOk():
         let val = msg.value()
         check:
@@ -363,7 +363,7 @@ procSuite "WakuNode - Relay":
 
     var completionFut = newFuture[bool]()
     proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.init(data)
+      let msg = WakuMessage.decode(data)
       if msg.isOk():
         let val = msg.value()
         check:
@@ -406,7 +406,7 @@ procSuite "WakuNode - Relay":
 
     var completionFut = newFuture[bool]()
     proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.init(data)
+      let msg = WakuMessage.decode(data)
       if msg.isOk():
         let val = msg.value()
         check:

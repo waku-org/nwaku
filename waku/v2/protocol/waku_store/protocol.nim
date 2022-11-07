@@ -171,7 +171,7 @@ proc initProtocolHandler*(ws: WakuStore) =
   proc handler(conn: Connection, proto: string) {.async.} =
     let buf = await conn.readLp(MaxRpcSize.int)
 
-    let resReq = HistoryRPC.init(buf)
+    let resReq = HistoryRPC.decode(buf)
     if resReq.isErr():
       error "failed to decode rpc", peerId=conn.peerId
       waku_store_errors.inc(labelValues = [decodeRpcFailure])

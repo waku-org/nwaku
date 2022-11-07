@@ -68,7 +68,7 @@ type Chat = ref object
 
 type
   PrivateKey* = crypto.PrivateKey
-  Topic* = waku_node.PubsubTopic
+  Topic* = waku_message.PubsubTopic
 
 #####################
 ## chat2 protobufs ##
@@ -514,7 +514,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
     proc handler(topic: Topic, data: seq[byte]) {.async, gcsafe.} =
       trace "Hit subscribe handler", topic
 
-      let decoded = WakuMessage.init(data)
+      let decoded = WakuMessage.decode(data)
       
       if decoded.isOk():
         if decoded.get().contentTopic == chat.contentTopic:

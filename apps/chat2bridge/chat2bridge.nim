@@ -196,7 +196,7 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
   # Bridging
   # Handle messages on Waku v2 and bridge to Matterbridge
   proc relayHandler(pubsubTopic: string, data: seq[byte]) {.async, gcsafe, raises: [Defect].} =
-    let msg = WakuMessage.init(data)
+    let msg = WakuMessage.decode(data)
     if msg.isOk():
       trace "Bridging message from Chat2 to Matterbridge", msg=msg[]
       cmb.toMatterbridge(msg[])
