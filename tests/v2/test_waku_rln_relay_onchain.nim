@@ -3,7 +3,7 @@
 {.used.}
 
 import
-  std/options,
+  std/[options, sequtils],
   testutils/unittests, chronos, chronicles, stint, web3, json,
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
@@ -207,14 +207,11 @@ procSuite "Waku-rln-relay":
     let pk2 = keyPair2.idCommitment.toUInt256()
     debug "membership commitment key", pk2 = pk2
 
-    var events = [newFuture[void](), newFuture[void]()]
-    proc handler(pubkey: Uint256, index: Uint256): RlnRelayResult[void] =
-      debug "handler is called", pubkey = pubkey, index = index
-      if pubkey == pk:
-        events[0].complete()
-      if pubkey == pk2:
-        events[1].complete()
-      let isSuccessful = rlnPeer.rlnInstance.insertMember(pubkey.toIDCommitment())
+    let event = newFuture[void]()
+    proc handler(members: seq[MembershipTuple]): RlnRelayResult[void] =
+      debug "handler is called", members = members
+      event.complete()
+      let isSuccessful = rlnPeer.rlnInstance.insertMembers(0, members.mapIt(it.idComm))
       check:
         isSuccessful
       return ok()
@@ -234,8 +231,8 @@ procSuite "Waku-rln-relay":
     let tx2 = await contractObj.register(pk2).send(value = MembershipFee)
     debug "a member is registered", tx2 = tx2
 
-    # wait for all the events to be received by the rlnPeer
-    await all(events)
+    # wait for all the event to be processed
+    await event
 
     # release resources -----------------------
     await web3.close()

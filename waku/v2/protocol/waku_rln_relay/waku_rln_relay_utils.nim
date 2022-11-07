@@ -576,16 +576,17 @@ when defined(rlnzerokit):
     ## Insert multiple members atomically
 
     # convert seq[IDCommitment] to seq[byte]
+    let len = toBytes(uint64(idComms.len), Endianness.littleEndian)
     var idCommsBytes: seq[byte] = @[]
+    idCommsBytes.add(len)
     for idComm in idComms:
       idCommsBytes = concat(idCommsBytes, @idComm)
     
     var idCommsBuffer = idCommsBytes.toBuffer()
     let idCommsBufferPtr = addr idCommsBuffer
-    debug "inserting members", idComms = idCommsBytes.toHex(), index = index
-
     # add the member to the tree
     let membersAdded = set_leaves_from(rlnInstance, index, idCommsBufferPtr)
+    return membersAdded
 
   proc removeMember*(rlnInstance: ptr RLN, index: MembershipIndex): bool =
     let deletion_success = delete_member(rlnInstance, index)
@@ -991,7 +992,7 @@ proc addAll*(wakuRlnRelay: WakuRLNRelay, list: seq[IDCommitment]): RlnRelayResul
       return err(memberAdded.error())
   return ok()
 
-type MembershipTuple = tuple[index: MembershipIndex, idComm: IDCommitment]
+type MembershipTuple* = tuple[index: MembershipIndex, idComm: IDCommitment]
 type GroupUpdateHandler* = proc(members: seq[MembershipTuple]): RlnRelayResult[void] {.gcsafe.}
 
 proc generateGroupUpdateHandler(rlnPeer: WakuRLNRelay): GroupUpdateHandler =
@@ -1070,12 +1071,9 @@ proc subscribeToGroupEvents*(ethClientUri: string,
       error "failed to update the Merkle tree", error=res.error()
 
   var latestBlock: Quantity
-  let newHeadCallback = proc (blockheader: BlockHeader) {.gcsafe.} =
-    latestBlock = blockheader.number
-    debug "block received", blockNumber = latestBlock
-    # get logs from the last block
+  let handleLog = proc(blockHeader: BlockHeader) {.async, gcsafe.} = 
     try:
-      let membershipRegistrationLogs = waitFor contract.getJsonLogs(MemberRegistered,
+      let membershipRegistrationLogs = await contract.getJsonLogs(MemberRegistered,
                                                           blockHash = some(blockheader.hash))
       for log in membershipRegistrationLogs:
         let parsedEventRes = parse(MemberRegistered, log)
@@ -1089,6 +1087,12 @@ proc subscribeToGroupEvents*(ethClientUri: string,
     except:
       warn "failed to get logs"
       return
+  let newHeadCallback = proc (blockheader: BlockHeader) {.gcsafe.} =
+    latestBlock = blockheader.number
+    debug "block received", blockNumber = latestBlock
+    # get logs from the last block
+    discard handleLog(blockHeader)
+    
 
   let newHeadErrorHandler = proc (err: CatchableError) {.gcsafe.} =
     error "Error from subscription: ", err=err.msg
