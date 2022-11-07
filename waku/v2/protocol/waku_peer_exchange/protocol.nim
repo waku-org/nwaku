@@ -153,7 +153,7 @@ proc initProtocolHandler(wpx: WakuPeerExchange) =
   proc handler(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     let buff = await conn.readLp(MaxRpcSize.int)
 
-    let res = PeerExchangeRpc.init(buff)
+    let res = PeerExchangeRpc.decode(buff)
     if res.isErr():
       waku_px_errors.inc(labelValues = [decodeRpcFailure])
       return

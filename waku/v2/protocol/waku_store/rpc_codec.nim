@@ -21,17 +21,17 @@ const MaxRpcSize* = MaxPageSize * MaxWakuMessageSize + 64*1024 # We add a 64kB s
 proc encode*(index: PagingIndex): ProtoBuffer =
   ## Encode an Index object into a ProtoBuffer
   ## returns the resultant ProtoBuffer
+  var pb = initProtoBuffer()
 
-  var output = initProtoBuffer()
-  output.write3(1, index.digest.data)
-  output.write3(2, zint64(index.receiverTime))
-  output.write3(3, zint64(index.senderTime))
-  output.write3(4, index.pubsubTopic)
-  output.finish3()
+  pb.write3(1, index.digest.data)
+  pb.write3(2, zint64(index.receiverTime))
+  pb.write3(3, zint64(index.senderTime))
+  pb.write3(4, index.pubsubTopic)
+  pb.finish3()
 
-  return output
+  pb
 
-proc init*(T: type PagingIndex, buffer: seq[byte]): ProtoResult[T] =
+proc decode*(T: type PagingIndex, buffer: seq[byte]): ProtoResult[T] =
   ## creates and returns an Index object out of buffer
   var index = PagingIndex()
   let pb = initProtoBuffer(buffer)
@@ -57,22 +57,22 @@ proc init*(T: type PagingIndex, buffer: seq[byte]): ProtoResult[T] =
   # read the pubsubTopic
   discard ?pb.getField(4, index.pubsubTopic)
 
-  return ok(index) 
+  ok(index) 
 
 
 proc encode*(pinfo: PagingInfo): ProtoBuffer =
   ## Encodes a PagingInfo object into a ProtoBuffer
   ## returns the resultant ProtoBuffer
+  var pb = initProtoBuffer()
 
-  var output = initProtoBuffer()
-  output.write3(1, pinfo.pageSize)
-  output.write3(2, pinfo.cursor.encode())
-  output.write3(3, uint32(ord(pinfo.direction)))
-  output.finish3()
+  pb.write3(1, pinfo.pageSize)
+  pb.write3(2, pinfo.cursor.encode())
+  pb.write3(3, uint32(ord(pinfo.direction)))
+  pb.finish3()
 
-  return output
+  pb
 
-proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
+proc decode*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
   ## creates and returns a PagingInfo object out of buffer
   var pagingInfo = PagingInfo()
   let pb = initProtoBuffer(buffer)
@@ -83,22 +83,24 @@ proc init*(T: type PagingInfo, buffer: seq[byte]): ProtoResult[T] =
 
   var cursorBuffer: seq[byte]
   discard ?pb.getField(2, cursorBuffer)
-  pagingInfo.cursor = ?PagingIndex.init(cursorBuffer)
+  pagingInfo.cursor = ?PagingIndex.decode(cursorBuffer)
 
   var direction: uint32
   discard ?pb.getField(3, direction)
   pagingInfo.direction = PagingDirection(direction)
 
-  return ok(pagingInfo) 
+  ok(pagingInfo) 
 
 
 proc encode*(filter: HistoryContentFilter): ProtoBuffer =
-  var output = initProtoBuffer()
-  output.write3(1, filter.contentTopic)
-  output.finish3()
-  return output
+  var pb = initProtoBuffer()
 
-proc init*(T: type HistoryContentFilter, buffer: seq[byte]): ProtoResult[T] =
+  pb.write3(1, filter.contentTopic)
+  pb.finish3()
+
+  pb
+
+proc decode*(T: type HistoryContentFilter, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
   var contentTopic: ContentTopic
   discard ?pb.getField(1, contentTopic)
@@ -107,20 +109,20 @@ proc init*(T: type HistoryContentFilter, buffer: seq[byte]): ProtoResult[T] =
 
 
 proc encode*(query: HistoryQuery): ProtoBuffer =
-  var output = initProtoBuffer()
-  output.write3(2, query.pubsubTopic)
+  var pb = initProtoBuffer()
+  pb.write3(2, query.pubsubTopic)
   
   for filter in query.contentFilters:
-    output.write3(3, filter.encode())
+    pb.write3(3, filter.encode())
 
-  output.write3(4, query.pagingInfo.encode())
-  output.write3(5, zint64(query.startTime))
-  output.write3(6, zint64(query.endTime))
-  output.finish3()
+  pb.write3(4, query.pagingInfo.encode())
+  pb.write3(5, zint64(query.startTime))
+  pb.write3(6, zint64(query.endTime))
+  pb.finish3()
 
-  return output
+  pb
 
-proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
+proc decode*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryQuery()
   let pb = initProtoBuffer(buffer)
 
@@ -129,13 +131,13 @@ proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   var buffs: seq[seq[byte]]
   discard ?pb.getRepeatedField(3, buffs)
   
-  for buf in buffs:
-    msg.contentFilters.add(? HistoryContentFilter.init(buf))
+  for pb in buffs:
+    msg.contentFilters.add(? HistoryContentFilter.decode(pb))
 
   var pagingInfoBuffer: seq[byte]
   discard ?pb.getField(4, pagingInfoBuffer)
 
-  msg.pagingInfo = ?PagingInfo.init(pagingInfoBuffer)
+  msg.pagingInfo = ?PagingInfo.decode(pagingInfoBuffer)
 
   var startTime: zint64
   discard ?pb.getField(5, startTime)
@@ -145,66 +147,64 @@ proc init*(T: type HistoryQuery, buffer: seq[byte]): ProtoResult[T] =
   discard ?pb.getField(6, endTime)
   msg.endTime = Timestamp(endTime)
 
-  return ok(msg)
+  ok(msg)
 
 
 proc encode*(response: HistoryResponse): ProtoBuffer =
-  var output = initProtoBuffer()
+  var pb = initProtoBuffer()
 
   for msg in response.messages:
-    output.write3(2, msg.encode())
+    pb.write3(2, msg.encode())
 
-  output.write3(3, response.pagingInfo.encode())
-  output.write3(4, uint32(ord(response.error)))
-  output.finish3()
+  pb.write3(3, response.pagingInfo.encode())
+  pb.write3(4, uint32(ord(response.error)))
+  pb.finish3()
 
-  return output
+  pb
 
-proc init*(T: type HistoryResponse, buffer: seq[byte]): ProtoResult[T] =
+proc decode*(T: type HistoryResponse, buffer: seq[byte]): ProtoResult[T] =
   var msg = HistoryResponse()
   let pb = initProtoBuffer(buffer)
 
   var messages: seq[seq[byte]]
   discard ?pb.getRepeatedField(2, messages)
 
-  for buf in messages:
-    let message = ?WakuMessage.init(buf)
+  for pb in messages:
+    let message = ?WakuMessage.decode(pb)
     msg.messages.add(message)
 
   var pagingInfoBuffer: seq[byte]
   discard ?pb.getField(3, pagingInfoBuffer)
-  msg.pagingInfo = ?PagingInfo.init(pagingInfoBuffer)
+  msg.pagingInfo = ?PagingInfo.decode(pagingInfoBuffer)
 
   var error: uint32
   discard ?pb.getField(4, error)
   msg.error = HistoryResponseError(error)
 
-  return ok(msg)
+  ok(msg)
 
 
 proc encode*(rpc: HistoryRPC): ProtoBuffer =
-  var output = initProtoBuffer()
+  var pb = initProtoBuffer()
 
-  output.write3(1, rpc.requestId)
-  output.write3(2, rpc.query.encode())
-  output.write3(3, rpc.response.encode())
+  pb.write3(1, rpc.requestId)
+  pb.write3(2, rpc.query.encode())
+  pb.write3(3, rpc.response.encode())
+  pb.finish3()
 
-  output.finish3()
+  pb
 
-  return output
-
-proc init*(T: type HistoryRPC, buffer: seq[byte]): ProtoResult[T] =
+proc decode*(T: type HistoryRPC, buffer: seq[byte]): ProtoResult[T] =
   var rpc = HistoryRPC()
   let pb = initProtoBuffer(buffer)
   discard ?pb.getField(1, rpc.requestId)
 
   var queryBuffer: seq[byte]
   discard ?pb.getField(2, queryBuffer)
-  rpc.query = ?HistoryQuery.init(queryBuffer)
+  rpc.query = ?HistoryQuery.decode(queryBuffer)
 
   var responseBuffer: seq[byte]
   discard ?pb.getField(3, responseBuffer)
-  rpc.response = ?HistoryResponse.init(responseBuffer)
+  rpc.response = ?HistoryResponse.decode(responseBuffer)
 
-  return ok(rpc)
-
+  ok(rpc)
