@@ -570,6 +570,22 @@ when defined(rlnzerokit):
     var member_is_added = update_next_member(rlnInstance, pkBufferPtr)
     return member_is_added
 
+  proc insertMembers*(rlnInstance: ptr RLN,
+                      index: MembershipIndex,
+                      idComms: seq[IDCommitment]): bool =
+    ## Insert multiple members atomically
+
+    # convert seq[IDCommitment] to seq[byte]
+    var idCommsBytes: seq[byte] = @[]
+    for idComm in idComms:
+      idCommsBytes = concat(idCommsBytes, @idComm)
+    
+    var idCommsBuffer = idCommsBytes.toBuffer()
+    let idCommsBufferPtr = addr idCommsBuffer
+
+    # add the member to the tree
+    let membersAdded = set_leaves_from(rlnInstance, index, idCommsBufferPtr)
+
   proc removeMember*(rlnInstance: ptr RLN, index: MembershipIndex): bool =
     let deletion_success = delete_member(rlnInstance, index)
     return deletion_success
@@ -607,6 +623,21 @@ proc insertMember*(wakuRlnRelay: WakuRLNRelay, idComm: IDCommitment): RlnRelayRe
     let actionSucceeded = wakuRlnRelay.rlnInstance.insertMember(idComm)
   if not actionSucceeded:
     return err("could not insert id commitment into the merkle tree")
+
+  let rootAfterUpdate = ?wakuRlnRelay.rlnInstance.getMerkleRoot()
+  wakuRlnRelay.updateValidRootQueue(rootAfterUpdate)
+  return ok()
+
+proc insertMembers*(wakuRlnRelay: WakuRLNRelay, 
+                    index: MembershipIndex, 
+                    idComms: seq[IDCommitment]): RlnRelayResult[void] =
+  ## inserts a sequence of id commitments into the local merkle tree, and adds the changed root to the
+  ## queue of valid roots
+  ## Returns an error if the insertion fails
+  waku_rln_membership_insertion_duration_seconds.nanosecondTime:
+    let actionSucceeded = wakuRlnRelay.rlnInstance.insertMembers(index, idComms)
+  if not actionSucceeded:
+    return err("could not insert id commitments into the merkle tree")
 
   let rootAfterUpdate = ?wakuRlnRelay.rlnInstance.getMerkleRoot()
   wakuRlnRelay.updateValidRootQueue(rootAfterUpdate)
@@ -959,60 +990,49 @@ proc addAll*(wakuRlnRelay: WakuRLNRelay, list: seq[IDCommitment]): RlnRelayResul
       return err(memberAdded.error())
   return ok()
 
-type GroupUpdateHandler* = proc(pubkey: Uint256, index: Uint256): RlnRelayResult[void] {.gcsafe.}
+type MembershipTuple = tuple[index: MembershipIndex, idComm: IDCommitment]
+type GroupUpdateHandler* = proc(members: seq[MembershipTuple]): RlnRelayResult[void] {.gcsafe.}
 
 proc generateGroupUpdateHandler(rlnPeer: WakuRLNRelay): GroupUpdateHandler =
   ## assuming all the members arrive in order
   ## TODO: check the index and the pubkey depending on
   ## the group update operation
   var handler: GroupUpdateHandler
-  handler = proc(pubkey: Uint256, index: Uint256): RlnRelayResult[void] =
-    var pk: IDCommitment
-    try:
-      pk = pubkey.toIDCommitment()
-    except:
-      return err("invalid pubkey")
-    let isSuccessful = rlnPeer.insertMember(pk)
+  handler = proc(members: seq[MembershipTuple]): RlnRelayResult[void] =
+    let startingIndex = members[0].index
+    debug "starting index", startingIndex = startingIndex, members = members.mapIt(it.idComm.inHex)
+    let isSuccessful = rlnPeer.insertMembers(rlnPeer.lastSeenMembershipIndex, members.mapIt(it.idComm))
     if isSuccessful.isErr():
       return err("failed to add a new member to the Merkle tree")
     else:
-      debug "new member added to the Merkle tree", pubkey=pubkey, index=index
+      debug "new members added to the Merkle tree", pubkeys=members.mapIt(it.idComm.inHex) , startingIndex=startingIndex
       debug "acceptable window", validRoots=rlnPeer.validMerkleRoots.mapIt(it.inHex)
-      let membershipIndex = index.toMembershipIndex()
-      if rlnPeer.lastSeenMembershipIndex != membershipIndex + 1:
-        warn "membership index gap, may have lost connection", gap = membershipIndex - rlnPeer.lastSeenMembershipIndex
-      rlnPeer.lastSeenMembershipIndex = membershipIndex
+      let lastIndex = members[0].index + members.len.uint - 1
+      if rlnPeer.lastSeenMembershipIndex != lastIndex + 1:
+        warn "membership index gap, may have lost connection", gap = lastIndex - rlnPeer.lastSeenMembershipIndex
+      rlnPeer.lastSeenMembershipIndex = lastIndex
       return ok()
   return handler
 
-proc subscribeToMemberRegistrations(web3: Web3, 
-                                    contractAddress: Address,
-                                    fromBlock: string = "0x0",
-                                    handler: GroupUpdateHandler): Future[Subscription] {.async, gcsafe.} =
-  ## subscribes to member registrations, on a given membership group contract
-  ## `fromBlock` indicates the block number from which the subscription starts
-  ## `handler` is a callback that is called when a new member is registered
-  ## the callback is called with the pubkey and the index of the new member
-  ## TODO: need a similar proc for member deletions
-  var contractObj = web3.contractSender(MembershipContract, contractAddress)
-
-  let onMemberRegistered = proc (pubkey: Uint256, index: Uint256) {.gcsafe.} =
-    debug "onRegister", pubkey = pubkey, index = index
-    var groupUpdateRes: RlnRelayResult[void]
-    try:
-      groupUpdateRes = handler(pubkey, index)
-    except Exception as err:
-      error "failed to handle group update", err = err.msg
-    if groupUpdateRes.isErr():
-      error "Error handling new member registration", err=groupUpdateRes.error()
-
-  let onError = proc (err: CatchableError) =
-    error "Error in subscription", err=err.msg
-
-  return await contractObj.subscribe(MemberRegistered,
-                                     %*{"fromBlock": fromBlock, "address": contractAddress},
-                                     onMemberRegistered,
-                                     onError)
+proc parse*(event: type MemberRegistered, 
+            log: JsonNode): RlnRelayResult[MembershipTuple] =
+  ## parses the `data` parameter of the `MemberRegistered` event
+  ## returns an error if it cannot parse the `data` parameter
+  var pubkey: UInt256
+  var index: UInt256
+  var data: string
+  try:
+    data = strip0xPrefix(log["data"].getStr())
+  except CatchableError as err:
+    return err("failed to parse the data field of the MemberRegistered event: " & err.msg)
+  var offset = 0
+  try:
+    offset += decode(data, offset, pubkey)
+    offset += decode(data, offset, index)
+    return ok((index: index.toMembershipIndex(), 
+               idComm: pubkey.toIDCommitment()))
+  except:
+    return err("failed to parse the data field of the MemberRegistered event")
 
 proc subscribeToGroupEvents*(ethClientUri: string,
                             ethAccountAddress: Option[Address] = none(Address),
@@ -1024,23 +1044,55 @@ proc subscribeToGroupEvents*(ethClientUri: string,
   ## it collects all the events starting from the given `blockNumber`
   ## for every received event, it calls the `handler`
   let web3 = await newWeb3(ethClientUri)
+  let contract = web3.contractSender(MembershipContract, contractAddress)
+  let historicalEvents = await contract.getJsonLogs(MemberRegistered, fromBlock=some(0.uint64.blockId()))
+  var blockTable = Table[string, seq[MembershipTuple]]()
+  for log in historicalEvents:
+    # batch according to log.blockNumber
+    let blockNumber = log["blockNumber"].getStr()
+    let parsedEventRes = parse(MemberRegistered, log)
+
+    if parsedEventRes.isErr():
+      error "failed to parse the MemberRegistered event", error=parsedEventRes.error()
+      continue
+    let parsedEvent = parsedEventRes.get()
+    if blockTable.hasKey(blockNumber):
+      blockTable[blockNumber].add(parsedEvent)
+    else:
+      blockTable[blockNumber] = @[parsedEvent]
+
+  # Update MT by batch
+  for blockNumber, members in blockTable.pairs():
+    debug "updating the Merkle tree", blockNumber=blockNumber, members=members
+    let res = handler(members)
+    if res.isErr():
+      error "failed to update the Merkle tree", error=res.error()
+
   var latestBlock: Quantity
   let newHeadCallback = proc (blockheader: BlockHeader) {.gcsafe.} =
     latestBlock = blockheader.number
     debug "block received", blockNumber = latestBlock
+    # get logs from the last block
+    try:
+      let membershipRegistrationLogs = waitFor contract.getJsonLogs(MemberRegistered,
+                                                          blockHash = some(blockheader.hash))
+      for log in membershipRegistrationLogs:
+        let parsedEventRes = parse(MemberRegistered, log)
+        if parsedEventRes.isErr():
+          error "failed to parse the MemberRegistered event", error=parsedEventRes.error()
+          continue
+        let parsedEvent = parsedEventRes.get()
+        let res = handler(@[parsedEvent])
+        if res.isErr():
+          error "failed to update the Merkle tree", error=res.error()
+    except:
+      warn "failed to get logs"
+      return
+
   let newHeadErrorHandler = proc (err: CatchableError) {.gcsafe.} =
     error "Error from subscription: ", err=err.msg
   discard await web3.subscribeForBlockHeaders(newHeadCallback, newHeadErrorHandler)
 
-  proc startSubscription(web3: Web3) {.async, gcsafe.} =
-    # subscribe to the MemberRegistered events
-    # TODO: can do similarly for deletion events, though it is not yet supported
-    # TODO: add block number for reconnection logic
-    discard await subscribeToMemberRegistrations(web3 = web3,
-                                                 contractAddress = contractAddress,
-                                                 handler = handler)
-  
-  await startSubscription(web3)
   web3.onDisconnect = proc() =
     debug "connection to ethereum node dropped", lastBlock = latestBlock
 
