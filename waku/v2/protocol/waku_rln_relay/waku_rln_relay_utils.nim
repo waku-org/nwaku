@@ -436,14 +436,6 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
 
     return ok(true)
 
-  proc insertMember*(rlnInstance: RLN[Bn256], idComm: IDCommitment): bool =
-    var pkBuffer = toBuffer(idComm)
-    let pkBufferPtr = addr pkBuffer
-
-    # add the member to the tree
-    var member_is_added = update_next_member(rlnInstance, pkBufferPtr)
-    return member_is_added
-
   proc removeMember*(rlnInstance: RLN[Bn256], index: MembershipIndex): bool =
     let deletion_success = delete_member(rlnInstance, index)
     return deletion_success
@@ -562,14 +554,6 @@ when defined(rlnzerokit):
 
     return ok(true)
 
-  proc insertMember*(rlnInstance: ptr RLN, idComm: IDCommitment): bool =
-    var pkBuffer = toBuffer(idComm)
-    let pkBufferPtr = addr pkBuffer
-
-    # add the member to the tree
-    var member_is_added = update_next_member(rlnInstance, pkBufferPtr)
-    return member_is_added
-
   proc insertMembers*(rlnInstance: ptr RLN,
                       index: MembershipIndex,
                       idComms: seq[IDCommitment]): bool =
@@ -616,19 +600,6 @@ proc updateValidRootQueue*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): void =
       wakuRlnRelay.validMerkleRoots.popFirst() 
   # Push the next root into the queue
   wakuRlnRelay.validMerkleRoots.addLast(root)
-
-proc insertMember*(wakuRlnRelay: WakuRLNRelay, idComm: IDCommitment): RlnRelayResult[void] =
-  ## inserts a new id commitment into the local merkle tree, and adds the changed root to the 
-  ## queue of valid roots
-  ## Returns an error if the insertion fails
-  waku_rln_membership_insertion_duration_seconds.nanosecondTime:
-    let actionSucceeded = wakuRlnRelay.rlnInstance.insertMember(idComm)
-  if not actionSucceeded:
-    return err("could not insert id commitment into the merkle tree")
-
-  let rootAfterUpdate = ?wakuRlnRelay.rlnInstance.getMerkleRoot()
-  wakuRlnRelay.updateValidRootQueue(rootAfterUpdate)
-  return ok()
 
 proc insertMembers*(wakuRlnRelay: WakuRLNRelay, 
                     index: MembershipIndex, 
@@ -694,11 +665,9 @@ proc calcMerkleRoot*(list: seq[IDCommitment]): RlnRelayResult[string] =
   let rln = rlnInstance.get()
 
   # create a Merkle tree
-  for i in 0..list.len-1:
-    var member_is_added = false
-    member_is_added = rln.insertMember(list[i])
-    doAssert(member_is_added)
-
+  let membersAdded = rln.insertMembers(0, list)
+  if not membersAdded:
+    return err("could not insert members into the tree")
   let root = rln.getMerkleRoot().value().inHex
   return ok(root)
 
@@ -717,6 +686,7 @@ proc createMembershipList*(n: int): RlnRelayResult[(
   let rln = rlnInstance.get()
 
   var output = newSeq[(string, string)]()
+  var idCommitments: seq[IDCommitment] = @[]
   for i in 0..n-1:
 
     # generate a key pair
@@ -727,11 +697,12 @@ proc createMembershipList*(n: int): RlnRelayResult[(
     let keyTuple = (keypair.idKey.inHex, keypair.idCommitment.inHex)
     output.add(keyTuple)
 
-    # insert the key to the Merkle tree
-    let inserted = rln.insertMember(keypair.idCommitment)
-    if not inserted:
-      return err("could not insert the key into the Merkle tree")
-
+    idCommitments.add(keypair.idCommitment)
+    
+  # Insert members into tree
+  let membersAdded = rln.insertMembers(0, idCommitments)
+  if not membersAdded:
+    return err("could not insert members into the tree")
 
   let root = rln.getMerkleRoot().value().inHex
   return ok((output, root))
@@ -985,11 +956,9 @@ proc appendRLNProof*(rlnPeer: WakuRLNRelay, msg: var WakuMessage,
 proc addAll*(wakuRlnRelay: WakuRLNRelay, list: seq[IDCommitment]): RlnRelayResult[void] =
   # add members to the Merkle tree of the  `rlnInstance`
   ## Returns an error if it cannot add any member to the Merkle tree
-  for i in 0..list.len-1:
-    let member = list[i]
-    let memberAdded = wakuRlnRelay.insertMember(member)
-    if not memberAdded.isOk():
-      return err(memberAdded.error())
+  let membersAdded = wakuRlnRelay.insertMembers(0, list)
+  if not membersAdded.isOk():
+    return err("failed to add members to the Merkle tree")
   return ok()
 
 type MembershipTuple* = tuple[index: MembershipIndex, idComm: IDCommitment]
@@ -1196,12 +1165,10 @@ proc mountRlnRelayStatic*(node: WakuNode,
     pubsubTopic: pubsubTopic,
     contentTopic: contentTopic)
 
-    # add members to the Merkle tree
-  for index in 0..group.len-1:
-    let member = group[index]
-    let memberAdded = rlnPeer.insertMember(member)
-    if memberAdded.isErr():
-      return err("member addition to the Merkle tree failed: " & memberAdded.error())
+  # add members to the Merkle tree
+  let membersAdded = rlnPeer.insertMembers(0, group)
+  if membersAdded.isErr():
+    return err("member addition to the Merkle tree failed: " & membersAdded.error())
 
   # adds a topic validator for the supplied pubsub topic at the relay protocol
   # messages published on this pubsub topic will be relayed upon a successful validation, otherwise they will be dropped

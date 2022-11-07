@@ -256,7 +256,7 @@ suite "Waku rln relay":
     check:
       deletionSuccess
 
-  test "insertMember rln utils":
+  test "insertMembers rln utils":
     # create an RLN instance which also includes an empty Merkle tree
     let rlnInstance = createRLNInstance()
     require:
@@ -267,7 +267,7 @@ suite "Waku rln relay":
     require:
       keypairRes.isOk()
     check:
-      rln.insertMember(keyPairRes.get().idCommitment)
+      rln.insertMembers(0, @[keyPairRes.get().idCommitment])
 
   test "removeMember rln utils":
     # create an RLN instance which also includes an empty Merkle tree
@@ -372,7 +372,7 @@ suite "Waku rln relay":
     let keyPairRes = rln.membershipKeyGen()
     require:
       keyPairRes.isOk()
-    let memberInserted = rln.insertMember(keypairRes.get().idCommitment)
+    let memberInserted = rln.insertMembers(0, @[keypairRes.get().idCommitment])
     require:
       memberInserted
 
@@ -600,13 +600,13 @@ suite "Waku rln relay":
       var memberAdded: bool = false
       if (i == index):
         # insert the current peer's pk
-        memberAdded = rln.insertMember(memKeys.idCommitment)
+        memberAdded = rln.insertMembers(uint(i), @[memKeys.idCommitment])
       else:
         # create a new key pair
         let memberKeysRes = rln.membershipKeyGen()
         require:
           memberKeysRes.isOk()
-        memberAdded = rln.insertMember(memberKeysRes.get().idCommitment)
+        memberAdded = rln.insertMembers(uint(i), @[memberKeysRes.get().idCommitment])
       # check the member is added
       require:
         memberAdded
@@ -659,13 +659,13 @@ suite "Waku rln relay":
       var memberAdded: bool = false
       if (i == index):
         # insert the current peer's pk
-        memberAdded = rln.insertMember(memKeys.idCommitment)
+        memberAdded = rln.insertMembers(uint(i), @[memKeys.idCommitment])
       else:
         # create a new key pair
         let memberKeysRes = rln.membershipKeyGen()
         require:
           memberKeysRes.isOk()
-        memberAdded = rln.insertMember(memberKeysRes.get().idCommitment)
+        memberAdded = rln.insertMembers(uint(i), @[memberKeysRes.get().idCommitment])
       # check the member is added
       require:
         memberAdded
@@ -728,13 +728,13 @@ suite "Waku rln relay":
       var memberIsAdded: RlnRelayResult[void]
       if (i == index):
         # insert the current peer's pk
-        memberIsAdded = rlnRelay.insertMember(memKeys.idCommitment)
+        memberIsAdded = rlnRelay.insertMembers(uint(i), @[memKeys.idCommitment])
       else:
         # create a new key pair
         let memberKeysRes = rlnRelay.rlnInstance.membershipKeyGen()
         require:
           memberKeysRes.isOk()
-        memberIsAdded = rlnRelay.insertMember(memberKeysRes.get().idCommitment)
+        memberIsAdded = rlnRelay.insertMembers(uint(i), @[memberKeysRes.get().idCommitment])
       # require that the member is added
       require:
         memberIsAdded.isOk()
@@ -820,13 +820,13 @@ suite "Waku rln relay":
       var memberIsAdded: RlnRelayResult[void]
       if (i == index):
         # insert the current peer's pk
-        memberIsAdded = rlnRelay.insertMember(memKeys.idCommitment)
+        memberIsAdded = rlnRelay.insertMembers(uint(i), @[memKeys.idCommitment])
       else:
         # create a new key pair
         let memberKeysRes = rlnRelay.rlnInstance.membershipKeyGen()
         require:
           memberKeysRes.isOk()
-        memberIsAdded = rlnRelay.insertMember(memberKeysRes.get().idCommitment)
+        memberIsAdded = rlnRelay.insertMembers(uint(i), @[memberKeysRes.get().idCommitment])
       # require that the member is added
       require:
         memberIsAdded.isOk()

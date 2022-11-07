@@ -336,7 +336,7 @@ procSuite "Waku-rln-relay":
       if (uint(i) == index):
         #  insert the current peer's pk
         group.add(keyPair.idCommitment)
-        memberAdded = rln.insertMember(keyPair.idCommitment)
+        memberAdded = rln.insertMembers(uint(i), @[keyPair.idCommitment])
         doAssert(memberAdded)
         debug "member key", key = keyPair.idCommitment.inHex
       else:
@@ -345,7 +345,7 @@ procSuite "Waku-rln-relay":
           memberKeyPairRes.isOk()
         let memberKeyPair = memberKeyPairRes.get()
         group.add(memberKeyPair.idCommitment)
-        let memberAdded = rln.insertMember(memberKeyPair.idCommitment)
+        let memberAdded = rln.insertMembers(uint(i), @[memberKeyPair.idCommitment])
         require:
           memberAdded
         debug "member key", key = memberKeyPair.idCommitment.inHex
@@ -417,8 +417,8 @@ procSuite "Waku-rln-relay":
 
     # add the rln keys to the Merkle tree
     let
-      memberIsAdded1 = rln.insertMember(keyPair1.idCommitment)
-      memberIsAdded2 = rln.insertMember(keyPair2.idCommitment)
+      memberIsAdded1 = rln.insertMembers(0, @[keyPair1.idCommitment])
+      memberIsAdded2 = rln.insertMembers(1, @[keyPair2.idCommitment])
     
     require:
       memberIsAdded1
