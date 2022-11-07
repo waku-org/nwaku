@@ -7,6 +7,7 @@ import
   std/[sequtils, tables, times, os, deques],
   chronicles, options, chronos, stint,
   confutils,
+  strutils,
   web3, json,
   web3/ethtypes,
   eth/keys,
@@ -967,26 +968,30 @@ proc addAll*(wakuRlnRelay: WakuRLNRelay, list: seq[IDCommitment]): RlnRelayResul
   return ok()
 
 type MembershipTuple* = tuple[index: MembershipIndex, idComm: IDCommitment]
-type GroupUpdateHandler* = proc(members: seq[MembershipTuple]): RlnRelayResult[void] {.gcsafe.}
+type GroupUpdateHandler* = proc(blockNumber: BlockNumber, 
+                                members: seq[MembershipTuple]): RlnRelayResult[void] {.gcsafe.}
 
 proc generateGroupUpdateHandler(rlnPeer: WakuRLNRelay): GroupUpdateHandler =
   ## assuming all the members arrive in order
   ## TODO: check the index and the pubkey depending on
   ## the group update operation
   var handler: GroupUpdateHandler
-  handler = proc(members: seq[MembershipTuple]): RlnRelayResult[void] =
+  handler = proc(blockNumber: BlockNumber, members: seq[MembershipTuple]): RlnRelayResult[void] =
     let startingIndex = members[0].index
     debug "starting index", startingIndex = startingIndex, members = members.mapIt(it.idComm.inHex)
     let isSuccessful = rlnPeer.insertMembers(startingIndex, members.mapIt(it.idComm))
     if isSuccessful.isErr():
-      return err("failed to add a new member to the Merkle tree")
+      return err("failed to add new members to the Merkle tree")
     else:
       debug "new members added to the Merkle tree", pubkeys=members.mapIt(it.idComm.inHex) , startingIndex=startingIndex
       debug "acceptable window", validRoots=rlnPeer.validMerkleRoots.mapIt(it.inHex)
       let lastIndex = members[0].index + members.len.uint - 1
-      if rlnPeer.lastSeenMembershipIndex != lastIndex + 1:
-        warn "membership index gap, may have lost connection", gap = lastIndex - rlnPeer.lastSeenMembershipIndex
+      let indexGap = lastIndex - rlnPeer.lastSeenmembershipIndex
+      if indexGap > 1.uint:
+        warn "membership index gap, may have lost connection", lastIndex, currIndex=rlnPeer.lastSeenMembershipIndex, indexGap = indexGap
       rlnPeer.lastSeenMembershipIndex = lastIndex
+      rlnPeer.lastProcessedBlock = blockNumber
+      debug "last processed block", blockNumber = blockNumber
       return ok()
   return handler
 
@@ -1010,6 +1015,33 @@ proc parse*(event: type MemberRegistered,
   except:
     return err("failed to parse the data field of the MemberRegistered event")
 
+type BlockTable = OrderedTable[BlockNumber, seq[MembershipTuple]]
+proc getHistoricalEvents*(ethClientUri: string,
+                          contractAddress: Address,
+                          fromBlock: string = "0x0",
+                          toBlock: string = "latest"): RlnRelayResult[BlockTable] {.async, gcsafe.} =
+  ## returns a table that maps block numbers to the list of members registered in that block
+  ## returns an error if it cannot retrieve the historical events
+  let web3 = await newWeb3(ethClientUri)
+  let contract = web3.contractSender(MembershipContract, contractAddress)
+  let historicalEvents = await contract.getJsonLogs(MemberRegistered,
+                                                    fromBlock=some(0.uint64.blockId()))
+  var blockTable = OrderedTable[BlockNumber, seq[MembershipTuple]]()
+  for log in historicalEvents:
+    # batch according to log.blockNumber
+    let blockNumber = parseHexInt(log["blockNumber"].getStr()).uint
+    let parsedEventRes = parse(MemberRegistered, log)
+
+    if parsedEventRes.isErr():
+      error "failed to parse the MemberRegistered event", error=parsedEventRes.error()
+      return err("failed to parse the MemberRegistered event")
+    let parsedEvent = parsedEventRes.get()
+    if blockTable.hasKey(blockNumber):
+      blockTable[blockNumber].add(parsedEvent)
+    else:
+      blockTable[blockNumber] = @[parsedEvent]
+  return ok(blockTable)
+
 proc subscribeToGroupEvents*(ethClientUri: string,
                             ethAccountAddress: Option[Address] = none(Address),
                             contractAddress: Address,
@@ -1021,38 +1053,30 @@ proc subscribeToGroupEvents*(ethClientUri: string,
   ## for every received event, it calls the `handler`
   let web3 = await newWeb3(ethClientUri)
   let contract = web3.contractSender(MembershipContract, contractAddress)
-  let historicalEvents = await contract.getJsonLogs(MemberRegistered,
-                                                    fromBlock=some(0.uint64.blockId()))
-  var blockTable = Table[string, seq[MembershipTuple]]()
-  for log in historicalEvents:
-    # batch according to log.blockNumber
-    let blockNumber = log["blockNumber"].getStr()
-    let parsedEventRes = parse(MemberRegistered, log)
-
-    if parsedEventRes.isErr():
-      error "failed to parse the MemberRegistered event", error=parsedEventRes.error()
-      continue
-    let parsedEvent = parsedEventRes.get()
-    if blockTable.hasKey(blockNumber):
-      blockTable[blockNumber].add(parsedEvent)
-    else:
-      blockTable[blockNumber] = @[parsedEvent]
-
+  
+  let blockTableRes = await getHistoricalEvents(ethClientUri, 
+                                                contractAddress, 
+                                                fromBlock=blockNumber)
+  if blockTableRes.isErr():
+    error "failed to retrieve historical events", error=blockTableRes.error()
+    return
   # Update MT by batch
   for blockNumber, members in blockTable.pairs():
     debug "updating the Merkle tree", blockNumber=blockNumber, members=members
-    let res = handler(members)
+    let res = handler(blockNumber, members)
     if res.isErr():
       error "failed to update the Merkle tree", error=res.error()
 
   # We don't need the block table after this point
   discard blockTable
 
-  var latestBlock: Quantity
+  var latestBlock: BlockNumber
   let handleLog = proc(blockHeader: BlockHeader) {.async, gcsafe.} = 
     try:
       let membershipRegistrationLogs = await contract.getJsonLogs(MemberRegistered,
                                                           blockHash = some(blockheader.hash))
+      if membershipRegistrationLogs.len == 0:
+        return
       var members: seq[MembershipTuple]
       for log in membershipRegistrationLogs:
         let parsedEventRes = parse(MemberRegistered, log)
@@ -1061,18 +1085,20 @@ proc subscribeToGroupEvents*(ethClientUri: string,
           return
         let parsedEvent = parsedEventRes.get()
         members.add(parsedEvent)
-      let res = handler(members)
+      let res = handler(blockHeader.number.uint, members)
       if res.isErr():
         error "failed to update the Merkle tree", error=res.error()
-    except:
-      warn "failed to get logs"
+    except CatchableError as err:
+      warn "failed to get logs", error=err.msg
       return
   let newHeadCallback = proc (blockheader: BlockHeader) {.gcsafe.} =
-    latestBlock = blockheader.number
+    latestBlock = blockheader.number.uint
     debug "block received", blockNumber = latestBlock
     # get logs from the last block
-    discard handleLog(blockHeader)
-    
+    try:
+      asyncCheck handleLog(blockHeader)
+    except CatchableError as err:
+      warn "failed to handle log: ", err = err.msg
 
   let newHeadErrorHandler = proc (err: CatchableError) {.gcsafe.} =
     error "Error from subscription: ", err=err.msg
