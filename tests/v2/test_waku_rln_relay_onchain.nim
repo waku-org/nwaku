@@ -112,13 +112,13 @@ procSuite "Waku-rln-relay":
   ########################
 
   # We install Ganache
-  let installGanache = startProcess("npm", args = ["install",  "ganache"], options = {poUsePath})
+  let installGanache = startProcess("npm", args = ["install",  "ganache", "--prefix", "./build"], options = {poUsePath})
   debug "Ganache installation completed. Printing install log", returnCode=installGanache.waitForExit(), log=installGanache.outputstream.readAll()
 
   # We run Ganache daemon
   # Note that we run directly "node node_modules/ganache/dist/node/cli.js" rather than using "npx ganache", so that the daemon does not spawn in a new child process. 
   # In this way, we can directly send a SIGINT signal to the corresponding PID to gracefully terminate Ganache without dealing with multiple processes.
-  let runGanache = startProcess("node", args = ["node_modules/ganache/dist/node/cli.js", "-p 8540", "-l 300000000000000", "-e 10000"], options = {poUsePath})
+  let runGanache = startProcess("node", args = ["./build/node_modules/ganache/dist/node/cli.js", "-p 8540", "-l 300000000000000", "-e 10000"], options = {poUsePath})
   let ganachePID = runGanache.processID
 
   # We read stdout from Ganache and we start tests only when daemon is ready
@@ -571,6 +571,6 @@ procSuite "Waku-rln-relay":
   debug "Ganache daemon terminated. Printing run log", returnCode=runGanache.waitForExit(), log=runGanache.outputstream.readAll()
 
   # We uninstall Ganache
-  let uninstallGanache = startProcess("npm", args = ["uninstall",  "ganache"], options = {poUsePath})
+  let uninstallGanache = startProcess("npm", args = ["uninstall",  "ganache", "-S", "--prefix", "./build"], options = {poUsePath})
   debug "Ganache uninstall completed. Printing uninstall log", returnCode=uninstallGanache.waitForExit(), log=uninstallGanache.outputstream.readAll()
 
