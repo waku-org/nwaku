@@ -7,8 +7,8 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/varint
 import
-  ../waku_message,
   ../../utils/protobuf,
+  ../waku_message,
   ./rpc
 
 
@@ -18,36 +18,37 @@ const MaxRpcSize* = 10 * MaxWakuMessageSize + 64 * 1024
 
 
 proc encode*(filter: ContentFilter): ProtoBuffer =
-  var output = initProtoBuffer()
-  output.write3(1, filter.contentTopic)
-  output.finish3()
+  var pb = initProtoBuffer()
 
-  return output
+  pb.write3(1, filter.contentTopic)
+  pb.finish3()
 
-proc init*(T: type ContentFilter, buffer: seq[byte]): ProtoResult[T] =
+  pb
+
+proc decode*(T: type ContentFilter, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
 
   var contentTopic: ContentTopic
   discard ?pb.getField(1, contentTopic)
 
-  return ok(ContentFilter(contentTopic: contentTopic))
+  ok(ContentFilter(contentTopic: contentTopic))
 
 
 proc encode*(rpc: FilterRequest): ProtoBuffer =
-  var output = initProtoBuffer()
-  output.write3(1, uint64(rpc.subscribe))
-  output.write3(2, rpc.pubSubTopic)
+  var pb = initProtoBuffer()
+
+  pb.write3(1, uint64(rpc.subscribe))
+  pb.write3(2, rpc.pubSubTopic)
 
   for filter in rpc.contentFilters:
-    output.write3(3, filter.encode())
+    pb.write3(3, filter.encode())
 
-  output.finish3()
+  pb.finish3()
 
-  return output
+  pb
 
-proc init*(T: type FilterRequest, buffer: seq[byte]): ProtoResult[T] =
+proc decode*(T: type FilterRequest, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
-
   var rpc = FilterRequest(contentFilters: @[], pubSubTopic: "")
 
   var subflag: uint64
@@ -61,45 +62,46 @@ proc init*(T: type FilterRequest, buffer: seq[byte]): ProtoResult[T] =
   var buffs: seq[seq[byte]]
   discard ?pb.getRepeatedField(3, buffs)
   for buf in buffs:
-    rpc.contentFilters.add(?ContentFilter.init(buf))
+    rpc.contentFilters.add(?ContentFilter.decode(buf))
 
-  return ok(rpc)
+  ok(rpc)
 
 
 proc encode*(push: MessagePush): ProtoBuffer =
-  var output = initProtoBuffer()
+  var pb = initProtoBuffer()
+
   for push in push.messages:
-    output.write3(1, push.encode())
-  output.finish3()
+    pb.write3(1, push.encode())
 
-  return output
+  pb.finish3()
 
-proc init*(T: type MessagePush, buffer: seq[byte]): ProtoResult[T] =
+  pb
+
+proc decode*(T: type MessagePush, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
-
   var push = MessagePush()
 
   var messages: seq[seq[byte]]
   discard ?pb.getRepeatedField(1, messages)
 
   for buf in messages:
-    push.messages.add(?WakuMessage.init(buf))
+    push.messages.add(?WakuMessage.decode(buf))
 
-  return ok(push)
+  ok(push)
 
 
 proc encode*(rpc: FilterRPC): ProtoBuffer =
-  var output = initProtoBuffer()
-  output.write3(1, rpc.requestId)
-  output.write3(2, rpc.request.encode())
-  output.write3(3, rpc.push.encode())
-  output.finish3()
+  var pb = initProtoBuffer()
 
-  return output
+  pb.write3(1, rpc.requestId)
+  pb.write3(2, rpc.request.encode())
+  pb.write3(3, rpc.push.encode())
+  pb.finish3()
 
-proc init*(T: type FilterRPC, buffer: seq[byte]): ProtoResult[T] =
+  pb
+
+proc decode*(T: type FilterRPC, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer) 
-
   var rpc = FilterRPC()
 
   var requestId: string
@@ -108,10 +110,10 @@ proc init*(T: type FilterRPC, buffer: seq[byte]): ProtoResult[T] =
 
   var requestBuffer: seq[byte]
   discard ?pb.getField(2, requestBuffer)
-  rpc.request = ?FilterRequest.init(requestBuffer)
+  rpc.request = ?FilterRequest.decode(requestBuffer)
 
   var pushBuffer: seq[byte]
   discard ?pb.getField(3, pushBuffer)
-  rpc.push = ?MessagePush.init(pushBuffer)
+  rpc.push = ?MessagePush.decode(pushBuffer)
 
-  return ok(rpc)
+  ok(rpc)

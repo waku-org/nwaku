@@ -90,7 +90,7 @@ proc initProtocolHandler(wf: WakuFilterClient) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     let buffer = await conn.readLp(MaxRpcSize.int)
 
-    let decodeReqRes = FilterRPC.init(buffer)
+    let decodeReqRes = FilterRPC.decode(buffer)
     if decodeReqRes.isErr():
       waku_filter_errors.inc(labelValues = [decodeRpcFailure])
       return

@@ -58,7 +58,7 @@ procSuite "WakuNode":
 
     var completionFut = newFuture[bool]()
     proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.init(data)
+      let msg = WakuMessage.decode(data)
       if msg.isOk():
         let val = msg.value()
         check:
