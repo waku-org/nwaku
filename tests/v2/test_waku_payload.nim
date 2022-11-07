@@ -21,7 +21,7 @@ procSuite "Waku Payload":
       pb =  msg.encode()
 
     # Decoding
-    let msgDecoded = WakuMessage.init(pb.buffer)
+    let msgDecoded = WakuMessage.decode(pb.buffer)
     check msgDecoded.isOk()
 
     let
@@ -47,7 +47,7 @@ procSuite "Waku Payload":
       pb =  msg.encode()
 
     # Decoding
-    let msgDecoded = WakuMessage.init(pb.buffer)
+    let msgDecoded = WakuMessage.decode(pb.buffer)
     check msgDecoded.isOk()
 
     let
@@ -73,7 +73,7 @@ procSuite "Waku Payload":
       pb =  msg.encode()
 
     # Decoding
-    let msgDecoded = WakuMessage.init(pb.buffer)
+    let msgDecoded = WakuMessage.decode(pb.buffer)
     check msgDecoded.isOk()
 
     let
@@ -101,7 +101,7 @@ procSuite "Waku Payload":
       pb =  msg.encode()
 
     # Decoding
-    let msgDecoded = WakuMessage.init(pb.buffer)
+    let msgDecoded = WakuMessage.decode(pb.buffer)
     check msgDecoded.isOk()
 
     let
@@ -123,7 +123,7 @@ procSuite "Waku Payload":
       
     ## When
     let pb =  msg.encode()
-    let msgDecoded = WakuMessage.init(pb.buffer)
+    let msgDecoded = WakuMessage.decode(pb.buffer)
     
     ## Then
     check:
@@ -144,7 +144,7 @@ procSuite "Waku Payload":
     
     ## When
     let pb =  msg.encode()
-    let msgDecoded = WakuMessage.init(pb.buffer)
+    let msgDecoded = WakuMessage.decode(pb.buffer)
 
     ## Then
     check:

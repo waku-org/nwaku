@@ -128,7 +128,7 @@ procSuite "WakuBridge":
     var completionFut = newFuture[bool]()
 
     proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =      
-      let msg = WakuMessage.init(data)
+      let msg = WakuMessage.decode(data)
       
       if msg.isOk() and msg.value().version == 1:
         check:

@@ -52,7 +52,7 @@ proc query*(w: WakuStoreClient, req: HistoryQuery, peer: RemotePeerInfo): Future
   await connection.writeLP(rpc.encode().buffer)
 
   var message = await connection.readLp(MaxRpcSize.int)
-  let response = HistoryRPC.init(message)
+  let response = HistoryRPC.decode(message)
 
   if response.isErr():
     error "failed to decode response"

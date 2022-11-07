@@ -172,7 +172,7 @@ procSuite "Waku Noise":
     let pb = msg.get().encode()
 
     # We decode the WakuMessage from the ProtoBuffer
-    let msgFromPb = WakuMessage.init(pb.buffer)
+    let msgFromPb = WakuMessage.decode(pb.buffer)
     
     check:
       msgFromPb.isOk()

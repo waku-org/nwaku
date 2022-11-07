@@ -37,7 +37,7 @@ proc messageHandler*(cache: TopicCache): TopicCacheMessageHandler =
     trace "Topic handler triggered", topic=topic
 
     # Add message to current cache
-    let msg = WakuMessage.init(data)
+    let msg = WakuMessage.decode(data)
     if msg.isErr():
       debug "WakuMessage received but failed to decode", msg=msg, topic=topic
       # TODO: handle message decode failure

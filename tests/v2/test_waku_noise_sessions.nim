@@ -128,7 +128,7 @@ procSuite "Waku Noise Sessions":
     pb = wakuMsg.get().encode()
 
     # We decode the WakuMessage from the ProtoBuffer
-    msgFromPb = WakuMessage.init(pb.buffer)
+    msgFromPb = WakuMessage.decode(pb.buffer)
     
     check:
       msgFromPb.isOk()
@@ -185,7 +185,7 @@ procSuite "Waku Noise Sessions":
     pb = wakuMsg.get().encode()
 
     # We decode the WakuMessage from the ProtoBuffer
-    msgFromPb = WakuMessage.init(pb.buffer)
+    msgFromPb = WakuMessage.decode(pb.buffer)
     
     check:
       msgFromPb.isOk()
@@ -238,7 +238,7 @@ procSuite "Waku Noise Sessions":
     pb = wakuMsg.get().encode()
 
     # We decode the WakuMessage from the ProtoBuffer
-    msgFromPb = WakuMessage.init(pb.buffer)
+    msgFromPb = WakuMessage.decode(pb.buffer)
     
     check:
       msgFromPb.isOk()
