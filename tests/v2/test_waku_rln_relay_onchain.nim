@@ -208,7 +208,9 @@ procSuite "Waku-rln-relay":
     debug "membership commitment key", pk2 = pk2
 
     let event = newFuture[void]()
-    proc handler(members: seq[MembershipTuple]): RlnRelayResult[void] =
+    var handler: GroupUpdateHandler
+    handler = proc (blockNumber: BlockNumber, 
+                    members: seq[MembershipTuple]): RlnRelayResult[void] =
       debug "handler is called", members = members
       event.complete()
       let isSuccessful = rlnPeer.rlnInstance.insertMembers(0, members.mapIt(it.idComm))
@@ -331,12 +333,12 @@ procSuite "Waku-rln-relay":
 
     # Create a group of 10 members
     var group = newSeq[IDCommitment]()
-    for i in 0..10:
+    for i in 0'u..10'u:
       var memberAdded: bool = false
-      if (uint(i) == index):
+      if (i == index):
         #  insert the current peer's pk
         group.add(keyPair.idCommitment)
-        memberAdded = rln.insertMembers(uint(i), @[keyPair.idCommitment])
+        memberAdded = rln.insertMembers(i, @[keyPair.idCommitment])
         doAssert(memberAdded)
         debug "member key", key = keyPair.idCommitment.inHex
       else:
@@ -345,7 +347,7 @@ procSuite "Waku-rln-relay":
           memberKeyPairRes.isOk()
         let memberKeyPair = memberKeyPairRes.get()
         group.add(memberKeyPair.idCommitment)
-        let memberAdded = rln.insertMembers(uint(i), @[memberKeyPair.idCommitment])
+        let memberAdded = rln.insertMembers(i, @[memberKeyPair.idCommitment])
         require:
           memberAdded
         debug "member key", key = memberKeyPair.idCommitment.inHex
