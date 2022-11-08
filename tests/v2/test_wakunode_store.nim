@@ -15,11 +15,11 @@ import
 import
   ../../waku/common/sqlite,
   ../../waku/v2/node/message_store/sqlite_store,
-  ../../waku/v2/node/message_store/waku_store_queue,
+  ../../waku/v2/node/message_store/queue_store,
+  ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_filter,
-  ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/peers,
   ../../waku/v2/utils/time,
   ../../waku/v2/node/waku_node,

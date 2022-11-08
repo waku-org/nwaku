@@ -36,7 +36,6 @@ import
   ../utils/peers, 
   ../utils/wakuenr,
   ./peer_manager/peer_manager,
-  ./message_store/waku_store_queue,
   ./message_store/message_retention_policy,
   ./message_store/message_retention_policy_capacity,
   ./message_store/message_retention_policy_time,
