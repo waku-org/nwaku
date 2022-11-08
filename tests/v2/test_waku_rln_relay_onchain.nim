@@ -3,7 +3,7 @@
 {.used.}
 
 import
-  std/options,
+  std/[options, osproc, streams, strutils],
   testutils/unittests, chronos, chronicles, stint, web3, json,
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
@@ -15,6 +15,8 @@ import
   ../../waku/v2/node/waku_node,
   ../test_helpers,
   ./test_utils
+
+from posix import kill, SIGINT
 
 const RlnRelayPubsubTopic = "waku/2/rlnrelay/proto"
 const RlnRelayContentTopic = "waku/2/rlnrelay/proto"
@@ -103,7 +105,76 @@ proc createEthAccount(): Future[(keys.PrivateKey, Address)] {.async.} =
 
   return (pk, acc)
 
+
+# Installs Ganache Daemon
+proc installGanache() =
+  # We install Ganache. 
+  # Packages will be installed to the ./build folder through the --prefix option
+  let installGanache = startProcess("npm", args = ["install",  "ganache", "--prefix", "./build"], options = {poUsePath})
+  let returnCode = installGanache.waitForExit()
+  debug "Ganache install log", returnCode=returnCode, log=installGanache.outputstream.readAll()
+
+# Uninstalls Ganache Daemon
+proc uninstallGanache() =
+  # We uninstall Ganache
+  # Packages will be uninstalled from the ./build folder through the --prefix option.
+  # Passed option is
+  # --save: Package will be removed from your dependencies.
+  # See npm documentation https://docs.npmjs.com/cli/v6/commands/npm-uninstall for further details
+  let uninstallGanache = startProcess("npm", args = ["uninstall",  "ganache", "--save", "--prefix", "./build"], options = {poUsePath})
+  let returnCode = uninstallGanache.waitForExit()
+  debug "Ganache uninstall log", returnCode=returnCode, log=uninstallGanache.outputstream.readAll()
+
+# Runs Ganache daemon
+proc runGanache(): Process =
+  # We run directly "node node_modules/ganache/dist/node/cli.js" rather than using "npx ganache", so that the daemon does not spawn in a new child process. 
+  # In this way, we can directly send a SIGINT signal to the corresponding PID to gracefully terminate Ganache without dealing with multiple processes.
+  # Passed options are
+  # --port                            Port to listen on.
+  # --miner.blockGasLimit             Sets the block gas limit in WEI.
+  # --wallet.defaultBalance           The default account balance, specified in ether.
+  # See ganache documentation https://www.npmjs.com/package/ganache for more details
+  let runGanache = startProcess("node", args = ["./build/node_modules/ganache/dist/node/cli.js", "--port", "8540", "--miner.blockGasLimit", "300000000000000", "--wallet.defaultBalance", "10000"], options = {poUsePath})
+  let ganachePID = runGanache.processID
+
+  # We read stdout from Ganache to see when daemon is ready
+  var ganacheStartLog: string
+  var cmdline: string
+  while true:
+    if runGanache.outputstream.readLine(cmdline):
+      ganacheStartLog.add cmdline
+      if cmdline.contains("Listening on 127.0.0.1:8540"):
+        break
+  debug "Ganache daemon is running and ready", pid=ganachePID, startLog=ganacheStartLog
+  return runGanache
+
+
+# Stops Ganache daemon
+proc stopGanache(runGanache: Process) =
+
+  let ganachePID = runGanache.processID
+
+  # We gracefully terminate Ganache daemon by sending a SIGINT signal to the runGanache PID to trigger RPC server termination and clean-up
+  let returnCodeSIGINT = kill(ganachePID.int32, SIGINT)
+  debug "Sent SIGINT to Ganache", ganachePID=ganachePID, returnCode=returnCodeSIGINT
+
+  # We wait the daemon to exit
+  let returnCodeExit = runGanache.waitForExit()
+  debug "Ganache daemon terminated", returnCode=returnCodeExit
+  debug "Ganache daemon run log", log=runGanache.outputstream.readAll()
+
 procSuite "Waku-rln-relay":
+
+  ################################
+  ## Installing/running Ganache
+  ################################
+
+  # We install Ganache
+  installGanache()
+
+  # We run Ganache
+  let runGanache = runGanache()
+
   asyncTest "event subscription":
     # preparation ------------------------------
     debug "ethereum client address", EthClient
@@ -533,3 +604,13 @@ procSuite "Waku-rln-relay":
 
     await node.stop()
     await node2.stop()
+
+  ################################
+  ## Terminating/removing Ganache
+  ################################
+
+  # We stop Ganache daemon
+  stopGanache(runGanache)
+
+  # We uninstall Ganache
+  uninstallGanache()
