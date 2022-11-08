@@ -997,18 +997,21 @@ proc generateGroupUpdateHandler(rlnPeer: WakuRLNRelay): GroupUpdateHandler =
 
 proc parse*(event: type MemberRegistered, 
             log: JsonNode): RlnRelayResult[MembershipTuple] =
-  ## parses the `data` parameter of the `MemberRegistered` event
+  ## parses the `data` parameter of the `MemberRegistered` event `log`
   ## returns an error if it cannot parse the `data` parameter
   var pubkey: UInt256
   var index: UInt256
   var data: string
+  # Remove the 0x prefix
   try:
     data = strip0xPrefix(log["data"].getStr())
   except CatchableError as err:
     return err("failed to parse the data field of the MemberRegistered event: " & err.msg)
   var offset = 0
   try:
+    # Parse the pubkey
     offset += decode(data, offset, pubkey)
+    # Parse the index
     offset += decode(data, offset, index)
     return ok((index: index.toMembershipIndex(), 
                idComm: pubkey.toIDCommitment()))
@@ -1019,13 +1022,16 @@ type BlockTable = OrderedTable[BlockNumber, seq[MembershipTuple]]
 proc getHistoricalEvents*(ethClientUri: string,
                           contractAddress: Address,
                           fromBlock: string = "0x0",
-                          toBlock: string = "latest"): RlnRelayResult[BlockTable] {.async, gcsafe.} =
+                          toBlock: string = "latest"): Future[RlnRelayResult[BlockTable]] {.async, gcsafe.} =
   ## returns a table that maps block numbers to the list of members registered in that block
   ## returns an error if it cannot retrieve the historical events
   let web3 = await newWeb3(ethClientUri)
   let contract = web3.contractSender(MembershipContract, contractAddress)
+  # Get the historical events, and insert memberships into the tree
   let historicalEvents = await contract.getJsonLogs(MemberRegistered,
-                                                    fromBlock=some(0.uint64.blockId()))
+                                                    fromBlock=some(fromBlock.blockId()),
+                                                    toBlock=some(toBlock.blockId()))
+  # Create a table that maps block numbers to the list of members registered in that block
   var blockTable = OrderedTable[BlockNumber, seq[MembershipTuple]]()
   for log in historicalEvents:
     # batch according to log.blockNumber
@@ -1036,6 +1042,7 @@ proc getHistoricalEvents*(ethClientUri: string,
       error "failed to parse the MemberRegistered event", error=parsedEventRes.error()
       return err("failed to parse the MemberRegistered event")
     let parsedEvent = parsedEventRes.get()
+    # Add the parsed event to the table
     if blockTable.hasKey(blockNumber):
       blockTable[blockNumber].add(parsedEvent)
     else:
@@ -1050,7 +1057,7 @@ proc subscribeToGroupEvents*(ethClientUri: string,
   ## connects to the eth client whose URI is supplied as `ethClientUri`
   ## subscribes to the `MemberRegistered` event emitted from the `MembershipContract` which is available on the supplied `contractAddress`
   ## it collects all the events starting from the given `blockNumber`
-  ## for every received event, it calls the `handler`
+  ## for every received block, it calls the `handler`
   let web3 = await newWeb3(ethClientUri)
   let contract = web3.contractSender(MembershipContract, contractAddress)
   
@@ -1060,6 +1067,7 @@ proc subscribeToGroupEvents*(ethClientUri: string,
   if blockTableRes.isErr():
     error "failed to retrieve historical events", error=blockTableRes.error()
     return
+  let blockTable = blockTableRes.get()
   # Update MT by batch
   for blockNumber, members in blockTable.pairs():
     debug "updating the Merkle tree", blockNumber=blockNumber, members=members
