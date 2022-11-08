@@ -558,7 +558,7 @@ when defined(rlnzerokit):
   proc insertMembers*(rlnInstance: ptr RLN,
                       index: MembershipIndex,
                       idComms: seq[IDCommitment]): bool =
-    ## Insert multiple members atomically
+    ## Insert multiple members i.e., identity commitments
     ## returns true if the insertion is successful
     ## returns false if the insertion fails
 
