@@ -94,7 +94,7 @@ The path to the TOML file can be specified usin one of the previous configuratio
 
 * By passing the `--config-file` command line option:
   ```shell
-  waknode2 --config-file=<path-to-toml-config-file>
+  wakunode2 --config-file=<path-to-toml-config-file>
   ```
 * By passing the path via environment variables:
   ```shell
