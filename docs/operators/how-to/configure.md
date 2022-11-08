@@ -13,7 +13,7 @@ One node can be configured using a combination of the following methods:
 3. Configuration file (currently, only TOML format is supported)
 4. Default value
 
-Note the precedence order, each item takes precedence over the item below it.
+Note the precedence order, each configuration mechanism overrides the configuration set by one below (e.g., _command line options_ override the configuration set by the _environment variables_ and by the _configuration file_).
 
 ### Command line options/flags
 
