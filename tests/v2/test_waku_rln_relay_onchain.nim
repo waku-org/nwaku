@@ -105,23 +105,39 @@ proc createEthAccount(): Future[(keys.PrivateKey, Address)] {.async.} =
 
   return (pk, acc)
 
-procSuite "Waku-rln-relay":
 
-  ########################
-  ## Ganache installation
-  ########################
-
-  # We install Ganache
+# Installs Ganache Daemon
+proc installGanache() =
+  # We install Ganache. 
+  # Packages will be installed to the ./build folder through the --prefix option
   let installGanache = startProcess("npm", args = ["install",  "ganache", "--prefix", "./build"], options = {poUsePath})
-  debug "Ganache installation completed. Printing install log", returnCode=installGanache.waitForExit(), log=installGanache.outputstream.readAll()
+  let returnCode = installGanache.waitForExit()
+  debug "Ganache install log", returnCode=returnCode, log=installGanache.outputstream.readAll()
 
-  # We run Ganache daemon
-  # Note that we run directly "node node_modules/ganache/dist/node/cli.js" rather than using "npx ganache", so that the daemon does not spawn in a new child process. 
+# Uninstalls Ganache Daemon
+proc uninstallGanache() =
+  # We uninstall Ganache
+  # Packages will be uninstalled from the ./build folder through the --prefix option.
+  # Passed option is
+  # --save: Package will be removed from your dependencies.
+  # See npm documentation https://docs.npmjs.com/cli/v6/commands/npm-uninstall for further details
+  let uninstallGanache = startProcess("npm", args = ["uninstall",  "ganache", "--save", "--prefix", "./build"], options = {poUsePath})
+  let returnCode = uninstallGanache.waitForExit()
+  debug "Ganache uninstall log", returnCode=returnCode, log=uninstallGanache.outputstream.readAll()
+
+# Runs Ganache daemon
+proc runGanache(): Process =
+  # We run directly "node node_modules/ganache/dist/node/cli.js" rather than using "npx ganache", so that the daemon does not spawn in a new child process. 
   # In this way, we can directly send a SIGINT signal to the corresponding PID to gracefully terminate Ganache without dealing with multiple processes.
-  let runGanache = startProcess("node", args = ["./build/node_modules/ganache/dist/node/cli.js", "-p 8540", "-l 300000000000000", "-e 10000"], options = {poUsePath})
+  # Passed options are
+  # --port                            Port to listen on.
+  # --miner.blockGasLimit             Sets the block gas limit in WEI.
+  # --wallet.defaultBalance           The default account balance, specified in ether.
+  # See ganache documentation https://www.npmjs.com/package/ganache for more details
+  let runGanache = startProcess("node", args = ["./build/node_modules/ganache/dist/node/cli.js", "--port", "8540", "--miner.blockGasLimit", "300000000000000", "--wallet.defaultBalance", "10000"], options = {poUsePath})
   let ganachePID = runGanache.processID
 
-  # We read stdout from Ganache and we start tests only when daemon is ready
+  # We read stdout from Ganache to see when daemon is ready
   var ganacheStartLog: string
   var cmdline: string
   while true:
@@ -130,6 +146,34 @@ procSuite "Waku-rln-relay":
       if cmdline.contains("Listening on 127.0.0.1:8540"):
         break
   debug "Ganache daemon is running and ready", pid=ganachePID, startLog=ganacheStartLog
+  return runGanache
+
+
+# Stops Ganache daemon
+proc stopGanache(runGanache: Process) =
+
+  let ganachePID = runGanache.processID
+
+  # We gracefully terminate Ganache daemon by sending a SIGINT signal to the runGanache PID to trigger RPC server termination and clean-up
+  let returnCodeSIGINT = kill(ganachePID.int32, SIGINT)
+  debug "Sent SIGINT to Ganache", ganachePID=ganachePID, returnCode=returnCodeSIGINT
+
+  # We wait the daemon to exit
+  let returnCodeExit = runGanache.waitForExit()
+  debug "Ganache daemon terminated", returnCode=returnCodeExit
+  debug "Ganache daemon run log", log=runGanache.outputstream.readAll()
+
+procSuite "Waku-rln-relay":
+
+  ################################
+  ## Installing/running Ganache
+  ################################
+
+  # We install Ganache
+  installGanache()
+
+  # We run Ganache
+  let runGanache = runGanache()
 
   asyncTest "event subscription":
     # preparation ------------------------------
@@ -565,12 +609,8 @@ procSuite "Waku-rln-relay":
   ## Terminating/removing Ganache
   ################################
 
-  # We gracefully terminate Ganache daemon
-  # We send a SIGINT signal to the runGanache PID to trigger RPC server termination and clean-up
-  debug "Sending SIGINT to Ganache", returnCode=kill(ganachePID.int32, SIGINT)
-  debug "Ganache daemon terminated. Printing run log", returnCode=runGanache.waitForExit(), log=runGanache.outputstream.readAll()
+  # We stop Ganache daemon
+  stopGanache(runGanache)
 
   # We uninstall Ganache
-  let uninstallGanache = startProcess("npm", args = ["uninstall",  "ganache", "-S", "--prefix", "./build"], options = {poUsePath})
-  debug "Ganache uninstall completed. Printing uninstall log", returnCode=uninstallGanache.waitForExit(), log=uninstallGanache.outputstream.readAll()
-
+  uninstallGanache()
