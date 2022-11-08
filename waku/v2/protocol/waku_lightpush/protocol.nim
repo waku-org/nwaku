@@ -38,7 +38,7 @@ type
 proc initProtocolHandler*(wl: WakuLightPush) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     let buffer = await conn.readLp(MaxRpcSize.int)
-    let reqDecodeRes = PushRPC.init(buffer)
+    let reqDecodeRes = PushRPC.decode(buffer)
     if reqDecodeRes.isErr():
       error "failed to decode rpc"
       waku_lightpush_errors.inc(labelValues = [decodeRpcFailure])

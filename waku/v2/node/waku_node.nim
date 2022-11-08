@@ -62,9 +62,6 @@ const git_version* {.strdefine.} = "n/a"
 # Default clientId
 const clientId* = "Nimbus Waku v2 node"
 
-# TODO: Unify pubusub topic type and default value
-type PubsubTopic* = string
-
 const defaultTopic*: PubsubTopic = "/waku/2/default-waku/proto"
 
 # Default Waku Filter Timeout
@@ -270,7 +267,7 @@ proc subscribe(node: WakuNode, topic: PubsubTopic, handler: Option[TopicHandler]
     # A default handler should be registered for all topics
     trace "Hit default handler", topic=topic, data=data
 
-    let msg = WakuMessage.init(data)
+    let msg = WakuMessage.decode(data)
     if msg.isErr():
       # TODO: Add metric to track waku message decode errors
       return

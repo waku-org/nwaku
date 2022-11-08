@@ -46,7 +46,7 @@ proc sendPushRequest(wl: WakuLightPushClient, req: PushRequest, peer: PeerId|Rem
   await connection.writeLP(rpc.encode().buffer)
 
   var buffer = await connection.readLp(MaxRpcSize.int)
-  let decodeRespRes = PushRPC.init(buffer)
+  let decodeRespRes = PushRPC.decode(buffer)
   if decodeRespRes.isErr():
     error "failed to decode response"
     waku_lightpush_errors.inc(labelValues = [decodeRpcFailure])

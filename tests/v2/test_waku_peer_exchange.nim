@@ -45,7 +45,7 @@ procSuite "Waku Peer Exchange":
     ## When
     let
       rpcBuffer: seq[byte] = rpc.encode().buffer
-      res = PeerExchangeRpc.init(rpcBuffer)
+      res = PeerExchangeRpc.decode(rpcBuffer)
 
     ## Then
     check:
