@@ -560,7 +560,7 @@ when defined(rlnzerokit):
                       idComms: seq[IDCommitment]): bool =
     ## Insert multiple members i.e., identity commitments
     ## returns true if the insertion is successful
-    ## returns false if the insertion fails
+    ## returns false if any of the insertions fails
 
     # convert seq[IDCommitment] to seq[byte]
     var idCommsBytes: seq[byte] = @[]
