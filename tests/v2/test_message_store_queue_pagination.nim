@@ -1,12 +1,12 @@
 {.used.}
 
 import
-  std/[sequtils, algorithm],
+  std/[options, sequtils, algorithm],
   testutils/unittests, 
-  nimcrypto/sha2,
   libp2p/protobuf/minprotobuf
 import
-  ../../waku/v2/node/message_store/waku_store_queue,
+  ../../waku/v2/node/message_store/queue_store/queue_store {.all.},
+  ../../waku/v2/node/message_store/queue_store/index,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/utils/time,
@@ -21,11 +21,11 @@ proc getTestStoreQueue(numMessages: int): StoreQueueRef =
 
   for i in 0..<numMessages:
     let msg = IndexedWakuMessage(
-      msg: WakuMessage(payload: @[byte i]),
+      msg: WakuMessage(payload: @[byte i], timestamp: Timestamp(i)),
       index: Index(
         receiverTime: Timestamp(i),
         senderTime: Timestamp(i),
-        digest: MDigest[256](data: data)
+        digest: MessageDigest(data: data)
       ) 
     )
     discard testStoreQueue.add(msg)
@@ -33,149 +33,357 @@ proc getTestStoreQueue(numMessages: int): StoreQueueRef =
   return testStoreQueue
 
 
-suite "Queue store - pagination":
-  test "Forward pagination test":
-    let
-      store = getTestStoreQueue(10)
-      indexList = toSeq(store.fwdIterator()).mapIt(it[0]) # Seq copy of the store queue indices for verification
-      msgList = toSeq(store.fwdIterator()).mapIt(it[1].msg) # Seq copy of the store queue messages for verification
-      
-    var pagingInfo = PagingInfo(pageSize: 2, cursor: indexList[3].toPagingIndex(), direction: PagingDirection.FORWARD)
+procSuite "Queue store - pagination":
+  let store = getTestStoreQueue(10)
+  let
+    indexList: seq[Index] = toSeq(store.fwdIterator()).mapIt(it[0])
+    msgList: seq[WakuMessage] = toSeq(store.fwdIterator()).mapIt(it[1].msg)
 
-    # test for a normal pagination
-    var data = getPage(store, pagingInfo).tryGet().mapIt(it[1])
+  test "Forward pagination - normal pagination":
+    ## Given
+    let
+      pageSize: uint64 = 2 
+      cursor: Option[Index] = some(indexList[3])
+      forward: bool = true
+    
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
     check:
       data.len == 2
       data == msgList[4..5]
    
-   # test for an initial pagination request with an empty cursor
-    pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD)
-    data = getPage(store, pagingInfo).tryGet().mapIt(it[1])
+  test "Forward pagination - initial pagination request with an empty cursor":
+    ## Given
+    let
+      pageSize: uint64 = 2 
+      cursor: Option[Index] = none(Index)
+      forward: bool = true
+    
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
     check:
       data.len == 2
       data == msgList[0..1]
     
-    # test for an initial pagination request with an empty cursor to fetch the entire history
-    pagingInfo = PagingInfo(pageSize: 13, direction: PagingDirection.FORWARD)
-    data = getPage(store, pagingInfo).tryGet().mapIt(it[1])
+  test "Forward pagination - initial pagination request with an empty cursor to fetch the entire history":
+    ## Given
+    let
+      pageSize: uint64 = 13
+      cursor: Option[Index] = none(Index)
+      forward: bool = true
+    
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
     check:
       data.len == 10
       data == msgList[0..9]
 
-    # test for an empty msgList
-    pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.FORWARD)
-    data = getPage(getTestStoreQueue(0), pagingInfo).tryGet().mapIt(it[1])
+  test "Forward pagination - empty msgList":
+    ## Given
+    let store = getTestStoreQueue(0)
+    let
+      pageSize: uint64 = 2 
+      cursor: Option[Index] = none(Index)
+      forward: bool = true
+
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
     check:
       data.len == 0
 
-    # test for a page size larger than the remaining messages
-    pagingInfo = PagingInfo(pageSize: 10, cursor: indexList[3].toPagingIndex(), direction: PagingDirection.FORWARD)
-    data = getPage(store, pagingInfo).tryGet().mapIt(it[1])
+  test "Forward pagination - page size larger than the remaining messages":
+    ## Given
+    let
+      pageSize: uint64 = 10
+      cursor: Option[Index] = some(indexList[3])
+      forward: bool = true
+
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
     check:
       data.len == 6
       data == msgList[4..9]
 
-    # test for a page size larger than the maximum allowed page size
-    pagingInfo = PagingInfo(pageSize: MaxPageSize+1, cursor: indexList[3].toPagingIndex(), direction: PagingDirection.FORWARD)
-    data = getPage(store, pagingInfo).tryGet().mapIt(it[1])
+  test "Forward pagination - page size larger than the maximum allowed page size":
+    ## Given
+    let
+      pageSize: uint64 = MaxPageSize + 1
+      cursor: Option[Index] = some(indexList[3])
+      forward: bool = true
+
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
     check:
       uint64(data.len) <= MaxPageSize
   
-    # test for a cursor pointing to the end of the message list
-    pagingInfo = PagingInfo(pageSize: 10, cursor: indexList[9].toPagingIndex(), direction: PagingDirection.FORWARD)
-    data = getPage(store, pagingInfo).tryGet().mapIt(it[1])
+  test "Forward pagination - cursor pointing to the end of the message list":
+    ## Given
+    let
+      pageSize: uint64 = 10
+      cursor: Option[Index] = some(indexList[9])
+      forward: bool = true
+
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
     check:
       data.len == 0
     
-    # test for an invalid cursor 
-    let index = PagingIndex.compute(WakuMessage(payload: @[byte 10]), ts(), DefaultPubsubTopic)
-    pagingInfo = PagingInfo(pageSize: 10, cursor: index, direction: PagingDirection.FORWARD)
-    var error = getPage(store, pagingInfo).tryError()
-    check:
-      error == HistoryResponseError.INVALID_CURSOR
+  test "Forward pagination - invalid cursor":
+    ## Given
+    let index = PagingIndex.compute(WakuMessage(payload: @[byte 10]), ts(), DefaultPubsubTopic).toIndex()
+    let
+      pageSize: uint64 = 10 
+      cursor: Option[Index] = some(index)
+      forward: bool = true
 
-    # test initial paging query over a message list with one message 
-    var singleItemMsgList = getTestStoreQueue(1)
-    pagingInfo = PagingInfo(pageSize: 10, direction: PagingDirection.FORWARD)
-    data = getPage(singleItemMsgList, pagingInfo).tryGet().mapIt(it[1])
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
+    
+    ## Then
+    let error = page.tryError()
+    check:
+      error == StoreQueueErrorKind.INVALID_CURSOR
+  
+  test "Forward pagination - initial paging query over a message list with one message":
+    ## Given
+    let store = getTestStoreQueue(1)
+    let
+      pageSize: uint64 = 10
+      cursor: Option[Index] = none(Index)
+      forward: bool = true
+    
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
     check:
       data.len == 1
 
-    # test pagination over a message list with one message
-    singleItemMsgList = getTestStoreQueue(1)
-    pagingInfo = PagingInfo(pageSize: 10, cursor: indexList[0].toPagingIndex(), direction: PagingDirection.FORWARD)
-    data = getPage(singleItemMsgList, pagingInfo).tryGet().mapIt(it[1])
+  test "Forward pagination - pagination over a message list with one message":
+    ## Given
+    let store = getTestStoreQueue(1)
+    let
+      pageSize: uint64 = 10
+      cursor: Option[Index] = some(indexList[0])
+      forward: bool = true
+
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
     check:
       data.len == 0
 
-  test "Backward pagination test":
+  test "Forward pagination - with pradicate":
+    ## Given
     let
-      store = getTestStoreQueue(10)
-      indexList = toSeq(store.fwdIterator()).mapIt(it[0]) # Seq copy of the store queue indices for verification
-      msgList = toSeq(store.fwdIterator()).mapIt(it[1].msg) # Seq copy of the store queue messages for verification
-    
-    var pagingInfo = PagingInfo(pageSize: 2, cursor: indexList[3].toPagingIndex(), direction: PagingDirection.BACKWARD)
+      pageSize: uint64 = 3
+      cursor: Option[Index] = none(Index)
+      forward = true
 
-    # test for a normal pagination
-    var data = getPage(store, pagingInfo).tryGet().mapIt(it[1])
+    proc onlyEvenTimes(i: IndexedWakuMessage): bool = i.msg.timestamp.int64 mod 2 == 0
+
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor, predicate=onlyEvenTimes)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
+    check:
+      data.mapIt(it.timestamp.int) == @[0, 2, 4]
+  
+
+  test "Backward pagination - normal pagination":
+    ## Given
+    let
+      pageSize: uint64 = 2 
+      cursor: Option[Index] = some(indexList[3])
+      forward: bool = false
+    
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
     check:
       data == msgList[1..2].reversed
 
-    # test for an empty msgList
-    pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD)
-    data = getPage(getTestStoreQueue(0), pagingInfo).tryGet().mapIt(it[1])
+  test "Backward pagination - empty msgList":
+    ## Given
+    let store = getTestStoreQueue(0)
+    let
+      pageSize: uint64 = 2 
+      cursor: Option[Index] = none(Index)
+      forward: bool = false
+
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
     check:
       data.len == 0
 
-    # test for an initial pagination request with an empty cursor
-    pagingInfo = PagingInfo(pageSize: 2, direction: PagingDirection.BACKWARD)
-    data = getPage(store, pagingInfo).tryGet().mapIt(it[1])
+  test "Backward pagination - initial pagination request with an empty cursor":
+    ## Given
+    let
+      pageSize: uint64 = 2 
+      cursor: Option[Index] = none(Index)
+      forward: bool = false
+
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
     check:
       data.len == 2
       data == msgList[8..9].reversed
     
-    # test for an initial pagination request with an empty cursor to fetch the entire history
-    pagingInfo = PagingInfo(pageSize: 13, direction: PagingDirection.BACKWARD)
-    data = getPage(store, pagingInfo).tryGet().mapIt(it[1])
+  test "Backward pagination - initial pagination request with an empty cursor to fetch the entire history":
+    ## Given
+    let
+      pageSize: uint64 = 13
+      cursor: Option[Index] = none(Index)
+      forward: bool = false
+    
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
     check:
       data.len == 10
       data == msgList[0..9].reversed
 
-    # test for a page size larger than the remaining messages
-    pagingInfo = PagingInfo(pageSize: 5, cursor: indexList[3].toPagingIndex(), direction: PagingDirection.BACKWARD)
-    data = getPage(store, pagingInfo).tryGet().mapIt(it[1])
+  test "Backward pagination - page size larger than the remaining messages":
+    ## Given
+    let
+      pageSize: uint64 = 5
+      cursor: Option[Index] = some(indexList[3])
+      forward: bool = false
+
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
     check:
       data == msgList[0..2].reversed
     
-    # test for a page size larger than the Maximum allowed page size
-    pagingInfo = PagingInfo(pageSize: MaxPageSize+1, cursor: indexList[3].toPagingIndex(), direction: PagingDirection.BACKWARD)
-    data = getPage(store, pagingInfo).tryGet().mapIt(it[1])
+  test "Backward pagination - page size larger than the Maximum allowed page size":
+    ## Given
+    let
+      pageSize: uint64 = MaxPageSize + 1
+      cursor: Option[Index] = some(indexList[3])
+      forward: bool = false
+
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
     check:
       uint64(data.len) <= MaxPageSize
 
-    # test for a cursor pointing to the begining of the message list
-    pagingInfo = PagingInfo(pageSize: 5, cursor: indexList[0].toPagingIndex(), direction: PagingDirection.BACKWARD)
-    data = getPage(store, pagingInfo).tryGet().mapIt(it[1])
+  test "Backward pagination - cursor pointing to the begining of the message list":
+    ## Given
+    let
+      pageSize: uint64 = 5
+      cursor: Option[Index] = some(indexList[0])
+      forward: bool = false
+
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
     check:
       data.len == 0
 
-    # test for an invalid cursor 
-    let index = PagingIndex.compute(WakuMessage(payload: @[byte 10]), ts(), DefaultPubsubTopic)
-    pagingInfo = PagingInfo(pageSize: 5, cursor: index, direction: PagingDirection.BACKWARD)
-    var error = getPage(store, pagingInfo).tryError()
-    check:
-      error == HistoryResponseError.INVALID_CURSOR
+  test "Backward pagination - invalid cursor":
+    ## Given
+    let index = PagingIndex.compute(WakuMessage(payload: @[byte 10]), ts(), DefaultPubsubTopic).toIndex()
+    let
+      pageSize: uint64 = 2 
+      cursor: Option[Index] = some(index)
+      forward: bool = false
+
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
     
-    # test initial paging query over a message list with one message
-    var singleItemMsgList = getTestStoreQueue(1)
-    pagingInfo = PagingInfo(pageSize: 10, direction: PagingDirection.BACKWARD)
-    data = getPage(singleItemMsgList, pagingInfo).tryGet().mapIt(it[1])
+    ## Then
+    let error = page.tryError()
+    check:
+      error == StoreQueueErrorKind.INVALID_CURSOR
+    
+  test "Backward pagination - initial paging query over a message list with one message":
+    ## Given
+    let store = getTestStoreQueue(1)
+    let
+      pageSize: uint64 = 10
+      cursor: Option[Index] = none(Index)
+      forward: bool = false
+
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
     check:
       data.len == 1
     
-    # test paging query over a message list with one message
-    singleItemMsgList = getTestStoreQueue(1)
-    pagingInfo = PagingInfo(pageSize: 10, cursor: indexList[0].toPagingIndex(), direction: PagingDirection.BACKWARD)
-    data = getPage(singleItemMsgList, pagingInfo).tryGet().mapIt(it[1])
+  test "Backward pagination - paging query over a message list with one message":
+    ## Given
+    let store = getTestStoreQueue(1)
+    let
+      pageSize: uint64 = 10
+      cursor: Option[Index] = some(indexList[0])
+      forward: bool = false
+
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
     check:
       data.len == 0
+
+  test "Backward pagination - with predicate":
+    ## Given
+    let
+      pageSize: uint64 = 3
+      cursor: Option[Index] = none(Index)
+      forward = false
+
+    proc onlyOddTimes(i: IndexedWakuMessage): bool = i.msg.timestamp.int64 mod 2 != 0
+
+    ## When
+    let page = store.getPage(pageSize=pageSize, forward=forward, cursor=cursor, predicate=onlyOddTimes)
+    
+    ## Then
+    let data = page.tryGet().mapIt(it[1])
+    check:
+      data.mapIt(it.timestamp.int) == @[5, 7,9].reversed
