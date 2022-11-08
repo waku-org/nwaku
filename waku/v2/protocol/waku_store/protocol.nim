@@ -19,7 +19,6 @@ import
   metrics
 import
   ../../node/message_store/message_retention_policy,
-  ../../node/message_store/waku_store_queue,
   ../../node/peer_manager/peer_manager,
   ../../utils/time,
   ../waku_message,
@@ -219,15 +218,6 @@ proc new*(T: type WakuStore,
   ws.initProtocolHandler()
 
   return ws
-
-proc init*(T: type WakuStore, 
-           peerManager: PeerManager, 
-           rng: ref rand.HmacDrbgContext,
-           wakuSwap: WakuSwap = nil, 
-           retentionPolicy=none(MessageRetentionPolicy)): T =
-  let store = StoreQueueRef.new()
-  WakuStore.init(peerManager, rng, store, wakuSwap, retentionPolicy)
-
 
 proc isValidMessage(msg: WakuMessage): bool =
   if msg.timestamp == 0:
