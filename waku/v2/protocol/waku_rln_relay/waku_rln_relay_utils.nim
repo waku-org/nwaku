@@ -21,9 +21,7 @@ import
   waku_rln_relay_metrics,
   ../../utils/time,
   ../../utils/keyfile,
-  ../../node/waku_node, 
-  ../../../../../apps/wakunode2/config,  ## TODO: Decouple the protocol code from the app configuration
-  ../../../../../apps/chat2/config_chat2,  ## TODO: Decouple the protocol code from the app configuration
+  ../../node/waku_node,
   ../waku_message
 
 logScope:
@@ -1353,8 +1351,21 @@ proc readRlnCredentials*(path: string,
       return err("Error while loading keyfile for RLN credentials at " & path)
 
 
+type WakuRlnConfig* = object
+    rlnRelayDynamic*: bool
+    rlnRelayPubsubTopic*: PubsubTopic
+    rlnRelayContentTopic*: ContentTopic
+    rlnRelayMembershipIndex*: uint
+    rlnRelayEthContractAddress*: string
+    rlnRelayEthClientAddress*: string
+    rlnRelayEthAccountPrivateKey*: string
+    rlnRelayEthAccountAddress*: string
+    rlnRelayCredPath*: string
+    rlnRelayCredentialsPassword*: string
+
+
 proc mount(node: WakuNode,
-           conf: WakuNodeConf|Chat2Conf,
+           conf: WakuRlnConfig,
            spamHandler: Option[SpamHandler] = none(SpamHandler),
            registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)
           ): Future[RlnRelayResult[void]] {.async.} =
@@ -1500,7 +1511,7 @@ proc mount(node: WakuNode,
 
 
 proc mountRlnRelay*(node: WakuNode,
-                    conf: WakuNodeConf|Chat2Conf,
+                    conf: WakuRlnConfig,
                     spamHandler: Option[SpamHandler] = none(SpamHandler),
                     registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)
                    ): Future[RlnRelayResult[void]] {.async.} =

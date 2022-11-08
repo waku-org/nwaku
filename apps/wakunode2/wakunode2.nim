@@ -358,8 +358,22 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
   
   when defined(rln) or defined(rlnzerokit): 
     if conf.rlnRelay:
+      
+      let rlnConf = WakuRlnConfig(
+        rlnRelayDynamic: conf.rlnRelayDynamic,
+        rlnRelayPubsubTopic: conf.rlnRelayPubsubTopic,
+        rlnRelayContentTopic: conf.rlnRelayContentTopic,
+        rlnRelayMembershipIndex: conf.rlnRelayMembershipIndex,
+        rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
+        rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
+        rlnRelayEthAccountPrivateKey: conf.rlnRelayEthAccountPrivateKey,
+        rlnRelayEthAccountAddress: conf.rlnRelayEthAccountAddress,
+        rlnRelayCredPath: conf.rlnRelayCredPath,
+        rlnRelayCredentialsPassword: conf.rlnRelayCredentialsPassword
+      )
+
       try: 
-        let res = await node.mountRlnRelay(conf)
+        let res = await node.mountRlnRelay(rlnConf)
         if res.isErr():
           return err("failed to mount waku RLN relay protocol: " & res.error)
       except:
