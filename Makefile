@@ -153,13 +153,9 @@ sim1: | build deps wakunode1
 
 ## Waku v2 targets
 
-test2: | build deps deps2 installganache
+test2: | build deps deps2
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test2 $(NIM_PARAMS) waku.nims
-	# the following command (pkill -f ganache-cli) attempts to kill ganache-cli process on macos  
-	# if we do not kill the process then it would hang there and causes issue in GitHub Actions macos job (the job never finsihes)
-	(([[ $(detected_OS) = macOS ]] && \
-		pkill -f ganache-cli) || true)
 
 wakunode2: | build deps deps2
 	echo -e $(BUILD_MSG) "build/$@" && \
@@ -219,24 +215,8 @@ endif
 # control compilation of rln tests that require on chain interaction
 ifeq ($(ONCHAIN_RLN), true) 
 NIM_PARAMS := $(NIM_PARAMS) -d:onchain_rln
-else
-ifeq ($(CI), true) 
-ifeq ($(detected_OS), macOS)
+else ifeq ($(CI), true) 
 NIM_PARAMS := $(NIM_PARAMS) -d:onchain_rln
-endif
-endif
-endif
-
-
-installganache:
-ifeq ($(ONCHAIN_RLN), true) 
-	npm install ganache-cli; npx ganache-cli -p	8540	-g	0	-l	3000000000000&
-else
-ifeq ($(CI), true) 
-ifeq ($(detected_OS), macOS)
-	npm install ganache-cli; npx ganache-cli -p	8540	-g	0	-l	3000000000000&
-endif
-endif
 endif
 
 rlnlib:
