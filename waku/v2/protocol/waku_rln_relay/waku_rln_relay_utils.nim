@@ -435,6 +435,17 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
 
     return ok(true)
 
+  proc insertMember*(rlnInstance: RLN[Bn256], idComm: IDCommitment): bool =
+    ## inserts a member to the tree
+    ## returns true if the member is inserted successfully
+    ## returns false if the member could not be inserted
+    var pkBuffer = toBuffer(idComm)
+    let pkBufferPtr = addr pkBuffer
+
+    # add the member to the tree
+    var member_is_added = update_next_member(rlnInstance, pkBufferPtr)
+    return member_is_added
+
   proc removeMember*(rlnInstance: RLN[Bn256], index: MembershipIndex): bool =
     let deletion_success = delete_member(rlnInstance, index)
     return deletion_success
@@ -552,6 +563,17 @@ when defined(rlnzerokit):
       return ok(false)
 
     return ok(true)
+
+  proc insertMember*(rlnInstance: ptr RLN, idComm: IDCommitment): bool =
+    ## inserts a member to the tree
+    ## returns true if the member is inserted successfully
+    ## returns false if the member could not be inserted
+    var pkBuffer = toBuffer(idComm)
+    let pkBufferPtr = addr pkBuffer
+
+    # add the member to the tree
+    var member_is_added = update_next_member(rlnInstance, pkBufferPtr)
+    return member_is_added
 
   proc insertMembers*(rlnInstance: ptr RLN,
                       index: MembershipIndex,

@@ -269,6 +269,19 @@ suite "Waku rln relay":
     check:
       rln.insertMembers(0, @[keyPairRes.get().idCommitment])
 
+  test "insertMember rln utils":
+    # create an RLN instance which also includes an empty Merkle tree
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
+    let rln = rlnInstance.get()
+    # generate a key pair
+    let keyPairRes = rln.membershipKeyGen()
+    require:
+      keypairRes.isOk()
+    check:
+      rln.insertMember(0, keyPairRes.get().idCommitment)
+
   test "removeMember rln utils":
     # create an RLN instance which also includes an empty Merkle tree
     let rlnInstance = createRLNInstance()
