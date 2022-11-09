@@ -133,14 +133,14 @@ when defined(rlnzerokit):
   proc init_tree_with_leaves*(ctx: ptr RLN, input_buffer: ptr Buffer): bool {.importc: "init_tree_with_leaves".}
   ## sets multiple leaves in the tree stored by ctx to the value passed by input_buffer
   ## the input_buffer holds a serialized vector of leaves (32 bytes each)
-  ## the input_buffer size is prefixed by a 32 bytes integer indicating the number of leaves
+  ## the input_buffer size is prefixed by a 8 bytes integer indicating the number of leaves
   ## leaves are set one after each other starting from index 0
   ## the return bool value indicates the success or failure of the operation
 
   proc set_leaves_from*(ctx: ptr RLN, index: uint, input_buffer: ptr Buffer): bool {.importc: "set_leaves_from".}
   ## sets multiple leaves in the tree stored by ctx to the value passed by input_buffer
   ## the input_buffer holds a serialized vector of leaves (32 bytes each)
-  ## the input_buffer size is prefixed by a 32 bytes integer indicating the number of leaves
+  ## the input_buffer size is prefixed by a 8 bytes integer indicating the number of leaves
   ## leaves are set one after each other starting from index `index`
   ## the return bool value indicates the success or failure of the operation
 
