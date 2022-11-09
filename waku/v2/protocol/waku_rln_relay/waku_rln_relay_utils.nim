@@ -443,14 +443,27 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     let pkBufferPtr = addr pkBuffer
 
     # add the member to the tree
-    var member_is_added = update_next_member(rlnInstance, pkBufferPtr)
-    return member_is_added
+    let memberAdded = update_next_member(rlnInstance, pkBufferPtr)
+    return memberAdded
 
   proc removeMember*(rlnInstance: RLN[Bn256], index: MembershipIndex): bool =
     let deletion_success = delete_member(rlnInstance, index)
     return deletion_success
 
+proc serialize*(idCommitments: seq[IDCommitment]): seq[byte] =
+  ## serializes a seq of IDCommitments to a byte seq
+  ## the serialization is based on https://github.com/status-im/nwaku/blob/37bd29fbc37ce5cf636734e7dd410b1ed27b88c8/waku/v2/protocol/waku_rln_relay/rln.nim#L142
+  ## the order of serialization is |id_commitment_len<8>|id_commitment<var>|
+  let idCommsBytes = newSeq[byte]()
 
+  # serialize the idComms, with its length prefixed
+  let len = toBytes(uint64(idComms.len), Endianness.littleEndian)
+  idCommsBytes.add(len)
+
+  for idComm in idComms:
+    idCommsBytes = concat(idCommsBytes, @idComm)
+
+  return idCommsBytes
 
 when defined(rlnzerokit):
   proc proofGen*(rlnInstance: ptr RLN, data: openArray[byte],
@@ -572,8 +585,8 @@ when defined(rlnzerokit):
     let pkBufferPtr = addr pkBuffer
 
     # add the member to the tree
-    var member_is_added = update_next_member(rlnInstance, pkBufferPtr)
-    return member_is_added
+    let memberAdded = update_next_member(rlnInstance, pkBufferPtr)
+    return memberAdded
 
   proc insertMembers*(rlnInstance: ptr RLN,
                       index: MembershipIndex,
@@ -582,20 +595,13 @@ when defined(rlnzerokit):
     ## returns true if the insertion is successful
     ## returns false if any of the insertions fails
 
-    # convert seq[IDCommitment] to seq[byte]
-    var idCommsBytes: seq[byte] = @[]
-
-    # serialize the idComms, with its length prefixed
-    let len = toBytes(uint64(idComms.len), Endianness.littleEndian)
-    idCommsBytes.add(len)
-
-    for idComm in idComms:
-      idCommsBytes = concat(idCommsBytes, @idComm)
+    # serialize the idComms
+    let idCommsBytes = serialize(idComms)
     
     var idCommsBuffer = idCommsBytes.toBuffer()
     let idCommsBufferPtr = addr idCommsBuffer
     # add the member to the tree
-    let membersAdded = setLeavesFrom(rlnInstance, index, idCommsBufferPtr)
+    let membersAdded = set_leaves_from(rlnInstance, index, idCommsBufferPtr)
     return membersAdded
 
   proc removeMember*(rlnInstance: ptr RLN, index: MembershipIndex): bool =
