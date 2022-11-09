@@ -10,7 +10,7 @@ import
   chronicles
 import
   ../../../protocol/waku_message,
-  ../../../protocol/waku_store/pagination,
+  ../../../protocol/waku_store/common,
   ../../../protocol/waku_store/message_store,
   ../../../utils/time,
   ./index
@@ -271,8 +271,8 @@ method getAllMessages*(store: StoreQueueRef): MessageStoreResult[seq[MessageStor
 method getMessagesByHistoryQuery*(
   store: StoreQueueRef,
   contentTopic = none(seq[ContentTopic]),
-  pubsubTopic = none(string),
-  cursor = none(PagingIndex),
+  pubsubTopic = none(PubsubTopic),
+  cursor = none(HistoryCursor),
   startTime = none(Timestamp),
   endTime = none(Timestamp),
   maxPageSize = DefaultPageSize,

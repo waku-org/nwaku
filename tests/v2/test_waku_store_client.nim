@@ -11,7 +11,7 @@ import
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
-  ../../waku/v2/protocol/waku_store/client,
+  ../../waku/v2/protocol/waku_store/client {.all.},
   ./testlib/common,
   ./testlib/switch
 
@@ -81,13 +81,10 @@ procSuite "Waku Store Client":
 
     ## Given
     let peer = serverSwitch.peerInfo.toRemotePeerInfo()
-    let rpc = HistoryQuery(
-      contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)],
-      pagingInfo: PagingInfo(pageSize: 8)
-    )
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], pageSize: 8)
 
     ## When
-    let res = await client.query(rpc, peer)
+    let res = await client.query(req, peer)
 
     ## Then
     check:
@@ -98,7 +95,7 @@ procSuite "Waku Store Client":
       ## No pagination specified. Response will be auto-paginated with
       ## up to MaxPageSize messages per page.
       response.messages.len() == 8
-      response.pagingInfo != PagingInfo()
+      response.cursor.isSome()
 
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitch.stop())
@@ -117,13 +114,10 @@ procSuite "Waku Store Client":
 
     ## Given
     let peer = serverSwitch.peerInfo.toRemotePeerInfo()
-    let rpc = HistoryQuery(
-      contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)],
-      pagingInfo: PagingInfo(pageSize: 5)
-    )
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], pageSize: 5)
 
     ## When
-    let res = await client.queryWithPaging(rpc, peer)
+    let res = await client.queryAll(req, peer)
 
     ## Then
     check:
@@ -136,6 +130,8 @@ procSuite "Waku Store Client":
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitch.stop())
 
+
+  # TODO: Move to resume test suite
   asyncTest "multiple query to multiple peers with pagination":
     ## Setup
     let 
@@ -155,13 +151,10 @@ procSuite "Waku Store Client":
       serverSwitchA.peerInfo.toRemotePeerInfo(),
       serverSwitchB.peerInfo.toRemotePeerInfo()
     ]
-    let rpc = HistoryQuery(
-      contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)],
-      pagingInfo: PagingInfo(pageSize: 5)
-    )
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], pageSize: 5)
 
     ## When
-    let res = await client.queryLoop(rpc, peers)
+    let res = await client.queryLoop(req, peers)
 
     ## Then
     check:

@@ -10,7 +10,7 @@ import
   ../../waku/v2/node/waku_payload,
   ../../waku/v2/node/jsonrpc/jsonrpc_types,
   ../../waku/v2/protocol/waku_filter,
-  ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/protocol/waku_store/rpc,
   ../../waku/v1/node/rpc/hexstrings
 
 
@@ -39,5 +39,5 @@ echo "Content topic is:", input
 var node = newRpcHttpClient()
 waitfor node.connect("localhost", rpcPort)
 
-var res = waitfor node.get_waku_v2_store_v1_messages(some(pubsubTopic), some(@[HistoryContentFilter(contentTopic: ContentTopic(input))]), none(StorePagingOptions))
+var res = waitfor node.get_waku_v2_store_v1_messages(some(pubsubTopic), some(@[HistoryContentFilterRPC(contentTopic: ContentTopic(input))]), none(StorePagingOptions))
 echo "Waku query response: ", res
