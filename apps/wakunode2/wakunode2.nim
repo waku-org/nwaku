@@ -45,7 +45,7 @@ import
   ./wakunode2_setup_rpc,
   ./config
 
-when defined(rln) or defined(rlnzerokit):
+when defined(rln):
   import
     ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_types,
     ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_utils
@@ -356,7 +356,7 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
   except:
     return err("failed to mount libp2p ping protocol: " & getCurrentExceptionMsg())
   
-  when defined(rln) or defined(rlnzerokit): 
+  when defined(rln): 
     if conf.rlnRelay:
       
       let rlnConf = WakuRlnConfig(

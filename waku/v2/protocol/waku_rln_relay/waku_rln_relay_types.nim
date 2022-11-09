@@ -14,20 +14,11 @@ import
 import
   ../../utils/protobuf
 
-
 type RlnRelayResult*[T] = Result[T, string]
 
-when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
-  ## Bn256 and RLN are Nim wrappers for the data types used in
-  ## the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
-  type Bn256* = pointer
-  type RLN*[E] = pointer
-  type RLNResult* = RlnRelayResult[RLN[Bn256]]
-
-when defined(rlnzerokit):
-  ## RLN is a Nim wrapper for the data types used in zerokit RLN
-  type RLN* {.incompleteStruct.} = object
-  type RLNResult* = RlnRelayResult[ptr RLN]
+## RLN is a Nim wrapper for the data types used in zerokit RLN
+type RLN* {.incompleteStruct.} = object
+type RLNResult* = RlnRelayResult[ptr RLN]
 
 type
   # identity key as defined in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
@@ -38,14 +29,7 @@ type
   Nullifier* = array[32, byte]
   Epoch* = array[32, byte]
   RlnIdentifier* = array[32, byte]
-
-when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
-  type
-    ZKSNARK* = array[256, byte]
-when defined(rlnzerokit):
-  type 
-    ZKSNARK* = array[128, byte]
-  
+  ZKSNARK* = array[128, byte]
 
 # Custom data types defined for waku rln relay -------------------------
 type MembershipKeyPair* = object
@@ -88,60 +72,38 @@ type ProofMetadata* = object
   shareX*: MerkleNode
   shareY*: MerkleNode
 
-when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
-  type WakuRLNRelay* = ref object
-    membershipKeyPair*: MembershipKeyPair
-    # membershipIndex denotes the index of a leaf in the Merkle tree
-    # that contains the pk of the current peer
-    # this index is used to retrieve the peer's authentication path
-    membershipIndex*: MembershipIndex
-    membershipContractAddress*: Address
-    ethClientAddress*: string
-    ethAccountAddress*: Option[Address]
-    # this field is required for signing transactions
-    # TODO may need to erase this ethAccountPrivateKey when is not used
-    # TODO may need to make ethAccountPrivateKey mandatory
-    ethAccountPrivateKey*: Option[PrivateKey]
-    rlnInstance*: RLN[Bn256]
-    pubsubTopic*: string # the pubsub topic for which rln relay is mounted
-                         # contentTopic should be of type waku_message.ContentTopic, however, due to recursive module dependency, the underlying type of ContentTopic is used instead
-                         # TODO a long-term solution is to place types with recursive dependency inside one file
-    contentTopic*: string
-    # the log of nullifiers and Shamir shares of the past messages grouped per epoch
-    nullifierLog*: Table[Epoch, seq[ProofMetadata]]
-    lastEpoch*: Epoch # the epoch of the last published rln message
-    validMerkleRoots*: Deque[MerkleNode] # An array of valid merkle roots, which are updated in a FIFO fashion
-    lastSeenMembershipIndex*: MembershipIndex # the last seen membership index
+type WakuRLNRelay* = ref object
+  membershipKeyPair*: MembershipKeyPair
+  # membershipIndex denotes the index of a leaf in the Merkle tree
+  # that contains the pk of the current peer
+  # this index is used to retrieve the peer's authentication path
+  membershipIndex*: MembershipIndex
+  membershipContractAddress*: Address
+  ethClientAddress*: string
+  ethAccountAddress*: Option[Address]
+  # this field is required for signing transactions
+  # TODO may need to erase this ethAccountPrivateKey when is not used
+  # TODO may need to make ethAccountPrivateKey mandatory
+  ethAccountPrivateKey*: Option[PrivateKey]
+  rlnInstance*: ptr RLN
+  pubsubTopic*: string # the pubsub topic for which rln relay is mounted
+                       # contentTopic should be of type waku_message.ContentTopic, however, due to recursive module dependency, the underlying type of ContentTopic is used instead
+                       # TODO a long-term solution is to place types with recursive dependency inside one file
+  contentTopic*: string
+  # the log of nullifiers and Shamir shares of the past messages grouped per epoch
+  nullifierLog*: Table[Epoch, seq[ProofMetadata]]
+  lastEpoch*: Epoch # the epoch of the last published rln message
+  validMerkleRoots*: Deque[MerkleNode] # An array of valid merkle roots, which are updated in a FIFO fashion
+  lastSeenMembershipIndex*: MembershipIndex # the last seen membership index
 
-when defined(rlnzerokit):
-  type WakuRLNRelay* = ref object
-    membershipKeyPair*: MembershipKeyPair
-    # membershipIndex denotes the index of a leaf in the Merkle tree
-    # that contains the pk of the current peer
-    # this index is used to retrieve the peer's authentication path
-    membershipIndex*: MembershipIndex
-    membershipContractAddress*: Address
-    ethClientAddress*: string
-    ethAccountAddress*: Option[Address]
-    # this field is required for signing transactions
-    # TODO may need to erase this ethAccountPrivateKey when is not used
-    # TODO may need to make ethAccountPrivateKey mandatory
-    ethAccountPrivateKey*: Option[PrivateKey]
-    rlnInstance*: ptr RLN
-    pubsubTopic*: string # the pubsub topic for which rln relay is mounted
-                         # contentTopic should be of type waku_message.ContentTopic, however, due to recursive module dependency, the underlying type of ContentTopic is used instead
-                         # TODO a long-term solution is to place types with recursive dependency inside one file
-    contentTopic*: string
-    # the log of nullifiers and Shamir shares of the past messages grouped per epoch
-    nullifierLog*: Table[Epoch, seq[ProofMetadata]]
-    lastEpoch*: Epoch # the epoch of the last published rln message
-    validMerkleRoots*: Deque[MerkleNode] # An array of valid merkle roots, which are updated in a FIFO fashion
-    lastSeenMembershipIndex*: MembershipIndex # the last seen membership index
-
-
-type MessageValidationResult* {.pure.} = enum
-  Valid, Invalid, Spam
-
+type 
+  MessageValidationResult* {.pure.} = enum
+    Valid, 
+    Invalid, 
+    Spam
+  MerkleNodeResult* = RlnRelayResult[MerkleNode]
+  RateLimitProofResult* = RlnRelayResult[RateLimitProof]
+  
 # Protobufs enc and init
 proc init*(T: type RateLimitProof, buffer: seq[byte]): ProtoResult[T] =
   var nsp: RateLimitProof
