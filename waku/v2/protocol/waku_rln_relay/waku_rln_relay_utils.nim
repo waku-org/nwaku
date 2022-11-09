@@ -1115,7 +1115,7 @@ proc mountRlnRelayStatic*(node: WakuNode,
   if node.wakuRelay.isNil():
     return err("WakuRelay protocol is not mounted")
   # check whether the pubsub topic is supported at the relay level
-  if pubsubTopic notin node.wakuRelay.defaultTopics:
+  if pubsubTopic notin node.wakuRelay.defaultPubsubTopics:
     return err("The relay protocol does not support the configured pubsub topic")
 
   debug "rln-relay input validation passed"
@@ -1170,7 +1170,7 @@ proc mountRlnRelayDynamic*(node: WakuNode,
   if node.wakuRelay.isNil:
     return err("WakuRelay protocol is not mounted.")
   # check whether the pubsub topic is supported at the relay level
-  if pubsubTopic notin node.wakuRelay.defaultTopics:
+  if pubsubTopic notin node.wakuRelay.defaultPubsubTopics:
     return err("WakuRelay protocol does not support the configured pubsub topic.")
   debug "rln-relay input validation passed"
 
