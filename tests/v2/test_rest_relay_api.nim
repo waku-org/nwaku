@@ -45,9 +45,9 @@ suite "REST API - Relay":
     restServer.start()
 
     let pubSubTopics = @[
-      PubSubTopicString("pubsub-topic-1"),
-      PubSubTopicString("pubsub-topic-2"),
-      PubSubTopicString("pubsub-topic-3")
+      PubSubTopic("pubsub-topic-1"),
+      PubSubTopic("pubsub-topic-2"),
+      PubSubTopic("pubsub-topic-3")
     ]
 
     # When
@@ -94,10 +94,10 @@ suite "REST API - Relay":
     restServer.start()
 
     let pubSubTopics = @[
-      PubSubTopicString("pubsub-topic-1"), 
-      PubSubTopicString("pubsub-topic-2"),
-      PubSubTopicString("pubsub-topic-3"),
-      PubSubTopicString("pubsub-topic-y")
+      PubSubTopic("pubsub-topic-1"), 
+      PubSubTopic("pubsub-topic-2"),
+      PubSubTopic("pubsub-topic-3"),
+      PubSubTopic("pubsub-topic-y")
     ]
 
     # When
@@ -190,7 +190,6 @@ suite "REST API - Relay":
     restServer.start()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
-    const defaultContentTopic = ContentTopic("/waku/2/default-content/proto")
     
     # At this stage the node is only subscribed to the default topic
     require(PubSub(node.wakuRelay).topics.len == 1)
@@ -198,15 +197,15 @@ suite "REST API - Relay":
 
     # When
     let newTopics = @[
-      PubSubTopicString("pubsub-topic-1"),
-      PubSubTopicString("pubsub-topic-2"),
-      PubSubTopicString("pubsub-topic-3")
+      PubSubTopic("pubsub-topic-1"),
+      PubSubTopic("pubsub-topic-2"),
+      PubSubTopic("pubsub-topic-3")
     ]
     discard await client.relayPostSubscriptionsV1(newTopics)
     
     let response = await client.relayPostMessagesV1(DefaultPubsubTopic, RelayWakuMessage(
       payload: Base64String.encode("TEST-PAYLOAD"), 
-      contentTopic: some(ContentTopicString(defaultContentTopic)), 
+      contentTopic: some(DefaultContentTopic), 
       timestamp: some(int64(2022))
     ))
 

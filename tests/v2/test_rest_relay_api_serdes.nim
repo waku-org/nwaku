@@ -8,7 +8,8 @@ import
 import 
   ../../waku/v2/node/rest/serdes,
   ../../waku/v2/node/rest/base64,
-  ../../waku/v2/node/rest/relay/api_types
+  ../../waku/v2/node/rest/relay/api_types,
+  ../../waku/v2/protocol/waku_message
 
 
 suite "Relay API - serialization":
@@ -36,8 +37,8 @@ suite "Relay API - serialization":
       # Given
       let payload = Base64String.encode("MESSAGE")
       let data = RelayWakuMessage(
-        payload: payload, 
-        contentTopic: none(ContentTopicString),
+        payload: payload,
+        contentTopic: none(ContentTopic),
         version: none(Natural),
         timestamp: none(int64)
       )

@@ -12,6 +12,7 @@ import
   presto/[route, client, common]
 import 
   ../../waku_node,
+  ../../../protocol/waku_message,
   ../serdes,
   ../utils,
   ./api_types, 
@@ -157,7 +158,7 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, topicCache
 
 #### Client
 
-proc encodeBytes*(value: seq[PubSubTopicString],
+proc encodeBytes*(value: seq[PubSubTopic],
                   contentType: string): RestResult[seq[byte]] =
   if MediaType.init(contentType) != MIMETYPE_JSON:
     error "Unsupported contentType value", contentType = contentType
