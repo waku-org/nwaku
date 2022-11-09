@@ -278,13 +278,16 @@ procSuite "Waku-rln-relay":
     let pk2 = keyPair2.idCommitment.toUInt256()
     debug "membership commitment key", pk2 = pk2
 
-    let event = newFuture[void]()
+    var events = [newFuture[void](), newFuture[void]()]
+    var futIndex = 0
     var handler: GroupUpdateHandler
     handler = proc (blockNumber: BlockNumber, 
                     members: seq[MembershipTuple]): RlnRelayResult[void] =
       debug "handler is called", members = members
-      event.complete()
-      let isSuccessful = rlnPeer.rlnInstance.insertMembers(0, members.mapIt(it.idComm))
+      events[futIndex].complete()
+      futIndex += 1
+      let index = members[0].index
+      let isSuccessful = rlnPeer.rlnInstance.insertMembers(index, members.mapIt(it.idComm))
       check:
         isSuccessful
       return ok()
@@ -304,8 +307,8 @@ procSuite "Waku-rln-relay":
     let tx2 = await contractObj.register(pk2).send(value = MembershipFee)
     debug "a member is registered", tx2 = tx2
 
-    # wait for the event to be processed
-    await event
+    # wait for the events to be processed
+    await all(events)
 
     # release resources -----------------------
     await web3.close()
