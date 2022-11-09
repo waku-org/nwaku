@@ -1016,7 +1016,7 @@ proc generateGroupUpdateHandler(rlnPeer: WakuRLNRelay): GroupUpdateHandler =
       let indexGap = startingIndex - rlnPeer.lastSeenMembershipIndex
       if not (toSeq(startingIndex..lastIndex) == members.mapIt(it.index)):
         return err("the indices of the new members are not in order")
-      if indexGap > 0.uint:
+      if indexGap > 1.uint:
         warn "membership index gap, may have lost connection", lastIndex, currIndex=rlnPeer.lastSeenMembershipIndex, indexGap = indexGap
       rlnPeer.lastSeenMembershipIndex = lastIndex
       rlnPeer.lastProcessedBlock = blockNumber
