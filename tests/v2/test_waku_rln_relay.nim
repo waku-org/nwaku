@@ -750,21 +750,11 @@ suite "Waku rln relay":
           memberKeysRes.isOk()
         members.add(memberKeysRes.get())
     
-    # Slice members before `index`
-    let membersBeforeIndex = members[0..index-1].mapIt(it.idCommitment)
-    # Slice members after `index`
-    let membersAfterIndex = members[index+1..membershipCount-1].mapIt(it.idCommitment)
     # Batch inserts into the tree
-    let insertedRes = rlnRelay.insertMembers(0, membersBeforeIndex)
-    let insertedRes2 = rlnRelay.insertMembers(index+1, membersAfterIndex)
+    let insertedRes = rlnRelay.insertMembers(0, members.mapIt(it.idCommitment))
     require:
       insertedRes.isOk()
-      insertedRes2.isOk()
     
-    let insertedRes3 = rlnRelay.insertMembers(index, @[memKeys.idCommitment])
-    require:
-      insertedRes3.isOk()
-
     # Given: 
     # This step includes constructing a valid message with the latest merkle root
     # prepare the message
