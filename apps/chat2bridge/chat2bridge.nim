@@ -32,7 +32,6 @@ logScope:
 ##################
 
 const
-  DefaultTopic* = chat2.DefaultTopic
   DeduplQSize = 20  # Maximum number of seen messages to keep in deduplication queue
 
 #########
@@ -92,7 +91,7 @@ proc toChat2(cmb: Chat2MatterBridge, jsonNode: JsonNode) {.async.} =
   
   chat2_mb_transfers.inc(labelValues = ["mb_to_chat2"])
 
-  await cmb.nodev2.publish(DefaultTopic, msg)
+  await cmb.nodev2.publish(DefaultPubsubTopic, msg)
 
 proc toMatterbridge(cmb: Chat2MatterBridge, msg: WakuMessage) {.gcsafe, raises: [Exception].} =
   if cmb.seen.containsOrAdd(msg.payload.hash()):
@@ -195,13 +194,13 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
 
   # Bridging
   # Handle messages on Waku v2 and bridge to Matterbridge
-  proc relayHandler(pubsubTopic: string, data: seq[byte]) {.async, gcsafe, raises: [Defect].} =
+  proc relayHandler(pubsubTopic: PubsubTopic, data: seq[byte]) {.async, gcsafe, raises: [Defect].} =
     let msg = WakuMessage.decode(data)
     if msg.isOk():
       trace "Bridging message from Chat2 to Matterbridge", msg=msg[]
       cmb.toMatterbridge(msg[])
   
-  cmb.nodev2.subscribe(DefaultTopic, relayHandler)
+  cmb.nodev2.subscribe(DefaultPubsubTopic, relayHandler)
 
 proc stop*(cmb: Chat2MatterBridge) {.async.} =
   info "Stopping Chat2MatterBridge"

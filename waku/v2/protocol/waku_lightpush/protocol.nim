@@ -28,7 +28,7 @@ const WakuLightPushCodec* = "/vac/waku/lightpush/2.0.0-beta1"
 type
   WakuLightPushResult*[T] = Result[T, string]
   
-  PushMessageHandler* = proc(peer: PeerId, pubsubTopic: string, message: WakuMessage): Future[WakuLightPushResult[void]] {.gcsafe, closure.}
+  PushMessageHandler* = proc(peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage): Future[WakuLightPushResult[void]] {.gcsafe, closure.}
 
   WakuLightPush* = ref object of LPProtocol
     rng*: ref rand.HmacDrbgContext

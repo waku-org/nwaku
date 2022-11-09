@@ -48,10 +48,10 @@ proc installFilterApiHandlers*(node: WakuNode, rpcsrv: RpcServer, messageCache: 
     debug "post_waku_v2_filter_v1_subscription"
 
     let
-      pubsubTopic: string = topic.get(DefaultPubsubTopic)
+      pubsubTopic: PubsubTopic = topic.get(DefaultPubsubTopic)
       contentTopics: seq[ContentTopic] = contentFilters.mapIt(it.contentTopic)
 
-    let pushHandler:FilterPushHandler = proc(pubsubTopic: string, msg: WakuMessage) {.gcsafe, closure.} =
+    let pushHandler:FilterPushHandler = proc(pubsubTopic: PubsubTopic, msg: WakuMessage) {.gcsafe, closure.} =
         # Add message to current cache
         trace "WakuMessage received", msg=msg
         
@@ -87,7 +87,7 @@ proc installFilterApiHandlers*(node: WakuNode, rpcsrv: RpcServer, messageCache: 
     debug "delete_waku_v2_filter_v1_subscription"
 
     let
-      pubsubTopic: string = topic.get(DefaultPubsubTopic)
+      pubsubTopic: PubsubTopic = topic.get(DefaultPubsubTopic)
       contentTopics: seq[ContentTopic] = contentFilters.mapIt(it.contentTopic)
 
     let unsubFut = node.unsubscribe(pubsubTopic, contentTopics)
