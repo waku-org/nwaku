@@ -29,7 +29,7 @@ from the configured store service node. One way to trigger such queries is askin
 
 If the waku store node is enabled (the `--store` option is set to `true`) the node will store historical messages and will be able to serve those messages to the waku store clients.
 
-The are a serie of configuration options to customize the waku store protocol's message store, these are the most relevant:
+There is a set of configuration options to customize the waku store protocol's message store. These are the most relevant:
 
 * `--store-message-retention-policy`: This option controls the retention policy i.e., how long certain messages will be persisted. Two different retention policies are supported:
   + The time retention policy,`time:<duration-in-seconds>` (e.g., `time:14400`)
