@@ -116,7 +116,7 @@ deps: | libbacktrace
 endif
 
 # Waku v2-only dependencies
-deps2: | rlnlib rlnzerokitlib
+deps2: | rlnlib
 
 
 #- deletes and recreates "waku.nims" which on Windows is a copy instead of a proper symlink
@@ -203,12 +203,8 @@ docs: | build deps
 
 # control rln code compilation
 ifeq ($(RLN), true)
-NIM_PARAMS := $(NIM_PARAMS) -d:rlnzerokit
+NIM_PARAMS := $(NIM_PARAMS) -d:rln
 else ifeq ($(CI), true)
-NIM_PARAMS := $(NIM_PARAMS) -d:rlnzerokit
-endif
-
-ifeq ($(RLNKILIC), true)
 NIM_PARAMS := $(NIM_PARAMS) -d:rln
 endif
 
@@ -220,14 +216,6 @@ NIM_PARAMS := $(NIM_PARAMS) -d:onchain_rln
 endif
 
 rlnlib:
-ifeq ($(RLNKILIC), true)
-	cargo build --manifest-path vendor/rln/Cargo.toml
-# Avoid compiling the non-default implementation of RLN in CI
-# else  ifeq ($(CI), true)
-# 	cargo build --manifest-path vendor/rln/Cargo.toml
-endif
-
-rlnzerokitlib:
 ifeq ($(RLN), true)
 	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
 # Enable zerokit rln in CI
@@ -237,10 +225,6 @@ endif
 
 # clean the rln build (forces recompile of old crates on next build)
 cleanrln:
-	cargo clean --manifest-path vendor/rln/Cargo.toml
-
-# clean the rln build (forces recompile of old crates on next build)
-cleanrlnzerokit:
 	cargo clean --manifest-path vendor/zerokit/rln/Cargo.toml
 
 
@@ -260,13 +244,11 @@ docker-push:
 	docker push $(DOCKER_IMAGE_NAME)
 
 # usual cleaning
-clean: | clean-common
+clean: | cleanrln
 	rm -rf build
 ifneq ($(USE_LIBBACKTRACE), 0)
 	+ $(MAKE) -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif
-	cargo clean --manifest-path vendor/rln/Cargo.toml
-	cargo clean --manifest-path vendor/zerokit/rln/Cargo.toml
 
 
 endif # "variables.mk" was not included
