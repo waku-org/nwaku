@@ -1137,7 +1137,7 @@ proc subscribeToGroupEvents*(ethClientUri: string,
     debug "block received", blockNumber = latestBlock
     # get logs from the last block
     try:
-      asyncCheck handleLog(blockHeader)
+      asyncSpawn handleLog(blockHeader)
     except CatchableError:
       warn "failed to handle log: ", error=getCurrentExceptionMsg()
 
