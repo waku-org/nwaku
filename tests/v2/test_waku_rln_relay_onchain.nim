@@ -304,7 +304,7 @@ procSuite "Waku-rln-relay":
     let tx2 = await contractObj.register(pk2).send(value = MembershipFee)
     debug "a member is registered", tx2 = tx2
 
-    # wait for all the event to be processed
+    # wait for the event to be processed
     await event
 
     # release resources -----------------------

@@ -690,7 +690,7 @@ proc createMembershipList*(n: int): RlnRelayResult[(
   let rln = rlnInstance.get()
 
   var output = newSeq[(string, string)]()
-  var idCommitments: seq[IDCommitment] = @[]
+  var idCommitments = newSeq[IDCommitment]()
   for i in 0..n-1:
 
     # generate a key pair
@@ -982,7 +982,7 @@ proc generateGroupUpdateHandler(rlnPeer: WakuRLNRelay): GroupUpdateHandler =
       return err("failed to add new members to the Merkle tree")
     else:
       debug "new members added to the Merkle tree", pubkeys=members.mapIt(it.idComm.inHex) , startingIndex=startingIndex
-      debug "acceptable window", validRoots=rlnPeer.validMerkleRoots.mapIt(it.inHex)
+      debug "acceptable window", validRoots=rlnPeer.validMerkleRoots.map(inHex)
       let lastIndex = members[0].index + members.len.uint - 1
       let indexGap = lastIndex - rlnPeer.lastSeenmembershipIndex
       if indexGap > 1.uint:
@@ -1003,8 +1003,8 @@ proc parse*(event: type MemberRegistered,
   # Remove the 0x prefix
   try:
     data = strip0xPrefix(log["data"].getStr())
-  except CatchableError as err:
-    return err("failed to parse the data field of the MemberRegistered event: " & err.msg)
+  except CatchableError:
+    return err("failed to parse the data field of the MemberRegistered event: " & getCurrentExceptionMsg())
   var offset = 0
   try:
     # Parse the pubkey
@@ -1063,7 +1063,7 @@ proc subscribeToGroupEvents*(ethClientUri: string,
                                                 contractAddress, 
                                                 fromBlock=blockNumber)
   if blockTableRes.isErr():
-    error "failed to retrieve historical events", error=blockTableRes.error()
+    error "failed to retrieve historical events", error=blockTableRes.error
     return
   let blockTable = blockTableRes.get()
   # Update MT by batch
@@ -1071,7 +1071,7 @@ proc subscribeToGroupEvents*(ethClientUri: string,
     debug "updating the Merkle tree", blockNumber=blockNumber, members=members
     let res = handler(blockNumber, members)
     if res.isErr():
-      error "failed to update the Merkle tree", error=res.error()
+      error "failed to update the Merkle tree", error=res.error
 
   # We don't need the block table after this point
   discard blockTable
@@ -1093,9 +1093,9 @@ proc subscribeToGroupEvents*(ethClientUri: string,
         members.add(parsedEvent)
       let res = handler(blockHeader.number.uint, members)
       if res.isErr():
-        error "failed to update the Merkle tree", error=res.error()
-    except CatchableError as err:
-      warn "failed to get logs", error=err.msg
+        error "failed to update the Merkle tree", error=res.error
+    except CatchableError:
+      warn "failed to get logs", error=getCurrentExceptionMsg()
       return
   let newHeadCallback = proc (blockheader: BlockHeader) {.gcsafe.} =
     latestBlock = blockheader.number.uint
@@ -1103,8 +1103,8 @@ proc subscribeToGroupEvents*(ethClientUri: string,
     # get logs from the last block
     try:
       asyncCheck handleLog(blockHeader)
-    except CatchableError as err:
-      warn "failed to handle log: ", err = err.msg
+    except CatchableError:
+      warn "failed to handle log: ", error=getCurrentExceptionMsg()
 
   let newHeadErrorHandler = proc (err: CatchableError) {.gcsafe.} =
     error "Error from subscription: ", err=err.msg
@@ -1211,7 +1211,7 @@ proc mountRlnRelayStatic*(node: WakuNode,
   # add members to the Merkle tree
   let membersAdded = rlnPeer.insertMembers(0, group)
   if membersAdded.isErr():
-    return err("member addition to the Merkle tree failed: " & membersAdded.error())
+    return err("member addition to the Merkle tree failed: " & membersAdded.error)
 
   # adds a topic validator for the supplied pubsub topic at the relay protocol
   # messages published on this pubsub topic will be relayed upon a successful validation, otherwise they will be dropped
