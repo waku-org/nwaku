@@ -984,8 +984,10 @@ proc generateGroupUpdateHandler(rlnPeer: WakuRLNRelay): GroupUpdateHandler =
       debug "new members added to the Merkle tree", pubkeys=members.mapIt(it.idComm.inHex) , startingIndex=startingIndex
       debug "acceptable window", validRoots=rlnPeer.validMerkleRoots.map(inHex)
       let lastIndex = members[0].index + members.len.uint - 1
-      let indexGap = lastIndex - rlnPeer.lastSeenmembershipIndex
-      if indexGap > 1.uint:
+      let indexGap = lastIndex - rlnPeer.lastSeenMembershipIndex
+      if not (@[startingIndex..lastIndex, uint] == members.map(index)):
+        return err("the indices of the new members are not in order")
+      if indexGap > 0.uint:
         warn "membership index gap, may have lost connection", lastIndex, currIndex=rlnPeer.lastSeenMembershipIndex, indexGap = indexGap
       rlnPeer.lastSeenMembershipIndex = lastIndex
       rlnPeer.lastProcessedBlock = blockNumber
