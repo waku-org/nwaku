@@ -96,8 +96,13 @@ type WakuRLNRelay* = ref object
   validMerkleRoots*: Deque[MerkleNode] # An array of valid merkle roots, which are updated in a FIFO fashion
   lastSeenMembershipIndex*: MembershipIndex # the last seen membership index
 
-type MessageValidationResult* {.pure.} = enum
-  Valid, Invalid, Spam
+type 
+  MessageValidationResult* {.pure.} = enum
+    Valid, 
+    Invalid, 
+    Spam
+  MerkleNodeResult* = RlnRelayResult[MerkleNode]
+  RateLimitProofResult* = RlnRelayResult[RateLimitProof]
   
 # Protobufs enc and init
 proc init*(T: type RateLimitProof, buffer: seq[byte]): ProtoResult[T] =

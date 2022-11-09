@@ -39,14 +39,6 @@ type WakuRlnConfig* = object
     rlnRelayCredentialsPassword*: string
     
 type 
-  MessageValidationResult* {.pure.} = enum
-    Valid, 
-    Invalid, 
-    Spam
-  MerkleNodeResult* = RlnRelayResult[MerkleNode]
-  RateLimitProofResult* = RlnRelayResult[RateLimitProof]
-
-type 
   SpamHandler* = proc(wakuMessage: WakuMessage): void {.gcsafe, closure, raises: [Defect].}
   RegistrationHandler* = proc(txHash: string): void {.gcsafe, closure, raises: [Defect].}
   GroupUpdateHandler* = proc(pubkey: Uint256, index: Uint256): RlnRelayResult[void] {.gcsafe.}
