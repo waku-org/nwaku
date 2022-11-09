@@ -723,7 +723,7 @@ suite "Waku rln relay":
 
     let membershipCount: uint = AcceptableRootWindowSize + 5'u
 
-    var members = newSeq[MembershipKeyPair](membershipCount)
+    var members = newSeq[MembershipKeyPair]()
 
     # Generate membership keys
     for i in 0'u..membershipCount:
@@ -737,10 +737,20 @@ suite "Waku rln relay":
           memberKeysRes.isOk()
         members.add(memberKeysRes.get())
     
+    # Slice members before `index`
+    let membersBeforeIndex = members[0..index-1].mapIt(it.idCommitment)
+    # Slice members after `index`
+    let membersAfterIndex = members[index+1..membershipCount-1].mapIt(it.idCommitment)
     # Batch inserts into the tree
-    let insertedRes = rlnRelay.insertMembers(0, members)
+    let insertedRes = rlnRelay.insertMembers(0, membersBeforeIndex)
+    let insertedRes2 = rlnRelay.insertMembers(index+1, membersAfterIndex)
     require:
       insertedRes.isOk()
+      insertedRes2.isOk()
+    
+    let insertedRes3 = rlnRelay.insertMembers(index, @[memKeys.idCommitment])
+    require:
+      insertedRes3.isOk()
 
     # Given: 
     # This step includes constructing a valid message with the latest merkle root
@@ -773,11 +783,12 @@ suite "Waku rln relay":
 
     # Progress the local tree by removing members
     for i in 0..AcceptableRootWindowSize - 2:
-      discard rlnRelay.removeMember(MembershipIndex(i))
+      let res = rlnRelay.removeMember(MembershipIndex(i))
       # Ensure the local tree root has changed
       let currentMerkleRoot = rlnRelay.rlnInstance.getMerkleRoot()
 
       require:
+        res.isOk()
         currentMerkleRoot.isOk()
         currentMerkleRoot.value() != validProof.merkleRoot
 
