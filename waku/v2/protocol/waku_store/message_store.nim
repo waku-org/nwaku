@@ -10,27 +10,28 @@ import
   std/[options, times],
   stew/results
 import
+  ../../utils/time,
   ../waku_message,
-  ./pagination,
-  ../../utils/time
+  ./common
 
 
 type
   MessageStoreResult*[T] = Result[T, string]
   
-  MessageStoreRow* = (string, WakuMessage, seq[byte], Timestamp)
+  MessageStoreRow* = (PubsubTopic, WakuMessage, seq[byte], Timestamp)
 
   MessageStore* = ref object of RootObj
 
 
 # MessageStore interface
+
 method put*(ms: MessageStore, pubsubTopic: PubsubTopic, message: WakuMessage, digest: MessageDigest, receivedTime: Timestamp): MessageStoreResult[void] {.base.} = discard
 
 method put*(ms: MessageStore, pubsubTopic: PubsubTopic, message: WakuMessage): MessageStoreResult[void] {.base.} =
   let
     digest = computeDigest(message) 
     receivedTime = if message.timestamp > 0: message.timestamp
-                      else: getNanosecondTime(getTime().toUnixFloat()) 
+                   else: getNanosecondTime(getTime().toUnixFloat()) 
   
   ms.put(pubsubTopic, message, digest, receivedTime)
 
@@ -40,8 +41,8 @@ method getAllMessages*(ms: MessageStore): MessageStoreResult[seq[MessageStoreRow
 method getMessagesByHistoryQuery*(
   ms: MessageStore,
   contentTopic = none(seq[ContentTopic]),
-  pubsubTopic = none(string),
-  cursor = none(PagingIndex),
+  pubsubTopic = none(PubsubTopic),
+  cursor = none(HistoryCursor),
   startTime = none(Timestamp),
   endTime = none(Timestamp),
   maxPageSize = DefaultPageSize,

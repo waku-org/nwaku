@@ -25,6 +25,7 @@ import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_relay,
   ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/protocol/waku_store/rpc,
   ../../waku/v2/protocol/waku_swap/waku_swap,
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_filter/client,
@@ -263,7 +264,7 @@ procSuite "Waku v2 JSON-RPC API":
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort, false)
 
-    let response = await client.get_waku_v2_store_v1_messages(some(DefaultPubsubTopic), some(@[HistoryContentFilter(contentTopic: DefaultContentTopic)]), some(Timestamp(0)), some(Timestamp(9)), some(StorePagingOptions()))
+    let response = await client.get_waku_v2_store_v1_messages(some(DefaultPubsubTopic), some(@[HistoryContentFilterRPC(contentTopic: DefaultContentTopic)]), some(Timestamp(0)), some(Timestamp(9)), some(StorePagingOptions()))
     check:
       response.messages.len() == 8
       response.pagingOptions.isNone()
