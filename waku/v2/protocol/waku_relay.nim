@@ -25,7 +25,7 @@ const
 
 type
   WakuRelay* = ref object of GossipSub
-    defaultTopics*: seq[PubsubTopic] # Default configured PubSub topics
+    defaultPubsubTopics*: seq[PubsubTopic] # Default configured PubSub topics
 
 method init*(w: WakuRelay) =
   debug "init WakuRelay"
