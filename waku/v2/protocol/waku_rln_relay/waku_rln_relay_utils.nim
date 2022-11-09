@@ -26,10 +26,22 @@ import
 logScope:
   topics = "waku rln_relay"
 
-type MerkleNodeResult* = RlnRelayResult[MerkleNode]
-type RateLimitProofResult* = RlnRelayResult[RateLimitProof]
-type SpamHandler* = proc(wakuMessage: WakuMessage): void {.gcsafe, closure, raises: [Defect].}
-type RegistrationHandler* = proc(txHash: string): void {.gcsafe, closure, raises: [Defect].}
+type WakuRlnConfig* = object
+    rlnRelayDynamic*: bool
+    rlnRelayPubsubTopic*: PubsubTopic
+    rlnRelayContentTopic*: ContentTopic
+    rlnRelayMembershipIndex*: uint
+    rlnRelayEthContractAddress*: string
+    rlnRelayEthClientAddress*: string
+    rlnRelayEthAccountPrivateKey*: string
+    rlnRelayEthAccountAddress*: string
+    rlnRelayCredPath*: string
+    rlnRelayCredentialsPassword*: string
+    
+type 
+  SpamHandler* = proc(wakuMessage: WakuMessage): void {.gcsafe, closure, raises: [Defect].}
+  RegistrationHandler* = proc(txHash: string): void {.gcsafe, closure, raises: [Defect].}
+  GroupUpdateHandler* = proc(pubkey: Uint256, index: Uint256): RlnRelayResult[void] {.gcsafe.}
 
 # membership contract interface
 contract(MembershipContract):
@@ -48,132 +60,54 @@ proc toBuffer*(x: openArray[byte]): Buffer =
   let output = Buffer(`ptr`: cast[ptr uint8](baseAddr), len: uint(temp.len))
   return output
 
-when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
+proc createRLNInstanceLocal(d: int = MerkleTreeDepth): RLNResult =
+  ## generates an instance of RLN
+  ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
+  ## d indicates the depth of Merkle tree
+  ## Returns an error if the instance creation fails
+  var
+    rlnInstance: ptr RLN
+    merkleDepth: csize_t = uint(d)
+    resourcesPathBuffer = RlnResourceFolder.toOpenArrayByte(0, RlnResourceFolder.high).toBuffer()
 
-  proc createRLNInstanceLocal(d: int = MerkleTreeDepth): RLNResult =
-    ## generates an instance of RLN
-    ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
-    ## d indicates the depth of Merkle tree
-    ## Returns an error if the instance creation fails
-    var
-      rlnInstance: RLN[Bn256]
-      merkleDepth: csize_t = uint(d)
-      ## parameters.key contains the prover and verifier keys
-      ## to generate this file, clone this repo https://github.com/kilic/rln
-      ## and run the following command in the root directory of the cloned project
-      ## cargo run --example export_test_keys
-      ## the file is generated separately and copied here
-      ## parameters are function of tree depth and poseidon hasher
-      ## to generate parameters for a different tree depth, change the tree size in the following line of rln library
-      ## https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/examples/export_test_keys/main.rs#L4
-      ## and then proceed as explained above
-      parameters: string
-    try:
-      parameters = readFile("waku/v2/protocol/waku_rln_relay/parameters.key")
-    except Exception as err:
-      return err("failed to read the parameters file: " & err.msg)
-    var
-      pbytes = parameters.toBytes()
-      len: csize_t = uint(pbytes.len)
-      parametersBuffer = Buffer(`ptr`: addr(pbytes[0]), len: len)
+  # create an instance of RLN
+  let res = new_circuit(merkleDepth, addr resourcesPathBuffer, addr rlnInstance)
+  # check whether the circuit parameters are generated successfully
+  if (res == false):
+    debug "error in parameters generation"
+    return err("error in parameters generation")
+  return ok(rlnInstance)
 
-    # check the parameters.key is not empty
-    if (pbytes.len == 0):
-      debug "error in parameters.key"
-      return err("error in parameters.key")
+proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[MembershipKeyPair] =
+  ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract
+  ## Returns an error if the key generation fails
 
-    # create an instance of RLN
-    let res = new_circuit_from_params(merkleDepth, addr parametersBuffer,
-        addr rlnInstance)
-    # check whether the circuit parameters are generated successfully
-    if (res == false):
-      debug "error in parameters generation"
-      return err("error in parameters generation")
-    return ok(rlnInstance)
+  # keysBufferPtr will hold the generated key pairs i.e., secret and public keys
+  var
+    keysBuffer: Buffer
+    keysBufferPtr = addr(keysBuffer)
+    done = key_gen(ctxPtr, keysBufferPtr)
 
-    
-  proc membershipKeyGen*(ctxPtr: RLN[Bn256]): RlnRelayResult[MembershipKeyPair] =
-    ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract
-    ## Returns an error if the key generation fails
+  # check whether the keys are generated successfully
+  if(done == false):
+    return err("error in key generation")
 
-    # keysBufferPtr will hold the generated key pairs i.e., secret and public keys
-    var
-      keysBuffer: Buffer
-      keysBufferPtr = addr(keysBuffer)
-      done = key_gen(ctxPtr, keysBufferPtr)
+  var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
+  # the public and secret keys together are 64 bytes
+  if (generatedKeys.len != 64):
+    return err("generated keys are of invalid length")
 
-    # check whether the keys are generated successfully
-    if(done == false):
-      return err("error in key generation")
+  # TODO define a separate proc to decode the generated keys to the secret and public components
+  var
+    secret: array[32, byte]
+    public: array[32, byte]
+  for (i, x) in secret.mpairs: x = generatedKeys[i]
+  for (i, x) in public.mpairs: x = generatedKeys[i+32]
 
-    var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
-    # the public and secret keys together are 64 bytes
-    if (generatedKeys.len != 64):
-      return err("generated keys are of invalid length")
+  var
+    keypair = MembershipKeyPair(idKey: secret, idCommitment: public)
 
-    # TODO define a separate proc to decode the generated keys to the secret and public components
-    var
-      secret: array[32, byte]
-      public: array[32, byte]
-    for (i, x) in secret.mpairs: x = generatedKeys[i]
-    for (i, x) in public.mpairs: x = generatedKeys[i+32]
-
-    var
-      keypair = MembershipKeyPair(idKey: secret, idCommitment: public)
-
-
-    return ok(keypair)
-
-when defined(rlnzerokit):
-  proc createRLNInstanceLocal(d: int = MerkleTreeDepth): RLNResult =
-    ## generates an instance of RLN
-    ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
-    ## d indicates the depth of Merkle tree
-    ## Returns an error if the instance creation fails
-    var
-      rlnInstance: ptr RLN
-      merkleDepth: csize_t = uint(d)
-      resourcesPathBuffer = RlnResourceFolder.toOpenArrayByte(0, RlnResourceFolder.high).toBuffer()
-
-    # create an instance of RLN
-    let res = new_circuit(merkleDepth, addr resourcesPathBuffer, addr rlnInstance)
-    # check whether the circuit parameters are generated successfully
-    if (res == false):
-      debug "error in parameters generation"
-      return err("error in parameters generation")
-    return ok(rlnInstance)
-
-    
-  proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[MembershipKeyPair] =
-    ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract
-    ## Returns an error if the key generation fails
-
-    # keysBufferPtr will hold the generated key pairs i.e., secret and public keys
-    var
-      keysBuffer: Buffer
-      keysBufferPtr = addr(keysBuffer)
-      done = key_gen(ctxPtr, keysBufferPtr)
-
-    # check whether the keys are generated successfully
-    if(done == false):
-      return err("error in key generation")
-
-    var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
-    # the public and secret keys together are 64 bytes
-    if (generatedKeys.len != 64):
-      return err("generated keys are of invalid length")
-
-    # TODO define a separate proc to decode the generated keys to the secret and public components
-    var
-      secret: array[32, byte]
-      public: array[32, byte]
-    for (i, x) in secret.mpairs: x = generatedKeys[i]
-    for (i, x) in public.mpairs: x = generatedKeys[i+32]
-
-    var
-      keypair = MembershipKeyPair(idKey: secret, idCommitment: public)
-
-    return ok(keypair)
+  return ok(keypair)
 
 proc createRLNInstance*(d: int = MerkleTreeDepth): RLNResult =
   ## Wraps the rln instance creation for metrics
@@ -285,37 +219,20 @@ proc appendLength*(input: openArray[byte]): seq[byte] =
     output = concat(@len, @input)
   return output
 
-when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
-  proc hash*(rlnInstance: RLN[Bn256], data: openArray[byte]): MerkleNode =
-    ## a thin layer on top of the Nim wrapper of the Poseidon hasher
-    debug "hash input", hashhex = data.toHex()
-    var lenPrefData = appendLength(data)
-    var
-      hashInputBuffer = lenPrefData.toBuffer()
-      outputBuffer: Buffer # will holds the hash output
+proc hash*(rlnInstance: ptr RLN, data: openArray[byte]): MerkleNode =
+  ## a thin layer on top of the Nim wrapper of the Poseidon hasher
+  debug "hash input", hashhex = data.toHex()
+  var lenPrefData = appendLength(data)
+  var
+    hashInputBuffer = lenPrefData.toBuffer()
+    outputBuffer: Buffer # will holds the hash output
 
-    debug "hash input buffer length", bufflen = hashInputBuffer.len
-    let
-      hashSuccess = hash(rlnInstance, addr hashInputBuffer, addr outputBuffer)
-      output = cast[ptr MerkleNode](outputBuffer.`ptr`)[]
+  debug "hash input buffer length", bufflen = hashInputBuffer.len
+  let
+    hashSuccess = hash(rlnInstance, addr hashInputBuffer, addr outputBuffer)
+    output = cast[ptr MerkleNode](outputBuffer.`ptr`)[]
 
-    return output
-
-when defined(rlnzerokit):
-  proc hash*(rlnInstance: ptr RLN, data: openArray[byte]): MerkleNode =
-    ## a thin layer on top of the Nim wrapper of the Poseidon hasher
-    debug "hash input", hashhex = data.toHex()
-    var lenPrefData = appendLength(data)
-    var
-      hashInputBuffer = lenPrefData.toBuffer()
-      outputBuffer: Buffer # will holds the hash output
-
-    debug "hash input buffer length", bufflen = hashInputBuffer.len
-    let
-      hashSuccess = hash(rlnInstance, addr hashInputBuffer, addr outputBuffer)
-      output = cast[ptr MerkleNode](outputBuffer.`ptr`)[]
-
-    return output
+  return output
 
 proc serialize(idKey: IDKey, memIndex: MembershipIndex, epoch: Epoch,
     msg: openArray[byte]): seq[byte] =
@@ -328,264 +245,142 @@ proc serialize(idKey: IDKey, memIndex: MembershipIndex, epoch: Epoch,
   let output = concat(@idKey, @memIndexBytes, @epoch, lenPrefMsg)
   return output
 
-when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
-  proc proofGen*(rlnInstance: RLN[Bn256], data: openArray[byte],
-      memKeys: MembershipKeyPair, memIndex: MembershipIndex,
-      epoch: Epoch): RateLimitProofResult =
+proc proofGen*(rlnInstance: ptr RLN, data: openArray[byte],
+    memKeys: MembershipKeyPair, memIndex: MembershipIndex,
+    epoch: Epoch): RateLimitProofResult =
 
-    # serialize inputs
-    let serializedInputs = serialize(idKey = memKeys.idKey,
-                                    memIndex = memIndex,
-                                    epoch = epoch,
-                                    msg = data)
-    var inputBuffer = toBuffer(serializedInputs)
+  # serialize inputs
+  let serializedInputs = serialize(idKey = memKeys.idKey,
+                                  memIndex = memIndex,
+                                  epoch = epoch,
+                                  msg = data)
+  var inputBuffer = toBuffer(serializedInputs)
 
-    debug "input buffer ", inputBuffer
+  debug "input buffer ", inputBuffer
 
-    # generate the proof
-    var proof: Buffer
-    waku_rln_proof_generation_duration_seconds.nanosecondTime:
-      let proofIsSuccessful = generateProof(rlnInstance, addr inputBuffer, addr proof)
-    # check whether the generateProof call is done successfully
-    if not proofIsSuccessful:
-      return err("could not generate the proof")
+  # generate the proof
+  var proof: Buffer
+  let proofIsSuccessful = generate_proof(rlnInstance, addr inputBuffer, addr proof)
+  # check whether the generate_proof call is done successfully
+  if not proofIsSuccessful:
+    return err("could not generate the proof")
 
-    var proofValue = cast[ptr array[416, byte]] (proof.`ptr`)
-    let proofBytes: array[416, byte] = proofValue[]
-    debug "proof content", proofHex = proofValue[].toHex
+  var proofValue = cast[ptr array[320, byte]] (proof.`ptr`)
+  let proofBytes: array[320, byte] = proofValue[]
+  debug "proof content", proofHex = proofValue[].toHex
 
-    ## parse the proof as |zkSNARKs<256>|root<32>|epoch<32>|share_x<32>|share_y<32>|nullifier<32>|
-    let
-      proofOffset = 256
-      rootOffset = proofOffset + 32
-      epochOffset = rootOffset + 32
-      shareXOffset = epochOffset + 32
-      shareYOffset = shareXOffset + 32
-      nullifierOffset = shareYOffset + 32
+  ## parse the proof as [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
 
-    var
-      zkproof: ZKSNARK
-      proofRoot, shareX, shareY: MerkleNode
-      epoch: Epoch
-      nullifier: Nullifier
+  let
+    proofOffset = 128
+    rootOffset = proofOffset + 32
+    epochOffset = rootOffset + 32
+    shareXOffset = epochOffset + 32
+    shareYOffset = shareXOffset + 32
+    nullifierOffset = shareYOffset + 32
+    rlnIdentifierOffset = nullifierOffset + 32
 
-    discard zkproof.copyFrom(proofBytes[0..proofOffset-1])
-    discard proofRoot.copyFrom(proofBytes[proofOffset..rootOffset-1])
-    discard epoch.copyFrom(proofBytes[rootOffset..epochOffset-1])
-    discard shareX.copyFrom(proofBytes[epochOffset..shareXOffset-1])
-    discard shareY.copyFrom(proofBytes[shareXOffset..shareYOffset-1])
-    discard nullifier.copyFrom(proofBytes[shareYOffset..nullifierOffset-1])
+  var
+    zkproof: ZKSNARK
+    proofRoot, shareX, shareY: MerkleNode
+    epoch: Epoch
+    nullifier: Nullifier
+    rlnIdentifier: RlnIdentifier
 
-    let output = RateLimitProof(proof: zkproof,
-                                merkleRoot: proofRoot,
-                                epoch: epoch,
-                                shareX: shareX,
-                                shareY: shareY,
-                                nullifier: nullifier)
+  discard zkproof.copyFrom(proofBytes[0..proofOffset-1])
+  discard proofRoot.copyFrom(proofBytes[proofOffset..rootOffset-1])
+  discard epoch.copyFrom(proofBytes[rootOffset..epochOffset-1])
+  discard shareX.copyFrom(proofBytes[epochOffset..shareXOffset-1])
+  discard shareY.copyFrom(proofBytes[shareXOffset..shareYOffset-1])
+  discard nullifier.copyFrom(proofBytes[shareYOffset..nullifierOffset-1])
+  discard rlnIdentifier.copyFrom(proofBytes[nullifierOffset..rlnIdentifierOffset-1])
+  
+  let output = RateLimitProof(proof: zkproof,
+                              merkleRoot: proofRoot,
+                              epoch: epoch,
+                              shareX: shareX,
+                              shareY: shareY,
+                              nullifier: nullifier,
+                              rlnIdentifier: rlnIdentifier)
 
-    return ok(output)
+  return ok(output)
 
-  proc serialize(proof: RateLimitProof, data: openArray[byte]): seq[byte] =
-    ## a private proc to convert RateLimitProof and data to a byte seq
-    ## this conversion is used in the proof verification proc
-    ## the order of serialization is based on https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L205
-    ## [ proof<256>| root<32>| epoch<32>| share_x<32>| share_y<32>| nullifier<32> | signal_len<8> | signal<var> ]
-    let lenPrefMsg = appendLength(@data)
-    var proofBytes = concat(@(proof.proof),
-                            @(proof.merkleRoot),
-                            @(proof.epoch),
-                            @(proof.shareX),
-                            @(proof.shareY),
-                            @(proof.nullifier),
-                            lenPrefMsg)
+proc serialize(proof: RateLimitProof, data: openArray[byte]): seq[byte] =
+  ## a private proc to convert RateLimitProof and data to a byte seq
+  ## this conversion is used in the proof verification proc
+  ## [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
+  let lenPrefMsg = appendLength(@data)
+  var proofBytes = concat(@(proof.proof),
+                          @(proof.merkleRoot),
+                          @(proof.epoch),
+                          @(proof.shareX),
+                          @(proof.shareY),
+                          @(proof.nullifier),
+                          @(proof.rlnIdentifier),
+                          lenPrefMsg)
 
-    return proofBytes
+  return proofBytes
 
-  proc getMerkleRoot*(rlnInstance: RLN[Bn256]): MerkleNodeResult =
-    # read the Merkle Tree root after insertion
-    var
-      root {.noinit.}: Buffer = Buffer()
-      rootPtr = addr(root)
-      getRootSuccessful = getRoot(rlnInstance, rootPtr)
-    if not getRootSuccessful: 
-      return err("could not get the root")
-    if not root.len == 32:
-      return err("wrong output size")
+# Serializes a sequence of MerkleNodes
+proc serialize(roots: seq[MerkleNode]): seq[byte] =
+  var rootsBytes: seq[byte] = @[]
+  for root in roots:
+    rootsBytes = concat(rootsBytes, @root)
+  return rootsBytes
 
-    var rootValue = cast[ptr MerkleNode] (root.`ptr`)[]
-    return ok(rootValue)
+# validRoots should contain a sequence of roots in the acceptable windows.
+# As default, it is set to an empty sequence of roots. This implies that the validity check for the proof's root is skipped
+proc proofVerify*(rlnInstance: ptr RLN, 
+                  data: openArray[byte], 
+                  proof: RateLimitProof, 
+                  validRoots: seq[MerkleNode] = @[]): RlnRelayResult[bool] =
+  ## verifies the proof, returns an error if the proof verification fails
+  ## returns true if the proof is valid
+  var
+    proofBytes = serialize(proof, data)
+    proofBuffer = proofBytes.toBuffer()
+    validProof: bool
+    rootsBytes = serialize(validRoots)
+    rootsBuffer = rootsBytes.toBuffer()
 
-  proc proofVerify*(rlnInstance: RLN[Bn256], data: openArray[byte], proof: RateLimitProof, validRoots: seq[MerkleNode] = @[]): RlnRelayResult[bool] =
-    ## verifies the proof, returns an error if the proof verification fails
-    ## returns true if the proof is valid
-    var
-      proofBytes = serialize(proof, data)
-      proofBuffer = proofBytes.toBuffer()
-      f = 0.uint32
-    trace "serialized proof", proof = proofBytes.toHex()
+  trace "serialized proof", proof = proofBytes.toHex()
 
-    let verifyIsSuccessful = verify(rlnInstance, addr proofBuffer, addr f)
-    if not verifyIsSuccessful:
-      # something went wrong in verification
-      return err("could not verify proof")
-    # f = 0 means the proof is verified
-    if f != 0:
-      return ok(false)
+  let verifyIsSuccessful = verify_with_roots(rlnInstance, addr proofBuffer, addr rootsBuffer, addr validProof)
+  if not verifyIsSuccessful:
+    # something went wrong in verification call
+    warn "could not verify validity of the proof", proof=proof
+    return err("could not verify the proof")
 
-    return ok(true)
+  if not validProof:
+    return ok(false)
 
-  proc insertMember*(rlnInstance: RLN[Bn256], idComm: IDCommitment): bool =
-    var pkBuffer = toBuffer(idComm)
-    let pkBufferPtr = addr pkBuffer
+  return ok(true)
 
-    # add the member to the tree
-    var member_is_added = update_next_member(rlnInstance, pkBufferPtr)
-    return member_is_added
+proc insertMember*(rlnInstance: ptr RLN, idComm: IDCommitment): bool =
+  var pkBuffer = toBuffer(idComm)
+  let pkBufferPtr = addr pkBuffer
 
-  proc removeMember*(rlnInstance: RLN[Bn256], index: MembershipIndex): bool =
-    let deletion_success = delete_member(rlnInstance, index)
-    return deletion_success
+  # add the member to the tree
+  var member_is_added = update_next_member(rlnInstance, pkBufferPtr)
+  return member_is_added
 
+proc removeMember*(rlnInstance: ptr RLN, index: MembershipIndex): bool =
+  let deletion_success = delete_member(rlnInstance, index)
+  return deletion_success
 
+proc getMerkleRoot*(rlnInstance: ptr RLN): MerkleNodeResult =
+  # read the Merkle Tree root after insertion
+  var
+    root {.noinit.}: Buffer = Buffer()
+    rootPtr = addr(root)
+    getRootSuccessful = getRoot(rlnInstance, rootPtr)
+  if not getRootSuccessful: 
+    return err("could not get the root")
+  if not root.len == 32:
+    return err("wrong output size")
 
-when defined(rlnzerokit):
-  proc proofGen*(rlnInstance: ptr RLN, data: openArray[byte],
-      memKeys: MembershipKeyPair, memIndex: MembershipIndex,
-      epoch: Epoch): RateLimitProofResult =
-
-    # serialize inputs
-    let serializedInputs = serialize(idKey = memKeys.idKey,
-                                    memIndex = memIndex,
-                                    epoch = epoch,
-                                    msg = data)
-    var inputBuffer = toBuffer(serializedInputs)
-
-    debug "input buffer ", inputBuffer
-
-    # generate the proof
-    var proof: Buffer
-    let proofIsSuccessful = generate_proof(rlnInstance, addr inputBuffer, addr proof)
-    # check whether the generate_proof call is done successfully
-    if not proofIsSuccessful:
-      return err("could not generate the proof")
-
-    var proofValue = cast[ptr array[320, byte]] (proof.`ptr`)
-    let proofBytes: array[320, byte] = proofValue[]
-    debug "proof content", proofHex = proofValue[].toHex
-
-    ## parse the proof as [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
-
-    let
-      proofOffset = 128
-      rootOffset = proofOffset + 32
-      epochOffset = rootOffset + 32
-      shareXOffset = epochOffset + 32
-      shareYOffset = shareXOffset + 32
-      nullifierOffset = shareYOffset + 32
-      rlnIdentifierOffset = nullifierOffset + 32
-
-    var
-      zkproof: ZKSNARK
-      proofRoot, shareX, shareY: MerkleNode
-      epoch: Epoch
-      nullifier: Nullifier
-      rlnIdentifier: RlnIdentifier
-
-    discard zkproof.copyFrom(proofBytes[0..proofOffset-1])
-    discard proofRoot.copyFrom(proofBytes[proofOffset..rootOffset-1])
-    discard epoch.copyFrom(proofBytes[rootOffset..epochOffset-1])
-    discard shareX.copyFrom(proofBytes[epochOffset..shareXOffset-1])
-    discard shareY.copyFrom(proofBytes[shareXOffset..shareYOffset-1])
-    discard nullifier.copyFrom(proofBytes[shareYOffset..nullifierOffset-1])
-    discard rlnIdentifier.copyFrom(proofBytes[nullifierOffset..rlnIdentifierOffset-1])
-    
-    let output = RateLimitProof(proof: zkproof,
-                                merkleRoot: proofRoot,
-                                epoch: epoch,
-                                shareX: shareX,
-                                shareY: shareY,
-                                nullifier: nullifier,
-                                rlnIdentifier: rlnIdentifier)
-
-    return ok(output)
-
-  proc serialize(proof: RateLimitProof, data: openArray[byte]): seq[byte] =
-    ## a private proc to convert RateLimitProof and data to a byte seq
-    ## this conversion is used in the proof verification proc
-    ## [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
-    let lenPrefMsg = appendLength(@data)
-    var proofBytes = concat(@(proof.proof),
-                            @(proof.merkleRoot),
-                            @(proof.epoch),
-                            @(proof.shareX),
-                            @(proof.shareY),
-                            @(proof.nullifier),
-                            @(proof.rlnIdentifier),
-                            lenPrefMsg)
-
-    return proofBytes
-
-  # Serializes a sequence of MerkleNodes
-  proc serialize(roots: seq[MerkleNode]): seq[byte] =
-    var rootsBytes: seq[byte] = @[]
-    for root in roots:
-      rootsBytes = concat(rootsBytes, @root)
-    return rootsBytes
-
-  # validRoots should contain a sequence of roots in the acceptable windows.
-  # As default, it is set to an empty sequence of roots. This implies that the validity check for the proof's root is skipped
-  proc proofVerify*(rlnInstance: ptr RLN, 
-                    data: openArray[byte], 
-                    proof: RateLimitProof, 
-                    validRoots: seq[MerkleNode] = @[]): RlnRelayResult[bool] =
-    ## verifies the proof, returns an error if the proof verification fails
-    ## returns true if the proof is valid
-    var
-      proofBytes = serialize(proof, data)
-      proofBuffer = proofBytes.toBuffer()
-      validProof: bool
-      rootsBytes = serialize(validRoots)
-      rootsBuffer = rootsBytes.toBuffer()
-
-    trace "serialized proof", proof = proofBytes.toHex()
-
-    let verifyIsSuccessful = verify_with_roots(rlnInstance, addr proofBuffer, addr rootsBuffer, addr validProof)
-    if not verifyIsSuccessful:
-      # something went wrong in verification call
-      warn "could not verify validity of the proof", proof=proof
-      return err("could not verify the proof")
-
-    if not validProof:
-      return ok(false)
-
-    return ok(true)
-
-  proc insertMember*(rlnInstance: ptr RLN, idComm: IDCommitment): bool =
-    var pkBuffer = toBuffer(idComm)
-    let pkBufferPtr = addr pkBuffer
-
-    # add the member to the tree
-    var member_is_added = update_next_member(rlnInstance, pkBufferPtr)
-    return member_is_added
-
-  proc removeMember*(rlnInstance: ptr RLN, index: MembershipIndex): bool =
-    let deletion_success = delete_member(rlnInstance, index)
-    return deletion_success
-
-  proc getMerkleRoot*(rlnInstance: ptr RLN): MerkleNodeResult =
-    # read the Merkle Tree root after insertion
-    var
-      root {.noinit.}: Buffer = Buffer()
-      rootPtr = addr(root)
-      getRootSuccessful = getRoot(rlnInstance, rootPtr)
-    if not getRootSuccessful: 
-      return err("could not get the root")
-    if not root.len == 32:
-      return err("wrong output size")
-
-    var rootValue = cast[ptr MerkleNode] (root.`ptr`)[]
-    return ok(rootValue)
-
+  var rootValue = cast[ptr MerkleNode] (root.`ptr`)[]
+  return ok(rootValue)
 
 proc updateValidRootQueue*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): void =
   ## updates the valid Merkle root queue with the latest root and pops the oldest one when the capacity of `AcceptableRootWindowSize` is reached 
@@ -609,7 +404,6 @@ proc insertMember*(wakuRlnRelay: WakuRLNRelay, idComm: IDCommitment): RlnRelayRe
   let rootAfterUpdate = ?wakuRlnRelay.rlnInstance.getMerkleRoot()
   wakuRlnRelay.updateValidRootQueue(rootAfterUpdate)
   return ok()
-  
 
 proc removeMember*(wakuRlnRelay: WakuRLNRelay, index: MembershipIndex): RlnRelayResult[void] =
   ## removes a commitment from the local merkle tree at `index`, and adds the changed root to the
@@ -836,7 +630,6 @@ proc absDiff*(e1, e2: Epoch): uint64 =
   else:
     return epoch2 - epoch1
 
-
 proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
     timeOption: Option[float64] = none(float64)): MessageValidationResult =
   ## validate the supplied `msg` based on the waku-rln-relay routing protocol i.e.,
@@ -917,7 +710,6 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
   waku_rln_valid_messages_total.observe(rootIndex.toFloat())
   return MessageValidationResult.Valid
 
-
 proc toRLNSignal*(wakumessage: WakuMessage): seq[byte] =
   ## it is a utility proc that prepares the `data` parameter of the proof generation procedure i.e., `proofGen`  that resides in the current module
   ## it extracts the `contentTopic` and the `payload` of the supplied `wakumessage` and serializes them into a byte sequence
@@ -925,7 +717,6 @@ proc toRLNSignal*(wakumessage: WakuMessage): seq[byte] =
     contentTopicBytes = wakumessage.contentTopic.toBytes
     output = concat(wakumessage.payload, contentTopicBytes)
   return output
-
 
 proc appendRLNProof*(rlnPeer: WakuRLNRelay, msg: var WakuMessage,
     senderEpochTime: float64): bool =
@@ -956,8 +747,6 @@ proc addAll*(wakuRlnRelay: WakuRLNRelay, list: seq[IDCommitment]): RlnRelayResul
     if not memberAdded.isOk():
       return err(memberAdded.error())
   return ok()
-
-type GroupUpdateHandler* = proc(pubkey: Uint256, index: Uint256): RlnRelayResult[void] {.gcsafe.}
 
 proc generateGroupUpdateHandler(rlnPeer: WakuRLNRelay): GroupUpdateHandler =
   ## assuming all the members arrive in order
@@ -1042,7 +831,6 @@ proc subscribeToGroupEvents*(ethClientUri: string,
   web3.onDisconnect = proc() =
     debug "connection to ethereum node dropped", lastBlock = latestBlock
 
-
 proc handleGroupUpdates*(rlnPeer: WakuRLNRelay) {.async, gcsafe.} =
   ## generates the groupUpdateHandler which is called when a new member is registered,
   ## and has the WakuRLNRelay instance as a closure
@@ -1052,7 +840,6 @@ proc handleGroupUpdates*(rlnPeer: WakuRLNRelay) {.async, gcsafe.} =
                                contractAddress = rlnPeer.membershipContractAddress,
                                handler = handler)
   
-
 proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopic: ContentTopic, spamHandler: Option[SpamHandler] = none(SpamHandler)) =
   ## this procedure is a thin wrapper for the pubsub addValidator method
   ## it sets a validator for the waku messages published on the supplied pubsubTopic and contentTopic 
@@ -1281,20 +1068,6 @@ proc readRlnCredentials*(path: string,
     except:
       return err("Error while loading keyfile for RLN credentials at " & path)
 
-
-type WakuRlnConfig* = object
-    rlnRelayDynamic*: bool
-    rlnRelayPubsubTopic*: PubsubTopic
-    rlnRelayContentTopic*: ContentTopic
-    rlnRelayMembershipIndex*: uint
-    rlnRelayEthContractAddress*: string
-    rlnRelayEthClientAddress*: string
-    rlnRelayEthAccountPrivateKey*: string
-    rlnRelayEthAccountAddress*: string
-    rlnRelayCredPath*: string
-    rlnRelayCredentialsPassword*: string
-
-
 proc mount(node: WakuNode,
            conf: WakuRlnConfig,
            spamHandler: Option[SpamHandler] = none(SpamHandler),
@@ -1439,7 +1212,6 @@ proc mount(node: WakuNode,
     if res.isErr():
       return err("dynamic rln-relay could not be mounted: " & res.error())
     return ok()
-
 
 proc mountRlnRelay*(node: WakuNode,
                     conf: WakuRlnConfig,
