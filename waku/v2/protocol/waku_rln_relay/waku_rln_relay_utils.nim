@@ -594,6 +594,7 @@ when defined(rlnzerokit):
     ## Insert multiple members i.e., identity commitments
     ## returns true if the insertion is successful
     ## returns false if any of the insertions fails
+    ## Note: This proc is atomic, i.e., if any of the insertions fails, all the previous insertions are rolled back
 
     # serialize the idComms
     let idCommsBytes = serialize(idComms)
