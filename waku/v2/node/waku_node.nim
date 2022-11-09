@@ -347,7 +347,7 @@ proc startRelay*(node: WakuNode) {.async.} =
   info "starting relay"
   
   # PubsubTopic subscriptions
-  for topic in node.wakuRelay.defaultTopics:
+  for topic in node.wakuRelay.defaultPubsubTopics:
     node.subscribe(topic, none(TopicHandler))
 
   # Resume previous relay connections
@@ -393,7 +393,7 @@ proc mountRelay*(node: WakuNode,
 
   ## The default relay topics is the union of
   ## all configured topics plus the hard-coded defaultTopic(s)
-  wakuRelay.defaultTopics = concat(@[DefaultPubsubTopic], topics)
+  wakuRelay.defaultPubsubTopics = concat(@[DefaultPubsubTopic], topics)
 
   ## Add peer exchange handler
   if peerExchangeHandler.isSome():
