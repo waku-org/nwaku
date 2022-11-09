@@ -605,12 +605,13 @@ procSuite "Waku-rln-relay":
     await node.stop()
     await node2.stop()
 
+
   ################################
   ## Terminating/removing Ganache
   ################################
+  teardown:
+    # We stop Ganache daemon
+    stopGanache(runGanache)
 
-  # We stop Ganache daemon
-  stopGanache(runGanache)
-
-  # We uninstall Ganache
-  uninstallGanache()
+    # We uninstall Ganache
+    uninstallGanache()
