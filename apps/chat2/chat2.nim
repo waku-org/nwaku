@@ -34,7 +34,7 @@ import
   ../../waku/common/utils/nat,
   ./config_chat2
 
-when defined(rln) or defined(rlnzerokit):
+when defined(rln):
   import
     libp2p/protocols/pubsub/rpc/messages,
     libp2p/protocols/pubsub/pubsub,
@@ -223,7 +223,7 @@ proc publish(c: Chat, line: string) =
     if encodedPayload.isOk():
       var message = WakuMessage(payload: encodedPayload.get(),
         contentTopic: c.contentTopic, version: version, timestamp: getNanosecondTime(time))
-      when defined(rln) or defined(rlnzerokit):
+      when defined(rln):
         if  not isNil(c.node.wakuRlnRelay):
           # for future version when we support more than one rln protected content topic, 
           # we should check the message content topic as well
@@ -251,7 +251,7 @@ proc publish(c: Chat, line: string) =
     # No payload encoding/encryption from Waku
     var message = WakuMessage(payload: chat2pb.buffer,
       contentTopic: c.contentTopic, version: 0, timestamp: getNanosecondTime(time))
-    when defined(rln) or defined(rlnzerokit):
+    when defined(rln):
       if  not isNil(c.node.wakuRlnRelay):
         # for future version when we support more than one rln protected content topic, 
         # we should check the message content topic as well
@@ -524,7 +524,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
     let topic = DefaultPubsubTopic
     node.subscribe(topic, handler)
 
-    when defined(rln) or defined(rlnzerokit): 
+    when defined(rln): 
       if conf.rlnRelay:
         info "WakuRLNRelay is enabled"
 

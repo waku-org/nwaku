@@ -52,7 +52,7 @@ import
   # Utils
   ./v2/test_utils_keyfile
 
-when defined(rln) or defined(rlnzerokit):
+when defined(rln):
   import 
     ./v2/test_waku_rln_relay,
     ./v2/test_wakunode_rln_relay
