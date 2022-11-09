@@ -491,7 +491,7 @@ suite "Waku rln relay":
       decodednsp = RateLimitProof.init(protobuf.buffer)
 
     check:
-      decodednsp.isErr == false
+      decodednsp.isErr() == false
       decodednsp.value == rateLimitProof
 
   test "test proofVerify and proofGen for a valid proof":
