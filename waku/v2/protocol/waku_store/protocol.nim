@@ -37,8 +37,6 @@ logScope:
 const 
   WakuStoreCodec* = "/vac/waku/store/2.0.0-beta4"
 
-  DefaultTopic* = "/waku/2/default-waku/proto"
-
   MaxMessageTimestampVariance* = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift"
 
 
@@ -230,7 +228,7 @@ proc isValidMessage(msg: WakuMessage): bool =
 
   return lowerBound <= msg.timestamp and msg.timestamp <= upperBound
 
-proc handleMessage*(w: WakuStore, pubsubTopic: string, msg: WakuMessage) =
+proc handleMessage*(w: WakuStore, pubsubTopic: PubsubTopic, msg: WakuMessage) =
   if w.store.isNil():
     # Messages should not be stored
     return

@@ -43,7 +43,7 @@ suite "Waku Lightpush":
 
     ## Given
     let handlerFuture = newFuture[(string, WakuMessage)]()
-    let handler = proc(peer: PeerId, pubsubTopic: string, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} = 
+    let handler = proc(peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} = 
         handlerFuture.complete((pubsubTopic, message))
         return ok()
 
@@ -87,7 +87,7 @@ suite "Waku Lightpush":
     let error = "test_failure"
     
     let handlerFuture = newFuture[void]()
-    let handler = proc(peer: PeerId, pubsubTopic: string, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} = 
+    let handler = proc(peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} = 
         handlerFuture.complete()
         return err(error)
 

@@ -30,7 +30,7 @@ const Defaultstring = "/waku/2/default-waku/proto"
 
 ### Client, filter subscripton manager
 
-type FilterPushHandler* = proc(pubsubTopic: string, message: WakuMessage) {.gcsafe, closure.}
+type FilterPushHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage) {.gcsafe, closure.}
 
 
 ## Subscription manager
@@ -44,16 +44,16 @@ proc init(T: type SubscriptionManager): T =
 proc clear(m: var SubscriptionManager) =
   m.subscriptions.clear()
 
-proc registerSubscription(m: SubscriptionManager, pubsubTopic: string, contentTopic: ContentTopic, handler: FilterPushHandler) =
+proc registerSubscription(m: SubscriptionManager, pubsubTopic: PubsubTopic, contentTopic: ContentTopic, handler: FilterPushHandler) =
   try:
     m.subscriptions[(pubsubTopic, contentTopic)]= handler
   except:
     error "failed to register filter subscription", error=getCurrentExceptionMsg()
 
-proc removeSubscription(m: SubscriptionManager, pubsubTopic: string, contentTopic: ContentTopic) =
+proc removeSubscription(m: SubscriptionManager, pubsubTopic: PubsubTopic, contentTopic: ContentTopic) =
   m.subscriptions.del((pubsubTopic, contentTopic))
 
-proc notifySubscriptionHandler(m: SubscriptionManager, pubsubTopic: string, contentTopic: ContentTopic, message: WakuMessage) =
+proc notifySubscriptionHandler(m: SubscriptionManager, pubsubTopic: PubsubTopic, contentTopic: ContentTopic, message: WakuMessage) =
   if not m.subscriptions.hasKey((pubsubTopic, contentTopic)):
     return
 
@@ -139,7 +139,7 @@ proc sendFilterRpc(wf: WakuFilterClient, rpc: FilterRPC, peer: PeerId|RemotePeer
   return ok()
 
 proc sendFilterRequestRpc(wf: WakuFilterClient, 
-                          pubsubTopic: string, 
+                          pubsubTopic: PubsubTopic, 
                           contentTopics: seq[ContentTopic], 
                           subscribe: bool,
                           peer: PeerId|RemotePeerInfo): Future[WakuFilterResult[void]] {.async.} =
@@ -165,7 +165,7 @@ proc sendFilterRequestRpc(wf: WakuFilterClient,
 
 
 proc subscribe*(wf: WakuFilterClient, 
-                pubsubTopic: string, 
+                pubsubTopic: PubsubTopic, 
                 contentTopic: ContentTopic|seq[ContentTopic], 
                 handler: FilterPushHandler,
                 peer: PeerId|RemotePeerInfo): Future[WakuFilterResult[void]] {.async.} = 
@@ -185,7 +185,7 @@ proc subscribe*(wf: WakuFilterClient,
   return ok()
 
 proc unsubscribe*(wf: WakuFilterClient, 
-                  pubsubTopic: string, 
+                  pubsubTopic: PubsubTopic, 
                   contentTopic: ContentTopic|seq[ContentTopic],
                   peer: PeerId|RemotePeerInfo): Future[WakuFilterResult[void]] {.async.} =
   var topics: seq[ContentTopic]

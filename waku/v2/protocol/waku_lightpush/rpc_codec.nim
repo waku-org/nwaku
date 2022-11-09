@@ -28,7 +28,7 @@ proc decode*(T: type PushRequest, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
   var rpc = PushRequest()
 
-  var pubSubTopic: string
+  var pubSubTopic: PubsubTopic
   discard ?pb.getField(1, pubSubTopic)
   rpc.pubSubTopic = pubSubTopic
 

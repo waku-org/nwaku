@@ -50,7 +50,6 @@ const Help = """
 
 const
   PayloadV1* {.booldefine.} = false
-  DefaultTopic* = "/waku/2/default-waku/proto"
 
 # XXX Connected is a bit annoying, because incoming connections don't trigger state change
 # Could poll connection pool or something here, I suppose
@@ -175,7 +174,7 @@ proc printReceivedMessage(c: Chat, msg: WakuMessage) =
         echo &"{chatLine}"
         c.prompt = false
         showChatPrompt(c)
-        trace "Printing message", topic=DefaultTopic, chatLine,
+        trace "Printing message", topic=DefaultPubsubTopic, chatLine,
           contentTopic = msg.contentTopic
       else:
         debug "Invalid encoded WakuMessage payload",
@@ -194,7 +193,7 @@ proc printReceivedMessage(c: Chat, msg: WakuMessage) =
     
     c.prompt = false
     showChatPrompt(c)
-    trace "Printing message", topic=DefaultTopic, chatLine,
+    trace "Printing message", topic=DefaultPubsubTopic, chatLine,
       contentTopic = msg.contentTopic
 
 proc readNick(transp: StreamTransport): Future[string] {.async.} =
@@ -243,9 +242,9 @@ proc publish(c: Chat, line: string) =
             c.node.wakuRlnRelay.lastEpoch = message.proof.epoch
       if not c.node.wakuLightPush.isNil():
         # Attempt lightpush
-        asyncSpawn c.node.lightpushPublish(DefaultTopic, message)
+        asyncSpawn c.node.lightpushPublish(DefaultPubsubTopic, message)
       else:
-        asyncSpawn c.node.publish(DefaultTopic, message, handler)
+        asyncSpawn c.node.publish(DefaultPubsubTopic, message, handler)
     else:
       warn "Payload encoding failed", error = encodedPayload.error
   else:
@@ -272,9 +271,9 @@ proc publish(c: Chat, line: string) =
 
     if not c.node.wakuLightPush.isNil():
       # Attempt lightpush
-      asyncSpawn c.node.lightpushPublish(DefaultTopic, message)
+      asyncSpawn c.node.lightpushPublish(DefaultPubsubTopic, message)
     else:
-      asyncSpawn c.node.publish(DefaultTopic, message)
+      asyncSpawn c.node.publish(DefaultPubsubTopic, message)
 
 # TODO This should read or be subscribe handler subscribe
 proc readAndPrint(c: Chat) {.async.} =
@@ -327,7 +326,7 @@ proc writeAndPrint(c: Chat) {.async.} =
       if not c.node.wakuFilter.isNil():
         echo "unsubscribing from content filters..."
       
-        await c.node.unsubscribe(pubsubTopic=DefaultTopic, contentTopics=c.contentTopic)
+        await c.node.unsubscribe(pubsubTopic=DefaultPubsubTopic, contentTopics=c.contentTopic)
       
       echo "quitting..."
 
@@ -502,12 +501,12 @@ proc processInput(rfd: AsyncFD) {.async.} =
 
     node.setFilterPeer(parseRemotePeerInfo(conf.filternode))
 
-    proc filterHandler(pubsubTopic: string, msg: WakuMessage) {.gcsafe.} =
+    proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.gcsafe.} =
       trace "Hit filter handler", contentTopic=msg.contentTopic
 
       chat.printReceivedMessage(msg)
 
-    await node.subscribe(pubsubTopic=DefaultTopic, contentTopics=chat.contentTopic, filterHandler)
+    await node.subscribe(pubsubTopic=DefaultPubsubTopic, contentTopics=chat.contentTopic, filterHandler)
 
   # Subscribe to a topic, if relay is mounted
   if conf.relay:
@@ -522,7 +521,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
       else:
         trace "Invalid encoded WakuMessage", error = decoded.error
 
-    let topic = cast[Topic](DefaultTopic)
+    let topic = DefaultPubsubTopic
     node.subscribe(topic, handler)
 
     when defined(rln) or defined(rlnzerokit): 

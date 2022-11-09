@@ -43,7 +43,7 @@ procSuite "WakuNode - Lightpush":
     let message = fakeWakuMessage()
 
     var completionFutRelay = newFuture[bool]()
-    proc relayHandler(pubsubTopic: string, data: seq[byte]) {.async, gcsafe.} =
+    proc relayHandler(pubsubTopic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
       let msg = WakuMessage.decode(data).get()
       check:
         pubsubTopic == DefaultPubsubTopic

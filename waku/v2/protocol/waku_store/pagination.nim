@@ -37,7 +37,7 @@ proc computeDigest*(msg: WakuMessage): MessageDigest =
   # Computes the hash
   return ctx.finish()
 
-proc compute*(T: type PagingIndex, msg: WakuMessage, receivedTime: Timestamp, pubsubTopic: string): T =
+proc compute*(T: type PagingIndex, msg: WakuMessage, receivedTime: Timestamp, pubsubTopic: PubsubTopic): T =
   ## Takes a WakuMessage with received timestamp and returns its Index.
   let
     digest = computeDigest(msg)

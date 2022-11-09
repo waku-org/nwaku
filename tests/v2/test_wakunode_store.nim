@@ -180,15 +180,15 @@ procSuite "WakuNode - Store":
       msg2 = fakeWakuMessage(payload="hello world2", ts=(timeOrigin + getNanoSecondTime(2)))
       msg3 = fakeWakuMessage(payload="hello world3", ts=(timeOrigin + getNanoSecondTime(3)))
 
-    require server.wakuStore.store.put(DefaultTopic, msg1).isOk()
-    require server.wakuStore.store.put(DefaultTopic, msg2).isOk()
+    require server.wakuStore.store.put(DefaultPubsubTopic, msg1).isOk()
+    require server.wakuStore.store.put(DefaultPubsubTopic, msg2).isOk()
 
     # Insert the same message in both node's store
     let 
       receivedTime3 = now() + getNanosecondTime(10)
       digest3 = computeDigest(msg3)
-    require server.wakuStore.store.put(DefaultTopic, msg3, digest3, receivedTime3).isOk()
-    require client.wakuStore.store.put(DefaultTopic, msg3, digest3, receivedTime3).isOk()
+    require server.wakuStore.store.put(DefaultPubsubTopic, msg3, digest3, receivedTime3).isOk()
+    require client.wakuStore.store.put(DefaultPubsubTopic, msg3, digest3, receivedTime3).isOk()
 
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 

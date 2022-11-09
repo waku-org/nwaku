@@ -21,10 +21,6 @@ template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 const sigWakuPath = sourceDir / ".." / ".." / "waku" / "v2" / "node" / "jsonrpc" / "jsonrpc_callsigs.nim"
 createRpcSigs(RpcHttpClient, sigWakuPath)
 
-const defaultTopic = "/waku/2/default-waku/proto"
-
-const defaultContentTopic = ContentTopic("waku/2/default-content/proto")
-
 const topicAmount = 10 #100
 
 proc message(i: int): ProtoBuffer =
@@ -45,7 +41,7 @@ for i in 0..<amount:
   var node = newRpcHttpClient()
   nodes.add(node)
   waitFor nodes[i].connect("localhost", Port(8547+i), false)
-  var res = waitFor nodes[i].post_waku_v2_relay_v1_subscriptions(@[defaultTopic])
+  var res = waitFor nodes[i].post_waku_v2_relay_v1_subscriptions(@[DefaultPubsubTopic])
 
 os.sleep(2000)
 
@@ -54,18 +50,18 @@ os.sleep(2000)
 #   os.sleep(50)
 #   # TODO: This would then publish on a subtopic here
 #   var s = "hello " & $2
-#   var res3 = waitFor nodes[0].wakuPublish(defaultTopic, s)
+#   var res3 = waitFor nodes[0].wakuPublish(DefaultPbsubTopic, s)
 
 # Scenario xx3 - same as xx1 but publish from multiple nodes
 # To compare FloodSub and GossipSub factor
 for i in 0..<topicAmount:
   os.sleep(50)
   # TODO: This would then publish on a subtopic here
-  var res3 = waitFor nodes[0].post_waku_v2_relay_v1_message(defaultTopic, WakuRelayMessage(payload: message(0).buffer, contentTopic: some(defaultContentTopic), timestamp: some(getNanosecondTime(epochTime()))))
-  res3 = waitFor nodes[1].post_waku_v2_relay_v1_message(defaultTopic, WakuRelayMessage(payload: message(1).buffer, contentTopic: some(defaultContentTopic), timestamp: some(getNanosecondTime(epochTime()))))
-  res3 = waitFor nodes[2].post_waku_v2_relay_v1_message(defaultTopic, WakuRelayMessage(payload: message(2).buffer, contentTopic: some(defaultContentTopic), timestamp: some(getNanosecondTime(epochTime()))))
-  res3 = waitFor nodes[3].post_waku_v2_relay_v1_message(defaultTopic, WakuRelayMessage(payload: message(3).buffer, contentTopic: some(defaultContentTopic), timestamp: some(getNanosecondTime(epochTime()))))
-  res3 = waitFor nodes[4].post_waku_v2_relay_v1_message(defaultTopic, WakuRelayMessage(payload: message(4).buffer, contentTopic: some(defaultContentTopic), timestamp: some(getNanosecondTime(epochTime()))))
+  var res3 = waitFor nodes[0].post_waku_v2_relay_v1_message(DefaultPubsubTopic, WakuRelayMessage(payload: message(0).buffer, contentTopic: some(DefaultContentTopic), timestamp: some(getNanosecondTime(epochTime()))))
+  res3 = waitFor nodes[1].post_waku_v2_relay_v1_message(DefaultPubsubTopic, WakuRelayMessage(payload: message(1).buffer, contentTopic: some(DefaultContentTopic), timestamp: some(getNanosecondTime(epochTime()))))
+  res3 = waitFor nodes[2].post_waku_v2_relay_v1_message(DefaultPubsubTopic, WakuRelayMessage(payload: message(2).buffer, contentTopic: some(DefaultContentTopic), timestamp: some(getNanosecondTime(epochTime()))))
+  res3 = waitFor nodes[3].post_waku_v2_relay_v1_message(DefaultPubsubTopic, WakuRelayMessage(payload: message(3).buffer, contentTopic: some(DefaultContentTopic), timestamp: some(getNanosecondTime(epochTime()))))
+  res3 = waitFor nodes[4].post_waku_v2_relay_v1_message(DefaultPubsubTopic, WakuRelayMessage(payload: message(4).buffer, contentTopic: some(DefaultContentTopic), timestamp: some(getNanosecondTime(epochTime()))))
 
 # Scenario xx2 - 14 full nodes, two edge nodes
 # Assume one full topic
@@ -79,8 +75,8 @@ for i in 0..<topicAmount:
 #let version = waitFor nodea.wakuVersion()
 #info "Version is", version
 #
-#let res1 = waitFor nodea.wakuSubscribe(defaultTopic)
-#let res2 = waitFor nodeb.wakuSubscribe(defaultTopic)
+#let res1 = waitFor nodea.wakuSubscribe(DefaultPbsubTopic)
+#let res2 = waitFor nodeb.wakuSubscribe(DefaultPbsubTopic)
 #
 #let amount = 14
 #var nodes: seq[RPCHttpClient]
@@ -88,7 +84,7 @@ for i in 0..<topicAmount:
 #  var node = newRpcHttpClient()
 #  nodes.add(node)
 #  waitFor nodes[i].connect("localhost", Port(8547+i))
-#  var res = waitFor nodes[i].wakuSubscribe(defaultTopic)
+#  var res = waitFor nodes[i].wakuSubscribe(DefaultPbsubTopic)
 #
 #os.sleep(2000)
 #
@@ -97,7 +93,7 @@ for i in 0..<topicAmount:
 #  os.sleep(50)
 #  # TODO: This would then publish on a subtopic here
 #  var s = "hello " & $2
-#  var res3 = waitFor nodea.wakuPublish(defaultTopic, s)
+#  var res3 = waitFor nodea.wakuPublish(DefaultPbsubTopic, s)
 
 # Misc old scenarios
 #########################################

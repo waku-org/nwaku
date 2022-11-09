@@ -61,8 +61,6 @@ const git_version* {.strdefine.} = "n/a"
 # Default clientId
 const clientId* = "Nimbus Waku v2 node"
 
-const defaultTopic*: PubsubTopic = "/waku/2/default-waku/proto"
-
 # Default Waku Filter Timeout
 const WakuFilterTimeout: Duration = 1.days
 
@@ -395,7 +393,7 @@ proc mountRelay*(node: WakuNode,
 
   ## The default relay topics is the union of
   ## all configured topics plus the hard-coded defaultTopic(s)
-  wakuRelay.defaultTopics = concat(@[defaultTopic], topics)
+  wakuRelay.defaultTopics = concat(@[DefaultPubsubTopic], topics)
 
   ## Add peer exchange handler
   if peerExchangeHandler.isSome():
