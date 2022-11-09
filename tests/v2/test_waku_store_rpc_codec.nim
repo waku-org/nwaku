@@ -5,20 +5,21 @@ import
   testutils/unittests,
   chronos
 import
-  ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/protocol/waku_store/rpc,
+  ../../waku/v2/protocol/waku_store/rpc_codec,
   ../../waku/v2/utils/time,
   ./testlib/common
 
 
 procSuite "Waku Store - RPC codec":
   
-  test "PagingIndex protobuf codec":
+  test "PagingIndexRPC protobuf codec":
     ## Given
-    let index = PagingIndex.compute(fakeWakuMessage(), receivedTime=getNanosecondTime(epochTime()), pubsubTopic=DefaultPubsubTopic)
+    let index = PagingIndexRPC.compute(fakeWakuMessage(), receivedTime=ts(), pubsubTopic=DefaultPubsubTopic)
 
     ## When
     let encodedIndex = index.encode()
-    let decodedIndexRes = PagingIndex.decode(encodedIndex.buffer)
+    let decodedIndexRes = PagingIndexRPC.decode(encodedIndex.buffer)
 
     ## Then
     check:
@@ -29,12 +30,12 @@ procSuite "Waku Store - RPC codec":
       # The fields of decodedIndex must be the same as the original index
       decodedIndex == index
 
-  test "PagingIndex protobuf codec - empty index":
+  test "PagingIndexRPC protobuf codec - empty index":
     ## Given
-    let emptyIndex = PagingIndex()
+    let emptyIndex = PagingIndexRPC()
     
     let encodedIndex = emptyIndex.encode()
-    let decodedIndexRes = PagingIndex.decode(encodedIndex.buffer)
+    let decodedIndexRes = PagingIndexRPC.decode(encodedIndex.buffer)
 
     ## Then
     check:
@@ -42,18 +43,18 @@ procSuite "Waku Store - RPC codec":
     
     let decodedIndex = decodedIndexRes.tryGet()
     check:
-      # Check the correctness of init and encode for an empty PagingIndex
+      # Check the correctness of init and encode for an empty PagingIndexRPC
       decodedIndex == emptyIndex
 
-  test "PagingInfo protobuf codec":
+  test "PagingInfoRPC protobuf codec":
     ## Given
     let
-      index = PagingIndex.compute(fakeWakuMessage(), receivedTime=getNanosecondTime(epochTime()), pubsubTopic=DefaultPubsubTopic)
-      pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.FORWARD)
+      index = PagingIndexRPC.compute(fakeWakuMessage(), receivedTime=ts(), pubsubTopic=DefaultPubsubTopic)
+      pagingInfo = PagingInfoRPC(pageSize: 1, cursor: index, direction: PagingDirectionRPC.FORWARD)
       
     ## When
     let pb = pagingInfo.encode()
-    let decodedPagingInfo = PagingInfo.decode(pb.buffer)
+    let decodedPagingInfo = PagingInfoRPC.decode(pb.buffer)
 
     ## Then
     check:
@@ -64,32 +65,32 @@ procSuite "Waku Store - RPC codec":
       decodedPagingInfo.value == pagingInfo
       decodedPagingInfo.value.direction == pagingInfo.direction
   
-  test "PagingInfo protobuf codec - empty paging info":
+  test "PagingInfoRPC protobuf codec - empty paging info":
     ## Given
-    let emptyPagingInfo = PagingInfo()
+    let emptyPagingInfo = PagingInfoRPC()
       
     ## When
     let pb = emptyPagingInfo.encode()
-    let decodedEmptyPagingInfo = PagingInfo.decode(pb.buffer)
+    let decodedEmptyPagingInfo = PagingInfoRPC.decode(pb.buffer)
 
     ## Then
     check:
       decodedEmptyPagingInfo.isOk()
 
     check:
-      # check the correctness of init and encode for an empty PagingInfo
+      # check the correctness of init and encode for an empty PagingInfoRPC
       decodedEmptyPagingInfo.value == emptyPagingInfo
   
-  test "HistoryQuery protobuf codec":
+  test "HistoryQueryRPC protobuf codec":
     ## Given
     let
-      index = PagingIndex.compute(fakeWakuMessage(), receivedTime=getNanosecondTime(epochTime()), pubsubTopic=DefaultPubsubTopic)
-      pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
-      query = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic), HistoryContentFilter(contentTopic: DefaultContentTopic)], pagingInfo: pagingInfo, startTime: Timestamp(10), endTime: Timestamp(11))
+      index = PagingIndexRPC.compute(fakeWakuMessage(), receivedTime=ts(), pubsubTopic=DefaultPubsubTopic)
+      pagingInfo = PagingInfoRPC(pageSize: 1, cursor: index, direction: PagingDirectionRPC.BACKWARD)
+      query = HistoryQueryRPC(contentFilters: @[HistoryContentFilterRPC(contentTopic: DefaultContentTopic), HistoryContentFilterRPC(contentTopic: DefaultContentTopic)], pagingInfo: pagingInfo, startTime: Timestamp(10), endTime: Timestamp(11))
     
     ## When
     let pb = query.encode()
-    let decodedQuery = HistoryQuery.decode(pb.buffer)
+    let decodedQuery = HistoryQueryRPC.decode(pb.buffer)
 
     ## Then
     check:
@@ -99,33 +100,33 @@ procSuite "Waku Store - RPC codec":
       # the fields of decoded query decodedQuery must be the same as the original query query
       decodedQuery.value == query
 
-  test "HistoryQuery protobuf codec - empty history query":
+  test "HistoryQueryRPC protobuf codec - empty history query":
     ## Given
-    let emptyQuery = HistoryQuery()
+    let emptyQuery = HistoryQueryRPC()
 
     ## When
     let pb = emptyQuery.encode()
-    let decodedEmptyQuery = HistoryQuery.decode(pb.buffer)
+    let decodedEmptyQuery = HistoryQueryRPC.decode(pb.buffer)
 
     ## Then
     check:
       decodedEmptyQuery.isOk()
 
     check:
-      # check the correctness of init and encode for an empty HistoryQuery
+      # check the correctness of init and encode for an empty HistoryQueryRPC
       decodedEmptyQuery.value == emptyQuery
   
-  test "HistoryResponse protobuf codec":
+  test "HistoryResponseRPC protobuf codec":
     ## Given
     let
       message = fakeWakuMessage()
-      index = PagingIndex.compute(message, receivedTime=getNanosecondTime(epochTime()), pubsubTopic=DefaultPubsubTopic)
-      pagingInfo = PagingInfo(pageSize: 1, cursor: index, direction: PagingDirection.BACKWARD)
-      res = HistoryResponse(messages: @[message], pagingInfo:pagingInfo, error: HistoryResponseError.INVALID_CURSOR)
+      index = PagingIndexRPC.compute(message, receivedTime=ts(), pubsubTopic=DefaultPubsubTopic)
+      pagingInfo = PagingInfoRPC(pageSize: 1, cursor: index, direction: PagingDirectionRPC.BACKWARD)
+      res = HistoryResponseRPC(messages: @[message], pagingInfo:pagingInfo, error: HistoryResponseErrorRPC.INVALID_CURSOR)
     
     ## When
     let pb = res.encode()
-    let decodedRes = HistoryResponse.decode(pb.buffer)
+    let decodedRes = HistoryResponseRPC.decode(pb.buffer)
 
     ## Then
     check:
@@ -135,18 +136,18 @@ procSuite "Waku Store - RPC codec":
       # the fields of decoded response decodedRes must be the same as the original response res
       decodedRes.value == res
     
-  test "HistoryResponse protobuf codec - empty history response":
+  test "HistoryResponseRPC protobuf codec - empty history response":
     ## Given
-    let emptyRes = HistoryResponse()
+    let emptyRes = HistoryResponseRPC()
     
     ## When
     let pb = emptyRes.encode()
-    let decodedEmptyRes = HistoryResponse.decode(pb.buffer)
+    let decodedEmptyRes = HistoryResponseRPC.decode(pb.buffer)
 
     ## Then
     check:
       decodedEmptyRes.isOk()
 
     check:
-      # check the correctness of init and encode for an empty HistoryResponse
+      # check the correctness of init and encode for an empty HistoryResponseRPC
       decodedEmptyRes.value == emptyRes
