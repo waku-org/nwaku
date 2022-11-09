@@ -66,6 +66,6 @@ proc sendPushRequest(wl: WakuLightPushClient, req: PushRequest, peer: PeerId|Rem
 
   return ok()
 
-proc publish*(wl: WakuLightPushClient, pubsubTopic: string, message: WakuMessage, peer: PeerId|RemotePeerInfo): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
+proc publish*(wl: WakuLightPushClient, pubsubTopic: PubsubTopic, message: WakuMessage, peer: PeerId|RemotePeerInfo): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
   let pushRequest = PushRequest(pubsubTopic: pubsubTopic, message: message)
   return await wl.sendPushRequest(pushRequest, peer)

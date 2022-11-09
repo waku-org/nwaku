@@ -45,7 +45,7 @@ suite "REST API - Relay":
     restServer.start()
 
     let pubSubTopics = @[
-      PubSubTopicString("pubsub-topic-1"), 
+      PubSubTopicString("pubsub-topic-1"),
       PubSubTopicString("pubsub-topic-2"),
       PubSubTopicString("pubsub-topic-3")
     ]
@@ -204,7 +204,7 @@ suite "REST API - Relay":
     ]
     discard await client.relayPostSubscriptionsV1(newTopics)
     
-    let response = await client.relayPostMessagesV1(defaultTopic, RelayWakuMessage(
+    let response = await client.relayPostMessagesV1(DefaultPubsubTopic, RelayWakuMessage(
       payload: Base64String.encode("TEST-PAYLOAD"), 
       contentTopic: some(ContentTopicString(defaultContentTopic)), 
       timestamp: some(int64(2022))

@@ -33,11 +33,11 @@ type WakuFilterResult*[T] = Result[T, string]
 type Subscription = object
   requestId: string
   peer: PeerID
-  pubsubTopic: string
+  pubsubTopic: PubsubTopic
   contentTopics: HashSet[ContentTopic]
 
 
-proc addSubscription(subscriptions: var seq[Subscription], peer: PeerID, requestId: string, pubsubTopic: string, contentTopics: seq[ContentTopic]) =
+proc addSubscription(subscriptions: var seq[Subscription], peer: PeerID, requestId: string, pubsubTopic: PubsubTopic, contentTopics: seq[ContentTopic]) =
   let subscription = Subscription(
     requestId: requestId,
     peer: peer,
@@ -165,7 +165,7 @@ proc handleClientError(wf: WakuFilter, subs: seq[Subscription]) {.raises: [Defec
       wf.subscriptions.delete(index)
 
 
-proc handleMessage*(wf: WakuFilter, pubsubTopic: string, msg: WakuMessage) {.async.} =
+proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, msg: WakuMessage) {.async.} =
   
   trace "handling message", pubsubTopic, contentTopic=msg.contentTopic, subscriptions=wf.subscriptions.len
 

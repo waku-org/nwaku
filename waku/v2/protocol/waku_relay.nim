@@ -14,6 +14,8 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/stream/connection
+import
+  ./waku_message
 
 logScope:
   topics = "waku relay"
@@ -23,7 +25,7 @@ const
 
 type
   WakuRelay* = ref object of GossipSub
-    defaultTopics*: seq[string] # Default configured PubSub topics
+    defaultTopics*: seq[PubsubTopic] # Default configured PubSub topics
 
 method init*(w: WakuRelay) =
   debug "init WakuRelay"
@@ -62,14 +64,14 @@ method initPubSub*(w: WakuRelay) {.raises: [Defect, InitializationError].} =
   w.init()
 
 method subscribe*(w: WakuRelay,
-                  pubSubTopic: string,
+                  pubSubTopic: PubsubTopic,
                   handler: TopicHandler) =
   debug "subscribe", pubSubTopic=pubSubTopic
 
   procCall GossipSub(w).subscribe(pubSubTopic, handler)
 
 method publish*(w: WakuRelay,
-                pubSubTopic: string,
+                pubSubTopic: PubsubTopic,
                 message: seq[byte]
                ): Future[int] {.async.} =
   trace "publish", pubSubTopic=pubSubTopic, message=message
@@ -83,7 +85,7 @@ method unsubscribe*(w: WakuRelay,
   procCall GossipSub(w).unsubscribe(topics)
 
 method unsubscribeAll*(w: WakuRelay,
-                       pubSubTopic: string) =
+                       pubSubTopic: PubsubTopic) =
   debug "unsubscribeAll"
 
   procCall GossipSub(w).unsubscribeAll(pubSubTopic)

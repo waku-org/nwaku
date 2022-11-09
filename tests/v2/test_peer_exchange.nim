@@ -11,7 +11,8 @@ import
 import
   ../../waku/v2/node/waku_node,
   ../../waku/v2/utils/peers,
-  ../test_helpers
+  ../test_helpers,
+  ./testlib/common
 
 procSuite "Peer Exchange":
   asyncTest "GossipSub (relay) peer exchange":
@@ -43,7 +44,7 @@ procSuite "Peer Exchange":
       check:
         # Node 3 is informed of node 2 via peer exchange
         peer == node1.switch.peerInfo.peerId
-        topic == defaultTopic
+        topic == DefaultPubsubTopic
         peerRecords.countIt(it.peerId == node2.switch.peerInfo.peerId) == 1
       
       if (not completionFut.completed()):

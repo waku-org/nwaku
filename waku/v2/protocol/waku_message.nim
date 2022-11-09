@@ -26,6 +26,10 @@ type
   PubsubTopic* = string
   ContentTopic* = string
 
+const 
+  DefaultPubsubTopic*: PubsubTopic = "/waku/2/default-waku/proto"
+  DefaultContentTopic*: ContentTopic = "/waku/2/default-content/proto"
+
 
 type WakuMessage* = object
     payload*: seq[byte]
