@@ -27,8 +27,8 @@ type
   ContentTopic* = string
 
 const 
-  DefaultPubsubTopic*: PubsubTopic = "/waku/2/default-waku/proto"
-  DefaultContentTopic*: ContentTopic = "/waku/2/default-content/proto"
+  DefaultPubsubTopic*: PubsubTopic = PubsubTopic("/waku/2/default-waku/proto")
+  DefaultContentTopic*: ContentTopic = ContentTopic("/waku/2/default-content/proto")
 
 
 type WakuMessage* = object
