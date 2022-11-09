@@ -225,7 +225,7 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Option[Address], ethAcco
   # web3.privateKey = some(ethAccountPrivateKey)
   var sender = web3.contractSender(MembershipContract, membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
 
-  debug "registering an id commitment", idComm=idComm.inHex
+  debug "registering an id commitment", idComm=idComm.inHex()
   let pk = idComm.toUInt256()
 
   var txHash: TxHash
@@ -252,7 +252,7 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Option[Address], ethAcco
     eventIdCommUint = UInt256.fromBytesBE(argumentsBytes[0..31])
     eventIndex =  UInt256.fromBytesBE(argumentsBytes[32..^1])
     eventIdComm = eventIdCommUint.toIDCommitment()
-  debug "the identity commitment key extracted from tx log", eventIdComm=eventIdComm.inHex
+  debug "the identity commitment key extracted from tx log", eventIdComm=eventIdComm.inHex()
   debug "the index of registered identity commitment key", eventIndex=eventIndex
 
   if eventIdComm != idComm:
@@ -450,11 +450,11 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     let deletion_success = delete_member(rlnInstance, index)
     return deletion_success
 
-proc serialize*(idCommitments: seq[IDCommitment]): seq[byte] =
+proc serializeIdCommitments*(idComms: seq[IDCommitment]): seq[byte] =
   ## serializes a seq of IDCommitments to a byte seq
   ## the serialization is based on https://github.com/status-im/nwaku/blob/37bd29fbc37ce5cf636734e7dd410b1ed27b88c8/waku/v2/protocol/waku_rln_relay/rln.nim#L142
   ## the order of serialization is |id_commitment_len<8>|id_commitment<var>|
-  let idCommsBytes = newSeq[byte]()
+  var idCommsBytes = newSeq[byte]()
 
   # serialize the idComms, with its length prefixed
   let len = toBytes(uint64(idComms.len), Endianness.littleEndian)
@@ -597,7 +597,7 @@ when defined(rlnzerokit):
     ## Note: This proc is atomic, i.e., if any of the insertions fails, all the previous insertions are rolled back
 
     # serialize the idComms
-    let idCommsBytes = serialize(idComms)
+    let idCommsBytes = serializeIdCommitments(idComms)
     
     var idCommsBuffer = idCommsBytes.toBuffer()
     let idCommsBufferPtr = addr idCommsBuffer
@@ -701,7 +701,7 @@ proc calcMerkleRoot*(list: seq[IDCommitment]): RlnRelayResult[string] =
   let membersAdded = rln.insertMembers(0, list)
   if not membersAdded:
     return err("could not insert members into the tree")
-  let root = rln.getMerkleRoot().value().inHex
+  let root = rln.getMerkleRoot().value().inHex()
   return ok(root)
 
 proc createMembershipList*(n: int): RlnRelayResult[(
@@ -727,7 +727,7 @@ proc createMembershipList*(n: int): RlnRelayResult[(
     if keypairRes.isErr():
       return err("could not generate a key pair: " & keypairRes.error())
     let keypair = keypairRes.get()
-    let keyTuple = (keypair.idKey.inHex, keypair.idCommitment.inHex)
+    let keyTuple = (keypair.idKey.inHex(), keypair.idCommitment.inHex())
     output.add(keyTuple)
 
     idCommitments.add(keypair.idCommitment)
@@ -737,7 +737,7 @@ proc createMembershipList*(n: int): RlnRelayResult[(
   if not membersAdded:
     return err("could not insert members into the tree")
 
-  let root = rln.getMerkleRoot().value().inHex
+  let root = rln.getMerkleRoot().value().inHex()
   return ok((output, root))
 
 proc rlnRelayStaticSetUp*(rlnRelayMembershipIndex: MembershipIndex): RlnRelayResult[(Option[seq[
@@ -916,7 +916,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
 
   ## TODO: FIXME after resolving this issue https://github.com/status-im/nwaku/issues/1247
   if not rlnPeer.validateRoot(msg.proof.merkleRoot):
-    debug "invalid message: provided root does not belong to acceptable window of roots", provided=msg.proof.merkleRoot, validRoots=rlnPeer.validMerkleRoots.mapIt(it.inHex)
+    debug "invalid message: provided root does not belong to acceptable window of roots", provided=msg.proof.merkleRoot, validRoots=rlnPeer.validMerkleRoots.mapIt(it.inHex())
     waku_rln_invalid_messages_total.inc(labelValues=["invalid_root"])
   #   return MessageValidationResult.Invalid
 
@@ -1005,13 +1005,13 @@ proc generateGroupUpdateHandler(rlnPeer: WakuRLNRelay): GroupUpdateHandler =
   var handler: GroupUpdateHandler
   handler = proc(blockNumber: BlockNumber, members: seq[MembershipTuple]): RlnRelayResult[void] =
     let startingIndex = members[0].index
-    debug "starting index", startingIndex = startingIndex, members = members.mapIt(it.idComm.inHex)
+    debug "starting index", startingIndex = startingIndex, members = members.mapIt(it.idComm.inHex())
     let isSuccessful = rlnPeer.insertMembers(startingIndex, members.mapIt(it.idComm))
     if isSuccessful.isErr():
       return err("failed to add new members to the Merkle tree")
     else:
-      debug "new members added to the Merkle tree", pubkeys=members.mapIt(it.idComm.inHex) , startingIndex=startingIndex
-      debug "acceptable window", validRoots=rlnPeer.validMerkleRoots.map(inHex)
+      debug "new members added to the Merkle tree", pubkeys=members.mapIt(it.idComm.inHex()) , startingIndex=startingIndex
+      debug "acceptable window", validRoots=rlnPeer.validMerkleRoots.mapIt(it.inHex())
       let lastIndex = members[0].index + members.len.uint - 1
       let indexGap = startingIndex - rlnPeer.lastSeenMembershipIndex
       if not (toSeq(startingIndex..lastIndex) == members.mapIt(it.index)):
@@ -1423,8 +1423,8 @@ proc mount(node: WakuNode,
       if mountRes.isErr():
         return err("Failed to mount WakuRLNRelay: " & mountRes.error())
 
-      info "membership id key", idkey=memKeyPairOpt.get().idKey.inHex
-      info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.inHex
+      info "membership id key", idkey=memKeyPairOpt.get().idKey.inHex()
+      info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.inHex()
 
       # check the correct construction of the tree by comparing the calculated root against the expected root
       # no error should happen as it is already captured in the unit tests
@@ -1438,7 +1438,7 @@ proc mount(node: WakuNode,
       
       let root = rootRes.value()
 
-      if root.inHex != expectedRoot:
+      if root.inHex() != expectedRoot:
         error "root mismatch: something went wrong not in Merkle tree construction"
       debug "the calculated root", root
       info "WakuRLNRelay is mounted successfully", pubsubtopic=conf.rlnRelayPubsubTopic, contentTopic=conf.rlnRelayContentTopic
