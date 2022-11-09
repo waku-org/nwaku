@@ -723,21 +723,24 @@ suite "Waku rln relay":
 
     let membershipCount: uint = AcceptableRootWindowSize + 5'u
 
-    # Create a Merkle tree with random members
+    var members = newSeq[MembershipKeyPair](membershipCount)
+
+    # Generate membership keys
     for i in 0'u..membershipCount:
-      var memberIsAdded: RlnRelayResult[void]
       if (i == index):
         # insert the current peer's pk
-        memberIsAdded = rlnRelay.insertMembers(i, @[memKeys.idCommitment])
+        members.add(memKeys)
       else:
         # create a new key pair
         let memberKeysRes = rlnRelay.rlnInstance.membershipKeyGen()
         require:
           memberKeysRes.isOk()
-        memberIsAdded = rlnRelay.insertMembers(i, @[memberKeysRes.get().idCommitment])
-      # require that the member is added
-      require:
-        memberIsAdded.isOk()
+        members.add(memberKeysRes.get())
+    
+    # Batch inserts into the tree
+    let insertedRes = rlnRelay.insertMembers(0, members)
+    require:
+      insertedRes.isOk()
 
     # Given: 
     # This step includes constructing a valid message with the latest merkle root
