@@ -280,7 +280,7 @@ suite "Waku rln relay":
     require:
       keypairRes.isOk()
     check:
-      rln.insertMember(0, keyPairRes.get().idCommitment)
+      rln.insertMember(keyPairRes.get().idCommitment)
 
   test "removeMember rln utils":
     # create an RLN instance which also includes an empty Merkle tree
