@@ -20,11 +20,9 @@ export message_cache
 
 ##### TopicCache
 
-type PubSubTopicString = string 
-
 type TopicCacheResult*[T] = MessageCacheResult[T]
 
-type TopicCache* = MessageCache[PubSubTopicString]
+type TopicCache* = MessageCache[PubSubTopic]
 
 
 ##### Message handler
@@ -33,17 +31,17 @@ type TopicCacheMessageHandler* = Topichandler
 
 proc messageHandler*(cache: TopicCache): TopicCacheMessageHandler =
 
-  let handler = proc(topic: string, data: seq[byte]): Future[void] {.async, closure.} =
-    trace "Topic handler triggered", topic=topic
+  let handler = proc(pubsubTopic: string, data: seq[byte]): Future[void] {.async, closure.} =
+    trace "PubsubTopic handler triggered", pubsubTopic=pubsubTopic
 
     # Add message to current cache
     let msg = WakuMessage.decode(data)
     if msg.isErr():
-      debug "WakuMessage received but failed to decode", msg=msg, topic=topic
+      debug "WakuMessage received but failed to decode", msg=msg, pubsubTopic=pubsubTopic
       # TODO: handle message decode failure
       return
 
-    trace "WakuMessage received", msg=msg, topic=topic
-    cache.addMessage(PubSubTopicString(topic), msg.get())
+    trace "WakuMessage received", msg=msg, pubsubTopic=pubsubTopic
+    cache.addMessage(PubSubTopic(pubsubTopic), msg.get())
   
   handler
