@@ -1,13 +1,9 @@
 import
-  ./waku_store/protocol,
-  ./waku_store/rpc,
-  ./waku_store/rpc_codec,
-  ./waku_store/pagination,
-  ./waku_store/message_store
+  ./waku_store/common,
+  ./waku_store/message_store,
+  ./waku_store/protocol
 
 export
-  protocol,
-  rpc,
-  rpc_codec, 
-  pagination,
-  message_store
+  common,
+  message_store,
+  protocol

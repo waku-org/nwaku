@@ -54,7 +54,7 @@ procSuite "WakuNode - Store":
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     ## When
-    let req = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)])
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic])
     let queryRes = await client.query(req, peer=serverPeer)
     
     ## Then
@@ -106,7 +106,7 @@ procSuite "WakuNode - Store":
     # Wait for the server filter to receive the push message
     require await filterFut.withTimeout(5.seconds)
 
-    let res = await client.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)]), peer=serverPeer)
+    let res = await client.query(HistoryQuery(contentTopics: @[DefaultContentTopic]), peer=serverPeer)
 
     ## Then
     check res.isOk()

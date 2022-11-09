@@ -81,10 +81,10 @@ procSuite "Waku SWAP Accounting":
     require server.wakuStore.store.put(DefaultPubsubTopic, message).isOk()
 
     let serverPeer = server.peerInfo.toRemotePeerInfo()
-    let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)])
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic])
 
     ## When
-    let queryRes = await client.query(rpc, peer=serverPeer)
+    let queryRes = await client.query(req, peer=serverPeer)
 
     ## Then
     check queryRes.isOk()
@@ -133,12 +133,12 @@ procSuite "Waku SWAP Accounting":
     require server.wakuStore.store.put(DefaultPubsubTopic, message).isOk()
     
     let serverPeer = server.peerInfo.toRemotePeerInfo()
-    let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)])
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic])
 
     ## When
     # TODO: Handshakes - for now we assume implicit, e2e still works for PoC
-    let res1 = await client.query(rpc, peer=serverPeer)
-    let res2 = await client.query(rpc, peer=serverPeer)
+    let res1 = await client.query(req, peer=serverPeer)
+    let res2 = await client.query(req, peer=serverPeer)
 
     require:
       res1.isOk()
