@@ -1052,6 +1052,10 @@ proc getHistoricalEvents*(ethClientUri: string,
                           contractAddress: Address,
                           fromBlock: string = "0x0",
                           toBlock: string = "latest"): Future[RlnRelayResult[BlockTable]] {.async, gcsafe.} =
+  ## `ethClientUri` is the URI of the Ethereum client
+  ## `contractAddress` is the address of the contract
+  ## `fromBlock` is the block number from which the events are fetched
+  ## `toBlock` is the block number to which the events are fetched
   ## returns a table that maps block numbers to the list of members registered in that block
   ## returns an error if it cannot retrieve the historical events
   let web3 = await newWeb3(ethClientUri)
