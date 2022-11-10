@@ -191,6 +191,9 @@ wakucanary: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakucanary $(NIM_PARAMS) waku.nims
 
+networkmonitor: | build deps
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim networkmonitor $(NIM_PARAMS) waku.nims
 
 ## Waku docs
 
