@@ -3,7 +3,7 @@
 {.used.}
 
 import
-  std/[options, osproc, streams, strutils],
+  std/[options, osproc, streams, strutils, sequtils],
   testutils/unittests, chronos, chronicles, stint, web3, json,
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
@@ -279,13 +279,15 @@ procSuite "Waku-rln-relay":
     debug "membership commitment key", pk2 = pk2
 
     var events = [newFuture[void](), newFuture[void]()]
-    proc handler(pubkey: Uint256, index: Uint256): RlnRelayResult[void] =
-      debug "handler is called", pubkey = pubkey, index = index
-      if pubkey == pk:
-        events[0].complete()
-      if pubkey == pk2:
-        events[1].complete()
-      let isSuccessful = rlnPeer.rlnInstance.insertMember(pubkey.toIDCommitment())
+    var futIndex = 0
+    var handler: GroupUpdateHandler
+    handler = proc (blockNumber: BlockNumber, 
+                    members: seq[MembershipTuple]): RlnRelayResult[void] =
+      debug "handler is called", members = members
+      events[futIndex].complete()
+      futIndex += 1
+      let index = members[0].index
+      let isSuccessful = rlnPeer.rlnInstance.insertMembers(index, members.mapIt(it.idComm))
       check:
         isSuccessful
       return ok()
@@ -305,7 +307,7 @@ procSuite "Waku-rln-relay":
     let tx2 = await contractObj.register(pk2).send(value = MembershipFee)
     debug "a member is registered", tx2 = tx2
 
-    # wait for all the events to be received by the rlnPeer
+    # wait for the events to be processed
     await all(events)
 
     # release resources -----------------------
@@ -405,12 +407,12 @@ procSuite "Waku-rln-relay":
 
     # Create a group of 10 members
     var group = newSeq[IDCommitment]()
-    for i in 0..10:
+    for i in 0'u..10'u:
       var memberAdded: bool = false
-      if (uint(i) == index):
+      if (i == index):
         #  insert the current peer's pk
         group.add(keyPair.idCommitment)
-        memberAdded = rln.insertMember(keyPair.idCommitment)
+        memberAdded = rln.insertMembers(i, @[keyPair.idCommitment])
         doAssert(memberAdded)
         debug "member key", key = keyPair.idCommitment.inHex
       else:
@@ -419,7 +421,7 @@ procSuite "Waku-rln-relay":
           memberKeyPairRes.isOk()
         let memberKeyPair = memberKeyPairRes.get()
         group.add(memberKeyPair.idCommitment)
-        let memberAdded = rln.insertMember(memberKeyPair.idCommitment)
+        let memberAdded = rln.insertMembers(i, @[memberKeyPair.idCommitment])
         require:
           memberAdded
         debug "member key", key = memberKeyPair.idCommitment.inHex
@@ -491,8 +493,8 @@ procSuite "Waku-rln-relay":
 
     # add the rln keys to the Merkle tree
     let
-      memberIsAdded1 = rln.insertMember(keyPair1.idCommitment)
-      memberIsAdded2 = rln.insertMember(keyPair2.idCommitment)
+      memberIsAdded1 = rln.insertMembers(0, @[keyPair1.idCommitment])
+      memberIsAdded2 = rln.insertMembers(1, @[keyPair2.idCommitment])
     
     require:
       memberIsAdded1
