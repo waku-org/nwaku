@@ -34,11 +34,13 @@ import
   ../../waku/common/utils/nat,
   ./config_chat2
 
+
 when defined(rln) or defined(rlnzerokit):
   import
     libp2p/protocols/pubsub/rpc/messages,
     libp2p/protocols/pubsub/pubsub,
-    ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_utils
+    ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_utils,
+    ../../waku/v2/protocol/waku_rln_relay/rln_types
 
 const Help = """
   Commands: /[?|help|connect|nick|exit]

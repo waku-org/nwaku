@@ -145,7 +145,14 @@ when defined(rlnzerokit):
       return err("error in parameters generation")
     return ok(rlnInstance)
 
-    
+  proc init*(T: type WakuRLNRelay): WakuRLNRelayResult[T] =
+    ## initializes an WakuRLNRelay object with an empty Merkle tree 
+    let rlnInstance = createRLNInstanceLocal()
+    if rlnInstance.isErr():
+      return err("could not instanitate rln object")
+    let rlnPeer = WakuRLNRelay(rlnInstance: rlnInstance.value)
+    return ok(rlnPeer)
+
   proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[MembershipKeyPair] =
     ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract
     ## Returns an error if the key generation fails
@@ -1176,12 +1183,12 @@ proc mountRlnRelayStatic*(node: WakuNode,
 #     return err("WakuRelay protocol does not support the configured pubsub topic.")
 #   debug "rln-relay input validation passed"
 
-  # create an RLN instance
-  let rlnInstance = createRLNInstance()
-
-  if rlnInstance.isErr():
-    return err("RLN instance creation failed.")
-  let rln = rlnInstance.get()
+# create an RLN instance
+# let rlnInstance = createRLNInstance()
+# @TODO 
+  # if rlnInstance.isErr():
+  #   return err("RLN instance creation failed.")
+  # let rln = rlnInstance.get()
 #   # prepare rln membership key pair
 #   # var 
 #   #   keyPair: MembershipKeyPair
@@ -1190,21 +1197,21 @@ proc mountRlnRelayStatic*(node: WakuNode,
 #   #   if ethAccountPrivKeyOpt.isSome: # if an ethereum private key is supplied, then create rln credentials and register to the membership contract
 #   #     trace "no rln-relay key is provided, generating one"
 #   #     let keyPairOpt = rln.membershipKeyGen()
-      if keyPairRes.isErr():
-        error "failed to generate rln-relay key pair"
-        return err("failed to generate rln-relay key pair: " & keyPairRes.error())
-      keyPair = keyPairRes.value()
+# if keyPairRes.isErr():
+# error "failed to generate rln-relay key pair"
+# return err("failed to generate rln-relay key pair: " & keyPairRes.error())
+# keyPair = keyPairRes.value()
 #   #     # register the rln-relay peer to the membership contract
 #   #     waku_rln_registration_duration_seconds.nanosecondTime:
 #   #       let regIndexRes = await register(idComm = keyPair.idCommitment, ethAccountAddress = ethAccountAddress, ethAccountPrivKey = ethAccountPrivKeyOpt.get(), ethClientAddress = ethClientAddr, membershipContractAddress = memContractAddr, registrationHandler = registrationHandler)
       # register the rln-relay peer to the membership contract
-      waku_rln_registration_duration_seconds.nanosecondTime:
-        let regIndexRes = await register(idComm = keyPair.idCommitment, 
-                                         ethAccountAddress = ethAccountAddress, 
-                                         ethAccountPrivKey = ethAccountPrivKeyOpt.get(), 
-                                         ethClientAddress = ethClientAddr, 
-                                         membershipContractAddress = memContractAddr, 
-                                         registrationHandler = registrationHandler)
+      # waku_rln_registration_duration_seconds.nanosecondTime:
+      #   let regIndexRes = await register(idComm = keyPair.idCommitment, 
+      #                                    ethAccountAddress = ethAccountAddress, 
+      #                                    ethAccountPrivKey = ethAccountPrivKeyOpt.get(), 
+      #                                    ethClientAddress = ethClientAddr, 
+      #                                    membershipContractAddress = memContractAddr, 
+      #                                    registrationHandler = registrationHandler)
 #   #     # check whether registration is done
 #   #     if regIndexRes.isErr():
 #   #       debug "membership registration failed", err=regIndexRes.error()
@@ -1238,7 +1245,7 @@ proc mountRlnRelayStatic*(node: WakuNode,
 #   debug "rln relay topic validator is mounted successfully", pubsubTopic=pubsubTopic, contentTopic=contentTopic
 
 #   node.wakuRlnRelay = rlnPeer
-  return ok()
+  # return ok()
 
 proc writeRlnCredentials*(path: string, 
                           credentials: RlnMembershipCredentials, 
@@ -1380,21 +1387,6 @@ proc mount(node: WakuNode,
       return err("invalid eth contract address: " & err.msg)
     var ethAccountPrivKeyOpt = none(keys.PrivateKey)
     var ethAccountAddressOpt = none(Address)
-    var groupManager: OnChainRlnGroupManager = OnChainRlnGroupManager(membershipContractAddress: ethMemContractAddress,
-                                                            ethClientAddress: ethClientAddress,
-                                                            ethAccountPrivateKeyOpt: ethAccountPrivateKeyOpt)
-                                                          
-    # ======================================
-    discard groupManager.setEventsHandlers(memberInsertionHandler = memberInsertionHandler, memberDeletionHandler = memberDeletionHandler)
-    discard groupManager.setRegistrationHandler(registrationHandler)
-
-    rlnPeer.groupManager = groupManager
-    echo "starting group manager"
-    asyncSpawn rlnPeer.groupManager.start()
-
-    # rln credentials ======
-    var credentials = none(RlnMembershipCredentials)
-    var res: RlnRelayResult[void]
 
     if conf.rlnRelayEthAccountPrivateKey != "":
       ethAccountPrivKeyOpt = some(keys.PrivateKey(SkSecretKey.fromHex(conf.rlnRelayEthAccountPrivateKey).value))
@@ -1406,6 +1398,23 @@ proc mount(node: WakuNode,
       except ValueError as err:
         return err("invalid eth account address: " & err.msg)
       ethAccountAddressOpt = some(ethAccountAddress)
+    
+    var groupManager: OnChainRlnGroupManager = OnChainRlnGroupManager(membershipContractAddress: ethMemContractAddress,
+                                                            ethClientAddress: ethClientAddress,
+                                                            ethAccountPrivateKeyOpt: ethAccountPrivKeyOpt)
+                                                          
+    # ======================================
+    discard groupManager.setEventsHandlers(memberInsertionHandler = memberInsertionHandler, memberDeletionHandler = memberDeletionHandler)
+    discard groupManager.setRegistrationHandler(registrationHandler)
+
+    rlnPeer.groupManager = groupManager
+    echo "starting group manager"
+    asyncSpawn rlnPeer.groupManager.start()
+
+    # rln credentials ======
+    var credentials = none(RlnMembershipCredentials)
+    # var res: RlnRelayResult[void]
+
     var rlnRelayCredPath = ""
     var 
       keyPair: MembershipKeyPair
@@ -1453,19 +1462,22 @@ proc mount(node: WakuNode,
         #                                         memKeyPair = some(credentials.get().membershipKeyPair),
         #                                         memIndex = some(credentials.get().rlnIndex)
         #                                         )  
-        if writeRlnCredentials(rlnRelayCredPath, credentials.get(), conf.rlnRelayCredentialsPassword).isErr():
-          return err("error in storing rln credentials")
     else:
       # create rln credentials and register the user using group manager
       # prepare rln membership key pair
       # if ethAccountPrivKeyOpt.isSome: # if an ethereum private key is supplied, then create rln credentials and register to the membership contract
       debug "no rln-relay key is available, generating one"
       echo "no rln-relay key is available, generating one"
-      let keyPairOpt = rlnPeer.rlnInstance.membershipKeyGen()
-      if not keyPairOpt.isSome:
+            # 
+        # error "failed to generate rln-relay key pair"
+        # return err("failed to generate rln-relay key pair: " & keyPairRes.error())
+      # keyPair = keyPairRes.value()
+      let keyPairRes = rlnPeer.rlnInstance.membershipKeyGen()
+      if keyPairRes.isErr():
         echo "could not generate keyPair"
-        return err("could not generate keyPair")
-      keyPair = keyPairOpt.get()
+        error "failed to generate rln-relay key pair"
+        return err("failed to generate rln-relay key pair: " & keyPairRes.error())
+      keyPair = keyPairRes.get()
       echo "key is generated"
       echo keyPair.idCommitment.inHex()
       # register the rln-relay peer to the membership contract
@@ -1497,9 +1509,11 @@ proc mount(node: WakuNode,
       # TODO should be replaced with key-store with proper encryption
       # persist rln credential
       if rlnRelayCredPath != "":
-        credentials = some(RlnMembershipCredentials(rlnIndex: rlnIndex, 
-                                                  membershipKeyPair: keyPair))
-        writeFile(rlnRelayCredPath, pretty(%credentials.get()))
+        if writeRlnCredentials(rlnRelayCredPath, credentials.get(), conf.rlnRelayCredentialsPassword).isErr():
+          return err("error in storing rln credentials")
+        # credentials = some(RlnMembershipCredentials(rlnIndex: rlnIndex, 
+        #                                           membershipKeyPair: keyPair))
+        # writeFile(rlnRelayCredPath, pretty(%credentials.get()))
 
 
     # else:
@@ -1533,7 +1547,7 @@ proc mount(node: WakuNode,
     debug "rln relay topic validator is mounted successfully", pubsubTopic=rlnPeer.pubsubTopic, contentTopic=rlnPeer.contentTopic
 
     node.wakuRlnRelay = rlnPeer
-    return ok(true)
+    return ok()
 
 
 proc mountRlnRelay*(node: WakuNode,

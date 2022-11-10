@@ -10,10 +10,22 @@ import
   stint,
   web3,
   eth/keys,
-  libp2p/protobuf/minprotobuf,
-  waku_rln_relay_constants,
+  libp2p/protobuf/minprotobuf
+import
+  ../../utils/protobuf,
   rln_group_manager,
   rln_types
+
+# import
+#   std/[options, tables, deques],
+#   stew/arrayops,
+#   chronos, 
+#   stint,
+#   web3,
+#   eth/keys,
+#   libp2p/protobuf/minprotobuf,
+#   waku_rln_relay_constants,
+  
 
 export rln_types
 
@@ -30,7 +42,6 @@ when defined(rlnzerokit):
   ## RLN is a Nim wrapper for the data types used in zerokit RLN
   type RLNResult* = Result[ptr RLN, string]
 
-type RlnRelayResult*[T] = Result[T, string]
 type WakuRLNRelayResult*[T] = Result[T, string]
 
 when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
