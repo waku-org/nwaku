@@ -5,9 +5,9 @@ import
   ../../../waku/v2/protocol/waku_message,
   ../../../waku/v2/utils/time
 
-const 
-  DefaultPubsubTopic* = "/waku/2/default-waku/proto"
-  DefaultContentTopic* = ContentTopic("/waku/2/default-content/proto")
+export
+  waku_message.DefaultPubsubTopic,
+  waku_message.DefaultContentTopic
 
 
 proc now*(): Timestamp =

@@ -8,7 +8,7 @@ import
   nimcrypto/sha2
 import
   ../../../protocol/waku_message,
-  ../../../protocol/waku_store/pagination,
+  ../../../protocol/waku_store/common,
   ../../../utils/time
 
 
@@ -19,7 +19,7 @@ type Index* = object
   receiverTime*: Timestamp
   digest*: MessageDigest # calculated over payload and content topic
 
-proc compute*(T: type Index, msg: WakuMessage, receivedTime: Timestamp, pubsubTopic: string): T =
+proc compute*(T: type Index, msg: WakuMessage, receivedTime: Timestamp, pubsubTopic: PubsubTopic): T =
   ## Takes a WakuMessage with received timestamp and returns its Index.
   let
     digest = computeDigest(msg)
@@ -33,19 +33,19 @@ proc compute*(T: type Index, msg: WakuMessage, receivedTime: Timestamp, pubsubTo
   )
 
 
-proc toPagingIndex*(index: Index): PagingIndex =
-  PagingIndex(
+proc tohistoryCursor*(index: Index): HistoryCursor =
+  HistoryCursor(
     pubsubTopic: index.pubsubTopic,
     senderTime: index.senderTime,
-    receiverTime: index.receiverTime,
+    storeTime: index.receiverTime,
     digest: index.digest
   )
 
-proc toIndex*(index: PagingIndex): Index =
+proc toIndex*(index: HistoryCursor): Index =
   Index(
     pubsubTopic: index.pubsubTopic,
     senderTime: index.senderTime,
-    receiverTime: index.receiverTime,
+    receiverTime: index.storeTime,
     digest: index.digest
   )
 

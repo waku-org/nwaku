@@ -16,7 +16,7 @@ import
   ./peer_manager/peer_manager,
   ./waku_node
 
-when defined(rln) or defined(rlnzerokit):
+when defined(rln):
   import ../protocol/waku_rln_relay/waku_rln_relay_metrics
 
 
@@ -46,7 +46,7 @@ proc startMetricsLog*() =
   var cumulativeErrors = 0.float64
   var cumulativeConns = 0.float64
 
-  when defined(rln) or defined(rlnzerokit):
+  when defined(rln):
     let logRlnMetrics = getRlnMetricsLogger()
 
   logMetrics = proc(udata: pointer) =
@@ -69,7 +69,7 @@ proc startMetricsLog*() =
       info "Total active filter subscriptions", count = collectorAsF64(waku_filter_subscribers)
 
       # Start protocol specific metrics logging
-      when defined(rln) or defined(rlnzerokit):
+      when defined(rln):
         logRlnMetrics()
 
     discard setTimer(Moment.fromNow(LogInterval), logMetrics)

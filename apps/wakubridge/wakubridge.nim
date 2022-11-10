@@ -302,7 +302,7 @@ proc start*(bridge: WakuBridge) {.async.} =
   bridge.nodev1.registerEnvReceivedHandler(handleEnvReceived)
 
   # Handle messages on Waku v2 and bridge to Waku v1
-  proc relayHandler(pubsubTopic: string, data: seq[byte]) {.async, gcsafe.} =
+  proc relayHandler(pubsubTopic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
     let msg = WakuMessage.decode(data)
     if msg.isOk() and msg.get().isBridgeable():
       try:

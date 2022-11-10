@@ -8,15 +8,16 @@ import
   chronicles, 
   libp2p/switch,
   libp2p/protobuf/minprotobuf,
-  libp2p/stream/[bufferstream, connection],
-  libp2p/crypto/[crypto, secp],
-  libp2p/switch,
+  libp2p/stream/bufferstream,
+  libp2p/stream/connection,
+  libp2p/crypto/crypto,
+  libp2p/crypto/secp,
   eth/keys
 import
+  ../../waku/v2/node/waku_node,
+  ../../waku/v2/node/message_store/queue_store,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_swap/waku_swap,
-  ../../waku/v2/node/message_store/waku_store_queue,
-  ../../waku/v2/node/waku_node,
   ../../waku/v2/utils/peers,
   ../test_helpers, 
   ./utils,
@@ -80,10 +81,10 @@ procSuite "Waku SWAP Accounting":
     require server.wakuStore.store.put(DefaultPubsubTopic, message).isOk()
 
     let serverPeer = server.peerInfo.toRemotePeerInfo()
-    let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)])
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic])
 
     ## When
-    let queryRes = await client.query(rpc, peer=serverPeer)
+    let queryRes = await client.query(req, peer=serverPeer)
 
     ## Then
     check queryRes.isOk()
@@ -132,12 +133,12 @@ procSuite "Waku SWAP Accounting":
     require server.wakuStore.store.put(DefaultPubsubTopic, message).isOk()
     
     let serverPeer = server.peerInfo.toRemotePeerInfo()
-    let rpc = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)])
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic])
 
     ## When
     # TODO: Handshakes - for now we assume implicit, e2e still works for PoC
-    let res1 = await client.query(rpc, peer=serverPeer)
-    let res2 = await client.query(rpc, peer=serverPeer)
+    let res1 = await client.query(req, peer=serverPeer)
+    let res2 = await client.query(req, peer=serverPeer)
 
     require:
       res1.isOk()

@@ -28,9 +28,9 @@ import
   ../../waku/v2/node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
   ../../waku/v2/node/dnsdisc/waku_dnsdisc,
   ../../waku/v2/node/discv5/waku_discv5,
-  ../../waku/v2/node/message_store/sqlite_store/migrations as message_store_sqlite_migrations,
-  ../../waku/v2/node/message_store/waku_store_queue,
+  ../../waku/v2/node/message_store/queue_store,
   ../../waku/v2/node/message_store/sqlite_store,
+  ../../waku/v2/node/message_store/sqlite_store/migrations as message_store_sqlite_migrations,
   ../../waku/v2/node/message_store/message_retention_policy,
   ../../waku/v2/node/message_store/message_retention_policy_capacity,
   ../../waku/v2/node/message_store/message_retention_policy_time,
@@ -45,7 +45,7 @@ import
   ./wakunode2_setup_rpc,
   ./config
 
-when defined(rln) or defined(rlnzerokit):
+when defined(rln):
   import
     ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_types,
     ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_utils
@@ -356,7 +356,7 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
   except:
     return err("failed to mount libp2p ping protocol: " & getCurrentExceptionMsg())
   
-  when defined(rln) or defined(rlnzerokit): 
+  when defined(rln): 
     if conf.rlnRelay:
       
       let rlnConf = WakuRlnConfig(

@@ -15,11 +15,11 @@ import
 import
   ../../waku/common/sqlite,
   ../../waku/v2/node/message_store/sqlite_store,
-  ../../waku/v2/node/message_store/waku_store_queue,
+  ../../waku/v2/node/message_store/queue_store,
+  ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_filter,
-  ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/peers,
   ../../waku/v2/utils/time,
   ../../waku/v2/node/waku_node,
@@ -54,7 +54,7 @@ procSuite "WakuNode - Store":
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     ## When
-    let req = HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)])
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic])
     let queryRes = await client.query(req, peer=serverPeer)
     
     ## Then
@@ -106,7 +106,7 @@ procSuite "WakuNode - Store":
     # Wait for the server filter to receive the push message
     require await filterFut.withTimeout(5.seconds)
 
-    let res = await client.query(HistoryQuery(contentFilters: @[HistoryContentFilter(contentTopic: DefaultContentTopic)]), peer=serverPeer)
+    let res = await client.query(HistoryQuery(contentTopics: @[DefaultContentTopic]), peer=serverPeer)
 
     ## Then
     check res.isOk()
@@ -180,15 +180,15 @@ procSuite "WakuNode - Store":
       msg2 = fakeWakuMessage(payload="hello world2", ts=(timeOrigin + getNanoSecondTime(2)))
       msg3 = fakeWakuMessage(payload="hello world3", ts=(timeOrigin + getNanoSecondTime(3)))
 
-    require server.wakuStore.store.put(DefaultTopic, msg1).isOk()
-    require server.wakuStore.store.put(DefaultTopic, msg2).isOk()
+    require server.wakuStore.store.put(DefaultPubsubTopic, msg1).isOk()
+    require server.wakuStore.store.put(DefaultPubsubTopic, msg2).isOk()
 
     # Insert the same message in both node's store
     let 
       receivedTime3 = now() + getNanosecondTime(10)
       digest3 = computeDigest(msg3)
-    require server.wakuStore.store.put(DefaultTopic, msg3, digest3, receivedTime3).isOk()
-    require client.wakuStore.store.put(DefaultTopic, msg3, digest3, receivedTime3).isOk()
+    require server.wakuStore.store.put(DefaultPubsubTopic, msg3, digest3, receivedTime3).isOk()
+    require client.wakuStore.store.put(DefaultPubsubTopic, msg3, digest3, receivedTime3).isOk()
 
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 

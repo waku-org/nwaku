@@ -12,7 +12,7 @@ import
 import
   ../../../../common/sqlite,
   ../../../protocol/waku_message,
-  ../../../protocol/waku_store/pagination,
+  ../../../protocol/waku_store/common,
   ../../../protocol/waku_store/message_store,
   ../../../utils/time,
   ./queries
@@ -68,7 +68,7 @@ proc close*(s: SqliteStore) =
   s.db.close()
 
 
-method put*(s: SqliteStore, pubsubTopic: string, message: WakuMessage, digest: MessageDigest, receivedTime: Timestamp): MessageStoreResult[void] =
+method put*(s: SqliteStore, pubsubTopic: PubsubTopic, message: WakuMessage, digest: MessageDigest, receivedTime: Timestamp): MessageStoreResult[void] =
   ## Inserts a message into the store
 
   let res = s.insertStmt.exec((
@@ -85,7 +85,7 @@ method put*(s: SqliteStore, pubsubTopic: string, message: WakuMessage, digest: M
 
   ok()
 
-method put*(s: SqliteStore, pubsubTopic: string, message: WakuMessage): MessageStoreResult[void] =
+method put*(s: SqliteStore, pubsubTopic: PubsubTopic, message: WakuMessage): MessageStoreResult[void] =
   ## Inserts a message into the store
   procCall MessageStore(s).put(pubsubTopic, message)
 
@@ -98,14 +98,14 @@ method getAllMessages*(s: SqliteStore):  MessageStoreResult[seq[MessageStoreRow]
 method getMessagesByHistoryQuery*(
   s: SqliteStore,
   contentTopic = none(seq[ContentTopic]),
-  pubsubTopic = none(string),
-  cursor = none(PagingIndex),
+  pubsubTopic = none(PubsubTopic),
+  cursor = none(HistoryCursor),
   startTime = none(Timestamp),
   endTime = none(Timestamp),
   maxPageSize = DefaultPageSize,
   ascendingOrder = true
 ): MessageStoreResult[seq[MessageStoreRow]] =
-  let cursor = cursor.map(proc(c: PagingIndex): DbCursor = (c.receiverTime, @(c.digest.data), c.pubsubTopic))
+  let cursor = cursor.map(proc(c: HistoryCursor): DbCursor = (c.storeTime, @(c.digest.data), c.pubsubTopic))
 
   return s.db.selectMessagesByHistoryQueryWithLimit(
     contentTopic, 

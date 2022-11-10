@@ -55,7 +55,7 @@ proc decode*(T: type FilterRequest, buffer: seq[byte]): ProtoResult[T] =
   if ?pb.getField(1, subflag):
     rpc.subscribe = bool(subflag)
 
-  var pubSubTopic: string
+  var pubSubTopic: PubsubTopic
   discard ?pb.getField(2, pubSubTopic)
   rpc.pubSubTopic = pubSubTopic
 

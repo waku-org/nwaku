@@ -116,7 +116,7 @@ deps: | libbacktrace
 endif
 
 # Waku v2-only dependencies
-deps2: | rlnlib rlnzerokitlib
+deps2: | rlnlib
 
 
 #- deletes and recreates "waku.nims" which on Windows is a copy instead of a proper symlink
@@ -153,13 +153,9 @@ sim1: | build deps wakunode1
 
 ## Waku v2 targets
 
-test2: | build deps deps2 installganache
+test2: | build deps deps2
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test2 $(NIM_PARAMS) waku.nims
-	# the following command (pkill -f ganache-cli) attempts to kill ganache-cli process on macos  
-	# if we do not kill the process then it would hang there and causes issue in GitHub Actions macos job (the job never finsihes)
-	(([[ $(detected_OS) = macOS ]] && \
-		pkill -f ganache-cli) || true)
 
 wakunode2: | build deps deps2
 	echo -e $(BUILD_MSG) "build/$@" && \
@@ -207,47 +203,19 @@ docs: | build deps
 
 # control rln code compilation
 ifeq ($(RLN), true)
-NIM_PARAMS := $(NIM_PARAMS) -d:rlnzerokit
+NIM_PARAMS := $(NIM_PARAMS) -d:rln
 else ifeq ($(CI), true)
-NIM_PARAMS := $(NIM_PARAMS) -d:rlnzerokit
-endif
-
-ifeq ($(RLNKILIC), true)
 NIM_PARAMS := $(NIM_PARAMS) -d:rln
 endif
 
 # control compilation of rln tests that require on chain interaction
 ifeq ($(ONCHAIN_RLN), true) 
 NIM_PARAMS := $(NIM_PARAMS) -d:onchain_rln
-else
-ifeq ($(CI), true) 
-ifeq ($(detected_OS), macOS)
+else ifeq ($(CI), true) 
 NIM_PARAMS := $(NIM_PARAMS) -d:onchain_rln
-endif
-endif
-endif
-
-
-installganache:
-ifeq ($(ONCHAIN_RLN), true) 
-	npm install ganache-cli; npx ganache-cli -p	8540	-g	0	-l	3000000000000&
-else
-ifeq ($(CI), true) 
-ifeq ($(detected_OS), macOS)
-	npm install ganache-cli; npx ganache-cli -p	8540	-g	0	-l	3000000000000&
-endif
-endif
 endif
 
 rlnlib:
-ifeq ($(RLNKILIC), true)
-	cargo build --manifest-path vendor/rln/Cargo.toml
-# Avoid compiling the non-default implementation of RLN in CI
-# else  ifeq ($(CI), true)
-# 	cargo build --manifest-path vendor/rln/Cargo.toml
-endif
-
-rlnzerokitlib:
 ifeq ($(RLN), true)
 	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
 # Enable zerokit rln in CI
@@ -257,10 +225,6 @@ endif
 
 # clean the rln build (forces recompile of old crates on next build)
 cleanrln:
-	cargo clean --manifest-path vendor/rln/Cargo.toml
-
-# clean the rln build (forces recompile of old crates on next build)
-cleanrlnzerokit:
 	cargo clean --manifest-path vendor/zerokit/rln/Cargo.toml
 
 
@@ -280,13 +244,11 @@ docker-push:
 	docker push $(DOCKER_IMAGE_NAME)
 
 # usual cleaning
-clean: | clean-common
+clean: | cleanrln
 	rm -rf build
 ifneq ($(USE_LIBBACKTRACE), 0)
 	+ $(MAKE) -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif
-	cargo clean --manifest-path vendor/rln/Cargo.toml
-	cargo clean --manifest-path vendor/zerokit/rln/Cargo.toml
 
 
 endif # "variables.mk" was not included

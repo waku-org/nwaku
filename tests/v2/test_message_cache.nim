@@ -10,16 +10,12 @@ import
   ./testlib/common
 
 
-
-type PubsubTopicString = string
-
-type TestMessageCache = MessageCache[(PubsubTopicString, ContentTopic)]
-
+type TestMessageCache = MessageCache[(PubsubTopic, ContentTopic)]
 
 suite "MessageCache":
   test "subscribe to topic": 
     ## Given
-    let testTopic = ("test-pubsub-topic", ContentTopic("test-content-topic"))
+    let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
     let cache = TestMessageCache.init()
 
     ## When
@@ -32,7 +28,7 @@ suite "MessageCache":
 
   test "unsubscribe from topic": 
     ## Given
-    let testTopic = ("test-pubsub-topic", ContentTopic("test-content-topic"))
+    let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
     let cache = TestMessageCache.init()
 
     # Init cache content
@@ -48,7 +44,7 @@ suite "MessageCache":
 
   test "get messages of a subscribed topic":
     ## Given
-    let testTopic = ("test-pubsub-topic", ContentTopic("test-content-topic"))
+    let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
     let testMessage = fakeWakuMessage()
     let cache = TestMessageCache.init() 
 
@@ -67,7 +63,7 @@ suite "MessageCache":
 
   test "get messages with clean flag shoud clear the messages cache":
     ## Given
-    let testTopic = ("test-pubsub-topic", ContentTopic("test-content-topic"))
+    let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
     let testMessage = fakeWakuMessage()
     let cache = TestMessageCache.init() 
 
@@ -89,7 +85,7 @@ suite "MessageCache":
 
   test "get messages of a non-subscribed topic":
     ## Given
-    let testTopic = ("test-pubsub-topic", ContentTopic("test-content-topic"))
+    let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
     let cache = TestMessageCache.init()
 
     ## When
@@ -103,7 +99,7 @@ suite "MessageCache":
 
   test "add messages to subscribed topic":
     ## Given
-    let testTopic = ("test-pubsub-topic", ContentTopic("test-content-topic"))
+    let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
     let testMessage = fakeWakuMessage()
     let cache = TestMessageCache.init()
 
@@ -120,7 +116,7 @@ suite "MessageCache":
 
   test "add messages to non-subscribed topic":
     ## Given
-    let testTopic = ("test-pubsub-topic", ContentTopic("test-content-topic"))
+    let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
     let testMessage = fakeWakuMessage()
     let cache = TestMessageCache.init()
 
@@ -136,7 +132,7 @@ suite "MessageCache":
   
   test "add messages beyond the capacity":
     ## Given
-    let testTopic = ("test-pubsub-topic", ContentTopic("test-content-topic"))
+    let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
     let testMessages = @[
       fakeWakuMessage(toBytes("MSG-1")),
       fakeWakuMessage(toBytes("MSG-2")),
