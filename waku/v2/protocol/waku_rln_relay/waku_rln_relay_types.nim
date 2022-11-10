@@ -22,7 +22,7 @@ export rln_types
 type RlnRelayResult*[T] = Result[T, string]
 
 ## RLN is a Nim wrapper for the data types used in zerokit RLN
-type RLN* {.incompleteStruct.} = object
+# type RLN* {.incompleteStruct.} = object
 type RLNResult* = RlnRelayResult[ptr RLN]
 
 type
@@ -90,7 +90,7 @@ type WakuRLNRelay* = ref object
   lastEpoch*: Epoch # the epoch of the last published rln message
   validMerkleRoots*: Deque[MerkleNode] # An array of valid merkle roots, which are updated in a FIFO fashion
   lastSeenMembershipIndex*: MembershipIndex # the last seen membership index
-    groupManager*: GroupManager
+  groupManager*: GroupManager
 
 type 
   MessageValidationResult* {.pure.} = enum

@@ -110,63 +110,6 @@ proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[MembershipKeyPair] =
 
   return ok(keypair)
 
-    var
-      keypair = MembershipKeyPair(idKey: secret, idCommitment: public)
-
-
-    return ok(keypair)
-
-when defined(rlnzerokit):
-  proc createRLNInstanceLocal(d: int = MerkleTreeDepth): RLNResult =
-    ## generates an instance of RLN
-    ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
-    ## d indicates the depth of Merkle tree
-    ## Returns an error if the instance creation fails
-    var
-      rlnInstance: ptr RLN
-      merkleDepth: csize_t = uint(d)
-      resourcesPathBuffer = RlnResourceFolder.toOpenArrayByte(0, RlnResourceFolder.high).toBuffer()
-
-    # create an instance of RLN
-    let res = new_circuit(merkleDepth, addr resourcesPathBuffer, addr rlnInstance)
-    # check whether the circuit parameters are generated successfully
-    if (res == false):
-      debug "error in parameters generation"
-      return err("error in parameters generation")
-    return ok(rlnInstance)
-
-    
-  proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[MembershipKeyPair] =
-    ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract
-    ## Returns an error if the key generation fails
-
-    # keysBufferPtr will hold the generated key pairs i.e., secret and public keys
-    var
-      keysBuffer: Buffer
-      keysBufferPtr = addr(keysBuffer)
-      done = key_gen(ctxPtr, keysBufferPtr)
-
-    # check whether the keys are generated successfully
-    if(done == false):
-      return err("error in key generation")
-
-    var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
-    # the public and secret keys together are 64 bytes
-    if (generatedKeys.len != 64):
-      return err("generated keys are of invalid length")
-
-    # TODO define a separate proc to decode the generated keys to the secret and public components
-    var
-      secret: array[32, byte]
-      public: array[32, byte]
-    for (i, x) in secret.mpairs: x = generatedKeys[i]
-    for (i, x) in public.mpairs: x = generatedKeys[i+32]
-
-    var
-      keypair = MembershipKeyPair(idKey: secret, idCommitment: public)
-
-    return ok(keypair)
-
 proc createRLNInstance*(d: int = MerkleTreeDepth): RLNResult =
   ## Wraps the rln instance creation for metrics
   ## Returns an error if the instance creation fails
@@ -174,6 +117,14 @@ proc createRLNInstance*(d: int = MerkleTreeDepth): RLNResult =
   waku_rln_instance_creation_duration_seconds.nanosecondTime:
     res = createRLNInstanceLocal(d)
   return res
+
+proc init*(T: type WakuRLNRelay): RLNRelayResult[T] =
+  # initializes an WakuRLNRelay object with an empty Merkle tree 
+  let rlnInstance = createRLNInstance()
+  if rlnInstance.isErr():
+    return err("could not instanitate rln object")
+  let rlnPeer = WakuRLNRelay(rlnInstance: rlnInstance.value)
+  return ok(rlnPeer)
 
 # proc toUInt256*(idCommitment: IDCommitment): UInt256 =
 #   let pk = UInt256.fromBytesLE(idCommitment)

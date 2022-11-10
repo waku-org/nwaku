@@ -15,7 +15,7 @@ logScope:
 
 
 const MembershipFee* = 1000000000000000.u256
-type GroupUpdateHandler* = proc(pubkey: Uint256, index: Uint256): GroupManagerResult[void] {.gcsafe, raises: [Defect].}
+type GroupUpdateHandler* = proc(pubkey: Uint256, index: Uint256): GroupManagerResult[void] {.gcsafe.}
 
 
 type OnChainRlnGroupManager* = ref object of GroupManager
