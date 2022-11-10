@@ -1,10 +1,10 @@
 {.used.}
 
 import
-  testutils/unittests,
-  std/options,
-  stew/byteutils,
+  std/[options,sequtils],
   chronos,
+  stew/byteutils,
+  testutils/unittests,
   ../../waku/v2/utils/wakuenr,
   ../test_helpers
 
@@ -125,3 +125,93 @@ procSuite "ENR utils":
     
     for knownMultiaddr in knownMultiaddrs:
       check decodedAddrs.contains(knownMultiaddr)
+
+  asyncTest "Supports specific capabilities encoded in the ENR":
+    let
+      enrIp = ValidIpAddress.init("127.0.0.1")
+      enrTcpPort, enrUdpPort = Port(60000)
+      enrKey = wakuenr.crypto.PrivateKey.random(Secp256k1, rng[])[]
+      multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[]]
+      
+      # TODO: Refactor initEnr, provide enums as inputs initEnr(capabilites=[Store,Filter])
+      # TODO: safer than a util function and directly using the bits
+      # test all flag combinations 2^4 = 16 (b0000-b1111)
+      records = toSeq(0b0000_0000'u8..0b0000_1111'u8)
+                        .mapIt(initEnr(enrKey,
+                                       some(enrIp),
+                                       some(enrTcpPort),
+                                       some(enrUdpPort),
+                                       some(uint8(it)),
+                                       multiaddrs))
+
+      # same order:         lightpush | filter| store | relay
+      expectedCapabilities = @[[false, false, false, false],
+                               [false, false, false, true],
+                               [false, false, true, false],
+                               [false, false, true, true],
+                               [false, true, false, false],
+                               [false, true, false, true],
+                               [false, true, true, false],
+                               [false, true, true, true],
+                               [true, false, false, false],
+                               [true, false, false, true],
+                               [true, false, true, false],
+                               [true, false, true, true],
+                               [true, true, false, false],
+                               [true, true, false, true],
+                               [true, true, true, false],
+                               [true, true, true, true]]
+    
+    for i, record in records:
+      for j, capability in @[Lightpush, Filter, Store, Relay]:
+        check expectedCapabilities[i][j] == record.supportsCapability(capability)
+
+  asyncTest "Get all supported capabilities encoded in the ENR":
+    let
+      enrIp = ValidIpAddress.init("127.0.0.1")
+      enrTcpPort, enrUdpPort = Port(60000)
+      enrKey = wakuenr.crypto.PrivateKey.random(Secp256k1, rng[])[]
+      multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[]]
+      
+      records = @[0b0000_0000'u8,
+                  0b0000_1111'u8,
+                  0b0000_1001'u8,
+                  0b0000_1110'u8,
+                  0b0000_1000'u8,]
+                  .mapIt(initEnr(enrKey,
+                                 some(enrIp),
+                                 some(enrTcpPort),
+                                 some(enrUdpPort),
+                                 some(uint8(it)),
+                                 multiaddrs))
+
+      # expected capabilities, ordered LSB to MSB
+      expectedCapabilities: seq[seq[Capabilities]] = @[
+      #[0b0000_0000]#          @[],
+      #[0b0000_1111]#          @[Relay, Store, Filter, Lightpush],
+      #[0b0000_1001]#          @[Relay, Lightpush],
+      #[0b0000_1110]#          @[Store, Filter, Lightpush],
+      #[0b0000_1000]#          @[Lightpush]]
+
+    for i, actualExpetedTuple in zip(records, expectedCapabilities):
+      check actualExpetedTuple[0].getCapabilities() == actualExpetedTuple[1]
+
+  asyncTest "Get supported capabilities of a non waku node":
+    
+    # non waku enr, i.e. Ethereum one 
+    let nonWakuEnr = "enr:-KG4QOtcP9X1FbIMOe17QNMKqDxCpm14jcX5tiOE4_TyMrFqbmhPZHK_ZPG2G"&
+    "xb1GE2xdtodOfx9-cgvNtxnRyHEmC0ghGV0aDKQ9aX9QgAAAAD__________4JpZIJ2NIJpcIQDE8KdiXNl"&
+    "Y3AyNTZrMaEDhpehBDbZjM_L9ek699Y7vhUJ-eAdMyQW_Fil522Y0fODdGNwgiMog3VkcIIjKA"
+    
+    var nonWakuEnrRecord: Record
+    
+    check:
+      nonWakuEnrRecord.fromURI(nonWakuEnr)
+
+    # check that it doesn't support any capability and it doesnt't break
+    check:
+      nonWakuEnrRecord.getCapabilities() == []
+      nonWakuEnrRecord.supportsCapability(Relay) == false
+      nonWakuEnrRecord.supportsCapability(Store) == false
+      nonWakuEnrRecord.supportsCapability(Filter) == false
+      nonWakuEnrRecord.supportsCapability(Lightpush) == false

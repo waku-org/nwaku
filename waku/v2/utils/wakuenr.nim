@@ -11,7 +11,8 @@ import
   libp2p/[multiaddress, multicodec],
   libp2p/crypto/crypto,
   stew/[endians2, results],
-  stew/shims/net
+  stew/shims/net,
+  std/bitops
 
 export enr, crypto, multiaddress, net
 
@@ -23,7 +24,15 @@ type
   ## 8-bit flag field to indicate Waku capabilities.
   ## Only the 4 LSBs are currently defined according
   ## to RFC31 (https://rfc.vac.dev/spec/31/).
-  WakuEnrBitfield* = uint8 
+  WakuEnrBitfield* = uint8
+
+  ## See: https://rfc.vac.dev/spec/31/#waku2-enr-key
+  ## each enum numbers maps to a bit (where 0 is the LSB)
+  Capabilities* = enum
+    Relay = 0,
+    Store = 1,
+    Filter = 2,
+    Lightpush = 3,
 
 func toFieldPair(multiaddrs: seq[MultiAddress]): FieldPair =
   ## Converts a seq of multiaddrs to a `multiaddrs` ENR
@@ -90,6 +99,14 @@ func initWakuFlags*(lightpush, filter, store, relay: bool): WakuEnrBitfield =
   if store: v.setBit(1)
   if relay: v.setBit(0)
 
+  # TODO: With the changes in this PR, this can be refactored? Using the enum?
+  # Perhaps refactor to:
+    # WaKuEnr.initEnr(..., capabilities=[Store, Lightpush])
+    # WaKuEnr.initEnr(..., capabilities=[Store, Lightpush, Relay, Filter])
+
+  # Safer also since we dont inject WakuEnrBitfield, and we let this package
+  # handle the bits according to the capabilities
+
   return v.WakuEnrBitfield
 
 func toMultiAddresses*(multiaddrsField: seq[byte]): seq[MultiAddress] =
@@ -151,3 +168,12 @@ func initEnr*(privateKey: crypto.PrivateKey,
                           wakuEnrFields).expect("Record within size limits")
   
   return enr
+
+proc supportsCapability*(r: Record, capability: Capabilities): bool = 
+  let enrCapabilities = r.get(WAKU_ENR_FIELD, seq[byte])
+  if enrCapabilities.isOk():
+    return testBit(enrCapabilities.get()[0], capability.ord)
+  return false
+
+proc getCapabilities*(r: Record): seq[Capabilities] =
+  return toSeq(Capabilities.low..Capabilities.high).filterIt(r.supportsCapability(it))
