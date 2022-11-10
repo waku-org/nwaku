@@ -356,6 +356,8 @@ proc proofVerify*(rlnInstance: ptr RLN,
 
   if not validProof:
     return ok(false)
+  else:
+    return ok(true)
 
 proc insertMember*(rlnInstance: ptr RLN, idComm: IDCommitment): bool =
   ## inserts a member to the tree

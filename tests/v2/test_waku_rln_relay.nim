@@ -524,21 +524,23 @@ suite "Waku rln relay":
     
     let memKeys = memKeysRes.get()
 
+    var members = newSeq[IDCommitment]()
     # Create a Merkle tree with random members
     for i in 0'u..10'u:
-      var memberAdded: bool = false
       if (i == index):
         # insert the current peer's pk
-        memberAdded = rln.insertMembers(i, @[memKeys.idCommitment])
+        members.add(memKeys.idCommitment)
       else:
         # create a new key pair
         let memberKeysRes = rln.membershipKeyGen()
         require:
           memberKeysRes.isOk()
-        memberAdded = rln.insertMembers(i, @[memberKeysRes.get().idCommitment])
-      # check the member is added
-      require:
-        memberAdded
+        members.add(memberKeysRes.get().idCommitment)
+
+    # Batch the insert
+    let batchInsertRes = rln.insertMembers(0, members)
+    require:
+      batchInsertRes
 
     # prepare the message
     let messageBytes = "Hello".toBytes()
@@ -558,7 +560,8 @@ suite "Waku rln relay":
 
     # verify the proof
     let verified = rln.proofVerify(data = messageBytes,
-                                    proof = proof)
+                                   proof = proof,
+                                   validRoots = @[rln.getMerkleRoot().value()])
 
     # Ensure the proof verification did not error out
 
