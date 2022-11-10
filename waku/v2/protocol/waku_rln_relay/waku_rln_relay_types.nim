@@ -16,18 +16,7 @@ import
   rln_group_manager,
   group_manager,
   rln_types
-
-# import
-#   std/[options, tables, deques],
-#   stew/arrayops,
-#   chronos, 
-#   stint,
-#   web3,
-#   eth/keys,
-#   libp2p/protobuf/minprotobuf,
-#   waku_rln_relay_constants,
   
-
 export rln_types
 
 type RlnRelayResult*[T] = Result[T, string]
