@@ -107,8 +107,8 @@ task chat2bridge, "Build chat2bridge":
 ### Waku Tooling
 task wakucanary, "Build waku-canary tool":
   let name = "wakucanary"
-  buildBinary name, "tools/wakucanary/", "-d:chronicles_log_level=TRACE -d:chronicles_runtime_filtering:on"
+  buildBinary name, "tools/wakucanary/", "-d:chronicles_log_level=TRACE"
 
 task networkmonitor, "Build network monitor tool":
   let name = "networkmonitor"
-  buildBinary name, "tools/networkmonitor/", "-d:chronicles_log_level=TRACE -d:chronicles_runtime_filtering:on"
+  buildBinary name, "tools/networkmonitor/", "-d:chronicles_log_level=TRACE"
