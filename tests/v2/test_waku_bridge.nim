@@ -140,12 +140,12 @@ procSuite "WakuBridge":
 
     v2Node.subscribe(DefaultBridgeTopic, relayHandler)
 
-    await sleepAsync(250.millis)
+    await sleepAsync(5.seconds)
 
     # Test bridging from V2 to V1
     await v2Node.publish(DefaultBridgeTopic, message)
 
-    await sleepAsync(250.millis)
+    await sleepAsync(5.seconds)
 
     check:
       # v1Node received message published by v2Node
