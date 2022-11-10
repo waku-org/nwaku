@@ -17,7 +17,7 @@ type
   
 
 method setEventsHandlers*(gManager: GroupManager, memberInsertionHandler: UpdateHandler, memberDeletionHandler: UpdateHandler): GroupManagerResult[void] {.base.}  = discard
-method setRegistrationHandler*(gManager: GroupManager, regHanlder: RegistrationHandler): GroupManagerResult[void] {.base.} = discard
+method setRegistrationHandler*(gManager: GroupManager, registrationHanlder: Option[RegistrationHandler]): GroupManagerResult[void] {.base.} = discard
 method start*(gManager: GroupManager) {.base, async, gcsafe.}  = discard
 method stop*(gManager: GroupManager): GroupManagerResult[void] {.base.}  = discard
 method register*(gManager: GroupManager, idComm: IDCommitment): Future[GroupManagerResult[MembershipIndex]]  {.base, async, gcsafe.} = discard
