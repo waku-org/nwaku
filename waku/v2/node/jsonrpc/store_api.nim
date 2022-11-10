@@ -4,14 +4,15 @@ else:
   {.push raises: [].}
 
 import
-  std/options,
+  std/[options, sequtils],
   chronicles,
   json_rpc/rpcserver
 import
-  ../peer_manager/peer_manager,
-  ../waku_node,
   ../../protocol/waku_store,
+  ../../protocol/waku_store/rpc,
   ../../utils/time,
+  ../waku_node,
+  ../peer_manager/peer_manager,
   ./jsonrpc_types, 
   ./jsonrpc_utils
 
@@ -25,7 +26,7 @@ proc installStoreApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
 
   ## Store API version 1 definitions
 
-  rpcsrv.rpc("get_waku_v2_store_v1_messages") do (pubsubTopicOption: Option[string], contentFiltersOption: Option[seq[HistoryContentFilter]], startTime: Option[Timestamp], endTime: Option[Timestamp], pagingOptions: Option[StorePagingOptions]) -> StoreResponse:
+  rpcsrv.rpc("get_waku_v2_store_v1_messages") do (pubsubTopicOption: Option[string], contentFiltersOption: Option[seq[HistoryContentFilterRPC]], startTime: Option[Timestamp], endTime: Option[Timestamp], pagingOptions: Option[StorePagingOptions]) -> StoreResponse:
     ## Returns history for a list of content topics with optional paging
     debug "get_waku_v2_store_v1_messages"
 
@@ -33,12 +34,21 @@ proc installStoreApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
     if peerOpt.isNone():
       raise newException(ValueError, "no suitable remote store peers")
 
-    let historyQuery = HistoryQuery(pubsubTopic: if pubsubTopicOption.isSome: pubsubTopicOption.get() else: "",
-                                    contentFilters: if contentFiltersOption.isSome: contentFiltersOption.get() else: @[],
-                                    startTime: if startTime.isSome: startTime.get() else: Timestamp(0),
-                                    endTime: if endTime.isSome: endTime.get() else: Timestamp(0),
-                                    pagingInfo: if pagingOptions.isSome: pagingOptions.get.toPagingInfo() else: PagingInfo())
-    let queryFut = node.query(historyQuery, peerOpt.get())
+    let req = HistoryQuery(
+      pubsubTopic: pubsubTopicOption,
+      contentTopics: if contentFiltersOption.isNone(): @[]
+                     else: contentFiltersOption.get().mapIt(it.contentTopic),
+      startTime: startTime,
+      endTime: endTime,
+      ascending: if pagingOptions.isNone(): true
+                 else: pagingOptions.get().forward,
+      pageSize: if pagingOptions.isNone(): DefaultPageSize
+                else: min(pagingOptions.get().pageSize, MaxPageSize),
+      cursor: if pagingOptions.isNone(): none(HistoryCursor)
+              else: pagingOptions.get().cursor.map(toAPI)
+    )
+
+    let queryFut = node.query(req, peerOpt.get())
 
     if not await queryFut.withTimeout(futTimeout):
       raise newException(ValueError, "No history response received (timeout)")
@@ -48,4 +58,4 @@ proc installStoreApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
       raise newException(ValueError, $res.error)
 
     debug "get_waku_v2_store_v1_messages response"
-    return res.value.toStoreResponse()
+    return res.value.toJsonRPCStoreResponse()

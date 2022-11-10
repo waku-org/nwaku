@@ -151,7 +151,14 @@ procSuite "Queue store - pagination":
     
   test "Forward pagination - invalid cursor":
     ## Given
-    let index = PagingIndex.compute(WakuMessage(payload: @[byte 10]), ts(), DefaultPubsubTopic).toIndex()
+    let msg = fakeWakuMessage(payload= @[byte 10])
+    let index = HistoryCursor(
+      pubsubTopic: DefaultPubsubTopic,
+      senderTime: msg.timestamp,
+      storeTime: msg.timestamp,
+      digest: computeDigest(msg)
+    ).toIndex()
+
     let
       pageSize: uint64 = 10 
       cursor: Option[Index] = some(index)
@@ -325,7 +332,14 @@ procSuite "Queue store - pagination":
 
   test "Backward pagination - invalid cursor":
     ## Given
-    let index = PagingIndex.compute(WakuMessage(payload: @[byte 10]), ts(), DefaultPubsubTopic).toIndex()
+    let msg = fakeWakuMessage(payload= @[byte 10])
+    let index = HistoryCursor(
+      pubsubTopic: DefaultPubsubTopic,
+      senderTime: msg.timestamp,
+      storeTime: msg.timestamp,
+      digest: computeDigest(msg)
+    ).toIndex()
+
     let
       pageSize: uint64 = 2 
       cursor: Option[Index] = some(index)

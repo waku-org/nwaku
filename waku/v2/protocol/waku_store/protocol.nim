@@ -23,9 +23,9 @@ import
   ../../utils/time,
   ../waku_message,
   ../waku_swap/waku_swap,
+  ./common,
   ./rpc,
   ./rpc_codec,
-  ./pagination,
   ./message_store,
   ./protocol_metrics
 
@@ -35,14 +35,10 @@ logScope:
 
 
 const 
-  WakuStoreCodec* = "/vac/waku/store/2.0.0-beta4"
-
   MaxMessageTimestampVariance* = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift"
 
 
 type
-  WakuStoreResult*[T] = Result[T, string]
-
   WakuStore* = ref object of LPProtocol
     peerManager*: PeerManager
     rng*: ref rand.HmacDrbgContext
@@ -51,6 +47,7 @@ type
     retentionPolicy: Option[MessageRetentionPolicy]
 
 
+# TODO: Move to a message store wrapper
 proc executeMessageRetentionPolicy*(w: WakuStore) =
   if w.retentionPolicy.isNone():
     return
@@ -65,7 +62,7 @@ proc executeMessageRetentionPolicy*(w: WakuStore) =
       waku_store_errors.inc(labelValues = [retPolicyFailure])
       debug "failed execution of retention policy", error=retPolicyRes.error
 
-
+# TODO: Move to a message store wrapper
 proc reportStoredMessagesMetric*(w: WakuStore) = 
   if w.store.isNil():
     return
@@ -76,147 +73,7 @@ proc reportStoredMessagesMetric*(w: WakuStore) =
 
   waku_store_messages.set(resCount.value, labelValues = ["stored"])
 
-
-proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResponse {.gcsafe.} =
-  ## Query history to return a single page of messages matching the query
-  
-  # Extract query criteria. All query criteria are optional
-  let
-    qContentTopics = if (query.contentFilters.len != 0): some(query.contentFilters.mapIt(it.contentTopic))
-                     else: none(seq[ContentTopic])
-    qPubSubTopic = if (query.pubsubTopic != ""): some(query.pubsubTopic)
-                   else: none(string)
-    qCursor = if query.pagingInfo.cursor != PagingIndex(): some(query.pagingInfo.cursor)
-              else: none(PagingIndex)
-    qStartTime = if query.startTime != Timestamp(0): some(query.startTime)
-                 else: none(Timestamp)
-    qEndTime = if query.endTime != Timestamp(0): some(query.endTime)
-               else: none(Timestamp)
-    qMaxPageSize = if query.pagingInfo.pageSize <= 0: DefaultPageSize
-                   else: min(query.pagingInfo.pageSize, MaxPageSize)
-    qAscendingOrder = query.pagingInfo.direction == PagingDirection.FORWARD
-
-
-  let queryStartTime = getTime().toUnixFloat()
-  
-  let queryRes = w.store.getMessagesByHistoryQuery(
-        contentTopic = qContentTopics,
-        pubsubTopic = qPubSubTopic,
-        cursor = qCursor,
-        startTime = qStartTime,
-        endTime = qEndTime,
-        maxPageSize = qMaxPageSize + 1,
-        ascendingOrder = qAscendingOrder
-      )
-
-  let queryDuration = getTime().toUnixFloat() - queryStartTime
-  waku_store_query_duration_seconds.observe(queryDuration)
-
-
-  # Build response
-  # TODO: Improve error reporting
-  if queryRes.isErr():
-    return HistoryResponse(messages: @[], pagingInfo: PagingInfo(), error: HistoryResponseError.INVALID_CURSOR)
-
-  let rows = queryRes.get()
-  
-  if rows.len <= 0:
-    return HistoryResponse(messages: @[], error: HistoryResponseError.NONE)
-  
-  var messages = if rows.len <= int(qMaxPageSize): rows.mapIt(it[1])
-                 else: rows[0..^2].mapIt(it[1])
-  var pagingInfo = none(PagingInfo)
-
-  # The retrieved messages list should always be in chronological order
-  if not qAscendingOrder:
-    messages.reverse()
-
-  
-  if rows.len > int(qMaxPageSize):
-    ## Build last message cursor
-    ## The cursor is built from the last message INCLUDED in the response
-    ## (i.e. the second last message in the rows list)
-    let (pubsubTopic, message, digest, storeTimestamp) = rows[^2]
-
-    # TODO: Improve coherence of MessageDigest type
-    var messageDigest: array[32, byte]
-    for i in 0..<min(digest.len, 32):
-      messageDigest[i] = digest[i]
-
-    let pagingIndex = PagingIndex(
-      pubsubTopic: pubsubTopic, 
-      senderTime: message.timestamp,
-      receiverTime: storeTimestamp,
-      digest: MessageDigest(data: messageDigest)
-    )
-
-    pagingInfo = some(PagingInfo(
-      pageSize: uint64(messages.len),
-      cursor: pagingIndex,
-      direction: if qAscendingOrder: PagingDirection.FORWARD
-                else: PagingDirection.BACKWARD
-    ))
-
-  HistoryResponse(
-    messages: messages, 
-    pagingInfo: pagingInfo.get(PagingInfo()),
-    error: HistoryResponseError.NONE
-  )
-
-proc initProtocolHandler*(ws: WakuStore) =
-  
-  proc handler(conn: Connection, proto: string) {.async.} =
-    let buf = await conn.readLp(MaxRpcSize.int)
-
-    let resReq = HistoryRPC.decode(buf)
-    if resReq.isErr():
-      error "failed to decode rpc", peerId=conn.peerId
-      waku_store_errors.inc(labelValues = [decodeRpcFailure])
-      return
-
-    let req = resReq.value
-
-    info "received history query", peerId=conn.peerId, requestId=req.requestId, query=req.query
-    waku_store_queries.inc()
-
-    let resp = if not ws.store.isNil(): ws.findMessages(req.query)
-               # TODO: Improve error reporting
-               else: HistoryResponse(error: HistoryResponseError.SERVICE_UNAVAILABLE)
-
-    if not ws.wakuSwap.isNil():
-      info "handle store swap", peerId=conn.peerId, requestId=req.requestId, text=ws.wakuSwap.text
-
-      # Perform accounting operation
-      # TODO: Do accounting here, response is HistoryResponse. How do we get node or swap context?
-      let peerId = conn.peerId
-      let messages = resp.messages
-      ws.wakuSwap.credit(peerId, messages.len)
-
-    info "sending history response", peerId=conn.peerId, requestId=req.requestId, messages=resp.messages.len
-
-    let rpc = HistoryRPC(requestId: req.requestId, response: resp)
-    await conn.writeLp(rpc.encode().buffer)
-
-  ws.handler = handler
-  ws.codec = WakuStoreCodec
-
-proc new*(T: type WakuStore, 
-           peerManager: PeerManager, 
-           rng: ref rand.HmacDrbgContext,
-           store: MessageStore, 
-           wakuSwap: WakuSwap = nil, 
-           retentionPolicy=none(MessageRetentionPolicy)): T =
-  let ws = WakuStore(
-    rng: rng, 
-    peerManager: peerManager, 
-    store: store, 
-    wakuSwap: wakuSwap, 
-    retentionPolicy: retentionPolicy
-  )
-  ws.initProtocolHandler()
-
-  return ws
-
+# TODO: Move to a message store wrapper
 proc isValidMessage(msg: WakuMessage): bool =
   if msg.timestamp == 0:
     return true
@@ -228,6 +85,7 @@ proc isValidMessage(msg: WakuMessage): bool =
 
   return lowerBound <= msg.timestamp and msg.timestamp <= upperBound
 
+# TODO: Move to a message store wrapper
 proc handleMessage*(w: WakuStore, pubsubTopic: PubsubTopic, msg: WakuMessage) =
   if w.store.isNil():
     # Messages should not be stored
@@ -260,3 +118,176 @@ proc handleMessage*(w: WakuStore, pubsubTopic: PubsubTopic, msg: WakuMessage) =
 
   let insertDuration = getTime().toUnixFloat() - insertStartTime
   waku_store_insert_duration_seconds.observe(insertDuration)
+
+
+# TODO: Move to a message store wrapper
+proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResult {.gcsafe.} =
+  ## Query history to return a single page of messages matching the query
+  
+  # Extract query criteria. All query criteria are optional
+  let
+    qContentTopics = if query.contentTopics.len == 0: none(seq[ContentTopic])
+                     else: some(query.contentTopics)
+    qPubSubTopic = query.pubsubTopic
+    qCursor = query.cursor
+    qStartTime = query.startTime 
+    qEndTime = query.endTime
+    qMaxPageSize = if query.pageSize <= 0: DefaultPageSize
+                   else: min(query.pageSize, MaxPageSize)
+    qAscendingOrder = query.ascending
+
+
+  let queryStartTime = getTime().toUnixFloat()
+  
+  let queryRes = w.store.getMessagesByHistoryQuery(
+        contentTopic = qContentTopics,
+        pubsubTopic = qPubSubTopic,
+        cursor = qCursor,
+        startTime = qStartTime,
+        endTime = qEndTime,
+        maxPageSize = qMaxPageSize + 1,
+        ascendingOrder = qAscendingOrder
+      )
+
+  let queryDuration = getTime().toUnixFloat() - queryStartTime
+  waku_store_query_duration_seconds.observe(queryDuration)
+
+
+  # Build response
+  if queryRes.isErr():
+    # TODO: Improve error reporting
+    return err(HistoryError(kind: HistoryErrorKind.UNKNOWN))
+
+  let rows = queryRes.get()
+  
+  if rows.len <= 0:
+    return ok(HistoryResponse(
+      messages: @[], 
+      pageSize: 0,
+      ascending: qAscendingOrder,
+      cursor: none(HistoryCursor)
+    ))
+  
+
+  var messages = if rows.len <= int(qMaxPageSize): rows.mapIt(it[1])
+                 else: rows[0..^2].mapIt(it[1])
+  var cursor = none(HistoryCursor)
+
+  # The retrieved messages list should always be in chronological order
+  if not qAscendingOrder:
+    messages.reverse()
+
+  
+  if rows.len > int(qMaxPageSize):
+    ## Build last message cursor
+    ## The cursor is built from the last message INCLUDED in the response
+    ## (i.e. the second last message in the rows list)
+    let (pubsubTopic, message, digest, storeTimestamp) = rows[^2]
+
+    # TODO: Improve coherence of MessageDigest type
+    var messageDigest: array[32, byte]
+    for i in 0..<min(digest.len, 32):
+      messageDigest[i] = digest[i]
+
+    cursor = some(HistoryCursor(
+      pubsubTopic: pubsubTopic, 
+      senderTime: message.timestamp,
+      storeTime: storeTimestamp,
+      digest: MessageDigest(data: messageDigest)
+    ))
+
+
+  ok(HistoryResponse(
+    messages: messages, 
+    pageSize: uint64(messages.len),
+    ascending: qAscendingOrder,
+    cursor: cursor
+  ))
+
+
+## Protocol
+
+proc initProtocolHandler*(ws: WakuStore) =
+  
+  proc handler(conn: Connection, proto: string) {.async.} =
+    let buf = await conn.readLp(MaxRpcSize.int)
+
+    let decodeRes = HistoryRPC.decode(buf)
+    if decodeRes.isErr():
+      error "failed to decode rpc", peerId=conn.peerId
+      waku_store_errors.inc(labelValues = [decodeRpcFailure])
+      # TODO: Return (BAD_REQUEST, cause: "decode rpc failed")
+      return
+
+
+    let reqRpc = decodeRes.value
+
+    if reqRpc.query == default(HistoryQueryRPC):
+      error "empty query rpc", peerId=conn.peerId, requestId=reqRpc.requestId
+      waku_store_errors.inc(labelValues = [emptyRpcQueryFailure])
+      # TODO: Return (BAD_REQUEST, cause: "empty query")
+      return
+
+
+    info "received history query", peerId=conn.peerId, requestId=reqRpc.requestId, query=reqRpc.query
+    waku_store_queries.inc()
+
+
+    if ws.store.isNil(): 
+      let respErr = HistoryError(kind: HistoryErrorKind.SERVICE_UNAVAILABLE)
+      
+      error "history query failed", peerId=conn.peerId, requestId=reqRpc.requestId, error= $respErr
+
+      let resp = HistoryResponseRPC(error: respErr.toRPC())
+      let rpc = HistoryRPC(requestId: reqRpc.requestId, response: resp)
+      await conn.writeLp(rpc.encode().buffer)
+      return
+
+
+    let query = reqRpc.query.toApi()
+    let respRes = ws.findMessages(query)
+
+    if respRes.isErr():
+      error "history query failed", peerId=conn.peerId, requestId=reqRpc.requestId, error=respRes.error
+
+      let resp = respRes.toRPC()
+      let rpc = HistoryRPC(requestId: reqRpc.requestId, response: resp)
+      await conn.writeLp(rpc.encode().buffer)
+      return
+
+
+    let resp = respRes.toRPC()
+
+    if not ws.wakuSwap.isNil():
+      info "handle store swap", peerId=conn.peerId, requestId=reqRpc.requestId, text=ws.wakuSwap.text
+
+      # Perform accounting operation
+      # TODO: Do accounting here, response is HistoryResponseRPC. How do we get node or swap context?
+      let peerId = conn.peerId
+      let messages = resp.messages
+      ws.wakuSwap.credit(peerId, messages.len)
+
+
+    info "sending history response", peerId=conn.peerId, requestId=reqRpc.requestId, messages=resp.messages.len
+
+    let rpc = HistoryRPC(requestId: reqRpc.requestId, response: resp)
+    await conn.writeLp(rpc.encode().buffer)
+
+  ws.handler = handler
+  ws.codec = WakuStoreCodec
+
+proc new*(T: type WakuStore, 
+           peerManager: PeerManager, 
+           rng: ref rand.HmacDrbgContext,
+           store: MessageStore, 
+           wakuSwap: WakuSwap = nil, 
+           retentionPolicy=none(MessageRetentionPolicy)): T =
+  let ws = WakuStore(
+    rng: rng, 
+    peerManager: peerManager, 
+    store: store, 
+    wakuSwap: wakuSwap, 
+    retentionPolicy: retentionPolicy
+  )
+  ws.initProtocolHandler()
+  ws
