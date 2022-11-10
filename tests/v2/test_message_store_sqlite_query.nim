@@ -8,7 +8,7 @@ import
   ../../waku/common/sqlite,
   ../../waku/v2/node/message_store/sqlite_store,
   ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_store/pagination,
+  ../../waku/v2/protocol/waku_store,
   ./utils,
   ./testlib/common
 
@@ -231,7 +231,12 @@ suite "message store - history query":
     for msg in messages:
       require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-    let cursor = PagingIndex.compute(messages[4], messages[4].timestamp, DefaultPubsubTopic)
+    let cursor = HistoryCursor(
+      pubsubTopic: DefaultPubsubTopic,
+      senderTime: messages[4].timestamp,
+      storeTime: messages[4].timestamp,
+      digest: computeDigest(messages[4])
+    )
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -279,7 +284,12 @@ suite "message store - history query":
     for msg in messages:
       require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-    let cursor = PagingIndex.compute(messages[6], messages[6].timestamp, DefaultPubsubTopic)
+    let cursor = HistoryCursor(
+      pubsubTopic: DefaultPubsubTopic,
+      senderTime: messages[6].timestamp,
+      storeTime: messages[6].timestamp,
+      digest: computeDigest(messages[6])
+    )
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -330,7 +340,12 @@ suite "message store - history query":
     for msg in messages2:
       require store.put(pubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-    let cursor = PagingIndex.compute(messages2[0], messages2[0].timestamp, DefaultPubsubTopic)
+    let cursor = HistoryCursor(
+      pubsubTopic: DefaultPubsubTopic,
+      senderTime: messages2[0].timestamp,
+      storeTime: messages2[0].timestamp,
+      digest: computeDigest(messages2[0])
+    )
     
     ## When
     let res = store.getMessagesByHistoryQuery(
@@ -597,7 +612,12 @@ suite "message store - history query":
     for msg in messages:
       require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-    let cursor = PagingIndex.compute(messages[3], messages[3].timestamp, DefaultPubsubTopic)
+    let cursor = HistoryCursor(
+      pubsubTopic: DefaultPubsubTopic,
+      senderTime: messages[3].timestamp,
+      storeTime: messages[3].timestamp,
+      digest: computeDigest(messages[3])
+    )
 
     ## When
     let res = store.getMessagesByHistoryQuery(

@@ -12,7 +12,7 @@ import
 import
   ../../../../common/sqlite,
   ../../../protocol/waku_message,
-  ../../../protocol/waku_store/pagination,
+  ../../../protocol/waku_store/common,
   ../../../protocol/waku_store/message_store,
   ../../../utils/time,
   ./queries
@@ -99,13 +99,13 @@ method getMessagesByHistoryQuery*(
   s: SqliteStore,
   contentTopic = none(seq[ContentTopic]),
   pubsubTopic = none(PubsubTopic),
-  cursor = none(PagingIndex),
+  cursor = none(HistoryCursor),
   startTime = none(Timestamp),
   endTime = none(Timestamp),
   maxPageSize = DefaultPageSize,
   ascendingOrder = true
 ): MessageStoreResult[seq[MessageStoreRow]] =
-  let cursor = cursor.map(proc(c: PagingIndex): DbCursor = (c.receiverTime, @(c.digest.data), c.pubsubTopic))
+  let cursor = cursor.map(proc(c: HistoryCursor): DbCursor = (c.storeTime, @(c.digest.data), c.pubsubTopic))
 
   return s.db.selectMessagesByHistoryQueryWithLimit(
     contentTopic, 

@@ -17,13 +17,9 @@ import
 
 #### Types
 
-type
-  PubSubTopicString* = distinct string
-  ContentTopicString* = distinct string
-
 type RelayWakuMessage* = object
       payload*: Base64String
-      contentTopic*: Option[ContentTopicString]
+      contentTopic*: Option[ContentTopic]
       version*: Option[Natural]
       timestamp*: Option[int64]
 
@@ -33,8 +29,8 @@ type
   RelayPostMessagesRequest* = RelayWakuMessage
 
 type
-  RelayPostSubscriptionsRequest* = seq[PubSubTopicString]
-  RelayDeleteSubscriptionsRequest* = seq[PubSubTopicString]
+  RelayPostSubscriptionsRequest* = seq[PubSubTopic]
+  RelayDeleteSubscriptionsRequest* = seq[PubSubTopic]
 
 
 #### Type conversion
@@ -42,16 +38,15 @@ type
 proc toRelayWakuMessage*(msg: WakuMessage): RelayWakuMessage =
   RelayWakuMessage(
     payload: base64.encode(Base64String, msg.payload),
-    contentTopic: some(ContentTopicString(msg.contentTopic)),
+    contentTopic: some(msg.contentTopic),
     version: some(Natural(msg.version)),
     timestamp: some(msg.timestamp)
   )
 
 proc toWakuMessage*(msg: RelayWakuMessage, version = 0): Result[WakuMessage, cstring] =
-  const defaultContentTopic = ContentTopicString("/waku/2/default-content/proto")
   let 
     payload = ?msg.payload.decode()
-    contentTopic = ContentTopic(msg.contentTopic.get(defaultContentTopic))
+    contentTopic = msg.contentTopic.get(DefaultContentTopic)
     version = uint32(msg.version.get(version))
     timestamp = msg.timestamp.get(0)
 
@@ -64,13 +59,9 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: Base64String)
   {.raises: [IOError, Defect].} =
   writer.writeValue(string(value))
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: PubSubTopicString)
+proc writeValue*(writer: var JsonWriter[RestJson], topic: PubSubTopic|ContentTopic)
   {.raises: [IOError, Defect].} =
-  writer.writeValue(string(value))
-  
-proc writeValue*(writer: var JsonWriter[RestJson], value: ContentTopicString)
-  {.raises: [IOError, Defect].} =
-  writer.writeValue(string(value))
+  writer.writeValue(string(topic))
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: RelayWakuMessage)
   {.raises: [IOError, Defect].} =
@@ -88,19 +79,19 @@ proc readValue*(reader: var JsonReader[RestJson], value: var Base64String)
   {.raises: [SerializationError, IOError, Defect].} =
   value = Base64String(reader.readValue(string))
 
-proc readValue*(reader: var JsonReader[RestJson], value: var PubSubTopicString)
+proc readValue*(reader: var JsonReader[RestJson], pubsubTopic: var PubSubTopic)
   {.raises: [SerializationError, IOError, Defect].} =
-  value = PubSubTopicString(reader.readValue(string))
+  pubsubTopic = PubSubTopic(reader.readValue(string))
 
-proc readValue*(reader: var JsonReader[RestJson], value: var ContentTopicString)
+proc readValue*(reader: var JsonReader[RestJson], contentTopic: var ContentTopic)
   {.raises: [SerializationError, IOError, Defect].} =
-  value = ContentTopicString(reader.readValue(string))
+  contentTopic = ContentTopic(reader.readValue(string))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
   {.raises: [SerializationError, IOError, Defect].} =
   var
     payload = none(Base64String)
-    contentTopic = none(ContentTopicString)
+    contentTopic = none(ContentTopic)
     version = none(Natural)
     timestamp = none(int64)
 
@@ -116,7 +107,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
     of "payload":
       payload = some(reader.readValue(Base64String))
     of "contentTopic":
-      contentTopic = some(reader.readValue(ContentTopicString))
+      contentTopic = some(reader.readValue(ContentTopic))
     of "version":
       version = some(reader.readValue(Natural))
     of "timestamp":

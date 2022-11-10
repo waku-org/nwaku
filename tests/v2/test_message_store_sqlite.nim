@@ -10,7 +10,7 @@ import
   ../../waku/v2/node/message_store/message_retention_policy,
   ../../waku/v2/node/message_store/message_retention_policy_capacity,
   ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_store/pagination,
+  ../../waku/v2/protocol/waku_store,
   ../../waku/v2/utils/time,
   ./utils,
   ./testlib/common
@@ -137,12 +137,17 @@ suite "Message Store":
       WakuMessage(payload: @[byte 1, 2, 3, 4, 5], contentTopic: DefaultContentTopic, version: high(uint32), timestamp: t3),
     ]
 
-    var indexes: seq[PagingIndex] = @[]
+    var indexes: seq[HistoryCursor] = @[]
     for msg in msgs:
       require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-      let index = PagingIndex.compute(msg, msg.timestamp, DefaultPubsubTopic)
-      indexes.add(index)
+      let cursor = HistoryCursor(
+        pubsubTopic: DefaultPubsubTopic,
+        senderTime: msg.timestamp,
+        storeTime: msg.timestamp,
+        digest: computeDigest(msg)
+      )
+      indexes.add(cursor)
 
     ## When
     let res = store.getAllMessages()
@@ -167,9 +172,9 @@ suite "Message Store":
         pubsubTopic == DefaultPubsubTopic
 
       # check correct retrieval of receiver timestamps
-      if receiverTimestamp == indexes[0].receiverTime: rt1Flag = true
-      if receiverTimestamp == indexes[1].receiverTime: rt2Flag = true
-      if receiverTimestamp == indexes[2].receiverTime: rt3Flag = true
+      if receiverTimestamp == indexes[0].storeTime: rt1Flag = true
+      if receiverTimestamp == indexes[1].storeTime: rt2Flag = true
+      if receiverTimestamp == indexes[2].storeTime: rt3Flag = true
 
       check:
         msg in msgs
