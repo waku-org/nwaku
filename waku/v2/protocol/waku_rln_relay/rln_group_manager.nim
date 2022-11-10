@@ -198,6 +198,7 @@ method start*(gManager: OnChainRlnGroupManager) {.async, gcsafe.}  =
                                 memberInsertionHandler = gManager.memberInsertionHandler,
                                 memberDeletionHandler = gManager.memberDeletionHandler)
 
+#  TODO to be implemented
 method stop*(gManager: OnChainRlnGroupManager): GroupManagerResult[void] = discard             
 
 method setRegistrationHandler*(gManager: OnChainRlnGroupManager, registrationHanlder: Option[RegistrationHandler]): GroupManagerResult[void] =
