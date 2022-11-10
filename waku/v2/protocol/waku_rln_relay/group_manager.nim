@@ -5,6 +5,7 @@
 
 import
   chronos,
+  options,
   stew/results,
   rln_types
 
