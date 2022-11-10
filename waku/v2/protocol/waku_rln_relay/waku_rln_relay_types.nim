@@ -14,6 +14,7 @@ import
 import
   ../../utils/protobuf,
   rln_group_manager,
+  group_manager,
   rln_types
 
 # import
@@ -115,7 +116,7 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     lastEpoch*: Epoch # the epoch of the last published rln message
     validMerkleRoots*: Deque[MerkleNode] # An array of valid merkle roots, which are updated in a FIFO fashion
     lastSeenMembershipIndex*: MembershipIndex # the last seen membership index
-    groupManager*: OnChainRlnGroupManager
+    groupManager*: GroupManager
 
 when defined(rlnzerokit):
   type WakuRLNRelay* = ref object
@@ -141,7 +142,7 @@ when defined(rlnzerokit):
     lastEpoch*: Epoch # the epoch of the last published rln message
     validMerkleRoots*: Deque[MerkleNode] # An array of valid merkle roots, which are updated in a FIFO fashion
     lastSeenMembershipIndex*: MembershipIndex # the last seen membership index
-    groupManager*: OnChainRlnGroupManager
+    groupManager*: GroupManager
 
 
 type MessageValidationResult* {.pure.} = enum
