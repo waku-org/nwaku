@@ -399,6 +399,7 @@ proc insertMembers*(rlnInstance: ptr RLN,
     # add the member to the tree
     let membersAdded = set_leaves_from(rlnInstance, index, idCommsBufferPtr)
     return membersAdded
+
 proc removeMember*(rlnInstance: ptr RLN, index: MembershipIndex): bool =
   let deletion_success = delete_member(rlnInstance, index)
   return deletion_success
