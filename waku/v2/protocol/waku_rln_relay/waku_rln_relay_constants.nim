@@ -11,7 +11,6 @@ const
 # inputs of the membership contract constructor
 # TODO may be able to make these constants private and put them inside the waku_rln_relay_utils
 const
-  MembershipFee* = 1000000000000000.u256
   #  the current implementation of the rln lib supports a circuit for Merkle tree with depth 20
   MerkleTreeDepth* = 20
   EthClient* = "ws://127.0.0.1:8540"

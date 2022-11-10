@@ -10,10 +10,12 @@ import
   stint,
   web3,
   eth/keys,
-  libp2p/protobuf/minprotobuf
-import
-  ../../utils/protobuf
+  libp2p/protobuf/minprotobuf,
+  waku_rln_relay_constants,
+  rln_group_manager,
+  rln_types
 
+export rln_types
 
 type RlnRelayResult*[T] = Result[T, string]
 
@@ -26,18 +28,10 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
 
 when defined(rlnzerokit):
   ## RLN is a Nim wrapper for the data types used in zerokit RLN
-  type RLN* {.incompleteStruct.} = object
-  type RLNResult* = RlnRelayResult[ptr RLN]
+  type RLNResult* = Result[ptr RLN, string]
 
-type
-  # identity key as defined in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
-  IDKey* = array[32, byte]
-  # hash of identity key as defined ed in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
-  IDCommitment* = array[32, byte]
-  MerkleNode* = array[32, byte] # Each node of the Merkle tee is a Poseidon hash which is a 32 byte value
-  Nullifier* = array[32, byte]
-  Epoch* = array[32, byte]
-  RlnIdentifier* = array[32, byte]
+type RlnRelayResult*[T] = Result[T, string]
+type WakuRLNRelayResult*[T] = Result[T, string]
 
 when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
   type
@@ -77,8 +71,6 @@ type RateLimitProof* = object
   ## Application specific RLN Identifier
   rlnIdentifier*: RlnIdentifier
 
-type MembershipIndex* = uint
-
 type RlnMembershipCredentials* = object
   membershipKeyPair*: MembershipKeyPair
   rlnIndex*: MembershipIndex
@@ -112,6 +104,7 @@ when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
     lastEpoch*: Epoch # the epoch of the last published rln message
     validMerkleRoots*: Deque[MerkleNode] # An array of valid merkle roots, which are updated in a FIFO fashion
     lastSeenMembershipIndex*: MembershipIndex # the last seen membership index
+    groupManager*: OnChainRlnGroupManager
 
 when defined(rlnzerokit):
   type WakuRLNRelay* = ref object
@@ -137,6 +130,7 @@ when defined(rlnzerokit):
     lastEpoch*: Epoch # the epoch of the last published rln message
     validMerkleRoots*: Deque[MerkleNode] # An array of valid merkle roots, which are updated in a FIFO fashion
     lastSeenMembershipIndex*: MembershipIndex # the last seen membership index
+    groupManager*: OnChainRlnGroupManager
 
 
 type MessageValidationResult* {.pure.} = enum

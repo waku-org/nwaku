@@ -7,7 +7,7 @@ else:
 
 import
   os,
-  waku_rln_relay_types
+  rln_types
 
 when defined(rln) or (not defined(rln) and not defined(rlnzerokit)):
   const libPath = "vendor/rln/target/debug/"
