@@ -148,7 +148,7 @@ proc crawlNetwork(node: WakuNode,
                   conf: NetworkMonitorConf,
                   allPeersRef: CustomPeersTableRef) {.async.} = 
 
-  let crawlInterval = conf.refreshInterval * 1000 * 60
+  let crawlInterval = conf.refreshInterval * 1000
   let client = newHttpClient()
   while true:
     # discover new random nodes
@@ -234,6 +234,12 @@ proc subscribeAndHandleMessages(node: WakuNode,
 
     let message = messageRes.get()
     trace "rx message", pubsubTopic=pubsubTopic, contentTopic=message.contentTopic
+
+    # If we reach a table limit size, remove c topics with the least messages.
+    let tableSize = 100
+    if msgPerContentTopic.len > (tableSize - 1):
+      let minIndex = toSeq(msgPerContentTopic.values()).minIndex()
+      msgPerContentTopic.del(toSeq(msgPerContentTopic.keys())[minIndex])
 
     # TODO: Will overflow at some point
     # +1 if content topic existed, init to 1 otherwise
