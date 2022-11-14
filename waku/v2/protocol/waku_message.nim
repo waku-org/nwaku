@@ -16,8 +16,11 @@ import
   libp2p/varint
 import
   ../utils/protobuf,
-  ../utils/time,
-  ./waku_rln_relay/waku_rln_relay_types
+  ../utils/time
+
+when defined(rln):
+  import
+    ./waku_rln_relay/waku_rln_relay_types
 
 
 const MaxWakuMessageSize* = 1024 * 1024 # In bytes. Corresponds to PubSub default
@@ -40,7 +43,8 @@ type WakuMessage* = object
     # the proof field indicates that the message is not a spam
     # this field will be used in the rln-relay protocol
     # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec and not yet part of WakuMessage spec
-    proof*: RateLimitProof
+    when defined(rln):
+      proof*: RateLimitProof
     # The ephemeral field indicates if the message should
     # be stored. bools and uints are 
     # equivalent in serialization of the protobuf
@@ -56,7 +60,8 @@ proc encode*(message: WakuMessage): ProtoBuffer =
   buf.write3(2, message.contentTopic)
   buf.write3(3, message.version)
   buf.write3(10, zint64(message.timestamp))
-  buf.write3(21, message.proof.encode())
+  when defined(rln):
+    buf.write3(21, message.proof.encode())
   buf.write3(31, uint64(message.ephemeral))
   buf.finish3()
 
@@ -75,9 +80,10 @@ proc decode*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
   msg.timestamp = Timestamp(timestamp)
 
   # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec
-  var proofBytes: seq[byte]
-  discard ?pb.getField(21, proofBytes)
-  msg.proof = ?RateLimitProof.init(proofBytes)
+  when defined(rln):
+    var proofBytes: seq[byte]
+    discard ?pb.getField(21, proofBytes)
+    msg.proof = ?RateLimitProof.init(proofBytes)
 
   var ephemeral: uint
   if ?pb.getField(31, ephemeral):
