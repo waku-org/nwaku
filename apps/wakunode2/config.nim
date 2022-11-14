@@ -196,7 +196,7 @@ type
 
     store* {.
       desc: "Enable/disable waku store protocol",
-      defaultValue: true,
+      defaultValue: false,
       name: "store" }: bool
 
     storenode* {.

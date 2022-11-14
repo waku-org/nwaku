@@ -53,13 +53,21 @@ type
     supportedProtocols*: seq[string]
     userAgent*: string
 
+  # Stores information about all discovered/connected peers
   CustomPeersTableRef* = TableRef[string, CustomPeerInfo]
 
-# GET /allpeersinfo
-proc installHandler*(router: var RestRouter, allPeers: CustomPeersTableRef) =
+  # stores the content topic and the count of rx messages
+  ContentTopicMessageTableRef* = TableRef[string, int]
+
+proc installHandler*(router: var RestRouter,
+                     allPeers: CustomPeersTableRef,
+                     numMessagesPerContentTopic: ContentTopicMessageTableRef) =
   router.api(MethodGet, "/allpeersinfo") do () -> RestApiResponse:
     let values = toSeq(allPeers.values())
     return RestApiResponse.response(values.toJson(), contentType="application/json")
+  router.api(MethodGet, "/contenttopics") do () -> RestApiResponse:
+    # TODO: toJson() includes the hash
+    return RestApiResponse.response($(%numMessagesPerContentTopic), contentType="application/json")
 
 proc startMetricsServer*(serverIp: ValidIpAddress, serverPort: Port): Result[void, string] =
     info "Starting metrics HTTP server", serverIp, serverPort
