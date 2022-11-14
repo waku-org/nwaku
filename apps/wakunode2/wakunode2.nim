@@ -47,8 +47,7 @@ import
 
 when defined(rln):
   import
-    ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_types,
-    ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_utils
+    ../../waku/v2/protocol/waku_rln_relay
 
 
 logScope:
@@ -373,9 +372,7 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       )
 
       try: 
-        let res = await node.mountRlnRelay(rlnConf)
-        if res.isErr():
-          return err("failed to mount waku RLN relay protocol: " & res.error)
+        await node.mountRlnRelay(rlnConf)
       except:
         return err("failed to mount waku RLN relay protocol: " & getCurrentExceptionMsg())
   

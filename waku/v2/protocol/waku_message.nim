@@ -19,6 +19,7 @@ import
   ../utils/time
 
 when defined(rln):
+  # Only requires the RateLimitProof type
   import
     ./waku_rln_relay/waku_rln_relay_types
 
@@ -40,10 +41,10 @@ type WakuMessage* = object
     version*: uint32
     # sender generated timestamp
     timestamp*: Timestamp
-    # the proof field indicates that the message is not a spam
-    # this field will be used in the rln-relay protocol
-    # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec and not yet part of WakuMessage spec
     when defined(rln):
+      # the proof field indicates that the message is not a spam
+      # this field will be used in the rln-relay protocol
+      # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec and not yet part of WakuMessage spec 
       proof*: RateLimitProof
     # The ephemeral field indicates if the message should
     # be stored. bools and uints are 

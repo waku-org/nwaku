@@ -8,10 +8,7 @@ import
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
   eth/keys,
-  ../../waku/v2/protocol/waku_rln_relay/[waku_rln_relay_utils,
-      waku_rln_relay_constants,
-      waku_rln_relay_types, 
-      rln_relay_contract],
+  ../../waku/v2/protocol/waku_rln_relay,
   ../../waku/v2/node/waku_node,
   ../test_helpers,
   ./test_utils

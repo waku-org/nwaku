@@ -44,7 +44,7 @@ import
 
 when defined(rln):
   import
-    ../protocol/waku_rln_relay/waku_rln_relay_types
+    ../protocol/waku_rln_relay
 
 declarePublicGauge waku_version, "Waku version info (in git describe format)", ["version"]
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
@@ -776,6 +776,17 @@ proc setPeerExchangePeer*(node: WakuNode, peer: RemotePeerInfo|string) {.raises:
   node.peerManager.addPeer(remotePeer, WakuPeerExchangeCodec)
   waku_px_peers.inc()
 
+## Waku RLN Relay
+
+proc mountRlnRelay*(node: WakuNode, rlnConf: WakuRlnConfig) {.async.} =
+  info "mounting rln relay"
+
+  let rlnRelayRes = await WakuRlnRelay.init(node.wakuRelay, 
+                                            rlnConf)
+  if rlnRelayRes.isErr():
+    error "failed to mount rln relay", error=rlnRelayRes.error
+    return
+  node.wakuRlnRelay = rlnRelayRes.get()
 
 ## Other protocols
 

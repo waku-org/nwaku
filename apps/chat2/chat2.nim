@@ -38,7 +38,7 @@ when defined(rln):
   import
     libp2p/protocols/pubsub/rpc/messages,
     libp2p/protocols/pubsub/pubsub,
-    ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_utils
+    ../../waku/v2/protocol/waku_rln_relay
 
 const Help = """
   Commands: /[?|help|connect|nick|exit]
