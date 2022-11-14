@@ -28,8 +28,8 @@ type
       abbr: "b" }: seq[string]
 
     refreshInterval* {.
-      desc: "How often new peers are discovered and connected to (in minutes)",
-      defaultValue: 10,
+      desc: "How often new peers are discovered and connected to (in seconds)",
+      defaultValue: 5,
       name: "refresh-interval",
       abbr: "r" }: int
 
