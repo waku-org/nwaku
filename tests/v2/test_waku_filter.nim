@@ -3,7 +3,8 @@
 import
   std/[options, tables],
   testutils/unittests,
-  chronos, 
+  chronicles,
+  chronos,
   libp2p/crypto/crypto
 import
   ../../waku/v2/node/peer_manager/peer_manager,

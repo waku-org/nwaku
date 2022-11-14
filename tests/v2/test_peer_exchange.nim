@@ -4,6 +4,7 @@ import
   std/[sequtils, options],
   stew/shims/net,
   testutils/unittests,
+  chronicles,
   chronos,
   libp2p/peerid,
   libp2p/crypto/crypto,
