@@ -31,7 +31,6 @@ import
   ../protocol/waku_filter/client as filter_client,
   ../protocol/waku_lightpush,
   ../protocol/waku_lightpush/client as lightpush_client,
-  ../protocol/waku_rln_relay/waku_rln_relay_types,
   ../protocol/waku_peer_exchange,
   ../utils/peers, 
   ../utils/wakuenr,
@@ -42,6 +41,10 @@ import
   ./dnsdisc/waku_dnsdisc,
   ./discv5/waku_discv5,
   ./wakuswitch
+
+when defined(rln):
+  import
+    ../protocol/waku_rln_relay/waku_rln_relay_types
 
 declarePublicGauge waku_version, "Waku version info (in git describe format)", ["version"]
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
@@ -86,7 +89,8 @@ type
     wakuFilter*: WakuFilter
     wakuFilterClient*: WakuFilterClient
     wakuSwap*: WakuSwap
-    wakuRlnRelay*: WakuRLNRelay
+    when defined(rln):
+      wakuRlnRelay*: WakuRLNRelay
     wakuLightPush*: WakuLightPush
     wakuLightpushClient*: WakuLightPushClient
     wakuPeerExchange*: WakuPeerExchange
