@@ -16,7 +16,10 @@ import
   libp2p/varint
 import
   ../utils/protobuf,
-  ../utils/time,
+  ../utils/time
+
+when defined(rln):
+import
   ./waku_rln_relay/waku_rln_relay_types
 
 
