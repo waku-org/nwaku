@@ -43,8 +43,8 @@ import
   ./wakuswitch
 
 when defined(rln):
-import
-  ../protocol/waku_rln_relay/waku_rln_relay_types
+  import
+    ../protocol/waku_rln_relay/waku_rln_relay_types
 
 declarePublicGauge waku_version, "Waku version info (in git describe format)", ["version"]
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
