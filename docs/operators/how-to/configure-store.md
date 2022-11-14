@@ -2,11 +2,11 @@
 
 > :information_source: This instructions apply to nwaku version v0.13.0+. For versions prior to v0.13.0, check [this page](./configure-store-v0.12.0.md).
 
-The waku store protocol is enabled by default the nwaku node.
-This is controlled by the `--store` option. To disable waku store protocol on startup, specify explicitly the `--store` option set to `false`:
+The waku store protocol is disabled by default the nwaku node.
+This is controlled by the `--store` option. To enable waku store protocol on startup, specify explicitly the `--store` option set to `true`:
 
 ```shell
-wakunode2 --store=false
+wakunode2 --store=true
 ```
 
 This option controls the mounting of the Waku Store protocol, meaning that your node will indicate to other peers that it supports the Waku store protocol.
