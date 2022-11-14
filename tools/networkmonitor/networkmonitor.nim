@@ -22,6 +22,7 @@ import
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/utils/wakuenr,
+  ../../waku/v2/protocol/waku_message,
   ../../waku/v2/utils/peers,
   ./networkmonitor_metrics,
   ./networkmonitor_config,
@@ -94,6 +95,7 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
       continue
 
     # try to connect to the peer
+    # TODO: check last connection time and if not > x, skip connecting
     let timedOut = not await node.connectToNodes(@[peer.get()]).withTimeout(timeout)
     if timedOut:
       warn "could not connect to peer, timedout", timeout=timeout, peer=peer.get()
@@ -146,7 +148,7 @@ proc crawlNetwork(node: WakuNode,
                   conf: NetworkMonitorConf,
                   allPeersRef: CustomPeersTableRef) {.async.} = 
 
-  let crawlInterval = conf.refreshInterval * 1000 * 60
+  let crawlInterval = conf.refreshInterval * 1000
   let client = newHttpClient()
   while true:
     # discover new random nodes
@@ -201,20 +203,52 @@ proc initAndStartNode(conf: NetworkMonitorConf): Result[WakuNode, string] =
     error("could not start node")
 
 proc startRestApiServer(conf: NetworkMonitorConf,
-                        allPeersRef: CustomPeersTableRef): Result[void, string] =
+                        allPeersInfo: CustomPeersTableRef,
+                        numMessagesPerContentTopic: ContentTopicMessageTableRef
+                        ): Result[void, string] =
   try:
     let serverAddress = initTAddress(conf.metricsRestAddress & ":" & $conf.metricsRestPort)
     proc validate(pattern: string, value: string): int =
       if pattern.startsWith("{") and pattern.endsWith("}"): 0
       else: 1
     var router = RestRouter.init(validate)
-    router.installHandler(allPeersRef)
+    router.installHandler(allPeersInfo, numMessagesPerContentTopic)
     var sres = RestServerRef.new(router, serverAddress)
     let restServer = sres.get()
     restServer.start()
   except:
     error("could not start rest api server")
   ok()
+
+# handles rx of messages over a topic (see subscribe)
+# counts the number of messages per content topic
+proc subscribeAndHandleMessages(node: WakuNode,
+                                pubsubTopic: PubsubTopic,
+                                msgPerContentTopic: ContentTopicMessageTableRef) =
+  
+  # handle function
+  proc handler(pubsubTopic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
+    let messageRes = WakuMessage.decode(data)
+    if messageRes.isErr():
+      warn "could not decode message", data=data, pubsubTopic=pubsubTopic
+
+    let message = messageRes.get()
+    trace "rx message", pubsubTopic=pubsubTopic, contentTopic=message.contentTopic
+
+    # If we reach a table limit size, remove c topics with the least messages.
+    let tableSize = 100
+    if msgPerContentTopic.len > (tableSize - 1):
+      let minIndex = toSeq(msgPerContentTopic.values()).minIndex()
+      msgPerContentTopic.del(toSeq(msgPerContentTopic.keys())[minIndex])
+
+    # TODO: Will overflow at some point
+    # +1 if content topic existed, init to 1 otherwise
+    if msgPerContentTopic.hasKey(message.contentTopic):
+      msgPerContentTopic[message.contentTopic] += 1
+    else:
+      msgPerContentTopic[message.contentTopic] = 1
+
+  node.subscribe(pubsubTopic, handler)
 
 when isMainModule:
   # known issue: confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
@@ -231,28 +265,38 @@ when isMainModule:
     setLogLevel(conf.logLevel)
 
   # list of peers that we have discovered/connected
-  var allPeersRef = CustomPeersTableRef()
+  var allPeersInfo = CustomPeersTableRef()
+
+  # content topic and the number of messages that were received
+  var msgPerContentTopic = ContentTopicMessageTableRef()
 
   # start metrics server
   if conf.metricsServer:
     let res = startMetricsServer(conf.metricsServerAddress, Port(conf.metricsServerPort))
-    if res.isErr:
+    if res.isErr():
       error "could not start metrics server", err=res.error
       quit(1)
 
   # start rest server for custom metrics
-  let res = startRestApiServer(conf, allPeersRef)
-  if res.isErr:
+  let res = startRestApiServer(conf, allPeersInfo, msgPerContentTopic)
+  if res.isErr():
     error "could not start rest api server", err=res.error
 
   # start waku node
-  let node = initAndStartNode(conf)
-  if node.isErr:
+  let nodeRes = initAndStartNode(conf)
+  if nodeRes.isErr():
     error "could not start node"
     quit 1
+  
+  let node = nodeRes.get()
+
+  waitFor node.mountRelay()
+
+  # Subscribe the node to the default pubsubtopic, to count messages
+  subscribeAndHandleMessages(node, DefaultPubsubTopic, msgPerContentTopic)
 
   # spawn the routine that crawls the network
   # TODO: split into 3 routines (discovery, connections, ip2location)
-  asyncSpawn crawlNetwork(node.get(), conf, allPeersRef)
+  asyncSpawn crawlNetwork(node, conf, allPeersInfo)
   
   runForever()
