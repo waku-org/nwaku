@@ -89,7 +89,8 @@ type
     wakuFilter*: WakuFilter
     wakuFilterClient*: WakuFilterClient
     wakuSwap*: WakuSwap
-    wakuRlnRelay*: WakuRLNRelay
+    when defined(rln):
+      wakuRlnRelay*: WakuRLNRelay
     wakuLightPush*: WakuLightPush
     wakuLightpushClient*: WakuLightPushClient
     wakuPeerExchange*: WakuPeerExchange
