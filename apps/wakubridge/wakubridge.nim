@@ -11,10 +11,12 @@ import
   stew/shims/net as stewNet, json_rpc/rpcserver,
   libp2p/errors,
   libp2p/peerstore,
-  # Waku v1 imports
-  eth/[keys, p2p], eth/common/utils,
+  eth/[keys, p2p], 
+  eth/common/utils,
   eth/p2p/[enode, peer_pool],
-  eth/p2p/discoveryv5/random2,
+  eth/p2p/discoveryv5/random2
+import
+  # Waku v1 imports
   ../../waku/v1/protocol/waku_protocol,
   # Waku v2 imports
   libp2p/crypto/crypto,
@@ -24,6 +26,10 @@ import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/node/jsonrpc/[debug_api,
+                              filter_api,
+                              relay_api,
+                              store_api],
   # Common cli config
   ./config_bridge
 
@@ -320,6 +326,23 @@ proc start*(bridge: WakuBridge) {.async.} =
 proc stop*(bridge: WakuBridge) {.async.} =
   bridge.started = false
   await bridge.nodev2.stop()
+  
+
+proc setupV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: WakuNodeConf) =
+  installDebugApiHandlers(node, rpcServer)
+
+  # Install enabled API handlers:
+  if conf.relay:
+    let topicCache = newTable[PubsubTopic, seq[WakuMessage]]()
+    installRelayApiHandlers(node, rpcServer, topicCache)
+  
+  if conf.filternode != "":
+    let messageCache = newTable[ContentTopic, seq[WakuMessage]]()
+    installFilterApiHandlers(node, rpcServer, messageCache)
+  
+  if conf.storenode != "":
+    installStoreApiHandlers(node, rpcServer)
+  
 
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
@@ -329,29 +352,8 @@ when isMainModule:
     ../../waku/whisper/whispernodes,
     ../../waku/v1/node/rpc/wakusim,
     ../../waku/v1/node/rpc/waku,
-    ../../waku/v1/node/rpc/key_storage,
-    ../../waku/v2/node/jsonrpc/[debug_api,
-                                filter_api,
-                                relay_api,
-                                store_api]
+    ../../waku/v1/node/rpc/key_storage
 
-  proc startV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: WakuNodeConf) =
-    installDebugApiHandlers(node, rpcServer)
-
-    # Install enabled API handlers:
-    if conf.relay:
-      let topicCache = newTable[string, seq[WakuMessage]]()
-      installRelayApiHandlers(node, rpcServer, topicCache)
-    
-    if conf.filter:
-      let messageCache = newTable[ContentTopic, seq[WakuMessage]]()
-      installFilterApiHandlers(node, rpcServer, messageCache)
-    
-    if conf.store:
-      installStoreApiHandlers(node, rpcServer)
-    
-    rpcServer.start()
-  
   let
     rng = keys.newRng()
     conf = WakuNodeConf.load()
@@ -443,21 +445,25 @@ when isMainModule:
     waitFor connectToNodes(bridge.nodev2, conf.staticnodesV2)
 
   if conf.storenode != "":
+    mountStoreClient(bridge.nodev2, store=nil)
     setStorePeer(bridge.nodev2, conf.storenode)
 
   if conf.filternode != "":
+    waitFor mountFilterClient(bridge.nodev2)
     setFilterPeer(bridge.nodev2, conf.filternode)
 
   if conf.rpc:
     let ta = initTAddress(conf.rpcAddress,
       Port(conf.rpcPort + conf.portsShift))
     var rpcServer = newRpcHttpServer([ta])
+
     # Waku v1 RPC
     let keys = newKeyStorage()
     setupWakuRPC(bridge.nodev1, keys, rpcServer, rng)
     setupWakuSimRPC(bridge.nodev1, rpcServer)
+
     # Waku v2 rpc
-    startV2Rpc(bridge.nodev2, rpcServer, conf)
+    setupV2Rpc(bridge.nodev2, rpcServer, conf)
 
     rpcServer.start()
 
