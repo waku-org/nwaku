@@ -777,16 +777,16 @@ proc setPeerExchangePeer*(node: WakuNode, peer: RemotePeerInfo|string) {.raises:
   waku_px_peers.inc()
 
 ## Waku RLN Relay
+when defined(rln):
+  proc mountRlnRelay*(node: WakuNode, rlnConf: WakuRlnConfig) {.async.} =
+    info "mounting rln relay"
 
-proc mountRlnRelay*(node: WakuNode, rlnConf: WakuRlnConfig) {.async.} =
-  info "mounting rln relay"
-
-  let rlnRelayRes = await WakuRlnRelay.new(node.wakuRelay, 
-                                           rlnConf)
-  if rlnRelayRes.isErr():
-    error "failed to mount rln relay", error=rlnRelayRes.error
-    return
-  node.wakuRlnRelay = rlnRelayRes.get()
+    let rlnRelayRes = await WakuRlnRelay.new(node.wakuRelay, 
+                                             rlnConf)
+    if rlnRelayRes.isErr():
+      error "failed to mount rln relay", error=rlnRelayRes.error
+      return
+    node.wakuRlnRelay = rlnRelayRes.get()
 
 ## Other protocols
 
