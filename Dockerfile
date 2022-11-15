@@ -60,6 +60,5 @@ CMD ["--help"]
 
 FROM prod AS experimental
 
-# If RLN enabled, copy the librln artifacts
-COPY --from=nim-build /app/vendor/zerokit/target/release/librln.so vendor/zerokit/target/release/librln.so
+# If RLN enabled, copy RLN resources (WASM ZK circuit, proving and verification keys) used by tests
 COPY --from=nim-build /app/vendor/zerokit/rln/resources/ vendor/zerokit/rln/resources/
