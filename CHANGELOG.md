@@ -1,3 +1,73 @@
+## 2022-11-15 v0.13.0
+
+Release highlights:
+- A [Waku canary tool](https://github.com/status-im/nwaku/tree/2336522d7f478337237a5a4ec8c5702fb4babc7d/tools#waku-canary-tool) to check if nodes are reachable and what protocols they support.
+- Simplified configuration for store protocol. This [new guide](https://github.com/status-im/nwaku/blob/4e5318bfbb204bd1239c95472d7b84b6a326dd9d/docs/operators/how-to/configure-store.md) explains how to configure store from this release forward.
+- Support for environment variables to configure a nwaku node. See our [configuration guide](https://github.com/status-im/nwaku/blob/384abed614050bf3aa90c901d7f5e8bc383e8b22/docs/operators/how-to/configure.md) for more.
+- A Waku [network monitoring tool](https://github.com/status-im/nwaku/tree/2336522d7f478337237a5a4ec8c5702fb4babc7d/tools#networkmonitor) to report network metrics, including network size, discoverable peer capabilities and more.
+
+### Features
+
+- Added Waku canary tool to check if i) a given node is reachable and ii) it supports a set of protocols.
+- Simplified [Waku store configuration](https://github.com/status-im/nwaku/blob/4e5318bfbb204bd1239c95472d7b84b6a326dd9d/docs/operators/how-to/configure-store.md).
+- Decoupled Waku peer persistence configuration from message store configuration.
+- Added keyfile support for secure storage of RLN credentials.
+- Added configurable libp2p agent string to nwaku switch.
+- Support for [configuration with environment variables](https://github.com/status-im/nwaku/blob/384abed614050bf3aa90c901d7f5e8bc383e8b22/docs/operators/how-to/configure.md).
+- Added [example module](https://github.com/status-im/nwaku/tree/2336522d7f478337237a5a4ec8c5702fb4babc7d/examples/v2) to showcase basic nwaku relay usage.
+- Added a nwaku [network monitoring tool](https://github.com/status-im/nwaku/tree/2336522d7f478337237a5a4ec8c5702fb4babc7d/tools#networkmonitor) to provide metrics on peers, network size and more.
+
+### Changes
+
+- Removed support for Kilic's RLN library (obsolete).
+- Improved logging for [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation.
+- Connection to eth node for RLN now more stable, maintains state and logs failures.
+- Waku apps and tools now moved to their own subdirectory.
+- Continued refactoring of several protocol implementations to improve maintainability and readability.
+- Periodically log metrics when running RLN spam protection.
+- Added metrics dashboard for RLN spam protection.
+- Github CI test workflows are now run selectively, based on the content of a PR.
+- Improved reliability of CI runs and added email notifications.
+- Discv5 discovery loop now triggered to fill a [34/WAKU2-PEER-EXCHANGE](https://rfc.vac.dev/spec/34/) peer list cache asynchronously.
+- Upgraded to Nim v1.6.6.
+- Cleaned up compiler warnings on unused imports.
+- Improved exception handling and annotation.
+- [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) no longer enabled by default on nwaku nodes.
+- Merkle tree roots for RLN membership changes now on a per-block basis to allow poorly connected peers to operate within a window of acceptable roots.
+
+### Fixes
+
+- Fixed encoding of ID commitments for RLN from Big-Endian to Little-Endian. [#1256](https://github.com/status-im/nwaku/pull/1256)
+- Fixed maxEpochGap to be the maximum allowed epoch gap (RLN). [#1257](https://github.com/status-im/nwaku/pull/1257)
+- Fixed store cursors being retrieved incorrectly (truncated) from DB. [#1263](https://github.com/status-im/nwaku/pull/1263)
+- Fixed message indexed by store cursor being excluded from history query results. [#1263](https://github.com/status-im/nwaku/pull/1263)
+- Fixed log-level configuration being ignored by the nwaku node. [#1272](https://github.com/status-im/nwaku/pull/1272)
+- Fixed incorrect error message when failing to set [34/WAKU2-PEER-EXCHANGE](https://rfc.vac.dev/spec/34/) peer. [#1298](https://github.com/status-im/nwaku/pull/1298)
+- Fixed and replaced deprecated `TaintedString` type. [#1326](https://github.com/status-im/nwaku/pull/1326)
+- Fixed and replaced unreliable regex library and usage. [#1327](https://github.com/status-im/nwaku/pull/1327) [#1328](https://github.com/status-im/nwaku/pull/1328)
+- Fixed and replaced deprecated `ganache-cli` node package with `ganache` for RLN onchain tests. Added graceful daemon termination. [#1347](https://github.com/status-im/nwaku/pull/1347)
+
+### Docs
+
+- Added cross client RLN testnet [tutorial](https://github.com/status-im/nwaku/blob/44d8a2026dc31a37e181043ceb67e2822376dc03/docs/tutorial/rln-chat-cross-client.md).
+- Fixed broken link to Kibana in [cluster documentation](https://github.com/status-im/nwaku/blob/5e90085242e9e4d6f3cf307e189efbf7e59da9f9/docs/contributors/cluster-logs.md).
+- Added an improved [quickstart guide](https://github.com/status-im/nwaku/blob/8f5363ea8f5e95fc1104307aa0d2fc59fda13698/docs/operators/quickstart.md) for operators.
+- Added a [Docker usage guide](https://github.com/status-im/nwaku/blob/8f5363ea8f5e95fc1104307aa0d2fc59fda13698/docs/operators/docker-quickstart.md#prerequisites) for operators.
+- Added operator [guide on running RLN spam prevention](https://github.com/status-im/nwaku/blob/bd516788cb39132ccbf0a4dcf0880e9694beb233/docs/operators/how-to/run-with-rln.md) on nwaku nodes.
+- Extended guidelines on nwaku [configuration methods](https://github.com/status-im/nwaku/blob/384abed614050bf3aa90c901d7f5e8bc383e8b22/docs/operators/how-to/configure.md) for operators.
+- Added new [store configuration guide](https://github.com/status-im/nwaku/blob/4e5318bfbb204bd1239c95472d7b84b6a326dd9d/docs/operators/how-to/configure-store.md) to reflect simplified options.
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
+
 ## 2022-10-06 v0.12.0
 
 Release highlights:
