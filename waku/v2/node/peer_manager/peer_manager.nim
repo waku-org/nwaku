@@ -29,7 +29,7 @@ logScope:
 type
   PeerManager* = ref object of RootObj
     switch*: Switch
-    peerStore*: WakuPeerStore
+    peerStore*: PeerStore
     storage: PeerStorage
 
 let
@@ -38,11 +38,6 @@ let
 ####################
 # Helper functions #
 ####################
-
-proc toRemotePeerInfo*(storedInfo: StoredInfo): RemotePeerInfo =
-  RemotePeerInfo.init(peerId = storedInfo.peerId,
-                      addrs = toSeq(storedInfo.addrs),
-                      protocols = toSeq(storedInfo.protos))
 
 proc insertOrReplace(ps: PeerStorage,
                      peerId: PeerID,
@@ -73,7 +68,7 @@ proc dialPeer(pm: PeerManager, peerId: PeerID,
       debug "Dialing remote peer timed out"
       waku_peers_dials.inc(labelValues = ["timeout"])
 
-      pm.peerStore.connectionBook[peerId] = CannotConnect
+      pm.peerStore[ConnectionBook][peerId] = CannotConnect
       if not pm.storage.isNil:
         pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), CannotConnect)
       
@@ -83,7 +78,7 @@ proc dialPeer(pm: PeerManager, peerId: PeerID,
     debug "Dialing remote peer failed", msg = e.msg
     waku_peers_dials.inc(labelValues = ["failed"])
     
-    pm.peerStore.connectionBook[peerId] = CannotConnect
+    pm.peerStore[ConnectionBook][peerId] = CannotConnect
     if not pm.storage.isNil:
       pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), CannotConnect)
     
@@ -98,12 +93,18 @@ proc loadFromStorage(pm: PeerManager) =
     if peerId == pm.switch.peerInfo.peerId:
       # Do not manage self
       return
+    
+    # nim-libp2p books
+    pm.peerStore[AddressBook][peerId] = storedInfo.addrs
+    pm.peerStore[ProtoBook][peerId] = storedInfo.protos
+    pm.peerStore[KeyBook][peerId] = storedInfo.publicKey
+    pm.peerStore[AgentBook][peerId] = storedInfo.agent
+    pm.peerStore[ProtoVersionBook][peerId] = storedInfo.protoVersion
 
-    pm.peerStore.addressBook[peerId] = storedInfo.addrs
-    pm.peerStore.protoBook[peerId] = storedInfo.protos
-    pm.peerStore.keyBook[peerId] = storedInfo.publicKey
-    pm.peerStore.connectionBook[peerId] = NotConnected  # Reset connectedness state
-    pm.peerStore.disconnectBook[peerId] = disconnectTime
+    # custom books
+    pm.peerStore[ConnectionBook][peerId] = NotConnected  # Reset connectedness state
+    pm.peerStore[DisconnectBook][peerId] = disconnectTime
+    pm.peerStore[SourceBook][peerId] = storedInfo.origin
   
   let res = pm.storage.getAll(onData)
   if res.isErr:
@@ -117,26 +118,26 @@ proc loadFromStorage(pm: PeerManager) =
 ##################   
 
 proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async.} =
-  if not pm.peerStore.addressBook.contains(peerId):
+  if not pm.peerStore[AddressBook].contains(peerId):
     ## We only consider connection events if we
     ## already track some addresses for this peer
     return
 
   case event.kind
   of ConnEventKind.Connected:
-    pm.peerStore.connectionBook[peerId] = Connected
+    pm.peerStore[ConnectionBook][peerId] = Connected
     if not pm.storage.isNil:
       pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), Connected)
     return
   of ConnEventKind.Disconnected:
-    pm.peerStore.connectionBook[peerId] = CanConnect
+    pm.peerStore[ConnectionBook][peerId] = CanConnect
     if not pm.storage.isNil:
       pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), CanConnect, getTime().toUnix)
     return
 
 proc new*(T: type PeerManager, switch: Switch, storage: PeerStorage = nil): PeerManager =
   let pm = PeerManager(switch: switch,
-                       peerStore: WakuPeerStore.new(),
+                       peerStore: switch.peerStore,
                        storage: storage)
   
   proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
@@ -157,44 +158,7 @@ proc new*(T: type PeerManager, switch: Switch, storage: PeerStorage = nil): Peer
 # Manager interface #
 #####################
 
-proc peers*(pm: PeerManager): seq[StoredInfo] =
-  # Return the known info for all peers
-  pm.peerStore.peers()
-
-proc peers*(pm: PeerManager, proto: string): seq[StoredInfo] =
-  # Return the known info for all peers registered on the specified protocol
-  pm.peers.filterIt(it.protos.contains(proto))
-
-proc peers*(pm: PeerManager, protocolMatcher: Matcher): seq[StoredInfo] =
-  # Return the known info for all peers matching the provided protocolMatcher
-  pm.peers.filter(proc (storedInfo: StoredInfo): bool = storedInfo.protos.anyIt(protocolMatcher(it)))
-
-proc connectedness*(pm: PeerManager, peerId: PeerID): Connectedness =
-  # Return the connection state of the given, managed peer
-  # TODO: the PeerManager should keep and update local connectedness state for peers, redial on disconnect, etc.
-  # TODO: richer return than just bool, e.g. add enum "CanConnect", "CannotConnect", etc. based on recent connection attempts
-
-  let storedInfo = pm.peerStore.get(peerId)
-
-  if (storedInfo == StoredInfo()):
-    # Peer is not managed, therefore not connected
-    return NotConnected
-  else:
-    pm.peerStore.connectionBook[peerId]
-
-proc hasPeer*(pm: PeerManager, peerId: PeerID, proto: string): bool =
-  # Returns `true` if peer is included in manager for the specified protocol
-
-  pm.peerStore.get(peerId).protos.contains(proto)
-
-proc hasPeers*(pm: PeerManager, proto: string): bool =
-  # Returns `true` if manager has any peers for the specified protocol
-  pm.peers.anyIt(it.protos.contains(proto))
-
-proc hasPeers*(pm: PeerManager, protocolMatcher: Matcher): bool =
-  # Returns `true` if manager has any peers matching the protocolMatcher
-  pm.peers.any(proc (storedInfo: StoredInfo): bool = storedInfo.protos.anyIt(protocolMatcher(it)))
-
+# TODO: Move to peer store and unit test
 proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string) =
   # Adds peer to manager for the specified protocol
 
@@ -203,35 +167,26 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string) =
     return
   
   debug "Adding peer to manager", peerId = remotePeerInfo.peerId, addr = remotePeerInfo.addrs[0], proto = proto
-  
+
   # ...known addresses
   for multiaddr in remotePeerInfo.addrs:
-    pm.peerStore.addressBook.add(remotePeerInfo.peerId, multiaddr)
-  
+    # TODO: unsure why this does not work. understand and fix
+    #pm.peerStore[AddressBook][remotePeerInfo.peerId].add(multiaddr)
+    pm.peerStore[AddressBook][remotePeerInfo.peerId] = pm.peerStore[AddressBook][remotePeerInfo.peerId] & multiaddr
+
   # ...public key
   var publicKey: PublicKey
   discard remotePeerInfo.peerId.extractPublicKey(publicKey)
 
-  pm.peerStore.keyBook[remotePeerInfo.peerId] = publicKey
+  pm.peerStore[KeyBook][remotePeerInfo.peerId] = publicKey
 
-  # ...associated protocols
-  pm.peerStore.protoBook.add(remotePeerInfo.peerId, proto)
+  # TODO: Same. Why this does not work?
+  #pm.peerStore[ProtoBook][remotePeerInfo.peerId].add("d")
+  pm.peerStore[ProtoBook][remotePeerInfo.peerId] = pm.peerStore[ProtoBook][remotePeerInfo.peerId] & proto
 
   # Add peer to storage. Entry will subsequently be updated with connectedness information
   if not pm.storage.isNil:
     pm.storage.insertOrReplace(remotePeerInfo.peerId, pm.peerStore.get(remotePeerInfo.peerId), NotConnected)
-
-proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
-  # Selects the best peer for a given protocol
-  let peers = pm.peers.filterIt(it.protos.contains(proto))
-
-  if peers.len >= 1:
-     # TODO: proper heuristic here that compares peer scores and selects "best" one. For now the first peer for the given protocol is returned
-    let peerStored = peers[0]
-
-    return some(peerStored.toRemotePeerInfo())
-  else:
-    return none(RemotePeerInfo)
 
 proc reconnectPeers*(pm: PeerManager,
                      proto: string,
@@ -242,15 +197,15 @@ proc reconnectPeers*(pm: PeerManager,
   
   debug "Reconnecting peers", proto=proto
   
-  for storedInfo in pm.peers(protocolMatcher):
+  for storedInfo in pm.peerStore.peers(protocolMatcher):
     # Check if peer is reachable.
-    if pm.peerStore.connectionBook[storedInfo.peerId] == CannotConnect:
+    if pm.peerStore[ConnectionBook][storedInfo.peerId] == CannotConnect: #TODO what if it doesnt exist?
       debug "Not reconnecting to unreachable peer", peerId=storedInfo.peerId
       continue
     
     # Respect optional backoff period where applicable.
     let
-      disconnectTime = Moment.init(pm.peerStore.disconnectBook[storedInfo.peerId], Second)  # Convert 
+      disconnectTime = Moment.init(pm.peerStore[DisconnectBook][storedInfo.peerId], Second)  # Convert 
       currentTime = Moment.init(getTime().toUnix, Second) # Current time comparable to persisted value
       backoffTime = disconnectTime + backoff - currentTime # Consider time elapsed since last disconnect
     
@@ -279,7 +234,7 @@ proc dialPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string, d
   # TODO: check peer validity and score before continuing. Limit number of peers to be managed.
   
   # First add dialed peer info to peer store, if it does not exist yet...
-  if not pm.hasPeer(remotePeerInfo.peerId, proto):
+  if not pm.peerStore.hasPeer(remotePeerInfo.peerId, proto):
     trace "Adding newly dialed peer to manager", peerId = remotePeerInfo.peerId, addr = remotePeerInfo.addrs[0], proto = proto
     pm.addPeer(remotePeerInfo, proto)
   

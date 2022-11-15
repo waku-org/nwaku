@@ -24,7 +24,8 @@ import
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_swap/waku_swap,
-  ../test_helpers
+  ../test_helpers,
+  ./testlib/testutils
 
 procSuite "Peer Manager":
   asyncTest "Peer dialing works":
@@ -50,11 +51,11 @@ procSuite "Peer Manager":
     
     # Check that node2 is being managed in node1
     check:
-      node1.peerManager.peers().anyIt(it.peerId == peerInfo2.peerId)
+      node1.peerManager.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
 
     # Check connectedness
     check:
-      node1.peerManager.connectedness(peerInfo2.peerId) == Connectedness.Connected
+      node1.peerManager.peerStore.connectedness(peerInfo2.peerId) == Connectedness.Connected
     
     await allFutures([node1.stop(), node2.stop()])
   
@@ -111,16 +112,16 @@ procSuite "Peer Manager":
 
     # Check peers were successfully added to peer manager
     check:
-      node.peerManager.peers().len == 3
-      node.peerManager.peers(WakuFilterCodec).allIt(it.peerId == filterPeer.peerId and
-                                                    it.addrs.contains(filterLoc) and
-                                                    it.protos.contains(WakuFilterCodec))
-      node.peerManager.peers(WakuSwapCodec).allIt(it.peerId == swapPeer.peerId and
-                                                  it.addrs.contains(swapLoc) and
-                                                  it.protos.contains(WakuSwapCodec))
-      node.peerManager.peers(WakuStoreCodec).allIt(it.peerId == storePeer.peerId and
-                                                   it.addrs.contains(storeLoc) and
-                                                   it.protos.contains(WakuStoreCodec))
+      node.peerManager.peerStore.peers().len == 3
+      node.peerManager.peerStore.peers(WakuFilterCodec).allIt(it.peerId == filterPeer.peerId and
+                                                              it.addrs.contains(filterLoc) and
+                                                              it.protos.contains(WakuFilterCodec))
+      node.peerManager.peerStore.peers(WakuSwapCodec).allIt(it.peerId == swapPeer.peerId and
+                                                            it.addrs.contains(swapLoc) and
+                                                            it.protos.contains(WakuSwapCodec))
+      node.peerManager.peerStore.peers(WakuStoreCodec).allIt(it.peerId == storePeer.peerId and
+                                                             it.addrs.contains(storeLoc) and
+                                                             it.protos.contains(WakuStoreCodec))
     
     await node.stop()
   
@@ -142,27 +143,27 @@ procSuite "Peer Manager":
     node1.peerManager.addPeer(peerInfo2.toRemotePeerInfo(), WakuRelayCodec)
     check:
       # No information about node2's connectedness
-      node1.peerManager.connectedness(peerInfo2.peerId) == NotConnected
+      node1.peerManager.peerStore.connectedness(peerInfo2.peerId) == NotConnected
 
     # Purposefully don't start node2
     # Attempt dialing node2 from node1
     discard await node1.peerManager.dialPeer(peerInfo2.toRemotePeerInfo(), WakuRelayCodec, 2.seconds)
     check:
       # Cannot connect to node2
-      node1.peerManager.connectedness(peerInfo2.peerId) == CannotConnect
+      node1.peerManager.peerStore.connectedness(peerInfo2.peerId) == CannotConnect
 
     # Successful connection
     await node2.start()
     discard await node1.peerManager.dialPeer(peerInfo2.toRemotePeerInfo(), WakuRelayCodec, 2.seconds)
     check:
       # Currently connected to node2
-      node1.peerManager.connectedness(peerInfo2.peerId) == Connected
+      node1.peerManager.peerStore.connectedness(peerInfo2.peerId) == Connected
 
     # Stop node. Gracefully disconnect from all peers.
     await node1.stop()
     check:
       # Not currently connected to node2, but had recent, successful connection.
-      node1.peerManager.connectedness(peerInfo2.peerId) == CanConnect
+      node1.peerManager.peerStore.connectedness(peerInfo2.peerId) == CanConnect
     
     await node2.stop()
 
@@ -185,9 +186,9 @@ procSuite "Peer Manager":
     discard await node1.peerManager.dialPeer(peerInfo2.toRemotePeerInfo(), WakuRelayCodec, 2.seconds)
     check:
       # Currently connected to node2
-      node1.peerManager.peers().len == 1
-      node1.peerManager.peers().anyIt(it.peerId == peerInfo2.peerId)
-      node1.peerManager.connectedness(peerInfo2.peerId) == Connected
+      node1.peerManager.peerStore.peers().len == 1
+      node1.peerManager.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
+      node1.peerManager.peerStore.connectedness(peerInfo2.peerId) == Connected
 
     # Simulate restart by initialising a new node using the same storage
     let
@@ -197,21 +198,22 @@ procSuite "Peer Manager":
     await node3.start()
     check:
       # Node2 has been loaded after "restart", but we have not yet reconnected
-      node3.peerManager.peers().len == 1
-      node3.peerManager.peers().anyIt(it.peerId == peerInfo2.peerId)
-      node3.peerManager.connectedness(peerInfo2.peerId) == NotConnected
+      node3.peerManager.peerStore.peers().len == 1
+      node3.peerManager.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
+      node3.peerManager.peerStore.connectedness(peerInfo2.peerId) == NotConnected
 
     await node3.mountRelay()  # This should trigger a reconnect
     
     check:
       # Reconnected to node2 after "restart"
-      node3.peerManager.peers().len == 1
-      node3.peerManager.peers().anyIt(it.peerId == peerInfo2.peerId)
-      node3.peerManager.connectedness(peerInfo2.peerId) == Connected
+      node3.peerManager.peerStore.peers().len == 1
+      node3.peerManager.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
+      node3.peerManager.peerStore.connectedness(peerInfo2.peerId) == Connected
     
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
-
-  asyncTest "Peer manager support multiple protocol IDs when reconnecting to peers":
+  
+  # TODO: nwaku/issues/1377
+  xasyncTest "Peer manager support multiple protocol IDs when reconnecting to peers":
     let
       database = SqliteDatabase.new(":memory:")[]
       storage = WakuPeerStorage.new(database)[]
@@ -234,10 +236,10 @@ procSuite "Peer Manager":
     discard await node1.peerManager.dialPeer(peerInfo2.toRemotePeerInfo(), node2.wakuRelay.codec, 2.seconds)
     check:
       # Currently connected to node2
-      node1.peerManager.peers().len == 1
-      node1.peerManager.peers().anyIt(it.peerId == peerInfo2.peerId)
-      node1.peerManager.peers().anyIt(it.protos.contains(node2.wakuRelay.codec))
-      node1.peerManager.connectedness(peerInfo2.peerId) == Connected
+      node1.peerManager.peerStore.peers().len == 1
+      node1.peerManager.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
+      node1.peerManager.peerStore.peers().anyIt(it.protos.contains(node2.wakuRelay.codec))
+      node1.peerManager.peerStore.connectedness(peerInfo2.peerId) == Connected
 
     # Simulate restart by initialising a new node using the same storage
     let
@@ -251,19 +253,19 @@ procSuite "Peer Manager":
       node2.wakuRelay.codec == betaCodec
       node3.wakuRelay.codec == stableCodec
       # Node2 has been loaded after "restart", but we have not yet reconnected
-      node3.peerManager.peers().len == 1
-      node3.peerManager.peers().anyIt(it.peerId == peerInfo2.peerId)
-      node3.peerManager.peers().anyIt(it.protos.contains(betaCodec))
-      node3.peerManager.connectedness(peerInfo2.peerId) == NotConnected
+      node3.peerManager.peerStore.peers().len == 1
+      node3.peerManager.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
+      node3.peerManager.peerStore.peers().anyIt(it.protos.contains(betaCodec))
+      node3.peerManager.peerStore.connectedness(peerInfo2.peerId) == NotConnected
     
     await node3.start() # This should trigger a reconnect
 
     check:
       # Reconnected to node2 after "restart"
-      node3.peerManager.peers().len == 1
-      node3.peerManager.peers().anyIt(it.peerId == peerInfo2.peerId)
-      node3.peerManager.peers().anyIt(it.protos.contains(betaCodec))
-      node3.peerManager.peers().anyIt(it.protos.contains(stableCodec))
-      node3.peerManager.connectedness(peerInfo2.peerId) == Connected
+      node3.peerManager.peerStore.peers().len == 1
+      node3.peerManager.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
+      node3.peerManager.peerStore.peers().anyIt(it.protos.contains(betaCodec))
+      node3.peerManager.peerStore.peers().anyIt(it.protos.contains(stableCodec))
+      node3.peerManager.peerStore.connectedness(peerInfo2.peerId) == Connected
     
     await allFutures([node1.stop(), node2.stop(), node3.stop()])

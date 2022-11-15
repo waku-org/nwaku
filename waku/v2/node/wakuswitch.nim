@@ -87,6 +87,7 @@ proc newWakuSwitch*(
       .withTcpTransport(transportFlags)
       .withNameResolver(nameResolver)
       .withSignedPeerRecord(sendSignedPeerRecord)
+      .withPeerStore(50) # TODO: hardcoded
 
     if agentString.isSome():
       b = b.withAgentVersion(agentString.get())
