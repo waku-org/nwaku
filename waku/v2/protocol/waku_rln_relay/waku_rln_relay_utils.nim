@@ -1319,7 +1319,7 @@ proc mount(wakuRelay: WakuRelay,
         return err("error in storing rln credentials")
     return ok(wakuRlnRelay)
 
-proc init*(T: type WakuRlnRelay,
+proc new*(T: type WakuRlnRelay,
            wakuRelay: WakuRelay,
            conf: WakuRlnConfig,
            spamHandler: Option[SpamHandler] = none(SpamHandler),

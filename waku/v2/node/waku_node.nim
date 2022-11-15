@@ -781,8 +781,8 @@ proc setPeerExchangePeer*(node: WakuNode, peer: RemotePeerInfo|string) {.raises:
 proc mountRlnRelay*(node: WakuNode, rlnConf: WakuRlnConfig) {.async.} =
   info "mounting rln relay"
 
-  let rlnRelayRes = await WakuRlnRelay.init(node.wakuRelay, 
-                                            rlnConf)
+  let rlnRelayRes = await WakuRlnRelay.new(node.wakuRelay, 
+                                           rlnConf)
   if rlnRelayRes.isErr():
     error "failed to mount rln relay", error=rlnRelayRes.error
     return
