@@ -8,7 +8,7 @@ import
   chronos,
   metrics,
   metrics/chronos_httpserver,
-  constants,
+  ./constants,
   ../../utils/collector
 
 export metrics
