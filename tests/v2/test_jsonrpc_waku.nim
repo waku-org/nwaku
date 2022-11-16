@@ -28,6 +28,7 @@ import
   ../../waku/v2/protocol/waku_store/rpc,
   ../../waku/v2/protocol/waku_swap/waku_swap,
   ../../waku/v2/protocol/waku_filter,
+  ../../waku/v2/protocol/waku_filter/rpc,
   ../../waku/v2/protocol/waku_filter/client,
   ../../waku/v2/utils/peers,
   ../../waku/v2/utils/time,

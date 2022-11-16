@@ -10,6 +10,7 @@ import
 import
   ../../protocol/waku_message,
   ../../protocol/waku_filter,
+  ../../protocol/waku_filter/rpc,
   ../../protocol/waku_filter/client,
   ../waku_node,
   ./jsonrpc_types

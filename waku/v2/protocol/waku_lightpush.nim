@@ -1,9 +1,5 @@
 import
-  ./waku_lightpush/protocol,
-  ./waku_lightpush/rpc,
-  ./waku_lightpush/rpc_codec
+  ./waku_lightpush/protocol
 
 export
-  protocol,
-  rpc,
-  rpc_codec
+  protocol
