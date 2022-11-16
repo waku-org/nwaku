@@ -9,10 +9,9 @@ import
   chronos, 
   stint,
   web3,
-  eth/keys,
-  libp2p/protobuf/minprotobuf
+  eth/keys
 import
-  ../../utils/protobuf
+  ../../../common/protobuf
 
 type RlnRelayResult*[T] = Result[T, string]
 

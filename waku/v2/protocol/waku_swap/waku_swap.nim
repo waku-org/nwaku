@@ -45,7 +45,7 @@ import
   libp2p/stream/connection,
   ../../node/peer_manager/peer_manager,
   ./waku_swap_types,
-  ../../utils/protobuf,
+  ../../../common/protobuf,
   ../../waku/v2/protocol/waku_swap/waku_swap_contracts
 
 export waku_swap_types
