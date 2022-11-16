@@ -7,7 +7,7 @@ else:
 
 import
   os,
-  types
+  ./protocol_types
 
 const libPath = "vendor/zerokit/target/release/"
 

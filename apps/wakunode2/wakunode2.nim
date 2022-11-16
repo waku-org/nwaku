@@ -47,7 +47,7 @@ import
 
 when defined(rln):
   import
-    ../../waku/v2/protocol/waku_rln_relay/utils
+    ../../waku/v2/protocol/waku_rln_relay
 
 
 logScope:

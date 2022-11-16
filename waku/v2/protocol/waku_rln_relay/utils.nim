@@ -16,10 +16,10 @@ import
   stew/results,
   stew/[byteutils, arrayops, endians2]
 import
-  rln, 
-  constants,
-  types,
-  protocol_metrics
+  ./rln, 
+  ./constants,
+  ./protocol_types,
+  ./protocol_metrics
 import
   ../../utils/time,
   ../../utils/keyfile,

@@ -20,7 +20,7 @@ import
 
 when defined(rln):
   import
-    ./waku_rln_relay/types
+    ./waku_rln_relay/protocol_types
 
 
 const MaxWakuMessageSize* = 1024 * 1024 # In bytes. Corresponds to PubSub default
