@@ -17,9 +17,9 @@ import
 import
   ../../waku/v2/node/waku_node,
   ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_utils,
-  ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_types,
-  ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_constants,
+  ../../waku/v2/protocol/waku_rln_relay/utils,
+  ../../waku/v2/protocol/waku_rln_relay/types,
+  ../../waku/v2/protocol/waku_rln_relay/constants,
   ../../waku/v2/utils/peers
 
 from std/times import epochTime

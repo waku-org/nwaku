@@ -14,11 +14,13 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
   stew/results,
-  stew/[byteutils, arrayops, endians2],
+  stew/[byteutils, arrayops, endians2]
+import
   rln, 
-  waku_rln_relay_constants,
-  waku_rln_relay_types,
-  waku_rln_relay_metrics,
+  constants,
+  types,
+  protocol_metrics
+import
   ../../utils/time,
   ../../utils/keyfile,
   ../../node/waku_node,
