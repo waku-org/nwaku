@@ -4,17 +4,18 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables,strutils,times,sequtils,httpclient],
+  std/[tables,strutils,times,sequtils],
   chronicles,
   chronicles/topics_registry,
   chronos,
+  chronos/timer as ctime,
   confutils,
   eth/keys,
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
   metrics,
   metrics/chronos_httpserver,
-  presto/[route, server],
+  presto/[route, server, client],
   stew/shims/net
 
 import
@@ -42,7 +43,7 @@ proc setDiscoveredPeersCapabilities(
 proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
                               node: WakuNode,
                               timeout: chronos.Duration,
-                              client: HttpClient,
+                              restClient: RestClientRef,
                               allPeers: CustomPeersTableRef) {.async.} =
 
   let currentTime = $getTime()
@@ -81,13 +82,19 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
     allPeers[peerId].ip = ip
 
     # get more info the peers from its ip address
-    let location = await ipToLocation(ip, client)
-    if not location.isOk():
+    var location: NodeLocation
+    try:
+      # IP-API endpoints are now limited to 45 HTTP requests per minute
+      # TODO: As network grows, find a better way to now block the whole app
+      await sleepAsync(1400)
+      let response = await restClient.ipToLocation(ip)
+      location = response.data
+    except:
       warn "could not get location", ip=ip
       continue
 
-    allPeers[peerId].country = location.get().country
-    allPeers[peerId].city = location.get().city
+    allPeers[peerId].country = location.country
+    allPeers[peerId].city = location.city
           
     let peer = toRemotePeerInfo(discNode.record)
     if not peer.isOk():
@@ -145,11 +152,11 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
 # crawls the network discovering peers and trying to connect to them
 # metrics are processed and exposed
 proc crawlNetwork(node: WakuNode,
+                  restClient: RestClientRef,
                   conf: NetworkMonitorConf,
                   allPeersRef: CustomPeersTableRef) {.async.} = 
 
   let crawlInterval = conf.refreshInterval * 1000
-  let client = newHttpClient()
   while true:
     # discover new random nodes
     let discoveredNodes = await node.wakuDiscv5.protocol.queryRandom()
@@ -163,7 +170,7 @@ proc crawlNetwork(node: WakuNode,
     # tries to connect to all newly discovered nodes
     # and populates metrics related to peers we could connect
     # note random discovered nodes can be already known
-    await setConnectedPeersMetrics(discoveredNodes, node, conf.timeout, client, allPeersRef)
+    await setConnectedPeersMetrics(discoveredNodes, node, conf.timeout, restClient, allPeersRef)
 
     let totalNodes = flatNodes.len
     let seenNodes = flatNodes.countIt(it.seen)
@@ -281,6 +288,15 @@ when isMainModule:
   let res = startRestApiServer(conf, allPeersInfo, msgPerContentTopic)
   if res.isErr():
     error "could not start rest api server", err=res.error
+    quit(1)
+
+  # create a rest client
+  let clientRest = RestClientRef.new(url="http://ip-api.com",
+                                     connectTimeout=ctime.seconds(2))
+  if clientRest.isErr():
+    error "could not start rest api client", err=res.error
+    quit(1)
+  let restClient = clientRest.get()
 
   # start waku node
   let nodeRes = initAndStartNode(conf)
@@ -297,6 +313,6 @@ when isMainModule:
 
   # spawn the routine that crawls the network
   # TODO: split into 3 routines (discovery, connections, ip2location)
-  asyncSpawn crawlNetwork(node, conf, allPeersInfo)
+  asyncSpawn crawlNetwork(node, restClient, conf, allPeersInfo)
   
   runForever()
