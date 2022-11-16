@@ -18,6 +18,9 @@ on:
       # Should run the workflow if changes are made to the following files
       - '!waku/v2/**.nim'
       - '!tests/v2/**.nim'
+      - '!tests/all_tests_v2.nim'
+      - '!apps/**/**.nim'
+      - '!tools/**/**.nim'
   push:
     branches:
       - master
