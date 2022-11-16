@@ -5,9 +5,7 @@ else:
 
 
 import
-  libp2p/protobuf/minprotobuf
-import
-  ../../utils/protobuf,
+  ../../../common/protobuf,
   ../waku_message,
   ./rpc
 

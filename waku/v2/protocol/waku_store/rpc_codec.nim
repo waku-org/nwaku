@@ -4,13 +4,11 @@ else:
   {.push raises: [].}
 
 import
-  nimcrypto/hash,
-  libp2p/protobuf/minprotobuf,
-  libp2p/varint
+  nimcrypto/hash
 import
-  ../waku_message,
-  ../../utils/protobuf,
+  ../../../common/protobuf,
   ../../utils/time,
+  ../waku_message,
   ./common,
   ./rpc
 
