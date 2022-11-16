@@ -11,6 +11,10 @@ on:
       - 'metrics/**'
       - 'docs/**'
       - '**.md'
+
+      # Should run the workflow if changes are made to the following files
+      - '!waku/v1/**.nim'
+      - '!tests/v1/**.nim'
   push:
     branches:
       - master
@@ -19,6 +23,8 @@ on:
       - 'metrics/**'
       - 'docs/**'
       - '**.md'
+      - '!waku/v1/**.nim'
+      - '!tests/v1/**.nim'
 
 concurrency: 
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
