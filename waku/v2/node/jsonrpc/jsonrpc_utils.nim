@@ -31,14 +31,20 @@ proc `%`*(value: WakuMessage): JsonNode =
 ## we need to convert between these and the types for the Nim API
 
 proc toPagingInfo*(pagingOptions: StorePagingOptions): PagingInfoRPC =
-  PagingInfoRPC(pageSize: pagingOptions.pageSize,
-             cursor: if pagingOptions.cursor.isSome: pagingOptions.cursor.get else: PagingIndexRPC(),
-             direction: if pagingOptions.forward: PagingDirectionRPC.FORWARD else: PagingDirectionRPC.BACKWARD)
+  PagingInfoRPC(
+    pageSize: some(pagingOptions.pageSize),
+    cursor: pagingOptions.cursor,
+    direction: if pagingOptions.forward: some(PagingDirectionRPC.FORWARD)
+               else: some(PagingDirectionRPC.BACKWARD)
+  )
 
 proc toPagingOptions*(pagingInfo: PagingInfoRPC): StorePagingOptions =
-  StorePagingOptions(pageSize: pagingInfo.pageSize,
-                     cursor: some(pagingInfo.cursor),
-                     forward: if pagingInfo.direction == PagingDirectionRPC.FORWARD: true else: false)
+  StorePagingOptions(
+    pageSize: pagingInfo.pageSize.get(0'u64),
+    cursor: pagingInfo.cursor,
+    forward: if pagingInfo.direction.isNone(): true
+             else: pagingInfo.direction.get() == PagingDirectionRPC.FORWARD
+  )
 
 proc toJsonRPCStoreResponse*(response: HistoryResponse): StoreResponse =
   StoreResponse(
