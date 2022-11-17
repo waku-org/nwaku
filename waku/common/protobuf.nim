@@ -6,6 +6,7 @@ else:
   {.push raises: [].}
 
 import
+  std/options,
   libp2p/protobuf/minprotobuf,
   libp2p/varint
  
@@ -15,7 +16,10 @@ export
 
 
 proc write3*(proto: var ProtoBuffer, field: int, value: auto) =
-  if default(type(value)) != value:
+  when value is Option:
+    if value.isSome():
+      proto.write(field, value.get())
+  else:
     proto.write(field, value)
 
 proc finish3*(proto: var ProtoBuffer) =
