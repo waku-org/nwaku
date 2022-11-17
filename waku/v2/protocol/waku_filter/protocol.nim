@@ -72,9 +72,9 @@ type
 proc handleFilterRequest(wf: WakuFilter, peerId: PeerId, rpc: FilterRPC) =
   let 
     requestId = rpc.requestId
-    subscribe = rpc.request.subscribe
-    pubsubTopic =  rpc.request.pubsubTopic
-    contentTopics = rpc.request.contentFilters.mapIt(it.contentTopic)
+    subscribe = rpc.request.get().subscribe
+    pubsubTopic =  rpc.request.get().pubsubTopic
+    contentTopics = rpc.request.get().contentFilters.mapIt(it.contentTopic)
 
   if subscribe:
     info "added filter subscritpiton", peerId=peerId, pubsubTopic=pubsubTopic, contentTopics=contentTopics
@@ -101,7 +101,7 @@ proc initProtocolHandler(wf: WakuFilter) =
 
     ## Filter request
     # Subscription/unsubscription request
-    if rpc.request == FilterRequest():
+    if rpc.request.isNone():
       waku_filter_errors.inc(labelValues = [emptyFilterRequestFailure])
       # TODO: Manage the empty filter request message error. Perform any action?
       return
@@ -185,7 +185,7 @@ proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, msg: WakuMessage) 
 
     let rpc = FilterRPC(
       requestId: sub.requestId,
-      push: MessagePush(messages: @[msg])
+      push: some(MessagePush(messages: @[msg]))
     )
 
     let res = await wf.sendFilterRpc(rpc, sub.peer)
