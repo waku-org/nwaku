@@ -5,6 +5,8 @@ else:
 
 
 import
+  std/options
+import
   ../../../common/protobuf,
   ../waku_message,
   ./rpc
@@ -27,12 +29,16 @@ proc decode*(T: type PushRequest, buffer: seq[byte]): ProtoResult[T] =
   var rpc = PushRequest()
 
   var pubSubTopic: PubsubTopic
-  discard ?pb.getField(1, pubSubTopic)
-  rpc.pubSubTopic = pubSubTopic
+  if not ?pb.getField(1, pubSubTopic):
+    return err(ProtoError.RequiredFieldMissing)
+  else:
+    rpc.pubSubTopic = pubSubTopic
 
-  var buf: seq[byte]
-  discard ?pb.getField(2, buf)
-  rpc.message = ?WakuMessage.decode(buf)
+  var messageBuf: seq[byte]
+  if not ?pb.getField(2, messageBuf):
+    return err(ProtoError.RequiredFieldMissing)
+  else:
+    rpc.message = ?WakuMessage.decode(messageBuf)
 
   ok(rpc)
 
@@ -48,15 +54,19 @@ proc encode*(rpc: PushResponse): ProtoBuffer =
 
 proc decode*(T: type PushResponse, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
-  var rpc = PushResponse(isSuccess: false, info: "")
+  var rpc = PushResponse()
 
   var isSuccess: uint64
-  if ?pb.getField(1, isSuccess):
+  if not ?pb.getField(1, isSuccess):
+    return err(ProtoError.RequiredFieldMissing)
+  else:
     rpc.isSuccess = bool(isSuccess)
 
   var info: string
-  discard ?pb.getField(2, info)
-  rpc.info = info
+  if not ?pb.getField(2, info):
+    rpc.info = none(string)
+  else: 
+    rpc.info = some(info)
 
   ok(rpc)
 
@@ -65,8 +75,8 @@ proc encode*(rpc: PushRPC): ProtoBuffer =
   var pb = initProtoBuffer()
   
   pb.write3(1, rpc.requestId)
-  pb.write3(2, rpc.request.encode())
-  pb.write3(3, rpc.response.encode())
+  pb.write3(2, rpc.request.map(encode))
+  pb.write3(3, rpc.response.map(encode))
   pb.finish3()
 
   pb
@@ -76,15 +86,23 @@ proc decode*(T: type PushRPC, buffer: seq[byte]): ProtoResult[T] =
   var rpc = PushRPC()
 
   var requestId: string
-  discard ?pb.getField(1, requestId)
-  rpc.requestId = requestId
+  if not ?pb.getField(1, requestId):
+    return err(ProtoError.RequiredFieldMissing)
+  else:
+    rpc.requestId = requestId
 
   var requestBuffer: seq[byte]
-  discard ?pb.getField(2, requestBuffer)
-  rpc.request = ?PushRequest.decode(requestBuffer)
+  if not ?pb.getField(2, requestBuffer):
+    rpc.request = none(PushRequest)
+  else:
+    let request = ?PushRequest.decode(requestBuffer)
+    rpc.request = some(request)
 
-  var pushBuffer: seq[byte]
-  discard ?pb.getField(3, pushBuffer)
-  rpc.response = ?PushResponse.decode(pushBuffer)
+  var responseBuffer: seq[byte]
+  if not ?pb.getField(3, responseBuffer):
+    rpc.response = none(PushResponse)
+  else:
+    let response = ?PushResponse.decode(responseBuffer)
+    rpc.response = some(response)
 
   ok(rpc)
