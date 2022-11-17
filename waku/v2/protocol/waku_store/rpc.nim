@@ -49,9 +49,9 @@ type
 
   PagingInfoRPC* = object
     ## This type holds the information needed for the pagination
-    pageSize*: uint64
-    cursor*: PagingIndexRPC
-    direction*: PagingDirectionRPC
+    pageSize*: Option[uint64]
+    cursor*: Option[PagingIndexRPC]
+    direction*: Option[PagingDirectionRPC]
 
 
 type
@@ -60,10 +60,10 @@ type
 
   HistoryQueryRPC* = object
     contentFilters*: seq[HistoryContentFilterRPC]
-    pubsubTopic*: PubsubTopic
-    pagingInfo*: PagingInfoRPC # used for pagination
-    startTime*: Timestamp # used for time-window query
-    endTime*: Timestamp # used for time-window query
+    pubsubTopic*: Option[PubsubTopic]
+    pagingInfo*: Option[PagingInfoRPC]
+    startTime*: Option[int64]
+    endTime*: Option[int64]
 
   HistoryResponseErrorRPC* {.pure.} = enum
     ## HistoryResponseErrorRPC contains error message to inform  the querying node about 
@@ -74,13 +74,13 @@ type
 
   HistoryResponseRPC* = object
     messages*: seq[WakuMessage]
-    pagingInfo*: PagingInfoRPC # used for pagination
+    pagingInfo*: Option[PagingInfoRPC]
     error*: HistoryResponseErrorRPC
 
   HistoryRPC* = object
     requestId*: string
-    query*: HistoryQueryRPC
-    response*: HistoryResponseRPC
+    query*: Option[HistoryQueryRPC]
+    response*: Option[HistoryResponseRPC]
 
 
 proc parse*(T: type HistoryResponseErrorRPC, kind: uint32): T =
@@ -112,55 +112,53 @@ proc toAPI*(rpc: PagingIndexRPC): HistoryCursor =
 
 
 proc toRPC*(query: HistoryQuery): HistoryQueryRPC =
-  let 
-    contentFilters = query.contentTopics.mapIt(HistoryContentFilterRPC(contentTopic: it))
+  var rpc = HistoryQueryRPC()
 
-    pubsubTopic = query.pubsubTopic.get(default(string))
-  
-    pageSize = query.pageSize
+  rpc.contentFilters = query.contentTopics.mapIt(HistoryContentFilterRPC(contentTopic: it))
 
-    cursor = query.cursor.get(default(HistoryCursor)).toRPC()
+  rpc.pubsubTopic = query.pubsubTopic
 
-    direction = if query.ascending: PagingDirectionRPC.FORWARD
-                else: PagingDirectionRPC.BACKWARD
+  rpc.pagingInfo = block:
+      if query.cursor.isNone() and 
+         query.pageSize == default(type query.pageSize) and 
+         query.ascending == default(type query.ascending): 
+        none(PagingInfoRPC)
+      else:
+        let
+          pageSize = some(query.pageSize)
+          cursor = query.cursor.map(toRPC)
+          direction = if query.ascending: some(PagingDirectionRPC.FORWARD)
+                      else: some(PagingDirectionRPC.BACKWARD)
+        some(PagingInfoRPC(
+          pageSize: pageSize,
+          cursor: cursor,
+          direction: direction
+        ))
+      
+  rpc.startTime = query.startTime
+  rpc.endTime = query.endTime
 
-    startTime = query.startTime.get(default(Timestamp))
-    
-    endTime = query.endTime.get(default(Timestamp))
+  rpc
 
-  HistoryQueryRPC(
-    contentFilters: contentFilters,
-    pubsubTopic: pubsubTopic,
-    pagingInfo: PagingInfoRPC(
-      pageSize: pageSize,
-      cursor: cursor,
-      direction: direction
-    ),
-    startTime: startTime,
-    endTime: endTime
-  )
 
 proc toAPI*(rpc: HistoryQueryRPC): HistoryQuery =
   let 
-    pubsubTopic = if rpc.pubsubTopic == default(string): none(PubsubTopic)
-                  else: some(rpc.pubsubTopic)
+    pubsubTopic = rpc.pubsubTopic
     
     contentTopics = rpc.contentFilters.mapIt(it.contentTopic)
 
-    cursor = if rpc.pagingInfo == default(PagingInfoRPC) or rpc.pagingInfo.cursor == default(PagingIndexRPC): none(HistoryCursor)
-             else: some(rpc.pagingInfo.cursor.toAPI())
+    cursor = if rpc.pagingInfo.isNone() or rpc.pagingInfo.get().cursor.isNone(): none(HistoryCursor)
+             else: rpc.pagingInfo.get().cursor.map(toAPI)
 
-    startTime = if rpc.startTime == default(Timestamp): none(Timestamp)
-                else: some(rpc.startTime)
+    startTime = rpc.startTime
 
-    endTime = if rpc.endTime == default(Timestamp): none(Timestamp)
-              else: some(rpc.endTime)
+    endTime = rpc.endTime
     
-    pageSize = if rpc.pagingInfo == default(PagingInfoRPC): 0.uint64
-               else: rpc.pagingInfo.pageSize
+    pageSize = if rpc.pagingInfo.isNone() or rpc.pagingInfo.get().pageSize.isNone(): 0'u64
+               else: rpc.pagingInfo.get().pageSize.get()
 
-    ascending = if rpc.pagingInfo == default(PagingInfoRPC): true
-                else: rpc.pagingInfo.direction == PagingDirectionRPC.FORWARD
+    ascending = if rpc.pagingInfo.isNone() or rpc.pagingInfo.get().direction.isNone(): true
+                else: rpc.pagingInfo.get().direction.get() == PagingDirectionRPC.FORWARD
     
   HistoryQuery(
     pubsubTopic: pubsubTopic,
@@ -182,7 +180,7 @@ proc toRPC*(err: HistoryError): HistoryResponseErrorRPC =
   of HistoryErrorKind.SERVICE_UNAVAILABLE:
     HistoryResponseErrorRPC.SERVICE_UNAVAILABLE
   else:
-    HistoryResponseErrorRPC.INVALID_CURSOR    
+    HistoryResponseErrorRPC.INVALID_CURSOR
 
 proc toAPI*(err: HistoryResponseErrorRPC): HistoryError =
   # TODO: Better error mappings/move to error codes
@@ -208,18 +206,18 @@ proc toRPC*(res: HistoryResult): HistoryResponseRPC =
 
       pagingInfo = block:
         if resp.cursor.isNone():
-          default(PagingInfoRPC)
+          none(PagingInfoRPC)
         else: 
           let
-            pageSize = resp.pageSize
-            cursor = resp.cursor.get(default(HistoryCursor)).toRPC()
-            direction = if resp.ascending: PagingDirectionRPC.FORWARD
-                        else: PagingDirectionRPC.BACKWARD
-          PagingInfoRPC(
+            pageSize = some(resp.pageSize)
+            cursor = resp.cursor.map(toRPC)
+            direction = if resp.ascending: some(PagingDirectionRPC.FORWARD)
+                        else: some(PagingDirectionRPC.BACKWARD)
+          some(PagingInfoRPC(
             pageSize: pageSize,
             cursor: cursor,
             direction: direction
-          )
+          ))
 
       error = HistoryResponseErrorRPC.NONE
 
@@ -236,12 +234,14 @@ proc toAPI*(rpc: HistoryResponseRPC): HistoryResult =
     let
       messages = rpc.messages
 
-      pageSize = rpc.pagingInfo.pageSize
+      pageSize = if rpc.pagingInfo.isNone(): 0'u64
+                 else: rpc.pagingInfo.get().pageSize.get(0'u64)
 
-      ascending = rpc.pagingInfo == default(PagingInfoRPC) or rpc.pagingInfo.direction == PagingDirectionRPC.FORWARD
+      ascending = if rpc.pagingInfo.isNone(): true
+                  else: rpc.pagingInfo.get().direction.get(PagingDirectionRPC.FORWARD) == PagingDirectionRPC.FORWARD
 
-      cursor = if rpc.pagingInfo == default(PagingInfoRPC) or rpc.pagingInfo.cursor == default(PagingIndexRPC): none(HistoryCursor)
-               else: some(rpc.pagingInfo.cursor.toAPI())
+      cursor = if rpc.pagingInfo.isNone(): none(HistoryCursor)
+               else: rpc.pagingInfo.get().cursor.map(toAPI)
 
     ok(HistoryResponse(
       messages: messages,

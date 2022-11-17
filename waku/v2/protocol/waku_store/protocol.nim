@@ -222,7 +222,7 @@ proc initProtocolHandler*(ws: WakuStore) =
 
     let reqRpc = decodeRes.value
 
-    if reqRpc.query == default(HistoryQueryRPC):
+    if reqRpc.query.isNone():
       error "empty query rpc", peerId=conn.peerId, requestId=reqRpc.requestId
       waku_store_errors.inc(labelValues = [emptyRpcQueryFailure])
       # TODO: Return (BAD_REQUEST, cause: "empty query")
@@ -239,19 +239,20 @@ proc initProtocolHandler*(ws: WakuStore) =
       error "history query failed", peerId=conn.peerId, requestId=reqRpc.requestId, error= $respErr
 
       let resp = HistoryResponseRPC(error: respErr.toRPC())
-      let rpc = HistoryRPC(requestId: reqRpc.requestId, response: resp)
+      let rpc = HistoryRPC(requestId: reqRpc.requestId, response: some(resp))
       await conn.writeLp(rpc.encode().buffer)
       return
 
 
-    let query = reqRpc.query.toApi()
+    let query = reqRpc.query.get().toAPI()
+    
     let respRes = ws.findMessages(query)
 
     if respRes.isErr():
       error "history query failed", peerId=conn.peerId, requestId=reqRpc.requestId, error=respRes.error
 
       let resp = respRes.toRPC()
-      let rpc = HistoryRPC(requestId: reqRpc.requestId, response: resp)
+      let rpc = HistoryRPC(requestId: reqRpc.requestId, response: some(resp))
       await conn.writeLp(rpc.encode().buffer)
       return
 
@@ -270,7 +271,7 @@ proc initProtocolHandler*(ws: WakuStore) =
 
     info "sending history response", peerId=conn.peerId, requestId=reqRpc.requestId, messages=resp.messages.len
 
-    let rpc = HistoryRPC(requestId: reqRpc.requestId, response: resp)
+    let rpc = HistoryRPC(requestId: reqRpc.requestId, response: some(resp))
     await conn.writeLp(rpc.encode().buffer)
 
   ws.handler = handler
