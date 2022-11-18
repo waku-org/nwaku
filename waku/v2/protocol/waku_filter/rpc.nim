@@ -1,12 +1,21 @@
-import ../waku_message
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
+
+import
+  std/options
+import 
+  ../waku_message
+
 
 type
   ContentFilter* = object
-    contentTopic*: ContentTopic
+    contentTopic*: string
 
   FilterRequest* = object
     contentFilters*: seq[ContentFilter]
-    pubSubTopic*: string
+    pubsubTopic*: string
     subscribe*: bool
 
   MessagePush* = object
@@ -14,5 +23,5 @@ type
 
   FilterRPC* = object
     requestId*: string
-    request*: FilterRequest
-    push*: MessagePush
+    request*: Option[FilterRequest]
+    push*: Option[MessagePush]
