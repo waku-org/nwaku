@@ -4,6 +4,8 @@ else:
   {.push raises: [].}
 
 import
+  std/options
+import
   ../waku_message
 
 type
@@ -13,9 +15,9 @@ type
 
   PushResponse* = object
     isSuccess*: bool
-    info*: string
+    info*: Option[string]
 
   PushRPC* = object
     requestId*: string
-    request*: PushRequest
-    response*: PushResponse
+    request*: Option[PushRequest]
+    response*: Option[PushResponse]
