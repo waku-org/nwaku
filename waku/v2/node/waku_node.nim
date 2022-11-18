@@ -343,14 +343,16 @@ proc publish*(node: WakuNode, topic: PubsubTopic, message: WakuMessage) {.async,
   discard await node.wakuRelay.publish(topic, data)
 
 proc startRelay*(node: WakuNode) {.async.} =
+  ## Setup and start relay protocol
+  info "starting relay protocol"
+
   if node.wakuRelay.isNil():
     trace "Failed to start relay. Not mounted."
     return
 
-  ## Setup and start relay protocol
-  info "starting relay"
+  ## Setup relay protocol
   
-  # PubsubTopic subscriptions
+  # Subscribe to the default PubSub topics
   for topic in node.wakuRelay.defaultPubsubTopics:
     node.subscribe(topic, none(TopicHandler))
 
@@ -371,46 +373,33 @@ proc startRelay*(node: WakuNode) {.async.} =
   info "relay started successfully"
 
 proc mountRelay*(node: WakuNode,
-                 topics: seq[string] = newSeq[string](),
+                 topics: seq[string] = @[],
                  triggerSelf = true,
-                 peerExchangeHandler = none(RoutingRecordsHandler))
-  # TODO: Better error handling: CatchableError is raised by `waitFor`
-  {.async, gcsafe, raises: [Defect, InitializationError, LPError, CatchableError].} =
-
-  proc msgIdProvider(m: messages.Message): Result[MessageID, ValidationResult] =
-    let mh = MultiHash.digest("sha2-256", m.data)
-    if mh.isOk():
-      return ok(mh[].data.buffer)
-    else:
-      return ok(($m.data.hash).toBytes())
-
-  let wakuRelay = WakuRelay.init(
-    switch = node.switch,
-    msgIdProvider = msgIdProvider,
-    triggerSelf = triggerSelf,
-    sign = false,
-    verifySignature = false,
-    maxMessageSize = MaxWakuMessageSize
-  )
+                 peerExchangeHandler = none(RoutingRecordsHandler)) {.async, gcsafe.} =
+  ## The default relay topics is the union of all configured topics plus default PubsubTopic(s)
+  info "mounting relay protocol"
   
-  info "mounting relay"
+  let initRes = WakuRelay.new(
+    node.peerManager,
+    defaultPubsubTopics = concat(@[DefaultPubsubTopic], topics),
+    triggerSelf = triggerSelf
+  )
+  if initRes.isErr():
+    error "failed mountin relay protocol", error=initRes.error
+    return
 
-  ## The default relay topics is the union of
-  ## all configured topics plus the hard-coded defaultTopic(s)
-  wakuRelay.defaultPubsubTopics = concat(@[DefaultPubsubTopic], topics)
+  node.wakuRelay = initRes.value
 
   ## Add peer exchange handler
   if peerExchangeHandler.isSome():
-    wakuRelay.parameters.enablePX = true # Feature flag for peer exchange in nim-libp2p
-    wakuRelay.routingRecordsHandler.add(peerExchangeHandler.get())
+    node.wakuRelay.parameters.enablePX = true # Feature flag for peer exchange in nim-libp2p
+    node.wakuRelay.routingRecordsHandler.add(peerExchangeHandler.get())
 
-  node.wakuRelay = wakuRelay
   if node.started:
-    # Node has started already. Let's start relay too.
     await node.startRelay()
 
-  node.switch.mount(wakuRelay, protocolMatcher(WakuRelayCodec))    
-        
+  node.switch.mount(node.wakuRelay, protocolMatcher(WakuRelayCodec))
+
   info "relay mounted successfully"
 
 
