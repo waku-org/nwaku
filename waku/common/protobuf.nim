@@ -19,6 +19,8 @@ proc write3*(proto: var ProtoBuffer, field: int, value: auto) =
   when value is Option:
     if value.isSome():
       proto.write(field, value.get())
+  elif value is bool:
+    proto.write(field, zint(value))
   else:
     proto.write(field, value)
 
