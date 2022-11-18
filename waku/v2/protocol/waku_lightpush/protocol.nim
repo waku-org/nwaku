@@ -45,27 +45,27 @@ proc initProtocolHandler*(wl: WakuLightPush) =
       return
 
     let req = reqDecodeRes.get()
-    if req.request == PushRequest():
+    if req.request.isNone():
       error "invalid lightpush rpc received", error=emptyRequestBodyFailure
       waku_lightpush_errors.inc(labelValues = [emptyRequestBodyFailure])
       return
 
     waku_lightpush_messages.inc(labelValues = ["PushRequest"])
     let
-      pubSubTopic = req.request.pubSubTopic
-      message = req.request.message
+      pubSubTopic = req.request.get().pubSubTopic
+      message = req.request.get().message
     debug "push request", peerId=conn.peerId, requestId=req.requestId, pubsubTopic=pubsubTopic
 
     var response: PushResponse
     let handleRes = await wl.pushHandler(conn.peerId, pubsubTopic, message)
     if handleRes.isOk():
-      response = PushResponse(is_success: true, info: "OK")
+      response = PushResponse(is_success: true, info: some("OK"))
     else:
-      response = PushResponse(is_success: false, info: handleRes.error)
+      response = PushResponse(is_success: false, info: some(handleRes.error))
       waku_lightpush_errors.inc(labelValues = [messagePushFailure])
       error "pushed message handling failed", error=handleRes.error
 
-    let rpc = PushRPC(requestId: req.requestId, response: response)
+    let rpc = PushRPC(requestId: req.requestId, response: some(response))
     await conn.writeLp(rpc.encode().buffer)
 
   wl.handler = handle
