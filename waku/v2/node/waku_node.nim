@@ -905,6 +905,7 @@ proc start*(node: WakuNode) {.async.} =
   ## all its mounted protocols.
   
   waku_version.set(1, labelValues=[git_version])
+  info "Starting Waku node", version=git_version
   
   let peerInfo = node.switch.peerInfo
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
