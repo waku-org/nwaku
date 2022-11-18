@@ -24,7 +24,7 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                nameresolving/dnsresolver]# define DNS resolution
 import   
   ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_lightpush,
+  ../../waku/v2/protocol/waku_lightpush/rpc,
   ../../waku/v2/protocol/waku_filter, 
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/node/[waku_node, waku_payload, waku_metrics],

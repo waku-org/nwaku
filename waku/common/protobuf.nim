@@ -1,16 +1,25 @@
+# Extensions for libp2p's protobuf library implementation
+
 when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
 else:
   {.push raises: [].}
 
 import
+  std/options,
   libp2p/protobuf/minprotobuf,
   libp2p/varint
+ 
+export
+  minprotobuf,
+  varint
 
-# Collection of utilities related to protobuffer encoding
 
 proc write3*(proto: var ProtoBuffer, field: int, value: auto) =
-  if default(type(value)) != value:
+  when value is Option:
+    if value.isSome():
+      proto.write(field, value.get())
+  else:
     proto.write(field, value)
 
 proc finish3*(proto: var ProtoBuffer) =

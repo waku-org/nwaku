@@ -4,10 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  libp2p/protobuf/minprotobuf,
-  libp2p/varint
-import
-  ../../utils/protobuf,
+  ../../../common/protobuf,
   ../waku_message,
   ./rpc
 

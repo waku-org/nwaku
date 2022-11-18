@@ -53,7 +53,7 @@ proc sendHistoryQueryRPC(w: WakuStoreClient, req: HistoryQuery, peer: RemotePeer
   let connection = connOpt.get()
 
 
-  let reqRpc = HistoryRPC(requestId: generateRequestId(w.rng), query: req.toRPC())
+  let reqRpc = HistoryRPC(requestId: generateRequestId(w.rng), query: some(req.toRPC()))
   await connection.writeLP(reqRpc.encode().buffer)
 
 
@@ -69,11 +69,11 @@ proc sendHistoryQueryRPC(w: WakuStoreClient, req: HistoryQuery, peer: RemotePeer
   # Disabled ,for now, since the default response is a possible case (no messages, pagesize = 0, error = NONE(0))
   # TODO: Rework the RPC protocol to differentiate the default value from an empty value (e.g., status = 200 (OK))
   #        and rework the protobuf parsing to return Option[T] when empty values are received
-  # if respRpc.response == default(HistoryResponseRPC):
-  #   waku_store_errors.inc(labelValues = [emptyRpcResponseFailure])
-  #   return err(HistoryError(kind: HistoryErrorKind.BAD_RESPONSE, cause: emptyRpcResponseFailure))
+  if respRpc.response.isNone():
+    waku_store_errors.inc(labelValues = [emptyRpcResponseFailure])
+    return err(HistoryError(kind: HistoryErrorKind.BAD_RESPONSE, cause: emptyRpcResponseFailure))
 
-  let resp = respRpc.response
+  let resp = respRpc.response.get()
 
   return resp.toAPI()
 

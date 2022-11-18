@@ -12,10 +12,7 @@ else:
 
 
 import
-  libp2p/protobuf/minprotobuf,
-  libp2p/varint
-import
-  ../utils/protobuf,
+  ../../common/protobuf,
   ../utils/time
 
 when defined(rln):
