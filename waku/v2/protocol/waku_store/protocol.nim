@@ -37,10 +37,13 @@ const
   MaxMessageTimestampVariance* = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift"
 
 
+type HistoryQueryHandler* = proc(req: HistoryQuery): HistoryResult {.gcsafe.}
+
 type
   WakuStore* = ref object of LPProtocol
-    peerManager*: PeerManager
-    rng*: ref rand.HmacDrbgContext
+    peerManager: PeerManager
+    rng: ref rand.HmacDrbgContext
+    queryHandler: HistoryQueryHandler
     store*: MessageStore
     retentionPolicy: Option[MessageRetentionPolicy]
 
@@ -226,40 +229,29 @@ proc initProtocolHandler(ws: WakuStore) =
       # TODO: Return (BAD_REQUEST, cause: "empty query")
       return
 
+    let
+      requestId = reqRpc.requestId
+      request = reqRpc.query.get().toAPI()
 
-    info "received history query", peerId=conn.peerId, requestId=reqRpc.requestId, query=reqRpc.query
+    info "received history query", peerId=conn.peerId, requestId=requestId, query=request
     waku_store_queries.inc()
 
+    let responseRes = ws.queryHandler(request)
 
-    if ws.store.isNil():
-      let respErr = HistoryError(kind: HistoryErrorKind.SERVICE_UNAVAILABLE)
+    if responseRes.isErr():
+      error "history query failed", peerId=conn.peerId, requestId=requestId, error=responseRes.error
 
-      error "history query failed", peerId=conn.peerId, requestId=reqRpc.requestId, error= $respErr
-
-      let resp = HistoryResponseRPC(error: respErr.toRPC())
-      let rpc = HistoryRPC(requestId: reqRpc.requestId, response: some(resp))
+      let response = responseRes.toRPC()
+      let rpc = HistoryRPC(requestId: requestId, response: some(response))
       await conn.writeLp(rpc.encode().buffer)
       return
 
 
-    let query = reqRpc.query.get().toAPI()
+    let response = responseRes.toRPC()
 
-    let respRes = ws.findMessages(query)
+    info "sending history response", peerId=conn.peerId, requestId=requestId, messages=response.messages.len
 
-    if respRes.isErr():
-      error "history query failed", peerId=conn.peerId, requestId=reqRpc.requestId, error=respRes.error
-
-      let resp = respRes.toRPC()
-      let rpc = HistoryRPC(requestId: reqRpc.requestId, response: some(resp))
-      await conn.writeLp(rpc.encode().buffer)
-      return
-
-
-    let resp = respRes.toRPC()
-
-    info "sending history response", peerId=conn.peerId, requestId=reqRpc.requestId, messages=resp.messages.len
-
-    let rpc = HistoryRPC(requestId: reqRpc.requestId, response: some(resp))
+    let rpc = HistoryRPC(requestId: requestId, response: some(response))
     await conn.writeLp(rpc.encode().buffer)
 
   ws.handler = handler
@@ -275,6 +267,24 @@ proc new*(T: type WakuStore,
     peerManager: peerManager,
     store: store,
     retentionPolicy: retentionPolicy
+  )
+  ws.queryHandler = proc(request: HistoryQuery): HistoryResult = ws.findMessages(request)
+  ws.initProtocolHandler()
+  ws
+
+proc new*(T: type WakuStore,
+          peerManager: PeerManager,
+          rng: ref rand.HmacDrbgContext,
+          queryHandler: HistoryQueryHandler): T =
+
+  # Raise a defect if history query handler is nil
+  if queryHandler.isNil():
+    raise newException(NilAccessDefect, "history query handler is nil")
+
+  let ws = WakuStore(
+    rng: rng,
+    peerManager: peerManager,
+    queryHandler: queryHandler
   )
   ws.initProtocolHandler()
   ws
