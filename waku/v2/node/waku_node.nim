@@ -32,7 +32,7 @@ import
   ../protocol/waku_lightpush,
   ../protocol/waku_lightpush/client as lightpush_client,
   ../protocol/waku_peer_exchange,
-  ../utils/peers, 
+  ../utils/peers,
   ../utils/wakuenr,
   ./peer_manager/peer_manager,
   ./message_store/message_retention_policy,
@@ -128,11 +128,11 @@ template wsFlag(wssEnabled: bool): MultiAddress =
   if wssEnabled: MultiAddress.init("/wss").tryGet()
   else: MultiAddress.init("/ws").tryGet()
 
-proc new*(T: type WakuNode, 
+proc new*(T: type WakuNode,
           nodeKey: crypto.PrivateKey,
-          bindIp: ValidIpAddress, 
+          bindIp: ValidIpAddress,
           bindPort: Port,
-          extIp = none(ValidIpAddress), 
+          extIp = none(ValidIpAddress),
           extPort = none(Port),
           peerStorage: PeerStorage = nil,
           maxConnections = builders.MaxConnections,
@@ -160,7 +160,7 @@ proc new*(T: type WakuNode,
   # Setup external addresses, if available
   var
     hostExtAddress, wsExtAddress = none(MultiAddress)
-  
+
   if (dns4DomainName.isSome()):
     # Use dns4 for externally announced addresses
     hostExtAddress = some(dns4TcpEndPoint(dns4DomainName.get(), extPort.get()))
@@ -180,12 +180,12 @@ proc new*(T: type WakuNode,
     announcedAddresses.add(hostExtAddress.get())
   else:
     announcedAddresses.add(hostAddress) # We always have at least a bind address for the host
-    
+
   if wsExtAddress.isSome():
     announcedAddresses.add(wsExtAddress.get())
   elif wsHostAddress.isSome():
     announcedAddresses.add(wsHostAddress.get())
-  
+
   ## Initialize peer
   let
     rng = crypto.newRng()
@@ -202,7 +202,7 @@ proc new*(T: type WakuNode,
                   discv5UdpPort,
                   wakuFlags,
                   enrMultiaddrs)
-  
+
   info "Initializing networking", addrs=announcedAddresses
 
   let switch = newWakuSwitch(
@@ -210,7 +210,7 @@ proc new*(T: type WakuNode,
     hostAddress,
     wsHostAddress,
     transportFlags = {ServerFlags.ReuseAddr},
-    rng = rng, 
+    rng = rng,
     maxConnections = maxConnections,
     wssEnabled = wssEnabled,
     secureKeyPath = secureKey,
@@ -219,7 +219,7 @@ proc new*(T: type WakuNode,
     sendSignedPeerRecord = sendSignedPeerRecord,
     agentString = agentString
   )
-  
+
   let wakuNode = WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
     switch: switch,
@@ -231,7 +231,7 @@ proc new*(T: type WakuNode,
   return wakuNode
 
 
-proc peerInfo*(node: WakuNode): PeerInfo = 
+proc peerInfo*(node: WakuNode): PeerInfo =
   node.switch.peerInfo
 
 # TODO: Extend with more relevant info: topics, peers, memory usage, online time, etc
@@ -239,7 +239,7 @@ proc info*(node: WakuNode): WakuInfo =
   ## Returns information about the Node, such as what multiaddress it can be reached at.
 
   let peerInfo = node.switch.peerInfo
-  
+
   var listenStr : seq[string]
   for address in node.announcedAddresses:
     var fulladdr = $address & "/p2p/" & $peerInfo.peerId
@@ -277,7 +277,7 @@ proc subscribe(node: WakuNode, topic: PubsubTopic, handler: Option[TopicHandler]
     # Notify mounted protocols of new message
     if not node.wakuFilter.isNil():
       await node.wakuFilter.handleMessage(topic, msg.value)
-    
+
     if not node.wakuStore.isNil():
       node.wakuStore.handleMessage(topic, msg.value)
 
@@ -308,7 +308,7 @@ proc unsubscribe*(node: WakuNode, topic: PubsubTopic, handler: TopicHandler) =
     error "Invalid API call to `unsubscribe`. WakuRelay not mounted."
     # TODO: improved error handling
     return
-  
+
   info "unsubscribe", topic=topic
 
   let wakuRelay = node.wakuRelay
@@ -316,22 +316,22 @@ proc unsubscribe*(node: WakuNode, topic: PubsubTopic, handler: TopicHandler) =
 
 proc unsubscribeAll*(node: WakuNode, topic: PubsubTopic) =
   ## Unsubscribes all handlers registered on a specific PubSub topic.
-  
+
   if node.wakuRelay.isNil():
     error "Invalid API call to `unsubscribeAll`. WakuRelay not mounted."
     # TODO: improved error handling
     return
-  
+
   info "unsubscribeAll", topic=topic
 
   let wakuRelay = node.wakuRelay
   wakuRelay.unsubscribeAll(topic)
-  
+
 proc publish*(node: WakuNode, topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
   ## Publish a `WakuMessage` to a PubSub topic. `WakuMessage` should contain a
   ## `contentTopic` field for light node functionality. This field may be also
   ## be omitted.
-    
+
   if node.wakuRelay.isNil():
     error "Invalid API call to `publish`. WakuRelay not mounted. Try `lightpush` instead."
     # TODO: Improve error handling
@@ -351,7 +351,7 @@ proc startRelay*(node: WakuNode) {.async.} =
     return
 
   ## Setup relay protocol
-  
+
   # Subscribe to the default PubSub topics
   for topic in node.wakuRelay.defaultPubsubTopics:
     node.subscribe(topic, none(TopicHandler))
@@ -359,14 +359,14 @@ proc startRelay*(node: WakuNode) {.async.} =
   # Resume previous relay connections
   if node.peerManager.hasPeers(protocolMatcher(WakuRelayCodec)):
     info "Found previous WakuRelay peers. Reconnecting."
-    
+
     # Reconnect to previous relay peers. This will respect a backoff period, if necessary
     let backoffPeriod = node.wakuRelay.parameters.pruneBackoff + chronos.seconds(BackoffSlackTime)
 
     await node.peerManager.reconnectPeers(WakuRelayCodec,
                                           protocolMatcher(WakuRelayCodec),
                                           backoffPeriod)
-  
+
   # Start the WakuRelay protocol
   await node.wakuRelay.start()
 
@@ -378,7 +378,7 @@ proc mountRelay*(node: WakuNode,
                  peerExchangeHandler = none(RoutingRecordsHandler)) {.async, gcsafe.} =
   ## The default relay topics is the union of all configured topics plus default PubsubTopic(s)
   info "mounting relay protocol"
-  
+
   let initRes = WakuRelay.new(
     node.peerManager,
     defaultPubsubTopics = concat(@[DefaultPubsubTopic], topics),
@@ -432,14 +432,14 @@ proc mountFilterClient*(node: WakuNode) {.async, raises: [Defect, LPError].} =
 
   node.switch.mount(node.wakuFilterClient, protocolMatcher(WakuFilterCodec))
 
-proc filterSubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: ContentTopic|seq[ContentTopic], 
+proc filterSubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: ContentTopic|seq[ContentTopic],
                 handler: FilterPushHandler, peer: RemotePeerInfo|string) {.async, gcsafe, raises: [Defect, ValueError].} =
   ## Registers for messages that match a specific filter. Triggers the handler whenever a message is received.
   if node.wakuFilterClient.isNil():
     error "cannot register filter subscription to topic", error="waku filter client is nil"
     return
-  
-  let remotePeer = when peer is string: parseRemotePeerInfo(peer) 
+
+  let remotePeer = when peer is string: parseRemotePeerInfo(peer)
                    else: peer
 
   info "registering filter subscription to content", pubsubTopic=pubsubTopic, contentTopics=contentTopics, peer=remotePeer
@@ -466,11 +466,11 @@ proc filterUnsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics:
     error "cannot unregister filter subscription to content", error="waku filter client is nil"
     return
 
-  let remotePeer = when peer is string: parseRemotePeerInfo(peer) 
+  let remotePeer = when peer is string: parseRemotePeerInfo(peer)
                    else: peer
-  
+
   info "deregistering filter subscription to content", pubsubTopic=pubsubTopic, contentTopics=contentTopics, peer=remotePeer
-  
+
   let unsubRes = await node.wakuFilterClient.unsubscribe(pubsubTopic, contentTopics, peer=remotePeer)
   if unsubRes.isOk():
     info "unsubscribed from topic", pubsubTopic=pubsubTopic, contentTopics=contentTopics
@@ -501,12 +501,12 @@ proc subscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: Content
   if node.wakuFilterClient.isNil():
     error "cannot register filter subscription to topic", error="waku filter client is nil"
     return
-  
+
   let peerOpt = node.peerManager.selectPeer(WakuFilterCodec)
   if peerOpt.isNone():
     error "cannot register filter subscription to topic", error="no suitable remote peers"
     return
-  
+
   await node.filterSubscribe(pubsubTopic, contentTopics, handler, peer=peerOpt.get())
 
 # TODO: Move to application module (e.g., wakunode2.nim)
@@ -516,7 +516,7 @@ proc unsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: Conte
   if node.wakuFilterClient.isNil():
     error "cannot unregister filter subscription to content", error="waku filter client is nil"
     return
-  
+
   let peerOpt = node.peerManager.selectPeer(WakuFilterCodec)
   if peerOpt.isNone():
     error "cannot register filter subscription to topic", error="no suitable remote peers"
@@ -565,23 +565,19 @@ proc startMessageRetentionPolicyPeriodicTask*(node: WakuNode, interval: Duration
 
   # https://github.com/nim-lang/Nim/issues/17369
   var executeRetentionPolicy: proc(udata: pointer) {.gcsafe, raises: [Defect].}
-  executeRetentionPolicy = proc(udata: pointer) {.gcsafe.} = 
+  executeRetentionPolicy = proc(udata: pointer) {.gcsafe.} =
     executeMessageRetentionPolicy(node)
     discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)
-  
+
   discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)
 
 proc mountStore*(node: WakuNode, store: MessageStore = nil, retentionPolicy=none(MessageRetentionPolicy) ) {.async, raises: [Defect, LPError].} =
-  if node.wakuSwap.isNil():
-    info "mounting waku store protocol (no waku swap)"
-  else:
-    info "mounting waku store protocol with waku swap support"
+  info "mounting waku store protocol"
 
   node.wakuStore = WakuStore.new(
-    node.peerManager, 
-    node.rng, 
-    store, 
-    wakuSwap=node.wakuSwap, 
+    node.peerManager,
+    node.rng,
+    store,
     retentionPolicy=retentionPolicy
   )
 
@@ -605,12 +601,8 @@ proc query*(node: WakuNode, query: HistoryQuery, peer: RemotePeerInfo): Future[W
   let queryRes = await node.wakuStoreClient.query(query, peer)
   if queryRes.isErr():
     return err($queryRes.error)
-  
+
   let response = queryRes.get()
-  
-  if not node.wakuSwap.isNil():
-    # Perform accounting operation
-    node.wakuSwap.debit(peer.peerId, response.messages.len)
 
   return ok(response)
 
@@ -645,13 +637,13 @@ proc query*(node: WakuNode, query: HistoryQuery): Future[WakuStoreResult[History
 
 # TODO: Move to application module (e.g., wakunode2.nim)
 proc resume*(node: WakuNode, peerList: Option[seq[RemotePeerInfo]] = none(seq[RemotePeerInfo])) {.async, gcsafe.} =
-  ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku node has been online 
+  ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku node has been online
   ## for resume to work properly the waku node must have the store protocol mounted in the full mode (i.e., persisting messages)
   ## messages are stored in the the wakuStore's messages field and in the message db
-  ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message 
+  ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message
   ## an offset of 20 second is added to the time window to count for nodes asynchrony
   ## peerList indicates the list of peers to query from. The history is fetched from the first available peer in this list. Such candidates should be found through a discovery method (to be developed).
-  ## if no peerList is passed, one of the peers in the underlying peer manager unit of the store protocol is picked randomly to fetch the history from. 
+  ## if no peerList is passed, one of the peers in the underlying peer manager unit of the store protocol is picked randomly to fetch the history from.
   ## The history gets fetched successfully if the dialed peer has been online during the queried time window.
   if node.wakuStoreClient.isNil():
     return
@@ -660,7 +652,7 @@ proc resume*(node: WakuNode, peerList: Option[seq[RemotePeerInfo]] = none(seq[Re
   if retrievedMessages.isErr():
     error "failed to resume store", error=retrievedMessages.error
     return
-  
+
   info "the number of retrieved messages since the last online time: ", number=retrievedMessages.value
 
 
@@ -672,10 +664,10 @@ proc mountLightPush*(node: WakuNode) {.async.} =
   var pushHandler: PushMessageHandler
   if node.wakuRelay.isNil():
     debug "mounting lightpush without relay (nil)"
-    pushHandler = proc(peer: PeerId, pubsubTopic: string, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} = 
+    pushHandler = proc(peer: PeerId, pubsubTopic: string, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} =
       return err("no waku relay found")
   else:
-    pushHandler = proc(peer: PeerId, pubsubTopic: string, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} = 
+    pushHandler = proc(peer: PeerId, pubsubTopic: string, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} =
       discard await node.wakuRelay.publish(pubsubTopic, message.encode().buffer)
       return ok()
 
@@ -723,7 +715,7 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMe
   if node.wakuLightpushClient.isNil():
     error "failed to publish message", error="waku lightpush client is nil"
     return
-  
+
   let peerOpt = node.peerManager.selectPeer(WakuLightPushCodec)
   if peerOpt.isNone():
     error "failed to publish message", error="no suitable remote peers"
@@ -777,11 +769,11 @@ proc mountLibp2pPing*(node: WakuNode) {.async, raises: [Defect, LPError].} =
     # This is necessary as `Ping.new*` does not have explicit `raises` requirement
     # @TODO: remove exception handling once explicit `raises` in ping module
     raise newException(LPError, "Failed to initialize ping protocol")
-  
+
   if node.started:
     # Node has started already. Let's start ping too.
     await node.libp2pPing.start()
-  
+
   node.switch.mount(node.libp2pPing)
 
 proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
@@ -805,7 +797,7 @@ proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
         return
 
       discard await node.libp2pPing.ping(connOpt.get())  # Ping connection
-    
+
     await sleepAsync(keepalive)
 
 proc startKeepalive*(node: WakuNode) =
@@ -832,7 +824,7 @@ proc runDiscv5Loop(node: WakuNode) {.async.} =
     if discoveredPeers.isOk():
       ## Let's attempt to connect to peers we
       ## have not encountered before
-      
+
       trace "Discovered peers", count=discoveredPeers.get().len()
 
       let newPeers = discoveredPeers.get().filterIt(
@@ -850,9 +842,9 @@ proc runDiscv5Loop(node: WakuNode) {.async.} =
 
 proc startDiscv5*(node: WakuNode): Future[bool] {.async.} =
   ## Start Discovery v5 service
-  
+
   info "Starting discovery v5 service"
-  
+
   if not node.wakuDiscv5.isNil():
     ## First start listening on configured port
     try:
@@ -861,12 +853,12 @@ proc startDiscv5*(node: WakuNode): Future[bool] {.async.} =
     except CatchableError:
       error "Failed to start discovery service. UDP port may be already in use"
       return false
-  
+
     ## Start Discovery v5
     trace "Start discv5 service"
     node.wakuDiscv5.start()
     trace "Start discovering new peers using discv5"
-    
+
     asyncSpawn node.runDiscv5Loop()
 
     debug "Successfully started discovery v5 service"
@@ -877,10 +869,10 @@ proc startDiscv5*(node: WakuNode): Future[bool] {.async.} =
 
 proc stopDiscv5*(node: WakuNode): Future[bool] {.async.} =
   ## Stop Discovery v5 service
-  
+
   if not node.wakuDiscv5.isNil():
     info "Stopping discovery v5 service"
-    
+
     ## Stop Discovery v5 process and close listening port
     if node.wakuDiscv5.listening:
       trace "Stop listening on discv5 port"
@@ -892,17 +884,17 @@ proc stopDiscv5*(node: WakuNode): Future[bool] {.async.} =
 proc start*(node: WakuNode) {.async.} =
   ## Starts a created Waku Node and
   ## all its mounted protocols.
-  
+
   waku_version.set(1, labelValues=[git_version])
   info "Starting Waku node", version=git_version
-  
+
   let peerInfo = node.switch.peerInfo
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
   var listenStr = ""
   for address in node.announcedAddresses:
-    var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]" 
+    var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]"
     listenStr &= fulladdr
-                
+
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
   info "DNS: discoverable ENR ", enr = node.enr.toUri()
@@ -910,7 +902,7 @@ proc start*(node: WakuNode) {.async.} =
   # Perform relay-specific startup tasks TODO: this should be rethought
   if not node.wakuRelay.isNil():
     await node.startRelay()
-  
+
   ## The switch uses this mapper to update peer info addrs
   ## with announced addrs after start
   let addressMapper =
@@ -922,13 +914,13 @@ proc start*(node: WakuNode) {.async.} =
   await node.switch.start()
 
   node.started = true
-  
+
   info "Node started successfully"
 
 proc stop*(node: WakuNode) {.async.} =
   if not node.wakuRelay.isNil():
     await node.wakuRelay.stop()
-  
+
   if not node.wakuDiscv5.isNil():
     discard await node.stopDiscv5()
 
