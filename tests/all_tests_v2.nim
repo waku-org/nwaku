@@ -1,19 +1,32 @@
 import
-  # Waku common tests
+  # Waku common test suite
   ./v2/test_envvar_serialization,
   ./v2/test_confutils_envvar,
   ./v2/test_sqlite_migrations
+
+import
+  # Waku archive test suite
+  ./v2/waku_archive/test_driver_queue_index,
+  ./v2/waku_archive/test_driver_queue_pagination,
+  ./v2/waku_archive/test_driver_queue_query,
+  ./v2/waku_archive/test_driver_queue,
+  ./v2/waku_archive/test_driver_sqlite_query,
+  ./v2/waku_archive/test_driver_sqlite,
+  ./v2/waku_archive/test_retention_policy,
+  ./v2/waku_archive/test_waku_archive,
+
+  # TODO: Remove with the implementation
+  ./v2/test_message_store_queue_index,
+  ./v2/test_message_store_queue_pagination,
+  ./v2/test_message_store_queue,
+  ./v2/test_message_store_sqlite_query,
+  ./v2/test_message_store_sqlite
 
 import
   # Waku v2 tests
   ./v2/test_wakunode,
   ./v2/test_wakunode_relay,
   # Waku Store
-  ./v2/test_message_store_queue_index,
-  ./v2/test_message_store_queue_pagination,
-  ./v2/test_message_store_queue,
-  ./v2/test_message_store_sqlite_query,
-  ./v2/test_message_store_sqlite,
   ./v2/test_waku_store_rpc_codec,
   ./v2/test_waku_store,
   ./v2/test_waku_store_client,
@@ -53,7 +66,7 @@ import
   ./v2/test_utils_keyfile
 
 when defined(rln):
-  import 
+  import
     ./v2/test_waku_rln_relay,
     ./v2/test_wakunode_rln_relay
   when defined(onchain_rln):

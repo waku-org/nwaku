@@ -5,12 +5,37 @@ import
   stew/results,
   testutils/unittests
 import
+  ../../waku/common/sqlite/database,
   ../../waku/common/sqlite/migrations {.all.}
+
+
+proc newTestDatabase(): SqliteDatabase =
+  SqliteDatabase.new(":memory:").tryGet()
 
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 
 
 suite "SQLite - migrations":
+
+  test "set and get user version":
+    ## Given
+    let database = newTestDatabase()
+
+    ## When
+    let setRes = database.setUserVersion(5)
+    let getRes = database.getUserVersion()
+
+    ## Then
+    check:
+      setRes.isOk()
+      getRes.isOk()
+
+    let version = getRes.tryGet()
+    check:
+      version == 5
+
+    ## Cleanup
+    database.close()
 
   test "filter and order migration script file paths":
     ## Given
@@ -64,7 +89,7 @@ suite "SQLite - migrations":
 
     ## When
     let statements = script.breakIntoStatements()
-    
+
     ## Then
     check:
        statements == @[statement1, statement2]
@@ -91,5 +116,5 @@ suite "SQLite - migrations":
     let statements = script.breakIntoStatements()
 
     ## Then
-    check: 
+    check:
       statements == @[statement1, statement2]
