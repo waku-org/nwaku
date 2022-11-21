@@ -13,11 +13,7 @@ import
 import
   ../../waku/v2/node/waku_node,
   ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_rln_relay/rln, 
-  ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_utils,
-  ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_types,
-  ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_constants,
-  ../../waku/v2/protocol/waku_rln_relay/waku_rln_relay_metrics,
+  ../../waku/v2/protocol/waku_rln_relay,
   ../test_helpers
 
 const RlnRelayPubsubTopic = "waku/2/rlnrelay/proto"

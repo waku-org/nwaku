@@ -7,7 +7,7 @@ For ease of explanation, we will refer to them as `Alice`, `Bob`, and `Carol`.
 In this setting, if `Bob` or `Carol` attempts to spam the network by violating the message rate limit then `Alice` will detect their spamming activity, and does not relay the spam messages.
 The message rate is one per epoch.
 At the time of this tutorial, the epoch duration is set to `10` seconds.
-You can inspect its current value by checking the following [constant variable](https://github.com/status-im/nim-waku/blob/21cac6d491a6d995a7a8ba84c85fecc7817b3d8b/waku/v2/protocol/waku_rln_relay/waku_rln_relay_types.nim#L119) in the nim-waku codebase.
+You can inspect its current value by checking the following [constant variable](https://github.com/status-im/nim-waku/blob/21cac6d491a6d995a7a8ba84c85fecc7817b3d8b/waku/v2/protocol/waku_rln_relay/constants.nim#L245) in the nim-waku codebase.
 
 
 # Set up
