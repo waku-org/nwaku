@@ -42,7 +42,7 @@ proc sendPushRequest(wl: WakuLightPushClient, req: PushRequest, peer: PeerId|Rem
     return err(dialFailure)
   let connection = connOpt.get()
 
-  let rpc = PushRPC(requestId: generateRequestId(wl.rng), request: req)
+  let rpc = PushRPC(requestId: generateRequestId(wl.rng), request: some(req))
   await connection.writeLP(rpc.encode().buffer)
 
   var buffer = await connection.readLp(MaxRpcSize.int)
@@ -53,14 +53,14 @@ proc sendPushRequest(wl: WakuLightPushClient, req: PushRequest, peer: PeerId|Rem
     return err(decodeRpcFailure)
 
   let pushResponseRes = decodeRespRes.get()
-  if pushResponseRes.response == PushResponse():
+  if pushResponseRes.response.isNone():
     waku_lightpush_errors.inc(labelValues = [emptyResponseBodyFailure])
     return err(emptyResponseBodyFailure)
 
-  let response = pushResponseRes.response
+  let response = pushResponseRes.response.get()
   if not response.isSuccess:
-    if response.info != "":
-      return err(response.info)
+    if response.info.isSome():
+      return err(response.info.get())
     else:
       return err("unknown failure")
 
