@@ -35,7 +35,7 @@ procSuite "Peer Manager":
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60802))
       peerInfo2 = node2.switch.peerInfo
-    
+
     await allFutures([node1.start(), node2.start()])
 
     await node1.mountRelay()
@@ -48,7 +48,7 @@ procSuite "Peer Manager":
     check:
       conn.activity
       conn.peerId == peerInfo2.peerId
-    
+
     # Check that node2 is being managed in node1
     check:
       node1.peerManager.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
@@ -56,9 +56,9 @@ procSuite "Peer Manager":
     # Check connectedness
     check:
       node1.peerManager.peerStore.connectedness(peerInfo2.peerId) == Connectedness.Connected
-    
+
     await allFutures([node1.stop(), node2.stop()])
-  
+
   asyncTest "Dialing fails gracefully":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
@@ -66,7 +66,7 @@ procSuite "Peer Manager":
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60812))
       peerInfo2 = node2.switch.peerInfo
-    
+
     await node1.start()
     # Purposefully don't start node2
 
@@ -79,7 +79,7 @@ procSuite "Peer Manager":
     # Check connection failed gracefully
     check:
       connOpt.isNone()
-    
+
     await node1.stop()
 
   asyncTest "Adding, selecting and filtering peers work":
@@ -98,7 +98,7 @@ procSuite "Peer Manager":
       storeLoc = MultiAddress.init("/ip4/127.0.0.3/tcp/4").tryGet()
       storeKey = crypto.PrivateKey.random(ECDSA, rng[]).get()
       storePeer = PeerInfo.new(storeKey, @[storeLoc])
-    
+
     await node.start()
 
     await node.mountFilterClient()
@@ -106,7 +106,7 @@ procSuite "Peer Manager":
     node.mountStoreClient()
 
     node.wakuSwap.setPeer(swapPeer.toRemotePeerInfo())
-    
+
     node.setStorePeer(storePeer.toRemotePeerInfo())
     node.setFilterPeer(filterPeer.toRemotePeerInfo())
 
@@ -122,9 +122,9 @@ procSuite "Peer Manager":
       node.peerManager.peerStore.peers(WakuStoreCodec).allIt(it.peerId == storePeer.peerId and
                                                              it.addrs.contains(storeLoc) and
                                                              it.protos.contains(WakuStoreCodec))
-    
+
     await node.stop()
-  
+
 
   asyncTest "Peer manager keeps track of connections":
     let
@@ -133,7 +133,7 @@ procSuite "Peer Manager":
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60832))
       peerInfo2 = node2.switch.peerInfo
-    
+
     await node1.start()
 
     await node1.mountRelay()
@@ -164,7 +164,7 @@ procSuite "Peer Manager":
     check:
       # Not currently connected to node2, but had recent, successful connection.
       node1.peerManager.peerStore.connectedness(peerInfo2.peerId) == CanConnect
-    
+
     await node2.stop()
 
   asyncTest "Peer manager can use persistent storage and survive restarts":
@@ -174,9 +174,9 @@ procSuite "Peer Manager":
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60840), peerStorage = storage)
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60842)) 
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60842))
       peerInfo2 = node2.switch.peerInfo
-    
+
     await node1.start()
     await node2.start()
 
@@ -194,7 +194,7 @@ procSuite "Peer Manager":
     let
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60844), peerStorage = storage)
-    
+
     await node3.start()
     check:
       # Node2 has been loaded after "restart", but we have not yet reconnected
@@ -203,15 +203,15 @@ procSuite "Peer Manager":
       node3.peerManager.peerStore.connectedness(peerInfo2.peerId) == NotConnected
 
     await node3.mountRelay()  # This should trigger a reconnect
-    
+
     check:
       # Reconnected to node2 after "restart"
       node3.peerManager.peerStore.peers().len == 1
       node3.peerManager.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
       node3.peerManager.peerStore.connectedness(peerInfo2.peerId) == Connected
-    
+
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
-  
+
   # TODO: nwaku/issues/1377
   xasyncTest "Peer manager support multiple protocol IDs when reconnecting to peers":
     let
@@ -224,7 +224,7 @@ procSuite "Peer Manager":
       peerInfo2 = node2.switch.peerInfo
       betaCodec = "/vac/waku/relay/2.0.0-beta2"
       stableCodec = "/vac/waku/relay/2.0.0"
-    
+
     await node1.start()
     await node2.start()
 
@@ -245,7 +245,7 @@ procSuite "Peer Manager":
     let
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60854), peerStorage = storage)
-    
+
     await node3.mountRelay()
     node3.wakuRelay.codec = stableCodec
     check:
@@ -257,7 +257,7 @@ procSuite "Peer Manager":
       node3.peerManager.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
       node3.peerManager.peerStore.peers().anyIt(it.protos.contains(betaCodec))
       node3.peerManager.peerStore.connectedness(peerInfo2.peerId) == NotConnected
-    
+
     await node3.start() # This should trigger a reconnect
 
     check:
@@ -267,5 +267,5 @@ procSuite "Peer Manager":
       node3.peerManager.peerStore.peers().anyIt(it.protos.contains(betaCodec))
       node3.peerManager.peerStore.peers().anyIt(it.protos.contains(stableCodec))
       node3.peerManager.peerStore.connectedness(peerInfo2.peerId) == Connected
-    
+
     await allFutures([node1.stop(), node2.stop(), node3.stop()])

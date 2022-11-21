@@ -34,7 +34,7 @@ proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
     extra_params &= " " & paramStr(i)
   exec "nim " & lang & " --out:build/" & name & " " & extra_params & " " & srcDir & name & ".nim"
 
-proc test(name: string, params = "-d:chronicles_log_level=WARN", lang = "c") =
+proc test(name: string, params = "-d:chronicles_log_level=DEBUG", lang = "c") =
   # XXX: When running `> NIM_PARAMS="-d:chronicles_log_level=INFO" make test2`
   # I expect compiler flag to be overridden, however it stays with whatever is
   # specified here.
