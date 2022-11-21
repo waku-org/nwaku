@@ -4,6 +4,8 @@ else:
   {.push raises: [].}
 
 import
+  std/options
+import
   ../../../common/protobuf,
   ../waku_message,
   ./rpc
@@ -24,17 +26,21 @@ proc encode*(filter: ContentFilter): ProtoBuffer =
 
 proc decode*(T: type ContentFilter, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
+  var rpc = ContentFilter()
 
-  var contentTopic: ContentTopic
-  discard ?pb.getField(1, contentTopic)
+  var contentTopic: string
+  if not ?pb.getField(1, contentTopic):
+    return err(ProtoError.RequiredFieldMissing)
+  else:
+    rpc.contentTopic = contentTopic
 
-  ok(ContentFilter(contentTopic: contentTopic))
+  ok(rpc)
 
 
 proc encode*(rpc: FilterRequest): ProtoBuffer =
   var pb = initProtoBuffer()
 
-  pb.write3(1, uint64(rpc.subscribe))
+  pb.write3(1, rpc.subscribe)
   pb.write3(2, rpc.pubSubTopic)
 
   for filter in rpc.contentFilters:
@@ -46,20 +52,27 @@ proc encode*(rpc: FilterRequest): ProtoBuffer =
 
 proc decode*(T: type FilterRequest, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
-  var rpc = FilterRequest(contentFilters: @[], pubSubTopic: "")
+  var rpc = FilterRequest()
 
   var subflag: uint64
-  if ?pb.getField(1, subflag):
+  if not ?pb.getField(1, subflag):
+    return err(ProtoError.RequiredFieldMissing)
+  else:
     rpc.subscribe = bool(subflag)
 
-  var pubSubTopic: PubsubTopic
-  discard ?pb.getField(2, pubSubTopic)
-  rpc.pubSubTopic = pubSubTopic
+  var pubsubTopic: string
+  if not ?pb.getField(2, pubsubTopic):
+    return err(ProtoError.RequiredFieldMissing)
+  else:
+    rpc.pubsubTopic = pubsubTopic
 
   var buffs: seq[seq[byte]]
-  discard ?pb.getRepeatedField(3, buffs)
-  for buf in buffs:
-    rpc.contentFilters.add(?ContentFilter.decode(buf))
+  if not ?pb.getRepeatedField(3, buffs):
+    return err(ProtoError.RequiredFieldMissing)
+  else:
+    for buf in buffs:
+      let filter = ?ContentFilter.decode(buf)
+      rpc.contentFilters.add(filter)
 
   ok(rpc)
 
@@ -76,23 +89,25 @@ proc encode*(push: MessagePush): ProtoBuffer =
 
 proc decode*(T: type MessagePush, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
-  var push = MessagePush()
+  var rpc = MessagePush()
 
   var messages: seq[seq[byte]]
-  discard ?pb.getRepeatedField(1, messages)
+  if not ?pb.getRepeatedField(1, messages):
+    return err(ProtoError.RequiredFieldMissing)
+  else:
+    for buf in messages:
+      let msg = ?WakuMessage.decode(buf)
+      rpc.messages.add(msg)
 
-  for buf in messages:
-    push.messages.add(?WakuMessage.decode(buf))
-
-  ok(push)
+  ok(rpc)
 
 
 proc encode*(rpc: FilterRPC): ProtoBuffer =
   var pb = initProtoBuffer()
 
   pb.write3(1, rpc.requestId)
-  pb.write3(2, rpc.request.encode())
-  pb.write3(3, rpc.push.encode())
+  pb.write3(2, rpc.request.map(encode))
+  pb.write3(3, rpc.push.map(encode))
   pb.finish3()
 
   pb
@@ -102,15 +117,23 @@ proc decode*(T: type FilterRPC, buffer: seq[byte]): ProtoResult[T] =
   var rpc = FilterRPC()
 
   var requestId: string
-  discard ?pb.getField(1, requestId)
-  rpc.requestId = requestId
+  if not ?pb.getField(1, requestId):
+    return err(ProtoError.RequiredFieldMissing)
+  else:
+    rpc.requestId = requestId
 
   var requestBuffer: seq[byte]
-  discard ?pb.getField(2, requestBuffer)
-  rpc.request = ?FilterRequest.decode(requestBuffer)
+  if not ?pb.getField(2, requestBuffer):
+    rpc.request = none(FilterRequest)
+  else:
+    let request = ?FilterRequest.decode(requestBuffer)
+    rpc.request = some(request)
 
   var pushBuffer: seq[byte]
-  discard ?pb.getField(3, pushBuffer)
-  rpc.push = ?MessagePush.decode(pushBuffer)
+  if not ?pb.getField(3, pushBuffer):
+    rpc.push = none(MessagePush)
+  else:
+    let push = ?MessagePush.decode(pushBuffer)
+    rpc.push = some(push)
 
   ok(rpc)

@@ -10,7 +10,7 @@ import
   std/[tables, times, sequtils, options, algorithm],
   stew/results,
   chronicles,
-  chronos, 
+  chronos,
   bearssl/rand,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
@@ -22,7 +22,6 @@ import
   ../../node/peer_manager/peer_manager,
   ../../utils/time,
   ../waku_message,
-  ../waku_swap/waku_swap,
   ./common,
   ./rpc,
   ./rpc_codec,
@@ -34,7 +33,7 @@ logScope:
   topics = "waku store"
 
 
-const 
+const
   MaxMessageTimestampVariance* = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift"
 
 
@@ -43,7 +42,6 @@ type
     peerManager*: PeerManager
     rng*: ref rand.HmacDrbgContext
     store*: MessageStore
-    wakuSwap*: WakuSwap
     retentionPolicy: Option[MessageRetentionPolicy]
 
 
@@ -63,7 +61,7 @@ proc executeMessageRetentionPolicy*(w: WakuStore) =
       debug "failed execution of retention policy", error=retPolicyRes.error
 
 # TODO: Move to a message store wrapper
-proc reportStoredMessagesMetric*(w: WakuStore) = 
+proc reportStoredMessagesMetric*(w: WakuStore) =
   if w.store.isNil():
     return
 
@@ -78,7 +76,7 @@ proc isValidMessage(msg: WakuMessage): bool =
   if msg.timestamp == 0:
     return true
 
-  let 
+  let
     now = getNanosecondTime(getTime().toUnixFloat())
     lowerBound = now - MaxMessageTimestampVariance
     upperBound = now + MaxMessageTimestampVariance
@@ -94,19 +92,19 @@ proc handleMessage*(w: WakuStore, pubsubTopic: PubsubTopic, msg: WakuMessage) =
   if msg.ephemeral:
     # The message is ephemeral, should not be stored
     return
-  
+
   if not isValidMessage(msg):
     waku_store_errors.inc(labelValues = [invalidMessage])
     return
 
 
   let insertStartTime = getTime().toUnixFloat()
-  
+
   block:
     let
-      msgDigest = computeDigest(msg) 
+      msgDigest = computeDigest(msg)
       msgReceivedTime = if msg.timestamp > 0: msg.timestamp
-                        else: getNanosecondTime(getTime().toUnixFloat()) 
+                        else: getNanosecondTime(getTime().toUnixFloat())
 
     trace "handling message", pubsubTopic=pubsubTopic, contentTopic=msg.contentTopic, timestamp=msg.timestamp, digest=msgDigest
 
@@ -123,14 +121,14 @@ proc handleMessage*(w: WakuStore, pubsubTopic: PubsubTopic, msg: WakuMessage) =
 # TODO: Move to a message store wrapper
 proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResult {.gcsafe.} =
   ## Query history to return a single page of messages matching the query
-  
+
   # Extract query criteria. All query criteria are optional
   let
     qContentTopics = if query.contentTopics.len == 0: none(seq[ContentTopic])
                      else: some(query.contentTopics)
     qPubSubTopic = query.pubsubTopic
     qCursor = query.cursor
-    qStartTime = query.startTime 
+    qStartTime = query.startTime
     qEndTime = query.endTime
     qMaxPageSize = if query.pageSize <= 0: DefaultPageSize
                    else: min(query.pageSize, MaxPageSize)
@@ -138,7 +136,7 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResult {.gcsafe.} =
 
 
   let queryStartTime = getTime().toUnixFloat()
-  
+
   let queryRes = w.store.getMessagesByHistoryQuery(
         contentTopic = qContentTopics,
         pubsubTopic = qPubSubTopic,
@@ -159,15 +157,15 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResult {.gcsafe.} =
     return err(HistoryError(kind: HistoryErrorKind.UNKNOWN))
 
   let rows = queryRes.get()
-  
+
   if rows.len <= 0:
     return ok(HistoryResponse(
-      messages: @[], 
+      messages: @[],
       pageSize: 0,
       ascending: qAscendingOrder,
       cursor: none(HistoryCursor)
     ))
-  
+
 
   var messages = if rows.len <= int(qMaxPageSize): rows.mapIt(it[1])
                  else: rows[0..^2].mapIt(it[1])
@@ -177,7 +175,7 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResult {.gcsafe.} =
   if not qAscendingOrder:
     messages.reverse()
 
-  
+
   if rows.len > int(qMaxPageSize):
     ## Build last message cursor
     ## The cursor is built from the last message INCLUDED in the response
@@ -190,7 +188,7 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResult {.gcsafe.} =
       messageDigest[i] = digest[i]
 
     cursor = some(HistoryCursor(
-      pubsubTopic: pubsubTopic, 
+      pubsubTopic: pubsubTopic,
       senderTime: message.timestamp,
       storeTime: storeTimestamp,
       digest: MessageDigest(data: messageDigest)
@@ -198,7 +196,7 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResult {.gcsafe.} =
 
 
   ok(HistoryResponse(
-    messages: messages, 
+    messages: messages,
     pageSize: uint64(messages.len),
     ascending: qAscendingOrder,
     cursor: cursor
@@ -207,8 +205,8 @@ proc findMessages(w: WakuStore, query: HistoryQuery): HistoryResult {.gcsafe.} =
 
 ## Protocol
 
-proc initProtocolHandler*(ws: WakuStore) =
-  
+proc initProtocolHandler(ws: WakuStore) =
+
   proc handler(conn: Connection, proto: string) {.async.} =
     let buf = await conn.readLp(MaxRpcSize.int)
 
@@ -233,9 +231,9 @@ proc initProtocolHandler*(ws: WakuStore) =
     waku_store_queries.inc()
 
 
-    if ws.store.isNil(): 
+    if ws.store.isNil():
       let respErr = HistoryError(kind: HistoryErrorKind.SERVICE_UNAVAILABLE)
-      
+
       error "history query failed", peerId=conn.peerId, requestId=reqRpc.requestId, error= $respErr
 
       let resp = HistoryResponseRPC(error: respErr.toRPC())
@@ -245,7 +243,7 @@ proc initProtocolHandler*(ws: WakuStore) =
 
 
     let query = reqRpc.query.get().toAPI()
-    
+
     let respRes = ws.findMessages(query)
 
     if respRes.isErr():
@@ -259,16 +257,6 @@ proc initProtocolHandler*(ws: WakuStore) =
 
     let resp = respRes.toRPC()
 
-    if not ws.wakuSwap.isNil():
-      info "handle store swap", peerId=conn.peerId, requestId=reqRpc.requestId, text=ws.wakuSwap.text
-
-      # Perform accounting operation
-      # TODO: Do accounting here, response is HistoryResponseRPC. How do we get node or swap context?
-      let peerId = conn.peerId
-      let messages = resp.messages
-      ws.wakuSwap.credit(peerId, messages.len)
-
-
     info "sending history response", peerId=conn.peerId, requestId=reqRpc.requestId, messages=resp.messages.len
 
     let rpc = HistoryRPC(requestId: reqRpc.requestId, response: some(resp))
@@ -277,17 +265,15 @@ proc initProtocolHandler*(ws: WakuStore) =
   ws.handler = handler
   ws.codec = WakuStoreCodec
 
-proc new*(T: type WakuStore, 
-           peerManager: PeerManager, 
+proc new*(T: type WakuStore,
+           peerManager: PeerManager,
            rng: ref rand.HmacDrbgContext,
-           store: MessageStore, 
-           wakuSwap: WakuSwap = nil, 
+           store: MessageStore,
            retentionPolicy=none(MessageRetentionPolicy)): T =
   let ws = WakuStore(
-    rng: rng, 
-    peerManager: peerManager, 
-    store: store, 
-    wakuSwap: wakuSwap, 
+    rng: rng,
+    peerManager: peerManager,
+    store: store,
     retentionPolicy: retentionPolicy
   )
   ws.initProtocolHandler()
