@@ -854,14 +854,22 @@ suite "Waku rln relay":
     for index, x in shareX3.mpairs: shareX3[index] = 3
     let shareY3 = shareX3
 
-    ## TODO: when zerokit rln is integrated, RateLimitProof should be initialized passing a rlnIdentifier too (now implicitely set to 0)
+    proc encodeAndGetBuf(proof: RateLimitProof): seq[byte] =
+      return proof.encode().buffer
+
     let
       wm1 = WakuMessage(proof: RateLimitProof(epoch: epoch,
-          nullifier: nullifier1, shareX: shareX1, shareY: shareY1))
+                                              nullifier: nullifier1, 
+                                              shareX: shareX1, 
+                                              shareY: shareY1).encodeAndGetBuf())
       wm2 = WakuMessage(proof: RateLimitProof(epoch: epoch,
-          nullifier: nullifier2, shareX: shareX2, shareY: shareY2))
+                                              nullifier: nullifier2, 
+                                              shareX: shareX2, 
+                                              shareY: shareY2).encodeAndGetBuf())
       wm3 = WakuMessage(proof: RateLimitProof(epoch: epoch,
-          nullifier: nullifier3, shareX: shareX3, shareY: shareY3))
+                                              nullifier: nullifier3, 
+                                              shareX: shareX3, 
+                                              shareY: shareY3).encodeAndGetBuf())
 
     # check whether hasDuplicate correctly finds records with the same nullifiers but different secret shares
     # no duplicate for wm1 should be found, since the log is empty

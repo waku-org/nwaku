@@ -15,18 +15,14 @@ import
   ../../common/protobuf,
   ../utils/time
 
-when defined(rln):
-  import
-    ./waku_rln_relay/protocol_types
-
-
 const MaxWakuMessageSize* = 1024 * 1024 # In bytes. Corresponds to PubSub default
+
 
 type
   PubsubTopic* = string
   ContentTopic* = string
 
-const 
+const
   DefaultPubsubTopic*: PubsubTopic = PubsubTopic("/waku/2/default-waku/proto")
   DefaultContentTopic*: ContentTopic = ContentTopic("/waku/2/default-content/proto")
 
@@ -41,9 +37,9 @@ type WakuMessage* = object
     # this field will be used in the rln-relay protocol
     # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec and not yet part of WakuMessage spec
     when defined(rln):
-      proof*: RateLimitProof
+      proof*: seq[byte]
     # The ephemeral field indicates if the message should
-    # be stored. bools and uints are 
+    # be stored. bools and uints are
     # equivalent in serialization of the protobuf
     ephemeral*: bool
 
@@ -58,7 +54,7 @@ proc encode*(message: WakuMessage): ProtoBuffer =
   buf.write3(3, message.version)
   buf.write3(10, zint64(message.timestamp))
   when defined(rln):
-    buf.write3(21, message.proof.encode())
+    buf.write3(21, message.proof)
   buf.write3(31, uint64(message.ephemeral))
   buf.finish3()
 
@@ -76,11 +72,11 @@ proc decode*(T: type WakuMessage, buffer: seq[byte]): ProtoResult[T] =
   discard ?pb.getField(10, timestamp)
   msg.timestamp = Timestamp(timestamp)
 
-  # XXX Experimental, this is part of https://rfc.vac.dev/spec/17/ spec
+  # Experimental: this is part of https://rfc.vac.dev/spec/17/ spec
   when defined(rln):
     var proofBytes: seq[byte]
-    discard ?pb.getField(21, proofBytes)
-    msg.proof = ?RateLimitProof.init(proofBytes)
+    if ?pb.getField(21, proofBytes):
+      msg.proof = proofBytes
 
   var ephemeral: uint
   if ?pb.getField(31, ephemeral):

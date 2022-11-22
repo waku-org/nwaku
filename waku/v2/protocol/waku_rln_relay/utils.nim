@@ -583,20 +583,29 @@ proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): RlnRelayResult[bool
   ## otherwise, returns false
   ## Returns an error if it cannot check for duplicates
 
+  let decodeRes = RateLimitProof.init(msg.proof)
+  if decodeRes.isErr():
+    return err("failed to decode the RLN proof")
+
+  let proof = decodeRes.get()
+
   # extract the proof metadata of the supplied `msg`
-  let proofMD = ProofMetadata(nullifier: msg.proof.nullifier,
-      shareX: msg.proof.shareX, shareY: msg.proof.shareY)
+  let proofMD = ProofMetadata(
+    nullifier: proof.nullifier, 
+    shareX: proof.shareX, 
+    shareY: proof.shareY
+  )
 
   # check if the epoch exists
-  if not rlnPeer.nullifierLog.hasKey(msg.proof.epoch):
+  if not rlnPeer.nullifierLog.hasKey(proof.epoch):
     return ok(false)
   try:
-    if rlnPeer.nullifierLog[msg.proof.epoch].contains(proofMD):
+    if rlnPeer.nullifierLog[proof.epoch].contains(proofMD):
       # there is an identical record, ignore rhe mag
       return ok(false)
 
     # check for a message with the same nullifier but different secret shares
-    let matched = rlnPeer.nullifierLog[msg.proof.epoch].filterIt((
+    let matched = rlnPeer.nullifierLog[proof.epoch].filterIt((
         it.nullifier == proofMD.nullifier) and ((it.shareX != proofMD.shareX) or
         (it.shareY != proofMD.shareY)))
 
@@ -615,21 +624,31 @@ proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): RlnRelayResult[bool] =
   ## saves it in the `nullifierLog` of the `rlnPeer`
   ## Returns an error if it cannot update the log
 
-  let proofMD = ProofMetadata(nullifier: msg.proof.nullifier,
-      shareX: msg.proof.shareX, shareY: msg.proof.shareY)
+  let decodeRes = RateLimitProof.init(msg.proof)
+  if decodeRes.isErr():
+    return err("failed to decode the RLN proof")
+
+  let proof = decodeRes.get()
+
+  # extract the proof metadata of the supplied `msg`
+  let proofMD = ProofMetadata(
+    nullifier: proof.nullifier, 
+    shareX: proof.shareX, 
+    shareY: proof.shareY
+  )
   debug "proof metadata", proofMD = proofMD
 
   # check if the epoch exists
-  if not rlnPeer.nullifierLog.hasKey(msg.proof.epoch):
-    rlnPeer.nullifierLog[msg.proof.epoch] = @[proofMD]
+  if not rlnPeer.nullifierLog.hasKey(proof.epoch):
+    rlnPeer.nullifierLog[proof.epoch] = @[proofMD]
     return ok(true)
 
   try:
     # check if an identical record exists
-    if rlnPeer.nullifierLog[msg.proof.epoch].contains(proofMD):
+    if rlnPeer.nullifierLog[proof.epoch].contains(proofMD):
       return ok(true)
     # add proofMD to the log
-    rlnPeer.nullifierLog[msg.proof.epoch].add(proofMD)
+    rlnPeer.nullifierLog[proof.epoch].add(proofMD)
     return ok(true)
   except KeyError as e:
     return err("the epoch was not found")
@@ -680,6 +699,11 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
   ## the `msg` does not violate the rate limit
   ## `timeOption` indicates Unix epoch time (fractional part holds sub-seconds)
   ## if `timeOption` is supplied, then the current epoch is calculated based on that
+  let decodeRes = RateLimitProof.init(msg.proof)
+  if decodeRes.isErr():
+    return MessageValidationResult.Invalid
+
+  let proof = decodeRes.get()
 
   # track message count for metrics
   waku_rln_messages_total.inc()
@@ -695,7 +719,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
 
   debug "current epoch", currentEpoch = fromEpoch(epoch)
   let
-    msgEpoch = msg.proof.epoch
+    msgEpoch = proof.epoch
     # calculate the gaps
     gap = absDiff(epoch, msgEpoch)
 
@@ -711,8 +735,8 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
     return MessageValidationResult.Invalid
 
   ## TODO: FIXME after resolving this issue https://github.com/status-im/nwaku/issues/1247
-  if not rlnPeer.validateRoot(msg.proof.merkleRoot):
-    debug "invalid message: provided root does not belong to acceptable window of roots", provided=msg.proof.merkleRoot, validRoots=rlnPeer.validMerkleRoots.mapIt(it.inHex())
+  if not rlnPeer.validateRoot(proof.merkleRoot):
+    debug "invalid message: provided root does not belong to acceptable window of roots", provided=proof.merkleRoot, validRoots=rlnPeer.validMerkleRoots.mapIt(it.inHex())
     waku_rln_invalid_messages_total.inc(labelValues=["invalid_root"])
   #   return MessageValidationResult.Invalid
 
@@ -723,7 +747,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
 
   waku_rln_proof_verification_total.inc()
   waku_rln_proof_verification_duration_seconds.nanosecondTime:
-    let proofVerificationRes = rlnPeer.rlnInstance.proofVerify(input, msg.proof)
+    let proofVerificationRes = rlnPeer.rlnInstance.proofVerify(input, proof)
 
   if proofVerificationRes.isErr():
     waku_rln_errors_total.inc(labelValues=["proof_verification"])
@@ -749,7 +773,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
   # it will never error out
   discard rlnPeer.updateLog(msg)
   debug "message is valid", payload = string.fromBytes(msg.payload)
-  let rootIndex = rlnPeer.validMerkleRoots.find(msg.proof.merkleRoot)
+  let rootIndex = rlnPeer.validMerkleRoots.find(proof.merkleRoot)
   waku_rln_valid_messages_total.observe(rootIndex.toFloat())
   return MessageValidationResult.Valid
 
@@ -775,10 +799,10 @@ proc appendRLNProof*(rlnPeer: WakuRLNRelay, msg: var WakuMessage,
                      memIndex = rlnPeer.membershipIndex,
                      epoch = calcEpoch(senderEpochTime))
 
-  if proof.isErr:
+  if proof.isErr():
     return false
 
-  msg.proof = proof.value
+  msg.proof = proof.value.encode().buffer
   return true
 
 proc addAll*(wakuRlnRelay: WakuRLNRelay, list: seq[IDCommitment]): RlnRelayResult[void] =
@@ -955,10 +979,10 @@ proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopi
   ## the message validation logic is according to https://rfc.vac.dev/spec/17/
   proc validator(topic: string, message: messages.Message): Future[pubsub.ValidationResult] {.async.} =
     trace "rln-relay topic validator is called"
-    let msg = WakuMessage.decode(message.data) 
-    if msg.isOk():
+    let decodeRes = WakuMessage.decode(message.data) 
+    if decodeRes.isOk():
       let 
-        wakumessage = msg.value()
+        wakumessage = decodeRes.value
         payload = string.fromBytes(wakumessage.payload)
 
       # check the contentTopic
@@ -966,15 +990,22 @@ proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopi
         trace "content topic did not match:", contentTopic=wakumessage.contentTopic, payload=payload
         return pubsub.ValidationResult.Accept
 
+
+      let decodeRes = RateLimitProof.init(wakumessage.proof)
+      if decodeRes.isErr():
+        return pubsub.ValidationResult.Reject
+
+      let msgProof = decodeRes.get()
+
       # validate the message
       let 
         validationRes = node.wakuRlnRelay.validateMessage(wakumessage)
-        proof = toHex(wakumessage.proof.proof)
-        epoch = fromEpoch(wakumessage.proof.epoch)
-        root = inHex(wakumessage.proof.merkleRoot)
-        shareX = inHex(wakumessage.proof.shareX)
-        shareY = inHex(wakumessage.proof.shareY)
-        nullifier = inHex(wakumessage.proof.nullifier)
+        proof = toHex(msgProof.proof)
+        epoch = fromEpoch(msgProof.epoch)
+        root = inHex(msgProof.merkleRoot)
+        shareX = inHex(msgProof.shareX)
+        shareY = inHex(msgProof.shareY)
+        nullifier = inHex(msgProof.nullifier)
       case validationRes:
         of Valid:
           debug "message validity is verified, relaying:",  contentTopic=wakumessage.contentTopic, epoch=epoch, timestamp=wakumessage.timestamp, payload=payload
@@ -987,10 +1018,10 @@ proc addRLNRelayValidator*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopi
         of Spam:
           debug "A spam message is found! yay! discarding:", contentTopic=wakumessage.contentTopic, epoch=epoch, timestamp=wakumessage.timestamp, payload=payload
           trace "A spam message is found! yay! discarding:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
-          if spamHandler.isSome:
-            let handler = spamHandler.get
+          if spamHandler.isSome():
+            let handler = spamHandler.get()
             handler(wakumessage)
-          return pubsub.ValidationResult.Reject          
+          return pubsub.ValidationResult.Reject
   # set a validator for the supplied pubsubTopic 
   let pb  = PubSub(node.wakuRelay)
   pb.addValidator(pubsubTopic, validator)
