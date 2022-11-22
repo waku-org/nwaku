@@ -146,7 +146,8 @@ proc new*(T: type WakuNode,
           sendSignedPeerRecord = false,
           dns4DomainName = none(string),
           discv5UdpPort = none(Port),
-          agentString = none(string), # defaults to nim-libp2p version
+          agentString = none(string),    # defaults to nim-libp2p version
+          peerStoreCapacity = none(int), # defaults to nim-libp2p max size
           ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
   ## Creates a Waku Node instance.
 
@@ -217,7 +218,8 @@ proc new*(T: type WakuNode,
     secureCertPath = secureCert,
     nameResolver = nameResolver,
     sendSignedPeerRecord = sendSignedPeerRecord,
-    agentString = agentString
+    agentString = agentString,
+    peerStoreCapacity = peerStoreCapacity,
   )
 
   let wakuNode = WakuNode(

@@ -13,7 +13,7 @@ import
 
 export peerstore, builders
 
-# TODO rename to peer_store_extended? its no longer a custom one but a nimlibp2 extension
+# TODO rename to peer_store_extended to emphasize its a nimlibp2 extension
 
 type
   Connectedness* = enum
@@ -31,7 +31,7 @@ type
     Discv5,
     Static,
     Dns
-  
+
   # Keeps track of the Connectedness state of a peer
   ConnectionBook* = ref object of PeerBook[Connectedness]
 
@@ -40,7 +40,7 @@ type
 
   # Keeps track of the origin of a peer
   SourceBook* = ref object of PeerBook[PeerOrigin]
-  
+
   StoredInfo* = object
     # Taken from nim-libp2
     peerId*: PeerId
@@ -55,7 +55,7 @@ type
     disconnectTime*: int64
     origin*: PeerOrigin
 
-##################  
+##################
 # Peer Store API #
 ##################
 
@@ -93,7 +93,6 @@ proc peers*(peerStore: PeerStore, protocolMatcher: Matcher): seq[StoredInfo] =
   # Return the known info for all peers matching the provided protocolMatcher
   peerStore.peers.filterIt(it.protos.anyIt(protocolMatcher(it)))
 
-# TODO: Perhaps its place its utils/peers with the other toRemotePeerInfo?
 proc toRemotePeerInfo*(storedInfo: StoredInfo): RemotePeerInfo =
   RemotePeerInfo.init(peerId = storedInfo.peerId,
                       addrs = toSeq(storedInfo.addrs),
