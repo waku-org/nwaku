@@ -45,12 +45,23 @@ Setting up a `wakunode2` on the smallest [digital ocean](https://docs.digitaloce
 make test2
 ```
 
-You can also run a specific test (and alter compile options as you want):
+To run a specific test.
 ```bash
 # Get a shell with the right environment variables set
 ./env.sh bash
 # Run a specific test
 nim c -r ./tests/v2/test_waku_filter.nim
+```
+
+You can also alter compile options. For example, if you want a less verbose output you can do the following. For more, refer to the [compiler flags](https://nim-lang.org/docs/nimc.html#compiler-usage) and [chronicles documentation](https://github.com/status-im/nim-chronicles#compile-time-configuration).
+
+```bash
+nim c -r -d:chronicles_log_level=WARN --verbosity=0 --hints=off ./tests/v2/test_waku_filter.nim
+```
+
+You may also want to change the `outdir` to a folder ignored by git.
+```bash
+nim c -r -d:chronicles_log_level=WARN --verbosity=0 --hints=off --outdir=build ./tests/v2/test_waku_filter.nim
 ```
 
 ### Waku v2 Protocol Example
