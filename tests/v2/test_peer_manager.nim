@@ -5,6 +5,7 @@ import
   stew/shims/net as stewNet,
   testutils/unittests,
   chronicles,
+  chronos,
   json_rpc/rpcserver,
   json_rpc/rpcclient,
   eth/keys,
@@ -269,3 +270,47 @@ procSuite "Peer Manager":
       node3.peerManager.peerStore.connectedness(peerInfo2.peerId) == Connected
 
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
+
+  asyncTest "Peer manager connects to all peers supporting a given protocol":
+    # Create 4 nodes
+    var nodes: seq[WakuNode]
+    for i in 0..<4:
+      let nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      let node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(60860 + i))
+      nodes &= node
+
+    # Start them
+    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.mountRelay()))
+
+    # Get all peer infos
+    let peerInfos = nodes.mapIt(it.switch.peerInfo.toRemotePeerInfo())
+
+    # Add all peers (but self) to node 0
+    nodes[0].peerManager.addPeer(peerInfos[1], WakuRelayCodec)
+    nodes[0].peerManager.addPeer(peerInfos[2], WakuRelayCodec)
+    nodes[0].peerManager.addPeer(peerInfos[3], WakuRelayCodec)
+
+    # Attempt to connect to all known peers supporting a given protocol
+    await nodes[0].peerManager.reconnectPeers(WakuRelayCodec, protocolMatcher(WakuRelayCodec))
+
+    check:
+      # Peerstore track all three peers
+      nodes[0].peerManager.peerStore.peers().len == 3
+
+      # All peer ids are correct
+      nodes[0].peerManager.peerStore.peers().anyIt(it.peerId == nodes[1].switch.peerInfo.peerId)
+      nodes[0].peerManager.peerStore.peers().anyIt(it.peerId == nodes[2].switch.peerInfo.peerId)
+      nodes[0].peerManager.peerStore.peers().anyIt(it.peerId == nodes[3].switch.peerInfo.peerId)
+
+      # All peers support the relay protocol
+      nodes[0].peerManager.peerStore[ProtoBook][nodes[1].switch.peerInfo.peerId].contains(WakuRelayCodec)
+      nodes[0].peerManager.peerStore[ProtoBook][nodes[2].switch.peerInfo.peerId].contains(WakuRelayCodec)
+      nodes[0].peerManager.peerStore[ProtoBook][nodes[3].switch.peerInfo.peerId].contains(WakuRelayCodec)
+
+      # All peers are connected
+      nodes[0].peerManager.peerStore[ConnectionBook][nodes[1].switch.peerInfo.peerId] == Connected
+      nodes[0].peerManager.peerStore[ConnectionBook][nodes[2].switch.peerInfo.peerId] == Connected
+      nodes[0].peerManager.peerStore[ConnectionBook][nodes[3].switch.peerInfo.peerId] == Connected
+
+    await allFutures(nodes.mapIt(it.stop()))

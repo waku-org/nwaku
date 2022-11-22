@@ -158,7 +158,6 @@ proc new*(T: type PeerManager, switch: Switch, storage: PeerStorage = nil): Peer
 # Manager interface #
 #####################
 
-# TODO: Move to peer store and unit test
 proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string) =
   # Adds peer to manager for the specified protocol
 
@@ -195,30 +194,25 @@ proc reconnectPeers*(pm: PeerManager,
   debug "Reconnecting peers", proto=proto
 
   for storedInfo in pm.peerStore.peers(protocolMatcher):
-    # Check that peer exists and can be connected
-    if storedInfo.peerId notin pm.peerStore[ConnectionBook] or
-       pm.peerStore[ConnectionBook][storedInfo.peerId] == CannotConnect:
+    # Check that the peer can be connected
+    if storedInfo.connection == CannotConnect:
       debug "Not reconnecting to unreachable or non-existing peer", peerId=storedInfo.peerId
       continue
 
     # Respect optional backoff period where applicable.
     let
-      disconnectTime = Moment.init(pm.peerStore[DisconnectBook][storedInfo.peerId], Second)  # Convert
+      # TODO: Add method to peerStore (eg isBackoffExpired())
+      disconnectTime = Moment.init(storedInfo.disconnectTime, Second)  # Convert
       currentTime = Moment.init(getTime().toUnix, Second) # Current time comparable to persisted value
       backoffTime = disconnectTime + backoff - currentTime # Consider time elapsed since last disconnect
 
     trace "Respecting backoff", backoff=backoff, disconnectTime=disconnectTime, currentTime=currentTime, backoffTime=backoffTime
 
+    # TODO: This blocks the whole function. Try to connect to another peer in the meantime.
     if backoffTime > ZeroDuration:
       debug "Backing off before reconnect...", peerId=storedInfo.peerId, backoffTime=backoffTime
       # We disconnected recently and still need to wait for a backoff period before connecting
       await sleepAsync(backoffTime)
-
-    # Add to protos for peer, if it has not been added yet
-    if not pm.peerStore.get(storedInfo.peerId).protos.contains(proto):
-      let remotePeerInfo = storedInfo.toRemotePeerInfo()
-      trace "Adding newly dialed peer to manager", peerId = remotePeerInfo.peerId, addr = remotePeerInfo.addrs[0], proto = proto
-      pm.addPeer(remotePeerInfo, proto)
 
     trace "Reconnecting to peer", peerId=storedInfo.peerId
     discard await pm.dialPeer(storedInfo.peerId, toSeq(storedInfo.addrs), proto)
