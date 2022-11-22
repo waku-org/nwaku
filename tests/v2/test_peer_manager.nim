@@ -4,6 +4,7 @@ import
   std/[options, sequtils],
   stew/shims/net as stewNet,
   testutils/unittests,
+  chronicles,
   json_rpc/rpcserver,
   json_rpc/rpcclient,
   eth/keys,

@@ -17,7 +17,7 @@ import
   ./waku_node
 
 when defined(rln):
-  import ../protocol/waku_rln_relay/waku_rln_relay_metrics
+  import ../protocol/waku_rln_relay/protocol_metrics as rln_metrics
 
 
 const LogInterval = 30.seconds

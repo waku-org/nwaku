@@ -7,7 +7,7 @@ else:
 
 import
   os,
-  waku_rln_relay_types
+  ./protocol_types
 
 const libPath = "vendor/zerokit/target/release/"
 

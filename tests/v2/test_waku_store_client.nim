@@ -2,7 +2,8 @@
 
 import
   std/options,
-  testutils/unittests, 
+  testutils/unittests,
+  chronicles,
   chronos, 
   libp2p/crypto/crypto
 import

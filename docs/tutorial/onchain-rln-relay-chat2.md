@@ -133,7 +133,7 @@ The numerical value `165886530` indicates the epoch of the message `Hi`.
 You will see a different value than `165886530` on your screen. 
 If two messages sent by the same chat2 client happen to have the same RLN epoch value, then one of them will be detected as spam and won't be routed (by test fleets in this test setting).
 At the time of this tutorial, the epoch duration is set to `10` seconds.
-You can inspect the current epoch value by checking the following [constant variable](https://github.com/status-im/nim-waku/blob/21cac6d491a6d995a7a8ba84c85fecc7817b3d8b/waku/v2/protocol/waku_rln_relay/waku_rln_relay_types.nim#L119) in the nim-waku codebase.
+You can inspect the current epoch value by checking the following [constant variable](https://github.com/status-im/nim-waku/blob/21cac6d491a6d995a7a8ba84c85fecc7817b3d8b/waku/v2/protocol/waku_rln_relay/constants.nim#L245) in the nim-waku codebase.
 Thus, if you send two messages less than `10` seconds apart, they are likely to get the same `rln epoch` values.
 
 After sending a chat message, you may experience some delay before the next chat prompt appears. 

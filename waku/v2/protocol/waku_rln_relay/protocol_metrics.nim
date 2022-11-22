@@ -8,7 +8,7 @@ import
   chronos,
   metrics,
   metrics/chronos_httpserver,
-  waku_rln_relay_constants,
+  ./constants,
   ../../utils/collector
 
 export metrics
