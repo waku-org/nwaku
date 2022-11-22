@@ -22,10 +22,10 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                protobuf/minprotobuf,     # message serialisation/deserialisation from and to protobufs
                protocols/secure/secio,   # define the protocol of secure input / output, allows encrypted communication that uses public keys to validate signed messages instead of a certificate authority like in TLS
                nameresolving/dnsresolver]# define DNS resolution
-import   
+import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_lightpush/rpc,
-  ../../waku/v2/protocol/waku_filter, 
+  ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/node/[waku_node, waku_payload, waku_metrics],
   ../../waku/v2/node/dnsdisc/waku_dnsdisc,
@@ -190,7 +190,7 @@ proc printReceivedMessage(c: Chat, msg: WakuMessage) =
     except ValueError:
       # Formatting fail. Print chat line in any case.
       echo chatLine
-    
+
     c.prompt = false
     showChatPrompt(c)
     trace "Printing message", topic=DefaultPubsubTopic, chatLine,
@@ -225,21 +225,26 @@ proc publish(c: Chat, line: string) =
         contentTopic: c.contentTopic, version: version, timestamp: getNanosecondTime(time))
       when defined(rln):
         if  not isNil(c.node.wakuRlnRelay):
-          # for future version when we support more than one rln protected content topic, 
+          # for future version when we support more than one rln protected content topic,
           # we should check the message content topic as well
           let success = c.node.wakuRlnRelay.appendRLNProof(message, float64(time))
           if not success:
             debug "could not append rate limit proof to the message", success=success
           else:
             debug "rate limit proof is appended to the message", success=success
-            # TODO move it to log after doogfooding
-            let msgEpoch = fromEpoch(message.proof.epoch)
-            if fromEpoch(c.node.wakuRlnRelay.lastEpoch) == fromEpoch(message.proof.epoch):
+            let decodeRes = RateLimitProof.init(message.proof)
+            if decodeRes.isErr():
+              error "could not decode RLN proof"
+
+            let proof = decodeRes.get()
+            # TODO move it to log after dogfooding
+            let msgEpoch = fromEpoch(proof.epoch)
+            if fromEpoch(c.node.wakuRlnRelay.lastEpoch) == fromEpoch(proof.epoch):
               echo "--rln epoch: ", msgEpoch, " ⚠️ message rate violation! you are spamming the network!"
             else:
               echo "--rln epoch: ", msgEpoch
             # update the last epoch
-            c.node.wakuRlnRelay.lastEpoch = message.proof.epoch
+            c.node.wakuRlnRelay.lastEpoch = proof.epoch
       if not c.node.wakuLightPush.isNil():
         # Attempt lightpush
         asyncSpawn c.node.lightpushPublish(DefaultPubsubTopic, message)
@@ -252,22 +257,27 @@ proc publish(c: Chat, line: string) =
     var message = WakuMessage(payload: chat2pb.buffer,
       contentTopic: c.contentTopic, version: 0, timestamp: getNanosecondTime(time))
     when defined(rln):
-      if  not isNil(c.node.wakuRlnRelay):
-        # for future version when we support more than one rln protected content topic, 
+      if not isNil(c.node.wakuRlnRelay):
+        # for future version when we support more than one rln protected content topic,
         # we should check the message content topic as well
         let success = c.node.wakuRlnRelay.appendRLNProof(message, float64(time))
         if not success:
           debug "could not append rate limit proof to the message", success=success
         else:
           debug "rate limit proof is appended to the message", success=success
-          # TODO move it to log after doogfooding
-          let msgEpoch = fromEpoch(message.proof.epoch)
+          let decodeRes = RateLimitProof.init(message.proof)
+          if decodeRes.isErr():
+            error "could not decode the RLN proof"
+
+          let proof = decodeRes.get()
+          # TODO move it to log after dogfooding
+          let msgEpoch = fromEpoch(proof.epoch)
           if fromEpoch(c.node.wakuRlnRelay.lastEpoch) == msgEpoch:
             echo "--rln epoch: ", msgEpoch, " ⚠️ message rate violation! you are spamming the network!"
           else:
             echo "--rln epoch: ", msgEpoch
           # update the last epoch
-          c.node.wakuRlnRelay.lastEpoch = message.proof.epoch
+          c.node.wakuRlnRelay.lastEpoch = proof.epoch
 
     if not c.node.wakuLightPush.isNil():
       # Attempt lightpush
@@ -316,7 +326,7 @@ proc writeAndPrint(c: Chat) {.async.} =
       let address = await c.transp.readLine()
       if address.len > 0:
         await c.connectToNodes(@[address])
-    
+
     elif line.startsWith("/nick"):
       # Set a new nickname
       c.nick = await readNick(c.transp)
@@ -325,9 +335,9 @@ proc writeAndPrint(c: Chat) {.async.} =
     elif line.startsWith("/exit"):
       if not c.node.wakuFilter.isNil():
         echo "unsubscribing from content filters..."
-      
+
         await c.node.unsubscribe(pubsubTopic=DefaultPubsubTopic, contentTopics=c.contentTopic)
-      
+
       echo "quitting..."
 
       await c.node.stop()
@@ -364,7 +374,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
   let
     transp = fromPipe(rfd)
     conf = Chat2Conf.load()
-  
+
   # set log level
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
@@ -375,7 +385,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
       Port(uint16(conf.udpPort) + conf.portsShift))
     node = WakuNode.new(conf.nodekey, conf.listenAddress,
       Port(uint16(conf.tcpPort) + conf.portsShift),
-      extIp, extTcpPort, 
+      extIp, extTcpPort,
       wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
       wsEnabled = conf.websocketSupport,
       wssEnabled = conf.websocketSecureSupport)
@@ -387,9 +397,9 @@ proc processInput(rfd: AsyncFD) {.async.} =
 
   if conf.relay:
     await node.mountRelay(conf.topics.split(" "))
-  
+
   await node.mountLibp2pPing()
-  
+
   let nick = await readNick(transp)
   echo "Welcome, " & nick & "!"
 
@@ -398,7 +408,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
                   subscribed: true,
                   connected: false,
                   started: true,
-                  nick: nick, 
+                  nick: nick,
                   prompt: false,
                   contentTopic: conf.contentTopic,
                   symKey: generateSymKey(conf.contentTopic))
@@ -406,13 +416,13 @@ proc processInput(rfd: AsyncFD) {.async.} =
   if conf.staticnodes.len > 0:
     echo "Connecting to static peers..."
     await connectToNodes(chat, conf.staticnodes)
-  
+
   var dnsDiscoveryUrl = none(string)
 
   if conf.fleet != Fleet.none:
     # Use DNS discovery to connect to selected fleet
     echo "Connecting to " & $conf.fleet & " fleet using DNS discovery..."
-    
+
     if conf.fleet == Fleet.test:
       dnsDiscoveryUrl = some("enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@test.waku.nodes.status.im")
     else:
@@ -437,7 +447,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
       trace "resolving", domain=domain
       let resolved = await dnsResolver.resolveTxt(domain)
       return resolved[0] # Use only first answer
-    
+
     var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl.get(),
                                                  resolver)
     if wakuDnsDiscovery.isOk:
@@ -467,7 +477,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
     elif discoveredNodes.len > 0:
       echo "Store enabled, but no store nodes configured. Choosing one at random from discovered peers"
       storenode = some(discoveredNodes[rand(0..len(discoveredNodes) - 1)])
-      
+
     if storenode.isSome():
       # We have a viable storenode. Let's query it for historical messages.
       echo "Connecting to storenode: " & $(storenode.get())
@@ -487,7 +497,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
       let queryRes = await node.query(HistoryQuery(contentTopics: @[chat.contentTopic]))
       if queryRes.isOk():
         storeHandler(queryRes.value)
-  
+
   # NOTE Must be mounted after relay
   if conf.lightpushnode != "":
     await mountLightPush(node)
@@ -514,7 +524,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
       trace "Hit subscribe handler", topic
 
       let decoded = WakuMessage.decode(data)
-      
+
       if decoded.isOk():
         if decoded.get().contentTopic == chat.contentTopic:
           chat.printReceivedMessage(decoded.get())
@@ -524,7 +534,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
     let topic = DefaultPubsubTopic
     node.subscribe(topic, handler)
 
-    when defined(rln): 
+    when defined(rln):
       if conf.rlnRelay:
         info "WakuRLNRelay is enabled"
 
@@ -539,9 +549,9 @@ proc processInput(rfd: AsyncFD) {.async.} =
           showChatPrompt(chat)
         proc registrationHandler(txHash: string) {.gcsafe, closure.} =
           echo "You are registered to the rln membership contract, find details of your registration transaction in https://goerli.etherscan.io/tx/0x", txHash
-        
+
         echo "rln-relay preparation is in progress..."
-        
+
         let rlnConf = WakuRlnConfig(
           rlnRelayDynamic: conf.rlnRelayDynamic,
           rlnRelayPubsubTopic: conf.rlnRelayPubsubTopic,
@@ -569,7 +579,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
   if conf.metricsServer:
     startMetricsServer(conf.metricsServerAddress,
                        Port(conf.metricsServerPort + conf.portsShift))
-    
+
 
   await chat.readWriteLoop()
 
