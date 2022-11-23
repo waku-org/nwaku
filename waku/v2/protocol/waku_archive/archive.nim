@@ -67,7 +67,7 @@ method validate*(validator: DefaultMessageValidator, msg: WakuMessage): Validati
 
 type
   WakuArchive* = ref object
-    driver*: ArchiveDriver
+    driver*: ArchiveDriver  # TODO: Make this field private. Remove asterisk
     validator: MessageValidator
     retentionPolicy: RetentionPolicy
 

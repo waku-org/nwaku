@@ -1,10 +1,10 @@
 {.used.}
 
 import
-  stew/shims/net as stewNet, 
+  stew/shims/net as stewNet,
   testutils/unittests,
-  chronicles, 
-  chronos, 
+  chronicles,
+  chronos,
   libp2p/crypto/crypto,
   libp2p/peerid,
   libp2p/multiaddress,
@@ -14,10 +14,10 @@ import
   libp2p/protocols/pubsub/gossipsub
 import
   ../../waku/common/sqlite,
-  ../../waku/v2/node/message_store/sqlite_store,
-  ../../waku/v2/node/message_store/queue_store,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/protocol/waku_archive,
+  ../../waku/v2/protocol/waku_archive/driver/sqlite_driver,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/utils/peers,
@@ -25,15 +25,25 @@ import
   ../../waku/v2/node/waku_node,
   ./testlib/common
 
+from std/times import getTime, toUnixFloat
 
-proc newTestMessageStore(): MessageStore =
+
+proc newTestArchiveDriver(): ArchiveDriver =
   let database = SqliteDatabase.new(":memory:").tryGet()
-  SqliteStore.init(database).tryGet()
+  SqliteDriver.new(database).tryGet()
+
+proc put(store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage): Result[void, string] =
+  let
+    digest = waku_archive.computeDigest(message)
+    receivedTime = if message.timestamp > 0: message.timestamp
+                  else: getNanosecondTime(getTime().toUnixFloat())
+
+  store.put(pubsubTopic, message, digest, receivedTime)
 
 
 procSuite "WakuNode - Store":
   let rng = crypto.newRng()
- 
+
   asyncTest "Store protocol returns expected message":
     ## Setup
     let
@@ -43,20 +53,23 @@ procSuite "WakuNode - Store":
       client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60430))
 
     await allFutures(client.start(), server.start())
-    await server.mountStore(store=newTestMessageStore())
-    await client.mountStore()
+
+    let driver = newTestArchiveDriver()
+    server.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    await server.mountStore()
+
     client.mountStoreClient()
 
     ## Given
     let message = fakeWakuMessage()
-    require server.wakuStore.store.put(DefaultPubsubTopic, message).isOk()
+    require driver.put(DefaultPubsubTopic, message).isOk()
 
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     ## When
     let req = HistoryQuery(contentTopics: @[DefaultContentTopic])
     let queryRes = await client.query(req, peer=serverPeer)
-    
+
     ## Then
     check queryRes.isOk()
 
@@ -81,13 +94,15 @@ procSuite "WakuNode - Store":
     await allFutures(client.start(), server.start(), filterSource.start())
 
     await filterSource.mountFilter()
-    await server.mountStore(store=newTestMessageStore())
+    let driver = newTestArchiveDriver()
+    server.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    await server.mountStore()
     await server.mountFilterClient()
     client.mountStoreClient()
 
     ## Given
     let message = fakeWakuMessage()
-    let 
+    let
       serverPeer = server.peerInfo.toRemotePeerInfo()
       filterSourcePeer = filterSource.peerInfo.toRemotePeerInfo()
 
@@ -123,81 +138,3 @@ procSuite "WakuNode - Store":
 
     ## Cleanup
     await allFutures(client.stop(), server.stop(), filterSource.stop())
-
-
-  asyncTest "Resume proc fetches the history":
-    ## Setup
-    let
-      serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60412))
-      clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60410))
-
-    await allFutures(client.start(), server.start())
-
-    await server.mountStore(store=newTestMessageStore())
-    
-    let clientStore = StoreQueueRef.new()
-    await client.mountStore(store=clientStore)
-    client.mountStoreClient(store=clientStore)
-
-    ## Given
-    let message = fakeWakuMessage()
-    require server.wakuStore.store.put(DefaultPubsubTopic, message).isOk()
-
-    let serverPeer = server.peerInfo.toRemotePeerInfo()
-
-    ## When
-    await client.resume(some(@[serverPeer]))
-
-    # Then
-    check:
-      client.wakuStore.store.getMessagesCount().tryGet() == 1
-
-    ## Cleanup
-    await allFutures(client.stop(), server.stop())
-
-
-  asyncTest "Resume proc discards duplicate messages":
-    ## Setup
-    let
-      serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60422))
-      clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60420))
-
-    await allFutures(server.start(), client.start())
-    await server.mountStore(store=StoreQueueRef.new())
-    
-    let clientStore = StoreQueueRef.new()
-    await client.mountStore(store=clientStore)
-    client.mountStoreClient(store=clientStore)
-
-    ## Given
-    let timeOrigin = now()
-    let 
-      msg1 = fakeWakuMessage(payload="hello world1", ts=(timeOrigin + getNanoSecondTime(1)))
-      msg2 = fakeWakuMessage(payload="hello world2", ts=(timeOrigin + getNanoSecondTime(2)))
-      msg3 = fakeWakuMessage(payload="hello world3", ts=(timeOrigin + getNanoSecondTime(3)))
-
-    require server.wakuStore.store.put(DefaultPubsubTopic, msg1).isOk()
-    require server.wakuStore.store.put(DefaultPubsubTopic, msg2).isOk()
-
-    # Insert the same message in both node's store
-    let 
-      receivedTime3 = now() + getNanosecondTime(10)
-      digest3 = computeDigest(msg3)
-    require server.wakuStore.store.put(DefaultPubsubTopic, msg3, digest3, receivedTime3).isOk()
-    require client.wakuStore.store.put(DefaultPubsubTopic, msg3, digest3, receivedTime3).isOk()
-
-    let serverPeer = server.peerInfo.toRemotePeerInfo()
-
-    ## When
-    await client.resume(some(@[serverPeer]))
-
-    ## Then
-    check:
-      # If the duplicates are discarded properly, then the total number of messages after resume should be 3
-      client.wakuStore.store.getMessagesCount().tryGet() == 3
-
-    await allFutures(client.stop(), server.stop())

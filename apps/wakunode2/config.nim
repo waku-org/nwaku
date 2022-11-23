@@ -1,7 +1,7 @@
 import
   std/strutils,
   stew/results,
-  chronicles, 
+  chronicles,
   chronos,
   regex,
   confutils,
@@ -24,7 +24,7 @@ export
 
 
 type ConfResult*[T] = Result[T, string]
-   
+
 type
   WakuNodeConf* = object
     ## General node config
@@ -47,7 +47,7 @@ type
       defaultValue: "nwaku",
       desc: "Node agent string which is used as identifier in network"
       name: "agent-string" .}: string
-    
+
     nodekey* {.
       desc: "P2P node private key as 64 char hex string.",
       defaultValue: defaultPrivateKey()
@@ -62,7 +62,7 @@ type
       desc: "TCP listening port."
       defaultValue: 60000
       name: "tcp-port" }: Port
-    
+
     portsShift* {.
       desc: "Add a shift to all port numbers."
       defaultValue: 0
@@ -77,46 +77,46 @@ type
       desc: "Maximum allowed number of libp2p connections."
       defaultValue: 50
       name: "max-connections" }: uint16
-    
+
     peerPersistence* {.
       desc: "Enable peer persistence.",
       defaultValue: false,
       name: "peer-persistence" }: bool
-    
+
     ## DNS addrs config
-    
+
     dnsAddrs* {.
       desc: "Enable resolution of `dnsaddr`, `dns4` or `dns6` multiaddrs"
       defaultValue: true
       name: "dns-addrs" }: bool
-    
+
     dnsAddrsNameServers* {.
       desc: "DNS name server IPs to query for DNS multiaddrs resolution. Argument may be repeated."
       defaultValue: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")]
       name: "dns-addrs-name-server" }: seq[ValidIpAddress]
-    
+
     dns4DomainName* {.
       desc: "The domain name resolving to the node's public IPv4 address",
       defaultValue: ""
       name: "dns4-domain-name" }: string
 
     ## Relay config
-    
+
     relay* {.
       desc: "Enable relay protocol: true|false",
       defaultValue: true
       name: "relay" }: bool
-    
+
     relayPeerExchange* {.
       desc: "Enable gossipsub peer exchange in relay protocol: true|false",
       defaultValue: false
       name: "relay-peer-exchange" }: bool
-    
+
     rlnRelay* {.
       desc: "Enable spam protection through rln-relay: true|false",
       defaultValue: false
       name: "rln-relay" }: bool
-    
+
     rlnRelayCredPath* {.
       desc: "The path for peristing rln-relay credential",
       defaultValue: ""
@@ -136,25 +136,25 @@ type
       desc: "the pubsub topic for which rln-relay gets enabled",
       defaultValue: "/toy-chat/2/luzhou/proto"
       name: "rln-relay-content-topic" }: string
-    
+
     rlnRelayDynamic* {.
       desc: "Enable  waku-rln-relay with on-chain dynamic group management: true|false",
       defaultValue: false
       name: "rln-relay-dynamic" }: bool
-  
+
     rlnRelayIdKey* {.
-      desc: "Rln relay identity secret key as a Hex string", 
+      desc: "Rln relay identity secret key as a Hex string",
       defaultValue: ""
       name: "rln-relay-id-key" }: string
-    
+
     rlnRelayIdCommitmentKey* {.
-      desc: "Rln relay identity commitment key as a Hex string", 
+      desc: "Rln relay identity commitment key as a Hex string",
       defaultValue: ""
       name: "rln-relay-id-commitment-key" }: string
-  
+
     # NOTE: This can be derived from the private key, but kept for future use
     rlnRelayEthAccountAddress* {.
-      desc: "Account address for the Ethereum testnet Goerli", 
+      desc: "Account address for the Ethereum testnet Goerli",
       defaultValue: ""
       name: "rln-relay-eth-account-address" }: string
 
@@ -162,26 +162,26 @@ type
       desc: "Account private key for the Ethereum testnet Goerli",
       defaultValue: ""
       name: "rln-relay-eth-account-private-key" }: string
-    
+
     rlnRelayEthClientAddress* {.
       desc: "WebSocket address of an Ethereum testnet client e.g., ws://localhost:8540/",
       defaultValue: "ws://localhost:8540/"
       name: "rln-relay-eth-client-address" }: string
-    
+
     rlnRelayEthContractAddress* {.
-      desc: "Address of membership contract on an Ethereum testnet", 
+      desc: "Address of membership contract on an Ethereum testnet",
       defaultValue: ""
       name: "rln-relay-eth-contract-address" }: string
 
     rlnRelayCredentialsPassword* {.
-      desc: "Password for encrypting RLN credentials", 
+      desc: "Password for encrypting RLN credentials",
       defaultValue: ""
       name: "rln-relay-cred-password" }: string
-        
+
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
       name: "staticnode" }: seq[string]
-    
+
     keepAlive* {.
       desc: "Enable keep-alive for idle connections: true|false",
       defaultValue: false
@@ -205,7 +205,7 @@ type
       name: "storenode" }: string
 
     storeMessageRetentionPolicy* {.
-      desc: "Message store retention policy. Time retention policy: 'time:<seconds>'. Capacity retention policy: 'capacity:<count>'",
+      desc: "Message store retention policy. Time retention policy: 'time:<seconds>'. Capacity retention policy: 'capacity:<count>'. Set to 'none' to disable.",
       defaultValue: "time:" & $2.days.seconds,
       name: "store-message-retention-policy" }: string
 
@@ -228,43 +228,43 @@ type
       desc: "Peer multiaddress to resume the message store at boot.",
       defaultValue: "",
       name: "store-resume-peer" }: string
-    
+
     ## Filter config
 
     filter* {.
       desc: "Enable filter protocol: true|false",
       defaultValue: false
       name: "filter" }: bool
-    
+
     filternode* {.
       desc: "Peer multiaddr to request content filtering of messages.",
       defaultValue: ""
       name: "filternode" }: string
-    
+
     filterTimeout* {.
       desc: "Timeout for filter node in seconds.",
       defaultValue: 14400 # 4 hours
       name: "filter-timeout" }: int64
-    
+
     ## Swap config
 
     swap* {.
       desc: "Enable swap protocol: true|false",
       defaultValue: false
       name: "swap" }: bool
-    
+
     ## Lightpush config
 
     lightpush* {.
       desc: "Enable lightpush protocol: true|false",
       defaultValue: false
       name: "lightpush" }: bool
-    
+
     lightpushnode* {.
       desc: "Peer multiaddr to request lightpush of published messages.",
       defaultValue: ""
       name: "lightpushnode" }: string
-    
+
     ## JSON-RPC config
 
     rpc* {.
@@ -281,12 +281,12 @@ type
       desc: "Listening port of the JSON-RPC server.",
       defaultValue: 8545
       name: "rpc-port" }: uint16
-    
+
     rpcAdmin* {.
       desc: "Enable access to JSON-RPC Admin API: true|false",
       defaultValue: false
       name: "rpc-admin" }: bool
-    
+
     rpcPrivate* {.
       desc: "Enable access to JSON-RPC Private API: true|false",
       defaultValue: false
@@ -318,12 +318,12 @@ type
       desc: "Enable access to REST HTTP Admin API: true|false",
       defaultValue: false
       name: "rest-admin" }: bool
-    
+
     restPrivate* {.
       desc: "Enable access to REST HTTP Private API: true|false",
       defaultValue: false
       name: "rest-private" }: bool
-    
+
     ## Metrics config
 
     metricsServer* {.
@@ -345,40 +345,40 @@ type
       desc: "Enable metrics logging: true|false"
       defaultValue: true
       name: "metrics-logging" }: bool
-    
+
     ## DNS discovery config
-    
+
     dnsDiscovery* {.
       desc: "Enable discovering nodes via DNS"
       defaultValue: false
       name: "dns-discovery" }: bool
-    
+
     dnsDiscoveryUrl* {.
       desc: "URL for DNS node list in format 'enrtree://<key>@<fqdn>'",
       defaultValue: ""
       name: "dns-discovery-url" }: string
-    
+
     dnsDiscoveryNameServers* {.
       desc: "DNS name server IPs to query. Argument may be repeated."
       defaultValue: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")]
       name: "dns-discovery-name-server" }: seq[ValidIpAddress]
-    
+
     ## Discovery v5 config
-    
+
     discv5Discovery* {.
       desc: "Enable discovering nodes via Node Discovery v5"
       defaultValue: false
       name: "discv5-discovery" }: bool
-    
+
     discv5UdpPort* {.
       desc: "Listening UDP port for Node Discovery v5."
       defaultValue: 9000
       name: "discv5-udp-port" }: Port
-    
+
     discv5BootstrapNodes* {.
       desc: "Text-encoded ENR for bootstrap node. Used when connecting to the network. Argument may be repeated."
       name: "discv5-bootstrap-node" }: seq[string]
-    
+
     discv5EnrAutoUpdate* {.
       desc: "Discovery can automatically update its ENR with the IP address " &
             "and UDP port as seen by other nodes it communicates with. " &
@@ -425,17 +425,17 @@ type
       desc: "WebSocket listening port."
       defaultValue: 8000
       name: "websocket-port" }: Port
-    
+
     websocketSecureSupport* {.
       desc: "Enable secure websocket:  true|false",
       defaultValue: false
       name: "websocket-secure-support"}: bool
-    
+
     websocketSecureKeyPath* {.
       desc: "Secure websocket key path:   '/path/to/key.txt' ",
       defaultValue: ""
       name: "websocket-secure-key-path"}: string
-    
+
     websocketSecureCertPath* {.
       desc: "Secure websocket Certificate path:   '/path/to/cert.txt' ",
       defaultValue: ""
@@ -486,7 +486,7 @@ let DbUrlRegex = re"^[\w\+]+:\/\/[\w\/\\\.\:\@]+$"
 proc validateDbUrl*(val: string): ConfResult[string] =
   let val = val.strip()
 
-  if val == "" or val.match(DbUrlRegex):
+  if val == "" or val == "none" or val.match(DbUrlRegex):
     ok(val)
   else:
     err("invalid 'db url' option format: " & val)
@@ -497,7 +497,7 @@ let StoreMessageRetentionPolicyRegex = re"^\w+:\w+$"
 proc validateStoreMessageRetentionPolicy*(val: string): ConfResult[string] =
   let val = val.strip()
 
-  if val == "" or val.match(StoreMessageRetentionPolicyRegex):
+  if val == "" or val == "none" or val.match(StoreMessageRetentionPolicyRegex):
     ok(val)
   else:
     err("invalid 'store message retention policy' option format: " & val)
@@ -506,13 +506,13 @@ proc validateStoreMessageRetentionPolicy*(val: string): ConfResult[string] =
 ## Load
 
 proc readValue*(r: var TomlReader, value: var crypto.PrivateKey) {.raises: [SerializationError].} =
-  try: 
+  try:
     value = parseCmdArg(crypto.PrivateKey, r.readValue(string))
   except CatchableError:
     raise newException(SerializationError, getCurrentExceptionMsg())
 
 proc readValue*(r: var EnvvarReader, value: var crypto.PrivateKey) {.raises: [SerializationError].} =
-  try: 
+  try:
     value = parseCmdArg(crypto.PrivateKey, r.readValue(string))
   except CatchableError:
     raise newException(SerializationError, getCurrentExceptionMsg())
