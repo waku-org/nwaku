@@ -207,22 +207,15 @@ docs: | build deps
 # control rln code compilation
 ifeq ($(RLN), true)
 NIM_PARAMS := $(NIM_PARAMS) -d:rln
-else ifeq ($(CI), true)
-NIM_PARAMS := $(NIM_PARAMS) -d:rln
 endif
 
 # control compilation of rln tests that require on chain interaction
 ifeq ($(ONCHAIN_RLN), true) 
 NIM_PARAMS := $(NIM_PARAMS) -d:onchain_rln
-else ifeq ($(CI), true) 
-NIM_PARAMS := $(NIM_PARAMS) -d:onchain_rln
 endif
 
 rlnlib:
 ifeq ($(RLN), true)
-	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
-# Enable zerokit rln in CI
-else  ifeq ($(CI), true)
 	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
 endif
 
