@@ -19,8 +19,7 @@ suite "Extended nim-libp2p Peer Store":
   # basePeerId & "1"
   # basePeerId & "2"
   let basePeerId = "QmeuZJbXrszW2jdT7GdduSjQskPU3S7vvGWKtKgDfkDvW"
-  
-  # Given
+
   setup:
     # Setup a nim-libp2p peerstore with some peers
     let peerStore = PeerStore.new(capacity = 50)
@@ -35,7 +34,7 @@ suite "Extended nim-libp2p Peer Store":
 
     # peer6 is not part of the peerstore
     require p6.init(basePeerId & "6")
-    
+
     # Peer1: Connected
     peerStore[AddressBook][p1] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()]
     peerStore[ProtoBook][p1] = @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"]
@@ -89,6 +88,7 @@ suite "Extended nim-libp2p Peer Store":
   test "get() returns the correct StoredInfo for a given PeerId":
     # When
     let storedInfoPeer1 = peerStore.get(p1)
+    let storedInfoPeer6 = peerStore.get(p6)
 
     # Then
     check:
@@ -100,15 +100,10 @@ suite "Extended nim-libp2p Peer Store":
       storedInfoPeer1.protoVersion == "protoVersion1"
 
       # our extended fields
-      storedInfoPeer1.connection == Connected
+      storedInfoPeer1.connectedness == Connected
       storedInfoPeer1.disconnectTime == 0
       storedInfoPeer1.origin == Discv5
 
-    # When
-    # peer does not exist in the peerstore
-    let storedInfoPeer6 = peerStore.get(p6)
-    
-    # Then
     check:
       # fields are empty
       storedInfoPeer6.peerId == p6
@@ -116,7 +111,7 @@ suite "Extended nim-libp2p Peer Store":
       storedInfoPeer6.protos.len == 0
       storedInfoPeer6.agent == ""
       storedInfoPeer6.protoVersion == ""
-      storedInfoPeer6.connection == NotConnected
+      storedInfoPeer6.connectedness == NotConnected
       storedInfoPeer6.disconnectTime == 0
       storedInfoPeer6.origin == Unknown
 
@@ -132,24 +127,25 @@ suite "Extended nim-libp2p Peer Store":
       allPeers.anyIt(it.peerId == p3)
       allPeers.anyIt(it.peerId == p4)
       allPeers.anyIt(it.peerId == p5)
-    
+
     let p3 = allPeers.filterIt(it.peerId == p3)[0]
-    
+
     check:
-       # regression on nim-libp2p fields
+      # regression on nim-libp2p fields
       p3.addrs == @[MultiAddress.init("/ip4/127.0.0.1/tcp/3").tryGet()]
       p3.protos == @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
       p3.agent == "gowaku"
       p3.protoVersion == "protoVersion3"
 
       # our extended fields
-      p3.connection == Connected
+      p3.connectedness == Connected
       p3.disconnectTime == 0
       p3.origin == Discv5
 
   test "peers() returns all StoredInfo matching a specific protocol":
     # When
     let storePeers = peerStore.peers("/vac/waku/store/2.0.0")
+    let lpPeers = peerStore.peers("/vac/waku/lightpush/2.0.0")
 
     # Then
     check:
@@ -158,10 +154,6 @@ suite "Extended nim-libp2p Peer Store":
       storePeers.anyIt(it.peerId == p1)
       storePeers.anyIt(it.peerId == p2)
 
-    # When
-    let lpPeers = peerStore.peers("/vac/waku/lightpush/2.0.0")
-
-    # Then
     check:
       # Only p3 supports that protocol
       lpPeers.len == 1
@@ -171,6 +163,7 @@ suite "Extended nim-libp2p Peer Store":
   test "peers() returns all StoredInfo matching a given protocolMatcher":
     # When
     let pMatcherStorePeers = peerStore.peers(protocolMatcher("/vac/waku/store/2.0.0"))
+    let pMatcherSwapPeers = peerStore.peers(protocolMatcher("/vac/waku/swap/2.0.0"))
 
     # Then
     check:
@@ -187,10 +180,6 @@ suite "Extended nim-libp2p Peer Store":
       pMatcherStorePeers.filterIt(it.peerId == p3)[0].protos == @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
       pMatcherStorePeers.filterIt(it.peerId == p5)[0].protos == @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"]
 
-    # When
-    let pMatcherSwapPeers = peerStore.peers(protocolMatcher("/vac/waku/swap/2.0.0"))
-
-    # Then
     check:
       pMatcherSwapPeers.len == 1
       pMatcherSwapPeers.anyIt(it.peerId == p5)
@@ -210,7 +199,6 @@ suite "Extended nim-libp2p Peer Store":
       remotePeerInfo1.protocols == @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"]
 
   test "connectedness() returns the connection status of a given PeerId":
-    # Then
     check:
       # peers tracked in the peerstore
       peerStore.connectedness(p1) == Connected
@@ -233,7 +221,7 @@ suite "Extended nim-libp2p Peer Store":
 
       peerStore.hasPeer(p3, "/vac/waku/lightpush/2.0.0")
       peerStore.hasPeer(p3, "/vac/waku/store/2.0.0-beta1")
-      
+
       # we have no knowledge of p4 supported protocols
       not peerStore.hasPeer(p4, "/vac/waku/lightpush/2.0.0")
 

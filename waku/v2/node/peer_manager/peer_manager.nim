@@ -195,7 +195,7 @@ proc reconnectPeers*(pm: PeerManager,
 
   for storedInfo in pm.peerStore.peers(protocolMatcher):
     # Check that the peer can be connected
-    if storedInfo.connection == CannotConnect:
+    if storedInfo.connectedness == CannotConnect:
       debug "Not reconnecting to unreachable or non-existing peer", peerId=storedInfo.peerId
       continue
 

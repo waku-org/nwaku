@@ -51,7 +51,7 @@ type
     protoVersion*: string
 
     # Extended custom fields
-    connection*: Connectedness
+    connectedness*: Connectedness
     disconnectTime*: int64
     origin*: PeerOrigin
 
@@ -72,7 +72,7 @@ proc get*(peerStore: PeerStore,
     protoVersion: peerStore[ProtoVersionBook][peerId],
 
     # Extended custom fields
-    connection: peerStore[ConnectionBook][peerId],
+    connectedness: peerStore[ConnectionBook][peerId],
     disconnectTime: peerStore[DisconnectBook][peerId],
     origin: peerStore[SourceBook][peerId],
   )

@@ -39,7 +39,7 @@ proc constructMultiaddrStr*(remotePeerInfo: RemotePeerInfo): string =
 proc installAdminApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
 
   ## Admin API version 1 definitions
-  
+
   rpcsrv.rpc("post_waku_v2_admin_v1_peers") do(peers: seq[string]) -> bool:
     ## Connect to a list of peers
     debug "post_waku_v2_admin_v1_peers"
@@ -68,25 +68,25 @@ proc installAdminApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
                                     .peers(WakuRelayCodec)
                                     .mapIt(WakuPeer(multiaddr: constructMultiaddrStr(toSeq(it.addrs.items)[0], it.peerId),
                                                     protocol: WakuRelayCodec,
-                                                    connected: it.connection == Connectedness.Connected)),
+                                                    connected: it.connectedness == Connectedness.Connected)),
                     wPeers.len) # Append to the end of the sequence
-      
+
     if not node.wakuFilter.isNil:
       # Map WakuFilter peers to WakuPeers and add to return list
       wPeers.insert(node.peerManager.peerStore
                                     .peers(WakuFilterCodec)
                                     .mapIt(WakuPeer(multiaddr: constructMultiaddrStr(toSeq(it.addrs.items)[0], it.peerId),
                                                     protocol: WakuFilterCodec,
-                                                    connected: it.connection == Connectedness.Connected)),
+                                                    connected: it.connectedness == Connectedness.Connected)),
                     wPeers.len) # Append to the end of the sequence
-    
+
     if not node.wakuSwap.isNil:
       # Map WakuSwap peers to WakuPeers and add to return list
       wPeers.insert(node.peerManager.peerStore
                                     .peers(WakuSwapCodec)
                                     .mapIt(WakuPeer(multiaddr: constructMultiaddrStr(toSeq(it.addrs.items)[0], it.peerId),
                                                     protocol: WakuSwapCodec,
-                                                    connected: it.connection == Connectedness.Connected)),
+                                                    connected: it.connectedness == Connectedness.Connected)),
                     wPeers.len) # Append to the end of the sequence
 
     if not node.wakuStore.isNil:
@@ -95,7 +95,7 @@ proc installAdminApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
                                     .peers(WakuStoreCodec)
                                     .mapIt(WakuPeer(multiaddr: constructMultiaddrStr(toSeq(it.addrs.items)[0], it.peerId),
                                                     protocol: WakuStoreCodec,
-                                                    connected: it.connection == Connectedness.Connected)),
+                                                    connected: it.connectedness == Connectedness.Connected)),
                     wPeers.len) # Append to the end of the sequence
 
     # @TODO filter output on protocol/connected-status
