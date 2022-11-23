@@ -11,7 +11,7 @@ import
   stew/shims/net as stewNet, json_rpc/rpcserver,
   libp2p/errors,
   libp2p/peerstore,
-  eth/[keys, p2p], 
+  eth/[keys, p2p],
   eth/common/utils,
   eth/p2p/[enode, peer_pool],
   eth/p2p/discoveryv5/random2
@@ -75,24 +75,24 @@ type
 
 proc isBridgeable*(msg: WakuMessage): bool =
   ## Determines if a Waku v2 msg is on a bridgeable content topic
-  
+
   let ns = NamespacedTopic.fromString(msg.contentTopic)
   if ns.isOk():
     if ns.get().application == ContentTopicApplication and ns.get().version == ContentTopicAppVersion:
       return true
-  
+
   return false
 
 # Deduplication
 
 proc containsOrAdd(sequence: var seq[hashes.Hash], hash: hashes.Hash): bool =
   if sequence.contains(hash):
-    return true 
+    return true
 
   if sequence.len >= DeduplQSize:
     trace "Deduplication queue full. Removing oldest item."
     sequence.delete 0, 0  # Remove first item in queue
-  
+
   sequence.add(hash)
 
   return false
@@ -102,11 +102,11 @@ proc containsOrAdd(sequence: var seq[hashes.Hash], hash: hashes.Hash): bool =
 proc toV2ContentTopic*(v1Topic: waku_protocol.Topic): ContentTopic =
   ## Convert a 4-byte array v1 topic to a namespaced content topic
   ## with format `/waku/1/<v1-topic-bytes-as-hex>/rfc26`
-  ## 
+  ##
   ## <v1-topic-bytes-as-hex> should be prefixed with `0x`
-  
+
   var namespacedTopic = NamespacedTopic()
-  
+
   namespacedTopic.application = ContentTopicApplication
   namespacedTopic.version = ContentTopicAppVersion
   namespacedTopic.topicName = "0x" & v1Topic.toHex()
@@ -138,11 +138,11 @@ proc toWakuV2(bridge: WakuBridge, env: waku_protocol.Envelope) {.async.} =
     trace "Already seen. Dropping.", msg=msg
     waku_bridge_dropped.inc(labelValues = ["duplicate"])
     return
-  
+
   trace "Sending message to V2", msg=msg
 
   waku_bridge_transfers.inc(labelValues = ["v1_to_v2"])
-  
+
   await bridge.nodev2.publish(bridge.nodev2PubsubTopic, msg)
 
 proc toWakuV1(bridge: WakuBridge, msg: WakuMessage) {.gcsafe, raises: [Defect, LPError, ValueError].} =
@@ -180,13 +180,13 @@ proc connectToV1(bridge: WakuBridge, target: int) =
 
   # Now attempt connection to random peers from candidate list until we reach target
   let maxAttempts = min(target, candidates.len())
-  
+
   trace "Attempting to connect to random peers from pool", target=maxAttempts
   for i in 1..maxAttempts:
     let
       randIndex = rand(bridge.rng[], candidates.len() - 1)
       randPeer = candidates[randIndex]
-    
+
     debug "Attempting to connect to random peer", randPeer
     asyncSpawn bridge.nodev1.peerPool.connectToNode(randPeer)
 
@@ -198,11 +198,11 @@ proc connectToV1(bridge: WakuBridge, target: int) =
 proc maintenanceLoop*(bridge: WakuBridge) {.async.} =
   while bridge.started:
     trace "running maintenance"
-    
+
     let
       v1Connections = bridge.nodev1.peerPool.connectedNodes.len()
       v2Connections = bridge.nodev2.switch.peerStore[AddressBook].len()
-    
+
     info "Bridge connectivity",
       v1Peers=v1Connections,
       v2Peers=v2Connections
@@ -215,9 +215,9 @@ proc maintenanceLoop*(bridge: WakuBridge) {.async.} =
         target=bridge.targetV1Peers
 
       bridge.connectToV1(bridge.targetV1Peers - v1Connections)
-    
+
     # TODO: we could do similar maintenance for v2 connections here
-    
+
     await sleepAsync(MaintenancePeriod)
 
 ##############
@@ -247,7 +247,7 @@ proc new*(T: type WakuBridge,
     nodev1 = newEthereumNode(keys = nodev1Key, address = nodev1Address,
                              networkId = NetworkId(1), clientId = ClientIdV1,
                              addAllCapabilities = false, bindUdpPort = nodev1Address.udpPort, bindTcpPort = nodev1Address.tcpPort, rng = rng)
-  
+
   nodev1.addCapability Waku # Always enable Waku protocol
 
   # Setup the Waku configuration.
@@ -268,7 +268,7 @@ proc new*(T: type WakuBridge,
                           nodev2BindIp, nodev2BindPort,
                           nodev2ExtIp, nodev2ExtPort,
                           nameResolver = nameResolver)
-  
+
   return WakuBridge(nodev1: nodev1,
                     nodev2: nodev2,
                     nodev2PubsubTopic: nodev2PubsubTopic,
@@ -290,17 +290,17 @@ proc start*(bridge: WakuBridge) {.async.} =
       if connectedFut.failed:
         fatal "connectToNetwork failed", msg = connectedFut.readError.msg
         quit(1)
-  
+
   # Start Waku v2 node
   debug "Start listening on Waku v2"
   await bridge.nodev2.start()
-  
+
   # Always mount relay for bridge.
   # `triggerSelf` is false on a `bridge` to avoid duplicates
   await bridge.nodev2.mountRelay(triggerSelf = false)
 
   # Bridging
-  # Handle messages on Waku v1 and bridge to Waku v2  
+  # Handle messages on Waku v1 and bridge to Waku v2
   proc handleEnvReceived(envelope: waku_protocol.Envelope) {.gcsafe, raises: [Defect].} =
     trace "Bridging envelope from V1 to V2", envelope=envelope
     asyncSpawn bridge.toWakuV2(envelope)
@@ -317,7 +317,7 @@ proc start*(bridge: WakuBridge) {.async.} =
       except ValueError:
         trace "Failed to convert message to Waku v1. Check content-topic format.", msg=msg
         waku_bridge_dropped.inc(labelValues = ["value_error"])
-  
+
   bridge.nodev2.subscribe(bridge.nodev2PubsubTopic, relayHandler)
 
   bridge.started = true
@@ -326,7 +326,7 @@ proc start*(bridge: WakuBridge) {.async.} =
 proc stop*(bridge: WakuBridge) {.async.} =
   bridge.started = false
   await bridge.nodev2.stop()
-  
+
 
 proc setupV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: WakuNodeConf) =
   installDebugApiHandlers(node, rpcServer)
@@ -335,14 +335,14 @@ proc setupV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: WakuNodeConf) =
   if conf.relay:
     let topicCache = newTable[PubsubTopic, seq[WakuMessage]]()
     installRelayApiHandlers(node, rpcServer, topicCache)
-  
+
   if conf.filternode != "":
     let messageCache = newTable[ContentTopic, seq[WakuMessage]]()
     installFilterApiHandlers(node, rpcServer, messageCache)
-  
+
   if conf.storenode != "":
     installStoreApiHandlers(node, rpcServer)
-  
+
 
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
@@ -357,7 +357,7 @@ when isMainModule:
   let
     rng = keys.newRng()
     conf = WakuNodeConf.load()
-  
+
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
 
@@ -383,11 +383,11 @@ when isMainModule:
     (nodev2ExtIp, nodev2ExtPort, _) = setupNat(conf.nat, clientId,
                                                Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
                                                Port(uint16(udpPort) + conf.portsShift))
-  
+
   # Topic interest and bloom
   var topicInterest: Option[seq[waku_protocol.Topic]]
   var bloom: Option[Bloom]
-  
+
   if conf.wakuV1TopicInterest:
     var topics: seq[waku_protocol.Topic]
     topicInterest = some(topics)
@@ -401,12 +401,12 @@ when isMainModule:
     var nameServers: seq[TransportAddress]
     for ip in conf.dnsAddrsNameServers:
       nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
-    
+
     dnsReslvr = DnsResolver.new(nameServers)
-  
+
   # Initialise bridge with a candidate pool of v1 nodes to connect to
   var v1PoolStrs: seq[string]
-  
+
   if conf.staticnodesV1.len > 0: v1PoolStrs = conf.staticnodesV1
   elif conf.fleetV1 == prod: v1PoolStrs = @WhisperNodes
   elif conf.fleetV1 == staging: v1PoolStrs = @WhisperNodesStaging
@@ -427,14 +427,14 @@ when isMainModule:
                             nodev2PubsubTopic = conf.bridgePubsubTopic,
                             v1Pool = v1Pool,
                             targetV1Peers = min(v1Pool.len(), TargetV1Peers))
-  
+
   waitFor bridge.start()
 
   # Now load rest of config
 
   # Mount configured Waku v2 protocols
   waitFor mountLibp2pPing(bridge.nodev2)
-  
+
   if conf.store:
     waitFor mountStore(bridge.nodev2)  # Bridge does not persist messages
 
@@ -445,7 +445,7 @@ when isMainModule:
     waitFor connectToNodes(bridge.nodev2, conf.staticnodesV2)
 
   if conf.storenode != "":
-    mountStoreClient(bridge.nodev2, store=nil)
+    mountStoreClient(bridge.nodev2)
     setStorePeer(bridge.nodev2, conf.storenode)
 
   if conf.filternode != "":
