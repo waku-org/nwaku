@@ -5,8 +5,8 @@ import
   stew/results,
   chronicles
 import
-  ../../../../common/sqlite,
-  ../../../../common/sqlite/migrations
+  ../../../../../common/sqlite,
+  ../../../../../common/sqlite/migrations
 
 
 logScope:
@@ -19,12 +19,12 @@ template projectRoot: string = currentSourcePath.rsplit(DirSep, 1)[0] / ".." / "
 const MessageStoreMigrationPath: string = projectRoot / "migrations" / "message_store"
 
 
-proc migrate*(db: SqliteDatabase, targetVersion = SchemaVersion): DatabaseResult[void] = 
+proc migrate*(db: SqliteDatabase, targetVersion = SchemaVersion): DatabaseResult[void] =
   ## Compares the `user_version` of the sqlite database with the provided `targetVersion`, then
   ## it runs migration scripts if the `user_version` is outdated. The `migrationScriptsDir` path
   ## points to the directory holding the migrations scripts once the db is updated, it sets the
   ## `user_version` to the `tragetVersion`.
-  ## 
+  ##
   ## If not `targetVersion` is provided, it defaults to `SchemaVersion`.
   ##
   ## NOTE: Down migration it is not currently supported

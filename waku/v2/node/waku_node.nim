@@ -6,8 +6,9 @@ else:
 import
   std/[hashes, options, tables, strutils, sequtils, os],
   chronos, chronicles, metrics,
-  stew/shims/net as stewNet,
+  stew/results,
   stew/byteutils,
+  stew/shims/net as stewNet,
   eth/keys,
   nimcrypto,
   bearssl/rand,
@@ -24,6 +25,7 @@ import
 import
   ../protocol/waku_message,
   ../protocol/waku_relay,
+  ../protocol/waku_archive,
   ../protocol/waku_store,
   ../protocol/waku_store/client as store_client,
   ../protocol/waku_swap/waku_swap,
@@ -35,9 +37,6 @@ import
   ../utils/peers,
   ../utils/wakuenr,
   ./peer_manager/peer_manager,
-  ./message_store/message_retention_policy,
-  ./message_store/message_retention_policy_capacity,
-  ./message_store/message_retention_policy_time,
   ./dnsdisc/waku_dnsdisc,
   ./discv5/waku_discv5,
   ./wakuswitch
@@ -84,6 +83,7 @@ type
     peerManager*: PeerManager
     switch*: Switch
     wakuRelay*: WakuRelay
+    wakuArchive*: WakuArchive
     wakuStore*: WakuStore
     wakuStoreClient*: WakuStoreClient
     wakuFilter*: WakuFilter
@@ -278,8 +278,8 @@ proc subscribe(node: WakuNode, topic: PubsubTopic, handler: Option[TopicHandler]
     if not node.wakuFilter.isNil():
       await node.wakuFilter.handleMessage(topic, msg.value)
 
-    if not node.wakuStore.isNil():
-      node.wakuStore.handleMessage(topic, msg.value)
+    if not node.wakuArchive.isNil():
+      node.wakuArchive.handleMessage(topic, msg.value)
 
     waku_node_messages.inc(labelValues = ["relay"])
 
@@ -448,7 +448,7 @@ proc filterSubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: C
   # TODO: Move this logic to wakunode2 app
   let handlerWrapper: FilterPushHandler = proc(pubsubTopic: string, message: WakuMessage) {.raises: [Exception].} =
       if node.wakuRelay.isNil() and not node.wakuStore.isNil():
-        node.wakuStore.handleMessage(pubSubTopic, message)
+        node.wakuArchive.handleMessage(pubSubTopic, message)
 
       handler(pubsubTopic, message)
 
@@ -540,27 +540,33 @@ proc mountSwap*(node: WakuNode, swapConfig: SwapConfig = SwapConfig.init()) {.as
   node.switch.mount(node.wakuSwap, protocolMatcher(WakuSwapCodec))
 
 
-## Waku store
+## Waku archive
 
-const MessageStoreDefaultRetentionPolicyInterval* = 30.minutes
+proc mountArchive*(node: WakuNode,
+                   driver: Option[ArchiveDriver],
+                   messageValidator: Option[MessageValidator],
+                   retentionPolicy: Option[RetentionPolicy]) =
 
-proc executeMessageRetentionPolicy*(node: WakuNode) =
-  if node.wakuStore.isNil():
+  if driver.isNone():
+    error "failed to mount waku archive protocol", error="archive driver not set"
     return
 
-  if node.wakuStore.store.isNil():
+  node.wakuArchive = WakuArchive.new(driver.get(), messageValidator, retentionPolicy)
+
+# TODO: Review this periodic task. Maybe, move it to the appplication code
+const WakuArchiveDefaultRetentionPolicyInterval* = 30.minutes
+
+proc executeMessageRetentionPolicy*(node: WakuNode) =
+  if node.wakuArchive.isNil():
     return
 
   debug "executing message retention policy"
 
-  node.wakuStore.executeMessageRetentionPolicy()
-  node.wakuStore.reportStoredMessagesMetric()
+  node.wakuArchive.executeMessageRetentionPolicy()
+  node.wakuArchive.reportStoredMessagesMetric()
 
 proc startMessageRetentionPolicyPeriodicTask*(node: WakuNode, interval: Duration) =
-  if node.wakuStore.isNil():
-    return
-
-  if node.wakuStore.store.isNil():
+  if node.wakuArchive.isNil():
     return
 
   # https://github.com/nim-lang/Nim/issues/17369
@@ -571,15 +577,56 @@ proc startMessageRetentionPolicyPeriodicTask*(node: WakuNode, interval: Duration
 
   discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)
 
-proc mountStore*(node: WakuNode, store: MessageStore = nil, retentionPolicy=none(MessageRetentionPolicy) ) {.async, raises: [Defect, LPError].} =
+
+## Waku store
+
+# TODO: Review this mapping logic. Maybe, move it to the appplication code
+proc toArchiveQuery(request: HistoryQuery): ArchiveQuery =
+  ArchiveQuery(
+    pubsubTopic: request.pubsubTopic,
+    contentTopics: request.contentTopics,
+    cursor: request.cursor.map(proc(cursor: HistoryCursor): ArchiveCursor = ArchiveCursor(pubsubTopic: cursor.pubsubTopic, senderTime: cursor.senderTime, storeTime: cursor.storeTime, digest: cursor.digest)),
+    startTime: request.startTime,
+    endTime: request.endTime,
+    pageSize: request.pageSize.uint,
+    ascending: request.ascending
+  )
+
+# TODO: Review this mapping logic. Maybe, move it to the appplication code
+proc toHistoryResult*(res: ArchiveResult): HistoryResult =
+  if res.isErr():
+    let error = res.error
+    case res.error.kind:
+    of ArchiveErrorKind.DRIVER_ERROR, ArchiveErrorKind.INVALID_QUERY:
+      err(HistoryError(
+        kind: HistoryErrorKind.BAD_REQUEST,
+        cause: res.error.cause
+      ))
+    else:
+      err(HistoryError(kind: HistoryErrorKind.UNKNOWN))
+
+  else:
+    let response = res.get()
+    ok(HistoryResponse(
+      messages: response.messages,
+      cursor: response.cursor.map(proc(cursor: ArchiveCursor): HistoryCursor = HistoryCursor(pubsubTopic: cursor.pubsubTopic, senderTime: cursor.senderTime, storeTime: cursor.storeTime, digest: cursor.digest)),
+    ))
+
+proc mountStore*(node: WakuNode) {.async, raises: [Defect, LPError].} =
   info "mounting waku store protocol"
 
-  node.wakuStore = WakuStore.new(
-    node.peerManager,
-    node.rng,
-    store,
-    retentionPolicy=retentionPolicy
-  )
+  if node.wakuArchive.isNil():
+    error "failed to mount waku store protocol", error="waku archive not set"
+    return
+
+  # TODO: Review this handler logic. Maybe, move it to the appplication code
+  let queryHandler: HistoryQueryHandler = proc(request: HistoryQuery): HistoryResult =
+      let request = request.toArchiveQuery()
+      let response = node.wakuArchive.findMessages(request)
+      response.toHistoryResult()
+
+  node.wakuStore = WakuStore.new(node.peerManager, node.rng, queryHandler)
+
 
   if node.started:
     # Node has started already. Let's start store too.
@@ -588,10 +635,10 @@ proc mountStore*(node: WakuNode, store: MessageStore = nil, retentionPolicy=none
   node.switch.mount(node.wakuStore, protocolMatcher(WakuStoreCodec))
 
 
-proc mountStoreClient*(node: WakuNode, store: MessageStore = nil) =
+proc mountStoreClient*(node: WakuNode) =
   info "mounting store client"
 
-  node.wakuStoreClient = WakuStoreClient.new(node.peerManager, node.rng, store)
+  node.wakuStoreClient = WakuStoreClient.new(node.peerManager, node.rng)
 
 proc query*(node: WakuNode, query: HistoryQuery, peer: RemotePeerInfo): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe.} =
   ## Queries known nodes for historical messages
@@ -635,25 +682,26 @@ proc query*(node: WakuNode, query: HistoryQuery): Future[WakuStoreResult[History
 
   return await node.query(query, peerOpt.get())
 
-# TODO: Move to application module (e.g., wakunode2.nim)
-proc resume*(node: WakuNode, peerList: Option[seq[RemotePeerInfo]] = none(seq[RemotePeerInfo])) {.async, gcsafe.} =
-  ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku node has been online
-  ## for resume to work properly the waku node must have the store protocol mounted in the full mode (i.e., persisting messages)
-  ## messages are stored in the the wakuStore's messages field and in the message db
-  ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message
-  ## an offset of 20 second is added to the time window to count for nodes asynchrony
-  ## peerList indicates the list of peers to query from. The history is fetched from the first available peer in this list. Such candidates should be found through a discovery method (to be developed).
-  ## if no peerList is passed, one of the peers in the underlying peer manager unit of the store protocol is picked randomly to fetch the history from.
-  ## The history gets fetched successfully if the dialed peer has been online during the queried time window.
-  if node.wakuStoreClient.isNil():
-    return
+when defined(waku_exp_store_resume):
+  # TODO: Move to application module (e.g., wakunode2.nim)
+  proc resume*(node: WakuNode, peerList: Option[seq[RemotePeerInfo]] = none(seq[RemotePeerInfo])) {.async, gcsafe.} =
+    ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku node has been online
+    ## for resume to work properly the waku node must have the store protocol mounted in the full mode (i.e., persisting messages)
+    ## messages are stored in the the wakuStore's messages field and in the message db
+    ## the offline time window is measured as the difference between the current time and the timestamp of the most recent persisted waku message
+    ## an offset of 20 second is added to the time window to count for nodes asynchrony
+    ## peerList indicates the list of peers to query from. The history is fetched from the first available peer in this list. Such candidates should be found through a discovery method (to be developed).
+    ## if no peerList is passed, one of the peers in the underlying peer manager unit of the store protocol is picked randomly to fetch the history from.
+    ## The history gets fetched successfully if the dialed peer has been online during the queried time window.
+    if node.wakuStoreClient.isNil():
+      return
 
-  let retrievedMessages = await node.wakuStoreClient.resume(peerList)
-  if retrievedMessages.isErr():
-    error "failed to resume store", error=retrievedMessages.error
-    return
+    let retrievedMessages = await node.wakuStoreClient.resume(peerList)
+    if retrievedMessages.isErr():
+      error "failed to resume store", error=retrievedMessages.error
+      return
 
-  info "the number of retrieved messages since the last online time: ", number=retrievedMessages.value
+    info "the number of retrieved messages since the last online time: ", number=retrievedMessages.value
 
 
 ## Waku lightpush

@@ -13,14 +13,7 @@ import
   ./v2/waku_archive/test_driver_sqlite_query,
   ./v2/waku_archive/test_driver_sqlite,
   ./v2/waku_archive/test_retention_policy,
-  ./v2/waku_archive/test_waku_archive,
-
-  # TODO: Remove with the implementation
-  ./v2/test_message_store_queue_index,
-  ./v2/test_message_store_queue_pagination,
-  ./v2/test_message_store_queue,
-  ./v2/test_message_store_sqlite_query,
-  ./v2/test_message_store_sqlite
+  ./v2/waku_archive/test_waku_archive
 
 import
   # Waku v2 tests
@@ -29,9 +22,6 @@ import
   # Waku Store
   ./v2/test_waku_store_rpc_codec,
   ./v2/test_waku_store,
-  ./v2/test_waku_store_client,
-  # TODO: Re-enable store resume test cases (#1282)
-  # ./v2/test_waku_store_resume,
   ./v2/test_wakunode_store,
   # Waku LightPush
   ./v2/test_waku_lightpush,
@@ -65,6 +55,9 @@ import
   # Utils
   ./v2/test_utils_keyfile
 
+
+## Experimental
+
 when defined(rln):
   import
     ./v2/test_waku_rln_relay,
@@ -72,7 +65,11 @@ when defined(rln):
   when defined(onchain_rln):
     import ./v2/test_waku_rln_relay_onchain
 
+when defined(waku_exp_store_resume):
+  # TODO: Review store resume test cases (#1282)
+  import ./v2/test_waku_store_resume
 
-# TODO Only enable this once swap module is integrated more nicely as a dependency, i.e. as submodule with CI etc
+
+# TODO: Only enable this once swap module is integrated more nicely as a dependency, i.e. as submodule with CI etc
 # For PoC execute it manually and run separate module here: https://github.com/vacp2p/swap-contracts-module
 #  ./v2/test_waku_swap_contracts
