@@ -37,9 +37,7 @@ jobs:
           - NPROC: 2
             MAKEFLAGS: "-j${NPROC}"
             NIMFLAGS: "--parallelBuild:${NPROC}"
-            # Add feature flags here
-            RLN: "true"
-            ONCHAIN_RLN: "true"
+            EXPERIMENTAL: "true"
         platform: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.platform }}
     env: ${{ matrix.env }}
