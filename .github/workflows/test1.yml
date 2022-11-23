@@ -31,7 +31,6 @@ jobs:
       matrix:
         env:
           - NPROC: 2
-            MAKEFLAGS: "-j${NPROC}"
             NIMFLAGS: "--parallelBuild:${NPROC}"
         platform: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.platform }}
@@ -57,10 +56,10 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.env.NPROC }}-nim-${{ hashFiles('.gitmodules') }}
 
       - name: Update dependencies
-        run: make ${{MAKEFLAGS}} V=1 update
+        run: make -j${NPROC} V=1 update
 
       - name: Build V1 binaries
-        run: make ${{MAKEFLAGS}} LOG_LEVEL=TRACE v1
+        run: make -j${NPROC} LOG_LEVEL=TRACE v1
 
       - name: Run V1 Tests
-        run: make ${{MAKEFLAGS}} test1
+        run: make -j${NPROC} test1
