@@ -204,33 +204,31 @@ docs: | build deps
 
 ## RLN
 
+compile_rln =
+
 # control rln code compilation
 ifeq ($(RLN), true)
-NIM_PARAMS := $(NIM_PARAMS) -d:rln
+compile_rln = true
 endif
 
 # control compilation of rln tests that require on chain interaction
 ifeq ($(ONCHAIN_RLN), true) 
-NIM_PARAMS := $(NIM_PARAMS) -d:rln -d:onchain_rln
+compile_rln = true
+NIM_PARAMS := $(NIM_PARAMS) -d:onchain_rln
 endif
 
 # Experimental flag for all experimental features
 ifeq ($(EXPERIMENTAL), true)
-NIM_PARAMS := $(NIM_PARAMS) -d:rln -d:onchain_rln
+compile_rln = true
+NIM_PARAMS := $(NIM_PARAMS) -d:onchain_rln
+endif
+
+ifdef compile_rln
+	NIM_PARAMS := $(NIM_PARAMS) -d:rln
 endif
 
 rlnlib:
-compile_rln = false
-ifeq($(RLN), true)
-	compile_rln = true
-endif
-ifeq($(ONCHAIN_RLN), true)
-	compile_rln = true
-endif
-ifeq($(EXPERIMENTAL), true)
-	compile_rln = true
-endif
-ifeq (compile_rln, true)
+ifdef compile_rln
 	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
 endif
 
