@@ -6,7 +6,7 @@ else:
 import
   std/[options, tables, strutils, sequtils, os],
   stew/shims/net as stewNet,
-  chronicles, 
+  chronicles,
   chronos,
   metrics,
   system/ansi_c,
@@ -28,16 +28,16 @@ import
   ../../waku/v2/node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
   ../../waku/v2/node/dnsdisc/waku_dnsdisc,
   ../../waku/v2/node/discv5/waku_discv5,
-  ../../waku/v2/node/message_store/queue_store,
-  ../../waku/v2/node/message_store/sqlite_store,
-  ../../waku/v2/node/message_store/sqlite_store/migrations as message_store_sqlite_migrations,
-  ../../waku/v2/node/message_store/message_retention_policy,
-  ../../waku/v2/node/message_store/message_retention_policy_capacity,
-  ../../waku/v2/node/message_store/message_retention_policy_time,
-  ../../waku/v2/node/wakuswitch, 
+  ../../waku/v2/node/wakuswitch,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/waku_metrics,
-  ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/protocol/waku_archive,
+  ../../waku/v2/protocol/waku_archive/driver/queue_driver,
+  ../../waku/v2/protocol/waku_archive/driver/sqlite_driver,
+  ../../waku/v2/protocol/waku_archive/driver/sqlite_driver/migrations as archive_driver_sqlite_migrations,
+  ../../waku/v2/protocol/waku_archive/retention_policy,
+  ../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_capacity,
+  ../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_time,
   ../../waku/v2/protocol/waku_peer_exchange,
   ../../waku/v2/utils/peers,
   ../../waku/v2/utils/wakuenr,
@@ -60,11 +60,11 @@ type SetupResult[T] = Result[T, string]
 proc setupDatabaseConnection(dbUrl: string): SetupResult[Option[SqliteDatabase]] =
   ## dbUrl mimics SQLAlchemy Database URL schema
   ## See: https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls
-  if dbUrl == "":
+  if dbUrl == "" or dbUrl == "none":
     return ok(none(SqliteDatabase))
 
   let dbUrlParts = dbUrl.split("://", 1)
-  let 
+  let
     engine = dbUrlParts[0]
     path = dbUrlParts[1]
 
@@ -79,11 +79,11 @@ proc setupDatabaseConnection(dbUrl: string): SetupResult[Option[SqliteDatabase]]
 
   if connRes.isErr():
     return err("failed to init database connection: " & connRes.error)
-  
+
   ok(some(connRes.value))
 
 proc gatherSqlitePageStats(db: SqliteDatabase): SetupResult[(int64, int64, int64)] =
-  let 
+  let
     pageSize = ?db.getPageSize()
     pageCount = ?db.getPageCount()
     freelistCount = ?db.getFreelistCount()
@@ -108,64 +108,50 @@ const PeerPersistenceDbUrl = "sqlite://peers.db"
 
 proc setupPeerStorage(): SetupResult[Option[WakuPeerStorage]] =
   let db = ?setupDatabaseConnection(PeerPersistenceDbUrl)
-  
+
   ?peer_store_sqlite_migrations.migrate(db.get())
 
   let res = WakuPeerStorage.new(db.get())
   if res.isErr():
     return err("failed to init peer store" & res.error)
-  
+
   ok(some(res.value))
 
 
-proc setupMessagesStore(db: Option[SqliteDatabase], storeCapacity: int = high(int)): SetupResult[MessageStore] =
-  if db.isSome():
-    debug "setting up sqlite-only message store"
-    let res = SqliteStore.init(db.get())
-    if res.isErr():
-      return err("failed to init sqlite message store: " & res.error)
-    
-    return ok(res.value)
-
-  else:
-    debug "setting up in-memory message store"
-    let store = StoreQueueRef.new(storeCapacity)
-    return ok(store)
-
-proc setupMessageStoreRetentionPolicy(retentionPolicy: string): SetupResult[Option[MessageRetentionPolicy]] =
-  if retentionPolicy == "":
-    return ok(none(MessageRetentionPolicy))
+proc setupWakuArchiveRetentionPolicy(retentionPolicy: string): SetupResult[Option[RetentionPolicy]] =
+  if retentionPolicy == "" or retentionPolicy == "none":
+    return ok(none(RetentionPolicy))
 
   let rententionPolicyParts = retentionPolicy.split(":", 1)
   let
     policy = rententionPolicyParts[0]
     policyArgs = rententionPolicyParts[1]
 
-  
+
   if policy == "time":
     var retentionTimeSeconds: int64
-    try: 
+    try:
       retentionTimeSeconds = parseInt(policyArgs)
     except ValueError:
       return err("invalid time retention policy argument")
 
-    let retPolicy: MessageRetentionPolicy = TimeRetentionPolicy.init(retentionTimeSeconds)
+    let retPolicy: RetentionPolicy = TimeRetentionPolicy.init(retentionTimeSeconds)
     return ok(some(retPolicy))
 
   elif policy == "capacity":
     var retentionCapacity: int
-    try: 
+    try:
       retentionCapacity = parseInt(policyArgs)
     except ValueError:
       return err("invalid capacity retention policy argument")
 
-    let retPolicy: MessageRetentionPolicy = CapacityRetentionPolicy.init(retentionCapacity)
+    let retPolicy: RetentionPolicy = CapacityRetentionPolicy.init(retentionCapacity)
     return ok(some(retPolicy))
 
-  else: 
+  else:
     return err("unknown retention policy")
 
-proc setupMessageStorage(dbUrl: string, vacuum: bool, migrate: bool): SetupResult[MessageStore] =
+proc setupWakuArchiveDriver(dbUrl: string, vacuum: bool, migrate: bool): SetupResult[ArchiveDriver] =
   let db = ?setupDatabaseConnection(dbUrl)
 
   if db.isSome():
@@ -179,14 +165,24 @@ proc setupMessageStorage(dbUrl: string, vacuum: bool, migrate: bool): SetupResul
 
   # Database migration
     if migrate:
-      ?message_store_sqlite_migrations.migrate(db.get())
+      ?archive_driver_sqlite_migrations.migrate(db.get())
 
-  # TODO: Extract capacity from `messageRetentionPolicy`
-  return setupMessagesStore(db, storeCapacity=high(int))
+  if db.isSome():
+    debug "setting up sqlite waku archive driver"
+    let res = SqliteDriver.new(db.get())
+    if res.isErr():
+      return err("failed to init sqlite archive driver: " & res.error)
+
+    ok(res.value)
+
+  else:
+    debug "setting up in-memory waku archive driver"
+    let driver = QueueDriver.new()  # Defaults to a capacity of 25.000 messages
+    ok(driver)
 
 
 proc retrieveDynamicBootstrapNodes(dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[ValidIpAddress]): SetupResult[seq[RemotePeerInfo]] =
-  
+
   if dnsDiscovery and dnsDiscoveryUrl != "":
     # DNS discovery
     debug "Discovering nodes using Waku DNS discovery", url=dnsDiscoveryUrl
@@ -215,7 +211,7 @@ proc retrieveDynamicBootstrapNodes(dnsDiscovery: bool, dnsDiscoveryUrl: string, 
 proc initNode(conf: WakuNodeConf,
               peerStore: Option[WakuPeerStorage],
               dynamicBootstrapNodes: openArray[RemotePeerInfo] = @[]): SetupResult[WakuNode] =
-  
+
   ## Setup a basic Waku v2 node based on a supplied configuration
   ## file. Optionally include persistent peer storage.
   ## No protocols are mounted yet.
@@ -226,10 +222,10 @@ proc initNode(conf: WakuNodeConf,
     var nameServers: seq[TransportAddress]
     for ip in conf.dnsAddrsNameServers:
       nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
-    
+
     dnsResolver = DnsResolver.new(nameServers)
-  
-  let 
+
+  let
     ## `udpPort` is only supplied to satisfy underlying APIs but is not
     ## actually a supported transport for libp2p traffic.
     udpPort = conf.tcpPort
@@ -240,7 +236,7 @@ proc initNode(conf: WakuNodeConf,
 
     dns4DomainName = if conf.dns4DomainName != "": some(conf.dns4DomainName)
                       else: none(string)
-    
+
     discv5UdpPort = if conf.discv5Discovery: some(Port(uint16(conf.discv5UdpPort) + conf.portsShift))
                     else: none(Port)
 
@@ -251,7 +247,7 @@ proc initNode(conf: WakuNodeConf,
                 some(Port(uint16(conf.tcpPort) + conf.portsShift))
               else:
                 extTcpPort
-    
+
     wakuFlags = initWakuFlags(conf.lightpush,
                               conf.filter,
                               conf.store,
@@ -263,7 +259,7 @@ proc initNode(conf: WakuNodeConf,
                  else: peerStore.get()
   try:
     node = WakuNode.new(conf.nodekey,
-                        conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift), 
+                        conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift),
                         extIp, extPort,
                         pStorage,
                         conf.maxConnections.int,
@@ -281,7 +277,7 @@ proc initNode(conf: WakuNodeConf,
                         )
   except:
     return err("failed to create waku node instance: " & getCurrentExceptionMsg())
-  
+
   if conf.discv5Discovery:
     let
       discoveryConfig = DiscoveryConfig.init(
@@ -297,7 +293,7 @@ proc initNode(conf: WakuNodeConf,
           tenrRes = enr.toTypedRecord()
         if tenrRes.isOk() and (tenrRes.get().udp.isSome() or tenrRes.get().udp6.isSome()):
           discv5BootstrapEnrs.add(enr)
-  
+
     # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
     for enrUri in conf.discv5BootstrapNodes:
       addBootstrapNode(enrUri, discv5BootstrapEnrs)
@@ -314,16 +310,16 @@ proc initNode(conf: WakuNodeConf,
       node.rng,
       discoveryConfig
     )
-  
+
   ok(node)
 
-proc setupProtocols(node: WakuNode, conf: WakuNodeConf, 
-                    mStore: Option[MessageStore], 
-                    mStoreRetentionPolicy: Option[MessageRetentionPolicy]): Future[SetupResult[void]] {.async.} =
+proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
+                    archiveDriver: Option[ArchiveDriver],
+                    archiveRetentionPolicy: Option[RetentionPolicy]): Future[SetupResult[void]] {.async.} =
   ## Setup configured protocols on an existing Waku v2 node.
   ## Optionally include persistent message storage.
   ## No protocols are started yet.
-  
+
   # Mount relay on all nodes
   var peerExchangeHandler = none(RoutingRecordsHandler)
   if conf.relayPeerExchange:
@@ -333,31 +329,31 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       # TODO: Only consider peers on pubsub topics we subscribe to
       let exchangedPeers = peers.filterIt(it.record.isSome()) # only peers with populated records
                                 .mapIt(toRemotePeerInfo(it.record.get()))
-      
+
       debug "connecting to exchanged peers", src=peer, topic=topic, numPeers=exchangedPeers.len
 
       # asyncSpawn, as we don't want to block here
       asyncSpawn node.connectToNodes(exchangedPeers, "peer exchange")
-  
+
     peerExchangeHandler = some(handlePeerExchange)
 
   if conf.relay:
     try:
       let pubsubTopics = conf.topics.split(" ")
-      await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler) 
+      await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
     except:
       return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())
 
-  
+
   # Keepalive mounted on all nodes
   try:
     await mountLibp2pPing(node)
   except:
     return err("failed to mount libp2p ping protocol: " & getCurrentExceptionMsg())
-  
-  when defined(rln): 
+
+  when defined(rln):
     if conf.rlnRelay:
-      
+
       let rlnConf = WakuRlnConfig(
         rlnRelayDynamic: conf.rlnRelayDynamic,
         rlnRelayPubsubTopic: conf.rlnRelayPubsubTopic,
@@ -371,13 +367,13 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
         rlnRelayCredentialsPassword: conf.rlnRelayCredentialsPassword
       )
 
-      try: 
+      try:
         let res = await node.mountRlnRelay(rlnConf)
         if res.isErr():
           return err("failed to mount waku RLN relay protocol: " & res.error)
       except:
         return err("failed to mount waku RLN relay protocol: " & getCurrentExceptionMsg())
-  
+
   if conf.swap:
     try:
       await mountSwap(node)
@@ -385,27 +381,25 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
     except:
       return err("failed to mount waku swap protocol: " & getCurrentExceptionMsg())
 
-  # Store setup
   if conf.store:
+    # Archive setup
+    let messageValidator: MessageValidator = DefaultMessageValidator()
+    mountArchive(node, archiveDriver, messageValidator=some(messageValidator), retentionPolicy=archiveRetentionPolicy)
+
+    # Store setup
     try:
-      # TODO: Decouple message store and message retention policy from waku store protocol object
-      let mStorage = if mStore.isNone(): nil
-                     else: mStore.get()
-      await mountStore(node, mStorage, retentionPolicy=mStoreRetentionPolicy)
+      await mountStore(node)
     except:
       return err("failed to mount waku store protocol: " & getCurrentExceptionMsg())
 
     # TODO: Move this to storage setup phase
-    if mStoreRetentionPolicy.isSome():
+    if archiveRetentionPolicy.isSome():
       executeMessageRetentionPolicy(node)
-      startMessageRetentionPolicyPeriodicTask(node, interval=MessageStoreDefaultRetentionPolicyInterval)
+      startMessageRetentionPolicyPeriodicTask(node, interval=WakuArchiveDefaultRetentionPolicyInterval)
 
   if conf.storenode != "":
     try:
-      # TODO: Use option instead of nil in store client
-      let mStorage = if mStore.isNone(): nil
-                     else: mStore.get()
-      mountStoreClient(node, store=mStorage)
+      mountStoreClient(node)
       setStorePeer(node, conf.storenode)
     except:
       return err("failed to set node waku store peer: " & getCurrentExceptionMsg())
@@ -423,7 +417,7 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       setLightPushPeer(node, conf.lightpushnode)
     except:
       return err("failed to set node waku lightpush peer: " & getCurrentExceptionMsg())
-  
+
   # Filter setup. NOTE Must be mounted after relay
   if conf.filter:
     try:
@@ -437,7 +431,7 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       setFilterPeer(node, conf.filternode)
     except:
       return err("failed to set node waku filter peer: " & getCurrentExceptionMsg())
-  
+
   # waku peer exchange setup
   if (conf.peerExchangeNode != "") or (conf.peerExchange):
     try:
@@ -455,12 +449,12 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
 
   return ok()
 
-proc startNode(node: WakuNode, conf: WakuNodeConf, 
+proc startNode(node: WakuNode, conf: WakuNodeConf,
                dynamicBootstrapNodes: seq[RemotePeerInfo] = @[]): Future[SetupResult[void]] {.async.} =
   ## Start a configured node and all mounted protocols.
   ## Connect to static nodes and start
   ## keep-alive, if configured.
-  
+
   # Start Waku v2 node
   try:
     await node.start()
@@ -481,14 +475,14 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
       await connectToNodes(node, conf.staticnodes, "static")
     except:
       return err("failed to connect to static nodes: " & getCurrentExceptionMsg())
-  
+
   if dynamicBootstrapNodes.len > 0:
     info "Connecting to dynamic bootstrap peers"
     try:
       await connectToNodes(node, dynamicBootstrapNodes, "dynamic bootstrap")
     except:
       return err("failed to connect to dynamic bootstrap nodes: " & getCurrentExceptionMsg())
-    
+
   # retrieve and connect to peer exchange peers
   if conf.peerExchangeNode != "":
     info "Retrieving peer info via peer exchange protocol"
@@ -501,24 +495,25 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
   # Start keepalive, if enabled
   if conf.keepAlive:
     node.startKeepalive()
-  
+
   return ok()
 
-proc resumeMessageStore(node: WakuNode, address: string): Future[SetupResult[void]] {.async.} =
-  # Resume historical messages, this has to be called after the node has been started
-  if address != "":
-    return err("empty peer multiaddres")
-  
-  var remotePeer: RemotePeerInfo
-  try:
-    remotePeer = parseRemotePeerInfo(address)
-  except:
-    return err("invalid peer multiaddress: " & getCurrentExceptionMsg())
-  
-  try:
-    await node.resume(some(@[remotePeer]))
-  except:
-    return err("failed to resume messages history: " & getCurrentExceptionMsg())
+when defined(waku_exp_store_resume):
+  proc resumeMessageStore(node: WakuNode, address: string): Future[SetupResult[void]] {.async.} =
+    # Resume historical messages, this has to be called after the node has been started
+    if address != "":
+      return err("empty peer multiaddres")
+
+    var remotePeer: RemotePeerInfo
+    try:
+      remotePeer = parseRemotePeerInfo(address)
+    except:
+      return err("invalid peer multiaddress: " & getCurrentExceptionMsg())
+
+    try:
+      await node.resume(some(@[remotePeer]))
+    except:
+      return err("failed to resume messages history: " & getCurrentExceptionMsg())
 
 
 proc startRpcServer(node: WakuNode, address: ValidIpAddress, port: uint16, portsShift: uint16, conf: WakuNodeConf): SetupResult[void] =
@@ -528,7 +523,7 @@ proc startRpcServer(node: WakuNode, address: ValidIpAddress, port: uint16, ports
     return err("failed to start the json-rpc server: " & getCurrentExceptionMsg())
 
   ok()
-  
+
 proc startRestServer(node: WakuNode, address: ValidIpAddress, port: uint16, portsShift: uint16, conf: WakuNodeConf): SetupResult[void] =
   startRestServer(node, address, Port(port + portsShift), conf)
   ok()
@@ -552,7 +547,7 @@ when isMainModule:
   ## 4. Start node and mounted protocols
   ## 5. Start monitoring tools and external interfaces
   ## 6. Setup graceful shutdown hooks
-  
+
   const versionString = "version / git commit hash: " & git_version
 
   let confRes = WakuNodeConf.load(version=versionString)
@@ -565,8 +560,8 @@ when isMainModule:
   # set log level
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
-  
-  
+
+
   ##############
   # Node setup #
   ##############
@@ -575,7 +570,7 @@ when isMainModule:
 
   ## Peer persistence
   var peerStore = none(WakuPeerStorage)
-  
+
   if conf.peerPersistence:
     let peerStoreRes = setupPeerStorage();
     if peerStoreRes.isOk():
@@ -583,10 +578,10 @@ when isMainModule:
     else:
       error "failed to setup peer store", error=peerStoreRes.error
       waku_node_errors.inc(labelValues = ["init_store_failure"])
-  
-  ## Message store
-  var messageStore = none(MessageStore)
-  var messageStoreRetentionPolicy = none(MessageRetentionPolicy)
+
+  ## Waku archive
+  var archiveDriver = none(ArchiveDriver)
+  var archiveRetentionPolicy = none(RetentionPolicy)
 
   if conf.store:
     # Message storage
@@ -595,11 +590,11 @@ when isMainModule:
       error "failed to configure the message store database connection", error=dbUrlValidationRes.error
       quit(QuitFailure)
 
-    let messageStoreRes = setupMessageStorage(dbUrlValidationRes.get(), vacuum=conf.storeMessageDbVacuum, migrate=conf.storeMessageDbMigration)
-    if messageStoreRes.isOk():
-      messageStore = some(messageStoreRes.get())
+    let archiveDriverRes = setupWakuArchiveDriver(dbUrlValidationRes.get(), vacuum=conf.storeMessageDbVacuum, migrate=conf.storeMessageDbMigration)
+    if archiveDriverRes.isOk():
+      archiveDriver = some(archiveDriverRes.get())
     else:
-      error "failed to configure message store", error=messageStoreRes.error
+      error "failed to configure archive driver", error=archiveDriverRes.error
       quit(QuitFailure)
 
     # Message store retention policy
@@ -608,21 +603,21 @@ when isMainModule:
       error "invalid store message retention policy configuration", error=storeMessageRetentionPolicyRes.error
       quit(QuitFailure)
 
-    let messageStoreRetentionPolicyRes = setupMessageStoreRetentionPolicy(storeMessageRetentionPolicyRes.get())
-    if messageStoreRetentionPolicyRes.isOk():
-      messageStoreRetentionPolicy = messageStoreRetentionPolicyRes.get()
+    let archiveRetentionPolicyRes = setupWakuArchiveRetentionPolicy(storeMessageRetentionPolicyRes.get())
+    if archiveRetentionPolicyRes.isOk():
+      archiveRetentionPolicy = archiveRetentionPolicyRes.get()
     else:
-      error "failed to configure the message retention policy", error=messageStoreRetentionPolicyRes.error
+      error "failed to configure the message retention policy", error=archiveRetentionPolicyRes.error
       quit(QuitFailure)
-        
+
     # TODO: Move retention policy execution here
-    # if messageStoreRetentionPolicy.isSome():
+    # if archiveRetentionPolicy.isSome():
     #   executeMessageRetentionPolicy(node)
-    #   startMessageRetentionPolicyPeriodicTask(node, interval=MessageStoreDefaultRetentionPolicyInterval)
+    #   startMessageRetentionPolicyPeriodicTask(node, interval=WakuArchiveDefaultRetentionPolicyInterval)
 
 
   debug "2/7 Retrieve dynamic bootstrap nodes"
-  
+
   var dynamicBootstrapNodes: seq[RemotePeerInfo]
   let dynamicBootstrapNodesRes = retrieveDynamicBootstrapNodes(conf.dnsDiscovery, conf.dnsDiscoveryUrl, conf.dnsDiscoveryNameServers)
   if dynamicBootstrapNodesRes.isOk():
@@ -643,21 +638,23 @@ when isMainModule:
 
   debug "4/7 Mounting protocols"
 
-  let setupProtocolsRes = waitFor setupProtocols(node, conf, messageStore, messageStoreRetentionPolicy)
+  let setupProtocolsRes = waitFor setupProtocols(node, conf, archiveDriver, archiveRetentionPolicy)
   if setupProtocolsRes.isErr():
     error "4/7 Mounting protocols failed. Continuing in current state.", error=setupProtocolsRes.error
 
   debug "5/7 Starting node and mounted protocols"
-  
+
   let startNodeRes = waitFor startNode(node, conf, dynamicBootstrapNodes)
   if startNodeRes.isErr():
     error "5/7 Starting node and mounted protocols failed. Continuing in current state.", error=startNodeRes.error
 
-  # Resume message store on boot
-  if conf.storeResumePeer != "":
-    let resumeMessageStoreRes = waitFor resumeMessageStore(node, conf.storeResumePeer)
-    if resumeMessageStoreRes.isErr():
-      error "failed to resume message store from peer node. Continuing in current state", error=resumeMessageStoreRes.error
+
+  when defined(waku_exp_store_resume):
+    # Resume message store on boot
+    if conf.storeResumePeer != "":
+      let resumeMessageStoreRes = waitFor resumeMessageStore(node, conf.storeResumePeer)
+      if resumeMessageStoreRes.isErr():
+        error "failed to resume message store from peer node. Continuing in current state", error=resumeMessageStoreRes.error
 
 
   debug "6/7 Starting monitoring and external interfaces"
@@ -677,7 +674,7 @@ when isMainModule:
     if startMetricsServerRes.isErr():
       error "6/7 Starting metrics server failed. Continuing in current state.", error=startMetricsServerRes.error
 
-  if conf.metricsLogging: 
+  if conf.metricsLogging:
     let startMetricsLoggingRes = startMetricsLogging()
     if startMetricsLoggingRes.isErr():
       error "6/7 Starting metrics console logging failed. Continuing in current state.", error=startMetricsLoggingRes.error
@@ -686,7 +683,7 @@ when isMainModule:
   debug "7/7 Setting up shutdown hooks"
   ## Setup shutdown hooks for this process.
   ## Stop node gracefully on shutdown.
-  
+
   # Handle Ctrl-C SIGINT
   proc handleCtrlC() {.noconv.} =
     when defined(windows):
@@ -695,7 +692,7 @@ when isMainModule:
     info "Shutting down after receiving SIGINT"
     waitFor node.stop()
     quit(QuitSuccess)
-  
+
   setControlCHook(handleCtrlC)
 
   # Handle SIGTERM
@@ -704,9 +701,9 @@ when isMainModule:
       info "Shutting down after receiving SIGTERM"
       waitFor node.stop()
       quit(QuitSuccess)
-    
+
     c_signal(ansi_c.SIGTERM, handleSigterm)
-  
+
   info "Node setup complete"
 
   runForever()

@@ -13,7 +13,7 @@ import
   ../waku_message
 
 
-const 
+const
   WakuStoreCodec* = "/vac/waku/store/2.0.0-beta4"
 
   DefaultPageSize*: uint64 = 20
@@ -60,8 +60,6 @@ type
 
   HistoryResponse* = object
     messages*: seq[WakuMessage]
-    pageSize*: uint64
-    ascending*: bool 
     cursor*: Option[HistoryCursor]
 
   HistoryErrorKind* {.pure.} = enum
@@ -70,7 +68,7 @@ type
     BAD_RESPONSE = uint32(300)
     BAD_REQUEST = uint32(400)
     SERVICE_UNAVAILABLE = uint32(503)
-  
+
   HistoryError* = object
     case kind*: HistoryErrorKind
     of PEER_DIAL_FAILURE:
@@ -79,7 +77,7 @@ type
       cause*: string
     else:
       discard
-    
+
   HistoryResult* = Result[HistoryResponse, HistoryError]
 
 
@@ -93,7 +91,7 @@ proc parse*(T: type HistoryErrorKind, kind: uint32): T =
 proc `$`*(err: HistoryError): string =
   case err.kind:
   of HistoryErrorKind.PEER_DIAL_FAILURE:
-    "PEER_DIAL_FAILURE: " & err.address 
+    "PEER_DIAL_FAILURE: " & err.address
   of HistoryErrorKind.BAD_RESPONSE:
     "BAD_RESPONSE: " & err.cause
   of HistoryErrorKind.BAD_REQUEST:
