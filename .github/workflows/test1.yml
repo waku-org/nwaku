@@ -57,10 +57,10 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.env.NPROC }}-nim-${{ hashFiles('.gitmodules') }}
 
       - name: Update dependencies
-        run: make V=1 update
+        run: make ${{MAKEFLAGS}} V=1 update
 
       - name: Build V1 binaries
-        run: make LOG_LEVEL=TRACE v1
+        run: make ${{MAKEFLAGS}} LOG_LEVEL=TRACE v1
 
       - name: Run V1 Tests
-        run: make test1
+        run: make ${{MAKEFLAGS}} test1
