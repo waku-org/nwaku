@@ -30,7 +30,7 @@ proc installStoreApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
     ## Returns history for a list of content topics with optional paging
     debug "get_waku_v2_store_v1_messages"
 
-    let peerOpt = node.peerManager.selectPeer(WakuStoreCodec)
+    let peerOpt = node.peerManager.peerStore.selectPeer(WakuStoreCodec)
     if peerOpt.isNone():
       raise newException(ValueError, "no suitable remote store peers")
 

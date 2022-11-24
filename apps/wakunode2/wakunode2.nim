@@ -273,7 +273,8 @@ proc initNode(conf: WakuNodeConf,
                         conf.relayPeerExchange, # We send our own signed peer record when peer exchange enabled
                         dns4DomainName,
                         discv5UdpPort,
-                        some(conf.agentString)
+                        some(conf.agentString),
+                        some(conf.peerStoreCapacity),
                         )
   except:
     return err("failed to create waku node instance: " & getCurrentExceptionMsg())
