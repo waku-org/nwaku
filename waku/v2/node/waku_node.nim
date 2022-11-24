@@ -102,7 +102,7 @@ type
     started*: bool # Indicates that node has started listening
 
 
-proc protocolMatcher(codec: string): Matcher =
+proc protocolMatcher*(codec: string): Matcher =
   ## Returns a protocol matcher function for the provided codec
   proc match(proto: string): bool {.gcsafe.} =
     ## Matches a proto with any postfix to the provided codec.
@@ -146,7 +146,8 @@ proc new*(T: type WakuNode,
           sendSignedPeerRecord = false,
           dns4DomainName = none(string),
           discv5UdpPort = none(Port),
-          agentString = none(string), # defaults to nim-libp2p version
+          agentString = none(string),    # defaults to nim-libp2p version
+          peerStoreCapacity = none(int), # defaults to nim-libp2p max size
           ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
   ## Creates a Waku Node instance.
 
@@ -217,7 +218,8 @@ proc new*(T: type WakuNode,
     secureCertPath = secureCert,
     nameResolver = nameResolver,
     sendSignedPeerRecord = sendSignedPeerRecord,
-    agentString = agentString
+    agentString = agentString,
+    peerStoreCapacity = peerStoreCapacity,
   )
 
   let wakuNode = WakuNode(
@@ -357,7 +359,7 @@ proc startRelay*(node: WakuNode) {.async.} =
     node.subscribe(topic, none(TopicHandler))
 
   # Resume previous relay connections
-  if node.peerManager.hasPeers(protocolMatcher(WakuRelayCodec)):
+  if node.peerManager.peerStore.hasPeers(protocolMatcher(WakuRelayCodec)):
     info "Found previous WakuRelay peers. Reconnecting."
 
     # Reconnect to previous relay peers. This will respect a backoff period, if necessary
@@ -502,7 +504,7 @@ proc subscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: Content
     error "cannot register filter subscription to topic", error="waku filter client is nil"
     return
 
-  let peerOpt = node.peerManager.selectPeer(WakuFilterCodec)
+  let peerOpt = node.peerManager.peerStore.selectPeer(WakuFilterCodec)
   if peerOpt.isNone():
     error "cannot register filter subscription to topic", error="no suitable remote peers"
     return
@@ -517,7 +519,7 @@ proc unsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: Conte
     error "cannot unregister filter subscription to content", error="waku filter client is nil"
     return
 
-  let peerOpt = node.peerManager.selectPeer(WakuFilterCodec)
+  let peerOpt = node.peerManager.peerStore.selectPeer(WakuFilterCodec)
   if peerOpt.isNone():
     error "cannot register filter subscription to topic", error="no suitable remote peers"
     return
@@ -675,7 +677,7 @@ proc query*(node: WakuNode, query: HistoryQuery): Future[WakuStoreResult[History
   if node.wakuStoreClient.isNil():
     return err("waku store client is nil")
 
-  let peerOpt = node.peerManager.selectPeer(WakuStoreCodec)
+  let peerOpt = node.peerManager.peerStore.selectPeer(WakuStoreCodec)
   if peerOpt.isNone():
     error "no suitable remote peers"
     return err("peer_not_found_failure")
@@ -764,7 +766,7 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMe
     error "failed to publish message", error="waku lightpush client is nil"
     return
 
-  let peerOpt = node.peerManager.selectPeer(WakuLightPushCodec)
+  let peerOpt = node.peerManager.peerStore.selectPeer(WakuLightPushCodec)
   if peerOpt.isNone():
     error "failed to publish message", error="no suitable remote peers"
     return
@@ -824,14 +826,15 @@ proc mountLibp2pPing*(node: WakuNode) {.async, raises: [Defect, LPError].} =
 
   node.switch.mount(node.libp2pPing)
 
+# TODO: Move this logic to PeerManager
 proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
   while node.started:
     # Keep all connected peers alive while running
     trace "Running keepalive"
 
     # First get a list of connected peer infos
-    let peers = node.peerManager.peers()
-                                .filterIt(node.peerManager.connectedness(it.peerId) == Connected)
+    let peers = node.peerManager.peerStore.peers()
+                                .filterIt(it.connectedness == Connected)
                                 .mapIt(it.toRemotePeerInfo())
 
     # Attempt to retrieve and ping the active outgoing connection for each peer
@@ -855,6 +858,9 @@ proc startKeepalive*(node: WakuNode) =
 
   asyncSpawn node.keepaliveLoop(defaultKeepalive)
 
+# TODO: Decouple discovery logic from connection logic
+# A discovered peer goes to the PeerStore
+# The PeerManager uses to PeerStore to dial peers
 proc runDiscv5Loop(node: WakuNode) {.async.} =
   ## Continuously add newly discovered nodes
   ## using Node Discovery v5
