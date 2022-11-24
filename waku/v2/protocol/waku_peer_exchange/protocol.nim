@@ -77,7 +77,7 @@ proc request(wpx: WakuPeerExchange, numPeers: uint64, peer: RemotePeerInfo): Fut
   return ok()
 
 proc request*(wpx: WakuPeerExchange, numPeers: uint64): Future[WakuPeerExchangeResult[void]] {.async, gcsafe.} =
-  let peerOpt = wpx.peerManager.selectPeer(WakuPeerExchangeCodec)
+  let peerOpt = wpx.peerManager.peerStore.selectPeer(WakuPeerExchangeCodec)
   if peerOpt.isNone():
     waku_px_errors.inc(labelValues = [peerNotFoundFailure])
     return err(peerNotFoundFailure)
@@ -106,7 +106,7 @@ proc respond(wpx: WakuPeerExchange, enrs: seq[enr.Record], peer: RemotePeerInfo 
   return ok()
 
 proc respond(wpx: WakuPeerExchange, enrs: seq[enr.Record]): Future[WakuPeerExchangeResult[void]] {.async, gcsafe.} =
-  let peerOpt = wpx.peerManager.selectPeer(WakuPeerExchangeCodec)
+  let peerOpt = wpx.peerManager.peerStore.selectPeer(WakuPeerExchangeCodec)
   if peerOpt.isNone():
     waku_px_errors.inc(labelValues = [peerNotFoundFailure])
     return err(peerNotFoundFailure)

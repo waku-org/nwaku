@@ -78,6 +78,11 @@ type
       defaultValue: 50
       name: "max-connections" }: uint16
 
+    peerStoreCapacity* {.
+      desc: "Maximum stored peers in the peerstore."
+      defaultValue: 100
+      name: "peer-store-capacity" }: int
+
     peerPersistence* {.
       desc: "Enable peer persistence.",
       defaultValue: false,

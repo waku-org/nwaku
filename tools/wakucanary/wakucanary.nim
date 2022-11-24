@@ -101,7 +101,7 @@ proc main(): Future[int] {.async.} =
 
   # ensure input protocols are valid
   for p in conf.protocols:
-    if p notin ProtocolsTable: 
+    if p notin ProtocolsTable:
       error "invalid protocol", protocol=p, valid=ProtocolsTable
       raise newException(ConfigurationError, "Invalid cli flag values" & p)
 
@@ -128,7 +128,7 @@ proc main(): Future[int] {.async.} =
     error "Timedout after", timeout=conf.timeout
 
   let lp2pPeerStore = node.switch.peerStore
-  let conStatus = node.peerManager.peerStore.connectionBook[peer.peerId]
+  let conStatus = node.peerManager.peerStore[ConnectionBook][peer.peerId]
 
   if conStatus in [Connected, CanConnect]:
     let nodeProtocols = lp2pPeerStore[ProtoBook][peer.peerId]
