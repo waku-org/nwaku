@@ -685,14 +685,17 @@ when isMainModule:
   ## Setup shutdown hooks for this process.
   ## Stop node gracefully on shutdown.
 
+  proc asyncStopper(node: WakuNode) {.async.} =
+    await node.stop()
+    quit(QuitSuccess)
+
   # Handle Ctrl-C SIGINT
   proc handleCtrlC() {.noconv.} =
     when defined(windows):
       # workaround for https://github.com/nim-lang/Nim/issues/4057
       setupForeignThreadGc()
     info "Shutting down after receiving SIGINT"
-    waitFor node.stop()
-    quit(QuitSuccess)
+    asyncSpawn asyncStopper(node)
 
   setControlCHook(handleCtrlC)
 
@@ -700,8 +703,7 @@ when isMainModule:
   when defined(posix):
     proc handleSigterm(signal: cint) {.noconv.} =
       info "Shutting down after receiving SIGTERM"
-      waitFor node.stop()
-      quit(QuitSuccess)
+      asyncSpawn asyncStopper(node)
 
     c_signal(ansi_c.SIGTERM, handleSigterm)
 
