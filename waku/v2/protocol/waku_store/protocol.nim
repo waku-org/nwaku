@@ -7,7 +7,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables, times, sequtils, options, algorithm],
+  std/options,
   stew/results,
   chronicles,
   chronos,
