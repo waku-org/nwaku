@@ -210,7 +210,7 @@ when defined(waku_exp_store_resume):
     else:
       debug "no candidate list is provided, selecting a random peer"
       # if no peerList is set then query from one of the peers stored in the peer manager
-      let peerOpt = w.peerManager.selectPeer(WakuStoreCodec)
+      let peerOpt = w.peerManager.peerStore.selectPeer(WakuStoreCodec)
       if peerOpt.isNone():
         warn "no suitable remote peers"
         waku_store_errors.inc(labelValues = [peerNotFoundFailure])

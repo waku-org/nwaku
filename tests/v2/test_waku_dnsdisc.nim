@@ -88,11 +88,11 @@ procSuite "Waku DNS Discovery":
 
     check:
       # We have successfully connected to all discovered nodes
-      node4.peerManager.peers().anyIt(it.peerId == node1.switch.peerInfo.peerId)
-      node4.peerManager.connectedness(node1.switch.peerInfo.peerId) == Connected
-      node4.peerManager.peers().anyIt(it.peerId == node2.switch.peerInfo.peerId)
-      node4.peerManager.connectedness(node2.switch.peerInfo.peerId) == Connected
-      node4.peerManager.peers().anyIt(it.peerId == node3.switch.peerInfo.peerId)
-      node4.peerManager.connectedness(node3.switch.peerInfo.peerId) == Connected
+      node4.peerManager.peerStore.peers().anyIt(it.peerId == node1.switch.peerInfo.peerId)
+      node4.peerManager.peerStore.connectedness(node1.switch.peerInfo.peerId) == Connected
+      node4.peerManager.peerStore.peers().anyIt(it.peerId == node2.switch.peerInfo.peerId)
+      node4.peerManager.peerStore.connectedness(node2.switch.peerInfo.peerId) == Connected
+      node4.peerManager.peerStore.peers().anyIt(it.peerId == node3.switch.peerInfo.peerId)
+      node4.peerManager.peerStore.connectedness(node3.switch.peerInfo.peerId) == Connected
 
     await allFutures([node1.stop(), node2.stop(), node3.stop(), node4.stop()])

@@ -37,7 +37,7 @@ proc setupAndPublish() {.async.} =
         ip = ValidIpAddress.init("0.0.0.0")
         node = WakuNode.new(nodeKey, ip, Port(wakuPort))
         flags = initWakuFlags(lightpush = false, filter = false, store = false, relay = true)
-    
+
     # assumes behind a firewall, so not care about being discoverable
     node.wakuDiscv5 = WakuDiscoveryV5.new(
         extIp= none(ValidIpAddress),
@@ -59,7 +59,7 @@ proc setupAndPublish() {.async.} =
 
     # wait for a minimum of peers to be connected, otherwise messages wont be gossiped
     while true:
-      let numConnectedPeers = node.peerManager.peerStore.connectionBook.book.values().countIt(it == Connected)
+      let numConnectedPeers = node.peerManager.peerStore[ConnectionBook].book.values().countIt(it == Connected)
       if numConnectedPeers >= 6:
         notice "publisher is ready", connectedPeers=numConnectedPeers, required=6
         break
