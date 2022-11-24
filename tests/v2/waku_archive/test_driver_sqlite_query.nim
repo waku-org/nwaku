@@ -1,9 +1,10 @@
 {.used.}
 
 import
-  std/[options, sequtils],
+  std/[options, sequtils, random],
   testutils/unittests,
-  chronos
+  chronos,
+  chronicles
 import
   ../../../waku/common/sqlite,
   ../../../waku/v2/protocol/waku_archive,
@@ -11,6 +12,13 @@ import
   ../../../waku/v2/protocol/waku_message,
   ../utils,
   ../testlib/common
+
+logScope:
+  topics = "test archive _driver"
+
+
+# Initialize the random number generator
+common.randomize()
 
 
 proc newTestDatabase(): SqliteDatabase =
@@ -37,7 +45,7 @@ suite "SQLite driver - query by content topic":
 
     let driver = newTestSqliteDriver()
 
-    let messages = @[
+    let expected = @[
       fakeWakuMessage(@[byte 0], contentTopic=DefaultContentTopic, ts=ts(00)),
       fakeWakuMessage(@[byte 1], contentTopic=DefaultContentTopic, ts=ts(10)),
       fakeWakuMessage(@[byte 2], contentTopic=contentTopic, ts=ts(20)),
@@ -48,6 +56,10 @@ suite "SQLite driver - query by content topic":
       fakeWakuMessage(@[byte 6], contentTopic=contentTopic, ts=ts(60)),
       fakeWakuMessage(@[byte 7], contentTopic=contentTopic, ts=ts(70)),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
       require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
@@ -64,8 +76,7 @@ suite "SQLite driver - query by content topic":
 
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 5
-      filteredMessages == messages[0..4]
+      filteredMessages == expected[0..4]
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -76,9 +87,9 @@ suite "SQLite driver - query by content topic":
 
     let driver = newTestSqliteDriver()
 
-    let messages = @[
-      fakeWakuMessage(ts=ts(00)),
-      fakeWakuMessage(ts=ts(10)),
+    let expected = @[
+      fakeWakuMessage(@[byte 0], ts=ts(00)),
+      fakeWakuMessage(@[byte 1], ts=ts(10)),
 
       fakeWakuMessage(@[byte 2], contentTopic=contentTopic, ts=ts(20)),
       fakeWakuMessage(@[byte 3], contentTopic=contentTopic, ts=ts(30)),
@@ -88,6 +99,10 @@ suite "SQLite driver - query by content topic":
       fakeWakuMessage(@[byte 6], contentTopic=contentTopic, ts=ts(60)),
       fakeWakuMessage(@[byte 7], contentTopic=contentTopic, ts=ts(70)),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
       require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
@@ -105,8 +120,7 @@ suite "SQLite driver - query by content topic":
 
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 2
-      filteredMessages == messages[2..3]
+      filteredMessages == expected[2..3]
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -117,18 +131,22 @@ suite "SQLite driver - query by content topic":
 
     let driver = newTestSqliteDriver()
 
-    let messages = @[
-      fakeWakuMessage(ts=ts(00)),
-      fakeWakuMessage(ts=ts(10)),
+    let expected = @[
+      fakeWakuMessage(@[byte 0], ts=ts(00)),
+      fakeWakuMessage(@[byte 1], ts=ts(10)),
 
-      fakeWakuMessage(@[byte 1], contentTopic=contentTopic, ts=ts(20)),
-      fakeWakuMessage(@[byte 2], contentTopic=contentTopic, ts=ts(30)),
-      fakeWakuMessage(@[byte 3], contentTopic=contentTopic, ts=ts(40)),
-      fakeWakuMessage(@[byte 4], contentTopic=contentTopic, ts=ts(50)),
+      fakeWakuMessage(@[byte 2], contentTopic=contentTopic, ts=ts(20)),
+      fakeWakuMessage(@[byte 3], contentTopic=contentTopic, ts=ts(30)),
+      fakeWakuMessage(@[byte 4], contentTopic=contentTopic, ts=ts(40)),
+      fakeWakuMessage(@[byte 5], contentTopic=contentTopic, ts=ts(50)),
 
-      fakeWakuMessage(@[byte 5], contentTopic=contentTopic, ts=ts(60)),
-      fakeWakuMessage(@[byte 6], contentTopic=contentTopic, ts=ts(70)),
+      fakeWakuMessage(@[byte 6], contentTopic=contentTopic, ts=ts(60)),
+      fakeWakuMessage(@[byte 7], contentTopic=contentTopic, ts=ts(70)),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
       require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
@@ -146,8 +164,7 @@ suite "SQLite driver - query by content topic":
 
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 2
-      filteredMessages == messages[6..7]
+      filteredMessages == expected[6..7]
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -160,18 +177,22 @@ suite "SQLite driver - query by content topic":
 
     let driver = newTestSqliteDriver()
 
-    let messages = @[
-      fakeWakuMessage(ts=ts(00)),
-      fakeWakuMessage(ts=ts(10)),
+    let expected = @[
+      fakeWakuMessage(@[byte 0], ts=ts(00)),
+      fakeWakuMessage(@[byte 1], ts=ts(10)),
 
-      fakeWakuMessage(@[byte 1], contentTopic=contentTopic1, ts=ts(20)),
-      fakeWakuMessage(@[byte 2], contentTopic=contentTopic2, ts=ts(30)),
+      fakeWakuMessage(@[byte 2], contentTopic=contentTopic1, ts=ts(20)),
+      fakeWakuMessage(@[byte 3], contentTopic=contentTopic2, ts=ts(30)),
 
-      fakeWakuMessage(@[byte 3], contentTopic=contentTopic3, ts=ts(40)),
-      fakeWakuMessage(@[byte 4], contentTopic=contentTopic1, ts=ts(50)),
-      fakeWakuMessage(@[byte 5], contentTopic=contentTopic2, ts=ts(60)),
-      fakeWakuMessage(@[byte 6], contentTopic=contentTopic3, ts=ts(70)),
+      fakeWakuMessage(@[byte 4], contentTopic=contentTopic3, ts=ts(40)),
+      fakeWakuMessage(@[byte 5], contentTopic=contentTopic1, ts=ts(50)),
+      fakeWakuMessage(@[byte 6], contentTopic=contentTopic2, ts=ts(60)),
+      fakeWakuMessage(@[byte 7], contentTopic=contentTopic3, ts=ts(70)),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
       require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
@@ -189,8 +210,7 @@ suite "SQLite driver - query by content topic":
 
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 2
-      filteredMessages == messages[2..3]
+      filteredMessages == expected[2..3]
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -201,13 +221,17 @@ suite "SQLite driver - query by content topic":
 
     let driver = newTestSqliteDriver()
 
-    let messages = @[
-      fakeWakuMessage(@[byte 1], contentTopic=DefaultContentTopic, ts=ts(20)),
-      fakeWakuMessage(@[byte 2], contentTopic=DefaultContentTopic, ts=ts(30)),
-      fakeWakuMessage(@[byte 3], contentTopic=DefaultContentTopic, ts=ts(40)),
-      fakeWakuMessage(@[byte 4], contentTopic=DefaultContentTopic, ts=ts(50)),
-      fakeWakuMessage(@[byte 5], contentTopic=DefaultContentTopic, ts=ts(60)),
+    let expected = @[
+      fakeWakuMessage(@[byte 0], contentTopic=DefaultContentTopic, ts=ts(00)),
+      fakeWakuMessage(@[byte 1], contentTopic=DefaultContentTopic, ts=ts(10)),
+      fakeWakuMessage(@[byte 2], contentTopic=DefaultContentTopic, ts=ts(20)),
+      fakeWakuMessage(@[byte 3], contentTopic=DefaultContentTopic, ts=ts(30)),
+      fakeWakuMessage(@[byte 4], contentTopic=DefaultContentTopic, ts=ts(40)),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
       require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
@@ -268,7 +292,7 @@ suite "SQLite driver - query by pubsub topic":
 
     let driver = newTestSqliteDriver()
 
-    let messages = @[
+    let expected = @[
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 0], ts=ts(00))),
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 1], ts=ts(10))),
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 2], contentTopic=contentTopic, ts=ts(20))),
@@ -279,6 +303,10 @@ suite "SQLite driver - query by pubsub topic":
       (pubsubTopic, fakeWakuMessage(@[byte 6], contentTopic=contentTopic, ts=ts(60))),
       (pubsubTopic, fakeWakuMessage(@[byte 7], contentTopic=contentTopic, ts=ts(70))),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it[1].payload)
 
     for row in messages:
       let (topic, msg) = row
@@ -295,10 +323,9 @@ suite "SQLite driver - query by pubsub topic":
     check:
       res.isOk()
 
-    let expectedMessages = messages.mapIt(it[1])
+    let expectedMessages = expected.mapIt(it[1])
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 2
       filteredMessages == expectedMessages[4..5]
 
     ## Cleanup
@@ -311,7 +338,7 @@ suite "SQLite driver - query by pubsub topic":
 
     let driver = newTestSqliteDriver()
 
-    let messages = @[
+    let expected = @[
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 0], ts=ts(00))),
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 1], ts=ts(10))),
 
@@ -322,6 +349,10 @@ suite "SQLite driver - query by pubsub topic":
       (pubsubTopic, fakeWakuMessage(@[byte 6], contentTopic=contentTopic, ts=ts(60))),
       (pubsubTopic, fakeWakuMessage(@[byte 7], contentTopic=contentTopic, ts=ts(70))),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it[1].payload)
 
     for row in messages:
       let (topic, msg) = row
@@ -337,10 +368,9 @@ suite "SQLite driver - query by pubsub topic":
     check:
       res.isOk()
 
-    let expectedMessages = messages.mapIt(it[1])
+    let expectedMessages = expected.mapIt(it[1])
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 2
       filteredMessages == expectedMessages[0..1]
 
     ## Cleanup
@@ -353,7 +383,7 @@ suite "SQLite driver - query by pubsub topic":
 
     let driver = newTestSqliteDriver()
 
-    let messages = @[
+    let expected = @[
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 0], ts=ts(00))),
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 1], ts=ts(10))),
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 2], contentTopic=contentTopic, ts=ts(20))),
@@ -365,6 +395,11 @@ suite "SQLite driver - query by pubsub topic":
       (pubsubTopic, fakeWakuMessage(@[byte 6], contentTopic=contentTopic, ts=ts(60))),
       (pubsubTopic, fakeWakuMessage(@[byte 7], contentTopic=contentTopic, ts=ts(70))),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it[1].payload)
+
     for row in messages:
       let (topic, msg) = row
       require driver.put(topic, msg, computeDigest(msg), msg.timestamp).isOk()
@@ -381,10 +416,9 @@ suite "SQLite driver - query by pubsub topic":
     check:
       res.isOk()
 
-    let expectedMessages = messages.mapIt(it[1])
+    let expectedMessages = expected.mapIt(it[1])
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 2
       filteredMessages == expectedMessages[4..5]
 
     ## Cleanup
@@ -399,7 +433,7 @@ suite "SQLite driver - query by cursor":
 
     let driver = newTestSqliteDriver()
 
-    let messages = @[
+    let expected = @[
       fakeWakuMessage(@[byte 0], ts=ts(00)),
       fakeWakuMessage(@[byte 1], ts=ts(10)),
       fakeWakuMessage(@[byte 2], contentTopic=contentTopic, ts=ts(20)),
@@ -411,11 +445,15 @@ suite "SQLite driver - query by cursor":
 
       fakeWakuMessage(@[byte 7], contentTopic=contentTopic, ts=ts(70)),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
       require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, messages[4])
+    let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
 
     ## When
     let res = driver.getMessages(
@@ -430,8 +468,7 @@ suite "SQLite driver - query by cursor":
 
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 2
-      filteredMessages == messages[5..6]
+      filteredMessages == expected[5..6]
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -442,7 +479,7 @@ suite "SQLite driver - query by cursor":
 
     let driver = newTestSqliteDriver()
 
-    let messages = @[
+    let expected = @[
       fakeWakuMessage(@[byte 0], ts=ts(00)),
       fakeWakuMessage(@[byte 1], ts=ts(10)),
 
@@ -454,11 +491,15 @@ suite "SQLite driver - query by cursor":
       fakeWakuMessage(@[byte 6], contentTopic=contentTopic, ts=ts(60)),
       fakeWakuMessage(@[byte 7], contentTopic=contentTopic, ts=ts(70)),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
       require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, messages[4])
+    let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
 
     ## When
     let res = driver.getMessages(
@@ -473,8 +514,7 @@ suite "SQLite driver - query by cursor":
 
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 2
-      filteredMessages == messages[2..3]
+      filteredMessages == expected[2..3]
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -485,7 +525,7 @@ suite "SQLite driver - query by cursor":
 
     let driver = newTestSqliteDriver()
 
-    let messages = @[
+    let expected = @[
       fakeWakuMessage(@[byte 0], ts=ts(00)),
       fakeWakuMessage(@[byte 1], ts=ts(10)),
       fakeWakuMessage(@[byte 2], contentTopic=contentTopic, ts=ts(20)),
@@ -495,11 +535,15 @@ suite "SQLite driver - query by cursor":
       fakeWakuMessage(@[byte 6], contentTopic=contentTopic, ts=ts(60)),
       fakeWakuMessage(@[byte 7], ts=ts(70)),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
       require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, messages[4])
+    let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
 
     ## When
     let res = driver.getMessages(
@@ -515,8 +559,7 @@ suite "SQLite driver - query by cursor":
 
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 2
-      filteredMessages == messages[5..6]
+      filteredMessages == expected[5..6]
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -527,7 +570,7 @@ suite "SQLite driver - query by cursor":
 
     let driver = newTestSqliteDriver()
 
-    let messages = @[
+    let expected = @[
       fakeWakuMessage(@[byte 0], ts=ts(00)),
       fakeWakuMessage(@[byte 1], ts=ts(10)),
       fakeWakuMessage(@[byte 2], contentTopic=contentTopic, ts=ts(20)),
@@ -537,11 +580,15 @@ suite "SQLite driver - query by cursor":
       fakeWakuMessage(@[byte 6], contentTopic=contentTopic, ts=ts(60)), # << cursor
       fakeWakuMessage(@[byte 7], contentTopic=contentTopic, ts=ts(70)),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
       require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, messages[6])
+    let cursor = computeTestCursor(DefaultPubsubTopic, expected[6])
 
     ## When
     let res = driver.getMessages(
@@ -557,8 +604,7 @@ suite "SQLite driver - query by cursor":
 
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 4
-      filteredMessages == messages[2..5]
+      filteredMessages == expected[2..5]
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -571,7 +617,7 @@ suite "SQLite driver - query by cursor":
     let driver = newTestSqliteDriver()
 
     let timeOrigin = now()
-    let messages = @[
+    let expected = @[
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 0], ts=ts(00, timeOrigin))),
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 1], ts=ts(10, timeOrigin))),
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 2], contentTopic=contentTopic, ts=ts(20, timeOrigin))),
@@ -585,12 +631,16 @@ suite "SQLite driver - query by cursor":
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 8], contentTopic=contentTopic, ts=ts(80, timeOrigin))),
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 9], contentTopic=contentTopic, ts=ts(90, timeOrigin))),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it[1].payload)
 
     for row in messages:
       let (topic, msg) = row
       require driver.put(topic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-    let cursor = computeTestCursor(messages[5][0], messages[5][1])
+    let cursor = computeTestCursor(expected[5][0], expected[5][1])
 
     ## When
     let res = driver.getMessages(
@@ -604,10 +654,9 @@ suite "SQLite driver - query by cursor":
     check:
       res.isOk()
 
-    let expectedMessages = messages.mapIt(it[1])
+    let expectedMessages = expected.mapIt(it[1])
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 2
       filteredMessages == expectedMessages[6..7]
 
     ## Cleanup
@@ -621,7 +670,7 @@ suite "SQLite driver - query by cursor":
     let driver = newTestSqliteDriver()
 
     let timeOrigin = now()
-    let messages = @[
+    let expected = @[
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 0], ts=ts(00, timeOrigin))),
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 1], ts=ts(10, timeOrigin))),
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 2], contentTopic=contentTopic, ts=ts(20, timeOrigin))),
@@ -635,12 +684,16 @@ suite "SQLite driver - query by cursor":
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 8], contentTopic=contentTopic, ts=ts(80, timeOrigin))),
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 9], contentTopic=contentTopic, ts=ts(90, timeOrigin))),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it[1].payload)
 
     for row in messages:
       let (topic, msg) = row
       require driver.put(topic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-    let cursor = computeTestCursor(messages[6][0], messages[6][1])
+    let cursor = computeTestCursor(expected[6][0], expected[6][1])
 
     ## When
     let res = driver.getMessages(
@@ -654,10 +707,9 @@ suite "SQLite driver - query by cursor":
     check:
       res.isOk()
 
-    let expectedMessages = messages.mapIt(it[1])
+    let expectedMessages = expected.mapIt(it[1])
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 2
       filteredMessages == expectedMessages[4..5]
 
     ## Cleanup
@@ -673,7 +725,7 @@ suite "SQLite driver - query by time range":
     let driver = newTestSqliteDriver()
 
     let timeOrigin = now()
-    let messages = @[
+    let expected = @[
       fakeWakuMessage(@[byte 0], contentTopic=contentTopic, ts=ts(00, timeOrigin)),
       fakeWakuMessage(@[byte 1], contentTopic=contentTopic, ts=ts(10, timeOrigin)),
       # start_time
@@ -683,6 +735,10 @@ suite "SQLite driver - query by time range":
       fakeWakuMessage(@[byte 5], contentTopic=contentTopic, ts=ts(50, timeOrigin)),
       fakeWakuMessage(@[byte 6], contentTopic=contentTopic, ts=ts(60, timeOrigin)),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
       require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
@@ -700,8 +756,7 @@ suite "SQLite driver - query by time range":
 
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 5
-      filteredMessages == messages[2..6]
+      filteredMessages == expected[2..6]
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -713,7 +768,7 @@ suite "SQLite driver - query by time range":
     let driver = newTestSqliteDriver()
 
     let timeOrigin = now()
-    let messages = @[
+    let expected = @[
       fakeWakuMessage(@[byte 0], contentTopic=contentTopic, ts=ts(00, timeOrigin)),
       fakeWakuMessage(@[byte 1], contentTopic=contentTopic, ts=ts(10, timeOrigin)),
       fakeWakuMessage(@[byte 2], contentTopic=contentTopic, ts=ts(20, timeOrigin)),
@@ -723,6 +778,10 @@ suite "SQLite driver - query by time range":
       fakeWakuMessage(@[byte 5], contentTopic=contentTopic, ts=ts(50, timeOrigin)),
       fakeWakuMessage(@[byte 6], contentTopic=contentTopic, ts=ts(60, timeOrigin)),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
       require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
@@ -740,8 +799,7 @@ suite "SQLite driver - query by time range":
 
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 5
-      filteredMessages == messages[0..4]
+      filteredMessages == expected[0..4]
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -754,7 +812,7 @@ suite "SQLite driver - query by time range":
     let driver = newTestSqliteDriver()
 
     let timeOrigin = now()
-    let messages = @[
+    let expected = @[
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 0], ts=ts(00, timeOrigin))),
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 1], ts=ts(10, timeOrigin))),
       # start_time
@@ -768,6 +826,10 @@ suite "SQLite driver - query by time range":
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 8], contentTopic=contentTopic, ts=ts(80, timeOrigin))),
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 9], contentTopic=contentTopic, ts=ts(90, timeOrigin))),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it[1].payload)
 
     for row in messages:
       let (topic, msg) = row
@@ -785,10 +847,9 @@ suite "SQLite driver - query by time range":
     check:
       res.isOk()
 
-    let expectedMessages = messages.mapIt(it[1])
+    let expectedMessages = expected.mapIt(it[1])
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 3
       filteredMessages == expectedMessages[2..4]
 
     ## Cleanup
@@ -801,7 +862,7 @@ suite "SQLite driver - query by time range":
     let driver = newTestSqliteDriver()
 
     let timeOrigin = now()
-    let messages = @[
+    let expected = @[
       fakeWakuMessage(@[byte 0], contentTopic=contentTopic, ts=ts(00, timeOrigin)),
       fakeWakuMessage(@[byte 1], contentTopic=contentTopic, ts=ts(10, timeOrigin)),
       # start_time
@@ -812,6 +873,10 @@ suite "SQLite driver - query by time range":
       fakeWakuMessage(@[byte 5], contentTopic=contentTopic, ts=ts(50, timeOrigin)),
       fakeWakuMessage(@[byte 6], contentTopic=contentTopic, ts=ts(60, timeOrigin)),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
       require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
@@ -842,7 +907,7 @@ suite "SQLite driver - query by time range":
     let driver = newTestSqliteDriver()
 
     let timeOrigin = now()
-    let messages = @[
+    let expected = @[
       fakeWakuMessage(@[byte 0], contentTopic=contentTopic, ts=ts(00, timeOrigin)),
       fakeWakuMessage(@[byte 1], contentTopic=contentTopic, ts=ts(10, timeOrigin)),
       # start_time
@@ -852,6 +917,10 @@ suite "SQLite driver - query by time range":
       fakeWakuMessage(@[byte 5], contentTopic=contentTopic, ts=ts(50, timeOrigin)),
       fakeWakuMessage(@[byte 6], contentTopic=contentTopic, ts=ts(60, timeOrigin)),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
       require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
@@ -869,8 +938,7 @@ suite "SQLite driver - query by time range":
 
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 5
-      filteredMessages == messages[2..6]
+      filteredMessages == expected[2..6]
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -882,7 +950,7 @@ suite "SQLite driver - query by time range":
     let driver = newTestSqliteDriver()
 
     let timeOrigin = now()
-    let messages = @[
+    let expected = @[
       fakeWakuMessage(@[byte 0], contentTopic=contentTopic, ts=ts(00, timeOrigin)),
       fakeWakuMessage(@[byte 1], contentTopic=contentTopic, ts=ts(10, timeOrigin)),
       # start_time
@@ -895,6 +963,10 @@ suite "SQLite driver - query by time range":
       fakeWakuMessage(@[byte 8], ts=ts(80, timeOrigin)),
       fakeWakuMessage(@[byte 9], ts=ts(90, timeOrigin)),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
       require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
@@ -912,8 +984,7 @@ suite "SQLite driver - query by time range":
 
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 5
-      filteredMessages == messages[2..6]
+      filteredMessages == expected[2..6]
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -925,7 +996,7 @@ suite "SQLite driver - query by time range":
     let driver = newTestSqliteDriver()
 
     let timeOrigin = now()
-    let messages = @[
+    let expected = @[
       fakeWakuMessage(@[byte 0], contentTopic=contentTopic, ts=ts(00, timeOrigin)),
       fakeWakuMessage(@[byte 1], contentTopic=contentTopic, ts=ts(10, timeOrigin)),
       # start_time
@@ -938,11 +1009,15 @@ suite "SQLite driver - query by time range":
       fakeWakuMessage(@[byte 8], contentTopic=contentTopic, ts=ts(80, timeOrigin)),
       fakeWakuMessage(@[byte 9], contentTopic=contentTopic, ts=ts(90, timeOrigin)),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
       require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, messages[3])
+    let cursor = computeTestCursor(DefaultPubsubTopic, expected[3])
 
     ## When
     let res = driver.getMessages(
@@ -958,8 +1033,7 @@ suite "SQLite driver - query by time range":
 
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 6
-      filteredMessages == messages[4..9]
+      filteredMessages == expected[4..9]
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -971,7 +1045,7 @@ suite "SQLite driver - query by time range":
     let driver = newTestSqliteDriver()
 
     let timeOrigin = now()
-    let messages = @[
+    let expected = @[
       fakeWakuMessage(@[byte 0], contentTopic=contentTopic, ts=ts(00, timeOrigin)),
       fakeWakuMessage(@[byte 1], contentTopic=contentTopic, ts=ts(10, timeOrigin)),
       # start_time
@@ -984,11 +1058,15 @@ suite "SQLite driver - query by time range":
       fakeWakuMessage(@[byte 8], contentTopic=contentTopic, ts=ts(80, timeOrigin)),
       fakeWakuMessage(@[byte 9], contentTopic=contentTopic, ts=ts(90, timeOrigin)),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
       require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, messages[6])
+    let cursor = computeTestCursor(DefaultPubsubTopic, expected[6])
 
     ## When
     let res = driver.getMessages(
@@ -1004,8 +1082,7 @@ suite "SQLite driver - query by time range":
 
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 2
-      filteredMessages == messages[3..4]
+      filteredMessages == expected[3..4]
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -1018,7 +1095,7 @@ suite "SQLite driver - query by time range":
     let driver = newTestSqliteDriver()
 
     let timeOrigin = now()
-    let messages = @[
+    let expected = @[
       # start_time
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 0], ts=ts(00, timeOrigin))),
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 1], ts=ts(10, timeOrigin))), # << cursor
@@ -1032,12 +1109,16 @@ suite "SQLite driver - query by time range":
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 8], contentTopic=contentTopic, ts=ts(80, timeOrigin))),
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 9], contentTopic=contentTopic, ts=ts(90, timeOrigin))),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it[1].payload)
 
     for row in messages:
       let (topic, msg) = row
       require driver.put(topic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, messages[1][1])
+    let cursor = computeTestCursor(DefaultPubsubTopic, expected[1][1])
 
     ## When
     let res = driver.getMessages(
@@ -1053,10 +1134,9 @@ suite "SQLite driver - query by time range":
     check:
       res.isOk()
 
-    let expectedMessages = messages.mapIt(it[1])
+    let expectedMessages = expected.mapIt(it[1])
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 2
       filteredMessages == expectedMessages[3..4]
 
     ## Cleanup
@@ -1070,7 +1150,7 @@ suite "SQLite driver - query by time range":
     let driver = newTestSqliteDriver()
 
     let timeOrigin = now()
-    let messages = @[
+    let expected = @[
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 0], ts=ts(00, timeOrigin))),
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 1], ts=ts(10, timeOrigin))),
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 2], contentTopic=contentTopic, ts=ts(20, timeOrigin))),
@@ -1084,12 +1164,16 @@ suite "SQLite driver - query by time range":
       # end_time
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 9], contentTopic=contentTopic, ts=ts(90, timeOrigin))),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it[1].payload)
 
     for row in messages:
       let (topic, msg) = row
       require driver.put(topic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-    let cursor = computeTestCursor(messages[7][0], messages[7][1])
+    let cursor = computeTestCursor(expected[7][0], expected[7][1])
 
     ## When
     let res = driver.getMessages(
@@ -1105,10 +1189,9 @@ suite "SQLite driver - query by time range":
     check:
       res.isOk()
 
-    let expectedMessages = messages.mapIt(it[1])
+    let expectedMessages = expected.mapIt(it[1])
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 2
       filteredMessages == expectedMessages[4..5]
 
     ## Cleanup
@@ -1122,7 +1205,7 @@ suite "SQLite driver - query by time range":
     let driver = newTestSqliteDriver()
 
     let timeOrigin = now()
-    let messages = @[
+    let expected = @[
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 0], ts=ts(00, timeOrigin))),
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 1], ts=ts(10, timeOrigin))), # << cursor
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 2], contentTopic=contentTopic, ts=ts(20, timeOrigin))),
@@ -1136,12 +1219,16 @@ suite "SQLite driver - query by time range":
       # end_time
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 9], contentTopic=contentTopic, ts=ts(90, timeOrigin))),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it[1].payload)
 
     for row in messages:
       let (topic, msg) = row
       require driver.put(topic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-    let cursor = computeTestCursor(messages[1][0], messages[1][1])
+    let cursor = computeTestCursor(expected[1][0], expected[1][1])
 
     ## When
     let res = driver.getMessages(
@@ -1158,10 +1245,9 @@ suite "SQLite driver - query by time range":
     check:
       res.isOk()
 
-    let expectedMessages = messages.mapIt(it[1])
+    let expectedMessages = expected.mapIt(it[1])
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages.len == 2
       filteredMessages == expectedMessages[4..5]
 
     ## Cleanup
@@ -1175,7 +1261,7 @@ suite "SQLite driver - query by time range":
     let driver = newTestSqliteDriver()
 
     let timeOrigin = now()
-    let messages = @[
+    let expected = @[
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 0], ts=ts(00, timeOrigin))),
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 1], ts=ts(10, timeOrigin))), # << cursor
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 2], contentTopic=contentTopic, ts=ts(20, timeOrigin))),
@@ -1189,12 +1275,16 @@ suite "SQLite driver - query by time range":
       # end_time
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 9], contentTopic=contentTopic, ts=ts(90, timeOrigin))),
     ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it[1].payload)
 
     for row in messages:
       let (topic, msg) = row
       require driver.put(topic, msg, computeDigest(msg), msg.timestamp).isOk()
 
-    let cursor = computeTestCursor(messages[1][0], messages[1][1])
+    let cursor = computeTestCursor(expected[1][0], expected[1][1])
 
     ## When
     let res = driver.getMessages(
