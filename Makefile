@@ -204,24 +204,18 @@ docs: | build deps
 
 ## RLN
 
-experimental_rln =
+# Experimental flag for all experimental features
+ifeq ($(EXPERIMENTAL), true)
+$(eval RLN := true)
+endif
 
 # control rln code compilation
 ifeq ($(RLN), true)
-experimental_rln = true
-endif
-
-# Experimental flag for all experimental features
-ifeq ($(EXPERIMENTAL), true)
-experimental_rln = true
-endif
-
-ifdef experimental_rln
 	NIM_PARAMS := $(NIM_PARAMS) -d:rln
 endif
 
 rlnlib:
-ifdef experimental_rln
+ifeq ($(RLN), true)
 	cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
 endif
 
