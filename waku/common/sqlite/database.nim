@@ -4,12 +4,12 @@
 #
 # Most of it is a direct copy, the only unique functions being `get` and `put`.
 
-import 
+import
   std/os,
   stew/results,
   chronicles,
   sqlite3_abi
-  
+
 
 logScope:
   topics = "sqlite"
@@ -54,7 +54,7 @@ template checkErr*(op) =
 
 type
   DatabaseResult*[T] = Result[T, string]
-  
+
   SqliteDatabase* = ref object of RootObj
     env*: Sqlite
 
@@ -127,10 +127,15 @@ template prepare*(env: Sqlite, q: string, cleanup: untyped): ptr sqlite3_stmt =
 
 proc bindParam*(s: RawStmtPtr, n: int, val: auto): cint =
   when val is openarray[byte]|seq[byte]:
+    # The constant, SQLITE_TRANSIENT, may be passed to indicate that the object is to be copied
+    #  prior to the return from sqlite3_bind_*(). The object and pointer to it must remain valid
+    #  until then. SQLite will then manage the lifetime of its private copy.
+    #
+    # From: https://www.sqlite.org/c3ref/bind_blob.html
     if val.len > 0:
-      sqlite3_bind_blob(s, n.cint, unsafeAddr val[0], val.len.cint, nil)
+      sqlite3_bind_blob(s, n.cint, unsafeAddr val[0], val.len.cint, SQLITE_TRANSIENT)
     else:
-      sqlite3_bind_blob(s, n.cint, nil, 0.cint, nil)
+      sqlite3_bind_blob(s, n.cint, nil, 0.cint, SQLITE_TRANSIENT)
   elif val is int32:
     sqlite3_bind_int(s, n.cint, val)
   elif val is uint32:
@@ -258,10 +263,10 @@ proc close*(db: SqliteDatabase) =
 # TODO: Cache this value in the SqliteDatabase object.
 #       Page size should not change during the node execution time
 proc getPageSize*(db: SqliteDatabase): DatabaseResult[int64] =
-  ## Query or set the page size of the database. The page size must be a power of 
+  ## Query or set the page size of the database. The page size must be a power of
   ## two between 512 and 65536 inclusive.
   var size: int64
-  proc handler(s: RawStmtPtr) = 
+  proc handler(s: RawStmtPtr) =
     size = sqlite3_column_int64(s, 0)
 
   let res = db.query("PRAGMA page_size;", handler)
@@ -271,10 +276,10 @@ proc getPageSize*(db: SqliteDatabase): DatabaseResult[int64] =
   ok(size)
 
 
-proc getFreelistCount*(db: SqliteDatabase): DatabaseResult[int64] = 
+proc getFreelistCount*(db: SqliteDatabase): DatabaseResult[int64] =
   ## Return the number of unused pages in the database file.
   var count: int64
-  proc handler(s: RawStmtPtr) = 
+  proc handler(s: RawStmtPtr) =
     count = sqlite3_column_int64(s, 0)
 
   let res = db.query("PRAGMA freelist_count;", handler)
@@ -287,7 +292,7 @@ proc getFreelistCount*(db: SqliteDatabase): DatabaseResult[int64] =
 proc getPageCount*(db: SqliteDatabase): DatabaseResult[int64] =
   ## Return the total number of pages in the database file.
   var count: int64
-  proc handler(s: RawStmtPtr) = 
+  proc handler(s: RawStmtPtr) =
     count = sqlite3_column_int64(s, 0)
 
   let res = db.query("PRAGMA page_count;", handler)
@@ -308,16 +313,16 @@ proc vacuum*(db: SqliteDatabase): DatabaseResult[void] =
 
 ## Database scheme versioning
 
-proc getUserVersion*(database: SqliteDatabase): DatabaseResult[int64] = 
+proc getUserVersion*(database: SqliteDatabase): DatabaseResult[int64] =
   ## Get the value of the user-version integer.
-  ## 
-  ## The user-version is an integer that is available to applications to use however they want. 
-  ## SQLite makes no use of the user-version itself. This integer is stored at offset 60 in 
+  ##
+  ## The user-version is an integer that is available to applications to use however they want.
+  ## SQLite makes no use of the user-version itself. This integer is stored at offset 60 in
   ## the database header.
   ##
   ## For more info check: https://www.sqlite.org/pragma.html#pragma_user_version
   var version: int64
-  proc handler(s: ptr sqlite3_stmt) = 
+  proc handler(s: ptr sqlite3_stmt) =
     version = sqlite3_column_int64(s, 0)
 
   let res = database.query("PRAGMA user_version;", handler)
@@ -326,11 +331,11 @@ proc getUserVersion*(database: SqliteDatabase): DatabaseResult[int64] =
 
   ok(version)
 
-proc setUserVersion*(database: SqliteDatabase, version: int64): DatabaseResult[void] = 
+proc setUserVersion*(database: SqliteDatabase, version: int64): DatabaseResult[void] =
   ## Set the value of the user-version integer.
-  ## 
-  ## The user-version is an integer that is available to applications to use however they want. 
-  ## SQLite makes no use of the user-version itself. This integer is stored at offset 60 in 
+  ##
+  ## The user-version is an integer that is available to applications to use however they want.
+  ## SQLite makes no use of the user-version itself. This integer is stored at offset 60 in
   ## the database header.
   ##
   ## For more info check: https://www.sqlite.org/pragma.html#pragma_user_version
