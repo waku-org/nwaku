@@ -118,18 +118,16 @@ proc loadFromStorage(pm: PeerManager) =
 ##################
 
 proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async.} =
-  if not pm.peerStore[AddressBook].contains(peerId):
-    ## We only consider connection events if we
-    ## already track some addresses for this peer
-    return
 
   case event.kind
   of ConnEventKind.Connected:
     pm.peerStore[ConnectionBook][peerId] = Connected
+    pm.peerStore[DirectionBook][peerId] = if event.incoming: Inbound else: Outbound
     if not pm.storage.isNil:
       pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), Connected)
     return
   of ConnEventKind.Disconnected:
+    pm.peerStore[DirectionBook][peerId] = UnknownDirection
     pm.peerStore[ConnectionBook][peerId] = CanConnect
     if not pm.storage.isNil:
       pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), CanConnect, getTime().toUnix)

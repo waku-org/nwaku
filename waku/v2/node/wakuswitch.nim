@@ -65,6 +65,7 @@ proc newWakuSwitch*(
     maxConnections = MaxConnections,
     maxIn = -1,
     maxOut = -1,
+    # TODO: Use our own value set 1 one.
     maxConnsPerPeer = MaxConnectionsPerPeer,
     nameResolver: NameResolver = nil,
     sendSignedPeerRecord = false,
