@@ -7,9 +7,9 @@ import
   stew/byteutils,
   nimcrypto/sha2
 import
-  ../../../protocol/waku_message,
-  ../../../protocol/waku_store/common,
-  ../../../utils/time
+  ../../../../protocol/waku_message,
+  ../../../../utils/time,
+  ../../common
 
 
 type Index* = object
@@ -28,20 +28,20 @@ proc compute*(T: type Index, msg: WakuMessage, receivedTime: Timestamp, pubsubTo
   Index(
     pubsubTopic: pubsubTopic,
     senderTime: senderTime,
-    receiverTime: receivedTime, 
+    receiverTime: receivedTime,
     digest: digest
   )
 
 
-proc tohistoryCursor*(index: Index): HistoryCursor =
-  HistoryCursor(
+proc tohistoryCursor*(index: Index): ArchiveCursor =
+  ArchiveCursor(
     pubsubTopic: index.pubsubTopic,
     senderTime: index.senderTime,
     storeTime: index.receiverTime,
     digest: index.digest
   )
 
-proc toIndex*(index: HistoryCursor): Index =
+proc toIndex*(index: ArchiveCursor): Index =
   Index(
     pubsubTopic: index.pubsubTopic,
     senderTime: index.senderTime,
@@ -58,20 +58,20 @@ proc `==`*(x, y: Index): bool =
 
 proc cmp*(x, y: Index): int =
   ## compares x and y
-  ## returns 0 if they are equal 
+  ## returns 0 if they are equal
   ## returns -1 if x < y
   ## returns 1 if x > y
-  ## 
+  ##
   ## Default sorting order priority is:
   ## 1. senderTimestamp
   ## 2. receiverTimestamp (a fallback only if senderTimestamp unset on either side, and all other fields unequal)
   ## 3. message digest
   ## 4. pubsubTopic
-  
+
   if x == y:
     # Quick exit ensures receiver time does not affect index equality
     return 0
-  
+
   # Timestamp has a higher priority for comparison
   let
     # Use receiverTime where senderTime is unset
@@ -81,12 +81,12 @@ proc cmp*(x, y: Index): int =
                  else: y.senderTime
 
   let timecmp = cmp(xTimestamp, yTimestamp)
-  if timecmp != 0: 
+  if timecmp != 0:
     return timecmp
 
-  # Continue only when timestamps are equal 
+  # Continue only when timestamps are equal
   let digestcmp = cmp(x.digest.data, y.digest.data)
   if digestcmp != 0:
     return digestcmp
-  
+
   return cmp(x.pubsubTopic, y.pubsubTopic)

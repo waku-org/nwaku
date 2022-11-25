@@ -2,8 +2,8 @@
 
 import
   std/[options, tables, sets],
-  testutils/unittests, 
-  chronos, 
+  testutils/unittests,
+  chronos,
   chronicles,
   libp2p/crypto/crypto
 import
@@ -19,9 +19,10 @@ import
 proc newTestDatabase(): SqliteDatabase =
   SqliteDatabase.new("memory:").tryGet()
 
-proc newTestMessageStore(): MessageStore =
-  let database = newTestDatabase()
-  SqliteStore.init(database).tryGet()
+proc newTestArchiveDriver(): ArchiveDriver =
+  let database = SqliteDatabase.new(":memory:").tryGet()
+  SqliteDriver.init(database).tryGet()
+
 
 proc newTestWakuStore(switch: Switch, store=newTestMessageStore()): Future[WakuStore] {.async.} =
   let
@@ -33,6 +34,12 @@ proc newTestWakuStore(switch: Switch, store=newTestMessageStore()): Future[WakuS
   switch.mount(proto)
 
   return proto
+
+proc newTestWakuStoreClient(switch: Switch, store: MessageStore = nil): WakuStoreClient =
+  let
+    peerManager = PeerManager.new(switch)
+    rng = crypto.newRng()
+  WakuStoreClient.new(peerManager, rng, store)
 
 
 procSuite "Waku Store - resume store":
@@ -57,7 +64,7 @@ procSuite "Waku Store - resume store":
 
       store
 
-  let storeB = block: 
+  let storeB = block:
       let store = newTestMessageStore()
       let msgList2 = @[
         fakeWakuMessage(payload= @[byte 0], contentTopic=ContentTopic("2"), ts=ts(0)),
@@ -75,16 +82,50 @@ procSuite "Waku Store - resume store":
 
       store
 
+  asyncTest "multiple query to multiple peers with pagination":
+    ## Setup
+    let
+      serverSwitchA = newTestSwitch()
+      serverSwitchB = newTestSwitch()
+      clientSwitch = newTestSwitch()
+
+    await allFutures(serverSwitchA.start(), serverSwitchB.start(), clientSwitch.start())
+
+    let
+      serverA = await newTestWakuStoreNode(serverSwitchA, store=testStore)
+      serverB = await newTestWakuStoreNode(serverSwitchB, store=testStore)
+      client = newTestWakuStoreClient(clientSwitch)
+
+    ## Given
+    let peers = @[
+      serverSwitchA.peerInfo.toRemotePeerInfo(),
+      serverSwitchB.peerInfo.toRemotePeerInfo()
+    ]
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], pageSize: 5)
+
+    ## When
+    let res = await client.queryLoop(req, peers)
+
+    ## Then
+    check:
+      res.isOk()
+
+    let response = res.tryGet()
+    check:
+      response.len == 10
+
+    ## Cleanup
+    await allFutures(clientSwitch.stop(), serverSwitchA.stop(), serverSwitchB.stop())
 
   asyncTest "resume message history":
     ## Setup
-    let 
+    let
       serverSwitch = newTestSwitch()
       clientSwitch = newTestSwitch()
-    
+
     await allFutures(serverSwitch.start(), clientSwitch.start())
 
-    let 
+    let
       server = await newTestWakuStore(serverSwitch, store=storeA)
       client = await newTestWakuStore(clientSwitch)
 
@@ -101,43 +142,43 @@ procSuite "Waku Store - resume store":
     check:
       resumedMessagesCount == 10
       storedMessagesCount == 10
-    
+
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitch.stop())
 
   asyncTest "resume history from a list of candidates - offline peer":
     ## Setup
-    let 
+    let
       clientSwitch = newTestSwitch()
       offlineSwitch = newTestSwitch()
-    
+
     await clientSwitch.start()
 
     let client = await newTestWakuStore(clientSwitch)
 
     ## Given
     let peers = @[offlineSwitch.peerInfo.toRemotePeerInfo()]
-    
+
     ## When
     let res = await client.resume(some(peers))
 
     ## Then
     check res.isErr()
-    
+
     ## Cleanup
     await clientSwitch.stop()
 
   asyncTest "resume history from a list of candidates - online and offline peers":
     ## Setup
-    let 
+    let
       offlineSwitch = newTestSwitch()
       serverASwitch = newTestSwitch()
       serverBSwitch = newTestSwitch()
       clientSwitch = newTestSwitch()
-    
+
     await allFutures(serverASwitch.start(), serverBSwitch.start(), clientSwitch.start())
 
-    let 
+    let
       serverA = await newTestWakuStore(serverASwitch, store=storeA)
       serverB = await newTestWakuStore(serverBSwitch, store=storeB)
       client = await newTestWakuStore(clientSwitch)
@@ -151,7 +192,7 @@ procSuite "Waku Store - resume store":
 
     ## When
     let res = await client.resume(some(peers))
-  
+
     ## Then
     # `client` is expected to retrieve 14 messages:
     # - The store mounted on `serverB` holds 10 messages (see `storeA` fixture)
@@ -164,7 +205,87 @@ procSuite "Waku Store - resume store":
     check:
       restoredMessagesCount == 14
       storedMessagesCount == 14
-  
+
     ## Cleanup
     await allFutures(serverASwitch.stop(), serverBSwitch.stop(), clientSwitch.stop())
 
+
+
+suite "WakuNode - waku store":
+  asyncTest "Resume proc fetches the history":
+    ## Setup
+    let
+      serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60412))
+      clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60410))
+
+    await allFutures(client.start(), server.start())
+
+    let driver = newTestArchiveDriver()
+    server.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    await server.mountStore()
+
+    let clientStore = StoreQueueRef.new()
+    await client.mountStore(store=clientStore)
+    client.mountStoreClient(store=clientStore)
+
+    ## Given
+    let message = fakeWakuMessage()
+    require server.wakuStore.store.put(DefaultPubsubTopic, message).isOk()
+
+    let serverPeer = server.peerInfo.toRemotePeerInfo()
+
+    ## When
+    await client.resume(some(@[serverPeer]))
+
+    # Then
+    check:
+      client.wakuStore.store.getMessagesCount().tryGet() == 1
+
+    ## Cleanup
+    await allFutures(client.stop(), server.stop())
+
+  asyncTest "Resume proc discards duplicate messages":
+    ## Setup
+    let
+      serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60422))
+      clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60420))
+
+    await allFutures(server.start(), client.start())
+    await server.mountStore(store=StoreQueueRef.new())
+
+    let clientStore = StoreQueueRef.new()
+    await client.mountStore(store=clientStore)
+    client.mountStoreClient(store=clientStore)
+
+    ## Given
+    let timeOrigin = now()
+    let
+      msg1 = fakeWakuMessage(payload="hello world1", ts=(timeOrigin + getNanoSecondTime(1)))
+      msg2 = fakeWakuMessage(payload="hello world2", ts=(timeOrigin + getNanoSecondTime(2)))
+      msg3 = fakeWakuMessage(payload="hello world3", ts=(timeOrigin + getNanoSecondTime(3)))
+
+    require server.wakuStore.store.put(DefaultPubsubTopic, msg1).isOk()
+    require server.wakuStore.store.put(DefaultPubsubTopic, msg2).isOk()
+
+    # Insert the same message in both node's store
+    let
+      receivedTime3 = now() + getNanosecondTime(10)
+      digest3 = computeDigest(msg3)
+    require server.wakuStore.store.put(DefaultPubsubTopic, msg3, digest3, receivedTime3).isOk()
+    require client.wakuStore.store.put(DefaultPubsubTopic, msg3, digest3, receivedTime3).isOk()
+
+    let serverPeer = server.peerInfo.toRemotePeerInfo()
+
+    ## When
+    await client.resume(some(@[serverPeer]))
+
+    ## Then
+    check:
+      # If the duplicates are discarded properly, then the total number of messages after resume should be 3
+      client.wakuStore.store.getMessagesCount().tryGet() == 3
+
+    await allFutures(client.stop(), server.stop())

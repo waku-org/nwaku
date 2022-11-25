@@ -51,23 +51,23 @@ proc toJsonRPCStoreResponse*(response: HistoryResponse): StoreResponse =
     messages: response.messages,
     pagingOptions: if response.cursor.isNone(): none(StorePagingOptions)
                    else: some(StorePagingOptions(
-                     pageSize: response.pageSize,
-                     forward: response.ascending,
+                     pageSize: uint64(response.messages.len), # This field will be deprecated soon
+                     forward: true,  # Hardcoded. This field will be deprecated soon
                      cursor: response.cursor.map(toRPC)
                    ))
   )
 
 proc toWakuMessage*(relayMessage: WakuRelayMessage, version: uint32): WakuMessage =
   var t: Timestamp
-  if relayMessage.timestamp.isSome: 
-    t = relayMessage.timestamp.get 
-  else: 
+  if relayMessage.timestamp.isSome:
+    t = relayMessage.timestamp.get
+  else:
     # incoming WakuRelayMessages with no timestamp will get 0 timestamp
     t = Timestamp(0)
   WakuMessage(payload: relayMessage.payload,
               contentTopic: relayMessage.contentTopic.get(DefaultContentTopic),
               version: version,
-              timestamp: t) 
+              timestamp: t)
 
 proc toWakuMessage*(relayMessage: WakuRelayMessage, version: uint32, rng: ref HmacDrbgContext, symkey: Option[SymKey], pubKey: Option[keys.PublicKey]): WakuMessage =
   let payload = Payload(payload: relayMessage.payload,
@@ -75,20 +75,20 @@ proc toWakuMessage*(relayMessage: WakuRelayMessage, version: uint32, rng: ref Hm
                         symkey: symkey)
 
   var t: Timestamp
-  if relayMessage.timestamp.isSome: 
-    t = relayMessage.timestamp.get 
-  else: 
+  if relayMessage.timestamp.isSome:
+    t = relayMessage.timestamp.get
+  else:
     # incoming WakuRelayMessages with no timestamp will get 0 timestamp
     t = Timestamp(0)
 
   WakuMessage(payload: payload.encode(version, rng[]).get(),
               contentTopic: relayMessage.contentTopic.get(DefaultContentTopic),
               version: version,
-              timestamp: t) 
+              timestamp: t)
 
 proc toWakuRelayMessage*(message: WakuMessage, symkey: Option[SymKey], privateKey: Option[keys.PrivateKey]): WakuRelayMessage =
   let
-    keyInfo = if symkey.isSome(): KeyInfo(kind: Symmetric, symKey: symkey.get()) 
+    keyInfo = if symkey.isSome(): KeyInfo(kind: Symmetric, symKey: symkey.get())
               elif privateKey.isSome(): KeyInfo(kind: Asymmetric, privKey: privateKey.get())
               else: KeyInfo(kind: KeyKind.None)
     decoded = decodePayload(message, keyInfo)

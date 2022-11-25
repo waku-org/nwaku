@@ -3,27 +3,27 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
+
 import
   std/[options, sequtils],
   stew/[results, byteutils],
   sqlite3_abi
 import
-  ../../../../common/sqlite, 
-  ../../../protocol/waku_message,
-  ../../../utils/time
+  ../../../../../common/sqlite,
+  ../../../../protocol/waku_message,
+  ../../../../utils/time,
+  ./cursor
 
 
 const DbTable = "Message"
 
 type SqlQueryStr = string
 
-type DbCursor* = (Timestamp, seq[byte], PubsubTopic)
-
 
 ### SQLite column helper methods
 
 proc queryRowWakuMessageCallback(s: ptr sqlite3_stmt, contentTopicCol, payloadCol, versionCol, senderTimestampCol: cint): WakuMessage =
-  let 
+  let
     topic = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, contentTopicCol))
     topicLength = sqlite3_column_bytes(s, contentTopicCol)
     contentTopic = string.fromBytes(@(toOpenArray(topic, 0, topicLength-1)))
@@ -35,11 +35,11 @@ proc queryRowWakuMessageCallback(s: ptr sqlite3_stmt, contentTopicCol, payloadCo
   let senderTimestamp = sqlite3_column_int64(s, senderTimestampCol)
 
   WakuMessage(
-    contentTopic: ContentTopic(contentTopic), 
-    payload: payload , 
-    version: uint32(version), 
+    contentTopic: ContentTopic(contentTopic),
+    payload: payload ,
+    version: uint32(version),
     timestamp: Timestamp(senderTimestamp)
-  ) 
+  )
 
 proc queryRowReceiverTimestampCallback(s: ptr sqlite3_stmt, storedAtCol: cint): Timestamp =
   let storedAt = sqlite3_column_int64(s, storedAtCol)
@@ -66,7 +66,7 @@ proc queryRowDigestCallback(s: ptr sqlite3_stmt, digestCol: cint): seq[byte] =
 
 ## Create table
 
-proc createTableQuery(table: string): SqlQueryStr = 
+proc createTableQuery(table: string): SqlQueryStr =
   "CREATE TABLE IF NOT EXISTS " & table & " (" &
   " pubsubTopic BLOB NOT NULL," &
   " contentTopic BLOB NOT NULL," &
@@ -86,7 +86,7 @@ proc createTable*(db: SqliteDatabase): DatabaseResult[void] =
 
 ## Create indices
 
-proc createOldestMessageTimestampIndexQuery(table: string): SqlQueryStr = 
+proc createOldestMessageTimestampIndexQuery(table: string): SqlQueryStr =
   "CREATE INDEX IF NOT EXISTS i_ts ON " & table & " (storedAt);"
 
 proc createOldestMessageTimestampIndex*(db: SqliteDatabase): DatabaseResult[void] =
@@ -95,7 +95,7 @@ proc createOldestMessageTimestampIndex*(db: SqliteDatabase): DatabaseResult[void
   ok()
 
 
-proc createHistoryQueryIndexQuery(table: string): SqlQueryStr = 
+proc createHistoryQueryIndexQuery(table: string): SqlQueryStr =
   "CREATE INDEX IF NOT EXISTS i_query ON " & table & " (contentTopic, pubsubTopic, storedAt, id);"
 
 proc createHistoryQueryIndex*(db: SqliteDatabase): DatabaseResult[void] =
@@ -110,7 +110,7 @@ type InsertMessageParams* = (seq[byte], Timestamp, seq[byte], seq[byte], seq[byt
 proc insertMessageQuery(table: string): SqlQueryStr =
   "INSERT INTO " & table & "(id, storedAt, contentTopic, payload, pubsubTopic, version, timestamp)" &
   " VALUES (?, ?, ?, ?, ?, ?, ?);"
-  
+
 proc prepareInsertMessageStmt*(db: SqliteDatabase): SqliteStmt[InsertMessageParams, void] =
   let query = insertMessageQuery(DbTable)
   db.prepareStmt(query, InsertMessageParams, void).expect("this is a valid statement")
@@ -123,7 +123,7 @@ proc countMessagesQuery(table: string): SqlQueryStr =
 
 proc getMessageCount*(db: SqliteDatabase): DatabaseResult[int64] =
   var count: int64
-  proc queryRowCallback(s: ptr sqlite3_stmt) = 
+  proc queryRowCallback(s: ptr sqlite3_stmt) =
     count = sqlite3_column_int64(s, 0)
 
   let query = countMessagesQuery(DbTable)
@@ -183,12 +183,12 @@ proc deleteMessagesOlderThanTimestamp*(db: SqliteDatabase, ts: int64): DatabaseR
 
 proc deleteOldestMessagesNotWithinLimitQuery(table: string, limit: int): SqlQueryStr =
   "DELETE FROM " & table & " WHERE id NOT IN (" &
-  " SELECT id FROM " & table & 
+  " SELECT id FROM " & table &
   " ORDER BY storedAt DESC" &
   " LIMIT " & $limit &
   ");"
 
-proc deleteOldestMessagesNotWithinLimit*(db: SqliteDatabase, limit: int): DatabaseResult[void] = 
+proc deleteOldestMessagesNotWithinLimit*(db: SqliteDatabase, limit: int): DatabaseResult[void] =
   # NOTE: The word `limit` here refers the store capacity/maximum number-of-messages allowed limit
   let query = deleteOldestMessagesNotWithinLimitQuery(DbTable, limit=limit)
   discard ?db.query(query, proc(s: ptr sqlite3_stmt) = discard)
@@ -224,74 +224,68 @@ proc selectAllMessages*(db: SqliteDatabase): DatabaseResult[seq[(PubsubTopic, Wa
 
 ## Select messages by history query with limit
 
-proc contentTopicWhereClause(contentTopic: Option[seq[ContentTopic]]): Option[string] =
-  if contentTopic.isNone():
+proc combineClauses(clauses: varargs[Option[string]]): Option[string] =
+  let whereSeq = @clauses.filterIt(it.isSome()).mapIt(it.get())
+  if whereSeq.len <= 0:
     return none(string)
 
-  let topic = contentTopic.get()
-  if topic.len <= 0:
-    return none(string)
-
-  var contentTopicWhere = "(" 
-  contentTopicWhere &= "contentTopic = (?)"
-  for _ in topic[1..^1]:
-    contentTopicWhere &= " OR contentTopic = (?)"
-  contentTopicWhere &= ")"
-  some(contentTopicWhere)
-
-proc cursorWhereClause(cursor: Option[DbCursor], ascending=true): Option[string] =
-  if cursor.isNone():
-    return none(string)
-
-  let comp = if ascending: ">" else: "<"
-  let whereClause = "(storedAt, id, pubsubTopic) " & comp & " (?, ?, ?)"
-  some(whereClause)
-
-proc pubsubWhereClause(pubsubTopic: Option[PubsubTopic]): Option[string] =
-  if pubsubTopic.isNone():
-    return none(string)
-
-  some("pubsubTopic = (?)")
-
-proc timeRangeWhereClause(startTime: Option[Timestamp], endTime: Option[Timestamp]): Option[string] =
-  if startTime.isNone() and endTime.isNone():
-    return none(string)
-
-  var where = "("
-  if startTime.isSome():
-    where &= "storedAt >= (?)"
-  if startTime.isSome() and endTime.isSome():
-    where &= " AND "
-  if endTime.isSome():
-    where &= "storedAt <= (?)"
-  where &= ")"
+  var where: string = whereSeq[0]
+  for clause in whereSeq[1..^1]:
+    where &= " AND " & clause
   some(where)
 
-proc whereClause(clauses: varargs[Option[string]]): Option[string] =
-  if clauses.len <= 0 or @clauses.all(proc(clause: Option[string]): bool= clause.isNone()):
-    return none(string)
-  
-  let whereList = @clauses
-    .filter(proc(clause: Option[string]): bool= clause.isSome())
-    .map(proc(clause: Option[string]): string = clause.get())
+proc whereClause(cursor: Option[DbCursor],
+                 pubsubTopic: Option[PubsubTopic],
+                 contentTopic: seq[ContentTopic],
+                 startTime: Option[Timestamp],
+                 endTime: Option[Timestamp],
+                 ascending: bool): Option[string] =
 
-  var where: string = whereList[0]
-  for clause in whereList[1..^1]:
-    where &= " AND " & clause
-  some(where) 
+  let cursorClause = if cursor.isNone():
+        none(string)
+      else:
+        let comp = if ascending: ">" else: "<"
+        some("(storedAt, id) " & comp & " (?, ?)")
 
-proc selectMessagesWithLimitQuery(table: string, where: Option[string], limit: uint64, ascending=true): SqlQueryStr =
+  let pubsubTopicClause = if pubsubTopic.isNone():
+        none(string)
+      else:
+        some("pubsubTopic = (?)")
+
+  let contentTopicClause = if contentTopic.len <= 0:
+        none(string)
+      else:
+        var where = "("
+        where &= "contentTopic = (?)"
+        for _ in contentTopic[1..^1]:
+          where &= " OR contentTopic = (?)"
+        where &= ")"
+        some(where)
+
+  let startTimeClause = if startTime.isNone():
+        none(string)
+      else:
+        some("storedAt >= (?)")
+
+  let endTimeClause = if endTime.isNone():
+        none(string)
+      else:
+        some("storedAt <= (?)")
+
+  combineClauses(cursorClause, pubsubTopicClause, contentTopicClause, startTimeClause, endTimeClause)
+
+proc selectMessagesWithLimitQuery(table: string, where: Option[string], limit: uint, ascending=true): SqlQueryStr =
   let order = if ascending: "ASC" else: "DESC"
 
   var query: string
 
   query = "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id"
   query &= " FROM " & table
-  
+
   if where.isSome():
     query &= " WHERE " & where.get()
-  
-  query &= " ORDER BY storedAt " & order & ", id " & order & ", pubsubTopic " & order
+
+  query &= " ORDER BY storedAt " & order & ", id " & order
   query &= " LIMIT " & $limit & ";"
 
   query
@@ -301,34 +295,32 @@ proc prepareSelectMessagesWithlimitStmt(db: SqliteDatabase, stmt: string): Datab
   checkErr sqlite3_prepare_v2(db.env, stmt, stmt.len.cint, addr s, nil)
   ok(SqliteStmt[void, void](s))
 
-proc execSelectMessagesWithLimitStmt(s: SqliteStmt, 
-                          contentTopic: Option[seq[ContentTopic]], 
+proc execSelectMessagesWithLimitStmt(s: SqliteStmt,
+                          cursor: Option[DbCursor],
                           pubsubTopic: Option[PubsubTopic],
-                          cursor: Option[DbCursor],  
+                          contentTopic: seq[ContentTopic],
                           startTime: Option[Timestamp],
                           endTime: Option[Timestamp],
                           onRowCallback: DataProc): DatabaseResult[void] =
   let s = RawStmtPtr(s)
-  
+
   # Bind params
   var paramIndex = 1
-  if contentTopic.isSome():
-    for topic in contentTopic.get():
-      checkErr bindParam(s, paramIndex, topic.toBytes())
-      paramIndex += 1
 
   if cursor.isSome():  # cursor = storedAt, id, pubsubTopic
-    let (storedAt, id, pubsubTopic) = cursor.get()
+    let (storedAt, id, _) = cursor.get()
     checkErr bindParam(s, paramIndex, storedAt)
     paramIndex += 1
     checkErr bindParam(s, paramIndex, id)
-    paramIndex += 1
-    checkErr bindParam(s, paramIndex, pubsubTopic.toBytes())
     paramIndex += 1
 
   if pubsubTopic.isSome():
     let pubsubTopic = toBytes(pubsubTopic.get())
     checkErr bindParam(s, paramIndex, pubsubTopic)
+    paramIndex += 1
+
+  for topic in contentTopic:
+    checkErr bindParam(s, paramIndex, topic.toBytes())
     paramIndex += 1
 
   if startTime.isSome():
@@ -357,19 +349,19 @@ proc execSelectMessagesWithLimitStmt(s: SqliteStmt,
     discard sqlite3_reset(s) # same return information as step
     discard sqlite3_clear_bindings(s) # no errors possible
 
-proc selectMessagesByHistoryQueryWithLimit*(db: SqliteDatabase, 
-                                            contentTopic: Option[seq[ContentTopic]], 
+proc selectMessagesByHistoryQueryWithLimit*(db: SqliteDatabase,
+                                            contentTopic: seq[ContentTopic],
                                             pubsubTopic: Option[PubsubTopic],
-                                            cursor: Option[DbCursor],  
+                                            cursor: Option[DbCursor],
                                             startTime: Option[Timestamp],
                                             endTime: Option[Timestamp],
-                                            limit: uint64, 
+                                            limit: uint,
                                             ascending: bool): DatabaseResult[seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]] =
-  
-   
+
+
   var messages: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)] = @[]
   proc queryRowCallback(s: ptr sqlite3_stmt) =
-    let 
+    let
       pubsubTopic = queryRowPubsubTopicCallback(s, pubsubTopicCol=3)
       message = queryRowWakuMessageCallback(s, contentTopicCol=1, payloadCol=2, versionCol=4, senderTimestampCol=5)
       digest = queryRowDigestCallback(s, digestCol=6)
@@ -378,19 +370,14 @@ proc selectMessagesByHistoryQueryWithLimit*(db: SqliteDatabase,
     messages.add((pubsubTopic, message, digest, storedAt))
 
   let query = block:
-    let
-      contentTopicClause = contentTopicWhereClause(contentTopic)
-      cursorClause = cursorWhereClause(cursor, ascending)
-      pubsubClause = pubsubWhereClause(pubsubTopic)
-      timeRangeClause = timeRangeWhereClause(startTime, endTime)
-    let where = whereClause(contentTopicClause, cursorClause, pubsubClause, timeRangeClause)
+    let where = whereClause(cursor, pubsubTopic, contentTopic, startTime, endTime, ascending)
     selectMessagesWithLimitQuery(DbTable, where, limit, ascending)
 
   let dbStmt = ?db.prepareSelectMessagesWithlimitStmt(query)
   ?dbStmt.execSelectMessagesWithLimitStmt(
-    contentTopic,
-    pubsubTopic,
     cursor,
+    pubsubTopic,
+    contentTopic,
     startTime,
     endTime,
     queryRowCallback

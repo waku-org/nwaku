@@ -235,8 +235,9 @@ procSuite "WakuNode - RLN relay":
                                                               memKeys = node1.wakuRlnRelay.membershipKeyPair,
                                                               memIndex = MembershipIndex(1),
                                                               epoch = epoch)
-    doAssert(rateLimitProofRes.isOk())
-    let rateLimitProof = rateLimitProofRes.value
+    require:
+      rateLimitProofRes.isOk()
+    let rateLimitProof = rateLimitProofRes.get().encode().buffer
 
     let message = WakuMessage(payload: @payload,
                               contentTopic: contentTopic,

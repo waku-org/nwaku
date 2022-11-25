@@ -6,10 +6,10 @@ import
   testutils/unittests,
   nimcrypto
 import
-  ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/utils/time,
-  ../../waku/v2/node/message_store/queue_store/index,
-  ./testlib/common
+  ../../../waku/v2/protocol/waku_message,
+  ../../../waku/v2/protocol/waku_archive/driver/queue_driver/index,
+  ../../../waku/v2/utils/time,
+  ../testlib/common
 
 
 ## Helpers
@@ -20,7 +20,7 @@ proc getTestTimestamp(offset=0): Timestamp =
 
 proc hashFromStr(input: string): MDigest[256] =
   var ctx: sha256
-  
+
   ctx.init()
   ctx.update(input.toBytes())
   let hashed = ctx.finish()
@@ -29,7 +29,7 @@ proc hashFromStr(input: string): MDigest[256] =
   return hashed
 
 
-suite "Pagination - Index":
+suite "Queue Driver - index":
 
   ## Test vars
   let
@@ -70,7 +70,7 @@ suite "Pagination - Index":
                           receiverTime: getNanosecondTime(1200),
                           senderTime: getNanosecondTime(0),
                           pubsubTopic: "aaaa")
-    noSenderTime4 = Index(digest: hashFromStr("0"), 
+    noSenderTime4 = Index(digest: hashFromStr("0"),
                           receiverTime: getNanosecondTime(1200),
                           senderTime: getNanosecondTime(0),
                           pubsubTopic: "zzzz")
@@ -180,4 +180,3 @@ suite "Pagination - Index":
     ## Then
     check:
       index1.digest == index2.digest
-      

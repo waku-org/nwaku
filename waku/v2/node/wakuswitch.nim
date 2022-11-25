@@ -43,7 +43,7 @@ proc withWssTransport*(b: SwitchBuilder,
                         secureKeyPath: string,
                         secureCertPath: string): SwitchBuilder
   {.raises: [Defect, IOError].} =
-  
+
   let key : TLSPrivateKey =  getSecureKey(secureKeyPath)
   let cert : TLSCertificate = getSecureCert(secureCertPath)
   b.withTransport(proc(upgr: Upgrade): Transport = WsTransport.new(upgr,
@@ -71,7 +71,8 @@ proc newWakuSwitch*(
     wssEnabled: bool = false,
     secureKeyPath: string = "",
     secureCertPath: string = "",
-    agentString = none(string), # defaults to nim-libp2p version
+    agentString = none(string),    # defaults to nim-libp2p version,
+    peerStoreCapacity = none(int), # defaults to nim-libp2p max size
     ): Switch
     {.raises: [Defect, IOError, LPError].} =
 
@@ -88,6 +89,8 @@ proc newWakuSwitch*(
       .withNameResolver(nameResolver)
       .withSignedPeerRecord(sendSignedPeerRecord)
 
+    if peerStoreCapacity.isSome():
+      b = b.withPeerStore(peerStoreCapacity.get())
     if agentString.isSome():
       b = b.withAgentVersion(agentString.get())
     if privKey.isSome():

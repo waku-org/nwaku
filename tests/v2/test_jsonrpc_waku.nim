@@ -14,7 +14,6 @@ import
   libp2p/protocols/pubsub/rpc/message
 import
   ../../waku/v1/node/rpc/hexstrings,
-  ../../waku/v2/node/message_store/queue_store,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/jsonrpc/[store_api,
                               relay_api,
@@ -24,6 +23,8 @@ import
                               private_api],
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_relay,
+  ../../waku/v2/protocol/waku_archive,
+  ../../waku/v2/protocol/waku_archive/driver/queue_driver,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_store/rpc,
   ../../waku/v2/protocol/waku_swap/waku_swap,
@@ -38,6 +39,14 @@ template sourceDir*: string = currentSourcePath.rsplit(DirSep, 1)[0]
 const sigPath = sourceDir / ParDir / ParDir / "waku" / "v2" / "node" / "jsonrpc" / "jsonrpc_callsigs.nim"
 createRpcSigs(RpcHttpClient, sigPath)
 
+proc put(store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage): Result[void, string] =
+  let
+    digest = waku_archive.computeDigest(message)
+    receivedTime = if message.timestamp > 0: message.timestamp
+                  else: getNanosecondTime(getTime().toUnixFloat())
+
+  store.put(pubsubTopic, message, digest, receivedTime)
+
 procSuite "Waku v2 JSON-RPC API":
   let
     rng = crypto.newRng()
@@ -47,7 +56,7 @@ procSuite "Waku v2 JSON-RPC API":
     port = Port(9000)
     node = WakuNode.new(privkey, bindIp, port, some(extIp), some(port))
 
-  asyncTest "Debug API: get node info": 
+  asyncTest "Debug API: get node info":
     await node.start()
 
     await node.mountRelay()
@@ -71,10 +80,10 @@ procSuite "Waku v2 JSON-RPC API":
 
     await server.stop()
     await server.closeWait()
-    
+
     await node.stop()
 
-  asyncTest "Relay API: publish and subscribe/unsubscribe": 
+  asyncTest "Relay API: publish and subscribe/unsubscribe":
     await node.start()
 
     await node.mountRelay()
@@ -90,11 +99,11 @@ procSuite "Waku v2 JSON-RPC API":
 
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort, false)
-    
+
     check:
       # At this stage the node is only subscribed to the default topic
       PubSub(node.wakuRelay).topics.len == 1
-    
+
     # Subscribe to new topics
     let newTopics = @["1","2","3"]
     var response = await client.post_waku_v2_relay_v1_subscriptions(newTopics)
@@ -103,14 +112,14 @@ procSuite "Waku v2 JSON-RPC API":
       # Node is now subscribed to default + new topics
       PubSub(node.wakuRelay).topics.len == 1 + newTopics.len
       response == true
-    
+
     # Publish a message on the default topic
     response = await client.post_waku_v2_relay_v1_message(DefaultPubsubTopic, WakuRelayMessage(payload: @[byte 1], contentTopic: some(DefaultContentTopic), timestamp: some(getNanosecondTime(epochTime()))))
 
     check:
       # @TODO poll topic to verify message has been published
       response == true
-    
+
     # Unsubscribe from new topics
     response = await client.delete_waku_v2_relay_v1_subscriptions(newTopics)
 
@@ -121,10 +130,10 @@ procSuite "Waku v2 JSON-RPC API":
 
     await server.stop()
     await server.closeWait()
-    
+
     await node.stop()
-  
-  asyncTest "Relay API: get latest messages": 
+
+  asyncTest "Relay API: get latest messages":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, bindIp, Port(60300))
@@ -156,7 +165,7 @@ procSuite "Waku v2 JSON-RPC API":
       rpcPort = Port(8548)
       ta = initTAddress(bindIp, rpcPort)
       server = newRpcHttpServer([ta])
-    
+
     # Let's connect to node 3 via the API
     installRelayApiHandlers(node3, server, newTable[string, seq[WakuMessage]]())
     server.start()
@@ -175,9 +184,9 @@ procSuite "Waku v2 JSON-RPC API":
       messages.len == 1
       messages[0].contentTopic == contentTopic
       messages[0].payload == payload1
-    
+
     # Ensure that read messages are cleared from cache
-    messages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)  
+    messages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)
     check:
       messages.len == 0
 
@@ -195,22 +204,22 @@ procSuite "Waku v2 JSON-RPC API":
     await node1.publish(pubSubTopic, message2)
 
     await sleepAsync(100.millis)
-    
+
     messages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)
 
     check:
       messages.len == 1
       messages[0].contentTopic == contentTopic
       messages[0].payload == payload2
-    
+
     # Ensure that read messages are cleared from cache
-    messages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)  
+    messages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)
     check:
       messages.len == 0
 
     await server.stop()
     await server.closeWait()
-    
+
     await node1.stop()
     await node2.stop()
     await node3.stop()
@@ -233,11 +242,12 @@ procSuite "Waku v2 JSON-RPC API":
     let
       key = crypto.PrivateKey.random(ECDSA, rng[]).get()
       peer = PeerInfo.new(key)
-    
-    let store = StoreQueueRef.new()
-    await node.mountStore(store=store)
-    node.mountStoreClient(store=store)
-    
+
+    let driver: ArchiveDriver = QueueDriver.new()
+    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    await node.mountStore()
+    node.mountStoreClient()
+
     var listenSwitch = newStandardSwitch(some(key))
     await listenSwitch.start()
 
@@ -247,20 +257,21 @@ procSuite "Waku v2 JSON-RPC API":
     listenSwitch.mount(node.wakuStore)
 
     # Now prime it with some history before tests
-    var
-      msgList = @[WakuMessage(payload: @[byte 0], contentTopic: ContentTopic("2"), timestamp: 0),
-        WakuMessage(payload: @[byte 1], contentTopic: DefaultContentTopic, timestamp: 1),
-        WakuMessage(payload: @[byte 2], contentTopic: DefaultContentTopic, timestamp: 2),
-        WakuMessage(payload: @[byte 3], contentTopic: DefaultContentTopic, timestamp: 3),
-        WakuMessage(payload: @[byte 4], contentTopic: DefaultContentTopic, timestamp: 4),
-        WakuMessage(payload: @[byte 5], contentTopic: DefaultContentTopic, timestamp: 5),
-        WakuMessage(payload: @[byte 6], contentTopic: DefaultContentTopic, timestamp: 6),
-        WakuMessage(payload: @[byte 7], contentTopic: DefaultContentTopic, timestamp: 7),
-        WakuMessage(payload: @[byte 8], contentTopic: DefaultContentTopic, timestamp: 8), 
-        WakuMessage(payload: @[byte 9], contentTopic: ContentTopic("2"), timestamp: 9)]
+    let msgList = @[
+      fakeWakuMessage(@[byte 0], contentTopic=ContentTopic("2"), ts=0),
+      fakeWakuMessage(@[byte 1], ts=1),
+      fakeWakuMessage(@[byte 2], ts=2),
+      fakeWakuMessage(@[byte 3], ts=3),
+      fakeWakuMessage(@[byte 4], ts=4),
+      fakeWakuMessage(@[byte 5], ts=5),
+      fakeWakuMessage(@[byte 6], ts=6),
+      fakeWakuMessage(@[byte 7], ts=7),
+      fakeWakuMessage(@[byte 8], ts=8),
+      fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("2"), ts=9)
+    ]
 
-    for wakuMsg in msgList:
-      require node.wakuStore.store.put(DefaultPubsubTopic, wakuMsg).isOk()
+    for msg in msgList:
+      require driver.put(DefaultPubsubTopic, msg).isOk()
 
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort, false)
@@ -269,14 +280,14 @@ procSuite "Waku v2 JSON-RPC API":
     check:
       response.messages.len() == 8
       response.pagingOptions.isNone()
-      
+
     await server.stop()
     await server.closeWait()
-    
+
     await node.stop()
-  
-  asyncTest "Filter API: subscribe/unsubscribe": 
-    let 
+
+  asyncTest "Filter API: subscribe/unsubscribe":
+    let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, bindIp, Port(60390))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
@@ -286,7 +297,7 @@ procSuite "Waku v2 JSON-RPC API":
 
     await node1.mountFilter()
     await node2.mountFilterClient()
-    
+
     node2.setFilterPeer(node1.peerInfo.toRemotePeerInfo())
 
     # RPC server setup
@@ -326,9 +337,9 @@ procSuite "Waku v2 JSON-RPC API":
     ## Cleanup
     await server.stop()
     await server.closeWait()
-    
+
     await allFutures(node1.stop(), node2.stop())
-  
+
   asyncTest "Admin API: connect to ad-hoc peers":
     # Create a couple of nodes
     let
@@ -340,7 +351,7 @@ procSuite "Waku v2 JSON-RPC API":
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60604))
       peerInfo3 = node3.switch.peerInfo
-    
+
     await allFutures([node1.start(), node2.start(), node3.start()])
 
     await node1.mountRelay()
@@ -365,7 +376,7 @@ procSuite "Waku v2 JSON-RPC API":
 
     check:
       postRes
-    
+
     # Verify that newly connected peers are being managed
     let getRes = await client.get_waku_v2_admin_v1_peers()
 
@@ -380,9 +391,9 @@ procSuite "Waku v2 JSON-RPC API":
 
     await server.stop()
     await server.closeWait()
-    
+
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
-  
+
   asyncTest "Admin API: get managed peer information":
     # Create a couple of nodes
     let
@@ -394,7 +405,7 @@ procSuite "Waku v2 JSON-RPC API":
       nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60224))
       peerInfo3 = node3.peerInfo
-    
+
     await allFutures([node1.start(), node2.start(), node3.start()])
 
     await node1.mountRelay()
@@ -430,9 +441,9 @@ procSuite "Waku v2 JSON-RPC API":
 
     await server.stop()
     await server.closeWait()
-    
+
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
-  
+
   asyncTest "Admin API: get unmanaged peer information":
     let
       nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
@@ -455,9 +466,10 @@ procSuite "Waku v2 JSON-RPC API":
     await node.mountFilter()
     await node.mountFilterClient()
     await node.mountSwap()
-    let store = StoreQueueRef.new()
-    await node.mountStore(store=store)
-    node.mountStoreClient(store=store)
+    let driver: ArchiveDriver = QueueDriver.new()
+    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    await node.mountStore()
+    node.mountStoreClient()
 
     # Create and set some peers
     let
@@ -491,7 +503,7 @@ procSuite "Waku v2 JSON-RPC API":
     ## Cleanup
     await server.stop()
     await server.closeWait()
-    
+
     await node.stop()
 
   asyncTest "Private API: generate asymmetric keys and encrypt/decrypt communication":
@@ -528,7 +540,7 @@ procSuite "Waku v2 JSON-RPC API":
       rpcPort3 = Port(8555)
       ta3 = initTAddress(bindIp, rpcPort3)
       server3 = newRpcHttpServer([ta3])
-    
+
     # Let's connect to nodes 1 and 3 via the API
     installPrivateApiHandlers(node1, server1, newTable[string, seq[WakuMessage]]())
     installPrivateApiHandlers(node3, server3, topicCache)
@@ -563,16 +575,16 @@ procSuite "Waku v2 JSON-RPC API":
 
     await sleepAsync(100.millis)
 
-    # Let's see if we can receive, and decrypt, this message on node3    
+    # Let's see if we can receive, and decrypt, this message on node3
     var messages = await client3.get_waku_v2_private_v1_asymmetric_messages(pubSubTopic, privateKey = (%keypair.seckey).getStr())
 
     check:
       messages.len == 1
       messages[0].contentTopic.get == contentTopic
       messages[0].payload == payload
-    
+
     # Ensure that read messages are cleared from cache
-    messages = await client3.get_waku_v2_private_v1_asymmetric_messages(pubSubTopic, privateKey = (%keypair.seckey).getStr())  
+    messages = await client3.get_waku_v2_private_v1_asymmetric_messages(pubSubTopic, privateKey = (%keypair.seckey).getStr())
     check:
       messages.len == 0
 
@@ -580,7 +592,7 @@ procSuite "Waku v2 JSON-RPC API":
     await server1.closeWait()
     await server3.stop()
     await server3.closeWait()
-    
+
     await node1.stop()
     await node2.stop()
     await node3.stop()
@@ -619,7 +631,7 @@ procSuite "Waku v2 JSON-RPC API":
       rpcPort3 = Port(8557)
       ta3 = initTAddress(bindIp, rpcPort3)
       server3 = newRpcHttpServer([ta3])
-    
+
     # Let's connect to nodes 1 and 3 via the API
     installPrivateApiHandlers(node1, server1, newTable[string, seq[WakuMessage]]())
     installPrivateApiHandlers(node3, server3, topicCache)
@@ -654,14 +666,14 @@ procSuite "Waku v2 JSON-RPC API":
 
     await sleepAsync(100.millis)
 
-    # Let's see if we can receive, and decrypt, this message on node3    
+    # Let's see if we can receive, and decrypt, this message on node3
     var messages = await client3.get_waku_v2_private_v1_symmetric_messages(pubSubTopic, symkey = (%symkey).getStr())
 
     check:
       messages.len == 1
       messages[0].contentTopic.get == contentTopic
       messages[0].payload == payload
-    
+
     # Ensure that read messages are cleared from cache
     messages = await client3.get_waku_v2_private_v1_symmetric_messages(pubSubTopic, symkey = (%symkey).getStr())
     check:
@@ -671,7 +683,7 @@ procSuite "Waku v2 JSON-RPC API":
     await server1.closeWait()
     await server3.stop()
     await server3.closeWait()
-  
+
     await node1.stop()
     await node2.stop()
     await node3.stop()

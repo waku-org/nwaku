@@ -5,23 +5,25 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import 
-  std/[options, tables],
+import
+  std/[options, algorithm],
   stew/[byteutils, results],
   chronicles
 import
-  ../../../../common/sqlite,
-  ../../../protocol/waku_message,
-  ../../../protocol/waku_store/common,
-  ../../../protocol/waku_store/message_store,
-  ../../../utils/time,
+  ../../../../../common/sqlite,
+  ../../../../protocol/waku_message,
+  ../../../../utils/time,
+  ../../common,
+  ../../driver,
+  ./cursor,
   ./queries
 
 logScope:
-  topics = "waku node message_store sqlite"
+  topics = "waku archive sqlite"
 
 
-proc init(db: SqliteDatabase): MessageStoreResult[void] =
+
+proc init(db: SqliteDatabase): ArchiveDriverResult[void] =
   ## Misconfiguration can lead to nil DB
   if db.isNil():
     return err("db not initialized")
@@ -35,7 +37,7 @@ proc init(db: SqliteDatabase): MessageStoreResult[void] =
   let resRtIndex = createOldestMessageTimestampIndex(db)
   if resRtIndex.isErr():
     return err("failed to create i_rt index: " & resRtIndex.error())
-  
+
   let resMsgIndex = createHistoryQueryIndex(db)
   if resMsgIndex.isErr():
     return err("failed to create i_msg index: " & resMsgIndex.error())
@@ -43,12 +45,12 @@ proc init(db: SqliteDatabase): MessageStoreResult[void] =
   ok()
 
 
-type SqliteStore* = ref object of MessageStore
+type SqliteDriver* = ref object of ArchiveDriver
     db: SqliteDatabase
     insertStmt: SqliteStmt[InsertMessageParams, void]
 
-proc init*(T: type SqliteStore, db: SqliteDatabase): MessageStoreResult[T] =
-  
+proc new*(T: type SqliteDriver, db: SqliteDatabase): ArchiveDriverResult[T] =
+
   # Database initialization
   let resInit = init(db)
   if resInit.isErr():
@@ -56,19 +58,21 @@ proc init*(T: type SqliteStore, db: SqliteDatabase): MessageStoreResult[T] =
 
   # General initialization
   let insertStmt = db.prepareInsertMessageStmt()
-  ok(SqliteStore(db: db, insertStmt: insertStmt))
+  ok(SqliteDriver(db: db, insertStmt: insertStmt))
 
-proc close*(s: SqliteStore) = 
+method close*(s: SqliteDriver): ArchiveDriverResult[void] =
   ## Close the database connection
-  
+
   # Dispose statements
   s.insertStmt.dispose()
 
   # Close connection
   s.db.close()
 
+  ok()
 
-method put*(s: SqliteStore, pubsubTopic: PubsubTopic, message: WakuMessage, digest: MessageDigest, receivedTime: Timestamp): MessageStoreResult[void] =
+
+method put*(s: SqliteDriver, pubsubTopic: PubsubTopic, message: WakuMessage, digest: MessageDigest, receivedTime: Timestamp): ArchiveDriverResult[void] =
   ## Inserts a message into the store
 
   let res = s.insertStmt.exec((
@@ -85,31 +89,27 @@ method put*(s: SqliteStore, pubsubTopic: PubsubTopic, message: WakuMessage, dige
 
   ok()
 
-method put*(s: SqliteStore, pubsubTopic: PubsubTopic, message: WakuMessage): MessageStoreResult[void] =
-  ## Inserts a message into the store
-  procCall MessageStore(s).put(pubsubTopic, message)
 
-
-method getAllMessages*(s: SqliteStore):  MessageStoreResult[seq[MessageStoreRow]] =
+method getAllMessages*(s: SqliteDriver):  ArchiveDriverResult[seq[ArchiveRow]] =
   ## Retrieve all messages from the store.
   s.db.selectAllMessages()
 
 
-method getMessagesByHistoryQuery*(
-  s: SqliteStore,
-  contentTopic = none(seq[ContentTopic]),
+method getMessages*(
+  s: SqliteDriver,
+  contentTopic: seq[ContentTopic] = @[],
   pubsubTopic = none(PubsubTopic),
-  cursor = none(HistoryCursor),
+  cursor = none(ArchiveCursor),
   startTime = none(Timestamp),
   endTime = none(Timestamp),
   maxPageSize = DefaultPageSize,
   ascendingOrder = true
-): MessageStoreResult[seq[MessageStoreRow]] =
-  let cursor = cursor.map(proc(c: HistoryCursor): DbCursor = (c.storeTime, @(c.digest.data), c.pubsubTopic))
+): ArchiveDriverResult[seq[ArchiveRow]] =
+  let cursor = cursor.map(toDbCursor)
 
-  return s.db.selectMessagesByHistoryQueryWithLimit(
-    contentTopic, 
-    pubsubTopic, 
+  var rows = ?s.db.selectMessagesByHistoryQueryWithLimit(
+    contentTopic,
+    pubsubTopic,
     cursor,
     startTime,
     endTime,
@@ -117,19 +117,25 @@ method getMessagesByHistoryQuery*(
     ascending=ascendingOrder
   )
 
+  # All messages MUST be returned in chronological order
+  if not ascendingOrder:
+    reverse(rows)
 
-method getMessagesCount*(s: SqliteStore): MessageStoreResult[int64] =
+  ok(rows)
+
+
+method getMessagesCount*(s: SqliteDriver): ArchiveDriverResult[int64] =
   s.db.getMessageCount()
 
-method getOldestMessageTimestamp*(s: SqliteStore): MessageStoreResult[Timestamp] =
+method getOldestMessageTimestamp*(s: SqliteDriver): ArchiveDriverResult[Timestamp] =
   s.db.selectOldestReceiverTimestamp()
 
-method getNewestMessageTimestamp*(s: SqliteStore): MessageStoreResult[Timestamp] =
+method getNewestMessageTimestamp*(s: SqliteDriver): ArchiveDriverResult[Timestamp] =
   s.db.selectnewestReceiverTimestamp()
 
 
-method deleteMessagesOlderThanTimestamp*(s: SqliteStore, ts: Timestamp): MessageStoreResult[void] =
+method deleteMessagesOlderThanTimestamp*(s: SqliteDriver, ts: Timestamp): ArchiveDriverResult[void] =
   s.db.deleteMessagesOlderThanTimestamp(ts)
 
-method deleteOldestMessagesNotWithinLimit*(s: SqliteStore, limit: int): MessageStoreResult[void] =
+method deleteOldestMessagesNotWithinLimit*(s: SqliteDriver, limit: int): ArchiveDriverResult[void] =
   s.db.deleteOldestMessagesNotWithinLimit(limit)

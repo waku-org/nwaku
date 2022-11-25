@@ -3,6 +3,10 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import ./sqlite_store/sqlite_store
+import
+  ./queue_driver/queue_driver,
+  ./queue_driver/index
 
-export sqlite_store
+export
+  queue_driver,
+  index
