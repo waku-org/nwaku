@@ -440,8 +440,6 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
     except:
       return err("failed to mount waku peer-exchange protocol: " & getCurrentExceptionMsg())
 
-    asyncSpawn runPeerExchangeDiscv5Loop(node.wakuPeerExchange)
-
     if conf.peerExchangeNode != "":
       try:
         setPeerExchangePeer(node, conf.peerExchangeNode)
@@ -483,6 +481,9 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
       await connectToNodes(node, dynamicBootstrapNodes, "dynamic bootstrap")
     except:
       return err("failed to connect to dynamic bootstrap nodes: " & getCurrentExceptionMsg())
+
+  if conf.peerExchange:
+    asyncSpawn runPeerExchangeDiscv5Loop(node.wakuPeerExchange)
 
   # retrieve and connect to peer exchange peers
   if conf.peerExchangeNode != "":
