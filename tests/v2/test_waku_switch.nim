@@ -4,22 +4,44 @@ import
   testutils/unittests,
   chronos,
   libp2p,
+  libp2p/protocols/connectivity/autonat,
   libp2p/protocols/connectivity/relay/relay,
   libp2p/protocols/connectivity/relay/client,
   stew/byteutils
 import
-  ../../waku/v2/node/wakuswitch
+  ../../waku/v2/node/wakuswitch,
+  ./testlib/switch
 
-procSuite "Circuit Relay":
-  proc createCircuitRelayClientSwitch(relayClient: RelayClient): Switch =
-    SwitchBuilder.new()
-      .withRng(newRng())
-      .withAddresses(@[MultiAddress.init("/ip4/0.0.0.0/tcp/0").tryGet()])
-      .withTcpTransport()
-      .withMplex()
-      .withNoise()
-      .withCircuitRelay(relayClient)
-      .build()
+proc newCircuitRelayClientSwitch(relayClient: RelayClient): Switch =
+  SwitchBuilder.new()
+    .withRng(newRng())
+    .withAddresses(@[MultiAddress.init("/ip4/0.0.0.0/tcp/0").tryGet()])
+    .withTcpTransport()
+    .withMplex()
+    .withNoise()
+    .withCircuitRelay(relayClient)
+    .build()
+
+procSuite "Waku Switch":
+
+  asyncTest "Waku Switch works with AutoNat":
+    ## Given
+    let
+      sourceSwitch = newTestSwitch()
+      wakuSwitch = newWakuSwitch()
+    await sourceSwitch.start()
+    await wakuSwitch.start()
+
+    ## When
+    await sourceSwitch.connect(wakuSwitch.peerInfo.peerId, wakuSwitch.peerInfo.addrs)
+    let ma = await Autonat.new(sourceSwitch).dialMe(wakuSwitch.peerInfo.peerId, wakuSwitch.peerInfo.addrs)
+
+    ## Then
+    check:
+      ma == sourceSwitch.peerInfo.addrs[0]
+
+    ## Teardown
+    await allFutures(sourceSwitch.stop(), wakuSwitch.stop())
 
   asyncTest "Waku Switch acts as circuit relayer":
     ## Setup
@@ -27,8 +49,8 @@ procSuite "Circuit Relay":
       wakuSwitch = newWakuSwitch()
       sourceClient = RelayClient.new()
       destClient = RelayClient.new()
-      sourceSwitch = createCircuitRelayClientSwitch(sourceClient)
-      destSwitch = createCircuitRelayClientSwitch(destClient)
+      sourceSwitch = newCircuitRelayClientSwitch(sourceClient)
+      destSwitch = newCircuitRelayClientSwitch(destClient)
 
     # Setup client relays
     sourceClient.setup(sourceSwitch)
@@ -37,7 +59,6 @@ procSuite "Circuit Relay":
     await allFutures(wakuSwitch.start(), sourceSwitch.start(), destSwitch.start())
 
     ## Given
-
     let
       # Create a relay address to destSwitch using wakuSwitch as the relay
       addrs = MultiAddress.init($wakuSwitch.peerInfo.addrs[0] & "/p2p/" &
@@ -59,7 +80,6 @@ procSuite "Circuit Relay":
     destSwitch.mount(proto)
 
     ## When
-
     # Connect destSwitch to the relay
     await destSwitch.connect(wakuSwitch.peerInfo.peerId, wakuSwitch.peerInfo.addrs)
 
