@@ -91,7 +91,7 @@ proc handleMessage*(w: WakuArchive, pubsubTopic: PubsubTopic, msg: WakuMessage) 
   if not w.validator.isNil():
     let validationRes = w.validator.validate(msg)
     if validationRes.isErr():
-      waku_archive_errors.inc(labelValues = [invalidMessage])
+      waku_archive_errors.inc(labelValues = [validationRes.error])
       return
 
 
