@@ -52,6 +52,7 @@ import
   ./v2/test_peer_exchange,
   ./v2/test_waku_noise,
   ./v2/test_waku_noise_sessions,
+  ./v2/test_waku_switch,
   # Utils
   ./v2/test_utils_keyfile
 
