@@ -211,7 +211,7 @@ endif
 
 # control rln code compilation
 ifeq ($(RLN), true)
-	NIM_PARAMS := $(NIM_PARAMS) -d:rln
+$(eval NIM_PARAMS := $(NIM_PARAMS) -d:rln)
 endif
 
 rlnlib:
