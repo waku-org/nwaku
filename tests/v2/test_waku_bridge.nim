@@ -143,7 +143,7 @@ procSuite "WakuBridge":
     # Test bridging from V2 to V1
     await v2Node.publish(DefaultBridgeTopic, message)
 
-    await sleepAsync(2.seconds)
+    await sleepAsync(1.seconds)
 
     check:
       # v1Node received message published by v2Node
@@ -172,7 +172,7 @@ procSuite "WakuBridge":
 
     await v2Node.publish(DefaultBridgeTopic, message)
 
-    await sleepAsync(2.seconds)
+    await sleepAsync(1.seconds)
 
     check:
       # v1Node did not receive duplicate of previous message
