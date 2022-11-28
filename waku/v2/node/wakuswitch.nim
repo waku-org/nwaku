@@ -88,6 +88,8 @@ proc newWakuSwitch*(
       .withTcpTransport(transportFlags)
       .withNameResolver(nameResolver)
       .withSignedPeerRecord(sendSignedPeerRecord)
+      .withCircuitRelay()
+      .withAutonat()
 
     if peerStoreCapacity.isSome():
       b = b.withPeerStore(peerStoreCapacity.get())
