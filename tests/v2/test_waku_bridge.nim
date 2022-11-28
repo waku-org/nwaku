@@ -2,10 +2,10 @@
 
 import
   std/[sequtils, strutils, tables],
-  stew/byteutils, 
-  stew/shims/net as stewNet, 
+  stew/byteutils,
+  stew/shims/net as stewNet,
   testutils/unittests,
-  chronos, 
+  chronos,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/peerid,
@@ -45,7 +45,7 @@ procSuite "WakuBridge":
         nodev2Key = nodev2Key,
         nodev2BindIp = ValidIpAddress.init("0.0.0.0"), nodev2BindPort= Port(62200),
         nodev2PubsubTopic = DefaultBridgeTopic)
-    
+
     # Waku v1 node
     v1Node = setupTestNode(rng, Waku)
 
@@ -59,14 +59,14 @@ procSuite "WakuBridge":
     payloadV2 = "hello from V2".toBytes()
     encodedPayloadV2 = Payload(payload: payloadV2, dst: some(nodev1Key.pubKey))
     message = WakuMessage(payload: encodedPayloadV2.encode(1, rng[]).get(), contentTopic: contentTopic, version: 1)
-  
+
   ########################
   # Tests setup/teardown #
   ########################
-  
+
   # setup:
   #   # Runs before each test
-  
+
   # teardown:
   #   # Runs after each test
 
@@ -76,7 +76,7 @@ procSuite "WakuBridge":
 
   asyncTest "Topics are correctly converted between Waku v1 and Waku v2":
     # Expected cases
-    
+
     check:
       toV1Topic(ContentTopic("/waku/1/0x00000000/rfc26")) == [byte 0x00, byte 0x00, byte 0x00, byte 0x00]
       toV2ContentTopic([byte 0x00, byte 0x00, byte 0x00, byte 0x00]) == ContentTopic("/waku/1/0x00000000/rfc26")
@@ -92,15 +92,15 @@ procSuite "WakuBridge":
     expect LPError:
       # Content topic not namespaced
       discard toV1Topic(ContentTopic("this-is-my-content"))
-    
+
     expect ValueError:
       # Content topic name too short
       discard toV1Topic(ContentTopic("/waku/1/0x112233/rfc26"))
-    
+
     expect ValueError:
       # Content topic name not hex
       discard toV1Topic(ContentTopic("/waku/1/my-content/rfc26"))
-  
+
   asyncTest "Verify that WakuMessages are on bridgeable content topics":
     let
       validCT = ContentTopic("/waku/1/my-content/rfc26")
@@ -127,25 +127,23 @@ procSuite "WakuBridge":
 
     var completionFut = newFuture[bool]()
 
-    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =      
+    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
       let msg = WakuMessage.decode(data)
-      
+
       if msg.isOk() and msg.value().version == 1:
         check:
           # Message fields are as expected
           msg.value().contentTopic == contentTopic # Topic translation worked
           string.fromBytes(msg.value().payload).contains("from V1")
-        
+
         completionFut.complete(true)
 
     v2Node.subscribe(DefaultBridgeTopic, relayHandler)
 
-    await sleepAsync(250.millis)
-
     # Test bridging from V2 to V1
     await v2Node.publish(DefaultBridgeTopic, message)
 
-    await sleepAsync(250.millis)
+    await sleepAsync(1.seconds)
 
     check:
       # v1Node received message published by v2Node
@@ -159,7 +157,7 @@ procSuite "WakuBridge":
       # Message fields are as expected
       msg.env.topic == topic # Topic translation worked
       string.fromBytes(decodedPayload.payload).contains("from V2")
-    
+
     # Test bridging from V1 to V2
     check:
       v1Node.postMessage(ttl = 5,
@@ -174,18 +172,18 @@ procSuite "WakuBridge":
 
     await v2Node.publish(DefaultBridgeTopic, message)
 
-    await sleepAsync(250.millis)
+    await sleepAsync(1.seconds)
 
     check:
       # v1Node did not receive duplicate of previous message
       v1Node.protocolState(Waku).queue.items.len == 0
 
     # Teardown test
-    
+
     bridge.nodeV1.resetMessageQueue()
     v1Node.resetMessageQueue()
     waitFor allFutures([bridge.stop(), v2Node.stop()])
-  
+
   asyncTest "Bridge manages its v1 connections":
     # Given
     let
@@ -206,10 +204,10 @@ procSuite "WakuBridge":
           nodev2PubsubTopic = DefaultBridgeTopic,
           v1Pool = v1NodePool.mapIt(newNode(it.toEnode())),
           targetV1Peers = targetV1Peers)
-    
+
     for node in v1NodePool:
       node.startListening()
-    
+
     # When
     waitFor v1Bridge.start()
     await sleepAsync(250.millis) # Give peers some time to connect
