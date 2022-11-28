@@ -95,7 +95,9 @@ proc handleMessage*(w: WakuArchive, pubsubTopic: PubsubTopic, msg: WakuMessage) 
       return
 
 
-  waku_archive_insert_duration_seconds.time:
+  let insertStartTime = getTime().toUnixFloat()
+
+  block:
     let
       msgDigest = computeDigest(msg)
       msgReceivedTime = if msg.timestamp > 0: msg.timestamp
@@ -107,6 +109,9 @@ proc handleMessage*(w: WakuArchive, pubsubTopic: PubsubTopic, msg: WakuMessage) 
     if putRes.isErr():
       error "failed to insert message", err=putRes.error
       waku_archive_errors.inc(labelValues = [insertFailure])
+
+  let insertDuration = getTime().toUnixFloat() - insertStartTime
+  waku_archive_insert_duration_seconds.observe(insertDuration)
 
 
 proc findMessages*(w: WakuArchive, query: ArchiveQuery): ArchiveResult {.gcsafe.} =
@@ -122,10 +127,9 @@ proc findMessages*(w: WakuArchive, query: ArchiveQuery): ArchiveResult {.gcsafe.
     qAscendingOrder = query.ascending
 
 
-  var queryRes: ArchiveDriverResult[seq[ArchiveRow]]
+  let queryStartTime = getTime().toUnixFloat()
 
-  waku_archive_query_duration_seconds.time:
-    queryRes = w.driver.getMessages(
+  let queryRes = w.driver.getMessages(
       contentTopic = qContentTopics,
       pubsubTopic = qPubSubTopic,
       cursor = qCursor,
@@ -134,6 +138,11 @@ proc findMessages*(w: WakuArchive, query: ArchiveQuery): ArchiveResult {.gcsafe.
       maxPageSize = qMaxPageSize + 1,
       ascendingOrder = qAscendingOrder
     )
+
+  let queryDuration = getTime().toUnixFloat() - queryStartTime
+  waku_archive_query_duration_seconds.observe(queryDuration)
+
+
 
   # Build response
   if queryRes.isErr():
