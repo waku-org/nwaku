@@ -14,6 +14,9 @@ import
   libp2p/builders,
   libp2p/transports/[transport, tcptransport, wstransport]
 
+# override nim-libp2p default value (which is also 1)
+const MaxConnectionsPerPeer* = 1
+
 proc withWsTransport*(b: SwitchBuilder): SwitchBuilder =
   b.withTransport(proc(upgr: Upgrade): Transport = WsTransport.new(upgr))
 

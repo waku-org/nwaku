@@ -27,10 +27,15 @@ type
     Connected
 
   PeerOrigin* = enum
-    Unknown,
+    UnknownOrigin,
     Discv5,
     Static,
     Dns
+
+  Direction* = enum
+    UnknownDirection,
+    Inbound,
+    Outbound
 
   # Keeps track of the Connectedness state of a peer
   ConnectionBook* = ref object of PeerBook[Connectedness]
@@ -40,6 +45,9 @@ type
 
   # Keeps track of the origin of a peer
   SourceBook* = ref object of PeerBook[PeerOrigin]
+
+  # Direction
+  DirectionBook* = ref object of PeerBook[Direction]
 
   StoredInfo* = object
     # Taken from nim-libp2
@@ -54,6 +62,7 @@ type
     connectedness*: Connectedness
     disconnectTime*: int64
     origin*: PeerOrigin
+    direction*: Direction
 
 ##################
 # Peer Store API #
@@ -75,8 +84,10 @@ proc get*(peerStore: PeerStore,
     connectedness: peerStore[ConnectionBook][peerId],
     disconnectTime: peerStore[DisconnectBook][peerId],
     origin: peerStore[SourceBook][peerId],
+    direction: peerStore[DirectionBook][peerId],
   )
 
+# TODO: Rename peers() to getPeersByProtocol()
 proc peers*(peerStore: PeerStore): seq[StoredInfo] =
   ## Get all the stored information of every peer.
   let allKeys = concat(toSeq(peerStore[AddressBook].book.keys()),
@@ -129,3 +140,6 @@ proc selectPeer*(peerStore: PeerStore, proto: string): Option[RemotePeerInfo] =
     return some(peerStored.toRemotePeerInfo())
   else:
     return none(RemotePeerInfo)
+
+proc getPeersByDirection*(peerStore: PeerStore, direction: Direction): seq[StoredInfo] =
+  return peerStore.peers().filterIt(it.direction == direction)
