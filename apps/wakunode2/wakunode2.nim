@@ -691,7 +691,7 @@ when isMainModule:
     when defined(windows):
       # workaround for https://github.com/nim-lang/Nim/issues/4057
       setupForeignThreadGc()
-    info "Shutting down after receiving SIGINT"
+    notice "Shutting down after receiving SIGINT"
     waitFor node.stop()
     quit(QuitSuccess)
 
@@ -700,11 +700,24 @@ when isMainModule:
   # Handle SIGTERM
   when defined(posix):
     proc handleSigterm(signal: cint) {.noconv.} =
-      info "Shutting down after receiving SIGTERM"
+      notice "Shutting down after receiving SIGTERM"
       waitFor node.stop()
       quit(QuitSuccess)
 
     c_signal(ansi_c.SIGTERM, handleSigterm)
+
+  # Handle SIGSEGV
+  when defined(posix):
+    proc handleSigsegv(signal: cint) {.noconv.} =
+      fatal "Shutting down after receiving SIGSEGV"
+      waitFor node.stop()
+
+      # Only available with --stacktrace:on --linetrace:on
+      writeStackTrace()
+
+      quit(QuitFailure)
+
+    c_signal(ansi_c.SIGSEGV, handleSigsegv)
 
   info "Node setup complete"
 
