@@ -63,7 +63,7 @@ proc addBootstrapNode*(bootstrapAddr: string,
 
 proc isWakuNode(node: Node): bool =
   let wakuField = node.record.tryGet(WAKU_ENR_FIELD, uint8)
-  
+
   if wakuField.isSome:
     return wakuField.get().WakuEnrBitfield != 0x00 # True if any flag set to true
 
@@ -75,10 +75,10 @@ proc isWakuNode(node: Node): bool =
 
 proc findRandomPeers*(wakuDiscv5: WakuDiscoveryV5): Future[Result[seq[RemotePeerInfo], cstring]] {.async.} =
   ## Find random peers to connect to using Discovery v5
-  
+
   ## Query for a random target and collect all discovered nodes
   let discoveredNodes = await wakuDiscv5.protocol.queryRandom()
-  
+
   ## Filter based on our needs
   # let filteredNodes = discoveredNodes.filter(isWakuNode) # Currently only a single predicate
   # TODO: consider node filtering based on ENR; we do not filter based on ENR in the first waku discv5 beta stage
@@ -92,7 +92,7 @@ proc findRandomPeers*(wakuDiscv5: WakuDiscoveryV5): Future[Result[seq[RemotePeer
     if res.isOk():
       discoveredPeers.add(res.get())
     else:
-      error "Failed to convert ENR to peer info", enr=node.record, err=res.error()
+      error "Failed to convert ENR to peer info", enr= $node.record, err=res.error()
       waku_discv5_errors.inc(labelValues = ["peer_info_failure"])
 
   if discoveredPeers.len > 0:
@@ -114,11 +114,11 @@ proc new*(T: type WakuDiscoveryV5,
           rng: ref HmacDrbgContext,
           discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T =
   ## TODO: consider loading from a configurable bootstrap file
-  
+
   ## We always add the waku field as specified
   var enrInitFields = @[(WAKU_ENR_FIELD, @[flags.byte])]
   enrInitFields.add(enrFields)
-  
+
   let protocol = newProtocol(
     privateKey,
     enrIp = extIp, enrTcpPort = extTcpPort, enrUdpPort = extUdpPort, # We use the external IP & ports for ENR
@@ -129,7 +129,7 @@ proc new*(T: type WakuDiscoveryV5,
     enrAutoUpdate = enrAutoUpdate,
     config = discv5Config,
     rng = rng)
-  
+
   return WakuDiscoveryV5(protocol: protocol, listening: false)
 
 # constructor that takes bootstrap Enrs in Enr Uri form
@@ -145,11 +145,11 @@ proc new*(T: type WakuDiscoveryV5,
           enrFields: openArray[(string, seq[byte])],
           rng: ref HmacDrbgContext,
           discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T =
-  
+
   var bootstrapEnrs: seq[enr.Record]
   for node in bootstrapNodes:
     addBootstrapNode(node, bootstrapEnrs)
-  
+
   return WakuDiscoveryV5.new(
         extIP, extTcpPort, extUdpPort,
         bindIP,

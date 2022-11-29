@@ -4,11 +4,14 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables, hashes, sequtils],
-  chronos, confutils, chronicles, chronicles/topics_registry, chronos/streams/tlsstream,
-  metrics, metrics/chronos_httpserver,
+  std/[os, tables, hashes, sequtils],
   stew/byteutils,
   stew/shims/net as stewNet, json_rpc/rpcserver,
+  chronicles,
+  chronos,
+  chronos/streams/tlsstream,
+  metrics,
+  metrics/chronos_httpserver,
   libp2p/errors,
   libp2p/peerstore,
   eth/[keys, p2p],
@@ -30,8 +33,7 @@ import
                               filter_api,
                               relay_api,
                               store_api],
-  # Common cli config
-  ./config_bridge
+  ./config
 
 declarePublicCounter waku_bridge_transfers, "Number of messages transferred between Waku v1 and v2 networks", ["type"]
 declarePublicCounter waku_bridge_dropped, "Number of messages dropped", ["type"]
@@ -187,7 +189,7 @@ proc connectToV1(bridge: WakuBridge, target: int) =
       randIndex = rand(bridge.rng[], candidates.len() - 1)
       randPeer = candidates[randIndex]
 
-    debug "Attempting to connect to random peer", randPeer
+    debug "Attempting to connect to random peer", randPeer= $randPeer
     asyncSpawn bridge.nodev1.peerPool.connectToNode(randPeer)
 
     candidates.delete(randIndex, randIndex)
@@ -328,7 +330,7 @@ proc stop*(bridge: WakuBridge) {.async.} =
   await bridge.nodev2.stop()
 
 
-proc setupV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: WakuNodeConf) =
+proc setupV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: WakuBridgeConf) =
   installDebugApiHandlers(node, rpcServer)
 
   # Install enabled API handlers:
@@ -347,19 +349,35 @@ proc setupV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: WakuNodeConf) =
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
   import
-    libp2p/nameresolving/dnsresolver,
+    libp2p/nameresolving/dnsresolver
+  import
+    ../../waku/common/logging,
     ../../waku/common/utils/nat,
     ../../waku/whisper/whispernodes,
     ../../waku/v1/node/rpc/wakusim,
     ../../waku/v1/node/rpc/waku,
     ../../waku/v1/node/rpc/key_storage
 
-  let
-    rng = keys.newRng()
-    conf = WakuNodeConf.load()
+  const versionString = "version / git commit hash: " & git_version
 
-  if conf.logLevel != LogLevel.NONE:
-    setLogLevel(conf.logLevel)
+  let rng = keys.newRng()
+
+  let confRes = WakuBridgeConf.load(version=versionString)
+  if confRes.isErr():
+    error "failure while loading the configuration", error=confRes.error
+    quit(QuitFailure)
+
+  let conf = confRes.get()
+
+  ## Logging setup
+
+  # Adhere to NO_COLOR initiative: https://no-color.org/
+  let color = try: not parseBool(os.getEnv("NO_COLOR", "false"))
+              except: true
+
+  logging.setupLogLevel(conf.logLevel)
+  logging.setupLogFormat(conf.logFormat, color)
+
 
   ## `udpPort` is only supplied to satisfy underlying APIs but is not
   ## actually a supported transport.
