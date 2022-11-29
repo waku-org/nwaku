@@ -17,11 +17,10 @@ import
 
 export waku_peer_store, peer_storage, peers
 
-
 declareCounter waku_peers_dials, "Number of peer dials", ["outcome"]
 declarePublicCounter waku_node_conns_initiated, "Number of connections initiated", ["source"]
 declarePublicGauge waku_peers_errors, "Number of peer manager errors", ["type"]
-
+declarePublicGauge waku_connected_peers, "Number of connected peers per direction: inbound|outbound", ["direction"]
 
 logScope:
   topics = "waku node peer_manager"
@@ -121,12 +120,18 @@ proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async.} =
 
   case event.kind
   of ConnEventKind.Connected:
+    let direction = if event.incoming: Inbound else: Outbound
     pm.peerStore[ConnectionBook][peerId] = Connected
-    pm.peerStore[DirectionBook][peerId] = if event.incoming: Inbound else: Outbound
+    pm.peerStore[DirectionBook][peerId] = direction
+
+    waku_connected_peers.inc(1, labelValues=[$direction])
+
     if not pm.storage.isNil:
       pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), Connected)
     return
   of ConnEventKind.Disconnected:
+    waku_connected_peers.dec(1, labelValues=[$pm.peerStore[DirectionBook][peerId]])
+
     pm.peerStore[DirectionBook][peerId] = UnknownDirection
     pm.peerStore[ConnectionBook][peerId] = CanConnect
     if not pm.storage.isNil:
