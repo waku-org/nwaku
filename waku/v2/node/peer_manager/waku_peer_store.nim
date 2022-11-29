@@ -87,6 +87,7 @@ proc get*(peerStore: PeerStore,
     direction: peerStore[DirectionBook][peerId],
   )
 
+# TODO: Rename peers() to getPeersByProtocol()
 proc peers*(peerStore: PeerStore): seq[StoredInfo] =
   ## Get all the stored information of every peer.
   let allKeys = concat(toSeq(peerStore[AddressBook].book.keys()),
@@ -140,5 +141,5 @@ proc selectPeer*(peerStore: PeerStore, proto: string): Option[RemotePeerInfo] =
   else:
     return none(RemotePeerInfo)
 
-# TODO proc getAmountInboundPeers()
-# TODO proc getAmountOutboundPeers()
+proc getPeersByDirection*(peerStore: PeerStore, direction: Direction): seq[StoredInfo] =
+  return peerStore.peers().filterIt(it.direction == direction)

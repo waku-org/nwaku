@@ -339,7 +339,15 @@ procSuite "Peer Manager":
       # Peerstore track all three peers
       nodes[0].peerManager.peerStore.peers().len == 3
 
-      # TODO: Test get count of incoming connections when ready
+      # Inbound/Outbound number of peers match
+      nodes[0].peerManager.peerStore.getPeersByDirection(Inbound).len == 3
+      nodes[0].peerManager.peerStore.getPeersByDirection(Outbound).len == 0
+      nodes[1].peerManager.peerStore.getPeersByDirection(Inbound).len == 0
+      nodes[1].peerManager.peerStore.getPeersByDirection(Outbound).len == 1
+      nodes[2].peerManager.peerStore.getPeersByDirection(Inbound).len == 0
+      nodes[2].peerManager.peerStore.getPeersByDirection(Outbound).len == 1
+      nodes[3].peerManager.peerStore.getPeersByDirection(Inbound).len == 0
+      nodes[3].peerManager.peerStore.getPeersByDirection(Outbound).len == 1
 
       # All peer ids are correct
       nodes[0].peerManager.peerStore.peers().anyIt(it.peerId == nodes[1].switch.peerInfo.peerId)
