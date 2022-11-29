@@ -96,7 +96,7 @@ type
     T_es = "es"
     T_ee = "ee"
     T_se = "se"
-    T_ss = "se"
+    T_ss = "ss"
     T_psk = "psk"
 
   # The direction of a (pre)message pattern in canonical form (i.e. Alice-initiated form)
