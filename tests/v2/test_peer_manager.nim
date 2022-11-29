@@ -314,3 +314,64 @@ procSuite "Peer Manager":
       nodes[0].peerManager.peerStore[ConnectionBook][nodes[3].switch.peerInfo.peerId] == Connected
 
     await allFutures(nodes.mapIt(it.stop()))
+
+  asyncTest "Peer store keeps track of incoming connections":
+    # Create 4 nodes
+    var nodes: seq[WakuNode]
+    for i in 0..<4:
+      let nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      let node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(60865 + i))
+      nodes &= node
+
+    # Start them
+    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.mountRelay()))
+
+    # Get all peer infos
+    let peerInfos = nodes.mapIt(it.switch.peerInfo.toRemotePeerInfo())
+
+    # all nodes connect to peer 0
+    discard await nodes[1].peerManager.dialPeer(peerInfos[0], WakuRelayCodec, 2.seconds)
+    discard await nodes[2].peerManager.dialPeer(peerInfos[0], WakuRelayCodec, 2.seconds)
+    discard await nodes[3].peerManager.dialPeer(peerInfos[0], WakuRelayCodec, 2.seconds)
+
+    check:
+      # Peerstore track all three peers
+      nodes[0].peerManager.peerStore.peers().len == 3
+
+      # Inbound/Outbound number of peers match
+      nodes[0].peerManager.peerStore.getPeersByDirection(Inbound).len == 3
+      nodes[0].peerManager.peerStore.getPeersByDirection(Outbound).len == 0
+      nodes[1].peerManager.peerStore.getPeersByDirection(Inbound).len == 0
+      nodes[1].peerManager.peerStore.getPeersByDirection(Outbound).len == 1
+      nodes[2].peerManager.peerStore.getPeersByDirection(Inbound).len == 0
+      nodes[2].peerManager.peerStore.getPeersByDirection(Outbound).len == 1
+      nodes[3].peerManager.peerStore.getPeersByDirection(Inbound).len == 0
+      nodes[3].peerManager.peerStore.getPeersByDirection(Outbound).len == 1
+
+      # All peer ids are correct
+      nodes[0].peerManager.peerStore.peers().anyIt(it.peerId == nodes[1].switch.peerInfo.peerId)
+      nodes[0].peerManager.peerStore.peers().anyIt(it.peerId == nodes[2].switch.peerInfo.peerId)
+      nodes[0].peerManager.peerStore.peers().anyIt(it.peerId == nodes[3].switch.peerInfo.peerId)
+
+      # All peers support the relay protocol
+      nodes[0].peerManager.peerStore[ProtoBook][nodes[1].switch.peerInfo.peerId].contains(WakuRelayCodec)
+      nodes[0].peerManager.peerStore[ProtoBook][nodes[2].switch.peerInfo.peerId].contains(WakuRelayCodec)
+      nodes[0].peerManager.peerStore[ProtoBook][nodes[3].switch.peerInfo.peerId].contains(WakuRelayCodec)
+
+      # All peers are connected
+      nodes[0].peerManager.peerStore[ConnectionBook][nodes[1].switch.peerInfo.peerId] == Connected
+      nodes[0].peerManager.peerStore[ConnectionBook][nodes[2].switch.peerInfo.peerId] == Connected
+      nodes[0].peerManager.peerStore[ConnectionBook][nodes[3].switch.peerInfo.peerId] == Connected
+
+      # All peers are Inbound in peer 0
+      nodes[0].peerManager.peerStore[DirectionBook][nodes[1].switch.peerInfo.peerId] == Inbound
+      nodes[0].peerManager.peerStore[DirectionBook][nodes[2].switch.peerInfo.peerId] == Inbound
+      nodes[0].peerManager.peerStore[DirectionBook][nodes[3].switch.peerInfo.peerId] == Inbound
+
+      # All peers have an Outbound connection with peer 0
+      nodes[1].peerManager.peerStore[DirectionBook][nodes[0].switch.peerInfo.peerId] == Outbound
+      nodes[2].peerManager.peerStore[DirectionBook][nodes[0].switch.peerInfo.peerId] == Outbound
+      nodes[3].peerManager.peerStore[DirectionBook][nodes[0].switch.peerInfo.peerId] == Outbound
+
+    await allFutures(nodes.mapIt(it.stop()))
