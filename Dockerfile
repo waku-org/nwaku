@@ -4,7 +4,7 @@ FROM alpine:edge AS nim-build
 
 ARG NIMFLAGS
 ARG MAKE_TARGET=wakunode2
-ARG RLN=true
+ARG EXPERIMENTAL=true
 
 # Get build tools and required header files
 RUN apk add --no-cache bash git cargo build-base pcre-dev linux-headers
@@ -16,10 +16,11 @@ COPY . .
 RUN git submodule update --init --recursive
 
 # Slowest build step for the sake of caching layers
-RUN make -j$(nproc) deps RLN="$RLN"
+RUN make -j$(nproc) deps
 
 # Build the final node binary
-RUN make -j$(nproc) $MAKE_TARGET NIMFLAGS="$NIMFLAGS" RLN="$RLN"
+RUN make -j$(nproc) $MAKE_TARGET NIMFLAGS="${NIMFLAGS}" EXPERIMENTAL="${EXPERIMENTAL}"
+
 
 # ACTUAL IMAGE -------------------------------------------------------
 
@@ -28,7 +29,7 @@ FROM alpine:3.16
 ARG MAKE_TARGET=wakunode2
 
 LABEL maintainer="jakub@status.im"
-LABEL source="https://github.com/status-im/nim-waku"
+LABEL source="https://github.com/waku-org/nwaku"
 LABEL description="Wakunode: Waku and Whisper client"
 LABEL commit="unknown"
 
