@@ -78,7 +78,7 @@ else # "variables.mk" was included. Business as usual until the end of this file
 # default target, because it's the first one that doesn't start with '.'
 all: | v1 v2
 
-v1: | wakunode1 example1 sim1 
+v1: | wakunode1 example1 sim1
 v2: | wakunode2 example2 sim2 wakubridge chat2 chat2bridge
 
 # Builds and run the test suite (Waku v1 + v2)
@@ -93,10 +93,10 @@ test: | test1 test2
 NIM_PARAMS := $(NIM_PARAMS) -d:git_version:\"$(GIT_VERSION)\"
 
 # "-d:release" implies "--stacktrace:off" and it cannot be added to config.nims
-ifeq ($(USE_LIBBACKTRACE), 0)
-NIM_PARAMS := $(NIM_PARAMS) -d:debug -d:disable_libbacktrace
-else
+ifeq ($(USE_LIBBACKTRACE), 1)
 NIM_PARAMS := $(NIM_PARAMS) -d:release
+else
+NIM_PARAMS := $(NIM_PARAMS) -d:debug -d:disable_libbacktrace
 endif
 
 
