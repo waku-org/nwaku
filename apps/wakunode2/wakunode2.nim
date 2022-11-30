@@ -9,6 +9,7 @@ import
   chronicles,
   chronos,
   metrics,
+  libbacktrace,
   system/ansi_c,
   eth/keys,
   eth/p2p/discoveryv5/enr,
@@ -709,12 +710,13 @@ when isMainModule:
   # Handle SIGSEGV
   when defined(posix):
     proc handleSigsegv(signal: cint) {.noconv.} =
-      fatal "Shutting down after receiving SIGSEGV"
-      waitFor node.stop()
+      # Require --debugger:native
+      fatal "Shutting down after receiving SIGSEGV", stacktrace=getBacktrace()
 
-      # Only available with --stacktrace:on --linetrace:on
+      # Not available in -d:release mode
       writeStackTrace()
 
+      waitFor node.stop()
       quit(QuitFailure)
 
     c_signal(ansi_c.SIGSEGV, handleSigsegv)
