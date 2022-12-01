@@ -4,7 +4,7 @@ FROM alpine:edge AS nim-build
 
 ARG NIMFLAGS
 ARG MAKE_TARGET=wakunode2
-ARG EXPERIMENTAL=true
+ARG EXPERIMENTAL=false
 
 # Get build tools and required header files
 RUN apk add --no-cache bash git cargo build-base pcre-dev linux-headers

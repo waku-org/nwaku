@@ -36,6 +36,11 @@ pipeline {
         '-d:insecure',
       ].join(' ')
     )
+    booleanParam(
+      name: 'EXPERIMENTAL',
+      description: 'Enable experimental features.',
+      defaultValue: false
+    )
   }
 
   stages {
@@ -45,7 +50,8 @@ pipeline {
           "${params.IMAGE_NAME}:${env.GIT_COMMIT.take(8)}",
           "--label=commit='${env.GIT_COMMIT.take(8)}' " +
           "--build-arg=MAKE_TARGET='${params.MAKE_TARGET}' " +
-          "--build-arg=NIMFLAGS='${params.NIMFLAGS}' ."
+          "--build-arg=NIMFLAGS='${params.NIMFLAGS}' " +
+          "--build-arg=EXPERIMENTAL='${params.EXPERIMENTAL}' ."
         )
       } }
     }
