@@ -1,4 +1,4 @@
-# BUILD IMAGE --------------------------------------------------------
+# BUILD IMAGE ------------------------------------------------------------------
 
 FROM alpine:edge AS nim-build
 
@@ -22,9 +22,9 @@ RUN make -j$(nproc) deps
 RUN make -j$(nproc) $MAKE_TARGET NIMFLAGS="${NIMFLAGS}" EXPERIMENTAL="${EXPERIMENTAL}"
 
 
-# ACTUAL IMAGE -------------------------------------------------------
+# PRODUCTION IMAGE -------------------------------------------------------------
 
-FROM alpine:3.16
+FROM alpine:3.16 as prod
 
 ARG MAKE_TARGET=wakunode2
 
@@ -45,10 +45,6 @@ RUN ln -s /usr/lib/libpcre.so /usr/lib/libpcre.so.3
 # Copy to separate location to accomodate different MAKE_TARGET values
 COPY --from=nim-build /app/build/$MAKE_TARGET /usr/local/bin/
 
-# If rln enabled: fix for 'Error loading shared library vendor/rln/target/debug/librln.so: No such file or directory'
-COPY --from=nim-build /app/vendor/zerokit/target/release/librln.so vendor/zerokit/target/release/librln.so
-COPY --from=nim-build /app/vendor/zerokit/rln/resources/ vendor/zerokit/rln/resources/
-
 # Copy migration scripts for DB upgrades
 COPY --from=nim-build /app/migrations/ /app/migrations/
 
@@ -58,3 +54,12 @@ RUN ln -sv /usr/local/bin/$MAKE_TARGET /usr/bin/wakunode
 ENTRYPOINT ["/usr/bin/wakunode"]
 # By default just show help if called without arguments
 CMD ["--help"]
+
+
+# EXPERIMENTAL IMAGE -----------------------------------------------------------
+
+FROM prod AS experimental
+
+# If RLN enabled, copy the librln artifacts
+COPY --from=nim-build /app/vendor/zerokit/target/release/librln.so vendor/zerokit/target/release/librln.so
+COPY --from=nim-build /app/vendor/zerokit/rln/resources/ vendor/zerokit/rln/resources/

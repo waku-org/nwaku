@@ -230,6 +230,11 @@ docs: | build deps
 # -d:insecure - Necessary to enable Prometheus HTTP endpoint for metrics
 # -d:chronicles_colors:none - Necessary to disable colors in logs for Docker
 DOCKER_IMAGE_NIMFLAGS ?= -d:chronicles_colors:none -d:insecure
+DOCKER_IMAGE_STAGE ?= prod
+
+ifeq ($(EXPERIMENTAL), true)
+DOCKER_IMAGE_STAGE := experimental
+endif
 
 # build a docker image for the fleet
 docker-image: MAKE_TARGET ?= wakunode2
@@ -241,6 +246,7 @@ docker-image:
 		--build-arg="NIMFLAGS=$(DOCKER_IMAGE_NIMFLAGS)" \
 		--build-arg="EXPERIMENTAL=$(EXPERIMENTAL)" \
 		--label="commit=$(GIT_VERSION)" \
+		--target $(DOCKER_IMAGE_STAGE) \
 		--tag $(DOCKER_IMAGE_NAME) .
 
 docker-push:
