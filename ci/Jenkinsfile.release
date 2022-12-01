@@ -47,11 +47,12 @@ pipeline {
     stage('Build') {
       steps { script {
         image = docker.build(
-          "${params.IMAGE_NAME}:${env.GIT_COMMIT.take(8)}",
+          "${params.IMAGE_NAME}:${env.GIT_COMMIT.take(8)}" + (params.EXPERIMENTAL ? "-experimental": ""),
           "--label=commit='${env.GIT_COMMIT.take(8)}' " +
           "--build-arg=MAKE_TARGET='${params.MAKE_TARGET}' " +
           "--build-arg=NIMFLAGS='${params.NIMFLAGS}' " +
-          "--build-arg=EXPERIMENTAL='${params.EXPERIMENTAL}' ."
+          "--build-arg=EXPERIMENTAL='${params.EXPERIMENTAL}' " +
+          "--target=${params.EXPERIMENTAL ? "experiemental" : "prod"} ."
         )
       } }
     }
