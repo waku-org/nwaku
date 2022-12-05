@@ -36,6 +36,22 @@ docker run -i -t -p 60000:60000 -p 9000:9000/udp \
     --nat:extip:[yourpublicip] # or, if you are behind a nat: --nat=any
 ```
 
+## Option 3: run nwaku with docker compose
+
+*Prerequisites: `docker` and `docker-compose`*.
+Allows to run `nwaku` with `prometheus` and `grafana`, with an already provisioned dashboard, in a few simple steps.
+See [nwaku-compose](https://github.com/alrevuelta/nwaku-compose).
+
+```bash
+git clone https://github.com/alrevuelta/nwaku-compose.git
+cd nwaku-compose
+export MY_EXT_IP=$(dig TXT +short o-o.myaddr.l.google.com @ns1.google.com | awk -F'"' '{ print $2}')
+docker-compose up -d
+```
+
+Go to [http://localhost:3000/d/yns_4vFVk/nwaku-monitoring?orgId=1](http://localhost:3000/d/yns_4vFVk/nwaku-monitoring?orgId=1) and after some seconds, your node metrics will be live there.
+As simple as that.
+
 ## Tips and tricks
 
 To find the public IP of your host,
