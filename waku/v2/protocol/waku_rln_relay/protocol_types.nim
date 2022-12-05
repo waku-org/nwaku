@@ -7,7 +7,6 @@ import
   std/[options, tables, deques],
   stew/arrayops,
   chronos, 
-  stint,
   web3,
   eth/keys
 import
