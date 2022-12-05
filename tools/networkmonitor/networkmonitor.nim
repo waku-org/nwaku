@@ -43,7 +43,7 @@ proc setDiscoveredPeersCapabilities(
     info "capabilities as per ENR waku flag", capability=capability, amount=nOfNodesWithCapability
     peer_type_as_per_enr.set(int64(nOfNodesWithCapability), labelValues = [$capability])
 
-# TODO: Split in discover, connect, populate ips
+# TODO: Split in discover, connect
 proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
                               node: WakuNode,
                               timeout: chronos.Duration,
@@ -84,21 +84,6 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
 
     let ip = $typedRecord.get().ip.get().join(".")
     allPeers[peerId].ip = ip
-
-    # get more info the peers from its ip address
-    var location: NodeLocation
-    try:
-      # IP-API endpoints are now limited to 45 HTTP requests per minute
-      # TODO: As network grows, find a better way to now block the whole app
-      await sleepAsync(1400)
-      let response = await restClient.ipToLocation(ip)
-      location = response.data
-    except:
-      warn "could not get location", ip=ip
-      continue
-
-    allPeers[peerId].country = location.country
-    allPeers[peerId].city = location.city
 
     let peer = toRemotePeerInfo(discNode.record)
     if not peer.isOk():
@@ -152,6 +137,26 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
     peer_user_agents.set(int64(countOfUserAgent), labelValues = [userAgent])
     info "user agents participating in the network", userAgent=userAgent, count=countOfUserAgent
 
+proc populateInfoFromIp(allPeersRef: CustomPeersTableRef,
+                        restClient: RestClientRef) {.async.} =
+  for peer in allPeersRef.keys():
+    if allPeersRef[peer].country != "" and allPeersRef[peer].city != "":
+      continue
+    # TODO: Update also if last update > x
+    if allPeersRef[peer].ip == "":
+      continue
+    # get more info the peers from its ip address
+    var location: NodeLocation
+    try:
+      # IP-API endpoints are now limited to 45 HTTP requests per minute
+      await sleepAsync(1400)
+      let response = await restClient.ipToLocation(allPeersRef[peer].ip)
+      location = response.data
+    except:
+      warn "could not get location", ip=allPeersRef[peer].ip
+      continue
+    allPeersRef[peer].country = location.country
+    allPeersRef[peer].city = location.city
 
 # TODO: Split in discovery, connections, and ip2location
 # crawls the network discovering peers and trying to connect to them
@@ -176,6 +181,9 @@ proc crawlNetwork(node: WakuNode,
     # and populates metrics related to peers we could connect
     # note random discovered nodes can be already known
     await setConnectedPeersMetrics(discoveredNodes, node, conf.timeout, restClient, allPeersRef)
+
+    # populate info from ip addresses
+    await populateInfoFromIp(allPeersRef, restClient)
 
     let totalNodes = flatNodes.len
     let seenNodes = flatNodes.countIt(it.seen)
