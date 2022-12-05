@@ -93,9 +93,10 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
     # try to connect to the peer
     # TODO: check last connection time and if not > x, skip connecting
     let timedOut = not await node.connectToNodes(@[peer.get()]).withTimeout(timeout)
-    # TODO: Add failed field and store if connection failed + reason
     if timedOut:
       warn "could not connect to peer, timedout", timeout=timeout, peer=peer.get()
+      # TODO: Add other staates
+      allPeers[peerId].connError = "timedout"
       continue
 
     # after connection, get supported protocols
