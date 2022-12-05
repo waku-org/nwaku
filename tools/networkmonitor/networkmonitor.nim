@@ -13,6 +13,8 @@ import
   eth/keys,
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
+  libp2p/nameresolving/nameresolver,
+  libp2p/nameresolving/dnsresolver,
   metrics,
   metrics/chronos_httpserver,
   presto/[route, server, client],
@@ -20,6 +22,8 @@ import
 
 import
   ../../waku/v2/node/discv5/waku_discv5,
+  ../../apps/wakunode2/wakunode2,
+  ../../waku/v2/node/dnsdisc/waku_dnsdisc,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/utils/wakuenr,
@@ -95,7 +99,7 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
 
     allPeers[peerId].country = location.country
     allPeers[peerId].city = location.city
-          
+
     let peer = toRemotePeerInfo(discNode.record)
     if not peer.isOk():
       warn "error converting record to remote peer info", record=discNode.record
@@ -104,6 +108,7 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
     # try to connect to the peer
     # TODO: check last connection time and if not > x, skip connecting
     let timedOut = not await node.connectToNodes(@[peer.get()]).withTimeout(timeout)
+    # TODO: Add failed field and store if connection failed + reason
     if timedOut:
       warn "could not connect to peer, timedout", timeout=timeout, peer=peer.get()
       continue
@@ -130,7 +135,7 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
     allAgentStrings[nodeUserAgent] += 1
 
     debug "connected to peer", peer=allPeers[customPeerInfo.peerId]
-   
+
   # inform the total connections that we did in this round
   let nOfOkConnections = allProtocols.len()
   info "number of successful connections", amount=nOfOkConnections
@@ -154,7 +159,7 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
 proc crawlNetwork(node: WakuNode,
                   restClient: RestClientRef,
                   conf: NetworkMonitorConf,
-                  allPeersRef: CustomPeersTableRef) {.async.} = 
+                  allPeersRef: CustomPeersTableRef) {.async.} =
 
   let crawlInterval = conf.refreshInterval * 1000
   while true:
@@ -183,7 +188,29 @@ proc crawlNetwork(node: WakuNode,
 
     await sleepAsync(crawlInterval)
 
-proc initAndStartNode(conf: NetworkMonitorConf): Result[WakuNode, string] = 
+proc getBootstrapFromDiscDns(conf: NetworkMonitorConf): Result[seq[enr.Record], string] =
+  try:
+    let dnsNameServers = @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")]
+    let dynamicBootstrapNodesRes = retrieveDynamicBootstrapNodes(true, conf.dnsDiscoveryUrl, dnsNameServers)
+    if not dynamicBootstrapNodesRes.isOk():
+      error("failed discovering peers from DNS")
+    let dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
+
+    # select dynamic bootstrap nodes that have an ENR containing a udp port.
+    # Discv5 only supports UDP https://github.com/ethereum/devp2p/blob/master/discv5/discv5-theory.md)
+    var discv5BootstrapEnrs: seq[enr.Record]
+    for n in dynamicBootstrapNodes:
+      if n.enr.isSome():
+        let
+          enr = n.enr.get()
+          tenrRes = enr.toTypedRecord()
+        if tenrRes.isOk() and (tenrRes.get().udp.isSome() or tenrRes.get().udp6.isSome()):
+          discv5BootstrapEnrs.add(enr)
+    return ok(discv5BootstrapEnrs)
+  except:
+    error("failed discovering peers from DNS")
+
+proc initAndStartNode(conf: NetworkMonitorConf): Result[WakuNode, string] =
   let
     # some hardcoded parameters
     rng = keys.newRng()
@@ -191,17 +218,26 @@ proc initAndStartNode(conf: NetworkMonitorConf): Result[WakuNode, string] =
     nodeTcpPort = Port(60000)
     nodeUdpPort = Port(9000)
     flags = initWakuFlags(lightpush = false, filter = false, store = false, relay = true)
-  
+
   try:
     let
       bindIp = ValidIpAddress.init("0.0.0.0")
       extIp = ValidIpAddress.init("127.0.0.1")
       node = WakuNode.new(nodeKey, bindIp, nodeTcpPort)
 
+    var discv5BootstrapEnrsRes = getBootstrapFromDiscDns(conf)
+    if not discv5BootstrapEnrsRes.isOk():
+      error("failed discovering peers from DNS")
+    var discv5BootstrapEnrs = discv5BootstrapEnrsRes.get()
+
+    # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
+    for enrUri in conf.bootstrapNodes:
+      addBootstrapNode(enrUri, discv5BootstrapEnrs)
+
     # mount discv5
     node.wakuDiscv5 = WakuDiscoveryV5.new(
         some(extIp), some(nodeTcpPort), some(nodeUdpPort),
-        bindIp, nodeUdpPort, conf.bootstrapNodes, false,
+        bindIp, nodeUdpPort, discv5BootstrapEnrs, false,
         keys.PrivateKey(nodeKey.skkey), flags, [], node.rng)
 
     node.wakuDiscv5.protocol.open()
@@ -232,7 +268,7 @@ proc startRestApiServer(conf: NetworkMonitorConf,
 proc subscribeAndHandleMessages(node: WakuNode,
                                 pubsubTopic: PubsubTopic,
                                 msgPerContentTopic: ContentTopicMessageTableRef) =
-  
+
   # handle function
   proc handler(pubsubTopic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
     let messageRes = WakuMessage.decode(data)
@@ -303,7 +339,7 @@ when isMainModule:
   if nodeRes.isErr():
     error "could not start node"
     quit 1
-  
+
   let node = nodeRes.get()
 
   waitFor node.mountRelay()
@@ -314,5 +350,5 @@ when isMainModule:
   # spawn the routine that crawls the network
   # TODO: split into 3 routines (discovery, connections, ip2location)
   asyncSpawn crawlNetwork(node, restClient, conf, allPeersInfo)
-  
+
   runForever()

@@ -182,7 +182,7 @@ proc setupWakuArchiveDriver(dbUrl: string, vacuum: bool, migrate: bool): SetupRe
     ok(driver)
 
 
-proc retrieveDynamicBootstrapNodes(dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[ValidIpAddress]): SetupResult[seq[RemotePeerInfo]] =
+proc retrieveDynamicBootstrapNodes*(dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[ValidIpAddress]): SetupResult[seq[RemotePeerInfo]] =
 
   if dnsDiscovery and dnsDiscoveryUrl != "":
     # DNS discovery
