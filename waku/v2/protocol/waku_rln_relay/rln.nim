@@ -9,10 +9,6 @@ else:
   {.push raises: [].}
 
 
-const rln_libpath {.strdefine.} = "vendor/zerokit/target/release/librln.so"
-
-{.push dynlib: static(rln_libpath).}
-
 ## Buffer struct is taken from
 # https://github.com/celo-org/celo-threshold-bls-rs/blob/master/crates/threshold-bls-ffi/src/ffi.rs
 type Buffer* = object
@@ -152,5 +148,3 @@ proc hash*(ctx: ptr RLN,
 ## inputs_buffer holds the hash input as a byte seq
 ## the hash output is generated and populated inside output_buffer
 ## the output_buffer contains 32 bytes hash output
-
-{.pop.}

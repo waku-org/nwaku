@@ -108,11 +108,9 @@ endif
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit/target/release
 
 ifeq ($(OS),Windows_NT)
-LIBRLN_FILE := rln.dll
-else ifeq ($(shell uname -s),Darwin)
-LIBRLN_FILE := librln.dylib
+LIBRLN_FILE := rln.lib
 else
-LIBRLN_FILE := librln.so
+LIBRLN_FILE := librln.a
 endif
 
 $(LIBRLN_BUILDDIR)/$(LIBRLN_FILE):
@@ -122,7 +120,7 @@ $(LIBRLN_BUILDDIR)/$(LIBRLN_FILE):
 ifneq ($(RLN), true)
 librln: ; # noop
 else
-EXPERIMENTAL_PARAMS += -d:rln -d:rln_libpath=$(LIBRLN_BUILDDIR)/$(LIBRLN_FILE)
+EXPERIMENTAL_PARAMS += -d:rln --dynlibOverride:rln --passL:$(LIBRLN_BUILDDIR)/$(LIBRLN_FILE) --passL:-lm
 librln: $(LIBRLN_BUILDDIR)/$(LIBRLN_FILE)
 endif
 
