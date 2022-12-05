@@ -49,7 +49,8 @@ export MY_EXT_IP=$(dig TXT +short o-o.myaddr.l.google.com @ns1.google.com | awk 
 docker-compose up -d
 ```
 
-Go to [http://localhost:3000/d/yns_4vFVk/nwaku-monitoring?orgId=1](http://localhost:3000/d/yns_4vFVk/nwaku-monitoring?orgId=1) and after some seconds, your node metrics will be live there. As simple as that.
+Go to [http://localhost:3000/d/yns_4vFVk/nwaku-monitoring?orgId=1](http://localhost:3000/d/yns_4vFVk/nwaku-monitoring?orgId=1) and after some seconds, your node metrics will be live there.
+As simple as that.
 
 ## Tips and tricks
 
