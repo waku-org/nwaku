@@ -13,6 +13,8 @@ import
   eth/keys,
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
+  libp2p/nameresolving/nameresolver,
+  libp2p/nameresolving/dnsresolver,
   metrics,
   metrics/chronos_httpserver,
   presto/[route, server, client],
@@ -20,6 +22,8 @@ import
 
 import
   ../../waku/v2/node/discv5/waku_discv5,
+  ../../apps/wakunode2/wakunode2,
+  ../../waku/v2/node/dnsdisc/waku_dnsdisc,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/utils/wakuenr,
@@ -39,7 +43,7 @@ proc setDiscoveredPeersCapabilities(
     info "capabilities as per ENR waku flag", capability=capability, amount=nOfNodesWithCapability
     peer_type_as_per_enr.set(int64(nOfNodesWithCapability), labelValues = [$capability])
 
-# TODO: Split in discover, connect, populate ips
+# TODO: Split in discover, connect
 proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
                               node: WakuNode,
                               timeout: chronos.Duration,
@@ -81,21 +85,6 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
     let ip = $typedRecord.get().ip.get().join(".")
     allPeers[peerId].ip = ip
 
-    # get more info the peers from its ip address
-    var location: NodeLocation
-    try:
-      # IP-API endpoints are now limited to 45 HTTP requests per minute
-      # TODO: As network grows, find a better way to now block the whole app
-      await sleepAsync(1400)
-      let response = await restClient.ipToLocation(ip)
-      location = response.data
-    except:
-      warn "could not get location", ip=ip
-      continue
-
-    allPeers[peerId].country = location.country
-    allPeers[peerId].city = location.city
-          
     let peer = toRemotePeerInfo(discNode.record)
     if not peer.isOk():
       warn "error converting record to remote peer info", record=discNode.record
@@ -106,6 +95,8 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
     let timedOut = not await node.connectToNodes(@[peer.get()]).withTimeout(timeout)
     if timedOut:
       warn "could not connect to peer, timedout", timeout=timeout, peer=peer.get()
+      # TODO: Add other staates
+      allPeers[peerId].connError = "timedout"
       continue
 
     # after connection, get supported protocols
@@ -130,7 +121,7 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
     allAgentStrings[nodeUserAgent] += 1
 
     debug "connected to peer", peer=allPeers[customPeerInfo.peerId]
-   
+
   # inform the total connections that we did in this round
   let nOfOkConnections = allProtocols.len()
   info "number of successful connections", amount=nOfOkConnections
@@ -147,6 +138,26 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
     peer_user_agents.set(int64(countOfUserAgent), labelValues = [userAgent])
     info "user agents participating in the network", userAgent=userAgent, count=countOfUserAgent
 
+proc populateInfoFromIp(allPeersRef: CustomPeersTableRef,
+                        restClient: RestClientRef) {.async.} =
+  for peer in allPeersRef.keys():
+    if allPeersRef[peer].country != "" and allPeersRef[peer].city != "":
+      continue
+    # TODO: Update also if last update > x
+    if allPeersRef[peer].ip == "":
+      continue
+    # get more info the peers from its ip address
+    var location: NodeLocation
+    try:
+      # IP-API endpoints are now limited to 45 HTTP requests per minute
+      await sleepAsync(1400)
+      let response = await restClient.ipToLocation(allPeersRef[peer].ip)
+      location = response.data
+    except:
+      warn "could not get location", ip=allPeersRef[peer].ip
+      continue
+    allPeersRef[peer].country = location.country
+    allPeersRef[peer].city = location.city
 
 # TODO: Split in discovery, connections, and ip2location
 # crawls the network discovering peers and trying to connect to them
@@ -154,7 +165,7 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
 proc crawlNetwork(node: WakuNode,
                   restClient: RestClientRef,
                   conf: NetworkMonitorConf,
-                  allPeersRef: CustomPeersTableRef) {.async.} = 
+                  allPeersRef: CustomPeersTableRef) {.async.} =
 
   let crawlInterval = conf.refreshInterval * 1000
   while true:
@@ -172,6 +183,9 @@ proc crawlNetwork(node: WakuNode,
     # note random discovered nodes can be already known
     await setConnectedPeersMetrics(discoveredNodes, node, conf.timeout, restClient, allPeersRef)
 
+    # populate info from ip addresses
+    await populateInfoFromIp(allPeersRef, restClient)
+
     let totalNodes = flatNodes.len
     let seenNodes = flatNodes.countIt(it.seen)
 
@@ -183,7 +197,29 @@ proc crawlNetwork(node: WakuNode,
 
     await sleepAsync(crawlInterval)
 
-proc initAndStartNode(conf: NetworkMonitorConf): Result[WakuNode, string] = 
+proc getBootstrapFromDiscDns(conf: NetworkMonitorConf): Result[seq[enr.Record], string] =
+  try:
+    let dnsNameServers = @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")]
+    let dynamicBootstrapNodesRes = retrieveDynamicBootstrapNodes(true, conf.dnsDiscoveryUrl, dnsNameServers)
+    if not dynamicBootstrapNodesRes.isOk():
+      error("failed discovering peers from DNS")
+    let dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
+
+    # select dynamic bootstrap nodes that have an ENR containing a udp port.
+    # Discv5 only supports UDP https://github.com/ethereum/devp2p/blob/master/discv5/discv5-theory.md)
+    var discv5BootstrapEnrs: seq[enr.Record]
+    for n in dynamicBootstrapNodes:
+      if n.enr.isSome():
+        let
+          enr = n.enr.get()
+          tenrRes = enr.toTypedRecord()
+        if tenrRes.isOk() and (tenrRes.get().udp.isSome() or tenrRes.get().udp6.isSome()):
+          discv5BootstrapEnrs.add(enr)
+    return ok(discv5BootstrapEnrs)
+  except:
+    error("failed discovering peers from DNS")
+
+proc initAndStartNode(conf: NetworkMonitorConf): Result[WakuNode, string] =
   let
     # some hardcoded parameters
     rng = keys.newRng()
@@ -191,17 +227,26 @@ proc initAndStartNode(conf: NetworkMonitorConf): Result[WakuNode, string] =
     nodeTcpPort = Port(60000)
     nodeUdpPort = Port(9000)
     flags = initWakuFlags(lightpush = false, filter = false, store = false, relay = true)
-  
+
   try:
     let
       bindIp = ValidIpAddress.init("0.0.0.0")
       extIp = ValidIpAddress.init("127.0.0.1")
       node = WakuNode.new(nodeKey, bindIp, nodeTcpPort)
 
+    var discv5BootstrapEnrsRes = getBootstrapFromDiscDns(conf)
+    if not discv5BootstrapEnrsRes.isOk():
+      error("failed discovering peers from DNS")
+    var discv5BootstrapEnrs = discv5BootstrapEnrsRes.get()
+
+    # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
+    for enrUri in conf.bootstrapNodes:
+      addBootstrapNode(enrUri, discv5BootstrapEnrs)
+
     # mount discv5
     node.wakuDiscv5 = WakuDiscoveryV5.new(
         some(extIp), some(nodeTcpPort), some(nodeUdpPort),
-        bindIp, nodeUdpPort, conf.bootstrapNodes, false,
+        bindIp, nodeUdpPort, discv5BootstrapEnrs, false,
         keys.PrivateKey(nodeKey.skkey), flags, [], node.rng)
 
     node.wakuDiscv5.protocol.open()
@@ -232,7 +277,7 @@ proc startRestApiServer(conf: NetworkMonitorConf,
 proc subscribeAndHandleMessages(node: WakuNode,
                                 pubsubTopic: PubsubTopic,
                                 msgPerContentTopic: ContentTopicMessageTableRef) =
-  
+
   # handle function
   proc handler(pubsubTopic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
     let messageRes = WakuMessage.decode(data)
@@ -303,7 +348,7 @@ when isMainModule:
   if nodeRes.isErr():
     error "could not start node"
     quit 1
-  
+
   let node = nodeRes.get()
 
   waitFor node.mountRelay()
@@ -314,5 +359,5 @@ when isMainModule:
   # spawn the routine that crawls the network
   # TODO: split into 3 routines (discovery, connections, ip2location)
   asyncSpawn crawlNetwork(node, restClient, conf, allPeersInfo)
-  
+
   runForever()
