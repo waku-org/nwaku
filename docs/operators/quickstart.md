@@ -39,7 +39,8 @@ docker run -i -t -p 60000:60000 -p 9000:9000/udp \
 ## Option 3: run nwaku with docker compose
 
 *Prerequisites: `docker` and `docker-compose`*.
-Allows to run `nwaku` with `prometheus` and `grafana`, with an already provisioned dashboard in few simple steps. See [nwaku-compose](https://github.com/alrevuelta/nwaku-compose).
+Allows to run `nwaku` with `prometheus` and `grafana`, with an already provisioned dashboard, in a few simple steps.
+See [nwaku-compose](https://github.com/alrevuelta/nwaku-compose).
 
 ```bash
 git clone https://github.com/alrevuelta/nwaku-compose.git
