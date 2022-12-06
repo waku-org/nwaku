@@ -52,7 +52,7 @@ pipeline {
           "--build-arg=MAKE_TARGET='${params.MAKE_TARGET}' " +
           "--build-arg=NIMFLAGS='${params.NIMFLAGS}' " +
           "--build-arg=EXPERIMENTAL='${params.EXPERIMENTAL}' " +
-          "--target=${params.EXPERIMENTAL ? "experiemental" : "prod"} ."
+          "--target=${params.EXPERIMENTAL ? "experimental" : "prod"} ."
         )
       } }
     }
