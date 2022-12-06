@@ -37,11 +37,12 @@ make wakunode1 wakunode2
 # See available command line options
 ./build/wakunode --help
 ./build/wakunode2 --help
-
-# Connect the client directly with the Status test fleet
-./build/wakunode --log-level:debug --discovery:off --fleet:test --log-metrics
-# TODO Equivalent for v2 
 ```
+
+For more on how to run `wakunode2`, refer to:
+* [Run using binaries](https://github.com/waku-org/nwaku/blob/master/docs/operators/quickstart.md#option-1-run-nwaku-binary)
+* [Run using docker](https://github.com/waku-org/nwaku/blob/master/docs/operators/quickstart.md#option-2-run-nwaku-in-a-docker-container)
+* [Run using docker-compose](https://github.com/waku-org/nwaku/blob/master/docs/operators/quickstart.md#option-3-run-nwaku-with-docker-compose)
 
 ### Waku Protocol Test Suite
 

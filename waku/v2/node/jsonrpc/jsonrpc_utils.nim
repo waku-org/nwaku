@@ -6,12 +6,12 @@ else:
 import
   std/[options, json],
   eth/keys,
-  ../../../v1/node/rpc/hexstrings,
   ../../protocol/waku_message,
   ../../protocol/waku_store,
   ../../protocol/waku_store/rpc,
   ../../utils/time,
   ../waku_payload,
+  ./hexstrings,
   ./jsonrpc_types
 
 export hexstrings

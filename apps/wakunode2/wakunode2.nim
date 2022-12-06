@@ -9,6 +9,7 @@ import
   chronicles,
   chronos,
   metrics,
+  libbacktrace,
   system/ansi_c,
   eth/keys,
   eth/p2p/discoveryv5/enr,
@@ -181,7 +182,7 @@ proc setupWakuArchiveDriver(dbUrl: string, vacuum: bool, migrate: bool): SetupRe
     ok(driver)
 
 
-proc retrieveDynamicBootstrapNodes(dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[ValidIpAddress]): SetupResult[seq[RemotePeerInfo]] =
+proc retrieveDynamicBootstrapNodes*(dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[ValidIpAddress]): SetupResult[seq[RemotePeerInfo]] =
 
   if dnsDiscovery and dnsDiscoveryUrl != "":
     # DNS discovery
@@ -440,8 +441,6 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
     except:
       return err("failed to mount waku peer-exchange protocol: " & getCurrentExceptionMsg())
 
-    asyncSpawn runPeerExchangeDiscv5Loop(node.wakuPeerExchange)
-
     if conf.peerExchangeNode != "":
       try:
         setPeerExchangePeer(node, conf.peerExchangeNode)
@@ -483,6 +482,9 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
       await connectToNodes(node, dynamicBootstrapNodes, "dynamic bootstrap")
     except:
       return err("failed to connect to dynamic bootstrap nodes: " & getCurrentExceptionMsg())
+
+  if conf.peerExchange:
+    asyncSpawn runPeerExchangeDiscv5Loop(node.wakuPeerExchange)
 
   # retrieve and connect to peer exchange peers
   if conf.peerExchangeNode != "":
@@ -694,7 +696,7 @@ when isMainModule:
     when defined(windows):
       # workaround for https://github.com/nim-lang/Nim/issues/4057
       setupForeignThreadGc()
-    info "Shutting down after receiving SIGINT"
+    notice "Shutting down after receiving SIGINT"
     asyncSpawn asyncStopper(node)
 
   setControlCHook(handleCtrlC)
@@ -702,10 +704,24 @@ when isMainModule:
   # Handle SIGTERM
   when defined(posix):
     proc handleSigterm(signal: cint) {.noconv.} =
-      info "Shutting down after receiving SIGTERM"
+      notice "Shutting down after receiving SIGTERM"
       asyncSpawn asyncStopper(node)
 
     c_signal(ansi_c.SIGTERM, handleSigterm)
+
+  # Handle SIGSEGV
+  when defined(posix):
+    proc handleSigsegv(signal: cint) {.noconv.} =
+      # Require --debugger:native
+      fatal "Shutting down after receiving SIGSEGV", stacktrace=getBacktrace()
+
+      # Not available in -d:release mode
+      writeStackTrace()
+
+      waitFor node.stop()
+      quit(QuitFailure)
+
+    c_signal(ansi_c.SIGSEGV, handleSigsegv)
 
   info "Node setup complete"
 

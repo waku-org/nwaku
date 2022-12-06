@@ -1,25 +1,12 @@
-# this module contains the Nim wrappers for the rln library https://github.com/kilic/rln/blob/3bbec368a4adc68cd5f9bfae80b17e1bbb4ef373/src/ffi.rs
+## Nim wrappers for the functions defined in librln
+import
+  ./protocol_types
+
 
 when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
 else:
   {.push raises: [].}
-
-import
-  os,
-  ./protocol_types
-
-const libPath = "vendor/zerokit/target/release/"
-
-when defined(Windows):
-  const libName* = libPath / "rln.dll"
-elif defined(Linux):
-  const libName* = libPath / "librln.so"
-elif defined(MacOsX):
-  const libName* = libPath / "librln.dylib"
-
-# all the following procedures are Nim wrappers for the functions defined in libName
-{.push dynlib: libName, raises: [Defect].}
 
 
 ## Buffer struct is taken from
@@ -98,7 +85,7 @@ proc generate_proof*(ctx: ptr RLN,
 ## output_buffer holds the proof data and should be parsed as [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
 ## integers wrapped in <> indicate value sizes in bytes
 ## the return bool value indicates the success or failure of the operation
- 
+
 proc verify*(ctx: ptr RLN,
                        proof_buffer: ptr Buffer,
                        proof_is_valid_ptr: ptr bool): bool {.importc: "verify_rln_proof".}
@@ -111,7 +98,7 @@ proc verify_with_roots*(ctx: ptr RLN,
                       roots_buffer: ptr Buffer,
                       proof_is_valid_ptr: ptr bool): bool {.importc: "verify_with_roots".}
 ## proof_buffer has to be serialized as [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
-## roots_buffer contains the concatenation of 32 bytes long serializations in little endian of root values 
+## roots_buffer contains the concatenation of 32 bytes long serializations in little endian of root values
 ## the return bool value indicates the success or failure of the call to the verify function
 ## the verification of the zk proof is available in proof_is_valid_ptr, where a value of true indicates success and false a failure
 
@@ -158,8 +145,6 @@ proc hash*(ctx: ptr RLN,
            output_buffer: ptr Buffer): bool {.importc: "hash".}
 ## it hashes (sha256) the plain text supplied in inputs_buffer and then maps it to a field element
 ## this proc is used to map arbitrary signals to field element for the sake of proof generation
-## inputs_buffer holds the hash input as a byte seq 
-## the hash output is generated and populated inside output_buffer 
-## the output_buffer contains 32 bytes hash output 
-
-{.pop.}
+## inputs_buffer holds the hash input as a byte seq
+## the hash output is generated and populated inside output_buffer
+## the output_buffer contains 32 bytes hash output

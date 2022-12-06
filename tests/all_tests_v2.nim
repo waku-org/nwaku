@@ -52,6 +52,7 @@ import
   ./v2/test_peer_exchange,
   ./v2/test_waku_noise,
   ./v2/test_waku_noise_sessions,
+  ./v2/test_waku_switch,
   # Utils
   ./v2/test_utils_keyfile
 
@@ -61,9 +62,8 @@ import
 when defined(rln):
   import
     ./v2/test_waku_rln_relay,
-    ./v2/test_wakunode_rln_relay
-  when defined(onchain_rln):
-    import ./v2/test_waku_rln_relay_onchain
+    ./v2/test_wakunode_rln_relay,
+    ./v2/test_waku_rln_relay_onchain
 
 when defined(waku_exp_store_resume):
   # TODO: Review store resume test cases (#1282)

@@ -2,7 +2,7 @@ when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
 else:
   {.push raises: [].}
-  
+
 import
   std/[json,tables,sequtils],
   chronicles,
@@ -53,6 +53,9 @@ type
     supportedProtocols*: seq[string]
     userAgent*: string
 
+    # only after a ok/nok connection
+    connError*: string
+
   # Stores information about all discovered/connected peers
   CustomPeersTableRef* = TableRef[string, CustomPeerInfo]
 
@@ -71,7 +74,7 @@ proc installHandler*(router: var RestRouter,
 
 proc startMetricsServer*(serverIp: ValidIpAddress, serverPort: Port): Result[void, string] =
     info "Starting metrics HTTP server", serverIp, serverPort
-    
+
     try:
       startMetricsHttpServer($serverIp, serverPort)
     except Exception as e:

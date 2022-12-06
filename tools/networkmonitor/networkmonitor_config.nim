@@ -27,6 +27,11 @@ type
       name: "bootstrap-node",
       abbr: "b" }: seq[string]
 
+    dnsDiscoveryUrl* {.
+      desc: "URL for DNS node list in format 'enrtree://<key>@<fqdn>'",
+      defaultValue: ""
+      name: "dns-discovery-url" }: string
+
     refreshInterval* {.
       desc: "How often new peers are discovered and connected to (in seconds)",
       defaultValue: 5,
@@ -58,7 +63,7 @@ type
       desc: "Listening HTTP port of the metrics rest server.",
       defaultValue: 8009,
       name: "metrics-rest-port" }: uint16
-    
+
 
 proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
   try:

@@ -1,10 +1,10 @@
-# BUILD IMAGE --------------------------------------------------------
+# BUILD IMAGE ------------------------------------------------------------------
 
 FROM alpine:edge AS nim-build
 
 ARG NIMFLAGS
 ARG MAKE_TARGET=wakunode2
-ARG RLN=true
+ARG EXPERIMENTAL=false
 
 # Get build tools and required header files
 RUN apk add --no-cache bash git cargo build-base pcre-dev linux-headers
@@ -16,19 +16,20 @@ COPY . .
 RUN git submodule update --init --recursive
 
 # Slowest build step for the sake of caching layers
-RUN make -j$(nproc) deps RLN="$RLN"
+RUN make -j$(nproc) deps
 
 # Build the final node binary
-RUN make -j$(nproc) $MAKE_TARGET NIMFLAGS="$NIMFLAGS" RLN="$RLN"
+RUN make -j$(nproc) $MAKE_TARGET NIMFLAGS="${NIMFLAGS}" EXPERIMENTAL="${EXPERIMENTAL}"
 
-# ACTUAL IMAGE -------------------------------------------------------
 
-FROM alpine:3.16
+# PRODUCTION IMAGE -------------------------------------------------------------
+
+FROM alpine:3.16 as prod
 
 ARG MAKE_TARGET=wakunode2
 
 LABEL maintainer="jakub@status.im"
-LABEL source="https://github.com/status-im/nim-waku"
+LABEL source="https://github.com/waku-org/nwaku"
 LABEL description="Wakunode: Waku and Whisper client"
 LABEL commit="unknown"
 
@@ -44,10 +45,6 @@ RUN ln -s /usr/lib/libpcre.so /usr/lib/libpcre.so.3
 # Copy to separate location to accomodate different MAKE_TARGET values
 COPY --from=nim-build /app/build/$MAKE_TARGET /usr/local/bin/
 
-# If rln enabled: fix for 'Error loading shared library vendor/rln/target/debug/librln.so: No such file or directory'
-COPY --from=nim-build /app/vendor/zerokit/target/release/librln.so vendor/zerokit/target/release/librln.so
-COPY --from=nim-build /app/vendor/zerokit/rln/resources/ vendor/zerokit/rln/resources/
-
 # Copy migration scripts for DB upgrades
 COPY --from=nim-build /app/migrations/ /app/migrations/
 
@@ -57,3 +54,11 @@ RUN ln -sv /usr/local/bin/$MAKE_TARGET /usr/bin/wakunode
 ENTRYPOINT ["/usr/bin/wakunode"]
 # By default just show help if called without arguments
 CMD ["--help"]
+
+
+# EXPERIMENTAL IMAGE -----------------------------------------------------------
+
+FROM prod AS experimental
+
+# If RLN enabled, copy RLN resources (WASM ZK circuit, proving and verification keys) used by tests
+COPY --from=nim-build /app/vendor/zerokit/rln/resources/ vendor/zerokit/rln/resources/

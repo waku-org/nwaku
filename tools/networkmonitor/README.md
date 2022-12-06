@@ -21,7 +21,8 @@ The following options are available:
  -l, --log-level               Sets the log level [=LogLevel.DEBUG].
  -t, --timeout                 Timeout to consider that the connection failed [=chronos.seconds(10)].
  -b, --bootstrap-node          Bootstrap ENR node. Argument may be repeated. [=@[""]].
- -r, --refresh-interval        How often new peers are discovered and connected to (in minutes) [=10].
+     --dns-discovery-url       URL for DNS node list in format 'enrtree://<key>@<fqdn>'.
+ -r, --refresh-interval        How often new peers are discovered and connected to (in seconds) [=5].
      --metrics-server          Enable the metrics server: true|false [=true].
      --metrics-server-address  Listening address of the metrics server. [=ValidIpAddress.init("127.0.0.1")].
      --metrics-server-port     Listening HTTP port of the metrics server. [=8008].
@@ -35,6 +36,10 @@ Connect to the network through a given bootstrap node, with default parameters. 
 
 ```console
 ./build/networkmonitor --log-level=INFO --b="enr:-Nm4QOdTOKZJKTUUZ4O_W932CXIET-M9NamewDnL78P5u9DOGnZlK0JFZ4k0inkfe6iY-0JAaJVovZXc575VV3njeiABgmlkgnY0gmlwhAjS3ueKbXVsdGlhZGRyc7g6ADg2MW5vZGUtMDEuYWMtY24taG9uZ2tvbmctYy53YWt1djIucHJvZC5zdGF0dXNpbS5uZXQGH0DeA4lzZWNwMjU2azGhAo0C-VvfgHiXrxZi3umDiooXMGY9FvYj5_d1Q4EeS7eyg3RjcIJ2X4N1ZHCCIyiFd2FrdTIP"
+```
+
+```console
+./build/networkmonitor --log-level=INFO --dns-discovery-url=enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@prod.nodes.status.im
 ```
 
 ## Metrics
