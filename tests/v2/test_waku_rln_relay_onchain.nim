@@ -212,7 +212,7 @@ procSuite "Waku-rln-relay":
       pubkey: Uint256, index: Uint256){.raises: [Defect], gcsafe.}:
       try:
         debug "onRegister", pubkey = pubkey, index = index
-        check:
+        require:
           pubkey == pk
         fut.complete()
       except Exception as err:
