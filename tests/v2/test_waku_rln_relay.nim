@@ -79,7 +79,7 @@ procSuite "Waku rln relay":
 suite "Waku rln relay":
 
   test "key_gen Nim Wrappers":
-    var
+    let
       merkleDepth: csize_t = 20
 
     let rlnInstance = createRLNInstance()
@@ -89,6 +89,7 @@ suite "Waku rln relay":
     # keysBufferPtr will hold the generated key pairs i.e., secret and public keys
     var
       keysBuffer: Buffer
+    let
       keysBufferPtr = addr(keysBuffer)
       done = key_gen(rlnInstance.get(), keysBufferPtr)
     check:
@@ -96,7 +97,7 @@ suite "Waku rln relay":
       done == true
 
     if done:
-      var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
+      let generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
       check:
         # the public and secret keys together are 64 bytes
         generatedKeys.len == 64
@@ -113,7 +114,7 @@ suite "Waku rln relay":
       keyPairRes.isOk()
 
     let keyPair = keyPairRes.get()
-    var empty: array[32, byte]
+    let empty = default(array[32, byte])
     check:
       keyPair.idKey.len == 32
       keyPair.idCommitment.len == 32
@@ -129,27 +130,27 @@ suite "Waku rln relay":
       rlnInstance.isOk()
 
     # read the Merkle Tree root
-    var
+    let
       root1 {.noinit.}: Buffer = Buffer()
-      rootPtr1 = addr(root1)
+      rootPtr1 = unsafeAddr(root1)
       getRootSuccessful1 = getRoot(rlnInstance.get(), rootPtr1)
     check:
       getRootSuccessful1
       root1.len == 32
 
     # read the Merkle Tree root
-    var
+    let
       root2 {.noinit.}: Buffer = Buffer()
-      rootPtr2 = addr(root2)
+      rootPtr2 = unsafeAddr(root2)
       getRootSuccessful2 = getRoot(rlnInstance.get(), rootPtr2)
     check:
       getRootSuccessful2
       root2.len == 32
 
-    var rootValue1 = cast[ptr array[32, byte]] (root1.`ptr`)
+    let rootValue1 = cast[ptr array[32, byte]] (root1.`ptr`)
     let rootHex1 = rootValue1[].inHex
 
-    var rootValue2 = cast[ptr array[32, byte]] (root2.`ptr`)
+    let rootValue2 = cast[ptr array[32, byte]] (root2.`ptr`)
     let rootHex2 = rootValue2[].inHex
 
     # the two roots must be identical
@@ -163,13 +164,13 @@ suite "Waku rln relay":
     let rln = rlnInstance.get()
 
     # read the Merkle Tree root
-    var root1 = getMerkleRoot(rln)
+    let root1 = getMerkleRoot(rln)
     require:
       root1.isOk()
     let rootHex1 = root1.value().inHex
 
     # read the Merkle Tree root
-    var root2 = getMerkleRoot(rln)
+    let root2 = getMerkleRoot(rln)
     require:
       root2.isOk()
     let rootHex2 = root2.value().inHex
@@ -190,8 +191,8 @@ suite "Waku rln relay":
       keypairRes.isOk()
     
     let keyPair = keyPairRes.get()
-    var pkBuffer = toBuffer(keyPair.idCommitment)
-    let pkBufferPtr = addr pkBuffer
+    let pkBuffer = toBuffer(keyPair.idCommitment)
+    let pkBufferPtr = unsafeAddr(pkBuffer)
 
     # add the member to the tree
     let memberAdded = updateNextMember(rln, pkBufferPtr)
@@ -254,9 +255,9 @@ suite "Waku rln relay":
     let rln = rlnInstance.get()
 
     # read the Merkle Tree root
-    var
+    let
       root1 {.noinit.}: Buffer = Buffer()
-      rootPtr1 = addr(root1)
+      rootPtr1 = unsafeAddr(root1)
       getRootSuccessful1 = getRoot(rln, rootPtr1)
     require:
       getRootSuccessful1
@@ -268,8 +269,8 @@ suite "Waku rln relay":
       keypairRes.isOk()
     
     let keyPair = keyPairRes.get()
-    var pkBuffer = toBuffer(keyPair.idCommitment)
-    let pkBufferPtr = addr pkBuffer
+    let pkBuffer = toBuffer(keyPair.idCommitment)
+    let pkBufferPtr = unsafeAddr(pkBuffer)
 
     # add the member to the tree
     let memberAdded = updateNextMember(rln, pkBufferPtr)
@@ -277,9 +278,9 @@ suite "Waku rln relay":
       memberAdded
 
     # read the Merkle Tree root after insertion
-    var
+    let
       root2 {.noinit.}: Buffer = Buffer()
-      rootPtr2 = addr(root2)
+      rootPtr2 = unsafeAddr(root2)
       getRootSuccessful = getRoot(rln, rootPtr2)
     require:
       getRootSuccessful
@@ -292,9 +293,9 @@ suite "Waku rln relay":
       deletionSuccess
 
     # read the Merkle Tree root after the deletion
-    var
+    let
       root3 {.noinit.}: Buffer = Buffer()
-      rootPtr3 = addr(root3)
+      rootPtr3 = unsafeAddr(root3)
       getRootSuccessful3 = getRoot(rln, rootPtr3)
     require:
       getRootSuccessful3
@@ -383,16 +384,16 @@ suite "Waku rln relay":
       rlnInstance.isOk()
 
     # prepare the input
-    var
+    let
       msg = "Hello".toBytes()
       hashInput = appendLength(msg)
       hashInputBuffer = toBuffer(hashInput)
 
     # prepare other inputs to the hash function
-    var outputBuffer: Buffer
+    let outputBuffer = default(Buffer)
 
-    let hashSuccess = hash(rlnInstance.get(), addr hashInputBuffer,
-        addr outputBuffer)
+    let hashSuccess = hash(rlnInstance.get(), unsafeAddr hashInputBuffer,
+        unsafeAddr outputBuffer)
     check:
       hashSuccess
     let outputArr = cast[ptr array[32, byte]](outputBuffer.`ptr`)[]
@@ -401,7 +402,7 @@ suite "Waku rln relay":
       "1e32b3ab545c07c8b4a7ab1ca4f46bc31e4fdc29ac3b240ef1d54b4017a26e4c" ==
         outputArr.inHex()
 
-    var
+    let
       hashOutput = cast[ptr array[32, byte]] (outputBuffer.`ptr`)[]
       hashOutputHex = hashOutput.toHex()
 
@@ -542,7 +543,7 @@ suite "Waku rln relay":
     let messageBytes = "Hello".toBytes()
 
     # prepare the epoch
-    var epoch: Epoch
+    let epoch = default(Epoch)
     debug "epoch", epochHex = epoch.inHex()
 
     # generate proof
@@ -602,7 +603,7 @@ suite "Waku rln relay":
     let messageBytes = "Hello".toBytes()
 
     # prepare the epoch
-    var epoch: Epoch
+    let epoch = default(Epoch)
     debug "epoch in bytes", epochHex = epoch.inHex()
 
 
@@ -676,7 +677,7 @@ suite "Waku rln relay":
     let messageBytes = "Hello".toBytes()
 
     # prepare the epoch
-    var epoch: Epoch
+    let epoch = default(Epoch)
     debug "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
@@ -769,7 +770,7 @@ suite "Waku rln relay":
     let messageBytes = "Hello".toBytes()
 
     # prepare the epoch
-    var epoch: Epoch
+    let epoch = default(Epoch)
     debug "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
@@ -836,7 +837,7 @@ suite "Waku rln relay":
       wakurlnrelay = WakuRLNRelay()
       epoch = getCurrentEpoch()
 
-    #  cretae some dummy nullifiers and secret shares
+    #  create some dummy nullifiers and secret shares
     var nullifier1: Nullifier
     for index, x in nullifier1.mpairs: nullifier1[index] = 1
     var shareX1: MerkleNode
@@ -945,14 +946,16 @@ suite "Waku rln relay":
     #  create some messages from the same peer and append rln proof to them, except wm4
     var
       wm1 = WakuMessage(payload: "Valid message".toBytes())
-      proofAdded1 = wakuRlnRelay.appendRLNProof(wm1, time)
       # another message in the same epoch as wm1, it will break the messaging rate limit
       wm2 = WakuMessage(payload: "Spam".toBytes())
-      proofAdded2 = wakuRlnRelay.appendRLNProof(wm2, time)
       #  wm3 points to the next epoch
       wm3 = WakuMessage(payload: "Valid message".toBytes())
-      proofAdded3 = wakuRlnRelay.appendRLNProof(wm3, time+EpochUnitSeconds)
       wm4 = WakuMessage(payload: "Invalid message".toBytes())
+
+    let
+      proofAdded1 = wakuRlnRelay.appendRLNProof(wm1, time)
+      proofAdded2 = wakuRlnRelay.appendRLNProof(wm2, time)
+      proofAdded3 = wakuRlnRelay.appendRLNProof(wm3, time+EpochUnitSeconds)
 
     # checks proofs are added
     check:
@@ -1013,7 +1016,7 @@ suite "Waku rln relay":
       keyPairRes.isOk()
 
     let keyPair = keyPairRes.get()
-    var empty: array[32, byte]
+    let empty = default(array[32, byte])
     check:
       keyPair.idKey.len == 32
       keyPair.idCommitment.len == 32
