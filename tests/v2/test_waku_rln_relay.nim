@@ -34,7 +34,7 @@ procSuite "Waku rln relay":
       memListRes.isOk()
 
     let (groupKeys, root) = memListRes.get()
-    check:
+    require:
       groupKeys.len == 100
     let
       # convert the keys to MembershipKeyPair structs
@@ -92,16 +92,15 @@ suite "Waku rln relay":
     let
       keysBufferPtr = addr(keysBuffer)
       done = key_gen(rlnInstance.get(), keysBufferPtr)
-    check:
+    require:
       # check whether the keys are generated successfully
-      done == true
+      done
 
-    if done:
-      let generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
-      check:
-        # the public and secret keys together are 64 bytes
-        generatedKeys.len == 64
-      debug "generated keys: ", generatedKeys
+    let generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
+    check:
+      # the public and secret keys together are 64 bytes
+      generatedKeys.len == 64
+    debug "generated keys: ", generatedKeys
 
   test "membership Key Generation":
     # create an RLN instance
@@ -134,7 +133,7 @@ suite "Waku rln relay":
       root1 {.noinit.}: Buffer = Buffer()
       rootPtr1 = unsafeAddr(root1)
       getRootSuccessful1 = getRoot(rlnInstance.get(), rootPtr1)
-    check:
+    require:
       getRootSuccessful1
       root1.len == 32
 
@@ -143,7 +142,7 @@ suite "Waku rln relay":
       root2 {.noinit.}: Buffer = Buffer()
       rootPtr2 = unsafeAddr(root2)
       getRootSuccessful2 = getRoot(rlnInstance.get(), rootPtr2)
-    check:
+    require:
       getRootSuccessful2
       root2.len == 32
 
@@ -394,7 +393,7 @@ suite "Waku rln relay":
 
     let hashSuccess = hash(rlnInstance.get(), unsafeAddr hashInputBuffer,
         unsafeAddr outputBuffer)
-    check:
+    require:
       hashSuccess
     let outputArr = cast[ptr array[32, byte]](outputBuffer.`ptr`)[]
   
@@ -551,7 +550,7 @@ suite "Waku rln relay":
                                 memKeys = memKeys,
                                 memIndex = MembershipIndex(index),
                                 epoch = epoch)
-    check:
+    require:
       proofRes.isOk()
     let proof = proofRes.value
 
@@ -562,8 +561,10 @@ suite "Waku rln relay":
 
     # Ensure the proof verification did not error out
 
-    check:
+    require:
       verified.isOk()
+
+    check:
       verified.value() == true
 
   test "test proofVerify and proofGen for an invalid proof":
@@ -613,7 +614,7 @@ suite "Waku rln relay":
                                 memKeys = memKeys,
                                 memIndex = MembershipIndex(badIndex),
                                 epoch = epoch)
-    check:
+    require:
       proofRes.isOk()
     let proof = proofRes.value
 
@@ -893,8 +894,9 @@ suite "Waku rln relay":
 
     #  wm3 has the same nullifier as wm1 but different secret shares, it should be detected as duplicate
     let result3 = wakurlnrelay.hasDuplicate(wm3)
-    check:
+    require:
       result3.isOk()
+    check:
       # it is a duplicate
       result3.value == true
 
@@ -957,8 +959,8 @@ suite "Waku rln relay":
       proofAdded2 = wakuRlnRelay.appendRLNProof(wm2, time)
       proofAdded3 = wakuRlnRelay.appendRLNProof(wm3, time+EpochUnitSeconds)
 
-    # checks proofs are added
-    check:
+    # ensure proofs are added
+    require:
       proofAdded1
       proofAdded2
       proofAdded3
@@ -1017,7 +1019,7 @@ suite "Waku rln relay":
 
     let keyPair = keyPairRes.get()
     let empty = default(array[32, byte])
-    check:
+    require:
       keyPair.idKey.len == 32
       keyPair.idCommitment.len == 32
       keyPair.idKey != empty
@@ -1040,13 +1042,14 @@ suite "Waku rln relay":
       writeRlnCredentials(filepath, rlnMembershipCredentials, password).isOk()
 
     let readCredentialsResult = readRlnCredentials(filepath, password)
-    check:
+    require:
       readCredentialsResult.isOk()
 
     let credentials = readCredentialsResult.get()
 
-    check:
+    require:
       credentials.isSome()
+    check:
       credentials.get().membershipKeyPair == keyPair
       credentials.get().rlnIndex == index
 
