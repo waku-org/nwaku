@@ -499,8 +499,9 @@ suite "Waku rln relay":
       protobuf = rateLimitProof.encode()
       decodednsp = RateLimitProof.init(protobuf.buffer)
 
+    require:
+      decodednsp.isOk()
     check:
-      decodednsp.isErr() == false
       decodednsp.value == rateLimitProof
 
   test "test proofVerify and proofGen for a valid proof":
