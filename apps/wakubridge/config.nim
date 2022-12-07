@@ -1,7 +1,18 @@
 import
-  confutils, confutils/defs, confutils/std/net, chronicles, chronos,
-  libp2p/crypto/[crypto, secp],
+  stew/results,
+  chronos,
+  confutils,
+  confutils/defs,
+  confutils/std/net,
+  libp2p/crypto/crypto,
+  libp2p/crypto/secp,
   eth/keys
+
+import
+  ../../waku/common/logging
+
+
+type ConfResult*[T] = Result[T, string]
 
 type
   FleetV1* =  enum
@@ -10,14 +21,21 @@ type
     staging
     test
 
-  WakuNodeConf* = object
+  WakuBridgeConf* = object
+    ## Log configuration
     logLevel* {.
-      desc: "Sets the log level"
-      defaultValue: LogLevel.INFO
-      name: "log-level" .}: LogLevel
+      desc: "Sets the log level for process. Supported levels: TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL",
+      defaultValue: logging.LogLevel.INFO,
+      name: "log-level" .}: logging.LogLevel
 
+    logFormat* {.
+      desc: "Specifies what kind of logs should be written to stdout. Suported formats: Text, JSON",
+      defaultValue: logging.LogFormat.Text,
+      name: "log-format" .}: logging.LogFormat
+
+    ## General node config
     listenAddress* {.
-      defaultValue: defaultListenAddress(config)
+      defaultValue: defaultListenAddress()
       desc: "Listening address for the LibP2P traffic"
       name: "listen-address"}: ValidIpAddress
 
@@ -72,16 +90,16 @@ type
       name: "metrics-server-port" .}: uint16
 
     ### Waku v1 options
-    
+
     fleetV1* {.
       desc: "Select the Waku v1 fleet to connect to"
       defaultValue: FleetV1.none
       name: "fleet-v1" .}: FleetV1
-    
+
     staticnodesV1* {.
       desc: "Enode URL to directly connect with. Argument may be repeated"
       name: "staticnode-v1" .}: seq[string]
-    
+
     nodekeyV1* {.
       desc: "DevP2P node private key as hex",
       # TODO: can the rng be passed in somehow via Load?
@@ -92,7 +110,7 @@ type
       desc: "PoW requirement of Waku v1 node.",
       defaultValue: 0.002
       name: "waku-v1-pow" .}: float64
-    
+
     wakuV1TopicInterest* {.
       desc: "Run as Waku v1 node with a topic-interest",
       defaultValue: false
@@ -133,17 +151,17 @@ type
       desc: "Multiaddr of peer to connect with for waku filter protocol"
       defaultValue: ""
       name: "filternode" }: string
-    
+
     dnsAddrs* {.
       desc: "Enable resolution of `dnsaddr`, `dns4` or `dns6` multiaddrs"
       defaultValue: true
       name: "dns-addrs" }: bool
-    
+
     dnsAddrsNameServers* {.
       desc: "DNS name server IPs to query for DNS multiaddrs resolution. Argument may be repeated."
       defaultValue: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")]
       name: "dns-addrs-name-server" }: seq[ValidIpAddress]
-    
+
     ### Bridge options
 
     bridgePubsubTopic* {.
@@ -151,9 +169,10 @@ type
       defaultValue: "/waku/2/default-waku/proto"
       name: "bridge-pubsub-topic" }: string
 
+
 proc parseCmdArg*(T: type keys.KeyPair, p: string): T =
   try:
-    let privkey = keys.PrivateKey.fromHex(string(p)).tryGet()
+    let privkey = keys.PrivateKey.fromHex(p).tryGet()
     result = privkey.toKeyPair()
   except CatchableError:
     raise newException(ConfigurationError, "Invalid private key")
@@ -180,5 +199,20 @@ proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
 proc completeCmdArg*(T: type ValidIpAddress, val: string): seq[string] =
   return @[]
 
-func defaultListenAddress*(conf: WakuNodeConf): ValidIpAddress =
+func defaultListenAddress*(): ValidIpAddress =
   (static ValidIpAddress.init("0.0.0.0"))
+
+
+
+## Load
+
+{.push warning[ProveInit]: off.}
+
+proc load*(T: type WakuBridgeConf, version=""): ConfResult[T] =
+  try:
+    let conf = confutils.load(WakuBridgeConf, version=version)
+    ok(conf)
+  except CatchableError:
+    err(getCurrentExceptionMsg())
+
+{.pop.}

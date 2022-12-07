@@ -52,7 +52,7 @@ proc initProtocolHandler(ws: WakuStore) =
 
     let decodeRes = HistoryRPC.decode(buf)
     if decodeRes.isErr():
-      error "failed to decode rpc", peerId=conn.peerId
+      error "failed to decode rpc", peerId= $conn.peerId
       waku_store_errors.inc(labelValues = [decodeRpcFailure])
       # TODO: Return (BAD_REQUEST, cause: "decode rpc failed")
       return
@@ -61,7 +61,7 @@ proc initProtocolHandler(ws: WakuStore) =
     let reqRpc = decodeRes.value
 
     if reqRpc.query.isNone():
-      error "empty query rpc", peerId=conn.peerId, requestId=reqRpc.requestId
+      error "empty query rpc", peerId= $conn.peerId, requestId=reqRpc.requestId
       waku_store_errors.inc(labelValues = [emptyRpcQueryFailure])
       # TODO: Return (BAD_REQUEST, cause: "empty query")
       return
@@ -76,7 +76,7 @@ proc initProtocolHandler(ws: WakuStore) =
     let responseRes = ws.queryHandler(request)
 
     if responseRes.isErr():
-      error "history query failed", peerId=conn.peerId, requestId=requestId, error=responseRes.error
+      error "history query failed", peerId= $conn.peerId, requestId=requestId, error=responseRes.error
 
       let response = responseRes.toRPC()
       let rpc = HistoryRPC(requestId: requestId, response: some(response))

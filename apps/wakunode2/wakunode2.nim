@@ -24,6 +24,7 @@ import
 import
   ../../waku/common/sqlite,
   ../../waku/common/utils/nat,
+  ../../waku/common/logging,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/peer_manager/peer_store/waku_peer_storage,
   ../../waku/v2/node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
@@ -560,9 +561,14 @@ when isMainModule:
 
   let conf = confRes.get()
 
-  # set log level
-  if conf.logLevel != LogLevel.NONE:
-    setLogLevel(conf.logLevel)
+  ## Logging setup
+
+  # Adhere to NO_COLOR initiative: https://no-color.org/
+  let color = try: not parseBool(os.getEnv("NO_COLOR", "false"))
+              except: true
+
+  logging.setupLogLevel(conf.logLevel)
+  logging.setupLogFormat(conf.logFormat, color)
 
 
   ##############
