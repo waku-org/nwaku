@@ -39,7 +39,7 @@ all: | v1 v2
 test: | test1 test2
 
 v1: | wakunode1 example1 sim1
-v2: | wakunode2 example2 sim2 wakubridge chat2 chat2bridge
+v2: | wakunode2 example2 wakubridge chat2 chat2bridge
 
 waku.nims:
 	ln -s waku.nimble $@
