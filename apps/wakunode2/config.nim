@@ -1,7 +1,6 @@
 import
   std/strutils,
   stew/results,
-  chronicles,
   chronos,
   regex,
   confutils,
@@ -14,7 +13,8 @@ import
   nimcrypto/utils
 import
   ../../waku/common/confutils/envvar/defs as confEnvvarDefs,
-  ../../waku/common/confutils/envvar/std/net as confEnvvarNet
+  ../../waku/common/confutils/envvar/std/net as confEnvvarNet,
+  ../../waku/common/logging
 
 export
   confTomlDefs,
@@ -27,22 +27,24 @@ type ConfResult*[T] = Result[T, string]
 
 type
   WakuNodeConf* = object
-    ## General node config
-
     configFile* {.
       desc: "Loads configuration from a TOML file (cmd-line parameters take precedence)"
       name: "config-file" }: Option[InputFile]
 
+
+    ## Log configuration
     logLevel* {.
-      desc: "Sets the log level."
-      defaultValue: LogLevel.INFO
-      name: "log-level" }: LogLevel
+      desc: "Sets the log level for process. Supported levels: TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL",
+      defaultValue: logging.LogLevel.INFO,
+      name: "log-level" .}: logging.LogLevel
 
-    version* {.
-      desc: "prints the version"
-      defaultValue: false
-      name: "version" }: bool
+    logFormat* {.
+      desc: "Specifies what kind of logs should be written to stdout. Suported formats: TEXT, JSON",
+      defaultValue: logging.LogFormat.TEXT,
+      name: "log-format" .}: logging.LogFormat
 
+
+    ## General node config
     agentString* {.
       defaultValue: "nwaku",
       desc: "Node agent string which is used as identifier in network"
@@ -446,33 +448,30 @@ type
       defaultValue: ""
       name: "websocket-secure-cert-path"}: string
 
+## Parsing
+
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
   try:
     let key = SkPrivateKey.init(utils.fromHex(p)).tryGet()
     crypto.PrivateKey(scheme: Secp256k1, skkey: key)
-  except CatchableError:
+  except:
     raise newException(ConfigurationError, "Invalid private key")
 
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
 
+proc defaultPrivateKey*(): PrivateKey =
+  crypto.PrivateKey.random(Secp256k1, crypto.newRng()[]).value
+
+
 proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
   try:
     ValidIpAddress.init(p)
-  except CatchableError as e:
+  except:
     raise newException(ConfigurationError, "Invalid IP address")
 
 proc completeCmdArg*(T: type ValidIpAddress, val: string): seq[string] =
-  return @[]
-
-proc parseCmdArg*(T: type Port, p: string): T =
-  try:
-    Port(parseInt(p))
-  except CatchableError as e:
-    raise newException(ConfigurationError, "Invalid Port number")
-
-proc completeCmdArg*(T: type Port, val: string): seq[string] =
   return @[]
 
 proc defaultListenAddress*(): ValidIpAddress =
@@ -480,8 +479,15 @@ proc defaultListenAddress*(): ValidIpAddress =
   # Maybe there should be a config option for this.
   (static ValidIpAddress.init("0.0.0.0"))
 
-proc defaultPrivateKey*(): PrivateKey =
-  crypto.PrivateKey.random(Secp256k1, crypto.newRng()[]).value
+
+proc parseCmdArg*(T: type Port, p: string): T =
+  try:
+    Port(parseInt(p))
+  except:
+    raise newException(ConfigurationError, "Invalid Port number")
+
+proc completeCmdArg*(T: type Port, val: string): seq[string] =
+  return @[]
 
 
 ## Configuration validation
@@ -515,6 +521,7 @@ proc readValue*(r: var TomlReader, value: var crypto.PrivateKey) {.raises: [Seri
     value = parseCmdArg(crypto.PrivateKey, r.readValue(string))
   except CatchableError:
     raise newException(SerializationError, getCurrentExceptionMsg())
+
 
 proc readValue*(r: var EnvvarReader, value: var crypto.PrivateKey) {.raises: [SerializationError].} =
   try:

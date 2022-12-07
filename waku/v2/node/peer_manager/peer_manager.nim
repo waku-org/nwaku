@@ -87,7 +87,7 @@ proc loadFromStorage(pm: PeerManager) =
   debug "loading peers from storage"
   # Load peers from storage, if available
   proc onData(peerId: PeerID, storedInfo: StoredInfo, connectedness: Connectedness, disconnectTime: int64) =
-    trace "loading peer", peerId=peerId, storedInfo=storedInfo, connectedness=connectedness
+    trace "loading peer", peerId= $peerId, storedInfo= $storedInfo, connectedness=connectedness
 
     if peerId == pm.switch.peerInfo.peerId:
       # Do not manage self
@@ -217,7 +217,7 @@ proc reconnectPeers*(pm: PeerManager,
       # We disconnected recently and still need to wait for a backoff period before connecting
       await sleepAsync(backoffTime)
 
-    trace "Reconnecting to peer", peerId=storedInfo.peerId
+    trace "Reconnecting to peer", peerId= $storedInfo.peerId
     discard await pm.dialPeer(storedInfo.peerId, toSeq(storedInfo.addrs), proto)
 
 ####################
@@ -230,7 +230,7 @@ proc dialPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string, d
 
   # First add dialed peer info to peer store, if it does not exist yet...
   if not pm.peerStore.hasPeer(remotePeerInfo.peerId, proto):
-    trace "Adding newly dialed peer to manager", peerId = remotePeerInfo.peerId, addr = remotePeerInfo.addrs[0], proto = proto
+    trace "Adding newly dialed peer to manager", peerId= $remotePeerInfo.peerId, address= $remotePeerInfo.addrs[0], proto= proto
     pm.addPeer(remotePeerInfo, proto)
 
   if remotePeerInfo.peerId == pm.switch.peerInfo.peerId:
@@ -262,7 +262,7 @@ proc connectToNode(pm: PeerManager, remotePeer: RemotePeerInfo, proto: string, s
     info "Successfully connected to peer", wireAddr = remotePeer.addrs[0], peerId = remotePeer.peerId
     waku_node_conns_initiated.inc(labelValues = [source])
   else:
-    error "Failed to connect to peer", wireAddr = remotePeer.addrs[0], peerId = remotePeer.peerId
+    error "Failed to connect to peer", wireAddr= $remotePeer.addrs[0], peerId= $remotePeer.peerId
     waku_peers_errors.inc(labelValues = ["conn_init_failure"])
 
 proc connectToNodes*(pm: PeerManager, nodes: seq[string], proto: string, source = "api") {.async.} =

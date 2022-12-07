@@ -5,7 +5,7 @@ else:
 
 ## A set of utilities to integrate EIP-1459 DNS-based discovery
 ## for Waku v2 nodes.
-## 
+##
 ## EIP-1459 is defined in https://eips.ethereum.org/EIPS/eip-1459
 
 import
@@ -46,9 +46,9 @@ proc emptyResolver*(domain: string): Future[string] {.async, gcsafe.} =
 
 proc findPeers*(wdd: var WakuDnsDiscovery): Result[seq[RemotePeerInfo], cstring] =
   ## Find peers to connect to using DNS based discovery
-  
+
   info "Finding peers using Waku DNS discovery"
-  
+
   # Synchronise client tree using configured resolver
   var tree: Tree
   try:
@@ -74,7 +74,7 @@ proc findPeers*(wdd: var WakuDnsDiscovery): Result[seq[RemotePeerInfo], cstring]
     if res.isOk():
       discoveredNodes.add(res.get())
     else:
-      error "Failed to convert ENR to peer info", enr=enr, err=res.error()
+      error "Failed to convert ENR to peer info", enr= $enr, err=res.error()
       waku_dnsdisc_errors.inc(labelValues = ["peer_info_failure"])
 
   if discoveredNodes.len > 0:
@@ -87,9 +87,9 @@ proc init*(T: type WakuDnsDiscovery,
            locationUrl: string,
            resolver: Resolver): Result[T, cstring] =
   ## Initialise Waku peer discovery via DNS
-  
+
   debug "init WakuDnsDiscovery", locationUrl=locationUrl
-  
+
   let
     client = ? Client.init(locationUrl)
     wakuDnsDisc = WakuDnsDiscovery(client: client, resolver: resolver)
