@@ -42,7 +42,7 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
   let add = web3.defaultAccount
   debug "contract deployer account address ", add
 
-  var balance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
+  let balance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
   debug "Initial account balance: ", balance
 
   # deploy the poseidon hash contract and gets its address
@@ -69,11 +69,11 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
   # deploy membership contract with its constructor inputs
   let receipt = await web3.deployContract(MembershipContractCode,
       contractInput = contractInput)
-  var contractAddress = receipt.contractAddress.get
+  let contractAddress = receipt.contractAddress.get
   debug "Address of the deployed membership contract: ", contractAddress
 
-  balance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
-  debug "Account balance after the contract deployment: ", balance
+  let newBalance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
+  debug "Account balance after the contract deployment: ", newBalance
 
   await web3.close()
   debug "disconnected from ", ethClientAddress
@@ -92,7 +92,7 @@ proc createEthAccount(): Future[(keys.PrivateKey, Address)] {.async.} =
   let pk = keys.PrivateKey.random(theRNG[])
   let acc = Address(toCanonicalAddress(pk.toPublicKey()))
 
-  var tx: EthSend
+  var tx:EthSend
   tx.source = accounts[0]
   tx.value = some(ethToWei(10.u256))
   tx.to = some(acc)
@@ -100,7 +100,7 @@ proc createEthAccount(): Future[(keys.PrivateKey, Address)] {.async.} =
 
   # Send 10 eth to acc
   discard await web3.send(tx)
-  var balance = await web3.provider.eth_getBalance(acc, "latest")
+  let balance = await web3.provider.eth_getBalance(acc, "latest")
   assert(balance == ethToWei(10.u256))
 
   return (pk, acc)
@@ -142,7 +142,7 @@ proc runGanache(): Process =
   var cmdline: string
   while true:
     if runGanache.outputstream.readLine(cmdline):
-      ganacheStartLog.add cmdline
+      ganacheStartLog.add(cmdline)
       if cmdline.contains("Listening on 127.0.0.1:8540"):
         break
   debug "Ganache daemon is running and ready", pid=ganachePID, startLog=ganacheStartLog
@@ -206,7 +206,7 @@ procSuite "Waku-rln-relay":
     debug "membership commitment key", pk = pk
 
     # test ------------------------------
-    var fut = newFuture[void]()
+    let fut = newFuture[void]()
     let s = await contractObj.subscribe(MemberRegistered, %*{"fromBlock": "0x0",
         "address": contractAddress}) do(
       pubkey: Uint256, index: Uint256){.raises: [Defect], gcsafe.}:
@@ -278,7 +278,7 @@ procSuite "Waku-rln-relay":
     let pk2 = keyPair2.idCommitment.toUInt256()
     debug "membership commitment key", pk2 = pk2
 
-    var events = [newFuture[void](), newFuture[void]()]
+    let events = [newFuture[void](), newFuture[void]()]
     var futIndex = 0
     var handler: GroupUpdateHandler
     handler = proc (blockNumber: BlockNumber, 
@@ -336,7 +336,7 @@ procSuite "Waku-rln-relay":
     let tx = await sender.register(20.u256).send(value = MembershipFee) # value is the membership fee
     debug "The hash of registration tx: ", tx 
 
-    # var members: array[2, uint256] = [20.u256, 21.u256]
+    # let members: array[2, uint256] = [20.u256, 21.u256]
     # debug "This is the batch registration result ", await sender.registerBatch(members).send(value = (members.len * MembershipFee)) # value is the membership fee
 
     let balance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
