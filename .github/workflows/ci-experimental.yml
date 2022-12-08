@@ -22,6 +22,9 @@ jobs:
     permissions:
       pull-requests: read
     steps:
+    - uses: actions/checkout@v3
+      name: Checkout code
+      id: checkout
     - uses: dorny/paths-filter@v2
       id: filter
       with:
