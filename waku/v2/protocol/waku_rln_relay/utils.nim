@@ -1193,7 +1193,7 @@ proc mount(wakuRelay: WakuRelay,
            registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)
           ): Future[RlnRelayResult[WakuRlnRelay]] {.async.} =
 
-  if not conf.rlnRelayDynamic:
+  if not conf.rlnRelayDynamic: 
     info " setting up waku-rln-relay in off-chain mode... "
     # set up rln relay inputs
     let staticSetupRes = rlnRelayStaticSetUp(MembershipIndex(conf.rlnRelayMembershipIndex))
