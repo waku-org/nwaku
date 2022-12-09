@@ -779,11 +779,16 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMe
 
 ## Waku RLN Relay
 when defined(rln):
-  proc mountRlnRelay*(node: WakuNode, rlnConf: WakuRlnConfig) {.async.} =
+  proc mountRlnRelay*(node: WakuNode, 
+                      rlnConf: WakuRlnConfig,
+                      spamHandler: Option[SpamHandler] = none(SpamHandler),
+                      registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)) {.async.} =
     info "mounting rln relay"
 
     let rlnRelayRes = await WakuRlnRelay.new(node.wakuRelay, 
-                                             rlnConf)
+                                             rlnConf,
+                                             spamHandler,
+                                             registrationHandler)
     if rlnRelayRes.isErr():
       error "failed to mount rln relay", error=rlnRelayRes.error
       return
