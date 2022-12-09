@@ -43,7 +43,7 @@ import
 
 when defined(rln):
   import
-    ../protocol/waku_rln_relay/protocol_types
+    ../protocol/waku_rln_relay
 
 declarePublicGauge waku_version, "Waku version info (in git describe format)", ["version"]
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
@@ -777,6 +777,17 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMe
 
   error "failed to publish message", error=publishRes.error
 
+## Waku RLN Relay
+when defined(rln):
+  proc mountRlnRelay*(node: WakuNode, rlnConf: WakuRlnConfig) {.async.} =
+    info "mounting rln relay"
+
+    let rlnRelayRes = await WakuRlnRelay.new(node.wakuRelay, 
+                                             rlnConf)
+    if rlnRelayRes.isErr():
+      error "failed to mount rln relay", error=rlnRelayRes.error
+      return
+    node.wakuRlnRelay = rlnRelayRes.get()
 
 ## Waku peer-exchange
 
