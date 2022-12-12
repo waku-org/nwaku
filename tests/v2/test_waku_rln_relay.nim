@@ -33,31 +33,31 @@ procSuite "Waku rln relay":
     require:
       memListRes.isOk()
 
-    let (groupKeys, root) = memListRes.get()
+    let (groupCredentials, root) = memListRes.get()
     require:
-      groupKeys.len == 100
+      groupCredentials.len == 100
     let
-      # convert the keys to MembershipKeyPair structs
-      groupKeyPairsRes = groupKeys.toMembershipKeyPairs()
+      # convert the keys to IdentityCredential structs
+      groupIdCredentialsRes = groupCredentials.toIdentityCredentials()
     require:
-      groupKeyPairsRes.isOk()
+      groupIdCredentialsRes.isOk()
     
     let 
-      groupKeyPairs = groupKeyPairsRes.get()
+      groupIdCredentials = groupIdCredentialsRes.get()
       # extract the id commitments
-      groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
-    debug "groupKeyPairs", groupKeyPairs
+      groupIDCommitments = groupIdCredentials.mapIt(it.idCommitment)
+    debug "groupIdCredentials", groupIdCredentials
     debug "groupIDCommitments", groupIDCommitments
 
-    # index indicates the position of a membership key pair in the static list of group keys i.e., groupKeyPairs
-    # the corresponding key pair will be used to mount rlnRelay on the current node
+    # index indicates the position of a membership credential in the static list of group keys i.e., groupIdCredentials
+    # the corresponding credential will be used to mount rlnRelay on the current node
     # index also represents the index of the leaf in the Merkle tree that contains node's commitment key
     let index = MembershipIndex(5)
 
     # -------- mount rln-relay in the off-chain mode
     await node.mountRelay(@[RlnRelayPubsubTopic])
     let mountRes = node.wakuRelay.mountRlnRelayStatic(group = groupIDCommitments,
-                            memKeyPair = groupKeyPairs[index],
+                            memIdCredential = groupIdCredentials[index],
                             memIndex = index,
                             pubsubTopic = RlnRelayPubsubTopic,
                             contentTopic = RlnRelayContentTopic)
@@ -91,7 +91,7 @@ suite "Waku rln relay":
     require:
       rlnInstance.isOk()
 
-    # keysBufferPtr will hold the generated key pairs i.e., secret and public keys
+    # keysBufferPtr will hold the generated identity credential i.e., id trapdoor, nullifier, secret hash and commitment
     var
       keysBuffer: Buffer
     let
@@ -101,10 +101,10 @@ suite "Waku rln relay":
       # check whether the keys are generated successfully
       done
 
-    let generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
+    let generatedKeys = cast[ptr array[4*32, byte]](keysBufferPtr.`ptr`)[]
     check:
-      # the public and secret keys together are 64 bytes
-      generatedKeys.len == 64
+      # the id trapdoor, nullifier, secert hash and commitment together are 4*32 bytes
+      generatedKeys.len == 4*32
     debug "generated keys: ", generatedKeys
 
   test "membership Key Generation":
@@ -113,19 +113,23 @@ suite "Waku rln relay":
     require:
       rlnInstance.isOk()
 
-    let keyPairRes = membershipKeyGen(rlnInstance.get())
+    let idCredentialsRes = membershipKeyGen(rlnInstance.get())
     require:
-      keyPairRes.isOk()
+      idCredentialsRes.isOk()
 
-    let keyPair = keyPairRes.get()
+    let idCredential = idCredentialsRes.get()
     let empty = default(array[32, byte])
     check:
-      keyPair.idKey.len == 32
-      keyPair.idCommitment.len == 32
-      keyPair.idKey != empty
-      keyPair.idCommitment != empty
+      idCredential.idTrapdoor.len == 32
+      idCredential.idNullifier.len == 32
+      idCredential.idSecretHash.len == 32
+      idCredential.idCommitment.len == 32
+      idCredential.idTrapdoor != empty
+      idCredential.idNullifier != empty
+      idCredential.idSecretHash != empty
+      idCredential.idCommitment != empty
 
-    debug "the generated membership key pair: ", keyPair
+    debug "the generated identity credential: ", idCredential
 
   test "getRoot Nim binding":
     # create an RLN instance which also includes an empty Merkle tree
@@ -189,13 +193,13 @@ suite "Waku rln relay":
     require:
       rlnInstance.isOk()
     let rln = rlnInstance.get()
-    # generate a key pair
-    let keyPairRes = membershipKeyGen(rln)
+    # generate an identity credential
+    let idCredentialRes = membershipKeyGen(rln)
     require:
-      keypairRes.isOk()
+      idCredentialRes.isOk()
     
-    let keyPair = keyPairRes.get()
-    let pkBuffer = toBuffer(keyPair.idCommitment)
+    let idCredential = idCredentialRes.get()
+    let pkBuffer = toBuffer(idCredential.idCommitment)
     let pkBufferPtr = unsafeAddr(pkBuffer)
 
     # add the member to the tree
@@ -221,12 +225,12 @@ suite "Waku rln relay":
     require:
       rlnInstance.isOk()
     let rln = rlnInstance.get()
-    # generate a key pair
-    let keyPairRes = rln.membershipKeyGen()
+    # generate an identity credential
+    let idCredentialRes = rln.membershipKeyGen()
     require:
-      keypairRes.isOk()
+      idCredentialRes.isOk()
     check:
-      rln.insertMembers(0, @[keyPairRes.get().idCommitment])
+      rln.insertMembers(0, @[idCredentialRes.get().idCommitment])
 
   test "insertMember rln utils":
     # create an RLN instance which also includes an empty Merkle tree
@@ -234,12 +238,12 @@ suite "Waku rln relay":
     require:
       rlnInstance.isOk()
     let rln = rlnInstance.get()
-    # generate a key pair
-    let keyPairRes = rln.membershipKeyGen()
+    # generate an identity credential
+    let idCredentialRes = rln.membershipKeyGen()
     require:
-      keypairRes.isOk()
+      idCredentialRes.isOk()
     check:
-      rln.insertMember(keyPairRes.get().idCommitment)
+      rln.insertMember(idCredentialRes.get().idCommitment)
 
   test "removeMember rln utils":
     # create an RLN instance which also includes an empty Merkle tree
@@ -267,13 +271,13 @@ suite "Waku rln relay":
       getRootSuccessful1
       root1.len == 32
 
-    # generate a key pair
-    let keyPairRes = membershipKeyGen(rln)
+    # generate an identity credential
+    let idCredentialRes = membershipKeyGen(rln)
     require:
-      keypairRes.isOk()
+      idCredentialRes.isOk()
     
-    let keyPair = keyPairRes.get()
-    let pkBuffer = toBuffer(keyPair.idCommitment)
+    let idCredential = idCredentialRes.get()
+    let pkBuffer = toBuffer(idCredential.idCommitment)
     let pkBufferPtr = unsafeAddr(pkBuffer)
 
     # add the member to the tree
@@ -340,11 +344,11 @@ suite "Waku rln relay":
       root1.isOk()
     let rootHex1 = root1.value().inHex()
 
-    # generate a key pair
-    let keyPairRes = rln.membershipKeyGen()
+    # generate an identity credential
+    let idCredentialRes = rln.membershipKeyGen()
     require:
-      keyPairRes.isOk()
-    let memberInserted = rln.insertMembers(0, @[keypairRes.get().idCommitment])
+      idCredentialRes.isOk()
+    let memberInserted = rln.insertMembers(0, @[idCredentialRes.get().idCommitment])
     require:
       memberInserted
 
@@ -445,17 +449,17 @@ suite "Waku rln relay":
       list.len == groupSize # check the number of keys
       root.len == HashHexSize # check the size of the calculated tree root
 
-  test "check correctness of toMembershipKeyPairs and calcMerkleRoot":
+  test "check correctness of toIdentityCredentials and calcMerkleRoot":
     let groupKeys = StaticGroupKeys
 
-    # create a set of MembershipKeyPair objects from groupKeys
-    let groupKeyPairsRes = groupKeys.toMembershipKeyPairs()
+    # create a set of IdentityCredentials objects from groupKeys
+    let groupIdCredentialsRes = groupKeys.toIdentityCredentials()
     require:
-      groupKeyPairsRes.isOk()
+      groupIdCredentialsRes.isOk()
     
-    let groupKeyPairs = groupKeyPairsRes.get()
+    let groupIdCredentials = groupIdCredentialsRes.get()
     # extract the id commitments
-    let groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
+    let groupIDCommitments = groupIdCredentials.mapIt(it.idCommitment)
     # calculate the Merkle tree root out of the extracted id commitments
     let rootRes = calcMerkleRoot(groupIDCommitments)
 
@@ -464,13 +468,13 @@ suite "Waku rln relay":
 
     let root = rootRes.get()
 
-    debug "groupKeyPairs", groupKeyPairs
+    debug "groupIdCredentials", groupIdCredentials
     debug "groupIDCommitments", groupIDCommitments
     debug "root", root
 
     check:
-      # check that the correct number of key pairs is created
-      groupKeyPairs.len == StaticGroupSize
+      # check that the correct number of identity credentials is created
+      groupIdCredentials.len == StaticGroupSize
       # compare the calculated root against the correct root
       root == StaticGroupMerkleRoot
 
@@ -518,26 +522,26 @@ suite "Waku rln relay":
     let
       # peer's index in the Merkle Tree
       index = 5'u
-      # create a membership key pair
-      memKeysRes = membershipKeyGen(rln)
+      # create an identity credential
+      idCredentialRes = membershipKeyGen(rln)
 
     require:
-      memKeysRes.isOk()
+      idCredentialRes.isOk()
     
-    let memKeys = memKeysRes.get()
+    let idCredential = idCredentialRes.get()
 
     var members = newSeq[IDCommitment]()
     # Create a Merkle tree with random members
     for i in 0'u..10'u:
       if (i == index):
         # insert the current peer's pk
-        members.add(memKeys.idCommitment)
+        members.add(idCredential.idCommitment)
       else:
-        # create a new key pair
-        let memberKeysRes = rln.membershipKeyGen()
+        # create a new identity credential
+        let idCredentialRes = rln.membershipKeyGen()
         require:
-          memberKeysRes.isOk()
-        members.add(memberKeysRes.get().idCommitment)
+          idCredentialRes.isOk()
+        members.add(idCredentialRes.get().idCommitment)
 
     # Batch the insert
     let batchInsertRes = rln.insertMembers(0, members)
@@ -553,7 +557,7 @@ suite "Waku rln relay":
 
     # generate proof
     let proofRes = rln.proofGen(data = messageBytes,
-                                memKeys = memKeys,
+                                memKeys = idCredential,
                                 memIndex = MembershipIndex(index),
                                 epoch = epoch)
     require:
@@ -582,26 +586,26 @@ suite "Waku rln relay":
     let
       # peer's index in the Merkle Tree
       index = 5'u
-      # create a membership key pair
-      memKeysRes = membershipKeyGen(rln)
+      # create an identity credential
+      idCredentialRes = membershipKeyGen(rln)
 
     require:
-      memKeysRes.isOk()
+      idCredentialRes.isOk()
 
-    let memKeys = memKeysRes.get()
+    let idCredential = idCredentialRes.get()
 
     # Create a Merkle tree with random members
     for i in 0'u..10'u:
       var memberAdded: bool = false
       if (i == index):
         # insert the current peer's pk
-        memberAdded = rln.insertMembers(i, @[memKeys.idCommitment])
+        memberAdded = rln.insertMembers(i, @[idCredential.idCommitment])
       else:
-        # create a new key pair
-        let memberKeysRes = rln.membershipKeyGen()
+        # create a new identity credential
+        let idCredentialRes = rln.membershipKeyGen()
         require:
-          memberKeysRes.isOk()
-        memberAdded = rln.insertMembers(i, @[memberKeysRes.get().idCommitment])
+          idCredentialRes.isOk()
+        memberAdded = rln.insertMembers(i, @[idCredentialRes.get().idCommitment])
       # check the member is added
       require:
         memberAdded
@@ -617,7 +621,7 @@ suite "Waku rln relay":
     let badIndex = 4
     # generate proof
     let proofRes = rln.proofGen(data = messageBytes,
-                                memKeys = memKeys,
+                                memKeys = idCredential,
                                 memIndex = MembershipIndex(badIndex),
                                 epoch = epoch)
     require:
@@ -649,29 +653,29 @@ suite "Waku rln relay":
     let
       # peer's index in the Merkle Tree. 
       index = 5'u
-      # create a membership key pair
-      memKeysRes = membershipKeyGen(rlnRelay.rlnInstance)
+      # create an identity credential
+      idCredentialRes = membershipKeyGen(rlnRelay.rlnInstance)
 
     require:
-      memKeysRes.isOk()
+      idCredentialRes.isOk()
     
-    let memKeys = memKeysRes.get()
+    let idCredential = idCredentialRes.get()
 
     let membershipCount: uint = AcceptableRootWindowSize + 5'u
 
-    var members = newSeq[MembershipKeyPair]()
+    var members = newSeq[IdentityCredential]()
 
     # Generate membership keys
     for i in 0'u..membershipCount:
       if (i == index):
         # insert the current peer's pk
-        members.add(memKeys)
+        members.add(idCredential)
       else:
-        # create a new key pair
-        let memberKeysRes = rlnRelay.rlnInstance.membershipKeyGen()
+        # create a new identity credential
+        let idCredentialRes = rlnRelay.rlnInstance.membershipKeyGen()
         require:
-          memberKeysRes.isOk()
-        members.add(memberKeysRes.get())
+          idCredentialRes.isOk()
+        members.add(idCredentialRes.get())
     
     # Batch inserts into the tree
     let insertedRes = rlnRelay.insertMembers(0, members.mapIt(it.idCommitment))
@@ -689,7 +693,7 @@ suite "Waku rln relay":
 
     # generate proof
     let validProofRes = rlnRelay.rlnInstance.proofGen(data = messageBytes,
-                                    memKeys = memKeys,
+                                    memKeys = idCredential,
                                     memIndex = MembershipIndex(index),
                                     epoch = epoch)
     require:
@@ -745,13 +749,13 @@ suite "Waku rln relay":
     let
       # peer's index in the Merkle Tree. 
       index = 6'u
-      # create a membership key pair
-      memKeysRes = membershipKeyGen(rlnRelay.rlnInstance)
+      # create an identity credential
+      idCredentialRes = membershipKeyGen(rlnRelay.rlnInstance)
 
     require:
-      memKeysRes.isOk()
+      idCredentialRes.isOk()
 
-    let memKeys = memKeysRes.get()
+    let idCredential = idCredentialRes.get()
 
     let membershipCount: uint = AcceptableRootWindowSize + 5'u 
 
@@ -760,13 +764,13 @@ suite "Waku rln relay":
       var memberIsAdded: RlnRelayResult[void]
       if (i == index):
         # insert the current peer's pk
-        memberIsAdded = rlnRelay.insertMembers(i, @[memKeys.idCommitment])
+        memberIsAdded = rlnRelay.insertMembers(i, @[idCredential.idCommitment])
       else:
-        # create a new key pair
-        let memberKeysRes = rlnRelay.rlnInstance.membershipKeyGen()
+        # create a new identity credential
+        let idCredentialRes = rlnRelay.rlnInstance.membershipKeyGen()
         require:
-          memberKeysRes.isOk()
-        memberIsAdded = rlnRelay.insertMembers(i, @[memberKeysRes.get().idCommitment])
+          idCredentialRes.isOk()
+        memberIsAdded = rlnRelay.insertMembers(i, @[idCredentialRes.get().idCommitment])
       # require that the member is added
       require:
         memberIsAdded.isOk()
@@ -782,7 +786,7 @@ suite "Waku rln relay":
 
     # generate proof
     let validProofRes = rlnRelay.rlnInstance.proofGen(data = messageBytes,
-                                    memKeys = memKeys,
+                                    memKeys = idCredential,
                                     memIndex = MembershipIndex(index),
                                     epoch = epoch)
     require:
@@ -916,20 +920,20 @@ suite "Waku rln relay":
       memListRes.isOk()
     let 
       (groupKeys, _) = memListRes.get()
-      # convert the keys to MembershipKeyPair structs
-      groupKeyPairsRes = groupKeys.toMembershipKeyPairs()
+      # convert the keys to IdentityCredential structs
+      groupIdCredentialsRes = groupKeys.toIdentityCredentials()
 
     require:
-      groupKeyPairsRes.isOk()
+      groupIdCredentialsRes.isOk()
 
-    let groupKeyPairs = groupKeyPairsRes.get()
+    let groupIdCredentials = groupIdCredentialsRes.get()
     # extract the id commitments
-    let groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
-    debug "groupKeyPairs", groupKeyPairs
+    let groupIDCommitments = groupIdCredentials.mapIt(it.idCommitment)
+    debug "groupIdCredentials", groupIdCredentials
     debug "groupIDCommitments", groupIDCommitments
 
-    # index indicates the position of a membership key pair in the static list of group keys i.e., groupKeyPairs
-    # the corresponding key pair will be used to mount rlnRelay on the current node
+    # index indicates the position of an identity credential in the static list of group keys i.e., groupIdCredentials
+    # the corresponding identity credential will be used to mount rlnRelay on the current node
     # index also represents the index of the leaf in the Merkle tree that contains node's commitment key
     let index = MembershipIndex(5)
 
@@ -941,7 +945,7 @@ suite "Waku rln relay":
 
     let
       wakuRlnRelay = WakuRLNRelay(membershipIndex: index,
-          membershipKeyPair: groupKeyPairs[index], rlnInstance: rln)
+          identityCredential: groupIdCredentials[index], rlnInstance: rln)
 
     # add members
     let commitmentAddRes =  wakuRlnRelay.addAll(groupIDCommitments)
@@ -997,21 +1001,21 @@ suite "Waku rln relay":
 
     let rln = rlnInstance.get()
     
-    # create a key pair
-    let keyPairRes = rln.membershipKeyGen()
+    # create an idendity credential
+    let idCredentialRes = rln.membershipKeyGen()
     require:
-      keyPairRes.isOk()
+      idCredentialRes.isOk()
 
-    let keyPair = keyPairRes.get()
+    let idCredential = idCredentialRes.get()
 
     # convert the idCommitment to UInt256
-    let idCUInt = keypair.idCommitment.toUInt256()
+    let idCUInt = idCredential.idCommitment.toUInt256()
     # convert the UInt256 back to ICommitment
     let idCommitment = toIDCommitment(idCUInt)
 
     # check that the conversion has not distorted the original value
     check:
-      keypair.idCommitment == idCommitment
+      idCredential.idCommitment == idCommitment
 
   test "Read/Write RLN credentials":
     # create an RLN instance
@@ -1019,23 +1023,27 @@ suite "Waku rln relay":
     require:
       rlnInstance.isOk()
 
-    let keyPairRes = membershipKeyGen(rlnInstance.get())
+    let idCredentialRes = membershipKeyGen(rlnInstance.get())
     require:
-      keyPairRes.isOk()
+      idCredentialRes.isOk()
 
-    let keyPair = keyPairRes.get()
+    let idCredential = idCredentialRes.get()
     let empty = default(array[32, byte])
     require:
-      keyPair.idKey.len == 32
-      keyPair.idCommitment.len == 32
-      keyPair.idKey != empty
-      keyPair.idCommitment != empty
+      idCredential.idTrapdoor.len == 32
+      idCredential.idNullifier.len == 32
+      idCredential.idSecretHash.len == 32
+      idCredential.idCommitment.len == 32
+      idCredential.idTrapdoor != empty
+      idCredential.idNullifier != empty
+      idCredential.idSecretHash != empty
+      idCredential.idCommitment != empty
 
-    debug "the generated membership key pair: ", keyPair
+    debug "the generated identity credential: ", idCredential
 
     let index =  MembershipIndex(1)
 
-    let rlnMembershipCredentials = RlnMembershipCredentials(membershipKeyPair: keyPair, 
+    let rlnMembershipCredentials = RlnMembershipCredentials(identityCredential: idCredential, 
                                                             rlnIndex: index)
 
     let password = "%m0um0ucoW%"
@@ -1056,7 +1064,7 @@ suite "Waku rln relay":
     require:
       credentials.isSome()
     check:
-      credentials.get().membershipKeyPair == keyPair
+      credentials.get().identityCredential == idCredential
       credentials.get().rlnIndex == index
 
   test "histogram static bucket generation":

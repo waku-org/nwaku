@@ -197,7 +197,7 @@ procSuite "WakuNode - RLN relay":
       input = concat(payload, contentTopicBytes)
       extraBytes: seq[byte] = @[byte(1),2,3] 
       rateLimitProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = concat(input, extraBytes),   # we add extra bytes to invalidate proof verification against original payload
-                                                              memKeys = node1.wakuRlnRelay.membershipKeyPair,
+                                                              memKeys = node1.wakuRlnRelay.identityCredential,
                                                               memIndex = MembershipIndex(1),
                                                               epoch = epoch)
     require:
