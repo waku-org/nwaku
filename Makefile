@@ -219,7 +219,7 @@ sim1: | build deps wakunode1
 # TODO: Remove unused target
 docs: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim doc --accept --index:on --project --out:.gh-pages waku/waku.nim waku.nims
+		$(ENV_SCRIPT) nim doc --run --index:on --project --out:.gh-pages waku/waku.nim waku.nims
 
 
 #####################
