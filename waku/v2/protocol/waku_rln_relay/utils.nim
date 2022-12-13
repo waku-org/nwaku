@@ -1367,7 +1367,6 @@ proc mount(wakuRelay: WakuRelay,
       return err("dynamic rln-relay could not be mounted: " & rlnRelayRes.error())
     let wakuRlnRelay = rlnRelayRes.get()
     if persistCredentials:
-      # TODO should be replaced with key-store with proper encryption
       # persist rln credential
       credentials = some(RlnMembershipCredentials(rlnIndex: wakuRlnRelay.membershipIndex, 
                                                   identityCredential: wakuRlnRelay.identityCredential))
