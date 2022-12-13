@@ -56,7 +56,7 @@ procSuite "Waku rln relay":
 
     # -------- mount rln-relay in the off-chain mode
     await node.mountRelay(@[RlnRelayPubsubTopic])
-    let mountRes = node.mountRlnRelayStatic(group = groupIDCommitments,
+    let mountRes = node.wakuRelay.mountRlnRelayStatic(group = groupIDCommitments,
                             memKeyPair = groupKeyPairs[index],
                             memIndex = index,
                             pubsubTopic = RlnRelayPubsubTopic,
@@ -64,8 +64,13 @@ procSuite "Waku rln relay":
     require:
       mountRes.isOk()
 
+    let wakuRlnRelay = mountRes.get()
+
     # get the root of Merkle tree which is constructed inside the mountRlnRelay proc
-    let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().inHex
+    let calculatedRootRes = wakuRlnRelay.rlnInstance.getMerkleRoot()
+    require:
+      calculatedRootRes.isOk()
+    let calculatedRoot = calculatedRootRes.get().inHex()
     debug "calculated root by mountRlnRelay", calculatedRoot
 
     # this part checks whether the Merkle tree is constructed correctly inside the mountRlnRelay proc
