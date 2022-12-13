@@ -573,7 +573,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
         echo "your rln identity trapdoor is: ", node.wakuRlnRelay.identityCredential.idTrapdoor.inHex()
         echo "your rln identity nullifier is: ", node.wakuRlnRelay.identityCredential.idNullifier.inHex()
         echo "your rln identity secret hash is: ", node.wakuRlnRelay.identityCredential.idSecretHash.inHex()
-        echo "your rln identity commitment key is: ", node.wakuRlnRelay.membershipCredential.idCommitment.inHex()
+        echo "your rln identity commitment key is: ", node.wakuRlnRelay.identityCredential.idCommitment.inHex()
 
   if conf.metricsLogging:
     startMetricsLog()
