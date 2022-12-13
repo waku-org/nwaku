@@ -8,10 +8,7 @@ import
   stew/byteutils, stew/shims/net as stewNet,
   libp2p/crypto/crypto,
   eth/keys,
-  ../../waku/v2/protocol/waku_rln_relay/[utils,
-      constants,
-      protocol_types, 
-      rln_relay_contract],
+  ../../waku/v2/protocol/waku_rln_relay,
   ../../waku/v2/node/waku_node,
   ../test_helpers,
   ./test_utils
@@ -209,11 +206,11 @@ procSuite "Waku-rln-relay":
     let fut = newFuture[void]()
     let s = await contractObj.subscribe(MemberRegistered, %*{"fromBlock": "0x0",
         "address": contractAddress}) do(
-      pubkey: Uint256, index: Uint256){.raises: [Defect], gcsafe.}:
+      idCommitment: Uint256, index: Uint256){.raises: [Defect], gcsafe.}:
       try:
-        debug "onRegister", pubkey = pubkey, index = index
+        debug "onRegister", idCommitment = idCommitment, index = index
         require:
-          pubkey == pk
+          idCommitment == pk
         fut.complete()
       except Exception as err:
         # chronos still raises exceptions which inherit directly from Exception
@@ -287,9 +284,9 @@ procSuite "Waku-rln-relay":
       events[futIndex].complete()
       futIndex += 1
       let index = members[0].index
-      let isSuccessful = rlnPeer.rlnInstance.insertMembers(index, members.mapIt(it.idComm))
+      let insertRes = rlnPeer.insertMembers(index, members.mapIt(it.idComm))
       check:
-        isSuccessful
+        insertRes.isOk()
       return ok()
     
     # mount the handler for listening to the contract events
@@ -308,7 +305,7 @@ procSuite "Waku-rln-relay":
     debug "a member is registered", tx2 = tx2
 
     # wait for the events to be processed
-    await all(events)
+    await allFutures(events)
 
     # release resources -----------------------
     await web3.close()
@@ -432,7 +429,8 @@ procSuite "Waku-rln-relay":
     # test ------------------------------
     # start rln-relay
     await node.mountRelay(@[RlnRelayPubsubTopic])
-    let mountRes = node.mountRlnRelayStatic(group = group,
+    let mountRes = mountRlnRelayStatic(wakuRelay = node.wakuRelay,
+                            group = group,
                             memKeyPair = keyPair,
                             memIndex = index,
                             pubsubTopic = RlnRelayPubsubTopic,
@@ -441,7 +439,9 @@ procSuite "Waku-rln-relay":
     require:
       mountRes.isOk()
 
-    let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().inHex
+    let wakuRlnRelay = mountRes.get()
+
+    let calculatedRoot = wakuRlnRelay.rlnInstance.getMerkleRoot().value().inHex()
     debug "calculated root ", calculatedRoot
 
     check:
@@ -522,7 +522,8 @@ procSuite "Waku-rln-relay":
     # test ------------------------------
     # start rln-relay
     await node.mountRelay(@[RlnRelayPubsubTopic])
-    discard await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
+    let mountRes = await mountRlnRelayDynamic(wakuRelay = node.wakuRelay,
+                            ethClientAddr = EthClient,
                             ethAccountAddress = some(ethacc),
                             ethAccountPrivKeyOpt = some(ethPrivKey),
                             memContractAddr = contractAddress, 
@@ -530,12 +531,17 @@ procSuite "Waku-rln-relay":
                             memIndex = some(MembershipIndex(0)),
                             pubsubTopic = RlnRelayPubsubTopic,
                             contentTopic = RlnRelayContentTopic)
+
+    require:
+      mountRes.isOk()
+
+    let wakuRlnRelay = mountRes.get()
     
-    await sleepAsync(2000) # wait for the event to reach the group handler
+    await sleepAsync(2000.milliseconds()) # wait for the event to reach the group handler
 
     # rln pks are inserted into the rln peer's Merkle tree and the resulting root
     # is expected to be the same as the calculatedRoot i.e., the one calculated outside of the mountRlnRelayDynamic proc
-    let calculatedRoot = node.wakuRlnRelay.rlnInstance.getMerkleRoot().value().inHex
+    let calculatedRoot = wakuRlnRelay.rlnInstance.getMerkleRoot().value().inHex
     debug "calculated root ", calculatedRoot=calculatedRoot
     debug "expected root ", expectedRoot=expectedRoot
 
@@ -575,7 +581,8 @@ procSuite "Waku-rln-relay":
 
     # start rln-relay on the first node, leave rln-relay credentials empty
     await node.mountRelay(@[RlnRelayPubsubTopic])
-    discard await node.mountRlnRelayDynamic(ethClientAddr = EthClient,
+    let mountRes = await mountRlnRelayDynamic(wakuRelay=node.wakuRelay,
+                            ethClientAddr = EthClient,
                             ethAccountAddress = some(ethacc),
                             ethAccountPrivKeyOpt = some(ethPrivKey),
                             memContractAddr = contractAddress, 
@@ -583,12 +590,16 @@ procSuite "Waku-rln-relay":
                             memIndex = none(MembershipIndex),
                             pubsubTopic = RlnRelayPubsubTopic,
                             contentTopic = RlnRelayContentTopic)
-    
 
+    require:
+      mountRes.isOk()
+
+    let wakuRlnRelay = mountRes.get()
 
     # start rln-relay on the second node, leave rln-relay credentials empty
     await node2.mountRelay(@[RlnRelayPubsubTopic])
-    discard await node2.mountRlnRelayDynamic(ethClientAddr = EthClient,
+    let mountRes2 = await mountRlnRelayDynamic(wakuRelay=node2.wakuRelay,
+                            ethClientAddr = EthClient,
                             ethAccountAddress = some(ethacc),
                             ethAccountPrivKeyOpt = some(ethPrivKey),
                             memContractAddr = contractAddress, 
@@ -596,13 +607,18 @@ procSuite "Waku-rln-relay":
                             memIndex = none(MembershipIndex),
                             pubsubTopic = RlnRelayPubsubTopic,
                             contentTopic = RlnRelayContentTopic)
+
+    require:
+      mountRes2.isOk()
+
+    let wakuRlnRelay2 = mountRes2.get()
 
     # the two nodes should be registered into the contract 
     # since nodes are spun up sequentially
     # the first node has index 0 whereas the second node gets index 1
     check:
-      node.wakuRlnRelay.membershipIndex == MembershipIndex(0)
-      node2.wakuRlnRelay.membershipIndex == MembershipIndex(1)
+      wakuRlnRelay.membershipIndex == MembershipIndex(0)
+      wakuRlnRelay2.membershipIndex == MembershipIndex(1)
 
     await node.stop()
     await node2.stop()

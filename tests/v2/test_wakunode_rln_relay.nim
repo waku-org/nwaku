@@ -11,7 +11,6 @@ import
   libp2p/peerid,
   libp2p/multiaddress,
   libp2p/switch,
-  libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
   eth/keys
 import
@@ -48,54 +47,35 @@ procSuite "WakuNode - RLN relay":
     # set up three nodes
     # node1
     await node1.mountRelay(@[rlnRelayPubSubTopic])
-    let staticSetupRes1 = rlnRelayStaticSetUp(1) # set up rln relay inputs
-    require:
-      staticSetupRes1.isOk()
 
-    let (groupOpt1, memKeyPairOpt1, memIndexOpt1) = staticSetupRes1.get()
     # mount rlnrelay in off-chain mode
-    let mountRes1 = node1.mountRlnRelayStatic(group = groupOpt1.get(),
-                                memKeyPair = memKeyPairOpt1.get(),
-                                memIndex = memIndexOpt1.get(), 
-                                pubsubTopic = rlnRelayPubSubTopic,
-                                contentTopic = contentTopic)
-    require:
-      mountRes1.isOk()
+    await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+      rlnRelayPubsubTopic: rlnRelayPubSubTopic,
+      rlnRelayContentTopic: contentTopic,
+      rlnRelayMembershipIndex: MembershipIndex(1),
+    ))
 
     await node1.start()
 
     # node 2
     await node2.mountRelay(@[rlnRelayPubSubTopic])
-    let staticSetupRes2 = rlnRelayStaticSetUp(2) # set up rln relay inputs
-    require:
-      staticSetupRes2.isOk()
-    let (groupOpt2, memKeyPairOpt2, memIndexOpt2) = staticSetupRes2.get()
     # mount rlnrelay in off-chain mode
-    let mountRes2 = node2.mountRlnRelayStatic(group = groupOpt2.get(),
-                                memKeyPair = memKeyPairOpt2.get(),
-                                memIndex = memIndexOpt2.get(),
-                                pubsubTopic = rlnRelayPubSubTopic,
-                                contentTopic = contentTopic)
-    require:
-      mountRes2.isOk()
+    await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+      rlnRelayPubsubTopic: rlnRelayPubSubTopic,
+      rlnRelayContentTopic: contentTopic,
+      rlnRelayMembershipIndex: MembershipIndex(2),
+    ))
 
     await node2.start()
 
     # node 3
     await node3.mountRelay(@[rlnRelayPubSubTopic])
-    let staticSetupRes3 = rlnRelayStaticSetUp(3) # set up rln relay inputs
-    require:
-      staticSetupRes3.isOk()
 
-    let (groupOpt3, memKeyPairOpt3, memIndexOpt3) = staticSetupRes3.get()
-    # mount rlnrelay in off-chain mode
-    let mountRes3 = node3.mountRlnRelayStatic(group = groupOpt3.get(),
-                                memKeyPair = memKeyPairOpt3.get(),
-                                memIndex = memIndexOpt3.get(),
-                                pubsubTopic = rlnRelayPubSubTopic,
-                                contentTopic = contentTopic)
-    require:
-      mountRes3.isOk()
+    await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+      rlnRelayPubsubTopic: rlnRelayPubSubTopic,
+      rlnRelayContentTopic: contentTopic,
+      rlnRelayMembershipIndex: MembershipIndex(3),
+    ))
 
     await node3.start()
 
@@ -153,54 +133,39 @@ procSuite "WakuNode - RLN relay":
 
     # set up three nodes
     # node1
+    # set up three nodes
+    # node1
     await node1.mountRelay(@[rlnRelayPubSubTopic])
-    let staticSetupRes1 = rlnRelayStaticSetUp(1) # set up rln relay inputs
-    require:
-      staticSetupRes1.isOk()
 
-    let (groupOpt1, memKeyPairOpt1, memIndexOpt1) = staticSetupRes1.get()
     # mount rlnrelay in off-chain mode
-    let mountRes1 = node1.mountRlnRelayStatic(group = groupOpt1.get(),
-                                memKeyPair = memKeyPairOpt1.get(),
-                                memIndex = memIndexOpt1.get(),
-                                pubsubTopic = rlnRelayPubSubTopic,
-                                contentTopic = contentTopic)
-    require:
-      mountRes1.isOk()
+    await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+      rlnRelayPubsubTopic: rlnRelayPubSubTopic,
+      rlnRelayContentTopic: contentTopic,
+      rlnRelayMembershipIndex: MembershipIndex(1),
+    ))
+
     await node1.start()
 
     # node 2
     await node2.mountRelay(@[rlnRelayPubSubTopic])
-    let staticSetupRes2 = rlnRelayStaticSetUp(2) # set up rln relay inputs
-    require:
-      staticSetupRes2.isOk()
-    
-    let (groupOpt2, memKeyPairOpt2, memIndexOpt2) = staticSetupRes2.get()
     # mount rlnrelay in off-chain mode
-    let mountRes2 = node2.mountRlnRelayStatic(group = groupOpt2.get(),
-                                memKeyPair = memKeyPairOpt2.get(),
-                                memIndex = memIndexOpt2.get(),
-                                pubsubTopic = rlnRelayPubSubTopic,
-                                contentTopic = contentTopic)
-    require:
-      mountRes2.isOk()
+    await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+      rlnRelayPubsubTopic: rlnRelayPubSubTopic,
+      rlnRelayContentTopic: contentTopic,
+      rlnRelayMembershipIndex: MembershipIndex(2),
+    ))
+
     await node2.start()
 
     # node 3
     await node3.mountRelay(@[rlnRelayPubSubTopic])
-    let staticSetupRes3 = rlnRelayStaticSetUp(3) # set up rln relay inputs
-    require:
-      staticSetupRes3.isOk()
 
-    let (groupOpt3, memKeyPairOpt3, memIndexOpt3) = staticSetupRes3.get()
-    # mount rlnrelay in off-chain mode
-    let mountRes3 = node3.mountRlnRelayStatic(group = groupOpt3.get(),
-                                memKeyPair = memKeyPairOpt3.get(),
-                                memIndex= memIndexOpt3.get(),
-                                pubsubTopic = rlnRelayPubSubTopic,
-                                contentTopic = contentTopic)
-    require:
-      mountRes3.isOk()
+    await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+      rlnRelayPubsubTopic: rlnRelayPubSubTopic,
+      rlnRelayContentTopic: contentTopic,
+      rlnRelayMembershipIndex: MembershipIndex(3),
+    ))
+
     await node3.start()
 
     # connect them together
@@ -278,55 +243,37 @@ procSuite "WakuNode - RLN relay":
     # set up three nodes
     # node1
     await node1.mountRelay(@[rlnRelayPubSubTopic])
-    let staticSetupRes1 = rlnRelayStaticSetUp(1) # set up rln relay inputs
-    require:
-      staticSetupRes1.isOk()
-    
-    let (groupOpt1, memKeyPairOpt1, memIndexOpt1) = staticSetupRes1.get()
+
     # mount rlnrelay in off-chain mode
-    let mountRes1 = node1.mountRlnRelayStatic(group = groupOpt1.get(),
-                                memKeyPair = memKeyPairOpt1.get(),
-                                memIndex = memIndexOpt1.get(),
-                                pubsubTopic = rlnRelayPubSubTopic,
-                                contentTopic = contentTopic)
-    require:
-      mountRes1.isOk()
+    await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+      rlnRelayPubsubTopic: rlnRelayPubSubTopic,
+      rlnRelayContentTopic: contentTopic,
+      rlnRelayMembershipIndex: MembershipIndex(1),
+    ))
 
     await node1.start()
 
     # node 2
     await node2.mountRelay(@[rlnRelayPubSubTopic])
-    let staticSetupRes2 = rlnRelayStaticSetUp(2) # set up rln relay inputs
-    require:
-      staticSetupRes2.isOk()
-    
-    let (groupOpt2, memKeyPairOpt2, memIndexOpt2) = staticSetupRes2.get()
+
     # mount rlnrelay in off-chain mode
-    let mountRes2 = node2.mountRlnRelayStatic(group = groupOpt2.get(),
-                                memKeyPair = memKeyPairOpt2.get(),
-                                memIndex = memIndexOpt2.get(),
-                                pubsubTopic = rlnRelayPubSubTopic,
-                                contentTopic = contentTopic)
-    require:
-      mountRes2.isOk()
+    await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+      rlnRelayPubsubTopic: rlnRelayPubSubTopic,
+      rlnRelayContentTopic: contentTopic,
+      rlnRelayMembershipIndex: MembershipIndex(2),
+    ))
 
     await node2.start()
 
     # node 3
     await node3.mountRelay(@[rlnRelayPubSubTopic])
-    let staticSetupRes3 = rlnRelayStaticSetUp(3) # set up rln relay inputs
-    require:
-      staticSetupRes3.isOk()
-    
-    let (groupOpt3, memKeyPairOpt3, memIndexOpt3) = staticSetupRes3.get()
+
     # mount rlnrelay in off-chain mode
-    let mountRes3 = node3.mountRlnRelayStatic(group = groupOpt3.get(),
-                                memKeyPair = memKeyPairOpt3.get(),
-                                memIndex = memIndexOpt3.get(), 
-                                pubsubTopic = rlnRelayPubSubTopic,
-                                contentTopic = contentTopic)
-    require:
-      mountRes3.isOk()
+    await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+      rlnRelayPubsubTopic: rlnRelayPubSubTopic,
+      rlnRelayContentTopic: contentTopic,
+      rlnRelayMembershipIndex: MembershipIndex(3),
+    ))
 
     await node3.start()
 

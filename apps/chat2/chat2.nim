@@ -565,13 +565,13 @@ proc processInput(rfd: AsyncFD) {.async.} =
           rlnRelayCredentialsPassword: conf.rlnRelayCredentialsPassword
         )
 
-        let res = await node.mountRlnRelay(conf=rlnConf, spamHandler = some(spamHandler), registrationHandler = some(registrationHandler))
-        if res.isErr():
-          echo "failed to mount rln-relay: " & res.error()
-        else:
-          echo "your membership index is: ", node.wakuRlnRelay.membershipIndex
-          echo "your rln identity key is: ", node.wakuRlnRelay.membershipKeyPair.idKey.inHex()
-          echo "your rln identity commitment key is: ", node.wakuRlnRelay.membershipKeyPair.idCommitment.inHex()
+        await node.mountRlnRelay(rlnConf, 
+                                 spamHandler=some(spamHandler),
+                                 registrationHandler=some(registrationHandler))
+
+        echo "your membership index is: ", node.wakuRlnRelay.membershipIndex
+        echo "your rln identity key is: ", node.wakuRlnRelay.membershipKeyPair.idKey.inHex()
+        echo "your rln identity commitment key is: ", node.wakuRlnRelay.membershipKeyPair.idCommitment.inHex()
 
   if conf.metricsLogging:
     startMetricsLog()
