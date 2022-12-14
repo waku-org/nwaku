@@ -195,11 +195,11 @@ procSuite "Waku-rln-relay":
     require: 
       rlnInstance.isOk() 
     # generate the membership keys
-    let membershipKeyPairRes = membershipKeyGen(rlnInstance.get())
+    let identityCredentialRes = membershipKeyGen(rlnInstance.get())
     require: 
-      membershipKeyPairRes.isOk()
-    let membershipKeyPair = membershipKeyPairRes.get()
-    let pk =  membershipKeyPair.idCommitment.toUInt256()
+      identityCredentialRes.isOk()
+    let identityCredential = identityCredentialRes.get()
+    let pk =  identityCredential.idCommitment.toUInt256()
     debug "membership commitment key", pk = pk
 
     # test ------------------------------
@@ -252,27 +252,27 @@ procSuite "Waku-rln-relay":
       rlnInstance.isOk()
     let rln = rlnInstance.get()
 
-    let keyPairRes = rln.membershipKeyGen()
+    let idCredentialRes = rln.membershipKeyGen()
     require: 
-      keyPairRes.isOk()
-    let keypair = keyPairRes.get()
-    let pk = keyPair.idCommitment.toUInt256()
+      idCredentialRes.isOk()
+    let idCredential = idCredentialRes.get()
+    let pk = idCredential.idCommitment.toUInt256()
     debug "membership commitment key", pk = pk
 
     # initialize the WakuRLNRelay
-    let rlnPeer = WakuRLNRelay(membershipKeyPair: keyPair,
+    let rlnPeer = WakuRLNRelay(identityCredential: idCredential,
       membershipIndex: MembershipIndex(0),
       ethClientAddress: EthClient,
       ethAccountAddress: some(accounts[0]),
       membershipContractAddress: contractAddress,
       rlnInstance: rln)
 
-    # generate another membership key pair
-    let keyPair2Res = rln.membershipKeyGen()
+    # generate another identity credential
+    let idCredential2Res = rln.membershipKeyGen()
     require: 
-      keyPair2Res.isOk()
-    let keyPair2 = keyPair2Res.get()
-    let pk2 = keyPair2.idCommitment.toUInt256()
+      idCredential2Res.isOk()
+    let idCredential2 = idCredential2Res.get()
+    let pk2 = idCredential2.idCommitment.toUInt256()
     debug "membership commitment key", pk2 = pk2
 
     let events = [newFuture[void](), newFuture[void]()]
@@ -358,17 +358,17 @@ procSuite "Waku-rln-relay":
       rlnInstance.isOk()
 
     # generate the membership keys
-    let membershipKeyPairRes = membershipKeyGen(rlnInstance.get())
+    let identityCredentialRes = membershipKeyGen(rlnInstance.get())
     require: 
-      membershipKeyPairRes.isOk()
-    let membershipKeyPair = membershipKeyPairRes.get()
+      identityCredentialRes.isOk()
+    let identityCredential = identityCredentialRes.get()
 
     # create an Ethereum private key and the corresponding account 
     let (ethPrivKey, ethacc) = await createEthAccount()
 
     # test ------------------------------
     # initialize the WakuRLNRelay
-    let rlnPeer = WakuRLNRelay(membershipKeyPair: membershipKeyPair,
+    let rlnPeer = WakuRLNRelay(identityCredential: identityCredential,
       membershipIndex: MembershipIndex(0),
       ethClientAddress: EthClient,
       ethAccountPrivateKey: some(ethPrivKey),
@@ -393,12 +393,12 @@ procSuite "Waku-rln-relay":
     require:
       rlnInstance.isOk()
     let rln = rlnInstance.get()
-    # generate a key pair
-    let keyPairRes = rln.membershipKeyGen()
+    # generate an identity credential
+    let idCredentialRes = rln.membershipKeyGen()
     require:
-      keyPairRes.isOk()
+      idCredentialRes.isOk()
 
-    let keyPair = keyPairRes.get()
+    let idCredential = idCredentialRes.get()
     # current peer index in the Merkle tree
     let index = uint(5)
 
@@ -408,20 +408,20 @@ procSuite "Waku-rln-relay":
       var memberAdded: bool = false
       if (i == index):
         #  insert the current peer's pk
-        group.add(keyPair.idCommitment)
-        memberAdded = rln.insertMembers(i, @[keyPair.idCommitment])
+        group.add(idCredential.idCommitment)
+        memberAdded = rln.insertMembers(i, @[idCredential.idCommitment])
         doAssert(memberAdded)
-        debug "member key", key = keyPair.idCommitment.inHex
+        debug "member key", key = idCredential.idCommitment.inHex
       else:
-        let memberKeyPairRes = rln.membershipKeyGen()
+        let idCredentialRes = rln.membershipKeyGen()
         require:
-          memberKeyPairRes.isOk()
-        let memberKeyPair = memberKeyPairRes.get()
-        group.add(memberKeyPair.idCommitment)
-        let memberAdded = rln.insertMembers(i, @[memberKeyPair.idCommitment])
+          idCredentialRes.isOk()
+        let idCredential = idCredentialRes.get()
+        group.add(idCredential.idCommitment)
+        let memberAdded = rln.insertMembers(i, @[idCredential.idCommitment])
         require:
           memberAdded
-        debug "member key", key = memberKeyPair.idCommitment.inHex
+        debug "member key", key = idCredential.idCommitment.inHex
 
     let expectedRoot = rln.getMerkleRoot().value().inHex
     debug "expected root ", expectedRoot
@@ -431,7 +431,7 @@ procSuite "Waku-rln-relay":
     await node.mountRelay(@[RlnRelayPubsubTopic])
     let mountRes = mountRlnRelayStatic(wakuRelay = node.wakuRelay,
                             group = group,
-                            memKeyPair = keyPair,
+                            memIdCredential = idCredential,
                             memIndex = index,
                             pubsubTopic = RlnRelayPubsubTopic,
                             contentTopic = RlnRelayContentTopic)
@@ -475,26 +475,26 @@ procSuite "Waku-rln-relay":
       rlnInstance.isOk()
     let rln = rlnInstance.get()
 
-    # create two rln key pairs
+    # create two identity credentials
     let 
-      keyPair1Res = rln.membershipKeyGen()
-      keyPair2Res = rln.membershipKeyGen()
+      idCredential1Res = rln.membershipKeyGen()
+      idCredential2Res = rln.membershipKeyGen()
     require: 
-      keyPair1Res.isOk()
-      keyPair2Res.isOk()
+      idCredential1Res.isOk()
+      idCredential2Res.isOk()
 
     let
-      keyPair1 = keyPair1Res.get()
-      keyPair2 = keyPair2Res.get()
-      pk1 = keyPair1.idCommitment.toUInt256() 
-      pk2 = keyPair2.idCommitment.toUInt256() 
-    debug "member key1", key = keyPair1.idCommitment.inHex
-    debug "member key2", key = keyPair2.idCommitment.inHex
+      idCredential1 = idCredential1Res.get()
+      idCredential2 = idCredential2Res.get()
+      pk1 = idCredential1.idCommitment.toUInt256() 
+      pk2 = idCredential2.idCommitment.toUInt256() 
+    debug "member key1", key = idCredential1.idCommitment.inHex
+    debug "member key2", key = idCredential2.idCommitment.inHex
 
     # add the rln keys to the Merkle tree
     let
-      memberIsAdded1 = rln.insertMembers(0, @[keyPair1.idCommitment])
-      memberIsAdded2 = rln.insertMembers(1, @[keyPair2.idCommitment])
+      memberIsAdded1 = rln.insertMembers(0, @[idCredential1.idCommitment])
+      memberIsAdded2 = rln.insertMembers(1, @[idCredential2.idCommitment])
     
     require:
       memberIsAdded1
@@ -527,7 +527,7 @@ procSuite "Waku-rln-relay":
                             ethAccountAddress = some(ethacc),
                             ethAccountPrivKeyOpt = some(ethPrivKey),
                             memContractAddr = contractAddress, 
-                            memKeyPair = some(keyPair1),
+                            memIdCredential = some(idCredential1),
                             memIndex = some(MembershipIndex(0)),
                             pubsubTopic = RlnRelayPubsubTopic,
                             contentTopic = RlnRelayContentTopic)
@@ -586,7 +586,7 @@ procSuite "Waku-rln-relay":
                             ethAccountAddress = some(ethacc),
                             ethAccountPrivKeyOpt = some(ethPrivKey),
                             memContractAddr = contractAddress, 
-                            memKeyPair = none(MembershipKeyPair),
+                            memIdCredential = none(IdentityCredential),
                             memIndex = none(MembershipIndex),
                             pubsubTopic = RlnRelayPubsubTopic,
                             contentTopic = RlnRelayContentTopic)
@@ -603,7 +603,7 @@ procSuite "Waku-rln-relay":
                             ethAccountAddress = some(ethacc),
                             ethAccountPrivKeyOpt = some(ethPrivKey),
                             memContractAddr = contractAddress, 
-                            memKeyPair = none(MembershipKeyPair),
+                            memIdCredential = none(IdentityCredential),
                             memIndex = none(MembershipIndex),
                             pubsubTopic = RlnRelayPubsubTopic,
                             contentTopic = RlnRelayContentTopic)
