@@ -1,97 +1,101 @@
 import 
-    ../group_manager_base
+    ../group_manager_base,
+    ../../utils,
+    std/sequtils
 
 type
     StaticGroupManagerConfig* = object
-        rawGroupKeys*: seq[string]
-        groupKeys*: Option[seq[IdentityCredentials]]
+        groupKeys*: seq[IdentityCredential]
         groupSize*: uint
         membershipIndex*: MembershipIndex
 
-    StaticGroupManager* = ref object of GroupManagerBase[StaticGroupManagerConfig]
+    StaticGroupManager* = ref object of GroupManager[StaticGroupManagerConfig]
 
 template initializedGuard*(g: StaticGroupManager): untyped =
     if not g.initialized:
-        return err("StaticGroupManager is not initialized")
+        raise newException(ValueError, "StaticGroupManager is not initialized")
 
-method init*(g: StaticGroupManager): Result[void] =
+method init*(g: StaticGroupManager): Future[void] {.async,gcsafe.} =
     let
-        rawGroupKeys = g.config.rawGroupKeys
         groupSize = g.config.groupSize
+        groupKeys = g.config.groupKeys
         membershipIndex = g.config.membershipIndex
     
     if membershipIndex < MembershipIndex(0) or membershipIndex >= MembershipIndex(groupSize):
-        return err("Invalid membership index. Must be within 0 and " & $(groupSize - 1) & "but was " & $membershipIndex)
-
-    let parsedGroupKeys = rawGroupKeys.map(parseGroupKey)
-    if parsedGroupKeys.anyIt(it.isErr):
-        return err("Invalid group key: " & $parsedGroupKeys.findIt(it.isErr).getErr())
-
-    g.config.groupKeys = some(parsedGroupKeys.mapIt(it.get()))
-    g.idCredentials = g.config.groupKeys[membershipIndex]
+        raise newException(ValueError, "Invalid membership index. Must be within 0 and " & $(groupSize - 1) & "but was " & $membershipIndex)
+    g.idCredentials = some(groupKeys[membershipIndex])  
 
     # Seed the received commitments into the merkle tree
-    let membersInserted = g.rlnInstance.insertMembers(g.config.groupKeys.mapIt(it.idCommitment))
+    let idCommitments = groupKeys.mapIt(it.idCommitment)
+    let membersInserted = g.rlnInstance.insertMembers(g.latestIndex, idCommitments)
     if not membersInserted:
-        return err("Failed to insert members into the merkle tree")
+        raise newException(ValueError, "Failed to insert members into the merkle tree")
+
+    g.latestIndex += MembershipIndex(idCommitments.len() - 1)
 
     g.initialized = true
-    return ok()
-
-method startGroupSync*(g: StaticGroupManager): Result[void] {.async.} =
-    initializedGuard(g)
-    # No-op
-    return ok()
     
-method register*(g: StaticGroupManager, idCommitment: IDCommitment): Result[void] {.async.} =
+    return
+
+method startGroupSync*(g: StaticGroupManager): Future[void] =
+    initializedGuard(g)
+    var retFuture = newFuture[void]("StaticGroupManager.sta rtGroupSync")
+    # No-op
+    retFuture.complete()
+    return retFuture
+    
+method register*(g: StaticGroupManager, idCommitment: IDCommitment): Future[void] {.async.} =
     initializedGuard(g)
 
     let memberInserted = g.rlnInstance.insertMember(idCommitment)
     if not memberInserted:
-        return err("Failed to insert member into the merkle tree")
-
-    if g.onRegisterCb.isSome():
-        await g.onRegisterCb.get()(@[idCommitment])
-
-    return ok()
-
-
-method registerBatch*(g: StaticGroupManager, idCommitments: seq[IDCommitment]): Result[void] {.async.} =
-    initializedGuard(g)
-
-    let membersInserted = g.rlnInstance.insertMembers(idCommitments)
-    if not membersInserted:
-        return err("Failed to insert members into the merkle tree")
-
-    if g.onRegisterCb.isSome():
-        await g.onRegisterCb.get()(idCommitments)
+        raise newException(ValueError, "Failed to insert member into the merkle tree")
     
-    return ok()
+    g.latestIndex += 1
 
-method withdraw*(g: StaticGroupManager, idSecretHash: IdentitySecretHash): Result[void] {.async.} =
+    if g.onRegisterCb.isSome():
+        await g.onRegisterCb.get()(@[(idCommitment, g.latestIndex)])
+
+    return
+
+method registerBatch*(g: StaticGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
     initializedGuard(g)
 
-    let groupKeys = g.config.groupKeys.get()
-    let idCommitment = groupKeys.findIt(it.idSecretHash == idSecretHash).get().idCommitment
-    let memberRemoved = g.rlnInstance.removeMember(idCommitment)
-    if not memberRemoved:
-        return err("Failed to remove member from the merkle tree")
+    let membersInserted = g.rlnInstance.insertMembers(g.latestIndex + 1, idCommitments)
+    if not membersInserted:
+        raise newException(ValueError, "Failed to insert members into the merkle tree")
 
-    if g.onWithdrawCb.isSome():
-        await g.onWithdrawCb.get()(@[idCommitment])
+    g.latestIndex += MembershipIndex(idCommitments.len() - 1)
 
-    return ok()
+    let retSeq = idCommitments.mapIt((it, g.latestIndex))
+    if g.onRegisterCb.isSome():
+        await g.onRegisterCb.get()(retSeq)
 
-method withdrawBatch*(g: StaticGroupManager, idSecretHashes: seq[IdentitySecretHash]): Result[void] {.async.} =
+    return
+
+method withdraw*(g: StaticGroupManager, idSecretHash: IdentitySecretHash): Future[void] {.async.} =
     initializedGuard(g)
 
-    let groupKeys = g.config.groupKeys.get()
-    let identityCommitments = idSecretHashes.map(groupKeys.findIt(it.idSecretHash == idSecretHash).get().idCommitment)
-    let membersRemoved = g.rlnInstance.removeMembers(idCommitments)
-    if not membersRemoved:
-        return err("Failed to remove members from the merkle tree")
+    let groupKeys = g.config.groupKeys
 
-    if g.onWithdrawCb.isSome():
-        await g.onWithdrawCb.get()(idCommitments)
+    for i in 0..<groupKeys.len():
+        if groupKeys[i].idSecretHash == idSecretHash:
+            let idCommitment = groupKeys[i].idCommitment
+            let index = MembershipIndex(i)
+            let memberRemoved = g.rlnInstance.removeMember(index)
+            if not memberRemoved:
+                raise newException(ValueError, "Failed to remove member from the merkle tree")
 
-    return ok()
+            if g.onWithdrawCb.isSome():
+                await g.onWithdrawCb.get()(@[(idCommitment, index)])
+
+            return
+
+
+method withdrawBatch*(g: StaticGroupManager, idSecretHashes: seq[IdentitySecretHash]): Future[void] {.async.} =
+    initializedGuard(g)
+
+    # call withdraw on each idSecretHash
+    for idSecretHash in idSecretHashes:
+        await g.withdraw(idSecretHash)
+    

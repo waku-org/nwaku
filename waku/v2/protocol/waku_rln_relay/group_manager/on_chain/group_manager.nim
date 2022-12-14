@@ -11,7 +11,7 @@ type
         rlnContract: Option[RlnContractWithSender]
         membershipFee: Option[Uint256]
 
-    OnchainGroupManager* = ref object of GroupManagerBase[OnchainGroupManagerConfig]
+    OnchainGroupManager* = ref object of GroupManager[OnchainGroupManagerConfig]
 
 template initializedGuard*(g: OnchainGroupManager): untyped =
     if not g.initialized:
