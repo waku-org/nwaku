@@ -135,7 +135,7 @@ proc toIDCommitment*(idCommitmentUint: UInt256): IDCommitment =
   return pk
 
 proc inHex*(value: IdentityTrapdoor or IdentityNullifier or IdentitySecretHash or IDCommitment or MerkleNode or Nullifier or Epoch or RlnIdentifier): string =
-  var valueHex = (UInt256.fromBytesLE(value)).toHex
+  var valueHex = (UInt256.fromBytesLE(value)).toHex()
   # We pad leading zeroes
   while valueHex.len < value.len * 2:
     valueHex = "0" & valueHex
