@@ -66,16 +66,18 @@ proc reset_tree*(ctx: ptr RLN, tree_height: uint): bool {.importc: "set_tree".}
 #----------------------------------------------------------------------------------------------
 
 #-------------------------------- zkSNARKs operations -----------------------------------------
-proc key_gen*(ctx: ptr RLN, output_buffer: ptr Buffer): bool {.importc: "key_gen".}
-## generates id key and id commitment key serialized inside output_buffer as | id_key <32 bytes>| id_commitment_key <32 bytes> |
-## id commitment is the poseidon hash of the id key
+proc key_gen*(ctx: ptr RLN, output_buffer: ptr Buffer): bool {.importc: "extended_key_gen".}
+## generates identity trapdoor, identity nullifier, identity secret hash and id commitment tuple serialized inside output_buffer as | identity_trapdoor<32> | identity_nullifier<32> | identity_secret_hash<32> | id_commitment<32> |
+## identity secret hash is the poseidon hash of [identity_trapdoor, identity_nullifier]
+## id commitment is the poseidon hash of the identity secret hash
 ## the return bool value indicates the success or failure of the operation
 
-proc seeded_key_gen*(ctx: ptr RLN, input_buffer: ptr Buffer, output_buffer: ptr Buffer): bool {.importc: "seeded_key_gen".}
-## generates id key and id commitment key serialized inside output_buffer as | id_key <32 bytes>| id_commitment_key <32 bytes> | using ChaCha20
+proc seeded_key_gen*(ctx: ptr RLN, input_buffer: ptr Buffer, output_buffer: ptr Buffer): bool {.importc: "seeded_extended_key_gen".}
+## generates identity trapdoor, identity nullifier, identity secret hash and id commitment tuple serialized inside output_buffer as | identity_trapdoor<32> | identity_nullifier<32> | identity_secret_hash<32> | id_commitment<32> | using ChaCha20
 ## seeded with an arbitrary long seed serialized in input_buffer
 ## The input seed provided by the user is hashed using Keccak256 before being passed to ChaCha20 as seed.
-## id commitment is the poseidon hash of the id key
+## identity secret hash is the poseidon hash of [identity_trapdoor, identity_nullifier]
+## id commitment is the poseidon hash of the identity secret hash
 ## the return bool value indicates the success or failure of the operation
 
 proc generate_proof*(ctx: ptr RLN,

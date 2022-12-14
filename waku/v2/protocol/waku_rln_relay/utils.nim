@@ -83,11 +83,11 @@ proc createRLNInstanceLocal(d: int = MerkleTreeDepth): RLNResult =
     return err("error in parameters generation")
   return ok(rlnInstance)
 
-proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[MembershipKeyPair] =
-  ## generates a MembershipKeyPair that can be used for the registration into the rln membership contract
+proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[IdentityCredential] =
+  ## generates a IdentityCredential that can be used for the registration into the rln membership contract
   ## Returns an error if the key generation fails
 
-  # keysBufferPtr will hold the generated key pairs i.e., secret and public keys
+  # keysBufferPtr will hold the generated identity tuple i.e., trapdoor, nullifier, secret hash and commitment
   var
     keysBuffer: Buffer
     keysBufferPtr = addr(keysBuffer)
@@ -97,22 +97,26 @@ proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[MembershipKeyPair] =
   if(done == false):
     return err("error in key generation")
 
-  var generatedKeys = cast[ptr array[64, byte]](keysBufferPtr.`ptr`)[]
+  var generatedKeys = cast[ptr array[4*32, byte]](keysBufferPtr.`ptr`)[]
   # the public and secret keys together are 64 bytes
-  if (generatedKeys.len != 64):
+  if (generatedKeys.len != 4*32):
     return err("generated keys are of invalid length")
 
   # TODO define a separate proc to decode the generated keys to the secret and public components
   var
-    secret: array[32, byte]
-    public: array[32, byte]
-  for (i, x) in secret.mpairs: x = generatedKeys[i]
-  for (i, x) in public.mpairs: x = generatedKeys[i+32]
+    idTrapdoor: array[32, byte]
+    idNullifier: array[32, byte]
+    idSecretHash: array[32, byte]
+    idCommitment: array[32, byte]
+  for (i, x) in idTrapdoor.mpairs: x = generatedKeys[i+0*32]
+  for (i, x) in idNullifier.mpairs: x = generatedKeys[i+1*32]
+  for (i, x) in idSecretHash.mpairs: x = generatedKeys[i+2*32]
+  for (i, x) in idCommitment.mpairs: x = generatedKeys[i+3*32]
 
   var
-    keypair = MembershipKeyPair(idKey: secret, idCommitment: public)
+    identityCredential = IdentityCredential(idTrapdoor: idTrapdoor, idNullifier: idNullifier, idSecretHash: idSecretHash, idCommitment: idCommitment)
 
-  return ok(keypair)
+  return ok(identityCredential)
 
 proc createRLNInstance*(d: int = MerkleTreeDepth): RLNResult =
   ## Wraps the rln instance creation for metrics
@@ -130,8 +134,8 @@ proc toIDCommitment*(idCommitmentUint: UInt256): IDCommitment =
   let pk = IDCommitment(idCommitmentUint.toBytesLE())
   return pk
 
-proc inHex*(value: IDKey or IDCommitment or MerkleNode or Nullifier or Epoch or RlnIdentifier): string =
-  var valueHex = (UInt256.fromBytesLE(value)).toHex
+proc inHex*(value: IdentityTrapdoor or IdentityNullifier or IdentitySecretHash or IDCommitment or MerkleNode or Nullifier or Epoch or RlnIdentifier): string =
+  var valueHex = (UInt256.fromBytesLE(value)).toHex()
   # We pad leading zeroes
   while valueHex.len < value.len * 2:
     valueHex = "0" & valueHex
@@ -204,9 +208,9 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Option[Address], ethAcco
   return ok(toMembershipIndex(eventIndex))
 
 proc register*(rlnPeer: WakuRLNRelay, registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): Future[RlnRelayResult[bool]] {.async.} =
-  ## registers the public key of the rlnPeer which is rlnPeer.membershipKeyPair.publicKey
+  ## registers the public key of the rlnPeer which is rlnPeer.identityCredential.publicKey
   ## into the membership contract whose address is in rlnPeer.membershipContractAddress
-  let pk = rlnPeer.membershipKeyPair.idCommitment
+  let pk = rlnPeer.identityCredential.idCommitment
   let regResult = await register(idComm = pk, ethAccountAddress = rlnPeer.ethAccountAddress, ethAccountPrivKey = rlnPeer.ethAccountPrivateKey.get(), ethClientAddress = rlnPeer.ethClientAddress, membershipContractAddress = rlnPeer.membershipContractAddress, registrationHandler = registrationHandler)
   if regResult.isErr:
     return err(regResult.error())
@@ -239,7 +243,7 @@ proc hash*(rlnInstance: ptr RLN, data: openArray[byte]): MerkleNode =
 
   return output
 
-proc serialize(idKey: IDKey, memIndex: MembershipIndex, epoch: Epoch,
+proc serialize(idSecretHash: IdentitySecretHash, memIndex: MembershipIndex, epoch: Epoch,
     msg: openArray[byte]): seq[byte] =
   ## a private proc to convert RateLimitProof and the data to a byte seq
   ## this conversion is used in the proofGen proc
@@ -247,15 +251,15 @@ proc serialize(idKey: IDKey, memIndex: MembershipIndex, epoch: Epoch,
   ## [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
   let memIndexBytes = toBytes(uint64(memIndex), Endianness.littleEndian)
   let lenPrefMsg = appendLength(msg)
-  let output = concat(@idKey, @memIndexBytes, @epoch, lenPrefMsg)
+  let output = concat(@idSecretHash, @memIndexBytes, @epoch, lenPrefMsg)
   return output
 
 proc proofGen*(rlnInstance: ptr RLN, data: openArray[byte],
-    memKeys: MembershipKeyPair, memIndex: MembershipIndex,
+    memKeys: IdentityCredential, memIndex: MembershipIndex,
     epoch: Epoch): RateLimitProofResult =
 
   # serialize inputs
-  let serializedInputs = serialize(idKey = memKeys.idKey,
+  let serializedInputs = serialize(idSecretHash = memKeys.idSecretHash,
                                   memIndex = memIndex,
                                   epoch = epoch,
                                   msg = data)
@@ -464,25 +468,49 @@ proc validateRoot*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): bool =
   ## Validate against the window of roots stored in wakuRlnRelay.validMerkleRoots
   return root in wakuRlnRelay.validMerkleRoots
 
-proc toMembershipKeyPairs*(groupKeys: seq[(string, string)]): RlnRelayResult[seq[
-    MembershipKeyPair]] =
+# Converts a sequence of tuples containing 4 string (i.e. identity trapdoor, nullifier, secret hash and commitment) to an IndentityCredential
+proc toIdentityCredentials*(groupKeys: seq[(string, string, string, string)]): RlnRelayResult[seq[
+    IdentityCredential]] =
   ## groupKeys is  sequence of membership key tuples in the form of (identity key, identity commitment) all in the hexadecimal format
-  ## the toMembershipKeyPairs proc populates a sequence of MembershipKeyPairs using the supplied groupKeys
+  ## the toIdentityCredentials proc populates a sequence of IdentityCredentials using the supplied groupKeys
   ## Returns an error if the conversion fails
 
-  var groupKeyPairs = newSeq[MembershipKeyPair]()
+  var groupIdCredentials = newSeq[IdentityCredential]()
 
   for i in 0..groupKeys.len-1:
     try:
       let
-        idKey = hexToUint[IDKey.len*8](groupKeys[i][0]).toBytesLE()
-        idCommitment = hexToUint[IDCommitment.len*8](groupKeys[i][1]).toBytesLE()
-      groupKeyPairs.add(MembershipKeyPair(idKey: idKey,
+        idTrapdoor = hexToUint[IdentityTrapdoor.len*8](groupKeys[i][0]).toBytesLE()
+        idNullifier = hexToUint[IdentityNullifier.len*8](groupKeys[i][1]).toBytesLE()
+        idSecretHash = hexToUint[IdentitySecretHash.len*8](groupKeys[i][2]).toBytesLE()
+        idCommitment = hexToUint[IDCommitment.len*8](groupKeys[i][3]).toBytesLE()
+      groupIdCredentials.add(IdentityCredential(idTrapdoor: idTrapdoor, idNullifier: idNullifier, idSecretHash: idSecretHash,
           idCommitment: idCommitment))
     except ValueError as err:
       warn "could not convert the group key to bytes", err = err.msg
       return err("could not convert the group key to bytes: " & err.msg)
-  return ok(groupKeyPairs)
+  return ok(groupIdCredentials)
+
+# Converts a sequence of tuples containing 2 string (i.e. identity secret hash and commitment) to an IndentityCredential
+proc toIdentityCredentials*(groupKeys: seq[(string, string)]): RlnRelayResult[seq[
+    IdentityCredential]] =
+  ## groupKeys is  sequence of membership key tuples in the form of (identity key, identity commitment) all in the hexadecimal format
+  ## the toIdentityCredentials proc populates a sequence of IdentityCredentials using the supplied groupKeys
+  ## Returns an error if the conversion fails
+
+  var groupIdCredentials = newSeq[IdentityCredential]()
+
+  for i in 0..groupKeys.len-1:
+    try:
+      let
+        idSecretHash = hexToUint[IdentitySecretHash.len*8](groupKeys[i][0]).toBytesLE()
+        idCommitment = hexToUint[IDCommitment.len*8](groupKeys[i][1]).toBytesLE()
+      groupIdCredentials.add(IdentityCredential(idSecretHash: idSecretHash,
+          idCommitment: idCommitment))
+    except ValueError as err:
+      warn "could not convert the group key to bytes", err = err.msg
+      return err("could not convert the group key to bytes: " & err.msg)
+  return ok(groupIdCredentials)
 
 proc calcMerkleRoot*(list: seq[IDCommitment]): RlnRelayResult[string] =
   ## returns the root of the Merkle tree that is computed from the supplied list
@@ -502,9 +530,9 @@ proc calcMerkleRoot*(list: seq[IDCommitment]): RlnRelayResult[string] =
   return ok(root)
 
 proc createMembershipList*(n: int): RlnRelayResult[(
-    seq[(string, string)], string
+    seq[(string, string, string, string)], string
   )] =
-  ## createMembershipList produces a sequence of membership key pairs in the form of (identity key, id commitment keys) in the hexadecimal format
+  ## createMembershipList produces a sequence of identity credentials in the form of (identity trapdoor, identity nullifier, identity secret hash, id commitment) in the hexadecimal format
   ## this proc also returns the root of a Merkle tree constructed out of the identity commitment keys of the generated list
   ## the output of this proc is used to initialize a static group keys (to test waku-rln-relay in the off-chain mode)
   ## Returns an error if it cannot create the membership list
@@ -515,19 +543,18 @@ proc createMembershipList*(n: int): RlnRelayResult[(
     return err("could not create rln instance: " & rlnInstance.error())
   let rln = rlnInstance.get()
 
-  var output = newSeq[(string, string)]()
+  var output = newSeq[(string, string, string, string)]()
   var idCommitments = newSeq[IDCommitment]()
+
   for i in 0..n-1:
-
-    # generate a key pair
-    let keypairRes = rln.membershipKeyGen()
-    if keypairRes.isErr():
-      return err("could not generate a key pair: " & keypairRes.error())
-    let keypair = keypairRes.get()
-    let keyTuple = (keypair.idKey.inHex(), keypair.idCommitment.inHex())
-    output.add(keyTuple)
-
-    idCommitments.add(keypair.idCommitment)
+    # generate an identity credential
+    let idCredentialRes = rln.membershipKeyGen()
+    if idCredentialRes.isErr():
+      return err("could not generate an identity credential: " & idCredentialRes.error())
+    let idCredential = idCredentialRes.get()
+    let idTuple = (idCredential.idTrapdoor.inHex(), idCredential.idNullifier.inHex(), idCredential.idSecretHash.inHex(), idCredential.idCommitment.inHex())
+    output.add(idTuple)
+    idCommitments.add(idCredential.idCommitment)
 
   # Insert members into tree
   let membersAdded = rln.insertMembers(0, idCommitments)
@@ -538,11 +565,11 @@ proc createMembershipList*(n: int): RlnRelayResult[(
   return ok((output, root))
 
 proc rlnRelayStaticSetUp*(rlnRelayMembershipIndex: MembershipIndex): RlnRelayResult[(Option[seq[
-    IDCommitment]], Option[MembershipKeyPair], Option[
+    IDCommitment]], Option[IdentityCredential], Option[
     MembershipIndex])] =
   ## rlnRelayStaticSetUp is a proc that is used to initialize the static group keys and the static membership index
   ## this proc is used to test waku-rln-relay in the off-chain mode
-  ## it returns the static group keys, the static membership key pair, and the static membership index
+  ## it returns the static group id commitments, the static identity credentials, and the static membership indexes
   ## Returns an error if it cannot initialize the static group keys and the static membership index
   let
     # static group
@@ -555,27 +582,27 @@ proc rlnRelayStaticSetUp*(rlnRelayMembershipIndex: MembershipIndex): RlnRelayRes
   if rlnRelayMembershipIndex < MembershipIndex(0) or rlnRelayMembershipIndex >=
       MembershipIndex(groupSize):
     error "wrong membership index"
-    return ok((none(seq[IDCommitment]), none(MembershipKeyPair), none(MembershipIndex)))
+    return ok((none(seq[IDCommitment]), none(IdentityCredential), none(MembershipIndex)))
 
   # prepare the outputs from the static group keys
   let
-    # create a sequence of MembershipKeyPairs from the group keys (group keys are in string format)
-    groupKeyPairsRes = groupKeys.toMembershipKeyPairs()
+    # create a sequence of IdentityCredentials from the group keys (group keys are in string format)
+    groupIdCredentialsRes = groupKeys.toIdentityCredentials()
 
-  if groupKeyPairsRes.isErr():
-    return err("could not convert the group keys to MembershipKeyPairs: " &
-        groupKeyPairsRes.error())
+  if groupIdCredentialsRes.isErr():
+    return err("could not convert the group keys to IdentityCredentials: " &
+        groupIdCredentialsRes.error())
 
   let
-    groupKeyPairs = groupKeyPairsRes.get()
+    groupIdCredentials = groupIdCredentialsRes.get()
     # extract id commitment keys
-    groupIDCommitments = groupKeyPairs.mapIt(it.idCommitment)
-    groupOpt = some(groupIDCommitments)
-    # user selected membership key pair
-    memKeyPairOpt = some(groupKeyPairs[rlnRelayMembershipIndex])
+    groupIDCommitments = groupIdCredentials.mapIt(it.idCommitment)
+    groupIDCommitmentsOpt = some(groupIDCommitments)
+    # user selected rln membership credential
+    groupIdCredentialsOpt = some(groupIdCredentials[rlnRelayMembershipIndex])
     memIndexOpt = some(rlnRelayMembershipIndex)
 
-  return ok((groupOpt, memKeyPairOpt, memIndexOpt))
+  return ok((groupIDCommitmentsOpt, groupIdCredentialsOpt, memIndexOpt))
 
 proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): RlnRelayResult[bool] =
   ## returns true if there is another message in the  `nullifierLog` of the `rlnPeer` with the same
@@ -794,7 +821,7 @@ proc appendRLNProof*(rlnPeer: WakuRLNRelay, msg: var WakuMessage,
   let input = msg.toRLNSignal()
 
   var proof: RateLimitProofResult = proofGen(rlnInstance = rlnPeer.rlnInstance, data = input,
-                     memKeys = rlnPeer.membershipKeyPair,
+                     memKeys = rlnPeer.identityCredential,
                      memIndex = rlnPeer.membershipIndex,
                      epoch = calcEpoch(senderEpochTime))
 
@@ -1031,7 +1058,7 @@ proc addRLNRelayValidator*(wakuRlnRelay: WakuRLNRelay,
 
 proc mountRlnRelayStatic*(wakuRelay: WakuRelay,
                           group: seq[IDCommitment],
-                          memKeyPair: MembershipKeyPair,
+                          memIdCredential: IdentityCredential,
                           memIndex: MembershipIndex,
                           pubsubTopic: PubsubTopic,
                           contentTopic: ContentTopic,
@@ -1040,7 +1067,7 @@ proc mountRlnRelayStatic*(wakuRelay: WakuRelay,
 
   debug "mounting rln-relay in off-chain/static mode"
   # check the peer's index and the inclusion of user's identity commitment in the group
-  if not memKeyPair.idCommitment  == group[int(memIndex)]:
+  if not memIdCredential.idCommitment  == group[int(memIndex)]:
     return err("The peer's index is not consistent with the group")
 
   # create an RLN instance
@@ -1050,7 +1077,7 @@ proc mountRlnRelayStatic*(wakuRelay: WakuRelay,
   let rln = rlnInstance.get()
 
   # create the WakuRLNRelay
-  let rlnPeer = WakuRLNRelay(membershipKeyPair: memKeyPair,
+  let rlnPeer = WakuRLNRelay(identityCredential: memIdCredential,
     membershipIndex: memIndex,
     rlnInstance: rln,
     pubsubTopic: pubsubTopic,
@@ -1074,7 +1101,7 @@ proc mountRlnRelayDynamic*(wakuRelay: WakuRelay,
                            ethAccountAddress: Option[web3.Address] = none(web3.Address),
                            ethAccountPrivKeyOpt: Option[keys.PrivateKey],
                            memContractAddr:  web3.Address,
-                           memKeyPair: Option[MembershipKeyPair] = none(MembershipKeyPair),
+                           memIdCredential: Option[IdentityCredential] = none(IdentityCredential),
                            memIndex: Option[MembershipIndex] = none(MembershipIndex),
                            pubsubTopic: PubsubTopic,
                            contentTopic: ContentTopic,
@@ -1088,21 +1115,21 @@ proc mountRlnRelayDynamic*(wakuRelay: WakuRelay,
     return err("RLN instance creation failed.")
   let rln = rlnInstance.get()
 
-  # prepare rln membership key pair
+  # prepare rln membership credential
   var
-    keyPair: MembershipKeyPair
+    idCredential: IdentityCredential
     rlnIndex: MembershipIndex
-  if memKeyPair.isNone: # no rln credentials provided
+  if memIdCredential.isNone: # no rln credentials provided
     if ethAccountPrivKeyOpt.isSome: # if an ethereum private key is supplied, then create rln credentials and register to the membership contract
       trace "no rln-relay key is provided, generating one"
-      let keyPairRes = rln.membershipKeyGen()
-      if keyPairRes.isErr():
-        error "failed to generate rln-relay key pair"
-        return err("failed to generate rln-relay key pair: " & keyPairRes.error())
-      keyPair = keyPairRes.value()
+      let idCredentialRes = rln.membershipKeyGen()
+      if idCredentialRes.isErr():
+        error "failed to generate rln-relay identity credential"
+        return err("failed to generate rln-relay identity credential: " & idCredentialRes.error())
+      idCredential = idCredentialRes.value()
       # register the rln-relay peer to the membership contract
       waku_rln_registration_duration_seconds.nanosecondTime:
-        let regIndexRes = await register(idComm = keyPair.idCommitment,
+        let regIndexRes = await register(idComm = idCredential.idCommitment,
                                          ethAccountAddress = ethAccountAddress,
                                          ethAccountPrivKey = ethAccountPrivKeyOpt.get(),
                                          ethClientAddress = ethClientAddr,
@@ -1118,11 +1145,11 @@ proc mountRlnRelayDynamic*(wakuRelay: WakuRelay,
       debug "running waku-rln-relay in relay-only mode"
   else:
     debug "Peer is already registered to the membership contract"
-    keyPair = memKeyPair.get()
+    idCredential = memIdCredential.get()
     rlnIndex = memIndex.get()
 
   # create the WakuRLNRelay
-  var rlnPeer = WakuRLNRelay(membershipKeyPair: keyPair,
+  var rlnPeer = WakuRLNRelay(identityCredential: idCredential,
     membershipIndex: rlnIndex,
     membershipContractAddress: memContractAddr,
     ethClientAddress: ethClientAddr,
@@ -1199,7 +1226,7 @@ proc mount(wakuRelay: WakuRelay,
     let staticSetupRes = rlnRelayStaticSetUp(MembershipIndex(conf.rlnRelayMembershipIndex))
     if staticSetupRes.isErr():
       return err("rln relay static setup failed: " & staticSetupRes.error())
-    let (groupOpt, memKeyPairOpt, memIndexOpt) = staticSetupRes.get()
+    let (groupOpt, idCredentialOpt, memIndexOpt) = staticSetupRes.get()
     if memIndexOpt.isNone():
       error "failed to mount WakuRLNRelay"
       return err("failed to mount WakuRLNRelay")
@@ -1207,7 +1234,7 @@ proc mount(wakuRelay: WakuRelay,
       # mount rlnrelay in off-chain mode with a static group of users
       let mountRes = mountRlnRelayStatic(wakuRelay,
                                          group = groupOpt.get(), 
-                                         memKeyPair = memKeyPairOpt.get(),
+                                         memIdCredential = idCredentialOpt.get(),
                                          memIndex = memIndexOpt.get(), 
                                          pubsubTopic = conf.rlnRelayPubsubTopic,
                                          contentTopic = conf.rlnRelayContentTopic, 
@@ -1218,8 +1245,8 @@ proc mount(wakuRelay: WakuRelay,
 
       let rlnRelay = mountRes.get()
 
-      info "membership id key", idkey=memKeyPairOpt.get().idKey.inHex()
-      info "membership id commitment key", idCommitmentkey=memKeyPairOpt.get().idCommitment.inHex()
+      info "membership id key", idkey=idCredentialOpt.get().idSecretHash.inHex()
+      info "membership id commitment key", idCommitmentkey=idCredentialOpt.get().idCommitment.inHex()
 
       # check the correct construction of the tree by comparing the calculated root against the expected root
       # no error should happen as it is already captured in the unit tests
@@ -1306,7 +1333,7 @@ proc mount(wakuRelay: WakuRelay,
                                                  contentTopic = conf.rlnRelayContentTopic, 
                                                  spamHandler = spamHandler, 
                                                  registrationHandler = registrationHandler,
-                                                 memKeyPair = some(credentials.get().membershipKeyPair),
+                                                 memIdCredential = some(credentials.get().identityCredential),
                                                  memIndex = some(credentials.get().rlnIndex)) 
       else:
         # mount rln-relay in on-chain mode, with the provided private key
@@ -1342,7 +1369,7 @@ proc mount(wakuRelay: WakuRelay,
     if persistCredentials:
       # persist rln credential
       credentials = some(RlnMembershipCredentials(rlnIndex: wakuRlnRelay.membershipIndex, 
-                                                  membershipKeyPair: wakuRlnRelay.membershipKeyPair))
+                                                  identityCredential: wakuRlnRelay.identityCredential))
       if writeRlnCredentials(rlnRelayCredPath, credentials.get(), conf.rlnRelayCredentialsPassword).isErr():
         return err("error in storing rln credentials")
     return ok(wakuRlnRelay)
