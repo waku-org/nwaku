@@ -13,8 +13,6 @@ import
   eth/keys,
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
-  libp2p/nameresolving/nameresolver,
-  libp2p/nameresolving/dnsresolver,
   metrics,
   metrics/chronos_httpserver,
   presto/[route, server, client],
