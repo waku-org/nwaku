@@ -1,5 +1,30 @@
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
+
+import
+    web3,
+    web3/ethtypes,
+    eth/keys as keys,
+    chronicles,
+    stint,
+    stew/[byteutils, arrayops],
+    sequtils
 import 
+    ../../ffi,
+    ../../conversion_utils,
     ../group_manager_base
+
+# membership contract interface
+contract(RlnContract):
+  proc register(pubkey: Uint256) {.payable.} # external payable
+  proc MemberRegistered(pubkey: Uint256, index: Uint256) {.event.}
+  proc MEMBERSHIP_DEPOSIT(): Uint256
+  # TODO the following are to be supported
+  # proc registerBatch(pubkeys: seq[Uint256]) # external payable
+  # proc withdraw(secret: Uint256, pubkeyIndex: Uint256, receiver: Address)
+  # proc withdrawBatch( secrets: seq[Uint256], pubkeyIndex: seq[Uint256], receiver: seq[Address])
 
 type
     RlnContractWithSender = Sender[RlnContract]
@@ -7,69 +32,76 @@ type
         ethClientUrl*: string
         ethPrivateKey*: Option[string]
         ethContractAddress*: string
-        ethRpc: Option[web3]
+        ethRpc: Option[Web3]
         rlnContract: Option[RlnContractWithSender]
         membershipFee: Option[Uint256]
+        membershipIndex: Option[MembershipIndex]
 
     OnchainGroupManager* = ref object of GroupManager[OnchainGroupManagerConfig]
 
 template initializedGuard*(g: OnchainGroupManager): untyped =
     if not g.initialized:
-        return err("OnchainGroupManager is not initialized")
+        raise newException(ValueError, "OnchainGroupManager is not initialized")
 
-method init*(g: OnchainGroupManager): Result[void] {.async.} =
-    var web3: Web3
+method init*(g: OnchainGroupManager): Future[void] {.async.} =
+    var ethRpc: Web3
     var contract: RlnContractWithSender
     # check if the Ethereum client is reachable
     try:
-        web3 = some(await newWeb3(ethClientAddress))
+        ethRpc = await newWeb3(g.config.ethClientUrl)
     except:
-        return err("could not connect to the Ethereum client")
+        raise newException(ValueError, "could not connect to the Ethereum client")
 
-    contract = some(web3.contractSender(RlnContract, g.config.ethContractAddress))
+    let contractAddress = web3.fromHex(web3.Address, g.config.ethContractAddress)
+    contract = ethRpc.contractSender(RlnContract, contractAddress)
 
     # check if the contract exists by calling a static method
-    var membershipFee: uint64
+    var membershipFee: Uint256
     try:
-        membershipFee = await contract.MEMBERSHIP_DEPOSIT()
+        membershipFee = await contract.MEMBERSHIP_DEPOSIT().call()
     except:
-        return err("could not get the membership deposit")
+        raise newException(ValueError, "could not get the membership deposit")
 
     if g.config.ethPrivateKey.isSome():
-        let pk = g.config.ethPrivateKey.get()
-        web3.privateKey = pk
+        let pk = string(g.config.ethPrivateKey.get())
+        ethRpc.privateKey = some(keys.PrivateKey(SkSecretKey.fromHex(pk).value))
 
-    g.config.ethRpc = some(web3)
+    g.config.ethRpc = some(ethRpc)
     g.config.rlnContract = some(contract)
     g.config.membershipFee = some(membershipFee)
     
     g.initialized = true
-    return ok()
-
-method startGroupSync*(g: OnchainGroupManager): Result[void] {.async.} =
-    initializedGuard(g)
-
-    if g.config.ethPrivateKey.isSome():
-        # TODO: use register() after generating credentials
-        debug "registering commitment on contract"
-        await g.register(g.config.idCredentials)
-
-    # TODO: set up the contract event listener and block listener
-
     
-method register*(g: OnchainGroupManager, idCommitment: IDCommitment): Result[void] {.async.} =
+method register*(g: OnchainGroupManager, idCommitment: IDCommitment): Future[void] {.async.} =
     initializedGuard(g)
 
     let memberInserted = g.rlnInstance.insertMember(idCommitment)
     if not memberInserted:
-        return err("Failed to insert member into the merkle tree")
+        raise newException(ValueError,"member insertion failed")
 
-    if g.onRegisterCb.isSome():
-        await g.onRegisterCb.get()(@[idCommitment])
+    g.latestIndex += 1
 
-    return ok()
+    if g.registerCb.isSome():
+        await g.registerCb.get()(@[(idCommitment, g.latestIndex)])
 
-method register*(g: OnchainGroupManager, identityCredentials: IdentityCredentials): Result[void] {.async.} =
+    return
+
+method registerBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
+    initializedGuard(g)
+
+    let membersInserted = g.rlnInstance.insertMembers(g.latestIndex + 1, idCommitments)
+    if not membersInserted:
+        raise newException(ValueError, "Failed to insert members into the merkle tree")
+
+    g.latestIndex += MembershipIndex(idCommitments.len() - 1)
+
+    let retSeq = idCommitments.mapIt((it, g.latestIndex))
+    if g.registerCb.isSome():
+        await g.registerCb.get()(retSeq)
+
+    return
+
+method register*(g: OnchainGroupManager, identityCredentials: IdentityCredential): Future[void] {.async.} =
     initializedGuard(g)
 
     # TODO: interact with the contract
@@ -82,9 +114,10 @@ method register*(g: OnchainGroupManager, identityCredentials: IdentityCredential
     
     var txHash: TxHash
     try: # send the registration transaction and check if any error occurs
-        txHash = await rlnContract.register(pk).send(value = membershipFee, gasPrice = gasPrice)
+        txHash = await rlnContract.register(idCommitment).send(value = membershipFee, 
+                                                               gasPrice = gasPrice)
     except ValueError as e:
-        return err("registration transaction failed: " & e.msg)
+        raise newException(ValueError, "could not register the member: " & e.msg)
 
     let tsReceipt = await ethRpc.getMinedTransactionReceipt(txHash)
 
@@ -93,7 +126,7 @@ method register*(g: OnchainGroupManager, identityCredentials: IdentityCredential
     let firstTopic = tsReceipt.logs[0].topics[0]
     # the hash of the signature of MemberRegistered(uint256,uint256) event is equal to the following hex value
     if firstTopic[0..65] != "0x5a92c2530f207992057b9c3e544108ffce3beda4a63719f316967c49bf6159d2":
-        return err("invalid event signature hash")
+        raise newException(ValueError, "unexpected event signature")
 
     # the arguments of the raised event i.e., MemberRegistered are encoded inside the data field
     # data = pk encoded as 256 bits || index encoded as 256 bits
@@ -103,16 +136,27 @@ method register*(g: OnchainGroupManager, identityCredentials: IdentityCredential
         argumentsBytes = arguments.hexToSeqByte()
         # In TX log data, uints are encoded in big endian
         eventIndex =  UInt256.fromBytesBE(argumentsBytes[32..^1])
+    g.config.membershipIndex = some(eventIndex.toMembershipIndex())
 
     # don't handle member insertion into the tree here, it will be handled by the event listener
-    return ok()
+    return
 
-method withdraw*(g: OnchainGroupManager, idCommitment: IDCommitment): Result[void] {.async.} =
+method withdraw*(g: OnchainGroupManager, idCommitment: IDCommitment): Future[void] {.async.} =
     initializedGuard(g)
 
     # TODO: after slashing is enabled on the contract
 
-method withdrawBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]): Result[void] {.async.} =
+method withdrawBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
     initializedGuard(g)
 
     # TODO: after slashing is enabled on the contract
+
+method startGroupSync*(g: OnchainGroupManager): Future[void] {.async.} =
+    initializedGuard(g)
+
+    if g.config.ethPrivateKey.isSome() and g.idCredentials.isSome():
+        # TODO: use register() after generating credentials
+        debug "registering commitment on contract"
+        await g.register(g.idCredentials.get())
+
+    # TODO: set up the contract event listener and block listener

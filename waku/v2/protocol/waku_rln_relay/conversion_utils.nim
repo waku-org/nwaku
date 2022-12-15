@@ -5,7 +5,6 @@ else:
 
 import
   std/[sequtils],
-  strutils,
   web3,
   chronicles, 
   stew/[arrayops, results, endians2],
