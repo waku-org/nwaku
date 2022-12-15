@@ -38,7 +38,16 @@ suite "Static group manager":
 
         let manager = StaticGroupManager(config: staticConfig,
                                          rlnInstance: rlnInstance)
+        let merkleRootBeforeRes = manager.rlnInstance.getMerkleRoot()
+        require:
+            merkleRootBeforeRes.isOk()
+        let merkleRootBefore = merkleRootBeforeRes.get()
+
         await manager.init()
+        let merkleRootAfterRes = manager.rlnInstance.getMerkleRoot()
+        require:
+            merkleRootAfterRes.isOk()
+        let merkleRootAfter = merkleRootAfterRes.get()
         check:
             manager.idCredentials.isSome()
             manager.config.groupKeys.len == 10
@@ -46,5 +55,6 @@ suite "Static group manager":
             manager.config.membershipIndex == 5
             manager.config.groupKeys[5] == manager.idCredentials.get()
             manager.latestIndex == 9
+            merkleRootAfter.inHex() != merkleRootBefore.inHex()
 
     

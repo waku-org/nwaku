@@ -24,8 +24,8 @@ type GroupManagerResult*[T] = Result[T, string]
 type 
     GroupManager*[Config] = ref object of RootObj
         idCredentials*: Option[IdentityCredential]
-        onRegisterCb*: Option[OnRegisterCallback]
-        onWithdrawCb*: Option[OnWithdrawCallback]
+        registerCb*: Option[OnRegisterCallback]
+        withdrawCb*: Option[OnWithdrawCallback]
         config*: Config
         rlnInstance*: ptr RLN
         initialized*: bool
@@ -62,7 +62,7 @@ method registerBatch*(g: GroupManager, idCommitments: seq[IDCommitment]): Future
 # This method is used to set a callback that will be called when a new identity commitment is registered
 # The callback may be called multiple times, and should be used to for any post processing
 method onRegister*(g: GroupManager, cb: OnRegisterCallback): GroupManagerResult[void] {.base,gcsafe.} = 
-    g.onRegisterCb = some(cb)
+    g.registerCb = some(cb)
     return ok()
 
 # This method is used to withdraw/remove an identity commitment from the merkle tree
@@ -77,6 +77,6 @@ method withdrawBatch*(g: GroupManager, identitySecretHashes: seq[IdentitySecretH
 
 # This method is used to set a callback that will be called when an identity commitment is withdrawn
 # The callback may be called multiple times, and should be used to for any post processing
-method onWithdraw*(g: GroupManager, cb: OnRegisterCallback): GroupManagerResult[void] {.base,gcsafe.} =
-    g.onWithdrawCb = some(cb)
+method onWithdraw*(g: GroupManager, cb: OnWithdrawCallback): GroupManagerResult[void] {.base,gcsafe.} =
+    g.withdrawCb = some(cb)
     return ok()

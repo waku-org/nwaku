@@ -53,8 +53,8 @@ method register*(g: StaticGroupManager, idCommitment: IDCommitment): Future[void
     
     g.latestIndex += 1
 
-    if g.onRegisterCb.isSome():
-        await g.onRegisterCb.get()(@[(idCommitment, g.latestIndex)])
+    if g.registerCb.isSome():
+        await g.registerCb.get()(@[(idCommitment, g.latestIndex)])
 
     return
 
@@ -68,8 +68,8 @@ method registerBatch*(g: StaticGroupManager, idCommitments: seq[IDCommitment]): 
     g.latestIndex += MembershipIndex(idCommitments.len() - 1)
 
     let retSeq = idCommitments.mapIt((it, g.latestIndex))
-    if g.onRegisterCb.isSome():
-        await g.onRegisterCb.get()(retSeq)
+    if g.registerCb.isSome():
+        await g.registerCb.get()(retSeq)
 
     return
 
@@ -86,8 +86,8 @@ method withdraw*(g: StaticGroupManager, idSecretHash: IdentitySecretHash): Futur
             if not memberRemoved:
                 raise newException(ValueError, "Failed to remove member from the merkle tree")
 
-            if g.onWithdrawCb.isSome():
-                await g.onWithdrawCb.get()(@[(idCommitment, index)])
+            if g.withdrawCb.isSome():
+                await g.withdrawCb.get()(@[(idCommitment, index)])
 
             return
 
