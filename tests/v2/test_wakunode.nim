@@ -16,7 +16,7 @@ import
   libp2p/nameresolving/mockresolver
 import
   ../../waku/v2/node/waku_node,
-  ../../waku/v2/node/networking/peer_manager,
+  ../../waku/v2/node/networking/waku_peer_manager,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_relay,
   ../../waku/v2/utils/peers

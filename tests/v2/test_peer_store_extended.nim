@@ -7,7 +7,7 @@ import
   libp2p/multiaddress,
   testutils/unittests
 import
-  ../../waku/v2/node/networking/peer_manager,
+  ../../waku/v2/node/networking/waku_peer_manager,
   ../../waku/v2/node/networking/waku_peer_store,
   ../../waku/v2/node/waku_node,
   ../test_helpers,

@@ -11,7 +11,7 @@ import
   metrics,
   bearssl/rand
 import
-  ../../node/networking/peer_manager,
+  ../../node/networking/waku_peer_manager,
   ../waku_message,
   ./rpc,
   ./rpc_codec,

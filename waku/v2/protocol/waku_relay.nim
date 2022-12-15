@@ -18,7 +18,7 @@ import
   libp2p/protocols/pubsub/gossipsub,
   libp2p/stream/connection
 import
-  ../node/networking/peer_manager,
+  ../node/networking/waku_peer_manager,
   ./waku_message
 
 logScope:

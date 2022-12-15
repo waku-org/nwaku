@@ -36,7 +36,7 @@ import
   ../protocol/waku_peer_exchange,
   ../utils/peers,
   ../utils/wakuenr,
-  ./networking/peer_manager,
+  ./networking/waku_peer_manager,
   ./networking/waku_dnsdisc,
   ./networking/waku_discv5,
   ./networking/waku_switch

@@ -7,7 +7,7 @@ import
   std/tables,
   bearssl/rand,
   libp2p/protocols/protocol,
-  ../../node/networking/peer_manager
+  ../../node/networking/waku_peer_manager
 
 const
   MaxChequeSize* = 64*1024 # Used for read buffers. 64kB should be more than enough for swap cheque

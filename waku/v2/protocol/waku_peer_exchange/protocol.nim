@@ -8,7 +8,7 @@ import
   libp2p/crypto/crypto,
   eth/p2p/discoveryv5/enr
 import
-  ../../node/networking/peer_manager,
+  ../../node/networking/waku_peer_manager,
   ../../node/networking/waku_discv5,
   ../waku_message,
   ../waku_relay,

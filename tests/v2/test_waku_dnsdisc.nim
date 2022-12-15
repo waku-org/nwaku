@@ -11,7 +11,7 @@ import
   eth/keys,
   discovery/dnsdisc/builder
 import
-  ../../waku/v2/node/networking/peer_manager,
+  ../../waku/v2/node/networking/waku_peer_manager,
   ../../waku/v2/node/networking/waku_dnsdisc,
   ../../waku/v2/node/waku_node,
   ../test_helpers

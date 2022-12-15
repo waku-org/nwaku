@@ -13,7 +13,7 @@ import
   ../../protocol/waku_filter,
   ../../protocol/waku_relay,
   ../../protocol/waku_swap/waku_swap,
-  ../networking/peer_manager,
+  ../networking/waku_peer_manager,
   ../waku_node,
   ./jsonrpc_types
 

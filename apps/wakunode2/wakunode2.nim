@@ -25,7 +25,7 @@ import
   ../../waku/common/sqlite,
   ../../waku/common/utils/nat,
   ../../waku/common/logging,
-  ../../waku/v2/node/networking/peer_manager,
+  ../../waku/v2/node/networking/waku_peer_manager,
   ../../waku/v2/node/networking/peer_store/waku_peer_storage,
   ../../waku/v2/node/networking/peer_store/migrations as peer_store_sqlite_migrations,
   ../../waku/v2/node/networking/waku_dnsdisc,

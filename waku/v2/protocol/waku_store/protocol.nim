@@ -18,7 +18,7 @@ import
   libp2p/stream/connection,
   metrics
 import
-  ../../node/networking/peer_manager,
+  ../../node/networking/waku_peer_manager,
   ../../utils/time,
   ../waku_message,
   ./common,

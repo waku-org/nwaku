@@ -29,7 +29,7 @@ import
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/node/[waku_node, waku_payload, waku_metrics],
   ../../waku/v2/node/networking/waku_dnsdisc,
-  ../../waku/v2/node/networking/peer_manager,
+  ../../waku/v2/node/networking/waku_peer_manager,
   ../../waku/v2/utils/[peers, time],
   ../../waku/common/utils/nat,
   ./config_chat2
