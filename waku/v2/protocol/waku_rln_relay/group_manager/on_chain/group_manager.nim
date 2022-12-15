@@ -64,7 +64,10 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
 
     if g.config.ethPrivateKey.isSome():
         let pk = string(g.config.ethPrivateKey.get())
-        ethRpc.privateKey = some(keys.PrivateKey(SkSecretKey.fromHex(pk).value))
+        let pkParseRes = keys.PrivateKey.fromHex(pk)
+        if pkParseRes.isErr():
+            raise newException(ValueError, "could not parse the private key: " & pkParseRes.error)
+        ethRpc.privateKey = some(pkParseRes.get())
 
     g.config.ethRpc = some(ethRpc)
     g.config.rlnContract = some(contract)
