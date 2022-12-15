@@ -1,16 +1,16 @@
 {.used.}
 
 import
-  stew/shims/net as stewNet, 
+  stew/shims/net as stewNet,
   testutils/unittests,
   chronicles,
-  chronos, 
+  chronos,
   libp2p/crypto/crypto,
   libp2p/switch
 import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_lightpush,
-  ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/node/networking/peer_manager,
   ../../waku/v2/utils/peers,
   ../../waku/v2/node/waku_node,
   ./testlib/common
@@ -18,7 +18,7 @@ import
 
 procSuite "WakuNode - Lightpush":
   let rng = crypto.newRng()
- 
+
   asyncTest "Lightpush message return success":
     ## Setup
     let
@@ -35,7 +35,7 @@ procSuite "WakuNode - Lightpush":
     await bridgeNode.mountRelay(@[DefaultPubsubTopic])
     await bridgeNode.mountLightPush()
     lightNode.mountLightPushClient()
-    
+
     discard await lightNode.peerManager.dialPeer(bridgeNode.peerInfo.toRemotePeerInfo(), WakuLightPushCodec)
     await sleepAsync(100.milliseconds)
     await destNode.connectToNodes(@[bridgeNode.peerInfo.toRemotePeerInfo()])
@@ -63,4 +63,3 @@ procSuite "WakuNode - Lightpush":
 
     ## Cleanup
     await allFutures(lightNode.stop(), bridgeNode.stop(), destNode.stop())
-  

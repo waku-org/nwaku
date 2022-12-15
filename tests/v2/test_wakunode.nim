@@ -4,8 +4,8 @@ import
   stew/byteutils,
   stew/shims/net as stewNet,
   testutils/unittests,
-  chronicles, 
-  chronos, 
+  chronicles,
+  chronos,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/multiaddress,
@@ -16,7 +16,7 @@ import
   libp2p/nameresolving/mockresolver
 import
   ../../waku/v2/node/waku_node,
-  ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/node/networking/peer_manager,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_relay,
   ../../waku/v2/utils/peers
@@ -24,7 +24,7 @@ import
 
 procSuite "WakuNode":
   let rng = crypto.newRng()
-   
+
   asyncTest "Protocol matcher works as expected":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
@@ -153,9 +153,9 @@ procSuite "WakuNode":
     expect IOError:
       # gibberish
       discard WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(61004), 
-        wsBindPort = Port(8000), 
-        wssEnabled = true, 
+        bindPort = Port(61004),
+        wsBindPort = Port(8000),
+        wssEnabled = true,
         secureKey = "../../waku/v2/node/key_dummy.txt")
 
   asyncTest "Peer info updates with correct announced addresses":
@@ -216,7 +216,7 @@ procSuite "WakuNode":
       node.announcedAddresses.len == 1
       node.announcedAddresses.contains(expectedDns4Addr)
 
-   
+
   asyncTest "Agent string is set and advertised correctly":
     let
       # custom agent string

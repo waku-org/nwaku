@@ -9,7 +9,7 @@ import
   libp2p/crypto/crypto
 import
   ../waku_message,
-  ../../node/peer_manager/peer_manager,
+  ../../node/networking/peer_manager,
   ./rpc,
   ./rpc_codec,
   ./protocol_metrics
@@ -25,7 +25,7 @@ const
   WakuFilterTimeout: Duration = 2.hours
 
 
-type WakuFilterResult*[T] = Result[T, string]  
+type WakuFilterResult*[T] = Result[T, string]
 
 
 ## Subscription manager
@@ -48,9 +48,9 @@ proc addSubscription(subscriptions: var seq[Subscription], peer: PeerID, request
 
 proc removeSubscription(subscriptions: var seq[Subscription], peer: PeerId, unsubscribeTopics: seq[ContentTopic]) =
   for sub in subscriptions.mitems:
-    if sub.peer != peer: 
+    if sub.peer != peer:
       continue
-    
+
     sub.contentTopics.excl(toHashSet(unsubscribeTopics))
 
   # Delete the subscriber if no more content filters left
@@ -70,7 +70,7 @@ type
     timeout*: chronos.Duration
 
 proc handleFilterRequest(wf: WakuFilter, peerId: PeerId, rpc: FilterRPC) =
-  let 
+  let
     requestId = rpc.requestId
     subscribe = rpc.request.get().subscribe
     pubsubTopic =  rpc.request.get().pubsubTopic
@@ -96,7 +96,7 @@ proc initProtocolHandler(wf: WakuFilter) =
       return
 
     trace "filter message received"
-    
+
     let rpc = decodeRpcRes.get()
 
     ## Filter request
@@ -107,24 +107,24 @@ proc initProtocolHandler(wf: WakuFilter) =
       return
 
     waku_filter_messages.inc(labelValues = ["FilterRequest"])
-    wf.handleFilterRequest(conn.peerId, rpc) 
-    
+    wf.handleFilterRequest(conn.peerId, rpc)
+
   wf.handler = handler
   wf.codec = WakuFilterCodec
 
-proc new*(T: type WakuFilter, 
-           peerManager: PeerManager, 
-           rng: ref rand.HmacDrbgContext, 
+proc new*(T: type WakuFilter,
+           peerManager: PeerManager,
+           rng: ref rand.HmacDrbgContext,
            timeout: Duration = WakuFilterTimeout): T =
   let wf = WakuFilter(rng: rng,
-                      peerManager: peerManager, 
+                      peerManager: peerManager,
                       timeout: timeout)
   wf.initProtocolHandler()
   return wf
 
-proc init*(T: type WakuFilter, 
-           peerManager: PeerManager, 
-           rng: ref rand.HmacDrbgContext, 
+proc init*(T: type WakuFilter,
+           peerManager: PeerManager,
+           rng: ref rand.HmacDrbgContext,
            timeout: Duration = WakuFilterTimeout): T {.
   deprecated: "WakuFilter.new()' instead".} =
   WakuFilter.new(peerManager, rng, timeout)
@@ -141,20 +141,20 @@ proc sendFilterRpc(wf: WakuFilter, rpc: FilterRPC, peer: PeerId|RemotePeerInfo):
 
 
 ### Send message to subscriptors
-proc removePeerFromFailedPeersTable(wf: WakuFilter, subs: seq[Subscription]) = 
+proc removePeerFromFailedPeersTable(wf: WakuFilter, subs: seq[Subscription]) =
   ## Clear the failed peer table if subscriber was able to connect
   for sub in subs:
     wf.failedPeers.del($sub)
 
-proc handleClientError(wf: WakuFilter, subs: seq[Subscription]) {.raises: [Defect, KeyError].} = 
+proc handleClientError(wf: WakuFilter, subs: seq[Subscription]) {.raises: [Defect, KeyError].} =
   ## If we have already failed to send message to this peer,
   ## check for elapsed time and if it's been too long, remove the peer.
   for sub in subs:
     let subKey: string = $(sub)
-    
+
     if not wf.failedPeers.hasKey(subKey):
       # add the peer to the failed peers table.
-      wf.failedPeers[subKey] = Moment.now() 
+      wf.failedPeers[subKey] = Moment.now()
       return
 
     let elapsedTime = Moment.now() - wf.failedPeers[subKey]
@@ -166,7 +166,7 @@ proc handleClientError(wf: WakuFilter, subs: seq[Subscription]) {.raises: [Defec
 
 
 proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, msg: WakuMessage) {.async.} =
-  
+
   trace "handling message", pubsubTopic, contentTopic=msg.contentTopic, subscriptions=wf.subscriptions.len
 
   if wf.subscriptions.len <= 0:

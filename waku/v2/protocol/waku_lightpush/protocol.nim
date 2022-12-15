@@ -11,7 +11,7 @@ import
   metrics,
   bearssl/rand
 import
-  ../../node/peer_manager/peer_manager,
+  ../../node/networking/peer_manager,
   ../waku_message,
   ./rpc,
   ./rpc_codec,
@@ -27,7 +27,7 @@ const WakuLightPushCodec* = "/vac/waku/lightpush/2.0.0-beta1"
 
 type
   WakuLightPushResult*[T] = Result[T, string]
-  
+
   PushMessageHandler* = proc(peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage): Future[WakuLightPushResult[void]] {.gcsafe, closure.}
 
   WakuLightPush* = ref object of LPProtocol
@@ -71,10 +71,10 @@ proc initProtocolHandler*(wl: WakuLightPush) =
   wl.handler = handle
   wl.codec = WakuLightPushCodec
 
-proc new*(T: type WakuLightPush, 
-          peerManager: PeerManager, 
+proc new*(T: type WakuLightPush,
+          peerManager: PeerManager,
           rng: ref rand.HmacDrbgContext,
-          pushHandler: PushMessageHandler): T = 
+          pushHandler: PushMessageHandler): T =
   let wl = WakuLightPush(rng: rng, peerManager: peerManager, pushHandler: pushHandler)
   wl.initProtocolHandler()
   return wl

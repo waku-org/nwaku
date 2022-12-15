@@ -1,13 +1,13 @@
 {.used.}
 
 import
-  stew/shims/net as stewNet, 
+  stew/shims/net as stewNet,
   testutils/unittests,
   chronicles,
-  chronos, 
+  chronos,
   libp2p/crypto/crypto
 import
-  ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/node/networking/peer_manager,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/utils/peers,
@@ -15,7 +15,7 @@ import
 
 
 suite "WakuNode - Filter":
- 
+
   asyncTest "subscriber should receive the message handled by the publisher":
     ## Setup
     let rng = crypto.newRng()
@@ -27,7 +27,7 @@ suite "WakuNode - Filter":
 
     await allFutures(server.start(), client.start())
 
-    await server.mountFilter()    
+    await server.mountFilter()
     await client.mountFilterClient()
 
     ## Given

@@ -7,15 +7,15 @@ import
   std/tables,
   bearssl/rand,
   libp2p/protocols/protocol,
-  ../../node/peer_manager/peer_manager
+  ../../node/networking/peer_manager
 
 const
   MaxChequeSize* = 64*1024 # Used for read buffers. 64kB should be more than enough for swap cheque
 
 type
   # The Swap Mode determines the functionality available in the swap protocol.
-  # Soft: Deals with the account balance (Credit and debit) of each peer. 
-  # Mock: Includes the Send Cheque Functionality and peer disconnection upon failed signature verification or low balance. 
+  # Soft: Deals with the account balance (Credit and debit) of each peer.
+  # Mock: Includes the Send Cheque Functionality and peer disconnection upon failed signature verification or low balance.
   # Hard: Includes interactions with Smart Contracts.
   SwapMode* = enum
     Soft,
@@ -28,7 +28,7 @@ type
     disconnectThreshold* : int
 
   Beneficiary* = seq[byte]
-  
+
   # TODO Consider adding payment threshhold and terms field
   Handshake* = object
     beneficiary*: Beneficiary

@@ -10,7 +10,7 @@ import
   eth/p2p/discoveryv5/enr
 import
   ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/node/discv5/waku_discv5,
+  ../../waku/v2/node/networking/waku_discv5,
   ../../waku/v2/node/waku_node,
   ../test_helpers
 
@@ -25,7 +25,7 @@ procSuite "Waku Discovery v5":
       nodeTcpPort1 = Port(61500)
       nodeUdpPort1 = Port(9000)
       node1 = WakuNode.new(nodeKey1, bindIp, nodeTcpPort1)
-      
+
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       nodeTcpPort2 = Port(61502)
       nodeUdpPort2 = Port(9002)
@@ -46,7 +46,7 @@ procSuite "Waku Discovery v5":
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "Can you see me?".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
-    
+
     # Mount discv5
     node1.wakuDiscv5 = WakuDiscoveryV5.new(
         some(extIp), some(nodeTcpPort1), some(nodeUdpPort1),
@@ -59,7 +59,7 @@ procSuite "Waku Discovery v5":
         [], # Empty enr fields, for now
         node1.rng
       )
-    
+
     node2.wakuDiscv5 = WakuDiscoveryV5.new(
         some(extIp), some(nodeTcpPort2), some(nodeUdpPort2),
         bindIp,
@@ -71,7 +71,7 @@ procSuite "Waku Discovery v5":
         [], # Empty enr fields, for now
         node2.rng
       )
-    
+
     node3.wakuDiscv5 = WakuDiscoveryV5.new(
         some(extIp), some(nodeTcpPort3), some(nodeUdpPort3),
         bindIp,
@@ -97,7 +97,7 @@ procSuite "Waku Discovery v5":
       node1.wakuDiscv5.protocol.nodesDiscovered > 0
       node2.wakuDiscv5.protocol.nodesDiscovered > 0
       node3.wakuDiscv5.protocol.nodesDiscovered > 0
-    
+
     # Let's see if we can deliver a message end-to-end
     # var completionFut = newFuture[bool]()
     # proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =

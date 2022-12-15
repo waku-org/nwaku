@@ -18,8 +18,8 @@ import
   libp2p/protocols/pubsub/rpc/message
 import
   ../../waku/common/sqlite,
-  ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/node/peer_manager/peer_store/waku_peer_storage,
+  ../../waku/v2/node/networking/peer_manager,
+  ../../waku/v2/node/networking/peer_store/waku_peer_storage,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/protocol/waku_relay,
   ../../waku/v2/protocol/waku_store,

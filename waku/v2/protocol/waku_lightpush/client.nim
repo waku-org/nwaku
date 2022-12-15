@@ -11,7 +11,7 @@ import
   metrics,
   bearssl/rand
 import
-  ../../node/peer_manager/peer_manager,
+  ../../node/networking/peer_manager,
   ../../utils/requests,
   ../waku_message,
   ./protocol,
@@ -29,13 +29,13 @@ type WakuLightPushClient* = ref object
     rng*: ref rand.HmacDrbgContext
 
 
-proc new*(T: type WakuLightPushClient, 
-          peerManager: PeerManager, 
+proc new*(T: type WakuLightPushClient,
+          peerManager: PeerManager,
           rng: ref rand.HmacDrbgContext): T =
   WakuLightPushClient(peerManager: peerManager, rng: rng)
 
 
-proc sendPushRequest(wl: WakuLightPushClient, req: PushRequest, peer: PeerId|RemotePeerInfo): Future[WakuLightPushResult[void]] {.async, gcsafe.} = 
+proc sendPushRequest(wl: WakuLightPushClient, req: PushRequest, peer: PeerId|RemotePeerInfo): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
   let connOpt = await wl.peerManager.dialPeer(peer, WakuLightPushCodec)
   if connOpt.isNone():
     waku_lightpush_errors.inc(labelValues = [dialFailure])

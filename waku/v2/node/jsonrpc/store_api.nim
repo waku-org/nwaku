@@ -12,8 +12,8 @@ import
   ../../protocol/waku_store/rpc,
   ../../utils/time,
   ../waku_node,
-  ../peer_manager/peer_manager,
-  ./jsonrpc_types, 
+  ../networking/peer_manager,
+  ./jsonrpc_types,
   ./jsonrpc_utils
 
 export jsonrpc_types
@@ -52,7 +52,7 @@ proc installStoreApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
 
     if not await queryFut.withTimeout(futTimeout):
       raise newException(ValueError, "No history response received (timeout)")
-    
+
     let res = queryFut.read()
     if res.isErr():
       raise newException(ValueError, $res.error)

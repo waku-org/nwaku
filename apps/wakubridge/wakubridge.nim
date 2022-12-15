@@ -28,7 +28,7 @@ import
   ../../waku/v2/utils/time,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/node/waku_node,
-  ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/node/networking/peer_manager,
   ../../waku/v2/node/jsonrpc/[debug_api,
                               filter_api,
                               relay_api,

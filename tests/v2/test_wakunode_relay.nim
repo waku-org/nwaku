@@ -5,8 +5,8 @@ import
   stew/byteutils,
   stew/shims/net as stewNet,
   testutils/unittests,
-  chronicles, 
-  chronos, 
+  chronicles,
+  chronos,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/peerid,
@@ -17,7 +17,7 @@ import
   libp2p/protocols/pubsub/gossipsub
 import
   ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/node/networking/peer_manager,
   ../../waku/v2/utils/peers,
   ../../waku/v2/node/waku_node
 
@@ -28,7 +28,7 @@ const CERT_PATH = sourceDir / "resources/test_cert.pem"
 
 procSuite "WakuNode - Relay":
   let rng = crypto.newRng()
-  
+
   asyncTest "Relay protocol is started correctly":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
@@ -61,7 +61,7 @@ procSuite "WakuNode - Relay":
       GossipSub(node2.wakuRelay).heartbeatFut.isNil == false
 
     await allFutures([node1.stop(), node2.stop()])
-  
+
   asyncTest "Messages are correctly relayed":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
@@ -109,7 +109,7 @@ procSuite "WakuNode - Relay":
     await node1.stop()
     await node2.stop()
     await node3.stop()
-  
+
   asyncTest "filtering relayed messages using topic validators":
     ## test scenario:
     ## node1 and node3 set node2 as their relay node
@@ -204,7 +204,7 @@ procSuite "WakuNode - Relay":
       (await completionFutValidatorRej.withTimeout(10.seconds)) == true
 
     await allFutures(node1.stop(), node2.stop(), node3.stop())
- 
+
   asyncTest "Messages are relayed between two websocket nodes":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
@@ -380,7 +380,7 @@ procSuite "WakuNode - Relay":
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
-    
+
     await allFutures(node1.stop(), node2.stop())
 
   asyncTest "Messages are relayed between nodes with multiple transports (websocket and secure Websockets)":
@@ -389,7 +389,7 @@ procSuite "WakuNode - Relay":
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), bindPort = Port(60550), wsBindPort = Port(8000), wssEnabled = true, secureKey = KEY_PATH, secureCert = CERT_PATH)
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), bindPort = Port(60552),wsBindPort = Port(8100), wsEnabled = true )
-    
+
     let
       pubSubTopic = "test"
       contentTopic = ContentTopic("/waku/2/default-content/proto")

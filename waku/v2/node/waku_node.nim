@@ -36,10 +36,10 @@ import
   ../protocol/waku_peer_exchange,
   ../utils/peers,
   ../utils/wakuenr,
-  ./peer_manager/peer_manager,
-  ./dnsdisc/waku_dnsdisc,
-  ./discv5/waku_discv5,
-  ./wakuswitch
+  ./networking/peer_manager,
+  ./networking/waku_dnsdisc,
+  ./networking/waku_discv5,
+  ./networking/waku_switch
 
 when defined(rln):
   import
@@ -779,13 +779,13 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMe
 
 ## Waku RLN Relay
 when defined(rln):
-  proc mountRlnRelay*(node: WakuNode, 
+  proc mountRlnRelay*(node: WakuNode,
                       rlnConf: WakuRlnConfig,
                       spamHandler: Option[SpamHandler] = none(SpamHandler),
                       registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)) {.async.} =
     info "mounting rln relay"
 
-    let rlnRelayRes = await WakuRlnRelay.new(node.wakuRelay, 
+    let rlnRelayRes = await WakuRlnRelay.new(node.wakuRelay,
                                              rlnConf,
                                              spamHandler,
                                              registrationHandler)
