@@ -14,9 +14,10 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
   stew/results,
-  stew/[byteutils, arrayops, endians2]
+  stew/[byteutils, arrayops]
 import
-  ./rln,
+  ./ffi,
+  ./conversion_utils,
   ./constants,
   ./protocol_types,
   ./protocol_metrics
@@ -57,93 +58,22 @@ contract(MembershipContract):
   # proc withdraw(secret: Uint256, pubkeyIndex: Uint256, receiver: Address)
   # proc withdrawBatch( secrets: seq[Uint256], pubkeyIndex: seq[Uint256], receiver: seq[Address])
 
-proc toBuffer*(x: openArray[byte]): Buffer =
-  ## converts the input to a Buffer object
-  ## the Buffer object is used to communicate data with the rln lib
-  var temp = @x
-  let baseAddr = cast[pointer](x)
-  let output = Buffer(`ptr`: cast[ptr uint8](baseAddr), len: uint(temp.len))
-  return output
-
-proc createRLNInstanceLocal(d: int = MerkleTreeDepth): RLNResult =
-  ## generates an instance of RLN
-  ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
-  ## d indicates the depth of Merkle tree
-  ## Returns an error if the instance creation fails
-  var
-    rlnInstance: ptr RLN
-    merkleDepth: csize_t = uint(d)
-    resourcesPathBuffer = RlnResourceFolder.toOpenArrayByte(0, RlnResourceFolder.high).toBuffer()
-
-  # create an instance of RLN
-  let res = new_circuit(merkleDepth, addr resourcesPathBuffer, addr rlnInstance)
-  # check whether the circuit parameters are generated successfully
-  if (res == false):
-    debug "error in parameters generation"
-    return err("error in parameters generation")
-  return ok(rlnInstance)
-
-proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[IdentityCredential] =
-  ## generates a IdentityCredential that can be used for the registration into the rln membership contract
-  ## Returns an error if the key generation fails
-
-  # keysBufferPtr will hold the generated identity tuple i.e., trapdoor, nullifier, secret hash and commitment
-  var
-    keysBuffer: Buffer
-    keysBufferPtr = addr(keysBuffer)
-    done = key_gen(ctxPtr, keysBufferPtr)
-
-  # check whether the keys are generated successfully
-  if(done == false):
-    return err("error in key generation")
-
-  var generatedKeys = cast[ptr array[4*32, byte]](keysBufferPtr.`ptr`)[]
-  # the public and secret keys together are 64 bytes
-  if (generatedKeys.len != 4*32):
-    return err("generated keys are of invalid length")
-
-  # TODO define a separate proc to decode the generated keys to the secret and public components
-  var
-    idTrapdoor: array[32, byte]
-    idNullifier: array[32, byte]
-    idSecretHash: array[32, byte]
-    idCommitment: array[32, byte]
-  for (i, x) in idTrapdoor.mpairs: x = generatedKeys[i+0*32]
-  for (i, x) in idNullifier.mpairs: x = generatedKeys[i+1*32]
-  for (i, x) in idSecretHash.mpairs: x = generatedKeys[i+2*32]
-  for (i, x) in idCommitment.mpairs: x = generatedKeys[i+3*32]
-
-  var
-    identityCredential = IdentityCredential(idTrapdoor: idTrapdoor, idNullifier: idNullifier, idSecretHash: idSecretHash, idCommitment: idCommitment)
-
-  return ok(identityCredential)
-
-proc createRLNInstance*(d: int = MerkleTreeDepth): RLNResult =
-  ## Wraps the rln instance creation for metrics
-  ## Returns an error if the instance creation fails
-  var res: RLNResult
-  waku_rln_instance_creation_duration_seconds.nanosecondTime:
-    res = createRLNInstanceLocal(d)
-  return res
-
-proc toUInt256*(idCommitment: IDCommitment): UInt256 =
-  let pk = UInt256.fromBytesLE(idCommitment)
-  return pk
-
-proc toIDCommitment*(idCommitmentUint: UInt256): IDCommitment =
-  let pk = IDCommitment(idCommitmentUint.toBytesLE())
-  return pk
-
-proc inHex*(value: IdentityTrapdoor or IdentityNullifier or IdentitySecretHash or IDCommitment or MerkleNode or Nullifier or Epoch or RlnIdentifier): string =
-  var valueHex = (UInt256.fromBytesLE(value)).toHex()
+proc inHex*(value: 
+                   IdentityTrapdoor or
+                   IdentityNullifier or 
+                   IdentitySecretHash or 
+                   IDCommitment or
+                   MerkleNode or 
+                   Nullifier or 
+                   Epoch or 
+                  RlnIdentifier
+                   ): string =
+  var valueHex = UInt256.fromBytesLE(value)
+  valueHex = valueHex.toHex()
   # We pad leading zeroes
   while valueHex.len < value.len * 2:
     valueHex = "0" & valueHex
   return valueHex
-
-proc toMembershipIndex(v: UInt256): MembershipIndex =
-  let membershipIndex: MembershipIndex = cast[MembershipIndex](v)
-  return membershipIndex
 
 proc register*(idComm: IDCommitment, ethAccountAddress: Option[Address], ethAccountPrivKey: keys.PrivateKey, ethClientAddress: string, membershipContractAddress: Address, registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): Future[Result[MembershipIndex, string]] {.async.} =
   # TODO may need to also get eth Account Private Key as PrivateKey
@@ -216,216 +146,6 @@ proc register*(rlnPeer: WakuRLNRelay, registrationHandler: Option[RegistrationHa
     return err(regResult.error())
   return ok(true)
 
-proc appendLength*(input: openArray[byte]): seq[byte] =
-  ## returns length prefixed version of the input
-  ## with the following format [len<8>|input<var>]
-  ## len: 8-byte value that represents the number of bytes in the `input`
-  ## len is serialized in little-endian
-  ## input: the supplied `input`
-  let
-    # the length should be serialized in little-endian
-    len = toBytes(uint64(input.len), Endianness.littleEndian)
-    output = concat(@len, @input)
-  return output
-
-proc hash*(rlnInstance: ptr RLN, data: openArray[byte]): MerkleNode =
-  ## a thin layer on top of the Nim wrapper of the Poseidon hasher
-  debug "hash input", hashhex = data.toHex()
-  var lenPrefData = appendLength(data)
-  var
-    hashInputBuffer = lenPrefData.toBuffer()
-    outputBuffer: Buffer # will holds the hash output
-
-  debug "hash input buffer length", bufflen = hashInputBuffer.len
-  let
-    hashSuccess = hash(rlnInstance, addr hashInputBuffer, addr outputBuffer)
-    output = cast[ptr MerkleNode](outputBuffer.`ptr`)[]
-
-  return output
-
-proc serialize(idSecretHash: IdentitySecretHash, memIndex: MembershipIndex, epoch: Epoch,
-    msg: openArray[byte]): seq[byte] =
-  ## a private proc to convert RateLimitProof and the data to a byte seq
-  ## this conversion is used in the proofGen proc
-  ## the serialization is done as instructed in  https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L146
-  ## [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
-  let memIndexBytes = toBytes(uint64(memIndex), Endianness.littleEndian)
-  let lenPrefMsg = appendLength(msg)
-  let output = concat(@idSecretHash, @memIndexBytes, @epoch, lenPrefMsg)
-  return output
-
-proc proofGen*(rlnInstance: ptr RLN, data: openArray[byte],
-    memKeys: IdentityCredential, memIndex: MembershipIndex,
-    epoch: Epoch): RateLimitProofResult =
-
-  # serialize inputs
-  let serializedInputs = serialize(idSecretHash = memKeys.idSecretHash,
-                                  memIndex = memIndex,
-                                  epoch = epoch,
-                                  msg = data)
-  var inputBuffer = toBuffer(serializedInputs)
-
-  debug "input buffer ", inputBuffer= repr(inputBuffer)
-
-  # generate the proof
-  var proof: Buffer
-  let proofIsSuccessful = generate_proof(rlnInstance, addr inputBuffer, addr proof)
-  # check whether the generate_proof call is done successfully
-  if not proofIsSuccessful:
-    return err("could not generate the proof")
-
-  var proofValue = cast[ptr array[320, byte]] (proof.`ptr`)
-  let proofBytes: array[320, byte] = proofValue[]
-  debug "proof content", proofHex = proofValue[].toHex
-
-  ## parse the proof as [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
-
-  let
-    proofOffset = 128
-    rootOffset = proofOffset + 32
-    epochOffset = rootOffset + 32
-    shareXOffset = epochOffset + 32
-    shareYOffset = shareXOffset + 32
-    nullifierOffset = shareYOffset + 32
-    rlnIdentifierOffset = nullifierOffset + 32
-
-  var
-    zkproof: ZKSNARK
-    proofRoot, shareX, shareY: MerkleNode
-    epoch: Epoch
-    nullifier: Nullifier
-    rlnIdentifier: RlnIdentifier
-
-  discard zkproof.copyFrom(proofBytes[0..proofOffset-1])
-  discard proofRoot.copyFrom(proofBytes[proofOffset..rootOffset-1])
-  discard epoch.copyFrom(proofBytes[rootOffset..epochOffset-1])
-  discard shareX.copyFrom(proofBytes[epochOffset..shareXOffset-1])
-  discard shareY.copyFrom(proofBytes[shareXOffset..shareYOffset-1])
-  discard nullifier.copyFrom(proofBytes[shareYOffset..nullifierOffset-1])
-  discard rlnIdentifier.copyFrom(proofBytes[nullifierOffset..rlnIdentifierOffset-1])
-
-  let output = RateLimitProof(proof: zkproof,
-                              merkleRoot: proofRoot,
-                              epoch: epoch,
-                              shareX: shareX,
-                              shareY: shareY,
-                              nullifier: nullifier,
-                              rlnIdentifier: rlnIdentifier)
-
-  return ok(output)
-
-proc serialize(proof: RateLimitProof, data: openArray[byte]): seq[byte] =
-  ## a private proc to convert RateLimitProof and data to a byte seq
-  ## this conversion is used in the proof verification proc
-  ## [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
-  let lenPrefMsg = appendLength(@data)
-  var proofBytes = concat(@(proof.proof),
-                          @(proof.merkleRoot),
-                          @(proof.epoch),
-                          @(proof.shareX),
-                          @(proof.shareY),
-                          @(proof.nullifier),
-                          @(proof.rlnIdentifier),
-                          lenPrefMsg)
-
-  return proofBytes
-
-# Serializes a sequence of MerkleNodes
-proc serialize(roots: seq[MerkleNode]): seq[byte] =
-  var rootsBytes: seq[byte] = @[]
-  for root in roots:
-    rootsBytes = concat(rootsBytes, @root)
-  return rootsBytes
-
-# validRoots should contain a sequence of roots in the acceptable windows.
-# As default, it is set to an empty sequence of roots. This implies that the validity check for the proof's root is skipped
-proc proofVerify*(rlnInstance: ptr RLN,
-                  data: openArray[byte],
-                  proof: RateLimitProof,
-                  validRoots: seq[MerkleNode] = @[]): RlnRelayResult[bool] =
-  ## verifies the proof, returns an error if the proof verification fails
-  ## returns true if the proof is valid
-  var
-    proofBytes = serialize(proof, data)
-    proofBuffer = proofBytes.toBuffer()
-    validProof: bool
-    rootsBytes = serialize(validRoots)
-    rootsBuffer = rootsBytes.toBuffer()
-
-  trace "serialized proof", proof = proofBytes.toHex()
-
-  let verifyIsSuccessful = verify_with_roots(rlnInstance, addr proofBuffer, addr rootsBuffer, addr validProof)
-  if not verifyIsSuccessful:
-    # something went wrong in verification call
-    warn "could not verify validity of the proof", proof=proof
-    return err("could not verify the proof")
-
-  if not validProof:
-    return ok(false)
-  else:
-    return ok(true)
-
-proc insertMember*(rlnInstance: ptr RLN, idComm: IDCommitment): bool =
-  ## inserts a member to the tree
-  ## returns true if the member is inserted successfully
-  ## returns false if the member could not be inserted
-  var pkBuffer = toBuffer(idComm)
-  let pkBufferPtr = addr pkBuffer
-
-  # add the member to the tree
-  let memberAdded = update_next_member(rlnInstance, pkBufferPtr)
-  return memberAdded
-
-proc serializeIdCommitments*(idComms: seq[IDCommitment]): seq[byte] =
-  ## serializes a seq of IDCommitments to a byte seq
-  ## the serialization is based on https://github.com/status-im/nwaku/blob/37bd29fbc37ce5cf636734e7dd410b1ed27b88c8/waku/v2/protocol/waku_rln_relay/rln.nim#L142
-  ## the order of serialization is |id_commitment_len<8>|id_commitment<var>|
-  var idCommsBytes = newSeq[byte]()
-
-  # serialize the idComms, with its length prefixed
-  let len = toBytes(uint64(idComms.len), Endianness.littleEndian)
-  idCommsBytes.add(len)
-
-  for idComm in idComms:
-    idCommsBytes = concat(idCommsBytes, @idComm)
-
-  return idCommsBytes
-
-proc insertMembers*(rlnInstance: ptr RLN,
-                      index: MembershipIndex,
-                      idComms: seq[IDCommitment]): bool =
-    ## Insert multiple members i.e., identity commitments
-    ## returns true if the insertion is successful
-    ## returns false if any of the insertions fails
-    ## Note: This proc is atomic, i.e., if any of the insertions fails, all the previous insertions are rolled back
-
-    # serialize the idComms
-    let idCommsBytes = serializeIdCommitments(idComms)
-
-    var idCommsBuffer = idCommsBytes.toBuffer()
-    let idCommsBufferPtr = addr idCommsBuffer
-    # add the member to the tree
-    let membersAdded = set_leaves_from(rlnInstance, index, idCommsBufferPtr)
-    return membersAdded
-
-proc removeMember*(rlnInstance: ptr RLN, index: MembershipIndex): bool =
-  let deletion_success = delete_member(rlnInstance, index)
-  return deletion_success
-
-proc getMerkleRoot*(rlnInstance: ptr RLN): MerkleNodeResult =
-  # read the Merkle Tree root after insertion
-  var
-    root {.noinit.}: Buffer = Buffer()
-    rootPtr = addr(root)
-    getRootSuccessful = getRoot(rlnInstance, rootPtr)
-  if not getRootSuccessful:
-    return err("could not get the root")
-  if not root.len == 32:
-    return err("wrong output size")
-
-  var rootValue = cast[ptr MerkleNode] (root.`ptr`)[]
-  return ok(rootValue)
-
 proc updateValidRootQueue*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): void =
   ## updates the valid Merkle root queue with the latest root and pops the oldest one when the capacity of `AcceptableRootWindowSize` is reached
   let overflowCount = wakuRlnRelay.validMerkleRoots.len() - AcceptableRootWindowSize
@@ -467,50 +187,6 @@ proc removeMember*(wakuRlnRelay: WakuRLNRelay, index: MembershipIndex): RlnRelay
 proc validateRoot*(wakuRlnRelay: WakuRLNRelay, root: MerkleNode): bool =
   ## Validate against the window of roots stored in wakuRlnRelay.validMerkleRoots
   return root in wakuRlnRelay.validMerkleRoots
-
-# Converts a sequence of tuples containing 4 string (i.e. identity trapdoor, nullifier, secret hash and commitment) to an IndentityCredential
-proc toIdentityCredentials*(groupKeys: seq[(string, string, string, string)]): RlnRelayResult[seq[
-    IdentityCredential]] =
-  ## groupKeys is  sequence of membership key tuples in the form of (identity key, identity commitment) all in the hexadecimal format
-  ## the toIdentityCredentials proc populates a sequence of IdentityCredentials using the supplied groupKeys
-  ## Returns an error if the conversion fails
-
-  var groupIdCredentials = newSeq[IdentityCredential]()
-
-  for i in 0..groupKeys.len-1:
-    try:
-      let
-        idTrapdoor = hexToUint[IdentityTrapdoor.len*8](groupKeys[i][0]).toBytesLE()
-        idNullifier = hexToUint[IdentityNullifier.len*8](groupKeys[i][1]).toBytesLE()
-        idSecretHash = hexToUint[IdentitySecretHash.len*8](groupKeys[i][2]).toBytesLE()
-        idCommitment = hexToUint[IDCommitment.len*8](groupKeys[i][3]).toBytesLE()
-      groupIdCredentials.add(IdentityCredential(idTrapdoor: idTrapdoor, idNullifier: idNullifier, idSecretHash: idSecretHash,
-          idCommitment: idCommitment))
-    except ValueError as err:
-      warn "could not convert the group key to bytes", err = err.msg
-      return err("could not convert the group key to bytes: " & err.msg)
-  return ok(groupIdCredentials)
-
-# Converts a sequence of tuples containing 2 string (i.e. identity secret hash and commitment) to an IndentityCredential
-proc toIdentityCredentials*(groupKeys: seq[(string, string)]): RlnRelayResult[seq[
-    IdentityCredential]] =
-  ## groupKeys is  sequence of membership key tuples in the form of (identity key, identity commitment) all in the hexadecimal format
-  ## the toIdentityCredentials proc populates a sequence of IdentityCredentials using the supplied groupKeys
-  ## Returns an error if the conversion fails
-
-  var groupIdCredentials = newSeq[IdentityCredential]()
-
-  for i in 0..groupKeys.len-1:
-    try:
-      let
-        idSecretHash = hexToUint[IdentitySecretHash.len*8](groupKeys[i][0]).toBytesLE()
-        idCommitment = hexToUint[IDCommitment.len*8](groupKeys[i][1]).toBytesLE()
-      groupIdCredentials.add(IdentityCredential(idSecretHash: idSecretHash,
-          idCommitment: idCommitment))
-    except ValueError as err:
-      warn "could not convert the group key to bytes", err = err.msg
-      return err("could not convert the group key to bytes: " & err.msg)
-  return ok(groupIdCredentials)
 
 proc calcMerkleRoot*(list: seq[IDCommitment]): RlnRelayResult[string] =
   ## returns the root of the Merkle tree that is computed from the supplied list
@@ -604,6 +280,12 @@ proc rlnRelayStaticSetUp*(rlnRelayMembershipIndex: MembershipIndex): RlnRelayRes
 
   return ok((groupIDCommitmentsOpt, groupIdCredentialsOpt, memIndexOpt))
 
+proc calcEpoch*(t: float64): Epoch =
+  ## gets time `t` as `flaot64` with subseconds resolution in the fractional part
+  ## and returns its corresponding rln `Epoch` value
+  let e = uint64(t/EpochUnitSeconds)
+  return toEpoch(e)
+
 proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): RlnRelayResult[bool] =
   ## returns true if there is another message in the  `nullifierLog` of the `rlnPeer` with the same
   ## epoch and nullifier as `msg`'s epoch and nullifier but different Shamir secret shares
@@ -679,25 +361,6 @@ proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): RlnRelayResult[bool] =
     return ok(true)
   except KeyError as e:
     return err("the epoch was not found")
-
-proc toEpoch*(t: uint64): Epoch =
-  ## converts `t` to `Epoch` in little-endian order
-  let bytes = toBytes(t, Endianness.littleEndian)
-  debug "bytes", bytes = bytes
-  var epoch: Epoch
-  discard epoch.copyFrom(bytes)
-  return epoch
-
-proc fromEpoch*(epoch: Epoch): uint64 =
-  ## decodes bytes of `epoch` (in little-endian) to uint64
-  let t = fromBytesLE(uint64, array[32, byte](epoch))
-  return t
-
-proc calcEpoch*(t: float64): Epoch =
-  ## gets time `t` as `flaot64` with subseconds resolution in the fractional part
-  ## and returns its corresponding rln `Epoch` value
-  let e = uint64(t/EpochUnitSeconds)
-  return toEpoch(e)
 
 proc getCurrentEpoch*(): Epoch =
   ## gets the current rln Epoch time

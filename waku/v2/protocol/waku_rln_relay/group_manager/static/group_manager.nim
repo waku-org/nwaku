@@ -1,6 +1,6 @@
 import 
     ../group_manager_base,
-    ../../utils,
+    ../../ffi,
     std/sequtils
 
 type

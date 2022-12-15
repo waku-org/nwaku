@@ -1,6 +1,6 @@
 ## Nim wrappers for the functions defined in librln
 import
-  ./protocol_types
+  ../protocol_types
 
 
 when (NimMajor, NimMinor) < (1, 4):
@@ -14,6 +14,15 @@ else:
 type Buffer* = object
   `ptr`*: ptr uint8
   len*: uint
+
+proc toBuffer*(x: openArray[byte]): Buffer =
+  ## converts the input to a Buffer object
+  ## the Buffer object is used to communicate data with the rln lib
+  var temp = @x
+  let baseAddr = cast[pointer](x)
+  let output = Buffer(`ptr`: cast[ptr uint8](baseAddr), len: uint(temp.len))
+  return output
+
 
 ######################################################################
 ## RLN Zerokit module APIs

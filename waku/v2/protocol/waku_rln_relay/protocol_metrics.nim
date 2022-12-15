@@ -11,7 +11,8 @@ import
   ./constants,
   ../../utils/collector
 
-export metrics
+export 
+  metrics
 
 logScope:
   topics = "waku rln_relay"
