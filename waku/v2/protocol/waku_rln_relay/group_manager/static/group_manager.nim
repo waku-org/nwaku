@@ -55,7 +55,6 @@ method register*(g: StaticGroupManager, idCommitment: IDCommitment): Future[void
 
     if g.registerCb.isSome():
         await g.registerCb.get()(@[(idCommitment, g.latestIndex)])
-
     return
 
 method registerBatch*(g: StaticGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
@@ -99,3 +98,8 @@ method withdrawBatch*(g: StaticGroupManager, idSecretHashes: seq[IdentitySecretH
     for idSecretHash in idSecretHashes:
         await g.withdraw(idSecretHash)
     
+method onRegister*(g: StaticGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
+    g.registerCb = some(cb)
+
+method onWithdraw*(g: StaticGroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
+    g.withdrawCb = some(cb)
