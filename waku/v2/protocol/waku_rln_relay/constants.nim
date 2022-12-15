@@ -48,3 +48,9 @@ const MaxClockGapSeconds* = 20.0 # the maximum clock difference between peers in
 
 # maximum allowed gap between the epochs of messages' RateLimitProofs
 const MaxEpochGap* = uint64(MaxClockGapSeconds/EpochUnitSeconds)
+
+# RLN Keystore defaults
+const 
+  KeystoreApplication* = "nwaku-rln-relay"
+  KeystoreAppIdentifier* = "01234567890abcdef"
+  KeystoreVersion* = "0.1"

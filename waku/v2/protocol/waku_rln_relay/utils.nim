@@ -19,6 +19,7 @@ import
   ./rln,
   ./conversion_utils,
   ./constants,
+  ./credentials,
   ./protocol_types,
   ./protocol_metrics
 import
@@ -832,51 +833,6 @@ proc mountRlnRelayDynamic*(wakuRelay: WakuRelay,
 
   return ok(rlnPeer)
 
-proc writeRlnCredentials*(path: string,
-                          credentials: RlnMembershipCredentials,
-                          password: string): RlnRelayResult[void] =
-  # Returns RlnRelayResult[void], which indicates the success of the call
-  info "Storing RLN credentials"
-  var jsonString: string
-  jsonString.toUgly(%credentials)
-  let keyfile = createKeyFileJson(toBytes(jsonString), password)
-  if keyfile.isErr():
-    return err("Error while creating keyfile for RLN credentials")
-  if saveKeyFile(path, keyfile.get()).isErr():
-    return err("Error while saving keyfile for RLN credentials")
-  return ok()
-
-# Attempts decryptions of all keyfiles with the provided password.
-# If one or more credentials are successfully decrypted, the max(min(index,number_decrypted),0)-th is returned.
-proc readRlnCredentials*(path: string,
-                         password: string,
-                         index: int = 0): RlnRelayResult[Option[RlnMembershipCredentials]] =
-  # Returns RlnRelayResult[Option[RlnMembershipCredentials]], which indicates the success of the call
-  info "Reading RLN credentials"
-  # With regards to printing the keys, it is purely for debugging purposes so that the user becomes explicitly aware of the current keys in use when nwaku is started.
-  # Note that this is only until the RLN contract being used is the one deployed on Goerli testnet.
-  # These prints need to omitted once RLN contract is deployed on Ethereum mainnet and using valuable funds for staking.
-  waku_rln_membership_credentials_import_duration_seconds.nanosecondTime:
-
-    try:
-      var decodedKeyfiles = loadKeyFiles(path, password)
-
-      if decodedKeyfiles.isOk():
-        var decodedRlnCredentials = decodedKeyfiles.get()
-        debug "Successfully decrypted keyfiles for the provided password", numberKeyfilesDecrypted=decodedRlnCredentials.len
-        # We should return the index-th decrypted credential, but we ensure to not overflow
-        let credentialIndex = max(min(index, decodedRlnCredentials.len - 1), 0)
-        debug "Picking credential with (adjusted) index", inputIndex=index, adjustedIndex=credentialIndex
-        let jsonObject = parseJson(string.fromBytes(decodedRlnCredentials[credentialIndex].get()))
-        let deserializedRlnCredentials = to(jsonObject, RlnMembershipCredentials)
-        debug "Deserialized RLN credentials", rlnCredentials=deserializedRlnCredentials
-        return ok(some(deserializedRlnCredentials))
-      else:
-        debug "Unable to decrypt RLN credentials with provided password. ", error=decodedKeyfiles.error
-        return ok(none(RlnMembershipCredentials))
-    except:
-      return err("Error while loading keyfile for RLN credentials at " & path)
-
 proc mount(wakuRelay: WakuRelay,
            conf: WakuRlnConfig,
            spamHandler: Option[SpamHandler] = none(SpamHandler),
@@ -943,7 +899,7 @@ proc mount(wakuRelay: WakuRelay,
       return err("invalid eth contract address: " & err.msg)
     var ethAccountPrivKeyOpt = none(keys.PrivateKey)
     var ethAccountAddressOpt = none(Address)
-    var credentials = none(RlnMembershipCredentials)
+    var credentials = none(MembershipCredentials)
     var rlnRelayRes: RlnRelayResult[WakuRlnRelay]
     var rlnRelayCredPath: string
     var persistCredentials: bool = false
@@ -973,10 +929,10 @@ proc mount(wakuRelay: WakuRelay,
         info "A RLN credential file exists in provided path", path=rlnRelayCredPath
 
         # retrieve rln-relay credential
-        let readCredentialsRes = readRlnCredentials(rlnRelayCredPath, conf.rlnRelayCredentialsPassword)
+        let readCredentialsRes = readMembershipCredentials(rlnRelayCredPath, conf.rlnRelayCredentialsPassword)
 
         if readCredentialsRes.isErr():
-          return err("RLN credentials cannot be read: " & readCredentialsRes.error())
+          return err("RLN credentials cannot be read")
 
         credentials = readCredentialsRes.get()
 
@@ -997,7 +953,7 @@ proc mount(wakuRelay: WakuRelay,
                                                  spamHandler = spamHandler,
                                                  registrationHandler = registrationHandler,
                                                  memIdCredential = some(credentials.get().identityCredential),
-                                                 memIndex = some(credentials.get().rlnIndex))
+                                                 memIndex = some(credentials.get().membershipGroups[0].treeIndex)) # TODO: use a proper proc to get a certain membership index
       else:
         # mount rln-relay in on-chain mode, with the provided private key
         rlnRelayRes = await mountRlnRelayDynamic(wakuRelay,
@@ -1031,9 +987,13 @@ proc mount(wakuRelay: WakuRelay,
     let wakuRlnRelay = rlnRelayRes.get()
     if persistCredentials:
       # persist rln credential
-      credentials = some(RlnMembershipCredentials(rlnIndex: wakuRlnRelay.membershipIndex,
-                                                  identityCredential: wakuRlnRelay.identityCredential))
-      if writeRlnCredentials(rlnRelayCredPath, credentials.get(), conf.rlnRelayCredentialsPassword).isErr():
+      credentials = some(MembershipCredentials(identityCredential: wakuRlnRelay.identityCredential,
+                                               membershipGroups: @[MembershipGroup(chainId: "5", # This is Goerli ChainID. TODO: pass chainId to web3 as config option
+                                                                                   contract: conf.rlnRelayEthContractAddress,
+                                                                                   treeIndex: wakuRlnRelay.membershipIndex) 
+                                                                  ]
+                                              ))
+      if writeMembershipCredentials(rlnRelayCredPath, credentials.get(), conf.rlnRelayCredentialsPassword).isErr():
         return err("error in storing rln credentials")
     return ok(wakuRlnRelay)
 

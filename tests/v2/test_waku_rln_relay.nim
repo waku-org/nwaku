@@ -1041,10 +1041,12 @@ suite "Waku rln relay":
 
     debug "the generated identity credential: ", idCredential
 
-    let index =  MembershipIndex(1)
+    let index = MembershipIndex(1)
 
-    let rlnMembershipCredentials = RlnMembershipCredentials(identityCredential: idCredential, 
-                                                            rlnIndex: index)
+    let rlnMembershipCredentials = MembershipCredentials(identityCredential: idCredential,
+                                                         membershipGroups: @[MembershipGroup(chainId: "5",
+                                                                                             contract: "0x0123456789012345678901234567890123456789",
+                                                                                             treeIndex: index) ])
 
     let password = "%m0um0ucoW%"
 
@@ -1053,9 +1055,9 @@ suite "Waku rln relay":
 
     # Write RLN credentials
     require:
-      writeRlnCredentials(filepath, rlnMembershipCredentials, password).isOk()
+      writeMembershipCredentials(filepath, rlnMembershipCredentials, password).isOk()
 
-    let readCredentialsResult = readRlnCredentials(filepath, password)
+    let readCredentialsResult = readMembershipCredentials(filepath, password)
     require:
       readCredentialsResult.isOk()
 
@@ -1065,7 +1067,7 @@ suite "Waku rln relay":
       credentials.isSome()
     check:
       credentials.get().identityCredential == idCredential
-      credentials.get().rlnIndex == index
+      credentials.get().membershipGroups[0].treeIndex == index
 
   test "histogram static bucket generation":
     let buckets = generateBucketsForHistogram(10)
