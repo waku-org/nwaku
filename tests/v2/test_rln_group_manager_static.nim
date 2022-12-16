@@ -42,7 +42,7 @@ suite "Static group manager":
                                             membershipIndex: 5,
                                             groupKeys: credentials)
 
-        let manager = StaticGroupManager(config: staticConfig,
+        let manager {.used.} = StaticGroupManager(config: staticConfig,
                                          rlnInstance: rlnInstance)
 
     asyncTest "should initialize successfully":

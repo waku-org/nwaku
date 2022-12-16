@@ -1,19 +1,19 @@
 import
   chronicles, 
   options, 
-  stew/[byteutils, arrayops, results]
+  stew/[arrayops, results]
 
 import
-    ./rln_interface,
-    ../conversion_utils,
-    ../protocol_types,
-    ../protocol_metrics,
-    ../constants
+  ./rln_interface,
+  ../conversion_utils,
+  ../protocol_types,
+  ../protocol_metrics,
+  ../constants
 import
-    ../../../utils/time
+  ../../../utils/time
 
 logScope:
-    topics = "waku rln_relay ffi"
+  topics = "waku rln_relay ffi"
 
 proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[IdentityCredential] =
   ## generates a IdentityCredential that can be used for the registration into the rln membership contract
@@ -87,6 +87,13 @@ proc hash*(rlnInstance: ptr RLN, data: openArray[byte]): MerkleNode =
   debug "hash input buffer length", bufflen = hashInputBuffer.len
   let
     hashSuccess = hash(rlnInstance, addr hashInputBuffer, addr outputBuffer)
+  
+  # check whether the hash call is done successfully
+  if not hashSuccess:
+    debug "error in hash"
+    return default(MerkleNode)
+
+  let
     output = cast[ptr MerkleNode](outputBuffer.`ptr`)[]
 
   return output
