@@ -158,7 +158,6 @@ proc startGroupSync*(g: OnchainGroupManager): Future[void] {.async.} =
   initializedGuard(g)
 
   if g.config.ethPrivateKey.isSome() and g.idCredentials.isSome():
-    # TODO: use register() after generating credentials
     debug "registering commitment on contract"
     await g.register(g.idCredentials.get())
 
