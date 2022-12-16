@@ -3,6 +3,9 @@ import
     ../../ffi,
     std/sequtils
 
+export
+  group_manager_base
+
 type
     StaticGroupManagerConfig* = object
       groupKeys*: seq[IdentityCredential]
@@ -54,7 +57,7 @@ proc register*(g: StaticGroupManager, idCommitment: IDCommitment): Future[void] 
   g.latestIndex += 1
 
   if g.registerCb.isSome():
-    await g.registerCb.get()(@[(idCommitment, g.latestIndex)])
+    await g.registerCb.get()(@[Membership(idCommitment: idCommitment, index: g.latestIndex)])
   return
 
 proc registerBatch*(g: StaticGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
@@ -66,9 +69,11 @@ proc registerBatch*(g: StaticGroupManager, idCommitments: seq[IDCommitment]): Fu
 
   g.latestIndex += MembershipIndex(idCommitments.len() - 1)
 
-  let retSeq = idCommitments.mapIt((it, g.latestIndex))
   if g.registerCb.isSome():
-    await g.registerCb.get()(retSeq)
+    var memberSeq = newSeq[Membership]()
+    for i in 0..<idCommitments.len():
+      memberSeq.add(Membership(idCommitment: idCommitments[i], index: g.latestIndex - MembershipIndex(i)))
+    await g.registerCb.get()(memberSeq)
 
   return
 
@@ -86,7 +91,7 @@ proc withdraw*(g: StaticGroupManager, idSecretHash: IdentitySecretHash): Future[
           raise newException(ValueError, "Failed to remove member from the merkle tree")
 
         if g.withdrawCb.isSome():
-          await g.withdrawCb.get()(@[(idCommitment, index)])
+          await g.withdrawCb.get()(@[Membership(idCommitment: idCommitment, index: index)])
 
         return
 
