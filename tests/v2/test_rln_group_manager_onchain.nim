@@ -15,7 +15,7 @@ import
   ../../waku/v2/protocol/waku_rln_relay/group_manager/on_chain/group_manager
 
 import
-  std/[osproc, streams, strutils],
+  std/[osproc, streams, strutils, sequtils],
   chronos, chronicles, stint, web3, json,
   stew/shims/net as stewNet,
   libp2p/crypto/crypto,
@@ -111,34 +111,6 @@ proc createEthAccount(): Future[(keys.PrivateKey, Address)] {.async.} =
 
   return (pk, acc)
 
-
-# Installs Ganache Daemon
-proc installGanache() =
-  # We install Ganache.
-  # Packages will be installed to the ./build folder through the --prefix option
-  try:
-    let installGanache = startProcess("npm", args = ["install",  "ganache", "--prefix", "./build"], options = {poUsePath})
-    let returnCode = installGanache.waitForExit()
-    debug "Ganache install log", returnCode=returnCode, log=installGanache.outputstream.readAll()
-  except:
-    error "Ganache install failed"
-
-# Uninstalls Ganache Daemon
-proc uninstallGanache() =
-  # We uninstall Ganache
-  # Packages will be uninstalled from the ./build folder through the --prefix option.
-  # Passed option is
-  # --save: Package will be removed from your dependencies.
-  # See npm documentation https://docs.npmjs.com/cli/v6/commands/npm-uninstall for further details
-  try:
-    let uninstallGanache = startProcess("npm", args = ["uninstall",  "ganache", "--save", "--prefix", "./build"], options = {poUsePath})
-    let returnCode = uninstallGanache.waitForExit()
-    debug "Ganache uninstall log", returnCode=returnCode, log=uninstallGanache.outputstream.readAll()
-  except:
-    error "Ganache uninstall failed"
-
-
-
 # Runs Ganache daemon
 proc runGanache(): Process =
   # We run directly "node node_modules/ganache/dist/node/cli.js" rather than using "npx ganache", so that the daemon does not spawn in a new child process.
@@ -149,7 +121,7 @@ proc runGanache(): Process =
   # --wallet.defaultBalance           The default account balance, specified in ether.
   # See ganache documentation https://www.npmjs.com/package/ganache for more details
   try:
-    let runGanache = startProcess("node", args = ["./build/node_modules/ganache/dist/node/cli.js", "--port", "8540", "--miner.blockGasLimit", "300000000000000", "--wallet.defaultBalance", "10000"], options = {poUsePath})
+    let runGanache = startProcess("npx", args = ["--yes", "ganache", "--port", "8540", "--miner.blockGasLimit", "300000000000000", "--wallet.defaultBalance", "10000"], options = {poUsePath})
     let ganachePID = runGanache.processID
 
     # We read stdout from Ganache to see when daemon is ready
@@ -170,7 +142,7 @@ proc runGanache(): Process =
 
 
 # Stops Ganache daemon
-proc stopGanache(runGanache: Process) =
+proc stopGanache(runGanache: Process) {.used.} =
 
   let ganachePID = runGanache.processID
 
@@ -212,9 +184,6 @@ proc setup(): Future[OnchainGroupManager] {.async.} =
   return manager
 
 suite "Onchain group manager":
-  # We install Ganache
-  installGanache()
-
   # We run Ganache
   let runGanache {.used.} = runGanache()
 
@@ -234,118 +203,145 @@ suite "Onchain group manager":
     await manager.init()
     await manager.startGroupSync()
 
-  # asyncTest "startGroupSync: should guard against uninitialized state":
-    # let staticConfig = StaticGroupManagerConfig(groupSize: 0,
-    #                                             membershipIndex: 0,
-    #                                             groupKeys: @[])
+  asyncTest "startGroupSync: should guard against uninitialized state":
+    let manager = await setup()
 
-    # let manager = StaticGroupManager(config: staticConfig,
-    #                                  rlnInstance: rlnInstance)
+    expect(ValueError):
+      await manager.startGroupSync()
 
-    # expect(ValueError):
-    #   await manager.startGroupSync()
+  asyncTest "startGroupSync: should sync to the state of the group":
+    let manager = await setup()
+    let credentials = generateCredentials(manager.rlnInstance)
 
-  # asyncTest "register: should guard against uninitialized state":
-    # let staticConfig = StaticGroupManagerConfig(groupSize: 0,
-    #                                             membershipIndex: 0,
-    #                                             groupKeys: @[])
+    manager.idCredentials = some(credentials)
+    await manager.init()
 
-    # let manager = StaticGroupManager(config: staticConfig,
-    #                                  rlnInstance: rlnInstance)
+    let merkleRootBeforeRes = manager.rlnInstance.getMerkleRoot()
+    require:
+      merkleRootBeforeRes.isOk()
+    let merkleRootBefore = merkleRootBeforeRes.get()
 
-    # let dummyCommitment = default(IDCommitment)
+    let future = newFuture[void]("startGroupSync")
 
-    # expect(ValueError):
-    #   await manager.register(dummyCommitment)
+    proc generateCallback(fut: Future[void], idCommitment: IDCommitment): OnRegisterCallback =
+      proc callback(registrations: seq[Membership]): Future[void] {.async.} =
+        require:
+          registrations.len == 1
+          registrations[0].idCommitment == idCommitment
+          registrations[0].index == 0
+        fut.complete()
+      return callback
 
-  # asyncTest "register: should register successfully":
-    # await manager.init()
-    # await manager.startGroupSync()
+    manager.onRegister(generateCallback(future, credentials.idCommitment))
+    await manager.startGroupSync()
 
-    # let idCommitment = generateCredentials(manager.rlnInstance).idCommitment
-    # let merkleRootBeforeRes = manager.rlnInstance.getMerkleRoot()
-    # require:
-    #     merkleRootBeforeRes.isOk()
-    # let merkleRootBefore = merkleRootBeforeRes.get()
-    # await manager.register(idCommitment)
-    # let merkleRootAfterRes = manager.rlnInstance.getMerkleRoot()
-    # require:
-    #   merkleRootAfterRes.isOk()
-    # let merkleRootAfter = merkleRootAfterRes.get()
-    # check:
-    #   merkleRootAfter.inHex() != merkleRootBefore.inHex()
-    #   manager.latestIndex == 10
+    await future
 
-  # asyncTest "register: callback is called":
-    # var callbackCalled = false
-    # let idCommitment = generateCredentials(manager.rlnInstance).idCommitment
+    let merkleRootAfterRes = manager.rlnInstance.getMerkleRoot()
+    require:
+      merkleRootAfterRes.isOk()
+    let merkleRootAfter = merkleRootAfterRes.get()
 
-    # let fut = newFuture[void]()
+    check:
+      merkleRootBefore != merkleRootAfter
 
-    # proc callback(registrations: seq[(IDCommitment, MembershipIndex)]): Future[void] {.async.} =
-    #   require:
-    #     registrations.len == 1
-    #     registrations[0][0] == idCommitment
-    #     registrations[0][1] == 10
-    #   callbackCalled = true
-    #   fut.complete()
+  asyncTest "startGroupSync: should fetch history correctly":
+    let manager = await setup()
+    let credentials = generateCredentials(manager.rlnInstance, 5)
+    await manager.init()
 
-    # manager.onRegister(callback)
-    # await manager.init()
-    # await manager.startGroupSync()
+    let merkleRootBeforeRes = manager.rlnInstance.getMerkleRoot()
+    require:
+      merkleRootBeforeRes.isOk()
+    let merkleRootBefore = merkleRootBeforeRes.get()
 
-    # await manager.register(idCommitment)
+    var futures = [newFuture[void](), newFuture[void](), newFuture[void](), newFuture[void](), newFuture[void]()]
 
-    # await fut
-    # check:
-    #   callbackCalled
+    proc generateCallback(futs: array[0..4, Future[system.void]], credentials: seq[IdentityCredential]): OnRegisterCallback =
+      var futureIndex = 0
+      proc callback(registrations: seq[Membership]): Future[void] {.async.} =
+        require:
+          registrations.len == 1
+          registrations[0].idCommitment == credentials[futureIndex].idCommitment
+          registrations[0].index == MembershipIndex(futureIndex)
+        futs[futureIndex].complete()
+        futureIndex += 1
+      return callback
 
-  # asyncTest "withdraw: should guard against uninitialized state":
-    # let idSecretHash = credentials[0].idSecretHash
+    manager.onRegister(generateCallback(futures, credentials))
+    await manager.startGroupSync()
 
-    # expect(ValueError):
-    #   await manager.withdraw(idSecretHash)
+    for i in 0 ..< credentials.len():
+      await manager.register(credentials[i])
 
-  # asyncTest "withdraw: should withdraw successfully":
-    # await manager.init()
-    # await manager.startGroupSync()
+    await allFutures(futures)
 
-    # let idSecretHash = credentials[0].idSecretHash
-    # let merkleRootBeforeRes = manager.rlnInstance.getMerkleRoot()
-    # require:
-    #   merkleRootBeforeRes.isOk()
-    # let merkleRootBefore = merkleRootBeforeRes.get()
-    # await manager.withdraw(idSecretHash)
-    # let merkleRootAfterRes = manager.rlnInstance.getMerkleRoot()
-    # require:
-    #   merkleRootAfterRes.isOk()
-    # let merkleRootAfter = merkleRootAfterRes.get()
-    # check:
-    #   merkleRootAfter.inHex() != merkleRootBefore.inHex()
+    let merkleRootAfterRes = manager.rlnInstance.getMerkleRoot()
+    require:
+      merkleRootAfterRes.isOk()
+    let merkleRootAfter = merkleRootAfterRes.get()
 
-  # asyncTest "withdraw: callback is called":
-    # var callbackCalled = false
-    # let idSecretHash = credentials[0].idSecretHash
-    # let idCommitment = credentials[0].idCommitment
-    # let fut = newFuture[void]()
+    check:
+      merkleRootBefore != merkleRootAfter
 
-    # proc callback(withdrawals: seq[(IdentitySecretHash, MembershipIndex)]): Future[void] {.async.} =
-    #   require:
-    #     withdrawals.len == 1
-    #     withdrawals[0][0] == idCommitment
-    #     withdrawals[0][1] == 0
-    #   callbackCalled = true
-    #   fut.complete()
+  asyncTest "register: should guard against uninitialized state":
+    let manager = await setup()
+    let dummyCommitment = default(IDCommitment)
 
-    # manager.onWithdraw(callback)
-    # await manager.init()
-    # await manager.startGroupSync()
+    expect(ValueError):
+      await manager.register(dummyCommitment)
 
-    # await manager.withdraw(idSecretHash)
+  asyncTest "register: should register successfully":
+    let manager = await setup()
+    await manager.init()
+    await manager.startGroupSync()
 
-    # await fut
-    # check:
-    #   callbackCalled
+    let idCommitment = generateCredentials(manager.rlnInstance).idCommitment
+    let merkleRootBeforeRes = manager.rlnInstance.getMerkleRoot()
+    require:
+        merkleRootBeforeRes.isOk()
+    let merkleRootBefore = merkleRootBeforeRes.get()
+    await manager.register(idCommitment)
+    let merkleRootAfterRes = manager.rlnInstance.getMerkleRoot()
+    require:
+      merkleRootAfterRes.isOk()
+    let merkleRootAfter = merkleRootAfterRes.get()
+    check:
+      merkleRootAfter.inHex() != merkleRootBefore.inHex()
+      manager.latestIndex == 1
+
+  asyncTest "register: callback is called":
+    let manager = await setup()
+
+    var callbackCalled = false
+    let idCommitment = generateCredentials(manager.rlnInstance).idCommitment
+
+    let fut = newFuture[void]()
+
+    proc callback(registrations: seq[Membership]): Future[void] {.async.} =
+      require:
+        registrations.len == 1
+        registrations[0].idCommitment == idCommitment
+        registrations[0].index == 0
+      callbackCalled = true
+      fut.complete()
+
+    manager.onRegister(callback)
+    await manager.init()
+    await manager.startGroupSync()
+
+    await manager.register(idCommitment)
+
+    await fut
+    check:
+      callbackCalled
+
+  asyncTest "withdraw: should guard against uninitialized state":
+    let manager = await setup()
+    let idSecretHash = generateCredentials(manager.rlnInstance).idSecretHash
+
+    expect(ValueError):
+      await manager.withdraw(idSecretHash)
 
   ################################
   ## Terminating/removing Ganache
@@ -354,5 +350,3 @@ suite "Onchain group manager":
   # We stop Ganache daemon
   stopGanache(runGanache)
 
-  # We uninstall Ganache
-  uninstallGanache()

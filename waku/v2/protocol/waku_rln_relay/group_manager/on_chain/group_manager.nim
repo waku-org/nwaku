@@ -20,6 +20,11 @@ import
 
 from strutils import parseHexInt
 
+export group_manager_base
+
+logScope:
+  topics = "waku rln_relay onchain_group_manager"
+
 # membership contract interface
 contract(RlnContract):
   proc register(pubkey: Uint256) {.payable.} # external payable
@@ -55,28 +60,30 @@ proc register*(g: OnchainGroupManager, idCommitment: IDCommitment): Future[void]
   if not memberInserted:
     raise newException(ValueError,"member insertion failed")
 
-  g.latestIndex += 1
-
   if g.registerCb.isSome():
     await g.registerCb.get()(@[Membership(idCommitment: idCommitment, index: g.latestIndex)])
+
+  g.latestIndex += 1
 
   return
 
 proc registerBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
   initializedGuard(g)
 
-  let membersInserted = g.rlnInstance.insertMembers(g.latestIndex + 1, idCommitments)
+  let membersInserted = g.rlnInstance.insertMembers(g.latestIndex, idCommitments)
   if not membersInserted:
     raise newException(ValueError, "Failed to insert members into the merkle tree")
-
-  g.latestIndex += MembershipIndex(idCommitments.len() - 1)
 
   if g.registerCb.isSome():
     var membersSeq = newSeq[Membership]()
     for i in 0 ..< idCommitments.len():
-      let member = Membership(idCommitment: idCommitments[i], index: g.latestIndex - MembershipIndex(i))
+      var index = g.latestIndex + MembershipIndex(i)
+      debug "registering member", idCommitment = idCommitments[i], index = index, latestIndex = g.latestIndex
+      let member = Membership(idCommitment: idCommitments[i], index: index)
       membersSeq.add(member)
     await g.registerCb.get()(membersSeq)
+
+  g.latestIndex += MembershipIndex(idCommitments.len())
 
   return
 
@@ -114,6 +121,7 @@ proc register*(g: OnchainGroupManager, identityCredentials: IdentityCredential):
     argumentsBytes = arguments.hexToSeqByte()
     # In TX log data, uints are encoded in big endian
     eventIndex =  UInt256.fromBytesBE(argumentsBytes[32..^1])
+
   g.config.membershipIndex = some(eventIndex.toMembershipIndex())
 
   # don't handle member insertion into the tree here, it will be handled by the event listener
@@ -169,9 +177,11 @@ proc getEvents*(g: OnchainGroupManager, fromBlock: BlockNumber, toBlock: Option[
   else:
     normalizedToBlock = fromBlock
 
-  let events = await rlnContract.getJsonLogs(MemberRegistered, fromBlock = some(fromBlock.blockId()), toBlock = some(normalizedToBlock.blockId()))
-
   var blockTable = default(BlockTable)
+  let events = await rlnContract.getJsonLogs(MemberRegistered, fromBlock = some(fromBlock.blockId()), toBlock = some(normalizedToBlock.blockId()))
+  if events.len == 0:
+    debug "no events found"
+    return blockTable
 
   for event in events:
     let blockNumber = parseHexInt(event["blockNumber"].getStr()).uint
@@ -188,36 +198,33 @@ proc getEvents*(g: OnchainGroupManager, fromBlock: BlockNumber, toBlock: Option[
 
   return blockTable
 
-proc seedBlockTableIntoTree*(g: OnchainGroupManager, blockTable: BlockTable): GroupManagerResult[void] =
-  if not g.initialized:
-    return err("OnchainGroupManager is not initialized")
+proc seedBlockTableIntoTree*(g: OnchainGroupManager, blockTable: BlockTable): Future[void] {.async.} =
+  initializedGuard(g)
 
   for blockNumber, members in blockTable.pairs():
+    let latestIndex = g.latestIndex
     let startingIndex = members[0].index
-    debug "starting index", startingIndex = startingIndex, members = members.mapIt(it.idCommitment.inHex())
-    let isSuccessful = g.rlnInstance.insertMembers(startingIndex, members.mapIt(it.idCommitment))
-    if not isSuccessful:
+    try:
+      await g.registerBatch(members.mapIt(it.idCommitment))
+    except:
       error "failed to insert members into the tree"
-      return err("failed to insert members into the tree")
+      raise newException(ValueError, "failed to insert members into the tree")
     debug "new members added to the Merkle tree", commitments=members.mapIt(it.idCommitment.inHex()) , startingIndex=startingIndex
     let lastIndex = startingIndex + members.len.uint - 1
-    let indexGap = startingIndex - g.latestIndex
+    let indexGap = startingIndex - latestIndex
     if not (toSeq(startingIndex..lastIndex) == members.mapIt(it.index)):
-      return err("the indexes of the new members are not in order")
-    if indexGap != 1.uint:
-      warn "membership index gap, may have lost connection", lastIndex, currIndex=g.latestIndex, indexGap = indexGap
-    g.latestIndex = lastIndex
+      raise newException(ValueError, "membership indices are not sequential")
+    if indexGap != 1.uint and lastIndex != latestIndex:
+      warn "membership index gap, may have lost connection", lastIndex, currIndex=latestIndex, indexGap = indexGap
     g.config.latestProcessedBlock = some(blockNumber)
 
-  return ok()
+  return
 
 proc getEventsAndSeedIntoTree*(g: OnchainGroupManager, fromBlock: BlockNumber, toBlock: Option[BlockNumber] = none(BlockNumber)): Future[void] {.async.} =
   initializedGuard(g)
 
   let events = await g.getEvents(fromBlock, toBlock)
-  let seedRes = g.seedBlockTableIntoTree(events)
-  if seedRes.isErr():
-    raise newException(ValueError, seedRes.error())
+  await g.seedBlockTableIntoTree(events)
   return
 
 proc getNewHeadCallback*(g: OnchainGroupManager): BlockHeaderHandler =
@@ -248,7 +255,7 @@ proc startOnchainSync*(g: OnchainGroupManager, fromBlock: BlockNumber = BlockNum
   initializedGuard(g)
 
   try:
-    await g.getEventsAndSeedIntoTree(fromBlock, some(BlockNumber(0)))
+    await g.getEventsAndSeedIntoTree(fromBlock, some(fromBlock))
   except:
     raise newException(ValueError, "failed to get the history/reconcile missed blocks: " & getCurrentExceptionMsg())
 
@@ -271,6 +278,12 @@ proc startGroupSync*(g: OnchainGroupManager): Future[void] {.async.} =
     await g.register(g.idCredentials.get())
 
   return
+
+proc onRegister*(g: OnchainGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
+  g.registerCb = some(cb)
+
+proc onWithdraw*(g: OnchainGroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
+  g.withdrawCb = some(cb)
 
 proc init*(g: OnchainGroupManager): Future[void] {.async.} =
   var ethRpc: Web3
