@@ -67,13 +67,13 @@ proc registerBatch*(g: StaticGroupManager, idCommitments: seq[IDCommitment]): Fu
   if not membersInserted:
     raise newException(ValueError, "Failed to insert members into the merkle tree")
 
-  g.latestIndex += MembershipIndex(idCommitments.len() - 1)
-
   if g.registerCb.isSome():
     var memberSeq = newSeq[Membership]()
     for i in 0..<idCommitments.len():
-      memberSeq.add(Membership(idCommitment: idCommitments[i], index: g.latestIndex - MembershipIndex(i)))
+      memberSeq.add(Membership(idCommitment: idCommitments[i], index: g.latestIndex + MembershipIndex(i)))
     await g.registerCb.get()(memberSeq)
+
+  g.latestIndex += MembershipIndex(idCommitments.len() - 1)
 
   return
 
