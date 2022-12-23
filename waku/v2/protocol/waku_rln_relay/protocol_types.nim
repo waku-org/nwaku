@@ -10,7 +10,7 @@ import
   web3,
   eth/keys
 import
-  ./credentials,
+  ../../utils/credentials,
   ../../../common/protobuf
 
 type RlnRelayResult*[T] = Result[T, string]

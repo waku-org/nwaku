@@ -57,9 +57,11 @@ import
   # Utils
   ./v2/test_utils_keyfile
 
-
 ## Experimental
 
+import
+  ./v2/test_utils_credentials
+  
 when defined(rln):
   import
     ./v2/test_waku_rln_relay,

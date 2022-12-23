@@ -14,12 +14,14 @@ import
   ../../waku/v2/node/waku_node,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_rln_relay,
+  ../../waku/v2/utils/credentials,
   ../test_helpers
 
 const RlnRelayPubsubTopic = "waku/2/rlnrelay/proto"
 const RlnRelayContentTopic = "waku/2/rlnrelay/proto"
 
 procSuite "Waku rln relay":
+
   asyncTest "mount waku-rln-relay in the off-chain mode":
     let
       nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]

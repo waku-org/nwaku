@@ -10,6 +10,7 @@ import
   eth/keys,
   ../../waku/v2/protocol/waku_rln_relay,
   ../../waku/v2/node/waku_node,
+  ../../waku/v2/utils/credentials,
   ../test_helpers,
   ./test_utils
 

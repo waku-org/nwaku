@@ -19,12 +19,12 @@ import
   ./rln,
   ./conversion_utils,
   ./constants,
-  ./credentials,
   ./protocol_types,
   ./protocol_metrics
 import
   ../../utils/time,
   ../../utils/keyfile,
+  ../../utils/credentials,
   ../waku_message,
   ../waku_relay
 
@@ -929,10 +929,11 @@ proc mount(wakuRelay: WakuRelay,
         info "A RLN credential file exists in provided path", path=rlnRelayCredPath
 
         # retrieve rln-relay credential
-        let readCredentialsRes = readMembershipCredentials(rlnRelayCredPath, conf.rlnRelayCredentialsPassword)
+        waku_rln_membership_credentials_import_duration_seconds.nanosecondTime:
+          let readCredentialsRes = readMembershipCredentials(rlnRelayCredPath, conf.rlnRelayCredentialsPassword)
 
-        if readCredentialsRes.isErr():
-          return err("RLN credentials cannot be read")
+          if readCredentialsRes.isErr():
+            return err("RLN credentials cannot be read")
 
         credentials = readCredentialsRes.get()
 

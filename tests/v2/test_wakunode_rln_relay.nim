@@ -17,6 +17,7 @@ import
   ../../waku/v2/node/waku_node,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_rln_relay,
+  ../../waku/v2/utils/credentials,
   ../../waku/v2/utils/peers
 
 from std/times import epochTime

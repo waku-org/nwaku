@@ -4,14 +4,11 @@ else:
   {.push raises: [].}
 
 import 
-  chronicles, options, chronos, stint, json, strutils,
+  chronicles, options, json, strutils,
   stew/byteutils,
   std/os,
-  ../../utils/keyfile,
-  ../../utils/time,
-  ./constants,
-  ./protocol_metrics
-
+  ./keyfile
+  
 type
   IdentityTrapdoor* = array[32, byte]
   IdentityNullifier* = array[32, byte]
@@ -55,12 +52,42 @@ type
     JsonKeyError          = "keystore error: fields not present in JSON"
     JsonError             = "keystore error: JSON encoder/decoder error"
     KeystoreDoesNotExist  = "keystore error: file does not exist"
+    CreateKeystoreError   = "Error while creating application keystore"
     CreateKeyfileError    = "Error while creating keyfile for credentials"
     SaveKeyfileError      = "Error while saving keyfile for credentials"
     ReadKeyfileError      = "Error while reading keyfile for credentials"
 
 type KeystoreResult[T] = Result[T, AppKeystoreError]
 
+
+proc createAppKeystore*(path: string,
+                        application: string,
+                        appIdentifier: string,
+                        version: string): KeystoreResult[void] =
+
+  let keystore = AppKeystore(application: application,
+                             appIdentifier: appIdentifier,
+                             credentials: @[],
+                             version: version)
+
+  var jsonKeystore: string
+  jsonKeystore.toUgly(%keystore)
+
+  var
+    f: File
+  if not f.open(path, fmWrite):
+    return err(OsError)
+  try:
+    # To avoid other users/attackers to be able to read keyfiles, we make the file readable/writable only by the running user
+    setFilePermissions(path, {fpUserWrite, fpUserRead})
+    f.write(jsonKeystore)
+    # We store a keystore per line
+    f.write("\n")
+    ok()
+  except CatchableError:
+    err(OsError)
+  finally:
+    f.close()
 
 proc loadAppKeystore*(path: string,
                       application: string,
@@ -72,25 +99,40 @@ proc loadAppKeystore*(path: string,
   var matchingAppKeystore: JsonNode
 
   if fileExists(path) == false:
-    return err(KeystoreDoesNotExist)
+    let newKeystore = createAppKeystore(path, application, appIdentifier, version)
+    if newKeystore.isErr():
+        return err(CreateKeystoreError)
 
-  # Note that lines strips the ending newline, if present
   try:
-    for keystore in lines(path):
 
-      # We skip empty lines
+    # We read all the file contents
+    var f: File
+    if not f.open(path, fmRead):
+      return err(OsError)
+    let fileContents = readAll(f)
+
+    # We iterate over each line (which we expect to correspond to a single keystore json)
+    for keystore in fileContents.split('\n'):
+
+      # We skip if empty or malformed
       if keystore.len == 0:
         continue
       # We skip all lines that doesn't seem to define a json
-      if keystore[0] != '{' or keystore[^1] != '}':
+      if not keystore.startsWith("{") or not keystore.endsWith("}"):
         continue
 
       try:
+        # We parse the json
         data = json.parseJson(keystore)
-        # We load the first json found matching the app parameters
-        if data["application"].getStr() == application and 
+
+        # We check if has the relevant credentials fields and if these are set to the passed parameters 
+        #(note that "if" is lazy, so if one of the .contains fails, the json fields contents will not be checked and no ResultDefect will be raised by accessing unavailable fields)
+        if data.contains("application") and data.contains("appIdentifier") and data.contains("version") and
+           data["application"].getStr() == application and 
            data["appIdentifier"].getStr() == appIdentifier and 
            data["version"].getStr() == version:
+          # We return the first json keystore that matches the passed app parameters
+          # We assume a unique kesytore with such parameters in the file
           matchingAppKeystore = data
           break
       except KeyError:
@@ -110,7 +152,6 @@ proc loadAppKeystore*(path: string,
   return ok(matchingAppKeystore)
 
 
-
 proc writeMembershipCredentials*(path: string,
                                  credentials: seq[MembershipCredentials],
                                  password: string,
@@ -118,18 +159,6 @@ proc writeMembershipCredentials*(path: string,
                                  appIdentifier: string,
                                  version: string): KeystoreResult[void] =
 
-  # if keystore exists we load it
-
-
-  info "Storing AppKeystore"
-  var jsonString: string
-  jsonString.toUgly(%credentials)
-  let keyfile = createKeyFileJson(toBytes(jsonString), password)
-
-  if keyfile.isErr():
-    return err(CreateKeyfileError)
-  if saveKeyFile(path, keyfile.get()).isErr():
-    return err(SaveKeyfileError)
   return ok()
 
 
@@ -157,23 +186,21 @@ proc readMembershipCredentials*(path: string,
   # With regards to printing the keys, it is purely for debugging purposes so that the user becomes explicitly aware of the current keys in use when nwaku is started.
   # Note that this is only until the RLN contract being used is the one deployed on Goerli testnet.
   # These prints need to omitted once RLN contract is deployed on Ethereum mainnet and using valuable funds for staking.
-  waku_rln_membership_credentials_import_duration_seconds.nanosecondTime:
+  try:
+    var decodedKeyfiles = loadKeyFiles(path, password)
 
-    try:
-      var decodedKeyfiles = loadKeyFiles(path, password)
-
-      if decodedKeyfiles.isOk():
-        var decodedRlnCredentials = decodedKeyfiles.get()
-        debug "Successfully decrypted keyfiles for the provided password", numberKeyfilesDecrypted=decodedRlnCredentials.len
-        # We should return the index-th decrypted credential, but we ensure to not overflow
-        let credentialIndex = max(min(index, decodedRlnCredentials.len - 1), 0)
-        debug "Picking credential with (adjusted) index", inputIndex=index, adjustedIndex=credentialIndex
-        let jsonObject = parseJson(string.fromBytes(decodedRlnCredentials[credentialIndex].get()))
-        let deserializedRlnCredentials = to(jsonObject, MembershipCredentials)
-        debug "Deserialized RLN credentials", rlnCredentials=deserializedRlnCredentials
-        return ok(some(deserializedRlnCredentials))
-      else:
-        debug "Unable to decrypt RLN credentials with provided password. ", error=decodedKeyfiles.error
-        return ok(none(MembershipCredentials))
-    except:
-      return err(ReadKeyfileError)
+    if decodedKeyfiles.isOk():
+      var decodedRlnCredentials = decodedKeyfiles.get()
+      debug "Successfully decrypted keyfiles for the provided password", numberKeyfilesDecrypted=decodedRlnCredentials.len
+      # We should return the index-th decrypted credential, but we ensure to not overflow
+      let credentialIndex = max(min(index, decodedRlnCredentials.len - 1), 0)
+      debug "Picking credential with (adjusted) index", inputIndex=index, adjustedIndex=credentialIndex
+      let jsonObject = parseJson(string.fromBytes(decodedRlnCredentials[credentialIndex].get()))
+      let deserializedRlnCredentials = to(jsonObject, MembershipCredentials)
+      debug "Deserialized RLN credentials", rlnCredentials=deserializedRlnCredentials
+      return ok(some(deserializedRlnCredentials))
+    else:
+      debug "Unable to decrypt RLN credentials with provided password. ", error=decodedKeyfiles.error
+      return ok(none(MembershipCredentials))
+  except:
+    return err(ReadKeyfileError)
