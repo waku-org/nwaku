@@ -40,8 +40,10 @@ import
   ../../waku/v2/protocol/waku_archive/retention_policy,
   ../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_capacity,
   ../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_time,
-  ../../waku/v2/protocol/waku_peer_exchange,
   ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/protocol/waku_filter,
+  ../../waku/v2/protocol/waku_lightpush,
+  ../../waku/v2/protocol/waku_peer_exchange,
   ../../waku/v2/utils/peers,
   ../../waku/v2/utils/wakuenr,
   ./wakunode2_setup_rest,
@@ -402,9 +404,8 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
   if conf.storenode != "":
     try:
       mountStoreClient(node)
-      #setStorePeer(node, conf.storenode)
-      let remoteNode = parseRemotePeerInfo(conf.storenode)
-      node.peerManager.addServicePeer(remoteNode, WakuStoreCodec)
+      let storenode = parseRemotePeerInfo(conf.storenode)
+      node.peerManager.addServicePeer(storenode, WakuStoreCodec)
     except:
       return err("failed to set node waku store peer: " & getCurrentExceptionMsg())
 
@@ -418,7 +419,8 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
   if conf.lightpushnode != "":
     try:
       mountLightPushClient(node)
-      setLightPushPeer(node, conf.lightpushnode)
+      let lightpushnode = parseRemotePeerInfo(conf.lightpushnode)
+      node.peerManager.addServicePeer(lightpushnode, WakuLightPushCodec)
     except:
       return err("failed to set node waku lightpush peer: " & getCurrentExceptionMsg())
 
@@ -432,7 +434,8 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
   if conf.filternode != "":
     try:
       await mountFilterClient(node)
-      setFilterPeer(node, conf.filternode)
+      let filternode = parseRemotePeerInfo(conf.filternode)
+      node.peerManager.addServicePeer(filternode, WakuFilterCodec)
     except:
       return err("failed to set node waku filter peer: " & getCurrentExceptionMsg())
 
@@ -445,7 +448,8 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
 
     if conf.peerExchangeNode != "":
       try:
-        setPeerExchangePeer(node, conf.peerExchangeNode)
+        let peerExchangeNode = parseRemotePeerInfo(conf.peerExchangeNode)
+        node.peerManager.addServicePeer(peerExchangeNode, WakuPeerExchangeCodec)
       except:
         return err("failed to set node waku peer-exchange peer: " & getCurrentExceptionMsg())
 
@@ -500,6 +504,8 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
   # Start keepalive, if enabled
   if conf.keepAlive:
     node.startKeepalive()
+
+  asyncSpawn node.peerManager.keepSlotPeersConnected()
 
   return ok()
 

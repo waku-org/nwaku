@@ -127,14 +127,15 @@ proc prunePeerStore(pm: PeerManager) =
   doAssert(false, "Not implemented!")
 
 # Ensure we are always connected to the slotted service peers
-proc keepSlotPeersAliveLoop(pm: PeerManager) {.async.} =
+proc keepSlotPeersConnected*(pm: PeerManager) {.async.} =
   let defaultKeepalive = chronos.minutes(2)
 
   while true:
-    for proto, servicePeer in pm.serviceSlots.pairs:
+    for serviceProto, servicePeer in pm.serviceSlots.pairs:
       if pm.peerStore.connectedness(servicePeer.peerId) != Connected:
         # Attempt to dial peer. Note that service peers do not respect any backoff
-        discard await pm.dialPeer(servicePeer.peerId, servicePeer.addrs, proto)
+        discard await pm.dialPeer(servicePeer.peerId, servicePeer.addrs, serviceProto)
+
     await sleepAsync(defaultKeepalive)
 
 proc loadFromStorage(pm: PeerManager) =
@@ -204,8 +205,7 @@ proc new*(T: type PeerManager,
                        storage: storage,
                        initialBackoffInSec: initialBackoffInSec,
                        backoffFactor: backoffFactor,
-                       maxFailedAttempts: maxFailedAttempts,
-                       storage: storage)
+                       maxFailedAttempts: maxFailedAttempts)
   proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(pm, peerId, event)
 
@@ -264,6 +264,8 @@ proc addServicePeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: str
   if proto == wakuRelayCodec:
     warn "can't add relay peer to service peers slots"
     return
+
+  info "Adding peer to service slots", peerId = remotePeerInfo.peerId, addr = remotePeerInfo.addrs[0], service = proto
 
    # Set peer for service slot
   pm.serviceSlots[proto] = remotePeerInfo
