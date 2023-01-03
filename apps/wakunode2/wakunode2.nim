@@ -41,6 +41,7 @@ import
   ../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_capacity,
   ../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_time,
   ../../waku/v2/protocol/waku_peer_exchange,
+  ../../waku/v2/protocol/waku_store,
   ../../waku/v2/utils/peers,
   ../../waku/v2/utils/wakuenr,
   ./wakunode2_setup_rest,
@@ -401,7 +402,9 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
   if conf.storenode != "":
     try:
       mountStoreClient(node)
-      setStorePeer(node, conf.storenode)
+      #setStorePeer(node, conf.storenode)
+      let remoteNode = parseRemotePeerInfo(conf.storenode)
+      node.peerManager.addServicePeer(remoteNode, WakuStoreCodec)
     except:
       return err("failed to set node waku store peer: " & getCurrentExceptionMsg())
 

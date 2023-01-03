@@ -24,6 +24,8 @@ import
   ../../waku/v2/protocol/waku_relay,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_filter,
+  ../../waku/v2/protocol/waku_lightpush,
+  ../../waku/v2/protocol/waku_peer_exchange,
   ../../waku/v2/protocol/waku_swap/waku_swap,
   ../test_helpers,
   ./testlib/testutils
@@ -401,3 +403,45 @@ procSuite "Peer Manager":
       nodes[3].peerManager.peerStore[DirectionBook][nodes[0].switch.peerInfo.peerId] == Outbound
 
     await allFutures(nodes.mapIt(it.stop()))
+
+  asyncTest "Peer store addServicePeer() stores service peers":
+    # Valid peer id missing the last digit
+    let basePeerId = "16Uiu2HAm7QGEZKujdSbbo1aaQyfDPQ6Bw3ybQnj6fruH5Dxwd7D"
+
+    let
+      nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(60932))
+      peer1 = parseRemotePeerInfo("/ip4/0.0.0.0/tcp/30300/p2p/" & basePeerId & "1")
+      peer2 = parseRemotePeerInfo("/ip4/0.0.0.0/tcp/30301/p2p/" & basePeerId & "2")
+      peer3 = parseRemotePeerInfo("/ip4/0.0.0.0/tcp/30302/p2p/" & basePeerId & "3")
+      peer4 = parseRemotePeerInfo("/ip4/0.0.0.0/tcp/30303/p2p/" & basePeerId & "4")
+      peer5 = parseRemotePeerInfo("/ip4/0.0.0.0/tcp/30303/p2p/" & basePeerId & "5")
+
+    # service peers
+    node.peerManager.addServicePeer(peer1, WakuStoreCodec)
+    node.peerManager.addServicePeer(peer2, WakuFilterCodec)
+    node.peerManager.addServicePeer(peer3, WakuLightPushCodec)
+    node.peerManager.addServicePeer(peer4, WakuPeerExchangeCodec)
+
+    # relay peers
+    node.peerManager.addServicePeer(peer5, WakuRelayCodec)
+
+    # all peers are stored in the peerstore
+    check:
+      node.peerManager.peerStore.peers().anyIt(it.peerId == peer1.peerId)
+      node.peerManager.peerStore.peers().anyIt(it.peerId == peer2.peerId)
+      node.peerManager.peerStore.peers().anyIt(it.peerId == peer3.peerId)
+      node.peerManager.peerStore.peers().anyIt(it.peerId == peer4.peerId)
+
+      # but the relay peer is not
+      node.peerManager.peerStore.peers().anyIt(it.peerId == peer5.peerId) == false
+
+    # all service peers are added to its service slot
+    check:
+      node.peerManager.serviceSlots[WakuStoreCodec].peerId == peer1.peerId
+      node.peerManager.serviceSlots[WakuFilterCodec].peerId == peer2.peerId
+      node.peerManager.serviceSlots[WakuLightPushCodec].peerId == peer3.peerId
+      node.peerManager.serviceSlots[WakuPeerExchangeCodec].peerId == peer4.peerId
+
+      # but the relay peer is not
+      node.peerManager.serviceSlots.hasKey(WakuRelayCodec) == false

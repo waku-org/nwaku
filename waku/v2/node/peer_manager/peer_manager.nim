@@ -54,6 +54,8 @@ type
     backoffFactor*: int
     maxFailedAttempts*: int
     storage: PeerStorage
+    # Prefered peers for service protocols
+    serviceSlots*: Table[string, RemotePeerInfo] # TODO: use peer id instead?
 
 ####################
 # Helper functions #
@@ -124,6 +126,17 @@ proc prunePeerStore(pm: PeerManager) =
   #  pm.peerStore.del(peerId)
   doAssert(false, "Not implemented!")
 
+# Ensure we are always connected to the slotted service peers
+proc keepSlotPeersAliveLoop(pm: PeerManager) {.async.} =
+  let defaultKeepalive = chronos.minutes(2)
+
+  while true:
+    for proto, servicePeer in pm.serviceSlots.pairs:
+      if pm.peerStore.connectedness(servicePeer.peerId) != Connected:
+        # Attempt to dial peer. Note that service peers do not respect any backoff
+        discard await pm.dialPeer(servicePeer.peerId, servicePeer.addrs, proto)
+    await sleepAsync(defaultKeepalive)
+
 proc loadFromStorage(pm: PeerManager) =
   debug "loading peers from storage"
   # Load peers from storage, if available
@@ -191,13 +204,15 @@ proc new*(T: type PeerManager,
                        storage: storage,
                        initialBackoffInSec: initialBackoffInSec,
                        backoffFactor: backoffFactor,
-                       maxFailedAttempts: maxFailedAttempts)
-
+                       maxFailedAttempts: maxFailedAttempts,
+                       storage: storage)
   proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(pm, peerId, event)
 
   pm.switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
   pm.switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
+
+  pm.serviceSlots = initTable[string, RemotePeerInfo]()
 
   if not storage.isNil():
     debug "found persistent peer storage"
@@ -238,6 +253,23 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string) =
   # Add peer to storage. Entry will subsequently be updated with connectedness information
   if not pm.storage.isNil:
     pm.storage.insertOrReplace(remotePeerInfo.peerId, pm.peerStore.get(remotePeerInfo.peerId), NotConnected)
+
+proc addServicePeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string) =
+
+  # TODO: Circular dependancy waku_realay/waku_peer_store. Remove
+  # once fixed
+  let wakuRelayCodec = "/vac/waku/relay/2.0.0"
+
+  # Do not add relay peers
+  if proto == wakuRelayCodec:
+    warn "can't add relay peer to service peers slots"
+    return
+
+   # Set peer for service slot
+  pm.serviceSlots[proto] = remotePeerInfo
+
+  # TODO: Remove proto once fully refactored
+  pm.addPeer(remotePeerInfo, proto)
 
 proc reconnectPeers*(pm: PeerManager,
                      proto: string,
