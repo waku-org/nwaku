@@ -6,13 +6,18 @@ else:
 import
   std/[sequtils],
   web3,
-  chronicles, 
+  chronicles,
   stew/[arrayops, results, endians2],
   stint
 import
     ./protocol_types
 import
   ../../utils/keyfile
+
+export
+  web3,
+  chronicles,
+  stint
 
 logScope:
     topics = "waku rln_relay conversion_utils"

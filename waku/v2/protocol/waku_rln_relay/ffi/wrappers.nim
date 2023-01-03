@@ -1,7 +1,8 @@
 import
-  chronicles, 
-  options, 
-  stew/[arrayops, results]
+  chronicles,
+  options,
+  stew/[arrayops, results],
+  nimcrypto/utils
 
 import
   ./rln_interface,
@@ -87,7 +88,7 @@ proc hash*(rlnInstance: ptr RLN, data: openArray[byte]): MerkleNode =
   debug "hash input buffer length", bufflen = hashInputBuffer.len
   let
     hashSuccess = hash(rlnInstance, addr hashInputBuffer, addr outputBuffer)
-  
+
   # check whether the hash call is done successfully
   if not hashSuccess:
     debug "error in hash"
