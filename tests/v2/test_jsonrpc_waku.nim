@@ -389,6 +389,15 @@ procSuite "Waku v2 JSON-RPC API":
       getRes.anyIt(it.protocol == WakuRelayCodec and
                    it.multiaddr == constructMultiaddrStr(peerInfo3))
 
+    # Verify that raises an exception if we can't connect to the peer
+    let nonExistentPeer = "/ip4/0.0.0.0/tcp/10000/p2p/16Uiu2HAm6HZZr7aToTvEBPpiys4UxajCTU97zj5v7RNR2gbniy1D"
+    expect(ValueError):
+      discard await client.post_waku_v2_admin_v1_peers(@[nonExistentPeer])
+
+    let malformedPeer = "/malformed/peer"
+    expect(ValueError):
+      discard await client.post_waku_v2_admin_v1_peers(@[malformedPeer])
+
     await server.stop()
     await server.closeWait()
 

@@ -44,12 +44,11 @@ proc installAdminApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
     ## Connect to a list of peers
     debug "post_waku_v2_admin_v1_peers"
 
-    if (await node.connectToNodes(peers).withTimeout(futTimeout)):
-      # Successfully connected to peers
-      return true
-    else:
-      # Failed to connect to peers
-      raise newException(ValueError, "Failed to connect to peers: " & $peers)
+    for i, peer in peers:
+      let conn = await node.peerManager.dialPeer(parseRemotePeerInfo(peer), WakuRelayCodec, source="rpc")
+      if conn.isNone():
+        raise newException(ValueError, "Failed to connect to peer at index: " & $i & " " & $peer)
+    return true
 
   rpcsrv.rpc("get_waku_v2_admin_v1_peers") do() -> seq[WakuPeer]:
     ## Returns a list of peers registered for this node
