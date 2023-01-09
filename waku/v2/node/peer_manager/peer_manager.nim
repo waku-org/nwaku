@@ -269,10 +269,13 @@ proc connectToNodes*(pm: PeerManager,
                      source = "api") {.async.} =
   info "connectToNodes", len = nodes.len
 
+  var futConns: seq[Future[Option[Connection]]]
   for node in nodes:
     let node = when node is string: parseRemotePeerInfo(node)
                else: node
-    discard await pm.dialPeer(RemotePeerInfo(node), proto, dialTimeout, source)
+    futConns.add(pm.dialPeer(RemotePeerInfo(node), proto, dialTimeout, source))
+
+  await allFutures(futConns)
 
   # The issue seems to be around peers not being fully connected when
   # trying to subscribe. So what we do is sleep to guarantee nodes are
