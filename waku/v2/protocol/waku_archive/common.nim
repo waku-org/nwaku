@@ -85,3 +85,6 @@ proc `$`*(err: ArchiveError): string =
     "INVALID_QUERY: " & err.cause
   of ArchiveErrorKind.UNKNOWN:
     "UNKNOWN"
+
+proc invalidQuery*(T: type ArchiveError, cause: string): T =
+  ArchiveError(kind: ArchiveErrorKind.INVALID_QUERY, cause: cause)
