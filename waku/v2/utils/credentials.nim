@@ -10,12 +10,12 @@ import
   ./keyfile
   
 type
-  IdentityTrapdoor* = array[32, byte]
-  IdentityNullifier* = array[32, byte]
+  IdentityTrapdoor* = seq[byte] #array[32, byte]
+  IdentityNullifier* = seq[byte] #array[32, byte]
   # identity key as defined in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
-  IdentitySecretHash* = array[32, byte]
+  IdentitySecretHash* = seq[byte] #array[32, byte]
   # hash of identity key as defined ed in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
-  IDCommitment* = array[32, byte]
+  IDCommitment* = seq[byte] #array[32, byte]
 
 type IdentityCredential* = object
   idTrapdoor*: IdentityTrapdoor
@@ -53,12 +53,44 @@ type
     JsonError             = "keystore error: JSON encoder/decoder error"
     KeystoreDoesNotExist  = "keystore error: file does not exist"
     CreateKeystoreError   = "Error while creating application keystore"
+    LoadKeystoreError     = "Error while loading application keystore"
     CreateKeyfileError    = "Error while creating keyfile for credentials"
     SaveKeyfileError      = "Error while saving keyfile for credentials"
     ReadKeyfileError      = "Error while reading keyfile for credentials"
 
 type KeystoreResult[T] = Result[T, AppKeystoreError]
 
+
+proc toString(credential: MembershipCredentials): string =
+  # use base64
+  var stringCredential: string
+  # NOTE: toUgly appends to the string, doesn't replace its contents
+  stringCredential.toUgly(%credential)
+  return stringCredential
+
+proc contains(keystore: var JsonNode, password: string, membershipCredential: MembershipCredentials): KeystoreResult[void] =
+  
+  try:
+    var credentials = keystore["credentials"]
+    for credential in credentials.mitems():
+      let decodedKeyfile = decodeKeyFileJson(credential, password)
+      if decodedKeyfile.isOk():
+        try:
+          let jsonObject = parseJson(string.fromBytes(decodedKeyfile.get()))
+          let keyfileMembershipCredential = to(jsonObject, MembershipCredentials)
+          if keyfileMembershipCredential.identityCredential == membershipCredential.identityCredential:
+            echo "found!"
+            return ok()
+        # TODO: we might continue rather than return for some of these errors
+        except JsonParsingError:
+          return err(JsonError)
+        except OSError:
+          return err(OsError)
+        except Exception: #parseJson raises Exception
+          return err(OsError)
+    return ok()
+  except:
+    return err(JsonError)
 
 proc createAppKeystore*(path: string,
                         application: string,
@@ -73,10 +105,10 @@ proc createAppKeystore*(path: string,
   var jsonKeystore: string
   jsonKeystore.toUgly(%keystore)
 
-  var
-    f: File
+  var f: File
   if not f.open(path, fmWrite):
     return err(OsError)
+
   try:
     # To avoid other users/attackers to be able to read keyfiles, we make the file readable/writable only by the running user
     setFilePermissions(path, {fpUserWrite, fpUserRead})
@@ -98,6 +130,7 @@ proc loadAppKeystore*(path: string,
   var data: JsonNode
   var matchingAppKeystore: JsonNode
 
+  # If no keystore exists at path we create a new empty one with passed keystore parameters
   if fileExists(path) == false:
     let newKeystore = createAppKeystore(path, application, appIdentifier, version)
     if newKeystore.isErr():
@@ -114,10 +147,10 @@ proc loadAppKeystore*(path: string,
     # We iterate over each line (which we expect to correspond to a single keystore json)
     for keystore in fileContents.split('\n'):
 
-      # We skip if empty or malformed
+      # We skip if read line is empty
       if keystore.len == 0:
         continue
-      # We skip all lines that doesn't seem to define a json
+      # We skip all lines that don't seem to define a json
       if not keystore.startsWith("{") or not keystore.endsWith("}"):
         continue
 
@@ -125,16 +158,17 @@ proc loadAppKeystore*(path: string,
         # We parse the json
         data = json.parseJson(keystore)
 
-        # We check if has the relevant credentials fields and if these are set to the passed parameters 
-        #(note that "if" is lazy, so if one of the .contains fails, the json fields contents will not be checked and no ResultDefect will be raised by accessing unavailable fields)
-        if data.contains("application") and data.contains("appIdentifier") and data.contains("version") and
+        # We check if parsed json contains the relevant keystore credentials fields and if these are set to the passed parameters 
+        # (note that "if" is lazy, so if one of the .contains() fails, the json fields contents will not be checked and no ResultDefect will be raised due to accessing unavailable fields)
+        if data.contains("application") and data.contains("appIdentifier") and data.contains("credentials") and data.contains("version") and
            data["application"].getStr() == application and 
            data["appIdentifier"].getStr() == appIdentifier and 
            data["version"].getStr() == version:
           # We return the first json keystore that matches the passed app parameters
-          # We assume a unique kesytore with such parameters in the file
+          # We assume a unique kesytore with such parameters is present in the file
           matchingAppKeystore = data
           break
+      # TODO: we might continue rather than return for some of these errors
       except KeyError:
         return err(JsonKeyError)
       except JsonParsingError:
@@ -152,12 +186,38 @@ proc loadAppKeystore*(path: string,
   return ok(matchingAppKeystore)
 
 
-proc writeMembershipCredentials*(path: string,
+proc addMembershipCredentials*(path: string,
                                  credentials: seq[MembershipCredentials],
                                  password: string,
                                  application: string,
                                  appIdentifier: string,
                                  version: string): KeystoreResult[void] =
+
+  # We load the keystore corresponding to the desired parameters
+  let jsonKeystoreOpt = loadAppKeystore(path, application, appIdentifier, version)
+
+  if jsonKeystoreOpt.isErr():
+    return err(LoadKeystoreError)
+
+  # We load the JSON node corresponding to the app keystore
+  var jsonKeystore = jsonKeystoreOpt.get()
+
+  for credential in credentials:
+    let credentialString = credential.toString()
+    let keyfile = createKeyFileJson(toBytes(credentialString), password)
+    if keyfile.isErr():
+      return err(CreateKeyfileError)
+
+    # we add the keyfile encrypting the credential to the credentials field
+    # note that credentials exists as field otherwise loadAppKeystore would fail.
+    try:
+      # TEST
+      if contains(keystore = jsonKeystore, password = password, membershipCredential = keyfile.get()).isOk():
+        echo "is ok"
+      jsonKeystore["credentials"].add(keyfile.get())
+      echo jsonKeystore
+    except KeyError:
+      return err(JsonKeyError)
 
   return ok()
 
