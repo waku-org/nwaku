@@ -12,6 +12,7 @@ import
   libp2p/protocols/pubsub/gossipsub,
   libp2p/nameresolving/nameresolver,
   libp2p/builders,
+  libp2p/switch,
   libp2p/transports/[transport, tcptransport, wstransport]
 
 # override nim-libp2p default value (which is also 1)
@@ -74,8 +75,9 @@ proc newWakuSwitch*(
     wssEnabled: bool = false,
     secureKeyPath: string = "",
     secureCertPath: string = "",
-    agentString = none(string),    # defaults to nim-libp2p version,
+    agentString = none(string),    # defaults to nim-libp2p version
     peerStoreCapacity = none(int), # defaults to nim-libp2p max size
+    services: seq[switch.Service] = @[],
     ): Switch
     {.raises: [Defect, IOError, LPError].} =
 
@@ -110,5 +112,8 @@ proc newWakuSwitch*(
 
     else :
       b = b.withAddress(address)
+
+    if services.len > 0:
+      b = b.withServices(services)
 
     b.build()
