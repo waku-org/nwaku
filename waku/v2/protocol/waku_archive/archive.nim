@@ -126,6 +126,8 @@ proc findMessages*(w: WakuArchive, query: ArchiveQuery): ArchiveResult {.gcsafe.
                    else: min(query.pageSize, MaxPageSize)
     qAscendingOrder = query.ascending
 
+  if qContentTopics.len > 10:
+    return err(ArchiveError.invalidQuery("too many content topics"))
 
   let queryStartTime = getTime().toUnixFloat()
 
