@@ -5,13 +5,14 @@ else:
 
 
 import
-  std/[options, sets, sequtils, times],
+  std/[options, sets, sequtils, times, random],
   chronos,
   chronicles,
   metrics,
   libp2p/multistream
 import
   ../../utils/peers,
+  ../../waku/v2/protocol/waku_relay,
   ./peer_store/peer_storage,
   ./waku_peer_store
 
@@ -179,19 +180,21 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string) =
     # Do not attempt to manage our unmanageable self
     return
 
-  debug "Adding peer to manager", peerId = remotePeerInfo.peerId, addr = remotePeerInfo.addrs[0], proto = proto
-
-  # ...known addresses
-  for multiaddr in remotePeerInfo.addrs:
-    pm.peerStore[AddressBook][remotePeerInfo.peerId] = pm.peerStore[AddressBook][remotePeerInfo.peerId] & multiaddr
-
   # ...public key
   var publicKey: PublicKey
   discard remotePeerInfo.peerId.extractPublicKey(publicKey)
 
+  if pm.peerStore[AddressBook][remotePeerInfo.peerId] == remotePeerInfo.addrs and
+     pm.peerStore[KeyBook][remotePeerInfo.peerId] == publicKey:
+    # Peer already managed
+    return
+
+  info "Adding peer to manager", peerId = remotePeerInfo.peerId, addresses = remotePeerInfo.addrs, proto = proto
+
+  pm.peerStore[AddressBook][remotePeerInfo.peerId] = remotePeerInfo.addrs
   pm.peerStore[KeyBook][remotePeerInfo.peerId] = publicKey
 
-  # nim-libp2p identify overrides this
+  # TODO: Remove this once service slots is ready
   pm.peerStore[ProtoBook][remotePeerInfo.peerId] = pm.peerStore[ProtoBook][remotePeerInfo.peerId] & proto
 
   # Add peer to storage. Entry will subsequently be updated with connectedness information
@@ -284,3 +287,38 @@ proc connectToNodes*(pm: PeerManager,
   # This issue was known to Dmitiry on nim-libp2p and may be resolvable
   # later.
   await sleepAsync(chronos.seconds(5))
+
+# Ensures a healthy amount of connected relay peers
+proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
+  let defaultInterval = chronos.seconds(30)
+
+  while true:
+
+    let maxConnections = pm.switch.connManager.inSema.size
+    let numInPeers = pm.switch.connectedPeers(lpstream.Direction.In).len
+    let numOutPeers = pm.switch.connectedPeers(lpstream.Direction.Out).len
+    let numConPeers = numInPeers + numOutPeers
+
+    # TODO: Enforce a given in/out peers ratio
+
+    # Leave some room for service peers
+    if numConPeers >= (maxConnections - 5):
+      await sleepAsync(defaultInterval)
+      continue
+
+    # TODO: Respect backoff before attempting to connect a relay peer
+    var disconnectedPeers = pm.peerStore.getDisconnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
+    shuffle(disconnectedPeers)
+
+    # limit the amount of paralel dials
+    let maxParalelDials = 10
+    let numPeersToConnect = min(min(maxConnections - numConPeers, disconnectedPeers.len), maxParalelDials)
+
+    info "Relay connectivity loop",
+      connectedPeers = numConPeers,
+      targetConnectedPeers = maxConnections,
+      availableDisconnectedPeers = disconnectedPeers.len
+
+    await pm.connectToNodes(disconnectedPeers[0..<numPeersToConnect], WakuRelayCodec)
+
+    await sleepAsync(defaultInterval)
