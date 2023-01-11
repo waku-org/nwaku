@@ -4,7 +4,7 @@ import
   testutils/unittests,
   chronos,
   libp2p,
-  libp2p/protocols/connectivity/autonat,
+  libp2p/protocols/connectivity/autonat/client,
   libp2p/protocols/connectivity/relay/relay,
   libp2p/protocols/connectivity/relay/client,
   stew/byteutils
@@ -34,7 +34,7 @@ procSuite "Waku Switch":
 
     ## When
     await sourceSwitch.connect(wakuSwitch.peerInfo.peerId, wakuSwitch.peerInfo.addrs)
-    let ma = await Autonat.new(sourceSwitch).dialMe(wakuSwitch.peerInfo.peerId, wakuSwitch.peerInfo.addrs)
+    let ma = await AutonatClient.new().dialMe(sourceSwitch, wakuSwitch.peerInfo.peerId, wakuSwitch.peerInfo.addrs)
 
     ## Then
     check:

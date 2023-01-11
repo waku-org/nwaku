@@ -25,12 +25,12 @@ logScope:
 
 
 proc startRpcServer*(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port, conf: WakuNodeConf)
-  {.raises: [RpcBindError].} =
+  {.raises: [CatchableError].} =
 
   let
     ta = initTAddress(rpcIp, rpcPort)
     rpcServer = newRpcHttpServer([ta])
-  
+
   installDebugApiHandlers(node, rpcServer)
 
   # TODO: Move to setup protocols proc
@@ -39,21 +39,21 @@ proc startRpcServer*(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port, conf:
     installRelayApiHandlers(node, rpcServer, topicCache)
 
     if conf.rpcPrivate:
-      # Private API access allows WakuRelay functionality that 
+      # Private API access allows WakuRelay functionality that
       # is backwards compatible with Waku v1.
       installPrivateApiHandlers(node, rpcServer, topicCache)
-  
+
   # TODO: Move to setup protocols proc
   if conf.filternode != "":
     let messageCache = newTable[ContentTopic, seq[WakuMessage]]()
     installFilterApiHandlers(node, rpcServer, messageCache)
-  
+
   # TODO: Move to setup protocols proc
   if conf.storenode != "":
     installStoreApiHandlers(node, rpcServer)
-  
+
   if conf.rpcAdmin:
     installAdminApiHandlers(node, rpcServer)
-  
+
   rpcServer.start()
   info "RPC Server started", address=ta

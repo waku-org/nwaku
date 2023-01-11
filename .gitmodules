@@ -2,7 +2,7 @@
 	path = vendor/nim-eth
 	url = https://github.com/status-im/nim-eth.git
 	ignore = dirty
-	branch = selectable-protocol-id
+	branch = master
 [submodule "vendor/nim-secp256k1"]
 	path = vendor/nim-secp256k1
 	url = https://github.com/status-im/nim-secp256k1.git
