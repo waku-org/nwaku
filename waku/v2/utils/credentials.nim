@@ -6,7 +6,7 @@ else:
 import 
   chronicles, options, json, strutils,
   stew/byteutils,
-  std/os,
+  std/[os, sequtils, sets],
   ./keyfile
   
 type
@@ -71,16 +71,39 @@ proc toString(credential: MembershipCredentials): string =
 proc contains(keystore: var JsonNode, password: string, membershipCredential: MembershipCredentials): KeystoreResult[void] =
   
   try:
-    var credentials = keystore["credentials"]
-    for credential in credentials.mitems():
+    # We get all credentials in keystore
+    var keystoreCredentials = keystore["credentials"]
+    for credential in keystoreCredentials.mitems():
+      echo "credential at origin ", credential
+      # credential is encrypted. We decrypt it
       let decodedKeyfile = decodeKeyFileJson(credential, password)
       if decodedKeyfile.isOk():
         try:
+          # we parse the json decrypted credential
           let jsonObject = parseJson(string.fromBytes(decodedKeyfile.get()))
           let keyfileMembershipCredential = to(jsonObject, MembershipCredentials)
+
+          # We check if the decrypted credential has its identityCredential field equal to the input credential
           if keyfileMembershipCredential.identityCredential == membershipCredential.identityCredential:
-            echo "found!"
+            # idCredential is present in keystore. We add the input credential membership group to the one contained in the decrypted keystore credential (we deduplicate groups using sets)
+            let allMemberships = toSeq(toHashSet(keyfileMembershipCredential.membershipGroups) + toHashSet(membershipCredential.membershipGroups))
+
+            # we define the updated credential with the updated membership sets
+            let updatedCredential = MembershipCredentials(identityCredential: keyfileMembershipCredential.identityCredential, membershipGroups: allMemberships)
+
+            # we re-encrypt creating a new keyfile
+            let updatedCredentialString = updatedCredential.toString()
+            let updatedKeyfile = createKeyFileJson(toBytes(updatedCredentialString), password)
+            if updatedKeyfile.isErr():
+              return err(CreateKeyfileError)
+
+            # we update the original credential field in keystoreCredentials
+            credential = updatedKeyfile.get()
+            
+            echo "updkeyfile ", updatedKeyfile
+            echo "credential ", credential
             return ok()
+
         # TODO: we might continue rather than return for some of these errors
         except JsonParsingError:
           return err(JsonError)
@@ -88,7 +111,26 @@ proc contains(keystore: var JsonNode, password: string, membershipCredential: Me
           return err(OsError)
         except Exception: #parseJson raises Exception
           return err(OsError)
-    return ok()
+    
+    # no credential in keystore with same input identityCredential value found. We add it
+    # ...
+
+    try:    
+      let membershipCredentialString = membershipCredential.toString()
+      let keyfile = createKeyFileJson(toBytes(membershipCredentialString), password)
+      if keyfile.isErr():
+        return err(CreateKeyfileError)
+
+      keystore["credentials"].add(keyfile.get())
+      echo "newly added ", keystore
+
+
+      #TODO: save to disk the updated keystore
+      return ok()
+
+    except KeyError:
+      return err(JsonKeyError)
+
   except:
     return err(JsonError)
 
@@ -203,21 +245,12 @@ proc addMembershipCredentials*(path: string,
   var jsonKeystore = jsonKeystoreOpt.get()
 
   for credential in credentials:
-    let credentialString = credential.toString()
-    let keyfile = createKeyFileJson(toBytes(credentialString), password)
-    if keyfile.isErr():
-      return err(CreateKeyfileError)
 
     # we add the keyfile encrypting the credential to the credentials field
     # note that credentials exists as field otherwise loadAppKeystore would fail.
-    try:
-      # TEST
-      if contains(keystore = jsonKeystore, password = password, membershipCredential = keyfile.get()).isOk():
-        echo "is ok"
-      jsonKeystore["credentials"].add(keyfile.get())
-      echo jsonKeystore
-    except KeyError:
-      return err(JsonKeyError)
+    if contains(keystore = jsonKeystore, password = password, membershipCredential = credential).isOk():
+      echo "is ok"
+  
 
   return ok()
 

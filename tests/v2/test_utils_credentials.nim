@@ -29,8 +29,7 @@ procSuite "Credentials test suite":
 
     check:
       keystore.isOk()
-  ]#
-
+  
 
   asyncTest "Load keystore":
 
@@ -92,6 +91,55 @@ procSuite "Credentials test suite":
     
     let keystore = addMembershipCredentials(path = filepath,
                                             credentials = @[rlnMembershipCredentials1, rlnMembershipCredentials2],
+                                            password = password,
+                                            application = "test",
+                                            appIdentifier = "1234",
+                                            version = "0.1")
+
+    check:
+      keystore.isOk()
+
+  ]#
+
+  asyncTest "Find credential in keystore":
+
+    let filepath = "./testAppKeystore.txt"
+    #defer: removeFile(filepath)
+
+    # We generate a random identity credential (inter-value constrains are not enforced, otherwise we need to load e.g. zerokit RLN keygen)
+    var
+      idTrapdoor = randomSeqByte(rng[], 32)
+      idNullifier =  randomSeqByte(rng[], 32)
+      idSecretHash = randomSeqByte(rng[], 32)
+      idCommitment = randomSeqByte(rng[], 32)
+
+    var idCredential = IdentityCredential(idTrapdoor: idTrapdoor, idNullifier: idNullifier, idSecretHash: idSecretHash, idCommitment: idCommitment)
+
+    debug "the generated identity credential: ", idCredential
+
+    var index = MembershipIndex(1)
+
+    # We generate two membership credentials with same identity credential
+    let rlnMembershipCredentials1 = MembershipCredentials(identityCredential: idCredential,
+                                                         membershipGroups: @[MembershipGroup(chainId: "5",
+                                                                                             contract: "0x0123456789012345678901234567890123456789",
+                                                                                             treeIndex: index) ])
+
+    let rlnMembershipCredentials2 = MembershipCredentials(identityCredential: idCredential,
+                                                         membershipGroups: @[MembershipGroup(chainId: "6",
+                                                                                             contract: "0x0000000000000000000000000000000000000000",
+                                                                                             treeIndex: index) ])
+
+    # This is the same as rlnMembershipCredentials2, should not change the keystore entry of idCredential
+    let rlnMembershipCredentials3 = MembershipCredentials(identityCredential: idCredential,
+                                                         membershipGroups: @[MembershipGroup(chainId: "6",
+                                                                                             contract: "0x0000000000000000000000000000000000000000",
+                                                                                             treeIndex: index) ])
+
+    let password = "%m0um0ucoW%"
+    
+    let keystore = addMembershipCredentials(path = filepath,
+                                            credentials = @[rlnMembershipCredentials1, rlnMembershipCredentials2, rlnMembershipCredentials3],
                                             password = password,
                                             application = "test",
                                             appIdentifier = "1234",
