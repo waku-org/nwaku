@@ -214,6 +214,29 @@ procSuite "Waku Archive - find messages":
       response.messages.anyIt(it == msg1)
       response.messages.anyIt(it == msg3)
 
+  test "handle query with more than 10 content filters":
+    ## Setup
+    let
+      driver = newTestArchiveDriver()
+      archive = newTestWakuArchive(driver)
+
+    let queryTopics = toSeq(1..15).mapIt(ContentTopic($it))
+
+    ## Given
+    let req = ArchiveQuery(contentTopics: queryTopics)
+
+    ## When
+    let queryRes = archive.findMessages(req)
+
+    ## Then
+    check:
+      queryRes.isErr()
+
+    let error = queryRes.tryError()
+    check:
+      error.kind == ArchiveErrorKind.INVALID_QUERY
+      error.cause == "too many content topics"
+
   test "handle query with pubsub topic filter":
     ## Setup
     let
