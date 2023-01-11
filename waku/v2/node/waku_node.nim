@@ -17,6 +17,8 @@ import
   libp2p/protocols/ping,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/protocols/pubsub/rpc/messages,
+  libp2p/protocols/connectivity/autonat/client,
+  libp2p/protocols/connectivity/autonat/service,
   libp2p/nameresolving/nameresolver,
   libp2p/builders,
   libp2p/multihash,
@@ -204,6 +206,26 @@ proc new*(T: type WakuNode,
                   wakuFlags,
                   enrMultiaddrs)
 
+  ## AutonatService request other peers to dial us back
+  ## flagging us as Reachable or NotReachable.
+  ## minConfidence is used as threshold to determine the state.
+  ## If maxQueueSize > numPeersToAsk past samples are considered
+  ## in the calculation.
+  let autonatService = AutonatService.new(
+    autonatClient = AutonatClient.new(),
+    rng = rng,
+    scheduleInterval = some(chronos.seconds(120)),
+    askNewConnectedPeers = false,
+    numPeersToAsk = 3,
+    maxQueueSize = 3,
+    minConfidence = 0.7)
+
+  proc statusAndConfidenceHandler(networkReachability: NetworkReachability, confidence: Option[float]) {.gcsafe, async.} =
+    if confidence.isSome():
+      info "Peer reachability status", networkReachability=networkReachability, confidence=confidence.get()
+
+  autonatService.statusAndConfidenceHandler(statusAndConfidenceHandler)
+
   info "Initializing networking", addrs=announcedAddresses
 
   let switch = newWakuSwitch(
@@ -220,6 +242,7 @@ proc new*(T: type WakuNode,
     sendSignedPeerRecord = sendSignedPeerRecord,
     agentString = agentString,
     peerStoreCapacity = peerStoreCapacity,
+    services = @[Service(autonatservice)],
   )
 
   let wakuNode = WakuNode(
