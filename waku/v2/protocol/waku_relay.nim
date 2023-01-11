@@ -10,15 +10,15 @@ else:
 import
   stew/results,
   chronos,
-  chronicles, 
+  chronicles,
   metrics,
   libp2p/multihash,
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/gossipsub,
-  libp2p/stream/connection
+  libp2p/stream/connection,
+  libp2p/switch
 import
-  ../node/peer_manager/peer_manager,
   ./waku_message
 
 logScope:
@@ -36,7 +36,6 @@ type
 
 type
   WakuRelay* = ref object of GossipSub
-    peerManager: PeerManager
     defaultPubsubTopics*: seq[PubsubTopic] # Default configured PubSub topics
 
 
@@ -61,7 +60,7 @@ proc initProtocolHandler(w: WakuRelay) =
   w.codec = WakuRelayCodec
 
 method initPubSub(w: WakuRelay) {.raises: [InitializationError].} =
-  ## NOTE: This method overrides GossipSub initPubSub method; it called by the 
+  ## NOTE: This method overrides GossipSub initPubSub method; it called by the
   ##  parent protocol, PubSub.
   debug "init waku relay"
 
@@ -76,11 +75,11 @@ method initPubSub(w: WakuRelay) {.raises: [InitializationError].} =
   w.initProtocolHandler()
 
 
-proc new*(T: type WakuRelay, 
-          peerManager: PeerManager, 
+proc new*(T: type WakuRelay,
+          switch: Switch,
           defaultPubsubTopics: seq[PubsubTopic] = @[],
           triggerSelf: bool = true): WakuRelayResult[T] =
-  
+
   proc msgIdProvider(msg: messages.Message): Result[MessageID, ValidationResult] =
     let hash = MultiHash.digest("sha2-256", msg.data)
     if hash.isErr():
@@ -91,7 +90,7 @@ proc new*(T: type WakuRelay,
   var wr: WakuRelay
   try:
     wr = WakuRelay.init(
-      switch = peerManager.switch,
+      switch = switch,
       msgIdProvider = msgIdProvider,
       triggerSelf = triggerSelf,
       sign = false,
@@ -101,7 +100,6 @@ proc new*(T: type WakuRelay,
   except InitializationError:
     return err("initialization error: " & getCurrentExceptionMsg())
 
-  wr.peerManager = peerManager
   wr.defaultPubsubTopics = defaultPubsubTopics
 
   ok(wr)
@@ -119,7 +117,7 @@ method stop*(w: WakuRelay) {.async.} =
 method subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: SubsciptionHandler|PubsubRawHandler) =
   debug "subscribe", pubsubTopic=pubsubTopic
 
-  var subsHandler: PubsubRawHandler 
+  var subsHandler: PubsubRawHandler
   when handler is SubsciptionHandler:
     subsHandler = proc(pubsubTopic: PubsubTopic, data: seq[byte]): Future[void] {.gcsafe, raises: [Defect].} =
         let decodeRes = WakuMessage.decode(data)

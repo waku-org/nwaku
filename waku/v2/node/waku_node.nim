@@ -382,7 +382,7 @@ proc mountRelay*(node: WakuNode,
   info "mounting relay protocol"
 
   let initRes = WakuRelay.new(
-    node.peerManager,
+    node.switch,
     defaultPubsubTopics = concat(@[DefaultPubsubTopic], topics),
     triggerSelf = triggerSelf
   )
@@ -779,13 +779,13 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMe
 
 ## Waku RLN Relay
 when defined(rln):
-  proc mountRlnRelay*(node: WakuNode, 
+  proc mountRlnRelay*(node: WakuNode,
                       rlnConf: WakuRlnConfig,
                       spamHandler: Option[SpamHandler] = none(SpamHandler),
                       registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)) {.async.} =
     info "mounting rln relay"
 
-    let rlnRelayRes = await WakuRlnRelay.new(node.wakuRelay, 
+    let rlnRelayRes = await WakuRlnRelay.new(node.wakuRelay,
                                              rlnConf,
                                              spamHandler,
                                              registrationHandler)
