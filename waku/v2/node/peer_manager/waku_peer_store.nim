@@ -144,6 +144,5 @@ proc selectPeer*(peerStore: PeerStore, proto: string): Option[RemotePeerInfo] =
 proc getPeersByDirection*(peerStore: PeerStore, direction: Direction): seq[StoredInfo] =
   return peerStore.peers().filterIt(it.direction == direction)
 
-# TODO: unit test.
 proc getDisconnectedPeers*(peerStore: PeerStore): seq[StoredInfo] =
   return peerStore.peers().filterIt(it.connectedness != Connected)
