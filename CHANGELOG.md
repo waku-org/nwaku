@@ -1,3 +1,68 @@
+## 2023-01-16 v0.14.0
+
+Release highlights:
+- An important fix for the Waku message archive returning inconsistent responses to history queries.
+- Support for [AutoNAT](https://docs.libp2p.io/concepts/nat/autonat/) and [libp2p Circuit Relay](https://docs.libp2p.io/concepts/nat/circuit-relay/) that allows, among other things, for [NAT hole punching](https://docs.libp2p.io/concepts/nat/hole-punching/).
+- Support for structured logging in JSON format.
+- A fix for an underlying file descriptor leak that affected websocket connections.
+
+### Features
+
+- Support for [AutoNAT](https://docs.libp2p.io/concepts/nat/autonat/)
+- Support for [libp2p Circuit Relay](https://docs.libp2p.io/concepts/nat/circuit-relay/) (server only)
+- New Waku Archive implementation. This allows easy addition of drivers for different technologies to store historical messages.
+- Support for structured logging and specifying log format.
+- Node now keeps track of its external reachability.
+
+### Changes
+
+- Zerokit RLN library now statically linked.
+- Use extended key generation in Zerokit API to comply with [32/RLN](https://rfc.vac.dev/spec/32/).
+- Re-enable root validation in [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation.
+- [Network monitoring tool](https://github.com/status-im/nwaku/tree/2336522d7f478337237a5a4ec8c5702fb4babc7d/tools#networkmonitor) now supports DNS discovery.
+- Added [dashboard](https://github.com/waku-org/nwaku/blob/3e0e1cb2398297fca761aa74f52d32fa837d556c/metrics/waku-network-monitor-dashboard.json) for network monitoring.
+- Continued refactoring of several protocol implementations to improve maintainability and readability.
+- Removed swap integration from store protocol.
+- Peerstore now consolidated with libp2p peerstore.
+- Peerstore now also tracks peer direction.
+- SIGSEGV signals are now handled and logged properly.
+- Waku v2 no longer imports libraries from Waku v1.
+- Improved build and CI processes:
+  - Added support for an `EXPERIMENTAL` compiler flag.
+  - Simplified project Makefile.
+  - Split Dockerfile into production and experimental stages.
+  - Removed obsolete simulation libraries from build.
+- Improved parallellisation (and therefore processing time) when dialing several peers simultaneously.
+- Waku Archive now responds with error to historical queries containing more than 10 content topics.
+
+### Fixes
+
+- Fixed support for optional fields in several protocol rpc codecs. [#1393](https://github.com/waku-org/nwaku/pull/1393) [#1395](https://github.com/waku-org/nwaku/pull/1395) [#1396](https://github.com/waku-org/nwaku/pull/1396)
+- Fixed clients with `--store=false` not installing Store Client JSON-RPC API handlers. [#1382](https://github.com/waku-org/nwaku/pull/1382)
+- Fixed SQLite driver returning inconsistent responses to store queries. [#1415](https://github.com/waku-org/nwaku/pull/1415)
+- Fixed peer exchange discv5 loop starting before discv5 has started. [#1407](https://github.com/waku-org/nwaku/pull/1407)
+- Fixed wakubridge test timing. [#1429](https://github.com/waku-org/nwaku/pull/1429)
+- Fixed bug in Noise module types equating `T_ss` incorrectly to `"se"` and not `"ss"`. [#1432](https://github.com/waku-org/nwaku/pull/1432)
+- Fixed Ctrl-C quitting resulting in unreleased resources and exit failures. [#1416](https://github.com/waku-org/nwaku/pull/1416)
+- Fixed CI workflows not cloning repo on startup. [#1454](https://github.com/waku-org/nwaku/pull/1454) [#1455](https://github.com/waku-org/nwaku/pull/1455)
+- Fixed Admin API peer connection not returning error response if peer can't be connected. [#1476](https://github.com/waku-org/nwaku/pull/1476)
+- Fixed underlying file descriptor leak. [#1483](https://github.com/waku-org/nwaku/pull/1483)
+
+### Docs
+
+- Added [instructions](https://github.com/waku-org/nwaku/blob/3e0e1cb2398297fca761aa74f52d32fa837d556c/docs/operators/quickstart.md) for running nwaku with docker compose.
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
+
 ## 2022-11-15 v0.13.0
 
 Release highlights:
@@ -122,7 +187,7 @@ The full list of changes is below.
 
 ### Docs
 
-- Improved [RLN testnet tutorial](https://github.com/status-im/nwaku/blob/14abdef79677ddc828ff396ece321e05cedfca17/docs/tutorial/onchain-rln-relay-chat2.md) 
+- Improved [RLN testnet tutorial](https://github.com/status-im/nwaku/blob/14abdef79677ddc828ff396ece321e05cedfca17/docs/tutorial/onchain-rln-relay-chat2.md)
 - Added [tutorial](https://github.com/status-im/nwaku/blob/14abdef79677ddc828ff396ece321e05cedfca17/docs/operators/droplet-quickstart.md) on running nwaku from a DigitalOcean droplet.
 - Added [guide](https://github.com/status-im/nwaku/blob/14abdef79677ddc828ff396ece321e05cedfca17/docs/operators/how-to/monitor.md) on how to monitor nwaku using Prometheus and Grafana.
 
@@ -159,7 +224,7 @@ The full list of changes is below.
 - Significantly improved the SQLite-only historical message `store` query performance.
 - Refactored several protocol implementations to improve maintainability and readability.
 - Major code reorganization for the [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) implementation to improve maintainability. This will also make the `store` extensible to support multiple implementations.
-- Disabled compiler log colors when running in a CI environment. 
+- Disabled compiler log colors when running in a CI environment.
 - Refactored [`35/WAKU2-NOISE`](https://rfc.vac.dev/spec/35/) implementation into smaller submodules.
 - [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) implementation can now optionally be compiled with [Zerokit RLN](https://github.com/vacp2p/zerokit/tree/64f508363946b15ac6c52f8b59d8a739a33313ec/rln). Previously only [Kilic's RLN](https://github.com/kilic/rln/tree/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43) was supported.
 
@@ -307,7 +372,7 @@ The full list of changes is below.
 
 ### Features
 
-- [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation now supports spam-protection for a specific combination of `pubsubTopic` and `contentTopic` (available under the `rln` compiler flag).  
+- [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation now supports spam-protection for a specific combination of `pubsubTopic` and `contentTopic` (available under the `rln` compiler flag).
 - [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) integrated into chat2 `toy-chat` (available under the `rln` compiler flag)
 - Added support for resolving dns-based `multiaddrs`
 - A Waku v2 node can now be configured with a domain name and `dns4` `multiaddr`
