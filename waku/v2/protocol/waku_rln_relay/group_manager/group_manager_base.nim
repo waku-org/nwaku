@@ -37,48 +37,48 @@ type
 
 # This proc is used to initialize the group manager
 # Any initialization logic should be implemented here
-proc init*(g: GroupManager): Future[void] {.gcsafe.} =
+method init*(g: GroupManager): Future[void] {.base,gcsafe.} =
   return err("init proc for " & $g.kind & " is not implemented yet")
 
 # This proc is used to start the group sync process
 # It should be used to sync the group state with the rest of the group members
-proc startGroupSync*(g: GroupManager): Future[void] {.gcsafe.} =
+method startGroupSync*(g: GroupManager): Future[void] {.base,gcsafe.} =
   return err("startGroupSync proc for " & $g.kind & " is not implemented yet")
 
 # This proc is used to register a new identity commitment into the merkle tree
 # The user may or may not have the identity secret to this commitment
 # It should be used when detecting new members in the group, and syncing the group state
-proc register*(g: GroupManager, idCommitment: IDCommitment): Future[void] {.gcsafe.} =
+method register*(g: GroupManager, idCommitment: IDCommitment): Future[void] {.base,gcsafe.} =
   return err("register proc for " & $g.kind & " is not implemented yet")
 
 # This proc is used to register a new identity commitment into the merkle tree
 # The user should have the identity secret to this commitment
 # It should be used when the user wants to join the group
-proc register*(g: GroupManager, credentials: IdentityCredential): Future[void] {.gcsafe.} =
+method register*(g: GroupManager, credentials: IdentityCredential): Future[void] {.base,gcsafe.} =
   return err("register proc for " & $g.kind & " is not implemented yet")
 
 # This proc is used to register a batch of new identity commitments into the merkle tree
 # The user may or may not have the identity secret to these commitments
 # It should be used when detecting a batch of new members in the group, and syncing the group state
-proc registerBatch*(g: GroupManager, idCommitments: seq[IDCommitment]): Future[void] {.gcsafe.} =
+method registerBatch*(g: GroupManager, idCommitments: seq[IDCommitment]): Future[void] {.base,gcsafe.} =
   return err("registerBatch proc for " & $g.kind & " is not implemented yet")
 
 # This proc is used to set a callback that will be called when a new identity commitment is registered
 # The callback may be called multiple times, and should be used to for any post processing
-proc onRegister*(g: GroupManager, cb: OnRegisterCallback) {.gcsafe.} =
+method onRegister*(g: GroupManager, cb: OnRegisterCallback) {.base,gcsafe.} =
   g.registerCb = some(cb)
 
 # This proc is used to withdraw/remove an identity commitment from the merkle tree
 # The user should have the identity secret hash to this commitment, by either deriving it, or owning it
-proc withdraw*(g: GroupManager, identitySecretHash: IdentitySecretHash): Future[void] {.gcsafe.} =
+method withdraw*(g: GroupManager, identitySecretHash: IdentitySecretHash): Future[void] {.base,gcsafe.} =
   return err("withdraw proc for " & $g.kind & " is not implemented yet")
 
 # This proc is used to withdraw/remove a batch of identity commitments from the merkle tree
 # The user should have the identity secret hash to these commitments, by either deriving them, or owning them
-proc withdrawBatch*(g: GroupManager, identitySecretHashes: seq[IdentitySecretHash]): Future[void] {.gcsafe.} =
+method withdrawBatch*(g: GroupManager, identitySecretHashes: seq[IdentitySecretHash]): Future[void] {.base,gcsafe.} =
   return err("withdrawBatch proc for " & $g.kind & " is not implemented yet")
 
 # This proc is used to set a callback that will be called when an identity commitment is withdrawn
 # The callback may be called multiple times, and should be used to for any post processing
-proc onWithdraw*(g: GroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
+method onWithdraw*(g: GroupManager, cb: OnWithdrawCallback) {.base,gcsafe.} =
   g.withdrawCb = some(cb)
