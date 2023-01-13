@@ -14,7 +14,7 @@ import
   stew/[byteutils, arrayops],
   sequtils
 import
-  ../../ffi,
+  ../../rln,
   ../../conversion_utils,
   ../group_manager_base
 

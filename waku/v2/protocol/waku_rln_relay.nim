@@ -1,5 +1,5 @@
 import
-  ./waku_rln_relay/ffi,
+  ./waku_rln_relay/rln,
   ./waku_rln_relay/constants,
   ./waku_rln_relay/protocol_types,
   ./waku_rln_relay/protocol_metrics,
@@ -8,7 +8,7 @@ import
   ./waku_rln_relay/contract
 
 export
-  ffi,
+  rln,
   constants,
   protocol_types,
   protocol_metrics,

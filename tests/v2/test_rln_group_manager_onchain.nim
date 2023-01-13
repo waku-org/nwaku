@@ -10,7 +10,7 @@ import
   ../../waku/v2/protocol/waku_rln_relay/protocol_types,
   ../../waku/v2/protocol/waku_rln_relay/constants,
   ../../waku/v2/protocol/waku_rln_relay/contract,
-  ../../waku/v2/protocol/waku_rln_relay/ffi,
+  ../../waku/v2/protocol/waku_rln_relay/rln,
   ../../waku/v2/protocol/waku_rln_relay/conversion_utils,
   ../../waku/v2/protocol/waku_rln_relay/group_manager/on_chain/group_manager
 

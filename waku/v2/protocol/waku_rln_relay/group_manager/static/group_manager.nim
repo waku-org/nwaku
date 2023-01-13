@@ -1,6 +1,6 @@
 import
     ../group_manager_base,
-    ../../ffi,
+    ../../rln,
     std/sequtils
 
 export
