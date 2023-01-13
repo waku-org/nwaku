@@ -16,7 +16,7 @@ import
   stew/results,
   stew/[byteutils, arrayops]
 import
-  ./ffi,
+  ./rln,
   ./conversion_utils,
   ./constants,
   ./protocol_types,
@@ -58,14 +58,14 @@ contract(MembershipContract):
   # proc withdraw(secret: Uint256, pubkeyIndex: Uint256, receiver: Address)
   # proc withdrawBatch( secrets: seq[Uint256], pubkeyIndex: seq[Uint256], receiver: seq[Address])
 
-proc inHex*(value: 
+proc inHex*(value:
                    IdentityTrapdoor or
-                   IdentityNullifier or 
-                   IdentitySecretHash or 
+                   IdentityNullifier or
+                   IdentitySecretHash or
                    IDCommitment or
-                   MerkleNode or 
-                   Nullifier or 
-                   Epoch or 
+                   MerkleNode or
+                   Nullifier or
+                   Epoch or
                   RlnIdentifier
                    ): string =
   var valueHex = UInt256.fromBytesLE(value)
@@ -663,8 +663,8 @@ proc handleGroupUpdates*(rlnPeer: WakuRLNRelay) {.async, gcsafe.} =
 
 proc addRLNRelayValidator*(wakuRlnRelay: WakuRLNRelay,
                            wakuRelay: WakuRelay,
-                           pubsubTopic: PubsubTopic, 
-                           contentTopic: ContentTopic, 
+                           pubsubTopic: PubsubTopic,
+                           contentTopic: ContentTopic,
                            spamHandler: Option[SpamHandler] = none(SpamHandler)) =
   ## this procedure is a thin wrapper for the pubsub addValidator method
   ## it sets a validator for the waku messages published on the supplied pubsubTopic and contentTopic
@@ -883,7 +883,7 @@ proc mount(wakuRelay: WakuRelay,
            registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)
           ): Future[RlnRelayResult[WakuRlnRelay]] {.async.} =
 
-  if not conf.rlnRelayDynamic: 
+  if not conf.rlnRelayDynamic:
     info " setting up waku-rln-relay in off-chain mode... "
     # set up rln relay inputs
     let staticSetupRes = rlnRelayStaticSetUp(MembershipIndex(conf.rlnRelayMembershipIndex))
@@ -896,11 +896,11 @@ proc mount(wakuRelay: WakuRelay,
     else:
       # mount rlnrelay in off-chain mode with a static group of users
       let mountRes = mountRlnRelayStatic(wakuRelay,
-                                         group = groupOpt.get(), 
+                                         group = groupOpt.get(),
                                          memIdCredential = idCredentialOpt.get(),
-                                         memIndex = memIndexOpt.get(), 
+                                         memIndex = memIndexOpt.get(),
                                          pubsubTopic = conf.rlnRelayPubsubTopic,
-                                         contentTopic = conf.rlnRelayContentTopic, 
+                                         contentTopic = conf.rlnRelayContentTopic,
                                          spamHandler = spamHandler)
 
       if mountRes.isErr():
@@ -988,26 +988,26 @@ proc mount(wakuRelay: WakuRelay,
       if credentials.isSome():
         # mount rln-relay in on-chain mode, with credentials that were read or generated
         rlnRelayRes = await mountRlnRelayDynamic(wakuRelay,
-                                                 memContractAddr = ethMemContractAddress, 
+                                                 memContractAddr = ethMemContractAddress,
                                                  ethClientAddr = ethClientAddr,
-                                                 ethAccountAddress = ethAccountAddressOpt, 
-                                                 ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, 
+                                                 ethAccountAddress = ethAccountAddressOpt,
+                                                 ethAccountPrivKeyOpt = ethAccountPrivKeyOpt,
                                                  pubsubTopic = conf.rlnRelayPubsubTopic,
-                                                 contentTopic = conf.rlnRelayContentTopic, 
-                                                 spamHandler = spamHandler, 
+                                                 contentTopic = conf.rlnRelayContentTopic,
+                                                 spamHandler = spamHandler,
                                                  registrationHandler = registrationHandler,
                                                  memIdCredential = some(credentials.get().identityCredential),
-                                                 memIndex = some(credentials.get().rlnIndex)) 
+                                                 memIndex = some(credentials.get().rlnIndex))
       else:
         # mount rln-relay in on-chain mode, with the provided private key
         rlnRelayRes = await mountRlnRelayDynamic(wakuRelay,
-                                                 memContractAddr = ethMemContractAddress, 
+                                                 memContractAddr = ethMemContractAddress,
                                                  ethClientAddr = ethClientAddr,
-                                                 ethAccountAddress = ethAccountAddressOpt, 
-                                                 ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, 
+                                                 ethAccountAddress = ethAccountAddressOpt,
+                                                 ethAccountPrivKeyOpt = ethAccountPrivKeyOpt,
                                                  pubsubTopic = conf.rlnRelayPubsubTopic,
-                                                 contentTopic = conf.rlnRelayContentTopic, 
-                                                 spamHandler = spamHandler, 
+                                                 contentTopic = conf.rlnRelayContentTopic,
+                                                 spamHandler = spamHandler,
                                                  registrationHandler = registrationHandler)
 
         persistCredentials = true
@@ -1017,13 +1017,13 @@ proc mount(wakuRelay: WakuRelay,
       # a new credential will be generated during the mount process but will not be persisted
       info "no need to persist or use a persisted rln-relay credential"
       rlnRelayRes = await mountRlnRelayDynamic(wakuRelay,
-                                               memContractAddr = ethMemContractAddress, 
+                                               memContractAddr = ethMemContractAddress,
                                                ethClientAddr = ethClientAddr,
-                                               ethAccountAddress = ethAccountAddressOpt, 
-                                               ethAccountPrivKeyOpt = ethAccountPrivKeyOpt, 
+                                               ethAccountAddress = ethAccountAddressOpt,
+                                               ethAccountPrivKeyOpt = ethAccountPrivKeyOpt,
                                                pubsubTopic = conf.rlnRelayPubsubTopic,
-                                               contentTopic = conf.rlnRelayContentTopic, 
-                                               spamHandler = spamHandler, 
+                                               contentTopic = conf.rlnRelayContentTopic,
+                                               spamHandler = spamHandler,
                                                registrationHandler = registrationHandler)
 
     if rlnRelayRes.isErr():
@@ -1031,7 +1031,7 @@ proc mount(wakuRelay: WakuRelay,
     let wakuRlnRelay = rlnRelayRes.get()
     if persistCredentials:
       # persist rln credential
-      credentials = some(RlnMembershipCredentials(rlnIndex: wakuRlnRelay.membershipIndex, 
+      credentials = some(RlnMembershipCredentials(rlnIndex: wakuRlnRelay.membershipIndex,
                                                   identityCredential: wakuRlnRelay.identityCredential))
       if writeRlnCredentials(rlnRelayCredPath, credentials.get(), conf.rlnRelayCredentialsPassword).isErr():
         return err("error in storing rln credentials")
@@ -1056,7 +1056,7 @@ proc new*(T: type WakuRlnRelay,
     return err("The relay protocol does not support the configured pubsub topic")
 
   debug "rln-relay input validation passed"
-  waku_rln_relay_mounting_duration_seconds.nanosecondTime: 
+  waku_rln_relay_mounting_duration_seconds.nanosecondTime:
     let rlnRelayRes = await mount(
       wakuRelay,
       conf,
