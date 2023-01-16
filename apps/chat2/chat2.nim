@@ -393,7 +393,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
 
   if conf.rlnRelayEthAccountPrivateKey == "" and conf.rlnRelayCredPath == "":
     raise newException(ConfigurationError,
-    "Either rln-relay-eth-private-key or rln-relay-cred-path MUST be passed")
+    "Either rln-relay-eth-account-private-key or rln-relay-cred-path MUST be passed")
 
   if conf.relay:
     await node.mountRelay(conf.topics.split(" "))
@@ -565,7 +565,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
           rlnRelayCredentialsPassword: conf.rlnRelayCredentialsPassword
         )
 
-        await node.mountRlnRelay(rlnConf, 
+        await node.mountRlnRelay(rlnConf,
                                  spamHandler=some(spamHandler),
                                  registrationHandler=some(registrationHandler))
 
@@ -574,7 +574,10 @@ proc processInput(rfd: AsyncFD) {.async.} =
         echo "your rln identity nullifier is: ", node.wakuRlnRelay.identityCredential.idNullifier.inHex()
         echo "your rln identity secret hash is: ", node.wakuRlnRelay.identityCredential.idSecretHash.inHex()
         echo "your rln identity commitment key is: ", node.wakuRlnRelay.identityCredential.idCommitment.inHex()
-
+    else:
+      info "WakuRLNRelay is disabled"
+      if conf.rlnRelay:
+        echo "WakuRLNRelay is disabled, please enable it by compiling with the RLN/EXPERIMENTAL flag"
   if conf.metricsLogging:
     startMetricsLog()
 
