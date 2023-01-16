@@ -29,7 +29,6 @@
 /metrics/prometheus
 /metrics/waku-sim-all-nodes-grafana-dashboard.json
 
-rln
 *.log
 package-lock.json
 package.json
