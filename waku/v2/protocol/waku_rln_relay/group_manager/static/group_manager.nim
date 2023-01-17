@@ -7,22 +7,22 @@ export
   group_manager_base
 
 type
-    StaticGroupManagerConfig* = object
+    StaticGroupManager* = ref object of GroupManager
       groupKeys*: seq[IdentityCredential]
       groupSize*: uint
-      membershipIndex*: MembershipIndex
-
-    StaticGroupManager* = ref object of GroupManager[StaticGroupManagerConfig]
 
 template initializedGuard*(g: StaticGroupManager): untyped =
   if not g.initialized:
       raise newException(ValueError, "StaticGroupManager is not initialized")
 
-proc init*(g: StaticGroupManager): Future[void] {.async,gcsafe.} =
+method init*(g: StaticGroupManager): Future[void] {.async,gcsafe.} =
+  if g.membershipIndex.isNone():
+    raise newException(ValueError, "Membership index is not set")
+
   let
-    groupSize = g.config.groupSize
-    groupKeys = g.config.groupKeys
-    membershipIndex = g.config.membershipIndex
+    groupSize = g.groupSize
+    groupKeys = g.groupKeys
+    membershipIndex = g.membershipIndex.get()
 
   if membershipIndex < MembershipIndex(0) or membershipIndex >= MembershipIndex(groupSize):
     raise newException(ValueError, "Invalid membership index. Must be within 0 and " & $(groupSize - 1) & "but was " & $membershipIndex)
@@ -34,25 +34,29 @@ proc init*(g: StaticGroupManager): Future[void] {.async,gcsafe.} =
   if not membersInserted:
     raise newException(ValueError, "Failed to insert members into the merkle tree")
 
+  g.updateValidRootQueue()
+
   g.latestIndex += MembershipIndex(idCommitments.len() - 1)
 
   g.initialized = true
 
   return
 
-proc startGroupSync*(g: StaticGroupManager): Future[void] =
+method startGroupSync*(g: StaticGroupManager): Future[void] =
   initializedGuard(g)
-  var retFuture = newFuture[void]("StaticGroupManager.sta rtGroupSync")
+  var retFuture = newFuture[void]("StaticGroupManager.startGroupSync")
   # No-op
   retFuture.complete()
   return retFuture
 
-proc register*(g: StaticGroupManager, idCommitment: IDCommitment): Future[void] {.async.} =
+method register*(g: StaticGroupManager, idCommitment: IDCommitment): Future[void] {.async.} =
   initializedGuard(g)
 
   let memberInserted = g.rlnInstance.insertMember(idCommitment)
   if not memberInserted:
     raise newException(ValueError, "Failed to insert member into the merkle tree")
+
+  g.updateValidRootQueue()
 
   g.latestIndex += 1
 
@@ -60,7 +64,7 @@ proc register*(g: StaticGroupManager, idCommitment: IDCommitment): Future[void] 
     await g.registerCb.get()(@[Membership(idCommitment: idCommitment, index: g.latestIndex)])
   return
 
-proc registerBatch*(g: StaticGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
+method registerBatch*(g: StaticGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
   initializedGuard(g)
 
   let membersInserted = g.rlnInstance.insertMembers(g.latestIndex + 1, idCommitments)
@@ -73,14 +77,16 @@ proc registerBatch*(g: StaticGroupManager, idCommitments: seq[IDCommitment]): Fu
       memberSeq.add(Membership(idCommitment: idCommitments[i], index: g.latestIndex + MembershipIndex(i)))
     await g.registerCb.get()(memberSeq)
 
+  g.updateValidRootQueue()
+
   g.latestIndex += MembershipIndex(idCommitments.len() - 1)
 
   return
 
-proc withdraw*(g: StaticGroupManager, idSecretHash: IdentitySecretHash): Future[void] {.async.} =
+method withdraw*(g: StaticGroupManager, idSecretHash: IdentitySecretHash): Future[void] {.async.} =
   initializedGuard(g)
 
-  let groupKeys = g.config.groupKeys
+  let groupKeys = g.groupKeys
 
   for i in 0..<groupKeys.len():
     if groupKeys[i].idSecretHash == idSecretHash:
@@ -96,15 +102,15 @@ proc withdraw*(g: StaticGroupManager, idSecretHash: IdentitySecretHash): Future[
         return
 
 
-proc withdrawBatch*(g: StaticGroupManager, idSecretHashes: seq[IdentitySecretHash]): Future[void] {.async.} =
+method withdrawBatch*(g: StaticGroupManager, idSecretHashes: seq[IdentitySecretHash]): Future[void] {.async.} =
   initializedGuard(g)
 
   # call withdraw on each idSecretHash
   for idSecretHash in idSecretHashes:
       await g.withdraw(idSecretHash)
 
-proc onRegister*(g: StaticGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
+method onRegister*(g: StaticGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
   g.registerCb = some(cb)
 
-proc onWithdraw*(g: StaticGroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
+method onWithdraw*(g: StaticGroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
   g.withdrawCb = some(cb)

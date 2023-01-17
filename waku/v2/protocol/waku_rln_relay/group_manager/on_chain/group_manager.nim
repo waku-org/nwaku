@@ -14,6 +14,7 @@ import
   stew/[byteutils, arrayops],
   sequtils
 import
+  ../../../waku_keystore,
   ../../rln,
   ../../conversion_utils,
   ../group_manager_base
@@ -37,23 +38,29 @@ contract(RlnContract):
 
 type
   RlnContractWithSender = Sender[RlnContract]
-  OnchainGroupManagerConfig* = object
+  OnchainGroupManager* = ref object of GroupManager
     ethClientUrl*: string
     ethPrivateKey*: Option[string]
     ethContractAddress*: string
     ethRpc*: Option[Web3]
     rlnContract*: Option[RlnContractWithSender]
     membershipFee*: Option[Uint256]
-    membershipIndex*: Option[MembershipIndex]
     latestProcessedBlock*: Option[BlockNumber]
+    registrationTxHash*: Option[TxHash]
+    chainId*: Option[Quantity]
+    keystorePath*: Option[string]
+    keystorePassword*: Option[string]
+    saveKeystore*: bool
+    registrationHandler*: Option[RegistrationHandler]
 
-  OnchainGroupManager* = ref object of GroupManager[OnchainGroupManagerConfig]
+const DefaultKeyStorePath* = "rlnKeystore.json"
+const DefaultKeyStorePassword* = "password"
 
 template initializedGuard*(g: OnchainGroupManager): untyped =
   if not g.initialized:
     raise newException(ValueError, "OnchainGroupManager is not initialized")
 
-proc register*(g: OnchainGroupManager, idCommitment: IDCommitment): Future[void] {.async.} =
+method register*(g: OnchainGroupManager, idCommitment: IDCommitment): Future[void] {.async.} =
   initializedGuard(g)
 
   let memberInserted = g.rlnInstance.insertMember(idCommitment)
@@ -63,11 +70,13 @@ proc register*(g: OnchainGroupManager, idCommitment: IDCommitment): Future[void]
   if g.registerCb.isSome():
     await g.registerCb.get()(@[Membership(idCommitment: idCommitment, index: g.latestIndex)])
 
+  g.updateValidRootQueue()
+
   g.latestIndex += 1
 
   return
 
-proc registerBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
+method registerBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
   initializedGuard(g)
 
   let membersInserted = g.rlnInstance.insertMembers(g.latestIndex, idCommitments)
@@ -83,16 +92,18 @@ proc registerBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]): F
       membersSeq.add(member)
     await g.registerCb.get()(membersSeq)
 
+  g.updateValidRootQueue()
+
   g.latestIndex += MembershipIndex(idCommitments.len())
 
   return
 
-proc register*(g: OnchainGroupManager, identityCredentials: IdentityCredential): Future[void] {.async.} =
+method register*(g: OnchainGroupManager, identityCredentials: IdentityCredential): Future[void] {.async.} =
   initializedGuard(g)
 
-  let ethRpc = g.config.ethRpc.get()
-  let rlnContract = g.config.rlnContract.get()
-  let membershipFee = g.config.membershipFee.get()
+  let ethRpc = g.ethRpc.get()
+  let rlnContract = g.rlnContract.get()
+  let membershipFee = g.membershipFee.get()
 
   let gasPrice = int(await ethRpc.provider.eth_gasPrice()) * 2
   let idCommitment = identityCredentials.idCommitment.toUInt256()
@@ -104,7 +115,10 @@ proc register*(g: OnchainGroupManager, identityCredentials: IdentityCredential):
   except ValueError as e:
     raise newException(ValueError, "could not register the member: " & e.msg)
 
+  # wait for the transaction to be mined
   let tsReceipt = await ethRpc.getMinedTransactionReceipt(txHash)
+
+  g.registrationTxHash = some(txHash)
 
   # the receipt topic holds the hash of signature of the raised events
   # TODO: make this robust. search within the event list for the event
@@ -122,17 +136,17 @@ proc register*(g: OnchainGroupManager, identityCredentials: IdentityCredential):
     # In TX log data, uints are encoded in big endian
     eventIndex =  UInt256.fromBytesBE(argumentsBytes[32..^1])
 
-  g.config.membershipIndex = some(eventIndex.toMembershipIndex())
+  g.membershipIndex = some(eventIndex.toMembershipIndex())
 
   # don't handle member insertion into the tree here, it will be handled by the event listener
   return
 
-proc withdraw*(g: OnchainGroupManager, idCommitment: IDCommitment): Future[void] {.async.} =
+method withdraw*(g: OnchainGroupManager, idCommitment: IDCommitment): Future[void] {.async.} =
   initializedGuard(g)
 
     # TODO: after slashing is enabled on the contract
 
-proc withdrawBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
+method withdrawBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
   initializedGuard(g)
 
     # TODO: after slashing is enabled on the contract
@@ -164,8 +178,8 @@ type BlockTable* = OrderedTable[BlockNumber, seq[Membership]]
 proc getEvents*(g: OnchainGroupManager, fromBlock: BlockNumber, toBlock: Option[BlockNumber] = none(BlockNumber)): Future[BlockTable] {.async.} =
   initializedGuard(g)
 
-  let ethRpc = g.config.ethRpc.get()
-  let rlnContract = g.config.rlnContract.get()
+  let ethRpc = g.ethRpc.get()
+  let rlnContract = g.rlnContract.get()
 
   var normalizedToBlock: BlockNumber
   if toBlock.isSome():
@@ -214,9 +228,9 @@ proc seedBlockTableIntoTree*(g: OnchainGroupManager, blockTable: BlockTable): Fu
     let indexGap = startingIndex - latestIndex
     if not (toSeq(startingIndex..lastIndex) == members.mapIt(it.index)):
       raise newException(ValueError, "membership indices are not sequential")
-    if indexGap != 1.uint and lastIndex != latestIndex:
+    if indexGap != 1.uint and lastIndex != latestIndex and startingIndex != 0.uint:
       warn "membership index gap, may have lost connection", lastIndex, currIndex=latestIndex, indexGap = indexGap
-    g.config.latestProcessedBlock = some(blockNumber)
+    g.latestProcessedBlock = some(blockNumber)
 
   return
 
@@ -244,7 +258,7 @@ proc newHeadErrCallback(error: CatchableError) =
 proc startListeningToEvents*(g: OnchainGroupManager): Future[void] {.async.} =
   initializedGuard(g)
 
-  let ethRpc = g.config.ethRpc.get()
+  let ethRpc = g.ethRpc.get()
   let newHeadCallback = g.getNewHeadCallback()
   try:
     discard await ethRpc.subscribeForBlockHeaders(newHeadCallback, newHeadErrCallback)
@@ -265,7 +279,45 @@ proc startOnchainSync*(g: OnchainGroupManager, fromBlock: BlockNumber = BlockNum
   except:
     raise newException(ValueError, "failed to start listening to events: " & getCurrentExceptionMsg())
 
-proc startGroupSync*(g: OnchainGroupManager): Future[void] {.async.} =
+proc persistCredentials*(g: OnchainGroupManager): GroupManagerResult[void] =
+  if not g.saveKeystore:
+    return ok()
+  if g.idCredentials.isNone():
+    return err("no credentials to persist")
+
+  let index = g.membershipIndex.get()
+  let idCredential = g.idCredentials.get()
+  var path = DefaultKeystorePath
+  var password = DefaultKeystorePassword
+
+  if g.keystorePath.isSome():
+    path = g.keystorePath.get()
+  else:
+    warn "keystore: no credentials path set, using default path", path=DefaultKeystorePath
+
+  if g.keystorePassword.isSome():
+    password = g.keystorePassword.get()
+  else:
+    warn "keystore: no credentials password set, using default password", password=DefaultKeystorePassword
+
+  let keystoreCred = MembershipCredentials(
+    identityCredential: idCredential,
+    membershipGroups: @[MembershipGroup(
+      membershipContract: MembershipContract(
+        chainId: $g.chainId.get(),
+        address: g.ethContractAddress
+      ),
+      treeIndex: index
+    )]
+  )
+
+  let persistRes = addMembershipCredentials(path, @[keystoreCred], password, RLNAppInfo)
+  if persistRes.isErr():
+    error "keystore: failed to persist credentials", error=persistRes.error()
+
+  return ok()
+
+method startGroupSync*(g: OnchainGroupManager): Future[void] {.async.} =
   initializedGuard(g)
   # Get archive history
   try:
@@ -273,28 +325,46 @@ proc startGroupSync*(g: OnchainGroupManager): Future[void] {.async.} =
   except:
     raise newException(ValueError, "failed to start onchain sync service: " & getCurrentExceptionMsg())
 
-  if g.config.ethPrivateKey.isSome() and g.idCredentials.isSome():
+  if g.ethPrivateKey.isSome() and g.idCredentials.isNone():
+    let idCredentialRes = g.rlnInstance.membershipKeyGen()
+    if idCredentialRes.isErr():
+      raise newException(CatchableError, "Identity credential generation failed")
+    let idCredential = idCredentialRes.get()
+    g.idCredentials = some(idCredential)
+
     debug "registering commitment on contract"
-    await g.register(g.idCredentials.get())
+    await g.register(idCredential)
+    if g.registrationHandler.isSome():
+      # We need to callback with the tx hash
+      let handler = g.registrationHandler.get()
+      handler($g.registrationTxHash.get())
+
+    let persistRes = g.persistCredentials()
+    if persistRes.isErr():
+      error "failed to persist credentials", error=persistRes.error()
 
   return
 
-proc onRegister*(g: OnchainGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
+method onRegister*(g: OnchainGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
   g.registerCb = some(cb)
 
-proc onWithdraw*(g: OnchainGroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
+method onWithdraw*(g: OnchainGroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
   g.withdrawCb = some(cb)
 
-proc init*(g: OnchainGroupManager): Future[void] {.async.} =
+method init*(g: OnchainGroupManager): Future[void] {.async.} =
   var ethRpc: Web3
   var contract: RlnContractWithSender
   # check if the Ethereum client is reachable
   try:
-    ethRpc = await newWeb3(g.config.ethClientUrl)
+    ethRpc = await newWeb3(g.ethClientUrl)
   except:
     raise newException(ValueError, "could not connect to the Ethereum client")
 
-  let contractAddress = web3.fromHex(web3.Address, g.config.ethContractAddress)
+  # Set the chain id
+  let chainId = await ethRpc.provider.eth_chainId()
+  g.chainId = some(chainId)
+
+  let contractAddress = web3.fromHex(web3.Address, g.ethContractAddress)
   contract = ethRpc.contractSender(RlnContract, contractAddress)
 
   # check if the contract exists by calling a static function
@@ -304,25 +374,39 @@ proc init*(g: OnchainGroupManager): Future[void] {.async.} =
   except:
     raise newException(ValueError, "could not get the membership deposit")
 
-  if g.config.ethPrivateKey.isSome():
-    let pk = string(g.config.ethPrivateKey.get())
+  if g.ethPrivateKey.isSome():
+    let pk = g.ethPrivateKey.get()
     let pkParseRes = keys.PrivateKey.fromHex(pk)
     if pkParseRes.isErr():
       raise newException(ValueError, "could not parse the private key")
     ethRpc.privateKey = some(pkParseRes.get())
 
-  g.config.ethRpc = some(ethRpc)
-  g.config.rlnContract = some(contract)
-  g.config.membershipFee = some(membershipFee)
+  g.ethRpc = some(ethRpc)
+  g.rlnContract = some(contract)
+  g.membershipFee = some(membershipFee)
 
+  if g.keystorePath.isSome() and g.keystorePassword.isSome():
+    let parsedCredsRes = getMembershipCredentials(path = g.keystorePath.get(),
+                                                  password = g.keystorePassword.get(),
+                                                  filterMembershipContracts = @[MembershipContract(chainId: $chainId,
+                                                  address: g.ethContractAddress)],
+                                                  appInfo = RLNAppInfo)
+    if parsedCredsRes.isErr():
+      raise newException(ValueError, "could not parse the keystore: " & $parsedCredsRes.error())
+    let parsedCreds = parsedCredsRes.get()
+    if parsedCreds.len == 0:
+      raise newException(ValueError, "keystore is empty")
+    # TODO: accept an index from the config (related: https://github.com/waku-org/nwaku/pull/1466)
+    g.idCredentials = some(parsedCreds[0].identityCredential)
+    g.membershipIndex = some(parsedCreds[0].membershipGroups[0].treeIndex)
 
   ethRpc.ondisconnect = proc() =
     error "Ethereum client disconnected"
-    let fromBlock = g.config.latestProcessedBlock.get()
+    let fromBlock = g.latestProcessedBlock.get()
     info "reconnecting with the Ethereum client, and restarting group sync", fromBlock = fromBlock
     try:
       asyncSpawn g.startOnchainSync(fromBlock)
     except:
-      error "failed to restart group sync"
+      error "failed to restart group sync", error = getCurrentExceptionMsg()
 
   g.initialized = true

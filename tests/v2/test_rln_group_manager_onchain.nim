@@ -1,3 +1,5 @@
+{.used.}
+
 when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
 else:
@@ -5,7 +7,7 @@ else:
 
 import
   std/[options, osproc, streams, strutils, sequtils],
-  stew/results,
+  stew/[results, byteutils],
   stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
@@ -24,8 +26,6 @@ import
   ../../waku/v2/protocol/waku_rln_relay/group_manager/on_chain/group_manager,
   ./testlib/common,
   ./test_utils
-
-from posix import kill, SIGINT
 
 proc generateCredentials(rlnInstance: ptr RLN): IdentityCredential =
   let credRes = membershipKeyGen(rlnInstance)
@@ -145,20 +145,18 @@ proc runGanache(): Process =
 proc stopGanache(runGanache: Process) {.used.} =
 
   let ganachePID = runGanache.processID
-
-  # We gracefully terminate Ganache daemon by sending a SIGINT signal to the runGanache PID to trigger RPC server termination and clean-up
-  let returnCodeSIGINT = kill(ganachePID.int32, SIGINT)
-  debug "Sent SIGINT to Ganache", ganachePID=ganachePID, returnCode=returnCodeSIGINT
-
   # We wait the daemon to exit
   try:
-    let returnCodeExit = runGanache.waitForExit()
-    debug "Ganache daemon terminated", returnCode=returnCodeExit
-    debug "Ganache daemon run log", log=runGanache.outputstream.readAll()
+    # We terminate Ganache daemon by sending a SIGTERM signal to the runGanache PID to trigger RPC server termination and clean-up
+    terminate(runGanache)
+    # NOTE: the below line must remain commented out, otherwise it will cause a deadlocked state
+    # ref: https://nim-lang.org/docs/osproc.html#waitForExit%2CProcess%2Cint
+    # debug "ganache logs", logs=runGanache.outputstream.readAll()
+    debug "Sent SIGTERM to Ganache", ganachePID=ganachePID
   except:
-    error "Ganache daemon termination failed"
+    error "Ganache daemon termination failed: ", err = getCurrentExceptionMsg()
 
-proc setup(): Future[OnchainGroupManager] {.async.} =
+proc setup(signer = true): Future[OnchainGroupManager] {.async.} =
   let rlnInstanceRes = createRlnInstance()
   require:
     rlnInstanceRes.isOk()
@@ -172,14 +170,16 @@ proc setup(): Future[OnchainGroupManager] {.async.} =
   let accounts = await web3.provider.eth_accounts()
   web3.defaultAccount = accounts[1]
 
-  let (pk, _) = await createEthAccount()
+  var pk = none(string)
+  if signer:
+    let (privateKey, _) = await createEthAccount()
+    pk = some($privateKey)
 
-  let onchainConfig = OnchainGroupManagerConfig(ethClientUrl: EthClient,
-                                                ethContractAddress: $contractAddress,
-                                                ethPrivateKey: some($pk))
-
-  let manager {.used.} = OnchainGroupManager(config: onchainConfig,
-                                             rlnInstance: rlnInstance)
+  let manager = OnchainGroupManager(ethClientUrl: EthClient,
+                                    ethContractAddress: $contractAddress,
+                                    ethPrivateKey: pk,
+                                    rlnInstance: rlnInstance,
+                                    saveKeystore: false)
 
   return manager
 
@@ -192,9 +192,9 @@ suite "Onchain group manager":
     await manager.init()
 
     check:
-      manager.config.ethRpc.isSome()
-      manager.config.rlnContract.isSome()
-      manager.config.membershipFee.isSome()
+      manager.ethRpc.isSome()
+      manager.rlnContract.isSome()
+      manager.membershipFee.isSome()
       manager.initialized
 
   asyncTest "startGroupSync: should start group sync":
@@ -211,9 +211,7 @@ suite "Onchain group manager":
 
   asyncTest "startGroupSync: should sync to the state of the group":
     let manager = await setup()
-    let credentials = generateCredentials(manager.rlnInstance)
 
-    manager.idCredentials = some(credentials)
     await manager.init()
 
     let merkleRootBeforeRes = manager.rlnInstance.getMerkleRoot()
@@ -221,21 +219,22 @@ suite "Onchain group manager":
       merkleRootBeforeRes.isOk()
     let merkleRootBefore = merkleRootBeforeRes.get()
 
-    let future = newFuture[void]("startGroupSync")
+    let fut = newFuture[void]("startGroupSync")
 
-    proc generateCallback(fut: Future[void], idCommitment: IDCommitment): OnRegisterCallback =
+    proc generateCallback(fut: Future[void]): OnRegisterCallback =
       proc callback(registrations: seq[Membership]): Future[void] {.async.} =
         require:
           registrations.len == 1
-          registrations[0].idCommitment == idCommitment
+          registrations[0].idCommitment == manager.idCredentials.get().idCommitment
           registrations[0].index == 0
         fut.complete()
       return callback
 
-    manager.onRegister(generateCallback(future, credentials.idCommitment))
+    manager.onRegister(generateCallback(fut))
+
     await manager.startGroupSync()
 
-    await future
+    await fut
 
     let merkleRootAfterRes = manager.rlnInstance.getMerkleRoot()
     require:
@@ -260,12 +259,11 @@ suite "Onchain group manager":
     proc generateCallback(futs: array[0..4, Future[system.void]], credentials: seq[IdentityCredential]): OnRegisterCallback =
       var futureIndex = 0
       proc callback(registrations: seq[Membership]): Future[void] {.async.} =
-        require:
-          registrations.len == 1
-          registrations[0].idCommitment == credentials[futureIndex].idCommitment
-          registrations[0].index == MembershipIndex(futureIndex)
-        futs[futureIndex].complete()
-        futureIndex += 1
+        if registrations.len == 1 and
+            registrations[0].idCommitment == credentials[futureIndex].idCommitment and
+            registrations[0].index == MembershipIndex(futureIndex + 1):
+          futs[futureIndex].complete()
+          futureIndex += 1
       return callback
 
     manager.onRegister(generateCallback(futures, credentials))
@@ -292,7 +290,7 @@ suite "Onchain group manager":
       await manager.register(dummyCommitment)
 
   asyncTest "register: should register successfully":
-    let manager = await setup()
+    let manager = await setup(false)
     await manager.init()
     await manager.startGroupSync()
 
@@ -311,9 +309,8 @@ suite "Onchain group manager":
       manager.latestIndex == 1
 
   asyncTest "register: callback is called":
-    let manager = await setup()
+    let manager = await setup(false)
 
-    var callbackCalled = false
     let idCommitment = generateCredentials(manager.rlnInstance).idCommitment
 
     let fut = newFuture[void]()
@@ -323,7 +320,6 @@ suite "Onchain group manager":
         registrations.len == 1
         registrations[0].idCommitment == idCommitment
         registrations[0].index == 0
-      callbackCalled = true
       fut.complete()
 
     manager.onRegister(callback)
@@ -333,8 +329,6 @@ suite "Onchain group manager":
     await manager.register(idCommitment)
 
     await fut
-    check:
-      callbackCalled
 
   asyncTest "withdraw: should guard against uninitialized state":
     let manager = await setup()
@@ -342,6 +336,146 @@ suite "Onchain group manager":
 
     expect(ValueError):
       await manager.withdraw(idSecretHash)
+
+  asyncTest "validateRoot: should validate good root":
+    let manager = await setup()
+    await manager.init()
+
+    let fut = newFuture[void]()
+
+    proc callback(registrations: seq[Membership]): Future[void] {.async.} =
+      if registrations.len == 1 and
+         registrations[0].idCommitment == manager.idCredentials.get().idCommitment and
+         registrations[0].index == 0:
+        fut.complete()
+
+    manager.onRegister(callback)
+
+    await manager.startGroupSync()
+    await fut
+
+    let messageBytes = "Hello".toBytes()
+
+    # prepare the epoch
+    let epoch = default(Epoch)
+    debug "epoch in bytes", epochHex = epoch.inHex()
+
+    # generate proof
+    let validProofRes = manager.generateProof(data = messageBytes,
+                                              epoch = epoch)
+    require:
+      validProofRes.isOk()
+    let validProof = validProofRes.get()
+
+    # validate the root (should be true)
+    let validated = manager.validateRoot(validProof.merkleRoot)
+
+    check:
+      validated
+
+  asyncTest "validateRoot: should reject bad root":
+    let manager = await setup()
+    await manager.init()
+    await manager.startGroupSync()
+
+    let idCredential = generateCredentials(manager.rlnInstance)
+
+    ## Assume the registration occured out of band
+    manager.idCredentials = some(idCredential)
+    manager.membershipIndex = some(MembershipIndex(0))
+
+    let messageBytes = "Hello".toBytes()
+
+    # prepare the epoch
+    let epoch = default(Epoch)
+    debug "epoch in bytes", epochHex = epoch.inHex()
+
+    # generate proof
+    let validProofRes = manager.generateProof(data = messageBytes,
+                                              epoch = epoch)
+    require:
+      validProofRes.isOk()
+    let validProof = validProofRes.get()
+
+    # validate the root (should be false)
+    let validated = manager.validateRoot(validProof.merkleRoot)
+
+    check:
+      validated == false
+
+  asyncTest "verifyProof: should verify valid proof":
+    let manager = await setup()
+    await manager.init()
+
+    let fut = newFuture[void]()
+
+    proc callback(registrations: seq[Membership]): Future[void] {.async.} =
+      if registrations.len == 1 and
+         registrations[0].idCommitment == manager.idCredentials.get().idCommitment and
+         registrations[0].index == 0:
+        fut.complete()
+
+    manager.onRegister(callback)
+
+    await manager.startGroupSync()
+    await fut
+
+    let messageBytes = "Hello".toBytes()
+
+    # prepare the epoch
+    let epoch = default(Epoch)
+    debug "epoch in bytes", epochHex = epoch.inHex()
+
+    # generate proof
+    let validProofRes = manager.generateProof(data = messageBytes,
+                                              epoch = epoch)
+    require:
+      validProofRes.isOk()
+    let validProof = validProofRes.get()
+
+    # verify the proof (should be true)
+    let verifiedRes = manager.verifyProof(messageBytes, validProof)
+    require:
+      verifiedRes.isOk()
+
+    check:
+      verifiedRes.get()
+
+  asyncTest "verifyProof: should reject invalid proof":
+    let manager = await setup()
+    await manager.init()
+    await manager.startGroupSync()
+
+    let idCredential = generateCredentials(manager.rlnInstance)
+    await manager.register(idCredential.idCommitment)
+
+    let idCredential2 = generateCredentials(manager.rlnInstance)
+
+    ## Assume the registration occured out of band
+    manager.idCredentials = some(idCredential2)
+    manager.membershipIndex = some(MembershipIndex(0))
+
+    let messageBytes = "Hello".toBytes()
+
+    # prepare the epoch
+    let epoch = default(Epoch)
+    debug "epoch in bytes", epochHex = epoch.inHex()
+
+    # generate proof
+    let invalidProofRes = manager.generateProof(data = messageBytes,
+                                                epoch = epoch)
+    require:
+      invalidProofRes.isOk()
+    let invalidProof = invalidProofRes.get()
+
+
+    # verify the proof (should be false)
+    let verifiedRes = manager.verifyProof(messageBytes, invalidProof)
+    require:
+      verifiedRes.isOk()
+
+    check:
+      verifiedRes.get() == false
 
   ################################
   ## Terminating/removing Ganache

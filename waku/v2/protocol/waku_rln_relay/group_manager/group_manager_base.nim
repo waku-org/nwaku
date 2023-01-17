@@ -1,15 +1,18 @@
 import
-  ../protocol_types
+  ../protocol_types,
+  ../rln
 import
   options,
   chronos,
-  stew/results
+  stew/results,
+  std/[deques, sequtils]
 
 export
   options,
   chronos,
   results,
-  protocol_types
+  protocol_types,
+  deques
 
 # This module contains the GroupManager interface
 # The GroupManager is responsible for managing the group state
@@ -26,42 +29,43 @@ type OnWithdrawCallback* = proc (withdrawals: seq[Membership]): Future[void] {.g
 type GroupManagerResult*[T] = Result[T, string]
 
 type
-  GroupManager*[Config] = ref object of RootObj
+  GroupManager* = ref object of RootObj
     idCredentials*: Option[IdentityCredential]
+    membershipIndex*: Option[MembershipIndex]
     registerCb*: Option[OnRegisterCallback]
     withdrawCb*: Option[OnWithdrawCallback]
-    config*: Config
     rlnInstance*: ptr RLN
     initialized*: bool
     latestIndex*: MembershipIndex
+    validRoots*: Deque[MerkleNode]
 
 # This proc is used to initialize the group manager
 # Any initialization logic should be implemented here
 method init*(g: GroupManager): Future[void] {.base,gcsafe.} =
-  return err("init proc for " & $g.kind & " is not implemented yet")
+  raise newException(CatchableError, "init proc for " & $g.type & " is not implemented yet")
 
 # This proc is used to start the group sync process
 # It should be used to sync the group state with the rest of the group members
 method startGroupSync*(g: GroupManager): Future[void] {.base,gcsafe.} =
-  return err("startGroupSync proc for " & $g.kind & " is not implemented yet")
+  raise newException(CatchableError, "startGroupSync proc for " & $g.type & " is not implemented yet")
 
 # This proc is used to register a new identity commitment into the merkle tree
 # The user may or may not have the identity secret to this commitment
 # It should be used when detecting new members in the group, and syncing the group state
 method register*(g: GroupManager, idCommitment: IDCommitment): Future[void] {.base,gcsafe.} =
-  return err("register proc for " & $g.kind & " is not implemented yet")
+  raise newException(CatchableError, "register proc for " & $g.type & " is not implemented yet")
 
 # This proc is used to register a new identity commitment into the merkle tree
 # The user should have the identity secret to this commitment
 # It should be used when the user wants to join the group
 method register*(g: GroupManager, credentials: IdentityCredential): Future[void] {.base,gcsafe.} =
-  return err("register proc for " & $g.kind & " is not implemented yet")
+  raise newException(CatchableError, "register proc for " & $g.type & " is not implemented yet")
 
 # This proc is used to register a batch of new identity commitments into the merkle tree
 # The user may or may not have the identity secret to these commitments
 # It should be used when detecting a batch of new members in the group, and syncing the group state
 method registerBatch*(g: GroupManager, idCommitments: seq[IDCommitment]): Future[void] {.base,gcsafe.} =
-  return err("registerBatch proc for " & $g.kind & " is not implemented yet")
+  raise newException(CatchableError, "registerBatch proc for " & $g.type & " is not implemented yet")
 
 # This proc is used to set a callback that will be called when a new identity commitment is registered
 # The callback may be called multiple times, and should be used to for any post processing
@@ -71,14 +75,73 @@ method onRegister*(g: GroupManager, cb: OnRegisterCallback) {.base,gcsafe.} =
 # This proc is used to withdraw/remove an identity commitment from the merkle tree
 # The user should have the identity secret hash to this commitment, by either deriving it, or owning it
 method withdraw*(g: GroupManager, identitySecretHash: IdentitySecretHash): Future[void] {.base,gcsafe.} =
-  return err("withdraw proc for " & $g.kind & " is not implemented yet")
+  raise newException(CatchableError, "withdraw proc for " & $g.type & " is not implemented yet")
 
 # This proc is used to withdraw/remove a batch of identity commitments from the merkle tree
 # The user should have the identity secret hash to these commitments, by either deriving them, or owning them
 method withdrawBatch*(g: GroupManager, identitySecretHashes: seq[IdentitySecretHash]): Future[void] {.base,gcsafe.} =
-  return err("withdrawBatch proc for " & $g.kind & " is not implemented yet")
+  raise newException(CatchableError, "withdrawBatch proc for " & $g.type & " is not implemented yet")
 
 # This proc is used to set a callback that will be called when an identity commitment is withdrawn
 # The callback may be called multiple times, and should be used to for any post processing
 method onWithdraw*(g: GroupManager, cb: OnWithdrawCallback) {.base,gcsafe.} =
   g.withdrawCb = some(cb)
+
+# Acceptable roots for merkle root validation of incoming messages
+const AcceptableRootWindowSize* = 5
+
+proc updateValidRootQueue*(rootQueue: var Deque[MerkleNode], root: MerkleNode): void =
+  ## updates the root queue with the latest root and pops the oldest one when the capacity of `AcceptableRootWindowSize` is reached
+  let overflowCount = rootQueue.len() - AcceptableRootWindowSize
+  if overflowCount >= 0:
+    # Delete the oldest `overflowCount` elements in the deque (index 0..`overflowCount`)
+    for i in 0..overflowCount:
+      rootQueue.popFirst()
+  # Push the next root into the queue
+  rootQueue.addLast(root)
+
+method indexOfRoot*(g: GroupManager, root: MerkleNode): int {.base,gcsafe,raises:[].} =
+  ## returns the index of the root in the merkle tree.
+  ## returns -1 if the root is not found
+  return g.validRoots.find(root)
+
+method validateRoot*(g: GroupManager, root: MerkleNode): bool {.base,gcsafe,raises:[].} =
+  ## validates the root against the valid roots queue
+  # Check if the root is in the valid roots queue
+  if g.indexOfRoot(root) >= 0:
+    return true
+  return false
+
+template updateValidRootQueue*(g: GroupManager) =
+  let rootRes = g.rlnInstance.getMerkleRoot()
+  if rootRes.isErr():
+    raise newException(ValueError, "failed to get merkle root")
+  let rootAfterUpdate = rootRes.get()
+  updateValidRootQueue(g.validRoots, rootAfterUpdate)
+
+method verifyProof*(g: GroupManager,
+                    input: openArray[byte],
+                    proof: RateLimitProof): GroupManagerResult[bool] {.base,gcsafe,raises:[].} =
+  ## verifies the proof against the input and the current merkle root
+  let proofVerifyRes = g.rlnInstance.proofVerify(input, proof, g.validRoots.items().toSeq())
+  if proofVerifyRes.isErr():
+    return err("proof verification failed: " & $proofVerifyRes.error())
+  return ok(proofVerifyRes.value())
+
+method generateProof*(g: GroupManager,
+                      data: openArray[byte],
+                      epoch: Epoch): GroupManagerResult[RateLimitProof] {.base,gcsafe,raises:[].} =
+  ## generates a proof for the given data and epoch
+  ## the proof is generated using the current merkle root
+  if g.idCredentials.isNone():
+    return err("identity credentials are not set")
+  if g.membershipIndex.isNone():
+    return err("membership index is not set")
+  let proofGenRes = proofGen(rlnInstance = g.rlnInstance,
+                             data = data,
+                             memKeys = g.idCredentials.get(),
+                             memIndex = g.membershipIndex.get(),
+                             epoch = epoch)
+  if proofGenRes.isErr():
+    return err("proof generation failed: " & $proofGenRes.error())
+  return ok(proofGenRes.value())
