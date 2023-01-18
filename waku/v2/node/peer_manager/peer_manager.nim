@@ -37,6 +37,12 @@ const
   # TODO: Make configurable
   DefaultDialTimeout = chronos.seconds(10)
 
+  # limit the amount of paralel dials
+  MaxParalelDials = 10
+
+  # delay between consecutive relayConnectivityLoop runs
+  ConnectivityLoopInterval = chronos.seconds(30)
+
 ####################
 # Helper functions #
 ####################
@@ -290,8 +296,6 @@ proc connectToNodes*(pm: PeerManager,
 
 # Ensures a healthy amount of connected relay peers
 proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
-  let defaultInterval = chronos.seconds(30)
-
   while true:
 
     let maxConnections = pm.switch.connManager.inSema.size
@@ -303,16 +307,14 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
 
     # Leave some room for service peers
     if numConPeers >= (maxConnections - 5):
-      await sleepAsync(defaultInterval)
+      await sleepAsync(ConnectivityLoopInterval)
       continue
 
     # TODO: Respect backoff before attempting to connect a relay peer
     var disconnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
     shuffle(disconnectedPeers)
 
-    # limit the amount of paralel dials
-    let maxParalelDials = 10
-    let numPeersToConnect = min(min(maxConnections - numConPeers, disconnectedPeers.len), maxParalelDials)
+    let numPeersToConnect = min(min(maxConnections - numConPeers, disconnectedPeers.len), MaxParalelDials)
 
     info "Relay connectivity loop",
       connectedPeers = numConPeers,
@@ -321,4 +323,4 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
 
     await pm.connectToNodes(disconnectedPeers[0..<numPeersToConnect], WakuRelayCodec)
 
-    await sleepAsync(defaultInterval)
+    await sleepAsync(ConnectivityLoopInterval)

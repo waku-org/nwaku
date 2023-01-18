@@ -142,7 +142,7 @@ proc selectPeer*(peerStore: PeerStore, proto: string): Option[RemotePeerInfo] =
     return none(RemotePeerInfo)
 
 proc getPeersByDirection*(peerStore: PeerStore, direction: Direction): seq[StoredInfo] =
-  return peerStore.peers().filterIt(it.direction == direction)
+  return peerStore.peers.filterIt(it.direction == direction)
 
 proc getNotConnectedPeers*(peerStore: PeerStore): seq[StoredInfo] =
-  return peerStore.peers().filterIt(it.connectedness != Connected)
+  return peerStore.peers.filterIt(it.connectedness != Connected)
