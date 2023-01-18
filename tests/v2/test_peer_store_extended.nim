@@ -44,6 +44,7 @@ suite "Extended nim-libp2p Peer Store":
     peerStore[ConnectionBook][p1] = Connected
     peerStore[DisconnectBook][p1] = 0
     peerStore[SourceBook][p1] = Discv5
+    peerStore[DirectionBook][p1] = Inbound
 
     # Peer2: Connected
     peerStore[AddressBook][p2] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/2").tryGet()]
@@ -54,6 +55,7 @@ suite "Extended nim-libp2p Peer Store":
     peerStore[ConnectionBook][p2] = Connected
     peerStore[DisconnectBook][p2] = 0
     peerStore[SourceBook][p2] = Discv5
+    peerStore[DirectionBook][p2] = Inbound
 
     # Peer3: Connected
     peerStore[AddressBook][p3] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/3").tryGet()]
@@ -64,6 +66,7 @@ suite "Extended nim-libp2p Peer Store":
     peerStore[ConnectionBook][p3] = Connected
     peerStore[DisconnectBook][p3] = 0
     peerStore[SourceBook][p3] = Discv5
+    peerStore[DirectionBook][p3] = Inbound
 
     # Peer4: Added but never connected
     peerStore[AddressBook][p4] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/4").tryGet()]
@@ -74,6 +77,7 @@ suite "Extended nim-libp2p Peer Store":
     peerStore[ConnectionBook][p4] = NotConnected
     peerStore[DisconnectBook][p4] = 0
     peerStore[SourceBook][p4] = Discv5
+    peerStore[DirectionBook][p4] = Inbound
 
     # Peer5: Connecteed in the past
     peerStore[AddressBook][p5] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/5").tryGet()]
@@ -84,6 +88,7 @@ suite "Extended nim-libp2p Peer Store":
     peerStore[ConnectionBook][p5] = CanConnect
     peerStore[DisconnectBook][p5] = 1000
     peerStore[SourceBook][p5] = Discv5
+    peerStore[DirectionBook][p5] = Outbound
 
   test "get() returns the correct StoredInfo for a given PeerId":
     # When
@@ -113,7 +118,7 @@ suite "Extended nim-libp2p Peer Store":
       storedInfoPeer6.protoVersion == ""
       storedInfoPeer6.connectedness == NotConnected
       storedInfoPeer6.disconnectTime == 0
-      storedInfoPeer6.origin == Unknown
+      storedInfoPeer6.origin == UnknownOrigin
 
   test "peers() returns all StoredInfo of the PeerStore":
     # When
@@ -254,3 +259,24 @@ suite "Extended nim-libp2p Peer Store":
       swapPeer.isSome()
       swapPeer.get().peerId == p5
       swapPeer.get().protocols == @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"]
+
+  test "getPeersByDirection()":
+    # When
+    let inPeers = peerStore.getPeersByDirection(Inbound)
+    let outPeers = peerStore.getPeersByDirection(Outbound)
+
+    # Then
+    check:
+      inPeers.len == 4
+      outPeers.len == 1
+
+  test "getNotConnectedPeers()":
+    # When
+    let disconnedtedPeers = peerStore.getNotConnectedPeers()
+
+    # Then
+    check:
+      disconnedtedPeers.len == 2
+      disconnedtedPeers.anyIt(it.peerId == p4)
+      disconnedtedPeers.anyIt(it.peerId == p5)
+      not disconnedtedPeers.anyIt(it.connectedness == Connected)

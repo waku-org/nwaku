@@ -392,6 +392,9 @@ proc startRelay*(node: WakuNode) {.async.} =
                                           protocolMatcher(WakuRelayCodec),
                                           backoffPeriod)
 
+  # Maintain relay connections
+  asyncSpawn node.peerManager.relayConnectivityLoop()
+
   # Start the WakuRelay protocol
   await node.wakuRelay.start()
 
@@ -897,9 +900,6 @@ proc startKeepalive*(node: WakuNode) =
 
   asyncSpawn node.keepaliveLoop(defaultKeepalive)
 
-# TODO: Decouple discovery logic from connection logic
-# A discovered peer goes to the PeerStore
-# The PeerManager uses to PeerStore to dial peers
 proc runDiscv5Loop(node: WakuNode) {.async.} =
   ## Continuously add newly discovered nodes
   ## using Node Discovery v5
@@ -920,12 +920,9 @@ proc runDiscv5Loop(node: WakuNode) {.async.} =
 
       trace "Discovered peers", count=discoveredPeers.get().len()
 
-      let newPeers = discoveredPeers.get().filterIt(
-        not node.switch.isConnected(it.peerId))
-
-      if newPeers.len > 0:
-        debug "Connecting to newly discovered peers", count=newPeers.len()
-        await node.connectToNodes(newPeers, "discv5")
+      for peer in discoveredPeers.get():
+        # TODO: proto: WakuRelayCodec will be removed from add peer
+        node.peerManager.addPeer(peer, WakuRelayCodec)
 
     # Discovery `queryRandom` can have a synchronous fast path for example
     # when no peers are in the routing table. Don't run it in continuous loop.
