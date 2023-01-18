@@ -27,21 +27,30 @@ declarePublicGauge waku_connected_peers, "Number of connected peers per directio
 logScope:
   topics = "waku node peer_manager"
 
-type
-  PeerManager* = ref object of RootObj
-    switch*: Switch
-    peerStore*: PeerStore
-    storage: PeerStorage
-
 const
   # TODO: Make configurable
   DefaultDialTimeout = chronos.seconds(10)
+
+  # Max attempts before removing the peer
+  MaxFailedAttempts = 5
+
+  # InitialBackoffInSec^failedAttempts
+  # 15s, 225s, 3375s (1h), 50625s (14h)
+  InitialBackoffInSec = 15
 
   # limit the amount of paralel dials
   MaxParalelDials = 10
 
   # delay between consecutive relayConnectivityLoop runs
   ConnectivityLoopInterval = chronos.seconds(30)
+
+type
+  PeerManager* = ref object of RootObj
+    switch*: Switch
+    peerStore*: PeerStore
+    initialBackoffInSec*: int
+    maxFailedAttempts*: int
+    storage: PeerStorage
 
 ####################
 # Helper functions #
@@ -61,45 +70,60 @@ proc insertOrReplace(ps: PeerStorage,
 proc dialPeer(pm: PeerManager, peerId: PeerID,
               addrs: seq[MultiAddress], proto: string,
               dialTimeout = DefaultDialTimeout,
-              source = "api"
+              source = "api",
               ): Future[Option[Connection]] {.async.} =
 
   # Do not attempt to dial self
   if peerId == pm.switch.peerInfo.peerId:
     return none(Connection)
 
-  info "Dialing peer from manager", wireAddr = addrs, peerId = peerId
+  let failedAttempts = pm.peerStore[NumberFailedConnBook][peerId]
+  debug "Dialing peer", wireAddr = addrs, peerId = peerId, failedAttempts=failedAttempts
 
   # Dial Peer
+  var deadline = sleepAsync(dialTimeout)
   let dialFut = pm.switch.dial(peerId, addrs, proto)
 
+  var reasonFailed = ""
   try:
-    # Attempt to dial remote peer
-    if (await dialFut.withTimeout(DefaultDialTimeout)):
+    await dialFut or deadline
+    if dialFut.finished():
+      if not deadline.finished():
+        deadline.cancel()
       waku_peers_dials.inc(labelValues = ["successful"])
       # TODO: This will be populated from the peerstore info when ready
       waku_node_conns_initiated.inc(labelValues = [source])
+      pm.peerStore[NumberFailedConnBook][peerId] = 0
       return some(dialFut.read())
     else:
-      # TODO: any redial attempts?
-      debug "Dialing remote peer timed out"
-      waku_peers_dials.inc(labelValues = ["timeout"])
+      reasonFailed = "timeout"
+      await cancelAndWait(dialFut)
+  except CatchableError as exc:
+    reasonFailed = "failed"
 
-      pm.peerStore[ConnectionBook][peerId] = CannotConnect
-      if not pm.storage.isNil:
-        pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), CannotConnect)
+  # Dial failed
+  pm.peerStore[NumberFailedConnBook][peerId] = pm.peerStore[NumberFailedConnBook][peerId] + 1
+  pm.peerStore[LastFailedConnBook][peerId] = Moment.init(getTime().toUnix, Second)
+  pm.peerStore[ConnectionBook][peerId] = CannotConnect
 
-      return none(Connection)
-  except CatchableError as e:
-    # TODO: any redial attempts?
-    debug "Dialing remote peer failed", msg = e.msg
-    waku_peers_dials.inc(labelValues = ["failed"])
+  debug "Dialing peer failed", peerId = peerId, reason = reasonFailed, failedAttempts=failedAttempts
+  waku_peers_dials.inc(labelValues = [reasonFailed])
 
-    pm.peerStore[ConnectionBook][peerId] = CannotConnect
-    if not pm.storage.isNil:
-      pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), CannotConnect)
+  # Update storage
+  if not pm.storage.isNil:
+    pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), CannotConnect)
 
-    return none(Connection)
+  return none(Connection)
+
+# TODO: To be addressed in nwaku/pull/1473. Do not prune service peers
+# TODO: Currently unused
+proc prunePeerStore(pm: PeerManager) =
+  # iterate peers in peerstore
+  # skip service peers
+  #if pm.peerStore[NumberFailedConnBook][peerId] >= pm.maxFailedAttempts:
+  #  debug "Removing peer from peer store", peerId = peerId, failedAttempts=failedAttempts
+  #  pm.peerStore.del(peerId)
+  doAssert(false, "Not implemented!")
 
 proc loadFromStorage(pm: PeerManager) =
   debug "loading peers from storage"
@@ -156,10 +180,17 @@ proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async.} =
       pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), CanConnect, getTime().toUnix)
     return
 
-proc new*(T: type PeerManager, switch: Switch, storage: PeerStorage = nil): PeerManager =
+proc new*(T: type PeerManager,
+          switch: Switch,
+          storage: PeerStorage = nil,
+          initialBackoffInSec = InitialBackoffInSec,
+          maxFailedAttempts = MaxFailedAttempts,): PeerManager =
+
   let pm = PeerManager(switch: switch,
                        peerStore: switch.peerStore,
-                       storage: storage)
+                       storage: storage,
+                       initialBackoffInSec: initialBackoffInSec,
+                       maxFailedAttempts: maxFailedAttempts)
 
   proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(pm, peerId, event)
@@ -248,7 +279,8 @@ proc dialPeer*(pm: PeerManager,
                remotePeerInfo: RemotePeerInfo,
                proto: string,
                dialTimeout = DefaultDialTimeout,
-               source = "api"): Future[Option[Connection]] {.async.} =
+               source = "api",
+               ): Future[Option[Connection]] {.async.} =
   # Dial a given peer and add it to the list of known peers
   # TODO: check peer validity and score before continuing. Limit number of peers to be managed.
 
@@ -263,7 +295,7 @@ proc dialPeer*(pm: PeerManager,
                peerId: PeerID,
                proto: string,
                dialTimeout = DefaultDialTimeout,
-               source = "api"
+               source = "api",
                ): Future[Option[Connection]] {.async.} =
   # Dial an existing peer by looking up it's existing addrs in the switch's peerStore
   # TODO: check peer validity and score before continuing. Limit number of peers to be managed.
@@ -276,7 +308,10 @@ proc connectToNodes*(pm: PeerManager,
                      proto: string,
                      dialTimeout = DefaultDialTimeout,
                      source = "api") {.async.} =
-  info "connectToNodes", len = nodes.len
+  if nodes.len == 0:
+    return
+
+  info "Dialing multiple peers", numOfPeers = nodes.len
 
   var futConns: seq[Future[Option[Connection]]]
   for node in nodes:
@@ -310,17 +345,16 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
       await sleepAsync(ConnectivityLoopInterval)
       continue
 
-    # TODO: Respect backoff before attempting to connect a relay peer
     var disconnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
-    shuffle(disconnectedPeers)
-
-    let numPeersToConnect = min(min(maxConnections - numConPeers, disconnectedPeers.len), MaxParalelDials)
+    var withinBackoffPeers = disconnectedPeers.filterIt(pm.peerStore.canBeConnected(it.peerId, pm.initialBackoffInSec))
+    let numPeersToConnect = min(min(maxConnections - numConPeers, withinBackoffPeers.len), MaxParalelDials)
 
     info "Relay connectivity loop",
       connectedPeers = numConPeers,
       targetConnectedPeers = maxConnections,
-      availableDisconnectedPeers = disconnectedPeers.len
+      disconnectedPeers = disconnectedPeers.len,
+      withinBackoffPeers = withinBackoffPeers.len
 
-    await pm.connectToNodes(disconnectedPeers[0..<numPeersToConnect], WakuRelayCodec)
+    await pm.connectToNodes(withinBackoffPeers[0..<numPeersToConnect], WakuRelayCodec)
 
     await sleepAsync(ConnectivityLoopInterval)

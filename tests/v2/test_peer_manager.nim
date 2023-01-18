@@ -168,6 +168,48 @@ procSuite "Peer Manager":
 
     await node2.stop()
 
+  asyncTest "Peer manager updates failed peers correctly":
+    let
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60880))
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60881))
+      peerInfo2 = node2.switch.peerInfo
+
+    await node1.start()
+    await node1.mountRelay()
+    node1.peerManager.addPeer(peerInfo2.toRemotePeerInfo(), WakuRelayCodec)
+
+    # Set a low backoff to speed up test
+    node1.peerManager.initialBackoffInSec = 4
+
+    # node2 is not started, so dialing will fail
+    let conn1 = await node1.peerManager.dialPeer(peerInfo2.toRemotePeerInfo(), WakuRelayCodec, 1.seconds)
+    check:
+      # Cannot connect to node2
+      node1.peerManager.peerStore.connectedness(peerInfo2.peerId) == CannotConnect
+      node1.peerManager.peerStore[ConnectionBook][peerInfo2.peerId] == CannotConnect
+      node1.peerManager.peerStore[NumberFailedConnBook][peerInfo2.peerId] == 1
+
+      # And the connection failed
+      conn1.isNone() == true
+
+      # Right after failing there is a backoff period
+      node1.peerManager.peerStore.canBeConnected(peerInfo2.peerId, node1.peerManager.initialBackoffInSec) == false
+
+    # We wait the first backoff period
+    await sleepAsync(5.seconds)
+
+    # And backoff period is over
+    check:
+      node1.peerManager.peerStore.canBeConnected(peerInfo2.peerId, node1.peerManager.initialBackoffInSec) == true
+
+    # TODO: now connect and check that its ok.
+    # and this is reset to 0 node1.peerManager.peerStore[NumberFailedConnBook][peerInfo2.peerId] == 0
+
+    await node1.stop()
+    await node2.stop() #needed?
+
   asyncTest "Peer manager can use persistent storage and survive restarts":
     let
       database = SqliteDatabase.new(":memory:")[]

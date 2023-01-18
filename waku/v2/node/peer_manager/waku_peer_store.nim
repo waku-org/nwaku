@@ -4,7 +4,8 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables, sequtils, sets, options],
+  std/[tables, sequtils, sets, options, times, math],
+  chronos,
   libp2p/builders,
   libp2p/peerstore
 
@@ -12,8 +13,6 @@ import
   ../../utils/peers
 
 export peerstore, builders
-
-# TODO rename to peer_store_extended to emphasize its a nimlibp2 extension
 
 type
   Connectedness* = enum
@@ -32,13 +31,19 @@ type
     Static,
     Dns
 
-  Direction* = enum
+  PeerDirection* = enum
     UnknownDirection,
     Inbound,
     Outbound
 
   # Keeps track of the Connectedness state of a peer
   ConnectionBook* = ref object of PeerBook[Connectedness]
+
+  # Last failed connection attemp timestamp
+  LastFailedConnBook* = ref object of PeerBook[Moment]
+
+  # Failed connection attempts
+  NumberFailedConnBook* = ref object of PeerBook[int]
 
   # Keeps track of when peers were disconnected in Unix timestamps
   DisconnectBook* = ref object of PeerBook[int64]
@@ -47,7 +52,7 @@ type
   SourceBook* = ref object of PeerBook[PeerOrigin]
 
   # Direction
-  DirectionBook* = ref object of PeerBook[Direction]
+  DirectionBook* = ref object of PeerBook[PeerDirection]
 
   StoredInfo* = object
     # Taken from nim-libp2
@@ -62,11 +67,39 @@ type
     connectedness*: Connectedness
     disconnectTime*: int64
     origin*: PeerOrigin
-    direction*: Direction
+    direction*: PeerDirection
+    lastFailedConn*: Moment
+    numberFailedConn*: int
 
 ##################
 # Peer Store API #
 ##################
+
+proc canBeConnected*(peerStore: PeerStore,
+                     peerId: PeerId,
+                     initialBackoffInSec: int): bool =
+  # Returns if we can try to connect to this peer, based on past failed attempts
+  # It uses an exponential backoff. Each connection attempt makes us
+  # wait more before trying again.
+  let failedAttempts = peerStore[NumberFailedConnBook][peerId]
+
+  # if it never errored, we can try to connect
+  if failedAttempts == 0:
+    return true
+
+  # If it errored we wait an exponential backoff from last connection
+  # the more failed attemps, the greater the backoff since last attempt
+  let now = Moment.init(getTime().toUnix, Second)
+  let lastFailed = peerStore[LastFailedConnBook][peerId]
+  let backoff = chronos.seconds(initialBackoffInSec^failedAttempts)
+  if now >= (lastFailed + backoff):
+    return true
+  return false
+
+proc delete*(peerStore: PeerStore,
+             peerId: PeerId) =
+  # Delete all the information of a given peer.
+  peerStore.del(peerId)
 
 proc get*(peerStore: PeerStore,
           peerId: PeerID): StoredInfo =
@@ -85,6 +118,8 @@ proc get*(peerStore: PeerStore,
     disconnectTime: peerStore[DisconnectBook][peerId],
     origin: peerStore[SourceBook][peerId],
     direction: peerStore[DirectionBook][peerId],
+    lastFailedConn: peerStore[LastFailedConnBook][peerId],
+    numberFailedConn: peerStore[NumberFailedConnBook][peerId]
   )
 
 # TODO: Rename peers() to getPeersByProtocol()
@@ -141,7 +176,7 @@ proc selectPeer*(peerStore: PeerStore, proto: string): Option[RemotePeerInfo] =
   else:
     return none(RemotePeerInfo)
 
-proc getPeersByDirection*(peerStore: PeerStore, direction: Direction): seq[StoredInfo] =
+proc getPeersByDirection*(peerStore: PeerStore, direction: PeerDirection): seq[StoredInfo] =
   return peerStore.peers.filterIt(it.direction == direction)
 
 proc getNotConnectedPeers*(peerStore: PeerStore): seq[StoredInfo] =
