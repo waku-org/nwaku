@@ -270,9 +270,9 @@ suite "Extended nim-libp2p Peer Store":
       inPeers.len == 4
       outPeers.len == 1
 
-  test "getDisconnectedPeers()":
+  test "getNotConnectedPeers()":
     # When
-    let disconnedtedPeers = peerStore.getDisconnectedPeers()
+    let disconnedtedPeers = peerStore.getNotConnectedPeers()
 
     # Then
     check:

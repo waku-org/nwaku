@@ -392,6 +392,9 @@ proc startRelay*(node: WakuNode) {.async.} =
                                           protocolMatcher(WakuRelayCodec),
                                           backoffPeriod)
 
+  # Maintain relay connections
+  asyncSpawn node.peerManager.relayConnectivityLoop()
+
   # Start the WakuRelay protocol
   await node.wakuRelay.start()
 
@@ -896,11 +899,6 @@ proc startKeepalive*(node: WakuNode) =
   info "starting keepalive", keepalive=defaultKeepalive
 
   asyncSpawn node.keepaliveLoop(defaultKeepalive)
-
-proc startRelayConnectivityLoop*(node: WakuNode) =
-  info "starting relay connectivity loop"
-
-  asyncSpawn node.peerManager.relayConnectivityLoop()
 
 proc runDiscv5Loop(node: WakuNode) {.async.} =
   ## Continuously add newly discovered nodes

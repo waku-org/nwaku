@@ -307,7 +307,7 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
       continue
 
     # TODO: Respect backoff before attempting to connect a relay peer
-    var disconnectedPeers = pm.peerStore.getDisconnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
+    var disconnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
     shuffle(disconnectedPeers)
 
     # limit the amount of paralel dials

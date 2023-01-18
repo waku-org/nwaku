@@ -498,9 +498,6 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
   if conf.keepAlive:
     node.startKeepalive()
 
-  # Maintain relay connections
-  node.startRelayConnectivityLoop()
-
   return ok()
 
 when defined(waku_exp_store_resume):
