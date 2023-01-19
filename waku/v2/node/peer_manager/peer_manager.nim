@@ -85,7 +85,7 @@ proc dialPeer(pm: PeerManager, peerId: PeerID,
 
   var reasonFailed = ""
   try:
-    if (await dialFut.withTimeout(DefaultDialTimeout)):
+    if (await dialFut.withTimeout(dialTimeout)):
       waku_peers_dials.inc(labelValues = ["successful"])
       # TODO: This will be populated from the peerstore info when ready
       waku_node_conns_initiated.inc(labelValues = [source])
@@ -316,6 +316,9 @@ proc connectToNodes*(pm: PeerManager,
     futConns.add(pm.dialPeer(RemotePeerInfo(node), proto, dialTimeout, source))
 
   await allFutures(futConns)
+  let successfulConns = futConns.mapIt(it.read()).countIt(it.isSome)
+
+  info "Finished dialing multiple peers", successfulConns=successfulConns, attempted=nodes.len
 
   # The issue seems to be around peers not being fully connected when
   # trying to subscribe. So what we do is sleep to guarantee nodes are
@@ -341,14 +344,14 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
       await sleepAsync(ConnectivityLoopInterval)
       continue
 
-    var disconnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
-    var withinBackoffPeers = disconnectedPeers.filterIt(pm.peerStore.canBeConnected(it.peerId, pm.initialBackoffInSec))
+    var notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
+    var withinBackoffPeers = notConnectedPeers.filterIt(pm.peerStore.canBeConnected(it.peerId, pm.initialBackoffInSec))
     let numPeersToConnect = min(min(maxConnections - numConPeers, withinBackoffPeers.len), MaxParalelDials)
 
     info "Relay connectivity loop",
       connectedPeers = numConPeers,
       targetConnectedPeers = maxConnections,
-      disconnectedPeers = disconnectedPeers.len,
+      notConnectedPeers = notConnectedPeers.len,
       withinBackoffPeers = withinBackoffPeers.len
 
     await pm.connectToNodes(withinBackoffPeers[0..<numPeersToConnect], WakuRelayCodec)

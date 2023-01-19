@@ -95,9 +95,6 @@ proc findRandomPeers*(wakuDiscv5: WakuDiscoveryV5): Future[Result[seq[RemotePeer
       error "Failed to convert ENR to peer info", enr= $node.record, err=res.error()
       waku_discv5_errors.inc(labelValues = ["peer_info_failure"])
 
-  if discoveredPeers.len > 0:
-    info "Successfully discovered nodes", count=discoveredPeers.len
-    waku_discv5_discovered.inc(discoveredPeers.len.int64)
 
   return ok(discoveredPeers)
 

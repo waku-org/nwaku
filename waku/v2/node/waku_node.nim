@@ -879,17 +879,12 @@ proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
                                 .filterIt(it.connectedness == Connected)
                                 .mapIt(it.toRemotePeerInfo())
 
-    # Attempt to retrieve and ping the active outgoing connection for each peer
     for peer in peers:
-      let connOpt = await node.peerManager.dialPeer(peer, PingCodec)
-
-      if connOpt.isNone():
-        # TODO: more sophisticated error handling here
-        debug "failed to connect to remote peer", peer=peer
+      try:
+        let conn = await node.switch.dial(peer.peerId, peer.addrs, PingCodec)
+        let pingDelay = await node.libp2pPing.ping(conn)
+      except CatchableError as exc:
         waku_node_errors.inc(labelValues = ["keep_alive_failure"])
-        return
-
-      discard await node.libp2pPing.ping(connOpt.get())  # Ping connection
 
     await sleepAsync(keepalive)
 
@@ -911,16 +906,15 @@ proc runDiscv5Loop(node: WakuNode) {.async.} =
 
   while node.wakuDiscv5.listening:
     trace "Running discovery loop"
-    ## Query for a random target and collect all discovered nodes
-    ## TODO: we could filter nodes here
-    let discoveredPeers = await node.wakuDiscv5.findRandomPeers()
-    if discoveredPeers.isOk():
-      ## Let's attempt to connect to peers we
-      ## have not encountered before
+    let discoveredPeersRes = await node.wakuDiscv5.findRandomPeers()
 
-      trace "Discovered peers", count=discoveredPeers.get().len()
+    if discoveredPeersRes.isOk:
+      let discoveredPeers = discoveredPeersRes.get
+      let newSeen = discoveredPeers.countIt(not node.peerManager.peerStore[AddressBook].contains(it.peerId))
+      info "Discovered peers", discovered=discoveredPeers.len, new=newSeen
 
-      for peer in discoveredPeers.get():
+      # Add all peers, new ones and already seen (in case their addresses changed)
+      for peer in discoveredPeers:
         # TODO: proto: WakuRelayCodec will be removed from add peer
         node.peerManager.addPeer(peer, WakuRelayCodec)
 
