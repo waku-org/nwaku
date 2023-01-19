@@ -204,11 +204,18 @@ procSuite "Peer Manager":
     check:
       node1.peerManager.peerStore.canBeConnected(peerInfo2.peerId, node1.peerManager.initialBackoffInSec) == true
 
-    # TODO: now connect and check that its ok.
-    # and this is reset to 0 node1.peerManager.peerStore[NumberFailedConnBook][peerInfo2.peerId] == 0
+    await node2.start()
+    await node2.mountRelay()
+
+    # Now we can connect and failed count is reset
+    let conn2 = await node1.peerManager.dialPeer(peerInfo2.toRemotePeerInfo(), WakuRelayCodec, 1.seconds)
+    check:
+      conn2.isNone() == false
+      node1.peerManager.peerStore[NumberFailedConnBook][peerInfo2.peerId] == 0
+
 
     await node1.stop()
-    await node2.stop() #needed?
+    await node2.stop()
 
   asyncTest "Peer manager can use persistent storage and survive restarts":
     let
