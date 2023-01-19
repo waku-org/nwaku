@@ -81,15 +81,11 @@ proc dialPeer(pm: PeerManager, peerId: PeerID,
   debug "Dialing peer", wireAddr = addrs, peerId = peerId, failedAttempts=failedAttempts
 
   # Dial Peer
-  var deadline = sleepAsync(dialTimeout)
   let dialFut = pm.switch.dial(peerId, addrs, proto)
 
   var reasonFailed = ""
   try:
-    await dialFut or deadline
-    if dialFut.finished():
-      if not deadline.finished():
-        deadline.cancel()
+    if (await dialFut.withTimeout(DefaultDialTimeout)):
       waku_peers_dials.inc(labelValues = ["successful"])
       # TODO: This will be populated from the peerstore info when ready
       waku_node_conns_initiated.inc(labelValues = [source])
