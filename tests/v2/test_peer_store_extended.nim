@@ -337,8 +337,7 @@ suite "Extended nim-libp2p Peer Store":
     var p1: PeerId
     require p1.init("QmeuZJbXrszW2jdT7GdduSjQskPU3S7vvGWKtKgDfkDvW" & "1")
 
-    # With InitialBackoffInSec = 1
-    # backoffs are: 2, 4, 8
+    # with InitialBackoffInSec = 2 backoffs are: 2, 4, 8
     let initialBackoffInSec = 2
 
     # new peer with no errors can be connected
@@ -352,7 +351,7 @@ suite "Extended nim-libp2p Peer Store":
     check:
       peerStore.canBeConnected(p1, initialBackoffInSec) == false
 
-    # but we can after the first backoff of 1 second
+    # but we can after the first backoff of 2 seconds
     await sleepAsync(2200)
     check:
       peerStore.canBeConnected(p1, initialBackoffInSec) == true
@@ -361,12 +360,12 @@ suite "Extended nim-libp2p Peer Store":
     peerStore[NumberFailedConnBook][p1] = 2
     peerStore[LastFailedConnBook][p1] = Moment.init(getTime().toUnix, Second)
 
-    # cant be connected after 1 second (1 < 4)
-    await sleepAsync(1000)
+    # cant be connected after 3 second (3 < 4)
+    await sleepAsync(3000)
     check:
       peerStore.canBeConnected(p1, initialBackoffInSec) == false
 
-    # but we can after the second backoff of 4 seconds
-    await sleepAsync(3200)
+    # but we can after the second backoff of >4 seconds
+    await sleepAsync(1200)
     check:
       peerStore.canBeConnected(p1, initialBackoffInSec) == true
