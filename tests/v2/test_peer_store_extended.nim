@@ -337,35 +337,36 @@ suite "Extended nim-libp2p Peer Store":
     var p1: PeerId
     require p1.init("QmeuZJbXrszW2jdT7GdduSjQskPU3S7vvGWKtKgDfkDvW" & "1")
 
-    # with InitialBackoffInSec = 2 backoffs are: 2, 4, 8
-    let initialBackoffInSec = 2
+    # with InitialBackoffInSec = 1 backoffs are: 1, 2, 4, 8secs.
+    let initialBackoffInSec = 1
+    let backoffFactor = 2
 
     # new peer with no errors can be connected
     check:
-      peerStore.canBeConnected(p1, initialBackoffInSec) == true
+      peerStore.canBeConnected(p1, initialBackoffInSec, backoffFactor) == true
 
     # peer with ONE error that just failed
     peerStore[NumberFailedConnBook][p1] = 1
     peerStore[LastFailedConnBook][p1] = Moment.init(getTime().toUnix, Second)
     # we cant connect right now
     check:
-      peerStore.canBeConnected(p1, initialBackoffInSec) == false
+      peerStore.canBeConnected(p1, initialBackoffInSec, backoffFactor) == false
 
-    # but we can after the first backoff of 2 seconds
-    await sleepAsync(2200)
+    # but we can after the first backoff of 1 seconds
+    await sleepAsync(1200)
     check:
-      peerStore.canBeConnected(p1, initialBackoffInSec) == true
+      peerStore.canBeConnected(p1, initialBackoffInSec, backoffFactor) == true
 
-    # peer with TWO errors
+    # peer with TWO errors, we can connect until 2 seconds have passed
     peerStore[NumberFailedConnBook][p1] = 2
     peerStore[LastFailedConnBook][p1] = Moment.init(getTime().toUnix, Second)
 
-    # cant be connected after 3 second (3 < 4)
-    await sleepAsync(3000)
+    # cant be connected after 1 second
+    await sleepAsync(1000)
     check:
-      peerStore.canBeConnected(p1, initialBackoffInSec) == false
+      peerStore.canBeConnected(p1, initialBackoffInSec, backoffFactor) == false
 
-    # but we can after the second backoff of >4 seconds
+    # can be connected after 2 seconds
     await sleepAsync(1200)
     check:
-      peerStore.canBeConnected(p1, initialBackoffInSec) == true
+      peerStore.canBeConnected(p1, initialBackoffInSec, backoffFactor) == true

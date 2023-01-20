@@ -34,9 +34,11 @@ const
   # Max attempts before removing the peer
   MaxFailedAttempts = 5
 
-  # InitialBackoffInSec^failedAttempts
-  # 15s, 225s, 3375s (1h), 50625s (14h)
-  InitialBackoffInSec = 15
+  # Time to wait before attempting to dial again is calculated as:
+  # initialBackoffInSec*(backoffFactor^(failedAttempts-1))
+  # 120s, 480s, 1920, 7680s
+  InitialBackoffInSec = 120
+  BackoffFactor = 4
 
   # limit the amount of paralel dials
   MaxParalelDials = 10
@@ -49,6 +51,7 @@ type
     switch*: Switch
     peerStore*: PeerStore
     initialBackoffInSec*: int
+    backoffFactor*: int
     maxFailedAttempts*: int
     storage: PeerStorage
 
@@ -180,12 +183,14 @@ proc new*(T: type PeerManager,
           switch: Switch,
           storage: PeerStorage = nil,
           initialBackoffInSec = InitialBackoffInSec,
+          backoffFactor = BackoffFactor,
           maxFailedAttempts = MaxFailedAttempts,): PeerManager =
 
   let pm = PeerManager(switch: switch,
                        peerStore: switch.peerStore,
                        storage: storage,
                        initialBackoffInSec: initialBackoffInSec,
+                       backoffFactor: backoffFactor,
                        maxFailedAttempts: maxFailedAttempts)
 
   proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
@@ -345,7 +350,9 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
       continue
 
     var notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
-    var withinBackoffPeers = notConnectedPeers.filterIt(pm.peerStore.canBeConnected(it.peerId, pm.initialBackoffInSec))
+    var withinBackoffPeers = notConnectedPeers.filterIt(pm.peerStore.canBeConnected(it.peerId,
+                                                                                    pm.initialBackoffInSec,
+                                                                                    pm.backoffFactor))
     let numPeersToConnect = min(min(maxConnections - numConPeers, withinBackoffPeers.len), MaxParalelDials)
 
     info "Relay connectivity loop",

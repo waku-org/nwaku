@@ -160,8 +160,9 @@ procSuite "Peer Manager":
     await nodes[0].mountRelay()
     nodes[0].peerManager.addPeer(nodes[1].peerInfo.toRemotePeerInfo(), WakuRelayCodec)
 
-    # Set a low backoff to speed up test
+    # Set a low backoff to speed up test: 2, 4, 8, 16
     nodes[0].peerManager.initialBackoffInSec = 2
+    nodes[0].peerManager.backoffFactor = 2
 
     # node2 is not started, so dialing will fail
     let conn1 = await nodes[0].peerManager.dialPeer(nodes[1].peerInfo.toRemotePeerInfo(), WakuRelayCodec, 1.seconds)
@@ -175,14 +176,20 @@ procSuite "Peer Manager":
       conn1.isNone() == true
 
       # Right after failing there is a backoff period
-      nodes[0].peerManager.peerStore.canBeConnected(nodes[1].peerInfo.peerId, nodes[0].peerManager.initialBackoffInSec) == false
+      nodes[0].peerManager.peerStore.canBeConnected(
+        nodes[1].peerInfo.peerId,
+        nodes[0].peerManager.initialBackoffInSec,
+        nodes[0].peerManager.backoffFactor) == false
 
     # We wait the first backoff period
-    await sleepAsync(2.seconds)
+    await sleepAsync(2100.milliseconds)
 
     # And backoff period is over
     check:
-      nodes[0].peerManager.peerStore.canBeConnected(nodes[1].peerInfo.peerId, nodes[0].peerManager.initialBackoffInSec) == true
+      nodes[0].peerManager.peerStore.canBeConnected(
+        nodes[1].peerInfo.peerId,
+        nodes[0].peerManager.initialBackoffInSec,
+        nodes[0].peerManager.backoffFactor) == true
 
     await nodes[1].start()
     await nodes[1].mountRelay()

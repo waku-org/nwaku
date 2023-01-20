@@ -77,7 +77,8 @@ type
 
 proc canBeConnected*(peerStore: PeerStore,
                      peerId: PeerId,
-                     initialBackoffInSec: int): bool =
+                     initialBackoffInSec: int,
+                     backoffFactor: int): bool =
   # Returns if we can try to connect to this peer, based on past failed attempts
   # It uses an exponential backoff. Each connection attempt makes us
   # wait more before trying again.
@@ -91,7 +92,7 @@ proc canBeConnected*(peerStore: PeerStore,
   # the more failed attemps, the greater the backoff since last attempt
   let now = Moment.init(getTime().toUnix, Second)
   let lastFailed = peerStore[LastFailedConnBook][peerId]
-  let backoff = chronos.seconds(initialBackoffInSec^failedAttempts)
+  let backoff = chronos.seconds(initialBackoffInSec*(backoffFactor^(failedAttempts-1)))
   if now >= (lastFailed + backoff):
     return true
   return false
