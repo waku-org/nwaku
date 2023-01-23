@@ -349,18 +349,18 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
       await sleepAsync(ConnectivityLoopInterval)
       continue
 
-    var notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
-    var withinBackoffPeers = notConnectedPeers.filterIt(pm.peerStore.canBeConnected(it.peerId,
+    let notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
+    let outsideBackoffPeers = notConnectedPeers.filterIt(pm.peerStore.canBeConnected(it.peerId,
                                                                                     pm.initialBackoffInSec,
                                                                                     pm.backoffFactor))
-    let numPeersToConnect = min(min(maxConnections - numConPeers, withinBackoffPeers.len), MaxParalelDials)
+    let numPeersToConnect = min(min(maxConnections - numConPeers, outsideBackoffPeers.len), MaxParalelDials)
 
     info "Relay connectivity loop",
       connectedPeers = numConPeers,
       targetConnectedPeers = maxConnections,
       notConnectedPeers = notConnectedPeers.len,
-      withinBackoffPeers = withinBackoffPeers.len
+      outsideBackoffPeers = outsideBackoffPeers.len
 
-    await pm.connectToNodes(withinBackoffPeers[0..<numPeersToConnect], WakuRelayCodec)
+    await pm.connectToNodes(outsideBackoffPeers[0..<numPeersToConnect], WakuRelayCodec)
 
     await sleepAsync(ConnectivityLoopInterval)
