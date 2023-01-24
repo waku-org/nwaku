@@ -64,12 +64,24 @@ type
 type KeystoreResult[T] = Result[T, AppKeystoreError]
 
 
-proc toString(credential: MembershipCredentials): string =
-  # use base64
+proc encode(credential: MembershipCredentials): seq[byte] =
+  # TODO: use custom encoding, avoid wordy json
   var stringCredential: string
   # NOTE: toUgly appends to the string, doesn't replace its contents
   stringCredential.toUgly(%credential)
-  return stringCredential
+  return toBytes(stringCredential)
+
+proc decode(encodedCredential: seq[byte]): KeystoreResult[MembershipCredentials] =
+  # TODO: use custom decoding, avoid wordy json
+  try:
+    # we parse the json decrypted keystoreCredential
+    let jsonObject = parseJson(string.fromBytes(encodedCredential))
+    return ok(to(jsonObject, MembershipCredentials))
+  except JsonParsingError:
+    return err(JsonError)
+  except Exception: #parseJson raises Exception
+    return err(OsError)
+
 
 proc createAppKeystore*(path: string,
                         application: string,
@@ -197,10 +209,12 @@ proc addMembershipCredentials*(path: string,
         # keystoreCredential is encrypted. We decrypt it
         let decodedKeyfile = decodeKeyFileJson(keystoreCredential, password)
         if decodedKeyfile.isOk():
-          try:
-            # we parse the json decrypted keystoreCredential
-            let jsonObject = parseJson(string.fromBytes(decodedKeyfile.get()))
-            let keyfileMembershipCredential = to(jsonObject, MembershipCredentials)
+
+          # we parse the json decrypted keystoreCredential
+          let decodedCredential = decode(decodedKeyfile.get())
+          
+          if decodedCredential.isOk():
+            let keyfileMembershipCredential = decodedCredential.get()
 
             # We check if the decrypted credential has its identityCredential field equal to the input credential
             if keyfileMembershipCredential.identityCredential == membershipCredential.identityCredential:
@@ -211,8 +225,8 @@ proc addMembershipCredentials*(path: string,
               let updatedCredential = MembershipCredentials(identityCredential: keyfileMembershipCredential.identityCredential, membershipGroups: allMemberships)
 
               # we re-encrypt creating a new keyfile
-              let updatedCredentialString = updatedCredential.toString()
-              let updatedCredentialKeyfile = createKeyFileJson(toBytes(updatedCredentialString), password)
+              let encodedUpdatedCredential = updatedCredential.encode()
+              let updatedCredentialKeyfile = createKeyFileJson(encodedUpdatedCredential, password)
               if updatedCredentialKeyfile.isErr():
                 return err(CreateKeyfileError)
 
@@ -224,20 +238,12 @@ proc addMembershipCredentials*(path: string,
               # We stop decrypting other credentials in the keystore
               break
 
-          # TODO: we might continue rather than return for some of these errors
-          except JsonParsingError:
-            return err(JsonError)
-          except OSError:
-            return err(OsError)
-          except Exception: #parseJson raises Exception
-            return err(OsError)
-  
       # If no credential in keystore with same input identityCredential value is found, we add it    
       if found == false:
 
         try:    
-          let membershipCredentialString = membershipCredential.toString()
-          let keyfile = createKeyFileJson(toBytes(membershipCredentialString), password)
+          let encodedMembershipCredential = membershipCredential.encode()
+          let keyfile = createKeyFileJson(encodedMembershipCredential, password)
           if keyfile.isErr():
             return err(CreateKeyfileError)
 
@@ -357,24 +363,17 @@ proc getMembershipCredentials*(path: string,
       # keystoreCredential is encrypted. We decrypt it
       let decodedKeyfile = decodeKeyFileJson(keystoreCredential, password)
       if decodedKeyfile.isOk():
-        try:
           # we parse the json decrypted keystoreCredential
-          let jsonObject = parseJson(string.fromBytes(decodedKeyfile.get()))
-          let keyfileMembershipCredential = to(jsonObject, MembershipCredentials)
-
-          let filteredCredential = filterCredential(keyfileMembershipCredential, filterIdentityCredentials, filterMembershipContracts)
+          let decodedCredential = decode(decodedKeyfile.get())
           
-          if filteredCredential.isSome():
-            outputMembershipCredentials.add(filteredCredential.get())
+          if decodedCredential.isOk():
+            let keyfileMembershipCredential = decodedCredential.get()
+    
+            let filteredCredential = filterCredential(keyfileMembershipCredential, filterIdentityCredentials, filterMembershipContracts)
+            
+            if filteredCredential.isSome():
+              outputMembershipCredentials.add(filteredCredential.get())
 
-        # TODO: we might continue rather than return for some of these errors
-        except JsonParsingError:
-          return err(JsonError)
-        except OSError:
-          return err(OsError)
-        except Exception: #parseJson raises Exception
-          return err(OsError)
-  
   except KeyError:
     return err(JsonKeyError)
   except:
