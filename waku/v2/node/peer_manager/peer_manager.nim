@@ -412,8 +412,8 @@ proc serviceConnectivityLoop*(pm: PeerManager) {.async.} =
           servicePeers = connectedServicePeers.mapIt(it[1].addrs),
           respectiveProtocols = connectedServicePeers.mapIt(it[0])
 
-    if connectedServicePeers.len > 0:
-      let notConnectedServicePeers = toSeq(pm.serviceSlots.pairs).filterIt(pm.peerStore.connectedness(it[1].peerId) != Connected)
+    let notConnectedServicePeers = toSeq(pm.serviceSlots.pairs).filterIt(pm.peerStore.connectedness(it[1].peerId) != Connected)
+    if notConnectedServicePeers.len > 0:
       info "Not connected service peers",
           servicePeers = notConnectedServicePeers.mapIt(it[1].addrs),
           respectiveProtocols = notConnectedServicePeers.mapIt(it[0])
@@ -432,11 +432,10 @@ proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
     return none(RemotePeerInfo)
 
   # For other protocols, we select the peer that is slotted for the given protocol
-  let serviceSlot = pm.serviceSlots.getOrDefault(proto, default(RemotePeerInfo))
-  if serviceSlot != default(RemotePeerInfo):
-    return some(serviceSlot)
+  pm.serviceSlots.withValue(proto, serviceSlot):
+    return some(serviceSlot[])
+
   # If not slotted, we select a random peer for the given protocol
-  else:
-    if peers.len > 0:
-      return some(peers[0].toRemotePeerInfo())
-    return none(RemotePeerInfo)
+  if peers.len > 0:
+    return some(peers[0].toRemotePeerInfo())
+  return none(RemotePeerInfo)
