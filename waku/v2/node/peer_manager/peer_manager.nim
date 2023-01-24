@@ -40,11 +40,14 @@ const
   InitialBackoffInSec = 120
   BackoffFactor = 4
 
-  # limit the amount of paralel dials
+  # Limit the amount of paralel dials
   MaxParalelDials = 10
 
-  # delay between consecutive relayConnectivityLoop runs
+  # Delay between consecutive relayConnectivityLoop runs
   ConnectivityLoopInterval = chronos.seconds(30)
+
+  # How often to reconnect to service peers
+  ServicePeersInterval = chronos.minutes(2)
 
 type
   PeerManager* = ref object of RootObj
@@ -54,8 +57,7 @@ type
     backoffFactor*: int
     maxFailedAttempts*: int
     storage: PeerStorage
-    # Prefered peers for service protocols
-    serviceSlots*: Table[string, RemotePeerInfo] # TODO: use peer id instead?
+    serviceSlots*: Table[string, RemotePeerInfo]
     relayLoopUp*: bool
     serviceLoopUp*: bool
 
@@ -393,7 +395,6 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
 proc serviceConnectivityLoop*(pm: PeerManager) {.async.} =
   pm.serviceLoopUp = true
   info "Starting service connectivity loop"
-  let defaultKeepalive = chronos.minutes(2)
 
   while pm.serviceLoopUp:
     if pm.serviceSlots.len == 0:
@@ -418,7 +419,7 @@ proc serviceConnectivityLoop*(pm: PeerManager) {.async.} =
           servicePeers = notConnectedServicePeers.mapIt(it[1].addrs),
           respectiveProtocols = notConnectedServicePeers.mapIt(it[0])
 
-    await sleepAsync(defaultKeepalive)
+    await sleepAsync(ServicePeersInterval)
 
 proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
   # Selects the best peer for a given protocol

@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables, sequtils, sets, options, times, math, random],
+  std/[tables, sequtils, sets, options, times, math],
   chronos,
   libp2p/builders,
   libp2p/peerstore
