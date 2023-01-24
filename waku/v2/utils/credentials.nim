@@ -295,29 +295,42 @@ proc addMembershipCredentials*(path: string,
   return ok()
 
 
-proc filterCredential*(credential: var MembershipCredentials,
-                       identityCredentials: seq[IdentityCredential] = @[],
-                       membershipGroups: seq[MembershipGroup] = @[]): bool =
+proc filterCredential*(credential: MembershipCredentials,
+                       filterIdentityCredentials: seq[IdentityCredential],
+                       filterMembershipContracts: seq[MembershipContract]): Option[MembershipCredentials] =
   
-  var identityFilter: bool = false
-  var membershipFilter: bool = false
+  # We filter by identity credentials
+  if filterIdentityCredentials.len() != 0:
+    if (credential.identityCredential in filterIdentityCredentials) == false:
+      return none(MembershipCredentials)
 
-  # If filter is empty, we return the credential
-  if identityCredentials.len() == 0:
-    identityFilter = true
-  else:
-    identityFilter = true
+  # We filter by membership groups credentials
+  if filterMembershipContracts.len() != 0:
+    # Here we keep only groups that match a contract in the filter
+    var membershipGroupsIntersection: seq[MembershipGroup] = @[] 
+    # We check if we have a group in the input credential matching any contract in the filter
+    for membershipGroup in credential.membershipGroups:
+      if membershipGroup.membershipContract in filterMembershipContracts:
+        membershipGroupsIntersection.add(membershipGroup)
 
-  if membershipGroups.len() == 0:
-    membershipFilter = true
+    if membershipGroupsIntersection.len() != 0:
+      # If we have a match on some groups, we return the credential with filtered groups
+      return some(MembershipCredentials(identityCredential: credential.identityCredential,
+                                        membershipGroups: membershipGroupsIntersection))
 
-  return identityFilter and membershipFilter
-
+    else:
+      return none(MembershipCredentials)
+    
+  # We hit this return only if 
+  # - filterIdentityCredentials.len() == 0 and filterMembershipContracts.len() == 0 (no filter)
+  # - filterIdentityCredentials.len() != 0 and filterMembershipContracts.len() == 0 (filter only on identity credential)
+  # Indeed, filterMembershipContracts.len() != 0 will have its exclusive return based on all values of membershipGroupsIntersection.len()
+  return some(credential)
 
 proc getMembershipCredentials*(path: string,
                                password: string,
-                               identityCredentials: seq[IdentityCredential] = @[],
-                               membershipGroups: seq[MembershipGroup] = @[],
+                               filterIdentityCredentials: seq[IdentityCredential] = @[],
+                               filterMembershipContracts: seq[MembershipContract] = @[],
                                application: string,
                                appIdentifier: string,
                                version: string): KeystoreResult[seq[MembershipCredentials]] =
@@ -349,10 +362,10 @@ proc getMembershipCredentials*(path: string,
           let jsonObject = parseJson(string.fromBytes(decodedKeyfile.get()))
           let keyfileMembershipCredential = to(jsonObject, MembershipCredentials)
 
-        
-          outputMembershipCredentials.add(keyfileMembershipCredential)
-
-
+          let filteredCredential = filterCredential(keyfileMembershipCredential, filterIdentityCredentials, filterMembershipContracts)
+          
+          if filteredCredential.isSome():
+            outputMembershipCredentials.add(filteredCredential.get())
 
         # TODO: we might continue rather than return for some of these errors
         except JsonParsingError:

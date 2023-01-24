@@ -42,9 +42,6 @@ procSuite "Credentials test suite":
     check:
       keystore.isOk()
 
-    echo keystore.get()
-
-
   asyncTest "Add credential to keystore":
 
     let filepath = "./testAppKeystore.txt"
@@ -145,3 +142,14 @@ procSuite "Credentials test suite":
 
     check:
       keystore.isOk()
+
+
+
+    let creds = getMembershipCredentials(path = filepath,
+                              password = password,
+                              filterIdentityCredentials = @[idCredential],
+                              filterMembershipContracts = @[contract1],
+                              application = "test",
+                              appIdentifier = "1234",
+                              version = "0.1")
+    echo creds
