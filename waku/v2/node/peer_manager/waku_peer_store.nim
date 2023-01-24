@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables, sequtils, sets, options, times, math],
+  std/[tables, sequtils, sets, options, times, math, random],
   chronos,
   libp2p/builders,
   libp2p/peerstore
@@ -164,18 +164,6 @@ proc hasPeers*(peerStore: PeerStore, proto: string): bool =
 proc hasPeers*(peerStore: PeerStore, protocolMatcher: Matcher): bool =
   # Returns `true` if the peerstore has any peer matching the protocolMatcher
   toSeq(peerStore[ProtoBook].book.values()).anyIt(it.anyIt(protocolMatcher(it)))
-
-proc selectPeer*(peerStore: PeerStore, proto: string): Option[RemotePeerInfo] =
-  # Selects the best peer for a given protocol
-  let peers = peerStore.peers().filterIt(it.protos.contains(proto))
-
-  if peers.len >= 1:
-     # TODO: proper heuristic here that compares peer scores and selects "best" one. For now the first peer for the given protocol is returned
-    let peerStored = peers[0]
-
-    return some(peerStored.toRemotePeerInfo())
-  else:
-    return none(RemotePeerInfo)
 
 proc getPeersByDirection*(peerStore: PeerStore, direction: PeerDirection): seq[StoredInfo] =
   return peerStore.peers.filterIt(it.direction == direction)

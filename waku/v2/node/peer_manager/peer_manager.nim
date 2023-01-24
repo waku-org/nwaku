@@ -248,14 +248,9 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string) =
     pm.storage.insertOrReplace(remotePeerInfo.peerId, pm.peerStore.get(remotePeerInfo.peerId), NotConnected)
 
 proc addServicePeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string) =
-
-  # TODO: Circular dependancy waku_realay/waku_peer_store. Remove
-  # once fixed
-  let wakuRelayCodec = "/vac/waku/relay/2.0.0"
-
   # Do not add relay peers
-  if proto == wakuRelayCodec:
-    warn "can't add relay peer to service peers slots"
+  if proto == WakuRelayCodec:
+    warn "Can't add relay peer to service peers slots"
     return
 
   info "Adding peer to service slots", peerId = remotePeerInfo.peerId, addr = remotePeerInfo.addrs[0], service = proto
@@ -363,7 +358,7 @@ proc connectToNodes*(pm: PeerManager,
 # Ensures a healthy amount of connected relay peers
 proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
   pm.relayLoopUp = true
-  info "starting relay connectivity loop"
+  info "Starting relay connectivity loop"
   while pm.relayLoopUp:
 
     let maxConnections = pm.switch.connManager.inSema.size
@@ -397,14 +392,51 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
 # Ensure we are always connected to the slotted service peers
 proc serviceConnectivityLoop*(pm: PeerManager) {.async.} =
   pm.serviceLoopUp = true
-  info "starting service connectivity loop"
+  info "Starting service connectivity loop"
   let defaultKeepalive = chronos.minutes(2)
 
   while pm.serviceLoopUp:
+    if pm.serviceSlots.len == 0:
+      warn "No service peers configured, but service loop is running"
     for serviceProto, servicePeer in pm.serviceSlots.pairs:
       if pm.peerStore.connectedness(servicePeer.peerId) != Connected:
         # Attempt to dial peer. Note that service peers do not respect any backoff
-        # Check first if already connected TODO:
-        discard await pm.dialPeer(servicePeer.peerId, servicePeer.addrs, serviceProto)
+        let conn = await pm.dialPeer(servicePeer.peerId, servicePeer.addrs, serviceProto)
+        if conn.isNone:
+          warn "Could not connect with service peer", peerId=servicePeer.peerId, proto=serviceProto
+
+    # Log a summary of slot peers connected/notconnected
+    let connectedServicePeers = toSeq(pm.serviceSlots.pairs).filterIt(pm.peerStore.connectedness(it[1].peerId) == Connected)
+    if connectedServicePeers.len > 0:
+      info "Connected service peers",
+          servicePeers = connectedServicePeers.mapIt(it[1].addrs),
+          respectiveProtocols = connectedServicePeers.mapIt(it[0])
+
+    if connectedServicePeers.len > 0:
+      let notConnectedServicePeers = toSeq(pm.serviceSlots.pairs).filterIt(pm.peerStore.connectedness(it[1].peerId) != Connected)
+      info "Not connected service peers",
+          servicePeers = notConnectedServicePeers.mapIt(it[1].addrs),
+          respectiveProtocols = notConnectedServicePeers.mapIt(it[0])
 
     await sleepAsync(defaultKeepalive)
+
+proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
+  # Selects the best peer for a given protocol
+  let peers = pm.peerStore.peers().filterIt(it.protos.contains(proto))
+
+  # No criteria for selecting a peer for WakuRelay, random one
+  if proto == WakuRelayCodec:
+    # TODO: proper heuristic here that compares peer scores and selects "best" one. For now the first peer for the given protocol is returned
+    if peers.len > 0:
+      return some(peers[rand(1..<peers.len)].toRemotePeerInfo())
+    return none(RemotePeerInfo)
+
+  # For other protocols, we select the peer that is slotted for the given protocol
+  let serviceSlot = pm.serviceSlots.getOrDefault(proto, default(RemotePeerInfo))
+  if serviceSlot != default(RemotePeerInfo):
+    return some(serviceSlot)
+  # If not slotted, we select a random peer for the given protocol
+  else:
+    if peers.len > 0:
+      return some(peers[rand(1..<peers.len)].toRemotePeerInfo())
+    return none(RemotePeerInfo)
