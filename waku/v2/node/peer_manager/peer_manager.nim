@@ -56,6 +56,8 @@ type
     storage: PeerStorage
     # Prefered peers for service protocols
     serviceSlots*: Table[string, RemotePeerInfo] # TODO: use peer id instead?
+    relayLoopUp*: bool
+    serviceLoopUp*: bool
 
 ####################
 # Helper functions #
@@ -107,7 +109,10 @@ proc dialPeer(pm: PeerManager, peerId: PeerID,
   pm.peerStore[LastFailedConnBook][peerId] = Moment.init(getTime().toUnix, Second)
   pm.peerStore[ConnectionBook][peerId] = CannotConnect
 
-  debug "Dialing peer failed", peerId = peerId, reason = reasonFailed, failedAttempts=failedAttempts
+  debug "Dialing peer failed",
+          peerId = peerId,
+          reason = reasonFailed,
+          failedAttempts = pm.peerStore[NumberFailedConnBook][peerId]
   waku_peers_dials.inc(labelValues = [reasonFailed])
 
   # Update storage
@@ -125,18 +130,6 @@ proc prunePeerStore(pm: PeerManager) =
   #  debug "Removing peer from peer store", peerId = peerId, failedAttempts=failedAttempts
   #  pm.peerStore.del(peerId)
   doAssert(false, "Not implemented!")
-
-# Ensure we are always connected to the slotted service peers
-proc keepSlotPeersConnected*(pm: PeerManager) {.async.} =
-  let defaultKeepalive = chronos.minutes(2)
-
-  while true:
-    for serviceProto, servicePeer in pm.serviceSlots.pairs:
-      if pm.peerStore.connectedness(servicePeer.peerId) != Connected:
-        # Attempt to dial peer. Note that service peers do not respect any backoff
-        discard await pm.dialPeer(servicePeer.peerId, servicePeer.addrs, serviceProto)
-
-    await sleepAsync(defaultKeepalive)
 
 proc loadFromStorage(pm: PeerManager) =
   debug "loading peers from storage"
@@ -369,7 +362,9 @@ proc connectToNodes*(pm: PeerManager,
 
 # Ensures a healthy amount of connected relay peers
 proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
-  while true:
+  pm.relayLoopUp = true
+  info "starting relay connectivity loop"
+  while pm.relayLoopUp:
 
     let maxConnections = pm.switch.connManager.inSema.size
     let numInPeers = pm.switch.connectedPeers(lpstream.Direction.In).len
@@ -398,3 +393,18 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
     await pm.connectToNodes(outsideBackoffPeers[0..<numPeersToConnect], WakuRelayCodec)
 
     await sleepAsync(ConnectivityLoopInterval)
+
+# Ensure we are always connected to the slotted service peers
+proc serviceConnectivityLoop*(pm: PeerManager) {.async.} =
+  pm.serviceLoopUp = true
+  info "starting service connectivity loop"
+  let defaultKeepalive = chronos.minutes(2)
+
+  while pm.serviceLoopUp:
+    for serviceProto, servicePeer in pm.serviceSlots.pairs:
+      if pm.peerStore.connectedness(servicePeer.peerId) != Connected:
+        # Attempt to dial peer. Note that service peers do not respect any backoff
+        # Check first if already connected TODO:
+        discard await pm.dialPeer(servicePeer.peerId, servicePeer.addrs, serviceProto)
+
+    await sleepAsync(defaultKeepalive)

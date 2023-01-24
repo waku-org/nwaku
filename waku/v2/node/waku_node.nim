@@ -391,9 +391,6 @@ proc startRelay*(node: WakuNode) {.async.} =
                                           protocolMatcher(WakuRelayCodec),
                                           backoffPeriod)
 
-  # Maintain relay connections
-  asyncSpawn node.peerManager.relayConnectivityLoop()
-
   # Start the WakuRelay protocol
   await node.wakuRelay.start()
 
@@ -1008,5 +1005,8 @@ proc stop*(node: WakuNode) {.async.} =
     discard await node.stopDiscv5()
 
   await node.switch.stop()
+
+  node.peerManager.serviceLoopUp = false
+  node.peerManager.relayLoopUp = false
 
   node.started = false
