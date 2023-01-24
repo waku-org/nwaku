@@ -6,7 +6,7 @@ else:
 import 
   chronicles, options, json, strutils,
   stew/byteutils,
-  std/[os, sequtils, sets],
+  std/[algorithm, os, sequtils, sets],
   ./keyfile
   
 type
@@ -64,14 +64,14 @@ type
 type KeystoreResult[T] = Result[T, AppKeystoreError]
 
 
-proc encode(credential: MembershipCredentials): seq[byte] =
+proc encode*(credential: MembershipCredentials): seq[byte] =
   # TODO: use custom encoding, avoid wordy json
   var stringCredential: string
   # NOTE: toUgly appends to the string, doesn't replace its contents
   stringCredential.toUgly(%credential)
   return toBytes(stringCredential)
 
-proc decode(encodedCredential: seq[byte]): KeystoreResult[MembershipCredentials] =
+proc decode*(encodedCredential: seq[byte]): KeystoreResult[MembershipCredentials] =
   # TODO: use custom decoding, avoid wordy json
   try:
     # we parse the json decrypted keystoreCredential
@@ -82,6 +82,9 @@ proc decode(encodedCredential: seq[byte]): KeystoreResult[MembershipCredentials]
   except Exception: #parseJson raises Exception
     return err(OsError)
 
+
+proc sortMembershipGroup*(a,b: MembershipGroup): int =
+  return cmp(a.membershipContract.address, b.membershipContract.address)
 
 proc createAppKeystore*(path: string,
                         application: string,
@@ -219,7 +222,10 @@ proc addMembershipCredentials*(path: string,
             # We check if the decrypted credential has its identityCredential field equal to the input credential
             if keyfileMembershipCredential.identityCredential == membershipCredential.identityCredential:
               # idCredential is present in keystore. We add the input credential membership group to the one contained in the decrypted keystore credential (we deduplicate groups using sets)
-              let allMemberships = toSeq(toHashSet(keyfileMembershipCredential.membershipGroups) + toHashSet(membershipCredential.membershipGroups))
+              var allMemberships = toSeq(toHashSet(keyfileMembershipCredential.membershipGroups) + toHashSet(membershipCredential.membershipGroups))
+
+              # We sort membership groups, otherwise we will not have deterministic results in tests
+              allMemberships.sort(sortMembershipGroup, Ascending)
 
               # we define the updated credential with the updated membership sets
               let updatedCredential = MembershipCredentials(identityCredential: keyfileMembershipCredential.identityCredential, membershipGroups: allMemberships)
