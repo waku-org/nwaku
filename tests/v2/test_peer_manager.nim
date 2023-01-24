@@ -15,7 +15,8 @@ import
   libp2p/stream/[bufferstream, connection],
   libp2p/crypto/crypto,
   libp2p/protocols/pubsub/pubsub,
-  libp2p/protocols/pubsub/rpc/message
+  libp2p/protocols/pubsub/rpc/message,
+  libp2p/builders
 import
   ../../waku/common/sqlite,
   ../../waku/v2/node/peer_manager/peer_manager,
@@ -423,7 +424,7 @@ procSuite "Peer Manager":
     node.peerManager.addServicePeer(peer3, WakuLightPushCodec)
     node.peerManager.addServicePeer(peer4, WakuPeerExchangeCodec)
 
-    # relay peers
+    # relay peers (should not be added)
     node.peerManager.addServicePeer(peer5, WakuRelayCodec)
 
     # all peers are stored in the peerstore
@@ -445,3 +446,51 @@ procSuite "Peer Manager":
 
       # but the relay peer is not
       node.peerManager.serviceSlots.hasKey(WakuRelayCodec) == false
+
+  test "selectPeer() returns the correct peer":
+    # Valid peer id missing the last digit
+    let basePeerId = "16Uiu2HAm7QGEZKujdSbbo1aaQyfDPQ6Bw3ybQnj6fruH5Dxwd7D"
+
+    # Create peer manager
+    let pm = PeerManager.new(
+      switch = SwitchBuilder.new().withRng(rng).withMplex().withNoise().build(),
+      storage = nil)
+
+    # Create 3 peer infos
+    let peers = toSeq(1..3).mapIt(parseRemotePeerInfo("/ip4/0.0.0.0/tcp/30300/p2p/" & basePeerId & $it))
+
+    # Add a peer[0] to the peerstore
+    pm.peerStore[AddressBook][peers[0].peerId] = peers[0].addrs
+    pm.peerStore[ProtoBook][peers[0].peerId] = @[WakuRelayCodec, WakuStoreCodec, WakuFilterCodec]
+
+    # When no service peers, we get one from the peerstore
+    let selectedPeer1 = pm.selectPeer(WakuStoreCodec)
+    check:
+      selectedPeer1.isSome() == true
+      selectedPeer1.get().peerId == peers[0].peerId
+
+    # Same for other protocol
+    let selectedPeer2 = pm.selectPeer(WakuFilterCodec)
+    check:
+      selectedPeer2.isSome() == true
+      selectedPeer2.get().peerId == peers[0].peerId
+
+    # And return none if we dont have any peer for that protocol
+    let selectedPeer3 = pm.selectPeer(WakuLightPushCodec)
+    check:
+      selectedPeer3.isSome() == false
+
+    # Now we add service peers for different protocols peer[1..3]
+    pm.addServicePeer(peers[1], WakuStoreCodec)
+    pm.addServicePeer(peers[2], WakuLightPushCodec)
+
+    # We no longer get one from the peerstore. Slots are being used instead.
+    let selectedPeer4 = pm.selectPeer(WakuStoreCodec)
+    check:
+      selectedPeer4.isSome() == true
+      selectedPeer4.get().peerId == peers[1].peerId
+
+    let selectedPeer5 = pm.selectPeer(WakuLightPushCodec)
+    check:
+      selectedPeer5.isSome() == true
+      selectedPeer5.get().peerId == peers[2].peerId

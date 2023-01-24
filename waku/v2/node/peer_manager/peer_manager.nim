@@ -428,7 +428,7 @@ proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
   if proto == WakuRelayCodec:
     # TODO: proper heuristic here that compares peer scores and selects "best" one. For now the first peer for the given protocol is returned
     if peers.len > 0:
-      return some(peers[rand(1..<peers.len)].toRemotePeerInfo())
+      return some(peers[0].toRemotePeerInfo())
     return none(RemotePeerInfo)
 
   # For other protocols, we select the peer that is slotted for the given protocol
@@ -438,5 +438,5 @@ proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
   # If not slotted, we select a random peer for the given protocol
   else:
     if peers.len > 0:
-      return some(peers[rand(1..<peers.len)].toRemotePeerInfo())
+      return some(peers[0].toRemotePeerInfo())
     return none(RemotePeerInfo)
