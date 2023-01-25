@@ -254,7 +254,7 @@ proc initNode(conf: WakuNodeConf,
                       if extMultiAddrsValidationRes.isErr():
                         return err("invalid external multiaddress: " & extMultiAddrsValidationRes.error)
                       else:
-                        extMultiAddrsValidationRes
+                        extMultiAddrsValidationRes.get()
                     else:
                       @[]
 
@@ -271,6 +271,7 @@ proc initNode(conf: WakuNodeConf,
     node = WakuNode.new(conf.nodekey,
                         conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift),
                         extIp, extPort,
+                        extMultiAddrs,
                         pStorage,
                         conf.maxConnections.int,
                         Port(uint16(conf.websocketPort) + conf.portsShift),
@@ -284,8 +285,7 @@ proc initNode(conf: WakuNodeConf,
                         dns4DomainName,
                         discv5UdpPort,
                         some(conf.agentString),
-                        some(conf.peerStoreCapacity),
-                        )
+                        some(conf.peerStoreCapacity))
   except:
     return err("failed to create waku node instance: " & getCurrentExceptionMsg())
 
