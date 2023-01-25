@@ -255,10 +255,10 @@ proc whereClause(cursor: Option[DbCursor],
   let contentTopicClause = if contentTopic.len <= 0:
         none(string)
       else:
-        var where = "("
-        where &= "contentTopic = (?)"
-        for _ in contentTopic[1..^1]:
-          where &= " OR contentTopic = (?)"
+        var where = "contentTopic IN ("
+        where &= "?"
+        for _ in 1..<contentTopic.len:
+          where &= ", ?"
         where &= ")"
         some(where)
 
