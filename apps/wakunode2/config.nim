@@ -521,15 +521,8 @@ proc validateStoreMessageRetentionPolicy*(val: string): ConfResult[string] =
 proc validateExtMultiAddrs*(vals: seq[string]): ConfResult[seq[MultiAddress]] =
   var multiaddrs: seq[MultiAddress]
   for val in vals:
-    if val == "":
-      return err("invalid 'external multiaddress' option format: " & val)
-
-    let
-      multiaddr = MultiAddress.init(val)
-    if multiaddr.isErr():
-      return err("invalid 'external multiaddress' option format: " & val)
-
-    multiaddrs.add(multiaddr.get())
+    let multiaddr = ? MultiAddress.init(val)
+    multiaddrs.add(multiaddr)
   ok(multiaddrs)
 
 ## Load
