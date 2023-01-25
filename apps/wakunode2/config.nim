@@ -76,6 +76,10 @@ type
             "Must be one of: any, none, upnp, pmp, extip:<IP>."
       defaultValue: "any" }: string
 
+    extMultiAddrs* {.
+      desc: "External multiaddresses to advertise to the network. Argument may be repeated."
+      name: "ext-multiaddr" }: seq[string]
+
     maxConnections* {.
       desc: "Maximum allowed number of libp2p connections."
       defaultValue: 50
@@ -185,10 +189,6 @@ type
       desc: "Password for encrypting RLN credentials",
       defaultValue: ""
       name: "rln-relay-cred-password" }: string
-
-    extMultiAddrs* {.
-      desc: "External multiaddresses to advertise to the network. Argument may be repeated."
-      name: "ext-multiaddr" }: seq[string]
 
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
