@@ -152,6 +152,10 @@ proc connectedness*(peerStore: PeerStore, peerId: PeerID): Connectedness =
   # TODO: richer return than just bool, e.g. add enum "CanConnect", "CannotConnect", etc. based on recent connection attempts
   return peerStore[ConnectionBook].book.getOrDefault(peerId, NotConnected)
 
+proc isConnected*(peerStore: PeerStore, peerId: PeerID): bool =
+  # Returns `true` if the peer is connected
+  peerStore.connectedness(peerId) == Connected
+
 proc hasPeer*(peerStore: PeerStore, peerId: PeerID, proto: string): bool =
   # Returns `true` if peer is included in manager for the specified protocol
   # TODO: What if peer does not exist in the peerStore?
@@ -170,3 +174,6 @@ proc getPeersByDirection*(peerStore: PeerStore, direction: PeerDirection): seq[S
 
 proc getNotConnectedPeers*(peerStore: PeerStore): seq[StoredInfo] =
   return peerStore.peers.filterIt(it.connectedness != Connected)
+
+proc getPeersByProtocol*(peerStore: PeerStore, proto: string): seq[StoredInfo] =
+  return peerStore.peers.filterIt(it.protos.contains(proto))

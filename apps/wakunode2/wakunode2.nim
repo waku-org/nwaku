@@ -505,11 +505,9 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
   if conf.keepAlive:
     node.startKeepalive()
 
-  asyncSpawn node.peerManager.serviceConnectivityLoop()
-
   # Maintain relay connections
   if conf.relay:
-    asyncSpawn node.peerManager.relayConnectivityLoop()
+    node.peerManager.start()
 
   return ok()
 

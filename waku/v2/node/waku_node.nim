@@ -1005,8 +1005,6 @@ proc stop*(node: WakuNode) {.async.} =
     discard await node.stopDiscv5()
 
   await node.switch.stop()
-
-  node.peerManager.serviceLoopUp = false
-  node.peerManager.relayLoopUp = false
+  node.peerManager.stop()
 
   node.started = false
