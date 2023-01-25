@@ -364,8 +364,7 @@ proc publish*(node: WakuNode, topic: PubsubTopic, message: WakuMessage) {.async,
 
   trace "publish", topic=topic, contentTopic=message.contentTopic
 
-  let data = message.encode().buffer
-  discard await node.wakuRelay.publish(topic, data)
+  discard await node.wakuRelay.publish(topic, message)
 
 proc startRelay*(node: WakuNode) {.async.} =
   ## Setup and start relay protocol
