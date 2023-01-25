@@ -249,6 +249,14 @@ proc initNode(conf: WakuNodeConf,
                 some(Port(uint16(conf.tcpPort) + conf.portsShift))
               else:
                 extTcpPort
+    extMultiAddrs = if (conf.extMultiAddrs.len > 0):
+                      let extMultiAddrsValidationRes = validateExtMultiAddrs(conf.extMultiAddrs)
+                      if extMultiAddrsValidationRes.isErr():
+                        return err("invalid external multiaddress: " & extMultiAddrsValidationRes.error)
+                      else:
+                        extMultiAddrsValidationRes
+                    else:
+                      @[]
 
     wakuFlags = initWakuFlags(conf.lightpush,
                               conf.filter,
@@ -361,7 +369,7 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
         rlnRelayDynamic: conf.rlnRelayDynamic,
         rlnRelayPubsubTopic: conf.rlnRelayPubsubTopic,
         rlnRelayContentTopic: conf.rlnRelayContentTopic,
-        rlnRelayMembershipIndex: conf.rlnRelayMembershipIndex,
+        rlnRelayMembershipIndex: some(conf.rlnRelayMembershipIndex),
         rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
         rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
         rlnRelayEthAccountPrivateKey: conf.rlnRelayEthAccountPrivateKey,

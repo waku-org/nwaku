@@ -136,6 +136,7 @@ proc new*(T: type WakuNode,
           bindPort: Port,
           extIp = none(ValidIpAddress),
           extPort = none(Port),
+          extMultiAddrs: seq[MultiAddress] = @[],
           peerStorage: PeerStorage = nil,
           maxConnections = builders.MaxConnections,
           wsBindPort: Port = (Port)8000,
@@ -183,6 +184,10 @@ proc new*(T: type WakuNode,
     announcedAddresses.add(hostExtAddress.get())
   else:
     announcedAddresses.add(hostAddress) # We always have at least a bind address for the host
+
+  # External multiaddrs that the operator may have configured
+  if extMultiAddrs.len > 0:
+    announcedAddresses.add(extMultiAddrs)
 
   if wsExtAddress.isSome():
     announcedAddresses.add(wsExtAddress.get())
@@ -811,14 +816,24 @@ when defined(rln):
                       registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)) {.async.} =
     info "mounting rln relay"
 
-    let rlnRelayRes = await WakuRlnRelay.new(node.wakuRelay,
-                                             rlnConf,
-                                             spamHandler,
+    if node.wakuRelay.isNil():
+      error "WakuRelay protocol is not mounted, cannot mount WakuRlnRelay"
+      return
+    # check whether the pubsub topic is supported at the relay level
+    if rlnConf.rlnRelayPubsubTopic notin node.wakuRelay.defaultPubsubTopics:
+      error "The relay protocol does not support the configured pubsub topic for WakuRlnRelay"
+
+    let rlnRelayRes = await WakuRlnRelay.new(rlnConf,
                                              registrationHandler)
     if rlnRelayRes.isErr():
-      error "failed to mount rln relay", error=rlnRelayRes.error
+      error "failed to mount WakuRlnRelay", error=rlnRelayRes.error
       return
-    node.wakuRlnRelay = rlnRelayRes.get()
+    let rlnRelay = rlnRelayRes.get()
+    let validator = generateRlnValidator(rlnRelay, spamHandler)
+    let pb = PubSub(node.wakuRelay)
+    pb.addValidator(rlnRelay.pubsubTopic, validator)
+    node.wakuRlnRelay = rlnRelay
+
 
 ## Waku peer-exchange
 

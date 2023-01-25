@@ -10,6 +10,7 @@ import
   confutils/toml/std/net as confTomlNet,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
+  libp2p/multiaddress,
   nimcrypto/utils
 import
   ../../waku/common/confutils/envvar/defs as confEnvvarDefs,
@@ -184,6 +185,10 @@ type
       desc: "Password for encrypting RLN credentials",
       defaultValue: ""
       name: "rln-relay-cred-password" }: string
+
+    extMultiAddrs* {.
+      desc: "External multiaddresses to advertise to the network. Argument may be repeated."
+      name: "ext-multiaddr" }: seq[string]
 
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
@@ -513,6 +518,19 @@ proc validateStoreMessageRetentionPolicy*(val: string): ConfResult[string] =
   else:
     err("invalid 'store message retention policy' option format: " & val)
 
+proc validateExtMultiAddrs*(vals: seq[string]): ConfResult[seq[MultiAddress]] =
+  var multiaddrs: seq[MultiAddress]
+  for val in vals:
+    if val == "":
+      return err("invalid 'external multiaddress' option format: " & val)
+
+    let
+      multiaddr = MultiAddress.init(val)
+    if multiaddr.isErr():
+      return err("invalid 'external multiaddress' option format: " & val)
+
+    multiaddrs.add(multiaddr.get())
+  ok(multiaddrs)
 
 ## Load
 
