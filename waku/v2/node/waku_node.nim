@@ -816,23 +816,14 @@ when defined(rln):
                       registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)) {.async.} =
     info "mounting rln relay"
 
-    if node.wakuRelay.isNil():
-      error "WakuRelay protocol is not mounted, cannot mount WakuRlnRelay"
-      return
-    # check whether the pubsub topic is supported at the relay level
-    if rlnConf.rlnRelayPubsubTopic notin node.wakuRelay.defaultPubsubTopics:
-      error "The relay protocol does not support the configured pubsub topic for WakuRlnRelay"
-
-    let rlnRelayRes = await WakuRlnRelay.new(rlnConf,
+    let rlnRelayRes = await WakuRlnRelay.new(node.wakuRelay,
+                                             rlnConf,
+                                             spamHandler,
                                              registrationHandler)
     if rlnRelayRes.isErr():
-      error "failed to mount WakuRlnRelay", error=rlnRelayRes.error
+      error "failed to mount rln relay", error=rlnRelayRes.error
       return
-    let rlnRelay = rlnRelayRes.get()
-    let validator = generateRlnValidator(rlnRelay, spamHandler)
-    let pb = PubSub(node.wakuRelay)
-    pb.addValidator(rlnRelay.pubsubTopic, validator)
-    node.wakuRlnRelay = rlnRelay
+    node.wakuRlnRelay = rlnRelayRes.get()
 
 
 ## Waku peer-exchange
