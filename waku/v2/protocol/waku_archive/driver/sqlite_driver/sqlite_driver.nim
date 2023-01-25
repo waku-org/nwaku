@@ -6,7 +6,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, algorithm],
+  std/options,
   stew/[byteutils, results],
   chronicles
 import
@@ -107,7 +107,7 @@ method getMessages*(
 ): ArchiveDriverResult[seq[ArchiveRow]] =
   let cursor = cursor.map(toDbCursor)
 
-  var rows = ?s.db.selectMessagesByHistoryQueryWithLimit(
+  let rows = ?s.db.selectMessagesByHistoryQueryWithLimit(
     contentTopic,
     pubsubTopic,
     cursor,
@@ -116,10 +116,6 @@ method getMessages*(
     limit=maxPageSize,
     ascending=ascendingOrder
   )
-
-  # All messages MUST be returned in chronological order
-  if not ascendingOrder:
-    reverse(rows)
 
   ok(rows)
 

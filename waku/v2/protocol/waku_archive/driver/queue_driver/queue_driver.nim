@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, algorithm],
+  std/options,
   stew/results,
   stew/sorted_set,
   chronicles
@@ -279,13 +279,7 @@ method getMessages*(
   if pageRes.isErr():
     return err($pageRes.error)
 
-  var rows = pageRes.value
-
-  # All messages MUST be returned in chronological order
-  if not ascendingOrder:
-    reverse(rows)
-
-  ok(rows)
+  ok(pageRes.value)
 
 
 method getMessagesCount*(driver: QueueDriver): ArchiveDriverResult[int64] =

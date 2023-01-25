@@ -12,8 +12,7 @@ import
   ../../../waku/v2/protocol/waku_archive/driver/sqlite_driver,
   ../../../waku/v2/protocol/waku_archive,
   ../../../waku/v2/utils/time,
-  ../testlib/common,
-  ../testlib/switch
+  ../testlib/common
 
 
 proc newTestDatabase(): SqliteDatabase =
@@ -26,6 +25,15 @@ proc newTestArchiveDriver(): ArchiveDriver =
 proc newTestWakuArchive(driver: ArchiveDriver): WakuArchive =
   let validator: MessageValidator = DefaultMessageValidator()
   WakuArchive.new(driver, validator=some(validator))
+
+proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveCursor =
+  ArchiveCursor(
+    pubsubTopic: pubsubTopic,
+    senderTime: message.timestamp,
+    storeTime: message.timestamp,
+    digest: computeDigest(message)
+  )
+
 
 
 suite "Waku Archive - message handling":
@@ -126,25 +134,25 @@ suite "Waku Archive - message handling":
 procSuite "Waku Archive - find messages":
   ## Fixtures
   let timeOrigin = now()
+  let msgListA = @[
+    fakeWakuMessage(@[byte 00], contentTopic=ContentTopic("2"), ts=ts(00, timeOrigin)),
+    fakeWakuMessage(@[byte 01], contentTopic=ContentTopic("1"), ts=ts(10, timeOrigin)),
+    fakeWakuMessage(@[byte 02], contentTopic=ContentTopic("2"), ts=ts(20, timeOrigin)),
+    fakeWakuMessage(@[byte 03], contentTopic=ContentTopic("1"), ts=ts(30, timeOrigin)),
+    fakeWakuMessage(@[byte 04], contentTopic=ContentTopic("2"), ts=ts(40, timeOrigin)),
+    fakeWakuMessage(@[byte 05], contentTopic=ContentTopic("1"), ts=ts(50, timeOrigin)),
+    fakeWakuMessage(@[byte 06], contentTopic=ContentTopic("2"), ts=ts(60, timeOrigin)),
+    fakeWakuMessage(@[byte 07], contentTopic=ContentTopic("1"), ts=ts(70, timeOrigin)),
+    fakeWakuMessage(@[byte 08], contentTopic=ContentTopic("2"), ts=ts(80, timeOrigin)),
+    fakeWakuMessage(@[byte 09], contentTopic=ContentTopic("1"), ts=ts(90, timeOrigin))
+  ]
+
   let archiveA = block:
       let
         driver = newTestArchiveDriver()
         archive = newTestWakuArchive(driver)
 
-      let msgList = @[
-        fakeWakuMessage(@[byte 00], contentTopic=ContentTopic("2"), ts=ts(00, timeOrigin)),
-        fakeWakuMessage(@[byte 01], contentTopic=ContentTopic("1"), ts=ts(10, timeOrigin)),
-        fakeWakuMessage(@[byte 02], contentTopic=ContentTopic("2"), ts=ts(20, timeOrigin)),
-        fakeWakuMessage(@[byte 03], contentTopic=ContentTopic("1"), ts=ts(30, timeOrigin)),
-        fakeWakuMessage(@[byte 04], contentTopic=ContentTopic("2"), ts=ts(40, timeOrigin)),
-        fakeWakuMessage(@[byte 05], contentTopic=ContentTopic("1"), ts=ts(50, timeOrigin)),
-        fakeWakuMessage(@[byte 06], contentTopic=ContentTopic("2"), ts=ts(60, timeOrigin)),
-        fakeWakuMessage(@[byte 07], contentTopic=ContentTopic("1"), ts=ts(70, timeOrigin)),
-        fakeWakuMessage(@[byte 08], contentTopic=ContentTopic("2"), ts=ts(80, timeOrigin)),
-        fakeWakuMessage(@[byte 09], contentTopic=ContentTopic("1"), ts=ts(90, timeOrigin))
-      ]
-
-      for msg in msgList:
+      for msg in msgListA:
         require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
 
       archive
@@ -348,120 +356,76 @@ procSuite "Waku Archive - find messages":
       response.messages.anyIt(it == msg3)
 
   test "handle query with forward pagination":
-    ## Setup
-    let
-      driver = newTestArchiveDriver()
-      archive = newTestWakuArchive(driver)
-
-    let currentTime = now()
-    let msgList = @[
-        fakeWakuMessage(@[byte 0], contentTopic=ContentTopic("2"), ts=currentTime - 9),
-        fakeWakuMessage(@[byte 1], contentTopic=DefaultContentTopic, ts=currentTime - 8),
-        fakeWakuMessage(@[byte 2], contentTopic=DefaultContentTopic, ts=currentTime - 7),
-        fakeWakuMessage(@[byte 3], contentTopic=DefaultContentTopic, ts=currentTime - 6),
-        fakeWakuMessage(@[byte 4], contentTopic=DefaultContentTopic, ts=currentTime - 5),
-        fakeWakuMessage(@[byte 5], contentTopic=DefaultContentTopic, ts=currentTime - 4),
-        fakeWakuMessage(@[byte 6], contentTopic=DefaultContentTopic, ts=currentTime - 3),
-        fakeWakuMessage(@[byte 7], contentTopic=DefaultContentTopic, ts=currentTime - 2),
-        fakeWakuMessage(@[byte 8], contentTopic=DefaultContentTopic, ts=currentTime - 1),
-        fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("2"), ts=currentTime)
-      ]
-
-    for msg in msgList:
-      require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
-
     ## Given
-    var req = ArchiveQuery(
-      contentTopics: @[DefaultContentTopic],
-      pageSize: 2,
+    let req = ArchiveQuery(
+      pageSize: 4,
       ascending: true
     )
 
     ## When
-    var res = archive.findMessages(req)
-    require res.isOk()
+    var nextReq = req # copy
 
-    var
-      response = res.tryGet()
-      totalMessages = response.messages.len()
-      totalQueries = 1
+    var pages = newSeq[seq[WakuMessage]](3)
+    var cursors = newSeq[Option[ArchiveCursor]](3)
 
-    while response.cursor.isSome():
-      require:
-        totalQueries <= 4 # Sanity check here and guarantee that the test will not run forever
-        response.messages.len() == 2
-
-      req.cursor = response.cursor
-
-      # Continue querying
-      res = archive.findMessages(req)
+    for i in 0..<3:
+      let res = archiveA.findMessages(nextReq)
       require res.isOk()
-      response = res.tryGet()
-      totalMessages += response.messages.len()
-      totalQueries += 1
+
+      # Keep query response content
+      let response = res.get()
+      pages[i] = response.messages
+      cursors[i] = response.cursor
+
+      # Set/update the request cursor
+      nextReq.cursor = cursors[i]
 
     ## Then
     check:
-      totalQueries == 4 # 4 queries of pageSize 2
-      totalMessages == 8 # 8 messages in total
+      cursors[0] == some(computeTestCursor(DefaultPubsubTopic, msgListA[3]))
+      cursors[1] == some(computeTestCursor(DefaultPubsubTopic, msgListA[7]))
+      cursors[2] == none(ArchiveCursor)
+
+    check:
+      pages[0] == msgListA[0..3]
+      pages[1] == msgListA[4..7]
+      pages[2] == msgListA[8..9]
 
   test "handle query with backward pagination":
-    ## Setup
-    let
-      driver = newTestArchiveDriver()
-      archive = newTestWakuArchive(driver)
-
-    let currentTime = now()
-    let msgList = @[
-        fakeWakuMessage(@[byte 0], contentTopic=ContentTopic("2"), ts=currentTime - 9),
-        fakeWakuMessage(@[byte 1], contentTopic=DefaultContentTopic, ts=currentTime - 8),
-        fakeWakuMessage(@[byte 2], contentTopic=DefaultContentTopic, ts=currentTime - 7),
-        fakeWakuMessage(@[byte 3], contentTopic=DefaultContentTopic, ts=currentTime - 6),
-        fakeWakuMessage(@[byte 4], contentTopic=DefaultContentTopic, ts=currentTime - 5),
-        fakeWakuMessage(@[byte 5], contentTopic=DefaultContentTopic, ts=currentTime - 4),
-        fakeWakuMessage(@[byte 6], contentTopic=DefaultContentTopic, ts=currentTime - 3),
-        fakeWakuMessage(@[byte 7], contentTopic=DefaultContentTopic, ts=currentTime - 2),
-        fakeWakuMessage(@[byte 8], contentTopic=DefaultContentTopic, ts=currentTime - 1),
-        fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("2"), ts=currentTime)
-      ]
-
-    for msg in msgList:
-      require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
-
     ## Given
-    var req = ArchiveQuery(
-      contentTopics: @[DefaultContentTopic],
-      pageSize: 2,
-      ascending: false
+    let req = ArchiveQuery(
+      pageSize: 4,
+      ascending: false  # backward
     )
 
     ## When
-    var res = archive.findMessages(req)
-    require res.isOk()
+    var nextReq = req # copy
 
-    var
-      response = res.tryGet()
-      totalMessages = response.messages.len()
-      totalQueries = 1
+    var pages = newSeq[seq[WakuMessage]](3)
+    var cursors = newSeq[Option[ArchiveCursor]](3)
 
-    while response.cursor.isSome():
-      require:
-        totalQueries <= 4 # Sanity check here and guarantee that the test will not run forever
-        response.messages.len() == 2
-
-      req.cursor = response.cursor
-
-      # Continue querying
-      res = archive.findMessages(req)
+    for i in 0..<3:
+      let res = archiveA.findMessages(nextReq)
       require res.isOk()
-      response = res.tryGet()
-      totalMessages += response.messages.len()
-      totalQueries += 1
+
+      # Keep query response content
+      let response = res.get()
+      pages[i] = response.messages
+      cursors[i] = response.cursor
+
+      # Set/update the request cursor
+      nextReq.cursor = cursors[i]
 
     ## Then
     check:
-      totalQueries == 4 # 4 queries of pageSize 2
-      totalMessages == 8 # 8 messages in total
+      cursors[0] == some(computeTestCursor(DefaultPubsubTopic, msgListA[6]))
+      cursors[1] == some(computeTestCursor(DefaultPubsubTopic, msgListA[2]))
+      cursors[2] == none(ArchiveCursor)
+
+    check:
+      pages[0] == msgListA[6..9]
+      pages[1] == msgListA[2..5]
+      pages[2] == msgListA[0..1]
 
   test "handle query with no paging info - auto-pagination":
     ## Setup

@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, sequtils, random],
+  std/[options, sequtils, random, algorithm],
   testutils/unittests,
   chronos,
   chronicles
@@ -164,7 +164,7 @@ suite "SQLite driver - query by content topic":
 
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages == expected[6..7]
+      filteredMessages == expected[6..7].reversed()
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -514,7 +514,7 @@ suite "SQLite driver - query by cursor":
 
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages == expected[2..3]
+      filteredMessages == expected[2..3].reversed()
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -604,7 +604,7 @@ suite "SQLite driver - query by cursor":
 
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages == expected[2..5]
+      filteredMessages == expected[2..5].reversed()
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -710,7 +710,7 @@ suite "SQLite driver - query by cursor":
     let expectedMessages = expected.mapIt(it[1])
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages == expectedMessages[4..5]
+      filteredMessages == expectedMessages[4..5].reversed()
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -984,7 +984,7 @@ suite "SQLite driver - query by time range":
 
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages == expected[2..6]
+      filteredMessages == expected[2..6].reversed()
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -1082,7 +1082,7 @@ suite "SQLite driver - query by time range":
 
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages == expected[3..4]
+      filteredMessages == expected[3..4].reversed()
 
     ## Cleanup
     driver.close().expect("driver to close")
@@ -1192,7 +1192,7 @@ suite "SQLite driver - query by time range":
     let expectedMessages = expected.mapIt(it[1])
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
-      filteredMessages == expectedMessages[4..5]
+      filteredMessages == expectedMessages[4..5].reversed()
 
     ## Cleanup
     driver.close().expect("driver to close")
