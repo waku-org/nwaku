@@ -147,10 +147,10 @@ method publish*(w: WakuRelay, pubsubTopic: PubsubTopic, message: WakuMessage|seq
 
   var data: seq[byte]
   when message is WakuMessage:
-    data = message.encode()
+    data = message.encode().buffer
   else:
     data = message
 
-  return await procCall GossipSub(w).publish(pubsubTopic, message)
+  return await procCall GossipSub(w).publish(pubsubTopic, data)
 
 
