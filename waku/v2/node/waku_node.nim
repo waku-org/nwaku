@@ -179,7 +179,8 @@ proc new*(T: type WakuNode,
       if (wsHostAddress.isSome()):
         wsExtAddress = some(ip4TcpEndPoint(extIp.get(), wsBindPort) & wsFlag(wssEnabled))
 
-  var announcedAddresses: seq[MultiAddress]
+  var announcedAddresses = newSeq[MultiAddress]()
+
   if hostExtAddress.isSome():
     announcedAddresses.add(hostExtAddress.get())
   else:
@@ -201,9 +202,12 @@ proc new*(T: type WakuNode,
             else: some(bindIp)
     enrTcpPort = if extPort.isSome(): extPort
                  else: some(bindPort)
-    enrMultiaddrs = if wsExtAddress.isSome(): @[wsExtAddress.get()] # Only add ws/wss to `multiaddrs` field
-                    elif wsHostAddress.isSome(): @[wsHostAddress.get()]
-                    else: @[]
+    # enrMultiaddrs are just addresses which cannot be represented in ENR, as described in
+    # https://rfc.vac.dev/spec/31/#many-connection-types
+    enrMultiaddrs = announcedAddresses.filterIt(it.hasProtocol("dns4") or
+                                                it.hasProtocol("dns6") or
+                                                it.hasProtocol("ws") or
+                                                it.hasProtocol("wss"))
     enr = initEnr(nodeKey,
                   enrIp,
                   enrTcpPort,
