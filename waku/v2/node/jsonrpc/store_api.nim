@@ -13,7 +13,7 @@ import
   ../../utils/time,
   ../waku_node,
   ../peer_manager/peer_manager,
-  ./jsonrpc_types, 
+  ./jsonrpc_types,
   ./jsonrpc_utils
 
 export jsonrpc_types
@@ -30,7 +30,7 @@ proc installStoreApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
     ## Returns history for a list of content topics with optional paging
     debug "get_waku_v2_store_v1_messages"
 
-    let peerOpt = node.peerManager.peerStore.selectPeer(WakuStoreCodec)
+    let peerOpt = node.peerManager.selectPeer(WakuStoreCodec)
     if peerOpt.isNone():
       raise newException(ValueError, "no suitable remote store peers")
 
@@ -52,7 +52,7 @@ proc installStoreApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
 
     if not await queryFut.withTimeout(futTimeout):
       raise newException(ValueError, "No history response received (timeout)")
-    
+
     let res = queryFut.read()
     if res.isErr():
       raise newException(ValueError, $res.error)

@@ -40,10 +40,10 @@ const
   InitialBackoffInSec = 120
   BackoffFactor = 4
 
-  # limit the amount of paralel dials
+  # Limit the amount of paralel dials
   MaxParalelDials = 10
 
-  # delay between consecutive relayConnectivityLoop runs
+  # Delay between consecutive relayConnectivityLoop runs
   ConnectivityLoopInterval = chronos.seconds(30)
 
 type
@@ -54,6 +54,8 @@ type
     backoffFactor*: int
     maxFailedAttempts*: int
     storage: PeerStorage
+    serviceSlots*: Table[string, RemotePeerInfo]
+    started: bool
 
 ####################
 # Helper functions #
@@ -105,7 +107,10 @@ proc dialPeer(pm: PeerManager, peerId: PeerID,
   pm.peerStore[LastFailedConnBook][peerId] = Moment.init(getTime().toUnix, Second)
   pm.peerStore[ConnectionBook][peerId] = CannotConnect
 
-  debug "Dialing peer failed", peerId = peerId, reason = reasonFailed, failedAttempts=failedAttempts
+  debug "Dialing peer failed",
+          peerId = peerId,
+          reason = reasonFailed,
+          failedAttempts = pm.peerStore[NumberFailedConnBook][peerId]
   waku_peers_dials.inc(labelValues = [reasonFailed])
 
   # Update storage
@@ -192,12 +197,13 @@ proc new*(T: type PeerManager,
                        initialBackoffInSec: initialBackoffInSec,
                        backoffFactor: backoffFactor,
                        maxFailedAttempts: maxFailedAttempts)
-
   proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(pm, peerId, event)
 
   pm.switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
   pm.switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
+
+  pm.serviceSlots = initTable[string, RemotePeerInfo]()
 
   if not storage.isNil():
     debug "found persistent peer storage"
@@ -238,6 +244,20 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string) =
   # Add peer to storage. Entry will subsequently be updated with connectedness information
   if not pm.storage.isNil:
     pm.storage.insertOrReplace(remotePeerInfo.peerId, pm.peerStore.get(remotePeerInfo.peerId), NotConnected)
+
+proc addServicePeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string) =
+  # Do not add relay peers
+  if proto == WakuRelayCodec:
+    warn "Can't add relay peer to service peers slots"
+    return
+
+  info "Adding peer to service slots", peerId = remotePeerInfo.peerId, addr = remotePeerInfo.addrs[0], service = proto
+
+   # Set peer for service slot
+  pm.serviceSlots[proto] = remotePeerInfo
+
+  # TODO: Remove proto once fully refactored
+  pm.addPeer(remotePeerInfo, proto)
 
 proc reconnectPeers*(pm: PeerManager,
                      proto: string,
@@ -335,7 +355,8 @@ proc connectToNodes*(pm: PeerManager,
 
 # Ensures a healthy amount of connected relay peers
 proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
-  while true:
+  debug "Starting relay connectivity loop"
+  while pm.started:
 
     let maxConnections = pm.switch.connManager.inSema.size
     let numInPeers = pm.switch.connectedPeers(lpstream.Direction.In).len
@@ -364,3 +385,37 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
     await pm.connectToNodes(outsideBackoffPeers[0..<numPeersToConnect], WakuRelayCodec)
 
     await sleepAsync(ConnectivityLoopInterval)
+
+proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
+  debug "Selecting peer from peerstore", protocol=proto
+
+  # Selects the best peer for a given protocol
+  let peers = pm.peerStore.getPeersByProtocol(proto)
+
+  # No criteria for selecting a peer for WakuRelay, random one
+  if proto == WakuRelayCodec:
+    # TODO: proper heuristic here that compares peer scores and selects "best" one. For now the first peer for the given protocol is returned
+    if peers.len > 0:
+      debug "Got peer from peerstore", peerId=peers[0].peerId, multi=peers[0].addrs[0], protocol=proto
+      return some(peers[0].toRemotePeerInfo())
+    debug "No peer found for protocol", protocol=proto
+    return none(RemotePeerInfo)
+
+  # For other protocols, we select the peer that is slotted for the given protocol
+  pm.serviceSlots.withValue(proto, serviceSlot):
+    debug "Got peer from service slots", peerId=serviceSlot[].peerId, multi=serviceSlot[].addrs[0], protocol=proto
+    return some(serviceSlot[])
+
+  # If not slotted, we select a random peer for the given protocol
+  if peers.len > 0:
+    debug "Got peer from peerstore", peerId=peers[0].peerId, multi=peers[0].addrs[0], protocol=proto
+    return some(peers[0].toRemotePeerInfo())
+  debug "No peer found for protocol", protocol=proto
+  return none(RemotePeerInfo)
+
+proc start*(pm: PeerManager) =
+  pm.started = true
+  asyncSpawn pm.relayConnectivityLoop()
+
+proc stop*(pm: PeerManager) =
+  pm.started = false

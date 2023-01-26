@@ -152,6 +152,10 @@ proc connectedness*(peerStore: PeerStore, peerId: PeerID): Connectedness =
   # TODO: richer return than just bool, e.g. add enum "CanConnect", "CannotConnect", etc. based on recent connection attempts
   return peerStore[ConnectionBook].book.getOrDefault(peerId, NotConnected)
 
+proc isConnected*(peerStore: PeerStore, peerId: PeerID): bool =
+  # Returns `true` if the peer is connected
+  peerStore.connectedness(peerId) == Connected
+
 proc hasPeer*(peerStore: PeerStore, peerId: PeerID, proto: string): bool =
   # Returns `true` if peer is included in manager for the specified protocol
   # TODO: What if peer does not exist in the peerStore?
@@ -165,20 +169,11 @@ proc hasPeers*(peerStore: PeerStore, protocolMatcher: Matcher): bool =
   # Returns `true` if the peerstore has any peer matching the protocolMatcher
   toSeq(peerStore[ProtoBook].book.values()).anyIt(it.anyIt(protocolMatcher(it)))
 
-proc selectPeer*(peerStore: PeerStore, proto: string): Option[RemotePeerInfo] =
-  # Selects the best peer for a given protocol
-  let peers = peerStore.peers().filterIt(it.protos.contains(proto))
-
-  if peers.len >= 1:
-     # TODO: proper heuristic here that compares peer scores and selects "best" one. For now the first peer for the given protocol is returned
-    let peerStored = peers[0]
-
-    return some(peerStored.toRemotePeerInfo())
-  else:
-    return none(RemotePeerInfo)
-
 proc getPeersByDirection*(peerStore: PeerStore, direction: PeerDirection): seq[StoredInfo] =
   return peerStore.peers.filterIt(it.direction == direction)
 
 proc getNotConnectedPeers*(peerStore: PeerStore): seq[StoredInfo] =
   return peerStore.peers.filterIt(it.connectedness != Connected)
+
+proc getPeersByProtocol*(peerStore: PeerStore, proto: string): seq[StoredInfo] =
+  return peerStore.peers.filterIt(it.protos.contains(proto))
