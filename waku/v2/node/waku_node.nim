@@ -391,9 +391,6 @@ proc startRelay*(node: WakuNode) {.async.} =
                                           protocolMatcher(WakuRelayCodec),
                                           backoffPeriod)
 
-  # Maintain relay connections
-  asyncSpawn node.peerManager.relayConnectivityLoop()
-
   # Start the WakuRelay protocol
   await node.wakuRelay.start()
 
@@ -529,7 +526,7 @@ proc subscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: Content
     error "cannot register filter subscription to topic", error="waku filter client is nil"
     return
 
-  let peerOpt = node.peerManager.peerStore.selectPeer(WakuFilterCodec)
+  let peerOpt = node.peerManager.selectPeer(WakuFilterCodec)
   if peerOpt.isNone():
     error "cannot register filter subscription to topic", error="no suitable remote peers"
     return
@@ -544,7 +541,7 @@ proc unsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: Conte
     error "cannot unregister filter subscription to content", error="waku filter client is nil"
     return
 
-  let peerOpt = node.peerManager.peerStore.selectPeer(WakuFilterCodec)
+  let peerOpt = node.peerManager.selectPeer(WakuFilterCodec)
   if peerOpt.isNone():
     error "cannot register filter subscription to topic", error="no suitable remote peers"
     return
@@ -702,7 +699,7 @@ proc query*(node: WakuNode, query: HistoryQuery): Future[WakuStoreResult[History
   if node.wakuStoreClient.isNil():
     return err("waku store client is nil")
 
-  let peerOpt = node.peerManager.peerStore.selectPeer(WakuStoreCodec)
+  let peerOpt = node.peerManager.selectPeer(WakuStoreCodec)
   if peerOpt.isNone():
     error "no suitable remote peers"
     return err("peer_not_found_failure")
@@ -791,7 +788,7 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMe
     error "failed to publish message", error="waku lightpush client is nil"
     return
 
-  let peerOpt = node.peerManager.peerStore.selectPeer(WakuLightPushCodec)
+  let peerOpt = node.peerManager.selectPeer(WakuLightPushCodec)
   if peerOpt.isNone():
     error "failed to publish message", error="no suitable remote peers"
     return
@@ -1008,5 +1005,6 @@ proc stop*(node: WakuNode) {.async.} =
     discard await node.stopDiscv5()
 
   await node.switch.stop()
+  node.peerManager.stop()
 
   node.started = false

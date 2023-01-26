@@ -267,16 +267,6 @@ suite "Extended nim-libp2p Peer Store":
       peerStore.hasPeers(protocolMatcher("/vac/waku/store/2.0.0"))
       not peerStore.hasPeers(protocolMatcher("/vac/waku/does-not-exist/2.0.0"))
 
-  test "selectPeer() returns if a peer supports a given protocol":
-    # When
-    let swapPeer = peerStore.selectPeer("/vac/waku/swap/2.0.0")
-
-    # Then
-    check:
-      swapPeer.isSome()
-      swapPeer.get().peerId == p5
-      swapPeer.get().protocols == @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"]
-
   test "getPeersByDirection()":
     # When
     let inPeers = peerStore.getPeersByDirection(Inbound)
