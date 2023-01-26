@@ -14,6 +14,7 @@ import
   libp2p/protocols/pubsub/rpc/message
 import
   ../../waku/v1/node/rpc/hexstrings,
+  ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/jsonrpc/[store_api,
                               relay_api,
@@ -33,7 +34,8 @@ import
   ../../waku/v2/protocol/waku_filter/client,
   ../../waku/v2/utils/peers,
   ../../waku/v2/utils/time,
-  ./testlib/common
+  ./testlib/common,
+  ../test_helpers
 
 template sourceDir*: string = currentSourcePath.rsplit(DirSep, 1)[0]
 const sigPath = sourceDir / ParDir / ParDir / "waku" / "v2" / "node" / "jsonrpc" / "jsonrpc_callsigs.nim"
@@ -404,26 +406,14 @@ procSuite "Waku v2 JSON-RPC API":
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
 
   asyncTest "Admin API: get managed peer information":
-    # Create a couple of nodes
-    let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60220))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60222))
-      peerInfo2 = node2.peerInfo
-      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60224))
-      peerInfo3 = node3.peerInfo
-
-    await allFutures([node1.start(), node2.start(), node3.start()])
-
-    await node1.mountRelay()
-    await node2.mountRelay()
-    await node3.mountRelay()
+    # Create 3 nodes and start them with relay
+    let nodes = toSeq(0..<3).mapIt(WakuNode.new(generateKey(), ValidIpAddress.init("0.0.0.0"), Port(60220+it*2)))
+    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.mountRelay()))
 
     # Dial nodes 2 and 3 from node1
-    await node1.connectToNodes(@[constructMultiaddrStr(peerInfo2)])
-    await node1.connectToNodes(@[constructMultiaddrStr(peerInfo3)])
+    await nodes[0].connectToNodes(@[constructMultiaddrStr(nodes[1].peerInfo)])
+    await nodes[0].connectToNodes(@[constructMultiaddrStr(nodes[2].peerInfo)])
 
     # RPC server setup
     let
@@ -431,7 +421,7 @@ procSuite "Waku v2 JSON-RPC API":
       ta = initTAddress(bindIp, rpcPort)
       server = newRpcHttpServer([ta])
 
-    installAdminApiHandlers(node1, server)
+    installAdminApiHandlers(nodes[0], server)
     server.start()
 
     let client = newRpcHttpClient()
@@ -443,15 +433,25 @@ procSuite "Waku v2 JSON-RPC API":
       response.len == 2
       # Check peer 2
       response.anyIt(it.protocol == WakuRelayCodec and
-                     it.multiaddr == constructMultiaddrStr(peerInfo2))
+                     it.multiaddr == constructMultiaddrStr(nodes[1].peerInfo))
       # Check peer 3
       response.anyIt(it.protocol == WakuRelayCodec and
-                     it.multiaddr == constructMultiaddrStr(peerInfo3))
+                     it.multiaddr == constructMultiaddrStr(nodes[2].peerInfo))
+
+    # Artificially remove the address from the book
+    nodes[0].peerManager.peerStore[AddressBook][nodes[1].peerInfo.peerId] = @[]
+    nodes[0].peerManager.peerStore[AddressBook][nodes[2].peerInfo.peerId] = @[]
+
+    # Verify that the returned addresses are empty
+    let responseEmptyAdd = await client.get_waku_v2_admin_v1_peers()
+    check:
+      responseEmptyAdd[0].multiaddr == ""
+      responseEmptyAdd[1].multiaddr == ""
 
     await server.stop()
     await server.closeWait()
 
-    await allFutures([node1.stop(), node2.stop(), node3.stop()])
+    await allFutures(nodes.mapIt(it.stop()))
 
   asyncTest "Admin API: get unmanaged peer information":
     let
