@@ -44,7 +44,6 @@ proc setupAndSubscribe() {.async.} =
         bootstrapNodes = bootstrapNodes,
         privateKey = keys.PrivateKey(nodeKey.skkey),
         flags = flags,
-        enrFields = [],
         rng = node.rng)
 
     await node.start()

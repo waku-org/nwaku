@@ -130,36 +130,46 @@ template wsFlag(wssEnabled: bool): MultiAddress =
   if wssEnabled: MultiAddress.init("/wss").tryGet()
   else: MultiAddress.init("/ws").tryGet()
 
-proc new*(T: type WakuNode,
-          nodeKey: crypto.PrivateKey,
-          bindIp: ValidIpAddress,
-          bindPort: Port,
-          extIp = none(ValidIpAddress),
-          extPort = none(Port),
-          extMultiAddrs = newSeq[MultiAddress](),
-          peerStorage: PeerStorage = nil,
-          maxConnections = builders.MaxConnections,
-          wsBindPort: Port = (Port)8000,
-          wsEnabled: bool = false,
-          wssEnabled: bool = false,
-          secureKey: string = "",
-          secureCert: string = "",
-          wakuFlags = none(WakuEnrBitfield),
-          nameResolver: NameResolver = nil,
-          sendSignedPeerRecord = false,
-          dns4DomainName = none(string),
-          discv5UdpPort = none(Port),
-          agentString = none(string),    # defaults to nim-libp2p version
-          peerStoreCapacity = none(int), # defaults to 1.25 maxConnections
-          ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
-  ## Creates a Waku Node instance.
+type WakuNodeAddrMeta* = object
+  hostAddress*: MultiAddress
+  wsHostAddress*: Option[MultiAddress]
+  hostExtAddress*: Option[MultiAddress]
+  wsExtAddress*: Option[MultiAddress]
+  wssEnabled*: bool
+  extIp*: Option[ValidIpAddress]
+  extPort*: Option[Port]
+  dns4DomainName*: Option[string]
+  announcedAddresses*: seq[MultiAddress]
+  extMultiAddrs*: seq[MultiAddress]
+  enrMultiAddrs*: seq[MultiAddress]
+  enrIp*: Option[ValidIpAddress]
+  enrPort*: Option[Port]
+  discv5UdpPort*: Option[Port]
+  wakuFlags*: Option[WakuEnrBitfield]
+  bindIp*: ValidIpAddress
+  bindPort*: Port
 
+proc getWakuNodeAddrMeta*(
+  bindIp: ValidIpAddress,
+  bindPort: Port,
+  extIp = none(ValidIpAddress),
+  extPort = none(Port),
+  extMultiAddrs = newSeq[MultiAddress](),
+  wsBindPort: Port = (Port)8000,
+  wsEnabled: bool = false,
+  wssEnabled: bool = false,
+  dns4DomainName = none(string),
+  discv5UdpPort = none(Port),
+  wakuFlags = none(WakuEnrBitfield)
+): WakuNodeAddrMeta {.raises: [LPError]} =
   ## Initialize addresses
   let
     # Bind addresses
     hostAddress = ip4TcpEndPoint(bindIp, bindPort)
     wsHostAddress = if wsEnabled or wssEnabled: some(ip4TcpEndPoint(bindIp, wsbindPort) & wsFlag(wssEnabled))
                     else: none(MultiAddress)
+    enrIp = if extIp.isSome(): extIp else: some(bindIp)
+    enrPort = if extPort.isSome(): extPort else: some(bindPort)
 
   # Setup external addresses, if available
   var
@@ -195,26 +205,67 @@ proc new*(T: type WakuNode,
   elif wsHostAddress.isSome():
     announcedAddresses.add(wsHostAddress.get())
 
-  ## Initialize peer
   let
-    rng = crypto.newRng()
-    enrIp = if extIp.isSome(): extIp
-            else: some(bindIp)
-    enrTcpPort = if extPort.isSome(): extPort
-                 else: some(bindPort)
     # enrMultiaddrs are just addresses which cannot be represented in ENR, as described in
     # https://rfc.vac.dev/spec/31/#many-connection-types
     enrMultiaddrs = announcedAddresses.filterIt(it.hasProtocol("dns4") or
                                                 it.hasProtocol("dns6") or
                                                 it.hasProtocol("ws") or
                                                 it.hasProtocol("wss"))
-    enr = initEnr(nodeKey,
-                  enrIp,
-                  enrTcpPort,
-                  discv5UdpPort,
-                  wakuFlags,
-                  enrMultiaddrs)
 
+  return WakuNodeAddrMeta(
+    hostAddress: hostAddress,
+    wsHostAddress: wsHostAddress,
+    hostExtAddress: hostExtAddress,
+    wsExtAddress: wsExtAddress,
+    extIp: extIp,
+    extPort: extPort,
+    wssEnabled: wssEnabled,
+    dns4DomainName: dns4DomainName,
+    announcedAddresses: announcedAddresses,
+    extMultiAddrs: extMultiAddrs,
+    enrMultiaddrs: enrMultiaddrs,
+    enrIp: enrIp,
+    enrPort: enrPort,
+    discv5UdpPort: discv5UdpPort,
+    bindIp: bindIp,
+    bindPort: bindPort,
+    wakuFlags: wakuFlags)
+
+proc getWakuDiscoveryV5*(addressMetadata: WakuNodeAddrMeta,
+                         nodekey: crypto.PrivateKey,
+                         discv5Config = defaultDiscoveryConfig,
+                         discv5BootstrapEnrs = newSeq[enr.Record](),
+                         discv5EnrAutoUpdate = false,
+                         rng = crypto.newRng()): WakuDiscoveryV5 =
+  return WakuDiscoveryV5.new(
+    extIp = addressMetadata.extIp,
+    extTcpPort = addressMetadata.extPort,
+    extUdpPort = addressMetadata.discv5UdpPort,
+    bindIp = addressMetadata.bindIp,
+    discv5UdpPort = addressMetadata.discv5UdpPort.get(),
+    bootstrapEnrs = discv5BootstrapEnrs,
+    enrAutoUpdate = discv5EnrAutoUpdate,
+    privateKey = keys.PrivateKey(nodekey.skkey),
+    flags = addressMetadata.wakuFlags.get(),
+    multiaddrs = addressMetadata.enrMultiaddrs,
+    rng = rng,
+    discv5Config = discv5Config)
+
+proc getEnr*(addressMetadata: WakuNodeAddrMeta,
+             wakuDiscV5 = none(WakuDiscoveryV5),
+             nodeKey: crypto.PrivateKey): enr.Record =
+  if wakuDiscV5.isSome():
+    return wakuDiscV5.get().protocol.getRecord()
+
+  return initEnr(nodekey,
+                 addressMetadata.enrIp,
+                 addressMetadata.enrPort,
+                 addressMetadata.discv5UdpPort,
+                 addressMetadata.wakuFlags,
+                 addressMetadata.enrMultiaddrs)
+
+proc getAutonatService*(rng = crypto.newRng()): AutonatService =
   ## AutonatService request other peers to dial us back
   ## flagging us as Reachable or NotReachable.
   ## minConfidence is used as threshold to determine the state.
@@ -235,35 +286,103 @@ proc new*(T: type WakuNode,
 
   autonatService.statusAndConfidenceHandler(statusAndConfidenceHandler)
 
-  info "Initializing networking", addrs=announcedAddresses
+  return autonatService
+
+## retain old signature, but deprecate it
+proc new*(T: type WakuNode,
+          nodeKey: crypto.PrivateKey,
+          bindIp: ValidIpAddress,
+          bindPort: Port,
+          extIp = none(ValidIpAddress),
+          extPort = none(Port),
+          extMultiAddrs = newSeq[MultiAddress](),
+          peerStorage: PeerStorage = nil,
+          maxConnections = builders.MaxConnections,
+          wsBindPort: Port = (Port)8000,
+          wsEnabled: bool = false,
+          wssEnabled: bool = false,
+          secureKey: string = "",
+          secureCert: string = "",
+          wakuFlags = none(WakuEnrBitfield),
+          nameResolver: NameResolver = nil,
+          sendSignedPeerRecord = false,
+          dns4DomainName = none(string),
+          discv5UdpPort = none(Port),
+          wakuDiscv5 = none(WakuDiscoveryV5),
+          agentString = none(string),    # defaults to nim-libp2p version
+          peerStoreCapacity = none(int), # defaults to 1.25 maxConnections
+          ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError], deprecated: "Use AddressMetadata variant".} =
+  let addressMetadata = getWakuNodeAddrMeta(
+    bindIp = bindIp,
+    bindPort = bindPort,
+    extIp = extIp,
+    extPort = extPort,
+    extMultiAddrs = extMultiAddrs,
+    wsBindPort = wsBindPort,
+    wsEnabled = wsEnabled,
+    wssEnabled = wssEnabled,
+    wakuFlags = wakuFlags,
+    dns4DomainName = dns4DomainName,
+    discv5UdpPort = discv5UdpPort,
+  )
+
+  return WakuNode.new(
+    nodeKey = nodeKey,
+    addressMetadata = addressMetadata,
+    peerStorage = peerStorage,
+    maxConnections = maxConnections,
+    secureKey = secureKey,
+    secureCert = secureCert,
+    nameResolver = nameResolver,
+    sendSignedPeerRecord = sendSignedPeerRecord,
+    wakuDiscv5 = wakuDiscv5,
+    agentString = agentString,
+    peerStoreCapacity = peerStoreCapacity,
+  )
+
+proc new*(T: type WakuNode,
+          nodeKey: crypto.PrivateKey,
+          addressMetadata: WakuNodeAddrMeta,
+          peerStorage: PeerStorage = nil,
+          maxConnections = builders.MaxConnections,
+          rng = crypto.newRng(),
+          secureKey: string = "",
+          secureCert: string = "",
+          nameResolver: NameResolver = nil,
+          sendSignedPeerRecord = false,
+          wakuDiscv5 = none(WakuDiscoveryV5),
+          agentString = none(string),    # defaults to nim-libp2p version
+          peerStoreCapacity = none(int), # defaults to nim-libp2p max size
+          ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
+  ## Creates a Waku Node instance.
+
+  info "Initializing networking", addrs=addressMetadata.announcedAddresses
 
   let switch = newWakuSwitch(
     some(nodekey),
-    hostAddress,
-    wsHostAddress,
+    address = addressMetadata.hostAddress,
+    wsAddress = addressMetadata.wsHostAddress,
     transportFlags = {ServerFlags.ReuseAddr},
     rng = rng,
     maxConnections = maxConnections,
-    wssEnabled = wssEnabled,
+    wssEnabled = addressMetadata.wssEnabled,
     secureKeyPath = secureKey,
     secureCertPath = secureCert,
     nameResolver = nameResolver,
     sendSignedPeerRecord = sendSignedPeerRecord,
     agentString = agentString,
     peerStoreCapacity = peerStoreCapacity,
-    services = @[Service(autonatservice)],
+    services = @[Service(getAutonatService(rng))],
   )
 
-  let wakuNode = WakuNode(
+  return WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
     switch: switch,
     rng: rng,
-    enr: enr,
-    announcedAddresses: announcedAddresses
+    enr: addressMetadata.getEnr(wakuDiscv5, nodekey),
+    announcedAddresses: addressMetadata.announcedAddresses,
+    wakuDiscv5: if wakuDiscV5.isSome(): wakuDiscV5.get() else: nil,
   )
-
-  return wakuNode
-
 
 proc peerInfo*(node: WakuNode): PeerInfo =
   node.switch.peerInfo

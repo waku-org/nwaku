@@ -34,21 +34,25 @@ type
     Filter = 2,
     Lightpush = 3,
 
-func toFieldPair(multiaddrs: seq[MultiAddress]): FieldPair =
-  ## Converts a seq of multiaddrs to a `multiaddrs` ENR
-  ## field pair according to https://rfc.vac.dev/spec/31/
-  
+func getRawField*(multiaddrs: seq[MultiAddress]): seq[byte] =
   var fieldRaw: seq[byte]
 
   for multiaddr in multiaddrs:
     let
       maRaw = multiaddr.data.buffer # binary encoded multiaddr
       maSize = maRaw.len.uint16.toBytes(Endianness.bigEndian) # size as Big Endian unsigned 16-bit integer
-    
+
     assert maSize.len == 2
 
     fieldRaw.add(concat(@maSize, maRaw))
-  
+
+  return fieldRaw
+
+func toFieldPair*(multiaddrs: seq[MultiAddress]): FieldPair =
+  ## Converts a seq of multiaddrs to a `multiaddrs` ENR
+  ## field pair according to https://rfc.vac.dev/spec/31/
+  let fieldRaw = multiaddrs.getRawField()
+
   return toFieldPair(MULTIADDR_ENR_FIELD, fieldRaw)
 
 func stripPeerId(multiaddr: MultiAddress): MultiAddress =
@@ -58,10 +62,10 @@ func stripPeerId(multiaddr: MultiAddress): MultiAddress =
     if item[].protoName()[] != "p2p":
       # Add all parts except p2p peerId
       discard cleanAddr.append(item[])
-  
+
   return cleanAddr
 
-func stripPeerIds(multiaddrs: seq[MultiAddress]): seq[MultiAddress] =
+func stripPeerIds*(multiaddrs: seq[MultiAddress]): seq[MultiAddress] =
   var cleanAddrs: seq[MultiAddress]
 
   for multiaddr in multiaddrs:
@@ -69,19 +73,19 @@ func stripPeerIds(multiaddrs: seq[MultiAddress]): seq[MultiAddress] =
       cleanAddrs.add(multiaddr.stripPeerId())
     else:
       cleanAddrs.add(multiaddr)
-  
+
   return cleanAddrs
 
 func readBytes(rawBytes: seq[byte], numBytes: int, pos: var int = 0): Result[seq[byte], cstring] =
-  ## Attempts to read `numBytes` from a sequence, from 
+  ## Attempts to read `numBytes` from a sequence, from
   ## position `pos`. Returns the requested slice or
   ## an error if `rawBytes` boundary is exceeded.
-  ## 
+  ##
   ## If successful, `pos` is advanced by `numBytes`
 
   if rawBytes[pos..^1].len() < numBytes:
     return err("Exceeds maximum available bytes")
-  
+
   let slicedSeq = rawBytes[pos..<pos+numBytes]
   pos += numBytes
 
@@ -146,7 +150,7 @@ func initEnr*(privateKey: crypto.PrivateKey,
               enrTcpPort, enrUdpPort: Option[Port],
               wakuFlags = none(WakuEnrBitfield),
               multiaddrs: seq[MultiAddress] = @[]): enr.Record =
-  
+
   assert privateKey.scheme == PKScheme.Secp256k1
 
   ## Waku-specific ENR fields (https://rfc.vac.dev/spec/31/)
@@ -166,10 +170,10 @@ func initEnr*(privateKey: crypto.PrivateKey,
     enr = enr.Record.init(1, pk,
                           enrIp, enrTcpPort, enrUdpPort,
                           wakuEnrFields).expect("Record within size limits")
-  
+
   return enr
 
-proc supportsCapability*(r: Record, capability: Capabilities): bool = 
+proc supportsCapability*(r: Record, capability: Capabilities): bool =
   let enrCapabilities = r.get(WAKU_ENR_FIELD, seq[byte])
   if enrCapabilities.isOk():
     return testBit(enrCapabilities.get()[0], capability.ord)

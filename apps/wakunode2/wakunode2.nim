@@ -271,59 +271,52 @@ proc initNode(conf: WakuNodeConf,
   let pStorage = if peerStore.isNone(): nil
                  else: peerStore.get()
   try:
-    node = WakuNode.new(conf.nodekey,
-                        conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift),
-                        extIp, extPort,
-                        extMultiAddrs,
-                        pStorage,
-                        conf.maxConnections.int,
-                        Port(uint16(conf.websocketPort) + conf.portsShift),
-                        conf.websocketSupport,
-                        conf.websocketSecureSupport,
-                        conf.websocketSecureKeyPath,
-                        conf.websocketSecureCertPath,
-                        some(wakuFlags),
-                        dnsResolver,
-                        conf.relayPeerExchange, # We send our own signed peer record when peer exchange enabled
-                        dns4DomainName,
-                        discv5UdpPort,
-                        some(conf.agentString),
-                        conf.peerStoreCapacity)
+    var wakuDiscv5 = none(WakuDiscoveryV5)
+    let rng = crypto.newRng()
+
+    let addressMetadata = getWakuNodeAddrMeta(
+      bindIp = conf.listenAddress,
+      bindPort = Port(uint16(conf.tcpPort) + conf.portsShift),
+      extIp = extIp,
+      extPort = extPort,
+      extMultiAddrs = extMultiAddrs,
+      wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
+      wsEnabled = conf.websocketSupport,
+      wssEnabled = conf.websocketSecureSupport,
+      dns4DomainName = dns4DomainName,
+      discv5UdpPort = discv5UdpPort,
+      wakuFlags = some(wakuFlags),
+    )
+    if conf.discv5Discovery:
+      let dynamicBootstrapEnrs = filterEnrPeersWithUdpPort(@dynamicBootstrapNodes)
+      var discv5BootstrapEnrs: seq[enr.Record]
+      # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
+      for enrUri in conf.discv5BootstrapNodes:
+        addBootstrapNode(enrUri, discv5BootstrapEnrs)
+      discv5BootstrapEnrs.add(dynamicBootstrapEnrs)
+      let discv5Config = DiscoveryConfig.init(conf.discv5TableIpLimit,
+                                              conf.discv5BucketIpLimit,
+                                              conf.discv5BitsPerHop)
+      wakuDiscv5 = some(getWakuDiscoveryV5(addressMetadata = addressMetadata,
+                                           nodekey = conf.nodekey,
+                                           discv5Config = discv5Config,
+                                           discv5BootstrapEnrs = discv5BootstrapEnrs,
+                                           discv5EnrAutoUpdate = conf.discv5EnrAutoUpdate,
+                                           rng = rng))
+    node = WakuNode.new(nodekey = conf.nodekey,
+                        addressMetadata = addressMetadata,
+                        rng = rng,
+                        peerStorage = pStorage,
+                        maxConnections = conf.maxConnections.int,
+                        secureKey = conf.websocketSecureKeyPath,
+                        secureCert = conf.websocketSecureCertPath,
+                        nameResolver = dnsResolver,
+                        sendSignedPeerRecord = conf.relayPeerExchange, # We send our own signed peer record when peer exchange enabled
+                        wakuDiscv5 = wakuDiscv5,
+                        agentString = some(conf.agentString),
+                        peerStoreCapacity = conf.peerStoreCapacity)
   except:
     return err("failed to create waku node instance: " & getCurrentExceptionMsg())
-
-  if conf.discv5Discovery:
-    let
-      discoveryConfig = DiscoveryConfig.init(
-        conf.discv5TableIpLimit, conf.discv5BucketIpLimit, conf.discv5BitsPerHop)
-
-    # select dynamic bootstrap nodes that have an ENR containing a udp port.
-    # Discv5 only supports UDP https://github.com/ethereum/devp2p/blob/master/discv5/discv5-theory.md)
-    var discv5BootstrapEnrs: seq[enr.Record]
-    for n in dynamicBootstrapNodes:
-      if n.enr.isSome():
-        let
-          enr = n.enr.get()
-          tenrRes = enr.toTypedRecord()
-        if tenrRes.isOk() and (tenrRes.get().udp.isSome() or tenrRes.get().udp6.isSome()):
-          discv5BootstrapEnrs.add(enr)
-
-    # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
-    for enrUri in conf.discv5BootstrapNodes:
-      addBootstrapNode(enrUri, discv5BootstrapEnrs)
-
-    node.wakuDiscv5 = WakuDiscoveryV5.new(
-      extIP, extPort, discv5UdpPort,
-      conf.listenAddress,
-      discv5UdpPort.get(),
-      discv5BootstrapEnrs,
-      conf.discv5EnrAutoUpdate,
-      keys.PrivateKey(conf.nodekey.skkey),
-      wakuFlags,
-      [], # Empty enr fields, for now
-      node.rng,
-      discoveryConfig
-    )
 
   ok(node)
 
