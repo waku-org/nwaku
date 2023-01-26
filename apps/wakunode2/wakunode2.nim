@@ -252,6 +252,14 @@ proc initNode(conf: WakuNodeConf,
                 some(Port(uint16(conf.tcpPort) + conf.portsShift))
               else:
                 extTcpPort
+    extMultiAddrs = if (conf.extMultiAddrs.len > 0):
+                      let extMultiAddrsValidationRes = validateExtMultiAddrs(conf.extMultiAddrs)
+                      if extMultiAddrsValidationRes.isErr():
+                        return err("invalid external multiaddress: " & extMultiAddrsValidationRes.error)
+                      else:
+                        extMultiAddrsValidationRes.get()
+                    else:
+                      @[]
 
     wakuFlags = initWakuFlags(conf.lightpush,
                               conf.filter,
@@ -266,6 +274,7 @@ proc initNode(conf: WakuNodeConf,
     node = WakuNode.new(conf.nodekey,
                         conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift),
                         extIp, extPort,
+                        extMultiAddrs,
                         pStorage,
                         conf.maxConnections.int,
                         Port(uint16(conf.websocketPort) + conf.portsShift),
@@ -279,8 +288,7 @@ proc initNode(conf: WakuNodeConf,
                         dns4DomainName,
                         discv5UdpPort,
                         some(conf.agentString),
-                        some(conf.peerStoreCapacity),
-                        )
+                        some(conf.peerStoreCapacity))
   except:
     return err("failed to create waku node instance: " & getCurrentExceptionMsg())
 

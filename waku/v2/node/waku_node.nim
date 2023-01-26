@@ -136,6 +136,7 @@ proc new*(T: type WakuNode,
           bindPort: Port,
           extIp = none(ValidIpAddress),
           extPort = none(Port),
+          extMultiAddrs = newSeq[MultiAddress](),
           peerStorage: PeerStorage = nil,
           maxConnections = builders.MaxConnections,
           wsBindPort: Port = (Port)8000,
@@ -178,11 +179,16 @@ proc new*(T: type WakuNode,
       if (wsHostAddress.isSome()):
         wsExtAddress = some(ip4TcpEndPoint(extIp.get(), wsBindPort) & wsFlag(wssEnabled))
 
-  var announcedAddresses: seq[MultiAddress]
+  var announcedAddresses = newSeq[MultiAddress]()
+
   if hostExtAddress.isSome():
     announcedAddresses.add(hostExtAddress.get())
   else:
     announcedAddresses.add(hostAddress) # We always have at least a bind address for the host
+
+  # External multiaddrs that the operator may have configured
+  if extMultiAddrs.len > 0:
+    announcedAddresses.add(extMultiAddrs)
 
   if wsExtAddress.isSome():
     announcedAddresses.add(wsExtAddress.get())
@@ -196,9 +202,12 @@ proc new*(T: type WakuNode,
             else: some(bindIp)
     enrTcpPort = if extPort.isSome(): extPort
                  else: some(bindPort)
-    enrMultiaddrs = if wsExtAddress.isSome(): @[wsExtAddress.get()] # Only add ws/wss to `multiaddrs` field
-                    elif wsHostAddress.isSome(): @[wsHostAddress.get()]
-                    else: @[]
+    # enrMultiaddrs are just addresses which cannot be represented in ENR, as described in
+    # https://rfc.vac.dev/spec/31/#many-connection-types
+    enrMultiaddrs = announcedAddresses.filterIt(it.hasProtocol("dns4") or
+                                                it.hasProtocol("dns6") or
+                                                it.hasProtocol("ws") or
+                                                it.hasProtocol("wss"))
     enr = initEnr(nodeKey,
                   enrIp,
                   enrTcpPort,
@@ -815,6 +824,7 @@ when defined(rln):
       error "failed to mount rln relay", error=rlnRelayRes.error
       return
     node.wakuRlnRelay = rlnRelayRes.get()
+
 
 ## Waku peer-exchange
 

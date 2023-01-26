@@ -4,8 +4,8 @@ import
   stew/byteutils,
   stew/shims/net as stewNet,
   testutils/unittests,
-  chronicles, 
-  chronos, 
+  chronicles,
+  chronos,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/multiaddress,
@@ -24,7 +24,7 @@ import
 
 procSuite "WakuNode":
   let rng = crypto.newRng()
-   
+
   asyncTest "Protocol matcher works as expected":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
@@ -153,9 +153,9 @@ procSuite "WakuNode":
     expect IOError:
       # gibberish
       discard WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(61004), 
-        wsBindPort = Port(8000), 
-        wssEnabled = true, 
+        bindPort = Port(61004),
+        wsBindPort = Port(8000),
+        wssEnabled = true,
         secureKey = "../../waku/v2/node/key_dummy.txt")
 
   asyncTest "Peer info updates with correct announced addresses":
@@ -216,7 +216,7 @@ procSuite "WakuNode":
       node.announcedAddresses.len == 1
       node.announcedAddresses.contains(expectedDns4Addr)
 
-   
+
   asyncTest "Agent string is set and advertised correctly":
     let
       # custom agent string
@@ -249,5 +249,38 @@ procSuite "WakuNode":
     check:
       node1Agent == expectedAgentString1
       node2Agent == expectedAgentString2
+
+    await allFutures(node1.stop(), node2.stop())
+
+  asyncTest "Custom multiaddresses are set and advertised correctly":
+    let
+      # custom multiaddress
+      expectedMultiaddress1 = MultiAddress.init("/ip4/200.200.200.200/tcp/1234").get()
+
+    # Note: this could have been done with a single node, but it is useful to
+    # have two nodes to check that the multiaddress is advertised correctly
+    let
+      # node with custom multiaddress
+      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(61018),
+                           extMultiAddrs = @[expectedMultiaddress1])
+
+      # node with default multiaddress
+      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(61020))
+
+    await node1.start()
+    await node1.mountRelay()
+
+    await node2.start()
+    await node2.mountRelay()
+
+    await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
+    await node2.connectToNodes(@[node1.switch.peerInfo.toRemotePeerInfo()])
+
+    let node1MultiAddrs = node2.switch.peerStore[AddressBook][node1.switch.peerInfo.toRemotePeerInfo().peerId]
+
+    check:
+      node1MultiAddrs.contains(expectedMultiaddress1)
 
     await allFutures(node1.stop(), node2.stop())
