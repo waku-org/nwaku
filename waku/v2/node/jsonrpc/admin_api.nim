@@ -30,11 +30,21 @@ proc constructMultiaddrStr*(wireaddr: MultiAddress, peerId: PeerId): string =
 
 proc constructMultiaddrStr*(peerInfo: PeerInfo): string =
   # Constructs a multiaddress with both location (wire) address and p2p identity
+  if peerInfo.listenAddrs.len == 0:
+    return ""
   constructMultiaddrStr(peerInfo.listenAddrs[0], peerInfo.peerId)
 
 proc constructMultiaddrStr*(remotePeerInfo: RemotePeerInfo): string =
   # Constructs a multiaddress with both location (wire) address and p2p identity
+  if remotePeerInfo.addrs.len == 0:
+    return ""
   constructMultiaddrStr(remotePeerInfo.addrs[0], remotePeerInfo.peerId)
+
+proc constructMultiaddrStr*(storedInfo: StoredInfo): string =
+  # Constructs a multiaddress with both location (wire) address and p2p identity
+  if storedInfo.addrs.len == 0:
+    return ""
+  constructMultiaddrStr(storedInfo.addrs[0], storedInfo.peerId)
 
 proc installAdminApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
 
@@ -65,7 +75,7 @@ proc installAdminApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
       # Map managed peers to WakuPeers and add to return list
       wPeers.insert(node.peerManager.peerStore
                                     .peers(WakuRelayCodec)
-                                    .mapIt(WakuPeer(multiaddr: constructMultiaddrStr(toSeq(it.addrs.items)[0], it.peerId),
+                                    .mapIt(WakuPeer(multiaddr: constructMultiaddrStr(it),
                                                     protocol: WakuRelayCodec,
                                                     connected: it.connectedness == Connectedness.Connected)),
                     wPeers.len) # Append to the end of the sequence
@@ -74,7 +84,7 @@ proc installAdminApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
       # Map WakuFilter peers to WakuPeers and add to return list
       wPeers.insert(node.peerManager.peerStore
                                     .peers(WakuFilterCodec)
-                                    .mapIt(WakuPeer(multiaddr: constructMultiaddrStr(toSeq(it.addrs.items)[0], it.peerId),
+                                    .mapIt(WakuPeer(multiaddr: constructMultiaddrStr(it),
                                                     protocol: WakuFilterCodec,
                                                     connected: it.connectedness == Connectedness.Connected)),
                     wPeers.len) # Append to the end of the sequence
@@ -83,7 +93,7 @@ proc installAdminApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
       # Map WakuSwap peers to WakuPeers and add to return list
       wPeers.insert(node.peerManager.peerStore
                                     .peers(WakuSwapCodec)
-                                    .mapIt(WakuPeer(multiaddr: constructMultiaddrStr(toSeq(it.addrs.items)[0], it.peerId),
+                                    .mapIt(WakuPeer(multiaddr: constructMultiaddrStr(it),
                                                     protocol: WakuSwapCodec,
                                                     connected: it.connectedness == Connectedness.Connected)),
                     wPeers.len) # Append to the end of the sequence
@@ -92,7 +102,7 @@ proc installAdminApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
       # Map WakuStore peers to WakuPeers and add to return list
       wPeers.insert(node.peerManager.peerStore
                                     .peers(WakuStoreCodec)
-                                    .mapIt(WakuPeer(multiaddr: constructMultiaddrStr(toSeq(it.addrs.items)[0], it.peerId),
+                                    .mapIt(WakuPeer(multiaddr: constructMultiaddrStr(it),
                                                     protocol: WakuStoreCodec,
                                                     connected: it.connectedness == Connectedness.Connected)),
                     wPeers.len) # Append to the end of the sequence

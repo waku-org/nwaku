@@ -43,3 +43,6 @@ proc getRng(): ref rand.HmacDrbgContext =
 
 template rng*(): ref rand.HmacDrbgContext =
   getRng()
+
+proc generateKey*(): crypto.PrivateKey =
+  return crypto.PrivateKey.random(Secp256k1, rng[])[]

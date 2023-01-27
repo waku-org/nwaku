@@ -10,6 +10,7 @@ import
   confutils/toml/std/net as confTomlNet,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
+  libp2p/multiaddress,
   nimcrypto/utils
 import
   ../../waku/common/confutils/envvar/defs as confEnvvarDefs,
@@ -74,6 +75,10 @@ type
       desc: "Specify method to use for determining public address. " &
             "Must be one of: any, none, upnp, pmp, extip:<IP>."
       defaultValue: "any" }: string
+
+    extMultiAddrs* {.
+      desc: "External multiaddresses to advertise to the network. Argument may be repeated."
+      name: "ext-multiaddr" }: seq[string]
 
     maxConnections* {.
       desc: "Maximum allowed number of libp2p connections."
@@ -513,6 +518,12 @@ proc validateStoreMessageRetentionPolicy*(val: string): ConfResult[string] =
   else:
     err("invalid 'store message retention policy' option format: " & val)
 
+proc validateExtMultiAddrs*(vals: seq[string]): ConfResult[seq[MultiAddress]] =
+  var multiaddrs: seq[MultiAddress]
+  for val in vals:
+    let multiaddr = ? MultiAddress.init(val)
+    multiaddrs.add(multiaddr)
+  ok(multiaddrs)
 
 ## Load
 

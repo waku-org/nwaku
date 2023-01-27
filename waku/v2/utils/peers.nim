@@ -13,6 +13,7 @@ import
   libp2p/crypto/[crypto, secp],
   libp2p/[errors,
           multiaddress,
+          multicodec,
           peerid,
           peerinfo,
           routing_record]
@@ -169,3 +170,15 @@ proc toRemotePeerInfo*(peerInfo: PeerInfo): RemotePeerInfo =
                       peerInfo.listenAddrs,
                       none(enr.Record), # we could generate an ENR from PeerInfo
                       peerInfo.protocols)
+
+## Checks if a multiaddress contains a given protocol
+## Useful for filtering multiaddresses based on their protocols
+proc hasProtocol*(ma: MultiAddress, proto: string): bool =
+  ## Returns ``true`` if ``ma`` contains protocol ``proto``.
+  let protos = ma.protocols()
+  if protos.isErr():
+    return false
+  for p in protos.get():
+    if p == MultiCodec.codec(proto):
+      return true
+  return false

@@ -5,7 +5,7 @@ else:
 
 
 import
-  std/[tables, times, sequtils, options],
+  std/[tables, times, sequtils, options, algorithm],
   stew/results,
   chronicles,
   chronos,
@@ -129,6 +129,7 @@ proc findMessages*(w: WakuArchive, query: ArchiveQuery): ArchiveResult {.gcsafe.
   if qContentTopics.len > 10:
     return err(ArchiveError.invalidQuery("too many content topics"))
 
+
   let queryStartTime = getTime().toUnixFloat()
 
   let queryRes = w.driver.getMessages(
@@ -145,25 +146,23 @@ proc findMessages*(w: WakuArchive, query: ArchiveQuery): ArchiveResult {.gcsafe.
   waku_archive_query_duration_seconds.observe(queryDuration)
 
 
-
   # Build response
   if queryRes.isErr():
     return err(ArchiveError(kind: ArchiveErrorKind.DRIVER_ERROR, cause: queryRes.error))
 
   let rows = queryRes.get()
 
-  if rows.len <= 0:
-    return ok(ArchiveResponse(
-      messages: @[],
-      cursor: none(ArchiveCursor)
-    ))
-
-
-  # TODO: Move cursor generation to the driver implementation module
-  var messages = if rows.len <= int(qMaxPageSize): rows.mapIt(it[1])
-                 else: rows[0..^2].mapIt(it[1])
+  var messages = newSeq[WakuMessage]()
   var cursor = none(ArchiveCursor)
 
+  if rows.len == 0:
+    return ok(ArchiveResponse(messages: messages, cursor: cursor))
+
+  ## Messages
+  let pageSize = min(rows.len, int(qMaxPageSize))
+  messages = rows[0..<pageSize].mapIt(it[1])
+
+  ## Cursor
   if rows.len > int(qMaxPageSize):
     ## Build last message cursor
     ## The cursor is built from the last message INCLUDED in the response
@@ -171,22 +170,25 @@ proc findMessages*(w: WakuArchive, query: ArchiveQuery): ArchiveResult {.gcsafe.
     let (pubsubTopic, message, digest, storeTimestamp) = rows[^2]
 
     # TODO: Improve coherence of MessageDigest type
-    var messageDigest: array[32, byte]
-    for i in 0..<min(digest.len, 32):
-      messageDigest[i] = digest[i]
+    let messageDigest = block:
+        var data: array[32, byte]
+        for i in 0..<min(digest.len, 32):
+          data[i] = digest[i]
+
+        MessageDigest(data: data)
 
     cursor = some(ArchiveCursor(
       pubsubTopic: pubsubTopic,
       senderTime: message.timestamp,
       storeTime: storeTimestamp,
-      digest: MessageDigest(data: messageDigest)
+      digest: messageDigest
     ))
 
+  # All messages MUST be returned in chronological order
+  if not qAscendingOrder:
+    reverse(messages)
 
-  ok(ArchiveResponse(
-    messages: messages,
-    cursor: cursor
-  ))
+  ok(ArchiveResponse(messages: messages, cursor: cursor))
 
 
 # Retention policy

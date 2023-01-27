@@ -1,8 +1,10 @@
 {.used.}
 
 import
-  std/[options,sequtils],
+  std/[options,sequtils, times],
+  chronos,
   libp2p/crypto/crypto,
+  libp2p/peerid,
   libp2p/peerstore,
   libp2p/multiaddress,
   testutils/unittests
@@ -10,8 +12,7 @@ import
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/peer_manager/waku_peer_store,
   ../../waku/v2/node/waku_node,
-  ../test_helpers,
-  ./testlib/testutils
+  ../test_helpers
 
 
 suite "Extended nim-libp2p Peer Store":
@@ -45,6 +46,8 @@ suite "Extended nim-libp2p Peer Store":
     peerStore[DisconnectBook][p1] = 0
     peerStore[SourceBook][p1] = Discv5
     peerStore[DirectionBook][p1] = Inbound
+    peerStore[NumberFailedConnBook][p1] = 1
+    peerStore[LastFailedConnBook][p1] = Moment.init(1001, Second)
 
     # Peer2: Connected
     peerStore[AddressBook][p2] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/2").tryGet()]
@@ -56,6 +59,8 @@ suite "Extended nim-libp2p Peer Store":
     peerStore[DisconnectBook][p2] = 0
     peerStore[SourceBook][p2] = Discv5
     peerStore[DirectionBook][p2] = Inbound
+    peerStore[NumberFailedConnBook][p2] = 2
+    peerStore[LastFailedConnBook][p2] = Moment.init(1002, Second)
 
     # Peer3: Connected
     peerStore[AddressBook][p3] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/3").tryGet()]
@@ -67,6 +72,8 @@ suite "Extended nim-libp2p Peer Store":
     peerStore[DisconnectBook][p3] = 0
     peerStore[SourceBook][p3] = Discv5
     peerStore[DirectionBook][p3] = Inbound
+    peerStore[NumberFailedConnBook][p3] = 3
+    peerStore[LastFailedConnBook][p3] = Moment.init(1003, Second)
 
     # Peer4: Added but never connected
     peerStore[AddressBook][p4] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/4").tryGet()]
@@ -78,6 +85,8 @@ suite "Extended nim-libp2p Peer Store":
     peerStore[DisconnectBook][p4] = 0
     peerStore[SourceBook][p4] = Discv5
     peerStore[DirectionBook][p4] = Inbound
+    peerStore[NumberFailedConnBook][p4] = 4
+    peerStore[LastFailedConnBook][p4] = Moment.init(1004, Second)
 
     # Peer5: Connecteed in the past
     peerStore[AddressBook][p5] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/5").tryGet()]
@@ -89,6 +98,8 @@ suite "Extended nim-libp2p Peer Store":
     peerStore[DisconnectBook][p5] = 1000
     peerStore[SourceBook][p5] = Discv5
     peerStore[DirectionBook][p5] = Outbound
+    peerStore[NumberFailedConnBook][p5] = 5
+    peerStore[LastFailedConnBook][p5] = Moment.init(1005, Second)
 
   test "get() returns the correct StoredInfo for a given PeerId":
     # When
@@ -108,17 +119,21 @@ suite "Extended nim-libp2p Peer Store":
       storedInfoPeer1.connectedness == Connected
       storedInfoPeer1.disconnectTime == 0
       storedInfoPeer1.origin == Discv5
+      storedInfoPeer1.numberFailedConn == 1
+      storedInfoPeer1.lastFailedConn == Moment.init(1001, Second)
 
     check:
-      # fields are empty
+      # fields are empty, not part of the peerstore
       storedInfoPeer6.peerId == p6
       storedInfoPeer6.addrs.len == 0
       storedInfoPeer6.protos.len == 0
-      storedInfoPeer6.agent == ""
-      storedInfoPeer6.protoVersion == ""
-      storedInfoPeer6.connectedness == NotConnected
-      storedInfoPeer6.disconnectTime == 0
-      storedInfoPeer6.origin == UnknownOrigin
+      storedInfoPeer6.agent == default(string)
+      storedInfoPeer6.protoVersion == default(string)
+      storedInfoPeer6.connectedness == default(Connectedness)
+      storedInfoPeer6.disconnectTime == default(int)
+      storedInfoPeer6.origin == default(PeerOrigin)
+      storedInfoPeer6.numberFailedConn == default(int)
+      storedInfoPeer6.lastFailedConn == default(Moment)
 
   test "peers() returns all StoredInfo of the PeerStore":
     # When
@@ -146,6 +161,8 @@ suite "Extended nim-libp2p Peer Store":
       p3.connectedness == Connected
       p3.disconnectTime == 0
       p3.origin == Discv5
+      p3.numberFailedConn == 3
+      p3.lastFailedConn == Moment.init(1003, Second)
 
   test "peers() returns all StoredInfo matching a specific protocol":
     # When
@@ -250,16 +267,6 @@ suite "Extended nim-libp2p Peer Store":
       peerStore.hasPeers(protocolMatcher("/vac/waku/store/2.0.0"))
       not peerStore.hasPeers(protocolMatcher("/vac/waku/does-not-exist/2.0.0"))
 
-  test "selectPeer() returns if a peer supports a given protocol":
-    # When
-    let swapPeer = peerStore.selectPeer("/vac/waku/swap/2.0.0")
-
-    # Then
-    check:
-      swapPeer.isSome()
-      swapPeer.get().peerId == p5
-      swapPeer.get().protocols == @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"]
-
   test "getPeersByDirection()":
     # When
     let inPeers = peerStore.getPeersByDirection(Inbound)
@@ -280,3 +287,76 @@ suite "Extended nim-libp2p Peer Store":
       disconnedtedPeers.anyIt(it.peerId == p4)
       disconnedtedPeers.anyIt(it.peerId == p5)
       not disconnedtedPeers.anyIt(it.connectedness == Connected)
+
+  test "del() successfully deletes waku custom books":
+    # Given
+    let peerStore = PeerStore.new(capacity = 5)
+    var p1: PeerId
+    require p1.init("QmeuZJbXrszW2jdT7GdduSjQskPU3S7vvGWKtKgDfkDvW" & "1")
+    peerStore[AddressBook][p1] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()]
+    peerStore[ProtoBook][p1] = @["proto"]
+    peerStore[KeyBook][p1] = KeyPair.random(ECDSA, rng[]).tryGet().pubkey
+    peerStore[AgentBook][p1] = "agent"
+    peerStore[ProtoVersionBook][p1] = "version"
+    peerStore[LastFailedConnBook][p1] = Moment.init(getTime().toUnix, Second)
+    peerStore[NumberFailedConnBook][p1] = 1
+    peerStore[ConnectionBook][p1] = Connected
+    peerStore[DisconnectBook][p1] = 0
+    peerStore[SourceBook][p1] = Discv5
+    peerStore[DirectionBook][p1] = Inbound
+
+    # When
+    peerStore.del(p1)
+
+    # Then
+    check:
+      peerStore[AddressBook][p1] == newSeq[MultiAddress](0)
+      peerStore[ProtoBook][p1] == newSeq[string](0)
+      peerStore[KeyBook][p1] == default(PublicKey)
+      peerStore[AgentBook][p1] == ""
+      peerStore[ProtoVersionBook][p1] == ""
+      peerStore[LastFailedConnBook][p1] == default(Moment)
+      peerStore[NumberFailedConnBook][p1] == 0
+      peerStore[ConnectionBook][p1] == default(Connectedness)
+      peerStore[DisconnectBook][p1] == 0
+      peerStore[SourceBook][p1] == default(PeerOrigin)
+      peerStore[DirectionBook][p1] == default(PeerDirection)
+
+  asyncTest "canBeConnected() returns correct value":
+    let peerStore = PeerStore.new(capacity = 5)
+    var p1: PeerId
+    require p1.init("QmeuZJbXrszW2jdT7GdduSjQskPU3S7vvGWKtKgDfkDvW" & "1")
+
+    # with InitialBackoffInSec = 1 backoffs are: 1, 2, 4, 8secs.
+    let initialBackoffInSec = 1
+    let backoffFactor = 2
+
+    # new peer with no errors can be connected
+    check:
+      peerStore.canBeConnected(p1, initialBackoffInSec, backoffFactor) == true
+
+    # peer with ONE error that just failed
+    peerStore[NumberFailedConnBook][p1] = 1
+    peerStore[LastFailedConnBook][p1] = Moment.init(getTime().toUnix, Second)
+    # we cant connect right now
+    check:
+      peerStore.canBeConnected(p1, initialBackoffInSec, backoffFactor) == false
+
+    # but we can after the first backoff of 1 seconds
+    await sleepAsync(1200)
+    check:
+      peerStore.canBeConnected(p1, initialBackoffInSec, backoffFactor) == true
+
+    # peer with TWO errors, we can connect until 2 seconds have passed
+    peerStore[NumberFailedConnBook][p1] = 2
+    peerStore[LastFailedConnBook][p1] = Moment.init(getTime().toUnix, Second)
+
+    # cant be connected after 1 second
+    await sleepAsync(1000)
+    check:
+      peerStore.canBeConnected(p1, initialBackoffInSec, backoffFactor) == false
+
+    # can be connected after 2 seconds
+    await sleepAsync(1200)
+    check:
+      peerStore.canBeConnected(p1, initialBackoffInSec, backoffFactor) == true

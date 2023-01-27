@@ -136,6 +136,7 @@ proc new*(T: type WakuNode,
           bindPort: Port,
           extIp = none(ValidIpAddress),
           extPort = none(Port),
+          extMultiAddrs = newSeq[MultiAddress](),
           peerStorage: PeerStorage = nil,
           maxConnections = builders.MaxConnections,
           wsBindPort: Port = (Port)8000,
@@ -178,11 +179,16 @@ proc new*(T: type WakuNode,
       if (wsHostAddress.isSome()):
         wsExtAddress = some(ip4TcpEndPoint(extIp.get(), wsBindPort) & wsFlag(wssEnabled))
 
-  var announcedAddresses: seq[MultiAddress]
+  var announcedAddresses = newSeq[MultiAddress]()
+
   if hostExtAddress.isSome():
     announcedAddresses.add(hostExtAddress.get())
   else:
     announcedAddresses.add(hostAddress) # We always have at least a bind address for the host
+
+  # External multiaddrs that the operator may have configured
+  if extMultiAddrs.len > 0:
+    announcedAddresses.add(extMultiAddrs)
 
   if wsExtAddress.isSome():
     announcedAddresses.add(wsExtAddress.get())
@@ -196,9 +202,12 @@ proc new*(T: type WakuNode,
             else: some(bindIp)
     enrTcpPort = if extPort.isSome(): extPort
                  else: some(bindPort)
-    enrMultiaddrs = if wsExtAddress.isSome(): @[wsExtAddress.get()] # Only add ws/wss to `multiaddrs` field
-                    elif wsHostAddress.isSome(): @[wsHostAddress.get()]
-                    else: @[]
+    # enrMultiaddrs are just addresses which cannot be represented in ENR, as described in
+    # https://rfc.vac.dev/spec/31/#many-connection-types
+    enrMultiaddrs = announcedAddresses.filterIt(it.hasProtocol("dns4") or
+                                                it.hasProtocol("dns6") or
+                                                it.hasProtocol("ws") or
+                                                it.hasProtocol("wss"))
     enr = initEnr(nodeKey,
                   enrIp,
                   enrTcpPort,
@@ -364,8 +373,7 @@ proc publish*(node: WakuNode, topic: PubsubTopic, message: WakuMessage) {.async,
 
   trace "publish", topic=topic, contentTopic=message.contentTopic
 
-  let data = message.encode().buffer
-  discard await node.wakuRelay.publish(topic, data)
+  discard await node.wakuRelay.publish(topic, message)
 
 proc startRelay*(node: WakuNode) {.async.} =
   ## Setup and start relay protocol
@@ -391,9 +399,6 @@ proc startRelay*(node: WakuNode) {.async.} =
     await node.peerManager.reconnectPeers(WakuRelayCodec,
                                           protocolMatcher(WakuRelayCodec),
                                           backoffPeriod)
-
-  # Maintain relay connections
-  asyncSpawn node.peerManager.relayConnectivityLoop()
 
   # Start the WakuRelay protocol
   await node.wakuRelay.start()
@@ -530,7 +535,7 @@ proc subscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: Content
     error "cannot register filter subscription to topic", error="waku filter client is nil"
     return
 
-  let peerOpt = node.peerManager.peerStore.selectPeer(WakuFilterCodec)
+  let peerOpt = node.peerManager.selectPeer(WakuFilterCodec)
   if peerOpt.isNone():
     error "cannot register filter subscription to topic", error="no suitable remote peers"
     return
@@ -545,7 +550,7 @@ proc unsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: Conte
     error "cannot unregister filter subscription to content", error="waku filter client is nil"
     return
 
-  let peerOpt = node.peerManager.peerStore.selectPeer(WakuFilterCodec)
+  let peerOpt = node.peerManager.selectPeer(WakuFilterCodec)
   if peerOpt.isNone():
     error "cannot register filter subscription to topic", error="no suitable remote peers"
     return
@@ -703,7 +708,7 @@ proc query*(node: WakuNode, query: HistoryQuery): Future[WakuStoreResult[History
   if node.wakuStoreClient.isNil():
     return err("waku store client is nil")
 
-  let peerOpt = node.peerManager.peerStore.selectPeer(WakuStoreCodec)
+  let peerOpt = node.peerManager.selectPeer(WakuStoreCodec)
   if peerOpt.isNone():
     error "no suitable remote peers"
     return err("peer_not_found_failure")
@@ -792,7 +797,7 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMe
     error "failed to publish message", error="waku lightpush client is nil"
     return
 
-  let peerOpt = node.peerManager.peerStore.selectPeer(WakuLightPushCodec)
+  let peerOpt = node.peerManager.selectPeer(WakuLightPushCodec)
   if peerOpt.isNone():
     error "failed to publish message", error="no suitable remote peers"
     return
@@ -819,6 +824,7 @@ when defined(rln):
       error "failed to mount rln relay", error=rlnRelayRes.error
       return
     node.wakuRlnRelay = rlnRelayRes.get()
+
 
 ## Waku peer-exchange
 
@@ -879,17 +885,12 @@ proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
                                 .filterIt(it.connectedness == Connected)
                                 .mapIt(it.toRemotePeerInfo())
 
-    # Attempt to retrieve and ping the active outgoing connection for each peer
     for peer in peers:
-      let connOpt = await node.peerManager.dialPeer(peer, PingCodec)
-
-      if connOpt.isNone():
-        # TODO: more sophisticated error handling here
-        debug "failed to connect to remote peer", peer=peer
+      try:
+        let conn = await node.switch.dial(peer.peerId, peer.addrs, PingCodec)
+        let pingDelay = await node.libp2pPing.ping(conn)
+      except CatchableError as exc:
         waku_node_errors.inc(labelValues = ["keep_alive_failure"])
-        return
-
-      discard await node.libp2pPing.ping(connOpt.get())  # Ping connection
 
     await sleepAsync(keepalive)
 
@@ -911,16 +912,15 @@ proc runDiscv5Loop(node: WakuNode) {.async.} =
 
   while node.wakuDiscv5.listening:
     trace "Running discovery loop"
-    ## Query for a random target and collect all discovered nodes
-    ## TODO: we could filter nodes here
-    let discoveredPeers = await node.wakuDiscv5.findRandomPeers()
-    if discoveredPeers.isOk():
-      ## Let's attempt to connect to peers we
-      ## have not encountered before
+    let discoveredPeersRes = await node.wakuDiscv5.findRandomPeers()
 
-      trace "Discovered peers", count=discoveredPeers.get().len()
+    if discoveredPeersRes.isOk:
+      let discoveredPeers = discoveredPeersRes.get
+      let newSeen = discoveredPeers.countIt(not node.peerManager.peerStore[AddressBook].contains(it.peerId))
+      info "Discovered peers", discovered=discoveredPeers.len, new=newSeen
 
-      for peer in discoveredPeers.get():
+      # Add all peers, new ones and already seen (in case their addresses changed)
+      for peer in discoveredPeers:
         # TODO: proto: WakuRelayCodec will be removed from add peer
         node.peerManager.addPeer(peer, WakuRelayCodec)
 
@@ -1015,5 +1015,6 @@ proc stop*(node: WakuNode) {.async.} =
     discard await node.stopDiscv5()
 
   await node.switch.stop()
+  node.peerManager.stop()
 
   node.started = false
