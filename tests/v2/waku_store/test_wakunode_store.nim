@@ -13,17 +13,17 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub
 import
-  ../../waku/common/sqlite,
-  ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_archive,
-  ../../waku/v2/protocol/waku_archive/driver/sqlite_driver,
-  ../../waku/v2/protocol/waku_store,
-  ../../waku/v2/protocol/waku_filter,
-  ../../waku/v2/utils/peers,
-  ../../waku/v2/utils/time,
-  ../../waku/v2/node/waku_node,
-  ./testlib/common
+  ../../../waku/common/sqlite,
+  ../../../waku/v2/node/peer_manager/peer_manager,
+  ../../../waku/v2/protocol/waku_message,
+  ../../../waku/v2/protocol/waku_archive,
+  ../../../waku/v2/protocol/waku_archive/driver/sqlite_driver,
+  ../../../waku/v2/protocol/waku_store,
+  ../../../waku/v2/protocol/waku_filter,
+  ../../../waku/v2/utils/peers,
+  ../../../waku/v2/utils/time,
+  ../../../waku/v2/node/waku_node,
+  ../testlib/common
 
 from std/times import getTime, toUnixFloat
 
