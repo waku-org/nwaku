@@ -152,13 +152,13 @@ procSuite "Credentials test suite":
 
     # We test retrieval of credentials.
     var expectedMembershipGroups1 = @[membershipGroup1, membershipGroup2]          
-    expectedMembershipGroups1.sort(sortMembershipGroup, Ascending)
+    expectedMembershipGroups1.sort(sortMembershipGroup)
     let expectedCredential1 = MembershipCredentials(identityCredential: idCredential1,
                                                     membershipGroups: expectedMembershipGroups1)
 
 
     var expectedMembershipGroups2 = @[membershipGroup2]          
-    expectedMembershipGroups2.sort(sortMembershipGroup, Ascending)
+    expectedMembershipGroups2.sort(sortMembershipGroup)
     let expectedCredential2 = MembershipCredentials(identityCredential: idCredential2,
                                                     membershipGroups: expectedMembershipGroups2)
 

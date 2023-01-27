@@ -82,7 +82,6 @@ proc decode*(encodedCredential: seq[byte]): KeystoreResult[MembershipCredentials
   except Exception: #parseJson raises Exception
     return err(OsError)
 
-
 proc sortMembershipGroup*(a,b: MembershipGroup): int =
   return cmp(a.membershipContract.address, b.membershipContract.address)
 
@@ -225,7 +224,7 @@ proc addMembershipCredentials*(path: string,
               var allMemberships = toSeq(toHashSet(keyfileMembershipCredential.membershipGroups) + toHashSet(membershipCredential.membershipGroups))
 
               # We sort membership groups, otherwise we will not have deterministic results in tests
-              allMemberships.sort(sortMembershipGroup, Ascending)
+              allMemberships.sort(sortMembershipGroup)
 
               # we define the updated credential with the updated membership sets
               let updatedCredential = MembershipCredentials(identityCredential: keyfileMembershipCredential.identityCredential, membershipGroups: allMemberships)
