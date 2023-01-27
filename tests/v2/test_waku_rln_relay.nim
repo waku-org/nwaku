@@ -1045,9 +1045,9 @@ suite "Waku rln relay":
 
     let index = MembershipIndex(1)
 
+    let rlnMembershipContract = MembershipContract(chainId: "5", address: "0x0123456789012345678901234567890123456789")
     let rlnMembershipCredentials = MembershipCredentials(identityCredential: idCredential,
-                                                         membershipGroups: @[MembershipGroup(chainId: "5",
-                                                                                             contract: "0x0123456789012345678901234567890123456789",
+                                                         membershipGroups: @[MembershipGroup(membershipContract: rlnMembershipContract,
                                                                                              treeIndex: index) ])
 
     let password = "%m0um0ucoW%"

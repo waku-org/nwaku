@@ -11,6 +11,7 @@ import
   ../protocol_metrics,
   ../constants
 import
+  ../../../utils/credentials,
   ../../../utils/time
 
 logScope:
@@ -47,7 +48,7 @@ proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[IdentityCredential] =
   for (i, x) in idCommitment.mpairs: x = generatedKeys[i+3*32]
 
   var
-    identityCredential = IdentityCredential(idTrapdoor: idTrapdoor, idNullifier: idNullifier, idSecretHash: idSecretHash, idCommitment: idCommitment)
+    identityCredential = IdentityCredential(idTrapdoor: @idTrapdoor, idNullifier: @idNullifier, idSecretHash: @idSecretHash, idCommitment: @idCommitment)
 
   return ok(identityCredential)
 

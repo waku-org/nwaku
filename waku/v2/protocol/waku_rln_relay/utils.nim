@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[sequtils, tables, times, os, deques],
+  std/[algorithm, sequtils, tables, times, os, deques],
   chronicles, options, chronos, stint,
   confutils,
   strutils,
@@ -51,7 +51,7 @@ type
   MembershipTuple* = tuple[index: MembershipIndex, idComm: IDCommitment]
 
 # membership contract interface
-contract(MembershipContract):
+contract(MembershipContractInterface):
   proc register(pubkey: Uint256) # external payable
   proc MemberRegistered(pubkey: Uint256, index: Uint256) {.event.}
   # TODO the followings are to be supported
@@ -67,10 +67,11 @@ proc inHex*(value:
                    MerkleNode or
                    Nullifier or
                    Epoch or
-                  RlnIdentifier
+                   RlnIdentifier
                    ): string =
-  var valueHex = UInt256.fromBytesLE(value)
-  valueHex = valueHex.toHex()
+  var valueHex = "" #UInt256.fromBytesLE(value)
+  for b in value.reversed():
+    valueHex = valueHex & b.toHex()
   # We pad leading zeroes
   while valueHex.len < value.len * 2:
     valueHex = "0" & valueHex
@@ -96,7 +97,7 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Option[Address], ethAcco
   # when the private key is set in a web3 instance, the send proc (sender.register(pk).send(MembershipFee))
   # does the signing using the provided key
   # web3.privateKey = some(ethAccountPrivateKey)
-  var sender = web3.contractSender(MembershipContract, membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
+  var sender = web3.contractSender(MembershipContractInterface, membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
 
   debug "registering an id commitment", idComm=idComm.inHex()
   let pk = idComm.toUInt256()
@@ -564,7 +565,7 @@ proc getHistoricalEvents*(ethClientUri: string,
   ## returns a table that maps block numbers to the list of members registered in that block
   ## returns an error if it cannot retrieve the historical events
   let web3 = await newWeb3(ethClientUri)
-  let contract = web3.contractSender(MembershipContract, contractAddress)
+  let contract = web3.contractSender(MembershipContractInterface, contractAddress)
   # Get the historical events, and insert memberships into the tree
   let historicalEvents = await contract.getJsonLogs(MemberRegistered,
                                                     fromBlock=some(fromBlock.blockId()),
@@ -593,11 +594,11 @@ proc subscribeToGroupEvents*(ethClientUri: string,
                             blockNumber: string = "0x0",
                             handler: GroupUpdateHandler) {.async, gcsafe.} =
   ## connects to the eth client whose URI is supplied as `ethClientUri`
-  ## subscribes to the `MemberRegistered` event emitted from the `MembershipContract` which is available on the supplied `contractAddress`
+  ## subscribes to the `MemberRegistered` event emitted from the `MembershipContractInterface` which is available on the supplied `contractAddress`
   ## it collects all the events starting from the given `blockNumber`
   ## for every received block, it calls the `handler`
   let web3 = await newWeb3(ethClientUri)
-  let contract = web3.contractSender(MembershipContract, contractAddress)
+  let contract = web3.contractSender(MembershipContractInterface, contractAddress)
 
   let blockTableRes = await getHistoricalEvents(ethClientUri,
                                                 contractAddress,
@@ -731,7 +732,7 @@ proc mountRlnRelayStatic*(wakuRelay: WakuRelay,
 
   debug "mounting rln-relay in off-chain/static mode"
   # check the peer's index and the inclusion of user's identity commitment in the group
-  if not memIdCredential.idCommitment  == group[int(memIndex)]:
+  if memIdCredential.idCommitment != group[int(memIndex)]:
     return err("The peer's index is not consistent with the group")
 
   # create an RLN instance
@@ -988,12 +989,12 @@ proc mount(wakuRelay: WakuRelay,
     let wakuRlnRelay = rlnRelayRes.get()
     if persistCredentials:
       # persist rln credential
+      let contract = MembershipContract(chainId: "5", # This is Goerli ChainID. TODO: pass chainId to web3 as config option
+                                        address: conf.rlnRelayEthContractAddress)
+
       credentials = some(MembershipCredentials(identityCredential: wakuRlnRelay.identityCredential,
-                                               membershipGroups: @[MembershipGroup(chainId: "5", # This is Goerli ChainID. TODO: pass chainId to web3 as config option
-                                                                                   contract: conf.rlnRelayEthContractAddress,
-                                                                                   treeIndex: wakuRlnRelay.membershipIndex) 
-                                                                  ]
-                                              ))
+                                               membershipGroups: @[MembershipGroup(membershipContract: contract, treeIndex: wakuRlnRelay.membershipIndex)]
+                                               ))
       if writeMembershipCredentials(rlnRelayCredPath, credentials.get(), conf.rlnRelayCredentialsPassword).isErr():
         return err("error in storing rln credentials")
     return ok(wakuRlnRelay)
