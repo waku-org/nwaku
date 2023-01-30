@@ -23,6 +23,7 @@ declareCounter waku_peers_dials, "Number of peer dials", ["outcome"]
 declarePublicCounter waku_node_conns_initiated, "Number of connections initiated", ["source"]
 declarePublicGauge waku_peers_errors, "Number of peer manager errors", ["type"]
 declarePublicGauge waku_connected_peers, "Number of connected peers per direction: inbound|outbound", ["direction"]
+declarePublicGauge waku_peer_store_size, "Number of peers managed by the peer store"
 
 logScope:
   topics = "waku node peer_manager"
@@ -45,6 +46,9 @@ const
 
   # Delay between consecutive relayConnectivityLoop runs
   ConnectivityLoopInterval = chronos.seconds(30)
+
+  # How often the peer store is pruned
+  PrunePeerStoreInterval = chronos.minutes(5)
 
 type
   PeerManager* = ref object of RootObj
@@ -119,16 +123,6 @@ proc dialPeer(pm: PeerManager, peerId: PeerID,
 
   return none(Connection)
 
-# TODO: To be addressed in nwaku/pull/1473. Do not prune service peers
-# TODO: Currently unused
-proc prunePeerStore(pm: PeerManager) =
-  # iterate peers in peerstore
-  # skip service peers
-  #if pm.peerStore[NumberFailedConnBook][peerId] >= pm.maxFailedAttempts:
-  #  debug "Removing peer from peer store", peerId = peerId, failedAttempts=failedAttempts
-  #  pm.peerStore.del(peerId)
-  doAssert(false, "Not implemented!")
-
 proc loadFromStorage(pm: PeerManager) =
   debug "loading peers from storage"
   # Load peers from storage, if available
@@ -191,6 +185,14 @@ proc new*(T: type PeerManager,
           backoffFactor = BackoffFactor,
           maxFailedAttempts = MaxFailedAttempts,): PeerManager =
 
+  let capacity = switch.peerStore.capacity
+  let maxConnections = switch.connManager.inSema.size
+  if maxConnections > capacity:
+    error "Max number of connections can't be greater than PeerManager capacity",
+         capacity = capacity,
+         maxConnections = maxConnections
+    doAssert(false, "Max number of connections can't be greater than PeerManager capacity")
+
   let pm = PeerManager(switch: switch,
                        peerStore: switch.peerStore,
                        storage: storage,
@@ -200,8 +202,14 @@ proc new*(T: type PeerManager,
   proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(pm, peerId, event)
 
+  proc peerStoreChanged(peerId: PeerId) {.gcsafe.} =
+    waku_peer_store_size.set(toSeq(pm.peerStore[AddressBook].book.keys).len.int64)
+
   pm.switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
   pm.switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
+
+  # called every time the peerstore is updated
+  pm.peerStore[AddressBook].addHandler(peerStoreChanged)
 
   pm.serviceSlots = initTable[string, RemotePeerInfo]()
 
@@ -386,6 +394,39 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
 
     await sleepAsync(ConnectivityLoopInterval)
 
+proc prunePeerStore(pm: PeerManager) {.async.}  =
+  while pm.started:
+    let numPeers = toSeq(pm.peerStore[AddressBook].book.keys).len
+    let capacity = pm.peerStore.capacity
+    if numPeers < capacity:
+      await sleepAsync(PrunePeerStoreInterval)
+      continue
+
+    debug "Peer store capacity exceeded", numPeers = numPeers, capacity = capacity
+    let peersToPrune = numPeers - capacity
+
+    var prunned = 0
+    for peerId in pm.peerStore[NumberFailedConnBook].book.keys:
+      if peersToPrune - prunned == 0:
+        break
+      if pm.peerStore[NumberFailedConnBook][peerId] >= pm.maxFailedAttempts:
+        pm.peerStore.del(peerId)
+        prunned += 1
+
+    let notConnecteed = pm.peerStore.peers.filterIt(it.connectedness != Connected).mapIt(it.peerId)
+    for peerId in notConnecteed:
+      if peersToPrune - prunned == 0:
+        break
+      pm.peerStore.del(peerId)
+      prunned += 1
+
+    let afterNumPeers = toSeq(pm.peerStore[AddressBook].book.keys).len
+    debug "Finished pruning peer store", beforeNumPeers = numPeers,
+                                         afterNumPeers = afterNumPeers,
+                                         capacity = capacity,
+                                         prunned = prunned
+    await sleepAsync(PrunePeerStoreInterval)
+
 proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
   debug "Selecting peer from peerstore", protocol=proto
 
@@ -416,6 +457,7 @@ proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
 proc start*(pm: PeerManager) =
   pm.started = true
   asyncSpawn pm.relayConnectivityLoop()
+  asyncSpawn pm.prunePeerStore()
 
 proc stop*(pm: PeerManager) =
   pm.started = false
