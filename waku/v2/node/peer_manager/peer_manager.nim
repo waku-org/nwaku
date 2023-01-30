@@ -405,6 +405,7 @@ proc prunePeerStore(pm: PeerManager) {.async.}  =
     debug "Peer store capacity exceeded", numPeers = numPeers, capacity = capacity
     let peersToPrune = numPeers - capacity
 
+    # prune peers with too many failed attempts
     var prunned = 0
     for peerId in pm.peerStore[NumberFailedConnBook].book.keys:
       if peersToPrune - prunned == 0:
@@ -413,6 +414,7 @@ proc prunePeerStore(pm: PeerManager) {.async.}  =
         pm.peerStore.del(peerId)
         prunned += 1
 
+    # if we still need to prune, prune peers that are not connected
     let notConnecteed = pm.peerStore.peers.filterIt(it.connectedness != Connected).mapIt(it.peerId)
     for peerId in notConnecteed:
       if peersToPrune - prunned == 0:
