@@ -64,7 +64,7 @@ proc decode*(T: type PagingIndexRPC, buffer: seq[byte]): ProtoResult[T] =
   else:
     rpc.pubsubTopic = pubsubTopic
 
-  ok(rpc) 
+  ok(rpc)
 
 
 proc encode*(rpc: PagingInfoRPC): ProtoBuffer =
@@ -72,7 +72,7 @@ proc encode*(rpc: PagingInfoRPC): ProtoBuffer =
   ## returns the resultant ProtoBuffer
   var pb = initProtoBuffer()
 
-  pb.write3(1, rpc.pageSize.map(proc(size: uint64): zint64 = zint64(size)))
+  pb.write3(1, rpc.pageSize)
   pb.write3(2, rpc.cursor.map(encode))
   pb.write3(3, rpc.direction.map(proc(d: PagingDirectionRPC): uint32 = uint32(ord(d))))
   pb.finish3()
@@ -84,11 +84,11 @@ proc decode*(T: type PagingInfoRPC, buffer: seq[byte]): ProtoResult[T] =
   var rpc = PagingInfoRPC()
   let pb = initProtoBuffer(buffer)
 
-  var pageSize: zint64
+  var pageSize: uint64
   if not ?pb.getField(1, pageSize):
     rpc.pageSize = none(uint64)
   else:
-    rpc.pageSize = some(uint64(pageSize))
+    rpc.pageSize = some(pageSize)
 
   var cursorBuffer: seq[byte]
   if not ?pb.getField(2, cursorBuffer):
@@ -103,7 +103,7 @@ proc decode*(T: type PagingInfoRPC, buffer: seq[byte]): ProtoResult[T] =
   else:
     rpc.direction = some(PagingDirectionRPC(direction))
 
-  ok(rpc) 
+  ok(rpc)
 
 
 ## Wire protocol
@@ -129,7 +129,7 @@ proc decode*(T: type HistoryContentFilterRPC, buffer: seq[byte]): ProtoResult[T]
 proc encode*(rpc: HistoryQueryRPC): ProtoBuffer =
   var pb = initProtoBuffer()
   pb.write3(2, rpc.pubsubTopic)
-  
+
   for filter in rpc.contentFilters:
     pb.write3(3, filter.encode())
 
