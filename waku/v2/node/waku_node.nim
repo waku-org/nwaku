@@ -150,7 +150,7 @@ proc new*(T: type WakuNode,
           dns4DomainName = none(string),
           discv5UdpPort = none(Port),
           agentString = none(string),    # defaults to nim-libp2p version
-          peerStoreCapacity = none(int), # defaults to nim-libp2p max size
+          peerStoreCapacity = none(int), # defaults to 1.25 maxConnections
           ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
   ## Creates a Waku Node instance.
 
