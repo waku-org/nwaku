@@ -1046,9 +1046,8 @@ suite "Waku rln relay":
     let index = MembershipIndex(1)
 
     let rlnMembershipContract = MembershipContract(chainId: "5", address: "0x0123456789012345678901234567890123456789")
-    let rlnMembershipCredentials = MembershipCredentials(identityCredential: idCredential,
-                                                         membershipGroups: @[MembershipGroup(membershipContract: rlnMembershipContract,
-                                                                                             treeIndex: index) ])
+    let rlnMembershipGroup = MembershipGroup(membershipContract: rlnMembershipContract, treeIndex: index)
+    let rlnMembershipCredentials = MembershipCredentials(identityCredential: idCredential, membershipGroups: @[rlnMembershipGroup])
 
     let password = "%m0um0ucoW%"
 
@@ -1057,19 +1056,35 @@ suite "Waku rln relay":
 
     # Write RLN credentials
     require:
-      writeMembershipCredentials(filepath, rlnMembershipCredentials, password).isOk()
+      addMembershipCredentials(path = filepath,
+                                credentials = @[rlnMembershipCredentials],
+                                password = password,
+                                application = RLNKeystoreApplication,
+                                appIdentifier = RLNKeystoreAppIdentifier,
+                                version = RLNKeystoreVersion).isOk()
+      
+    let readCredentialsResult = getMembershipCredentials(path = filepath,
+                                                         password = password,
+                                                         filterMembershipContracts = @[rlnMembershipContract],
+                                                         application = RLNKeystoreApplication,
+                                                         appIdentifier = RLNKeystoreAppIdentifier,
+                                                         version = RLNKeystoreVersion)
 
-    let readCredentialsResult = readMembershipCredentials(filepath, password)
     require:
       readCredentialsResult.isOk()
 
-    let credentials = readCredentialsResult.get()
+    # getMembershipCredentials returns all credentials in keystore as sequence matching the filter
+    let allMatchingCredentials = readCredentialsResult.get()
+    # if any is found, we return the first credential, otherwise credentials is none 
+    var credentials = none(MembershipCredentials)
+    if allMatchingCredentials.len() > 0:
+      credentials = some(allMatchingCredentials[0])
 
     require:
       credentials.isSome()
     check:
       credentials.get().identityCredential == idCredential
-      credentials.get().membershipGroups[0].treeIndex == index
+      credentials.get().membershipGroups == @[rlnMembershipGroup]
 
   test "histogram static bucket generation":
     let buckets = generateBucketsForHistogram(10)

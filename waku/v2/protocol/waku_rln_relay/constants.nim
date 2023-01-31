@@ -51,8 +51,8 @@ const MaxEpochGap* = uint64(MaxClockGapSeconds/EpochUnitSeconds)
 
 # RLN Keystore defaults
 const 
-  KeystoreApplication* = "nwaku-rln-relay"
-  KeystoreAppIdentifier* = "01234567890abcdef"
-  KeystoreVersion* = "0.1"
+  RLNKeystoreApplication* = "nwaku-rln-relay"
+  RLNKeystoreAppIdentifier* = "01234567890abcdef"
+  RLNKeystoreVersion* = "0.1"
   # NOTE: 256-bytes long credentials are due to the use of BN254 in RLN. Other implementations/curves might have a different byte size
   CredentialByteSize* = 256

@@ -27,7 +27,6 @@ procSuite "Credentials test suite":
 
     check:
       keystore.isOk()
-  
 
   asyncTest "Load keystore":
 
@@ -42,7 +41,7 @@ procSuite "Credentials test suite":
     check:
       keystore.isOk()
 
-  asyncTest "Add credential to keystore":
+  asyncTest "Add credentials to keystore":
 
     let filepath = "./testAppKeystore.txt"
     defer: removeFile(filepath)
@@ -56,12 +55,9 @@ procSuite "Credentials test suite":
 
     var idCredential = IdentityCredential(idTrapdoor: idTrapdoor, idNullifier: idNullifier, idSecretHash: idSecretHash, idCommitment: idCommitment)
 
-    debug "the generated identity credential: ", idCredential
-
     var contract = MembershipContract(chainId: "5", address: "0x0123456789012345678901234567890123456789")
     var index1 = MembershipIndex(1)
     var membershipGroup1 = MembershipGroup(membershipContract: contract, treeIndex: index1)
-
 
     let membershipCredentials1 = MembershipCredentials(identityCredential: idCredential,
                                                        membershipGroups: @[membershipGroup1])
@@ -73,8 +69,6 @@ procSuite "Credentials test suite":
     idCommitment = randomSeqByte(rng[], 32)
 
     idCredential = IdentityCredential(idTrapdoor: idTrapdoor, idNullifier: idNullifier, idSecretHash: idSecretHash, idCommitment: idCommitment)
-
-    debug "the generated identity credential: ", idCredential
 
     var index2 = MembershipIndex(2)
     var membershipGroup2 = MembershipGroup(membershipContract: contract, treeIndex: index2)
@@ -169,7 +163,6 @@ procSuite "Credentials test suite":
                                                         application = "test",
                                                         appIdentifier = "1234",
                                                         version = "0.1")
-
 
     check:
       recoveredCredentials.isOk()
