@@ -215,7 +215,8 @@ proc retrieveDynamicBootstrapNodes*(dnsDiscovery: bool, dnsDiscoveryUrl: string,
 
 proc initNode(conf: WakuNodeConf,
               peerStore: Option[WakuPeerStorage],
-              dynamicBootstrapNodes: openArray[RemotePeerInfo] = @[]): SetupResult[WakuNode] =
+              dynamicBootstrapNodes: openArray[RemotePeerInfo] = @[],
+              rng: ref HmacDrbgContext): SetupResult[WakuNode] =
 
   ## Setup a basic Waku v2 node based on a supplied configuration
   ## file. Optionally include persistent peer storage.
@@ -288,7 +289,8 @@ proc initNode(conf: WakuNodeConf,
                         dns4DomainName,
                         discv5UdpPort,
                         some(conf.agentString),
-                        some(conf.peerStoreCapacity))
+                        some(conf.peerStoreCapacity),
+                        rng)
   except:
     return err("failed to create waku node instance: " & getCurrentExceptionMsg())
 
@@ -570,8 +572,10 @@ when isMainModule:
   ## 6. Setup graceful shutdown hooks
 
   const versionString = "version / git commit hash: " & git_version
+  let rng = crypto.newRng()
 
-  let confRes = WakuNodeConf.load(version=versionString)
+  let confRes = WakuNodeConf.load(version=versionString,
+                                  rng = rng)
   if confRes.isErr():
     error "failure while loading the configuration", error=confRes.error
     quit(QuitFailure)
@@ -655,7 +659,7 @@ when isMainModule:
 
   var node: WakuNode  # This is the node we're going to setup using the conf
 
-  let initNodeRes = initNode(conf, peerStore, dynamicBootstrapNodes)
+  let initNodeRes = initNode(conf, peerStore, dynamicBootstrapNodes, rng)
   if initNodeRes.isok():
     node = initNodeRes.get()
   else:

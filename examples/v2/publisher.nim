@@ -28,12 +28,12 @@ const bootstrapNodes = @["enr:-Nm4QOdTOKZJKTUUZ4O_W932CXIET-M9NamewDnL78P5u9DOGn
 const wakuPort = 60000
 const discv5Port = 9000
 
-proc setupAndPublish() {.async.} =
+proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
     # use notice to filter all waku messaging
     setupLogLevel(logging.LogLevel.NOTICE)
     notice "starting publisher", wakuPort=wakuPort, discv5Port=discv5Port
     let
-        nodeKey = crypto.PrivateKey.random(Secp256k1, crypto.newRng()[])[]
+        nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
         ip = ValidIpAddress.init("0.0.0.0")
         node = WakuNode.new(nodeKey, ip, Port(wakuPort))
         flags = initWakuFlags(lightpush = false, filter = false, store = false, relay = true)
@@ -84,5 +84,7 @@ proc setupAndPublish() {.async.} =
       notice "published message", text = text, timestamp = message.timestamp, psTopic = pubSubTopic, contentTopic = contentTopic
       await sleepAsync(5000)
 
-asyncSpawn setupAndPublish()
-runForever()
+when isMainModule:
+  let rng = crypto.newRng()
+  asyncSpawn setupAndPublish(rng)
+  runForever()

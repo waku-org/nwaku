@@ -151,6 +151,8 @@ proc new*(T: type WakuNode,
           discv5UdpPort = none(Port),
           agentString = none(string),    # defaults to nim-libp2p version
           peerStoreCapacity = none(int), # defaults to nim-libp2p max size
+          # TODO: make this argument required after tests are updated
+          rng: ref HmacDrbgContext = crypto.newRng()
           ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
   ## Creates a Waku Node instance.
 
@@ -197,7 +199,6 @@ proc new*(T: type WakuNode,
 
   ## Initialize peer
   let
-    rng = crypto.newRng()
     enrIp = if extIp.isSome(): extIp
             else: some(bindIp)
     enrTcpPort = if extPort.isSome(): extPort

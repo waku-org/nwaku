@@ -370,10 +370,10 @@ proc readInput(wfd: AsyncFD) {.thread, raises: [Defect, CatchableError].} =
     discard waitFor transp.write(line & "\r\n")
 
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
-proc processInput(rfd: AsyncFD) {.async.} =
+proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   let
     transp = fromPipe(rfd)
-    conf = Chat2Conf.load()
+    conf = Chat2Conf.load(rng)
 
   # set log level
   if conf.logLevel != LogLevel.NONE:
@@ -593,7 +593,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
 
   runForever()
 
-proc main() {.async.} =
+proc main(rng: ref HmacDrbgContext) {.async.} =
   let (rfd, wfd) = createAsyncPipe()
   if rfd == asyncInvalidPipe or wfd == asyncInvalidPipe:
     raise newException(ValueError, "Could not initialize pipe!")
@@ -601,7 +601,7 @@ proc main() {.async.} =
   var thread: Thread[AsyncFD]
   thread.createThread(readInput, wfd)
   try:
-    await processInput(rfd)
+    await processInput(rfd, rng)
   # Handle only ConfigurationError for now
   # TODO: Throw other errors from the mounting procedure
   except ConfigurationError as e:
@@ -609,8 +609,9 @@ proc main() {.async.} =
 
 
 when isMainModule: # isMainModule = true when the module is compiled as the main file
+  let rng = crypto.newRng()
   try:
-    waitFor(main())
+    waitFor(main(rng))
   except CatchableError as e:
     raise e
 

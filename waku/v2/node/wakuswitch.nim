@@ -63,7 +63,7 @@ proc newWakuSwitch*(
         SecureProtocol.Noise,
       ],
     transportFlags: set[ServerFlags] = {},
-    rng = crypto.newRng(),
+    rng: ref HmacDrbgContext,
     inTimeout: Duration = 5.minutes,
     outTimeout: Duration = 5.minutes,
     maxConnections = MaxConnections,

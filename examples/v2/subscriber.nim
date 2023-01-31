@@ -24,12 +24,12 @@ const bootstrapNodes = @["enr:-Nm4QOdTOKZJKTUUZ4O_W932CXIET-M9NamewDnL78P5u9DOGn
 const wakuPort = 50000
 const discv5Port = 8000
 
-proc setupAndSubscribe() {.async.} =
+proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
     # use notice to filter all waku messaging
     setupLogLevel(logging.LogLevel.NOTICE)
     notice "starting subscriber", wakuPort=wakuPort, discv5Port=discv5Port
     let
-        nodeKey = crypto.PrivateKey.random(Secp256k1, crypto.newRng()[])[]
+        nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
         ip = ValidIpAddress.init("0.0.0.0")
         node = WakuNode.new(nodeKey, ip, Port(wakuPort))
         flags = initWakuFlags(lightpush = false, filter = false, store = false, relay = true)
@@ -79,6 +79,7 @@ proc setupAndSubscribe() {.async.} =
                                    timestamp=message.timestamp
     node.subscribe(pubSubTopic, handler)
 
-asyncSpawn setupAndSubscribe()
-
-runForever()
+when isMainModule:
+  let rng = crypto.newRng()
+  asyncSpawn setupAndSubscribe(rng)
+  runForever()

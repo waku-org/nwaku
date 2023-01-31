@@ -10,6 +10,7 @@ import
   stew/byteutils
 import
   ../../waku/v2/node/wakuswitch,
+  ../test_helpers,
   ./testlib/switch
 
 proc newCircuitRelayClientSwitch(relayClient: RelayClient): Switch =
@@ -28,7 +29,7 @@ procSuite "Waku Switch":
     ## Given
     let
       sourceSwitch = newTestSwitch()
-      wakuSwitch = newWakuSwitch()
+      wakuSwitch = newWakuSwitch(rng = rng())
     await sourceSwitch.start()
     await wakuSwitch.start()
 
@@ -46,7 +47,7 @@ procSuite "Waku Switch":
   asyncTest "Waku Switch acts as circuit relayer":
     ## Setup
     let
-      wakuSwitch = newWakuSwitch()
+      wakuSwitch = newWakuSwitch(rng = rng())
       sourceClient = RelayClient.new()
       destClient = RelayClient.new()
       sourceSwitch = newCircuitRelayClientSwitch(sourceClient)
