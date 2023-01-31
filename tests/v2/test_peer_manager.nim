@@ -16,7 +16,7 @@ import
   libp2p/crypto/crypto,
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/rpc/message,
-  libp2p/builders
+  libp2p/peerid
 import
   ../../waku/common/sqlite,
   ../../waku/v2/node/peer_manager/peer_manager,
@@ -494,3 +494,63 @@ procSuite "Peer Manager":
     check:
       selectedPeer5.isSome() == true
       selectedPeer5.get().peerId == peers[2].peerId
+
+  test "peer manager cant have more max connections than peerstore size":
+    # Peerstore size can't be smaller than max connections
+    let peerStoreSize = 5
+    let maxConnections = 10
+
+    expect(Defect):
+      let pm = PeerManager.new(
+        switch = SwitchBuilder.new().withRng(rng).withMplex().withNoise()
+        .withPeerStore(peerStoreSize)
+        .withMaxConnections(maxConnections)
+        .build(),
+        storage = nil)
+
+  test "prunePeerStore() correctly removes peers to match max quota":
+    # Create peer manager
+    let pm = PeerManager.new(
+      switch = SwitchBuilder.new().withRng(rng).withMplex().withNoise()
+      .withPeerStore(10)
+      .withMaxConnections(5)
+      .build(),
+      maxFailedAttempts = 1,
+      storage = nil)
+
+    # Create 15 peers and add them to the peerstore
+    let peers = toSeq(1..15).mapIt(parseRemotePeerInfo("/ip4/0.0.0.0/tcp/0/p2p/" & $PeerId.random().get()))
+    for p in peers: pm.addPeer(p, "")
+
+    # Check that we have 15 peers in the peerstore
+    check:
+      pm.peerStore.peers.len == 15
+
+    # fake that some peers failed to connected
+    pm.peerStore[NumberFailedConnBook][peers[0].peerId] = 2
+    pm.peerStore[NumberFailedConnBook][peers[1].peerId] = 2
+    pm.peerStore[NumberFailedConnBook][peers[2].peerId] = 2
+
+    # fake that some peers are connected
+    pm.peerStore[ConnectionBook][peers[5].peerId] = Connected
+    pm.peerStore[ConnectionBook][peers[8].peerId] = Connected
+    pm.peerStore[ConnectionBook][peers[10].peerId] = Connected
+    pm.peerStore[ConnectionBook][peers[12].peerId] = Connected
+
+    # Prune the peerstore
+    pm.prunePeerStore()
+
+    check:
+      # ensure peerstore was pruned
+      pm.peerStore.peers.len == 10
+
+      # ensure connected peers were not pruned
+      pm.peerStore.peers.anyIt(it.peerId == peers[5].peerId)
+      pm.peerStore.peers.anyIt(it.peerId == peers[8].peerId)
+      pm.peerStore.peers.anyIt(it.peerId == peers[10].peerId)
+      pm.peerStore.peers.anyIt(it.peerId == peers[12].peerId)
+
+      # ensure peers that failed were the first to be pruned
+      not pm.peerStore.peers.anyIt(it.peerId == peers[0].peerId)
+      not pm.peerStore.peers.anyIt(it.peerId == peers[1].peerId)
+      not pm.peerStore.peers.anyIt(it.peerId == peers[2].peerId)
