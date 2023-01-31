@@ -191,7 +191,7 @@ proc new*(T: type PeerManager,
     error "Max number of connections can't be greater than PeerManager capacity",
          capacity = capacity,
          maxConnections = maxConnections
-    doAssert(false, "Max number of connections can't be greater than PeerManager capacity")
+    raise newException(Defect, "Max number of connections can't be greater than PeerManager capacity")
 
   let pm = PeerManager(switch: switch,
                        peerStore: switch.peerStore,
@@ -394,40 +394,44 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
 
     await sleepAsync(ConnectivityLoopInterval)
 
-proc prunePeerStore(pm: PeerManager) {.async.}  =
-  while pm.started:
-    let numPeers = toSeq(pm.peerStore[AddressBook].book.keys).len
-    let capacity = pm.peerStore.capacity
-    if numPeers < capacity:
-      await sleepAsync(PrunePeerStoreInterval)
-      continue
+proc prunePeerStore*(pm: PeerManager) =
+  let numPeers = toSeq(pm.peerStore[AddressBook].book.keys).len
+  let capacity = pm.peerStore.capacity
+  if numPeers < capacity:
+    return
 
-    debug "Peer store capacity exceeded", numPeers = numPeers, capacity = capacity
-    let peersToPrune = numPeers - capacity
+  debug "Peer store capacity exceeded", numPeers = numPeers, capacity = capacity
+  let peersToPrune = numPeers - capacity
 
-    # prune peers with too many failed attempts
-    var prunned = 0
-    for peerId in pm.peerStore[NumberFailedConnBook].book.keys:
-      if peersToPrune - prunned == 0:
-        break
-      if pm.peerStore[NumberFailedConnBook][peerId] >= pm.maxFailedAttempts:
-        pm.peerStore.del(peerId)
-        prunned += 1
-
-    # if we still need to prune, prune peers that are not connected
-    let notConnecteed = pm.peerStore.peers.filterIt(it.connectedness != Connected).mapIt(it.peerId)
-    for peerId in notConnecteed:
-      if peersToPrune - prunned == 0:
-        break
+  # prune peers with too many failed attempts
+  var pruned = 0
+  for peerId in pm.peerStore[NumberFailedConnBook].book.keys:
+    if peersToPrune - pruned == 0:
+      break
+    if pm.peerStore[NumberFailedConnBook][peerId] >= pm.maxFailedAttempts:
       pm.peerStore.del(peerId)
-      prunned += 1
+      pruned += 1
 
-    let afterNumPeers = toSeq(pm.peerStore[AddressBook].book.keys).len
-    debug "Finished pruning peer store", beforeNumPeers = numPeers,
-                                         afterNumPeers = afterNumPeers,
-                                         capacity = capacity,
-                                         prunned = prunned
+  # if we still need to prune, prune peers that are not connected
+  let notConnected = pm.peerStore.getNotConnectedPeers().mapIt(it.peerId)
+  for peerId in notConnected:
+    if peersToPrune - pruned == 0:
+      break
+    pm.peerStore.del(peerId)
+    pruned += 1
+
+  let afterNumPeers = toSeq(pm.peerStore[AddressBook].book.keys).len
+  debug "Finished pruning peer store", beforeNumPeers = numPeers,
+                                       afterNumPeers = afterNumPeers,
+                                       capacity = capacity,
+                                       pruned = pruned
+
+
+proc prunePeerStoreLoop(pm: PeerManager) {.async.}  =
+  while pm.started:
+    pm.prunePeerStore()
     await sleepAsync(PrunePeerStoreInterval)
+
 
 proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
   debug "Selecting peer from peerstore", protocol=proto
@@ -459,7 +463,7 @@ proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
 proc start*(pm: PeerManager) =
   pm.started = true
   asyncSpawn pm.relayConnectivityLoop()
-  asyncSpawn pm.prunePeerStore()
+  asyncSpawn pm.prunePeerStoreLoop()
 
 proc stop*(pm: PeerManager) =
   pm.started = false
