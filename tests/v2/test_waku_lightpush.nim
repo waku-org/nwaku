@@ -3,9 +3,9 @@
 import
   testutils/unittests, 
   chronicles,
-  chronos, 
-  libp2p/crypto/crypto
+  chronos
 import
+  ../../waku/common/crypto as wakuCrypto,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_lightpush,
@@ -17,7 +17,7 @@ import
 proc newTestWakuLightpushNode(switch: Switch, handler: PushMessageHandler): Future[WakuLightPush] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    rng = crypto.newRng()
+    rng = wakuCrypto.getRng()
     proto = WakuLightPush.new(peerManager, rng, handler)
 
   await proto.start()
@@ -28,7 +28,7 @@ proc newTestWakuLightpushNode(switch: Switch, handler: PushMessageHandler): Futu
 proc newTestWakuLightpushClient(switch: Switch): WakuLightPushClient =
   let
     peerManager = PeerManager.new(switch)
-    rng = crypto.newRng()
+    rng = wakuCrypto.getRng()
   WakuLightPushClient.new(peerManager, rng)
 
 

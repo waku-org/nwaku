@@ -6,7 +6,6 @@ import
   stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
-  libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/peerid,
   libp2p/multiaddress,
@@ -16,6 +15,7 @@ import
   eth/p2p,
   eth/keys
 import
+  ../../waku/common/crypto as wakuCrypto,
   ../../waku/v1/protocol/waku_protocol,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/node/[waku_node, waku_payload],
@@ -32,7 +32,7 @@ procSuite "WakuBridge":
 
   let
     rng = keys.newRng()
-    cryptoRng = crypto.newRng()
+    cryptoRng = wakuCrypto.getRng()
 
     # Bridge
     nodev1Key = keys.KeyPair.random(rng[])

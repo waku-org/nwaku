@@ -5,7 +5,6 @@ import
   testutils/unittests,
   chronicles,
   chronos,
-  libp2p/crypto/crypto,
   libp2p/peerid,
   libp2p/multiaddress,
   libp2p/switch,
@@ -13,6 +12,7 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub
 import
+  ../../../waku/common/crypto as wakuCrypto,
   ../../../waku/common/sqlite,
   ../../../waku/v2/node/peer_manager/peer_manager,
   ../../../waku/v2/protocol/waku_message,
@@ -39,7 +39,7 @@ proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): HistoryC
 
 procSuite "WakuNode - Store":
   ## Fixtures
-  let rng = crypto.newRng()
+  let rng = wakuCrypto.getRng()
 
   let timeOrigin = now()
   let msgListA = @[

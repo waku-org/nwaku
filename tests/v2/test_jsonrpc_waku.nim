@@ -9,10 +9,10 @@ import
   libp2p/[builders, switch, multiaddress],
   libp2p/protobuf/minprotobuf,
   libp2p/stream/[bufferstream, connection],
-  libp2p/crypto/crypto,
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/rpc/message
 import
+  ../../waku/common/crypto as wakuCrypto,
   ../../waku/v1/node/rpc/hexstrings,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/waku_node,
@@ -51,7 +51,7 @@ proc put(store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage): 
 
 procSuite "Waku v2 JSON-RPC API":
   let
-    rng = crypto.newRng()
+    rng = wakuCrypto.getRng()
     privkey = crypto.PrivateKey.random(Secp256k1, rng[]).tryGet()
     bindIp = ValidIpAddress.init("0.0.0.0")
     extIp = ValidIpAddress.init("127.0.0.1")

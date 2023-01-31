@@ -25,6 +25,7 @@ import
   libp2p/transports/tcptransport,
   libp2p/transports/wstransport
 import
+  ../../common/crypto as wakuCrypto,
   ../protocol/waku_message,
   ../protocol/waku_relay,
   ../protocol/waku_archive,
@@ -197,7 +198,7 @@ proc new*(T: type WakuNode,
 
   ## Initialize peer
   let
-    rng = crypto.newRng()
+    rng = wakuCrypto.getRng()
     enrIp = if extIp.isSome(): extIp
             else: some(bindIp)
     enrTcpPort = if extPort.isSome(): extPort

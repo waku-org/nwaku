@@ -4,8 +4,7 @@ import
   std/options,
   testutils/unittests,
   chronos,
-  chronicles,
-  libp2p/crypto/crypto
+  chronicles
 import
   ../../../waku/v2/node/peer_manager/peer_manager,
   ../../../waku/v2/protocol/waku_message,
@@ -19,7 +18,7 @@ import
 proc newTestWakuStore(switch: Switch, handler: HistoryQueryHandler): Future[WakuStore] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    rng = crypto.newRng()
+    rng = wakuCrypto.getRng()
     proto = WakuStore.new(peerManager, rng, handler)
 
   await proto.start()
@@ -30,7 +29,7 @@ proc newTestWakuStore(switch: Switch, handler: HistoryQueryHandler): Future[Waku
 proc newTestWakuStoreClient(switch: Switch): WakuStoreClient =
   let
     peerManager = PeerManager.new(switch)
-    rng = crypto.newRng()
+    rng = wakuCrypto.getRng()
   WakuStoreClient.new(peerManager, rng)
 
 

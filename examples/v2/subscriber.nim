@@ -5,12 +5,12 @@ import
   chronicles,
   chronos,
   confutils,
-  libp2p/crypto/crypto,
   eth/keys,
   eth/p2p/discoveryv5/enr
 
 import
   ../../../waku/common/logging,
+  ../../../waku/common/crypto as wakuCrypto,
   ../../../waku/v2/node/discv5/waku_discv5,
   ../../../waku/v2/node/peer_manager/peer_manager,
   ../../../waku/v2/node/waku_node,
@@ -29,7 +29,7 @@ proc setupAndSubscribe() {.async.} =
     setupLogLevel(logging.LogLevel.NOTICE)
     notice "starting subscriber", wakuPort=wakuPort, discv5Port=discv5Port
     let
-        nodeKey = crypto.PrivateKey.random(Secp256k1, crypto.newRng()[])[]
+        nodeKey = crypto.PrivateKey.random(Secp256k1, wakuCrypto.getRng()[])[]
         ip = ValidIpAddress.init("0.0.0.0")
         node = WakuNode.new(nodeKey, ip, Port(wakuPort))
         flags = initWakuFlags(lightpush = false, filter = false, store = false, relay = true)

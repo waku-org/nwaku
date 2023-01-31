@@ -4,9 +4,9 @@ import
   std/[options, tables, sets],
   testutils/unittests,
   chronos,
-  chronicles,
-  libp2p/crypto/crypto
+  chronicles
 import
+  ../../waku/common/crypto as wakuCrypto,
   ../../waku/common/sqlite,
   ../../waku/v2/node/message_store/sqlite_store,
   ../../waku/v2/node/peer_manager/peer_manager,
@@ -27,7 +27,7 @@ proc newTestArchiveDriver(): ArchiveDriver =
 proc newTestWakuStore(switch: Switch, store=newTestMessageStore()): Future[WakuStore] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    rng = crypto.newRng()
+    rng = wakuCrypto.getRng()
     proto = WakuStore.init(peerManager, rng, store)
 
   await proto.start()
@@ -38,7 +38,7 @@ proc newTestWakuStore(switch: Switch, store=newTestMessageStore()): Future[WakuS
 proc newTestWakuStoreClient(switch: Switch, store: MessageStore = nil): WakuStoreClient =
   let
     peerManager = PeerManager.new(switch)
-    rng = crypto.newRng()
+    rng = wakuCrypto.getRng()
   WakuStoreClient.new(peerManager, rng, store)
 
 

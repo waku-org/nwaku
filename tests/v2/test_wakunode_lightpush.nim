@@ -5,9 +5,9 @@ import
   testutils/unittests,
   chronicles,
   chronos, 
-  libp2p/crypto/crypto,
   libp2p/switch
 import
+  ../../waku/common/crypto as wakuCrypto,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_lightpush,
   ../../waku/v2/node/peer_manager/peer_manager,
@@ -17,7 +17,7 @@ import
 
 
 procSuite "WakuNode - Lightpush":
-  let rng = crypto.newRng()
+  let rng = wakuCrypto.getRng()
  
   asyncTest "Lightpush message return success":
     ## Setup

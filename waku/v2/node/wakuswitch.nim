@@ -8,12 +8,13 @@ import
   std/options,
   chronos, chronicles,
   eth/keys,
-  libp2p/crypto/crypto,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/nameresolving/nameresolver,
   libp2p/builders,
   libp2p/switch,
   libp2p/transports/[transport, tcptransport, wstransport]
+
+import ../../common/crypto as wakuCrypto 
 
 # override nim-libp2p default value (which is also 1)
 const MaxConnectionsPerPeer* = 1
@@ -63,7 +64,7 @@ proc newWakuSwitch*(
         SecureProtocol.Noise,
       ],
     transportFlags: set[ServerFlags] = {},
-    rng = crypto.newRng(),
+    rng = wakuCrypto.getRng(),
     inTimeout: Duration = 5.minutes,
     outTimeout: Duration = 5.minutes,
     maxConnections = MaxConnections,

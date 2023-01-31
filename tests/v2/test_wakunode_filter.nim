@@ -4,9 +4,9 @@ import
   stew/shims/net as stewNet, 
   testutils/unittests,
   chronicles,
-  chronos, 
-  libp2p/crypto/crypto
+  chronos
 import
+  ../../waku/common/crypto as wakuCrypto,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/protocol/waku_message,
@@ -18,7 +18,7 @@ suite "WakuNode - Filter":
  
   asyncTest "subscriber should receive the message handled by the publisher":
     ## Setup
-    let rng = crypto.newRng()
+    let rng = wakuCrypto.getRng()
     let
       serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
       server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60110))

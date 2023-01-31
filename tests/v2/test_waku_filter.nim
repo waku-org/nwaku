@@ -4,9 +4,9 @@ import
   std/[options, tables],
   testutils/unittests,
   chronicles,
-  chronos,
-  libp2p/crypto/crypto
+  chronos
 import
+  ../../waku/common/crypto as wakuCrypto,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_filter,
@@ -19,7 +19,7 @@ import
 proc newTestWakuFilterNode(switch: Switch, timeout: Duration = 2.hours): Future[WakuFilter] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    rng = crypto.newRng()
+    rng = wakuCrypto.getRng()
     proto = WakuFilter.new(peerManager, rng, timeout)
 
   await proto.start()
@@ -30,7 +30,7 @@ proc newTestWakuFilterNode(switch: Switch, timeout: Duration = 2.hours): Future[
 proc newTestWakuFilterClient(switch: Switch): Future[WakuFilterClient] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    rng = crypto.newRng()
+    rng = wakuCrypto.getRng()
     proto = WakuFilterClient.new(peerManager, rng)
 
   await proto.start()

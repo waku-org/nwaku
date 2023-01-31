@@ -6,7 +6,6 @@ import
   testutils/unittests,
   chronicles,
   chronos,
-  libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/multiaddress,
   libp2p/switch,
@@ -15,6 +14,7 @@ import
   libp2p/protocols/pubsub/gossipsub,
   libp2p/nameresolving/mockresolver
 import
+  ../../waku/common/crypto as wakuCrypto,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/protocol/waku_message,
@@ -23,7 +23,7 @@ import
 
 
 procSuite "WakuNode":
-  let rng = crypto.newRng()
+  let rng = wakuCrypto.getRng()
 
   asyncTest "Protocol matcher works as expected":
     let

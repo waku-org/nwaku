@@ -7,7 +7,6 @@ import
   testutils/unittests,
   chronicles, 
   chronos, 
-  libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/peerid,
   libp2p/multiaddress,
@@ -16,6 +15,7 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub
 import
+  ../../waku/common/crypto as wakuCrypto,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/peers,
@@ -27,7 +27,7 @@ const KEY_PATH = sourceDir / "resources/test_key.pem"
 const CERT_PATH = sourceDir / "resources/test_cert.pem"
 
 procSuite "WakuNode - Relay":
-  let rng = crypto.newRng()
+  let rng = wakuCrypto.getRng()
   
   asyncTest "Relay protocol is started correctly":
     let

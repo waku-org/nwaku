@@ -6,10 +6,11 @@ import
   chronicles/topics_registry
 import
   libp2p/protocols/ping,
-  libp2p/crypto/[crypto, secp],
+  libp2p/crypto/secp,
   libp2p/nameresolving/nameresolver,
   libp2p/nameresolving/dnsresolver
 import
+  ../../waku/common/crypto as wakuCrypto,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/utils/peers,
   ../../waku/v2/node/waku_node,
@@ -113,7 +114,7 @@ proc main(): Future[int] {.async.} =
 
   let
     peer: RemotePeerInfo = parseRemotePeerInfo(conf.address)
-    rng = crypto.newRng()
+    rng = wakuCrypto.getRng()
     nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
     node = WakuNode.new(
       nodeKey,

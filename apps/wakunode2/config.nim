@@ -15,7 +15,8 @@ import
 import
   ../../waku/common/confutils/envvar/defs as confEnvvarDefs,
   ../../waku/common/confutils/envvar/std/net as confEnvvarNet,
-  ../../waku/common/logging
+  ../../waku/common/logging,
+  ../../waku/common/crypto as wakuCrypto
 
 export
   confTomlDefs,
@@ -467,7 +468,7 @@ proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
 
 proc defaultPrivateKey*(): PrivateKey =
-  crypto.PrivateKey.random(Secp256k1, crypto.newRng()[]).value
+  crypto.PrivateKey.random(Secp256k1, wakuCrypto.getRng()[]).value
 
 
 proc parseCmdArg*(T: type ValidIpAddress, p: string): T =

@@ -6,9 +6,9 @@ import
   stew/shims/net,
   testutils/unittests,
   presto, presto/client as presto_client,
-  libp2p/crypto/crypto,
   libp2p/protocols/pubsub/pubsub
 import
+  ../../waku/common/crypto as wakuCrypto,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/rest/[server, client, base64, utils],
@@ -19,7 +19,7 @@ import
 
 proc testWakuNode(): WakuNode = 
   let 
-    rng = crypto.newRng()
+    rng = wakuCrypto.getRng()
     privkey = crypto.PrivateKey.random(Secp256k1, rng[]).tryGet()
     bindIp = ValidIpAddress.init("0.0.0.0")
     extIp = ValidIpAddress.init("127.0.0.1")

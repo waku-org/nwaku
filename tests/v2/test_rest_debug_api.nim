@@ -5,9 +5,9 @@ import
   testutils/unittests,
   presto, presto/client as presto_client,
   libp2p/peerinfo,
-  libp2p/multiaddress,
-  libp2p/crypto/crypto
+  libp2p/multiaddress
 import
+  ../../waku/common/crypto as wakuCrypto,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/rest/[server, client, utils],
   ../../waku/v2/node/rest/debug/debug_api
@@ -15,7 +15,7 @@ import
 
 proc testWakuNode(): WakuNode = 
   let 
-    rng = crypto.newRng()
+    rng = wakuCrypto.getRng()
     privkey = crypto.PrivateKey.random(Secp256k1, rng[]).tryGet()
     bindIp = ValidIpAddress.init("0.0.0.0")
     extIp = ValidIpAddress.init("127.0.0.1")

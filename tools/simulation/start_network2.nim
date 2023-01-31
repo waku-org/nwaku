@@ -4,9 +4,10 @@ import
   eth/keys,
   stew/shims/net as stewNet,
   libp2p/multiaddress,
-  libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/peerinfo
+
+import ../../waku/common/crypto as wakuCrypto
 
 # Fix ambiguous call error
 import strutils except fromHex
@@ -61,7 +62,7 @@ proc debugPrintEnrURI(enrUri: string) =
 # NOTE: Don't distinguish between node types here a la full node, light node etc
 proc initNodeCmd(shift: int, staticNodes: seq[string] = @[], master = false, label: string, discv5BootStrapEnrs: seq[string] = @[]): NodeInfo =
   let
-    rng = crypto.newRng()
+    rng = wakuCrypto.getRng()
     key = SkPrivateKey.random(rng[])
     hkey = key.getBytes().toHex()
     rkey = SkPrivateKey.init(fromHex(hkey))[] #assumes ok
