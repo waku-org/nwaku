@@ -86,7 +86,7 @@ proc areProtocolsSupported(
 
   return false
 
-proc main(): Future[int] {.async.} =
+proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
   let conf: WakuCanaryConf = WakuCanaryConf.load()
 
   # create dns resolver
@@ -113,7 +113,6 @@ proc main(): Future[int] {.async.} =
 
   let
     peer: RemotePeerInfo = parseRemotePeerInfo(conf.address)
-    rng = crypto.newRng()
     nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
     node = WakuNode.new(
       nodeKey,
@@ -141,7 +140,8 @@ proc main(): Future[int] {.async.} =
   return 0
 
 when isMainModule:
-  let status = waitFor main()
+  let rng = crypto.newRng()
+  let status = waitFor main(rng)
   if status == 0:
     info "The node is reachable and supports all specified protocols"
   else:
