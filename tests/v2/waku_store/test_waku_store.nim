@@ -6,6 +6,7 @@ import
   chronos,
   chronicles
 import
+  ../../../waku/common/crypto as wakuCrypto,
   ../../../waku/v2/node/peer_manager/peer_manager,
   ../../../waku/v2/protocol/waku_message,
   ../../../waku/v2/protocol/waku_store,
