@@ -27,6 +27,13 @@ detailed instructions, see Waku v1 and v2 home above.
 
 More information on the installation of these can be found [here](https://github.com/status-im/nimbus#prerequisites).
 
+### Clone
+
+```bash
+# Ensure submodules are cloned as well
+git clone --recurse-submodules <REPOSITORY_REMOTE_URL>
+```
+
 ### Wakunode
 
 ```bash
