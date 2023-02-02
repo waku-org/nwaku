@@ -270,11 +270,15 @@ proc initNode(conf: WakuNodeConf,
 
   let pStorage = if peerStore.isNone(): nil
                  else: peerStore.get()
-  try:
-    var wakuDiscv5 = none(WakuDiscoveryV5)
-    let rng = crypto.newRng()
 
-    let netConfig = NetConfig.init(
+  let rng = crypto.newRng()
+  # Wrap in none because NetConfig does not have a default constructor
+  # TODO: We could change bindIp in NetConfig to be something less restrictive than ValidIpAddress,
+  # which doesn't allow default construction
+  var netConfigOpt = none(NetConfig)
+
+  try:
+    netConfigOpt = some(NetConfig.init(
       bindIp = conf.listenAddress,
       bindPort = Port(uint16(conf.tcpPort) + conf.portsShift),
       extIp = extIp,
@@ -286,23 +290,32 @@ proc initNode(conf: WakuNodeConf,
       dns4DomainName = dns4DomainName,
       discv5UdpPort = discv5UdpPort,
       wakuFlags = some(wakuFlags),
-    )
-    if conf.discv5Discovery:
-      let dynamicBootstrapEnrs = dynamicBootstrapNodes.filterIt(it.hasUdpPort())
-      var discv5BootstrapEnrs: seq[enr.Record]
-      # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
-      for enrUri in conf.discv5BootstrapNodes:
-        addBootstrapNode(enrUri, discv5BootstrapEnrs)
-      discv5BootstrapEnrs.add(dynamicBootstrapEnrs)
-      let discv5Config = DiscoveryConfig.init(conf.discv5TableIpLimit,
-                                              conf.discv5BucketIpLimit,
-                                              conf.discv5BitsPerHop)
+    ))
+  except:
+    return err("failed to create net config instance: " & getCurrentExceptionMsg())
+
+  let netConfig = netConfigOpt.get()
+  var wakuDiscv5 = none(WakuDiscoveryV5)
+
+  if conf.discv5Discovery:
+    let dynamicBootstrapEnrs = dynamicBootstrapNodes
+                                .filterIt(it.hasUdpPort())
+                                .mapIt(it.enr.get())
+    var discv5BootstrapEnrs: seq[enr.Record]
+    # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
+    for enrUri in conf.discv5BootstrapNodes:
+      addBootstrapNode(enrUri, discv5BootstrapEnrs)
+    discv5BootstrapEnrs.add(dynamicBootstrapEnrs)
+    let discv5Config = DiscoveryConfig.init(conf.discv5TableIpLimit,
+                                            conf.discv5BucketIpLimit,
+                                            conf.discv5BitsPerHop)
+    try:
       wakuDiscv5 = some(WakuDiscoveryV5.new(
         extIp = netConfig.extIp,
         extTcpPort = netConfig.extPort,
         extUdpPort = netConfig.discv5UdpPort,
         bindIp = netConfig.bindIp,
-        discv5UdpPort = netConfig.discv5UdpPort,
+        discv5UdpPort = netConfig.discv5UdpPort.get(),
         bootstrapEnrs = discv5BootstrapEnrs,
         enrAutoUpdate = conf.discv5EnrAutoUpdate,
         privateKey = keys.PrivateKey(conf.nodekey.skkey),
@@ -311,6 +324,9 @@ proc initNode(conf: WakuNodeConf,
         rng = rng,
         discv5Config = discv5Config,
       ))
+    except:
+      return err("failed to create waku discv5 instance: " & getCurrentExceptionMsg())
+  try:
     node = WakuNode.new(nodekey = conf.nodekey,
                         netConfig = netConfig,
                         rng = rng,
