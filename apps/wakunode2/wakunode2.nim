@@ -274,7 +274,7 @@ proc initNode(conf: WakuNodeConf,
     var wakuDiscv5 = none(WakuDiscoveryV5)
     let rng = crypto.newRng()
 
-    let addressMetadata = getWakuNodeAddrMeta(
+    let addressMetadata = getNetConfig(
       bindIp = conf.listenAddress,
       bindPort = Port(uint16(conf.tcpPort) + conf.portsShift),
       extIp = extIp,

@@ -135,7 +135,7 @@ procSuite "Waku Discovery v5":
       nodeTcpPort1 = Port(9010)
       nodeUdpPort1 = Port(9012)
       node1Key = generateKey()
-      node1AddressMetadata = getWakuNodeAddrMeta(bindIp = bindIp,
+      node1AddressMetadata = getNetConfig(bindIp = bindIp,
                                                     extIp = some(extIp),
                                                     extPort = some(nodeTcpPort1),
                                                     bindPort = nodeTcpPort1,
@@ -154,7 +154,7 @@ procSuite "Waku Discovery v5":
       nodeTcpPort2 = Port(9014)
       nodeUdpPort2 = Port(9016)
       node2Key = generateKey()
-      node2AddressMetadata = getWakuNodeAddrMeta(bindIp = bindIp,
+      node2AddressMetadata = getNetConfig(bindIp = bindIp,
                                                     extIp = some(extIp),
                                                     extPort = some(nodeTcpPort2),
                                                     bindPort = nodeTcpPort2,

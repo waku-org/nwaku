@@ -130,7 +130,7 @@ template wsFlag(wssEnabled: bool): MultiAddress =
   if wssEnabled: MultiAddress.init("/wss").tryGet()
   else: MultiAddress.init("/ws").tryGet()
 
-type WakuNodeAddrMeta* = object
+type NetConfig* = object
   hostAddress*: MultiAddress
   wsHostAddress*: Option[MultiAddress]
   hostExtAddress*: Option[MultiAddress]
@@ -149,7 +149,7 @@ type WakuNodeAddrMeta* = object
   bindIp*: ValidIpAddress
   bindPort*: Port
 
-proc getWakuNodeAddrMeta*(
+proc getNetConfig*(
   bindIp: ValidIpAddress,
   bindPort: Port,
   extIp = none(ValidIpAddress),
@@ -161,7 +161,7 @@ proc getWakuNodeAddrMeta*(
   dns4DomainName = none(string),
   discv5UdpPort = none(Port),
   wakuFlags = none(WakuEnrBitfield)
-): WakuNodeAddrMeta {.raises: [LPError]} =
+): NetConfig {.raises: [LPError]} =
   ## Initialize addresses
   let
     # Bind addresses
@@ -213,7 +213,7 @@ proc getWakuNodeAddrMeta*(
                                                 it.hasProtocol("ws") or
                                                 it.hasProtocol("wss"))
 
-  return WakuNodeAddrMeta(
+  return NetConfig(
     hostAddress: hostAddress,
     wsHostAddress: wsHostAddress,
     hostExtAddress: hostExtAddress,
@@ -232,7 +232,7 @@ proc getWakuNodeAddrMeta*(
     bindPort: bindPort,
     wakuFlags: wakuFlags)
 
-proc getWakuDiscoveryV5*(addressMetadata: WakuNodeAddrMeta,
+proc getWakuDiscoveryV5*(addressMetadata: NetConfig,
                          nodekey: crypto.PrivateKey,
                          discv5Config = defaultDiscoveryConfig,
                          discv5BootstrapEnrs = newSeq[enr.Record](),
@@ -252,7 +252,7 @@ proc getWakuDiscoveryV5*(addressMetadata: WakuNodeAddrMeta,
     rng = rng,
     discv5Config = discv5Config)
 
-proc getEnr*(addressMetadata: WakuNodeAddrMeta,
+proc getEnr*(addressMetadata: NetConfig,
              wakuDiscV5 = none(WakuDiscoveryV5),
              nodeKey: crypto.PrivateKey): enr.Record =
   if wakuDiscV5.isSome():
@@ -312,7 +312,7 @@ proc new*(T: type WakuNode,
           agentString = none(string),    # defaults to nim-libp2p version
           peerStoreCapacity = none(int), # defaults to 1.25 maxConnections
           ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError], deprecated: "Use AddressMetadata variant".} =
-  let addressMetadata = getWakuNodeAddrMeta(
+  let addressMetadata = getNetConfig(
     bindIp = bindIp,
     bindPort = bindPort,
     extIp = extIp,
@@ -342,7 +342,7 @@ proc new*(T: type WakuNode,
 
 proc new*(T: type WakuNode,
           nodeKey: crypto.PrivateKey,
-          addressMetadata: WakuNodeAddrMeta,
+          addressMetadata: NetConfig,
           peerStorage: PeerStorage = nil,
           maxConnections = builders.MaxConnections,
           rng = crypto.newRng(),
