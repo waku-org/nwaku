@@ -53,7 +53,7 @@ type
 
     nodekey* {.
       desc: "P2P node private key as 64 char hex string.",
-      name: "nodekey" }: PrivateKey
+      name: "nodekey" }: Option[PrivateKey]
 
     listenAddress* {.
       defaultValue: defaultListenAddress()
@@ -539,9 +539,9 @@ proc readValue*(r: var EnvvarReader, value: var crypto.PrivateKey) {.raises: [Se
 
 {.push warning[ProveInit]: off.}
 
-proc load*(T: type WakuNodeConf, version="", rng: ref HmacDrbgContext): ConfResult[T] =
+proc load*(T: type WakuNodeConf, version=""): ConfResult[T] =
   try:
-    var conf = WakuNodeConf.load(
+    let conf = WakuNodeConf.load(
       version=version,
       secondarySources = proc (conf: WakuNodeConf, sources: auto) =
         sources.addConfigFile(Envvar, InputFile("wakunode2"))
@@ -549,9 +549,6 @@ proc load*(T: type WakuNodeConf, version="", rng: ref HmacDrbgContext): ConfResu
         if conf.configFile.isSome():
           sources.addConfigFile(Toml, conf.configFile.get())
     )
-    if $conf.nodekey == "":
-      conf.nodekey = crypto.PrivateKey.random(Secp256k1, rng[]).tryGet()
-
     ok(conf)
   except CatchableError:
     err(getCurrentExceptionMsg())

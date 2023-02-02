@@ -25,7 +25,7 @@ type
 
     nodekey* {.
       desc: "P2P node private key as 64 char hex string.",
-      name: "nodekey" }: crypto.PrivateKey
+      name: "nodekey" }: Option[crypto.PrivateKey]
 
     listenAddress* {.
       defaultValue: defaultListenAddress(config)
@@ -329,12 +329,3 @@ func defaultListenAddress*(conf: Chat2Conf): ValidIpAddress =
   # TODO: How should we select between IPv4 and IPv6
   # Maybe there should be a config option for this.
   (static ValidIpAddress.init("0.0.0.0"))
-
-## Overload the Conf.load function to generate a new nodekey if one is not
-## provided. This method allows us to use a custom rng without having to
-## generate a new rng / global rng
-proc load*(T: type Chat2Conf, rng: ref HmacDrbgContext): T =
-  var conf = T.load()
-  if $conf.nodekey == "":
-    conf.nodekey = crypto.PrivateKey.random(Secp256k1, rng[]).tryGet()
-  return conf

@@ -373,7 +373,9 @@ proc readInput(wfd: AsyncFD) {.thread, raises: [Defect, CatchableError].} =
 proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   let
     transp = fromPipe(rfd)
-    conf = Chat2Conf.load(rng)
+    conf = Chat2Conf.load()
+    nodekey = if conf.nodekey.isSome(): conf.nodekey.get()
+              else: PrivateKey.random(Secp256k1, rng[]).tryGet()
 
   # set log level
   if conf.logLevel != LogLevel.NONE:
@@ -383,7 +385,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
       Port(uint16(conf.tcpPort) + conf.portsShift),
       Port(uint16(conf.udpPort) + conf.portsShift))
-    node = WakuNode.new(conf.nodekey, conf.listenAddress,
+    node = WakuNode.new(nodekey, conf.listenAddress,
       Port(uint16(conf.tcpPort) + conf.portsShift),
       extIp, extTcpPort,
       wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),

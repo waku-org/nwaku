@@ -214,9 +214,9 @@ proc retrieveDynamicBootstrapNodes*(dnsDiscovery: bool, dnsDiscoveryUrl: string,
   ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default
 
 proc initNode(conf: WakuNodeConf,
+              rng: ref HmacDrbgContext,
               peerStore: Option[WakuPeerStorage],
-              dynamicBootstrapNodes: openArray[RemotePeerInfo] = @[],
-              rng: ref HmacDrbgContext): SetupResult[WakuNode] =
+              dynamicBootstrapNodes: openArray[RemotePeerInfo] = @[]): SetupResult[WakuNode] =
 
   ## Setup a basic Waku v2 node based on a supplied configuration
   ## file. Optionally include persistent peer storage.
@@ -232,6 +232,13 @@ proc initNode(conf: WakuNodeConf,
     dnsResolver = DnsResolver.new(nameServers)
 
   let
+    nodekey = if conf.nodekey.isSome():
+                conf.nodekey.get()
+              else:
+                let nodekeyRes = crypto.PrivateKey.random(Secp256k1, rng[])
+                if nodekeyRes.isErr():
+                  return err("failed to generate nodekey: " & $nodekeyRes.error)
+                nodekeyRes.get()
     ## `udpPort` is only supplied to satisfy underlying APIs but is not
     ## actually a supported transport for libp2p traffic.
     udpPort = conf.tcpPort
@@ -272,7 +279,7 @@ proc initNode(conf: WakuNodeConf,
   let pStorage = if peerStore.isNone(): nil
                  else: peerStore.get()
   try:
-    node = WakuNode.new(conf.nodekey,
+    node = WakuNode.new(nodekey,
                         conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift),
                         extIp, extPort,
                         extMultiAddrs,
@@ -320,7 +327,7 @@ proc initNode(conf: WakuNodeConf,
       discv5UdpPort.get(),
       discv5BootstrapEnrs,
       conf.discv5EnrAutoUpdate,
-      keys.PrivateKey(conf.nodekey.skkey),
+      keys.PrivateKey(nodekey.skkey),
       wakuFlags,
       [], # Empty enr fields, for now
       node.rng,
@@ -574,8 +581,7 @@ when isMainModule:
   const versionString = "version / git commit hash: " & git_version
   let rng = crypto.newRng()
 
-  let confRes = WakuNodeConf.load(version=versionString,
-                                  rng = rng)
+  let confRes = WakuNodeConf.load(version=versionString)
   if confRes.isErr():
     error "failure while loading the configuration", error=confRes.error
     quit(QuitFailure)
@@ -659,7 +665,7 @@ when isMainModule:
 
   var node: WakuNode  # This is the node we're going to setup using the conf
 
-  let initNodeRes = initNode(conf, peerStore, dynamicBootstrapNodes, rng)
+  let initNodeRes = initNode(conf, rng, peerStore, dynamicBootstrapNodes)
   if initNodeRes.isok():
     node = initNodeRes.get()
   else:
