@@ -149,7 +149,8 @@ type NetConfig* = object
   bindIp*: ValidIpAddress
   bindPort*: Port
 
-proc getNetConfig*(
+proc init*(
+  T: type NetConfig,
   bindIp: ValidIpAddress,
   bindPort: Port,
   extIp = none(ValidIpAddress),
@@ -161,7 +162,7 @@ proc getNetConfig*(
   dns4DomainName = none(string),
   discv5UdpPort = none(Port),
   wakuFlags = none(WakuEnrBitfield)
-): NetConfig {.raises: [LPError]} =
+): T {.raises: [LPError]} =
   ## Initialize addresses
   let
     # Bind addresses
@@ -232,38 +233,19 @@ proc getNetConfig*(
     bindPort: bindPort,
     wakuFlags: wakuFlags)
 
-proc getWakuDiscoveryV5*(addressMetadata: NetConfig,
-                         nodekey: crypto.PrivateKey,
-                         discv5Config = defaultDiscoveryConfig,
-                         discv5BootstrapEnrs = newSeq[enr.Record](),
-                         discv5EnrAutoUpdate = false,
-                         rng = crypto.newRng()): WakuDiscoveryV5 =
-  return WakuDiscoveryV5.new(
-    extIp = addressMetadata.extIp,
-    extTcpPort = addressMetadata.extPort,
-    extUdpPort = addressMetadata.discv5UdpPort,
-    bindIp = addressMetadata.bindIp,
-    discv5UdpPort = addressMetadata.discv5UdpPort.get(),
-    bootstrapEnrs = discv5BootstrapEnrs,
-    enrAutoUpdate = discv5EnrAutoUpdate,
-    privateKey = keys.PrivateKey(nodekey.skkey),
-    flags = addressMetadata.wakuFlags.get(),
-    multiaddrs = addressMetadata.enrMultiaddrs,
-    rng = rng,
-    discv5Config = discv5Config)
 
-proc getEnr*(addressMetadata: NetConfig,
+proc getEnr*(netConfig: NetConfig,
              wakuDiscV5 = none(WakuDiscoveryV5),
              nodeKey: crypto.PrivateKey): enr.Record =
   if wakuDiscV5.isSome():
     return wakuDiscV5.get().protocol.getRecord()
 
-  return initEnr(nodekey,
-                 addressMetadata.enrIp,
-                 addressMetadata.enrPort,
-                 addressMetadata.discv5UdpPort,
-                 addressMetadata.wakuFlags,
-                 addressMetadata.enrMultiaddrs)
+  return enr.Record.init(nodekey,
+                         netConfig.enrIp,
+                         netConfig.enrPort,
+                         netConfig.discv5UdpPort,
+                         netConfig.wakuFlags,
+                         netConfig.enrMultiaddrs)
 
 proc getAutonatService*(rng = crypto.newRng()): AutonatService =
   ## AutonatService request other peers to dial us back
@@ -311,8 +293,8 @@ proc new*(T: type WakuNode,
           wakuDiscv5 = none(WakuDiscoveryV5),
           agentString = none(string),    # defaults to nim-libp2p version
           peerStoreCapacity = none(int), # defaults to 1.25 maxConnections
-          ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError], deprecated: "Use AddressMetadata variant".} =
-  let addressMetadata = getNetConfig(
+          ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError], deprecated: "Use NetConfig variant".} =
+  let netConfig = NetConfig.init(
     bindIp = bindIp,
     bindPort = bindPort,
     extIp = extIp,
@@ -328,7 +310,7 @@ proc new*(T: type WakuNode,
 
   return WakuNode.new(
     nodeKey = nodeKey,
-    addressMetadata = addressMetadata,
+    netConfig = netConfig,
     peerStorage = peerStorage,
     maxConnections = maxConnections,
     secureKey = secureKey,
@@ -342,7 +324,7 @@ proc new*(T: type WakuNode,
 
 proc new*(T: type WakuNode,
           nodeKey: crypto.PrivateKey,
-          addressMetadata: NetConfig,
+          netConfig: NetConfig,
           peerStorage: PeerStorage = nil,
           maxConnections = builders.MaxConnections,
           rng = crypto.newRng(),
@@ -356,16 +338,16 @@ proc new*(T: type WakuNode,
           ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
   ## Creates a Waku Node instance.
 
-  info "Initializing networking", addrs=addressMetadata.announcedAddresses
+  info "Initializing networking", addrs=netConfig.announcedAddresses
 
   let switch = newWakuSwitch(
     some(nodekey),
-    address = addressMetadata.hostAddress,
-    wsAddress = addressMetadata.wsHostAddress,
+    address = netConfig.hostAddress,
+    wsAddress = netConfig.wsHostAddress,
     transportFlags = {ServerFlags.ReuseAddr},
     rng = rng,
     maxConnections = maxConnections,
-    wssEnabled = addressMetadata.wssEnabled,
+    wssEnabled = netConfig.wssEnabled,
     secureKeyPath = secureKey,
     secureCertPath = secureCert,
     nameResolver = nameResolver,
@@ -379,8 +361,8 @@ proc new*(T: type WakuNode,
     peerManager: PeerManager.new(switch, peerStorage),
     switch: switch,
     rng: rng,
-    enr: addressMetadata.getEnr(wakuDiscv5, nodekey),
-    announcedAddresses: addressMetadata.announcedAddresses,
+    enr: netConfig.getEnr(wakuDiscv5, nodekey),
+    announcedAddresses: netConfig.announcedAddresses,
     wakuDiscv5: if wakuDiscV5.isSome(): wakuDiscV5.get() else: nil,
   )
 

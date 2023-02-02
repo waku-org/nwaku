@@ -274,7 +274,7 @@ proc initNode(conf: WakuNodeConf,
     var wakuDiscv5 = none(WakuDiscoveryV5)
     let rng = crypto.newRng()
 
-    let addressMetadata = getNetConfig(
+    let netConfig = NetConfig.init(
       bindIp = conf.listenAddress,
       bindPort = Port(uint16(conf.tcpPort) + conf.portsShift),
       extIp = extIp,
@@ -288,7 +288,7 @@ proc initNode(conf: WakuNodeConf,
       wakuFlags = some(wakuFlags),
     )
     if conf.discv5Discovery:
-      let dynamicBootstrapEnrs = filterEnrPeersWithUdpPort(@dynamicBootstrapNodes)
+      let dynamicBootstrapEnrs = dynamicBootstrapNodes.filterIt(it.hasUdpPort())
       var discv5BootstrapEnrs: seq[enr.Record]
       # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
       for enrUri in conf.discv5BootstrapNodes:
@@ -297,14 +297,22 @@ proc initNode(conf: WakuNodeConf,
       let discv5Config = DiscoveryConfig.init(conf.discv5TableIpLimit,
                                               conf.discv5BucketIpLimit,
                                               conf.discv5BitsPerHop)
-      wakuDiscv5 = some(getWakuDiscoveryV5(addressMetadata = addressMetadata,
-                                           nodekey = conf.nodekey,
-                                           discv5Config = discv5Config,
-                                           discv5BootstrapEnrs = discv5BootstrapEnrs,
-                                           discv5EnrAutoUpdate = conf.discv5EnrAutoUpdate,
-                                           rng = rng))
+      wakuDiscv5 = some(WakuDiscoveryV5.new(
+        extIp = netConfig.extIp,
+        extTcpPort = netConfig.extPort,
+        extUdpPort = netConfig.discv5UdpPort,
+        bindIp = netConfig.bindIp,
+        discv5UdpPort = netConfig.discv5UdpPort,
+        bootstrapEnrs = discv5BootstrapEnrs,
+        enrAutoUpdate = conf.discv5EnrAutoUpdate,
+        privateKey = keys.PrivateKey(conf.nodekey.skkey),
+        flags = netConfig.wakuFlags.get(),
+        multiaddrs = netConfig.enrMultiaddrs,
+        rng = rng,
+        discv5Config = discv5Config,
+      ))
     node = WakuNode.new(nodekey = conf.nodekey,
-                        addressMetadata = addressMetadata,
+                        netConfig = netConfig,
                         rng = rng,
                         peerStorage = pStorage,
                         maxConnections = conf.maxConnections.int,

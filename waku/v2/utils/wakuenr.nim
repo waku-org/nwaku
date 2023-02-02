@@ -105,8 +105,8 @@ func initWakuFlags*(lightpush, filter, store, relay: bool): WakuEnrBitfield =
 
   # TODO: With the changes in this PR, this can be refactored? Using the enum?
   # Perhaps refactor to:
-    # WaKuEnr.initEnr(..., capabilities=[Store, Lightpush])
-    # WaKuEnr.initEnr(..., capabilities=[Store, Lightpush, Relay, Filter])
+    # WaKuEnr.enr.Record.init(..., capabilities=[Store, Lightpush])
+    # WaKuEnr.enr.Record.init(..., capabilities=[Store, Lightpush, Relay, Filter])
 
   # Safer also since we dont inject WakuEnrBitfield, and we let this package
   # handle the bits according to the capabilities
@@ -145,11 +145,12 @@ func toMultiAddresses*(multiaddrsField: seq[byte]): seq[MultiAddress] =
 
   return multiaddrs
 
-func initEnr*(privateKey: crypto.PrivateKey,
-              enrIp: Option[ValidIpAddress],
-              enrTcpPort, enrUdpPort: Option[Port],
-              wakuFlags = none(WakuEnrBitfield),
-              multiaddrs: seq[MultiAddress] = @[]): enr.Record =
+func init*(T: type enr.Record,
+           privateKey: crypto.PrivateKey,
+           enrIp: Option[ValidIpAddress],
+           enrTcpPort, enrUdpPort: Option[Port],
+           wakuFlags = none(WakuEnrBitfield),
+           multiaddrs: seq[MultiAddress] = @[]): T =
 
   assert privateKey.scheme == PKScheme.Secp256k1
 

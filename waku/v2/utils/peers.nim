@@ -183,15 +183,17 @@ proc hasProtocol*(ma: MultiAddress, proto: string): bool =
       return true
   return false
 
-func filterEnrPeersWithUdpPort*(peers: seq[RemotePeerInfo]): seq[enr.Record] =
-  var filteredEnrs: seq[enr.Record]
-  for peer in peers:
-    if peer.enr.isSome():
-      let
-        enr = peer.enr.get()
-        typedEnrRes = enr.toTypedRecord()
-      if typedEnrRes.isOk():
-        let typedEnr = typedEnrRes.get()
-        if typedEnr.udp.isSome() or typedEnr.udp6.isSome():
-          filteredEnrs.add(enr)
-  return filteredEnrs
+func hasUdpPort*(peer: RemotePeerInfo): bool =
+  if peer.enr.isNone():
+   return false
+
+  let
+    enr = peer.enr.get()
+    typedEnrRes = enr.toTypedRecord()
+
+  if typedEnrRes.isErr():
+    return false
+
+  let typedEnr = typedEnrRes.get()
+  typedEnr.udp.isSome() or typedEnr.udp6.isSome()
+

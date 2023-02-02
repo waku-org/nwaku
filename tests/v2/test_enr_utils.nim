@@ -22,10 +22,10 @@ procSuite "ENR utils":
       tooShort = "0x000A047F0000010601BADD0301".hexToSeqByte()
       gibberish = "0x3270ac4e5011123c".hexToSeqByte()
       empty = newSeq[byte]()
-    
+
     ## Note: we expect to fail optimistically, i.e. extract
     ## any addresses we can and ignore other errors.
-    ## Worst case scenario is we return an empty `multiaddrs` seq.    
+    ## Worst case scenario is we return an empty `multiaddrs` seq.
     check:
       # Expected cases
       reasonable.toMultiAddresses().contains(MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[])
@@ -50,19 +50,19 @@ procSuite "ENR utils":
                      MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss")[]]
 
     let
-      record = initEnr(enrKey, some(enrIp),
+      record = enr.Record.init(enrKey, some(enrIp),
                        some(enrTcpPort), some(enrUdpPort),
                        some(wakuFlags),
                        multiaddrs)
       typedRecord = record.toTypedRecord.get()
-    
+
     # Check EIP-778 ENR fields
     check:
       @(typedRecord.secp256k1.get()) == enrKey.getPublicKey()[].getRawBytes()[]
       ipv4(typedRecord.ip.get()) == enrIp
       Port(typedRecord.tcp.get()) == enrTcpPort
       Port(typedRecord.udp.get()) == enrUdpPort
-    
+
     # Check Waku ENR fields
     let
       decodedFlags = record.get(WAKU_ENR_FIELD, seq[byte])[]
@@ -71,7 +71,7 @@ procSuite "ENR utils":
       decodedFlags == @[wakuFlags.byte]
       decodedAddrs.contains(MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[])
       decodedAddrs.contains(MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss")[])
-  
+
   asyncTest "Strip multiaddr peerId":
     # Tests that peerId is stripped of multiaddrs as per RFC31
     let
@@ -81,7 +81,7 @@ procSuite "ENR utils":
       multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss/p2p/16Uiu2HAm4v86W3bmT1BiH6oSPzcsSr31iDQpSN5Qa882BCjjwgrD")[]]
 
     let
-      record = initEnr(enrKey, some(enrIp),
+      record = enr.Record.init(enrKey, some(enrIp),
                        some(enrTcpPort), some(enrUdpPort),
                        none(WakuEnrBitfield),
                        multiaddrs)
@@ -89,7 +89,7 @@ procSuite "ENR utils":
     # Check Waku ENR fields
     let
       decodedAddrs = record.get(MULTIADDR_ENR_FIELD, seq[byte])[].toMultiAddresses()
-    
+
     check decodedAddrs.contains(MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss")[]) # Peer Id has been stripped
 
   asyncTest "Decode ENR with multiaddrs field":
@@ -110,7 +110,7 @@ procSuite "ENR utils":
     var enrRecord: Record
     check:
       enrRecord.fromURI(knownEnr)
-    
+
     let typedRecord = enrRecord.toTypedRecord.get()
 
      # Check EIP-778 ENR fields
@@ -118,11 +118,11 @@ procSuite "ENR utils":
       ipv4(typedRecord.ip.get()) == knownIp
       typedRecord.tcp == knownTcpPort
       typedRecord.udp == knownUdpPort
-    
+
     # Check Waku ENR fields
     let
       decodedAddrs = enrRecord.get(MULTIADDR_ENR_FIELD, seq[byte])[].toMultiAddresses()
-    
+
     for knownMultiaddr in knownMultiaddrs:
       check decodedAddrs.contains(knownMultiaddr)
 
@@ -132,12 +132,12 @@ procSuite "ENR utils":
       enrTcpPort, enrUdpPort = Port(60000)
       enrKey = wakuenr.crypto.PrivateKey.random(Secp256k1, rng[])[]
       multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[]]
-      
-      # TODO: Refactor initEnr, provide enums as inputs initEnr(capabilites=[Store,Filter])
+
+      # TODO: Refactor enr.Record.init, provide enums as inputs enr.Record.init(capabilites=[Store,Filter])
       # TODO: safer than a util function and directly using the bits
       # test all flag combinations 2^4 = 16 (b0000-b1111)
       records = toSeq(0b0000_0000'u8..0b0000_1111'u8)
-                        .mapIt(initEnr(enrKey,
+                        .mapIt(enr.Record.init(enrKey,
                                        some(enrIp),
                                        some(enrTcpPort),
                                        some(enrUdpPort),
@@ -161,7 +161,7 @@ procSuite "ENR utils":
                                [true, true, false, true],
                                [true, true, true, false],
                                [true, true, true, true]]
-    
+
     for i, record in records:
       for j, capability in @[Lightpush, Filter, Store, Relay]:
         check expectedCapabilities[i][j] == record.supportsCapability(capability)
@@ -172,18 +172,18 @@ procSuite "ENR utils":
       enrTcpPort, enrUdpPort = Port(60000)
       enrKey = wakuenr.crypto.PrivateKey.random(Secp256k1, rng[])[]
       multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[]]
-      
+
       records = @[0b0000_0000'u8,
                   0b0000_1111'u8,
                   0b0000_1001'u8,
                   0b0000_1110'u8,
                   0b0000_1000'u8,]
-                  .mapIt(initEnr(enrKey,
-                                 some(enrIp),
-                                 some(enrTcpPort),
-                                 some(enrUdpPort),
-                                 some(uint8(it)),
-                                 multiaddrs))
+                  .mapIt(enr.Record.init(enrKey,
+                                         some(enrIp),
+                                         some(enrTcpPort),
+                                         some(enrUdpPort),
+                                         some(uint8(it)),
+                                         multiaddrs))
 
       # expected capabilities, ordered LSB to MSB
       expectedCapabilities: seq[seq[Capabilities]] = @[
@@ -197,14 +197,14 @@ procSuite "ENR utils":
       check actualExpetedTuple[0].getCapabilities() == actualExpetedTuple[1]
 
   asyncTest "Get supported capabilities of a non waku node":
-    
-    # non waku enr, i.e. Ethereum one 
+
+    # non waku enr, i.e. Ethereum one
     let nonWakuEnr = "enr:-KG4QOtcP9X1FbIMOe17QNMKqDxCpm14jcX5tiOE4_TyMrFqbmhPZHK_ZPG2G"&
     "xb1GE2xdtodOfx9-cgvNtxnRyHEmC0ghGV0aDKQ9aX9QgAAAAD__________4JpZIJ2NIJpcIQDE8KdiXNl"&
     "Y3AyNTZrMaEDhpehBDbZjM_L9ek699Y7vhUJ-eAdMyQW_Fil522Y0fODdGNwgiMog3VkcIIjKA"
-    
+
     var nonWakuEnrRecord: Record
-    
+
     check:
       nonWakuEnrRecord.fromURI(nonWakuEnr)
 

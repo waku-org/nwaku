@@ -135,18 +135,24 @@ procSuite "Waku Discovery v5":
       nodeTcpPort1 = Port(9010)
       nodeUdpPort1 = Port(9012)
       node1Key = generateKey()
-      node1AddressMetadata = getNetConfig(bindIp = bindIp,
-                                                    extIp = some(extIp),
-                                                    extPort = some(nodeTcpPort1),
-                                                    bindPort = nodeTcpPort1,
-                                                    extmultiAddrs = @[expectedMultiAddr],
-                                                    wakuFlags = some(flags),
-                                                    discv5UdpPort = some(nodeUdpPort1))
-      node1discV5 = getWakuDiscoveryV5(addressMetadata = node1AddressMetadata,
-                                       nodekey = node1Key,
-                                       rng = rng)
+      node1NetConfig = NetConfig.init(bindIp = bindIp,
+                                      extIp = some(extIp),
+                                      extPort = some(nodeTcpPort1),
+                                      bindPort = nodeTcpPort1,
+                                      extmultiAddrs = @[expectedMultiAddr],
+                                      wakuFlags = some(flags),
+                                      discv5UdpPort = some(nodeUdpPort1))
+      node1discV5 = WakuDiscoveryV5.new(extIp = node1NetConfig.extIp,
+                                        extTcpPort = node1NetConfig.extPort,
+                                        extUdpPort = node1NetConfig.discv5UdpPort,
+                                        bindIp = node1NetConfig.bindIp,
+                                        discv5UdpPort = node1NetConfig.discv5UdpPort.get(),
+                                        privateKey = keys.PrivateKey(node1Key.skkey),
+                                        multiaddrs = node1NetConfig.enrMultiaddrs,
+                                        flags = node1NetConfig.wakuFlags.get(),
+                                        rng = rng)
       node1 = WakuNode.new(nodekey = node1Key,
-                           addressMetadata = node1AddressMetadata,
+                           netConfig = node1NetConfig,
                            wakuDiscv5 = some(node1discV5),
                            rng = rng)
 
@@ -154,17 +160,23 @@ procSuite "Waku Discovery v5":
       nodeTcpPort2 = Port(9014)
       nodeUdpPort2 = Port(9016)
       node2Key = generateKey()
-      node2AddressMetadata = getNetConfig(bindIp = bindIp,
-                                                    extIp = some(extIp),
-                                                    extPort = some(nodeTcpPort2),
-                                                    bindPort = nodeTcpPort2,
-                                                    wakuFlags = some(flags),
-                                                    discv5UdpPort = some(nodeUdpPort2))
-      node2discV5 = getWakuDiscoveryV5(addressMetadata = node2AddressMetadata,
-                                       discv5BootstrapEnrs = @[node1.wakuDiscv5.protocol.localNode.record],
-                                       nodekey = node2Key)
+      node2NetConfig = NetConfig.init(bindIp = bindIp,
+                                      extIp = some(extIp),
+                                      extPort = some(nodeTcpPort2),
+                                      bindPort = nodeTcpPort2,
+                                      wakuFlags = some(flags),
+                                      discv5UdpPort = some(nodeUdpPort2))
+      node2discV5 = WakuDiscoveryV5.new(extIp = node2NetConfig.extIp,
+                                        extTcpPort = node2NetConfig.extPort,
+                                        extUdpPort = node2NetConfig.discv5UdpPort,
+                                        bindIp = node2NetConfig.bindIp,
+                                        discv5UdpPort = node2NetConfig.discv5UdpPort.get(),
+                                        bootstrapEnrs = @[node1.wakuDiscv5.protocol.localNode.record],
+                                        privateKey = keys.PrivateKey(node2Key.skkey),
+                                        flags = node2NetConfig.wakuFlags.get(),
+                                        rng = rng)
       node2 = WakuNode.new(nodeKey = node2Key,
-                           addressMetadata = node2AddressMetadata,
+                           netConfig = node2NetConfig,
                            wakuDiscv5 = some(node2discV5))
 
     await allFutures([node1.start(), node2.start()])
