@@ -112,7 +112,7 @@ suite "Waku Filter":
     require (await client.subscribe(pubsubTopic, contentTopic, pushHandler, peer=serverAddr)).isOk()
 
     # WARN: Sleep necessary to avoid a race condition between the subscription and the handle message proc
-    await sleepAsync(1.seconds)
+    await sleepAsync(500.milliseconds)
 
     await server.handleMessage(pubsubTopic, msg)
 
