@@ -86,7 +86,7 @@ jobs:
           key: ${{ runner.os }}-nim-${{ steps.submodules.outputs.nim-hash }}
 
       - name: Build binaries
-        run: make V=1 LOG_LEVEL=TRACE v2
+        run: make V=1 LOG_LEVEL=DEBUG v2
 
   test-v2:
     needs: changes
@@ -117,7 +117,7 @@ jobs:
           key: ${{ runner.os }}-nim-${{ steps.submodules.outputs.nim-hash }}
 
       - name: Run tests
-        run: make V=1 LOG_LEVEL=TRACE test2
+        run: make V=1 LOG_LEVEL=DEBUG test2
 
 
   build-legacy:
@@ -149,7 +149,7 @@ jobs:
           key: ${{ runner.os }}-nim-${{ steps.submodules.outputs.nim-hash }}
 
       - name: Build binaries
-        run: make V=1 LOG_LEVEL=TRACE v1
+        run: make V=1 LOG_LEVEL=DEBUG v1
 
   test-legacy:
     needs: changes
@@ -180,4 +180,4 @@ jobs:
           key: ${{ runner.os }}-nim-${{ steps.submodules.outputs.nim-hash }}
 
       - name: Run tests
-        run: make V=1 LOG_LEVEL=TRACE test1
+        run: make V=1 LOG_LEVEL=DEBUG test1
