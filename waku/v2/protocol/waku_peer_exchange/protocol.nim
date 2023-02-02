@@ -135,49 +135,29 @@ proc getEnrsFromCache(wpx: WakuPeerExchange, numPeers: uint64): seq[enr.Record] 
 
 proc initProtocolHandler(wpx: WakuPeerExchange) =
   proc handler(conn: Connection, proto: string) {.async, gcsafe, closure.} =
-    let buff = await conn.readLp(MaxRpcSize.int)
+    var buffer: seq[byte]
+    try:
+      buffer = await conn.readLp(MaxRpcSize.int)
+    except CatchableError as exc:
+      waku_px_errors.inc(labelValues = [exc.msg])
+      return
 
-    let res = PeerExchangeRpc.decode(buff)
+    let res = PeerExchangeRpc.decode(buffer)
     if res.isErr():
       waku_px_errors.inc(labelValues = [decodeRpcFailure])
       return
 
     let rpc = res.get()
 
-    # handle peer exchange request
-    # TODO
-    if rpc.request != PeerExchangeRequest():
+    # If we got a request (request field is not empty)
+    if rpc.request != default(PeerExchangeRequest):
       trace "peer exchange request received"
       let enrs = wpx.getEnrsFromCache(rpc.request.numPeers)
-      # TODO we shouldnt discard this?
-      discard await wpx.respond(enrs, conn)
-      waku_px_peers_sent.inc(enrs.len().int64())
-
-    # handle peer exchange response
-    # TODO: wondering if this should not be part of the protocol
-    # whats done with the peers is not part of the protocol
-
-    # TODO: This could technically allow to inject unsolicitated responses that
-    # were not originated by a request. Possible attack.
-    #if rpc.response != PeerExchangeResponse():
-    #  echo "---enter in response"
-      # todo: error handling
-    #  trace "peer exchange response received"
-    #  var record: enr.Record
-    #  var remotePeerInfoList: seq[RemotePeerInfo]
-    #  waku_px_peers_received_total.inc(rpc.response.peerInfos.len().int64())
-    #  for pi in rpc.response.peerInfos:
-    #    discard enr.fromBytes(record, pi.enr)
-    #    remotePeerInfoList.add(record.toRemotePeerInfo().get)
-
-    #  let newPeers = remotePeerInfoList.filterIt(
-    #    not wpx.peerManager.switch.isConnected(it.peerId))
-
-    #  if newPeers.len() > 0:
-    #    waku_px_peers_received_unknown.inc(newPeers.len().int64())
-    #    debug "Connecting to newly discovered peers", count=newPeers.len()
-    #    # TODO: This should just add peers to the peerstore, not trying to connect to them
-    #    await wpx.peerManager.connectToNodes(newPeers, WakuRelayCodec, source = "peer exchange")
+      let res = await wpx.respond(enrs, conn)
+      if res.isErr:
+        waku_px_errors.inc(labelValues = [res.error])
+      else:
+        waku_px_peers_sent.inc(enrs.len().int64())
 
   wpx.handler = handler
   wpx.codec = WakuPeerExchangeCodec

@@ -41,6 +41,7 @@ import
   ../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_capacity,
   ../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_time,
   ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/protocol/waku_relay,
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_lightpush,
   ../../waku/v2/protocol/waku_peer_exchange,
@@ -531,11 +532,15 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
     let desiredOutDegree = node.wakuRelay.parameters.d.uint64()
     let pxPeersRes = await node.wakuPeerExchange.request(desiredOutDegree)
     if pxPeersRes.isOk:
-      let pxPeers = pxPeersRes.get().peerInfos
-      echo "----pxPeers, ", pxPeers
+      var record: enr.Record
+      var validPeers = 0
+      for pi in pxPeersRes.get().peerInfos:
+        if enr.fromBytes(record, pi.enr):
+          node.peerManager.addPeer(record.toRemotePeerInfo().get, WakuRelayCodec)
+          validPeers += 1
+      info "Retrieved peer info via peer exchange protocol", validPeers = validPeers
     else:
-      #error is tosevere?
-      warn "failed to retrieve peer info via peer exchange protocol"
+      warn "Failed to retrieve peer info via peer exchange protocol"
 
   # Start keepalive, if enabled
   if conf.keepAlive:

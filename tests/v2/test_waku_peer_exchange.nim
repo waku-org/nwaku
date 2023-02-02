@@ -26,7 +26,7 @@ import
 # TODO: Extend test coverage
 procSuite "Waku Peer Exchange":
 
-  xasyncTest "encode and decode peer exchange response":
+  asyncTest "encode and decode peer exchange response":
     ## Setup
     var
       enr1 = enr.Record(seqNum: 0, raw: @[])
@@ -69,7 +69,7 @@ procSuite "Waku Peer Exchange":
       resEnr1 == enr1
       resEnr2 == enr2
 
-  xasyncTest "retrieve and provide peer exchange peers from discv5":
+  asyncTest "retrieve and provide peer exchange peers from discv5":
     ## Setup (copied from test_waku_discv5.nim)
     let
       bindIp = ValidIpAddress.init("0.0.0.0")
@@ -217,7 +217,3 @@ procSuite "Waku Peer Exchange":
 
     # Check that it failed gracefully
     check: response.isErr
-
-# TODO: Test setPeerExchangePeer #node3.setPeerExchangePeer(node1.peerInfo.toRemotePeerInfo())
-
-# TODO: test with dead connection or failed peers.

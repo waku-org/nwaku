@@ -8,7 +8,6 @@ type
   PeerExchangeResponse* = object
     peerInfos*: seq[PeerExchangePeerInfo]
 
-# TODO: is this even needed?
   PeerExchangeRpc* = object
     request*: PeerExchangeRequest
     response*: PeerExchangeResponse
