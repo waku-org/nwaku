@@ -529,10 +529,13 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
   if conf.peerExchangeNode != "":
     info "Retrieving peer info via peer exchange protocol"
     let desiredOutDegree = node.wakuRelay.parameters.d.uint64()
-    try:
-      discard await node.wakuPeerExchange.request(desiredOutDegree)
-    except:
-      return err("failed to retrieve peer info via peer exchange protocol: " & getCurrentExceptionMsg())
+    let pxPeersRes = await node.wakuPeerExchange.request(desiredOutDegree)
+    if pxPeersRes.isOk:
+      let pxPeers = pxPeersRes.get().peerInfos
+      echo "----pxPeers, ", pxPeers
+    else:
+      #error is tosevere?
+      warn "failed to retrieve peer info via peer exchange protocol"
 
   # Start keepalive, if enabled
   if conf.keepAlive:
