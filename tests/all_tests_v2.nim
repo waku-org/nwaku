@@ -1,8 +1,8 @@
-## Waku common test suite
-import
-  ./v2/test_envvar_serialization,
-  ./v2/test_confutils_envvar,
-  ./v2/test_sqlite_migrations
+## Common
+
+# Waku common test suite
+import ./all_tests_common
+
 
 ## Waku v2
 
@@ -40,7 +40,6 @@ import
   ./v2/test_wakunode_filter,
   ./v2/test_waku_peer_exchange,
   ./v2/test_peer_store_extended,
-  ./v2/test_waku_swap,
   ./v2/test_utils_peers,
   ./v2/test_message_cache,
   ./v2/test_jsonrpc_waku,
@@ -75,7 +74,10 @@ when defined(rln):
     ./v2/test_wakunode_rln_relay,
     ./v2/test_waku_rln_relay_onchain
 
+# Waku swap test suite
+import
+  ./v2/test_waku_swap
 
 # TODO: Only enable this once swap module is integrated more nicely as a dependency, i.e. as submodule with CI etc
 # For PoC execute it manually and run separate module here: https://github.com/vacp2p/swap-contracts-module
-#  ./v2/test_waku_swap_contracts
+# import ./v2/test_waku_swap_contracts
