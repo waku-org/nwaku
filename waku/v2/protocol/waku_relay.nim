@@ -8,6 +8,7 @@ else:
   {.push raises: [].}
 
 import
+  std/[sequtils, tables],
   stew/results,
   chronos,
   chronicles,
@@ -32,11 +33,13 @@ type WakuRelayResult*[T] = Result[T, string]
 
 type
   PubsubRawHandler* = proc(pubsubTopic: PubsubTopic, data: seq[byte]): Future[void] {.gcsafe, raises: [Defect].}
-  SubsciptionHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[void] {.gcsafe, raises: [Defect].}
+  SubscriptionHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[void] {.gcsafe, raises: [Defect].}
 
 type
   WakuRelay* = ref object of GossipSub
     defaultPubsubTopics*: seq[PubsubTopic] # Default configured PubSub topics
+
+  WakuRelayHandler* = PubsubRawHandler|SubscriptionHandler
 
 
 proc initProtocolHandler(w: WakuRelay) =
@@ -125,12 +128,19 @@ method stop*(w: WakuRelay) {.async.} =
   await procCall GossipSub(w).stop()
 
 
-method subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: SubsciptionHandler|PubsubRawHandler) =
+proc isSubscribed*(w: WakuRelay, topic: PubsubTopic): bool =
+  GossipSub(w).topics.hasKey(topic)
+
+iterator subscribedTopics*(w: WakuRelay): lent PubsubTopic =
+  for topic in GossipSub(w).topics.keys():
+    yield topic
+
+method subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler) =
   debug "subscribe", pubsubTopic=pubsubTopic
 
   var subsHandler: PubsubRawHandler
-  when handler is SubsciptionHandler:
-    subsHandler = proc(pubsubTopic: PubsubTopic, data: seq[byte]): Future[void] {.gcsafe, raises: [Defect].} =
+  when handler is SubscriptionHandler:
+    subsHandler = proc(pubsubTopic: PubsubTopic, data: seq[byte]): Future[void] {.gcsafe.} =
         let decodeRes = WakuMessage.decode(data)
         if decodeRes.isErr():
           debug "message decode failure", pubsubTopic=pubsubTopic, error=decodeRes.error
@@ -143,7 +153,7 @@ method subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: SubsciptionHa
   procCall GossipSub(w).subscribe(pubsubTopic, subsHandler)
 
 method unsubscribe*(w: WakuRelay, topics: seq[TopicPair]) =
-  debug "unsubscribe", topics=topics
+  debug "unsubscribe", pubsubTopic=topics.mapIt(it[0])
 
   procCall GossipSub(w).unsubscribe(topics)
 
