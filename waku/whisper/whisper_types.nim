@@ -593,7 +593,7 @@ proc subscribeFilter*(
   else:
     filter.handler = handler
 
-  filters.add(id, filter)
+  filters[id] = filter
   debug "Filter added", filter = id
   return id
 

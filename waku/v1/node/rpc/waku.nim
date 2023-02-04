@@ -72,7 +72,7 @@ proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer,
     ##
     ## Returns key identifier on success and an error on failure.
     result = generateRandomID(rng[]).Identifier
-    keys.asymKeys.add(result.string, KeyPair.random(rng[]))
+    keys.asymKeys[result.string] = KeyPair.random(rng[])
 
   rpcsrv.rpc("waku_addPrivateKey") do(key: PrivateKey) -> Identifier:
     ## Stores the key pair, and returns its ID.
@@ -82,7 +82,7 @@ proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer,
     ## Returns key identifier on success and an error on failure.
     result = generateRandomID(rng[]).Identifier
 
-    keys.asymKeys.add(result.string, key.toKeyPair())
+    keys.asymKeys[result.string] = key.toKeyPair()
 
   rpcsrv.rpc("waku_deleteKeyPair") do(id: Identifier) -> bool:
     ## Deletes the specifies key if it exists.
@@ -133,7 +133,7 @@ proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer,
     if randomBytes(key) != key.len:
       raise newException(KeyGenerationError, "Failed generating key")
 
-    keys.symKeys.add(result.string, key)
+    keys.symKeys[result.string] = key
 
 
   rpcsrv.rpc("waku_addSymKey") do(key: SymKey) -> Identifier:
@@ -144,7 +144,7 @@ proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer,
     ## Returns key identifier on success and an error on failure.
     result = generateRandomID(rng[]).Identifier
 
-    keys.symKeys.add(result.string, key)
+    keys.symKeys[result.string] = key
 
   rpcsrv.rpc("waku_generateSymKeyFromPassword") do(password: string) -> Identifier:
     ## Generates the key from password, stores it, and returns its ID.
@@ -161,7 +161,7 @@ proc setupWakuRPC*(node: EthereumNode, keys: KeyStorage, rpcsrv: RpcServer,
       raise newException(KeyGenerationError, "Failed generating key")
 
     result = generateRandomID(rng[]).Identifier
-    keys.symKeys.add(result.string, symKey)
+    keys.symKeys[result.string] = symKey
 
   rpcsrv.rpc("waku_hasSymKey") do(id: Identifier) -> bool:
     ## Returns true if there is a key associated with the name string.
