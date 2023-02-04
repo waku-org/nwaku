@@ -7,13 +7,10 @@ import
 import
   libp2p/protocols/ping,
   libp2p/crypto/[crypto, secp],
-  libp2p/nameresolving/nameresolver,
   libp2p/nameresolving/dnsresolver
 import
   ../../waku/v2/node/peer_manager,
-  ../../waku/v2/utils/peers,
   ../../waku/v2/node/waku_node,
-  ../../waku/v2/node/waku_payload,
   ../../waku/v2/utils/peers
 
 # protocols and their tag
@@ -60,7 +57,7 @@ type
 proc parseCmdArg*(T: type chronos.Duration, p: string): T =
   try:
       result = chronos.seconds(parseInt(p))
-  except CatchableError as e:
+  except CatchableError:
     raise newException(ConfigurationError, "Invalid timeout value")
 
 proc completeCmdArg*(T: type chronos.Duration, val: string): seq[string] =

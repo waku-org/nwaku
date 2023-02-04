@@ -2,8 +2,6 @@
 ##
 ## See https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-message.md
 ## for spec.
-##
-## For payload content and encryption, see waku/v2/node/waku_payload.nim
 
 when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
