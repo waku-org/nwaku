@@ -63,7 +63,7 @@ type
 
 type KeystoreResult[T] = Result[T, AppKeystoreError]
 
-
+# Encodes a Membership credential to a byte sequence
 proc encode*(credential: MembershipCredentials): seq[byte] =
   # TODO: use custom encoding, avoid wordy json
   var stringCredential: string
@@ -71,6 +71,7 @@ proc encode*(credential: MembershipCredentials): seq[byte] =
   stringCredential.toUgly(%credential)
   return toBytes(stringCredential)
 
+# Decodes a byte sequence to a Membership credential
 proc decode*(encodedCredential: seq[byte]): KeystoreResult[MembershipCredentials] =
   # TODO: use custom decoding, avoid wordy json
   try:
@@ -82,9 +83,55 @@ proc decode*(encodedCredential: seq[byte]): KeystoreResult[MembershipCredentials
   except Exception: #parseJson raises Exception
     return err(OsError)
 
+# Checks if a JsonNode has all keys contained in "keys"
 proc hasKeys(data: JsonNode, keys: openArray[string]): bool =
   return all(keys, proc (key: string): bool = return data.hasKey(key))
 
+# Safely saves a JsonNode to disk. 
+# If exists, the destination file is renamed with extension .bkp; the file is written at its destination and the .bkp file is removed if write is successful, otherwise is restored 
+proc save(json: JsonNode, path: string, separator: string): KeystoreResult[void] =
+
+  # We first backup the current keystore
+  if fileExists(path):
+    try:
+      moveFile(path, path & ".bkp")
+    except:
+      return err(OsError)
+  
+  # We save the updated json
+  var f: File
+  if not f.open(path, fmAppend):
+    return err(OsError)
+  try:
+    # To avoid other users/attackers to be able to read keyfiles, we make the file readable/writable only by the running user
+    setFilePermissions(path, {fpUserWrite, fpUserRead})
+    f.write($json)
+    # We store a keyfile per line
+    f.write(separator)
+  except CatchableError:
+    # We got some OsError writing to disk. We attempt to restore the previous keystore backup
+    if fileExists(path & ".bkp"):
+      try:
+        f.close()
+        removeFile(path)
+        moveFile(path & ".bkp", path)
+      except:
+        # Unlucky, we just fail
+        return err(OsError)
+    return err(OsError)
+  finally:
+    f.close()
+
+  # The write went fine, so we can remove the backup keystore
+  if fileExists(path & ".bkp"):
+    try:
+      removeFile(path & ".bkp")
+    except:
+      return err(OsError)
+
+  return ok()
+
+# Defines how to sort membership groups
 proc sortMembershipGroup*(a,b: MembershipGroup): int =
   return cmp(a.membershipContract.address, b.membershipContract.address)
 
@@ -268,47 +315,10 @@ proc addMembershipCredentials*(path: string,
     return err(JsonError)
 
   # We save to disk the (updated) keystore.
-
-  # We first backup the current keystore
-  if fileExists(path):
-    try:
-      moveFile(path, path & ".bkp")
-    except:
-      return err(OsError)
+  if save(jsonKeystore, path, separator).isErr():
+    return err(OsError)
   
-  # We save the updated json
-  var f: File
-  if not f.open(path, fmAppend):
-    return err(OsError)
-  try:
-    # To avoid other users/attackers to be able to read keyfiles, we make the file readable/writable only by the running user
-    setFilePermissions(path, {fpUserWrite, fpUserRead})
-    f.write($jsonKeystore)
-    # We store a keyfile per line
-    f.write(separator)
-  except CatchableError:
-    # We got some OsError writing to disk. We attempt to restore the previous keystore backup
-    if fileExists(path & ".bkp"):
-      try:
-        f.close()
-        removeFile(path)
-        moveFile(path & ".bkp", path)
-      except:
-        # Unlucky, we just fail
-        return err(OsError)
-    return err(OsError)
-  finally:
-    f.close()
-
-  # The write went fine, so we can remove the backup keystore
-  if fileExists(path & ".bkp"):
-    try:
-      removeFile(path & ".bkp")
-    except:
-      return err(OsError)
-
   return ok()
-
 
 # Filters a membership credentials based on either identity credential value, membership contracts or both
 proc filterCredential*(credential: MembershipCredentials,
