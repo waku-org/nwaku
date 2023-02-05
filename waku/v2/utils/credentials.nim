@@ -82,6 +82,9 @@ proc decode*(encodedCredential: seq[byte]): KeystoreResult[MembershipCredentials
   except Exception: #parseJson raises Exception
     return err(OsError)
 
+proc hasKeys(data: JsonNode, keys: openArray[string]): bool =
+  return all(keys, proc (key: string): bool = return data.hasKey(key))
+
 proc sortMembershipGroup*(a,b: MembershipGroup): int =
   return cmp(a.membershipContract.address, b.membershipContract.address)
 
@@ -158,7 +161,7 @@ proc loadAppKeystore*(path: string,
 
         # We check if parsed json contains the relevant keystore credentials fields and if these are set to the passed parameters 
         # (note that "if" is lazy, so if one of the .contains() fails, the json fields contents will not be checked and no ResultDefect will be raised due to accessing unavailable fields)
-        if data.contains("application") and data.contains("appIdentifier") and data.contains("credentials") and data.contains("version") and
+        if data.hasKeys(["application", "appIdentifier", "credentials", "version"]) and
            data["application"].getStr() == application and 
            data["appIdentifier"].getStr() == appIdentifier and 
            data["version"].getStr() == version:
@@ -167,8 +170,6 @@ proc loadAppKeystore*(path: string,
           matchingAppKeystore = data
           break
       # TODO: we might continue rather than return for some of these errors
-      except KeyError:
-        return err(JsonKeyError)
       except JsonParsingError:
         return err(JsonError)
       except ValueError:
@@ -205,55 +206,56 @@ proc addMembershipCredentials*(path: string,
 
   try:
 
-    # We get all credentials in keystore
-    var keystoreCredentials = jsonKeystore["credentials"]
-    var found: bool
+    if jsonKeystore.hasKey("credentials"):
 
-    for membershipCredential in credentials:
+      # We get all credentials in keystore
+      var keystoreCredentials = jsonKeystore["credentials"]
+      var found: bool
 
-      # A flag to tell us if the keystore contains a credential associated to the input identity credential, i.e. membershipCredential
-      found = false
+      for membershipCredential in credentials:
 
-      for keystoreCredential in keystoreCredentials.mitems():
-        # keystoreCredential is encrypted. We decrypt it
-        let decodedKeyfile = decodeKeyFileJson(keystoreCredential, password)
-        if decodedKeyfile.isOk():
+        # A flag to tell us if the keystore contains a credential associated to the input identity credential, i.e. membershipCredential
+        found = false
 
-          # we parse the json decrypted keystoreCredential
-          let decodedCredential = decode(decodedKeyfile.get())
-          
-          if decodedCredential.isOk():
-            let keyfileMembershipCredential = decodedCredential.get()
+        for keystoreCredential in keystoreCredentials.mitems():
+          # keystoreCredential is encrypted. We decrypt it
+          let decodedKeyfile = decodeKeyFileJson(keystoreCredential, password)
+          if decodedKeyfile.isOk():
 
-            # We check if the decrypted credential has its identityCredential field equal to the input credential
-            if keyfileMembershipCredential.identityCredential == membershipCredential.identityCredential:
-              # idCredential is present in keystore. We add the input credential membership group to the one contained in the decrypted keystore credential (we deduplicate groups using sets)
-              var allMemberships = toSeq(toHashSet(keyfileMembershipCredential.membershipGroups) + toHashSet(membershipCredential.membershipGroups))
+            # we parse the json decrypted keystoreCredential
+            let decodedCredential = decode(decodedKeyfile.get())
+            
+            if decodedCredential.isOk():
+              let keyfileMembershipCredential = decodedCredential.get()
 
-              # We sort membership groups, otherwise we will not have deterministic results in tests
-              allMemberships.sort(sortMembershipGroup)
+              # We check if the decrypted credential has its identityCredential field equal to the input credential
+              if keyfileMembershipCredential.identityCredential == membershipCredential.identityCredential:
+                # idCredential is present in keystore. We add the input credential membership group to the one contained in the decrypted keystore credential (we deduplicate groups using sets)
+                var allMemberships = toSeq(toHashSet(keyfileMembershipCredential.membershipGroups) + toHashSet(membershipCredential.membershipGroups))
 
-              # we define the updated credential with the updated membership sets
-              let updatedCredential = MembershipCredentials(identityCredential: keyfileMembershipCredential.identityCredential, membershipGroups: allMemberships)
+                # We sort membership groups, otherwise we will not have deterministic results in tests
+                allMemberships.sort(sortMembershipGroup)
 
-              # we re-encrypt creating a new keyfile
-              let encodedUpdatedCredential = updatedCredential.encode()
-              let updatedCredentialKeyfile = createKeyFileJson(encodedUpdatedCredential, password)
-              if updatedCredentialKeyfile.isErr():
-                return err(CreateKeyfileError)
+                # we define the updated credential with the updated membership sets
+                let updatedCredential = MembershipCredentials(identityCredential: keyfileMembershipCredential.identityCredential, membershipGroups: allMemberships)
 
-              # we update the original credential field in keystoreCredentials
-              keystoreCredential = updatedCredentialKeyfile.get()
-              
-              found = true
+                # we re-encrypt creating a new keyfile
+                let encodedUpdatedCredential = updatedCredential.encode()
+                let updatedCredentialKeyfile = createKeyFileJson(encodedUpdatedCredential, password)
+                if updatedCredentialKeyfile.isErr():
+                  return err(CreateKeyfileError)
 
-              # We stop decrypting other credentials in the keystore
-              break
+                # we update the original credential field in keystoreCredentials
+                keystoreCredential = updatedCredentialKeyfile.get()
+                
+                found = true
 
-      # If no credential in keystore with same input identityCredential value is found, we add it    
-      if found == false:
+                # We stop decrypting other credentials in the keystore
+                break
 
-        try:    
+        # If no credential in keystore with same input identityCredential value is found, we add it    
+        if found == false:
+
           let encodedMembershipCredential = membershipCredential.encode()
           let keyfile = createKeyFileJson(encodedMembershipCredential, password)
           if keyfile.isErr():
@@ -262,11 +264,6 @@ proc addMembershipCredentials*(path: string,
           # We add it to the credentials field of the keystore
           jsonKeystore["credentials"].add(keyfile.get())
 
-        except KeyError:
-          return err(JsonKeyError)
-
-  except KeyError:
-    return err(JsonKeyError)
   except:
     return err(JsonError)
 
@@ -370,27 +367,27 @@ proc getMembershipCredentials*(path: string,
 
   try:
 
-    # We get all credentials in keystore
-    var keystoreCredentials = jsonKeystore["credentials"]
+    if jsonKeystore.hasKey("credentials"):
 
-    for keystoreCredential in keystoreCredentials.mitems():
+      # We get all credentials in keystore
+      var keystoreCredentials = jsonKeystore["credentials"]
 
-      # keystoreCredential is encrypted. We decrypt it
-      let decodedKeyfile = decodeKeyFileJson(keystoreCredential, password)
-      if decodedKeyfile.isOk():
-          # we parse the json decrypted keystoreCredential
-          let decodedCredential = decode(decodedKeyfile.get())
-          
-          if decodedCredential.isOk():
-            let keyfileMembershipCredential = decodedCredential.get()
-    
-            let filteredCredential = filterCredential(keyfileMembershipCredential, filterIdentityCredentials, filterMembershipContracts)
+      for keystoreCredential in keystoreCredentials.mitems():
+
+        # keystoreCredential is encrypted. We decrypt it
+        let decodedKeyfile = decodeKeyFileJson(keystoreCredential, password)
+        if decodedKeyfile.isOk():
+            # we parse the json decrypted keystoreCredential
+            let decodedCredential = decode(decodedKeyfile.get())
             
-            if filteredCredential.isSome():
-              outputMembershipCredentials.add(filteredCredential.get())
+            if decodedCredential.isOk():
+              let keyfileMembershipCredential = decodedCredential.get()
+      
+              let filteredCredential = filterCredential(keyfileMembershipCredential, filterIdentityCredentials, filterMembershipContracts)
+              
+              if filteredCredential.isSome():
+                outputMembershipCredentials.add(filteredCredential.get())
 
-  except KeyError:
-    return err(JsonKeyError)
   except:
     return err(JsonError)
 
