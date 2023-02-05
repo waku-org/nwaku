@@ -31,14 +31,14 @@ proc encode*(index: PagingIndexRPC): ProtoBuffer =
 
   pb
 
-proc decode*(T: type PagingIndexRPC, buffer: seq[byte]): ProtoResult[T] =
+proc decode*(T: type PagingIndexRPC, buffer: seq[byte]): ProtobufResult[T] =
   ## creates and returns an Index object out of buffer
   var rpc = PagingIndexRPC()
   let pb = initProtoBuffer(buffer)
 
   var data: seq[byte]
   if not ?pb.getField(1, data):
-    return err(ProtoError.RequiredFieldMissing)
+    return err(ProtobufError.missingRequiredField("digest"))
   else:
     var digest = MessageDigest()
     for count, b in data:
@@ -48,19 +48,19 @@ proc decode*(T: type PagingIndexRPC, buffer: seq[byte]): ProtoResult[T] =
 
   var receiverTime: zint64
   if not ?pb.getField(2, receiverTime):
-    return err(ProtoError.RequiredFieldMissing)
+    return err(ProtobufError.missingRequiredField("receiver_time"))
   else:
     rpc.receiverTime = int64(receiverTime)
 
   var senderTime: zint64
   if not ?pb.getField(3, senderTime):
-    return err(ProtoError.RequiredFieldMissing)
+    return err(ProtobufError.missingRequiredField("sender_time"))
   else:
     rpc.senderTime = int64(senderTime)
 
   var pubsubTopic: string
   if not ?pb.getField(4, pubsubTopic):
-    return err(ProtoError.RequiredFieldMissing)
+    return err(ProtobufError.missingRequiredField("pubsub_topic"))
   else:
     rpc.pubsubTopic = pubsubTopic
 
@@ -79,7 +79,7 @@ proc encode*(rpc: PagingInfoRPC): ProtoBuffer =
 
   pb
 
-proc decode*(T: type PagingInfoRPC, buffer: seq[byte]): ProtoResult[T] =
+proc decode*(T: type PagingInfoRPC, buffer: seq[byte]): ProtobufResult[T] =
   ## creates and returns a PagingInfo object out of buffer
   var rpc = PagingInfoRPC()
   let pb = initProtoBuffer(buffer)
@@ -116,13 +116,12 @@ proc encode*(rpc: HistoryContentFilterRPC): ProtoBuffer =
 
   pb
 
-proc decode*(T: type HistoryContentFilterRPC, buffer: seq[byte]): ProtoResult[T] =
+proc decode*(T: type HistoryContentFilterRPC, buffer: seq[byte]): ProtobufResult[T] =
   let pb = initProtoBuffer(buffer)
 
   var contentTopic: ContentTopic
   if not ?pb.getField(1, contentTopic):
-    return err(ProtoError.RequiredFieldMissing)
-
+    return err(ProtobufError.missingRequiredField("content_topic"))
   ok(HistoryContentFilterRPC(contentTopic: contentTopic))
 
 
@@ -140,7 +139,7 @@ proc encode*(rpc: HistoryQueryRPC): ProtoBuffer =
 
   pb
 
-proc decode*(T: type HistoryQueryRPC, buffer: seq[byte]): ProtoResult[T] =
+proc decode*(T: type HistoryQueryRPC, buffer: seq[byte]): ProtobufResult[T] =
   var rpc = HistoryQueryRPC()
   let pb = initProtoBuffer(buffer)
 
@@ -192,7 +191,7 @@ proc encode*(response: HistoryResponseRPC): ProtoBuffer =
 
   pb
 
-proc decode*(T: type HistoryResponseRPC, buffer: seq[byte]): ProtoResult[T] =
+proc decode*(T: type HistoryResponseRPC, buffer: seq[byte]): ProtobufResult[T] =
   var rpc = HistoryResponseRPC()
   let pb = initProtoBuffer(buffer)
 
@@ -213,7 +212,7 @@ proc decode*(T: type HistoryResponseRPC, buffer: seq[byte]): ProtoResult[T] =
 
   var error: uint32
   if not ?pb.getField(4, error):
-    return err(ProtoError.RequiredFieldMissing)
+    return err(ProtobufError.missingRequiredField("error"))
   else:
     rpc.error = HistoryResponseErrorRPC.parse(error)
 
@@ -230,12 +229,12 @@ proc encode*(rpc: HistoryRPC): ProtoBuffer =
 
   pb
 
-proc decode*(T: type HistoryRPC, buffer: seq[byte]): ProtoResult[T] =
+proc decode*(T: type HistoryRPC, buffer: seq[byte]): ProtobufResult[T] =
   var rpc = HistoryRPC()
   let pb = initProtoBuffer(buffer)
 
   if not ?pb.getField(1, rpc.requestId):
-    return err(ProtoError.RequiredFieldMissing)
+    return err(ProtobufError.missingRequiredField("request_id"))
 
   var queryBuffer: seq[byte]
   if not ?pb.getField(2, queryBuffer):
