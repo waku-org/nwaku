@@ -196,13 +196,13 @@ proc addMembershipCredentials*(path: string,
 
   # We load the keystore corresponding to the desired parameters
   # This call ensures that JSON has all required fields
-  let jsonKeystoreOpt = loadAppKeystore(path, application, appIdentifier, version, separator)
+  let jsonKeystoreRes = loadAppKeystore(path, application, appIdentifier, version, separator)
 
-  if jsonKeystoreOpt.isErr():
+  if jsonKeystoreRes.isErr():
     return err(LoadKeystoreError)
 
   # We load the JSON node corresponding to the app keystore
-  var jsonKeystore = jsonKeystoreOpt.get()
+  var jsonKeystore = jsonKeystoreRes.get()
 
   try:
 
@@ -219,14 +219,14 @@ proc addMembershipCredentials*(path: string,
 
         for keystoreCredential in keystoreCredentials.mitems():
           # keystoreCredential is encrypted. We decrypt it
-          let decodedKeyfile = decodeKeyFileJson(keystoreCredential, password)
-          if decodedKeyfile.isOk():
+          let decodedKeyfileRes = decodeKeyFileJson(keystoreCredential, password)
+          if decodedKeyfileRes.isOk():
 
             # we parse the json decrypted keystoreCredential
-            let decodedCredential = decode(decodedKeyfile.get())
+            let decodedCredentialRes = decode(decodedKeyfileRes.get())
             
-            if decodedCredential.isOk():
-              let keyfileMembershipCredential = decodedCredential.get()
+            if decodedCredentialRes.isOk():
+              let keyfileMembershipCredential = decodedCredentialRes.get()
 
               # We check if the decrypted credential has its identityCredential field equal to the input credential
               if keyfileMembershipCredential.identityCredential == membershipCredential.identityCredential:
@@ -241,12 +241,12 @@ proc addMembershipCredentials*(path: string,
 
                 # we re-encrypt creating a new keyfile
                 let encodedUpdatedCredential = updatedCredential.encode()
-                let updatedCredentialKeyfile = createKeyFileJson(encodedUpdatedCredential, password)
-                if updatedCredentialKeyfile.isErr():
+                let updatedCredentialKeyfileRes = createKeyFileJson(encodedUpdatedCredential, password)
+                if updatedCredentialKeyfileRes.isErr():
                   return err(CreateKeyfileError)
 
                 # we update the original credential field in keystoreCredentials
-                keystoreCredential = updatedCredentialKeyfile.get()
+                keystoreCredential = updatedCredentialKeyfileRes.get()
                 
                 found = true
 
@@ -257,12 +257,12 @@ proc addMembershipCredentials*(path: string,
         if found == false:
 
           let encodedMembershipCredential = membershipCredential.encode()
-          let keyfile = createKeyFileJson(encodedMembershipCredential, password)
-          if keyfile.isErr():
+          let keyfileRes = createKeyFileJson(encodedMembershipCredential, password)
+          if keyfileRes.isErr():
             return err(CreateKeyfileError)
 
           # We add it to the credentials field of the keystore
-          jsonKeystore["credentials"].add(keyfile.get())
+          jsonKeystore["credentials"].add(keyfileRes.get())
 
   except:
     return err(JsonError)
@@ -357,13 +357,13 @@ proc getMembershipCredentials*(path: string,
 
   # We load the keystore corresponding to the desired parameters
   # This call ensures that JSON has all required fields
-  let jsonKeystoreOpt = loadAppKeystore(path, application, appIdentifier, version)
+  let jsonKeystoreRes = loadAppKeystore(path, application, appIdentifier, version)
 
-  if jsonKeystoreOpt.isErr():
+  if jsonKeystoreRes.isErr():
     return err(LoadKeystoreError)
 
   # We load the JSON node corresponding to the app keystore
-  var jsonKeystore = jsonKeystoreOpt.get()
+  var jsonKeystore = jsonKeystoreRes.get()
 
   try:
 
@@ -375,18 +375,18 @@ proc getMembershipCredentials*(path: string,
       for keystoreCredential in keystoreCredentials.mitems():
 
         # keystoreCredential is encrypted. We decrypt it
-        let decodedKeyfile = decodeKeyFileJson(keystoreCredential, password)
-        if decodedKeyfile.isOk():
+        let decodedKeyfileRes = decodeKeyFileJson(keystoreCredential, password)
+        if decodedKeyfileRes.isOk():
             # we parse the json decrypted keystoreCredential
-            let decodedCredential = decode(decodedKeyfile.get())
+            let decodedCredentialRes = decode(decodedKeyfileRes.get())
             
-            if decodedCredential.isOk():
-              let keyfileMembershipCredential = decodedCredential.get()
+            if decodedCredentialRes.isOk():
+              let keyfileMembershipCredential = decodedCredentialRes.get()
       
-              let filteredCredential = filterCredential(keyfileMembershipCredential, filterIdentityCredentials, filterMembershipContracts)
+              let filteredCredentialOpt = filterCredential(keyfileMembershipCredential, filterIdentityCredentials, filterMembershipContracts)
               
-              if filteredCredential.isSome():
-                outputMembershipCredentials.add(filteredCredential.get())
+              if filteredCredentialOpt.isSome():
+                outputMembershipCredentials.add(filteredCredentialOpt.get())
 
   except:
     return err(JsonError)

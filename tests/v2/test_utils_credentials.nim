@@ -18,26 +18,26 @@ procSuite "Credentials test suite":
     let filepath = "./testAppKeystore.txt"
     defer: removeFile(filepath)
 
-    let keystore = createAppKeystore(path = filepath,
-                        application = "test",
-                        appIdentifier = "1234",
-                        version = "0.1")
+    let keystoreRes = createAppKeystore(path = filepath,
+                                        application = "test",
+                                        appIdentifier = "1234",
+                                        version = "0.1")
 
     check:
-      keystore.isOk()
+      keystoreRes.isOk()
 
   asyncTest "Load keystore":
 
     let filepath = "./testAppKeystore.txt"
     defer: removeFile(filepath)
 
-    let keystore = loadAppKeystore(path = filepath,
-                                   application = "test",
-                                   appIdentifier = "1234",
-                                   version = "0.1")
+    let keystoreRes = loadAppKeystore(path = filepath,
+                                      application = "test",
+                                      appIdentifier = "1234",
+                                      version = "0.1")
 
     check:
-      keystore.isOk()
+      keystoreRes.isOk()
 
   asyncTest "Add credentials to keystore":
 
@@ -76,15 +76,15 @@ procSuite "Credentials test suite":
 
     let password = "%m0um0ucoW%"
     
-    let keystore = addMembershipCredentials(path = filepath,
-                                            credentials = @[membershipCredentials1, membershipCredentials2],
-                                            password = password,
-                                            application = "test",
-                                            appIdentifier = "1234",
-                                            version = "0.1")
+    let keystoreRes = addMembershipCredentials(path = filepath,
+                                               credentials = @[membershipCredentials1, membershipCredentials2],
+                                               password = password,
+                                               application = "test",
+                                               appIdentifier = "1234",
+                                               version = "0.1")
 
     check:
-      keystore.isOk()
+      keystoreRes.isOk()
 
   asyncTest "Add/retrieve credentials in keystore":
 
@@ -132,15 +132,15 @@ procSuite "Credentials test suite":
     let password = "%m0um0ucoW%"
     
     # We add credentials to the keystore. Note that only 3 credentials should be effectively added, since rlnMembershipCredentials3 is equal to membershipCredentials2
-    let keystore = addMembershipCredentials(path = filepath,
-                                            credentials = @[membershipCredentials1, membershipCredentials2, membershipCredentials3, membershipCredentials4],
-                                            password = password,
-                                            application = "test",
-                                            appIdentifier = "1234",
-                                            version = "0.1")
+    let keystoreRes = addMembershipCredentials(path = filepath,
+                                               credentials = @[membershipCredentials1, membershipCredentials2, membershipCredentials3, membershipCredentials4],
+                                               password = password,
+                                               application = "test",
+                                               appIdentifier = "1234",
+                                               version = "0.1")
 
     check:
-      keystore.isOk()
+      keystoreRes.isOk()
 
     # We test retrieval of credentials.
     var expectedMembershipGroups1 = @[membershipGroup1, membershipGroup2]          
@@ -156,38 +156,38 @@ procSuite "Credentials test suite":
 
 
     # We retrieve all credentials stored under password (no filter)
-    var recoveredCredentials = getMembershipCredentials(path = filepath,
-                                                        password = password,
-                                                        application = "test",
-                                                        appIdentifier = "1234",
-                                                        version = "0.1")
+    var recoveredCredentialsRes = getMembershipCredentials(path = filepath,
+                                                           password = password,
+                                                           application = "test",
+                                                           appIdentifier = "1234",
+                                                           version = "0.1")
 
     check:
-      recoveredCredentials.isOk()
-      recoveredCredentials.get() == @[expectedCredential1, expectedCredential2]
+      recoveredCredentialsRes.isOk()
+      recoveredCredentialsRes.get() == @[expectedCredential1, expectedCredential2]
 
 
     # We retrieve credentials by filtering on an IdentityCredential
-    recoveredCredentials = getMembershipCredentials(path = filepath,
-                                                    password = password,
-                                                    filterIdentityCredentials = @[idCredential1],
-                                                    application = "test",
-                                                    appIdentifier = "1234",
-                                                    version = "0.1")
+    recoveredCredentialsRes = getMembershipCredentials(path = filepath,
+                                                       password = password,
+                                                       filterIdentityCredentials = @[idCredential1],
+                                                       application = "test",
+                                                       appIdentifier = "1234",
+                                                       version = "0.1")
 
     check:
-      recoveredCredentials.isOk()
-      recoveredCredentials.get() == @[expectedCredential1]
+      recoveredCredentialsRes.isOk()
+      recoveredCredentialsRes.get() == @[expectedCredential1]
 
     # We retrieve credentials by filtering on multiple IdentityCredentials
-    recoveredCredentials = getMembershipCredentials(path = filepath,
-                                                    password = password,
-                                                    filterIdentityCredentials = @[idCredential1, idCredential2],
-                                                    application = "test",
-                                                    appIdentifier = "1234",
-                                                    version = "0.1")
+    recoveredCredentialsRes = getMembershipCredentials(path = filepath,
+                                                       password = password,
+                                                       filterIdentityCredentials = @[idCredential1, idCredential2],
+                                                       application = "test",
+                                                       appIdentifier = "1234",
+                                                       version = "0.1")
 
     check:  
-      recoveredCredentials.isOk()
-      recoveredCredentials.get() == @[expectedCredential1, expectedCredential2]
+      recoveredCredentialsRes.isOk()
+      recoveredCredentialsRes.get() == @[expectedCredential1, expectedCredential2]
 
