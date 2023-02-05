@@ -1,12 +1,10 @@
 {.used.}
 
 import
-  std/[algorithm, options, os, strutils, sequtils, sets],
-  testutils/unittests, chronos, chronicles, stint, json,
-  stew/byteutils, 
+  std/[algorithm, options, os],
+  testutils/unittests, chronos, stint,
   ../../waku/v2/utils/credentials,
-  ../test_helpers,
-  ./test_utils
+  ../test_helpers
 
 from  ../../waku/v2/protocol/waku_noise/noise_utils import randomSeqByte
 
