@@ -53,8 +53,7 @@ type
 
     nodekey* {.
       desc: "P2P node private key as 64 char hex string.",
-      defaultValue: defaultPrivateKey()
-      name: "nodekey" }: PrivateKey
+      name: "nodekey" }: Option[PrivateKey]
 
     listenAddress* {.
       defaultValue: defaultListenAddress()
@@ -464,9 +463,6 @@ proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
 
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
-
-proc defaultPrivateKey*(): PrivateKey =
-  crypto.PrivateKey.random(Secp256k1, crypto.newRng()[]).value
 
 
 proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
