@@ -39,7 +39,7 @@ import
   ../utils/peers,
   ../utils/wakuenr,
   ../utils/time,
-  ./peer_manager/peer_manager,
+  ./peer_manager,
   ./dnsdisc/waku_dnsdisc,
   ./discv5/waku_discv5,
   ./wakuswitch

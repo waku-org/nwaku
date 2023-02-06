@@ -22,7 +22,7 @@ import
   ../../waku/v2/node/discv5/waku_discv5,
   ../../apps/wakunode2/wakunode2,
   ../../waku/v2/node/dnsdisc/waku_dnsdisc,
-  ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/node/peer_manager,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/utils/wakuenr,
   ../../waku/v2/protocol/waku_message,
