@@ -33,6 +33,7 @@ import
                               filter_api,
                               relay_api,
                               store_api],
+  ./message_compat,
   ./config
 
 declarePublicCounter waku_bridge_transfers, "Number of messages transferred between Waku v1 and v2 networks", ["type"]
@@ -49,8 +50,6 @@ const
   ClientIdV1 = "nim-waku v1 node"
   DefaultTTL = 5'u32
   DeduplQSize = 20  # Maximum number of seen messages to keep in deduplication queue
-  ContentTopicApplication = "waku"
-  ContentTopicAppVersion = "1"
   MaintenancePeriod = 1.minutes
   TargetV1Peers = 4  # Target number of v1 connections to maintain. Could be made configurable in future.
 
@@ -73,18 +72,6 @@ type
 # Helper funtions #
 ###################
 
-# Validity
-
-proc isBridgeable*(msg: WakuMessage): bool =
-  ## Determines if a Waku v2 msg is on a bridgeable content topic
-
-  let ns = NamespacedTopic.fromString(msg.contentTopic)
-  if ns.isOk():
-    if ns.get().application == ContentTopicApplication and ns.get().version == ContentTopicAppVersion:
-      return true
-
-  return false
-
 # Deduplication
 
 proc containsOrAdd(sequence: var seq[hashes.Hash], hash: hashes.Hash): bool =
@@ -98,30 +85,6 @@ proc containsOrAdd(sequence: var seq[hashes.Hash], hash: hashes.Hash): bool =
   sequence.add(hash)
 
   return false
-
-# Topic conversion
-
-proc toV2ContentTopic*(v1Topic: waku_protocol.Topic): ContentTopic =
-  ## Convert a 4-byte array v1 topic to a namespaced content topic
-  ## with format `/waku/1/<v1-topic-bytes-as-hex>/rfc26`
-  ##
-  ## <v1-topic-bytes-as-hex> should be prefixed with `0x`
-
-  var namespacedTopic = NamespacedTopic()
-
-  namespacedTopic.application = ContentTopicApplication
-  namespacedTopic.version = ContentTopicAppVersion
-  namespacedTopic.topicName = "0x" & v1Topic.toHex()
-  namespacedTopic.encoding = "rfc26"
-
-  return ContentTopic($namespacedTopic)
-
-proc toV1Topic*(contentTopic: ContentTopic): waku_protocol.Topic {.raises: [Defect, LPError, ValueError]} =
-  ## Extracts the 4-byte array v1 topic from a content topic
-  ## with format `/waku/1/<v1-topic-bytes-as-hex>/rfc26`
-
-  hexToByteArray(hexStr = NamespacedTopic.fromString(contentTopic).tryGet().topicName,
-                 N = 4)  # Byte array length
 
 # Message conversion
 

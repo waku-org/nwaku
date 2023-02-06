@@ -1,47 +1,46 @@
 {.used.}
 
 import
-  testutils/unittests,
-  chronos,
   stew/results,
+  testutils/unittests
+import
   ../../waku/v2/utils/namespacing
 
-procSuite "Namespacing utils":
+suite "Namespacing utils":
 
-  asyncTest "Create from string":
+  test "Create from string":
     # Expected case
-    let ns = NamespacedTopic.fromString("/waku/2/default-waku/proto").tryGet()
-    
+    let nsRes = NamespacedTopic.fromString("/waku/2/default-waku/proto")
+
+    require nsRes.isOk()
+
+    let ns = nsRes.get()
+
     check:
       ns.application == "waku"
       ns.version == "2"
       ns.topicName == "default-waku"
       ns.encoding == "proto"
-    
-    # Invalid cases
-    expect CatchableError:
-      # Topic should be namespaced
-      discard NamespacedTopic.fromString("this-is-not-namespaced").tryGet()
-    
-    expect CatchableError:
-      # Topic should start with '/'
-      discard NamespacedTopic.fromString("waku/2/default-waku/proto").tryGet()
 
-    expect CatchableError:
-      # Topic has too few parts
-      discard NamespacedTopic.fromString("/waku/2/default-waku").tryGet()
+  test "Invalid string - Topic is not namespaced":
+    check NamespacedTopic.fromString("this-is-not-namespaced").isErr()
 
-    expect CatchableError:
-      # Topic has too many parts
-      discard NamespacedTopic.fromString("/waku/2/default-waku/proto/2").tryGet()
+  test "Invalid string - Topic should start with slash":
+    check NamespacedTopic.fromString("waku/2/default-waku/proto").isErr()
 
-  asyncTest "Stringify namespaced topic":
+  test "Invalid string - Topic has too few parts":
+    check NamespacedTopic.fromString("/waku/2/default-waku").isErr()
+
+  test "Invalid string - Topic has too many parts":
+    check NamespacedTopic.fromString("/waku/2/default-waku/proto/2").isErr()
+
+  test "Stringify namespaced topic":
     var ns = NamespacedTopic()
 
     ns.application = "waku"
     ns.version = "2"
     ns.topicName = "default-waku"
     ns.encoding = "proto"
-    
+
     check:
       $ns == "/waku/2/default-waku/proto"
