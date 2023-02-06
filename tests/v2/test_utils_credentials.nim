@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[algorithm, options, os],
+  std/[algorithm, json, options, os],
   testutils/unittests, chronos, stint,
   ../../waku/v2/utils/credentials,
   ../test_helpers
@@ -12,6 +12,7 @@ procSuite "Credentials test suite":
 
   # We initialize the RNG in test_helpers
   let rng = rng()
+  let testAppInfo = AppInfo(application: "test", appIdentifier: "1234", version: "0.1")
 
   asyncTest "Create keystore":
 
@@ -19,9 +20,7 @@ procSuite "Credentials test suite":
     defer: removeFile(filepath)
 
     let keystoreRes = createAppKeystore(path = filepath,
-                                        application = "test",
-                                        appIdentifier = "1234",
-                                        version = "0.1")
+                                        appInfo = testAppInfo)
 
     check:
       keystoreRes.isOk()
@@ -31,13 +30,22 @@ procSuite "Credentials test suite":
     let filepath = "./testAppKeystore.txt"
     defer: removeFile(filepath)
 
+    # If no keystore exists at filepath, a new one is created for appInfo and empty credentials
     let keystoreRes = loadAppKeystore(path = filepath,
-                                      application = "test",
-                                      appIdentifier = "1234",
-                                      version = "0.1")
+                                      appInfo = testAppInfo)
 
     check:
       keystoreRes.isOk()
+
+    let keystore = keystoreRes.get()
+
+    check:
+      keystore.hasKeys(["application", "appIdentifier", "version", "credentials"])
+      keystore["application"].getStr() == testAppInfo.application
+      keystore["appIdentifier"].getStr() == testAppInfo.appIdentifier
+      keystore["version"].getStr() == testAppInfo.version
+      # We assume the loaded keystore to not have credentials set (previous tests delete the keystore at filepath)
+      keystore["credentials"].getElems().len() == 0
 
   asyncTest "Add credentials to keystore":
 
@@ -79,9 +87,7 @@ procSuite "Credentials test suite":
     let keystoreRes = addMembershipCredentials(path = filepath,
                                                credentials = @[membershipCredentials1, membershipCredentials2],
                                                password = password,
-                                               application = "test",
-                                               appIdentifier = "1234",
-                                               version = "0.1")
+                                               appInfo = testAppInfo)
 
     check:
       keystoreRes.isOk()
@@ -135,9 +141,7 @@ procSuite "Credentials test suite":
     let keystoreRes = addMembershipCredentials(path = filepath,
                                                credentials = @[membershipCredentials1, membershipCredentials2, membershipCredentials3, membershipCredentials4],
                                                password = password,
-                                               application = "test",
-                                               appIdentifier = "1234",
-                                               version = "0.1")
+                                               appInfo = testAppInfo)
 
     check:
       keystoreRes.isOk()
@@ -158,9 +162,7 @@ procSuite "Credentials test suite":
     # We retrieve all credentials stored under password (no filter)
     var recoveredCredentialsRes = getMembershipCredentials(path = filepath,
                                                            password = password,
-                                                           application = "test",
-                                                           appIdentifier = "1234",
-                                                           version = "0.1")
+                                                           appInfo = testAppInfo)
 
     check:
       recoveredCredentialsRes.isOk()
@@ -171,9 +173,7 @@ procSuite "Credentials test suite":
     recoveredCredentialsRes = getMembershipCredentials(path = filepath,
                                                        password = password,
                                                        filterIdentityCredentials = @[idCredential1],
-                                                       application = "test",
-                                                       appIdentifier = "1234",
-                                                       version = "0.1")
+                                                       appInfo = testAppInfo)
 
     check:
       recoveredCredentialsRes.isOk()
@@ -183,9 +183,7 @@ procSuite "Credentials test suite":
     recoveredCredentialsRes = getMembershipCredentials(path = filepath,
                                                        password = password,
                                                        filterIdentityCredentials = @[idCredential1, idCredential2],
-                                                       application = "test",
-                                                       appIdentifier = "1234",
-                                                       version = "0.1")
+                                                       appInfo = testAppInfo)
 
     check:  
       recoveredCredentialsRes.isOk()

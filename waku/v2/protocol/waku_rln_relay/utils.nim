@@ -937,9 +937,7 @@ proc mount(wakuRelay: WakuRelay,
                                                              password = conf.rlnRelayCredentialsPassword,
                                                              filterMembershipContracts = @[rlnMembershipContract],
                                                              # TODO: the following can be embedded in conf
-                                                             application = RLNKeystoreApplication,
-                                                             appIdentifier = RLNKeystoreAppIdentifier,
-                                                             version = RLNKeystoreVersion)
+                                                             appInfo = RLNAppInfo)
 
           if readCredentialsRes.isErr():
             return err("RLN credentials cannot be read")
@@ -1011,9 +1009,7 @@ proc mount(wakuRelay: WakuRelay,
                                   credentials = @[credentials.get()],
                                   password = conf.rlnRelayCredentialsPassword,
                                   # TODO: the following can be embedded in conf
-                                  application = RLNKeystoreApplication,
-                                  appIdentifier = RLNKeystoreAppIdentifier,
-                                  version = RLNKeystoreVersion).isErr():
+                                  appInfo = RLNAppInfo).isErr():
         return err("error in storing rln credentials")
     return ok(wakuRlnRelay)
 

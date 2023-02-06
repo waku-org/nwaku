@@ -1059,16 +1059,12 @@ suite "Waku rln relay":
       addMembershipCredentials(path = filepath,
                                 credentials = @[rlnMembershipCredentials],
                                 password = password,
-                                application = RLNKeystoreApplication,
-                                appIdentifier = RLNKeystoreAppIdentifier,
-                                version = RLNKeystoreVersion).isOk()
+                                appInfo = RLNAppInfo).isOk()
       
     let readCredentialsResult = getMembershipCredentials(path = filepath,
                                                          password = password,
                                                          filterMembershipContracts = @[rlnMembershipContract],
-                                                         application = RLNKeystoreApplication,
-                                                         appIdentifier = RLNKeystoreAppIdentifier,
-                                                         version = RLNKeystoreVersion)
+                                                         appInfo = RLNAppInfo)
 
     require:
       readCredentialsResult.isOk()

@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import 
-  chronicles, options, json, strutils,
+  options, json, strutils,
   stew/byteutils,
   std/[algorithm, os, sequtils, sets],
   ./keyfile
@@ -41,6 +41,11 @@ type MembershipGroup* = object
 type MembershipCredentials* = object
    identityCredential*: IdentityCredential
    membershipGroups*: seq[MembershipGroup]
+
+type AppInfo* = object
+  application*: string
+  appIdentifier*: string
+  version*: string
 
 type AppKeystore* = object
   application*: string
@@ -84,12 +89,12 @@ proc decode*(encodedCredential: seq[byte]): KeystoreResult[MembershipCredentials
     return err(OsError)
 
 # Checks if a JsonNode has all keys contained in "keys"
-proc hasKeys(data: JsonNode, keys: openArray[string]): bool =
+proc hasKeys*(data: JsonNode, keys: openArray[string]): bool =
   return all(keys, proc (key: string): bool = return data.hasKey(key))
 
 # Safely saves a JsonNode to disk. 
 # If exists, the destination file is renamed with extension .bkp; the file is written at its destination and the .bkp file is removed if write is successful, otherwise is restored 
-proc save(json: JsonNode, path: string, separator: string): KeystoreResult[void] =
+proc save*(json: JsonNode, path: string, separator: string): KeystoreResult[void] =
 
   # We first backup the current keystore
   if fileExists(path):
@@ -137,15 +142,13 @@ proc sortMembershipGroup*(a,b: MembershipGroup): int =
 
 # This proc creates an empty keystore (i.e. with no credentials)
 proc createAppKeystore*(path: string,
-                        application: string,
-                        appIdentifier: string,
-                        version: string,
+                        appInfo: AppInfo,
                         separator: string = "\n"): KeystoreResult[void] =
 
-  let keystore = AppKeystore(application: application,
-                             appIdentifier: appIdentifier,
+  let keystore = AppKeystore(application: appInfo.application,
+                             appIdentifier: appInfo.appIdentifier,
                              credentials: @[],
-                             version: version)
+                             version: appInfo.version)
 
   var jsonKeystore: string
   jsonKeystore.toUgly(%keystore)
@@ -169,9 +172,7 @@ proc createAppKeystore*(path: string,
 # This proc load a keystore based on the application, appIdentifier and version filters. 
 # If none is found, it automatically creates an empty keystore for the passed parameters
 proc loadAppKeystore*(path: string,
-                      application: string,
-                      appIdentifier: string,
-                      version: string,
+                      appInfo: AppInfo,
                       separator: string = "\n"): KeystoreResult[JsonNode] =
 
   ## Load and decode JSON keystore from pathname
@@ -180,7 +181,7 @@ proc loadAppKeystore*(path: string,
 
   # If no keystore exists at path we create a new empty one with passed keystore parameters
   if fileExists(path) == false:
-    let newKeystore = createAppKeystore(path, application, appIdentifier, version, separator)
+    let newKeystore = createAppKeystore(path, appInfo, separator)
     if newKeystore.isErr():
         return err(CreateKeystoreError)
 
@@ -209,9 +210,9 @@ proc loadAppKeystore*(path: string,
         # We check if parsed json contains the relevant keystore credentials fields and if these are set to the passed parameters 
         # (note that "if" is lazy, so if one of the .contains() fails, the json fields contents will not be checked and no ResultDefect will be raised due to accessing unavailable fields)
         if data.hasKeys(["application", "appIdentifier", "credentials", "version"]) and
-           data["application"].getStr() == application and 
-           data["appIdentifier"].getStr() == appIdentifier and 
-           data["version"].getStr() == version:
+           data["application"].getStr() == appInfo.application and 
+           data["appIdentifier"].getStr() == appInfo.appIdentifier and 
+           data["version"].getStr() == appInfo.version:
           # We return the first json keystore that matches the passed app parameters
           # We assume a unique kesytore with such parameters is present in the file
           matchingAppKeystore = data
@@ -236,14 +237,12 @@ proc loadAppKeystore*(path: string,
 proc addMembershipCredentials*(path: string,
                                credentials: seq[MembershipCredentials],
                                password: string,
-                               application: string,
-                               appIdentifier: string,
-                               version: string,
+                               appInfo: AppInfo,
                                separator: string = "\n"): KeystoreResult[void] =
 
   # We load the keystore corresponding to the desired parameters
   # This call ensures that JSON has all required fields
-  let jsonKeystoreRes = loadAppKeystore(path, application, appIdentifier, version, separator)
+  let jsonKeystoreRes = loadAppKeystore(path, appInfo, separator)
 
   if jsonKeystoreRes.isErr():
     return err(LoadKeystoreError)
@@ -359,15 +358,13 @@ proc getMembershipCredentials*(path: string,
                                password: string,
                                filterIdentityCredentials: seq[IdentityCredential] = @[],
                                filterMembershipContracts: seq[MembershipContract] = @[],
-                               application: string,
-                               appIdentifier: string,
-                               version: string): KeystoreResult[seq[MembershipCredentials]] =
+                               appInfo: AppInfo): KeystoreResult[seq[MembershipCredentials]] =
 
   var outputMembershipCredentials: seq[MembershipCredentials] = @[]
 
   # We load the keystore corresponding to the desired parameters
   # This call ensures that JSON has all required fields
-  let jsonKeystoreRes = loadAppKeystore(path, application, appIdentifier, version)
+  let jsonKeystoreRes = loadAppKeystore(path, appInfo)
 
   if jsonKeystoreRes.isErr():
     return err(LoadKeystoreError)
