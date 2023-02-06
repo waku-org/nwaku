@@ -86,8 +86,7 @@ type
 
     peerStoreCapacity* {.
       desc: "Maximum stored peers in the peerstore."
-      defaultValue: 100
-      name: "peer-store-capacity" }: int
+      name: "peer-store-capacity" }: Option[int]
 
     peerPersistence* {.
       desc: "Enable peer persistence.",
@@ -490,6 +489,11 @@ proc parseCmdArg*(T: type Port, p: string): T =
 proc completeCmdArg*(T: type Port, val: string): seq[string] =
   return @[]
 
+proc parseCmdArg*(T: type Option[int], p: string): T =
+  try:
+    some(parseInt(p))
+  except:
+    raise newException(ConfigurationError, "Invalid number")
 
 ## Configuration validation
 

@@ -296,7 +296,7 @@ proc initNode(conf: WakuNodeConf,
                         dns4DomainName,
                         discv5UdpPort,
                         some(conf.agentString),
-                        some(conf.peerStoreCapacity),
+                        conf.peerStoreCapacity,
                         rng)
   except:
     return err("failed to create waku node instance: " & getCurrentExceptionMsg())
