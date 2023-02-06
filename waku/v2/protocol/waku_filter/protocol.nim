@@ -9,7 +9,7 @@ import
   libp2p/crypto/crypto
 import
   ../waku_message,
-  ../../node/peer_manager/peer_manager,
+  ../../node/peer_manager,
   ./rpc,
   ./rpc_codec,
   ./protocol_metrics

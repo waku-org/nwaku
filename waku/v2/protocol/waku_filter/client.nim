@@ -13,7 +13,7 @@ import
   libp2p/protocols/protocol as libp2p_protocol
 import
   ../waku_message,
-  ../../node/peer_manager/peer_manager,
+  ../../node/peer_manager,
   ../../utils/requests,
   ./rpc,
   ./rpc_codec,

@@ -38,7 +38,8 @@ import
   ../protocol/waku_peer_exchange,
   ../utils/peers,
   ../utils/wakuenr,
-  ./peer_manager/peer_manager,
+  ../utils/time,
+  ./peer_manager,
   ./dnsdisc/waku_dnsdisc,
   ./discv5/waku_discv5,
   ./wakuswitch
@@ -401,13 +402,16 @@ proc subscribe(node: WakuNode, topic: PubsubTopic, handler: Option[TopicHandler]
 
   proc defaultHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
     # A default handler should be registered for all topics
-    trace "Hit default handler", topic=topic, data=data
 
     let msg = WakuMessage.decode(data)
     if msg.isErr():
       # TODO: Add metric to track waku message decode errors
       return
 
+    trace "waku.relay received",
+      pubsubTopic=topic,
+      hash=MultiHash.digest("sha2-256", data).expect("valid hash").data.buffer.to0xHex(), # TODO: this could be replaced by a message UID
+      receivedTime=getNowInNanosecondTime()
 
     # Notify mounted protocols of new message
     if not node.wakuFilter.isNil():
@@ -472,9 +476,12 @@ proc publish*(node: WakuNode, topic: PubsubTopic, message: WakuMessage) {.async,
     # TODO: Improve error handling
     return
 
-  trace "publish", topic=topic, contentTopic=message.contentTopic
-
   discard await node.wakuRelay.publish(topic, message)
+
+  trace "waku.relay published",
+    pubsubTopic=topic,
+    hash=MultiHash.digest("sha2-256", message.encode().buffer).expect("valid hash").data.buffer.to0xHex(), # TODO: this could be replaced by a message UID
+    publishTime=getNowInNanosecondTime()
 
 proc startRelay*(node: WakuNode) {.async.} =
   ## Setup and start relay protocol

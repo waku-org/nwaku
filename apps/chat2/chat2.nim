@@ -29,7 +29,7 @@ import
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/node/[waku_node, waku_payload, waku_metrics],
   ../../waku/v2/node/dnsdisc/waku_dnsdisc,
-  ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/node/peer_manager,
   ../../waku/v2/utils/[peers, time],
   ../../waku/common/utils/nat,
   ./config_chat2
@@ -370,10 +370,12 @@ proc readInput(wfd: AsyncFD) {.thread, raises: [Defect, CatchableError].} =
     discard waitFor transp.write(line & "\r\n")
 
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
-proc processInput(rfd: AsyncFD) {.async.} =
+proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   let
     transp = fromPipe(rfd)
     conf = Chat2Conf.load()
+    nodekey = if conf.nodekey.isSome(): conf.nodekey.get()
+              else: PrivateKey.random(Secp256k1, rng[]).tryGet()
 
   # set log level
   if conf.logLevel != LogLevel.NONE:
@@ -383,7 +385,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
     (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
       Port(uint16(conf.tcpPort) + conf.portsShift),
       Port(uint16(conf.udpPort) + conf.portsShift))
-    node = WakuNode.new(conf.nodekey, conf.listenAddress,
+    node = WakuNode.new(nodekey, conf.listenAddress,
       Port(uint16(conf.tcpPort) + conf.portsShift),
       extIp, extTcpPort,
       wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
@@ -593,7 +595,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
 
   runForever()
 
-proc main() {.async.} =
+proc main(rng: ref HmacDrbgContext) {.async.} =
   let (rfd, wfd) = createAsyncPipe()
   if rfd == asyncInvalidPipe or wfd == asyncInvalidPipe:
     raise newException(ValueError, "Could not initialize pipe!")
@@ -601,7 +603,7 @@ proc main() {.async.} =
   var thread: Thread[AsyncFD]
   thread.createThread(readInput, wfd)
   try:
-    await processInput(rfd)
+    await processInput(rfd, rng)
   # Handle only ConfigurationError for now
   # TODO: Throw other errors from the mounting procedure
   except ConfigurationError as e:
@@ -609,8 +611,9 @@ proc main() {.async.} =
 
 
 when isMainModule: # isMainModule = true when the module is compiled as the main file
+  let rng = crypto.newRng()
   try:
-    waitFor(main())
+    waitFor(main(rng))
   except CatchableError as e:
     raise e
 
