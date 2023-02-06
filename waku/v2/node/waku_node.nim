@@ -294,6 +294,8 @@ proc new*(T: type WakuNode,
           wakuDiscv5 = none(WakuDiscoveryV5),
           agentString = none(string),    # defaults to nim-libp2p version
           peerStoreCapacity = none(int), # defaults to 1.25 maxConnections
+          # TODO: make this argument required after tests are updated
+          rng: ref HmacDrbgContext = crypto.newRng()
           ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError], deprecated: "Use NetConfig variant".} =
   let netConfig = NetConfig.init(
     bindIp = bindIp,
@@ -328,7 +330,6 @@ proc new*(T: type WakuNode,
           netConfig: NetConfig,
           peerStorage: PeerStorage = nil,
           maxConnections = builders.MaxConnections,
-          rng = crypto.newRng(),
           secureKey: string = "",
           secureCert: string = "",
           nameResolver: NameResolver = nil,
@@ -336,6 +337,8 @@ proc new*(T: type WakuNode,
           wakuDiscv5 = none(WakuDiscoveryV5),
           agentString = none(string),    # defaults to nim-libp2p version
           peerStoreCapacity = none(int), # defaults to 1.25 maxConnections
+          # TODO: make this argument required after tests are updated
+          rng: ref HmacDrbgContext = crypto.newRng()
           ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
   ## Creates a Waku Node instance.
 
