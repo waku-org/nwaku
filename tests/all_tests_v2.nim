@@ -47,11 +47,6 @@ import
   ./v2/test_peer_store_extended,
   ./v2/test_utils_peers,
   ./v2/test_message_cache,
-  ./v2/test_rest_serdes,
-  ./v2/test_rest_debug_api_serdes,
-  ./v2/test_rest_debug_api,
-  ./v2/test_rest_relay_api_serdes,
-  ./v2/test_rest_relay_api,
   ./v2/test_peer_manager,
   ./v2/test_web3, # TODO  remove it when rln-relay tests get finalized
   ./v2/test_peer_storage,
@@ -79,6 +74,14 @@ import
   ./v2/wakunode_jsonrpc/test_jsonrpc_filter,
   ./v2/wakunode_jsonrpc/test_jsonrpc_relay,
   ./v2/wakunode_jsonrpc/test_jsonrpc_store
+
+## Wakunode Rest API test suite
+import
+  ./v2/wakunode_rest/test_rest_debug,
+  ./v2/wakunode_rest/test_rest_debug_serdes,
+  ./v2/wakunode_rest/test_rest_relay,
+  ./v2/wakunode_rest/test_rest_relay_serdes,
+  ./v2/wakunode_rest/test_rest_serdes
 
 
 ## Apps
