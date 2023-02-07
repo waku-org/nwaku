@@ -97,6 +97,17 @@ proc new*(T: type WakuRelay,
       verifySignature = false,
       maxMessageSize = MaxWakuMessageSize
     )
+
+    # Rejects messages that are not WakuMessage
+    proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
+      let msg = WakuMessage.decode(message.data)
+      if msg.isOk():
+        return ValidationResult.Accept
+      return ValidationResult.Reject
+
+    # Add validator to all default pubsub topics
+    for pubSubTopic in defaultPubsubTopics:
+      wr.addValidator(pubSubTopic, validator)
   except InitializationError:
     return err("initialization error: " & getCurrentExceptionMsg())
 
