@@ -32,6 +32,7 @@ import
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_filter/rpc,
   ../../waku/v2/protocol/waku_filter/client,
+  ../../waku/v2/utils/compat,
   ../../waku/v2/utils/peers,
   ../../waku/v2/utils/time,
   ./testlib/common,

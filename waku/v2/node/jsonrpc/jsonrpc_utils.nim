@@ -9,8 +9,8 @@ import
   ../../protocol/waku_message,
   ../../protocol/waku_store,
   ../../protocol/waku_store/rpc,
+  ../../utils/compat,
   ../../utils/time,
-  ../waku_payload,
   ./hexstrings,
   ./jsonrpc_types
 

@@ -27,17 +27,21 @@ import
   ../../waku/v2/protocol/waku_lightpush/rpc,
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_store,
-  ../../waku/v2/node/[waku_node, waku_payload, waku_metrics],
+  ../../waku/v2/node/waku_node,
+  ../../waku/v2/node/waku_metrics,
   ../../waku/v2/node/dnsdisc/waku_dnsdisc,
   ../../waku/v2/node/peer_manager,
-  ../../waku/v2/utils/[peers, time],
+  ../../waku/v2/utils/compat,
+  ../../waku/v2/utils/peers,
+  ../../waku/v2/utils/time,
   ../../waku/common/utils/nat,
   ./config_chat2
 
 when defined(rln):
   import
     libp2p/protocols/pubsub/rpc/messages,
-    libp2p/protocols/pubsub/pubsub,
+    libp2p/protocols/pubsub/pubsub
+  import
     ../../waku/v2/protocol/waku_rln_relay
 
 const Help = """

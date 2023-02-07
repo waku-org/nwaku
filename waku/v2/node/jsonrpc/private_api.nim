@@ -4,17 +4,18 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables,sequtils],
+  std/[tables, sequtils],
   chronicles,
   eth/keys,
   json_rpc/rpcserver,
-  nimcrypto/sysrand,
+  nimcrypto/sysrand
+import
+  ../../utils/compat,
   ../waku_node,
-  ../waku_payload,
   ./jsonrpc_types,
   ./jsonrpc_utils
 
-export waku_payload, jsonrpc_types
+export compat, jsonrpc_types
 
 logScope:
   topics = "waku node jsonrpc private_api"
@@ -25,7 +26,7 @@ proc installPrivateApiHandlers*(node: WakuNode, rpcsrv: RpcServer, topicCache: T
   ## Private API version 1 definitions
 
   ## Definitions for symmetric cryptography
-  
+
   rpcsrv.rpc("get_waku_v2_private_v1_symmetric_key") do() -> SymKey:
     ## Generates and returns a symmetric key for message encryption and decryption
     debug "get_waku_v2_private_v1_symmetric_key"
@@ -42,7 +43,7 @@ proc installPrivateApiHandlers*(node: WakuNode, rpcsrv: RpcServer, topicCache: T
 
     let msg = message.toWakuMessage(version = 1,
                                     rng = node.rng,
-                                    pubKey = none(waku_payload.PublicKey),
+                                    pubKey = none(compat.PublicKey),
                                     symkey =  some(symkey.toSymKey()))
 
     if (await node.publish(topic, msg).withTimeout(futTimeout)):
@@ -56,7 +57,7 @@ proc installPrivateApiHandlers*(node: WakuNode, rpcsrv: RpcServer, topicCache: T
     ## Returns all WakuMessages received on a PubSub topic since the
     ## last time this method was called. Decrypts the message payloads
     ## before returning.
-    ## 
+    ##
     ## @TODO ability to specify a return message limit
     debug "get_waku_v2_private_v1_symmetric_messages", topic=topic
 
@@ -65,18 +66,18 @@ proc installPrivateApiHandlers*(node: WakuNode, rpcsrv: RpcServer, topicCache: T
       # Clear cache before next call
       topicCache[topic] = @[]
       return msgs.mapIt(it.toWakuRelayMessage(symkey = some(symkey.toSymKey()),
-                                              privateKey = none(waku_payload.PrivateKey)))
+                                              privateKey = none(compat.PrivateKey)))
     else:
       # Not subscribed to this topic
       raise newException(ValueError, "Not subscribed to topic: " & topic)
 
   ## Definitions for asymmetric cryptography
-  
+
   rpcsrv.rpc("get_waku_v2_private_v1_asymmetric_keypair") do() -> WakuKeyPair:
     ## Generates and returns a public/private key pair for asymmetric message encryption and decryption.
     debug "get_waku_v2_private_v1_asymmetric_keypair"
 
-    let privKey = waku_payload.PrivateKey.random(node.rng[])
+    let privKey = compat.PrivateKey.random(node.rng[])
 
     return WakuKeyPair(seckey: privKey, pubkey: privKey.toPublicKey())
 
@@ -100,7 +101,7 @@ proc installPrivateApiHandlers*(node: WakuNode, rpcsrv: RpcServer, topicCache: T
     ## Returns all WakuMessages received on a PubSub topic since the
     ## last time this method was called. Decrypts the message payloads
     ## before returning.
-    ## 
+    ##
     ## @TODO ability to specify a return message limit
     debug "get_waku_v2_private_v1_asymmetric_messages", topic=topic
 
