@@ -112,18 +112,20 @@ proc new*(T: type WakuDiscoveryV5,
           extTcpPort, extUdpPort: Option[Port],
           bindIP: ValidIpAddress,
           discv5UdpPort: Port,
-          bootstrapEnrs: seq[enr.Record],
+          bootstrapEnrs = newSeq[enr.Record](),
           enrAutoUpdate = false,
           privateKey: keys.PrivateKey,
           flags: WakuEnrBitfield,
-          enrFields: openArray[(string, seq[byte])],
+          multiaddrs = newSeq[MultiAddress](),
           rng: ref HmacDrbgContext,
           discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T =
   ## TODO: consider loading from a configurable bootstrap file
 
   ## We always add the waku field as specified
   var enrInitFields = @[(WAKU_ENR_FIELD, @[flags.byte])]
-  enrInitFields.add(enrFields)
+
+  ## Add multiaddresses to ENR
+  enrInitFields.add((MULTIADDR_ENR_FIELD, multiaddrs.getRawField()))
 
   let protocol = newProtocol(
     privateKey,
@@ -148,7 +150,7 @@ proc new*(T: type WakuDiscoveryV5,
           enrAutoUpdate = false,
           privateKey: keys.PrivateKey,
           flags: WakuEnrBitfield,
-          enrFields: openArray[(string, seq[byte])],
+          multiaddrs = newSeq[MultiAddress](),
           rng: ref HmacDrbgContext,
           discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T =
 
@@ -164,7 +166,7 @@ proc new*(T: type WakuDiscoveryV5,
         enrAutoUpdate,
         privateKey,
         flags,
-        enrFields,
+        multiaddrs,
         rng,
         discv5Config
       )

@@ -40,7 +40,7 @@ proc init*(
     addrs: addrs,
     enr: enr,
     protocols: protocols)
-  
+
   return remotePeerInfo
 
 proc init*(p: typedesc[RemotePeerInfo],
@@ -49,7 +49,7 @@ proc init*(p: typedesc[RemotePeerInfo],
            enr: Option[enr.Record] = none(enr.Record),
            protocols: seq[string] = @[]): RemotePeerInfo
            {.raises: [Defect, ResultError[cstring], LPError].} =
-  
+
   let remotePeerInfo = RemotePeerInfo(
     peerId: PeerID.init(peerId).tryGet(),
     addrs: addrs,
@@ -97,7 +97,7 @@ proc parseRemotePeerInfo*(address: string): RemotePeerInfo {.raises: [Defect, Va
 
   # nim-libp2p dialing requires remote peers to be initialised with a peerId and a wire address
   let
-    peerIdStr = p2pPart.toString()[].split("/")[^1] 
+    peerIdStr = p2pPart.toString()[].split("/")[^1]
 
     wireAddr = nwPart & tcpPart & wsPart & wssPart
   if (not wireAddr.validWireAddr()):
@@ -111,12 +111,12 @@ proc toRemotePeerInfo*(enr: enr.Record): Result[RemotePeerInfo, cstring] =
 
   if not typedR.secp256k1.isSome:
     return err("enr: no secp256k1 key in record")
-  
+
   let
     pubKey = ? keys.PublicKey.fromRaw(typedR.secp256k1.get)
     peerId = ? PeerID.init(crypto.PublicKey(scheme: Secp256k1,
                                             skkey: secp.SkPublicKey(pubKey)))
-  
+
   var addrs = newSeq[MultiAddress]()
 
   let transportProto = getTransportProtocol(typedR)
@@ -182,3 +182,18 @@ proc hasProtocol*(ma: MultiAddress, proto: string): bool =
     if p == MultiCodec.codec(proto):
       return true
   return false
+
+func hasUdpPort*(peer: RemotePeerInfo): bool =
+  if peer.enr.isNone():
+   return false
+
+  let
+    enr = peer.enr.get()
+    typedEnrRes = enr.toTypedRecord()
+
+  if typedEnrRes.isErr():
+    return false
+
+  let typedEnr = typedEnrRes.get()
+  typedEnr.udp.isSome() or typedEnr.udp6.isSome()
+
