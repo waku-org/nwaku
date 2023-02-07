@@ -52,6 +52,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
 
     await node.start()
     await node.mountRelay()
+    node.peerManager.start()
     if not await node.startDiscv5():
       error "failed to start discv5"
       quit(1)
