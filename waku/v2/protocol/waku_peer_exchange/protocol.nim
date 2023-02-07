@@ -29,7 +29,7 @@ logScope:
 const
   # We add a 64kB safety buffer for protocol overhead.
   # 10x-multiplier also for safety
-  MaxRpcSize = 10 * MaxWakuMessageSize + 64 * 1024 # TODO what is the expected size of a PX message? As currently specified, it can contain an arbitary number of ENRs...
+  MaxRpcSize* = 10 * MaxWakuMessageSize + 64 * 1024 # TODO what is the expected size of a PX message? As currently specified, it can contain an arbitary number of ENRs...
   MaxCacheSize = 1000
   CacheCleanWindow = 200
 

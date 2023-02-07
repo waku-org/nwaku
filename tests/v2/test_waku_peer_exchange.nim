@@ -152,7 +152,7 @@ procSuite "Waku Peer Exchange":
 
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
 
-  asyncTest "peer exchange request returns some discovered peers":
+  asyncTest "peer exchange request functions returns some discovered peers":
     let
       node1 = WakuNode.new(generateKey(), ValidIpAddress.init("0.0.0.0"), Port(0))
       node2 = WakuNode.new(generateKey(), ValidIpAddress.init("0.0.0.0"), Port(0))
@@ -195,6 +195,42 @@ procSuite "Waku Peer Exchange":
       response1.get().peerInfos.anyIt(it.enr == enr1.raw) or response1.get().peerInfos.anyIt(it.enr == enr2.raw)
       response2.get().peerInfos.anyIt(it.enr == enr1.raw) or response2.get().peerInfos.anyIt(it.enr == enr2.raw)
       response3.get().peerInfos.anyIt(it.enr == enr1.raw) or response3.get().peerInfos.anyIt(it.enr == enr2.raw)
+
+  asyncTest "peer exchange handler works as expected":
+    let
+      node1 = WakuNode.new(generateKey(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = WakuNode.new(generateKey(), ValidIpAddress.init("0.0.0.0"), Port(0))
+
+    # Start and mount peer exchange
+    await allFutures([node1.start(), node2.start()])
+    await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
+
+    # Mock that we have discovered these enrs
+    var enr1 = enr.Record()
+    check enr1.fromUri("enr:-Iu4QGNuTvNRulF3A4Kb9YHiIXLr0z_CpvWkWjWKU-o95zUPR_In02AWek4nsSk7G_-YDcaT4bDRPzt5JIWvFqkXSNcBgmlkgnY0gmlwhE0WsGeJc2VjcDI1NmsxoQKp9VzU2FAh7fwOwSpg1M_Ekz4zzl0Fpbg6po2ZwgVwQYN0Y3CC6mCFd2FrdTIB")
+    node1.wakuPeerExchange.enrCache.add(enr1)
+
+    # Create connection
+    let connOpt = await node2.peerManager.dialPeer(node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec)
+    require connOpt.isSome
+    let conn = connOpt.get()
+
+    # Send bytes so that they directly hit the handler
+    let rpc = PeerExchangeRpc(
+      request: PeerExchangeRequest(numPeers: 1))
+
+    var buffer: seq[byte]
+    await conn.writeLP(rpc.encode().buffer)
+    buffer = await conn.readLp(MaxRpcSize.int)
+
+    # Decode the response
+    let decodedBuff = PeerExchangeRpc.decode(buffer)
+    require decodedBuff.isOk
+
+    # Check we got back the enr we mocked
+    check:
+      decodedBuff.get().response.peerInfos.len == 1
+      decodedBuff.get().response.peerInfos[0].enr == enr1.raw
 
   asyncTest "peer exchange request fails gracefully":
     let
