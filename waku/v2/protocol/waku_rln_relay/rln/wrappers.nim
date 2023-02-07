@@ -11,7 +11,7 @@ import
   ../protocol_metrics,
   ../constants
 import
-  ../../../utils/credentials,
+  ../../waku_keystore,
   ../../../utils/time
 
 logScope:

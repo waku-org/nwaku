@@ -13,8 +13,7 @@ import
     ./constants,
     ./protocol_types
 import
-  ../../utils/keyfile,
-  ../../utils/credentials
+  ../waku_keystore
 
 export
   web3,

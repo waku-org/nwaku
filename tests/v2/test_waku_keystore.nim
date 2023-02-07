@@ -3,7 +3,7 @@
 import
   std/[algorithm, json, options, os],
   testutils/unittests, chronos, stint,
-  ../../waku/v2/utils/credentials,
+  ../../waku/v2/protocol/waku_keystore,
   ../test_helpers
 
 from  ../../waku/v2/protocol/waku_noise/noise_utils import randomSeqByte

@@ -2,7 +2,7 @@ import
   stint
 
 import
-  ../../utils/credentials
+  ../waku_keystore
 
 # Acceptable roots for merkle root validation of incoming messages
 const AcceptableRootWindowSize* = 5

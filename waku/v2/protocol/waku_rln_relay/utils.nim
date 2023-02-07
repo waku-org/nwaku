@@ -23,8 +23,7 @@ import
   ./protocol_metrics
 import
   ../../utils/time,
-  ../../utils/keyfile,
-  ../../utils/credentials,
+  ../waku_keystore,
   ../waku_message,
   ../waku_relay
 

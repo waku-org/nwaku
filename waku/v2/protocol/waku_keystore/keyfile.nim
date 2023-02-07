@@ -29,26 +29,26 @@ const
 
 type
   KeyFileError* = enum
-    RandomError           = "keyfile error: Random generator error"
-    UuidError             = "keyfile error: UUID generator error"
-    BufferOverrun         = "keyfile error: Supplied buffer is too small"
-    IncorrectDKLen        = "keyfile error: `dklen` parameter is 0 or more then MaxDKLen"
-    MalformedError        = "keyfile error: JSON has incorrect structure"
-    NotImplemented        = "keyfile error: Feature is not implemented"
-    NotSupported          = "keyfile error: Feature is not supported"
-    EmptyMac              = "keyfile error: `mac` parameter is zero length or not in hexadecimal form"
-    EmptyCiphertext       = "keyfile error: `ciphertext` parameter is zero length or not in hexadecimal format"
-    EmptySalt             = "keyfile error: `salt` parameter is zero length or not in hexadecimal format"
-    EmptyIV               = "keyfile error: `cipherparams.iv` parameter is zero length or not in hexadecimal format"
-    IncorrectIV           = "keyfile error: Size of IV vector is not equal to cipher block size"
-    PrfNotSupported       = "keyfile error: PRF algorithm for PBKDF2 is not supported"
-    KdfNotSupported       = "keyfile error: KDF algorithm is not supported"
-    CipherNotSupported    = "keyfile error: `cipher` parameter is not supported"
-    IncorrectMac          = "keyfile error: `mac` verification failed"
-    ScryptBadParam        = "keyfile error: bad scrypt's parameters"
-    OsError               = "keyfile error: OS specific error"
-    IoError               = "keyfile error: IO specific error"
-    JsonError             = "keyfile error: JSON encoder/decoder error"
+    KeyfileRandomError           = "keyfile error: Random generator error"
+    KeyfileUuidError             = "keyfile error: UUID generator error"
+    KeyfileBufferOverrun         = "keyfile error: Supplied buffer is too small"
+    KeyfileIncorrectDKLen        = "keyfile error: `dklen` parameter is 0 or more then MaxDKLen"
+    KeyfileMalformedError        = "keyfile error: JSON has incorrect structure"
+    KeyfileNotImplemented        = "keyfile error: Feature is not implemented"
+    KeyfileNotSupported          = "keyfile error: Feature is not supported"
+    KeyfileEmptyMac              = "keyfile error: `mac` parameter is zero length or not in hexadecimal form"
+    KeyfileEmptyCiphertext       = "keyfile error: `ciphertext` parameter is zero length or not in hexadecimal format"
+    KeyfileEmptySalt             = "keyfile error: `salt` parameter is zero length or not in hexadecimal format"
+    KeyfileEmptyIV               = "keyfile error: `cipherparams.iv` parameter is zero length or not in hexadecimal format"
+    KeyfileIncorrectIV           = "keyfile error: Size of IV vector is not equal to cipher block size"
+    KeyfilePrfNotSupported       = "keyfile error: PRF algorithm for PBKDF2 is not supported"
+    KeyfileKdfNotSupported       = "keyfile error: KDF algorithm is not supported"
+    KeyfileCipherNotSupported    = "keyfile error: `cipher` parameter is not supported"
+    KeyfileIncorrectMac          = "keyfile error: `mac` verification failed"
+    KeyfileScryptBadParam        = "keyfile error: bad scrypt's parameters"
+    KeyfileOsError               = "keyfile error: OS specific error"
+    KeyfileIoError               = "keyfile error: IO specific error"
+    KeyfileJsonError             = "keyfile error: JSON encoder/decoder error"
     KeyfileDoesNotExist   = "keyfile error: file does not exist"
 
   KdfKind* = enum
@@ -215,9 +215,9 @@ proc deriveKey(password: string,
       ctx.clear()
       ok(output)
     else:
-      err(PrfNotSupported)
+      err(KeyfilePrfNotSupported)
   else:
-    err(NotImplemented)
+    err(KeyfileNotImplemented)
 
 # Scrypt wrapper
 func scrypt[T, M](password: openArray[T], salt: openArray[M],
@@ -234,7 +234,7 @@ proc deriveKey(password: string, salt: string,
   let wf = if workFactor == 0: ScryptWorkFactor else: workFactor
   var output: DKey
   if scrypt(password, salt, wf, r, p, output) == 0:
-    return err(ScryptBadParam)
+    return err(KeyfileScryptBadParam)
 
   return ok(output)
 
@@ -251,7 +251,7 @@ proc encryptData(plaintext: openArray[byte],
     ctx.clear()
     ok(ciphertext)
   else:
-    err(NotImplemented)
+    err(KeyfileNotImplemented)
 
 # Decryption routine
 proc decryptData(ciphertext: openArray[byte],
@@ -260,7 +260,7 @@ proc decryptData(ciphertext: openArray[byte],
                 iv: openArray[byte]): KfResult[seq[byte]] =
   if cryptkind == AES128CTR:
     if len(iv) != aes128.sizeBlock:
-      return err(IncorrectIV)
+      return err(KeyfileIncorrectIV)
     var plaintext = newSeqWith(ciphertext.len, 0.byte)  
     var ctx: CTR[aes128]
     ctx.init(toOpenArray(key, 0, 15), iv)
@@ -268,7 +268,7 @@ proc decryptData(ciphertext: openArray[byte],
     ctx.clear()
     ok(plaintext)
   else:
-    err(NotImplemented)
+    err(KeyfileNotImplemented)
 
 # Encodes KDF parameters in JSON
 proc kdfParams(kdfkind: KdfKind, salt: string, workfactor: int): KfResult[JsonNode] =
@@ -294,7 +294,7 @@ proc kdfParams(kdfkind: KdfKind, salt: string, workfactor: int): KfResult[JsonNo
       }
     )
   else:
-    err(NotImplemented)
+    err(KeyfileNotImplemented)
 
 # Decodes hex strings to byte sequences
 proc decodeHex*(m: string): seq[byte] =
@@ -350,12 +350,12 @@ proc createKeyFileJson*(secret: openArray[byte],
   var salt: array[SaltSize, byte]
   var saltstr = newString(SaltSize)
   if randomBytes(iv) != aes128.sizeBlock:
-    return err(RandomError)
+    return err(KeyfileRandomError)
   if randomBytes(salt) != SaltSize:
-    return err(RandomError)
+    return err(KeyfileRandomError)
   copyMem(addr saltstr[0], addr salt[0], SaltSize)
 
-  let u = ? uuidGenerate().mapErrTo(UuidError)
+  let u = ? uuidGenerate().mapErrTo(KeyfileUuidError)
 
   let
     dkey = case kdfkind
@@ -398,21 +398,21 @@ proc createKeyFileJson*(secret: openArray[byte],
 proc decodeCrypto(n: JsonNode): KfResult[Crypto] =
   var crypto = n.getOrDefault("crypto")
   if isNil(crypto):
-    return err(MalformedError)
+    return err(KeyfileMalformedError)
 
   var kdf = crypto.getOrDefault("kdf")
   if isNil(kdf):
-    return err(MalformedError)
+    return err(KeyfileMalformedError)
 
   var c: Crypto
   case kdf.getStr()
   of "pbkdf2": c.kind = PBKDF2
   of "scrypt": c.kind = SCRYPT
-  else: return err(KdfNotSupported)
+  else: return err(KeyfileKdfNotSupported)
 
   var cipherparams = crypto.getOrDefault("cipherparams")
   if isNil(cipherparams):
-    return err(MalformedError)
+    return err(KeyfileMalformedError)
 
   c.cipher.kind = getCipher(crypto.getOrDefault("cipher").getStr())
   c.cipher.params.iv = decodeHex(cipherparams.getOrDefault("iv").getStr())
@@ -421,13 +421,13 @@ proc decodeCrypto(n: JsonNode): KfResult[Crypto] =
   c.kdfParams = crypto.getOrDefault("kdfparams")
 
   if c.cipher.kind == CipherNoSupport:
-    return err(CipherNotSupported)
+    return err(KeyfileCipherNotSupported)
   if len(c.cipher.text) == 0:
-    return err(EmptyCiphertext)
+    return err(KeyfileEmptyCiphertext)
   if len(c.mac) == 0:
-    return err(EmptyMac)
+    return err(KeyfileEmptyMac)
   if isNil(c.kdfParams):
-    return err(MalformedError)
+    return err(KeyfileMalformedError)
 
   return ok(c)
 
@@ -436,16 +436,16 @@ proc decodePbkdf2Params(params: JsonNode): KfResult[Pbkdf2Params] =
   var p: Pbkdf2Params
   p.salt = decodeSalt(params.getOrDefault("salt").getStr())
   if len(p.salt) == 0:
-    return err(EmptySalt)
+    return err(KeyfileEmptySalt)
 
   p.dklen = params.getOrDefault("dklen").getInt()
   p.c = params.getOrDefault("c").getInt()
   p.prf = getPrfHash(params.getOrDefault("prf").getStr())
 
   if p.prf == HashNoSupport:
-    return err(PrfNotSupported)
+    return err(KeyfilePrfNotSupported)
   if p.dklen == 0 or p.dklen > MaxDKLen:
-    return err(IncorrectDKLen)
+    return err(KeyfileIncorrectDKLen)
     
   return ok(p)
 
@@ -454,7 +454,7 @@ proc decodeScryptParams(params: JsonNode): KfResult[ScryptParams] =
   var p: ScryptParams
   p.salt = decodeSalt(params.getOrDefault("salt").getStr())
   if len(p.salt) == 0:
-    return err(EmptySalt)
+    return err(KeyfileEmptySalt)
 
   p.dklen = params.getOrDefault("dklen").getInt()
   p.n = params.getOrDefault("n").getInt()
@@ -462,7 +462,7 @@ proc decodeScryptParams(params: JsonNode): KfResult[ScryptParams] =
   p.r = params.getOrDefault("r").getInt()
 
   if p.dklen == 0 or p.dklen > MaxDKLen:
-    return err(IncorrectDKLen)
+    return err(KeyfileIncorrectDKLen)
 
   return ok(p)
 
@@ -475,7 +475,7 @@ func decryptSecret(crypto: Crypto, dkey: DKey): KfResult[seq[byte]] =
   var mac = ctx.finish()
   ctx.clear()
   if not compareMac(mac.data, crypto.mac):
-    return err(IncorrectMac)
+    return err(KeyfileIncorrectMac)
 
   let plaintext = ? decryptData(crypto.cipher.text, crypto.cipher.kind, dkey, crypto.cipher.params.iv)
   
@@ -537,20 +537,20 @@ proc loadKeyFiles*(pathname: string,
       try:
         data = json.parseJson(keyfile)
       except JsonParsingError:
-        return err(JsonError)
+        return err(KeyfileJsonError)
       except ValueError:
-        return err(JsonError)
+        return err(KeyfileJsonError)
       except OSError:
-        return err(OsError)
+        return err(KeyfileOsError)
       except Exception: #parseJson raises Exception
-        return err(OsError)
+        return err(KeyfileOsError)
 
       decodedKeyfile = decodeKeyFileJson(data, password)
       if decodedKeyfile.isOk():
         successfullyDecodedKeyfiles.add decodedKeyfile
 
   except IOError:
-    return err(IoError)
+    return err(KeyfileIoError)
 
   return ok(successfullyDecodedKeyfiles)
 
@@ -561,7 +561,7 @@ proc saveKeyFile*(pathname: string,
   var
     f: File
   if not f.open(pathname, fmAppend):
-    return err(OsError)
+    return err(KeyfileOsError)
   try:
     # To avoid other users/attackers to be able to read keyfiles, we make the file readable/writable only by the running user
     setFilePermissions(pathname, {fpUserWrite, fpUserRead})
@@ -570,7 +570,7 @@ proc saveKeyFile*(pathname: string,
     f.write("\n")
     ok()
   except CatchableError:
-    err(OsError)
+    err(KeyfileOsError)
   finally:
     f.close()
 
