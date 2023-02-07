@@ -12,7 +12,7 @@ import
   ../../protocol/waku_store/rpc,
   ../../utils/time,
   ../waku_node,
-  ../peer_manager/peer_manager,
+  ../peer_manager,
   ./jsonrpc_types,
   ./jsonrpc_utils
 

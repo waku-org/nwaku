@@ -5,12 +5,17 @@ else:
 
 import
   std/[strutils, options],
-  chronos, chronicles, metrics,
-  eth/keys,
-  eth/p2p/discoveryv5/[enr, node, protocol],
   stew/results,
-  ../../../../apps/wakunode2/config,  ## TODO: Remove dependency on wakunode2 config module
-  ../../utils/[peers, wakuenr]
+  chronos,
+  chronicles,
+  metrics,
+  eth/keys,
+  eth/p2p/discoveryv5/enr,
+  eth/p2p/discoveryv5/node,
+  eth/p2p/discoveryv5/protocol
+import
+  ../../utils/peers,
+  ../../utils/wakuenr
 
 export protocol, wakuenr
 
@@ -20,33 +25,37 @@ declarePublicGauge waku_discv5_errors, "number of waku discv5 errors", ["type"]
 logScope:
   topics = "waku discv5"
 
+
 type
   WakuDiscoveryV5* = ref object
     protocol*: protocol.Protocol
     listening*: bool
 
+
 ####################
 # Helper functions #
 ####################
 
-proc parseBootstrapAddress(address: string):
-    Result[enr.Record, cstring] =
+proc parseBootstrapAddress(address: string): Result[enr.Record, cstring] =
   logScope:
-    address = string(address)
+    address = address
 
   if address[0] == '/':
-    return err "MultiAddress bootstrap addresses are not supported"
+    return err("MultiAddress bootstrap addresses are not supported")
+
+  let lowerCaseAddress = toLowerAscii(address)
+  if lowerCaseAddress.startsWith("enr:"):
+    var enrRec: enr.Record
+    if not enrRec.fromURI(address):
+      return err("Invalid ENR bootstrap record")
+
+    return ok(enrRec)
+
+  elif lowerCaseAddress.startsWith("enode:"):
+    return err("ENode bootstrap addresses are not supported")
+
   else:
-    let lowerCaseAddress = toLowerAscii(string address)
-    if lowerCaseAddress.startsWith("enr:"):
-      var enrRec: enr.Record
-      if enrRec.fromURI(string address):
-        return ok enrRec
-      return err "Invalid ENR bootstrap record"
-    elif lowerCaseAddress.startsWith("enode:"):
-      return err "ENode bootstrap addresses are not supported"
-    else:
-      return err "Ignoring unrecognized bootstrap address type"
+    return err("Ignoring unrecognized bootstrap address type")
 
 proc addBootstrapNode*(bootstrapAddr: string,
                        bootstrapEnrs: var seq[enr.Record]) =
@@ -55,8 +64,8 @@ proc addBootstrapNode*(bootstrapAddr: string,
     return
 
   let enrRes = parseBootstrapAddress(bootstrapAddr)
-  if enrRes.isOk:
-    bootstrapEnrs.add enrRes.value
+  if enrRes.isOk():
+    bootstrapEnrs.add(enrRes.value)
   else:
     warn "Ignoring invalid bootstrap address",
           bootstrapAddr, reason = enrRes.error
@@ -64,7 +73,7 @@ proc addBootstrapNode*(bootstrapAddr: string,
 proc isWakuNode(node: Node): bool =
   let wakuField = node.record.tryGet(WAKU_ENR_FIELD, uint8)
 
-  if wakuField.isSome:
+  if wakuField.isSome():
     return wakuField.get().WakuEnrBitfield != 0x00 # True if any flag set to true
 
   return false
@@ -92,7 +101,7 @@ proc findRandomPeers*(wakuDiscv5: WakuDiscoveryV5): Future[Result[seq[RemotePeer
     if res.isOk():
       discoveredPeers.add(res.get())
     else:
-      error "Failed to convert ENR to peer info", enr= $node.record, err=res.error()
+      error "Failed to convert ENR to peer info", enr= $node.record, err=res.error
       waku_discv5_errors.inc(labelValues = ["peer_info_failure"])
 
 
@@ -103,18 +112,20 @@ proc new*(T: type WakuDiscoveryV5,
           extTcpPort, extUdpPort: Option[Port],
           bindIP: ValidIpAddress,
           discv5UdpPort: Port,
-          bootstrapEnrs: seq[enr.Record],
+          bootstrapEnrs = newSeq[enr.Record](),
           enrAutoUpdate = false,
           privateKey: keys.PrivateKey,
           flags: WakuEnrBitfield,
-          enrFields: openArray[(string, seq[byte])],
+          multiaddrs = newSeq[MultiAddress](),
           rng: ref HmacDrbgContext,
           discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T =
   ## TODO: consider loading from a configurable bootstrap file
 
   ## We always add the waku field as specified
   var enrInitFields = @[(WAKU_ENR_FIELD, @[flags.byte])]
-  enrInitFields.add(enrFields)
+
+  ## Add multiaddresses to ENR
+  enrInitFields.add((MULTIADDR_ENR_FIELD, multiaddrs.getRawField()))
 
   let protocol = newProtocol(
     privateKey,
@@ -139,7 +150,7 @@ proc new*(T: type WakuDiscoveryV5,
           enrAutoUpdate = false,
           privateKey: keys.PrivateKey,
           flags: WakuEnrBitfield,
-          enrFields: openArray[(string, seq[byte])],
+          multiaddrs = newSeq[MultiAddress](),
           rng: ref HmacDrbgContext,
           discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T =
 
@@ -155,13 +166,13 @@ proc new*(T: type WakuDiscoveryV5,
         enrAutoUpdate,
         privateKey,
         flags,
-        enrFields,
+        multiaddrs,
         rng,
         discv5Config
       )
 
 
-proc open*(wakuDiscv5: WakuDiscoveryV5) {.raises: [Defect, CatchableError].} =
+proc open*(wakuDiscv5: WakuDiscoveryV5) {.raises: [CatchableError].} =
   debug "Opening Waku discovery v5 ports"
 
   wakuDiscv5.protocol.open()

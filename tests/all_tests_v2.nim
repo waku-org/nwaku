@@ -4,7 +4,9 @@ import
   ./v2/test_confutils_envvar,
   ./v2/test_sqlite_migrations
 
-## Waku archive test suite
+## Waku v2
+
+# Waku archive test suite
 import
   ./v2/waku_archive/test_driver_queue_index,
   ./v2/waku_archive/test_driver_queue_pagination,
@@ -15,7 +17,7 @@ import
   ./v2/waku_archive/test_retention_policy,
   ./v2/waku_archive/test_waku_archive
 
-## Waku store test suite
+# Waku store test suite
 import
   ./v2/waku_store/test_rpc_codec,
   ./v2/waku_store/test_waku_store,
@@ -37,7 +39,6 @@ import
   ./v2/test_wakunode_filter,
   ./v2/test_waku_peer_exchange,
   ./v2/test_peer_store_extended,
-  ./v2/test_waku_payload,
   ./v2/test_waku_swap,
   ./v2/test_utils_peers,
   ./v2/test_message_cache,
@@ -63,8 +64,9 @@ import
   # Waku Keystore
   ./v2/test_waku_keystore_keyfile,
   ./v2/test_waku_keystore
+  # Utils
+  ./v2/test_utils_compat,
   
-
 ## Experimental
 
 when defined(rln):
@@ -72,7 +74,6 @@ when defined(rln):
     ./v2/test_waku_rln_relay,
     ./v2/test_wakunode_rln_relay,
     ./v2/test_waku_rln_relay_onchain
-
 
 
 # TODO: Only enable this once swap module is integrated more nicely as a dependency, i.e. as submodule with CI etc

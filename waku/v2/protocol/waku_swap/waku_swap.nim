@@ -43,7 +43,7 @@ import
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
-  ../../node/peer_manager/peer_manager,
+  ../../node/peer_manager,
   ./waku_swap_types,
   ../../../common/protobuf,
   ../../waku/v2/protocol/waku_swap/waku_swap_contracts

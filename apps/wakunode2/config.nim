@@ -53,8 +53,7 @@ type
 
     nodekey* {.
       desc: "P2P node private key as 64 char hex string.",
-      defaultValue: defaultPrivateKey()
-      name: "nodekey" }: PrivateKey
+      name: "nodekey" }: Option[PrivateKey]
 
     listenAddress* {.
       defaultValue: defaultListenAddress()
@@ -87,8 +86,7 @@ type
 
     peerStoreCapacity* {.
       desc: "Maximum stored peers in the peerstore."
-      defaultValue: 100
-      name: "peer-store-capacity" }: int
+      name: "peer-store-capacity" }: Option[int]
 
     peerPersistence* {.
       desc: "Enable peer persistence.",
@@ -466,9 +464,6 @@ proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
 
-proc defaultPrivateKey*(): PrivateKey =
-  crypto.PrivateKey.random(Secp256k1, crypto.newRng()[]).value
-
 
 proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
   try:
@@ -494,6 +489,11 @@ proc parseCmdArg*(T: type Port, p: string): T =
 proc completeCmdArg*(T: type Port, val: string): seq[string] =
   return @[]
 
+proc parseCmdArg*(T: type Option[int], p: string): T =
+  try:
+    some(parseInt(p))
+  except:
+    raise newException(ConfigurationError, "Invalid number")
 
 ## Configuration validation
 

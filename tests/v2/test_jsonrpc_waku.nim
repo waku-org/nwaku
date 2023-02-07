@@ -14,7 +14,7 @@ import
   libp2p/protocols/pubsub/rpc/message
 import
   ../../waku/v1/node/rpc/hexstrings,
-  ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/node/peer_manager,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/jsonrpc/[store_api,
                               relay_api,
@@ -32,6 +32,7 @@ import
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_filter/rpc,
   ../../waku/v2/protocol/waku_filter/client,
+  ../../waku/v2/utils/compat,
   ../../waku/v2/utils/peers,
   ../../waku/v2/utils/time,
   ./testlib/common,

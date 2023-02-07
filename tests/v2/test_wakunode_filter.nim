@@ -7,7 +7,7 @@ import
   chronos, 
   libp2p/crypto/crypto
 import
-  ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/node/peer_manager,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/utils/peers,

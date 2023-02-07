@@ -5,7 +5,7 @@ else:
   {.push raises: [].}
 
 import
-  std/options,
+  std/[options, math],
   chronos, chronicles,
   eth/keys,
   libp2p/crypto/crypto,
@@ -63,7 +63,7 @@ proc newWakuSwitch*(
         SecureProtocol.Noise,
       ],
     transportFlags: set[ServerFlags] = {},
-    rng = crypto.newRng(),
+    rng: ref HmacDrbgContext,
     inTimeout: Duration = 5.minutes,
     outTimeout: Duration = 5.minutes,
     maxConnections = MaxConnections,
@@ -76,7 +76,7 @@ proc newWakuSwitch*(
     secureKeyPath: string = "",
     secureCertPath: string = "",
     agentString = none(string),    # defaults to nim-libp2p version
-    peerStoreCapacity = none(int), # defaults to nim-libp2p max size
+    peerStoreCapacity = none(int), # defaults to 1.25 maxConnections
     services: seq[switch.Service] = @[],
     ): Switch
     {.raises: [Defect, IOError, LPError].} =
@@ -98,6 +98,9 @@ proc newWakuSwitch*(
 
     if peerStoreCapacity.isSome():
       b = b.withPeerStore(peerStoreCapacity.get())
+    else:
+      let defaultPeerStoreCapacity = int(round(float64(maxConnections)*1.25))
+      b = b.withPeerStore(defaultPeerStoreCapacity)
     if agentString.isSome():
       b = b.withAgentVersion(agentString.get())
     if privKey.isSome():

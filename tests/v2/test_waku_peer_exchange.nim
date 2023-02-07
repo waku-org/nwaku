@@ -12,7 +12,7 @@ import
   eth/p2p/discoveryv5/enr
 import
   ../../waku/v2/node/waku_node,
-  ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/node/peer_manager,
   ../../waku/v2/node/discv5/waku_discv5,
   ../../waku/v2/protocol/waku_peer_exchange,
   ../../waku/v2/protocol/waku_peer_exchange/rpc,
@@ -103,7 +103,7 @@ procSuite "Waku Peer Exchange":
         false,
         keys.PrivateKey(nodeKey1.skkey),
         flags,
-        [], # Empty enr fields, for now
+        newSeq[MultiAddress](), # Empty multiaddr fields, for now
         node1.rng
       )
 
@@ -115,7 +115,7 @@ procSuite "Waku Peer Exchange":
         false,
         keys.PrivateKey(nodeKey2.skkey),
         flags,
-        [], # Empty enr fields, for now
+        newSeq[MultiAddress](), # Empty multiaddr fields, for now
         node2.rng
       )
 

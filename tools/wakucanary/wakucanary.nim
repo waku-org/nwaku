@@ -7,13 +7,10 @@ import
 import
   libp2p/protocols/ping,
   libp2p/crypto/[crypto, secp],
-  libp2p/nameresolving/nameresolver,
   libp2p/nameresolving/dnsresolver
 import
-  ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/utils/peers,
+  ../../waku/v2/node/peer_manager,
   ../../waku/v2/node/waku_node,
-  ../../waku/v2/node/waku_payload,
   ../../waku/v2/utils/peers
 
 # protocols and their tag
@@ -60,7 +57,7 @@ type
 proc parseCmdArg*(T: type chronos.Duration, p: string): T =
   try:
       result = chronos.seconds(parseInt(p))
-  except CatchableError as e:
+  except CatchableError:
     raise newException(ConfigurationError, "Invalid timeout value")
 
 proc completeCmdArg*(T: type chronos.Duration, val: string): seq[string] =
@@ -86,7 +83,7 @@ proc areProtocolsSupported(
 
   return false
 
-proc main(): Future[int] {.async.} =
+proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
   let conf: WakuCanaryConf = WakuCanaryConf.load()
 
   # create dns resolver
@@ -113,7 +110,6 @@ proc main(): Future[int] {.async.} =
 
   let
     peer: RemotePeerInfo = parseRemotePeerInfo(conf.address)
-    rng = crypto.newRng()
     nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
     node = WakuNode.new(
       nodeKey,
@@ -141,7 +137,8 @@ proc main(): Future[int] {.async.} =
   return 0
 
 when isMainModule:
-  let status = waitFor main()
+  let rng = crypto.newRng()
+  let status = waitFor main(rng)
   if status == 0:
     info "The node is reachable and supports all specified protocols"
   else:

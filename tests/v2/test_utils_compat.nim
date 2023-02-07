@@ -1,9 +1,10 @@
 {.used.}
 
 import
-  testutils/unittests,
+  testutils/unittests
+import
   ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/node/waku_payload,
+  ../../waku/v2/utils/compat,
   ../../waku/v2/utils/time
 
 procSuite "Waku Payload":
@@ -120,28 +121,28 @@ procSuite "Waku Payload":
       payload = @[byte 0, 1, 2]
       timestamp = Timestamp(10)
       msg = WakuMessage(payload: payload, version: version, timestamp: timestamp)
-      
+
     ## When
     let pb =  msg.encode()
     let msgDecoded = WakuMessage.decode(pb.buffer)
-    
+
     ## Then
     check:
       msgDecoded.isOk()
-    
+
     let timestampDecoded = msgDecoded.value.timestamp
     check:
       timestampDecoded == timestamp
 
   test "Encode/Decode waku message without timestamp":
-    ## Test the encoding and decoding of a WakuMessage with an empty timestamp field  
+    ## Test the encoding and decoding of a WakuMessage with an empty timestamp field
 
     ## Given
     let
       version = 0'u32
       payload = @[byte 0, 1, 2]
       msg = WakuMessage(payload: payload, version: version)
-    
+
     ## When
     let pb =  msg.encode()
     let msgDecoded = WakuMessage.decode(pb.buffer)
@@ -149,7 +150,7 @@ procSuite "Waku Payload":
     ## Then
     check:
       msgDecoded.isOk()
-    
+
     let timestampDecoded = msgDecoded.value.timestamp
     check:
       timestampDecoded == Timestamp(0)

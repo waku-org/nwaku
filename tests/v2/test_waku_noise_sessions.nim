@@ -1,12 +1,12 @@
 {.used.}
 
 import
-  std/[random,tables],
-  stew/byteutils,
+  std/[random, tables],
+  stew/[results, byteutils],
   testutils/unittests,
   libp2p/protobuf/minprotobuf
 import
-  ../../waku/v2/node/waku_payload,
+  ../../waku/v2/utils/noise as waku_message_utils,
   ../../waku/v2/protocol/waku_noise/noise_types,
   ../../waku/v2/protocol/waku_noise/noise_utils,
   ../../waku/v2/protocol/waku_noise/noise_handshake_processing,
@@ -14,13 +14,13 @@ import
   ../test_helpers
 
 procSuite "Waku Noise Sessions":
-  
+
   # We initialize the RNG in test_helpers
   let rng = rng()
   # We initialize the RNG in std/random
   randomize()
 
-  # This test implements the Device pairing and Secure Transfers with Noise 
+  # This test implements the Device pairing and Secure Transfers with Noise
   # detailed in the 43/WAKU2-DEVICE-PAIRING RFC https://rfc.vac.dev/spec/43/
   test "Noise Waku Pairing Handhshake and Secure transfer":
 
@@ -65,7 +65,7 @@ procSuite "Waku Noise Sessions":
       bobCommittedStaticKey == readCommittedStaticKey
 
     # We set the contentTopic from the content topic parameters exchanged in the QR
-    let contentTopic: ContentTopic = "/" & applicationName & "/" & applicationVersion & "/wakunoise/1/sessions_shard-" & shardId & "/proto" 
+    let contentTopic: ContentTopic = "/" & applicationName & "/" & applicationVersion & "/wakunoise/1/sessions_shard-" & shardId & "/proto"
 
     ###############
     # Pre-handshake message
@@ -74,7 +74,7 @@ procSuite "Waku Noise Sessions":
     ###############
     let preMessagePKs: seq[NoisePublicKey] = @[toNoisePublicKey(getPublicKey(bobEphemeralKey))]
 
-    # We initialize the Handshake states. 
+    # We initialize the Handshake states.
     # Note that we pass the whole qr serialization as prologue information
     var aliceHS = initialize(hsPattern = hsPattern, ephemeralKey = aliceEphemeralKey, staticKey = aliceStaticKey, prologue = qr.toBytes, preMessagePKs = preMessagePKs, initiator = true)
     var bobHS = initialize(hsPattern = hsPattern, ephemeralKey = bobEphemeralKey, staticKey = bobStaticKey, prologue = qr.toBytes, preMessagePKs = preMessagePKs)
@@ -82,25 +82,25 @@ procSuite "Waku Noise Sessions":
     ###############
     # Pairing Handshake
     ###############
-    
-    var 
+
+    var
       sentTransportMessage: seq[byte]
       aliceStep, bobStep: HandshakeStepResult
       msgFromPb: ProtoResult[WakuMessage]
-      wakuMsg: WakuResult[WakuMessage]
+      wakuMsg: Result[WakuMessage, cstring]
       pb: ProtoBuffer
       readPayloadV2: PayloadV2
       aliceMessageNametag, bobMessageNametag: MessageNametag
-    
+
     # Write and read calls alternate between Alice and Bob: the handhshake progresses by alternatively calling stepHandshake for each user
 
     ###############
     # 1st step
-    # 
+    #
     # -> eA, eAeB   {H(sA||s)}   [authcode]
     ###############
 
-    # The messageNametag for the first handshake message is randomly generated and exchanged out-of-band 
+    # The messageNametag for the first handshake message is randomly generated and exchanged out-of-band
     # and corresponds to qrMessageNametag
 
     # We set the transport message to be H(sA||s)
@@ -110,7 +110,7 @@ procSuite "Waku Noise Sessions":
     check:
       seqToDigest256(sentTransportMessage) == aliceCommittedStaticKey
 
-    # By being the handshake initiator, Alice writes a Waku2 payload v2 containing her handshake message 
+    # By being the handshake initiator, Alice writes a Waku2 payload v2 containing her handshake message
     # and the (encrypted) transport message
     # The message is sent with a messageNametag equal to the one received through the QR code
     aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage, messageNametag = qrMessageNametag).get()
@@ -129,7 +129,7 @@ procSuite "Waku Noise Sessions":
 
     # We decode the WakuMessage from the ProtoBuffer
     msgFromPb = WakuMessage.decode(pb.buffer)
-    
+
     check:
       msgFromPb.isOk()
 
@@ -143,18 +143,18 @@ procSuite "Waku Noise Sessions":
     # Bob reads Alice's payloads, and returns the (decrypted) transport message Alice sent to him
     # Note that Bob verifies if the received payloadv2 has the expected messageNametag set
     bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = readPayloadV2, messageNametag = qrMessageNametag).get()
-    
+
     check:
       bobStep.transportMessage == sentTransportMessage
 
     # We generate an authorization code using the handshake state
     let aliceAuthcode = genAuthcode(aliceHS)
     let bobAuthcode = genAuthcode(bobHS)
-    
+
     # We check that they are equal. Note that this check has to be confirmed with a user interaction.
     check:
       aliceAuthcode == bobAuthcode
-    
+
     ###############
     # 2nd step
     #
@@ -186,7 +186,7 @@ procSuite "Waku Noise Sessions":
 
     # We decode the WakuMessage from the ProtoBuffer
     msgFromPb = WakuMessage.decode(pb.buffer)
-    
+
     check:
       msgFromPb.isOk()
 
@@ -199,7 +199,7 @@ procSuite "Waku Noise Sessions":
 
     # While Alice reads and returns the (decrypted) transport message
     aliceStep = stepHandshake(rng[], aliceHS, readPayloadV2 = readPayloadV2, messageNametag = aliceMessageNametag).get()
-    
+
     check:
       aliceStep.transportMessage == sentTransportMessage
 
@@ -208,7 +208,7 @@ procSuite "Waku Noise Sessions":
 
     check:
       expectedBobCommittedStaticKey == bobCommittedStaticKey
-    
+
     ###############
     # 3rd step
     #
@@ -239,7 +239,7 @@ procSuite "Waku Noise Sessions":
 
     # We decode the WakuMessage from the ProtoBuffer
     msgFromPb = WakuMessage.decode(pb.buffer)
-    
+
     check:
       msgFromPb.isOk()
 
@@ -252,7 +252,7 @@ procSuite "Waku Noise Sessions":
 
     # Bob reads Alice's payloads, and returns the (decrypted) transport message Alice sent to him
     bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = readPayloadV2, messageNametag = bobMessageNametag).get()
-    
+
     check:
       bobStep.transportMessage == sentTransportMessage
 
@@ -261,7 +261,7 @@ procSuite "Waku Noise Sessions":
 
     check:
       expectedAliceCommittedStaticKey == aliceCommittedStaticKey
-       
+
     #########################
     # Secure Transfer Phase
     #########################
@@ -273,7 +273,7 @@ procSuite "Waku Noise Sessions":
     bobHSResult = finalizeHandshake(bobHS)
 
     # We test read/write of random messages exchanged between Alice and Bob
-    var 
+    var
       payload2: PayloadV2
       message: seq[byte]
       readMessage: seq[byte]
@@ -286,15 +286,15 @@ procSuite "Waku Noise Sessions":
       message = randomSeqByte(rng[], 32)
       payload2 = writeMessage(aliceHSResult, message, outboundMessageNametagBuffer = aliceHSResult.nametagsOutbound)
       readMessage = readMessage(bobHSResult, payload2, inboundMessageNametagBuffer = bobHSResult.nametagsInbound).get()
-      
-      check: 
+
+      check:
         message == readMessage
-      
+
       # Bob writes to Alice
       message = randomSeqByte(rng[], 32)
       payload2 = writeMessage(bobHSResult, message, outboundMessageNametagBuffer = bobHSResult.nametagsOutbound)
       readMessage = readMessage(aliceHSResult, payload2, inboundMessageNametagBuffer = aliceHSResult.nametagsInbound).get()
-      
+
       check:
         message == readMessage
 
@@ -312,7 +312,7 @@ procSuite "Waku Noise Sessions":
     message = randomSeqByte(rng[], 32)
     payload2 = writeMessage(bobHSResult, message, outboundMessageNametagBuffer = bobHSResult.nametagsOutbound)
     readMessage = readMessage(aliceHSResult, payload2, inboundMessageNametagBuffer = aliceHSResult.nametagsInbound).get()
-    
+
     check:
         message == readMessage
 

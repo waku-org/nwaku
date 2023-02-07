@@ -12,7 +12,7 @@ import
 import
   ../protocol/waku_filter/protocol_metrics as filter_metrics,
   ../utils/collector,
-  ./peer_manager/peer_manager,
+  ./peer_manager,
   ./waku_node
 
 when defined(rln):
