@@ -278,61 +278,77 @@ proc initNode(conf: WakuNodeConf,
 
   let pStorage = if peerStore.isNone(): nil
                  else: peerStore.get()
+
+  let rng = crypto.newRng()
+  # Wrap in none because NetConfig does not have a default constructor
+  # TODO: We could change bindIp in NetConfig to be something less restrictive than ValidIpAddress,
+  # which doesn't allow default construction
+  var netConfigOpt = none(NetConfig)
+
   try:
-    node = WakuNode.new(nodekey,
-                        conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift),
-                        extIp, extPort,
-                        extMultiAddrs,
-                        pStorage,
-                        conf.maxConnections.int,
-                        Port(uint16(conf.websocketPort) + conf.portsShift),
-                        conf.websocketSupport,
-                        conf.websocketSecureSupport,
-                        conf.websocketSecureKeyPath,
-                        conf.websocketSecureCertPath,
-                        some(wakuFlags),
-                        dnsResolver,
-                        conf.relayPeerExchange, # We send our own signed peer record when peer exchange enabled
-                        dns4DomainName,
-                        discv5UdpPort,
-                        some(conf.agentString),
-                        conf.peerStoreCapacity,
-                        rng)
+    netConfigOpt = some(NetConfig.init(
+      bindIp = conf.listenAddress,
+      bindPort = Port(uint16(conf.tcpPort) + conf.portsShift),
+      extIp = extIp,
+      extPort = extPort,
+      extMultiAddrs = extMultiAddrs,
+      wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
+      wsEnabled = conf.websocketSupport,
+      wssEnabled = conf.websocketSecureSupport,
+      dns4DomainName = dns4DomainName,
+      discv5UdpPort = discv5UdpPort,
+      wakuFlags = some(wakuFlags),
+    ))
   except:
-    return err("failed to create waku node instance: " & getCurrentExceptionMsg())
+    return err("failed to create net config instance: " & getCurrentExceptionMsg())
+
+  let netConfig = netConfigOpt.get()
+  var wakuDiscv5 = none(WakuDiscoveryV5)
 
   if conf.discv5Discovery:
-    let
-      discoveryConfig = DiscoveryConfig.init(
-        conf.discv5TableIpLimit, conf.discv5BucketIpLimit, conf.discv5BitsPerHop)
-
-    # select dynamic bootstrap nodes that have an ENR containing a udp port.
-    # Discv5 only supports UDP https://github.com/ethereum/devp2p/blob/master/discv5/discv5-theory.md)
+    let dynamicBootstrapEnrs = dynamicBootstrapNodes
+                                .filterIt(it.hasUdpPort())
+                                .mapIt(it.enr.get())
     var discv5BootstrapEnrs: seq[enr.Record]
-    for n in dynamicBootstrapNodes:
-      if n.enr.isSome():
-        let
-          enr = n.enr.get()
-          tenrRes = enr.toTypedRecord()
-        if tenrRes.isOk() and (tenrRes.get().udp.isSome() or tenrRes.get().udp6.isSome()):
-          discv5BootstrapEnrs.add(enr)
-
     # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
     for enrUri in conf.discv5BootstrapNodes:
       addBootstrapNode(enrUri, discv5BootstrapEnrs)
-
-    node.wakuDiscv5 = WakuDiscoveryV5.new(
-      extIP, extPort, discv5UdpPort,
-      conf.listenAddress,
-      discv5UdpPort.get(),
-      discv5BootstrapEnrs,
-      conf.discv5EnrAutoUpdate,
-      keys.PrivateKey(nodekey.skkey),
-      wakuFlags,
-      [], # Empty enr fields, for now
-      node.rng,
-      discoveryConfig
-    )
+    discv5BootstrapEnrs.add(dynamicBootstrapEnrs)
+    let discv5Config = DiscoveryConfig.init(conf.discv5TableIpLimit,
+                                            conf.discv5BucketIpLimit,
+                                            conf.discv5BitsPerHop)
+    try:
+      wakuDiscv5 = some(WakuDiscoveryV5.new(
+        extIp = netConfig.extIp,
+        extTcpPort = netConfig.extPort,
+        extUdpPort = netConfig.discv5UdpPort,
+        bindIp = netConfig.bindIp,
+        discv5UdpPort = netConfig.discv5UdpPort.get(),
+        bootstrapEnrs = discv5BootstrapEnrs,
+        enrAutoUpdate = conf.discv5EnrAutoUpdate,
+        privateKey = keys.PrivateKey(nodekey.skkey),
+        flags = netConfig.wakuFlags.get(),
+        multiaddrs = netConfig.enrMultiaddrs,
+        rng = rng,
+        discv5Config = discv5Config,
+      ))
+    except:
+      return err("failed to create waku discv5 instance: " & getCurrentExceptionMsg())
+  try:
+    node = WakuNode.new(nodekey = nodekey,
+                        netConfig = netConfig,
+                        peerStorage = pStorage,
+                        maxConnections = conf.maxConnections.int,
+                        secureKey = conf.websocketSecureKeyPath,
+                        secureCert = conf.websocketSecureCertPath,
+                        nameResolver = dnsResolver,
+                        sendSignedPeerRecord = conf.relayPeerExchange, # We send our own signed peer record when peer exchange enabled
+                        wakuDiscv5 = wakuDiscv5,
+                        agentString = some(conf.agentString),
+                        peerStoreCapacity = conf.peerStoreCapacity,
+                        rng = rng)
+  except:
+    return err("failed to create waku node instance: " & getCurrentExceptionMsg())
 
   ok(node)
 
