@@ -395,63 +395,71 @@ proc connectToNodes*(node: WakuNode, nodes: seq[RemotePeerInfo] | seq[string], s
 
 ## Waku relay
 
-proc subscribe(node: WakuNode, topic: PubsubTopic, handler: Option[TopicHandler]) =
-  if node.wakuRelay.isNil():
-    error "Invalid API call to `subscribe`. WakuRelay not mounted."
-    # TODO: improved error handling
+proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
+  if node.wakuRelay.isSubscribed(topic):
     return
 
-  info "subscribe", topic=topic
-
-  proc defaultHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-    # A default handler should be registered for all topics
-
-    let msg = WakuMessage.decode(data)
-    if msg.isErr():
-      # TODO: Add metric to track waku message decode errors
-      return
-
+  proc traceHandler(topic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
     trace "waku.relay received",
       pubsubTopic=topic,
       hash=MultiHash.digest("sha2-256", data).expect("valid hash").data.buffer.to0xHex(), # TODO: this could be replaced by a message UID
       receivedTime=getNowInNanosecondTime()
 
-    # Notify mounted protocols of new message
-    if not node.wakuFilter.isNil():
-      await node.wakuFilter.handleMessage(topic, msg.value)
-
-    if not node.wakuArchive.isNil():
-      node.wakuArchive.handleMessage(topic, msg.value)
-
     waku_node_messages.inc(labelValues = ["relay"])
 
+  proc filterHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
+    if node.wakuFilter.isNil():
+      return
 
-  let wakuRelay = node.wakuRelay
+    await node.wakuFilter.handleMessage(topic, msg)
 
-  if topic notin PubSub(wakuRelay).topics:
-    # Add default handler only for new topics
-    debug "Registering default handler", topic=topic
-    wakuRelay.subscribe(topic, defaultHandler)
+  proc archiveHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
+    if node.wakuArchive.isNil():
+      return
 
-  if handler.isSome():
-    debug "Registering handler", topic=topic
-    wakuRelay.subscribe(topic, handler.get())
+    node.wakuArchive.handleMessage(topic, msg)
 
-proc subscribe*(node: WakuNode, topic: PubsubTopic, handler: TopicHandler) =
+
+  let defaultHandler = proc(topic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
+      let msg = WakuMessage.decode(data)
+      if msg.isErr():
+        return
+
+      await traceHandler(topic, data)
+      await filterHandler(topic, msg.value)
+      await archiveHandler(topic, msg.value)
+
+  node.wakuRelay.subscribe(topic, defaultHandler)
+
+
+proc subscribe*(node: WakuNode, topic: PubsubTopic) =
+  if node.wakuRelay.isNil():
+    error "Invalid API call to `subscribe`. WakuRelay not mounted."
+    return
+
+  debug "subscribe", pubsubTopic= topic
+
+  node.registerRelayDefaultHandler(topic)
+
+proc subscribe*(node: WakuNode, topic: PubsubTopic, handler: WakuRelayHandler) =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
   ## this topic. TopicHandler is a method that takes a topic and some data.
-  ##
-  ## NOTE The data field SHOULD be decoded as a WakuMessage.
-  node.subscribe(topic, some(handler))
+  if node.wakuRelay.isNil():
+    error "Invalid API call to `subscribe`. WakuRelay not mounted."
+    return
 
-proc unsubscribe*(node: WakuNode, topic: PubsubTopic, handler: TopicHandler) =
+  debug "subscribe", pubsubTopic= topic
+
+  node.registerRelayDefaultHandler(topic)
+  node.wakuRelay.subscribe(topic, handler)
+
+proc unsubscribe*(node: WakuNode, topic: PubsubTopic, handler: WakuRelayHandler) =
   ## Unsubscribes a handler from a PubSub topic.
   if node.wakuRelay.isNil():
     error "Invalid API call to `unsubscribe`. WakuRelay not mounted."
-    # TODO: improved error handling
     return
 
-  info "unsubscribe", topic=topic
+  debug "unsubscribe", oubsubTopic= topic
 
   let wakuRelay = node.wakuRelay
   wakuRelay.unsubscribe(@[(topic, handler)])
@@ -461,13 +469,12 @@ proc unsubscribeAll*(node: WakuNode, topic: PubsubTopic) =
 
   if node.wakuRelay.isNil():
     error "Invalid API call to `unsubscribeAll`. WakuRelay not mounted."
-    # TODO: improved error handling
     return
 
   info "unsubscribeAll", topic=topic
 
-  let wakuRelay = node.wakuRelay
-  wakuRelay.unsubscribeAll(topic)
+  node.wakuRelay.unsubscribeAll(topic)
+
 
 proc publish*(node: WakuNode, topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
   ## Publish a `WakuMessage` to a PubSub topic. `WakuMessage` should contain a
@@ -491,14 +498,14 @@ proc startRelay*(node: WakuNode) {.async.} =
   info "starting relay protocol"
 
   if node.wakuRelay.isNil():
-    trace "Failed to start relay. Not mounted."
+    error "Failed to start relay. Not mounted."
     return
 
   ## Setup relay protocol
 
   # Subscribe to the default PubSub topics
   for topic in node.wakuRelay.defaultPubsubTopics:
-    node.subscribe(topic, none(TopicHandler))
+    node.subscribe(topic)
 
   # Resume previous relay connections
   if node.peerManager.peerStore.hasPeers(protocolMatcher(WakuRelayCodec)):

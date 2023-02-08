@@ -221,8 +221,7 @@ procSuite "WakuNode - Relay":
     require conn.isSome
 
     # Node 1 subscribes to topic
-    proc handler(topic: string, data: seq[byte]) {.async, gcsafe.} = discard
-    nodes[1].subscribe(DefaultPubsubTopic, handler)
+    nodes[1].subscribe(DefaultPubsubTopic)
     await sleepAsync(500.millis)
 
     # Node 0 publishes 5 messages not compliant with WakuMessage (aka random bytes)
@@ -244,10 +243,10 @@ procSuite "WakuNode - Relay":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60510), wsBindPort = Port(8000), wsEnabled = true)
+        bindPort = Port(60510), wsBindPort = Port(8001), wsEnabled = true)
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60512), wsBindPort = Port(8100), wsEnabled = true)
+        bindPort = Port(60512), wsBindPort = Port(8101), wsEnabled = true)
       pubSubTopic = "test"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
@@ -288,7 +287,7 @@ procSuite "WakuNode - Relay":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60520), wsBindPort = Port(8000), wsEnabled = true)
+        bindPort = Port(60520), wsBindPort = Port(8002), wsEnabled = true)
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         bindPort = Port(60522))
@@ -335,7 +334,7 @@ procSuite "WakuNode - Relay":
         bindPort = Port(60530))
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60532), wsBindPort = Port(8100), wsEnabled = true)
+        bindPort = Port(60532), wsBindPort = Port(8103), wsEnabled = true)
       pubSubTopic = "test"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
@@ -379,7 +378,7 @@ procSuite "WakuNode - Relay":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60540), wsBindPort = Port(8000), wssEnabled = true, secureKey = KEY_PATH, secureCert = CERT_PATH)
+        bindPort = Port(60540), wsBindPort = Port(8004), wssEnabled = true, secureKey = KEY_PATH, secureCert = CERT_PATH)
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         bindPort = Port(60542))
@@ -421,9 +420,9 @@ procSuite "WakuNode - Relay":
   asyncTest "Messages are relayed between nodes with multiple transports (websocket and secure Websockets)":
     let
       nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), bindPort = Port(60550), wsBindPort = Port(8000), wssEnabled = true, secureKey = KEY_PATH, secureCert = CERT_PATH)
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), bindPort = Port(60550), wsBindPort = Port(8005), wssEnabled = true, secureKey = KEY_PATH, secureCert = CERT_PATH)
       nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), bindPort = Port(60552),wsBindPort = Port(8100), wsEnabled = true )
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), bindPort = Port(60552),wsBindPort = Port(8105), wsEnabled = true )
 
     let
       pubSubTopic = "test"
