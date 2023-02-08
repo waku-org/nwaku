@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[sequtils, tables, times, os, deques],
+  std/[algorithm, sequtils, strutils, tables, times, os, deques],
   chronicles, options, chronos, stint,
   confutils,
   strutils,
@@ -23,7 +23,7 @@ import
   ./protocol_metrics
 import
   ../../utils/time,
-  ../../utils/keyfile,
+  ../waku_keystore,
   ../waku_message,
   ../waku_relay
 
@@ -50,7 +50,7 @@ type
   MembershipTuple* = tuple[index: MembershipIndex, idComm: IDCommitment]
 
 # membership contract interface
-contract(MembershipContract):
+contract(MembershipContractInterface):
   proc register(pubkey: Uint256) # external payable
   proc MemberRegistered(pubkey: Uint256, index: Uint256) {.event.}
   # TODO the followings are to be supported
@@ -58,22 +58,21 @@ contract(MembershipContract):
   # proc withdraw(secret: Uint256, pubkeyIndex: Uint256, receiver: Address)
   # proc withdrawBatch( secrets: seq[Uint256], pubkeyIndex: seq[Uint256], receiver: seq[Address])
 
-proc inHex*(value:
-                   IdentityTrapdoor or
+proc inHex*(value: IdentityTrapdoor or
                    IdentityNullifier or
                    IdentitySecretHash or
                    IDCommitment or
                    MerkleNode or
                    Nullifier or
                    Epoch or
-                  RlnIdentifier
-                   ): string =
-  var valueHex = UInt256.fromBytesLE(value)
-  valueHex = valueHex.toHex()
+                   RlnIdentifier): string =
+  var valueHex = "" #UInt256.fromBytesLE(value)
+  for b in value.reversed():
+    valueHex = valueHex & b.toHex()
   # We pad leading zeroes
   while valueHex.len < value.len * 2:
     valueHex = "0" & valueHex
-  return valueHex
+  return toLowerAscii(valueHex)
 
 proc register*(idComm: IDCommitment, ethAccountAddress: Option[Address], ethAccountPrivKey: keys.PrivateKey, ethClientAddress: string, membershipContractAddress: Address, registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)): Future[Result[MembershipIndex, string]] {.async.} =
   # TODO may need to also get eth Account Private Key as PrivateKey
@@ -95,7 +94,7 @@ proc register*(idComm: IDCommitment, ethAccountAddress: Option[Address], ethAcco
   # when the private key is set in a web3 instance, the send proc (sender.register(pk).send(MembershipFee))
   # does the signing using the provided key
   # web3.privateKey = some(ethAccountPrivateKey)
-  var sender = web3.contractSender(MembershipContract, membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
+  var sender = web3.contractSender(MembershipContractInterface, membershipContractAddress) # creates a Sender object with a web3 field and contract address of type Address
 
   debug "registering an id commitment", idComm=idComm.inHex()
   let pk = idComm.toUInt256()
@@ -563,7 +562,7 @@ proc getHistoricalEvents*(ethClientUri: string,
   ## returns a table that maps block numbers to the list of members registered in that block
   ## returns an error if it cannot retrieve the historical events
   let web3 = await newWeb3(ethClientUri)
-  let contract = web3.contractSender(MembershipContract, contractAddress)
+  let contract = web3.contractSender(MembershipContractInterface, contractAddress)
   # Get the historical events, and insert memberships into the tree
   let historicalEvents = await contract.getJsonLogs(MemberRegistered,
                                                     fromBlock=some(fromBlock.blockId()),
@@ -592,11 +591,11 @@ proc subscribeToGroupEvents*(ethClientUri: string,
                             blockNumber: string = "0x0",
                             handler: GroupUpdateHandler) {.async, gcsafe.} =
   ## connects to the eth client whose URI is supplied as `ethClientUri`
-  ## subscribes to the `MemberRegistered` event emitted from the `MembershipContract` which is available on the supplied `contractAddress`
+  ## subscribes to the `MemberRegistered` event emitted from the `MembershipContractInterface` which is available on the supplied `contractAddress`
   ## it collects all the events starting from the given `blockNumber`
   ## for every received block, it calls the `handler`
   let web3 = await newWeb3(ethClientUri)
-  let contract = web3.contractSender(MembershipContract, contractAddress)
+  let contract = web3.contractSender(MembershipContractInterface, contractAddress)
 
   let blockTableRes = await getHistoricalEvents(ethClientUri,
                                                 contractAddress,
@@ -730,7 +729,7 @@ proc mountRlnRelayStatic*(wakuRelay: WakuRelay,
 
   debug "mounting rln-relay in off-chain/static mode"
   # check the peer's index and the inclusion of user's identity commitment in the group
-  if not memIdCredential.idCommitment  == group[int(memIndex)]:
+  if memIdCredential.idCommitment != group[int(memIndex)]:
     return err("The peer's index is not consistent with the group")
 
   # create an RLN instance
@@ -832,51 +831,6 @@ proc mountRlnRelayDynamic*(wakuRelay: WakuRelay,
 
   return ok(rlnPeer)
 
-proc writeRlnCredentials*(path: string,
-                          credentials: RlnMembershipCredentials,
-                          password: string): RlnRelayResult[void] =
-  # Returns RlnRelayResult[void], which indicates the success of the call
-  info "Storing RLN credentials"
-  var jsonString: string
-  jsonString.toUgly(%credentials)
-  let keyfile = createKeyFileJson(toBytes(jsonString), password)
-  if keyfile.isErr():
-    return err("Error while creating keyfile for RLN credentials")
-  if saveKeyFile(path, keyfile.get()).isErr():
-    return err("Error while saving keyfile for RLN credentials")
-  return ok()
-
-# Attempts decryptions of all keyfiles with the provided password.
-# If one or more credentials are successfully decrypted, the max(min(index,number_decrypted),0)-th is returned.
-proc readRlnCredentials*(path: string,
-                         password: string,
-                         index: int = 0): RlnRelayResult[Option[RlnMembershipCredentials]] =
-  # Returns RlnRelayResult[Option[RlnMembershipCredentials]], which indicates the success of the call
-  info "Reading RLN credentials"
-  # With regards to printing the keys, it is purely for debugging purposes so that the user becomes explicitly aware of the current keys in use when nwaku is started.
-  # Note that this is only until the RLN contract being used is the one deployed on Goerli testnet.
-  # These prints need to omitted once RLN contract is deployed on Ethereum mainnet and using valuable funds for staking.
-  waku_rln_membership_credentials_import_duration_seconds.nanosecondTime:
-
-    try:
-      var decodedKeyfiles = loadKeyFiles(path, password)
-
-      if decodedKeyfiles.isOk():
-        var decodedRlnCredentials = decodedKeyfiles.get()
-        debug "Successfully decrypted keyfiles for the provided password", numberKeyfilesDecrypted=decodedRlnCredentials.len
-        # We should return the index-th decrypted credential, but we ensure to not overflow
-        let credentialIndex = max(min(index, decodedRlnCredentials.len - 1), 0)
-        debug "Picking credential with (adjusted) index", inputIndex=index, adjustedIndex=credentialIndex
-        let jsonObject = parseJson(string.fromBytes(decodedRlnCredentials[credentialIndex].get()))
-        let deserializedRlnCredentials = to(jsonObject, RlnMembershipCredentials)
-        debug "Deserialized RLN credentials", rlnCredentials=deserializedRlnCredentials
-        return ok(some(deserializedRlnCredentials))
-      else:
-        debug "Unable to decrypt RLN credentials with provided password. ", error=decodedKeyfiles.error
-        return ok(none(RlnMembershipCredentials))
-    except:
-      return err("Error while loading keyfile for RLN credentials at " & path)
-
 proc mount(wakuRelay: WakuRelay,
            conf: WakuRlnConfig,
            spamHandler: Option[SpamHandler] = none(SpamHandler),
@@ -943,10 +897,14 @@ proc mount(wakuRelay: WakuRelay,
       return err("invalid eth contract address: " & err.msg)
     var ethAccountPrivKeyOpt = none(keys.PrivateKey)
     var ethAccountAddressOpt = none(Address)
-    var credentials = none(RlnMembershipCredentials)
+    var credentials = none(MembershipCredentials)
     var rlnRelayRes: RlnRelayResult[WakuRlnRelay]
     var rlnRelayCredPath: string
     var persistCredentials: bool = false
+    # The RLN membership contract
+    let rlnMembershipContract =  MembershipContract(chainId: "5", # This is Goerli ChainID. TODO: pass chainId to web3 as config option
+                                                    address: conf.rlnRelayEthContractAddress)
+
 
     if conf.rlnRelayEthAccountPrivateKey != "":
       ethAccountPrivKeyOpt = some(keys.PrivateKey(SkSecretKey.fromHex(conf.rlnRelayEthAccountPrivateKey).value))
@@ -973,12 +931,23 @@ proc mount(wakuRelay: WakuRelay,
         info "A RLN credential file exists in provided path", path=rlnRelayCredPath
 
         # retrieve rln-relay credential
-        let readCredentialsRes = readRlnCredentials(rlnRelayCredPath, conf.rlnRelayCredentialsPassword)
+        waku_rln_membership_credentials_import_duration_seconds.nanosecondTime:
+          let readCredentialsRes = getMembershipCredentials(path = rlnRelayCredPath,
+                                                             password = conf.rlnRelayCredentialsPassword,
+                                                             filterMembershipContracts = @[rlnMembershipContract],
+                                                             # TODO: the following can be embedded in conf
+                                                             appInfo = RLNAppInfo)
 
-        if readCredentialsRes.isErr():
-          return err("RLN credentials cannot be read: " & readCredentialsRes.error())
+          if readCredentialsRes.isErr():
+            return err("RLN credentials cannot be read")
 
-        credentials = readCredentialsRes.get()
+        # getMembershipCredentials returns all credentials in keystore as sequence matching the filter
+        let allMatchingCredentials = readCredentialsRes.get()
+        # if any is found, we return the first credential, otherwise credentials is none 
+        if allMatchingCredentials.len() > 0:
+          credentials = some(allMatchingCredentials[0])
+        else:
+          credentials = none(MembershipCredentials)
 
       else: # there is no credential file available in the supplied path
         # mount the rln-relay protocol leaving rln-relay credentials arguments unassigned
@@ -997,7 +966,7 @@ proc mount(wakuRelay: WakuRelay,
                                                  spamHandler = spamHandler,
                                                  registrationHandler = registrationHandler,
                                                  memIdCredential = some(credentials.get().identityCredential),
-                                                 memIndex = some(credentials.get().rlnIndex))
+                                                 memIndex = some(credentials.get().membershipGroups[0].treeIndex)) # TODO: use a proper proc to get a certain membership index
       else:
         # mount rln-relay in on-chain mode, with the provided private key
         rlnRelayRes = await mountRlnRelayDynamic(wakuRelay,
@@ -1030,10 +999,16 @@ proc mount(wakuRelay: WakuRelay,
       return err("dynamic rln-relay could not be mounted: " & rlnRelayRes.error())
     let wakuRlnRelay = rlnRelayRes.get()
     if persistCredentials:
-      # persist rln credential
-      credentials = some(RlnMembershipCredentials(rlnIndex: wakuRlnRelay.membershipIndex,
-                                                  identityCredential: wakuRlnRelay.identityCredential))
-      if writeRlnCredentials(rlnRelayCredPath, credentials.get(), conf.rlnRelayCredentialsPassword).isErr():
+      
+      credentials = some(MembershipCredentials(identityCredential: wakuRlnRelay.identityCredential,
+                                               membershipGroups: @[MembershipGroup(membershipContract: rlnMembershipContract, treeIndex: wakuRlnRelay.membershipIndex)]
+                                               ))
+
+      if addMembershipCredentials(path = rlnRelayCredPath,
+                                  credentials = @[credentials.get()],
+                                  password = conf.rlnRelayCredentialsPassword,
+                                  # TODO: the following can be embedded in conf
+                                  appInfo = RLNAppInfo).isErr():
         return err("error in storing rln credentials")
     return ok(wakuRlnRelay)
 

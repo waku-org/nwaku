@@ -6,7 +6,7 @@ import
   testutils/unittests, chronos,
   eth/keys
 import
-  ../../waku/v2/utils/keyfile
+  ../../waku/v2/protocol/waku_keystore
 
 from ../../waku/v2/protocol/waku_noise/noise_utils import randomSeqByte
 
@@ -312,7 +312,7 @@ suite "KeyFile test suite (adapted from nim-eth keyfile tests)":
 
       check:
         secret.isErr()
-        secret.error == KeyFileError.IncorrectMac
+        secret.error == KeyFileError.KeyfileIncorrectMac
 
   test "Wrong mac in keyfile":
 
@@ -350,7 +350,7 @@ suite "KeyFile test suite (adapted from nim-eth keyfile tests)":
                         keyfileWrongMac.getOrDefault("password").getStr())
     check:
       secret.isErr()
-      secret.error == KeyFileError.IncorrectMac
+      secret.error == KeyFileError.KeyFileIncorrectMac
 
   test "Scrypt keyfiles":
     let

@@ -10,9 +10,10 @@ import
   stew/[arrayops, results, endians2],
   stint
 import
+    ./constants,
     ./protocol_types
 import
-  ../../utils/keyfile
+  ../waku_keystore
 
 export
   web3,
@@ -27,15 +28,8 @@ proc toUInt256*(idCommitment: IDCommitment): UInt256 =
   return pk
 
 proc toIDCommitment*(idCommitmentUint: UInt256): IDCommitment =
-  let pk = IDCommitment(idCommitmentUint.toBytesLE())
+  let pk = IDCommitment(@(idCommitmentUint.toBytesLE()))
   return pk
-
-proc inHex*(value: array[32, byte]): string =
-  var valueHex = (UInt256.fromBytesLE(value)).toHex()
-  # We pad leading zeroes
-  while valueHex.len < value.len * 2:
-    valueHex = "0" & valueHex
-  return valueHex
 
 proc toMembershipIndex*(v: UInt256): MembershipIndex =
   let membershipIndex: MembershipIndex = cast[MembershipIndex](v)
@@ -115,10 +109,10 @@ proc toIdentityCredentials*(groupKeys: seq[(string, string, string, string)]): R
   for i in 0..groupKeys.len-1:
     try:
       let
-        idTrapdoor = hexToUint[IdentityTrapdoor.len*8](groupKeys[i][0]).toBytesLE()
-        idNullifier = hexToUint[IdentityNullifier.len*8](groupKeys[i][1]).toBytesLE()
-        idSecretHash = hexToUint[IdentitySecretHash.len*8](groupKeys[i][2]).toBytesLE()
-        idCommitment = hexToUint[IDCommitment.len*8](groupKeys[i][3]).toBytesLE()
+        idTrapdoor = IdentityTrapdoor(@(hexToUint[CredentialByteSize](groupKeys[i][0]).toBytesLE()))
+        idNullifier = IdentityNullifier(@(hexToUint[CredentialByteSize](groupKeys[i][1]).toBytesLE()))
+        idSecretHash = IdentitySecretHash(@(hexToUint[CredentialByteSize](groupKeys[i][2]).toBytesLE()))
+        idCommitment = IDCommitment(@(hexToUint[CredentialByteSize](groupKeys[i][3]).toBytesLE()))
       groupIdCredentials.add(IdentityCredential(idTrapdoor: idTrapdoor, idNullifier: idNullifier, idSecretHash: idSecretHash,
           idCommitment: idCommitment))
     except ValueError as err:
@@ -138,8 +132,8 @@ proc toIdentityCredentials*(groupKeys: seq[(string, string)]): RlnRelayResult[se
   for i in 0..groupKeys.len-1:
     try:
       let
-        idSecretHash = hexToUint[IdentitySecretHash.len*8](groupKeys[i][0]).toBytesLE()
-        idCommitment = hexToUint[IDCommitment.len*8](groupKeys[i][1]).toBytesLE()
+        idSecretHash = IdentitySecretHash(@(hexToUint[CredentialByteSize](groupKeys[i][0]).toBytesLE()))
+        idCommitment = IDCommitment(@(hexToUint[CredentialByteSize](groupKeys[i][1]).toBytesLE()))
       groupIdCredentials.add(IdentityCredential(idSecretHash: idSecretHash,
           idCommitment: idCommitment))
     except ValueError as err:

@@ -27,7 +27,6 @@ when defined(waku_exp_store_resume):
   # TODO: Review store resume test cases (#1282)
   import ./v2/waku_store/test_resume
 
-
 import
   # Waku v2 tests
   ./v2/test_wakunode,
@@ -61,11 +60,12 @@ import
   ./v2/test_waku_noise,
   ./v2/test_waku_noise_sessions,
   ./v2/test_waku_switch,
+  # Waku Keystore
+  ./v2/test_waku_keystore_keyfile,
+  ./v2/test_waku_keystore,
   # Utils
-  ./v2/test_utils_compat,
-  ./v2/test_utils_keyfile
-
-
+  ./v2/test_utils_compat
+  
 ## Experimental
 
 when defined(rln):
