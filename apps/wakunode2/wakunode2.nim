@@ -526,21 +526,10 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
   if conf.peerExchange:
     asyncSpawn runPeerExchangeDiscv5Loop(node.wakuPeerExchange)
 
-  # retrieve and connect to peer exchange peers
+  # retrieve px peers and add the to the peer store
   if conf.peerExchangeNode != "":
-    info "Retrieving peer info via peer exchange protocol"
     let desiredOutDegree = node.wakuRelay.parameters.d.uint64()
-    let pxPeersRes = await node.wakuPeerExchange.request(desiredOutDegree)
-    if pxPeersRes.isOk:
-      var record: enr.Record
-      var validPeers = 0
-      for pi in pxPeersRes.get().peerInfos:
-        if enr.fromBytes(record, pi.enr):
-          node.peerManager.addPeer(record.toRemotePeerInfo().get, WakuRelayCodec)
-          validPeers += 1
-      info "Retrieved peer info via peer exchange protocol", validPeers = validPeers
-    else:
-      warn "Failed to retrieve peer info via peer exchange protocol"
+    await node.fetchPeerExchangePeers(desiredOutDegree)
 
   # Start keepalive, if enabled
   if conf.keepAlive:
