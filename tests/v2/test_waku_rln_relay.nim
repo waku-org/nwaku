@@ -14,12 +14,14 @@ import
   ../../waku/v2/node/waku_node,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_rln_relay,
+  ../../waku/v2/protocol/waku_keystore,
   ../test_helpers
 
 const RlnRelayPubsubTopic = "waku/2/rlnrelay/proto"
 const RlnRelayContentTopic = "waku/2/rlnrelay/proto"
 
 procSuite "Waku rln relay":
+
   asyncTest "mount waku-rln-relay in the off-chain mode":
     let
       nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
@@ -1041,10 +1043,11 @@ suite "Waku rln relay":
 
     debug "the generated identity credential: ", idCredential
 
-    let index =  MembershipIndex(1)
+    let index = MembershipIndex(1)
 
-    let rlnMembershipCredentials = RlnMembershipCredentials(identityCredential: idCredential, 
-                                                            rlnIndex: index)
+    let rlnMembershipContract = MembershipContract(chainId: "5", address: "0x0123456789012345678901234567890123456789")
+    let rlnMembershipGroup = MembershipGroup(membershipContract: rlnMembershipContract, treeIndex: index)
+    let rlnMembershipCredentials = MembershipCredentials(identityCredential: idCredential, membershipGroups: @[rlnMembershipGroup])
 
     let password = "%m0um0ucoW%"
 
@@ -1053,19 +1056,31 @@ suite "Waku rln relay":
 
     # Write RLN credentials
     require:
-      writeRlnCredentials(filepath, rlnMembershipCredentials, password).isOk()
+      addMembershipCredentials(path = filepath,
+                                credentials = @[rlnMembershipCredentials],
+                                password = password,
+                                appInfo = RLNAppInfo).isOk()
+      
+    let readCredentialsResult = getMembershipCredentials(path = filepath,
+                                                         password = password,
+                                                         filterMembershipContracts = @[rlnMembershipContract],
+                                                         appInfo = RLNAppInfo)
 
-    let readCredentialsResult = readRlnCredentials(filepath, password)
     require:
       readCredentialsResult.isOk()
 
-    let credentials = readCredentialsResult.get()
+    # getMembershipCredentials returns all credentials in keystore as sequence matching the filter
+    let allMatchingCredentials = readCredentialsResult.get()
+    # if any is found, we return the first credential, otherwise credentials is none 
+    var credentials = none(MembershipCredentials)
+    if allMatchingCredentials.len() > 0:
+      credentials = some(allMatchingCredentials[0])
 
     require:
       credentials.isSome()
     check:
       credentials.get().identityCredential == idCredential
-      credentials.get().rlnIndex == index
+      credentials.get().membershipGroups == @[rlnMembershipGroup]
 
   test "histogram static bucket generation":
     let buckets = generateBucketsForHistogram(10)

@@ -1,6 +1,9 @@
 import
   stint
 
+import
+  ../waku_keystore
+
 # Acceptable roots for merkle root validation of incoming messages
 const AcceptableRootWindowSize* = 5
 
@@ -48,3 +51,9 @@ const MaxClockGapSeconds* = 20.0 # the maximum clock difference between peers in
 
 # maximum allowed gap between the epochs of messages' RateLimitProofs
 const MaxEpochGap* = uint64(MaxClockGapSeconds/EpochUnitSeconds)
+
+# RLN Keystore defaults
+const 
+  RLNAppInfo* = AppInfo(application: "nwaku-rln-relay", appIdentifier: "01234567890abcdef", version: "0.1")
+  # NOTE: 256-bytes long credentials are due to the use of BN254 in RLN. Other implementations/curves might have a different byte size
+  CredentialByteSize* = 256
