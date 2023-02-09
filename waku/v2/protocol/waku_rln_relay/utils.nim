@@ -715,8 +715,7 @@ proc addRLNRelayValidator*(wakuRlnRelay: WakuRLNRelay,
             handler(wakumessage)
           return pubsub.ValidationResult.Reject
   # set a validator for the supplied pubsubTopic
-  let pb = PubSub(wakuRelay)
-  pb.addValidator(pubsubTopic, validator)
+  wakuRelay.addValidator(pubsubTopic, validator)
 
 proc mountRlnRelayStatic*(wakuRelay: WakuRelay,
                           group: seq[IDCommitment],
@@ -943,7 +942,7 @@ proc mount(wakuRelay: WakuRelay,
 
         # getMembershipCredentials returns all credentials in keystore as sequence matching the filter
         let allMatchingCredentials = readCredentialsRes.get()
-        # if any is found, we return the first credential, otherwise credentials is none 
+        # if any is found, we return the first credential, otherwise credentials is none
         if allMatchingCredentials.len() > 0:
           credentials = some(allMatchingCredentials[0])
         else:
@@ -999,7 +998,7 @@ proc mount(wakuRelay: WakuRelay,
       return err("dynamic rln-relay could not be mounted: " & rlnRelayRes.error())
     let wakuRlnRelay = rlnRelayRes.get()
     if persistCredentials:
-      
+
       credentials = some(MembershipCredentials(identityCredential: wakuRlnRelay.identityCredential,
                                                membershipGroups: @[MembershipGroup(membershipContract: rlnMembershipContract, treeIndex: wakuRlnRelay.membershipIndex)]
                                                ))
@@ -1026,9 +1025,11 @@ proc new*(T: type WakuRlnRelay,
   # relay protocol is the prerequisite of rln-relay
   if wakuRelay.isNil():
     return err("WakuRelay protocol is not mounted")
-  # check whether the pubsub topic is supported at the relay level
-  if conf.rlnRelayPubsubTopic notin wakuRelay.defaultPubsubTopics:
-    return err("The relay protocol does not support the configured pubsub topic")
+
+  # TODO: Review this. The Waku Relay instance is no longer keeping track of the default pubsub topics
+  # # check whether the pubsub topic is supported at the relay level
+  # if conf.rlnRelayPubsubTopic notin wakuRelay.defaultPubsubTopics:
+  #   return err("The relay protocol does not support the configured pubsub topic")
 
   debug "rln-relay input validation passed"
   waku_rln_relay_mounting_duration_seconds.nanosecondTime:

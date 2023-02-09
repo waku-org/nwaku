@@ -9,7 +9,7 @@ import
   json_serialization,
   json_serialization/std/options,
   presto/[route, client, common]
-import 
+import
   ../../../protocol/waku_message,
   ../serdes,
   ../base64
@@ -24,7 +24,7 @@ type RelayWakuMessage* = object
       timestamp*: Option[int64]
 
 
-type 
+type
   RelayGetMessagesResponse* = seq[RelayWakuMessage]
   RelayPostMessagesRequest* = RelayWakuMessage
 
@@ -44,7 +44,7 @@ proc toRelayWakuMessage*(msg: WakuMessage): RelayWakuMessage =
   )
 
 proc toWakuMessage*(msg: RelayWakuMessage, version = 0): Result[WakuMessage, cstring] =
-  let 
+  let
     payload = ?msg.payload.decode()
     contentTopic = msg.contentTopic.get(DefaultContentTopic)
     version = uint32(msg.version.get(version))
@@ -58,10 +58,6 @@ proc toWakuMessage*(msg: RelayWakuMessage, version = 0): Result[WakuMessage, cst
 proc writeValue*(writer: var JsonWriter[RestJson], value: Base64String)
   {.raises: [IOError, Defect].} =
   writer.writeValue(string(value))
-
-proc writeValue*(writer: var JsonWriter[RestJson], topic: PubSubTopic|ContentTopic)
-  {.raises: [IOError, Defect].} =
-  writer.writeValue(string(topic))
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: RelayWakuMessage)
   {.raises: [IOError, Defect].} =
@@ -78,14 +74,6 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: RelayWakuMessage)
 proc readValue*(reader: var JsonReader[RestJson], value: var Base64String)
   {.raises: [SerializationError, IOError, Defect].} =
   value = Base64String(reader.readValue(string))
-
-proc readValue*(reader: var JsonReader[RestJson], pubsubTopic: var PubSubTopic)
-  {.raises: [SerializationError, IOError, Defect].} =
-  pubsubTopic = PubSubTopic(reader.readValue(string))
-
-proc readValue*(reader: var JsonReader[RestJson], contentTopic: var ContentTopic)
-  {.raises: [SerializationError, IOError, Defect].} =
-  contentTopic = ContentTopic(reader.readValue(string))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
   {.raises: [SerializationError, IOError, Defect].} =
@@ -122,5 +110,5 @@ proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
     payload: payload.get(),
     contentTopic: contentTopic,
     version: version,
-    timestamp: timestamp 
+    timestamp: timestamp
   )
