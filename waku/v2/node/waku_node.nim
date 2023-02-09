@@ -960,6 +960,25 @@ proc mountPeerExchange*(node: WakuNode) {.async, raises: [Defect, LPError].} =
 
   node.switch.mount(node.wakuPeerExchange, protocolMatcher(WakuPeerExchangeCodec))
 
+proc fetchPeerExchangePeers*(node: Wakunode, amount: uint64) {.async, raises: [Defect].} =
+  if node.wakuPeerExchange.isNil():
+    error "could not get peers from px, waku peer-exchange is nil"
+    return
+
+  info "Retrieving peer info via peer exchange protocol"
+  let pxPeersRes = await node.wakuPeerExchange.request(amount)
+  if pxPeersRes.isOk:
+    var validPeers = 0
+    for pi in pxPeersRes.get().peerInfos:
+      var record: enr.Record
+      if enr.fromBytes(record, pi.enr):
+        # TODO: Add source: PX
+        node.peerManager.addPeer(record.toRemotePeerInfo().get, WakuRelayCodec)
+        validPeers += 1
+    info "Retrieved peer info via peer exchange protocol", validPeers = validPeers
+  else:
+    warn "Failed to retrieve peer info via peer exchange protocol", error = pxPeersRes.error
+
 # TODO: Move to application module (e.g., wakunode2.nim)
 proc setPeerExchangePeer*(node: WakuNode, peer: RemotePeerInfo|string) {.raises: [Defect, ValueError, LPError].} =
   if node.wakuPeerExchange.isNil():

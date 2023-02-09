@@ -1,6 +1,7 @@
 {.used.}
 
 import
+  std/sequtils,
   stew/byteutils,
   stew/shims/net as stewNet,
   testutils/unittests,
@@ -13,13 +14,17 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub,
-  libp2p/nameresolving/mockresolver
+  libp2p/nameresolving/mockresolver,
+  eth/p2p/discoveryv5/enr
 import
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/peer_manager,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_relay,
-  ../../waku/v2/utils/peers
+  ../../waku/v2/protocol/waku_peer_exchange,
+  ../../waku/v2/utils/peers,
+  ./testlib/testutils,
+  ../test_helpers
 
 
 procSuite "WakuNode":
@@ -284,3 +289,29 @@ procSuite "WakuNode":
       node1MultiAddrs.contains(expectedMultiaddress1)
 
     await allFutures(node1.stop(), node2.stop())
+
+  asyncTest "Function fetchPeerExchangePeers succesfully exchanges px peers":
+    let
+      node1 = WakuNode.new(generateKey(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = WakuNode.new(generateKey(), ValidIpAddress.init("0.0.0.0"), Port(0))
+
+    # Start and mount peer exchange
+    await allFutures([node1.start(), node2.start()])
+    await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
+
+    # Mock that we discovered a node (to avoid running discv5)
+    var enr = enr.Record()
+    require enr.fromUri("enr:-Iu4QGNuTvNRulF3A4Kb9YHiIXLr0z_CpvWkWjWKU-o95zUPR_In02AWek4nsSk7G_-YDcaT4bDRPzt5JIWvFqkXSNcBgmlkgnY0gmlwhE0WsGeJc2VjcDI1NmsxoQKp9VzU2FAh7fwOwSpg1M_Ekz4zzl0Fpbg6po2ZwgVwQYN0Y3CC6mCFd2FrdTIB")
+    node2.wakuPeerExchange.enrCache.add(enr)
+
+    # Set node2 as service peer (default one) for px protocol
+    node1.peerManager.addServicePeer(node2.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec)
+
+    # Request 1 peer from peer exchange protocol
+    await node1.fetchPeerExchangePeers(1)
+
+    # Check that the peer ended up in the peerstore
+    let rpInfo = enr.toRemotePeerInfo.get()
+    check:
+      node1.peerManager.peerStore.peers.anyIt(it.peerId == rpInfo.peerId)
+      node1.peerManager.peerStore.peers.anyIt(it.addrs == rpInfo.addrs)

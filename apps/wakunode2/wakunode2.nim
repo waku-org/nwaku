@@ -41,6 +41,7 @@ import
   ../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_capacity,
   ../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_time,
   ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/protocol/waku_relay,
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_lightpush,
   ../../waku/v2/protocol/waku_peer_exchange,
@@ -525,14 +526,10 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
   if conf.peerExchange:
     asyncSpawn runPeerExchangeDiscv5Loop(node.wakuPeerExchange)
 
-  # retrieve and connect to peer exchange peers
+  # retrieve px peers and add the to the peer store
   if conf.peerExchangeNode != "":
-    info "Retrieving peer info via peer exchange protocol"
     let desiredOutDegree = node.wakuRelay.parameters.d.uint64()
-    try:
-      discard await node.wakuPeerExchange.request(desiredOutDegree)
-    except:
-      return err("failed to retrieve peer info via peer exchange protocol: " & getCurrentExceptionMsg())
+    await node.fetchPeerExchangePeers(desiredOutDegree)
 
   # Start keepalive, if enabled
   if conf.keepAlive:

@@ -175,5 +175,8 @@ proc getPeersByDirection*(peerStore: PeerStore, direction: PeerDirection): seq[S
 proc getNotConnectedPeers*(peerStore: PeerStore): seq[StoredInfo] =
   return peerStore.peers.filterIt(it.connectedness != Connected)
 
+proc getConnectedPeers*(peerStore: PeerStore): seq[StoredInfo] =
+  return peerStore.peers.filterIt(it.connectedness == Connected)
+
 proc getPeersByProtocol*(peerStore: PeerStore, proto: string): seq[StoredInfo] =
   return peerStore.peers.filterIt(it.protos.contains(proto))

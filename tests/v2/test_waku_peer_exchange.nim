@@ -1,12 +1,13 @@
 {.used.}
 
 import
-  std/options,
+  std/[options, sequtils],
   testutils/unittests,
   chronos,
   chronicles,
   stew/shims/net,
   libp2p/switch,
+  libp2p/peerId,
   libp2p/crypto/crypto,
   eth/keys,
   eth/p2p/discoveryv5/enr
@@ -18,7 +19,8 @@ import
   ../../waku/v2/protocol/waku_peer_exchange/rpc,
   ../../waku/v2/protocol/waku_peer_exchange/rpc_codec,
   ../test_helpers,
-  ./utils
+  ./utils,
+  ./testlib/testutils
 
 
 # TODO: Extend test coverage
@@ -30,8 +32,8 @@ procSuite "Waku Peer Exchange":
       enr1 = enr.Record(seqNum: 0, raw: @[])
       enr2 = enr.Record(seqNum: 0, raw: @[])
 
-    discard enr1.fromUri("enr:-JK4QPmO-sE2ELiWr8qVFs1kaY4jQZQpNaHvSPRmKiKcaDoqYRdki2c1BKSliImsxFeOD_UHnkddNL2l0XT9wlsP0WEBgmlkgnY0gmlwhH8AAAGJc2VjcDI1NmsxoQIMwKqlOl3zpwnrsKRKHuWPSuFzit1Cl6IZvL2uzBRe8oN0Y3CC6mKDdWRwgiMqhXdha3UyDw")
-    discard enr2.fromUri("enr:-Iu4QK_T7kzAmewG92u1pr7o6St3sBqXaiIaWIsFNW53_maJEaOtGLSN2FUbm6LmVxSfb1WfC7Eyk-nFYI7Gs3SlchwBgmlkgnY0gmlwhI5d6VKJc2VjcDI1NmsxoQLPYQDvrrFdCrhqw3JuFaGD71I8PtPfk6e7TJ3pg_vFQYN0Y3CC6mKDdWRwgiMq")
+    check enr1.fromUri("enr:-JK4QPmO-sE2ELiWr8qVFs1kaY4jQZQpNaHvSPRmKiKcaDoqYRdki2c1BKSliImsxFeOD_UHnkddNL2l0XT9wlsP0WEBgmlkgnY0gmlwhH8AAAGJc2VjcDI1NmsxoQIMwKqlOl3zpwnrsKRKHuWPSuFzit1Cl6IZvL2uzBRe8oN0Y3CC6mKDdWRwgiMqhXdha3UyDw")
+    check enr2.fromUri("enr:-Iu4QK_T7kzAmewG92u1pr7o6St3sBqXaiIaWIsFNW53_maJEaOtGLSN2FUbm6LmVxSfb1WfC7Eyk-nFYI7Gs3SlchwBgmlkgnY0gmlwhI5d6VKJc2VjcDI1NmsxoQLPYQDvrrFdCrhqw3JuFaGD71I8PtPfk6e7TJ3pg_vFQYN0Y3CC6mKDdWRwgiMq")
 
     let peerInfos = @[
       PeerExchangePeerInfo(enr: enr1.raw),
@@ -127,20 +129,127 @@ procSuite "Waku Peer Exchange":
     await node1.mountPeerExchange()
     await node3.mountPeerExchange()
 
-    await sleepAsync(3000.millis) # Give the algorithm some time to work its magic
+    # Give the algorithm some time to work its magic
+    await sleepAsync(3000.millis)
 
     asyncSpawn node1.wakuPeerExchange.runPeerExchangeDiscv5Loop()
 
-    node3.setPeerExchangePeer(node1.peerInfo.toRemotePeerInfo())
+    let connOpt = await node3.peerManager.dialPeer(node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec)
+    check:
+      connOpt.isSome
+
+    # Give the algorithm some time to work its magic
+    await sleepAsync(2000.millis)
 
     ## When
-    discard waitFor node3.wakuPeerExchange.request(1)
-
-    await sleepAsync(2000.millis) # Give the algorithm some time to work its magic
+    let response = await node3.wakuPeerExchange.request(1, connOpt.get())
 
     ## Then
     check:
+      response.isOk
+      response.get().peerInfos.len == 1
       node1.wakuDiscv5.protocol.nodesDiscovered > 0
-      node3.switch.peerStore[AddressBook].contains(node2.switch.peerInfo.peerId)
 
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
+
+  asyncTest "peer exchange request functions returns some discovered peers":
+    let
+      node1 = WakuNode.new(generateKey(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = WakuNode.new(generateKey(), ValidIpAddress.init("0.0.0.0"), Port(0))
+
+    # Start and mount peer exchange
+    await allFutures([node1.start(), node2.start()])
+    await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
+
+    # Create connection
+    let connOpt = await node2.peerManager.dialPeer(node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec)
+    require:
+      connOpt.isSome
+
+    # Create some enr and add to peer exchange (sumilating disv5)
+    var enr1, enr2 = enr.Record()
+    check enr1.fromUri("enr:-Iu4QGNuTvNRulF3A4Kb9YHiIXLr0z_CpvWkWjWKU-o95zUPR_In02AWek4nsSk7G_-YDcaT4bDRPzt5JIWvFqkXSNcBgmlkgnY0gmlwhE0WsGeJc2VjcDI1NmsxoQKp9VzU2FAh7fwOwSpg1M_Ekz4zzl0Fpbg6po2ZwgVwQYN0Y3CC6mCFd2FrdTIB")
+    check enr2.fromUri("enr:-Iu4QGJllOWlviPIh_SGR-VVm55nhnBIU5L-s3ran7ARz_4oDdtJPtUs3Bc5aqZHCiPQX6qzNYF2ARHER0JPX97TFbEBgmlkgnY0gmlwhE0WsGeJc2VjcDI1NmsxoQP3ULycvday4EkvtVu0VqbBdmOkbfVLJx8fPe0lE_dRkIN0Y3CC6mCFd2FrdTIB")
+
+    # Mock that we have discovered these enrs
+    node1.wakuPeerExchange.enrCache.add(enr1)
+    node1.wakuPeerExchange.enrCache.add(enr2)
+
+    # Request 2 peer from px. Test all request variants
+    let response1 = await node2.wakuPeerExchange.request(2)
+    let response2 = await node2.wakuPeerExchange.request(2, node1.peerInfo.toRemotePeerInfo())
+    let response3 = await node2.wakuPeerExchange.request(2, connOpt.get())
+
+    # Check the response or dont even continue
+    require:
+      response1.isOk
+      response2.isOk
+      response3.isOk
+
+    check:
+      response1.get().peerInfos.len == 2
+      response2.get().peerInfos.len == 2
+      response3.get().peerInfos.len == 2
+
+      # Since it can return duplicates test that at least one of the enrs is in the response
+      response1.get().peerInfos.anyIt(it.enr == enr1.raw) or response1.get().peerInfos.anyIt(it.enr == enr2.raw)
+      response2.get().peerInfos.anyIt(it.enr == enr1.raw) or response2.get().peerInfos.anyIt(it.enr == enr2.raw)
+      response3.get().peerInfos.anyIt(it.enr == enr1.raw) or response3.get().peerInfos.anyIt(it.enr == enr2.raw)
+
+  asyncTest "peer exchange handler works as expected":
+    let
+      node1 = WakuNode.new(generateKey(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = WakuNode.new(generateKey(), ValidIpAddress.init("0.0.0.0"), Port(0))
+
+    # Start and mount peer exchange
+    await allFutures([node1.start(), node2.start()])
+    await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
+
+    # Mock that we have discovered these enrs
+    var enr1 = enr.Record()
+    check enr1.fromUri("enr:-Iu4QGNuTvNRulF3A4Kb9YHiIXLr0z_CpvWkWjWKU-o95zUPR_In02AWek4nsSk7G_-YDcaT4bDRPzt5JIWvFqkXSNcBgmlkgnY0gmlwhE0WsGeJc2VjcDI1NmsxoQKp9VzU2FAh7fwOwSpg1M_Ekz4zzl0Fpbg6po2ZwgVwQYN0Y3CC6mCFd2FrdTIB")
+    node1.wakuPeerExchange.enrCache.add(enr1)
+
+    # Create connection
+    let connOpt = await node2.peerManager.dialPeer(node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec)
+    require connOpt.isSome
+    let conn = connOpt.get()
+
+    # Send bytes so that they directly hit the handler
+    let rpc = PeerExchangeRpc(
+      request: PeerExchangeRequest(numPeers: 1))
+
+    var buffer: seq[byte]
+    await conn.writeLP(rpc.encode().buffer)
+    buffer = await conn.readLp(MaxRpcSize.int)
+
+    # Decode the response
+    let decodedBuff = PeerExchangeRpc.decode(buffer)
+    require decodedBuff.isOk
+
+    # Check we got back the enr we mocked
+    check:
+      decodedBuff.get().response.peerInfos.len == 1
+      decodedBuff.get().response.peerInfos[0].enr == enr1.raw
+
+  asyncTest "peer exchange request fails gracefully":
+    let
+      node1 = WakuNode.new(generateKey(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = WakuNode.new(generateKey(), ValidIpAddress.init("0.0.0.0"), Port(0))
+
+    # Start and mount peer exchange
+    await allFutures([node1.start(), node2.start()])
+    await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
+
+    # Create connection
+    let connOpt = await node2.peerManager.dialPeer(node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec)
+    require connOpt.isSome
+
+    # Force closing the connection to simulate a failed peer
+    await connOpt.get().close()
+
+    # Request 2 peer from px
+    let response = await node1.wakuPeerExchange.request(2, connOpt.get())
+
+    # Check that it failed gracefully
+    check: response.isErr

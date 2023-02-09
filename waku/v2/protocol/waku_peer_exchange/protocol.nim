@@ -29,7 +29,7 @@ logScope:
 const
   # We add a 64kB safety buffer for protocol overhead.
   # 10x-multiplier also for safety
-  MaxRpcSize = 10 * MaxWakuMessageSize + 64 * 1024 # TODO what is the expected size of a PX message? As currently specified, it can contain an arbitary number of ENRs...
+  MaxRpcSize* = 10 * MaxWakuMessageSize + 64 * 1024 # TODO what is the expected size of a PX message? As currently specified, it can contain an arbitary number of ENRs...
   MaxCacheSize = 1000
   CacheCleanWindow = 200
 
@@ -49,69 +49,52 @@ type
   WakuPeerExchange* = ref object of LPProtocol
     peerManager*: PeerManager
     wakuDiscv5: Option[WakuDiscoveryV5]
-    enrCache: seq[enr.Record] # todo: next step: ring buffer; future: implement cache satisfying https://rfc.vac.dev/spec/34/
+    enrCache*: seq[enr.Record] # todo: next step: ring buffer; future: implement cache satisfying https://rfc.vac.dev/spec/34/
 
-proc sendPeerExchangeRpcToPeer(wpx: WakuPeerExchange, rpc: PeerExchangeRpc, peer: RemotePeerInfo | PeerId): Future[WakuPeerExchangeResult[void]] {.async, gcsafe.} =
+proc request*(wpx: WakuPeerExchange, numPeers: uint64, conn: Connection): Future[WakuPeerExchangeResult[PeerExchangeResponse]] {.async, gcsafe.} =
+  let rpc = PeerExchangeRpc(
+    request: PeerExchangeRequest(numPeers: numPeers))
+
+  var buffer: seq[byte]
+  try:
+    await conn.writeLP(rpc.encode().buffer)
+    buffer = await conn.readLp(MaxRpcSize.int)
+  except CatchableError as exc:
+    waku_px_errors.inc(labelValues = [exc.msg])
+    return err("write/read failed: " & $exc.msg)
+
+  let decodedBuff = PeerExchangeRpc.decode(buffer)
+  if decodedBuff.isErr():
+    return err("decode failed: " & $decodedBuff.error)
+  return ok(decodedBuff.get().response)
+
+proc request*(wpx: WakuPeerExchange, numPeers: uint64, peer: RemotePeerInfo): Future[WakuPeerExchangeResult[PeerExchangeResponse]] {.async, gcsafe.} =
   let connOpt = await wpx.peerManager.dialPeer(peer, WakuPeerExchangeCodec)
   if connOpt.isNone():
     return err(dialFailure)
+  return await wpx.request(numPeers, connOpt.get())
 
-  let connection = connOpt.get()
-
-  await connection.writeLP(rpc.encode().buffer)
-
-  return ok()
-
-proc request(wpx: WakuPeerExchange, numPeers: uint64, peer: RemotePeerInfo): Future[WakuPeerExchangeResult[void]] {.async, gcsafe.} =
-  let rpc = PeerExchangeRpc(
-    request: PeerExchangeRequest(
-      numPeers: numPeers
-    )
-  )
-
-  let res = await wpx.sendPeerExchangeRpcToPeer(rpc, peer)
-  if res.isErr():
-    waku_px_errors.inc(labelValues = [res.error()])
-    return err(res.error())
-
-  return ok()
-
-proc request*(wpx: WakuPeerExchange, numPeers: uint64): Future[WakuPeerExchangeResult[void]] {.async, gcsafe.} =
+proc request*(wpx: WakuPeerExchange, numPeers: uint64): Future[WakuPeerExchangeResult[PeerExchangeResponse]] {.async, gcsafe.} =
   let peerOpt = wpx.peerManager.selectPeer(WakuPeerExchangeCodec)
   if peerOpt.isNone():
     waku_px_errors.inc(labelValues = [peerNotFoundFailure])
     return err(peerNotFoundFailure)
-
   return await wpx.request(numPeers, peerOpt.get())
 
-proc respond(wpx: WakuPeerExchange, enrs: seq[enr.Record], peer: RemotePeerInfo | PeerId): Future[WakuPeerExchangeResult[void]] {.async, gcsafe.} =
-  var peerInfos: seq[PeerExchangePeerInfo] = @[]
-  for e in enrs:
-    let pi = PeerExchangePeerInfo(
-      enr: e.raw
-    )
-    peerInfos.add(pi)
-
+proc respond(wpx: WakuPeerExchange, enrs: seq[enr.Record], conn: Connection): Future[WakuPeerExchangeResult[void]] {.async, gcsafe.} =
   let rpc = PeerExchangeRpc(
     response: PeerExchangeResponse(
-      peerInfos: peerInfos
+      peerInfos: enrs.mapIt(PeerExchangePeerInfo(enr: it.raw))
     )
   )
 
-  let res = await wpx.sendPeerExchangeRpcToPeer(rpc, peer)
-  if res.isErr():
-    waku_px_errors.inc(labelValues = [res.error()])
-    return err(res.error())
+  try:
+    await conn.writeLP(rpc.encode().buffer)
+  except CatchableError as exc:
+    waku_px_errors.inc(labelValues = [exc.msg])
+    return err(exc.msg)
 
   return ok()
-
-proc respond(wpx: WakuPeerExchange, enrs: seq[enr.Record]): Future[WakuPeerExchangeResult[void]] {.async, gcsafe.} =
-  let peerOpt = wpx.peerManager.selectPeer(WakuPeerExchangeCodec)
-  if peerOpt.isNone():
-    waku_px_errors.inc(labelValues = [peerNotFoundFailure])
-    return err(peerNotFoundFailure)
-
-  return await wpx.respond(enrs, peerOpt.get())
 
 proc cleanCache(wpx: WakuPeerExchange) {.gcsafe.} =
   wpx.enrCache.delete(0..CacheCleanWindow-1)
@@ -147,44 +130,31 @@ proc getEnrsFromCache(wpx: WakuPeerExchange, numPeers: uint64): seq[enr.Record] 
     return @[]
   for i in 0..<min(numPeers, wpx.enrCache.len().uint64()):
     let ri = rand(0..<wpx.enrCache.len())
+    # TODO: Note that duplicated peers can be returned here
     result.add(wpx.enrCache[ri])
 
 proc initProtocolHandler(wpx: WakuPeerExchange) =
   proc handler(conn: Connection, proto: string) {.async, gcsafe, closure.} =
-    let buff = await conn.readLp(MaxRpcSize.int)
+    var buffer: seq[byte]
+    try:
+      buffer = await conn.readLp(MaxRpcSize.int)
+    except CatchableError as exc:
+      waku_px_errors.inc(labelValues = [exc.msg])
+      return
 
-    let res = PeerExchangeRpc.decode(buff)
-    if res.isErr():
+    let decBuf = PeerExchangeRpc.decode(buffer)
+    if decBuf.isErr():
       waku_px_errors.inc(labelValues = [decodeRpcFailure])
       return
 
-    let rpc = res.get()
-
-    # handle peer exchange request
-    if rpc.request != PeerExchangeRequest():
-      trace "peer exchange request received"
-      let enrs = wpx.getEnrsFromCache(rpc.request.numPeers)
-      discard await wpx.respond(enrs, conn.peerId)
+    let rpc = decBuf.get()
+    trace "peer exchange request received"
+    let enrs = wpx.getEnrsFromCache(rpc.request.numPeers)
+    let res = await wpx.respond(enrs, conn)
+    if res.isErr:
+      waku_px_errors.inc(labelValues = [res.error])
+    else:
       waku_px_peers_sent.inc(enrs.len().int64())
-
-    # handle peer exchange response
-    if rpc.response != PeerExchangeResponse():
-      # todo: error handling
-      trace "peer exchange response received"
-      var record: enr.Record
-      var remotePeerInfoList: seq[RemotePeerInfo]
-      waku_px_peers_received_total.inc(rpc.response.peerInfos.len().int64())
-      for pi in rpc.response.peerInfos:
-        discard enr.fromBytes(record, pi.enr)
-        remotePeerInfoList.add(record.toRemotePeerInfo().get)
-
-      let newPeers = remotePeerInfoList.filterIt(
-        not wpx.peerManager.switch.isConnected(it.peerId))
-
-      if newPeers.len() > 0:
-        waku_px_peers_received_unknown.inc(newPeers.len().int64())
-        debug "Connecting to newly discovered peers", count=newPeers.len()
-        await wpx.peerManager.connectToNodes(newPeers, WakuRelayCodec, source = "peer exchange")
 
   wpx.handler = handler
   wpx.codec = WakuPeerExchangeCodec
