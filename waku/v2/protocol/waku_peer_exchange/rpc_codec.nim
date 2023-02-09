@@ -83,7 +83,8 @@ proc decode*(T: type PeerExchangeRpc, buffer: seq[byte]): ProtoResult[T] =
   var rpc = PeerExchangeRpc()
 
   var requestBuffer: seq[byte]
-  discard ?pb.getField(1, requestBuffer)
+  if not ?pb.getField(1, requestBuffer):
+    return err(ProtoError.RequiredFieldMissing)
   rpc.request = ?PeerExchangeRequest.decode(requestBuffer)
 
   var responseBuffer: seq[byte]

@@ -142,22 +142,19 @@ proc initProtocolHandler(wpx: WakuPeerExchange) =
       waku_px_errors.inc(labelValues = [exc.msg])
       return
 
-    let res = PeerExchangeRpc.decode(buffer)
-    if res.isErr():
+    let decBuf = PeerExchangeRpc.decode(buffer)
+    if decBuf.isErr():
       waku_px_errors.inc(labelValues = [decodeRpcFailure])
       return
 
-    let rpc = res.get()
-
-    # If we got a request (request field is not empty)
-    if rpc.request != default(PeerExchangeRequest):
-      trace "peer exchange request received"
-      let enrs = wpx.getEnrsFromCache(rpc.request.numPeers)
-      let res = await wpx.respond(enrs, conn)
-      if res.isErr:
-        waku_px_errors.inc(labelValues = [res.error])
-      else:
-        waku_px_peers_sent.inc(enrs.len().int64())
+    let rpc = decBuf.get()
+    trace "peer exchange request received"
+    let enrs = wpx.getEnrsFromCache(rpc.request.numPeers)
+    let res = await wpx.respond(enrs, conn)
+    if res.isErr:
+      waku_px_errors.inc(labelValues = [res.error])
+    else:
+      waku_px_peers_sent.inc(enrs.len().int64())
 
   wpx.handler = handler
   wpx.codec = WakuPeerExchangeCodec
