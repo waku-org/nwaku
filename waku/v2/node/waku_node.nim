@@ -968,9 +968,9 @@ proc fetchPeerExchangePeers*(node: Wakunode, amount: uint64) {.async, raises: [D
   info "Retrieving peer info via peer exchange protocol"
   let pxPeersRes = await node.wakuPeerExchange.request(amount)
   if pxPeersRes.isOk:
-    var record: enr.Record
     var validPeers = 0
     for pi in pxPeersRes.get().peerInfos:
+      var record: enr.Record
       if enr.fromBytes(record, pi.enr):
         # TODO: Add source: PX
         node.peerManager.addPeer(record.toRemotePeerInfo().get, WakuRelayCodec)
