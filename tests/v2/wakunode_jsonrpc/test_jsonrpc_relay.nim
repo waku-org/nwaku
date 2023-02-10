@@ -38,7 +38,7 @@ procSuite "Waku v2 JSON-RPC API - Relay":
   asyncTest "subscribe, unsubscribe and publish":
     await node.start()
 
-    await node.mountRelay()
+    await node.mountRelay(topics = @[DefaultPubsubTopic])
 
     # RPC server setup
     let
@@ -101,13 +101,13 @@ procSuite "Waku v2 JSON-RPC API - Relay":
       message2 = WakuMessage(payload: payload2, contentTopic: contentTopic)
 
     await node1.start()
-    await node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[DefaultPubsubTopic, pubSubTopic])
 
     await node2.start()
-    await node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[DefaultPubsubTopic, pubSubTopic])
 
     await node3.start()
-    await node3.mountRelay(@[pubSubTopic])
+    await node3.mountRelay(@[DefaultPubsubTopic, pubSubTopic])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
     await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -191,13 +191,13 @@ procSuite "Waku v2 JSON-RPC API - Relay":
       topicCache = newTestMessageCache()
 
     await node1.start()
-    await node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[DefaultPubsubTopic, pubSubTopic])
 
     await node2.start()
-    await node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[DefaultPubsubTopic, pubSubTopic])
 
     await node3.start()
-    await node3.mountRelay(@[pubSubTopic])
+    await node3.mountRelay(@[DefaultPubsubTopic, pubSubTopic])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
     await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -282,13 +282,13 @@ procSuite "Waku v2 JSON-RPC API - Relay":
       topicCache = newTestMessageCache()
 
     await node1.start()
-    await node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[DefaultPubsubTopic, pubSubTopic])
 
     await node2.start()
-    await node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[DefaultPubsubTopic, pubSubTopic])
 
     await node3.start()
-    await node3.mountRelay(@[pubSubTopic])
+    await node3.mountRelay(@[DefaultPubsubTopic, pubSubTopic])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
     await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])

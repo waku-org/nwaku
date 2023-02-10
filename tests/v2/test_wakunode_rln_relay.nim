@@ -23,7 +23,7 @@ import
 from std/times import epochTime
 
 
-  
+
 const RlnRelayPubsubTopic = "waku/2/rlnrelay/proto"
 
 procSuite "WakuNode - RLN relay":
@@ -47,7 +47,7 @@ procSuite "WakuNode - RLN relay":
 
     # set up three nodes
     # node1
-    await node1.mountRelay(@[rlnRelayPubSubTopic])
+    await node1.mountRelay(@[DefaultPubsubTopic, rlnRelayPubSubTopic])
 
     # mount rlnrelay in off-chain mode
     await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
@@ -59,7 +59,7 @@ procSuite "WakuNode - RLN relay":
     await node1.start()
 
     # node 2
-    await node2.mountRelay(@[rlnRelayPubSubTopic])
+    await node2.mountRelay(@[DefaultPubsubTopic, rlnRelayPubSubTopic])
     # mount rlnrelay in off-chain mode
     await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
@@ -70,7 +70,7 @@ procSuite "WakuNode - RLN relay":
     await node2.start()
 
     # node 3
-    await node3.mountRelay(@[rlnRelayPubSubTopic])
+    await node3.mountRelay(@[DefaultPubsubTopic, rlnRelayPubSubTopic])
 
     await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
@@ -136,7 +136,7 @@ procSuite "WakuNode - RLN relay":
     # node1
     # set up three nodes
     # node1
-    await node1.mountRelay(@[rlnRelayPubSubTopic])
+    await node1.mountRelay(@[DefaultPubsubTopic, rlnRelayPubSubTopic])
 
     # mount rlnrelay in off-chain mode
     await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
@@ -148,7 +148,7 @@ procSuite "WakuNode - RLN relay":
     await node1.start()
 
     # node 2
-    await node2.mountRelay(@[rlnRelayPubSubTopic])
+    await node2.mountRelay(@[DefaultPubsubTopic, rlnRelayPubSubTopic])
     # mount rlnrelay in off-chain mode
     await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
@@ -159,7 +159,7 @@ procSuite "WakuNode - RLN relay":
     await node2.start()
 
     # node 3
-    await node3.mountRelay(@[rlnRelayPubSubTopic])
+    await node3.mountRelay(@[DefaultPubsubTopic, rlnRelayPubSubTopic])
 
     await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
@@ -196,7 +196,7 @@ procSuite "WakuNode - RLN relay":
     let
       contentTopicBytes = contentTopic.toBytes
       input = concat(payload, contentTopicBytes)
-      extraBytes: seq[byte] = @[byte(1),2,3] 
+      extraBytes: seq[byte] = @[byte(1),2,3]
       rateLimitProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = concat(input, extraBytes),   # we add extra bytes to invalidate proof verification against original payload
                                                               memKeys = node1.wakuRlnRelay.identityCredential,
                                                               memIndex = MembershipIndex(1),
@@ -243,7 +243,7 @@ procSuite "WakuNode - RLN relay":
 
     # set up three nodes
     # node1
-    await node1.mountRelay(@[rlnRelayPubSubTopic])
+    await node1.mountRelay(@[DefaultPubsubTopic, rlnRelayPubSubTopic])
 
     # mount rlnrelay in off-chain mode
     await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
@@ -255,7 +255,7 @@ procSuite "WakuNode - RLN relay":
     await node1.start()
 
     # node 2
-    await node2.mountRelay(@[rlnRelayPubSubTopic])
+    await node2.mountRelay(@[DefaultPubsubTopic, rlnRelayPubSubTopic])
 
     # mount rlnrelay in off-chain mode
     await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
@@ -267,7 +267,7 @@ procSuite "WakuNode - RLN relay":
     await node2.start()
 
     # node 3
-    await node3.mountRelay(@[rlnRelayPubSubTopic])
+    await node3.mountRelay(@[DefaultPubsubTopic, rlnRelayPubSubTopic])
 
     # mount rlnrelay in off-chain mode
     await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
