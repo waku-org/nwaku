@@ -28,10 +28,15 @@ when defined(waku_exp_store_resume):
   import ./v2/waku_store/test_resume
 
 
+# Waku relay test suite
+import
+  ./v2/waku_relay/test_waku_relay,
+  ./v2/waku_relay/test_wakunode_relay
+
+
 import
   # Waku v2 tests
   ./v2/test_wakunode,
-  ./v2/test_wakunode_relay,
   # Waku LightPush
   ./v2/test_waku_lightpush,
   ./v2/test_wakunode_lightpush,

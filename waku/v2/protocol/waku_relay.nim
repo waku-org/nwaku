@@ -8,7 +8,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[sequtils, tables],
+  std/[tables, sequtils, hashes],
   stew/results,
   chronos,
   chronicles,
@@ -37,7 +37,6 @@ type
 
 type
   WakuRelay* = ref object of GossipSub
-    defaultPubsubTopics*: seq[PubsubTopic] # Default configured PubSub topics
 
   WakuRelayHandler* = PubsubRawHandler|SubscriptionHandler
 
@@ -78,15 +77,12 @@ method initPubSub(w: WakuRelay) {.raises: [InitializationError].} =
   w.initProtocolHandler()
 
 
-proc new*(T: type WakuRelay,
-          switch: Switch,
-          defaultPubsubTopics: seq[PubsubTopic] = @[],
-          triggerSelf: bool = true): WakuRelayResult[T] =
+proc new*(T: type WakuRelay, switch: Switch, triggerSelf: bool = true): WakuRelayResult[T] =
 
   proc msgIdProvider(msg: messages.Message): Result[MessageID, ValidationResult] =
     let hash = MultiHash.digest("sha2-256", msg.data)
     if hash.isErr():
-      ok(($msg.data.hash).toBytes())
+      ok(toBytes($hashes.hash(msg.data)))
     else:
       ok(hash.value.data.buffer)
 
@@ -100,23 +96,26 @@ proc new*(T: type WakuRelay,
       verifySignature = false,
       maxMessageSize = MaxWakuMessageSize
     )
-
-    # Rejects messages that are not WakuMessage
-    proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
-      let msg = WakuMessage.decode(message.data)
-      if msg.isOk():
-        return ValidationResult.Accept
-      return ValidationResult.Reject
-
-    # Add validator to all default pubsub topics
-    for pubSubTopic in defaultPubsubTopics:
-      wr.addValidator(pubSubTopic, validator)
   except InitializationError:
     return err("initialization error: " & getCurrentExceptionMsg())
 
-  wr.defaultPubsubTopics = defaultPubsubTopics
+    # TODO: Add a function to validate the WakuMessage integrity
+    # # Rejects messages that are not WakuMessage
+    # proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
+    #   let msg = WakuMessage.decode(message.data)
+    #   if msg.isOk():
+    #     return ValidationResult.Accept
+    #   return ValidationResult.Reject
+
+    # # Add validator to all default pubsub topics
+    # for pubSubTopic in defaultPubsubTopics:
+    #   wr.addValidator(pubSubTopic, validator)
 
   ok(wr)
+
+
+method addValidator*(w: WakuRelay, topic: varargs[string], handler: ValidatorHandler) {.gcsafe.} =
+  procCall GossipSub(w).addValidator(topic, handler)
 
 
 method start*(w: WakuRelay) {.async.} =
