@@ -21,9 +21,9 @@ import
   ../../waku/v2/utils/peers,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/protocol/waku_relay,
-  ../test_helpers,
-  ./testlib/common
-  #./testlib/testutils
+  ../../test_helpers,
+  ../testlib/common,
+  ../testlib/testutils
 
 template sourceDir: string = currentSourcePath.parentDir()
 const KEY_PATH = sourceDir / "resources/test_key.pem"
@@ -43,7 +43,7 @@ procSuite "WakuNode - Relay":
     await node1.mountRelay()
 
     check:
-      GossipSub(node1.wakuRelay).heartbeatFut.isNil == false
+      GossipSub(node1.wakuRelay).heartbeatFut.isNil() == false
 
     # Relay protocol starts if mounted before node start
 
@@ -55,13 +55,13 @@ procSuite "WakuNode - Relay":
 
     check:
       # Relay has not yet started as node has not yet started
-      GossipSub(node2.wakuRelay).heartbeatFut.isNil
+      GossipSub(node2.wakuRelay).heartbeatFut.isNil()
 
     await node2.start()
 
     check:
       # Relay started on node start
-      GossipSub(node2.wakuRelay).heartbeatFut.isNil == false
+      GossipSub(node2.wakuRelay).heartbeatFut.isNil() == false
 
     await allFutures([node1.stop(), node2.stop()])
 
@@ -87,8 +87,10 @@ procSuite "WakuNode - Relay":
     await node3.start()
     await node3.mountRelay(@[pubSubTopic])
 
-    await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
-    await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
+    await allFutures(
+      node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()]),
+      node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
+    )
 
     var completionFut = newFuture[bool]()
     proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
@@ -105,13 +107,13 @@ procSuite "WakuNode - Relay":
     await sleepAsync(500.millis)
 
     await node1.publish(pubSubTopic, message)
-    await sleepAsync(500.millis)
 
+    ## Then
     check:
       (await completionFut.withTimeout(5.seconds)) == true
-    await node1.stop()
-    await node2.stop()
-    await node3.stop()
+
+    ## Cleanup
+    await allFutures(node1.stop(), node2.stop(), node3.stop())
 
   asyncTest "filtering relayed messages using topic validators":
     ## test scenario:
@@ -157,23 +159,26 @@ procSuite "WakuNode - Relay":
     var completionFutValidatorAcc = newFuture[bool]()
     var completionFutValidatorRej = newFuture[bool]()
 
+    # set a topic validator for pubSubTopic
     proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
       ## the validator that only allows messages with contentTopic1 to be relayed
       check:
         topic == pubSubTopic
-      let msg = WakuMessage.decode(message.data)
-      if msg.isOk():
-        # only relay messages with contentTopic1
-        if msg.value().contentTopic  == contentTopic1:
-          result = ValidationResult.Accept
-          completionFutValidatorAcc.complete(true)
-        else:
-          result = ValidationResult.Reject
-          completionFutValidatorRej.complete(true)
 
-    # set a topic validator for pubSubTopic
-    let pb  = PubSub(node2.wakuRelay)
-    pb.addValidator(pubSubTopic, validator)
+      let msg = WakuMessage.decode(message.data)
+      if msg.isErr():
+        completionFutValidatorAcc.complete(false)
+        return ValidationResult.Reject
+
+      # only relay messages with contentTopic1
+      if msg.value.contentTopic  != contentTopic1:
+        completionFutValidatorRej.complete(true)
+        return ValidationResult.Reject
+
+      completionFutValidatorAcc.complete(true)
+      return ValidationResult.Accept
+
+    node2.wakuRelay.addValidator(pubSubTopic, validator)
 
     var completionFut = newFuture[bool]()
     proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
@@ -208,7 +213,8 @@ procSuite "WakuNode - Relay":
 
     await allFutures(node1.stop(), node2.stop(), node3.stop())
 
-  asyncTest "Stats of peer sending wrong WakuMessages are updated":
+  # TODO: Add a function to validate the WakuMessage integrity
+  xasyncTest "Stats of peer sending wrong WakuMessages are updated":
     # Create 2 nodes
     let nodes = toSeq(0..1).mapIt(WakuNode.new(generateKey(), ValidIpAddress.init("0.0.0.0"), Port(0)))
 

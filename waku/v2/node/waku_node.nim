@@ -503,10 +503,6 @@ proc startRelay*(node: WakuNode) {.async.} =
 
   ## Setup relay protocol
 
-  # Subscribe to the default PubSub topics
-  for topic in node.wakuRelay.defaultPubsubTopics:
-    node.subscribe(topic)
-
   # Resume previous relay connections
   if node.peerManager.peerStore.hasPeers(protocolMatcher(WakuRelayCodec)):
     info "Found previous WakuRelay peers. Reconnecting."
@@ -532,7 +528,6 @@ proc mountRelay*(node: WakuNode,
 
   let initRes = WakuRelay.new(
     node.switch,
-    defaultPubsubTopics = concat(@[DefaultPubsubTopic], topics),
     triggerSelf = triggerSelf
   )
   if initRes.isErr():
@@ -552,6 +547,13 @@ proc mountRelay*(node: WakuNode,
   node.switch.mount(node.wakuRelay, protocolMatcher(WakuRelayCodec))
 
   info "relay mounted successfully"
+
+  # TODO: As part of #1545, remove this and update the tests cases
+  node.subscribe(DefaultPubsubTopic)
+
+  # Subscribe to topics
+  for topic in topics:
+    node.subscribe(topic)
 
 
 ## Waku filter
