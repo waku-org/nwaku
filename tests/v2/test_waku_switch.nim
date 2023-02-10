@@ -63,8 +63,7 @@ procSuite "Waku Switch":
     let
       # Create a relay address to destSwitch using wakuSwitch as the relay
       addrs = MultiAddress.init($wakuSwitch.peerInfo.addrs[0] & "/p2p/" &
-                                $wakuSwitch.peerInfo.peerId & "/p2p-circuit/p2p/" &
-                                $destSwitch.peerInfo.peerId).get()
+                                $wakuSwitch.peerInfo.peerId & "/p2p-circuit").get()
       msg = "Just one relay away..."
 
     # Create a custom protocol
