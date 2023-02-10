@@ -42,7 +42,6 @@ import
   ./v2/test_peer_store_extended,
   ./v2/test_utils_peers,
   ./v2/test_message_cache,
-  ./v2/test_jsonrpc_waku,
   ./v2/test_rest_serdes,
   ./v2/test_rest_debug_api_serdes,
   ./v2/test_rest_debug_api,
@@ -67,6 +66,14 @@ import
 import
   ./v2/test_waku_keystore_keyfile,
   ./v2/test_waku_keystore
+
+## Wakunode JSON-RPC API test suite
+import
+  ./v2/wakunode_jsonrpc/test_jsonrpc_admin,
+  ./v2/wakunode_jsonrpc/test_jsonrpc_debug,
+  ./v2/wakunode_jsonrpc/test_jsonrpc_filter,
+  ./v2/wakunode_jsonrpc/test_jsonrpc_relay,
+  ./v2/wakunode_jsonrpc/test_jsonrpc_store
 
 
 ## Apps

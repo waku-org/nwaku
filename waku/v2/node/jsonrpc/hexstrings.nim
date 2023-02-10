@@ -24,8 +24,12 @@
 ]#
 
 import
-  stint, stew/byteutils, eth/keys, eth/common/eth_types,
-  ../../../whisper/whisper_types
+  stew/byteutils,
+  eth/keys,
+  eth/common/eth_types,
+  stint
+import
+  ../../waku/whisper/whisper_types
 
 type
   HexDataStr* = distinct string

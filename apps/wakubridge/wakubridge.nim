@@ -27,12 +27,13 @@ import
   ../../waku/v2/utils/namespacing,
   ../../waku/v2/utils/time,
   ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/node/message_cache,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/peer_manager,
-  ../../waku/v2/node/jsonrpc/[debug_api,
-                              filter_api,
-                              relay_api,
-                              store_api],
+  ../../waku/v2/node/jsonrpc/debug/handlers as debug_api,
+  ../../waku/v2/node/jsonrpc/filter/handlers as filter_api,
+  ../../waku/v2/node/jsonrpc/relay/handlers as relay_api,
+  ../../waku/v2/node/jsonrpc/store/handlers as store_api,
   ./message_compat,
   ./config
 
@@ -298,11 +299,11 @@ proc setupV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: WakuBridgeConf) 
 
   # Install enabled API handlers:
   if conf.relay:
-    let topicCache = newTable[PubsubTopic, seq[WakuMessage]]()
+    let topicCache = relay_api.MessageCache.init(capacity=30)
     installRelayApiHandlers(node, rpcServer, topicCache)
 
   if conf.filternode != "":
-    let messageCache = newTable[ContentTopic, seq[WakuMessage]]()
+    let messageCache = filter_api.MessageCache.init(capacity=30)
     installFilterApiHandlers(node, rpcServer, messageCache)
 
   if conf.storenode != "":
