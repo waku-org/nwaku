@@ -9,7 +9,6 @@ import
 import
   ../../../../waku/v2/protocol/waku_message,
   ../../../../waku/v2/utils/compat,
-  ../marshalling,
   ./types
 
 export types

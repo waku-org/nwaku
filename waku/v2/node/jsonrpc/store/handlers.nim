@@ -41,7 +41,7 @@ proc toPagingOptions*(pagingInfo: PagingInfoRPC): StorePagingOptions =
 
 proc toJsonRPCStoreResponse*(response: HistoryResponse): StoreResponse =
   StoreResponse(
-    messages: response.messages,
+    messages: response.messages.map(toWakuMessageRPC),
     pagingOptions: if response.cursor.isNone(): none(StorePagingOptions)
                    else: some(StorePagingOptions(
                      pageSize: uint64(response.messages.len), # This field will be deprecated soon

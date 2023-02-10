@@ -43,7 +43,7 @@ proc toRelayWakuMessage*(msg: WakuMessage): RelayWakuMessage =
     timestamp: some(msg.timestamp)
   )
 
-proc toWakuMessage*(msg: RelayWakuMessage, version = 0): Result[WakuMessage, cstring] =
+proc toWakuMessage*(msg: RelayWakuMessage, version = 0): Result[WakuMessage, string] =
   let
     payload = ?msg.payload.decode()
     contentTopic = msg.contentTopic.get(DefaultContentTopic)

@@ -1,14 +1,14 @@
 {.used.}
 
 import
-  std/[options, sequtils, times],
+  std/[options, sequtils],
   stew/shims/net as stewNet,
   testutils/unittests,
   chronicles,
   libp2p/crypto/crypto,
   json_rpc/[rpcserver, rpcclient]
 import
-  ../../../waku/v1/node/rpc/hexstrings,
+  ../../../waku/common/base64,
   ../../../waku/v2/node/peer_manager,
   ../../../waku/v2/node/message_cache,
   ../../../waku/v2/node/waku_node,
@@ -18,7 +18,7 @@ import
   ../../../waku/v2/protocol/waku_relay,
   ../../../waku/v2/utils/compat,
   ../../../waku/v2/utils/peers,
-  ../../../waku/v2/utils/time,
+  ../testlib/common,
   ../testlib/waku2
 
 
@@ -26,333 +26,370 @@ proc newTestMessageCache(): relay_api.MessageCache =
   relay_api.MessageCache.init(capacity=30)
 
 
-procSuite "Waku v2 JSON-RPC API - Relay":
-  let
-    privkey = generateSecp256k1Key()
-    bindIp = ValidIpAddress.init("0.0.0.0")
-    extIp = ValidIpAddress.init("127.0.0.1")
-    port = Port(0)
-    node = WakuNode.new(privkey, bindIp, port, some(extIp), some(port))
+suite "Waku v2 JSON-RPC API - Relay":
 
-  asyncTest "subscribe, unsubscribe and publish":
+  asyncTest "subscribe and unsubscribe from topics":
+    ## Setup
+    let node = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+
     await node.start()
-
     await node.mountRelay(topics = @[DefaultPubsubTopic])
 
-    # RPC server setup
+    # JSON-RPC server
     let
       rpcPort = Port(8547)
-      ta = initTAddress(bindIp, rpcPort)
+      ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
       server = newRpcHttpServer([ta])
 
     installRelayApiHandlers(node, server, newTestMessageCache())
     server.start()
 
+    # JSON-RPC client
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort, false)
 
-    check:
-      # At this stage the node is only subscribed to the default topic
-      node.wakuRelay.subscribedTopics.toSeq().len == 1
+    ## Given
+    let newTopics = @["test-topic1","test-topic2","test-topic3"]
 
+    ## When
     # Subscribe to new topics
-    let newTopics = @["1","2","3"]
-    var response = await client.post_waku_v2_relay_v1_subscriptions(newTopics)
+    let subResp = await client.post_waku_v2_relay_v1_subscriptions(newTopics)
 
-    check:
-      # Node is now subscribed to default + new topics
-      node.wakuRelay.subscribedTopics.toSeq().len == 1 + newTopics.len
-      response == true
-
-    # Publish a message on the default topic
-    response = await client.post_waku_v2_relay_v1_message(DefaultPubsubTopic, WakuRelayMessage(payload: @[byte 1], contentTopic: some(DefaultContentTopic), timestamp: some(getNanosecondTime(epochTime()))))
-
-    check:
-      # @TODO poll topic to verify message has been published
-      response == true
+    let subTopics = node.wakuRelay.subscribedTopics.toSeq()
 
     # Unsubscribe from new topics
-    response = await client.delete_waku_v2_relay_v1_subscriptions(newTopics)
+    let unsubResp = await client.delete_waku_v2_relay_v1_subscriptions(newTopics)
+
+    let unsubTopics = node.wakuRelay.subscribedTopics.toSeq()
+
+    ## Then
+    check:
+      subResp == true
+    check:
+      # Node is now subscribed to default + new topics
+      subTopics.len == 1 + newTopics.len
+      DefaultPubsubTopic in subTopics
+      newTopics.allIt(it in subTopics)
 
     check:
+      unsubResp == true
+    check:
       # Node is now unsubscribed from new topics
-      node.wakuRelay.subscribedTopics.toSeq().len == 1
-      response == true
+      unsubTopics.len == 1
+      DefaultPubsubTopic in unsubTopics
+      newTopics.allIt(it notin unsubTopics)
 
     await server.stop()
     await server.closeWait()
 
     await node.stop()
 
-  asyncTest "get latest messages":
+  asyncTest "publish message to topic":
+    ## Setup
     let
-      nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, bindIp, Port(0))
-      nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, bindIp, Port(0))
-      nodeKey3 = generateSecp256k1Key()
-      node3 = WakuNode.new(nodeKey3, bindIp, Port(0), some(extIp), some(port))
-      pubSubTopic = "polling"
-      contentTopic = DefaultContentTopic
-      payload1 = @[byte 9]
-      message1 = WakuMessage(payload: payload1, contentTopic: contentTopic)
-      payload2 = @[byte 8]
-      message2 = WakuMessage(payload: payload2, contentTopic: contentTopic)
+      pubSubTopic = "test-jsonrpc-pubsub-topic"
+      contentTopic = "test-jsonrpc-content-topic"
 
-    await node1.start()
-    await node1.mountRelay(@[DefaultPubsubTopic, pubSubTopic])
+    # Relay nodes setup
+    let
+      srcNode = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      dstNode = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
 
-    await node2.start()
-    await node2.mountRelay(@[DefaultPubsubTopic, pubSubTopic])
+    await allFutures(srcNode.start(), dstNode.start())
 
-    await node3.start()
-    await node3.mountRelay(@[DefaultPubsubTopic, pubSubTopic])
+    await srcNode.mountRelay(@[pubSubTopic])
+    await dstNode.mountRelay(@[pubSubTopic])
 
-    await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
-    await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
+    await srcNode.connectToNodes(@[dstNode.peerInfo.toRemotePeerInfo()])
 
-    # RPC server setup
+
+    # RPC server (source node)
     let
       rpcPort = Port(8548)
-      ta = initTAddress(bindIp, rpcPort)
+      ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
       server = newRpcHttpServer([ta])
 
-    # Let's connect to node 3 via the API
-    installRelayApiHandlers(node3, server, newTestMessageCache())
+    installRelayApiHandlers(srcNode, server, newTestMessageCache())
     server.start()
 
+    # JSON-RPC client
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort, false)
 
-    # First see if we can retrieve messages published on the default topic (node is already subscribed)
-    await node2.publish(DefaultPubsubTopic, message1)
+    ## Given
+    let message = fakeWakuMessage( payload= @[byte 72], contentTopic=contentTopic)
 
-    await sleepAsync(100.millis)
+    let dstHandlerFut = newFuture[(PubsubTopic, WakuMessage)]()
+    proc dstHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
+      dstHandlerFut.complete((topic, msg))
 
-    var messages = await client.get_waku_v2_relay_v1_messages(DefaultPubsubTopic)
+    dstNode.subscribe(pubSubTopic, dstHandler)
 
-    check:
-      messages.len == 1
-      messages[0].contentTopic == contentTopic
-      messages[0].payload == payload1
+    ## When
+    let rpcMessage = WakuMessageRPC(
+      payload: Base64String.encode(message.payload),
+      contentTopic: some(message.contentTopic),
+      timestamp: some(message.timestamp),
+      version: some(message.version)
+    )
+    let response = await client.post_waku_v2_relay_v1_message(pubSubTopic, rpcMessage)
 
-    # Ensure that read messages are cleared from cache
-    messages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)
-    check:
-      messages.len == 0
-
-    # Now try to subscribe using API
-
-    var response = await client.post_waku_v2_relay_v1_subscriptions(@[pubSubTopic])
-
-    await sleepAsync(100.millis)
-
-    check:
-      # Node is now subscribed to pubSubTopic
+    ## Then
+    require:
       response == true
+      await dstHandlerFut.withTimeout(chronos.seconds(5))
 
-    # Now publish a message on node1 and see if we receive it on node3
-    await node1.publish(pubSubTopic, message2)
-
-    await sleepAsync(100.millis)
-
-    messages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)
-
+    let (topic, msg) = dstHandlerFut.read()
     check:
-      messages.len == 1
-      messages[0].contentTopic == contentTopic
-      messages[0].payload == payload2
+      topic == pubSubTopic
+      msg == message
 
-    # Ensure that read messages are cleared from cache
-    messages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)
-    check:
-      messages.len == 0
 
+    ## Cleanup
     await server.stop()
     await server.closeWait()
+    await allFutures(srcNode.stop(), dstNode.stop())
 
-    await node1.stop()
-    await node2.stop()
-    await node3.stop()
-
-  asyncTest "generate asymmetric keys and encrypt/decrypt communication":
+  asyncTest "get latest messages received from topics cache":
+    ## Setup
     let
-      nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, bindIp, Port(0))
-      nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, bindIp, Port(0))
-      nodeKey3 = generateSecp256k1Key()
-      node3 = WakuNode.new(nodeKey3, bindIp, Port(0), some(extIp), some(port))
-      pubSubTopic = "polling"
-      contentTopic = DefaultContentTopic
-      payload = @[byte 9]
-      message = WakuRelayMessage(payload: payload, contentTopic: some(contentTopic), timestamp: some(getNanosecondTime(epochTime())))
-      topicCache = newTestMessageCache()
+      pubSubTopic = "test-jsonrpc-pubsub-topic"
+      contentTopic = "test-jsonrpc-content-topic"
 
-    await node1.start()
-    await node1.mountRelay(@[DefaultPubsubTopic, pubSubTopic])
-
-    await node2.start()
-    await node2.mountRelay(@[DefaultPubsubTopic, pubSubTopic])
-
-    await node3.start()
-    await node3.mountRelay(@[DefaultPubsubTopic, pubSubTopic])
-
-    await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
-    await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
-
-    # Setup two servers so we can see both sides of encrypted communication
+    # Relay nodes setup
     let
-      rpcPort1 = Port(8554)
-      ta1 = initTAddress(bindIp, rpcPort1)
-      server1 = newRpcHttpServer([ta1])
-      rpcPort3 = Port(8555)
-      ta3 = initTAddress(bindIp, rpcPort3)
-      server3 = newRpcHttpServer([ta3])
+      srcNode = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      dstNode = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
 
-    # Let's connect to nodes 1 and 3 via the API
-    installRelayPrivateApiHandlers(node1, server1, newTestMessageCache())
-    installRelayPrivateApiHandlers(node3, server3, topicCache)
-    installRelayApiHandlers(node3, server3, topicCache)
-    server1.start()
-    server3.start()
+    await allFutures(srcNode.start(), dstNode.start())
 
-    let client1 = newRpcHttpClient()
-    await client1.connect("127.0.0.1", rpcPort1, false)
+    await srcNode.mountRelay(@[pubSubTopic])
+    await dstNode.mountRelay(@[pubSubTopic])
 
-    let client3 = newRpcHttpClient()
-    await client3.connect("127.0.0.1", rpcPort3, false)
+    await srcNode.connectToNodes(@[dstNode.peerInfo.toRemotePeerInfo()])
 
-    # Let's get a keypair for node3
 
-    let keypair = await client3.get_waku_v2_private_v1_asymmetric_keypair()
+    # RPC server (destination node)
+    let
+      rpcPort = Port(8548)
+      ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
+      server = newRpcHttpServer([ta])
 
-    # Now try to subscribe on node3 using API
+    installRelayApiHandlers(dstNode, server, newTestMessageCache())
+    server.start()
 
-    let sub = await client3.post_waku_v2_relay_v1_subscriptions(@[pubSubTopic])
+    # JSON-RPC client
+    let client = newRpcHttpClient()
+    await client.connect("127.0.0.1", rpcPort, false)
 
-    await sleepAsync(100.millis)
+    ## Given
+    let messages = @[
+      fakeWakuMessage(payload= @[byte 70], contentTopic=contentTopic),
+      fakeWakuMessage(payload= @[byte 71], contentTopic=contentTopic),
+      fakeWakuMessage(payload= @[byte 72], contentTopic=contentTopic),
+      fakeWakuMessage(payload= @[byte 73], contentTopic=contentTopic)
+    ]
 
+    ## When
+    for msg in messages:
+      await srcNode.publish(pubSubTopic, msg)
+
+    await sleepAsync(200.millis)
+
+    let dstMessages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)
+
+    ## Then
     check:
-      # node3 is now subscribed to pubSubTopic
-      sub
+      dstMessages.len == 4
+      dstMessages[2].payload == Base64String.encode(messages[2].payload)
+      dstMessages[2].contentTopic.get() == messages[2].contentTopic
+      dstMessages[2].timestamp.get() == messages[2].timestamp
+      dstMessages[2].version.get() == messages[2].version
 
-    # Now publish and encrypt a message on node1 using node3's public key
-    let posted = await client1.post_waku_v2_private_v1_asymmetric_message(pubSubTopic, message, publicKey = (%keypair.pubkey).getStr())
-    check:
-      posted
+    ## Cleanup
+    await server.stop()
+    await server.closeWait()
+    await allFutures(srcNode.stop(), dstNode.stop())
 
-    await sleepAsync(100.millis)
 
-    # Let's see if we can receive, and decrypt, this message on node3
-    var messages = await client3.get_waku_v2_private_v1_asymmetric_messages(pubSubTopic, privateKey = (%keypair.seckey).getStr())
-
-    check:
-      messages.len == 1
-      messages[0].contentTopic.get == contentTopic
-      messages[0].payload == payload
-
-    # Ensure that read messages are cleared from cache
-    messages = await client3.get_waku_v2_private_v1_asymmetric_messages(pubSubTopic, privateKey = (%keypair.seckey).getStr())
-    check:
-      messages.len == 0
-
-    await server1.stop()
-    await server1.closeWait()
-    await server3.stop()
-    await server3.closeWait()
-
-    await node1.stop()
-    await node2.stop()
-    await node3.stop()
+suite "Waku v2 JSON-RPC API - Relay (Private)":
 
   asyncTest "generate symmetric keys and encrypt/decrypt communication":
     let
-      nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, bindIp, Port(0))
-      nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, bindIp, Port(0))
-      nodeKey3 = generateSecp256k1Key()
-      node3 = WakuNode.new(nodeKey3, bindIp, Port(0), some(extIp), some(port))
-      pubSubTopic = "polling"
-      contentTopic = DefaultContentTopic
-      payload = @[byte 9]
-      message = WakuRelayMessage(payload: payload, contentTopic: some(contentTopic), timestamp: some(getNanosecondTime(epochTime())))
-      topicCache = newTestMessageCache()
+      pubSubTopic = "test-relay-pubsub-topic"
+      contentTopic = "test-relay-content-topic"
 
-    await node1.start()
-    await node1.mountRelay(@[DefaultPubsubTopic, pubSubTopic])
+    let
+      srcNode = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("127.0.0.1"), Port(0))
+      relNode = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("127.0.0.1"), Port(0))
+      dstNode = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("127.0.0.1"), Port(0))
 
-    await node2.start()
-    await node2.mountRelay(@[DefaultPubsubTopic, pubSubTopic])
+    await allFutures(srcNode.start(), relNode.start(), dstNode.start())
 
-    await node3.start()
-    await node3.mountRelay(@[DefaultPubsubTopic, pubSubTopic])
+    await srcNode.mountRelay(@[pubSubTopic])
+    await relNode.mountRelay(@[pubSubTopic])
+    await dstNode.mountRelay(@[pubSubTopic])
 
-    await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
-    await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
+    await srcNode.connectToNodes(@[relNode.peerInfo.toRemotePeerInfo()])
+    await relNode.connectToNodes(@[dstNode.peerInfo.toRemotePeerInfo()])
 
     # Setup two servers so we can see both sides of encrypted communication
     let
-      rpcPort1 = Port(8556)
-      ta1 = initTAddress(bindIp, rpcPort1)
-      server1 = newRpcHttpServer([ta1])
-      rpcPort3 = Port(8557)
-      ta3 = initTAddress(bindIp, rpcPort3)
-      server3 = newRpcHttpServer([ta3])
+      srcRpcPort = Port(8554)
+      srcTa = initTAddress(ValidIpAddress.init("127.0.0.1"), srcRpcPort)
+      srcServer = newRpcHttpServer([srcTa])
 
-    # Let's connect to nodes 1 and 3 via the API
-    installRelayPrivateApiHandlers(node1, server1, newTestMessageCache())
-    installRelayPrivateApiHandlers(node3, server3, topicCache)
-    installRelayApiHandlers(node3, server3, topicCache)
-    server1.start()
-    server3.start()
+    let srcMessageCache = newTestMessageCache()
+    installRelayApiHandlers(srcNode, srcServer, srcMessageCache)
+    installRelayPrivateApiHandlers(srcNode, srcServer, srcMessageCache)
+    srcServer.start()
 
-    let client1 = newRpcHttpClient()
-    await client1.connect("127.0.0.1", rpcPort1, false)
+    let
+      dstRpcPort = Port(8555)
+      dstTa = initTAddress(ValidIpAddress.init("127.0.0.1"), dstRpcPort)
+      dstServer = newRpcHttpServer([dstTa])
 
-    let client3 = newRpcHttpClient()
-    await client3.connect("127.0.0.1", rpcPort3, false)
+    let dstMessageCache = newTestMessageCache()
+    installRelayApiHandlers(dstNode, dstServer, dstMessageCache)
+    installRelayPrivateApiHandlers(dstNode, dstServer, dstMessageCache)
+    dstServer.start()
 
-    # Let's get a symkey for node3
 
-    let symkey = await client3.get_waku_v2_private_v1_symmetric_key()
+    let srcClient = newRpcHttpClient()
+    await srcClient.connect("127.0.0.1", srcRpcPort, false)
 
-    # Now try to subscribe on node3 using API
+    let dstClient = newRpcHttpClient()
+    await dstClient.connect("127.0.0.1", dstRpcPort, false)
 
-    let sub = await client3.post_waku_v2_relay_v1_subscriptions(@[pubSubTopic])
+    ## Given
+    let
+      payload = @[byte 38]
+      payloadBase64 = Base64String.encode(payload)
 
-    await sleepAsync(100.millis)
+    let message = WakuMessageRPC(
+        payload: payloadBase64,
+        contentTopic: some(contentTopic),
+        timestamp: some(now()),
+      )
 
-    check:
-      # node3 is now subscribed to pubSubTopic
-      sub
+    ## When
+    let symkey = await dstClient.get_waku_v2_private_v1_symmetric_key()
 
-    # Now publish and encrypt a message on node1 using node3's symkey
-    let posted = await client1.post_waku_v2_private_v1_symmetric_message(pubSubTopic, message, symkey = (%symkey).getStr())
-    check:
+    let posted = await srcCLient.post_waku_v2_private_v1_symmetric_message(pubSubTopic, message, symkey = (%symkey).getStr())
+    require:
       posted
 
     await sleepAsync(100.millis)
 
-    # Let's see if we can receive, and decrypt, this message on node3
-    var messages = await client3.get_waku_v2_private_v1_symmetric_messages(pubSubTopic, symkey = (%symkey).getStr())
-
+    # Let's see if we can receive, and decrypt, this message on dstNode
+    var messages = await dstClient.get_waku_v2_private_v1_symmetric_messages(pubSubTopic, symkey = (%symkey).getStr())
     check:
       messages.len == 1
-      messages[0].contentTopic.get == contentTopic
-      messages[0].payload == payload
+      messages[0].payload == payloadBase64
+      messages[0].contentTopic == message.contentTopic
+      messages[0].timestamp == message.timestamp
+      messages[0].version.get() == 1'u32
 
     # Ensure that read messages are cleared from cache
-    messages = await client3.get_waku_v2_private_v1_symmetric_messages(pubSubTopic, symkey = (%symkey).getStr())
+    messages = await dstClient.get_waku_v2_private_v1_symmetric_messages(pubSubTopic, symkey = (%symkey).getStr())
     check:
       messages.len == 0
 
-    await server1.stop()
-    await server1.closeWait()
-    await server3.stop()
-    await server3.closeWait()
+    ## Cleanup
+    await srcServer.stop()
+    await srcServer.closeWait()
+    await dstServer.stop()
+    await dstServer.closeWait()
 
-    await node1.stop()
-    await node2.stop()
-    await node3.stop()
+    await allFutures(srcNode.stop(), relNode.stop(), dstNode.stop())
+
+  asyncTest "generate asymmetric keys and encrypt/decrypt communication":
+    let
+      pubSubTopic = "test-relay-pubsub-topic"
+      contentTopic = "test-relay-content-topic"
+
+    let
+      srcNode = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("127.0.0.1"), Port(0))
+      relNode = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("127.0.0.1"), Port(0))
+      dstNode = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("127.0.0.1"), Port(0))
+
+    await allFutures(srcNode.start(), relNode.start(), dstNode.start())
+
+    await srcNode.mountRelay(@[pubSubTopic])
+    await relNode.mountRelay(@[pubSubTopic])
+    await dstNode.mountRelay(@[pubSubTopic])
+
+    await srcNode.connectToNodes(@[relNode.peerInfo.toRemotePeerInfo()])
+    await relNode.connectToNodes(@[dstNode.peerInfo.toRemotePeerInfo()])
+
+    # Setup two servers so we can see both sides of encrypted communication
+    let
+      srcRpcPort = Port(8554)
+      srcTa = initTAddress(ValidIpAddress.init("127.0.0.1"), srcRpcPort)
+      srcServer = newRpcHttpServer([srcTa])
+
+    let srcMessageCache = newTestMessageCache()
+    installRelayApiHandlers(srcNode, srcServer, srcMessageCache)
+    installRelayPrivateApiHandlers(srcNode, srcServer, srcMessageCache)
+    srcServer.start()
+
+    let
+      dstRpcPort = Port(8555)
+      dstTa = initTAddress(ValidIpAddress.init("127.0.0.1"), dstRpcPort)
+      dstServer = newRpcHttpServer([dstTa])
+
+    let dstMessageCache = newTestMessageCache()
+    installRelayApiHandlers(dstNode, dstServer, dstMessageCache)
+    installRelayPrivateApiHandlers(dstNode, dstServer, dstMessageCache)
+    dstServer.start()
+
+
+    let srcClient = newRpcHttpClient()
+    await srcClient.connect("127.0.0.1", srcRpcPort, false)
+
+    let dstClient = newRpcHttpClient()
+    await dstClient.connect("127.0.0.1", dstRpcPort, false)
+
+    ## Given
+    let
+      payload = @[byte 38]
+      payloadBase64 = Base64String.encode(payload)
+
+    let message = WakuMessageRPC(
+        payload: payloadBase64,
+        contentTopic: some(contentTopic),
+        timestamp: some(now()),
+      )
+
+    ## When
+    let keypair = await dstClient.get_waku_v2_private_v1_asymmetric_keypair()
+
+    # Now publish and encrypt a message on srcNode using dstNode's public key
+    let posted = await srcClient.post_waku_v2_private_v1_asymmetric_message(pubSubTopic, message, publicKey = (%keypair.pubkey).getStr())
+    require:
+      posted
+
+    await sleepAsync(100.millis)
+
+    # Let's see if we can receive, and decrypt, this message on dstNode
+    var messages = await dstClient.get_waku_v2_private_v1_asymmetric_messages(pubSubTopic, privateKey = (%keypair.seckey).getStr())
+    check:
+      messages.len == 1
+      messages[0].payload == payloadBase64
+      messages[0].contentTopic == message.contentTopic
+      messages[0].timestamp == message.timestamp
+      messages[0].version.get() == 1'u32
+
+    # Ensure that read messages are cleared from cache
+    messages = await dstClient.get_waku_v2_private_v1_asymmetric_messages(pubSubTopic, privateKey = (%keypair.seckey).getStr())
+    check:
+      messages.len == 0
+
+    ## Cleanup
+    await srcServer.stop()
+    await srcServer.closeWait()
+    await dstServer.stop()
+    await dstServer.closeWait()
+
+    await allFutures(srcNode.stop(), relNode.stop(), dstNode.stop())
+
