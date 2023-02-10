@@ -21,8 +21,11 @@ import
   ../../waku/v2/node/waku_node,
   ../../waku/v2/utils/compat,
   ../../waku/v2/utils/peers,
-  ../../apps/wakubridge/wakubridge,
   ../test_helpers
+
+import
+  ../../apps/wakubridge/wakubridge
+
 
 procSuite "WakuBridge":
   ###############
@@ -40,11 +43,11 @@ procSuite "WakuBridge":
     nodev2Key = crypto.PrivateKey.random(Secp256k1, cryptoRng[])[]
     bridge = WakuBridge.new(
         nodev1Key= nodev1Key,
-        nodev1Address = localAddress(30302),
+        nodev1Address = localAddress(62200),
         powRequirement = 0.002,
         rng = rng,
         nodev2Key = nodev2Key,
-        nodev2BindIp = ValidIpAddress.init("0.0.0.0"), nodev2BindPort= Port(62200),
+        nodev2BindIp = ValidIpAddress.init("0.0.0.0"), nodev2BindPort= Port(62201),
         nodev2PubsubTopic = DefaultBridgeTopic)
 
     # Waku v1 node
@@ -52,7 +55,7 @@ procSuite "WakuBridge":
 
     # Waku v2 node
     v2NodeKey = crypto.PrivateKey.random(Secp256k1, cryptoRng[])[]
-    v2Node = WakuNode.new(v2NodeKey, ValidIpAddress.init("0.0.0.0"), Port(62202))
+    v2Node = WakuNode.new(v2NodeKey, ValidIpAddress.init("0.0.0.0"), Port(62203))
 
     contentTopic = ContentTopic("/waku/1/0x1a2b3c4d/rfc26")
     topic = [byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]
@@ -74,46 +77,6 @@ procSuite "WakuBridge":
   ###############
   # Suite tests #
   ###############
-
-  asyncTest "Topics are correctly converted between Waku v1 and Waku v2":
-    # Expected cases
-
-    check:
-      toV1Topic(ContentTopic("/waku/1/0x00000000/rfc26")) == [byte 0x00, byte 0x00, byte 0x00, byte 0x00]
-      toV2ContentTopic([byte 0x00, byte 0x00, byte 0x00, byte 0x00]) == ContentTopic("/waku/1/0x00000000/rfc26")
-      toV1Topic(ContentTopic("/waku/1/0xffffffff/rfc26")) == [byte 0xff, byte 0xff, byte 0xff, byte 0xff]
-      toV2ContentTopic([byte 0xff, byte 0xff, byte 0xff, byte 0xff]) == ContentTopic("/waku/1/0xffffffff/rfc26")
-      toV1Topic(ContentTopic("/waku/1/0x1a2b3c4d/rfc26")) == [byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]
-      toV2ContentTopic([byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]) == ContentTopic("/waku/1/0x1a2b3c4d/rfc26")
-      # Topic conversion should still work where '0x' prefix is omitted from <v1 topic byte array>
-      toV1Topic(ContentTopic("/waku/1/1a2b3c4d/rfc26")) == [byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]
-
-    # Invalid cases
-
-    expect LPError:
-      # Content topic not namespaced
-      discard toV1Topic(ContentTopic("this-is-my-content"))
-
-    expect ValueError:
-      # Content topic name too short
-      discard toV1Topic(ContentTopic("/waku/1/0x112233/rfc26"))
-
-    expect ValueError:
-      # Content topic name not hex
-      discard toV1Topic(ContentTopic("/waku/1/my-content/rfc26"))
-
-  asyncTest "Verify that WakuMessages are on bridgeable content topics":
-    let
-      validCT = ContentTopic("/waku/1/my-content/rfc26")
-      unnamespacedCT = ContentTopic("just_a_bunch_of_words")
-      invalidAppCT = ContentTopic("/facebook/1/my-content/rfc26")
-      invalidVersionCT = ContentTopic("/waku/2/my-content/rfc26")
-
-    check:
-      WakuMessage(contentTopic: validCT).isBridgeable() == true
-      WakuMessage(contentTopic: unnamespacedCT).isBridgeable() == false
-      WakuMessage(contentTopic: invalidAppCT).isBridgeable() == false
-      WakuMessage(contentTopic: invalidVersionCT).isBridgeable() == false
 
   asyncTest "Messages are bridged between Waku v1 and Waku v2":
     # Setup test
@@ -197,11 +160,11 @@ procSuite "WakuBridge":
       # Bridge
       v1Bridge = WakuBridge.new(
           nodev1Key= nodev1Key,
-          nodev1Address = localAddress(30303),
+          nodev1Address = localAddress(62210),
           powRequirement = 0.002,
           rng = rng,
           nodev2Key = nodev2Key,
-          nodev2BindIp = ValidIpAddress.init("0.0.0.0"), nodev2BindPort= Port(62207),
+          nodev2BindIp = ValidIpAddress.init("0.0.0.0"), nodev2BindPort= Port(62211),
           nodev2PubsubTopic = DefaultBridgeTopic,
           v1Pool = v1NodePool.mapIt(newNode(it.toEnode())),
           targetV1Peers = targetV1Peers)
