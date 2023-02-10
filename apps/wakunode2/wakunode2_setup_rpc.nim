@@ -10,50 +10,46 @@ import
   json_rpc/rpcserver
 import
   ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/node/message_cache,
   ../../waku/v2/node/waku_node,
-  ../../waku/v2/node/jsonrpc/[admin_api,
-                              debug_api,
-                              filter_api,
-                              relay_api,
-                              store_api,
-                              private_api,
-                              debug_api],
+  ../../waku/v2/node/jsonrpc/admin/handlers as admin_api,
+  ../../waku/v2/node/jsonrpc/debug/handlers as debug_api,
+  ../../waku/v2/node/jsonrpc/filter/handlers as filter_api,
+  ../../waku/v2/node/jsonrpc/relay/handlers as relay_api,
+  ../../waku/v2/node/jsonrpc/store/handlers as store_api,
   ./config
 
 logScope:
   topics = "wakunode jsonrpc"
 
 
-proc startRpcServer*(node: WakuNode, rpcIp: ValidIpAddress, rpcPort: Port, conf: WakuNodeConf)
+proc startRpcServer*(node: WakuNode, address: ValidIpAddress, port: Port, conf: WakuNodeConf)
   {.raises: [CatchableError].} =
 
   let
-    ta = initTAddress(rpcIp, rpcPort)
-    rpcServer = newRpcHttpServer([ta])
+    ta = initTAddress(address, port)
+    server = newRpcHttpServer([ta])
 
-  installDebugApiHandlers(node, rpcServer)
+  installDebugApiHandlers(node, server)
 
   # TODO: Move to setup protocols proc
   if conf.relay:
-    let topicCache = newTable[PubsubTopic, seq[WakuMessage]]()
-    installRelayApiHandlers(node, rpcServer, topicCache)
-
+    let relayMessageCache = relay_api.MessageCache.init(capacity=30)
+    installRelayApiHandlers(node, server, relayMessageCache)
     if conf.rpcPrivate:
-      # Private API access allows WakuRelay functionality that
-      # is backwards compatible with Waku v1.
-      installPrivateApiHandlers(node, rpcServer, topicCache)
+      installRelayPrivateApiHandlers(node, server, relayMessageCache)
 
   # TODO: Move to setup protocols proc
   if conf.filternode != "":
-    let messageCache = newTable[ContentTopic, seq[WakuMessage]]()
-    installFilterApiHandlers(node, rpcServer, messageCache)
+    let filterMessageCache = filter_api.MessageCache.init(capacity=30)
+    installFilterApiHandlers(node, server, filterMessageCache)
 
   # TODO: Move to setup protocols proc
   if conf.storenode != "":
-    installStoreApiHandlers(node, rpcServer)
+    installStoreApiHandlers(node, server)
 
   if conf.rpcAdmin:
-    installAdminApiHandlers(node, rpcServer)
+    installAdminApiHandlers(node, server)
 
-  rpcServer.start()
+  server.start()
   info "RPC Server started", address=ta
