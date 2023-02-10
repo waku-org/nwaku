@@ -68,7 +68,7 @@ suite "REST API - Relay":
 
     check:
       # Node should be subscribed to default + new topics
-      toSeq(node.wakuRelay.subscribedTopics).len == 1 + pubSubTopics.len
+      toSeq(node.wakuRelay.subscribedTopics).len == pubSubTopics.len
 
     await restServer.stop()
     await restServer.closeWait()
@@ -191,7 +191,7 @@ suite "REST API - Relay":
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
-    # At this stage the node is only subscribed to the default topic
+    node.subscribe(DefaultPubsubTopic)
     require:
       toSeq(node.wakuRelay.subscribedTopics).len == 1
 

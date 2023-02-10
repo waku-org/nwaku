@@ -548,9 +548,6 @@ proc mountRelay*(node: WakuNode,
 
   info "relay mounted successfully"
 
-  # TODO: As part of #1545, remove this and update the tests cases
-  node.subscribe(DefaultPubsubTopic)
-
   # Subscribe to topics
   for topic in topics:
     node.subscribe(topic)
