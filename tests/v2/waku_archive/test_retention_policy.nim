@@ -13,8 +13,8 @@ import
   ../../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_capacity,
   ../../../waku/v2/protocol/waku_message,
   ../../../waku/v2/utils/time,
-  ../utils,
-  ../testlib/common
+  ../testlib/common,
+  ../testlib/waku2
 
 
 proc newTestDatabase(): SqliteDatabase =

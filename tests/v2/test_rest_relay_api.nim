@@ -14,13 +14,12 @@ import
   ../../waku/v2/node/rest/relay/[api_types, relay_api, topic_cache],
   ../../waku/v2/protocol/waku_relay,
   ../../waku/v2/utils/time,
-  ./testlib/common
+  ./testlib/waku2
 
 
 proc testWakuNode(): WakuNode =
   let
-    rng = crypto.newRng()
-    privkey = crypto.PrivateKey.random(Secp256k1, rng[]).tryGet()
+    privkey = generateSecp256k1Key()
     bindIp = ValidIpAddress.init("0.0.0.0")
     extIp = ValidIpAddress.init("127.0.0.1")
     port = Port(9000)

@@ -5,24 +5,21 @@ import
   std/random,
   std/tables,
   stew/byteutils,
+  libp2p/crypto/chacha20poly1305,
+  libp2p/protobuf/minprotobuf,
+  stew/endians2
+import
   ../../waku/v2/utils/noise as waku_message_utils,
   ../../waku/v2/protocol/waku_noise/noise_types,
   ../../waku/v2/protocol/waku_noise/noise_utils,
   ../../waku/v2/protocol/waku_noise/noise,
   ../../waku/v2/protocol/waku_noise/noise_handshake_processing,
   ../../waku/v2/protocol/waku_message,
-  ../test_helpers,
-  libp2p/crypto/chacha20poly1305,
-  libp2p/protobuf/minprotobuf,
-  stew/endians2
+  ./testlib/common
 
 
 procSuite "Waku Noise":
-
-  # We initialize the RNG in test_helpers
-  let rng = rng()
-  # We initialize the RNG in std/random
-  randomize()
+  common.randomize()
 
   test "PKCS#7 Padding/Unpadding":
 

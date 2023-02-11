@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[random, tables],
+  std/tables,
   stew/[results, byteutils],
   testutils/unittests,
   libp2p/protobuf/minprotobuf
@@ -11,13 +11,9 @@ import
   ../../waku/v2/protocol/waku_noise/noise_utils,
   ../../waku/v2/protocol/waku_noise/noise_handshake_processing,
   ../../waku/v2/protocol/waku_message,
-  ../test_helpers
+  ./testlib/common
 
 procSuite "Waku Noise Sessions":
-
-  # We initialize the RNG in test_helpers
-  let rng = rng()
-  # We initialize the RNG in std/random
   randomize()
 
   # This test implements the Device pairing and Secure Transfers with Noise

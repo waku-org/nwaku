@@ -11,15 +11,13 @@ import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_filter/client,
-  ./utils,
   ./testlib/common,
-  ./testlib/switch
+  ./testlib/waku2
 
 
 proc newTestWakuFilterNode(switch: Switch, timeout: Duration = 2.hours): Future[WakuFilter] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    rng = crypto.newRng()
     proto = WakuFilter.new(peerManager, rng, timeout)
 
   await proto.start()
@@ -30,7 +28,6 @@ proc newTestWakuFilterNode(switch: Switch, timeout: Duration = 2.hours): Future[
 proc newTestWakuFilterClient(switch: Switch): Future[WakuFilterClient] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    rng = crypto.newRng()
     proto = WakuFilterClient.new(peerManager, rng)
 
   await proto.start()

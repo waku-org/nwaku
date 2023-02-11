@@ -11,7 +11,8 @@ import
   ../../waku/v2/protocol/waku_keystore,
   ../../waku/v2/protocol/waku_rln_relay,
   ../../waku/v2/node/waku_node,
-  ../test_helpers,
+  ./testlib/common,
+  ./testlib/waku2,
   ./test_utils
 
 from posix import kill, SIGINT
@@ -80,14 +81,12 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
 
 
 proc createEthAccount(): Future[(keys.PrivateKey, Address)] {.async.} =
-  let theRNG = keys.newRng()
-
   let web3 = await newWeb3(EthClient)
   let accounts = await web3.provider.eth_accounts()
   let gasPrice = int(await web3.provider.eth_gasPrice())
   web3.defaultAccount = accounts[0]
 
-  let pk = keys.PrivateKey.random(theRNG[])
+  let pk = keys.PrivateKey.random(rng[])
   let acc = Address(toCanonicalAddress(pk.toPublicKey()))
 
   var tx:EthSend
@@ -106,7 +105,7 @@ proc createEthAccount(): Future[(keys.PrivateKey, Address)] {.async.} =
 
 # Installs Ganache Daemon
 proc installGanache() =
-  # We install Ganache. 
+  # We install Ganache.
   # Packages will be installed to the ./build folder through the --prefix option
   let installGanache = startProcess("npm", args = ["install",  "ganache", "--prefix", "./build"], options = {poUsePath})
   let returnCode = installGanache.waitForExit()
@@ -125,7 +124,7 @@ proc uninstallGanache() =
 
 # Runs Ganache daemon
 proc runGanache(): Process =
-  # We run directly "node node_modules/ganache/dist/node/cli.js" rather than using "npx ganache", so that the daemon does not spawn in a new child process. 
+  # We run directly "node node_modules/ganache/dist/node/cli.js" rather than using "npx ganache", so that the daemon does not spawn in a new child process.
   # In this way, we can directly send a SIGINT signal to the corresponding PID to gracefully terminate Ganache without dealing with multiple processes.
   # Passed options are
   # --port                            Port to listen on.
@@ -193,11 +192,11 @@ procSuite "Waku-rln-relay":
 
     # create an RLN instance
     let rlnInstance = createRLNInstance()
-    require: 
-      rlnInstance.isOk() 
+    require:
+      rlnInstance.isOk()
     # generate the membership keys
     let identityCredentialRes = membershipKeyGen(rlnInstance.get())
-    require: 
+    require:
       identityCredentialRes.isOk()
     let identityCredential = identityCredentialRes.get()
     let pk =  identityCredential.idCommitment.toUInt256()
@@ -249,12 +248,12 @@ procSuite "Waku-rln-relay":
     # test ------------------------------
     # create an RLN instance
     let rlnInstance = createRLNInstance()
-    require: 
+    require:
       rlnInstance.isOk()
     let rln = rlnInstance.get()
 
     let idCredentialRes = rln.membershipKeyGen()
-    require: 
+    require:
       idCredentialRes.isOk()
     let idCredential = idCredentialRes.get()
     let pk = idCredential.idCommitment.toUInt256()
@@ -270,7 +269,7 @@ procSuite "Waku-rln-relay":
 
     # generate another identity credential
     let idCredential2Res = rln.membershipKeyGen()
-    require: 
+    require:
       idCredential2Res.isOk()
     let idCredential2 = idCredential2Res.get()
     let pk2 = idCredential2.idCommitment.toUInt256()
@@ -279,7 +278,7 @@ procSuite "Waku-rln-relay":
     let events = [newFuture[void](), newFuture[void]()]
     var futIndex = 0
     var handler: GroupUpdateHandler
-    handler = proc (blockNumber: BlockNumber, 
+    handler = proc (blockNumber: BlockNumber,
                     members: seq[MembershipTuple]): RlnRelayResult[void] =
       debug "handler is called", members = members
       events[futIndex].complete()
@@ -289,7 +288,7 @@ procSuite "Waku-rln-relay":
       check:
         insertRes.isOk()
       return ok()
-    
+
     # mount the handler for listening to the contract events
     await subscribeToGroupEvents(ethClientUri = EthClient,
                                  ethAccountAddress = some(accounts[0]),
@@ -332,7 +331,7 @@ procSuite "Waku-rln-relay":
     # send takes the following parameters, c: ContractCallBase, value = 0.u256, gas = 3000000'u64 gasPrice = 0
     # should use send proc for the contract functions that update the state of the contract
     let tx = await sender.register(20.u256).send(value = MembershipFee) # value is the membership fee
-    debug "The hash of registration tx: ", tx 
+    debug "The hash of registration tx: ", tx
 
     # let members: array[2, uint256] = [20.u256, 21.u256]
     # debug "This is the batch registration result ", await sender.registerBatch(members).send(value = (members.len * MembershipFee)) # value is the membership fee
@@ -355,16 +354,16 @@ procSuite "Waku-rln-relay":
 
     # create an RLN instance
     let rlnInstance = createRLNInstance()
-    require: 
+    require:
       rlnInstance.isOk()
 
     # generate the membership keys
     let identityCredentialRes = membershipKeyGen(rlnInstance.get())
-    require: 
+    require:
       identityCredentialRes.isOk()
     let identityCredential = identityCredentialRes.get()
 
-    # create an Ethereum private key and the corresponding account 
+    # create an Ethereum private key and the corresponding account
     let (ethPrivKey, ethacc) = await createEthAccount()
 
     # test ------------------------------
@@ -378,14 +377,14 @@ procSuite "Waku-rln-relay":
 
     # register the rln-relay peer to the membership contract
     let isSuccessful = await rlnPeer.register()
-    check: 
+    check:
       isSuccessful.isOk()
 
 
   asyncTest "mounting waku rln-relay: check correct Merkle tree construction in the static/off-chain group management":
     # preparation ------------------------------
     let
-      nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey = generateSecp256k1Key()
       node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(60110))
     await node.start()
 
@@ -436,7 +435,7 @@ procSuite "Waku-rln-relay":
                             memIndex = index,
                             pubsubTopic = RlnRelayPubsubTopic,
                             contentTopic = RlnRelayContentTopic)
-    
+
     require:
       mountRes.isOk()
 
@@ -449,11 +448,11 @@ procSuite "Waku-rln-relay":
       expectedRoot == calculatedRoot
 
     await node.stop()
-  
+
   asyncTest "mounting waku rln-relay: check correct Merkle tree construction in the dynamic/onchain group management":
     # preparation ------------------------------
     let
-      nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey = generateSecp256k1Key()
       node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(60111))
     await node.start()
 
@@ -467,8 +466,8 @@ procSuite "Waku-rln-relay":
       # choose one of the existing accounts for the rln-relay peer
       ethAccountAddress = accounts[0]
     web3.defaultAccount = accounts[0]
-    
-  
+
+
 
     # create an rln instance
     let rlnInstance = createRLNInstance()
@@ -477,18 +476,18 @@ procSuite "Waku-rln-relay":
     let rln = rlnInstance.get()
 
     # create two identity credentials
-    let 
+    let
       idCredential1Res = rln.membershipKeyGen()
       idCredential2Res = rln.membershipKeyGen()
-    require: 
+    require:
       idCredential1Res.isOk()
       idCredential2Res.isOk()
 
     let
       idCredential1 = idCredential1Res.get()
       idCredential2 = idCredential2Res.get()
-      pk1 = idCredential1.idCommitment.toUInt256() 
-      pk2 = idCredential2.idCommitment.toUInt256() 
+      pk1 = idCredential1.idCommitment.toUInt256()
+      pk2 = idCredential2.idCommitment.toUInt256()
     debug "member key1", key = idCredential1.idCommitment.inHex
     debug "member key2", key = idCredential2.idCommitment.inHex
 
@@ -496,14 +495,14 @@ procSuite "Waku-rln-relay":
     let
       memberIsAdded1 = rln.insertMembers(0, @[idCredential1.idCommitment])
       memberIsAdded2 = rln.insertMembers(1, @[idCredential2.idCommitment])
-    
+
     require:
       memberIsAdded1
       memberIsAdded2
-    
+
     #  get the Merkle root
     let expectedRoot = rln.getMerkleRoot().value().inHex
-    
+
     # prepare a contract sender to interact with it
     let contractObj = web3.contractSender(MembershipContract,
       contractAddress) # creates a Sender object with a web3 field and contract address of type Address
@@ -516,7 +515,7 @@ procSuite "Waku-rln-relay":
     let tx2Hash = await contractObj.register(pk2).send(value = MembershipFee)
     debug "a member is registered", tx2 = tx2Hash
 
-     # create an Ethereum private key and the corresponding account 
+     # create an Ethereum private key and the corresponding account
     let (ethPrivKey, ethacc) = await createEthAccount()
 
 
@@ -527,7 +526,7 @@ procSuite "Waku-rln-relay":
                             ethClientAddr = EthClient,
                             ethAccountAddress = some(ethacc),
                             ethAccountPrivKeyOpt = some(ethPrivKey),
-                            memContractAddr = contractAddress, 
+                            memContractAddr = contractAddress,
                             memIdCredential = some(idCredential1),
                             memIndex = some(MembershipIndex(0)),
                             pubsubTopic = RlnRelayPubsubTopic,
@@ -537,7 +536,7 @@ procSuite "Waku-rln-relay":
       mountRes.isOk()
 
     let wakuRlnRelay = mountRes.get()
-    
+
     await sleepAsync(2000.milliseconds()) # wait for the event to reach the group handler
 
     # rln pks are inserted into the rln peer's Merkle tree and the resulting root
@@ -547,7 +546,7 @@ procSuite "Waku-rln-relay":
     debug "expected root ", expectedRoot=expectedRoot
 
     check:
-      expectedRoot == calculatedRoot  
+      expectedRoot == calculatedRoot
 
 
     await web3.close()
@@ -568,16 +567,16 @@ procSuite "Waku-rln-relay":
 
     # prepare two nodes
     let
-      nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey = generateSecp256k1Key()
       node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(60112))
     await node.start()
 
     let
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey2 = generateSecp256k1Key()
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60113))
     await node2.start()
 
-     # create an Ethereum private key and the corresponding account 
+     # create an Ethereum private key and the corresponding account
     let (ethPrivKey, ethacc) = await createEthAccount()
 
     # start rln-relay on the first node, leave rln-relay credentials empty
@@ -586,7 +585,7 @@ procSuite "Waku-rln-relay":
                             ethClientAddr = EthClient,
                             ethAccountAddress = some(ethacc),
                             ethAccountPrivKeyOpt = some(ethPrivKey),
-                            memContractAddr = contractAddress, 
+                            memContractAddr = contractAddress,
                             memIdCredential = none(IdentityCredential),
                             memIndex = none(MembershipIndex),
                             pubsubTopic = RlnRelayPubsubTopic,
@@ -603,7 +602,7 @@ procSuite "Waku-rln-relay":
                             ethClientAddr = EthClient,
                             ethAccountAddress = some(ethacc),
                             ethAccountPrivKeyOpt = some(ethPrivKey),
-                            memContractAddr = contractAddress, 
+                            memContractAddr = contractAddress,
                             memIdCredential = none(IdentityCredential),
                             memIndex = none(MembershipIndex),
                             pubsubTopic = RlnRelayPubsubTopic,
@@ -614,7 +613,7 @@ procSuite "Waku-rln-relay":
 
     let wakuRlnRelay2 = mountRes2.get()
 
-    # the two nodes should be registered into the contract 
+    # the two nodes should be registered into the contract
     # since nodes are spun up sequentially
     # the first node has index 0 whereas the second node gets index 1
     check:

@@ -4,23 +4,25 @@ else:
   {.push raises: [].}
 
 import
-  testutils/unittests,
+  std/[options, osproc, streams, strutils, sequtils],
   stew/results,
-  options,
+  stew/shims/net as stewNet,
+  testutils/unittests,
+  chronos,
+  chronicles,
+  stint,
+  web3,
+  json,
+  libp2p/crypto/crypto,
+  eth/keys
+import
   ../../waku/v2/protocol/waku_rln_relay/protocol_types,
   ../../waku/v2/protocol/waku_rln_relay/constants,
   ../../waku/v2/protocol/waku_rln_relay/contract,
   ../../waku/v2/protocol/waku_rln_relay/rln,
   ../../waku/v2/protocol/waku_rln_relay/conversion_utils,
-  ../../waku/v2/protocol/waku_rln_relay/group_manager/on_chain/group_manager
-
-import
-  std/[osproc, streams, strutils, sequtils],
-  chronos, chronicles, stint, web3, json,
-  stew/shims/net as stewNet,
-  libp2p/crypto/crypto,
-  eth/keys,
-  ../test_helpers,
+  ../../waku/v2/protocol/waku_rln_relay/group_manager/on_chain/group_manager,
+  ./testlib/common,
   ./test_utils
 
 from posix import kill, SIGINT
@@ -88,14 +90,12 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
 
 
 proc createEthAccount(): Future[(keys.PrivateKey, Address)] {.async.} =
-  let theRNG = keys.newRng()
-
   let web3 = await newWeb3(EthClient)
   let accounts = await web3.provider.eth_accounts()
   let gasPrice = int(await web3.provider.eth_gasPrice())
   web3.defaultAccount = accounts[0]
 
-  let pk = keys.PrivateKey.random(theRNG[])
+  let pk = keys.PrivateKey.random(rng[])
   let acc = Address(toCanonicalAddress(pk.toPublicKey()))
 
   var tx:EthSend
