@@ -385,7 +385,7 @@ procSuite "Waku-rln-relay":
     # preparation ------------------------------
     let
       nodeKey = generateSecp256k1Key()
-      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(60110))
+      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
     await node.start()
 
     # create current peer's pk
@@ -453,7 +453,7 @@ procSuite "Waku-rln-relay":
     # preparation ------------------------------
     let
       nodeKey = generateSecp256k1Key()
-      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(60111))
+      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
     await node.start()
 
     # deploy the contract
@@ -568,12 +568,12 @@ procSuite "Waku-rln-relay":
     # prepare two nodes
     let
       nodeKey = generateSecp256k1Key()
-      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(60112))
+      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
     await node.start()
 
     let
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60113))
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
     await node2.start()
 
      # create an Ethereum private key and the corresponding account

@@ -32,7 +32,7 @@ procSuite "Waku v2 JSON-RPC API - Relay":
     privkey = generateSecp256k1Key()
     bindIp = ValidIpAddress.init("0.0.0.0")
     extIp = ValidIpAddress.init("127.0.0.1")
-    port = Port(9000)
+    port = Port(0)
     node = WakuNode.new(privkey, bindIp, port, some(extIp), some(port))
 
   asyncTest "subscribe, unsubscribe and publish":
@@ -88,11 +88,11 @@ procSuite "Waku v2 JSON-RPC API - Relay":
   asyncTest "get latest messages":
     let
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, bindIp, Port(60300))
+      node1 = WakuNode.new(nodeKey1, bindIp, Port(0))
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, bindIp, Port(60302))
+      node2 = WakuNode.new(nodeKey2, bindIp, Port(0))
       nodeKey3 = generateSecp256k1Key()
-      node3 = WakuNode.new(nodeKey3, bindIp, Port(60303), some(extIp), some(port))
+      node3 = WakuNode.new(nodeKey3, bindIp, Port(0), some(extIp), some(port))
       pubSubTopic = "polling"
       contentTopic = DefaultContentTopic
       payload1 = @[byte 9]
@@ -179,11 +179,11 @@ procSuite "Waku v2 JSON-RPC API - Relay":
   asyncTest "generate asymmetric keys and encrypt/decrypt communication":
     let
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, bindIp, Port(62001))
+      node1 = WakuNode.new(nodeKey1, bindIp, Port(0))
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, bindIp, Port(62002))
+      node2 = WakuNode.new(nodeKey2, bindIp, Port(0))
       nodeKey3 = generateSecp256k1Key()
-      node3 = WakuNode.new(nodeKey3, bindIp, Port(62003), some(extIp), some(port))
+      node3 = WakuNode.new(nodeKey3, bindIp, Port(0), some(extIp), some(port))
       pubSubTopic = "polling"
       contentTopic = DefaultContentTopic
       payload = @[byte 9]
@@ -270,11 +270,11 @@ procSuite "Waku v2 JSON-RPC API - Relay":
   asyncTest "generate symmetric keys and encrypt/decrypt communication":
     let
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, bindIp, Port(62100))
+      node1 = WakuNode.new(nodeKey1, bindIp, Port(0))
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, bindIp, Port(62102))
+      node2 = WakuNode.new(nodeKey2, bindIp, Port(0))
       nodeKey3 = generateSecp256k1Key()
-      node3 = WakuNode.new(nodeKey3, bindIp, Port(62103), some(extIp), some(port))
+      node3 = WakuNode.new(nodeKey3, bindIp, Port(0), some(extIp), some(port))
       pubSubTopic = "polling"
       contentTopic = DefaultContentTopic
       payload = @[byte 9]

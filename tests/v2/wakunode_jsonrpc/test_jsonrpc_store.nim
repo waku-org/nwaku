@@ -36,7 +36,7 @@ procSuite "Waku v2 JSON-RPC API - Store":
     privkey = generateSecp256k1Key()
     bindIp = ValidIpAddress.init("0.0.0.0")
     extIp = ValidIpAddress.init("127.0.0.1")
-    port = Port(9000)
+    port = Port(0)
     node = WakuNode.new(privkey, bindIp, port, some(extIp), some(port))
 
   asyncTest "query a node and retrieve historical messages":

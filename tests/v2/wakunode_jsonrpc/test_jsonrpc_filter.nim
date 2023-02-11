@@ -32,9 +32,9 @@ procSuite "Waku v2 JSON-RPC API - Filter":
   asyncTest "subscribe and unsubscribe":
     let
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, bindIp, Port(60390))
+      node1 = WakuNode.new(nodeKey1, bindIp, Port(0))
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, bindIp, Port(60392))
+      node2 = WakuNode.new(nodeKey2, bindIp, Port(0))
 
     await allFutures(node1.start(), node2.start())
 
