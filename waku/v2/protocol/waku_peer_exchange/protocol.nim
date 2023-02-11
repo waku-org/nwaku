@@ -1,5 +1,5 @@
 import
-  std/[options, sets, tables, sequtils, random],
+  std/[options, sequtils, random],
   stew/results,
   chronicles,
   chronos,
@@ -11,7 +11,6 @@ import
   ../../node/peer_manager,
   ../../node/discv5/waku_discv5,
   ../waku_message,
-  ../waku_relay,
   ./rpc,
   ./rpc_codec
 

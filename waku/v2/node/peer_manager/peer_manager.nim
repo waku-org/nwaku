@@ -5,7 +5,7 @@ else:
 
 
 import
-  std/[options, sets, sequtils, times, random],
+  std/[options, sets, sequtils, times],
   chronos,
   chronicles,
   metrics,

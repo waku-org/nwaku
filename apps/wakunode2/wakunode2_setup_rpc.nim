@@ -4,12 +4,10 @@ else:
   {.push raises: [].}
 
 import
-  std/tables,
   stew/shims/net,
   chronicles,
   json_rpc/rpcserver
 import
-  ../../waku/v2/protocol/waku_message,
   ../../waku/v2/node/message_cache,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/jsonrpc/admin/handlers as admin_api,

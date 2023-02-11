@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[os,sysrand,sequtils,tables,math],
+  std/os,
   stew/byteutils,
   stew/shims/net as stewNet,
   testutils/unittests,

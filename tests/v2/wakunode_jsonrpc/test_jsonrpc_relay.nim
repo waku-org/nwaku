@@ -5,7 +5,6 @@ import
   stew/shims/net as stewNet,
   testutils/unittests,
   chronicles,
-  eth/keys,
   libp2p/crypto/crypto,
   json_rpc/[rpcserver, rpcclient]
 import

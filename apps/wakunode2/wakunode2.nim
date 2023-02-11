@@ -41,7 +41,6 @@ import
   ../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_capacity,
   ../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_time,
   ../../waku/v2/protocol/waku_store,
-  ../../waku/v2/protocol/waku_relay,
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_lightpush,
   ../../waku/v2/protocol/waku_peer_exchange,

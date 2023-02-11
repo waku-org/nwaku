@@ -13,8 +13,6 @@ import
 import
   ../../node/peer_manager,
   ../../utils/requests,
-  ../../utils/time,
-  ../waku_message,
   ./protocol_metrics,
   ./common,
   ./rpc,
