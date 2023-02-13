@@ -56,11 +56,11 @@ proc toWakuMessage*(msg: RelayWakuMessage, version = 0): Result[WakuMessage, cst
 #### Serialization and deserialization
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: Base64String)
-  {.raises: [IOError, Defect].} =
+  {.raises: [IOError].} =
   writer.writeValue(string(value))
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: RelayWakuMessage)
-  {.raises: [IOError, Defect].} =
+  {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("payload", value.payload)
   if value.contentTopic.isSome:
@@ -72,11 +72,11 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: RelayWakuMessage)
   writer.endRecord()
 
 proc readValue*(reader: var JsonReader[RestJson], value: var Base64String)
-  {.raises: [SerializationError, IOError, Defect].} =
+  {.raises: [SerializationError, IOError].} =
   value = Base64String(reader.readValue(string))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
-  {.raises: [SerializationError, IOError, Defect].} =
+  {.raises: [SerializationError, IOError].} =
   var
     payload = none(Base64String)
     contentTopic = none(ContentTopic)

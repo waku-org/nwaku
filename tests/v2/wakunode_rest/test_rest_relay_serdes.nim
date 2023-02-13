@@ -8,11 +8,12 @@ import
 import
   ../../waku/v2/node/rest/serdes,
   ../../waku/v2/node/rest/base64,
-  ../../waku/v2/node/rest/relay/api_types,
+  ../../waku/v2/node/rest/relay/types,
   ../../waku/v2/protocol/waku_message
 
 
-suite "Relay API - serialization":
+
+suite "Waku v2 Rest API - Relay - serialization":
 
   suite "RelayWakuMessage - decode":
     test "optional fields are not provided":

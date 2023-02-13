@@ -7,8 +7,9 @@ import
   chronicles,
   json_serialization,
   json_serialization/std/options
-import ".."/serdes 
-import ../../waku_node
+import
+  ../../../../waku/v2/node/waku_node,
+  ../serdes
 
 #### Types
 
@@ -20,7 +21,7 @@ type
 
 #### Type conversion
 
-proc toDebugWakuInfo*(nodeInfo: WakuInfo): DebugWakuInfo = 
+proc toDebugWakuInfo*(nodeInfo: WakuInfo): DebugWakuInfo =
     DebugWakuInfo(
       listenAddresses: nodeInfo.listenAddresses,
       enrUri: some(nodeInfo.enrUri)
@@ -30,7 +31,7 @@ proc toDebugWakuInfo*(nodeInfo: WakuInfo): DebugWakuInfo =
 #### Serialization and deserialization
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: DebugWakuInfo)
-  {.raises: [IOError, Defect].} =
+  {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("listenAddresses", value.listenAddresses)
   if value.enrUri.isSome:
@@ -38,7 +39,7 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: DebugWakuInfo)
   writer.endRecord()
 
 proc readValue*(reader: var JsonReader[RestJson], value: var DebugWakuInfo)
-  {.raises: [SerializationError, IOError, Defect].} =
+  {.raises: [SerializationError, IOError].} =
   var
     listenAddresses: Option[seq[string]]
     enrUri: Option[string]

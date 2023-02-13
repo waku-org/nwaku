@@ -8,13 +8,19 @@ import
   presto, presto/client as presto_client,
   libp2p/crypto/crypto
 import
-  ../../waku/v2/protocol/waku_message,
   ../../waku/v2/node/waku_node,
-  ../../waku/v2/node/rest/[server, client, base64, utils],
-  ../../waku/v2/node/rest/relay/[api_types, relay_api, topic_cache],
+  ../../waku/v2/node/rest/server,
+  ../../waku/v2/node/rest/client,
+  ../../waku/v2/node/rest/base64,
+  ../../waku/v2/node/rest/responses,
+  ../../waku/v2/node/rest/relay/types,
+  ../../waku/v2/node/rest/relay/handlers as relay_api,
+  ../../waku/v2/node/rest/relay/client as relay_api_client,
+  ../../waku/v2/node/rest/relay/topic_cache,
+  ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_relay,
   ../../waku/v2/utils/time,
-  ./testlib/waku2
+  ../testlib/waku2
 
 
 proc testWakuNode(): WakuNode =
@@ -22,19 +28,19 @@ proc testWakuNode(): WakuNode =
     privkey = generateSecp256k1Key()
     bindIp = ValidIpAddress.init("0.0.0.0")
     extIp = ValidIpAddress.init("127.0.0.1")
-    port = Port(9000)
+    port = Port(0)
 
   WakuNode.new(privkey, bindIp, port, some(extIp), some(port))
 
 
-suite "REST API - Relay":
+suite "Waku v2 Rest API - Relay":
   asyncTest "Subscribe a node to an array of topics - POST /relay/v1/subscriptions":
     # Given
     let node = testWakuNode()
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(8546)
+    let restPort = Port(58011)
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
@@ -79,7 +85,7 @@ suite "REST API - Relay":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(8546)
+    let restPort = Port(58012)
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
@@ -127,7 +133,7 @@ suite "REST API - Relay":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(8546)
+    let restPort = Port(58013)
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
@@ -179,7 +185,7 @@ suite "REST API - Relay":
     await node.mountRelay()
 
     # RPC server setup
-    let restPort = Port(8546)
+    let restPort = Port(58014)
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 

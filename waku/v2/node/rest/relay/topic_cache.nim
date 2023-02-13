@@ -4,16 +4,12 @@ else:
   {.push raises: [].}
 
 import
-  stew/results,
-  chronicles,
   chronos,
-  libp2p/protocols/pubsub
+  chronicles
 import
-  ../../../protocol/waku_message,
-  ../../message_cache
-
-logScope: 
-  topics = "waku node rest relay_api"
+  ../../../../waku/v2/protocol/waku_relay,
+  ../../../../waku/v2/protocol/waku_message,
+  ../../../../waku/v2/node/message_cache
 
 export message_cache
 
@@ -27,21 +23,11 @@ type TopicCache* = MessageCache[PubSubTopic]
 
 ##### Message handler
 
-type TopicCacheMessageHandler* = Topichandler
+type TopicCacheMessageHandler* = SubscriptionHandler
 
 proc messageHandler*(cache: TopicCache): TopicCacheMessageHandler =
 
-  let handler = proc(pubsubTopic: string, data: seq[byte]): Future[void] {.async, closure.} =
-    trace "PubsubTopic handler triggered", pubsubTopic=pubsubTopic
+  let handler = proc(pubsubTopic: string, msg: WakuMessage): Future[void] {.async, closure.} =
+    cache.addMessage(PubSubTopic(pubsubTopic), msg)
 
-    # Add message to current cache
-    let msg = WakuMessage.decode(data)
-    if msg.isErr():
-      debug "WakuMessage received but failed to decode", msg=msg, pubsubTopic=pubsubTopic
-      # TODO: handle message decode failure
-      return
-
-    trace "WakuMessage received", msg=msg, pubsubTopic=pubsubTopic
-    cache.addMessage(PubSubTopic(pubsubTopic), msg.get())
-  
   handler

@@ -1,18 +1,18 @@
 {.used.}
 
-import std/typetraits
-import chronicles,
-  unittest2,
+import
   stew/[results, byteutils],
+  chronicles,
+  unittest2,
   json_serialization
-import 
+import
   ../../waku/v2/node/rest/serdes,
-  ../../waku/v2/node/rest/debug/api_types
+  ../../waku/v2/node/rest/debug/types
 
 
 # TODO: Decouple this test suite from the `debug_api` module by defining
 #  private custom types for this test suite module
-suite "Serdes":
+suite "Waku v2 Rest API - Serdes":
 
   suite "decode":
     test "decodeFromJsonString - use the corresponding readValue template":
@@ -28,7 +28,7 @@ suite "Serdes":
       check:
         value.listenAddresses == @["123"]
         value.enrUri.isNone
-    
+
     test "decodeFromJsonBytes - use the corresponding readValue template":
       # Given
       let jsonBytes = toBytes("""{ "listenAddresses":["123"] }""")
