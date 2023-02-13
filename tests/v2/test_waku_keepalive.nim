@@ -7,7 +7,6 @@ import
   chronos,
   chronicles,
   libp2p/switch,
-  libp2p/protobuf/minprotobuf,
   libp2p/protocols/ping,
   libp2p/stream/bufferstream,
   libp2p/stream/connection,

@@ -6,7 +6,6 @@ import
   testutils/unittests,
   chronicles,
   chronos,
-  eth/keys,
   libp2p/crypto/crypto,
   json_rpc/[rpcserver, rpcclient]
 import

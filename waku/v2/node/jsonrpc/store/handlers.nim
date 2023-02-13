@@ -8,7 +8,6 @@ import
   chronicles,
   json_rpc/rpcserver
 import
-  ../../../../../waku/v2/protocol/waku_message,
   ../../../../../waku/v2/protocol/waku_store,
   ../../../../../waku/v2/protocol/waku_store/rpc,
   ../../../../../waku/v2/utils/time,

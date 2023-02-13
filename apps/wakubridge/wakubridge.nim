@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[os, tables, hashes, sequtils],
+  std/[tables, hashes, sequtils],
   stew/byteutils,
   stew/shims/net as stewNet, json_rpc/rpcserver,
   chronicles,
@@ -24,7 +24,6 @@ import
   # Waku v2 imports
   libp2p/crypto/crypto,
   libp2p/nameresolving/nameresolver,
-  ../../waku/v2/utils/namespacing,
   ../../waku/v2/utils/time,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/node/message_cache,
@@ -313,6 +312,7 @@ proc setupV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: WakuBridgeConf) 
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
   import
+    std/os,
     libp2p/nameresolving/dnsresolver
   import
     ../../waku/common/logging,

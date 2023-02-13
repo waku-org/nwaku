@@ -20,7 +20,6 @@ import
 import
   ../../node/peer_manager,
   ../../utils/time,
-  ../waku_message,
   ./common,
   ./rpc,
   ./rpc_codec,

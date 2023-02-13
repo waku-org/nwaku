@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables, sequtils],
+  std/sequtils,
   chronicles,
   json_rpc/rpcserver
 import
