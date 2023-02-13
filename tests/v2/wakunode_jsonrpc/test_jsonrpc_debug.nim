@@ -13,13 +13,13 @@ import
   ../../../waku/v2/node/peer_manager,
   ../../../waku/v2/node/waku_node,
   ../../../waku/v2/node/jsonrpc/debug/handlers as debug_api,
-  ../../../waku/v2/node/jsonrpc/debug/client as debug_api_client
+  ../../../waku/v2/node/jsonrpc/debug/client as debug_api_client,
+  ../testlib/waku2
 
 
 procSuite "Waku v2 JSON-RPC API - Debug":
   let
-    rng = crypto.newRng()
-    privkey = crypto.PrivateKey.random(Secp256k1, rng[]).tryGet()
+    privkey = generateSecp256k1Key()
     bindIp = ValidIpAddress.init("0.0.0.0")
     extIp = ValidIpAddress.init("127.0.0.1")
     port = Port(9000)

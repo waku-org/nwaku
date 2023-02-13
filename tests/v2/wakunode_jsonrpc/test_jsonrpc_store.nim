@@ -19,7 +19,8 @@ import
   ../../../waku/v2/protocol/waku_store/rpc,
   ../../../waku/v2/utils/peers,
   ../../../waku/v2/utils/time,
-  ../../v2/testlib/common
+  ../../v2/testlib/common,
+  ../../v2/testlib/waku2
 
 
 proc put(store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage): Result[void, string] =
@@ -32,8 +33,7 @@ proc put(store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage): 
 
 procSuite "Waku v2 JSON-RPC API - Store":
   let
-    rng = crypto.newRng()
-    privkey = crypto.PrivateKey.random(Secp256k1, rng[]).tryGet()
+    privkey = generateSecp256k1Key()
     bindIp = ValidIpAddress.init("0.0.0.0")
     extIp = ValidIpAddress.init("127.0.0.1")
     port = Port(9000)
@@ -55,7 +55,7 @@ procSuite "Waku v2 JSON-RPC API - Store":
 
     # WakuStore setup
     let
-      key = crypto.PrivateKey.random(ECDSA, rng[]).get()
+      key = generateEcdsaKey()
       peer = PeerInfo.new(key)
 
     let driver: ArchiveDriver = QueueDriver.new()

@@ -13,7 +13,8 @@ import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/node/discv5/waku_discv5,
   ../../waku/v2/node/waku_node,
-  ../test_helpers
+  ./testlib/common,
+  ./testlib/waku2
 
 procSuite "Waku Discovery v5":
   asyncTest "Waku Discovery v5 end-to-end":
@@ -22,17 +23,17 @@ procSuite "Waku Discovery v5":
       bindIp = ValidIpAddress.init("0.0.0.0")
       extIp = ValidIpAddress.init("127.0.0.1")
 
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey1 = generateSecp256k1Key()
       nodeTcpPort1 = Port(61500)
       nodeUdpPort1 = Port(9000)
       node1 = WakuNode.new(nodeKey1, bindIp, nodeTcpPort1)
 
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey2 = generateSecp256k1Key()
       nodeTcpPort2 = Port(61502)
       nodeUdpPort2 = Port(9002)
       node2 = WakuNode.new(nodeKey2, bindIp, nodeTcpPort2)
 
-      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey3 = generateSecp256k1Key()
       nodeTcpPort3 = Port(61504)
       nodeUdpPort3 = Port(9004)
       node3 = WakuNode.new(nodeKey3, bindIp, nodeTcpPort3)
@@ -134,7 +135,7 @@ procSuite "Waku Discovery v5":
 
       nodeTcpPort1 = Port(9010)
       nodeUdpPort1 = Port(9012)
-      node1Key = generateKey()
+      node1Key = generateSecp256k1Key()
       node1NetConfig = NetConfig.init(bindIp = bindIp,
                                       extIp = some(extIp),
                                       extPort = some(nodeTcpPort1),
@@ -159,7 +160,7 @@ procSuite "Waku Discovery v5":
 
       nodeTcpPort2 = Port(9014)
       nodeUdpPort2 = Port(9016)
-      node2Key = generateKey()
+      node2Key = generateSecp256k1Key()
       node2NetConfig = NetConfig.init(bindIp = bindIp,
                                       extIp = some(extIp),
                                       extPort = some(nodeTcpPort2),

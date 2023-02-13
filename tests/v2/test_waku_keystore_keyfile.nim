@@ -6,13 +6,12 @@ import
   testutils/unittests, chronos,
   eth/keys
 import
-  ../../waku/v2/protocol/waku_keystore
+  ../../waku/v2/protocol/waku_keystore,
+  ./testlib/common
 
 from ../../waku/v2/protocol/waku_noise/noise_utils import randomSeqByte
 
 suite "KeyFile test suite":
-
-  let rng = newRng()
 
   test "Create/Save/Load single keyfile":
 
@@ -54,7 +53,7 @@ suite "KeyFile test suite":
     let password1 = string.fromBytes(randomSeqByte(rng[], 20))
     let password2 = ""
     let password3 = string.fromBytes(randomSeqByte(rng[], 20))
-    var keyfile: KfResult[JsonNode] 
+    var keyfile: KfResult[JsonNode]
 
     let filepath = "./test.keyfile"
     defer: removeFile(filepath)
@@ -101,7 +100,7 @@ suite "KeyFile test suite":
       saveKeyFile(filepath, keyfile.get()).isOk()
 
     # Now there are 6 keyfiles stored in filepath encrypted with 3 different passwords
-    # We decrypt the keyfiles using the respective passwords and we check that the number of 
+    # We decrypt the keyfiles using the respective passwords and we check that the number of
     # successful decryptions corresponds to the number of secrets encrypted under that password
 
     var decodedKeyfilesPassword1 = loadKeyFiles(filepath, password1)
@@ -121,7 +120,7 @@ suite "KeyFile test suite":
       decodedKeyfilesPassword3.isOk()
       decodedKeyfilesPassword3.get().len == 2
     var decodedSecretsPassword3 = decodedKeyfilesPassword3.get()
-    
+
     # We check if the corresponding secrets are correct
     check:
       # Secrets encrypted with password 1
@@ -139,8 +138,6 @@ suite "KeyFile test suite":
 # and are slightly adapted to test backwards compatibility with nim-eth implementation of our customized version of the utils/keyfile module
 # Note: the original nim-eth "Create/Save/Load test" is redefined and expanded above in "KeyFile test suite"
 suite "KeyFile test suite (adapted from nim-eth keyfile tests)":
-
-  let rng = newRng()
 
   # Testvectors originally from https://github.com/status-im/nim-eth/blob/fef47331c37ee8abb8608037222658737ff498a6/tests/keyfile/test_keyfile.nim#L22-L168
   let TestVectors = [
@@ -307,7 +304,7 @@ suite "KeyFile test suite (adapted from nim-eth keyfile tests)":
         secret.isOk()
         secret.get() == expectedSecret
 
-      # Decryption with wrong password  
+      # Decryption with wrong password
       secret = decodeKeyFileJson(TestVectors[i].getOrDefault("keyfile"), "wrongpassword")
 
       check:
@@ -316,7 +313,7 @@ suite "KeyFile test suite (adapted from nim-eth keyfile tests)":
 
   test "Wrong mac in keyfile":
 
-    # This keyfile is the same as the first one in TestVectors, 
+    # This keyfile is the same as the first one in TestVectors,
     # but the last byte of mac is changed to 00.
     # While ciphertext is the correct encryption of priv under password,
     # mac verfication should fail and nothing will be decrypted
@@ -357,7 +354,7 @@ suite "KeyFile test suite (adapted from nim-eth keyfile tests)":
       expectedSecret = randomSeqByte(rng[], 300)
       password = "miawmiawcat"
 
-      # By default, keyfiles' encryption key is derived from password using PBKDF2. 
+      # By default, keyfiles' encryption key is derived from password using PBKDF2.
       # Here we test keyfiles encypted with a key derived from password using scrypt
       jsonKeyfile = createKeyFileJson(expectedSecret, password, 3, AES128CTR, SCRYPT)
 

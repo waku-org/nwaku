@@ -12,14 +12,13 @@ import
   ../../../waku/v2/protocol/waku_store,
   ../../../waku/v2/protocol/waku_store/client,
   ../testlib/common,
-  ../testlib/switch
+  ../testlib/waku2
 
 
 
 proc newTestWakuStore(switch: Switch, handler: HistoryQueryHandler): Future[WakuStore] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    rng = crypto.newRng()
     proto = WakuStore.new(peerManager, rng, handler)
 
   await proto.start()
@@ -30,7 +29,6 @@ proc newTestWakuStore(switch: Switch, handler: HistoryQueryHandler): Future[Waku
 proc newTestWakuStoreClient(switch: Switch): WakuStoreClient =
   let
     peerManager = PeerManager.new(switch)
-    rng = crypto.newRng()
   WakuStoreClient.new(peerManager, rng)
 
 

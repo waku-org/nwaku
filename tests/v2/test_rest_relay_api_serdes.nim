@@ -5,7 +5,7 @@ import
   chronicles,
   unittest2,
   json_serialization
-import 
+import
   ../../waku/v2/node/rest/serdes,
   ../../waku/v2/node/rest/base64,
   ../../waku/v2/node/rest/relay/api_types,

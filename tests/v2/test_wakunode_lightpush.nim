@@ -1,10 +1,10 @@
 {.used.}
 
 import
-  stew/shims/net as stewNet, 
+  stew/shims/net as stewNet,
   testutils/unittests,
   chronicles,
-  chronos, 
+  chronos,
   libp2p/crypto/crypto,
   libp2p/switch
 import
@@ -13,20 +13,19 @@ import
   ../../waku/v2/node/peer_manager,
   ../../waku/v2/utils/peers,
   ../../waku/v2/node/waku_node,
-  ./testlib/common
+  ./testlib/common,
+  ./testlib/waku2
 
 
 procSuite "WakuNode - Lightpush":
-  let rng = crypto.newRng()
- 
   asyncTest "Lightpush message return success":
     ## Setup
     let
-      lightNodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      lightNodeKey = generateSecp256k1Key()
       lightNode = WakuNode.new(lightNodeKey, ValidIpAddress.init("0.0.0.0"), Port(60010))
-      bridgeNodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      bridgeNodeKey = generateSecp256k1Key()
       bridgeNode = WakuNode.new(bridgeNodeKey, ValidIpAddress.init("0.0.0.0"), Port(60012))
-      destNodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      destNodeKey = generateSecp256k1Key()
       destNode = WakuNode.new(destNodeKey, ValidIpAddress.init("0.0.0.0"), Port(60013))
 
     await allFutures(destNode.start(), bridgeNode.start(), lightNode.start())
@@ -35,7 +34,7 @@ procSuite "WakuNode - Lightpush":
     await bridgeNode.mountRelay(@[DefaultPubsubTopic])
     await bridgeNode.mountLightPush()
     lightNode.mountLightPushClient()
-    
+
     discard await lightNode.peerManager.dialPeer(bridgeNode.peerInfo.toRemotePeerInfo(), WakuLightPushCodec)
     await sleepAsync(100.milliseconds)
     await destNode.connectToNodes(@[bridgeNode.peerInfo.toRemotePeerInfo()])
@@ -63,4 +62,3 @@ procSuite "WakuNode - Lightpush":
 
     ## Cleanup
     await allFutures(lightNode.stop(), bridgeNode.stop(), destNode.stop())
-  

@@ -20,24 +20,20 @@ import
   ../../../waku/v2/protocol/waku_store,
   ../../../waku/v2/protocol/waku_filter,
   ../../../waku/v2/utils/peers,
-  ../../test_helpers
+  ../testlib/waku2
 
 
 procSuite "Waku v2 JSON-RPC API - Admin":
   let
-    rng = crypto.newRng()
     bindIp = ValidIpAddress.init("0.0.0.0")
 
   asyncTest "connect to ad-hoc peers":
     # Create a couple of nodes
     let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60600))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60602))
+      node1 = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(60600))
+      node2 = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(60602))
       peerInfo2 = node2.switch.peerInfo
-      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60604))
+      node3 = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(60604))
       peerInfo3 = node3.switch.peerInfo
 
     await allFutures([node1.start(), node2.start(), node3.start()])
@@ -93,7 +89,7 @@ procSuite "Waku v2 JSON-RPC API - Admin":
 
   asyncTest "get managed peer information":
     # Create 3 nodes and start them with relay
-    let nodes = toSeq(0..<3).mapIt(WakuNode.new(generateKey(), ValidIpAddress.init("0.0.0.0"), Port(60220+it*2)))
+    let nodes = toSeq(0..<3).mapIt(WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(60220+it*2)))
     await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
@@ -140,9 +136,7 @@ procSuite "Waku v2 JSON-RPC API - Admin":
     await allFutures(nodes.mapIt(it.stop()))
 
   asyncTest "get unmanaged peer information":
-    let
-      nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(60523))
+    let node = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(60523))
 
     await node.start()
 
@@ -170,11 +164,8 @@ procSuite "Waku v2 JSON-RPC API - Admin":
     let
       locationAddr = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet()
 
-      filterKey = crypto.PrivateKey.random(ECDSA, rng[]).get()
-      filterPeer = PeerInfo.new(filterKey, @[locationAddr])
-
-      storeKey = crypto.PrivateKey.random(ECDSA, rng[]).get()
-      storePeer = PeerInfo.new(storeKey, @[locationAddr])
+      filterPeer = PeerInfo.new(generateEcdsaKey(), @[locationAddr])
+      storePeer = PeerInfo.new(generateEcdsaKey(), @[locationAddr])
 
     node.setStorePeer(storePeer.toRemotePeerInfo())
     node.setFilterPeer(filterPeer.toRemotePeerInfo())

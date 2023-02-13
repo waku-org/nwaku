@@ -9,8 +9,8 @@ import
   ../../../waku/v2/protocol/waku_archive,
   ../../../waku/v2/protocol/waku_archive/driver/sqlite_driver,
   ../../../waku/v2/protocol/waku_message,
-  ../utils,
-  ../testlib/common
+  ../testlib/common,
+  ../testlib/waku2
 
 
 proc newTestDatabase(): SqliteDatabase =

@@ -1,7 +1,6 @@
 {.used.}
 
 import
-  std/tables,
   stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
@@ -14,12 +13,7 @@ import
   libp2p/crypto/secp,
   eth/keys
 import
-  ../../waku/v2/node/waku_node,
-  ../../waku/v2/protocol/waku_swap/waku_swap,
-  ../../waku/v2/utils/peers,
-  ../test_helpers,
-  ./utils,
-  ./testlib/common
+  ../../waku/v2/protocol/waku_swap/waku_swap
 
 
 procSuite "Waku SWAP Accounting":
