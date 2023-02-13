@@ -125,7 +125,8 @@ proc new*(T: type WakuDiscoveryV5,
   var enrInitFields = @[(WAKU_ENR_FIELD, @[flags.byte])]
 
   ## Add multiaddresses to ENR
-  enrInitFields.add((MULTIADDR_ENR_FIELD, multiaddrs.getRawField()))
+  if multiaddrs.len > 0:
+    enrInitFields.add((MULTIADDR_ENR_FIELD, multiaddrs.getRawField()))
 
   let protocol = newProtocol(
     privateKey,
