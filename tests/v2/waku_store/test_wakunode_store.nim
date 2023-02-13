@@ -22,7 +22,8 @@ import
   ../../../waku/v2/protocol/waku_filter,
   ../../../waku/v2/utils/peers,
   ../../../waku/v2/node/waku_node,
-  ../testlib/common
+  ../testlib/common,
+  ../testlib/waku2
 
 
 proc newTestArchiveDriver(): ArchiveDriver =
@@ -39,8 +40,6 @@ proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): HistoryC
 
 procSuite "WakuNode - Store":
   ## Fixtures
-  let rng = crypto.newRng()
-
   let timeOrigin = now()
   let msgListA = @[
     fakeWakuMessage(@[byte 00], ts=ts(00, timeOrigin)),
@@ -67,9 +66,9 @@ procSuite "WakuNode - Store":
   asyncTest "Store protocol returns expected messages":
     ## Setup
     let
-      serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      serverKey = generateSecp256k1Key()
       server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60422))
-      clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      clientKey = generateSecp256k1Key()
       client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60420))
 
     await allFutures(client.start(), server.start())
@@ -99,9 +98,9 @@ procSuite "WakuNode - Store":
   asyncTest "Store node history response - forward pagination":
     ## Setup
     let
-      serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      serverKey = generateSecp256k1Key()
       server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60432))
-      clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      clientKey = generateSecp256k1Key()
       client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60430))
 
     await allFutures(client.start(), server.start())
@@ -148,9 +147,9 @@ procSuite "WakuNode - Store":
   asyncTest "Store node history response - backward pagination":
     ## Setup
     let
-      serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      serverKey = generateSecp256k1Key()
       server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60432))
-      clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      clientKey = generateSecp256k1Key()
       client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60430))
 
     await allFutures(client.start(), server.start())
@@ -198,11 +197,11 @@ procSuite "WakuNode - Store":
     ## See nwaku issue #937: 'Store: ability to decouple store from relay'
     ## Setup
     let
-      filterSourceKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      filterSourceKey = generateSecp256k1Key()
       filterSource = WakuNode.new(filterSourceKey, ValidIpAddress.init("0.0.0.0"), Port(60404))
-      serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      serverKey = generateSecp256k1Key()
       server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60402))
-      clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      clientKey = generateSecp256k1Key()
       client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60400))
 
     await allFutures(client.start(), server.start(), filterSource.start())

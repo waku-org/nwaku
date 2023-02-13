@@ -1,16 +1,17 @@
 {.used.}
 
 import
-  std/[options,sequtils],
+  std/[options, sequtils],
   chronos,
   stew/byteutils,
-  testutils/unittests,
+  testutils/unittests
+import
   ../../waku/v2/utils/wakuenr,
-  ../test_helpers
+  ./testlib/waku2
 
 procSuite "ENR utils":
 
-  asyncTest "Parse multiaddr field":
+  test "Parse multiaddr field":
     let
       reasonable = "0x000A047F0000010601BADD03".hexToSeqByte()
       reasonableDns4 = ("0x002F36286E6F64652D30312E646F2D616D73332E77616B7576322E746" &
@@ -39,12 +40,12 @@ procSuite "ENR utils":
       # Empty
       empty.toMultiAddresses().len() == 0
 
-  asyncTest "Init ENR for Waku Usage":
+  test "Init ENR for Waku Usage":
     # Tests RFC31 encoding "happy path"
     let
       enrIp = ValidIpAddress.init("127.0.0.1")
       enrTcpPort, enrUdpPort = Port(61101)
-      enrKey = wakuenr.crypto.PrivateKey.random(Secp256k1, rng[])[]
+      enrKey = generateSecp256k1Key()
       wakuFlags = initWakuFlags(false, true, false, true)
       multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[],
                      MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss")[]]
@@ -72,12 +73,12 @@ procSuite "ENR utils":
       decodedAddrs.contains(MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[])
       decodedAddrs.contains(MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss")[])
 
-  asyncTest "Strip multiaddr peerId":
+  test "Strip multiaddr peerId":
     # Tests that peerId is stripped of multiaddrs as per RFC31
     let
       enrIp = ValidIpAddress.init("127.0.0.1")
       enrTcpPort, enrUdpPort = Port(61102)
-      enrKey = wakuenr.crypto.PrivateKey.random(Secp256k1, rng[])[]
+      enrKey = generateSecp256k1Key()
       multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss/p2p/16Uiu2HAm4v86W3bmT1BiH6oSPzcsSr31iDQpSN5Qa882BCjjwgrD")[]]
 
     let
@@ -92,7 +93,7 @@ procSuite "ENR utils":
 
     check decodedAddrs.contains(MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss")[]) # Peer Id has been stripped
 
-  asyncTest "Decode ENR with multiaddrs field":
+  test "Decode ENR with multiaddrs field":
     let
       # Known values correspond to shared test vectors with other Waku implementations
       knownIp = ValidIpAddress.init("18.223.219.100")
@@ -126,11 +127,11 @@ procSuite "ENR utils":
     for knownMultiaddr in knownMultiaddrs:
       check decodedAddrs.contains(knownMultiaddr)
 
-  asyncTest "Supports specific capabilities encoded in the ENR":
+  test "Supports specific capabilities encoded in the ENR":
     let
       enrIp = ValidIpAddress.init("127.0.0.1")
       enrTcpPort, enrUdpPort = Port(60000)
-      enrKey = wakuenr.crypto.PrivateKey.random(Secp256k1, rng[])[]
+      enrKey = generateSecp256k1Key()
       multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[]]
 
       # TODO: Refactor enr.Record.init, provide enums as inputs enr.Record.init(capabilites=[Store,Filter])
@@ -166,11 +167,11 @@ procSuite "ENR utils":
       for j, capability in @[Lightpush, Filter, Store, Relay]:
         check expectedCapabilities[i][j] == record.supportsCapability(capability)
 
-  asyncTest "Get all supported capabilities encoded in the ENR":
+  test "Get all supported capabilities encoded in the ENR":
     let
       enrIp = ValidIpAddress.init("127.0.0.1")
       enrTcpPort, enrUdpPort = Port(60000)
-      enrKey = wakuenr.crypto.PrivateKey.random(Secp256k1, rng[])[]
+      enrKey = generateSecp256k1Key()
       multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[]]
 
       records = @[0b0000_0000'u8,
@@ -196,7 +197,7 @@ procSuite "ENR utils":
     for i, actualExpetedTuple in zip(records, expectedCapabilities):
       check actualExpetedTuple[0].getCapabilities() == actualExpetedTuple[1]
 
-  asyncTest "Get supported capabilities of a non waku node":
+  test "Get supported capabilities of a non waku node":
 
     # non waku enr, i.e. Ethereum one
     let nonWakuEnr = "enr:-KG4QOtcP9X1FbIMOe17QNMKqDxCpm14jcX5tiOE4_TyMrFqbmhPZHK_ZPG2G"&

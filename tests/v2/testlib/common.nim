@@ -1,14 +1,12 @@
 import
   std/[times, random],
-  stew/byteutils
+  bearssl/rand,
+  libp2p/crypto/crypto
 import
-  ../../../waku/v2/protocol/waku_message,
   ../../../waku/v2/utils/time
 
-export
-  waku_message.DefaultPubsubTopic,
-  waku_message.DefaultContentTopic
 
+# Time
 
 proc now*(): Timestamp =
   getNanosecondTime(getTime().toUnixFloat())
@@ -17,31 +15,34 @@ proc ts*(offset=0, origin=now()): Timestamp =
   origin + getNanosecondTime(offset)
 
 
-proc fakeWakuMessage*(
-  payload: string|seq[byte] = "TEST-PAYLOAD",
-  contentTopic = DefaultContentTopic,
-  ts = now(),
-  ephemeral = false
-): WakuMessage =
-  var payloadBytes: seq[byte]
-  when payload is string:
-    payloadBytes = toBytes(payload)
-  else:
-    payloadBytes = payload
-
-  WakuMessage(
-    payload: payloadBytes,
-    contentTopic: contentTopic,
-    version: 2,
-    timestamp: ts,
-    ephemeral: ephemeral
-  )
-
-
-# Randomization
+## Randomization
 
 proc randomize*() =
   ## Initializes the default random number generator with the given seed.
   ## From: https://nim-lang.org/docs/random.html#randomize,int64
   let now = getTime()
   randomize(now.toUnix() * 1_000_000_000 + now.nanosecond)
+
+
+## RNG
+# Copied from here: https://github.com/status-im/nim-libp2p/blob/d522537b19a532bc4af94fcd146f779c1f23bad0/tests/helpers.nim#L28
+
+type Rng = object
+    rng: ref HmacDrbgContext
+
+# Typically having a module variable is considered bad design. This case should
+# be considered as an exception and it should be used only in the tests.
+var rngVar: Rng
+
+proc getRng(): ref HmacDrbgContext =
+  # TODO: if `rngVar` is a threadvar like it should be, there are random and
+  #      spurious compile failures on mac - this is not gcsafe but for the
+  #      purpose of the tests, it's ok as long as we only use a single thread
+  {.gcsafe.}:
+    if rngVar.rng.isNil():
+      rngVar.rng = crypto.newRng()
+
+    rngVar.rng
+
+
+template rng*(): ref HmacDrbgContext = getRng()

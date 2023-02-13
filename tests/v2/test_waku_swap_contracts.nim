@@ -1,15 +1,18 @@
  # Tests of Swap contracts via external module
  #
 import
-  std/[unittest, options, tables, sets, osproc, strutils, strformat, json],
-  chronicles,
-  ../test_helpers, ./utils,
+  std/[options, osproc, strutils, json],
+  testutils/unittests,
+  chronicles
+import
   ../../waku/v2/protocol/waku_swap/waku_swap_contracts
+
 
 procSuite "Basic balance test":
   var aliceSwapAddress = ""
   var signature = ""
   var erc20address = ""
+
   test "Get pwd of swap module":
     let (output, errC) = osproc.execCmdEx("(cd ../swap-contracts-module && pwd)")
     debug "output", output

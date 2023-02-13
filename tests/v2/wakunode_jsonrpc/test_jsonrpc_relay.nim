@@ -19,7 +19,8 @@ import
   ../../../waku/v2/protocol/waku_relay,
   ../../../waku/v2/utils/compat,
   ../../../waku/v2/utils/peers,
-  ../../../waku/v2/utils/time
+  ../../../waku/v2/utils/time,
+  ../testlib/waku2
 
 
 proc newTestMessageCache(): relay_api.MessageCache =
@@ -28,8 +29,7 @@ proc newTestMessageCache(): relay_api.MessageCache =
 
 procSuite "Waku v2 JSON-RPC API - Relay":
   let
-    rng = crypto.newRng()
-    privkey = crypto.PrivateKey.random(Secp256k1, rng[]).tryGet()
+    privkey = generateSecp256k1Key()
     bindIp = ValidIpAddress.init("0.0.0.0")
     extIp = ValidIpAddress.init("127.0.0.1")
     port = Port(9000)
@@ -87,11 +87,11 @@ procSuite "Waku v2 JSON-RPC API - Relay":
 
   asyncTest "get latest messages":
     let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey1 = generateSecp256k1Key()
       node1 = WakuNode.new(nodeKey1, bindIp, Port(60300))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey2 = generateSecp256k1Key()
       node2 = WakuNode.new(nodeKey2, bindIp, Port(60302))
-      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey3 = generateSecp256k1Key()
       node3 = WakuNode.new(nodeKey3, bindIp, Port(60303), some(extIp), some(port))
       pubSubTopic = "polling"
       contentTopic = DefaultContentTopic
@@ -178,11 +178,11 @@ procSuite "Waku v2 JSON-RPC API - Relay":
 
   asyncTest "generate asymmetric keys and encrypt/decrypt communication":
     let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey1 = generateSecp256k1Key()
       node1 = WakuNode.new(nodeKey1, bindIp, Port(62001))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey2 = generateSecp256k1Key()
       node2 = WakuNode.new(nodeKey2, bindIp, Port(62002))
-      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey3 = generateSecp256k1Key()
       node3 = WakuNode.new(nodeKey3, bindIp, Port(62003), some(extIp), some(port))
       pubSubTopic = "polling"
       contentTopic = DefaultContentTopic
@@ -269,11 +269,11 @@ procSuite "Waku v2 JSON-RPC API - Relay":
 
   asyncTest "generate symmetric keys and encrypt/decrypt communication":
     let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey1 = generateSecp256k1Key()
       node1 = WakuNode.new(nodeKey1, bindIp, Port(62100))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey2 = generateSecp256k1Key()
       node2 = WakuNode.new(nodeKey2, bindIp, Port(62102))
-      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey3 = generateSecp256k1Key()
       node3 = WakuNode.new(nodeKey3, bindIp, Port(62103), some(extIp), some(port))
       pubSubTopic = "polling"
       contentTopic = DefaultContentTopic

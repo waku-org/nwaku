@@ -3,11 +3,11 @@
 
 import
   std/[options, os, sequtils, times],
-  stew/byteutils, 
+  stew/byteutils,
   stew/shims/net as stewNet,
-  testutils/unittests, 
-  chronos, 
-  chronicles, 
+  testutils/unittests,
+  chronos,
+  chronicles,
   stint,
   libp2p/crypto/crypto
 import
@@ -15,16 +15,17 @@ import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_rln_relay,
   ../../waku/v2/protocol/waku_keystore,
-  ../test_helpers
+  ./testlib/waku2
 
 const RlnRelayPubsubTopic = "waku/2/rlnrelay/proto"
 const RlnRelayContentTopic = "waku/2/rlnrelay/proto"
 
-procSuite "Waku rln relay":
+
+suite "Waku rln relay":
 
   asyncTest "mount waku-rln-relay in the off-chain mode":
     let
-      nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey = generateSecp256k1Key()
       node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(60200))
     await node.start()
 
@@ -43,8 +44,8 @@ procSuite "Waku rln relay":
       groupIdCredentialsRes = groupCredentials.toIdentityCredentials()
     require:
       groupIdCredentialsRes.isOk()
-    
-    let 
+
+    let
       groupIdCredentials = groupIdCredentialsRes.get()
       # extract the id commitments
       groupIDCommitments = groupIdCredentials.mapIt(it.idCommitment)
@@ -199,7 +200,7 @@ suite "Waku rln relay":
     let idCredentialRes = membershipKeyGen(rln)
     require:
       idCredentialRes.isOk()
-    
+
     let idCredential = idCredentialRes.get()
     let pkBuffer = toBuffer(idCredential.idCommitment)
     let pkBufferPtr = unsafeAddr(pkBuffer)
@@ -277,7 +278,7 @@ suite "Waku rln relay":
     let idCredentialRes = membershipKeyGen(rln)
     require:
       idCredentialRes.isOk()
-    
+
     let idCredential = idCredentialRes.get()
     let pkBuffer = toBuffer(idCredential.idCommitment)
     let pkBufferPtr = unsafeAddr(pkBuffer)
@@ -324,7 +325,7 @@ suite "Waku rln relay":
     debug "The root after deletion", rootHex3
 
     # the root must change after the insertion
-    check: 
+    check:
       not(rootHex1 == rootHex2)
 
     ## The initial root of the tree (empty tree) must be identical to
@@ -407,7 +408,7 @@ suite "Waku rln relay":
     require:
       hashSuccess
     let outputArr = cast[ptr array[32, byte]](outputBuffer.`ptr`)[]
-  
+
     check:
       "1e32b3ab545c07c8b4a7ab1ca4f46bc31e4fdc29ac3b240ef1d54b4017a26e4c" ==
         outputArr.inHex()
@@ -458,7 +459,7 @@ suite "Waku rln relay":
     let groupIdCredentialsRes = groupKeys.toIdentityCredentials()
     require:
       groupIdCredentialsRes.isOk()
-    
+
     let groupIdCredentials = groupIdCredentialsRes.get()
     # extract the id commitments
     let groupIDCommitments = groupIdCredentials.mapIt(it.idCommitment)
@@ -529,7 +530,7 @@ suite "Waku rln relay":
 
     require:
       idCredentialRes.isOk()
-    
+
     let idCredential = idCredentialRes.get()
 
     var members = newSeq[IDCommitment]()
@@ -641,7 +642,7 @@ suite "Waku rln relay":
       verified.value() == false
 
   test "validate roots which are part of the acceptable window":
-    # Setup: 
+    # Setup:
     # This step consists of creating the rln instance and waku-rln-relay,
     # Inserting members, and creating a valid proof with the merkle root
     # create an RLN instance
@@ -653,14 +654,14 @@ suite "Waku rln relay":
     let rlnRelay = WakuRLNRelay(rlnInstance:rln)
 
     let
-      # peer's index in the Merkle Tree. 
+      # peer's index in the Merkle Tree.
       index = 5'u
       # create an identity credential
       idCredentialRes = membershipKeyGen(rlnRelay.rlnInstance)
 
     require:
       idCredentialRes.isOk()
-    
+
     let idCredential = idCredentialRes.get()
 
     let membershipCount: uint = AcceptableRootWindowSize + 5'u
@@ -678,13 +679,13 @@ suite "Waku rln relay":
         require:
           idCredentialRes.isOk()
         members.add(idCredentialRes.get())
-    
+
     # Batch inserts into the tree
     let insertedRes = rlnRelay.insertMembers(0, members.mapIt(it.idCommitment))
     require:
       insertedRes.isOk()
-    
-    # Given: 
+
+    # Given:
     # This step includes constructing a valid message with the latest merkle root
     # prepare the message
     let messageBytes = "Hello".toBytes()
@@ -708,7 +709,7 @@ suite "Waku rln relay":
     require:
       verified == true
 
-    # When: 
+    # When:
     # This test depends on the local merkle tree root being part of a
     # acceptable set of roots, which is denoted by AcceptableRootWindowSize
     # The following action is equivalent to a member being removed upon listening to the events emitted by the contract
@@ -724,7 +725,7 @@ suite "Waku rln relay":
         currentMerkleRoot.isOk()
         currentMerkleRoot.value() != validProof.merkleRoot
 
-    # Then: 
+    # Then:
     # we try to verify a root against this window,
     # which should return true
     let olderRootVerified = rlnRelay.validateRoot(validProof.merkleRoot)
@@ -733,13 +734,13 @@ suite "Waku rln relay":
       olderRootVerified == true
 
   test "invalidate roots which are not part of the acceptable window":
-    # Setup: 
+    # Setup:
     # This step consists of creating the rln instance and waku-rln-relay,
     # Inserting members, and creating a valid proof with the merkle root
-    
+
     require:
       AcceptableRootWindowSize < 10
-    
+
     # create an RLN instance
     let rlnInstance = createRLNInstance()
     require:
@@ -749,7 +750,7 @@ suite "Waku rln relay":
     let rlnRelay = WakuRLNRelay(rlnInstance:rln)
 
     let
-      # peer's index in the Merkle Tree. 
+      # peer's index in the Merkle Tree.
       index = 6'u
       # create an identity credential
       idCredentialRes = membershipKeyGen(rlnRelay.rlnInstance)
@@ -759,7 +760,7 @@ suite "Waku rln relay":
 
     let idCredential = idCredentialRes.get()
 
-    let membershipCount: uint = AcceptableRootWindowSize + 5'u 
+    let membershipCount: uint = AcceptableRootWindowSize + 5'u
 
     # Create a Merkle tree with random members
     for i in 0'u..membershipCount:
@@ -777,7 +778,7 @@ suite "Waku rln relay":
       require:
         memberIsAdded.isOk()
 
-    # Given: 
+    # Given:
     # This step includes constructing a valid message with the latest merkle root
     # prepare the message
     let messageBytes = "Hello".toBytes()
@@ -801,7 +802,7 @@ suite "Waku rln relay":
     require:
       verified == true
 
-    # When: 
+    # When:
     # This test depends on the local merkle tree root being part of a
     # acceptable set of roots, which is denoted by AcceptableRootWindowSize
     # The following action is equivalent to a member being removed upon listening to the events emitted by the contract
@@ -815,7 +816,7 @@ suite "Waku rln relay":
         currentMerkleRoot.isOk()
         currentMerkleRoot.value() != validProof.merkleRoot
 
-    # Then: 
+    # Then:
     # we try to verify a proof against this window,
     # which should return false
     let olderRootVerified = rlnRelay.validateRoot(validProof.merkleRoot)
@@ -873,16 +874,16 @@ suite "Waku rln relay":
 
     let
       wm1 = WakuMessage(proof: RateLimitProof(epoch: epoch,
-                                              nullifier: nullifier1, 
-                                              shareX: shareX1, 
+                                              nullifier: nullifier1,
+                                              shareX: shareX1,
                                               shareY: shareY1).encodeAndGetBuf())
       wm2 = WakuMessage(proof: RateLimitProof(epoch: epoch,
-                                              nullifier: nullifier2, 
-                                              shareX: shareX2, 
+                                              nullifier: nullifier2,
+                                              shareX: shareX2,
                                               shareY: shareY2).encodeAndGetBuf())
       wm3 = WakuMessage(proof: RateLimitProof(epoch: epoch,
-                                              nullifier: nullifier3, 
-                                              shareX: shareX3, 
+                                              nullifier: nullifier3,
+                                              shareX: shareX3,
                                               shareY: shareY3).encodeAndGetBuf())
 
     # check whether hasDuplicate correctly finds records with the same nullifiers but different secret shares
@@ -917,10 +918,10 @@ suite "Waku rln relay":
 
     # create a group of 100 membership keys
     let memListRes = createMembershipList(100)
-    
+
     require:
       memListRes.isOk()
-    let 
+    let
       (groupKeys, _) = memListRes.get()
       # convert the keys to IdentityCredential structs
       groupIdCredentialsRes = groupKeys.toIdentityCredentials()
@@ -1002,7 +1003,7 @@ suite "Waku rln relay":
       rlnInstance.isOk()
 
     let rln = rlnInstance.get()
-    
+
     # create an idendity credential
     let idCredentialRes = rln.membershipKeyGen()
     require:
@@ -1060,7 +1061,7 @@ suite "Waku rln relay":
                                 credentials = @[rlnMembershipCredentials],
                                 password = password,
                                 appInfo = RLNAppInfo).isOk()
-      
+
     let readCredentialsResult = getMembershipCredentials(path = filepath,
                                                          password = password,
                                                          filterMembershipContracts = @[rlnMembershipContract],
@@ -1071,7 +1072,7 @@ suite "Waku rln relay":
 
     # getMembershipCredentials returns all credentials in keystore as sequence matching the filter
     let allMatchingCredentials = readCredentialsResult.get()
-    # if any is found, we return the first credential, otherwise credentials is none 
+    # if any is found, we return the first credential, otherwise credentials is none
     var credentials = none(MembershipCredentials)
     if allMatchingCredentials.len() > 0:
       credentials = some(allMatchingCredentials[0])

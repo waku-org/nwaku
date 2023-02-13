@@ -10,13 +10,13 @@ import
 import
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/rest/[server, client, utils],
-  ../../waku/v2/node/rest/debug/debug_api
+  ../../waku/v2/node/rest/debug/debug_api,
+  ./testlib/waku2
 
 
-proc testWakuNode(): WakuNode = 
-  let 
-    rng = crypto.newRng()
-    privkey = crypto.PrivateKey.random(Secp256k1, rng[]).tryGet()
+proc testWakuNode(): WakuNode =
+  let
+    privkey = generateSecp256k1Key()
     bindIp = ValidIpAddress.init("0.0.0.0")
     extIp = ValidIpAddress.init("127.0.0.1")
     port = Port(9000)
@@ -25,7 +25,7 @@ proc testWakuNode(): WakuNode =
 
 
 suite "REST API - Debug":
-  asyncTest "Get node info - GET /debug/v1/info": 
+  asyncTest "Get node info - GET /debug/v1/info":
     # Given
     let node = testWakuNode()
     await node.start()

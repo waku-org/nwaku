@@ -18,7 +18,8 @@ import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_rln_relay,
   ../../waku/v2/protocol/waku_keystore,
-  ../../waku/v2/utils/peers
+  ../../waku/v2/utils/peers,
+  ./testlib/waku2
 
 from std/times import epochTime
 
@@ -27,19 +28,17 @@ from std/times import epochTime
 const RlnRelayPubsubTopic = "waku/2/rlnrelay/proto"
 
 procSuite "WakuNode - RLN relay":
-  let rng = keys.newRng()
-
   asyncTest "testing rln-relay with valid proof":
 
     let
       # publisher node
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey1 = generateSecp256k1Key()
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60300))
       # Relay node
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey2 = generateSecp256k1Key()
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60302))
       # Subscriber
-      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey3 = generateSecp256k1Key()
       node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60303))
 
       rlnRelayPubSubTopic = RlnRelayPubsubTopic
@@ -117,16 +116,17 @@ procSuite "WakuNode - RLN relay":
     await node1.stop()
     await node2.stop()
     await node3.stop()
+
   asyncTest "testing rln-relay with invalid proof":
     let
       # publisher node
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey1 = generateSecp256k1Key()
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60310))
       # Relay node
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey2 = generateSecp256k1Key()
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60312))
       # Subscriber
-      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey3 = generateSecp256k1Key()
       node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60313))
 
       rlnRelayPubSubTopic = RlnRelayPubsubTopic
@@ -229,13 +229,13 @@ procSuite "WakuNode - RLN relay":
 
     let
       # publisher node
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey1 = generateSecp256k1Key()
       node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60320))
       # Relay node
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey2 = generateSecp256k1Key()
       node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60322))
       # Subscriber
-      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey3 = generateSecp256k1Key()
       node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60323))
 
       rlnRelayPubSubTopic = RlnRelayPubsubTopic

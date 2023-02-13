@@ -7,13 +7,14 @@ import
 import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/node/message_cache,
-  ./testlib/common
+  ./testlib/common,
+  ./testlib/waku2
 
 
 type TestMessageCache = MessageCache[(PubsubTopic, ContentTopic)]
 
 suite "MessageCache":
-  test "subscribe to topic": 
+  test "subscribe to topic":
     ## Given
     let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
     let cache = TestMessageCache.init()
@@ -26,7 +27,7 @@ suite "MessageCache":
       cache.isSubscribed(testTopic)
 
 
-  test "unsubscribe from topic": 
+  test "unsubscribe from topic":
     ## Given
     let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
     let cache = TestMessageCache.init()
@@ -40,13 +41,13 @@ suite "MessageCache":
     ## Then
     check:
       not cache.isSubscribed(testTopic)
-  
+
 
   test "get messages of a subscribed topic":
     ## Given
     let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
     let testMessage = fakeWakuMessage()
-    let cache = TestMessageCache.init() 
+    let cache = TestMessageCache.init()
 
     # Init cache content
     cache.subscribe(testTopic)
@@ -65,7 +66,7 @@ suite "MessageCache":
     ## Given
     let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
     let testMessage = fakeWakuMessage()
-    let cache = TestMessageCache.init() 
+    let cache = TestMessageCache.init()
 
     # Init cache content
     cache.subscribe(testTopic)
@@ -81,7 +82,7 @@ suite "MessageCache":
     check:
       res.isOk()
       res.get().len == 0
-    
+
 
   test "get messages of a non-subscribed topic":
     ## Given
@@ -105,7 +106,7 @@ suite "MessageCache":
 
     cache.subscribe(testTopic)
 
-    ## When 
+    ## When
     cache.addMessage(testTopic, testMessage)
 
     ## Then
@@ -120,7 +121,7 @@ suite "MessageCache":
     let testMessage = fakeWakuMessage()
     let cache = TestMessageCache.init()
 
-    ## When 
+    ## When
     cache.addMessage(testTopic, testMessage)
 
     ## Then
@@ -129,7 +130,7 @@ suite "MessageCache":
      res.isErr()
      res.error() == "Not subscribed to topic"
 
-  
+
   test "add messages beyond the capacity":
     ## Given
     let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
@@ -142,11 +143,11 @@ suite "MessageCache":
     let cache = TestMessageCache.init(capacity = 2)
     cache.subscribe(testTopic)
 
-    ## When 
+    ## When
     for msg in testMessages:
       cache.addMessage(testTopic, msg)
 
     ## Then
-    let messages = cache.getMessages(testTopic).tryGet() 
+    let messages = cache.getMessages(testTopic).tryGet()
     check:
       messages == testMessages[1..2]

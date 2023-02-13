@@ -27,7 +27,6 @@ proc newTestArchiveDriver(): ArchiveDriver =
 proc newTestWakuStore(switch: Switch, store=newTestMessageStore()): Future[WakuStore] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    rng = crypto.newRng()
     proto = WakuStore.init(peerManager, rng, store)
 
   await proto.start()
@@ -38,7 +37,6 @@ proc newTestWakuStore(switch: Switch, store=newTestMessageStore()): Future[WakuS
 proc newTestWakuStoreClient(switch: Switch, store: MessageStore = nil): WakuStoreClient =
   let
     peerManager = PeerManager.new(switch)
-    rng = crypto.newRng()
   WakuStoreClient.new(peerManager, rng, store)
 
 
@@ -215,9 +213,9 @@ suite "WakuNode - waku store":
   asyncTest "Resume proc fetches the history":
     ## Setup
     let
-      serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      serverKey = generateSecp256k1Key()
       server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60412))
-      clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      clientKey = generateSecp256k1Key()
       client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60410))
 
     await allFutures(client.start(), server.start())
@@ -249,9 +247,9 @@ suite "WakuNode - waku store":
   asyncTest "Resume proc discards duplicate messages":
     ## Setup
     let
-      serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      serverKey = generateSecp256k1Key()
       server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60422))
-      clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      clientKey = generateSecp256k1Key()
       client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60420))
 
     await allFutures(server.start(), client.start())

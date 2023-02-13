@@ -10,12 +10,12 @@ import
   stew/byteutils
 import
   ../../waku/v2/node/wakuswitch,
-  ../test_helpers,
-  ./testlib/switch
+  ./testlib/common,
+  ./testlib/waku2
 
 proc newCircuitRelayClientSwitch(relayClient: RelayClient): Switch =
   SwitchBuilder.new()
-    .withRng(newRng())
+    .withRng(rng())
     .withAddresses(@[MultiAddress.init("/ip4/0.0.0.0/tcp/0").tryGet()])
     .withTcpTransport()
     .withMplex()
@@ -23,7 +23,7 @@ proc newCircuitRelayClientSwitch(relayClient: RelayClient): Switch =
     .withCircuitRelay(relayClient)
     .build()
 
-procSuite "Waku Switch":
+suite "Waku Switch":
 
   asyncTest "Waku Switch works with AutoNat":
     ## Given

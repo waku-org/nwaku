@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options,sequtils, times],
+  std/[sequtils, times],
   chronos,
   libp2p/crypto/crypto,
   libp2p/peerid,
@@ -12,7 +12,7 @@ import
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/peer_manager/waku_peer_store,
   ../../waku/v2/node/waku_node,
-  ../test_helpers
+  ./testlib/waku2
 
 
 suite "Extended nim-libp2p Peer Store":
@@ -39,7 +39,7 @@ suite "Extended nim-libp2p Peer Store":
     # Peer1: Connected
     peerStore[AddressBook][p1] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()]
     peerStore[ProtoBook][p1] = @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"]
-    peerStore[KeyBook][p1] = KeyPair.random(ECDSA, rng[]).tryGet().pubkey
+    peerStore[KeyBook][p1] = generateEcdsaKeyPair().pubkey
     peerStore[AgentBook][p1] = "nwaku"
     peerStore[ProtoVersionBook][p1] = "protoVersion1"
     peerStore[ConnectionBook][p1] = Connected
@@ -52,7 +52,7 @@ suite "Extended nim-libp2p Peer Store":
     # Peer2: Connected
     peerStore[AddressBook][p2] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/2").tryGet()]
     peerStore[ProtoBook][p2] = @["/vac/waku/relay/2.0.0", "/vac/waku/store/2.0.0"]
-    peerStore[KeyBook][p2] = KeyPair.random(ECDSA, rng[]).tryGet().pubkey
+    peerStore[KeyBook][p2] = generateEcdsaKeyPair().pubkey
     peerStore[AgentBook][p2] = "nwaku"
     peerStore[ProtoVersionBook][p2] = "protoVersion2"
     peerStore[ConnectionBook][p2] = Connected
@@ -65,7 +65,7 @@ suite "Extended nim-libp2p Peer Store":
     # Peer3: Connected
     peerStore[AddressBook][p3] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/3").tryGet()]
     peerStore[ProtoBook][p3] = @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
-    peerStore[KeyBook][p3] = KeyPair.random(ECDSA, rng[]).tryGet().pubkey
+    peerStore[KeyBook][p3] = generateEcdsaKeyPair().pubkey
     peerStore[AgentBook][p3] = "gowaku"
     peerStore[ProtoVersionBook][p3] = "protoVersion3"
     peerStore[ConnectionBook][p3] = Connected
@@ -78,7 +78,7 @@ suite "Extended nim-libp2p Peer Store":
     # Peer4: Added but never connected
     peerStore[AddressBook][p4] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/4").tryGet()]
     # unknown: peerStore[ProtoBook][p4]
-    peerStore[KeyBook][p4] = KeyPair.random(ECDSA, rng[]).tryGet().pubkey
+    peerStore[KeyBook][p4] = generateEcdsaKeyPair().pubkey
     # unknown: peerStore[AgentBook][p4]
     # unknown: peerStore[ProtoVersionBook][p4]
     peerStore[ConnectionBook][p4] = NotConnected
@@ -91,7 +91,7 @@ suite "Extended nim-libp2p Peer Store":
     # Peer5: Connecteed in the past
     peerStore[AddressBook][p5] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/5").tryGet()]
     peerStore[ProtoBook][p5] = @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"]
-    peerStore[KeyBook][p5] = KeyPair.random(ECDSA, rng[]).tryGet().pubkey
+    peerStore[KeyBook][p5] = generateEcdsaKeyPair().pubkey
     peerStore[AgentBook][p5] = "gowaku"
     peerStore[ProtoVersionBook][p5] = "protoVersion5"
     peerStore[ConnectionBook][p5] = CanConnect
@@ -295,7 +295,7 @@ suite "Extended nim-libp2p Peer Store":
     require p1.init("QmeuZJbXrszW2jdT7GdduSjQskPU3S7vvGWKtKgDfkDvW" & "1")
     peerStore[AddressBook][p1] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()]
     peerStore[ProtoBook][p1] = @["proto"]
-    peerStore[KeyBook][p1] = KeyPair.random(ECDSA, rng[]).tryGet().pubkey
+    peerStore[KeyBook][p1] = generateEcdsaKeyPair().pubkey
     peerStore[AgentBook][p1] = "agent"
     peerStore[ProtoVersionBook][p1] = "version"
     peerStore[LastFailedConnBook][p1] = Moment.init(getTime().toUnix, Second)

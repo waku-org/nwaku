@@ -9,7 +9,9 @@ import
   ../../../waku/v2/protocol/waku_store/rpc,
   ../../../waku/v2/protocol/waku_store/rpc_codec,
   ../../../waku/v2/utils/time,
-  ../testlib/common
+  ../testlib/common,
+  ../testlib/waku2
+
 
 
 procSuite "Waku Store - RPC codec":

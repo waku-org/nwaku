@@ -5,10 +5,10 @@ import
 import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/utils/compat,
-  ../../waku/v2/utils/time
+  ../../waku/v2/utils/time,
+  ./testlib/common
 
-procSuite "Waku Payload":
-  let rng = newRng()
+suite "Waku Payload":
 
   test "Encode/Decode without encryption (version 0)":
     ## This would be the usual way when no encryption is done or when it is done
