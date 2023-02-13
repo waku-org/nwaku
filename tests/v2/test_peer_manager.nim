@@ -529,7 +529,7 @@ procSuite "Peer Manager":
     pm.peerStore[ConnectionBook][peers[10].peerId] = Connected
     pm.peerStore[ConnectionBook][peers[12].peerId] = Connected
 
-    # Prune the peerstore
+    # Prune the peerstore (current=15, target=5)
     pm.prunePeerStore()
 
     check:

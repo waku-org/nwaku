@@ -405,7 +405,9 @@ proc prunePeerStore*(pm: PeerManager) =
 
   # prune peers with too many failed attempts
   var pruned = 0
-  for peerId in pm.peerStore[NumberFailedConnBook].book.keys:
+  # copy to avoid modifying the book while iterating
+  let peerKeys = toSeq(pm.peerStore[NumberFailedConnBook].book.keys)
+  for peerId in peerKeys:
     if peersToPrune - pruned == 0:
       break
     if pm.peerStore[NumberFailedConnBook][peerId] >= pm.maxFailedAttempts:
