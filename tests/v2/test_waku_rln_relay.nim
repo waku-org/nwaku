@@ -26,7 +26,7 @@ suite "Waku rln relay":
   asyncTest "mount waku-rln-relay in the off-chain mode":
     let
       nodeKey = generateSecp256k1Key()
-      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(60200))
+      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
     await node.start()
 
     # preparing inputs to mount rln-relay

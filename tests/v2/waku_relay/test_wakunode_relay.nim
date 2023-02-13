@@ -33,7 +33,7 @@ suite "WakuNode - Relay":
   asyncTest "Relay protocol is started correctly":
     let
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60400))
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     # Relay protocol starts if mounted after node start
 
@@ -47,7 +47,7 @@ suite "WakuNode - Relay":
 
     let
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60402))
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     await node2.mountRelay()
 
@@ -66,11 +66,11 @@ suite "WakuNode - Relay":
   asyncTest "Messages are correctly relayed":
     let
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60410))
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60412))
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
       nodeKey3 = generateSecp256k1Key()
-      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60413))
+      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(0))
       pubSubTopic = "test"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
@@ -124,13 +124,13 @@ suite "WakuNode - Relay":
     let
       # publisher node
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(60420))
+      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
       # Relay node
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(60422))
+      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
       # Subscriber
       nodeKey3 = generateSecp256k1Key()
-      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(60423))
+      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(0))
 
       pubSubTopic = "test"
       contentTopic1 = ContentTopic("/waku/2/default-content/proto")
