@@ -8,7 +8,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables, sequtils, hashes],
+  std/[tables, sequtils],
   stew/results,
   chronos,
   chronicles,
@@ -80,11 +80,8 @@ method initPubSub(w: WakuRelay) {.raises: [InitializationError].} =
 proc new*(T: type WakuRelay, switch: Switch, triggerSelf: bool = true): WakuRelayResult[T] =
 
   proc msgIdProvider(msg: messages.Message): Result[MessageID, ValidationResult] =
-    let hash = MultiHash.digest("sha2-256", msg.data)
-    if hash.isErr():
-      ok(toBytes($hashes.hash(msg.data)))
-    else:
-      ok(hash.value.data.buffer)
+    let hash = sha256.digest(msg.data)
+    ok(toSeq(hash.data))
 
   var wr: WakuRelay
   try:
