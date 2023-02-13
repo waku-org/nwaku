@@ -67,9 +67,9 @@ procSuite "WakuNode - Store":
     ## Setup
     let
       serverKey = generateSecp256k1Key()
-      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60422))
+      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
       clientKey = generateSecp256k1Key()
-      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60420))
+      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     await allFutures(client.start(), server.start())
 
@@ -99,9 +99,9 @@ procSuite "WakuNode - Store":
     ## Setup
     let
       serverKey = generateSecp256k1Key()
-      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60432))
+      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
       clientKey = generateSecp256k1Key()
-      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60430))
+      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     await allFutures(client.start(), server.start())
 
@@ -148,9 +148,9 @@ procSuite "WakuNode - Store":
     ## Setup
     let
       serverKey = generateSecp256k1Key()
-      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60432))
+      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
       clientKey = generateSecp256k1Key()
-      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60430))
+      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     await allFutures(client.start(), server.start())
 
@@ -198,11 +198,11 @@ procSuite "WakuNode - Store":
     ## Setup
     let
       filterSourceKey = generateSecp256k1Key()
-      filterSource = WakuNode.new(filterSourceKey, ValidIpAddress.init("0.0.0.0"), Port(60404))
+      filterSource = WakuNode.new(filterSourceKey, ValidIpAddress.init("0.0.0.0"), Port(0))
       serverKey = generateSecp256k1Key()
-      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60402))
+      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
       clientKey = generateSecp256k1Key()
-      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60400))
+      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     await allFutures(client.start(), server.start(), filterSource.start())
 

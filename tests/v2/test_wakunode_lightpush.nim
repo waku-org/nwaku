@@ -22,11 +22,11 @@ procSuite "WakuNode - Lightpush":
     ## Setup
     let
       lightNodeKey = generateSecp256k1Key()
-      lightNode = WakuNode.new(lightNodeKey, ValidIpAddress.init("0.0.0.0"), Port(60010))
+      lightNode = WakuNode.new(lightNodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
       bridgeNodeKey = generateSecp256k1Key()
-      bridgeNode = WakuNode.new(bridgeNodeKey, ValidIpAddress.init("0.0.0.0"), Port(60012))
+      bridgeNode = WakuNode.new(bridgeNodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
       destNodeKey = generateSecp256k1Key()
-      destNode = WakuNode.new(destNodeKey, ValidIpAddress.init("0.0.0.0"), Port(60013))
+      destNode = WakuNode.new(destNodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     await allFutures(destNode.start(), bridgeNode.start(), lightNode.start())
 
