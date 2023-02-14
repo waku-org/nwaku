@@ -17,7 +17,7 @@ import
   ./testlib/waku2
 
 
-procSuite "WakuNode - Lightpush":
+suite "WakuNode - Lightpush":
   asyncTest "Lightpush message return success":
     ## Setup
     let

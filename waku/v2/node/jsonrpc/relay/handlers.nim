@@ -10,13 +10,13 @@ import
   eth/keys,
   nimcrypto/sysrand
 import
+  ../../../../waku/common/base64,
   ../../../../waku/v2/protocol/waku_message,
   ../../../../waku/v2/protocol/waku_relay,
   ../../../../waku/v2/node/waku_node,
   ../../../../waku/v2/node/message_cache,
   ../../../../waku/v2/utils/compat,
   ../../../../waku/v2/utils/time,
-  ../hexstrings,
   ./types
 
 
@@ -47,7 +47,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
     cache.subscribe(topic)
 
 
-  server.rpc("post_waku_v2_relay_v1_subscriptions") do (topics: seq[string]) -> bool:
+  server.rpc("post_waku_v2_relay_v1_subscriptions") do (topics: seq[PubsubTopic]) -> bool:
     ## Subscribes a node to a list of PubSub topics
     debug "post_waku_v2_relay_v1_subscriptions"
 
@@ -61,7 +61,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
 
     return true
 
-  server.rpc("delete_waku_v2_relay_v1_subscriptions") do (topics: seq[string]) -> bool:
+  server.rpc("delete_waku_v2_relay_v1_subscriptions") do (topics: seq[PubsubTopic]) -> bool:
     ## Unsubscribes a node from a list of PubSub topics
     debug "delete_waku_v2_relay_v1_subscriptions"
 
@@ -72,18 +72,22 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
 
     return true
 
-  server.rpc("post_waku_v2_relay_v1_message") do (topic: string, msg: WakuRelayMessage) -> bool:
+  server.rpc("post_waku_v2_relay_v1_message") do (topic: PubsubTopic, msg: WakuMessageRPC) -> bool:
     ## Publishes a WakuMessage to a PubSub topic
     debug "post_waku_v2_relay_v1_message"
 
-    let message = block:
-        WakuMessage(
-          payload: msg.payload,
-          # TODO: Fail if the message doesn't have a content topic
-          contentTopic: msg.contentTopic.get(DefaultContentTopic),
-          version: 0,
-          timestamp: msg.timestamp.get(Timestamp(0))
-        )
+    let payloadRes = base64.decode(msg.payload)
+    if payloadRes.isErr():
+      raise newException(ValueError, "invalid payload format: " & payloadRes.error)
+
+    let message = WakuMessage(
+        payload: payloadRes.value,
+        # TODO: Fail if the message doesn't have a content topic
+        contentTopic: msg.contentTopic.get(DefaultContentTopic),
+        version: msg.version.get(0'u32),
+        timestamp: msg.timestamp.get(Timestamp(0)),
+        ephemeral: msg.ephemeral.get(false)
+      )
 
     let publishFut = node.publish(topic, message)
 
@@ -92,7 +96,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
 
     return true
 
-  server.rpc("get_waku_v2_relay_v1_messages") do (topic: string) -> seq[WakuMessage]:
+  server.rpc("get_waku_v2_relay_v1_messages") do (topic: PubsubTopic) -> seq[WakuMessageRPC]:
     ## Returns all WakuMessages received on a PubSub topic since the
     ## last time this method was called
     debug "get_waku_v2_relay_v1_messages", topic=topic
@@ -104,37 +108,29 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
     if msgRes.isErr():
       raise newException(ValueError, "Not subscribed to topic: " & topic)
 
-    return msgRes.value
+    return msgRes.value.map(toWakuMessageRPC)
 
 
 ## Waku Relay Private JSON-RPC API (Whisper/Waku v1 compatibility)
 
-proc toWakuMessage(relayMessage: WakuRelayMessage, version: uint32, rng: ref HmacDrbgContext, symkey: Option[SymKey], pubKey: Option[keys.PublicKey]): WakuMessage =
-  let payload = Payload(payload: relayMessage.payload,
-                        dst: pubKey,
-                        symkey: symkey)
-
-  var t: Timestamp
-  if relayMessage.timestamp.isSome:
-    t = relayMessage.timestamp.get
+func keyInfo(symkey: Option[SymKey], privateKey: Option[PrivateKey]): KeyInfo =
+  if symkey.isSome():
+    KeyInfo(kind: Symmetric, symKey: symkey.get())
+  elif privateKey.isSome():
+    KeyInfo(kind: Asymmetric, privKey: privateKey.get())
   else:
-    # incoming WakuRelayMessages with no timestamp will get 0 timestamp
-    t = Timestamp(0)
+    KeyInfo(kind: KeyKind.None)
 
-  WakuMessage(payload: payload.encode(version, rng[]).get(),
-              contentTopic: relayMessage.contentTopic.get(DefaultContentTopic),
-              version: version,
-              timestamp: t)
-
-proc toWakuRelayMessage(message: WakuMessage, symkey: Option[SymKey], privateKey: Option[keys.PrivateKey]): WakuRelayMessage =
+proc toWakuMessageRPC(message: WakuMessage,
+                      symkey = none(SymKey),
+                      privateKey = none(PrivateKey)): WakuMessageRPC =
   let
-    keyInfo = if symkey.isSome(): KeyInfo(kind: Symmetric, symKey: symkey.get())
-              elif privateKey.isSome(): KeyInfo(kind: Asymmetric, privKey: privateKey.get())
-              else: KeyInfo(kind: KeyKind.None)
+    keyInfo = keyInfo(symkey, privateKey)
     decoded = decodePayload(message, keyInfo)
 
-  WakuRelayMessage(payload: decoded.get().payload,
+  WakuMessageRPC(payload: Base64String.encode(decoded.get().payload),
                    contentTopic: some(message.contentTopic),
+                   version: some(message.version),
                    timestamp: some(message.timestamp))
 
 
@@ -150,39 +146,57 @@ proc installRelayPrivateApiHandlers*(node: WakuNode, server: RpcServer, cache: M
 
     return key
 
-  server.rpc("post_waku_v2_private_v1_symmetric_message") do (topic: string, message: WakuRelayMessage, symkey: string) -> bool:
+  server.rpc("post_waku_v2_private_v1_symmetric_message") do (topic: string, msg: WakuMessageRPC, symkey: string) -> bool:
     ## Publishes and encrypts a message to be relayed on a PubSub topic
     debug "post_waku_v2_private_v1_symmetric_message"
 
-    let msg = message.toWakuMessage(version = 1,
-                                    rng = node.rng,
-                                    pubKey = none(keys.PublicKey),
-                                    symkey =  some(symkey.toSymKey()))
+    let payloadRes = base64.decode(msg.payload)
+    if payloadRes.isErr():
+      raise newException(ValueError, "invalid payload format: " & payloadRes.error)
 
-    if (await node.publish(topic, msg).withTimeout(futTimeout)):
-      # Successfully published message
-      return true
-    else:
-      # Failed to publish message to topic
-      raise newException(ValueError, "Failed to publish to topic " & topic)
+    let payloadV1 = Payload(
+        payload: payloadRes.value,
+        dst: none(keys.PublicKey),
+        symkey: some(symkey.toSymKey())
+      )
 
-  server.rpc("get_waku_v2_private_v1_symmetric_messages") do (topic: string, symkey: string) -> seq[WakuRelayMessage]:
+    let encryptedPayloadRes = payloadV1.encode(1, node.rng[])
+    if encryptedPayloadRes.isErr():
+      raise newException(ValueError, "payload encryption failed: " & $encryptedPayloadRes.error)
+
+    let message = WakuMessage(
+        payload: encryptedPayloadRes.value,
+        # TODO: Fail if the message doesn't have a content topic
+        contentTopic: msg.contentTopic.get(DefaultContentTopic),
+        version: 1,
+        timestamp: msg.timestamp.get(Timestamp(0)),
+        ephemeral: msg.ephemeral.get(false)
+      )
+
+    let publishFut = node.publish(topic, message)
+    if not await publishFut.withTimeout(futTimeout):
+      raise newException(ValueError, "publish to topic timed out")
+
+    # Successfully published message
+    return true
+
+  server.rpc("get_waku_v2_private_v1_symmetric_messages") do (topic: string, symkey: string) -> seq[WakuMessageRPC]:
     ## Returns all WakuMessages received on a PubSub topic since the
     ## last time this method was called. Decrypts the message payloads
     ## before returning.
     debug "get_waku_v2_private_v1_symmetric_messages", topic=topic
 
     if not cache.isSubscribed(topic):
-      raise newException(ValueError, "Not subscribed to topic: " & topic)
+      raise newException(ValueError, "not subscribed to topic: " & topic)
 
     let msgRes = cache.getMessages(topic, clear=true)
     if msgRes.isErr():
-      raise newException(ValueError, "Not subscribed to topic: " & topic)
+      raise newException(ValueError, "not subscribed to topic: " & topic)
 
     let msgs = msgRes.get()
 
-    return msgs.mapIt(it.toWakuRelayMessage(symkey=some(symkey.toSymKey()),
-                                            privateKey=none(keys.PrivateKey)))
+    let key = some(symkey.toSymKey())
+    return msgs.mapIt(it.toWakuMessageRPC(symkey=key))
 
   server.rpc("get_waku_v2_private_v1_asymmetric_keypair") do () -> WakuKeyPair:
     ## Generates and returns a public/private key pair for asymmetric message encryption and decryption.
@@ -192,34 +206,54 @@ proc installRelayPrivateApiHandlers*(node: WakuNode, server: RpcServer, cache: M
 
     return WakuKeyPair(seckey: privKey, pubkey: privKey.toPublicKey())
 
-  server.rpc("post_waku_v2_private_v1_asymmetric_message") do (topic: string, message: WakuRelayMessage, publicKey: string) -> bool:
+  server.rpc("post_waku_v2_private_v1_asymmetric_message") do (topic: string, msg: WakuMessageRPC, publicKey: string) -> bool:
     ## Publishes and encrypts a message to be relayed on a PubSub topic
     debug "post_waku_v2_private_v1_asymmetric_message"
 
-    let msg = message.toWakuMessage(version = 1,
-                                    rng = node.rng,
-                                    symkey = none(SymKey),
-                                    pubKey = some(publicKey.toPublicKey()))
+    let payloadRes = base64.decode(msg.payload)
+    if payloadRes.isErr():
+      raise newException(ValueError, "invalid payload format: " & payloadRes.error)
 
-    let publishFut = node.publish(topic, msg)
+    let payloadV1 = Payload(
+        payload: payloadRes.value,
+        dst: some(publicKey.toPublicKey()),
+        symkey: none(SymKey)
+      )
+
+    let encryptedPayloadRes = payloadV1.encode(1, node.rng[])
+    if encryptedPayloadRes.isErr():
+      raise newException(ValueError, "payload encryption failed: " & $encryptedPayloadRes.error)
+
+    let message = WakuMessage(
+        payload: encryptedPayloadRes.value,
+        # TODO: Fail if the message doesn't have a content topic
+        contentTopic: msg.contentTopic.get(DefaultContentTopic),
+        version: 1,
+        timestamp: msg.timestamp.get(Timestamp(0)),
+        ephemeral: msg.ephemeral.get(false)
+      )
+
+    let publishFut = node.publish(topic, message)
     if not await publishFut.withTimeout(futTimeout):
-      raise newException(ValueError, "Failed to publish to topic " & topic)
+      raise newException(ValueError, "publish to topic timed out")
 
+    # Successfully published message
     return true
 
-  server.rpc("get_waku_v2_private_v1_asymmetric_messages") do (topic: string, privateKey: string) -> seq[WakuRelayMessage]:
+  server.rpc("get_waku_v2_private_v1_asymmetric_messages") do (topic: string, privateKey: string) -> seq[WakuMessageRPC]:
     ## Returns all WakuMessages received on a PubSub topic since the
     ## last time this method was called. Decrypts the message payloads
     ## before returning.
     debug "get_waku_v2_private_v1_asymmetric_messages", topic=topic
 
     if not cache.isSubscribed(topic):
-      raise newException(ValueError, "Not subscribed to topic: " & topic)
+      raise newException(ValueError, "not subscribed to topic: " & topic)
 
     let msgRes = cache.getMessages(topic, clear=true)
     if msgRes.isErr():
-      raise newException(ValueError, "Not subscribed to topic: " & topic)
+      raise newException(ValueError, "not subscribed to topic: " & topic)
 
     let msgs = msgRes.get()
-    return msgs.mapIt(it.toWakuRelayMessage(symkey=none(SymKey),
-                                            privateKey=some(privateKey.toPrivateKey())))
+
+    let key = some(privateKey.toPrivateKey())
+    return msgs.mapIt(it.toWakuMessageRPC(privateKey=key))
