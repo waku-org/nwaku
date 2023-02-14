@@ -1,22 +1,19 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
-
 import
-  json
-import
-  ../../../waku/v2/protocol/waku_message,
-  ./hexstrings
+  stew/byteutils,
+  json,
+  json_rpc/rpcserver
 
-export hexstrings
 
-## Json marshalling
+func invalidMsg*(name: string): string =
+  "When marshalling from JSON, parameter \"" & name & "\" is not valid"
 
-proc `%`*(value: WakuMessage): JsonNode =
-  ## This ensures that seq[byte] fields are marshalled to hex-format JStrings
-  ## (as defined in `hexstrings.nim`) rather than the default JArray[JInt]
-  let jObj = newJObject()
-  for k, v in value.fieldPairs:
-    jObj[k] = %v
-  return jObj
+
+## JSON marshalling
+
+# seq[byte]
+
+proc `%`*(value: seq[byte]): JsonNode =
+  if value.len > 0:
+    %("0x" & value.toHex())
+  else:
+    newJArray()

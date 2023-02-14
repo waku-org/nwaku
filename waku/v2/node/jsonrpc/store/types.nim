@@ -6,13 +6,15 @@ else:
 import
   std/options
 import
-  ../../../../waku/v2/protocol/waku_message,
-  ../../../../waku/v2/protocol/waku_store/rpc
+  ../../../../waku/v2/protocol/waku_store/rpc,
+  ../message
+
+export message
 
 
 type
   StoreResponse* = object
-    messages*: seq[WakuMessage]
+    messages*: seq[WakuMessageRPC]
     pagingOptions*: Option[StorePagingOptions]
 
   StorePagingOptions* = object
