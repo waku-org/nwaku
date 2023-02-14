@@ -1,3 +1,52 @@
+## 2023-02-15 v0.15.0
+
+Release highlights:
+- Relay connectivity is now maintained by a management loop that selects from the peerstore
+- Ability to manually specify `multiaddrs` for the nwaku node to advertise
+- Two important fixes related to historical message queries:
+  - fixed archive bug that resulted in duplicate messages in store query response
+  - fixed query page size limit not being respected
+
+### Features
+
+- New connectivity loop to maintain relay connectivity from peerstore [1482](https://github.com/waku-org/nwaku/pull/1482) [1462](https://github.com/waku-org/nwaku/pull/1462)
+- Support for manually specifying `multiaddrs` to advertise [1509](https://github.com/waku-org/nwaku/pull/1509) [1512](https://github.com/waku-org/nwaku/pull/1512)
+- Added dynamic keystore for membership credential storage and management [1466](https://github.com/waku-org/nwaku/pull/1466)
+
+### Changes
+
+- Abstracted RLN relay group management into its own API [1465](https://github.com/waku-org/nwaku/pull/1465)
+- Prune peers from peerstore when exceeding capacity [1513](https://github.com/waku-org/nwaku/pull/1513)
+- Removed Kilic submodule [1517](https://github.com/waku-org/nwaku/pull/1517)
+- Continued refactoring of several protocol implementations to improve maintainability and readability
+- Refactored and improved JSON RPC API
+- Added safe default values for peer-store-capacity [1525](https://github.com/waku-org/nwaku/pull/1525)
+- Improvements in regular CI test reliability and repeatability
+- Improved archive query performance [1510](https://github.com/waku-org/nwaku/pull/1510)
+- Added better e2e trace logging for relay messages [1526](https://github.com/waku-org/nwaku/pull/1526)
+- Relay RPC API now encodes message payloads in base64 [572](https://github.com/vacp2p/rfc/pull/572) [1555](https://github.com/waku-org/nwaku/pull/1555)
+
+### Fixes
+
+- Fixed Waku archive queries returning duplicate messages due to incorrect reordering [1511](https://github.com/waku-org/nwaku/pull/1511)
+- Fixed Admin RPC API crashing on returning peer with no multiaddresses [1507](https://github.com/waku-org/nwaku/pull/1507)
+- Fixed page size limit not being respected in store query responses [1520](https://github.com/waku-org/nwaku/pull/1520)
+- Fixed nwaku subscribing to default pubsub topic even if not configured [1548](https://github.com/waku-org/nwaku/pull/1548)
+- Fixed underlying issue causing node to incorrectly report it's unreachable [1518](https://github.com/waku-org/nwaku/pull/1518) [1546](https://github.com/waku-org/nwaku/pull/1546)
+- Fixed Relay RPC API not adhering to RFC [1139](https://github.com/waku-org/nwaku/issues/1139)
+- Fixed message IDs in nwaku diverging from those in go-waku [1556](https://github.com/waku-org/nwaku/pull/1556)
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
+
 ## 2023-01-16 v0.14.0
 
 Release highlights:
