@@ -53,7 +53,7 @@ proc addMessage*[K](t: MessageCache, topic: K, msg: WakuMessage) =
   var messages = t.table.getOrDefault(topic, @[])
 
   if messages.len >= t.capacity.int:
-    debug "Topic cache capacity reached", topic=topic
+    trace "Topic cache capacity reached", topic=topic
     # Message cache on this topic exceeds maximum. Delete oldest.
     # TODO: this may become a bottle neck if called as the norm rather than 
     #  exception when adding messages. Performance profile needed.
