@@ -87,8 +87,13 @@ proc respond(wpx: WakuPeerExchange, enrs: seq[enr.Record], conn: Connection): Fu
     )
   )
 
+  # TODO: Use switch.dial instead?
+  let respConn = await wpx.peerManager.dialPeer(conn.peerId, WakuPeerExchangeCodec)
+  if respConn.isNone():
+    return err("dial failed")
+
   try:
-    await conn.writeLP(rpc.encode().buffer)
+    await respConn.get.writeLP(rpc.encode().buffer)
   except CatchableError as exc:
     waku_px_errors.inc(labelValues = [exc.msg])
     return err(exc.msg)
