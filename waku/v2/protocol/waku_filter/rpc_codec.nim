@@ -24,15 +24,15 @@ proc encode*(filter: ContentFilter): ProtoBuffer =
 
   pb
 
-proc decode*(T: type ContentFilter, buffer: seq[byte]): ProtoResult[T] =
+proc decode*(T: type ContentFilter, buffer: seq[byte]): ProtobufResult[T] =
   let pb = initProtoBuffer(buffer)
   var rpc = ContentFilter()
 
-  var contentTopic: string
-  if not ?pb.getField(1, contentTopic):
-    return err(ProtoError.RequiredFieldMissing)
+  var topic: string
+  if not ?pb.getField(1, topic):
+    return err(ProtobufError.missingRequiredField("content_topic"))
   else:
-    rpc.contentTopic = contentTopic
+    rpc.contentTopic = topic
 
   ok(rpc)
 
@@ -50,25 +50,25 @@ proc encode*(rpc: FilterRequest): ProtoBuffer =
 
   pb
 
-proc decode*(T: type FilterRequest, buffer: seq[byte]): ProtoResult[T] =
+proc decode*(T: type FilterRequest, buffer: seq[byte]): ProtobufResult[T] =
   let pb = initProtoBuffer(buffer)
   var rpc = FilterRequest()
 
   var subflag: uint64
   if not ?pb.getField(1, subflag):
-    return err(ProtoError.RequiredFieldMissing)
+    return err(ProtobufError.missingRequiredField("subscribe"))
   else:
     rpc.subscribe = bool(subflag)
 
-  var pubsubTopic: string
-  if not ?pb.getField(2, pubsubTopic):
-    return err(ProtoError.RequiredFieldMissing)
+  var topic: string
+  if not ?pb.getField(2, topic):
+    return err(ProtobufError.missingRequiredField("topic"))
   else:
-    rpc.pubsubTopic = pubsubTopic
+    rpc.pubsubTopic = topic
 
   var buffs: seq[seq[byte]]
   if not ?pb.getRepeatedField(3, buffs):
-    return err(ProtoError.RequiredFieldMissing)
+    return err(ProtobufError.missingRequiredField("content_filters"))
   else:
     for buf in buffs:
       let filter = ?ContentFilter.decode(buf)
@@ -87,13 +87,13 @@ proc encode*(push: MessagePush): ProtoBuffer =
 
   pb
 
-proc decode*(T: type MessagePush, buffer: seq[byte]): ProtoResult[T] =
+proc decode*(T: type MessagePush, buffer: seq[byte]): ProtobufResult[T] =
   let pb = initProtoBuffer(buffer)
   var rpc = MessagePush()
 
   var messages: seq[seq[byte]]
   if not ?pb.getRepeatedField(1, messages):
-    return err(ProtoError.RequiredFieldMissing)
+    return err(ProtobufError.missingRequiredField("messages"))
   else:
     for buf in messages:
       let msg = ?WakuMessage.decode(buf)
@@ -112,13 +112,13 @@ proc encode*(rpc: FilterRPC): ProtoBuffer =
 
   pb
 
-proc decode*(T: type FilterRPC, buffer: seq[byte]): ProtoResult[T] =
-  let pb = initProtoBuffer(buffer) 
+proc decode*(T: type FilterRPC, buffer: seq[byte]): ProtobufResult[T] =
+  let pb = initProtoBuffer(buffer)
   var rpc = FilterRPC()
 
   var requestId: string
   if not ?pb.getField(1, requestId):
-    return err(ProtoError.RequiredFieldMissing)
+    return err(ProtobufError.missingRequiredField("request_id"))
   else:
     rpc.requestId = requestId
 
