@@ -3,9 +3,9 @@
 import
   std/tables,
   stew/[results, byteutils],
-  testutils/unittests,
-  libp2p/protobuf/minprotobuf
+  testutils/unittests
 import
+  ../../waku/common/protobuf,
   ../../waku/v2/utils/noise as waku_message_utils,
   ../../waku/v2/protocol/waku_noise/noise_types,
   ../../waku/v2/protocol/waku_noise/noise_utils,
@@ -82,7 +82,7 @@ procSuite "Waku Noise Sessions":
     var
       sentTransportMessage: seq[byte]
       aliceStep, bobStep: HandshakeStepResult
-      msgFromPb: ProtoResult[WakuMessage]
+      msgFromPb: ProtobufResult[WakuMessage]
       wakuMsg: Result[WakuMessage, cstring]
       pb: ProtoBuffer
       readPayloadV2: PayloadV2

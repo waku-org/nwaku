@@ -12,7 +12,8 @@ else:
 import
   ../../utils/time
 
-const MaxWakuMessageSize* = 1024 * 1024 # In bytes. Corresponds to PubSub default
+const
+  MaxWakuMessageSize* = 1024 * 1024 # 1 Mibytes. Corresponds to PubSub default
 
 
 type
