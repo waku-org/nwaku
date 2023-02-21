@@ -104,17 +104,6 @@ type
     announcedAddresses* : seq[MultiAddress]
     started*: bool # Indicates that node has started listening
 
-
-proc protocolMatcher*(codec: string): Matcher =
-  ## Returns a protocol matcher function for the provided codec
-  proc match(proto: string): bool {.gcsafe.} =
-    ## Matches a proto with any postfix to the provided codec.
-    ## E.g. if the codec is `/vac/waku/filter/2.0.0` it matches the protos:
-    ## `/vac/waku/filter/2.0.0`, `/vac/waku/filter/2.0.0-beta3`, `/vac/waku/filter/2.0.0-actualnonsense`
-    return proto.startsWith(codec)
-
-  return match
-
 template ip4TcpEndPoint(address, port): MultiAddress =
   MultiAddress.init(address, tcpProtocol, port)
 
@@ -516,7 +505,6 @@ proc startRelay*(node: WakuNode) {.async.} =
     let backoffPeriod = node.wakuRelay.parameters.pruneBackoff + chronos.seconds(BackoffSlackTime)
 
     await node.peerManager.reconnectPeers(WakuRelayCodec,
-                                          protocolMatcher(WakuRelayCodec),
                                           backoffPeriod)
 
   # Start the WakuRelay protocol
@@ -632,22 +620,6 @@ proc filterUnsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics:
   else:
     error "failed filter unsubscription", error=unsubRes.error
     waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
-
-
-# TODO: Move to application module (e.g., wakunode2.nim)
-proc setFilterPeer*(node: WakuNode, peer: RemotePeerInfo|string) {.raises: [Defect, ValueError, LPError],
-  deprecated: "Use the explicit destination peer procedures".} =
-  if node.wakuFilterClient.isNil():
-    error "could not set peer, waku filter client is nil"
-    return
-
-  info "seting filter client peer", peer=peer
-
-  let remotePeer = when peer is string: parseRemotePeerInfo(peer)
-                   else: peer
-  node.peerManager.addPeer(remotePeer, WakuFilterCodec)
-
-  waku_filter_peers.inc()
 
 # TODO: Move to application module (e.g., wakunode2.nim)
 proc subscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: ContentTopic|seq[ContentTopic], handler: FilterPushHandler) {.async, gcsafe,
@@ -808,21 +780,6 @@ proc query*(node: WakuNode, query: HistoryQuery, peer: RemotePeerInfo): Future[W
 
   return ok(response)
 
-
-# TODO: Move to application module (e.g., wakunode2.nim)
-proc setStorePeer*(node: WakuNode, peer: RemotePeerInfo|string) {.raises: [Defect, ValueError, LPError],
-  deprecated: "Use 'node.query()' with peer destination instead".} =
-  if node.wakuStoreClient.isNil():
-    error "could not set peer, waku store client is nil"
-    return
-
-  info "set store peer", peer=peer
-
-  let remotePeer = when peer is string: parseRemotePeerInfo(peer)
-                   else: peer
-  node.peerManager.addPeer(remotePeer, WakuStoreCodec)
-  waku_store_peers.inc()
-
 # TODO: Move to application module (e.g., wakunode2.nim)
 proc query*(node: WakuNode, query: HistoryQuery): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe,
   deprecated: "Use 'node.query()' with peer destination instead".} =
@@ -901,17 +858,6 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMe
 
   return await node.wakuLightpushClient.publish(pubsubTopic, message, peer)
 
-
-# TODO: Move to application module (e.g., wakunode2.nim)
-proc setLightPushPeer*(node: WakuNode, peer: RemotePeerInfo|string) {.raises: [Defect, ValueError, LPError],
-  deprecated: "Use 'node.lightpushPublish()' instead".} =
-  debug "seting lightpush client peer", peer=peer
-
-  let remotePeer = when peer is string: parseRemotePeerInfo(peer)
-                   else: peer
-  node.peerManager.addPeer(remotePeer, WakuLightPushCodec)
-  waku_lightpush_peers.inc()
-
 # TODO: Move to application module (e.g., wakunode2.nim)
 proc lightpushPublish*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMessage): Future[void] {.async, gcsafe,
   deprecated: "Use 'node.lightpushPublish()' instead".} =
@@ -977,7 +923,7 @@ proc fetchPeerExchangePeers*(node: Wakunode, amount: uint64) {.async, raises: [D
       var record: enr.Record
       if enr.fromBytes(record, pi.enr):
         # TODO: Add source: PX
-        node.peerManager.addPeer(record.toRemotePeerInfo().get, WakuRelayCodec)
+        node.peerManager.addPeer(record.toRemotePeerInfo().get)
         validPeers += 1
     info "Retrieved peer info via peer exchange protocol", validPeers = validPeers
   else:
@@ -1062,8 +1008,7 @@ proc runDiscv5Loop(node: WakuNode) {.async.} =
 
       # Add all peers, new ones and already seen (in case their addresses changed)
       for peer in discoveredPeers:
-        # TODO: proto: WakuRelayCodec will be removed from add peer
-        node.peerManager.addPeer(peer, WakuRelayCodec)
+        node.peerManager.addPeer(peer)
 
     # Discovery `queryRandom` can have a synchronous fast path for example
     # when no peers are in the routing table. Don't run it in continuous loop.

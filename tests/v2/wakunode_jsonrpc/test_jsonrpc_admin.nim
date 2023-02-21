@@ -167,8 +167,12 @@ procSuite "Waku v2 JSON-RPC API - Admin":
       filterPeer = PeerInfo.new(generateEcdsaKey(), @[locationAddr])
       storePeer = PeerInfo.new(generateEcdsaKey(), @[locationAddr])
 
-    node.setStorePeer(storePeer.toRemotePeerInfo())
-    node.setFilterPeer(filterPeer.toRemotePeerInfo())
+    node.peerManager.addServicePeer(filterPeer.toRemotePeerInfo(), WakuFilterCodec)
+    node.peerManager.addServicePeer(storePeer.toRemotePeerInfo(), WakuStoreCodec)
+
+    # Mock that we connected in the past so Identify populated this
+    node.peerManager.peerStore[ProtoBook][filterPeer.peerId] = @[WakuFilterCodec]
+    node.peerManager.peerStore[ProtoBook][storePeer.peerId] = @[WakuStoreCodec]
 
     let response = await client.get_waku_v2_admin_v1_peers()
 
