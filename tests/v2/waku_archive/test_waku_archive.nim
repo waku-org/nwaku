@@ -100,7 +100,7 @@ suite "Waku Archive - message handling":
     ## Given
     let
       now = now()
-      invalidSenderTime = now + MaxMessageTimestampVariance + 1
+      invalidSenderTime = now + MaxMessageTimestampVariance + 1_000_000_000 # 1 second over the max variance
 
     let message = fakeWakuMessage(ts=invalidSenderTime)
 

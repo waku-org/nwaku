@@ -8,19 +8,11 @@ import
   std/times,
   metrics
 
-type Timestamp* = int64
+type Timestamp* = int64 # A nanosecond precision timestamp
 
-proc getNanosecondTime*[T](timeInSeconds: T): Timestamp =
-  var ns = Timestamp(timeInSeconds.int64 * 1000_000_000.int64)
+proc getNanosecondTime*[T: SomeNumber](timeInSeconds: T): Timestamp =
+  var ns = Timestamp(timeInSeconds * 1_000_000_000.T)
   return ns
-
-proc getMicrosecondTime*[T](timeInSeconds: T): Timestamp =
-  var us = Timestamp(timeInSeconds.int64 * 1000_000.int64)
-  return us
-
-proc getMillisecondTime*[T](timeInSeconds: T): Timestamp =
-  var ms = Timestamp(timeInSeconds.int64 * 1000.int64)
-  return ms
 
 proc nowInUnixFloat(): float =
   return getTime().toUnixFloat()
