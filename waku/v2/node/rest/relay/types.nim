@@ -10,9 +10,9 @@ import
   json_serialization/std/options,
   presto/[route, client, common]
 import
+  ../../../../common/base64,
   ../../../protocol/waku_message,
-  ../serdes,
-  ../base64
+  ../serdes
 
 
 #### Types
@@ -37,7 +37,7 @@ type
 
 proc toRelayWakuMessage*(msg: WakuMessage): RelayWakuMessage =
   RelayWakuMessage(
-    payload: base64.encode(Base64String, msg.payload),
+    payload: base64.encode(msg.payload),
     contentTopic: some(msg.contentTopic),
     version: some(Natural(msg.version)),
     timestamp: some(msg.timestamp)
