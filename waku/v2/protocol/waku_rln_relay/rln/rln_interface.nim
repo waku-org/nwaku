@@ -151,11 +151,20 @@ proc new_circuit_from_data*(tree_height: uint, circom_buffer: ptr Buffer, zkey_b
 ## ctx holds the final created rln object
 ## the return bool value indicates the success or failure of the operation
 
-proc hash*(ctx: ptr RLN,
-           input_buffer: ptr Buffer,
-           output_buffer: ptr Buffer): bool {.importc: "hash".}
+#-------------------------------- Hashing utils -------------------------------------------
+
+proc sha256*(input_buffer: ptr Buffer,
+             output_buffer: ptr Buffer): bool {.importc: "hash".}
 ## it hashes (sha256) the plain text supplied in inputs_buffer and then maps it to a field element
 ## this proc is used to map arbitrary signals to field element for the sake of proof generation
+## inputs_buffer holds the hash input as a byte seq
+## the hash output is generated and populated inside output_buffer
+## the output_buffer contains 32 bytes hash output
+
+proc poseidon*(input_buffer: ptr Buffer,
+               output_buffer: ptr Buffer): bool {.importc: "poseidon_hash".}
+## it hashes (poseidon) the plain text supplied in inputs_buffer
+## this proc is used to compute the identity secret hash, and external nullifier
 ## inputs_buffer holds the hash input as a byte seq
 ## the hash output is generated and populated inside output_buffer
 ## the output_buffer contains 32 bytes hash output

@@ -403,8 +403,8 @@ suite "Waku rln relay":
     # prepare other inputs to the hash function
     let outputBuffer = default(Buffer)
 
-    let hashSuccess = hash(rlnInstance.get(), unsafeAddr hashInputBuffer,
-        unsafeAddr outputBuffer)
+    let hashSuccess = sha256(unsafeAddr hashInputBuffer,
+                             unsafeAddr outputBuffer)
     require:
       hashSuccess
     let outputArr = cast[ptr array[32, byte]](outputBuffer.`ptr`)[]
@@ -429,7 +429,7 @@ suite "Waku rln relay":
     # prepare the input
     let msg = "Hello".toBytes()
 
-    let hash = rln.hash(msg)
+    let hash = sha256(msg)
 
     check:
       "1e32b3ab545c07c8b4a7ab1ca4f46bc31e4fdc29ac3b240ef1d54b4017a26e4c" ==
