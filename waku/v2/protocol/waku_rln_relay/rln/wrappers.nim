@@ -78,21 +78,21 @@ proc createRLNInstance*(d: int = MerkleTreeDepth): RLNResult =
     res = createRLNInstanceLocal(d)
   return res
 
-proc hash*(rlnInstance: ptr RLN, data: openArray[byte]): MerkleNode =
-  ## a thin layer on top of the Nim wrapper of the Poseidon hasher
-  debug "hash input", hashhex = data.toHex()
+proc sha256*(data: openArray[byte]): MerkleNode =
+  ## a thin layer on top of the Nim wrapper of the sha256 hasher
+  debug "sha256 hash input", hashhex = data.toHex()
   var lenPrefData = appendLength(data)
   var
     hashInputBuffer = lenPrefData.toBuffer()
     outputBuffer: Buffer # will holds the hash output
 
-  debug "hash input buffer length", bufflen = hashInputBuffer.len
+  debug "sha256 hash input buffer length", bufflen = hashInputBuffer.len
   let
-    hashSuccess = hash(rlnInstance, addr hashInputBuffer, addr outputBuffer)
+    hashSuccess = sha256(addr hashInputBuffer, addr outputBuffer)
 
   # check whether the hash call is done successfully
   if not hashSuccess:
-    debug "error in hash"
+    debug "error in sha256 hash"
     return default(MerkleNode)
 
   let

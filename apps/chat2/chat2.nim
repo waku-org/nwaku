@@ -117,7 +117,7 @@ proc toString*(message: Chat2Message): string =
 
 # Similarly as Status public chats now.
 proc generateSymKey(contentTopic: ContentTopic): SymKey =
-  var ctx: HMAC[sha256]
+  var ctx: HMAC[pbkdf2.sha256]
   var symKey: SymKey
   if pbkdf2(ctx, contentTopic.toBytes(), "", 65356, symKey) != sizeof(SymKey):
     raise (ref Defect)(msg: "Should not occur as array is properly sized")
