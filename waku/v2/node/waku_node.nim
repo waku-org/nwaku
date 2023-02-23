@@ -401,6 +401,7 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
 
   proc traceHandler(topic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
     trace "waku.relay received",
+      peerId=node.switch.peerInfo.peerId,
       pubsubTopic=topic,
       hash=MultiHash.digest("sha2-256", data).expect("valid hash").data.buffer.to0xHex(), # TODO: this could be replaced by a message UID
       receivedTime=getNowInNanosecondTime()
@@ -489,6 +490,7 @@ proc publish*(node: WakuNode, topic: PubsubTopic, message: WakuMessage) {.async,
   discard await node.wakuRelay.publish(topic, message)
 
   trace "waku.relay published",
+    peerId=node.switch.peerInfo.peerId,
     pubsubTopic=topic,
     hash=MultiHash.digest("sha2-256", message.encode().buffer).expect("valid hash").data.buffer.to0xHex(), # TODO: this could be replaced by a message UID
     publishTime=getNowInNanosecondTime()
