@@ -6,8 +6,8 @@ import
   unittest2,
   json_serialization
 import
+  ../../waku/common/base64,
   ../../waku/v2/node/rest/serdes,
-  ../../waku/v2/node/rest/base64,
   ../../waku/v2/node/rest/relay/types,
   ../../waku/v2/protocol/waku_message
 
@@ -18,7 +18,7 @@ suite "Waku v2 Rest API - Relay - serialization":
   suite "RelayWakuMessage - decode":
     test "optional fields are not provided":
       # Given
-      let payload = Base64String.encode("MESSAGE")
+      let payload = base64.encode("MESSAGE")
       let jsonBytes = toBytes("{\"payload\":\"" & $payload & "\"}")
 
       # When
@@ -36,7 +36,7 @@ suite "Waku v2 Rest API - Relay - serialization":
   suite "RelayWakuMessage - encode":
     test "optional fields are none":
       # Given
-      let payload = Base64String.encode("MESSAGE")
+      let payload = base64.encode("MESSAGE")
       let data = RelayWakuMessage(
         payload: payload,
         contentTopic: none(ContentTopic),

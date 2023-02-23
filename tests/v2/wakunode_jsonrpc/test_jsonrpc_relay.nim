@@ -127,7 +127,7 @@ suite "Waku v2 JSON-RPC API - Relay":
 
     ## When
     let rpcMessage = WakuMessageRPC(
-      payload: Base64String.encode(message.payload),
+      payload: base64.encode(message.payload),
       contentTopic: some(message.contentTopic),
       timestamp: some(message.timestamp),
       version: some(message.version)
@@ -201,7 +201,7 @@ suite "Waku v2 JSON-RPC API - Relay":
     ## Then
     check:
       dstMessages.len == 4
-      dstMessages[2].payload == Base64String.encode(messages[2].payload)
+      dstMessages[2].payload == base64.encode(messages[2].payload)
       dstMessages[2].contentTopic.get() == messages[2].contentTopic
       dstMessages[2].timestamp.get() == messages[2].timestamp
       dstMessages[2].version.get() == messages[2].version
@@ -264,7 +264,7 @@ suite "Waku v2 JSON-RPC API - Relay (Private)":
     ## Given
     let
       payload = @[byte 38]
-      payloadBase64 = Base64String.encode(payload)
+      payloadBase64 = base64.encode(payload)
 
     let message = WakuMessageRPC(
         payload: payloadBase64,
@@ -353,7 +353,7 @@ suite "Waku v2 JSON-RPC API - Relay (Private)":
     ## Given
     let
       payload = @[byte 38]
-      payloadBase64 = Base64String.encode(payload)
+      payloadBase64 = base64.encode(payload)
 
     let message = WakuMessageRPC(
         payload: payloadBase64,

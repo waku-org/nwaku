@@ -21,7 +21,7 @@ type
 
 func toWakuMessageRPC*(msg: WakuMessage): WakuMessageRPC =
   WakuMessageRPC(
-    payload: Base64String.encode(msg.payload),
+    payload: base64.encode(msg.payload),
     contentTopic: some(msg.contentTopic),
     version: some(msg.version),
     timestamp: some(msg.timestamp),
