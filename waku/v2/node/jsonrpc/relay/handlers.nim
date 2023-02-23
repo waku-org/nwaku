@@ -128,7 +128,7 @@ proc toWakuMessageRPC(message: WakuMessage,
     keyInfo = keyInfo(symkey, privateKey)
     decoded = decodePayload(message, keyInfo)
 
-  WakuMessageRPC(payload: Base64String.encode(decoded.get().payload),
+  WakuMessageRPC(payload: base64.encode(decoded.get().payload),
                    contentTopic: some(message.contentTopic),
                    version: some(message.version),
                    timestamp: some(message.timestamp))

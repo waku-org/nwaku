@@ -8,10 +8,10 @@ import
   presto, presto/client as presto_client,
   libp2p/crypto/crypto
 import
+  ../../waku/common/base64,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/rest/server,
   ../../waku/v2/node/rest/client,
-  ../../waku/v2/node/rest/base64,
   ../../waku/v2/node/rest/responses,
   ../../waku/v2/node/rest/relay/types,
   ../../waku/v2/node/rest/relay/handlers as relay_api,
@@ -163,7 +163,7 @@ suite "Waku v2 Rest API - Relay":
       $response.contentType == $MIMETYPE_JSON
       response.data.len == 3
       response.data.all do (msg: RelayWakuMessage) -> bool:
-        msg.payload == Base64String.encode("TEST-1") and
+        msg.payload == base64.encode("TEST-1") and
         msg.contentTopic.get().string == "content-topic-x" and
         msg.version.get() == 2 and
         msg.timestamp.get() != Timestamp(0)
@@ -210,7 +210,7 @@ suite "Waku v2 Rest API - Relay":
     discard await client.relayPostSubscriptionsV1(newTopics)
 
     let response = await client.relayPostMessagesV1(DefaultPubsubTopic, RelayWakuMessage(
-      payload: Base64String.encode("TEST-PAYLOAD"),
+      payload: base64.encode("TEST-PAYLOAD"),
       contentTopic: some(DefaultContentTopic),
       timestamp: some(int64(2022))
     ))

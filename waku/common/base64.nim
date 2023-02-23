@@ -9,19 +9,30 @@ import stew/[results, byteutils, base64]
 type Base64String* = distinct string
 
 
-proc encode*(t: type Base64String, value: string|seq[byte]): Base64String =
-  let val = block:
-    when value is string:
-      toBytes(value)
-    else:
-      value
-  Base64String(base64.encode(Base64, val))
+proc encode*[T: byte|char](value: openArray[T]): Base64String =
+  Base64String(encode(Base64Pad, value))
+
+proc encode*(value: string): Base64String =
+  encode(toBytes(value))
+
+
+proc decode[T: byte|char](btype: typedesc[Base64Types],
+                          instr: openArray[T]): Result[seq[byte], string] =
+  ## Decode BASE64 string ``instr`` and return sequence of bytes as result.
+  if len(instr) == 0:
+    return ok(newSeq[byte]())
+
+  var bufferLen = decodedLength(btype, len(instr))
+  var buffer = newSeq[byte](bufferLen)
+
+  if decode(btype, instr, buffer, bufferLen) != Base64Status.Success:
+    return err("Incorrect base64 string")
+
+  buffer.setLen(bufferLen)
+  ok(buffer)
 
 proc decode*(t: Base64String): Result[seq[byte], string] =
-  try:
-    ok(base64.decode(Base64, string(t)))
-  except:
-    err("decoding failed: " & getCurrentExceptionMsg())
+  decode(Base64Pad, string(t))
 
 
 proc `$`*(t: Base64String): string {.inline.}=
