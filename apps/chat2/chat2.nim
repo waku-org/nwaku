@@ -24,6 +24,7 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                nameresolving/dnsresolver]# define DNS resolution
 import
   ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/protocol/waku_lightpush,
   ../../waku/v2/protocol/waku_lightpush/rpc,
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_store,
@@ -489,7 +490,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       echo "Connecting to storenode: " & $(storenode.get())
 
       node.mountStoreClient()
-      node.setStorePeer(storenode.get())
+      node.peerManager.addServicePeer(storenode.get(), WakuStoreCodec)
 
       proc storeHandler(response: HistoryResponse) {.gcsafe.} =
         for msg in response.messages:
@@ -509,13 +510,13 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     await mountLightPush(node)
 
     node.mountLightPushClient()
-    node.setLightPushPeer(conf.lightpushnode)
+    node.peerManager.addServicePeer(parseRemotePeerInfo(conf.lightpushnode), WakuLightpushCodec)
 
   if conf.filternode != "":
     await node.mountFilter()
     await node.mountFilterClient()
 
-    node.setFilterPeer(parseRemotePeerInfo(conf.filternode))
+    node.peerManager.addServicePeer(parseRemotePeerInfo(conf.filternode), WakuFilterCodec)
 
     proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.gcsafe.} =
       trace "Hit filter handler", contentTopic=msg.contentTopic

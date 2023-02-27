@@ -238,7 +238,7 @@ proc init*(wakuSwap: WakuSwap) =
 
   proc credit(peerId: PeerID, n: int)
     {.gcsafe, closure, raises: [Defect, KeyError, Exception].} =
-  
+
     info "Crediting peer: ", peer=peerId, amount=n
     if wakuSwap.accounting.hasKey(peerId):
       wakuSwap.accounting[peerId] -= n
@@ -250,7 +250,7 @@ proc init*(wakuSwap: WakuSwap) =
   # TODO Debit and credit here for Karma asset
   proc debit(peerId: PeerID, n: int)
     {.gcsafe, closure, raises: [Defect, KeyError, Exception].} =
-  
+
     info "Debiting peer: ", peer=peerId, amount=n
     if wakuSwap.accounting.hasKey(peerId):
       wakuSwap.accounting[peerId] += n
@@ -258,10 +258,10 @@ proc init*(wakuSwap: WakuSwap) =
       wakuSwap.accounting[peerId] = n
     info "Accounting state", accounting = wakuSwap.accounting[peerId]
     wakuSwap.applyPolicy(peerId)
-    
+
   proc applyPolicy(peerId: PeerID)
     {.gcsafe, closure, raises: [Defect, KeyError, Exception].} =
-    
+
     # TODO Separate out depending on if policy is soft (accounting only) mock (send cheque but don't cash/verify) hard (actually send funds over testnet)
 
     #Check if the Disconnect Threshold has been hit. Account Balance nears the disconnectThreshold after a Credit has been done
@@ -290,10 +290,10 @@ proc init*(wakuSwap: WakuSwap) =
 # TODO Expression return?
 proc init*(T: type WakuSwap, peerManager: PeerManager, rng: ref rand.HmacDrbgContext, swapConfig: SwapConfig): T =
   info "wakuSwap init 2"
-  let 
+  let
     accounting = initTable[PeerId, int]()
     text = "test"
-  
+
   var ws = WakuSwap(rng: rng,
                   peerManager: peerManager,
                   accounting: accounting,
@@ -302,9 +302,5 @@ proc init*(T: type WakuSwap, peerManager: PeerManager, rng: ref rand.HmacDrbgCon
   ws.init()
 
   return ws
-
-proc setPeer*(ws: WakuSwap, peer: RemotePeerInfo) =
-  ws.peerManager.addPeer(peer, WakuSwapCodec)
-  waku_swap_peers_count.inc()
 
 # TODO End to end communication

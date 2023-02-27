@@ -96,10 +96,9 @@ procSuite "Peer Manager":
     await node.mountSwap()
     node.mountStoreClient()
 
-    node.wakuSwap.setPeer(swapPeer.toRemotePeerInfo())
-
-    node.setStorePeer(storePeer.toRemotePeerInfo())
-    node.setFilterPeer(filterPeer.toRemotePeerInfo())
+    node.peerManager.addServicePeer(swapPeer.toRemotePeerInfo(), WakuSwapCodec)
+    node.peerManager.addServicePeer(storePeer.toRemotePeerInfo(), WakuStoreCodec)
+    node.peerManager.addServicePeer(filterPeer.toRemotePeerInfo(), WakuFilterCodec)
 
     # Check peers were successfully added to peer manager
     check:
@@ -127,7 +126,7 @@ procSuite "Peer Manager":
     await allFutures(nodes.mapIt(it.mountRelay()))
 
     # Test default connectedness for new peers
-    nodes[0].peerManager.addPeer(nodes[1].peerInfo.toRemotePeerInfo(), WakuRelayCodec)
+    nodes[0].peerManager.addPeer(nodes[1].peerInfo.toRemotePeerInfo())
     check:
       # No information about node2's connectedness
       nodes[0].peerManager.peerStore.connectedness(nodes[1].peerInfo.peerId) == NotConnected
@@ -160,7 +159,7 @@ procSuite "Peer Manager":
 
     await nodes[0].start()
     await nodes[0].mountRelay()
-    nodes[0].peerManager.addPeer(nodes[1].peerInfo.toRemotePeerInfo(), WakuRelayCodec)
+    nodes[0].peerManager.addPeer(nodes[1].peerInfo.toRemotePeerInfo())
 
     # Set a low backoff to speed up test: 2, 4, 8, 16
     nodes[0].peerManager.initialBackoffInSec = 2
@@ -236,7 +235,8 @@ procSuite "Peer Manager":
       node3.peerManager.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
       node3.peerManager.peerStore.connectedness(peerInfo2.peerId) == NotConnected
 
-    await node3.mountRelay()  # This should trigger a reconnect
+    await node3.mountRelay()
+    await node3.peerManager.connectToRelayPeers()
 
     check:
       # Reconnected to node2 after "restart"
@@ -313,12 +313,12 @@ procSuite "Peer Manager":
     let peerInfos = nodes.mapIt(it.switch.peerInfo.toRemotePeerInfo())
 
     # Add all peers (but self) to node 0
-    nodes[0].peerManager.addPeer(peerInfos[1], WakuRelayCodec)
-    nodes[0].peerManager.addPeer(peerInfos[2], WakuRelayCodec)
-    nodes[0].peerManager.addPeer(peerInfos[3], WakuRelayCodec)
+    nodes[0].peerManager.addPeer(peerInfos[1])
+    nodes[0].peerManager.addPeer(peerInfos[2])
+    nodes[0].peerManager.addPeer(peerInfos[3])
 
-    # Attempt to connect to all known peers supporting a given protocol
-    await nodes[0].peerManager.reconnectPeers(WakuRelayCodec, protocolMatcher(WakuRelayCodec))
+    # Connect to relay peers
+    await nodes[0].peerManager.connectToRelayPeers()
 
     check:
       # Peerstore track all three peers
@@ -512,7 +512,7 @@ procSuite "Peer Manager":
 
     # Create 15 peers and add them to the peerstore
     let peers = toSeq(1..15).mapIt(parseRemotePeerInfo("/ip4/0.0.0.0/tcp/0/p2p/" & $PeerId.random().get()))
-    for p in peers: pm.addPeer(p, "")
+    for p in peers: pm.addPeer(p)
 
     # Check that we have 15 peers in the peerstore
     check:
