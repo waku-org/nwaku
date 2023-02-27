@@ -373,6 +373,9 @@ proc new*(T: type WakuNode,
 proc peerInfo*(node: WakuNode): PeerInfo =
   node.switch.peerInfo
 
+proc peerId*(node: WakuNode): PeerId =
+  node.peerInfo.peerId
+
 # TODO: Extend with more relevant info: topics, peers, memory usage, online time, etc
 proc info*(node: WakuNode): WakuInfo =
   ## Returns information about the Node, such as what multiaddress it can be reached at.
@@ -401,6 +404,7 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
 
   proc traceHandler(topic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
     trace "waku.relay received",
+      peerId=node.peerId,
       pubsubTopic=topic,
       hash=MultiHash.digest("sha2-256", data).expect("valid hash").data.buffer.to0xHex(), # TODO: this could be replaced by a message UID
       receivedTime=getNowInNanosecondTime()
@@ -489,6 +493,7 @@ proc publish*(node: WakuNode, topic: PubsubTopic, message: WakuMessage) {.async,
   discard await node.wakuRelay.publish(topic, message)
 
   trace "waku.relay published",
+    peerId=node.peerId,
     pubsubTopic=topic,
     hash=MultiHash.digest("sha2-256", message.encode().buffer).expect("valid hash").data.buffer.to0xHex(), # TODO: this could be replaced by a message UID
     publishTime=getNowInNanosecondTime()
