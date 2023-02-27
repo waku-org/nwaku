@@ -22,9 +22,9 @@ declareCounter waku_peers_dials, "Number of peer dials", ["outcome"]
 # TODO: Populate from PeerStore.Source when ready
 declarePublicCounter waku_node_conns_initiated, "Number of connections initiated", ["source"]
 declarePublicGauge waku_peers_errors, "Number of peer manager errors", ["type"]
-declarePublicGauge waku_connected_peers, "Number of connected peers per direction: inbound|outbound", ["direction"]
+declarePublicGauge waku_connected_peers, "Number of connected peers per direction", ["direction"]
 declarePublicGauge waku_peer_store_size, "Number of peers managed by the peer store"
-declarePublicGauge waku_service_peers, "Configured waku service peers protocol/peerId", labels = ["protocol", "peerId"]
+declarePublicGauge waku_service_peers, "Service peer protocol and multiaddress ", labels = ["protocol", "peerId"]
 
 logScope:
   topics = "waku node peer_manager"
