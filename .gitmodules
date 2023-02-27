@@ -148,7 +148,7 @@
 	path = vendor/zerokit
 	url = https://github.com/vacp2p/zerokit.git
 	ignore = dirty
-	branch = master
+	branch = staticlib
 [submodule "vendor/nim-regex"]
 	path = vendor/nim-regex
 	url = https://github.com/nitely/nim-regex.git

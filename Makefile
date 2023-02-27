@@ -120,7 +120,7 @@ $(LIBRLN_BUILDDIR)/$(LIBRLN_FILE):
 ifneq ($(RLN), true)
 librln: ; # noop
 else
-EXPERIMENTAL_PARAMS += -d:rln --dynlibOverride:rln --passL:$(LIBRLN_BUILDDIR)/$(LIBRLN_FILE) --passL:-lm
+EXPERIMENTAL_PARAMS += -d:rln --passL:$(LIBRLN_BUILDDIR)/$(LIBRLN_FILE) --passL:-lm
 librln: $(LIBRLN_BUILDDIR)/$(LIBRLN_FILE)
 endif
 
