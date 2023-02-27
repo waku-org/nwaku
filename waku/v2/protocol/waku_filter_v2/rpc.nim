@@ -33,4 +33,3 @@ type
     # Message pushed from service node to client
     wakuMessage*: WakuMessage
     pubsubTopic*: Option[string]
-

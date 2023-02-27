@@ -6,13 +6,21 @@ else:
   {.push raises: [].}
 
 import
-  std/[sets,tables],
-  libp2p/peerid
+  std/[options,sequtils,sets,tables],
+  chronicles,
+  chronos,
+  libp2p/peerid,
+  libp2p/protocols/protocol
 import
   ../../node/peer_manager,
   ../waku_message,
   ./common,
-  ./codec
+  ./protocol_metrics,
+  ./rpc_codec,
+  ./rpc
+
+logScope:
+  topics = "waku filter"
 
 const
   MaxSubscriptions* = 1000 # TODO make configurable
@@ -22,104 +30,121 @@ type
   FilterCriterion* = (PubsubTopic, ContentTopic) # a single filter criterion is fully defined by a pubsub topic and content topic
   FilterCriteria* = HashSet[FilterCriterion] # a sequence of filter criteria
 
-  WakuFilter* = object
+  WakuFilter* = ref object of LPProtocol
     subscriptions*: Table[PeerID, FilterCriteria] # a mapping of peer ids to a sequence of filter criteria
     peerManager: PeerManager
 
 proc pingSubscriber(wf: WakuFilter, peerId: PeerID): FilterSubscribeResult =
+  trace "pinging subscriber", peerId=peerId
+
   if peerId notin wf.subscriptions:
+    debug "pinging peer has no subscriptions", peerId=peerId
     return err(FilterSubscribeError(
       kind: FilterSubscribeErrorKind.NOT_FOUND,
-      cause: "NOT_FOUND: peer has no subscriptions"
+      cause: "peer has no subscriptions"
     ))
 
   ok()
 
 proc subscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic], contentTopics: seq[ContentTopic]): FilterSubscribeResult =
-  if pubsubTopic.isNone() or contentTopics.isEmpty():
+  if pubsubTopic.isNone() or contentTopics.len() == 0:
     return err(FilterSubscribeError(
       kind: FilterSubscribeErrorKind.BAD_REQUEST,
-      cause: "BAD_REQUEST: pubsubTopic and contentTopics must be specified"
+      cause: "pubsubTopic and contentTopics must be specified"
     ))
 
   let filterCriteria = toHashSet(contentTopics.mapIt((pubsubTopic.get(), it)))
 
+  trace "subscribing peer to filter criteria", peerId=peerId, filterCriteria=filterCriteria
+
   if peerId in wf.subscriptions:
-    let peerSubscription = wf.subscriptions[peerId]
-    if peerSubscription.len() + filterCriteria.length >= MaxCriteriaPerSubscription:
+    var peerSubscription = wf.subscriptions.mgetOrPut(peerId, initHashSet[FilterCriterion]())
+    if peerSubscription.len() + filterCriteria.len() >= MaxCriteriaPerSubscription:
       return err(FilterSubscribeError(
-        kind: FilterSubscribeErrorKind.BAD_REQUEST,
-        cause: "BAD_REQUEST: peer has reached maximum number of filter criteria"
+        kind: FilterSubscribeErrorKind.SERVICE_UNAVAILABLE,
+        cause: "peer has reached maximum number of filter criteria"
       ))
 
-    wf.subscriptions[peerId].incl(filterCriteria)
+    peerSubscription.incl(filterCriteria)
   else:
     if wf.subscriptions.len() >= MaxSubscriptions:
       return err(FilterSubscribeError(
-        kind: FilterSubscribeErrorKind.BAD_REQUEST,
-        cause: "BAD_REQUEST: node has reached maximum number of subscriptions"
+        kind: FilterSubscribeErrorKind.SERVICE_UNAVAILABLE,
+        cause: "node has reached maximum number of subscriptions"
       ))
+    debug "creating new subscription", peerId=peerId
     wf.subscriptions[peerId] = filterCriteria
 
   ok()
 
 proc unsubscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic], contentTopics: seq[ContentTopic]): FilterSubscribeResult =
-  if pubsubTopic.isNone() or contentTopics.isEmpty():
+  if pubsubTopic.isNone() or contentTopics.len() == 0:
     return err(FilterSubscribeError(
       kind: FilterSubscribeErrorKind.BAD_REQUEST,
-      cause: "BAD_REQUEST: pubsubTopic and contentTopics must be specified"
+      cause: "pubsubTopic and contentTopics must be specified"
     ))
 
   let filterCriteria = toHashSet(contentTopics.mapIt((pubsubTopic.get(), it)))
 
+  trace "unsubscribing peer from filter criteria", peerId=peerId, filterCriteria=filterCriteria
+
   if peerId notin wf.subscriptions:
+    debug "unsubscibing peer has no subscriptions", peerId=peerId
     return err(FilterSubscribeError(
       kind: FilterSubscribeErrorKind.NOT_FOUND,
-      cause: "NOT_FOUND: peer has no subscriptions"
+      cause: "peer has no subscriptions"
     ))
 
-  let peerSubscription = wf.subscriptions[peerId]
+  var peerSubscription = wf.subscriptions.mgetOrPut(peerId, initHashSet[FilterCriterion]())
   # TODO: consider error response if filter criteria does not exist
-  wf.subscriptions[peerId].excl(filterCriteria)
+  peerSubscription.excl(filterCriteria)
+
+  if peerSubscription.len() == 0:
+    debug "peer has no more subscriptions, removing subscription", peerId=peerId
+    wf.subscriptions.del(peerId)
 
   ok()
 
 proc unsubscribeAll(wf: WakuFilter, peerId: PeerID): FilterSubscribeResult =
   if peerId notin wf.subscriptions:
+    debug "unsubscibing peer has no subscriptions", peerId=peerId
     return err(FilterSubscribeError(
       kind: FilterSubscribeErrorKind.NOT_FOUND,
-      cause: "NOT_FOUND: peer has no subscriptions"
+      cause: "peer has no subscriptions"
     ))
 
+  debug "removing peer subscription", peerId=peerId
   wf.subscriptions.del(peerId)
 
   ok()
 
+proc handleSubscribeRequest*(wf: WakuFilter, peerId: PeerId, request: FilterSubscribeRequest): FilterSubscribeResponse =
+  info "received filter subscribe request", peerId=peerId, request=request
+  waku_filter_requests.inc(labelValues = [$request.filterSubscribeType])
 
-proc handleSubscribeRequest*(wf: WakuFilter, request: FilterSubscribeRequest): FilterSubscribeResponse =
   var subscribeResult: FilterSubscribeResult
 
   case request.filterSubscribeType
-  of SubscribeType.SUBSCRIBER_PING:
-    subscribeResult = wf.pingSubscriber(request.peerId)
-  of SubscribeType.SUBSCRIBE:
-    subscribeResult = wf.subscribe(request.peerId, request.pubsubTopic, request.contentTopics)
-  of SubscribeType.UNSUBSCRIBE:
-    subscribeResult = wf.unsubscribe(request.peerId, request.pubsubTopic, request.contentTopics)
-  of SubscribeType.UNSUBSCRIBE_ALL:
-    subscribeResult = wf.unsubscribeAll(request.peerId)
+  of FilterSubscribeType.SUBSCRIBER_PING:
+    subscribeResult = wf.pingSubscriber(peerId)
+  of FilterSubscribeType.SUBSCRIBE:
+    subscribeResult = wf.subscribe(peerId, request.pubsubTopic, request.contentTopics)
+  of FilterSubscribeType.UNSUBSCRIBE:
+    subscribeResult = wf.unsubscribe(peerId, request.pubsubTopic, request.contentTopics)
+  of FilterSubscribeType.UNSUBSCRIBE_ALL:
+    subscribeResult = wf.unsubscribeAll(peerId)
 
   if subscribeResult.isErr():
     return FilterSubscribeResponse(
-      requestId: requestId,
-      statusCode: subscribeResult.error.kind,
-      statusMessage: some($subscribeResult.error)
+      requestId: request.requestId,
+      statusCode: subscribeResult.error.kind.uint32,
+      statusDesc: some($subscribeResult.error)
     )
   else:
     return FilterSubscribeResponse(
-      requestId: requestId,
+      requestId: request.requestId,
       statusCode: 200,
-      statusMessage: some("OK")
+      statusDesc: some("OK")
     )
 
 proc handleMessage*(wf: WakuFilter, message: WakuMessage) =
@@ -132,28 +157,25 @@ proc initProtocolHandler(wf: WakuFilter) =
 
     let decodeRes = FilterSubscribeRequest.decode(buf)
     if decodeRes.isErr:
-      error "Failed to decode filter subscribe request", peerId = $conn.peerId
-      waku_filter_errors.inc[labelValues = decodeRpcFailure]
+      error "Failed to decode filter subscribe request", peerId=conn.peerId
+      waku_filter_errors.inc(labelValues = [decodeRpcFailure])
       return
 
     let request = decodeRes.value #TODO: toAPI() split here
 
-    info "received filter subscribe request", peerId=$conn.peerId, request = request
-    waku_filter_requests.inc()
+    let response = wf.handleSubscribeRequest(conn.peerId, request)
 
-    let response = wf.handleSubscribeRequest(request)
-
-    await conn.writeLp(response.encode()) #TODO: toRPC() separation here
+    await conn.writeLp(response.encode().buffer) #TODO: toRPC() separation here
     return
 
-  ws.handler = handler
-  ws.codec = WakuFilterSubscribeCodec
+  wf.handler = handler
+  wf.codec = WakuFilterSubscribeCodec
 
 proc new*(T: type WakuFilter,
           peerManager: PeerManager): T =
 
-  let ws = WakuFilter(
+  let wf = WakuFilter(
     peerManager: peerManager
   )
-  ws.initProtocolHandler()
-  ws
+  wf.initProtocolHandler()
+  wf

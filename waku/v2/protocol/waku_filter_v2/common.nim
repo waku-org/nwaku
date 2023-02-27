@@ -3,6 +3,9 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
+import
+  stew/results
+
 const
   WakuFilterSubscribeCodec* = "/vac/waku/filter-subscribe/2.0.0-beta1"
   WakuFilterPushCodec* = "/vac/waku/filter-push/2.0.0-beta1"
@@ -12,6 +15,7 @@ type
     UNKNOWN = uint32(000)
     BAD_REQUEST = uint32(400)
     NOT_FOUND = uint32(404)
+    SERVICE_UNAVAILABLE = uint32(503)
 
   FilterSubscribeError* = object
     kind*: FilterSubscribeErrorKind
@@ -25,5 +29,7 @@ proc `$`*(err: FilterSubscribeError): string =
     "BAD_REQUEST: " & err.cause
   of FilterSubscribeErrorKind.NOT_FOUND:
     "NOT_FOUND: " & err.cause
+  of FilterSubscribeErrorKind.SERVICE_UNAVAILABLE:
+    "SERVICE_UNAVAILABLE: " & err.cause
   of FilterSubscribeErrorKind.UNKNOWN:
     "UNKNOWN"
