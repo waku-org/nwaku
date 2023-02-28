@@ -75,11 +75,11 @@ proc digestToSeq*[T](digest: MDigest[T]): seq[byte] =
 proc toQr*(applicationName: string, applicationVersion: string, shardId: string, ephemeralKey: EllipticCurveKey, committedStaticKey: MDigest[256]): string =
 
   var qr: string
-  qr.add encode(applicationName) & ":"
-  qr.add encode(applicationVersion) & ":"
-  qr.add encode(shardId) & ":"
-  qr.add encode(ephemeralKey) & ":"
-  qr.add encode(committedStaticKey.data)
+  qr.add encode(applicationName, safe=true) & ":"
+  qr.add encode(applicationVersion, safe=true) & ":"
+  qr.add encode(shardId, safe=true) & ":"
+  qr.add encode(ephemeralKey, safe=true) & ":"
+  qr.add encode(committedStaticKey.data, safe=true)
 
   return qr
 
