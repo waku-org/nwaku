@@ -66,6 +66,7 @@ proc subscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic],
       ))
 
     peerSubscription.incl(filterCriteria)
+    wf.subscriptions[peerId] = peerSubscription
   else:
     if wf.subscriptions.len() >= MaxSubscriptions:
       return err(FilterSubscribeError(
@@ -102,6 +103,8 @@ proc unsubscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic
   if peerSubscription.len() == 0:
     debug "peer has no more subscriptions, removing subscription", peerId=peerId
     wf.subscriptions.del(peerId)
+  else:
+    wf.subscriptions[peerId] = peerSubscription
 
   ok()
 
