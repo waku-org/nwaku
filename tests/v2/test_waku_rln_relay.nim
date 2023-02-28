@@ -11,78 +11,13 @@ import
   stint,
   libp2p/crypto/crypto
 import
-  ../../waku/v2/node/waku_node,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_rln_relay,
   ../../waku/v2/protocol/waku_keystore,
-  ./testlib/waku2
+  ./testlib/common
 
 const RlnRelayPubsubTopic = "waku/2/rlnrelay/proto"
 const RlnRelayContentTopic = "waku/2/rlnrelay/proto"
-
-
-suite "Waku rln relay":
-
-  asyncTest "mount waku-rln-relay in the off-chain mode":
-    let
-      nodeKey = generateSecp256k1Key()
-      node = WakuNode.new(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
-    await node.start()
-
-    # preparing inputs to mount rln-relay
-
-    # create a group of 100 membership keys
-    let memListRes = createMembershipList(100)
-    require:
-      memListRes.isOk()
-
-    let (groupCredentials, root) = memListRes.get()
-    require:
-      groupCredentials.len == 100
-    let
-      # convert the keys to IdentityCredential structs
-      groupIdCredentialsRes = groupCredentials.toIdentityCredentials()
-    require:
-      groupIdCredentialsRes.isOk()
-
-    let
-      groupIdCredentials = groupIdCredentialsRes.get()
-      # extract the id commitments
-      groupIDCommitments = groupIdCredentials.mapIt(it.idCommitment)
-    debug "groupIdCredentials", groupIdCredentials
-    debug "groupIDCommitments", groupIDCommitments
-
-    # index indicates the position of a membership credential in the static list of group keys i.e., groupIdCredentials
-    # the corresponding credential will be used to mount rlnRelay on the current node
-    # index also represents the index of the leaf in the Merkle tree that contains node's commitment key
-    let index = MembershipIndex(5)
-
-    # -------- mount rln-relay in the off-chain mode
-    await node.mountRelay(@[RlnRelayPubsubTopic])
-    let mountRes = node.wakuRelay.mountRlnRelayStatic(group = groupIDCommitments,
-                            memIdCredential = groupIdCredentials[index],
-                            memIndex = index,
-                            pubsubTopic = RlnRelayPubsubTopic,
-                            contentTopic = RlnRelayContentTopic)
-    require:
-      mountRes.isOk()
-
-    let wakuRlnRelay = mountRes.get()
-
-    # get the root of Merkle tree which is constructed inside the mountRlnRelay proc
-    let calculatedRootRes = wakuRlnRelay.rlnInstance.getMerkleRoot()
-    require:
-      calculatedRootRes.isOk()
-    let calculatedRoot = calculatedRootRes.get().inHex()
-    debug "calculated root by mountRlnRelay", calculatedRoot
-
-    # this part checks whether the Merkle tree is constructed correctly inside the mountRlnRelay proc
-    # this check is done by comparing the tree root resulted from mountRlnRelay i.e., calculatedRoot
-    # against the root which is the expected root
-    check:
-      calculatedRoot == root
-
-    await node.stop()
 
 suite "Waku rln relay":
 
@@ -436,9 +371,14 @@ suite "Waku rln relay":
         hash.inHex()
 
   test "create a list of membership keys and construct a Merkle tree based on the list":
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
+    let rln = rlnInstance.get()
+
     let
       groupSize = 100
-      memListRes = createMembershipList(groupSize)
+      memListRes = rln.createMembershipList(groupSize)
 
     require:
       memListRes.isOk()
@@ -452,7 +392,7 @@ suite "Waku rln relay":
       list.len == groupSize # check the number of keys
       root.len == HashHexSize # check the size of the calculated tree root
 
-  test "check correctness of toIdentityCredentials and calcMerkleRoot":
+  test "check correctness of toIdentityCredentials":
     let groupKeys = StaticGroupKeys
 
     # create a set of IdentityCredentials objects from groupKeys
@@ -464,12 +404,21 @@ suite "Waku rln relay":
     # extract the id commitments
     let groupIDCommitments = groupIdCredentials.mapIt(it.idCommitment)
     # calculate the Merkle tree root out of the extracted id commitments
-    let rootRes = calcMerkleRoot(groupIDCommitments)
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
+    let rln = rlnInstance.get()
+
+    # create a Merkle tree
+    let membersAdded = rln.insertMembers(0, groupIDCommitments)
+    require:
+      membersAdded
+    let rootRes = rln.getMerkleRoot()
 
     require:
       rootRes.isOk()
 
-    let root = rootRes.get()
+    let root = rootRes.get().inHex()
 
     debug "groupIdCredentials", groupIdCredentials
     debug "groupIDCommitments", groupIDCommitments
@@ -515,314 +464,6 @@ suite "Waku rln relay":
       decodednsp.isOk()
     check:
       decodednsp.value == rateLimitProof
-
-  test "test proofVerify and proofGen for a valid proof":
-    let rlnInstance = createRLNInstance()
-    require:
-      rlnInstance.isOk()
-    let rln = rlnInstance.get()
-
-    let
-      # peer's index in the Merkle Tree
-      index = 5'u
-      # create an identity credential
-      idCredentialRes = membershipKeyGen(rln)
-
-    require:
-      idCredentialRes.isOk()
-
-    let idCredential = idCredentialRes.get()
-
-    var members = newSeq[IDCommitment]()
-    # Create a Merkle tree with random members
-    for i in 0'u..10'u:
-      if (i == index):
-        # insert the current peer's pk
-        members.add(idCredential.idCommitment)
-      else:
-        # create a new identity credential
-        let idCredentialRes = rln.membershipKeyGen()
-        require:
-          idCredentialRes.isOk()
-        members.add(idCredentialRes.get().idCommitment)
-
-    # Batch the insert
-    let batchInsertRes = rln.insertMembers(0, members)
-    require:
-      batchInsertRes
-
-    # prepare the message
-    let messageBytes = "Hello".toBytes()
-
-    # prepare the epoch
-    let epoch = default(Epoch)
-    debug "epoch", epochHex = epoch.inHex()
-
-    # generate proof
-    let proofRes = rln.proofGen(data = messageBytes,
-                                memKeys = idCredential,
-                                memIndex = MembershipIndex(index),
-                                epoch = epoch)
-    require:
-      proofRes.isOk()
-    let proof = proofRes.value
-
-    # verify the proof
-    let verified = rln.proofVerify(data = messageBytes,
-                                   proof = proof,
-                                   validRoots = @[rln.getMerkleRoot().value()])
-
-    # Ensure the proof verification did not error out
-
-    require:
-      verified.isOk()
-
-    check:
-      verified.value() == true
-
-  test "test proofVerify and proofGen for an invalid proof":
-    let rlnInstance = createRLNInstance()
-    require:
-      rlnInstance.isOk()
-    let rln = rlnInstance.get()
-
-    let
-      # peer's index in the Merkle Tree
-      index = 5'u
-      # create an identity credential
-      idCredentialRes = membershipKeyGen(rln)
-
-    require:
-      idCredentialRes.isOk()
-
-    let idCredential = idCredentialRes.get()
-
-    # Create a Merkle tree with random members
-    for i in 0'u..10'u:
-      var memberAdded: bool = false
-      if (i == index):
-        # insert the current peer's pk
-        memberAdded = rln.insertMembers(i, @[idCredential.idCommitment])
-      else:
-        # create a new identity credential
-        let idCredentialRes = rln.membershipKeyGen()
-        require:
-          idCredentialRes.isOk()
-        memberAdded = rln.insertMembers(i, @[idCredentialRes.get().idCommitment])
-      # check the member is added
-      require:
-        memberAdded
-
-    # prepare the message
-    let messageBytes = "Hello".toBytes()
-
-    # prepare the epoch
-    let epoch = default(Epoch)
-    debug "epoch in bytes", epochHex = epoch.inHex()
-
-
-    let badIndex = 4
-    # generate proof
-    let proofRes = rln.proofGen(data = messageBytes,
-                                memKeys = idCredential,
-                                memIndex = MembershipIndex(badIndex),
-                                epoch = epoch)
-    require:
-      proofRes.isOk()
-    let proof = proofRes.value
-
-    # verify the proof (should not be verified) against the internal RLN tree root
-    let verified = rln.proofVerify(data = messageBytes,
-                                  proof = proof,
-                                  validRoots = @[rln.getMerkleRoot().value()])
-
-    require:
-      verified.isOk()
-    check:
-      verified.value() == false
-
-  test "validate roots which are part of the acceptable window":
-    # Setup:
-    # This step consists of creating the rln instance and waku-rln-relay,
-    # Inserting members, and creating a valid proof with the merkle root
-    # create an RLN instance
-    let rlnInstance = createRLNInstance()
-    require:
-      rlnInstance.isOk()
-    let rln = rlnInstance.get()
-
-    let rlnRelay = WakuRLNRelay(rlnInstance:rln)
-
-    let
-      # peer's index in the Merkle Tree.
-      index = 5'u
-      # create an identity credential
-      idCredentialRes = membershipKeyGen(rlnRelay.rlnInstance)
-
-    require:
-      idCredentialRes.isOk()
-
-    let idCredential = idCredentialRes.get()
-
-    let membershipCount: uint = AcceptableRootWindowSize + 5'u
-
-    var members = newSeq[IdentityCredential]()
-
-    # Generate membership keys
-    for i in 0'u..membershipCount:
-      if (i == index):
-        # insert the current peer's pk
-        members.add(idCredential)
-      else:
-        # create a new identity credential
-        let idCredentialRes = rlnRelay.rlnInstance.membershipKeyGen()
-        require:
-          idCredentialRes.isOk()
-        members.add(idCredentialRes.get())
-
-    # Batch inserts into the tree
-    let insertedRes = rlnRelay.insertMembers(0, members.mapIt(it.idCommitment))
-    require:
-      insertedRes.isOk()
-
-    # Given:
-    # This step includes constructing a valid message with the latest merkle root
-    # prepare the message
-    let messageBytes = "Hello".toBytes()
-
-    # prepare the epoch
-    let epoch = default(Epoch)
-    debug "epoch in bytes", epochHex = epoch.inHex()
-
-    # generate proof
-    let validProofRes = rlnRelay.rlnInstance.proofGen(data = messageBytes,
-                                    memKeys = idCredential,
-                                    memIndex = MembershipIndex(index),
-                                    epoch = epoch)
-    require:
-      validProofRes.isOk()
-    let validProof = validProofRes.value
-
-    # validate the root (should be true)
-    let verified = rlnRelay.validateRoot(validProof.merkleRoot)
-
-    require:
-      verified == true
-
-    # When:
-    # This test depends on the local merkle tree root being part of a
-    # acceptable set of roots, which is denoted by AcceptableRootWindowSize
-    # The following action is equivalent to a member being removed upon listening to the events emitted by the contract
-
-    # Progress the local tree by removing members
-    for i in 0..AcceptableRootWindowSize - 2:
-      let res = rlnRelay.removeMember(MembershipIndex(i))
-      # Ensure the local tree root has changed
-      let currentMerkleRoot = rlnRelay.rlnInstance.getMerkleRoot()
-
-      require:
-        res.isOk()
-        currentMerkleRoot.isOk()
-        currentMerkleRoot.value() != validProof.merkleRoot
-
-    # Then:
-    # we try to verify a root against this window,
-    # which should return true
-    let olderRootVerified = rlnRelay.validateRoot(validProof.merkleRoot)
-
-    check:
-      olderRootVerified == true
-
-  test "invalidate roots which are not part of the acceptable window":
-    # Setup:
-    # This step consists of creating the rln instance and waku-rln-relay,
-    # Inserting members, and creating a valid proof with the merkle root
-
-    require:
-      AcceptableRootWindowSize < 10
-
-    # create an RLN instance
-    let rlnInstance = createRLNInstance()
-    require:
-      rlnInstance.isOk()
-    let rln = rlnInstance.get()
-
-    let rlnRelay = WakuRLNRelay(rlnInstance:rln)
-
-    let
-      # peer's index in the Merkle Tree.
-      index = 6'u
-      # create an identity credential
-      idCredentialRes = membershipKeyGen(rlnRelay.rlnInstance)
-
-    require:
-      idCredentialRes.isOk()
-
-    let idCredential = idCredentialRes.get()
-
-    let membershipCount: uint = AcceptableRootWindowSize + 5'u
-
-    # Create a Merkle tree with random members
-    for i in 0'u..membershipCount:
-      var memberIsAdded: RlnRelayResult[void]
-      if (i == index):
-        # insert the current peer's pk
-        memberIsAdded = rlnRelay.insertMembers(i, @[idCredential.idCommitment])
-      else:
-        # create a new identity credential
-        let idCredentialRes = rlnRelay.rlnInstance.membershipKeyGen()
-        require:
-          idCredentialRes.isOk()
-        memberIsAdded = rlnRelay.insertMembers(i, @[idCredentialRes.get().idCommitment])
-      # require that the member is added
-      require:
-        memberIsAdded.isOk()
-
-    # Given:
-    # This step includes constructing a valid message with the latest merkle root
-    # prepare the message
-    let messageBytes = "Hello".toBytes()
-
-    # prepare the epoch
-    let epoch = default(Epoch)
-    debug "epoch in bytes", epochHex = epoch.inHex()
-
-    # generate proof
-    let validProofRes = rlnRelay.rlnInstance.proofGen(data = messageBytes,
-                                    memKeys = idCredential,
-                                    memIndex = MembershipIndex(index),
-                                    epoch = epoch)
-    require:
-      validProofRes.isOk()
-    let validProof = validProofRes.value
-
-    # validate the root (should be true)
-    let verified = rlnRelay.validateRoot(validProof.merkleRoot)
-
-    require:
-      verified == true
-
-    # When:
-    # This test depends on the local merkle tree root being part of a
-    # acceptable set of roots, which is denoted by AcceptableRootWindowSize
-    # The following action is equivalent to a member being removed upon listening to the events emitted by the contract
-
-    # Progress the local tree by removing members
-    for i in 0..AcceptableRootWindowSize:
-      discard rlnRelay.removeMember(MembershipIndex(i))
-      # Ensure the local tree root has changed
-      let currentMerkleRoot = rlnRelay.rlnInstance.getMerkleRoot()
-      require:
-        currentMerkleRoot.isOk()
-        currentMerkleRoot.value() != validProof.merkleRoot
-
-    # Then:
-    # we try to verify a proof against this window,
-    # which should return false
-    let olderRootVerified = rlnRelay.validateRoot(validProof.merkleRoot)
-
-    check:
-      olderRootVerified == false
 
   test "toEpoch and fromEpoch consistency check":
     # check edge cases
@@ -913,47 +554,17 @@ suite "Waku rln relay":
       # it is a duplicate
       result3.value == true
 
-  test "validateMessage test":
-    # setup a wakurlnrelay peer with a static group----------
-
-    # create a group of 100 membership keys
-    let memListRes = createMembershipList(100)
-
-    require:
-      memListRes.isOk()
-    let
-      (groupKeys, _) = memListRes.get()
-      # convert the keys to IdentityCredential structs
-      groupIdCredentialsRes = groupKeys.toIdentityCredentials()
-
-    require:
-      groupIdCredentialsRes.isOk()
-
-    let groupIdCredentials = groupIdCredentialsRes.get()
-    # extract the id commitments
-    let groupIDCommitments = groupIdCredentials.mapIt(it.idCommitment)
-    debug "groupIdCredentials", groupIdCredentials
-    debug "groupIDCommitments", groupIDCommitments
-
-    # index indicates the position of an identity credential in the static list of group keys i.e., groupIdCredentials
-    # the corresponding identity credential will be used to mount rlnRelay on the current node
-    # index also represents the index of the leaf in the Merkle tree that contains node's commitment key
+  asyncTest "validateMessage test":
     let index = MembershipIndex(5)
 
-    # create an RLN instance
-    let rlnInstance = createRLNInstance()
+    let rlnConf = WakuRlnConfig(rlnRelayDynamic: false,
+                                rlnRelayPubsubTopic: RlnRelayPubsubTopic,
+                                rlnRelayContentTopic: RlnRelayContentTopic,
+                                rlnRelayMembershipIndex: some(index.uint))
+    let wakuRlnRelayRes = await WakuRlnRelay.new(rlnConf)
     require:
-      rlnInstance.isOk()
-    let rln = rlnInstance.get()
-
-    let
-      wakuRlnRelay = WakuRLNRelay(membershipIndex: index,
-          identityCredential: groupIdCredentials[index], rlnInstance: rln)
-
-    # add members
-    let commitmentAddRes =  wakuRlnRelay.addAll(groupIDCommitments)
-    require:
-      commitmentAddRes.isOk()
+      wakuRlnRelayRes.isOk()
+    let wakuRlnRelay = wakuRlnRelayRes.get()
 
     # get the current epoch time
     let time = epochTime()

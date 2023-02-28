@@ -37,8 +37,10 @@ node_modules/
 
 # Ignore Jetbrains IDE files
 .idea/
+
+# RLN / keystore
 rlnCredentials.txt
-testPath.txt
+rlnKeystore.json
 
 # Nimbus Build System
 nimbus-build-system.paths
