@@ -4,21 +4,22 @@ else:
   {.push raises: [].}
 
 import
-  std/[sequtils],
+  std/[sequtils, strutils, algorithm],
   web3,
   chronicles,
   stew/[arrayops, results, endians2],
   stint
 import
-    ./constants,
-    ./protocol_types
+  ./constants,
+  ./protocol_types
 import
   ../waku_keystore
 
 export
   web3,
   chronicles,
-  stint
+  stint,
+  constants
 
 logScope:
     topics = "waku rln_relay conversion_utils"
@@ -34,6 +35,22 @@ proc toIDCommitment*(idCommitmentUint: UInt256): IDCommitment =
 proc toMembershipIndex*(v: UInt256): MembershipIndex =
   let membershipIndex: MembershipIndex = cast[MembershipIndex](v)
   return membershipIndex
+
+proc inHex*(value: IdentityTrapdoor or
+                   IdentityNullifier or
+                   IdentitySecretHash or
+                   IDCommitment or
+                   MerkleNode or
+                   Nullifier or
+                   Epoch or
+                   RlnIdentifier): string =
+  var valueHex = "" #UInt256.fromBytesLE(value)
+  for b in value.reversed():
+    valueHex = valueHex & b.toHex()
+  # We pad leading zeroes
+  while valueHex.len < value.len * 2:
+    valueHex = "0" & valueHex
+  return toLowerAscii(valueHex)
 
 proc appendLength*(input: openArray[byte]): seq[byte] =
   ## returns length prefixed version of the input
@@ -98,7 +115,8 @@ proc serializeIdCommitments*(idComms: seq[IDCommitment]): seq[byte] =
   return idCommsBytes
 
 # Converts a sequence of tuples containing 4 string (i.e. identity trapdoor, nullifier, secret hash and commitment) to an IndentityCredential
-proc toIdentityCredentials*(groupKeys: seq[(string, string, string, string)]): RlnRelayResult[seq[
+type RawMembershipCredentials* = (string, string, string, string)
+proc toIdentityCredentials*(groupKeys: seq[RawMembershipCredentials]): RlnRelayResult[seq[
     IdentityCredential]] =
   ## groupKeys is  sequence of membership key tuples in the form of (identity key, identity commitment) all in the hexadecimal format
   ## the toIdentityCredentials proc populates a sequence of IdentityCredentials using the supplied groupKeys
@@ -114,27 +132,6 @@ proc toIdentityCredentials*(groupKeys: seq[(string, string, string, string)]): R
         idSecretHash = IdentitySecretHash(@(hexToUint[CredentialByteSize](groupKeys[i][2]).toBytesLE()))
         idCommitment = IDCommitment(@(hexToUint[CredentialByteSize](groupKeys[i][3]).toBytesLE()))
       groupIdCredentials.add(IdentityCredential(idTrapdoor: idTrapdoor, idNullifier: idNullifier, idSecretHash: idSecretHash,
-          idCommitment: idCommitment))
-    except ValueError as err:
-      warn "could not convert the group key to bytes", err = err.msg
-      return err("could not convert the group key to bytes: " & err.msg)
-  return ok(groupIdCredentials)
-
-# Converts a sequence of tuples containing 2 string (i.e. identity secret hash and commitment) to an IndentityCredential
-proc toIdentityCredentials*(groupKeys: seq[(string, string)]): RlnRelayResult[seq[
-    IdentityCredential]] =
-  ## groupKeys is  sequence of membership key tuples in the form of (identity key, identity commitment) all in the hexadecimal format
-  ## the toIdentityCredentials proc populates a sequence of IdentityCredentials using the supplied groupKeys
-  ## Returns an error if the conversion fails
-
-  var groupIdCredentials = newSeq[IdentityCredential]()
-
-  for i in 0..groupKeys.len-1:
-    try:
-      let
-        idSecretHash = IdentitySecretHash(@(hexToUint[CredentialByteSize](groupKeys[i][0]).toBytesLE()))
-        idCommitment = IDCommitment(@(hexToUint[CredentialByteSize](groupKeys[i][1]).toBytesLE()))
-      groupIdCredentials.add(IdentityCredential(idSecretHash: idSecretHash,
           idCommitment: idCommitment))
     except ValueError as err:
       warn "could not convert the group key to bytes", err = err.msg

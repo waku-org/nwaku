@@ -24,7 +24,6 @@ import
 from std/times import epochTime
 
 
-
 const RlnRelayPubsubTopic = "waku/2/rlnrelay/proto"
 
 procSuite "WakuNode - RLN relay":
@@ -52,7 +51,7 @@ procSuite "WakuNode - RLN relay":
     await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
-      rlnRelayMembershipIndex: MembershipIndex(1),
+      rlnRelayMembershipIndex: some(MembershipIndex(1)),
     ))
 
     await node1.start()
@@ -63,7 +62,7 @@ procSuite "WakuNode - RLN relay":
     await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
-      rlnRelayMembershipIndex: MembershipIndex(2),
+      rlnRelayMembershipIndex: some(MembershipIndex(2)),
     ))
 
     await node2.start()
@@ -74,7 +73,7 @@ procSuite "WakuNode - RLN relay":
     await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
-      rlnRelayMembershipIndex: MembershipIndex(3),
+      rlnRelayMembershipIndex: some(MembershipIndex(3)),
     ))
 
     await node3.start()
@@ -134,15 +133,13 @@ procSuite "WakuNode - RLN relay":
 
     # set up three nodes
     # node1
-    # set up three nodes
-    # node1
     await node1.mountRelay(@[DefaultPubsubTopic, rlnRelayPubSubTopic])
 
     # mount rlnrelay in off-chain mode
     await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
-      rlnRelayMembershipIndex: MembershipIndex(1),
+      rlnRelayMembershipIndex: some(MembershipIndex(1)),
     ))
 
     await node1.start()
@@ -153,7 +150,7 @@ procSuite "WakuNode - RLN relay":
     await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
-      rlnRelayMembershipIndex: MembershipIndex(2),
+      rlnRelayMembershipIndex: some(MembershipIndex(2)),
     ))
 
     await node2.start()
@@ -164,7 +161,7 @@ procSuite "WakuNode - RLN relay":
     await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
-      rlnRelayMembershipIndex: MembershipIndex(3),
+      rlnRelayMembershipIndex: some(MembershipIndex(3)),
     ))
 
     await node3.start()
@@ -197,10 +194,8 @@ procSuite "WakuNode - RLN relay":
       contentTopicBytes = contentTopic.toBytes
       input = concat(payload, contentTopicBytes)
       extraBytes: seq[byte] = @[byte(1),2,3]
-      rateLimitProofRes = node1.wakuRlnRelay.rlnInstance.proofGen(data = concat(input, extraBytes),   # we add extra bytes to invalidate proof verification against original payload
-                                                              memKeys = node1.wakuRlnRelay.identityCredential,
-                                                              memIndex = MembershipIndex(1),
-                                                              epoch = epoch)
+      rateLimitProofRes = node1.wakuRlnRelay.groupManager.generateProof(concat(input, extraBytes),   # we add extra bytes to invalidate proof verification against original payload
+                                                                        epoch)
     require:
       rateLimitProofRes.isOk()
     let rateLimitProof = rateLimitProofRes.get().encode().buffer
@@ -249,7 +244,7 @@ procSuite "WakuNode - RLN relay":
     await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
-      rlnRelayMembershipIndex: MembershipIndex(1),
+      rlnRelayMembershipIndex: some(MembershipIndex(1)),
     ))
 
     await node1.start()
@@ -261,7 +256,7 @@ procSuite "WakuNode - RLN relay":
     await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
-      rlnRelayMembershipIndex: MembershipIndex(2),
+      rlnRelayMembershipIndex: some(MembershipIndex(2)),
     ))
 
     await node2.start()
@@ -273,7 +268,7 @@ procSuite "WakuNode - RLN relay":
     await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
-      rlnRelayMembershipIndex: MembershipIndex(3),
+      rlnRelayMembershipIndex: some(MembershipIndex(3)),
     ))
 
     await node3.start()

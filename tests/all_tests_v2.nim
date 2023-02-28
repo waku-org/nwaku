@@ -96,7 +96,8 @@ when defined(rln):
   import
     ./v2/test_waku_rln_relay,
     ./v2/test_wakunode_rln_relay,
-    ./v2/test_waku_rln_relay_onchain
+    ./v2/test_rln_group_manager_onchain,
+    ./v2/test_rln_group_manager_static
 
 # Waku swap test suite
 import
