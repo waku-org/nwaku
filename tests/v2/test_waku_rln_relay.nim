@@ -371,9 +371,14 @@ suite "Waku rln relay":
         hash.inHex()
 
   test "create a list of membership keys and construct a Merkle tree based on the list":
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
+    let rln = rlnInstance.get()
+
     let
       groupSize = 100
-      memListRes = createMembershipList(groupSize)
+      memListRes = rln.createMembershipList(groupSize)
 
     require:
       memListRes.isOk()

@@ -41,21 +41,15 @@ type WakuRlnConfig* = object
   rlnRelayCredPath*: string
   rlnRelayCredentialsPassword*: string
 
-proc createMembershipList*(n: int): RlnRelayResult[(
-    seq[(string, string, string, string)], string
+proc createMembershipList*(rln: ptr RLN, n: int): RlnRelayResult[(
+    seq[RawMembershipCredentials], string
   )] =
   ## createMembershipList produces a sequence of identity credentials in the form of (identity trapdoor, identity nullifier, identity secret hash, id commitment) in the hexadecimal format
   ## this proc also returns the root of a Merkle tree constructed out of the identity commitment keys of the generated list
   ## the output of this proc is used to initialize a static group keys (to test waku-rln-relay in the off-chain mode)
   ## Returns an error if it cannot create the membership list
 
-  # initialize a Merkle tree
-  let rlnInstance = createRLNInstance()
-  if rlnInstance.isErr():
-    return err("could not create rln instance: " & rlnInstance.error())
-  let rln = rlnInstance.get()
-
-  var output = newSeq[(string, string, string, string)]()
+  var output = newSeq[RawMembershipCredentials]()
   var idCommitments = newSeq[IDCommitment]()
 
   for i in 0..n-1:

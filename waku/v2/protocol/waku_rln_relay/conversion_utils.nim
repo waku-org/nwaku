@@ -115,7 +115,8 @@ proc serializeIdCommitments*(idComms: seq[IDCommitment]): seq[byte] =
   return idCommsBytes
 
 # Converts a sequence of tuples containing 4 string (i.e. identity trapdoor, nullifier, secret hash and commitment) to an IndentityCredential
-proc toIdentityCredentials*(groupKeys: seq[(string, string, string, string)]): RlnRelayResult[seq[
+type RawMembershipCredentials* = (string, string, string, string)
+proc toIdentityCredentials*(groupKeys: seq[RawMembershipCredentials]): RlnRelayResult[seq[
     IdentityCredential]] =
   ## groupKeys is  sequence of membership key tuples in the form of (identity key, identity commitment) all in the hexadecimal format
   ## the toIdentityCredentials proc populates a sequence of IdentityCredentials using the supplied groupKeys
