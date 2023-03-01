@@ -159,7 +159,7 @@ proc initProtocolHandler(wf: WakuFilter) =
     let buf = await conn.readLp(MaxSubscribeSize)
 
     let decodeRes = FilterSubscribeRequest.decode(buf)
-    if decodeRes.isErr:
+    if decodeRes.isErr():
       error "Failed to decode filter subscribe request", peerId=conn.peerId
       waku_filter_errors.inc(labelValues = [decodeRpcFailure])
       return
