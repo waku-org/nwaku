@@ -15,7 +15,7 @@ import
   ../../waku/v2/node/jsonrpc/filter/handlers as filter_api,
   ../../waku/v2/node/jsonrpc/relay/handlers as relay_api,
   ../../waku/v2/node/jsonrpc/store/handlers as store_api,
-  ./config
+  ../../waku/v2/config
 
 logScope:
   topics = "wakunode jsonrpc"

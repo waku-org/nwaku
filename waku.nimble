@@ -81,6 +81,8 @@ task bridge, "Build Waku v1 - v2 bridge":
 task test2, "Build & run Waku v2 tests":
   test "all_tests_v2"
 
+task mytests, "Build & run Waku v2 tests":
+  test "my_tests"
 
 task sim2, "Build Waku v2 simulation tools":
   buildBinary "quicksim2", "tools/simulation/", "-d:chronicles_log_level=DEBUG"

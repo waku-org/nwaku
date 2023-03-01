@@ -10,18 +10,22 @@ import
   libp2p/crypto/crypto,
   json_rpc/[rpcserver, rpcclient]
 import
+  ../../../waku/v2/config,
   ../../../waku/v2/node/peer_manager,
   ../../../waku/v2/node/waku_node,
   ../../../waku/v2/node/jsonrpc/admin/handlers as admin_api,
   ../../../waku/v2/node/jsonrpc/admin/client as admin_api_client,
   ../../../waku/v2/protocol/waku_relay,
   ../../../waku/v2/protocol/waku_archive,
-  ../../../waku/v2/protocol/waku_archive/driver/queue_driver,
   ../../../waku/v2/protocol/waku_store,
   ../../../waku/v2/protocol/waku_filter,
   ../../../waku/v2/utils/peers,
   ../testlib/waku2
 
+
+proc defaultConf : WakuNodeConf =
+  return WakuNodeConf(
+    listenAddress: ValidIpAddress.init("127.0.0.1"), rpcAddress: ValidIpAddress.init("127.0.0.1"), restAddress: ValidIpAddress.init("127.0.0.1"), metricsServerAddress: ValidIpAddress.init("127.0.0.1"))
 
 procSuite "Waku v2 JSON-RPC API - Admin":
   let
@@ -154,8 +158,11 @@ procSuite "Waku v2 JSON-RPC API - Admin":
 
     await node.mountFilter()
     await node.mountFilterClient()
-    let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    await node.mountSwap()
+
+    let mountArchiveRes = node.mountArchive(defaultConf(), none(MessageValidator), none(RetentionPolicy))
+    require mountArchiveRes.isOk()
+
     await node.mountStore()
     node.mountStoreClient()
 

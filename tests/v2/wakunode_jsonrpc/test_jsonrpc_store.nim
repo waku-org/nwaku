@@ -1,5 +1,4 @@
 {.used.}
-
 import
   std/[options, times],
   stew/shims/net as stewNet,
@@ -13,6 +12,7 @@ import
   ../../../waku/v2/node/waku_node,
   ../../../waku/v2/node/jsonrpc/store/handlers as store_api,
   ../../../waku/v2/node/jsonrpc/store/client as store_api_client,
+  ../../../waku/v2/config,
   ../../../waku/v2/protocol/waku_message,
   ../../../waku/v2/protocol/waku_archive,
   ../../../waku/v2/protocol/waku_archive/driver/queue_driver,
@@ -23,6 +23,10 @@ import
   ../../v2/testlib/common,
   ../../v2/testlib/waku2
 
+proc defaultConf : WakuNodeConf =
+  return WakuNodeConf(
+    storeMessageDbUrl: "sqlite://:memory:",
+    listenAddress: ValidIpAddress.init("127.0.0.1"), rpcAddress: ValidIpAddress.init("127.0.0.1"), restAddress: ValidIpAddress.init("127.0.0.1"), metricsServerAddress: ValidIpAddress.init("127.0.0.1"))
 
 proc put(store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage): Result[void, string] =
   let
@@ -59,8 +63,9 @@ procSuite "Waku v2 JSON-RPC API - Store":
       key = generateEcdsaKey()
       peer = PeerInfo.new(key)
 
-    let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    let mountArchiveRes = node.mountArchive(defaultConf(), none(MessageValidator), none(RetentionPolicy))
+    require mountArchiveRes.isOk()
+
     await node.mountStore()
     node.mountStoreClient()
 
@@ -87,7 +92,7 @@ procSuite "Waku v2 JSON-RPC API - Store":
     ]
 
     for msg in msgList:
-      require driver.put(DefaultPubsubTopic, msg).isOk()
+      require node.wakuArchive.driver.put(DefaultPubsubTopic, msg).isOk()
 
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort, false)

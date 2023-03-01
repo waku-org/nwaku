@@ -13,7 +13,7 @@ import
   ../../waku/v2/node/rest/debug/handlers as debug_api,
   ../../waku/v2/node/rest/relay/handlers as relay_api,
   ../../waku/v2/node/rest/relay/topic_cache,
-  ./config
+  ../../waku/v2/config
 
 
 logScope:

@@ -25,6 +25,7 @@ import
   ../../waku/common/sqlite,
   ../../waku/common/utils/nat,
   ../../waku/common/logging,
+  ../../waku/v2/config,
   ../../waku/v2/node/peer_manager,
   ../../waku/v2/node/peer_manager/peer_store/waku_peer_storage,
   ../../waku/v2/node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
@@ -32,9 +33,6 @@ import
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/waku_metrics,
   ../../waku/v2/protocol/waku_archive,
-  ../../waku/v2/protocol/waku_archive/driver/queue_driver,
-  ../../waku/v2/protocol/waku_archive/driver/sqlite_driver,
-  ../../waku/v2/protocol/waku_archive/driver/sqlite_driver/migrations as archive_driver_sqlite_migrations,
   ../../waku/v2/protocol/waku_archive/retention_policy,
   ../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_capacity,
   ../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_time,
@@ -49,8 +47,7 @@ import
   ../../waku/v2/protocol/waku_relay/validators,
   ../../waku/v2/utils/peers,
   ./wakunode2_setup_rest,
-  ./wakunode2_setup_rpc,
-  ./config
+  ./wakunode2_setup_rpc
 
 when defined(rln):
   import
@@ -157,36 +154,6 @@ proc setupWakuArchiveRetentionPolicy(retentionPolicy: string): SetupResult[Optio
 
   else:
     return err("unknown retention policy")
-
-proc setupWakuArchiveDriver(dbUrl: string, vacuum: bool, migrate: bool): SetupResult[ArchiveDriver] =
-  let db = ?setupDatabaseConnection(dbUrl)
-
-  if db.isSome():
-    # SQLite vacuum
-    # TODO: Run this only if the database engine is SQLite
-    let (pageSize, pageCount, freelistCount) = ?gatherSqlitePageStats(db.get())
-    debug "sqlite database page stats", pageSize=pageSize, pages=pageCount, freePages=freelistCount
-
-    if vacuum and (pageCount > 0 and freelistCount > 0):
-      ?performSqliteVacuum(db.get())
-
-  # Database migration
-    if migrate:
-      ?archive_driver_sqlite_migrations.migrate(db.get())
-
-  if db.isSome():
-    debug "setting up sqlite waku archive driver"
-    let res = SqliteDriver.new(db.get())
-    if res.isErr():
-      return err("failed to init sqlite archive driver: " & res.error)
-
-    ok(res.value)
-
-  else:
-    debug "setting up in-memory waku archive driver"
-    let driver = QueueDriver.new()  # Defaults to a capacity of 25.000 messages
-    ok(driver)
-
 
 proc retrieveDynamicBootstrapNodes*(dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[ValidIpAddress]): SetupResult[seq[RemotePeerInfo]] =
 
@@ -425,7 +392,9 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
   if conf.store:
     # Archive setup
     let messageValidator: MessageValidator = DefaultMessageValidator()
-    mountArchive(node, archiveDriver, messageValidator=some(messageValidator), retentionPolicy=archiveRetentionPolicy)
+    let mountArchiveRes = mountArchive(node, conf, messageValidator=some(messageValidator), retentionPolicy=archiveRetentionPolicy)
+    if mountArchiveRes.isErr():
+      return err("failed to mount archive protocol")
 
     # Store setup
     try:
@@ -642,7 +611,7 @@ when isMainModule:
       error "failed to configure the message store database connection", error=dbUrlValidationRes.error
       quit(QuitFailure)
 
-    let archiveDriverRes = setupWakuArchiveDriver(dbUrlValidationRes.get(), vacuum=conf.storeMessageDbVacuum, migrate=conf.storeMessageDbMigration)
+    let archiveDriverRes = setupWakuArchiveDriver(conf)
     if archiveDriverRes.isOk():
       archiveDriver = some(archiveDriverRes.get())
     else:
