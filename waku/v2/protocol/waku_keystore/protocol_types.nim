@@ -4,7 +4,12 @@ else:
   {.push raises: [].}
 
 import 
-  stew/results
+  std/sequtils,
+  stew/[results, endians2],
+  stint
+
+# NOTE: 256-bytes long credentials are due to the use of BN254 in RLN. Other implementations/curves might have a different byte size
+const CredentialByteSize* = 256
 
 type
   IdentityTrapdoor* = seq[byte] #array[32, byte]
@@ -25,7 +30,59 @@ type IdentityCredential* = object
   # more details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
   idCommitment*: IDCommitment
 
+proc toUInt256*(idCommitment: IDCommitment): UInt256 =
+  let pk = UInt256.fromBytesLE(idCommitment)
+  return pk
+
+proc toIDCommitment*(idCommitmentUint: UInt256): IDCommitment =
+  let pk = IDCommitment(@(idCommitmentUint.toBytesLE()))
+  return pk
+
 type MembershipIndex* = uint
+
+proc toMembershipIndex*(v: UInt256): MembershipIndex =
+  let membershipIndex: MembershipIndex = cast[MembershipIndex](v)
+  return membershipIndex
+
+# Converts a sequence of tuples containing 4 string (i.e. identity trapdoor, nullifier, secret hash and commitment) to an IndentityCredential
+type RawMembershipCredentials* = (string, string, string, string)
+proc toIdentityCredentials*(groupKeys: seq[RawMembershipCredentials]): Result[seq[
+    IdentityCredential], string] =
+  ## groupKeys is  sequence of membership key tuples in the form of (identity key, identity commitment) all in the hexadecimal format
+  ## the toIdentityCredentials proc populates a sequence of IdentityCredentials using the supplied groupKeys
+  ## Returns an error if the conversion fails
+
+  var groupIdCredentials = newSeq[IdentityCredential]()
+
+  for i in 0..groupKeys.len-1:
+    try:
+      let
+        idTrapdoor = IdentityTrapdoor(@(hexToUint[CredentialByteSize](groupKeys[i][0]).toBytesLE()))
+        idNullifier = IdentityNullifier(@(hexToUint[CredentialByteSize](groupKeys[i][1]).toBytesLE()))
+        idSecretHash = IdentitySecretHash(@(hexToUint[CredentialByteSize](groupKeys[i][2]).toBytesLE()))
+        idCommitment = IDCommitment(@(hexToUint[CredentialByteSize](groupKeys[i][3]).toBytesLE()))
+      groupIdCredentials.add(IdentityCredential(idTrapdoor: idTrapdoor, 
+                                                idNullifier: idNullifier, 
+                                                idSecretHash: idSecretHash,
+                                                idCommitment: idCommitment))
+    except ValueError as err:
+      return err("could not convert the group key to bytes: " & err.msg)
+  return ok(groupIdCredentials)
+
+proc serialize*(idComms: seq[IDCommitment]): seq[byte] =
+  ## serializes a seq of IDCommitments to a byte seq
+  ## the serialization is based on https://github.com/status-im/nwaku/blob/37bd29fbc37ce5cf636734e7dd410b1ed27b88c8/waku/v2/protocol/waku_rln_relay/rln.nim#L142
+  ## the order of serialization is |id_commitment_len<8>|id_commitment<var>|
+  var idCommsBytes = newSeq[byte]()
+
+  # serialize the idComms, with its length prefixed
+  let len = toBytes(uint64(idComms.len), Endianness.littleEndian)
+  idCommsBytes.add(len)
+
+  for idComm in idComms:
+    idCommsBytes = concat(idCommsBytes, @idComm)
+
+  return idCommsBytes
 
 type MembershipContract* = object
   chainId*: string

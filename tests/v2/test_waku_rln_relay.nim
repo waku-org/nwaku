@@ -332,7 +332,7 @@ suite "Waku rln relay":
     # prepare the input
     let
       msg = "Hello".toBytes()
-      hashInput = appendLength(msg)
+      hashInput = encodeLengthPrefix(msg)
       hashInputBuffer = toBuffer(hashInput)
 
     # prepare other inputs to the hash function
