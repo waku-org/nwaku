@@ -23,6 +23,23 @@ type
 
   FilterSubscribeResult* = Result[void, FilterSubscribeError]
 
+# Convenience functions
+
+proc badRequest*(T: type FilterSubscribeError, cause = "bad request"): FilterSubscribeError =
+  FilterSubscribeError(
+    kind: FilterSubscribeErrorKind.BAD_REQUEST,
+    cause: cause)
+
+proc notFound*(T: type FilterSubscribeError, cause = "peer has no subscriptions"): FilterSubscribeError =
+  FilterSubscribeError(
+    kind: FilterSubscribeErrorKind.NOT_FOUND,
+    cause: cause)
+
+proc serviceUnavailable*(T: type FilterSubscribeError, cause = "service unavailable"): FilterSubscribeError =
+  FilterSubscribeError(
+    kind: FilterSubscribeErrorKind.SERVICE_UNAVAILABLE,
+    cause: cause)
+
 proc `$`*(err: FilterSubscribeError): string =
   case err.kind:
   of FilterSubscribeErrorKind.BAD_REQUEST:

@@ -39,19 +39,13 @@ proc pingSubscriber(wf: WakuFilter, peerId: PeerID): FilterSubscribeResult =
 
   if peerId notin wf.subscriptions:
     debug "pinging peer has no subscriptions", peerId=peerId
-    return err(FilterSubscribeError(
-      kind: FilterSubscribeErrorKind.NOT_FOUND,
-      cause: "peer has no subscriptions"
-    ))
+    return err(FilterSubscribeError.notFound())
 
   ok()
 
 proc subscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic], contentTopics: seq[ContentTopic]): FilterSubscribeResult =
   if pubsubTopic.isNone() or contentTopics.len() == 0:
-    return err(FilterSubscribeError(
-      kind: FilterSubscribeErrorKind.BAD_REQUEST,
-      cause: "pubsubTopic and contentTopics must be specified"
-    ))
+    return err(FilterSubscribeError.badRequest("pubsubTopic and contentTopics must be specified"))
 
   let filterCriteria = toHashSet(contentTopics.mapIt((pubsubTopic.get(), it)))
 
@@ -60,19 +54,13 @@ proc subscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic],
   if peerId in wf.subscriptions:
     var peerSubscription = wf.subscriptions.mgetOrPut(peerId, initHashSet[FilterCriterion]())
     if peerSubscription.len() + filterCriteria.len() >= MaxCriteriaPerSubscription:
-      return err(FilterSubscribeError(
-        kind: FilterSubscribeErrorKind.SERVICE_UNAVAILABLE,
-        cause: "peer has reached maximum number of filter criteria"
-      ))
+      return err(FilterSubscribeError.serviceUnavailable("peer has reached maximum number of filter criteria"))
 
     peerSubscription.incl(filterCriteria)
     wf.subscriptions[peerId] = peerSubscription
   else:
     if wf.subscriptions.len() >= MaxSubscriptions:
-      return err(FilterSubscribeError(
-        kind: FilterSubscribeErrorKind.SERVICE_UNAVAILABLE,
-        cause: "node has reached maximum number of subscriptions"
-      ))
+      return err(FilterSubscribeError.serviceUnavailable("node has reached maximum number of subscriptions"))
     debug "creating new subscription", peerId=peerId
     wf.subscriptions[peerId] = filterCriteria
 
@@ -80,10 +68,7 @@ proc subscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic],
 
 proc unsubscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic], contentTopics: seq[ContentTopic]): FilterSubscribeResult =
   if pubsubTopic.isNone() or contentTopics.len() == 0:
-    return err(FilterSubscribeError(
-      kind: FilterSubscribeErrorKind.BAD_REQUEST,
-      cause: "pubsubTopic and contentTopics must be specified"
-    ))
+    return err(FilterSubscribeError.badRequest("pubsubTopic and contentTopics must be specified"))
 
   let filterCriteria = toHashSet(contentTopics.mapIt((pubsubTopic.get(), it)))
 
@@ -91,10 +76,7 @@ proc unsubscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic
 
   if peerId notin wf.subscriptions:
     debug "unsubscibing peer has no subscriptions", peerId=peerId
-    return err(FilterSubscribeError(
-      kind: FilterSubscribeErrorKind.NOT_FOUND,
-      cause: "peer has no subscriptions"
-    ))
+    return err(FilterSubscribeError.notFound())
 
   var peerSubscription = wf.subscriptions.mgetOrPut(peerId, initHashSet[FilterCriterion]())
   # TODO: consider error response if filter criteria does not exist
@@ -111,10 +93,7 @@ proc unsubscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic
 proc unsubscribeAll(wf: WakuFilter, peerId: PeerID): FilterSubscribeResult =
   if peerId notin wf.subscriptions:
     debug "unsubscibing peer has no subscriptions", peerId=peerId
-    return err(FilterSubscribeError(
-      kind: FilterSubscribeErrorKind.NOT_FOUND,
-      cause: "peer has no subscriptions"
-    ))
+    return err(FilterSubscribeError.notFound())
 
   debug "removing peer subscription", peerId=peerId
   wf.subscriptions.del(peerId)
@@ -144,11 +123,7 @@ proc handleSubscribeRequest*(wf: WakuFilter, peerId: PeerId, request: FilterSubs
       statusDesc: some($subscribeResult.error)
     )
   else:
-    return FilterSubscribeResponse(
-      requestId: request.requestId,
-      statusCode: 200,
-      statusDesc: some("OK")
-    )
+    return FilterSubscribeResponse.ok(request.requestId)
 
 proc handleMessage*(wf: WakuFilter, message: WakuMessage) =
   raiseAssert "Unimplemented"

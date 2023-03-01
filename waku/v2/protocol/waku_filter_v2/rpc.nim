@@ -33,3 +33,12 @@ type
     # Message pushed from service node to client
     wakuMessage*: WakuMessage
     pubsubTopic*: Option[string]
+
+# Convenience functions
+
+proc ok*(T: type FilterSubscribeResponse, requestId: string, desc = "OK"): T =
+  FilterSubscribeResponse(
+    requestId: requestId,
+    statusCode: 200,
+    statusDesc: some(desc)
+  )
