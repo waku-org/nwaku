@@ -13,6 +13,8 @@ import
   ../../utils/time
 
 const
+  MaxMetaAttrLength* = 32 # 32 bytes
+
   MaxWakuMessageSize* = 1024 * 1024 # 1 Mibytes. Corresponds to PubSub default
 
 
@@ -30,6 +32,8 @@ type WakuMessage* = object
     payload*: seq[byte]
     # String identifier that can be used for content-based filtering.
     contentTopic*: ContentTopic
+    # Application specific metadata.
+    meta*: seq[byte]
     # Number to discriminate different types of payload encryption.
     # Compatibility with Whisper/WakuV1.
     version*: uint32

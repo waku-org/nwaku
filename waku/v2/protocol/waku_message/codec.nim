@@ -21,6 +21,7 @@ proc encode*(message: WakuMessage): ProtoBuffer =
   buf.write3(2, message.contentTopic)
   buf.write3(3, message.version)
   buf.write3(10, zint64(message.timestamp))
+  buf.write3(11, message.meta)
   when defined(rln):
     buf.write3(21, message.proof)
   buf.write3(31, message.ephemeral)
@@ -60,6 +61,16 @@ proc decode*(T: type WakuMessage, buffer: seq[byte]): ProtobufResult[T] =
     msg.timestamp = Timestamp(0)
   else:
     msg.timestamp = Timestamp(timestamp)
+
+
+  var meta: seq[byte]
+  if not ?pb.getField(11, meta):
+    msg.meta = @[]
+  else:
+    if meta.len > MaxMetaAttrLength:
+      return err(ProtobufError.invalidLengthField("meta"))
+
+    msg.meta = meta
 
 
   # Experimental: this is part of https://rfc.vac.dev/spec/17/ spec
