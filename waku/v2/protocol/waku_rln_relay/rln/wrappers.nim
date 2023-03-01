@@ -81,7 +81,7 @@ proc createRLNInstance*(d: int = MerkleTreeDepth): RLNResult =
 proc sha256*(data: openArray[byte]): MerkleNode =
   ## a thin layer on top of the Nim wrapper of the sha256 hasher
   debug "sha256 hash input", hashhex = data.toHex()
-  var lenPrefData = appendLength(data)
+  var lenPrefData = encodeLengthPrefix(data)
   var
     hashInputBuffer = lenPrefData.toBuffer()
     outputBuffer: Buffer # will holds the hash output
@@ -209,7 +209,7 @@ proc insertMembers*(rlnInstance: ptr RLN,
     ## Note: This proc is atomic, i.e., if any of the insertions fails, all the previous insertions are rolled back
 
     # serialize the idComms
-    let idCommsBytes = serializeIdCommitments(idComms)
+    let idCommsBytes = serialize(idComms)
 
     var idCommsBuffer = idCommsBytes.toBuffer()
     let idCommsBufferPtr = addr idCommsBuffer
