@@ -10,21 +10,13 @@ else:
 
 
 import
-  ../../utils/time
+  ../../utils/time,
+  ./topics
 
 const
   MaxMetaAttrLength* = 32 # 32 bytes
 
   MaxWakuMessageSize* = 1024 * 1024 # 1 Mibytes. Corresponds to PubSub default
-
-
-type
-  PubsubTopic* = string
-  ContentTopic* = string
-
-const
-  DefaultPubsubTopic*: PubsubTopic = PubsubTopic("/waku/2/default-waku/proto")
-  DefaultContentTopic*: ContentTopic = ContentTopic("/waku/2/default-content/proto")
 
 
 type WakuMessage* = object
