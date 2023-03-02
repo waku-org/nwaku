@@ -6,6 +6,10 @@ import ./all_tests_common
 
 ## Waku v2
 
+# Waku message test suite
+import
+  ./v2/test_waku_message_digest
+
 # Waku archive test suite
 import
   ./v2/waku_archive/test_driver_queue_index,
