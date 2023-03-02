@@ -25,7 +25,7 @@ import
   ../../../waku/v2/protocol/waku_rln_relay/conversion_utils,
   ../../../waku/v2/protocol/waku_rln_relay/group_manager/on_chain/group_manager,
   ../testlib/common,
-  ./test_utils
+  ./utils
 
 proc generateCredentials(rlnInstance: ptr RLN): IdentityCredential =
   let credRes = membershipKeyGen(rlnInstance)
