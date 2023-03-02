@@ -48,7 +48,6 @@ import
   ./v2/test_utils_peers,
   ./v2/test_message_cache,
   ./v2/test_peer_manager,
-  ./v2/test_web3, # TODO  remove it when rln-relay tests get finalized
   ./v2/test_peer_storage,
   ./v2/test_waku_keepalive,
   ./v2/test_namespacing_utils,
@@ -94,10 +93,10 @@ import ./all_tests_wakubridge
 
 when defined(rln):
   import
-    ./v2/test_waku_rln_relay,
-    ./v2/test_wakunode_rln_relay,
-    ./v2/test_rln_group_manager_onchain,
-    ./v2/test_rln_group_manager_static
+    ./v2/waku_rln_relay/test_waku_rln_relay,
+    ./v2/waku_rln_relay/test_wakunode_rln_relay,
+    ./v2/waku_rln_relay/test_rln_group_manager_onchain,
+    ./v2/waku_rln_relay/test_rln_group_manager_static
 
 # Waku swap test suite
 import

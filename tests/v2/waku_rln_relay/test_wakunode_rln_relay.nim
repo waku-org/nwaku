@@ -14,12 +14,12 @@ import
   libp2p/protocols/pubsub/pubsub,
   eth/keys
 import
-  ../../waku/v2/node/waku_node,
-  ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_rln_relay,
-  ../../waku/v2/protocol/waku_keystore,
-  ../../waku/v2/utils/peers,
-  ./testlib/waku2
+  ../../../waku/v2/node/waku_node,
+  ../../../waku/v2/protocol/waku_message,
+  ../../../waku/v2/protocol/waku_rln_relay,
+  ../../../waku/v2/protocol/waku_keystore,
+  ../../../waku/v2/utils/peers,
+  ../testlib/waku2
 
 from std/times import epochTime
 

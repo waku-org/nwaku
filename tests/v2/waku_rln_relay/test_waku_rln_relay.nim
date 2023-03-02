@@ -11,10 +11,10 @@ import
   stint,
   libp2p/crypto/crypto
 import
-  ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_rln_relay,
-  ../../waku/v2/protocol/waku_keystore,
-  ./testlib/common
+  ../../../waku/v2/protocol/waku_message,
+  ../../../waku/v2/protocol/waku_rln_relay,
+  ../../../waku/v2/protocol/waku_keystore,
+  ../testlib/common
 
 const RlnRelayPubsubTopic = "waku/2/rlnrelay/proto"
 const RlnRelayContentTopic = "waku/2/rlnrelay/proto"
