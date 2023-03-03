@@ -16,6 +16,7 @@ import
   ../../../waku/v2/protocol/waku_message,
   ../../../waku/v2/protocol/waku_archive,
   ../../../waku/v2/protocol/waku_archive/driver/queue_driver,
+  ../../../waku/v2/protocol/waku_store,
   ../../../waku/v2/protocol/waku_store/rpc,
   ../../../waku/v2/utils/peers,
   ../../../waku/v2/utils/time,
@@ -66,7 +67,7 @@ procSuite "Waku v2 JSON-RPC API - Store":
     var listenSwitch = newStandardSwitch(some(key))
     await listenSwitch.start()
 
-    node.setStorePeer(listenSwitch.peerInfo.toRemotePeerInfo())
+    node.peerManager.addServicePeer(listenSwitch.peerInfo.toRemotePeerInfo(), WakuStoreCodec)
 
     listenSwitch.mount(node.wakuRelay)
     listenSwitch.mount(node.wakuStore)

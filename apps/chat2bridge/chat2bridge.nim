@@ -16,6 +16,10 @@ import
   libp2p/errors,
   ../../../waku/v2/protocol/waku_message,
   ../../../waku/v2/node/waku_node,
+  ../../../waku/v2/utils/peers,
+  ../../../waku/v2/node/peer_manager,
+  ../../waku/v2/protocol/waku_filter,
+  ../../waku/v2/protocol/waku_store,
   # Chat 2 imports
   ../chat2/chat2,
   # Common cli config
@@ -281,10 +285,12 @@ when isMainModule:
     waitFor connectToNodes(bridge.nodev2, conf.staticnodes)
 
   if conf.storenode != "":
-    setStorePeer(bridge.nodev2, conf.storenode)
+    let storePeer = parseRemotePeerInfo(conf.storenode)
+    bridge.nodev2.peerManager.addServicePeer(storePeer, WakuStoreCodec)
 
   if conf.filternode != "":
-    setFilterPeer(bridge.nodev2, conf.filternode)
+    let filterPeer = parseRemotePeerInfo(conf.filternode)
+    bridge.nodev2.peerManager.addServicePeer(filterPeer, WakuFilterCodec)
 
   if conf.rpc:
     let ta = initTAddress(conf.rpcAddress,

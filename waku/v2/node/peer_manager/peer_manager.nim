@@ -5,7 +5,7 @@ else:
 
 
 import
-  std/[options, sets, sequtils, times],
+  std/[options, sets, sequtils, times, strutils],
   chronos,
   chronicles,
   metrics,
@@ -22,8 +22,9 @@ declareCounter waku_peers_dials, "Number of peer dials", ["outcome"]
 # TODO: Populate from PeerStore.Source when ready
 declarePublicCounter waku_node_conns_initiated, "Number of connections initiated", ["source"]
 declarePublicGauge waku_peers_errors, "Number of peer manager errors", ["type"]
-declarePublicGauge waku_connected_peers, "Number of connected peers per direction: inbound|outbound", ["direction"]
+declarePublicGauge waku_connected_peers, "Number of connected peers per direction", ["direction"]
 declarePublicGauge waku_peer_store_size, "Number of peers managed by the peer store"
+declarePublicGauge waku_service_peers, "Service peer protocol and multiaddress ", labels = ["protocol", "peerId"]
 
 logScope:
   topics = "waku node peer_manager"
@@ -60,6 +61,16 @@ type
     storage: PeerStorage
     serviceSlots*: Table[string, RemotePeerInfo]
     started: bool
+
+proc protocolMatcher*(codec: string): Matcher =
+  ## Returns a protocol matcher function for the provided codec
+  proc match(proto: string): bool {.gcsafe.} =
+    ## Matches a proto with any postfix to the provided codec.
+    ## E.g. if the codec is `/vac/waku/filter/2.0.0` it matches the protos:
+    ## `/vac/waku/filter/2.0.0`, `/vac/waku/filter/2.0.0-beta3`, `/vac/waku/filter/2.0.0-actualnonsense`
+    return proto.startsWith(codec)
+
+  return match
 
 ####################
 # Helper functions #
@@ -244,7 +255,7 @@ proc new*(T: type PeerManager,
 # Manager interface #
 #####################
 
-proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string) =
+proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo) =
   # Adds peer to manager for the specified protocol
 
   if remotePeerInfo.peerId == pm.switch.peerInfo.peerId:
@@ -260,13 +271,10 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: string) =
     # Peer already managed
     return
 
-  debug "Adding peer to manager", peerId = remotePeerInfo.peerId, addresses = remotePeerInfo.addrs, proto = proto
+  trace "Adding peer to manager", peerId = remotePeerInfo.peerId, addresses = remotePeerInfo.addrs
 
   pm.peerStore[AddressBook][remotePeerInfo.peerId] = remotePeerInfo.addrs
   pm.peerStore[KeyBook][remotePeerInfo.peerId] = publicKey
-
-  # TODO: Remove this once service slots is ready
-  pm.peerStore[ProtoBook][remotePeerInfo.peerId] = pm.peerStore[ProtoBook][remotePeerInfo.peerId] & proto
 
   # Add peer to storage. Entry will subsequently be updated with connectedness information
   if not pm.storage.isNil:
@@ -279,23 +287,23 @@ proc addServicePeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: str
     return
 
   info "Adding peer to service slots", peerId = remotePeerInfo.peerId, addr = remotePeerInfo.addrs[0], service = proto
+  waku_service_peers.set(1, labelValues = [$proto, $remotePeerInfo.addrs[0]])
 
    # Set peer for service slot
   pm.serviceSlots[proto] = remotePeerInfo
 
-  # TODO: Remove proto once fully refactored
-  pm.addPeer(remotePeerInfo, proto)
+  pm.addPeer(remotePeerInfo)
 
 proc reconnectPeers*(pm: PeerManager,
                      proto: string,
-                     protocolMatcher: Matcher,
                      backoff: chronos.Duration = chronos.seconds(0)) {.async.} =
   ## Reconnect to peers registered for this protocol. This will update connectedness.
   ## Especially useful to resume connections from persistent storage after a restart.
 
   debug "Reconnecting peers", proto=proto
 
-  for storedInfo in pm.peerStore.peers(protocolMatcher):
+  # Proto is not persisted, we need to iterate over all peers.
+  for storedInfo in pm.peerStore.peers(protocolMatcher(proto)):
     # Check that the peer can be connected
     if storedInfo.connectedness == CannotConnect:
       debug "Not reconnecting to unreachable or non-existing peer", peerId=storedInfo.peerId
@@ -332,10 +340,11 @@ proc dialPeer*(pm: PeerManager,
   # Dial a given peer and add it to the list of known peers
   # TODO: check peer validity and score before continuing. Limit number of peers to be managed.
 
-  # First add dialed peer info to peer store, if it does not exist yet...
+  # First add dialed peer info to peer store, if it does not exist yet..
+  # TODO: nim libp2p peerstore already adds them
   if not pm.peerStore.hasPeer(remotePeerInfo.peerId, proto):
     trace "Adding newly dialed peer to manager", peerId= $remotePeerInfo.peerId, address= $remotePeerInfo.addrs[0], proto= proto
-    pm.addPeer(remotePeerInfo, proto)
+    pm.addPeer(remotePeerInfo)
 
   return await pm.dialPeer(remotePeerInfo.peerId,remotePeerInfo.addrs, proto, dialTimeout, source)
 
@@ -380,38 +389,32 @@ proc connectToNodes*(pm: PeerManager,
   # later.
   await sleepAsync(chronos.seconds(5))
 
-# Ensures a healthy amount of connected relay peers
-proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
-  debug "Starting relay connectivity loop"
-  while pm.started:
+proc connectToRelayPeers*(pm: PeerManager) {.async.} =
+  let maxConnections = pm.switch.connManager.inSema.size
+  let numInPeers = pm.switch.connectedPeers(lpstream.Direction.In).len
+  let numOutPeers = pm.switch.connectedPeers(lpstream.Direction.Out).len
+  let numConPeers = numInPeers + numOutPeers
 
-    let maxConnections = pm.switch.connManager.inSema.size
-    let numInPeers = pm.switch.connectedPeers(lpstream.Direction.In).len
-    let numOutPeers = pm.switch.connectedPeers(lpstream.Direction.Out).len
-    let numConPeers = numInPeers + numOutPeers
+  # TODO: Enforce a given in/out peers ratio
 
-    # TODO: Enforce a given in/out peers ratio
+  # Leave some room for service peers
+  if numConPeers >= (maxConnections - 5):
+    return
 
-    # Leave some room for service peers
-    if numConPeers >= (maxConnections - 5):
-      await sleepAsync(ConnectivityLoopInterval)
-      continue
+  # TODO: Track only relay connections (nwaku/issues/1566)
+  let notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
+  let outsideBackoffPeers = notConnectedPeers.filterIt(pm.peerStore.canBeConnected(it.peerId,
+                                                                                  pm.initialBackoffInSec,
+                                                                                  pm.backoffFactor))
+  let numPeersToConnect = min(min(maxConnections - numConPeers, outsideBackoffPeers.len), MaxParalelDials)
 
-    let notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
-    let outsideBackoffPeers = notConnectedPeers.filterIt(pm.peerStore.canBeConnected(it.peerId,
-                                                                                    pm.initialBackoffInSec,
-                                                                                    pm.backoffFactor))
-    let numPeersToConnect = min(min(maxConnections - numConPeers, outsideBackoffPeers.len), MaxParalelDials)
+  info "Relay peer connections",
+    connectedPeers = numConPeers,
+    targetConnectedPeers = maxConnections,
+    notConnectedPeers = notConnectedPeers.len,
+    outsideBackoffPeers = outsideBackoffPeers.len
 
-    info "Relay connectivity loop",
-      connectedPeers = numConPeers,
-      targetConnectedPeers = maxConnections,
-      notConnectedPeers = notConnectedPeers.len,
-      outsideBackoffPeers = outsideBackoffPeers.len
-
-    await pm.connectToNodes(outsideBackoffPeers[0..<numPeersToConnect], WakuRelayCodec)
-
-    await sleepAsync(ConnectivityLoopInterval)
+  await pm.connectToNodes(outsideBackoffPeers[0..<numPeersToConnect], WakuRelayCodec)
 
 proc prunePeerStore*(pm: PeerManager) =
   let numPeers = toSeq(pm.peerStore[AddressBook].book.keys).len
@@ -447,13 +450,6 @@ proc prunePeerStore*(pm: PeerManager) =
                                        capacity = capacity,
                                        pruned = pruned
 
-
-proc prunePeerStoreLoop(pm: PeerManager) {.async.}  =
-  while pm.started:
-    pm.prunePeerStore()
-    await sleepAsync(PrunePeerStoreInterval)
-
-
 proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
   debug "Selecting peer from peerstore", protocol=proto
 
@@ -480,6 +476,20 @@ proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
     return some(peers[0].toRemotePeerInfo())
   debug "No peer found for protocol", protocol=proto
   return none(RemotePeerInfo)
+
+# Prunes peers from peerstore to remove old/stale ones
+proc prunePeerStoreLoop(pm: PeerManager) {.async.}  =
+  debug "Starting prune peerstore loop"
+  while pm.started:
+    pm.prunePeerStore()
+    await sleepAsync(PrunePeerStoreInterval)
+
+# Ensures a healthy amount of connected relay peers
+proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
+  debug "Starting relay connectivity loop"
+  while pm.started:
+    await pm.connectToRelayPeers()
+    await sleepAsync(ConnectivityLoopInterval)
 
 proc start*(pm: PeerManager) =
   pm.started = true

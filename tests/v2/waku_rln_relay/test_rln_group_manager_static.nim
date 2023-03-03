@@ -1,3 +1,5 @@
+{.used.}
+
 when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
 else:
@@ -7,10 +9,10 @@ import
   testutils/unittests,
   stew/results,
   options,
-  ../../waku/v2/protocol/waku_rln_relay/protocol_types,
-  ../../waku/v2/protocol/waku_rln_relay/rln,
-  ../../waku/v2/protocol/waku_rln_relay/conversion_utils,
-  ../../waku/v2/protocol/waku_rln_relay/group_manager/static/group_manager
+  ../../../waku/v2/protocol/waku_rln_relay/protocol_types,
+  ../../../waku/v2/protocol/waku_rln_relay/rln,
+  ../../../waku/v2/protocol/waku_rln_relay/conversion_utils,
+  ../../../waku/v2/protocol/waku_rln_relay/group_manager/static/group_manager
 
 import
   stew/shims/net,
@@ -38,12 +40,10 @@ suite "Static group manager":
     let rlnInstance = rlnInstanceRes.get()
     let credentials = generateCredentials(rlnInstance, 10)
 
-    let staticConfig = StaticGroupManagerConfig(groupSize: 10,
-                                                membershipIndex: 5,
-                                                groupKeys: credentials)
-
-    let manager {.used.} = StaticGroupManager(config: staticConfig,
-                                              rlnInstance: rlnInstance)
+    let manager {.used.} = StaticGroupManager(rlnInstance: rlnInstance,
+                                              groupSize: 10,
+                                              membershipIndex: some(MembershipIndex(5)),
+                                              groupKeys: credentials)
 
   asyncTest "should initialize successfully":
     let merkleRootBeforeRes = manager.rlnInstance.getMerkleRoot()
@@ -58,34 +58,33 @@ suite "Static group manager":
     let merkleRootAfter = merkleRootAfterRes.get()
     check:
       manager.idCredentials.isSome()
-      manager.config.groupKeys.len == 10
-      manager.config.groupSize == 10
-      manager.config.membershipIndex == 5
-      manager.config.groupKeys[5] == manager.idCredentials.get()
+      manager.groupKeys.len == 10
+      manager.groupSize == 10
+      manager.membershipIndex == some(MembershipIndex(5))
+      manager.groupKeys[5] == manager.idCredentials.get()
       manager.latestIndex == 9
       merkleRootAfter.inHex() != merkleRootBefore.inHex()
 
   asyncTest "startGroupSync: should start group sync":
     await manager.init()
+    require:
+      manager.validRoots.len() == 1
+      manager.rlnInstance.getMerkleRoot().get() == manager.validRoots[0]
     await manager.startGroupSync()
 
   asyncTest "startGroupSync: should guard against uninitialized state":
-    let staticConfig = StaticGroupManagerConfig(groupSize: 0,
-                                                membershipIndex: 0,
-                                                groupKeys: @[])
-
-    let manager = StaticGroupManager(config: staticConfig,
+    let manager = StaticGroupManager(groupSize: 0,
+                                     membershipIndex: some(MembershipIndex(0)),
+                                     groupKeys: @[],
                                      rlnInstance: rlnInstance)
 
     expect(ValueError):
       await manager.startGroupSync()
 
   asyncTest "register: should guard against uninitialized state":
-    let staticConfig = StaticGroupManagerConfig(groupSize: 0,
-                                                membershipIndex: 0,
-                                                groupKeys: @[])
-
-    let manager = StaticGroupManager(config: staticConfig,
+    let manager = StaticGroupManager(groupSize: 0,
+                                     membershipIndex: some(MembershipIndex(0)),
+                                     groupKeys: @[],
                                      rlnInstance: rlnInstance)
 
     let dummyCommitment = default(IDCommitment)

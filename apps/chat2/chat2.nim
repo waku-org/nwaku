@@ -9,7 +9,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import std/[tables, strformat, strutils, times, json, options, random]
+import std/[strformat, strutils, times, json, options, random]
 import confutils, chronicles, chronos, stew/shims/net as stewNet,
        eth/keys, bearssl, stew/[byteutils, results],
        nimcrypto/pbkdf2
@@ -24,6 +24,7 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                nameresolving/dnsresolver]# define DNS resolution
 import
   ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/protocol/waku_lightpush,
   ../../waku/v2/protocol/waku_lightpush/rpc,
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_store,
@@ -489,7 +490,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       echo "Connecting to storenode: " & $(storenode.get())
 
       node.mountStoreClient()
-      node.setStorePeer(storenode.get())
+      node.peerManager.addServicePeer(storenode.get(), WakuStoreCodec)
 
       proc storeHandler(response: HistoryResponse) {.gcsafe.} =
         for msg in response.messages:
@@ -509,13 +510,13 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     await mountLightPush(node)
 
     node.mountLightPushClient()
-    node.setLightPushPeer(conf.lightpushnode)
+    node.peerManager.addServicePeer(parseRemotePeerInfo(conf.lightpushnode), WakuLightpushCodec)
 
   if conf.filternode != "":
     await node.mountFilter()
     await node.mountFilterClient()
 
-    node.setFilterPeer(parseRemotePeerInfo(conf.filternode))
+    node.peerManager.addServicePeer(parseRemotePeerInfo(conf.filternode), WakuFilterCodec)
 
     proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.gcsafe.} =
       trace "Hit filter handler", contentTopic=msg.contentTopic
@@ -562,7 +563,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
           rlnRelayDynamic: conf.rlnRelayDynamic,
           rlnRelayPubsubTopic: conf.rlnRelayPubsubTopic,
           rlnRelayContentTopic: conf.rlnRelayContentTopic,
-          rlnRelayMembershipIndex: conf.rlnRelayMembershipIndex,
+          rlnRelayMembershipIndex: some(conf.rlnRelayMembershipIndex),
           rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
           rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
           rlnRelayEthAccountPrivateKey: conf.rlnRelayEthAccountPrivateKey,
@@ -575,11 +576,13 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
                                  spamHandler=some(spamHandler),
                                  registrationHandler=some(registrationHandler))
 
-        echo "your membership index is: ", node.wakuRlnRelay.membershipIndex
-        echo "your rln identity trapdoor is: ", node.wakuRlnRelay.identityCredential.idTrapdoor.inHex()
-        echo "your rln identity nullifier is: ", node.wakuRlnRelay.identityCredential.idNullifier.inHex()
-        echo "your rln identity secret hash is: ", node.wakuRlnRelay.identityCredential.idSecretHash.inHex()
-        echo "your rln identity commitment key is: ", node.wakuRlnRelay.identityCredential.idCommitment.inHex()
+        let membershipIndex = node.wakuRlnRelay.groupManager.membershipIndex.get()
+        let identityCredential = node.wakuRlnRelay.groupManager.idCredentials.get()
+        echo "your membership index is: ", membershipIndex
+        echo "your rln identity trapdoor is: ", identityCredential.idTrapdoor.inHex()
+        echo "your rln identity nullifier is: ", identityCredential.idNullifier.inHex()
+        echo "your rln identity secret hash is: ", identityCredential.idSecretHash.inHex()
+        echo "your rln identity commitment key is: ", identityCredential.idCommitment.inHex()
     else:
       info "WakuRLNRelay is disabled"
       if conf.rlnRelay:

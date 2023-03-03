@@ -26,6 +26,8 @@ import
   libp2p/nameresolving/nameresolver,
   ../../waku/v2/utils/time,
   ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/node/message_cache,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/peer_manager,
@@ -428,11 +430,13 @@ when isMainModule:
 
   if conf.storenode != "":
     mountStoreClient(bridge.nodev2)
-    setStorePeer(bridge.nodev2, conf.storenode)
+    let storeNode = parseRemotePeerInfo(conf.storenode)
+    bridge.nodev2.peerManager.addServicePeer(storeNode, WakuStoreCodec)
 
   if conf.filternode != "":
     waitFor mountFilterClient(bridge.nodev2)
-    setFilterPeer(bridge.nodev2, conf.filternode)
+    let filterNode = parseRemotePeerInfo(conf.filternode)
+    bridge.nodev2.peerManager.addServicePeer(filterNode, WakuFilterCodec)
 
   if conf.rpc:
     let ta = initTAddress(conf.rpcAddress,

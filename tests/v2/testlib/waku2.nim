@@ -38,6 +38,7 @@ export
 proc fakeWakuMessage*(
   payload: string|seq[byte] = "TEST-PAYLOAD",
   contentTopic = DefaultContentTopic,
+  meta = newSeq[byte](),
   ts = now(),
   ephemeral = false
 ): WakuMessage =
@@ -50,6 +51,7 @@ proc fakeWakuMessage*(
   WakuMessage(
     payload: payloadBytes,
     contentTopic: contentTopic,
+    meta: meta,
     version: 2,
     timestamp: ts,
     ephemeral: ephemeral

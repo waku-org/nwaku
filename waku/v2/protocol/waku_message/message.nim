@@ -10,19 +10,13 @@ else:
 
 
 import
-  ../../utils/time
+  ../../utils/time,
+  ./topics
 
 const
+  MaxMetaAttrLength* = 32 # 32 bytes
+
   MaxWakuMessageSize* = 1024 * 1024 # 1 Mibytes. Corresponds to PubSub default
-
-
-type
-  PubsubTopic* = string
-  ContentTopic* = string
-
-const
-  DefaultPubsubTopic*: PubsubTopic = PubsubTopic("/waku/2/default-waku/proto")
-  DefaultContentTopic*: ContentTopic = ContentTopic("/waku/2/default-content/proto")
 
 
 type WakuMessage* = object
@@ -30,6 +24,8 @@ type WakuMessage* = object
     payload*: seq[byte]
     # String identifier that can be used for content-based filtering.
     contentTopic*: ContentTopic
+    # Application specific metadata.
+    meta*: seq[byte]
     # Number to discriminate different types of payload encryption.
     # Compatibility with Whisper/WakuV1.
     version*: uint32

@@ -6,6 +6,11 @@ import ./all_tests_common
 
 ## Waku v2
 
+# Waku message test suite
+import
+  ./v2/test_waku_message_topics,
+  ./v2/test_waku_message_digest
+
 # Waku archive test suite
 import
   ./v2/waku_archive/test_driver_queue_index,
@@ -48,10 +53,8 @@ import
   ./v2/test_utils_peers,
   ./v2/test_message_cache,
   ./v2/test_peer_manager,
-  ./v2/test_web3, # TODO  remove it when rln-relay tests get finalized
   ./v2/test_peer_storage,
   ./v2/test_waku_keepalive,
-  ./v2/test_namespacing_utils,
   ./v2/test_waku_dnsdisc,
   ./v2/test_waku_discv5,
   ./v2/test_enr_utils,
@@ -94,9 +97,10 @@ import ./all_tests_wakubridge
 
 when defined(rln):
   import
-    ./v2/test_waku_rln_relay,
-    ./v2/test_wakunode_rln_relay,
-    ./v2/test_waku_rln_relay_onchain
+    ./v2/waku_rln_relay/test_waku_rln_relay,
+    ./v2/waku_rln_relay/test_wakunode_rln_relay,
+    ./v2/waku_rln_relay/test_rln_group_manager_onchain,
+    ./v2/waku_rln_relay/test_rln_group_manager_static
 
 # Waku swap test suite
 import
