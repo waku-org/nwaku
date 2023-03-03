@@ -11,6 +11,7 @@ else:
 import
   ../../../common/protobuf,
   ../../utils/time,
+  ./topics,
   ./message
 
 
