@@ -8,6 +8,7 @@ import ./all_tests_common
 
 # Waku message test suite
 import
+  ./v2/test_waku_message_topics,
   ./v2/test_waku_message_digest
 
 # Waku archive test suite
@@ -54,7 +55,6 @@ import
   ./v2/test_peer_manager,
   ./v2/test_peer_storage,
   ./v2/test_waku_keepalive,
-  ./v2/test_namespacing_utils,
   ./v2/test_waku_dnsdisc,
   ./v2/test_waku_discv5,
   ./v2/test_enr_utils,

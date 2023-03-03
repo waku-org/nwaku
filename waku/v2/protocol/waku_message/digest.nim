@@ -9,6 +9,7 @@ import
   stew/byteutils,
   nimcrypto/sha2
 import
+  ./topics,
   ./message
 
 

@@ -30,7 +30,8 @@ suite "WakuBridge - Message compat":
 
     # Invalid cases
 
-    expect LPError:
+  test "Invalid topics conversion between Waku v1 and Waku v2 fails":
+    expect ValueError:
       # Content topic not namespaced
       discard toV1Topic(ContentTopic("this-is-my-content"))
 
