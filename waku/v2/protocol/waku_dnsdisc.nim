@@ -20,8 +20,9 @@ import
   libp2p/crypto/secp,
   libp2p/multiaddress,
   libp2p/peerid,
-  discovery/dnsdisc/client,
-  ../../utils/peers
+  discovery/dnsdisc/client
+import
+  ../utils/peers
 
 export client
 

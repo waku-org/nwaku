@@ -35,13 +35,13 @@ import
   ../protocol/waku_filter/client as filter_client,
   ../protocol/waku_lightpush,
   ../protocol/waku_lightpush/client as lightpush_client,
+  ../protocol/waku_dnsdisc,
+  ../protocol/waku_discv5,
   ../protocol/waku_peer_exchange,
   ../utils/peers,
   ../utils/wakuenr,
   ../utils/time,
   ./peer_manager,
-  ./dnsdisc/waku_dnsdisc,
-  ./discv5/waku_discv5,
   ./wakuswitch
 
 when defined(rln):

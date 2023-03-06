@@ -14,10 +14,11 @@ import
   eth/p2p/discoveryv5/node,
   eth/p2p/discoveryv5/protocol
 import
-  ../../utils/peers,
-  ../../utils/wakuenr
+  ../utils/peers,
+  ../utils/wakuenr
 
 export protocol, wakuenr
+
 
 declarePublicGauge waku_discv5_discovered, "number of nodes discovered"
 declarePublicGauge waku_discv5_errors, "number of waku discv5 errors", ["type"]
