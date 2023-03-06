@@ -3,9 +3,9 @@ import
   json,
   json_rpc/rpcserver
 import
-  ../../../waku/common/base64,
-  ../../../waku/v2/protocol/waku_message,
-  ../../../waku/v2/utils/time
+  ../../../common/base64,
+  ../../protocol/waku_message,
+  ../../utils/time
 
 
 type
