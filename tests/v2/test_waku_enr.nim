@@ -2,14 +2,13 @@
 
 import
   std/[options, sequtils],
-  chronos,
   stew/byteutils,
   testutils/unittests
 import
-  ../../waku/v2/utils/wakuenr,
+  ../../waku/v2/protocol/waku_enr,
   ./testlib/waku2
 
-procSuite "ENR utils":
+suite "Waku ENR":
 
   test "Parse multiaddr field":
     let

@@ -15,9 +15,9 @@ import
   eth/p2p/discoveryv5/protocol
 import
   ../utils/peers,
-  ../utils/wakuenr
+  ./waku_enr
 
-export protocol, wakuenr
+export protocol, waku_enr
 
 
 declarePublicGauge waku_discv5_discovered, "number of nodes discovered"

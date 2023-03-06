@@ -23,10 +23,10 @@ import
   ../../waku/v2/node/peer_manager,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/protocol/waku_enr,
   ../../waku/v2/protocol/waku_discv5,
   ../../waku/v2/protocol/waku_dnsdisc,
   ../../waku/v2/utils/peers,
-  ../../waku/v2/utils/wakuenr,
   ./networkmonitor_metrics,
   ./networkmonitor_config,
   ./networkmonitor_utils
