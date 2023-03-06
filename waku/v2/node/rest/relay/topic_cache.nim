@@ -7,9 +7,9 @@ import
   chronos,
   chronicles
 import
-  ../../../../waku/v2/protocol/waku_relay,
-  ../../../../waku/v2/protocol/waku_message,
-  ../../../../waku/v2/node/message_cache
+  ../../../protocol/waku_relay,
+  ../../../protocol/waku_message,
+  ../../message_cache
 
 export message_cache
 

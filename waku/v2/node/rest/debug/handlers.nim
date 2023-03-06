@@ -8,7 +8,7 @@ import
   json_serialization,
   presto/route
 import
-  ../../../../waku/v2/node/waku_node,
+  ../../waku_node,
   ../responses,
   ../serdes,
   ./types

@@ -7,7 +7,7 @@ import
   chronicles,
   json_rpc/rpcserver
 import
-  ../../../../waku/v2/node/waku_node
+  ../../waku_node
 
 logScope:
   topics = "waku node jsonrpc debug_api"

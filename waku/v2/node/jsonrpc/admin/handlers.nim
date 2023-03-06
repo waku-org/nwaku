@@ -9,11 +9,11 @@ import
   json_rpc/rpcserver,
   libp2p/[peerinfo, switch]
 import
-  ../../../../waku/v2/protocol/waku_store,
-  ../../../../waku/v2/protocol/waku_filter,
-  ../../../../waku/v2/protocol/waku_relay,
-  ../../../../waku/v2/node/peer_manager,
-  ../../../../waku/v2/node/waku_node,
+  ../../../protocol/waku_store,
+  ../../../protocol/waku_filter,
+  ../../../protocol/waku_relay,
+  ../../peer_manager,
+  ../../waku_node,
   ./types
 
 

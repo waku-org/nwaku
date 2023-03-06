@@ -8,7 +8,7 @@ import
   json_serialization,
   json_serialization/std/options
 import
-  ../../../../waku/v2/node/waku_node,
+  ../../waku_node,
   ../serdes
 
 #### Types

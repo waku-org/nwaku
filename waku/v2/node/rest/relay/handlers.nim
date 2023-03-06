@@ -12,7 +12,7 @@ import
   presto/route,
   presto/common
 import
-  ../../../../waku/v2/node/waku_node,
+  ../../waku_node,
   ../serdes,
   ../responses,
   ./types,

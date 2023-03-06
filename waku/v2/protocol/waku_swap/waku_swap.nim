@@ -37,16 +37,20 @@ else:
 
 import
   std/[tables, options, json],
+  stew/results,
+  chronos,
+  chronicles,
+  metrics,
   bearssl/rand,
-  chronos, chronicles, metrics, stew/results,
   libp2p/crypto/crypto,
   libp2p/protocols/protocol,
   libp2p/protobuf/minprotobuf,
-  libp2p/stream/connection,
-  ../../node/peer_manager,
-  ./waku_swap_types,
+  libp2p/stream/connection
+import
   ../../../common/protobuf,
-  ../../waku/v2/protocol/waku_swap/waku_swap_contracts
+  ../../node/peer_manager,
+  ./waku_swap_contracts,
+  ./waku_swap_types
 
 export waku_swap_types
 
