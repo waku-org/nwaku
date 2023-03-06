@@ -5,6 +5,7 @@ else:
 
 import
   std/[tables,strutils,times,sequtils],
+  stew/shims/net,
   chronicles,
   chronicles/topics_registry,
   chronos,
@@ -15,18 +16,17 @@ import
   libp2p/crypto/crypto,
   metrics,
   metrics/chronos_httpserver,
-  presto/[route, server, client],
-  stew/shims/net
+  presto/[route, server, client]
 
 import
-  ../../waku/v2/node/discv5/waku_discv5,
   ../../apps/wakunode2/wakunode2,
-  ../../waku/v2/node/dnsdisc/waku_dnsdisc,
   ../../waku/v2/node/peer_manager,
   ../../waku/v2/node/waku_node,
-  ../../waku/v2/utils/wakuenr,
   ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/protocol/waku_discv5,
+  ../../waku/v2/protocol/waku_dnsdisc,
   ../../waku/v2/utils/peers,
+  ../../waku/v2/utils/wakuenr,
   ./networkmonitor_metrics,
   ./networkmonitor_config,
   ./networkmonitor_utils
@@ -245,7 +245,7 @@ proc initAndStartNode(conf: NetworkMonitorConf): Result[WakuNode, string] =
     node.wakuDiscv5 = WakuDiscoveryV5.new(
         some(extIp), some(nodeTcpPort), some(nodeUdpPort),
         bindIp, nodeUdpPort, discv5BootstrapEnrs, false,
-        keys.PrivateKey(nodeKey.skkey), flags, [], node.rng)
+        keys.PrivateKey(nodeKey.skkey), flags, @[], node.rng)
 
     node.wakuDiscv5.protocol.open()
     return ok(node)

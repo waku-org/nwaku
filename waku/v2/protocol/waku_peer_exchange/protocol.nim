@@ -9,8 +9,8 @@ import
   eth/p2p/discoveryv5/enr
 import
   ../../node/peer_manager,
-  ../../node/discv5/waku_discv5,
   ../waku_message,
+  ../waku_discv5,
   ./rpc,
   ./rpc_codec
 
