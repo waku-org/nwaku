@@ -10,13 +10,13 @@ import
   eth/keys,
   nimcrypto/sysrand
 import
-  ../../../../waku/common/base64,
-  ../../../../waku/v2/protocol/waku_message,
-  ../../../../waku/v2/protocol/waku_relay,
-  ../../../../waku/v2/node/waku_node,
-  ../../../../waku/v2/node/message_cache,
-  ../../../../waku/v2/utils/compat,
-  ../../../../waku/v2/utils/time,
+  ../../../../common/base64,
+  ../../../protocol/waku_message,
+  ../../../protocol/waku_relay,
+  ../../../utils/compat,
+  ../../../utils/time,
+  ../../waku_node,
+  ../../message_cache,
   ./types
 
 

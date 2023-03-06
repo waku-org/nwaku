@@ -8,11 +8,11 @@ import
   chronicles,
   json_rpc/rpcserver
 import
-  ../../../../../waku/v2/protocol/waku_store,
-  ../../../../../waku/v2/protocol/waku_store/rpc,
-  ../../../../../waku/v2/utils/time,
-  ../../../../waku/v2/node/waku_node,
-  ../../../../waku/v2/node/peer_manager,
+  ../../../protocol/waku_store,
+  ../../../protocol/waku_store/rpc,
+  ../../../utils/time,
+  ../../waku_node,
+  ../../peer_manager,
   ./types
 
 

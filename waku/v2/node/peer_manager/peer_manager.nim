@@ -11,8 +11,8 @@ import
   metrics,
   libp2p/multistream
 import
+  ../../protocol/waku_relay,
   ../../utils/peers,
-  ../../waku/v2/protocol/waku_relay,
   ./peer_store/peer_storage,
   ./waku_peer_store
 

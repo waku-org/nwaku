@@ -8,13 +8,13 @@ import
   chronicles,
   json_rpc/rpcserver
 import
-  ../../../../waku/v2/protocol/waku_message,
-  ../../../../waku/v2/protocol/waku_filter,
-  ../../../../waku/v2/protocol/waku_filter/rpc,
-  ../../../../waku/v2/protocol/waku_filter/client,
-  ../../../../waku/v2/node/message_cache,
-  ../../../../waku/v2/node/peer_manager,
-  ../../../../waku/v2/node/waku_node
+  ../../../protocol/waku_message,
+  ../../../protocol/waku_filter,
+  ../../../protocol/waku_filter/rpc,
+  ../../../protocol/waku_filter/client,
+  ../../message_cache,
+  ../../peer_manager,
+  ../../waku_node
 
 
 logScope:
