@@ -7,7 +7,6 @@ import
   std/[algorithm, sequtils, strutils, tables, times, os, deques],
   chronicles, options, chronos, stint,
   confutils,
-  strutils,
   web3, json,
   web3/ethtypes,
   eth/keys,
@@ -86,37 +85,26 @@ type WakuRLNRelay* = ref object of RootObj
   lastEpoch*: Epoch # the epoch of the last published rln message
   groupManager*: GroupManager
 
-proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): RlnRelayResult[bool] =
+proc hasDuplicate*(rlnPeer: WakuRLNRelay,
+                   proofMetadata: ProofMetadata): RlnRelayResult[bool] =
   ## returns true if there is another message in the  `nullifierLog` of the `rlnPeer` with the same
-  ## epoch and nullifier as `msg`'s epoch and nullifier but different Shamir secret shares
+  ## epoch and nullifier as `proofMetadata`'s epoch and nullifier but different Shamir secret shares
   ## otherwise, returns false
   ## Returns an error if it cannot check for duplicates
 
-  let decodeRes = RateLimitProof.init(msg.proof)
-  if decodeRes.isErr():
-    return err("failed to decode the RLN proof")
-
-  let proof = decodeRes.get()
-
-  # extract the proof metadata of the supplied `msg`
-  let proofMD = ProofMetadata(
-    nullifier: proof.nullifier,
-    shareX: proof.shareX,
-    shareY: proof.shareY
-  )
-
+  let externalNullifier = proofMetadata.externalNullifier
   # check if the epoch exists
-  if not rlnPeer.nullifierLog.hasKey(proof.epoch):
+  if not rlnPeer.nullifierLog.hasKey(externalNullifier):
     return ok(false)
   try:
-    if rlnPeer.nullifierLog[proof.epoch].contains(proofMD):
+    if rlnPeer.nullifierLog[externalNullifier].contains(proofMetadata):
       # there is an identical record, ignore rhe mag
       return ok(false)
 
     # check for a message with the same nullifier but different secret shares
-    let matched = rlnPeer.nullifierLog[proof.epoch].filterIt((
-        it.nullifier == proofMD.nullifier) and ((it.shareX != proofMD.shareX) or
-        (it.shareY != proofMD.shareY)))
+    let matched = rlnPeer.nullifierLog[externalNullifier].filterIt((
+        it.nullifier == proofMetadata.nullifier) and ((it.shareX != proofMetadata.shareX) or
+        (it.shareY != proofMetadata.shareY)))
 
     if matched.len != 0:
       # there is a duplicate
@@ -128,39 +116,28 @@ proc hasDuplicate*(rlnPeer: WakuRLNRelay, msg: WakuMessage): RlnRelayResult[bool
   except KeyError as e:
     return err("the epoch was not found")
 
-proc updateLog*(rlnPeer: WakuRLNRelay, msg: WakuMessage): RlnRelayResult[bool] =
-  ## extracts  the `ProofMetadata` of the supplied messages `msg` and
-  ## saves it in the `nullifierLog` of the `rlnPeer`
+proc updateLog*(rlnPeer: WakuRLNRelay,
+                proofMetadata: ProofMetadata): RlnRelayResult[void] =
+  ## saves supplied proofMetadata `proofMetadata`
+  ## in the `nullifierLog` of the `rlnPeer`
   ## Returns an error if it cannot update the log
 
-  let decodeRes = RateLimitProof.init(msg.proof)
-  if decodeRes.isErr():
-    return err("failed to decode the RLN proof")
-
-  let proof = decodeRes.get()
-
-  # extract the proof metadata of the supplied `msg`
-  let proofMD = ProofMetadata(
-    nullifier: proof.nullifier,
-    shareX: proof.shareX,
-    shareY: proof.shareY
-  )
-  debug "proof metadata", proofMD = proofMD
-
-  # check if the epoch exists
-  if not rlnPeer.nullifierLog.hasKey(proof.epoch):
-    rlnPeer.nullifierLog[proof.epoch] = @[proofMD]
-    return ok(true)
+  let externalNullifier = proofMetadata.externalNullifier
+  # check if the externalNullifier exists
+  if not rlnPeer.nullifierLog.hasKey(externalNullifier):
+    rlnPeer.nullifierLog[externalNullifier] = @[proofMetadata]
+    return ok()
 
   try:
     # check if an identical record exists
-    if rlnPeer.nullifierLog[proof.epoch].contains(proofMD):
-      return ok(true)
-    # add proofMD to the log
-    rlnPeer.nullifierLog[proof.epoch].add(proofMD)
-    return ok(true)
+    if rlnPeer.nullifierLog[externalNullifier].contains(proofMetadata):
+      # TODO: slashing logic
+      return ok()
+    # add proofMetadata to the log
+    rlnPeer.nullifierLog[externalNullifier].add(proofMetadata)
+    return ok()
   except KeyError as e:
-    return err("the epoch was not found")
+    return err("the external nullifier was not found") # should never happen
 
 proc getCurrentEpoch*(): Epoch =
   ## gets the current rln Epoch time
@@ -250,7 +227,11 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
     return MessageValidationResult.Invalid
 
   # check if double messaging has happened
-  let hasDup = rlnPeer.hasDuplicate(msg)
+  let proofMetadataRes = proof.extractMetadata()
+  if proofMetadataRes.isErr():
+    waku_rln_errors_total.inc(labelValues=["proof_metadata_extraction"])
+    return MessageValidationResult.Invalid
+  let hasDup = rlnPeer.hasDuplicate(proofMetadataRes.get())
   if hasDup.isErr():
     waku_rln_errors_total.inc(labelValues=["duplicate_check"])
   elif hasDup.value == true:
@@ -261,7 +242,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
   # insert the message to the log
   # the result of `updateLog` is discarded because message insertion is guaranteed by the implementation i.e.,
   # it will never error out
-  discard rlnPeer.updateLog(msg)
+  discard rlnPeer.updateLog(proofMetadataRes.get())
   debug "message is valid", payload = string.fromBytes(msg.payload)
   let rootIndex = rlnPeer.groupManager.indexOfRoot(proof.merkleRoot)
   waku_rln_valid_messages_total.observe(rootIndex.toFloat())

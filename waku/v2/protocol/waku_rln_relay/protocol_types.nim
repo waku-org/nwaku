@@ -56,6 +56,7 @@ type ProofMetadata* = object
   nullifier*: Nullifier
   shareX*: MerkleNode
   shareY*: MerkleNode
+  externalNullifier*: Nullifier
 
 type
   MessageValidationResult* {.pure.} = enum
