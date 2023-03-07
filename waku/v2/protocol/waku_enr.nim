@@ -2,17 +2,19 @@
 ## Implemented according to the specified Waku v2 ENR usage
 ## More at https://rfc.vac.dev/spec/31/
 
-{.push raises: [Defect]}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
   std/[bitops, sequtils],
+  stew/[endians2, results],
+  stew/shims/net,
   eth/keys,
   eth/p2p/discoveryv5/enr,
   libp2p/[multiaddress, multicodec],
-  libp2p/crypto/crypto,
-  stew/[endians2, results],
-  stew/shims/net,
-  std/bitops
+  libp2p/crypto/crypto
 
 export enr, crypto, multiaddress, net
 

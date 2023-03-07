@@ -41,11 +41,11 @@ import
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_lightpush,
+  ../../waku/v2/protocol/waku_enr,
   ../../waku/v2/protocol/waku_dnsdisc,
   ../../waku/v2/protocol/waku_discv5,
   ../../waku/v2/protocol/waku_peer_exchange,
   ../../waku/v2/utils/peers,
-  ../../waku/v2/utils/wakuenr,
   ./wakunode2_setup_rest,
   ./wakunode2_setup_rpc,
   ./config

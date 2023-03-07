@@ -14,8 +14,8 @@ import
   ../../../waku/v2/node/peer_manager,
   ../../../waku/v2/node/waku_node,
   ../../../waku/v2/protocol/waku_message,
-  ../../../waku/v2/protocol/waku_discv5,
-  ../../../waku/v2/utils/wakuenr
+  ../../../waku/v2/protocol/waku_enr,
+  ../../../waku/v2/protocol/waku_discv5
 
 # An accesible bootstrap node. See wakuv2.prod fleets.status.im
 const bootstrapNodes = @["enr:-Nm4QOdTOKZJKTUUZ4O_W932CXIET-M9NamewDnL78P5u9DOGnZlK0JFZ4k0inkfe6iY-0JAaJVovZXc575VV3njeiABgmlkgnY0gmlwhAjS3ueKbXVsdGlhZGRyc7g6ADg2MW5vZGUtMDEuYWMtY24taG9uZ2tvbmctYy53YWt1djIucHJvZC5zdGF0dXNpbS5uZXQGH0DeA4lzZWNwMjU2azGhAo0C-VvfgHiXrxZi3umDiooXMGY9FvYj5_d1Q4EeS7eyg3RjcIJ2X4N1ZHCCIyiFd2FrdTIP"]
