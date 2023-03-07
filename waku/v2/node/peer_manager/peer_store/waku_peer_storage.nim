@@ -34,31 +34,31 @@ proc init*(T: type RemotePeerInfo, buffer: seq[byte]): ProtoResult[T] =
 
   var pb = initProtoBuffer(buffer)
 
-  #discard ? pb.getField(1, storedInfo.peerId)
-  #discard ? pb.getRepeatedField(2, multiaddrSeq)
-  #discard ? pb.getRepeatedField(3, protoSeq)
-  #discard ? pb.getField(4, storedInfo.publicKey)
+  discard ? pb.getField(1, storedInfo.peerId)
+  discard ? pb.getRepeatedField(2, multiaddrSeq)
+  discard ? pb.getRepeatedField(3, protoSeq)
+  discard ? pb.getField(4, storedInfo.publicKey)
 
-  #storedInfo.addrs = multiaddrSeq
-  #storedInfo.protos = protoSeq
+  storedInfo.addrs = multiaddrSeq
+  storedInfo.protocols = protoSeq
 
   ok(storedInfo)
 
 proc encode*(remotePeerInfo: RemotePeerInfo): PeerStorageResult[ProtoBuffer] =
   var pb = initProtoBuffer()
 
-  #pb.write(1, storedInfo.peerId)
+  pb.write(1, remotePeerInfo.peerId)
 
-  #for multiaddr in storedInfo.addrs.items:
-  #  pb.write(2, multiaddr)
+  for multiaddr in remotePeerInfo.addrs.items:
+    pb.write(2, multiaddr)
 
-  #for proto in storedInfo.protos.items:
-  #  pb.write(3, proto)
+  for proto in remotePeerInfo.protocols.items:
+    pb.write(3, proto)
 
-  #try:
-  #  pb.write(4, storedInfo.publicKey)
-  #except ResultError[CryptoError] as e:
-  #  return err("Failed to encode public key")
+  try:
+    pb.write(4, remotePeerInfo.publicKey)
+  except ResultError[CryptoError] as e:
+    return err("Failed to encode public key")
 
   ok(pb)
 

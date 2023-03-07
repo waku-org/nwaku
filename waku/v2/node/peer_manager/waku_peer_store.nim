@@ -49,21 +49,21 @@ proc get*(peerStore: PeerStore,
           peerId: PeerID): RemotePeerInfo =
   ## Get the stored information of a given peer.
   RemotePeerInfo(
-    # Taken from nim-libp2
-    #peerId: peerId,
-    #addrs: peerStore[AddressBook][peerId],
-    #protos: peerStore[ProtoBook][peerId],
-    #publicKey: peerStore[KeyBook][peerId],
-    #agent: peerStore[AgentBook][peerId],
-    #protoVersion: peerStore[ProtoVersionBook][peerId],
+    peerId: peerId,
+    addrs: peerStore[AddressBook][peerId],
+    #enr*: Option[enr.Record]  #TODO
+    protocols: peerStore[ProtoBook][peerId],
+    agent: peerStore[AgentBook][peerId],
+    protoVersion: peerStore[ProtoVersionBook][peerId],
+    publicKey: peerStore[KeyBook][peerId],
 
     # Extended custom fields
-    #connectedness: peerStore[ConnectionBook][peerId],
-    #disconnectTime: peerStore[DisconnectBook][peerId],
-    #origin: peerStore[SourceBook][peerId],
-    #direction: peerStore[DirectionBook][peerId],
-    #lastFailedConn: peerStore[LastFailedConnBook][peerId],
-    #numberFailedConn: peerStore[NumberFailedConnBook][peerId]
+    connectedness: peerStore[ConnectionBook][peerId],
+    disconnectTime: peerStore[DisconnectBook][peerId],
+    origin: peerStore[SourceBook][peerId],
+    direction: peerStore[DirectionBook][peerId],
+    lastFailedConn: peerStore[LastFailedConnBook][peerId],
+    numberFailedConn: peerStore[NumberFailedConnBook][peerId]
   )
 
 # TODO: Rename peers() to getPeersByProtocol()

@@ -105,13 +105,13 @@ procSuite "Peer Manager":
       node.peerManager.peerStore.peers().len == 3
       node.peerManager.peerStore.peers(WakuFilterCodec).allIt(it.peerId == filterPeer.peerId and
                                                               it.addrs.contains(filterLoc) and
-                                                              it.protos.contains(WakuFilterCodec))
+                                                              it.protocols.contains(WakuFilterCodec))
       node.peerManager.peerStore.peers(WakuSwapCodec).allIt(it.peerId == swapPeer.peerId and
                                                             it.addrs.contains(swapLoc) and
-                                                            it.protos.contains(WakuSwapCodec))
+                                                            it.protocols.contains(WakuSwapCodec))
       node.peerManager.peerStore.peers(WakuStoreCodec).allIt(it.peerId == storePeer.peerId and
                                                              it.addrs.contains(storeLoc) and
-                                                             it.protos.contains(WakuStoreCodec))
+                                                             it.protocols.contains(WakuStoreCodec))
 
     await node.stop()
 
@@ -270,7 +270,7 @@ procSuite "Peer Manager":
       # Currently connected to node2
       node1.peerManager.peerStore.peers().len == 1
       node1.peerManager.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
-      node1.peerManager.peerStore.peers().anyIt(it.protos.contains(node2.wakuRelay.codec))
+      node1.peerManager.peerStore.peers().anyIt(it.protocols.contains(node2.wakuRelay.codec))
       node1.peerManager.peerStore.connectedness(peerInfo2.peerId) == Connected
 
     # Simulate restart by initialising a new node using the same storage
@@ -286,7 +286,7 @@ procSuite "Peer Manager":
       # Node2 has been loaded after "restart", but we have not yet reconnected
       node3.peerManager.peerStore.peers().len == 1
       node3.peerManager.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
-      node3.peerManager.peerStore.peers().anyIt(it.protos.contains(betaCodec))
+      node3.peerManager.peerStore.peers().anyIt(it.protocols.contains(betaCodec))
       node3.peerManager.peerStore.connectedness(peerInfo2.peerId) == NotConnected
 
     await node3.start() # This should trigger a reconnect
@@ -295,8 +295,8 @@ procSuite "Peer Manager":
       # Reconnected to node2 after "restart"
       node3.peerManager.peerStore.peers().len == 1
       node3.peerManager.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
-      node3.peerManager.peerStore.peers().anyIt(it.protos.contains(betaCodec))
-      node3.peerManager.peerStore.peers().anyIt(it.protos.contains(stableCodec))
+      node3.peerManager.peerStore.peers().anyIt(it.protocols.contains(betaCodec))
+      node3.peerManager.peerStore.peers().anyIt(it.protocols.contains(stableCodec))
       node3.peerManager.peerStore.connectedness(peerInfo2.peerId) == Connected
 
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
