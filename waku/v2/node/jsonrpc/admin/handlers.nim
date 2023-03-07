@@ -38,13 +38,6 @@ proc constructMultiaddrStr*(remotePeerInfo: RemotePeerInfo): string =
     return ""
   constructMultiaddrStr(remotePeerInfo.addrs[0], remotePeerInfo.peerId)
 
-proc constructMultiaddrStr*(storedInfo: StoredInfo): string =
-  # Constructs a multiaddress with both location (wire) address and p2p identity
-  if storedInfo.addrs.len == 0:
-    return ""
-  constructMultiaddrStr(storedInfo.addrs[0], storedInfo.peerId)
-
-
 proc installAdminApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
 
   rpcsrv.rpc("post_waku_v2_admin_v1_peers") do (peers: seq[string]) -> bool:

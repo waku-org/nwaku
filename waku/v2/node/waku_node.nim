@@ -980,7 +980,6 @@ proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
     # First get a list of connected peer infos
     let peers = node.peerManager.peerStore.peers()
                                 .filterIt(it.connectedness == Connected)
-                                .mapIt(it.toRemotePeerInfo())
 
     for peer in peers:
       try:

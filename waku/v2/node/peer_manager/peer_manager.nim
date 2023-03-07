@@ -78,11 +78,11 @@ proc protocolMatcher*(codec: string): Matcher =
 
 proc insertOrReplace(ps: PeerStorage,
                      peerId: PeerID,
-                     storedInfo: StoredInfo,
+                     remotePeerInfo: RemotePeerInfo,
                      connectedness: Connectedness,
                      disconnectTime: int64 = 0) =
   # Insert peer entry into persistent storage, or replace existing entry with updated info
-  let res = ps.put(peerId, storedInfo, connectedness, disconnectTime)
+  let res = ps.put(peerId, remotePeerInfo, connectedness, disconnectTime)
   if res.isErr:
     warn "failed to store peers", err = res.error
     waku_peers_errors.inc(labelValues = ["storage_failure"])
@@ -137,24 +137,24 @@ proc dialPeer(pm: PeerManager, peerId: PeerID,
 proc loadFromStorage(pm: PeerManager) =
   debug "loading peers from storage"
   # Load peers from storage, if available
-  proc onData(peerId: PeerID, storedInfo: StoredInfo, connectedness: Connectedness, disconnectTime: int64) =
-    trace "loading peer", peerId= $peerId, storedInfo= $storedInfo, connectedness=connectedness
+  proc onData(peerId: PeerID, remotePeerInfo: RemotePeerInfo, connectedness: Connectedness, disconnectTime: int64) =
+    trace "loading peer", peerId=peerId, connectedness=connectedness
 
     if peerId == pm.switch.peerInfo.peerId:
       # Do not manage self
       return
 
     # nim-libp2p books
-    pm.peerStore[AddressBook][peerId] = storedInfo.addrs
-    pm.peerStore[ProtoBook][peerId] = storedInfo.protos
-    pm.peerStore[KeyBook][peerId] = storedInfo.publicKey
-    pm.peerStore[AgentBook][peerId] = storedInfo.agent
-    pm.peerStore[ProtoVersionBook][peerId] = storedInfo.protoVersion
+    pm.peerStore[AddressBook][peerId] = remotePeerInfo.addrs
+    pm.peerStore[ProtoBook][peerId] = remotePeerInfo.protocols
+    pm.peerStore[KeyBook][peerId] = remotePeerInfo.publicKey
+    pm.peerStore[AgentBook][peerId] = remotePeerInfo.agent
+    pm.peerStore[ProtoVersionBook][peerId] = remotePeerInfo.protoVersion
 
     # custom books
     pm.peerStore[ConnectionBook][peerId] = NotConnected  # Reset connectedness state
     pm.peerStore[DisconnectBook][peerId] = disconnectTime
-    pm.peerStore[SourceBook][peerId] = storedInfo.origin
+    pm.peerStore[SourceBook][peerId] = remotePeerInfo.origin
 
   let res = pm.storage.getAll(onData)
   if res.isErr:
@@ -461,7 +461,7 @@ proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
     # TODO: proper heuristic here that compares peer scores and selects "best" one. For now the first peer for the given protocol is returned
     if peers.len > 0:
       debug "Got peer from peerstore", peerId=peers[0].peerId, multi=peers[0].addrs[0], protocol=proto
-      return some(peers[0].toRemotePeerInfo())
+      return some(peers[0])
     debug "No peer found for protocol", protocol=proto
     return none(RemotePeerInfo)
 
@@ -473,7 +473,7 @@ proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
   # If not slotted, we select a random peer for the given protocol
   if peers.len > 0:
     debug "Got peer from peerstore", peerId=peers[0].peerId, multi=peers[0].addrs[0], protocol=proto
-    return some(peers[0].toRemotePeerInfo())
+    return some(peers[0])
   debug "No peer found for protocol", protocol=proto
   return none(RemotePeerInfo)
 

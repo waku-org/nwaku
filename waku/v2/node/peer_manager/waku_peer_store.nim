@@ -14,24 +14,6 @@ import
 
 export peerstore, builders
 
-type
-  StoredInfo* = object
-    # Taken from nim-libp2
-    peerId*: PeerId
-    addrs*: seq[MultiAddress]
-    protos*: seq[string]
-    publicKey*: PublicKey
-    agent*: string
-    protoVersion*: string
-
-    # Extended custom fields
-    connectedness*: Connectedness
-    disconnectTime*: int64
-    origin*: PeerOrigin
-    direction*: PeerDirection
-    lastFailedConn*: Moment
-    numberFailedConn*: int
-
 ##################
 # Peer Store API #
 ##################
@@ -64,28 +46,28 @@ proc delete*(peerStore: PeerStore,
   peerStore.del(peerId)
 
 proc get*(peerStore: PeerStore,
-          peerId: PeerID): StoredInfo =
+          peerId: PeerID): RemotePeerInfo =
   ## Get the stored information of a given peer.
-  StoredInfo(
+  RemotePeerInfo(
     # Taken from nim-libp2
-    peerId: peerId,
-    addrs: peerStore[AddressBook][peerId],
-    protos: peerStore[ProtoBook][peerId],
-    publicKey: peerStore[KeyBook][peerId],
-    agent: peerStore[AgentBook][peerId],
-    protoVersion: peerStore[ProtoVersionBook][peerId],
+    #peerId: peerId,
+    #addrs: peerStore[AddressBook][peerId],
+    #protos: peerStore[ProtoBook][peerId],
+    #publicKey: peerStore[KeyBook][peerId],
+    #agent: peerStore[AgentBook][peerId],
+    #protoVersion: peerStore[ProtoVersionBook][peerId],
 
     # Extended custom fields
-    connectedness: peerStore[ConnectionBook][peerId],
-    disconnectTime: peerStore[DisconnectBook][peerId],
-    origin: peerStore[SourceBook][peerId],
-    direction: peerStore[DirectionBook][peerId],
-    lastFailedConn: peerStore[LastFailedConnBook][peerId],
-    numberFailedConn: peerStore[NumberFailedConnBook][peerId]
+    #connectedness: peerStore[ConnectionBook][peerId],
+    #disconnectTime: peerStore[DisconnectBook][peerId],
+    #origin: peerStore[SourceBook][peerId],
+    #direction: peerStore[DirectionBook][peerId],
+    #lastFailedConn: peerStore[LastFailedConnBook][peerId],
+    #numberFailedConn: peerStore[NumberFailedConnBook][peerId]
   )
 
 # TODO: Rename peers() to getPeersByProtocol()
-proc peers*(peerStore: PeerStore): seq[StoredInfo] =
+proc peers*(peerStore: PeerStore): seq[RemotePeerInfo] =
   ## Get all the stored information of every peer.
   let allKeys = concat(toSeq(peerStore[AddressBook].book.keys()),
                        toSeq(peerStore[ProtoBook].book.keys()),
@@ -93,19 +75,13 @@ proc peers*(peerStore: PeerStore): seq[StoredInfo] =
 
   return allKeys.mapIt(peerStore.get(it))
 
-proc peers*(peerStore: PeerStore, proto: string): seq[StoredInfo] =
+proc peers*(peerStore: PeerStore, proto: string): seq[RemotePeerInfo] =
   # Return the known info for all peers registered on the specified protocol
-  peerStore.peers.filterIt(it.protos.contains(proto))
+  peerStore.peers.filterIt(it.protocols.contains(proto))
 
-proc peers*(peerStore: PeerStore, protocolMatcher: Matcher): seq[StoredInfo] =
+proc peers*(peerStore: PeerStore, protocolMatcher: Matcher): seq[RemotePeerInfo] =
   # Return the known info for all peers matching the provided protocolMatcher
-  peerStore.peers.filterIt(it.protos.anyIt(protocolMatcher(it)))
-
-proc toRemotePeerInfo*(storedInfo: StoredInfo): RemotePeerInfo =
-  RemotePeerInfo.init(peerId = storedInfo.peerId,
-                      addrs = toSeq(storedInfo.addrs),
-                      protocols = toSeq(storedInfo.protos))
-
+  peerStore.peers.filterIt(it.protocols.anyIt(protocolMatcher(it)))
 
 proc connectedness*(peerStore: PeerStore, peerId: PeerID): Connectedness =
   # Return the connection state of the given, managed peer
@@ -120,7 +96,7 @@ proc isConnected*(peerStore: PeerStore, peerId: PeerID): bool =
 proc hasPeer*(peerStore: PeerStore, peerId: PeerID, proto: string): bool =
   # Returns `true` if peer is included in manager for the specified protocol
   # TODO: What if peer does not exist in the peerStore?
-  peerStore.get(peerId).protos.contains(proto)
+  peerStore.get(peerId).protocols.contains(proto)
 
 proc hasPeers*(peerStore: PeerStore, proto: string): bool =
   # Returns `true` if the peerstore has any peer for the specified protocol
@@ -130,14 +106,14 @@ proc hasPeers*(peerStore: PeerStore, protocolMatcher: Matcher): bool =
   # Returns `true` if the peerstore has any peer matching the protocolMatcher
   toSeq(peerStore[ProtoBook].book.values()).anyIt(it.anyIt(protocolMatcher(it)))
 
-proc getPeersByDirection*(peerStore: PeerStore, direction: PeerDirection): seq[StoredInfo] =
+proc getPeersByDirection*(peerStore: PeerStore, direction: PeerDirection): seq[RemotePeerInfo] =
   return peerStore.peers.filterIt(it.direction == direction)
 
-proc getNotConnectedPeers*(peerStore: PeerStore): seq[StoredInfo] =
+proc getNotConnectedPeers*(peerStore: PeerStore): seq[RemotePeerInfo] =
   return peerStore.peers.filterIt(it.connectedness != Connected)
 
-proc getConnectedPeers*(peerStore: PeerStore): seq[StoredInfo] =
+proc getConnectedPeers*(peerStore: PeerStore): seq[RemotePeerInfo] =
   return peerStore.peers.filterIt(it.connectedness == Connected)
 
-proc getPeersByProtocol*(peerStore: PeerStore, proto: string): seq[StoredInfo] =
-  return peerStore.peers.filterIt(it.protos.contains(proto))
+proc getPeersByProtocol*(peerStore: PeerStore, proto: string): seq[RemotePeerInfo] =
+  return peerStore.peers.filterIt(it.protocols.contains(proto))

@@ -18,13 +18,13 @@ type
 
   PeerStorageResult*[T] = Result[T, string]
 
-  DataProc* = proc(peerId: PeerID, storedInfo: StoredInfo,
+  DataProc* = proc(peerId: PeerID, remotePeerInfo: RemotePeerInfo,
                    connectedness: Connectedness, disconnectTime: int64) {.closure, raises: [Defect].}
 
 # PeerStorage interface
 method put*(db: PeerStorage,
             peerId: PeerID,
-            storedInfo: StoredInfo,
+            remotePeerInfo: RemotePeerInfo,
             connectedness: Connectedness,
             disconnectTime: int64): PeerStorageResult[void] {.base.} = discard
 

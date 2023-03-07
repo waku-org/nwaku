@@ -26,39 +26,39 @@ type
 # Protobuf Serialisation #
 ##########################
 
-proc init*(T: type StoredInfo, buffer: seq[byte]): ProtoResult[T] =
+proc init*(T: type RemotePeerInfo, buffer: seq[byte]): ProtoResult[T] =
   var
     multiaddrSeq: seq[MultiAddress]
     protoSeq: seq[string]
-    storedInfo = StoredInfo()
+    storedInfo = RemotePeerInfo()
 
   var pb = initProtoBuffer(buffer)
 
-  discard ? pb.getField(1, storedInfo.peerId)
-  discard ? pb.getRepeatedField(2, multiaddrSeq)
-  discard ? pb.getRepeatedField(3, protoSeq)
-  discard ? pb.getField(4, storedInfo.publicKey)
+  #discard ? pb.getField(1, storedInfo.peerId)
+  #discard ? pb.getRepeatedField(2, multiaddrSeq)
+  #discard ? pb.getRepeatedField(3, protoSeq)
+  #discard ? pb.getField(4, storedInfo.publicKey)
 
-  storedInfo.addrs = multiaddrSeq
-  storedInfo.protos = protoSeq
+  #storedInfo.addrs = multiaddrSeq
+  #storedInfo.protos = protoSeq
 
   ok(storedInfo)
 
-proc encode*(storedInfo: StoredInfo): PeerStorageResult[ProtoBuffer] =
+proc encode*(remotePeerInfo: RemotePeerInfo): PeerStorageResult[ProtoBuffer] =
   var pb = initProtoBuffer()
 
-  pb.write(1, storedInfo.peerId)
+  #pb.write(1, storedInfo.peerId)
 
-  for multiaddr in storedInfo.addrs.items:
-    pb.write(2, multiaddr)
+  #for multiaddr in storedInfo.addrs.items:
+  #  pb.write(2, multiaddr)
 
-  for proto in storedInfo.protos.items:
-    pb.write(3, proto)
+  #for proto in storedInfo.protos.items:
+  #  pb.write(3, proto)
 
-  try:
-    pb.write(4, storedInfo.publicKey)
-  except ResultError[CryptoError] as e:
-    return err("Failed to encode public key")
+  #try:
+  #  pb.write(4, storedInfo.publicKey)
+  #except ResultError[CryptoError] as e:
+  #  return err("Failed to encode public key")
 
   ok(pb)
 
@@ -110,12 +110,12 @@ proc new*(T: type WakuPeerStorage, db: SqliteDatabase): PeerStorageResult[T] =
 
 method put*(db: WakuPeerStorage,
             peerId: PeerID,
-            storedInfo: StoredInfo,
+            remotePeerInfo: RemotePeerInfo,
             connectedness: Connectedness,
             disconnectTime: int64): PeerStorageResult[void] =
 
   ## Adds a peer to storage or replaces existing entry if it already exists
-  let encoded = storedInfo.encode()
+  let encoded = remotePeerInfo.encode()
 
   if encoded.isErr:
     return err("failed to encode: " & encoded.error())
@@ -140,7 +140,7 @@ method getAll*(db: WakuPeerStorage, onData: peer_storage.DataProc): PeerStorageR
       # Stored Info
       sTo = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 1))
       sToL = sqlite3_column_bytes(s, 1)
-      storedInfo = StoredInfo.init(@(toOpenArray(sTo, 0, sToL - 1))).tryGet()
+      storedInfo = RemotePeerInfo.init(@(toOpenArray(sTo, 0, sToL - 1))).tryGet()
       # Connectedness
       connectedness = Connectedness(sqlite3_column_int(s, 2))
       # DisconnectTime
