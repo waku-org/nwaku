@@ -7,14 +7,15 @@ else:
 import
   stew/results
 import
-  ../waku_peer_store
+  ../waku_peer_store,
+  ../../../utils/peers
 
 ## This module defines a peer storage interface. Implementations of
 ## PeerStorage are used to store and retrieve peers
 
 type
   PeerStorage* = ref object of RootObj
-  
+
   PeerStorageResult*[T] = Result[T, string]
 
   DataProc* = proc(peerId: PeerID, storedInfo: StoredInfo,

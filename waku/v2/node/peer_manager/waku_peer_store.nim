@@ -15,45 +15,6 @@ import
 export peerstore, builders
 
 type
-  Connectedness* = enum
-    # NotConnected: default state for a new peer. No connection and no further information on connectedness.
-    NotConnected,
-    # CannotConnect: attempted to connect to peer, but failed.
-    CannotConnect,
-    # CanConnect: was recently connected to peer and disconnected gracefully.
-    CanConnect,
-    # Connected: actively connected to peer.
-    Connected
-
-  PeerOrigin* = enum
-    UnknownOrigin,
-    Discv5,
-    Static,
-    Dns
-
-  PeerDirection* = enum
-    UnknownDirection,
-    Inbound,
-    Outbound
-
-  # Keeps track of the Connectedness state of a peer
-  ConnectionBook* = ref object of PeerBook[Connectedness]
-
-  # Last failed connection attemp timestamp
-  LastFailedConnBook* = ref object of PeerBook[Moment]
-
-  # Failed connection attempts
-  NumberFailedConnBook* = ref object of PeerBook[int]
-
-  # Keeps track of when peers were disconnected in Unix timestamps
-  DisconnectBook* = ref object of PeerBook[int64]
-
-  # Keeps track of the origin of a peer
-  SourceBook* = ref object of PeerBook[PeerOrigin]
-
-  # Direction
-  DirectionBook* = ref object of PeerBook[PeerDirection]
-
   StoredInfo* = object
     # Taken from nim-libp2
     peerId*: PeerId
