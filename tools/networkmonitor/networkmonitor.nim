@@ -224,7 +224,7 @@ proc initAndStartNode(conf: NetworkMonitorConf): Result[WakuNode, string] =
     nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
     nodeTcpPort = Port(60000)
     nodeUdpPort = Port(9000)
-    flags = initWakuFlags(lightpush = false, filter = false, store = false, relay = true)
+    flags = CapabilitiesBitfield.init(lightpush = false, filter = false, store = false, relay = true)
 
   try:
     let

@@ -72,10 +72,10 @@ proc addBootstrapNode*(bootstrapAddr: string,
           bootstrapAddr, reason = enrRes.error
 
 proc isWakuNode(node: Node): bool =
-  let wakuField = node.record.tryGet(WAKU_ENR_FIELD, uint8)
+  let wakuField = node.record.tryGet(CapabilitiesEnrField, uint8)
 
   if wakuField.isSome():
-    return wakuField.get().WakuEnrBitfield != 0x00 # True if any flag set to true
+    return wakuField.get() != 0x00 # True if any flag set to true
 
   return false
 
@@ -116,14 +116,14 @@ proc new*(T: type WakuDiscoveryV5,
           bootstrapEnrs = newSeq[enr.Record](),
           enrAutoUpdate = false,
           privateKey: keys.PrivateKey,
-          flags: WakuEnrBitfield,
+          flags: CapabilitiesBitfield,
           multiaddrs = newSeq[MultiAddress](),
           rng: ref HmacDrbgContext,
           discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T =
   ## TODO: consider loading from a configurable bootstrap file
 
   ## We always add the waku field as specified
-  var enrInitFields = @[(WAKU_ENR_FIELD, @[flags.byte])]
+  var enrInitFields = @[(CapabilitiesEnrField, @[flags.byte])]
 
   ## Add multiaddresses to ENR
   if multiaddrs.len > 0:
@@ -151,7 +151,7 @@ proc new*(T: type WakuDiscoveryV5,
           bootstrapNodes: seq[string],
           enrAutoUpdate = false,
           privateKey: keys.PrivateKey,
-          flags: WakuEnrBitfield,
+          flags: CapabilitiesBitfield,
           multiaddrs = newSeq[MultiAddress](),
           rng: ref HmacDrbgContext,
           discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T =
