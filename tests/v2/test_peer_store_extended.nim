@@ -103,37 +103,37 @@ suite "Extended nim-libp2p Peer Store":
 
   test "get() returns the correct StoredInfo for a given PeerId":
     # When
-    let storedInfoPeer1 = peerStore.get(p1)
-    let storedInfoPeer6 = peerStore.get(p6)
+    let peer1 = peerStore.get(p1)
+    let peer6 = peerStore.get(p6)
 
     # Then
     check:
       # regression on nim-libp2p fields
-      storedInfoPeer1.peerId == p1
-      storedInfoPeer1.addrs == @[MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()]
-      storedInfoPeer1.protos == @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"]
-      storedInfoPeer1.agent == "nwaku"
-      storedInfoPeer1.protoVersion == "protoVersion1"
+      peer1.peerId == p1
+      peer1.addrs == @[MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()]
+      peer1.protocols == @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"]
+      peer1.agent == "nwaku"
+      peer1.protoVersion == "protoVersion1"
 
       # our extended fields
-      storedInfoPeer1.connectedness == Connected
-      storedInfoPeer1.disconnectTime == 0
-      storedInfoPeer1.origin == Discv5
-      storedInfoPeer1.numberFailedConn == 1
-      storedInfoPeer1.lastFailedConn == Moment.init(1001, Second)
+      peer1.connectedness == Connected
+      peer1.disconnectTime == 0
+      peer1.origin == Discv5
+      peer1.numberFailedConn == 1
+      peer1.lastFailedConn == Moment.init(1001, Second)
 
     check:
       # fields are empty, not part of the peerstore
-      storedInfoPeer6.peerId == p6
-      storedInfoPeer6.addrs.len == 0
-      storedInfoPeer6.protos.len == 0
-      storedInfoPeer6.agent == default(string)
-      storedInfoPeer6.protoVersion == default(string)
-      storedInfoPeer6.connectedness == default(Connectedness)
-      storedInfoPeer6.disconnectTime == default(int)
-      storedInfoPeer6.origin == default(PeerOrigin)
-      storedInfoPeer6.numberFailedConn == default(int)
-      storedInfoPeer6.lastFailedConn == default(Moment)
+      peer6.peerId == p6
+      peer6.addrs.len == 0
+      peer6.protocols.len == 0
+      peer6.agent == default(string)
+      peer6.protoVersion == default(string)
+      peer6.connectedness == default(Connectedness)
+      peer6.disconnectTime == default(int)
+      peer6.origin == default(PeerOrigin)
+      peer6.numberFailedConn == default(int)
+      peer6.lastFailedConn == default(Moment)
 
   test "peers() returns all StoredInfo of the PeerStore":
     # When
@@ -153,7 +153,7 @@ suite "Extended nim-libp2p Peer Store":
     check:
       # regression on nim-libp2p fields
       p3.addrs == @[MultiAddress.init("/ip4/127.0.0.1/tcp/3").tryGet()]
-      p3.protos == @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
+      p3.protocols == @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
       p3.agent == "gowaku"
       p3.protoVersion == "protoVersion3"
 
@@ -180,7 +180,7 @@ suite "Extended nim-libp2p Peer Store":
       # Only p3 supports that protocol
       lpPeers.len == 1
       lpPeers.anyIt(it.peerId == p3)
-      lpPeers[0].protos == @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
+      lpPeers[0].protocols == @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
 
   test "peers() returns all StoredInfo matching a given protocolMatcher":
     # When
@@ -197,28 +197,25 @@ suite "Extended nim-libp2p Peer Store":
       pMatcherStorePeers.anyIt(it.peerId == p5)
 
     check:
-      pMatcherStorePeers.filterIt(it.peerId == p1)[0].protos == @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"]
-      pMatcherStorePeers.filterIt(it.peerId == p2)[0].protos == @["/vac/waku/relay/2.0.0", "/vac/waku/store/2.0.0"]
-      pMatcherStorePeers.filterIt(it.peerId == p3)[0].protos == @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
-      pMatcherStorePeers.filterIt(it.peerId == p5)[0].protos == @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"]
+      pMatcherStorePeers.filterIt(it.peerId == p1)[0].protocols == @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"]
+      pMatcherStorePeers.filterIt(it.peerId == p2)[0].protocols == @["/vac/waku/relay/2.0.0", "/vac/waku/store/2.0.0"]
+      pMatcherStorePeers.filterIt(it.peerId == p3)[0].protocols == @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
+      pMatcherStorePeers.filterIt(it.peerId == p5)[0].protocols == @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"]
 
     check:
       pMatcherSwapPeers.len == 1
       pMatcherSwapPeers.anyIt(it.peerId == p5)
-      pMatcherSwapPeers[0].protos == @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"]
+      pMatcherSwapPeers[0].protocols == @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"]
 
   test "toRemotePeerInfo() converts a StoredInfo to a RemotePeerInfo":
     # Given
-    let storedInfoPeer1 = peerStore.get(p1)
-
-    # When
-    let remotePeerInfo1 = storedInfoPeer1.toRemotePeerInfo()
+    let peer1 = peerStore.get(p1)
 
     # Then
     check:
-      remotePeerInfo1.peerId == p1
-      remotePeerInfo1.addrs == @[MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()]
-      remotePeerInfo1.protocols == @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"]
+      peer1.peerId == p1
+      peer1.addrs == @[MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()]
+      peer1.protocols == @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"]
 
   test "connectedness() returns the connection status of a given PeerId":
     check:
