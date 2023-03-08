@@ -36,7 +36,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
         nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
         ip = ValidIpAddress.init("0.0.0.0")
         node = WakuNode.new(nodeKey, ip, Port(wakuPort))
-        flags = initWakuFlags(lightpush = false, filter = false, store = false, relay = true)
+        flags = CapabilitiesBitfield.init(lightpush = false, filter = false, store = false, relay = true)
 
     # assumes behind a firewall, so not care about being discoverable
     node.wakuDiscv5 = WakuDiscoveryV5.new(

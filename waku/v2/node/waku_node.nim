@@ -135,7 +135,7 @@ type NetConfig* = object
   enrIp*: Option[ValidIpAddress]
   enrPort*: Option[Port]
   discv5UdpPort*: Option[Port]
-  wakuFlags*: Option[WakuEnrBitfield]
+  wakuFlags*: Option[CapabilitiesBitfield]
   bindIp*: ValidIpAddress
   bindPort*: Port
 
@@ -151,7 +151,7 @@ proc init*(
   wssEnabled: bool = false,
   dns4DomainName = none(string),
   discv5UdpPort = none(Port),
-  wakuFlags = none(WakuEnrBitfield)
+  wakuFlags = none(CapabilitiesBitfield)
 ): T {.raises: [LPError]} =
   ## Initialize addresses
   let
@@ -230,7 +230,7 @@ proc getEnr*(netConfig: NetConfig,
   if wakuDiscV5.isSome():
     return wakuDiscV5.get().protocol.getRecord()
 
-  return enr.Record.init(nodekey,
+  return enr.Record.init(1, nodekey,
                          netConfig.enrIp,
                          netConfig.enrPort,
                          netConfig.discv5UdpPort,
@@ -275,7 +275,7 @@ proc new*(T: type WakuNode,
           wssEnabled: bool = false,
           secureKey: string = "",
           secureCert: string = "",
-          wakuFlags = none(WakuEnrBitfield),
+          wakuFlags = none(CapabilitiesBitfield),
           nameResolver: NameResolver = nil,
           sendSignedPeerRecord = false,
           dns4DomainName = none(string),

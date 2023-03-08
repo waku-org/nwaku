@@ -38,10 +38,12 @@ procSuite "Waku Discovery v5":
       nodeUdpPort3 = Port(9004)
       node3 = WakuNode.new(nodeKey3, bindIp, nodeTcpPort3)
 
-      flags = initWakuFlags(lightpush = false,
-                            filter = false,
-                            store = false,
-                            relay = true)
+      flags = CapabilitiesBitfield.init(
+                lightpush = false,
+                filter = false,
+                store = false,
+                relay = true
+              )
 
       # E2E relay test paramaters
       pubSubTopic = "/waku/2/default-waku/proto"
@@ -128,10 +130,12 @@ procSuite "Waku Discovery v5":
       extIp = ValidIpAddress.init("127.0.0.1")
       expectedMultiAddr = MultiAddress.init("/ip4/200.200.200.200/tcp/9000/wss").tryGet()
 
-      flags = initWakuFlags(lightpush = false,
-                            filter = false,
-                            store = false,
-                            relay = true)
+      flags = CapabilitiesBitfield.init(
+                lightpush = false,
+                filter = false,
+                store = false,
+                relay = true
+              )
 
       nodeTcpPort1 = Port(9010)
       nodeUdpPort1 = Port(9012)
