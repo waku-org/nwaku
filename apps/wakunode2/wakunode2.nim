@@ -269,10 +269,12 @@ proc initNode(conf: WakuNodeConf,
                     else:
                       @[]
 
-    wakuFlags = initWakuFlags(conf.lightpush,
-                              conf.filter,
-                              conf.store,
-                              conf.relay)
+    wakuFlags = CapabilitiesBitfield.init(
+        lightpush = conf.lightpush,
+        filter = conf.filter,
+        store = conf.store,
+        relay = conf.relay
+      )
 
   var node: WakuNode
 

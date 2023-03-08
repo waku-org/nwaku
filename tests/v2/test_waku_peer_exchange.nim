@@ -89,10 +89,12 @@ procSuite "Waku Peer Exchange":
       node3 = WakuNode.new(nodeKey3, bindIp, nodeTcpPort3)
 
       # todo: px flag
-      flags = initWakuFlags(lightpush = false,
-                            filter = false,
-                            store = false,
-                            relay = true)
+      flags = CapabilitiesBitfield.init(
+                lightpush = false,
+                filter = false,
+                store = false,
+                relay = true
+              )
 
     # Mount discv5
     node1.wakuDiscv5 = WakuDiscoveryV5.new(

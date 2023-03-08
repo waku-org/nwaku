@@ -1,14 +1,113 @@
 {.used.}
 
 import
-  std/[options, sequtils],
-  stew/byteutils,
+  std/options,
+  stew/[results, byteutils],
   testutils/unittests
 import
   ../../waku/v2/protocol/waku_enr,
   ./testlib/waku2
 
-suite "Waku ENR":
+
+suite "Waku ENR -  Capabilities bitfield":
+  test "check capabilities support":
+    ## Given
+    let bitfield: CapabilitiesBitfield = 0b0000_1101u8  # Lightpush, Filter, Relay
+
+    ## Then
+    check:
+      bitfield.supportsCapability(Capabilities.Relay)
+      not bitfield.supportsCapability(Capabilities.Store)
+      bitfield.supportsCapability(Capabilities.Filter)
+      bitfield.supportsCapability(Capabilities.Lightpush)
+
+  test "bitfield to capabilities list":
+    ## Given
+    let bitfield = CapabilitiesBitfield.init(
+        relay = true,
+        store = false,
+        lightpush = true,
+        filter = true
+      )
+
+    ## When
+    let caps = bitfield.toCapabilities()
+
+    ## Then
+    check:
+      caps == @[Capabilities.Relay, Capabilities.Filter, Capabilities.Lightpush]
+
+  test "encode and extract capabilities from record":
+    ## Given
+    let enrkey = generatesecp256k1key()
+    let caps = CapabilitiesBitfield.init(Capabilities.Relay, Capabilities.Store)
+
+    let record = Record.init(1, enrkey, wakuFlags=some(caps))
+
+    ## When
+    let bitfieldRes = record.getCapabilitiesField()
+
+    ## Then
+    check bitfieldRes.isOk()
+
+    let bitfield = bitfieldRes.tryGet()
+    check:
+      bitfield.toCapabilities() == @[Capabilities.Relay, Capabilities.Store]
+
+  test "cannot extract capabilities from record":
+    ## Given
+    let enrkey = generatesecp256k1key()
+    let record = Record.init(1, enrkey, wakuFlags=none(CapabilitiesBitfield))
+
+    ## When
+    let bitfieldRes = record.getCapabilitiesField()
+
+    ## Then
+    check bitfieldRes.isErr()
+
+    let err = bitfieldRes.tryError()
+    check:
+      err == "Key not found in ENR"
+
+  test "check capabilities on a waku node record":
+    ## Given
+    let wakuRecord = "-Hy4QC73_E3B_FkZhsOakaD4pHe-U--UoGASdG9N0F3SFFUDY_jdQbud8" &
+        "EXVyrlOZ5pZ7VYFBDPMRCENwy87Lh74dFIBgmlkgnY0iXNlY3AyNTZrMaECvNt1jIWbWGp" &
+        "AWWdlLGYm1E1OjlkQk3ONoxDC5sfw8oOFd2FrdTID"
+
+    ## When
+    var record: Record
+    require waku_enr.fromBase64(record, wakuRecord)
+
+    ## Then
+    check:
+      record.supportsCapability(Relay) == true
+      record.supportsCapability(Store) == true
+      record.supportsCapability(Filter) == false
+      record.supportsCapability(Lightpush) == false
+      record.getCapabilities() == @[Capabilities.Relay, Capabilities.Store]
+
+  test "check capabilities on a non-waku node record":
+    ## Given
+    # non waku enr, i.e. Ethereum one
+    let nonWakuEnr = "enr:-KG4QOtcP9X1FbIMOe17QNMKqDxCpm14jcX5tiOE4_TyMrFqbmhPZHK_ZPG2G" &
+    "xb1GE2xdtodOfx9-cgvNtxnRyHEmC0ghGV0aDKQ9aX9QgAAAAD__________4JpZIJ2NIJpcIQDE8KdiXNl" &
+    "Y3AyNTZrMaEDhpehBDbZjM_L9ek699Y7vhUJ-eAdMyQW_Fil522Y0fODdGNwgiMog3VkcIIjKA"
+
+    ## When
+    var nonWakuEnrRecord: Record
+    require waku_enr.fromURI(nonWakuEnrRecord, nonWakuEnr)
+
+    ## Then
+    check:
+      nonWakuEnrRecord.getCapabilities() == []
+      nonWakuEnrRecord.supportsCapability(Relay) == false
+      nonWakuEnrRecord.supportsCapability(Store) == false
+      nonWakuEnrRecord.supportsCapability(Filter) == false
+      nonWakuEnrRecord.supportsCapability(Lightpush) == false
+
+
+suite "Waku ENR - Multiaddresses":
 
   test "Parse multiaddr field":
     let
@@ -45,14 +144,13 @@ suite "Waku ENR":
       enrIp = ValidIpAddress.init("127.0.0.1")
       enrTcpPort, enrUdpPort = Port(61101)
       enrKey = generateSecp256k1Key()
-      wakuFlags = initWakuFlags(false, true, false, true)
       multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[],
                      MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss")[]]
 
     let
-      record = enr.Record.init(enrKey, some(enrIp),
+      record = enr.Record.init(1, enrKey, some(enrIp),
                        some(enrTcpPort), some(enrUdpPort),
-                       some(wakuFlags),
+                       none(CapabilitiesBitfield),
                        multiaddrs)
       typedRecord = record.toTypedRecord.get()
 
@@ -64,11 +162,8 @@ suite "Waku ENR":
       Port(typedRecord.udp.get()) == enrUdpPort
 
     # Check Waku ENR fields
-    let
-      decodedFlags = record.get(WAKU_ENR_FIELD, seq[byte])[]
-      decodedAddrs = record.get(MULTIADDR_ENR_FIELD, seq[byte])[].toMultiAddresses()
+    let decodedAddrs = record.get(MultiaddrEnrField, seq[byte]).tryGet().toMultiAddresses()
     check:
-      decodedFlags == @[wakuFlags.byte]
       decodedAddrs.contains(MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[])
       decodedAddrs.contains(MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss")[])
 
@@ -81,9 +176,9 @@ suite "Waku ENR":
       multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss/p2p/16Uiu2HAm4v86W3bmT1BiH6oSPzcsSr31iDQpSN5Qa882BCjjwgrD")[]]
 
     let
-      record = enr.Record.init(enrKey, some(enrIp),
+      record = enr.Record.init(1, enrKey, some(enrIp),
                        some(enrTcpPort), some(enrUdpPort),
-                       none(WakuEnrBitfield),
+                       none(CapabilitiesBitfield),
                        multiaddrs)
 
     # Check Waku ENR fields
@@ -126,92 +221,3 @@ suite "Waku ENR":
     for knownMultiaddr in knownMultiaddrs:
       check decodedAddrs.contains(knownMultiaddr)
 
-  test "Supports specific capabilities encoded in the ENR":
-    let
-      enrIp = ValidIpAddress.init("127.0.0.1")
-      enrTcpPort, enrUdpPort = Port(60000)
-      enrKey = generateSecp256k1Key()
-      multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[]]
-
-      # TODO: Refactor enr.Record.init, provide enums as inputs enr.Record.init(capabilites=[Store,Filter])
-      # TODO: safer than a util function and directly using the bits
-      # test all flag combinations 2^4 = 16 (b0000-b1111)
-      records = toSeq(0b0000_0000'u8..0b0000_1111'u8)
-                        .mapIt(enr.Record.init(enrKey,
-                                       some(enrIp),
-                                       some(enrTcpPort),
-                                       some(enrUdpPort),
-                                       some(uint8(it)),
-                                       multiaddrs))
-
-      # same order:         lightpush | filter| store | relay
-      expectedCapabilities = @[[false, false, false, false],
-                               [false, false, false, true],
-                               [false, false, true, false],
-                               [false, false, true, true],
-                               [false, true, false, false],
-                               [false, true, false, true],
-                               [false, true, true, false],
-                               [false, true, true, true],
-                               [true, false, false, false],
-                               [true, false, false, true],
-                               [true, false, true, false],
-                               [true, false, true, true],
-                               [true, true, false, false],
-                               [true, true, false, true],
-                               [true, true, true, false],
-                               [true, true, true, true]]
-
-    for i, record in records:
-      for j, capability in @[Lightpush, Filter, Store, Relay]:
-        check expectedCapabilities[i][j] == record.supportsCapability(capability)
-
-  test "Get all supported capabilities encoded in the ENR":
-    let
-      enrIp = ValidIpAddress.init("127.0.0.1")
-      enrTcpPort, enrUdpPort = Port(60000)
-      enrKey = generateSecp256k1Key()
-      multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[]]
-
-      records = @[0b0000_0000'u8,
-                  0b0000_1111'u8,
-                  0b0000_1001'u8,
-                  0b0000_1110'u8,
-                  0b0000_1000'u8,]
-                  .mapIt(enr.Record.init(enrKey,
-                                         some(enrIp),
-                                         some(enrTcpPort),
-                                         some(enrUdpPort),
-                                         some(uint8(it)),
-                                         multiaddrs))
-
-      # expected capabilities, ordered LSB to MSB
-      expectedCapabilities: seq[seq[Capabilities]] = @[
-      #[0b0000_0000]#          @[],
-      #[0b0000_1111]#          @[Relay, Store, Filter, Lightpush],
-      #[0b0000_1001]#          @[Relay, Lightpush],
-      #[0b0000_1110]#          @[Store, Filter, Lightpush],
-      #[0b0000_1000]#          @[Lightpush]]
-
-    for i, actualExpetedTuple in zip(records, expectedCapabilities):
-      check actualExpetedTuple[0].getCapabilities() == actualExpetedTuple[1]
-
-  test "Get supported capabilities of a non waku node":
-
-    # non waku enr, i.e. Ethereum one
-    let nonWakuEnr = "enr:-KG4QOtcP9X1FbIMOe17QNMKqDxCpm14jcX5tiOE4_TyMrFqbmhPZHK_ZPG2G"&
-    "xb1GE2xdtodOfx9-cgvNtxnRyHEmC0ghGV0aDKQ9aX9QgAAAAD__________4JpZIJ2NIJpcIQDE8KdiXNl"&
-    "Y3AyNTZrMaEDhpehBDbZjM_L9ek699Y7vhUJ-eAdMyQW_Fil522Y0fODdGNwgiMog3VkcIIjKA"
-
-    var nonWakuEnrRecord: Record
-
-    check:
-      nonWakuEnrRecord.fromURI(nonWakuEnr)
-
-    # check that it doesn't support any capability and it doesnt't break
-    check:
-      nonWakuEnrRecord.getCapabilities() == []
-      nonWakuEnrRecord.supportsCapability(Relay) == false
-      nonWakuEnrRecord.supportsCapability(Store) == false
-      nonWakuEnrRecord.supportsCapability(Filter) == false
-      nonWakuEnrRecord.supportsCapability(Lightpush) == false

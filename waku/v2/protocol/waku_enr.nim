@@ -19,14 +19,17 @@ import
 export enr, crypto, multiaddress, net
 
 const
-  MULTIADDR_ENR_FIELD* = "multiaddrs"
-  WAKU_ENR_FIELD* = "waku2"
+  MultiaddrEnrField* = "multiaddrs"
+  CapabilitiesEnrField* = "waku2"
+
+
+## Capabilities
 
 type
   ## 8-bit flag field to indicate Waku capabilities.
   ## Only the 4 LSBs are currently defined according
   ## to RFC31 (https://rfc.vac.dev/spec/31/).
-  WakuEnrBitfield* = uint8
+  CapabilitiesBitfield* = distinct uint8
 
   ## See: https://rfc.vac.dev/spec/31/#waku2-enr-key
   ## each enum numbers maps to a bit (where 0 is the LSB)
@@ -34,7 +37,59 @@ type
     Relay = 0,
     Store = 1,
     Filter = 2,
-    Lightpush = 3,
+    Lightpush = 3
+
+
+func init*(T: type CapabilitiesBitfield, lightpush, filter, store, relay: bool): T =
+  ## Creates an waku2 ENR flag bit field according to RFC 31 (https://rfc.vac.dev/spec/31/)
+  var bitfield: uint8
+  if relay: bitfield.setBit(0)
+  if store: bitfield.setBit(1)
+  if filter: bitfield.setBit(2)
+  if lightpush: bitfield.setBit(3)
+  CapabilitiesBitfield(bitfield)
+
+func init*(T: type CapabilitiesBitfield, caps: varargs[Capabilities]): T =
+  ## Creates an waku2 ENR flag bit field according to RFC 31 (https://rfc.vac.dev/spec/31/)
+  var bitfield: uint8
+  for cap in caps:
+    bitfield.setBit(ord(cap))
+  CapabilitiesBitfield(bitfield)
+
+converter toCapabilitiesBitfield*(field: uint8): CapabilitiesBitfield =
+  CapabilitiesBitfield(field)
+
+proc supportsCapability*(bitfield: CapabilitiesBitfield, cap: Capabilities): bool =
+  testBit(bitfield.uint8, ord(cap))
+
+func toCapabilities*(bitfield: CapabilitiesBitfield): seq[Capabilities] =
+  toSeq(Capabilities.low..Capabilities.high).filterIt(supportsCapability(bitfield, it))
+
+
+func toFieldPair*(caps: CapabilitiesBitfield): FieldPair =
+  toFieldPair(CapabilitiesEnrField, @[caps.uint8])
+
+proc getCapabilitiesField*(r: Record): EnrResult[CapabilitiesBitfield] =
+  let field = ?r.get(CapabilitiesEnrField, seq[uint8])
+  ok(CapabilitiesBitfield(field[0]))
+
+
+proc supportsCapability*(r: Record, cap: Capabilities): bool =
+  let bitfield = getCapabilitiesField(r)
+  if bitfield.isErr():
+    return false
+
+  bitfield.value.supportsCapability(cap)
+
+proc getCapabilities*(r: Record): seq[Capabilities] =
+  let bitfield = getCapabilitiesField(r)
+  if bitfield.isErr():
+    return @[]
+
+  bitfield.value.toCapabilities()
+
+
+## Multiaddress
 
 func getRawField*(multiaddrs: seq[MultiAddress]): seq[byte] =
   var fieldRaw: seq[byte]
@@ -93,28 +148,6 @@ func readBytes(rawBytes: seq[byte], numBytes: int, pos: var int = 0): Result[seq
 
   return ok(slicedSeq)
 
-################
-# Public utils #
-################
-
-func initWakuFlags*(lightpush, filter, store, relay: bool): WakuEnrBitfield =
-  ## Creates an waku2 ENR flag bit field according to RFC 31 (https://rfc.vac.dev/spec/31/)
-  var v = 0b0000_0000'u8
-  if lightpush: v.setBit(3)
-  if filter: v.setBit(2)
-  if store: v.setBit(1)
-  if relay: v.setBit(0)
-
-  # TODO: With the changes in this PR, this can be refactored? Using the enum?
-  # Perhaps refactor to:
-    # WaKuEnr.enr.Record.init(..., capabilities=[Store, Lightpush])
-    # WaKuEnr.enr.Record.init(..., capabilities=[Store, Lightpush, Relay, Filter])
-
-  # Safer also since we dont inject WakuEnrBitfield, and we let this package
-  # handle the bits according to the capabilities
-
-  return v.WakuEnrBitfield
-
 func toMultiAddresses*(multiaddrsField: seq[byte]): seq[MultiAddress] =
   ## Parses a `multiaddrs` ENR field according to
   ## https://rfc.vac.dev/spec/31/
@@ -147,11 +180,16 @@ func toMultiAddresses*(multiaddrsField: seq[byte]): seq[MultiAddress] =
 
   return multiaddrs
 
+
+## ENR
+
 func init*(T: type enr.Record,
+           seqNum: uint64,
            privateKey: crypto.PrivateKey,
-           enrIp: Option[ValidIpAddress],
-           enrTcpPort, enrUdpPort: Option[Port],
-           wakuFlags = none(WakuEnrBitfield),
+           enrIp = none(ValidIpAddress),
+           enrTcpPort = none(Port),
+           enrUdpPort = none(Port),
+           wakuFlags = none(CapabilitiesBitfield),
            multiaddrs: seq[MultiAddress] = @[]): T =
 
   assert privateKey.scheme == PKScheme.Secp256k1
@@ -160,27 +198,22 @@ func init*(T: type enr.Record,
   var wakuEnrFields: seq[FieldPair]
 
   # `waku2` field
-  if wakuFlags.isSome:
-    wakuEnrFields.add(toFieldPair(WAKU_ENR_FIELD, @[wakuFlags.get().byte]))
+  if wakuFlags.isSome():
+    wakuEnrFields.add(toFieldPair(wakuFlags.get()))
 
   # `multiaddrs` field
   if multiaddrs.len > 0:
-    wakuEnrFields.add(multiaddrs.stripPeerIds().toFieldPair)
+    wakuEnrFields.add(multiaddrs.stripPeerIds().toFieldPair())
 
   let
     rawPk = privateKey.getRawBytes().expect("Private key is valid")
     pk = keys.PrivateKey.fromRaw(rawPk).expect("Raw private key is of valid length")
-    enr = enr.Record.init(1, pk,
-                          enrIp, enrTcpPort, enrUdpPort,
-                          wakuEnrFields).expect("Record within size limits")
 
-  return enr
-
-proc supportsCapability*(r: Record, capability: Capabilities): bool =
-  let enrCapabilities = r.get(WAKU_ENR_FIELD, seq[byte])
-  if enrCapabilities.isOk():
-    return testBit(enrCapabilities.get()[0], capability.ord)
-  return false
-
-proc getCapabilities*(r: Record): seq[Capabilities] =
-  return toSeq(Capabilities.low..Capabilities.high).filterIt(r.supportsCapability(it))
+  enr.Record.init(
+    seqNum=seqNum,
+    pk=pk,
+    ip=enrIp,
+    tcpPort=enrTcpPort,
+    udpPort=enrUdpPort,
+    extraFields=wakuEnrFields
+  ).expect("Record within size limits")
