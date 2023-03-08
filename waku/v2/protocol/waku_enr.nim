@@ -66,6 +66,7 @@ func toCapabilities*(bitfield: CapabilitiesBitfield): seq[Capabilities] =
   toSeq(Capabilities.low..Capabilities.high).filterIt(supportsCapability(bitfield, it))
 
 
+## TODO: Turn into an EnrBuilder extension
 func toFieldPair*(caps: CapabilitiesBitfield): FieldPair =
   toFieldPair(CapabilitiesEnrField, @[caps.uint8])
 
@@ -190,7 +191,8 @@ func init*(T: type enr.Record,
            enrTcpPort = none(Port),
            enrUdpPort = none(Port),
            wakuFlags = none(CapabilitiesBitfield),
-           multiaddrs: seq[MultiAddress] = @[]): T =
+           multiaddrs: seq[MultiAddress] = @[]): T {.
+  deprecated: "Use Waku commons EnrBuilder instead" .} =
 
   assert privateKey.scheme == PKScheme.Secp256k1
 

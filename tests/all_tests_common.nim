@@ -5,4 +5,5 @@ import
   ./common/test_envvar_serialization,
   ./common/test_confutils_envvar,
   ./common/test_protobuf_validation,
+  ./common/test_enr_builder,
   ./common/test_sqlite_migrations
