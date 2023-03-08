@@ -6,6 +6,7 @@ else:
 import
   std/[tables, sequtils, sets, options, times, math],
   chronos,
+  eth/p2p/discoveryv5/enr,
   libp2p/builders,
   libp2p/peerstore
 
@@ -51,7 +52,7 @@ proc get*(peerStore: PeerStore,
   RemotePeerInfo(
     peerId: peerId,
     addrs: peerStore[AddressBook][peerId],
-    #enr*: Option[enr.Record]  #TODO
+    enr: if peerStore[ENRBook][peerId] != default(enr.Record): some(peerStore[ENRBook][peerId]) else: none(enr.Record),
     protocols: peerStore[ProtoBook][peerId],
     agent: peerStore[AgentBook][peerId],
     protoVersion: peerStore[ProtoVersionBook][peerId],

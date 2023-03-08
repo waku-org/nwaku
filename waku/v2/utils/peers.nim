@@ -64,6 +64,9 @@ type
   # Direction
   DirectionBook* = ref object of PeerBook[PeerDirection]
 
+  # ENR Book
+  ENRBook* = ref object of PeerBook[enr.Record]
+
 type
   RemotePeerInfo* = ref object of RootObj
     peerId*: PeerID

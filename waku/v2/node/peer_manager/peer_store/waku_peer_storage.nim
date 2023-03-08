@@ -39,6 +39,8 @@ proc init*(T: type RemotePeerInfo, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getRepeatedField(3, protoSeq)
   discard ? pb.getField(4, storedInfo.publicKey)
 
+  # TODO: Store the rest of parameters such as connectedness and disconnectTime
+
   storedInfo.addrs = multiaddrSeq
   storedInfo.protocols = protoSeq
 
@@ -77,6 +79,8 @@ proc new*(T: type WakuPeerStorage, db: SqliteDatabase): PeerStorageResult[T] =
   ##  - stored info (serialised protobuf), stored as a blob
   ##  - last known enumerated connectedness state, stored as an integer
   ##  - disconnect time in epoch seconds, if applicable
+
+  # TODO: connectedness and disconnectTime are now stored in the storedInfo type
   let
     createStmt = db.prepareStmt("""
       CREATE TABLE IF NOT EXISTS Peer (
