@@ -75,3 +75,26 @@ proc decode*(T: type FilterSubscribeResponse, buffer: seq[byte]): ProtobufResult
     rpc.statusDesc = some(rpc.statusDesc.get())
 
   ok(rpc)
+
+proc encode*(rpc: MessagePush): ProtoBuffer =
+  var pb = initProtoBuffer()
+
+  pb.write3(1, rpc.wakuMessage.encode())
+  pb.write3(2, rpc.pubsubTopic)
+
+  pb
+
+proc decode*(T: type MessagePush, buffer: seq[byte]): ProtobufResult[T] =
+  let pb = initProtoBuffer(buffer)
+  var rpc = MessagePush()
+
+  var message: seq[byte]
+  if not ?pb.getField(1, message):
+    return err(ProtobufError.missingRequiredField("message"))
+  else:
+    rpc.wakuMessage = ?WakuMessage.decode(message)
+
+  if not ?pb.getField(2, rpc.pubsubTopic):
+    return err(ProtobufError.missingRequiredField("pubsub_topic"))
+
+  ok(rpc)

@@ -17,21 +17,15 @@ import
   ./common,
   ./protocol_metrics,
   ./rpc_codec,
-  ./rpc
+  ./rpc,
+  ./subscriptions
 
 logScope:
   topics = "waku filter"
 
-const
-  MaxSubscriptions* = 1000 # TODO make configurable
-  MaxCriteriaPerSubscription = 1000
-
 type
-  FilterCriterion* = (PubsubTopic, ContentTopic) # a single filter criterion is fully defined by a pubsub topic and content topic
-  FilterCriteria* = HashSet[FilterCriterion] # a sequence of filter criteria
-
   WakuFilter* = ref object of LPProtocol
-    subscriptions*: Table[PeerID, FilterCriteria] # a mapping of peer ids to a sequence of filter criteria
+    subscriptions*: FilterSubscriptions # a mapping of peer ids to a sequence of filter criteria
     peerManager: PeerManager
 
 proc pingSubscriber(wf: WakuFilter, peerId: PeerID): FilterSubscribeResult =
@@ -59,7 +53,7 @@ proc subscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic],
     peerSubscription.incl(filterCriteria)
     wf.subscriptions[peerId] = peerSubscription
   else:
-    if wf.subscriptions.len() >= MaxSubscriptions:
+    if wf.subscriptions.len() >= MaxTotalSubscriptions:
       return err(FilterSubscribeError.serviceUnavailable("node has reached maximum number of subscriptions"))
     debug "creating new subscription", peerId=peerId
     wf.subscriptions[peerId] = filterCriteria
@@ -125,8 +119,61 @@ proc handleSubscribeRequest*(wf: WakuFilter, peerId: PeerId, request: FilterSubs
   else:
     return FilterSubscribeResponse.ok(request.requestId)
 
-proc handleMessage*(wf: WakuFilter, message: WakuMessage) =
-  raiseAssert "Unimplemented"
+proc pushToPeer(wf: WakuFilter, peer: PeerId, buffer: seq[byte]) {.async.} =
+  trace "pushing message to subscribed peer", peer=peer
+
+  if not wf.peerManager.peerStore.hasPeer(peer, WakuFilterPushCodec):
+    # Check that peer has not been removed from peer store
+    trace "no addresses for peer", peer=peer
+    return
+
+  let conn = await wf.peerManager.dialPeer(peer, WakuFilterPushCodec)
+  if conn.isNone():
+    ## We do not remove this peer, but allow the underlying peer manager
+    ## to do so if it is deemed necessary
+    trace "no connection to peer", peer=peer
+    return
+
+  await conn.get().writeLp(buffer)
+
+proc pushToPeers(wf: WakuFilter, peers: seq[PeerId], messagePush: MessagePush) {.async.} =
+  trace "pushing message to subscribed peers", peers=peers, messagePush=messagePush
+
+  let bufferToPublish = messagePush.encode().buffer
+
+  var pushFuts: seq[Future[void]]
+  for peerId in peers:
+    let pushFut = wf.pushToPeer(peerId, bufferToPublish)
+    pushFuts.add(pushFut)
+
+  await allFutures(pushFuts)
+
+proc maintainSubscriptions*(wf: WakuFilter) =
+  trace "maintaining subscriptions"
+
+  var peersToRemove: seq[PeerId]
+  for peerId, peerSubscription in wf.subscriptions.pairs():
+    ## TODO: currently we only maintain by syncing with peer store. We could
+    ## consider other metrics, such as subscription age, activity, etc.
+    if not wf.peerManager.peerStore.hasPeer(peerId, WakuFilterPushCodec):
+      debug "peer has been removed from peer store, removing subscription", peerId=peerId
+      peersToRemove.add(peerId)
+
+  wf.subscriptions.removePeers(peersToRemove)
+
+proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, message: WakuMessage) {.async.} =
+  trace "handling message", pubsubTopic=pubsubTopic, message=message
+
+  let subscribedPeers = wf.subscriptions.findSubscribedPeers(pubsubTopic, message.contentTopic)
+  if subscribedPeers.len() == 0:
+    trace "no subscribed peers found", pubsubTopic=pubsubTopic, contentTopic=message.contentTopic
+    return
+
+  let messagePush = MessagePush(
+        pubsubTopic: pubsubTopic,
+        wakuMessage: message)
+
+  await wf.pushToPeers(subscribedPeers, messagePush)
 
 proc initProtocolHandler(wf: WakuFilter) =
 
@@ -157,3 +204,24 @@ proc new*(T: type WakuFilter,
   )
   wf.initProtocolHandler()
   wf
+
+const MaintainSubscriptionsInterval* = 1.minutes
+
+proc startMaintainingSubscriptions*(wf: WakuFilter, interval: Duration) =
+  trace "starting to maintain subscriptions"
+  var maintainSubs: proc(udata: pointer) {.gcsafe, raises: [Defect].}
+  maintainSubs = proc(udata: pointer) {.gcsafe.} =
+    maintainSubscriptions(wf)
+    discard setTimer(Moment.fromNow(interval), maintainSubs)
+
+  discard setTimer(Moment.fromNow(interval), maintainSubs)
+
+method start*(wf: WakuFilter) {.async.} =
+  debug "starting filter protocol"
+  wf.startMaintainingSubscriptions(MaintainSubscriptionsInterval)
+
+  await procCall LPProtocol(wf).start()
+
+method stop*(wf: WakuFilter) {.async.} =
+  debug "stopping filter protocol"
+  await procCall LPProtocol(wf).stop()

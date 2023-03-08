@@ -32,7 +32,7 @@ type
   MessagePush* = object
     # Message pushed from service node to client
     wakuMessage*: WakuMessage
-    pubsubTopic*: Option[string]
+    pubsubTopic*: string
 
 # Convenience functions
 
