@@ -15,6 +15,29 @@ import
 
 export peerstore, builders
 
+type
+
+  # Keeps track of the Connectedness state of a peer
+  ConnectionBook* = ref object of PeerBook[Connectedness]
+
+  # Last failed connection attemp timestamp
+  LastFailedConnBook* = ref object of PeerBook[Moment]
+
+  # Failed connection attempts
+  NumberFailedConnBook* = ref object of PeerBook[int]
+
+  # Keeps track of when peers were disconnected in Unix timestamps
+  DisconnectBook* = ref object of PeerBook[int64]
+
+  # Keeps track of the origin of a peer
+  SourceBook* = ref object of PeerBook[PeerOrigin]
+
+  # Direction
+  DirectionBook* = ref object of PeerBook[PeerDirection]
+
+  # ENR Book
+  ENRBook* = ref object of PeerBook[enr.Record]
+
 ##################
 # Peer Store API #
 ##################
