@@ -585,7 +585,7 @@ proc filterSubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: C
   let remotePeer = when peer is string: parseRemotePeerInfo(peer)
                    else: peer
 
-  info "registering filter subscription to content", pubsubTopic=pubsubTopic, contentTopics=contentTopics, peer=remotePeer
+  info "registering filter subscription to content", pubsubTopic=pubsubTopic, contentTopics=contentTopics, peer=remotePeer.peerId
 
   # Add handler wrapper to store the message when pushed, when relay is disabled and filter enabled
   # TODO: Move this logic to wakunode2 app
@@ -612,7 +612,7 @@ proc filterUnsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics:
   let remotePeer = when peer is string: parseRemotePeerInfo(peer)
                    else: peer
 
-  info "deregistering filter subscription to content", pubsubTopic=pubsubTopic, contentTopics=contentTopics, peer=remotePeer
+  info "deregistering filter subscription to content", pubsubTopic=pubsubTopic, contentTopics=contentTopics, peer=remotePeer.peerId
 
   let unsubRes = await node.wakuFilterClient.unsubscribe(pubsubTopic, contentTopics, peer=remotePeer)
   if unsubRes.isOk():
@@ -854,7 +854,7 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMe
   if node.wakuLightpushClient.isNil():
     return err("waku lightpush client is nil")
 
-  debug "publishing message with lightpush", pubsubTopic=pubsubTopic, contentTopic=message.contentTopic, peer=peer
+  debug "publishing message with lightpush", pubsubTopic=pubsubTopic, contentTopic=message.contentTopic, peer=peer.peerId
 
   return await node.wakuLightpushClient.publish(pubsubTopic, message, peer)
 
@@ -980,7 +980,6 @@ proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
     # First get a list of connected peer infos
     let peers = node.peerManager.peerStore.peers()
                                 .filterIt(it.connectedness == Connected)
-                                .mapIt(it.toRemotePeerInfo())
 
     for peer in peers:
       try:

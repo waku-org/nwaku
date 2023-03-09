@@ -5,7 +5,8 @@ else:
 
 # Collection of utilities related to Waku peers
 import
-  std/[options, sequtils, strutils],
+  std/[options, sequtils, strutils, times],
+  chronos,
   stew/results,
   stew/shims/net,
   eth/keys,
@@ -18,12 +19,48 @@ import
           peerinfo,
           routing_record]
 
+#import
+#  ../node/peer_manager/waku_peer_store
+# todo organize this
+
+type
+  Connectedness* = enum
+    # NotConnected: default state for a new peer. No connection and no further information on connectedness.
+    NotConnected,
+    # CannotConnect: attempted to connect to peer, but failed.
+    CannotConnect,
+    # CanConnect: was recently connected to peer and disconnected gracefully.
+    CanConnect,
+    # Connected: actively connected to peer.
+    Connected
+
+  PeerOrigin* = enum
+    UnknownOrigin,
+    Discv5,
+    Static,
+    Dns
+
+  PeerDirection* = enum
+    UnknownDirection,
+    Inbound,
+    Outbound
+
 type
   RemotePeerInfo* = ref object of RootObj
     peerId*: PeerID
     addrs*: seq[MultiAddress]
     enr*: Option[enr.Record]
     protocols*: seq[string]
+
+    agent*: string
+    protoVersion*: string
+    publicKey*: crypto.PublicKey
+    connectedness*: Connectedness
+    disconnectTime*: int64
+    origin*: PeerOrigin
+    direction*: PeerDirection
+    lastFailedConn*: Moment
+    numberFailedConn*: int
 
 func `$`*(remotePeerInfo: RemotePeerInfo): string =
   $remotePeerInfo.peerId

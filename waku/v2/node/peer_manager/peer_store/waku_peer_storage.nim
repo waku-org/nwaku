@@ -5,13 +5,14 @@ else:
 
 
 import
-  std/sets, 
+  std/sets,
   stew/results,
   sqlite3_abi,
   libp2p/protobuf/minprotobuf
 import
   ../../../../common/sqlite,
   ../waku_peer_store,
+  ../../../utils/peers,
   ./peer_storage
 
 export sqlite
@@ -25,11 +26,11 @@ type
 # Protobuf Serialisation #
 ##########################
 
-proc init*(T: type StoredInfo, buffer: seq[byte]): ProtoResult[T] =
+proc init*(T: type RemotePeerInfo, buffer: seq[byte]): ProtoResult[T] =
   var
     multiaddrSeq: seq[MultiAddress]
     protoSeq: seq[string]
-    storedInfo = StoredInfo()
+    storedInfo = RemotePeerInfo()
 
   var pb = initProtoBuffer(buffer)
 
@@ -37,25 +38,27 @@ proc init*(T: type StoredInfo, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getRepeatedField(2, multiaddrSeq)
   discard ? pb.getRepeatedField(3, protoSeq)
   discard ? pb.getField(4, storedInfo.publicKey)
-  
+
+  # TODO: Store the rest of parameters such as connectedness and disconnectTime
+
   storedInfo.addrs = multiaddrSeq
-  storedInfo.protos = protoSeq
+  storedInfo.protocols = protoSeq
 
   ok(storedInfo)
 
-proc encode*(storedInfo: StoredInfo): PeerStorageResult[ProtoBuffer] =
+proc encode*(remotePeerInfo: RemotePeerInfo): PeerStorageResult[ProtoBuffer] =
   var pb = initProtoBuffer()
 
-  pb.write(1, storedInfo.peerId)
-  
-  for multiaddr in storedInfo.addrs.items:
+  pb.write(1, remotePeerInfo.peerId)
+
+  for multiaddr in remotePeerInfo.addrs.items:
     pb.write(2, multiaddr)
-  
-  for proto in storedInfo.protos.items:
+
+  for proto in remotePeerInfo.protocols.items:
     pb.write(3, proto)
-  
+
   try:
-    pb.write(4, storedInfo.publicKey)
+    pb.write(4, remotePeerInfo.publicKey)
   except ResultError[CryptoError] as e:
     return err("Failed to encode public key")
 
@@ -69,13 +72,15 @@ proc new*(T: type WakuPeerStorage, db: SqliteDatabase): PeerStorageResult[T] =
   ## Misconfiguration can lead to nil DB
   if db.isNil():
     return err("db not initialized")
-  
+
   ## Create the "Peer" table
   ## It contains:
   ##  - peer id as primary key, stored as a blob
   ##  - stored info (serialised protobuf), stored as a blob
   ##  - last known enumerated connectedness state, stored as an integer
   ##  - disconnect time in epoch seconds, if applicable
+
+  # TODO: connectedness and disconnectTime are now stored in the storedInfo type
   let
     createStmt = db.prepareStmt("""
       CREATE TABLE IF NOT EXISTS Peer (
@@ -102,19 +107,19 @@ proc new*(T: type WakuPeerStorage, db: SqliteDatabase): PeerStorageResult[T] =
     ).expect("this is a valid statement")
 
   ## General initialization
-  
+
   ok(WakuPeerStorage(database: db,
                      replaceStmt: replaceStmt))
 
 
 method put*(db: WakuPeerStorage,
             peerId: PeerID,
-            storedInfo: StoredInfo,
+            remotePeerInfo: RemotePeerInfo,
             connectedness: Connectedness,
             disconnectTime: int64): PeerStorageResult[void] =
 
   ## Adds a peer to storage or replaces existing entry if it already exists
-  let encoded = storedInfo.encode()
+  let encoded = remotePeerInfo.encode()
 
   if encoded.isErr:
     return err("failed to encode: " & encoded.error())
@@ -129,7 +134,7 @@ method getAll*(db: WakuPeerStorage, onData: peer_storage.DataProc): PeerStorageR
   ## Retrieves all peers from storage
   var gotPeers = false
 
-  proc peer(s: ptr sqlite3_stmt) {.raises: [Defect, LPError, ResultError[ProtoError]].} = 
+  proc peer(s: ptr sqlite3_stmt) {.raises: [Defect, LPError, ResultError[ProtoError]].} =
     gotPeers = true
     let
       # Peer ID
@@ -139,7 +144,7 @@ method getAll*(db: WakuPeerStorage, onData: peer_storage.DataProc): PeerStorageR
       # Stored Info
       sTo = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 1))
       sToL = sqlite3_column_bytes(s, 1)
-      storedInfo = StoredInfo.init(@(toOpenArray(sTo, 0, sToL - 1))).tryGet()
+      storedInfo = RemotePeerInfo.init(@(toOpenArray(sTo, 0, sToL - 1))).tryGet()
       # Connectedness
       connectedness = Connectedness(sqlite3_column_int(s, 2))
       # DisconnectTime
@@ -152,13 +157,13 @@ method getAll*(db: WakuPeerStorage, onData: peer_storage.DataProc): PeerStorageR
     queryResult = db.database.query("SELECT peerId, storedInfo, connectedness, disconnectTime FROM Peer", peer)
   except LPError, ResultError[ProtoError]:
     return err("failed to extract peer from query result")
-  
+
   if queryResult.isErr:
     return err("failed")
 
   ok gotPeers
 
-proc close*(db: WakuPeerStorage) = 
+proc close*(db: WakuPeerStorage) =
   ## Closes the database.
   db.replaceStmt.dispose()
   db.database.close()
