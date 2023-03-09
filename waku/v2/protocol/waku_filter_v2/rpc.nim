@@ -36,6 +36,34 @@ type
 
 # Convenience functions
 
+proc ping*(T: type FilterSubscribeRequest, requestId: string): T =
+  FilterSubscribeRequest(
+    requestId: requestId,
+    filterSubscribeType: SUBSCRIBER_PING
+  )
+
+proc subscribe*(T: type FilterSubscribeRequest, requestId: string, pubsubTopic: PubsubTopic, contentTopics: seq[ContentTopic]): T =
+  FilterSubscribeRequest(
+    requestId: requestId,
+    filterSubscribeType: SUBSCRIBE,
+    pubsubTopic: some(pubsubTopic),
+    contentTopics: contentTopics
+  )
+
+proc unsubscribe*(T: type FilterSubscribeRequest, requestId: string, pubsubTopic: PubsubTopic, contentTopics: seq[ContentTopic]): T =
+  FilterSubscribeRequest(
+    requestId: requestId,
+    filterSubscribeType: UNSUBSCRIBE,
+    pubsubTopic: some(pubsubTopic),
+    contentTopics: contentTopics
+  )
+
+proc unsubscribeAll*(T: type FilterSubscribeRequest, requestId: string): T =
+  FilterSubscribeRequest(
+    requestId: requestId,
+    filterSubscribeType: UNSUBSCRIBE_ALL
+  )
+
 proc ok*(T: type FilterSubscribeResponse, requestId: string, desc = "OK"): T =
   FilterSubscribeResponse(
     requestId: requestId,

@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options,sets,strutils,tables],
+  std/[options,tables],
   testutils/unittests,
   chronos,
   chronicles,
@@ -28,34 +28,55 @@ proc newTestWakuFilter(switch: Switch): Future[WakuFilter] {.async.} =
 proc newTestWakuFilterClient(switch: Switch, messagePushHandler: MessagePushHandler): Future[WakuFilterClient] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    proto = WakuFilterClient.new(messagePushHandler, peerManager)
+    proto = WakuFilterClient.new(rng, messagePushHandler, peerManager)
 
   await proto.start()
   switch.mount(proto)
 
   return proto
 
-proc generateRequestId(rng: ref HmacDrbgContext): string =
-  var bytes: array[10, byte]
-  hmacDrbgGenerate(rng[], bytes)
-  return toHex(bytes)
-
-proc createRequest(filterSubscribeType: FilterSubscribeType, pubsubTopic = none(PubsubTopic), contentTopics = newSeq[ContentTopic]()): FilterSubscribeRequest =
-  let requestId = generateRequestId(rng)
-
-  return FilterSubscribeRequest(
-    requestId: requestId,
-    filterSubscribeType: filterSubscribeType,
-    pubsubTopic: pubsubTopic,
-    contentTopics: contentTopics
-  )
-
 suite "Waku Filter - end to end":
+
+  asyncTest "ping":
+    # Given
+    var
+      voidHandler: MessagePushHandler = proc(pubsubTopic: PubsubTopic, message: WakuMessage) =
+        discard
+    let
+      serverSwitch = newStandardSwitch()
+      clientSwitch = newStandardSwitch()
+      wakuFilter = await newTestWakuFilter(serverSwitch)
+      wakuFilterClient = await newTestWakuFilterClient(clientSwitch, voidHandler)
+
+    # When
+    await allFutures(serverSwitch.start(), clientSwitch.start())
+    let response = await wakuFilterClient.ping(serverSwitch.peerInfo.toRemotePeerInfo())
+
+    # Then
+    check:
+      response.isErr() # Not subscribed
+      response.error().kind == FilterSubscribeErrorKind.NOT_FOUND
+
+    # When
+    let response2 = await wakuFilterClient.subscribe(serverSwitch.peerInfo.toRemotePeerInfo(), DefaultPubsubTopic, @[DefaultContentTopic])
+
+    require response2.isOk()
+
+    let response3 = await wakuFilterClient.ping(serverSwitch.peerInfo.toRemotePeerInfo())
+
+    # Then
+    check:
+      response3.isOk() # Subscribed
+
+    # Teardown
+    await allFutures(wakuFilter.stop(), wakuFilterClient.stop(), serverSwitch.stop(), clientSwitch.stop())
 
   asyncTest "simple subscribe and unsubscribe request":
     # Given
-    var messagePushHandler: MessagePushHandler = proc(pubsubTopic: PubsubTopic, message: WakuMessage) =
-      echo pubsubTopic, message
+    var
+      pushHandlerFuture = newFuture[(string, WakuMessage)]()
+      messagePushHandler: MessagePushHandler = proc(pubsubTopic: PubsubTopic, message: WakuMessage) =
+        pushHandlerFuture.complete((pubsubTopic, message))
 
     let
       serverSwitch = newStandardSwitch()
@@ -63,30 +84,204 @@ suite "Waku Filter - end to end":
       wakuFilter = await newTestWakuFilter(serverSwitch)
       wakuFilterClient = await newTestWakuFilterClient(clientSwitch, messagePushHandler)
       clientPeerId = clientSwitch.peerInfo.peerId
-      filterSubscribeRequest = createRequest(
-        filterSubscribeType = FilterSubscribeType.SUBSCRIBE,
-        pubsubTopic = some(DefaultPubsubTopic),
-        contentTopics = @[DefaultContentTopic]
-      )
-      filterUnsubscribeRequest = createRequest(
-        filterSubscribeType = FilterSubscribeType.UNSUBSCRIBE,
-        pubsubTopic = filterSubscribeRequest.pubsubTopic,
-        contentTopics = filterSubscribeRequest.contentTopics
-      )
+      pubsubTopic = DefaultPubsubTopic
+      contentTopics = @[DefaultContentTopic]
 
     # When
     await allFutures(serverSwitch.start(), clientSwitch.start())
-    discard await clientSwitch.dial(serverSwitch.peerInfo.peerId, serverSwitch.peerInfo.listenAddrs, WakuFilterSubscribeCodec)
-    let response = wakuFilter.handleSubscribeRequest(clientPeerId, filterSubscribeRequest)
+    let response = await wakuFilterClient.subscribe(serverSwitch.peerInfo.toRemotePeerInfo(), pubsubTopic, contentTopics)
 
     # Then
     check:
-      response.requestId == filterSubscribeRequest.requestId
-      response.statusCode == 200
-      response.statusDesc.get() == "OK"
+      response.isOk()
+      wakuFilter.subscriptions.len == 1
+      wakuFilter.subscriptions.hasKey(clientPeerId)
 
     # When
-    await wakuFilter.handleMessage(DefaultPubsubTopic, fakeWakuMessage())
+    let msg1 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+    await wakuFilter.handleMessage(DefaultPubsubTopic, msg1)
+
+    require await pushHandlerFuture.withTimeout(3.seconds)
+
+    # Then
+    let (pushedMsgPubsubTopic, pushedMsg) = pushHandlerFuture.read()
+    check:
+      pushedMsgPubsubTopic == DefaultPubsubTopic
+      pushedMsg == msg1
+
+    # When
+    let response2 = await wakuFilterClient.unsubscribe(serverSwitch.peerInfo.toRemotePeerInfo(), pubsubTopic, contentTopics)
+
+    # Then
+    check:
+      response2.isOk()
+      wakuFilter.subscriptions.len == 0
+
+    # When
+    let msg2 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+    pushHandlerFuture = newFuture[(string, WakuMessage)]() # Clear previous future
+    await wakuFilter.handleMessage(DefaultPubsubTopic, msg2)
+
+    # Then
+    check:
+      not (await pushHandlerFuture.withTimeout(2.seconds)) # No message should be pushed
+
+    # Teardown
+    await allFutures(wakuFilter.stop(), wakuFilterClient.stop(), serverSwitch.stop(), clientSwitch.stop())
+
+  asyncTest "subscribe, unsubscribe multiple content topics":
+    # Given
+    var
+      pushHandlerFuture = newFuture[(string, WakuMessage)]()
+      messagePushHandler: MessagePushHandler = proc(pubsubTopic: PubsubTopic, message: WakuMessage) =
+        pushHandlerFuture.complete((pubsubTopic, message))
+
+    let
+      serverSwitch = newStandardSwitch()
+      clientSwitch = newStandardSwitch()
+      wakuFilter = await newTestWakuFilter(serverSwitch)
+      wakuFilterClient = await newTestWakuFilterClient(clientSwitch, messagePushHandler)
+      clientPeerId = clientSwitch.peerInfo.peerId
+      pubsubTopic = DefaultPubsubTopic
+      contentTopic2 = ContentTopic("/waku/2/non-default-content/proto")
+      contentTopics = @[DefaultContentTopic, contentTopic2]
+
+    # When
+    await allFutures(serverSwitch.start(), clientSwitch.start())
+    let response = await wakuFilterClient.subscribe(serverSwitch.peerInfo.toRemotePeerInfo(), pubsubTopic, contentTopics)
+
+    # Then
+    check:
+      response.isOk()
+      wakuFilter.subscriptions.len == 1
+      wakuFilter.subscriptions.hasKey(clientPeerId)
+
+    # When
+    let msg1 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+    await wakuFilter.handleMessage(DefaultPubsubTopic, msg1)
+
+    require await pushHandlerFuture.withTimeout(3.seconds)
+
+    # Then
+    let (pushedMsgPubsubTopic, pushedMsg) = pushHandlerFuture.read()
+    check:
+      pushedMsgPubsubTopic == DefaultPubsubTopic
+      pushedMsg == msg1
+
+    # When
+    let msg2 = fakeWakuMessage(contentTopic=contentTopic2)
+    pushHandlerFuture = newFuture[(string, WakuMessage)]() # Clear previous future
+    await wakuFilter.handleMessage(DefaultPubsubTopic, msg2)
+
+    require await pushHandlerFuture.withTimeout(3.seconds)
+
+    # Then
+    let (pushedMsgPubsubTopic2, pushedMsg2) = pushHandlerFuture.read()
+    check:
+      pushedMsgPubsubTopic2 == DefaultPubsubTopic
+      pushedMsg2 == msg2
+
+    # When
+    let response2 = await wakuFilterClient.unsubscribe(serverSwitch.peerInfo.toRemotePeerInfo(), pubsubTopic, @[contentTopic2]) # Unsubscribe only one content topic
+
+    # Then
+    check:
+      response2.isOk()
+      wakuFilter.subscriptions.len == 1
+
+    # When
+    let msg3 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+    pushHandlerFuture = newFuture[(string, WakuMessage)]() # Clear previous future
+    await wakuFilter.handleMessage(DefaultPubsubTopic, msg3)
+
+    require await pushHandlerFuture.withTimeout(3.seconds)
+
+    # Then
+    let (pushedMsgPubsubTopic3, pushedMsg3) = pushHandlerFuture.read()
+    check:
+      pushedMsgPubsubTopic3 == DefaultPubsubTopic
+      pushedMsg3 == msg3
+
+    # When
+    let msg4 = fakeWakuMessage(contentTopic=contentTopic2)
+    pushHandlerFuture = newFuture[(string, WakuMessage)]() # Clear previous future
+    await wakuFilter.handleMessage(DefaultPubsubTopic, msg4)
+
+    # Then
+    check:
+      not (await pushHandlerFuture.withTimeout(2.seconds)) # No message should be pushed
+
+  asyncTest "subscribe to multiple content topics and unsubscribe all":
+    # Given
+    var
+      pushHandlerFuture = newFuture[(string, WakuMessage)]()
+      messagePushHandler: MessagePushHandler = proc(pubsubTopic: PubsubTopic, message: WakuMessage) =
+        pushHandlerFuture.complete((pubsubTopic, message))
+
+    let
+      serverSwitch = newStandardSwitch()
+      clientSwitch = newStandardSwitch()
+      wakuFilter = await newTestWakuFilter(serverSwitch)
+      wakuFilterClient = await newTestWakuFilterClient(clientSwitch, messagePushHandler)
+      clientPeerId = clientSwitch.peerInfo.peerId
+      pubsubTopic = DefaultPubsubTopic
+      contentTopic2 = ContentTopic("/waku/2/non-default-content/proto")
+      contentTopics = @[DefaultContentTopic, contentTopic2]
+
+    # When
+    await allFutures(serverSwitch.start(), clientSwitch.start())
+    let response = await wakuFilterClient.subscribe(serverSwitch.peerInfo.toRemotePeerInfo(), pubsubTopic, contentTopics)
+
+    # Then
+    check:
+      response.isOk()
+      wakuFilter.subscriptions.len == 1
+      wakuFilter.subscriptions.hasKey(clientPeerId)
+
+    # When
+    let msg1 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+    await wakuFilter.handleMessage(DefaultPubsubTopic, msg1)
+
+    require await pushHandlerFuture.withTimeout(3.seconds)
+
+    # Then
+    let (pushedMsgPubsubTopic, pushedMsg) = pushHandlerFuture.read()
+    check:
+      pushedMsgPubsubTopic == DefaultPubsubTopic
+      pushedMsg == msg1
+
+    # When
+    let msg2 = fakeWakuMessage(contentTopic=contentTopic2)
+    pushHandlerFuture = newFuture[(string, WakuMessage)]() # Clear previous future
+    await wakuFilter.handleMessage(DefaultPubsubTopic, msg2)
+
+    require await pushHandlerFuture.withTimeout(3.seconds)
+
+    # Then
+    let (pushedMsgPubsubTopic2, pushedMsg2) = pushHandlerFuture.read()
+    check:
+      pushedMsgPubsubTopic2 == DefaultPubsubTopic
+      pushedMsg2 == msg2
+
+    # When
+    let response2 = await wakuFilterClient.unsubscribeAll(serverSwitch.peerInfo.toRemotePeerInfo())
+
+    # Then
+    check:
+      response2.isOk()
+      wakuFilter.subscriptions.len == 0
+
+    # When
+    let
+      msg3 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+      msg4 = fakeWakuMessage(contentTopic=contentTopic2)
+    pushHandlerFuture = newFuture[(string, WakuMessage)]() # Clear previous future
+    await wakuFilter.handleMessage(DefaultPubsubTopic, msg3)
+    await wakuFilter.handleMessage(DefaultPubsubTopic, msg4)
+
+    # Then
+    check:
+      not (await pushHandlerFuture.withTimeout(2.seconds)) # Neither message should be pushed
 
     # Teardown
     await allFutures(wakuFilter.stop(), wakuFilterClient.stop(), serverSwitch.stop(), clientSwitch.stop())

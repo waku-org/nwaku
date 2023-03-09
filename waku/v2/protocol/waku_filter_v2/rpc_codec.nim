@@ -12,6 +12,7 @@ import
 
 const
   MaxSubscribeSize* = 10 * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
+  MaxSubscribeResponseSize* = 64*1024 # Responses are small. 64kB safety buffer.
   MaxPushSize* = 10 * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
 
 proc encode*(rpc: FilterSubscribeRequest): ProtoBuffer =
@@ -69,10 +70,11 @@ proc decode*(T: type FilterSubscribeResponse, buffer: seq[byte]): ProtobufResult
   if not ?pb.getField(2, rpc.statusCode):
     return err(ProtobufError.missingRequiredField("status_code"))
 
-  if not ?pb.getField(3, rpc.statusDesc):
+  var statusDesc: string
+  if not ?pb.getField(3, statusDesc):
     rpc.statusDesc = none(string)
   else:
-    rpc.statusDesc = some(rpc.statusDesc.get())
+    rpc.statusDesc = some(statusDesc)
 
   ok(rpc)
 
