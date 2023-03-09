@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/options ,
+  std/options,
   stew/results,
   stew/shims/net,
   testutils/unittests
