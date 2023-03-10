@@ -10,7 +10,7 @@ import
   ../v2/testlib/waku2
 
 
-suite "nim-eth ENR - builder":
+suite "nim-eth ENR - builder and typed record":
 
   test "Non-supported private key (ECDSA)":
     ## Given
@@ -34,12 +34,19 @@ suite "nim-eth ENR - builder":
     ## Then
     check enrRes.isOk()
 
-    let record = enrRes.tryGet().toTypedRecord().get()
+    let record = enrRes.tryGet().toTyped().get()
+
+    let id = record.id
     check:
-      @(record.secp256k1.get()) == expectedPubKey
+      id == some(RecordId.V4)
+
+    let publicKey = record.secp256k1
+    check:
+      publicKey.isSome()
+      @(publicKey.get()) == expectedPubKey
 
 
-suite "nim-eth ENR - builder ext: IP address and TCP/UDP ports":
+suite "nim-eth ENR - Ext: IP address and TCP/UDP ports":
 
   test "EIP-778 test vector":
     ## Given
@@ -92,13 +99,13 @@ suite "nim-eth ENR - builder ext: IP address and TCP/UDP ports":
     ## Then
     check enrRes.isOk()
 
-    let record = enrRes.tryGet().toTypedRecord().get()
+    let record = enrRes.tryGet().toTyped().get()
     check:
       @(record.secp256k1.get()) == expectedPubKey
       record.ip == some(enrIpAddr.address_v4)
-      record.tcp == some(enrTcpPort.int)
-      record.udp == none(int)
-      record.ip6 == none(array[0..15, byte])
+      record.tcp == some(enrTcpPort.uint16)
+      record.udp == none(uint16)
+      record.ip6 == none(array[16, byte])
 
   test "IPv6 and UDP port":
     let
@@ -122,12 +129,12 @@ suite "nim-eth ENR - builder ext: IP address and TCP/UDP ports":
     ## Then
     check enrRes.isOk()
 
-    let record = enrRes.tryGet().toTypedRecord().get()
+    let record = enrRes.tryGet().toTyped().get()
     check:
       @(record.secp256k1.get()) == expectedPubKey
-      record.ip == none(array[0..3, byte])
-      record.tcp == none(int)
-      record.udp == none(int)
+      record.ip == none(array[4, byte])
+      record.tcp == none(uint16)
+      record.udp == none(uint16)
       record.ip6 == some(enrIpAddr.address_v6)
-      record.tcp6 == none(int)
-      record.udp6 == some(enrUdpPort.int)
+      record.tcp6 == none(uint16)
+      record.udp6 == some(enrUdpPort.uint16)
