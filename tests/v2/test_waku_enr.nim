@@ -37,7 +37,31 @@ suite "Waku ENR -  Capabilities bitfield":
     check:
       caps == @[Capabilities.Relay, Capabilities.Filter, Capabilities.Lightpush]
 
-  test "encode and extract capabilities from record":
+  test "encode and extract capabilities from record (EnrBuilder ext)":
+    ## Given
+    let
+      enrSeqNum = 1u64
+      enrPrivKey = generatesecp256k1key()
+
+    ## When
+    var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
+    builder.withWakuCapabilities(Capabilities.Relay, Capabilities.Store)
+
+    let recordRes = builder.build()
+
+    ## Then
+    check recordRes.isOk()
+    let record = recordRes.tryGet()
+
+    let bitfieldRes = record.getCapabilitiesField()
+    check bitfieldRes.isOk()
+
+    let bitfield = bitfieldRes.tryGet()
+    check:
+      bitfield.toCapabilities() == @[Capabilities.Relay, Capabilities.Store]
+
+  test "encode and extract capabilities from record (deprecated)":
+    # TODO: Remove after removing the `Record.init()` proc
     ## Given
     let enrkey = generatesecp256k1key()
     let caps = CapabilitiesBitfield.init(Capabilities.Relay, Capabilities.Store)
@@ -56,8 +80,11 @@ suite "Waku ENR -  Capabilities bitfield":
 
   test "cannot extract capabilities from record":
     ## Given
-    let enrkey = generatesecp256k1key()
-    let record = Record.init(1, enrkey, wakuFlags=none(CapabilitiesBitfield))
+    let
+      enrSeqNum = 1u64
+      enrPrivKey = generatesecp256k1key()
+
+    let record = EnrBuilder.init(enrPrivKey, enrSeqNum).build().tryGet()
 
     ## When
     let bitfieldRes = record.getCapabilitiesField()

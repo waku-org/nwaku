@@ -12,9 +12,10 @@ import
   stew/[endians2, results],
   stew/shims/net,
   eth/keys,
-  eth/p2p/discoveryv5/enr,
   libp2p/[multiaddress, multicodec],
   libp2p/crypto/crypto
+import
+  ../../common/enr
 
 export enr, crypto, multiaddress, net
 
@@ -23,16 +24,17 @@ const
   CapabilitiesEnrField* = "waku2"
 
 
-## Capabilities
+## Node capabilities
 
 type
-  ## 8-bit flag field to indicate Waku capabilities.
+  ## 8-bit flag field to indicate Waku node capabilities.
   ## Only the 4 LSBs are currently defined according
   ## to RFC31 (https://rfc.vac.dev/spec/31/).
   CapabilitiesBitfield* = distinct uint8
 
   ## See: https://rfc.vac.dev/spec/31/#waku2-enr-key
   ## each enum numbers maps to a bit (where 0 is the LSB)
+  # TODO: Make this enum {.pure.}
   Capabilities* = enum
     Relay = 0,
     Store = 1,
@@ -66,9 +68,19 @@ func toCapabilities*(bitfield: CapabilitiesBitfield): seq[Capabilities] =
   toSeq(Capabilities.low..Capabilities.high).filterIt(supportsCapability(bitfield, it))
 
 
-## TODO: Turn into an EnrBuilder extension
-func toFieldPair*(caps: CapabilitiesBitfield): FieldPair =
-  toFieldPair(CapabilitiesEnrField, @[caps.uint8])
+# ENR builder extension
+
+proc withWakuCapabilities*(builder: var EnrBuilder, caps: CapabilitiesBitfield) =
+  builder.addFieldPair(CapabilitiesEnrField, @[caps.uint8])
+
+proc withWakuCapabilities*(builder: var EnrBuilder, caps: varargs[Capabilities]) =
+  withWakuCapabilities(builder, CapabilitiesBitfield.init(caps))
+
+proc withWakuCapabilities*(builder: var EnrBuilder, caps: openArray[Capabilities]) =
+  withWakuCapabilities(builder, CapabilitiesBitfield.init(@caps))
+
+
+# ENR record accessors (e.g., Record, TypedRecord, etc.)
 
 proc getCapabilitiesField*(r: Record): EnrResult[CapabilitiesBitfield] =
   let field = ?r.get(CapabilitiesEnrField, seq[uint8])
@@ -201,7 +213,7 @@ func init*(T: type enr.Record,
 
   # `waku2` field
   if wakuFlags.isSome():
-    wakuEnrFields.add(toFieldPair(wakuFlags.get()))
+    wakuEnrFields.add(toFieldPair(CapabilitiesEnrField, @[wakuFlags.get().uint8]))
 
   # `multiaddrs` field
   if multiaddrs.len > 0:
