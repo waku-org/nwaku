@@ -255,9 +255,9 @@ suite "Waku Filter - subscription maintenance":
     switch.peerStore[ProtoBook][peerId1] = @[WakuFilterPushCodec]
     switch.peerStore[ProtoBook][peerId2] = @[WakuFilterPushCodec]
     switch.peerStore[ProtoBook][peerId3] = @[WakuFilterPushCodec]
-    discard wakuFilter.handleSubscribeRequest(peerId1, filterSubscribeRequest)
-    discard wakuFilter.handleSubscribeRequest(peerId2, filterSubscribeRequest)
-    discard wakuFilter.handleSubscribeRequest(peerId3, filterSubscribeRequest)
+    require wakuFilter.handleSubscribeRequest(peerId1, filterSubscribeRequest).isOk()
+    require wakuFilter.handleSubscribeRequest(peerId2, filterSubscribeRequest).isOk()
+    require wakuFilter.handleSubscribeRequest(peerId3, filterSubscribeRequest).isOk()
 
     # Then
     check:
@@ -279,8 +279,8 @@ suite "Waku Filter - subscription maintenance":
 
     # When
     # Remove peerId1 and peerId3 from peer store
-    discard switch.peerStore[ProtoBook].del(peerId1)
-    discard switch.peerStore[ProtoBook].del(peerId3)
+    switch.peerStore.del(peerId1)
+    switch.peerStore.del(peerId3)
     wakuFilter.maintainSubscriptions()
 
     # Then
@@ -290,7 +290,7 @@ suite "Waku Filter - subscription maintenance":
 
     # When
     # Remove peerId2 from peer store
-    discard switch.peerStore[ProtoBook].del(peerId2)
+    switch.peerStore.del(peerId2)
     wakuFilter.maintainSubscriptions()
 
     # Then
