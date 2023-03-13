@@ -28,7 +28,7 @@ const
 const
   # The relative folder where the circuit, proving and verification key for RLN can be found
   # Note that resources has to be compiled with respect to the above MerkleTreeDepth
-  RlnResourceFolder* = "vendor/zerokit/rln/resources/tree_height_" & $MerkleTreeDepth & "/"
+  RlnResourceFolder* = "tree_height_" & $MerkleTreeDepth & "/"
 
 # temporary variables to test waku-rln-relay performance in the static group mode
 const
@@ -53,5 +53,5 @@ const MaxClockGapSeconds* = 20.0 # the maximum clock difference between peers in
 const MaxEpochGap* = uint64(MaxClockGapSeconds/EpochUnitSeconds)
 
 # RLN Keystore defaults
-const 
+const
   RLNAppInfo* = AppInfo(application: "nwaku-rln-relay", appIdentifier: "01234567890abcdef", version: "0.1")
