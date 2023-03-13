@@ -78,27 +78,60 @@ proc createRLNInstance*(d: int = MerkleTreeDepth): RLNResult =
     res = createRLNInstanceLocal(d)
   return res
 
-proc sha256*(data: openArray[byte]): MerkleNode =
+proc sha256*(data: openArray[byte]): RlnRelayResult[MerkleNode] =
   ## a thin layer on top of the Nim wrapper of the sha256 hasher
-  debug "sha256 hash input", hashhex = data.toHex()
+  trace "sha256 hash input", hashhex = data.toHex()
   var lenPrefData = encodeLengthPrefix(data)
   var
     hashInputBuffer = lenPrefData.toBuffer()
     outputBuffer: Buffer # will holds the hash output
 
-  debug "sha256 hash input buffer length", bufflen = hashInputBuffer.len
+  trace "sha256 hash input buffer length", bufflen = hashInputBuffer.len
   let
     hashSuccess = sha256(addr hashInputBuffer, addr outputBuffer)
 
   # check whether the hash call is done successfully
   if not hashSuccess:
-    debug "error in sha256 hash"
-    return default(MerkleNode)
+    return err("error in sha256 hash")
 
   let
     output = cast[ptr MerkleNode](outputBuffer.`ptr`)[]
 
-  return output
+  return ok(output)
+
+proc poseidon*(data: seq[seq[byte]]): RlnRelayResult[array[32, byte]] =
+  ## a thin layer on top of the Nim wrapper of the poseidon hasher
+  var inputBytes = serialize(data)
+  var
+    hashInputBuffer = inputBytes.toBuffer()
+    outputBuffer: Buffer # will holds the hash output
+  trace "poseidon hash input", hashInputBuffer = hashInputBuffer, inputBytes = inputBytes, bufflen = hashInputBuffer.len
+
+  let
+    hashSuccess = poseidon(addr hashInputBuffer, addr outputBuffer)
+
+  # check whether the hash call is done successfully
+  if not hashSuccess:
+    return err("error in poseidon hash")
+
+  let
+    output = cast[ptr array[32, byte]](outputBuffer.`ptr`)[]
+
+  return ok(output)
+
+# TODO: collocate this proc with the definition of the RateLimitProof
+# and the ProofMetadata types
+proc extractMetadata*(proof: RateLimitProof): RlnRelayResult[ProofMetadata] =
+  let externalNullifierRes = poseidon(@[@(proof.epoch),
+                                        @(proof.rlnIdentifier)])
+  if externalNullifierRes.isErr():
+    return err("could not construct the external nullifier")
+  return ok(ProofMetadata(
+    nullifier: proof.nullifier,
+    shareX: proof.shareX,
+    shareY: proof.shareY,
+    externalNullifier: externalNullifierRes.get()
+  ))
 
 proc proofGen*(rlnInstance: ptr RLN, data: openArray[byte],
     memKeys: IdentityCredential, memIndex: MembershipIndex,
