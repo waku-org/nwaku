@@ -354,7 +354,7 @@ suite "Waku rln relay":
 
     debug "hash output", hashOutputHex
 
-  test "hash utils":
+  test "sha256 hash utils":
     # create an RLN instance
     let rlnInstance = createRLNInstance()
     require:
@@ -364,11 +364,31 @@ suite "Waku rln relay":
     # prepare the input
     let msg = "Hello".toBytes()
 
-    let hash = sha256(msg)
+    let hashRes = sha256(msg)
 
     check:
+      hashRes.isOk()
       "1e32b3ab545c07c8b4a7ab1ca4f46bc31e4fdc29ac3b240ef1d54b4017a26e4c" ==
-        hash.inHex()
+        hashRes.get().inHex()
+
+  test "poseidon hash utils":
+    # create an RLN instance
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
+    let rln = rlnInstance.get()
+
+    # prepare the input
+    let msg = @["126f4c026cd731979365f79bd345a46d673c5a3f6f588bdc718e6356d02b6fdc".toBytes(),
+                "1f0e5db2b69d599166ab16219a97b82b662085c93220382b39f9f911d3b943b1".toBytes()]
+
+    let hashRes = poseidon(msg)
+
+    # Value taken from zerokit
+    check:
+      hashRes.isOk()
+      "28a15a991fe3d2a014485c7fa905074bfb55c0909112f865ded2be0a26a932c3" ==
+        hashRes.get().inHex()
 
   test "create a list of membership keys and construct a Merkle tree based on the list":
     let rlnInstance = createRLNInstance()
@@ -514,40 +534,43 @@ suite "Waku rln relay":
       return proof.encode().buffer
 
     let
-      wm1 = WakuMessage(proof: RateLimitProof(epoch: epoch,
-                                              nullifier: nullifier1,
-                                              shareX: shareX1,
-                                              shareY: shareY1).encodeAndGetBuf())
-      wm2 = WakuMessage(proof: RateLimitProof(epoch: epoch,
-                                              nullifier: nullifier2,
-                                              shareX: shareX2,
-                                              shareY: shareY2).encodeAndGetBuf())
-      wm3 = WakuMessage(proof: RateLimitProof(epoch: epoch,
-                                              nullifier: nullifier3,
-                                              shareX: shareX3,
-                                              shareY: shareY3).encodeAndGetBuf())
+      proof1 = RateLimitProof(epoch: epoch,
+                              nullifier: nullifier1,
+                              shareX: shareX1,
+                              shareY: shareY1)
+      wm1 = WakuMessage(proof: proof1.encodeAndGetBuf())
+      proof2 = RateLimitProof(epoch: epoch,
+                              nullifier: nullifier2,
+                              shareX: shareX2,
+                              shareY: shareY2)
+      wm2 = WakuMessage(proof: proof2.encodeAndGetBuf())
+      proof3 = RateLimitProof(epoch: epoch,
+                              nullifier: nullifier3,
+                              shareX: shareX3,
+                              shareY: shareY3)
+      wm3 = WakuMessage(proof: proof3.encodeAndGetBuf())
 
     # check whether hasDuplicate correctly finds records with the same nullifiers but different secret shares
-    # no duplicate for wm1 should be found, since the log is empty
-    let result1 = wakurlnrelay.hasDuplicate(wm1)
+    # no duplicate for proof1 should be found, since the log is empty
+    let result1 = wakurlnrelay.hasDuplicate(proof1.extractMetadata().tryGet())
     require:
       result1.isOk()
       # no duplicate is found
       result1.value == false
     #  add it to the log
-    discard wakurlnrelay.updateLog(wm1)
+    discard wakurlnrelay.updateLog(proof1.extractMetadata().tryGet())
 
-    # # no duplicate for wm2 should be found, its nullifier differs from wm1
-    let result2 = wakurlnrelay.hasDuplicate(wm2)
+    # # no duplicate for proof2 should be found, its nullifier differs from proof1
+    let result2 = wakurlnrelay.hasDuplicate(proof2.extractMetadata().tryGet())
     require:
       result2.isOk()
       # no duplicate is found
       result2.value == false
     #  add it to the log
-    discard wakurlnrelay.updateLog(wm2)
+    discard wakurlnrelay.updateLog(proof2.extractMetadata().tryGet())
 
-    #  wm3 has the same nullifier as wm1 but different secret shares, it should be detected as duplicate
-    let result3 = wakurlnrelay.hasDuplicate(wm3)
+    #  proof3 has the same nullifier as proof1 but different secret shares, it should be detected as duplicate
+    let result3 = wakurlnrelay.hasDuplicate(proof3.extractMetadata().tryGet())
     require:
       result3.isOk()
     check:

@@ -19,7 +19,8 @@ export
   web3,
   chronicles,
   stint,
-  constants
+  constants,
+  endians2
 
 logScope:
     topics = "waku rln_relay conversion_utils"
