@@ -1,3 +1,53 @@
+## 2023-03-15 v0.16.0
+
+## What's Changed
+
+Release highlights:
+- a fix for an issue that prevented the node from generating high-resolution (up to nanosecond) timestamps
+- introduction of an application-defined `meta` attribute to the Waku Message. This can be quite valuable for network-wide deduplication, deterministic hashing, validity checking and other planned improvements to the protocol
+- many optimizations in RLN implementation and its underlying dependencies
+
+### Features
+
+- Integrated a new group manager for RLN-protected relay [1496](https://github.com/waku-org/nwaku/pull/1496)
+- Added application-defined meta attribute to Waku Message according to RFC [14/WAKU2-MESSAGE](https://rfc.vac.dev/spec/14/#message-attributes) [1581](https://github.com/waku-org/nwaku/pull/1581)
+- Implemented deterministic hashing scheme for Waku Messages according to RFC [14/WAKU2-MESSAGE](https://rfc.vac.dev/spec/14/#deterministic-message-hashing) [1586](https://github.com/waku-org/nwaku/pull/1586)
+
+### Changes
+
+- Upgraded nim-sqlite3-abi to the latest version [1565](https://github.com/waku-org/nwaku/pull/1565)
+- Better validation of protocol buffers [1563](https://github.com/waku-org/nwaku/pull/1563)
+- Improved underlying Zerokit performance and FFI [1571](https://github.com/waku-org/nwaku/pull/1571)
+- Node peer ID now logged with relay trace logging [1574](https://github.com/waku-org/nwaku/pull/1574)
+- Continued refactoring of several protocol implementations to improve maintainability and readability
+- Refactored and cleaned up peer manager [1539](https://github.com/waku-org/nwaku/pull/1539)
+- Removed unused and legacy websocket submodule [1580](https://github.com/waku-org/nwaku/pull/1580) [1582](https://github.com/waku-org/nwaku/pull/1582)
+- Use base64 URL-safe encoding for noise [1569](https://github.com/waku-org/nwaku/pull/1569)
+- Various general improvements to RLN implementation [1585](https://github.com/waku-org/nwaku/pull/1585) [1587](https://github.com/waku-org/nwaku/pull/1587)
+- Started on implementation for new and improved filter protocol [1584](https://github.com/waku-org/nwaku/pull/1584)
+- Updated pubsub and content topic namespacing to reflect latest changes in RFC [23/WAKU2-TOPICS](https://rfc.vac.dev/spec/23/) [1589](https://github.com/waku-org/nwaku/pull/1589)
+- Unified internal peer data models [1597](https://github.com/waku-org/nwaku/pull/1597)
+- Improved internal implementation of Waku ENR encoding and decoding [1598](https://github.com/waku-org/nwaku/pull/1598) [1599](https://github.com/waku-org/nwaku/pull/1599)
+- Underlying dependency for RLN implementation now loaded as a static library [1578](https://github.com/waku-org/nwaku/pull/1578)
+
+### Fixes
+
+- Fixed internally generated timestamps to allow higher resolution than seconds [1570](https://github.com/waku-org/nwaku/pull/1570)
+- Fixed padded base64 usage for encoding and decoding payloads on the JSON RPC API [1572](https://github.com/waku-org/nwaku/pull/1572)
+- Fixed incorrect relative module imports [1591](https://github.com/waku-org/nwaku/pull/1591)
+- Fixed RLN relay erroneously storing messages from multiple apps [1594](https://github.com/waku-org/nwaku/pull/1594)
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
+
 ## 2023-02-15 v0.15.0
 
 Release highlights:
