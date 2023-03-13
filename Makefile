@@ -202,7 +202,7 @@ wakunode1: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakunode1 $(NIM_PARAMS) waku.nims
 
-example1: | build
+example1: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim example1 $(NIM_PARAMS) waku.nims
 
