@@ -54,11 +54,3 @@ RUN ln -sv /usr/local/bin/$MAKE_TARGET /usr/bin/wakunode
 ENTRYPOINT ["/usr/bin/wakunode"]
 # By default just show help if called without arguments
 CMD ["--help"]
-
-
-# EXPERIMENTAL IMAGE -----------------------------------------------------------
-
-FROM prod AS experimental
-
-# If RLN enabled, copy RLN resources (WASM ZK circuit, proving and verification keys) used by tests
-COPY --from=nim-build /app/vendor/zerokit/rln/resources/ vendor/zerokit/rln/resources/
