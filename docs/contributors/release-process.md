@@ -14,7 +14,7 @@ Ensure all items in this list are ticked:
   > **IMPORTANT:** Updating submodules requires a PR (and very often several "fixes" to maintain compatibility with the changes in submodules). That PR process must be done and merged a couple of days before the release.
   > In case the submodules update has a low effort and/or risk for the release, follow the ["Update submodules"](./git-submodules.md) instructions.
   > If the effort or risk is too high, consider postponing the submodules upgrade for the subsequent release or delaying the current release until the submodules updates are included in the release candidate.
-- [ ] The [js-waku CI tests](https://github.com/waku-org/js-waku/actions/workflows/ci.yml) passes against the release candidate (i.e. nwaku latest `master`).
+- [ ] The [js-waku CI tests](https://github.com/waku-org/js-waku/actions/workflows/ci.yml) pass against the release candidate (i.e. nwaku latest `master`).
   > **NOTE:** This serves as a basic regression test against typical clients of nwaku.
   > The specific job that needs to pass is named `node_with_nwaku_master`.
 
