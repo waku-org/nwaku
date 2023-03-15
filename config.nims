@@ -24,17 +24,25 @@ if defined(windows):
 # engineering a more portable binary release, this should be tweaked but still
 # use at least -msse2 or -msse3.
 if defined(disableMarchNative):
-  switch("passC", "-msse3")
+  if defined(i386) or defined(amd64):
+    if defined(macosx):
+      switch("passC", "-march=haswell -mtune=generic")
+      switch("passL", "-march=haswell -mtune=generic")
+    else:
+      switch("passC", "-msse3")
+      switch("passL", "-msse3")
 elif defined(macosx) and defined(arm64):
   # Apple's Clang can't handle "-march=native" on M1: https://github.com/status-im/nimbus-eth2/issues/2758
   switch("passC", "-mcpu=apple-m1")
   switch("passL", "-mcpu=apple-m1")
 else:
   switch("passC", "-march=native")
+  switch("passL", "-march=native")
   if defined(windows):
     # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
     # ("-fno-asynchronous-unwind-tables" breaks Nim's exception raising, sometimes)
     switch("passC", "-mno-avx512vl")
+    switch("passL", "-mno-avx512vl")
 
 --threads:on
 --opt:speed
