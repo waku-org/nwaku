@@ -14,6 +14,9 @@ Ensure all items in this list are ticked:
   > **IMPORTANT:** Updating submodules requires a PR (and very often several "fixes" to maintain compatibility with the changes in submodules). That PR process must be done and merged a couple of days before the release.
   > In case the submodules update has a low effort and/or risk for the release, follow the ["Update submodules"](./git-submodules.md) instructions.
   > If the effort or risk is too high, consider postponing the submodules upgrade for the subsequent release or delaying the current release until the submodules updates are included in the release candidate.
+- [ ] The [js-waku CI tests](https://github.com/waku-org/js-waku/actions/workflows/ci.yml) pass against the release candidate (i.e. nwaku latest `master`).
+  > **NOTE:** This serves as a basic regression test against typical clients of nwaku.
+  > The specific job that needs to pass is named `node_with_nwaku_master`.
 
 ### Performing the release
 
@@ -56,7 +59,14 @@ git push origin v0.1
 ### After the release
 
 1. Announce the release on Twitter, Discord and other channels.
-2. Deploy the release:
+2. Deploy the release image to [Dockerhub](https://hub.docker.com/layers/statusteam/nim-waku/a5f8b9/images/sha256-88691a8f82bd6a4242fa99053a65b7fc4762b23a2b4e879d0f8b578c798a0e09?context=explore) by triggering [the manual Jenkins deployment job](https://ci.infra.status.im/job/nim-waku/job/manual/build).
+  > Ensure the following build parameters are set:
+  > - `MAKE_TARGET`: `wakunode2`
+  > - `IMAGE_TAG`: the release tag (e.g. `v0.16.0`)
+  > - `IMAGE_NAME`: `statusteam/nim-waku`
+  > - `NIMFLAGS`: `--colors:off -d:disableMarchNative -d:chronicles_colors:none`
+  > - `GIT_REF` the release tag (e.g. `v0.16.0`)
+3. Deploy the release to appropriate fleets:
    - Inform clients
    > **NOTE:** known clients are currently using some version of js-waku, go-waku, nwaku or waku-rs.
    > Clients are reachable via the corresponding channels on the Vac Discord server.
@@ -65,4 +75,3 @@ git push origin v0.1
    - Deploy release to the `wakuv2.prod` fleet from [Jenkins](https://ci.status.im/job/nim-waku/job/deploy-wakuv2-prod/).
    - Ensure that nodes successfully start up and monitor health using [Grafana](https://grafana.infra.status.im/d/qrp_ZCTGz/nim-waku-v2?orgId=1) and [Kibana](https://kibana.infra.status.im/goto/a7728e70-eb26-11ec-81d1-210eb3022c76).
    - If necessary, revert by deploying the previous release. Download logs and open a bug report issue.
-3. Deploy release image to [Dockerhub](https://hub.docker.com/layers/statusteam/nim-waku/a5f8b9/images/sha256-88691a8f82bd6a4242fa99053a65b7fc4762b23a2b4e879d0f8b578c798a0e09?context=explore) by triggering [the same Jenkins job](https://ci.status.im/job/nim-waku/job/deploy-wakuv2-prod/) as before, but with the `IMAGE_TAG` set to the release tag (e.g. `v0.10`).
