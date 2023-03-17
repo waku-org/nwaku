@@ -231,7 +231,7 @@ DOCKER_IMAGE_NIMFLAGS ?= -d:chronicles_colors:none -d:insecure
 
 # build a docker image for the fleet
 docker-image: MAKE_TARGET ?= wakunode2
-docker-image: DOCKER_IMAGE_TAG ?= $(MAKE_TARGET)$(GIT_VERSION)
+docker-image: DOCKER_IMAGE_TAG ?= $(MAKE_TARGET)-$(GIT_VERSION)
 docker-image: DOCKER_IMAGE_NAME ?= statusteam/nim-waku:$(DOCKER_IMAGE_TAG)
 docker-image:
 	docker build \
