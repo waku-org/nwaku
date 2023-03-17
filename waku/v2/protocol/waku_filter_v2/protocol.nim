@@ -23,6 +23,9 @@ import
 logScope:
   topics = "waku filter"
 
+const
+  MaxContentTopicsPerRequest = 30
+
 type
   WakuFilter* = ref object of LPProtocol
     subscriptions*: FilterSubscriptions # a mapping of peer ids to a sequence of filter criteria
@@ -40,6 +43,9 @@ proc pingSubscriber(wf: WakuFilter, peerId: PeerID): FilterSubscribeResult =
 proc subscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic], contentTopics: seq[ContentTopic]): FilterSubscribeResult =
   if pubsubTopic.isNone() or contentTopics.len() == 0:
     return err(FilterSubscribeError.badRequest("pubsubTopic and contentTopics must be specified"))
+
+  if contentTopics.len() > MaxContentTopicsPerRequest:
+    return err(FilterSubscribeError.badRequest("exceeds maximum content topics: " & $MaxContentTopicsPerRequest))
 
   let filterCriteria = toHashSet(contentTopics.mapIt((pubsubTopic.get(), it)))
 
@@ -63,6 +69,9 @@ proc subscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic],
 proc unsubscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic], contentTopics: seq[ContentTopic]): FilterSubscribeResult =
   if pubsubTopic.isNone() or contentTopics.len() == 0:
     return err(FilterSubscribeError.badRequest("pubsubTopic and contentTopics must be specified"))
+
+  if contentTopics.len() > MaxContentTopicsPerRequest:
+    return err(FilterSubscribeError.badRequest("exceeds maximum content topics: " & $MaxContentTopicsPerRequest))
 
   let filterCriteria = toHashSet(contentTopics.mapIt((pubsubTopic.get(), it)))
 
@@ -100,15 +109,22 @@ proc handleSubscribeRequest*(wf: WakuFilter, peerId: PeerId, request: FilterSubs
 
   var subscribeResult: FilterSubscribeResult
 
-  case request.filterSubscribeType
-  of FilterSubscribeType.SUBSCRIBER_PING:
-    subscribeResult = wf.pingSubscriber(peerId)
-  of FilterSubscribeType.SUBSCRIBE:
-    subscribeResult = wf.subscribe(peerId, request.pubsubTopic, request.contentTopics)
-  of FilterSubscribeType.UNSUBSCRIBE:
-    subscribeResult = wf.unsubscribe(peerId, request.pubsubTopic, request.contentTopics)
-  of FilterSubscribeType.UNSUBSCRIBE_ALL:
-    subscribeResult = wf.unsubscribeAll(peerId)
+  let requestStartTime = getTime().toUnixFloat()
+
+  block:
+    ## Handle subscribe request
+    case request.filterSubscribeType
+    of FilterSubscribeType.SUBSCRIBER_PING:
+      subscribeResult = wf.pingSubscriber(peerId)
+    of FilterSubscribeType.SUBSCRIBE:
+      subscribeResult = wf.subscribe(peerId, request.pubsubTopic, request.contentTopics)
+    of FilterSubscribeType.UNSUBSCRIBE:
+      subscribeResult = wf.unsubscribe(peerId, request.pubsubTopic, request.contentTopics)
+    of FilterSubscribeType.UNSUBSCRIBE_ALL:
+      subscribeResult = wf.unsubscribeAll(peerId)
+
+  let requestDuration = getTime().toUnixFloat() - requestStartTime
+  waku_filter_request_duration_seconds.observe(requestDuration, labelValues = [$request.filterSubscribeType])
 
   if subscribeResult.isErr():
     return FilterSubscribeResponse(
@@ -164,16 +180,23 @@ proc maintainSubscriptions*(wf: WakuFilter) =
 proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, message: WakuMessage) {.async.} =
   trace "handling message", pubsubTopic=pubsubTopic, message=message
 
-  let subscribedPeers = wf.subscriptions.findSubscribedPeers(pubsubTopic, message.contentTopic)
-  if subscribedPeers.len() == 0:
-    trace "no subscribed peers found", pubsubTopic=pubsubTopic, contentTopic=message.contentTopic
-    return
+  let handleMessageStartTime = getTime().toUnixFloat()
 
-  let messagePush = MessagePush(
-        pubsubTopic: pubsubTopic,
-        wakuMessage: message)
+  block:
+    ## Find subscribers and push message to them
+    let subscribedPeers = wf.subscriptions.findSubscribedPeers(pubsubTopic, message.contentTopic)
+    if subscribedPeers.len() == 0:
+      trace "no subscribed peers found", pubsubTopic=pubsubTopic, contentTopic=message.contentTopic
+      return
 
-  await wf.pushToPeers(subscribedPeers, messagePush)
+    let messagePush = MessagePush(
+          pubsubTopic: pubsubTopic,
+          wakuMessage: message)
+
+    await wf.pushToPeers(subscribedPeers, messagePush)
+
+  let handleMessageDuration = getTime().toUnixFloat() - handleMessageStartTime
+  waku_filter_handle_message_duration_seconds.observe(handleMessageDuration)
 
 proc initProtocolHandler(wf: WakuFilter) =
 
