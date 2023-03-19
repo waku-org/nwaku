@@ -13,6 +13,8 @@ import
 import
   ../../../waku/v2/protocol/waku_message,
   ../../../waku/v2/protocol/waku_rln_relay,
+  ../../../waku/v2/protocol/waku_rln_relay/rln,
+  ../../../waku/v2/protocol/waku_rln_relay/protocol_metrics,
   ../../../waku/v2/protocol/waku_keystore,
   ../testlib/common
 
