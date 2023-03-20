@@ -12,6 +12,7 @@ import
 
 const
   MaxSubscribeSize* = 10 * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
+  MaxSubscribeResponseSize* = 64*1024 # Responses are small. 64kB safety buffer.
   MaxPushSize* = 10 * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
 
 proc encode*(rpc: FilterSubscribeRequest): ProtoBuffer =
@@ -69,9 +70,33 @@ proc decode*(T: type FilterSubscribeResponse, buffer: seq[byte]): ProtobufResult
   if not ?pb.getField(2, rpc.statusCode):
     return err(ProtobufError.missingRequiredField("status_code"))
 
-  if not ?pb.getField(3, rpc.statusDesc):
+  var statusDesc: string
+  if not ?pb.getField(3, statusDesc):
     rpc.statusDesc = none(string)
   else:
-    rpc.statusDesc = some(rpc.statusDesc.get())
+    rpc.statusDesc = some(statusDesc)
+
+  ok(rpc)
+
+proc encode*(rpc: MessagePush): ProtoBuffer =
+  var pb = initProtoBuffer()
+
+  pb.write3(1, rpc.wakuMessage.encode())
+  pb.write3(2, rpc.pubsubTopic)
+
+  pb
+
+proc decode*(T: type MessagePush, buffer: seq[byte]): ProtobufResult[T] =
+  let pb = initProtoBuffer(buffer)
+  var rpc = MessagePush()
+
+  var message: seq[byte]
+  if not ?pb.getField(1, message):
+    return err(ProtobufError.missingRequiredField("message"))
+  else:
+    rpc.wakuMessage = ?WakuMessage.decode(message)
+
+  if not ?pb.getField(2, rpc.pubsubTopic):
+    return err(ProtobufError.missingRequiredField("pubsub_topic"))
 
   ok(rpc)

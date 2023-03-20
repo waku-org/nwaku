@@ -4,7 +4,8 @@ import
   std/[options,sets,strutils,tables],
   testutils/unittests,
   chronos,
-  chronicles
+  chronicles,
+  libp2p/peerstore
 import
   ../../../waku/v2/node/peer_manager,
   ../../../waku/v2/protocol/waku_filter_v2,
@@ -13,13 +14,10 @@ import
   ../testlib/common,
   ../testlib/waku2
 
-proc newTestWakuFilter(switch: Switch): Future[WakuFilter] {.async.} =
+proc newTestWakuFilter(switch: Switch): WakuFilter =
   let
     peerManager = PeerManager.new(switch)
     proto = WakuFilter.new(peerManager)
-
-  await proto.start()
-  switch.mount(proto)
 
   return proto
 
@@ -51,7 +49,7 @@ suite "Waku Filter - handling subscribe requests":
     # Given
     let
       switch = newStandardSwitch()
-      wakuFilter = await newTestWakuFilter(switch)
+      wakuFilter = newTestWakuFilter(switch)
       peerId = PeerId.random().get()
       filterSubscribeRequest = createRequest(
         filterSubscribeType = FilterSubscribeType.SUBSCRIBE,
@@ -89,7 +87,7 @@ suite "Waku Filter - handling subscribe requests":
     # Given
     let
       switch = newStandardSwitch()
-      wakuFilter = await newTestWakuFilter(switch)
+      wakuFilter = newTestWakuFilter(switch)
       peerId = PeerId.random().get()
       nonDefaultContentTopic = ContentTopic("/waku/2/non-default-waku/proto")
       filterSubscribeRequest = createRequest(
@@ -127,7 +125,7 @@ suite "Waku Filter - handling subscribe requests":
     # Given
     let
       switch = newStandardSwitch()
-      wakuFilter = await newTestWakuFilter(switch)
+      wakuFilter = newTestWakuFilter(switch)
       peerId = PeerId.random().get()
       nonDefaultContentTopic = ContentTopic("/waku/2/non-default-waku/proto")
       filterSubscribeRequest1 = createRequest(
@@ -203,7 +201,7 @@ suite "Waku Filter - handling subscribe requests":
     # Given
     let
       switch = newStandardSwitch()
-      wakuFilter = await newTestWakuFilter(switch)
+      wakuFilter = newTestWakuFilter(switch)
       peerId = PeerId.random().get()
       pingRequest = createRequest(
         filterSubscribeType = FilterSubscribeType.SUBSCRIBER_PING
@@ -237,3 +235,64 @@ suite "Waku Filter - handling subscribe requests":
       response3.statusCode == 200
       response3.statusDesc.get() == "OK"
 
+suite "Waku Filter - subscription maintenance":
+
+  asyncTest "simple maintenance":
+    # Given
+    let
+      switch = newStandardSwitch()
+      wakuFilter = newTestWakuFilter(switch)
+      peerId1 = PeerId.random().get()
+      peerId2 = PeerId.random().get()
+      peerId3 = PeerId.random().get()
+      filterSubscribeRequest = createRequest(
+        filterSubscribeType = FilterSubscribeType.SUBSCRIBE,
+        pubsubTopic = some(DefaultPubsubTopic),
+        contentTopics = @[DefaultContentTopic]
+      )
+
+    # When
+    switch.peerStore[ProtoBook][peerId1] = @[WakuFilterPushCodec]
+    switch.peerStore[ProtoBook][peerId2] = @[WakuFilterPushCodec]
+    switch.peerStore[ProtoBook][peerId3] = @[WakuFilterPushCodec]
+    require wakuFilter.handleSubscribeRequest(peerId1, filterSubscribeRequest).isOk()
+    require wakuFilter.handleSubscribeRequest(peerId2, filterSubscribeRequest).isOk()
+    require wakuFilter.handleSubscribeRequest(peerId3, filterSubscribeRequest).isOk()
+
+    # Then
+    check:
+      wakuFilter.subscriptions.len == 3
+      wakuFilter.subscriptions.hasKey(peerId1)
+      wakuFilter.subscriptions.hasKey(peerId2)
+      wakuFilter.subscriptions.hasKey(peerId3)
+
+    # When
+    # Maintenance loop should leave all peers in peer store intact
+    wakuFilter.maintainSubscriptions()
+
+    # Then
+    check:
+      wakuFilter.subscriptions.len == 3
+      wakuFilter.subscriptions.hasKey(peerId1)
+      wakuFilter.subscriptions.hasKey(peerId2)
+      wakuFilter.subscriptions.hasKey(peerId3)
+
+    # When
+    # Remove peerId1 and peerId3 from peer store
+    switch.peerStore.del(peerId1)
+    switch.peerStore.del(peerId3)
+    wakuFilter.maintainSubscriptions()
+
+    # Then
+    check:
+      wakuFilter.subscriptions.len == 1
+      wakuFilter.subscriptions.hasKey(peerId2)
+
+    # When
+    # Remove peerId2 from peer store
+    switch.peerStore.del(peerId2)
+    wakuFilter.maintainSubscriptions()
+
+    # Then
+    check:
+      wakuFilter.subscriptions.len == 0
