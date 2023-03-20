@@ -8,8 +8,7 @@ import
   ./rln_interface,
   ../conversion_utils,
   ../protocol_types,
-  ../protocol_metrics,
-  ../constants
+  ../protocol_metrics
 import
   ../../waku_keystore,
   ../../../utils/time

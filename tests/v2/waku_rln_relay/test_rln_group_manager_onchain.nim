@@ -6,7 +6,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, osproc, streams, strutils, sequtils],
+  std/[options, osproc, streams, strutils],
   stew/[results, byteutils],
   stew/shims/net as stewNet,
   testutils/unittests,
