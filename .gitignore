@@ -41,6 +41,7 @@ node_modules/
 # RLN / keystore
 rlnCredentials.txt
 rlnKeystore.json
+*.tar.gz
 
 # Nimbus Build System
 nimbus-build-system.paths

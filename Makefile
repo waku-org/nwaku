@@ -115,7 +115,7 @@ endif
 
 $(LIBRLN_BUILDDIR)/$(LIBRLN_FILE):
 	echo -e $(BUILD_MSG) "$@" && \
-		./build_rln.sh $(LIBRLN_BUILDDIR)
+		./scripts/build_rln.sh $(LIBRLN_BUILDDIR)
 
 ifneq ($(RLN), true)
 librln: ; # noop
