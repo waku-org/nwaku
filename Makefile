@@ -105,7 +105,7 @@ endif
 
 ### RLN
 
-LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit/target/release
+LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
 
 ifeq ($(OS),Windows_NT)
 LIBRLN_FILE := rln.lib
@@ -115,12 +115,12 @@ endif
 
 $(LIBRLN_BUILDDIR)/$(LIBRLN_FILE):
 	echo -e $(BUILD_MSG) "$@" && \
-		cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
+		./scripts/build_rln.sh $(LIBRLN_BUILDDIR)
 
 ifneq ($(RLN), true)
 librln: ; # noop
 else
-EXPERIMENTAL_PARAMS += -d:rln --passL:$(LIBRLN_BUILDDIR)/$(LIBRLN_FILE) --passL:-lm
+EXPERIMENTAL_PARAMS += -d:rln --passL:$(LIBRLN_FILE) --passL:-lm
 librln: $(LIBRLN_BUILDDIR)/$(LIBRLN_FILE)
 endif
 
@@ -231,7 +231,7 @@ DOCKER_IMAGE_NIMFLAGS ?= -d:chronicles_colors:none -d:insecure
 
 # build a docker image for the fleet
 docker-image: MAKE_TARGET ?= wakunode2
-docker-image: DOCKER_IMAGE_TAG ?= $(MAKE_TARGET)$(GIT_VERSION)
+docker-image: DOCKER_IMAGE_TAG ?= $(MAKE_TARGET)-$(GIT_VERSION)
 docker-image: DOCKER_IMAGE_NAME ?= statusteam/nim-waku:$(DOCKER_IMAGE_TAG)
 docker-image:
 	docker build \
