@@ -105,7 +105,7 @@ endif
 
 ### RLN
 
-LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit/target/release
+LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
 
 ifeq ($(OS),Windows_NT)
 LIBRLN_FILE := rln.lib
@@ -115,12 +115,12 @@ endif
 
 $(LIBRLN_BUILDDIR)/$(LIBRLN_FILE):
 	echo -e $(BUILD_MSG) "$@" && \
-		cargo build --manifest-path vendor/zerokit/rln/Cargo.toml --release
+		./scripts/build_rln.sh $(LIBRLN_BUILDDIR)
 
 ifneq ($(RLN), true)
 librln: ; # noop
 else
-EXPERIMENTAL_PARAMS += -d:rln --passL:$(LIBRLN_BUILDDIR)/$(LIBRLN_FILE) --passL:-lm
+EXPERIMENTAL_PARAMS += -d:rln --passL:$(LIBRLN_FILE) --passL:-lm
 librln: $(LIBRLN_BUILDDIR)/$(LIBRLN_FILE)
 endif
 
