@@ -18,3 +18,4 @@ const
   decodeRpcFailure* = "decode_rpc_failure"
   requestIdMismatch* = "request_id_mismatch"
   errorResponse* = "error_response"
+  pushTimeoutFailure* = "push_timeout_failure"

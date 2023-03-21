@@ -109,7 +109,7 @@ proc handleSubscribeRequest*(wf: WakuFilter, peerId: PeerId, request: FilterSubs
 
   var subscribeResult: FilterSubscribeResult
 
-  let requestStartTime = getTime().toUnixFloat()
+  let requestStartTime = Moment.now()
 
   block:
     ## Handle subscribe request
@@ -123,8 +123,10 @@ proc handleSubscribeRequest*(wf: WakuFilter, peerId: PeerId, request: FilterSubs
     of FilterSubscribeType.UNSUBSCRIBE_ALL:
       subscribeResult = wf.unsubscribeAll(peerId)
 
-  let requestDuration = getTime().toUnixFloat() - requestStartTime
-  waku_filter_request_duration_seconds.observe(requestDuration, labelValues = [$request.filterSubscribeType])
+  let
+    requestDuration = Moment.now() - requestStartTime
+    requestDurationSec = requestDuration.milliseconds.float / 1000  # Duration in seconds with millisecond precision floating point
+  waku_filter_request_duration_seconds.observe(requestDurationSec, labelValues = [$request.filterSubscribeType])
 
   if subscribeResult.isErr():
     return FilterSubscribeResponse(
@@ -177,10 +179,11 @@ proc maintainSubscriptions*(wf: WakuFilter) =
 
   wf.subscriptions.removePeers(peersToRemove)
 
+const MessagePushTimeout = 20.seconds
 proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, message: WakuMessage) {.async.} =
   trace "handling message", pubsubTopic=pubsubTopic, message=message
 
-  let handleMessageStartTime = getTime().toUnixFloat()
+  let handleMessageStartTime = Moment.now()
 
   block:
     ## Find subscribers and push message to them
@@ -193,10 +196,14 @@ proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, message: WakuMessa
           pubsubTopic: pubsubTopic,
           wakuMessage: message)
 
-    await wf.pushToPeers(subscribedPeers, messagePush)
+    if not await wf.pushToPeers(subscribedPeers, messagePush).withTimeout(MessagePushTimeout):
+      debug "timed out pushing message to peers", pubsubTopic=pubsubTopic, contentTopic=message.contentTopic
+      waku_filter_errors.inc(labelValues = [pushTimeoutFailure])
 
-  let handleMessageDuration = getTime().toUnixFloat() - handleMessageStartTime
-  waku_filter_handle_message_duration_seconds.observe(handleMessageDuration)
+  let
+    handleMessageDuration = Moment.now() - handleMessageStartTime
+    handleMessageDurationSec = handleMessageDuration.milliseconds.float / 1000  # Duration in seconds with millisecond precision floating point
+  waku_filter_handle_message_duration_seconds.observe(handleMessageDurationSec)
 
 proc initProtocolHandler(wf: WakuFilter) =
 

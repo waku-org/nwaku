@@ -255,9 +255,9 @@ suite "Waku Filter - subscription maintenance":
     switch.peerStore[ProtoBook][peerId1] = @[WakuFilterPushCodec]
     switch.peerStore[ProtoBook][peerId2] = @[WakuFilterPushCodec]
     switch.peerStore[ProtoBook][peerId3] = @[WakuFilterPushCodec]
-    require wakuFilter.handleSubscribeRequest(peerId1, filterSubscribeRequest).isOk()
-    require wakuFilter.handleSubscribeRequest(peerId2, filterSubscribeRequest).isOk()
-    require wakuFilter.handleSubscribeRequest(peerId3, filterSubscribeRequest).isOk()
+    require wakuFilter.handleSubscribeRequest(peerId1, filterSubscribeRequest).statusCode == 200
+    require wakuFilter.handleSubscribeRequest(peerId2, filterSubscribeRequest).statusCode == 200
+    require wakuFilter.handleSubscribeRequest(peerId3, filterSubscribeRequest).statusCode == 200
 
     # Then
     check:
