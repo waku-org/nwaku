@@ -179,7 +179,7 @@ suite "Waku ENR - Multiaddresses":
                        some(enrTcpPort), some(enrUdpPort),
                        none(CapabilitiesBitfield),
                        multiaddrs)
-      typedRecord = record.toTypedRecord.get()
+      typedRecord = record.toTyped().get()
 
     # Check EIP-778 ENR fields
     check:
@@ -218,8 +218,8 @@ suite "Waku ENR - Multiaddresses":
     let
       # Known values correspond to shared test vectors with other Waku implementations
       knownIp = ValidIpAddress.init("18.223.219.100")
-      knownUdpPort = some(9000.int)
-      knownTcpPort = none(int)
+      knownUdpPort = some(9000.uint16)
+      knownTcpPort = none(uint16)
       knownMultiaddrs = @[MultiAddress.init("/dns4/node-01.do-ams3.wakuv2.test.statusim.net/tcp/443/wss")[],
                           MultiAddress.init("/dns6/node-01.ac-cn-hongkong-c.wakuv2.test.statusim.net/tcp/443/wss")[]]
       knownEnr = "enr:-QEnuEBEAyErHEfhiQxAVQoWowGTCuEF9fKZtXSd7H_PymHFhGJA3rGAYDVSH" &
@@ -233,7 +233,7 @@ suite "Waku ENR - Multiaddresses":
     check:
       enrRecord.fromURI(knownEnr)
 
-    let typedRecord = enrRecord.toTypedRecord.get()
+    let typedRecord = enrRecord.toTyped().get()
 
      # Check EIP-778 ENR fields
     check:

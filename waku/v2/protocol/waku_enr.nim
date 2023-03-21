@@ -8,7 +8,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[bitops, sequtils],
+  std/[options, bitops, sequtils],
   stew/[endians2, results],
   stew/shims/net,
   eth/keys,
