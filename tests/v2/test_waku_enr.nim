@@ -53,10 +53,13 @@ suite "Waku ENR -  Capabilities bitfield":
     check recordRes.isOk()
     let record = recordRes.tryGet()
 
-    let bitfieldRes = record.getCapabilitiesField()
-    check bitfieldRes.isOk()
+    let typedRecord = record.toTyped()
+    require typedRecord.isOk()
 
-    let bitfield = bitfieldRes.tryGet()
+    let bitfieldOpt = typedRecord.value.waku2
+    check bitfieldOpt.isSome()
+
+    let bitfield = bitfieldOpt.get()
     check:
       bitfield.toCapabilities() == @[Capabilities.Relay, Capabilities.Store]
 
@@ -69,12 +72,15 @@ suite "Waku ENR -  Capabilities bitfield":
     let record = Record.init(1, enrkey, wakuFlags=some(caps))
 
     ## When
-    let bitfieldRes = record.getCapabilitiesField()
+    let typedRecord = record.toTyped()
+    require typedRecord.isOk()
+
+    let bitfieldOpt = typedRecord.value.waku2
 
     ## Then
-    check bitfieldRes.isOk()
+    check bitfieldOpt.isSome()
 
-    let bitfield = bitfieldRes.tryGet()
+    let bitfield = bitfieldOpt.get()
     check:
       bitfield.toCapabilities() == @[Capabilities.Relay, Capabilities.Store]
 
@@ -87,14 +93,13 @@ suite "Waku ENR -  Capabilities bitfield":
     let record = EnrBuilder.init(enrPrivKey, enrSeqNum).build().tryGet()
 
     ## When
-    let bitfieldRes = record.getCapabilitiesField()
+    let typedRecord = record.toTyped()
+    require typedRecord.isOk()
+
+    let bitfieldOpt = typedRecord.value.waku2
 
     ## Then
-    check bitfieldRes.isErr()
-
-    let err = bitfieldRes.tryError()
-    check:
-      err == "Key not found in ENR"
+    check bitfieldOpt.isNone()
 
   test "check capabilities on a waku node record":
     ## Given
@@ -107,12 +112,19 @@ suite "Waku ENR -  Capabilities bitfield":
     require waku_enr.fromBase64(record, wakuRecord)
 
     ## Then
+    let typedRecordRes = record.toTyped()
+    require typedRecordRes.isOk()
+
+    let bitfieldOpt = typedRecordRes.value.waku2
+    require bitfieldOpt.isSome()
+
+    let bitfield = bitfieldOpt.get()
     check:
-      record.supportsCapability(Relay) == true
-      record.supportsCapability(Store) == true
-      record.supportsCapability(Filter) == false
-      record.supportsCapability(Lightpush) == false
-      record.getCapabilities() == @[Capabilities.Relay, Capabilities.Store]
+      bitfield.supportsCapability(Capabilities.Relay) == true
+      bitfield.supportsCapability(Capabilities.Store) == true
+      bitfield.supportsCapability(Capabilities.Filter) == false
+      bitfield.supportsCapability(Capabilities.Lightpush) == false
+      bitfield.toCapabilities() == @[Capabilities.Relay, Capabilities.Store]
 
   test "check capabilities on a non-waku node record":
     ## Given
@@ -122,16 +134,22 @@ suite "Waku ENR -  Capabilities bitfield":
     "Y3AyNTZrMaEDhpehBDbZjM_L9ek699Y7vhUJ-eAdMyQW_Fil522Y0fODdGNwgiMog3VkcIIjKA"
 
     ## When
-    var nonWakuEnrRecord: Record
-    require waku_enr.fromURI(nonWakuEnrRecord, nonWakuEnr)
+    var record: Record
+    require waku_enr.fromURI(record, nonWakuEnr)
 
     ## Then
+    let typedRecordRes = record.toTyped()
+    require typedRecordRes.isOk()
+
+    let bitfieldOpt = typedRecordRes.value.waku2
+    check bitfieldOpt.isNone()
+
     check:
-      nonWakuEnrRecord.getCapabilities() == []
-      nonWakuEnrRecord.supportsCapability(Relay) == false
-      nonWakuEnrRecord.supportsCapability(Store) == false
-      nonWakuEnrRecord.supportsCapability(Filter) == false
-      nonWakuEnrRecord.supportsCapability(Lightpush) == false
+      record.getCapabilities() == []
+      record.supportsCapability(Capabilities.Relay) == false
+      record.supportsCapability(Capabilities.Store) == false
+      record.supportsCapability(Capabilities.Filter) == false
+      record.supportsCapability(Capabilities.Lightpush) == false
 
 
 suite "Waku ENR - Multiaddresses":

@@ -34,8 +34,7 @@ type
 
   ## See: https://rfc.vac.dev/spec/31/#waku2-enr-key
   ## each enum numbers maps to a bit (where 0 is the LSB)
-  # TODO: Make this enum {.pure.}
-  Capabilities* = enum
+  Capabilities*{.pure.} = enum
     Relay = 0,
     Store = 1,
     Filter = 2,
@@ -82,24 +81,36 @@ proc withWakuCapabilities*(builder: var EnrBuilder, caps: openArray[Capabilities
 
 # ENR record accessors (e.g., Record, TypedRecord, etc.)
 
-proc getCapabilitiesField*(r: Record): EnrResult[CapabilitiesBitfield] =
-  let field = ?r.get(CapabilitiesEnrField, seq[uint8])
-  ok(CapabilitiesBitfield(field[0]))
+func waku2*(record: TypedRecord): Option[CapabilitiesBitfield] =
+  let field = record.tryGet(CapabilitiesEnrField, seq[uint8])
+  if field.isNone():
+    return none(CapabilitiesBitfield)
 
+  some(CapabilitiesBitfield(field.get()[0]))
 
 proc supportsCapability*(r: Record, cap: Capabilities): bool =
-  let bitfield = getCapabilitiesField(r)
-  if bitfield.isErr():
+  let recordRes = r.toTyped()
+  if recordRes.isErr():
     return false
 
-  bitfield.value.supportsCapability(cap)
+  let bitfieldOpt = recordRes.value.waku2
+  if bitfieldOpt.isNone():
+    return false
+
+  let bitfield = bitfieldOpt.get()
+  bitfield.supportsCapability(cap)
 
 proc getCapabilities*(r: Record): seq[Capabilities] =
-  let bitfield = getCapabilitiesField(r)
-  if bitfield.isErr():
+  let recordRes = r.toTyped()
+  if recordRes.isErr():
     return @[]
 
-  bitfield.value.toCapabilities()
+  let bitfieldOpt = recordRes.value.waku2
+  if bitfieldOpt.isNone():
+    return @[]
+
+  let bitfield = bitfieldOpt.get()
+  bitfield.toCapabilities()
 
 
 ## Multiaddress
