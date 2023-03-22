@@ -471,9 +471,6 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
   echo &"Listening on\n {listenStr}"
 
-  if conf.swap:
-    await node.mountSwap()
-
   if (conf.storenode != "") or (conf.store == true):
     await node.mountStore()
 
