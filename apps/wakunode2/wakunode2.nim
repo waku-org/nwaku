@@ -301,7 +301,7 @@ proc initNode(conf: WakuNodeConf,
       discv5UdpPort = discv5UdpPort,
       wakuFlags = some(wakuFlags),
     ))
-  except:
+  except CatchableError:
     return err("failed to create net config instance: " & getCurrentExceptionMsg())
 
   let netConfig = netConfigOpt.get()
@@ -334,7 +334,7 @@ proc initNode(conf: WakuNodeConf,
         rng = rng,
         discv5Config = discv5Config,
       ))
-    except:
+    except CatchableError:
       return err("failed to create waku discv5 instance: " & getCurrentExceptionMsg())
   try:
     node = WakuNode.new(nodekey = nodekey,
@@ -349,7 +349,7 @@ proc initNode(conf: WakuNodeConf,
                         agentString = some(conf.agentString),
                         peerStoreCapacity = conf.peerStoreCapacity,
                         rng = rng)
-  except:
+  except CatchableError:
     return err("failed to create waku node instance: " & getCurrentExceptionMsg())
 
   ok(node)
@@ -365,7 +365,7 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
   var peerExchangeHandler = none(RoutingRecordsHandler)
   if conf.relayPeerExchange:
     proc handlePeerExchange(peer: PeerId, topic: string,
-                            peers: seq[RoutingRecordsPair]) {.gcsafe, raises: [Defect].} =
+                            peers: seq[RoutingRecordsPair]) {.gcsafe.} =
       ## Handle peers received via gossipsub peer exchange
       # TODO: Only consider peers on pubsub topics we subscribe to
       let exchangedPeers = peers.filterIt(it.record.isSome()) # only peers with populated records
@@ -382,14 +382,14 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
     try:
       let pubsubTopics = conf.topics.split(" ")
       await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
-    except:
+    except CatchableError:
       return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())
 
 
   # Keepalive mounted on all nodes
   try:
     await mountLibp2pPing(node)
-  except:
+  except CatchableError:
     return err("failed to mount libp2p ping protocol: " & getCurrentExceptionMsg())
 
   when defined(rln):
@@ -410,15 +410,8 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
 
       try:
         await node.mountRlnRelay(rlnConf)
-      except:
+      except CatchableError:
         return err("failed to mount waku RLN relay protocol: " & getCurrentExceptionMsg())
-
-  if conf.swap:
-    try:
-      await mountSwap(node)
-      # TODO: Set swap peer, for now should be same as store peer
-    except:
-      return err("failed to mount waku swap protocol: " & getCurrentExceptionMsg())
 
   if conf.store:
     # Archive setup
@@ -428,7 +421,7 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
     # Store setup
     try:
       await mountStore(node)
-    except:
+    except CatchableError:
       return err("failed to mount waku store protocol: " & getCurrentExceptionMsg())
 
     # TODO: Move this to storage setup phase
@@ -441,14 +434,14 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       mountStoreClient(node)
       let storenode = parseRemotePeerInfo(conf.storenode)
       node.peerManager.addServicePeer(storenode, WakuStoreCodec)
-    except:
+    except CatchableError:
       return err("failed to set node waku store peer: " & getCurrentExceptionMsg())
 
   # NOTE Must be mounted after relay
   if conf.lightpush:
     try:
       await mountLightPush(node)
-    except:
+    except CatchableError:
       return err("failed to mount waku lightpush protocol: " & getCurrentExceptionMsg())
 
   if conf.lightpushnode != "":
@@ -456,14 +449,14 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       mountLightPushClient(node)
       let lightpushnode = parseRemotePeerInfo(conf.lightpushnode)
       node.peerManager.addServicePeer(lightpushnode, WakuLightPushCodec)
-    except:
+    except CatchableError:
       return err("failed to set node waku lightpush peer: " & getCurrentExceptionMsg())
 
   # Filter setup. NOTE Must be mounted after relay
   if conf.filter:
     try:
       await mountFilter(node, filterTimeout = chronos.seconds(conf.filterTimeout))
-    except:
+    except CatchableError:
       return err("failed to mount waku filter protocol: " & getCurrentExceptionMsg())
 
   if conf.filternode != "":
@@ -471,21 +464,21 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       await mountFilterClient(node)
       let filternode = parseRemotePeerInfo(conf.filternode)
       node.peerManager.addServicePeer(filternode, WakuFilterCodec)
-    except:
+    except CatchableError:
       return err("failed to set node waku filter peer: " & getCurrentExceptionMsg())
 
   # waku peer exchange setup
   if (conf.peerExchangeNode != "") or (conf.peerExchange):
     try:
       await mountPeerExchange(node)
-    except:
+    except CatchableError:
       return err("failed to mount waku peer-exchange protocol: " & getCurrentExceptionMsg())
 
     if conf.peerExchangeNode != "":
       try:
         let peerExchangeNode = parseRemotePeerInfo(conf.peerExchangeNode)
         node.peerManager.addServicePeer(peerExchangeNode, WakuPeerExchangeCodec)
-      except:
+      except CatchableError:
         return err("failed to set node waku peer-exchange peer: " & getCurrentExceptionMsg())
 
   return ok()
@@ -499,7 +492,7 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
   # Start Waku v2 node
   try:
     await node.start()
-  except:
+  except CatchableError:
     return err("failed to start waku node: " & getCurrentExceptionMsg())
 
   # Start discv5 and connect to discovered nodes
@@ -507,21 +500,21 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
     try:
       if not await node.startDiscv5():
         error "could not start Discovery v5"
-    except:
+    except CatchableError:
       return err("failed to start waku discovery v5: " & getCurrentExceptionMsg())
 
   # Connect to configured static nodes
   if conf.staticnodes.len > 0:
     try:
       await connectToNodes(node, conf.staticnodes, "static")
-    except:
+    except CatchableError:
       return err("failed to connect to static nodes: " & getCurrentExceptionMsg())
 
   if dynamicBootstrapNodes.len > 0:
     info "Connecting to dynamic bootstrap peers"
     try:
       await connectToNodes(node, dynamicBootstrapNodes, "dynamic bootstrap")
-    except:
+    except CatchableError:
       return err("failed to connect to dynamic bootstrap nodes: " & getCurrentExceptionMsg())
 
   if conf.peerExchange:
@@ -551,19 +544,19 @@ when defined(waku_exp_store_resume):
     var remotePeer: RemotePeerInfo
     try:
       remotePeer = parseRemotePeerInfo(address)
-    except:
+    except CatchableError:
       return err("invalid peer multiaddress: " & getCurrentExceptionMsg())
 
     try:
       await node.resume(some(@[remotePeer]))
-    except:
+    except CatchableError:
       return err("failed to resume messages history: " & getCurrentExceptionMsg())
 
 
 proc startRpcServer(node: WakuNode, address: ValidIpAddress, port: uint16, portsShift: uint16, conf: WakuNodeConf): SetupResult[void] =
   try:
     startRpcServer(node, address, Port(port + portsShift), conf)
-  except:
+  except CatchableError:
     return err("failed to start the json-rpc server: " & getCurrentExceptionMsg())
 
   ok()
@@ -583,39 +576,8 @@ proc startMetricsLogging(): SetupResult[void] =
 
 
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
-when isMainModule:
-  ## Node setup happens in 6 phases:
-  ## 1. Set up storage
-  ## 2. Initialize node
-  ## 3. Mount and initialize configured protocols
-  ## 4. Start node and mounted protocols
-  ## 5. Start monitoring tools and external interfaces
-  ## 6. Setup graceful shutdown hooks
 
-  const versionString = "version / git commit hash: " & git_version
-  let rng = crypto.newRng()
-
-  let confRes = WakuNodeConf.load(version=versionString)
-  if confRes.isErr():
-    error "failure while loading the configuration", error=confRes.error
-    quit(QuitFailure)
-
-  let conf = confRes.get()
-
-  ## Logging setup
-
-  # Adhere to NO_COLOR initiative: https://no-color.org/
-  let color = try: not parseBool(os.getEnv("NO_COLOR", "false"))
-              except: true
-
-  logging.setupLogLevel(conf.logLevel)
-  logging.setupLogFormat(conf.logFormat, color)
-
-
-  ##############
-  # Node setup #
-  ##############
-
+proc setupWakunode2(conf: WakuNodeConf): WakuNode =
   debug "1/7 Setting up storage"
 
   ## Peer persistence
@@ -679,6 +641,7 @@ when isMainModule:
 
   var node: WakuNode  # This is the node we're going to setup using the conf
 
+  let rng = crypto.newRng()
   let initNodeRes = initNode(conf, rng, peerStore, dynamicBootstrapNodes)
   if initNodeRes.isok():
     node = initNodeRes.get()
@@ -729,8 +692,42 @@ when isMainModule:
     if startMetricsLoggingRes.isErr():
       error "6/7 Starting metrics console logging failed. Continuing in current state.", error=startMetricsLoggingRes.error
 
+  node
 
-  debug "7/7 Setting up shutdown hooks"
+proc waku2Main*() =
+  ## Node setup happens in 6 phases:
+  ## 1. Set up storage
+  ## 2. Initialize node
+  ## 3. Mount and initialize configured protocols
+  ## 4. Start node and mounted protocols
+  ## 5. Start monitoring tools and external interfaces
+  ## 6. Setup graceful shutdown hooks
+
+  const versionString = "version / git commit hash: " & git_version
+
+  let confRes = WakuNodeConf.load(version=versionString)
+  if confRes.isErr():
+    error "failure while loading the configuration", error=confRes.error
+    quit(QuitFailure)
+
+  let conf = confRes.get()
+
+  ## Logging setup
+
+  # Adhere to NO_COLOR initiative: https://no-color.org/
+  let color = try: not parseBool(os.getEnv("NO_COLOR", "false"))
+              except CatchableError: true
+
+  logging.setupLogLevel(conf.logLevel)
+  logging.setupLogFormat(conf.logFormat, color)
+
+
+  ##############
+  # Node setup #
+  ##############
+
+  let node = setupWakunode2(conf)
+
   ## Setup shutdown hooks for this process.
   ## Stop node gracefully on shutdown.
 
@@ -773,3 +770,6 @@ when isMainModule:
   info "Node setup complete"
 
   runForever()
+
+when isMainModule:
+  waku2Main()
