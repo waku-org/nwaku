@@ -5,7 +5,7 @@ else:
 
 # Collection of utilities related to Waku peers
 import
-  std/[options, sequtils, strutils],
+  std/[options, sequtils, strutils, uri],
   chronos,
   stew/results,
   stew/shims/net,
@@ -141,6 +141,21 @@ proc parseRemotePeerInfo*(address: string): RemotePeerInfo {.raises: [Defect, Va
     raise newException(ValueError, "Invalid node multi-address")
 
   return RemotePeerInfo.init(peerIdStr, @[wireAddr])
+
+# Checks whether the peerAddr parameter represents a valid p2p multiaddress.
+# The param must be in the format `(ip4|ip6)/tcp/p2p/$peerId` but URL-encoded
+proc parseUrlPeerAddr*(peerAddr: Option[string]):
+                       Result[Option[RemotePeerInfo], string] =
+
+  if not peerAddr.isSome() or peerAddr.get() == "":
+    return ok(none(RemotePeerInfo))
+
+  try:
+    let parsedAddr = decodeUrl(peerAddr.get())
+    return ok(some(parseRemotePeerInfo(parsedAddr)))
+  except Exception:
+    return err("Failed parsing remote peer info [" &
+               getCurrentExceptionMsg() & "]")
 
 ## Converts an ENR to dialable RemotePeerInfo
 proc toRemotePeerInfo*(enr: enr.Record): Result[RemotePeerInfo, cstring] =
