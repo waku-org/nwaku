@@ -21,7 +21,6 @@ import
   libp2p/protocols/connectivity/autonat/service,
   libp2p/nameresolving/nameresolver,
   libp2p/builders,
-  libp2p/multihash,
   libp2p/transports/tcptransport,
   libp2p/transports/wstransport
 import
@@ -391,11 +390,11 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
   if node.wakuRelay.isSubscribed(topic):
     return
 
-  proc traceHandler(topic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
+  proc traceHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
     trace "waku.relay received",
       peerId=node.peerId,
       pubsubTopic=topic,
-      hash=MultiHash.digest("sha2-256", data).expect("valid hash").data.buffer.to0xHex(), # TODO: this could be replaced by a message UID
+      hash=topic.digest(msg).to0xHex(),
       receivedTime=getNowInNanosecondTime()
 
     waku_node_messages.inc(labelValues = ["relay"])
@@ -418,7 +417,7 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
       if msg.isErr():
         return
 
-      await traceHandler(topic, data)
+      await traceHandler(topic, msg.value)
       await filterHandler(topic, msg.value)
       await archiveHandler(topic, msg.value)
 
@@ -482,10 +481,10 @@ proc publish*(node: WakuNode, topic: PubsubTopic, message: WakuMessage) {.async,
   discard await node.wakuRelay.publish(topic, message)
 
   trace "waku.relay published",
-    peerId=node.peerId,
-    pubsubTopic=topic,
-    hash=MultiHash.digest("sha2-256", message.encode().buffer).expect("valid hash").data.buffer.to0xHex(), # TODO: this could be replaced by a message UID
-    publishTime=getNowInNanosecondTime()
+      peerId=node.peerId,
+      pubsubTopic=topic,
+      hash=topic.digest(message).to0xHex(),
+      publishTime=getNowInNanosecondTime()
 
 proc startRelay*(node: WakuNode) {.async.} =
   ## Setup and start relay protocol
