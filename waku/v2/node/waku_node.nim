@@ -394,7 +394,7 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     trace "waku.relay received",
       peerId=node.peerId,
       pubsubTopic=topic,
-      hash="0x" & $topic.digest(msg).toHex(),
+      hash=topic.digest(msg).to0xHex(),
       receivedTime=getNowInNanosecondTime()
 
     waku_node_messages.inc(labelValues = ["relay"])
@@ -483,7 +483,7 @@ proc publish*(node: WakuNode, topic: PubsubTopic, message: WakuMessage) {.async,
   trace "waku.relay published",
       peerId=node.peerId,
       pubsubTopic=topic,
-      hash="0x" & $topic.digest(message).toHex(),
+      hash=topic.digest(message).to0xHex(),
       publishTime=getNowInNanosecondTime()
 
 proc startRelay*(node: WakuNode) {.async.} =
