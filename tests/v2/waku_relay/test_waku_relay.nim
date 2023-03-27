@@ -116,9 +116,9 @@ suite "Waku Relay":
     await allFutures(srcSwitch.start(), dstSwitch.start())
 
     let dstPeerInfo = dstPeerManager.switch.peerInfo.toRemotePeerInfo()
-    let conn = await srcPeerManager.dialPeer(dstPeerInfo, WakuRelayCodec)
+    let connOk = await srcPeerManager.connectRelay(dstPeerInfo)
     require:
-      conn.isSome()
+      connOk == true
 
     ## Given
     let networkTopic = "test-network1"
@@ -174,9 +174,9 @@ suite "Waku Relay":
     await allFutures(srcSwitch.start(), dstSwitch.start())
 
     let dstPeerInfo = dstPeerManager.switch.peerInfo.toRemotePeerInfo()
-    let conn = await srcPeerManager.dialPeer(dstPeerInfo, WakuRelayCodec)
+    let connOk = await srcPeerManager.connectRelay(dstPeerInfo)
     require:
-      conn.isSome()
+      connOk == true
 
     ## Given
     let networkTopic = "test-network1"

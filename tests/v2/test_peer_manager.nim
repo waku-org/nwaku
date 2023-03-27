@@ -33,20 +33,32 @@ import
   ./testlib/waku2
 
 procSuite "Peer Manager":
-  asyncTest "Peer dialing works":
+  asyncTest "connectRelay() works":
+    # Create 2 nodes
+    let nodes = toSeq(0..<2).mapIt(WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    await allFutures(nodes.mapIt(it.start()))
+
+    let connOk = await nodes[0].peerManager.connectRelay(nodes[1].peerInfo.toRemotePeerInfo())
+    check:
+      connOk == true
+      nodes[0].peerManager.peerStore.peers().anyIt(it.peerId == nodes[1].peerInfo.peerId)
+      nodes[0].peerManager.peerStore.connectedness(nodes[1].peerInfo.peerId) == Connectedness.Connected
+
+  asyncTest "dialPeer() works":
     # Create 2 nodes
     let nodes = toSeq(0..<2).mapIt(WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
 
     await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
+    await allFutures(nodes.mapIt(it.mountFilter()))
 
     # Dial node2 from node1
-    let conn = (await nodes[0].peerManager.dialPeer(nodes[1].peerInfo.toRemotePeerInfo(), WakuRelayCodec)).get()
-
+    let conn = await nodes[0].peerManager.dialPeer(nodes[1].peerInfo.toRemotePeerInfo(), WakuFilterCodec)
     # Check connection
     check:
-      conn.activity
-      conn.peerId == nodes[1].peerInfo.peerId
+      conn.isSome()
+      conn.get.activity
+      conn.get.peerId == nodes[1].peerInfo.peerId
 
     # Check that node2 is being managed in node1
     check:
@@ -58,23 +70,25 @@ procSuite "Peer Manager":
 
     await allFutures(nodes.mapIt(it.stop()))
 
-  asyncTest "Dialing fails gracefully":
-    # Create 2 nodes
+  asyncTest "dialPeer() fails gracefully":
+    # Create 2 nodes and start them
     let nodes = toSeq(0..<2).mapIt(WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.mountRelay()))
 
-    await nodes[0].start()
-    await nodes[0].mountRelay()
+    let nonExistentPeer = parseRemotePeerInfo("/ip4/0.0.0.0/tcp/1000/p2p/16Uiu2HAmL5okWopX7NqZWBUKVqW8iUxCEmd5GMHLVPwCgzYzQv3e")
 
-    # Purposefully don't start node2
-
-    # Dial node2 from node1
-    let connOpt = await nodes[1].peerManager.dialPeer(nodes[1].peerInfo.toRemotePeerInfo(), WakuRelayCodec, 2.seconds)
-
-    # Check connection failed gracefully
+    # Dial non-existent peer from node1
+    let conn1 = await nodes[0].peerManager.dialPeer(nonExistentPeer, WakuFilterCodec)
     check:
-      connOpt.isNone()
+      conn1.isNone()
 
-    await nodes[0].stop()
+    # Dial peer not supporting given protocol
+    let conn2 = await nodes[0].peerManager.dialPeer(nodes[1].peerInfo.toRemotePeerInfo(), WakuFilterCodec)
+    check:
+      conn2.isNone()
+
+    await allFutures(nodes.mapIt(it.stop()))
 
   asyncTest "Adding, selecting and filtering peers work":
     let
@@ -120,9 +134,7 @@ procSuite "Peer Manager":
     # Create 2 nodes
     let nodes = toSeq(0..<2).mapIt(WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
 
-    await nodes[0].start()
-    # Do not start node2
-
+    await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
     # Test default connectedness for new peers
@@ -131,16 +143,17 @@ procSuite "Peer Manager":
       # No information about node2's connectedness
       nodes[0].peerManager.peerStore.connectedness(nodes[1].peerInfo.peerId) == NotConnected
 
-    # Purposefully don't start node2
-    # Attempt dialing node2 from node1
-    discard await nodes[0].peerManager.dialPeer(nodes[1].peerInfo.toRemotePeerInfo(), WakuRelayCodec, 2.seconds)
+    # Failed connection
+    let nonExistentPeer = parseRemotePeerInfo("/ip4/0.0.0.0/tcp/1000/p2p/16Uiu2HAmL5okWopX7NqZWBUKVqW8iUxCEmd5GMHLVPwCgzYzQv3e")
+    require:
+      (await nodes[0].peerManager.connectRelay(nonExistentPeer)) == false
     check:
       # Cannot connect to node2
-      nodes[0].peerManager.peerStore.connectedness(nodes[1].peerInfo.peerId) == CannotConnect
+      nodes[0].peerManager.peerStore.connectedness(nonExistentPeer.peerId) == CannotConnect
 
     # Successful connection
-    await nodes[1].start()
-    discard await nodes[0].peerManager.dialPeer(nodes[1].peerInfo.toRemotePeerInfo(), WakuRelayCodec, 2.seconds)
+    require:
+      (await nodes[0].peerManager.connectRelay(nodes[1].peerInfo.toRemotePeerInfo())) == true
     check:
       # Currently connected to node2
       nodes[0].peerManager.peerStore.connectedness(nodes[1].peerInfo.peerId) == Connected
@@ -157,28 +170,31 @@ procSuite "Peer Manager":
     # Create 2 nodes
     let nodes = toSeq(0..<2).mapIt(WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
 
-    await nodes[0].start()
-    await nodes[0].mountRelay()
-    nodes[0].peerManager.addPeer(nodes[1].peerInfo.toRemotePeerInfo())
+    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.mountRelay()))
+
+    let nonExistentPeer = parseRemotePeerInfo("/ip4/0.0.0.0/tcp/1000/p2p/16Uiu2HAmL5okWopX7NqZWBUKVqW8iUxCEmd5GMHLVPwCgzYzQv3e")
+
+    nodes[0].peerManager.addPeer(nonExistentPeer)
 
     # Set a low backoff to speed up test: 2, 4, 8, 16
     nodes[0].peerManager.initialBackoffInSec = 2
     nodes[0].peerManager.backoffFactor = 2
 
-    # node2 is not started, so dialing will fail
-    let conn1 = await nodes[0].peerManager.dialPeer(nodes[1].peerInfo.toRemotePeerInfo(), WakuRelayCodec, 1.seconds)
+    # try to connect to peer that doesnt exist
+    let conn1Ok = await nodes[0].peerManager.connectRelay(nonExistentPeer)
     check:
       # Cannot connect to node2
-      nodes[0].peerManager.peerStore.connectedness(nodes[1].peerInfo.peerId) == CannotConnect
-      nodes[0].peerManager.peerStore[ConnectionBook][nodes[1].peerInfo.peerId] == CannotConnect
-      nodes[0].peerManager.peerStore[NumberFailedConnBook][nodes[1].peerInfo.peerId] == 1
+      nodes[0].peerManager.peerStore.connectedness(nonExistentPeer.peerId) == CannotConnect
+      nodes[0].peerManager.peerStore[ConnectionBook][nonExistentPeer.peerId] == CannotConnect
+      nodes[0].peerManager.peerStore[NumberFailedConnBook][nonExistentPeer.peerId] == 1
 
-      # And the connection failed
-      conn1.isNone() == true
+      # Connection attempt failed
+      conn1Ok == false
 
       # Right after failing there is a backoff period
       nodes[0].peerManager.peerStore.canBeConnected(
-        nodes[1].peerInfo.peerId,
+        nonExistentPeer.peerId,
         nodes[0].peerManager.initialBackoffInSec,
         nodes[0].peerManager.backoffFactor) == false
 
@@ -192,13 +208,11 @@ procSuite "Peer Manager":
         nodes[0].peerManager.initialBackoffInSec,
         nodes[0].peerManager.backoffFactor) == true
 
-    await nodes[1].start()
-    await nodes[1].mountRelay()
-
-    # Now we can connect and failed count is reset
-    let conn2 = await nodes[0].peerManager.dialPeer(nodes[1].peerInfo.toRemotePeerInfo(), WakuRelayCodec, 1.seconds)
+    # After a successful connection, the number of failed connections is reset
+    nodes[0].peerManager.peerStore[NumberFailedConnBook][nodes[1].peerInfo.peerId] = 4
+    let conn2Ok = await nodes[0].peerManager.connectRelay(nodes[1].peerInfo.toRemotePeerInfo())
     check:
-      conn2.isNone() == false
+      conn2Ok == true
       nodes[0].peerManager.peerStore[NumberFailedConnBook][nodes[1].peerInfo.peerId] == 0
 
     await allFutures(nodes.mapIt(it.stop()))
@@ -217,7 +231,8 @@ procSuite "Peer Manager":
     await node1.mountRelay()
     await node2.mountRelay()
 
-    discard await node1.peerManager.dialPeer(peerInfo2.toRemotePeerInfo(), WakuRelayCodec, 2.seconds)
+    require:
+      (await node1.peerManager.connectRelay(peerInfo2.toRemotePeerInfo())) == true
     check:
       # Currently connected to node2
       node1.peerManager.peerStore.peers().len == 1
@@ -265,7 +280,8 @@ procSuite "Peer Manager":
     await node2.mountRelay()
     node2.wakuRelay.codec = betaCodec
 
-    discard await node1.peerManager.dialPeer(peerInfo2.toRemotePeerInfo(), node2.wakuRelay.codec, 2.seconds)
+    require:
+      (await node1.peerManager.connectRelay(peerInfo2.toRemotePeerInfo())) == true
     check:
       # Currently connected to node2
       node1.peerManager.peerStore.peers().len == 1
@@ -353,9 +369,10 @@ procSuite "Peer Manager":
     let peerInfos = nodes.mapIt(it.switch.peerInfo.toRemotePeerInfo())
 
     # all nodes connect to peer 0
-    discard await nodes[1].peerManager.dialPeer(peerInfos[0], WakuRelayCodec, 2.seconds)
-    discard await nodes[2].peerManager.dialPeer(peerInfos[0], WakuRelayCodec, 2.seconds)
-    discard await nodes[3].peerManager.dialPeer(peerInfos[0], WakuRelayCodec, 2.seconds)
+    require:
+      (await nodes[1].peerManager.connectRelay(peerInfos[0])) == true
+      (await nodes[2].peerManager.connectRelay(peerInfos[0])) == true
+      (await nodes[3].peerManager.connectRelay(peerInfos[0])) == true
 
     check:
       # Peerstore track all three peers

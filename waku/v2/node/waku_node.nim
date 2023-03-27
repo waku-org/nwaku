@@ -380,8 +380,8 @@ proc info*(node: WakuNode): WakuInfo =
 
 proc connectToNodes*(node: WakuNode, nodes: seq[RemotePeerInfo] | seq[string], source = "api") {.async.} =
   ## `source` indicates source of node addrs (static config, api call, discovery, etc)
-  # NOTE This is dialing on WakuRelay protocol specifically
-  await peer_manager.connectToNodes(node.peerManager, nodes, WakuRelayCodec, source=source)
+  # NOTE Connects to the node without a give protocol, which automatically creates streams for relay
+  await connectToNodes(node.peerManager, nodes, source=source)
 
 
 ## Waku relay
