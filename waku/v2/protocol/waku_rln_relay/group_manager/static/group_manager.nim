@@ -34,7 +34,7 @@ method init*(g: StaticGroupManager): Future[void] {.async,gcsafe.} =
   if not membersInserted:
     raise newException(ValueError, "Failed to insert members into the merkle tree")
 
-  g.updateValidRootQueue()
+  discard g.slideRootQueue()
 
   g.latestIndex += MembershipIndex(idCommitments.len() - 1)
 
@@ -56,7 +56,7 @@ method register*(g: StaticGroupManager, idCommitment: IDCommitment): Future[void
   if not memberInserted:
     raise newException(ValueError, "Failed to insert member into the merkle tree")
 
-  g.updateValidRootQueue()
+  discard g.slideRootQueue()
 
   g.latestIndex += 1
 
@@ -77,7 +77,7 @@ method registerBatch*(g: StaticGroupManager, idCommitments: seq[IDCommitment]): 
       memberSeq.add(Membership(idCommitment: idCommitments[i], index: g.latestIndex + MembershipIndex(i)))
     await g.registerCb.get()(memberSeq)
 
-  g.updateValidRootQueue()
+  discard g.slideRootQueue()
 
   g.latestIndex += MembershipIndex(idCommitments.len() - 1)
 

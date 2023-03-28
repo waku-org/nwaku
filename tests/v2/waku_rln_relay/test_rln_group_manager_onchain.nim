@@ -6,7 +6,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, osproc, streams, strutils],
+  std/[options, osproc, streams, strutils, tables],
   stew/[results, byteutils],
   stew/shims/net as stewNet,
   testutils/unittests,
@@ -246,7 +246,8 @@ suite "Onchain group manager":
 
   asyncTest "startGroupSync: should fetch history correctly":
     let manager = await setup()
-    let credentials = generateCredentials(manager.rlnInstance, 5)
+    const credentialCount = 6
+    let credentials = generateCredentials(manager.rlnInstance, credentialCount)
     await manager.init()
 
     let merkleRootBeforeRes = manager.rlnInstance.getMerkleRoot()
@@ -254,9 +255,9 @@ suite "Onchain group manager":
       merkleRootBeforeRes.isOk()
     let merkleRootBefore = merkleRootBeforeRes.get()
 
-    var futures = [newFuture[void](), newFuture[void](), newFuture[void](), newFuture[void](), newFuture[void]()]
+    var futures = [newFuture[void](), newFuture[void](), newFuture[void](), newFuture[void](), newFuture[void](), newFuture[void]()]
 
-    proc generateCallback(futs: array[0..4, Future[system.void]], credentials: seq[IdentityCredential]): OnRegisterCallback =
+    proc generateCallback(futs: array[0..credentialCount - 1, Future[system.void]], credentials: seq[IdentityCredential]): OnRegisterCallback =
       var futureIndex = 0
       proc callback(registrations: seq[Membership]): Future[void] {.async.} =
         if registrations.len == 1 and
@@ -281,6 +282,7 @@ suite "Onchain group manager":
 
     check:
       merkleRootBefore != merkleRootAfter
+      manager.validRootBuffer.len() == credentialCount - AcceptableRootWindowSize
 
   asyncTest "register: should guard against uninitialized state":
     let manager = await setup()
@@ -476,6 +478,51 @@ suite "Onchain group manager":
 
     check:
       verifiedRes.get() == false
+
+  asyncTest "backfilling roots in event of chain reorg":
+    let manager = await setup()
+    const credentialCount = 6
+    let credentials = generateCredentials(manager.rlnInstance, credentialCount)
+    await manager.init()
+
+    var futures = [newFuture[void](), newFuture[void](), newFuture[void](), newFuture[void](), newFuture[void](), newFuture[void]()]
+
+    proc generateCallback(futs: array[0..credentialCount - 1, Future[system.void]], credentials: seq[IdentityCredential]): OnRegisterCallback =
+      var futureIndex = 0
+      proc callback(registrations: seq[Membership]): Future[void] {.async.} =
+        if registrations.len == 1 and
+            registrations[0].idCommitment == credentials[futureIndex].idCommitment and
+            registrations[0].index == MembershipIndex(futureIndex + 1):
+          futs[futureIndex].complete()
+          futureIndex += 1
+      return callback
+
+    manager.onRegister(generateCallback(futures, credentials))
+    await manager.startGroupSync()
+
+    for i in 0 ..< credentials.len():
+      await manager.register(credentials[i])
+
+    await allFutures(futures)
+
+    # At this point, we should have a full root queue, 5 roots, and partial buffer of 1 root
+    require:
+      manager.validRoots.len() == credentialCount - 1
+      manager.validRootBuffer.len() == 1
+
+    # We can now simulate a chain reorg by calling backfillRootQueue
+    var blockTable = default(BlockTable)
+    blockTable[1.uint] = @[Membership(idCommitment: credentials[4].idCommitment, index: 4.uint)]
+
+    let expectedLastRoot = manager.validRootBuffer[0]
+    await manager.backfillRootQueue(blockTable)
+
+    # We should now have 5 roots in the queue, and no partial buffer
+    check:
+      manager.validRoots.len() == credentialCount - 1
+      manager.validRootBuffer.len() == 0
+      manager.validRoots[credentialCount - 2] == expectedLastRoot
+
 
   ################################
   ## Terminating/removing Ganache

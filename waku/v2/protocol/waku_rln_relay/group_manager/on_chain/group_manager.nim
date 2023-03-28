@@ -52,6 +52,10 @@ type
     keystorePassword*: Option[string]
     saveKeystore*: bool
     registrationHandler*: Option[RegistrationHandler]
+    # this buffer exists to backfill appropriate roots for the merkle tree,
+    # in event of a reorg. we store 5 in the buffer. Maybe need to revisit this,
+    # because the average reorg depth is 1 to 2 blocks.
+    validRootBuffer*: Deque[MerkleNode]
 
 const DefaultKeyStorePath* = "rlnKeystore.json"
 const DefaultKeyStorePassword* = "password"
@@ -70,7 +74,7 @@ method register*(g: OnchainGroupManager, idCommitment: IDCommitment): Future[voi
   if g.registerCb.isSome():
     await g.registerCb.get()(@[Membership(idCommitment: idCommitment, index: g.latestIndex)])
 
-  g.updateValidRootQueue()
+  g.validRootBuffer = g.slideRootQueue()
 
   g.latestIndex += 1
 
@@ -92,7 +96,7 @@ method registerBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]):
       membersSeq.add(member)
     await g.registerCb.get()(membersSeq)
 
-  g.updateValidRootQueue()
+  g.validRootBuffer = g.slideRootQueue()
 
   g.latestIndex += MembershipIndex(idCommitments.len())
 
@@ -175,6 +179,23 @@ proc parseEvent*(event: type MemberRegistered,
 
 type BlockTable* = OrderedTable[BlockNumber, seq[Membership]]
 
+proc backfillRootQueue*(g: OnchainGroupManager, blockTable: BlockTable): Future[void] {.async.} =
+  if blocktable.len() > 0:
+      for blockNumber, members in blocktable.pairs():
+        for member in members:
+          let deletionSuccess = g.rlnInstance.deleteMember(member.index)
+          debug "deleting member to reconcile state", index=member.index, success=deletionSuccess
+          if not deletionSuccess:
+            error "failed to delete member from the tree", index=member.index
+            raise newException(ValueError, "failed to delete member from the tree, tree is inconsistent")
+      # backfill the tree's acceptable roots
+      for i in 0..blocktable.len()-1:
+        # remove the last root
+        g.validRoots.popLast()
+      for i in 0..blockTable.len()-1:
+        # add the backfilled root
+        g.validRoots.addLast(g.validRootBuffer.popLast())
+
 proc getEvents*(g: OnchainGroupManager, fromBlock: BlockNumber, toBlock: Option[BlockNumber] = none(BlockNumber)): Future[BlockTable] {.async.} =
   initializedGuard(g)
 
@@ -192,6 +213,8 @@ proc getEvents*(g: OnchainGroupManager, fromBlock: BlockNumber, toBlock: Option[
     normalizedToBlock = fromBlock
 
   var blockTable = default(BlockTable)
+  var toRemoveBlockTable = default(BlockTable)
+
   let events = await rlnContract.getJsonLogs(MemberRegistered, fromBlock = some(fromBlock.blockId()), toBlock = some(normalizedToBlock.blockId()))
   if events.len == 0:
     debug "no events found"
@@ -207,13 +230,14 @@ proc getEvents*(g: OnchainGroupManager, fromBlock: BlockNumber, toBlock: Option[
     let parsedEvent = parsedEventRes.get()
 
     if removed:
-      # remove the registration from the tree
+      # remove the registration from the tree, per block
       warn "member removed from the tree as per canonical chain", index=parsedEvent.index
-      let deletionSuccess = g.rlnInstance.deleteMember(parsedEvent.index)
-      if not deletionSuccess:
-        error "failed to delete member from the tree"
-        raise newException(ValueError, "failed to delete member from the tree")
-      continue
+      if toRemoveBlockTable.hasKey(blockNumber):
+        toRemoveBlockTable[blockNumber].add(parsedEvent)
+      else:
+        toRemoveBlockTable[blockNumber] = @[parsedEvent]
+
+    await g.backfillRootQueue(toRemoveBlockTable)
 
     if blockTable.hasKey(blockNumber):
       blockTable[blockNumber].add(parsedEvent)
@@ -230,8 +254,8 @@ proc seedBlockTableIntoTree*(g: OnchainGroupManager, blockTable: BlockTable): Fu
     let startingIndex = members[0].index
     try:
       await g.registerBatch(members.mapIt(it.idCommitment))
-    except:
-      error "failed to insert members into the tree"
+    except CatchableError:
+      error "failed to insert members into the tree", error=getCurrentExceptionMsg()
       raise newException(ValueError, "failed to insert members into the tree")
     debug "new members added to the Merkle tree", commitments=members.mapIt(it.idCommitment.inHex()) , startingIndex=startingIndex
     let lastIndex = startingIndex + members.len.uint - 1
@@ -244,7 +268,9 @@ proc seedBlockTableIntoTree*(g: OnchainGroupManager, blockTable: BlockTable): Fu
 
   return
 
-proc getEventsAndSeedIntoTree*(g: OnchainGroupManager, fromBlock: BlockNumber, toBlock: Option[BlockNumber] = none(BlockNumber)): Future[void] {.async.} =
+proc getEventsAndSeedIntoTree*(g: OnchainGroupManager,
+                               fromBlock: BlockNumber,
+                               toBlock: Option[BlockNumber] = none(BlockNumber)): Future[void] {.async.} =
   initializedGuard(g)
 
   let events = await g.getEvents(fromBlock, toBlock)
