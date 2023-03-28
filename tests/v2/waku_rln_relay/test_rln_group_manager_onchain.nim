@@ -481,7 +481,7 @@ suite "Onchain group manager":
     check:
       verifiedRes.get() == false
 
-  asyncTest "backfilling roots in event of chain reorg":
+  asyncTest "backfillRootQueue: should backfill roots in event of chain reorg":
     let manager = await setup()
     const credentialCount = 6
     let credentials = generateCredentials(manager.rlnInstance, credentialCount)

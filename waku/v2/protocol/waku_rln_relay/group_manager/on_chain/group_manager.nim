@@ -182,12 +182,11 @@ type BlockTable* = OrderedTable[BlockNumber, seq[Membership]]
 proc backfillRootQueue*(g: OnchainGroupManager, blockTable: BlockTable): Future[void] {.async.} =
   if blocktable.len() > 0:
       for blockNumber, members in blocktable.pairs():
-        for member in members:
-          let deletionSuccess = g.rlnInstance.deleteMember(member.index)
-          debug "deleting member to reconcile state", index=member.index, success=deletionSuccess
-          if not deletionSuccess:
-            error "failed to delete member from the tree", index=member.index
-            raise newException(ValueError, "failed to delete member from the tree, tree is inconsistent")
+        let deletionSuccess = g.rlnInstance.removeMembers(members.mapIt(it.index))
+        debug "deleting members to reconcile state"
+        if not deletionSuccess:
+          error "failed to delete members from the tree", success=deletionSuccess
+          raise newException(ValueError, "failed to delete member from the tree, tree is inconsistent")
       # backfill the tree's acceptable roots
       for i in 0..blocktable.len()-1:
         # remove the last root
