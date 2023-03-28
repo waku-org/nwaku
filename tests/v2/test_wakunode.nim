@@ -138,9 +138,9 @@ suite "WakuNode":
     await node3.start()
     await node3.mountRelay()
 
-    discard await node1.peerManager.dialPeer(node2.switch.peerInfo.toRemotePeerInfo(), WakuRelayCodec)
+    discard await node1.peerManager.connectRelay(node2.switch.peerInfo.toRemotePeerInfo())
     await sleepAsync(3.seconds)
-    discard await node1.peerManager.dialPeer(node3.switch.peerInfo.toRemotePeerInfo(), WakuRelayCodec)
+    discard await node1.peerManager.connectRelay(node3.switch.peerInfo.toRemotePeerInfo())
 
     check:
       # Verify that only the first connection succeeded
