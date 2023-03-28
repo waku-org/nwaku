@@ -27,8 +27,7 @@ logScope:
   topics = "waku discv5"
 
 
-type
-  WakuDiscoveryV5* = ref object
+type WakuDiscoveryV5* = ref object
     protocol*: protocol.Protocol
     listening*: bool
 
@@ -65,52 +64,21 @@ proc addBootstrapNode*(bootstrapAddr: string,
     return
 
   let enrRes = parseBootstrapAddress(bootstrapAddr)
-  if enrRes.isOk():
-    bootstrapEnrs.add(enrRes.value)
-  else:
-    warn "Ignoring invalid bootstrap address",
-          bootstrapAddr, reason = enrRes.error
+  if enrRes.isErr():
+    debug "ignoring invalid bootstrap address", reason = enrRes.error
+    return
 
-proc isWakuNode(node: Node): bool =
-  let wakuField = node.record.tryGet(CapabilitiesEnrField, uint8)
+  bootstrapEnrs.add(enrRes.value)
 
-  if wakuField.isSome():
-    return wakuField.get() != 0x00 # True if any flag set to true
-
-  return false
 
 ####################
 # Discovery v5 API #
 ####################
 
-proc findRandomPeers*(wakuDiscv5: WakuDiscoveryV5): Future[Result[seq[RemotePeerInfo], cstring]] {.async.} =
-  ## Find random peers to connect to using Discovery v5
-
-  ## Query for a random target and collect all discovered nodes
-  let discoveredNodes = await wakuDiscv5.protocol.queryRandom()
-
-  ## Filter based on our needs
-  # let filteredNodes = discoveredNodes.filter(isWakuNode) # Currently only a single predicate
-  # TODO: consider node filtering based on ENR; we do not filter based on ENR in the first waku discv5 beta stage
-
-  var discoveredPeers: seq[RemotePeerInfo]
-
-  for node in discoveredNodes:
-    # Convert discovered ENR to RemotePeerInfo and add to discovered nodes
-    let res = node.record.toRemotePeerInfo()
-
-    if res.isOk():
-      discoveredPeers.add(res.get())
-    else:
-      error "Failed to convert ENR to peer info", enr= $node.record, err=res.error
-      waku_discv5_errors.inc(labelValues = ["peer_info_failure"])
-
-
-  return ok(discoveredPeers)
-
 proc new*(T: type WakuDiscoveryV5,
           extIp: Option[ValidIpAddress],
-          extTcpPort, extUdpPort: Option[Port],
+          extTcpPort: Option[Port],
+          extUdpPort: Option[Port],
           bindIP: ValidIpAddress,
           discv5UdpPort: Port,
           bootstrapEnrs = newSeq[enr.Record](),
@@ -120,73 +88,72 @@ proc new*(T: type WakuDiscoveryV5,
           multiaddrs = newSeq[MultiAddress](),
           rng: ref HmacDrbgContext,
           discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T =
-  ## TODO: consider loading from a configurable bootstrap file
 
-  ## We always add the waku field as specified
+  # Add the waku capabilities field
   var enrInitFields = @[(CapabilitiesEnrField, @[flags.byte])]
 
-  ## Add multiaddresses to ENR
+  # Add the waku multiaddrs field
   if multiaddrs.len > 0:
-    enrInitFields.add((MULTIADDR_ENR_FIELD, multiaddrs.getRawField()))
+    let value = waku_enr.encodeMultiaddrs(multiaddrs)
+    enrInitFields.add((MultiaddrEnrField, value))
 
   let protocol = newProtocol(
     privateKey,
-    enrIp = extIp, enrTcpPort = extTcpPort, enrUdpPort = extUdpPort, # We use the external IP & ports for ENR
+    enrIp = extIp,
+    enrTcpPort = extTcpPort,
+    enrUdpPort = extUdpPort,
     enrInitFields,
     bootstrapEnrs,
     bindPort = discv5UdpPort,
     bindIp = bindIP,
     enrAutoUpdate = enrAutoUpdate,
     config = discv5Config,
-    rng = rng)
+    rng = rng
+  )
 
-  return WakuDiscoveryV5(protocol: protocol, listening: false)
+  WakuDiscoveryV5(protocol: protocol, listening: false)
 
-# constructor that takes bootstrap Enrs in Enr Uri form
-proc new*(T: type WakuDiscoveryV5,
-          extIp: Option[ValidIpAddress],
-          extTcpPort, extUdpPort: Option[Port],
-          bindIP: ValidIpAddress,
-          discv5UdpPort: Port,
-          bootstrapNodes: seq[string],
-          enrAutoUpdate = false,
-          privateKey: keys.PrivateKey,
-          flags: CapabilitiesBitfield,
-          multiaddrs = newSeq[MultiAddress](),
-          rng: ref HmacDrbgContext,
-          discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T =
-
-  var bootstrapEnrs: seq[enr.Record]
-  for node in bootstrapNodes:
-    addBootstrapNode(node, bootstrapEnrs)
-
-  return WakuDiscoveryV5.new(
-        extIP, extTcpPort, extUdpPort,
-        bindIP,
-        discv5UdpPort,
-        bootstrapEnrs,
-        enrAutoUpdate,
-        privateKey,
-        flags,
-        multiaddrs,
-        rng,
-        discv5Config
-      )
-
-
-proc open*(wakuDiscv5: WakuDiscoveryV5) {.raises: [CatchableError].} =
+# TODO: Do not raise an exception, return a result
+proc open*(wd: WakuDiscoveryV5) {.raises: [CatchableError].} =
   debug "Opening Waku discovery v5 ports"
+  if wd.listening:
+    return
 
-  wakuDiscv5.protocol.open()
-  wakuDiscv5.listening = true
+  wd.protocol.open()
+  wd.listening = true
 
-proc start*(wakuDiscv5: WakuDiscoveryV5) =
-  debug "Starting Waku discovery v5 service"
+proc start*(wd: WakuDiscoveryV5) =
+  debug "starting Waku discovery v5 service"
+  wd.protocol.start()
 
-  wakuDiscv5.protocol.start()
+proc closeWait*(wd: WakuDiscoveryV5) {.async.} =
+  debug "closing Waku discovery v5 node"
+  if not wd.listening:
+    return
 
-proc closeWait*(wakuDiscv5: WakuDiscoveryV5) {.async.} =
-  debug "Closing Waku discovery v5 node"
+  wd.listening = false
+  await wd.protocol.closeWait()
 
-  wakuDiscv5.listening = false
-  await wakuDiscv5.protocol.closeWait()
+proc findRandomPeers*(wd: WakuDiscoveryV5): Future[Result[seq[RemotePeerInfo], cstring]] {.async.} =
+  ## Find random peers to connect to using Discovery v5
+
+  # Query for a random target and collect all discovered nodes
+  let discoveredNodes = await wd.protocol.queryRandom()
+
+  ## Filter based on our needs
+  # let filteredNodes = discoveredNodes.filter(isWakuNode) # Currently only a single predicate
+  # TODO: consider node filtering based on ENR; we do not filter based on ENR in the first waku discv5 beta stage
+
+  var discoveredPeers: seq[RemotePeerInfo]
+
+  for node in discoveredNodes:
+    let res = node.record.toRemotePeerInfo()
+    if res.isErr():
+      error "failed to convert ENR to peer info", enr= $node.record, err=res.error
+      waku_discv5_errors.inc(labelValues = ["peer_info_failure"])
+      continue
+
+    discoveredPeers.add(res.value)
+
+
+  return ok(discoveredPeers)

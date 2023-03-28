@@ -22,7 +22,14 @@ proc now*(): Timestamp =
   getNanosecondTime(getTime().toUnixFloat())
 
 # An accesible bootstrap node. See wakuv2.prod fleets.status.im
-const bootstrapNodes = @["enr:-Nm4QOdTOKZJKTUUZ4O_W932CXIET-M9NamewDnL78P5u9DOGnZlK0JFZ4k0inkfe6iY-0JAaJVovZXc575VV3njeiABgmlkgnY0gmlwhAjS3ueKbXVsdGlhZGRyc7g6ADg2MW5vZGUtMDEuYWMtY24taG9uZ2tvbmctYy53YWt1djIucHJvZC5zdGF0dXNpbS5uZXQGH0DeA4lzZWNwMjU2azGhAo0C-VvfgHiXrxZi3umDiooXMGY9FvYj5_d1Q4EeS7eyg3RjcIJ2X4N1ZHCCIyiFd2FrdTIP"]
+
+
+const bootstrapNode = "enr:-Nm4QOdTOKZJKTUUZ4O_W932CXIET-M9NamewDnL78P5u9D" &
+                      "OGnZlK0JFZ4k0inkfe6iY-0JAaJVovZXc575VV3njeiABgmlkgn" &
+                      "Y0gmlwhAjS3ueKbXVsdGlhZGRyc7g6ADg2MW5vZGUtMDEuYWMtY" &
+                      "24taG9uZ2tvbmctYy53YWt1djIucHJvZC5zdGF0dXNpbS5uZXQG" &
+                      "H0DeA4lzZWNwMjU2azGhAo0C-VvfgHiXrxZi3umDiooXMGY9FvY" &
+                      "j5_d1Q4EeS7eyg3RjcIJ2X4N1ZHCCIyiFd2FrdTIP"
 
 # careful if running pub and sub in the same machine
 const wakuPort = 60000
@@ -33,10 +40,13 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
     setupLogLevel(logging.LogLevel.NOTICE)
     notice "starting publisher", wakuPort=wakuPort, discv5Port=discv5Port
     let
-        nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+        nodeKey = crypto.PrivateKey.random(Secp256k1, rng[]).get()
         ip = ValidIpAddress.init("0.0.0.0")
         node = WakuNode.new(nodeKey, ip, Port(wakuPort))
         flags = CapabilitiesBitfield.init(lightpush = false, filter = false, store = false, relay = true)
+
+    var bootstrapNodeEnr: enr.Record
+    discard bootstrapNodeEnr.fromURI(bootstrapNode)
 
     # assumes behind a firewall, so not care about being discoverable
     node.wakuDiscv5 = WakuDiscoveryV5.new(
@@ -45,7 +55,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
         extUdpPort = none(Port),
         bindIP = ip,
         discv5UdpPort = Port(discv5Port),
-        bootstrapNodes = bootstrapNodes,
+        bootstrapEnrs = @[bootstrapNodeEnr],
         privateKey = keys.PrivateKey(nodeKey.skkey),
         flags = flags,
         rng = node.rng)

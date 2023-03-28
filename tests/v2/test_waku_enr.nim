@@ -2,7 +2,7 @@
 
 import
   std/options,
-  stew/[results, byteutils],
+  stew/results,
   testutils/unittests
 import
   ../../waku/v2/protocol/waku_enr,
@@ -37,7 +37,7 @@ suite "Waku ENR -  Capabilities bitfield":
     check:
       caps == @[Capabilities.Relay, Capabilities.Filter, Capabilities.Lightpush]
 
-  test "encode and extract capabilities from record (EnrBuilder ext)":
+  test "encode and decode record with capabilities field (EnrBuilder ext)":
     ## Given
     let
       enrSeqNum = 1u64
@@ -63,7 +63,7 @@ suite "Waku ENR -  Capabilities bitfield":
     check:
       bitfield.toCapabilities() == @[Capabilities.Relay, Capabilities.Store]
 
-  test "encode and extract capabilities from record (deprecated)":
+  test "encode and decode record with capabilities field (deprecated)":
     # TODO: Remove after removing the `Record.init()` proc
     ## Given
     let enrkey = generatesecp256k1key()
@@ -84,7 +84,7 @@ suite "Waku ENR -  Capabilities bitfield":
     check:
       bitfield.toCapabilities() == @[Capabilities.Relay, Capabilities.Store]
 
-  test "cannot extract capabilities from record":
+  test "cannot decode capabilities from record":
     ## Given
     let
       enrSeqNum = 1u64
@@ -154,115 +154,147 @@ suite "Waku ENR -  Capabilities bitfield":
 
 suite "Waku ENR - Multiaddresses":
 
-  test "Parse multiaddr field":
-    let
-      reasonable = "0x000A047F0000010601BADD03".hexToSeqByte()
-      reasonableDns4 = ("0x002F36286E6F64652D30312E646F2D616D73332E77616B7576322E746" &
-                       "573742E737461747573696D2E6E65740601BBDE03003837316E6F64652D" &
-                       "30312E61632D636E2D686F6E676B6F6E672D632E77616B7576322E74657" &
-                       "3742E737461747573696D2E6E65740601BBDE030029BD03ADADEC040BE0" &
-                       "47F9658668B11A504F3155001F231A37F54C4476C07FB4CC139ED7E30304D2DE03").hexToSeqByte()
-      tooLong = "0x000B047F0000010601BADD03".hexToSeqByte()
-      tooShort = "0x000A047F0000010601BADD0301".hexToSeqByte()
-      gibberish = "0x3270ac4e5011123c".hexToSeqByte()
-      empty = newSeq[byte]()
+  test "decode record with multiaddrs field":
+    ## Given
+    let enrUri = "enr:-QEnuEBEAyErHEfhiQxAVQoWowGTCuEF9fKZtXSd7H_PymHFhGJA3rGAYDVSH" &
+                 "KCyJDGRLBGsloNbS8AZF33IVuefjOO6BIJpZIJ2NIJpcIQS39tkim11bHRpYWRkcn" &
+                 "O4lgAvNihub2RlLTAxLmRvLWFtczMud2FrdXYyLnRlc3Quc3RhdHVzaW0ubmV0BgG" &
+                 "73gMAODcxbm9kZS0wMS5hYy1jbi1ob25na29uZy1jLndha3V2Mi50ZXN0LnN0YXR1" &
+                 "c2ltLm5ldAYBu94DACm9A62t7AQL4Ef5ZYZosRpQTzFVAB8jGjf1TER2wH-0zBOe1" &
+                 "-MDBNLeA4lzZWNwMjU2azGhAzfsxbxyCkgCqq8WwYsVWH7YkpMLnU2Bw5xJSimxKa" &
+                 "v-g3VkcIIjKA"
 
-    ## Note: we expect to fail optimistically, i.e. extract
-    ## any addresses we can and ignore other errors.
-    ## Worst case scenario is we return an empty `multiaddrs` seq.
+    var record: Record
+    require record.fromURI(enrUri)
+
+    let
+      expectedAddr1 = MultiAddress.init("/dns4/node-01.do-ams3.wakuv2.test.statusim.net/tcp/443/wss").get()
+      expectedAddr2 = MultiAddress.init("/dns6/node-01.ac-cn-hongkong-c.wakuv2.test.statusim.net/tcp/443/wss").get()
+      expectedAddr3 = MultiAddress.init("/onion3/vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd:1234/wss").get()
+
+    ## When
+    let typedRecord = record.toTyped()
+    require typedRecord.isOk()
+
+    let multiaddrsOpt = typedRecord.value.multiaddrs
+
+    ## Then
+    check multiaddrsOpt.isSome()
+
+    let multiaddrs = multiaddrsOpt.get()
     check:
-      # Expected cases
-      reasonable.toMultiAddresses().contains(MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[])
-      reasonableDns4.toMultiAddresses().contains(MultiAddress.init("/dns4/node-01.do-ams3.wakuv2.test.statusim.net/tcp/443/wss")[])
-      # Buffer exceeded
-      tooLong.toMultiAddresses().len() == 0
-      # Buffer remainder
-      tooShort.toMultiAddresses().contains(MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[])
-      # Gibberish
-      gibberish.toMultiAddresses().len() == 0
-      # Empty
-      empty.toMultiAddresses().len() == 0
+      multiaddrs.len == 3
+      multiaddrs.contains(expectedAddr1)
+      multiaddrs.contains(expectedAddr2)
+      multiaddrs.contains(expectedAddr3)
 
-  test "Init ENR for Waku Usage":
-    # Tests RFC31 encoding "happy path"
+  test "encode and decode record with multiaddrs field (EnrBuilder ext)":
+    ## Given
     let
-      enrIp = ValidIpAddress.init("127.0.0.1")
-      enrTcpPort, enrUdpPort = Port(61101)
-      enrKey = generateSecp256k1Key()
-      multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[],
-                     MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss")[]]
+      enrSeqNum = 1u64
+      enrPrivKey = generatesecp256k1key()
 
     let
-      record = enr.Record.init(1, enrKey, some(enrIp),
-                       some(enrTcpPort), some(enrUdpPort),
-                       none(CapabilitiesBitfield),
-                       multiaddrs)
-      typedRecord = record.toTyped().get()
+      addr1 = MultiAddress.init("/ip4/127.0.0.1/tcp/80/ws").get()
+      addr2 = MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss").get()
 
-    # Check EIP-778 ENR fields
+    ## When
+    var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
+    builder.withMultiaddrs(addr1, addr2)
+
+    let recordRes = builder.build()
+
+    require recordRes.isOk()
+    let record = recordRes.tryGet()
+
+    let typedRecord = record.toTyped()
+    require typedRecord.isOk()
+
+    let multiaddrsOpt = typedRecord.value.multiaddrs
+
+    ## Then
+    check multiaddrsOpt.isSome()
+
+    let multiaddrs = multiaddrsOpt.get()
     check:
-      @(typedRecord.secp256k1.get()) == enrKey.getPublicKey()[].getRawBytes()[]
-      ipv4(typedRecord.ip.get()) == enrIp
-      Port(typedRecord.tcp.get()) == enrTcpPort
-      Port(typedRecord.udp.get()) == enrUdpPort
+      multiaddrs.len == 2
+      multiaddrs.contains(addr1)
+      multiaddrs.contains(addr2)
 
-    # Check Waku ENR fields
-    let decodedAddrs = record.get(MultiaddrEnrField, seq[byte]).tryGet().toMultiAddresses()
+  test "encode and decode record with multiaddrs field (deprecated)":
+    # TODO: Remove after removing the `Record.init()` proc
+    ## Given
+    let enrkey = generatesecp256k1key()
+    let caps = CapabilitiesBitfield.init(Capabilities.Relay, Capabilities.Store)
+
+    let
+      addr1 = MultiAddress.init("/ip4/127.0.0.1/tcp/80/ws").get()
+      addr2 = MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss").get()
+
+    ## When
+    let record = Record.init(1, enrkey, wakuFlags=some(caps), multiaddrs = @[addr1, addr2])
+
+    let typedRecord = record.toTyped()
+    require typedRecord.isOk()
+
+    let multiaddrsOpt = typedRecord.value.multiaddrs
+
+    ## Then
+    check multiaddrsOpt.isSome()
+
+    let multiaddrs = multiaddrsOpt.get()
     check:
-      decodedAddrs.contains(MultiAddress.init("/ip4/127.0.0.1/tcp/442/ws")[])
-      decodedAddrs.contains(MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss")[])
+      multiaddrs.contains(addr1)
+      multiaddrs.contains(addr2)
 
-  test "Strip multiaddr peerId":
-    # Tests that peerId is stripped of multiaddrs as per RFC31
+  test "cannot decode multiaddresses from record":
+    ## Given
     let
-      enrIp = ValidIpAddress.init("127.0.0.1")
-      enrTcpPort, enrUdpPort = Port(61102)
-      enrKey = generateSecp256k1Key()
-      multiaddrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss/p2p/16Uiu2HAm4v86W3bmT1BiH6oSPzcsSr31iDQpSN5Qa882BCjjwgrD")[]]
+      enrSeqNum = 1u64
+      enrPrivKey = generatesecp256k1key()
+
+    let record = EnrBuilder.init(enrPrivKey, enrSeqNum).build().tryGet()
+
+    ## When
+    let typedRecord = record.toTyped()
+    require typedRecord.isOk()
+
+    let fieldOpt = typedRecord.value.multiaddrs
+
+    ## Then
+    check fieldOpt.isNone()
+
+  test "encode and decode record with multiaddresses field - strip peer ID":
+    ## Given
+    let
+      enrSeqNum = 1u64
+      enrPrivKey = generatesecp256k1key()
 
     let
-      record = enr.Record.init(1, enrKey, some(enrIp),
-                       some(enrTcpPort), some(enrUdpPort),
-                       none(CapabilitiesBitfield),
-                       multiaddrs)
+      addr1 = MultiAddress.init("/ip4/127.0.0.1/tcp/80/ws/p2p/16Uiu2HAm4v86W3bmT1BiH6oSPzcsSr31iDQpSN5Qa882BCjjwgrD").get()
+      addr2 = MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss").get()
 
-    # Check Waku ENR fields
-    let
-      decodedAddrs = record.get(MULTIADDR_ENR_FIELD, seq[byte])[].toMultiAddresses()
+    let expectedAddr1 = MultiAddress.init("/ip4/127.0.0.1/tcp/80/ws").get()
 
-    check decodedAddrs.contains(MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss")[]) # Peer Id has been stripped
+    ## When
+    var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
+    builder.withMultiaddrs(addr1, addr2)
 
-  test "Decode ENR with multiaddrs field":
-    let
-      # Known values correspond to shared test vectors with other Waku implementations
-      knownIp = ValidIpAddress.init("18.223.219.100")
-      knownUdpPort = some(9000.uint16)
-      knownTcpPort = none(uint16)
-      knownMultiaddrs = @[MultiAddress.init("/dns4/node-01.do-ams3.wakuv2.test.statusim.net/tcp/443/wss")[],
-                          MultiAddress.init("/dns6/node-01.ac-cn-hongkong-c.wakuv2.test.statusim.net/tcp/443/wss")[]]
-      knownEnr = "enr:-QEnuEBEAyErHEfhiQxAVQoWowGTCuEF9fKZtXSd7H_PymHFhGJA3rGAYDVSH" &
-                  "KCyJDGRLBGsloNbS8AZF33IVuefjOO6BIJpZIJ2NIJpcIQS39tkim11bHRpYWRkcn" &
-                  "O4lgAvNihub2RlLTAxLmRvLWFtczMud2FrdXYyLnRlc3Quc3RhdHVzaW0ubmV0BgG" &
-                  "73gMAODcxbm9kZS0wMS5hYy1jbi1ob25na29uZy1jLndha3V2Mi50ZXN0LnN0YXR1" &
-                  "c2ltLm5ldAYBu94DACm9A62t7AQL4Ef5ZYZosRpQTzFVAB8jGjf1TER2wH-0zBOe1" &
-                  "-MDBNLeA4lzZWNwMjU2azGhAzfsxbxyCkgCqq8WwYsVWH7YkpMLnU2Bw5xJSimxKav-g3VkcIIjKA"
+    let recordRes = builder.build()
 
-    var enrRecord: Record
+    require recordRes.isOk()
+    let record = recordRes.tryGet()
+
+    let typedRecord = record.toTyped()
+    require typedRecord.isOk()
+
+    let multiaddrsOpt = typedRecord.value.multiaddrs
+
+    ## Then
+    check multiaddrsOpt.isSome()
+
+    let multiaddrs = multiaddrsOpt.get()
     check:
-      enrRecord.fromURI(knownEnr)
-
-    let typedRecord = enrRecord.toTyped().get()
-
-     # Check EIP-778 ENR fields
-    check:
-      ipv4(typedRecord.ip.get()) == knownIp
-      typedRecord.tcp == knownTcpPort
-      typedRecord.udp == knownUdpPort
-
-    # Check Waku ENR fields
-    let
-      decodedAddrs = enrRecord.get(MULTIADDR_ENR_FIELD, seq[byte])[].toMultiAddresses()
-
-    for knownMultiaddr in knownMultiaddrs:
-      check decodedAddrs.contains(knownMultiaddr)
+      multiaddrs.contains(expectedAddr1)
+      multiaddrs.contains(addr2)
 

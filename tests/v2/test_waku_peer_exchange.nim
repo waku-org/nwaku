@@ -101,7 +101,7 @@ procSuite "Waku Peer Exchange":
         some(extIp), some(nodeTcpPort1), some(nodeUdpPort1),
         bindIp,
         nodeUdpPort1,
-        newSeq[string](),
+        newSeq[enr.Record](),
         false,
         keys.PrivateKey(nodeKey1.skkey),
         flags,
@@ -113,7 +113,7 @@ procSuite "Waku Peer Exchange":
         some(extIp), some(nodeTcpPort2), some(nodeUdpPort2),
         bindIp,
         nodeUdpPort2,
-        @[node1.wakuDiscv5.protocol.localNode.record.toURI()], # Bootstrap with node1
+        @[node1.wakuDiscv5.protocol.localNode.record], # Bootstrap with node1
         false,
         keys.PrivateKey(nodeKey2.skkey),
         flags,

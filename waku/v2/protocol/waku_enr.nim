@@ -115,47 +115,17 @@ proc getCapabilities*(r: Record): seq[Capabilities] =
 
 ## Multiaddress
 
-func getRawField*(multiaddrs: seq[MultiAddress]): seq[byte] =
-  var fieldRaw: seq[byte]
-
+func encodeMultiaddrs*(multiaddrs: seq[MultiAddress]): seq[byte] =
+  var buffer = newSeq[byte]()
   for multiaddr in multiaddrs:
+
     let
-      maRaw = multiaddr.data.buffer # binary encoded multiaddr
-      maSize = maRaw.len.uint16.toBytes(Endianness.bigEndian) # size as Big Endian unsigned 16-bit integer
+      raw = multiaddr.data.buffer # binary encoded multiaddr
+      size = raw.len.uint16.toBytes(Endianness.bigEndian) # size as Big Endian unsigned 16-bit integer
 
-    assert maSize.len == 2
+    buffer.add(concat(@size, raw))
 
-    fieldRaw.add(concat(@maSize, maRaw))
-
-  return fieldRaw
-
-func toFieldPair*(multiaddrs: seq[MultiAddress]): FieldPair =
-  ## Converts a seq of multiaddrs to a `multiaddrs` ENR
-  ## field pair according to https://rfc.vac.dev/spec/31/
-  let fieldRaw = multiaddrs.getRawField()
-
-  return toFieldPair(MULTIADDR_ENR_FIELD, fieldRaw)
-
-func stripPeerId(multiaddr: MultiAddress): MultiAddress =
-  var cleanAddr = MultiAddress.init()
-
-  for item in multiaddr.items:
-    if item[].protoName()[] != "p2p":
-      # Add all parts except p2p peerId
-      discard cleanAddr.append(item[])
-
-  return cleanAddr
-
-func stripPeerIds*(multiaddrs: seq[MultiAddress]): seq[MultiAddress] =
-  var cleanAddrs: seq[MultiAddress]
-
-  for multiaddr in multiaddrs:
-    if multiaddr.contains(multiCodec("p2p"))[]:
-      cleanAddrs.add(multiaddr.stripPeerId())
-    else:
-      cleanAddrs.add(multiaddr)
-
-  return cleanAddrs
+  buffer
 
 func readBytes(rawBytes: seq[byte], numBytes: int, pos: var int = 0): Result[seq[byte], cstring] =
   ## Attempts to read `numBytes` from a sequence, from
@@ -163,46 +133,71 @@ func readBytes(rawBytes: seq[byte], numBytes: int, pos: var int = 0): Result[seq
   ## an error if `rawBytes` boundary is exceeded.
   ##
   ## If successful, `pos` is advanced by `numBytes`
-
   if rawBytes[pos..^1].len() < numBytes:
-    return err("Exceeds maximum available bytes")
+    return err("insufficient bytes")
 
   let slicedSeq = rawBytes[pos..<pos+numBytes]
   pos += numBytes
 
   return ok(slicedSeq)
 
-func toMultiAddresses*(multiaddrsField: seq[byte]): seq[MultiAddress] =
+func decodeMultiaddrs(buffer: seq[byte]): EnrResult[seq[MultiAddress]] =
   ## Parses a `multiaddrs` ENR field according to
   ## https://rfc.vac.dev/spec/31/
   var multiaddrs: seq[MultiAddress]
 
-  let totalLen = multiaddrsField.len()
-  if totalLen < 2:
-    return multiaddrs
-
   var pos = 0
-  while pos < totalLen:
-    let addrLenRes = multiaddrsField.readBytes(2, pos)
-    if addrLenRes.isErr():
-      return multiaddrs
-
-    let addrLen = uint16.fromBytesBE(addrLenRes.get())
-    if addrLen == 0.uint16:
+  while pos < buffer.len():
+    let addrLenRaw = ? readBytes(buffer, 2, pos)
+    let addrLen = uint16.fromBytesBE(addrLenRaw)
+    if addrLen == 0:
       # Ensure pos always advances and we don't get stuck in infinite loop
-      return multiaddrs
+      return err("malformed multiaddr field: invalid length")
 
-    let addrRaw = multiaddrsField.readBytes(addrLen.int, pos)
-    if addrRaw.isErr():
-      return multiaddrs
+    let addrRaw = ? readBytes(buffer, addrLen.int, pos)
+    let address = MultiAddress.init(addrRaw).get()
 
-    let multiaddr = MultiAddress.init(addrRaw.get())
-    if multiaddr.isErr():
-      return multiaddrs
+    multiaddrs.add(address)
 
-    multiaddrs.add(multiaddr.get())
+  return ok(multiaddrs)
 
-  return multiaddrs
+
+# ENR builder extension
+func stripPeerId(multiaddr: MultiAddress): MultiAddress =
+  if not multiaddr.contains(multiCodec("p2p")).get():
+    return multiaddr
+
+  var cleanAddr = MultiAddress.init()
+  for item in multiaddr.items:
+    if item.value.protoName().get() != "p2p":
+      # Add all parts except p2p peerId
+      discard cleanAddr.append(item.value)
+
+  return cleanAddr
+
+func withMultiaddrs*(builder: var EnrBuilder, multiaddrs: seq[MultiAddress]) =
+  let multiaddrs = multiaddrs.map(stripPeerId)
+  let value = encodeMultiaddrs(multiaddrs)
+  builder.addFieldPair(MultiaddrEnrField, value)
+
+func withMultiaddrs*(builder: var EnrBuilder, multiaddrs: varargs[MultiAddress]) =
+  withMultiaddrs(builder, @multiaddrs)
+
+# ENR record accessors (e.g., Record, TypedRecord, etc.)
+
+func multiaddrs*(record: TypedRecord): Option[seq[MultiAddress]] =
+  let field = record.tryGet(MultiaddrEnrField, seq[byte])
+  if field.isNone():
+    return none(seq[MultiAddress])
+
+  let decodeRes = decodeMultiaddrs(field.get())
+  if decodeRes.isErr():
+    return none(seq[MultiAddress])
+
+  some(decodeRes.value)
+
+## Utils
+
 
 
 ## ENR
@@ -228,7 +223,8 @@ func init*(T: type enr.Record,
 
   # `multiaddrs` field
   if multiaddrs.len > 0:
-    wakuEnrFields.add(multiaddrs.stripPeerIds().toFieldPair())
+    let value = encodeMultiaddrs(multiaddrs)
+    wakuEnrFields.add(toFieldPair(MultiaddrEnrField, value))
 
   let
     rawPk = privateKey.getRawBytes().expect("Private key is valid")
