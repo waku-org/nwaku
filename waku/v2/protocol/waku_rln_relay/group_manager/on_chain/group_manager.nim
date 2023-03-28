@@ -199,11 +199,21 @@ proc getEvents*(g: OnchainGroupManager, fromBlock: BlockNumber, toBlock: Option[
 
   for event in events:
     let blockNumber = parseHexInt(event["blockNumber"].getStr()).uint
+    let removed = event["removed"].getBool()
     let parsedEventRes = parseEvent(MemberRegistered, event)
     if parsedEventRes.isErr():
       error "failed to parse the MemberRegistered event", error=parsedEventRes.error()
       raise newException(ValueError, "failed to parse the MemberRegistered event")
     let parsedEvent = parsedEventRes.get()
+
+    if removed:
+      # remove the registration from the tree
+      warn "member removed from the tree as per canonical chain", index=parsedEvent.index
+      let deletionSuccess = g.rlnInstance.deleteMember(parsedEvent.index)
+      if not deletionSuccess:
+        error "failed to delete member from the tree"
+        raise newException(ValueError, "failed to delete member from the tree")
+      continue
 
     if blockTable.hasKey(blockNumber):
       blockTable[blockNumber].add(parsedEvent)
