@@ -112,7 +112,7 @@ method register*(g: OnchainGroupManager, identityCredentials: IdentityCredential
   try: # send the registration transaction and check if any error occurs
     txHash = await rlnContract.register(idCommitment).send(value = membershipFee,
                                                            gasPrice = gasPrice,
-                                                           gas = 55000'u64)
+                                                           gas = 100000'u64)
   except ValueError as e:
     error "error while registering the member", msg = e.msg
     raise newException(ValueError, "could not register the member: " & e.msg)
@@ -121,7 +121,6 @@ method register*(g: OnchainGroupManager, identityCredentials: IdentityCredential
   let tsReceipt = await ethRpc.getMinedTransactionReceipt(txHash)
 
   g.registrationTxHash = some(txHash)
-
   # the receipt topic holds the hash of signature of the raised events
   # TODO: make this robust. search within the event list for the event
   let firstTopic = tsReceipt.logs[0].topics[0]
