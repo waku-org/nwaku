@@ -221,8 +221,9 @@ suite "WakuNode - Relay":
     await allFutures(nodes.mapIt(it.mountRelay()))
 
     # Connect nodes
-    let conn = await nodes[0].peerManager.dialPeer(nodes[1].switch.peerInfo.toRemotePeerInfo(), WakuRelayCodec)
-    require conn.isSome
+    let connOk = await nodes[0].peerManager.connectRelay(nodes[1].switch.peerInfo.toRemotePeerInfo())
+    require:
+      connOk == true
 
     # Node 1 subscribes to topic
     nodes[1].subscribe(DefaultPubsubTopic)
