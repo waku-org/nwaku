@@ -255,9 +255,11 @@ suite "Onchain group manager":
       merkleRootBeforeRes.isOk()
     let merkleRootBefore = merkleRootBeforeRes.get()
 
-    var futures = [newFuture[void](), newFuture[void](), newFuture[void](), newFuture[void](), newFuture[void](), newFuture[void]()]
-
-    proc generateCallback(futs: array[0..credentialCount - 1, Future[system.void]], credentials: seq[IdentityCredential]): OnRegisterCallback =
+    type VoidFuturesArray = array[0..credentialCount - 1, Future[void]]
+    var futures: array[0..credentialCount - 1, Future[void]]
+    for i in 0 ..< futures.len():
+      futures[i] = newFuture[void]()
+    proc generateCallback(futs: VoidFuturesArray, credentials: seq[IdentityCredential]): OnRegisterCallback =
       var futureIndex = 0
       proc callback(registrations: seq[Membership]): Future[void] {.async.} =
         if registrations.len == 1 and
@@ -485,9 +487,12 @@ suite "Onchain group manager":
     let credentials = generateCredentials(manager.rlnInstance, credentialCount)
     await manager.init()
 
-    var futures = [newFuture[void](), newFuture[void](), newFuture[void](), newFuture[void](), newFuture[void](), newFuture[void]()]
+    type VoidFuturesArray = array[0..credentialCount - 1, Future[void]]
+    var futures: array[0..credentialCount - 1, Future[void]]
+    for i in 0 ..< futures.len():
+      futures[i] = newFuture[void]()
 
-    proc generateCallback(futs: array[0..credentialCount - 1, Future[system.void]], credentials: seq[IdentityCredential]): OnRegisterCallback =
+    proc generateCallback(futs: VoidFuturesArray, credentials: seq[IdentityCredential]): OnRegisterCallback =
       var futureIndex = 0
       proc callback(registrations: seq[Membership]): Future[void] {.async.} =
         if registrations.len == 1 and
