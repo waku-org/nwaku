@@ -111,8 +111,10 @@ method register*(g: OnchainGroupManager, identityCredentials: IdentityCredential
   var txHash: TxHash
   try: # send the registration transaction and check if any error occurs
     txHash = await rlnContract.register(idCommitment).send(value = membershipFee,
-                                                           gasPrice = gasPrice)
+                                                           gasPrice = gasPrice,
+                                                           gas = 55000'u64)
   except ValueError as e:
+    error "error while registering the member", msg = e.msg
     raise newException(ValueError, "could not register the member: " & e.msg)
 
   # wait for the transaction to be mined
@@ -223,7 +225,7 @@ proc seedBlockTableIntoTree*(g: OnchainGroupManager, blockTable: BlockTable): Fu
     except:
       error "failed to insert members into the tree"
       raise newException(ValueError, "failed to insert members into the tree")
-    debug "new members added to the Merkle tree", commitments=members.mapIt(it.idCommitment.inHex()) , startingIndex=startingIndex
+    trace "new members added to the Merkle tree", commitments=members.mapIt(it.idCommitment.inHex()) , startingIndex=startingIndex
     let lastIndex = startingIndex + members.len.uint - 1
     let indexGap = startingIndex - latestIndex
     if not (toSeq(startingIndex..lastIndex) == members.mapIt(it.index)):
@@ -364,6 +366,15 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   let chainId = await ethRpc.provider.eth_chainId()
   g.chainId = some(chainId)
 
+  if g.ethPrivateKey.isSome():
+    let pk = g.ethPrivateKey.get()
+    let pkParseRes = keys.PrivateKey.fromHex(pk)
+    if pkParseRes.isErr():
+      raise newException(ValueError, "could not parse the private key")
+    ethRpc.privateKey = some(pkParseRes.get())
+    ethRpc.defaultAccount = ethRpc.privateKey.get().toPublicKey().toCanonicalAddress().Address
+
+
   let contractAddress = web3.fromHex(web3.Address, g.ethContractAddress)
   contract = ethRpc.contractSender(RlnContract, contractAddress)
 
@@ -374,12 +385,6 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   except:
     raise newException(ValueError, "could not get the membership deposit")
 
-  if g.ethPrivateKey.isSome():
-    let pk = g.ethPrivateKey.get()
-    let pkParseRes = keys.PrivateKey.fromHex(pk)
-    if pkParseRes.isErr():
-      raise newException(ValueError, "could not parse the private key")
-    ethRpc.privateKey = some(pkParseRes.get())
 
   g.ethRpc = some(ethRpc)
   g.rlnContract = some(contract)
