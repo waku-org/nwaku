@@ -114,13 +114,6 @@ type
       defaultValue: ""
       name: "filternode" }: string
 
-    ## Swap config
-
-    swap* {.
-      desc: "Enable swap protocol: true|false",
-      defaultValue: true
-      name: "swap" }: bool
-
     ## Lightpush config
 
     lightpush* {.

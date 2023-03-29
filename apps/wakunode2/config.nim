@@ -256,13 +256,6 @@ type
       defaultValue: 14400 # 4 hours
       name: "filter-timeout" }: int64
 
-    ## Swap config
-
-    swap* {.
-      desc: "Enable swap protocol: true|false",
-      defaultValue: false
-      name: "swap" }: bool
-
     ## Lightpush config
 
     lightpush* {.
