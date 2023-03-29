@@ -14,7 +14,7 @@ import
   ./topics
 
 const
-  MaxMetaAttrLength* = 32 # 32 bytes
+  MaxMetaAttrLength* = 64 # 64 bytes
 
   MaxWakuMessageSize* = 1024 * 1024 # 1 Mibytes. Corresponds to PubSub default
 
