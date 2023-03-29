@@ -104,7 +104,6 @@ proc poseidon*(data: seq[seq[byte]]): RlnRelayResult[array[32, byte]] =
   var
     hashInputBuffer = inputBytes.toBuffer()
     outputBuffer: Buffer # will holds the hash output
-  trace "poseidon hash input", hashInputBuffer = hashInputBuffer, inputBytes = inputBytes, bufflen = hashInputBuffer.len
 
   let
     hashSuccess = poseidon(addr hashInputBuffer, addr outputBuffer)
