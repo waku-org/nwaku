@@ -56,7 +56,7 @@ procSuite "Waku Discovery v5":
         some(extIp), some(nodeTcpPort1), some(nodeUdpPort1),
         bindIp,
         nodeUdpPort1,
-        newSeq[string](),
+        newSeq[enr.Record](),
         false,
         keys.PrivateKey(nodeKey1.skkey),
         flags,
@@ -68,7 +68,7 @@ procSuite "Waku Discovery v5":
         some(extIp), some(nodeTcpPort2), some(nodeUdpPort2),
         bindIp,
         nodeUdpPort2,
-        @[node1.wakuDiscv5.protocol.localNode.record.toURI()], # Bootstrap with node1
+        @[node1.wakuDiscv5.protocol.localNode.record], # Bootstrap with node1
         false,
         keys.PrivateKey(nodeKey2.skkey),
         flags,
@@ -80,7 +80,7 @@ procSuite "Waku Discovery v5":
         some(extIp), some(nodeTcpPort3), some(nodeUdpPort3),
         bindIp,
         nodeUdpPort3,
-        @[node2.wakuDiscv5.protocol.localNode.record.toURI()], # Bootstrap with node2
+        @[node2.wakuDiscv5.protocol.localNode.record], # Bootstrap with node2
         false,
         keys.PrivateKey(nodeKey3.skkey),
         flags,
@@ -191,7 +191,7 @@ procSuite "Waku Discovery v5":
     await sleepAsync(3000.millis) # Give the algorithm some time to work its magic
 
     let node1Enr = node2.wakuDiscv5.protocol.routingTable.buckets[0].nodes[0].record
-    let multiaddrs = node1Enr.get(MULTIADDR_ENR_FIELD, seq[byte])[].toMultiAddresses()
+    let multiaddrs = node1Enr.toTyped().get().multiaddrs.get()
 
     check:
       node1.wakuDiscv5.protocol.nodesDiscovered > 0

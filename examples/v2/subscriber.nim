@@ -18,7 +18,12 @@ import
   ../../../waku/v2/protocol/waku_discv5
 
 # An accesible bootstrap node. See wakuv2.prod fleets.status.im
-const bootstrapNodes = @["enr:-Nm4QOdTOKZJKTUUZ4O_W932CXIET-M9NamewDnL78P5u9DOGnZlK0JFZ4k0inkfe6iY-0JAaJVovZXc575VV3njeiABgmlkgnY0gmlwhAjS3ueKbXVsdGlhZGRyc7g6ADg2MW5vZGUtMDEuYWMtY24taG9uZ2tvbmctYy53YWt1djIucHJvZC5zdGF0dXNpbS5uZXQGH0DeA4lzZWNwMjU2azGhAo0C-VvfgHiXrxZi3umDiooXMGY9FvYj5_d1Q4EeS7eyg3RjcIJ2X4N1ZHCCIyiFd2FrdTIP"]
+const bootstrapNode = "enr:-Nm4QOdTOKZJKTUUZ4O_W932CXIET-M9NamewDnL78P5u9DOGnZl" &
+                      "K0JFZ4k0inkfe6iY-0JAaJVovZXc575VV3njeiABgmlkgnY0gmlwhAjS" &
+                      "3ueKbXVsdGlhZGRyc7g6ADg2MW5vZGUtMDEuYWMtY24taG9uZ2tvbmct" &
+                      "Yy53YWt1djIucHJvZC5zdGF0dXNpbS5uZXQGH0DeA4lzZWNwMjU2azGh" &
+                      "Ao0C-VvfgHiXrxZi3umDiooXMGY9FvYj5_d1Q4EeS7eyg3RjcIJ2X4N1" &
+                      "ZHCCIyiFd2FrdTIP"
 
 # careful if running pub and sub in the same machine
 const wakuPort = 50000
@@ -34,6 +39,9 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
         node = WakuNode.new(nodeKey, ip, Port(wakuPort))
         flags = CapabilitiesBitfield.init(lightpush = false, filter = false, store = false, relay = true)
 
+    var bootstrapNodeEnr: enr.Record
+    discard bootstrapNodeEnr.fromURI(bootstrapNode)
+
     # assumes behind a firewall, so not care about being discoverable
     node.wakuDiscv5 = WakuDiscoveryV5.new(
         extIp= none(ValidIpAddress),
@@ -41,7 +49,7 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
         extUdpPort = none(Port),
         bindIP = ip,
         discv5UdpPort = Port(discv5Port),
-        bootstrapNodes = bootstrapNodes,
+        bootstrapEnrs = @[bootstrapNodeEnr],
         privateKey = keys.PrivateKey(nodeKey.skkey),
         flags = flags,
         rng = node.rng)
