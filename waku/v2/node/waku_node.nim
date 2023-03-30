@@ -521,7 +521,7 @@ proc mountRelay*(node: WakuNode,
     triggerSelf = triggerSelf
   )
   if initRes.isErr():
-    error "failed mountin relay protocol", error=initRes.error
+    error "failed mounting relay protocol", error=initRes.error
     return
 
   node.wakuRelay = initRes.value

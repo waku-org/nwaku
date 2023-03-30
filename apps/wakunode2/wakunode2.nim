@@ -44,7 +44,9 @@ import
   ../../waku/v2/protocol/waku_enr,
   ../../waku/v2/protocol/waku_dnsdisc,
   ../../waku/v2/protocol/waku_discv5,
+  ../../waku/v2/protocol/waku_message/topics/pubsub_topic,
   ../../waku/v2/protocol/waku_peer_exchange,
+  ../../waku/v2/protocol/waku_relay/validators,
   ../../waku/v2/utils/peers,
   ./wakunode2_setup_rest,
   ./wakunode2_setup_rpc,
@@ -383,6 +385,15 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       let pubsubTopics = conf.topics.split(" ")
       await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
     except CatchableError:
+
+      # Get this from cli
+      var topicsPublicKeys = initTable[string, SkPublicKey]()
+
+      # Add validation keys to protected topics
+      for topic, publicKey in topicsPublicKeys.pairs:
+        info "routing only signed traffic", topic=topic, publicKey=publicKey
+        node.wakuRelay.addSignedTopicValidator(Pubsubtopic(topic), publicKey)
+    except:
       return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())
 
 
