@@ -252,6 +252,13 @@ proc removeMember*(rlnInstance: ptr RLN, index: MembershipIndex): bool =
   let deletion_success = delete_member(rlnInstance, index)
   return deletion_success
 
+proc removeMembers*(rlnInstance: ptr RLN, indices: seq[MembershipIndex]): bool =
+  for index in indices:
+    let deletion_success = delete_member(rlnInstance, index)
+    if not deletion_success:
+      return false
+  return true
+
 proc getMerkleRoot*(rlnInstance: ptr RLN): MerkleNodeResult =
   # read the Merkle Tree root after insertion
   var
