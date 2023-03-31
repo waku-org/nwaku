@@ -27,7 +27,6 @@ import
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_lightpush,
   ../../waku/v2/protocol/waku_peer_exchange,
-  ../../waku/v2/protocol/waku_swap/waku_swap,
   ./testlib/common,
   ./testlib/testutils,
   ./testlib/waku2
@@ -97,9 +96,6 @@ procSuite "Peer Manager":
       # Create filter peer
       filterLoc = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet()
       filterPeer = PeerInfo.new(generateEcdsaKey(), @[filterLoc])
-      # Create swap peer
-      swapLoc = MultiAddress.init("/ip4/127.0.0.2/tcp/2").tryGet()
-      swapPeer = PeerInfo.new(generateEcdsaKey(), @[swapLoc])
       # Create store peer
       storeLoc = MultiAddress.init("/ip4/127.0.0.3/tcp/4").tryGet()
       storePeer = PeerInfo.new(generateEcdsaKey(), @[storeLoc])
@@ -107,22 +103,17 @@ procSuite "Peer Manager":
     await node.start()
 
     await node.mountFilterClient()
-    await node.mountSwap()
     node.mountStoreClient()
 
-    node.peerManager.addServicePeer(swapPeer.toRemotePeerInfo(), WakuSwapCodec)
     node.peerManager.addServicePeer(storePeer.toRemotePeerInfo(), WakuStoreCodec)
     node.peerManager.addServicePeer(filterPeer.toRemotePeerInfo(), WakuFilterCodec)
 
     # Check peers were successfully added to peer manager
     check:
-      node.peerManager.peerStore.peers().len == 3
+      node.peerManager.peerStore.peers().len == 2
       node.peerManager.peerStore.peers(WakuFilterCodec).allIt(it.peerId == filterPeer.peerId and
                                                               it.addrs.contains(filterLoc) and
                                                               it.protocols.contains(WakuFilterCodec))
-      node.peerManager.peerStore.peers(WakuSwapCodec).allIt(it.peerId == swapPeer.peerId and
-                                                            it.addrs.contains(swapLoc) and
-                                                            it.protocols.contains(WakuSwapCodec))
       node.peerManager.peerStore.peers(WakuStoreCodec).allIt(it.peerId == storePeer.peerId and
                                                              it.addrs.contains(storeLoc) and
                                                              it.protocols.contains(WakuStoreCodec))
