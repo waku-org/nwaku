@@ -1,5 +1,6 @@
 import
   ../protocol_types,
+  ../constants,
   ../rln
 import
   options,
@@ -87,18 +88,18 @@ method withdrawBatch*(g: GroupManager, identitySecretHashes: seq[IdentitySecretH
 method onWithdraw*(g: GroupManager, cb: OnWithdrawCallback) {.base,gcsafe.} =
   g.withdrawCb = some(cb)
 
-# Acceptable roots for merkle root validation of incoming messages
-const AcceptableRootWindowSize* = 5
-
-proc updateValidRootQueue*(rootQueue: var Deque[MerkleNode], root: MerkleNode): void =
+proc slideRootQueue*(rootQueue: var Deque[MerkleNode], root: MerkleNode): seq[MerkleNode] =
   ## updates the root queue with the latest root and pops the oldest one when the capacity of `AcceptableRootWindowSize` is reached
-  let overflowCount = rootQueue.len() - AcceptableRootWindowSize
-  if overflowCount >= 0:
-    # Delete the oldest `overflowCount` elements in the deque (index 0..`overflowCount`)
-    for i in 0..overflowCount:
-      rootQueue.popFirst()
+  let overflowCount = rootQueue.len() - AcceptableRootWindowSize + 1
+  var overflowedRoots = newSeq[MerkleNode]()
+  if overflowCount > 0:
+    # Delete the oldest `overflowCount` roots in the deque (index 0..`overflowCount`)
+    # insert into overflowedRoots seq and return
+    for i in 0 ..< overflowCount:
+      overFlowedRoots.add(rootQueue.popFirst())
   # Push the next root into the queue
   rootQueue.addLast(root)
+  return overFlowedRoots
 
 method indexOfRoot*(g: GroupManager, root: MerkleNode): int {.base,gcsafe,raises:[].} =
   ## returns the index of the root in the merkle tree.
@@ -112,12 +113,18 @@ method validateRoot*(g: GroupManager, root: MerkleNode): bool {.base,gcsafe,rais
     return true
   return false
 
-template updateValidRootQueue*(g: GroupManager) =
+template slideRootQueue*(g: GroupManager): untyped =
   let rootRes = g.rlnInstance.getMerkleRoot()
   if rootRes.isErr():
     raise newException(ValueError, "failed to get merkle root")
   let rootAfterUpdate = rootRes.get()
-  updateValidRootQueue(g.validRoots, rootAfterUpdate)
+
+  var rootBuffer: Deque[MerkleNode]
+  let overflowedRoots = slideRootQueue(g.validRoots, rootAfterUpdate)
+  if overflowedRoots.len > 0:
+    for root in overflowedRoots:
+      discard rootBuffer.slideRootQueue(root)
+  rootBuffer
 
 method verifyProof*(g: GroupManager,
                     input: openArray[byte],
