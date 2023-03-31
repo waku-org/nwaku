@@ -1,9 +1,3 @@
-## Common
-
-# Waku common test suite
-import ./all_tests_common
-
-
 ## Waku v2
 
 # Waku message test suite
