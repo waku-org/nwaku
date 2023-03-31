@@ -6,7 +6,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options,sequtils,sets,tables],
+  std/[options,sequtils,sets,strutils,tables],
   chronicles,
   chronos,
   libp2p/peerid,
@@ -24,7 +24,7 @@ logScope:
   topics = "waku filter"
 
 const
-  MaxContentTopicsPerRequest = 30
+  MaxContentTopicsPerRequest* = 30
 
 type
   WakuFilter* = ref object of LPProtocol
@@ -52,6 +52,7 @@ proc subscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic],
   trace "subscribing peer to filter criteria", peerId=peerId, filterCriteria=filterCriteria
 
   if peerId in wf.subscriptions:
+    # We already have a subscription for this peer. Try to add the new filter criteria.
     var peerSubscription = wf.subscriptions.mgetOrPut(peerId, initHashSet[FilterCriterion]())
     if peerSubscription.len() + filterCriteria.len() >= MaxCriteriaPerSubscription:
       return err(FilterSubscribeError.serviceUnavailable("peer has reached maximum number of filter criteria"))
@@ -59,6 +60,7 @@ proc subscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic],
     peerSubscription.incl(filterCriteria)
     wf.subscriptions[peerId] = peerSubscription
   else:
+    # We don't have a subscription for this peer yet. Try to add it.
     if wf.subscriptions.len() >= MaxTotalSubscriptions:
       return err(FilterSubscribeError.serviceUnavailable("node has reached maximum number of subscriptions"))
     debug "creating new subscription", peerId=peerId
@@ -78,7 +80,7 @@ proc unsubscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic
   trace "unsubscribing peer from filter criteria", peerId=peerId, filterCriteria=filterCriteria
 
   if peerId notin wf.subscriptions:
-    debug "unsubscibing peer has no subscriptions", peerId=peerId
+    debug "unsubscribing peer has no subscriptions", peerId=peerId
     return err(FilterSubscribeError.notFound())
 
   var peerSubscription = wf.subscriptions.mgetOrPut(peerId, initHashSet[FilterCriterion]())
@@ -95,7 +97,7 @@ proc unsubscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic
 
 proc unsubscribeAll(wf: WakuFilter, peerId: PeerID): FilterSubscribeResult =
   if peerId notin wf.subscriptions:
-    debug "unsubscibing peer has no subscriptions", peerId=peerId
+    debug "unsubscribing peer has no subscriptions", peerId=peerId
     return err(FilterSubscribeError.notFound())
 
   debug "removing peer subscription", peerId=peerId
@@ -169,6 +171,7 @@ proc pushToPeers(wf: WakuFilter, peers: seq[PeerId], messagePush: MessagePush) {
 proc maintainSubscriptions*(wf: WakuFilter) =
   trace "maintaining subscriptions"
 
+  ## Remove subscriptions for peers that have been removed from peer store
   var peersToRemove: seq[PeerId]
   for peerId, peerSubscription in wf.subscriptions.pairs():
     ## TODO: currently we only maintain by syncing with peer store. We could
@@ -177,7 +180,11 @@ proc maintainSubscriptions*(wf: WakuFilter) =
       debug "peer has been removed from peer store, removing subscription", peerId=peerId
       peersToRemove.add(peerId)
 
-  wf.subscriptions.removePeers(peersToRemove)
+  if peersToRemove.len() > 0:
+    wf.subscriptions.removePeers(peersToRemove)
+
+  ## Periodic report of number of subscriptions
+  waku_filter_subscriptions.set(wf.subscriptions.len().float64)
 
 const MessagePushTimeout = 20.seconds
 proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, message: WakuMessage) {.async.} =
@@ -208,6 +215,8 @@ proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, message: WakuMessa
 proc initProtocolHandler(wf: WakuFilter) =
 
   proc handler(conn: Connection, proto: string) {.async.} =
+    trace "filter subscribe request handler triggered", peerId=conn.peerId
+
     let buf = await conn.readLp(MaxSubscribeSize)
 
     let decodeRes = FilterSubscribeRequest.decode(buf)
@@ -219,6 +228,8 @@ proc initProtocolHandler(wf: WakuFilter) =
     let request = decodeRes.value #TODO: toAPI() split here
 
     let response = wf.handleSubscribeRequest(conn.peerId, request)
+
+    debug "sending filter subscribe response", peerId=conn.peerId, response=response
 
     await conn.writeLp(response.encode().buffer) #TODO: toRPC() separation here
     return
