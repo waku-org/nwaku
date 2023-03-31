@@ -101,11 +101,3 @@ when defined(rln):
     ./v2/waku_rln_relay/test_wakunode_rln_relay,
     ./v2/waku_rln_relay/test_rln_group_manager_onchain,
     ./v2/waku_rln_relay/test_rln_group_manager_static
-
-# Waku swap test suite
-import
-  ./v2/test_waku_swap
-
-# TODO: Only enable this once swap module is integrated more nicely as a dependency, i.e. as submodule with CI etc
-# For PoC execute it manually and run separate module here: https://github.com/vacp2p/swap-contracts-module
-# import ./v2/test_waku_swap_contracts
