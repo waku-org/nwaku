@@ -131,12 +131,22 @@ clean-librln:
 clean: | clean-librln
 
 
+#################
+## Waku Common ##
+#################
+.PHONY: testcommon
+
+testcommon: | build deps
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim testcommon $(NIM_PARAMS) waku.nims
+
+
 #############
 ## Waku v2 ##
 #############
 .PHONY: test2 wakunode2 example2 sim2 scripts2 wakubridge chat2 chat2bridge
 
-test2: | build deps librln
+test2: | build deps librln testcommon
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test2 $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
 
@@ -190,11 +200,11 @@ networkmonitor: | build deps
 #################
 .PHONY: testwhisper test1 wakunode1 example1 sim1
 
-testwhisper: | build deps
+testwhisper: | build deps testcommon
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim testwhisper $(NIM_PARAMS) waku.nims
 
-test1: | build deps
+test1: | build deps testcommon
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test1 $(NIM_PARAMS) waku.nims
 
