@@ -38,6 +38,10 @@ import
   ./v2/waku_relay/test_waku_relay,
   ./v2/waku_relay/test_wakunode_relay
 
+# Waku filter test suite
+import
+  ./v2/waku_filter_v2/test_waku_filter,
+  ./v2/waku_filter_v2/test_waku_filter_protocol
 
 import
   # Waku v2 tests

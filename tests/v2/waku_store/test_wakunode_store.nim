@@ -229,7 +229,7 @@ procSuite "WakuNode - Store":
     await sleepAsync(100.millis)
 
     # Send filter push message to server from source node
-    await filterSource.wakuFilter.handleMessage(DefaultPubsubTopic, message)
+    await filterSource.wakuFilterLegacy.handleMessage(DefaultPubsubTopic, message)
 
     # Wait for the server filter to receive the push message
     require await filterFut.withTimeout(5.seconds)

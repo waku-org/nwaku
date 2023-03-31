@@ -30,8 +30,9 @@ import
   ../protocol/waku_store,
   ../protocol/waku_store/client as store_client,
   ../protocol/waku_swap/waku_swap,
-  ../protocol/waku_filter,
-  ../protocol/waku_filter/client as filter_client,
+  ../protocol/waku_filter as legacy_filter,  #TODO: support for legacy filter protocol will be removed
+  ../protocol/waku_filter/client as filter_client, #TODO: support for legacy filter protocol will be removed
+  ../protocol/waku_filter_v2 as waku_filter,
   ../protocol/waku_lightpush,
   ../protocol/waku_lightpush/client as lightpush_client,
   ../protocol/waku_enr,
@@ -88,8 +89,9 @@ type
     wakuArchive*: WakuArchive
     wakuStore*: WakuStore
     wakuStoreClient*: WakuStoreClient
-    wakuFilter*: WakuFilter
-    wakuFilterClient*: WakuFilterClient
+    wakuFilter*: waku_filter.WakuFilter
+    wakuFilterLegacy*: legacy_filter.WakuFilter #TODO: support for legacy filter protocol will be removed
+    wakuFilterClient*: WakuFilterClient #TODO: support for legacy filter protocol will be removed
     wakuSwap*: WakuSwap
     when defined(rln):
       wakuRlnRelay*: WakuRLNRelay
@@ -405,6 +407,12 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
 
     await node.wakuFilter.handleMessage(topic, msg)
 
+    ##TODO: Support for legacy filter will be removed
+    if node.wakuFilterLegacy.isNil():
+      return
+
+    await node.wakuFilterLegacy.handleMessage(topic, msg)
+
   proc archiveHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
     if node.wakuArchive.isNil():
       return
@@ -549,12 +557,15 @@ proc mountRelay*(node: WakuNode,
 
 proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {.async, raises: [Defect, LPError]} =
   info "mounting filter protocol"
-  node.wakuFilter = WakuFilter.new(node.peerManager, node.rng, filterTimeout)
+  node.wakuFilter = waku_filter.WakuFilter.new(node.peerManager)
+  node.wakuFilterLegacy = legacy_filter.WakuFilter.new(node.peerManager, node.rng, filterTimeout) #TODO: remove legacy
 
   if node.started:
     await node.wakuFilter.start()
+    await node.wakuFilterLegacy.start() #TODO: remove legacy
 
-  node.switch.mount(node.wakuFilter, protocolMatcher(WakuFilterCodec))
+  node.switch.mount(node.wakuFilter, protocolMatcher(WakuFilterSubscribeCodec))
+  node.switch.mount(node.wakuFilterLegacy, protocolMatcher(WakuFilterCodec)) #TODO: remove legacy
 
 proc filterHandleMessage*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMessage) {.async.}=
   if node.wakuFilter.isNil():
@@ -562,6 +573,7 @@ proc filterHandleMessage*(node: WakuNode, pubsubTopic: PubsubTopic, message: Wak
     return
 
   await node.wakuFilter.handleMessage(pubsubTopic, message)
+  await node.wakuFilterLegacy.handleMessage(pubsubTopic, message) #TODO: remove legacy
 
 
 proc mountFilterClient*(node: WakuNode) {.async, raises: [Defect, LPError].} =
