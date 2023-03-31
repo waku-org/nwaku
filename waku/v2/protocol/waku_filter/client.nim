@@ -92,18 +92,18 @@ proc initProtocolHandler(wf: WakuFilterClient) =
 
     let decodeReqRes = FilterRPC.decode(buffer)
     if decodeReqRes.isErr():
-      waku_filter_errors.inc(labelValues = [decodeRpcFailure])
+      waku_legacy_filter_errors.inc(labelValues = [decodeRpcFailure])
       return
 
     let rpc = decodeReqRes.get()
     trace "filter message received"
 
     if rpc.push.isNone():
-      waku_filter_errors.inc(labelValues = [emptyMessagePushFailure])
+      waku_legacy_filter_errors.inc(labelValues = [emptyMessagePushFailure])
       # TODO: Manage the empty push message error. Perform any action?
       return
 
-    waku_filter_messages.inc(labelValues = ["MessagePush"])
+    waku_legacy_filter_messages.inc(labelValues = ["MessagePush"])
 
     let
       peerId = conn.peerId
@@ -158,7 +158,7 @@ proc sendFilterRequestRpc(wf: WakuFilterClient,
 
   let sendRes = await wf.sendFilterRpc(rpc, peer)
   if sendRes.isErr():
-    waku_filter_errors.inc(labelValues = [sendRes.error])
+    waku_legacy_filter_errors.inc(labelValues = [sendRes.error])
     return err(sendRes.error)
 
   return ok()

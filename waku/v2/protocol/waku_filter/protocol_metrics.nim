@@ -9,7 +9,7 @@ import metrics
 declarePublicGauge waku_legacy_filter_subscribers, "number of light node filter subscribers"
 declarePublicGauge waku_legacy_filter_errors, "number of filter protocol errors", ["type"]
 declarePublicGauge waku_legacy_filter_messages, "number of filter messages received", ["type"]
-declarePublicGauge waku_node_legacy_filters, "number of content filter subscriptions"
+declarePublicGauge waku_node_filters, "number of content filter subscriptions"
 
 
 # Error types (metric label values)
