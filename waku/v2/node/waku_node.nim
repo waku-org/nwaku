@@ -29,7 +29,6 @@ import
   ../protocol/waku_archive,
   ../protocol/waku_store,
   ../protocol/waku_store/client as store_client,
-  ../protocol/waku_swap/waku_swap,
   ../protocol/waku_filter,
   ../protocol/waku_filter/client as filter_client,
   ../protocol/waku_lightpush,
@@ -90,7 +89,6 @@ type
     wakuStoreClient*: WakuStoreClient
     wakuFilter*: WakuFilter
     wakuFilterClient*: WakuFilterClient
-    wakuSwap*: WakuSwap
     when defined(rln):
       wakuRlnRelay*: WakuRLNRelay
     wakuLightPush*: WakuLightPush
@@ -649,21 +647,6 @@ proc unsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: Conte
     return
 
   await node.filterUnsubscribe(pubsubTopic, contentTopics, peer=peerOpt.get())
-
-
-## Waku swap
-
-# NOTE: If using the swap protocol, it must be mounted before store. This is
-# because store is using a reference to the swap protocol.
-proc mountSwap*(node: WakuNode, swapConfig: SwapConfig = SwapConfig.init()) {.async, raises: [Defect, LPError].} =
-  info "mounting swap", mode = $swapConfig.mode
-
-  node.wakuSwap = WakuSwap.init(node.peerManager, node.rng, swapConfig)
-  if node.started:
-    # Node has started already. Let's start swap too.
-    await node.wakuSwap.start()
-
-  node.switch.mount(node.wakuSwap, protocolMatcher(WakuSwapCodec))
 
 
 ## Waku archive
