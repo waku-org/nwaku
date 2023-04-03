@@ -385,16 +385,14 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       let pubsubTopics = conf.topics.split(" ")
       await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
     except CatchableError:
-
-      # Get this from cli
-      var topicsPublicKeys = initTable[string, SkPublicKey]()
-
-      # Add validation keys to protected topics
-      for topic, publicKey in topicsPublicKeys.pairs:
-        info "routing only signed traffic", topic=topic, publicKey=publicKey
-        node.wakuRelay.addSignedTopicValidator(Pubsubtopic(topic), publicKey)
-    except:
       return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())
+
+    # TODO: Get this from cli
+    var topicsPublicKeys = initTable[string, SkPublicKey]()
+    # Add validation keys to protected topics
+    for topic, publicKey in topicsPublicKeys.pairs:
+      info "routing only signed traffic", topic=topic, publicKey=publicKey
+      node.wakuRelay.addSignedTopicValidator(Pubsubtopic(topic), publicKey)
 
 
   # Keepalive mounted on all nodes
