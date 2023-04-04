@@ -27,5 +27,5 @@ else
     echo "Failed to download $host_triplet-rln.tar.gz"
     # Build rln instead
     cargo build --release --manifest-path "$build_dir/rln/Cargo.toml"
-    cp "$build_dir/rln/target/release/librln.a" .
+    cp "$build_dir/target/release/librln.a" .
 fi

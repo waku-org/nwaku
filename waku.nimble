@@ -41,11 +41,16 @@ proc test(name: string, params = "-d:chronicles_log_level=DEBUG", lang = "c") =
   buildBinary name, "tests/", params
   exec "build/" & name
 
-### Whisper tasks
+
+### Waku common tasks
+task testcommon, "Build & run common tests":
+  test "all_tests_common", "-d:chronicles_log_level=WARN -d:chronosStrictException"
+
+
+### Whisper & Waku v1 tasks
 task testwhisper, "Build & run Whisper tests":
   test "all_tests_whisper", "-d:chronicles_log_level=WARN -d:chronosStrictException"
 
-### Waku v1 tasks
 task wakunode1, "Build Waku v1 cli node":
   buildBinary "wakunode1", "waku/v1/node/",
     "-d:chronicles_log_level=DEBUG -d:chronosStrictException"
@@ -62,6 +67,7 @@ task example1, "Build Waku v1 example":
 
 task test1, "Build & run Waku v1 tests":
   test "all_tests_v1", "-d:chronicles_log_level=WARN -d:chronosStrictException"
+
 
 ### Waku v2 tasks
 task wakunode2, "Build Waku v2 (experimental) cli node":
