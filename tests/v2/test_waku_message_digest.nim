@@ -8,7 +8,7 @@ import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_message/codec,
   ../../waku/v2/protocol/waku_message/digest,
-  ./testlib/waku2
+  ./testlib/wakucore
 
 suite "Waku Message - Deterministic hashing":
 

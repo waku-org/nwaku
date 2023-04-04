@@ -13,7 +13,7 @@ import
   ../../../waku/v2/protocol/waku_filter_v2/rpc,
   ../../../waku/v2/protocol/waku_message,
   ../testlib/common,
-  ../testlib/waku2
+  ../testlib/wakucore
 
 proc newTestWakuFilter(switch: Switch): Future[WakuFilter] {.async.} =
   let

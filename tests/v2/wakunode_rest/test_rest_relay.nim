@@ -20,7 +20,8 @@ import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_relay,
   ../../waku/v2/utils/time,
-  ../testlib/waku2
+  ../testlib/wakucore,
+  ../testlib/wakunode
 
 
 proc testWakuNode(): WakuNode =
@@ -30,7 +31,7 @@ proc testWakuNode(): WakuNode =
     extIp = ValidIpAddress.init("127.0.0.1")
     port = Port(0)
 
-  WakuNode.new(privkey, bindIp, port, some(extIp), some(port))
+  newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
 
 
 suite "Waku v2 Rest API - Relay":

@@ -150,62 +150,6 @@ proc getAutonatService*(rng: ref HmacDrbgContext): AutonatService =
 
   return autonatService
 
-## retain old signature, but deprecate it
-proc new*(T: type WakuNode,
-          nodeKey: crypto.PrivateKey,
-          bindIp: ValidIpAddress,
-          bindPort: Port,
-          extIp = none(ValidIpAddress),
-          extPort = none(Port),
-          extMultiAddrs = newSeq[MultiAddress](),
-          peerStorage: PeerStorage = nil,
-          maxConnections = builders.MaxConnections,
-          wsBindPort: Port = (Port)8000,
-          wsEnabled: bool = false,
-          wssEnabled: bool = false,
-          secureKey: string = "",
-          secureCert: string = "",
-          wakuFlags = none(CapabilitiesBitfield),
-          nameResolver: NameResolver = nil,
-          sendSignedPeerRecord = false,
-          dns4DomainName = none(string),
-          discv5UdpPort = none(Port),
-          wakuDiscv5 = none(WakuDiscoveryV5),
-          agentString = none(string),    # defaults to nim-libp2p version
-          peerStoreCapacity = none(int), # defaults to 1.25 maxConnections
-          # TODO: make this argument required after tests are updated
-          rng: ref HmacDrbgContext = crypto.newRng()
-          ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError], deprecated: "Use NetConfig variant".} =
-  let netConfigRes = NetConfig.init(
-    bindIp = bindIp,
-    bindPort = bindPort,
-    extIp = extIp,
-    extPort = extPort,
-    extMultiAddrs = extMultiAddrs,
-    wsBindPort = wsBindPort,
-    wsEnabled = wsEnabled,
-    wssEnabled = wssEnabled,
-    wakuFlags = wakuFlags,
-    dns4DomainName = dns4DomainName,
-    discv5UdpPort = discv5UdpPort,
-  )
-  if netConfigRes.isErr():
-    raise newException(Defect, "invalid node configuration: " & $netConfigRes.error)
-
-  return WakuNode.new(
-    nodeKey = nodeKey,
-    netConfig = netConfigRes.get(),
-    peerStorage = peerStorage,
-    maxConnections = maxConnections,
-    secureKey = secureKey,
-    secureCert = secureCert,
-    nameResolver = nameResolver,
-    sendSignedPeerRecord = sendSignedPeerRecord,
-    wakuDiscv5 = wakuDiscv5,
-    agentString = agentString,
-    peerStoreCapacity = peerStoreCapacity,
-  )
-
 proc new*(T: type WakuNode,
           nodeKey: crypto.PrivateKey,
           netConfig: NetConfig,
@@ -223,7 +167,7 @@ proc new*(T: type WakuNode,
           ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
   ## Creates a Waku Node instance.
 
-  info "Initializing networking", addrs=netConfig.announcedAddresses
+  info "Initializing networking", addrs= $netConfig.announcedAddresses
 
   let switch = newWakuSwitch(
     some(nodekey),
@@ -279,7 +223,7 @@ proc info*(node: WakuNode): WakuInfo =
 proc connectToNodes*(node: WakuNode, nodes: seq[RemotePeerInfo] | seq[string], source = "api") {.async.} =
   ## `source` indicates source of node addrs (static config, api call, discovery, etc)
   # NOTE Connects to the node without a give protocol, which automatically creates streams for relay
-  await connectToNodes(node.peerManager, nodes, source=source)
+  await peer_manager.connectToNodes(node.peerManager, nodes, source=source)
 
 
 ## Waku relay

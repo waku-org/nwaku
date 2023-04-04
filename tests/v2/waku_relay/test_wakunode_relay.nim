@@ -26,7 +26,8 @@ import
   ../../waku/v2/protocol/waku_relay/validators,
   ../testlib/testutils,
   ../testlib/common,
-  ../testlib/waku2
+  ../testlib/wakucore,
+  ../testlib/wakunode
 
 template sourceDir: string = currentSourcePath.parentDir()
 const KEY_PATH = sourceDir / "resources/test_key.pem"
@@ -37,7 +38,7 @@ suite "WakuNode - Relay":
   asyncTest "Relay protocol is started correctly":
     let
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     # Relay protocol starts if mounted after node start
 
@@ -51,7 +52,7 @@ suite "WakuNode - Relay":
 
     let
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     await node2.mountRelay()
 
@@ -70,11 +71,11 @@ suite "WakuNode - Relay":
   asyncTest "Messages are correctly relayed":
     let
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
       nodeKey3 = generateSecp256k1Key()
-      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node3 = newTestWakuNode(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(0))
       pubSubTopic = "test"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
@@ -128,13 +129,13 @@ suite "WakuNode - Relay":
     let
       # publisher node
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
       # Relay node
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
       # Subscriber
       nodeKey3 = generateSecp256k1Key()
-      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node3 = newTestWakuNode(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(0))
 
       pubSubTopic = "test"
       contentTopic1 = ContentTopic("/waku/2/default-content/proto")
@@ -218,7 +219,7 @@ suite "WakuNode - Relay":
   # TODO: Add a function to validate the WakuMessage integrity
   xasyncTest "Stats of peer sending wrong WakuMessages are updated":
     # Create 2 nodes
-    let nodes = toSeq(0..1).mapIt(WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes = toSeq(0..1).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
 
     # Start all the nodes and mount relay with
     await allFutures(nodes.mapIt(it.start()))
@@ -252,7 +253,7 @@ suite "WakuNode - Relay":
 
   asyncTest "Spam protected topic accepts signed messages":
     # Create 5 nodes
-    let nodes = toSeq(0..<5).mapIt(WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes = toSeq(0..<5).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
 
     # Protected topic and key to sign
     let spamProtectedTopic = PubSubTopic("some-spam-protected-topic")
@@ -318,7 +319,7 @@ suite "WakuNode - Relay":
 
   asyncTest "Spam protected topic rejects non-signed and wrongly-signed messages":
     # Create 5 nodes
-    let nodes = toSeq(0..<5).mapIt(WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes = toSeq(0..<5).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
 
     # Protected topic and key to sign
     let spamProtectedTopic = PubSubTopic("some-spam-protected-topic")
@@ -399,7 +400,7 @@ suite "WakuNode - Relay":
 
   asyncTest "Spam protected topic rejects a spammer node":
     # Create 5 nodes
-    let nodes = toSeq(0..<5).mapIt(WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes = toSeq(0..<5).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
 
     # Protected topic and key to sign
     let spamProtectedTopic = PubSubTopic("some-spam-protected-topic")
@@ -487,10 +488,10 @@ suite "WakuNode - Relay":
   asyncTest "Messages are relayed between two websocket nodes":
     let
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         bindPort = Port(60510), wsBindPort = Port(8001), wsEnabled = true)
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         bindPort = Port(60512), wsBindPort = Port(8101), wsEnabled = true)
       pubSubTopic = "test"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
@@ -531,10 +532,10 @@ suite "WakuNode - Relay":
   asyncTest "Messages are relayed between nodes with multiple transports (TCP and Websockets)":
     let
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         bindPort = Port(60520), wsBindPort = Port(8002), wsEnabled = true)
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         bindPort = Port(60522))
       pubSubTopic = "test"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
@@ -575,10 +576,10 @@ suite "WakuNode - Relay":
   asyncTest "Messages relaying fails with non-overlapping transports (TCP or Websockets)":
     let
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         bindPort = Port(60530))
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         bindPort = Port(60532), wsBindPort = Port(8103), wsEnabled = true)
       pubSubTopic = "test"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
@@ -622,10 +623,10 @@ suite "WakuNode - Relay":
   asyncTest "Messages are relayed between nodes with multiple transports (TCP and secure Websockets)":
     let
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         bindPort = Port(60540), wsBindPort = Port(8004), wssEnabled = true, secureKey = KEY_PATH, secureCert = CERT_PATH)
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         bindPort = Port(60542))
       pubSubTopic = "test"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
@@ -665,9 +666,9 @@ suite "WakuNode - Relay":
   asyncTest "Messages are relayed between nodes with multiple transports (websocket and secure Websockets)":
     let
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), bindPort = Port(60550), wsBindPort = Port(8005), wssEnabled = true, secureKey = KEY_PATH, secureCert = CERT_PATH)
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), bindPort = Port(60550), wsBindPort = Port(8005), wssEnabled = true, secureKey = KEY_PATH, secureCert = CERT_PATH)
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), bindPort = Port(60552),wsBindPort = Port(8105), wsEnabled = true )
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), bindPort = Port(60552),wsBindPort = Port(8105), wsEnabled = true )
 
     let
       pubSubTopic = "test"

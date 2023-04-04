@@ -14,7 +14,8 @@ import
   ../../waku/v2/utils/peers,
   ../../waku/v2/waku_node,
   ./testlib/common,
-  ./testlib/waku2
+  ./testlib/wakucore,
+  ./testlib/wakunode
 
 
 suite "WakuNode - Lightpush":
@@ -22,11 +23,11 @@ suite "WakuNode - Lightpush":
     ## Setup
     let
       lightNodeKey = generateSecp256k1Key()
-      lightNode = WakuNode.new(lightNodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+      lightNode = newTestWakuNode(lightNodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
       bridgeNodeKey = generateSecp256k1Key()
-      bridgeNode = WakuNode.new(bridgeNodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+      bridgeNode = newTestWakuNode(bridgeNodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
       destNodeKey = generateSecp256k1Key()
-      destNode = WakuNode.new(destNodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+      destNode = newTestWakuNode(destNodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     await allFutures(destNode.start(), bridgeNode.start(), lightNode.start())
 

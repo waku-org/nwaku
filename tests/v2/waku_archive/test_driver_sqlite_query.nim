@@ -11,7 +11,7 @@ import
   ../../../waku/v2/protocol/waku_archive/driver/sqlite_driver,
   ../../../waku/v2/protocol/waku_message,
   ../testlib/common,
-  ../testlib/waku2
+  ../testlib/wakucore
 
 logScope:
   topics = "test archive _driver"

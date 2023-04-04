@@ -1,6 +1,8 @@
 import
   std/options,
-  stew/byteutils,
+  stew/[results, byteutils],
+  stew/shims/net,
+  chronos,
   libp2p/switch,
   libp2p/builders,
   libp2p/crypto/crypto as libp2p_keys,

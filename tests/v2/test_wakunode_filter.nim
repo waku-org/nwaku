@@ -12,7 +12,8 @@ import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/utils/peers,
   ./testlib/common,
-  ./testlib/waku2
+  ./testlib/wakucore,
+  ./testlib/wakunode
 
 
 suite "WakuNode - Filter":
@@ -21,9 +22,9 @@ suite "WakuNode - Filter":
     ## Setup
     let
       serverKey = generateSecp256k1Key()
-      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+      server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
       clientKey = generateSecp256k1Key()
-      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+      client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     await allFutures(server.start(), client.start())
 

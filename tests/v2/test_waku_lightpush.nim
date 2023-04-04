@@ -11,7 +11,7 @@ import
   ../../waku/v2/protocol/waku_lightpush,
   ../../waku/v2/protocol/waku_lightpush/client,
   ./testlib/common,
-  ./testlib/waku2
+  ./testlib/wakucore
 
 
 proc newTestWakuLightpushNode(switch: Switch, handler: PushMessageHandler): Future[WakuLightPush] {.async.} =

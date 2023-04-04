@@ -12,7 +12,7 @@ import
   ../../../waku/v2/protocol/waku_store,
   ../../../waku/v2/protocol/waku_store/client,
   ../testlib/common,
-  ../testlib/waku2
+  ../testlib/wakucore
 
 
 

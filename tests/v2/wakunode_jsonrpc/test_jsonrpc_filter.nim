@@ -18,7 +18,8 @@ import
   ../../../waku/v2/protocol/waku_filter/rpc,
   ../../../waku/v2/protocol/waku_filter/client,
   ../../../waku/v2/utils/peers,
-  ../testlib/waku2
+  ../testlib/wakucore,
+  ../testlib/wakunode
 
 
 proc newTestMessageCache(): filter_api.MessageCache =
@@ -32,9 +33,9 @@ procSuite "Waku v2 JSON-RPC API - Filter":
   asyncTest "subscribe and unsubscribe":
     let
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, bindIp, Port(0))
+      node1 = newTestWakuNode(nodeKey1, bindIp, Port(0))
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, bindIp, Port(0))
+      node2 = newTestWakuNode(nodeKey2, bindIp, Port(0))
 
     await allFutures(node1.start(), node2.start())
 

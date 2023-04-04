@@ -19,7 +19,8 @@ import
   ../../../waku/v2/protocol/waku_rln_relay,
   ../../../waku/v2/protocol/waku_keystore,
   ../../../waku/v2/utils/peers,
-  ../testlib/waku2
+  ../testlib/wakucore,
+  ../testlib/wakunode
 
 from std/times import epochTime
 
@@ -32,13 +33,13 @@ procSuite "WakuNode - RLN relay":
     let
       # publisher node
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
       # Relay node
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
       # Subscriber
       nodeKey3 = generateSecp256k1Key()
-      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node3 = newTestWakuNode(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(0))
 
       rlnRelayPubSubTopic = RlnRelayPubsubTopic
       contentTopic = ContentTopic("/waku/2/default-content/proto")
@@ -120,13 +121,13 @@ procSuite "WakuNode - RLN relay":
     let
       # publisher node
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
       # Relay node
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
       # Subscriber
       nodeKey3 = generateSecp256k1Key()
-      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node3 = newTestWakuNode(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(0))
 
       rlnRelayPubSubTopic = RlnRelayPubsubTopic
       contentTopic = ContentTopic("/waku/2/default-content/proto")
@@ -225,13 +226,13 @@ procSuite "WakuNode - RLN relay":
     let
       # publisher node
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
       # Relay node
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
       # Subscriber
       nodeKey3 = generateSecp256k1Key()
-      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node3 = newTestWakuNode(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(0))
 
       rlnRelayPubSubTopic = RlnRelayPubsubTopic
       contentTopic = ContentTopic("/waku/2/default-content/proto")
