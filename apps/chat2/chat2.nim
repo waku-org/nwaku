@@ -29,7 +29,7 @@ import
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_store,
   ../../waku/v2/protocol/waku_dnsdisc,
-  ../../waku/v2/node/waku_node,
+  ../../waku/v2/waku_node,
   ../../waku/v2/node/waku_metrics,
   ../../waku/v2/node/peer_manager,
   ../../waku/v2/utils/compat,

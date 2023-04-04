@@ -21,7 +21,7 @@ import
 import
   ../../apps/wakunode2/wakunode2,
   ../../waku/v2/node/peer_manager,
-  ../../waku/v2/node/waku_node,
+  ../../waku/v2/waku_node,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_enr,
   ../../waku/v2/protocol/waku_discv5,

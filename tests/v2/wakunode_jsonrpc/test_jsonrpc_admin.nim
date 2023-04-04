@@ -11,7 +11,7 @@ import
   json_rpc/[rpcserver, rpcclient]
 import
   ../../../waku/v2/node/peer_manager,
-  ../../../waku/v2/node/waku_node,
+  ../../../waku/v2/waku_node,
   ../../../waku/v2/node/jsonrpc/admin/handlers as admin_api,
   ../../../waku/v2/node/jsonrpc/admin/client as admin_api_client,
   ../../../waku/v2/protocol/waku_relay,

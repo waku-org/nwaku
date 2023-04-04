@@ -9,7 +9,7 @@ import
   json_rpc/rpcserver
 import
   ../../waku/v2/node/message_cache,
-  ../../waku/v2/node/waku_node,
+  ../../waku/v2/waku_node,
   ../../waku/v2/node/jsonrpc/admin/handlers as admin_api,
   ../../waku/v2/node/jsonrpc/debug/handlers as debug_api,
   ../../waku/v2/node/jsonrpc/filter/handlers as filter_api,
