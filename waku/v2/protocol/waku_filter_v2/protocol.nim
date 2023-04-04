@@ -30,6 +30,7 @@ type
   WakuFilter* = ref object of LPProtocol
     subscriptions*: FilterSubscriptions # a mapping of peer ids to a sequence of filter criteria
     peerManager: PeerManager
+    maintenanceTask: TimerCallback
 
 proc pingSubscriber(wf: WakuFilter, peerId: PeerID): FilterSubscribeResult =
   trace "pinging subscriber", peerId=peerId
@@ -253,9 +254,9 @@ proc startMaintainingSubscriptions*(wf: WakuFilter, interval: Duration) =
   var maintainSubs: proc(udata: pointer) {.gcsafe, raises: [Defect].}
   maintainSubs = proc(udata: pointer) {.gcsafe.} =
     maintainSubscriptions(wf)
-    discard setTimer(Moment.fromNow(interval), maintainSubs)
+    wf.maintenanceTask = setTimer(Moment.fromNow(interval), maintainSubs)
 
-  discard setTimer(Moment.fromNow(interval), maintainSubs)
+  wf.maintenanceTask = setTimer(Moment.fromNow(interval), maintainSubs)
 
 method start*(wf: WakuFilter) {.async.} =
   debug "starting filter protocol"
@@ -265,4 +266,5 @@ method start*(wf: WakuFilter) {.async.} =
 
 method stop*(wf: WakuFilter) {.async.} =
   debug "stopping filter protocol"
+  wf.maintenanceTask.clearTimer()
   await procCall LPProtocol(wf).stop()
