@@ -28,8 +28,7 @@ import
   ../../waku/v2/node/peer_manager,
   ../../waku/v2/node/peer_manager/peer_store/waku_peer_storage,
   ../../waku/v2/node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
-  ../../waku/v2/node/wakuswitch,
-  ../../waku/v2/node/waku_node,
+  ../../waku/v2/waku_node,
   ../../waku/v2/node/waku_metrics,
   ../../waku/v2/protocol/waku_archive,
   ../../waku/v2/protocol/waku_archive/driver/queue_driver,
@@ -287,10 +286,7 @@ proc initNode(conf: WakuNodeConf,
   # Wrap in none because NetConfig does not have a default constructor
   # TODO: We could change bindIp in NetConfig to be something less restrictive than ValidIpAddress,
   # which doesn't allow default construction
-  var netConfigOpt = none(NetConfig)
-
-  try:
-    netConfigOpt = some(NetConfig.init(
+  let netConfigRes = NetConfig.init(
       bindIp = conf.listenAddress,
       bindPort = Port(uint16(conf.tcpPort) + conf.portsShift),
       extIp = extIp,
@@ -302,11 +298,11 @@ proc initNode(conf: WakuNodeConf,
       dns4DomainName = dns4DomainName,
       discv5UdpPort = discv5UdpPort,
       wakuFlags = some(wakuFlags),
-    ))
-  except CatchableError:
-    return err("failed to create net config instance: " & getCurrentExceptionMsg())
+    )
+  if netConfigRes.isErr():
+    return err("failed to create net config instance: " & netConfigRes.error)
 
-  let netConfig = netConfigOpt.get()
+  let netConfig = netConfigRes.get()
   var wakuDiscv5 = none(WakuDiscoveryV5)
 
   if conf.discv5Discovery:

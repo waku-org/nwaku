@@ -9,7 +9,7 @@ import
   libp2p/protocols/connectivity/relay/client,
   stew/byteutils
 import
-  ../../waku/v2/node/wakuswitch,
+  ../../waku/v2/node/waku_switch,
   ./testlib/common,
   ./testlib/waku2
 
