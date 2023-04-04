@@ -63,27 +63,6 @@ suite "Waku ENR -  Capabilities bitfield":
     check:
       bitfield.toCapabilities() == @[Capabilities.Relay, Capabilities.Store]
 
-  test "encode and decode record with capabilities field (deprecated)":
-    # TODO: Remove after removing the `Record.init()` proc
-    ## Given
-    let enrkey = generatesecp256k1key()
-    let caps = CapabilitiesBitfield.init(Capabilities.Relay, Capabilities.Store)
-
-    let record = Record.init(1, enrkey, wakuFlags=some(caps))
-
-    ## When
-    let typedRecord = record.toTyped()
-    require typedRecord.isOk()
-
-    let bitfieldOpt = typedRecord.value.waku2
-
-    ## Then
-    check bitfieldOpt.isSome()
-
-    let bitfield = bitfieldOpt.get()
-    check:
-      bitfield.toCapabilities() == @[Capabilities.Relay, Capabilities.Store]
-
   test "cannot decode capabilities from record":
     ## Given
     let
@@ -218,32 +197,6 @@ suite "Waku ENR - Multiaddresses":
     let multiaddrs = multiaddrsOpt.get()
     check:
       multiaddrs.len == 2
-      multiaddrs.contains(addr1)
-      multiaddrs.contains(addr2)
-
-  test "encode and decode record with multiaddrs field (deprecated)":
-    # TODO: Remove after removing the `Record.init()` proc
-    ## Given
-    let enrkey = generatesecp256k1key()
-    let caps = CapabilitiesBitfield.init(Capabilities.Relay, Capabilities.Store)
-
-    let
-      addr1 = MultiAddress.init("/ip4/127.0.0.1/tcp/80/ws").get()
-      addr2 = MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss").get()
-
-    ## When
-    let record = Record.init(1, enrkey, wakuFlags=some(caps), multiaddrs = @[addr1, addr2])
-
-    let typedRecord = record.toTyped()
-    require typedRecord.isOk()
-
-    let multiaddrsOpt = typedRecord.value.multiaddrs
-
-    ## Then
-    check multiaddrsOpt.isSome()
-
-    let multiaddrs = multiaddrsOpt.get()
-    check:
       multiaddrs.contains(addr1)
       multiaddrs.contains(addr2)
 

@@ -223,16 +223,29 @@ proc init*(
 
 proc getEnr*(netConfig: NetConfig,
              wakuDiscV5 = none(WakuDiscoveryV5),
-             nodeKey: crypto.PrivateKey): enr.Record =
+             nodeKey: crypto.PrivateKey): Result[enr.Record, string] =
   if wakuDiscV5.isSome():
-    return wakuDiscV5.get().protocol.getRecord()
+    return ok(wakuDiscV5.get().protocol.getRecord())
 
-  return enr.Record.init(1, nodekey,
-                         netConfig.enrIp,
-                         netConfig.enrPort,
-                         netConfig.discv5UdpPort,
-                         netConfig.wakuFlags,
-                         netConfig.enrMultiaddrs)
+  var builder = EnrBuilder.init(nodeKey, seqNum = 1)
+
+  builder.withIpAddressAndPorts(
+    ipAddr = netConfig.enrIp,
+    tcpPort = netConfig.enrPort,
+    udpPort = netConfig.discv5UdpPort
+  )
+
+  if netConfig.wakuFlags.isSome():
+    builder.withWakuCapabilities(netConfig.wakuFlags.get())
+
+  if netConfig.enrMultiAddrs.len > 0:
+    builder.withMultiaddrs(netConfig.enrMultiAddrs)
+
+  let recordRes = builder.build()
+  if recordRes.isErr():
+    return err($recordRes.error)
+
+  return ok(recordRes.get())
 
 proc getAutonatService*(rng = crypto.newRng()): AutonatService =
   ## AutonatService request other peers to dial us back
@@ -347,11 +360,15 @@ proc new*(T: type WakuNode,
     services = @[Service(getAutonatService(rng))],
   )
 
+  let nodeEnrRes = getEnr(netConfig, wakuDiscv5, nodekey)
+  if nodeEnrRes.isErr():
+    raise newException(Defect, "failed to generate the node ENR record: " & $nodeEnrRes.error)
+
   return WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
     switch: switch,
     rng: rng,
-    enr: netConfig.getEnr(wakuDiscv5, nodekey),
+    enr: nodeEnrRes.get(),
     announcedAddresses: netConfig.announcedAddresses,
     wakuDiscv5: if wakuDiscV5.isSome(): wakuDiscV5.get() else: nil,
   )
