@@ -390,12 +390,17 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
       Port(uint16(conf.tcpPort) + conf.portsShift),
       Port(uint16(conf.udpPort) + conf.portsShift))
-    node = WakuNode.new(nodekey, conf.listenAddress,
-      Port(uint16(conf.tcpPort) + conf.portsShift),
-      extIp, extTcpPort,
-      wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
-      wsEnabled = conf.websocketSupport,
-      wssEnabled = conf.websocketSecureSupport)
+
+  let node = block:
+      var builder = WakuNodeBuilder.init()
+      builder.withNodeKey(nodeKey)
+      builder.withNetworkConfigurationDetails(conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift),
+                                              extIp, extTcpPort,
+                                              wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
+                                              wsEnabled = conf.websocketSupport,
+                                              wssEnabled = conf.websocketSecureSupport).tryGet()
+      builder.build().tryGet()
+
   await node.start()
 
   if conf.rlnRelayEthAccountPrivateKey == "" and conf.rlnRelayCredPath == "":

@@ -111,11 +111,14 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
   let
     peer: RemotePeerInfo = parseRemotePeerInfo(conf.address)
     nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-    node = WakuNode.new(
-      nodeKey,
-      ValidIpAddress.init("0.0.0.0"),
-      Port(conf.nodePort),
-      nameResolver = resolver)
+    bindIp = ValidIpAddress.init("0.0.0.0")
+    nodeTcpPort = Port(conf.nodePort)
+
+  var builder = WakuNodeBuilder.init()
+  builder.withNodeKey(nodeKey)
+  builder.withNetworkConfigurationDetails(bindIp, nodeTcpPort).tryGet()
+  builder.withSwitchConfiguration(nameResolver=resolver)
+  let node = builder.build().tryGet()
 
   await node.start()
 
