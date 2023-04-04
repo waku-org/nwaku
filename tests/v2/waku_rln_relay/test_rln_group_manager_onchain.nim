@@ -133,11 +133,11 @@ proc runGanache(): Process =
           ganacheStartLog.add(cmdline)
           if cmdline.contains("Listening on 127.0.0.1:8540"):
             break
-      except:
+      except CatchableError:
         break
     debug "Ganache daemon is running and ready", pid=ganachePID, startLog=ganacheStartLog
     return runGanache
-  except:
+  except:  # TODO: Fix "BareExcept" warning
     error "Ganache daemon run failed"
 
 
@@ -153,7 +153,7 @@ proc stopGanache(runGanache: Process) {.used.} =
     # ref: https://nim-lang.org/docs/osproc.html#waitForExit%2CProcess%2Cint
     # debug "ganache logs", logs=runGanache.outputstream.readAll()
     debug "Sent SIGTERM to Ganache", ganachePID=ganachePID
-  except:
+  except CatchableError:
     error "Ganache daemon termination failed: ", err = getCurrentExceptionMsg()
 
 proc setup(signer = true): Future[OnchainGroupManager] {.async.} =

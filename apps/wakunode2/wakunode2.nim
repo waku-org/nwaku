@@ -608,7 +608,7 @@ when isMainModule:
 
   # Adhere to NO_COLOR initiative: https://no-color.org/
   let color = try: not parseBool(os.getEnv("NO_COLOR", "false"))
-              except: true
+              except CatchableError: true
 
   logging.setupLogLevel(conf.logLevel)
   logging.setupLogFormat(conf.logFormat, color)

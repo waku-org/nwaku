@@ -451,7 +451,7 @@ proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
   try:
     let key = SkPrivateKey.init(utils.fromHex(p)).tryGet()
     crypto.PrivateKey(scheme: Secp256k1, skkey: key)
-  except:
+  except CatchableError:
     raise newException(ConfigurationError, "Invalid private key")
 
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
@@ -461,7 +461,7 @@ proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
 proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
   try:
     ValidIpAddress.init(p)
-  except:
+  except CatchableError:
     raise newException(ConfigurationError, "Invalid IP address")
 
 proc completeCmdArg*(T: type ValidIpAddress, val: string): seq[string] =
@@ -476,7 +476,7 @@ proc defaultListenAddress*(): ValidIpAddress =
 proc parseCmdArg*(T: type Port, p: string): T =
   try:
     Port(parseInt(p))
-  except:
+  except CatchableError:
     raise newException(ConfigurationError, "Invalid Port number")
 
 proc completeCmdArg*(T: type Port, val: string): seq[string] =
@@ -485,7 +485,7 @@ proc completeCmdArg*(T: type Port, val: string): seq[string] =
 proc parseCmdArg*(T: type Option[int], p: string): T =
   try:
     some(parseInt(p))
-  except:
+  except CatchableError:
     raise newException(ConfigurationError, "Invalid number")
 
 ## Configuration validation

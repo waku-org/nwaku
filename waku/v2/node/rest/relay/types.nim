@@ -88,7 +88,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
     # Check for reapeated keys
     if keys.containsOrIncl(fieldName):
       let err = try: fmt"Multiple `{fieldName}` fields found"
-                except: "Multiple fields with the same name found"
+                except CatchableError: "Multiple fields with the same name found"
       reader.raiseUnexpectedField(err, "RelayWakuMessage")
 
     case fieldName

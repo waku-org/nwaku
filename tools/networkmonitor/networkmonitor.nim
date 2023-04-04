@@ -151,7 +151,7 @@ proc populateInfoFromIp(allPeersRef: CustomPeersTableRef,
       await sleepAsync(1400)
       let response = await restClient.ipToLocation(allPeersRef[peer].ip)
       location = response.data
-    except:
+    except CatchableError:
       warn "could not get location", ip=allPeersRef[peer].ip
       continue
     allPeersRef[peer].country = location.country
@@ -214,7 +214,7 @@ proc getBootstrapFromDiscDns(conf: NetworkMonitorConf): Result[seq[enr.Record], 
         if tenrRes.isOk() and (tenrRes.get().udp.isSome() or tenrRes.get().udp6.isSome()):
           discv5BootstrapEnrs.add(enr)
     return ok(discv5BootstrapEnrs)
-  except:
+  except CatchableError:
     error("failed discovering peers from DNS")
 
 proc initAndStartNode(conf: NetworkMonitorConf): Result[WakuNode, string] =
@@ -249,7 +249,7 @@ proc initAndStartNode(conf: NetworkMonitorConf): Result[WakuNode, string] =
 
     node.wakuDiscv5.protocol.open()
     return ok(node)
-  except:
+  except CatchableError:
     error("could not start node")
 
 proc startRestApiServer(conf: NetworkMonitorConf,
@@ -266,7 +266,7 @@ proc startRestApiServer(conf: NetworkMonitorConf,
     var sres = RestServerRef.new(router, serverAddress)
     let restServer = sres.get()
     restServer.start()
-  except:
+  except CatchableError:
     error("could not start rest api server")
   ok()
 

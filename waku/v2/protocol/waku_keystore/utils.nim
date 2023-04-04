@@ -3,7 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import 
+import
   json,
   std/[options, os, sequtils],
   ./keyfile,
@@ -17,17 +17,17 @@ proc hasKeys*(data: JsonNode, keys: openArray[string]): bool =
 proc sortMembershipGroup*(a,b: MembershipGroup): int =
   return cmp(a.membershipContract.address, b.membershipContract.address)
 
-# Safely saves a Keystore's JsonNode to disk. 
-# If exists, the destination file is renamed with extension .bkp; the file is written at its destination and the .bkp file is removed if write is successful, otherwise is restored 
+# Safely saves a Keystore's JsonNode to disk.
+# If exists, the destination file is renamed with extension .bkp; the file is written at its destination and the .bkp file is removed if write is successful, otherwise is restored
 proc save*(json: JsonNode, path: string, separator: string): KeystoreResult[void] =
 
   # We first backup the current keystore
   if fileExists(path):
     try:
       moveFile(path, path & ".bkp")
-    except:
+    except:  # TODO: Fix "BareExcept" warning
       return err(KeystoreOsError)
-  
+
   # We save the updated json
   var f: File
   if not f.open(path, fmAppend):
@@ -45,7 +45,7 @@ proc save*(json: JsonNode, path: string, separator: string): KeystoreResult[void
         f.close()
         removeFile(path)
         moveFile(path & ".bkp", path)
-      except:
+      except:  # TODO: Fix "BareExcept" warning
         # Unlucky, we just fail
         return err(KeystoreOsError)
     return err(KeystoreOsError)
@@ -56,7 +56,7 @@ proc save*(json: JsonNode, path: string, separator: string): KeystoreResult[void
   if fileExists(path & ".bkp"):
     try:
       removeFile(path & ".bkp")
-    except:
+    except CatchableError:
       return err(KeystoreOsError)
 
   return ok()
@@ -65,7 +65,7 @@ proc save*(json: JsonNode, path: string, separator: string): KeystoreResult[void
 proc filterCredential*(credential: MembershipCredentials,
                        filterIdentityCredentials: seq[IdentityCredential],
                        filterMembershipContracts: seq[MembershipContract]): Option[MembershipCredentials] =
-  
+
   # We filter by identity credentials
   if filterIdentityCredentials.len() != 0:
     if (credential.identityCredential in filterIdentityCredentials) == false:
@@ -74,7 +74,7 @@ proc filterCredential*(credential: MembershipCredentials,
   # We filter by membership groups credentials
   if filterMembershipContracts.len() != 0:
     # Here we keep only groups that match a contract in the filter
-    var membershipGroupsIntersection: seq[MembershipGroup] = @[] 
+    var membershipGroupsIntersection: seq[MembershipGroup] = @[]
     # We check if we have a group in the input credential matching any contract in the filter
     for membershipGroup in credential.membershipGroups:
       if membershipGroup.membershipContract in filterMembershipContracts:
@@ -87,8 +87,8 @@ proc filterCredential*(credential: MembershipCredentials,
 
     else:
       return none(MembershipCredentials)
-    
-  # We hit this return only if 
+
+  # We hit this return only if
   # - filterIdentityCredentials.len() == 0 and filterMembershipContracts.len() == 0 (no filter)
   # - filterIdentityCredentials.len() != 0 and filterMembershipContracts.len() == 0 (filter only on identity credential)
   # Indeed, filterMembershipContracts.len() != 0 will have its exclusive return based on all values of membershipGroupsIntersection.len()

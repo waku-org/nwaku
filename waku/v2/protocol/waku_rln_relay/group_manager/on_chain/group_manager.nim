@@ -175,7 +175,7 @@ proc parseEvent*(event: type MemberRegistered,
     # Parse the index
     offset += decode(data, offset, index)
     return ok(Membership(idCommitment: idComm.toIDCommitment(), index: index.toMembershipIndex()))
-  except:
+  except CatchableError:
     return err("failed to parse the data field of the MemberRegistered event")
 
 type BlockTable* = OrderedTable[BlockNumber, seq[Membership]]
@@ -298,7 +298,7 @@ proc startListeningToEvents*(g: OnchainGroupManager): Future[void] {.async.} =
   let newHeadCallback = g.getNewHeadCallback()
   try:
     discard await ethRpc.subscribeForBlockHeaders(newHeadCallback, newHeadErrCallback)
-  except:
+  except CatchableError:
     raise newException(ValueError, "failed to subscribe to block headers: " & getCurrentExceptionMsg())
 
 proc startOnchainSync*(g: OnchainGroupManager, fromBlock: BlockNumber = BlockNumber(0)): Future[void] {.async.} =
@@ -306,13 +306,13 @@ proc startOnchainSync*(g: OnchainGroupManager, fromBlock: BlockNumber = BlockNum
 
   try:
     await g.getEventsAndSeedIntoTree(fromBlock, some(fromBlock))
-  except:
+  except CatchableError:
     raise newException(ValueError, "failed to get the history/reconcile missed blocks: " & getCurrentExceptionMsg())
 
   # listen to blockheaders and contract events
   try:
     await g.startListeningToEvents()
-  except:
+  except CatchableError:
     raise newException(ValueError, "failed to start listening to events: " & getCurrentExceptionMsg())
 
 proc persistCredentials*(g: OnchainGroupManager): GroupManagerResult[void] =
@@ -358,7 +358,7 @@ method startGroupSync*(g: OnchainGroupManager): Future[void] {.async.} =
   # Get archive history
   try:
     await startOnchainSync(g)
-  except:
+  except CatchableError:
     raise newException(ValueError, "failed to start onchain sync service: " & getCurrentExceptionMsg())
 
   if g.ethPrivateKey.isSome() and g.idCredentials.isNone():
@@ -393,7 +393,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   # check if the Ethereum client is reachable
   try:
     ethRpc = await newWeb3(g.ethClientUrl)
-  except:
+  except CatchableError:
     raise newException(ValueError, "could not connect to the Ethereum client")
 
   # Set the chain id
@@ -416,7 +416,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   var membershipFee: Uint256
   try:
     membershipFee = await contract.MEMBERSHIP_DEPOSIT().call()
-  except:
+  except CatchableError:
     raise newException(ValueError, "could not get the membership deposit")
 
 
@@ -445,7 +445,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
     info "reconnecting with the Ethereum client, and restarting group sync", fromBlock = fromBlock
     try:
       asyncSpawn g.startOnchainSync(fromBlock)
-    except:
+    except CatchableError:
       error "failed to restart group sync", error = getCurrentExceptionMsg()
 
   g.initialized = true

@@ -37,11 +37,11 @@ proc randomSeqByte*(rng: var HmacDrbgContext, size: int): seq[byte] =
 
 # Pads a payload according to PKCS#7 as per RFC 5652 https://datatracker.ietf.org/doc/html/rfc5652#section-6.3
 proc pkcs7_pad*(payload: seq[byte], paddingSize: int): seq[byte] =
-  
+
   assert(paddingSize<256)
 
   let k = paddingSize - (payload.len mod paddingSize)
-  
+
   var padding: seq[byte]
 
   if k != 0:
@@ -94,13 +94,13 @@ proc fromQr*(qr: string): (string, string, string, EllipticCurveKey, MDigest[256
   let applicationVersion: string = decode(values[1])
   let shardId: string = decode(values[2])
 
-  let decodedEphemeralKey = decode(values[3]).toBytes  
-  var ephemeralKey: EllipticCurveKey 
+  let decodedEphemeralKey = decode(values[3]).toBytes
+  var ephemeralKey: EllipticCurveKey
   for i in 0..<ephemeralKey.len:
     ephemeralKey[i] = decodedEphemeralKey[i]
 
   let committedStaticKey = seqToDigest256(decode(values[4]).toBytes)
- 
+
   return (applicationName, applicationVersion, shardId, ephemeralKey, committedStaticKey)
 
 # Converts a sequence or array (arbitrary size) to a MessageNametag
@@ -109,12 +109,12 @@ proc toMessageNametag*(input: openArray[byte]): MessageNametag =
 
   # We set its length to the default message nametag length (will be truncated or 0-padded)
   byte_seq.setLen(MessageNametagLength)
-  
+
   # We copy it to a MessageNametag
   var messageNametag: MessageNametag
   for i in 0..<MessageNametagLength:
     messageNametag[i] = byte_seq[i]
-  
+
   return messageNametag
 
 # Uses the cryptographic information stored in the input handshake state to generate a random message nametag
@@ -129,9 +129,9 @@ proc genMessageNametagSecrets*(hs: HandshakeState): (array[MessageNametagSecretL
   sha256.hkdf(hs.ss.h.data, [], [], output)
   return (output[0], output[1])
 
-# Simple utility that checks if the given variable is "default", 
+# Simple utility that checks if the given variable is "default",
 # Therefore, it has not been initialized
-proc isDefault*[T](value: T): bool = 
+proc isDefault*[T](value: T): bool =
   value == static(default(T))
 
 #################################################################
@@ -156,7 +156,7 @@ proc getPublicKey*(keypair: KeyPair): EllipticCurveKey =
   return keypair.publicKey
 
 # Prints Handshake Patterns using Noise pattern layout
-proc print*(self: HandshakePattern) 
+proc print*(self: HandshakePattern)
    {.raises: [IOError, NoiseMalformedHandshake].}=
   try:
     if self.name != "":
@@ -170,10 +170,10 @@ proc print*(self: HandshakePattern)
           for token in pattern.tokens:
             if first:
               stdout.write " ", token
-              first = false        
+              first = false
             else:
               stdout.write ", ", token
-          stdout.write "\n"          
+          stdout.write "\n"
           stdout.flushFile()
       stdout.write "    ...\n"
       stdout.flushFile()
@@ -184,12 +184,12 @@ proc print*(self: HandshakePattern)
       for token in pattern.tokens:
         if first:
           stdout.write " ", token
-          first = false        
+          first = false
         else:
           stdout.write ", ", token
       stdout.write "\n"
       stdout.flushFile()
-  except:
+  except CatchableError:
     raise newException(NoiseMalformedHandshake, "HandshakePattern malformed")
 
 # Hashes a Noise protocol name using SHA256
@@ -198,7 +198,7 @@ proc hashProtocol*(protocolName: string): MDigest[256] =
   # The output hash value
   var hash: MDigest[256]
 
-  # From Noise specification: Section 5.2 
+  # From Noise specification: Section 5.2
   # http://www.noiseprotocol.org/noise.html#the-symmetricstate-object
   # If protocol_name is less than or equal to HASHLEN bytes in length,
   # sets h equal to protocol_name with zero bytes appended to make HASHLEN bytes.
@@ -232,12 +232,12 @@ proc genAuthcode*(hs: HandshakeState): string =
 
 # Initializes the empty Message nametag buffer. The n-th nametag is equal to HKDF( secret || n )
 proc initNametagsBuffer*(mntb: var MessageNametagBuffer) =
-  
+
   # We default the counter and buffer fields
   mntb.counter = 0
   mntb.buffer = default(array[MessageNametagBufferSize, MessageNametag])
 
-  if mntb.secret.isSome:  
+  if mntb.secret.isSome:
     for i in 0..<mntb.buffer.len:
       mntb.buffer[i] = toMessageNametag(sha256.digest(@(mntb.secret.get()) & @(toBytesLE(mntb.counter))).data)
       mntb.counter += 1
@@ -258,7 +258,7 @@ proc delete*(mntb: var MessageNametagBuffer, n: int) =
   # Note that if the input MessageNametagBuffer is set to default, nothing is done here
   if mntb.secret.isSome:
 
-    # We rotate left the array by n   
+    # We rotate left the array by n
     mntb.buffer.rotateLeft(n)
 
     for i in 0..<n:
@@ -271,9 +271,9 @@ proc delete*(mntb: var MessageNametagBuffer, n: int) =
 
 
 # Checks if the input messageNametag is contained in the input MessageNametagBuffer
-proc checkNametag*(messageNametag: MessageNametag, mntb: var MessageNametagBuffer): Result[bool, cstring] 
+proc checkNametag*(messageNametag: MessageNametag, mntb: var MessageNametagBuffer): Result[bool, cstring]
    {.raises: [Defect, NoiseMessageNametagError, NoiseSomeMessagesWereLost].} =
-  
+
   let index = mntb.buffer.find(messageNametag)
 
   if index == -1:
@@ -297,7 +297,7 @@ proc dh*(private: EllipticCurveKey, public: EllipticCurveKey): EllipticCurveKey 
   # The output result of the Diffie-Hellman operation
   var output: EllipticCurveKey
 
-  # Since the EC multiplication writes the result to the input, we copy the input to the output variable 
+  # Since the EC multiplication writes the result to the input, we copy the input to the output variable
   output = public
   # We execute the DH operation
   EllipticCurve.mul(output, private)
@@ -334,7 +334,7 @@ proc randomChaChaPolyCipherState*(rng: var HmacDrbgContext): ChaChaPolyCipherSta
 # Checks equality between two Noise public keys
 proc `==`*(k1, k2: NoisePublicKey): bool =
   return (k1.flag == k2.flag) and (k1.pk == k2.pk)
-  
+
 # Converts a public Elliptic Curve key to an unencrypted Noise public key
 proc toNoisePublicKey*(publicKey: EllipticCurveKey): NoisePublicKey =
   var noisePublicKey: NoisePublicKey
@@ -353,13 +353,13 @@ proc genNoisePublicKey*(rng: var HmacDrbgContext): NoisePublicKey =
   noisePublicKey.pk = getBytes(keyPair.publicKey)
   return noisePublicKey
 
-# Converts a Noise public key to a stream of bytes as in 
+# Converts a Noise public key to a stream of bytes as in
 # https://rfc.vac.dev/spec/35/#public-keys-serialization
 proc serializeNoisePublicKey*(noisePublicKey: NoisePublicKey): seq[byte] =
   var serializedNoisePublicKey: seq[byte]
   # Public key is serialized as (flag || pk)
   # Note that pk contains the X coordinate of the public key if unencrypted
-  # or the encryption concatenated with the authorization tag if encrypted 
+  # or the encryption concatenated with the authorization tag if encrypted
   serializedNoisePublicKey.add noisePublicKey.flag
   serializedNoisePublicKey.add noisePublicKey.pk
   return serializedNoisePublicKey
@@ -382,8 +382,8 @@ proc intoNoisePublicKey*(serializedNoisePublicKey: seq[byte]): NoisePublicKey
 proc encryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePublicKey): NoisePublicKey
   {.raises: [Defect, NoiseEmptyChaChaPolyInput, NoiseNonceMaxError].} =
   var encryptedNoisePublicKey: NoisePublicKey
-  # We proceed with encryption only if 
-  # - a key is set in the cipher state 
+  # We proceed with encryption only if
+  # - a key is set in the cipher state
   # - the public key is unencrypted
   if cs.k != EmptyKey and noisePublicKey.flag == 0:
     let encPk = encrypt(cs, noisePublicKey.pk)
@@ -401,8 +401,8 @@ proc encryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePubl
 proc decryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePublicKey): NoisePublicKey
   {.raises: [Defect, NoiseEmptyChaChaPolyInput, NoiseDecryptTagError].} =
   var decryptedNoisePublicKey: NoisePublicKey
-  # We proceed with decryption only if 
-  # - a key is set in the cipher state 
+  # We proceed with decryption only if
+  # - a key is set in the cipher state
   # - the public key is encrypted
   if cs.k != EmptyKey and noisePublicKey.flag == 1:
     # Since the pk field would contain an encryption + tag, we retrieve the ciphertext length
@@ -411,7 +411,7 @@ proc decryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePubl
     let pk = noisePublicKey.pk[0..<pkLen]
     let pkAuth = intoChaChaPolyTag(noisePublicKey.pk[pkLen..<pkLen+ChaChaPolyTag.len])
     # We convert it to a ChaChaPolyCiphertext
-    let ciphertext = ChaChaPolyCiphertext(data: pk, tag: pkAuth) 
+    let ciphertext = ChaChaPolyCiphertext(data: pk, tag: pkAuth)
     # We run decryption and store its value to a non-encrypted Noise public key (flag = 0)
     decryptedNoisePublicKey.pk = decrypt(cs, ciphertext)
     decryptedNoisePublicKey.flag = 0
@@ -428,11 +428,11 @@ proc decryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePubl
 
 # Checks equality between two PayloadsV2 objects
 proc `==`*(p1, p2: PayloadV2): bool =
-  return (p1.messageNametag == p2.messageNametag) and 
-         (p1.protocolId == p2.protocolId) and 
-         (p1.handshakeMessage == p2.handshakeMessage) and 
-         (p1.transportMessage == p2.transportMessage) 
-  
+  return (p1.messageNametag == p2.messageNametag) and
+         (p1.protocolId == p2.protocolId) and
+         (p1.handshakeMessage == p2.handshakeMessage) and
+         (p1.transportMessage == p2.transportMessage)
+
 
 # Generates a random PayloadV2
 proc randomPayloadV2*(rng: var HmacDrbgContext): PayloadV2 =
@@ -458,7 +458,7 @@ proc serializePayloadV2*(self: PayloadV2): Result[seq[byte], cstring] =
 
   # We collect public keys contained in the handshake message
   var
-    # According to https://rfc.vac.dev/spec/35/, the maximum size for the handshake message is 256 bytes, that is 
+    # According to https://rfc.vac.dev/spec/35/, the maximum size for the handshake message is 256 bytes, that is
     # the handshake message length can be represented with 1 byte only. (its length can be stored in 1 byte)
     # However, to ease public keys length addition operation, we declare it as int and later cast to uit8
     serializedHandshakeMessageLen: int = 0
@@ -472,7 +472,7 @@ proc serializePayloadV2*(self: PayloadV2): Result[seq[byte], cstring] =
     serializedPk = serializeNoisePublicKey(pk)
     # We sum its serialized length to the total
     serializedHandshakeMessageLen +=  serializedPk.len
-    # We add its serialization to the concatenation of all serialized public keys in the handshake message 
+    # We add its serialization to the concatenation of all serialized public keys in the handshake message
     serializedHandshakeMessage.add serializedPk
     # If we are processing more than 256 byte, we return an error
     if serializedHandshakeMessageLen > uint8.high.int:
@@ -482,17 +482,17 @@ proc serializePayloadV2*(self: PayloadV2): Result[seq[byte], cstring] =
   # We get the transport message byte length
   let transportMessageLen = self.transportMessage.len
 
-  # The output payload as in https://rfc.vac.dev/spec/35/. We concatenate all the PayloadV2 fields as 
+  # The output payload as in https://rfc.vac.dev/spec/35/. We concatenate all the PayloadV2 fields as
   # payload = ( protocolId || serializedHandshakeMessageLen || serializedHandshakeMessage || transportMessageLen || transportMessage)
-  # We declare it as a byte sequence of length accordingly to the PayloadV2 information read 
+  # We declare it as a byte sequence of length accordingly to the PayloadV2 information read
   var payload = newSeqOfCap[byte](MessageNametagLength + #MessageNametagLength bytes for messageNametag
-                                  1 + # 1 byte for protocol ID             
+                                  1 + # 1 byte for protocol ID
                                   1 + # 1 byte for length of serializedHandshakeMessage field
                                   serializedHandshakeMessageLen + # serializedHandshakeMessageLen bytes for serializedHandshakeMessage
                                   8 + # 8 bytes for transportMessageLen
                                   transportMessageLen # transportMessageLen bytes for transportMessage
                                   )
-  
+
   # We concatenate all the data
   # The protocol ID (1 byte) and handshake message length (1 byte) can be directly casted to byte to allow direct copy to the payload byte sequence
   payload.add @(self.messageNametag)
@@ -571,7 +571,7 @@ proc deserializePayloadV2*(payload: seq[byte]): Result[PayloadV2, cstring]
   let transportMessageLen = fromBytesLE(uint64, payload[i..(i+8-1)])
   i += 8
 
-  # We read the transport message (handshakeMessage bytes) 
+  # We read the transport message (handshakeMessage bytes)
   payload2.transportMessage = payload[i..i+transportMessageLen-1]
   i += transportMessageLen
 
