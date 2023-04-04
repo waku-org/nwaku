@@ -25,10 +25,10 @@ proc newTestWakuFilterNode(switch: Switch, timeout: Duration = 2.hours): Future[
 
   return proto
 
-proc newTestWakuFilterClient(switch: Switch): Future[WakuFilterClient] {.async.} =
+proc newTestWakuFilterClient(switch: Switch): Future[WakuFilterClientLegacy] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    proto = WakuFilterClient.new(peerManager, rng)
+    proto = WakuFilterClientLegacy.new(peerManager, rng)
 
   await proto.start()
   switch.mount(proto)
