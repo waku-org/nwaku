@@ -211,6 +211,9 @@ suite "Waku Filter - end to end":
     check:
       not (await pushHandlerFuture.withTimeout(2.seconds)) # No message should be pushed
 
+    # Teardown
+    await allFutures(wakuFilter.stop(), wakuFilterClient.stop(), serverSwitch.stop(), clientSwitch.stop())
+
   asyncTest "subscribe to multiple content topics and unsubscribe all":
     # Given
     var
@@ -373,3 +376,6 @@ suite "Waku Filter - end to end":
     check:
       pushedMsgPubsubTopic3 == DefaultPubsubTopic
       pushedMsg3 == msg3
+
+    # Teardown
+    await allFutures(wakuFilter.stop(), wakuFilterClient.stop(), serverSwitch.stop(), clientSwitch.stop())
