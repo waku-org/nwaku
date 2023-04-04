@@ -31,7 +31,7 @@ import
   ../protocol/waku_store/client as store_client,
   ../protocol/waku_filter as legacy_filter,  #TODO: support for legacy filter protocol will be removed
   ../protocol/waku_filter/client as filter_client, #TODO: support for legacy filter protocol will be removed
-  ../protocol/waku_filter_v2 as waku_filter,
+  ../protocol/waku_filter_v2,
   ../protocol/waku_lightpush,
   ../protocol/waku_lightpush/client as lightpush_client,
   ../protocol/waku_enr,
@@ -88,8 +88,8 @@ type
     wakuArchive*: WakuArchive
     wakuStore*: WakuStore
     wakuStoreClient*: WakuStoreClient
-    wakuFilter*: waku_filter.WakuFilter
-    wakuFilterLegacy*: legacy_filter.WakuFilter #TODO: support for legacy filter protocol will be removed
+    wakuFilter*: waku_filter_v2.WakuFilter
+    wakuFilterLegacy*: legacy_filter.WakuFilterLegacy #TODO: support for legacy filter protocol will be removed
     wakuFilterClient*: WakuFilterClient #TODO: support for legacy filter protocol will be removed
     when defined(rln):
       wakuRlnRelay*: WakuRLNRelay
@@ -555,8 +555,8 @@ proc mountRelay*(node: WakuNode,
 
 proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {.async, raises: [Defect, LPError]} =
   info "mounting filter protocol"
-  node.wakuFilter = waku_filter.WakuFilter.new(node.peerManager)
-  node.wakuFilterLegacy = legacy_filter.WakuFilter.new(node.peerManager, node.rng, filterTimeout) #TODO: remove legacy
+  node.wakuFilter = WakuFilter.new(node.peerManager)
+  node.wakuFilterLegacy = WakuFilterLegacy.new(node.peerManager, node.rng, filterTimeout) #TODO: remove legacy
 
   if node.started:
     await node.wakuFilter.start()

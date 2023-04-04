@@ -62,14 +62,14 @@ proc removeSubscription(subscriptions: var seq[Subscription], peer: PeerId, unsu
 type
   MessagePushHandler* = proc(requestId: string, msg: MessagePush): Future[void] {.gcsafe, closure.}
 
-  WakuFilter* = ref object of LPProtocol
+  WakuFilterLegacy* = ref object of LPProtocol
     rng*: ref rand.HmacDrbgContext
     peerManager*: PeerManager
     subscriptions*: seq[Subscription]
     failedPeers*: Table[string, chronos.Moment]
     timeout*: chronos.Duration
 
-proc handleFilterRequest(wf: WakuFilter, peerId: PeerId, rpc: FilterRPC) =
+proc handleFilterRequest(wf: WakuFilterLegacy, peerId: PeerId, rpc: FilterRPC) =
   let
     requestId = rpc.requestId
     subscribe = rpc.request.get().subscribe
@@ -86,7 +86,7 @@ proc handleFilterRequest(wf: WakuFilter, peerId: PeerId, rpc: FilterRPC) =
   waku_legacy_filter_subscribers.set(wf.subscriptions.len.int64)
 
 
-proc initProtocolHandler(wf: WakuFilter) =
+proc initProtocolHandler(wf: WakuFilterLegacy) =
   proc handler(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     let buffer = await conn.readLp(MaxRpcSize.int)
 
@@ -112,25 +112,25 @@ proc initProtocolHandler(wf: WakuFilter) =
   wf.handler = handler
   wf.codec = WakuFilterCodec
 
-proc new*(T: type WakuFilter,
+proc new*(T: type WakuFilterLegacy,
            peerManager: PeerManager,
            rng: ref rand.HmacDrbgContext,
            timeout: Duration = WakuFilterTimeout): T =
-  let wf = WakuFilter(rng: rng,
+  let wf = WakuFilterLegacy(rng: rng,
                       peerManager: peerManager,
                       timeout: timeout)
   wf.initProtocolHandler()
   return wf
 
-proc init*(T: type WakuFilter,
+proc init*(T: type WakuFilterLegacy,
            peerManager: PeerManager,
            rng: ref rand.HmacDrbgContext,
            timeout: Duration = WakuFilterTimeout): T {.
-  deprecated: "WakuFilter.new()' instead".} =
-  WakuFilter.new(peerManager, rng, timeout)
+  deprecated: "WakuFilterLegacy.new()' instead".} =
+  WakuFilterLegacy.new(peerManager, rng, timeout)
 
 
-proc sendFilterRpc(wf: WakuFilter, rpc: FilterRPC, peer: PeerId|RemotePeerInfo): Future[WakuFilterResult[void]] {.async, gcsafe.}=
+proc sendFilterRpc(wf: WakuFilterLegacy, rpc: FilterRPC, peer: PeerId|RemotePeerInfo): Future[WakuFilterResult[void]] {.async, gcsafe.}=
   let connOpt = await wf.peerManager.dialPeer(peer, WakuFilterCodec)
   if connOpt.isNone():
     return err(dialFailure)
@@ -141,12 +141,12 @@ proc sendFilterRpc(wf: WakuFilter, rpc: FilterRPC, peer: PeerId|RemotePeerInfo):
 
 
 ### Send message to subscriptors
-proc removePeerFromFailedPeersTable(wf: WakuFilter, subs: seq[Subscription]) =
+proc removePeerFromFailedPeersTable(wf: WakuFilterLegacy, subs: seq[Subscription]) =
   ## Clear the failed peer table if subscriber was able to connect
   for sub in subs:
     wf.failedPeers.del($sub)
 
-proc handleClientError(wf: WakuFilter, subs: seq[Subscription]) {.raises: [Defect, KeyError].} =
+proc handleClientError(wf: WakuFilterLegacy, subs: seq[Subscription]) {.raises: [Defect, KeyError].} =
   ## If we have already failed to send message to this peer,
   ## check for elapsed time and if it's been too long, remove the peer.
   for sub in subs:
@@ -165,7 +165,7 @@ proc handleClientError(wf: WakuFilter, subs: seq[Subscription]) {.raises: [Defec
       wf.subscriptions.delete(index)
 
 
-proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, msg: WakuMessage) {.async.} =
+proc handleMessage*(wf: WakuFilterLegacy, pubsubTopic: PubsubTopic, msg: WakuMessage) {.async.} =
 
   trace "handling message", pubsubTopic, contentTopic=msg.contentTopic, subscriptions=wf.subscriptions.len
 
