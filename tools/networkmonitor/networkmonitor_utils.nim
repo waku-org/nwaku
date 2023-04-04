@@ -2,7 +2,7 @@ when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
 else:
   {.push raises: [].}
-  
+
 import
   std/json,
   stew/results,
@@ -44,7 +44,7 @@ proc decodeBytes*(t: typedesc[NodeLocation], value: openArray[byte],
         long:    $jsonContent["lon"].getFloat(),
         isp:     jsonContent["isp"].getStr()
       ))
-    except:
+    except CatchableError:
       return err("failed to get the location: " & getCurrentExceptionMsg())
 
 proc encodeString*(value: string): RestResult[string] =

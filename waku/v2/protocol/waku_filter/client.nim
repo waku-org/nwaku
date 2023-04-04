@@ -47,7 +47,7 @@ proc clear(m: var SubscriptionManager) =
 proc registerSubscription(m: SubscriptionManager, pubsubTopic: PubsubTopic, contentTopic: ContentTopic, handler: FilterPushHandler) =
   try:
     m.subscriptions[(pubsubTopic, contentTopic)]= handler
-  except:
+  except:  # TODO: Fix "BareExcept" warning
     error "failed to register filter subscription", error=getCurrentExceptionMsg()
 
 proc removeSubscription(m: SubscriptionManager, pubsubTopic: PubsubTopic, contentTopic: ContentTopic) =
@@ -60,7 +60,7 @@ proc notifySubscriptionHandler(m: SubscriptionManager, pubsubTopic: PubsubTopic,
   try:
     let handler = m.subscriptions[(pubsubTopic, contentTopic)]
     handler(pubsubTopic, message)
-  except:
+  except:  # TODO: Fix "BareExcept" warning
     discard
 
 proc getSubscriptionsCount(m: SubscriptionManager): int =

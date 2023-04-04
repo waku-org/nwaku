@@ -255,7 +255,7 @@ method getMessages*(
 ): ArchiveDriverResult[seq[ArchiveRow]] =
   let cursor = cursor.map(toIndex)
 
-  let matchesQuery: QueryFilterMatcher = proc(row: IndexedWakuMessage): bool =
+  let matchesQuery: QueryFilterMatcher = func(row: IndexedWakuMessage): bool =
     if pubsubTopic.isSome() and row.pubsubTopic != pubsubTopic.get():
       return false
 
@@ -273,7 +273,7 @@ method getMessages*(
   var pageRes: QueueDriverGetPageResult
   try:
     pageRes = driver.getPage(maxPageSize, ascendingOrder, cursor, matchesQuery)
-  except:
+  except:  # TODO: Fix "BareExcept" warning
     return err(getCurrentExceptionMsg())
 
   if pageRes.isErr():

@@ -3,7 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import 
+import
   options, json, strutils,
   std/[algorithm, os, sequtils, sets]
 
@@ -42,7 +42,7 @@ proc createAppKeystore*(path: string,
   finally:
     f.close()
 
-# This proc load a keystore based on the application, appIdentifier and version filters. 
+# This proc load a keystore based on the application, appIdentifier and version filters.
 # If none is found, it automatically creates an empty keystore for the passed parameters
 proc loadAppKeystore*(path: string,
                       appInfo: AppInfo,
@@ -80,11 +80,11 @@ proc loadAppKeystore*(path: string,
         # We parse the json
         data = json.parseJson(keystore)
 
-        # We check if parsed json contains the relevant keystore credentials fields and if these are set to the passed parameters 
+        # We check if parsed json contains the relevant keystore credentials fields and if these are set to the passed parameters
         # (note that "if" is lazy, so if one of the .contains() fails, the json fields contents will not be checked and no ResultDefect will be raised due to accessing unavailable fields)
         if data.hasKeys(["application", "appIdentifier", "credentials", "version"]) and
-           data["application"].getStr() == appInfo.application and 
-           data["appIdentifier"].getStr() == appInfo.appIdentifier and 
+           data["application"].getStr() == appInfo.application and
+           data["appIdentifier"].getStr() == appInfo.appIdentifier and
            data["version"].getStr() == appInfo.version:
           # We return the first json keystore that matches the passed app parameters
           # We assume a unique kesytore with such parameters is present in the file
@@ -106,7 +106,7 @@ proc loadAppKeystore*(path: string,
   return ok(matchingAppKeystore)
 
 
-# Adds a sequence of membership credential to the keystore matching the application, appIdentifier and version filters. 
+# Adds a sequence of membership credential to the keystore matching the application, appIdentifier and version filters.
 proc addMembershipCredentials*(path: string,
                                credentials: seq[MembershipCredentials],
                                password: string,
@@ -143,7 +143,7 @@ proc addMembershipCredentials*(path: string,
 
             # we parse the json decrypted keystoreCredential
             let decodedCredentialRes = decode(decodedKeyfileRes.get())
-            
+
             if decodedCredentialRes.isOk():
               let keyfileMembershipCredential = decodedCredentialRes.get()
 
@@ -166,13 +166,13 @@ proc addMembershipCredentials*(path: string,
 
                 # we update the original credential field in keystoreCredentials
                 keystoreCredential = updatedCredentialKeyfileRes.get()
-                
+
                 found = true
 
                 # We stop decrypting other credentials in the keystore
                 break
 
-        # If no credential in keystore with same input identityCredential value is found, we add it    
+        # If no credential in keystore with same input identityCredential value is found, we add it
         if found == false:
 
           let encodedMembershipCredential = membershipCredential.encode()
@@ -183,13 +183,13 @@ proc addMembershipCredentials*(path: string,
           # We add it to the credentials field of the keystore
           jsonKeystore["credentials"].add(keyfileRes.get())
 
-  except:
+  except CatchableError:
     return err(KeystoreJsonError)
 
   # We save to disk the (updated) keystore.
   if save(jsonKeystore, path, separator).isErr():
     return err(KeystoreOsError)
-  
+
   return ok()
 
 # Returns the membership credentials in the keystore matching the application, appIdentifier and version filters, further filtered by the input
@@ -226,16 +226,16 @@ proc getMembershipCredentials*(path: string,
         if decodedKeyfileRes.isOk():
             # we parse the json decrypted keystoreCredential
             let decodedCredentialRes = decode(decodedKeyfileRes.get())
-            
+
             if decodedCredentialRes.isOk():
               let keyfileMembershipCredential = decodedCredentialRes.get()
-      
+
               let filteredCredentialOpt = filterCredential(keyfileMembershipCredential, filterIdentityCredentials, filterMembershipContracts)
-              
+
               if filteredCredentialOpt.isSome():
                 outputMembershipCredentials.add(filteredCredentialOpt.get())
 
-  except:
+  except CatchableError:
     return err(KeystoreJsonError)
 
   return ok(outputMembershipCredentials)
