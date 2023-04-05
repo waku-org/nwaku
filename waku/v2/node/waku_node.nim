@@ -413,6 +413,10 @@ proc mountRelay*(node: WakuNode,
                  topics: seq[string] = @[],
                  triggerSelf = true,
                  peerExchangeHandler = none(RoutingRecordsHandler)) {.async, gcsafe.} =
+  if not node.wakuRelay.isNil():
+    error "wakuRelay already mounted, skipping"
+    return
+
   ## The default relay topics is the union of all configured topics plus default PubsubTopic(s)
   info "mounting relay protocol"
 
