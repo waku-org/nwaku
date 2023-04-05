@@ -14,7 +14,8 @@ import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_discv5,
   ./testlib/common,
-  ./testlib/waku2
+  ./testlib/wakucore,
+  ./testlib/wakunode
 
 procSuite "Waku Discovery v5":
   asyncTest "Waku Discovery v5 end-to-end":
@@ -26,17 +27,17 @@ procSuite "Waku Discovery v5":
       nodeKey1 = generateSecp256k1Key()
       nodeTcpPort1 = Port(61500)
       nodeUdpPort1 = Port(9000)
-      node1 = WakuNode.new(nodeKey1, bindIp, nodeTcpPort1)
+      node1 = newTestWakuNode(nodeKey1, bindIp, nodeTcpPort1)
 
       nodeKey2 = generateSecp256k1Key()
       nodeTcpPort2 = Port(61502)
       nodeUdpPort2 = Port(9002)
-      node2 = WakuNode.new(nodeKey2, bindIp, nodeTcpPort2)
+      node2 = newTestWakuNode(nodeKey2, bindIp, nodeTcpPort2)
 
       nodeKey3 = generateSecp256k1Key()
       nodeTcpPort3 = Port(61504)
       nodeUdpPort3 = Port(9004)
-      node3 = WakuNode.new(nodeKey3, bindIp, nodeTcpPort3)
+      node3 = newTestWakuNode(nodeKey3, bindIp, nodeTcpPort3)
 
       flags = CapabilitiesBitfield.init(
                 lightpush = false,

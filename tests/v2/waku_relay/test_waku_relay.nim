@@ -13,7 +13,7 @@ import
   ../../../waku/v2/protocol/waku_message,
   ../../../waku/v2/protocol/waku_relay,
   ../testlib/common,
-  ../testlib/waku2
+  ../testlib/wakucore
 
 
 proc noopRawHandler(): PubsubRawHandler =

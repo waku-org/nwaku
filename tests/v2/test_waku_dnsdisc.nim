@@ -15,7 +15,8 @@ import
   ../../waku/v2/waku_node,
   ../../waku/v2/protocol/waku_dnsdisc,
   ./testlib/common,
-  ./testlib/waku2
+  ./testlib/wakucore,
+  ./testlib/wakunode
 
 suite "Waku DNS Discovery":
   asyncTest "Waku DNS Discovery end-to-end":
@@ -26,13 +27,13 @@ suite "Waku DNS Discovery":
     let
       bindIp = ValidIpAddress.init("0.0.0.0")
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, bindIp, Port(63500))
+      node1 = newTestWakuNode(nodeKey1, bindIp, Port(63500))
       enr1 = node1.enr
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, bindIp, Port(63502))
+      node2 = newTestWakuNode(nodeKey2, bindIp, Port(63502))
       enr2 = node2.enr
       nodeKey3 = generateSecp256k1Key()
-      node3 = WakuNode.new(nodeKey3, bindIp, Port(63503))
+      node3 = newTestWakuNode(nodeKey3, bindIp, Port(63503))
       enr3 = node3.enr
 
     await node1.mountRelay()
@@ -67,7 +68,7 @@ suite "Waku DNS Discovery":
 
     let
       nodeKey4 = generateSecp256k1Key()
-      node4 = WakuNode.new(nodeKey4, bindIp, Port(63504))
+      node4 = newTestWakuNode(nodeKey4, bindIp, Port(63504))
 
     await node4.mountRelay()
     await node4.start()

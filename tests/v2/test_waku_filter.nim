@@ -12,7 +12,7 @@ import
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/protocol/waku_filter/client,
   ./testlib/common,
-  ./testlib/waku2
+  ./testlib/wakucore
 
 
 proc newTestWakuFilterNode(switch: Switch, timeout: Duration = 2.hours): Future[WakuFilter] {.async.} =

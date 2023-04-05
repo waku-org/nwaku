@@ -18,7 +18,8 @@ import
   ../../waku/v2/protocol/waku_peer_exchange,
   ../../waku/v2/protocol/waku_peer_exchange/rpc,
   ../../waku/v2/protocol/waku_peer_exchange/rpc_codec,
-  ./testlib/waku2
+  ./testlib/wakucore,
+  ./testlib/wakunode
 
 
 # TODO: Extend test coverage
@@ -76,17 +77,17 @@ procSuite "Waku Peer Exchange":
       nodeKey1 = generateSecp256k1Key()
       nodeTcpPort1 = Port(64010)
       nodeUdpPort1 = Port(9000)
-      node1 = WakuNode.new(nodeKey1, bindIp, nodeTcpPort1)
+      node1 = newTestWakuNode(nodeKey1, bindIp, nodeTcpPort1)
 
       nodeKey2 = generateSecp256k1Key()
       nodeTcpPort2 = Port(64012)
       nodeUdpPort2 = Port(9002)
-      node2 = WakuNode.new(nodeKey2, bindIp, nodeTcpPort2)
+      node2 = newTestWakuNode(nodeKey2, bindIp, nodeTcpPort2)
 
       nodeKey3 = generateSecp256k1Key()
       nodeTcpPort3 = Port(64014)
       nodeUdpPort3 = Port(9004)
-      node3 = WakuNode.new(nodeKey3, bindIp, nodeTcpPort3)
+      node3 = newTestWakuNode(nodeKey3, bindIp, nodeTcpPort3)
 
       # todo: px flag
       flags = CapabilitiesBitfield.init(
@@ -154,8 +155,8 @@ procSuite "Waku Peer Exchange":
 
   asyncTest "peer exchange request functions returns some discovered peers":
     let
-      node1 = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
-      node2 = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      node1 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
 
     # Start and mount peer exchange
     await allFutures([node1.start(), node2.start()])
@@ -198,8 +199,8 @@ procSuite "Waku Peer Exchange":
 
   asyncTest "peer exchange handler works as expected":
     let
-      node1 = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
-      node2 = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      node1 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
 
     # Start and mount peer exchange
     await allFutures([node1.start(), node2.start()])
@@ -234,8 +235,8 @@ procSuite "Waku Peer Exchange":
 
   asyncTest "peer exchange request fails gracefully":
     let
-      node1 = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
-      node2 = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      node1 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
 
     # Start and mount peer exchange
     await allFutures([node1.start(), node2.start()])

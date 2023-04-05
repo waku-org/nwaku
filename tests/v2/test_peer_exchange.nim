@@ -12,7 +12,8 @@ import
 import
   ../../waku/v2/waku_node,
   ../../waku/v2/utils/peers,
-  ./testlib/waku2
+  ./testlib/wakucore,
+  ./testlib/wakunode
 
 procSuite "Peer Exchange":
   asyncTest "GossipSub (relay) peer exchange":
@@ -22,11 +23,11 @@ procSuite "Peer Exchange":
     let
       bindIp = ValidIpAddress.init("0.0.0.0")
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, bindIp, Port(0))
+      node1 = newTestWakuNode(nodeKey1, bindIp, Port(0))
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, bindIp, Port(0), sendSignedPeerRecord = true)
+      node2 = newTestWakuNode(nodeKey2, bindIp, Port(0), sendSignedPeerRecord = true)
       nodeKey3 = generateSecp256k1Key()
-      node3 = WakuNode.new(nodeKey3, bindIp, Port(0), sendSignedPeerRecord = true)
+      node3 = newTestWakuNode(nodeKey3, bindIp, Port(0), sendSignedPeerRecord = true)
 
     var
       peerExchangeHandler, emptyHandler: RoutingRecordsHandler

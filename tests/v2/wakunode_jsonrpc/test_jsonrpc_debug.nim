@@ -13,7 +13,9 @@ import
   ../../../waku/v2/waku_node,
   ../../../waku/v2/node/jsonrpc/debug/handlers as debug_api,
   ../../../waku/v2/node/jsonrpc/debug/client as debug_api_client,
-  ../testlib/waku2
+  ../testlib/common,
+  ../testlib/wakucore,
+  ../testlib/wakunode
 
 
 procSuite "Waku v2 JSON-RPC API - Debug":
@@ -22,7 +24,7 @@ procSuite "Waku v2 JSON-RPC API - Debug":
     bindIp = ValidIpAddress.init("0.0.0.0")
     extIp = ValidIpAddress.init("127.0.0.1")
     port = Port(0)
-    node = WakuNode.new(privkey, bindIp, port, some(extIp), some(port))
+    node = newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
 
   asyncTest "get node info":
     await node.start()

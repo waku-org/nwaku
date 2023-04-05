@@ -2,7 +2,7 @@
 
 import
   std/[sequtils, strutils, tables],
-  stew/byteutils,
+  stew/[results, byteutils],
   stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
@@ -55,7 +55,11 @@ procSuite "WakuBridge":
 
     # Waku v2 node
     v2NodeKey = crypto.PrivateKey.random(Secp256k1, cryptoRng[])[]
-    v2Node = WakuNode.new(v2NodeKey, ValidIpAddress.init("0.0.0.0"), Port(62203))
+    v2Node = block:
+      var builder = WakuNodeBuilder.init()
+      builder.withNodeKey(v2NodeKey)
+      builder.withNetworkConfigurationDetails(ValidIpAddress.init("0.0.0.0"), Port(62203)).tryGet()
+      builder.build().tryGet()
 
     contentTopic = ContentTopic("/waku/1/0x1a2b3c4d/rfc26")
     topic = [byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]
@@ -63,6 +67,7 @@ procSuite "WakuBridge":
     payloadV2 = "hello from V2".toBytes()
     encodedPayloadV2 = Payload(payload: payloadV2, dst: some(nodev1Key.pubKey))
     message = WakuMessage(payload: encodedPayloadV2.encode(1, rng[]).get(), contentTopic: contentTopic, version: 1)
+
 
   ########################
   # Tests setup/teardown #
@@ -87,7 +92,7 @@ procSuite "WakuBridge":
     await v2Node.mountRelay(@[DefaultBridgeTopic], triggerSelf = false)
 
     discard waitFor v1Node.rlpxConnect(newNode(bridge.nodev1.toENode()))
-    waitFor v2Node.connectToNodes(@[bridge.nodev2.switch.peerInfo.toRemotePeerInfo()])
+    waitFor waku_node.connectToNodes(v2Node, @[bridge.nodev2.switch.peerInfo.toRemotePeerInfo()])
 
     var completionFut = newFuture[bool]()
 

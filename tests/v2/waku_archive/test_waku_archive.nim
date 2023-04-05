@@ -12,7 +12,7 @@ import
   ../../../waku/v2/protocol/waku_archive,
   ../../../waku/v2/utils/time,
   ../testlib/common,
-  ../testlib/waku2
+  ../testlib/wakucore
 
 
 proc newTestDatabase(): SqliteDatabase =

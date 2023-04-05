@@ -8,7 +8,7 @@ import
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/node/message_cache,
   ./testlib/common,
-  ./testlib/waku2
+  ./testlib/wakucore
 
 
 type TestMessageCache = MessageCache[(PubsubTopic, ContentTopic)]

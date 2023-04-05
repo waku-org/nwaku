@@ -6,7 +6,7 @@ import
   testutils/unittests
 import
   ../../waku/v2/protocol/waku_enr,
-  ./testlib/waku2
+  ./testlib/wakucore
 
 
 suite "Waku ENR -  Capabilities bitfield":

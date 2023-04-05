@@ -21,7 +21,8 @@ import
   ../../../waku/v2/utils/peers,
   ../../../waku/v2/utils/time,
   ../../v2/testlib/common,
-  ../../v2/testlib/waku2
+  ../../v2/testlib/wakucore,
+  ../../v2/testlib/wakunode
 
 
 proc put(store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage): Result[void, string] =
@@ -38,7 +39,7 @@ procSuite "Waku v2 JSON-RPC API - Store":
     bindIp = ValidIpAddress.init("0.0.0.0")
     extIp = ValidIpAddress.init("127.0.0.1")
     port = Port(0)
-    node = WakuNode.new(privkey, bindIp, port, some(extIp), some(port))
+    node = newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
 
   asyncTest "query a node and retrieve historical messages":
     await node.start()

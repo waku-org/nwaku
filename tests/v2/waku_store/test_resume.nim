@@ -214,9 +214,9 @@ suite "WakuNode - waku store":
     ## Setup
     let
       serverKey = generateSecp256k1Key()
-      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+      server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
       clientKey = generateSecp256k1Key()
-      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+      client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     await allFutures(client.start(), server.start())
 
@@ -248,9 +248,9 @@ suite "WakuNode - waku store":
     ## Setup
     let
       serverKey = generateSecp256k1Key()
-      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+      server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
       clientKey = generateSecp256k1Key()
-      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+      client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     await allFutures(server.start(), client.start())
     await server.mountStore(store=StoreQueueRef.new())

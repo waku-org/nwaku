@@ -12,7 +12,7 @@ import
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/peer_manager/waku_peer_store,
   ../../waku/v2/waku_node,
-  ./testlib/waku2
+  ./testlib/wakucore
 
 
 suite "Extended nim-libp2p Peer Store":
