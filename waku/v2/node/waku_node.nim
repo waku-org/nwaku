@@ -39,8 +39,9 @@ import
   ../protocol/waku_peer_exchange,
   ../utils/peers,
   ../utils/time,
+  ./config,
   ./peer_manager,
-  ./wakuswitch
+  ./waku_switch
 
 when defined(rln):
   import
@@ -58,6 +59,7 @@ logScope:
   topics = "waku node"
 
 
+# TODO: Move to application instance (e.g., `WakuNode2`)
 # Git version in git describe format (defined compile time)
 const git_version* {.strdefine.} = "n/a"
 
@@ -70,9 +72,7 @@ const WakuFilterTimeout: Duration = 1.days
 
 # key and crypto modules different
 type
-  # XXX: Weird type, should probably be using pubsub PubsubTopic object name?
-  Message* = seq[byte]
-
+  # TODO: Move to application instance (e.g., `WakuNode2`)
   WakuInfo* = object
     # NOTE One for simplicity, can extend later as needed
     listenAddresses*: seq[string]
@@ -101,126 +101,6 @@ type
     announcedAddresses* : seq[MultiAddress]
     started*: bool # Indicates that node has started listening
 
-template ip4TcpEndPoint(address, port): MultiAddress =
-  MultiAddress.init(address, tcpProtocol, port)
-
-template dns4Ma(dns4DomainName: string): MultiAddress =
-  MultiAddress.init("/dns4/" & dns4DomainName).tryGet()
-
-template tcpPortMa(port: Port): MultiAddress =
-  MultiAddress.init("/tcp/" & $port).tryGet()
-
-template dns4TcpEndPoint(dns4DomainName: string, port: Port): MultiAddress =
-  dns4Ma(dns4DomainName) & tcpPortMa(port)
-
-template wsFlag(wssEnabled: bool): MultiAddress =
-  if wssEnabled: MultiAddress.init("/wss").tryGet()
-  else: MultiAddress.init("/ws").tryGet()
-
-type NetConfig* = object
-  hostAddress*: MultiAddress
-  wsHostAddress*: Option[MultiAddress]
-  hostExtAddress*: Option[MultiAddress]
-  wsExtAddress*: Option[MultiAddress]
-  wssEnabled*: bool
-  extIp*: Option[ValidIpAddress]
-  extPort*: Option[Port]
-  dns4DomainName*: Option[string]
-  announcedAddresses*: seq[MultiAddress]
-  extMultiAddrs*: seq[MultiAddress]
-  enrMultiAddrs*: seq[MultiAddress]
-  enrIp*: Option[ValidIpAddress]
-  enrPort*: Option[Port]
-  discv5UdpPort*: Option[Port]
-  wakuFlags*: Option[CapabilitiesBitfield]
-  bindIp*: ValidIpAddress
-  bindPort*: Port
-
-proc init*(
-  T: type NetConfig,
-  bindIp: ValidIpAddress,
-  bindPort: Port,
-  extIp = none(ValidIpAddress),
-  extPort = none(Port),
-  extMultiAddrs = newSeq[MultiAddress](),
-  wsBindPort: Port = (Port)8000,
-  wsEnabled: bool = false,
-  wssEnabled: bool = false,
-  dns4DomainName = none(string),
-  discv5UdpPort = none(Port),
-  wakuFlags = none(CapabilitiesBitfield)
-): T {.raises: [LPError]} =
-  ## Initialize addresses
-  let
-    # Bind addresses
-    hostAddress = ip4TcpEndPoint(bindIp, bindPort)
-    wsHostAddress = if wsEnabled or wssEnabled: some(ip4TcpEndPoint(bindIp, wsbindPort) & wsFlag(wssEnabled))
-                    else: none(MultiAddress)
-    enrIp = if extIp.isSome(): extIp else: some(bindIp)
-    enrPort = if extPort.isSome(): extPort else: some(bindPort)
-
-  # Setup external addresses, if available
-  var
-    hostExtAddress, wsExtAddress = none(MultiAddress)
-
-  if (dns4DomainName.isSome()):
-    # Use dns4 for externally announced addresses
-    hostExtAddress = some(dns4TcpEndPoint(dns4DomainName.get(), extPort.get()))
-
-    if (wsHostAddress.isSome()):
-      wsExtAddress = some(dns4TcpEndPoint(dns4DomainName.get(), wsBindPort) & wsFlag(wssEnabled))
-  else:
-    # No public domain name, use ext IP if available
-    if extIp.isSome() and extPort.isSome():
-      hostExtAddress = some(ip4TcpEndPoint(extIp.get(), extPort.get()))
-
-      if (wsHostAddress.isSome()):
-        wsExtAddress = some(ip4TcpEndPoint(extIp.get(), wsBindPort) & wsFlag(wssEnabled))
-
-  var announcedAddresses = newSeq[MultiAddress]()
-
-  if hostExtAddress.isSome():
-    announcedAddresses.add(hostExtAddress.get())
-  else:
-    announcedAddresses.add(hostAddress) # We always have at least a bind address for the host
-
-  # External multiaddrs that the operator may have configured
-  if extMultiAddrs.len > 0:
-    announcedAddresses.add(extMultiAddrs)
-
-  if wsExtAddress.isSome():
-    announcedAddresses.add(wsExtAddress.get())
-  elif wsHostAddress.isSome():
-    announcedAddresses.add(wsHostAddress.get())
-
-  let
-    # enrMultiaddrs are just addresses which cannot be represented in ENR, as described in
-    # https://rfc.vac.dev/spec/31/#many-connection-types
-    enrMultiaddrs = announcedAddresses.filterIt(it.hasProtocol("dns4") or
-                                                it.hasProtocol("dns6") or
-                                                it.hasProtocol("ws") or
-                                                it.hasProtocol("wss"))
-
-  return NetConfig(
-    hostAddress: hostAddress,
-    wsHostAddress: wsHostAddress,
-    hostExtAddress: hostExtAddress,
-    wsExtAddress: wsExtAddress,
-    extIp: extIp,
-    extPort: extPort,
-    wssEnabled: wssEnabled,
-    dns4DomainName: dns4DomainName,
-    announcedAddresses: announcedAddresses,
-    extMultiAddrs: extMultiAddrs,
-    enrMultiaddrs: enrMultiaddrs,
-    enrIp: enrIp,
-    enrPort: enrPort,
-    discv5UdpPort: discv5UdpPort,
-    bindIp: bindIp,
-    bindPort: bindPort,
-    wakuFlags: wakuFlags)
-
-
 proc getEnr*(netConfig: NetConfig,
              wakuDiscV5 = none(WakuDiscoveryV5),
              nodeKey: crypto.PrivateKey): Result[enr.Record, string] =
@@ -247,7 +127,7 @@ proc getEnr*(netConfig: NetConfig,
 
   return ok(recordRes.get())
 
-proc getAutonatService*(rng = crypto.newRng()): AutonatService =
+proc getAutonatService*(rng: ref HmacDrbgContext): AutonatService =
   ## AutonatService request other peers to dial us back
   ## flagging us as Reachable or NotReachable.
   ## minConfidence is used as threshold to determine the state.
@@ -296,7 +176,7 @@ proc new*(T: type WakuNode,
           # TODO: make this argument required after tests are updated
           rng: ref HmacDrbgContext = crypto.newRng()
           ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError], deprecated: "Use NetConfig variant".} =
-  let netConfig = NetConfig.init(
+  let netConfigRes = NetConfig.init(
     bindIp = bindIp,
     bindPort = bindPort,
     extIp = extIp,
@@ -309,10 +189,12 @@ proc new*(T: type WakuNode,
     dns4DomainName = dns4DomainName,
     discv5UdpPort = discv5UdpPort,
   )
+  if netConfigRes.isErr():
+    raise newException(Defect, "invalid node configuration: " & $netConfigRes.error)
 
   return WakuNode.new(
     nodeKey = nodeKey,
-    netConfig = netConfig,
+    netConfig = netConfigRes.get(),
     peerStorage = peerStorage,
     maxConnections = maxConnections,
     secureKey = secureKey,
@@ -379,6 +261,7 @@ proc peerInfo*(node: WakuNode): PeerInfo =
 proc peerId*(node: WakuNode): PeerId =
   node.peerInfo.peerId
 
+# TODO: Move to application instance (e.g., `WakuNode2`)
 # TODO: Extend with more relevant info: topics, peers, memory usage, online time, etc
 proc info*(node: WakuNode): WakuInfo =
   ## Returns information about the Node, such as what multiaddress it can be reached at.
@@ -874,6 +757,7 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMe
     return
 
   error "failed to publish message", error=publishRes.error
+
 
 ## Waku RLN Relay
 when defined(rln):
