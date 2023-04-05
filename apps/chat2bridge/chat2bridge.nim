@@ -163,10 +163,11 @@ proc new*(T: type Chat2MatterBridge,
     raise newException(ValueError, "Matterbridge client not reachable/healthy")
 
   # Setup Waku v2 node
-  let
-    nodev2 = WakuNode.new(nodev2Key,
-                           nodev2BindIp, nodev2BindPort,
-                           nodev2ExtIp, nodev2ExtPort)
+  let nodev2 = block:
+      var builder = WakuNodeBuilder.init()
+      builder.withNodeKey(nodev2Key)
+      builder.withNetworkConfigurationDetails(nodev2BindIp, nodev2BindPort, nodev2ExtIp, nodev2ExtPort).tryGet()
+      builder.build().tryGet()
 
   return Chat2MatterBridge(mbClient: mbClient,
                            nodev2: nodev2,

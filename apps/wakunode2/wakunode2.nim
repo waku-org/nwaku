@@ -334,21 +334,24 @@ proc initNode(conf: WakuNodeConf,
       ))
     except CatchableError:
       return err("failed to create waku discv5 instance: " & getCurrentExceptionMsg())
-  try:
-    node = WakuNode.new(nodekey = nodekey,
-                        netConfig = netConfig,
-                        peerStorage = pStorage,
-                        maxConnections = conf.maxConnections.int,
-                        secureKey = conf.websocketSecureKeyPath,
-                        secureCert = conf.websocketSecureCertPath,
-                        nameResolver = dnsResolver,
-                        sendSignedPeerRecord = conf.relayPeerExchange, # We send our own signed peer record when peer exchange enabled
-                        wakuDiscv5 = wakuDiscv5,
-                        agentString = some(conf.agentString),
-                        peerStoreCapacity = conf.peerStoreCapacity,
-                        rng = rng)
-  except CatchableError:
-    return err("failed to create waku node instance: " & getCurrentExceptionMsg())
+
+  # Build waku node instance
+  var builder = WakuNodeBuilder.init()
+  builder.withRng(rng)
+  builder.withNodeKey(nodekey)
+  builder.withNetworkConfiguration(netConfig)
+  builder.withPeerStorage(pStorage, capacity = conf.peerStoreCapacity)
+  builder.withSwitchConfiguration(
+      maxConnections = some(conf.maxConnections.int),
+      secureKey = some(conf.websocketSecureKeyPath),
+      secureCert = some(conf.websocketSecureCertPath),
+      nameResolver = dnsResolver,
+      sendSignedPeerRecord = conf.relayPeerExchange, # We send our own signed peer record when peer exchange enabled
+      agentString = some(conf.agentString)
+  )
+  builder.withWakuDiscv5(wakuDiscv5.get(nil))
+
+  node = ? builder.build().mapErr(proc (err: string): string = "failed to create waku node instance: " & err)
 
   ok(node)
 

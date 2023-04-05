@@ -230,7 +230,11 @@ proc initAndStartNode(conf: NetworkMonitorConf): Result[WakuNode, string] =
     let
       bindIp = ValidIpAddress.init("0.0.0.0")
       extIp = ValidIpAddress.init("127.0.0.1")
-      node = WakuNode.new(nodeKey, bindIp, nodeTcpPort)
+
+    var builder = WakuNodeBuilder.init()
+    builder.withNodeKey(nodeKey)
+    ? builder.withNetworkConfigurationDetails(bindIp, nodeTcpPort)
+    let node = ? builder.build()
 
     var discv5BootstrapEnrsRes = getBootstrapFromDiscDns(conf)
     if not discv5BootstrapEnrsRes.isOk():

@@ -5,7 +5,7 @@ else:
 
 # Collection of utilities related to Waku peers
 import
-  std/[options, sequtils, strutils, times],
+  std/[options, sequtils, strutils],
   chronos,
   stew/results,
   stew/shims/net,
