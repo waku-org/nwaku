@@ -1,16 +1,16 @@
 {.used.}
 
 import
+  stew/[results, byteutils],
+  stew/shims/net,
   chronos,
   chronicles,
   testutils/unittests,
-  stew/byteutils,
-  stew/shims/net,
   libp2p/crypto/crypto,
   eth/keys,
   eth/p2p/discoveryv5/enr
 import
-  ../../waku/v2/node/waku_node,
+  ../../waku/v2/waku_node,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_discv5,
   ./testlib/common,
@@ -146,7 +146,7 @@ procSuite "Waku Discovery v5":
                                       bindPort = nodeTcpPort1,
                                       extmultiAddrs = @[expectedMultiAddr],
                                       wakuFlags = some(flags),
-                                      discv5UdpPort = some(nodeUdpPort1))
+                                      discv5UdpPort = some(nodeUdpPort1)).get()
       node1discV5 = WakuDiscoveryV5.new(extIp = node1NetConfig.extIp,
                                         extTcpPort = node1NetConfig.extPort,
                                         extUdpPort = node1NetConfig.discv5UdpPort,
@@ -170,7 +170,7 @@ procSuite "Waku Discovery v5":
                                       extPort = some(nodeTcpPort2),
                                       bindPort = nodeTcpPort2,
                                       wakuFlags = some(flags),
-                                      discv5UdpPort = some(nodeUdpPort2))
+                                      discv5UdpPort = some(nodeUdpPort2)).get()
       node2discV5 = WakuDiscoveryV5.new(extIp = node2NetConfig.extIp,
                                         extTcpPort = node2NetConfig.extPort,
                                         extUdpPort = node2NetConfig.discv5UdpPort,
