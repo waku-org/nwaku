@@ -230,11 +230,12 @@ proc new*(T: type WakuBridge,
   nodev1.configureWaku(wakuConfig)
 
   # Setup Waku v2 node
-  let
-    nodev2 = WakuNode.new(nodev2Key,
-                          nodev2BindIp, nodev2BindPort,
-                          nodev2ExtIp, nodev2ExtPort,
-                          nameResolver = nameResolver)
+  let nodev2 = block:
+      var builder = WakuNodeBuilder.init()
+      builder.withNodeKey(nodev2Key)
+      builder.withNetworkConfigurationDetails(nodev2BindIp, nodev2BindPort, nodev2ExtIp, nodev2ExtPort).tryGet()
+      builder.withSwitchConfiguration(nameResolver=nameResolver)
+      builder.build().tryGet()
 
   return WakuBridge(nodev1: nodev1,
                     nodev2: nodev2,

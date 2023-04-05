@@ -42,8 +42,12 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
     let
         nodeKey = crypto.PrivateKey.random(Secp256k1, rng[]).get()
         ip = ValidIpAddress.init("0.0.0.0")
-        node = WakuNode.new(nodeKey, ip, Port(wakuPort))
         flags = CapabilitiesBitfield.init(lightpush = false, filter = false, store = false, relay = true)
+
+    var builder = WakuNodeBuilder.init()
+    builder.withNodeKey(nodeKey)
+    builder.withNetworkConfigurationDetails(ip, Port(wakuPort)).tryGet()
+    let node = builder.build().tryGet()
 
     var bootstrapNodeEnr: enr.Record
     discard bootstrapNodeEnr.fromURI(bootstrapNode)
