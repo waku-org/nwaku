@@ -10,7 +10,7 @@ import
   ../../../waku/v2/protocol/waku_store/rpc_codec,
   ../../../waku/v2/utils/time,
   ../testlib/common,
-  ../testlib/waku2
+  ../testlib/wakucore
 
 
 

@@ -11,7 +11,7 @@ import
   ../../../waku/v2/protocol/waku_message,
   ../../../waku/v2/utils/time,
   ../testlib/common,
-  ../testlib/waku2
+  ../testlib/wakucore
 
 
 proc getTestQueueDriver(numMessages: int): QueueDriver =

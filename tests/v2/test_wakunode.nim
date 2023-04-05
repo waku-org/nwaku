@@ -23,7 +23,8 @@ import
   ../../waku/v2/protocol/waku_relay,
   ../../waku/v2/protocol/waku_peer_exchange,
   ../../waku/v2/utils/peers,
-  ./testlib/waku2
+  ./testlib/wakucore,
+  ./testlib/wakunode
 
 
 suite "WakuNode":
@@ -31,9 +32,9 @@ suite "WakuNode":
   asyncTest "Protocol matcher works as expected":
     let
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(61000))
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(61000))
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(61002))
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(61002))
       pubSubTopic = "/waku/2/default-waku/proto"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
@@ -88,9 +89,9 @@ suite "WakuNode":
 
     let
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(61020), nameResolver = resolver)
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(61020), nameResolver = resolver)
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(61022))
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(61022))
 
     # Construct DNS multiaddr for node2
     let
@@ -113,13 +114,13 @@ suite "WakuNode":
     let
       maxConnections = 2
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         Port(60010), maxConnections = maxConnections)
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60012))
       nodeKey3 = generateSecp256k1Key()
-      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"),
+      node3 = newTestWakuNode(nodeKey3, ValidIpAddress.init("0.0.0.0"),
         Port(60013))
 
     check:
@@ -150,12 +151,11 @@ suite "WakuNode":
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
 
   asyncTest "Messages fails with wrong key path":
-    let
-      nodeKey1 = generateSecp256k1Key()
+    let nodeKey1 = generateSecp256k1Key()
 
-    expect IOError:
+    expect ResultDefect:
       # gibberish
-      discard WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      discard newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         bindPort = Port(61004),
         wsBindPort = Port(8000),
         wssEnabled = true,
@@ -168,7 +168,7 @@ suite "WakuNode":
       bindPort = Port(61006)
       extIp = some(ValidIpAddress.init("127.0.0.1"))
       extPort = some(Port(61008))
-      node = WakuNode.new(
+      node = newTestWakuNode(
         nodeKey,
         bindIp, bindPort,
         extIp, extPort)
@@ -209,7 +209,7 @@ suite "WakuNode":
       extPort = some(Port(61012))
       domainName = "example.com"
       expectedDns4Addr = MultiAddress.init("/dns4/" & domainName & "/tcp/" & $(extPort.get())).get()
-      node = WakuNode.new(
+      node = newTestWakuNode(
         nodeKey,
         bindIp, bindPort,
         extIp, extPort,
@@ -230,12 +230,12 @@ suite "WakuNode":
     let
       # node with custom agent string
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(61014),
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(61014),
                            agentString = some(expectedAgentString1))
 
       # node with default agent string from libp2p
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(61016))
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(61016))
 
     await node1.start()
     await node1.mountRelay()
@@ -265,12 +265,12 @@ suite "WakuNode":
     let
       # node with custom multiaddress
       nodeKey1 = generateSecp256k1Key()
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(61018),
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(61018),
                            extMultiAddrs = @[expectedMultiaddress1])
 
       # node with default multiaddress
       nodeKey2 = generateSecp256k1Key()
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(61020))
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(61020))
 
     await node1.start()
     await node1.mountRelay()
@@ -290,8 +290,8 @@ suite "WakuNode":
 
   asyncTest "Function fetchPeerExchangePeers succesfully exchanges px peers":
     let
-      node1 = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
-      node2 = WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      node1 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
 
     # Start and mount peer exchange
     await allFutures([node1.start(), node2.start()])

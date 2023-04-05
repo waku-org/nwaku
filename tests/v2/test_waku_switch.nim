@@ -11,7 +11,7 @@ import
 import
   ../../waku/v2/node/waku_switch,
   ./testlib/common,
-  ./testlib/waku2
+  ./testlib/wakucore
 
 proc newCircuitRelayClientSwitch(relayClient: RelayClient): Switch =
   SwitchBuilder.new()
