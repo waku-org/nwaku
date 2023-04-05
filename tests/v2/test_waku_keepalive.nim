@@ -12,7 +12,7 @@ import
   libp2p/stream/connection,
   libp2p/crypto/crypto
 import
-  ../../waku/v2/node/waku_node,
+  ../../waku/v2/waku_node,
   ../../waku/v2/utils/peers,
   ./testlib/waku2
 

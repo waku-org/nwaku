@@ -17,7 +17,7 @@ import
   libp2p/nameresolving/mockresolver,
   eth/p2p/discoveryv5/enr
 import
-  ../../waku/v2/node/waku_node,
+  ../../waku/v2/waku_node,
   ../../waku/v2/node/peer_manager,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_relay,

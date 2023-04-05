@@ -10,7 +10,7 @@ import
   json_rpc/[rpcserver, rpcclient]
 import
   ../../../waku/v2/node/peer_manager,
-  ../../../waku/v2/node/waku_node,
+  ../../../waku/v2/waku_node,
   ../../../waku/v2/node/jsonrpc/debug/handlers as debug_api,
   ../../../waku/v2/node/jsonrpc/debug/client as debug_api_client,
   ../testlib/waku2

@@ -1,7 +1,7 @@
 import
   std/[os, strutils, times, options], #options as what # TODO: Huh? Redefinition?
-  chronicles, 
-  eth/common as eth_common, 
+  chronicles,
+  eth/common as eth_common,
   eth/keys,
   json_rpc/[rpcclient, rpcserver],
   libp2p/protobuf/minprotobuf
@@ -10,10 +10,10 @@ import
   ../../waku/v2/protocol/waku_store/rpc,
   ../../waku/v2/protocol/waku_message,
   ../../waku/v2/utils/time,
-  ../../waku/v2/node/waku_node, 
+  ../../waku/v2/waku_node,
   ../../waku/v2/node/waku_payload,
   ../../waku/v2/node/jsonrpc/[jsonrpc_types,jsonrpc_utils]
-  
+
 
 from strutils import rsplit
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
