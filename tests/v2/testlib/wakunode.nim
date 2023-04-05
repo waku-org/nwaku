@@ -52,8 +52,8 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
     dns4DomainName = dns4DomainName,
     discv5UdpPort = discv5UdpPort,
   )
-  if netConfigRes.isErr:
-    raise newException(Defect, "Invalid network configuration")
+  if netConfigRes.isErr():
+    raise newException(Defect, "Invalid network configuration: " & $netConfigRes.error)
 
   var builder = WakuNodeBuilder.init()
   builder.withRng(rng())
