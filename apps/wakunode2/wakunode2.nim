@@ -47,7 +47,8 @@ import
   ../../waku/v2/protocol/waku_relay/validators,
   ../../waku/v2/utils/peers,
   ./wakunode2_setup_rest,
-  ./wakunode2_setup_rpc
+  ./wakunode2_setup_rpc,
+  ./wakunode2_archive_driver
 
 when defined(rln):
   import
@@ -392,9 +393,7 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
   if conf.store:
     # Archive setup
     let messageValidator: MessageValidator = DefaultMessageValidator()
-    let mountArchiveRes = mountArchive(node, conf, messageValidator=some(messageValidator), retentionPolicy=archiveRetentionPolicy)
-    if mountArchiveRes.isErr():
-      return err("failed to mount archive protocol")
+    mountArchive(node, archiveDriver, messageValidator=some(messageValidator), retentionPolicy=archiveRetentionPolicy)
 
     # Store setup
     try:

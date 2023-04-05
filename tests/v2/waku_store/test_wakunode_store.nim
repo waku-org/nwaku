@@ -15,7 +15,6 @@ import
 import
   ../../../waku/common/sqlite,
   ../../../waku/v2/node/peer_manager,
-  ../../../waku/v2/config,
   ../../../waku/v2/protocol/waku_message,
   ../../../waku/v2/protocol/waku_archive,
   ../../../waku/v2/protocol/waku_archive/driver/sqlite_driver,
@@ -27,10 +26,9 @@ import
   ../testlib/waku2
 
 
-proc defaultConf : WakuNodeConf =
-  return WakuNodeConf(
-    storeMessageDbUrl: "sqlite://:memory:",
-    listenAddress: ValidIpAddress.init("127.0.0.1"), rpcAddress: ValidIpAddress.init("127.0.0.1"), restAddress: ValidIpAddress.init("127.0.0.1"), metricsServerAddress: ValidIpAddress.init("127.0.0.1"))
+proc newTestArchiveDriver(): ArchiveDriver =
+  let database = SqliteDatabase.new(":memory:").tryGet()
+  SqliteDriver.new(database).tryGet()
 
 proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): HistoryCursor =
   HistoryCursor(
@@ -56,10 +54,14 @@ procSuite "WakuNode - Store":
     fakeWakuMessage(@[byte 09], ts=ts(90, timeOrigin))
   ]
 
-  proc insertFixtures(node: WakuNode) : void =
-    for msg in msgListA:
-      let msg_digest = waku_archive.computeDigest(msg)
-      require node.wakuArchive.driver.put(DefaultPubsubTopic, msg, msg_digest, msg.timestamp).isOk()
+  let archiveA = block:
+      let driver = newTestArchiveDriver()
+
+      for msg in msgListA:
+        let msg_digest = waku_archive.computeDigest(msg)
+        require driver.put(DefaultPubsubTopic, msg, msg_digest, msg.timestamp).isOk()
+
+      driver
 
   asyncTest "Store protocol returns expected messages":
     ## Setup
@@ -71,10 +73,7 @@ procSuite "WakuNode - Store":
 
     await allFutures(client.start(), server.start())
 
-    let mountArchiveRes = server.mountArchive(defaultConf(), none(MessageValidator), none(RetentionPolicy))
-    require mountArchiveRes.isOk()
-
-    insertFixtures(server)
+    server.mountArchive(some(archiveA), none(MessageValidator), none(RetentionPolicy))
     await server.mountStore()
 
     client.mountStoreClient()
@@ -106,9 +105,7 @@ procSuite "WakuNode - Store":
 
     await allFutures(client.start(), server.start())
 
-    let mountArchiveRes = server.mountArchive(defaultConf(), none(MessageValidator), none(RetentionPolicy))
-    require mountArchiveRes.isOk()
-    insertFixtures(server)
+    server.mountArchive(some(archiveA), none(MessageValidator), none(RetentionPolicy))
     await server.mountStore()
 
     client.mountStoreClient()
@@ -157,10 +154,7 @@ procSuite "WakuNode - Store":
 
     await allFutures(client.start(), server.start())
 
-    let mountArchiveRes = server.mountArchive(defaultConf(), none(MessageValidator), none(RetentionPolicy))
-    require mountArchiveRes.isOk()
-
-    insertFixtures(server)
+    server.mountArchive(some(archiveA), none(MessageValidator), none(RetentionPolicy))
     await server.mountStore()
 
     client.mountStoreClient()
@@ -213,12 +207,8 @@ procSuite "WakuNode - Store":
     await allFutures(client.start(), server.start(), filterSource.start())
 
     await filterSource.mountFilter()
-
-    let mountArchiveRes = server.mountArchive(defaultConf(), none(MessageValidator), none(RetentionPolicy))
-    require mountArchiveRes.isOk()
-
-    insertFixtures(server)
-
+    let driver = newTestArchiveDriver()
+    server.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
     await server.mountStore()
     await server.mountFilterClient()
     client.mountStoreClient()
