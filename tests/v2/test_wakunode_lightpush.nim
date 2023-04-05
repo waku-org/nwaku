@@ -12,7 +12,7 @@ import
   ../../waku/v2/protocol/waku_lightpush,
   ../../waku/v2/node/peer_manager,
   ../../waku/v2/utils/peers,
-  ../../waku/v2/node/waku_node,
+  ../../waku/v2/waku_node,
   ./testlib/common,
   ./testlib/waku2
 

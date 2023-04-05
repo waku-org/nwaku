@@ -8,7 +8,7 @@ import
   chronicles,
   presto
 import
-  ../../waku/v2/node/waku_node,
+  ../../waku/v2/waku_node,
   ../../waku/v2/node/rest/server,
   ../../waku/v2/node/rest/debug/handlers as debug_api,
   ../../waku/v2/node/rest/relay/handlers as relay_api,

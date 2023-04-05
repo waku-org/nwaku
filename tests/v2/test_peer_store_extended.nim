@@ -11,7 +11,7 @@ import
 import
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/peer_manager/waku_peer_store,
-  ../../waku/v2/node/waku_node,
+  ../../waku/v2/waku_node,
   ./testlib/waku2
 
 
