@@ -78,7 +78,8 @@ import
   ./v2/wakunode_rest/test_rest_debug_serdes,
   ./v2/wakunode_rest/test_rest_relay,
   ./v2/wakunode_rest/test_rest_relay_serdes,
-  ./v2/wakunode_rest/test_rest_serdes
+  ./v2/wakunode_rest/test_rest_serdes,
+  ./v2/wakunode_rest/test_rest_store
 
 
 ## Apps

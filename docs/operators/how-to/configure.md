@@ -124,7 +124,7 @@ The following options are available:
 
 ## Configuration use cases
 
-This an index of tutorials explaining how to configure your nwaku node for different use cases.
+This is an index of tutorials explaining how to configure your nwaku node for different use cases.
 
 1. [Connect to other peers](./connect.md)
 2. [Configure a domain name](./configure-domain.md)
@@ -133,3 +133,4 @@ This an index of tutorials explaining how to configure your nwaku node for diffe
 5. [Generate and configure a node key](./configure-key.md)
 6. [Configure websocket transport](./configure-websocket.md)
 7. [Run nwaku with rate limiting enabled](./run-with-rln.md)
+8. [Configure a REST API node](./configure-rest-api.md)

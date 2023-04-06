@@ -437,9 +437,9 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       executeMessageRetentionPolicy(node)
       startMessageRetentionPolicyPeriodicTask(node, interval=WakuArchiveDefaultRetentionPolicyInterval)
 
+  mountStoreClient(node)
   if conf.storenode != "":
     try:
-      mountStoreClient(node)
       let storenode = parseRemotePeerInfo(conf.storenode)
       node.peerManager.addServicePeer(storenode, WakuStoreCodec)
     except CatchableError:
