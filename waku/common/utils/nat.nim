@@ -14,14 +14,15 @@ logScope:
 proc setupNat*(natConf, clientId: string, tcpPort, udpPort: Port):
     tuple[ip: Option[ValidIpAddress],
           tcpPort: Option[Port],
-          udpPort: Option[Port]] {.gcsafe.} =
+          udpPort: Option[Port]] {.gcsafe, deprecated:
+  "Unsafe: this proc quits the app if something is not ok".} =
 
   var
     endpoint: tuple[ip: Option[ValidIpAddress],
                     tcpPort: Option[Port],
                     udpPort: Option[Port]]
     nat: NatStrategy
-  
+
   case natConf.toLowerAscii:
     of "any":
       nat = NatAny
@@ -65,5 +66,5 @@ proc setupNat*(natConf, clientId: string, tcpPort, udpPort: Port):
         let (extTcpPort, extUdpPort) = extPorts.get()
         endpoint.tcpPort = some(extTcpPort)
         endpoint.udpPort = some(extUdpPort)
-  
+
   return endpoint
