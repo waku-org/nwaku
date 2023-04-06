@@ -12,6 +12,7 @@ import
   libbacktrace,
   system/ansi_c,
   eth/keys,
+  eth/net/nat,
   eth/p2p/discoveryv5/enr,
   libp2p/builders,
   libp2p/multihash,
@@ -23,7 +24,6 @@ import
   libp2p/nameresolving/dnsresolver
 import
   ../../waku/common/sqlite,
-  ../../waku/common/utils/nat,
   ../../waku/common/logging,
   ../../waku/v2/node/peer_manager,
   ../../waku/v2/node/peer_manager/peer_store/waku_peer_storage,
@@ -214,6 +214,51 @@ proc retrieveDynamicBootstrapNodes*(dnsDiscovery: bool, dnsDiscoveryUrl: string,
   debug "No method for retrieving dynamic bootstrap nodes specified."
   ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default
 
+proc setupNat(natConf, clientId: string, tcpPort, udpPort: Port):
+  SetupResult[tuple[ip: Option[ValidIpAddress], tcpPort: Option[Port], udpPort: Option[Port]]] {.gcsafe.} =
+
+  let strategy = case natConf.toLowerAscii():
+      of "any": NatAny
+      of "none": NatNone
+      of "upnp": NatUpnp
+      of "pmp": NatPmp
+      else: NatNone
+
+  var endpoint: tuple[ip: Option[ValidIpAddress], tcpPort: Option[Port], udpPort: Option[Port]]
+
+  if strategy != NatNone:
+    let extIp = getExternalIP(strategy)
+    if extIP.isSome():
+      endpoint.ip = some(ValidIpAddress.init(extIp.get()))
+      # RedirectPorts in considered a gcsafety violation
+      # because it obtains the address of a non-gcsafe proc?
+      var extPorts: Option[(Port, Port)]
+      try:
+        extPorts = ({.gcsafe.}: redirectPorts(tcpPort = tcpPort,
+                                              udpPort = udpPort,
+                                              description = clientId))
+      except CatchableError:
+        # TODO: nat.nim Error: can raise an unlisted exception: Exception. Isolate here for now.
+        error "unable to determine external ports"
+        extPorts = none((Port, Port))
+
+      if extPorts.isSome():
+        let (extTcpPort, extUdpPort) = extPorts.get()
+        endpoint.tcpPort = some(extTcpPort)
+        endpoint.udpPort = some(extUdpPort)
+
+  else: # NatNone
+    if not natConf.startsWith("extip:"):
+      return err("not a valid NAT mechanism: " & $natConf)
+
+    try:
+      # any required port redirection is assumed to be done by hand
+      endpoint.ip = some(ValidIpAddress.init(natConf[6..^1]))
+    except ValueError:
+      return err("not a valid IP address: " & $natConf[6..^1])
+
+  return ok(endpoint)
+
 proc initNode(conf: WakuNodeConf,
               rng: ref HmacDrbgContext,
               peerStore: Option[WakuPeerStorage],
@@ -240,14 +285,21 @@ proc initNode(conf: WakuNodeConf,
                 if nodekeyRes.isErr():
                   return err("failed to generate nodekey: " & $nodekeyRes.error)
                 nodekeyRes.get()
-    ## `udpPort` is only supplied to satisfy underlying APIs but is not
-    ## actually a supported transport for libp2p traffic.
-    udpPort = conf.tcpPort
-    (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat,
-                                              clientId,
-                                              Port(uint16(conf.tcpPort) + conf.portsShift),
-                                              Port(uint16(udpPort) + conf.portsShift))
 
+
+  ## `udpPort` is only supplied to satisfy underlying APIs but is not
+  ## actually a supported transport for libp2p traffic.
+  let udpPort = conf.tcpPort
+  let natRes = setupNat(conf.nat, clientId,
+                        Port(uint16(conf.tcpPort) + conf.portsShift),
+                        Port(uint16(udpPort) + conf.portsShift))
+  if natRes.isErr():
+    return err("failed to setup NAT: " & $natRes.error)
+
+  let (extIp, extTcpPort, _) = natRes.get()
+
+
+  let
     dns4DomainName = if conf.dns4DomainName != "": some(conf.dns4DomainName)
                       else: none(string)
 
