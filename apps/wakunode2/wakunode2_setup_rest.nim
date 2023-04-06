@@ -13,6 +13,7 @@ import
   ../../waku/v2/node/rest/debug/handlers as debug_api,
   ../../waku/v2/node/rest/relay/handlers as relay_api,
   ../../waku/v2/node/rest/relay/topic_cache,
+  ../../waku/v2/node/rest/store/handlers as store_api,
   ./config
 
 
@@ -35,6 +36,9 @@ proc startRestServer*(node: WakuNode, address: ValidIpAddress, port: Port, conf:
   if conf.relay:
     let relayCache = TopicCache.init(capacity=conf.restRelayCacheCapacity)
     installRelayApiHandlers(server.router, node, relayCache)
+
+  ## Store REST API
+  installStoreApiHandlers(server.router, node)
 
   server.start()
   info "Starting REST HTTP server", url = "http://" & $address & ":" & $port & "/"
