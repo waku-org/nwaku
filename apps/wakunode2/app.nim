@@ -31,6 +31,12 @@ import
   ../../waku/v2/protocol/waku_dnsdisc,
   ../../waku/v2/protocol/waku_enr,
   ../../waku/v2/protocol/waku_discv5,
+  ../../waku/v2/protocol/waku_peer_exchange,
+  ../../waku/v2/protocol/waku_relay/validators,
+  ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/protocol/waku_lightpush,
+  ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/utils/peers,
   ./config
 
@@ -392,4 +398,143 @@ proc initNode(conf: WakuNodeConf,
   node = ? builder.build().mapErr(proc (err: string): string = "failed to create waku node instance: " & err)
 
   ok(node)
+
+
+## Mount protocols
+
+proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
+                    archiveDriver: Option[ArchiveDriver],
+                    archiveRetentionPolicy: Option[RetentionPolicy]): Future[AppResult[void]] {.async.} =
+  ## Setup configured protocols on an existing Waku v2 node.
+  ## Optionally include persistent message storage.
+  ## No protocols are started yet.
+
+  # Mount relay on all nodes
+  var peerExchangeHandler = none(RoutingRecordsHandler)
+  if conf.relayPeerExchange:
+    proc handlePeerExchange(peer: PeerId, topic: string,
+                            peers: seq[RoutingRecordsPair]) {.gcsafe.} =
+      ## Handle peers received via gossipsub peer exchange
+      # TODO: Only consider peers on pubsub topics we subscribe to
+      let exchangedPeers = peers.filterIt(it.record.isSome()) # only peers with populated records
+                                .mapIt(toRemotePeerInfo(it.record.get()))
+
+      debug "connecting to exchanged peers", src=peer, topic=topic, numPeers=exchangedPeers.len
+
+      # asyncSpawn, as we don't want to block here
+      asyncSpawn node.connectToNodes(exchangedPeers, "peer exchange")
+
+    peerExchangeHandler = some(handlePeerExchange)
+
+  if conf.relay:
+    try:
+      let pubsubTopics = conf.topics.split(" ")
+      await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
+    except CatchableError:
+      return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())
+
+    # TODO: Get this from cli
+    var topicsPublicKeys = initTable[string, SkPublicKey]()
+    # Add validation keys to protected topics
+    for topic, publicKey in topicsPublicKeys.pairs:
+      info "routing only signed traffic", topic=topic, publicKey=publicKey
+      node.wakuRelay.addSignedTopicValidator(Pubsubtopic(topic), publicKey)
+
+
+  # Keepalive mounted on all nodes
+  try:
+    await mountLibp2pPing(node)
+  except CatchableError:
+    return err("failed to mount libp2p ping protocol: " & getCurrentExceptionMsg())
+
+  when defined(rln):
+    if conf.rlnRelay:
+
+      let rlnConf = WakuRlnConfig(
+        rlnRelayDynamic: conf.rlnRelayDynamic,
+        rlnRelayPubsubTopic: conf.rlnRelayPubsubTopic,
+        rlnRelayContentTopic: conf.rlnRelayContentTopic,
+        rlnRelayMembershipIndex: some(conf.rlnRelayMembershipIndex),
+        rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
+        rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
+        rlnRelayEthAccountPrivateKey: conf.rlnRelayEthAccountPrivateKey,
+        rlnRelayEthAccountAddress: conf.rlnRelayEthAccountAddress,
+        rlnRelayCredPath: conf.rlnRelayCredPath,
+        rlnRelayCredentialsPassword: conf.rlnRelayCredentialsPassword
+      )
+
+      try:
+        await node.mountRlnRelay(rlnConf)
+      except CatchableError:
+        return err("failed to mount waku RLN relay protocol: " & getCurrentExceptionMsg())
+
+  if conf.store:
+    # Archive setup
+    let messageValidator: MessageValidator = DefaultMessageValidator()
+    mountArchive(node, archiveDriver, messageValidator=some(messageValidator), retentionPolicy=archiveRetentionPolicy)
+
+    # Store setup
+    try:
+      await mountStore(node)
+    except CatchableError:
+      return err("failed to mount waku store protocol: " & getCurrentExceptionMsg())
+
+    # TODO: Move this to storage setup phase
+    if archiveRetentionPolicy.isSome():
+      executeMessageRetentionPolicy(node)
+      startMessageRetentionPolicyPeriodicTask(node, interval=WakuArchiveDefaultRetentionPolicyInterval)
+
+  mountStoreClient(node)
+  if conf.storenode != "":
+    try:
+      let storenode = parseRemotePeerInfo(conf.storenode)
+      node.peerManager.addServicePeer(storenode, WakuStoreCodec)
+    except CatchableError:
+      return err("failed to set node waku store peer: " & getCurrentExceptionMsg())
+
+  # NOTE Must be mounted after relay
+  if conf.lightpush:
+    try:
+      await mountLightPush(node)
+    except CatchableError:
+      return err("failed to mount waku lightpush protocol: " & getCurrentExceptionMsg())
+
+  if conf.lightpushnode != "":
+    try:
+      mountLightPushClient(node)
+      let lightpushnode = parseRemotePeerInfo(conf.lightpushnode)
+      node.peerManager.addServicePeer(lightpushnode, WakuLightPushCodec)
+    except CatchableError:
+      return err("failed to set node waku lightpush peer: " & getCurrentExceptionMsg())
+
+  # Filter setup. NOTE Must be mounted after relay
+  if conf.filter:
+    try:
+      await mountFilter(node, filterTimeout = chronos.seconds(conf.filterTimeout))
+    except CatchableError:
+      return err("failed to mount waku filter protocol: " & getCurrentExceptionMsg())
+
+  if conf.filternode != "":
+    try:
+      await mountFilterClient(node)
+      let filternode = parseRemotePeerInfo(conf.filternode)
+      node.peerManager.addServicePeer(filternode, WakuFilterCodec)
+    except CatchableError:
+      return err("failed to set node waku filter peer: " & getCurrentExceptionMsg())
+
+  # waku peer exchange setup
+  if (conf.peerExchangeNode != "") or (conf.peerExchange):
+    try:
+      await mountPeerExchange(node)
+    except CatchableError:
+      return err("failed to mount waku peer-exchange protocol: " & getCurrentExceptionMsg())
+
+    if conf.peerExchangeNode != "":
+      try:
+        let peerExchangeNode = parseRemotePeerInfo(conf.peerExchangeNode)
+        node.peerManager.addServicePeer(peerExchangeNode, WakuPeerExchangeCodec)
+      except CatchableError:
+        return err("failed to set node waku peer-exchange peer: " & getCurrentExceptionMsg())
+
+  return ok()
 
