@@ -431,13 +431,19 @@ when isMainModule:
 
   if conf.storenode != "":
     mountStoreClient(bridge.nodev2)
-    let storeNode = parseRemotePeerInfo(conf.storenode)
-    bridge.nodev2.peerManager.addServicePeer(storeNode, WakuStoreCodec)
+    let storeNode = parsePeerInfo(conf.storenode)
+    if storeNode.isOk():
+      bridge.nodev2.peerManager.addServicePeer(storeNode.value, WakuStoreCodec)
+    else:
+      error "Couldn't parse conf.storenode", error = storeNode.error
 
   if conf.filternode != "":
     waitFor mountFilterClient(bridge.nodev2)
-    let filterNode = parseRemotePeerInfo(conf.filternode)
-    bridge.nodev2.peerManager.addServicePeer(filterNode, WakuFilterCodec)
+    let filterNode = parsePeerInfo(conf.filternode)
+    if filterNode.isOk():
+      bridge.nodev2.peerManager.addServicePeer(filterNode.value, WakuFilterCodec)
+    else:
+      error "Couldn't parse conf.filternode", error = filterNode.error
 
   if conf.rpc:
     let ta = initTAddress(conf.rpcAddress,

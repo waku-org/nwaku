@@ -110,37 +110,42 @@ func getTransportProtocol(typedR: TypedRecord): Option[IpTransportProtocol] =
 
   return none(IpTransportProtocol)
 
-## Parses a fully qualified peer multiaddr, in the
-## format `(ip4|ip6)/tcp/p2p`, into dialable PeerInfo
-proc parseRemotePeerInfo*(address: string): RemotePeerInfo {.raises: [Defect, ValueError, LPError].}=
-  let multiAddr = MultiAddress.init(address).tryGet()
 
-  var
-    nwPart, tcpPart, p2pPart, wsPart, wssPart: MultiAddress
+proc parsePeerInfo*(peer: RemotePeerInfo|string):
+                    Result[RemotePeerInfo, string] =
+  ## Parses a fully qualified peer multiaddr, in the
+  ## format `(ip4|ip6)/tcp/p2p`, into dialable PeerInfo
 
+  if peer is RemotePeerInfo:
+    return ok(cast[RemotePeerInfo](peer))
+
+  let multiAddr = ? MultiAddress.init(cast[string](peer))
+                    .mapErr(proc(err: string):
+                        string = "MultiAddress.init [" & err & "]")
+
+  var p2pPart: MultiAddress
+  var wireAddr = MultiAddress()
   for addrPart in multiAddr.items():
     case addrPart[].protoName()[]
     # All protocols listed here: https://github.com/multiformats/multiaddr/blob/b746a7d014e825221cc3aea6e57a92d78419990f/protocols.csv
-    of "ip4", "ip6", "dns", "dnsaddr", "dns4", "dns6":
-      nwPart = addrPart.tryGet()
-    of "tcp":
-      tcpPart = addrPart.tryGet()
     of "p2p":
-      p2pPart = addrPart.tryGet()
-    of "ws":
-      wsPart = addrPart.tryGet()
-    of "wss":
-      wssPart = addrPart.tryGet()
+      p2pPart = ? addrPart.mapErr(proc(err: string):string = "Error getting p2pPart [" & err & "]")
+    of "ip4", "ip6", "dns", "dnsaddr", "dns4", "dns6", "tcp", "ws", "wss":
+      let val = ? addrPart.mapErr(proc(err: string):string = "Error getting addrPart [" & err & "]")
+      ? wireAddr.append(val).mapErr(proc(err: string):string = "Error appending addrPart [" & err & "]")
 
-  # nim-libp2p dialing requires remote peers to be initialised with a peerId and a wire address
-  let
-    peerIdStr = p2pPart.toString()[].split("/")[^1]
+  let p2pPartStr = p2pPart.toString()[]
+  if not p2pPartStr.contains("/"):
+    return err("Error in parsePeerInfo: p2p part should contain /")
 
-    wireAddr = nwPart & tcpPart & wsPart & wssPart
-  if (not wireAddr.validWireAddr()):
-    raise newException(ValueError, "Invalid node multi-address")
+  let peerId = ? PeerID.init(p2pPartStr.split("/")[^1])
+                        .mapErr(proc (e:cstring):string = cast[string](e))
 
-  return RemotePeerInfo.init(peerIdStr, @[wireAddr])
+  if not wireAddr.validWireAddr():
+    return err("Error in parsePeerInfo: Invalid node multiaddress")
+
+  return ok(RemotePeerInfo.init(peerId, @[wireAddr]))
+
 
 # Checks whether the peerAddr parameter represents a valid p2p multiaddress.
 # The param must be in the format `(ip4|ip6)/tcp/p2p/$peerId` but URL-encoded
@@ -150,12 +155,14 @@ proc parseUrlPeerAddr*(peerAddr: Option[string]):
   if not peerAddr.isSome() or peerAddr.get() == "":
     return ok(none(RemotePeerInfo))
 
-  try:
-    let parsedAddr = decodeUrl(peerAddr.get())
-    return ok(some(parseRemotePeerInfo(parsedAddr)))
-  except Exception:
+  let parsedAddr = decodeUrl(peerAddr.get())
+  let parsedPeerInfo = parsePeerInfo(parsedAddr)
+
+  if parsedPeerInfo.isOk():
+    return ok(some(parsedPeerInfo.value))
+  else:
     return err("Failed parsing remote peer info [" &
-               getCurrentExceptionMsg() & "]")
+               parsedPeerInfo.error & "]")
 
 ## Converts an ENR to dialable RemotePeerInfo
 proc toRemotePeerInfo*(enr: enr.Record): Result[RemotePeerInfo, cstring] =

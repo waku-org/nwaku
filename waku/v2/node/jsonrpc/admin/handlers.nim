@@ -45,7 +45,11 @@ proc installAdminApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
     debug "post_waku_v2_admin_v1_peers"
 
     for i, peer in peers:
-      let connOk = await node.peerManager.connectRelay(parseRemotePeerInfo(peer), source="rpc")
+      let peerInfo = parsePeerInfo(peer)
+      if peerInfo.isErr():
+        raise newException(ValueError, "Couldn't parse remote peer info: " & peerInfo.error)
+
+      let connOk = await node.peerManager.connectRelay(peerInfo.value, source="rpc")
       if not connOk:
         raise newException(ValueError, "Failed to connect to peer at index: " & $i & " " & $peer)
 
