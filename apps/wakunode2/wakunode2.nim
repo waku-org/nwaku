@@ -47,26 +47,17 @@ import
   ../../waku/v2/protocol/waku_peer_exchange,
   ../../waku/v2/protocol/waku_relay/validators,
   ../../waku/v2/utils/peers,
-  ./wakunode2_setup_rest,
-  ./wakunode2_setup_rpc,
   ./config
-
-when defined(rln):
-  import
-    ../../waku/v2/protocol/waku_rln_relay
-
 
 logScope:
   topics = "wakunode"
-
-type SetupResult[T] = Result[T, string]
 
 # Temporarily merge `app.nim` into `wakunode2.nim` until we encapsulate the
 #  state and the logic in an object instance.
 include ./app
 
 when defined(waku_exp_store_resume):
-  proc resumeMessageStore(node: WakuNode, address: string): Future[SetupResult[void]] {.async.} =
+  proc resumeMessageStore(node: WakuNode, address: string): Future[Result[void, string]] {.async.} =
     # Resume historical messages, this has to be called after the node has been started
     if address != "":
       return err("empty peer multiaddres")
@@ -81,29 +72,6 @@ when defined(waku_exp_store_resume):
       await node.resume(some(@[remotePeer]))
     except CatchableError:
       return err("failed to resume messages history: " & getCurrentExceptionMsg())
-
-
-proc startRpcServer(node: WakuNode, address: ValidIpAddress, port: uint16, portsShift: uint16, conf: WakuNodeConf): SetupResult[void] =
-  try:
-    startRpcServer(node, address, Port(port + portsShift), conf)
-  except CatchableError:
-    return err("failed to start the json-rpc server: " & getCurrentExceptionMsg())
-
-  ok()
-
-proc startRestServer(node: WakuNode, address: ValidIpAddress, port: uint16, portsShift: uint16, conf: WakuNodeConf): SetupResult[void] =
-  startRestServer(node, address, Port(port + portsShift), conf)
-  ok()
-
-proc startMetricsServer(node: WakuNode, address: ValidIpAddress, port: uint16, portsShift: uint16): SetupResult[void] =
-  startMetricsServer(address, Port(port + portsShift))
-  ok()
-
-
-proc startMetricsLogging(): SetupResult[void] =
-  startMetricsLog()
-  ok()
-
 
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
