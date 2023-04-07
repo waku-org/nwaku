@@ -17,6 +17,7 @@ import
   eth/net/nat
 import
   ../../waku/common/sqlite,
+  ../../waku/v2/waku_node,
   ../../waku/v2/node/peer_manager,
   ../../waku/v2/node/peer_manager/peer_store/waku_peer_storage,
   ../../waku/v2/node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
@@ -28,6 +29,8 @@ import
   ../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_capacity,
   ../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_time,
   ../../waku/v2/protocol/waku_dnsdisc,
+  ../../waku/v2/protocol/waku_enr,
+  ../../waku/v2/protocol/waku_discv5,
   ../../waku/v2/utils/peers,
   ./config
 
@@ -193,3 +196,200 @@ proc retrieveDynamicBootstrapNodes*(dnsDiscovery: bool, dnsDiscoveryUrl: string,
 
   debug "No method for retrieving dynamic bootstrap nodes specified."
   ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default
+
+
+## Init waku node instance
+
+proc setupNat(natConf, clientId: string, tcpPort, udpPort: Port):
+  AppResult[tuple[ip: Option[ValidIpAddress], tcpPort: Option[Port], udpPort: Option[Port]]] {.gcsafe.} =
+
+  let strategy = case natConf.toLowerAscii():
+      of "any": NatAny
+      of "none": NatNone
+      of "upnp": NatUpnp
+      of "pmp": NatPmp
+      else: NatNone
+
+  var endpoint: tuple[ip: Option[ValidIpAddress], tcpPort: Option[Port], udpPort: Option[Port]]
+
+  if strategy != NatNone:
+    let extIp = getExternalIP(strategy)
+    if extIP.isSome():
+      endpoint.ip = some(ValidIpAddress.init(extIp.get()))
+      # RedirectPorts in considered a gcsafety violation
+      # because it obtains the address of a non-gcsafe proc?
+      var extPorts: Option[(Port, Port)]
+      try:
+        extPorts = ({.gcsafe.}: redirectPorts(tcpPort = tcpPort,
+                                              udpPort = udpPort,
+                                              description = clientId))
+      except CatchableError:
+        # TODO: nat.nim Error: can raise an unlisted exception: Exception. Isolate here for now.
+        error "unable to determine external ports"
+        extPorts = none((Port, Port))
+
+      if extPorts.isSome():
+        let (extTcpPort, extUdpPort) = extPorts.get()
+        endpoint.tcpPort = some(extTcpPort)
+        endpoint.udpPort = some(extUdpPort)
+
+  else: # NatNone
+    if not natConf.startsWith("extip:"):
+      return err("not a valid NAT mechanism: " & $natConf)
+
+    try:
+      # any required port redirection is assumed to be done by hand
+      endpoint.ip = some(ValidIpAddress.init(natConf[6..^1]))
+    except ValueError:
+      return err("not a valid IP address: " & $natConf[6..^1])
+
+  return ok(endpoint)
+
+proc initNode(conf: WakuNodeConf,
+              rng: ref HmacDrbgContext,
+              peerStore: Option[WakuPeerStorage],
+              dynamicBootstrapNodes: openArray[RemotePeerInfo] = @[]): AppResult[WakuNode] =
+
+  ## Setup a basic Waku v2 node based on a supplied configuration
+  ## file. Optionally include persistent peer storage.
+  ## No protocols are mounted yet.
+
+  var dnsResolver: DnsResolver
+  if conf.dnsAddrs:
+    # Support for DNS multiaddrs
+    var nameServers: seq[TransportAddress]
+    for ip in conf.dnsAddrsNameServers:
+      nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
+
+    dnsResolver = DnsResolver.new(nameServers)
+
+  let
+    nodekey = if conf.nodekey.isSome():
+                conf.nodekey.get()
+              else:
+                let nodekeyRes = crypto.PrivateKey.random(Secp256k1, rng[])
+                if nodekeyRes.isErr():
+                  return err("failed to generate nodekey: " & $nodekeyRes.error)
+                nodekeyRes.get()
+
+
+  ## `udpPort` is only supplied to satisfy underlying APIs but is not
+  ## actually a supported transport for libp2p traffic.
+  let udpPort = conf.tcpPort
+  let natRes = setupNat(conf.nat, clientId,
+                        Port(uint16(conf.tcpPort) + conf.portsShift),
+                        Port(uint16(udpPort) + conf.portsShift))
+  if natRes.isErr():
+    return err("failed to setup NAT: " & $natRes.error)
+
+  let (extIp, extTcpPort, _) = natRes.get()
+
+
+  let
+    dns4DomainName = if conf.dns4DomainName != "": some(conf.dns4DomainName)
+                      else: none(string)
+
+    discv5UdpPort = if conf.discv5Discovery: some(Port(uint16(conf.discv5UdpPort) + conf.portsShift))
+                    else: none(Port)
+
+    ## @TODO: the NAT setup assumes a manual port mapping configuration if extIp config is set. This probably
+    ## implies adding manual config item for extPort as well. The following heuristic assumes that, in absence of manual
+    ## config, the external port is the same as the bind port.
+    extPort = if (extIp.isSome() or dns4DomainName.isSome()) and extTcpPort.isNone():
+                some(Port(uint16(conf.tcpPort) + conf.portsShift))
+              else:
+                extTcpPort
+    extMultiAddrs = if (conf.extMultiAddrs.len > 0):
+                      let extMultiAddrsValidationRes = validateExtMultiAddrs(conf.extMultiAddrs)
+                      if extMultiAddrsValidationRes.isErr():
+                        return err("invalid external multiaddress: " & extMultiAddrsValidationRes.error)
+                      else:
+                        extMultiAddrsValidationRes.get()
+                    else:
+                      @[]
+
+    wakuFlags = CapabilitiesBitfield.init(
+        lightpush = conf.lightpush,
+        filter = conf.filter,
+        store = conf.store,
+        relay = conf.relay
+      )
+
+  var node: WakuNode
+
+  let pStorage = if peerStore.isNone(): nil
+                 else: peerStore.get()
+
+  let rng = crypto.newRng()
+  # Wrap in none because NetConfig does not have a default constructor
+  # TODO: We could change bindIp in NetConfig to be something less restrictive than ValidIpAddress,
+  # which doesn't allow default construction
+  let netConfigRes = NetConfig.init(
+      bindIp = conf.listenAddress,
+      bindPort = Port(uint16(conf.tcpPort) + conf.portsShift),
+      extIp = extIp,
+      extPort = extPort,
+      extMultiAddrs = extMultiAddrs,
+      wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
+      wsEnabled = conf.websocketSupport,
+      wssEnabled = conf.websocketSecureSupport,
+      dns4DomainName = dns4DomainName,
+      discv5UdpPort = discv5UdpPort,
+      wakuFlags = some(wakuFlags),
+    )
+  if netConfigRes.isErr():
+    return err("failed to create net config instance: " & netConfigRes.error)
+
+  let netConfig = netConfigRes.get()
+  var wakuDiscv5 = none(WakuDiscoveryV5)
+
+  if conf.discv5Discovery:
+    let dynamicBootstrapEnrs = dynamicBootstrapNodes
+                                .filterIt(it.hasUdpPort())
+                                .mapIt(it.enr.get())
+    var discv5BootstrapEnrs: seq[enr.Record]
+    # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
+    for enrUri in conf.discv5BootstrapNodes:
+      addBootstrapNode(enrUri, discv5BootstrapEnrs)
+    discv5BootstrapEnrs.add(dynamicBootstrapEnrs)
+    let discv5Config = DiscoveryConfig.init(conf.discv5TableIpLimit,
+                                            conf.discv5BucketIpLimit,
+                                            conf.discv5BitsPerHop)
+    try:
+      wakuDiscv5 = some(WakuDiscoveryV5.new(
+        extIp = netConfig.extIp,
+        extTcpPort = netConfig.extPort,
+        extUdpPort = netConfig.discv5UdpPort,
+        bindIp = netConfig.bindIp,
+        discv5UdpPort = netConfig.discv5UdpPort.get(),
+        bootstrapEnrs = discv5BootstrapEnrs,
+        enrAutoUpdate = conf.discv5EnrAutoUpdate,
+        privateKey = keys.PrivateKey(nodekey.skkey),
+        flags = netConfig.wakuFlags.get(),
+        multiaddrs = netConfig.enrMultiaddrs,
+        rng = rng,
+        discv5Config = discv5Config,
+      ))
+    except CatchableError:
+      return err("failed to create waku discv5 instance: " & getCurrentExceptionMsg())
+
+  # Build waku node instance
+  var builder = WakuNodeBuilder.init()
+  builder.withRng(rng)
+  builder.withNodeKey(nodekey)
+  builder.withNetworkConfiguration(netConfig)
+  builder.withPeerStorage(pStorage, capacity = conf.peerStoreCapacity)
+  builder.withSwitchConfiguration(
+      maxConnections = some(conf.maxConnections.int),
+      secureKey = some(conf.websocketSecureKeyPath),
+      secureCert = some(conf.websocketSecureCertPath),
+      nameResolver = dnsResolver,
+      sendSignedPeerRecord = conf.relayPeerExchange, # We send our own signed peer record when peer exchange enabled
+      agentString = some(conf.agentString)
+  )
+  builder.withWakuDiscv5(wakuDiscv5.get(nil))
+
+  node = ? builder.build().mapErr(proc (err: string): string = "failed to create waku node instance: " & err)
+
+  ok(node)
+
