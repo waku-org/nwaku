@@ -18,6 +18,7 @@ import
 import
   ../../waku/common/sqlite,
   ../../waku/v2/waku_node,
+  ../../waku/v2/node/waku_metrics,
   ../../waku/v2/node/peer_manager,
   ../../waku/v2/node/peer_manager/peer_store/waku_peer_storage,
   ../../waku/v2/node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
@@ -39,6 +40,9 @@ import
   ../../waku/v2/protocol/waku_filter,
   ../../waku/v2/utils/peers,
   ./config
+
+when defined(rln):
+  import ../../waku/v2/protocol/waku_rln_relay
 
 
 type AppResult[T] = Result[T, string]
@@ -592,3 +596,33 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
     node.peerManager.start()
 
   return ok()
+
+
+## Monitoring and external interfaces
+
+# TODO: Merge the `wakunode_setup_*.nim` files here. Once the encapsulating
+#  type (e.g., App) is implemented. Hold both servers instances to support
+#  a graceful shutdown.
+import
+  ./wakunode2_setup_rpc,
+  ./wakunode2_setup_rest
+
+proc startRpcServer(node: WakuNode, address: ValidIpAddress, port: uint16, portsShift: uint16, conf: WakuNodeConf): AppResult[void] =
+  try:
+    startRpcServer(node, address, Port(port + portsShift), conf)
+  except CatchableError:
+    return err("failed to start the json-rpc server: " & getCurrentExceptionMsg())
+
+  ok()
+
+proc startRestServer(node: WakuNode, address: ValidIpAddress, port: uint16, portsShift: uint16, conf: WakuNodeConf): AppResult[void] =
+  startRestServer(node, address, Port(port + portsShift), conf)
+  ok()
+
+proc startMetricsServer(node: WakuNode, address: ValidIpAddress, port: uint16, portsShift: uint16): AppResult[void] =
+  startMetricsServer(address, Port(port + portsShift))
+  ok()
+
+proc startMetricsLogging(): AppResult[void] =
+  startMetricsLog()
+  ok()
