@@ -65,59 +65,6 @@ type SetupResult[T] = Result[T, string]
 #  state and the logic in an object instance.
 include ./app
 
-
-proc startNode(node: WakuNode, conf: WakuNodeConf,
-               dynamicBootstrapNodes: seq[RemotePeerInfo] = @[]): Future[SetupResult[void]] {.async.} =
-  ## Start a configured node and all mounted protocols.
-  ## Connect to static nodes and start
-  ## keep-alive, if configured.
-
-  # Start Waku v2 node
-  try:
-    await node.start()
-  except CatchableError:
-    return err("failed to start waku node: " & getCurrentExceptionMsg())
-
-  # Start discv5 and connect to discovered nodes
-  if conf.discv5Discovery:
-    try:
-      if not await node.startDiscv5():
-        error "could not start Discovery v5"
-    except CatchableError:
-      return err("failed to start waku discovery v5: " & getCurrentExceptionMsg())
-
-  # Connect to configured static nodes
-  if conf.staticnodes.len > 0:
-    try:
-      await connectToNodes(node, conf.staticnodes, "static")
-    except CatchableError:
-      return err("failed to connect to static nodes: " & getCurrentExceptionMsg())
-
-  if dynamicBootstrapNodes.len > 0:
-    info "Connecting to dynamic bootstrap peers"
-    try:
-      await connectToNodes(node, dynamicBootstrapNodes, "dynamic bootstrap")
-    except CatchableError:
-      return err("failed to connect to dynamic bootstrap nodes: " & getCurrentExceptionMsg())
-
-  if conf.peerExchange:
-    asyncSpawn runPeerExchangeDiscv5Loop(node.wakuPeerExchange)
-
-  # retrieve px peers and add the to the peer store
-  if conf.peerExchangeNode != "":
-    let desiredOutDegree = node.wakuRelay.parameters.d.uint64()
-    await node.fetchPeerExchangePeers(desiredOutDegree)
-
-  # Start keepalive, if enabled
-  if conf.keepAlive:
-    node.startKeepalive()
-
-  # Maintain relay connections
-  if conf.relay:
-    node.peerManager.start()
-
-  return ok()
-
 when defined(waku_exp_store_resume):
   proc resumeMessageStore(node: WakuNode, address: string): Future[SetupResult[void]] {.async.} =
     # Resume historical messages, this has to be called after the node has been started
