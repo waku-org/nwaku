@@ -450,7 +450,7 @@ procSuite "Peer Manager":
 
   asyncTest "getNumConnections() returns expected number of connections per protocol":
     # Create 4 nodes
-    let nodes = toSeq(0..<4).mapIt(WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes = toSeq(0..<4).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
 
     # Start them with relay + filter
     await allFutures(nodes.mapIt(it.start()))
@@ -497,7 +497,7 @@ procSuite "Peer Manager":
 
   asyncTest "getNumStreams() returns expected number of connections per protocol":
     # Create 2 nodes
-    let nodes = toSeq(0..<2).mapIt(WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes = toSeq(0..<2).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
 
     # Start them with relay + filter
     await allFutures(nodes.mapIt(it.start()))
