@@ -27,7 +27,7 @@ const WakuLightPushCodec* = "/vac/waku/lightpush/2.0.0-beta1"
 
 type
   WakuLightPushResult*[T] = Result[T, string]
-  
+
   PushMessageHandler* = proc(peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage): Future[WakuLightPushResult[void]] {.gcsafe, closure.}
 
   WakuLightPush* = ref object of LPProtocol
@@ -57,7 +57,15 @@ proc initProtocolHandler*(wl: WakuLightPush) =
     debug "push request", peerId=conn.peerId, requestId=req.requestId, pubsubTopic=pubsubTopic
 
     var response: PushResponse
-    let handleRes = await wl.pushHandler(conn.peerId, pubsubTopic, message)
+    var handleRes: WakuLightPushResult[void]
+    try:
+      handleRes = await wl.pushHandler(conn.peerId, pubsubTopic, message)
+    except Exception:
+      response = PushResponse(is_success: false, info: some(getCurrentExceptionMsg()))
+      waku_lightpush_errors.inc(labelValues = [messagePushFailure])
+      error "pushed message handling failed", error= getCurrentExceptionMsg()
+
+
     if handleRes.isOk():
       response = PushResponse(is_success: true, info: some("OK"))
     else:
@@ -71,10 +79,10 @@ proc initProtocolHandler*(wl: WakuLightPush) =
   wl.handler = handle
   wl.codec = WakuLightPushCodec
 
-proc new*(T: type WakuLightPush, 
-          peerManager: PeerManager, 
+proc new*(T: type WakuLightPush,
+          peerManager: PeerManager,
           rng: ref rand.HmacDrbgContext,
-          pushHandler: PushMessageHandler): T = 
+          pushHandler: PushMessageHandler): T =
   let wl = WakuLightPush(rng: rng, peerManager: peerManager, pushHandler: pushHandler)
   wl.initProtocolHandler()
   return wl
