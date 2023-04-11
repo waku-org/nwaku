@@ -72,7 +72,17 @@ proc initProtocolHandler(ws: WakuStore) =
     info "received history query", peerId=conn.peerId, requestId=requestId, query=request
     waku_store_queries.inc()
 
-    let responseRes = ws.queryHandler(request)
+    var responseRes: HistoryResult
+    try:
+      responseRes = ws.queryHandler(request)
+    except Exception:
+      error "history query failed", peerId= $conn.peerId, requestId=requestId, error=getCurrentExceptionMsg()
+
+      let error = HistoryError(kind: HistoryErrorKind.UNKNOWN).toRPC()
+      let response = HistoryResponseRPC(error: error)
+      let rpc = HistoryRPC(requestId: requestId, response: some(response))
+      await conn.writeLp(rpc.encode().buffer)
+      return
 
     if responseRes.isErr():
       error "history query failed", peerId= $conn.peerId, requestId=requestId, error=responseRes.error
