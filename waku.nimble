@@ -70,13 +70,20 @@ task test1, "Build & run Waku v1 tests":
 
 
 ### Waku v2 tasks
-task wakunode2, "Build Waku v2 (experimental) cli node":
+task wakunode2, "Build Waku v2 cli node":
   let name = "wakunode2"
   buildBinary name, "apps/wakunode2/", "-d:chronicles_log_level=TRACE"
 
 task bridge, "Build Waku v1 - v2 bridge":
   let name = "wakubridge"
   buildBinary name, "apps/wakubridge/", "-d:chronicles_log_level=TRACE"
+
+
+task testwakunode2, "Build & run wakunode2 app tests":
+  test "all_tests_wakunode2"
+
+task testbridge, "Build & run wakubridge tests":
+  test "all_tests_wakubridge"
 
 task test2, "Build & run Waku v2 tests":
   test "all_tests_v2"

@@ -137,8 +137,8 @@ when isMainModule:
 
     # TODO: Move retention policy execution here
     # if archiveRetentionPolicy.isSome():
-    #   executeMessageRetentionPolicy(node)
-    #   startMessageRetentionPolicyPeriodicTask(node, interval=WakuArchiveDefaultRetentionPolicyInterval)
+    #   executeMessageRetentionPolicy(nodeInstance)
+    #   startMessageRetentionPolicyPeriodicTask(nodeInstance, interval=WakuArchiveDefaultRetentionPolicyInterval)
 
 
   debug "2/7 Retrieve dynamic bootstrap nodes"
@@ -152,24 +152,24 @@ when isMainModule:
 
   debug "3/7 Initializing node"
 
-  var node: WakuNode  # This is the node we're going to setup using the conf
+  var nodeInstance: WakuNode  # This is the node we're going to setup using the conf
 
   let initNodeRes = initNode(conf, rng, peerStore, dynamicBootstrapNodes)
   if initNodeRes.isok():
-    node = initNodeRes.get()
+    nodeInstance = initNodeRes.get()
   else:
     error "3/7 Initializing node failed. Quitting.", error=initNodeRes.error
     quit(QuitFailure)
 
   debug "4/7 Mounting protocols"
 
-  let setupProtocolsRes = waitFor setupProtocols(node, conf, archiveDriver, archiveRetentionPolicy)
+  let setupProtocolsRes = waitFor setupProtocols(nodeInstance, conf, archiveDriver, archiveRetentionPolicy)
   if setupProtocolsRes.isErr():
     error "4/7 Mounting protocols failed. Continuing in current state.", error=setupProtocolsRes.error
 
   debug "5/7 Starting node and mounted protocols"
 
-  let startNodeRes = waitFor startNode(node, conf, dynamicBootstrapNodes)
+  let startNodeRes = waitFor startNode(nodeInstance, conf, dynamicBootstrapNodes)
   if startNodeRes.isErr():
     error "5/7 Starting node and mounted protocols failed. Continuing in current state.", error=startNodeRes.error
 
@@ -177,17 +177,17 @@ when isMainModule:
   debug "6/7 Starting monitoring and external interfaces"
 
   if conf.rpc:
-    let startRpcServerRes = startRpcServer(node, conf.rpcAddress, conf.rpcPort, conf.portsShift, conf)
+    let startRpcServerRes = startRpcServer(nodeInstance, conf.rpcAddress, conf.rpcPort, conf.portsShift, conf)
     if startRpcServerRes.isErr():
       error "6/7 Starting JSON-RPC server failed. Continuing in current state.", error=startRpcServerRes.error
 
   if conf.rest:
-    let startRestServerRes = startRestServer(node, conf.restAddress, conf.restPort, conf.portsShift, conf)
+    let startRestServerRes = startRestServer(nodeInstance, conf.restAddress, conf.restPort, conf.portsShift, conf)
     if startRestServerRes.isErr():
       error "6/7 Starting REST server failed. Continuing in current state.", error=startRestServerRes.error
 
   if conf.metricsServer:
-    let startMetricsServerRes = startMetricsServer(node, conf.metricsServerAddress, conf.metricsServerPort, conf.portsShift)
+    let startMetricsServerRes = startMetricsServer(nodeInstance, conf.metricsServerAddress, conf.metricsServerPort, conf.portsShift)
     if startMetricsServerRes.isErr():
       error "6/7 Starting metrics server failed. Continuing in current state.", error=startMetricsServerRes.error
 
@@ -201,8 +201,8 @@ when isMainModule:
   ## Setup shutdown hooks for this process.
   ## Stop node gracefully on shutdown.
 
-  proc asyncStopper(node: WakuNode) {.async.} =
-    await node.stop()
+  proc asyncStopper(nodeInstance: WakuNode) {.async.} =
+    await nodeInstance.stop()
     quit(QuitSuccess)
 
   # Handle Ctrl-C SIGINT
@@ -211,7 +211,7 @@ when isMainModule:
       # workaround for https://github.com/nim-lang/Nim/issues/4057
       setupForeignThreadGc()
     notice "Shutting down after receiving SIGINT"
-    asyncSpawn asyncStopper(node)
+    asyncSpawn asyncStopper(nodeInstance)
 
   setControlCHook(handleCtrlC)
 
@@ -219,7 +219,7 @@ when isMainModule:
   when defined(posix):
     proc handleSigterm(signal: cint) {.noconv.} =
       notice "Shutting down after receiving SIGTERM"
-      asyncSpawn asyncStopper(node)
+      asyncSpawn asyncStopper(nodeInstance)
 
     c_signal(ansi_c.SIGTERM, handleSigterm)
 
@@ -232,7 +232,7 @@ when isMainModule:
       # Not available in -d:release mode
       writeStackTrace()
 
-      waitFor node.stop()
+      waitFor nodeInstance.stop()
       quit(QuitFailure)
 
     c_signal(ansi_c.SIGSEGV, handleSigsegv)
