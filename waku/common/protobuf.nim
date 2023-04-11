@@ -67,3 +67,27 @@ proc finish3*(proto: var ProtoBuffer) =
 
 proc `==`*(a: zint64, b: zint64): bool =
   int64(a) == int64(b)
+
+proc `$`*(err: ProtobufError): string =
+  case err.kind:
+  of DecodeFailure:
+    case err.error:
+    of VarintDecode:
+      return "VarintDecode"
+    of MessageIncomplete:
+      return "MessageIncomplete"
+    of BufferOverflow:
+      return "BufferOverflow"
+    of MessageTooBig:
+      return "MessageTooBig"
+    of BadWireType:
+      return "BadWireType"
+    of IncorrectBlob:
+      return "IncorrectBlob"
+    of RequiredFieldMissing:
+      return "RequiredFieldMissing"
+  of MissingRequiredField:
+    return "MissingRequiredField " & err.field
+  of InvalidLengthField:
+    return "InvalidLengthField " & err.field
+

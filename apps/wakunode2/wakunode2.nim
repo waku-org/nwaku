@@ -5,6 +5,7 @@ else:
 
 import
   std/[options, strutils, os],
+  stew/results,
   stew/shims/net as stewNet,
   chronicles,
   chronos,
@@ -13,6 +14,7 @@ import
   system/ansi_c,
   libp2p/crypto/crypto
 import
+  ../../waku/v2/waku_core/message/message,
   ../../waku/common/logging,
   ./config,
   ./app
@@ -20,23 +22,24 @@ import
 logScope:
   topics = "wakunode main"
 
+const wakuNode2VersionString* = "version / git commit hash: " & git_version
+
+var wakunode2 {.threadvar.}: App
+var confRes:ConfResult[WakuNodeConf]
 
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
-when isMainModule:
-  ## Node setup happens in 6 phases:
-  ## 1. Set up storage
-  ## 2. Initialize node
-  ## 3. Mount and initialize configured protocols
-  ## 4. Start node and mounted protocols
-  ## 5. Start monitoring tools and external interfaces
-  ## 6. Setup graceful shutdown hooks
-
-  const versionString = "version / git commit hash: " & app.git_version
+proc init*(configFilePath = "") =
   let rng = crypto.newRng()
 
-  let confRes = WakuNodeConf.load(version=versionString)
-  if confRes.isErr():
-    error "failure while loading the configuration", error=confRes.error
+  try:
+    confRes = WakuNodeConf.load(version=wakuNode2VersionString,
+                                configFile=configFilePath)
+    if confRes.isErr():
+      error "failure while loading the configuration", error=confRes.error
+      quit(QuitFailure)
+
+  except ValueError:
+    error "Exception loading the configuration", error=getCurrentExceptionMsg()
     quit(QuitFailure)
 
   let conf = confRes.get()
@@ -50,8 +53,7 @@ when isMainModule:
   logging.setupLogLevel(conf.logLevel)
   logging.setupLogFormat(conf.logFormat, color)
 
-
-  var wakunode2 = App.init(rng, conf)
+  wakunode2 = App.new(rng, conf)
 
   ##############
   # Node setup #
@@ -92,20 +94,19 @@ when isMainModule:
     error "4/7 Mounting protocols failed", error=res5.error
     quit(QuitFailure)
 
+proc startNode*() =
   debug "5/7 Starting node and mounted protocols"
 
   let res6 = waitFor wakunode2.startNode()
   if res6.isErr():
     error "5/7 Starting node and protocols failed", error=res6.error
     quit(QuitFailure)
-
   debug "6/7 Starting monitoring and external interfaces"
 
   let res7 = wakunode2.setupMonitoringAndExternalInterfaces()
   if res7.isErr():
     error "6/7 Starting monitoring and external interfaces failed", error=res7.error
     quit(QuitFailure)
-
   debug "7/7 Setting up shutdown hooks"
   ## Setup shutdown hooks for this process.
   ## Stop node gracefully on shutdown.
@@ -149,3 +150,30 @@ when isMainModule:
   info "Node setup complete"
 
   runForever()
+
+proc subscribeCallbackToTopic*(pubSubTopic: cstring,
+                               callback: proc(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [Defect].}) =
+  wakunode2.subscribeCallbackToTopic(pubSubTopic, callback)
+
+proc unsubscribeCallbackFromTopic*(pubSubTopic: cstring,
+                                   callback: proc(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [Defect].}) =
+  wakunode2.unsubscribeCallbackFromTopic(pubSubTopic, callback)
+
+proc unsubscribeAllCallbacksFromTopic*(pubSubTopic: cstring) =
+  wakunode2.unsubscribeAllCallbackFromTopic(pubSubTopic)
+
+proc publishMessage*(pubSubTopic: cstring, message: WakuMessage): Future[int] {.gcsafe, async.} =
+  return await wakunode2.publishMessage(pubSubTopic, message)
+
+
+when isMainModule:
+  ## Node setup happens in 6 phases:
+  ## 1. Set up storage
+  ## 2. Initialize node
+  ## 3. Mount and initialize configured protocols
+  ## 4. Start node and mounted protocols
+  ## 5. Start monitoring tools and external interfaces
+  ## 6. Setup graceful shutdown hooks
+
+  init()
+  startNode()

@@ -42,7 +42,6 @@ type
       defaultValue: newSeq[ProtectedTopic](0)
       name: "protected-topic" .}: seq[ProtectedTopic]
 
-
     ## Log configuration
     logLevel* {.
       desc: "Sets the log level for process. Supported levels: TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL",
@@ -53,7 +52,6 @@ type
       desc: "Specifies what kind of logs should be written to stdout. Suported formats: TEXT, JSON",
       defaultValue: logging.LogFormat.TEXT,
       name: "log-format" .}: logging.LogFormat
-
 
     ## General node config
     agentString* {.
@@ -570,14 +568,18 @@ proc readValue*(r: var EnvvarReader, value: var ProtectedTopic) {.raises: [Seria
 
 {.push warning[ProveInit]: off.}
 
-proc load*(T: type WakuNodeConf, version=""): ConfResult[T] =
+proc load*(T: type WakuNodeConf,
+           version="",
+           configFile=""): ConfResult[T] =
   try:
     let conf = WakuNodeConf.load(
       version=version,
       secondarySources = proc (conf: WakuNodeConf, sources: auto) =
         sources.addConfigFile(Envvar, InputFile("wakunode2"))
 
-        if conf.configFile.isSome():
+        if configFile != "":
+          sources.addConfigFile(Toml, InputFile(configFile))
+        elif conf.configFile.isSome():
           sources.addConfigFile(Toml, conf.configFile.get())
     )
     ok(conf)

@@ -37,6 +37,7 @@ import
   ../../waku/v2/waku_enr,
   ../../waku/v2/waku_discv5,
   ../../waku/v2/waku_peer_exchange,
+  ../../waku/v2/waku_relay/protocol,
   ../../waku/v2/waku_store,
   ../../waku/v2/waku_lightpush,
   ../../waku/v2/waku_filter,
@@ -66,7 +67,8 @@ logScope:
 const git_version* {.strdefine.} = "n/a"
 
 type
-  App* = object
+
+  App* = ref object
     version: string
     conf: WakuNodeConf
 
@@ -94,7 +96,16 @@ func version*(app: App): string =
 
 ## Initialisation
 
-proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
+proc new*(T: type App,
+          rng: ref HmacDrbgContext = nil,
+          conf: WakuNodeConf = WakuNodeConf(
+                    listenAddress: ValidIpAddress.init("127.0.0.1"),
+                    rpcAddress: ValidIpAddress.init("127.0.0.1"),
+                    restAddress: ValidIpAddress.init("127.0.0.1"),
+                    metricsServerAddress: ValidIpAddress.init("127.0.0.1"),
+                    nat: "any",
+                    maxConnections: 50,
+                  )): T =
   App(version: git_version, conf: conf, rng: rng, node: nil)
 
 
@@ -124,7 +135,6 @@ proc setupDatabaseConnection(dbUrl: string): AppResult[Option[SqliteDatabase]] =
     return err("failed to init database connection: " & connRes.error)
 
   ok(some(connRes.value))
-
 
 ## Peer persistence
 
@@ -547,6 +557,7 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
     peerExchangeHandler = some(handlePeerExchange)
 
   if conf.relay:
+    
     let pubsubTopics = conf.topics.split(" ")
     try:
       await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
@@ -726,6 +737,20 @@ proc startNode*(app: App): Future[AppResult[void]] {.async.} =
     app.dynamicBootstrapNodes
   )
 
+proc subscribeCallbackToTopic*(app: App, pubSubTopic: cstring,
+                               callback: PubsubRawHandler) {.gcsafe.} =
+  app.node.wakuRelay.subscribe(PubsubTopic($pubSubTopic), callback)
+
+proc unsubscribeCallbackFromTopic*(app: App, pubSubTopic: cstring,
+                                   callback: PubsubRawHandler) {.gcsafe.} =
+  app.node.wakuRelay.unsubscribe(PubsubTopic($pubSubTopic), callback)
+
+proc unsubscribeAllCallbackFromTopic*(app: App, pubSubTopic: cstring) {.gcsafe.} =
+  app.node.wakuRelay.unsubscribeAll(PubsubTopic($pubSubTopic))
+
+proc publishMessage*(app: App, pubSubTopic: cstring, message: WakuMessage): Future[int] {.gcsafe, async.} =
+  # Returns the number of peers connected to the given pubSubTopic.
+  return await app.node.wakuRelay.publish(PubsubTopic($pubSubTopic), message)
 
 ## Monitoring and external interfaces
 

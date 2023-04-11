@@ -280,24 +280,31 @@ docker-push:
 	docker push $(DOCKER_IMAGE_NAME)
 
 
-##############
-## Wrappers ##
-##############
-# TODO: Remove unused target
-libwaku.so: | build deps deps2
+################
+## C Bindings ##
+################
+.PHONY: cbindings cwakuv2example
+
+libcwakuv2.a: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim c --app:lib --noMain --nimcache:nimcache/libwaku $(NIM_PARAMS) -o:build/$@.0 wrappers/libwaku.nim && \
-		rm -f build/$@ && \
-		ln -s $@.0 build/$@
+		$(ENV_SCRIPT) nim libcwakuv2 $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims && \
+		cp nimcache/release/cwakuv2/cwakuv2.h ./examples/v2/cbindings/
 
-# libraries for dynamic linking of non-Nim objects
-EXTRA_LIBS_DYNAMIC := -L"$(CURDIR)/build" -lwaku -lm
+libcwakuv2.so: | build deps
+# TODO: pending to enhance this part. Kindly use the static approach.
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim c --app:lib --opt:size --noMain --header -o:build/$@ library/cwakunode2.nim
 
-# TODO: Remove unused target
-wrappers: | build deps librln libwaku.so
-	echo -e $(BUILD_MSG) "build/C_wrapper_example" && \
-		 $(CC) wrappers/wrapper_example.c -Wl,-rpath,'$$ORIGIN' $(EXTRA_LIBS_DYNAMIC) -g -o build/C_wrapper_example
-	echo -e $(BUILD_MSG) "build/go_wrapper_example" && \
-		go build -ldflags "-linkmode external -extldflags '$(EXTRA_LIBS_DYNAMIC)'" -o build/go_wrapper_example wrappers/wrapper_example.go #wrappers/cfuncs.go
+cbindings: | build libcwakuv2.a
+
+cwakuv2example: | build cbindings
+	echo -e $(BUILD_MSG) "build/$@" && \
+		cc -o build/cwakuv2example \
+		./examples/v2/cbindings/cwakuv2example.c \
+		-lcwakuv2 -Lbuild/ -pthread -ldl -lm \
+		-lminiupnpc -Lvendor/nim-nat-traversal/vendor/miniupnp/miniupnpc/build/ \
+		-lnatpmp -Lvendor/nim-nat-traversal/vendor/libnatpmp-upstream/ \
+		vendor/nim-libbacktrace/libbacktrace_wrapper.o \
+		vendor/nim-libbacktrace/install/usr/lib/libbacktrace.a
 
 endif # "variables.mk" was not included
