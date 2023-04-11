@@ -16,19 +16,21 @@ import
   ../v2/testlib/wakucore
 
 
-proc dummyTestWakuNodeConf(): WakuNodeConf =
+proc defaultTestWakuNodeConf(): WakuNodeConf =
   WakuNodeConf(
     listenAddress: ValidIpAddress.init("127.0.0.1"),
     rpcAddress: ValidIpAddress.init("127.0.0.1"),
     restAddress: ValidIpAddress.init("127.0.0.1"),
     metricsServerAddress: ValidIpAddress.init("127.0.0.1"),
+    nat: "any",
+    maxConnections: 50,
   )
 
 
 suite "Wakunode2 - App":
   test "compilation version should be reported":
     ## Given
-    let conf = dummyTestWakuNodeConf()
+    let conf = defaultTestWakuNodeConf()
 
     var wakunode2 = App.init(rng(), conf)
 
@@ -43,7 +45,7 @@ suite "Wakunode2 - App":
 suite "Wakunode2 - App initialization":
   test "peer persistence setup should be successfully mounted":
     ## Given
-    var conf = dummyTestWakuNodeConf()
+    var conf = defaultTestWakuNodeConf()
     conf.peerPersistence = true
 
     var wakunode2 = App.init(rng(), conf)
@@ -53,3 +55,28 @@ suite "Wakunode2 - App initialization":
 
     ## Then
     check res.isOk()
+
+  test "node setup is successful with default configuration":
+    ## Given
+    let conf = defaultTestWakuNodeConf()
+
+    ## When
+    var wakunode2 = App.init(rng(), conf)
+    require wakunode2.setupPeerPersistence().isOk()
+    require wakunode2.setupWakuArchive().isOk()
+    require wakunode2.setupDyamicBootstrapNodes().isOk()
+    require wakunode2.setupWakuNode().isOk()
+    require isOk(waitFor wakunode2.setupAndMountProtocols())
+    require isOk(waitFor wakunode2.startNode())
+    require wakunode2.setupMonitoringAndExternalInterfaces().isOk()
+
+    ## Then
+    let node = wakunode2.node
+    check:
+      not node.isNil()
+      node.wakuArchive.isNil()
+      node.wakuStore.isNil()
+      not node.wakuStoreClient.isNil()
+
+    ## Cleanup
+    waitFor wakunode2.stop()
