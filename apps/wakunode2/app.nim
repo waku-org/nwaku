@@ -44,8 +44,41 @@ import
 when defined(rln):
   import ../../waku/v2/protocol/waku_rln_relay
 
+logScope:
+  topics = "wakunode app"
 
-type AppResult[T] = Result[T, string]
+
+# Git version in git describe format (defined at compile time)
+const git_version* {.strdefine.} = "n/a"
+
+type
+  App* = object
+    version: string
+    conf: WakuNodeConf
+
+    rng: ref HmacDrbgContext
+    peerStore: Option[WakuPeerStorage]
+    archiveDriver: Option[ArchiveDriver]
+    archiveRetentionPolicy: Option[RetentionPolicy]
+    dynamicBootstrapNodes: seq[RemotePeerInfo]
+
+    node: WakuNode
+
+  AppResult*[T] = Result[T, string]
+
+
+# TODO: Uncomment after the refactoring work is done
+# func node*(app: App): WakuNode =
+#   app.node
+
+func version*(app: App): string =
+  app.version
+
+
+## Initialisation
+
+proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
+  App(version: git_version, conf: conf, rng: rng, node: nil)
 
 
 ## SQLite database
@@ -90,6 +123,18 @@ proc setupPeerStorage(): AppResult[Option[WakuPeerStorage]] =
     return err("failed to init peer store" & res.error)
 
   ok(some(res.value))
+
+proc setupPeerPersistence*(app: var App): AppResult[void] =
+  if not app.conf.peerPersistence:
+    return ok()
+
+  let peerStoreRes = setupPeerStorage()
+  if peerStoreRes.isErr():
+    return err("failed to setup peer store" & peerStoreRes.error)
+
+  app.peerStore = peerStoreRes.get()
+
+  ok()
 
 
 ## Waku archive
@@ -626,3 +671,10 @@ proc startMetricsServer(node: WakuNode, address: ValidIpAddress, port: uint16, p
 proc startMetricsLogging(): AppResult[void] =
   startMetricsLog()
   ok()
+
+
+# App shutdown
+
+proc stop*(app: App): Future[void] {.async.} =
+  if not app.node.isNil():
+    await app.node.stop()
