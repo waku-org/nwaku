@@ -51,26 +51,11 @@ import
   ./config
 
 logScope:
-  topics = "wakunode"
+  topics = "wakunode main"
 
 # Temporarily merge `app.nim` into `wakunode2.nim` until we encapsulate the
 #  state and the logic in an object instance.
 include ./app
-
-when defined(waku_exp_store_resume):
-  proc resumeMessageStore(node: WakuNode, address: string): Future[Result[void, string]] {.async.} =
-    # Resume historical messages, this has to be called after the node has been started
-    if address != "":
-      return err("empty peer multiaddres")
-
-    let remotePeer = parsePeerInfo(address)
-    if remotePeer.isErr():
-      return err("invalid peer multiaddress: " & remotePeer.error)
-
-    try:
-      await node.resume(some(@[remotePeer.value]))
-    except CatchableError:
-      return err("failed to resume messages history: " & getCurrentExceptionMsg())
 
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
@@ -187,14 +172,6 @@ when isMainModule:
   let startNodeRes = waitFor startNode(node, conf, dynamicBootstrapNodes)
   if startNodeRes.isErr():
     error "5/7 Starting node and mounted protocols failed. Continuing in current state.", error=startNodeRes.error
-
-
-  when defined(waku_exp_store_resume):
-    # Resume message store on boot
-    if conf.storeResumePeer != "":
-      let resumeMessageStoreRes = waitFor resumeMessageStore(node, conf.storeResumePeer)
-      if resumeMessageStoreRes.isErr():
-        error "failed to resume message store from peer node. Continuing in current state", error=resumeMessageStoreRes.error
 
 
   debug "6/7 Starting monitoring and external interfaces"
