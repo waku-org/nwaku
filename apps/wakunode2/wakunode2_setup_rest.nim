@@ -4,6 +4,7 @@ else:
   {.push raises: [].}
 
 import
+  stew/results,
   stew/shims/net,
   chronicles,
   presto
@@ -21,13 +22,8 @@ logScope:
   topics = "wakunode rest"
 
 
-proc startRestServer*(node: WakuNode, address: ValidIpAddress, port: Port, conf: WakuNodeConf) =
-  let serverResult = newRestHttpServer(address, port)
-  if serverResult.isErr():
-    notice "REST HTTP server could not be started", address = $address&":" & $port, reason = serverResult.error()
-    return
-
-  let server = serverResult.get()
+proc startRestServer(node: WakuNode, address: ValidIpAddress, port: Port, conf: WakuNodeConf): RestServerResult[RestServerRef] =
+  let server = ? newRestHttpServer(address, port)
 
   ## Debug REST API
   installDebugApiHandlers(server.router, node)
@@ -42,3 +38,8 @@ proc startRestServer*(node: WakuNode, address: ValidIpAddress, port: Port, conf:
 
   server.start()
   info "Starting REST HTTP server", url = "http://" & $address & ":" & $port & "/"
+
+  ok(server)
+
+proc startRestServer*(node: WakuNode, address: ValidIpAddress, port: uint16, portsShift: uint16, conf: WakuNodeConf): RestServerResult[RestServerRef] =
+  return startRestServer(node, address, Port(port + portsShift), conf)

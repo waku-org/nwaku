@@ -14,7 +14,9 @@ import
   libp2p/protocols/pubsub/gossipsub,
   libp2p/peerid,
   eth/keys,
-  eth/net/nat
+  eth/net/nat,
+  json_rpc/rpcserver,
+  presto
 import
   ../../waku/common/sqlite,
   ../../waku/v2/waku_node,
@@ -44,8 +46,43 @@ import
 when defined(rln):
   import ../../waku/v2/protocol/waku_rln_relay
 
+logScope:
+  topics = "wakunode app"
 
-type AppResult[T] = Result[T, string]
+
+# Git version in git describe format (defined at compile time)
+const git_version* {.strdefine.} = "n/a"
+
+type
+  App* = object
+    version: string
+    conf: WakuNodeConf
+
+    rng: ref HmacDrbgContext
+    peerStore: Option[WakuPeerStorage]
+    archiveDriver: Option[ArchiveDriver]
+    archiveRetentionPolicy: Option[RetentionPolicy]
+    dynamicBootstrapNodes: seq[RemotePeerInfo]
+
+    node: WakuNode
+
+    rpcServer: Option[RpcHttpServer]
+    restServer: Option[RestServerRef]
+
+  AppResult*[T] = Result[T, string]
+
+
+func node*(app: App): WakuNode =
+  app.node
+
+func version*(app: App): string =
+  app.version
+
+
+## Initialisation
+
+proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
+  App(version: git_version, conf: conf, rng: rng, node: nil)
 
 
 ## SQLite database
@@ -90,6 +127,18 @@ proc setupPeerStorage(): AppResult[Option[WakuPeerStorage]] =
     return err("failed to init peer store" & res.error)
 
   ok(some(res.value))
+
+proc setupPeerPersistence*(app: var App): AppResult[void] =
+  if not app.conf.peerPersistence:
+    return ok()
+
+  let peerStoreRes = setupPeerStorage()
+  if peerStoreRes.isErr():
+    return err("failed to setup peer store" & peerStoreRes.error)
+
+  app.peerStore = peerStoreRes.get()
+
+  ok()
 
 
 ## Waku archive
@@ -177,6 +226,41 @@ proc setupWakuArchiveDriver(dbUrl: string, vacuum: bool, migrate: bool): AppResu
     let driver = QueueDriver.new()  # Defaults to a capacity of 25.000 messages
     ok(driver)
 
+proc setupWakuArchive*(app: var App): AppResult[void] =
+  ## Waku archive
+
+  if not app.conf.store:
+    return ok()
+
+  # Message storage
+  let dbUrlValidationRes = validateDbUrl(app.conf.storeMessageDbUrl)
+  if dbUrlValidationRes.isErr():
+    return err("failed to configure the message store database connection: " & dbUrlValidationRes.error)
+
+  let archiveDriverRes = setupWakuArchiveDriver(dbUrlValidationRes.get(),
+                                                vacuum = app.conf.storeMessageDbVacuum,
+                                                migrate = app.conf.storeMessageDbMigration)
+  if archiveDriverRes.isOk():
+    app.archiveDriver = some(archiveDriverRes.get())
+  else:
+    return err("failed to configure archive driver: " & archiveDriverRes.error)
+
+  # Message store retention policy
+  let storeMessageRetentionPolicyRes = validateStoreMessageRetentionPolicy(app.conf.storeMessageRetentionPolicy)
+  if storeMessageRetentionPolicyRes.isErr():
+    return err("failed to configure the message retention policy: " & storeMessageRetentionPolicyRes.error)
+
+  let archiveRetentionPolicyRes = setupWakuArchiveRetentionPolicy(storeMessageRetentionPolicyRes.get())
+  if archiveRetentionPolicyRes.isOk():
+    app.archiveRetentionPolicy = archiveRetentionPolicyRes.get()
+  else:
+    return err("failed to configure the message retention policy: " & archiveRetentionPolicyRes.error)
+
+  # TODO: Move retention policy execution here
+  # if archiveRetentionPolicy.isSome():
+  #   executeMessageRetentionPolicy(node)
+  #   startMessageRetentionPolicyPeriodicTask(node, interval=WakuArchiveDefaultRetentionPolicyInterval)
+
 
 ## Retrieve dynamic bootstrap nodes (DNS discovery)
 
@@ -206,6 +290,17 @@ proc retrieveDynamicBootstrapNodes*(dnsDiscovery: bool, dnsDiscoveryUrl: string,
 
   debug "No method for retrieving dynamic bootstrap nodes specified."
   ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default
+
+proc setupDyamicBootstrapNodes*(app: var App): AppResult[void] =
+  let dynamicBootstrapNodesRes = retrieveDynamicBootstrapNodes(app.conf.dnsDiscovery,
+                                                               app.conf.dnsDiscoveryUrl,
+                                                               app.conf.dnsDiscoveryNameServers)
+  if dynamicBootstrapNodesRes.isOk():
+    app.dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
+  else:
+    warn "2/7 Retrieving dynamic bootstrap nodes failed. Continuing without dynamic bootstrap nodes.", error=dynamicBootstrapNodesRes.error
+
+  ok()
 
 
 ## Init waku node instance
@@ -403,6 +498,15 @@ proc initNode(conf: WakuNodeConf,
 
   ok(node)
 
+proc setupWakuNode*(app: var App): AppResult[void] =
+  ## Waku node
+  let initNodeRes = initNode(app.conf, app.rng, app.peerStore, app.dynamicBootstrapNodes)
+  if initNodeRes.isErr():
+    return err("failed to init node: " & initNodeRes.error)
+
+  app.node = initNodeRes.get()
+  ok()
+
 
 ## Mount protocols
 
@@ -542,6 +646,14 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
 
   return ok()
 
+proc setupAndMountProtocols*(app: App): Future[AppResult[void]] {.async.} =
+  return await setupProtocols(
+    app.node,
+    app.conf,
+    app.archiveDriver,
+    app.archiveRetentionPolicy
+  )
+
 
 ## Start node
 
@@ -597,6 +709,13 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
 
   return ok()
 
+proc startNode*(app: App): Future[AppResult[void]] {.async.} =
+  return await startNode(
+    app.node,
+    app.conf,
+    app.dynamicBootstrapNodes
+  )
+
 
 ## Monitoring and external interfaces
 
@@ -607,17 +726,6 @@ import
   ./wakunode2_setup_rpc,
   ./wakunode2_setup_rest
 
-proc startRpcServer(node: WakuNode, address: ValidIpAddress, port: uint16, portsShift: uint16, conf: WakuNodeConf): AppResult[void] =
-  try:
-    startRpcServer(node, address, Port(port + portsShift), conf)
-  except CatchableError:
-    return err("failed to start the json-rpc server: " & getCurrentExceptionMsg())
-
-  ok()
-
-proc startRestServer(node: WakuNode, address: ValidIpAddress, port: uint16, portsShift: uint16, conf: WakuNodeConf): AppResult[void] =
-  startRestServer(node, address, Port(port + portsShift), conf)
-  ok()
 
 proc startMetricsServer(node: WakuNode, address: ValidIpAddress, port: uint16, portsShift: uint16): AppResult[void] =
   startMetricsServer(address, Port(port + portsShift))
@@ -626,3 +734,44 @@ proc startMetricsServer(node: WakuNode, address: ValidIpAddress, port: uint16, p
 proc startMetricsLogging(): AppResult[void] =
   startMetricsLog()
   ok()
+
+proc setupMonitoringAndExternalInterfaces*(app: var App): AppResult[void] =
+  if app.conf.rpc:
+    let startRpcServerRes = startRpcServer(app.node, app.conf.rpcAddress, app.conf.rpcPort, app.conf.portsShift, app.conf)
+    if startRpcServerRes.isErr():
+      error "6/7 Starting JSON-RPC server failed. Continuing in current state.", error=startRpcServerRes.error
+    else:
+      app.rpcServer = some(startRpcServerRes.value)
+
+  if app.conf.rest:
+    let startRestServerRes = startRestServer(app.node, app.conf.restAddress, app.conf.restPort, app.conf.portsShift, app.conf)
+    if startRestServerRes.isErr():
+      error "6/7 Starting REST server failed. Continuing in current state.", error=startRestServerRes.error
+    else:
+      app.restServer = some(startRestServerRes.value)
+
+
+  if app.conf.metricsServer:
+    let startMetricsServerRes = startMetricsServer(app.node, app.conf.metricsServerAddress, app.conf.metricsServerPort, app.conf.portsShift)
+    if startMetricsServerRes.isErr():
+      error "6/7 Starting metrics server failed. Continuing in current state.", error=startMetricsServerRes.error
+
+  if app.conf.metricsLogging:
+    let startMetricsLoggingRes = startMetricsLogging()
+    if startMetricsLoggingRes.isErr():
+      error "6/7 Starting metrics console logging failed. Continuing in current state.", error=startMetricsLoggingRes.error
+
+  ok()
+
+
+# App shutdown
+
+proc stop*(app: App): Future[void] {.async.} =
+  if app.restServer.isSome():
+    await app.restServer.get().stop()
+
+  if app.rpcServer.isSome():
+    await app.rpcServer.get().stop()
+
+  if not app.node.isNil():
+    await app.node.stop()
