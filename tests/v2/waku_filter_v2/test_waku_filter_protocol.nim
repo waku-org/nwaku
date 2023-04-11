@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options,sets,strutils,tables],
+  std/[options,sequtils,sets,strutils,tables],
   testutils/unittests,
   chronos,
   chronicles,
@@ -10,6 +10,7 @@ import
   ../../../waku/v2/node/peer_manager,
   ../../../waku/v2/protocol/waku_filter_v2,
   ../../../waku/v2/protocol/waku_filter_v2/rpc,
+  ../../../waku/v2/protocol/waku_filter_v2/subscriptions,
   ../../../waku/v2/protocol/waku_message,
   ../testlib/common,
   ../testlib/wakucore
@@ -196,6 +197,187 @@ suite "Waku Filter - handling subscribe requests":
       response4.requestId == filterUnsubscribeRequest2.requestId
       response4.statusCode == 200
       response4.statusDesc.get() == "OK"
+
+  asyncTest "subscribe errors":
+    ## Tests most common error paths while subscribing
+
+    # Given
+    let
+      switch = newStandardSwitch()
+      wakuFilter = newTestWakuFilter(switch)
+      peerId = PeerId.random().get()
+
+    ## Incomplete filter criteria
+
+    # When
+    let
+      reqNoPubsubTopic = createRequest(
+        filterSubscribeType = FilterSubscribeType.SUBSCRIBE,
+        pubsubTopic = none(PubsubTopic),
+        contentTopics = @[DefaultContentTopic]
+      )
+      reqNoContentTopics = createRequest(
+        filterSubscribeType = FilterSubscribeType.SUBSCRIBE,
+        pubsubTopic = some(DefaultPubsubTopic),
+        contentTopics = @[]
+      )
+      response1 = wakuFilter.handleSubscribeRequest(peerId, reqNoPubsubTopic)
+      response2 = wakuFilter.handleSubscribeRequest(peerId, reqNoContentTopics)
+
+    # Then
+    check:
+      response1.requestId == reqNoPubsubTopic.requestId
+      response2.requestId == reqNoContentTopics.requestId
+      response1.statusCode == FilterSubscribeErrorKind.BAD_REQUEST.uint32
+      response2.statusCode == FilterSubscribeErrorKind.BAD_REQUEST.uint32
+      response1.statusDesc.get().contains("pubsubTopic and contentTopics must be specified")
+      response2.statusDesc.get().contains("pubsubTopic and contentTopics must be specified")
+
+    ## Max content topics per request exceeded
+
+    # When
+    let
+      contentTopics = toSeq(1 .. MaxContentTopicsPerRequest + 1).mapIt(ContentTopic("/waku/2/content-$#/proto" % [$it]))
+      reqTooManyContentTopics = createRequest(
+        filterSubscribeType = FilterSubscribeType.SUBSCRIBE,
+        pubsubTopic = some(DefaultPubsubTopic),
+        contentTopics = contentTopics
+      )
+      response3 = wakuFilter.handleSubscribeRequest(peerId, reqTooManyContentTopics)
+
+    # Then
+    check:
+      response3.requestId == reqTooManyContentTopics.requestId
+      response3.statusCode == FilterSubscribeErrorKind.BAD_REQUEST.uint32
+      response3.statusDesc.get().contains("exceeds maximum content topics")
+
+    ## Max filter criteria exceeded
+
+    # When
+    let
+      filterCriteria = toSeq(1 .. MaxCriteriaPerSubscription + 1).mapIt((DefaultPubsubTopic, ContentTopic("/waku/2/content-$#/proto" % [$it])))
+
+    wakuFilter.subscriptions[peerId] = filterCriteria.toHashSet()
+
+    let
+      reqTooManyFilterCriteria = createRequest(
+        filterSubscribeType = FilterSubscribeType.SUBSCRIBE,
+        pubsubTopic = some(DefaultPubsubTopic),
+        contentTopics = @[DefaultContentTopic]
+      )
+      response4 = wakuFilter.handleSubscribeRequest(peerId, reqTooManyFilterCriteria)
+
+    # Then
+    check:
+      response4.requestId == reqTooManyFilterCriteria.requestId
+      response4.statusCode == FilterSubscribeErrorKind.SERVICE_UNAVAILABLE.uint32
+      response4.statusDesc.get().contains("peer has reached maximum number of filter criteria")
+
+    ## Max subscriptions exceeded
+
+    # When
+    wakuFilter.subscriptions.clear()
+    for _ in 1 .. MaxTotalSubscriptions:
+      wakuFilter.subscriptions[PeerId.random().get()] = @[(DefaultPubsubTopic, DefaultContentTopic)].toHashSet()
+
+    let
+      reqTooManySubscriptions = createRequest(
+        filterSubscribeType = FilterSubscribeType.SUBSCRIBE,
+        pubsubTopic = some(DefaultPubsubTopic),
+        contentTopics = @[DefaultContentTopic]
+      )
+      response5 = wakuFilter.handleSubscribeRequest(peerId, reqTooManySubscriptions)
+
+    # Then
+    check:
+      response5.requestId == reqTooManySubscriptions.requestId
+      response5.statusCode == FilterSubscribeErrorKind.SERVICE_UNAVAILABLE.uint32
+      response5.statusDesc.get().contains("node has reached maximum number of subscriptions")
+
+  asyncTest "unsubscribe errors":
+    ## Tests most common error paths while unsubscribing
+
+    # Given
+    let
+      switch = newStandardSwitch()
+      wakuFilter = newTestWakuFilter(switch)
+      peerId = PeerId.random().get()
+
+    ## Incomplete filter criteria
+
+    # When
+    let
+      reqNoPubsubTopic = createRequest(
+        filterSubscribeType = FilterSubscribeType.UNSUBSCRIBE,
+        pubsubTopic = none(PubsubTopic),
+        contentTopics = @[DefaultContentTopic]
+      )
+      reqNoContentTopics = createRequest(
+        filterSubscribeType = FilterSubscribeType.UNSUBSCRIBE,
+        pubsubTopic = some(DefaultPubsubTopic),
+        contentTopics = @[]
+      )
+      response1 = wakuFilter.handleSubscribeRequest(peerId, reqNoPubsubTopic)
+      response2 = wakuFilter.handleSubscribeRequest(peerId, reqNoContentTopics)
+
+    # Then
+    check:
+      response1.requestId == reqNoPubsubTopic.requestId
+      response2.requestId == reqNoContentTopics.requestId
+      response1.statusCode == FilterSubscribeErrorKind.BAD_REQUEST.uint32
+      response2.statusCode == FilterSubscribeErrorKind.BAD_REQUEST.uint32
+      response1.statusDesc.get().contains("pubsubTopic and contentTopics must be specified")
+      response2.statusDesc.get().contains("pubsubTopic and contentTopics must be specified")
+
+    ## Max content topics per request exceeded
+
+    # When
+    let
+      contentTopics = toSeq(1 .. MaxContentTopicsPerRequest + 1).mapIt(ContentTopic("/waku/2/content-$#/proto" % [$it]))
+      reqTooManyContentTopics = createRequest(
+        filterSubscribeType = FilterSubscribeType.UNSUBSCRIBE,
+        pubsubTopic = some(DefaultPubsubTopic),
+        contentTopics = contentTopics
+      )
+      response3 = wakuFilter.handleSubscribeRequest(peerId, reqTooManyContentTopics)
+
+    # Then
+    check:
+      response3.requestId == reqTooManyContentTopics.requestId
+      response3.statusCode == FilterSubscribeErrorKind.BAD_REQUEST.uint32
+      response3.statusDesc.get().contains("exceeds maximum content topics")
+
+    ## Subscription not found - unsubscribe
+
+    # When
+    let
+      reqSubscriptionNotFound = createRequest(
+        filterSubscribeType = FilterSubscribeType.UNSUBSCRIBE,
+        pubsubTopic = some(DefaultPubsubTopic),
+        contentTopics = @[DefaultContentTopic]
+      )
+      response4 = wakuFilter.handleSubscribeRequest(peerId, reqSubscriptionNotFound)
+
+    # Then
+    check:
+      response4.requestId == reqSubscriptionNotFound.requestId
+      response4.statusCode == FilterSubscribeErrorKind.NOT_FOUND.uint32
+      response4.statusDesc.get().contains("peer has no subscriptions")
+
+    ## Subscription not found - unsubscribe all
+
+    # When
+    let
+      reqUnsubscribeAll = createRequest(
+        filterSubscribeType = FilterSubscribeType.UNSUBSCRIBE_ALL
+      )
+      response5 = wakuFilter.handleSubscribeRequest(peerId, reqUnsubscribeAll)
+
+    # Then
+    check:
+      response5.requestId == reqUnsubscribeAll.requestId
+      response5.statusCode == FilterSubscribeErrorKind.NOT_FOUND.uint32
+      response5.statusDesc.get().contains("peer has no subscriptions")
 
   asyncTest "ping subscriber":
     # Given

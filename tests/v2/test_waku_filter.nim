@@ -15,20 +15,20 @@ import
   ./testlib/wakucore
 
 
-proc newTestWakuFilterNode(switch: Switch, timeout: Duration = 2.hours): Future[WakuFilter] {.async.} =
+proc newTestWakuFilterNode(switch: Switch, timeout: Duration = 2.hours): Future[WakuFilterLegacy] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    proto = WakuFilter.new(peerManager, rng, timeout)
+    proto = WakuFilterLegacy.new(peerManager, rng, timeout)
 
   await proto.start()
   switch.mount(proto)
 
   return proto
 
-proc newTestWakuFilterClient(switch: Switch): Future[WakuFilterClient] {.async.} =
+proc newTestWakuFilterClient(switch: Switch): Future[WakuFilterClientLegacy] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    proto = WakuFilterClient.new(peerManager, rng)
+    proto = WakuFilterClientLegacy.new(peerManager, rng)
 
   await proto.start()
   switch.mount(proto)
