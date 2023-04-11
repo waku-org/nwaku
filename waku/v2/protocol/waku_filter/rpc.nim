@@ -5,7 +5,7 @@ else:
 
 import
   std/options
-import 
+import
   ../waku_message
 
 

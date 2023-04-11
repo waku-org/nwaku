@@ -62,7 +62,7 @@ proc startMetricsLog*() =
       let pxPeers = collectorAsF64(waku_px_peers)
       let lightpushPeers = collectorAsF64(waku_lightpush_peers)
       let filterPeers = collectorAsF64(waku_filter_peers)
-      let filterSubscribers = collectorAsF64(waku_filter_subscribers)
+      let filterSubscribers = collectorAsF64(waku_legacy_filter_subscribers)
 
       info "Total connections initiated", count = $freshConnCount
       info "Total messages", count = totalMessages

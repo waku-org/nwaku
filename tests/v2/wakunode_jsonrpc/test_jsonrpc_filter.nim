@@ -58,7 +58,7 @@ procSuite "Waku v2 JSON-RPC API - Filter":
 
     check:
       # Light node has not yet subscribed to any filters
-      node2.wakuFilterClient.getSubscriptionsCount() == 0
+      node2.wakuFilterClientLegacy.getSubscriptionsCount() == 0
 
     let contentFilters = @[
       ContentFilter(contentTopic: DefaultContentTopic),
@@ -70,13 +70,13 @@ procSuite "Waku v2 JSON-RPC API - Filter":
     check:
       response == true
       # Light node has successfully subscribed to 4 content topics
-      node2.wakuFilterClient.getSubscriptionsCount() == 4
+      node2.wakuFilterClientLegacy.getSubscriptionsCount() == 4
 
     response = await client.delete_waku_v2_filter_v1_subscription(contentFilters=contentFilters, topic=some(DefaultPubsubTopic))
     check:
       response ==  true
       # Light node has successfully unsubscribed from all filters
-      node2.wakuFilterClient.getSubscriptionsCount() == 0
+      node2.wakuFilterClientLegacy.getSubscriptionsCount() == 0
 
     ## Cleanup
     await server.stop()

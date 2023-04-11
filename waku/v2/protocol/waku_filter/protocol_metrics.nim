@@ -6,9 +6,9 @@ else:
 import metrics
 
 
-declarePublicGauge waku_filter_subscribers, "number of light node filter subscribers"
-declarePublicGauge waku_filter_errors, "number of filter protocol errors", ["type"]
-declarePublicGauge waku_filter_messages, "number of filter messages received", ["type"]
+declarePublicGauge waku_legacy_filter_subscribers, "number of light node filter subscribers"
+declarePublicGauge waku_legacy_filter_errors, "number of filter protocol errors", ["type"]
+declarePublicGauge waku_legacy_filter_messages, "number of filter messages received", ["type"]
 declarePublicGauge waku_node_filters, "number of content filter subscriptions"
 
 

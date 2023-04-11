@@ -71,13 +71,13 @@ proc getSubscriptionsCount(m: SubscriptionManager): int =
 
 type  MessagePushHandler* = proc(requestId: string, msg: MessagePush): Future[void] {.gcsafe, closure.}
 
-type WakuFilterClient* = ref object of LPProtocol
+type WakuFilterClientLegacy* = ref object of LPProtocol
     rng: ref rand.HmacDrbgContext
     peerManager: PeerManager
     subManager: SubscriptionManager
 
 
-proc handleMessagePush(wf: WakuFilterClient, peerId: PeerId, requestId: string, rpc: MessagePush) =
+proc handleMessagePush(wf: WakuFilterClientLegacy, peerId: PeerId, requestId: string, rpc: MessagePush) =
   for msg in rpc.messages:
     let
       pubsubTopic = Defaultstring # TODO: Extend the filter push rpc to provide the pubsub topic. This is a limitation
@@ -86,24 +86,24 @@ proc handleMessagePush(wf: WakuFilterClient, peerId: PeerId, requestId: string, 
     wf.subManager.notifySubscriptionHandler(pubsubTopic, contentTopic, msg)
 
 
-proc initProtocolHandler(wf: WakuFilterClient) =
+proc initProtocolHandler(wf: WakuFilterClientLegacy) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     let buffer = await conn.readLp(MaxRpcSize.int)
 
     let decodeReqRes = FilterRPC.decode(buffer)
     if decodeReqRes.isErr():
-      waku_filter_errors.inc(labelValues = [decodeRpcFailure])
+      waku_legacy_filter_errors.inc(labelValues = [decodeRpcFailure])
       return
 
     let rpc = decodeReqRes.get()
     trace "filter message received"
 
     if rpc.push.isNone():
-      waku_filter_errors.inc(labelValues = [emptyMessagePushFailure])
+      waku_legacy_filter_errors.inc(labelValues = [emptyMessagePushFailure])
       # TODO: Manage the empty push message error. Perform any action?
       return
 
-    waku_filter_messages.inc(labelValues = ["MessagePush"])
+    waku_legacy_filter_messages.inc(labelValues = ["MessagePush"])
 
     let
       peerId = conn.peerId
@@ -116,11 +116,11 @@ proc initProtocolHandler(wf: WakuFilterClient) =
   wf.handler = handle
   wf.codec = WakuFilterCodec
 
-proc new*(T: type WakuFilterClient,
+proc new*(T: type WakuFilterClientLegacy,
           peerManager: PeerManager,
           rng: ref rand.HmacDrbgContext): T =
 
-  let wf = WakuFilterClient(
+  let wf = WakuFilterClientLegacy(
       peerManager: peerManager,
       rng: rng,
       subManager: SubscriptionManager.init()
@@ -129,7 +129,7 @@ proc new*(T: type WakuFilterClient,
   wf
 
 
-proc sendFilterRpc(wf: WakuFilterClient, rpc: FilterRPC, peer: PeerId|RemotePeerInfo): Future[WakuFilterResult[void]] {.async, gcsafe.}=
+proc sendFilterRpc(wf: WakuFilterClientLegacy, rpc: FilterRPC, peer: PeerId|RemotePeerInfo): Future[WakuFilterResult[void]] {.async, gcsafe.}=
   let connOpt = await wf.peerManager.dialPeer(peer, WakuFilterCodec)
   if connOpt.isNone():
     return err(dialFailure)
@@ -138,7 +138,7 @@ proc sendFilterRpc(wf: WakuFilterClient, rpc: FilterRPC, peer: PeerId|RemotePeer
   await connection.writeLP(rpc.encode().buffer)
   return ok()
 
-proc sendFilterRequestRpc(wf: WakuFilterClient,
+proc sendFilterRequestRpc(wf: WakuFilterClientLegacy,
                           pubsubTopic: PubsubTopic,
                           contentTopics: seq[ContentTopic],
                           subscribe: bool,
@@ -158,13 +158,13 @@ proc sendFilterRequestRpc(wf: WakuFilterClient,
 
   let sendRes = await wf.sendFilterRpc(rpc, peer)
   if sendRes.isErr():
-    waku_filter_errors.inc(labelValues = [sendRes.error])
+    waku_legacy_filter_errors.inc(labelValues = [sendRes.error])
     return err(sendRes.error)
 
   return ok()
 
 
-proc subscribe*(wf: WakuFilterClient,
+proc subscribe*(wf: WakuFilterClientLegacy,
                 pubsubTopic: PubsubTopic,
                 contentTopic: ContentTopic|seq[ContentTopic],
                 handler: FilterPushHandler,
@@ -184,7 +184,7 @@ proc subscribe*(wf: WakuFilterClient,
 
   return ok()
 
-proc unsubscribe*(wf: WakuFilterClient,
+proc unsubscribe*(wf: WakuFilterClientLegacy,
                   pubsubTopic: PubsubTopic,
                   contentTopic: ContentTopic|seq[ContentTopic],
                   peer: PeerId|RemotePeerInfo): Future[WakuFilterResult[void]] {.async.} =
@@ -203,8 +203,8 @@ proc unsubscribe*(wf: WakuFilterClient,
 
   return ok()
 
-proc clearSubscriptions*(wf: WakuFilterClient) =
+proc clearSubscriptions*(wf: WakuFilterClientLegacy) =
   wf.subManager.clear()
 
-proc getSubscriptionsCount*(wf: WakuFilterClient): int =
+proc getSubscriptionsCount*(wf: WakuFilterClientLegacy): int =
   wf.subManager.getSubscriptionsCount()
