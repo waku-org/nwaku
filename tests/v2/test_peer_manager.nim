@@ -448,6 +448,83 @@ procSuite "Peer Manager":
       # but the relay peer is not
       node.peerManager.serviceSlots.hasKey(WakuRelayCodec) == false
 
+  asyncTest "getNumConnections() returns expected number of connections per protocol":
+    # Create 4 nodes
+    let nodes = toSeq(0..<4).mapIt(WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+
+    # Start them with relay + filter
+    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.mountRelay()))
+    await allFutures(nodes.mapIt(it.mountFilter()))
+
+    let pInfos = nodes.mapIt(it.switch.peerInfo.toRemotePeerInfo())
+
+    # create some connections/streams
+    require:
+      # some relay connections
+      (await nodes[0].peerManager.connectRelay(pInfos[1])) == true
+      (await nodes[0].peerManager.connectRelay(pInfos[2])) == true
+      (await nodes[1].peerManager.connectRelay(pInfos[2])) == true
+
+      (await nodes[0].peerManager.dialPeer(pInfos[1], WakuFilterCodec)).isSome() == true
+      (await nodes[0].peerManager.dialPeer(pInfos[2], WakuFilterCodec)).isSome() == true
+
+      # isolated dial creates a relay conn under the hood (libp2p behaviour)
+      (await nodes[2].peerManager.dialPeer(pInfos[3], WakuFilterCodec)).isSome() == true
+
+
+    # assert physical connections
+    check:
+      nodes[0].peerManager.getNumConnections(Direction.In, WakuRelayCodec) == 0
+      nodes[0].peerManager.getNumConnections(Direction.Out, WakuRelayCodec) == 2
+      nodes[0].peerManager.getNumConnections(Direction.In, WakuFilterCodec) == 0
+      nodes[0].peerManager.getNumConnections(Direction.Out, WakuFilterCodec) == 2
+
+      nodes[1].peerManager.getNumConnections(Direction.In, WakuRelayCodec) == 1
+      nodes[1].peerManager.getNumConnections(Direction.Out, WakuRelayCodec) == 1
+      nodes[1].peerManager.getNumConnections(Direction.In, WakuFilterCodec) == 1
+      nodes[1].peerManager.getNumConnections(Direction.Out, WakuFilterCodec) == 0
+
+      nodes[2].peerManager.getNumConnections(Direction.In, WakuRelayCodec) == 2
+      nodes[2].peerManager.getNumConnections(Direction.Out, WakuRelayCodec) == 1
+      nodes[2].peerManager.getNumConnections(Direction.In, WakuFilterCodec) == 1
+      nodes[2].peerManager.getNumConnections(Direction.Out, WakuFilterCodec) == 1
+
+      nodes[3].peerManager.getNumConnections(Direction.In, WakuRelayCodec) == 1
+      nodes[3].peerManager.getNumConnections(Direction.Out, WakuRelayCodec) == 0
+      nodes[3].peerManager.getNumConnections(Direction.In, WakuFilterCodec) == 1
+      nodes[3].peerManager.getNumConnections(Direction.Out, WakuFilterCodec) == 0
+
+  asyncTest "getNumStreams() returns expected number of connections per protocol":
+    # Create 2 nodes
+    let nodes = toSeq(0..<2).mapIt(WakuNode.new(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+
+    # Start them with relay + filter
+    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.mountRelay()))
+    await allFutures(nodes.mapIt(it.mountFilter()))
+
+    let pInfos = nodes.mapIt(it.switch.peerInfo.toRemotePeerInfo())
+
+    require:
+      # multiple streams are multiplexed over a single connection.
+      # note that a relay connection is created under the hood when dialing a peer (libp2p behaviour)
+      (await nodes[0].peerManager.dialPeer(pInfos[1], WakuFilterCodec)).isSome() == true
+      (await nodes[0].peerManager.dialPeer(pInfos[1], WakuFilterCodec)).isSome() == true
+      (await nodes[0].peerManager.dialPeer(pInfos[1], WakuFilterCodec)).isSome() == true
+      (await nodes[0].peerManager.dialPeer(pInfos[1], WakuFilterCodec)).isSome() == true
+
+    check:
+      nodes[0].peerManager.getNumStreams(Direction.In, WakuRelayCodec) == 1
+      nodes[0].peerManager.getNumStreams(Direction.Out, WakuRelayCodec) == 1
+      nodes[0].peerManager.getNumStreams(Direction.In, WakuFilterCodec) == 0
+      nodes[0].peerManager.getNumStreams(Direction.Out, WakuFilterCodec) == 4
+
+      nodes[1].peerManager.getNumStreams(Direction.In, WakuRelayCodec) == 1
+      nodes[1].peerManager.getNumStreams(Direction.Out, WakuRelayCodec) == 1
+      nodes[1].peerManager.getNumStreams(Direction.In, WakuFilterCodec) == 4
+      nodes[1].peerManager.getNumStreams(Direction.Out, WakuFilterCodec) == 0
+
   test "selectPeer() returns the correct peer":
     # Valid peer id missing the last digit
     let basePeerId = "16Uiu2HAm7QGEZKujdSbbo1aaQyfDPQ6Bw3ybQnj6fruH5Dxwd7D"
