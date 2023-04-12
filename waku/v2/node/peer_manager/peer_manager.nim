@@ -5,7 +5,7 @@ else:
 
 
 import
-  std/[options, sets, sequtils, times, strutils],
+  std/[options, sets, sequtils, times, strutils, math],
   chronos,
   chronicles,
   metrics,
@@ -77,6 +77,13 @@ proc protocolMatcher*(codec: string): Matcher =
     return proto.startsWith(codec)
 
   return match
+
+proc calculateBackoff(initialBackoffInSec: int,
+                      backoffFactor: int,
+                      failedAttempts: int): timer.Duration =
+  if failedAttempts == 0:
+    return chronos.seconds(0)
+  return chronos.seconds(initialBackoffInSec*(backoffFactor^(failedAttempts-1)))
 
 ####################
 # Helper functions #
@@ -235,6 +242,30 @@ proc loadFromStorage(pm: PeerManager) =
   else:
     debug "successfully queried peer storage"
 
+proc canBeConnected*(pm: PeerManager,
+                     peerId: PeerId): bool =
+  # Returns if we can try to connect to this peer, based on past failed attempts
+  # It uses an exponential backoff. Each connection attempt makes us
+  # wait more before trying again.
+  let failedAttempts = pm.peerStore[NumberFailedConnBook][peerId]
+
+  # if it never errored, we can try to connect
+  if failedAttempts == 0:
+    return true
+
+  # if there are too many failed attempts, do not reconnect
+  if failedAttempts >= pm.maxFailedAttempts:
+    return false
+
+  # If it errored we wait an exponential backoff from last connection
+  # the more failed attempts, the greater the backoff since last attempt
+  let now = Moment.init(getTime().toUnix, Second)
+  let lastFailed = pm.peerStore[LastFailedConnBook][peerId]
+  let backoff = calculateBackoff(pm.initialBackoffInSec, pm.backoffFactor, failedAttempts)
+  if now >= (lastFailed + backoff):
+    return true
+  return false
+
 ##################
 # Initialisation #
 ##################
@@ -286,12 +317,20 @@ proc new*(T: type PeerManager,
          maxConnections = maxConnections
     raise newException(Defect, "Max number of connections can't be greater than PeerManager capacity")
 
+  # attempt to calculate max backoff to prevent potential overflows or unreasonably high values
+  let backoff = calculateBackoff(initialBackoffInSec, backoffFactor, maxFailedAttempts)
+  if backoff.weeks() > 1:
+    error "Max backoff time can't be over 1 week",
+        maxBackoff=backoff
+    raise newException(Defect, "Max backoff time can't be over 1 week")
+
   let pm = PeerManager(switch: switch,
                        peerStore: switch.peerStore,
                        storage: storage,
                        initialBackoffInSec: initialBackoffInSec,
                        backoffFactor: backoffFactor,
                        maxFailedAttempts: maxFailedAttempts)
+
   proc connHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(pm, peerId, event)
 
@@ -467,9 +506,7 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
 
   # TODO: Track only relay connections (nwaku/issues/1566)
   let notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
-  let outsideBackoffPeers = notConnectedPeers.filterIt(pm.peerStore.canBeConnected(it.peerId,
-                                                                                  pm.initialBackoffInSec,
-                                                                                  pm.backoffFactor))
+  let outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
   let numPeersToConnect = min(min(maxConnections - totalRelayPeers, outsideBackoffPeers.len), MaxParalelDials)
 
   info "Relay peer connections",
