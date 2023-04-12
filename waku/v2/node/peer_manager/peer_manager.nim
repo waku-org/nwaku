@@ -557,13 +557,9 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
     await sleepAsync(ConnectivityLoopInterval)
 
 proc updateMetrics(pm: PeerManager) {.async.} =
-  # TODO: Hardcoded due to circular dependency
-  let WakuFilterCodec = "/vac/waku/filter/2.0.0-beta1"
-  let WakuLightPushCodec = "/vac/waku/lightpush/2.0.0-beta1"
-
   heartbeat "Scheduling updateMetrics run", UpdateMetricsInterval:
     for dir in @[Direction.In, Direction.Out]:
-      for proto in @[WakuRelayCodec, WakuStoreCodec, WakuFilterCodec, WakuLightPushCodec]:
+      for proto in pm.peerStore.getWakuProtos():
         let protoDirConns = pm.getNumConnections(dir, proto)
         let protoDirStreams = pm.getNumStreams(dir, proto)
         waku_connected_peers.set(protoDirConns.float64, labelValues = [$dir, proto])
