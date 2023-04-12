@@ -42,9 +42,7 @@ proc startRpcServer*(node: WakuNode, address: ValidIpAddress, port: Port, conf: 
     let filterMessageCache = filter_api.MessageCache.init(capacity=30)
     installFilterApiHandlers(node, server, filterMessageCache)
 
-  # TODO: Move to setup protocols proc
-  if conf.storenode != "":
-    installStoreApiHandlers(node, server)
+  installStoreApiHandlers(node, server)
 
   if conf.rpcAdmin:
     installAdminApiHandlers(node, server)
