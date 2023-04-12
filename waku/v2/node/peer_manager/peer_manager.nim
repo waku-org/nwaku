@@ -9,10 +9,12 @@ import
   chronos,
   chronicles,
   metrics,
-  libp2p/multistream
+  libp2p/multistream,
+  libp2p/muxers/muxer
 import
   ../../protocol/waku_relay,
   ../../utils/peers,
+  ../../utils/heartbeat,
   ./peer_store/peer_storage,
   ./waku_peer_store
 
@@ -22,7 +24,8 @@ declareCounter waku_peers_dials, "Number of peer dials", ["outcome"]
 # TODO: Populate from PeerStore.Source when ready
 declarePublicCounter waku_node_conns_initiated, "Number of connections initiated", ["source"]
 declarePublicGauge waku_peers_errors, "Number of peer manager errors", ["type"]
-declarePublicGauge waku_connected_peers, "Number of connected peers per direction", ["direction"]
+declarePublicGauge waku_connected_peers, "Number of physical connections per direction and protocol", labels = ["direction", "protocol"]
+declarePublicGauge waku_streams_peers, "Number of streams per direction and protocol", labels = ["direction", "protocol"]
 declarePublicGauge waku_peer_store_size, "Number of peers managed by the peer store"
 declarePublicGauge waku_service_peers, "Service peer protocol and multiaddress ", labels = ["protocol", "peerId"]
 
@@ -50,6 +53,9 @@ const
 
   # How often the peer store is pruned
   PrunePeerStoreInterval = chronos.minutes(5)
+
+  # How often the peer store is updated with metrics
+  UpdateMetricsInterval = chronos.seconds(15)
 
 type
   PeerManager* = ref object of RootObj
@@ -252,7 +258,6 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
     let direction = if event.initiator: Outbound else: Inbound
     pm.peerStore[ConnectionBook][peerId] = Connected
     pm.peerStore[DirectionBook][peerId] = direction
-    waku_connected_peers.inc(1, labelValues=[$direction])
 
     if not pm.storage.isNil:
       pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), Connected)
@@ -261,7 +266,6 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
   elif event.kind == PeerEventKind.Left:
     pm.peerStore[DirectionBook][peerId] = UnknownDirection
     pm.peerStore[ConnectionBook][peerId] = CanConnect
-    waku_connected_peers.dec(1, labelValues=[$pm.peerStore[DirectionBook][peerId]])
 
     if not pm.storage.isNil:
       pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), CanConnect, getTime().toUnix)
@@ -430,16 +434,35 @@ proc connectToNodes*(pm: PeerManager,
   # later.
   await sleepAsync(chronos.seconds(5))
 
+# Returns the amount of physical connections for a given direction
+# containing at least one stream with the given protocol.
+proc getNumConnections*(pm: PeerManager, dir: Direction, protocol: string): int =
+  var numConns = 0
+  for peerId, muxers in pm.switch.connManager.getConnections():
+    for peerConn in muxers:
+      let streams = peerConn.getStreams()
+      if peerConn.connection.transportDir == dir:
+        if streams.anyIt(it.protocol == protocol):
+          numConns += 1
+  return numConns
+
+proc getNumStreams*(pm: PeerManager, dir: Direction, protocol: string): int =
+  var numConns = 0
+  for peerId, muxers in pm.switch.connManager.getConnections():
+    for peerConn in muxers:
+        for stream in peerConn.getStreams():
+          if stream.protocol == protocol and stream.dir == dir:
+            numConns += 1
+  return numConns
+
 proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   let maxConnections = pm.switch.connManager.inSema.size
-  let numInPeers = pm.switch.connectedPeers(lpstream.Direction.In).len
-  let numOutPeers = pm.switch.connectedPeers(lpstream.Direction.Out).len
-  let numConPeers = numInPeers + numOutPeers
-
-  # TODO: Enforce a given in/out peers ratio
+  let inRelayPeers = pm.getNumConnections(Direction.In, WakuRelayCodec)
+  let outRelayPeers = pm.getNumConnections(Direction.Out, WakuRelayCodec)
+  let totalRelayPeers = inRelayPeers + outRelayPeers
 
   # Leave some room for service peers
-  if numConPeers >= (maxConnections - 5):
+  if totalRelayPeers >= (maxConnections - 5):
     return
 
   # TODO: Track only relay connections (nwaku/issues/1566)
@@ -447,10 +470,12 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   let outsideBackoffPeers = notConnectedPeers.filterIt(pm.peerStore.canBeConnected(it.peerId,
                                                                                   pm.initialBackoffInSec,
                                                                                   pm.backoffFactor))
-  let numPeersToConnect = min(min(maxConnections - numConPeers, outsideBackoffPeers.len), MaxParalelDials)
+  let numPeersToConnect = min(min(maxConnections - totalRelayPeers, outsideBackoffPeers.len), MaxParalelDials)
 
   info "Relay peer connections",
-    connectedPeers = numConPeers,
+    inRelayConns = inRelayPeers,
+    outRelayConns = outRelayPeers,
+    totalRelayConns = totalRelayPeers,
     targetConnectedPeers = maxConnections,
     notConnectedPeers = notConnectedPeers.len,
     outsideBackoffPeers = outsideBackoffPeers.len
@@ -532,8 +557,18 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
     await pm.connectToRelayPeers()
     await sleepAsync(ConnectivityLoopInterval)
 
+proc updateMetrics(pm: PeerManager) {.async.} =
+  heartbeat "Scheduling updateMetrics run", UpdateMetricsInterval:
+    for dir in @[Direction.In, Direction.Out]:
+      for proto in pm.peerStore.getWakuProtos():
+        let protoDirConns = pm.getNumConnections(dir, proto)
+        let protoDirStreams = pm.getNumStreams(dir, proto)
+        waku_connected_peers.set(protoDirConns.float64, labelValues = [$dir, proto])
+        waku_streams_peers.set(protoDirStreams.float64, labelValues = [$dir, proto])
+
 proc start*(pm: PeerManager) =
   pm.started = true
+  asyncSpawn pm.updateMetrics()
   asyncSpawn pm.relayConnectivityLoop()
   asyncSpawn pm.prunePeerStoreLoop()
 
