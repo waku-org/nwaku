@@ -411,9 +411,11 @@ proc connectToNodes*(pm: PeerManager,
 
   var futConns: seq[Future[bool]]
   for node in nodes:
-    let node = when node is string: parseRemotePeerInfo(node)
-               else: node
-    futConns.add(pm.connectRelay(node))
+    let node = parsePeerInfo(node)
+    if node.isOk():
+      futConns.add(pm.connectRelay(node.value))
+    else:
+      error "Couldn't parse node info", error = node.error
 
   await allFutures(futConns)
   let successfulConns = futConns.mapIt(it.read()).countIt(true)

@@ -491,11 +491,11 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
 
   mountStoreClient(node)
   if conf.storenode != "":
-    try:
-      let storenode = parseRemotePeerInfo(conf.storenode)
-      node.peerManager.addServicePeer(storenode, WakuStoreCodec)
-    except CatchableError:
-      return err("failed to set node waku store peer: " & getCurrentExceptionMsg())
+    let storeNode = parsePeerInfo(conf.storenode)
+    if storeNode.isOk():
+      node.peerManager.addServicePeer(storeNode.value, WakuStoreCodec)
+    else:
+      return err("failed to set node waku store peer: " & storeNode.error)
 
   # NOTE Must be mounted after relay
   if conf.lightpush:
@@ -505,12 +505,12 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       return err("failed to mount waku lightpush protocol: " & getCurrentExceptionMsg())
 
   if conf.lightpushnode != "":
-    try:
+    let lightPushNode = parsePeerInfo(conf.lightpushnode)
+    if lightPushNode.isOk():
       mountLightPushClient(node)
-      let lightpushnode = parseRemotePeerInfo(conf.lightpushnode)
-      node.peerManager.addServicePeer(lightpushnode, WakuLightPushCodec)
-    except CatchableError:
-      return err("failed to set node waku lightpush peer: " & getCurrentExceptionMsg())
+      node.peerManager.addServicePeer(lightPushNode.value, WakuLightPushCodec)
+    else:
+      return err("failed to set node waku lightpush peer: " & lightPushNode.error)
 
   # Filter setup. NOTE Must be mounted after relay
   if conf.filter:
@@ -520,12 +520,12 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       return err("failed to mount waku filter protocol: " & getCurrentExceptionMsg())
 
   if conf.filternode != "":
-    try:
+    let filterNode = parsePeerInfo(conf.filternode)
+    if filterNode.isOk():
       await mountFilterClient(node)
-      let filternode = parseRemotePeerInfo(conf.filternode)
-      node.peerManager.addServicePeer(filternode, WakuFilterCodec)
-    except CatchableError:
-      return err("failed to set node waku filter peer: " & getCurrentExceptionMsg())
+      node.peerManager.addServicePeer(filterNode.value, WakuFilterCodec)
+    else:
+      return err("failed to set node waku filter peer: " & filterNode.error)
 
   # waku peer exchange setup
   if (conf.peerExchangeNode != "") or (conf.peerExchange):
@@ -535,11 +535,11 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       return err("failed to mount waku peer-exchange protocol: " & getCurrentExceptionMsg())
 
     if conf.peerExchangeNode != "":
-      try:
-        let peerExchangeNode = parseRemotePeerInfo(conf.peerExchangeNode)
-        node.peerManager.addServicePeer(peerExchangeNode, WakuPeerExchangeCodec)
-      except CatchableError:
-        return err("failed to set node waku peer-exchange peer: " & getCurrentExceptionMsg())
+      let peerExchangeNode = parsePeerInfo(conf.peerExchangeNode)
+      if peerExchangeNode.isOk():
+        node.peerManager.addServicePeer(peerExchangeNode.value, WakuPeerExchangeCodec)
+      else:
+        return err("failed to set node waku peer-exchange peer: " & peerExchangeNode.error)
 
   return ok()
 
@@ -601,14 +601,12 @@ when defined(waku_exp_store_resume):
     if address != "":
       return err("empty peer multiaddres")
 
-    var remotePeer: RemotePeerInfo
-    try:
-      remotePeer = parseRemotePeerInfo(address)
-    except CatchableError:
-      return err("invalid peer multiaddress: " & getCurrentExceptionMsg())
+    let remotePeer = parsePeerInfo(address)
+    if remotePeer.isErr():
+      return err("invalid peer multiaddress: " & remotePeer.error)
 
     try:
-      await node.resume(some(@[remotePeer]))
+      await node.resume(some(@[remotePeer.value]))
     except CatchableError:
       return err("failed to resume messages history: " & getCurrentExceptionMsg())
 

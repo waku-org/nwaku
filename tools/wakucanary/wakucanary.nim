@@ -122,8 +122,14 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
     protocols = conf.protocols,
     logLevel = conf.logLevel
 
+  let peerRes = parsePeerInfo(conf.address)
+  if peerRes.isErr():
+    error "Couldn't parse 'conf.address'", error = peerRes.error
+    return 1
+
+  let peer = peerRes.value
+
   let
-    peer: RemotePeerInfo = parseRemotePeerInfo(conf.address)
     nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
     bindIp = ValidIpAddress.init("0.0.0.0")
     wsBindPort = Port(conf.nodePort + WebSocketPortOffset)

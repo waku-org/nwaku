@@ -4,7 +4,6 @@ import
   std/[options, sequtils],
   stew/shims/net as stewNet,
   testutils/unittests,
-  chronicles,
   chronos,
   json_rpc/rpcserver,
   json_rpc/rpcclient,
@@ -76,7 +75,10 @@ procSuite "Peer Manager":
     await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
-    let nonExistentPeer = parseRemotePeerInfo("/ip4/0.0.0.0/tcp/1000/p2p/16Uiu2HAmL5okWopX7NqZWBUKVqW8iUxCEmd5GMHLVPwCgzYzQv3e")
+    let nonExistentPeerRes = parsePeerInfo("/ip4/0.0.0.0/tcp/1000/p2p/16Uiu2HAmL5okWopX7NqZWBUKVqW8iUxCEmd5GMHLVPwCgzYzQv3e")
+    require nonExistentPeerRes.isOk()
+
+    let nonExistentPeer = nonExistentPeerRes.value
 
     # Dial non-existent peer from node1
     let conn1 = await nodes[0].peerManager.dialPeer(nonExistentPeer, WakuFilterCodec)
@@ -136,9 +138,14 @@ procSuite "Peer Manager":
       nodes[0].peerManager.peerStore.connectedness(nodes[1].peerInfo.peerId) == NotConnected
 
     # Failed connection
-    let nonExistentPeer = parseRemotePeerInfo("/ip4/0.0.0.0/tcp/1000/p2p/16Uiu2HAmL5okWopX7NqZWBUKVqW8iUxCEmd5GMHLVPwCgzYzQv3e")
+    let nonExistentPeerRes = parsePeerInfo("/ip4/0.0.0.0/tcp/1000/p2p/16Uiu2HAmL5okWopX7NqZWBUKVqW8iUxCEmd5GMHLVPwCgzYzQv3e")
+    require:
+      nonExistentPeerRes.isOk()
+
+    let nonExistentPeer = nonExistentPeerRes.value
     require:
       (await nodes[0].peerManager.connectRelay(nonExistentPeer)) == false
+
     check:
       # Cannot connect to node2
       nodes[0].peerManager.peerStore.connectedness(nonExistentPeer.peerId) == CannotConnect
@@ -165,7 +172,10 @@ procSuite "Peer Manager":
     await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
-    let nonExistentPeer = parseRemotePeerInfo("/ip4/0.0.0.0/tcp/1000/p2p/16Uiu2HAmL5okWopX7NqZWBUKVqW8iUxCEmd5GMHLVPwCgzYzQv3e")
+    let nonExistentPeerRes = parsePeerInfo("/ip4/0.0.0.0/tcp/1000/p2p/16Uiu2HAmL5okWopX7NqZWBUKVqW8iUxCEmd5GMHLVPwCgzYzQv3e")
+    require nonExistentPeerRes.isOk()
+
+    let nonExistentPeer = nonExistentPeerRes.value
 
     nodes[0].peerManager.addPeer(nonExistentPeer)
 
@@ -413,37 +423,41 @@ procSuite "Peer Manager":
 
     let
       node = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
-      peer1 = parseRemotePeerInfo("/ip4/0.0.0.0/tcp/30300/p2p/" & basePeerId & "1")
-      peer2 = parseRemotePeerInfo("/ip4/0.0.0.0/tcp/30301/p2p/" & basePeerId & "2")
-      peer3 = parseRemotePeerInfo("/ip4/0.0.0.0/tcp/30302/p2p/" & basePeerId & "3")
-      peer4 = parseRemotePeerInfo("/ip4/0.0.0.0/tcp/30303/p2p/" & basePeerId & "4")
-      peer5 = parseRemotePeerInfo("/ip4/0.0.0.0/tcp/30303/p2p/" & basePeerId & "5")
+      peers = toSeq(1..5)
+                .mapIt(
+                    parsePeerInfo("/ip4/0.0.0.0/tcp/30300/p2p/" & basePeerId & $it)
+                )
+                .filterIt(it.isOk())
+                .mapIt(it.value)
+
+    require:
+      peers.len == 5
 
     # service peers
-    node.peerManager.addServicePeer(peer1, WakuStoreCodec)
-    node.peerManager.addServicePeer(peer2, WakuFilterCodec)
-    node.peerManager.addServicePeer(peer3, WakuLightPushCodec)
-    node.peerManager.addServicePeer(peer4, WakuPeerExchangeCodec)
+    node.peerManager.addServicePeer(peers[0], WakuStoreCodec)
+    node.peerManager.addServicePeer(peers[1], WakuFilterCodec)
+    node.peerManager.addServicePeer(peers[2], WakuLightPushCodec)
+    node.peerManager.addServicePeer(peers[3], WakuPeerExchangeCodec)
 
     # relay peers (should not be added)
-    node.peerManager.addServicePeer(peer5, WakuRelayCodec)
+    node.peerManager.addServicePeer(peers[4], WakuRelayCodec)
 
     # all peers are stored in the peerstore
     check:
-      node.peerManager.peerStore.peers().anyIt(it.peerId == peer1.peerId)
-      node.peerManager.peerStore.peers().anyIt(it.peerId == peer2.peerId)
-      node.peerManager.peerStore.peers().anyIt(it.peerId == peer3.peerId)
-      node.peerManager.peerStore.peers().anyIt(it.peerId == peer4.peerId)
+      node.peerManager.peerStore.peers().anyIt(it.peerId == peers[0].peerId)
+      node.peerManager.peerStore.peers().anyIt(it.peerId == peers[1].peerId)
+      node.peerManager.peerStore.peers().anyIt(it.peerId == peers[2].peerId)
+      node.peerManager.peerStore.peers().anyIt(it.peerId == peers[3].peerId)
 
       # but the relay peer is not
-      node.peerManager.peerStore.peers().anyIt(it.peerId == peer5.peerId) == false
+      node.peerManager.peerStore.peers().anyIt(it.peerId == peers[4].peerId) == false
 
     # all service peers are added to its service slot
     check:
-      node.peerManager.serviceSlots[WakuStoreCodec].peerId == peer1.peerId
-      node.peerManager.serviceSlots[WakuFilterCodec].peerId == peer2.peerId
-      node.peerManager.serviceSlots[WakuLightPushCodec].peerId == peer3.peerId
-      node.peerManager.serviceSlots[WakuPeerExchangeCodec].peerId == peer4.peerId
+      node.peerManager.serviceSlots[WakuStoreCodec].peerId == peers[0].peerId
+      node.peerManager.serviceSlots[WakuFilterCodec].peerId == peers[1].peerId
+      node.peerManager.serviceSlots[WakuLightPushCodec].peerId == peers[2].peerId
+      node.peerManager.serviceSlots[WakuPeerExchangeCodec].peerId == peers[3].peerId
 
       # but the relay peer is not
       node.peerManager.serviceSlots.hasKey(WakuRelayCodec) == false
@@ -458,7 +472,12 @@ procSuite "Peer Manager":
       storage = nil)
 
     # Create 3 peer infos
-    let peers = toSeq(1..3).mapIt(parseRemotePeerInfo("/ip4/0.0.0.0/tcp/30300/p2p/" & basePeerId & $it))
+    let peers = toSeq(1..3)
+                  .mapIt(parsePeerInfo("/ip4/0.0.0.0/tcp/30300/p2p/" & basePeerId & $it))
+                  .filterIt(it.isOk())
+                  .mapIt(it.value)
+    require:
+      peers.len == 3
 
     # Add a peer[0] to the peerstore
     pm.peerStore[AddressBook][peers[0].peerId] = peers[0].addrs
@@ -520,8 +539,12 @@ procSuite "Peer Manager":
       storage = nil)
 
     # Create 15 peers and add them to the peerstore
-    let peers = toSeq(1..15).mapIt(parseRemotePeerInfo("/ip4/0.0.0.0/tcp/0/p2p/" & $PeerId.random().get()))
-    for p in peers: pm.addPeer(p)
+    let peers = toSeq(1..15)
+              .mapIt(parsePeerInfo("/ip4/0.0.0.0/tcp/0/p2p/" & $PeerId.random().get()))
+              .filterIt(it.isOk())
+              .mapIt(it.value)
+    for p in peers:
+      pm.addPeer(p)
 
     # Check that we have 15 peers in the peerstore
     check:

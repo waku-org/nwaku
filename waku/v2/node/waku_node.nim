@@ -439,8 +439,12 @@ proc filterSubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: C
     error "cannot register filter subscription to topic", error="waku filter client is nil"
     return
 
-  let remotePeer = when peer is string: parseRemotePeerInfo(peer)
-                   else: peer
+  let remotePeerRes = parsePeerInfo(peer)
+  if remotePeerRes.isErr():
+    error "Couldn't parse the peer info properly", error = remotePeerRes.error
+    return
+
+  let remotePeer = remotePeerRes.value
 
   info "registering filter subscription to content", pubsubTopic=pubsubTopic, contentTopics=contentTopics, peer=remotePeer.peerId
 
@@ -466,8 +470,12 @@ proc filterUnsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics:
     error "cannot unregister filter subscription to content", error="waku filter client is nil"
     return
 
-  let remotePeer = when peer is string: parseRemotePeerInfo(peer)
-                   else: peer
+  let remotePeerRes = parsePeerInfo(peer)
+  if remotePeerRes.isErr():
+    error "couldn't parse remotePeerInfo", error = remotePeerRes.error
+    return
+
+  let remotePeer = remotePeerRes.value
 
   info "deregistering filter subscription to content", pubsubTopic=pubsubTopic, contentTopics=contentTopics, peer=remotePeer.peerId
 
@@ -783,16 +791,19 @@ proc fetchPeerExchangePeers*(node: Wakunode, amount: uint64) {.async, raises: [D
     warn "Failed to retrieve peer info via peer exchange protocol", error = pxPeersRes.error
 
 # TODO: Move to application module (e.g., wakunode2.nim)
-proc setPeerExchangePeer*(node: WakuNode, peer: RemotePeerInfo|string) {.raises: [Defect, ValueError, LPError].} =
+proc setPeerExchangePeer*(node: WakuNode, peer: RemotePeerInfo|string) =
   if node.wakuPeerExchange.isNil():
     error "could not set peer, waku peer-exchange is nil"
     return
 
   info "Set peer-exchange peer", peer=peer
 
-  let remotePeer = when peer is string: parseRemotePeerInfo(peer)
-                   else: peer
-  node.peerManager.addPeer(remotePeer, WakuPeerExchangeCodec)
+  let remotePeerRes = parsePeerInfo(peer)
+  if remotePeerRes.isErr():
+    error "could not parse peer info", error = remotePeerRes.error
+    return
+
+  node.peerManager.addPeer(remotePeerRes.value, WakuPeerExchangeCodec)
   waku_px_peers.inc()
 
 

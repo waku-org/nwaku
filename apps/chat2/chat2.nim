@@ -482,7 +482,12 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     var storenode: Option[RemotePeerInfo]
 
     if conf.storenode != "":
-      storenode = some(parseRemotePeerInfo(conf.storenode))
+      let peerInfo = parsePeerInfo(conf.storenode)
+      if peerInfo.isOk():
+        storenode = some(peerInfo.value)
+      else:
+        error "Incorrect conf.storenode", error = peerInfo.error
+
     elif discoveredNodes.len > 0:
       echo "Store enabled, but no store nodes configured. Choosing one at random from discovered peers"
       storenode = some(discoveredNodes[rand(0..len(discoveredNodes) - 1)])
@@ -509,23 +514,31 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
 
   # NOTE Must be mounted after relay
   if conf.lightpushnode != "":
-    await mountLightPush(node)
-
-    node.mountLightPushClient()
-    node.peerManager.addServicePeer(parseRemotePeerInfo(conf.lightpushnode), WakuLightpushCodec)
+    let peerInfo = parsePeerInfo(conf.lightpushnode)
+    if peerInfo.isOk():
+      await mountLightPush(node)
+      node.mountLightPushClient()
+      node.peerManager.addServicePeer(peerInfo.value, WakuLightpushCodec)
+    else:
+      error "LightPush not mounted. Couldn't parse conf.lightpushnode",
+                error = peerInfo.error
 
   if conf.filternode != "":
-    await node.mountFilter()
-    await node.mountFilterClient()
+    let peerInfo = parsePeerInfo(conf.filternode)
+    if peerInfo.isOk():
+      await node.mountFilter()
+      await node.mountFilterClient()
+      node.peerManager.addServicePeer(peerInfo.value, WakuFilterCodec)
 
-    node.peerManager.addServicePeer(parseRemotePeerInfo(conf.filternode), WakuFilterCodec)
+      proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.gcsafe.} =
+        trace "Hit filter handler", contentTopic=msg.contentTopic
+        chat.printReceivedMessage(msg)
 
-    proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.gcsafe.} =
-      trace "Hit filter handler", contentTopic=msg.contentTopic
+      await node.subscribe(pubsubTopic=DefaultPubsubTopic, contentTopics=chat.contentTopic, filterHandler)
 
-      chat.printReceivedMessage(msg)
-
-    await node.subscribe(pubsubTopic=DefaultPubsubTopic, contentTopics=chat.contentTopic, filterHandler)
+    else:
+      error "Filter not mounted. Couldn't parse conf.filternode",
+                error = peerInfo.error
 
   # Subscribe to a topic, if relay is mounted
   if conf.relay:

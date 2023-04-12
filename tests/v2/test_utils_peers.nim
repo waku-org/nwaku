@@ -16,8 +16,11 @@ suite "Utils - Peers":
     let address = "/ip4/127.0.0.1/tcp/65002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
       
     ## When
-    let remotePeerInfo = parseRemotePeerInfo(address)
-    
+    let remotePeerInfoRes = parsePeerInfo(address)
+    require remotePeerInfoRes.isOk()
+
+    let remotePeerInfo = remotePeerInfoRes.value
+
     ## Then
     check:
       $(remotePeerInfo.peerId) == "16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
@@ -29,7 +32,10 @@ suite "Utils - Peers":
     let address = "/dns/localhost/tcp/65012/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
 
     ## When
-    let dnsPeer = parseRemotePeerInfo(address)
+    let dnsPeerRes = parsePeerInfo(address)
+    require dnsPeerRes.isOk()
+
+    let dnsPeer = dnsPeerRes.value
 
     ## Then
     check:
@@ -42,7 +48,10 @@ suite "Utils - Peers":
     let address = "/dnsaddr/localhost/tcp/65022/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
     
     ## When
-    let dnsAddrPeer = parseRemotePeerInfo(address)
+    let dnsAddrPeerRes = parsePeerInfo(address)
+    require dnsAddrPeerRes.isOk()
+
+    let dnsAddrPeer = dnsAddrPeerRes.value
 
     ## Then
     check:
@@ -55,7 +64,10 @@ suite "Utils - Peers":
     let address = "/dns4/localhost/tcp/65032/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
 
     ## When
-    let dns4Peer = parseRemotePeerInfo(address)
+    let dns4PeerRes = parsePeerInfo(address)
+    require dns4PeerRes.isOk()
+
+    let dns4Peer = dns4PeerRes.value
 
     # Then
     check:
@@ -68,7 +80,10 @@ suite "Utils - Peers":
     let address = "/dns6/localhost/tcp/65042/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
 
     ## When
-    let dns6Peer = parseRemotePeerInfo(address)
+    let dns6PeerRes = parsePeerInfo(address)
+    require dns6PeerRes.isOk()
+
+    let dns6Peer = dns6PeerRes.value
 
     ## Then
     check:
@@ -81,46 +96,46 @@ suite "Utils - Peers":
     let address = "/p2p/$UCH GIBBER!SH"
 
     ## Then
-    expect LPError:
-      discard parseRemotePeerInfo(address)
+    check:
+      parsePeerInfo(address).isErr()
 
   test "Multiaddr parsing should fail with leading whitespace":
     ## Given
     let address = " /ip4/127.0.0.1/tcp/65062/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
-    
+
     ## Then
-    expect LPError:
-      discard parseRemotePeerInfo(address)
+    check:
+      parsePeerInfo(address).isErr()
 
   test "Multiaddr parsing should fail with trailing whitespace":
     ## Given
     let address = "/ip4/127.0.0.1/tcp/65072/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc "
     
     ## Then
-    expect LPError:
-      discard parseRemotePeerInfo(address)
+    check:
+      parsePeerInfo(address).isErr()
 
   test "Multiaddress parsing should fail with invalid IP address":
     ## Given
     let address = "/ip4/127.0.0.0.1/tcp/65082/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
     
     ## Then
-    expect LPError:
-      discard parseRemotePeerInfo(address)
+    check:
+      parsePeerInfo(address).isErr()
 
   test "Multiaddress parsing should fail with no peer ID":
     ## Given
     let address = "/ip4/127.0.0.1/tcp/65092"
     
     # Then
-    expect LPError:
-      discard parseRemotePeerInfo(address)
+    check:
+      parsePeerInfo(address).isErr()
 
   test "Multiaddress parsing should fail with unsupported transport":
     ## Given
     let address = "/ip4/127.0.0.1/udp/65102/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
     
     ## Then
-    expect ValueError:
-      discard parseRemotePeerInfo(address)
+    check:
+      parsePeerInfo(address).isErr()
 

@@ -286,12 +286,18 @@ when isMainModule:
     waitFor connectToNodes(bridge.nodev2, conf.staticnodes)
 
   if conf.storenode != "":
-    let storePeer = parseRemotePeerInfo(conf.storenode)
-    bridge.nodev2.peerManager.addServicePeer(storePeer, WakuStoreCodec)
+    let storePeer = parsePeerInfo(conf.storenode)
+    if storePeer.isOk():
+      bridge.nodev2.peerManager.addServicePeer(storePeer.value, WakuStoreCodec)
+    else:
+      error "Error parsing conf.storenode", error = storePeer.error
 
   if conf.filternode != "":
-    let filterPeer = parseRemotePeerInfo(conf.filternode)
-    bridge.nodev2.peerManager.addServicePeer(filterPeer, WakuFilterCodec)
+    let filterPeer = parsePeerInfo(conf.filternode)
+    if filterPeer.isOk():
+      bridge.nodev2.peerManager.addServicePeer(filterPeer.value, WakuFilterCodec)
+    else:
+      error "Error parsing conf.filternode", error = filterPeer.error
 
   if conf.rpc:
     let ta = initTAddress(conf.rpcAddress,
