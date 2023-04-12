@@ -4,14 +4,15 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables, sequtils, sets, options, times, math],
+  std/[tables, sequtils, sets, options, times, math, strutils],
   chronos,
   eth/p2p/discoveryv5/enr,
   libp2p/builders,
   libp2p/peerstore
 
 import
-  ../../utils/peers
+  ../../utils/peers,
+  ../../../common/utils/sequence
 
 export peerstore, builders
 
@@ -89,6 +90,14 @@ proc get*(peerStore: PeerStore,
     lastFailedConn: peerStore[LastFailedConnBook][peerId],
     numberFailedConn: peerStore[NumberFailedConnBook][peerId]
   )
+
+proc getWakuProtos*(peerStore: PeerStore): seq[string] =
+  ## Get the waku protocols of all the stored peers.
+  let wakuProtocols = toSeq(peerStore[ProtoBook].book.values())
+                        .flatten()
+                        .deduplicate()
+                        .filterIt(it.startsWith("/vac/waku"))
+  return wakuProtocols
 
 # TODO: Rename peers() to getPeersByProtocol()
 proc peers*(peerStore: PeerStore): seq[RemotePeerInfo] =
