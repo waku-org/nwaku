@@ -184,7 +184,9 @@ chat2bridge: | build deps
 ###################
 ## Waku v2 tools ##
 ###################
-.PHONY: wakucanary networkmonitor
+.PHONY: tools wakucanary networkmonitor
+
+tools: networkmonitor wakucanary
 
 wakucanary: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
