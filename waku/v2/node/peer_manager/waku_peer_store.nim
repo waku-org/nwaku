@@ -128,3 +128,6 @@ proc getConnectedPeers*(peerStore: PeerStore): seq[RemotePeerInfo] =
 
 proc getPeersByProtocol*(peerStore: PeerStore, proto: string): seq[RemotePeerInfo] =
   return peerStore.peers.filterIt(it.protocols.contains(proto))
+
+proc getReachablePeers*(peerStore: PeerStore): seq[RemotePeerInfo] =
+  return peerStore.peers.filterIt(it.connectedness == CanConnect or it.connectedness == Connected)

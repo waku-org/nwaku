@@ -100,7 +100,7 @@ proc insertOrReplace(ps: PeerStorage,
     warn "failed to store peers", err = res.error
     waku_peers_errors.inc(labelValues = ["storage_failure"])
 
-proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo) =
+proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownOrigin) =
   # Adds peer to manager for the specified protocol
 
   if remotePeerInfo.peerId == pm.switch.peerInfo.peerId:
@@ -120,6 +120,10 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo) =
 
   pm.peerStore[AddressBook][remotePeerInfo.peerId] = remotePeerInfo.addrs
   pm.peerStore[KeyBook][remotePeerInfo.peerId] = publicKey
+  pm.peerStore[SourceBook][remotePeerInfo.peerId] = origin
+
+  if remotePeerInfo.enr.isSome:
+    pm.peerStore[ENRBook][remotePeerInfo.peerId] = remotePeerInfo.enr.get()
 
   # Add peer to storage. Entry will subsequently be updated with connectedness information
   if not pm.storage.isNil:

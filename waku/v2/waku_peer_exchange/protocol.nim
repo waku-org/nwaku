@@ -10,6 +10,7 @@ import
 import
   ../node/peer_manager,
   ../waku_core,
+  ../../utils/heartbeat,
   ../waku_discv5,
   ./rpc,
   ./rpc_codec
@@ -29,8 +30,8 @@ const
   # We add a 64kB safety buffer for protocol overhead.
   # 10x-multiplier also for safety
   MaxRpcSize* = 10 * MaxWakuMessageSize + 64 * 1024 # TODO what is the expected size of a PX message? As currently specified, it can contain an arbitary number of ENRs...
-  MaxCacheSize = 1000
-  CacheCleanWindow = 200
+  MaxPeersCacheSize = 60
+  CacheRefreshInterval = 15.minutes
 
   WakuPeerExchangeCodec* = "/vac/waku/peer-exchange/2.0.0-alpha1"
 
@@ -47,7 +48,6 @@ type
 
   WakuPeerExchange* = ref object of LPProtocol
     peerManager*: PeerManager
-    wakuDiscv5: Option[WakuDiscoveryV5]
     enrCache*: seq[enr.Record] # todo: next step: ring buffer; future: implement cache satisfying https://rfc.vac.dev/spec/34/
 
 proc request*(wpx: WakuPeerExchange, numPeers: uint64, conn: Connection): Future[WakuPeerExchangeResult[PeerExchangeResponse]] {.async, gcsafe.} =
@@ -96,41 +96,39 @@ proc respond(wpx: WakuPeerExchange, enrs: seq[enr.Record], conn: Connection): Fu
   return ok()
 
 proc cleanCache(wpx: WakuPeerExchange) {.gcsafe.} =
-  wpx.enrCache.delete(0..CacheCleanWindow-1)
-
-proc runPeerExchangeDiscv5Loop*(wpx: WakuPeerExchange) {.async, gcsafe.} =
-  ## Runs a discv5 loop adding new peers to the px peer cache
-  if wpx.wakuDiscv5.isNone():
-    warn "Trying to run discovery v5 (for PX) while it's disabled"
-    return
-
-  info "Starting peer exchange discovery v5 loop"
-
-  while wpx.wakuDiscv5.get().listening:
-    trace "Running px discv5 discovery loop"
-    let discoveredPeers = await wpx.wakuDiscv5.get().findRandomPeers()
-    info "Discovered px peers via discv5", count=discoveredPeers.get().len()
-    if discoveredPeers.isOk():
-      for dp in discoveredPeers.get():
-        if dp.enr.isSome() and not wpx.enrCache.contains(dp.enr.get()):
-          wpx.enrCache.add(dp.enr.get())
-
-    if wpx.enrCache.len() >= MaxCacheSize:
-      wpx.cleanCache()
-
-    ## This loop "competes" with the loop in wakunode2
-    ## For the purpose of collecting px peers, 30 sec intervals should be enough
-    await sleepAsync(30.seconds)
+  wpx.enrCache.setLen(0)
 
 proc getEnrsFromCache(wpx: WakuPeerExchange, numPeers: uint64): seq[enr.Record] {.gcsafe.} =
-  randomize()
   if wpx.enrCache.len() == 0:
     debug "peer exchange ENR cache is empty"
     return @[]
-  for i in 0..<min(numPeers, wpx.enrCache.len().uint64()):
-    let ri = rand(0..<wpx.enrCache.len())
-    # TODO: Note that duplicated peers can be returned here
-    result.add(wpx.enrCache[ri])
+
+  # copy and shuffle
+  randomize()
+  var shuffledCache = wpx.enrCache
+  shuffledCache.shuffle()
+
+  # return numPeers or less if cache is smaller
+  return shuffledCache[0..<min(shuffledCache.len.int, numPeers.int)]
+
+proc populateEnrCache(wpx: WakuPeerExchange) =
+  # share only peers that i) are reachable ii) come from discv5
+  let withEnr = wpx.peerManager.peerStore
+                            .getReachablePeers()
+                            .filterIt(it.origin == Discv5)
+                            .filterIt(it.enr.isSome)
+  for i in 0..<min(withEnr.len, MaxPeersCacheSize):
+    wpx.enrCache.add(withEnr[i].enr.get())
+
+proc updatePxEnrCache(wpx: WakuPeerExchange) {.async.} =
+  # try more aggressively to fill the cache at startup
+  while wpx.enrCache.len < MaxPeersCacheSize:
+    populateEnrCache(wpx)
+    await sleepAsync(5.seconds)
+
+  heartbeat "Updating px enr cache", CacheRefreshInterval:
+    wpx.cleanCache()
+    wpx.populateEnrCache()
 
 proc initProtocolHandler(wpx: WakuPeerExchange) =
   proc handler(conn: Connection, proto: string) {.async, gcsafe, closure.} =
@@ -159,11 +157,10 @@ proc initProtocolHandler(wpx: WakuPeerExchange) =
   wpx.codec = WakuPeerExchangeCodec
 
 proc new*(T: type WakuPeerExchange,
-          peerManager: PeerManager,
-          wakuDiscv5: Option[WakuDiscoveryV5] = none(WakuDiscoveryV5)): T =
+          peerManager: PeerManager): T =
   let wpx = WakuPeerExchange(
     peerManager: peerManager,
-    wakuDiscv5: wakuDiscv5
   )
   wpx.initProtocolHandler()
+  asyncSpawn wpx.updatePxEnrCache()
   return wpx

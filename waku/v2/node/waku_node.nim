@@ -760,11 +760,7 @@ when defined(rln):
 proc mountPeerExchange*(node: WakuNode) {.async, raises: [Defect, LPError].} =
   info "mounting waku peer exchange"
 
-  var discv5Opt: Option[WakuDiscoveryV5]
-  if not node.wakuDiscV5.isNil():
-    discv5Opt = some(node.wakuDiscV5)
-
-  node.wakuPeerExchange = WakuPeerExchange.new(node.peerManager, discv5Opt)
+  node.wakuPeerExchange = WakuPeerExchange.new(node.peerManager)
 
   if node.started:
     await node.wakuPeerExchange.start()
@@ -780,13 +776,13 @@ proc fetchPeerExchangePeers*(node: Wakunode, amount: uint64) {.async, raises: [D
   let pxPeersRes = await node.wakuPeerExchange.request(amount)
   if pxPeersRes.isOk:
     var validPeers = 0
-    for pi in pxPeersRes.get().peerInfos:
+    let peers = pxPeersRes.get().peerInfos
+    for pi in peers:
       var record: enr.Record
       if enr.fromBytes(record, pi.enr):
-        # TODO: Add source: PX
-        node.peerManager.addPeer(record.toRemotePeerInfo().get)
+        node.peerManager.addPeer(record.toRemotePeerInfo().get, PeerExcahnge)
         validPeers += 1
-    info "Retrieved peer info via peer exchange protocol", validPeers = validPeers
+    info "Retrieved peer info via peer exchange protocol", validPeers = validPeers, totalPeers = peers.len
   else:
     warn "Failed to retrieve peer info via peer exchange protocol", error = pxPeersRes.error
 
@@ -871,7 +867,7 @@ proc runDiscv5Loop(node: WakuNode) {.async.} =
 
       # Add all peers, new ones and already seen (in case their addresses changed)
       for peer in discoveredPeers:
-        node.peerManager.addPeer(peer)
+        node.peerManager.addPeer(peer, Discv5)
 
     # Discovery `queryRandom` can have a synchronous fast path for example
     # when no peers are in the routing table. Don't run it in continuous loop.
