@@ -13,7 +13,6 @@ import
   libp2p/muxers/muxer
 import
   ../../protocol/waku_relay,
-  ../../protocol/waku_store/common,
   ../../utils/peers,
   ../../utils/heartbeat,
   ./peer_store/peer_storage,

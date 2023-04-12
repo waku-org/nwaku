@@ -12,7 +12,7 @@ import
 
 import
   ../../utils/peers,
-  ../../utils/flatten
+  ../../../common/utils/sequence
 
 export peerstore, builders
 
