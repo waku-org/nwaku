@@ -5,6 +5,7 @@ else:
 
 import
   std/[tables,strutils,times,sequtils],
+  stew/results,
   stew/shims/net,
   chronicles,
   chronicles/topics_registry,
@@ -14,10 +15,10 @@ import
   eth/keys,
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto,
+  libp2p/nameresolving/dnsresolver,
   metrics,
   metrics/chronos_httpserver,
   presto/[route, server, client]
-
 import
   ../../apps/wakunode2/wakunode2,
   ../../waku/v2/node/peer_manager,
@@ -194,6 +195,32 @@ proc crawlNetwork(node: WakuNode,
     # we dont run revalidateLoop
 
     await sleepAsync(crawlInterval)
+
+proc retrieveDynamicBootstrapNodes(dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[ValidIpAddress]): Result[seq[RemotePeerInfo], string] =
+  if dnsDiscovery and dnsDiscoveryUrl != "":
+    # DNS discovery
+    debug "Discovering nodes using Waku DNS discovery", url=dnsDiscoveryUrl
+
+    var nameServers: seq[TransportAddress]
+    for ip in dnsDiscoveryNameServers:
+      nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
+
+    let dnsResolver = DnsResolver.new(nameServers)
+
+    proc resolver(domain: string): Future[string] {.async, gcsafe.} =
+      trace "resolving", domain=domain
+      let resolved = await dnsResolver.resolveTxt(domain)
+      return resolved[0] # Use only first answer
+
+    var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl, resolver)
+    if wakuDnsDiscovery.isOk():
+      return wakuDnsDiscovery.get().findPeers()
+        .mapErr(proc (e: cstring): string = $e)
+    else:
+      warn "Failed to init Waku DNS discovery"
+
+  debug "No method for retrieving dynamic bootstrap nodes specified."
+  ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default
 
 proc getBootstrapFromDiscDns(conf: NetworkMonitorConf): Result[seq[enr.Record], string] =
   try:
