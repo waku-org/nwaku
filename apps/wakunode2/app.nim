@@ -1,8 +1,7 @@
-# TODO: Uncomment the exceptions check once the refactoring work is done
-# when (NimMajor, NimMinor) < (1, 4):
-#   {.push raises: [Defect].}
-# else:
-#   {.push raises: [].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
   std/[options, strutils, sequtils],
@@ -226,8 +225,6 @@ proc setupWakuArchiveDriver(dbUrl: string, vacuum: bool, migrate: bool): AppResu
     ok(driver)
 
 proc setupWakuArchive*(app: var App): AppResult[void] =
-  ## Waku archive
-
   if not app.conf.store:
     return ok()
 
@@ -260,6 +257,7 @@ proc setupWakuArchive*(app: var App): AppResult[void] =
   #   executeMessageRetentionPolicy(node)
   #   startMessageRetentionPolicyPeriodicTask(node, interval=WakuArchiveDefaultRetentionPolicyInterval)
 
+  ok()
 
 ## Retrieve dynamic bootstrap nodes (DNS discovery)
 
