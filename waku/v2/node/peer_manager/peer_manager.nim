@@ -422,7 +422,7 @@ proc connectToNodes*(pm: PeerManager,
       error "Couldn't parse node info", error = node.error
 
   await allFutures(futConns)
-  let successfulConns = futConns.mapIt(it.read()).countIt(true)
+  let successfulConns = futConns.mapIt(it.read()).countIt(it == true)
 
   info "Finished dialing multiple peers", successfulConns=successfulConns, attempted=nodes.len
 
