@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, sequtils],
+  std/[options, sequtils, times],
   stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
@@ -195,20 +195,14 @@ procSuite "Peer Manager":
       conn1Ok == false
 
       # Right after failing there is a backoff period
-      nodes[0].peerManager.peerStore.canBeConnected(
-        nonExistentPeer.peerId,
-        nodes[0].peerManager.initialBackoffInSec,
-        nodes[0].peerManager.backoffFactor) == false
+      nodes[0].peerManager.canBeConnected(nonExistentPeer.peerId) == false
 
     # We wait the first backoff period
-    await sleepAsync(2100.milliseconds)
+    await sleepAsync(chronos.milliseconds(2100))
 
     # And backoff period is over
     check:
-      nodes[0].peerManager.peerStore.canBeConnected(
-        nodes[1].peerInfo.peerId,
-        nodes[0].peerManager.initialBackoffInSec,
-        nodes[0].peerManager.backoffFactor) == true
+      nodes[0].peerManager.canBeConnected(nodes[1].peerInfo.peerId) == true
 
     # After a successful connection, the number of failed connections is reset
     nodes[0].peerManager.peerStore[NumberFailedConnBook][nodes[1].peerInfo.peerId] = 4
@@ -655,3 +649,81 @@ procSuite "Peer Manager":
       not pm.peerStore.peers.anyIt(it.peerId == peers[0].peerId)
       not pm.peerStore.peers.anyIt(it.peerId == peers[1].peerId)
       not pm.peerStore.peers.anyIt(it.peerId == peers[2].peerId)
+
+  asyncTest "canBeConnected() returns correct value":
+    let pm = PeerManager.new(
+      switch = SwitchBuilder.new().withRng(rng).withMplex().withNoise()
+      .withPeerStore(10)
+      .withMaxConnections(5)
+      .build(),
+      initialBackoffInSec = 1, # with InitialBackoffInSec = 1 backoffs are: 1, 2, 4, 8secs.
+      backoffFactor = 2,
+      maxFailedAttempts = 10,
+      storage = nil)
+    var p1: PeerId
+    require p1.init("QmeuZJbXrszW2jdT7GdduSjQskPU3S7vvGWKtKgDfkDvW" & "1")
+
+
+    # new peer with no errors can be connected
+    check:
+      pm.canBeConnected(p1) == true
+
+    # peer with ONE error that just failed
+    pm.peerStore[NumberFailedConnBook][p1] = 1
+    pm.peerStore[LastFailedConnBook][p1] = Moment.init(getTime().toUnix, Second)
+    # we cant connect right now
+    check:
+      pm.canBeConnected(p1) == false
+
+    # but we can after the first backoff of 1 seconds
+    await sleepAsync(chronos.milliseconds(1200))
+    check:
+      pm.canBeConnected(p1) == true
+
+    # peer with TWO errors, we can connect until 2 seconds have passed
+    pm.peerStore[NumberFailedConnBook][p1] = 2
+    pm.peerStore[LastFailedConnBook][p1] = Moment.init(getTime().toUnix, Second)
+
+    # cant be connected after 1 second
+    await sleepAsync(chronos.milliseconds(1000))
+    check:
+      pm.canBeConnected(p1) == false
+
+    # can be connected after 2 seconds
+    await sleepAsync(chronos.milliseconds(1200))
+    check:
+      pm.canBeConnected(p1) == true
+
+    # can't be connected if failed attempts are equal to maxFailedAttempts
+    pm.maxFailedAttempts = 2
+    check:
+      pm.canBeConnected(p1) == false
+
+  test "peer manager must fail if max backoff is over a week":
+    # Should result in overflow exception
+    expect(Defect):
+      let pm = PeerManager.new(
+        switch = SwitchBuilder.new().withRng(rng).withMplex().withNoise()
+        .withPeerStore(10)
+        .withMaxConnections(5)
+        .build(),
+        maxFailedAttempts = 150,
+        storage = nil)
+
+    # Should result in backoff > 1 week
+    expect(Defect):
+      let pm = PeerManager.new(
+        switch = SwitchBuilder.new().withRng(rng).withMplex().withNoise()
+        .withPeerStore(10)
+        .withMaxConnections(5)
+        .build(),
+        maxFailedAttempts = 10,
+        storage = nil)
+
+    let pm = PeerManager.new(
+      switch = SwitchBuilder.new().withRng(rng).withMplex().withNoise()
+      .withPeerStore(10)
+      .withMaxConnections(5)
+      .build(),
+      maxFailedAttempts = 5,
+      storage = nil)

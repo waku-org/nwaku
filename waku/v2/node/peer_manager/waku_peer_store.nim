@@ -43,28 +43,6 @@ type
 # Peer Store API #
 ##################
 
-proc canBeConnected*(peerStore: PeerStore,
-                     peerId: PeerId,
-                     initialBackoffInSec: int,
-                     backoffFactor: int): bool =
-  # Returns if we can try to connect to this peer, based on past failed attempts
-  # It uses an exponential backoff. Each connection attempt makes us
-  # wait more before trying again.
-  let failedAttempts = peerStore[NumberFailedConnBook][peerId]
-
-  # if it never errored, we can try to connect
-  if failedAttempts == 0:
-    return true
-
-  # If it errored we wait an exponential backoff from last connection
-  # the more failed attemps, the greater the backoff since last attempt
-  let now = Moment.init(getTime().toUnix, Second)
-  let lastFailed = peerStore[LastFailedConnBook][peerId]
-  let backoff = chronos.seconds(initialBackoffInSec*(backoffFactor^(failedAttempts-1)))
-  if now >= (lastFailed + backoff):
-    return true
-  return false
-
 proc delete*(peerStore: PeerStore,
              peerId: PeerId) =
   # Delete all the information of a given peer.
