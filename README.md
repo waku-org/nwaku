@@ -69,3 +69,5 @@ For bug reports, please [tag your issue with the `bug` label](https://github.com
 If you believe the reported issue requires critical attention, please [use the `critical` label](https://github.com/status-im/nim-waku/issues/new?labels=critical,bug) to assist with triaging.
 
 To get help, or participate in the conversation, join the [Vac Discord](https://discord.gg/KNj3ctuZvZ) server.
+
+Blah
