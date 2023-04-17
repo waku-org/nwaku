@@ -302,7 +302,7 @@ suite "WakuNode - Relay":
         await nodes[i].publish(spamProtectedTopic, msg)
 
     # Wait for gossip
-    await sleepAsync(500.millis)
+    await sleepAsync(1.seconds)
 
     # 50 messages were sent to 5 peers = 250 messages
     check:
@@ -379,7 +379,7 @@ suite "WakuNode - Relay":
         await nodes[i].publish(spamProtectedTopic, unsignedMessage)
 
     # Wait for gossip
-    await sleepAsync(500.millis)
+    await sleepAsync(1.seconds)
 
     # Since we have a full mesh with 5 nodes and each one publishes 50+50 msgs
     # there are 500 messages being sent.
@@ -462,7 +462,7 @@ suite "WakuNode - Relay":
       await nodes[0].publish(spamProtectedTopic, msg)
 
     # Wait for gossip
-    await sleepAsync(500.millis)
+    await sleepAsync(1.seconds)
 
     # only 100 messages are received (50 + 50) which demonstrate
     # nodes[1] doest gossip invalid messages.
