@@ -1,10 +1,11 @@
 {.used.}
 
 import
-  std/options,
+  std/[options, sequtils],
   stew/results,
   testutils/unittests
 import
+  ../../waku/v2/protocol/waku_message,
   ../../waku/v2/protocol/waku_enr,
   ./testlib/wakucore
 
@@ -251,3 +252,172 @@ suite "Waku ENR - Multiaddresses":
       multiaddrs.contains(expectedAddr1)
       multiaddrs.contains(addr2)
 
+
+suite "Waku ENR - Relay static sharding":
+
+  test "new relay shards field with single invalid index":
+    ## Given
+    let
+      shardCluster: uint16 = 22
+      shardIndex: uint16 = 1024
+
+    ## When
+    expect Defect:
+      discard RelayShards.init(shardCluster, shardIndex)
+
+  test "new relay shards field with single invalid index in list":
+    ## Given
+    let
+      shardCluster: uint16 = 22
+      shardIndices: seq[uint16] = @[1u16, 1u16, 2u16, 3u16, 5u16, 8u16, 1024u16]
+
+    ## When
+    expect Defect:
+      discard RelayShards.init(shardCluster, shardIndices)
+
+  test "new relay shards field with single valid index":
+    ## Given
+    let
+      shardCluster: uint16 = 22
+      shardIndex: uint16 = 1
+
+    let topic = NsPubsubTopic.staticSharding(shardCluster, shardIndex)
+
+    ## When
+    let shards = RelayShards.init(shardCluster, shardIndex)
+
+    ## Then
+    check:
+      shards.cluster == shardCluster
+      shards.indices == @[1u16]
+
+    let topics = shards.topics.mapIt($it)
+    check:
+      topics == @[$topic]
+
+    check:
+      shards.contains(shardCluster, shardIndex)
+      not shards.contains(shardCluster, 33u16)
+      not shards.contains(20u16, 33u16)
+
+      shards.contains(topic)
+      shards.contains("/waku/2/rs/22/1")
+
+  test "new relay shards field with repeated but valid indices":
+    ## Given
+    let
+      shardCluster: uint16 = 22
+      shardIndices: seq[uint16] = @[1u16, 2u16, 2u16, 3u16, 3u16, 3u16]
+
+    ## When
+    let shards = RelayShards.init(shardCluster, shardIndices)
+
+    ## Then
+    check:
+      shards.cluster == shardCluster
+      shards.indices == @[1u16, 2u16, 3u16]
+
+  test "cannot decode relay shards from record if not present":
+    ## Given
+    let
+      enrSeqNum = 1u64
+      enrPrivKey = generatesecp256k1key()
+
+    let record = EnrBuilder.init(enrPrivKey, enrSeqNum).build().tryGet()
+
+    ## When
+    let typedRecord = record.toTyped()
+    require typedRecord.isOk()
+
+    let fieldOpt = typedRecord.value.relaySharding
+
+    ## Then
+    check fieldOpt.isNone()
+
+  test "encode and decode record with relay shards field (EnrBuilder ext - indices list)":
+    ## Given
+    let
+      enrSeqNum = 1u64
+      enrPrivKey = generatesecp256k1key()
+
+    let
+      shardCluster: uint16 = 22
+      shardIndices: seq[uint16] = @[1u16, 1u16, 2u16, 3u16, 5u16, 8u16]
+
+    let shards = RelayShards.init(shardCluster, shardIndices)
+
+    ## When
+    var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
+    require builder.withWakuRelaySharding(shards).isOk()
+
+    let recordRes = builder.build()
+
+    ## Then
+    check recordRes.isOk()
+    let record = recordRes.tryGet()
+
+    let typedRecord = record.toTyped()
+    require typedRecord.isOk()
+
+    let shardsOpt = typedRecord.value.relaySharding
+    check:
+      shardsOpt.isSome()
+      shardsOpt.get() == shards
+
+  test "encode and decode record with relay shards field (EnrBuilder ext - bit vector)":
+    ## Given
+    let
+      enrSeqNum = 1u64
+      enrPrivKey = generatesecp256k1key()
+
+    let shards = RelayShards.init(33, toSeq(0u16 ..< 64u16))
+
+    var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
+    require builder.withWakuRelaySharding(shards).isOk()
+
+    let recordRes = builder.build()
+    require recordRes.isOk()
+
+    let record = recordRes.tryGet()
+
+    ## When
+    let typedRecord = record.toTyped()
+    require typedRecord.isOk()
+
+    let shardsOpt = typedRecord.value.relaySharding
+
+    ## Then
+    check:
+      shardsOpt.isSome()
+      shardsOpt.get() == shards
+
+  test "decode record with relay shards indices list and bit vector fields":
+    ## Given
+    let
+      enrSeqNum = 1u64
+      enrPrivKey = generatesecp256k1key()
+
+    let
+      shardsIndicesList = RelayShards.init(22, @[1u16, 1u16, 2u16, 3u16, 5u16, 8u16])
+      shardsBitVector = RelayShards.init(33, @[13u16, 24u16, 37u16, 61u16, 98u16, 159u16])
+
+
+    var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
+    require builder.withWakuRelayShardingIndicesList(shardsIndicesList).isOk()
+    require builder.withWakuRelayShardingBitVector(shardsBitVector).isOk()
+
+    let recordRes = builder.build()
+    require recordRes.isOk()
+
+    let record = recordRes.tryGet()
+
+    ## When
+    let typedRecord = record.toTyped()
+    require typedRecord.isOk()
+
+    let shardsOpt = typedRecord.value.relaySharding
+
+    ## Then
+    check:
+      shardsOpt.isSome()
+      shardsOpt.get() == shardsIndicesList

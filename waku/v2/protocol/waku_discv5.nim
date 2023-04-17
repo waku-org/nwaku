@@ -6,9 +6,11 @@ else:
 import
   std/[strutils, options],
   stew/results,
+  stew/shims/net,
   chronos,
   chronicles,
   metrics,
+  libp2p/multiaddress,
   eth/keys,
   eth/p2p/discoveryv5/enr,
   eth/p2p/discoveryv5/node,
