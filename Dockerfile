@@ -1,4 +1,4 @@
-# BUILD IMAGE ------------------------------------------------------------------
+# BUILD NIM APP ----------------------------------------------------------------
 
 FROM alpine:edge AS nim-build
 
@@ -52,5 +52,35 @@ COPY --from=nim-build /app/migrations/ /app/migrations/
 RUN ln -sv /usr/local/bin/$MAKE_TARGET /usr/bin/wakunode
 
 ENTRYPOINT ["/usr/bin/wakunode"]
+
 # By default just show help if called without arguments
 CMD ["--help"]
+
+
+# DEBUG IMAGE ------------------------------------------------------------------
+
+# Build debug tools: heaptrack
+FROM alpine:edge AS heaptrack-build
+
+RUN apk update
+RUN apk add -- gdb git g++ make cmake zlib-dev boost-dev libunwind-dev
+RUN git clone https://github.com/KDE/heaptrack.git /heaptrack
+
+WORKDIR /heaptrack/build
+RUN cmake -DCMAKE_BUILD_TYPE=Release ..
+RUN make -j$(nproc)
+
+
+# Debug image
+FROM prod AS debug
+
+RUN apk add --no-cache gdb
+
+# Add heaptrack
+COPY --from=heaptrack-build /heaptrack/build/ /heaptrack/build/
+COPY --from=heaptrack-build /usr/lib/ /usr/lib/
+
+ENV LD_LIBRARY_PATH=/heaptrack/build/lib/heaptrack/
+RUN ln -s /heaptrack/build/bin/heaptrack /usr/local/bin/heaptrack
+
+ENTRYPOINT ["/heaptrack/build/bin/heaptrack", "/usr/bin/wakunode"]
