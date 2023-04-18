@@ -10,7 +10,7 @@ import
 import
   ../node/peer_manager,
   ../waku_core,
-  ../../utils/heartbeat,
+  ../utils/heartbeat,
   ../waku_discv5,
   ./rpc,
   ./rpc_codec
@@ -95,9 +95,6 @@ proc respond(wpx: WakuPeerExchange, enrs: seq[enr.Record], conn: Connection): Fu
 
   return ok()
 
-proc cleanCache(wpx: WakuPeerExchange) {.gcsafe.} =
-  wpx.enrCache.setLen(0)
-
 proc getEnrsFromCache(wpx: WakuPeerExchange, numPeers: uint64): seq[enr.Record] {.gcsafe.} =
   if wpx.enrCache.len() == 0:
     debug "peer exchange ENR cache is empty"
@@ -117,17 +114,22 @@ proc populateEnrCache(wpx: WakuPeerExchange) =
                             .getReachablePeers()
                             .filterIt(it.origin == Discv5)
                             .filterIt(it.enr.isSome)
+
+  # either what we have or max cache size
+  var newEnrCache = newSeq[enr.Record](0)
   for i in 0..<min(withEnr.len, MaxPeersCacheSize):
-    wpx.enrCache.add(withEnr[i].enr.get())
+    newEnrCache.add(withEnr[i].enr.get())
+
+  # swap cache for new
+  wpx.enrCache = newEnrCache
 
 proc updatePxEnrCache(wpx: WakuPeerExchange) {.async.} =
   # try more aggressively to fill the cache at startup
   while wpx.enrCache.len < MaxPeersCacheSize:
-    populateEnrCache(wpx)
+    wpx.populateEnrCache()
     await sleepAsync(5.seconds)
 
   heartbeat "Updating px enr cache", CacheRefreshInterval:
-    wpx.cleanCache()
     wpx.populateEnrCache()
 
 proc initProtocolHandler(wpx: WakuPeerExchange) =

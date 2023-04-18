@@ -122,7 +122,7 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownO
   pm.peerStore[KeyBook][remotePeerInfo.peerId] = publicKey
   pm.peerStore[SourceBook][remotePeerInfo.peerId] = origin
 
-  if remotePeerInfo.enr.isSome:
+  if remotePeerInfo.enr.isSome():
     pm.peerStore[ENRBook][remotePeerInfo.peerId] = remotePeerInfo.enr.get()
 
   # Add peer to storage. Entry will subsequently be updated with connectedness information
