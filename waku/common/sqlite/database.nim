@@ -170,6 +170,7 @@ proc exec*[P](s: SqliteStmt[P, void], params: P): DatabaseResult[void] =
       ok()
 
   # release implict transaction
+  discard sqlite3_finalize(s)
   discard sqlite3_reset(s) # same return information as step
   discard sqlite3_clear_bindings(s) # no errors possible
 
@@ -216,6 +217,7 @@ proc exec*[Params, Res](s: SqliteStmt[Params, Res],
     return ok gotResults
   finally:
     # release implicit transaction
+    discard sqlite3_finalize(s)
     discard sqlite3_reset(s) # same return information as step
     discard sqlite3_clear_bindings(s) # no errors possible
 

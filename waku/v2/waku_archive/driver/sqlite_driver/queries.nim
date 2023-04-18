@@ -346,6 +346,7 @@ proc execSelectMessagesWithLimitStmt(s: SqliteStmt,
         return err($sqlite3_errstr(v))
   finally:
     # release implicit transaction
+    discard sqlite3_finalize(s)
     discard sqlite3_reset(s) # same return information as step
     discard sqlite3_clear_bindings(s) # no errors possible
 
