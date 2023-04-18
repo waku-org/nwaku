@@ -135,9 +135,6 @@ proc parsePeerInfo*(peer: RemotePeerInfo|string):
       ? wireAddr.append(val).mapErr(proc(err: string):string = "Error appending addrPart [" & err & "]")
 
   let p2pPartStr = p2pPart.toString()[]
-  if not p2pPartStr.contains("/"):
-    return err("Error in parsePeerInfo: p2p part should contain /")
-
   let peerId = ? PeerID.init(p2pPartStr.split("/")[^1])
                         .mapErr(proc (e:cstring):string = cast[string](e))
 
