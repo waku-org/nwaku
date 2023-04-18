@@ -8,8 +8,8 @@ import
   chronicles,
   json_rpc/rpcserver
 import
-  ../../../protocol/waku_store,
-  ../../../protocol/waku_store/rpc,
+  ../../../waku_store,
+  ../../../waku_store/rpc,
   ../../../utils/time,
   ../../waku_node,
   ../../peer_manager,

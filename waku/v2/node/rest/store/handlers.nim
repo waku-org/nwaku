@@ -11,8 +11,8 @@ import
   presto/route
 import
   ../../../../common/base64,
-  ../../../protocol/waku_message/topics/content_topic,
-  ../../../protocol/waku_store/common,
+  ../../../waku_message/topics/content_topic,
+  ../../../waku_store/common,
   ../../../utils/time,
   ../../waku_node,
   ../../peer_manager,

@@ -5,8 +5,8 @@ import
   stew/results,
   testutils/unittests
 import
-  ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_enr,
+  ../../waku/v2/waku_message,
+  ../../waku/v2/waku_enr,
   ./testlib/wakucore
 
 

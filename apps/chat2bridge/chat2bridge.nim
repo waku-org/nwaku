@@ -14,12 +14,12 @@ import
   # Waku v2 imports
   libp2p/crypto/crypto,
   libp2p/errors,
-  ../../../waku/v2/protocol/waku_message,
+  ../../../waku/v2/waku_message,
   ../../../waku/v2/waku_node,
   ../../../waku/v2/utils/peers,
   ../../../waku/v2/node/peer_manager,
-  ../../waku/v2/protocol/waku_filter,
-  ../../waku/v2/protocol/waku_store,
+  ../../waku/v2/waku_filter,
+  ../../waku/v2/waku_store,
   # Chat 2 imports
   ../chat2/chat2,
   # Common cli config

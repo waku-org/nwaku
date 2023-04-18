@@ -10,8 +10,8 @@ import
   libp2p/protocols/pubsub/rpc/messages
 import
   ../../../waku/v2/node/peer_manager,
-  ../../../waku/v2/protocol/waku_message,
-  ../../../waku/v2/protocol/waku_relay,
+  ../../../waku/v2/waku_message,
+  ../../../waku/v2/waku_relay,
   ../testlib/common,
   ../testlib/wakucore
 

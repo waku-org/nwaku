@@ -6,10 +6,10 @@ import
   testutils/unittests, chronos,
   eth/keys
 import
-  ../../waku/v2/protocol/waku_keystore,
+  ../../waku/v2/waku_keystore,
   ./testlib/common
 
-from ../../waku/v2/protocol/waku_noise/noise_utils import randomSeqByte
+from ../../waku/v2/waku_noise/noise_utils import randomSeqByte
 
 suite "KeyFile test suite":
 

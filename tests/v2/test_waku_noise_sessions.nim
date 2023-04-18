@@ -7,10 +7,10 @@ import
 import
   ../../waku/common/protobuf,
   ../../waku/v2/utils/noise as waku_message_utils,
-  ../../waku/v2/protocol/waku_noise/noise_types,
-  ../../waku/v2/protocol/waku_noise/noise_utils,
-  ../../waku/v2/protocol/waku_noise/noise_handshake_processing,
-  ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/waku_noise/noise_types,
+  ../../waku/v2/waku_noise/noise_utils,
+  ../../waku/v2/waku_noise/noise_handshake_processing,
+  ../../waku/v2/waku_message,
   ./testlib/common
 
 procSuite "Waku Noise Sessions":

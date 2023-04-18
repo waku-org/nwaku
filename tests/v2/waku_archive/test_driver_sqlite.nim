@@ -6,9 +6,9 @@ import
   chronos
 import
   ../../../waku/common/sqlite,
-  ../../../waku/v2/protocol/waku_archive,
-  ../../../waku/v2/protocol/waku_archive/driver/sqlite_driver,
-  ../../../waku/v2/protocol/waku_message,
+  ../../../waku/v2/waku_archive,
+  ../../../waku/v2/waku_archive/driver/sqlite_driver,
+  ../../../waku/v2/waku_message,
   ../testlib/common,
   ../testlib/wakucore
 

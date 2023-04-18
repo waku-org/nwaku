@@ -6,9 +6,9 @@ else:
 import
   stew/results
 import
-  ../protocol/waku_message,
-  ../protocol/waku_noise/noise_types,
-  ../protocol/waku_noise/noise_utils
+  ../waku_message,
+  ../waku_noise/noise_types,
+  ../waku_noise/noise_utils
 
 
 # Decodes a WakuMessage to a PayloadV2

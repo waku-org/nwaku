@@ -4,7 +4,7 @@ import
   stew/results,
   testutils/unittests
 import
-  ../../waku/v2/protocol/waku_message/topics
+  ../../waku/v2/waku_message/topics
 
 suite "Waku Message - Content topics namespacing":
 

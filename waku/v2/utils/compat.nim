@@ -10,7 +10,7 @@ import
   eth/keys
 import
   ../../whisper/whisper_types,
-  ../protocol/waku_message
+  ../waku_message
 
 export whisper_types, keys, options
 

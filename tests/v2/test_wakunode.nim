@@ -19,9 +19,9 @@ import
 import
   ../../waku/v2/waku_node,
   ../../waku/v2/node/peer_manager,
-  ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_relay,
-  ../../waku/v2/protocol/waku_peer_exchange,
+  ../../waku/v2/waku_message,
+  ../../waku/v2/waku_relay,
+  ../../waku/v2/waku_peer_exchange,
   ../../waku/v2/utils/peers,
   ./testlib/wakucore,
   ./testlib/wakunode

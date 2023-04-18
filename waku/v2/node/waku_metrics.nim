@@ -10,13 +10,13 @@ import
   metrics,
   metrics/chronos_httpserver
 import
-  ../protocol/waku_filter/protocol_metrics as filter_metrics,
+  ../waku_filter/protocol_metrics as filter_metrics,
   ../utils/collector,
   ./peer_manager,
   ./waku_node
 
 when defined(rln):
-  import ../protocol/waku_rln_relay/protocol_metrics as rln_metrics
+  import ../waku_rln_relay/protocol_metrics as rln_metrics
 
 
 const LogInterval = 30.seconds

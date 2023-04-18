@@ -7,8 +7,8 @@ import
   chronos,
   chronicles
 import
-  ../../../protocol/waku_relay,
-  ../../../protocol/waku_message,
+  ../../../waku_relay,
+  ../../../waku_message,
   ../../message_cache
 
 export message_cache

@@ -7,7 +7,7 @@ import
   std/[os, strutils],
   json_rpc/rpcclient
 import
-  ../../../protocol/waku_message,
+  ../../../waku_message,
   ../../../utils/compat,
   ./types
 
