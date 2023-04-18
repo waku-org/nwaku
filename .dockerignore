@@ -1,5 +1,6 @@
 /README.md
 /Dockerfile
+/Dockerfile_with_heaptrack
 /.*ignore
 /LICENSE*
 /tests
