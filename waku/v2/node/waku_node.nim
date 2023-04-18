@@ -24,20 +24,20 @@ import
   libp2p/transports/tcptransport,
   libp2p/transports/wstransport
 import
-  ../protocol/waku_message,
-  ../protocol/waku_relay,
-  ../protocol/waku_archive,
-  ../protocol/waku_store,
-  ../protocol/waku_store/client as store_client,
-  ../protocol/waku_filter as legacy_filter,  #TODO: support for legacy filter protocol will be removed
-  ../protocol/waku_filter/client as filter_client, #TODO: support for legacy filter protocol will be removed
-  ../protocol/waku_filter_v2,
-  ../protocol/waku_lightpush,
-  ../protocol/waku_lightpush/client as lightpush_client,
-  ../protocol/waku_enr,
-  ../protocol/waku_dnsdisc,
-  ../protocol/waku_discv5,
-  ../protocol/waku_peer_exchange,
+  ../waku_message,
+  ../waku_relay,
+  ../waku_archive,
+  ../waku_store,
+  ../waku_store/client as store_client,
+  ../waku_filter as legacy_filter,  #TODO: support for legacy filter protocol will be removed
+  ../waku_filter/client as filter_client, #TODO: support for legacy filter protocol will be removed
+  ../waku_filter_v2,
+  ../waku_lightpush,
+  ../waku_lightpush/client as lightpush_client,
+  ../waku_enr,
+  ../waku_dnsdisc,
+  ../waku_discv5,
+  ../waku_peer_exchange,
   ../utils/peers,
   ../utils/time,
   ./config,
@@ -46,7 +46,7 @@ import
 
 when defined(rln):
   import
-    ../protocol/waku_rln_relay
+    ../waku_rln_relay
 
 declarePublicGauge waku_version, "Waku version info (in git describe format)", ["version"]
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]

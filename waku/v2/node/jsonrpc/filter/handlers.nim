@@ -8,10 +8,10 @@ import
   chronicles,
   json_rpc/rpcserver
 import
-  ../../../protocol/waku_message,
-  ../../../protocol/waku_filter,
-  ../../../protocol/waku_filter/rpc,
-  ../../../protocol/waku_filter/client,
+  ../../../waku_message,
+  ../../../waku_filter,
+  ../../../waku_filter/rpc,
+  ../../../waku_filter/client,
   ../../message_cache,
   ../../peer_manager,
   ../../waku_node

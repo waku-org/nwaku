@@ -11,8 +11,8 @@ import
   nimcrypto/sysrand
 import
   ../../../../common/base64,
-  ../../../protocol/waku_message,
-  ../../../protocol/waku_relay,
+  ../../../waku_message,
+  ../../../waku_relay,
   ../../../utils/compat,
   ../../../utils/time,
   ../../waku_node,

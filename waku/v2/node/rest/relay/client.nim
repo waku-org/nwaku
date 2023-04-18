@@ -11,7 +11,7 @@ import
   json_serialization/std/options,
   presto/[route, client, common]
 import
-  ../../../protocol/waku_message,
+  ../../../waku_message,
   ../serdes,
   ../responses,
   ./types

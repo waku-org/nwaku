@@ -8,7 +8,7 @@ import
   libp2p/crypto/crypto as libp2p_keys,
   eth/keys as eth_keys
 import
-  ../../../waku/v2/protocol/waku_message,
+  ../../../waku/v2/waku_message,
   ./common
 
 export switch

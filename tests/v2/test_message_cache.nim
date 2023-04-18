@@ -5,7 +5,7 @@ import
   testutils/unittests,
   chronicles
 import
-  ../../waku/v2/protocol/waku_message,
+  ../../waku/v2/waku_message,
   ../../waku/v2/node/message_cache,
   ./testlib/common,
   ./testlib/wakucore

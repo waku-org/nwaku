@@ -11,8 +11,8 @@ import
   eth/p2p/discoveryv5/enr
 import
   ../../waku/v2/waku_node,
-  ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_discv5,
+  ../../waku/v2/waku_message,
+  ../../waku/v2/waku_discv5,
   ./testlib/common,
   ./testlib/wakucore,
   ./testlib/wakunode

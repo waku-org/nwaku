@@ -30,22 +30,22 @@ import
   ../../waku/v2/node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
   ../../waku/v2/waku_node,
   ../../waku/v2/node/waku_metrics,
-  ../../waku/v2/protocol/waku_archive,
-  ../../waku/v2/protocol/waku_archive/driver/queue_driver,
-  ../../waku/v2/protocol/waku_archive/driver/sqlite_driver,
-  ../../waku/v2/protocol/waku_archive/driver/sqlite_driver/migrations as archive_driver_sqlite_migrations,
-  ../../waku/v2/protocol/waku_archive/retention_policy,
-  ../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_capacity,
-  ../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_time,
-  ../../waku/v2/protocol/waku_store,
-  ../../waku/v2/protocol/waku_filter,
-  ../../waku/v2/protocol/waku_lightpush,
-  ../../waku/v2/protocol/waku_enr,
-  ../../waku/v2/protocol/waku_dnsdisc,
-  ../../waku/v2/protocol/waku_discv5,
-  ../../waku/v2/protocol/waku_message/topics/pubsub_topic,
-  ../../waku/v2/protocol/waku_peer_exchange,
-  ../../waku/v2/protocol/waku_relay/validators,
+  ../../waku/v2/waku_archive,
+  ../../waku/v2/waku_archive/driver/queue_driver,
+  ../../waku/v2/waku_archive/driver/sqlite_driver,
+  ../../waku/v2/waku_archive/driver/sqlite_driver/migrations as archive_driver_sqlite_migrations,
+  ../../waku/v2/waku_archive/retention_policy,
+  ../../waku/v2/waku_archive/retention_policy/retention_policy_capacity,
+  ../../waku/v2/waku_archive/retention_policy/retention_policy_time,
+  ../../waku/v2/waku_store,
+  ../../waku/v2/waku_filter,
+  ../../waku/v2/waku_lightpush,
+  ../../waku/v2/waku_enr,
+  ../../waku/v2/waku_dnsdisc,
+  ../../waku/v2/waku_discv5,
+  ../../waku/v2/waku_message/topics/pubsub_topic,
+  ../../waku/v2/waku_peer_exchange,
+  ../../waku/v2/waku_relay/validators,
   ../../waku/v2/utils/peers,
   ./wakunode2_setup_rest,
   ./wakunode2_setup_rpc,
@@ -53,7 +53,7 @@ import
 
 when defined(rln):
   import
-    ../../waku/v2/protocol/waku_rln_relay
+    ../../waku/v2/waku_rln_relay
 
 
 logScope:

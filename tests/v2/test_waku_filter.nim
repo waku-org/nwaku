@@ -8,9 +8,9 @@ import
   libp2p/crypto/crypto
 import
   ../../waku/v2/node/peer_manager,
-  ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_filter,
-  ../../waku/v2/protocol/waku_filter/client,
+  ../../waku/v2/waku_message,
+  ../../waku/v2/waku_filter,
+  ../../waku/v2/waku_filter/client,
   ./testlib/common,
   ./testlib/wakucore
 

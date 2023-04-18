@@ -8,10 +8,10 @@ import
   libp2p/peerstore
 import
   ../../../waku/v2/node/peer_manager,
-  ../../../waku/v2/protocol/waku_filter_v2,
-  ../../../waku/v2/protocol/waku_filter_v2/rpc,
-  ../../../waku/v2/protocol/waku_filter_v2/subscriptions,
-  ../../../waku/v2/protocol/waku_message,
+  ../../../waku/v2/waku_filter_v2,
+  ../../../waku/v2/waku_filter_v2/rpc,
+  ../../../waku/v2/waku_filter_v2/subscriptions,
+  ../../../waku/v2/waku_message,
   ../testlib/common,
   ../testlib/wakucore
 

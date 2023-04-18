@@ -14,10 +14,10 @@ import
 import
   ../../waku/v2/waku_node,
   ../../waku/v2/node/peer_manager,
-  ../../waku/v2/protocol/waku_discv5,
-  ../../waku/v2/protocol/waku_peer_exchange,
-  ../../waku/v2/protocol/waku_peer_exchange/rpc,
-  ../../waku/v2/protocol/waku_peer_exchange/rpc_codec,
+  ../../waku/v2/waku_discv5,
+  ../../waku/v2/waku_peer_exchange,
+  ../../waku/v2/waku_peer_exchange/rpc,
+  ../../waku/v2/waku_peer_exchange/rpc_codec,
   ./testlib/wakucore,
   ./testlib/wakunode
 

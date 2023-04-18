@@ -12,7 +12,7 @@ import
   libp2p/multistream,
   libp2p/muxers/muxer
 import
-  ../../protocol/waku_relay,
+  ../../waku_relay,
   ../../utils/peers,
   ../../utils/heartbeat,
   ./peer_store/peer_storage,

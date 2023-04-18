@@ -13,9 +13,9 @@ import
   ../../../waku/common/logging,
   ../../../waku/v2/node/peer_manager,
   ../../../waku/v2/waku_node,
-  ../../../waku/v2/protocol/waku_message,
-  ../../../waku/v2/protocol/waku_enr,
-  ../../../waku/v2/protocol/waku_discv5
+  ../../../waku/v2/waku_message,
+  ../../../waku/v2/waku_enr,
+  ../../../waku/v2/waku_discv5
 
 # An accesible bootstrap node. See wakuv2.prod fleets.status.im
 const bootstrapNode = "enr:-Nm4QOdTOKZJKTUUZ4O_W932CXIET-M9NamewDnL78P5u9DOGnZl" &

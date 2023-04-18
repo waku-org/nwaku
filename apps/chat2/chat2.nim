@@ -23,12 +23,12 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                protocols/secure/secio,   # define the protocol of secure input / output, allows encrypted communication that uses public keys to validate signed messages instead of a certificate authority like in TLS
                nameresolving/dnsresolver]# define DNS resolution
 import
-  ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_lightpush,
-  ../../waku/v2/protocol/waku_lightpush/rpc,
-  ../../waku/v2/protocol/waku_filter,
-  ../../waku/v2/protocol/waku_store,
-  ../../waku/v2/protocol/waku_dnsdisc,
+  ../../waku/v2/waku_message,
+  ../../waku/v2/waku_lightpush,
+  ../../waku/v2/waku_lightpush/rpc,
+  ../../waku/v2/waku_filter,
+  ../../waku/v2/waku_store,
+  ../../waku/v2/waku_dnsdisc,
   ../../waku/v2/waku_node,
   ../../waku/v2/node/waku_metrics,
   ../../waku/v2/node/peer_manager,
@@ -43,7 +43,7 @@ when defined(rln):
     libp2p/protocols/pubsub/rpc/messages,
     libp2p/protocols/pubsub/pubsub
   import
-    ../../waku/v2/protocol/waku_rln_relay
+    ../../waku/v2/waku_rln_relay
 
 const Help = """
   Commands: /[?|help|connect|nick|exit]
