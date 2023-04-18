@@ -245,12 +245,14 @@ DOCKER_IMAGE_NIMFLAGS ?= -d:chronicles_colors:none -d:insecure
 docker-image: MAKE_TARGET ?= wakunode2
 docker-image: DOCKER_IMAGE_TAG ?= $(MAKE_TARGET)-$(GIT_VERSION)
 docker-image: DOCKER_IMAGE_NAME ?= statusteam/nim-waku:$(DOCKER_IMAGE_TAG)
+docker-image: DOCKER_IMAGE_TARGET ?= prod
 docker-image:
 	docker build \
 		--build-arg="MAKE_TARGET=$(MAKE_TARGET)" \
 		--build-arg="NIMFLAGS=$(DOCKER_IMAGE_NIMFLAGS)" \
 		--build-arg="EXPERIMENTAL=$(EXPERIMENTAL)" \
 		--label="commit=$(GIT_VERSION)" \
+		--target $(DOCKER_IMAGE_TARGET) \
 		--tag $(DOCKER_IMAGE_NAME) .
 
 docker-push:
