@@ -11,12 +11,12 @@ import
   json_serialization/std/options,
   presto/[route, client, common]
 import
-  ../../../protocol/waku_store/common as waku_store_common,
+  ../../../waku_store/common as waku_store_common,
   ../../../../common/base64,
   ../../../utils/time,
-  ../../../protocol/waku_message/topics/content_topic,
-  ../../../protocol/waku_message/topics/pubsub_topic,
-  ../../../protocol/waku_message/message,
+  ../../../waku_message/topics/content_topic,
+  ../../../waku_message/topics/pubsub_topic,
+  ../../../waku_message/message,
   ../serdes
 
 
@@ -30,7 +30,7 @@ type
     digest*: MessageDigest
 
   StoreRequestRest* = object
-    # inspired by https://github.com/waku-org/nwaku/blob/f95147f5b7edfd45f914586f2d41cd18fb0e0d18/waku/v2/protocol/waku_store/common.nim#L52
+    # inspired by https://github.com/waku-org/nwaku/blob/f95147f5b7edfd45f914586f2d41cd18fb0e0d18/waku/v2//waku_store/common.nim#L52
     pubsubTopic*: Option[PubsubTopic]
     contentTopics*: seq[ContentTopic]
     cursor*: Option[HistoryCursorRest]
@@ -71,7 +71,7 @@ proc parseMsgDigest*(input: Option[string]):
     return err(base64Decoded.error)
 
   let base64DecodedArr = base64Decoded.get()
-  # Next snippet inspired by "nwaku/waku/v2/protocol/waku_archive/archive.nim"
+  # Next snippet inspired by "nwaku/waku/v2/waku_archive/archive.nim"
   # TODO: Improve coherence of MessageDigest type
   messageDigest = block:
       var data: array[32, byte]

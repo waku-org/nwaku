@@ -6,9 +6,9 @@ import
   chronos,
   chronicles
 import
-  ../../../waku/v2/protocol/waku_archive,
-  ../../../waku/v2/protocol/waku_archive/driver/queue_driver,
-  ../../../waku/v2/protocol/waku_message,
+  ../../../waku/v2/waku_archive,
+  ../../../waku/v2/waku_archive/driver/queue_driver,
+  ../../../waku/v2/waku_message,
   ../testlib/common,
   ../testlib/wakucore
 

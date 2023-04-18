@@ -4,10 +4,10 @@ import
   std/[algorithm, json, options, os],
   testutils/unittests, chronos, stint
 import
-  ../../waku/v2/protocol/waku_keystore,
+  ../../waku/v2/waku_keystore,
   ./testlib/common
 
-from  ../../waku/v2/protocol/waku_noise/noise_utils import randomSeqByte
+from  ../../waku/v2/waku_noise/noise_utils import randomSeqByte
 
 procSuite "Credentials test suite":
 

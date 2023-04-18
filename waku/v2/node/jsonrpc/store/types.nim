@@ -6,7 +6,7 @@ else:
 import
   std/options
 import
-  ../../../protocol/waku_store/rpc,
+  ../../../waku_store/rpc,
   ../message
 
 export message

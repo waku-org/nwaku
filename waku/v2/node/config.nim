@@ -9,7 +9,7 @@ import
   stew/shims/net,
   libp2p/multiaddress
 import
-  ../protocol/waku_enr
+  ../waku_enr
 
 
 type NetConfig* = object

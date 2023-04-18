@@ -5,9 +5,9 @@ import
   stew/byteutils,
   testutils/unittests
 import
-  ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_message/codec,
-  ../../waku/v2/protocol/waku_message/digest,
+  ../../waku/v2/waku_message,
+  ../../waku/v2/waku_message/codec,
+  ../../waku/v2/waku_message/digest,
   ./testlib/wakucore
 
 suite "Waku Message - Deterministic hashing":

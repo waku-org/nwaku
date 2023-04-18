@@ -11,7 +11,7 @@ import
   presto/[route, client, common]
 import
   ../../../../common/base64,
-  ../../../protocol/waku_message,
+  ../../../waku_message,
   ../serdes
 
 

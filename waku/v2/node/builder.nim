@@ -12,8 +12,8 @@ import
   libp2p/builders,
   libp2p/nameresolving/nameresolver
 import
-  ../protocol/waku_enr,
-  ../protocol/waku_discv5,
+  ../waku_enr,
+  ../waku_discv5,
   ./config,
   ./peer_manager,
   ./waku_node
