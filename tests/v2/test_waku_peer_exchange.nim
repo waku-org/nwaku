@@ -126,17 +126,15 @@ procSuite "Waku Peer Exchange":
     await allFutures([node1.start(), node2.start(), node3.start()])
     await allFutures([node1.startDiscv5(), node2.startDiscv5()])
 
-    # node2 can be connected, so will be returned peer exchange
-    require (await node1.peerManager.connectRelay(node2.switch.peerInfo.toRemotePeerInfo()))
-
     # Give disv5 some time to discover each other
     await sleepAsync(5000.millis)
+
+    # node2 can be connected, so will be returned by peer exchange
+    require (await node1.peerManager.connectRelay(node2.switch.peerInfo.toRemotePeerInfo()))
 
     # Mount peer exchange
     await node1.mountPeerExchange()
     await node3.mountPeerExchange()
-
-
 
     let connOpt = await node3.peerManager.dialPeer(node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec)
     check:
