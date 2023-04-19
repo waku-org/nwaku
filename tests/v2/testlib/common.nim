@@ -2,17 +2,6 @@ import
   std/[times, random],
   bearssl/rand,
   libp2p/crypto/crypto
-import
-  ../../../waku/v2/utils/time
-
-
-# Time
-
-proc now*(): Timestamp =
-  getNanosecondTime(getTime().toUnixFloat())
-
-proc ts*(offset=0, origin=now()): Timestamp =
-  origin + getNanosecondTime(offset)
 
 
 ## Randomization

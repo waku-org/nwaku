@@ -8,9 +8,9 @@ import
   chronicles,
   json_rpc/rpcserver
 import
+  ../../../waku_core,
   ../../../waku_store,
   ../../../waku_store/rpc,
-  ../../../utils/time,
   ../../waku_node,
   ../../peer_manager,
   ./types

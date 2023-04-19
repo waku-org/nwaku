@@ -9,7 +9,6 @@ import
   ../../../waku/v2/waku_archive/driver/queue_driver/queue_driver {.all.},
   ../../../waku/v2/waku_archive/driver/queue_driver/index,
   ../../../waku/v2/waku_core,
-  ../../../waku/v2/utils/time,
   ../testlib/common,
   ../testlib/wakucore
 

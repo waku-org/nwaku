@@ -12,8 +12,8 @@ import
 import
   ../../../waku/common/logging,
   ../../../waku/v2/node/peer_manager,
-  ../../../waku/v2/waku_node,
   ../../../waku/v2/waku_core,
+  ../../../waku/v2/waku_node,
   ../../../waku/v2/waku_enr,
   ../../../waku/v2/waku_discv5
 

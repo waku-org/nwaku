@@ -7,8 +7,7 @@ import
   nimcrypto
 import
   ../../../waku/v2/waku_core,
-  ../../../waku/v2/waku_archive/driver/queue_driver/index,
-  ../../../waku/v2/utils/time
+  ../../../waku/v2/waku_archive/driver/queue_driver/index
 
 
 ## Helpers

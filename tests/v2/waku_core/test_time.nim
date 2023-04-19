@@ -1,12 +1,11 @@
 {.used.}
 
 import
-  stew/results,
   testutils/unittests
 import
-  ../../waku/v2/utils/time
+  ../../waku/v2/waku_core/time
 
-suite "Utils - Time":
+suite "Waku Core - Time":
 
   test "Test timestamp conversion":
     ## Given

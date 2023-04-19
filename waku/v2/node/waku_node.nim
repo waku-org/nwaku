@@ -39,7 +39,6 @@ import
   ../waku_discv5,
   ../waku_peer_exchange,
   ../utils/peers,
-  ../utils/time,
   ./config,
   ./peer_manager,
   ./waku_switch

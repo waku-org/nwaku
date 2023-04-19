@@ -14,7 +14,6 @@ import
   ../../../waku_core,
   ../../../waku_relay,
   ../../../utils/compat,
-  ../../../utils/time,
   ../../waku_node,
   ../../message_cache,
   ./types

@@ -7,7 +7,6 @@ import
   std/options,
   stew/results
 import
-  ../utils/time,
   ../waku_core,
   ./common
 

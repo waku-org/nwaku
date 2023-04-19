@@ -6,7 +6,6 @@ else:
 
 import
   ../../../waku_core,
-  ../../../utils/time,
   ../../common
 
 type DbCursor* = (Timestamp, seq[byte], PubsubTopic)

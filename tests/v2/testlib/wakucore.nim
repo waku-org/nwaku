@@ -1,5 +1,5 @@
 import
-  std/options,
+  std/[options, times],
   stew/[results, byteutils],
   stew/shims/net,
   chronos,
@@ -12,6 +12,15 @@ import
   ./common
 
 export switch
+
+
+# Time
+
+proc now*(): Timestamp =
+  getNanosecondTime(getTime().toUnixFloat())
+
+proc ts*(offset=0, origin=now()): Timestamp =
+  origin + getNanosecondTime(offset)
 
 
 # Switch

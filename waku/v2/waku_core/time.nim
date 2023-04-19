@@ -1,4 +1,3 @@
-## Contains types and utilities for timestamps.
 when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
 else:

@@ -11,7 +11,6 @@ import
   chronos,
   metrics
 import
-  ../utils/time,
   ../waku_core,
   ./common,
   ./archive_metrics,

@@ -7,8 +7,8 @@ import
   std/[os, strutils],
   json_rpc/rpcclient
 import
+  ../../../waku_core,
   ../../../waku_store/rpc,
-  ../../../utils/time,
   ./types
 
 export types
