@@ -8,9 +8,9 @@ import
   libp2p/crypto/crypto,
   eth/p2p/discoveryv5/enr
 import
+  ../../common/nimchronos,
   ../node/peer_manager,
   ../waku_core,
-  ../utils/heartbeat,
   ../waku_discv5,
   ./rpc,
   ./rpc_codec
