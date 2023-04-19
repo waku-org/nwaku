@@ -12,7 +12,7 @@ import
   bearssl/rand,
   libp2p/protocols/protocol as libp2p_protocol
 import
-  ../waku_message,
+  ../waku_core,
   ../node/peer_manager,
   ../utils/requests,
   ./rpc,

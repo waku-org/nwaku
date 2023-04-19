@@ -17,7 +17,7 @@ import
   ../../../waku/v2/node/rest/store/handlers as store_api,
   ../../../waku/v2/node/rest/store/client as store_api_client,
   ../../../waku/v2/node/rest/store/types,
-  ../../../waku/v2/waku_message,
+  ../../../waku/v2/waku_core,
   ../../../waku/v2/waku_archive,
   ../../../waku/v2/waku_archive/driver/queue_driver,
   ../../../waku/v2/waku_store as waku_store,

@@ -7,7 +7,7 @@ import
   std/options
 import
   ../../common/protobuf,
-  ../waku_message,
+  ../waku_core,
   ./rpc
 
 

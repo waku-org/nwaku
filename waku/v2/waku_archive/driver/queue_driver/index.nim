@@ -7,7 +7,7 @@ import
   stew/byteutils,
   nimcrypto/sha2
 import
-  ../../../waku_message,
+  ../../../waku_core,
   ../../../utils/time,
   ../../common
 

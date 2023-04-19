@@ -14,9 +14,7 @@ import
   ../../../waku_store/common as waku_store_common,
   ../../../../common/base64,
   ../../../utils/time,
-  ../../../waku_message/topics/content_topic,
-  ../../../waku_message/topics/pubsub_topic,
-  ../../../waku_message/message,
+  ../../../waku_core,
   ../serdes
 
 

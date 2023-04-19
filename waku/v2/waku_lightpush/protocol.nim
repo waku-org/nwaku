@@ -12,7 +12,7 @@ import
   bearssl/rand
 import
   ../node/peer_manager,
-  ../waku_message,
+  ../waku_core,
   ./rpc,
   ./rpc_codec,
   ./protocol_metrics

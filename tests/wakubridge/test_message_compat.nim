@@ -7,7 +7,7 @@ import
   chronos,
   libp2p/switch
 import
-  ../../waku/v2/waku_message
+  ../../waku/v2/waku_core
 
 import
   ../../apps/wakubridge/message_compat

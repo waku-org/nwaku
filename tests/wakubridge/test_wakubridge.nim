@@ -17,7 +17,7 @@ import
   eth/keys
 import
   ../../waku/v1/protocol/waku_protocol,
-  ../../waku/v2/waku_message,
+  ../../waku/v2/waku_core,
   ../../waku/v2/waku_node,
   ../../waku/v2/utils/compat,
   ../../waku/v2/utils/peers,

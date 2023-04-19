@@ -10,7 +10,7 @@ import
   ../../waku/common/sqlite,
   ../../waku/v2/node/message_store/sqlite_store,
   ../../waku/v2/node/peer_manager,
-  ../../waku/v2/waku_message,
+  ../../waku/v2/waku_core,
   ../../waku/v2/waku_store,
   ./testlib/common,
   ./testlib/switch

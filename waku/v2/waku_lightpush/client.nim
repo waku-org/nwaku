@@ -13,7 +13,7 @@ import
 import
   ../node/peer_manager,
   ../utils/requests,
-  ../waku_message,
+  ../waku_core,
   ./protocol,
   ./protocol_metrics,
   ./rpc,

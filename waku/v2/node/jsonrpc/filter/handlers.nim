@@ -8,7 +8,7 @@ import
   chronicles,
   json_rpc/rpcserver
 import
-  ../../../waku_message,
+  ../../../waku_core,
   ../../../waku_filter,
   ../../../waku_filter/rpc,
   ../../../waku_filter/client,

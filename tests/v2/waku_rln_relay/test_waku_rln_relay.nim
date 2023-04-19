@@ -11,7 +11,7 @@ import
   stint,
   libp2p/crypto/crypto
 import
-  ../../../waku/v2/waku_message,
+  ../../../waku/v2/waku_core,
   ../../../waku/v2/waku_rln_relay,
   ../../../waku/v2/waku_rln_relay/rln,
   ../../../waku/v2/waku_rln_relay/protocol_metrics,

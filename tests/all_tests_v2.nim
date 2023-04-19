@@ -1,9 +1,9 @@
 ## Waku v2
 
-# Waku message test suite
+# Waku core test suite
 import
-  ./v2/test_waku_message_topics,
-  ./v2/test_waku_message_digest
+  ./v2/waku_core/test_namespaced_topics,
+  ./v2/waku_core/test_message_digest
 
 # Waku archive test suite
 import

@@ -8,7 +8,7 @@ import
   chronicles,
   libp2p/peerid
 import
-  ../waku_message
+  ../waku_core
 
 logScope:
   topics = "waku filter subscriptions"

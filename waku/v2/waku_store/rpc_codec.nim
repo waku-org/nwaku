@@ -8,7 +8,7 @@ import
   nimcrypto/hash
 import
   ../../common/protobuf,
-  ../waku_message,
+  ../waku_core,
   ./common,
   ./rpc
 
