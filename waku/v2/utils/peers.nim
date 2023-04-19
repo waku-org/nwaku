@@ -136,7 +136,9 @@ proc parsePeerInfo*(peer: RemotePeerInfo|string):
 
   let p2pPartStr = p2pPart.toString()[]
   if not p2pPartStr.contains("/"):
-    return err("Error in parsePeerInfo: p2p part should contain /")
+    let msg = "Error in parsePeerInfo: p2p part should contain / [" &
+          p2pPartStr & "]"
+    return err(msg)
 
   let peerId = ? PeerID.init(p2pPartStr.split("/")[^1])
                         .mapErr(proc (e:cstring):string = cast[string](e))
