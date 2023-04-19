@@ -119,7 +119,7 @@ proc parsePeerInfo*(peer: RemotePeerInfo|string):
   if peer is RemotePeerInfo:
     return ok(cast[RemotePeerInfo](peer))
 
-  let multiAddr = ? MultiAddress.init(cast[string](peer))
+  let multiAddr = ? MultiAddress.init($peer)
                     .mapErr(proc(err: string):
                         string = "MultiAddress.init [" & err & "]")
 
@@ -136,12 +136,12 @@ proc parsePeerInfo*(peer: RemotePeerInfo|string):
 
   let p2pPartStr = p2pPart.toString()[]
   if not p2pPartStr.contains("/"):
-    let msg = "Error in parsePeerInfo: p2p part should contain / [" &
-          p2pPartStr & "]"
+    let msg = "Error in parsePeerInfo: p2p part should contain / [p2pPartStr:" &
+          p2pPartStr & "] [peer:" & $peer & "]"
     return err(msg)
 
   let peerId = ? PeerID.init(p2pPartStr.split("/")[^1])
-                        .mapErr(proc (e:cstring):string = cast[string](e))
+                        .mapErr(proc (e:cstring):string = $e)
 
   if not wireAddr.validWireAddr():
     return err("Error in parsePeerInfo: Invalid node multiaddress")
