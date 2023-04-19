@@ -13,7 +13,7 @@ jobs:
       matrix:
         env:
           - { NPROC: 2 }
-        platform: [ubuntu-latest, macos-latest]
+        platform: [ubuntu-latest] #, macos-latest
     runs-on: ${{ matrix.platform }}
     env: ${{ matrix.env }}
     timeout-minutes: 60
@@ -29,21 +29,21 @@ jobs:
         # make update breaks because the cached compiler is there where the submodules
         # are meant to go.
       - name: Submodules
+        id: submodules
         run: |
           git submodule update --init --recursive
+          echo "nim-hash=$(git rev-parse HEAD:vendor/nimbus-build-system)" >> $GITHUB_OUTPUT
           
       - name: Cache nim
         uses: actions/cache@v1
         with:
           path: vendor/nimbus-build-system/vendor/Nim/bin
-          key: ${{ runner.os }}-${{ matrix.env.NPROC }}-nim-${{ hashFiles('.gitmodules') }}
+          key: ${{ runner.os }}-nim-${{ steps.submodules.outputs.nim-hash }}
 
       - name: Install dependencies
         run: |
-          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" V=1 update 
-          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" CI=false wakunode1
-          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" CI=false wakunode2
-          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" CI=false chat2
+          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" V=1 CI=false dist
+          ls ./build/
           tar -cvzf nim-waku-${{ matrix.platform }}.tar.gz ./build/
 
       - name: Upload asset

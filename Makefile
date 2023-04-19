@@ -31,7 +31,7 @@ else # "variables.mk" was included. Business as usual until the end of this file
 ##########
 ## Main ##
 ##########
-.PHONY: all test update clean v1 v2
+.PHONY: all test update clean v1 v2 dist
 
 # default target, because it's the first one that doesn't start with '.'
 all: | v1 v2
@@ -50,6 +50,8 @@ update: | update-common
 
 clean:
 	rm -rf build
+
+dist: update wakunode1 wakunode2 chat2 tools
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
