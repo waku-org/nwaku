@@ -577,9 +577,6 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
     except CatchableError:
       return err("failed to connect to dynamic bootstrap nodes: " & getCurrentExceptionMsg())
 
-  if conf.peerExchange:
-    asyncSpawn runPeerExchangeDiscv5Loop(node.wakuPeerExchange)
-
   # retrieve px peers and add the to the peer store
   if conf.peerExchangeNode != "":
     let desiredOutDegree = node.wakuRelay.parameters.d.uint64()
