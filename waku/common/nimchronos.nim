@@ -1,13 +1,19 @@
+## An extension wrapper around nim-chronos
 when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
 else:
   {.push raises: [].}
 
-import sequtils
-import chronos, chronicles
+import
+  chronos,
+  chronicles
+
+export chronos
+
+
+## Extension methods
 
 # Taken from: https://github.com/status-im/nim-libp2p/blob/master/libp2p/utils/heartbeat.nim
-
 template heartbeat*(name: string, interval: Duration, body: untyped): untyped =
   var nextHeartbeat = Moment.now()
   while true:
@@ -19,11 +25,12 @@ template heartbeat*(name: string, interval: Duration, body: untyped): untyped =
       let
         delay = now - nextHeartbeat
         itv = interval
+
       if delay > itv:
-        info "Missed multiple heartbeats", heartbeat = name,
-          delay = delay, hinterval = itv
+        info "Missed multiple heartbeats", heartbeat = name, delay = delay, hinterval = itv
       else:
-        debug "Missed heartbeat", heartbeat = name,
-          delay = delay, hinterval = itv
+        debug "Missed heartbeat", heartbeat = name, delay = delay, hinterval = itv
+
       nextHeartbeat = now + itv
+
     await sleepAsync(nextHeartbeat - now)
