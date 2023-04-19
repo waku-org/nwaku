@@ -74,11 +74,10 @@ RUN make -j$(nproc)
 # Debug image
 FROM prod AS debug
 
-RUN apk add --no-cache gdb
+RUN apk add --no-cache gdb libunwind
 
 # Add heaptrack
 COPY --from=heaptrack-build /heaptrack/build/ /heaptrack/build/
-RUN apk add libunwind
 
 ENV LD_LIBRARY_PATH=/heaptrack/build/lib/heaptrack/
 RUN ln -s /heaptrack/build/bin/heaptrack /usr/local/bin/heaptrack
