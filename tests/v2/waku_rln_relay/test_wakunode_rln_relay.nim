@@ -15,7 +15,7 @@ import
   eth/keys
 import
   ../../../waku/v2/waku_node,
-  ../../../waku/v2/waku_message,
+  ../../../waku/v2/waku_core,
   ../../../waku/v2/waku_rln_relay,
   ../../../waku/v2/waku_keystore,
   ../../../waku/v2/utils/peers,

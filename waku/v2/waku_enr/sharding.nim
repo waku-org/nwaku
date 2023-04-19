@@ -13,7 +13,7 @@ import
   libp2p/crypto/crypto
 import
   ../../common/enr,
-  ../waku_message
+  ../waku_core
 
 logScope:
   topics = "waku enr sharding"

@@ -8,7 +8,7 @@ import
 import
   ../../waku/v2/waku_filter/rpc,
   ../../waku/v2/waku_store/rpc,
-  ../../waku/v2/waku_message,
+  ../../waku/v2/waku_core,
   ../../waku/v2/utils/time,
   ../../waku/v2/waku_node,
   ../../waku/v2/node/waku_payload,

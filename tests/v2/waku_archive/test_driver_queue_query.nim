@@ -8,7 +8,7 @@ import
 import
   ../../../waku/v2/waku_archive,
   ../../../waku/v2/waku_archive/driver/queue_driver,
-  ../../../waku/v2/waku_message,
+  ../../../waku/v2/waku_core,
   ../testlib/common,
   ../testlib/wakucore
 

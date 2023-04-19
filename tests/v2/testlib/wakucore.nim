@@ -8,7 +8,7 @@ import
   libp2p/crypto/crypto as libp2p_keys,
   eth/keys as eth_keys
 import
-  ../../../waku/v2/waku_message,
+  ../../../waku/v2/waku_core,
   ./common
 
 export switch
@@ -38,8 +38,8 @@ proc newTestSwitch*(key=none(libp2p_keys.PrivateKey), address=none(MultiAddress)
 # Waku message
 
 export
-  waku_message.DefaultPubsubTopic,
-  waku_message.DefaultContentTopic
+  waku_core.DefaultPubsubTopic,
+  waku_core.DefaultContentTopic
 
 
 proc fakeWakuMessage*(

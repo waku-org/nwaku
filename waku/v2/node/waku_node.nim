@@ -24,7 +24,7 @@ import
   libp2p/transports/tcptransport,
   libp2p/transports/wstransport
 import
-  ../waku_message,
+  ../waku_core,
   ../waku_relay,
   ../waku_archive,
   ../waku_store,

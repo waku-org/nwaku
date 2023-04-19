@@ -8,7 +8,7 @@ import
   stew/results
 import
   ../utils/time,
-  ../waku_message,
+  ../waku_core,
   ./common
 
 

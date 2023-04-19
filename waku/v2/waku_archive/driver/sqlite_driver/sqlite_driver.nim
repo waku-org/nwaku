@@ -11,7 +11,7 @@ import
   chronicles
 import
   ../../../../common/sqlite,
-  ../../../waku_message,
+  ../../../waku_core,
   ../../../utils/time,
   ../../common,
   ../../driver,

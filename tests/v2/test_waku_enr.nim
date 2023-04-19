@@ -5,7 +5,7 @@ import
   stew/results,
   testutils/unittests
 import
-  ../../waku/v2/waku_message,
+  ../../waku/v2/waku_core,
   ../../waku/v2/waku_enr,
   ./testlib/wakucore
 

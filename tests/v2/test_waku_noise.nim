@@ -14,7 +14,7 @@ import
   ../../waku/v2/waku_noise/noise_utils,
   ../../waku/v2/waku_noise/noise,
   ../../waku/v2/waku_noise/noise_handshake_processing,
-  ../../waku/v2/waku_message,
+  ../../waku/v2/waku_core,
   ./testlib/common
 
 

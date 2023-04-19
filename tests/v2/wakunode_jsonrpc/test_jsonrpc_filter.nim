@@ -13,7 +13,7 @@ import
   ../../../waku/v2/node/message_cache,
   ../../../waku/v2/node/jsonrpc/filter/handlers as filter_api,
   ../../../waku/v2/node/jsonrpc/filter/client as filter_api_client,
-  ../../../waku/v2/waku_message,
+  ../../../waku/v2/waku_core,
   ../../../waku/v2/waku_filter,
   ../../../waku/v2/waku_filter/rpc,
   ../../../waku/v2/waku_filter/client,

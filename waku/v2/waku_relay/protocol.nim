@@ -19,7 +19,7 @@ import
   libp2p/stream/connection,
   libp2p/switch
 import
-  ../waku_message,
+  ../waku_core,
   ./message_id
 
 

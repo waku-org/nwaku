@@ -11,7 +11,7 @@ import
   ../../../waku/v2/waku_archive/driver/sqlite_driver,
   ../../../waku/v2/waku_archive/retention_policy,
   ../../../waku/v2/waku_archive/retention_policy/retention_policy_capacity,
-  ../../../waku/v2/waku_message,
+  ../../../waku/v2/waku_core,
   ../../../waku/v2/utils/time,
   ../testlib/common,
   ../testlib/wakucore

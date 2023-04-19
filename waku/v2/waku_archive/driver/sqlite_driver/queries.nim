@@ -10,7 +10,7 @@ import
   sqlite3_abi
 import
   ../../../../common/sqlite,
-  ../../../waku_message,
+  ../../../waku_core,
   ../../../utils/time,
   ./cursor
 

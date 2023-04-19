@@ -5,7 +5,7 @@ else:
 
 
 import
-  ../../../waku_message,
+  ../../../waku_core,
   ../../../utils/time,
   ../../common
 

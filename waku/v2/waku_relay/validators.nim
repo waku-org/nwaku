@@ -15,7 +15,7 @@ import
 
 import
   ./protocol,
-  ../waku_message
+  ../waku_core
 
 # Application level message hash
 proc msgHash*(pubSubTopic: string, msg: WakuMessage): array[32, byte] =

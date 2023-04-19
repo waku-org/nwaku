@@ -8,7 +8,7 @@ import
   libp2p/crypto/crypto,
   libp2p/switch
 import
-  ../../waku/v2/waku_message,
+  ../../waku/v2/waku_core,
   ../../waku/v2/waku_lightpush,
   ../../waku/v2/node/peer_manager,
   ../../waku/v2/utils/peers,

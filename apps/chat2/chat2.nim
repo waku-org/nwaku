@@ -23,7 +23,7 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                protocols/secure/secio,   # define the protocol of secure input / output, allows encrypted communication that uses public keys to validate signed messages instead of a certificate authority like in TLS
                nameresolving/dnsresolver]# define DNS resolution
 import
-  ../../waku/v2/waku_message,
+  ../../waku/v2/waku_core,
   ../../waku/v2/waku_lightpush,
   ../../waku/v2/waku_lightpush/rpc,
   ../../waku/v2/waku_filter,
@@ -72,7 +72,7 @@ type Chat = ref object
 
 type
   PrivateKey* = crypto.PrivateKey
-  Topic* = waku_message.PubsubTopic
+  Topic* = waku_core.PubsubTopic
 
 #####################
 ## chat2 protobufs ##

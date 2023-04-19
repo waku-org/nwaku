@@ -10,13 +10,13 @@ import
   web3,
   eth/keys
 import
-  ../waku_message,
+  ../waku_core,
   ../waku_keystore,
   ../../common/protobuf
 
 export
   waku_keystore,
-  waku_message
+  waku_core
 
 type RlnRelayResult*[T] = Result[T, string]
 

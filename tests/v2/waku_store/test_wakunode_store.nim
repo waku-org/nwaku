@@ -15,7 +15,7 @@ import
 import
   ../../../waku/common/sqlite,
   ../../../waku/v2/node/peer_manager,
-  ../../../waku/v2/waku_message,
+  ../../../waku/v2/waku_core,
   ../../../waku/v2/waku_archive,
   ../../../waku/v2/waku_archive/driver/sqlite_driver,
   ../../../waku/v2/waku_store,

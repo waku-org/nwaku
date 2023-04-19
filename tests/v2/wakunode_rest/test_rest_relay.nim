@@ -17,7 +17,7 @@ import
   ../../waku/v2/node/rest/relay/handlers as relay_api,
   ../../waku/v2/node/rest/relay/client as relay_api_client,
   ../../waku/v2/node/rest/relay/topic_cache,
-  ../../waku/v2/waku_message,
+  ../../waku/v2/waku_core,
   ../../waku/v2/waku_relay,
   ../../waku/v2/utils/time,
   ../testlib/wakucore,
