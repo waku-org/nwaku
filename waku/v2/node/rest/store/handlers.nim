@@ -13,7 +13,6 @@ import
   ../../../../common/base64,
   ../../../waku_core,
   ../../../waku_store/common,
-  ../../../utils/time,
   ../../waku_node,
   ../../peer_manager,
   ../responses,

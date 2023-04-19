@@ -22,7 +22,7 @@ import
   ./protocol_types,
   ./protocol_metrics
 import
-  ../utils/time,
+  ../waku_core,
   ../waku_keystore
 
 logScope:

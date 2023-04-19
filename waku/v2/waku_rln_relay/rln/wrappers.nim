@@ -10,8 +10,8 @@ import
   ../protocol_types,
   ../protocol_metrics
 import
-  ../../waku_keystore,
-  ../../utils/time
+  ../../waku_core,
+  ../../waku_keystore
 
 logScope:
   topics = "waku rln_relay ffi"

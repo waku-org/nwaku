@@ -10,7 +10,6 @@ import
   chronicles
 import
   ../../../waku_core,
-  ../../../utils/time,
   ../../common,
   ../../driver,
   ./index

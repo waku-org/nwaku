@@ -10,8 +10,8 @@ else:
 
 
 import
-  ../../utils/time,
-  ../topics
+  ../topics,
+  ../time
 
 const
   MaxMetaAttrLength* = 64 # 64 bytes

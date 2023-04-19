@@ -8,7 +8,6 @@ import
   nimcrypto/sha2
 import
   ../../../waku_core,
-  ../../../utils/time,
   ../../common
 
 

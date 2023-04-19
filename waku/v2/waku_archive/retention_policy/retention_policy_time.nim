@@ -9,7 +9,7 @@ import
   chronicles,
   chronos
 import
-  ../../utils/time,
+  ../../waku_core,
   ../driver,
   ../retention_policy
 

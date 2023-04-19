@@ -9,7 +9,6 @@ import
   stew/byteutils,
   nimcrypto/sha2
 import
-  ../utils/time,
   ../waku_core
 
 

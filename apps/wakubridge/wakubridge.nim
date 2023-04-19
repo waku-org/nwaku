@@ -24,7 +24,6 @@ import
   # Waku v2 imports
   libp2p/crypto/crypto,
   libp2p/nameresolving/nameresolver,
-  ../../waku/v2/utils/time,
   ../../waku/v2/waku_core,
   ../../waku/v2/waku_store,
   ../../waku/v2/waku_filter,

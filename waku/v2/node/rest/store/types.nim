@@ -13,7 +13,6 @@ import
 import
   ../../../waku_store/common as waku_store_common,
   ../../../../common/base64,
-  ../../../utils/time,
   ../../../waku_core,
   ../serdes
 

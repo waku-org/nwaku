@@ -9,20 +9,19 @@ import
   presto, presto/client as presto_client,
   libp2p/crypto/crypto
 import
+  ../../../waku/v2/waku_core,
+  ../../../waku/v2/waku_node,
   ../../../waku/v2/node/peer_manager,
-  ../../../waku/v2/node/waku_node,
-  ../../waku/v2/node/rest/server,
-  ../../waku/v2/node/rest/client,
-  ../../waku/v2/node/rest/responses,
+  ../../../waku/v2/node/rest/server,
+  ../../../waku/v2/node/rest/client,
+  ../../../waku/v2/node/rest/responses,
   ../../../waku/v2/node/rest/store/handlers as store_api,
   ../../../waku/v2/node/rest/store/client as store_api_client,
   ../../../waku/v2/node/rest/store/types,
-  ../../../waku/v2/waku_core,
   ../../../waku/v2/waku_archive,
   ../../../waku/v2/waku_archive/driver/queue_driver,
   ../../../waku/v2/waku_store as waku_store,
   ../../../waku/v2/utils/peers,
-  ../../../waku/v2/utils/time,
   ../../v2/testlib/common,
   ../../v2/testlib/wakucore,
   ../../v2/testlib/wakunode
@@ -166,7 +165,7 @@ procSuite "Waku v2 Rest API - Store":
     peerSwitch.mount(node.wakuStore)
 
     # Now prime it with some history before tests
-    let timeOrigin = common.now()
+    let timeOrigin = wakucore.now()
     let msgList = @[
       fakeWakuMessage(@[byte 00], ts=ts(00, timeOrigin)),
       fakeWakuMessage(@[byte 01], ts=ts(10, timeOrigin)),

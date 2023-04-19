@@ -10,8 +10,8 @@ else:
 
 import
   ../../../common/protobuf,
-  ../../utils/time,
   ../topics,
+  ../time,
   ./message
 
 

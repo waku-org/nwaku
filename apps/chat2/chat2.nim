@@ -34,7 +34,6 @@ import
   ../../waku/v2/node/peer_manager,
   ../../waku/v2/utils/compat,
   ../../waku/v2/utils/peers,
-  ../../waku/v2/utils/time,
   ../../waku/common/utils/nat,
   ./config_chat2
 

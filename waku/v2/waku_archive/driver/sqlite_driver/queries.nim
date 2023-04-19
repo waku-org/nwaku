@@ -11,7 +11,6 @@ import
 import
   ../../../../common/sqlite,
   ../../../waku_core,
-  ../../../utils/time,
   ./cursor
 
 

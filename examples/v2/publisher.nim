@@ -12,11 +12,10 @@ import
 import
   ../../../waku/common/logging,
   ../../../waku/v2/node/peer_manager,
-  ../../../waku/v2/waku_node,
   ../../../waku/v2/waku_core,
+  ../../../waku/v2/waku_node,
   ../../../waku/v2/waku_enr,
-  ../../../waku/v2/waku_discv5,
-  ../../../waku/v2/utils/time
+  ../../../waku/v2/waku_discv5
 
 proc now*(): Timestamp =
   getNanosecondTime(getTime().toUnixFloat())

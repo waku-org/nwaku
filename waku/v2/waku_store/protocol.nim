@@ -18,8 +18,8 @@ import
   libp2p/stream/connection,
   metrics
 import
+  ../waku_core,
   ../node/peer_manager,
-  ../utils/time,
   ./common,
   ./rpc,
   ./rpc_codec,

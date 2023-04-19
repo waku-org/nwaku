@@ -3,7 +3,9 @@
 # Waku core test suite
 import
   ./v2/waku_core/test_namespaced_topics,
+  ./v2/waku_core/test_time,
   ./v2/waku_core/test_message_digest
+
 
 # Waku archive test suite
 import
