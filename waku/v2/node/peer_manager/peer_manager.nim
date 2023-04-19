@@ -12,9 +12,9 @@ import
   libp2p/multistream,
   libp2p/muxers/muxer
 import
+  ../../../common/nimchronos,
   ../../waku_relay,
   ../../utils/peers,
-  ../../utils/heartbeat,
   ./peer_store/peer_storage,
   ./waku_peer_store
 
