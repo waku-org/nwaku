@@ -9,7 +9,7 @@ import
   ../../waku/common/base64,
   ../../waku/v2/node/rest/serdes,
   ../../waku/v2/node/rest/relay/types,
-  ../../waku/v2/waku_message
+  ../../waku/v2/waku_core
 
 
 

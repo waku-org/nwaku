@@ -7,7 +7,7 @@ import
   nimcrypto/utils,
   eth/keys
 import
-  ../../../waku/v2/waku_message
+  ../../../waku/v2/waku_core
 
 type
   Fleet* =  enum

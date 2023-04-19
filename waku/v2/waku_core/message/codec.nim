@@ -9,9 +9,9 @@ else:
 
 
 import
-  ../../common/protobuf,
-  ../utils/time,
-  ./topics,
+  ../../../common/protobuf,
+  ../../utils/time,
+  ../topics,
   ./message
 
 

@@ -8,7 +8,7 @@ import
   libp2p/crypto/crypto
 import
   ../../waku/v1/protocol/waku_protocol,
-  ../../waku/v2/waku_message
+  ../../waku/v2/waku_core
 
 
 const

@@ -7,7 +7,7 @@ import
   std/[os, strutils],
   json_rpc/rpcclient
 import
-  ../../../waku_message,
+  ../../../waku_core,
   ../../../waku_filter/rpc
 
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]

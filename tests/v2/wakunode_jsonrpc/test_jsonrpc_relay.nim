@@ -14,7 +14,7 @@ import
   ../../../waku/v2/waku_node,
   ../../../waku/v2/node/jsonrpc/relay/handlers as relay_api,
   ../../../waku/v2/node/jsonrpc/relay/client as relay_api_client,
-  ../../../waku/v2/waku_message,
+  ../../../waku/v2/waku_core,
   ../../../waku/v2/waku_relay,
   ../../../waku/v2/utils/compat,
   ../../../waku/v2/utils/peers,

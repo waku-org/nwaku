@@ -10,7 +10,7 @@ import
   nimcrypto/sha2
 import
   ../utils/time,
-  ../waku_message
+  ../waku_core
 
 
 ## Waku message digest

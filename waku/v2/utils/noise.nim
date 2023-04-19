@@ -6,7 +6,7 @@ else:
 import
   stew/results
 import
-  ../waku_message,
+  ../waku_core,
   ../waku_noise/noise_types,
   ../waku_noise/noise_utils
 

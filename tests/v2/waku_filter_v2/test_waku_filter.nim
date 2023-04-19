@@ -11,7 +11,7 @@ import
   ../../../waku/v2/waku_filter_v2,
   ../../../waku/v2/waku_filter_v2/client,
   ../../../waku/v2/waku_filter_v2/rpc,
-  ../../../waku/v2/waku_message,
+  ../../../waku/v2/waku_core,
   ../testlib/common,
   ../testlib/wakucore
 

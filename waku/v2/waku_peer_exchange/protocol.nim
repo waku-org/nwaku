@@ -9,7 +9,7 @@ import
   eth/p2p/discoveryv5/enr
 import
   ../node/peer_manager,
-  ../waku_message,
+  ../waku_core,
   ../waku_discv5,
   ./rpc,
   ./rpc_codec

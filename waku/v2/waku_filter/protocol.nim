@@ -8,7 +8,7 @@ import
   libp2p/protocols/protocol,
   libp2p/crypto/crypto
 import
-  ../waku_message,
+  ../waku_core,
   ../node/peer_manager,
   ./rpc,
   ./rpc_codec,

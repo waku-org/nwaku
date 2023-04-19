@@ -77,7 +77,7 @@ proc calcEpoch*(t: float64): Epoch =
 
 type WakuRLNRelay* = ref object of RootObj
   pubsubTopic*: string # the pubsub topic for which rln relay is mounted
-                       # contentTopic should be of type waku_message.ContentTopic, however, due to recursive module dependency, the underlying type of ContentTopic is used instead
+                       # contentTopic should be of type waku_core.ContentTopic, however, due to recursive module dependency, the underlying type of ContentTopic is used instead
                        # TODO a long-term solution is to place types with recursive dependency inside one file
   contentTopic*: string
   # the log of nullifiers and Shamir shares of the past messages grouped per epoch

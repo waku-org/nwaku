@@ -12,7 +12,7 @@ import
   metrics
 import
   ../utils/time,
-  ../waku_message,
+  ../waku_core,
   ./common,
   ./archive_metrics,
   ./retention_policy,

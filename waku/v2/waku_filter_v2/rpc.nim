@@ -6,7 +6,7 @@ else:
 import
   std/options
 import
-  ../waku_message
+  ../waku_core
 
 type
   FilterSubscribeType* {.pure.} = enum

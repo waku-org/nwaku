@@ -4,7 +4,7 @@ import
   json_rpc/rpcserver
 import
   ../../../common/base64,
-  ../../waku_message,
+  ../../waku_core,
   ../../utils/time
 
 

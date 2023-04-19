@@ -10,7 +10,7 @@ import
   chronos,
   libp2p/protocols/pubsub
 import
-  ../waku_message
+  ../waku_core
 
 logScope:
   topics = "waku node message_cache"
