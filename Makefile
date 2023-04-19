@@ -59,6 +59,23 @@ clean:
 GIT_VERSION ?= $(shell git describe --abbrev=6 --always --tags)
 NIM_PARAMS := $(NIM_PARAMS) -d:git_version=\"$(GIT_VERSION)\"
 
+## Heaptracker options
+HEAPTRACKER ?= 0
+HEAPTRACKER_INJECT ?= 0
+ifeq ($(HEAPTRACKER), 1)
+# Env var needed to make nimbus-build-system use the 'heaptrack_support' branch
+export NIM_COMMIT = heaptrack_support
+
+ifeq ($(HEAPTRACKER_INJECT), 1)
+# the Nim compiler will load 'libheaptrack_inject.so'
+NIM_PARAMS := $(NIM_PARAMS) -d:heaptracker -d:heaptracker_inject
+else
+# the Nim compiler will load 'libheaptrack_preload.so'
+NIM_PARAMS := $(NIM_PARAMS) -d:heaptracker
+endif
+
+endif
+## end of Heaptracker options
 
 ##################
 ## Dependencies ##
