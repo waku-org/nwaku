@@ -11,7 +11,7 @@ import
   presto
 
 
-type RestServerResult*[T] = Result[T, cstring]
+type RestServerResult*[T] = Result[T, string]
 
 
 ### Configuration
@@ -84,10 +84,11 @@ proc init*(T: type RestServerRef,
       maxHeadersSize = maxHeadersSize,
       maxRequestBodySize = maxRequestBodySize
     )
-  except CatchableError as ex:
-    return err(cstring(ex.msg))
+  except CatchableError:
+    return err(getCurrentExceptionMsg())
 
-  res
+  # RestResult error type is cstring, so we need to map it to string
+  res.mapErr(proc(err: cstring): string = $err)
 
 proc newRestHttpServer*(ip: ValidIpAddress, port: Port,
                         allowedOrigin=none(string),
