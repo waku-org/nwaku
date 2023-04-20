@@ -5,7 +5,7 @@ FROM alpine:edge AS nim-build
 ARG NIMFLAGS
 ARG MAKE_TARGET=wakunode2
 ARG EXPERIMENTAL=false
-ARG NIM_COMMIT_ARG
+ARG NIM_COMMIT
 
 # Get build tools and required header files
 RUN apk add --no-cache bash git cargo build-base pcre-dev linux-headers
@@ -20,7 +20,7 @@ RUN git submodule update --init --recursive
 RUN make -j$(nproc) deps
 
 # Build the final node binary
-RUN make -j$(nproc) ${NIM_COMMIT_ARG} $MAKE_TARGET NIMFLAGS="${NIMFLAGS}" EXPERIMENTAL="${EXPERIMENTAL}"
+RUN make -j$(nproc) ${NIM_COMMIT} $MAKE_TARGET NIMFLAGS="${NIMFLAGS}" EXPERIMENTAL="${EXPERIMENTAL}"
 
 
 # PRODUCTION IMAGE -------------------------------------------------------------

@@ -65,8 +65,8 @@ NIM_PARAMS := $(NIM_PARAMS) -d:git_version=\"$(GIT_VERSION)\"
 HEAPTRACKER ?= 0
 HEAPTRACKER_INJECT ?= 0
 ifeq ($(HEAPTRACKER), 1)
-# Env var needed to make nimbus-build-system use the 'heaptrack_support' branch
-NIM_COMMIT_ARG := NIM_COMMIT=heaptrack_support
+# Needed to make nimbus-build-system use the Nim's 'heaptrack_support' branch
+NIM_COMMIT := NIM_COMMIT=heaptrack_support
 TARGET := debug
 
 ifeq ($(HEAPTRACKER_INJECT), 1)
@@ -271,7 +271,7 @@ docker-image:
 		--build-arg="MAKE_TARGET=$(MAKE_TARGET)" \
 		--build-arg="NIMFLAGS=$(DOCKER_IMAGE_NIMFLAGS)" \
 		--build-arg="EXPERIMENTAL=$(EXPERIMENTAL)" \
-		--build-arg="NIM_COMMIT_ARG=$(NIM_COMMIT_ARG)" \
+		--build-arg="NIM_COMMIT=$(NIM_COMMIT)" \
 		--label="commit=$(GIT_VERSION)" \
 		--target $(TARGET) \
 		--tag $(DOCKER_IMAGE_NAME) .
