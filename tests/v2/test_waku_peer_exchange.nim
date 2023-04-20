@@ -126,8 +126,12 @@ procSuite "Waku Peer Exchange":
     await allFutures([node1.start(), node2.start(), node3.start()])
     await allFutures([node1.startDiscv5(), node2.startDiscv5()])
 
-    # Give disv5 some time to discover each other
-    await sleepAsync(5000.millis)
+    var attempts = 10
+    while (node1.wakuDiscv5.protocol.nodesDiscovered < 1 or
+          node2.wakuDiscv5.protocol.nodesDiscovered < 1) and
+          attempts > 0:
+      await sleepAsync(1.seconds)
+      attempts -= 1
 
     # node2 can be connected, so will be returned by peer exchange
     require (await node1.peerManager.connectRelay(node2.switch.peerInfo.toRemotePeerInfo()))
@@ -136,21 +140,21 @@ procSuite "Waku Peer Exchange":
     await node1.mountPeerExchange()
     await node3.mountPeerExchange()
 
-    let connOpt = await node3.peerManager.dialPeer(node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec)
+    var peerInfosLen = 0
+    var response: WakuPeerExchangeResult[PeerExchangeResponse]
+    attempts = 10
+    while peerInfosLen == 0 and attempts > 0:
+      var connOpt = await node3.peerManager.dialPeer(node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec)
+      require connOpt.isSome
+      response = await node3.wakuPeerExchange.request(1, connOpt.get())
+      require response.isOk
+      peerInfosLen = response.get().peerInfos.len
+      await sleepAsync(1.seconds)
+      attempts -= 1
+
     check:
-      connOpt.isSome
-
-    # Give the algorithm some time to work its magic
-    await sleepAsync(2000.millis)
-
-    ## When
-    let response = await node3.wakuPeerExchange.request(1, connOpt.get())
-
-    ## Then
-    check:
-      response.isOk
       response.get().peerInfos.len == 1
-      node1.wakuDiscv5.protocol.nodesDiscovered > 0
+      response.get().peerInfos[0].enr == node2.wakuDiscV5.protocol.localNode.record.raw
 
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
 
