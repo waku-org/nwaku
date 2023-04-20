@@ -54,6 +54,8 @@ clean:
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
 
+## Possible values: prod; debug
+TARGET ?= prod
 
 ## Git version
 GIT_VERSION ?= $(shell git describe --abbrev=6 --always --tags)
@@ -64,14 +66,15 @@ HEAPTRACKER ?= 0
 HEAPTRACKER_INJECT ?= 0
 ifeq ($(HEAPTRACKER), 1)
 # Env var needed to make nimbus-build-system use the 'heaptrack_support' branch
-export NIM_COMMIT = heaptrack_support
+NIM_COMMIT_ARG := NIM_COMMIT=heaptrack_support
+TARGET := debug
 
 ifeq ($(HEAPTRACKER_INJECT), 1)
 # the Nim compiler will load 'libheaptrack_inject.so'
-NIM_PARAMS := $(NIM_PARAMS) -d:heaptracker -d:heaptracker_inject
+HEAPTRACK_PARAMS := -d:heaptracker -d:heaptracker_inject
 else
 # the Nim compiler will load 'libheaptrack_preload.so'
-NIM_PARAMS := $(NIM_PARAMS) -d:heaptracker
+HEAPTRACK_PARAMS := -d:heaptracker
 endif
 
 endif
@@ -257,19 +260,20 @@ docs: | build deps
 # -d:insecure - Necessary to enable Prometheus HTTP endpoint for metrics
 # -d:chronicles_colors:none - Necessary to disable colors in logs for Docker
 DOCKER_IMAGE_NIMFLAGS ?= -d:chronicles_colors:none -d:insecure
+DOCKER_IMAGE_NIMFLAGS := $(DOCKER_IMAGE_NIMFLAGS) $(HEAPTRACK_PARAMS)
 
 # build a docker image for the fleet
 docker-image: MAKE_TARGET ?= wakunode2
 docker-image: DOCKER_IMAGE_TAG ?= $(MAKE_TARGET)-$(GIT_VERSION)
 docker-image: DOCKER_IMAGE_NAME ?= statusteam/nim-waku:$(DOCKER_IMAGE_TAG)
-docker-image: DOCKER_IMAGE_TARGET ?= prod
 docker-image:
 	docker build \
 		--build-arg="MAKE_TARGET=$(MAKE_TARGET)" \
 		--build-arg="NIMFLAGS=$(DOCKER_IMAGE_NIMFLAGS)" \
 		--build-arg="EXPERIMENTAL=$(EXPERIMENTAL)" \
+		--build-arg="NIM_COMMIT_ARG=$(NIM_COMMIT_ARG)" \
 		--label="commit=$(GIT_VERSION)" \
-		--target $(DOCKER_IMAGE_TARGET) \
+		--target $(TARGET) \
 		--tag $(DOCKER_IMAGE_NAME) .
 
 docker-push:
