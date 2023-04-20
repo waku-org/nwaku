@@ -47,8 +47,11 @@ when defined(rln):
   import
     ../waku_rln_relay
 
-declarePublicGauge waku_version, "Waku version info (in git describe format)", ["version"]
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
+declarePublicHistogram waku_histogram_message_size, "message size histogram in kB",
+  buckets = [0.0, 5.0, 15.0, 50.0, 100.0, 300.0, 700.0, 1000.0, Inf]
+
+declarePublicGauge waku_version, "Waku version info (in git describe format)", ["version"]
 declarePublicGauge waku_node_errors, "number of wakunode errors", ["type"]
 declarePublicGauge waku_lightpush_peers, "number of lightpush peers"
 declarePublicGauge waku_filter_peers, "number of filter peers"
@@ -240,7 +243,10 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
       hash=topic.digest(msg).to0xHex(),
       receivedTime=getNowInNanosecondTime()
 
+    let msgSizeKB = msg.payload.len/1000
+
     waku_node_messages.inc(labelValues = ["relay"])
+    waku_histogram_message_size.observe(msgSizeKB)
 
   proc filterHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
     if node.wakuFilter.isNil():
