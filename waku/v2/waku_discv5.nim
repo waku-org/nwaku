@@ -16,7 +16,7 @@ import
   eth/p2p/discoveryv5/node,
   eth/p2p/discoveryv5/protocol
 import
-  ./utils/peers,
+  ./waku_core,
   ./waku_enr
 
 export protocol, waku_enr

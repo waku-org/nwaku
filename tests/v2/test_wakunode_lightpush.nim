@@ -11,7 +11,6 @@ import
   ../../waku/v2/waku_core,
   ../../waku/v2/waku_lightpush,
   ../../waku/v2/node/peer_manager,
-  ../../waku/v2/utils/peers,
   ../../waku/v2/waku_node,
   ./testlib/common,
   ./testlib/wakucore,

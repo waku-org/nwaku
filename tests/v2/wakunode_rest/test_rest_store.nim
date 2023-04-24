@@ -21,7 +21,6 @@ import
   ../../../waku/v2/waku_archive,
   ../../../waku/v2/waku_archive/driver/queue_driver,
   ../../../waku/v2/waku_store as waku_store,
-  ../../../waku/v2/utils/peers,
   ../../v2/testlib/common,
   ../../v2/testlib/wakucore,
   ../../v2/testlib/wakunode

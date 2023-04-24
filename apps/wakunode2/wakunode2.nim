@@ -46,7 +46,6 @@ import
   ../../waku/v2/waku_discv5,
   ../../waku/v2/waku_peer_exchange,
   ../../waku/v2/waku_relay/validators,
-  ../../waku/v2/utils/peers,
   ./wakunode2_setup_rest,
   ./wakunode2_setup_rpc,
   ./config

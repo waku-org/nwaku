@@ -14,13 +14,12 @@ import
   libp2p/protocols/pubsub/gossipsub
 import
   ../../../waku/common/sqlite,
-  ../../../waku/v2/node/peer_manager,
   ../../../waku/v2/waku_core,
+  ../../../waku/v2/node/peer_manager,
   ../../../waku/v2/waku_archive,
   ../../../waku/v2/waku_archive/driver/sqlite_driver,
   ../../../waku/v2/waku_store,
   ../../../waku/v2/waku_filter,
-  ../../../waku/v2/utils/peers,
   ../../../waku/v2/waku_node,
   ../testlib/common,
   ../testlib/wakucore,

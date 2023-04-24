@@ -4,14 +4,14 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables, sequtils, sets, options, times, math, strutils],
+  std/[tables, sequtils, sets, options, times, strutils],
   chronos,
   eth/p2p/discoveryv5/enr,
   libp2p/builders,
   libp2p/peerstore
 
 import
-  ../../utils/peers,
+  ../../waku_core,
   ../../../common/utils/sequence
 
 export peerstore, builders

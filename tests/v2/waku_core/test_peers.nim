@@ -7,14 +7,14 @@ import
   libp2p/peerid,
   libp2p/errors
 import
-  ../../waku/v2/utils/peers
+  ../../waku/v2/waku_core
 
-suite "Utils - Peers":
-  
+suite "Waku Core - Peers":
+
   test "Peer info parses correctly":
-    ## Given 
+    ## Given
     let address = "/ip4/127.0.0.1/tcp/65002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
-      
+
     ## When
     let remotePeerInfoRes = parsePeerInfo(address)
     require remotePeerInfoRes.isOk()
@@ -26,7 +26,7 @@ suite "Utils - Peers":
       $(remotePeerInfo.peerId) == "16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
       $(remotePeerInfo.addrs[0][0].tryGet()) == "/ip4/127.0.0.1"
       $(remotePeerInfo.addrs[0][1].tryGet()) == "/tcp/65002"
-    
+
   test "DNS multiaddrs parsing - dns peer":
     ## Given
     let address = "/dns/localhost/tcp/65012/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
@@ -46,7 +46,7 @@ suite "Utils - Peers":
   test "DNS multiaddrs parsing - dnsaddr peer":
     ## Given
     let address = "/dnsaddr/localhost/tcp/65022/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
-    
+
     ## When
     let dnsAddrPeerRes = parsePeerInfo(address)
     require dnsAddrPeerRes.isOk()
@@ -74,7 +74,7 @@ suite "Utils - Peers":
       $(dns4Peer.peerId) == "16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
       $(dns4Peer.addrs[0][0].tryGet()) == "/dns4/localhost"
       $(dns4Peer.addrs[0][1].tryGet()) == "/tcp/65032"
-  
+
   test "DNS multiaddrs parsing - dns6 peer":
     ## Given
     let address = "/dns6/localhost/tcp/65042/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
@@ -110,7 +110,7 @@ suite "Utils - Peers":
   test "Multiaddr parsing should fail with trailing whitespace":
     ## Given
     let address = "/ip4/127.0.0.1/tcp/65072/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc "
-    
+
     ## Then
     check:
       parsePeerInfo(address).isErr()
@@ -118,7 +118,7 @@ suite "Utils - Peers":
   test "Multiaddress parsing should fail with invalid IP address":
     ## Given
     let address = "/ip4/127.0.0.0.1/tcp/65082/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
-    
+
     ## Then
     check:
       parsePeerInfo(address).isErr()
@@ -126,7 +126,7 @@ suite "Utils - Peers":
   test "Multiaddress parsing should fail with no peer ID":
     ## Given
     let address = "/ip4/127.0.0.1/tcp/65092"
-    
+
     # Then
     check:
       parsePeerInfo(address).isErr()
@@ -134,7 +134,7 @@ suite "Utils - Peers":
   test "Multiaddress parsing should fail with unsupported transport":
     ## Given
     let address = "/ip4/127.0.0.1/udp/65102/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
-    
+
     ## Then
     check:
       parsePeerInfo(address).isErr()

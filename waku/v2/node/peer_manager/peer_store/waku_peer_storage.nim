@@ -11,8 +11,8 @@ import
   libp2p/protobuf/minprotobuf
 import
   ../../../../common/sqlite,
+  ../../../waku_core,
   ../waku_peer_store,
-  ../../../utils/peers,
   ./peer_storage
 
 export sqlite

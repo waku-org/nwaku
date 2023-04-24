@@ -38,7 +38,6 @@ import
   ../waku_dnsdisc,
   ../waku_discv5,
   ../waku_peer_exchange,
-  ../utils/peers,
   ./config,
   ./peer_manager,
   ./waku_switch

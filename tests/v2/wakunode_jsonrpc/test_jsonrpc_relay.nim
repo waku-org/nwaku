@@ -9,6 +9,7 @@ import
   json_rpc/[rpcserver, rpcclient]
 import
   ../../../waku/common/base64,
+  ../../../waku/v2/waku_core,
   ../../../waku/v2/node/peer_manager,
   ../../../waku/v2/node/message_cache,
   ../../../waku/v2/waku_node,
@@ -17,7 +18,6 @@ import
   ../../../waku/v2/waku_core,
   ../../../waku/v2/waku_relay,
   ../../../waku/v2/utils/compat,
-  ../../../waku/v2/utils/peers,
   ../testlib/common,
   ../testlib/wakucore,
   ../testlib/wakunode

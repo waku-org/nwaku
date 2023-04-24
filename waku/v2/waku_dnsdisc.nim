@@ -22,7 +22,7 @@ import
   libp2p/peerid,
   discovery/dnsdisc/client
 import
-  ./utils/peers
+  ./waku_core
 
 export client
 

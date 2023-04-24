@@ -10,6 +10,7 @@ import
   libp2p/crypto/crypto,
   json_rpc/[rpcserver, rpcclient]
 import
+  ../../../waku/v2/waku_core,
   ../../../waku/v2/node/peer_manager,
   ../../../waku/v2/waku_node,
   ../../../waku/v2/node/jsonrpc/admin/handlers as admin_api,
@@ -19,7 +20,6 @@ import
   ../../../waku/v2/waku_archive/driver/queue_driver,
   ../../../waku/v2/waku_store,
   ../../../waku/v2/waku_filter,
-  ../../../waku/v2/utils/peers,
   ../testlib/wakucore,
   ../testlib/wakunode
 

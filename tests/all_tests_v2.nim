@@ -4,7 +4,8 @@
 import
   ./v2/waku_core/test_namespaced_topics,
   ./v2/waku_core/test_time,
-  ./v2/waku_core/test_message_digest
+  ./v2/waku_core/test_message_digest,
+  ./v2/waku_core/test_peers
 
 
 # Waku archive test suite
@@ -50,7 +51,6 @@ import
   ./v2/test_wakunode_filter,
   ./v2/test_waku_peer_exchange,
   ./v2/test_peer_store_extended,
-  ./v2/test_utils_peers,
   ./v2/test_message_cache,
   ./v2/test_peer_manager,
   ./v2/test_peer_storage,

@@ -17,12 +17,11 @@ import
   libp2p/nameresolving/mockresolver,
   eth/p2p/discoveryv5/enr
 import
+  ../../waku/v2/waku_core,
   ../../waku/v2/waku_node,
   ../../waku/v2/node/peer_manager,
-  ../../waku/v2/waku_core,
   ../../waku/v2/waku_relay,
   ../../waku/v2/waku_peer_exchange,
-  ../../waku/v2/utils/peers,
   ./testlib/wakucore,
   ./testlib/wakunode
 
