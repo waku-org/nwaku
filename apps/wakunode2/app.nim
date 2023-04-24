@@ -37,10 +37,10 @@ import
   ../../waku/v2/waku_enr,
   ../../waku/v2/waku_discv5,
   ../../waku/v2/waku_peer_exchange,
-  ../../waku/v2/waku_relay/validators,
   ../../waku/v2/waku_store,
   ../../waku/v2/waku_lightpush,
   ../../waku/v2/waku_filter,
+  ./wakunode2_validator_signed,
   ./config
 import
   ../../waku/v2/node/message_cache,

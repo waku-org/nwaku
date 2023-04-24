@@ -248,8 +248,7 @@ suite "WakuNode - Relay":
 
     await allFutures(nodes.mapIt(it.stop()))
 
-  # TODO: Test multiple protected topics
-
+# TODO: move to app tests when ready
   asyncTest "Spam protected topic accepts signed messages":
     # Create 5 nodes
     let nodes = toSeq(0..<5).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
@@ -319,6 +318,7 @@ suite "WakuNode - Relay":
     # Stop all nodes
     await allFutures(nodes.mapIt(it.stop()))
 
+# TODO: move to app tests when ready
   asyncTest "Spam protected topic rejects non-signed and wrongly-signed messages":
     # Create 5 nodes
     let nodes = toSeq(0..<5).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
@@ -403,6 +403,7 @@ suite "WakuNode - Relay":
 
     await allFutures(nodes.mapIt(it.stop()))
 
+# TODO: move to app tests when ready
   asyncTest "Spam protected topic rejects a spammer node":
     # Create 5 nodes
     let nodes = toSeq(0..<5).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
