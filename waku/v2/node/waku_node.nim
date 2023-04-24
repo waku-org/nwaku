@@ -241,7 +241,8 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
       peerId=node.peerId,
       pubsubTopic=topic,
       hash=topic.digest(msg).to0xHex(),
-      receivedTime=getNowInNanosecondTime()
+      receivedTime=getNowInNanosecondTime(),
+      payloadSizeBytes=msg.payload.len
 
     let msgSizeKB = msg.payload.len/1000
 
