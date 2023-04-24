@@ -8,8 +8,8 @@ import
   libp2p/crypto/crypto,
   json_rpc/[rpcserver, rpcclient]
 import
-  ../../../waku/v2/node/peer_manager,
   ../../../waku/v2/waku_core,
+  ../../../waku/v2/node/peer_manager,
   ../../../waku/v2/waku_node,
   ../../../waku/v2/node/jsonrpc/store/handlers as store_api,
   ../../../waku/v2/node/jsonrpc/store/client as store_api_client,
@@ -17,7 +17,6 @@ import
   ../../../waku/v2/waku_archive/driver/queue_driver,
   ../../../waku/v2/waku_store,
   ../../../waku/v2/waku_store/rpc,
-  ../../../waku/v2/utils/peers,
   ../../v2/testlib/common,
   ../../v2/testlib/wakucore,
   ../../v2/testlib/wakunode

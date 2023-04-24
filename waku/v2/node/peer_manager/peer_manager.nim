@@ -13,8 +13,8 @@ import
   libp2p/muxers/muxer
 import
   ../../../common/nimchronos,
+  ../../waku_core,
   ../../waku_relay,
-  ../../utils/peers,
   ./peer_store/peer_storage,
   ./waku_peer_store
 

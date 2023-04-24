@@ -12,8 +12,8 @@ import
   libp2p/stream/connection,
   libp2p/crypto/crypto
 import
+  ../../waku/v2/waku_core,
   ../../waku/v2/waku_node,
-  ../../waku/v2/utils/peers,
   ./testlib/wakucore,
   ./testlib/wakunode
 

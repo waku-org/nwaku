@@ -7,8 +7,8 @@ else:
 import
   stew/results
 import
-  ../waku_peer_store,
-  ../../../utils/peers
+  ../../../waku_core,
+  ../waku_peer_store
 
 ## This module defines a peer storage interface. Implementations of
 ## PeerStorage are used to store and retrieve peers

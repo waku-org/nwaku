@@ -20,7 +20,6 @@ import
   ../../waku/v2/waku_core,
   ../../waku/v2/waku_node,
   ../../waku/v2/utils/compat,
-  ../../waku/v2/utils/peers,
   ../test_helpers
 
 import

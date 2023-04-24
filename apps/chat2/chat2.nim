@@ -33,7 +33,6 @@ import
   ../../waku/v2/node/waku_metrics,
   ../../waku/v2/node/peer_manager,
   ../../waku/v2/utils/compat,
-  ../../waku/v2/utils/peers,
   ../../waku/common/utils/nat,
   ./config_chat2
 

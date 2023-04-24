@@ -20,7 +20,6 @@ import
 import
   ../../waku/v2/waku_core,
   ../../waku/v2/node/peer_manager,
-  ../../waku/v2/utils/peers,
   ../../waku/v2/waku_node,
   ../../waku/v2/waku_relay,
   ../../waku/v2/waku_relay/validators,

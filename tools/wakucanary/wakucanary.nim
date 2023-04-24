@@ -11,8 +11,8 @@ import
   libp2p/multicodec
 import
   ../../waku/v2/node/peer_manager,
-  ../../waku/v2/waku_node,
-  ../../waku/v2/utils/peers
+  ../../waku/v2/waku_core,
+  ../../waku/v2/waku_node
 
 # protocols and their tag
 const ProtocolsTable = {
