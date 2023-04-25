@@ -280,6 +280,9 @@ suite "WakuNode - Relay":
         let connOk = await nodes[i].peerManager.connectRelay(nodes[j].switch.peerInfo.toRemotePeerInfo())
         require connOk
 
+    # Connection triggers different actions, wait for them
+    await sleepAsync(500.millis)
+
     var msgReceived = 0
     proc handler(pubsubTopic: PubsubTopic, data: WakuMessage) {.async, gcsafe.} =
       msgReceived += 1
@@ -301,7 +304,7 @@ suite "WakuNode - Relay":
         await nodes[i].publish(spamProtectedTopic, msg)
 
     # Wait for gossip
-    await sleepAsync(1.seconds)
+    await sleepAsync(2.seconds)
 
     # 50 messages were sent to 5 peers = 250 messages
     check:
@@ -353,6 +356,9 @@ suite "WakuNode - Relay":
     proc handler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       msgReceived += 1
 
+    # Connection triggers different actions, wait for them
+    await sleepAsync(500.millis)
+
     # Subscribe all nodes to the same topic/handler
     for node in nodes: node.wakuRelay.subscribe(spamProtectedTopic, handler)
     await sleepAsync(500.millis)
@@ -378,7 +384,7 @@ suite "WakuNode - Relay":
         await nodes[i].publish(spamProtectedTopic, unsignedMessage)
 
     # Wait for gossip
-    await sleepAsync(1.seconds)
+    await sleepAsync(2.seconds)
 
     # Since we have a full mesh with 5 nodes and each one publishes 50+50 msgs
     # there are 500 messages being sent.
@@ -442,6 +448,7 @@ suite "WakuNode - Relay":
         let connOk2 = await nodes[i].peerManager.connectRelay(nodes[j].switch.peerInfo.toRemotePeerInfo())
         require connOk2
 
+    # Connection triggers different actions, wait for them
     await sleepAsync(500.millis)
 
     # nodes[0] spams 50 non signed messages (nodes[0] just knows of nodes[1])
@@ -461,7 +468,7 @@ suite "WakuNode - Relay":
       await nodes[0].publish(spamProtectedTopic, msg)
 
     # Wait for gossip
-    await sleepAsync(1.seconds)
+    await sleepAsync(2.seconds)
 
     # only 100 messages are received (50 + 50) which demonstrate
     # nodes[1] doest gossip invalid messages.
