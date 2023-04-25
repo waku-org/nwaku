@@ -146,7 +146,7 @@ testcommon: | build deps
 #############
 ## Waku v2 ##
 #############
-.PHONY: testwaku2 wakunode2 example2 sim2 scripts2 wakubridge chat2 chat2bridge
+.PHONY: testwaku2 wakunode2 testwakunode2 example2 sim2 scripts2 wakubridge testbridge chat2 chat2bridge
 
 testwaku2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
@@ -155,6 +155,10 @@ testwaku2: | build deps librln
 wakunode2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakunode2 $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
+
+testwakunode2: | build deps librln
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim testwakunode2 $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
 
 example2: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
@@ -173,6 +177,10 @@ scripts2: | build deps wakunode2
 wakubridge: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim bridge $(NIM_PARAMS) waku.nims
+
+testbridge: | build deps librln
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim testbridge $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
 
 chat2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \

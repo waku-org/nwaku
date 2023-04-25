@@ -117,7 +117,7 @@ jobs:
           key: ${{ runner.os }}-nim-${{ steps.submodules.outputs.nim-hash }}
 
       - name: Run tests
-        run: make V=1 LOG_LEVEL=DEBUG test2
+        run: make V=1 LOG_LEVEL=DEBUG test2 testwakunode2
 
 
   build-legacy:
