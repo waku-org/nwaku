@@ -311,3 +311,61 @@ wrappers: | build deps librln libwaku.so
 		go build -ldflags "-linkmode external -extldflags '$(EXTRA_LIBS_DYNAMIC)'" -o build/go_wrapper_example wrappers/wrapper_example.go #wrappers/cfuncs.go
 
 endif # "variables.mk" was not included
+
+##############################################
+# Static Binaries for Multiple Architectures #
+##############################################
+
+MAKE_PID := $(shell echo $$PPID)
+JOB_FLAG := $(filter -j%, $(subst --jobs ,-j,$(subst --jobs=,-j,$(subst -j ,-j,$(shell ps T | grep "^\s*$(MAKE_PID).*$(MAKE)")))))
+JOBS := $(subst -j,,$(JOB_FLAG))
+ifneq ($(JOBS), )
+	JOBS := -j $(JOBS)
+endif
+
+ARCH :=amd64
+NWAKU_BASE_TAG := latest_
+#nwaku-base-20230502082624_arm64
+
+SHELL := /bin/bash
+
+static-arm64: ARCH :=arm64
+static-arm64:
+	set -x &&\
+	mkdir -p $${PWD}/vendor-$(ARCH) $${PWD}/build/$(ARCH) &&\
+	docker run -it --rm\
+	 -v $${PWD}:/home/user/nwaku:z\
+	 -v $${PWD}/vendor-arm64:/home/user/nwaku/vendor:z\
+	 -v $${PWD}/build/arm64:/home/user/nwaku/build:z\
+	 --workdir /home/user/nwaku\
+	 --user $$(id -u):$$(id -g)\
+	 nwaku:$(NWAKU_BASE_TAG)$(ARCH)\
+	 	$(JOBS)\
+	 	V=1\ 
+	 	LOG_LEVEL="TRACE"\
+	 	QUICK_AND_DIRTY_COMPILER=1\
+		NIMFLAGS="--cpu:arm64 --os:linux --gcc.exe:aarch64-alpine-linux-musl-gcc --gcc.linkerexe:aarch64-alpine-linux-musl-gcc --passL:-static"\
+		wakunode2
+
+static-amd64: ARCH :=amd64
+static-amd64:
+	set -x &&\
+	mkdir -p $${PWD}/vendor-$(ARCH) $${PWD}/build/$(ARCH) &&\
+	docker run -it --rm\
+	 -v $${PWD}:/home/user/nwaku:z\
+	 -v $${PWD}/vendor-amd64:/home/user/nwaku/vendor:z\
+	 -v $${PWD}/build/amd64:/home/user/nwaku/build:z\
+	 --workdir /home/user/nwaku\
+	 --user $$(id -u):$$(id -g)\
+	 nwaku:$(NWAKU_BASE_TAG)$(ARCH)\
+		$(JOBS)\
+	 	V=1\
+	 	LOG_LEVEL="TRACE"\
+	 	QUICK_AND_DIRTY_COMPILER=1\
+		NIMFLAGS="--cpu:amd64 --os:linux --gcc.exe:x86_64-alpine-linux-musl-gcc --gcc.linkerexe:x86_64-alpine-linux-musl-gcc --passL:-static"\
+		wakunode2
+
+static-all: static-arm64 static-amd64
+
+static-clean:
+	rm -rf build/arm64 build/amd64 vendor-arm64 vendor-amd64
