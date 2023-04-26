@@ -12,7 +12,9 @@ else:
 import std/[strformat, strutils, times, json, options, random]
 import confutils, chronicles, chronos, stew/shims/net as stewNet,
        eth/keys, bearssl, stew/[byteutils, results],
-       nimcrypto/pbkdf2
+       nimcrypto/pbkdf2,
+       metrics,
+       metrics/chronos_httpserver
 import libp2p/[switch,                   # manage transports, a single entry point for dialing and listening
                crypto/crypto,            # cryptographic functions
                stream/connection,        # create and close stream read / write connections
@@ -204,6 +206,24 @@ proc readNick(transp: StreamTransport): Future[string] {.async.} =
   stdout.write("Choose a nickname >> ")
   stdout.flushFile()
   return await transp.readLine()
+
+
+proc startMetricsServer(serverIp: ValidIpAddress, serverPort: Port): Result[MetricsHttpServerRef, string] =
+  info "Starting metrics HTTP server", serverIp= $serverIp, serverPort= $serverPort
+
+  let metricsServerRes = MetricsHttpServerRef.new($serverIp, serverPort)
+  if metricsServerRes.isErr():
+    return err("metrics HTTP server start failed: " & $metricsServerRes.error)
+
+  let server = metricsServerRes.value
+  try:
+    waitFor server.start()
+  except CatchableError:
+    return err("metrics HTTP server start failed: " & getCurrentExceptionMsg())
+
+  info "Metrics HTTP server started", serverIp= $serverIp, serverPort= $serverPort
+  ok(metricsServerRes.value)
+
 
 proc publish(c: Chat, line: string) =
   # First create a Chat2Message protobuf with this line of text
@@ -604,8 +624,10 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     startMetricsLog()
 
   if conf.metricsServer:
-    startMetricsServer(conf.metricsServerAddress,
-                       Port(conf.metricsServerPort + conf.portsShift))
+    let metricsServer = startMetricsServer(
+      conf.metricsServerAddress,
+      Port(conf.metricsServerPort + conf.portsShift)
+    )
 
 
   await chat.readWriteLoop()
