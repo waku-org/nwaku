@@ -4,7 +4,6 @@ else:
   {.push raises: [].}
 
 import
-  stew/shims/net,
   chronicles,
   chronos,
   metrics,
@@ -24,16 +23,6 @@ const LogInterval = 30.seconds
 logScope:
   topics = "waku node metrics"
 
-
-proc startMetricsServer*(serverIp: ValidIpAddress, serverPort: Port) =
-    info "Starting metrics HTTP server", serverIp= $serverIp, serverPort= $serverPort
-
-    try:
-      startMetricsHttpServer($serverIp, serverPort)
-    except Exception as e:
-      raiseAssert("Exception while starting metrics HTTP server: " & e.msg)
-
-    info "Metrics HTTP server started", serverIp= $serverIp, serverPort= $serverPort
 
 type
   # https://github.com/nim-lang/Nim/issues/17369

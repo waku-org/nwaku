@@ -15,7 +15,9 @@ import
   eth/keys,
   eth/net/nat,
   json_rpc/rpcserver,
-  presto
+  presto,
+  metrics,
+  metrics/chronos_httpserver
 import
   ../../waku/common/sqlite,
   ../../waku/v2/waku_core,
@@ -40,6 +42,18 @@ import
   ../../waku/v2/waku_lightpush,
   ../../waku/v2/waku_filter,
   ./config
+import
+  ../../waku/v2/node/message_cache,
+  ../../waku/v2/node/rest/server,
+  ../../waku/v2/node/rest/debug/handlers as rest_debug_api,
+  ../../waku/v2/node/rest/relay/handlers as rest_relay_api,
+  ../../waku/v2/node/rest/relay/topic_cache,
+  ../../waku/v2/node/rest/store/handlers as rest_store_api,
+  ../../waku/v2/node/jsonrpc/admin/handlers as rpc_admin_api,
+  ../../waku/v2/node/jsonrpc/debug/handlers as rpc_debug_api,
+  ../../waku/v2/node/jsonrpc/filter/handlers as rpc_filter_api,
+  ../../waku/v2/node/jsonrpc/relay/handlers as rpc_relay_api,
+  ../../waku/v2/node/jsonrpc/store/handlers as rpc_store_api
 
 when defined(rln):
   import ../../waku/v2/waku_rln_relay
@@ -66,6 +80,7 @@ type
 
     rpcServer: Option[RpcHttpServer]
     restServer: Option[RestServerRef]
+    metricsServer: Option[MetricsHttpServerRef]
 
   AppResult*[T] = Result[T, string]
 
@@ -713,17 +728,71 @@ proc startNode*(app: App): Future[AppResult[void]] {.async.} =
 
 ## Monitoring and external interfaces
 
-# TODO: Merge the `wakunode_setup_*.nim` files here. Once the encapsulating
-#  type (e.g., App) is implemented. Hold both servers instances to support
-#  a graceful shutdown.
-import
-  ./wakunode2_setup_rpc,
-  ./wakunode2_setup_rest
+proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNodeConf): AppResult[RestServerRef] =
+  let server = ? newRestHttpServer(address, port)
 
+  ## Debug REST API
+  installDebugApiHandlers(server.router, app.node)
 
-proc startMetricsServer(node: WakuNode, address: ValidIpAddress, port: uint16, portsShift: uint16): AppResult[void] =
-  startMetricsServer(address, Port(port + portsShift))
-  ok()
+  ## Relay REST API
+  if conf.relay:
+    let relayCache = TopicCache.init(capacity=conf.restRelayCacheCapacity)
+    installRelayApiHandlers(server.router, app.node, relayCache)
+
+  ## Store REST API
+  installStoreApiHandlers(server.router, app.node)
+
+  server.start()
+  info "Starting REST HTTP server", url = "http://" & $address & ":" & $port & "/"
+
+  ok(server)
+
+proc startRpcServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNodeConf): AppResult[RpcHttpServer] =
+  let ta = initTAddress(address, port)
+
+  var server: RpcHttpServer
+  try:
+    server = newRpcHttpServer([ta])
+  except CatchableError:
+    return err("failed to init JSON-RPC server: " & getCurrentExceptionMsg())
+
+  installDebugApiHandlers(app.node, server)
+
+  if conf.relay:
+    let relayMessageCache = rpc_relay_api.MessageCache.init(capacity=30)
+    installRelayApiHandlers(app.node, server, relayMessageCache)
+    if conf.rpcPrivate:
+      installRelayPrivateApiHandlers(app.node, server, relayMessageCache)
+
+  if conf.filternode != "":
+    let filterMessageCache = rpc_filter_api.MessageCache.init(capacity=30)
+    installFilterApiHandlers(app.node, server, filterMessageCache)
+
+  installStoreApiHandlers(app.node, server)
+
+  if conf.rpcAdmin:
+    installAdminApiHandlers(app.node, server)
+
+  server.start()
+  info "RPC Server started", address=ta
+
+  ok(server)
+
+proc startMetricsServer(serverIp: ValidIpAddress, serverPort: Port): AppResult[MetricsHttpServerRef] =
+  info "Starting metrics HTTP server", serverIp= $serverIp, serverPort= $serverPort
+
+  let metricsServerRes = MetricsHttpServerRef.new($serverIp, serverPort)
+  if metricsServerRes.isErr():
+    return err("metrics HTTP server start failed: " & $metricsServerRes.error)
+
+  let server = metricsServerRes.value
+  try:
+    waitFor server.start()
+  except CatchableError:
+    return err("metrics HTTP server start failed: " & getCurrentExceptionMsg())
+
+  info "Metrics HTTP server started", serverIp= $serverIp, serverPort= $serverPort
+  ok(server)
 
 proc startMetricsLogging(): AppResult[void] =
   startMetricsLog()
@@ -731,14 +800,14 @@ proc startMetricsLogging(): AppResult[void] =
 
 proc setupMonitoringAndExternalInterfaces*(app: var App): AppResult[void] =
   if app.conf.rpc:
-    let startRpcServerRes = startRpcServer(app.node, app.conf.rpcAddress, app.conf.rpcPort, app.conf.portsShift, app.conf)
+    let startRpcServerRes = startRpcServer(app, app.conf.rpcAddress, Port(app.conf.rpcPort + app.conf.portsShift), app.conf)
     if startRpcServerRes.isErr():
       error "6/7 Starting JSON-RPC server failed. Continuing in current state.", error=startRpcServerRes.error
     else:
       app.rpcServer = some(startRpcServerRes.value)
 
   if app.conf.rest:
-    let startRestServerRes = startRestServer(app.node, app.conf.restAddress, app.conf.restPort, app.conf.portsShift, app.conf)
+    let startRestServerRes = startRestServer(app, app.conf.restAddress, Port(app.conf.restPort + app.conf.portsShift), app.conf)
     if startRestServerRes.isErr():
       error "6/7 Starting REST server failed. Continuing in current state.", error=startRestServerRes.error
     else:
@@ -746,9 +815,11 @@ proc setupMonitoringAndExternalInterfaces*(app: var App): AppResult[void] =
 
 
   if app.conf.metricsServer:
-    let startMetricsServerRes = startMetricsServer(app.node, app.conf.metricsServerAddress, app.conf.metricsServerPort, app.conf.portsShift)
+    let startMetricsServerRes = startMetricsServer(app.conf.metricsServerAddress, Port(app.conf.metricsServerPort + app.conf.portsShift))
     if startMetricsServerRes.isErr():
       error "6/7 Starting metrics server failed. Continuing in current state.", error=startMetricsServerRes.error
+    else:
+      app.metricsServer = some(startMetricsServerRes.value)
 
   if app.conf.metricsLogging:
     let startMetricsLoggingRes = startMetricsLogging()
@@ -766,6 +837,9 @@ proc stop*(app: App): Future[void] {.async.} =
 
   if app.rpcServer.isSome():
     await app.rpcServer.get().stop()
+
+  if app.metricsServer.isSome():
+    await app.metricsServer.get().stop()
 
   if not app.node.isNil():
     await app.node.stop()
