@@ -483,25 +483,17 @@ procSuite "Peer Manager":
 
     # assert physical connections
     check:
-      nodes[0].peerManager.getNumConnections(Direction.In, WakuRelayCodec) == 0
-      nodes[0].peerManager.getNumConnections(Direction.Out, WakuRelayCodec) == 2
-      nodes[0].peerManager.getNumConnections(Direction.In, WakuFilterCodec) == 0
-      nodes[0].peerManager.getNumConnections(Direction.Out, WakuFilterCodec) == 2
+      nodes[0].peerManager.getNumConnections(WakuRelayCodec) == (0, 2)
+      nodes[0].peerManager.getNumConnections(WakuFilterCodec) == (0, 2)
 
-      nodes[1].peerManager.getNumConnections(Direction.In, WakuRelayCodec) == 1
-      nodes[1].peerManager.getNumConnections(Direction.Out, WakuRelayCodec) == 1
-      nodes[1].peerManager.getNumConnections(Direction.In, WakuFilterCodec) == 1
-      nodes[1].peerManager.getNumConnections(Direction.Out, WakuFilterCodec) == 0
+      nodes[1].peerManager.getNumConnections(WakuRelayCodec) == (1, 1)
+      nodes[1].peerManager.getNumConnections(WakuFilterCodec) == (1, 0)
 
-      nodes[2].peerManager.getNumConnections(Direction.In, WakuRelayCodec) == 2
-      nodes[2].peerManager.getNumConnections(Direction.Out, WakuRelayCodec) == 1
-      nodes[2].peerManager.getNumConnections(Direction.In, WakuFilterCodec) == 1
-      nodes[2].peerManager.getNumConnections(Direction.Out, WakuFilterCodec) == 1
+      nodes[2].peerManager.getNumConnections(WakuRelayCodec) == (2, 1)
+      nodes[2].peerManager.getNumConnections(WakuFilterCodec) == (1, 1)
 
-      nodes[3].peerManager.getNumConnections(Direction.In, WakuRelayCodec) == 1
-      nodes[3].peerManager.getNumConnections(Direction.Out, WakuRelayCodec) == 0
-      nodes[3].peerManager.getNumConnections(Direction.In, WakuFilterCodec) == 1
-      nodes[3].peerManager.getNumConnections(Direction.Out, WakuFilterCodec) == 0
+      nodes[3].peerManager.getNumConnections(WakuRelayCodec) == (1, 0)
+      nodes[3].peerManager.getNumConnections(WakuFilterCodec) == (1, 0)
 
   asyncTest "getNumStreams() returns expected number of connections per protocol":
     # Create 2 nodes
@@ -523,15 +515,11 @@ procSuite "Peer Manager":
       (await nodes[0].peerManager.dialPeer(pInfos[1], WakuFilterCodec)).isSome() == true
 
     check:
-      nodes[0].peerManager.getNumStreams(Direction.In, WakuRelayCodec) == 1
-      nodes[0].peerManager.getNumStreams(Direction.Out, WakuRelayCodec) == 1
-      nodes[0].peerManager.getNumStreams(Direction.In, WakuFilterCodec) == 0
-      nodes[0].peerManager.getNumStreams(Direction.Out, WakuFilterCodec) == 4
+      nodes[0].peerManager.getNumStreams(WakuRelayCodec) == (1, 1)
+      nodes[0].peerManager.getNumStreams(WakuFilterCodec) == (0, 4)
 
-      nodes[1].peerManager.getNumStreams(Direction.In, WakuRelayCodec) == 1
-      nodes[1].peerManager.getNumStreams(Direction.Out, WakuRelayCodec) == 1
-      nodes[1].peerManager.getNumStreams(Direction.In, WakuFilterCodec) == 4
-      nodes[1].peerManager.getNumStreams(Direction.Out, WakuFilterCodec) == 0
+      nodes[1].peerManager.getNumStreams(WakuRelayCodec) == (1, 1)
+      nodes[1].peerManager.getNumStreams(WakuFilterCodec) == (4, 0)
 
   test "selectPeer() returns the correct peer":
     # Valid peer id missing the last digit
