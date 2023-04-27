@@ -47,7 +47,53 @@ task testcommon, "Build & run common tests":
   test "all_tests_common", "-d:chronicles_log_level=WARN -d:chronosStrictException"
 
 
-### Whisper & Waku v1 tasks
+
+### Waku v2 tasks
+task wakunode2, "Build Waku v2 cli node":
+  let name = "wakunode2"
+  buildBinary name, "apps/wakunode2/", "-d:chronicles_log_level=TRACE"
+
+task bridge, "Build Waku v1 - v2 bridge":
+  let name = "wakubridge"
+  buildBinary name, "apps/wakubridge/", "-d:chronicles_log_level=TRACE"
+
+task wakucanary, "Build waku-canary tool":
+  let name = "wakucanary"
+  buildBinary name, "apps/wakucanary/", "-d:chronicles_log_level=TRACE"
+
+task networkmonitor, "Build network monitor tool":
+  let name = "networkmonitor"
+  buildBinary name, "apps/networkmonitor/", "-d:chronicles_log_level=TRACE"
+
+
+task test2, "Build & run Waku v2 tests":
+  test "all_tests_v2"
+
+task testwakunode2, "Build & run wakunode2 app tests":
+  test "all_tests_wakunode2"
+
+task testbridge, "Build & run wakubridge tests":
+  test "all_tests_wakubridge"
+
+
+task example2, "Build Waku v2 example":
+  buildBinary "publisher", "examples/v2/"
+  buildBinary "subscriber", "examples/v2/"
+
+task chat2, "Build example Waku v2 chat usage":
+  # NOTE For debugging, set debug level. For chat usage we want minimal log
+  # output to STDOUT. Can be fixed by redirecting logs to file (e.g.)
+  #buildBinary name, "examples/v2/", "-d:chronicles_log_level=WARN"
+
+  let name = "chat2"
+  buildBinary name, "apps/chat2/", "-d:chronicles_log_level=TRACE -d:chronicles_sinks=textlines[file] -d:ssl"
+
+task chat2bridge, "Build chat2bridge":
+  let name = "chat2bridge"
+  buildBinary name, "apps/chat2bridge/", "-d:chronicles_log_level=TRACE"
+
+
+### Legacy: Whisper & Waku v1 tasks
 task testwhisper, "Build & run Whisper tests":
   test "all_tests_whisper", "-d:chronicles_log_level=WARN -d:chronosStrictException"
 
@@ -67,60 +113,3 @@ task example1, "Build Waku v1 example":
 
 task test1, "Build & run Waku v1 tests":
   test "all_tests_v1", "-d:chronicles_log_level=WARN -d:chronosStrictException"
-
-
-### Waku v2 tasks
-task wakunode2, "Build Waku v2 cli node":
-  let name = "wakunode2"
-  buildBinary name, "apps/wakunode2/", "-d:chronicles_log_level=TRACE"
-
-task bridge, "Build Waku v1 - v2 bridge":
-  let name = "wakubridge"
-  buildBinary name, "apps/wakubridge/", "-d:chronicles_log_level=TRACE"
-
-
-task testwakunode2, "Build & run wakunode2 app tests":
-  test "all_tests_wakunode2"
-
-task testbridge, "Build & run wakubridge tests":
-  test "all_tests_wakubridge"
-
-task test2, "Build & run Waku v2 tests":
-  test "all_tests_v2"
-
-
-task sim2, "Build Waku v2 simulation tools":
-  buildBinary "quicksim2", "tools/simulation/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "start_network2", "tools/simulation/", "-d:chronicles_log_level=TRACE"
-
-task example2, "Build Waku v2 example":
-  buildBinary "publisher", "examples/v2/"
-  buildBinary "subscriber", "examples/v2/"
-
-task scripts2, "Build Waku v2 scripts":
-  buildBinary "rpc_publish", "tools/scripts/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "rpc_subscribe", "tools/scripts/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "rpc_subscribe_filter", "tools/scripts/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "rpc_query", "tools/scripts/", "-d:chronicles_log_level=DEBUG"
-  buildBinary "rpc_info", "tools/scripts/", "-d:chronicles_log_level=DEBUG"
-
-task chat2, "Build example Waku v2 chat usage":
-  # NOTE For debugging, set debug level. For chat usage we want minimal log
-  # output to STDOUT. Can be fixed by redirecting logs to file (e.g.)
-  #buildBinary name, "examples/v2/", "-d:chronicles_log_level=WARN"
-
-  let name = "chat2"
-  buildBinary name, "apps/chat2/", "-d:chronicles_log_level=TRACE -d:chronicles_sinks=textlines[file] -d:ssl"
-
-task chat2bridge, "Build chat2bridge":
-  let name = "chat2bridge"
-  buildBinary name, "apps/chat2bridge/", "-d:chronicles_log_level=TRACE"
-
-### Waku Tooling
-task wakucanary, "Build waku-canary tool":
-  let name = "wakucanary"
-  buildBinary name, "tools/wakucanary/", "-d:chronicles_log_level=TRACE"
-
-task networkmonitor, "Build network monitor tool":
-  let name = "networkmonitor"
-  buildBinary name, "tools/networkmonitor/", "-d:chronicles_log_level=TRACE"
