@@ -61,7 +61,9 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
     await node.start()
     await node.mountRelay()
     node.peerManager.start()
-    if not await node.startDiscv5():
+
+    let discv5Res = await node.startDiscv5()
+    if discv5Res.isErr():
       error "failed to start discv5"
       quit(1)
 
