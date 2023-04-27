@@ -166,7 +166,7 @@ testcommon: | build deps
 #############
 ## Waku v2 ##
 #############
-.PHONY: testwaku2 wakunode2 testwakunode2 example2 sim2 scripts2 wakubridge testbridge chat2 chat2bridge
+.PHONY: testwaku2 wakunode2 testwakunode2 example2 wakubridge testbridge chat2 chat2bridge
 
 testwaku2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
@@ -183,16 +183,6 @@ testwakunode2: | build deps librln
 example2: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim example2 $(NIM_PARAMS) waku.nims
-
-# TODO: Remove unused target
-sim2: | build deps wakunode2
-	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim sim2 $(NIM_PARAMS) waku.nims
-
-# TODO: Remove unused target
-scripts2: | build deps wakunode2
-	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim scripts2 $(NIM_PARAMS) waku.nims
 
 wakubridge: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
