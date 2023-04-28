@@ -4,7 +4,7 @@ This folder contains code related to Waku v1, both as a node and as a protocol.
 
 ## Introduction
 
-This is a Nim implementation of the Nim implementation of the [Waku v1 protocol](https://specs.vac.dev/waku/waku.html) and a cli application `wakunode` that allows you to run a Waku enabled node from command line.
+This is a Nim implementation of the Nim implementation of the [Waku v1 protocol](https://rfc.vac.dev/spec/6/) and a cli application `wakunode` that allows you to run a Waku enabled node from command line.
 
 For supported specification details see [here](#spec-support).
 
@@ -12,6 +12,8 @@ Additionally the original Whisper (EIP-627) protocol can also be enabled as can
 an experimental Whisper - Waku bridging option.
 
 The underlying transport protocol is [rlpx + devp2p](https://github.com/ethereum/devp2p/blob/master/rlpx.md) and the [nim-eth](https://github.com/status-im/nim-eth) implementation is used.
+
+⚠️ Note that Waku v1 development has been stopped, in favour of libp2p-based protocol Waku v2: [specs](https://rfc.vac.dev/spec/10/), [code](https://github.com/waku-org/nwaku/tree/master/waku/v2).
 
 ## How to Build & Run
 
