@@ -6,6 +6,7 @@ else:
 import
   chronicles,
   chronos,
+  metrics,
   stew/byteutils,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/protocols/pubsub/rpc/messages,
@@ -14,8 +15,10 @@ import
   secp256k1
 
 import
-  ./protocol,
-  ../waku_core
+  ../../waku/v2/waku_relay/protocol,
+  ../../waku/v2/waku_core
+
+declarePublicCounter waku_msg_validator_signed_outcome, "number of messages for each validation outcome", ["result"]
 
 # Application level message hash
 proc msgHash*(pubSubTopic: string, msg: WakuMessage): array[32, byte] =
@@ -27,8 +30,6 @@ proc msgHash*(pubSubTopic: string, msg: WakuMessage): array[32, byte] =
   ctx.update(msg.payload)
   ctx.update(msg.contentTopic.toBytes())
 
-  # TODO: Other fields?
-
   return ctx.finish()
 
 proc addSignedTopicValidator*(w: WakuRelay, topic: PubsubTopic, publicTopicKey: SkPublicKey) =
@@ -36,16 +37,16 @@ proc addSignedTopicValidator*(w: WakuRelay, topic: PubsubTopic, publicTopicKey: 
 
   proc validator(topic: string, message: messages.Message): Future[errors.ValidationResult] {.async.} =
     let msg = WakuMessage.decode(message.data)
+    var outcome = errors.ValidationResult.Reject
+
     if msg.isOk():
       let msgHash = SkMessage(topic.msgHash(msg.get))
       let recoveredSignature = SkSignature.fromRaw(msg.get.meta)
-      if recoveredSignature.isErr():
-        # TODO: add metrics for accept/reject
-        return errors.ValidationResult.Reject
-      if recoveredSignature.get.verify(msgHash, publicTopicKey):
-        return errors.ValidationResult.Accept
-      else:
-        return errors.ValidationResult.Reject
-    return errors.ValidationResult.Reject
+      if recoveredSignature.isOk():
+        if recoveredSignature.get.verify(msgHash, publicTopicKey):
+          outcome = errors.ValidationResult.Accept
+
+    waku_msg_validator_signed_outcome.inc(labelValues = [$outcome])
+    return outcome
 
   w.addValidator(topic, validator)
