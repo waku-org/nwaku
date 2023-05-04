@@ -4,6 +4,7 @@ else:
   {.push raises: [].}
 
 import
+  std/[math,times],
   chronicles,
   chronos,
   metrics,
@@ -14,6 +15,8 @@ import
   libp2p/protocols/pubsub/errors,
   nimcrypto/sha2,
   secp256k1
+
+const MessageWindowInSec = 5*60 # +- 5 minutes
 
 import
   ../../waku/v2/waku_relay/protocol,
@@ -35,6 +38,21 @@ proc msgHash*(pubSubTopic: string, msg: WakuMessage): array[32, byte] =
 
   return ctx.finish()
 
+proc withinTimeWindow*(msg: WakuMessage): bool =
+  # Returns true if the message timestamp is:
+  # abs(now - msg.timestamp) < MessageWindowInSec
+  let ts = msg.timestamp
+  let now = getNanosecondTime(getTime().toUnixFloat())
+  let window = getNanosecondTime(MessageWindowInSec)
+
+  if now > ts:
+    if now - ts < window:
+      return true
+  else:
+    if ts - now < window:
+      return true
+  return false
+
 proc addSignedTopicValidator*(w: WakuRelay, topic: PubsubTopic, publicTopicKey: SkPublicKey) =
   debug "adding validator to signed topic", topic=topic, publicTopicKey=publicTopicKey
 
@@ -44,11 +62,12 @@ proc addSignedTopicValidator*(w: WakuRelay, topic: PubsubTopic, publicTopicKey: 
 
     if msg.isOk():
       if msg.get.timestamp != 0:
-        let msgHash = SkMessage(topic.msgHash(msg.get))
-        let recoveredSignature = SkSignature.fromRaw(msg.get.meta)
-        if recoveredSignature.isOk():
-          if recoveredSignature.get.verify(msgHash, publicTopicKey):
-            outcome = errors.ValidationResult.Accept
+        if msg.get.withinTimeWindow():
+          let msgHash = SkMessage(topic.msgHash(msg.get))
+          let recoveredSignature = SkSignature.fromRaw(msg.get.meta)
+          if recoveredSignature.isOk():
+            if recoveredSignature.get.verify(msgHash, publicTopicKey):
+              outcome = errors.ValidationResult.Accept
 
     waku_msg_validator_signed_outcome.inc(labelValues = [$outcome])
     return outcome

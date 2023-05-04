@@ -164,15 +164,33 @@ suite "WakuNode2 - Validators":
           version: 2, timestamp: 0, ephemeral: true)
         await nodes[i].publish(spamProtectedTopic, unsignedMessage)
 
+    # Each node sends 10 messages way BEFORE than the current timestmap (total = 50)
+    for i in 0..<5:
+      for j in 0..<10:
+        let beforeTimestamp = now() - getNanosecondTime(6*60)
+        let unsignedMessage = WakuMessage(
+          payload: urandom(1*(10^3)), contentTopic: spamProtectedTopic,
+          version: 2, timestamp: beforeTimestamp, ephemeral: true)
+        await nodes[i].publish(spamProtectedTopic, unsignedMessage)
+
+    # Each node sends 10 messages way LATER than the current timestmap (total = 50)
+    for i in 0..<5:
+      for j in 0..<10:
+        let afterTimestamp = now() - getNanosecondTime(6*60)
+        let unsignedMessage = WakuMessage(
+          payload: urandom(1*(10^3)), contentTopic: spamProtectedTopic,
+          version: 2, timestamp: afterTimestamp, ephemeral: true)
+        await nodes[i].publish(spamProtectedTopic, unsignedMessage)
+
     # Wait for gossip
     await sleepAsync(2.seconds)
 
-    # Since we have a full mesh with 5 nodes and each one publishes 50+50+50 msgs
-    # there are 750 messages being sent.
-    # 150 are received ok in the handler (first hop)
-    # 600 are are wrong so rejected (rejected not relayed)
+    # Since we have a full mesh with 5 nodes and each one publishes 50+50+50+50+50 msgs
+    # there are 1250 messages being sent.
+    # 250 are received ok in the handler (first hop)
+    # 1000 are are wrong so rejected (rejected not relayed)
     check:
-      msgReceived == 150
+      msgReceived == 250
 
     var msgRejected = 0
     for i in 0..<5:
@@ -180,7 +198,7 @@ suite "WakuNode2 - Validators":
         msgRejected += v.topicInfos[spamProtectedTopic].invalidMessageDeliveries.int
 
     check:
-      msgRejected == 600
+      msgRejected == 1000
 
     await allFutures(nodes.mapIt(it.stop()))
 
