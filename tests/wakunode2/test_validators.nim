@@ -263,3 +263,35 @@ suite "WakuNode2 - Validators":
 
     # Stop all nodes
     await allFutures(nodes.mapIt(it.stop()))
+
+  asyncTest "Tests vectors":
+    # keys
+    let privateKey = "5526a8990317c9b7b58d07843d270f9cd1d9aaee129294c1c478abf7261dd9e6"
+    let publicKey = "049c5fac802da41e07e6cdf51c3b9a6351ad5e65921527f2df5b7d59fd9b56ab02bab736cdcfc37f25095e78127500da371947217a8cd5186ab890ea866211c3f6"
+
+    # message
+    let contentTopic = "content-topic"
+    let pubsubTopic = "pubsub-topic"
+    let payload = "1A12E077D0E89F9CAC11FBBB6A676C86120B5AD3E248B1F180E98F15EE43D2DFCF62F00C92737B2FF6F59B3ABA02773314B991C41DC19ADB0AD8C17C8E26757B"
+
+    # expected values
+    let expectedMsgAppHash = "0914369D6D0C13783A8E86409FE42C68D8E8296456B9A9468C845006BCE5B9B2"
+    let expectedSignature = "B139487797A242291E0DD3F689777E559FB749D565D55FF202C18E24F21312A555043437B4F808BB0D21D542D703873DC712D76A3BAF1C5C8FF754210D894AD4"
+
+    let secretKey = SkSecretKey.fromHex(privateKey).expect("valid key")
+
+    check:
+      secretKey.toPublicKey().toHex() == publicKey
+      secretKey.toHex() == privateKey
+
+    var msg = WakuMessage(
+          payload: payload.fromHex(), contentTopic: contentTopic,
+          version: 2, timestamp: now(), ephemeral: true)
+
+    let msgAppHash = pubsubTopic.msgHash(msg)
+    let signature = secretKey.sign(SkMessage(msgAppHash)).toRaw()
+
+    check:
+      msgAppHash.toHex() == expectedMsgAppHash
+      signature.toHex() == expectedSignature
+
