@@ -32,7 +32,7 @@ suite "Wakunode2 - App":
     ## Given
     let conf = defaultTestWakuNodeConf()
 
-    var wakunode2 = App.init(rng(), conf)
+    var wakunode2 = App.new(rng(), conf)
 
     ## When
     let version = wakunode2.version
@@ -48,7 +48,7 @@ suite "Wakunode2 - App initialization":
     var conf = defaultTestWakuNodeConf()
     conf.peerPersistence = true
 
-    var wakunode2 = App.init(rng(), conf)
+    var wakunode2 = App.new(rng(), conf)
 
     ## When
     let res = wakunode2.setupPeerPersistence()
@@ -61,7 +61,7 @@ suite "Wakunode2 - App initialization":
     let conf = defaultTestWakuNodeConf()
 
     ## When
-    var wakunode2 = App.init(rng(), conf)
+    var wakunode2 = App.new(rng(), conf)
     require wakunode2.setupPeerPersistence().isOk()
     require wakunode2.setupWakuArchive().isOk()
     require wakunode2.setupDyamicBootstrapNodes().isOk()
