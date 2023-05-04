@@ -8,6 +8,7 @@ import
   chronos,
   metrics,
   stew/byteutils,
+  stew/endians2,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/errors,
@@ -29,6 +30,8 @@ proc msgHash*(pubSubTopic: string, msg: WakuMessage): array[32, byte] =
   ctx.update(pubsubTopic.toBytes())
   ctx.update(msg.payload)
   ctx.update(msg.contentTopic.toBytes())
+  ctx.update(msg.timestamp.uint64.toBytes(Endianness.littleEndian))
+  ctx.update(if msg.ephemeral: @[1.byte] else: @[0.byte])
 
   return ctx.finish()
 
@@ -40,11 +43,12 @@ proc addSignedTopicValidator*(w: WakuRelay, topic: PubsubTopic, publicTopicKey: 
     var outcome = errors.ValidationResult.Reject
 
     if msg.isOk():
-      let msgHash = SkMessage(topic.msgHash(msg.get))
-      let recoveredSignature = SkSignature.fromRaw(msg.get.meta)
-      if recoveredSignature.isOk():
-        if recoveredSignature.get.verify(msgHash, publicTopicKey):
-          outcome = errors.ValidationResult.Accept
+      if msg.get.timestamp != 0:
+        let msgHash = SkMessage(topic.msgHash(msg.get))
+        let recoveredSignature = SkSignature.fromRaw(msg.get.meta)
+        if recoveredSignature.isOk():
+          if recoveredSignature.get.verify(msgHash, publicTopicKey):
+            outcome = errors.ValidationResult.Accept
 
     waku_msg_validator_signed_outcome.inc(labelValues = [$outcome])
     return outcome
