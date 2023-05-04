@@ -20,7 +20,7 @@ import
 
 declarePublicCounter waku_msg_validator_signed_outcome, "number of messages for each validation outcome", ["result"]
 
-# Application level message hash
+# Application level message hash
 proc msgHash*(pubSubTopic: string, msg: WakuMessage): array[32, byte] =
   var ctx: sha256
   ctx.init()
