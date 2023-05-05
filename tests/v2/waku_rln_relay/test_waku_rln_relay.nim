@@ -152,10 +152,16 @@ suite "Waku rln relay":
     let rlnInstance = createRLNInstance()
     require:
       rlnInstance.isOk()
+    # generate an identity credential
+    let rln = rlnInstance.get()
+    let idCredentialRes = rln.membershipKeyGen()
+    require:
+      idCredentialRes.isOk()
+      rln.insertMember(idCredentialRes.get().idCommitment)
 
     # delete the first member
     let deletedMemberIndex = MembershipIndex(0)
-    let deletionSuccess = deleteMember(rlnInstance.get(), deletedMemberIndex)
+    let deletionSuccess = rln.deleteMember(deletedMemberIndex)
     check:
       deletionSuccess
 
@@ -191,6 +197,11 @@ suite "Waku rln relay":
     require:
       rlnInstance.isOk()
     let rln = rlnInstance.get()
+
+    let idCredentialRes = rln.membershipKeyGen()
+    require:
+      idCredentialRes.isOk()
+      rln.insertMember(idCredentialRes.get().idCommitment)
     check:
       rln.removeMember(MembershipIndex(0))
 
