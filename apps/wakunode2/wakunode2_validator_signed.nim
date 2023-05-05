@@ -45,12 +45,8 @@ proc withinTimeWindow*(msg: WakuMessage): bool =
   let now = getNowInNanosecondTime()
   let window = getNanosecondTime(MessageWindowInSec)
 
-  if now > ts:
-    if now - ts < window:
-      return true
-  else:
-    if ts - now < window:
-      return true
+  if abs(now - ts) < window:
+    return true
   return false
 
 proc addSignedTopicValidator*(w: WakuRelay, topic: PubsubTopic, publicTopicKey: SkPublicKey) =
