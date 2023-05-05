@@ -59,7 +59,7 @@ proc createRLNInstanceLocal*(d: int = MerkleTreeDepth): RLNResult =
   var
     rlnInstance: ptr RLN
     merkleDepth: csize_t = uint(d)
-    resourcesPathBuffer = RlnResourceFolder.toOpenArrayByte(0, RlnResourceFolder.high).toBuffer()
+    resourcesPathBuffer = RlnConfig.toOpenArrayByte(0, RlnConfig.high).toBuffer()
 
   # create an instance of RLN
   let res = new_circuit(merkleDepth, addr resourcesPathBuffer, addr rlnInstance)

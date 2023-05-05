@@ -1,8 +1,10 @@
 import
+  std/json
   stint
 
 import
   ../waku_keystore
+
 
 # Acceptable roots for merkle root validation of incoming messages
 const AcceptableRootWindowSize* = 5
@@ -28,7 +30,7 @@ const
 const
   # The relative folder where the circuit, proving and verification key for RLN can be found
   # Note that resources has to be compiled with respect to the above MerkleTreeDepth
-  RlnResourceFolder* = "tree_height_" & $MerkleTreeDepth & "/"
+  RlnConfig* = $(%* { "resources_folder": "tree_height_" & $MerkleTreeDepth & "/" })
 
 # temporary variables to test waku-rln-relay performance in the static group mode
 const
