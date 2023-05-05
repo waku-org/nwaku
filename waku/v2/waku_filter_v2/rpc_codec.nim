@@ -55,8 +55,8 @@ proc encode*(rpc: FilterSubscribeResponse): ProtoBuffer =
   var pb = initProtoBuffer()
 
   pb.write3(1, rpc.requestId)
-  pb.write3(2, rpc.statusCode)
-  pb.write3(3, rpc.statusDesc)
+  pb.write3(10, rpc.statusCode)
+  pb.write3(11, rpc.statusDesc)
 
   pb
 
@@ -67,11 +67,11 @@ proc decode*(T: type FilterSubscribeResponse, buffer: seq[byte]): ProtobufResult
   if not ?pb.getField(1, rpc.requestId):
     return err(ProtobufError.missingRequiredField("request_id"))
 
-  if not ?pb.getField(2, rpc.statusCode):
+  if not ?pb.getField(10, rpc.statusCode):
     return err(ProtobufError.missingRequiredField("status_code"))
 
   var statusDesc: string
-  if not ?pb.getField(3, statusDesc):
+  if not ?pb.getField(11, statusDesc):
     rpc.statusDesc = none(string)
   else:
     rpc.statusDesc = some(statusDesc)
