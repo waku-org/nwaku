@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[math,times],
+  std/math,
   chronicles,
   chronos,
   metrics,
@@ -42,7 +42,7 @@ proc withinTimeWindow*(msg: WakuMessage): bool =
   # Returns true if the message timestamp is:
   # abs(now - msg.timestamp) < MessageWindowInSec
   let ts = msg.timestamp
-  let now = getNanosecondTime(getTime().toUnixFloat())
+  let now = getNowInNanosecondTime()
   let window = getNanosecondTime(MessageWindowInSec)
 
   if now > ts:
