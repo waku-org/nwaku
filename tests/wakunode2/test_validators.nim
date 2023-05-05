@@ -92,7 +92,7 @@ suite "WakuNode2 - Validators":
     # Stop all nodes
     await allFutures(nodes.mapIt(it.stop()))
 
-  asyncTest "Spam protected topic rejects non-signed and wrongly-signed messages":
+  asyncTest "Spam protected topic rejects non-signed/wrongly-signed/no-timestamp messages":
     # Create 5 nodes
     let nodes = toSeq(0..<5).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
 
@@ -156,15 +156,41 @@ suite "WakuNode2 - Validators":
           version: 2, timestamp: now(), ephemeral: true)
         await nodes[i].publish(spamProtectedTopic, unsignedMessage)
 
+    # Each node sends 10 messages that dont contain timestamp (total = 50)
+    for i in 0..<5:
+      for j in 0..<10:
+        let unsignedMessage = WakuMessage(
+          payload: urandom(1*(10^3)), contentTopic: spamProtectedTopic,
+          version: 2, timestamp: 0, ephemeral: true)
+        await nodes[i].publish(spamProtectedTopic, unsignedMessage)
+
+    # Each node sends 10 messages way BEFORE than the current timestmap (total = 50)
+    for i in 0..<5:
+      for j in 0..<10:
+        let beforeTimestamp = now() - getNanosecondTime(6*60)
+        let unsignedMessage = WakuMessage(
+          payload: urandom(1*(10^3)), contentTopic: spamProtectedTopic,
+          version: 2, timestamp: beforeTimestamp, ephemeral: true)
+        await nodes[i].publish(spamProtectedTopic, unsignedMessage)
+
+    # Each node sends 10 messages way LATER than the current timestmap (total = 50)
+    for i in 0..<5:
+      for j in 0..<10:
+        let afterTimestamp = now() - getNanosecondTime(6*60)
+        let unsignedMessage = WakuMessage(
+          payload: urandom(1*(10^3)), contentTopic: spamProtectedTopic,
+          version: 2, timestamp: afterTimestamp, ephemeral: true)
+        await nodes[i].publish(spamProtectedTopic, unsignedMessage)
+
     # Wait for gossip
     await sleepAsync(2.seconds)
 
-    # Since we have a full mesh with 5 nodes and each one publishes 50+50 msgs
-    # there are 500 messages being sent.
-    # 100 are received ok in the handler (first hop)
-    # 400 are are wrong so rejected (rejected not relayed)
+    # Since we have a full mesh with 5 nodes and each one publishes 50+50+50+50+50 msgs
+    # there are 1250 messages being sent.
+    # 250 are received ok in the handler (first hop)
+    # 1000 are are wrong so rejected (rejected not relayed)
     check:
-      msgReceived == 100
+      msgReceived == 250
 
     var msgRejected = 0
     for i in 0..<5:
@@ -172,7 +198,7 @@ suite "WakuNode2 - Validators":
         msgRejected += v.topicInfos[spamProtectedTopic].invalidMessageDeliveries.int
 
     check:
-      msgRejected == 400
+      msgRejected == 1000
 
     await allFutures(nodes.mapIt(it.stop()))
 
@@ -273,10 +299,12 @@ suite "WakuNode2 - Validators":
     let contentTopic = "content-topic"
     let pubsubTopic = "pubsub-topic"
     let payload = "1A12E077D0E89F9CAC11FBBB6A676C86120B5AD3E248B1F180E98F15EE43D2DFCF62F00C92737B2FF6F59B3ABA02773314B991C41DC19ADB0AD8C17C8E26757B"
+    let timestamp = 1683208172339052800
+    let ephemeral = true
 
     # expected values
-    let expectedMsgAppHash = "0914369D6D0C13783A8E86409FE42C68D8E8296456B9A9468C845006BCE5B9B2"
-    let expectedSignature = "B139487797A242291E0DD3F689777E559FB749D565D55FF202C18E24F21312A555043437B4F808BB0D21D542D703873DC712D76A3BAF1C5C8FF754210D894AD4"
+    let expectedMsgAppHash = "662F8C20A335F170BD60ABC1F02AD66F0C6A6EE285DA2A53C95259E7937C0AE9"
+    let expectedSignature = "127FA211B2514F0E974A055392946DC1A14052182A6ABEFB8A6CD7C51DA1BF2E40595D28EF1A9488797C297EED3AAC45430005FB3A7F037BDD9FC4BD99F59E63"
 
     let secretKey = SkSecretKey.fromHex(privateKey).expect("valid key")
 
@@ -286,7 +314,7 @@ suite "WakuNode2 - Validators":
 
     var msg = WakuMessage(
           payload: payload.fromHex(), contentTopic: contentTopic,
-          version: 2, timestamp: now(), ephemeral: true)
+          version: 2, timestamp: timestamp, ephemeral: ephemeral)
 
     let msgAppHash = pubsubTopic.msgHash(msg)
     let signature = secretKey.sign(SkMessage(msgAppHash)).toRaw()
@@ -294,4 +322,3 @@ suite "WakuNode2 - Validators":
     check:
       msgAppHash.toHex() == expectedMsgAppHash
       signature.toHex() == expectedSignature
-

@@ -29,7 +29,7 @@ type WakuMessage* = object
     # Number to discriminate different types of payload encryption.
     # Compatibility with Whisper/WakuV1.
     version*: uint32
-    # Sender generated timestamp. Deprecated. Superseded by `meta` attribute.
+    # Sender generated timestamp.
     timestamp*: Timestamp
     # The ephemeral attribute indicates signifies the transient nature of the
     # message (if the message should be stored).
