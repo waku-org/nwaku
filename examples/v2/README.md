@@ -4,7 +4,7 @@ TODO
 
 # publisher/subscriber
 
-Within `examples/v2` you can find a `publisher` and a `subscriber`. The first one publises messages to the default pubsub topic to a given content topic, and the second one runs forever listening to that pubsub topic and printing the content it receives.
+Within `examples/v2` you can find a `publisher` and a `subscriber`. The first one publishes messages to the default pubsub topic on a given content topic, and the second one runs forever listening to that pubsub topic and printing the content it receives.
 
 **Some notes:**
 * These examples are meant to work even in if you are behind a firewall and you can't be discovered by discv5.
@@ -32,3 +32,33 @@ And run a publisher
 ```
 
 See how the subscriber received the messages published by the publisher. Feel free to experiment from different machines in different locations.
+
+# resource-restricted publisher/subscriber (lightpush/filter)
+
+To illustrate publishing and receiving messages on a resource-restricted client,
+`examples/v2` also provides a `lightpush_publisher` and a `filter_subscriber`.
+The `lightpush_publisher` continually publishes messages via a lightpush service node
+to the default pubsub topic on a given content topic.
+The `filter_subscriber` subscribes via a filter service node
+to the same pubsub and content topic.
+It runs forever, maintaining this subscription
+and printing the content it receives.
+
+**compile and run:**
+
+Wait until the filter subscriber is ready.
+```console
+./env.sh bash
+nim c -r examples/v2/filter_subscriber.nim
+```
+
+And run a lightpush publisher
+```console
+./env.sh bash
+nim c -r examples/v2/lightpush_publisher.nim
+```
+
+See how the filter subscriber receives messages published by the lightpush publisher.
+Neither the publisher nor the subscriber participates in `relay`,
+but instead make use of service nodes to save resources.
+Feel free to experiment from different machines in different locations.
