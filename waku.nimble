@@ -53,12 +53,9 @@ proc test(name: string, params = "-d:chronicles_log_level=DEBUG", lang = "c") =
   buildBinary name, "tests/", params
   exec "build/" & name
 
-
 ### Waku common tasks
 task testcommon, "Build & run common tests":
   test "all_tests_common", "-d:chronicles_log_level=WARN -d:chronosStrictException"
-
-
 
 ### Waku v2 tasks
 task wakunode2, "Build Waku v2 cli node":
@@ -77,7 +74,6 @@ task networkmonitor, "Build network monitor tool":
   let name = "networkmonitor"
   buildBinary name, "apps/networkmonitor/", "-d:chronicles_log_level=TRACE"
 
-
 task test2, "Build & run Waku v2 tests":
   test "all_tests_v2"
 
@@ -86,7 +82,6 @@ task testwakunode2, "Build & run wakunode2 app tests":
 
 task testbridge, "Build & run wakubridge tests":
   test "all_tests_wakubridge"
-
 
 task example2, "Build Waku v2 example":
   buildBinary "publisher", "examples/v2/"
@@ -104,12 +99,10 @@ task chat2bridge, "Build chat2bridge":
   let name = "chat2bridge"
   buildBinary name, "apps/chat2bridge/", "-d:chronicles_log_level=TRACE"
 
-
 ### C Bindings
-task libcwakuv2, "Build cbindings":
-  let name = "cwakuv2"
-  buildLibrary name, "cbindings/v2/", "-d:chronicles_log_level=TRACE"
-
+task libwaku, "Build the cbindings waku node library":
+  let name = "waku"
+  buildLibrary name, "library/", "-d:chronicles_log_level=TRACE"
 
 ### Legacy: Whisper & Waku v1 tasks
 task testwhisper, "Build & run Whisper tests":

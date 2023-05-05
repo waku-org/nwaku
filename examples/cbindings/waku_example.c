@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <stdint.h>
 
-#include "cwakuv2.h"
+#include "libwaku.h"
 
 // Keep a global string to store the waku call responses
 static NimStringDesc wakuString;
@@ -156,15 +156,15 @@ int main(int argc, char** argv) {
     waku_default_pubsub_topic(&mResp);
 
     printf("Default pubsub topic: [%s]\n", mResp->data);
-    printf("Git Version: [%s]\n", show_version());
+    printf("Git Version: [%s]\n", waku_version());
     printf("Config file: [%s]\n", args.configFilePath);
 
-    init(args.configFilePath);
+    waku_new(args.configFilePath);
     waku_set_event_callback(event_handler);
     waku_relay_subscribe("another_pubsub_topic", &mResp);
     // waku_relay_unsubscribe("another_pubsub_topic", &mResp);
 
     printf("Waku Relay subscription response: [%s]\n", mResp->data);
 
-    start_node();
+    waku_start();
 }

@@ -283,25 +283,25 @@ docker-push:
 ################
 ## C Bindings ##
 ################
-.PHONY: cbindings cwakuv2example
+.PHONY: cbindings cwaku_example libwaku.a
 
-libcwakuv2.a: | build deps
+libwaku.a: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim libcwakuv2 $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims && \
-		cp nimcache/release/cwakuv2/cwakuv2.h ./examples/v2/cbindings/
+		$(ENV_SCRIPT) nim libwaku $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
 
-libcwakuv2.so: | build deps
+libwaku.so: | build deps
 # TODO: pending to enhance this part. Kindly use the static approach.
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim c --app:lib --opt:size --noMain --header -o:build/$@ library/cwakunode2.nim
+		$(ENV_SCRIPT) nim c --app:lib --opt:size --noMain --header -o:build/$@ library/cwakunode.nim
 
-cbindings: | build libcwakuv2.a
+cbindings: | build libwaku.a
 
-cwakuv2example: | build cbindings
+cwaku_example: | build cbindings
 	echo -e $(BUILD_MSG) "build/$@" && \
-		cc -o build/cwakuv2example \
-		./examples/v2/cbindings/cwakuv2example.c \
-		-lcwakuv2 -Lbuild/ -pthread -ldl -lm \
+		cp nimcache/release/libwaku/libwaku.h ./examples/cbindings/ && \
+		cc -o "build/$@" \
+		./examples/cbindings/waku_example.c \
+		-lwaku -Lbuild/ -pthread -ldl -lm \
 		-lminiupnpc -Lvendor/nim-nat-traversal/vendor/miniupnp/miniupnpc/build/ \
 		-lnatpmp -Lvendor/nim-nat-traversal/vendor/libnatpmp-upstream/ \
 		vendor/nim-libbacktrace/libbacktrace_wrapper.o \

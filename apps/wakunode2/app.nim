@@ -749,7 +749,6 @@ proc unsubscribeAllCallbackFromTopic*(app: App, pubSubTopic: cstring) {.gcsafe.}
   app.node.wakuRelay.unsubscribeAll(PubsubTopic($pubSubTopic))
 
 proc publishMessage*(app: App, pubSubTopic: cstring, message: WakuMessage): Future[int] {.gcsafe, async.} =
-  # Returns the number of peers connected to the given pubSubTopic.
   return await app.node.wakuRelay.publish(PubsubTopic($pubSubTopic), message)
 
 ## Monitoring and external interfaces

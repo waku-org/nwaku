@@ -12,6 +12,11 @@ import
   ../../apps/wakunode2/wakunode2,
   events/[json_error_event,json_message_event,json_signal_event]
 
+
+################################################################################
+### Wrapper around the waku node
+################################################################################
+
 ################################################################################
 ### Not exported components
 
@@ -55,7 +60,7 @@ proc errResp(message: string): string =
 ################################################################################
 ### Exported components
 
-proc show_version(): cstring {.dynlib, exportc.} =
+proc waku_version(): cstring {.dynlib, exportc.} =
   return wakuNode2VersionString
 
 proc waku_set_event_callback(callback: EventCallback) {.dynlib, exportc.} =
@@ -134,10 +139,10 @@ proc waku_relay_publish(pubSubTopic: cstring,
   else:
     jsonResp = errResp("Timeout expired")
 
-proc init(config_file: cstring) {.dynlib, exportc.} =
+proc waku_new(config_file: cstring) {.dynlib, exportc.} =
   wakunode2.init($config_file)
 
-proc start_node() {.dynlib, exportc.} =
+proc waku_start() {.dynlib, exportc.} =
   wakunode2.startNode()
 
 proc waku_relay_subscribe(pubSubTopic: cstring, jsonResp: var string) {.dynlib, exportc.} =
