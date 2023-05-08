@@ -37,7 +37,8 @@ proc decode*(T: type FilterSubscribeRequest, buffer: seq[byte]): ProtobufResult[
 
   var filterSubscribeType: uint32
   if not ?pb.getField(2, filterSubscribeType):
-    return err(ProtobufError.missingRequiredField("filter_subscribe_type"))
+    # Revert to ping by default if not set
+    rpc.filterSubscribeType = FilterSubscribeType.SUBSCRIBER_PING
   else:
     rpc.filterSubscribeType = FilterSubscribeType(filterSubscribeType)
 
