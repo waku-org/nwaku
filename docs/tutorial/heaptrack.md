@@ -50,7 +50,8 @@ This is to force the `nimbus-build-system` to use the Nim compiler that points a
 
 ### Create nwaku memory report with heaptrack
 
-nwaku only works correctly with heaptrack operating in 'preload' mode, i.e. the memory is tracked from the beginning. To achive this, the `heaptrack` binary should be prepended to the usual `wakunode`:
+nwaku only works correctly with heaptrack operating in 'preload' mode, i.e. the memory is tracked from the beginning.
+To achieve this, the `heaptrack` binary should be prepended to the usual `wakunode`:
 
 e.g.:
 `<base_heaptrack_folder>/build/bin/heaptrack <base_nwaku_folder>/build/wakunode2 ...`
