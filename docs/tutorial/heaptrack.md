@@ -37,7 +37,7 @@ It operates in two modes:
     - heaptrack: needed to generate the report.
     - heaptrack_gui: needed to analyse the report.
 
-## Heaptrack & Nim Waku
+## Heaptrack & Nwaku
 nwaku supports heaptrack but it needs a special compilation setting.
 
 ### Build Nim Waku with heaptrack support
