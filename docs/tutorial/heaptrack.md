@@ -40,7 +40,7 @@ It operates in two modes:
 ## Heaptrack & Nwaku
 nwaku supports heaptrack but it needs a special compilation setting.
 
-### Build Nim Waku with heaptrack support
+### Build nwaku with heaptrack support
 
 The make command should have the 'NIM_COMMIT' setting as:
 
