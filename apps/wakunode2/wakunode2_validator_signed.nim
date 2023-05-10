@@ -4,17 +4,19 @@ else:
   {.push raises: [].}
 
 import
-  std/math,
+  std/[math, strutils],
   chronicles,
   chronos,
   metrics,
   stew/byteutils,
   stew/endians2,
+  stew/results,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/errors,
   nimcrypto/sha2,
-  secp256k1
+  nimcrypto/keccak,
+  eth/keys
 
 const MessageWindowInSec = 5*60 # +- 5 minutes
 
@@ -49,23 +51,53 @@ proc withinTimeWindow*(msg: WakuMessage): bool =
     return true
   return false
 
-proc addSignedTopicValidator*(w: WakuRelay, topic: PubsubTopic, publicTopicKey: SkPublicKey) =
-  debug "adding validator to signed topic", topic=topic, publicTopicKey=publicTopicKey
+proc getKeyFromTopic*(protectedTopic: PubsubTopic): Result[string, string] =
+  # example: /waku/2/signed:0x2ea1f2ec2da14e0e3118e6c5bdfa0631785c76cd/proto
+  # see https://rfc.vac.dev/spec/57/#dos-protection
+  let topicTag = "signed"
+  let parts = protectedTopic.split("/")
+  if parts.len != 5:
+    return err("invalid topic format for a signed protected topic, missing fields")
 
-  proc validator(topic: string, message: messages.Message): Future[errors.ValidationResult] {.async.} =
+  let topicName = parts[3]
+  let topicParts = topicName.split(":")
+  if topicParts.len != 2:
+    return err("invalid topic format for a signed protected topic, : missing")
+
+  if topicTag notin topicName:
+    return err("invalid topic format expected signed: tag")
+
+  let address = topicParts[1]
+  if not address.startsWith("0x") or address.len != 42:
+    return err("invalid address, expected 0x prefix and size of 42 chars")
+
+  return ok(address)
+
+proc addSignedTopicValidator*(w: WakuRelay, protectedTopic: PubsubTopic) =
+
+  # address (hashed pubkey) to validate the message is encoded in the pubsub topic
+  let address0x = getKeyFromTopic(protectedTopic)
+  if address0x.isErr():
+    raise newException(Defect, address0x.error)
+
+  debug "adding validator to signed topic", protectedTopic=protectedTopic, address0x=address0x.get
+
+  proc validator(protectedTopic: string, message: messages.Message): Future[errors.ValidationResult] {.async.} =
     let msg = WakuMessage.decode(message.data)
     var outcome = errors.ValidationResult.Reject
 
     if msg.isOk():
       if msg.get.timestamp != 0:
         if msg.get.withinTimeWindow():
-          let msgHash = SkMessage(topic.msgHash(msg.get))
-          let recoveredSignature = SkSignature.fromRaw(msg.get.meta)
-          if recoveredSignature.isOk():
-            if recoveredSignature.get.verify(msgHash, publicTopicKey):
-              outcome = errors.ValidationResult.Accept
+          let signature = Signature.fromRaw(msg.get.meta)
+          if signature.isOk():
+            let msgHash = protectedTopic.msgHash(msg.get)
+            let recoveredPublic = signature.get.recover(msgHash)
+            if recoveredPublic.isOk():
+              if recoveredPublic.get.toAddress() == address0x.get:
+                outcome = errors.ValidationResult.Accept
 
     waku_msg_validator_signed_outcome.inc(labelValues = [$outcome])
     return outcome
 
-  w.addValidator(topic, validator)
+  w.addValidator(protectedTopic, validator)

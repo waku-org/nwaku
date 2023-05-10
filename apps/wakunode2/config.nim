@@ -26,9 +26,6 @@ export
 
 
 type ConfResult*[T] = Result[T, string]
-type ProtectedTopic* = object
-  topic*: string
-  key*: secp256k1.SkPublicKey
 
 type
   WakuNodeConf* = object
@@ -38,9 +35,9 @@ type
 
     ##  Application-level configuration
     protectedTopics* {.
-      desc: "Topics and its public key to be used for message validation, topic:pubkey. Argument may be repeated."
-      defaultValue: newSeq[ProtectedTopic](0)
-      name: "protected-topic" .}: seq[ProtectedTopic]
+      desc: "Protected topics routing signed messages. Example: /waku/2/signed:0x2ea1f2ec2da14e0e3118e6c5bdfa0631785c76cd/proto. Argument may be repeated."
+      defaultValue: newSeq[string](0)
+      name: "protected-topic" .}: seq[string]
 
 
     ## Log configuration
@@ -467,20 +464,6 @@ proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type ProtectedTopic, p: string): T =
-  let elements = p.split(":")
-  if elements.len != 2:
-    raise newException(ConfigurationError, "Invalid format for protected topic expected topic:publickey")
-
-  let publicKey = secp256k1.SkPublicKey.fromHex(elements[1])
-  if publicKey.isErr:
-    raise newException(ConfigurationError, "Invalid public key")
-
-  return ProtectedTopic(topic: elements[0], key: publicKey.get())
-
-proc completeCmdArg*(T: type ProtectedTopic, val: string): seq[string] =
-  return @[]
-
 proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
   try:
     ValidIpAddress.init(p)
@@ -553,18 +536,6 @@ proc readValue*(r: var TomlReader, value: var crypto.PrivateKey) {.raises: [Seri
 proc readValue*(r: var EnvvarReader, value: var crypto.PrivateKey) {.raises: [SerializationError].} =
   try:
     value = parseCmdArg(crypto.PrivateKey, r.readValue(string))
-  except CatchableError:
-    raise newException(SerializationError, getCurrentExceptionMsg())
-
-proc readValue*(r: var TomlReader, value: var ProtectedTopic) {.raises: [SerializationError].} =
-  try:
-    value = parseCmdArg(ProtectedTopic, r.readValue(string))
-  except CatchableError:
-    raise newException(SerializationError, getCurrentExceptionMsg())
-
-proc readValue*(r: var EnvvarReader, value: var ProtectedTopic) {.raises: [SerializationError].} =
-  try:
-    value = parseCmdArg(ProtectedTopic, r.readValue(string))
   except CatchableError:
     raise newException(SerializationError, getCurrentExceptionMsg())
 

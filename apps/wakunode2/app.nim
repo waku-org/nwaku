@@ -554,13 +554,16 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())
 
     # Add validation keys to protected topics
-    for topicKey in conf.protectedTopics:
-      if topicKey.topic notin pubsubTopics:
+    for protectedTopic in conf.protectedTopics:
+      let address = getKeyFromTopic(protectedTopic)
+      if address.isErr():
+        raise newException(Defect, "invalid protected topic: " & protectedTopic & ": " & address.error)
+      if protectedTopic notin pubsubTopics:
         warn "protected topic not in subscribed pubsub topics, skipping adding validator",
-              protectedTopic=topicKey.topic, subscribedTopics=pubsubTopics
+              protectedTopic=protectedTopic, subscribedTopics=pubsubTopics
         continue
-      notice "routing only signed traffic", protectedTopic=topicKey.topic, publicKey=topicKey.key
-      node.wakuRelay.addSignedTopicValidator(Pubsubtopic(topicKey.topic), topicKey.key)
+      notice "routing only signed traffic", protectedTopic=protectedTopic, address=address.get()
+      node.wakuRelay.addSignedTopicValidator(Pubsubtopic(protectedTopic))
 
   # Keepalive mounted on all nodes
   try:

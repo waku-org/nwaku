@@ -284,7 +284,7 @@ proc subscribe*(node: WakuNode, topic: PubsubTopic) =
     error "Invalid API call to `subscribe`. WakuRelay not mounted."
     return
 
-  debug "subscribe", pubsubTopic= topic
+  info "subscribe", pubsubTopic= topic
 
   node.registerRelayDefaultHandler(topic)
 
@@ -295,7 +295,7 @@ proc subscribe*(node: WakuNode, topic: PubsubTopic, handler: WakuRelayHandler) =
     error "Invalid API call to `subscribe`. WakuRelay not mounted."
     return
 
-  debug "subscribe", pubsubTopic= topic
+  info "subscribe", pubsubTopic= topic
 
   node.registerRelayDefaultHandler(topic)
   node.wakuRelay.subscribe(topic, handler)
@@ -306,7 +306,7 @@ proc unsubscribe*(node: WakuNode, topic: PubsubTopic, handler: WakuRelayHandler)
     error "Invalid API call to `unsubscribe`. WakuRelay not mounted."
     return
 
-  debug "unsubscribe", oubsubTopic= topic
+  info "unsubscribe", pubsubTopic= topic
 
   let wakuRelay = node.wakuRelay
   wakuRelay.unsubscribe(@[(topic, handler)])

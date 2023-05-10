@@ -14,7 +14,7 @@ import
   ../time
 
 const
-  MaxMetaAttrLength* = 64 # 64 bytes
+  MaxMetaAttrLength* = 65 # 65 bytes
 
   MaxWakuMessageSize* = 1024 * 1024 # 1 Mibytes. Corresponds to PubSub default
 
