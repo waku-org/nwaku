@@ -510,8 +510,7 @@ proc getNumStreams*(pm: PeerManager, protocol: string): (int, int) =
 
 proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   let maxConnections = pm.switch.connManager.inSema.size
-  let (inRelayPeers, outRelayPeers) = pm.getNumStreams(WakuRelayCodec)
-  let (inRelayStreams, outRelayStreams) = pm.getNumConnections(WakuRelayCodec)
+  let (inRelayPeers, outRelayPeers) = pm.getNumConnections(WakuRelayCodec)
   let totalRelayPeers = inRelayPeers + outRelayPeers
 
   # Leave some room for service peers
