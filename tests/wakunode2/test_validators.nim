@@ -286,18 +286,17 @@ asyncTest "Tests vectors":
     let publicKey = "049c5fac802da41e07e6cdf51c3b9a6351ad5e65921527f2df5b7d59fd9b56ab02bab736cdcfc37f25095e78127500da371947217a8cd5186ab890ea866211c3f6"
     let addressKey0x = "0x2ea1f2ec2da14e0e3118e6c5bdfa0631785c76cd"
     let secretKey = keys.PrivateKey.fromHex(privateKey).expect("valid key")
-    let protectedTopic = PubsubTopic("/waku/2/signed:" & addressKey0x & "/proto")
 
     # message
     let contentTopic = "content-topic"
-    let pubsubTopic = "pubsub-topic"
+    let pubsubTopic = PubsubTopic("/waku/2/signed:" & addressKey0x & "/proto")
     let payload = "1A12E077D0E89F9CAC11FBBB6A676C86120B5AD3E248B1F180E98F15EE43D2DFCF62F00C92737B2FF6F59B3ABA02773314B991C41DC19ADB0AD8C17C8E26757B"
     let timestamp = 1683208172339052800
     let ephemeral = true
 
     # expected values
-    let expectedMsgAppHash = "662F8C20A335F170BD60ABC1F02AD66F0C6A6EE285DA2A53C95259E7937C0AE9"
-    let expectedSignature = "127FA211B2514F0E974A055392946DC1A14052182A6ABEFB8A6CD7C51DA1BF2E40595D28EF1A9488797C297EED3AAC45430005FB3A7F037BDD9FC4BD99F59E6300"
+    let expectedMsgAppHash = "C3C74531E446CB5D0681A1919E643CCD304A7FA23A299691945BADA75A55C04C"
+    let expectedSignature = "7FB40AB47AA92A6395137C4B477C2D028C6F0F0E7A712D993EDAC5021E5B285E16956E2FD2421261D718D5C945A92600E0F8140AB7ADCF988178BF1AE577FAD901"
     let expectedTopic = "/waku/2/signed:0x2ea1f2ec2da14e0e3118e6c5bdfa0631785c76cd/proto"
 
     var msg = WakuMessage(
@@ -311,6 +310,6 @@ asyncTest "Tests vectors":
       $secretKey == privateKey
       "04" & $secretKey.toPublicKey() == publicKey
       $secretKey.toPublicKey().toAddress() == addressKey0x
-      protectedTopic == expectedTopic
+      pubsubTopic == expectedTopic
       msgAppHash.toHex() == expectedMsgAppHash
       signature.toHex() == expectedSignature
