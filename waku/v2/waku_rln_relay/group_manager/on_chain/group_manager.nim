@@ -28,8 +28,8 @@ logScope:
 
 # membership contract interface
 contract(RlnContract):
-  proc register(pubkey: Uint256) {.payable.} # external payable
-  proc MemberRegistered(pubkey: Uint256, index: Uint256) {.event.}
+  proc register(idCommitment: Uint256) {.payable.} # external payable
+  proc MemberRegistered(idCommitment: Uint256, index: Uint256) {.event.}
   proc MEMBERSHIP_DEPOSIT(): Uint256
   # TODO the following are to be supported
   # proc registerBatch(pubkeys: seq[Uint256]) # external payable
