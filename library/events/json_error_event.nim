@@ -2,7 +2,6 @@
 import
     std/json
 import
-    ../../waku/v2/waku_core/message/message,
     json_signal_event
 
 type JsonErrorEvent* = ref object of JsonSignal

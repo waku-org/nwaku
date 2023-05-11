@@ -102,7 +102,7 @@ task chat2bridge, "Build chat2bridge":
 ### C Bindings
 task libwaku, "Build the cbindings waku node library":
   let name = "waku"
-  buildLibrary name, "library/", "-d:chronicles_log_level=TRACE"
+  buildLibrary name, "library/", "-d:chronicles_log_level=ERROR"
 
 ### Legacy: Whisper & Waku v1 tasks
 task testwhisper, "Build & run Whisper tests":

@@ -568,18 +568,14 @@ proc readValue*(r: var EnvvarReader, value: var ProtectedTopic) {.raises: [Seria
 
 {.push warning[ProveInit]: off.}
 
-proc load*(T: type WakuNodeConf,
-           version="",
-           configFile=""): ConfResult[T] =
+proc load*(T: type WakuNodeConf, version=""): ConfResult[T] =
   try:
     let conf = WakuNodeConf.load(
       version=version,
       secondarySources = proc (conf: WakuNodeConf, sources: auto) =
         sources.addConfigFile(Envvar, InputFile("wakunode2"))
 
-        if configFile != "":
-          sources.addConfigFile(Toml, InputFile(configFile))
-        elif conf.configFile.isSome():
+        if conf.configFile.isSome():
           sources.addConfigFile(Toml, conf.configFile.get())
     )
     ok(conf)

@@ -16,24 +16,33 @@ import
 import
   ../../waku/v2/waku_core/message/message,
   ../../waku/common/logging,
+  ../../waku/v2/node/waku_node,
   ./config,
   ./app
 
 logScope:
   topics = "wakunode main"
 
-const wakuNode2VersionString* = "version / git commit hash: " & git_version
-
-var wakunode2 {.threadvar.}: App
-var confRes:ConfResult[WakuNodeConf]
+proc publishMessage*(pubSubTopic: cstring, message: WakuMessage): Future[int] {.gcsafe, async.} =
+  return await wakunode2.publishMessage(pubSubTopic, message)
 
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
-proc init*(configFilePath = "") =
+when isMainModule:
+  ## Node setup happens in 6 phases:
+  ## 1. Set up storage
+  ## 2. Initialize node
+  ## 3. Mount and initialize configured protocols
+  ## 4. Start node and mounted protocols
+  ## 5. Start monitoring tools and external interfaces
+  ## 6. Setup graceful shutdown hooks
+
+  var wakunode2 {.threadvar.}: App
+  var confRes:ConfResult[WakuNodeConf]
+
   let rng = crypto.newRng()
 
   try:
-    confRes = WakuNodeConf.load(version=wakuNode2VersionString,
-                                configFile=configFilePath)
+    confRes = WakuNodeConf.load(version=wakuNode2VersionString)
     if confRes.isErr():
       error "failure while loading the configuration", error=confRes.error
       quit(QuitFailure)
@@ -94,7 +103,6 @@ proc init*(configFilePath = "") =
     error "4/7 Mounting protocols failed", error=res5.error
     quit(QuitFailure)
 
-proc startNode*() =
   debug "5/7 Starting node and mounted protocols"
 
   let res6 = waitFor wakunode2.startNode()
@@ -150,30 +158,3 @@ proc startNode*() =
   info "Node setup complete"
 
   runForever()
-
-proc subscribeCallbackToTopic*(pubSubTopic: cstring,
-                               callback: proc(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [Defect].}) =
-  wakunode2.subscribeCallbackToTopic(pubSubTopic, callback)
-
-proc unsubscribeCallbackFromTopic*(pubSubTopic: cstring,
-                                   callback: proc(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [Defect].}) =
-  wakunode2.unsubscribeCallbackFromTopic(pubSubTopic, callback)
-
-proc unsubscribeAllCallbacksFromTopic*(pubSubTopic: cstring) =
-  wakunode2.unsubscribeAllCallbackFromTopic(pubSubTopic)
-
-proc publishMessage*(pubSubTopic: cstring, message: WakuMessage): Future[int] {.gcsafe, async.} =
-  return await wakunode2.publishMessage(pubSubTopic, message)
-
-
-when isMainModule:
-  ## Node setup happens in 6 phases:
-  ## 1. Set up storage
-  ## 2. Initialize node
-  ## 3. Mount and initialize configured protocols
-  ## 4. Start node and mounted protocols
-  ## 5. Start monitoring tools and external interfaces
-  ## 6. Setup graceful shutdown hooks
-
-  init()
-  startNode()

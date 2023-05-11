@@ -4,33 +4,61 @@
 #include <argp.h>
 #include <signal.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <stdint.h>
 
-#include "libwaku.h"
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/syscall.h>
+
+#include "waku.h"
 
 // Keep a global string to store the waku call responses
 static NimStringDesc wakuString;
 NimStringDesc* mResp = &wakuString;
 
-// Arguments parsing
-static char doc[] = "C implementation of waku node v2.";
-static char args_doc[] = "[CFG_FILE_PATH] Path to the configuration file.";
-
-static struct argp_option options[] = {
-    { "config-file", 'c', "CFG_FILE_PATH", 0, "Path to the configuration file."},
-    { 0 }
+struct ConfigNode {
+    NCSTRING host;
+    NU       port;
+    NCSTRING key;
+    NIM_BOOL relay;
+    NCSTRING peers;
 };
 
-struct arguments {
-    char* configFilePath;
+static ConfigNode cfgNode;
+
+// Arguments parsing
+static char doc[] = "\nC example that shows how to use the waku library.";
+static char args_doc[] = "";
+
+static struct argp_option options[] = {
+    { "host",  'h', "HOST",  0, "IP to listen for for LibP2P traffic. (default: \"0.0.0.0\")"},
+    { "port",  'p', "PORT",  0, "TCP listening port. (default: \"60000\")"},
+    { "key",   'k', "KEY",   0, "P2P node private key as 64 char hex string."},
+    { "relay", 'r', "RELAY", 0, "Enable relay protocol: 1 or 0. (default: 1)"},
+    { "peers", 'a', "PEERS", 0, "Comma-separated list of peer-multiaddress to connect\
+ to. (default: \"\") e.g. \"/ip4/127.0.0.1/tcp/60001/p2p/16Uiu2HAmVFXtAfSj4EiR7mL2KvL4EE2wztuQgUSBoj2Jx2KeXFLN\""},
+    { 0 }
 };
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
-    struct arguments *arguments = state->input;
+    struct ConfigNode *cfgNode = state->input;
     switch (key) {
-        case 'c':
-            arguments->configFilePath = arg;
+        case 'h':
+            cfgNode->host = arg;
+            break;
+        case 'p':
+            cfgNode->port = atoi(arg);
+            break;
+        case 'k':
+            cfgNode->key = arg;
+            break;
+        case 'r':
+            cfgNode->relay = atoi(arg);
+            break;
+        case 'a':
+            cfgNode->peers = arg;
             break;
         case ARGP_KEY_ARG:
             if (state->arg_num >= 1) /* Too many arguments. */
@@ -103,21 +131,86 @@ char *b64_encode(const unsigned char *in, size_t len)
 
 // End of Base64 encoding
 
-void show_help_and_exit() {
-    printf("Wrong parameters\n");
-    exit(1);
+// Beginning of UI program logic
+
+enum PROGRAM_STATE {
+    MAIN_MENU,
+    SUBSCRIBE_TOPIC_MENU,
+    CONNECT_TO_OTHER_NODE_MENU,
+    PUBLISH_MESSAGE_MENU
+};
+
+enum PROGRAM_STATE current_state = MAIN_MENU;
+
+void show_main_menu() {
+    printf("\nPlease, select an option:\n");
+    printf("\t1.) Subscribe to topic\n");
+    printf("\t2.) Connect to other node\n");
+    printf("\t3.) Publish a message\n");
 }
 
-void event_handler(char* msg) {
-    printf("Receiving message [%s]\n", msg);
+void set_scanf_to_not_block() {
+    fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
 }
 
-void handle_signal(int signo) {
-    if (signo == SIGUSR1) {
-        char* pubsubTopic = "another_pubsub_topic";
+void set_scanf_to_block() {
+    fcntl(0, F_SETFL, fcntl(0, F_GETFL) ^ O_NONBLOCK);
+}
+
+void handle_user_input() {
+    char cmd[1024];
+    memset(cmd, 0, 1024);
+    int numRead = read(0, cmd, 1024);
+    if (numRead <= 0) {
+        return;
+    }
+
+    int c;
+    while ( (c = getchar()) != '\n' && c != EOF ) { }
+
+    switch (atoi(cmd))
+    {
+    case SUBSCRIBE_TOPIC_MENU:
+    {
+        printf("Indicate the Pubsubtopic to subscribe:\n");
+        set_scanf_to_block();
+        char pubsubTopic[128];
+        scanf("%127s", pubsubTopic);
+        if (!waku_relay_subscribe(pubsubTopic, &mResp)) {
+            printf("Error subscribing to PubsubTopic: %s\n", mResp->data);
+        }
+        printf("Waku Relay subscription response: %s\n", mResp->data);
+
+        set_scanf_to_not_block();
+        show_main_menu();
+    }
+    break;
+
+    case CONNECT_TO_OTHER_NODE_MENU:
+        printf("Connecting to a node. Please indicate the peer Multiaddress:\n");
+        printf("e.g.: /ip4/127.0.0.1/tcp/60001/p2p/16Uiu2HAmVFXtAfSj4EiR7mL2KvL4EE2wztuQgUSBoj2Jx2KeXFLN\n");
+        set_scanf_to_block();
+        char peerAddr[512];
+        scanf("%511s", peerAddr);
+        if (!waku_connect(peerAddr, 10000 /* timeoutMs */, &mResp)) {
+            printf("Couldn't connect to the remote peer: %s\n", mResp->data);
+        }
+        set_scanf_to_not_block();
+        show_main_menu();
+    break;
+
+    case PUBLISH_MESSAGE_MENU:
+    {
+        set_scanf_to_block();
+        printf("Indicate the Pubsubtopic:\n");
+        char pubsubTopic[128];
+        scanf("%127s", pubsubTopic);
+
+        printf("Type the message tp publish:\n");
+        char msg[1024];
+        scanf("%1023s", msg);
 
         char jsonWakuMsg[1024];
-        char *msg = "Hello World!";
         char *msgPayload = b64_encode(msg, strlen(msg));
 
         waku_content_topic("appName",
@@ -129,42 +222,68 @@ void handle_signal(int signo) {
         snprintf(jsonWakuMsg, 1024, "{\"payload\":\"%s\",\"content_topic\":\"%s\"}", msgPayload, mResp->data);
         free(msgPayload);
 
-        printf("SIGUSR1 received \n");
         waku_relay_publish(pubsubTopic, jsonWakuMsg, 10000 /*timeout ms*/, &mResp);
         printf("waku relay response [%s]\n", mResp->data);
+        set_scanf_to_not_block();
+        show_main_menu();
+    }
+    break;
+
+    case MAIN_MENU:
+        break;
     }
 }
 
-int main(int argc, char** argv) {
-    if (argc > 2) {
-        show_help_and_exit();
-    }
+// End of UI program logic
 
-    struct arguments args;
-    if (argp_parse(&argp, argc, argv, 0, 0, &args)
+void show_help_and_exit() {
+    printf("Wrong parameters\n");
+    exit(1);
+}
+
+void event_handler(char* msg) {
+    printf("Receiving message [%s]\n", msg);
+}
+
+int main(int argc, char** argv) {
+    // default values
+    cfgNode.host = "0.0.0.0";
+    cfgNode.port = 60000;
+    cfgNode.relay = 1;
+    cfgNode.peers = NULL;
+
+    if (argp_parse(&argp, argc, argv, 0, 0, &cfgNode)
                     == ARGP_ERR_UNKNOWN) {
         show_help_and_exit();
     }
 
-    if (signal(SIGUSR1, handle_signal) == SIG_ERR) {
-        printf("Can't catch signal\n");
-        exit(-1);
-    }
+    // To allow non-blocking 'reads' from stdin
+    fcntl(0, F_SETFL, fcntl(0, F_GETFL) ^ O_NONBLOCK);
 
     NimMain(); // initialize the Nim runtime
 
     waku_default_pubsub_topic(&mResp);
+    printf("Default pubsub topic: %s\n", mResp->data);
+    printf("Git Version: %s\n", waku_version());
+    printf("Bind addr: %s:%u\n", cfgNode.host, cfgNode.port);
+    printf("Waku Relay enabled: %s\n", cfgNode.relay == 1 ? "YES": "NO");
 
-    printf("Default pubsub topic: [%s]\n", mResp->data);
-    printf("Git Version: [%s]\n", waku_version());
-    printf("Config file: [%s]\n", args.configFilePath);
+    if (!waku_new(&cfgNode, &mResp)) {
+        printf("Error creating WakuNode: %s\n", mResp->data);
+        exit(-1);
+    }
 
-    waku_new(args.configFilePath);
     waku_set_event_callback(event_handler);
-    waku_relay_subscribe("another_pubsub_topic", &mResp);
-    // waku_relay_unsubscribe("another_pubsub_topic", &mResp);
-
-    printf("Waku Relay subscription response: [%s]\n", mResp->data);
-
     waku_start();
+
+    printf("Establishing connection with: %s\n", cfgNode.peers);
+    if (!waku_connect(cfgNode.peers, 10000 /* timeoutMs */, &mResp)) {
+        printf("Couldn't connect to the remote peer: %s\n", mResp->data);
+    }
+
+    show_main_menu();
+    while(1) {
+        handle_user_input();
+        waku_poll();
+    }
 }

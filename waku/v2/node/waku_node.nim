@@ -24,6 +24,7 @@ import
   libp2p/transports/tcptransport,
   libp2p/transports/wstransport
 import
+  ../../waku/common/utils/nat,
   ../waku_core,
   ../waku_relay,
   ../waku_archive,
@@ -60,7 +61,6 @@ declarePublicGauge waku_px_peers, "number of peers (in the node's peerManager) s
 logScope:
   topics = "waku node"
 
-
 # TODO: Move to application instance (e.g., `WakuNode2`)
 # Git version in git describe format (defined compile time)
 const git_version* {.strdefine.} = "n/a"
@@ -71,6 +71,7 @@ const clientId* = "Nimbus Waku v2 node"
 # Default Waku Filter Timeout
 const WakuFilterTimeout: Duration = 1.days
 
+const wakuNode2VersionString* = "version / git commit hash: " & git_version
 
 # key and crypto modules different
 type

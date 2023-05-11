@@ -1,31 +1,54 @@
 
 import
-  std/[sequtils,times,strformat,json],
+  std/[sequtils,times,strformat,json,options],
+  strutils,
   os
 import
   chronicles,
-  chronos
+  chronos,
+  libp2p/crypto/secp,
+  stew/shims/net
 import
+  ../vendor/nim-libp2p/libp2p/crypto/crypto,
+  ../../waku/common/utils/nat,
+  ../../waku/v2/waku_enr/capabilities,
   ../../waku/v2/waku_core/message/codec,
   ../../waku/v2/waku_core/message/message,
   ../../waku/v2/waku_core/topics/pubsub_topic,
-  ../../apps/wakunode2/wakunode2,
+  ../../waku/v2/node/peer_manager/peer_manager,
+  ../../waku/v2/node/waku_node as waku_node_module,
+  ../../waku/v2/node/builder,
+  ../../waku/v2/node/config,
+  ../../waku/v2/waku_relay/protocol,
   events/[json_error_event,json_message_event,json_signal_event]
-
 
 ################################################################################
 ### Wrapper around the waku node
 ################################################################################
 
 ################################################################################
-### Not exported components
+### Exported types
+type
+  ConfigNode* {.exportc.} = object
+    # Struct exported to C
+    host*: cstring
+    port*: uint
+    key*: cstring
+    relay*: bool
+
+### End of exported types
+################################################################################
+
+################################################################################
+### Not-exported components
 
 type
   EventCallback = proc(signal: cstring) {.cdecl, gcsafe, raises: [Defect].}
 
 var eventCallback:EventCallback = nil
 
-proc callbackHandler(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [Defect].} =
+proc relayEventCallback(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [Defect].} =
+  # Callback that hadles the Waku Relay events. i.e. messages or errors.
   if eventCallback != nil:
     let msg = WakuMessage.decode(data)
     var event: JsonSignal
@@ -57,8 +80,122 @@ proc errResp(message: string): string =
   # }
   return $(%* { "error": message })
 
+proc parseConfig(config: ConfigNode,
+                 privateKey: var PrivateKey,
+                 netConfig: var NetConfig,
+                 jsonResp: var string
+                 ): bool =
+  if len(config.key) == 0:
+    jsonResp = errResp("The node key is missing.");
+    return false
+
+  try:
+    let key = SkPrivateKey.init(crypto.fromHex($config.key)).tryGet()
+    privateKey = crypto.PrivateKey(scheme: Secp256k1, skkey: key)
+  except CatchableError:
+    let msg = string("Invalid node key: ") & getCurrentExceptionMsg()
+    jsonResp = errResp(msg)
+    return false
+
+  if len(config.host) == 0:
+    jsonResp = errResp("host attribute is required")
+    return false
+
+  var listenAddr = ValidIpAddress.init("127.0.0.1")
+  try:
+    listenAddr = ValidIpAddress.init($config.host)
+  except CatchableError:
+    let msg = string("Invalid host IP address: ") & getCurrentExceptionMsg()
+    jsonResp = errResp(msg)
+    return false
+
+  if config.port == 0:
+    jsonResp = errResp("Please set a valid port number")
+    return false
+
+  ## `udpPort` is only supplied to satisfy underlying APIs but is not
+  ## actually a supported transport for libp2p traffic.
+  let udpPort = config.port
+
+  let natRes = setupNat("any", clientId,
+                        Port(uint16(config.port)),
+                        Port(uint16(udpPort)))
+  if natRes.isErr():
+    jsonResp = errResp(fmt"failed to setup NAT: {$natRes.error}")
+    return false
+
+  let (extIp, extTcpPort, _) = natRes.get()
+
+  let extPort = if extIp.isSome() and extTcpPort.isNone():
+                  some(Port(uint16(config.port)))
+                else:
+                  extTcpPort
+
+  let wakuFlags = CapabilitiesBitfield.init(
+        lightpush = false,
+        filter = false,
+        store = false,
+        relay = config.relay
+      )
+
+  let netConfigRes = NetConfig.init(
+      bindIp = listenAddr,
+      bindPort = Port(uint16(config.port)),
+      extIp = extIp,
+      extPort = extPort,
+      wakuFlags = some(wakuFlags))
+
+  if netConfigRes.isErr():
+    let msg = string("Error creating NetConfig: ") & $netConfigRes.error
+    jsonResp = errResp(msg)
+    return false
+
+  netConfig = netConfigRes.value
+
+  return true
+
+# WakuNode instance
+var node {.threadvar.}: WakuNode
+
+### End of not-exported components
 ################################################################################
-### Exported components
+
+################################################################################
+### Exported procs
+
+proc waku_new(config: ConfigNode,
+              jsonResp: var string): bool
+              {.dynlib, exportc.} =
+# Creates a new instance of the WakuNode.
+# Notice that the ConfigNode type is also exported and available for users.
+  var privateKey: PrivateKey
+  var netConfig = NetConfig.init(ValidIpAddress.init("127.0.0.1"), Port(60000'u16)).value
+  if not parseConfig(config,
+                     privateKey, netConfig,
+                     jsonResp):
+    return false
+
+  var builder = WakuNodeBuilder.init()
+  builder.withRng(crypto.newRng())
+  builder.withNodeKey(privateKey)
+  builder.withNetworkConfiguration(netConfig)
+  builder.withSwitchConfiguration(
+    maxConnections = some(50.int)
+  )
+
+  let wakuNodeRes = builder.build()
+  if wakuNodeRes.isErr():
+    let errorMsg = string("failed to create waku node instance: ") & wakuNodeRes.error
+    jsonResp = errResp(errorMsg)
+    return false
+
+  node = wakuNodeRes.value
+
+  if config.relay:
+    waitFor node.mountRelay()
+    node.peerManager.start()
+
+  return true
 
 proc waku_version(): cstring {.dynlib, exportc.} =
   return wakuNode2VersionString
@@ -85,7 +222,7 @@ proc waku_default_pubsub_topic(defPubsubTopic: var string) {.dynlib, exportc.} =
 proc waku_relay_publish(pubSubTopic: cstring,
                         jsonWakuMessage: cstring,
                         timeoutMs: int,
-                        jsonResp: var string)
+                        jsonResp: var string): bool
 
                         {.dynlib, exportc, cdecl.} =
   # https://rfc.vac.dev/spec/36/#extern-char-waku_relay_publishchar-messagejson-char-pubsubtopic-int-timeoutms
@@ -95,7 +232,7 @@ proc waku_relay_publish(pubSubTopic: cstring,
     jsonContent = parseJson($jsonWakuMessage)
   except JsonParsingError:
     jsonResp = errResp (fmt"Problem parsing json message. {getCurrentExceptionMsg()}")
-    return
+    return false
 
   var wakuMessage: WakuMessage
   try:
@@ -113,14 +250,18 @@ proc waku_relay_publish(pubSubTopic: cstring,
     )
   except KeyError:
     jsonResp = errResp(fmt"Problem building the WakuMessage. {getCurrentExceptionMsg()}")
-    return
+    return false
 
   let targetPubSubTopic = if $pubSubTopic == "":
-                            cstring(DefaultPubsubTopic)
+                            DefaultPubsubTopic
                           else:
-                            pubSubTopic
+                            $pubSubTopic
 
-  let pubMsgFut = wakunode2.publishMessage(targetPubSubTopic, wakuMessage)
+  if node.wakuRelay.isNil():
+    jsonResp = errResp("Can't publish. WakuRelay is not enabled.")
+    return false
+
+  let pubMsgFut = node.wakuRelay.publish(targetPubSubTopic, wakuMessage)
 
   # With the next loop we convert an asynchronous call into a synchronous one
   for i in 0 .. timeoutMs:
@@ -139,27 +280,73 @@ proc waku_relay_publish(pubSubTopic: cstring,
   else:
     jsonResp = errResp("Timeout expired")
 
-proc waku_new(config_file: cstring) {.dynlib, exportc.} =
-  wakunode2.init($config_file)
+  return true
 
 proc waku_start() {.dynlib, exportc.} =
-  wakunode2.startNode()
+  waitFor node.start()
 
-proc waku_relay_subscribe(pubSubTopic: cstring, jsonResp: var string) {.dynlib, exportc.} =
+proc waku_stop() {.dynlib, exportc.} =
+  waitFor node.stop()
+
+proc waku_relay_subscribe(
+                pubSubTopic: cstring,
+                jsonResp: var string): bool
+                {.dynlib, exportc.} =
   # @params
   #  topic: Pubsub topic to subscribe to. If empty, it subscribes to the default pubsub topic.
   if eventCallback == nil:
-    jsonResp = errResp("Cannot subcribe without a callback. Kindly set it with the 'waku_set_event_callback' function")
-    return
+    jsonResp = errResp("""Cannot subscribe without a callback.
+Kindly set it with the 'waku_set_event_callback' function""")
+    return false
 
-  wakunode2.subscribeCallbackToTopic(pubSubTopic, callbackHandler)
-  # TODO: enhance the feedback in case of error
+  if node.wakuRelay.isNil():
+    jsonResp = errResp("Cannot subscribe without Waku Relay enabled.")
+    return false
+
+  node.wakuRelay.subscribe(PubsubTopic($pubSubTopic), PubsubRawHandler(relayEventCallback))
+
   jsonResp = okResp("true")
+  return true
 
-proc waku_relay_unsubscribe(pubSubTopic: cstring, jsonResp: var string) {.dynlib, exportc.} =
+proc waku_relay_unsubscribe(
+                pubSubTopic: cstring,
+                jsonResp: var string): bool
+                {.dynlib, exportc.} =
   # @params
   #  topic: Pubsub topic to subscribe to. If empty, it unsubscribes to the default pubsub topic.
-  wakunode2.unsubscribeCallbackFromTopic(pubSubTopic, callbackHandler)
-  # TODO: enhance the feedback in case of error
-  jsonResp = okResp("true")
+  if node.wakuRelay == nil:
+    jsonResp = errResp("""Cannot unsubscribe without a callback.
+Kindly set it with the 'waku_set_event_callback' function""")
+    return false
 
+  if node.wakuRelay.isNil():
+    jsonResp = errResp("Cannot unsubscribe without Waku Relay enabled.")
+    return false
+
+  node.wakuRelay.unsubscribeAll(PubsubTopic($pubSubTopic))
+
+  jsonResp = okResp("true")
+  return true
+
+proc waku_connect(peerMultiAddr: cstring,
+                  timeoutMs: uint = 10000,
+                  jsonResp: var string): bool
+                  {.dynlib, exportc.} =
+  # peerMultiAddr: comma-separated list of fully-qualified multiaddresses.
+  let peers = ($peerMultiAddr).split(",").mapIt(strip(it))
+
+  let connectFut = node.connectToNodes(peers, source="static")
+  while not connectFut.finished():
+    poll()
+
+  if not connectFut.completed():
+    jsonResp = errResp("Timeout expired.")
+    return false
+
+  return true
+
+proc waku_poll() {.dynlib, exportc.} =
+  poll()
+
+### End of exported procs
+################################################################################
