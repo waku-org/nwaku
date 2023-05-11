@@ -5,7 +5,6 @@ else:
 
 import
   std/[options, strutils, os],
-  stew/results,
   stew/shims/net as stewNet,
   chronicles,
   chronos,
@@ -14,17 +13,13 @@ import
   system/ansi_c,
   libp2p/crypto/crypto
 import
-  ../../waku/v2/waku_core/message/message,
   ../../waku/common/logging,
-  ../../waku/v2/node/waku_node,
   ./config,
   ./app
 
 logScope:
   topics = "wakunode main"
 
-proc publishMessage*(pubSubTopic: cstring, message: WakuMessage): Future[int] {.gcsafe, async.} =
-  return await wakunode2.publishMessage(pubSubTopic, message)
 
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
@@ -36,19 +31,12 @@ when isMainModule:
   ## 5. Start monitoring tools and external interfaces
   ## 6. Setup graceful shutdown hooks
 
-  var wakunode2 {.threadvar.}: App
-  var confRes:ConfResult[WakuNodeConf]
-
+  const versionString = "version / git commit hash: " & app.git_version
   let rng = crypto.newRng()
 
-  try:
-    confRes = WakuNodeConf.load(version=wakuNode2VersionString)
-    if confRes.isErr():
-      error "failure while loading the configuration", error=confRes.error
-      quit(QuitFailure)
-
-  except ValueError:
-    error "Exception loading the configuration", error=getCurrentExceptionMsg()
+  let confRes = WakuNodeConf.load(version=versionString)
+  if confRes.isErr():
+    error "failure while loading the configuration", error=confRes.error
     quit(QuitFailure)
 
   let conf = confRes.get()
@@ -62,7 +50,8 @@ when isMainModule:
   logging.setupLogLevel(conf.logLevel)
   logging.setupLogFormat(conf.logFormat, color)
 
-  wakunode2 = App.new(rng, conf)
+
+  var wakunode2 = App.init(rng, conf)
 
   ##############
   # Node setup #
@@ -109,12 +98,14 @@ when isMainModule:
   if res6.isErr():
     error "5/7 Starting node and protocols failed", error=res6.error
     quit(QuitFailure)
+
   debug "6/7 Starting monitoring and external interfaces"
 
   let res7 = wakunode2.setupMonitoringAndExternalInterfaces()
   if res7.isErr():
     error "6/7 Starting monitoring and external interfaces failed", error=res7.error
     quit(QuitFailure)
+
   debug "7/7 Setting up shutdown hooks"
   ## Setup shutdown hooks for this process.
   ## Stop node gracefully on shutdown.

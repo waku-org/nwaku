@@ -42,6 +42,7 @@ type
       defaultValue: newSeq[ProtectedTopic](0)
       name: "protected-topic" .}: seq[ProtectedTopic]
 
+
     ## Log configuration
     logLevel* {.
       desc: "Sets the log level for process. Supported levels: TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL",
@@ -52,6 +53,7 @@ type
       desc: "Specifies what kind of logs should be written to stdout. Suported formats: TEXT, JSON",
       defaultValue: logging.LogFormat.TEXT,
       name: "log-format" .}: logging.LogFormat
+
 
     ## General node config
     agentString* {.
