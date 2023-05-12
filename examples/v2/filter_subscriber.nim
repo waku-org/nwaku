@@ -43,7 +43,7 @@ proc maintainSubscription(wfc: WakuFilterClient,
     notice "maintaining subscription"
     # First use filter-ping to check if we have an active subscription
     let pingRes = await wfc.ping(filterPeer)
-    if pingRes.isErr:
+    if pingRes.isErr():
       # No subscription found. Let's subscribe.
       notice "no subscription found. Sending subscribe request"
 
