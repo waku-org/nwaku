@@ -393,7 +393,7 @@ proc waku_connect(peerMultiAddr: cstring,
 
   return true
 
-proc waku_poll() {.dynlib, exportc.} =
+proc waku_poll() {.dynlib, exportc, gcsafe.} =
   poll()
 
 ### End of exported procs
