@@ -49,7 +49,7 @@ proc maintainSubscription(wfc: WakuFilterClient,
 
       let subscribeRes = await wfc.subscribe(filterPeer, filterPubsubTopic, @[filterContentTopic])
 
-      if subscribeRes.isErr:
+      if subscribeRes.isErr():
         notice "subscribe request failed. Quitting.", err=subscribeRes.error
         break
       else:
