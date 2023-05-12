@@ -156,7 +156,7 @@ jobs:
     if: ${{ needs.changes.outputs.legacy == 'true' || needs.changes.outputs.common == 'true' }}
     strategy:
       matrix:
-        platform: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
 
