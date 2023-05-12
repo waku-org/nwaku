@@ -42,9 +42,9 @@ proc buildLibrary(name: string, srcDir = "./", params = "", lang = "c", isStatic
   for i in 2..<paramCount():
     extra_params &= " " & paramStr(i)
   if isStatic:
-    exec "nim " & lang & " --out:build/lib" & name & ".a  --app:staticlib --opt:size --noMain --header " & extra_params & " " & srcDir & name & ".nim"
+    exec "nim " & lang & " --out:build/" & name & ".a  --app:staticlib --opt:size --noMain --header " & extra_params & " " & srcDir & name & ".nim"
   else:
-    exec "nim " & lang & " --out:build/lib" & name & ".a  --app:lib --opt:size --noMain --header " & extra_params & " " & srcDir & name & ".nim"
+    exec "nim " & lang & " --out:build/" & name & ".a  --app:lib --opt:size --noMain --header " & extra_params & " " & srcDir & name & ".nim"
 
 proc test(name: string, params = "-d:chronicles_log_level=DEBUG", lang = "c") =
   # XXX: When running `> NIM_PARAMS="-d:chronicles_log_level=INFO" make test2`
@@ -101,7 +101,7 @@ task chat2bridge, "Build chat2bridge":
 
 ### C Bindings
 task libwaku, "Build the cbindings waku node library":
-  let name = "waku"
+  let name = "libwaku"
   buildLibrary name, "library/", "-d:chronicles_log_level=ERROR"
 
 ### Legacy: Whisper & Waku v1 tasks

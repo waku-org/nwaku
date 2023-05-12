@@ -17,7 +17,7 @@ import
   ../../waku/v2/waku_core/message/message,
   ../../waku/v2/waku_core/topics/pubsub_topic,
   ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/node/waku_node as waku_node_module,
+  ../../waku/v2/node/waku_node,
   ../../waku/v2/node/builder,
   ../../waku/v2/node/config,
   ../../waku/v2/waku_relay/protocol,
@@ -245,7 +245,7 @@ proc waku_new(config: ConfigNode,
   return true
 
 proc waku_version(): cstring {.dynlib, exportc.} =
-  return wakuNode2VersionString
+  return WakuNodeVersionString
 
 proc waku_set_event_callback(callback: EventCallback) {.dynlib, exportc.} =
   eventCallback = callback
@@ -258,9 +258,9 @@ proc waku_content_topic(appName: cstring,
   # https://rfc.vac.dev/spec/36/#extern-char-waku_content_topicchar-applicationname-unsigned-int-applicationversion-char-contenttopicname-char-encoding
   outContentTopic = fmt"{appName}/{appVersion}/{contentTopicName}/{encoding}"
 
-proc waku_pubsub_topic(topicName: cstring, encoding: cstring, outPubsubTopic: var string) {.dynlib, exportc.} =
+proc waku_pubsub_topic(topicName: cstring, outPubsubTopic: var string) {.dynlib, exportc.} =
   # https://rfc.vac.dev/spec/36/#extern-char-waku_pubsub_topicchar-name-char-encoding
-  outPubsubTopic = fmt"/waku/2/{topicName}/{encoding}"
+  outPubsubTopic = fmt"/waku/2/{topicName}"
 
 proc waku_default_pubsub_topic(defPubsubTopic: var string) {.dynlib, exportc.} =
   # https://rfc.vac.dev/spec/36/#extern-char-waku_default_pubsub_topic
@@ -382,6 +382,7 @@ proc waku_connect(peerMultiAddr: cstring,
   # peerMultiAddr: comma-separated list of fully-qualified multiaddresses.
   let peers = ($peerMultiAddr).split(",").mapIt(strip(it))
 
+  # TODO: the timeoutMs is not being used at all!
   let connectFut = node.connectToNodes(peers, source="static")
   while not connectFut.finished():
     poll()

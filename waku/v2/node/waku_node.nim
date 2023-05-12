@@ -70,7 +70,7 @@ const clientId* = "Nimbus Waku v2 node"
 # Default Waku Filter Timeout
 const WakuFilterTimeout: Duration = 1.days
 
-const wakuNode2VersionString* = "version / git commit hash: " & git_version
+const WakuNodeVersionString* = "version / git commit hash: " & git_version
 
 # key and crypto modules different
 type
