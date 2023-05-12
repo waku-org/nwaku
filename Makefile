@@ -298,7 +298,7 @@ cbindings: | build libwaku.a
 
 cwaku_example: | build cbindings
 	echo -e $(BUILD_MSG) "build/$@" && \
-		cp nimcache/release/waku/waku.h ./examples/cbindings/ && \
+		cp nimcache/release/libwaku/libwaku.h ./examples/cbindings/ && \
 		cc -o "build/$@" \
 		./examples/cbindings/waku_example.c \
 		-lwaku -Lbuild/ -pthread -ldl -lm \

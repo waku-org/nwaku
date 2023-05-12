@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 
-#include "waku.h"
+#include "libwaku.h"
 
 // Keep a global string to store the waku call responses
 static NimStringDesc wakuString;
