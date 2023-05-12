@@ -207,7 +207,7 @@ type
 
     topicsDeprecated* {.
       desc: "Default topics to subscribe to (space separated list). DEPRECATED: please use repeated --topic argument instead."
-      defaultValue: ""
+      defaultValue: "/waku/2/default-waku/proto"
       name: "topics" .}: string
 
     topics* {.
