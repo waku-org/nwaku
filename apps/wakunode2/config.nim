@@ -42,7 +42,6 @@ type
       defaultValue: newSeq[ProtectedTopic](0)
       name: "protected-topic" .}: seq[ProtectedTopic]
 
-
     ## Log configuration
     logLevel* {.
       desc: "Sets the log level for process. Supported levels: TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL",
@@ -53,7 +52,6 @@ type
       desc: "Specifies what kind of logs should be written to stdout. Suported formats: TEXT, JSON",
       defaultValue: logging.LogFormat.TEXT,
       name: "log-format" .}: logging.LogFormat
-
 
     ## General node config
     agentString* {.
@@ -207,10 +205,15 @@ type
       defaultValue: false
       name: "keep-alive" }: bool
 
-    topics* {.
-      desc: "Default topics to subscribe to (space separated list)."
+    topicsDeprecated* {.
+      desc: "Default topics to subscribe to (space separated list). DEPRECATED: please use repeated --topic argument instead."
       defaultValue: "/waku/2/default-waku/proto"
       name: "topics" .}: string
+
+    topics* {.
+      desc: "Default topic to subscribe to. Argument may be repeated."
+      defaultValue: @["/waku/2/default-waku/proto"]
+      name: "topic" .}: seq[string]
 
     ## Store and message store config
 

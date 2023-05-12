@@ -547,7 +547,17 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
     peerExchangeHandler = some(handlePeerExchange)
 
   if conf.relay:
-    let pubsubTopics = conf.topics.split(" ")
+
+    var pubsubTopics = @[""]
+    if conf.topicsDeprecated != "/waku/2/default-waku/proto":
+      warn "The 'topics' parameter is deprecated. Better use the 'topic' one instead."
+      if conf.topics != @["/waku/2/default-waku/proto"]:
+        return err("Please don't specify 'topics' and 'topic' simultaneously. Only use the 'topic' parameter")
+
+      # This clause (if conf.topicsDeprecated ) should disapear in >= v0.18.0
+      pubsubTopics = conf.topicsDeprecated.split(" ")
+    else:
+      pubsubTopics = conf.topics
     try:
       await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
     except CatchableError:
