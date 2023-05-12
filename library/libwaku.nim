@@ -50,7 +50,7 @@ var eventCallback:EventCallback = nil
 
 proc relayEventCallback(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [Defect].} =
   # Callback that hadles the Waku Relay events. i.e. messages or errors.
-  if eventCallback != nil:
+  if not isNil(eventCallback):
     let msg = WakuMessage.decode(data)
     var event: JsonSignal
     if msg.isOk():
@@ -341,7 +341,7 @@ proc waku_relay_subscribe(
                 {.dynlib, exportc.} =
   # @params
   #  topic: Pubsub topic to subscribe to. If empty, it subscribes to the default pubsub topic.
-  if eventCallback == nil:
+  if isNil(eventCallback):
     jsonResp = errResp("""Cannot subscribe without a callback.
 Kindly set it with the 'waku_set_event_callback' function""")
     return false
@@ -361,7 +361,7 @@ proc waku_relay_unsubscribe(
                 {.dynlib, exportc.} =
   # @params
   #  topic: Pubsub topic to subscribe to. If empty, it unsubscribes to the default pubsub topic.
-  if node.wakuRelay == nil:
+  if isNil(eventCallback):
     jsonResp = errResp("""Cannot unsubscribe without a callback.
 Kindly set it with the 'waku_set_event_callback' function""")
     return false
