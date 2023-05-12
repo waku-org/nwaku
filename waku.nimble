@@ -34,6 +34,18 @@ proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
     extra_params &= " " & paramStr(i)
   exec "nim " & lang & " --out:build/" & name & " " & extra_params & " " & srcDir & name & ".nim"
 
+proc buildLibrary(name: string, srcDir = "./", params = "", lang = "c", isStatic = true) =
+  if not dirExists "build":
+    mkDir "build"
+  # allow something like "nim nimbus --verbosity:0 --hints:off nimbus.nims"
+  var extra_params = params
+  for i in 2..<paramCount():
+    extra_params &= " " & paramStr(i)
+  if isStatic:
+    exec "nim " & lang & " --out:build/" & name & ".a  --app:staticlib --opt:size --noMain --header " & extra_params & " " & srcDir & name & ".nim"
+  else:
+    exec "nim " & lang & " --out:build/" & name & ".a  --app:lib --opt:size --noMain --header " & extra_params & " " & srcDir & name & ".nim"
+
 proc test(name: string, params = "-d:chronicles_log_level=DEBUG", lang = "c") =
   # XXX: When running `> NIM_PARAMS="-d:chronicles_log_level=INFO" make test2`
   # I expect compiler flag to be overridden, however it stays with whatever is
@@ -41,12 +53,9 @@ proc test(name: string, params = "-d:chronicles_log_level=DEBUG", lang = "c") =
   buildBinary name, "tests/", params
   exec "build/" & name
 
-
 ### Waku common tasks
 task testcommon, "Build & run common tests":
   test "all_tests_common", "-d:chronicles_log_level=WARN -d:chronosStrictException"
-
-
 
 ### Waku v2 tasks
 task wakunode2, "Build Waku v2 cli node":
@@ -65,7 +74,6 @@ task networkmonitor, "Build network monitor tool":
   let name = "networkmonitor"
   buildBinary name, "apps/networkmonitor/", "-d:chronicles_log_level=TRACE"
 
-
 task test2, "Build & run Waku v2 tests":
   test "all_tests_v2"
 
@@ -74,7 +82,6 @@ task testwakunode2, "Build & run wakunode2 app tests":
 
 task testbridge, "Build & run wakubridge tests":
   test "all_tests_wakubridge"
-
 
 task example2, "Build Waku v2 example":
   buildBinary "publisher", "examples/v2/"
@@ -92,6 +99,10 @@ task chat2bridge, "Build chat2bridge":
   let name = "chat2bridge"
   buildBinary name, "apps/chat2bridge/", "-d:chronicles_log_level=TRACE"
 
+### C Bindings
+task libwaku, "Build the cbindings waku node library":
+  let name = "libwaku"
+  buildLibrary name, "library/", "-d:chronicles_log_level=ERROR"
 
 ### Legacy: Whisper & Waku v1 tasks
 task testwhisper, "Build & run Whisper tests":
