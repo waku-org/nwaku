@@ -41,6 +41,11 @@ pipeline {
       description: 'Enable experimental features.',
       defaultValue: false
     )
+    booleanParam(
+      name: 'DEBUG',
+      description: 'Enable debug features (heaptrack).',
+      defaultValue: false
+    )
   }
 
   stages {
@@ -52,7 +57,7 @@ pipeline {
           "--build-arg=MAKE_TARGET='${params.MAKE_TARGET}' " +
           "--build-arg=NIMFLAGS='${params.NIMFLAGS}' " +
           "--build-arg=EXPERIMENTAL='${params.EXPERIMENTAL}' " +
-          "--target=${params.EXPERIMENTAL ? "experimental" : "prod"} ."
+          "--target=${params.DEBUG ? "debug" : "prod"} ."
         )
       } }
     }
