@@ -65,12 +65,12 @@ method registerBatch*(g: StaticGroupManager, idCommitments: seq[IDCommitment]): 
   if g.registerCb.isSome():
     var memberSeq = newSeq[Membership]()
     for i in 0..<idCommitments.len():
-      memberSeq.add(Membership(idCommitment: idCommitments[i], index: g.latestIndex + MembershipIndex(i)))
+      memberSeq.add(Membership(idCommitment: idCommitments[i], index: g.latestIndex + MembershipIndex(i) + 1))
     await g.registerCb.get()(memberSeq)
 
   discard g.slideRootQueue()
 
-  g.latestIndex += MembershipIndex(idCommitments.len() - 1)
+  g.latestIndex += MembershipIndex(idCommitments.len())
 
   return
 
