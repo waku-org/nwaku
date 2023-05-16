@@ -52,17 +52,8 @@ method startGroupSync*(g: StaticGroupManager): Future[void] =
 method register*(g: StaticGroupManager, idCommitment: IDCommitment): Future[void] {.async.} =
   initializedGuard(g)
 
-  let memberInserted = g.rlnInstance.insertMember(idCommitment)
-  if not memberInserted:
-    raise newException(ValueError, "Failed to insert member into the merkle tree")
+  await g.registerBatch(@[idCommitment])
 
-  discard g.slideRootQueue()
-
-  g.latestIndex += 1
-
-  if g.registerCb.isSome():
-    await g.registerCb.get()(@[Membership(idCommitment: idCommitment, index: g.latestIndex)])
-  return
 
 method registerBatch*(g: StaticGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
   initializedGuard(g)

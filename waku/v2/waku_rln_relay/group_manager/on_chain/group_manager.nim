@@ -67,25 +67,17 @@ template initializedGuard(g: OnchainGroupManager): untyped =
 method register*(g: OnchainGroupManager, idCommitment: IDCommitment): Future[void] {.async.} =
   initializedGuard(g)
 
-  let memberInserted = g.rlnInstance.insertMember(idCommitment)
-  if not memberInserted:
-    raise newException(ValueError,"member insertion failed")
+  await g.registerBatch(@[idCommitment])
 
-  if g.registerCb.isSome():
-    await g.registerCb.get()(@[Membership(idCommitment: idCommitment, index: g.latestIndex)])
-
-  g.validRootBuffer = g.slideRootQueue()
-
-  g.latestIndex += 1
-
-  return
-
-method registerBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
+method atomicBatch*(g: OnchainGroupManager, 
+                    idCommitments = newSeq[IDCommitment](), 
+                    toRemoveIndices = newSeq[MembershipIndex]()): Future[void] {.async.} =
   initializedGuard(g)
 
-  let membersInserted = g.rlnInstance.insertMembers(g.latestIndex, idCommitments)
-  if not membersInserted:
-    raise newException(ValueError, "Failed to insert members into the merkle tree")
+  let startIndex = g.latestIndex
+  let operationSuccess = g.rlnInstance.atomicWrite(some(startIndex), idCommitments, toRemoveIndices)
+  if not operationSuccess:
+    raise newException(ValueError, "atomic batch operation failed")
 
   if g.registerCb.isSome():
     var membersSeq = newSeq[Membership]()
@@ -100,7 +92,12 @@ method registerBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]):
 
   g.latestIndex += MembershipIndex(idCommitments.len())
 
-  return
+
+method registerBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
+  initializedGuard(g)
+
+  await g.atomicBatch(idCommitments)
+
 
 method register*(g: OnchainGroupManager, identityCredentials: IdentityCredential): Future[void] {.async.} =
   initializedGuard(g)
@@ -154,7 +151,7 @@ method withdraw*(g: OnchainGroupManager, idCommitment: IDCommitment): Future[voi
 method withdrawBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
   initializedGuard(g)
 
-    # TODO: after slashing is enabled on the contract
+    # TODO: after slashing is enabled on the contract, use atomicBatch internally
 
 proc parseEvent(event: type MemberRegistered,
                  log: JsonNode): GroupManagerResult[Membership] =
@@ -178,28 +175,23 @@ proc parseEvent(event: type MemberRegistered,
   except CatchableError:
     return err("failed to parse the data field of the MemberRegistered event")
 
-type BlockTable* = OrderedTable[BlockNumber, seq[Membership]]
+type BlockTable* = OrderedTable[BlockNumber, seq[(Membership, bool)]]
 
-proc backfillRootQueue*(g: OnchainGroupManager, blockTable: BlockTable): Future[void] {.async.} =
-  if blocktable.len() > 0:
-      for blockNumber, members in blocktable.pairs():
-        let deletionSuccess = g.rlnInstance.removeMembers(members.mapIt(it.index))
-        debug "deleting members to reconcile state"
-        if not deletionSuccess:
-          error "failed to delete members from the tree", success=deletionSuccess
-          raise newException(ValueError, "failed to delete member from the tree, tree is inconsistent")
-      # backfill the tree's acceptable roots
-      for i in 0..blocktable.len()-1:
-        # remove the last root
-        g.validRoots.popLast()
-      for i in 0..blockTable.len()-1:
-        # add the backfilled root
-        g.validRoots.addLast(g.validRootBuffer.popLast())
+proc backfillRootQueue*(g: OnchainGroupManager, len: uint): Future[void] {.async.} =
+  if len > 0:
+    # backfill the tree's acceptable roots
+    for i in 0..len-1:
+      # remove the last root
+      g.validRoots.popLast()
+    for i in 0..len-1:
+      # add the backfilled root
+      g.validRoots.addLast(g.validRootBuffer.popLast())
 
-proc insert(blockTable: var BlockTable, blockNumber: BlockNumber, member: Membership) =
-  if blockTable.hasKeyOrPut(blockNumber, @[member]):
+proc insert(blockTable: var BlockTable, blockNumber: BlockNumber, member: Membership, removed: bool) =
+  let memberTuple = (member, removed)
+  if blockTable.hasKeyOrPut(blockNumber, @[memberTuple]):
     try:
-      blockTable[blockNumber].add(member)
+      blockTable[blockNumber].add(memberTuple)
     except KeyError: # qed
       error "could not insert member into block table", blockNumber=blockNumber, member=member
 
@@ -226,19 +218,18 @@ proc getRawEvents(g: OnchainGroupManager,
                                               toBlock = some(normalizedToBlock.blockId()))
   return events
 
-proc getBlockTables(g: OnchainGroupManager,
+proc getBlockTable(g: OnchainGroupManager,
                     fromBlock: BlockNumber,
-                    toBlock: Option[BlockNumber] = none(BlockNumber)): Future[(BlockTable, BlockTable)] {.async.} =
+                    toBlock: Option[BlockNumber] = none(BlockNumber)): Future[BlockTable] {.async.} =
   initializedGuard(g)
 
   var blockTable = default(BlockTable)
-  var toRemoveBlockTable = default(BlockTable)
 
   let events = await g.getRawEvents(fromBlock, toBlock)
 
   if events.len == 0:
     debug "no events found"
-    return (blockTable, toRemoveBlockTable)
+    return blockTable
 
   for event in events:
     let blockNumber = parseHexInt(event["blockNumber"].getStr()).uint
@@ -248,52 +239,45 @@ proc getBlockTables(g: OnchainGroupManager,
       error "failed to parse the MemberRegistered event", error=parsedEventRes.error()
       raise newException(ValueError, "failed to parse the MemberRegistered event")
     let parsedEvent = parsedEventRes.get()
+    blockTable.insert(blockNumber, parsedEvent, removed)
 
-    if removed:
-      # remove the registration from the tree, per block
-      warn "member removed from the tree as per canonical chain", index=parsedEvent.index
-      toRemoveBlockTable.insert(blockNumber, parsedEvent)
-    else:
-      blockTable.insert(blockNumber, parsedEvent)
+  return blockTable
 
-  return (blockTable, toRemoveBlockTable)
-
-proc handleValidEvents(g: OnchainGroupManager, blockTable: BlockTable): Future[void] {.async.} =
+proc handleEvents(g: OnchainGroupManager, 
+                  blockTable: BlockTable): Future[void] {.async.} =
   initializedGuard(g)
 
   for blockNumber, members in blockTable.pairs():
-    let latestIndex = g.latestIndex
-    let startingIndex = members[0].index
     try:
-      await g.registerBatch(members.mapIt(it.idCommitment))
+      await g.atomicBatch(idCommitments = members.mapIt(it[0].idCommitment), 
+                          toRemoveIndices = members.filterIt(it[1]).mapIt(it[0].index))
     except CatchableError:
       error "failed to insert members into the tree", error=getCurrentExceptionMsg()
       raise newException(ValueError, "failed to insert members into the tree")
     trace "new members added to the Merkle tree", commitments=members.mapIt(it.idCommitment.inHex()) , startingIndex=startingIndex
-    let lastIndex = startingIndex + members.len.uint - 1
-    let indexGap = startingIndex - latestIndex
-    if not (toSeq(startingIndex..lastIndex) == members.mapIt(it.index)):
-      raise newException(ValueError, "membership indices are not sequential")
-    if indexGap != 1.uint and lastIndex != latestIndex and startingIndex != 0.uint:
-      warn "membership index gap, may have lost connection", lastIndex, currIndex=latestIndex, indexGap = indexGap
     g.latestProcessedBlock = some(blockNumber)
 
   return
 
-proc handleRemovedEvents(g: OnchainGroupManager, toRemoveBlockTable: BlockTable): Future[void] {.async.} =
+proc handleRemovedEvents(g: OnchainGroupManager, blockTable: BlockTable): Future[void] {.async.} =
   initializedGuard(g)
 
-  await g.backfillRootQueue(toRemoveBlockTable)
+  # count number of blocks that have been removed
+  var numRemovedBlocks: uint = 0
+  for blockNumber, members in blockTable.pairs():
+    if members.anyIt(it[1]):
+      numRemovedBlocks += 1
+  
+  await g.backfillRootQueue(numRemovedBlocks)
 
 proc getAndHandleEvents(g: OnchainGroupManager,
                         fromBlock: BlockNumber,
                         toBlock: Option[BlockNumber] = none(BlockNumber)): Future[void] {.async.} =
   initializedGuard(g)
 
-  let (validEvents, removedEvents) = await g.getBlockTables(fromBlock, toBlock)
-  await g.handleRemovedEvents(removedEvents)
-  await g.handleValidEvents(validEvents)
-  return
+  let blockTable = await g.getBlockTable(fromBlock, toBlock)
+  await g.handleEvents(blockTable)
+  await g.handleRemovedEvents(blockTable)
 
 proc getNewHeadCallback(g: OnchainGroupManager): BlockHeaderHandler =
   proc newHeadCallback(blockheader: BlockHeader) {.gcsafe.} =
@@ -435,7 +419,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   try:
     membershipFee = await contract.MEMBERSHIP_DEPOSIT().call()
   except CatchableError:
-    raise newException(ValueError, "could not get the membership deposit")
+    raise newException(ValueError, "could not get the membership deposit: {}")
 
 
   g.ethRpc = some(ethRpc)

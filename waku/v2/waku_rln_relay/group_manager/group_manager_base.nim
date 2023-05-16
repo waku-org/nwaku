@@ -83,6 +83,10 @@ method withdraw*(g: GroupManager, identitySecretHash: IdentitySecretHash): Futur
 method withdrawBatch*(g: GroupManager, identitySecretHashes: seq[IdentitySecretHash]): Future[void] {.base,gcsafe.} =
   raise newException(CatchableError, "withdrawBatch proc for " & $g.type & " is not implemented yet")
 
+# This proc is used to insert and remove a set of commitments from the merkle tree
+method atomicBatch*(g: GroupManager, idCommitments: seq[IDCommitment], toRemoveIndices: seq[MembershipIndex]): Future[void] {.base,gcsafe.} =
+  raise newException(CatchableError, "atomicBatch proc for " & $g.type & " is not implemented yet")
+
 # This proc is used to set a callback that will be called when an identity commitment is withdrawn
 # The callback may be called multiple times, and should be used to for any post processing
 method onWithdraw*(g: GroupManager, cb: OnWithdrawCallback) {.base,gcsafe.} =

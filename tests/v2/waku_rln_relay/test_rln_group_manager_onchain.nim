@@ -6,7 +6,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, osproc, streams, strutils, tables],
+  std/[options, osproc, streams, strutils],
   stew/[results, byteutils],
   stew/shims/net as stewNet,
   testutils/unittests,
@@ -516,11 +516,8 @@ suite "Onchain group manager":
       manager.validRootBuffer.len() == 1
 
     # We can now simulate a chain reorg by calling backfillRootQueue
-    var blockTable = default(BlockTable)
-    blockTable[1.uint] = @[Membership(idCommitment: credentials[4].idCommitment, index: 4.uint)]
-
     let expectedLastRoot = manager.validRootBuffer[0]
-    await manager.backfillRootQueue(blockTable)
+    await manager.backfillRootQueue(1)
 
     # We should now have 5 roots in the queue, and no partial buffer
     check:
