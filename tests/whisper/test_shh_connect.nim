@@ -326,4 +326,4 @@ procSuite "Whisper connections":
 
     ln2.startListening()
     let peer = await ln1.rlpxConnect(newNode(ln2.toENode()))
-    check peer.isNil == true
+    check peer.isErr() == true

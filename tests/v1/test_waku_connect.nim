@@ -58,9 +58,9 @@ procSuite "Waku connections":
       p2 = await n2.rlpxConnect(newNode(n3.toENode()))
       p3 = await n4.rlpxConnect(newNode(n3.toENode()))
     check:
-      p1.isNil
-      p2.isNil == false
-      p3.isNil == false
+      p1.isErr() == true
+      p2.isErr() == false
+      p3.isErr() == false
 
   asyncTest "Filters with encryption and signing":
     var node1 = setupTestNode(rng, Waku)
@@ -386,7 +386,7 @@ procSuite "Waku connections":
 
     ln2.startListening()
     let peer = await ln1.rlpxConnect(newNode(ln2.toENode()))
-    check peer.isNil == true
+    check peer.isErr() == true
 
   asyncTest "Waku set-topic-interest":
     var

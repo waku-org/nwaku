@@ -404,10 +404,14 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
 
-  let
-    (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
+  let natRes = setupNat(conf.nat, clientId,
       Port(uint16(conf.tcpPort) + conf.portsShift),
       Port(uint16(conf.udpPort) + conf.portsShift))
+
+  if natRes.isErr():
+    raise newException(ValueError, "setupNat error " & natRes.error)
+
+  let (extIp, extTcpPort, extUdpPort) = natRes.get()
 
   let node = block:
       var builder = WakuNodeBuilder.init()
