@@ -172,12 +172,12 @@ type
 
     # NOTE: This can be derived from the private key, but kept for future use
     rlnRelayEthAccountAddress* {.
-      desc: "Account address for the Ethereum testnet Goerli",
+      desc: "Account address for the Ethereum testnet Sepolia",
       defaultValue: ""
       name: "rln-relay-eth-account-address" }: string
 
     rlnRelayEthAccountPrivateKey* {.
-      desc: "Account private key for the Ethereum testnet Goerli",
+      desc: "Account private key for the Ethereum testnet Sepolia",
       defaultValue: ""
       name: "rln-relay-eth-account-private-key" }: string
 
