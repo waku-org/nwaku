@@ -151,8 +151,8 @@ type
       name: "rln-relay-pubsub-topic" }: string
 
     rlnRelayContentTopic* {.
-      desc: "the pubsub topic for which rln-relay gets enabled",
-      defaultValue: "/toy-chat/2/luzhou/proto"
+      desc: "the content topic for which rln-relay gets enabled",
+      defaultValue: "/toy-chat/3/mingde/proto"
       name: "rln-relay-content-topic" }: string
 
     rlnRelayDynamic* {.

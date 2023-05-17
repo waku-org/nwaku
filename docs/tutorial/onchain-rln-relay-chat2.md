@@ -27,7 +27,7 @@ If you choose not to reuse the same credential, then for each execution, a new r
 Under the hood, the chat2 client constantly listens to the membership contract and keeps itself updated with the latest state of the group.
 
 In the following test setting, the chat2 clients are to be connected to the Waku test fleets as their first hop. 
-The test fleets will act as routers and are also set to run Waku-RLN-Relay over the same pubsub topic and content topic as chat2 clients i.e., the default pubsub topic of `/waku/2/default-waku/proto` and the content topic of `/toy-chat/2/luzhou/proto`. 
+The test fleets will act as routers and are also set to run Waku-RLN-Relay over the same pubsub topic and content topic as chat2 clients i.e., the default pubsub topic of `/waku/2/default-waku/proto` and the content topic of `/toy-chat/3/mingde/proto`. 
 Spam messages published on the said combination of topics will be caught by the test fleet nodes and will not be routed.
 Note that spam protection does not rely on the presence of the test fleets.
 In fact, all the chat2 clients are also capable of catching and dropping spam messages if they receive any.
@@ -49,12 +49,12 @@ make chat2 RLN=true
 Run the following command to set up your chat2 client. 
 
 ```bash
-./build/chat2 --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --rln-relay-eth-account-private-key:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --rln-relay-eth-client-address:xxxx --ports-shift=1 
+./build/chat2 --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --rln-relay-eth-account-private-key:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --rln-relay-eth-client-address:xxxx --ports-shift=1 
 ```
 
 In this command
 - the `--fleet:test` indicates that the chat2 app gets connected to the test fleets.
-- the `toy-chat/2/luzhou/proto` passed to the `content-topic` option indicates the content topic on which the chat2 application is going to run.
+- the `toy-chat/3/mingde/proto` passed to the `content-topic` option indicates the content topic on which the chat2 application is going to run.
 - the `rln-relay` flag is set to `true` to enable the Waku-RLN-Relay protocol for spam protection.
 - the `--rln-relay-dynamic` flag is set to `true` to enable the on-chain mode of Waku-RLN-Relay protocol with dynamic group management.
 - the `--rln-relay-eth-contract-address` option gets the address of the membership contract.
@@ -142,7 +142,7 @@ The reason is that under the hood a zero-knowledge proof is being generated and 
 
 Try to spam the network by violating the message rate limit i.e.,
 sending more than one message per epoch. 
-Your messages will be routed via test fleets that are running in spam-protected mode over the same content topic i.e., `/toy-chat/2/luzhou/proto` as your chat client.
+Your messages will be routed via test fleets that are running in spam-protected mode over the same content topic i.e., `/toy-chat/3/mingde/proto` as your chat client.
 Your spam activity will be detected by them and your message will not reach the rest of the chat clients.
 You can check this by running a second chat user and verifying that spam messages are not displayed as they are filtered by the test fleets.
 Furthermore, the chat client will prompt you with the following warning message indicating that the message rate is being violated:
@@ -165,7 +165,7 @@ If this file does not already exist under the supplied path, then a new credenti
 Otherwise, the chat client does not generate a new credential and will use, instead, the persisted RLN credential.
 
 ```bash
-./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6  --rln-relay-eth-account-private-key:your_eth_private_key  --rln-relay-eth-client-address:your_goerli_node  --ports-shift=1  --rln-relay-cred-path:./
+./build/chat2  --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6  --rln-relay-eth-account-private-key:your_eth_private_key  --rln-relay-eth-client-address:your_goerli_node  --ports-shift=1  --rln-relay-cred-path:./
 ```
 
 Note: If you are reusing credentials, you can omit the `rln-relay-eth-account-private-key` flag.
@@ -173,7 +173,7 @@ Note: If you are reusing credentials, you can omit the `rln-relay-eth-account-pr
 Therefore, the command to start chat2 would be -
 
 ```bash
-./build/chat2  --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --rln-relay-eth-client-address:your_goerli_node  --ports-shift=1  --rln-relay-cred-path:./
+./build/chat2  --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --rln-relay-eth-client-address:your_goerli_node  --ports-shift=1  --rln-relay-cred-path:./
 ```
 
 # Sample test output
@@ -190,7 +190,7 @@ You can check this fact by looking at `Bob`'s console, where `message3` is missi
 
 **Alice**
 ```bash
-./build/chat2 --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --rln-relay-eth-account-private-key:0x1234567890123456789012345678901234567890123456789012345678901234 --rln-relay-eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012 --ports-shift=1 
+./build/chat2 --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --rln-relay-eth-account-private-key:0x1234567890123456789012345678901234567890123456789012345678901234 --rln-relay-eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012 --ports-shift=1 
 ```
 
 ```
@@ -234,7 +234,7 @@ your rln identity commitment key is: bd093cbf14fb933d53f596c33f98b3df83b7e9f7a19
 
 **Bob**
 ```bash
-./build/chat2 --fleet:test --content-topic:/toy-chat/2/luzhou/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --rln-relay-eth-account-private-key:0x1234567890123456789012345678901234567890123456789012345678901234 --rln-relay-eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012 --ports-shift=2 
+./build/chat2 --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x4252105670fe33d2947e8ead304969849e64f2a6 --rln-relay-eth-account-private-key:0x1234567890123456789012345678901234567890123456789012345678901234 --rln-relay-eth-client-address:wss://goerli.infura.io/ws/v3/12345678901234567890123456789012 --ports-shift=2 
 ```
 
 ```
