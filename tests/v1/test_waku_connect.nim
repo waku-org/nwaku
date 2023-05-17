@@ -58,7 +58,7 @@ procSuite "Waku connections":
       p2 = await n2.rlpxConnect(newNode(n3.toENode()))
       p3 = await n4.rlpxConnect(newNode(n3.toENode()))
     check:
-      p1.isErr()
+      p1.isErr() == true
       p2.isErr() == false
       p3.isErr() == false
 
