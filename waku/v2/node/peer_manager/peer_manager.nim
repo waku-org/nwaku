@@ -57,6 +57,9 @@ const
   # How often the peer store is updated with metrics
   UpdateMetricsInterval = chronos.seconds(15)
 
+  # How often to log peer manager metrics
+  LogSummaryInterval = chronos.seconds(60)
+
 type
   PeerManager* = ref object of RootObj
     switch*: Switch
@@ -66,6 +69,7 @@ type
     maxFailedAttempts*: int
     storage: PeerStorage
     serviceSlots*: Table[string, RemotePeerInfo]
+    outPeersTarget*: int
     started: bool
 
 proc protocolMatcher*(codec: string): Matcher =
@@ -333,6 +337,7 @@ proc new*(T: type PeerManager,
                        storage: storage,
                        initialBackoffInSec: initialBackoffInSec,
                        backoffFactor: backoffFactor,
+                       outPeersTarget: max(maxConnections div 10, 10),
                        maxFailedAttempts: maxFailedAttempts)
 
   proc connHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
@@ -477,22 +482,22 @@ proc connectToNodes*(pm: PeerManager,
   # later.
   await sleepAsync(chronos.seconds(5))
 
-# Returns the amount of physical connections (in and out)
+# Returns the peerIds of physical connections (in and out)
 # containing at least one stream with the given protocol.
-proc getNumConnections*(pm: PeerManager, protocol: string): (int, int) =
-  var
-    numConnsIn = 0
-    numConnsOut = 0
+proc connectedPeers*(pm: PeerManager, protocol: string): (seq[PeerId], seq[PeerId]) =
+  var inPeers: seq[PeerId]
+  var outPeers: seq[PeerId]
+
   for peerId, muxers in pm.switch.connManager.getConnections():
     for peerConn in muxers:
       let streams = peerConn.getStreams()
       if streams.anyIt(it.protocol == protocol):
         if peerConn.connection.transportDir == Direction.In:
-          numConnsIn += 1
+          inPeers.add(peerId)
         elif peerConn.connection.transportDir == Direction.Out:
-          numConnsOut += 1
+          outPeers.add(peerId)
 
-  return (numConnsIn, numConnsOut)
+  return (inPeers, outPeers)
 
 proc getNumStreams*(pm: PeerManager, protocol: string): (int, int) =
   var
@@ -508,27 +513,32 @@ proc getNumStreams*(pm: PeerManager, protocol: string): (int, int) =
               numStreamsOut += 1
   return (numStreamsIn, numStreamsOut)
 
+proc pruneInRelayConns(pm: PeerManager, amount: int) {.async.} =
+  let (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
+  let connsToPrune = min(amount, inRelayPeers.len)
+
+  for p in inRelayPeers[0..<connsToPrune]:
+    await pm.switch.disconnect(p)
+
 proc connectToRelayPeers*(pm: PeerManager) {.async.} =
+  let (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
   let maxConnections = pm.switch.connManager.inSema.size
-  let (inRelayPeers, outRelayPeers) = pm.getNumConnections(WakuRelayCodec)
-  let totalRelayPeers = inRelayPeers + outRelayPeers
+  let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
+  let inPeersTarget = maxConnections - pm.outPeersTarget
+
+  if inRelayPeers.len > inPeersTarget:
+    await pm.pruneInRelayConns(inRelayPeers.len-inPeersTarget)
+
+  if outRelayPeers.len >= pm.outPeersTarget:
+    return
 
   # Leave some room for service peers
   if totalRelayPeers >= (maxConnections - 5):
     return
 
-  # TODO: Track only relay connections (nwaku/issues/1566)
   let notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
   let outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
   let numPeersToConnect = min(min(maxConnections - totalRelayPeers, outsideBackoffPeers.len), MaxParalelDials)
-
-  info "Relay peer connections",
-    inRelayConns = inRelayPeers,
-    outRelayConns = outRelayPeers,
-    totalRelayConns = totalRelayPeers,
-    targetConnectedPeers = maxConnections,
-    notConnectedPeers = notConnectedPeers.len,
-    outsideBackoffPeers = outsideBackoffPeers.len
 
   await pm.connectToNodes(outsideBackoffPeers[0..<numPeersToConnect])
 
@@ -607,13 +617,30 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
     await pm.connectToRelayPeers()
     await sleepAsync(ConnectivityLoopInterval)
 
+proc logSummary*(pm: PeerManager) {.async.} =
+  heartbeat "Log peer manager summary", LogSummaryInterval:
+    let (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
+    let maxConnections = pm.switch.connManager.inSema.size
+    let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
+    let inPeersTarget = maxConnections - pm.outPeersTarget
+    let notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
+    let outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
+
+    info "Relay peer connections",
+      inRelayConns = $inRelayPeers.len & "/" & $inPeersTarget,
+      outRelayConns = $outRelayPeers.len & "/" & $pm.outPeersTarget,
+      totalRelayConns = totalRelayPeers,
+      maxConnections = maxConnections,
+      notConnectedPeers = notConnectedPeers.len,
+      outsideBackoffPeers = outsideBackoffPeers.len
+
 proc updateMetrics(pm: PeerManager) {.async.} =
   heartbeat "Scheduling updateMetrics run", UpdateMetricsInterval:
     for proto in pm.peerStore.getWakuProtos():
-      let (protoConnsIn, protoConnsOut) = pm.getNumConnections(proto)
+      let (protoConnsIn, protoConnsOut) = pm.connectedPeers(proto)
       let (protoStreamsIn, protoStreamsOut) = pm.getNumStreams(proto)
-      waku_connected_peers.set(protoConnsIn.float64, labelValues = [$Direction.In, proto])
-      waku_connected_peers.set(protoConnsOut.float64, labelValues = [$Direction.Out, proto])
+      waku_connected_peers.set(protoConnsIn.len.float64, labelValues = [$Direction.In, proto])
+      waku_connected_peers.set(protoConnsOut.len.float64, labelValues = [$Direction.Out, proto])
       waku_streams_peers.set(protoStreamsIn.float64, labelValues = [$Direction.In, proto])
       waku_streams_peers.set(protoStreamsOut.float64, labelValues = [$Direction.Out, proto])
 
@@ -622,6 +649,7 @@ proc start*(pm: PeerManager) =
   asyncSpawn pm.updateMetrics()
   asyncSpawn pm.relayConnectivityLoop()
   asyncSpawn pm.prunePeerStoreLoop()
+  asyncSpawn pm.logSummary()
 
 proc stop*(pm: PeerManager) =
   pm.started = false

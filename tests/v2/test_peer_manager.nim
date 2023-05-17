@@ -456,7 +456,7 @@ procSuite "Peer Manager":
       # but the relay peer is not
       node.peerManager.serviceSlots.hasKey(WakuRelayCodec) == false
 
-  asyncTest "getNumConnections() returns expected number of connections per protocol":
+  asyncTest "connectedPeers() returns expected number of connections per protocol":
     # Create 4 nodes
     let nodes = toSeq(0..<4).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
 
@@ -483,17 +483,29 @@ procSuite "Peer Manager":
 
     # assert physical connections
     check:
-      nodes[0].peerManager.getNumConnections(WakuRelayCodec) == (0, 2)
-      nodes[0].peerManager.getNumConnections(WakuFilterCodec) == (0, 2)
+      nodes[0].peerManager.connectedPeers(WakuRelayCodec)[0].len == 0
+      nodes[0].peerManager.connectedPeers(WakuRelayCodec)[1].len == 2
 
-      nodes[1].peerManager.getNumConnections(WakuRelayCodec) == (1, 1)
-      nodes[1].peerManager.getNumConnections(WakuFilterCodec) == (1, 0)
+      nodes[0].peerManager.connectedPeers(WakuFilterCodec)[0].len == 0
+      nodes[0].peerManager.connectedPeers(WakuFilterCodec)[1].len == 2
 
-      nodes[2].peerManager.getNumConnections(WakuRelayCodec) == (2, 1)
-      nodes[2].peerManager.getNumConnections(WakuFilterCodec) == (1, 1)
+      nodes[1].peerManager.connectedPeers(WakuRelayCodec)[0].len == 1
+      nodes[1].peerManager.connectedPeers(WakuRelayCodec)[1].len == 1
 
-      nodes[3].peerManager.getNumConnections(WakuRelayCodec) == (1, 0)
-      nodes[3].peerManager.getNumConnections(WakuFilterCodec) == (1, 0)
+      nodes[1].peerManager.connectedPeers(WakuFilterCodec)[0].len == 1
+      nodes[1].peerManager.connectedPeers(WakuFilterCodec)[1].len == 0
+
+      nodes[2].peerManager.connectedPeers(WakuRelayCodec)[0].len == 2
+      nodes[2].peerManager.connectedPeers(WakuRelayCodec)[1].len == 1
+
+      nodes[2].peerManager.connectedPeers(WakuFilterCodec)[0].len == 1
+      nodes[2].peerManager.connectedPeers(WakuFilterCodec)[1].len == 1
+
+      nodes[3].peerManager.connectedPeers(WakuRelayCodec)[0].len == 1
+      nodes[3].peerManager.connectedPeers(WakuRelayCodec)[1].len == 0
+
+      nodes[3].peerManager.connectedPeers(WakuFilterCodec)[0].len == 1
+      nodes[3].peerManager.connectedPeers(WakuFilterCodec)[1].len == 0
 
   asyncTest "getNumStreams() returns expected number of connections per protocol":
     # Create 2 nodes
