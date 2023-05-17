@@ -248,11 +248,15 @@ when isMainModule:
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
 
+  let natRes = setupNat(conf.nat, clientId,
+                        Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
+                        Port(uint16(conf.udpPort) + conf.portsShift))
+  if natRes.isErr():
+    error "Error in setupNat", error = natRes.error
+
   # Load address configuration
   let
-    (nodev2ExtIp, nodev2ExtPort, _) = setupNat(conf.nat, clientId,
-                                               Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
-                                               Port(uint16(conf.udpPort) + conf.portsShift))
+    (nodev2ExtIp, nodev2ExtPort, _) = natRes.get()
     ## The following heuristic assumes that, in absence of manual
     ## config, the external port is the same as the bind port.
     extPort = if nodev2ExtIp.isSome() and nodev2ExtPort.isNone():

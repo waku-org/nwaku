@@ -349,11 +349,23 @@ when isMainModule:
   ## actually a supported transport.
   let udpPort = conf.devp2pTcpPort
 
+  let natRes = setupNat(conf.nat, ClientIdV1,
+                        Port(conf.devp2pTcpPort + conf.portsShift),
+                        Port(udpPort + conf.portsShift))
+  if natRes.isErr():
+    error "failed setupNat", error = natRes.error
+    quit(QuitFailure)
+
+  let natRes2 = setupNat(conf.nat, clientId,
+                         Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
+                         Port(uint16(udpPort) + conf.portsShift))
+  if natRes2.isErr():
+    error "failed setupNat", error = natRes2.error
+    quit(QuitFailure)
+
   # Load address configuration
   let
-    (nodev1ExtIp, _, _) = setupNat(conf.nat, ClientIdV1,
-                                   Port(conf.devp2pTcpPort + conf.portsShift),
-                                   Port(udpPort + conf.portsShift))
+    (nodev1ExtIp, _, _) = natRes.get()
     # TODO: EthereumNode should have a better split of binding address and
     # external address. Also, can't have different ports as it stands now.
     nodev1Address = if nodev1ExtIp.isNone():
@@ -364,9 +376,7 @@ when isMainModule:
                       Address(ip: nodev1ExtIp.get(),
                               tcpPort: Port(conf.devp2pTcpPort + conf.portsShift),
                               udpPort: Port(udpPort + conf.portsShift))
-    (nodev2ExtIp, nodev2ExtPort, _) = setupNat(conf.nat, clientId,
-                                               Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
-                                               Port(uint16(udpPort) + conf.portsShift))
+    (nodev2ExtIp, nodev2ExtPort, _) = natRes2.get()
 
   # Topic interest and bloom
   var topicInterest: Option[seq[waku_protocol.Topic]]

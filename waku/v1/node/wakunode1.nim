@@ -21,10 +21,15 @@ proc run(config: WakuNodeConf, rng: ref HmacDrbgContext)
   ## `udpPort` is only supplied to satisfy underlying APIs but is not
   ## actually a supported transport.
   let udpPort = config.tcpPort
+  let natRes = setupNat(config.nat, clientId,
+                        Port(config.tcpPort + config.portsShift),
+                        Port(udpPort + config.portsShift))
+  if natRes.isErr():
+    fatal "setupNat failed", error = natRes.error
+    quit(1)
+
   let
-    (ipExt, tcpPortExt, _) = setupNat(config.nat, clientId,
-      Port(config.tcpPort + config.portsShift),
-      Port(udpPort + config.portsShift))
+    (ipExt, tcpPortExt, _) = natRes.get()
   # TODO: EthereumNode should have a better split of binding address and
   # external address. Also, can't have different ports as it stands now.
     address = if ipExt.isNone():
@@ -119,7 +124,7 @@ proc run(config: WakuNodeConf, rng: ref HmacDrbgContext)
     logMetrics = proc(udata: pointer) =
       {.gcsafe.}:
         let
-          connectedPeers = connected_peers
+          connectedPeers = rlpx_connected_peers
           validEnvelopes = waku_protocol.envelopes_valid
           droppedEnvelopes = waku_protocol.envelopes_dropped
 
