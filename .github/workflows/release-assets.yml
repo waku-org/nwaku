@@ -27,7 +27,7 @@ jobs:
       - name: Get submodules hash
         id: submodules
         run: |
-          echo "hash=$(git submodule status | sha256sum | sed 's/[ -]*//g')" >> $GITHUB_OUTPUT
+          echo "hash=$(git submodule status | awk '{print $1}' | sort | shasum -a 256 | sed 's/[ -]*//g')" >> $GITHUB_OUTPUT
 
       - name: Cache submodules
         uses: actions/cache@v3
