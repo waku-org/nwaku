@@ -53,3 +53,4 @@ nimbus-build-system.paths
 *.sqlite3-shm
 *.sqlite3-wal
 
+/examples/nodejs/build/

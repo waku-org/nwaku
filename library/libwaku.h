@@ -39,7 +39,6 @@ int waku_default_pubsub_topic(WakuCallBack onOkCb);
 int waku_relay_publish(const char* pubSubTopic,
                        const char* jsonWakuMessage,
                        unsigned int timeoutMs,
-                       WakuCallBack onOkCb,
                        WakuCallBack onErrCb);
 
 int waku_relay_subscribe(const char* pubSubTopic,

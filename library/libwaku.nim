@@ -15,7 +15,7 @@ import
   ../../waku/v2/waku_core/topics/pubsub_topic,
   ../../../waku/v2/waku_relay/protocol,
   ./events/json_message_event,
-  ./waku_thread/waku_thread as waku_thread_module,
+  ./waku_thread/waku_thread,
   ./waku_thread/inter_thread_communication/node_lifecycle_request,
   ./waku_thread/inter_thread_communication/peer_manager_request,
   ./waku_thread/inter_thread_communication/protocols/relay_request,
@@ -72,7 +72,7 @@ proc waku_new(configJson: cstring,
   if isNil(onErrCb):
     return RET_MISSING_CALLBACK
 
-  let createThRes = waku_thread_module.createWakuThread(configJson)
+  let createThRes = waku_thread.createWakuThread(configJson)
   if createThRes.isErr():
     let msg = "Error in createWakuThread: " & $createThRes.error
     onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
@@ -143,13 +143,12 @@ proc waku_default_pubsub_topic(onOkCb: WakuCallBack): cint {.dynlib, exportc.} =
 proc waku_relay_publish(pubSubTopic: cstring,
                         jsonWakuMessage: cstring,
                         timeoutMs: cuint,
-                        onOkCb: WakuCallBack,
                         onErrCb: WakuCallBack): cint
 
                         {.dynlib, exportc, cdecl.} =
   # https://rfc.vac.dev/spec/36/#extern-char-waku_relay_publishchar-messagejson-char-pubsubtopic-int-timeoutms
 
-  if isNil(onOkCb) or isNil(onErrCb):
+  if isNil(onErrCb):
     return RET_MISSING_CALLBACK
 
   let jwm = jsonWakuMessage.alloc()
@@ -190,7 +189,7 @@ proc waku_relay_publish(pubSubTopic: cstring,
                           else:
                             $pst
 
-  let sendReqRes = waku_thread_module.sendRequestToWakuThread(
+  let sendReqRes = waku_thread.sendRequestToWakuThread(
                         RelayRequest.new(RelayMsgType.PUBLISH,
                                          PubsubTopic($pst),
                                          WakuRelayHandler(relayEventCallback),
@@ -205,12 +204,12 @@ proc waku_relay_publish(pubSubTopic: cstring,
   return RET_OK
 
 proc waku_start() {.dynlib, exportc.} =
-  discard waku_thread_module.sendRequestToWakuThread(
+  discard waku_thread.sendRequestToWakuThread(
                                 NodeLifecycleRequest.new(
                                           NodeLifecycleMsgType.START_NODE))
 
 proc waku_stop() {.dynlib, exportc.} =
-  discard waku_thread_module.sendRequestToWakuThread(
+  discard waku_thread.sendRequestToWakuThread(
                                 NodeLifecycleRequest.new(
                                           NodeLifecycleMsgType.STOP_NODE))
 
@@ -220,7 +219,7 @@ proc waku_relay_subscribe(
                 {.dynlib, exportc.} =
 
   let pst = pubSubTopic.alloc()
-  let sendReqRes = waku_thread_module.sendRequestToWakuThread(
+  let sendReqRes = waku_thread.sendRequestToWakuThread(
                         RelayRequest.new(RelayMsgType.SUBSCRIBE,
                                          PubsubTopic($pst),
                                          WakuRelayHandler(relayEventCallback)))
@@ -239,7 +238,7 @@ proc waku_relay_unsubscribe(
                 {.dynlib, exportc.} =
 
   let pst = pubSubTopic.alloc()
-  let sendReqRes = waku_thread_module.sendRequestToWakuThread(
+  let sendReqRes = waku_thread.sendRequestToWakuThread(
                         RelayRequest.new(RelayMsgType.UNSUBSCRIBE,
                                          PubsubTopic($pst),
                                          WakuRelayHandler(relayEventCallback)))
@@ -257,7 +256,7 @@ proc waku_connect(peerMultiAddr: cstring,
                   onErrCb: WakuCallBack): cint
                   {.dynlib, exportc.} =
 
-  let connRes = waku_thread_module.sendRequestToWakuThread(
+  let connRes = waku_thread.sendRequestToWakuThread(
                                   PeerManagementRequest.new(
                                             PeerManagementMsgType.CONNECT_TO,
                                             $peerMultiAddr,
