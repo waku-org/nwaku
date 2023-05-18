@@ -61,10 +61,12 @@ proc init_tree_with_leaves*(ctx: ptr RLN, input_buffer: ptr Buffer): bool {.impo
 ## leaves are set one after each other starting from index 0
 ## the return bool value indicates the success or failure of the operation
 
-proc set_leaves_from*(ctx: ptr RLN, index: uint, input_buffer: ptr Buffer): bool {.importc: "set_leaves_from".}
-## sets multiple leaves in the tree stored by ctx to the value passed by input_buffer
-## the input_buffer holds a serialized vector of leaves (32 bytes each)
-## the input_buffer size is prefixed by a 8 bytes integer indicating the number of leaves
+proc atomic_write*(ctx: ptr RLN, index: uint, leaves_buffer: ptr Buffer, indices_buffer: ptr Buffer): bool {.importc: "atomic_operation".}
+## sets multiple leaves, and zeroes out indices in the tree stored by ctx to the value passed by input_buffer
+## the leaves_buffer holds a serialized vector of leaves (32 bytes each)
+## the leaves_buffer size is prefixed by a 8 bytes integer indicating the number of leaves
+## the indices_bufffer holds a serialized vector of indices (8 bytes each)
+## the indices_buffer size is prefixed by a 8 bytes integer indicating the number of indices
 ## leaves are set one after each other starting from index `index`
 ## the return bool value indicates the success or failure of the operation
 

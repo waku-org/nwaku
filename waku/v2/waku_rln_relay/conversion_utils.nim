@@ -90,6 +90,20 @@ proc serialize*(roots: seq[MerkleNode]): seq[byte] =
     rootsBytes = concat(rootsBytes, @root)
   return rootsBytes
 
+# Serializes a sequence of MembershipIndex's
+proc serialize*(memIndices: seq[MembershipIndex]): seq[byte] =
+  var memIndicesBytes = newSeq[byte]()
+
+  # serialize the memIndices, with its length prefixed
+  let len = toBytes(uint64(memIndices.len), Endianness.littleEndian)
+  memIndicesBytes.add(len)
+
+  for memIndex in memIndices:
+    let memIndexBytes = toBytes(uint64(memIndex), Endianness.littleEndian)
+    memIndicesBytes = concat(memIndicesBytes, @memIndexBytes)
+
+  return memIndicesBytes
+
 proc toEpoch*(t: uint64): Epoch =
   ## converts `t` to `Epoch` in little-endian order
   let bytes = toBytes(t, Endianness.littleEndian)

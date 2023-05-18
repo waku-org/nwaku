@@ -230,34 +230,48 @@ proc insertMember*(rlnInstance: ptr RLN, idComm: IDCommitment): bool =
   let memberAdded = update_next_member(rlnInstance, pkBufferPtr)
   return memberAdded
 
+proc atomicWrite*(rlnInstance: ptr RLN, 
+                  index = none(MembershipIndex), 
+                  idComms = newSeq[IDCommitment](),
+                  toRemoveIndices = newSeq[MembershipIndex]()): bool =
+  ## Insert multiple members i.e., identity commitments, and remove multiple members
+  ## returns true if the operation is successful
+  ## returns false if the operation fails
+
+  let startIndex = if index.isNone(): MembershipIndex(0) else: index.get()
+
+  # serialize the idComms
+  let idCommsBytes = serialize(idComms)
+  var idCommsBuffer = idCommsBytes.toBuffer()
+  let idCommsBufferPtr = addr idCommsBuffer
+
+  # serialize the toRemoveIndices
+  let indicesBytes = serialize(toRemoveIndices)
+  var indicesBuffer = indicesBytes.toBuffer()
+  let indicesBufferPtr = addr indicesBuffer
+
+  let operationSuccess = atomic_write(rlnInstance, 
+                                      startIndex, 
+                                      idCommsBufferPtr, 
+                                      indicesBufferPtr)
+  return operationSuccess
 
 proc insertMembers*(rlnInstance: ptr RLN,
-                      index: MembershipIndex,
-                      idComms: seq[IDCommitment]): bool =
+                    index: MembershipIndex,
+                    idComms: seq[IDCommitment]): bool =
     ## Insert multiple members i.e., identity commitments
     ## returns true if the insertion is successful
     ## returns false if any of the insertions fails
     ## Note: This proc is atomic, i.e., if any of the insertions fails, all the previous insertions are rolled back
 
-    # serialize the idComms
-    let idCommsBytes = serialize(idComms)
-
-    var idCommsBuffer = idCommsBytes.toBuffer()
-    let idCommsBufferPtr = addr idCommsBuffer
-    # add the member to the tree
-    let membersAdded = set_leaves_from(rlnInstance, index, idCommsBufferPtr)
-    return membersAdded
+    return atomicWrite(rlnInstance, some(index), idComms)
 
 proc removeMember*(rlnInstance: ptr RLN, index: MembershipIndex): bool =
-  let deletion_success = delete_member(rlnInstance, index)
-  return deletion_success
+  let deletionSuccess = delete_member(rlnInstance, index)
+  return deletionSuccess
 
 proc removeMembers*(rlnInstance: ptr RLN, indices: seq[MembershipIndex]): bool =
-  for index in indices:
-    let deletion_success = delete_member(rlnInstance, index)
-    if not deletion_success:
-      return false
-  return true
+  return atomicWrite(rlnInstance, idComms = @[], toRemoveIndices = indices)
 
 proc getMerkleRoot*(rlnInstance: ptr RLN): MerkleNodeResult =
   # read the Merkle Tree root after insertion
