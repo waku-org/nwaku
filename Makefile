@@ -308,3 +308,19 @@ cwaku_example: | build cbindings
 		vendor/nim-libbacktrace/install/usr/lib/libbacktrace.a
 
 endif # "variables.mk" was not included
+
+###################
+# Release Targets #
+###################
+
+release-notes:
+	docker run \
+		-it \
+		--rm \
+		-v $${PWD}:/opt/sv4git/repo:z \
+		-u $(shell id -u) \
+		docker.io/wakuorg/sv4git:latest \
+			release-notes |\
+			sed -E 's@#([0-9]+)@[#\1](https://github.com/waku-org/nwaku/issues/\1)@g'
+# I could not get the tool to replace issue ids with links, so using sed for now,
+# asked here: https://github.com/bvieira/sv4git/discussions/101
