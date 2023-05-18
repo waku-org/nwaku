@@ -319,7 +319,7 @@ release-notes:
 		--rm \
 		-v $${PWD}:/opt/sv4git/repo:z \
 		-u $(shell id -u) \
-		quay.io/vpavlin0/sv4git:latest \
+		docker.io/wakuorg/sv4git:latest \
 			release-notes |\
 			sed -E 's@#([0-9]+)@[#\1](https://github.com/waku-org/nwaku/issues/\1)@g'
 # I could not get the tool to replace issue ids with links, so using sed for now,
