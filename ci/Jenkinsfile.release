@@ -39,7 +39,7 @@ pipeline {
     booleanParam(
       name: 'EXPERIMENTAL',
       description: 'Enable experimental features.',
-      defaultValue: false
+      defaultValue: true
     )
     booleanParam(
       name: 'DEBUG',
