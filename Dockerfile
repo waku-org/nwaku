@@ -61,7 +61,7 @@ CMD ["--help"]
 # DEBUG IMAGE ------------------------------------------------------------------
 
 # Build debug tools: heaptrack
-FROM alpine:edge AS heaptrack-build
+FROM alpine:3.16 AS heaptrack-build
 
 RUN apk update
 RUN apk add -- gdb git g++ make cmake zlib-dev boost-dev libunwind-dev
