@@ -75,7 +75,8 @@ method atomicBatch*(g: OnchainGroupManager,
   initializedGuard(g)
 
   let startIndex = g.latestIndex
-  let operationSuccess = g.rlnInstance.atomicWrite(some(startIndex), idCommitments, toRemoveIndices)
+  waku_rln_membership_insertion_duration_seconds.nanosecondTime:
+    let operationSuccess = g.rlnInstance.atomicWrite(some(startIndex), idCommitments, toRemoveIndices)
   if not operationSuccess:
     raise newException(ValueError, "atomic batch operation failed")
 
@@ -371,7 +372,8 @@ method startGroupSync*(g: OnchainGroupManager): Future[void] {.async.} =
     g.idCredentials = some(idCredential)
 
     debug "registering commitment on contract"
-    await g.register(idCredential)
+    waku_rln_registration_duration_seconds.nanosecondTime:
+      await g.register(idCredential)
     if g.registrationHandler.isSome():
       # We need to callback with the tx hash
       let handler = g.registrationHandler.get()
@@ -427,11 +429,12 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   g.membershipFee = some(membershipFee)
 
   if g.keystorePath.isSome() and g.keystorePassword.isSome():
-    let parsedCredsRes = getMembershipCredentials(path = g.keystorePath.get(),
-                                                  password = g.keystorePassword.get(),
-                                                  filterMembershipContracts = @[MembershipContract(chainId: $chainId,
-                                                  address: g.ethContractAddress)],
-                                                  appInfo = RLNAppInfo)
+    waku_rln_membership_credentials_import_duration_seconds.nanosecondTime:
+      let parsedCredsRes = getMembershipCredentials(path = g.keystorePath.get(),
+                                                    password = g.keystorePassword.get(),
+                                                    filterMembershipContracts = @[MembershipContract(chainId: $chainId,
+                                                    address: g.ethContractAddress)],
+                                                    appInfo = RLNAppInfo)
     if parsedCredsRes.isErr():
       raise newException(ValueError, "could not parse the keystore: " & $parsedCredsRes.error())
     let parsedCreds = parsedCredsRes.get()

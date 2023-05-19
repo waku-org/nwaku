@@ -1,5 +1,6 @@
 import
   ../protocol_types,
+  ../protocol_metrics,
   ../constants,
   ../rln
 import
@@ -13,6 +14,7 @@ export
   chronos,
   results,
   protocol_types,
+  protocol_metrics,
   deques
 
 # This module contains the GroupManager interface
@@ -148,11 +150,12 @@ method generateProof*(g: GroupManager,
     return err("identity credentials are not set")
   if g.membershipIndex.isNone():
     return err("membership index is not set")
-  let proofGenRes = proofGen(rlnInstance = g.rlnInstance,
-                             data = data,
-                             memKeys = g.idCredentials.get(),
-                             memIndex = g.membershipIndex.get(),
-                             epoch = epoch)
+  waku_rln_proof_generation_duration_seconds.nanosecondTime:
+    let proofGenRes = proofGen(rlnInstance = g.rlnInstance,
+                              data = data,
+                              memKeys = g.idCredentials.get(),
+                              memIndex = g.membershipIndex.get(),
+                              epoch = epoch)
   if proofGenRes.isErr():
     return err("proof generation failed: " & $proofGenRes.error())
   return ok(proofGenRes.value())
