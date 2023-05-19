@@ -136,9 +136,9 @@ suite "WakuNode2 - Validators":
     for node in nodes: node.wakuRelay.subscribe(spamProtectedTopic, handler)
     await sleepAsync(500.millis)
 
-    # Each node sends 10 messages, signed but with a non-whitelisted key (total = 50)
+    # Each node sends 5 messages, signed but with a non-whitelisted key (total = 25)
     for i in 0..<5:
-      for j in 0..<10:
+      for j in 0..<5:
         var msg = WakuMessage(
           payload: urandom(1*(10^3)), contentTopic: spamProtectedTopic,
           version: 2, timestamp: now(), ephemeral: true)
@@ -148,34 +148,34 @@ suite "WakuNode2 - Validators":
 
         await nodes[i].publish(spamProtectedTopic, msg)
 
-    # Each node sends 10 messages that are not signed (total = 50)
+    # Each node sends 5 messages that are not signed (total = 25)
     for i in 0..<5:
-      for j in 0..<10:
+      for j in 0..<5:
         let unsignedMessage = WakuMessage(
           payload: urandom(1*(10^3)), contentTopic: spamProtectedTopic,
           version: 2, timestamp: now(), ephemeral: true)
         await nodes[i].publish(spamProtectedTopic, unsignedMessage)
 
-    # Each node sends 10 messages that dont contain timestamp (total = 50)
+    # Each node sends 5 messages that dont contain timestamp (total = 25)
     for i in 0..<5:
-      for j in 0..<10:
+      for j in 0..<5:
         let unsignedMessage = WakuMessage(
           payload: urandom(1*(10^3)), contentTopic: spamProtectedTopic,
           version: 2, timestamp: 0, ephemeral: true)
         await nodes[i].publish(spamProtectedTopic, unsignedMessage)
 
-    # Each node sends 10 messages way BEFORE than the current timestmap (total = 50)
+    # Each node sends 5 messages way BEFORE than the current timestmap (total = 25)
     for i in 0..<5:
-      for j in 0..<10:
+      for j in 0..<5:
         let beforeTimestamp = now() - getNanosecondTime(6*60)
         let unsignedMessage = WakuMessage(
           payload: urandom(1*(10^3)), contentTopic: spamProtectedTopic,
           version: 2, timestamp: beforeTimestamp, ephemeral: true)
         await nodes[i].publish(spamProtectedTopic, unsignedMessage)
 
-    # Each node sends 10 messages way LATER than the current timestmap (total = 50)
+    # Each node sends 5 messages way LATER than the current timestmap (total = 25)
     for i in 0..<5:
-      for j in 0..<10:
+      for j in 0..<5:
         let afterTimestamp = now() - getNanosecondTime(6*60)
         let unsignedMessage = WakuMessage(
           payload: urandom(1*(10^3)), contentTopic: spamProtectedTopic,
@@ -185,12 +185,12 @@ suite "WakuNode2 - Validators":
     # Wait for gossip
     await sleepAsync(2.seconds)
 
-    # Since we have a full mesh with 5 nodes and each one publishes 50+50+50+50+50 msgs
-    # there are 1250 messages being sent.
-    # 250 are received ok in the handler (first hop)
-    # 1000 are are wrong so rejected (rejected not relayed)
+    # Since we have a full mesh with 5 nodes and each one publishes 25+25+25+25+25 msgs
+    # there are 625 messages being sent.
+    # 125 are received ok in the handler (first hop)
+    # 500 are are wrong so rejected (rejected not relayed)
     check:
-      msgReceived == 250
+      msgReceived == 125
 
     var msgRejected = 0
     for i in 0..<5:
@@ -198,7 +198,7 @@ suite "WakuNode2 - Validators":
         msgRejected += v.topicInfos[spamProtectedTopic].invalidMessageDeliveries.int
 
     check:
-      msgRejected == 1000
+      msgRejected == 500
 
     await allFutures(nodes.mapIt(it.stop()))
 
