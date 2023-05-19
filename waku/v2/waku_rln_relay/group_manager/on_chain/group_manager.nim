@@ -254,7 +254,7 @@ proc handleEvents(g: OnchainGroupManager,
     except CatchableError:
       error "failed to insert members into the tree", error=getCurrentExceptionMsg()
       raise newException(ValueError, "failed to insert members into the tree")
-    trace "new members added to the Merkle tree", commitments=members.mapIt(it.idCommitment.inHex()) , startingIndex=startingIndex
+    trace "new members added to the Merkle tree", commitments=members.mapIt(it[0].idCommitment.inHex())
     g.latestProcessedBlock = some(blockNumber)
 
   return
