@@ -41,8 +41,8 @@ into your wakunode2 binary.
 Follow [Step 10](../droplet-quickstart.md#10-run-nwaku) of the [droplet quickstart](../droplet-quickstart.md) guide, while replacing the run command with -
 
 ```bash
-export GOERLI_WS_NODE_ADDRESS=<WS RPC URL to a Goerli Node>
-export RLN_RELAY_CONTRACT_ADDRESS="0x4252105670fe33d2947e8ead304969849e64f2a6" # Replace this with any compatible implementation
+export SEPOLIA_WS_NODE_ADDRESS=<WS RPC URL to a Sepolia Node>
+export RLN_RELAY_CONTRACT_ADDRESS="0x9C09146844C1326c2dBC41c451766C7138F88155" # Replace this with any compatible implementation
 $WAKUNODE_DIR/wakunode2 \
 --store:true \
 --persist-messages \
@@ -52,7 +52,7 @@ $WAKUNODE_DIR/wakunode2 \
 --rln-relay:true \
 --rln-relay-dynamic:true \
 --rln-relay-eth-contract-address:"$RLN_RELAY_CONTRACT_ADDRESS" \
---rln-relay-eth-client-address:"$GOERLI_WS_NODE_ADDRESS"
+--rln-relay-eth-client-address:"$SEPOLIA_WS_NODE_ADDRESS"
 ```
 
 OR
@@ -61,8 +61,8 @@ If you are running the nwaku node within docker, follow [Step 2](../docker-quick
 
 ```bash
 export WAKU_FLEET=<entree of the fleet>
-export GOERLI_WS_NODE_ADDRESS=<WS RPC URL to a Goerli Node>
-export RLN_RELAY_CONTRACT_ADDRESS="0x4252105670fe33d2947e8ead304969849e64f2a6" # Replace this with any compatible implementation
+export SEPOLIA_WS_NODE_ADDRESS=<WS RPC URL to a Sepolia Node>
+export RLN_RELAY_CONTRACT_ADDRESS="0x9C09146844C1326c2dBC41c451766C7138F88155" # Replace this with any compatible implementation
 docker run -i -t -p 60000:60000 -p 9000:9000/udp statusteam/nim-waku:v0.12.0 \
   --dns-discovery:true \
   --dns-discovery-url:"$WAKU_FLEET" \
@@ -71,7 +71,7 @@ docker run -i -t -p 60000:60000 -p 9000:9000/udp statusteam/nim-waku:v0.12.0 \
   --rln-relay:true \
   --rln-relay-dynamic:true \
   --rln-relay-eth-contract-address:"$RLN_RELAY_CONTRACT_ADDRESS" \
-  --rln-relay-eth-client-address:"$GOERLI_WS_NODE_ADDRESS"
+  --rln-relay-eth-client-address:"$SEPOLIA_WS_NODE_ADDRESS"
 ```
 
 > Note: You can choose to keep connections to other nodes alive by adding the `--keep-alive` flag.
@@ -82,7 +82,7 @@ runtime arguments -
 1. `--rln-relay`: Allows waku-rln-relay to be mounted into the setup of the nwaku node
 2. `--rln-relay-dynamic`: Enables waku-rln-relay to connect to an ethereum node to fetch the membership group
 3. `--rln-relay-eth-contract-address`: The contract address of an RLN membership group
-4. `--rln-relay-eth-client-address`: The websocket url to a Goerli ethereum node
+4. `--rln-relay-eth-client-address`: The websocket url to a Sepolia ethereum node
 
 You should now have nwaku running, with RLN enabled!
 

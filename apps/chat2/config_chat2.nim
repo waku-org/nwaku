@@ -238,8 +238,8 @@ type
       name: "rln-relay-membership-index" }: uint
 
     rlnRelayContentTopic* {.
-      desc: "the pubsub topic for which rln-relay gets enabled",
-      defaultValue: "/toy-chat/2/luzhou/proto"
+      desc: "the content topic for which rln-relay gets enabled",
+      defaultValue: "/toy-chat/3/mingde/proto"
       name: "rln-relay-content-topic" }: ContentTopic
 
     rlnRelayPubsubTopic* {.

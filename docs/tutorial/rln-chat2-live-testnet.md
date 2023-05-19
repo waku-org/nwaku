@@ -1,6 +1,6 @@
 # Communicating with waku2 test fleets using chat2 application in spam-protected mode
 
-This document is a tutorial on how to run chat2 in spam-protected/rate-limited mode using the waku-RLN-Relay protocol on a designated content topic  `/toy-chat/2/luzhou/proto`.
+This document is a tutorial on how to run chat2 in spam-protected/rate-limited mode using the waku-RLN-Relay protocol on a designated content topic  `/toy-chat/3/mingde/proto`.
 You will connect your chat2 client to waku2 test fleets.
 Note that test fleets will not filter spam messages, they merely route messages.
 Spam detection takes place at the chat2 users end.
@@ -8,7 +8,7 @@ In this setting, you should try to spam the network by violating the message rat
 sending more than one message per epoch. 
 At the time of this tutorial, the epoch duration is set to `10` seconds.
 You can inspect the current epoch value by checking the following [constant variable](https://github.com/status-im/nim-waku/blob/21cac6d491a6d995a7a8ba84c85fecc7817b3d8b/waku/v2/protocol/waku_rln_relay/constants.nim#L245) in the nim-waku codebase.
-Your messages will be routed via test fleets and will arrive at other live chat2 clients that are running in rate-limited mode over the same content topic i.e., `/toy-chat/2/luzhou/proto`.
+Your messages will be routed via test fleets and will arrive at other live chat2 clients that are running in rate-limited mode over the same content topic i.e., `/toy-chat/3/mingde/proto`.
 Your samp activity will be detected by them and a proper message will be shown on their console.  
 
 # Set up
@@ -23,7 +23,7 @@ make chat2 RLN=true
 Run the following command to set up your chat2 client. 
 
 ```
-./build/chat2 --content-topic:/toy-chat/2/luzhou/proto --ports-shift=1 --fleet:test --rln-relay:true --rln-relay-membership-index:your_index
+./build/chat2 --content-topic:/toy-chat/3/mingde/proto --ports-shift=1 --fleet:test --rln-relay:true --rln-relay-membership-index:your_index
 
 ```
 In this command
@@ -78,7 +78,7 @@ You can check this fact by looking at the `Alice` console, where `A spam message
 
 Bob
 ```
-./build/chat2  --content-topic:/toy-chat/2/luzhou/proto --ports-shift=2 --fleet:test  --rln-relay:true --rln-relay-membership-index:2
+./build/chat2  --content-topic:/toy-chat/3/mingde/proto --ports-shift=2 --fleet:test  --rln-relay:true --rln-relay-membership-index:2
 Choose a nickname >> Bob
 Welcome, Bob!
 Connecting to test fleet using DNS discovery...
@@ -106,7 +106,7 @@ quitting...
 
 Alice
 ```
-./build/chat2 --content-topic:/toy-chat/2/luzhou/proto --ports-shift=1 --fleet:test  --rln-relay:true --rln-relay-membership-index:1
+./build/chat2 --content-topic:/toy-chat/3/mingde/proto --ports-shift=1 --fleet:test  --rln-relay:true --rln-relay-membership-index:1
 
 Choose a nickname >> Alice
 Welcome, Alice!
