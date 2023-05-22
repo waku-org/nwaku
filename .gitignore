@@ -39,7 +39,6 @@ node_modules/
 .idea/
 
 # RLN / keystore
-rlnCredentials.txt
 rlnKeystore.json
 *.tar.gz
 

@@ -592,7 +592,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
           chat.prompt = false
           showChatPrompt(chat)
         proc registrationHandler(txHash: string) {.gcsafe, closure.} =
-          echo "You are registered to the rln membership contract, find details of your registration transaction in https://goerli.etherscan.io/tx/0x", txHash
+          echo "You are registered to the rln membership contract, find details of your registration transaction in https://sepolia.etherscan.io/tx/", txHash
 
         echo "rln-relay preparation is in progress..."
 
