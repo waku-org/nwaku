@@ -159,13 +159,13 @@ quitting...
 
 ## How to persist and reuse RLN credential
 
-You may pass the `rln-relay-cred-path` config option to specify a path for 1) persisting RLN credentials and 2) retrieving persisted RLN credentials.  
-RLN credential is persisted in the `rlnCredentials.txt` file under the specified path.
-If this file does not already exist under the supplied path, then a new credential is generated and persisted in the `rlnCredentials.txt` file.
-Otherwise, the chat client does not generate a new credential and will use, instead, the persisted RLN credential.
+You may pass the `rln-relay-cred-path` config option to specify a path to a file for 1) persisting RLN credentials and 2) retrieving persisted RLN credentials.  
+
+If the keystore exists in the path provided, it is used, and will default to the 0th element in the credential array.
+If the keystore does not exist in the path provided, a new keystore will be created and added to the directory it was supposed to be in.
 
 ```bash
-./build/chat2  --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x9C09146844C1326c2dBC41c451766C7138F88155  --rln-relay-eth-account-private-key:your_eth_private_key  --rln-relay-eth-client-address:your_sepolia_node  --ports-shift=1  --rln-relay-cred-path:./
+./build/chat2  --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x9C09146844C1326c2dBC41c451766C7138F88155  --rln-relay-eth-account-private-key:your_private_key  --rln-relay-eth-client-address:your_sepolia_node  --ports-shift=1  --rln-relay-cred-path:./rlnKeystore.json --rln-relay-cred-password:your_password
 ```
 
 Note: If you are reusing credentials, you can omit the `rln-relay-eth-account-private-key` flag.
@@ -173,7 +173,7 @@ Note: If you are reusing credentials, you can omit the `rln-relay-eth-account-pr
 Therefore, the command to start chat2 would be -
 
 ```bash
-./build/chat2  --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x9C09146844C1326c2dBC41c451766C7138F88155 --rln-relay-eth-client-address:your_sepolia_node  --ports-shift=1  --rln-relay-cred-path:./
+./build/chat2  --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x9C09146844C1326c2dBC41c451766C7138F88155 --rln-relay-eth-client-address:your_sepolia_node  --ports-shift=1  --rln-relay-cred-path:./rlnKeystore.json --rln-relay-cred-password:your_password
 ```
 
 # Sample test output
