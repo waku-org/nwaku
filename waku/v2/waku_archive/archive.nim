@@ -80,9 +80,9 @@ proc new*(T: type WakuArchive,
     retentionPolicy: retentionPolicy.get(nil)
   )
 
-
-
-proc handleMessage*(w: WakuArchive, pubsubTopic: PubsubTopic, msg: WakuMessage) =
+proc handleMessage*(w: WakuArchive,
+                    pubsubTopic: PubsubTopic,
+                    msg: WakuMessage) {.async.} =
   if msg.ephemeral:
     # Ephemeral message, do not store
     return
@@ -92,7 +92,6 @@ proc handleMessage*(w: WakuArchive, pubsubTopic: PubsubTopic, msg: WakuMessage) 
     if validationRes.isErr():
       waku_archive_errors.inc(labelValues = [validationRes.error])
       return
-
 
   let insertStartTime = getTime().toUnixFloat()
 
@@ -104,7 +103,7 @@ proc handleMessage*(w: WakuArchive, pubsubTopic: PubsubTopic, msg: WakuMessage) 
 
     trace "handling message", pubsubTopic=pubsubTopic, contentTopic=msg.contentTopic, timestamp=msg.timestamp, digest=msgDigest
 
-    let putRes = w.driver.put(pubsubTopic, msg, msgDigest, msgReceivedTime)
+    let putRes = await w.driver.put(pubsubTopic, msg, msgDigest, msgReceivedTime)
     if putRes.isErr():
       error "failed to insert message", err=putRes.error
       waku_archive_errors.inc(labelValues = [insertFailure])
@@ -113,7 +112,7 @@ proc handleMessage*(w: WakuArchive, pubsubTopic: PubsubTopic, msg: WakuMessage) 
   waku_archive_insert_duration_seconds.observe(insertDuration)
 
 
-proc findMessages*(w: WakuArchive, query: ArchiveQuery): ArchiveResult {.gcsafe.} =
+proc findMessages*(w: WakuArchive, query: ArchiveQuery): Future[ArchiveResult] {.async, gcsafe.} =
   ## Search the archive to return a single page of messages matching the query criteria
   let
     qContentTopics = query.contentTopics
@@ -128,10 +127,9 @@ proc findMessages*(w: WakuArchive, query: ArchiveQuery): ArchiveResult {.gcsafe.
   if qContentTopics.len > 10:
     return err(ArchiveError.invalidQuery("too many content topics"))
 
-
   let queryStartTime = getTime().toUnixFloat()
 
-  let queryRes = w.driver.getMessages(
+  let queryRes = await w.driver.getMessages(
       contentTopic = qContentTopics,
       pubsubTopic = qPubSubTopic,
       cursor = qCursor,
@@ -144,16 +142,13 @@ proc findMessages*(w: WakuArchive, query: ArchiveQuery): ArchiveResult {.gcsafe.
   let queryDuration = getTime().toUnixFloat() - queryStartTime
   waku_archive_query_duration_seconds.observe(queryDuration)
 
-
   # Build response
   if queryRes.isErr():
     return err(ArchiveError(kind: ArchiveErrorKind.DRIVER_ERROR, cause: queryRes.error))
 
   let rows = queryRes.get()
-
   var messages = newSeq[WakuMessage]()
   var cursor = none(ArchiveCursor)
-
   if rows.len == 0:
     return ok(ArchiveResponse(messages: messages, cursor: cursor))
 
@@ -187,28 +182,27 @@ proc findMessages*(w: WakuArchive, query: ArchiveQuery): ArchiveResult {.gcsafe.
   if not qAscendingOrder:
     reverse(messages)
 
-  ok(ArchiveResponse(messages: messages, cursor: cursor))
-
+  return ok(ArchiveResponse(messages: messages, cursor: cursor))
 
 # Retention policy
 
-proc executeMessageRetentionPolicy*(w: WakuArchive) =
+proc executeMessageRetentionPolicy*(w: WakuArchive) {.async.} =
   if w.retentionPolicy.isNil():
     return
 
   if w.driver.isNil():
     return
 
-  let retPolicyRes = w.retentionPolicy.execute(w.driver)
+  let retPolicyRes = await w.retentionPolicy.execute(w.driver)
   if retPolicyRes.isErr():
       waku_archive_errors.inc(labelValues = [retPolicyFailure])
       error "failed execution of retention policy", error=retPolicyRes.error
 
-proc reportStoredMessagesMetric*(w: WakuArchive) =
+proc reportStoredMessagesMetric*(w: WakuArchive) {.async.} =
   if w.driver.isNil():
     return
 
-  let resCount = w.driver.getMessagesCount()
+  let resCount = await w.driver.getMessagesCount()
   if resCount.isErr():
     error "failed to get messages count", error=resCount.error
     return

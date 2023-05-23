@@ -552,7 +552,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       await node.mountFilterClient()
       node.peerManager.addServicePeer(peerInfo.value, WakuFilterCodec)
 
-      proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.gcsafe.} =
+      proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
         trace "Hit filter handler", contentTopic=msg.contentTopic
         chat.printReceivedMessage(msg)
 

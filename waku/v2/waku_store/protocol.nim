@@ -34,7 +34,7 @@ const
   MaxMessageTimestampVariance* = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift"
 
 
-type HistoryQueryHandler* = proc(req: HistoryQuery): HistoryResult {.gcsafe.}
+type HistoryQueryHandler* = proc(req: HistoryQuery): Future[HistoryResult] {.async, gcsafe.}
 
 type
   WakuStore* = ref object of LPProtocol
@@ -74,7 +74,7 @@ proc initProtocolHandler(ws: WakuStore) =
 
     var responseRes: HistoryResult
     try:
-      responseRes = ws.queryHandler(request)
+      responseRes = await ws.queryHandler(request)
     except Exception:
       error "history query failed", peerId= $conn.peerId, requestId=requestId, error=getCurrentExceptionMsg()
 

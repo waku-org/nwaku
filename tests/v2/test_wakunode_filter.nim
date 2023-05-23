@@ -39,7 +39,7 @@ suite "WakuNode - Filter":
       message = fakeWakuMessage(contentTopic=contentTopic)
 
     var filterPushHandlerFut = newFuture[(PubsubTopic, WakuMessage)]()
-    proc filterPushHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.gcsafe, closure.} =
+    proc filterPushHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
       filterPushHandlerFut.complete((pubsubTopic, msg))
 
     ## When

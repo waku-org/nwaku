@@ -25,7 +25,6 @@ import
   ../testlib/wakucore,
   ../testlib/wakunode
 
-
 proc newTestArchiveDriver(): ArchiveDriver =
   let database = SqliteDatabase.new(":memory:").tryGet()
   SqliteDriver.new(database).tryGet()
@@ -54,15 +53,6 @@ procSuite "WakuNode - Store":
     fakeWakuMessage(@[byte 09], ts=ts(90, timeOrigin))
   ]
 
-  let archiveA = block:
-      let driver = newTestArchiveDriver()
-
-      for msg in msgListA:
-        let msg_digest = waku_archive.computeDigest(msg)
-        require driver.put(DefaultPubsubTopic, msg, msg_digest, msg.timestamp).isOk()
-
-      driver
-
   asyncTest "Store protocol returns expected messages":
     ## Setup
     let
@@ -72,6 +62,15 @@ procSuite "WakuNode - Store":
       client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     await allFutures(client.start(), server.start())
+
+    let archiveA = block:
+      let driver = newTestArchiveDriver()
+
+      for msg in msgListA:
+        let msg_digest = waku_archive.computeDigest(msg)
+        require (await driver.put(DefaultPubsubTopic, msg, msg_digest, msg.timestamp)).isOk()
+
+      driver
 
     server.mountArchive(some(archiveA), none(MessageValidator), none(RetentionPolicy))
     await server.mountStore()
@@ -104,6 +103,15 @@ procSuite "WakuNode - Store":
       client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     await allFutures(client.start(), server.start())
+
+    let archiveA = block:
+      let driver = newTestArchiveDriver()
+
+      for msg in msgListA:
+        let msg_digest = waku_archive.computeDigest(msg)
+        require (await driver.put(DefaultPubsubTopic, msg, msg_digest, msg.timestamp)).isOk()
+
+      driver
 
     server.mountArchive(some(archiveA), none(MessageValidator), none(RetentionPolicy))
     await server.mountStore()
@@ -153,6 +161,15 @@ procSuite "WakuNode - Store":
       client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     await allFutures(client.start(), server.start())
+
+    let archiveA = block:
+      let driver = newTestArchiveDriver()
+
+      for msg in msgListA:
+        let msg_digest = waku_archive.computeDigest(msg)
+        require (await driver.put(DefaultPubsubTopic, msg, msg_digest, msg.timestamp)).isOk()
+
+      driver
 
     server.mountArchive(some(archiveA), none(MessageValidator), none(RetentionPolicy))
     await server.mountStore()
@@ -221,7 +238,7 @@ procSuite "WakuNode - Store":
 
     ## Then
     let filterFut = newFuture[(PubsubTopic, WakuMessage)]()
-    proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.gcsafe, closure.} =
+    proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
       filterFut.complete((pubsubTopic, msg))
 
     await server.filterSubscribe(DefaultPubsubTopic, DefaultContentTopic, filterHandler, peer=filterSourcePeer)

@@ -23,7 +23,7 @@ proc newTestSqliteDriver(): ArchiveDriver =
 
 suite "SQLite driver":
 
-  test "init driver and database":
+  asyncTest "init driver and database":
     ## Given
     let database = newTestDatabase()
 
@@ -39,9 +39,9 @@ suite "SQLite driver":
       not driver.isNil()
 
     ## Cleanup
-    driver.close().expect("driver to close")
+    (await driver.close()).expect("driver to close")
 
-  test "insert a message":
+  asyncTest "insert a message":
     ## Given
     const contentTopic = "test-content-topic"
 
@@ -50,13 +50,13 @@ suite "SQLite driver":
     let msg = fakeWakuMessage(contentTopic=contentTopic)
 
     ## When
-    let putRes = driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+    let putRes = await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
 
     ## Then
     check:
       putRes.isOk()
 
-    let storedMsg = driver.getAllMessages().tryGet()
+    let storedMsg = (await driver.getAllMessages()).tryGet()
     check:
       storedMsg.len == 1
       storedMsg.all do (item: auto) -> bool:
@@ -65,4 +65,4 @@ suite "SQLite driver":
         pubsubTopic == DefaultPubsubTopic
 
     ## Cleanup
-    driver.close().expect("driver to close")
+    (await driver.close()).expect("driver to close")
