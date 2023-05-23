@@ -10,7 +10,7 @@ For ease of demonstration, we make use of Nim-chat, Go-chat, and JS-chat applica
 You need to set up a chat application in spam-protected mode and then start messaging with it. 
 As for the setup, please follow the tutorials below:
 - [Nim-chat](./onchain-rln-relay-chat2.md)
-- [Go-chat](https://github.com/status-im/go-waku/blob/master/docs/tutorials/rln.md)
+- [Go-chat](https://github.com/waku-org/go-waku/blob/master/docs/tutorials/rln.md)
 - [JS-chat](https://examples.waku.org/rln-js/)
 
 Once you set up your chat client, it will be connected to the Waku v2 test fleets as its first hop. 

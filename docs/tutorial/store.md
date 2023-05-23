@@ -1,5 +1,7 @@
 # Running Store Protocol
 
+> TODO: Depricate or fix
+
 ## How to
 
 Build:

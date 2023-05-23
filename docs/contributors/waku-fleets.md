@@ -20,8 +20,7 @@ and configured to bridge toy-chat messages to the `#waku channel` on the Vac Dis
 
 ### Fleet deployment rationale
 
-The `test` fleet is automatically updated after every commit to the `nim-waku` `master` branch
-and is therefore the most up to date representation of Waku v2 development.
+The `test` fleet is automatically updated after every commit to the `nim-waku` repository `master` branch and is therefore the most up to date representation of Waku v2 development.
 It is suitable for testing new features before they're rolled out to the (more) stable `prod` fleet.
 
 In general only the latest release of `nim-waku` is deployed to the `prod` fleet.
@@ -43,7 +42,7 @@ The rest of this document highlights some infra services of specific interest to
 1. [Consul](https://consul.infra.status.im/ui/do-ams3/services?filter=nim-waku) to view the health status of Waku nodes.
 2. [Kibana](https://kibana.infra.status.im/app/discover#/) to view and filter logs.
 3. [Grafana](https://grafana.infra.status.im/d/qrp_ZCTGz/nim-waku-v2) to view and filter metrics.
-4. [Jenkins](https://ci.status.im/job/nim-waku/) to configure and deploy new builds to the fleets.
+4. [Jenkins](https://ci.infra.status.im/job/nim-waku/) to configure and deploy new builds to the fleets.
 
 ### 1. [Consul](https://consul.infra.status.im/ui/do-ams3/services?filter=nim-waku) for health checks
 
@@ -72,35 +71,35 @@ with an overview of the latest connected peers, total messages, CPU usage, repor
 The _"General"_ collection contains a more in-depth look at node, libp2p and performance-related metrics.
 This is followed by separate panel collections showing _per-protocol_ metrics.
 
-A copy of the `Nim-Waku V2` fleets dashboard is maintained in the [`nim-waku` repo](https://github.com/status-im/nim-waku/blob/master/metrics/waku_fleet_dashboard.json).
+A copy of the `Nim-Waku V2` fleets dashboard is maintained in the [`nim-waku` repo](https://github.com/waku-org/nwaku/blob/master/metrics/waku-fleet-dashboard.json).
 From time to time certain Prometheus queries may fail,
 often when the underlying metrics are renamed.
-Please report any broken panels via our Discord channels or by [creating an issue in `nim-waku`](https://github.com/status-im/nim-waku/issues/new).
+Please report any broken panels via our Discord channels or by [creating an issue in `nim-waku`](https://github.com/waku-org/nwaku/issues/new).
 
 ### 4. [Jenkins](https://ci.status.im/job/nim-waku/) for deployment
 
-The [`nim-waku` jobs](https://ci.status.im/job/nim-waku/) on Jenkins are configured to deploy `nim-waku` builds to the fleets.
-1. [`deploy-wakuv2-test`](https://ci.status.im/job/nim-waku/job/deploy-wakuv2-test/) is triggered automatically after every commit to the `nim-waku` `master` branch.
-2. [`deploy-wakuv2-prod`](https://ci.status.im/job/nim-waku/job/deploy-wakuv2-prod/) must be triggered manually. Usually this job is only built after a tagged release in `nim-waku`.
+The [`nim-waku` jobs](https://ci.infra.status.im/job/nim-waku/) on Jenkins are configured to deploy `nim-waku` builds to the fleets.
+1. [`deploy-wakuv2-test`](https://ci.infra.status.im/job/nim-waku/job/deploy-wakuv2-test/) is triggered automatically after every commit to the `nim-waku` `master` branch.
+2. [`deploy-wakuv2-prod`](https://ci.infra.status.im/job/nim-waku/job/deploy-wakuv2-prod/) must be triggered manually. Usually this job is only built after a tagged release in `nim-waku`.
 
 Each job can be manually triggered using the _"Build with Parameters"_ option.
 Options under _"Configure"_ include the build triggers, build target and branches to build.
 These should only be changed with care.
 
-See [Continuous Integration docs](https://github.com/status-im/nim-waku/blob/master/docs/contributors/continuous-integration.md) for more.
+See [Continuous Integration docs](https://github.com/waku-org/nwaku/blob/master/docs/contributors/continuous-integration.md) for more.
 
 ## Quick links
 
- 1. [`chat2bridge`](https://github.com/status-im/nim-waku/blob/master/docs/tutorial/chat2.md#bridge-messages-between-chat2-and-matterbridge)
+ 1. [`chat2bridge`](https://github.com/waku-org/nwaku/blob/master/docs/tutorial/chat2.md#bridge-messages-between-chat2-and-matterbridge)
  2.  [Consul for do-ams3](https://consul.infra.status.im/ui/do-ams3/services?filter=nim-waku)
  3. [Consul for ac-cn-hongkong-c](https://consul.infra.status.im/ui/ac-cn-hongkong-c/services?filter=nim-waku)
  4. [Consul for gc-us-central1-a](https://consul.infra.status.im/ui/gc-us-central1-a/services?filter=nim-waku)
  5. [Grafana Nim-Waku V2 dashboard](https://grafana.infra.status.im/d/qrp_ZCTGz/nim-waku-v2?orgId=1&refresh=5m)
  6. [`infra-docs` repo](https://github.com/status-im/infra-docs)
  7. [`infra-nim-waku` repo](https://github.com/status-im/infra-nim-waku)
- 8. [Jenkins jobs for `nim-waku`](https://ci.status.im/job/nim-waku/)
- 9. [Jenkins deploy-wakuv2-prod manual trigger](https://ci.status.im/job/nim-waku/job/deploy-wakuv2-prod/build)
- 10. [Jenkins deploy-wakuv2-test manual trigger](https://ci.status.im/job/nim-waku/job/deploy-wakuv2-test/build)
+ 8. [Jenkins jobs for `nim-waku`](https://ci.infra.status.im/job/nim-waku/)
+ 9. [Jenkins deploy-wakuv2-prod manual trigger](https://ci.infra.status.im/job/nim-waku/job/deploy-wakuv2-prod/build)
+ 10. [Jenkins deploy-wakuv2-test manual trigger](https://ci.infra.status.im/job/nim-waku/job/deploy-wakuv2-test/build)
  11. [Kibana logs for `prod`](https://kibana.infra.status.im/goto/87fde8e4bba7246ce3780a0c8344f4f0)
  12. [Kibana logs for `test`](https://kibana.infra.status.im/goto/fc23759670fd08e9d32e81bb4e58733d)
  13. [Status fleets](https://fleets.status.im/)

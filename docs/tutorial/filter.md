@@ -1,5 +1,7 @@
 # Running Filter Protocol
 
+> TODO: Fix or depricate
+
 ## How to
 
 Build:

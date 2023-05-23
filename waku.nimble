@@ -86,6 +86,8 @@ task testbridge, "Build & run wakubridge tests":
 task example2, "Build Waku v2 example":
   buildBinary "publisher", "examples/v2/"
   buildBinary "subscriber", "examples/v2/"
+  buildBinary "filter_subscriber", "examples/v2/"
+  buildBinary "lightpush_publisher", "examples/v2/"
 
 task chat2, "Build example Waku v2 chat usage":
   # NOTE For debugging, set debug level. For chat usage we want minimal log
