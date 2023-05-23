@@ -7,6 +7,7 @@
 BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 EXCLUDED_NIM_PACKAGES := vendor/nim-dnsdisc/vendor
 LINK_PCRE := 0
+LOG_LEVEL := TRACE
 
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
@@ -272,6 +273,7 @@ docker-image:
 		--build-arg="NIMFLAGS=$(DOCKER_IMAGE_NIMFLAGS)" \
 		--build-arg="EXPERIMENTAL=$(EXPERIMENTAL)" \
 		--build-arg="NIM_COMMIT=$(DOCKER_NIM_COMMIT)" \
+		--build-arg="LOG_LEVEL=$(LOG_LEVEL)" \
 		--label="commit=$(GIT_VERSION)" \
 		--target $(TARGET) \
 		--tag $(DOCKER_IMAGE_NAME) .
