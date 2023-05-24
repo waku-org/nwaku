@@ -46,8 +46,7 @@ to the same pubsub and content topic.
 It runs forever, maintaining this subscription
 and printing the content it receives.
 
-**Compile**
-
+**Run**
 Start the filter subscriber.
 ```console
 ./build/filter_subscriber
