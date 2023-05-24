@@ -1,6 +1,6 @@
 # Listening on Websocket to Enable Connections With Waku v2 Browser Peers
 
-> TODO: Depricate or fix (since nwaku supports websockets)
+> TODO (2023-05-24): Deprecate or fix
 
 Currently, nim-waku only supports TCP transport.
 This means it is not possible to directly connect from a browser using [js-waku](https://github.com/waku-org/js-waku/)

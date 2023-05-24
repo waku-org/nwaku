@@ -1,6 +1,6 @@
 # Running Filter Protocol
 
-> TODO: Fix or depricate
+> TODO (2023-05-24): Deprecate or fix
 
 ## How to
 

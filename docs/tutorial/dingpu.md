@@ -1,5 +1,7 @@
 # Dingpu testnet
 
+> TODO (2023-05-24): Deprecate or fix
+
 *NOTE: Some of these addresses might change. To get the latest, please see `curl -s https://fleets.status.im | jq '.fleets["wakuv2.test"]'`*
 
 ## Basic chat usage

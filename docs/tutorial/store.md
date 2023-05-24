@@ -1,6 +1,6 @@
 # Running Store Protocol
 
-> TODO: Depricate or fix
+> TODO (2023-05-24): Deprecate or fix
 
 ## How to
 
