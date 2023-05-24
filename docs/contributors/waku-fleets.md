@@ -2,7 +2,7 @@
 
 ## Background
 
-Status currently maintains two fleets for `nim-waku` v2 nodes,
+Status currently maintains two fleets for `nwaku` v2 nodes,
 the `wakuv2.test` fleet and the `wakuv2.prod` (production) fleet.
 They'll be referred to as `test` and `prod` in this document.
 Status fleet nodes and addresses can be viewed [here](https://fleets.status.im/).
@@ -13,17 +13,17 @@ At the time of writing this, each fleet consists of three waku v2 nodes,
 with a [websockify](https://github.com/novnc/websockify) WebSocket-to-TCP bridge for each node.
 Waku v2 peers can choose to connect either directly to a node's TCP endpoint
 or the bridged WebSocket depending on their own supported transports.
-The `prod` fleet also has a deployed [`chat2bridge`](https://github.com/status-im/nim-waku/blob/master/docs/tutorial/chat2.md#bridge-messages-between-chat2-and-matterbridge),
+The `prod` fleet also has a deployed [`chat2bridge`](https://github.com/waku-org/nwaku/blob/master/docs/tutorial/chat2.md#bridge-messages-between-chat2-and-matterbridge),
 which serves as a bridge between the [Waku v2 toy-chat](https://rfc.vac.dev/spec/22/) and Matterbridge.
 The `chat2bridge` is currently deployed to the `node-01.do-ams3` datacentre
 and configured to bridge toy-chat messages to the `#waku channel` on the Vac Discord Server.
 
 ### Fleet deployment rationale
 
-The `test` fleet is automatically updated after every commit to the `nim-waku` repository `master` branch and is therefore the most up to date representation of Waku v2 development.
+The `test` fleet is automatically updated after every commit to the `nwaku` repository `master` branch and is therefore the most up to date representation of Waku v2 development.
 It is suitable for testing new features before they're rolled out to the (more) stable `prod` fleet.
 
-In general only the latest release of `nim-waku` is deployed to the `prod` fleet.
+In general only the latest release of `nwaku` is deployed to the `prod` fleet.
 It requires manual updating and should therefore be more stable than `test`.
 See the [section on Jenkins](#jenkins-for-deployment) below for more on the deployment process.
 
@@ -46,7 +46,7 @@ The rest of this document highlights some infra services of specific interest to
 
 ### 1. [Consul](https://consul.infra.status.im/ui/do-ams3/services?filter=nim-waku) for health checks
 
-Consul provides a useful high-level view of the health of the  `nim-waku` fleets.
+Consul provides a useful high-level view of the health of the  `nwaku` fleets.
 It aggregates the result of various monitoring checks
 and shows the health status for the node itself, the RPC API, exposed WebSocket and metrics.
 The datacentre can be changed in the upper left-hand corner.
@@ -71,16 +71,16 @@ with an overview of the latest connected peers, total messages, CPU usage, repor
 The _"General"_ collection contains a more in-depth look at node, libp2p and performance-related metrics.
 This is followed by separate panel collections showing _per-protocol_ metrics.
 
-A copy of the `Nim-Waku V2` fleets dashboard is maintained in the [`nim-waku` repo](https://github.com/waku-org/nwaku/blob/master/metrics/waku-fleet-dashboard.json).
+A copy of the `Nim-Waku V2` fleets dashboard is maintained in the [`nwaku` repo](https://github.com/waku-org/nwaku/blob/master/metrics/waku-fleet-dashboard.json).
 From time to time certain Prometheus queries may fail,
 often when the underlying metrics are renamed.
-Please report any broken panels via our Discord channels or by [creating an issue in `nim-waku`](https://github.com/waku-org/nwaku/issues/new).
+Please report any broken panels via our Discord channels or by [creating an issue in `nwaku`](https://github.com/waku-org/nwaku/issues/new).
 
 ### 4. [Jenkins](https://ci.status.im/job/nim-waku/) for deployment
 
-The [`nim-waku` jobs](https://ci.infra.status.im/job/nim-waku/) on Jenkins are configured to deploy `nim-waku` builds to the fleets.
-1. [`deploy-wakuv2-test`](https://ci.infra.status.im/job/nim-waku/job/deploy-wakuv2-test/) is triggered automatically after every commit to the `nim-waku` `master` branch.
-2. [`deploy-wakuv2-prod`](https://ci.infra.status.im/job/nim-waku/job/deploy-wakuv2-prod/) must be triggered manually. Usually this job is only built after a tagged release in `nim-waku`.
+The [`nim-waku` jobs](https://ci.infra.status.im/job/nim-waku/) on Jenkins are configured to deploy `nwaku` builds to the fleets.
+1. [`deploy-wakuv2-test`](https://ci.infra.status.im/job/nim-waku/job/deploy-wakuv2-test/) is triggered automatically after every commit to the `nwaku` `master` branch.
+2. [`deploy-wakuv2-prod`](https://ci.infra.status.im/job/nim-waku/job/deploy-wakuv2-prod/) must be triggered manually. Usually this job is only built after a tagged release in `nwaku`.
 
 Each job can be manually triggered using the _"Build with Parameters"_ option.
 Options under _"Configure"_ include the build triggers, build target and branches to build.
