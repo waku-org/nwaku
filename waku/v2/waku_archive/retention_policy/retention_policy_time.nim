@@ -48,5 +48,5 @@ method execute*(p: TimeRetentionPolicy,
   let res = await driver.deleteMessagesOlderThanTimestamp(ts=retentionTimestamp)
   if res.isErr():
     return err("failed to delete oldest messages: " & res.error)
-  else:
-    return ok()
+
+  return ok()

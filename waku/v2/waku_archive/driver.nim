@@ -26,10 +26,10 @@ method put*(driver: ArchiveDriver,
             message: WakuMessage,
             digest: MessageDigest,
             receivedTime: Timestamp):
-            Future[ArchiveDriverResult[void]] {.base.} = discard
+            Future[ArchiveDriverResult[void]] {.base, async.} = discard
 
 method getAllMessages*(driver: ArchiveDriver):
-                       Future[ArchiveDriverResult[seq[ArchiveRow]]] {.base.} = discard
+                       Future[ArchiveDriverResult[seq[ArchiveRow]]] {.base, async.} = discard
 
 method getMessages*(driver: ArchiveDriver,
                     contentTopic: seq[ContentTopic] = @[],
@@ -39,24 +39,24 @@ method getMessages*(driver: ArchiveDriver,
                     endTime = none(Timestamp),
                     maxPageSize = DefaultPageSize,
                     ascendingOrder = true):
-                    Future[ArchiveDriverResult[seq[ArchiveRow]]] {.base.} = discard
+                    Future[ArchiveDriverResult[seq[ArchiveRow]]] {.base, async.} = discard
 
 method getMessagesCount*(driver: ArchiveDriver):
-                         Future[ArchiveDriverResult[int64]] {.base.} = discard
+                         Future[ArchiveDriverResult[int64]] {.base, async.} = discard
 
 method getOldestMessageTimestamp*(driver: ArchiveDriver):
-                                  Future[ArchiveDriverResult[Timestamp]] {.base.} = discard
+                                  Future[ArchiveDriverResult[Timestamp]] {.base, async.} = discard
 
 method getNewestMessageTimestamp*(driver: ArchiveDriver):
-                                  Future[ArchiveDriverResult[Timestamp]] {.base.} = discard
+                                  Future[ArchiveDriverResult[Timestamp]] {.base, async.} = discard
 
 method deleteMessagesOlderThanTimestamp*(driver: ArchiveDriver,
                                          ts: Timestamp):
-                                         Future[ArchiveDriverResult[void]] {.base.} = discard
+                                         Future[ArchiveDriverResult[void]] {.base, async.} = discard
 
 method deleteOldestMessagesNotWithinLimit*(driver: ArchiveDriver,
                                            limit: int):
-                                           Future[ArchiveDriverResult[void]] {.base.} = discard
+                                           Future[ArchiveDriverResult[void]] {.base, async.} = discard
 
 method close*(driver: ArchiveDriver):
-              Future[ArchiveDriverResult[void]] {.base.} = discard
+              Future[ArchiveDriverResult[void]] {.base, async.} = discard

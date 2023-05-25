@@ -35,7 +35,7 @@ proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveC
 
 suite "Queue driver - query by content topic":
 
-  asyncTest "no content topic":
+  test "no content topic":
     ## Given
     const contentTopic = "test-content-topic"
 
@@ -58,11 +58,11 @@ suite "Queue driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       maxPageSize=5,
       ascendingOrder=true
     )
@@ -76,9 +76,9 @@ suite "Queue driver - query by content topic":
       filteredMessages == expected[0..4]
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "single content topic":
+  test "single content topic":
     ## Given
     const contentTopic = "test-content-topic"
 
@@ -102,11 +102,11 @@ suite "Queue driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       contentTopic= @[contentTopic],
       maxPageSize=2,
       ascendingOrder=true
@@ -121,9 +121,9 @@ suite "Queue driver - query by content topic":
       filteredMessages == expected[2..3]
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "single content topic - descending order":
+  test "single content topic - descending order":
     ## Given
     const contentTopic = "test-content-topic"
 
@@ -147,11 +147,11 @@ suite "Queue driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       contentTopic= @[contentTopic],
       maxPageSize=2,
       ascendingOrder=false
@@ -166,9 +166,9 @@ suite "Queue driver - query by content topic":
       filteredMessages == expected[6..7].reversed()
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "multiple content topic":
+  test "multiple content topic":
     ## Given
     const contentTopic1 = "test-content-topic-1"
     const contentTopic2 = "test-content-topic-2"
@@ -194,11 +194,11 @@ suite "Queue driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       contentTopic= @[contentTopic1, contentTopic2],
       maxPageSize=2,
       ascendingOrder=true
@@ -213,9 +213,9 @@ suite "Queue driver - query by content topic":
       filteredMessages == expected[2..3]
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "single content topic - no results":
+  test "single content topic - no results":
     ## Given
     const contentTopic = "test-content-topic"
 
@@ -234,11 +234,11 @@ suite "Queue driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       contentTopic= @[contentTopic],
       maxPageSize=2,
       ascendingOrder=true
@@ -253,9 +253,9 @@ suite "Queue driver - query by content topic":
       filteredMessages.len == 0
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "content topic and max page size - not enough messages stored":
+  test "content topic and max page size - not enough messages stored":
     ## Given
     const pageSize: uint = 50
 
@@ -263,11 +263,11 @@ suite "Queue driver - query by content topic":
 
     for t in 0..<40:
       let msg = fakeWakuMessage(@[byte t], DefaultContentTopic, ts=ts(t))
-      let retFut = await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       contentTopic= @[DefaultContentTopic],
       maxPageSize=pageSize,
       ascendingOrder=true
@@ -282,12 +282,12 @@ suite "Queue driver - query by content topic":
       filteredMessages.len == 40
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
 
 suite "SQLite driver - query by pubsub topic":
 
-  asyncTest "pubsub topic":
+  test "pubsub topic":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
@@ -312,11 +312,11 @@ suite "SQLite driver - query by pubsub topic":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = await driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       pubsubTopic=some(pubsubTopic),
       maxPageSize=2,
       ascendingOrder=true
@@ -332,9 +332,9 @@ suite "SQLite driver - query by pubsub topic":
       filteredMessages == expectedMessages[4..5]
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "no pubsub topic":
+  test "no pubsub topic":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
@@ -359,11 +359,11 @@ suite "SQLite driver - query by pubsub topic":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = await driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       maxPageSize=2,
       ascendingOrder=true
     )
@@ -378,9 +378,9 @@ suite "SQLite driver - query by pubsub topic":
       filteredMessages == expectedMessages[0..1]
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "content topic and pubsub topic":
+  test "content topic and pubsub topic":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
@@ -406,11 +406,11 @@ suite "SQLite driver - query by pubsub topic":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = await driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       contentTopic= @[contentTopic],
       pubsubTopic=some(pubsubTopic),
       maxPageSize=2,
@@ -427,12 +427,12 @@ suite "SQLite driver - query by pubsub topic":
       filteredMessages == expectedMessages[4..5]
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
 
 suite "Queue driver - query by cursor":
 
-  asyncTest "only cursor":
+  test "only cursor":
     ## Given
     const contentTopic = "test-content-topic"
 
@@ -456,13 +456,13 @@ suite "Queue driver - query by cursor":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       cursor=some(cursor),
       maxPageSize=2,
       ascendingOrder=true
@@ -477,9 +477,9 @@ suite "Queue driver - query by cursor":
       filteredMessages == expected[5..6]
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "only cursor - descending order":
+  test "only cursor - descending order":
     ## Given
     const contentTopic = "test-content-topic"
 
@@ -503,13 +503,13 @@ suite "Queue driver - query by cursor":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       cursor=some(cursor),
       maxPageSize=2,
       ascendingOrder=false
@@ -524,9 +524,9 @@ suite "Queue driver - query by cursor":
       filteredMessages == expected[2..3].reversed()
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "content topic and cursor":
+  test "content topic and cursor":
     ## Given
     const contentTopic = "test-content-topic"
 
@@ -548,13 +548,13 @@ suite "Queue driver - query by cursor":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       contentTopic= @[contentTopic],
       cursor=some(cursor),
       maxPageSize=10,
@@ -570,9 +570,9 @@ suite "Queue driver - query by cursor":
       filteredMessages == expected[5..6]
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "content topic and cursor - descending order":
+  test "content topic and cursor - descending order":
     ## Given
     const contentTopic = "test-content-topic"
 
@@ -594,13 +594,13 @@ suite "Queue driver - query by cursor":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[6])
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       contentTopic= @[contentTopic],
       cursor=some(cursor),
       maxPageSize=10,
@@ -616,9 +616,9 @@ suite "Queue driver - query by cursor":
       filteredMessages == expected[2..5].reversed()
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "pubsub topic and cursor":
+  test "pubsub topic and cursor":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
@@ -647,13 +647,13 @@ suite "Queue driver - query by cursor":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = await driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(expected[5][0], expected[5][1])
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       pubsubTopic=some(pubsubTopic),
       cursor=some(cursor),
       maxPageSize=10,
@@ -670,9 +670,9 @@ suite "Queue driver - query by cursor":
       filteredMessages == expectedMessages[6..7]
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "pubsub topic and cursor - descending order":
+  test "pubsub topic and cursor - descending order":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
@@ -701,13 +701,13 @@ suite "Queue driver - query by cursor":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = await driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(expected[6][0], expected[6][1])
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       pubsubTopic=some(pubsubTopic),
       cursor=some(cursor),
       maxPageSize=10,
@@ -724,12 +724,12 @@ suite "Queue driver - query by cursor":
       filteredMessages == expectedMessages[4..5].reversed()
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
 
 suite "Queue driver - query by time range":
 
-  asyncTest "start time only":
+  test "start time only":
     ## Given
     const contentTopic = "test-content-topic"
 
@@ -752,11 +752,11 @@ suite "Queue driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       startTime=some(ts(15, timeOrigin)),
       maxPageSize=10,
       ascendingOrder=true
@@ -771,9 +771,9 @@ suite "Queue driver - query by time range":
       filteredMessages == expected[2..6]
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "end time only":
+  test "end time only":
     ## Given
     const contentTopic = "test-content-topic"
 
@@ -796,11 +796,11 @@ suite "Queue driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       endTime=some(ts(45, timeOrigin)),
       maxPageSize=10,
       ascendingOrder=true
@@ -815,9 +815,9 @@ suite "Queue driver - query by time range":
       filteredMessages == expected[0..4]
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "start time and end time":
+  test "start time and end time":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
@@ -846,11 +846,11 @@ suite "Queue driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = await driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       startTime=some(ts(15, timeOrigin)),
       endTime=some(ts(45, timeOrigin)),
       maxPageSize=10,
@@ -867,9 +867,9 @@ suite "Queue driver - query by time range":
       filteredMessages == expectedMessages[2..4]
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "invalid time range - no results":
+  test "invalid time range - no results":
     ## Given
     const contentTopic = "test-content-topic"
 
@@ -893,11 +893,11 @@ suite "Queue driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       contentTopic= @[contentTopic],
       startTime=some(ts(45, timeOrigin)),
       endTime=some(ts(15, timeOrigin)),
@@ -913,7 +913,7 @@ suite "Queue driver - query by time range":
       filteredMessages.len == 0
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
   asynctest "time range start and content topic":
     ## Given
@@ -938,11 +938,11 @@ suite "Queue driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       contentTopic= @[contentTopic],
       startTime=some(ts(15, timeOrigin)),
       maxPageSize=10,
@@ -957,9 +957,9 @@ suite "Queue driver - query by time range":
       filteredMessages == expected[2..6]
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "time range start and content topic - descending order":
+  test "time range start and content topic - descending order":
     ## Given
     const contentTopic = "test-content-topic"
 
@@ -985,11 +985,11 @@ suite "Queue driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       contentTopic= @[contentTopic],
       startTime=some(ts(15, timeOrigin)),
       maxPageSize=10,
@@ -1004,7 +1004,7 @@ suite "Queue driver - query by time range":
       filteredMessages == expected[2..6].reversed()
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
   asynctest "time range start, single content topic and cursor":
     ## Given
@@ -1032,13 +1032,13 @@ suite "Queue driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[3])
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       contentTopic= @[contentTopic],
       cursor=some(cursor),
       startTime=some(ts(15, timeOrigin)),
@@ -1054,7 +1054,7 @@ suite "Queue driver - query by time range":
       filteredMessages == expected[4..9]
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
   asynctest "time range start, single content topic and cursor - descending order":
     ## Given
@@ -1082,13 +1082,13 @@ suite "Queue driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[6])
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       contentTopic= @[contentTopic],
       cursor=some(cursor),
       startTime=some(ts(15, timeOrigin)),
@@ -1104,9 +1104,9 @@ suite "Queue driver - query by time range":
       filteredMessages == expected[3..4].reversed()
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "time range, content topic, pubsub topic and cursor":
+  test "time range, content topic, pubsub topic and cursor":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
@@ -1135,13 +1135,13 @@ suite "Queue driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = await driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[1][1])
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       contentTopic= @[contentTopic],
       pubsubTopic=some(pubsubTopic),
       cursor=some(cursor),
@@ -1160,9 +1160,9 @@ suite "Queue driver - query by time range":
       filteredMessages == expectedMessages[3..4]
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "time range, content topic, pubsub topic and cursor - descending order":
+  test "time range, content topic, pubsub topic and cursor - descending order":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
@@ -1191,13 +1191,13 @@ suite "Queue driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = await driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(expected[7][0], expected[7][1])
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       contentTopic= @[contentTopic],
       pubsubTopic=some(pubsubTopic),
       cursor=some(cursor),
@@ -1216,9 +1216,9 @@ suite "Queue driver - query by time range":
       filteredMessages == expectedMessages[4..5].reversed()
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "time range, content topic, pubsub topic and cursor - cursor timestamp out of time range":
+  test "time range, content topic, pubsub topic and cursor - cursor timestamp out of time range":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
@@ -1247,13 +1247,13 @@ suite "Queue driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = await driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(expected[1][0], expected[1][1])
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       contentTopic= @[contentTopic],
       pubsubTopic=some(pubsubTopic),
       cursor=some(cursor),
@@ -1273,9 +1273,9 @@ suite "Queue driver - query by time range":
       filteredMessages == expectedMessages[4..5]
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
-  asyncTest "time range, content topic, pubsub topic and cursor - cursor timestamp out of time range, descending order":
+  test "time range, content topic, pubsub topic and cursor - cursor timestamp out of time range, descending order":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
@@ -1304,13 +1304,13 @@ suite "Queue driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = await driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(expected[1][0], expected[1][1])
 
     ## When
-    let res = await driver.getMessages(
+    let res = waitFor driver.getMessages(
       contentTopic= @[contentTopic],
       pubsubTopic=some(pubsubTopic),
       cursor=some(cursor),
@@ -1329,4 +1329,4 @@ suite "Queue driver - query by time range":
       filteredMessages.len == 0
 
     ## Cleanup
-    (await driver.close()).expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")

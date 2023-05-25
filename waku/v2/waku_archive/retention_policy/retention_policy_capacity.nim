@@ -60,7 +60,7 @@ proc init*(T: type CapacityRetentionPolicy, capacity=DefaultCapacity): T =
 
 method execute*(p: CapacityRetentionPolicy,
                 driver: ArchiveDriver):
-                Future[Result[void, string]] {.async.} =
+                Future[RetentionPolicyResult[void]] {.async.} =
 
   let numMessagesRes = await driver.getMessagesCount()
   if numMessagesRes.isErr():
@@ -74,5 +74,5 @@ method execute*(p: CapacityRetentionPolicy,
   let res = await driver.deleteOldestMessagesNotWithinLimit(limit=p.capacity + p.deleteWindow)
   if res.isErr():
     return err("deleting oldest messages failed: " & res.error)
-  else:
-    return ok()
+
+  return ok()

@@ -543,8 +543,11 @@ proc executeMessageRetentionPolicy*(node: WakuNode) =
 
   debug "executing message retention policy"
 
-  asyncSpawn node.wakuArchive.executeMessageRetentionPolicy()
-  asyncSpawn node.wakuArchive.reportStoredMessagesMetric()
+  try:
+    waitFor node.wakuArchive.executeMessageRetentionPolicy()
+    waitFor node.wakuArchive.reportStoredMessagesMetric()
+  except CatchableError:
+    debug "Error executing retention policy " & getCurrentExceptionMsg()
 
 proc startMessageRetentionPolicyPeriodicTask*(node: WakuNode, interval: Duration) =
   if node.wakuArchive.isNil():

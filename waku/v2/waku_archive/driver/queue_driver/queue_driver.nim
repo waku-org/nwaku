@@ -273,8 +273,8 @@ method getMessages*(driver: QueueDriver,
 
   if pageRes.isErr():
     return err($pageRes.error)
-  else:
-    return ok(pageRes.value)
+
+  return ok(pageRes.value)
 
 method getMessagesCount*(driver: QueueDriver):
                          Future[ArchiveDriverResult[int64]] {.async} =

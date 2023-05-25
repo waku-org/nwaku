@@ -83,7 +83,7 @@ procSuite "Waku v2 JSON-RPC API - Store":
     ]
 
     for msg in msgList:
-      require (await driver.put(DefaultPubsubTopic, msg)).isOk()
+      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort, false)
@@ -133,7 +133,7 @@ procSuite "Waku v2 JSON-RPC API - Store":
       fakeWakuMessage(@[byte 9], ts=9)
     ]
     for msg in msgList:
-      require (await driver.put(DefaultPubsubTopic, msg)).isOk()
+      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort, false)

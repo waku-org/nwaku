@@ -14,4 +14,4 @@ type RetentionPolicyResult*[T] = Result[T, string]
 type RetentionPolicy* = ref object of RootObj
 
 method execute*(p: RetentionPolicy, store: ArchiveDriver):
-                Future[Result[void, string]] {.base.} = discard
+                Future[RetentionPolicyResult[void]] {.base, async.} = discard

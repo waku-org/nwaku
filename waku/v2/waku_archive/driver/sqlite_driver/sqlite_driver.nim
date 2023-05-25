@@ -64,7 +64,7 @@ method put*(s: SqliteDriver,
             receivedTime: Timestamp):
             Future[ArchiveDriverResult[void]] {.async.} =
   ## Inserts a message into the store
-  return s.insertStmt.exec((
+  let res = s.insertStmt.exec((
     @(digest.data),                # id
     receivedTime,                  # storedAt
     toBytes(message.contentTopic), # contentTopic
@@ -73,6 +73,8 @@ method put*(s: SqliteDriver,
     int64(message.version),        # version
     message.timestamp              # senderTimestamp
   ))
+
+  return res
 
 method getAllMessages*(s: SqliteDriver):
                        Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
@@ -91,7 +93,7 @@ method getMessages*(s: SqliteDriver,
 
   let cursor = cursor.map(toDbCursor)
 
-  return s.db.selectMessagesByHistoryQueryWithLimit(
+  let rowsRes = s.db.selectMessagesByHistoryQueryWithLimit(
     contentTopic,
     pubsubTopic,
     cursor,
@@ -100,6 +102,8 @@ method getMessages*(s: SqliteDriver,
     limit=maxPageSize,
     ascending=ascendingOrder
   )
+
+  return rowsRes
 
 method getMessagesCount*(s: SqliteDriver):
                          Future[ArchiveDriverResult[int64]] {.async.} =
