@@ -4,7 +4,8 @@ else:
   {.push raises: [].}
 
 import
-  stew/results
+  stew/results,
+  chronos
 import
   ./driver
 
@@ -12,5 +13,5 @@ type RetentionPolicyResult*[T] = Result[T, string]
 
 type RetentionPolicy* = ref object of RootObj
 
-
-method execute*(p: RetentionPolicy, store: ArchiveDriver): RetentionPolicyResult[void] {.base.} = discard
+method execute*(p: RetentionPolicy, store: ArchiveDriver):
+                Future[RetentionPolicyResult[void]] {.base, async.} = discard

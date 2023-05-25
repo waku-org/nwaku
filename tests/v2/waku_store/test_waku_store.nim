@@ -14,8 +14,6 @@ import
   ../testlib/common,
   ../testlib/wakucore
 
-
-
 proc newTestWakuStore(switch: Switch, handler: HistoryQueryHandler): Future[WakuStore] {.async.} =
   let
     peerManager = PeerManager.new(switch)
@@ -27,8 +25,7 @@ proc newTestWakuStore(switch: Switch, handler: HistoryQueryHandler): Future[Waku
   return proto
 
 proc newTestWakuStoreClient(switch: Switch): WakuStoreClient =
-  let
-    peerManager = PeerManager.new(switch)
+  let peerManager = PeerManager.new(switch)
   WakuStoreClient.new(peerManager, rng)
 
 
@@ -48,7 +45,8 @@ suite "Waku Store - query handler":
     let msg = fakeWakuMessage(contentTopic=DefaultContentTopic)
 
     var queryHandlerFut = newFuture[(HistoryQuery)]()
-    let queryHandler = proc(req: HistoryQuery): HistoryResult =
+
+    let queryHandler = proc(req: HistoryQuery): Future[HistoryResult] {.async, gcsafe.} =
           queryHandlerFut.complete(req)
           return ok(HistoryResponse(messages: @[msg]))
 
@@ -90,7 +88,7 @@ suite "Waku Store - query handler":
     let serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
 
     var queryHandlerFut = newFuture[(HistoryQuery)]()
-    let queryHandler = proc(req: HistoryQuery): HistoryResult =
+    let queryHandler = proc(req: HistoryQuery): Future[HistoryResult] {.async, gcsafe.} =
           queryHandlerFut.complete(req)
           return err(HistoryError(kind: HistoryErrorKind.BAD_REQUEST))
 

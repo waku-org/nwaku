@@ -25,10 +25,10 @@ suite "WakuNode - Filter":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
-    await allFutures(server.start(), client.start())
+    waitFor allFutures(server.start(), client.start())
 
-    await server.mountFilter()
-    await client.mountFilterClient()
+    waitFor server.mountFilter()
+    waitFor client.mountFilterClient()
 
     ## Given
     let serverPeerInfo = server.peerInfo.toRemotePeerInfo()
@@ -39,18 +39,18 @@ suite "WakuNode - Filter":
       message = fakeWakuMessage(contentTopic=contentTopic)
 
     var filterPushHandlerFut = newFuture[(PubsubTopic, WakuMessage)]()
-    proc filterPushHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.gcsafe, closure.} =
+    proc filterPushHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
       filterPushHandlerFut.complete((pubsubTopic, msg))
 
     ## When
     await client.filterSubscribe(pubsubTopic, contentTopic, filterPushHandler, peer=serverPeerInfo)
 
     # Wait for subscription to take effect
-    await sleepAsync(100.millis)
+    waitFor sleepAsync(100.millis)
 
-    await server.filterHandleMessage(pubSubTopic, message)
+    waitFor server.filterHandleMessage(pubSubTopic, message)
 
-    require await filterPushHandlerFut.withTimeout(5.seconds)
+    require waitFor filterPushHandlerFut.withTimeout(5.seconds)
 
     ## Then
     check filterPushHandlerFut.completed()
@@ -60,4 +60,4 @@ suite "WakuNode - Filter":
       filterMessage == message
 
     ## Cleanup
-    await allFutures(client.stop(), server.stop())
+    waitFor allFutures(client.stop(), server.stop())

@@ -264,7 +264,7 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     if node.wakuArchive.isNil():
       return
 
-    node.wakuArchive.handleMessage(topic, msg)
+    await node.wakuArchive.handleMessage(topic, msg)
 
 
   let defaultHandler = proc(topic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
@@ -455,11 +455,11 @@ proc filterSubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: C
 
   # Add handler wrapper to store the message when pushed, when relay is disabled and filter enabled
   # TODO: Move this logic to wakunode2 app
-  let handlerWrapper: FilterPushHandler = proc(pubsubTopic: string, message: WakuMessage) {.raises: [Exception].} =
+  let handlerWrapper: FilterPushHandler = proc(pubsubTopic: string, message: WakuMessage) {.async, gcsafe, closure.} =
       if node.wakuRelay.isNil() and not node.wakuStore.isNil():
-        node.wakuArchive.handleMessage(pubSubTopic, message)
+        await node.wakuArchive.handleMessage(pubSubTopic, message)
 
-      handler(pubsubTopic, message)
+      await handler(pubsubTopic, message)
 
   let subRes = await node.wakuFilterClientLegacy.subscribe(pubsubTopic, contentTopics, handlerWrapper, peer=remotePeer)
   if subRes.isOk():
@@ -521,7 +521,6 @@ proc unsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: Conte
 
   await node.filterUnsubscribe(pubsubTopic, contentTopics, peer=peerOpt.get())
 
-
 ## Waku archive
 
 proc mountArchive*(node: WakuNode,
@@ -544,8 +543,11 @@ proc executeMessageRetentionPolicy*(node: WakuNode) =
 
   debug "executing message retention policy"
 
-  node.wakuArchive.executeMessageRetentionPolicy()
-  node.wakuArchive.reportStoredMessagesMetric()
+  try:
+    waitFor node.wakuArchive.executeMessageRetentionPolicy()
+    waitFor node.wakuArchive.reportStoredMessagesMetric()
+  except CatchableError:
+    debug "Error executing retention policy " & getCurrentExceptionMsg()
 
 proc startMessageRetentionPolicyPeriodicTask*(node: WakuNode, interval: Duration) =
   if node.wakuArchive.isNil():
@@ -602,13 +604,12 @@ proc mountStore*(node: WakuNode) {.async, raises: [Defect, LPError].} =
     return
 
   # TODO: Review this handler logic. Maybe, move it to the appplication code
-  let queryHandler: HistoryQueryHandler = proc(request: HistoryQuery): HistoryResult =
+  let queryHandler: HistoryQueryHandler = proc(request: HistoryQuery): Future[HistoryResult] {.async.} =
       let request = request.toArchiveQuery()
-      let response = node.wakuArchive.findMessages(request)
-      response.toHistoryResult()
+      let response = await node.wakuArchive.findMessages(request)
+      return response.toHistoryResult()
 
   node.wakuStore = WakuStore.new(node.peerManager, node.rng, queryHandler)
-
 
   if node.started:
     # Node has started already. Let's start store too.

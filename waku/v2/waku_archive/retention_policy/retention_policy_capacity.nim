@@ -5,14 +5,14 @@ else:
 
 import
   stew/results,
-  chronicles
+  chronicles,
+  chronos
 import
   ../driver,
   ../retention_policy
 
 logScope:
   topics = "waku archive retention_policy"
-
 
 const DefaultCapacity*: int = 25_000
 
@@ -38,7 +38,6 @@ type
       totalCapacity: int # = capacity * MaxOverflow
       deleteWindow: int # = capacity * (MaxOverflow - 1) / 2; half of the overflow window, the amount of messages deleted when overflow occurs
 
-
 proc calculateTotalCapacity(capacity: int, overflow: float): int =
   int(float(capacity) * overflow)
 
@@ -47,7 +46,6 @@ proc calculateOverflowWindow(capacity: int, overflow: float): int =
 
 proc calculateDeleteWindow(capacity: int, overflow: float): int =
   calculateOverflowWindow(capacity, overflow) div 2
-
 
 proc init*(T: type CapacityRetentionPolicy, capacity=DefaultCapacity): T =
   let
@@ -60,14 +58,21 @@ proc init*(T: type CapacityRetentionPolicy, capacity=DefaultCapacity): T =
     deleteWindow: deleteWindow
   )
 
-method execute*(p: CapacityRetentionPolicy, driver: ArchiveDriver): RetentionPolicyResult[void] =
-  let numMessages = ?driver.getMessagesCount().mapErr(proc(err: string): string = "failed to get messages count: " & err)
+method execute*(p: CapacityRetentionPolicy,
+                driver: ArchiveDriver):
+                Future[RetentionPolicyResult[void]] {.async.} =
+
+  let numMessagesRes = await driver.getMessagesCount()
+  if numMessagesRes.isErr():
+    return err("failed to get messages count: " & numMessagesRes.error)
+
+  let numMessages = numMessagesRes.value
 
   if numMessages < p.totalCapacity:
     return ok()
 
-  let res = driver.deleteOldestMessagesNotWithinLimit(limit=p.capacity + p.deleteWindow)
+  let res = await driver.deleteOldestMessagesNotWithinLimit(limit=p.capacity + p.deleteWindow)
   if res.isErr():
-    return err("deleting oldest messages failed: " & res.error())
+    return err("deleting oldest messages failed: " & res.error)
 
-  ok()
+  return ok()

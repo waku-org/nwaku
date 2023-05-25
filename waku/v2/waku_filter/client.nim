@@ -30,7 +30,7 @@ const Defaultstring = "/waku/2/default-waku/proto"
 
 ### Client, filter subscripton manager
 
-type FilterPushHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage) {.gcsafe, closure.}
+type FilterPushHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage) {.async, gcsafe, closure.}
 
 
 ## Subscription manager
@@ -59,7 +59,7 @@ proc notifySubscriptionHandler(m: SubscriptionManager, pubsubTopic: PubsubTopic,
 
   try:
     let handler = m.subscriptions[(pubsubTopic, contentTopic)]
-    handler(pubsubTopic, message)
+    asyncSpawn handler(pubsubTopic, message)
   except:  # TODO: Fix "BareExcept" warning
     discard
 

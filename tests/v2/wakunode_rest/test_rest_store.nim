@@ -28,7 +28,7 @@ import
 logScope:
   topics = "waku node rest store_api test"
 
-proc put(store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage): Result[void, string] =
+proc put(store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage): Future[Result[void, string]] =
   let
     digest = waku_archive.computeDigest(message)
     receivedTime = if message.timestamp > 0: message.timestamp
@@ -107,7 +107,7 @@ procSuite "Waku v2 Rest API - Store":
       fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("c2"), ts=9)
     ]
     for msg in msgList:
-      require driver.put(DefaultPubsubTopic, msg).isOk()
+      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
@@ -178,7 +178,7 @@ procSuite "Waku v2 Rest API - Store":
       fakeWakuMessage(@[byte 09], ts=ts(90, timeOrigin))
     ]
     for msg in msgList:
-      require driver.put(DefaultPubsubTopic, msg).isOk()
+      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
@@ -266,7 +266,7 @@ procSuite "Waku v2 Rest API - Store":
       fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("2"), ts=9)
     ]
     for msg in msgList:
-      require driver.put(DefaultPubsubTopic, msg).isOk()
+      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
@@ -338,7 +338,7 @@ procSuite "Waku v2 Rest API - Store":
       fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("ct2"), ts=9)
     ]
     for msg in msgList:
-      require driver.put(DefaultPubsubTopic, msg).isOk()
+      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
@@ -427,7 +427,7 @@ procSuite "Waku v2 Rest API - Store":
       fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("ct2"), ts=9)
     ]
     for msg in msgList:
-      require driver.put(DefaultPubsubTopic, msg).isOk()
+      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
@@ -482,7 +482,7 @@ procSuite "Waku v2 Rest API - Store":
       fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("ct2"), ts=9)
     ]
     for msg in msgList:
-      require driver.put(DefaultPubsubTopic, msg).isOk()
+      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 

@@ -39,7 +39,7 @@ suite "SQLite driver":
       not driver.isNil()
 
     ## Cleanup
-    driver.close().expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
   test "insert a message":
     ## Given
@@ -50,13 +50,13 @@ suite "SQLite driver":
     let msg = fakeWakuMessage(contentTopic=contentTopic)
 
     ## When
-    let putRes = driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+    let putRes = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
 
     ## Then
     check:
       putRes.isOk()
 
-    let storedMsg = driver.getAllMessages().tryGet()
+    let storedMsg = (waitFor driver.getAllMessages()).tryGet()
     check:
       storedMsg.len == 1
       storedMsg.all do (item: auto) -> bool:
@@ -65,4 +65,4 @@ suite "SQLite driver":
         pubsubTopic == DefaultPubsubTopic
 
     ## Cleanup
-    driver.close().expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")

@@ -25,7 +25,6 @@ import
   ../testlib/wakucore,
   ../testlib/wakunode
 
-
 proc newTestArchiveDriver(): ArchiveDriver =
   let database = SqliteDatabase.new(":memory:").tryGet()
   SqliteDriver.new(database).tryGet()
@@ -55,15 +54,15 @@ procSuite "WakuNode - Store":
   ]
 
   let archiveA = block:
-      let driver = newTestArchiveDriver()
+    let driver = newTestArchiveDriver()
 
-      for msg in msgListA:
-        let msg_digest = waku_archive.computeDigest(msg)
-        require driver.put(DefaultPubsubTopic, msg, msg_digest, msg.timestamp).isOk()
+    for msg in msgListA:
+      let msg_digest = waku_archive.computeDigest(msg)
+      require (waitFor driver.put(DefaultPubsubTopic, msg, msg_digest, msg.timestamp)).isOk()
 
-      driver
+    driver
 
-  asyncTest "Store protocol returns expected messages":
+  test "Store protocol returns expected messages":
     ## Setup
     let
       serverKey = generateSecp256k1Key()
@@ -71,10 +70,10 @@ procSuite "WakuNode - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
-    await allFutures(client.start(), server.start())
+    waitFor allFutures(client.start(), server.start())
 
     server.mountArchive(some(archiveA), none(MessageValidator), none(RetentionPolicy))
-    await server.mountStore()
+    waitFor server.mountStore()
 
     client.mountStoreClient()
 
@@ -83,7 +82,7 @@ procSuite "WakuNode - Store":
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     ## When
-    let queryRes = await client.query(req, peer=serverPeer)
+    let queryRes = waitFor client.query(req, peer=serverPeer)
 
     ## Then
     check queryRes.isOk()
@@ -93,9 +92,9 @@ procSuite "WakuNode - Store":
       response.messages == msgListA
 
     # Cleanup
-    await allFutures(client.stop(), server.stop())
+    waitFor allFutures(client.stop(), server.stop())
 
-  asyncTest "Store node history response - forward pagination":
+  test "Store node history response - forward pagination":
     ## Setup
     let
       serverKey = generateSecp256k1Key()
@@ -103,10 +102,10 @@ procSuite "WakuNode - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
-    await allFutures(client.start(), server.start())
+    waitFor allFutures(client.start(), server.start())
 
     server.mountArchive(some(archiveA), none(MessageValidator), none(RetentionPolicy))
-    await server.mountStore()
+    waitFor server.mountStore()
 
     client.mountStoreClient()
 
@@ -121,7 +120,7 @@ procSuite "WakuNode - Store":
     var cursors = newSeq[Option[HistoryCursor]](2)
 
     for i in 0..<2:
-      let res = await client.query(nextReq, peer=serverPeer)
+      let res = waitFor client.query(nextReq, peer=serverPeer)
       require res.isOk()
 
       # Keep query response content
@@ -142,9 +141,9 @@ procSuite "WakuNode - Store":
       pages[1] == msgListA[7..9]
 
     # Cleanup
-    await allFutures(client.stop(), server.stop())
+    waitFor allFutures(client.stop(), server.stop())
 
-  asyncTest "Store node history response - backward pagination":
+  test "Store node history response - backward pagination":
     ## Setup
     let
       serverKey = generateSecp256k1Key()
@@ -152,10 +151,10 @@ procSuite "WakuNode - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
-    await allFutures(client.start(), server.start())
+    waitFor allFutures(client.start(), server.start())
 
     server.mountArchive(some(archiveA), none(MessageValidator), none(RetentionPolicy))
-    await server.mountStore()
+    waitFor server.mountStore()
 
     client.mountStoreClient()
 
@@ -170,7 +169,7 @@ procSuite "WakuNode - Store":
     var cursors = newSeq[Option[HistoryCursor]](2)
 
     for i in 0..<2:
-      let res = await client.query(nextReq, peer=serverPeer)
+      let res = waitFor client.query(nextReq, peer=serverPeer)
       require res.isOk()
 
       # Keep query response content
@@ -191,9 +190,9 @@ procSuite "WakuNode - Store":
       pages[1] == msgListA[0..2]
 
     # Cleanup
-    await allFutures(client.stop(), server.stop())
+    waitFor allFutures(client.stop(), server.stop())
 
-  asyncTest "Store protocol returns expected message when relay is disabled and filter enabled":
+  test "Store protocol returns expected message when relay is disabled and filter enabled":
     ## See nwaku issue #937: 'Store: ability to decouple store from relay'
     ## Setup
     let
@@ -204,13 +203,13 @@ procSuite "WakuNode - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
-    await allFutures(client.start(), server.start(), filterSource.start())
+    waitFor allFutures(client.start(), server.start(), filterSource.start())
 
-    await filterSource.mountFilter()
+    waitFor filterSource.mountFilter()
     let driver = newTestArchiveDriver()
     server.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
-    await server.mountStore()
-    await server.mountFilterClient()
+    waitFor server.mountStore()
+    waitFor server.mountFilterClient()
     client.mountStoreClient()
 
     ## Given
@@ -221,20 +220,20 @@ procSuite "WakuNode - Store":
 
     ## Then
     let filterFut = newFuture[(PubsubTopic, WakuMessage)]()
-    proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.gcsafe, closure.} =
+    proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
       filterFut.complete((pubsubTopic, msg))
 
-    await server.filterSubscribe(DefaultPubsubTopic, DefaultContentTopic, filterHandler, peer=filterSourcePeer)
+    waitFor server.filterSubscribe(DefaultPubsubTopic, DefaultContentTopic, filterHandler, peer=filterSourcePeer)
 
-    await sleepAsync(100.millis)
+    waitFor sleepAsync(100.millis)
 
     # Send filter push message to server from source node
-    await filterSource.wakuFilterLegacy.handleMessage(DefaultPubsubTopic, message)
+    waitFor filterSource.wakuFilterLegacy.handleMessage(DefaultPubsubTopic, message)
 
     # Wait for the server filter to receive the push message
-    require await filterFut.withTimeout(5.seconds)
+    require waitFor filterFut.withTimeout(5.seconds)
 
-    let res = await client.query(HistoryQuery(contentTopics: @[DefaultContentTopic]), peer=serverPeer)
+    let res = waitFor client.query(HistoryQuery(contentTopics: @[DefaultContentTopic]), peer=serverPeer)
 
     ## Then
     check res.isOk()
@@ -250,4 +249,4 @@ procSuite "WakuNode - Store":
       handledMsg == message
 
     ## Cleanup
-    await allFutures(client.stop(), server.stop(), filterSource.stop())
+    waitFor allFutures(client.stop(), server.stop(), filterSource.stop())

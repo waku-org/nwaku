@@ -7,20 +7,18 @@ import
   std/options,
   stew/results,
   stew/sorted_set,
-  chronicles
+  chronicles,
+  chronos
 import
   ../../../waku_core,
   ../../common,
   ../../driver,
   ./index
 
-
 logScope:
   topics = "waku archive queue_store"
 
-
 const QueueDriverDefaultMaxCapacity* = 25_000
-
 
 type
   IndexedWakuMessage = object
@@ -43,7 +41,6 @@ proc `$`(error: QueueDriverErrorKind): string =
   of INVALID_CURSOR:
     "invalid_cursor"
 
-
 type QueueDriver* = ref object of ArchiveDriver
     ## Bounded repository for indexed messages
     ##
@@ -58,7 +55,6 @@ type QueueDriver* = ref object of ArchiveDriver
     ## TODO: we don't need to store the Index twice (as key and in the value)
     items: SortedSet[Index, IndexedWakuMessage] # sorted set of stored messages
     capacity: int # Maximum amount of messages to keep
-
 
 ### Helpers
 
@@ -82,13 +78,11 @@ proc walkToCursor(w: SortedSetWalkRef[Index, IndexedWakuMessage],
 
   return nextItem
 
-
 #### API
 
 proc new*(T: type QueueDriver, capacity: int = QueueDriverDefaultMaxCapacity): T =
   var items = SortedSet[Index, IndexedWakuMessage].init()
   return QueueDriver(items: items, capacity: capacity)
-
 
 proc contains*(driver: QueueDriver, index: Index): bool =
   ## Return `true` if the store queue already contains the `index`, `false` otherwise.
@@ -202,7 +196,6 @@ proc last*(driver: QueueDriver): ArchiveDriverResult[IndexedWakuMessage] =
 
   return ok(res.value.data)
 
-
 ## --- Queue API ---
 
 proc add*(driver: QueueDriver, msg: IndexedWakuMessage): ArchiveDriverResult[void] =
@@ -231,27 +224,30 @@ proc add*(driver: QueueDriver, msg: IndexedWakuMessage): ArchiveDriverResult[voi
 
   return ok()
 
-
-method put*(driver: QueueDriver, pubsubTopic: PubsubTopic, message: WakuMessage, digest: MessageDigest, receivedTime: Timestamp): ArchiveDriverResult[void] =
+method put*(driver: QueueDriver,
+            pubsubTopic: PubsubTopic,
+            message: WakuMessage,
+            digest: MessageDigest,
+            receivedTime: Timestamp):
+            Future[ArchiveDriverResult[void]] {.async.} =
   let index = Index(pubsubTopic: pubsubTopic, senderTime: message.timestamp, receiverTime: receivedTime, digest: digest)
   let message = IndexedWakuMessage(msg: message, index: index, pubsubTopic: pubsubTopic)
-  driver.add(message)
+  return driver.add(message)
 
-
-method getAllMessages*(driver: QueueDriver): ArchiveDriverResult[seq[ArchiveRow]] =
+method getAllMessages*(driver: QueueDriver):
+                       Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   # TODO: Implement this message_store method
-  err("interface method not implemented")
+  return err("interface method not implemented")
 
-method getMessages*(
-  driver: QueueDriver,
-  contentTopic: seq[ContentTopic] = @[],
-  pubsubTopic = none(PubsubTopic),
-  cursor = none(ArchiveCursor),
-  startTime = none(Timestamp),
-  endTime = none(Timestamp),
-  maxPageSize = DefaultPageSize,
-  ascendingOrder = true
-): ArchiveDriverResult[seq[ArchiveRow]] =
+method getMessages*(driver: QueueDriver,
+                    contentTopic: seq[ContentTopic] = @[],
+                    pubsubTopic = none(PubsubTopic),
+                    cursor = none(ArchiveCursor),
+                    startTime = none(Timestamp),
+                    endTime = none(Timestamp),
+                    maxPageSize = DefaultPageSize,
+                    ascendingOrder = true):
+                    Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.}=
   let cursor = cursor.map(toIndex)
 
   let matchesQuery: QueryFilterMatcher = func(row: IndexedWakuMessage): bool =
@@ -272,29 +268,38 @@ method getMessages*(
   var pageRes: QueueDriverGetPageResult
   try:
     pageRes = driver.getPage(maxPageSize, ascendingOrder, cursor, matchesQuery)
-  except:  # TODO: Fix "BareExcept" warning
+  except CatchableError, Exception:
     return err(getCurrentExceptionMsg())
 
   if pageRes.isErr():
     return err($pageRes.error)
 
-  ok(pageRes.value)
+  return ok(pageRes.value)
 
+method getMessagesCount*(driver: QueueDriver):
+                         Future[ArchiveDriverResult[int64]] {.async} =
+  return ok(int64(driver.len()))
 
-method getMessagesCount*(driver: QueueDriver): ArchiveDriverResult[int64] =
-  ok(int64(driver.len()))
+method getOldestMessageTimestamp*(driver: QueueDriver):
+                                  Future[ArchiveDriverResult[Timestamp]] {.async.} =
+  return driver.first().map(proc(msg: IndexedWakuMessage): Timestamp = msg.index.receiverTime)
 
-method getOldestMessageTimestamp*(driver: QueueDriver): ArchiveDriverResult[Timestamp] =
-  driver.first().map(proc(msg: IndexedWakuMessage): Timestamp = msg.index.receiverTime)
+method getNewestMessageTimestamp*(driver: QueueDriver):
+                                  Future[ArchiveDriverResult[Timestamp]] {.async.} =
+  return driver.last().map(proc(msg: IndexedWakuMessage): Timestamp = msg.index.receiverTime)
 
-method getNewestMessageTimestamp*(driver: QueueDriver): ArchiveDriverResult[Timestamp] =
-  driver.last().map(proc(msg: IndexedWakuMessage): Timestamp = msg.index.receiverTime)
-
-
-method deleteMessagesOlderThanTimestamp*(driver: QueueDriver, ts: Timestamp): ArchiveDriverResult[void] =
+method deleteMessagesOlderThanTimestamp*(driver: QueueDriver,
+                                         ts: Timestamp):
+                                         Future[ArchiveDriverResult[void]] {.async.} =
   # TODO: Implement this message_store method
-  err("interface method not implemented")
+  return err("interface method not implemented")
 
-method deleteOldestMessagesNotWithinLimit*(driver: QueueDriver, limit: int): ArchiveDriverResult[void] =
+method deleteOldestMessagesNotWithinLimit*(driver: QueueDriver,
+                                           limit: int):
+                                           Future[ArchiveDriverResult[void]] {.async.} =
   # TODO: Implement this message_store method
-  err("interface method not implemented")
+  return err("interface method not implemented")
+
+method close*(driver: QueueDriver):
+              Future[ArchiveDriverResult[void]] {.async.} =
+  return ok()

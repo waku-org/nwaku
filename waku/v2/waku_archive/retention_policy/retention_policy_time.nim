@@ -29,21 +29,24 @@ proc init*(T: type TimeRetentionPolicy, retentionTime=DefaultRetentionTime): T =
     retentionTime: retentionTime.seconds
   )
 
-
-method execute*(p: TimeRetentionPolicy, driver: ArchiveDriver): RetentionPolicyResult[void] =
+method execute*(p: TimeRetentionPolicy,
+                driver: ArchiveDriver):
+                Future[RetentionPolicyResult[void]] {.async.} =
   ## Delete messages that exceed the retention time by 10% and more (batch delete for efficiency)
 
-  let oldestReceiverTimestamp = ?driver.getOldestMessageTimestamp().mapErr(proc(err: string): string = "failed to get oldest message timestamp: " & err)
+  let omtRes = await driver.getOldestMessageTimestamp()
+  if omtRes.isErr():
+    return err("failed to get oldest message timestamp: " & omtRes.error)
 
   let now = getNanosecondTime(getTime().toUnixFloat())
   let retentionTimestamp = now - p.retentionTime.nanoseconds
   let thresholdTimestamp = retentionTimestamp - p.retentionTime.nanoseconds div 10
 
-  if thresholdTimestamp <= oldestReceiverTimestamp:
+  if thresholdTimestamp <= omtRes.value:
     return ok()
 
-  let res = driver.deleteMessagesOlderThanTimestamp(ts=retentionTimestamp)
+  let res = await driver.deleteMessagesOlderThanTimestamp(ts=retentionTimestamp)
   if res.isErr():
-    return err("failed to delete oldest messages: " & res.error())
+    return err("failed to delete oldest messages: " & res.error)
 
-  ok()
+  return ok()
