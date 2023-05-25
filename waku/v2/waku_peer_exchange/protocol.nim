@@ -55,12 +55,19 @@ proc request*(wpx: WakuPeerExchange, numPeers: uint64, conn: Connection): Future
     request: PeerExchangeRequest(numPeers: numPeers))
 
   var buffer: seq[byte]
+  var error: string
   try:
     await conn.writeLP(rpc.encode().buffer)
     buffer = await conn.readLp(MaxRpcSize.int)
   except CatchableError as exc:
     waku_px_errors.inc(labelValues = [exc.msg])
-    return err("write/read failed: " & $exc.msg)
+    error = $exc.msg
+  finally:
+    # close, no more data is expected
+    await conn.closeWithEof()
+
+  if error.len > 0:
+    return err("write/read failed: " & error)
 
   let decodedBuff = PeerExchangeRpc.decode(buffer)
   if decodedBuff.isErr():
@@ -154,6 +161,9 @@ proc initProtocolHandler(wpx: WakuPeerExchange) =
       waku_px_errors.inc(labelValues = [res.error])
     else:
       waku_px_peers_sent.inc(enrs.len().int64())
+
+    # close, no data is expected
+    await conn.closeWithEof()
 
   wpx.handler = handler
   wpx.codec = WakuPeerExchangeCodec

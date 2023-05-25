@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, sequtils],
+  std/[options, sequtils, tables],
   testutils/unittests,
   chronos,
   chronicles,
@@ -9,6 +9,8 @@ import
   libp2p/switch,
   libp2p/peerId,
   libp2p/crypto/crypto,
+  libp2p/multistream,
+  libp2p/muxers/muxer,
   eth/keys,
   eth/p2p/discoveryv5/enr
 import
@@ -18,6 +20,7 @@ import
   ../../waku/v2/waku_peer_exchange,
   ../../waku/v2/waku_peer_exchange/rpc,
   ../../waku/v2/waku_peer_exchange/rpc_codec,
+  ../../waku/v2/waku_peer_exchange/protocol,
   ./testlib/wakucore,
   ./testlib/wakunode
 
@@ -259,3 +262,25 @@ procSuite "Waku Peer Exchange":
 
     # Check that it failed gracefully
     check: response.isErr
+
+
+  asyncTest "connections are closed after response is sent":
+    # Create 3 nodes
+    let nodes = toSeq(0..<3).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+
+    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.mountPeerExchange()))
+
+    # Multiple nodes request to node 0
+    for i in 1..<3:
+      let resp = await nodes[i].wakuPeerExchange.request(2, nodes[0].switch.peerInfo.toRemotePeerInfo())
+      require resp.isOk
+
+    # Wait for streams to be closed
+    await sleepAsync(1.seconds)
+
+    # Check that all streams are closed for px
+    check:
+      nodes[0].peerManager.getNumStreams(WakuPeerExchangeCodec) == (0, 0)
+      nodes[1].peerManager.getNumStreams(WakuPeerExchangeCodec) == (0, 0)
+      nodes[2].peerManager.getNumStreams(WakuPeerExchangeCodec) == (0, 0)
