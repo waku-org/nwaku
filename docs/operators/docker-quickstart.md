@@ -31,7 +31,7 @@ docker pull statusteam/nim-waku:v0.16.0 # or, whichever tag you prefer in the fo
 You can also build the Docker image locally using
 
 ```bash
-git clone --recurse-submodules https://github.com/status-im/nwaku
+git clone --recurse-submodules https://github.com/waku-org/nwaku
 cd nwaku
 docker build -t statusteam/nim-waku:latest .
 ```

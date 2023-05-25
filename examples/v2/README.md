@@ -1,8 +1,17 @@
-# basic2
+# Examples
+
+## Compile
+
+Make all examples.
+```console
+make example2
+```
+
+## basic2
 
 TODO
 
-# publisher/subscriber
+## publisher/subscriber
 
 Within `examples/v2` you can find a `publisher` and a `subscriber`. The first one publishes messages to the default pubsub topic on a given content topic, and the second one runs forever listening to that pubsub topic and printing the content it receives.
 
@@ -11,13 +20,6 @@ Within `examples/v2` you can find a `publisher` and a `subscriber`. The first on
 * You only need to provide a reachable bootstrap peer (see our [fleets](https://fleets.status.im/))
 * The examples are meant to work out of the box.
 * Note that both services wait for some time until a given minimum amount of connections are reached. This is to ensure messages are gossiped.
-
-**Compile:**
-
-Make all examples.
-```console
-make example2
-```
 
 **Run:**
 
@@ -33,7 +35,7 @@ And run a publisher
 
 See how the subscriber received the messages published by the publisher. Feel free to experiment from different machines in different locations.
 
-# resource-restricted publisher/subscriber (lightpush/filter)
+## resource-restricted publisher/subscriber (lightpush/filter)
 
 To illustrate publishing and receiving messages on a resource-restricted client,
 `examples/v2` also provides a `lightpush_publisher` and a `filter_subscriber`.
@@ -44,18 +46,15 @@ to the same pubsub and content topic.
 It runs forever, maintaining this subscription
 and printing the content it receives.
 
-**compile and run:**
-
-Wait until the filter subscriber is ready.
+**Run**
+Start the filter subscriber.
 ```console
-./env.sh bash
-nim c -r examples/v2/filter_subscriber.nim
+./build/filter_subscriber
 ```
 
 And run a lightpush publisher
 ```console
-./env.sh bash
-nim c -r examples/v2/lightpush_publisher.nim
+./build/lightpush_publisher
 ```
 
 See how the filter subscriber receives messages published by the lightpush publisher.
