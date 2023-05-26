@@ -11,41 +11,21 @@ import
   chronicles,
   chronos
 import
-  ./common,
-  ./connection
+  ./connection,
+  ./pg_asyncpool_opts
 
 logScope:
   topics = "postgres asyncpool"
 
-
-## Database connection pool options
-
-type PgAsyncPoolOptions* = object
-    minConnections: int
-    maxConnections: int
-
-func init*(T: type PgAsyncPoolOptions, minConnections: Positive = 1, maxConnections: Positive = 5): T =
-  if minConnections > maxConnections:
-    raise newException(Defect, "maxConnections must be greater or equal to minConnections")
-
-  PgAsyncPoolOptions(
-    minConnections: minConnections,
-    maxConnections: maxConnections
-  )
-
-func minConnections*(options: PgAsyncPoolOptions): int =
-  options.minConnections
-
-func maxConnections*(options: PgAsyncPoolOptions): int =
-  options.maxConnections
-
-
-## Database connection pool
-
 type PgAsyncPoolState {.pure.} = enum
+    Closed,
     Live,
-    Closing,
-    Closed
+    Closing
+
+type
+  PgDbConn* = object
+    dbConn*: DbConn
+    busy*: bool
 
 type
   ## Database connection pool
@@ -54,8 +34,7 @@ type
     poolOptions: PgAsyncPoolOptions
 
     state: PgAsyncPoolState
-    conns: seq[DbConn]
-    busy: seq[bool]
+    conns: seq[PgDbConn]
 
 func isClosing*(pool: PgAsyncPool): bool =
   pool.state == PgAsyncPoolState.Closing
@@ -64,65 +43,73 @@ func isLive*(pool: PgAsyncPool): bool =
   pool.state == PgAsyncPoolState.Live
 
 func isBusy*(pool: PgAsyncPool): bool =
-  pool.busy.allIt(it)
+  pool.conns.mapIt(it.busy).allIt(it)
 
-
-
-proc close*(pool: var PgAsyncPool): Future[PgResult[void]] {.async.} =
+proc close*(pool: var PgAsyncPool):
+            Future[Result[void, string]] {.async.} =
   ## Gracefully wait and close all openned connections
   if pool.state == PgAsyncPoolState.Closing:
     while true:
-      await sleepAsync(0.milliseconds) # Do not block the async runtime
+      await sleepAsync(5.milliseconds) # Do not block the async runtime
     return ok()
 
   pool.state = PgAsyncPoolState.Closing
 
   # wait for the connections to be released and close them, without
   # blocking the async runtime
-  while pool.busy.anyIt(it):
-    await sleepAsync(0.milliseconds)
+  while pool.conns.anyIt(it.busy):
+    await sleepAsync(5.milliseconds)
 
     for i in 0..<pool.conns.len:
-      if pool.busy[i]:
+      if pool.conns[i].busy:
         continue
 
-      pool.busy[i] = false
-      pool.conns[i].close()
-
+      pool.conns[i].busy = false
+      pool.conns[i].dbConn.close()
 
 proc forceClose(pool: var PgAsyncPool) =
   ## Close all the connections in the pool.
   for i in 0..<pool.conns.len:
-    pool.busy[i] = false
-    pool.conns[i].close()
+    pool.conns[i].busy = false
+    try:
+      pool.conns[i].dbConn.close()
+    except DbError,ValueError:
+      debug "exception in forceClose: " &
+            getCurrentExceptionMsg()
 
   pool.state = PgAsyncPoolState.Closed
 
-proc newConnPool*(connOptions: PgConnOptions, poolOptions: PgAsyncPoolOptions): Result[PgAsyncPool, string] =
+proc newConnPool*(connOptions: PgConnOptions,
+                  poolOptions: PgAsyncPoolOptions):
+                  Result[PgAsyncPool, string] =
   ## Create a new connection pool.
   var pool = PgAsyncPool(
     connOptions: connOptions,
     poolOptions: poolOptions,
     state: PgAsyncPoolState.Live,
-    conns: newSeq[DbConn](poolOptions.minConnections),
-    busy: newSeq[bool](poolOptions.minConnections),
+    conns: newSeq[PgDbConn](poolOptions.minConnections),
   )
 
   for i in 0..<poolOptions.minConnections:
-    let connRes = open(connOptions)
+    var connRes:Result[DbConn, string]
+    try:
+      connRes = open(connOptions)
+    except DbError,ValueError:
+      return err("exception in open: " &
+                 getCurrentExceptionMsg())
 
     # Teardown the opened connections if we failed to open all of them
     if connRes.isErr():
       pool.forceClose()
       return err(connRes.error)
 
-    pool.conns[i] = connRes.get()
-    pool.busy[i] = false
+    pool.conns[i].dbConn = connRes.get()
+    pool.conns[i].busy = false
 
-  ok(pool)
+  return ok(pool)
 
-
-proc getConn*(pool: var PgAsyncPool): Future[PgResult[DbConn]] {.async.} =
+proc getConn*(pool: var PgAsyncPool):
+              Future[Result[DbConn, string]] {.async.} =
   ## Wait for a free connection or create if max connections limits have not been reached.
   if not pool.isLive():
     return err("pool is not live")
@@ -132,45 +119,57 @@ proc getConn*(pool: var PgAsyncPool): Future[PgResult[DbConn]] {.async.} =
     let connRes = open(pool.connOptions)
     if connRes.isOk():
       let conn = connRes.get()
-      pool.conns.add(conn)
-      pool.busy.add(true)
-
+      pool.conns.add(PgDbConn(dbConn: conn, busy: true))
       return ok(conn)
     else:
       warn "failed to stablish a new connection", msg = connRes.error
 
   # wait for a free connection without blocking the async runtime
   while pool.isBusy():
-    await sleepAsync(0.milliseconds)
+    await sleepAsync(5.milliseconds)
 
   for index in 0..<pool.conns.len:
-    if pool.busy[index]:
+    if pool.conns[index].busy:
       continue
 
-    pool.busy[index] = true
-    return ok(pool.conns[index])
+    pool.conns[index].busy = true
+    return ok(pool.conns[index].dbConn)
 
-proc releaseConn(pool: var PgAsyncPool, conn: DbConn) =
+proc releaseConn(pool: var PgAsyncPool,
+                 conn: DbConn) =
   ## Mark the connection as released.
   for i in 0..<pool.conns.len:
-    if pool.conns[i] == conn:
-      pool.busy[i] = false
+    if pool.conns[i].dbConn == conn:
+      pool.conns[i].busy = false
 
-
-proc query*(pool: var PgAsyncPool, query: SqlQuery, args: seq[string]): Future[PgResult[seq[Row]]] {.async.} =
+proc query*(pool: var PgAsyncPool,
+            query: SqlQuery,
+            args: seq[string]):
+            Future[Result[seq[Row], string]] {.async.} =
   ## Runs the SQL query getting results.
-  let conn = ? await pool.getConn()
+  let connRes = await pool.getConn()
+  if connRes.isErr():
+    return Result[seq[Row], string].err(connRes.error())
+
+  let conn = connRes.get()
   defer: pool.releaseConn(conn)
 
-  return await rows(conn, query, args)
+  return await conn.rows(query, args)
 
-proc exec*(pool: var PgAsyncPool, query: SqlQuery, args: seq[string]): Future[PgResult[void]] {.async.} =
+proc exec*(pool: var PgAsyncPool,
+           query: SqlQuery,
+           args: seq[string]):
+           Future[Result[void, string]] {.async.} =
   ## Runs the SQL query without results.
-  let conn = ? await pool.getConn()
+  let connRes = await pool.getConn()
+  if connRes.isErr():
+    return Result[void, string].err(connRes.error())
+
+  let conn = connRes.get()
   defer: pool.releaseConn(conn)
 
-  let res = await rows(conn, query, args)
-  if res.isErr():
-    return err(res.error)
+  let rowsRes = await conn.rows(query, args)
+  if rowsRes.isErr():
+    return Result[void, string].err(rowsRes.error())
 
-  return ok()
+  return Result[void, string].ok()

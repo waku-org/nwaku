@@ -1,31 +1,31 @@
 when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
+  {.push raises: [Defect,DbError].}
 else:
-  {.push raises: [].}
+  {.push raises: [DbError,ValueError].}
 
 import
   stew/results,
   chronicles,
   chronos
 
-import ./common
-
 include db_postgres
-
 
 logScope:
   topics = "postgres connection"
 
-
-## Connection options
-
 type PgConnOptions* = object
-    connection: string
-    user: string
-    password: string
-    database: string
+  ## Connection options
+  connection*: string
+  user*: string
+  password*: string
+  database*: string
 
-func init*(T: type PgConnOptions, connection, user, password, database: string): T =
+func init*(T: type PgConnOptions,
+           connection,
+           user,
+           password,
+           database: string):
+           T =
   PgConnOptions(
     connection: connection,
     user: user,
@@ -33,34 +33,26 @@ func init*(T: type PgConnOptions, connection, user, password, database: string):
     database: database
   )
 
-func connection*(options: PgConnOptions): string =
-  options.connection
-
-func user*(options: PgConnOptions): string =
-  options.user
-
-func password*(options: PgConnOptions): string =
-  options.password
-
-func database*(options: PgConnOptions): string =
-  options.database
-
-
 ## Connection management
 
 proc error(db: DbConn): string =
   ## Extract the error message from the database connection.
   $pqErrorMessage(db)
 
-
-proc open*(options: PgConnOptions): common.PgResult[DbConn] =
-  ## Open a new connection.
-  let conn = open(
-    options.connection,
-    options.user,
-    options.password,
-    options.database
-  )
+proc open*(options: PgConnOptions):
+           Result[DbConn, string] =
+  ## Opens a new connection.
+  var conn:DbConn = nil
+  try:
+    conn = open(
+      options.connection,
+      options.user,
+      options.password,
+      options.database
+    )
+  except DbError:
+    return err("exception opening new connection: " &
+               getCurrentExceptionMsg())
 
   if conn.status != CONNECTION_OK:
     var reason = conn.error
@@ -71,13 +63,22 @@ proc open*(options: PgConnOptions): common.PgResult[DbConn] =
 
   ok(conn)
 
-
-proc rows*(db: DbConn, query: SqlQuery, args: seq[string]): Future[common.PgResult[seq[Row]]] {.async.} =
+proc rows*(db: DbConn,
+           query: SqlQuery,
+           args: seq[string]):
+           Future[Result[seq[Row], string]] {.async.} =
   ## Runs the SQL getting results.
   if db.status != CONNECTION_OK:
     return err("connection is not ok: " & db.error)
 
-  let success = pqsendQuery(db, dbFormat(query, args))
+  var wellFormedQuery = ""
+  try:
+    wellFormedQuery = dbFormat(query, args)
+  except DbError:
+    return err("exception formatting the query: " &
+               getCurrentExceptionMsg())
+
+  let success = pqsendQuery(db, wellFormedQuery)
   if success != 1:
     return err(db.error)
 
