@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/sequtils,
+  std/[sequtils,times],
   testutils/unittests,
   chronos
 import
@@ -17,7 +17,31 @@ proc defaultConf : WakuNodeConf =
     storeMessageDbUrl: "postgres://postgres:test123@localhost:5432/postgres",
     listenAddress: ValidIpAddress.init("127.0.0.1"), rpcAddress: ValidIpAddress.init("127.0.0.1"), restAddress: ValidIpAddress.init("127.0.0.1"), metricsServerAddress: ValidIpAddress.init("127.0.0.1"))
 
+proc now():int64 = getTime().toUnix()
+
 suite "Postgres driver":
+
+  test "Asynchronous queries":
+    #TODO: make the test asynchronous
+    ## When
+    let driverRes = PostgresDriver.new(defaultConf())
+
+    ## Then
+    require:
+      driverRes.isOk()
+
+    let driver: ArchiveDriver = driverRes.tryGet()
+    require:
+      not driver.isNil()
+
+    let beforeSleep = now()
+    for _ in 1 .. 20:
+      discard (PostgresDriver driver).sleep(1)
+
+    require (now() - beforeSleep) < 20
+
+    ## Cleanup
+    driver.close().expect("driver to close")
 
   test "init driver and database":
 

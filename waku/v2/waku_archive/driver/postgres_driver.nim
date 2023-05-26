@@ -245,4 +245,16 @@ method deleteMessagesOlderThanTimestamp*(s: PostgresDriver, ts: Timestamp): Arch
 method deleteOldestMessagesNotWithinLimit*(s: PostgresDriver, limit: int): ArchiveDriverResult[void] =
   return err("not implemented")
 
+method sleep*(s: PostgresDriver, seconds: int):
+              ArchiveDriverResult[void] {.base.}=
+  # This is for testing purposes only. It is aimed to test the proper
+  # implementation of asynchronous requests. It merely triggers a sleep in the
+  # database for the amount of seconds given as a parameter.
+  try:
+    let params = @[$seconds]
+    s.connection.exec(sql"SELECT pg_sleep(?)", params)
+  except DbError:
+    # This always raises an exception although the sleep works
+    return err("exception sleeping: " & getCurrentExceptionMsg())
 
+  return ok()
