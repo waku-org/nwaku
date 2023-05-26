@@ -16,6 +16,7 @@ import
   ./v2/waku_archive/test_driver_queue,
   ./v2/waku_archive/test_driver_sqlite_query,
   ./v2/waku_archive/test_driver_sqlite,
+  ./v2/waku_archive/test_driver_postgres,
   ./v2/waku_archive/test_retention_policy,
   ./v2/waku_archive/test_waku_archive
 

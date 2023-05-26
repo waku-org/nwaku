@@ -32,10 +32,6 @@ import
   ../waku_filter as legacy_filter,  #TODO: support for legacy filter protocol will be removed
   ../waku_filter/client as filter_client, #TODO: support for legacy filter protocol will be removed
   ../waku_filter_v2,
-  ../protocol/waku_archive/driver/queue_driver,
-  ../protocol/waku_archive/driver/sqlite_driver,
-  ../protocol/waku_archive/driver/sqlite_driver/migrations as archive_driver_sqlite_migrations,
-  ../protocol/waku_archive/driver/postgres_driver,
   ../waku_lightpush,
   ../waku_lightpush/client as lightpush_client,
   ../waku_enr,
@@ -43,7 +39,6 @@ import
   ../waku_discv5,
   ../waku_peer_exchange,
   ./config,
-  ../../common/sqlite,
   ./peer_manager,
   ./waku_switch
 
