@@ -17,6 +17,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
+        experimental: [true, false]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
@@ -36,28 +37,41 @@ jobs:
           key: ${{ runner.os }}-vendor-modules-${{ steps.submodules.outputs.hash }}
 
 
+      - name: prep variables
+        id: vars
+        run: |
+          ARCH=$(uname -m) 
+          EXPERIMENTAL=$([[ "${{ matrix.experimental }}" == "true" ]] && echo "-experimental" || echo "")
+
+          echo "arch=${ARCH}" >> $GITHUB_OUTPUT
+          echo "experimental=${EXPERIMENTAL}" >> $GITHUB_OUTPUT
+
+          NWAKU_ARTIFACT_NAME=$(echo "nwaku${EXPERIMENTAL}-${ARCH}-${{runner.os}}.tar.gz" | tr "[:upper:]" "[:lower:]")
+          NWAKU_TOOLS_ARTIFACT_NAME=$(echo "nwaku-tools${EXPERIMENTAL}-${ARCH}-${{runner.os}}.tar.gz" | tr "[:upper:]" "[:lower:]")
+
+          echo "nwaku=${NWAKU_ARTIFACT_NAME}" >> $GITHUB_OUTPUT
+          echo "nwakutools=${NWAKU_TOOLS_ARTIFACT_NAME}" >> $GITHUB_OUTPUT
+
       - name: build artifacts
         id: build
         run: |
-          ARCH=$(uname -m) 
-          echo "arch=${ARCH}" >> $GITHUB_OUTPUT
-          make QUICK_AND_DIRTY_COMPILER=1 V=1 CI=false wakunode2 tools
+          make QUICK_AND_DIRTY_COMPILER=1 V=1 CI=false EXPERIMENTAL=${{matrix.experimental}} wakunode2 tools
 
-          tar -cvzf nwaku-${ARCH}-${{runner.os}}.tar.gz ./build/wakunode2
-          tar -cvzf nwaku-tools-${ARCH}-${{runner.os}}.tar.gz ./build/wakucanary ./build/networkmonitor
+          tar -cvzf ${{steps.vars.outputs.nwaku}} ./build/wakunode2
+          tar -cvzf ${{steps.vars.outputs.nwakutools}} ./build/wakucanary ./build/networkmonitor
 
       - name: upload artifacts
         uses: actions/upload-artifact@v3
         with:
           name: wakunode2
-          path: nwaku-${{steps.build.outputs.arch}}-${{runner.os}}.tar.gz
+          path: ${{steps.vars.outputs.nwaku}}
           retention-days: 2
 
       - name: upload artifacts
         uses: actions/upload-artifact@v3
         with:
           name: tools
-          path: nwaku-tools-${{steps.build.outputs.arch}}-${{runner.os}}.tar.gz
+          path: ${{steps.vars.outputs.nwakutools}}
           retention-days: 2
 
   create-release-candidate:
