@@ -4,15 +4,14 @@ else:
   {.push raises: [].}
 
 import
-  std/[strutils, options],
+  std/[sequtils, strutils, options],
   stew/results,
   stew/shims/net,
   chronos,
   chronicles,
   metrics,
   libp2p/multiaddress,
-  eth/keys,
-  eth/p2p/discoveryv5/enr,
+  eth/keys as eth_keys,
   eth/p2p/discoveryv5/node,
   eth/p2p/discoveryv5/protocol
 import
@@ -29,14 +28,122 @@ logScope:
   topics = "waku discv5"
 
 
+## Config
+
+type WakuDiscoveryV5Config* = object
+    discv5Config*: Option[DiscoveryConfig]
+    address*: ValidIpAddress
+    port*: Port
+    privateKey*: eth_keys.PrivateKey
+    bootstrapRecords*: seq[waku_enr.Record]
+    autoupdateRecord*: bool
+
+
+## Protocol
+
+type WakuDiscv5Predicate* = proc(record: waku_enr.Record): bool {.closure, gcsafe.}
+
 type WakuDiscoveryV5* = ref object
+    conf: WakuDiscoveryV5Config
     protocol*: protocol.Protocol
     listening*: bool
 
+proc new*(T: type WakuDiscoveryV5, rng: ref HmacDrbgContext, conf: WakuDiscoveryV5Config, record: Option[waku_enr.Record]): T =
+  let protocol = newProtocol(
+    rng = rng,
+    config = conf.discv5Config.get(protocol.defaultDiscoveryConfig),
+    bindPort = conf.port,
+    bindIp = conf.address,
+    privKey = conf.privateKey,
+    bootstrapRecords = conf.bootstrapRecords,
+    enrAutoUpdate = conf.autoupdateRecord,
+    previousRecord = record,
+    enrIp = none(ValidIpAddress),
+    enrTcpPort = none(Port),
+    enrUdpPort = none(Port),
+  )
 
-####################
-# Helper functions #
-####################
+  WakuDiscoveryV5(conf: conf, protocol: protocol, listening: false)
+
+proc new*(T: type WakuDiscoveryV5,
+          extIp: Option[ValidIpAddress],
+          extTcpPort: Option[Port],
+          extUdpPort: Option[Port],
+          bindIP: ValidIpAddress,
+          discv5UdpPort: Port,
+          bootstrapEnrs = newSeq[enr.Record](),
+          enrAutoUpdate = false,
+          privateKey: eth_keys.PrivateKey,
+          flags: CapabilitiesBitfield,
+          multiaddrs = newSeq[MultiAddress](),
+          rng: ref HmacDrbgContext,
+          discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T {.
+  deprecated: "use the config and record proc variant instead".}=
+
+  let record = block:
+        var builder = EnrBuilder.init(privateKey)
+        builder.withIpAddressAndPorts(
+            ipAddr = extIp,
+            tcpPort = extTcpPort,
+            udpPort = extUdpPort,
+        )
+        builder.withWakuCapabilities(flags)
+        builder.withMultiaddrs(multiaddrs)
+        builder.build().expect("Record within size limits")
+
+  let conf = WakuDiscoveryV5Config(
+    discv5Config: some(discv5Config),
+    address: bindIP,
+    port: discv5UdpPort,
+    privateKey: privateKey,
+    bootstrapRecords: bootstrapEnrs,
+    autoupdateRecord: enrAutoUpdate,
+  )
+
+  WakuDiscoveryV5.new(rng, conf, some(record))
+
+
+proc start*(wd: WakuDiscoveryV5): Result[void, string] =
+  if wd.listening:
+    return err("already listening")
+
+  # Start listening on configured port
+  debug "start listening on udp port", address = $wd.conf.address, port = $wd.conf.port
+  try:
+    wd.protocol.open()
+  except CatchableError:
+    return err("failed to open udp port: " & getCurrentExceptionMsg())
+
+  wd.listening = true
+
+  # Start Discovery v5
+  trace "start discv5 service"
+  wd.protocol.start()
+
+  ok()
+
+proc closeWait*(wd: WakuDiscoveryV5) {.async.} =
+  debug "closing Waku discovery v5 node"
+  if not wd.listening:
+    return
+
+  wd.listening = false
+  await wd.protocol.closeWait()
+
+proc findRandomPeers*(wd: WakuDiscoveryV5, pred: WakuDiscv5Predicate = nil): Future[seq[waku_enr.Record]] {.async.} =
+  ## Find random peers to connect to using Discovery v5
+  let discoveredNodes = await wd.protocol.queryRandom()
+
+  var discoveredRecords = discoveredNodes.mapIt(it.record)
+
+  # Filter out nodes that do not match the predicate
+  if not pred.isNil():
+    discoveredRecords = discoveredRecords.filter(pred)
+
+  return discoveredRecords
+
+
+## Helper functions
 
 proc parseBootstrapAddress(address: string): Result[enr.Record, cstring] =
   logScope:
@@ -71,91 +178,3 @@ proc addBootstrapNode*(bootstrapAddr: string,
     return
 
   bootstrapEnrs.add(enrRes.value)
-
-
-####################
-# Discovery v5 API #
-####################
-
-proc new*(T: type WakuDiscoveryV5,
-          extIp: Option[ValidIpAddress],
-          extTcpPort: Option[Port],
-          extUdpPort: Option[Port],
-          bindIP: ValidIpAddress,
-          discv5UdpPort: Port,
-          bootstrapEnrs = newSeq[enr.Record](),
-          enrAutoUpdate = false,
-          privateKey: keys.PrivateKey,
-          flags: CapabilitiesBitfield,
-          multiaddrs = newSeq[MultiAddress](),
-          rng: ref HmacDrbgContext,
-          discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T =
-
-  # Add the waku capabilities field
-  var enrInitFields = @[(CapabilitiesEnrField, @[flags.byte])]
-
-  # Add the waku multiaddrs field
-  if multiaddrs.len > 0:
-    let value = waku_enr.encodeMultiaddrs(multiaddrs)
-    enrInitFields.add((MultiaddrEnrField, value))
-
-  let protocol = newProtocol(
-    privateKey,
-    enrIp = extIp,
-    enrTcpPort = extTcpPort,
-    enrUdpPort = extUdpPort,
-    enrInitFields,
-    bootstrapEnrs,
-    bindPort = discv5UdpPort,
-    bindIp = bindIP,
-    enrAutoUpdate = enrAutoUpdate,
-    config = discv5Config,
-    rng = rng
-  )
-
-  WakuDiscoveryV5(protocol: protocol, listening: false)
-
-# TODO: Do not raise an exception, return a result
-proc open*(wd: WakuDiscoveryV5) {.raises: [CatchableError].} =
-  debug "Opening Waku discovery v5 ports"
-  if wd.listening:
-    return
-
-  wd.protocol.open()
-  wd.listening = true
-
-proc start*(wd: WakuDiscoveryV5) =
-  debug "starting Waku discovery v5 service"
-  wd.protocol.start()
-
-proc closeWait*(wd: WakuDiscoveryV5) {.async.} =
-  debug "closing Waku discovery v5 node"
-  if not wd.listening:
-    return
-
-  wd.listening = false
-  await wd.protocol.closeWait()
-
-proc findRandomPeers*(wd: WakuDiscoveryV5): Future[Result[seq[RemotePeerInfo], cstring]] {.async.} =
-  ## Find random peers to connect to using Discovery v5
-
-  # Query for a random target and collect all discovered nodes
-  let discoveredNodes = await wd.protocol.queryRandom()
-
-  ## Filter based on our needs
-  # let filteredNodes = discoveredNodes.filter(isWakuNode) # Currently only a single predicate
-  # TODO: consider node filtering based on ENR; we do not filter based on ENR in the first waku discv5 beta stage
-
-  var discoveredPeers: seq[RemotePeerInfo]
-
-  for node in discoveredNodes:
-    let res = node.record.toRemotePeerInfo()
-    if res.isErr():
-      error "failed to convert ENR to peer info", enr= $node.record, err=res.error
-      waku_discv5_errors.inc(labelValues = ["peer_info_failure"])
-      continue
-
-    discoveredPeers.add(res.value)
-
-
-  return ok(discoveredPeers)

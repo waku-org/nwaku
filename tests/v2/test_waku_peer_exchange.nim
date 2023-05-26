@@ -126,8 +126,8 @@ procSuite "Waku Peer Exchange":
       )
 
     ## Given
-    await allFutures([node1.start(), node2.start(), node3.start()])
-    await allFutures([node1.startDiscv5(), node2.startDiscv5()])
+    await allFutures(node1.start(), node2.start(), node3.start())
+    await allFutures(node1.startDiscv5(), node2.startDiscv5())
 
     var attempts = 10
     while (node1.wakuDiscv5.protocol.nodesDiscovered < 1 or
