@@ -523,9 +523,6 @@ proc unsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: Conte
 
 ## Waku archive
 
-
-type MountArchiveResult[T] = Result[T, string]
-
 proc mountArchive*(node: WakuNode,
                    driver: Option[ArchiveDriver],
                    messageValidator: Option[MessageValidator],
