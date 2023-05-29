@@ -8,6 +8,7 @@ import
   std/[options, math],
   chronos, chronicles,
   eth/keys,
+  libp2p/protocols/connectivity/relay/relay,
   libp2p/crypto/crypto,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/protocols/rendezvous,
@@ -80,7 +81,7 @@ proc newWakuSwitch*(
     peerStoreCapacity = none(int), # defaults to 1.25 maxConnections
     services: seq[switch.Service] = @[],
     rendezvous: RendezVous = nil,
-    ): Switch
+    relay: Relay = nil): Switch
     {.raises: [Defect, IOError, LPError].} =
 
     var b = SwitchBuilder
@@ -95,8 +96,12 @@ proc newWakuSwitch*(
       .withTcpTransport(transportFlags)
       .withNameResolver(nameResolver)
       .withSignedPeerRecord(sendSignedPeerRecord)
-      .withCircuitRelay()
       .withAutonat()
+
+    if relay != nil:
+      b = b.withCircuitRelay(relay)
+    else:
+      b = b.withCircuitRelay()
 
     if peerStoreCapacity.isSome():
       b = b.withPeerStore(peerStoreCapacity.get())

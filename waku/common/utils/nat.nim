@@ -54,6 +54,9 @@ proc setupNat*(natConf, clientId: string,
         endpoint.udpPort = some(extUdpPort)
 
   else: # NatNone
+    if natConf == "none":
+      return ok((none(ValidIpAddress), none(Port), none(Port)))
+
     if not natConf.startsWith("extip:"):
       return err("not a valid NAT mechanism: " & $natConf)
 
@@ -64,4 +67,3 @@ proc setupNat*(natConf, clientId: string,
       return err("not a valid IP address: " & $natConf[6..^1])
 
   return ok(endpoint)
-
