@@ -754,6 +754,7 @@ procSuite "Peer Manager":
     check:
       nodes[0].peerManager.ipTable["127.0.0.1"].len == 4
       nodes[0].peerManager.switch.connManager.getConnections().len == 4
+      nodes[0].peerManager.peerStore.peers().len == 4
 
     await nodes[0].peerManager.pruneConnsByIp()
 
@@ -762,3 +763,4 @@ procSuite "Peer Manager":
     check:
       nodes[0].peerManager.ipTable["127.0.0.1"].len == 1
       nodes[0].peerManager.switch.connManager.getConnections().len == 1
+      nodes[0].peerManager.peerStore.peers().len == 1

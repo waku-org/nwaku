@@ -559,6 +559,7 @@ proc pruneConnsByIp*(pm: PeerManager) {.async.} =
       for peerId in peersInIp[0..<connsToPrune]:
         debug "Pruning connection due to ip colocation", peerId = peerId, ip = ip
         await pm.switch.disconnect(peerId)
+        pm.peerStore.delete(peerId)
 
 proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   let (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
