@@ -67,7 +67,7 @@ proc new*(T: type PostgresDriver, storeMessageDbUrl: string): ArchiveDriverResul
   except DbError:
     return err("could not connect to postgres")
 
-  ok(PostgresDriver(connection: dbConn))
+  return ok(PostgresDriver(connection: dbConn))
 
 method reset*(s: PostgresDriver): ArchiveDriverResult[void] {.base.} =
   try:
@@ -76,13 +76,14 @@ method reset*(s: PostgresDriver): ArchiveDriverResult[void] {.base.} =
       return err("failed to reset database")
   except DbError:
     return err("failed to reset database")
-  ok()
+
+  return ok()
 
 method init*(s: PostgresDriver): ArchiveDriverResult[void] {.base.} =
   try:
     let res = s.connection.tryExec(sql(createTableQuery()))
     if not res:
-      return err("failed to migrate database")
+      return err("failed to initialize")
     s.preparedInsert = prepare(s.connection, "insertRow", sql(insertRow()), 7)
   except DbError:
     let
@@ -91,7 +92,8 @@ method init*(s: PostgresDriver): ArchiveDriverResult[void] {.base.} =
       exceptionMessage = "failed to init driver, got exception " &
                           repr(e) & " with message " & msg
     return err(exceptionMessage)
-  ok()
+
+  return ok()
 
 method put*(s: PostgresDriver,
             pubsubTopic: PubsubTopic,
@@ -116,35 +118,35 @@ method put*(s: PostgresDriver,
   return ok()
 
 proc extractRow(r: Row): ArchiveDriverResult[ArchiveRow] =
-    var wakuMessage: WakuMessage
-    var timestamp: Timestamp
-    var version: uint
-    var pubSubTopic: string
-    var contentTopic: string
-    var storedAt: int64
-    var digest: string
-    var payload: string
+  var wakuMessage: WakuMessage
+  var timestamp: Timestamp
+  var version: uint
+  var pubSubTopic: string
+  var contentTopic: string
+  var storedAt: int64
+  var digest: string
+  var payload: string
 
-    try:
-      storedAt = parseInt(r[0])
-      contentTopic = r[1]
-      payload = parseHexStr(r[2])
-      pubSubTopic = r[3]
-      version = parseUInt(r[4])
-      timestamp = parseInt(r[5])
-      digest = parseHexStr(r[6])
-    except ValueError:
-      return err("could not parse timestamp")
+  try:
+    storedAt = parseInt(r[0])
+    contentTopic = r[1]
+    payload = parseHexStr(r[2])
+    pubSubTopic = r[3]
+    version = parseUInt(r[4])
+    timestamp = parseInt(r[5])
+    digest = parseHexStr(r[6])
+  except ValueError:
+    return err("could not parse timestamp")
 
-    wakuMessage.timestamp = timestamp
-    wakuMessage.version = uint32(version)
-    wakuMessage.contentTopic = contentTopic
-    wakuMessage.payload = @(payload.toOpenArrayByte(0, payload.high))
+  wakuMessage.timestamp = timestamp
+  wakuMessage.version = uint32(version)
+  wakuMessage.contentTopic = contentTopic
+  wakuMessage.payload = @(payload.toOpenArrayByte(0, payload.high))
 
-    ok((pubSubTopic,
-        wakuMessage,
-        @(digest.toOpenArrayByte(0, digest.high)),
-        storedAt))
+  return ok((pubSubTopic,
+             wakuMessage,
+             @(digest.toOpenArrayByte(0, digest.high)),
+             storedAt))
 
 method getAllMessages*(s: PostgresDriver):
                        Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
