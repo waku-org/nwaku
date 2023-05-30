@@ -220,3 +220,37 @@ suite "Postgres driver":
 
     ## Cleanup
     (await driver.close()).expect("driver to close")
+
+  asyncTest "insert true duplicated messages":
+    # Validates that two completely equal messages can not be stored.
+    ## Given
+    let driverRes = PostgresDriver.new(storeMessageDbUrl)
+
+    require:
+      driverRes.isOk()
+
+    discard driverRes.get().reset()
+    discard driverRes.get().init()
+
+    let driver: ArchiveDriver = driverRes.tryGet()
+    require:
+      not driver.isNil()
+
+    let now = now()
+
+    let msg1 = fakeWakuMessage(ts = now)
+    let msg2 = fakeWakuMessage(ts = now)
+
+    var putRes = await driver.put(DefaultPubsubTopic,
+                                  msg1, computeDigest(msg1), msg1.timestamp)
+    ## Then
+    require:
+      putRes.isOk()
+
+    putRes = await driver.put(DefaultPubsubTopic,
+                              msg2, computeDigest(msg2), msg2.timestamp)
+    ## Then
+    require:
+      not putRes.isOk()
+
+
