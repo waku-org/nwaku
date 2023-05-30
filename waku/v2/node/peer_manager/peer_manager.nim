@@ -55,14 +55,11 @@ const
   # How often the peer store is pruned
   PrunePeerStoreInterval = chronos.minutes(5)
 
-  # How often the peer store is updated with metrics
-  UpdateMetricsInterval = chronos.seconds(15)
+  # How often metrics and logs are shown/updated
+  LogAndMetricsInterval = chronos.seconds(60)
 
   # Prune by ip interval
   PruneByIpInterval = chronos.seconds(30)
-
-  # How often to log peer manager metrics
-  LogSummaryInterval = chronos.seconds(60)
 
   # Max peers that we allow from the same IP
   ColocationLimit = 5
@@ -666,8 +663,9 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
     await pm.connectToRelayPeers()
     await sleepAsync(ConnectivityLoopInterval)
 
-proc logSummary*(pm: PeerManager) {.async.} =
-  heartbeat "Log peer manager summary", LogSummaryInterval:
+proc logAndMetrics(pm: PeerManager) {.async.} =
+  heartbeat "Scheduling log and metrics run", LogAndMetricsInterval:
+    # log metrics
     let (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
     let maxConnections = pm.switch.connManager.inSema.size
     let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
@@ -683,8 +681,7 @@ proc logSummary*(pm: PeerManager) {.async.} =
       notConnectedPeers = notConnectedPeers.len,
       outsideBackoffPeers = outsideBackoffPeers.len
 
-proc updateMetrics(pm: PeerManager) {.async.} =
-  heartbeat "Scheduling updateMetrics run", UpdateMetricsInterval:
+    # update prometheus metrics
     for proto in pm.peerStore.getWakuProtos():
       let (protoConnsIn, protoConnsOut) = pm.connectedPeers(proto)
       let (protoStreamsIn, protoStreamsOut) = pm.getNumStreams(proto)
@@ -695,11 +692,10 @@ proc updateMetrics(pm: PeerManager) {.async.} =
 
 proc start*(pm: PeerManager) =
   pm.started = true
-  asyncSpawn pm.updateMetrics()
   asyncSpawn pm.relayConnectivityLoop()
   asyncSpawn pm.prunePeerStoreLoop()
   asyncSpawn pm.pruneConnsByIpLoop()
-  asyncSpawn pm.logSummary()
+  asyncSpawn pm.logAndMetrics()
 
 proc stop*(pm: PeerManager) =
   pm.started = false
