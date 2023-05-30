@@ -106,13 +106,6 @@ proc initProtocolHandler(w: WakuRelay) =
   w.handler = handler
   w.codec = WakuRelayCodec
 
-proc debugPrintRemove(w: WakuRelay) {.async.} =
-  while true:
-    for k, v in w.peerStats.mpairs:
-      echo "---peerStats: peer: ", k, " ", v.score, " ", v.appScore, " ", v.behaviourPenalty
-    await sleepAsync(5000)
-  #nodes[1].wakuRelay.peerStats[p0Id].topicInfos[spamProtectedTopic].invalidMessageDeliveries == 100.0
-
 proc new*(T: type WakuRelay, switch: Switch, triggerSelf: bool = true): WakuRelayResult[T] =
 
   var wr: WakuRelay
@@ -130,8 +123,6 @@ proc new*(T: type WakuRelay, switch: Switch, triggerSelf: bool = true): WakuRela
 
   except InitializationError:
     return err("initialization error: " & getCurrentExceptionMsg())
-
-  asyncSpawn debugPrintRemove(wr)
 
   ok(wr)
 
