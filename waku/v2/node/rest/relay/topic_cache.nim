@@ -23,7 +23,7 @@ type TopicCache* = MessageCache[PubSubTopic]
 
 ##### Message handler
 
-type TopicCacheMessageHandler* = SubscriptionHandler
+type TopicCacheMessageHandler* = WakuRelayHandler
 
 proc messageHandler*(cache: TopicCache): TopicCacheMessageHandler =
 

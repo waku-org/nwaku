@@ -16,6 +16,7 @@ import
   libp2p/multihash,
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub,
+  libp2p/protocols/pubsub/rpc/messages,
   libp2p/stream/connection,
   libp2p/switch
 import
@@ -29,18 +30,61 @@ logScope:
 const
   WakuRelayCodec* = "/vac/waku/relay/2.0.0"
 
+const topicParams = TopicParams(
+    topicWeight: 10.0,  # TODO random number
+    timeInMeshWeight: 0.01,
+    timeInMeshQuantum: 1.seconds,
+    timeInMeshCap: 10.0,
+    firstMessageDeliveriesWeight: 1.0,
+    firstMessageDeliveriesDecay: 0.5,
+    firstMessageDeliveriesCap: 10.0,
+    meshMessageDeliveriesWeight: -1.0,
+    meshMessageDeliveriesDecay: 0.5,
+    meshMessageDeliveriesCap: 10,
+    meshMessageDeliveriesThreshold: 1,
+    meshMessageDeliveriesWindow: 5.milliseconds,
+    meshMessageDeliveriesActivation: 10.seconds,
+    meshFailurePenaltyWeight: -1.0,
+    meshFailurePenaltyDecay: 0.5,
+    invalidMessageDeliveriesWeight: -1.0,
+    invalidMessageDeliveriesDecay: 0.5)
 
-type WakuRelayResult*[T] = Result[T, string]
+const gossipsubParams = GossipSubParams(
+    explicit: true,
+    pruneBackoff: chronos.minutes(1),
+    unsubscribeBackoff: chronos.seconds(10),
+    floodPublish: true,
+    gossipFactor: 0.05,
+    d: 8,
+    dLow: 6,
+    dHigh: 12,
+    dScore: 6,
+    dOut: 6 div 2, # less than dlow and no more than dlow/2
+    dLazy: 6,
+    heartbeatInterval: chronos.milliseconds(700),
+    historyLength: 6,
+    historyGossip: 3,
+    fanoutTTL: chronos.seconds(60),
+    seenTTL: chronos.seconds(385),
+    gossipThreshold: -4000,
+    publishThreshold: -8000,
+    graylistThreshold: -16000, # also disconnect threshold
+    opportunisticGraftThreshold: 0,
+    decayInterval: chronos.seconds(12),
+    decayToZero: 0.01,
+    retainScore: chronos.seconds(385),
+    appSpecificWeight: 0.0,
+    ipColocationFactorWeight: -53.75,
+    ipColocationFactorThreshold: 3.0,
+    behaviourPenaltyWeight: -15.9,
+    behaviourPenaltyDecay: 0.986,
+    disconnectBadPeers: true
+    )
 
 type
-  PubsubRawHandler* = proc(pubsubTopic: PubsubTopic, data: seq[byte]): Future[void] {.gcsafe, raises: [Defect].}
-  SubscriptionHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[void] {.gcsafe, raises: [Defect].}
-
-type
+  WakuRelayResult*[T] = Result[T, string]
+  WakuRelayHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[void] {.gcsafe, raises: [Defect].}
   WakuRelay* = ref object of GossipSub
-
-  WakuRelayHandler* = PubsubRawHandler|SubscriptionHandler
-
 
 proc initProtocolHandler(w: WakuRelay) =
   proc handler(conn: Connection, proto: string) {.async.} =
@@ -62,21 +106,12 @@ proc initProtocolHandler(w: WakuRelay) =
   w.handler = handler
   w.codec = WakuRelayCodec
 
-method initPubSub(w: WakuRelay) {.raises: [InitializationError].} =
-  ## NOTE: This method overrides GossipSub initPubSub method; it called by the
-  ##  parent protocol, PubSub.
-  debug "init waku relay"
-
-  # After discussions with @sinkingsugar: This is essentially what is needed for
-  # the libp2p `StrictNoSign` policy
-  w.anonymize = true
-  w.verifySignature = false
-  w.sign = false
-
-  procCall GossipSub(w).initPubSub()
-
-  w.initProtocolHandler()
-
+proc debugPrintRemove(w: WakuRelay) {.async.} =
+  while true:
+    for k, v in w.peerStats.mpairs:
+      echo "---peerStats: peer: ", k, " ", v.score, " ", v.appScore, " ", v.behaviourPenalty
+    await sleepAsync(5000)
+  #nodes[1].wakuRelay.peerStats[p0Id].topicInfos[spamProtectedTopic].invalidMessageDeliveries == 100.0
 
 proc new*(T: type WakuRelay, switch: Switch, triggerSelf: bool = true): WakuRelayResult[T] =
 
@@ -84,29 +119,21 @@ proc new*(T: type WakuRelay, switch: Switch, triggerSelf: bool = true): WakuRela
   try:
     wr = WakuRelay.init(
       switch = switch,
+      anonymize = true,
+      verifySignature = false,
+      sign = false,
       msgIdProvider = defaultMessageIdProvider,
       triggerSelf = triggerSelf,
-      sign = false,
-      verifySignature = false,
-      maxMessageSize = MaxWakuMessageSize
+      maxMessageSize = MaxWakuMessageSize,
+      parameters = gossipsubParams
     )
+
   except InitializationError:
     return err("initialization error: " & getCurrentExceptionMsg())
 
-    # TODO: Add a function to validate the WakuMessage integrity
-    # # Rejects messages that are not WakuMessage
-    # proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
-    #   let msg = WakuMessage.decode(message.data)
-    #   if msg.isOk():
-    #     return ValidationResult.Accept
-    #   return ValidationResult.Reject
-
-    # # Add validator to all default pubsub topics
-    # for pubSubTopic in defaultPubsubTopics:
-    #   wr.addValidator(pubSubTopic, validator)
+  asyncSpawn debugPrintRemove(wr)
 
   ok(wr)
-
 
 method addValidator*(w: WakuRelay, topic: varargs[string], handler: ValidatorHandler) {.gcsafe.} =
   procCall GossipSub(w).addValidator(topic, handler)
@@ -131,30 +158,33 @@ iterator subscribedTopics*(w: WakuRelay): lent PubsubTopic =
 proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler) =
   debug "subscribe", pubsubTopic=pubsubTopic
 
-  var subsHandler: PubsubRawHandler
-  when handler is SubscriptionHandler:
-    subsHandler = proc(pubsubTopic: PubsubTopic, data: seq[byte]): Future[void] {.gcsafe.} =
-        let decodeRes = WakuMessage.decode(data)
-        if decodeRes.isErr():
-          debug "message decode failure", pubsubTopic=pubsubTopic, error=decodeRes.error
-          return
+  # rejects messages that are not WakuMessage
+  proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
+    let msg = WakuMessage.decode(message.data)
+    if msg.isOk():
+      # TODO: Unsure if await or asyncSpawn is the closest behaviour
+      asyncSpawn handler(pubsubTopic, msg.get)
+      return ValidationResult.Accept
+    return ValidationResult.Reject
 
-        handler(pubsubTopic, decodeRes.value)
-  else:
-    subsHandler = handler
+  # add the validator to the topic, that also contains the handler
+  w.addValidator(pubSubTopic, validator)
 
-  procCall GossipSub(w).subscribe(pubsubTopic, subsHandler)
+  # set this topic parameters for scoring
+  w.topicParams[pubsubTopic] = topicParams
 
-proc unsubscribe*(w: WakuRelay, topics: seq[TopicPair]) =
-  debug "unsubscribe", pubsubTopic=topics.mapIt(it[0])
+  # nil since we handle it in the validator
+  procCall GossipSub(w).subscribe(pubsubTopic, nil)
 
-  procCall GossipSub(w).unsubscribe(topics)
+proc unsubscribe*(w: WakuRelay, topics: PubsubTopic) =
+  debug "unsubscribe", pubsubTopic=topics.mapIt(it)
+
+  procCall GossipSub(w).unsubscribe(topics, nil)
 
 proc unsubscribeAll*(w: WakuRelay, pubsubTopic: PubsubTopic) =
   debug "unsubscribeAll", pubsubTopic=pubsubTopic
 
   procCall GossipSub(w).unsubscribeAll(pubsubTopic)
-
 
 proc publish*(w: WakuRelay, pubsubTopic: PubsubTopic, message: WakuMessage|seq[byte]): Future[int] {.async.} =
   trace "publish", pubsubTopic=pubsubTopic

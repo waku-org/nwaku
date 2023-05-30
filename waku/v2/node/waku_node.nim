@@ -269,14 +269,10 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     await node.wakuArchive.handleMessage(topic, msg)
 
 
-  let defaultHandler = proc(topic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.decode(data)
-      if msg.isErr():
-        return
-
-      await traceHandler(topic, msg.value)
-      await filterHandler(topic, msg.value)
-      await archiveHandler(topic, msg.value)
+  let defaultHandler = proc(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+    await traceHandler(topic, msg)
+    await filterHandler(topic, msg)
+    await archiveHandler(topic, msg)
 
   node.wakuRelay.subscribe(topic, defaultHandler)
 
@@ -308,10 +304,10 @@ proc unsubscribe*(node: WakuNode, topic: PubsubTopic, handler: WakuRelayHandler)
     error "Invalid API call to `unsubscribe`. WakuRelay not mounted."
     return
 
-  debug "unsubscribe", oubsubTopic= topic
+  debug "unsubscribe", pubsubTopic=topic
 
   let wakuRelay = node.wakuRelay
-  wakuRelay.unsubscribe(@[(topic, handler)])
+  wakuRelay.unsubscribe(topic)
 
 proc unsubscribeAll*(node: WakuNode, topic: PubsubTopic) =
   ## Unsubscribes all handlers registered on a specific PubSub topic.
@@ -320,7 +316,7 @@ proc unsubscribeAll*(node: WakuNode, topic: PubsubTopic) =
     error "Invalid API call to `unsubscribeAll`. WakuRelay not mounted."
     return
 
-  info "unsubscribeAll", topic=topic
+  info "unsubscribeAll", pubsubTopic=topic
 
   node.wakuRelay.unsubscribeAll(topic)
 
