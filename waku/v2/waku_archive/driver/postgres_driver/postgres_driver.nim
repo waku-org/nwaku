@@ -273,8 +273,8 @@ method close*(s: PostgresDriver):
   s.connection.close()
   return ok()
 
-method sleep*(s: PostgresDriver, seconds: int):
-              Future[ArchiveDriverResult[void]] {.base, async.} =
+proc sleep*(s: PostgresDriver, seconds: int):
+            Future[ArchiveDriverResult[void]] {.async.} =
   # This is for testing purposes only. It is aimed to test the proper
   # implementation of asynchronous requests. It merely triggers a sleep in the
   # database for the amount of seconds given as a parameter.
