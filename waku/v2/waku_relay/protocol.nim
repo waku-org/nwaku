@@ -30,56 +30,94 @@ logScope:
 const
   WakuRelayCodec* = "/vac/waku/relay/2.0.0"
 
+# see: https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#overview-of-new-parameters
 const topicParams = TopicParams(
-    topicWeight: 10.0,  # TODO random number
+    topicWeight: 1,
+
+    # p1: favours peers already in the mesh
     timeInMeshWeight: 0.01,
     timeInMeshQuantum: 1.seconds,
     timeInMeshCap: 10.0,
+
+    # p2: rewards fast peers
     firstMessageDeliveriesWeight: 1.0,
     firstMessageDeliveriesDecay: 0.5,
     firstMessageDeliveriesCap: 10.0,
-    meshMessageDeliveriesWeight: -1.0,
+
+    # p3: penalizes lazy peers. safe low value
+    meshMessageDeliveriesWeight: -5.0,
     meshMessageDeliveriesDecay: 0.5,
     meshMessageDeliveriesCap: 10,
     meshMessageDeliveriesThreshold: 1,
     meshMessageDeliveriesWindow: 5.milliseconds,
     meshMessageDeliveriesActivation: 10.seconds,
+
+    # p3b: tracks history of prunes
     meshFailurePenaltyWeight: -1.0,
     meshFailurePenaltyDecay: 0.5,
-    invalidMessageDeliveriesWeight: -1.0,
-    invalidMessageDeliveriesDecay: 0.5)
 
+    # p4: penalizes invalid messages. highly penalize
+    # peers sending wrong messages
+    invalidMessageDeliveriesWeight: -100.0,
+    invalidMessageDeliveriesDecay: 0.5
+  )
+
+# see: https://rfc.vac.dev/spec/29/#gossipsub-v10-parameters
 const gossipsubParams = GossipSubParams(
     explicit: true,
     pruneBackoff: chronos.minutes(1),
-    unsubscribeBackoff: chronos.seconds(10),
+    unsubscribeBackoff: chronos.seconds(5),
     floodPublish: true,
-    gossipFactor: 0.05,
-    d: 8,
-    dLow: 6,
+    gossipFactor: 0.25,
+
+    d: 6,
+    dLow: 4,
     dHigh: 12,
     dScore: 6,
-    dOut: 6 div 2, # less than dlow and no more than dlow/2
+    dOut: 3,
     dLazy: 6,
-    heartbeatInterval: chronos.milliseconds(700),
+
+    heartbeatInterval: chronos.seconds(1),
     historyLength: 6,
     historyGossip: 3,
-    fanoutTTL: chronos.seconds(60),
-    seenTTL: chronos.seconds(385),
-    gossipThreshold: -4000,
-    publishThreshold: -8000,
-    graylistThreshold: -16000, # also disconnect threshold
+    fanoutTTL: chronos.minutes(1),
+    seenTTL: chronos.minutes(2),
+
+    # no gossip is send to peers below this score
+    gossipThreshold: -100,
+
+    # no self-published msgs are sent to peers below this score
+    publishThreshold: -1000,
+
+    # used to trigger disconnections + ignore peer if below this score
+    graylistThreshold: -10000,
+
+    # grafts better peers if the mesh median score drops below this. unset.
     opportunisticGraftThreshold: 0,
+
+    # how often peer scoring is updated
     decayInterval: chronos.seconds(12),
+
+    # below this we consider the parameter to be zero
     decayToZero: 0.01,
-    retainScore: chronos.seconds(385),
+
+    # remember peer score during x after it disconnects
+    retainScore: chronos.minutes(10),
+
+    # p5: application specific, unset
     appSpecificWeight: 0.0,
-    ipColocationFactorWeight: -53.75,
-    ipColocationFactorThreshold: 3.0,
-    behaviourPenaltyWeight: -15.9,
+
+    # p6: penalizes peers sharing more than threshold ips
+    ipColocationFactorWeight: -50.0,
+    ipColocationFactorThreshold: 5.0,
+
+    # p7: penalizes bad behaviour (weight and decay)
+    behaviourPenaltyWeight: -10.0,
     behaviourPenaltyDecay: 0.986,
+
+    # triggers disconnections of bad peers aka score <graylistThreshold
     disconnectBadPeers: true
-    )
+  )
 
 type
   WakuRelayResult*[T] = Result[T, string]

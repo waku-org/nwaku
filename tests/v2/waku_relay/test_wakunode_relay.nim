@@ -483,7 +483,7 @@ suite "WakuNode - Relay":
     # all nodes lower the score of nodes[0] (will change if gossipsub params or amount of msg changes)
     for i in 1..<5:
       check:
-        nodes[1].wakuRelay.peerStats[nodes[0].switch.peerInfo.peerId].score == -25009.0
+        nodes[1].wakuRelay.peerStats[nodes[0].switch.peerInfo.peerId].score == -250004.9
 
     # nodes[0] was blacklisted from all other peers, no connections
     check:
