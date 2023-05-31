@@ -366,7 +366,6 @@ proc startRelay*(node: WakuNode) {.async.} =
 
 proc mountRelay*(node: WakuNode,
                  topics: seq[string] = @[],
-                 triggerSelf = true,
                  peerExchangeHandler = none(RoutingRecordsHandler)) {.async, gcsafe.} =
   if not node.wakuRelay.isNil():
     error "wakuRelay already mounted, skipping"
@@ -375,10 +374,7 @@ proc mountRelay*(node: WakuNode,
   ## The default relay topics is the union of all configured topics plus default PubsubTopic(s)
   info "mounting relay protocol"
 
-  let initRes = WakuRelay.new(
-    node.switch,
-    triggerSelf = triggerSelf
-  )
+  let initRes = WakuRelay.new(node.switch)
   if initRes.isErr():
     error "failed mounting relay protocol", error=initRes.error
     return

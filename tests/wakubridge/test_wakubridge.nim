@@ -95,14 +95,12 @@ procSuite "WakuBridge":
 
     var completionFut = newFuture[bool]()
 
-    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.decode(data)
-
-      if msg.isOk() and msg.value().version == 1:
+    proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+      if msg.version == 1:
         check:
           # Message fields are as expected
-          msg.value().contentTopic == contentTopic # Topic translation worked
-          string.fromBytes(msg.value().payload).contains("from V1")
+          msg.contentTopic == contentTopic # Topic translation worked
+          string.fromBytes(msg.payload).contains("from V1")
 
         completionFut.complete(true)
 

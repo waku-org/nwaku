@@ -106,25 +106,28 @@ proc initProtocolHandler(w: WakuRelay) =
   w.handler = handler
   w.codec = WakuRelayCodec
 
-proc new*(T: type WakuRelay, switch: Switch, triggerSelf: bool = true): WakuRelayResult[T] =
+proc new*(T: type WakuRelay, switch: Switch): WakuRelayResult[T] =
 
-  var wr: WakuRelay
+  var w: WakuRelay
   try:
-    wr = WakuRelay.init(
+    w = WakuRelay.init(
       switch = switch,
       anonymize = true,
       verifySignature = false,
       sign = false,
+      triggerSelf = true,
       msgIdProvider = defaultMessageIdProvider,
-      triggerSelf = triggerSelf,
       maxMessageSize = MaxWakuMessageSize,
       parameters = gossipsubParams
     )
 
+    procCall GossipSub(w).initPubSub()
+    w.initProtocolHandler()
+
   except InitializationError:
     return err("initialization error: " & getCurrentExceptionMsg())
 
-  ok(wr)
+  ok(w)
 
 method addValidator*(w: WakuRelay, topic: varargs[string], handler: ValidatorHandler) {.gcsafe.} =
   procCall GossipSub(w).addValidator(topic, handler)
@@ -150,22 +153,32 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
   debug "subscribe", pubsubTopic=pubsubTopic
 
   # rejects messages that are not WakuMessage
-  proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
+  proc validator(pubsubTopic: string, message: messages.Message): Future[ValidationResult] {.async.} =
     let msg = WakuMessage.decode(message.data)
     if msg.isOk():
-      # TODO: Unsure if await or asyncSpawn is the closest behaviour
-      asyncSpawn handler(pubsubTopic, msg.get)
       return ValidationResult.Accept
     return ValidationResult.Reject
 
-  # add the validator to the topic, that also contains the handler
-  w.addValidator(pubSubTopic, validator)
+  # we need to wrap the handler since gossipsub doesnt understand WakuMessage
+  let wrappedHandler = proc(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [Defect].} =
+    let decMsg = WakuMessage.decode(data)
+    if decMsg.isErr():
+      # fine if triggerSelf enabled, since validators are bypassed
+      error "failed to decode WakuMessage, validator passed a wrong message"
+      let fut = newFuture[void]()
+      fut.complete()
+      return fut
+    else:
+      return handler(pubsubTopic, decMsg.get)
+
+  # add the default validator to the topic
+  procCall GossipSub(w).addValidator(pubSubTopic, validator)
 
   # set this topic parameters for scoring
   w.topicParams[pubsubTopic] = topicParams
 
-  # nil since we handle it in the validator
-  procCall GossipSub(w).subscribe(pubsubTopic, nil)
+  # subscribe to the topic with our wrapped handler
+  procCall GossipSub(w).subscribe(pubsubTopic, wrappedHandler)
 
 proc unsubscribe*(w: WakuRelay, topics: PubsubTopic) =
   debug "unsubscribe", pubsubTopic=topics.mapIt(it)
