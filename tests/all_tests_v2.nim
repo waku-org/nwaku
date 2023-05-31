@@ -19,6 +19,10 @@ import
   ./v2/waku_archive/test_retention_policy,
   ./v2/waku_archive/test_waku_archive
 
+# TODO: add the postgres test when we can mock the database.
+# The postgres tests now need a running postgresql database running locally.
+#  ./v2/waku_archive/test_driver_postgres,
+
 # Waku store test suite
 import
   ./v2/waku_store/test_rpc_codec,
