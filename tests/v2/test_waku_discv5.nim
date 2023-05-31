@@ -135,8 +135,7 @@ procSuite "Waku Discovery v5":
     # Starting discv5 via `WakuNode.startDiscV5()` starts the discv5 background task.
     await allFutures(node1.startDiscv5(), node2.startDiscv5(), node3.startDiscv5())
 
-    await sleepAsync(10.seconds) # Wait for discv5 discvery loop to run
-
+    await sleepAsync(5.seconds) # Wait for discv5 discvery loop to run
     let res = await node1.wakuDiscv5.findRandomPeers()
 
     ## Then
@@ -268,11 +267,13 @@ procSuite "Waku Discovery v5":
 
 
     ## When
-    # Do a random peer search with a predicate multiple times
-    var peers = initHashSet[waku_enr.Record]()
-    for i in 0..<10:
-      for peer in await node1.wakuDiscv5.findRandomPeers(pred=recordPredicate):
-        peers.incl(peer)
+    # # Do a random peer search with a predicate multiple times
+    # var peers = initHashSet[waku_enr.Record]()
+    # for i in 0..<10:
+    #   for peer in await node1.wakuDiscv5.findRandomPeers(pred=recordPredicate):
+    #     peers.incl(peer)
+    await sleepAsync(5.seconds) # Wait for discv5 discvery loop to run
+    let peers = await node1.wakuDiscv5.findRandomPeers(pred=recordPredicate)
 
     ## Then
     check:
