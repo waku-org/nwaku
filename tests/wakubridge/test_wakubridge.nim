@@ -88,7 +88,8 @@ procSuite "WakuBridge":
     waitFor bridge.start()
 
     waitFor v2Node.start()
-    await v2Node.mountRelay(@[DefaultBridgeTopic], triggerSelf = false)
+    await v2Node.mountRelay(@[DefaultBridgeTopic])
+    v2Node.wakuRelay.triggerSelf = false
 
     discard waitFor v1Node.rlpxConnect(newNode(bridge.nodev1.toENode()))
     waitFor waku_node.connectToNodes(v2Node, @[bridge.nodev2.switch.peerInfo.toRemotePeerInfo()])

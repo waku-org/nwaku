@@ -264,7 +264,7 @@ proc start*(bridge: WakuBridge) {.async.} =
 
   # Always mount relay for bridge.
   # `triggerSelf` is false on a `bridge` to avoid duplicates
-  await bridge.nodev2.mountRelay(triggerSelf = false)
+  await bridge.nodev2.mountRelay()
 
   # Bridging
   # Handle messages on Waku v1 and bridge to Waku v2
