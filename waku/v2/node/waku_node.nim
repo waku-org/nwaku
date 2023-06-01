@@ -19,6 +19,7 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/connectivity/autonat/client,
   libp2p/protocols/connectivity/autonat/service,
+  libp2p/protocols/rendezvous,
   libp2p/nameresolving/nameresolver,
   libp2p/builders,
   libp2p/transports/tcptransport,
@@ -101,6 +102,7 @@ type
     libp2pPing*: Ping
     rng*: ref rand.HmacDrbgContext
     wakuDiscv5*: WakuDiscoveryV5
+    rendezvous*: RendezVous
     announcedAddresses* : seq[MultiAddress]
     started*: bool # Indicates that node has started listening
 
@@ -920,6 +922,16 @@ proc stopDiscv5*(node: WakuNode): Future[bool] {.async.} =
       await node.wakuDiscv5.closeWait()
 
     debug "Successfully stopped discovery v5 service"
+
+proc mountRendezvous*(node: WakuNode) {.async, raises: [Defect, LPError].} =
+  info "mounting rendezvous discovery protocol"
+
+  node.rendezvous = RendezVous.new(node.switch)
+
+  if node.started:
+    await node.rendezvous.start()
+
+  node.switch.mount(node.rendezvous)
 
 
 proc start*(node: WakuNode) {.async.} =

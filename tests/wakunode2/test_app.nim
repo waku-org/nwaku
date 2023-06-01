@@ -24,6 +24,8 @@ proc defaultTestWakuNodeConf(): WakuNodeConf =
     metricsServerAddress: ValidIpAddress.init("127.0.0.1"),
     nat: "any",
     maxConnections: 50,
+    topics: @["/waku/2/default-waku/proto"],
+    relay: true
   )
 
 
@@ -77,6 +79,7 @@ suite "Wakunode2 - App initialization":
       node.wakuArchive.isNil()
       node.wakuStore.isNil()
       not node.wakuStoreClient.isNil()
+      not node.rendezvous.isNil()
 
     ## Cleanup
     waitFor wakunode2.stop()

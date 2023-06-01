@@ -526,6 +526,12 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       notice "routing only signed traffic", protectedTopic=topicKey.topic, publicKey=topicKey.key
       node.wakuRelay.addSignedTopicValidator(Pubsubtopic(topicKey.topic), topicKey.key)
 
+    # Enable Rendezvous Discovery protocol when Relay is enabled
+    try:
+      await mountRendezvous(node)
+    except CatchableError:
+      return err("failed to mount waku rendezvous protocol: " & getCurrentExceptionMsg())
+
   # Keepalive mounted on all nodes
   try:
     await mountLibp2pPing(node)

@@ -66,6 +66,7 @@ import
   ./v2/test_waku_noise,
   ./v2/test_waku_noise_sessions,
   ./v2/test_waku_switch,
+  ./v2/test_waku_rendezvous,
   # Utils
   ./v2/test_utils_compat
 

@@ -10,6 +10,7 @@ import
   eth/keys,
   libp2p/crypto/crypto,
   libp2p/protocols/pubsub/gossipsub,
+  libp2p/protocols/rendezvous,
   libp2p/nameresolving/nameresolver,
   libp2p/builders,
   libp2p/switch,
@@ -78,6 +79,7 @@ proc newWakuSwitch*(
     agentString = none(string),    # defaults to nim-libp2p version
     peerStoreCapacity = none(int), # defaults to 1.25 maxConnections
     services: seq[switch.Service] = @[],
+    rendezvous: RendezVous = nil,
     ): Switch
     {.raises: [Defect, IOError, LPError].} =
 
@@ -118,5 +120,8 @@ proc newWakuSwitch*(
 
     if services.len > 0:
       b = b.withServices(services)
+
+    if not rendezvous.isNil():
+      b = b.withRendezVous(rendezvous)
 
     b.build()
