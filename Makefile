@@ -64,10 +64,6 @@ TARGET ?= prod
 GIT_VERSION ?= $(shell git describe --abbrev=6 --always --tags)
 NIM_PARAMS := $(NIM_PARAMS) -d:git_version=\"$(GIT_VERSION)\"
 
-## Pass CPU architecture to C compiler, use basic x86-64 instruction set by default
-ARCHITECTURE ?= "x86-64"
-NIM_PARAMS := $(NIM_PARAMS) --passC:\"-march=$(ARCHITECTURE)\"
-
 ## Heaptracker options
 HEAPTRACKER ?= 0
 HEAPTRACKER_INJECT ?= 0

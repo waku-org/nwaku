@@ -18,19 +18,34 @@ if defined(windows):
   # because these require direct manipulations of the stdout File object.
   switch("define", "chronicles_colors=off")
 
-# This helps especially for 32-bit x86, which sans SSE2 and newer instructions
-# requires quite roundabout code generation for cryptography, and other 64-bit
-# and larger arithmetic use cases, along with register starvation issues. When
-# engineering a more portable binary release, this should be tweaked but still
-# use at least -msse2 or -msse3.
+# https://github.com/status-im/nimbus-eth2/blob/stable/docs/cpu_features.md#ssse3-supplemental-sse3
+# suggests that SHA256 hashing with SSSE3 is 20% faster than without SSSE3, so
+# given its near-ubiquity in the x86 installed base, it renders a distribution
+# build more viable on an overall broader range of hardware.
+#
 if defined(disableMarchNative):
   if defined(i386) or defined(amd64):
     if defined(macosx):
+      # macOS Catalina is EOL as of 2022-09
+      # https://support.apple.com/kb/sp833
+      # "macOS Big Sur - Technical Specifications" lists current oldest
+      # supported models: MacBook (2015 or later), MacBook Air (2013 or later),
+      # MacBook Pro (Late 2013 or later), Mac mini (2014 or later), iMac (2014
+      # or later), iMac Pro (2017 or later), Mac Pro (2013 or later).
+      #
+      # These all have Haswell or newer CPUs.
+      #
+      # This ensures AVX2, AES-NI, PCLMUL, BMI1, and BMI2 instruction set support.
       switch("passC", "-march=haswell -mtune=generic")
       switch("passL", "-march=haswell -mtune=generic")
     else:
-      switch("passC", "-msse3")
-      switch("passL", "-msse3")
+      if defined(marchOptimized):
+        # https://github.com/status-im/nimbus-eth2/blob/stable/docs/cpu_features.md#bmi2--adx
+        switch("passC", "-march=broadwell -mtune=generic")
+        switch("passL", "-march=broadwell -mtune=generic")
+      else:
+        switch("passC", "-mssse3")
+        switch("passL", "-mssse3")
 elif defined(macosx) and defined(arm64):
   # Apple's Clang can't handle "-march=native" on M1: https://github.com/status-im/nimbus-eth2/issues/2758
   switch("passC", "-mcpu=apple-m1")
@@ -41,8 +56,9 @@ else:
   if defined(windows):
     # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
     # ("-fno-asynchronous-unwind-tables" breaks Nim's exception raising, sometimes)
-    switch("passC", "-mno-avx512vl")
-    switch("passL", "-mno-avx512vl")
+    switch("passC", "-mno-avx512f")
+    switch("passL", "-mno-avx512f")
+
 
 --threads:on
 --opt:speed
