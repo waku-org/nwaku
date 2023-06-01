@@ -83,12 +83,10 @@ procSuite "WakuNode - RLN relay":
     await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
     var completionFut = newFuture[bool]()
-    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.decode(data)
-      if msg.isOk():
-        debug "The received topic:", topic
-        if topic == rlnRelayPubSubTopic:
-          completionFut.complete(true)
+    proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+      debug "The received topic:", topic
+      if topic == rlnRelayPubSubTopic:
+        completionFut.complete(true)
 
     # mount the relay handler
     node3.subscribe(rlnRelayPubSubTopic, relayHandler)
@@ -172,12 +170,10 @@ procSuite "WakuNode - RLN relay":
 
     # define a custom relay handler
     var completionFut = newFuture[bool]()
-    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.decode(data)
-      if msg.isOk():
-        debug "The received topic:", topic
-        if topic == rlnRelayPubSubTopic:
-          completionFut.complete(true)
+    proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+      debug "The received topic:", topic
+      if topic == rlnRelayPubSubTopic:
+        completionFut.complete(true)
 
     # mount the relay handler
     node3.subscribe(rlnRelayPubSubTopic, relayHandler)
@@ -302,20 +298,17 @@ procSuite "WakuNode - RLN relay":
     var completionFut2 = newFuture[bool]()
     var completionFut3 = newFuture[bool]()
     var completionFut4 = newFuture[bool]()
-    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.decode(data)
-      if msg.isOk():
-        let wm = msg.value()
-        debug "The received topic:", topic
-        if topic == rlnRelayPubSubTopic:
-          if wm == wm1:
-            completionFut1.complete(true)
-          if wm == wm2:
-            completionFut2.complete(true)
-          if wm == wm3:
-            completionFut3.complete(true)
-          if wm == wm4:
-            completionFut4.complete(true)
+    proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+      debug "The received topic:", topic
+      if topic == rlnRelayPubSubTopic:
+        if msg == wm1:
+          completionFut1.complete(true)
+        if msg == wm2:
+          completionFut2.complete(true)
+        if msg == wm3:
+          completionFut3.complete(true)
+        if msg == wm4:
+          completionFut4.complete(true)
 
 
     # mount the relay handler for node3
