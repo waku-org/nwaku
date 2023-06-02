@@ -164,8 +164,12 @@ You may pass the `rln-relay-cred-path` config option to specify a path to a file
 If the keystore exists in the path provided, it is used, and will default to the 0th element in the credential array.
 If the keystore does not exist in the path provided, a new keystore will be created and added to the directory it was supposed to be in.
 
+You may provide an index to the credential you wish to use by passing the `rln-relay-cred-index` config option.
+
+You may provide an index to the membership you wish to use (within the same membership set) by passing the `rln-relay-membership-group-index` config option.
+
 ```bash
-./build/chat2  --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x9C09146844C1326c2dBC41c451766C7138F88155  --rln-relay-eth-account-private-key:your_private_key  --rln-relay-eth-client-address:your_sepolia_node  --ports-shift=1  --rln-relay-cred-path:./rlnKeystore.json --rln-relay-cred-password:your_password
+./build/chat2  --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x9C09146844C1326c2dBC41c451766C7138F88155  --rln-relay-eth-account-private-key:your_private_key  --rln-relay-eth-client-address:your_sepolia_node  --ports-shift=1  --rln-relay-cred-path:./rlnKeystore.json --rln-relay-cred-password:your_password --rln-relay-membership-index:0 --rln-relay-membership-group-index:0
 ```
 
 Note: If you are reusing credentials, you can omit the `rln-relay-eth-account-private-key` flag.
@@ -173,7 +177,8 @@ Note: If you are reusing credentials, you can omit the `rln-relay-eth-account-pr
 Therefore, the command to start chat2 would be -
 
 ```bash
-./build/chat2  --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x9C09146844C1326c2dBC41c451766C7138F88155 --rln-relay-eth-client-address:your_sepolia_node  --ports-shift=1  --rln-relay-cred-path:./rlnKeystore.json --rln-relay-cred-password:your_password
+./build/chat2  --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x9C09146844C1326c2dBC41c451766C7138F88155 --rln-relay-eth-client-address:your_sepolia_node  --ports-shift=1  --rln-relay-cred-path:./rlnKeystore.json --rln-relay-cred-password:your_password --rln-relay-cred-index:0 --rln-relay-membership-group-index:0
+```
 ```
 
 # Sample test output
