@@ -57,8 +57,8 @@ func isLive(pool: PgAsyncPool): bool =
 func isBusy(pool: PgAsyncPool): bool =
   pool.conns.mapIt(it.busy).allIt(it)
 
-method close*(pool: PgAsyncPool):
-              Future[Result[void, string]] {.base, async.} =
+proc close*(pool: PgAsyncPool):
+            Future[Result[void, string]] {.async.} =
   ## Gracefully wait and close all openned connections
 
   if pool.state == PgAsyncPoolState.Closing:
@@ -91,8 +91,8 @@ method close*(pool: PgAsyncPool):
 
   return ok()
 
-method getConnIndex(pool: PgAsyncPool):
-               Future[Result[int, string]] {.base, async.} =
+proc getConnIndex(pool: PgAsyncPool):
+                  Future[Result[int, string]] {.async.} =
   ## Waits for a free connection or create if max connections limits have not been reached.
   ## Returns the index of the free connection
 
@@ -113,7 +113,6 @@ method getConnIndex(pool: PgAsyncPool):
   while pool.isBusy():
     await sleepAsync(0.milliseconds)
 
-
   for index in 0..<pool.conns.len:
     if pool.conns[index].busy:
       continue
@@ -121,17 +120,16 @@ method getConnIndex(pool: PgAsyncPool):
     pool.conns[index].busy = true
     return ok(index)
 
-method releaseConn(pool: PgAsyncPool,
-                   conn: DbConn) {.base.} =
+proc releaseConn(pool: PgAsyncPool, conn: DbConn) =
   ## Marks the connection as released.
   for i in 0..<pool.conns.len:
     if pool.conns[i].dbConn == conn:
       pool.conns[i].busy = false
 
-method query*(pool: PgAsyncPool,
-              query: string,
-              args: seq[string] = newSeq[string](0)):
-              Future[Result[seq[Row], string]] {.base, async.} =
+proc query*(pool: PgAsyncPool,
+            query: string,
+            args: seq[string] = newSeq[string](0)):
+            Future[Result[seq[Row], string]] {.async.} =
   ## Runs the SQL query getting results.
 
   let connIndexRes = await pool.getConnIndex()
@@ -143,10 +141,10 @@ method query*(pool: PgAsyncPool,
 
   return await conn.rows(sql(query), args)
 
-method exec*(pool: PgAsyncPool,
-             query: string,
-             args: seq[string]):
-             Future[ArchiveDriverResult[void]] {.base, async.} =
+proc exec*(pool: PgAsyncPool,
+           query: string,
+           args: seq[string]):
+           Future[ArchiveDriverResult[void]] {.async.} =
   ## Runs the SQL query without results.
 
   let connIndexRes = await pool.getConnIndex()
@@ -162,10 +160,10 @@ method exec*(pool: PgAsyncPool,
 
   return ok()
 
-method runStmt*(pool: PgAsyncPool,
-                baseStmt: string,
-                args: seq[string]):
-                Future[ArchiveDriverResult[void]] {.base, async.} =
+proc runStmt*(pool: PgAsyncPool,
+              baseStmt: string,
+              args: seq[string]):
+              Future[ArchiveDriverResult[void]] {.async.} =
   # Runs a stored statement, for performance purposes.
   # In the current implementation, this is aimed
   # to run the 'insertRow' stored statement aimed to add a new Waku message.
