@@ -31,7 +31,7 @@ const
   WakuRelayCodec* = "/vac/waku/relay/2.0.0"
 
 # see: https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#overview-of-new-parameters
-const topicParams = TopicParams(
+const TopicParameters = TopicParams(
     topicWeight: 1,
 
     # p1: favours peers already in the mesh
@@ -53,8 +53,8 @@ const topicParams = TopicParams(
     meshMessageDeliveriesActivation: 10.seconds,
 
     # p3b: tracks history of prunes
-    meshFailurePenaltyWeight: -1.0,
-    meshFailurePenaltyDecay: 0.5,
+    meshFailurePenaltyWeight: 0.0,
+    meshFailurePenaltyDecay: 0.0,
 
     # p4: penalizes invalid messages. highly penalize
     # peers sending wrong messages
@@ -63,7 +63,7 @@ const topicParams = TopicParams(
   )
 
 # see: https://rfc.vac.dev/spec/29/#gossipsub-v10-parameters
-const gossipsubParams = GossipSubParams(
+const GossipsubParameters = GossipSubParams(
     explicit: true,
     pruneBackoff: chronos.minutes(1),
     unsubscribeBackoff: chronos.seconds(5),
@@ -156,7 +156,7 @@ proc new*(T: type WakuRelay, switch: Switch): WakuRelayResult[T] =
       triggerSelf = true,
       msgIdProvider = defaultMessageIdProvider,
       maxMessageSize = MaxWakuMessageSize,
-      parameters = gossipsubParams
+      parameters = GossipsubParameters
     )
 
     procCall GossipSub(w).initPubSub()
@@ -179,6 +179,12 @@ method stop*(w: WakuRelay) {.async.} =
   debug "stop"
   await procCall GossipSub(w).stop()
 
+# rejects messages that are not WakuMessage
+proc validator(pubsubTopic: string, message: messages.Message): Future[ValidationResult] {.async.} =
+  let msg = WakuMessage.decode(message.data)
+  if msg.isOk():
+    return ValidationResult.Accept
+  return ValidationResult.Reject
 
 proc isSubscribed*(w: WakuRelay, topic: PubsubTopic): bool =
   GossipSub(w).topics.hasKey(topic)
@@ -190,13 +196,6 @@ iterator subscribedTopics*(w: WakuRelay): lent PubsubTopic =
 proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler) =
   debug "subscribe", pubsubTopic=pubsubTopic
 
-  # rejects messages that are not WakuMessage
-  proc validator(pubsubTopic: string, message: messages.Message): Future[ValidationResult] {.async.} =
-    let msg = WakuMessage.decode(message.data)
-    if msg.isOk():
-      return ValidationResult.Accept
-    return ValidationResult.Reject
-
   # we need to wrap the handler since gossipsub doesnt understand WakuMessage
   let wrappedHandler = proc(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [Defect].} =
     let decMsg = WakuMessage.decode(data)
@@ -207,13 +206,13 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
       fut.complete()
       return fut
     else:
-      return handler(pubsubTopic, decMsg.get)
+      return handler(pubsubTopic, decMsg.get())
 
   # add the default validator to the topic
   procCall GossipSub(w).addValidator(pubSubTopic, validator)
 
   # set this topic parameters for scoring
-  w.topicParams[pubsubTopic] = topicParams
+  w.topicParams[pubsubTopic] = TopicParameters
 
   # subscribe to the topic with our wrapped handler
   procCall GossipSub(w).subscribe(pubsubTopic, wrappedHandler)
