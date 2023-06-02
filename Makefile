@@ -175,7 +175,7 @@ testcommon: | build deps
 
 testwaku2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim test2 $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
+		$(ENV_SCRIPT) nim test2 -d:os=$(shell uname) $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
 
 wakunode2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
