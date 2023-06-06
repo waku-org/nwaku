@@ -135,7 +135,7 @@ procSuite "Waku Discovery v5":
     # Starting discv5 via `WakuNode.startDiscV5()` starts the discv5 background task.
     await allFutures(node1.startDiscv5(), node2.startDiscv5(), node3.startDiscv5())
 
-    await sleepAsync(5.seconds) # Wait for discv5 discvery loop to run
+    await sleepAsync(5.seconds) # Wait for discv5 discovery loop to run
     let res = await node1.wakuDiscv5.findRandomPeers()
 
     ## Then
