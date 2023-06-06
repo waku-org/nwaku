@@ -49,6 +49,8 @@ type
     registrationTxHash*: Option[TxHash]
     chainId*: Option[Quantity]
     keystorePath*: Option[string]
+    keystoreIndex*: uint
+    membershipGroupIndex*: uint
     keystorePassword*: Option[string]
     saveKeystore*: bool
     registrationHandler*: Option[RegistrationHandler]
@@ -440,9 +442,8 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
     let parsedCreds = parsedCredsRes.get()
     if parsedCreds.len == 0:
       raise newException(ValueError, "keystore is empty")
-    # TODO: accept an index from the config (related: https://github.com/waku-org/nwaku/pull/1466)
-    g.idCredentials = some(parsedCreds[0].identityCredential)
-    g.membershipIndex = some(parsedCreds[0].membershipGroups[0].treeIndex)
+    g.idCredentials = some(parsedCreds[g.keystoreIndex].identityCredential)
+    g.membershipIndex = some(parsedCreds[g.keystoreIndex].membershipGroups[g.membershipGroupIndex].treeIndex)
 
   ethRpc.ondisconnect = proc() =
     error "Ethereum client disconnected"

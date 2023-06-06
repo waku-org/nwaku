@@ -596,7 +596,7 @@ suite "Waku rln relay":
     let rlnConf = WakuRlnConfig(rlnRelayDynamic: false,
                                 rlnRelayPubsubTopic: RlnRelayPubsubTopic,
                                 rlnRelayContentTopic: RlnRelayContentTopic,
-                                rlnRelayMembershipIndex: some(index.uint))
+                                rlnRelayCredIndex: index.uint)
     let wakuRlnRelayRes = await WakuRlnRelay.new(rlnConf)
     require:
       wakuRlnRelayRes.isOk()

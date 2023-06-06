@@ -140,10 +140,15 @@ type
       defaultValue: ""
       name: "rln-relay-cred-path" }: string
 
-    rlnRelayMembershipIndex* {.
-      desc: "(experimental) the index of node in the rln-relay group: a value between 0-99 inclusive",
+    rlnRelayCredIndex* {.
+      desc: "the index of credentials to use",
       defaultValue: 0
       name: "rln-relay-membership-index" }: uint
+
+    rlnRelayMembershipGroupIndex* {.
+      desc: "the index of credentials to use, within a specific rln membership set",
+      defaultValue: 0
+      name: "rln-relay-membership-group-index" }: uint
 
     rlnRelayPubsubTopic* {.
       desc: "the pubsub topic for which rln-relay gets enabled",

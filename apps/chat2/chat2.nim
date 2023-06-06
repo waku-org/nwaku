@@ -539,7 +539,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     let peerInfo = parsePeerInfo(conf.lightpushnode)
     if peerInfo.isOk():
       await mountLightPush(node)
-      node.mountLightPushClient()
+      node.mountLightPushClient() 
       node.peerManager.addServicePeer(peerInfo.value, WakuLightpushCodec)
     else:
       error "LightPush not mounted. Couldn't parse conf.lightpushnode",
@@ -595,7 +595,8 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
           rlnRelayDynamic: conf.rlnRelayDynamic,
           rlnRelayPubsubTopic: conf.rlnRelayPubsubTopic,
           rlnRelayContentTopic: conf.rlnRelayContentTopic,
-          rlnRelayMembershipIndex: some(conf.rlnRelayMembershipIndex),
+          rlnRelayCredIndex: conf.rlnRelayCredIndex,
+          rlnRelayMembershipGroupIndex: conf.rlnRelayMembershipGroupIndex,
           rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
           rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
           rlnRelayEthAccountPrivateKey: conf.rlnRelayEthAccountPrivateKey,

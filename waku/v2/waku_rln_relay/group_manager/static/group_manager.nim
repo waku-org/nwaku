@@ -16,9 +16,6 @@ template initializedGuard*(g: StaticGroupManager): untyped =
       raise newException(ValueError, "StaticGroupManager is not initialized")
 
 method init*(g: StaticGroupManager): Future[void] {.async,gcsafe.} =
-  if g.membershipIndex.isNone():
-    raise newException(ValueError, "Membership index is not set")
-
   let
     groupSize = g.groupSize
     groupKeys = g.groupKeys
