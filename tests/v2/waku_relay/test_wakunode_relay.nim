@@ -94,14 +94,11 @@ suite "WakuNode - Relay":
     )
 
     var completionFut = newFuture[bool]()
-    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.decode(data)
-      if msg.isOk():
-        let val = msg.value()
-        check:
-          topic == pubSubTopic
-          val.contentTopic == contentTopic
-          val.payload == payload
+    proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+      check:
+        topic == pubSubTopic
+        msg.contentTopic == contentTopic
+        msg.payload == payload
       completionFut.complete(true)
 
     node3.subscribe(pubSubTopic, relayHandler)
@@ -182,18 +179,13 @@ suite "WakuNode - Relay":
     node2.wakuRelay.addValidator(pubSubTopic, validator)
 
     var completionFut = newFuture[bool]()
-    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      debug "relayed pubsub topic:", topic
-      let msg = WakuMessage.decode(data)
-      if msg.isOk():
-        let val = msg.value()
-        check:
-          topic == pubSubTopic
-          # check that only messages with contentTopic1 is relayed (but not contentTopic2)
-          val.contentTopic == contentTopic1
+    proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+      check:
+        topic == pubSubTopic
+        # check that only messages with contentTopic1 is relayed (but not contentTopic2)
+        msg.contentTopic == contentTopic1
       # relay handler is called
       completionFut.complete(true)
-
 
     node3.subscribe(pubSubTopic, relayHandler)
     await sleepAsync(500.millis)
@@ -269,14 +261,11 @@ suite "WakuNode - Relay":
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
     var completionFut = newFuture[bool]()
-    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.decode(data)
-      if msg.isOk():
-        let val = msg.value()
-        check:
-          topic == pubSubTopic
-          val.contentTopic == contentTopic
-          val.payload == payload
+    proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+      check:
+        topic == pubSubTopic
+        msg.contentTopic == contentTopic
+        msg.payload == payload
       completionFut.complete(true)
 
     node1.subscribe(pubSubTopic, relayHandler)
@@ -313,14 +302,11 @@ suite "WakuNode - Relay":
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
     var completionFut = newFuture[bool]()
-    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.decode(data)
-      if msg.isOk():
-        let val = msg.value()
-        check:
-          topic == pubSubTopic
-          val.contentTopic == contentTopic
-          val.payload == payload
+    proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+      check:
+        topic == pubSubTopic
+        msg.contentTopic == contentTopic
+        msg.payload == payload
       completionFut.complete(true)
 
     node1.subscribe(pubSubTopic, relayHandler)
@@ -361,14 +347,11 @@ suite "WakuNode - Relay":
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
     var completionFut = newFuture[bool]()
-    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.decode(data)
-      if msg.isOk():
-        let val = msg.value()
-        check:
-          topic == pubSubTopic
-          val.contentTopic == contentTopic
-          val.payload == payload
+    proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+      check:
+        topic == pubSubTopic
+        msg.contentTopic == contentTopic
+        msg.payload == payload
       completionFut.complete(true)
 
     node1.subscribe(pubSubTopic, relayHandler)
@@ -404,14 +387,11 @@ suite "WakuNode - Relay":
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
     var completionFut = newFuture[bool]()
-    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.decode(data)
-      if msg.isOk():
-        let val = msg.value()
-        check:
-          topic == pubSubTopic
-          val.contentTopic == contentTopic
-          val.payload == payload
+    proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+      check:
+        topic == pubSubTopic
+        msg.contentTopic == contentTopic
+        msg.payload == payload
       completionFut.complete(true)
 
     node1.subscribe(pubSubTopic, relayHandler)
@@ -447,14 +427,11 @@ suite "WakuNode - Relay":
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
     var completionFut = newFuture[bool]()
-    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.decode(data)
-      if msg.isOk():
-        let val = msg.value()
-        check:
-          topic == pubSubTopic
-          val.contentTopic == contentTopic
-          val.payload == payload
+    proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+      check:
+        topic == pubSubTopic
+        msg.contentTopic == contentTopic
+        msg.payload == payload
       completionFut.complete(true)
 
     node1.subscribe(pubSubTopic, relayHandler)
@@ -468,3 +445,54 @@ suite "WakuNode - Relay":
       (await completionFut.withTimeout(5.seconds)) == true
     await node1.stop()
     await node2.stop()
+
+  asyncTest "Bad peers with low reputation are disconnected":
+    # Create 5 nodes
+    let nodes = toSeq(0..<5).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    await allFutures(nodes.mapIt(it.start()))
+    await allFutures(nodes.mapIt(it.mountRelay()))
+
+    # subscribe all nodes to a topic
+    let topic = "topic"
+    for node in nodes: node.wakuRelay.subscribe(topic, nil)
+    await sleepAsync(500.millis)
+
+    # connect nodes in full mesh
+    for i in 0..<5:
+      for j in 0..<5:
+        if i == j:
+          continue
+        let connOk = await nodes[i].peerManager.connectRelay(nodes[j].switch.peerInfo.toRemotePeerInfo())
+        require connOk
+
+    # connection triggers different actions, wait for them
+    await sleepAsync(1.seconds)
+
+    # all peers are connected in a mesh, 4 conns each
+    for i in 0..<5:
+      check:
+        nodes[i].peerManager.switch.connManager.getConnections().len == 4
+
+    # node[0] publishes wrong messages (random bytes not decoding into WakuMessage)
+    for j in 0..<50:
+      discard await nodes[0].wakuRelay.publish(topic, urandom(1*(10^3)))
+
+    # long wait, must be higher than the configured decayInterval (how often score is updated)
+    await sleepAsync(20.seconds)
+
+    # all nodes lower the score of nodes[0] (will change if gossipsub params or amount of msg changes)
+    for i in 1..<5:
+      check:
+        nodes[i].wakuRelay.peerStats[nodes[0].switch.peerInfo.peerId].score == -249999.9
+
+    # nodes[0] was blacklisted from all other peers, no connections
+    check:
+      nodes[0].peerManager.switch.connManager.getConnections().len == 0
+
+    # the rest of the nodes now have 1 conn less (kicked nodes[0] out)
+    for i in 1..<5:
+      check:
+        nodes[i].peerManager.switch.connManager.getConnections().len == 3
+
+    # Stop all nodes
+    await allFutures(nodes.mapIt(it.stop()))

@@ -43,10 +43,9 @@ suite "WakuNode - Lightpush":
     let message = fakeWakuMessage()
 
     var completionFutRelay = newFuture[bool]()
-    proc relayHandler(pubsubTopic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.decode(data).get()
+    proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
       check:
-        pubsubTopic == DefaultPubsubTopic
+        topic == DefaultPubsubTopic
         msg == message
       completionFutRelay.complete(true)
     destNode.subscribe(DefaultPubsubTopic, relayHandler)

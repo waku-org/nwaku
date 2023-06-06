@@ -194,15 +194,14 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
 
   # Always mount relay for bridge
   # `triggerSelf` is false on a `bridge` to avoid duplicates
-  await cmb.nodev2.mountRelay(triggerSelf = false)
+  await cmb.nodev2.mountRelay()
+  cmb.nodev2.wakuRelay.triggerSelf = false
 
   # Bridging
   # Handle messages on Waku v2 and bridge to Matterbridge
-  proc relayHandler(pubsubTopic: PubsubTopic, data: seq[byte]) {.async, gcsafe, raises: [Defect].} =
-    let msg = WakuMessage.decode(data)
-    if msg.isOk():
-      trace "Bridging message from Chat2 to Matterbridge", msg=msg[]
-      cmb.toMatterbridge(msg[])
+  proc relayHandler(pubsubTopic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+    trace "Bridging message from Chat2 to Matterbridge", msg=msg
+    cmb.toMatterbridge(msg)
 
   cmb.nodev2.subscribe(DefaultPubsubTopic, relayHandler)
 

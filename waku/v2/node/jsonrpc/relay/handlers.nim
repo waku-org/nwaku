@@ -66,7 +66,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
 
     # Unsubscribe all handlers from requested topics
     for topic in topics:
-      node.unsubscribeAll(topic)
+      node.unsubscribe(topic)
       cache.unsubscribe(topic)
 
     return true

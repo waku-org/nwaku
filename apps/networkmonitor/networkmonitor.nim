@@ -306,13 +306,8 @@ proc subscribeAndHandleMessages(node: WakuNode,
                                 msgPerContentTopic: ContentTopicMessageTableRef) =
 
   # handle function
-  proc handler(pubsubTopic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
-    let messageRes = WakuMessage.decode(data)
-    if messageRes.isErr():
-      warn "could not decode message", data=data, pubsubTopic=pubsubTopic
-
-    let message = messageRes.get()
-    trace "rx message", pubsubTopic=pubsubTopic, contentTopic=message.contentTopic
+  proc handler(pubsubTopic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+    trace "rx message", pubsubTopic=pubsubTopic, contentTopic=msg.contentTopic
 
     # If we reach a table limit size, remove c topics with the least messages.
     let tableSize = 100
@@ -322,10 +317,10 @@ proc subscribeAndHandleMessages(node: WakuNode,
 
     # TODO: Will overflow at some point
     # +1 if content topic existed, init to 1 otherwise
-    if msgPerContentTopic.hasKey(message.contentTopic):
-      msgPerContentTopic[message.contentTopic] += 1
+    if msgPerContentTopic.hasKey(msg.contentTopic):
+      msgPerContentTopic[msg.contentTopic] += 1
     else:
-      msgPerContentTopic[message.contentTopic] = 1
+      msgPerContentTopic[msg.contentTopic] = 1
 
   node.subscribe(pubsubTopic, handler)
 

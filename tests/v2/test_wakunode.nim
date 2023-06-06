@@ -60,14 +60,11 @@ suite "WakuNode":
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
     var completionFut = newFuture[bool]()
-    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.decode(data)
-      if msg.isOk():
-        let val = msg.value()
-        check:
-          topic == pubSubTopic
-          val.contentTopic == contentTopic
-          val.payload == payload
+    proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+      check:
+        topic == pubSubTopic
+        msg.contentTopic == contentTopic
+        msg.payload == payload
       completionFut.complete(true)
 
     node2.subscribe(pubSubTopic, relayHandler)

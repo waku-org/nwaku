@@ -16,14 +16,14 @@ import
   ../testlib/wakucore
 
 
-proc noopRawHandler(): PubsubRawHandler =
-    var handler: PubsubRawHandler
-    handler = proc(pubsubTopic: PubsubTopic, data: seq[byte]): Future[void] {.gcsafe, noSideEffect.} = discard
+proc noopRawHandler(): WakuRelayHandler =
+    var handler: WakuRelayHandler
+    handler = proc(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} = discard
     handler
 
 
-proc newTestWakuRelay(switch = newTestSwitch(), self = true): Future[WakuRelay] {.async.} =
-  let proto = WakuRelay.new(switch, triggerSelf = self).tryGet()
+proc newTestWakuRelay(switch = newTestSwitch()): Future[WakuRelay] {.async.} =
+  let proto = WakuRelay.new(switch).tryGet()
   await proto.start()
 
   let protocolMatcher = proc(proto: string): bool {.gcsafe.} =
@@ -85,7 +85,7 @@ suite "Waku Relay":
       topics.contains(networkC)
 
     ## When
-    nodeA.unsubscribeAll(networkA)
+    nodeA.unsubscribe(networkA)
 
     ## Then
     check:

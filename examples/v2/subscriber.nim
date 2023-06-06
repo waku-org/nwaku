@@ -83,14 +83,13 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
     # any content topic can be chosen. make sure it matches the publisher
     let contentTopic = ContentTopic("/examples/1/pubsub-example/proto")
 
-    proc handler(pubsubTopic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
-      let message = WakuMessage.decode(data).value
-      let payloadStr = string.fromBytes(message.payload)
-      if message.contentTopic == contentTopic:
+    proc handler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+      let payloadStr = string.fromBytes(msg.payload)
+      if msg.contentTopic == contentTopic:
         notice "message received", payload=payloadStr,
                                    pubsubTopic=pubsubTopic,
-                                   contentTopic=message.contentTopic,
-                                   timestamp=message.timestamp
+                                   contentTopic=msg.contentTopic,
+                                   timestamp=msg.timestamp
     node.subscribe(pubSubTopic, handler)
 
 when isMainModule:

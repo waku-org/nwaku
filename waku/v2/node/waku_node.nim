@@ -269,14 +269,10 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     await node.wakuArchive.handleMessage(topic, msg)
 
 
-  let defaultHandler = proc(topic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.decode(data)
-      if msg.isErr():
-        return
-
-      await traceHandler(topic, msg.value)
-      await filterHandler(topic, msg.value)
-      await archiveHandler(topic, msg.value)
+  let defaultHandler = proc(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+    await traceHandler(topic, msg)
+    await filterHandler(topic, msg)
+    await archiveHandler(topic, msg)
 
   node.wakuRelay.subscribe(topic, defaultHandler)
 
@@ -302,27 +298,16 @@ proc subscribe*(node: WakuNode, topic: PubsubTopic, handler: WakuRelayHandler) =
   node.registerRelayDefaultHandler(topic)
   node.wakuRelay.subscribe(topic, handler)
 
-proc unsubscribe*(node: WakuNode, topic: PubsubTopic, handler: WakuRelayHandler) =
-  ## Unsubscribes a handler from a PubSub topic.
+proc unsubscribe*(node: WakuNode, topic: PubsubTopic) =
+  ## Unsubscribes from a specific PubSub topic.
+
   if node.wakuRelay.isNil():
     error "Invalid API call to `unsubscribe`. WakuRelay not mounted."
     return
 
-  debug "unsubscribe", oubsubTopic= topic
+  info "unsubscribe", pubsubTopic=topic
 
-  let wakuRelay = node.wakuRelay
-  wakuRelay.unsubscribe(@[(topic, handler)])
-
-proc unsubscribeAll*(node: WakuNode, topic: PubsubTopic) =
-  ## Unsubscribes all handlers registered on a specific PubSub topic.
-
-  if node.wakuRelay.isNil():
-    error "Invalid API call to `unsubscribeAll`. WakuRelay not mounted."
-    return
-
-  info "unsubscribeAll", topic=topic
-
-  node.wakuRelay.unsubscribeAll(topic)
+  node.wakuRelay.unsubscribe(topic)
 
 
 proc publish*(node: WakuNode, topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
@@ -370,7 +355,6 @@ proc startRelay*(node: WakuNode) {.async.} =
 
 proc mountRelay*(node: WakuNode,
                  topics: seq[string] = @[],
-                 triggerSelf = true,
                  peerExchangeHandler = none(RoutingRecordsHandler)) {.async, gcsafe.} =
   if not node.wakuRelay.isNil():
     error "wakuRelay already mounted, skipping"
@@ -379,10 +363,7 @@ proc mountRelay*(node: WakuNode,
   ## The default relay topics is the union of all configured topics plus default PubsubTopic(s)
   info "mounting relay protocol"
 
-  let initRes = WakuRelay.new(
-    node.switch,
-    triggerSelf = triggerSelf
-  )
+  let initRes = WakuRelay.new(node.switch)
   if initRes.isErr():
     error "failed mounting relay protocol", error=initRes.error
     return

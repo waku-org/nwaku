@@ -564,16 +564,11 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
 
   # Subscribe to a topic, if relay is mounted
   if conf.relay:
-    proc handler(topic: Topic, data: seq[byte]) {.async, gcsafe.} =
+    proc handler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
       trace "Hit subscribe handler", topic
 
-      let decoded = WakuMessage.decode(data)
-
-      if decoded.isOk():
-        if decoded.get().contentTopic == chat.contentTopic:
-          chat.printReceivedMessage(decoded.get())
-      else:
-        trace "Invalid encoded WakuMessage", error = decoded.error
+      if msg.contentTopic == chat.contentTopic:
+        chat.printReceivedMessage(msg)
 
     let topic = DefaultPubsubTopic
     node.subscribe(topic, handler)

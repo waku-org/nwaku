@@ -264,7 +264,8 @@ proc start*(bridge: WakuBridge) {.async.} =
 
   # Always mount relay for bridge.
   # `triggerSelf` is false on a `bridge` to avoid duplicates
-  await bridge.nodev2.mountRelay(triggerSelf = false)
+  await bridge.nodev2.mountRelay()
+  bridge.nodev2.wakuRelay.triggerSelf = false
 
   # Bridging
   # Handle messages on Waku v1 and bridge to Waku v2
@@ -275,12 +276,11 @@ proc start*(bridge: WakuBridge) {.async.} =
   bridge.nodev1.registerEnvReceivedHandler(handleEnvReceived)
 
   # Handle messages on Waku v2 and bridge to Waku v1
-  proc relayHandler(pubsubTopic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
-    let msg = WakuMessage.decode(data)
-    if msg.isOk() and msg.get().isBridgeable():
+  proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+    if msg.isBridgeable():
       try:
-        trace "Bridging message from V2 to V1", msg=msg.tryGet()
-        bridge.toWakuV1(msg.tryGet())
+        trace "Bridging message from V2 to V1", msg=msg
+        bridge.toWakuV1(msg)
       except ValueError:
         trace "Failed to convert message to Waku v1. Check content-topic format.", msg=msg
         waku_bridge_dropped.inc(labelValues = ["value_error"])

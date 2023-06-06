@@ -88,7 +88,7 @@ proc installRelayDeleteSubscriptionsV1Handler*(router: var RestRouter, node: Wak
 
     # Unsubscribe all handlers from requested topics
     for topic in req:
-      node.unsubscribeAll(string(topic))
+      node.unsubscribe(string(topic))
       cache.unsubscribe(string(topic))
 
     # Successfully unsubscribed from all requested topics

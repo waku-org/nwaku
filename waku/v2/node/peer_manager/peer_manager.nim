@@ -359,7 +359,7 @@ proc new*(T: type PeerManager,
                        storage: storage,
                        initialBackoffInSec: initialBackoffInSec,
                        backoffFactor: backoffFactor,
-                       outPeersTarget: max(maxConnections div 10, 10),
+                       outPeersTarget: max(maxConnections div 2, 10),
                        maxFailedAttempts: maxFailedAttempts,
                        colocationLimit: colocationLimit)
 
