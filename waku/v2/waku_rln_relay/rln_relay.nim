@@ -32,7 +32,8 @@ type WakuRlnConfig* = object
   rlnRelayDynamic*: bool
   rlnRelayPubsubTopic*: PubsubTopic
   rlnRelayContentTopic*: ContentTopic
-  rlnRelayMembershipIndex*: Option[uint]
+  rlnRelayCredIndex*: uint
+  rlnRelayMembershipGroupIndex*: uint
   rlnRelayEthContractAddress*: string
   rlnRelayEthClientAddress*: string
   rlnRelayEthAccountPrivateKey*: string
@@ -348,7 +349,7 @@ proc mount(conf: WakuRlnConfig,
       raise newException(ValueError, "Static group keys are not valid")
     groupManager = StaticGroupManager(groupSize: StaticGroupSize,
                                       groupKeys: parsedGroupKeysRes.get(),
-                                      membershipIndex: conf.rlnRelayMembershipIndex,
+                                      membershipIndex: some(conf.rlnRelayCredIndex),
                                       rlnInstance: rlnInstance)
     # we don't persist credentials in static mode since they exist in ./constants.nim
   else:
@@ -366,6 +367,8 @@ proc mount(conf: WakuRlnConfig,
                                        registrationHandler: registrationHandler,
                                        keystorePath: rlnRelayCredPath,
                                        keystorePassword: rlnRelayCredentialsPassword,
+                                       keystoreIndex: conf.rlnRelayCredIndex,
+                                       membershipGroupIndex: conf.rlnRelayMembershipGroupIndex,
                                        saveKeystore: true)
 
   # Initialize the groupManager
