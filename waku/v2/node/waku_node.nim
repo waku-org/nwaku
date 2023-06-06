@@ -856,59 +856,48 @@ proc startKeepalive*(node: WakuNode) =
   asyncSpawn node.keepaliveLoop(defaultKeepalive)
 
 proc runDiscv5Loop(node: WakuNode) {.async.} =
-  ## Continuously add newly discovered nodes
-  ## using Node Discovery v5
-  if (node.wakuDiscv5.isNil):
+  ## Continuously add newly discovered nodes using Node Discovery v5
+  if node.wakuDiscv5.isNil():
     warn "Trying to run discovery v5 while it's disabled"
     return
 
-  info "Starting discovery loop"
+  info "starting discv5 discovery loop"
 
   while node.wakuDiscv5.listening:
-    trace "Running discovery loop"
-    let discoveredPeersRes = await node.wakuDiscv5.findRandomPeers()
+    trace "running discv5 discovery loop"
+    let discoveredRecords = await node.wakuDiscv5.findRandomPeers()
+    let discoveredPeers = discoveredRecords.mapIt(it.toRemotePeerInfo()).filterIt(it.isOk()).mapIt(it.value)
 
-    if discoveredPeersRes.isOk:
-      let discoveredPeers = discoveredPeersRes.get
-      let newSeen = discoveredPeers.countIt(not node.peerManager.peerStore[AddressBook].contains(it.peerId))
-      info "Discovered peers", discovered=discoveredPeers.len, new=newSeen
+    for peer in discoveredPeers:
+      let isNew = not node.peerManager.peerStore[AddressBook].contains(peer.peerId)
+      if isNew:
+        debug "new peer discovered", peer= $peer, origin= "discv5"
 
-      # Add all peers, new ones and already seen (in case their addresses changed)
-      for peer in discoveredPeers:
-        node.peerManager.addPeer(peer, Discv5)
+      node.peerManager.addPeer(peer, PeerOrigin.Discv5)
 
     # Discovery `queryRandom` can have a synchronous fast path for example
     # when no peers are in the routing table. Don't run it in continuous loop.
     #
-    # Also, give some time to dial the discovered nodes and update stats etc
+    # Also, give some time to dial the discovered nodes and update stats, etc.
     await sleepAsync(5.seconds)
 
-proc startDiscv5*(node: WakuNode): Future[bool] {.async.} =
+proc startDiscv5*(node: WakuNode): Future[Result[void, string]] {.async.} =
   ## Start Discovery v5 service
+  if node.wakuDiscv5.isNil():
+    return err("discovery v5 is disabled")
 
   info "Starting discovery v5 service"
+  let res = node.wakuDiscv5.start()
+  if res.isErr():
+    return err("error in startDiscv5: " & res.error)
 
-  if not node.wakuDiscv5.isNil():
-    ## First start listening on configured port
-    try:
-      trace "Start listening on discv5 port"
-      node.wakuDiscv5.open()
-    except CatchableError:
-      error "Failed to start discovery service. UDP port may be already in use"
-      return false
+  trace "Start discovering new peers using discv5"
+  asyncSpawn node.runDiscv5Loop()
 
-    ## Start Discovery v5
-    trace "Start discv5 service"
-    node.wakuDiscv5.start()
-    trace "Start discovering new peers using discv5"
+  debug "Successfully started discovery v5 service"
+  info "Discv5: discoverable ENR ", enr = node.wakuDiscV5.protocol.localNode.record.toUri()
+  return ok()
 
-    asyncSpawn node.runDiscv5Loop()
-
-    debug "Successfully started discovery v5 service"
-    info "Discv5: discoverable ENR ", enr = node.wakuDiscV5.protocol.localNode.record.toUri()
-    return true
-
-  return false
 
 proc stopDiscv5*(node: WakuNode): Future[bool] {.async.} =
   ## Stop Discovery v5 service

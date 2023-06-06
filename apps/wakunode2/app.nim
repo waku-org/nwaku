@@ -652,13 +652,11 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
   except CatchableError:
     return err("failed to start waku node: " & getCurrentExceptionMsg())
 
-  # Start discv5 and connect to discovered nodes
+  # Start discv5 based discovery service (discovery loop)
   if conf.discv5Discovery:
-    try:
-      if not await node.startDiscv5():
-        error "could not start Discovery v5"
-    except CatchableError:
-      return err("failed to start waku discovery v5: " & getCurrentExceptionMsg())
+    let startDiscv5Res = await node.startDiscv5()
+    if startDiscv5Res.isErr():
+      return err("failed to start waku discovery v5: " & startDiscv5Res.error)
 
   # Connect to configured static nodes
   if conf.staticnodes.len > 0:

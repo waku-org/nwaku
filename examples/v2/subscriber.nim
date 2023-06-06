@@ -61,8 +61,10 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
     await node.start()
     await node.mountRelay()
     node.peerManager.start()
-    if not await node.startDiscv5():
-      error "failed to start discv5"
+
+    let discv5Res = await node.startDiscv5()
+    if discv5Res.isErr():
+      error "failed to start discv5", error = discv5Res.error
       quit(1)
 
     # wait for a minimum of peers to be connected, otherwise messages wont be gossiped
