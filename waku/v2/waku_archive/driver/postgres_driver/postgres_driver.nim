@@ -71,8 +71,11 @@ proc new*(T: type PostgresDriver,
 proc createMessageTable(s: PostgresDriver):
                         Future[ArchiveDriverResult[void]] {.async.}  =
 
-  let ret = await s.connPool.exec(createTableQuery(), newSeq[string](0))
-  return ret
+  let execRes = await s.connPool.exec(createTableQuery(), newSeq[string](0))
+  if execRes.isErr():
+    return err("error in createMessageTable: " & execRes.error)
+
+  return ok()
 
 proc deleteMessageTable*(s: PostgresDriver):
                          Future[ArchiveDriverResult[void]] {.async.} =
@@ -280,7 +283,9 @@ proc sleep*(s: PostgresDriver, seconds: int):
   # database for the amount of seconds given as a parameter.
   try:
     let params = @[$seconds]
-    let _ = await s.connPool.query("SELECT pg_sleep(?)", params)
+    let sleepRes = await s.connPool.query("SELECT pg_sleep(?)", params)
+    if sleepRes.isErr():
+      return err("error in postgres_driver sleep: " & sleepRes.error)
   except DbError:
     # This always raises an exception although the sleep works
     return err("exception sleeping: " & getCurrentExceptionMsg())

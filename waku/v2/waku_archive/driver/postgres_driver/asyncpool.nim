@@ -139,7 +139,11 @@ proc query*(pool: PgAsyncPool,
   let conn = pool.conns[connIndexRes.value].dbConn
   defer: pool.releaseConn(conn)
 
-  return await conn.rows(sql(query), args)
+  let rowsRes = await conn.rows(sql(query), args)
+  if rowsRes.isErr():
+    return err("error in asyncpool query: " & rowsRes.error)
+
+  return ok(rowsRes.get())
 
 proc exec*(pool: PgAsyncPool,
            query: string,
