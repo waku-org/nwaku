@@ -179,9 +179,11 @@ proc runStmt*(pool: PgAsyncPool,
   if cast[string](preparedStmt) == "":
     # The connection doesn't have insertStmt set yet. Let's create it.
     # Each session/connection should have its own prepared statements.
+    const numParams = 7
     try:
       pool.conns[connIndexRes.value].insertStmt =
-                                    conn.prepare("insertRow", sql(baseStmt), 7)
+                                    conn.prepare("insertRow", sql(baseStmt),
+                                                 numParams)
     except DbError:
       return err("failed prepare in runStmt: " & getCurrentExceptionMsg())
 
