@@ -887,7 +887,7 @@ proc startDiscv5*(node: WakuNode): Future[Result[void, string]] {.async.} =
   info "Starting discovery v5 service"
   let res = node.wakuDiscv5.start()
   if res.isErr():
-    return err(res.error)
+    return err("error in startDiscv5: " & res.error)
 
   trace "Start discovering new peers using discv5"
   asyncSpawn node.runDiscv5Loop()
