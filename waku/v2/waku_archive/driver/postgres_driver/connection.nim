@@ -27,7 +27,7 @@ proc check*(db: DbConn): Result[void, string] =
 proc open*(connString: string):
            Result[DbConn, string] =
   ## Opens a new connection.
-  var conn:DbConn = nil
+  var conn: DbConn = nil
   try:
     conn = open("","", "", connString)
   except DbError:
