@@ -51,7 +51,7 @@ procSuite "WakuNode - RLN relay":
     await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
-      rlnRelayCredIndex: MembershipIndex(1),
+      rlnRelayCredIndex: 1.uint,
     ))
 
     await node1.start()
@@ -62,7 +62,7 @@ procSuite "WakuNode - RLN relay":
     await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
-      rlnRelayCredIndex: MembershipIndex(2),
+      rlnRelayCredIndex: 2.uint,
     ))
 
     await node2.start()
@@ -73,7 +73,7 @@ procSuite "WakuNode - RLN relay":
     await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
-      rlnRelayCredIndex: MembershipIndex(3),
+      rlnRelayCredIndex: 3.uint,
     ))
 
     await node3.start()
@@ -139,7 +139,7 @@ procSuite "WakuNode - RLN relay":
     await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
-      rlnRelayCredIndex: MembershipIndex(1),
+      rlnRelayCredIndex: 1.uint,
     ))
 
     await node1.start()
@@ -150,7 +150,7 @@ procSuite "WakuNode - RLN relay":
     await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
-      rlnRelayCredIndex: MembershipIndex(2),
+      rlnRelayCredIndex: 2.uint,
     ))
 
     await node2.start()
@@ -161,7 +161,7 @@ procSuite "WakuNode - RLN relay":
     await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
-      rlnRelayCredIndex: MembershipIndex(3),
+      rlnRelayCredIndex: 3.uint,
     ))
 
     await node3.start()
@@ -244,7 +244,7 @@ procSuite "WakuNode - RLN relay":
     await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
-      rlnRelayCredIndex: MembershipIndex(1),
+      rlnRelayCredIndex: 1.uint,
     ))
 
     await node1.start()
@@ -256,7 +256,7 @@ procSuite "WakuNode - RLN relay":
     await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
-      rlnRelayCredIndex: MembershipIndex(2),
+      rlnRelayCredIndex: 2.uint,
     ))
 
     await node2.start()
@@ -268,7 +268,7 @@ procSuite "WakuNode - RLN relay":
     await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
-      rlnRelayCredIndex: MembershipIndex(3),
+      rlnRelayCredIndex: 3.uint,
     ))
 
     await node3.start()
