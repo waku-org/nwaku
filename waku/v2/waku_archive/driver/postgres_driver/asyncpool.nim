@@ -12,7 +12,7 @@ import
   chronos
 import
   ../../driver,
-  connection
+  ./connection
 
 logScope:
   topics = "postgres asyncpool"
