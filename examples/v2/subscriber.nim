@@ -64,7 +64,7 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
 
     let discv5Res = await node.startDiscv5()
     if discv5Res.isErr():
-      error "failed to start discv5"
+      error "failed to start discv5", error = discv5Res.error
       quit(1)
 
     # wait for a minimum of peers to be connected, otherwise messages wont be gossiped
