@@ -45,12 +45,12 @@ const TopicParameters = TopicParams(
     firstMessageDeliveriesCap: 10.0,
 
     # p3: penalizes lazy peers. safe low value
-    meshMessageDeliveriesWeight: -5.0,
-    meshMessageDeliveriesDecay: 0.5,
-    meshMessageDeliveriesCap: 10,
-    meshMessageDeliveriesThreshold: 1,
-    meshMessageDeliveriesWindow: 5.milliseconds,
-    meshMessageDeliveriesActivation: 10.seconds,
+    meshMessageDeliveriesWeight: 0.0,
+    meshMessageDeliveriesDecay: 0.0,
+    meshMessageDeliveriesCap: 0,
+    meshMessageDeliveriesThreshold: 0,
+    meshMessageDeliveriesWindow: 0.milliseconds,
+    meshMessageDeliveriesActivation: 0.seconds,
 
     # p3b: tracks history of prunes
     meshFailurePenaltyWeight: 0.0,
@@ -83,7 +83,7 @@ const GossipsubParameters = GossipSubParams(
     fanoutTTL: chronos.minutes(1),
     seenTTL: chronos.minutes(2),
 
-    # no gossip is send to peers below this score
+    # no gossip is sent to peers below this score
     gossipThreshold: -100,
 
     # no self-published msgs are sent to peers below this score
@@ -165,7 +165,7 @@ proc new*(T: type WakuRelay, switch: Switch): WakuRelayResult[T] =
   except InitializationError:
     return err("initialization error: " & getCurrentExceptionMsg())
 
-  ok(w)
+  return ok(w)
 
 method addValidator*(w: WakuRelay, topic: varargs[string], handler: ValidatorHandler) {.gcsafe.} =
   procCall GossipSub(w).addValidator(topic, handler)
@@ -181,6 +181,8 @@ method stop*(w: WakuRelay) {.async.} =
 
 # rejects messages that are not WakuMessage
 proc validator(pubsubTopic: string, message: messages.Message): Future[ValidationResult] {.async.} =
+  # can be optimized by checking if the message is a WakuMessage without allocating memory
+  # see nim-libp2p protobuf library
   let msg = WakuMessage.decode(message.data)
   if msg.isOk():
     return ValidationResult.Accept
@@ -201,7 +203,7 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
     let decMsg = WakuMessage.decode(data)
     if decMsg.isErr():
       # fine if triggerSelf enabled, since validators are bypassed
-      error "failed to decode WakuMessage, validator passed a wrong message"
+      error "failed to decode WakuMessage, validator passed a wrong message", error = decMsg.error
       let fut = newFuture[void]()
       fut.complete()
       return fut
@@ -217,23 +219,13 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
   # subscribe to the topic with our wrapped handler
   procCall GossipSub(w).subscribe(pubsubTopic, wrappedHandler)
 
-proc unsubscribe*(w: WakuRelay, topics: PubsubTopic) =
-  debug "unsubscribe", pubsubTopic=topics.mapIt(it)
-
-  procCall GossipSub(w).unsubscribe(topics, nil)
-
-proc unsubscribeAll*(w: WakuRelay, pubsubTopic: PubsubTopic) =
-  debug "unsubscribeAll", pubsubTopic=pubsubTopic
+proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic) =
+  debug "unsubscribe", pubsubTopic=pubsubTopic
 
   procCall GossipSub(w).unsubscribeAll(pubsubTopic)
 
-proc publish*(w: WakuRelay, pubsubTopic: PubsubTopic, message: WakuMessage|seq[byte]): Future[int] {.async.} =
+proc publish*(w: WakuRelay, pubsubTopic: PubsubTopic, message: WakuMessage): Future[int] {.async.} =
   trace "publish", pubsubTopic=pubsubTopic
-
-  var data: seq[byte]
-  when message is WakuMessage:
-    data = message.encode().buffer
-  else:
-    data = message
+  let data = message.encode().buffer
 
   return await procCall GossipSub(w).publish(pubsubTopic, data)

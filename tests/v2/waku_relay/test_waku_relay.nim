@@ -85,7 +85,7 @@ suite "Waku Relay":
       topics.contains(networkC)
 
     ## When
-    nodeA.unsubscribeAll(networkA)
+    nodeA.unsubscribe(networkA)
 
     ## Then
     check:

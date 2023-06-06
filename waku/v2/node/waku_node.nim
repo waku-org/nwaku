@@ -298,27 +298,16 @@ proc subscribe*(node: WakuNode, topic: PubsubTopic, handler: WakuRelayHandler) =
   node.registerRelayDefaultHandler(topic)
   node.wakuRelay.subscribe(topic, handler)
 
-proc unsubscribe*(node: WakuNode, topic: PubsubTopic, handler: WakuRelayHandler) =
-  ## Unsubscribes a handler from a PubSub topic.
+proc unsubscribe*(node: WakuNode, topic: PubsubTopic) =
+  ## Unsubscribes from a specific PubSub topic.
+
   if node.wakuRelay.isNil():
     error "Invalid API call to `unsubscribe`. WakuRelay not mounted."
     return
 
-  debug "unsubscribe", pubsubTopic=topic
+  info "unsubscribe", pubsubTopic=topic
 
-  let wakuRelay = node.wakuRelay
-  wakuRelay.unsubscribe(topic)
-
-proc unsubscribeAll*(node: WakuNode, topic: PubsubTopic) =
-  ## Unsubscribes all handlers registered on a specific PubSub topic.
-
-  if node.wakuRelay.isNil():
-    error "Invalid API call to `unsubscribeAll`. WakuRelay not mounted."
-    return
-
-  info "unsubscribeAll", pubsubTopic=topic
-
-  node.wakuRelay.unsubscribeAll(topic)
+  node.wakuRelay.unsubscribe(topic)
 
 
 proc publish*(node: WakuNode, topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
