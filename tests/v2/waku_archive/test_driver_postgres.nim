@@ -33,7 +33,7 @@ suite "Postgres driver":
     assert driverRes.isOk(), driverRes.error
 
     let driver = driverRes.value
-    let _ = await driver.reset()
+    discard await driver.reset()
 
     var futures = newSeq[Future[ArchiveDriverResult[void]]](0)
 
@@ -56,7 +56,7 @@ suite "Postgres driver":
     assert driverRes.isOk(), driverRes.error
 
     let driver = driverRes.value
-    let _ = await driver.reset()
+    discard await driver.reset()
 
     let initRes = await driver.init()
     assert initRes.isOk(), initRes.error
@@ -69,9 +69,9 @@ suite "Postgres driver":
     let driverRes = PostgresDriver.new(storeMessageDbUrl)
     assert driverRes.isOk(), driverRes.error
 
-    let driver = driverRes.value
+    let driver = driverRes.get()
 
-    let _ = await driver.reset()
+    discard await driver.reset()
 
     let initRes = await driver.init()
     assert initRes.isOk(), initRes.error
@@ -81,7 +81,6 @@ suite "Postgres driver":
     let computedDigest = computeDigest(msg)
 
     let putRes = await driver.put(DefaultPubsubTopic, msg, computedDigest, msg.timestamp)
-
     assert putRes.isOk(), putRes.error
 
     let storedMsg = (await driver.getAllMessages()).tryGet()
@@ -107,7 +106,7 @@ suite "Postgres driver":
 
     let driver = driverRes.value
 
-    let _ = await driver.reset()
+    discard await driver.reset()
 
     let initRes = await driver.init()
     assert initRes.isOk(), initRes.error
@@ -187,7 +186,7 @@ suite "Postgres driver":
 
     let driver = driverRes.value
 
-    let _ = await driver.reset()
+    discard await driver.reset()
 
     let initRes = await driver.init()
     assert initRes.isOk(), initRes.error
