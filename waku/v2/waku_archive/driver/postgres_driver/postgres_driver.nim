@@ -4,24 +4,23 @@ else:
   {.push raises: [].}
 
 import
-  std/db_postgres,
   std/strformat,
   std/nre,
   std/options,
   std/strutils,
   stew/[results,byteutils],
+  db_postgres,
   chronos
-
 import
   ../../../waku_core,
   ../../common,
-  ../../driver
+  ../../driver,
+  asyncpool
 
 export postgres_driver
 
 type PostgresDriver* = ref object of ArchiveDriver
-  connection: DbConn
-  preparedInsert: SqlPrepared
+  connPool: PgAsyncPool
 
 proc dropTableQuery(): string =
   "DROP TABLE messages"
@@ -39,61 +38,63 @@ proc createTableQuery(): string =
   ");"
 
 proc insertRow(): string =
+  # TODO: get the sql queries from a file
  """INSERT INTO messages (id, storedAt, contentTopic, payload, pubsubTopic,
   version, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7);"""
 
-proc new*(T: type PostgresDriver, storeMessageDbUrl: string): ArchiveDriverResult[T] =
-  var host: string
-  var user: string
-  var password: string
-  var dbName: string
-  var port: string
-  var connectionString: string
-  var dbConn: DbConn
+const DefaultMaxConnections = 5
+
+proc new*(T: type PostgresDriver,
+          dbUrl: string,
+          maxConnections: int = DefaultMaxConnections):
+          ArchiveDriverResult[T] =
+
+  var connPool: PgAsyncPool
+
   try:
     let regex = re("""^postgres:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$""")
-    let matches = find(storeMessageDbUrl,regex).get.captures
-    user = matches[0]
-    password =  matches[1]
-    host = matches[2]
-    port = matches[3]
-    dbName = matches[4]
-    connectionString = "user={user} host={host} port={port} dbname={dbName} password={password}".fmt
+    let matches = find(dbUrl,regex).get.captures
+    let user = matches[0]
+    let password =  matches[1]
+    let host = matches[2]
+    let port = matches[3]
+    let dbName = matches[4]
+    let connectionString = fmt"user={user} host={host} port={port} dbname={dbName} password={password}"
+
+    connPool = PgAsyncPool.new(connectionString, maxConnections)
+
   except KeyError,InvalidUnicodeError, RegexInternalError, ValueError, StudyError, SyntaxError:
     return err("could not parse postgres string")
 
-  try:
-    dbConn = open("","", "", connectionString)
-  except DbError:
-    return err("could not connect to postgres")
+  return ok(PostgresDriver(connPool: connPool))
 
-  return ok(PostgresDriver(connection: dbConn))
+proc createMessageTable(s: PostgresDriver):
+                        Future[ArchiveDriverResult[void]] {.async.}  =
 
-method reset*(s: PostgresDriver): ArchiveDriverResult[void] {.base.} =
-  try:
-    let res = s.connection.tryExec(sql(dropTableQuery()))
-    if not res:
-      return err("failed to reset database")
-  except DbError:
-    return err("failed to reset database")
+  let execRes = await s.connPool.exec(createTableQuery(), newSeq[string](0))
+  if execRes.isErr():
+    return err("error in createMessageTable: " & execRes.error)
 
   return ok()
 
-method init*(s: PostgresDriver): ArchiveDriverResult[void] {.base.} =
-  try:
-    let res = s.connection.tryExec(sql(createTableQuery()))
-    if not res:
-      return err("failed to initialize")
-    s.preparedInsert = prepare(s.connection, "insertRow", sql(insertRow()), 7)
-  except DbError:
-    let
-      e = getCurrentException()
-      msg = getCurrentExceptionMsg()
-      exceptionMessage = "failed to init driver, got exception " &
-                          repr(e) & " with message " & msg
-    return err(exceptionMessage)
+proc deleteMessageTable*(s: PostgresDriver):
+                         Future[ArchiveDriverResult[void]] {.async.} =
+
+  let ret = await s.connPool.exec(dropTableQuery(), newSeq[string](0))
+  return ret
+
+proc init*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
+
+  let createMsgRes = await s.createMessageTable()
+  if createMsgRes.isErr():
+    return err("createMsgRes.isErr in init: " & createMsgRes.error)
 
   return ok()
+
+proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
+
+  let ret = await s.deleteMessageTable()
+  return ret
 
 method put*(s: PostgresDriver,
             pubsubTopic: PubsubTopic,
@@ -101,23 +102,20 @@ method put*(s: PostgresDriver,
             digest: MessageDigest,
             receivedTime: Timestamp):
             Future[ArchiveDriverResult[void]] {.async.} =
-  try:
-    let res = s.connection.tryExec(s.preparedInsert,
-                                   toHex(digest.data),
-                                   receivedTime,
-                                   message.contentTopic,
-                                   toHex(message.payload),
-                                   pubsubTopic,
-                                   int64(message.version),
-                                   message.timestamp)
-    if not res:
-      return err("failed to insert into database")
-  except DbError:
-    return err("failed to insert into database")
 
-  return ok()
+  let ret = await s.connPool.runStmt(insertRow(),
+                                     @[toHex(digest.data),
+                                       $receivedTime,
+                                       message.contentTopic,
+                                       toHex(message.payload),
+                                       pubsubTopic,
+                                       $message.version,
+                                       $message.timestamp])
+  return ret
 
-proc extractRow(r: Row): ArchiveDriverResult[ArchiveRow] =
+proc toArchiveRow(r: Row): ArchiveDriverResult[ArchiveRow] =
+  # Converts a postgres row into an ArchiveRow
+
   var wakuMessage: WakuMessage
   var timestamp: Timestamp
   var version: uint
@@ -151,17 +149,18 @@ proc extractRow(r: Row): ArchiveDriverResult[ArchiveRow] =
 method getAllMessages*(s: PostgresDriver):
                        Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## Retrieve all messages from the store.
-  var rows: seq[Row]
-  var results: seq[ArchiveRow]
-  try:
-    rows = s.connection.getAllRows(sql("""SELECT storedAt, contentTopic,
-                                  payload, pubsubTopic, version, timestamp,
-                                  id FROM messages ORDER BY storedAt ASC"""))
-  except DbError:
-    return err("failed to query rows")
 
-  for r in rows:
-    let rowRes = extractRow(r)
+  let rowsRes = await s.connPool.query("""SELECT storedAt, contentTopic,
+                                       payload, pubsubTopic, version, timestamp,
+                                       id FROM messages ORDER BY storedAt ASC""",
+                                       newSeq[string](0))
+
+  if rowsRes.isErr():
+    return err("failed in query: " & rowsRes.error)
+
+  var results: seq[ArchiveRow]
+  for r in rowsRes.value:
+    let rowRes = r.toArchiveRow()
     if rowRes.isErr():
       return err("failed to extract row")
 
@@ -221,17 +220,15 @@ method getMessages*(s: PostgresDriver,
   query &= " LIMIT ?"
   args.add($maxPageSize)
 
-  var rows: seq[Row]
-  var results: seq[ArchiveRow]
-  try:
-    rows = s.connection.getAllRows(sql(query), args)
-  except DbError:
-    return err("failed to query rows")
+  let rowsRes = await s.connPool.query(query, args)
+  if rowsRes.isErr():
+    return err("failed to run query: " & rowsRes.error)
 
-  for r in rows:
-    let rowRes = extractRow(r)
+  var results: seq[ArchiveRow]
+  for r in rowsRes.value:
+    let rowRes = r.toArchiveRow()
     if rowRes.isErr():
-      return err("failed to extract row")
+      return err("failed to extract row: " & rowRes.error)
 
     results.add(rowRes.get())
 
@@ -239,16 +236,20 @@ method getMessages*(s: PostgresDriver,
 
 method getMessagesCount*(s: PostgresDriver):
                          Future[ArchiveDriverResult[int64]] {.async.} =
-  var count: int64
-  try:
-    let row = s.connection.getRow(sql("""SELECT COUNT(1) FROM messages"""))
-    count = parseInt(row[0])
 
-  except DbError:
-    return err("failed to query count")
-  except ValueError:
-    return err("failed to parse query count result")
+  let rowsRes = await s.connPool.query("SELECT COUNT(1) FROM messages")
+  if rowsRes.isErr():
+    return err("failed to get messages count: " & rowsRes.error)
 
+  let rows = rowsRes.get()
+  if rows.len == 0:
+    return err("failed to get messages count: rows.len == 0")
+
+  let rowFields = rows[0]
+  if rowFields.len == 0:
+    return err("failed to get messages count: rowFields.len == 0")
+
+  let count = parseInt(rowFields[0])
   return ok(count)
 
 method getOldestMessageTimestamp*(s: PostgresDriver):
@@ -272,8 +273,8 @@ method deleteOldestMessagesNotWithinLimit*(s: PostgresDriver,
 method close*(s: PostgresDriver):
               Future[ArchiveDriverResult[void]] {.async.} =
   ## Close the database connection
-  s.connection.close()
-  return ok()
+  let result = await s.connPool.close()
+  return result
 
 proc sleep*(s: PostgresDriver, seconds: int):
             Future[ArchiveDriverResult[void]] {.async.} =
@@ -282,7 +283,9 @@ proc sleep*(s: PostgresDriver, seconds: int):
   # database for the amount of seconds given as a parameter.
   try:
     let params = @[$seconds]
-    s.connection.exec(sql"SELECT pg_sleep(?)", params)
+    let sleepRes = await s.connPool.query("SELECT pg_sleep(?)", params)
+    if sleepRes.isErr():
+      return err("error in postgres_driver sleep: " & sleepRes.error)
   except DbError:
     # This always raises an exception although the sleep works
     return err("exception sleeping: " & getCurrentExceptionMsg())
