@@ -30,7 +30,15 @@ const
 const
   # The relative folder where the circuit, proving and verification key for RLN can be found
   # Note that resources has to be compiled with respect to the above MerkleTreeDepth
-  RlnConfig* = $(%* { "resources_folder": "tree_height_" & $MerkleTreeDepth & "/" })
+  RlnConfig* = $(%* { 
+    "resources_folder": "tree_height_" & $MerkleTreeDepth & "/", 
+    "tree_config": {
+      "cache_capacity": 15_000, 
+      "mode": "high_throughput", 
+      "compression": false,
+      "flush_interval": 12_000
+    } 
+  })
 
 # temporary variables to test waku-rln-relay performance in the static group mode
 const
