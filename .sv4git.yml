@@ -2,6 +2,7 @@ version: "1.1" #config version
 
 tag:
     pattern: "v%d.%d.%d"
+    filter: "v*"
 
 release-notes:
     sections: # Array with each section of release note. Check template section for more information.
