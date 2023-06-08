@@ -15,7 +15,7 @@ import
 logScope:
   topics = "test archive postgres driver"
 
-## This whole file is copied from the 'test_driver_Postgres_query.nim' file
+## This whole file is copied from the 'test_driver_sqlite_query.nim' file
 ## and it tests the same use cases but using the postgres driver.
 
 # Initialize the random number generator
