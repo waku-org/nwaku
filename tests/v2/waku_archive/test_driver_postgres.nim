@@ -156,7 +156,7 @@ suite "Postgres driver":
                                                   contentTopic2],
                                  cursor = some(
                                         computeTestCursor(pubsubTopic1,
-                                                          messagesRes.get()[0][1])))
+                                                          messagesRes.get()[1][1])))
     require messagesRes.isOk()
     require messagesRes.get().len == 1
 

@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[strformat,nre,options,strutils,sequtils],
+  std/[strformat,nre,options,strutils],
   stew/[results,byteutils],
   db_postgres,
   chronos
@@ -196,9 +196,7 @@ method getMessages*(s: PostgresDriver,
     let comp = if ascendingOrder: ">" else: "<"
     statements.add("(storedAt, id) " & comp & " (?,?)")
     args.add($cursor.get().storeTime)
-    # convert the byte array to its hexadecimal representation
-    let hexString = cursor.get().digest.data.mapIt($it.toHex(2)).join("")
-    args.add(hexString.toLower())
+    args.add(toHex(cursor.get().digest.data))
 
   if startTime.isSome():
     statements.add("storedAt >= ?")
