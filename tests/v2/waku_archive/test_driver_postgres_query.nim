@@ -279,7 +279,6 @@ suite "Postgres driver - query by content topic":
     ## Cleanup
     (await driver.close()).expect("driver to close")
 
-
 suite "Postgres driver - query by pubsub topic":
 
   asyncTest "pubsub topic":
@@ -1278,6 +1277,119 @@ suite "Postgres driver - query by time range":
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
       filteredMessages.len == 0
+
+    ## Cleanup
+    (await driver.close()).expect("driver to close")
+
+suite "Postgres driver - retention policy":
+
+  asyncTest "Get oldest and newest message timestamp":
+    const contentTopic = "test-content-topic"
+
+    let driver = newTestPostgresDriver()
+
+    let timeOrigin = now()
+    let oldestTime = ts(00, timeOrigin)
+    let newestTime = ts(100, timeOrigin)
+    let expected = @[
+      fakeWakuMessage(@[byte 0], contentTopic=contentTopic, ts=oldestTime),
+      fakeWakuMessage(@[byte 1], contentTopic=contentTopic, ts=ts(10, timeOrigin)),
+      fakeWakuMessage(@[byte 2], contentTopic=contentTopic, ts=ts(20, timeOrigin)),
+      fakeWakuMessage(@[byte 3], contentTopic=contentTopic, ts=ts(30, timeOrigin)),
+      fakeWakuMessage(@[byte 4], contentTopic=contentTopic, ts=ts(40, timeOrigin)),
+      fakeWakuMessage(@[byte 5], contentTopic=contentTopic, ts=ts(50, timeOrigin)),
+      fakeWakuMessage(@[byte 6], contentTopic=contentTopic, ts=newestTime),
+    ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
+
+    for msg in messages:
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+
+    var res = await driver.getOldestMessageTimestamp()
+    assert res.isOk(), res.error
+    assert res.get() == oldestTime, "Failed to retrieve the latest timestamp"
+
+    res = await driver.getNewestMessageTimestamp()
+    assert res.isOk(), res.error
+    assert res.get() == newestTime, "Failed to retrieve the newest timestamp"
+
+    ## Cleanup
+    (await driver.close()).expect("driver to close")
+
+  asyncTest "Delete messages older than certain timestamp":
+    const contentTopic = "test-content-topic"
+
+    let driver = newTestPostgresDriver()
+
+    let timeOrigin = now()
+    let targetTime = ts(40, timeOrigin)
+    let expected = @[
+      fakeWakuMessage(@[byte 0], contentTopic=contentTopic, ts=ts(00, timeOrigin)),
+      fakeWakuMessage(@[byte 1], contentTopic=contentTopic, ts=ts(10, timeOrigin)),
+      fakeWakuMessage(@[byte 2], contentTopic=contentTopic, ts=ts(20, timeOrigin)),
+      fakeWakuMessage(@[byte 3], contentTopic=contentTopic, ts=ts(30, timeOrigin)),
+      fakeWakuMessage(@[byte 4], contentTopic=contentTopic, ts=targetTime),
+      fakeWakuMessage(@[byte 5], contentTopic=contentTopic, ts=ts(50, timeOrigin)),
+      fakeWakuMessage(@[byte 6], contentTopic=contentTopic, ts=ts(60, timeOrigin)),
+    ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
+
+    for msg in messages:
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+
+    var res = await driver.getMessagesCount()
+    assert res.isOk(), res.error
+    assert res.get() == 7, "Failed to retrieve the initial number of messages"
+
+    let deleteRes = await driver.deleteMessagesOlderThanTimestamp(targetTime)
+    assert deleteRes.isOk(), deleteRes.error
+
+    res = await driver.getMessagesCount()
+    assert res.isOk(), res.error
+    assert res.get() == 3, "Failed to retrieve the # of messages after deletion"
+
+    ## Cleanup
+    (await driver.close()).expect("driver to close")
+
+  asyncTest "Keep last n messages":
+    const contentTopic = "test-content-topic"
+
+    let driver = newTestPostgresDriver()
+
+    let timeOrigin = now()
+    let expected = @[
+      fakeWakuMessage(@[byte 0], contentTopic=contentTopic, ts=ts(00, timeOrigin)),
+      fakeWakuMessage(@[byte 1], contentTopic=contentTopic, ts=ts(10, timeOrigin)),
+      fakeWakuMessage(@[byte 2], contentTopic=contentTopic, ts=ts(20, timeOrigin)),
+      fakeWakuMessage(@[byte 3], contentTopic=contentTopic, ts=ts(30, timeOrigin)),
+      fakeWakuMessage(@[byte 4], contentTopic=contentTopic, ts=ts(40, timeOrigin)),
+      fakeWakuMessage(@[byte 5], contentTopic=contentTopic, ts=ts(50, timeOrigin)),
+      fakeWakuMessage(@[byte 6], contentTopic=contentTopic, ts=ts(60, timeOrigin)),
+    ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
+
+    for msg in messages:
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+
+    var res = await driver.getMessagesCount()
+    assert res.isOk(), res.error
+    assert res.get() == 7, "Failed to retrieve the initial number of messages"
+
+    let deleteRes = await driver.deleteOldestMessagesNotWithinLimit(2)
+    assert deleteRes.isOk(), deleteRes.error
+
+    res = await driver.getMessagesCount()
+    assert res.isOk(), res.error
+    assert res.get() == 2, "Failed to retrieve the # of messages after deletion"
 
     ## Cleanup
     (await driver.close()).expect("driver to close")

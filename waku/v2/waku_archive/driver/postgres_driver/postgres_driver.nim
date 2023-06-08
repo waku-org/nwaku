@@ -306,7 +306,7 @@ method deleteOldestMessagesNotWithinLimit*(
   let execRes = await s.connPool.exec(
                      """DELETE FROM messages WHERE id NOT IN
                           (
-                        SELECT id FROM messages ORDER BY storedAt DESC LIMIT $1
+                        SELECT id FROM messages ORDER BY storedAt DESC LIMIT ?
                           );""",
                      @[$limit])
   if execRes.isErr():
