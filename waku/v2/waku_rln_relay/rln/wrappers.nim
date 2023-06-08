@@ -1,4 +1,6 @@
 import
+  std/json
+import
   chronicles,
   options,
   stew/[arrayops, results],
@@ -51,30 +53,69 @@ proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[IdentityCredential] =
 
   return ok(identityCredential)
 
-proc createRLNInstanceLocal*(d: int = MerkleTreeDepth): RLNResult =
+type RlnTreeConfig = ref object of RootObj
+  cache_capacity: int
+  mode: string
+  compression: bool
+  flush_interval: int
+  path: string
+
+type RlnConfig = ref object of RootObj
+  resources_folder: string
+  tree_config: RlnTreeConfig
+
+proc `%`(c: RlnConfig): JsonNode =
+  ## wrapper around the generic JObject constructor.
+  ## We don't need to have a separate proc for the tree_config field
+  let tree_config = %{ "cache_capacity": %c.tree_config.cache_capacity,
+                       "mode": %c.tree_config.mode,
+                       "compression": %c.tree_config.compression,
+                       "flush_interval": %c.tree_config.flush_interval,
+                       "path": %c.tree_config.path }
+  return %[("resources_folder", %c.resources_folder),
+           ("tree_config", %tree_config)]
+
+proc createRLNInstanceLocal(d = MerkleTreeDepth, 
+                             tree_path = DefaultRlnTreePath): RLNResult =
   ## generates an instance of RLN
   ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
   ## d indicates the depth of Merkle tree
+  ## tree_path indicates the path of the Merkle tree 
   ## Returns an error if the instance creation fails
+  
+  let rln_config = RlnConfig(
+    resources_folder: "tree_height_" & $d & "/",
+    tree_config: RlnTreeConfig(
+      cache_capacity: 15_000,
+      mode: "high_throughput",
+      compression: false,
+      flush_interval: 12_000,
+      path: if tree_path != "": tree_path else: DefaultRlnTreePath
+    )
+  )
+
+  var serialized_rln_config = $(%rln_config)
+
   var
     rlnInstance: ptr RLN
     merkleDepth: csize_t = uint(d)
-    resourcesPathBuffer = RlnConfig.toOpenArrayByte(0, RlnConfig.high).toBuffer()
+    configBuffer = serialized_rln_config.toOpenArrayByte(0, serialized_rln_config.high).toBuffer()
 
   # create an instance of RLN
-  let res = new_circuit(merkleDepth, addr resourcesPathBuffer, addr rlnInstance)
+  let res = new_circuit(merkleDepth, addr configBuffer, addr rlnInstance)
   # check whether the circuit parameters are generated successfully
   if (res == false):
     debug "error in parameters generation"
     return err("error in parameters generation")
   return ok(rlnInstance)
 
-proc createRLNInstance*(d: int = MerkleTreeDepth): RLNResult =
+proc createRLNInstance*(d = MerkleTreeDepth, 
+                        tree_path = DefaultRlnTreePath): RLNResult =
   ## Wraps the rln instance creation for metrics
   ## Returns an error if the instance creation fails
   var res: RLNResult
   waku_rln_instance_creation_duration_seconds.nanosecondTime:
-    res = createRLNInstanceLocal(d)
+    res = createRLNInstanceLocal(d, tree_path)
   return res
 
 proc sha256*(data: openArray[byte]): RlnRelayResult[MerkleNode] =

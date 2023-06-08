@@ -40,6 +40,7 @@ type WakuRlnConfig* = object
   rlnRelayEthAccountAddress*: string
   rlnRelayCredPath*: string
   rlnRelayCredentialsPassword*: string
+  rlnRelayTreePath*: string
 
 proc createMembershipList*(rln: ptr RLN, n: int): RlnRelayResult[(
     seq[RawMembershipCredentials], string
@@ -338,7 +339,7 @@ proc mount(conf: WakuRlnConfig,
     credentials: MembershipCredentials
     persistCredentials = false
   # create an RLN instance
-  let rlnInstanceRes = createRLNInstance()
+  let rlnInstanceRes = createRLNInstance(tree_path = conf.rlnRelayTreePath)
   if rlnInstanceRes.isErr():
     raise newException(CatchableError, "RLN instance creation failed")
   let rlnInstance = rlnInstanceRes.get()

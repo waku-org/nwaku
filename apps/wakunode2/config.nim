@@ -201,6 +201,11 @@ type
       defaultValue: ""
       name: "rln-relay-cred-password" }: string
 
+    rlnRelayTreePath* {.
+      desc: "Path to the RLN merkle tree sled db (https://github.com/spacejam/sled)",
+      defaultValue: ""
+      name: "rln-relay-tree-path" }: string
+
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
       name: "staticnode" }: seq[string]
