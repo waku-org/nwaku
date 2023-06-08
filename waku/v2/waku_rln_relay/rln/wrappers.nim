@@ -54,15 +54,15 @@ proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[IdentityCredential] =
   return ok(identityCredential)
 
 type RlnTreeConfig = ref object of RootObj
-  cache_capacity*: int
-  mode*: string
-  compression*: bool
-  flush_interval*: int
-  path*: string
+  cache_capacity: int
+  mode: string
+  compression: bool
+  flush_interval: int
+  path: string
 
 type RlnConfig = ref object of RootObj
-  resources_folder*: string
-  tree_config*: RlnTreeConfig
+  resources_folder: string
+  tree_config: RlnTreeConfig
 
 proc `%`(c: RlnConfig): JsonNode =
   ## wrapper around the generic JObject constructor.
