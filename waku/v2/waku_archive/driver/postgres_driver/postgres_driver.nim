@@ -4,10 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/strformat,
-  std/nre,
-  std/options,
-  std/strutils,
+  std/[strformat,nre,options,strutils,sequtils],
   stew/[results,byteutils],
   db_postgres,
   chronos
@@ -199,7 +196,9 @@ method getMessages*(s: PostgresDriver,
     let comp = if ascendingOrder: ">" else: "<"
     statements.add("(storedAt, id) " & comp & " (?,?)")
     args.add($cursor.get().storeTime)
-    args.add($cursor.get().digest.data)
+    # convert the byte array to its hexadecimal representation
+    let hexString = cursor.get().digest.data.mapIt($it.toHex(2)).join("")
+    args.add(hexString.toLower())
 
   if startTime.isSome():
     statements.add("storedAt >= ?")
@@ -240,27 +239,27 @@ method getMessages*(s: PostgresDriver,
 proc getInt(s: PostgresDriver,
             query: string):
             Future[ArchiveDriverResult[int64]] {.async.} =
-    # Performs a query that is expected to return a single numeric value (int64)
+  # Performs a query that is expected to return a single numeric value (int64)
 
-    let rowsRes = await s.connPool.runQuery(query)
-    if rowsRes.isErr():
-      return err("failed in getRow: " & rowsRes.error)
+  let rowsRes = await s.connPool.runQuery(query)
+  if rowsRes.isErr():
+    return err("failed in getRow: " & rowsRes.error)
 
-    let rows = rowsRes.get()
-    if rows.len != 1:
-      return err("failed in getRow. Expected one row but got " & $rows.len)
+  let rows = rowsRes.get()
+  if rows.len != 1:
+    return err("failed in getRow. Expected one row but got " & $rows.len)
 
-    let fields = rows[0]
-    if fields.len != 1:
-      return err("failed in getRow: Expected one field but got " & $fields.len)
+  let fields = rows[0]
+  if fields.len != 1:
+    return err("failed in getRow: Expected one field but got " & $fields.len)
 
-    var retInt: int64
-    try:
-      retInt = parseInt(fields[0])
-    except ValueError:
-      return err("exception in getRow, parseInt: " & getCurrentExceptionMsg())
+  var retInt: int64
+  try:
+    retInt = parseInt(fields[0])
+  except ValueError:
+    return err("exception in getRow, parseInt: " & getCurrentExceptionMsg())
 
-    return ok(retInt)
+  return ok(retInt)
 
 method getMessagesCount*(s: PostgresDriver):
                          Future[ArchiveDriverResult[int64]] {.async.} =
