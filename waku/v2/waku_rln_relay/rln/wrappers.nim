@@ -271,6 +271,25 @@ proc insertMember*(rlnInstance: ptr RLN, idComm: IDCommitment): bool =
   let memberAdded = update_next_member(rlnInstance, pkBufferPtr)
   return memberAdded
 
+proc getMember*(rlnInstance: ptr RLN, index: MembershipIndex): RlnRelayResult[IDCommitment] =
+  ## returns the member at the given index
+  ## returns an error if the index is out of bounds
+  ## returns the member if the index is valid
+  var
+    idCommitment {.noinit.}: Buffer = Buffer()
+    idCommitmentPtr = addr(idCommitment)
+    memberRetrieved = get_leaf(rlnInstance, index, idCommitmentPtr)
+
+  if not memberRetrieved:
+    return err("could not get the member")
+
+  if not idCommitment.len == 32:
+    return err("wrong output size")
+
+  let idCommitmentValue = (cast[ptr array[32, byte]](idCommitment.`ptr`))[]
+
+  return ok(@idCommitmentValue)
+
 proc atomicWrite*(rlnInstance: ptr RLN, 
                   index = none(MembershipIndex), 
                   idComms = newSeq[IDCommitment](),
