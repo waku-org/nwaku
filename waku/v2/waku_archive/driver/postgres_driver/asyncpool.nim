@@ -131,6 +131,7 @@ proc query*(pool: PgAsyncPool,
             args: seq[string] = newSeq[string](0)):
             Future[Result[seq[Row], string]] {.async.} =
   ## Runs the SQL query getting results.
+  ## Retrieves info from the database.
 
   let connIndexRes = await pool.getConnIndex()
   if connIndexRes.isErr():
@@ -147,9 +148,10 @@ proc query*(pool: PgAsyncPool,
 
 proc exec*(pool: PgAsyncPool,
            query: string,
-           args: seq[string]):
+           args: seq[string] = newSeq[string](0)):
            Future[ArchiveDriverResult[void]] {.async.} =
   ## Runs the SQL query without results.
+  ## Alters the database state.
 
   let connIndexRes = await pool.getConnIndex()
   if connIndexRes.isErr():

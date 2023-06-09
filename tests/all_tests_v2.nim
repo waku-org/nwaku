@@ -24,6 +24,7 @@ when os == "Linux":
   # GitHub only supports container actions on Linux
   # and we need to start a postgress database in a docker container
   import
+    ./v2/waku_archive/test_driver_postgres_query,
     ./v2/waku_archive/test_driver_postgres
 
 # Waku store test suite
