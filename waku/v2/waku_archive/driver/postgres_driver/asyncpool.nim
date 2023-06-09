@@ -126,10 +126,10 @@ proc releaseConn(pool: PgAsyncPool, conn: DbConn) =
     if pool.conns[i].dbConn == conn:
       pool.conns[i].busy = false
 
-proc runQuery*(pool: PgAsyncPool,
-               query: string,
-               args: seq[string] = newSeq[string](0)):
-               Future[Result[seq[Row], string]] {.async.} =
+proc query*(pool: PgAsyncPool,
+            query: string,
+            args: seq[string] = newSeq[string](0)):
+            Future[Result[seq[Row], string]] {.async.} =
   ## Runs the SQL query getting results.
   ## Retrieves info from the database.
 

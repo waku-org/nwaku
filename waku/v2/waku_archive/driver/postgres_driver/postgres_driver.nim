@@ -150,7 +150,7 @@ method getAllMessages*(s: PostgresDriver):
                        Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## Retrieve all messages from the store.
 
-  let rowsRes = await s.connPool.runQuery("""SELECT storedAt, contentTopic,
+  let rowsRes = await s.connPool.query("""SELECT storedAt, contentTopic,
                                        payload, pubsubTopic, version, timestamp,
                                        id FROM messages ORDER BY storedAt ASC""",
                                        newSeq[string](0))
@@ -220,7 +220,7 @@ method getMessages*(s: PostgresDriver,
   query &= " LIMIT ?"
   args.add($maxPageSize)
 
-  let rowsRes = await s.connPool.runQuery(query, args)
+  let rowsRes = await s.connPool.query(query, args)
   if rowsRes.isErr():
     return err("failed to run query: " & rowsRes.error)
 
@@ -239,7 +239,7 @@ proc getInt(s: PostgresDriver,
             Future[ArchiveDriverResult[int64]] {.async.} =
   # Performs a query that is expected to return a single numeric value (int64)
 
-  let rowsRes = await s.connPool.runQuery(query)
+  let rowsRes = await s.connPool.query(query)
   if rowsRes.isErr():
     return err("failed in getRow: " & rowsRes.error)
 
@@ -327,7 +327,7 @@ proc sleep*(s: PostgresDriver, seconds: int):
   # database for the amount of seconds given as a parameter.
   try:
     let params = @[$seconds]
-    let sleepRes = await s.connPool.runQuery("SELECT pg_sleep(?)", params)
+    let sleepRes = await s.connPool.query("SELECT pg_sleep(?)", params)
     if sleepRes.isErr():
       return err("error in postgres_driver sleep: " & sleepRes.error)
   except DbError:
