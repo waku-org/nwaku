@@ -48,6 +48,27 @@ type WakuDiscoveryV5* = ref object
     protocol*: protocol.Protocol
     listening*: bool
 
+func topicsToRelayShards*(topics: seq[string]): Result[Option[RelayShards], string] =
+  if topics.len < 1:
+    return ok(none(RelayShards))
+
+  let parsedTopicsRes = topics.mapIt(NsPubsubTopic.parse(it))
+
+  for res in parsedTopicsRes:
+    if res.isErr():
+      return err("failed to parse topic: " & $res.error)
+
+  if parsedTopicsRes.allIt(it.get().kind == NsPubsubTopicKind.NamedSharding):
+    return ok(none(RelayShards))
+
+  if parsedTopicsRes.anyIt(it.get().kind == NsPubsubTopicKind.NamedSharding):
+    return err("use named topics OR sharded ones not both.")
+
+  if parsedTopicsRes.anyIt(it.get().cluster != parsedTopicsRes[0].get().cluster):
+    return err("use sharded topics within the same cluster.")
+
+  return ok(some(RelayShards.init(parsedTopicsRes[0].get().cluster, parsedTopicsRes.mapIt(it.get().shard))))
+
 proc new*(T: type WakuDiscoveryV5, rng: ref HmacDrbgContext, conf: WakuDiscoveryV5Config, record: Option[waku_enr.Record]): T =
   let protocol = newProtocol(
     rng = rng,
@@ -77,8 +98,18 @@ proc new*(T: type WakuDiscoveryV5,
           flags: CapabilitiesBitfield,
           multiaddrs = newSeq[MultiAddress](),
           rng: ref HmacDrbgContext,
-          discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig): T {.
+          topics: seq[string],
+          discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig
+          ): T {.
   deprecated: "use the config and record proc variant instead".}=
+
+  let relayShardsRes = topicsToRelayShards(topics)
+
+  let relayShard =
+    if relayShardsRes.isErr():
+      debug "pubsub topic parsing error", reason = relayShardsRes.error
+      none(RelayShards)
+    else: relayShardsRes.get()
 
   let record = block:
         var builder = EnrBuilder.init(privateKey)
@@ -89,6 +120,15 @@ proc new*(T: type WakuDiscoveryV5,
         )
         builder.withWakuCapabilities(flags)
         builder.withMultiaddrs(multiaddrs)
+
+        if relayShard.isSome():
+          let res = builder.withWakuRelaySharding(relayShard.get())
+
+          if res.isErr():
+            debug "building ENR with relay sharding failed", reason = res.error
+          else:
+            debug "building ENR with relay sharding information", cluster = $relayShard.get().cluster(), shards = $relayShard.get().indices()
+
         builder.build().expect("Record within size limits")
 
   let conf = WakuDiscoveryV5Config(

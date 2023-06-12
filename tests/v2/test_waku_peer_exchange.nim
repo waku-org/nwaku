@@ -110,7 +110,8 @@ procSuite "Waku Peer Exchange":
         keys.PrivateKey(nodeKey1.skkey),
         flags,
         newSeq[MultiAddress](), # Empty multiaddr fields, for now
-        node1.rng
+        node1.rng,
+        newSeq[string]()
       )
 
     node2.wakuDiscv5 = WakuDiscoveryV5.new(
@@ -122,7 +123,8 @@ procSuite "Waku Peer Exchange":
         keys.PrivateKey(nodeKey2.skkey),
         flags,
         newSeq[MultiAddress](), # Empty multiaddr fields, for now
-        node2.rng
+        node2.rng,
+        newSeq[string]()
       )
 
     ## Given
