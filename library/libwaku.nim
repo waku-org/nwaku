@@ -47,16 +47,12 @@ type
 
 var eventCallback:EventCallback = nil
 
-proc relayEventCallback(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [Defect].} =
+proc relayEventCallback(pubsubTopic: string,
+                        msg: WakuMessage):
+                        Future[void] {.gcsafe, raises: [Defect].} =
   # Callback that hadles the Waku Relay events. i.e. messages or errors.
   if not isNil(eventCallback):
-    let msg = WakuMessage.decode(data)
-    var event: JsonSignal
-    if msg.isOk():
-      event = JsonMessageEvent.new(pubsubTopic, msg.value)
-    else:
-      let errorMsg = string("Error decoding message.") & $msg.error
-      event = JsonErrorEvent.new(errorMsg)
+    let event = JsonMessageEvent.new(pubsubTopic, msg)
 
     try:
       eventCallback(cstring($event))
@@ -303,7 +299,8 @@ Kindly set it with the 'waku_set_event_callback' function""")
     jsonResp = errResp("Cannot subscribe without Waku Relay enabled.")
     return false
 
-  node.wakuRelay.subscribe(PubsubTopic($pubSubTopic), PubsubRawHandler(relayEventCallback))
+  node.wakuRelay.subscribe(PubsubTopic($pubSubTopic),
+                           WakuRelayHandler(relayEventCallback))
 
   jsonResp = okResp("true")
   return true
@@ -323,7 +320,7 @@ Kindly set it with the 'waku_set_event_callback' function""")
     jsonResp = errResp("Cannot unsubscribe without Waku Relay enabled.")
     return false
 
-  node.wakuRelay.unsubscribeAll(PubsubTopic($pubSubTopic))
+  node.wakuRelay.unsubscribe(PubsubTopic($pubSubTopic))
 
   jsonResp = okResp("true")
   return true
