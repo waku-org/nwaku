@@ -199,7 +199,7 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
   debug "subscribe", pubsubTopic=pubsubTopic
 
   # we need to wrap the handler since gossipsub doesnt understand WakuMessage
-  let wrappedHandler = proc(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [].} =
+  let wrappedHandler = proc(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [Defect].} =
     let decMsg = WakuMessage.decode(data)
     if decMsg.isErr():
       # fine if triggerSelf enabled, since validators are bypassed

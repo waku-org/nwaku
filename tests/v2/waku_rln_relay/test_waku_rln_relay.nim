@@ -147,6 +147,39 @@ suite "Waku rln relay":
     check:
       memberAdded
 
+  test "getMember Nim wrapper":
+      # create an RLN instance which also includes an empty Merkle tree
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
+    let rln = rlnInstance.get()
+    # generate an identity credential
+    let idCredentialRes = membershipKeyGen(rln)
+    require:
+      idCredentialRes.isOk()
+
+    let idCredential = idCredentialRes.get()
+    let pkBuffer = toBuffer(idCredential.idCommitment)
+    let pkBufferPtr = unsafeAddr(pkBuffer)
+
+    let
+      root1 {.noinit.}: Buffer = Buffer()
+      rootPtr1 = unsafeAddr(root1)
+      getRootSuccessful1 = getRoot(rlnInstance.get(), rootPtr1)
+
+    # add the member to the tree
+    let memberAdded = updateNextMember(rln, pkBufferPtr)
+    require:
+      memberAdded
+
+    let leafRes = getMember(rln, 0)
+    require:
+      leafRes.isOk()
+    let leaf = leafRes.get()
+    let leafHex = leaf.inHex()
+    check:
+      leafHex == idCredential.idCommitment.inHex()
+
   test "delete_member Nim wrapper":
     # create an RLN instance which also includes an empty Merkle tree
     let rlnInstance = createRLNInstance()

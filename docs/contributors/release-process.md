@@ -22,39 +22,51 @@ Ensure all items in this list are ticked:
 
 1. Checkout a release branch from master
 
-`git checkout -b release/v0.1`
+    ```
+    git checkout -b release/v0.1.0
+    ```
 
-2. Update `CHANGELOG.md` and ensure it is up to date
+1. Update `CHANGELOG.md` and ensure it is up to date. Use the helper Make target to get PR based release-notes/changelog update.
 
-3. Create a tag with the same name as release and push it
+    ```
+    make release-notes
+    ```
 
-```
-git tag -as v0.1 -m "Initial release."
-git push origin v0.1
-```
+1. Create a release-candidate tag with the same name as release and `-rc.N` suffix a few days before the official release and push it
 
-4. Open a PR
+    ```
+    git tag -as v0.1.0-rc.0 -m "Initial release."
+    git push origin v0.1.0-rc.0
+    ```
 
-5. Harden release in release branch
-    - Create a [Github release](https://github.com/waku-org/nwaku/releases) on the release tag.
-    - Add binaries for `macos` and `ubuntu` as release assets. Binaries can be compiled by triggering the ["Upload Release Asset"](https://github.com/waku-org/nwaku/actions/workflows/release-assets.yml) workflow. Where possible, test the binaries before uploading to the release.
+    This will trigger a [workflow](../../.github/workflows/pre-release.yml) which will build RC artifacts and create and publish a Github release
 
-6. Modify tag
+1. Open a PR from the release branch for others to review the included changes and the release-notes
 
-If you need to update stuff, remove tag and make sure the new tag is associated
-with CHANGELOG update.
+1. In case additional changes are needed, create a new RC tag
 
-```
-# Delete tag
-git tag -d v0.1
-git push --delete origin v0.1
+    Make sure the new tag is associated
+    with CHANGELOG update.
 
-# Make changes, rebase and tag again
-# Squash to one commit and make a nice commit message
-git rebase -i origin/master
-git tag -as v0.1 -m "Initial release."
-git push origin v0.1
-```
+    ```
+    # Make changes, rebase and create new tag
+    # Squash to one commit and make a nice commit message
+    git rebase -i origin/master
+    git tag -as v0.1.0-rc.1 -m "Initial release."
+    git push origin v0.1.0-rc.1
+    ```
+
+1. Once the release-candidate has been validated, create a final release tag and push it.
+
+    ```
+    git checkout release/v0.1.0
+    git tag -as v0.1.0 -m "Initial release."
+    git push origin v0.1.0
+    ```
+
+1. Create a [Github release](https://github.com/waku-org/nwaku/releases) from the release tag.
+
+    * Add binaries produced by the ["Upload Release Asset"](https://github.com/waku-org/nwaku/actions/workflows/release-assets.yml) workflow. Where possible, test the binaries before uploading to the release.
 
 ### After the release
 
