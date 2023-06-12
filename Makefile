@@ -298,6 +298,7 @@ else
 		echo -e $(BUILD_MSG) "build/$@.so" && \
 		$(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
 endif
+		cp build/libwaku.so examples/golang/
 
 cwaku_example: | build libwaku
 	echo -e $(BUILD_MSG) "build/$@" && \
