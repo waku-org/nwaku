@@ -36,6 +36,7 @@ import (
 	"os"
 	"fmt"
 	"runtime"
+	"flag"
 )
 
 //export eventHandler
@@ -46,15 +47,33 @@ func eventHandler(msg *C.char) {
 func main() {
 	runtime.LockOSThread()
 
+	// Setup the nim runtime and GC.
 	C.NimMain()
 
-	cfgNode := C.ConfigNode{}
+	var host string
+	var port int
+	var key string
+	var relay int
 
-	cfgNode.host = C.CString("0.0.0.0")
-	cfgNode.port = 60000
-	cfgNode.key  = C.CString("364d111d729a6eb6d2e6113e163f017b5ef03a6f94c9b5b7bb1bb36fa5cb07a9")
-	cfgNode.relay = true
-	cfgNode.peers = nil
+	flag.StringVar(&host, "host", "0.0.0.0", "Node's host.")
+	flag.IntVar(&port, "port", 60000, "Node's port.")
+	flag.StringVar(&key, "key", "",
+	`P2P node private key as 64 char hex string.
+e.g.: 364d111d729a6eb6d2e6113e163f017b5ef03a6f94c9b5b7bb1bb36fa5cb07a9`)
+	flag.IntVar(&relay, "relay", 1, "1 -> Enable Relay protocol. 0 -> disable.")
+	flag.Parse()
+
+	if key == "" {
+		fmt.Println("Please set a valid P2P private node key.")
+		fmt.Println("Run with --help to get a better insight.")
+		os.Exit(1)
+	}
+
+	cfgNode := C.ConfigNode{}
+	cfgNode.host = C.CString(host)
+	cfgNode.port = C.ulong(port)
+	cfgNode.key = C.CString(key)
+	cfgNode.relay = relay == 1
 
 	fmt.Println("Git Version: ", C.GoString( C.waku_version() ))
 	C.waku_default_pubsub_topic(&C.mResp);
