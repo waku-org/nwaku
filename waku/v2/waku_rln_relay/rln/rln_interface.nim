@@ -54,6 +54,11 @@ proc set_leaf*(ctx: ptr RLN, index: uint, input_buffer: ptr Buffer): bool {.impo
 ## the input_buffer holds a serialized leaf of 32 bytes
 ## the return bool value indicates the success or failure of the operation
 
+proc get_leaf*(ctx: ptr RLN, index: uint, output_buffer: ptr Buffer): bool {.importc: "get_leaf".}
+## gets the leaf at position index in the tree stored by ctx
+## the output_buffer holds a serialized leaf of 32 bytes
+## the return bool value indicates the success or failure of the operation
+
 proc init_tree_with_leaves*(ctx: ptr RLN, input_buffer: ptr Buffer): bool {.importc: "init_tree_with_leaves".}
 ## sets multiple leaves in the tree stored by ctx to the value passed by input_buffer
 ## the input_buffer holds a serialized vector of leaves (32 bytes each)
