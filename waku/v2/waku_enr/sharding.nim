@@ -88,7 +88,7 @@ func contains*(rs: RelayShards, topic: PubsubTopic|string): bool =
 
 # ENR builder extension
 
-func toIndicesList(rs: RelayShards): EnrResult[seq[byte]] =
+func toIndicesList*(rs: RelayShards): EnrResult[seq[byte]] =
   if rs.indices.len > high(uint8).int:
     return err("indices list too long")
 
@@ -117,7 +117,7 @@ func fromIndicesList(buf: seq[byte]): Result[RelayShards, string] =
 
   ok(RelayShards(cluster: cluster, indices: indices))
 
-func toBitVector(rs: RelayShards): seq[byte] =
+func toBitVector*(rs: RelayShards): seq[byte] =
   ## The value is comprised of a two-byte shard cluster index in network byte
   ## order concatenated with a 128-byte wide bit vector. The bit vector
   ## indicates which shards of the respective shard cluster the node is part

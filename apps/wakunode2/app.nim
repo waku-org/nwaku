@@ -512,6 +512,43 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       pubsubTopics = conf.topicsDeprecated.split(" ")
     else:
       pubsubTopics = conf.topics
+
+    # Validate topics and update node ENR accordingly
+    let parsed_topics = pubsubTopics.mapIt(NsPubsubTopic.parse(it))
+
+    var prevTopic: NsPubsubTopic
+    for i, topic in parsed_topics:
+      ?topic
+      
+      if i == 0:
+        prevTopic = topic.value
+        continue
+      
+      if prevTopic.kind != topic.value.kind:
+        return err("Please use named topics OR sharded ones not both.")
+        
+      if prevTopic.kind == NsPubsubTopicKind.StaticSharding:
+        if prevTopic.shard != topic.value.shard:
+          return err("Please use sharded topics within the same shard.")
+
+      if i > 0:
+        prevTopic = topic.value
+
+    if prevTopic.kind == NsPubsubTopicKind.StaticSharding:
+      let indices = parsed_topics.mapIt(it.value.shard)
+      let relayShard = RelayShards.init(prevTopic.cluster, indices)
+    
+      var record = node.wakuDiscv5.protocol.localNode.record
+      let key = node.wakuDiscv5.protocol.privKey()
+      
+      if (let idxList = relayShard.toIndicesList(); idxList.isOk):
+        let pairs = [toFieldPair(ShardingIndicesListEnrField, idxList.value)]
+        ?record.update(key, pairs)
+      else:
+        let bitVector = relayShard.toBitVector()
+        let pairs = [toFieldPair(ShardingBitVectorEnrField, bitVector)]
+        ?record.update(key, pairs)
+
     try:
       await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
     except CatchableError:
