@@ -18,7 +18,7 @@ Release highlights:
 - **networking:** integrate gossipsub scoring ([#1769](https://github.com/waku-org/nwaku/issues/1769)) ([34a92631](https://github.com/waku-org/nwaku/commit/34a92631))
 - **discv5:** added find random nodes with predicate ([#1762](https://github.com/waku-org/nwaku/issues/1762)) ([#1763](https://github.com/waku-org/nwaku/issues/1763)) ([21737c7c](https://github.com/waku-org/nwaku/commit/21737c7c))
 - **wakunode2:** enable libp2p rendezvous protocol by default ([#1770](https://github.com/waku-org/nwaku/issues/1770)) ([835a409d](https://github.com/waku-org/nwaku/commit/835a409d))
-- **postgresql:** align Andrea's PR[#1590](https://github.com/waku-org/nwaku/issues/1590) changes into master ([#1764](https://github.com/waku-org/nwaku/issues/1764)) ([7df6f4c8](https://github.com/waku-org/nwaku/commit/7df6f4c8))
+- **postgresql:** align previous work's PR[#1590](https://github.com/waku-org/nwaku/issues/1590) changes into master ([#1764](https://github.com/waku-org/nwaku/issues/1764)) ([7df6f4c8](https://github.com/waku-org/nwaku/commit/7df6f4c8))
 - **networking:** prune peers from same ip beyond collocation limit ([#1765](https://github.com/waku-org/nwaku/issues/1765)) ([047d1cf0](https://github.com/waku-org/nwaku/commit/047d1cf0))
 - **ci:** add nightly builds ([#1758](https://github.com/waku-org/nwaku/issues/1758)) ([473af70a](https://github.com/waku-org/nwaku/commit/473af70a))
 - **postgresql:** 1st commit to async sql (waku_archive/driver...) ([#1755](https://github.com/waku-org/nwaku/issues/1755)) ([59ca03a8](https://github.com/waku-org/nwaku/commit/59ca03a8))
