@@ -7,7 +7,7 @@
 Release highlights:
 * Support for Gossipsub scoring
 * Rendezvous discovery protocol enabled by default with relay
-* Initial support for postgres
+* Initial support for postgresql as Store backend
 * Atomic operations for insertions and deletions included in rln-relay
 
 ### Features
