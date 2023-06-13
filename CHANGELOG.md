@@ -1,3 +1,73 @@
+## 2023-06-14 v0.18.0
+
+> Note that there is a new naming scheme for release artifacts.
+
+## What's Changed
+
+Release highlights:
+* Support for Gossipsub scoring
+* [Rendezvous discovery protocol](https://docs.libp2p.io/concepts/discovery-routing/rendezvous/) enabled by default with relay
+* Initial support for postgresql as Store backend
+* Atomic operations for insertions and deletions included in rln-relay
+
+### Features
+
+- **postgres:** complete implementation of driver and apply more tests ([#1785](https://github.com/waku-org/nwaku/issues/1785)) ([5fc5770d](https://github.com/waku-org/nwaku/commit/5fc5770d))
+- **postgres:** adding a postgres async pool to make the db interactions asynchronous ([#1779](https://github.com/waku-org/nwaku/issues/1779)) ([cb2e3d86](https://github.com/waku-org/nwaku/commit/cb2e3d86))
+- **rln-relay:** pass in index to keystore credentials ([#1777](https://github.com/waku-org/nwaku/issues/1777)) ([a00aa8cc](https://github.com/waku-org/nwaku/commit/a00aa8cc))
+- **networking:** integrate gossipsub scoring ([#1769](https://github.com/waku-org/nwaku/issues/1769)) ([34a92631](https://github.com/waku-org/nwaku/commit/34a92631))
+- **discv5:** added find random nodes with predicate ([#1762](https://github.com/waku-org/nwaku/issues/1762)) ([#1763](https://github.com/waku-org/nwaku/issues/1763)) ([21737c7c](https://github.com/waku-org/nwaku/commit/21737c7c))
+- **wakunode2:** enable libp2p rendezvous protocol by default ([#1770](https://github.com/waku-org/nwaku/issues/1770)) ([835a409d](https://github.com/waku-org/nwaku/commit/835a409d))
+- **postgresql:** align previous work's PR[#1590](https://github.com/waku-org/nwaku/issues/1590) changes into master ([#1764](https://github.com/waku-org/nwaku/issues/1764)) ([7df6f4c8](https://github.com/waku-org/nwaku/commit/7df6f4c8))
+- **networking:** prune peers from same ip beyond collocation limit ([#1765](https://github.com/waku-org/nwaku/issues/1765)) ([047d1cf0](https://github.com/waku-org/nwaku/commit/047d1cf0))
+- **ci:** add nightly builds ([#1758](https://github.com/waku-org/nwaku/issues/1758)) ([473af70a](https://github.com/waku-org/nwaku/commit/473af70a))
+- **postgresql:** 1st commit to async sql (waku_archive/driver...) ([#1755](https://github.com/waku-org/nwaku/issues/1755)) ([59ca03a8](https://github.com/waku-org/nwaku/commit/59ca03a8))
+- **ci:** add release-notes target ([#1734](https://github.com/waku-org/nwaku/issues/1734)) ([ceb54b18](https://github.com/waku-org/nwaku/commit/ceb54b18))
+- **rln-relay:** use new atomic_operation ffi api ([#1733](https://github.com/waku-org/nwaku/issues/1733)) ([611e9539](https://github.com/waku-org/nwaku/commit/611e9539))
+
+### Bug Fixes
+
+- **ci:** enforce basic CPU instruction set to prevent CI issues ([#1759](https://github.com/waku-org/nwaku/issues/1759)) ([35520bd0](https://github.com/waku-org/nwaku/commit/35520bd0))
+- **test:** wait more for gossip ([#1753](https://github.com/waku-org/nwaku/issues/1753)) ([0fce3d83](https://github.com/waku-org/nwaku/commit/0fce3d83))
+- **rln-relay:** keystore usage ([#1750](https://github.com/waku-org/nwaku/issues/1750)) ([36266b43](https://github.com/waku-org/nwaku/commit/36266b43))
+- **ci:** fix flaky test for dos topic ([#1747](https://github.com/waku-org/nwaku/issues/1747)) ([46e231d0](https://github.com/waku-org/nwaku/commit/46e231d0))
+- **rln-relay:** trace log ([#1743](https://github.com/waku-org/nwaku/issues/1743)) ([5eae60e8](https://github.com/waku-org/nwaku/commit/5eae60e8))
+- **ci:** make experimental default to true in fleet deployment ([#1742](https://github.com/waku-org/nwaku/issues/1742)) ([b148c305](https://github.com/waku-org/nwaku/commit/b148c305))
+
+### Changes
+
+- **rln:** bump zerokit ([#1787](https://github.com/waku-org/nwaku/issues/1787)) ([9c04b59b](https://github.com/waku-org/nwaku/commit/9c04b59b))
+- **ci:** extend and rename nightly workflow to support RC builds ([#1784](https://github.com/waku-org/nwaku/issues/1784)) ([96074071](https://github.com/waku-org/nwaku/commit/96074071))
+- **rln-relay:** pass in the path to the tree db ([#1782](https://github.com/waku-org/nwaku/issues/1782)) ([dba84248](https://github.com/waku-org/nwaku/commit/dba84248))
+- **rln-relay:** update tree_config ([#1781](https://github.com/waku-org/nwaku/issues/1781)) ([ba8ec704](https://github.com/waku-org/nwaku/commit/ba8ec704))
+- **ci:** properly set os and architecture for nightly and release ([#1780](https://github.com/waku-org/nwaku/issues/1780)) ([44bcf0f2](https://github.com/waku-org/nwaku/commit/44bcf0f2))
+- **ci:** remove add-to-project workflow ([#1778](https://github.com/waku-org/nwaku/issues/1778)) ([a9505892](https://github.com/waku-org/nwaku/commit/a9505892))
+- **ci:** add experimental builds to nightly ([#1761](https://github.com/waku-org/nwaku/issues/1761)) ([ffac7761](https://github.com/waku-org/nwaku/commit/ffac7761))
+- **px:** close px streams after resp is sent ([#1746](https://github.com/waku-org/nwaku/issues/1746)) ([3c2d2891](https://github.com/waku-org/nwaku/commit/3c2d2891))
+- **docs:** fix docs and mark some as deprecated ([#1754](https://github.com/waku-org/nwaku/issues/1754)) ([b51fb616](https://github.com/waku-org/nwaku/commit/b51fb616))
+- **makefile:** unify where chronicles_log_level is set ([#1748](https://github.com/waku-org/nwaku/issues/1748)) ([39902dc2](https://github.com/waku-org/nwaku/commit/39902dc2))
+- **rln-relay:** docs and config update for testnet 3 ([#1738](https://github.com/waku-org/nwaku/issues/1738)) ([bb9d231b](https://github.com/waku-org/nwaku/commit/bb9d231b))
+- **rln-relay:** update metrics dashboard ([#1745](https://github.com/waku-org/nwaku/issues/1745)) ([0ced2195](https://github.com/waku-org/nwaku/commit/0ced2195))
+- **rln-relay:** updated metrics for testnet 3 ([#1744](https://github.com/waku-org/nwaku/issues/1744)) ([62578746](https://github.com/waku-org/nwaku/commit/62578746))
+- **networking:** set and use target outbound connections + prune ([#1739](https://github.com/waku-org/nwaku/issues/1739)) ([87f694a8](https://github.com/waku-org/nwaku/commit/87f694a8))
+- proper use of setupNat ([#1740](https://github.com/waku-org/nwaku/issues/1740)) ([665484c1](https://github.com/waku-org/nwaku/commit/665484c1))
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
+
+## Upgrade instructions
+
+There is a new naming scheme for release artifacts - `nwaku-${ARCHITECTURE}-${OS}-${VERSION}.tar.gz`. If you use any automation to download latest release, you may need to update it.
+
+The `--topics` config option has been deprecated to unify the configuration style. It is still available in this release but will be removed in the next one. The new option `--topic` is introduced, which can be used repeatedly to achieve the same behavior.
+
 ## 2023-05-17 v0.17.0
 
 > Note that the --topics config item has been deprecated and support will be dropped in future releases. To configure support for multiple pubsub topics, use the new --topic parameter repeatedly.
