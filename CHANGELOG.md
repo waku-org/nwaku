@@ -6,7 +6,7 @@
 
 Release highlights:
 * Support for Gossipsub scoring
-* Rendezvous discovery protocol enabled by default with relay
+* [Rendezvous discovery protocol](https://docs.libp2p.io/concepts/discovery-routing/rendezvous/) enabled by default with relay
 * Initial support for postgresql as Store backend
 * Atomic operations for insertions and deletions included in rln-relay
 
