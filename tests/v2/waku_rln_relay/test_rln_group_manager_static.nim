@@ -21,6 +21,9 @@ import
   eth/keys,
   discovery/dnsdisc/builder
 
+import
+  std/tempfiles
+
 proc generateCredentials(rlnInstance: ptr RLN): IdentityCredential =
   let credRes = membershipKeyGen(rlnInstance)
   return credRes.get()
@@ -33,7 +36,7 @@ proc generateCredentials(rlnInstance: ptr RLN, n: int): seq[IdentityCredential] 
 
 suite "Static group manager":
   setup:
-    let rlnInstanceRes = createRlnInstance()
+    let rlnInstanceRes = createRlnInstance(tree_path = genTempPath("rln_tree", "static"))
     require:
       rlnInstanceRes.isOk()
 
