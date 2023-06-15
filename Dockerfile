@@ -1,6 +1,6 @@
 # BUILD NIM APP ----------------------------------------------------------------
 
-FROM alpine:edge AS nim-build
+FROM alpine:3.16 AS nim-build
 
 ARG NIMFLAGS
 ARG MAKE_TARGET=wakunode2
