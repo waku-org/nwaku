@@ -238,6 +238,24 @@ suite "Waku rln relay":
     check:
       rln.removeMember(MembershipIndex(0))
 
+  test "setMetadata rln utils":
+    # create an RLN instance which also includes an empty Merkle tree
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
+    let rln = rlnInstance.get()
+    check:
+      rln.setMetadata("")
+
+  test "getMetadata rln utils":
+    # create an RLN instance which also includes an empty Merkle tree
+    let rlnInstance = createRLNInstance()
+    require:
+      rlnInstance.isOk()
+    let rln = rlnInstance.get()
+    check:
+      rln.setMetadata("")
+
   test "Merkle tree consistency check between deletion and insertion":
     # create an RLN instance
     let rlnInstance = createRLNInstance()
