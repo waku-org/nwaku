@@ -844,9 +844,11 @@ proc runDiscv5Loop(node: WakuNode) {.async.} =
 
   info "starting discv5 discovery loop"
 
+  let shardPredOp = shardingPredicate(node.enr)
+
   while node.wakuDiscv5.listening:
     trace "running discv5 discovery loop"
-    let discoveredRecords = await node.wakuDiscv5.findRandomPeers()
+    let discoveredRecords = await node.wakuDiscv5.findRandomPeers(shardPredOp)
     let discoveredPeers = discoveredRecords.mapIt(it.toRemotePeerInfo()).filterIt(it.isOk()).mapIt(it.value)
 
     for peer in discoveredPeers:
