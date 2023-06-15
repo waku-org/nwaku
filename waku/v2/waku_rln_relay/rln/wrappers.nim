@@ -348,18 +348,15 @@ proc getMerkleRoot*(rlnInstance: ptr RLN): MerkleNodeResult =
   return ok(rootValue)
 
 type
-  Metadata = object
-    lastProcessedBlock: uint64
+  RlnMetadata* = object
+    lastProcessedBlock*: uint64
 
-proc serialize(metadata: Metadata): seq[byte] =
+proc serialize(metadata: RlnMetadata): seq[byte] =
   ## serializes the metadata
   ## returns the serialized metadata
-  var
-    lastProcessedBlockBytes = metadata.lastProcessedBlock.toBytes()
-    serializedMetadata = serialize(lastProcessedBlockBytes)
-  return serializedMetadata
+  return @(metadata.lastProcessedBlock.toBytes())
 
-proc setMetadata*(rlnInstance: ptr RLN, metadata: Metadata): RlnRelayResult[void] =
+proc setMetadata*(rlnInstance: ptr RLN, metadata: RlnMetadata): RlnRelayResult[void] =
   ## sets the metadata of the RLN instance
   ## returns an error if the metadata could not be set
   ## returns void if the metadata is set successfully
@@ -375,7 +372,7 @@ proc setMetadata*(rlnInstance: ptr RLN, metadata: Metadata): RlnRelayResult[void
     return err("could not set the metadata")
   return ok()
 
-proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[Metadata] =
+proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[RlnMetadata] =
   ## gets the metadata of the RLN instance
   ## returns an error if the metadata could not be retrieved
   ## returns the metadata if the metadata is retrieved successfully
@@ -391,5 +388,4 @@ proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[Metadata] =
     return err("wrong output size")
 
   var metadataValue = cast[ptr uint64] (metadata.`ptr`)[]
-  let lastProcessedBlock = metadataValue[]
-  return ok(Metadata(lastProcessedBlock: lastProcessedBlock))
+  return ok(RlnMetadata(lastProcessedBlock: metadataValue))
