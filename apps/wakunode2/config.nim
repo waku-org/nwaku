@@ -215,11 +215,6 @@ type
       defaultValue: false
       name: "keep-alive" }: bool
 
-    topicsDeprecated* {.
-      desc: "Default topics to subscribe to (space separated list). DEPRECATED: please use repeated --topic argument instead."
-      defaultValue: "/waku/2/default-waku/proto"
-      name: "topics" .}: string
-
     topics* {.
       desc: "Default topic to subscribe to. Argument may be repeated."
       defaultValue: @["/waku/2/default-waku/proto"]
