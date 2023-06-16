@@ -6,7 +6,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, osproc, streams, strutils],
+  std/[options, osproc, streams, strutils, tempfiles],
   stew/[results, byteutils],
   stew/shims/net as stewNet,
   testutils/unittests,
@@ -157,7 +157,7 @@ proc stopGanache(runGanache: Process) {.used.} =
     error "Ganache daemon termination failed: ", err = getCurrentExceptionMsg()
 
 proc setup(signer = true): Future[OnchainGroupManager] {.async.} =
-  let rlnInstanceRes = createRlnInstance()
+  let rlnInstanceRes = createRlnInstance(tree_path = genTempPath("rln_tree", "group_manager_onchain"))
   require:
     rlnInstanceRes.isOk()
 
