@@ -61,7 +61,9 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
         bootstrapEnrs = @[bootstrapNodeEnr],
         privateKey = keys.PrivateKey(nodeKey.skkey),
         flags = flags,
-        rng = node.rng)
+        rng = node.rng,
+        topics = @[],
+        )
 
     await node.start()
     await node.mountRelay()

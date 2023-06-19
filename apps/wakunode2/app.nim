@@ -439,7 +439,8 @@ proc initNode(conf: WakuNodeConf,
         flags = netConfig.wakuFlags.get(),
         multiaddrs = netConfig.enrMultiaddrs,
         rng = rng,
-        discv5Config = discv5Config,
+        conf.topics,
+        discv5Config = discv5Config
       ))
     except CatchableError:
       return err("failed to create waku discv5 instance: " & getCurrentExceptionMsg())
@@ -512,6 +513,7 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
       pubsubTopics = conf.topicsDeprecated.split(" ")
     else:
       pubsubTopics = conf.topics
+
     try:
       await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
     except CatchableError:
