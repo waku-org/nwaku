@@ -251,7 +251,7 @@ procSuite "Waku Discovery v5":
     await allFutures(node1.start(), node2.start(), node3.start(), node4.start())
 
     ## Given
-    let recordPredicate = proc(record: waku_enr.Record): bool =
+    let recordPredicate: WakuDiscv5Predicate = proc(record: waku_enr.Record): bool =
           let typedRecord = record.toTyped()
           if typedRecord.isErr():
             return false
@@ -270,7 +270,7 @@ procSuite "Waku Discovery v5":
     #   for peer in await node1.wakuDiscv5.findRandomPeers(pred=recordPredicate):
     #     peers.incl(peer)
     await sleepAsync(5.seconds) # Wait for discv5 discvery loop to run
-    let peers = await node1.wakuDiscv5.findRandomPeers(pred=recordPredicate)
+    let peers = await node1.wakuDiscv5.findRandomPeers(some(recordPredicate))
 
     ## Then
     check:
@@ -308,4 +308,79 @@ procSuite "Waku Discovery v5":
     assert gibberishRes.isErr(), $gibberishRes.value
     assert emptyRes.isOk(), emptyRes.error
     assert emptyRes.value.isNone(), $emptyRes.value
+
+  asyncTest "filter peer per static shard":
+    ## Given
+    let recordCluster21 = block:
+      let
+        enrSeqNum = 1u64
+        enrPrivKey = generatesecp256k1key()
+
+      let
+        shardCluster: uint16 = 21
+        shardIndices: seq[uint16] = @[1u16, 2u16, 5u16, 7u16, 9u16, 11u16]
+
+      let shards = RelayShards.init(shardCluster, shardIndices)
+
+      var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
+      require builder.withWakuRelaySharding(shards).isOk()
+
+      let recordRes = builder.build()
+      require recordRes.isOk()
+      recordRes.tryGet()
+
+    let recordCluster22Indices1 = block:
+      let
+        enrSeqNum = 1u64
+        enrPrivKey = generatesecp256k1key()
+
+      let
+        shardCluster: uint16 = 22
+        shardIndices: seq[uint16] = @[2u16, 4u16, 5u16, 8u16, 10u16, 12u16]
+
+      let shards = RelayShards.init(shardCluster, shardIndices)
+
+      var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
+      require builder.withWakuRelaySharding(shards).isOk()
+
+      let recordRes = builder.build()
+      require recordRes.isOk()
+      recordRes.tryGet()
+
+    let recordCluster22Indices2 = block:
+      let
+        enrSeqNum = 1u64
+        enrPrivKey = generatesecp256k1key()
+
+      let
+        shardCluster: uint16 = 22
+        shardIndices: seq[uint16] = @[1u16, 3u16, 6u16, 7u16, 9u16, 11u16]
+
+      let shards = RelayShards.init(shardCluster, shardIndices)
+
+      var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
+      require builder.withWakuRelaySharding(shards).isOk()
+
+      let recordRes = builder.build()
+      require recordRes.isOk()
+      recordRes.tryGet()
+
+    ## When
+    let predicateCluster21Op = shardingPredicate(recordCluster21)
+    require predicateCluster21Op.isSome()
+    let predicateCluster21 = predicateCluster21Op.get()
+
+    let predicateCluster22Op = shardingPredicate(recordCluster22Indices1)
+    require predicateCluster22Op.isSome()
+    let predicateCluster22 = predicateCluster22Op.get()
+
+    ## Then
+    check:
+      predicateCluster21(recordCluster21) == true
+      predicateCluster21(recordCluster22Indices1) == false
+      predicateCluster21(recordCluster22Indices2) == false
+      predicateCluster22(recordCluster21) == false
+      predicateCluster22(recordCluster22Indices1) == true
+      predicateCluster22(recordCluster22Indices2) == false
+
 

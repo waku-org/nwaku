@@ -170,15 +170,39 @@ proc closeWait*(wd: WakuDiscoveryV5) {.async.} =
   wd.listening = false
   await wd.protocol.closeWait()
 
-proc findRandomPeers*(wd: WakuDiscoveryV5, pred: WakuDiscv5Predicate = nil): Future[seq[waku_enr.Record]] {.async.} =
+proc shardingPredicate*(record: Record): Option[WakuDiscv5Predicate] =
+  ## Filter peers based on relay sharding information
+
+  let typeRecordRes = record.toTyped()
+  let typedRecord =
+    if typeRecordRes.isErr():
+      debug "peer filtering failed", reason= $typeRecordRes.error
+      return none(WakuDiscv5Predicate)
+    else: typeRecordRes.get()
+
+  let nodeShardOp = typedRecord.relaySharding()
+  let nodeShard =
+    if nodeShardOp.isNone():
+      debug "no relay sharding information, peer filtering disabled"
+      return none(WakuDiscv5Predicate)
+    else: nodeShardOp.get()
+
+  debug "peer filtering enabled"
+
+  let predicate = proc(record: waku_enr.Record): bool =
+      nodeShard.indices.anyIt(record.containsShard(nodeShard.cluster, it))
+
+  return some(predicate)
+
+proc findRandomPeers*(wd: WakuDiscoveryV5, pred = none(WakuDiscv5Predicate)): Future[seq[waku_enr.Record]] {.async.} =
   ## Find random peers to connect to using Discovery v5
   let discoveredNodes = await wd.protocol.queryRandom()
 
   var discoveredRecords = discoveredNodes.mapIt(it.record)
 
   # Filter out nodes that do not match the predicate
-  if not pred.isNil():
-    discoveredRecords = discoveredRecords.filter(pred)
+  if pred.isSome():
+    discoveredRecords = discoveredRecords.filter(pred.get())
 
   return discoveredRecords
 
