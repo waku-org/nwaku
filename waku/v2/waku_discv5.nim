@@ -189,8 +189,10 @@ proc shardingPredicate*(record: Record): Option[WakuDiscv5Predicate] =
 
   debug "peer filtering enabled"
 
-  return some(proc(record: waku_enr.Record): bool =
-      nodeShard.indices.anyIt(record.containsShard(nodeShard.cluster, it)))
+  let predicate = proc(record: waku_enr.Record): bool =
+      nodeShard.indices.anyIt(record.containsShard(nodeShard.cluster, it))
+
+  return some(predicate)
 
 proc findRandomPeers*(wd: WakuDiscoveryV5, pred = none(WakuDiscv5Predicate)): Future[seq[waku_enr.Record]] {.async.} =
   ## Find random peers to connect to using Discovery v5

@@ -365,6 +365,7 @@ procSuite "Waku Discovery v5":
       require recordRes.isOk()
       recordRes.tryGet()
 
+    ## When
     let predicateCluster21Op = shardingPredicate(recordCluster21)
     require predicateCluster21Op.isSome()
     let predicateCluster21 = predicateCluster21Op.get()
