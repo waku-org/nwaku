@@ -274,7 +274,7 @@ proc initAndStartNode(conf: NetworkMonitorConf): Result[WakuNode, string] =
     node.wakuDiscv5 = WakuDiscoveryV5.new(
         some(extIp), some(nodeTcpPort), some(nodeUdpPort),
         bindIp, nodeUdpPort, discv5BootstrapEnrs, false,
-        keys.PrivateKey(nodeKey.skkey), flags, @[], node.rng)
+        keys.PrivateKey(nodeKey.skkey), flags, @[], node.rng, @[])
 
     node.wakuDiscv5.protocol.open()
     return ok(node)

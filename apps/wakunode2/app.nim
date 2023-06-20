@@ -439,7 +439,8 @@ proc initNode(conf: WakuNodeConf,
         flags = netConfig.wakuFlags.get(),
         multiaddrs = netConfig.enrMultiaddrs,
         rng = rng,
-        discv5Config = discv5Config,
+        conf.topics,
+        discv5Config = discv5Config
       ))
     except CatchableError:
       return err("failed to create waku discv5 instance: " & getCurrentExceptionMsg())
@@ -501,7 +502,6 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
     peerExchangeHandler = some(handlePeerExchange)
 
   if conf.relay:
-
     let pubsubTopics = conf.topics
     try:
       await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
@@ -543,7 +543,8 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
         rlnRelayEthAccountPrivateKey: conf.rlnRelayEthAccountPrivateKey,
         rlnRelayEthAccountAddress: conf.rlnRelayEthAccountAddress,
         rlnRelayCredPath: conf.rlnRelayCredPath,
-        rlnRelayCredentialsPassword: conf.rlnRelayCredentialsPassword
+        rlnRelayCredentialsPassword: conf.rlnRelayCredentialsPassword,
+        rlnRelayTreePath: conf.rlnRelayTreePath
       )
 
       try:

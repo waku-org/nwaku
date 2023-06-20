@@ -1,11 +1,10 @@
 {.used.}
 
 import
-  std/[sequtils, sets],
+  std/[sequtils],
   stew/results,
   stew/shims/net,
   chronos,
-  chronicles,
   testutils/unittests,
   libp2p/crypto/crypto as libp2p_keys,
   eth/keys as eth_keys
@@ -280,3 +279,33 @@ procSuite "Waku Discovery v5":
 
     # Cleanup
     await allFutures(node1.stop(), node2.stop(), node3.stop(), node4.stop())
+
+  asyncTest "get relayShards from topics":
+    ## Given
+    let mixedTopics = @["/waku/2/thisisatest", "/waku/2/rs/0/2", "/waku/2/rs/0/8"]
+    let shardedTopics = @["/waku/2/rs/0/2", "/waku/2/rs/0/4", "/waku/2/rs/0/8"]
+    let namedTopics = @["/waku/2/thisisatest", "/waku/2/atestthisis", "/waku/2/isthisatest"]
+    let gibberish = @["aedyttydcb/uioasduyio", "jhdfsjhlsdfjhk/sadjhk", "khfsd/hjfdsgjh/dfs"]
+    let empty: seq[string] = @[]
+
+    let relayShards = RelayShards.init(0, @[uint16(2), uint16(4), uint16(8)])
+
+    ## When
+
+    let mixedRes = topicsToRelayShards(mixedTopics)
+    let shardedRes = topicsToRelayShards(shardedTopics)
+    let namedRes = topicsToRelayShards(namedTopics)
+    let gibberishRes = topicsToRelayShards(gibberish)
+    let emptyRes = topicsToRelayShards(empty)
+
+    ## Then
+    assert mixedRes.isErr(), $mixedRes.value
+    assert shardedRes.isOk(), shardedRes.error
+    assert shardedRes.value.isSome()
+    assert shardedRes.value.get() == relayShards, $shardedRes.value.get()
+    assert namedRes.isOk(), namedRes.error
+    assert namedRes.value.isNone(), $namedRes.value
+    assert gibberishRes.isErr(), $gibberishRes.value
+    assert emptyRes.isOk(), emptyRes.error
+    assert emptyRes.value.isNone(), $emptyRes.value
+
