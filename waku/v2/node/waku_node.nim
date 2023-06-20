@@ -491,43 +491,40 @@ proc unsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: Conte
 ## Waku archive
 
 proc mountArchive*(node: WakuNode,
-                   driver: Option[ArchiveDriver],
-                   messageValidator: Option[MessageValidator],
-                   retentionPolicy: Option[RetentionPolicy]) =
+                   storeMessageDbUrl: string,
+                   storeMessageDbVacuum: bool = false,
+                   storeMessageDbMigration: bool = false,
+                   storeMessageRetentionPolicy: string = "none"):
+                   Result[void, string] =
 
-  if driver.isNone():
-    error "failed to mount waku archive protocol", error="archive driver not set"
-    return
+  let wakuArchiveRes = WakuArchive.new(storeMessageDbUrl,
+                                       storeMessageDbVacuum,
+                                       storeMessageDbMigration,
+                                       storeMessageRetentionPolicy)
+  if wakuArchiveRes.isErr():
+    return err("error in mountArchive: " & wakuArchiveRes.error)
 
-  node.wakuArchive = WakuArchive.new(driver.get(), messageValidator, retentionPolicy)
-
-# TODO: Review this periodic task. Maybe, move it to the appplication code
-const WakuArchiveDefaultRetentionPolicyInterval* = 30.minutes
-
-proc executeMessageRetentionPolicy*(node: WakuNode) =
-  if node.wakuArchive.isNil():
-    return
-
-  debug "executing message retention policy"
+  node.wakuArchive = wakuArchiveRes.get()
 
   try:
-    waitFor node.wakuArchive.executeMessageRetentionPolicy()
-    waitFor node.wakuArchive.reportStoredMessagesMetric()
+    let reportMetricRes = waitFor node.wakuArchive.reportStoredMessagesMetric()
+    if reportMetricRes.isErr():
+      return err("error in mountArchive: " & reportMetricRes.error)
   except CatchableError:
-    debug "Error executing retention policy " & getCurrentExceptionMsg()
+    return err("exception in mountArchive: " & getCurrentExceptionMsg())
 
-proc startMessageRetentionPolicyPeriodicTask*(node: WakuNode, interval: Duration) =
-  if node.wakuArchive.isNil():
-    return
+  if storeMessageRetentionPolicy != "none":
+    try:
+      debug "executing message retention policy"
+      let retPolRes = waitFor node.wakuArchive.executeMessageRetentionPolicy()
+      if retPolRes.isErr():
+        return err("error in mountArchive: " & retPolRes.error)
+    except CatchableError:
+      return err("exception in mountArch-ret-pol: " & getCurrentExceptionMsg())
 
-  # https://github.com/nim-lang/Nim/issues/17369
-  var executeRetentionPolicy: proc(udata: pointer) {.gcsafe, raises: [Defect].}
-  executeRetentionPolicy = proc(udata: pointer) {.gcsafe.} =
-    executeMessageRetentionPolicy(node)
-    discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)
+    node.wakuArchive.startMessageRetentionPolicyPeriodicTask(30.minutes)
 
-  discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)
-
+  return ok()
 
 ## Waku store
 
@@ -583,7 +580,6 @@ proc mountStore*(node: WakuNode) {.async, raises: [Defect, LPError].} =
     await node.wakuStore.start()
 
   node.switch.mount(node.wakuStore, protocolMatcher(WakuStoreCodec))
-
 
 proc mountStoreClient*(node: WakuNode) =
   info "mounting store client"

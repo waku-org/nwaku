@@ -8,7 +8,7 @@ import
   chronicles,
   chronos
 import
-  ../driver,
+  ../driver_base,
   ../retention_policy
 
 logScope:

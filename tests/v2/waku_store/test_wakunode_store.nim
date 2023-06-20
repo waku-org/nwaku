@@ -13,10 +13,10 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub
 import
-  ../../../waku/common/databases/db_sqlite,
   ../../../waku/v2/waku_core,
   ../../../waku/v2/node/peer_manager,
   ../../../waku/v2/waku_archive,
+  ../../../waku/v2/waku_archive/common as waku_archive_common,
   ../../../waku/v2/waku_archive/driver/sqlite_driver,
   ../../../waku/v2/waku_store,
   ../../../waku/v2/waku_filter,
@@ -25,17 +25,20 @@ import
   ../testlib/wakucore,
   ../testlib/wakunode
 
-proc newTestArchiveDriver(): ArchiveDriver =
-  let database = SqliteDatabase.new(":memory:").tryGet()
-  SqliteDriver.new(database).tryGet()
-
-proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): HistoryCursor =
+proc computeTestCursor(pubsubTopic: PubsubTopic,
+                       message: WakuMessage): HistoryCursor =
   HistoryCursor(
     pubsubTopic: pubsubTopic,
     senderTime: message.timestamp,
     storeTime: message.timestamp,
     digest: waku_archive.computeDigest(message)
   )
+
+proc storeWakuMessageList(w: WakuArchive, msgList: seq[WakuMessage]) =
+  for msg in msgList:
+    let msg_digest = waku_archive_common.computeDigest(msg)
+    require (waitFor w.driver.put(DefaultPubsubTopic,
+                                  msg, msg_digest, msg.timestamp)).isOk()
 
 procSuite "WakuNode - Store":
   ## Fixtures
@@ -53,15 +56,6 @@ procSuite "WakuNode - Store":
     fakeWakuMessage(@[byte 09], ts=ts(90, timeOrigin))
   ]
 
-  let archiveA = block:
-    let driver = newTestArchiveDriver()
-
-    for msg in msgListA:
-      let msg_digest = waku_archive.computeDigest(msg)
-      require (waitFor driver.put(DefaultPubsubTopic, msg, msg_digest, msg.timestamp)).isOk()
-
-    driver
-
   test "Store protocol returns expected messages":
     ## Setup
     let
@@ -72,7 +66,11 @@ procSuite "WakuNode - Store":
 
     waitFor allFutures(client.start(), server.start())
 
-    server.mountArchive(some(archiveA), none(MessageValidator), none(RetentionPolicy))
+    let mountArchRes = server.mountArchive("memory://memory")
+    assert mountArchRes.isOk(), mountArchRes.error
+
+    storeWakuMessageList(server.wakuArchive, msgListA)
+
     waitFor server.mountStore()
 
     client.mountStoreClient()
@@ -104,7 +102,11 @@ procSuite "WakuNode - Store":
 
     waitFor allFutures(client.start(), server.start())
 
-    server.mountArchive(some(archiveA), none(MessageValidator), none(RetentionPolicy))
+    let mountArchRes = server.mountArchive("memory://memory")
+    assert mountArchRes.isOk(), mountArchRes.error
+
+    storeWakuMessageList(server.wakuArchive, msgListA)
+
     waitFor server.mountStore()
 
     client.mountStoreClient()
@@ -153,7 +155,11 @@ procSuite "WakuNode - Store":
 
     waitFor allFutures(client.start(), server.start())
 
-    server.mountArchive(some(archiveA), none(MessageValidator), none(RetentionPolicy))
+    let mountArchRes = server.mountArchive("memory://memory")
+    assert mountArchRes.isOk(), mountArchRes.error
+
+    storeWakuMessageList(server.wakuArchive, msgListA)
+
     waitFor server.mountStore()
 
     client.mountStoreClient()
@@ -206,8 +212,10 @@ procSuite "WakuNode - Store":
     waitFor allFutures(client.start(), server.start(), filterSource.start())
 
     waitFor filterSource.mountFilter()
-    let driver = newTestArchiveDriver()
-    server.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+
+    let mountArchRes = server.mountArchive("memory://memory")
+    assert mountArchRes.isOk(), mountArchRes.error
+
     waitFor server.mountStore()
     waitFor server.mountFilterClient()
     client.mountStoreClient()

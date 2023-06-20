@@ -14,7 +14,7 @@ import
   ../../../../common/databases/db_sqlite,
   ../../../waku_core,
   ../../common,
-  ../../driver,
+  ../../driver_base,
   ./cursor,
   ./queries
 

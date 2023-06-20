@@ -56,8 +56,8 @@ procSuite "Waku v2 JSON-RPC API - Store":
       key = generateEcdsaKey()
       peer = PeerInfo.new(key)
 
-    let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    let mountArchRes = node.mountArchive("memory://memory")
+    assert mountArchRes.isOk(), mountArchRes.error
     await node.mountStore()
     node.mountStoreClient()
 
@@ -83,7 +83,7 @@ procSuite "Waku v2 JSON-RPC API - Store":
     ]
 
     for msg in msgList:
-      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+      require (waitFor node.wakuArchive.driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort, false)
@@ -122,8 +122,8 @@ procSuite "Waku v2 JSON-RPC API - Store":
     installStoreApiHandlers(node, server)
     server.start()
 
-    let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    let mountArchRes = node.mountArchive("memory://memory")
+    assert mountArchRes.isOk(), mountArchRes.error
     await node.mountStore()
     node.mountStoreClient()
 
@@ -133,7 +133,7 @@ procSuite "Waku v2 JSON-RPC API - Store":
       fakeWakuMessage(@[byte 9], ts=9)
     ]
     for msg in msgList:
-      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+      require (waitFor node.wakuArchive.driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort, false)

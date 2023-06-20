@@ -23,7 +23,6 @@ import
   ../testlib/wakucore,
   ../testlib/wakunode
 
-
 procSuite "Waku v2 JSON-RPC API - Admin":
   let
     bindIp = ValidIpAddress.init("0.0.0.0")
@@ -58,7 +57,6 @@ procSuite "Waku v2 JSON-RPC API - Admin":
     # Connect to nodes 2 and 3 using the Admin API
     let postRes = await client.post_waku_v2_admin_v1_peers(@[constructMultiaddrStr(peerInfo2),
                                                              constructMultiaddrStr(peerInfo3)])
-
     check:
       postRes
 
@@ -155,8 +153,8 @@ procSuite "Waku v2 JSON-RPC API - Admin":
 
     await node.mountFilter()
     await node.mountFilterClient()
-    let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    let mountArchRes = node.mountArchive("memory://memory")
+    assert mountArchRes.isOk(), mountArchRes.error
     await node.mountStore()
     node.mountStoreClient()
 

@@ -10,7 +10,7 @@ import
   chronos
 import
   ../../waku_core,
-  ../driver,
+  ../driver_base,
   ../retention_policy
 
 logScope:

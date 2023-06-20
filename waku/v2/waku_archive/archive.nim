@@ -5,27 +5,34 @@ else:
 
 
 import
-  std/[tables, times, sequtils, options, algorithm],
+  std/[tables, times, sequtils, options, algorithm, strutils],
   stew/results,
   chronicles,
   chronos,
+  regex,
   metrics
 import
+  ../../common/databases/dburl,
+  ../../common/databases/db_sqlite,
+  ./driver_base,
+  ./driver/queue_driver,
+  ./driver/sqlite_driver,
+  ./driver/sqlite_driver/migrations as archive_driver_sqlite_migrations,
+  ./driver/postgres_driver/postgres_driver,
+  ./retention_policy,
+  ./retention_policy/retention_policy_capacity,
+  ./retention_policy/retention_policy_time,
   ../waku_core,
   ./common,
   ./archive_metrics,
-  ./retention_policy,
-  ./driver
-
+  ./retention_policy as ret_policy
 
 logScope:
   topics = "waku archive"
 
 const
   DefaultPageSize*: uint = 20
-
   MaxPageSize*: uint = 100
-
 
 ## Message validation
 
@@ -36,11 +43,9 @@ type
 
 method validate*(validator: MessageValidator, msg: WakuMessage): ValidationResult {.base.} = discard
 
-
 # Default message validator
 
 const MaxMessageTimestampVariance* = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift"
-
 
 type DefaultMessageValidator* = ref object of MessageValidator
 
@@ -61,7 +66,6 @@ method validate*(validator: DefaultMessageValidator, msg: WakuMessage): Validati
 
   ok()
 
-
 ## Archive
 
 type
@@ -70,15 +74,57 @@ type
     validator: MessageValidator
     retentionPolicy: RetentionPolicy
 
+# these are defined few lines below. Just declaring to use them in 'new'.
+proc setupWakuArchiveDriver(url: string, vacuum: bool, migrate: bool):
+                            Result[ArchiveDriver, string]
+proc validateStoreMessageRetentionPolicy(val: string):
+                                         Result[string, string]
+proc setupWakuArchiveRetentionPolicy(retentionPolicy: string):
+                                     Result[RetentionPolicy, string]
+
 proc new*(T: type WakuArchive,
-          driver: ArchiveDriver,
-          validator = none(MessageValidator),
-          retentionPolicy = none(RetentionPolicy)): T =
-  WakuArchive(
-    driver: driver,
-    validator: validator.get(nil),
-    retentionPolicy: retentionPolicy.get(nil)
-  )
+          storeMessageDbUrl: string,
+          storeMessageDbVacuum: bool = false,
+          storeMessageDbMigration: bool = false,
+          storeMessageRetentionPolicy: string = "none"):
+          Result[T, string] =
+
+  # Message storage
+  let dbUrlValidationRes = dburl.validateDbUrl(storeMessageDbUrl)
+  if dbUrlValidationRes.isErr():
+    return err("failed to configure the message store database connection: " &
+               dbUrlValidationRes.error)
+
+  let archiveDriverRes =
+                     setupWakuArchiveDriver(dbUrlValidationRes.get(),
+                                            vacuum = storeMessageDbVacuum,
+                                            migrate = storeMessageDbMigration)
+  if archiveDriverRes.isErr():
+    return err("failed to configure archive driver: " & archiveDriverRes.error)
+
+  let archiveDriver = archiveDriverRes.get()
+
+  # Message store retention policy
+  let storeMessageRetentionPolicyRes =
+            validateStoreMessageRetentionPolicy(storeMessageRetentionPolicy)
+
+  if storeMessageRetentionPolicyRes.isErr():
+    return err("failed to configure the message retention policy: " &
+               storeMessageRetentionPolicyRes.error)
+
+  let archiveRetentionPolicyRes =
+          setupWakuArchiveRetentionPolicy(storeMessageRetentionPolicyRes.get())
+
+  if archiveRetentionPolicyRes.isErr():
+    return err("failed to configure the message retention policy: " &
+               archiveRetentionPolicyRes.error)
+
+  let retentionPolicy = archiveRetentionPolicyRes.get()
+
+  let wakuArch = WakuArchive(driver: archiveDriver,
+                             validator: DefaultMessageValidator(),
+                             retentionPolicy: retentionPolicy)
+  return ok(wakuArch)
 
 proc handleMessage*(w: WakuArchive,
                     pubsubTopic: PubsubTopic,
@@ -110,7 +156,6 @@ proc handleMessage*(w: WakuArchive,
 
   let insertDuration = getTime().toUnixFloat() - insertStartTime
   waku_archive_insert_duration_seconds.observe(insertDuration)
-
 
 proc findMessages*(w: WakuArchive, query: ArchiveQuery): Future[ArchiveResult] {.async, gcsafe.} =
   ## Search the archive to return a single page of messages matching the query criteria
@@ -186,25 +231,140 @@ proc findMessages*(w: WakuArchive, query: ArchiveQuery): Future[ArchiveResult] {
 
 # Retention policy
 
-proc executeMessageRetentionPolicy*(w: WakuArchive) {.async.} =
+proc executeMessageRetentionPolicy*(w: WakuArchive):
+                                    Future[Result[void, string]] {.async.} =
   if w.retentionPolicy.isNil():
-    return
+    return err("retentionPolicy is Nil in executeMessageRetentionPolicy")
 
   if w.driver.isNil():
-    return
+    return err("driver is Nil in executeMessageRetentionPolicy")
 
   let retPolicyRes = await w.retentionPolicy.execute(w.driver)
   if retPolicyRes.isErr():
       waku_archive_errors.inc(labelValues = [retPolicyFailure])
-      error "failed execution of retention policy", error=retPolicyRes.error
+      return err("failed execution of retention policy: " & retPolicyRes.error)
 
-proc reportStoredMessagesMetric*(w: WakuArchive) {.async.} =
+  return ok()
+
+proc reportStoredMessagesMetric*(w: WakuArchive):
+                                 Future[Result[void, string]] {.async.} =
   if w.driver.isNil():
-    return
+    return err("driver is Nil in reportStoredMessagesMetric")
 
   let resCount = await w.driver.getMessagesCount()
   if resCount.isErr():
-    error "failed to get messages count", error=resCount.error
-    return
+    return err("failed to get messages count: " & resCount.error)
 
   waku_archive_messages.set(resCount.value, labelValues = ["stored"])
+
+  return ok()
+
+proc startMessageRetentionPolicyPeriodicTask*(w: WakuArchive,
+                                              interval: timer.Duration) =
+  # Start the periodic message retention policy task
+  # https://github.com/nim-lang/Nim/issues/17369
+
+  var executeRetentionPolicy: proc(udata: pointer) {.gcsafe, raises: [Defect].}
+  executeRetentionPolicy = proc(udata: pointer) {.gcsafe.} =
+
+    try:
+      let retPolRes = waitFor w.executeMessageRetentionPolicy()
+      if retPolRes.isErr():
+        waku_archive_errors.inc(labelValues = [retPolicyFailure])
+        error "error in periodic retention policy", error = retPolRes.error
+    except CatchableError:
+      waku_archive_errors.inc(labelValues = [retPolicyFailure])
+      error "exception in periodic retention policy",
+            error = getCurrentExceptionMsg()
+
+    discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)
+
+  discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)
+
+proc setupWakuArchiveDriver(url: string, vacuum: bool, migrate: bool):
+                            Result[ArchiveDriver, string] =
+
+  let engineRes = dburl.getDbEngine(url)
+  if engineRes.isErr():
+    return err("error getting db engine in setupWakuArchiveDriver: " &
+               engineRes.error)
+
+  let engine = engineRes.get()
+
+  case engine
+  of "sqlite":
+    let pathRes = dburl.getDbPath(url)
+    if pathRes.isErr():
+      return err("error get path in setupWakuArchiveDriver: " & pathRes.error)
+
+    let dbRes = SqliteDatabase.new(pathRes.get())
+    if dbRes.isErr():
+      return err("error in setupWakuArchiveDriver: " & dbRes.error)
+
+    let db = dbRes.get()
+
+    # SQLite vacuum
+    let (pageSize, pageCount, freelistCount) = ? db.gatherSqlitePageStats()
+    debug "sqlite database page stats", pageSize = pageSize,
+                                        pages = pageCount,
+                                        freePages = freelistCount
+
+    if vacuum and (pageCount > 0 and freelistCount > 0):
+      ? db.performSqliteVacuum()
+
+    # Database migration
+    if migrate:
+      ? archive_driver_sqlite_migrations.migrate(db)
+
+    debug "setting up sqlite waku archive driver"
+    let res = SqliteDriver.new(db)
+    if res.isErr():
+      return err("failed to init sqlite archive driver: " & res.error)
+
+    return ok(res.get())
+
+  else:
+    debug "setting up in-memory waku archive driver"
+    let driver = QueueDriver.new()  # Defaults to a capacity of 25.000 messages
+    return ok(driver)
+
+proc validateStoreMessageRetentionPolicy(val: string):
+                                         Result[string, string] =
+  const StoreMessageRetentionPolicyRegex = re"^\w+:\w+$"
+  if val == "" or val == "none" or val.match(StoreMessageRetentionPolicyRegex):
+    ok(val)
+  else:
+    err("invalid 'store message retention policy' option format: " & val)
+
+proc setupWakuArchiveRetentionPolicy(retentionPolicy: string):
+                                     Result[RetentionPolicy, string] =
+  if retentionPolicy == "" or retentionPolicy == "none":
+    return ok(RetentionPolicy())
+
+  let rententionPolicyParts = retentionPolicy.split(":", 1)
+  let
+    policy = rententionPolicyParts[0]
+    policyArgs = rententionPolicyParts[1]
+
+  if policy == "time":
+    var retentionTimeSeconds: int64
+    try:
+      retentionTimeSeconds = parseInt(policyArgs)
+    except ValueError:
+      return err("invalid time retention policy argument")
+
+    let retPolicy: RetentionPolicy = TimeRetentionPolicy.init(retentionTimeSeconds)
+    return ok(retPolicy)
+
+  elif policy == "capacity":
+    var retentionCapacity: int
+    try:
+      retentionCapacity = parseInt(policyArgs)
+    except ValueError:
+      return err("invalid capacity retention policy argument")
+
+    let retPolicy: RetentionPolicy = CapacityRetentionPolicy.init(retentionCapacity)
+    return ok(retPolicy)
+
+  else:
+    return err("unknown retention policy")

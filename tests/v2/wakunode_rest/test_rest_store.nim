@@ -84,8 +84,8 @@ procSuite "Waku v2 Rest API - Store":
     restServer.start()
 
     # WakuStore setup
-    let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    let mountArchRes = node.mountArchive("memory://memory")
+    assert mountArchRes.isOk(), mountArchRes.error
     await node.mountStore()
     node.mountStoreClient()
 
@@ -107,7 +107,7 @@ procSuite "Waku v2 Rest API - Store":
       fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("c2"), ts=9)
     ]
     for msg in msgList:
-      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+      require (waitFor node.wakuArchive.driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
@@ -152,8 +152,8 @@ procSuite "Waku v2 Rest API - Store":
     restServer.start()
 
     # WakuStore setup
-    let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    let mountArchRes = node.mountArchive("memory://memory")
+    assert mountArchRes.isOk(), mountArchRes.error
     await node.mountStore()
     node.mountStoreClient()
 
@@ -178,7 +178,7 @@ procSuite "Waku v2 Rest API - Store":
       fakeWakuMessage(@[byte 09], ts=ts(90, timeOrigin))
     ]
     for msg in msgList:
-      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+      require (waitFor node.wakuArchive.driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
@@ -248,8 +248,8 @@ procSuite "Waku v2 Rest API - Store":
     restServer.start()
 
     # WakuStore setup
-    let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    let mountArchRes = node.mountArchive("memory://memory")
+    assert mountArchRes.isOk(), mountArchRes.error
     await node.mountStore()
     node.mountStoreClient()
 
@@ -266,7 +266,7 @@ procSuite "Waku v2 Rest API - Store":
       fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("2"), ts=9)
     ]
     for msg in msgList:
-      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+      require (waitFor node.wakuArchive.driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
@@ -320,8 +320,8 @@ procSuite "Waku v2 Rest API - Store":
     restServer.start()
 
     # WakuStore setup
-    let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    let mountArchRes = node.mountArchive("memory://memory")
+    assert mountArchRes.isOk(), mountArchRes.error
     await node.mountStore()
     node.mountStoreClient()
 
@@ -338,7 +338,7 @@ procSuite "Waku v2 Rest API - Store":
       fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("ct2"), ts=9)
     ]
     for msg in msgList:
-      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+      require (waitFor node.wakuArchive.driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
@@ -409,8 +409,8 @@ procSuite "Waku v2 Rest API - Store":
     restServer.start()
 
     # WakuStore setup
-    let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    let mountArchRes = node.mountArchive("memory://memory")
+    assert mountArchRes.isOk(), mountArchRes.error
     await node.mountStore()
     node.mountStoreClient()
 
@@ -427,7 +427,7 @@ procSuite "Waku v2 Rest API - Store":
       fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("ct2"), ts=9)
     ]
     for msg in msgList:
-      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+      require (waitFor node.wakuArchive.driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
@@ -464,8 +464,8 @@ procSuite "Waku v2 Rest API - Store":
     restServer.start()
 
     # WakuStore setup
-    let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    let mountArchRes = node.mountArchive("memory://memory")
+    assert mountArchRes.isOk(), mountArchRes.error
     await node.mountStore()
     node.mountStoreClient()
 
@@ -482,7 +482,7 @@ procSuite "Waku v2 Rest API - Store":
       fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("ct2"), ts=9)
     ]
     for msg in msgList:
-      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+      require (waitFor node.wakuArchive.driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 

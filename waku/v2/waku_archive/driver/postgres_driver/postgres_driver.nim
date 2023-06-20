@@ -11,7 +11,7 @@ import
 import
   ../../../waku_core,
   ../../common,
-  ../../driver,
+  ../../driver_base,
   ../../../../common/databases/db_postgres as waku_postgres
 
 export postgres_driver
