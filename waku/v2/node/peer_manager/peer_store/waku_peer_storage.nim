@@ -10,12 +10,12 @@ import
   sqlite3_abi,
   libp2p/protobuf/minprotobuf
 import
-  ../../../../common/sqlite,
+  ../../../../common/databases/db_sqlite,
   ../../../waku_core,
   ../waku_peer_store,
   ./peer_storage
 
-export sqlite
+export db_sqlite
 
 type
   WakuPeerStorage* = ref object of PeerStorage
@@ -152,7 +152,7 @@ method getAll*(db: WakuPeerStorage, onData: peer_storage.DataProc): PeerStorageR
 
     onData(peerId, storedInfo, connectedness, disconnectTime)
 
-  var queryResult: DatabaseResult[bool]
+  var queryResult: Result[bool, string]
   try:
     queryResult = db.database.query("SELECT peerId, storedInfo, connectedness, disconnectTime FROM Peer", peer)
   except LPError, ResultError[ProtoError]:

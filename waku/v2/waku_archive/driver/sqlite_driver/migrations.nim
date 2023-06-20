@@ -5,8 +5,7 @@ import
   stew/results,
   chronicles
 import
-  ../../../../common/sqlite,
-  ../../../../common/sqlite/migrations
+  ../../../../common/databases/db_sqlite
 
 
 logScope:
@@ -19,7 +18,7 @@ template projectRoot: string = currentSourcePath.rsplit(DirSep, 1)[0] / ".." / "
 const MessageStoreMigrationPath: string = projectRoot / "migrations" / "message_store"
 
 
-proc migrate*(db: SqliteDatabase, targetVersion = SchemaVersion): DatabaseResult[void] =
+proc migrate*(db: SqliteDatabase, targetVersion = SchemaVersion): Result[void, string] =
   ## Compares the `user_version` of the sqlite database with the provided `targetVersion`, then
   ## it runs migration scripts if the `user_version` is outdated. The `migrationScriptsDir` path
   ## points to the directory holding the migrations scripts once the db is updated, it sets the
@@ -30,7 +29,7 @@ proc migrate*(db: SqliteDatabase, targetVersion = SchemaVersion): DatabaseResult
   ## NOTE: Down migration it is not currently supported
   debug "starting message store's sqlite database migration"
 
-  let migrationRes = migrations.migrate(db, targetVersion, migrationsScriptsDir=MessageStoreMigrationPath)
+  let migrationRes = migrate(db, targetVersion, migrationsScriptsDir=MessageStoreMigrationPath)
   if migrationRes.isErr():
     return err("failed to execute migration scripts: " & migrationRes.error)
 

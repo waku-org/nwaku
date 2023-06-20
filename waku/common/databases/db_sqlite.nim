@@ -5,11 +5,10 @@
 # Most of it is a direct copy, the only unique functions being `get` and `put`.
 
 import
-  std/os,
+  std/[os, strutils, sequtils, algorithm],
   stew/results,
   chronicles,
   sqlite3_abi
-
 
 logScope:
   topics = "sqlite"
@@ -23,7 +22,6 @@ type
 
   AutoDisposed[T: ptr|ref] = object
     val: T
-
 
 template dispose(db: Sqlite) =
   discard sqlite3_close(db)
@@ -51,20 +49,19 @@ template checkErr*(op, cleanup: untyped) =
 template checkErr*(op) =
   checkErr(op): discard
 
-
 type
-  DatabaseResult*[T] = Result[T, string]
-
   SqliteDatabase* = ref object of RootObj
     env*: Sqlite
-
 
 type DataProc* = proc(s: RawStmtPtr) {.closure.} # the nim-eth definition is different; one more indirection
 
 const NoopRowHandler* = proc(s: RawStmtPtr) {.closure.} = discard
 
+proc new*(T: type SqliteDatabase,
+          path: string,
+          readOnly=false):
+          Result[T, string] =
 
-proc new*(T: type SqliteDatabase, path: string, readOnly=false): DatabaseResult[T] =
   var env: AutoDisposed[ptr sqlite3]
   defer: disposeIfUnreleased(env)
 
@@ -111,13 +108,11 @@ proc new*(T: type SqliteDatabase, path: string, readOnly=false): DatabaseResult[
       discard sqlite3_finalize(journalModePragma)
       return err("Invalid pragma result: " & $x)
 
-
   let journalModePragma = prepare("PRAGMA journal_mode = WAL;"): discard
   checkWalPragmaResult(journalModePragma)
   checkExec(journalModePragma)
 
   ok(SqliteDatabase(env: env.release))
-
 
 template prepare*(env: Sqlite, q: string, cleanup: untyped): ptr sqlite3_stmt =
   var s: ptr sqlite3_stmt
@@ -159,7 +154,7 @@ template bindParams(s: RawStmtPtr, params: auto) =
   else:
     checkErr bindParam(s, 1, params)
 
-proc exec*[P](s: SqliteStmt[P, void], params: P): DatabaseResult[void] =
+proc exec*[P](s: SqliteStmt[P, void], params: P): Result[void, string] =
   let s = RawStmtPtr s
   bindParams(s, params)
 
@@ -197,7 +192,7 @@ template readResult(s: RawStmtPtr, T: type): auto =
 
 proc exec*[Params, Res](s: SqliteStmt[Params, Res],
                         params: Params,
-                        onData: DataProc): DatabaseResult[bool] =
+                        onData: DataProc): Result[bool, string] =
   let s = RawStmtPtr s
   bindParams(s, params)
 
@@ -219,8 +214,8 @@ proc exec*[Params, Res](s: SqliteStmt[Params, Res],
     discard sqlite3_reset(s) # same return information as step
     discard sqlite3_clear_bindings(s) # no errors possible
 
-
-proc query*(db: SqliteDatabase, query: string, onData: DataProc): DatabaseResult[bool] =
+proc query*(db: SqliteDatabase, query: string, onData: DataProc):
+            Result[bool, string] =
   var s = prepare(db.env, query): discard
 
   try:
@@ -247,7 +242,7 @@ proc prepareStmt*(
   stmt: string,
   Params: type,
   Res: type
-): DatabaseResult[SqliteStmt[Params, Res]] =
+): Result[SqliteStmt[Params, Res], string] =
   var s: RawStmtPtr
   checkErr sqlite3_prepare_v2(db.env, stmt, stmt.len.cint, addr s, nil)
   ok SqliteStmt[Params, Res](s)
@@ -257,12 +252,11 @@ proc close*(db: SqliteDatabase) =
 
   db[] = SqliteDatabase()[]
 
-
 ##  Maintenance procedures
 
 # TODO: Cache this value in the SqliteDatabase object.
 #       Page size should not change during the node execution time
-proc getPageSize*(db: SqliteDatabase): DatabaseResult[int64] =
+proc getPageSize*(db: SqliteDatabase): Result[int64, string] =
   ## Query or set the page size of the database. The page size must be a power of
   ## two between 512 and 65536 inclusive.
   var size: int64
@@ -273,10 +267,9 @@ proc getPageSize*(db: SqliteDatabase): DatabaseResult[int64] =
   if res.isErr():
       return err("failed to get page_size")
 
-  ok(size)
+  return ok(size)
 
-
-proc getFreelistCount*(db: SqliteDatabase): DatabaseResult[int64] =
+proc getFreelistCount*(db: SqliteDatabase): Result[int64, string] =
   ## Return the number of unused pages in the database file.
   var count: int64
   proc handler(s: RawStmtPtr) =
@@ -286,10 +279,9 @@ proc getFreelistCount*(db: SqliteDatabase): DatabaseResult[int64] =
   if res.isErr():
       return err("failed to get freelist_count")
 
-  ok(count)
+  return ok(count)
 
-
-proc getPageCount*(db: SqliteDatabase): DatabaseResult[int64] =
+proc getPageCount*(db: SqliteDatabase): Result[int64, string] =
   ## Return the total number of pages in the database file.
   var count: int64
   proc handler(s: RawStmtPtr) =
@@ -299,21 +291,28 @@ proc getPageCount*(db: SqliteDatabase): DatabaseResult[int64] =
   if res.isErr():
       return err("failed to get page_count")
 
-  ok(count)
+  return ok(count)
 
+proc gatherSqlitePageStats*(db: SqliteDatabase):
+                            Result[(int64, int64, int64), string] =
+  let
+    pageSize = ?db.getPageSize()
+    pageCount = ?db.getPageCount()
+    freelistCount = ?db.getFreelistCount()
 
-proc vacuum*(db: SqliteDatabase): DatabaseResult[void] =
+  return ok((pageSize, pageCount, freelistCount))
+
+proc vacuum*(db: SqliteDatabase): Result[void, string] =
   ## The VACUUM command rebuilds the database file, repacking it into a minimal amount of disk space.
   let res = db.query("VACUUM;", NoopRowHandler)
   if res.isErr():
       return err("vacuum failed")
 
-  ok()
-
+  return ok()
 
 ## Database scheme versioning
 
-proc getUserVersion*(database: SqliteDatabase): DatabaseResult[int64] =
+proc getUserVersion*(database: SqliteDatabase): Result[int64, string] =
   ## Get the value of the user-version integer.
   ##
   ## The user-version is an integer that is available to applications to use however they want.
@@ -331,7 +330,8 @@ proc getUserVersion*(database: SqliteDatabase): DatabaseResult[int64] =
 
   ok(version)
 
-proc setUserVersion*(database: SqliteDatabase, version: int64): DatabaseResult[void] =
+proc setUserVersion*(database: SqliteDatabase, version: int64):
+                     Result[void, string] =
   ## Set the value of the user-version integer.
   ##
   ## The user-version is an integer that is available to applications to use however they want.
@@ -345,3 +345,141 @@ proc setUserVersion*(database: SqliteDatabase, version: int64): DatabaseResult[v
       return err("failed to set user_version")
 
   ok()
+
+## Migration scripts
+
+proc getMigrationScriptVersion(path: string): Result[int64, string] =
+  let name = extractFilename(path)
+  let parts = name.split("_", 1)
+
+  try:
+    let version = parseInt(parts[0])
+    return ok(version)
+  except ValueError:
+    return err("failed to parse file version: " & name)
+
+proc isSqlScript(path: string): bool =
+  path.toLower().endsWith(".sql")
+
+proc listSqlScripts(path: string): Result[seq[string], string] =
+  var scripts = newSeq[string]()
+
+  try: 
+    for scriptPath in walkDirRec(path):
+      if isSqlScript(scriptPath):
+        scripts.add(scriptPath)
+      else:
+        debug "invalid migration script", file=scriptPath
+  except OSError:
+    return err("failed to list migration scripts: " & getCurrentExceptionMsg())
+
+  ok(scripts)
+
+proc filterMigrationScripts(paths: seq[string],
+                            lowVersion, highVersion: int64,
+                            direction: string = "up"):
+                            seq[string] =
+  ## Returns migration scripts whose version fall between lowVersion and highVersion (inclusive)
+  let filterPredicate = proc(script: string): bool =
+      if not isSqlScript(script):
+        return false
+
+      if direction != "" and not script.toLower().endsWith("." & direction & ".sql"):
+        return false
+
+      let scriptVersionRes = getMigrationScriptVersion(script)
+      if scriptVersionRes.isErr():
+        return false
+      
+      let scriptVersion = scriptVersionRes.value
+      return lowVersion < scriptVersion and scriptVersion <= highVersion
+
+  paths.filter(filterPredicate)
+
+proc sortMigrationScripts(paths: seq[string]): seq[string] =
+  ## Sort migration scripts paths alphabetically
+  paths.sorted(system.cmp[string])
+
+proc loadMigrationScripts(paths: seq[string]): Result[seq[string], string] =
+  var loadedScripts = newSeq[string]()
+
+  for script in paths:
+    try:
+      loadedScripts.add(readFile(script))
+    except OSError, IOError:
+      return err("failed to load script '" & script & "': " & getCurrentExceptionMsg())
+
+  ok(loadedScripts)
+
+proc breakIntoStatements(script: string): seq[string] =
+  var statements = newSeq[string]()
+
+  for chunk in script.split(';'):
+    if chunk.strip().isEmptyOrWhitespace(): 
+      continue
+
+    let statement = chunk.strip() & ";"
+    statements.add(statement)
+
+  statements
+
+proc migrate*(db: SqliteDatabase,
+              targetVersion: int64,
+              migrationsScriptsDir: string):
+              Result[void, string] =
+  ## Compares the `user_version` of the sqlite database with the provided `targetVersion`, then
+  ## it runs migration scripts if the `user_version` is outdated. The `migrationScriptsDir` path
+  ## points to the directory holding the migrations scripts once the db is updated, it sets the
+  ## `user_version` to the `tragetVersion`.
+  ##
+  ## NOTE: Down migration it is not currently supported
+  let userVersion = ?db.getUserVersion()
+
+  if userVersion == targetVersion:
+    debug "database schema is up to date", userVersion=userVersion, targetVersion=targetVersion
+    return ok()
+  
+  info "database schema is outdated", userVersion=userVersion, targetVersion=targetVersion
+
+  # Load migration scripts
+  var migrationScriptsPaths = ?listSqlScripts(migrationsScriptsDir)
+  migrationScriptsPaths = filterMigrationScripts(migrationScriptsPaths, lowVersion=userVersion, highVersion=targetVersion, direction="up")
+  migrationScriptsPaths = sortMigrationScripts(migrationScriptsPaths)
+  
+  if migrationScriptsPaths.len <= 0:
+    debug "no scripts to be run"
+    return ok()
+
+  let scripts = ?loadMigrationScripts(migrationScriptsPaths)
+
+  # Run the migration scripts
+  for script in scripts:
+
+    for statement in script.breakIntoStatements():
+      debug "executing migration statement", statement=statement
+
+      let execRes = db.query(statement, NoopRowHandler)
+      if execRes.isErr():
+        error "failed to execute migration statement", statement=statement, error=execRes.error
+        return err("failed to execute migration statement")
+
+      debug "migration statement executed succesfully", statement=statement
+    
+  # Update user_version
+  ?db.setUserVersion(targetVersion)
+
+  debug "database user_version updated", userVersion=targetVersion
+  ok()
+
+proc performSqliteVacuum*(db: SqliteDatabase): Result[void, string] =
+  ## SQLite database vacuuming
+  # TODO: Run vacuuming conditionally based on database page stats
+  # if (pageCount > 0 and freelistCount > 0):
+
+  debug "starting sqlite database vacuuming"
+
+  let resVacuum = db.vacuum()
+  if resVacuum.isErr():
+    return err("failed to execute vacuum: " & resVacuum.error)
+
+  debug "finished sqlite database vacuuming"

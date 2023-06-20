@@ -7,7 +7,7 @@ import
   chronicles,
   libp2p/crypto/crypto
 import
-  ../../waku/common/sqlite,
+  ../../waku/common/databases/db_sqlite,
   ../../waku/v2/node/message_store/sqlite_store,
   ../../waku/v2/node/peer_manager,
   ../../waku/v2/waku_core,
