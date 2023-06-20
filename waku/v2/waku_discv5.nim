@@ -192,7 +192,7 @@ proc shardingPredicate*(record: Record): Option[WakuDiscv5Predicate] =
   return some(proc(record: waku_enr.Record): bool =
       nodeShard.indices.anyIt(record.containsShard(nodeShard.cluster, it)))
 
-proc findRandomPeers*(wd: WakuDiscoveryV5, pred: Option[WakuDiscv5Predicate] = none(WakuDiscv5Predicate)): Future[seq[waku_enr.Record]] {.async.} =
+proc findRandomPeers*(wd: WakuDiscoveryV5, pred = none(WakuDiscv5Predicate)): Future[seq[waku_enr.Record]] {.async.} =
   ## Find random peers to connect to using Discovery v5
   let discoveredNodes = await wd.protocol.queryRandom()
 
