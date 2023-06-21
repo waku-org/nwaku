@@ -86,17 +86,16 @@ proc close*(pool: PgAsyncPool):
 
   # wait for the connections to be released and close them, without
   # blocking the async runtime
-  if pool.conns.anyIt(it.busy):
-    while pool.conns.anyIt(it.busy):
-      await sleepAsync(0.milliseconds)
+  while pool.conns.anyIt(it.busy):
+    await sleepAsync(0.milliseconds)
 
-      for i in 0..<pool.conns.len:
-        if pool.conns[i].busy:
-          continue
+    for i in 0..<pool.conns.len:
+      if pool.conns[i].busy:
+        continue
 
-        pool.conns[i].dbConn.close()
-        pool.conns[i].busy = false
-        pool.conns[i].open = false
+      pool.conns[i].dbConn.close()
+      pool.conns[i].busy = false
+      pool.conns[i].open = false
 
   for i in 0..<pool.conns.len:
     if pool.conns[i].open:
