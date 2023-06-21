@@ -73,7 +73,7 @@ when isMainModule:
 
   debug "3/7 Initializing node"
 
-  let res4 = wakunode2.setupWakuNode()
+  let res4 = wakunode2.setupWakuApp()
   if res4.isErr():
     error "3/7 Initializing node failed", error=res4.error
     quit(QuitFailure)
@@ -87,7 +87,7 @@ when isMainModule:
 
   debug "5/7 Starting node and mounted protocols"
 
-  let res6 = waitFor wakunode2.startNode()
+  let res6 = waitFor wakunode2.startApp()
   if res6.isErr():
     error "5/7 Starting node and protocols failed", error=res6.error
     quit(QuitFailure)

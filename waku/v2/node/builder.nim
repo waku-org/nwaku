@@ -44,9 +44,6 @@ type
     switchSslSecureCert: Option[string]
     switchSendSignedPeerRecord: Option[bool]
 
-    # Waku discv5
-    wakuDiscv5: Option[WakuDiscoveryV5]
-
   WakuNodeBuilderResult* = Result[void, string]
 
 
@@ -132,14 +129,6 @@ proc withSwitchConfiguration*(builder: var WakuNodeBuilder,
   if not nameResolver.isNil():
     builder.switchNameResolver = some(nameResolver)
 
-
-## Waku discv5
-
-proc withWakuDiscv5*(builder: var WakuNodeBuilder, instance: WakuDiscoveryV5) =
-  if not instance.isNil():
-    builder.wakuDiscv5 = some(instance)
-
-
 ## Build
 
 proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
@@ -196,7 +185,6 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
       netConfig = builder.netConfig.get(),
       enr = builder.record,
       switch = switch,
-      wakuDiscv5 = builder.wakuDiscv5,
       peerManager = peerManager,
       rng = rng,
     )

@@ -72,68 +72,93 @@ procSuite "Waku Peer Exchange":
       resEnr2 == enr2
 
   asyncTest "retrieve and provide peer exchange peers from discv5":
-    ## Setup (copied from test_waku_discv5.nim)
+    ## Given (copied from test_waku_discv5.nim)
     let
-      bindIp = ValidIpAddress.init("0.0.0.0")
-      extIp = ValidIpAddress.init("127.0.0.1")
-
-      nodeKey1 = generateSecp256k1Key()
-      nodeTcpPort1 = Port(64010)
-      nodeUdpPort1 = Port(9000)
-      node1 = newTestWakuNode(nodeKey1, bindIp, nodeTcpPort1)
-
-      nodeKey2 = generateSecp256k1Key()
-      nodeTcpPort2 = Port(64012)
-      nodeUdpPort2 = Port(9002)
-      node2 = newTestWakuNode(nodeKey2, bindIp, nodeTcpPort2)
-
-      nodeKey3 = generateSecp256k1Key()
-      nodeTcpPort3 = Port(64014)
-      nodeUdpPort3 = Port(9004)
-      node3 = newTestWakuNode(nodeKey3, bindIp, nodeTcpPort3)
-
       # todo: px flag
       flags = CapabilitiesBitfield.init(
                 lightpush = false,
                 filter = false,
                 store = false,
                 relay = true
-              )
+      )
+      bindIp = ValidIpAddress.init("0.0.0.0")
+      extIp = ValidIpAddress.init("127.0.0.1")
 
-    # Mount discv5
-    node1.wakuDiscv5 = WakuDiscoveryV5.new(
-        some(extIp), some(nodeTcpPort1), some(nodeUdpPort1),
+      nodeKey1 = generateSecp256k1Key()
+      nodeTcpPort1 = Port(64010)
+      nodeUdpPort1 = Port(9000)
+      node1 = newTestWakuNode(
+        nodeKey1,
         bindIp,
-        nodeUdpPort1,
-        newSeq[enr.Record](),
-        false,
-        keys.PrivateKey(nodeKey1.skkey),
-        flags,
-        newSeq[MultiAddress](), # Empty multiaddr fields, for now
+        nodeTcpPort1,
+        some(extIp),
+        wakuFlags = some(flags),
+        discv5UdpPort = some(nodeUdpPort1)
+      )
+
+      nodeKey2 = generateSecp256k1Key()
+      nodeTcpPort2 = Port(64012)
+      nodeUdpPort2 = Port(9002)
+      node2 = newTestWakuNode(nodeKey2,
+        bindIp,
+        nodeTcpPort2,
+        some(extIp),
+        wakuFlags = some(flags),
+        discv5UdpPort = some(nodeUdpPort2)
+      )
+
+      nodeKey3 = generateSecp256k1Key()
+      nodeTcpPort3 = Port(64014)
+      nodeUdpPort3 = Port(9004)
+      node3 = newTestWakuNode(nodeKey3,
+        bindIp,
+        nodeTcpPort3,
+        some(extIp),
+        wakuFlags = some(flags),
+        discv5UdpPort = some(nodeUdpPort3)
+      )
+
+    # discv5
+    let conf1 = WakuDiscoveryV5Config(
+      discv5Config: none(DiscoveryConfig),
+      address: bindIp,
+      port: nodeUdpPort1,
+      privateKey: keys.PrivateKey(nodeKey1.skkey),
+      bootstrapRecords: @[],
+      autoupdateRecord: true
+    )
+
+    let disc1 = WakuDiscoveryV5.new(
         node1.rng,
-        newSeq[string]()
+        conf1,
+        some(node1.enr)
       )
 
-    node2.wakuDiscv5 = WakuDiscoveryV5.new(
-        some(extIp), some(nodeTcpPort2), some(nodeUdpPort2),
-        bindIp,
-        nodeUdpPort2,
-        @[node1.wakuDiscv5.protocol.localNode.record], # Bootstrap with node1
-        false,
-        keys.PrivateKey(nodeKey2.skkey),
-        flags,
-        newSeq[MultiAddress](), # Empty multiaddr fields, for now
+    let conf2 = WakuDiscoveryV5Config(
+      discv5Config: none(DiscoveryConfig),
+      address: bindIp,
+      port: nodeUdpPort2,
+      privateKey: keys.PrivateKey(nodeKey2.skkey),
+      bootstrapRecords: @[disc1.protocol.getRecord()],
+      autoupdateRecord: true
+    )
+
+    let disc2 = WakuDiscoveryV5.new(
         node2.rng,
-        newSeq[string]()
+        conf2,
+        some(node2.enr)
       )
 
-    ## Given
-    await allFutures(node1.start(), node2.start(), node3.start())
-    await allFutures(node1.startDiscv5(), node2.startDiscv5())
 
+    await allFutures(node1.start(), node2.start(), node3.start())
+    await allFutures(disc1.start(), disc2.start())
+    asyncSpawn disc1.searchLoop(node1.peerManager, none(enr.Record))
+    asyncSpawn disc2.searchLoop(node2.peerManager, none(enr.Record))
+
+    ## When
     var attempts = 10
-    while (node1.wakuDiscv5.protocol.nodesDiscovered < 1 or
-          node2.wakuDiscv5.protocol.nodesDiscovered < 1) and
+    while (disc1.protocol.nodesDiscovered < 1 or
+          disc2.protocol.nodesDiscovered < 1) and
           attempts > 0:
       await sleepAsync(1.seconds)
       attempts -= 1
@@ -157,11 +182,12 @@ procSuite "Waku Peer Exchange":
       await sleepAsync(1.seconds)
       attempts -= 1
 
+    ## Then
     check:
       response.get().peerInfos.len == 1
-      response.get().peerInfos[0].enr == node2.wakuDiscV5.protocol.localNode.record.raw
+      response.get().peerInfos[0].enr == disc2.protocol.localNode.record.raw
 
-    await allFutures([node1.stop(), node2.stop(), node3.stop()])
+    await allFutures([node1.stop(), node2.stop(), node3.stop(), disc1.stop(), disc2.stop()])
 
   asyncTest "peer exchange request functions returns some discovered peers":
     let
