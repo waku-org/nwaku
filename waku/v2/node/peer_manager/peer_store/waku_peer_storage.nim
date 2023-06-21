@@ -152,7 +152,7 @@ method getAll*(db: WakuPeerStorage, onData: peer_storage.DataProc): PeerStorageR
 
     onData(peerId, storedInfo, connectedness, disconnectTime)
 
-  var queryResult: Result[bool, string]
+  var queryResult: DatabaseResult[bool]
   try:
     queryResult = db.database.query("SELECT peerId, storedInfo, connectedness, disconnectTime FROM Peer", peer)
   except LPError, ResultError[ProtoError]:

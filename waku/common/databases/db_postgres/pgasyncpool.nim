@@ -37,10 +37,13 @@ type
     state: PgAsyncPoolState
     conns: seq[PgDbConn]
 
+type
+  DatabaseResult*[T] = Result[T, string]
+
 proc new*(T: type PgAsyncPool,
           dbUrl: string,
           maxConnections: int):
-          Result[T, string] =
+          DatabaseResult[T] =
 
   var connString: string
 
@@ -107,7 +110,7 @@ proc close*(pool: PgAsyncPool):
   return ok()
 
 proc getConnIndex(pool: PgAsyncPool):
-                  Future[Result[int, string]] {.async.} =
+                  Future[DatabaseResult[int]] {.async.} =
   ## Waits for a free connection or create if max connections limits have not been reached.
   ## Returns the index of the free connection
 
@@ -144,7 +147,7 @@ proc releaseConn(pool: PgAsyncPool, conn: DbConn) =
 proc query*(pool: PgAsyncPool,
             query: string,
             args: seq[string] = newSeq[string](0)):
-            Future[Result[seq[Row], string]] {.async.} =
+            Future[DatabaseResult[seq[Row]]] {.async.} =
   ## Runs the SQL query getting results.
   ## Retrieves info from the database.
 
@@ -164,7 +167,7 @@ proc query*(pool: PgAsyncPool,
 proc exec*(pool: PgAsyncPool,
            query: string,
            args: seq[string] = newSeq[string](0)):
-           Future[Result[void, string]] {.async.} =
+           Future[DatabaseResult[void]] {.async.} =
   ## Runs the SQL query without results.
   ## Alters the database state.
 
@@ -184,7 +187,7 @@ proc exec*(pool: PgAsyncPool,
 proc runStmt*(pool: PgAsyncPool,
               baseStmt: string,
               args: seq[string]):
-              Future[Result[void, string]] {.async.} =
+              Future[DatabaseResult[void]] {.async.} =
   # Runs a stored statement, for performance purposes.
   # In the current implementation, this is aimed
   # to run the 'insertRow' stored statement aimed to add a new Waku message.

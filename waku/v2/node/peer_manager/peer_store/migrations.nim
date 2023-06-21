@@ -22,7 +22,7 @@ template projectRoot: string = currentSourcePath.rsplit(DirSep, 1)[0] / ".." / "
 const PeerStoreMigrationPath: string = projectRoot / "migrations" / "peer_store"
 
 
-proc migrate*(db: SqliteDatabase, targetVersion = SchemaVersion): Result[void, string] =
+proc migrate*(db: SqliteDatabase, targetVersion = SchemaVersion): DatabaseResult[void] =
   ## Compares the `user_version` of the sqlite database with the provided `targetVersion`, then
   ## it runs migration scripts if the `user_version` is outdated. The `migrationScriptsDir` path
   ## points to the directory holding the migrations scripts once the db is updated, it sets the

@@ -77,7 +77,7 @@ proc createTableQuery(table: string): SqlQueryStr =
   " CONSTRAINT messageIndex PRIMARY KEY (storedAt, id, pubsubTopic)" &
   ") WITHOUT ROWID;"
 
-proc createTable*(db: SqliteDatabase): Result[void, string] =
+proc createTable*(db: SqliteDatabase): DatabaseResult[void] =
   let query = createTableQuery(DbTable)
   discard ?db.query(query, proc(s: ptr sqlite3_stmt) = discard)
   ok()
@@ -88,7 +88,7 @@ proc createTable*(db: SqliteDatabase): Result[void, string] =
 proc createOldestMessageTimestampIndexQuery(table: string): SqlQueryStr =
   "CREATE INDEX IF NOT EXISTS i_ts ON " & table & " (storedAt);"
 
-proc createOldestMessageTimestampIndex*(db: SqliteDatabase): Result[void, string] =
+proc createOldestMessageTimestampIndex*(db: SqliteDatabase): DatabaseResult[void] =
   let query = createOldestMessageTimestampIndexQuery(DbTable)
   discard ?db.query(query, proc(s: ptr sqlite3_stmt) = discard)
   ok()
@@ -97,7 +97,7 @@ proc createOldestMessageTimestampIndex*(db: SqliteDatabase): Result[void, string
 proc createHistoryQueryIndexQuery(table: string): SqlQueryStr =
   "CREATE INDEX IF NOT EXISTS i_query ON " & table & " (contentTopic, pubsubTopic, storedAt, id);"
 
-proc createHistoryQueryIndex*(db: SqliteDatabase): Result[void, string] =
+proc createHistoryQueryIndex*(db: SqliteDatabase): DataseResult[void] =
   let query = createHistoryQueryIndexQuery(DbTable)
   discard ?db.query(query, proc(s: ptr sqlite3_stmt) = discard)
   ok()
@@ -120,7 +120,7 @@ proc prepareInsertMessageStmt*(db: SqliteDatabase): SqliteStmt[InsertMessagePara
 proc countMessagesQuery(table: string): SqlQueryStr =
   "SELECT COUNT(*) FROM " & table
 
-proc getMessageCount*(db: SqliteDatabase): Result[int64, string] =
+proc getMessageCount*(db: SqliteDatabase): DatabaseResult[int64] =
   var count: int64
   proc queryRowCallback(s: ptr sqlite3_stmt) =
     count = sqlite3_column_int64(s, 0)
@@ -138,7 +138,7 @@ proc getMessageCount*(db: SqliteDatabase): Result[int64, string] =
 proc selectOldestMessageTimestampQuery(table: string): SqlQueryStr =
   "SELECT MIN(storedAt) FROM " & table
 
-proc selectOldestReceiverTimestamp*(db: SqliteDatabase): Result[Timestamp, string] {.inline.}=
+proc selectOldestReceiverTimestamp*(db: SqliteDatabase): DatabaseResult[Timestamp] {.inline.}=
   var timestamp: Timestamp
   proc queryRowCallback(s: ptr sqlite3_stmt) =
     timestamp = queryRowReceiverTimestampCallback(s, 0)
@@ -155,7 +155,7 @@ proc selectOldestReceiverTimestamp*(db: SqliteDatabase): Result[Timestamp, strin
 proc selectNewestMessageTimestampQuery(table: string): SqlQueryStr =
   "SELECT MAX(storedAt) FROM " & table
 
-proc selectNewestReceiverTimestamp*(db: SqliteDatabase): Result[Timestamp, string] {.inline.}=
+proc selectNewestReceiverTimestamp*(db: SqliteDatabase): DatabaseResult[Timestamp] {.inline.}=
   var timestamp: Timestamp
   proc queryRowCallback(s: ptr sqlite3_stmt) =
     timestamp = queryRowReceiverTimestampCallback(s, 0)
@@ -172,7 +172,7 @@ proc selectNewestReceiverTimestamp*(db: SqliteDatabase): Result[Timestamp, strin
 proc deleteMessagesOlderThanTimestampQuery(table: string, ts: Timestamp): SqlQueryStr =
   "DELETE FROM " & table & " WHERE storedAt < " & $ts
 
-proc deleteMessagesOlderThanTimestamp*(db: SqliteDatabase, ts: int64): Result[void, string] =
+proc deleteMessagesOlderThanTimestamp*(db: SqliteDatabase, ts: int64): DatabaseResult[void] =
   let query = deleteMessagesOlderThanTimestampQuery(DbTable, ts)
   discard ?db.query(query, proc(s: ptr sqlite3_stmt) = discard)
   ok()
@@ -187,7 +187,7 @@ proc deleteOldestMessagesNotWithinLimitQuery(table: string, limit: int): SqlQuer
   " LIMIT " & $limit &
   ");"
 
-proc deleteOldestMessagesNotWithinLimit*(db: SqliteDatabase, limit: int): Result[void, string] =
+proc deleteOldestMessagesNotWithinLimit*(db: SqliteDatabase, limit: int): DatabaseResult[void] =
   # NOTE: The word `limit` here refers the store capacity/maximum number-of-messages allowed limit
   let query = deleteOldestMessagesNotWithinLimitQuery(DbTable, limit=limit)
   discard ?db.query(query, proc(s: ptr sqlite3_stmt) = discard)
@@ -201,11 +201,10 @@ proc selectAllMessagesQuery(table: string): SqlQueryStr =
   " FROM " & table &
   " ORDER BY storedAt ASC"
 
-proc selectAllMessages*(db: SqliteDatabase): Result[seq[(PubsubTopic,
-                                                         WakuMessage,
-                                                         seq[byte],
-                                                         Timestamp)],
-                                                    string] =
+proc selectAllMessages*(db: SqliteDatabase): DatabaseResult[seq[(PubsubTopic,
+                                                                 WakuMessage,
+                                                                 seq[byte],
+                                                                 Timestamp)]] =
   ## Retrieve all messages from the store.
   var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]
   proc queryRowCallback(s: ptr sqlite3_stmt) =
@@ -293,7 +292,7 @@ proc selectMessagesWithLimitQuery(table: string, where: Option[string], limit: u
 
   query
 
-proc prepareSelectMessagesWithlimitStmt(db: SqliteDatabase, stmt: string): Result[SqliteStmt[void, void], string] =
+proc prepareSelectMessagesWithlimitStmt(db: SqliteDatabase, stmt: string): DatabaseResult[SqliteStmt[void, void]] =
   var s: RawStmtPtr
   checkErr sqlite3_prepare_v2(db.env, stmt, stmt.len.cint, addr s, nil)
   ok(SqliteStmt[void, void](s))
@@ -304,7 +303,7 @@ proc execSelectMessagesWithLimitStmt(s: SqliteStmt,
                           contentTopic: seq[ContentTopic],
                           startTime: Option[Timestamp],
                           endTime: Option[Timestamp],
-                          onRowCallback: DataProc): Result[void, string] =
+                          onRowCallback: DataProc): DatabaseResult[void] =
   let s = RawStmtPtr(s)
 
   # Bind params
@@ -360,11 +359,10 @@ proc selectMessagesByHistoryQueryWithLimit*(db: SqliteDatabase,
                                             endTime: Option[Timestamp],
                                             limit: uint,
                                             ascending: bool):
-                                            Result[seq[(PubsubTopic,
-                                                        WakuMessage,
-                                                        seq[byte],
-                                                        Timestamp)],
-                                                  string] =
+                                            DatabaseResult[seq[(PubsubTopic,
+                                                                WakuMessage,
+                                                                seq[byte],
+                                                                Timestamp)]] =
 
 
   var messages: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)] = @[]

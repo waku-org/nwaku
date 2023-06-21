@@ -23,6 +23,9 @@ type
   AutoDisposed[T: ptr|ref] = object
     val: T
 
+type
+  DatabaseResult*[T] = Result[T, string]
+
 template dispose(db: Sqlite) =
   discard sqlite3_close(db)
 
@@ -60,7 +63,7 @@ const NoopRowHandler* = proc(s: RawStmtPtr) {.closure.} = discard
 proc new*(T: type SqliteDatabase,
           path: string,
           readOnly=false):
-          Result[T, string] =
+          DatabaseResult[T] =
 
   var env: AutoDisposed[ptr sqlite3]
   defer: disposeIfUnreleased(env)
@@ -154,7 +157,7 @@ template bindParams(s: RawStmtPtr, params: auto) =
   else:
     checkErr bindParam(s, 1, params)
 
-proc exec*[P](s: SqliteStmt[P, void], params: P): Result[void, string] =
+proc exec*[P](s: SqliteStmt[P, void], params: P): DatabaseResult[void] =
   let s = RawStmtPtr s
   bindParams(s, params)
 
@@ -192,7 +195,7 @@ template readResult(s: RawStmtPtr, T: type): auto =
 
 proc exec*[Params, Res](s: SqliteStmt[Params, Res],
                         params: Params,
-                        onData: DataProc): Result[bool, string] =
+                        onData: DataProc): DatabaseResult[bool] =
   let s = RawStmtPtr s
   bindParams(s, params)
 
@@ -215,7 +218,7 @@ proc exec*[Params, Res](s: SqliteStmt[Params, Res],
     discard sqlite3_clear_bindings(s) # no errors possible
 
 proc query*(db: SqliteDatabase, query: string, onData: DataProc):
-            Result[bool, string] =
+            DatabaseResult[bool] =
   var s = prepare(db.env, query): discard
 
   try:
@@ -242,7 +245,7 @@ proc prepareStmt*(
   stmt: string,
   Params: type,
   Res: type
-): Result[SqliteStmt[Params, Res], string] =
+): DatabaseResult[SqliteStmt[Params, Res]] =
   var s: RawStmtPtr
   checkErr sqlite3_prepare_v2(db.env, stmt, stmt.len.cint, addr s, nil)
   ok SqliteStmt[Params, Res](s)
@@ -256,7 +259,7 @@ proc close*(db: SqliteDatabase) =
 
 # TODO: Cache this value in the SqliteDatabase object.
 #       Page size should not change during the node execution time
-proc getPageSize*(db: SqliteDatabase): Result[int64, string] =
+proc getPageSize*(db: SqliteDatabase): DatabaseResult[int64] =
   ## Query or set the page size of the database. The page size must be a power of
   ## two between 512 and 65536 inclusive.
   var size: int64
@@ -269,7 +272,7 @@ proc getPageSize*(db: SqliteDatabase): Result[int64, string] =
 
   return ok(size)
 
-proc getFreelistCount*(db: SqliteDatabase): Result[int64, string] =
+proc getFreelistCount*(db: SqliteDatabase): DatabaseResult[int64] =
   ## Return the number of unused pages in the database file.
   var count: int64
   proc handler(s: RawStmtPtr) =
@@ -281,7 +284,7 @@ proc getFreelistCount*(db: SqliteDatabase): Result[int64, string] =
 
   return ok(count)
 
-proc getPageCount*(db: SqliteDatabase): Result[int64, string] =
+proc getPageCount*(db: SqliteDatabase): DatabaseResult[int64] =
   ## Return the total number of pages in the database file.
   var count: int64
   proc handler(s: RawStmtPtr) =
@@ -294,7 +297,7 @@ proc getPageCount*(db: SqliteDatabase): Result[int64, string] =
   return ok(count)
 
 proc gatherSqlitePageStats*(db: SqliteDatabase):
-                            Result[(int64, int64, int64), string] =
+                            DatabaseResult[(int64, int64, int64)] =
   let
     pageSize = ?db.getPageSize()
     pageCount = ?db.getPageCount()
@@ -302,7 +305,7 @@ proc gatherSqlitePageStats*(db: SqliteDatabase):
 
   return ok((pageSize, pageCount, freelistCount))
 
-proc vacuum*(db: SqliteDatabase): Result[void, string] =
+proc vacuum*(db: SqliteDatabase): DatabaseResult[void] =
   ## The VACUUM command rebuilds the database file, repacking it into a minimal amount of disk space.
   let res = db.query("VACUUM;", NoopRowHandler)
   if res.isErr():
@@ -312,7 +315,7 @@ proc vacuum*(db: SqliteDatabase): Result[void, string] =
 
 ## Database scheme versioning
 
-proc getUserVersion*(database: SqliteDatabase): Result[int64, string] =
+proc getUserVersion*(database: SqliteDatabase): DatabaseResult[int64] =
   ## Get the value of the user-version integer.
   ##
   ## The user-version is an integer that is available to applications to use however they want.
@@ -331,7 +334,7 @@ proc getUserVersion*(database: SqliteDatabase): Result[int64, string] =
   ok(version)
 
 proc setUserVersion*(database: SqliteDatabase, version: int64):
-                     Result[void, string] =
+                     DatabaseResult[void] =
   ## Set the value of the user-version integer.
   ##
   ## The user-version is an integer that is available to applications to use however they want.
@@ -348,7 +351,7 @@ proc setUserVersion*(database: SqliteDatabase, version: int64):
 
 ## Migration scripts
 
-proc getMigrationScriptVersion(path: string): Result[int64, string] =
+proc getMigrationScriptVersion(path: string): DatabaseResult[int64] =
   let name = extractFilename(path)
   let parts = name.split("_", 1)
 
@@ -361,7 +364,7 @@ proc getMigrationScriptVersion(path: string): Result[int64, string] =
 proc isSqlScript(path: string): bool =
   path.toLower().endsWith(".sql")
 
-proc listSqlScripts(path: string): Result[seq[string], string] =
+proc listSqlScripts(path: string): DatabaseResult[seq[string]] =
   var scripts = newSeq[string]()
 
   try: 
@@ -400,7 +403,7 @@ proc sortMigrationScripts(paths: seq[string]): seq[string] =
   ## Sort migration scripts paths alphabetically
   paths.sorted(system.cmp[string])
 
-proc loadMigrationScripts(paths: seq[string]): Result[seq[string], string] =
+proc loadMigrationScripts(paths: seq[string]): DatabaseResult[seq[string]] =
   var loadedScripts = newSeq[string]()
 
   for script in paths:
@@ -426,7 +429,7 @@ proc breakIntoStatements(script: string): seq[string] =
 proc migrate*(db: SqliteDatabase,
               targetVersion: int64,
               migrationsScriptsDir: string):
-              Result[void, string] =
+              DatabaseResult[void] =
   ## Compares the `user_version` of the sqlite database with the provided `targetVersion`, then
   ## it runs migration scripts if the `user_version` is outdated. The `migrationScriptsDir` path
   ## points to the directory holding the migrations scripts once the db is updated, it sets the
@@ -471,7 +474,7 @@ proc migrate*(db: SqliteDatabase,
   debug "database user_version updated", userVersion=targetVersion
   ok()
 
-proc performSqliteVacuum*(db: SqliteDatabase): Result[void, string] =
+proc performSqliteVacuum*(db: SqliteDatabase): DatabaseResult[void] =
   ## SQLite database vacuuming
   # TODO: Run vacuuming conditionally based on database page stats
   # if (pageCount > 0 and freelistCount > 0):
