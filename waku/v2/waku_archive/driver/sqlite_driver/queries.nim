@@ -97,7 +97,7 @@ proc createOldestMessageTimestampIndex*(db: SqliteDatabase): DatabaseResult[void
 proc createHistoryQueryIndexQuery(table: string): SqlQueryStr =
   "CREATE INDEX IF NOT EXISTS i_query ON " & table & " (contentTopic, pubsubTopic, storedAt, id);"
 
-proc createHistoryQueryIndex*(db: SqliteDatabase): DataseResult[void] =
+proc createHistoryQueryIndex*(db: SqliteDatabase): DatabaseResult[void] =
   let query = createHistoryQueryIndexQuery(DbTable)
   discard ?db.query(query, proc(s: ptr sqlite3_stmt) = discard)
   ok()
