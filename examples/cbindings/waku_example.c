@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <argp.h>
-#include <signal.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdint.h>
@@ -11,21 +10,25 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 
-#include "libwaku.h"
+#include "base64.h"
+#include "../../library/libwaku.h"
 
-// Keep a global string to store the waku call responses
-static NimStringDesc wakuString;
-NimStringDesc* mResp = &wakuString;
+#define WAKU_CALL(call)                                                        \
+do {                                                                           \
+  int ret = call;                                                              \
+  if (ret != 0) {                                                              \
+    printf("Failed the call to: %s. Returned code: %d\n", #call, ret);         \
+    exit(1);                                                                   \
+  }                                                                            \
+} while (0)
 
 struct ConfigNode {
-    NCSTRING host;
-    NU       port;
-    NCSTRING key;
-    NIM_BOOL relay;
-    NCSTRING peers;
+    char    host[128];
+    int          port;
+    char     key[128];
+    int         relay;
+    char  peers[2048];
 };
-
-static ConfigNode cfgNode;
 
 // Arguments parsing
 static char doc[] = "\nC example that shows how to use the waku library.";
@@ -46,19 +49,19 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     struct ConfigNode *cfgNode = state->input;
     switch (key) {
         case 'h':
-            cfgNode->host = arg;
+            snprintf(cfgNode->host, 128, "%s", arg);
             break;
         case 'p':
             cfgNode->port = atoi(arg);
             break;
         case 'k':
-            cfgNode->key = arg;
+            snprintf(cfgNode->key, 128, "%s", arg);
             break;
         case 'r':
             cfgNode->relay = atoi(arg);
             break;
         case 'a':
-            cfgNode->peers = arg;
+            snprintf(cfgNode->peers, 2048, "%s", arg);
             break;
         case ARGP_KEY_ARG:
             if (state->arg_num >= 1) /* Too many arguments. */
@@ -75,61 +78,77 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = { options, parse_opt, args_doc, doc, 0, 0, 0 };
 
-// Base64 encoding
-// source: https://nachtimwald.com/2017/11/18/base64-encode-and-decode-in-c/
-size_t b64_encoded_size(size_t inlen)
-{
-	size_t ret;
+char* contentTopic = NULL;
+void handle_content_topic(char* msg, size_t len) {
+    if (contentTopic != NULL) {
+        free(contentTopic);
+    }
 
-	ret = inlen;
-	if (inlen % 3 != 0)
-		ret += 3 - (inlen % 3);
-	ret /= 3;
-	ret *= 4;
-
-	return ret;
+    contentTopic = malloc(len * sizeof(char) + 1);
+    strcpy(contentTopic, msg);
 }
 
-const char b64chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+char* publishResponse = NULL;
+void handle_publish_ok(char* msg, size_t len) {
+    printf("Publish Ok: %s %lu\n", msg, len);
 
-char *b64_encode(const unsigned char *in, size_t len)
-{
-	char   *out;
-	size_t  elen;
-	size_t  i;
-	size_t  j;
-	size_t  v;
+    if (publishResponse != NULL) {
+        free(publishResponse);
+    }
 
-	if (in == NULL || len == 0)
-		return NULL;
-
-	elen = b64_encoded_size(len);
-	out  = malloc(elen+1);
-	out[elen] = '\0';
-
-	for (i=0, j=0; i<len; i+=3, j+=4) {
-		v = in[i];
-		v = i+1 < len ? v << 8 | in[i+1] : v << 8;
-		v = i+2 < len ? v << 8 | in[i+2] : v << 8;
-
-		out[j]   = b64chars[(v >> 18) & 0x3F];
-		out[j+1] = b64chars[(v >> 12) & 0x3F];
-		if (i+1 < len) {
-			out[j+2] = b64chars[(v >> 6) & 0x3F];
-		} else {
-			out[j+2] = '=';
-		}
-		if (i+2 < len) {
-			out[j+3] = b64chars[v & 0x3F];
-		} else {
-			out[j+3] = '=';
-		}
-	}
-
-	return out;
+    publishResponse = malloc(len * sizeof(char) + 1);
+    strcpy(publishResponse, msg);
 }
 
-// End of Base64 encoding
+void handle_error(char* msg, size_t len) {
+    printf("Error: %s\n", msg);
+    exit(1);
+}
+
+#define MAX_MSG_SIZE 65535
+
+void publish_message(char* pubsubTopic, char* msg) {
+    char jsonWakuMsg[MAX_MSG_SIZE];
+    char *msgPayload = b64_encode(msg, strlen(msg));
+
+    WAKU_CALL( waku_content_topic("appName",
+                                  1,
+                                  "contentTopicName",
+                                  "encoding",
+                                  handle_content_topic) );
+
+    snprintf(jsonWakuMsg,
+             MAX_MSG_SIZE,
+             "{\"payload\":\"%s\",\"content_topic\":\"%s\"}",
+             msgPayload, contentTopic);
+
+    free(msgPayload);
+
+    WAKU_CALL( waku_relay_publish(pubsubTopic,
+                                  jsonWakuMsg,
+                                  10000 /*timeout ms*/,
+                                  handle_publish_ok,
+                                  handle_error) );
+
+    printf("waku relay response [%s]\n", publishResponse);
+}
+
+void show_help_and_exit() {
+    printf("Wrong parameters\n");
+    exit(1);
+}
+
+void event_handler(char* msg, size_t len) {
+    printf("Receiving message %s\n", msg);
+}
+
+void print_default_pubsub_topic(char* msg, size_t len) {
+    printf("Default pubsub topic: %s\n", msg);
+}
+
+void print_waku_version(char* msg, size_t len) {
+    printf("Git Version: %s\n", msg);
+}
 
 // Beginning of UI program logic
 
@@ -176,10 +195,10 @@ void handle_user_input() {
         set_scanf_to_block();
         char pubsubTopic[128];
         scanf("%127s", pubsubTopic);
-        if (!waku_relay_subscribe(pubsubTopic, &mResp)) {
-            printf("Error subscribing to PubsubTopic: %s\n", mResp->data);
-        }
-        printf("Waku Relay subscription response: %s\n", mResp->data);
+
+        WAKU_CALL( waku_relay_subscribe(pubsubTopic,
+                                        handle_error) );
+        printf("The subscription went well\n");
 
         set_scanf_to_not_block();
         show_main_menu();
@@ -192,9 +211,7 @@ void handle_user_input() {
         set_scanf_to_block();
         char peerAddr[512];
         scanf("%511s", peerAddr);
-        if (!waku_connect(peerAddr, 10000 /* timeoutMs */, &mResp)) {
-            printf("Couldn't connect to the remote peer: %s\n", mResp->data);
-        }
+        WAKU_CALL(waku_connect(peerAddr, 10000 /* timeoutMs */, handle_error));
         set_scanf_to_not_block();
         show_main_menu();
     break;
@@ -210,20 +227,8 @@ void handle_user_input() {
         char msg[1024];
         scanf("%1023s", msg);
 
-        char jsonWakuMsg[1024];
-        char *msgPayload = b64_encode(msg, strlen(msg));
+        publish_message(pubsubTopic, msg);
 
-        waku_content_topic("appName",
-                            1,
-                            "contentTopicName",
-                            "encoding",
-                            &mResp);
-
-        snprintf(jsonWakuMsg, 1024, "{\"payload\":\"%s\",\"content_topic\":\"%s\"}", msgPayload, mResp->data);
-        free(msgPayload);
-
-        waku_relay_publish(pubsubTopic, jsonWakuMsg, 10000 /*timeout ms*/, &mResp);
-        printf("waku relay response [%s]\n", mResp->data);
         set_scanf_to_not_block();
         show_main_menu();
     }
@@ -236,51 +241,53 @@ void handle_user_input() {
 
 // End of UI program logic
 
-void show_help_and_exit() {
-    printf("Wrong parameters\n");
-    exit(1);
-}
-
-void event_handler(char* msg) {
-    printf("Receiving message [%s]\n", msg);
-}
-
 int main(int argc, char** argv) {
+
+    waku_init_lib();
+
+    struct ConfigNode cfgNode;
     // default values
-    cfgNode.host = "0.0.0.0";
+    snprintf(cfgNode.host, 128, "0.0.0.0");
     cfgNode.port = 60000;
     cfgNode.relay = 1;
-    cfgNode.peers = NULL;
 
     if (argp_parse(&argp, argc, argv, 0, 0, &cfgNode)
                     == ARGP_ERR_UNKNOWN) {
         show_help_and_exit();
     }
 
+    char jsonConfig[1024];
+    snprintf(jsonConfig, 1024, "{ \
+                                    \"host\": \"%s\",   \
+                                    \"port\": %d,       \
+                                    \"key\": \"%s\",    \
+                                    \"relay\": %s       \
+                                }", cfgNode.host,
+                                    cfgNode.port,
+                                    cfgNode.key,
+                                    cfgNode.relay ? "true":"false");
+
     // To allow non-blocking 'reads' from stdin
     fcntl(0, F_SETFL, fcntl(0, F_GETFL) ^ O_NONBLOCK);
 
-    NimMain(); // initialize the Nim runtime
-
-    waku_default_pubsub_topic(&mResp);
-    printf("Default pubsub topic: %s\n", mResp->data);
-    printf("Git Version: %s\n", waku_version());
+    WAKU_CALL( waku_default_pubsub_topic(print_default_pubsub_topic) );
+    WAKU_CALL( waku_version(print_waku_version) );
     printf("Bind addr: %s:%u\n", cfgNode.host, cfgNode.port);
     printf("Waku Relay enabled: %s\n", cfgNode.relay == 1 ? "YES": "NO");
 
-    if (!waku_new(&cfgNode, &mResp)) {
-        printf("Error creating WakuNode: %s\n", mResp->data);
-        exit(-1);
-    }
+    WAKU_CALL( waku_new(jsonConfig, handle_error) );
 
-    waku_set_event_callback(event_handler);
+    waku_set_relay_callback(event_handler);
     waku_start();
 
     printf("Establishing connection with: %s\n", cfgNode.peers);
-    if (!waku_connect(cfgNode.peers, 10000 /* timeoutMs */, &mResp)) {
-        printf("Couldn't connect to the remote peer: %s\n", mResp->data);
-    }
 
+    WAKU_CALL( waku_connect(cfgNode.peers,
+                            10000 /* timeoutMs */,
+                            handle_error) );
+
+    WAKU_CALL( waku_relay_subscribe("/waku/2/default-waku/proto",
+                                    handle_error) );
     show_main_menu();
     while(1) {
         handle_user_input();

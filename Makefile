@@ -301,9 +301,9 @@ endif
 
 cwaku_example: | build libwaku
 	echo -e $(BUILD_MSG) "build/$@" && \
-		cp nimcache/release/libwaku/libwaku.h ./examples/cbindings/ && \
 		cc -o "build/$@" \
 		./examples/cbindings/waku_example.c \
+		./examples/cbindings/base64.c \
 		-lwaku -Lbuild/ \
 		-pthread -ldl -lm \
 		-lminiupnpc -Lvendor/nim-nat-traversal/vendor/miniupnp/miniupnpc/build/ \

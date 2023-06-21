@@ -3,7 +3,7 @@ import
     std/json
 import
     ../../waku/v2/waku_core/message/message,
-    json_signal_event
+    ./json_base_event
 
 type JsonMessage = ref object
   # https://rfc.vac.dev/spec/36/#jsonmessage-type
@@ -12,7 +12,7 @@ type JsonMessage = ref object
   version: uint
   timestamp: int64
 
-type JsonMessageEvent* = ref object of JsonSignal
+type JsonMessageEvent* = ref object of JsonEvent
     pubsubTopic*: string
     messageId*: string
     wakuMessage*: JsonMessage
