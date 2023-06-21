@@ -16,26 +16,26 @@ import
 logScope:
   topics = "postgres asyncpool"
 
-type PgAsyncPoolState* {.pure.} = enum
+type PgAsyncPoolState {.pure.} = enum
     Closed,
     Live,
     Closing
 
 type
-  PgDbConn* = object
-    dbConn*: DbConn
-    busy*: bool
-    open*: bool
-    insertStmt*: SqlPrepared
+  PgDbConn = object
+    dbConn: DbConn
+    busy: bool
+    open: bool
+    insertStmt: SqlPrepared
 
 type
   # Database connection pool
   PgAsyncPool* = ref object
-    connString*: string
-    maxConnections*: int
+    connString: string
+    maxConnections: int
 
-    state*: PgAsyncPoolState
-    conns*: seq[PgDbConn]
+    state: PgAsyncPoolState
+    conns: seq[PgDbConn]
 
 proc new*(T: type PgAsyncPool,
           dbUrl: string,
