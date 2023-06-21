@@ -97,19 +97,7 @@ func version*(app: App): string =
 
 ## Initialisation
 
-proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
-  let nodeKey =
-    if conf.nodekey.isSome():
-      conf.nodekey.get()
-    else:
-      let nodekeyRes = crypto.PrivateKey.random(Secp256k1, rng[])
-
-      if nodekeyRes.isErr():
-        error "failed to generate nodekey", error=nodekeyRes.error
-        quit(QuitFailure)
-
-      nodekeyRes.get()
-
+proc networkConfiguration(conf: WakuNodeConf): NetConfigResult =
   ## `udpPort` is only supplied to satisfy underlying APIs but is not
   ## actually a supported transport for libp2p traffic.
   let udpPort = conf.tcpPort
@@ -170,12 +158,9 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
       wakuFlags = some(wakuFlags),
     )
 
-  let netConfig =
-    if netConfigRes.isErr():
-      error "failed to create net config", error=netConfigRes.error
-      quit(QuitFailure)
-    else: netConfigRes.get()
+  netConfigRes
 
+proc nodeRecord(conf: WakuNodeConf, netConf: NetConfig, nodeKey: crypto.PrivateKey): EnrResult[enr.Record] =
   let relayShardsRes = topicsToRelayShards(conf.topics)
 
   let relayShardOp =
@@ -184,25 +169,55 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
       none(RelayShards)
     else: relayShardsRes.get()
 
-  let record = block:
-    var builder = EnrBuilder.init(nodeKey)
-    builder.withIpAddressAndPorts(
-        ipAddr = extIp,
-        tcpPort = extTcpPort,
-        udpPort = discv5UdpPort,
-    )
-    builder.withWakuCapabilities(wakuFlags)
-    builder.withMultiaddrs(netConfig.enrMultiaddrs)
+  var builder = EnrBuilder.init(nodeKey)
 
-    if relayShardOp.isSome():
-      let res = builder.withWakuRelaySharding(relayShardOp.get())
+  builder.withIpAddressAndPorts(
+      ipAddr = netConf.extIp,
+      tcpPort = netConf.extPort,
+      udpPort = netConf.discv5UdpPort,
+  )
 
-      if res.isErr():
-        debug "building ENR with relay sharding failed", reason = res.error
-      else:
-        debug "building ENR with relay sharding information", cluster = $relayShardOp.get().cluster(), shards = $relayShardOp.get().indices()
+  if netConf.wakuFlags.isSome():
+    builder.withWakuCapabilities(netConf.wakuFlags.get())
 
-    builder.build().expect("Record within size limits")
+  builder.withMultiaddrs(netConf.enrMultiaddrs)
+
+  if relayShardOp.isSome():
+    let res = builder.withWakuRelaySharding(relayShardOp.get())
+
+    if res.isErr():
+      debug "building ENR with relay sharding failed", reason = res.error
+    else:
+      debug "building ENR with relay sharding information", cluster = $relayShardOp.get().cluster(), shards = $relayShardOp.get().indices()
+
+  builder.build()
+
+proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
+  let nodeKey =
+    if conf.nodekey.isSome():
+      conf.nodekey.get()
+    else:
+      let nodekeyRes = crypto.PrivateKey.random(Secp256k1, rng[])
+
+      if nodekeyRes.isErr():
+        error "failed to generate nodekey", error=nodekeyRes.error
+        quit(QuitFailure)
+
+      nodekeyRes.get()
+
+  let netConfigRes = networkConfiguration(conf)
+  let netConfig =
+    if netConfigRes.isErr():
+      error "failed to create net config", error=netConfigRes.error
+      quit(QuitFailure)
+    else: netConfigRes.get()
+
+  let recordRes = nodeRecord(conf, netConfig, nodeKey)
+  let record =
+    if recordRes.isErr():
+      error "failed to create node record", error=recordRes.error
+      quit(QuitFailure)
+    else: recordRes.get()
 
   App(
     version: git_version,
