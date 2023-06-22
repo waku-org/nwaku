@@ -93,6 +93,11 @@ type
       defaultValue: 50
       name: "max-connections" }: uint16
 
+    maxRelayPeers* {.
+      desc: "Maximum allowed number of relay peers."
+      defaultValue: 50
+      name: "max-relay-peers" }: uint16
+
     peerStoreCapacity* {.
       desc: "Maximum stored peers in the peerstore."
       name: "peer-store-capacity" }: Option[int]
