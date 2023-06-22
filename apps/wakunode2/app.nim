@@ -71,7 +71,7 @@ type
     conf: WakuNodeConf
     netConf: NetConfig
     rng: ref HmacDrbgContext
-    nodeKey: crypto.PrivateKey
+    key: crypto.PrivateKey
     record: Record
 
     peerStore: Option[WakuPeerStorage]
@@ -97,113 +97,18 @@ func version*(app: App): string =
 
 ## Initialisation
 
-proc networkConfiguration(conf: WakuNodeConf): NetConfigResult =
-  ## `udpPort` is only supplied to satisfy underlying APIs but is not
-  ## actually a supported transport for libp2p traffic.
-  let udpPort = conf.tcpPort
-  let natRes = setupNat(conf.nat, clientId,
-                        Port(uint16(conf.tcpPort) + conf.portsShift),
-                        Port(uint16(udpPort) + conf.portsShift))
-  if natRes.isErr():
-    error "failed to setup NAT", error=natRes.error
-    quit(QuitFailure)
-
-  let (extIp, extTcpPort, _) = natRes.get()
-
-  let
-    dns4DomainName = if conf.dns4DomainName != "": some(conf.dns4DomainName)
-                      else: none(string)
-
-    discv5UdpPort = if conf.discv5Discovery: some(Port(uint16(conf.discv5UdpPort) + conf.portsShift))
-                    else: none(Port)
-
-    ## TODO: the NAT setup assumes a manual port mapping configuration if extIp config is set. This probably
-    ## implies adding manual config item for extPort as well. The following heuristic assumes that, in absence of manual
-    ## config, the external port is the same as the bind port.
-    extPort = if (extIp.isSome() or dns4DomainName.isSome()) and extTcpPort.isNone():
-                some(Port(uint16(conf.tcpPort) + conf.portsShift))
-              else:
-                extTcpPort
-    extMultiAddrs = if (conf.extMultiAddrs.len > 0):
-                      let extMultiAddrsValidationRes = validateExtMultiAddrs(conf.extMultiAddrs)
-                      if extMultiAddrsValidationRes.isErr():
-                        error "invalid external multiaddress", error=extMultiAddrsValidationRes.error
-                        quit(QuitFailure)
-                      else:
-                        extMultiAddrsValidationRes.get()
-                    else:
-                      @[]
-
-    wakuFlags = CapabilitiesBitfield.init(
-        lightpush = conf.lightpush,
-        filter = conf.filter,
-        store = conf.store,
-        relay = conf.relay
-      )
-
-  # Wrap in none because NetConfig does not have a default constructor
-  # TODO: We could change bindIp in NetConfig to be something less restrictive than ValidIpAddress,
-  # which doesn't allow default construction
-  let netConfigRes = NetConfig.init(
-      bindIp = conf.listenAddress,
-      bindPort = Port(uint16(conf.tcpPort) + conf.portsShift),
-      extIp = extIp,
-      extPort = extPort,
-      extMultiAddrs = extMultiAddrs,
-      wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
-      wsEnabled = conf.websocketSupport,
-      wssEnabled = conf.websocketSecureSupport,
-      dns4DomainName = dns4DomainName,
-      discv5UdpPort = discv5UdpPort,
-      wakuFlags = some(wakuFlags),
-    )
-
-  netConfigRes
-
-proc nodeRecord(conf: WakuNodeConf, netConf: NetConfig, nodeKey: crypto.PrivateKey): EnrResult[enr.Record] =
-  let relayShardsRes = topicsToRelayShards(conf.topics)
-
-  let relayShardOp =
-    if relayShardsRes.isErr():
-      debug "pubsub topic parsing error", reason=relayShardsRes.error
-      none(RelayShards)
-    else: relayShardsRes.get()
-
-  var builder = EnrBuilder.init(nodeKey)
-
-  builder.withIpAddressAndPorts(
-      ipAddr = netConf.extIp,
-      tcpPort = netConf.extPort,
-      udpPort = netConf.discv5UdpPort,
-  )
-
-  if netConf.wakuFlags.isSome():
-    builder.withWakuCapabilities(netConf.wakuFlags.get())
-
-  builder.withMultiaddrs(netConf.enrMultiaddrs)
-
-  if relayShardOp.isSome():
-    let res = builder.withWakuRelaySharding(relayShardOp.get())
-
-    if res.isErr():
-      debug "building ENR with relay sharding failed", reason = res.error
-    else:
-      debug "building ENR with relay sharding information", cluster = $relayShardOp.get().cluster(), shards = $relayShardOp.get().indices()
-
-  builder.build()
-
 proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
-  let nodeKey =
-    if conf.nodekey.isSome():
-      conf.nodekey.get()
+  let key =
+    if conf.nodeKey.isSome():
+      conf.nodeKey.get()
     else:
-      let nodekeyRes = crypto.PrivateKey.random(Secp256k1, rng[])
+      let keyRes = crypto.PrivateKey.random(Secp256k1, rng[])
 
-      if nodekeyRes.isErr():
-        error "failed to generate nodekey", error=nodekeyRes.error
+      if keyRes.isErr():
+        error "failed to generate key", error=keyRes.error
         quit(QuitFailure)
 
-      nodekeyRes.get()
+      keyRes.get()
 
   let netConfigRes = networkConfiguration(conf)
   let netConfig =
@@ -212,10 +117,10 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
       quit(QuitFailure)
     else: netConfigRes.get()
 
-  let recordRes = nodeRecord(conf, netConfig, nodeKey)
+  let recordRes = nodeRecord(conf, netConfig, key)
   let record =
     if recordRes.isErr():
-      error "failed to create node record", error=recordRes.error
+      error "failed to create record", error=recordRes.error
       quit(QuitFailure)
     else: recordRes.get()
 
@@ -224,7 +129,7 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
     conf: conf,
     netConf: netConfig,
     rng: rng,
-    nodeKey: nodeKey,
+    key: key,
     record: record,
     node: nil
   )
@@ -531,7 +436,7 @@ proc initNode(conf: WakuNodeConf,
 
 proc setupWakuNode*(app: var App): AppResult[void] =
   ## Waku node
-  let initNodeRes = initNode(app.conf, app.netConf, app.rng, app.nodeKey, app.record, app.peerStore, app.dynamicBootstrapNodes)
+  let initNodeRes = initNode(app.conf, app.netConf, app.rng, app.key, app.record, app.peerStore, app.dynamicBootstrapNodes)
   if initNodeRes.isErr():
     return err("failed to init node: " & initNodeRes.error)
 
@@ -692,7 +597,7 @@ proc setupAndMountProtocols*(app: App): Future[AppResult[void]] {.async.} =
   return await setupProtocols(
     app.node,
     app.conf,
-    app.nodeKey,
+    app.key,
     app.archiveDriver,
     app.archiveRetentionPolicy
   )
