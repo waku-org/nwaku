@@ -180,8 +180,8 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
       peerStoreCapacity = builder.peerStorageCapacity,
       services = @[Service(getAutonatService(rng))],
     )
-  except:
-    return err("failed to create switch")
+  except CatchableError:
+    return err("failed to create switch: " & getCurrentExceptionMsg())
 
   let peerManager = PeerManager.new(
     switch = switch,
