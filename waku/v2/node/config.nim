@@ -9,6 +9,8 @@ import
   stew/shims/net,
   libp2p/multiaddress
 import
+   ../../waku/v2/waku_core/peers
+import
   ../waku_enr
 
 
