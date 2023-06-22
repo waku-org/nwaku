@@ -10,6 +10,7 @@ import
   sqlite3_abi
 import
   ../../../../common/databases/db_sqlite,
+  ../../../../common/databases/common,
   ../../../waku_core,
   ./cursor
 

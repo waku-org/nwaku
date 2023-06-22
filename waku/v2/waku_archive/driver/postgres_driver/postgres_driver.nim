@@ -12,7 +12,7 @@ import
   ../../../waku_core,
   ../../common,
   ../../driver,
-  ../../../../common/databases/db_postgres/pgasyncpool
+  ../../../../common/databases/db_postgres as waku_postgres
 
 export postgres_driver
 

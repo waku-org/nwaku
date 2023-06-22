@@ -9,7 +9,8 @@ import
   stew/results,
   chronicles
 import
-  ../../../../common/databases/db_sqlite
+  ../../../../common/databases/db_sqlite,
+  ../../../../common/databases/common
 
 
 logScope:

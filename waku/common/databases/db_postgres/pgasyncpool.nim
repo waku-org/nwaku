@@ -11,7 +11,8 @@ import
   chronicles,
   chronos
 import
-  ./dbconn
+  ./dbconn,
+  ../common
 
 logScope:
   topics = "postgres asyncpool"
@@ -36,9 +37,6 @@ type
 
     state: PgAsyncPoolState
     conns: seq[PgDbConn]
-
-type
-  DatabaseResult*[T] = Result[T, string]
 
 proc new*(T: type PgAsyncPool,
           dbUrl: string,

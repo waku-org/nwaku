@@ -9,6 +9,8 @@ import
   stew/results,
   chronicles,
   sqlite3_abi
+import
+  ./common
 
 logScope:
   topics = "sqlite"
@@ -22,9 +24,6 @@ type
 
   AutoDisposed[T: ptr|ref] = object
     val: T
-
-type
-  DatabaseResult*[T] = Result[T, string]
 
 template dispose(db: Sqlite) =
   discard sqlite3_close(db)
