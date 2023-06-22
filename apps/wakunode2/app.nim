@@ -41,7 +41,8 @@ import
   ../../waku/v2/waku_lightpush,
   ../../waku/v2/waku_filter,
   ./wakunode2_validator_signed,
-  ./config
+  ./internal_config,
+  ./external_config
 import
   ../../waku/v2/node/message_cache,
   ../../waku/v2/node/rest/server,
@@ -113,11 +114,11 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
   let netConfigRes = networkConfiguration(conf)
   let netConfig =
     if netConfigRes.isErr():
-      error "failed to create net config", error=netConfigRes.error
+      error "failed to create internal config", error=netConfigRes.error
       quit(QuitFailure)
     else: netConfigRes.get()
 
-  let recordRes = nodeRecord(conf, netConfig, key)
+  let recordRes = createRecord(conf, netConfig, key)
   let record =
     if recordRes.isErr():
       error "failed to create record", error=recordRes.error
