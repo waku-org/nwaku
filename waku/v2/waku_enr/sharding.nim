@@ -68,6 +68,26 @@ func init*(T: type RelayShards, cluster: uint16, indices: seq[uint16]): T =
 
   RelayShards(cluster: cluster, indices: indicesSeq)
 
+func topicsToRelayShards*(topics: seq[string]): Result[Option[RelayShards], string] =
+  if topics.len < 1:
+    return ok(none(RelayShards))
+
+  let parsedTopicsRes = topics.mapIt(NsPubsubTopic.parse(it))
+
+  for res in parsedTopicsRes:
+    if res.isErr():
+      return err("failed to parse topic: " & $res.error)
+
+  if parsedTopicsRes.allIt(it.get().kind == NsPubsubTopicKind.NamedSharding):
+    return ok(none(RelayShards))
+
+  if parsedTopicsRes.anyIt(it.get().kind == NsPubsubTopicKind.NamedSharding):
+    return err("use named topics OR sharded ones not both.")
+
+  if parsedTopicsRes.anyIt(it.get().cluster != parsedTopicsRes[0].get().cluster):
+    return err("use sharded topics within the same cluster.")
+
+  return ok(some(RelayShards.init(parsedTopicsRes[0].get().cluster, parsedTopicsRes.mapIt(it.get().shard))))
 
 func contains*(rs: RelayShards, cluster, index: uint16): bool =
   rs.cluster == cluster and rs.indices.contains(index)

@@ -14,7 +14,7 @@ import
   libp2p/crypto/crypto
 import
   ../../waku/common/logging,
-  ./config,
+  ./external_config,
   ./app
 
 logScope:

@@ -158,6 +158,7 @@ proc getAutonatService*(rng: ref HmacDrbgContext): AutonatService =
 proc new*(T: type WakuNode,
           nodeKey: crypto.PrivateKey,
           netConfig: NetConfig,
+          enr: Option[enr.Record],
           peerStorage: PeerStorage = nil,
           maxConnections = builders.MaxConnections,
           secureKey: string = "",
@@ -191,15 +192,21 @@ proc new*(T: type WakuNode,
     services = @[Service(getAutonatService(rng))],
   )
 
-  let nodeEnrRes = getEnr(netConfig, wakuDiscv5, nodekey)
-  if nodeEnrRes.isErr():
-    raise newException(Defect, "failed to generate the node ENR record: " & $nodeEnrRes.error)
+  let enr =
+    if enr.isNone():
+      let nodeEnrRes = getEnr(netConfig, wakuDiscv5, nodekey)
+
+      if nodeEnrRes.isErr():
+        raise newException(Defect, "failed to generate the node ENR record: " & $nodeEnrRes.error)
+
+      nodeEnrRes.get()
+    else: enr.get()
 
   return WakuNode(
     peerManager: PeerManager.new(switch, peerStorage),
     switch: switch,
     rng: rng,
-    enr: nodeEnrRes.get(),
+    enr: enr,
     announcedAddresses: netConfig.announcedAddresses,
     wakuDiscv5: if wakuDiscV5.isSome(): wakuDiscV5.get() else: nil,
   )

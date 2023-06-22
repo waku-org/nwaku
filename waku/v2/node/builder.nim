@@ -25,6 +25,7 @@ type
     nodeRng: Option[ref crypto.HmacDrbgContext]
     nodeKey: Option[crypto.PrivateKey]
     netConfig: Option[NetConfig]
+    record: Option[enr.Record]
 
     # Peer storage and peer manager
     peerStorage: Option[PeerStorage]
@@ -58,6 +59,9 @@ proc withRng*(builder: var WakuNodeBuilder, rng: ref crypto.HmacDrbgContext) =
 
 proc withNodeKey*(builder: var WakuNodeBuilder, nodeKey: crypto.PrivateKey) =
   builder.nodeKey = some(nodeKey)
+
+proc withRecord*(builder: var WakuNodeBuilder, record: enr.Record) =
+  builder.record = some(record)
 
 proc withNetworkConfiguration*(builder: var WakuNodeBuilder, config: NetConfig) =
   builder.netConfig = some(config)
@@ -151,6 +155,7 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
       rng = rng,
       nodeKey = builder.nodeKey.get(),
       netConfig = builder.netConfig.get(),
+      enr = builder.record,
       peerStorage = builder.peerStorage.get(nil),
       peerStoreCapacity = builder.peerStorageCapacity,
       maxConnections = builder.switchMaxConnections.get(builders.MaxConnections),
