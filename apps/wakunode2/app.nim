@@ -19,7 +19,7 @@ import
   metrics/chronos_httpserver
 import
   ../../waku/common/utils/nat,
-  ../../waku/common/sqlite,
+  ../../waku/common/databases/db_sqlite,
   ../../waku/v2/waku_core,
   ../../waku/v2/waku_node,
   ../../waku/v2/node/waku_metrics,

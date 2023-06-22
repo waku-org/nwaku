@@ -5,8 +5,7 @@ import
   stew/results,
   testutils/unittests
 import
-  ../../waku/common/sqlite/database,
-  ../../waku/common/sqlite/migrations {.all.}
+  ../../waku/common/databases/db_sqlite {.all.}
 
 
 proc newTestDatabase(): SqliteDatabase =

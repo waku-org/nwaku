@@ -9,7 +9,8 @@ import
   stew/[results, byteutils],
   sqlite3_abi
 import
-  ../../../../common/sqlite,
+  ../../../../common/databases/db_sqlite,
+  ../../../../common/databases/common,
   ../../../waku_core,
   ./cursor
 
@@ -201,7 +202,10 @@ proc selectAllMessagesQuery(table: string): SqlQueryStr =
   " FROM " & table &
   " ORDER BY storedAt ASC"
 
-proc selectAllMessages*(db: SqliteDatabase): DatabaseResult[seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]] =
+proc selectAllMessages*(db: SqliteDatabase): DatabaseResult[seq[(PubsubTopic,
+                                                                 WakuMessage,
+                                                                 seq[byte],
+                                                                 Timestamp)]] =
   ## Retrieve all messages from the store.
   var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]
   proc queryRowCallback(s: ptr sqlite3_stmt) =
@@ -355,7 +359,11 @@ proc selectMessagesByHistoryQueryWithLimit*(db: SqliteDatabase,
                                             startTime: Option[Timestamp],
                                             endTime: Option[Timestamp],
                                             limit: uint,
-                                            ascending: bool): DatabaseResult[seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]] =
+                                            ascending: bool):
+                                            DatabaseResult[seq[(PubsubTopic,
+                                                                WakuMessage,
+                                                                seq[byte],
+                                                                Timestamp)]] =
 
 
   var messages: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)] = @[]

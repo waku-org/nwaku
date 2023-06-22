@@ -6,13 +6,13 @@ else:
   {.push raises: [].}
 
 import
-  std/sequtils,
+  std/[sequtils,nre, strformat],
   stew/results,
   chronicles,
   chronos
 import
-  ../../driver,
-  ./connection
+  ./dbconn,
+  ../common
 
 logScope:
   topics = "postgres asyncpool"
@@ -39,8 +39,25 @@ type
     conns: seq[PgDbConn]
 
 proc new*(T: type PgAsyncPool,
-          connString: string,
-          maxConnections: int): T =
+          dbUrl: string,
+          maxConnections: int):
+          DatabaseResult[T] =
+
+  var connString: string
+
+  try:
+    let regex = re("""^postgres:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$""")
+    let matches = find(dbUrl,regex).get.captures
+    let user = matches[0]
+    let password =  matches[1]
+    let host = matches[2]
+    let port = matches[3]
+    let dbName = matches[4]
+    connString =
+      fmt"user={user} host={host} port={port} dbname={dbName} password={password}"
+  except KeyError,InvalidUnicodeError, RegexInternalError, ValueError,
+         StudyError, SyntaxError:
+    return err("could not parse postgres string: " & getCurrentExceptionMsg())
 
   let pool = PgAsyncPool(
     connString: connString,
@@ -49,7 +66,7 @@ proc new*(T: type PgAsyncPool,
     conns: newSeq[PgDbConn](0)
   )
 
-  return pool
+  return ok(pool)
 
 func isLive(pool: PgAsyncPool): bool =
   pool.state == PgAsyncPoolState.Live
@@ -70,17 +87,16 @@ proc close*(pool: PgAsyncPool):
 
   # wait for the connections to be released and close them, without
   # blocking the async runtime
-  if pool.conns.anyIt(it.busy):
-    while pool.conns.anyIt(it.busy):
-      await sleepAsync(0.milliseconds)
+  while pool.conns.anyIt(it.busy):
+    await sleepAsync(0.milliseconds)
 
-      for i in 0..<pool.conns.len:
-        if pool.conns[i].busy:
-          continue
+    for i in 0..<pool.conns.len:
+      if pool.conns[i].busy:
+        continue
 
-        pool.conns[i].dbConn.close()
-        pool.conns[i].busy = false
-        pool.conns[i].open = false
+      pool.conns[i].dbConn.close()
+      pool.conns[i].busy = false
+      pool.conns[i].open = false
 
   for i in 0..<pool.conns.len:
     if pool.conns[i].open:
@@ -92,7 +108,7 @@ proc close*(pool: PgAsyncPool):
   return ok()
 
 proc getConnIndex(pool: PgAsyncPool):
-                  Future[Result[int, string]] {.async.} =
+                  Future[DatabaseResult[int]] {.async.} =
   ## Waits for a free connection or create if max connections limits have not been reached.
   ## Returns the index of the free connection
 
@@ -101,7 +117,7 @@ proc getConnIndex(pool: PgAsyncPool):
 
   # stablish new connections if we are under the limit
   if pool.isBusy() and pool.conns.len < pool.maxConnections:
-    let connRes = connection.open(pool.connString)
+    let connRes = dbconn.open(pool.connString)
     if connRes.isOk():
       let conn = connRes.get()
       pool.conns.add(PgDbConn(dbConn: conn, busy: true, open: true))
@@ -129,7 +145,7 @@ proc releaseConn(pool: PgAsyncPool, conn: DbConn) =
 proc query*(pool: PgAsyncPool,
             query: string,
             args: seq[string] = newSeq[string](0)):
-            Future[Result[seq[Row], string]] {.async.} =
+            Future[DatabaseResult[seq[Row]]] {.async.} =
   ## Runs the SQL query getting results.
   ## Retrieves info from the database.
 
@@ -149,7 +165,7 @@ proc query*(pool: PgAsyncPool,
 proc exec*(pool: PgAsyncPool,
            query: string,
            args: seq[string] = newSeq[string](0)):
-           Future[ArchiveDriverResult[void]] {.async.} =
+           Future[DatabaseResult[void]] {.async.} =
   ## Runs the SQL query without results.
   ## Alters the database state.
 
@@ -169,14 +185,14 @@ proc exec*(pool: PgAsyncPool,
 proc runStmt*(pool: PgAsyncPool,
               baseStmt: string,
               args: seq[string]):
-              Future[ArchiveDriverResult[void]] {.async.} =
+              Future[DatabaseResult[void]] {.async.} =
   # Runs a stored statement, for performance purposes.
   # In the current implementation, this is aimed
   # to run the 'insertRow' stored statement aimed to add a new Waku message.
 
   let connIndexRes = await pool.getConnIndex()
   if connIndexRes.isErr():
-    return ArchiveDriverResult[void].err(connIndexRes.error())
+    return err(connIndexRes.error())
 
   let conn = pool.conns[connIndexRes.value].dbConn
   defer: pool.releaseConn(conn)

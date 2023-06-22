@@ -5,8 +5,8 @@ import
   stew/results,
   chronicles
 import
-  ../../../../common/sqlite,
-  ../../../../common/sqlite/migrations
+  ../../../../common/databases/db_sqlite,
+  ../../../../common/databases/common
 
 
 logScope:
@@ -30,7 +30,7 @@ proc migrate*(db: SqliteDatabase, targetVersion = SchemaVersion): DatabaseResult
   ## NOTE: Down migration it is not currently supported
   debug "starting message store's sqlite database migration"
 
-  let migrationRes = migrations.migrate(db, targetVersion, migrationsScriptsDir=MessageStoreMigrationPath)
+  let migrationRes = migrate(db, targetVersion, migrationsScriptsDir=MessageStoreMigrationPath)
   if migrationRes.isErr():
     return err("failed to execute migration scripts: " & migrationRes.error)
 

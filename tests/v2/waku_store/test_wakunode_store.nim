@@ -13,7 +13,7 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub
 import
-  ../../../waku/common/sqlite,
+  ../../../waku/common/databases/db_sqlite,
   ../../../waku/v2/waku_core,
   ../../../waku/v2/node/peer_manager,
   ../../../waku/v2/waku_archive,

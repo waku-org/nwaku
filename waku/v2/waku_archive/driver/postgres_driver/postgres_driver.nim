@@ -12,7 +12,7 @@ import
   ../../../waku_core,
   ../../common,
   ../../driver,
-  asyncpool
+  ../../../../common/databases/db_postgres as waku_postgres
 
 export postgres_driver
 
@@ -46,24 +46,11 @@ proc new*(T: type PostgresDriver,
           maxConnections: int = DefaultMaxConnections):
           ArchiveDriverResult[T] =
 
-  var connPool: PgAsyncPool
+  let connPoolRes = PgAsyncPool.new(dbUrl, maxConnections)
+  if connPoolRes.isErr():
+    return err("error creating PgAsyncPool: " & connPoolRes.error)
 
-  try:
-    let regex = re("""^postgres:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$""")
-    let matches = find(dbUrl,regex).get.captures
-    let user = matches[0]
-    let password =  matches[1]
-    let host = matches[2]
-    let port = matches[3]
-    let dbName = matches[4]
-    let connectionString = fmt"user={user} host={host} port={port} dbname={dbName} password={password}"
-
-    connPool = PgAsyncPool.new(connectionString, maxConnections)
-
-  except KeyError,InvalidUnicodeError, RegexInternalError, ValueError, StudyError, SyntaxError:
-    return err("could not parse postgres string")
-
-  return ok(PostgresDriver(connPool: connPool))
+  return ok(PostgresDriver(connPool: connPoolRes.get()))
 
 proc createMessageTable(s: PostgresDriver):
                         Future[ArchiveDriverResult[void]] {.async.}  =

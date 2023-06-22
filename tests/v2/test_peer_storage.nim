@@ -4,7 +4,7 @@ import
   testutils/unittests,
   libp2p/crypto/crypto
 import
-  ../../waku/common/sqlite,
+  ../../waku/common/databases/db_sqlite,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/peer_manager/peer_store/waku_peer_storage,
   ./testlib/wakucore
