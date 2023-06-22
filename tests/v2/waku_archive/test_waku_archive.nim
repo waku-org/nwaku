@@ -7,7 +7,7 @@ import
   chronos,
   libp2p/crypto/crypto
 import
-  ../../../waku/common/sqlite,
+  ../../../waku/common/databases/db_sqlite,
   ../../../waku/v2/waku_core,
   ../../../waku/v2/waku_archive/driver/sqlite_driver,
   ../../../waku/v2/waku_archive,

@@ -11,7 +11,7 @@ import
   chronicles,
   chronos
 import
-  ../../../../common/sqlite,
+  ../../../../common/databases/db_sqlite,
   ../../../waku_core,
   ../../common,
   ../../driver,
