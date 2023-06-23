@@ -445,8 +445,11 @@ proc setupProtocols(node: WakuNode,
   return ok()
 
 proc setupAndMountProtocols*(app: App): Future[AppResult[void]] {.async.} =
-  return await setupProtocols(app.node, app.conf)
-    app.key,
+  return await setupProtocols(
+    app.node,
+    app.conf,
+    app.key
+  )
 
 ## Start node
 
