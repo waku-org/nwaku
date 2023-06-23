@@ -430,6 +430,7 @@ proc initNode(conf: WakuNodeConf,
       agentString = some(conf.agentString)
   )
   builder.withWakuDiscv5(wakuDiscv5.get(nil))
+  builder.withPeerManagerConfig(maxRelayPeers = some(conf.maxRelayPeers.int))
 
   node = ? builder.build().mapErr(proc (err: string): string = "failed to create waku node instance: " & err)
 

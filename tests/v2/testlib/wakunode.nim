@@ -67,7 +67,7 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
     secureKey = if secureKey != "": some(secureKey) else: none(string),
     secureCert = if secureCert != "": some(secureCert) else: none(string),
     agentString = agentString,
-    
+
   )
   builder.withWakuDiscv5(wakuDiscv5.get(nil))
 

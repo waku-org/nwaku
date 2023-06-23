@@ -73,6 +73,7 @@ type
     maxFailedAttempts*: int
     storage: PeerStorage
     serviceSlots*: Table[string, RemotePeerInfo]
+    maxRelayPeers*: int
     outPeersTarget*: int
     ipTable*: Table[string, seq[PeerId]]
     colocationLimit*: int
@@ -333,6 +334,7 @@ proc updateIpTable*(pm: PeerManager) =
 
 proc new*(T: type PeerManager,
           switch: Switch,
+          maxRelayPeers: int = 50,
           storage: PeerStorage = nil,
           initialBackoffInSec = InitialBackoffInSec,
           backoffFactor = BackoffFactor,
@@ -346,6 +348,17 @@ proc new*(T: type PeerManager,
          capacity = capacity,
          maxConnections = maxConnections
     raise newException(Defect, "Max number of connections can't be greater than PeerManager capacity")
+
+  if maxRelayPeers > maxConnections:
+    error "Max number of relay peers can't be greater the max amount of connections",
+         maxConnections = maxConnections,
+         maxRelayPeers = maxRelayPeers
+    raise newException(Defect, "Max number of relay peers can't be greater the max amount of connections")
+
+  if maxRelayPeers == maxConnections:
+    warn "Max number of relay peers is equal to max amount of connections, peer wont be contribute to service peers",
+         maxConnections = maxConnections,
+         maxRelayPeers = maxRelayPeers
 
   # attempt to calculate max backoff to prevent potential overflows or unreasonably high values
   let backoff = calculateBackoff(initialBackoffInSec, backoffFactor, maxFailedAttempts)
@@ -361,7 +374,8 @@ proc new*(T: type PeerManager,
                        backoffFactor: backoffFactor,
                        outPeersTarget: max(maxConnections div 2, 10),
                        maxFailedAttempts: maxFailedAttempts,
-                       colocationLimit: colocationLimit)
+                       colocationLimit: colocationLimit,
+                       maxRelayPeers: maxRelayPeers)
 
   proc connHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(pm, peerId, event)
