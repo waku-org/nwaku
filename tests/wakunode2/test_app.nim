@@ -10,7 +10,7 @@ import
   libp2p/multiaddress,
   libp2p/switch
 import
-  ../../apps/wakunode2/config,
+  ../../apps/wakunode2/external_config,
   ../../apps/wakunode2/app,
   ../v2/testlib/common,
   ../v2/testlib/wakucore
