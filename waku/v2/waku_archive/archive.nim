@@ -74,7 +74,7 @@ type
 
 proc new*(T: type WakuArchive,
           driver: ArchiveDriver,
-          retentionPolicy: Option[RetentionPolicy]):
+          retentionPolicy = none(RetentionPolicy)):
           Result[T, string] =
 
   let retPolicy = if retentionPolicy.isSome():

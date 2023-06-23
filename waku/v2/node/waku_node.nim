@@ -492,7 +492,7 @@ proc unsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: Conte
 
 proc mountArchive*(node: WakuNode,
                    driver: ArchiveDriver,
-                   retentionPolicy: Option[RetentionPolicy]):
+                   retentionPolicy = none(RetentionPolicy)):
                    Result[void, string] =
 
   let wakuArchiveRes = WakuArchive.new(driver,

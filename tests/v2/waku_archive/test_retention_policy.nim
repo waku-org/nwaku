@@ -10,7 +10,7 @@ import
   ../../../waku/v2/waku_core,
   ../../../waku/v2/waku_archive,
   ../../../waku/v2/waku_archive/driver/sqlite_driver,
-  ../../../waku/v2/waku_archive/retention_policy,
+  ../../../waku/v2/waku_archive/retention_policy_base,
   ../../../waku/v2/waku_archive/retention_policy/retention_policy_capacity,
   ../testlib/common,
   ../testlib/wakucore
