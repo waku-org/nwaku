@@ -159,38 +159,15 @@ proc new*(T: type WakuNode,
           nodeKey: crypto.PrivateKey,
           netConfig: NetConfig,
           enr: Option[enr.Record],
-          peerStorage: PeerStorage = nil,
-          maxConnections = builders.MaxConnections,
-          secureKey: string = "",
-          secureCert: string = "",
-          nameResolver: NameResolver = nil,
-          sendSignedPeerRecord = false,
+          switch: Switch,
           wakuDiscv5 = none(WakuDiscoveryV5),
-          agentString = none(string),    # defaults to nim-libp2p version
-          peerStoreCapacity = none(int), # defaults to 1.25 maxConnections
+          peerManager: PeerManager,
           # TODO: make this argument required after tests are updated
           rng: ref HmacDrbgContext = crypto.newRng()
           ): T {.raises: [Defect, LPError, IOError, TLSStreamProtocolError].} =
   ## Creates a Waku Node instance.
 
   info "Initializing networking", addrs= $netConfig.announcedAddresses
-
-  let switch = newWakuSwitch(
-    some(nodekey),
-    address = netConfig.hostAddress,
-    wsAddress = netConfig.wsHostAddress,
-    transportFlags = {ServerFlags.ReuseAddr},
-    rng = rng,
-    maxConnections = maxConnections,
-    wssEnabled = netConfig.wssEnabled,
-    secureKeyPath = secureKey,
-    secureCertPath = secureCert,
-    nameResolver = nameResolver,
-    sendSignedPeerRecord = sendSignedPeerRecord,
-    agentString = agentString,
-    peerStoreCapacity = peerStoreCapacity,
-    services = @[Service(getAutonatService(rng))],
-  )
 
   let enr =
     if enr.isNone():
@@ -203,7 +180,7 @@ proc new*(T: type WakuNode,
     else: enr.get()
 
   return WakuNode(
-    peerManager: PeerManager.new(switch, peerStorage),
+    peerManager: peerManager,
     switch: switch,
     rng: rng,
     enr: enr,
