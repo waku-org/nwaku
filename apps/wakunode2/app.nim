@@ -20,6 +20,8 @@ import
 import
   ../../waku/common/utils/nat,
   ../../waku/common/databases/db_sqlite,
+  ../../waku/v2/waku_archive/driver_builder,
+  ../../waku/v2/waku_archive/retention_policy_builder,
   ../../waku/v2/waku_core,
   ../../waku/v2/waku_node,
   ../../waku/v2/node/waku_metrics,
@@ -367,10 +369,18 @@ proc setupProtocols(node: WakuNode,
 
   if conf.store:
     # Archive setup
-    let mountArcRes = node.mountArchive(conf.storeMessageDbUrl,
-                                        conf.storeMessageDbVacuum,
-                                        conf.storeMessageDbMigration,
-                                        conf.storeMessageRetentionPolicy)
+    let archiveDriverRes = ArchiveDriver.new(conf.storeMessageDbUrl,
+                                             conf.storeMessageDbVacuum,
+                                             conf.storeMessageDbMigration)
+    if archiveDriverRes.isErr():
+      return err("failed to setup archive driver: " & archiveDriverRes.error)
+
+    let retPolicyRes = RetentionPolicy.new(conf.storeMessageRetentionPolicy)
+    if retPolicyRes.isErr():
+      return err("failed to create retention policy: " & retPolicyRes.error)
+
+    let mountArcRes = node.mountArchive(archiveDriverRes.get(),
+                                        retPolicyRes.get())
     if mountArcRes.isErr():
       return err("failed to mount waku archive protocol: " & mountArcRes.error)
 

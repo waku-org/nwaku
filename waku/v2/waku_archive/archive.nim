@@ -3,7 +3,6 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-
 import
   std/[tables, times, sequtils, options, algorithm, strutils],
   stew/results,
@@ -19,13 +18,12 @@ import
   ./driver/sqlite_driver,
   ./driver/sqlite_driver/migrations as archive_driver_sqlite_migrations,
   ./driver/postgres_driver/postgres_driver,
-  ./retention_policy,
+  ./retention_policy_base,
   ./retention_policy/retention_policy_capacity,
   ./retention_policy/retention_policy_time,
   ../waku_core,
   ./common,
-  ./archive_metrics,
-  ./retention_policy as ret_policy
+  ./archive_metrics
 
 logScope:
   topics = "waku archive"
@@ -74,56 +72,19 @@ type
     validator: MessageValidator
     retentionPolicy: RetentionPolicy
 
-# these are defined few lines below. Just declaring to use them in 'new'.
-proc setupWakuArchiveDriver(url: string, vacuum: bool, migrate: bool):
-                            Result[ArchiveDriver, string]
-proc validateStoreMessageRetentionPolicy(val: string):
-                                         Result[string, string]
-proc setupWakuArchiveRetentionPolicy(retentionPolicy: string):
-                                     Result[RetentionPolicy, string]
-
 proc new*(T: type WakuArchive,
-          storeMessageDbUrl: string,
-          storeMessageDbVacuum: bool = false,
-          storeMessageDbMigration: bool = false,
-          storeMessageRetentionPolicy: string = "none"):
+          driver: ArchiveDriver,
+          retentionPolicy: Option[RetentionPolicy]):
           Result[T, string] =
 
-  # Message storage
-  let dbUrlValidationRes = dburl.validateDbUrl(storeMessageDbUrl)
-  if dbUrlValidationRes.isErr():
-    return err("failed to configure the message store database connection: " &
-               dbUrlValidationRes.error)
+  let retPolicy = if retentionPolicy.isSome():
+                    retentionPolicy.get()
+                  else:
+                    nil
 
-  let archiveDriverRes =
-                     setupWakuArchiveDriver(dbUrlValidationRes.get(),
-                                            vacuum = storeMessageDbVacuum,
-                                            migrate = storeMessageDbMigration)
-  if archiveDriverRes.isErr():
-    return err("failed to configure archive driver: " & archiveDriverRes.error)
-
-  let archiveDriver = archiveDriverRes.get()
-
-  # Message store retention policy
-  let storeMessageRetentionPolicyRes =
-            validateStoreMessageRetentionPolicy(storeMessageRetentionPolicy)
-
-  if storeMessageRetentionPolicyRes.isErr():
-    return err("failed to configure the message retention policy: " &
-               storeMessageRetentionPolicyRes.error)
-
-  let archiveRetentionPolicyRes =
-          setupWakuArchiveRetentionPolicy(storeMessageRetentionPolicyRes.get())
-
-  if archiveRetentionPolicyRes.isErr():
-    return err("failed to configure the message retention policy: " &
-               archiveRetentionPolicyRes.error)
-
-  let retentionPolicy = archiveRetentionPolicyRes.get()
-
-  let wakuArch = WakuArchive(driver: archiveDriver,
+  let wakuArch = WakuArchive(driver: driver,
                              validator: DefaultMessageValidator(),
-                             retentionPolicy: retentionPolicy)
+                             retentionPolicy: retPolicy)
   return ok(wakuArch)
 
 proc handleMessage*(w: WakuArchive,
@@ -280,91 +241,3 @@ proc startMessageRetentionPolicyPeriodicTask*(w: WakuArchive,
     discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)
 
   discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)
-
-proc setupWakuArchiveDriver(url: string, vacuum: bool, migrate: bool):
-                            Result[ArchiveDriver, string] =
-
-  let engineRes = dburl.getDbEngine(url)
-  if engineRes.isErr():
-    return err("error getting db engine in setupWakuArchiveDriver: " &
-               engineRes.error)
-
-  let engine = engineRes.get()
-
-  case engine
-  of "sqlite":
-    let pathRes = dburl.getDbPath(url)
-    if pathRes.isErr():
-      return err("error get path in setupWakuArchiveDriver: " & pathRes.error)
-
-    let dbRes = SqliteDatabase.new(pathRes.get())
-    if dbRes.isErr():
-      return err("error in setupWakuArchiveDriver: " & dbRes.error)
-
-    let db = dbRes.get()
-
-    # SQLite vacuum
-    let (pageSize, pageCount, freelistCount) = ? db.gatherSqlitePageStats()
-    debug "sqlite database page stats", pageSize = pageSize,
-                                        pages = pageCount,
-                                        freePages = freelistCount
-
-    if vacuum and (pageCount > 0 and freelistCount > 0):
-      ? db.performSqliteVacuum()
-
-    # Database migration
-    if migrate:
-      ? archive_driver_sqlite_migrations.migrate(db)
-
-    debug "setting up sqlite waku archive driver"
-    let res = SqliteDriver.new(db)
-    if res.isErr():
-      return err("failed to init sqlite archive driver: " & res.error)
-
-    return ok(res.get())
-
-  else:
-    debug "setting up in-memory waku archive driver"
-    let driver = QueueDriver.new()  # Defaults to a capacity of 25.000 messages
-    return ok(driver)
-
-proc validateStoreMessageRetentionPolicy(val: string):
-                                         Result[string, string] =
-  const StoreMessageRetentionPolicyRegex = re"^\w+:\w+$"
-  if val == "" or val == "none" or val.match(StoreMessageRetentionPolicyRegex):
-    ok(val)
-  else:
-    err("invalid 'store message retention policy' option format: " & val)
-
-proc setupWakuArchiveRetentionPolicy(retentionPolicy: string):
-                                     Result[RetentionPolicy, string] =
-  if retentionPolicy == "" or retentionPolicy == "none":
-    return ok(RetentionPolicy())
-
-  let rententionPolicyParts = retentionPolicy.split(":", 1)
-  let
-    policy = rententionPolicyParts[0]
-    policyArgs = rententionPolicyParts[1]
-
-  if policy == "time":
-    var retentionTimeSeconds: int64
-    try:
-      retentionTimeSeconds = parseInt(policyArgs)
-    except ValueError:
-      return err("invalid time retention policy argument")
-
-    let retPolicy: RetentionPolicy = TimeRetentionPolicy.init(retentionTimeSeconds)
-    return ok(retPolicy)
-
-  elif policy == "capacity":
-    var retentionCapacity: int
-    try:
-      retentionCapacity = parseInt(policyArgs)
-    except ValueError:
-      return err("invalid capacity retention policy argument")
-
-    let retPolicy: RetentionPolicy = CapacityRetentionPolicy.init(retentionCapacity)
-    return ok(retPolicy)
-
-  else:
-    return err("unknown retention policy")

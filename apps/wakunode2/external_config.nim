@@ -537,17 +537,6 @@ proc validateDbUrl*(val: string): ConfResult[string] =
   else:
     err("invalid 'db url' option format: " & val)
 
-
-let StoreMessageRetentionPolicyRegex = re"^\w+:\w+$"
-
-proc validateStoreMessageRetentionPolicy*(val: string): ConfResult[string] =
-  let val = val.strip()
-
-  if val == "" or val == "none" or val.match(StoreMessageRetentionPolicyRegex):
-    ok(val)
-  else:
-    err("invalid 'store message retention policy' option format: " & val)
-
 proc validateExtMultiAddrs*(vals: seq[string]): ConfResult[seq[MultiAddress]] =
   var multiaddrs: seq[MultiAddress]
   for val in vals:

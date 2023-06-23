@@ -491,16 +491,12 @@ proc unsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: Conte
 ## Waku archive
 
 proc mountArchive*(node: WakuNode,
-                   storeMessageDbUrl: string,
-                   storeMessageDbVacuum: bool = false,
-                   storeMessageDbMigration: bool = false,
-                   storeMessageRetentionPolicy: string = "none"):
+                   driver: ArchiveDriver,
+                   retentionPolicy: Option[RetentionPolicy]):
                    Result[void, string] =
 
-  let wakuArchiveRes = WakuArchive.new(storeMessageDbUrl,
-                                       storeMessageDbVacuum,
-                                       storeMessageDbMigration,
-                                       storeMessageRetentionPolicy)
+  let wakuArchiveRes = WakuArchive.new(driver,
+                                       retentionPolicy)
   if wakuArchiveRes.isErr():
     return err("error in mountArchive: " & wakuArchiveRes.error)
 
@@ -513,7 +509,7 @@ proc mountArchive*(node: WakuNode,
   except CatchableError:
     return err("exception in mountArchive: " & getCurrentExceptionMsg())
 
-  if storeMessageRetentionPolicy != "none":
+  if retentionPolicy.isSome():
     try:
       debug "executing message retention policy"
       let retPolRes = waitFor node.wakuArchive.executeMessageRetentionPolicy()
