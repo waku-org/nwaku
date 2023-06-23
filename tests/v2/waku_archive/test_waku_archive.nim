@@ -440,6 +440,7 @@ procSuite "Waku Archive - find messages":
       response.cursor.isNone()
 
   test "handle temporal history query with a valid time window":
+    ## Given
     let req = ArchiveQuery(
       contentTopics: @[ContentTopic("1")],
       startTime: some(ts(15, timeOrigin)),
