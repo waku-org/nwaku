@@ -489,7 +489,7 @@ proc unsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: Conte
   await node.filterUnsubscribe(pubsubTopic, contentTopics, peer=peerOpt.get())
 
 ## Waku archive
-
+const WakuArchiveDefaultRetentionPolicyInterval* = 30.minutes
 proc mountArchive*(node: WakuNode,
                    driver: ArchiveDriver,
                    retentionPolicy = none(RetentionPolicy)):
@@ -518,7 +518,8 @@ proc mountArchive*(node: WakuNode,
     except CatchableError:
       return err("exception in mountArch-ret-pol: " & getCurrentExceptionMsg())
 
-    node.wakuArchive.startMessageRetentionPolicyPeriodicTask(30.minutes)
+    node.wakuArchive.startMessageRetentionPolicyPeriodicTask(
+      WakuArchiveDefaultRetentionPolicyInterval)
 
   return ok()
 
