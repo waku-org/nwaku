@@ -132,8 +132,9 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
 
 ## Peer persistence
 
+const PeerPersistenceDbUrl = "peers.db"
 proc setupPeerStorage(): AppResult[Option[WakuPeerStorage]] =
-  let db = ? SqliteDatabase.new("peers.db")
+  let db = ? SqliteDatabase.new(PeerPersistenceDbUrl)
 
   ? peer_store_sqlite_migrations.migrate(db)
 
