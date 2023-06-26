@@ -8,12 +8,12 @@ import
   stew/results,
   chronicles
 import
-  ./driver_base,
-  ../../common/databases/dburl,
-  ../../common/databases/db_sqlite,
-  ./driver/sqlite_driver,
-  ./driver/sqlite_driver/migrations as archive_driver_sqlite_migrations,
-  ./driver/queue_driver
+  ../driver,
+  ../../../common/databases/dburl,
+  ../../../common/databases/db_sqlite,
+  ./sqlite_driver,
+  ./sqlite_driver/migrations as archive_driver_sqlite_migrations,
+  ./queue_driver
 
 export
   sqlite_driver,

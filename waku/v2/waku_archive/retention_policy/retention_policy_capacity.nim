@@ -8,8 +8,8 @@ import
   chronicles,
   chronos
 import
-  ../driver_base,
-  ../retention_policy_base
+  ../driver,
+  ../retention_policy
 
 logScope:
   topics = "waku archive retention_policy"

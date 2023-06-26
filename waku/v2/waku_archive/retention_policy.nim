@@ -7,7 +7,7 @@ import
   stew/results,
   chronos
 import
-  ./driver_base
+  ./driver
 
 type RetentionPolicyResult*[T] = Result[T, string]
 

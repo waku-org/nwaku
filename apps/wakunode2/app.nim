@@ -20,8 +20,8 @@ import
 import
   ../../waku/common/utils/nat,
   ../../waku/common/databases/db_sqlite,
-  ../../waku/v2/waku_archive/driver_builder,
-  ../../waku/v2/waku_archive/retention_policy_builder,
+  ../../waku/v2/waku_archive/driver/builder,
+  ../../waku/v2/waku_archive/retention_policy/builder,
   ../../waku/v2/waku_core,
   ../../waku/v2/waku_node,
   ../../waku/v2/node/waku_metrics,

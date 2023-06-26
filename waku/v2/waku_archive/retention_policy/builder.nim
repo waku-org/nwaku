@@ -9,9 +9,9 @@ import
   regex,
   stew/results
 import
-  ./retention_policy_base,
-  ./retention_policy/retention_policy_time,
-  ./retention_policy/retention_policy_capacity
+  ../retention_policy,
+  ./retention_policy_time,
+  ./retention_policy_capacity
 
 proc new*(T: type RetentionPolicy,
           retPolicy: string):

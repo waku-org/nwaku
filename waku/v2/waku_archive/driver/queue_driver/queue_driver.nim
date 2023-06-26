@@ -12,7 +12,7 @@ import
 import
   ../../../waku_core,
   ../../common,
-  ../../driver_base,
+  ../../driver,
   ./index
 
 logScope:
