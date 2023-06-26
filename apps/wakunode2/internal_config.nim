@@ -83,8 +83,8 @@ proc createRecord*(conf: WakuNodeConf, netConf: NetConfig, key: crypto.PrivateKe
   var builder = EnrBuilder.init(key)
 
   builder.withIpAddressAndPorts(
-      ipAddr = netConf.extIp,
-      tcpPort = netConf.extPort,
+      ipAddr = netConf.enrIp,
+      tcpPort = netConf.enrPort,
       udpPort = netConf.discv5UdpPort,
   )
 

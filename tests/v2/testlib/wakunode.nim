@@ -51,12 +51,34 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
     dns4DomainName = dns4DomainName,
     discv5UdpPort = discv5UdpPort,
   )
-  if netConfigRes.isErr():
-    raise newException(Defect, "Invalid network configuration: " & $netConfigRes.error)
+  let netConf =
+    if netConfigRes.isErr():
+      raise newException(Defect, "Invalid network configuration: " & $netConfigRes.error)
+    else:
+      netConfigRes.get()
+
+  var enrBuilder = EnrBuilder.init(nodeKey)
+
+  enrBuilder.withIpAddressAndPorts(
+      ipAddr = netConf.enrIp,
+      tcpPort = netConf.enrPort,
+      udpPort = netConf.discv5UdpPort,
+  )
+  if netConf.wakuFlags.isSome():
+    enrBuilder.withWakuCapabilities(netConf.wakuFlags.get())
+  enrBuilder.withMultiaddrs(netConf.enrMultiaddrs)
+
+  let recordRes = enrBuilder.build()
+  let record =
+    if recordRes.isErr():
+      raise newException(Defect, "Invalid record: " & $recordRes.error)
+    else:
+      recordRes.get()
 
   var builder = WakuNodeBuilder.init()
   builder.withRng(rng())
   builder.withNodeKey(nodeKey)
+  builder.withRecord(record)
   builder.withNetworkConfiguration(netConfigRes.get())
   builder.withPeerStorage(peerStorage, capacity = peerStoreCapacity)
   builder.withSwitchConfiguration(

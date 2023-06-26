@@ -24,6 +24,7 @@ import
   # Waku v2 imports
   libp2p/crypto/crypto,
   libp2p/nameresolving/nameresolver,
+  ../../waku/v2/waku_enr,
   ../../waku/v2/waku_core,
   ../../waku/v2/waku_store,
   ../../waku/v2/waku_filter,
@@ -228,10 +229,15 @@ proc new*(T: type WakuBridge,
                               topics: topicInterest)
   nodev1.configureWaku(wakuConfig)
 
+  var builder = EnrBuilder.init(nodev2Key)
+  builder.withIpAddressAndPorts(nodev2ExtIp, nodev2ExtPort, none(Port))
+  let record = builder.build().tryGet()
+
   # Setup Waku v2 node
   let nodev2 = block:
       var builder = WakuNodeBuilder.init()
       builder.withNodeKey(nodev2Key)
+      builder.withRecord(record)
       builder.withNetworkConfigurationDetails(nodev2BindIp, nodev2BindPort, nodev2ExtIp, nodev2ExtPort).tryGet()
       builder.withSwitchConfiguration(nameResolver=nameResolver)
       builder.build().tryGet()

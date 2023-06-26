@@ -37,7 +37,6 @@ import
   ../waku_lightpush/client as lightpush_client,
   ../waku_enr,
   ../waku_dnsdisc,
-  ../waku_discv5,
   ../waku_peer_exchange,
   ./config,
   ./peer_manager,
@@ -101,36 +100,9 @@ type
     enr*: enr.Record
     libp2pPing*: Ping
     rng*: ref rand.HmacDrbgContext
-    wakuDiscv5*: WakuDiscoveryV5
     rendezvous*: RendezVous
     announcedAddresses* : seq[MultiAddress]
     started*: bool # Indicates that node has started listening
-
-proc getEnr*(netConfig: NetConfig,
-             wakuDiscV5 = none(WakuDiscoveryV5),
-             nodeKey: crypto.PrivateKey): Result[enr.Record, string] =
-  if wakuDiscV5.isSome():
-    return ok(wakuDiscV5.get().protocol.getRecord())
-
-  var builder = EnrBuilder.init(nodeKey, seqNum = 1)
-
-  builder.withIpAddressAndPorts(
-    ipAddr = netConfig.enrIp,
-    tcpPort = netConfig.enrPort,
-    udpPort = netConfig.discv5UdpPort
-  )
-
-  if netConfig.wakuFlags.isSome():
-    builder.withWakuCapabilities(netConfig.wakuFlags.get())
-
-  if netConfig.enrMultiAddrs.len > 0:
-    builder.withMultiaddrs(netConfig.enrMultiAddrs)
-
-  let recordRes = builder.build()
-  if recordRes.isErr():
-    return err($recordRes.error)
-
-  return ok(recordRes.get())
 
 proc getAutonatService*(rng: ref HmacDrbgContext): AutonatService =
   ## AutonatService request other peers to dial us back
@@ -156,11 +128,9 @@ proc getAutonatService*(rng: ref HmacDrbgContext): AutonatService =
   return autonatService
 
 proc new*(T: type WakuNode,
-          nodeKey: crypto.PrivateKey,
           netConfig: NetConfig,
-          enr: Option[enr.Record],
+          enr: enr.Record,
           switch: Switch,
-          wakuDiscv5 = none(WakuDiscoveryV5),
           peerManager: PeerManager,
           # TODO: make this argument required after tests are updated
           rng: ref HmacDrbgContext = crypto.newRng()
@@ -169,23 +139,12 @@ proc new*(T: type WakuNode,
 
   info "Initializing networking", addrs= $netConfig.announcedAddresses
 
-  let enr =
-    if enr.isNone():
-      let nodeEnrRes = getEnr(netConfig, wakuDiscv5, nodekey)
-
-      if nodeEnrRes.isErr():
-        raise newException(Defect, "failed to generate the node ENR record: " & $nodeEnrRes.error)
-
-      nodeEnrRes.get()
-    else: enr.get()
-
   return WakuNode(
     peerManager: peerManager,
     switch: switch,
     rng: rng,
     enr: enr,
     announcedAddresses: netConfig.announcedAddresses,
-    wakuDiscv5: if wakuDiscV5.isSome(): wakuDiscV5.get() else: nil,
   )
 
 proc peerInfo*(node: WakuNode): PeerInfo =

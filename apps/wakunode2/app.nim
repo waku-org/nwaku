@@ -220,7 +220,7 @@ proc setupDiscoveryV5*(app: App): WakuDiscoveryV5 =
 
   let discv5Conf = WakuDiscoveryV5Config(
     discv5Config: some(discv5Config),
-    address: app.netConf.bindIp,
+    address: app.conf.listenAddress,
     port: discv5UdpPort,
     privateKey: keys.PrivateKey(app.key.skkey),
     bootstrapRecords: discv5BootstrapEnrs,

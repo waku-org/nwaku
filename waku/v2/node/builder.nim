@@ -77,8 +77,7 @@ proc withNetworkConfigurationDetails*(builder: var WakuNodeBuilder,
           wsEnabled: bool = false,
           wssEnabled: bool = false,
           wakuFlags = none(CapabilitiesBitfield),
-          dns4DomainName = none(string),
-          discv5UdpPort = none(Port)): WakuNodeBuilderResult {.
+          dns4DomainName = none(string)): WakuNodeBuilderResult {.
   deprecated: "use 'builder.withNetworkConfiguration()' instead".} =
   let netConfig = ? NetConfig.init(
     bindIp = bindIp,
@@ -91,7 +90,6 @@ proc withNetworkConfigurationDetails*(builder: var WakuNodeBuilder,
     wssEnabled = wssEnabled,
     wakuFlags = wakuFlags,
     dns4DomainName = dns4DomainName,
-    discv5UdpPort = discv5UdpPort,
   )
   builder.withNetworkConfiguration(netConfig)
   ok()
@@ -144,6 +142,9 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
   if builder.netConfig.isNone():
     return err("network configuration is required")
 
+  if builder.record.isNone():
+    return err("node record is required")
+
   # fallbck to max connections if not set
   var maxRelayPeers: int
   if builder.maxRelayPeers.isNone():
@@ -181,9 +182,8 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
   var node: WakuNode
   try:
     node = WakuNode.new(
-      nodeKey = builder.nodeKey.get(),
       netConfig = builder.netConfig.get(),
-      enr = builder.record,
+      enr = builder.record.get(),
       switch = switch,
       peerManager = peerManager,
       rng = rng,
