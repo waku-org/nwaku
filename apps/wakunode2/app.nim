@@ -504,7 +504,7 @@ proc startApp*(app: App): Future[AppResult[void]] {.async.} =
     let res = app.wakuDiscv5.get().start()
 
     if res.isErr():
-      return err("failed to start waku discovery v5: " & res.error)
+      return err("failed to start waku discovery v5: " & $res.error)
 
     asyncSpawn app.wakuDiscv5.get().searchLoop(app.node.peerManager, some(app.record))
 
