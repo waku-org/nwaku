@@ -120,7 +120,14 @@ procSuite "Waku Discovery v5":
         bootstrapRecords = @[record1, record2]
     )
 
-    await allFutures(node1.start(), node2.start(), node3.start())
+    let res1 = node1.start()
+    assert res1.isOk(), res1.error
+
+    let res2 = node2.start()
+    assert res2.isOk(), res2.error
+
+    let res3 = node3.start()
+    assert res3.isOk(), res3.error
 
     ## When
     let res = await node3.findRandomPeers()
@@ -231,7 +238,17 @@ procSuite "Waku Discovery v5":
     )
 
     # Start nodes' discoveryV5 protocols
-    await allFutures(node1.start(), node2.start(), node3.start(), node4.start())
+    let res1 = node1.start()
+    assert res1.isOk(), res1.error
+
+    let res2 = node2.start()
+    assert res2.isOk(), res2.error
+
+    let res3 = node3.start()
+    assert res3.isOk(), res3.error
+
+    let res4 = node4.start()
+    assert res4.isOk(), res4.error
 
     ## Given
     let recordPredicate: WakuDiscv5Predicate = proc(record: waku_enr.Record): bool =
